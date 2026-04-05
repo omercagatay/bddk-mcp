@@ -1,5 +1,7 @@
 """MCP server exposing BDDK decision search, document retrieval, and data tools."""
 
+import os
+
 from mcp.server.fastmcp import FastMCP
 
 from client import BddkApiClient, _turkish_lower
@@ -15,6 +17,9 @@ from models import BddkSearchRequest
 mcp = FastMCP(
     "BDDK",
     instructions="Search and retrieve BDDK (Turkish Banking Regulation) decisions and regulations (mevzuat)",
+    host="0.0.0.0",
+    port=int(os.environ.get("PORT", 8000)),
+    stateless_http=True,
 )
 
 _client: BddkApiClient | None = None
@@ -511,4 +516,5 @@ async def get_bddk_monthly(
 
 
 if __name__ == "__main__":
-    mcp.run()
+    transport = os.environ.get("MCP_TRANSPORT", "stdio")
+    mcp.run(transport=transport)
