@@ -4,10 +4,14 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server for s
 
 ## Features
 
-- **Search** across 1000+ BDDK documents with Turkish-aware keyword matching
-- **Category filtering** by regulation type
-- **Document retrieval** as paginated Markdown (supports both BDDK-hosted and mevzuat.gov.tr documents)
-- **In-memory caching** with 1-hour TTL for fast repeated queries
+- **Search** across 1000+ BDDK documents with Turkish-aware keyword matching and basic stemming
+- **Category filtering** by regulation type (14 categories)
+- **Date range filtering** for board decisions
+- **Relevance ranking** (title match > stem match > substring match)
+- **Document retrieval** as paginated Markdown (BDDK and mevzuat.gov.tr)
+- **Persistent caching** to disk with 1-hour TTL
+- **Retry with backoff** for resilient HTTP fetching
+- **Error handling** with graceful fallbacks
 
 ### Available Categories
 
@@ -17,9 +21,14 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server for s
 | Yonetmelik | Regulations | 39 |
 | Rehber | Guidelines | 19 |
 | Genelge | Circulars | 13 |
+| Duzenleme Taslagi | Regulation Drafts | 11 |
 | Sermaye Yeterliligi | Capital Adequacy Communiques & Guidelines | 10 |
 | Bilgi Sistemleri | IT & Business Process Regulations | 8 |
+| Finansal Kiralama ve Faktoring | Leasing & Factoring Regulations | 7 |
+| BDDK Duzenlemesi | BDDK Internal Regulations | 7 |
+| Mulga Duzenleme | Repealed Regulations | 7 |
 | Teblig | Communiques | 6 |
+| Kanun | Laws | 4 |
 | Tekduzen Hesap Plani | Uniform Chart of Accounts | 4 |
 | Faizsiz Bankacilik | Islamic Banking Regulations | 2 |
 
@@ -34,7 +43,9 @@ Search for BDDK decisions and regulations by keyword.
 | `keywords` | `str` | required | Search terms in Turkish |
 | `page` | `int` | `1` | Page number |
 | `page_size` | `int` | `10` | Results per page (max 50) |
-| `category` | `str \| None` | `None` | Optional category filter |
+| `category` | `str \| None` | `None` | Category filter |
+| `date_from` | `str \| None` | `None` | Start date (DD.MM.YYYY) |
+| `date_to` | `str \| None` | `None` | End date (DD.MM.YYYY) |
 
 ### `get_bddk_document`
 
@@ -44,6 +55,10 @@ Retrieve a BDDK document as paginated Markdown.
 |---|---|---|---|
 | `document_id` | `str` | required | Document ID from search results |
 | `page_number` | `int` | `1` | Page of the Markdown output (5000 chars/page) |
+
+### `bddk_cache_status`
+
+Show cache statistics: total items, age, categories, and any page errors.
 
 ## Setup
 
@@ -94,10 +109,11 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 Replace `/path/to/bddk-mcp` with the actual path to this repository.
 
-### Install Dependencies
+### Install & Test
 
 ```bash
 uv sync
+uv run pytest tests/ -v
 ```
 
 ## Usage Examples
@@ -109,20 +125,32 @@ search_bddk_decisions(keywords="sermaye yeterliliği")
 > Filter by category
 search_bddk_decisions(keywords="banka", category="Yönetmelik")
 
+> Filter by date range
+search_bddk_decisions(keywords="banka", date_from="01.01.2024", date_to="31.12.2024")
+
 > Get a specific document
 get_bddk_document(document_id="1296")
 
 > Get a mevzuat.gov.tr regulation
 get_bddk_document(document_id="mevzuat_42628")
+
+> Check cache status
+bddk_cache_status()
 ```
 
 ## Data Sources
 
 | Source | URL | Content |
 |---|---|---|
-| Page 50 | bddk.org.tr/Mevzuat/Liste/50 | Banking Law regulations (all categories above except Board Decisions) |
-| Page 55 | bddk.org.tr/Mevzuat/Liste/55 | Board Decisions (published in Official Gazette) |
+| Page 49 | bddk.org.tr/Mevzuat/Liste/49 | Laws |
+| Page 50 | bddk.org.tr/Mevzuat/Liste/50 | Banking Law regulations |
+| Page 51 | bddk.org.tr/Mevzuat/Liste/51 | Bank & Credit Card regulations |
+| Page 52 | bddk.org.tr/Mevzuat/Liste/52 | Leasing, Factoring, Finance regulations |
+| Page 54 | bddk.org.tr/Mevzuat/Liste/54 | BDDK internal regulations |
+| Page 55 | bddk.org.tr/Mevzuat/Liste/55 | Board Decisions (published) |
 | Page 56 | bddk.org.tr/Mevzuat/Liste/56 | Board Decisions (unpublished) |
+| Page 58 | bddk.org.tr/Mevzuat/Liste/58 | Regulation drafts |
+| Page 63 | bddk.org.tr/Mevzuat/Liste/63 | Repealed regulations |
 
 ## License
 
@@ -136,10 +164,14 @@ BDDK (Bankacilik Duzenleme ve Denetleme Kurumu) karar ve duzenlemelerini aramak 
 
 ## Ozellikler
 
-- 1000'den fazla BDDK dokumani arasinda **Turkce destekli anahtar kelime aramasi**
-- Duzenleme turune gore **kategori filtreleme**
-- Hem BDDK hem mevzuat.gov.tr'den **dokuman getirme** (sayfalanmis Markdown olarak)
-- Hizli tekrar sorgular icin **bellek ici onbellekleme** (1 saat TTL)
+- 1000'den fazla BDDK dokumani arasinda **Turkce destekli arama** (temel kok bulma/stemming dahil)
+- 14 kategoride **kategori filtreleme**
+- Kurul kararlari icin **tarih araligi filtreleme**
+- **Ilgi siralama** (baslik eslesmesi > kok eslesmesi > alt dize eslesmesi)
+- Hem BDDK hem mevzuat.gov.tr'den **dokuman getirme** (sayfalanmis Markdown)
+- Disk uzerinde **kalici onbellekleme** (1 saat TTL)
+- **Tekrar deneme** ile dayanikli HTTP istekleri
+- **Hata yonetimi** ve geri donus mekanizmalari
 
 ### Mevcut Kategoriler
 
@@ -149,9 +181,14 @@ BDDK (Bankacilik Duzenleme ve Denetleme Kurumu) karar ve duzenlemelerini aramak 
 | Yonetmelik | Yonetmelikler | 39 |
 | Rehber | Rehberler | 19 |
 | Genelge | Genelgeler | 13 |
+| Duzenleme Taslagi | Duzenleme Taslaklari | 11 |
 | Sermaye Yeterliligi | Sermaye Yeterliligi Tebligleri ve Rehberleri | 10 |
 | Bilgi Sistemleri | Bilgi Sistemleri ve Is Sureclerine Iliskin Duzenlemeler | 8 |
+| Finansal Kiralama ve Faktoring | Finansal Kiralama ve Faktoring Duzenlemeleri | 7 |
+| BDDK Duzenlemesi | BDDK'ya Iliskin Duzenlemeler | 7 |
+| Mulga Duzenleme | Mulga Duzenlemeler | 7 |
 | Teblig | Tebligler | 6 |
+| Kanun | Kanunlar | 4 |
 | Tekduzen Hesap Plani | Tekduzen Hesap Plani | 4 |
 | Faizsiz Bankacilik | Faizsiz Bankacıliga Iliskin Duzenlemeler | 2 |
 
@@ -159,14 +196,16 @@ BDDK (Bankacilik Duzenleme ve Denetleme Kurumu) karar ve duzenlemelerini aramak 
 
 ### `search_bddk_decisions`
 
-BDDK karar ve duzenlemelerini anahtar kelimeyle arayın.
+BDDK karar ve duzenlemelerini anahtar kelimeyle arayin.
 
 | Parametre | Tip | Varsayilan | Aciklama |
 |---|---|---|---|
 | `keywords` | `str` | zorunlu | Turkce arama terimleri |
 | `page` | `int` | `1` | Sayfa numarasi |
 | `page_size` | `int` | `10` | Sayfa basina sonuc (maks 50) |
-| `category` | `str \| None` | `None` | Opsiyonel kategori filtresi |
+| `category` | `str \| None` | `None` | Kategori filtresi |
+| `date_from` | `str \| None` | `None` | Baslangic tarihi (GG.AA.YYYY) |
+| `date_to` | `str \| None` | `None` | Bitis tarihi (GG.AA.YYYY) |
 
 ### `get_bddk_document`
 
@@ -176,6 +215,10 @@ Bir BDDK dokumanini sayfalanmis Markdown olarak getirin.
 |---|---|---|---|
 | `document_id` | `str` | zorunlu | Arama sonuclarindan dokuman ID'si |
 | `page_number` | `int` | `1` | Markdown ciktisinin sayfasi (sayfa basina 5000 karakter) |
+
+### `bddk_cache_status`
+
+Onbellek istatistiklerini gosterin: toplam oge, yas, kategoriler ve sayfa hatalari.
 
 ## Kurulum
 
@@ -226,10 +269,11 @@ Bir BDDK dokumanini sayfalanmis Markdown olarak getirin.
 
 `/repo/yolu/bddk-mcp` kismini bu reponun gercek yolu ile degistirin.
 
-### Bagimliliklari Yukleyin
+### Yukle ve Test Et
 
 ```bash
 uv sync
+uv run pytest tests/ -v
 ```
 
 ## Kullanim Ornekleri
@@ -241,20 +285,32 @@ search_bddk_decisions(keywords="sermaye yeterliliği")
 > Kategoriye gore filtrele
 search_bddk_decisions(keywords="banka", category="Yönetmelik")
 
+> Tarih araligi ile filtrele
+search_bddk_decisions(keywords="banka", date_from="01.01.2024", date_to="31.12.2024")
+
 > Belirli bir dokumani getir
 get_bddk_document(document_id="1296")
 
 > mevzuat.gov.tr'den yonetmelik getir
 get_bddk_document(document_id="mevzuat_42628")
+
+> Onbellek durumunu kontrol et
+bddk_cache_status()
 ```
 
 ## Veri Kaynaklari
 
 | Kaynak | URL | Icerik |
 |---|---|---|
+| Sayfa 49 | bddk.org.tr/Mevzuat/Liste/49 | Kanunlar |
 | Sayfa 50 | bddk.org.tr/Mevzuat/Liste/50 | Bankacilik Kanununa iliskin duzenlemeler |
+| Sayfa 51 | bddk.org.tr/Mevzuat/Liste/51 | Banka Kartlari ve Kredi Kartlari duzenlemeleri |
+| Sayfa 52 | bddk.org.tr/Mevzuat/Liste/52 | Finansal Kiralama, Faktoring duzenlemeleri |
+| Sayfa 54 | bddk.org.tr/Mevzuat/Liste/54 | BDDK'ya iliskin duzenlemeler |
 | Sayfa 55 | bddk.org.tr/Mevzuat/Liste/55 | Resmi Gazetede yayimlanan Kurul Kararlari |
 | Sayfa 56 | bddk.org.tr/Mevzuat/Liste/56 | Resmi Gazetede yayimlanmayan Kurul Kararlari |
+| Sayfa 58 | bddk.org.tr/Mevzuat/Liste/58 | Duzenleme taslaklari |
+| Sayfa 63 | bddk.org.tr/Mevzuat/Liste/63 | Mulga duzenlemeler |
 
 ## Lisans
 

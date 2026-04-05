@@ -26,6 +26,8 @@ async def search_bddk_decisions(
     page: int = 1,
     page_size: int = 10,
     category: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
 ) -> str:
     """
     Search for BDDK (Banking Regulation and Supervision Agency) decisions.
@@ -37,11 +39,16 @@ async def search_bddk_decisions(
         category: Optional category filter. Available categories:
             Yönetmelik, Genelge, Tebliğ, Rehber, Bilgi Sistemleri,
             Sermaye Yeterliliği, Faizsiz Bankacılık, Tekdüzen Hesap Planı,
-            Kurul Kararı
+            Kurul Kararı, Kanun, Banka Kartları,
+            Finansal Kiralama ve Faktoring, BDDK Düzenlemesi,
+            Düzenleme Taslağı, Mülga Düzenleme
+        date_from: Optional start date filter (DD.MM.YYYY)
+        date_to: Optional end date filter (DD.MM.YYYY)
     """
     client = _get_client()
     request = BddkSearchRequest(
-        keywords=keywords, page=page, page_size=page_size, category=category,
+        keywords=keywords, page=page, page_size=page_size,
+        category=category, date_from=date_from, date_to=date_to,
     )
     result = await client.search_decisions(request)
 
@@ -75,6 +82,35 @@ async def get_bddk_document(
 
     header = f"Document {doc.document_id} — Page {doc.page_number}/{doc.total_pages}\n\n"
     return header + doc.markdown_content
+
+
+@mcp.tool()
+async def bddk_cache_status() -> str:
+    """
+    Show BDDK cache statistics: total items, age, categories, and any page errors.
+    """
+    client = _get_client()
+    status = client.cache_status()
+
+    lines = ["**BDDK Cache Status**\n"]
+    lines.append(f"  Total items: {status['total_items']}")
+    lines.append(f"  Cache valid: {status['cache_valid']}")
+    if status["cache_age_seconds"] is not None:
+        mins = status["cache_age_seconds"] // 60
+        lines.append(f"  Cache age: {mins} min ({status['cache_age_seconds']}s)")
+    lines.append(f"  TTL: {status['ttl_seconds']}s")
+
+    if status["categories"]:
+        lines.append("\n**Categories:**")
+        for cat, count in status["categories"].items():
+            lines.append(f"  {cat}: {count}")
+
+    if status["page_errors"]:
+        lines.append("\n**Page Errors:**")
+        for page_id, err in status["page_errors"].items():
+            lines.append(f"  Page {page_id}: {err}")
+
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":

@@ -14,6 +14,8 @@ class BddkSearchRequest(BaseModel):
     page: int = Field(1, ge=1, description="Page number (1-indexed)")
     page_size: int = Field(10, ge=1, le=50, description="Results per page (1-50)")
     category: Optional[str] = Field(None, description="Filter by category (e.g. 'Yönetmelik', 'Genelge', 'Kurul Kararı')")
+    date_from: Optional[str] = Field(None, description="Filter from date (DD.MM.YYYY)")
+    date_to: Optional[str] = Field(None, description="Filter to date (DD.MM.YYYY)")
 
 
 class BddkDecisionSummary(BaseModel):
