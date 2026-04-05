@@ -10,6 +10,13 @@ logger = logging.getLogger(__name__)
 
 _BDDK_BASE_URL = "https://www.bddk.org.tr"
 
+
+def _format_number(val) -> str:
+    """Format a numeric value with thousands separators."""
+    if isinstance(val, (int, float)):
+        return f"{val:,.0f}" if val == int(val) else f"{val:,.2f}"
+    return str(val)
+
 # Institution directory page IDs and their types
 _INSTITUTION_PAGES = {
     77: "Banka",
@@ -342,3 +349,86 @@ async def fetch_announcements(
     except Exception as e:
         logger.error("Failed to fetch announcements category %d: %s", category_id, e)
         return []
+
+
+# -- Monthly Bulletin Data -------------------------------------------------
+
+
+async def fetch_monthly_bulletin(
+    http: httpx.AsyncClient,
+    table_no: int = 1,
+    year: int = 2025,
+    month: int = 12,
+    currency: str = "TL",
+    party_code: str = "10001",
+) -> dict:
+    """Fetch BDDK monthly banking sector statistics.
+
+    Uses the same AJAX pattern as the weekly bulletin.
+
+    Args:
+        table_no: Table number (1-17)
+        year: Year
+        month: Month (1-12)
+        currency: TL or USD
+        party_code: Bank group code (10001=sector total)
+
+    Returns dict with: title, rows [{name, value}], period.
+    """
+    try:
+        page_url = f"{_BDDK_BASE_URL}/BultenAylik"
+        page_resp = await http.get(page_url)
+        page_resp.raise_for_status()
+        soup = BeautifulSoup(page_resp.text, "html.parser")
+
+        token_input = soup.find("input", {"name": "__RequestVerificationToken"})
+        token = token_input["value"] if token_input else ""
+
+        api_url = f"{_BDDK_BASE_URL}/BultenAylik/tr/Home/BasitRaporGetir"
+        post_data: dict = {
+            "tabloNo": str(table_no),
+            "yil": str(year),
+            "ay": str(month),
+            "paraBirimi": currency,
+            "taraf[0]": party_code,
+        }
+        if token:
+            post_data["__RequestVerificationToken"] = token
+
+        response = await http.post(
+            api_url,
+            data=post_data,
+            headers={
+                "X-Requested-With": "XMLHttpRequest",
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "Referer": page_url,
+            },
+        )
+        response.raise_for_status()
+        result = response.json()
+
+        # Response: {success, Json: {data: {rows: [{cell: [group, idx, name, font, tp, yp, total]}]}}}
+        js = result.get("Json", {})
+        caption = js.get("caption", f"Tablo {table_no}")
+        raw_rows = js.get("data", {}).get("rows", [])
+
+        rows: list[dict] = []
+        for r in raw_rows:
+            cell = r.get("cell", [])
+            if len(cell) >= 7:
+                rows.append({
+                    "name": str(cell[2]),
+                    "tp": _format_number(cell[4]),
+                    "yp": _format_number(cell[5]),
+                    "total": _format_number(cell[6]),
+                })
+
+        return {
+            "title": caption,
+            "rows": rows,
+            "period": f"{month}/{year}",
+            "currency": currency,
+        }
+    except Exception as e:
+        logger.error("Failed to fetch monthly bulletin: %s", e)
+        return {"error": str(e)}

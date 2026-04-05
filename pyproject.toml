@@ -1,7 +1,7 @@
 [project]
 name = "bddk-mcp"
-version = "3.0.0"
-description = "MCP server for searching BDDK (Turkish Banking Regulation) decisions"
+version = "4.0.0"
+description = "MCP server for BDDK regulatory intelligence — search, analytics, and monitoring"
 requires-python = ">=3.11,<3.14"
 dependencies = [
     "mcp[cli]>=1.0.0",

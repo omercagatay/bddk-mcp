@@ -419,6 +419,10 @@ class BddkApiClient:
         self._save_cache_to_disk()
         logger.info("BDDK cache refreshed: %d total items", len(self._cache))
 
+    async def ensure_cache(self) -> None:
+        """Public wrapper for _ensure_cache."""
+        await self._ensure_cache()
+
     # -- public API -------------------------------------------------------
 
     async def search_decisions(
