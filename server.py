@@ -657,6 +657,44 @@ async def document_store_stats() -> str:
     return "\n".join(lines)
 
 
+async def _startup_sync() -> None:
+    """Auto-sync documents on first deploy if store is empty."""
+    try:
+        store = await _get_doc_store()
+        st = await store.stats()
+        if st.total_documents > 0:
+            logger.info("Store has %d documents, skipping startup sync", st.total_documents)
+            return
+
+        logger.info("Empty store detected — running startup sync...")
+        from doc_sync import DocumentSyncer
+
+        client = await _get_client()
+        await client.ensure_cache()
+        items = [d.model_dump() for d in client._cache]
+
+        async with DocumentSyncer(store, prefer_nougat=False) as syncer:
+            report = await syncer.sync_all(items, concurrency=10, force=False)
+
+        logger.info(
+            "Startup sync complete: %d downloaded, %d failed, %.1fs",
+            report.downloaded, report.failed, report.elapsed_seconds,
+        )
+    except Exception as e:
+        logger.error("Startup sync failed: %s", e)
+
+
+import asyncio
+import logging as _logging
+
+logger = _logging.getLogger(__name__)
+
+
 if __name__ == "__main__":
     transport = os.environ.get("MCP_TRANSPORT", "stdio")
+
+    # Run startup sync if BDDK_AUTO_SYNC is set (Railway deploy)
+    if os.environ.get("BDDK_AUTO_SYNC", "").lower() in ("1", "true", "yes"):
+        asyncio.run(_startup_sync())
+
     mcp.run(transport=transport)

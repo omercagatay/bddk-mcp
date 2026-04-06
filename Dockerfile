@@ -16,6 +16,9 @@ COPY tests/ tests/
 RUN mkdir -p /app/data
 ENV BDDK_DB_PATH=/app/data/bddk_docs.db
 
+# Auto-sync documents on first deploy if store is empty
+ENV BDDK_AUTO_SYNC=true
+
 # Default to streamable-http transport for remote deployment
 ENV MCP_TRANSPORT=streamable-http
 ENV PORT=8000
