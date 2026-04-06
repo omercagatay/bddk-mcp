@@ -6,3 +6,4 @@ __pycache__/
 .pytest_cache/
 bddk_docs.db
 *.db
+chroma_db/
