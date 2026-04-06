@@ -15,6 +15,7 @@ COPY tests/ tests/
 # Create persistent data directory for SQLite document store
 RUN mkdir -p /app/data
 ENV BDDK_DB_PATH=/app/data/bddk_docs.db
+ENV BDDK_CHROMA_PATH=/app/data/chroma_db
 
 # Auto-sync documents on first deploy if store is empty
 ENV BDDK_AUTO_SYNC=true

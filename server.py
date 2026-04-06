@@ -690,7 +690,7 @@ async def document_store_stats() -> str:
 
 
 async def _startup_sync() -> None:
-    """Auto-sync documents on deploy if store is incomplete."""
+    """Auto-sync documents on deploy: SQLite download + ChromaDB embedding."""
     try:
         from doc_sync import DocumentSyncer
 
@@ -701,29 +701,85 @@ async def _startup_sync() -> None:
         st = await store.stats()
         cache_size = len(client._cache)
 
-        # Skip only if store has >= 90% of cache items (with content)
-        if st.total_documents >= cache_size * 0.9:
+        # Phase 1: SQLite sync — download missing documents
+        if st.total_documents < cache_size * 0.9:
             logger.info(
-                "Store has %d/%d documents, skipping startup sync",
+                "SQLite incomplete (%d/%d) — downloading...",
                 st.total_documents, cache_size,
+            )
+            items = [d.model_dump() for d in client._cache]
+            async with DocumentSyncer(store, prefer_nougat=False) as syncer:
+                report = await syncer.sync_all(items, concurrency=10, force=False)
+            logger.info(
+                "SQLite sync: %d downloaded, %d failed, %.1fs",
+                report.downloaded, report.failed, report.elapsed_seconds,
+            )
+        else:
+            logger.info("SQLite has %d/%d documents, OK", st.total_documents, cache_size)
+
+        # Phase 2: ChromaDB migration — embed documents from SQLite
+        await _migrate_to_chromadb(store)
+
+    except Exception as e:
+        logger.error("Startup sync failed: %s", e)
+
+
+async def _migrate_to_chromadb(store: DocumentStore) -> None:
+    """Migrate documents from SQLite to ChromaDB if needed."""
+    try:
+        vs = _get_vector_store()
+        vs_stats = vs.stats()
+        sqlite_stats = await store.stats()
+
+        if vs_stats["total_documents"] >= sqlite_stats.total_documents * 0.9:
+            logger.info(
+                "ChromaDB has %d/%d documents, skipping migration",
+                vs_stats["total_documents"], sqlite_stats.total_documents,
             )
             return
 
         logger.info(
-            "Store incomplete (%d/%d) — running startup sync...",
-            st.total_documents, cache_size,
+            "ChromaDB incomplete (%d/%d) — migrating from SQLite...",
+            vs_stats["total_documents"], sqlite_stats.total_documents,
         )
-        items = [d.model_dump() for d in client._cache]
 
-        async with DocumentSyncer(store, prefer_nougat=False) as syncer:
-            report = await syncer.sync_all(items, concurrency=10, force=False)
+        import time
+        start = time.time()
+        docs = await store.list_documents(limit=2000)
+        migrated = 0
+        total_chunks = 0
 
+        for i, meta in enumerate(docs):
+            doc_id = meta["document_id"]
+            if vs.has_document(doc_id):
+                continue
+
+            doc = await store.get_document(doc_id)
+            if not doc or not doc.markdown_content:
+                continue
+
+            chunks = vs.add_document(
+                doc_id=doc.document_id,
+                title=doc.title,
+                content=doc.markdown_content,
+                category=doc.category,
+                decision_date=doc.decision_date,
+                decision_number=doc.decision_number,
+                source_url=doc.source_url,
+            )
+            total_chunks += chunks
+            migrated += 1
+
+            if (i + 1) % 100 == 0:
+                logger.info("ChromaDB migration: %d/%d docs", i + 1, len(docs))
+
+        elapsed = time.time() - start
         logger.info(
-            "Startup sync complete: %d downloaded, %d skipped, %d failed, %.1fs",
-            report.downloaded, report.skipped, report.failed, report.elapsed_seconds,
+            "ChromaDB migration complete: %d docs, %d chunks, %.1fs",
+            migrated, total_chunks, elapsed,
         )
     except Exception as e:
-        logger.error("Startup sync failed: %s", e)
+        logger.error("ChromaDB migration failed: %s", e)
 
 
 import asyncio
