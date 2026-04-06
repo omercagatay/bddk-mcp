@@ -1,0 +1,633 @@
+"""
+Document sync engine for BDDK MCP Server.
+
+Downloads BDDK decisions and mevzuat.gov.tr documents, extracts content
+to markdown, and stores them in the local SQLite database.
+
+Supports three extraction methods:
+  1. Nougat (GPU) — best quality LaTeX/formula extraction (local RTX 5080)
+  2. markitdown — lightweight fallback (Railway CPU)
+  3. HTML parsing — last resort for mevzuat.gov.tr
+
+Usage:
+    python doc_sync.py sync [--force] [--doc-id DOC_ID] [--concurrency 5]
+    python doc_sync.py stats
+    python doc_sync.py import-cache
+"""
+
+import argparse
+import asyncio
+import hashlib
+import io
+import json
+import logging
+import re
+import time
+from pathlib import Path
+from typing import Optional
+from urllib.parse import parse_qs, urlparse
+
+import httpx
+from bs4 import BeautifulSoup
+from pydantic import BaseModel
+
+from doc_store import DocumentStore, StoredDocument
+
+logger = logging.getLogger(__name__)
+
+_BDDK_DOC_URL = "https://www.bddk.org.tr/Mevzuat/DokumanGetir/{document_id}"
+_MEVZUAT_TUR_MAP = {
+    "1": "kanun",
+    "2": "kanunhukmundekararname",
+    "4": "cumhurbaskanligikararnamesi",
+    "5": "tuzuk",
+    "7": "yonetmelik",
+    "9": "teblig",
+    "11": "cumhurbaskanligikararnamesi",
+}
+_CACHE_FILE = Path(__file__).parent / ".cache.json"
+_MAX_RETRIES = 3
+
+
+# ── Result models ────────────────────────────────────────────────────────────
+
+
+class SyncResult(BaseModel):
+    document_id: str
+    success: bool
+    method: str = ""
+    error: str = ""
+    size_bytes: int = 0
+
+
+class SyncReport(BaseModel):
+    total: int = 0
+    downloaded: int = 0
+    skipped: int = 0
+    failed: int = 0
+    errors: list[SyncResult] = []
+    elapsed_seconds: float = 0.0
+
+
+# ── Extraction backends ──────────────────────────────────────────────────────
+
+
+def _extract_with_nougat(pdf_bytes: bytes) -> Optional[str]:
+    """Extract PDF to LaTeX/Markdown using Nougat (requires GPU + nougat-ocr)."""
+    try:
+        from nougat import NougatModel
+        from nougat.utils.dataset import LazyDataset
+        import torch
+        import tempfile
+
+        if not torch.cuda.is_available():
+            logger.info("CUDA not available, skipping Nougat")
+            return None
+
+        model = NougatModel.from_pretrained("facebook/nougat-base")
+        model = model.to("cuda")
+        model.eval()
+
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+            f.write(pdf_bytes)
+            tmp_path = Path(f.name)
+
+        try:
+            dataset = LazyDataset(tmp_path, model.encoder)
+            from torch.utils.data import DataLoader
+            dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
+
+            pages = []
+            for batch in dataloader:
+                batch = {k: v.to("cuda") if hasattr(v, "to") else v for k, v in batch.items()}
+                with torch.no_grad():
+                    output = model.inference(image_tensors=batch["pixel_values"])
+                    for text in output["predictions"]:
+                        pages.append(text)
+
+            return "\n\n".join(pages) if pages else None
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+    except ImportError:
+        logger.debug("Nougat not installed, skipping")
+        return None
+    except Exception as e:
+        logger.warning("Nougat extraction failed: %s", e)
+        return None
+
+
+def _extract_with_markitdown(content: bytes, ext: str = ".pdf") -> Optional[str]:
+    """Extract document using markitdown (CPU, lightweight)."""
+    try:
+        from markitdown import MarkItDown
+        md = MarkItDown()
+        result = md.convert_stream(io.BytesIO(content), file_extension=ext)
+        text = result.text_content.strip()
+        return text if text else None
+    except Exception as e:
+        logger.warning("markitdown extraction failed: %s", e)
+        return None
+
+
+def _extract_html_to_markdown(html: str) -> str:
+    """Convert HTML content to simple markdown."""
+    soup = BeautifulSoup(html, "html.parser")
+
+    # Remove script/style tags
+    for tag in soup.find_all(["script", "style"]):
+        tag.decompose()
+
+    # Basic conversion
+    lines = []
+    for elem in soup.find_all(["h1", "h2", "h3", "h4", "h5", "p", "li", "td", "th"]):
+        text = elem.get_text(strip=True)
+        if not text:
+            continue
+        tag = elem.name
+        if tag == "h1":
+            lines.append(f"# {text}")
+        elif tag == "h2":
+            lines.append(f"## {text}")
+        elif tag == "h3":
+            lines.append(f"### {text}")
+        elif tag in ("h4", "h5"):
+            lines.append(f"#### {text}")
+        elif tag == "li":
+            lines.append(f"- {text}")
+        else:
+            lines.append(text)
+
+    return "\n\n".join(lines)
+
+
+# ── Download helpers ─────────────────────────────────────────────────────────
+
+
+async def _fetch_with_retry(
+    http: httpx.AsyncClient, url: str, max_retries: int = _MAX_RETRIES
+) -> httpx.Response:
+    """Fetch URL with exponential backoff."""
+    last_exc = None
+    for attempt in range(max_retries):
+        try:
+            resp = await http.get(url)
+            resp.raise_for_status()
+            return resp
+        except (httpx.HTTPStatusError, httpx.TransportError) as e:
+            last_exc = e
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+                logger.warning("Retry %d for %s: %s", attempt + 1, url, e)
+    raise last_exc  # type: ignore
+
+
+def _mevzuat_pdf_url(mevzuat_no: str, tur: str = "7", tertip: str = "5") -> Optional[str]:
+    """Build mevzuat.gov.tr direct PDF URL."""
+    segment = _MEVZUAT_TUR_MAP.get(tur)
+    if not segment:
+        return None
+    return f"https://www.mevzuat.gov.tr/MevzuatMetin/{segment}/{tur}.{tertip}.{mevzuat_no}.pdf"
+
+
+def _mevzuat_doc_url(mevzuat_no: str, tur: str = "7", tertip: str = "5") -> str:
+    """Build mevzuat.gov.tr Word (.doc) download URL."""
+    segment = _MEVZUAT_TUR_MAP.get(tur, "yonetmelik")
+    return f"https://www.mevzuat.gov.tr/MevzuatMetin/{segment}/{tur}.{tertip}.{mevzuat_no}.doc"
+
+
+def _parse_mevzuat_params(source_url: str) -> tuple[str, str, str]:
+    """Extract mevzuat_no, tur, tertip from a mevzuat.gov.tr URL."""
+    parsed = urlparse(source_url)
+    params = parse_qs(parsed.query)
+
+    mevzuat_no = params.get("MevzuatNo", [""])[0]
+    tur = params.get("MevzuatTur", ["7"])[0]
+    tertip = params.get("MevzuatTertip", ["5"])[0]
+
+    if not mevzuat_no:
+        kod = params.get("MevzuatKod", [""])[0]
+        if kod:
+            parts = kod.split(".")
+            if len(parts) >= 3:
+                tur = parts[0]
+                tertip = parts[1]
+                mevzuat_no = parts[-1]
+
+    return mevzuat_no, tur, tertip
+
+
+# ── DocumentSyncer ───────────────────────────────────────────────────────────
+
+
+class DocumentSyncer:
+    """Downloads and extracts BDDK/mevzuat documents into the DocumentStore."""
+
+    def __init__(
+        self,
+        store: DocumentStore,
+        request_timeout: float = 60.0,
+        prefer_nougat: bool = True,
+    ) -> None:
+        self._store = store
+        self._prefer_nougat = prefer_nougat
+        self._http = httpx.AsyncClient(
+            headers={
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/120.0.0.0 Safari/537.36"
+                ),
+            },
+            timeout=httpx.Timeout(request_timeout),
+            follow_redirects=True,
+        )
+
+    async def close(self) -> None:
+        await self._http.aclose()
+
+    async def __aenter__(self) -> "DocumentSyncer":
+        return self
+
+    async def __aexit__(self, *exc) -> None:
+        await self.close()
+
+    # ── Single document sync ─────────────────────────────────────────────
+
+    async def sync_document(
+        self,
+        doc_id: str,
+        title: str = "",
+        category: str = "",
+        source_url: str = "",
+        decision_date: str = "",
+        decision_number: str = "",
+        force: bool = False,
+    ) -> SyncResult:
+        """Download and extract a single document."""
+
+        # Skip if already in store and not forced
+        if not force and await self._store.has_document(doc_id):
+            return SyncResult(document_id=doc_id, success=True, method="cached")
+
+        try:
+            if doc_id.startswith("mevzuat_"):
+                content, method, ext = await self._download_mevzuat(doc_id, source_url)
+            elif doc_id.isdigit():
+                content, method, ext = await self._download_bddk(doc_id)
+            else:
+                return SyncResult(
+                    document_id=doc_id, success=False,
+                    error=f"Unknown document ID format: {doc_id}",
+                )
+        except Exception as e:
+            return SyncResult(
+                document_id=doc_id, success=False, error=str(e),
+            )
+
+        if not content:
+            return SyncResult(
+                document_id=doc_id, success=False, error="No content downloaded",
+            )
+
+        # Extract markdown
+        markdown, extraction_method = self._extract(content, ext)
+        if not markdown:
+            return SyncResult(
+                document_id=doc_id, success=False,
+                error=f"Extraction failed (method={extraction_method})",
+            )
+
+        # Store
+        doc = StoredDocument(
+            document_id=doc_id,
+            title=title or doc_id,
+            category=category,
+            decision_date=decision_date,
+            decision_number=decision_number,
+            source_url=source_url,
+            pdf_bytes=content if ext == ".pdf" else None,
+            markdown_content=markdown,
+            extraction_method=extraction_method,
+            file_size=len(content),
+        )
+        await self._store.store_document(doc)
+
+        return SyncResult(
+            document_id=doc_id,
+            success=True,
+            method=f"{method}+{extraction_method}",
+            size_bytes=len(content),
+        )
+
+    # ── Download methods ─────────────────────────────────────────────────
+
+    async def _download_bddk(self, doc_id: str) -> tuple[bytes, str, str]:
+        """Download from BDDK DokumanGetir endpoint."""
+        url = _BDDK_DOC_URL.format(document_id=doc_id)
+        resp = await _fetch_with_retry(self._http, url)
+        content_type = resp.headers.get("content-type", "").lower()
+        ext = ".pdf" if "pdf" in content_type else ".html"
+        return resp.content, "bddk_direct", ext
+
+    async def _download_mevzuat(
+        self, doc_id: str, source_url: str = ""
+    ) -> tuple[bytes, str, str]:
+        """
+        Download from mevzuat.gov.tr with 4-layer fallback.
+
+        Order optimized for reliability (lightest/fastest first):
+        1. Static .htm page — smallest, most reliable
+        2. PDF direct download
+        3. Main page iframe content — richest HTML
+        4. Word (.doc) download — largest, slowest
+
+        Each layer has its own short timeout to avoid blocking others.
+        """
+        mevzuat_no = doc_id.removeprefix("mevzuat_")
+        tur, tertip = "7", "5"
+
+        if source_url:
+            no, t, te = _parse_mevzuat_params(source_url)
+            if no:
+                mevzuat_no = no
+            if t:
+                tur = t
+            if te:
+                tertip = te
+
+        segment = _MEVZUAT_TUR_MAP.get(tur, "yonetmelik")
+        base = f"{tur}.{tertip}.{mevzuat_no}"
+
+        # Per-layer timeout: short enough so one slow layer doesn't kill the rest
+        layer_timeout = httpx.Timeout(30.0, connect=10.0)
+
+        # Layer 1: Static .htm — smallest, fastest, always extractable
+        try:
+            htm_url = f"https://www.mevzuat.gov.tr/mevzuatmetin/{segment}/{base}.htm"
+            resp = await self._http.get(htm_url, timeout=layer_timeout)
+            if resp.status_code == 200 and len(resp.content) > 200:
+                logger.info("mevzuat %s: downloaded via .htm", doc_id)
+                return resp.content, "mevzuat_htm", ".html"
+        except Exception as e:
+            logger.debug("mevzuat %s: .htm failed: %s", doc_id, e)
+
+        # Layer 2: Direct PDF download
+        try:
+            pdf_url = _mevzuat_pdf_url(mevzuat_no, tur, tertip)
+            if pdf_url:
+                resp = await self._http.get(pdf_url, timeout=layer_timeout)
+                if resp.status_code == 200 and len(resp.content) > 500:
+                    logger.info("mevzuat %s: downloaded via .pdf", doc_id)
+                    return resp.content, "mevzuat_pdf", ".pdf"
+        except Exception as e:
+            logger.debug("mevzuat %s: .pdf failed: %s", doc_id, e)
+
+        # Layer 3: Main page → iframe content (richer HTML)
+        try:
+            main_url = f"https://www.mevzuat.gov.tr/mevzuat?MevzuatNo={mevzuat_no}&MevzuatTur={tur}&MevzuatTertip={tertip}"
+            resp = await self._http.get(main_url, timeout=layer_timeout)
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, "html.parser")
+                iframe = soup.find("iframe", src=True)
+                if iframe:
+                    iframe_url = iframe["src"]
+                    if not iframe_url.startswith("http"):
+                        iframe_url = f"https://www.mevzuat.gov.tr{iframe_url}"
+                    iframe_resp = await self._http.get(iframe_url, timeout=layer_timeout)
+                    if iframe_resp.status_code == 200 and len(iframe_resp.content) > 200:
+                        logger.info("mevzuat %s: downloaded via iframe", doc_id)
+                        return iframe_resp.content, "mevzuat_iframe", ".html"
+                # No iframe — use page body itself
+                div = soup.find("div", id="divMevzuatMetni")
+                if div and len(div.get_text(strip=True)) > 100:
+                    logger.info("mevzuat %s: downloaded via main page div", doc_id)
+                    return str(div).encode("utf-8"), "mevzuat_div", ".html"
+        except Exception as e:
+            logger.debug("mevzuat %s: iframe/div failed: %s", doc_id, e)
+
+        # Layer 4: Word (.doc) — heaviest, slowest
+        try:
+            doc_url = _mevzuat_doc_url(mevzuat_no, tur, tertip)
+            resp = await self._http.get(doc_url, timeout=httpx.Timeout(90.0, connect=15.0))
+            if resp.status_code == 200 and len(resp.content) > 100:
+                logger.info("mevzuat %s: downloaded via .doc", doc_id)
+                return resp.content, "mevzuat_doc", ".doc"
+        except Exception as e:
+            logger.debug("mevzuat %s: .doc failed: %s", doc_id, e)
+
+        raise RuntimeError(f"All download methods failed for {doc_id}")
+
+    # ── Extraction ───────────────────────────────────────────────────────
+
+    def _extract(self, content: bytes, ext: str) -> tuple[str, str]:
+        """Extract markdown from downloaded content. Returns (markdown, method)."""
+
+        # For PDFs, try Nougat first if preferred
+        if ext == ".pdf" and self._prefer_nougat:
+            result = _extract_with_nougat(content)
+            if result:
+                return result, "nougat"
+
+        # markitdown for PDF and DOC
+        if ext in (".pdf", ".doc", ".docx"):
+            result = _extract_with_markitdown(content, ext)
+            if result:
+                return result, "markitdown"
+
+        # HTML content
+        if ext in (".html", ".htm"):
+            html_str = content.decode("utf-8", errors="replace")
+            result = _extract_html_to_markdown(html_str)
+            if result:
+                return result, "html_parser"
+
+            # Try markitdown as HTML fallback
+            result = _extract_with_markitdown(content, ".html")
+            if result:
+                return result, "markitdown"
+
+        return "", "failed"
+
+    # ── Batch sync ───────────────────────────────────────────────────────
+
+    async def sync_all(
+        self,
+        documents: list[dict],
+        concurrency: int = 5,
+        force: bool = False,
+    ) -> SyncReport:
+        """Sync a batch of documents with concurrency control."""
+        start = time.time()
+        report = SyncReport(total=len(documents))
+
+        semaphore = asyncio.Semaphore(concurrency)
+
+        async def _sync_one(doc_info: dict) -> SyncResult:
+            async with semaphore:
+                return await self.sync_document(
+                    doc_id=doc_info.get("document_id", ""),
+                    title=doc_info.get("title", ""),
+                    category=doc_info.get("category", ""),
+                    source_url=doc_info.get("source_url", ""),
+                    decision_date=doc_info.get("decision_date", ""),
+                    decision_number=doc_info.get("decision_number", ""),
+                    force=force,
+                )
+
+        tasks = [_sync_one(doc) for doc in documents]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for r in results:
+            if isinstance(r, Exception):
+                report.failed += 1
+                report.errors.append(
+                    SyncResult(document_id="unknown", success=False, error=str(r))
+                )
+            elif r.success:
+                if r.method == "cached":
+                    report.skipped += 1
+                else:
+                    report.downloaded += 1
+            else:
+                report.failed += 1
+                report.errors.append(r)
+
+        report.elapsed_seconds = round(time.time() - start, 2)
+        return report
+
+    # ── Cache import helper ──────────────────────────────────────────────
+
+    async def import_and_sync_from_cache(
+        self, force: bool = False, concurrency: int = 5
+    ) -> SyncReport:
+        """Load documents from .cache.json and sync them all."""
+        if not _CACHE_FILE.exists():
+            logger.error("No cache file found at %s", _CACHE_FILE)
+            return SyncReport()
+
+        data = json.loads(_CACHE_FILE.read_text(encoding="utf-8"))
+        items = data.get("items", [])
+        if not items:
+            logger.warning("Cache file is empty")
+            return SyncReport()
+
+        logger.info("Found %d items in cache file", len(items))
+
+        # First import metadata
+        await self._store.import_from_cache(items)
+
+        # Then sync content
+        return await self.sync_all(items, concurrency=concurrency, force=force)
+
+
+# ── CLI ──────────────────────────────────────────────────────────────────────
+
+
+async def _cli_sync(args: argparse.Namespace) -> None:
+    """CLI: sync documents."""
+    db_path = Path(args.db) if args.db else None
+
+    async with DocumentStore(db_path=db_path) as store:
+        await store.initialize()
+
+        async with DocumentSyncer(
+            store,
+            prefer_nougat=not args.no_nougat,
+        ) as syncer:
+            if args.doc_id:
+                # Single document sync
+                result = await syncer.sync_document(
+                    doc_id=args.doc_id, force=args.force,
+                )
+                status = "OK" if result.success else "FAIL"
+                print(f"[{status}] {result.document_id}: {result.method or result.error}")
+            else:
+                # Bulk sync from cache
+                report = await syncer.import_and_sync_from_cache(
+                    force=args.force, concurrency=args.concurrency,
+                )
+                print(f"\nSync Report:")
+                print(f"  Total:      {report.total}")
+                print(f"  Downloaded: {report.downloaded}")
+                print(f"  Skipped:    {report.skipped}")
+                print(f"  Failed:     {report.failed}")
+                print(f"  Time:       {report.elapsed_seconds}s")
+                if report.errors:
+                    print(f"\nErrors:")
+                    for e in report.errors[:20]:
+                        print(f"  [{e.document_id}] {e.error}")
+
+
+async def _cli_stats(args: argparse.Namespace) -> None:
+    """CLI: show store stats."""
+    db_path = Path(args.db) if args.db else None
+
+    async with DocumentStore(db_path=db_path) as store:
+        await store.initialize()
+        st = await store.stats()
+        print(f"Documents: {st.total_documents}")
+        print(f"Size: {st.total_size_mb} MB")
+        print(f"Need refresh: {st.documents_needing_refresh}")
+        if st.categories:
+            print("\nCategories:")
+            for cat, count in st.categories.items():
+                print(f"  {cat}: {count}")
+        if st.extraction_methods:
+            print("\nExtraction methods:")
+            for m, count in st.extraction_methods.items():
+                print(f"  {m}: {count}")
+
+
+async def _cli_import(args: argparse.Namespace) -> None:
+    """CLI: import metadata from cache without downloading content."""
+    db_path = Path(args.db) if args.db else None
+
+    async with DocumentStore(db_path=db_path) as store:
+        await store.initialize()
+
+        if not _CACHE_FILE.exists():
+            print(f"No cache file at {_CACHE_FILE}")
+            return
+
+        data = json.loads(_CACHE_FILE.read_text(encoding="utf-8"))
+        items = data.get("items", [])
+        imported = await store.import_from_cache(items)
+        print(f"Imported {imported} new entries from cache ({len(items)} total in cache)")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="BDDK Document Sync")
+    parser.add_argument("--db", help="Path to SQLite database", default=None)
+    sub = parser.add_subparsers(dest="command")
+
+    # sync
+    sync_p = sub.add_parser("sync", help="Download and extract documents")
+    sync_p.add_argument("--force", action="store_true", help="Re-download all")
+    sync_p.add_argument("--doc-id", help="Sync a single document by ID")
+    sync_p.add_argument("--concurrency", type=int, default=5)
+    sync_p.add_argument("--no-nougat", action="store_true", help="Skip Nougat, use markitdown")
+
+    # stats
+    sub.add_parser("stats", help="Show document store statistics")
+
+    # import-cache
+    sub.add_parser("import-cache", help="Import metadata from .cache.json")
+
+    args = parser.parse_args()
+
+    if args.command == "sync":
+        asyncio.run(_cli_sync(args))
+    elif args.command == "stats":
+        asyncio.run(_cli_stats(args))
+    elif args.command == "import-cache":
+        asyncio.run(_cli_import(args))
+    else:
+        parser.print_help()
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    main()

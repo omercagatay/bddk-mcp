@@ -12,6 +12,10 @@ RUN uv sync --frozen --no-dev
 COPY *.py ./
 COPY tests/ tests/
 
+# Create persistent data directory for SQLite document store
+RUN mkdir -p /app/data
+ENV BDDK_DB_PATH=/app/data/bddk_docs.db
+
 # Default to streamable-http transport for remote deployment
 ENV MCP_TRANSPORT=streamable-http
 ENV PORT=8000

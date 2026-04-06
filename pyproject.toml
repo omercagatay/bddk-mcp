@@ -9,6 +9,7 @@ dependencies = [
     "pydantic>=2.0",
     "markitdown[pdf]>=0.1",
     "beautifulsoup4>=4.12",
+    "aiosqlite>=0.20",
 ]
 
 [dependency-groups]

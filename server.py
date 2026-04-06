@@ -1,10 +1,12 @@
 """MCP server exposing BDDK decision search, document retrieval, and data tools."""
 
 import os
+from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
 from client import BddkApiClient, _turkish_lower
+from doc_store import DocumentStore
 from data_sources import (
     fetch_announcements,
     fetch_bulletin_snapshot,
@@ -23,12 +25,23 @@ mcp = FastMCP(
 )
 
 _client: BddkApiClient | None = None
+_doc_store: DocumentStore | None = None
 
 
-def _get_client() -> BddkApiClient:
+async def _get_doc_store() -> DocumentStore:
+    global _doc_store
+    if _doc_store is None:
+        db_path = Path(os.environ.get("BDDK_DB_PATH", Path(__file__).parent / "bddk_docs.db"))
+        _doc_store = DocumentStore(db_path=db_path)
+        await _doc_store.initialize()
+    return _doc_store
+
+
+async def _get_client() -> BddkApiClient:
     global _client
     if _client is None:
-        _client = BddkApiClient()
+        store = await _get_doc_store()
+        _client = BddkApiClient(doc_store=store)
     return _client
 
 
@@ -57,7 +70,7 @@ async def search_bddk_decisions(
         date_from: Optional start date filter (DD.MM.YYYY)
         date_to: Optional end date filter (DD.MM.YYYY)
     """
-    client = _get_client()
+    client = await _get_client()
     request = BddkSearchRequest(
         keywords=keywords, page=page, page_size=page_size,
         category=category, date_from=date_from, date_to=date_to,
@@ -89,7 +102,7 @@ async def get_bddk_document(
         document_id: The numeric document ID (from search results)
         page_number: Page of the markdown output (documents are split into 5000-char pages)
     """
-    client = _get_client()
+    client = await _get_client()
     doc = await client.get_document_markdown(document_id, page_number)
 
     header = f"Document {doc.document_id} — Page {doc.page_number}/{doc.total_pages}\n\n"
@@ -101,7 +114,7 @@ async def bddk_cache_status() -> str:
     """
     Show BDDK cache statistics: total items, age, categories, and any page errors.
     """
-    client = _get_client()
+    client = await _get_client()
     status = client.cache_status()
 
     lines = ["**BDDK Cache Status**\n"]
@@ -140,7 +153,7 @@ async def search_bddk_institutions(
             Faktoring Şirketi, Finansman Şirketi, Varlık Yönetim Şirketi
         active_only: If true (default), only show active institutions
     """
-    client = _get_client()
+    client = await _get_client()
     institutions = await fetch_institutions(client._http, institution_type)
 
     if active_only:
@@ -185,7 +198,7 @@ async def get_bddk_bulletin(
         date: Specific date (DD.MM.YYYY), empty for latest
         days: Number of days of history (default 90)
     """
-    client = _get_client()
+    client = await _get_client()
     data = await fetch_weekly_bulletin(
         client._http, metric_id, currency, days, date, column,
     )
@@ -215,7 +228,7 @@ async def get_bddk_bulletin_snapshot() -> str:
     Returns a table of all banking sector metrics (loans, deposits, etc.)
     with their latest TP (TL) and YP (foreign currency) values.
     """
-    client = _get_client()
+    client = await _get_client()
     rows = await fetch_bulletin_snapshot(client._http)
 
     if not rows:
@@ -257,7 +270,7 @@ async def search_bddk_announcements(
     else:
         cat_id = 39
 
-    client = _get_client()
+    client = await _get_client()
     announcements = await fetch_announcements(client._http, cat_id)
 
     if keywords:
@@ -303,7 +316,7 @@ async def analyze_bulletin_trends(
         column: 1=TP (TL), 2=YP (Foreign Currency), 3=Toplam
         lookback_weeks: Number of weeks to analyze (default 12)
     """
-    client = _get_client()
+    client = await _get_client()
     result = await analyze_trends(
         client._http, metric_id, currency, column, lookback_weeks,
     )
@@ -341,7 +354,7 @@ async def get_regulatory_digest(
     period_map = {"week": 7, "month": 30, "quarter": 90}
     days = period_map.get(period, 30)
 
-    client = _get_client()
+    client = await _get_client()
     await client.ensure_cache()
 
     digest = await build_digest(client._http, client._cache, days)
@@ -399,7 +412,7 @@ async def compare_bulletin_metrics(
     if not ids:
         return "Please provide at least one metric ID."
 
-    client = _get_client()
+    client = await _get_client()
     result = await compare_metrics(client._http, ids, currency, column, days)
 
     col_label = {"1": "TP", "2": "YP", "3": "Toplam"}.get(column, column)
@@ -427,7 +440,7 @@ async def check_bddk_updates() -> str:
     Compares current announcements with cached state to detect new items.
     Useful for monitoring regulatory changes.
     """
-    client = _get_client()
+    client = await _get_client()
 
     # Build set of known announcement URLs from previous checks
     known_urls: set[str] = set()
@@ -490,7 +503,7 @@ async def get_bddk_monthly(
             20001=Kamu, 20002=Özel, 20003=Yabancı
     """
     from data_sources import fetch_monthly_bulletin
-    client = _get_client()
+    client = await _get_client()
     result = await fetch_monthly_bulletin(
         client._http, table_no, year, month, currency, party_code,
     )
@@ -511,6 +524,135 @@ async def get_bddk_monthly(
             lines.append(
                 f"{r['name']:<55} {r.get('tp',''):>15} {r.get('yp',''):>15} {r.get('total',''):>15}"
             )
+
+    return "\n".join(lines)
+
+
+# -- Document Store Tools ------------------------------------------------------
+
+
+@mcp.tool()
+async def sync_bddk_documents(
+    force: bool = False,
+    document_id: str | None = None,
+    concurrency: int = 5,
+) -> str:
+    """
+    Sync BDDK documents to local storage.
+
+    Downloads documents from BDDK and mevzuat.gov.tr, extracts content to
+    Markdown, and stores in local SQLite database for fast offline access.
+
+    Args:
+        force: Re-download all documents even if already cached
+        document_id: Sync a single document by ID (e.g. "1291" or "mevzuat_42628")
+        concurrency: Number of parallel downloads (default 5)
+    """
+    from doc_sync import DocumentSyncer, SyncResult
+
+    store = await _get_doc_store()
+    client = await _get_client()
+    await client.ensure_cache()
+
+    async with DocumentSyncer(store, prefer_nougat=False) as syncer:
+        if document_id:
+            # Single document
+            source_url = ""
+            title = document_id
+            category = ""
+            for dec in client._cache:
+                if dec.document_id == document_id:
+                    source_url = dec.source_url
+                    title = dec.title
+                    category = dec.category
+                    break
+
+            result = await syncer.sync_document(
+                doc_id=document_id,
+                title=title,
+                category=category,
+                source_url=source_url,
+                force=force,
+            )
+            status = "OK" if result.success else "FAIL"
+            return f"[{status}] {result.document_id}: {result.method or result.error}"
+        else:
+            # Bulk sync from cache
+            items = [d.model_dump() for d in client._cache]
+            report = await syncer.sync_all(items, concurrency=concurrency, force=force)
+            return (
+                f"**Sync Report**\n"
+                f"  Total: {report.total}\n"
+                f"  Downloaded: {report.downloaded}\n"
+                f"  Skipped: {report.skipped}\n"
+                f"  Failed: {report.failed}\n"
+                f"  Time: {report.elapsed_seconds}s"
+            )
+
+
+@mcp.tool()
+async def search_document_store(
+    query: str,
+    category: str | None = None,
+    limit: int = 20,
+) -> str:
+    """
+    Search locally stored BDDK documents using full-text search (FTS5).
+
+    Searches across document titles, content, and categories. Much faster
+    than live web searches and works offline.
+
+    Args:
+        query: Search terms in Turkish (e.g. "sermaye yeterliliği", "faiz oranı riski")
+        category: Optional category filter (e.g. "Yönetmelik", "Rehber")
+        limit: Maximum results to return (default 20)
+    """
+    store = await _get_doc_store()
+    hits = await store.search_content(query, limit=limit, category=category)
+
+    if not hits:
+        return f"No results found for '{query}' in local document store."
+
+    lines = [f"Found {len(hits)} result(s) in local store for '{query}':\n"]
+    for h in hits:
+        date_info = f" ({h.decision_date})" if h.decision_date else ""
+        cat_info = f" [{h.category}]" if h.category else ""
+        lines.append(f"**{h.title}**{date_info}{cat_info}")
+        lines.append(f"  Document ID: {h.document_id}")
+        if h.snippet:
+            snippet = h.snippet.replace(">>>", "**").replace("<<<", "**")
+            lines.append(f"  ...{snippet}...")
+        lines.append("")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+async def document_store_stats() -> str:
+    """
+    Show local document store statistics: total documents, size, categories,
+    extraction methods, and documents needing refresh.
+    """
+    store = await _get_doc_store()
+    st = await store.stats()
+
+    lines = ["**Document Store Statistics**\n"]
+    lines.append(f"  Total documents: {st.total_documents}")
+    lines.append(f"  Total size: {st.total_size_mb} MB")
+    lines.append(f"  Need refresh: {st.documents_needing_refresh}")
+
+    if st.oldest_document:
+        lines.append(f"  Oldest entry: {st.oldest_document}")
+        lines.append(f"  Newest entry: {st.newest_document}")
+
+    if st.categories:
+        lines.append("\n**Categories:**")
+        for cat, count in st.categories.items():
+            lines.append(f"  {cat}: {count}")
+
+    if st.extraction_methods:
+        lines.append("\n**Extraction Methods:**")
+        for m, count in st.extraction_methods.items():
+            lines.append(f"  {m}: {count}")
 
     return "\n".join(lines)
 

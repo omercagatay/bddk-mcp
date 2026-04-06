@@ -5,3 +5,6 @@ dockerfilePath = "Dockerfile"
 [deploy]
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
+
+[[deploy.volumes]]
+mountPath = "/app/data"

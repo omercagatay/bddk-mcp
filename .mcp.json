@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "bddk-local": {
+      "command": "python",
+      "args": ["server.py"],
+      "cwd": "C:\\Users\\cagat\\bddk_mcp_module",
+      "env": {
+        "MCP_TRANSPORT": "stdio",
+        "BDDK_DB_PATH": "C:\\Users\\cagat\\bddk_mcp_module\\bddk_docs.db"
+      }
+    }
+  }
+}

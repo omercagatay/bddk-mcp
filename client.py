@@ -13,6 +13,7 @@ import httpx
 from bs4 import BeautifulSoup, Tag
 from markitdown import MarkItDown
 
+from doc_store import DocumentStore
 from models import (
     BddkDecisionSummary,
     BddkDocumentMarkdown,
@@ -165,7 +166,11 @@ class BddkApiClient:
     Scrapes BDDK website, caches document lists in memory and on disk.
     """
 
-    def __init__(self, request_timeout: float = 60.0) -> None:
+    def __init__(
+        self,
+        request_timeout: float = 60.0,
+        doc_store: Optional[DocumentStore] = None,
+    ) -> None:
         self._http = httpx.AsyncClient(
             headers={
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -180,6 +185,7 @@ class BddkApiClient:
             follow_redirects=True,
         )
         self._md = MarkItDown()
+        self._doc_store = doc_store
         self._cache: List[BddkDecisionSummary] = []
         self._cache_timestamp: float = 0.0
         self._page_errors: dict[int, str] = {}
@@ -553,9 +559,26 @@ class BddkApiClient:
         document_id: str,
         page_number: int = 1,
     ) -> BddkDocumentMarkdown:
-        """Fetch a BDDK document and return its content as paginated Markdown."""
+        """Fetch a BDDK document and return its content as paginated Markdown.
+
+        Uses store-first strategy: check local DocumentStore before fetching
+        from the network. If fetched live, stores result for future use.
+        """
+        # ── Store-first lookup ──
+        if self._doc_store:
+            page = await self._doc_store.get_document_page(document_id, page_number)
+            if page and page.markdown_content and "Invalid page" not in page.markdown_content:
+                logger.info("Document %s served from store (page %d/%d)", document_id, page.page_number, page.total_pages)
+                return BddkDocumentMarkdown(
+                    document_id=page.document_id,
+                    markdown_content=page.markdown_content,
+                    page_number=page.page_number,
+                    total_pages=page.total_pages,
+                )
+
+        # ── Live fetch fallback ──
         url = self._resolve_document_url(document_id)
-        logger.info("Fetching BDDK document: %s", url)
+        logger.info("Fetching BDDK document (live): %s", url)
 
         try:
             response = await self._fetch_with_retry(url)
@@ -583,6 +606,23 @@ class BddkApiClient:
                 page_number=1,
                 total_pages=1,
             )
+
+        # ── Store for future use ──
+        if self._doc_store and markdown:
+            from doc_store import StoredDocument
+            try:
+                await self._doc_store.store_document(StoredDocument(
+                    document_id=document_id,
+                    title=document_id,
+                    source_url=url,
+                    markdown_content=markdown,
+                    extraction_method="markitdown",
+                    file_size=len(response.content),
+                    pdf_bytes=response.content if ext == ".pdf" else None,
+                ))
+                logger.info("Stored document %s in local store", document_id)
+            except Exception as e:
+                logger.warning("Failed to store document %s: %s", document_id, e)
 
         total_pages = max(1, math.ceil(len(markdown) / _CHUNK_SIZE))
 
