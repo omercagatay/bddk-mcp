@@ -658,27 +658,37 @@ async def document_store_stats() -> str:
 
 
 async def _startup_sync() -> None:
-    """Auto-sync documents on first deploy if store is empty."""
+    """Auto-sync documents on deploy if store is incomplete."""
     try:
-        store = await _get_doc_store()
-        st = await store.stats()
-        if st.total_documents > 0:
-            logger.info("Store has %d documents, skipping startup sync", st.total_documents)
-            return
-
-        logger.info("Empty store detected — running startup sync...")
         from doc_sync import DocumentSyncer
 
+        store = await _get_doc_store()
         client = await _get_client()
         await client.ensure_cache()
+
+        st = await store.stats()
+        cache_size = len(client._cache)
+
+        # Skip only if store has >= 90% of cache items (with content)
+        if st.total_documents >= cache_size * 0.9:
+            logger.info(
+                "Store has %d/%d documents, skipping startup sync",
+                st.total_documents, cache_size,
+            )
+            return
+
+        logger.info(
+            "Store incomplete (%d/%d) — running startup sync...",
+            st.total_documents, cache_size,
+        )
         items = [d.model_dump() for d in client._cache]
 
         async with DocumentSyncer(store, prefer_nougat=False) as syncer:
             report = await syncer.sync_all(items, concurrency=10, force=False)
 
         logger.info(
-            "Startup sync complete: %d downloaded, %d failed, %.1fs",
-            report.downloaded, report.failed, report.elapsed_seconds,
+            "Startup sync complete: %d downloaded, %d skipped, %d failed, %.1fs",
+            report.downloaded, report.skipped, report.failed, report.elapsed_seconds,
         )
     except Exception as e:
         logger.error("Startup sync failed: %s", e)
