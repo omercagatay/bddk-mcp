@@ -699,12 +699,47 @@ import logging as _logging
 
 logger = _logging.getLogger(__name__)
 
+_sync_task: asyncio.Task | None = None
+
+
+@mcp.tool()
+async def trigger_startup_sync() -> str:
+    """
+    Manually trigger document sync if auto-sync is still running or was skipped.
+    Returns current sync status.
+    """
+    global _sync_task
+    if _sync_task and not _sync_task.done():
+        return "Sync is already running in background."
+
+    store = await _get_doc_store()
+    st = await store.stats()
+    return f"Store has {st.total_documents} documents. Use sync_bddk_documents to sync."
+
+
+async def _schedule_background_sync() -> None:
+    """Schedule startup sync as background task after server starts."""
+    global _sync_task
+    if os.environ.get("BDDK_AUTO_SYNC", "").lower() in ("1", "true", "yes"):
+        # Small delay to let server start accepting requests first
+        await asyncio.sleep(2)
+        _sync_task = asyncio.create_task(_startup_sync())
+
 
 if __name__ == "__main__":
     transport = os.environ.get("MCP_TRANSPORT", "stdio")
 
-    # Run startup sync if BDDK_AUTO_SYNC is set (Railway deploy)
-    if os.environ.get("BDDK_AUTO_SYNC", "").lower() in ("1", "true", "yes"):
-        asyncio.run(_startup_sync())
+    # For streamable-http: use lifespan to schedule background sync
+    if transport == "streamable-http":
+        import contextlib
+
+        @contextlib.asynccontextmanager
+        async def lifespan(app):
+            task = asyncio.create_task(_startup_sync()) if os.environ.get("BDDK_AUTO_SYNC", "").lower() in ("1", "true", "yes") else None
+            yield
+            if task and not task.done():
+                task.cancel()
+
+        mcp.settings.lifespan = lifespan
 
     mcp.run(transport=transport)
