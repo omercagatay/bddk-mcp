@@ -33,12 +33,13 @@ from collections.abc import AsyncIterator
 @contextlib.asynccontextmanager
 async def _app_lifespan(app: FastMCP) -> AsyncIterator[None]:
     """Lifecycle hook: start background sync on deploy, graceful shutdown."""
+    print("[LIFESPAN] started", flush=True)
     auto_sync = os.environ.get("BDDK_AUTO_SYNC", "").lower() in ("1", "true", "yes")
-    logger.info("Lifespan started, auto_sync=%s", auto_sync)
+    print(f"[LIFESPAN] auto_sync={auto_sync}", flush=True)
     task = None
     if auto_sync:
         task = asyncio.create_task(_startup_sync())
-        logger.info("Background sync task created")
+        print("[LIFESPAN] sync task created", flush=True)
     yield
     await _graceful_shutdown()
     if task and not task.done():
@@ -46,6 +47,7 @@ async def _app_lifespan(app: FastMCP) -> AsyncIterator[None]:
 
 
 _transport = os.environ.get("MCP_TRANSPORT", "stdio")
+print(f"[INIT] _transport={_transport!r}, lifespan={'YES' if _transport == 'streamable-http' else 'NO'}", flush=True)
 
 mcp = FastMCP(
     "BDDK",
