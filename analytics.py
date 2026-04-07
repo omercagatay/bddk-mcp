@@ -1,6 +1,5 @@
 """BDDK analytics: trend analysis, digest, comparison, update detection."""
 
-import re
 from datetime import datetime
 
 import httpx
@@ -9,9 +8,7 @@ from data_sources import (
     fetch_announcements,
     fetch_bulletin_snapshot,
     fetch_weekly_bulletin,
-    _ANNOUNCEMENT_PAGES,
 )
-
 
 # -- Trend Analysis --------------------------------------------------------
 
@@ -74,7 +71,6 @@ async def analyze_trends(
 
     # Narrative
     title = data.get("title", metric_id)
-    col_label = {"1": "TP", "2": "YP", "3": "Toplam"}.get(column, column)
     direction = "arttı" if wow_change > 0 else "azaldı" if wow_change < 0 else "değişmedi"
 
     narrative = (
@@ -99,7 +95,7 @@ async def analyze_trends(
         "trend_direction": trend,
         "narrative": narrative,
         "data_points": len(parsed),
-        "series": list(zip(dates, parsed)),
+        "series": list(zip(dates, parsed, strict=False)),
     }
 
 
@@ -178,8 +174,7 @@ async def build_digest(
     # -- Build narrative --
     narrative_parts = []
     narrative_parts.append(
-        f"Son {period_days} günde {len(recent_decisions)} yeni karar ve "
-        f"{len(all_announcements)} duyuru yayımlandı."
+        f"Son {period_days} günde {len(recent_decisions)} yeni karar ve {len(all_announcements)} duyuru yayımlandı."
     )
 
     if by_category:
@@ -217,7 +212,11 @@ async def compare_metrics(
     results = []
     for mid in metric_ids[:4]:  # Max 4 metrics
         data = await fetch_weekly_bulletin(
-            http, metric_id=mid, currency=currency, days=days, column=column,
+            http,
+            metric_id=mid,
+            currency=currency,
+            days=days,
+            column=column,
         )
         if "error" in data:
             results.append({"metric_id": mid, "error": data["error"]})
@@ -235,14 +234,16 @@ async def compare_metrics(
             previous = 0
             wow_pct = 0
 
-        results.append({
-            "metric_id": mid,
-            "title": data.get("title", mid),
-            "current": current,
-            "current_date": dates[-1] if dates else "",
-            "wow_pct": wow_pct,
-            "data_points": len(values),
-        })
+        results.append(
+            {
+                "metric_id": mid,
+                "title": data.get("title", mid),
+                "current": current,
+                "current_date": dates[-1] if dates else "",
+                "wow_pct": wow_pct,
+                "data_points": len(values),
+            }
+        )
 
     return {"metrics": results, "currency": currency, "column": column}
 

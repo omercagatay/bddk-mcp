@@ -1,5 +1,6 @@
 """Additional BDDK data source fetchers: institutions, bulletins, announcements."""
 
+import asyncio
 import logging
 import re
 
@@ -10,12 +11,16 @@ logger = logging.getLogger(__name__)
 
 _BDDK_BASE_URL = "https://www.bddk.org.tr"
 
+# Rate limiter: max 5 concurrent outbound requests to BDDK
+_request_semaphore = asyncio.Semaphore(5)
+
 
 def _format_number(val) -> str:
     """Format a numeric value with thousands separators."""
     if isinstance(val, (int, float)):
         return f"{val:,.0f}" if val == int(val) else f"{val:,.2f}"
     return str(val)
+
 
 # Institution directory page IDs and their types
 _INSTITUTION_PAGES = {
@@ -40,6 +45,7 @@ _ANNOUNCEMENT_PAGES = {
 
 
 # -- Institution Directory ------------------------------------------------
+
 
 def _parse_card_institutions(soup: BeautifulSoup, inst_type: str) -> list[dict]:
     """Parse page 77 (Banka) — uses div.card accordion structure."""
@@ -84,14 +90,16 @@ def _parse_card_institutions(soup: BeautifulSoup, inst_type: str) -> list[dict]:
             if not name or len(name) < 3:
                 continue
 
-            results.append({
-                "name": name,
-                "website": website,
-                "type": inst_type,
-                "subcategory": subcategory,
-                "status": status,
-                "digital": is_digital,
-            })
+            results.append(
+                {
+                    "name": name,
+                    "website": website,
+                    "type": inst_type,
+                    "subcategory": subcategory,
+                    "status": status,
+                    "digital": is_digital,
+                }
+            )
     return results
 
 
@@ -125,14 +133,16 @@ def _parse_tabpane_institutions(soup: BeautifulSoup, inst_type: str) -> list[dic
                 if link:
                     website = link.get("href", "")
 
-            results.append({
-                "name": name,
-                "website": website,
-                "type": inst_type,
-                "subcategory": inst_type,
-                "status": status,
-                "digital": False,
-            })
+            results.append(
+                {
+                    "name": name,
+                    "website": website,
+                    "type": inst_type,
+                    "subcategory": inst_type,
+                    "status": status,
+                    "digital": False,
+                }
+            )
     return results
 
 
@@ -148,17 +158,15 @@ async def fetch_institutions(
 
     pages = _INSTITUTION_PAGES
     if institution_type:
-        pages = {
-            pid: itype for pid, itype in _INSTITUTION_PAGES.items()
-            if institution_type.lower() in itype.lower()
-        }
+        pages = {pid: itype for pid, itype in _INSTITUTION_PAGES.items() if institution_type.lower() in itype.lower()}
         if not pages:
             pages = _INSTITUTION_PAGES
 
     for page_id, inst_type in pages.items():
         try:
             url = f"{_BDDK_BASE_URL}/Kurulus/Liste/{page_id}"
-            response = await http.get(url)
+            async with _request_semaphore:
+                response = await http.get(url)
             response.raise_for_status()
             soup = BeautifulSoup(response.text, "html.parser")
 
@@ -169,13 +177,14 @@ async def fetch_institutions(
 
             all_institutions.extend(items)
             logger.info("Parsed %d institutions from page %d (%s)", len(items), page_id, inst_type)
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TransportError, ValueError, AttributeError) as e:
             logger.error("Failed to fetch institutions page %d: %s", page_id, e)
 
     return all_institutions
 
 
 # -- Weekly Bulletin Data -------------------------------------------------
+
 
 async def fetch_weekly_bulletin(
     http: httpx.AsyncClient,
@@ -250,7 +259,7 @@ async def fetch_weekly_bulletin(
             "currency": currency,
             "metric_id": metric_id,
         }
-    except Exception as e:
+    except (httpx.HTTPError, httpx.TransportError, KeyError, ValueError) as e:
         logger.error("Failed to fetch weekly bulletin: %s", e)
         return {"error": str(e)}
 
@@ -281,20 +290,23 @@ async def fetch_bulletin_snapshot(
             tds = tr.find_all("td")
             if len(tds) < 4:
                 continue
-            rows.append({
-                "row_number": tds[0].get_text(strip=True),
-                "name": tds[1].get_text(strip=True),
-                "metric_id": metric_id,
-                "tp": tds[2].get_text(strip=True),
-                "yp": tds[3].get_text(strip=True),
-            })
+            rows.append(
+                {
+                    "row_number": tds[0].get_text(strip=True),
+                    "name": tds[1].get_text(strip=True),
+                    "metric_id": metric_id,
+                    "tp": tds[2].get_text(strip=True),
+                    "yp": tds[3].get_text(strip=True),
+                }
+            )
         return rows
-    except Exception as e:
+    except (httpx.HTTPError, httpx.TransportError, ValueError, AttributeError) as e:
         logger.error("Failed to fetch bulletin snapshot: %s", e)
         return []
 
 
 # -- Announcements -------------------------------------------------------
+
 
 async def fetch_announcements(
     http: httpx.AsyncClient,
@@ -337,16 +349,18 @@ async def fetch_announcements(
             if not title:
                 continue
 
-            announcements.append({
-                "title": title,
-                "date": date,
-                "url": full_url,
-                "category": category_name,
-            })
+            announcements.append(
+                {
+                    "title": title,
+                    "date": date,
+                    "url": full_url,
+                    "category": category_name,
+                }
+            )
 
         logger.info("Parsed %d announcements from category %d", len(announcements), category_id)
         return announcements
-    except Exception as e:
+    except (httpx.HTTPError, httpx.TransportError, ValueError, AttributeError) as e:
         logger.error("Failed to fetch announcements category %d: %s", category_id, e)
         return []
 
@@ -416,12 +430,14 @@ async def fetch_monthly_bulletin(
         for r in raw_rows:
             cell = r.get("cell", [])
             if len(cell) >= 7:
-                rows.append({
-                    "name": str(cell[2]),
-                    "tp": _format_number(cell[4]),
-                    "yp": _format_number(cell[5]),
-                    "total": _format_number(cell[6]),
-                })
+                rows.append(
+                    {
+                        "name": str(cell[2]),
+                        "tp": _format_number(cell[4]),
+                        "yp": _format_number(cell[5]),
+                        "total": _format_number(cell[6]),
+                    }
+                )
 
         return {
             "title": caption,
@@ -429,6 +445,6 @@ async def fetch_monthly_bulletin(
             "period": f"{month}/{year}",
             "currency": currency,
         }
-    except Exception as e:
+    except (httpx.HTTPError, httpx.TransportError, KeyError, ValueError) as e:
         logger.error("Failed to fetch monthly bulletin: %s", e)
         return {"error": str(e)}

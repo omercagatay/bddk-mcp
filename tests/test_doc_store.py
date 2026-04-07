@@ -1,12 +1,8 @@
 """Tests for DocumentStore (SQLite + FTS5)."""
 
-import asyncio
-import tempfile
-from pathlib import Path
-
 import pytest
 
-from doc_store import DocumentStore, StoredDocument, SearchHit
+from doc_store import DocumentStore, StoredDocument
 
 
 @pytest.fixture

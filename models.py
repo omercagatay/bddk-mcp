@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from pydantic import BaseModel, Field
 
 
@@ -10,16 +8,18 @@ class BddkSearchRequest(BaseModel):
     BDDK (Bankacilik Duzenleme ve Denetleme Kurumu) is Turkey's Banking
     Regulation and Supervision Agency.
     """
+
     keywords: str = Field(..., description="Search keywords in Turkish")
     page: int = Field(1, ge=1, description="Page number (1-indexed)")
     page_size: int = Field(10, ge=1, le=50, description="Results per page (1-50)")
-    category: Optional[str] = Field(None, description="Filter by category (e.g. 'Yönetmelik', 'Genelge', 'Kurul Kararı')")
-    date_from: Optional[str] = Field(None, description="Filter from date (DD.MM.YYYY)")
-    date_to: Optional[str] = Field(None, description="Filter to date (DD.MM.YYYY)")
+    category: str | None = Field(None, description="Filter by category (e.g. 'Yönetmelik', 'Genelge', 'Kurul Kararı')")
+    date_from: str | None = Field(None, description="Filter from date (DD.MM.YYYY)")
+    date_to: str | None = Field(None, description="Filter to date (DD.MM.YYYY)")
 
 
 class BddkDecisionSummary(BaseModel):
     """Summary of a BDDK decision from search results."""
+
     title: str = Field(..., description="Decision title")
     document_id: str = Field(..., description="BDDK document ID (e.g., '310' or 'mevzuat_42628')")
     content: str = Field("", description="Decision summary/excerpt")
@@ -31,7 +31,8 @@ class BddkDecisionSummary(BaseModel):
 
 class BddkSearchResult(BaseModel):
     """Response model for BDDK decision search results."""
-    decisions: List[BddkDecisionSummary] = Field(
+
+    decisions: list[BddkDecisionSummary] = Field(
         default_factory=list,
         description="List of matching BDDK decisions",
     )
@@ -46,6 +47,7 @@ class BddkDocumentMarkdown(BaseModel):
 
     Supports paginated content for long documents (5000 chars per page).
     """
+
     document_id: str = Field(..., description="BDDK document ID")
     markdown_content: str = Field("", description="Document content in Markdown")
     page_number: int = Field(1, description="Current page number")
