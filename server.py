@@ -777,12 +777,15 @@ async def document_store_stats() -> str:
 async def _startup_sync() -> None:
     """Auto-sync documents on deploy: SQLite download + ChromaDB embedding."""
     global _last_sync_time
+    logger.info("Startup sync started...")
     try:
         from doc_sync import DocumentSyncer
 
         store = await _get_doc_store()
         client = await _get_client()
+        logger.info("Fetching document metadata from BDDK...")
         await client.ensure_cache()
+        logger.info("Cache loaded: %d documents", len(client._cache))
 
         st = await store.stats()
         cache_size = len(client._cache)
@@ -1022,6 +1025,8 @@ if __name__ == "__main__":
         pass
 
     transport = os.environ.get("MCP_TRANSPORT", "stdio")
+    logger.info("Transport: %s", transport)
+    logger.info("BDDK_AUTO_SYNC=%s", os.environ.get("BDDK_AUTO_SYNC", "(not set)"))
 
     # For streamable-http: use lifespan to schedule background sync
     if transport == "streamable-http":
@@ -1029,11 +1034,13 @@ if __name__ == "__main__":
 
         @contextlib.asynccontextmanager
         async def lifespan(app):
-            task = (
-                asyncio.create_task(_startup_sync())
-                if os.environ.get("BDDK_AUTO_SYNC", "").lower() in ("1", "true", "yes")
-                else None
-            )
+            auto_sync = os.environ.get("BDDK_AUTO_SYNC", "").lower() in ("1", "true", "yes")
+            logger.info("Lifespan started, auto_sync=%s", auto_sync)
+            if auto_sync:
+                task = asyncio.create_task(_startup_sync())
+                logger.info("Background sync task created")
+            else:
+                task = None
             yield
             # Graceful shutdown
             await _graceful_shutdown()
