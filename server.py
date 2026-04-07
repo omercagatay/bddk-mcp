@@ -54,7 +54,7 @@ mcp = FastMCP(
     instructions="Search and retrieve BDDK (Turkish Banking Regulation) decisions and regulations (mevzuat)",
     host="0.0.0.0",
     port=int(os.environ.get("PORT", 8000)),
-    stateless_http=True,
+    stateless_http=False,
     lifespan=_app_lifespan if _transport == "streamable-http" else None,
 )
 
@@ -1051,24 +1051,4 @@ if __name__ == "__main__":
     logger.info("Transport: %s", _transport)
     logger.info("BDDK_AUTO_SYNC=%s", os.environ.get("BDDK_AUTO_SYNC", "(not set)"))
 
-    if _transport == "streamable-http":
-        import uvicorn
-
-        app = mcp.streamable_http_app()
-
-        async def _run_server():
-            auto_sync = os.environ.get("BDDK_AUTO_SYNC", "").lower() in ("1", "true", "yes")
-            port = int(os.environ.get("PORT", 8000))
-            config = uvicorn.Config(app, host="0.0.0.0", port=port)
-            server = uvicorn.Server(config)
-
-            if auto_sync:
-                print("[STARTUP] creating sync task", flush=True)
-                asyncio.create_task(_startup_sync())
-
-            await server.serve()
-            await _graceful_shutdown()
-
-        asyncio.run(_run_server())
-    else:
-        mcp.run(transport=_transport)
+    mcp.run(transport=_transport)
