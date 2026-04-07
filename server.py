@@ -1051,4 +1051,24 @@ if __name__ == "__main__":
     logger.info("Transport: %s", _transport)
     logger.info("BDDK_AUTO_SYNC=%s", os.environ.get("BDDK_AUTO_SYNC", "(not set)"))
 
-    mcp.run(transport=_transport)
+    if _transport == "streamable-http":
+        import uvicorn
+
+        app = mcp.streamable_http_app()
+
+        @app.on_event("startup")
+        async def _on_startup():
+            print("[STARTUP] event fired", flush=True)
+            auto_sync = os.environ.get("BDDK_AUTO_SYNC", "").lower() in ("1", "true", "yes")
+            if auto_sync:
+                asyncio.create_task(_startup_sync())
+                print("[STARTUP] sync task created", flush=True)
+
+        @app.on_event("shutdown")
+        async def _on_shutdown():
+            await _graceful_shutdown()
+
+        port = int(os.environ.get("PORT", 8000))
+        uvicorn.run(app, host="0.0.0.0", port=port)
+    else:
+        mcp.run(transport=_transport)
