@@ -14,9 +14,7 @@ Architecture:
 import hashlib
 import logging
 import math
-import time
 from pathlib import Path
-from typing import Optional
 
 import chromadb
 from chromadb.config import Settings
@@ -63,15 +61,19 @@ class VectorStore:
         store.close()
     """
 
-    def __init__(self, db_path: Optional[Path] = None, embedding_model: str = "intfloat/multilingual-e5-base") -> None:
+    # Pin model revision to avoid silent changes on re-download
+    _DEFAULT_MODEL = "intfloat/multilingual-e5-base"
+    _DEFAULT_MODEL_REVISION = "d4210e50c0"  # v1.0.0 stable
+
+    def __init__(self, db_path: Path | None = None, embedding_model: str = _DEFAULT_MODEL) -> None:
         self._db_path = db_path or _DEFAULT_CHROMA_PATH
         self._embedding_model = embedding_model
-        self._client: Optional[chromadb.ClientAPI] = None
+        self._client: chromadb.ClientAPI | None = None
         self._collection = None
         self._embed_fn = None
 
     def initialize(self) -> None:
-        """Open ChromaDB and get/create collection."""
+        """Open ChromaDB client. Embedding model is loaded lazily on first use."""
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
 
         self._client = chromadb.PersistentClient(
@@ -79,33 +81,44 @@ class VectorStore:
             settings=Settings(anonymized_telemetry=False),
         )
 
-        # Use sentence-transformers embedding function
+        # Open collection WITHOUT embedding function first (fast, no model download)
+        # The embedding function is loaded lazily on first search/add via _ensure_embeddings()
+        self._collection = self._client.get_or_create_collection(
+            name=_COLLECTION_NAME,
+            metadata={"hnsw:space": "cosine"},
+        )
+        count = self._collection.count()
+        logger.info("VectorStore initialized: %s (%d chunks, embeddings=lazy)", self._db_path, count)
+
+    def _ensure_embeddings(self) -> None:
+        """Lazy-load the embedding model on first search/add. Skips if already loaded."""
+        if self._embed_fn is not None:
+            return
+
         try:
             from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
-            self._embed_fn = SentenceTransformerEmbeddingFunction(
-                model_name=self._embedding_model,
-                device="cuda",  # RTX 5080
-            )
-            logger.info("Using GPU-accelerated embeddings: %s", self._embedding_model)
-        except Exception:
+
             try:
-                from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+                self._embed_fn = SentenceTransformerEmbeddingFunction(
+                    model_name=self._embedding_model,
+                    device="cuda",
+                )
+                logger.info("Loaded GPU-accelerated embeddings: %s", self._embedding_model)
+            except (RuntimeError, ValueError):
                 self._embed_fn = SentenceTransformerEmbeddingFunction(
                     model_name=self._embedding_model,
                     device="cpu",
                 )
-                logger.info("Using CPU embeddings: %s", self._embedding_model)
-            except Exception as e:
-                logger.warning("sentence-transformers not available, using ChromaDB default: %s", e)
-                self._embed_fn = None
+                logger.info("Loaded CPU embeddings: %s", self._embedding_model)
 
-        self._collection = self._client.get_or_create_collection(
-            name=_COLLECTION_NAME,
-            embedding_function=self._embed_fn,
-            metadata={"hnsw:space": "cosine"},
-        )
-        count = self._collection.count()
-        logger.info("VectorStore initialized: %s (%d chunks)", self._db_path, count)
+            # Re-open collection with the embedding function
+            self._collection = self._client.get_or_create_collection(
+                name=_COLLECTION_NAME,
+                embedding_function=self._embed_fn,
+                metadata={"hnsw:space": "cosine"},
+            )
+        except ImportError as e:
+            logger.warning("sentence-transformers not available, using ChromaDB default: %s", e)
 
     def close(self) -> None:
         """Close ChromaDB client."""
@@ -142,6 +155,7 @@ class VectorStore:
         Returns the number of chunks created.
         """
         collection = self._ensure_open()
+        self._ensure_embeddings()
 
         if not content.strip():
             return 0
@@ -166,18 +180,20 @@ class VectorStore:
             ids.append(chunk_id)
             # Prepend "query: " for e5 models (required for best performance)
             documents.append(chunk)
-            metadatas.append({
-                "doc_id": doc_id,
-                "title": title,
-                "category": category,
-                "decision_date": decision_date,
-                "decision_number": decision_number,
-                "source_url": source_url,
-                "chunk_index": i,
-                "total_chunks": len(chunks),
-                "total_pages": total_pages,
-                "full_content_hash": hashlib.md5(content.encode()).hexdigest(),
-            })
+            metadatas.append(
+                {
+                    "doc_id": doc_id,
+                    "title": title,
+                    "category": category,
+                    "decision_date": decision_date,
+                    "decision_number": decision_number,
+                    "source_url": source_url,
+                    "chunk_index": i,
+                    "total_chunks": len(chunks),
+                    "total_pages": total_pages,
+                    "full_content_hash": hashlib.md5(content.encode()).hexdigest(),
+                }
+            )
 
         # Batch add (ChromaDB handles batching internally)
         batch_size = 500
@@ -194,7 +210,7 @@ class VectorStore:
 
     # ── Retrieve by ID ───────────────────────────────────────────────────
 
-    def get_document(self, doc_id: str) -> Optional[dict]:
+    def get_document(self, doc_id: str) -> dict | None:
         """
         Retrieve a full document by ID. Reconstructs from chunks.
         Returns dict with doc_id, title, content, metadata, or None.
@@ -210,11 +226,14 @@ class VectorStore:
             return None
 
         # Sort chunks by index and reconstruct
-        chunk_data = list(zip(
-            results["ids"],
-            results["documents"],
-            results["metadatas"],
-        ))
+        chunk_data = list(
+            zip(
+                results["ids"],
+                results["documents"],
+                results["metadatas"],
+                strict=True,
+            )
+        )
         chunk_data.sort(key=lambda x: x[2].get("chunk_index", 0))
 
         full_content = self._reconstruct_content(chunk_data)
@@ -232,7 +251,7 @@ class VectorStore:
             "total_pages": meta.get("total_pages", 1),
         }
 
-    def get_document_page(self, doc_id: str, page: int = 1) -> Optional[dict]:
+    def get_document_page(self, doc_id: str, page: int = 1) -> dict | None:
         """Retrieve a paginated page of a document."""
         doc = self.get_document(doc_id)
         if not doc:
@@ -251,7 +270,7 @@ class VectorStore:
             }
 
         start = (page - 1) * _PAGE_SIZE
-        chunk = content[start:start + _PAGE_SIZE]
+        chunk = content[start : start + _PAGE_SIZE]
 
         return {
             "doc_id": doc_id,
@@ -289,13 +308,14 @@ class VectorStore:
         self,
         query: str,
         limit: int = 10,
-        category: Optional[str] = None,
+        category: str | None = None,
     ) -> list[dict]:
         """
         Semantic search across all documents.
         Returns list of unique documents ranked by relevance.
         """
         collection = self._ensure_open()
+        self._ensure_embeddings()
 
         where_filter = {"doc_id": {"$ne": ""}}  # non-empty doc_id
         if category:
@@ -314,12 +334,13 @@ class VectorStore:
 
         # Deduplicate by doc_id, keep best score
         seen = {}
-        for idx, (chunk_id, doc_text, meta, distance) in enumerate(zip(
+        for _chunk_id, doc_text, meta, distance in zip(
             results["ids"][0],
             results["documents"][0],
             results["metadatas"][0],
             results["distances"][0],
-        )):
+            strict=True,
+        ):
             doc_id = meta.get("doc_id", "")
             if doc_id not in seen or distance < seen[doc_id]["distance"]:
                 seen[doc_id] = {

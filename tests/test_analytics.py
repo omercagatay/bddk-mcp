@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from analytics import analyze_trends, build_digest, compare_metrics, check_updates
+from analytics import analyze_trends, build_digest, check_updates, compare_metrics
 
 
 def _make_response(text: str = "", status_code: int = 200, json_data=None):
@@ -16,9 +16,7 @@ def _make_response(text: str = "", status_code: int = 200, json_data=None):
     if json_data is not None:
         resp.json = MagicMock(return_value=json_data)
     if status_code >= 400:
-        resp.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "Error", request=MagicMock(), response=resp
-        )
+        resp.raise_for_status.side_effect = httpx.HTTPStatusError("Error", request=MagicMock(), response=resp)
     return resp
 
 
@@ -32,12 +30,24 @@ BULLETIN_PAGE = """
 BULLETIN_API = {
     "Baslik": "Toplam Krediler (TRY) [TP]",
     "XEkseni": [
-        "01.01.2026", "08.01.2026", "15.01.2026", "22.01.2026",
-        "29.01.2026", "05.02.2026", "12.02.2026", "19.02.2026",
+        "01.01.2026",
+        "08.01.2026",
+        "15.01.2026",
+        "22.01.2026",
+        "29.01.2026",
+        "05.02.2026",
+        "12.02.2026",
+        "19.02.2026",
     ],
     "YEkseni": [
-        10000.0, 10100.0, 10050.0, 10200.0,
-        10300.0, 10150.0, 10400.0, 10500.0,
+        10000.0,
+        10100.0,
+        10050.0,
+        10200.0,
+        10300.0,
+        10150.0,
+        10400.0,
+        10500.0,
     ],
 }
 
@@ -84,11 +94,14 @@ async def test_analyze_trends_includes_minmax(mock_http):
 
 
 async def test_analyze_trends_not_enough_data(mock_http):
-    _setup_bulletin_mock(mock_http, {
-        "Baslik": "Test",
-        "XEkseni": ["01.01.2026"],
-        "YEkseni": [100.0],
-    })
+    _setup_bulletin_mock(
+        mock_http,
+        {
+            "Baslik": "Test",
+            "XEkseni": ["01.01.2026"],
+            "YEkseni": [100.0],
+        },
+    )
     result = await analyze_trends(mock_http)
     assert "error" in result
     assert "Not enough" in result["error"]
@@ -119,7 +132,11 @@ async def test_compare_metrics_multiple(mock_http):
 async def test_compare_metrics_max_four(mock_http):
     _setup_bulletin_mock(mock_http)
     result = await compare_metrics(
-        mock_http, ["1", "2", "3", "4", "5", "6"], "TRY", "1", 90,
+        mock_http,
+        ["1", "2", "3", "4", "5", "6"],
+        "TRY",
+        "1",
+        90,
     )
     # Should cap at 4
     assert len(result["metrics"]) == 4
