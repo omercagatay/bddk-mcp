@@ -1056,19 +1056,19 @@ if __name__ == "__main__":
 
         app = mcp.streamable_http_app()
 
-        @app.on_event("startup")
-        async def _on_startup():
-            print("[STARTUP] event fired", flush=True)
+        async def _run_server():
             auto_sync = os.environ.get("BDDK_AUTO_SYNC", "").lower() in ("1", "true", "yes")
-            if auto_sync:
-                asyncio.create_task(_startup_sync())
-                print("[STARTUP] sync task created", flush=True)
+            port = int(os.environ.get("PORT", 8000))
+            config = uvicorn.Config(app, host="0.0.0.0", port=port)
+            server = uvicorn.Server(config)
 
-        @app.on_event("shutdown")
-        async def _on_shutdown():
+            if auto_sync:
+                print("[STARTUP] creating sync task", flush=True)
+                asyncio.create_task(_startup_sync())
+
+            await server.serve()
             await _graceful_shutdown()
 
-        port = int(os.environ.get("PORT", 8000))
-        uvicorn.run(app, host="0.0.0.0", port=port)
+        asyncio.run(_run_server())
     else:
         mcp.run(transport=_transport)
