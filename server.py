@@ -54,8 +54,7 @@ mcp = FastMCP(
     instructions="Search and retrieve BDDK (Turkish Banking Regulation) decisions and regulations (mevzuat)",
     host="0.0.0.0",
     port=int(os.environ.get("PORT", 8000)),
-    stateless_http=False,
-    lifespan=_app_lifespan if _transport == "streamable-http" else None,
+    stateless_http=True,
 )
 
 _client: BddkApiClient | None = None
