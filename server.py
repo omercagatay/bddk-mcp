@@ -26,12 +26,34 @@ from vector_store import VectorStore
 configure_logging()
 logger = logging.getLogger(__name__)
 
+import contextlib
+from collections.abc import AsyncIterator
+
+
+@contextlib.asynccontextmanager
+async def _app_lifespan(app: FastMCP) -> AsyncIterator[None]:
+    """Lifecycle hook: start background sync on deploy, graceful shutdown."""
+    auto_sync = os.environ.get("BDDK_AUTO_SYNC", "").lower() in ("1", "true", "yes")
+    logger.info("Lifespan started, auto_sync=%s", auto_sync)
+    task = None
+    if auto_sync:
+        task = asyncio.create_task(_startup_sync())
+        logger.info("Background sync task created")
+    yield
+    await _graceful_shutdown()
+    if task and not task.done():
+        task.cancel()
+
+
+_transport = os.environ.get("MCP_TRANSPORT", "stdio")
+
 mcp = FastMCP(
     "BDDK",
     instructions="Search and retrieve BDDK (Turkish Banking Regulation) decisions and regulations (mevzuat)",
     host="0.0.0.0",
     port=int(os.environ.get("PORT", 8000)),
     stateless_http=True,
+    lifespan=_app_lifespan if _transport == "streamable-http" else None,
 )
 
 _client: BddkApiClient | None = None
@@ -1024,29 +1046,7 @@ if __name__ == "__main__":
     except ImportError:
         pass
 
-    transport = os.environ.get("MCP_TRANSPORT", "stdio")
-    logger.info("Transport: %s", transport)
+    logger.info("Transport: %s", _transport)
     logger.info("BDDK_AUTO_SYNC=%s", os.environ.get("BDDK_AUTO_SYNC", "(not set)"))
 
-    # For streamable-http: use lifespan to schedule background sync
-    if transport == "streamable-http":
-        import contextlib
-
-        @contextlib.asynccontextmanager
-        async def lifespan(app):
-            auto_sync = os.environ.get("BDDK_AUTO_SYNC", "").lower() in ("1", "true", "yes")
-            logger.info("Lifespan started, auto_sync=%s", auto_sync)
-            if auto_sync:
-                task = asyncio.create_task(_startup_sync())
-                logger.info("Background sync task created")
-            else:
-                task = None
-            yield
-            # Graceful shutdown
-            await _graceful_shutdown()
-            if task and not task.done():
-                task.cancel()
-
-        mcp.settings.lifespan = lifespan
-
-    mcp.run(transport=transport)
+    mcp.run(transport=_transport)
