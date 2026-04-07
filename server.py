@@ -1,21 +1,30 @@
 """MCP server exposing BDDK decision search, document retrieval, and data tools."""
 
+import asyncio
+import logging
 import os
+import time
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
+from analytics import analyze_trends, build_digest, check_updates, compare_metrics
 from client import BddkApiClient, _turkish_lower
-from doc_store import DocumentStore
-from vector_store import VectorStore
 from data_sources import (
     fetch_announcements,
     fetch_bulletin_snapshot,
     fetch_institutions,
     fetch_weekly_bulletin,
 )
-from analytics import analyze_trends, build_digest, compare_metrics, check_updates
+from doc_store import DocumentStore
+from exceptions import BddkError, BddkStorageError, BddkVectorStoreError
+from logging_config import configure_logging
+from metrics import metrics
 from models import BddkSearchRequest
+from vector_store import VectorStore
+
+configure_logging()
+logger = logging.getLogger(__name__)
 
 mcp = FastMCP(
     "BDDK",
@@ -28,6 +37,30 @@ mcp = FastMCP(
 _client: BddkApiClient | None = None
 _doc_store: DocumentStore | None = None
 _vector_store: VectorStore | None = None
+_server_start_time: float = time.time()
+_last_sync_time: float | None = None
+
+# TTL cache for search results (avoids redundant FTS/ChromaDB queries)
+_search_cache: dict[str, tuple[float, str]] = {}
+_SEARCH_CACHE_TTL = 300  # 5 minutes
+_SEARCH_CACHE_MAX = 200  # max entries
+
+
+def _cached_search(cache_key: str) -> str | None:
+    """Return cached result if fresh, else None."""
+    entry = _search_cache.get(cache_key)
+    if entry and (time.time() - entry[0]) < _SEARCH_CACHE_TTL:
+        return entry[1]
+    return None
+
+
+def _store_search(cache_key: str, result: str) -> None:
+    """Store a search result in the TTL cache."""
+    # Evict oldest entries if cache is full
+    if len(_search_cache) >= _SEARCH_CACHE_MAX:
+        oldest_key = min(_search_cache, key=lambda k: _search_cache[k][0])
+        del _search_cache[oldest_key]
+    _search_cache[cache_key] = (time.time(), result)
 
 
 async def _get_doc_store() -> DocumentStore:
@@ -81,10 +114,19 @@ async def search_bddk_decisions(
         date_from: Optional start date filter (DD.MM.YYYY)
         date_to: Optional end date filter (DD.MM.YYYY)
     """
+    cache_key = f"decisions:{keywords}:{page}:{page_size}:{category}:{date_from}:{date_to}"
+    cached = _cached_search(cache_key)
+    if cached:
+        return cached
+
     client = await _get_client()
     request = BddkSearchRequest(
-        keywords=keywords, page=page, page_size=page_size,
-        category=category, date_from=date_from, date_to=date_to,
+        keywords=keywords,
+        page=page,
+        page_size=page_size,
+        category=category,
+        date_from=date_from,
+        date_to=date_to,
     )
     result = await client.search_decisions(request)
 
@@ -98,7 +140,9 @@ async def search_bddk_decisions(
         lines.append(f"**{d.title}**{date_info}{cat_info}")
         lines.append(f"  Document ID: {d.document_id}")
         lines.append(f"  {d.content}\n")
-    return "\n".join(lines)
+    output = "\n".join(lines)
+    _store_search(cache_key, output)
+    return output
 
 
 @mcp.tool()
@@ -123,8 +167,8 @@ async def get_bddk_document(
         if page and page["content"] and "Invalid page" not in page["content"]:
             header = f"Document {document_id} — Page {page['page_number']}/{page['total_pages']}\n\n"
             return header + page["content"]
-    except Exception:
-        pass
+    except (RuntimeError, BddkVectorStoreError) as e:
+        logger.debug("ChromaDB lookup failed for %s, falling back: %s", document_id, e)
 
     # Fallback to SQLite → live fetch
     client = await _get_client()
@@ -187,8 +231,7 @@ async def search_bddk_institutions(
     if keywords:
         kw = _turkish_lower(keywords)
         institutions = [
-            i for i in institutions
-            if kw in _turkish_lower(i["name"]) or kw in _turkish_lower(i.get("type", ""))
+            i for i in institutions if kw in _turkish_lower(i["name"]) or kw in _turkish_lower(i.get("type", ""))
         ]
 
     if not institutions:
@@ -225,7 +268,12 @@ async def get_bddk_bulletin(
     """
     client = await _get_client()
     data = await fetch_weekly_bulletin(
-        client._http, metric_id, currency, days, date, column,
+        client._http,
+        metric_id,
+        currency,
+        days,
+        date,
+        column,
     )
 
     if "error" in data:
@@ -237,7 +285,7 @@ async def get_bddk_bulletin(
     values = data.get("values", [])
 
     if dates and values:
-        for d, v in zip(dates[-10:], values[-10:]):
+        for d, v in zip(dates[-10:], values[-10:], strict=False):
             lines.append(f"  {d}: {v}")
     else:
         lines.append("No data returned for the given parameters.")
@@ -263,9 +311,7 @@ async def get_bddk_bulletin_snapshot() -> str:
     lines.append(f"{'#':<4} {'Metric':<50} {'TP':>15} {'YP':>15} {'ID'}")
     lines.append("-" * 100)
     for r in rows:
-        lines.append(
-            f"{r['row_number']:<4} {r['name']:<50} {r['tp']:>15} {r['yp']:>15} {r['metric_id']}"
-        )
+        lines.append(f"{r['row_number']:<4} {r['name']:<50} {r['tp']:>15} {r['yp']:>15} {r['metric_id']}")
     return "\n".join(lines)
 
 
@@ -300,10 +346,7 @@ async def search_bddk_announcements(
 
     if keywords:
         kw = _turkish_lower(keywords)
-        announcements = [
-            a for a in announcements
-            if kw in _turkish_lower(a.get("title", ""))
-        ]
+        announcements = [a for a in announcements if kw in _turkish_lower(a.get("title", ""))]
 
     if not announcements:
         return "No announcements found."
@@ -343,7 +386,11 @@ async def analyze_bulletin_trends(
     """
     client = await _get_client()
     result = await analyze_trends(
-        client._http, metric_id, currency, column, lookback_weeks,
+        client._http,
+        metric_id,
+        currency,
+        column,
+        lookback_weeks,
     )
 
     if "error" in result:
@@ -450,9 +497,7 @@ async def compare_bulletin_metrics(
             lines.append(f"{m['metric_id']:<55} {'HATA':>15} {'-':>12}")
         else:
             title = m["title"][:55]
-            lines.append(
-                f"{title:<55} {m['current']:>15,.2f} {m['wow_pct']:>+11.2f}%"
-            )
+            lines.append(f"{title:<55} {m['current']:>15,.2f} {m['wow_pct']:>+11.2f}%")
 
     return "\n".join(lines)
 
@@ -474,6 +519,7 @@ async def check_bddk_updates() -> str:
     else:
         # First run — fetch and store current state as baseline
         from data_sources import fetch_announcements as _fa
+
         for cat_id in [39, 40]:
             anns = await _fa(client._http, cat_id)
             for a in anns:
@@ -528,9 +574,15 @@ async def get_bddk_monthly(
             20001=Kamu, 20002=Özel, 20003=Yabancı
     """
     from data_sources import fetch_monthly_bulletin
+
     client = await _get_client()
     result = await fetch_monthly_bulletin(
-        client._http, table_no, year, month, currency, party_code,
+        client._http,
+        table_no,
+        year,
+        month,
+        currency,
+        party_code,
     )
 
     if "error" in result:
@@ -546,9 +598,7 @@ async def get_bddk_monthly(
         lines.append(f"{'Kalem':<55} {'TP':>15} {'YP':>15} {'Toplam':>15}")
         lines.append("-" * 105)
         for r in rows:
-            lines.append(
-                f"{r['name']:<55} {r.get('tp',''):>15} {r.get('yp',''):>15} {r.get('total',''):>15}"
-            )
+            lines.append(f"{r['name']:<55} {r.get('tp', ''):>15} {r.get('yp', ''):>15} {r.get('total', ''):>15}")
 
     return "\n".join(lines)
 
@@ -573,7 +623,7 @@ async def sync_bddk_documents(
         document_id: Sync a single document by ID (e.g. "1291" or "mevzuat_42628")
         concurrency: Number of parallel downloads (default 5)
     """
-    from doc_sync import DocumentSyncer, SyncResult
+    from doc_sync import DocumentSyncer
 
     store = await _get_doc_store()
     client = await _get_client()
@@ -635,6 +685,11 @@ async def search_document_store(
         category: Optional category filter (e.g. "Yönetmelik", "Rehber", "Kurul Kararı")
         limit: Maximum results to return (default 10)
     """
+    cache_key = f"semantic:{query}:{category}:{limit}"
+    cached = _cached_search(cache_key)
+    if cached:
+        return cached
+
     vs = _get_vector_store()
     hits = vs.search(query, limit=limit, category=category)
 
@@ -651,6 +706,36 @@ async def search_document_store(
         if h.get("snippet"):
             lines.append(f"  ...{h['snippet'][:200]}...")
         lines.append("")
+    output = "\n".join(lines)
+    _store_search(cache_key, output)
+    return output
+
+
+@mcp.tool()
+async def get_document_history(
+    document_id: str,
+) -> str:
+    """
+    Get version history for a BDDK document.
+
+    Shows all previous versions with timestamps and content hashes.
+    Useful for tracking regulation changes over time.
+
+    Args:
+        document_id: The document ID (from search results)
+    """
+    store = await _get_doc_store()
+    history = await store.get_document_history(document_id)
+
+    if not history:
+        return f"No version history found for document {document_id}."
+
+    lines = [f"**Version History for {document_id}** ({len(history)} version(s)):\n"]
+    for v in history:
+        lines.append(
+            f"  v{v['version']} — {v['synced_at']} (hash: {v['content_hash'][:12]}..., {v['content_length']} chars)"
+        )
+
     return "\n".join(lines)
 
 
@@ -673,17 +758,17 @@ async def document_store_stats() -> str:
             lines.append("  Categories:")
             for cat, count in vs_stats["categories"].items():
                 lines.append(f"    {cat}: {count}")
-    except Exception as e:
+    except (RuntimeError, BddkVectorStoreError) as e:
         lines.append(f"  ChromaDB: unavailable ({e})")
 
     # SQLite stats
     try:
         store = await _get_doc_store()
         st = await store.stats()
-        lines.append(f"\n**SQLite (Backup Store):**")
+        lines.append("\n**SQLite (Backup Store):**")
         lines.append(f"  Documents: {st.total_documents}")
         lines.append(f"  Size: {st.total_size_mb} MB")
-    except Exception as e:
+    except (RuntimeError, BddkStorageError) as e:
         lines.append(f"  SQLite: unavailable ({e})")
 
     return "\n".join(lines)
@@ -691,6 +776,7 @@ async def document_store_stats() -> str:
 
 async def _startup_sync() -> None:
     """Auto-sync documents on deploy: SQLite download + ChromaDB embedding."""
+    global _last_sync_time
     try:
         from doc_sync import DocumentSyncer
 
@@ -705,14 +791,17 @@ async def _startup_sync() -> None:
         if st.total_documents < cache_size * 0.9:
             logger.info(
                 "SQLite incomplete (%d/%d) — downloading...",
-                st.total_documents, cache_size,
+                st.total_documents,
+                cache_size,
             )
             items = [d.model_dump() for d in client._cache]
             async with DocumentSyncer(store, prefer_nougat=False) as syncer:
                 report = await syncer.sync_all(items, concurrency=10, force=False)
             logger.info(
                 "SQLite sync: %d downloaded, %d failed, %.1fs",
-                report.downloaded, report.failed, report.elapsed_seconds,
+                report.downloaded,
+                report.failed,
+                report.elapsed_seconds,
             )
         else:
             logger.info("SQLite has %d/%d documents, OK", st.total_documents, cache_size)
@@ -720,7 +809,9 @@ async def _startup_sync() -> None:
         # Phase 2: ChromaDB migration — embed documents from SQLite
         await _migrate_to_chromadb(store)
 
-    except Exception as e:
+        _last_sync_time = time.time()
+
+    except (BddkError, RuntimeError, OSError) as e:
         logger.error("Startup sync failed: %s", e)
 
 
@@ -734,16 +825,19 @@ async def _migrate_to_chromadb(store: DocumentStore) -> None:
         if vs_stats["total_documents"] >= sqlite_stats.total_documents * 0.9:
             logger.info(
                 "ChromaDB has %d/%d documents, skipping migration",
-                vs_stats["total_documents"], sqlite_stats.total_documents,
+                vs_stats["total_documents"],
+                sqlite_stats.total_documents,
             )
             return
 
         logger.info(
             "ChromaDB incomplete (%d/%d) — migrating from SQLite...",
-            vs_stats["total_documents"], sqlite_stats.total_documents,
+            vs_stats["total_documents"],
+            sqlite_stats.total_documents,
         )
 
         import time
+
         start = time.time()
         docs = await store.list_documents(limit=2000)
         migrated = 0
@@ -776,16 +870,13 @@ async def _migrate_to_chromadb(store: DocumentStore) -> None:
         elapsed = time.time() - start
         logger.info(
             "ChromaDB migration complete: %d docs, %d chunks, %.1fs",
-            migrated, total_chunks, elapsed,
+            migrated,
+            total_chunks,
+            elapsed,
         )
-    except Exception as e:
+    except (BddkError, RuntimeError, OSError) as e:
         logger.error("ChromaDB migration failed: %s", e)
 
-
-import asyncio
-import logging as _logging
-
-logger = _logging.getLogger(__name__)
 
 _sync_task: asyncio.Task | None = None
 
@@ -814,7 +905,122 @@ async def _schedule_background_sync() -> None:
         _sync_task = asyncio.create_task(_startup_sync())
 
 
+# -- Health Check Tool --------------------------------------------------------
+
+
+@mcp.tool()
+async def health_check() -> str:
+    """
+    Check server health status.
+
+    Returns uptime, cache status, store stats, and last sync time.
+    """
+    uptime_s = int(time.time() - _server_start_time)
+    hours, remainder = divmod(uptime_s, 3600)
+    minutes, seconds = divmod(remainder, 60)
+
+    lines = ["**BDDK MCP Server Health**\n"]
+    lines.append("  Status: OK")
+    lines.append(f"  Uptime: {hours}h {minutes}m {seconds}s")
+
+    if _last_sync_time:
+        ago = int(time.time() - _last_sync_time)
+        lines.append(f"  Last sync: {ago}s ago")
+    else:
+        lines.append("  Last sync: never")
+
+    # Cache status
+    try:
+        client = await _get_client()
+        status = client.cache_status()
+        lines.append(f"  Cache items: {status['total_items']}")
+        lines.append(f"  Cache valid: {status['cache_valid']}")
+    except (RuntimeError, BddkError):
+        lines.append("  Cache: unavailable")
+
+    # Store status
+    try:
+        store = await _get_doc_store()
+        st = await store.stats()
+        lines.append(f"  SQLite docs: {st.total_documents}")
+    except (RuntimeError, BddkStorageError):
+        lines.append("  SQLite: unavailable")
+
+    sync_status = "running" if (_sync_task and not _sync_task.done()) else "idle"
+    lines.append(f"  Sync status: {sync_status}")
+
+    return "\n".join(lines)
+
+
+@mcp.tool()
+async def bddk_metrics() -> str:
+    """
+    Show server performance metrics.
+
+    Includes request counts, average latency per tool, error rates, and cache statistics.
+    """
+    m = metrics.summary()
+
+    lines = ["**BDDK MCP Server Metrics**\n"]
+    lines.append(f"  Uptime: {m['uptime_seconds']}s")
+    lines.append(f"  Total requests: {m['total_requests']}")
+    lines.append(f"  Total errors: {m['total_errors']}")
+    lines.append(f"  Cache hit rate: {m['cache_hit_rate']}%")
+    lines.append(f"  Cache hits/misses: {m['cache_hits']}/{m['cache_misses']}")
+
+    if m["tools"]:
+        lines.append("\n**Per-Tool Metrics:**")
+        lines.append(f"  {'Tool':<35} {'Requests':>10} {'Errors':>8} {'Avg ms':>10}")
+        lines.append("  " + "-" * 65)
+        for t in m["tools"]:
+            lines.append(f"  {t['tool']:<35} {t['requests']:>10} {t['errors']:>8} {t['avg_latency_ms']:>10.1f}")
+
+    return "\n".join(lines)
+
+
+# -- Graceful Shutdown --------------------------------------------------------
+
+
+async def _graceful_shutdown() -> None:
+    """Flush stores and close connections cleanly."""
+    logger.info("Graceful shutdown initiated...")
+
+    # Cancel running sync
+    if _sync_task and not _sync_task.done():
+        _sync_task.cancel()
+        try:
+            await _sync_task
+        except asyncio.CancelledError:
+            pass
+
+    # Close document store (flushes WAL)
+    if _doc_store is not None:
+        await _doc_store.close()
+        logger.info("DocumentStore closed")
+
+    # Close vector store
+    if _vector_store is not None:
+        _vector_store.close()
+        logger.info("VectorStore closed")
+
+    # Close HTTP client
+    if _client is not None:
+        await _client.close()
+        logger.info("HTTP client closed")
+
+    logger.info("Graceful shutdown complete")
+
+
 if __name__ == "__main__":
+    # Use uvloop for ~20-30% faster async I/O
+    try:
+        import uvloop
+
+        uvloop.install()
+        logger.info("uvloop installed — faster async event loop active")
+    except ImportError:
+        pass
+
     transport = os.environ.get("MCP_TRANSPORT", "stdio")
 
     # For streamable-http: use lifespan to schedule background sync
@@ -823,8 +1029,14 @@ if __name__ == "__main__":
 
         @contextlib.asynccontextmanager
         async def lifespan(app):
-            task = asyncio.create_task(_startup_sync()) if os.environ.get("BDDK_AUTO_SYNC", "").lower() in ("1", "true", "yes") else None
+            task = (
+                asyncio.create_task(_startup_sync())
+                if os.environ.get("BDDK_AUTO_SYNC", "").lower() in ("1", "true", "yes")
+                else None
+            )
             yield
+            # Graceful shutdown
+            await _graceful_shutdown()
             if task and not task.done():
                 task.cancel()
 

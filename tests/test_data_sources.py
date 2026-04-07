@@ -1,10 +1,10 @@
 """Tests for data_sources.py — institution, bulletin, and announcement parsers."""
 
-import re
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
+from bs4 import BeautifulSoup
 
 from data_sources import (
     _parse_card_institutions,
@@ -14,9 +14,6 @@ from data_sources import (
     fetch_institutions,
     fetch_weekly_bulletin,
 )
-
-from bs4 import BeautifulSoup
-
 
 # -- Institution parsing tests --
 
@@ -149,9 +146,7 @@ def _make_response(text: str, status_code: int = 200) -> MagicMock:
     resp.status_code = status_code
     resp.raise_for_status = MagicMock()
     if status_code >= 400:
-        resp.raise_for_status.side_effect = httpx.HTTPStatusError(
-            "Error", request=MagicMock(), response=resp
-        )
+        resp.raise_for_status.side_effect = httpx.HTTPStatusError("Error", request=MagicMock(), response=resp)
     return resp
 
 
