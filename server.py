@@ -40,6 +40,28 @@ _vector_store: VectorStore | None = None
 _server_start_time: float = time.time()
 _last_sync_time: float | None = None
 
+# TTL cache for search results (avoids redundant FTS/ChromaDB queries)
+_search_cache: dict[str, tuple[float, str]] = {}
+_SEARCH_CACHE_TTL = 300  # 5 minutes
+_SEARCH_CACHE_MAX = 200  # max entries
+
+
+def _cached_search(cache_key: str) -> str | None:
+    """Return cached result if fresh, else None."""
+    entry = _search_cache.get(cache_key)
+    if entry and (time.time() - entry[0]) < _SEARCH_CACHE_TTL:
+        return entry[1]
+    return None
+
+
+def _store_search(cache_key: str, result: str) -> None:
+    """Store a search result in the TTL cache."""
+    # Evict oldest entries if cache is full
+    if len(_search_cache) >= _SEARCH_CACHE_MAX:
+        oldest_key = min(_search_cache, key=lambda k: _search_cache[k][0])
+        del _search_cache[oldest_key]
+    _search_cache[cache_key] = (time.time(), result)
+
 
 async def _get_doc_store() -> DocumentStore:
     global _doc_store
@@ -92,6 +114,11 @@ async def search_bddk_decisions(
         date_from: Optional start date filter (DD.MM.YYYY)
         date_to: Optional end date filter (DD.MM.YYYY)
     """
+    cache_key = f"decisions:{keywords}:{page}:{page_size}:{category}:{date_from}:{date_to}"
+    cached = _cached_search(cache_key)
+    if cached:
+        return cached
+
     client = await _get_client()
     request = BddkSearchRequest(
         keywords=keywords,
@@ -113,7 +140,9 @@ async def search_bddk_decisions(
         lines.append(f"**{d.title}**{date_info}{cat_info}")
         lines.append(f"  Document ID: {d.document_id}")
         lines.append(f"  {d.content}\n")
-    return "\n".join(lines)
+    output = "\n".join(lines)
+    _store_search(cache_key, output)
+    return output
 
 
 @mcp.tool()
@@ -656,6 +685,11 @@ async def search_document_store(
         category: Optional category filter (e.g. "Yönetmelik", "Rehber", "Kurul Kararı")
         limit: Maximum results to return (default 10)
     """
+    cache_key = f"semantic:{query}:{category}:{limit}"
+    cached = _cached_search(cache_key)
+    if cached:
+        return cached
+
     vs = _get_vector_store()
     hits = vs.search(query, limit=limit, category=category)
 
@@ -672,7 +706,9 @@ async def search_document_store(
         if h.get("snippet"):
             lines.append(f"  ...{h['snippet'][:200]}...")
         lines.append("")
-    return "\n".join(lines)
+    output = "\n".join(lines)
+    _store_search(cache_key, output)
+    return output
 
 
 @mcp.tool()
@@ -976,6 +1012,15 @@ async def _graceful_shutdown() -> None:
 
 
 if __name__ == "__main__":
+    # Use uvloop for ~20-30% faster async I/O
+    try:
+        import uvloop
+
+        uvloop.install()
+        logger.info("uvloop installed — faster async event loop active")
+    except ImportError:
+        pass
+
     transport = os.environ.get("MCP_TRANSPORT", "stdio")
 
     # For streamable-http: use lifespan to schedule background sync
