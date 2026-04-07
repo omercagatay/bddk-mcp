@@ -1,4 +1,12 @@
 from client import BddkApiClient
+from exceptions import (
+    BddkCacheError,
+    BddkError,
+    BddkExtractionError,
+    BddkScrapingError,
+    BddkStorageError,
+    BddkVectorStoreError,
+)
 from models import (
     BddkDecisionSummary,
     BddkDocumentMarkdown,
@@ -8,8 +16,14 @@ from models import (
 
 __all__ = [
     "BddkApiClient",
+    "BddkCacheError",
     "BddkDecisionSummary",
     "BddkDocumentMarkdown",
+    "BddkError",
+    "BddkExtractionError",
+    "BddkScrapingError",
     "BddkSearchRequest",
     "BddkSearchResult",
+    "BddkStorageError",
+    "BddkVectorStoreError",
 ]

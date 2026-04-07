@@ -6,11 +6,10 @@ import re
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 from urllib.parse import parse_qs, urlparse
 
 import httpx
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup
 from markitdown import MarkItDown
 
 from doc_store import DocumentStore
@@ -78,30 +77,73 @@ _MEVZUAT_TUR_MAP = {
 
 # Common Turkish suffixes for basic stemming
 _TURKISH_SUFFIXES = [
-    "ları", "leri", "ların", "lerin", "lara", "lere",
-    "lardan", "lerden", "larla", "lerle",
-    "lar", "ler",
-    "ının", "inin", "unun", "ünün",
-    "ına", "ine", "una", "üne",
-    "ında", "inde", "unda", "ünde",
-    "ından", "inden", "undan", "ünden",
-    "ıyla", "iyle", "uyla", "üyle",
-    "nın", "nin", "nun", "nün",
-    "dan", "den", "tan", "ten",
-    "ya", "ye",
-    "da", "de", "ta", "te",
-    "ın", "in", "un", "ün",
-    "na", "ne",
-    "dır", "dir", "dur", "dür",
-    "tır", "tir", "tur", "tür",
+    "ları",
+    "leri",
+    "ların",
+    "lerin",
+    "lara",
+    "lere",
+    "lardan",
+    "lerden",
+    "larla",
+    "lerle",
+    "lar",
+    "ler",
+    "ının",
+    "inin",
+    "unun",
+    "ünün",
+    "ına",
+    "ine",
+    "una",
+    "üne",
+    "ında",
+    "inde",
+    "unda",
+    "ünde",
+    "ından",
+    "inden",
+    "undan",
+    "ünden",
+    "ıyla",
+    "iyle",
+    "uyla",
+    "üyle",
+    "nın",
+    "nin",
+    "nun",
+    "nün",
+    "dan",
+    "den",
+    "tan",
+    "ten",
+    "ya",
+    "ye",
+    "da",
+    "de",
+    "ta",
+    "te",
+    "ın",
+    "in",
+    "un",
+    "ün",
+    "na",
+    "ne",
+    "dır",
+    "dir",
+    "dur",
+    "dür",
+    "tır",
+    "tir",
+    "tur",
+    "tür",
 ]
 
 
 def _turkish_lower(text: str) -> str:
     """Turkish-aware lowercase conversion."""
     return (
-        text
-        .replace("İ", "i")
+        text.replace("İ", "i")
         .replace("I", "ı")
         .replace("Ş", "ş")
         .replace("Ç", "ç")
@@ -120,7 +162,7 @@ def _turkish_stem(word: str) -> str:
     return word
 
 
-def _parse_date(date_str: str) -> Optional[datetime]:
+def _parse_date(date_str: str) -> datetime | None:
     """Parse DD.MM.YYYY date string to datetime."""
     try:
         return datetime.strptime(date_str, "%d.%m.%Y")
@@ -128,7 +170,7 @@ def _parse_date(date_str: str) -> Optional[datetime]:
         return None
 
 
-def _external_url_to_id(url: str) -> Optional[str]:
+def _external_url_to_id(url: str) -> str | None:
     """Generate a stable synthetic ID from an external URL.
 
     For mevzuat.gov.tr URLs, extracts MevzuatNo to produce IDs like 'mevzuat_42628'.
@@ -151,7 +193,7 @@ def _external_url_to_id(url: str) -> Optional[str]:
     return None
 
 
-def _mevzuat_to_pdf_url(mevzuat_no: str, mevzuat_tur: str = "7", mevzuat_tertip: str = "5") -> Optional[str]:
+def _mevzuat_to_pdf_url(mevzuat_no: str, mevzuat_tur: str = "7", mevzuat_tertip: str = "5") -> str | None:
     """Convert mevzuat.gov.tr parameters to a direct PDF download URL."""
     path_segment = _MEVZUAT_TUR_MAP.get(mevzuat_tur)
     if not path_segment:
@@ -169,7 +211,7 @@ class BddkApiClient:
     def __init__(
         self,
         request_timeout: float = 60.0,
-        doc_store: Optional[DocumentStore] = None,
+        doc_store: DocumentStore | None = None,
     ) -> None:
         self._http = httpx.AsyncClient(
             headers={
@@ -186,7 +228,7 @@ class BddkApiClient:
         )
         self._md = MarkItDown()
         self._doc_store = doc_store
-        self._cache: List[BddkDecisionSummary] = []
+        self._cache: list[BddkDecisionSummary] = []
         self._cache_timestamp: float = 0.0
         self._page_errors: dict[int, str] = {}
 
@@ -216,9 +258,10 @@ class BddkApiClient:
             except (httpx.HTTPStatusError, httpx.TransportError) as exc:
                 last_exc = exc
                 if attempt < _MAX_RETRIES - 1:
-                    wait = 2 ** attempt
+                    wait = 2**attempt
                     logger.warning("Retry %d/%d for %s: %s", attempt + 1, _MAX_RETRIES, url, exc)
                     import asyncio
+
                     await asyncio.sleep(wait)
         raise last_exc  # type: ignore[misc]
 
@@ -233,7 +276,7 @@ class BddkApiClient:
             }
             _CACHE_FILE.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
             logger.info("Cache saved to disk: %d items", len(self._cache))
-        except Exception as e:
+        except (OSError, TypeError, ValueError) as e:
             logger.warning("Failed to save cache to disk: %s", e)
 
     def _load_cache_from_disk(self) -> bool:
@@ -249,17 +292,14 @@ class BddkApiClient:
             self._cache_timestamp = ts
             logger.info("Cache loaded from disk: %d items", len(self._cache))
             return True
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
             logger.warning("Failed to load cache from disk: %s", e)
             return False
 
     # -- cache ------------------------------------------------------------
 
     def _is_cache_valid(self) -> bool:
-        return (
-            len(self._cache) > 0
-            and (time.time() - self._cache_timestamp) < _CACHE_TTL_SECONDS
-        )
+        return len(self._cache) > 0 and (time.time() - self._cache_timestamp) < _CACHE_TTL_SECONDS
 
     def cache_status(self) -> dict:
         """Return cache statistics."""
@@ -275,9 +315,9 @@ class BddkApiClient:
 
     # -- parsers ----------------------------------------------------------
 
-    def _extract_links(self, soup: BeautifulSoup, category: str) -> List[BddkDecisionSummary]:
+    def _extract_links(self, soup: BeautifulSoup, category: str) -> list[BddkDecisionSummary]:
         """Extract document links from a soup fragment, handling both internal and external links."""
-        decisions: List[BddkDecisionSummary] = []
+        decisions: list[BddkDecisionSummary] = []
         seen: set[str] = set()
 
         for anchor in soup.find_all("a", href=True):
@@ -295,34 +335,44 @@ class BddkApiClient:
             if doc_id_match:
                 doc_id = doc_id_match.group(1)
                 source_url = f"{_BDDK_BASE_URL}{href}" if href.startswith("/") else href
-                decisions.append(BddkDecisionSummary(
-                    title=text, document_id=doc_id, content=text,
-                    category=category, source_url=source_url,
-                ))
+                decisions.append(
+                    BddkDecisionSummary(
+                        title=text,
+                        document_id=doc_id,
+                        content=text,
+                        category=category,
+                        source_url=source_url,
+                    )
+                )
                 continue
 
             # External link (mevzuat.gov.tr or other)
             if href.startswith("http"):
                 synthetic_id = _external_url_to_id(href)
                 if synthetic_id:
-                    decisions.append(BddkDecisionSummary(
-                        title=text, document_id=synthetic_id, content=text,
-                        category=category, source_url=href,
-                    ))
+                    decisions.append(
+                        BddkDecisionSummary(
+                            title=text,
+                            document_id=synthetic_id,
+                            content=text,
+                            category=category,
+                            source_url=href,
+                        )
+                    )
 
         return decisions
 
-    async def _fetch_and_parse_decision_page(self, list_id: int) -> List[BddkDecisionSummary]:
+    async def _fetch_and_parse_decision_page(self, list_id: int) -> list[BddkDecisionSummary]:
         """Parse pages 55/56: DokumanGetir links with (date - number) format."""
         url = f"{_BDDK_BASE_URL}/Mevzuat/Liste/{list_id}"
         response = await self._fetch_with_retry(url)
 
         soup = BeautifulSoup(response.text, "html.parser")
-        decisions: List[BddkDecisionSummary] = []
+        decisions: list[BddkDecisionSummary] = []
 
-        for link in soup.find_all("a", href=re.compile(r'/Mevzuat/DokumanGetir/\d+')):
+        for link in soup.find_all("a", href=re.compile(r"/Mevzuat/DokumanGetir/\d+")):
             href = link.get("href", "")
-            doc_id_match = re.search(r'/DokumanGetir/(\d+)', href)
+            doc_id_match = re.search(r"/DokumanGetir/(\d+)", href)
             if not doc_id_match:
                 continue
 
@@ -331,7 +381,7 @@ class BddkApiClient:
             if not raw_text:
                 continue
 
-            date_match = re.match(r'\((\d{2}\.\d{2}\.\d{4})\s*-\s*(\d+)\)\s*(.*)', raw_text)
+            date_match = re.match(r"\((\d{2}\.\d{2}\.\d{4})\s*-\s*(\d+)\)\s*(.*)", raw_text)
             if date_match:
                 decision_date = date_match.group(1)
                 decision_number = date_match.group(2)
@@ -341,23 +391,28 @@ class BddkApiClient:
                 decision_number = ""
                 title = raw_text
 
-            decisions.append(BddkDecisionSummary(
-                title=title, document_id=doc_id, content=title,
-                decision_date=decision_date, decision_number=decision_number,
-                category="Kurul Kararı",
-                source_url=_DOCUMENT_URL_TEMPLATE.format(document_id=doc_id),
-            ))
+            decisions.append(
+                BddkDecisionSummary(
+                    title=title,
+                    document_id=doc_id,
+                    content=title,
+                    decision_date=decision_date,
+                    decision_number=decision_number,
+                    category="Kurul Kararı",
+                    source_url=_DOCUMENT_URL_TEMPLATE.format(document_id=doc_id),
+                )
+            )
 
         logger.info("Parsed %d decisions from page %d", len(decisions), list_id)
         return decisions
 
-    async def _fetch_and_parse_accordion_page(self, list_id: int) -> List[BddkDecisionSummary]:
+    async def _fetch_and_parse_accordion_page(self, list_id: int) -> list[BddkDecisionSummary]:
         """Parse pages with accordion card structure (e.g., 50, 51)."""
         url = f"{_BDDK_BASE_URL}/Mevzuat/Liste/{list_id}"
         response = await self._fetch_with_retry(url)
 
         soup = BeautifulSoup(response.text, "html.parser")
-        decisions: List[BddkDecisionSummary] = []
+        decisions: list[BddkDecisionSummary] = []
 
         for card in soup.find_all("div", class_="card"):
             h5 = card.find("h5")
@@ -379,7 +434,7 @@ class BddkApiClient:
         logger.info("Parsed %d items from accordion page %d", len(decisions), list_id)
         return decisions
 
-    async def _fetch_and_parse_flat_page(self, list_id: int) -> List[BddkDecisionSummary]:
+    async def _fetch_and_parse_flat_page(self, list_id: int) -> list[BddkDecisionSummary]:
         """Parse flat-list pages (e.g., 49, 52, 54, 58, 63)."""
         url = f"{_BDDK_BASE_URL}/Mevzuat/Liste/{list_id}"
         response = await self._fetch_with_retry(url)
@@ -401,7 +456,7 @@ class BddkApiClient:
             return
 
         logger.info("Refreshing BDDK cache...")
-        all_decisions: List[BddkDecisionSummary] = []
+        all_decisions: list[BddkDecisionSummary] = []
         self._page_errors.clear()
 
         for list_id in _ALL_PAGE_IDS:
@@ -413,7 +468,7 @@ class BddkApiClient:
                 else:
                     page_decisions = await self._fetch_and_parse_flat_page(list_id)
                 all_decisions.extend(page_decisions)
-            except Exception as e:
+            except (httpx.HTTPError, httpx.TransportError, ValueError, AttributeError) as e:
                 self._page_errors[list_id] = str(e)
                 logger.error("Failed to fetch BDDK list page %d: %s", list_id, e)
 
@@ -449,7 +504,7 @@ class BddkApiClient:
         date_from = _parse_date(request.date_from) if request.date_from else None
         date_to = _parse_date(request.date_to) if request.date_to else None
 
-        matching: List[tuple[int, BddkDecisionSummary]] = []
+        matching: list[tuple[int, BddkDecisionSummary]] = []
         for dec in self._cache:
             # Category filter
             if category_filter and category_filter not in _turkish_lower(dec.category):
@@ -467,9 +522,7 @@ class BddkApiClient:
                 if date_to and doc_date > date_to:
                     continue
 
-            text_lower = _turkish_lower(
-                f"{dec.title} {dec.decision_date} {dec.decision_number} {dec.category}"
-            )
+            text_lower = _turkish_lower(f"{dec.title} {dec.decision_date} {dec.decision_number} {dec.category}")
             text_words = text_lower.split()
             text_stems = [_turkish_stem(w) for w in text_words]
 
@@ -477,7 +530,7 @@ class BddkApiClient:
             score = 0
             title_lower = _turkish_lower(dec.title)
             all_match = True
-            for part, stem in zip(keyword_parts, keyword_stems):
+            for part, stem in zip(keyword_parts, keyword_stems, strict=True):
                 if part in title_lower:
                     score += 3  # exact in title
                 elif stem in " ".join(text_stems):
@@ -502,7 +555,10 @@ class BddkApiClient:
 
         logger.info(
             "BDDK search for '%s': %d matches, returning page %d (%d items)",
-            request.keywords, total_results, request.page, len(page_results),
+            request.keywords,
+            total_results,
+            request.page,
+            len(page_results),
         )
 
         return BddkSearchResult(
@@ -568,7 +624,9 @@ class BddkApiClient:
         if self._doc_store:
             page = await self._doc_store.get_document_page(document_id, page_number)
             if page and page.markdown_content and "Invalid page" not in page.markdown_content:
-                logger.info("Document %s served from store (page %d/%d)", document_id, page.page_number, page.total_pages)
+                logger.info(
+                    "Document %s served from store (page %d/%d)", document_id, page.page_number, page.total_pages
+                )
                 return BddkDocumentMarkdown(
                     document_id=page.document_id,
                     markdown_content=page.markdown_content,
@@ -582,7 +640,7 @@ class BddkApiClient:
 
         try:
             response = await self._fetch_with_retry(url)
-        except Exception as e:
+        except (httpx.HTTPError, httpx.TransportError) as e:
             return BddkDocumentMarkdown(
                 document_id=document_id,
                 markdown_content=f"Error fetching document: {e}\nSource URL: {url}",
@@ -599,7 +657,7 @@ class BddkApiClient:
                 file_extension=ext,
             )
             markdown = result.text_content.strip()
-        except Exception as e:
+        except (ValueError, OSError, UnicodeDecodeError) as e:
             return BddkDocumentMarkdown(
                 document_id=document_id,
                 markdown_content=f"Error converting document to Markdown: {e}\nSource URL: {url}",
@@ -610,18 +668,21 @@ class BddkApiClient:
         # ── Store for future use ──
         if self._doc_store and markdown:
             from doc_store import StoredDocument
+
             try:
-                await self._doc_store.store_document(StoredDocument(
-                    document_id=document_id,
-                    title=document_id,
-                    source_url=url,
-                    markdown_content=markdown,
-                    extraction_method="markitdown",
-                    file_size=len(response.content),
-                    pdf_bytes=response.content if ext == ".pdf" else None,
-                ))
+                await self._doc_store.store_document(
+                    StoredDocument(
+                        document_id=document_id,
+                        title=document_id,
+                        source_url=url,
+                        markdown_content=markdown,
+                        extraction_method="markitdown",
+                        file_size=len(response.content),
+                        pdf_bytes=response.content if ext == ".pdf" else None,
+                    )
+                )
                 logger.info("Stored document %s in local store", document_id)
-            except Exception as e:
+            except (RuntimeError, OSError) as e:
                 logger.warning("Failed to store document %s: %s", document_id, e)
 
         total_pages = max(1, math.ceil(len(markdown) / _CHUNK_SIZE))
@@ -645,7 +706,7 @@ class BddkApiClient:
         )
 
 
-def _count_categories(cache: List[BddkDecisionSummary]) -> dict[str, int]:
+def _count_categories(cache: list[BddkDecisionSummary]) -> dict[str, int]:
     """Count documents per category."""
     counts: dict[str, int] = {}
     for d in cache:

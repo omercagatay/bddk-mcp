@@ -17,14 +17,11 @@ Usage:
 
 import argparse
 import asyncio
-import hashlib
 import io
 import json
 import logging
-import re
 import time
 from pathlib import Path
-from typing import Optional
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -72,13 +69,14 @@ class SyncReport(BaseModel):
 # ── Extraction backends ──────────────────────────────────────────────────────
 
 
-def _extract_with_nougat(pdf_bytes: bytes) -> Optional[str]:
+def _extract_with_nougat(pdf_bytes: bytes) -> str | None:
     """Extract PDF to LaTeX/Markdown using Nougat (requires GPU + nougat-ocr)."""
     try:
+        import tempfile
+
+        import torch
         from nougat import NougatModel
         from nougat.utils.dataset import LazyDataset
-        import torch
-        import tempfile
 
         if not torch.cuda.is_available():
             logger.info("CUDA not available, skipping Nougat")
@@ -95,6 +93,7 @@ def _extract_with_nougat(pdf_bytes: bytes) -> Optional[str]:
         try:
             dataset = LazyDataset(tmp_path, model.encoder)
             from torch.utils.data import DataLoader
+
             dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
 
             pages = []
@@ -112,20 +111,21 @@ def _extract_with_nougat(pdf_bytes: bytes) -> Optional[str]:
     except ImportError:
         logger.debug("Nougat not installed, skipping")
         return None
-    except Exception as e:
+    except (RuntimeError, ValueError, OSError) as e:
         logger.warning("Nougat extraction failed: %s", e)
         return None
 
 
-def _extract_with_markitdown(content: bytes, ext: str = ".pdf") -> Optional[str]:
+def _extract_with_markitdown(content: bytes, ext: str = ".pdf") -> str | None:
     """Extract document using markitdown (CPU, lightweight)."""
     try:
         from markitdown import MarkItDown
+
         md = MarkItDown()
         result = md.convert_stream(io.BytesIO(content), file_extension=ext)
         text = result.text_content.strip()
         return text if text else None
-    except Exception as e:
+    except (ValueError, OSError, UnicodeDecodeError) as e:
         logger.warning("markitdown extraction failed: %s", e)
         return None
 
@@ -164,9 +164,7 @@ def _extract_html_to_markdown(html: str) -> str:
 # ── Download helpers ─────────────────────────────────────────────────────────
 
 
-async def _fetch_with_retry(
-    http: httpx.AsyncClient, url: str, max_retries: int = _MAX_RETRIES
-) -> httpx.Response:
+async def _fetch_with_retry(http: httpx.AsyncClient, url: str, max_retries: int = _MAX_RETRIES) -> httpx.Response:
     """Fetch URL with exponential backoff."""
     last_exc = None
     for attempt in range(max_retries):
@@ -177,12 +175,12 @@ async def _fetch_with_retry(
         except (httpx.HTTPStatusError, httpx.TransportError) as e:
             last_exc = e
             if attempt < max_retries - 1:
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(2**attempt)
                 logger.warning("Retry %d for %s: %s", attempt + 1, url, e)
     raise last_exc  # type: ignore
 
 
-def _mevzuat_pdf_url(mevzuat_no: str, tur: str = "7", tertip: str = "5") -> Optional[str]:
+def _mevzuat_pdf_url(mevzuat_no: str, tur: str = "7", tertip: str = "5") -> str | None:
     """Build mevzuat.gov.tr direct PDF URL."""
     segment = _MEVZUAT_TUR_MAP.get(tur)
     if not segment:
@@ -279,24 +277,30 @@ class DocumentSyncer:
                 content, method, ext = await self._download_bddk(doc_id)
             else:
                 return SyncResult(
-                    document_id=doc_id, success=False,
+                    document_id=doc_id,
+                    success=False,
                     error=f"Unknown document ID format: {doc_id}",
                 )
         except Exception as e:
             return SyncResult(
-                document_id=doc_id, success=False, error=str(e),
+                document_id=doc_id,
+                success=False,
+                error=str(e),
             )
 
         if not content:
             return SyncResult(
-                document_id=doc_id, success=False, error="No content downloaded",
+                document_id=doc_id,
+                success=False,
+                error="No content downloaded",
             )
 
         # Extract markdown
         markdown, extraction_method = self._extract(content, ext)
         if not markdown:
             return SyncResult(
-                document_id=doc_id, success=False,
+                document_id=doc_id,
+                success=False,
                 error=f"Extraction failed (method={extraction_method})",
             )
 
@@ -332,9 +336,7 @@ class DocumentSyncer:
         ext = ".pdf" if "pdf" in content_type else ".html"
         return resp.content, "bddk_direct", ext
 
-    async def _download_mevzuat(
-        self, doc_id: str, source_url: str = ""
-    ) -> tuple[bytes, str, str]:
+    async def _download_mevzuat(self, doc_id: str, source_url: str = "") -> tuple[bytes, str, str]:
         """
         Download from mevzuat.gov.tr with 4-layer fallback.
 
@@ -387,7 +389,9 @@ class DocumentSyncer:
 
         # Layer 3: Main page → iframe content (richer HTML)
         try:
-            main_url = f"https://www.mevzuat.gov.tr/mevzuat?MevzuatNo={mevzuat_no}&MevzuatTur={tur}&MevzuatTertip={tertip}"
+            main_url = (
+                f"https://www.mevzuat.gov.tr/mevzuat?MevzuatNo={mevzuat_no}&MevzuatTur={tur}&MevzuatTertip={tertip}"
+            )
             resp = await self._http.get(main_url, timeout=layer_timeout)
             if resp.status_code == 200:
                 soup = BeautifulSoup(resp.text, "html.parser")
@@ -483,9 +487,7 @@ class DocumentSyncer:
         for r in results:
             if isinstance(r, Exception):
                 report.failed += 1
-                report.errors.append(
-                    SyncResult(document_id="unknown", success=False, error=str(r))
-                )
+                report.errors.append(SyncResult(document_id="unknown", success=False, error=str(r)))
             elif r.success:
                 if r.method == "cached":
                     report.skipped += 1
@@ -500,9 +502,7 @@ class DocumentSyncer:
 
     # ── Cache import helper ──────────────────────────────────────────────
 
-    async def import_and_sync_from_cache(
-        self, force: bool = False, concurrency: int = 5
-    ) -> SyncReport:
+    async def import_and_sync_from_cache(self, force: bool = False, concurrency: int = 5) -> SyncReport:
         """Load documents from .cache.json and sync them all."""
         if not _CACHE_FILE.exists():
             logger.error("No cache file found at %s", _CACHE_FILE)
@@ -540,23 +540,25 @@ async def _cli_sync(args: argparse.Namespace) -> None:
             if args.doc_id:
                 # Single document sync
                 result = await syncer.sync_document(
-                    doc_id=args.doc_id, force=args.force,
+                    doc_id=args.doc_id,
+                    force=args.force,
                 )
                 status = "OK" if result.success else "FAIL"
                 print(f"[{status}] {result.document_id}: {result.method or result.error}")
             else:
                 # Bulk sync from cache
                 report = await syncer.import_and_sync_from_cache(
-                    force=args.force, concurrency=args.concurrency,
+                    force=args.force,
+                    concurrency=args.concurrency,
                 )
-                print(f"\nSync Report:")
+                print("\nSync Report:")
                 print(f"  Total:      {report.total}")
                 print(f"  Downloaded: {report.downloaded}")
                 print(f"  Skipped:    {report.skipped}")
                 print(f"  Failed:     {report.failed}")
                 print(f"  Time:       {report.elapsed_seconds}s")
                 if report.errors:
-                    print(f"\nErrors:")
+                    print("\nErrors:")
                     for e in report.errors[:20]:
                         print(f"  [{e.document_id}] {e.error}")
 

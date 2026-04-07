@@ -12,10 +12,9 @@ Schema includes a nullable `embedding` column for future vector search
 import hashlib
 import logging
 import math
-import sqlite3
+import re
 import time
 from pathlib import Path
-from typing import Optional
 
 import aiosqlite
 from pydantic import BaseModel, Field
@@ -37,7 +36,7 @@ class StoredDocument(BaseModel):
     decision_date: str = ""
     decision_number: str = ""
     source_url: str = ""
-    pdf_bytes: Optional[bytes] = None
+    pdf_bytes: bytes | None = None
     markdown_content: str = ""
     content_hash: str = ""
     extraction_method: str = "markitdown"
@@ -77,8 +76,8 @@ class StoreStats(BaseModel):
     total_size_mb: float = 0.0
     categories: dict[str, int] = Field(default_factory=dict)
     extraction_methods: dict[str, int] = Field(default_factory=dict)
-    oldest_document: Optional[str] = None
-    newest_document: Optional[str] = None
+    oldest_document: str | None = None
+    newest_document: str | None = None
     documents_needing_refresh: int = 0
 
 
@@ -134,6 +133,30 @@ CREATE TRIGGER IF NOT EXISTS documents_au AFTER UPDATE ON documents BEGIN
 END;
 """
 
+# v5.1: Document versioning and incremental sync support
+_SCHEMA_MIGRATION_SQL = """\
+CREATE TABLE IF NOT EXISTS document_versions (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    document_id       TEXT NOT NULL,
+    version           INTEGER NOT NULL DEFAULT 1,
+    content_hash      TEXT NOT NULL,
+    markdown_content  TEXT DEFAULT '',
+    synced_at         REAL NOT NULL,
+    UNIQUE(document_id, version)
+);
+
+CREATE INDEX IF NOT EXISTS idx_versions_doc_id ON document_versions(document_id);
+
+-- Incremental sync metadata: etag and last-modified headers
+CREATE TABLE IF NOT EXISTS sync_metadata (
+    document_id       TEXT PRIMARY KEY,
+    etag              TEXT DEFAULT '',
+    last_modified     TEXT DEFAULT '',
+    last_sync_at      REAL,
+    sync_count        INTEGER DEFAULT 0
+);
+"""
+
 
 def _content_hash(content: str) -> str:
     """SHA-256 hash of document content for change detection."""
@@ -157,9 +180,9 @@ class DocumentStore:
         await store.close()
     """
 
-    def __init__(self, db_path: Optional[Path] = None) -> None:
+    def __init__(self, db_path: Path | None = None) -> None:
         self._db_path = db_path or _DEFAULT_DB_PATH
-        self._db: Optional[aiosqlite.Connection] = None
+        self._db: aiosqlite.Connection | None = None
 
     async def initialize(self) -> None:
         """Open DB connection and create schema if needed."""
@@ -167,6 +190,7 @@ class DocumentStore:
         self._db = await aiosqlite.connect(str(self._db_path))
         self._db.row_factory = aiosqlite.Row
         await self._db.executescript(_SCHEMA_SQL)
+        await self._db.executescript(_SCHEMA_MIGRATION_SQL)
         await self._db.execute("PRAGMA journal_mode=WAL")
         await self._db.execute("PRAGMA foreign_keys=ON")
         await self._db.commit()
@@ -239,15 +263,32 @@ class DocumentStore:
                 doc.file_size or (len(doc.pdf_bytes) if doc.pdf_bytes else 0),
             ),
         )
+        # Archive previous version if content changed
+        if content_hash and doc.markdown_content:
+            async with db.execute(
+                "SELECT content_hash, markdown_content FROM documents WHERE document_id = ?",
+                (doc.document_id,),
+            ) as cursor:
+                existing = await cursor.fetchone()
+                if existing and existing["content_hash"] and existing["content_hash"] != content_hash:
+                    # Get next version number
+                    async with db.execute(
+                        "SELECT COALESCE(MAX(version), 0) FROM document_versions WHERE document_id = ?",
+                        (doc.document_id,),
+                    ) as vcursor:
+                        max_ver = (await vcursor.fetchone())[0]
+                    await db.execute(
+                        "INSERT INTO document_versions (document_id, version, content_hash, markdown_content, synced_at) VALUES (?, ?, ?, ?, ?)",
+                        (doc.document_id, max_ver + 1, existing["content_hash"], existing["markdown_content"], now),
+                    )
+
         await db.commit()
         logger.debug("Stored document %s (%s)", doc.document_id, doc.title[:60])
 
-    async def get_document(self, doc_id: str) -> Optional[StoredDocument]:
+    async def get_document(self, doc_id: str) -> StoredDocument | None:
         """Retrieve a full document by ID."""
         db = self._ensure_open()
-        async with db.execute(
-            "SELECT * FROM documents WHERE document_id = ?", (doc_id,)
-        ) as cursor:
+        async with db.execute("SELECT * FROM documents WHERE document_id = ?", (doc_id,)) as cursor:
             row = await cursor.fetchone()
             if not row:
                 return None
@@ -266,9 +307,7 @@ class DocumentStore:
                 file_size=row["file_size"] or 0,
             )
 
-    async def get_document_page(
-        self, doc_id: str, page: int = 1
-    ) -> Optional[DocumentPage]:
+    async def get_document_page(self, doc_id: str, page: int = 1) -> DocumentPage | None:
         """Retrieve a single paginated page of a document's markdown content."""
         db = self._ensure_open()
         async with db.execute(
@@ -310,22 +349,32 @@ class DocumentStore:
     async def delete_document(self, doc_id: str) -> bool:
         """Delete a document by ID. Returns True if deleted."""
         db = self._ensure_open()
-        cursor = await db.execute(
-            "DELETE FROM documents WHERE document_id = ?", (doc_id,)
-        )
+        cursor = await db.execute("DELETE FROM documents WHERE document_id = ?", (doc_id,))
         await db.commit()
         return cursor.rowcount > 0
 
     # ── Search ───────────────────────────────────────────────────────────
 
-    async def search_content(
-        self, query: str, limit: int = 20, category: Optional[str] = None
-    ) -> list[SearchHit]:
+    @staticmethod
+    def _sanitize_fts5_term(term: str) -> str:
+        """Sanitize a single term for safe use in FTS5 queries.
+
+        Removes FTS5 special characters and operators to prevent injection.
+        """
+        # Strip characters that have special meaning in FTS5
+        sanitized = re.sub(r'["\*\(\)\^\+\-]', "", term)
+        # Reject FTS5 boolean operators used as standalone terms
+        if sanitized.upper() in ("AND", "OR", "NOT", "NEAR"):
+            return ""
+        return sanitized.strip()
+
+    async def search_content(self, query: str, limit: int = 20, category: str | None = None) -> list[SearchHit]:
         """Full-text search across document titles and content using FTS5."""
         db = self._ensure_open()
 
-        # Build FTS5 query: quote each term for safety, join with AND
-        terms = query.strip().split()
+        # Build FTS5 query: sanitize and quote each term, join with AND
+        terms = [self._sanitize_fts5_term(t) for t in query.strip().split()]
+        terms = [t for t in terms if t]
         if not terms:
             return []
         fts_query = " AND ".join(f'"{t}"' for t in terms)
@@ -409,9 +458,7 @@ class DocumentStore:
             if not doc_id:
                 continue
             # Skip if already exists
-            async with db.execute(
-                "SELECT 1 FROM documents WHERE document_id = ?", (doc_id,)
-            ) as cursor:
+            async with db.execute("SELECT 1 FROM documents WHERE document_id = ?", (doc_id,)) as cursor:
                 if await cursor.fetchone():
                     continue
 
@@ -437,9 +484,7 @@ class DocumentStore:
         logger.info("Imported %d items from cache", imported)
         return imported
 
-    async def list_documents(
-        self, category: Optional[str] = None, limit: int = 100, offset: int = 0
-    ) -> list[dict]:
+    async def list_documents(self, category: str | None = None, limit: int = 100, offset: int = 0) -> list[dict]:
         """List documents with basic metadata (no content)."""
         db = self._ensure_open()
         sql = """\
@@ -466,9 +511,7 @@ class DocumentStore:
         db = self._ensure_open()
 
         # Total docs and size
-        async with db.execute(
-            "SELECT COUNT(*), COALESCE(SUM(file_size), 0) FROM documents"
-        ) as cursor:
+        async with db.execute("SELECT COUNT(*), COALESCE(SUM(file_size), 0) FROM documents") as cursor:
             row = await cursor.fetchone()
             total = row[0]
             total_size = row[1]
@@ -491,9 +534,7 @@ class DocumentStore:
                 methods[row[0]] = row[1]
 
         # Date range
-        async with db.execute(
-            "SELECT MIN(downloaded_at), MAX(downloaded_at) FROM documents"
-        ) as cursor:
+        async with db.execute("SELECT MIN(downloaded_at), MAX(downloaded_at) FROM documents") as cursor:
             row = await cursor.fetchone()
             oldest = time.strftime("%Y-%m-%d", time.localtime(row[0])) if row[0] else None
             newest = time.strftime("%Y-%m-%d", time.localtime(row[1])) if row[1] else None
@@ -515,3 +556,66 @@ class DocumentStore:
             newest_document=newest,
             documents_needing_refresh=needs_refresh,
         )
+
+    # ── Document Versioning ─────────────────────────────────────────────
+
+    async def get_document_history(self, doc_id: str) -> list[dict]:
+        """Get version history for a document.
+
+        Returns list of dicts with: version, content_hash, synced_at, content_length.
+        Most recent version first.
+        """
+        db = self._ensure_open()
+        history: list[dict] = []
+        async with db.execute(
+            "SELECT version, content_hash, markdown_content, synced_at "
+            "FROM document_versions WHERE document_id = ? ORDER BY version DESC",
+            (doc_id,),
+        ) as cursor:
+            async for row in cursor:
+                history.append(
+                    {
+                        "version": row["version"],
+                        "content_hash": row["content_hash"],
+                        "synced_at": time.strftime("%Y-%m-%d %H:%M", time.localtime(row["synced_at"])),
+                        "content_length": len(row["markdown_content"] or ""),
+                    }
+                )
+        return history
+
+    # ── Incremental Sync Metadata ────────────────────────────────────────
+
+    async def get_sync_metadata(self, doc_id: str) -> dict | None:
+        """Get sync metadata for incremental sync."""
+        db = self._ensure_open()
+        async with db.execute(
+            "SELECT etag, last_modified, last_sync_at, sync_count FROM sync_metadata WHERE document_id = ?",
+            (doc_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return None
+            return {
+                "etag": row["etag"],
+                "last_modified": row["last_modified"],
+                "last_sync_at": row["last_sync_at"],
+                "sync_count": row["sync_count"],
+            }
+
+    async def update_sync_metadata(self, doc_id: str, etag: str = "", last_modified: str = "") -> None:
+        """Update sync metadata after a successful sync."""
+        db = self._ensure_open()
+        now = time.time()
+        await db.execute(
+            """\
+            INSERT INTO sync_metadata (document_id, etag, last_modified, last_sync_at, sync_count)
+            VALUES (?, ?, ?, ?, 1)
+            ON CONFLICT(document_id) DO UPDATE SET
+                etag=excluded.etag,
+                last_modified=excluded.last_modified,
+                last_sync_at=excluded.last_sync_at,
+                sync_count=sync_metadata.sync_count + 1
+            """,
+            (doc_id, etag, last_modified, now),
+        )
+        await db.commit()
