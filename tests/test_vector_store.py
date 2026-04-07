@@ -9,10 +9,11 @@ _SKIP_REASON = "Embedding model not downloadable in this environment"
 
 
 def _can_initialize_store(tmp_path):
-    """Check if VectorStore can initialize (model downloadable)."""
+    """Check if VectorStore can initialize with embeddings (model downloadable)."""
     try:
         vs = VectorStore(db_path=tmp_path / "_probe_chroma")
         vs.initialize()
+        vs._ensure_embeddings()  # This triggers the actual model download
         vs.close()
         return True
     except Exception:

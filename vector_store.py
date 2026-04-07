@@ -73,7 +73,7 @@ class VectorStore:
         self._embed_fn = None
 
     def initialize(self) -> None:
-        """Open ChromaDB and get/create collection."""
+        """Open ChromaDB client. Embedding model is loaded lazily on first use."""
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
 
         self._client = chromadb.PersistentClient(
@@ -81,33 +81,44 @@ class VectorStore:
             settings=Settings(anonymized_telemetry=False),
         )
 
-        # Use sentence-transformers embedding function
+        # Open collection WITHOUT embedding function first (fast, no model download)
+        # The embedding function is loaded lazily on first search/add via _ensure_embeddings()
+        self._collection = self._client.get_or_create_collection(
+            name=_COLLECTION_NAME,
+            metadata={"hnsw:space": "cosine"},
+        )
+        count = self._collection.count()
+        logger.info("VectorStore initialized: %s (%d chunks, embeddings=lazy)", self._db_path, count)
+
+    def _ensure_embeddings(self) -> None:
+        """Lazy-load the embedding model on first search/add. Skips if already loaded."""
+        if self._embed_fn is not None:
+            return
+
         try:
             from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
             try:
                 self._embed_fn = SentenceTransformerEmbeddingFunction(
                     model_name=self._embedding_model,
-                    device="cuda",  # RTX 5080
+                    device="cuda",
                 )
-                logger.info("Using GPU-accelerated embeddings: %s", self._embedding_model)
+                logger.info("Loaded GPU-accelerated embeddings: %s", self._embedding_model)
             except (RuntimeError, ValueError):
                 self._embed_fn = SentenceTransformerEmbeddingFunction(
                     model_name=self._embedding_model,
                     device="cpu",
                 )
-                logger.info("Using CPU embeddings: %s", self._embedding_model)
+                logger.info("Loaded CPU embeddings: %s", self._embedding_model)
+
+            # Re-open collection with the embedding function
+            self._collection = self._client.get_or_create_collection(
+                name=_COLLECTION_NAME,
+                embedding_function=self._embed_fn,
+                metadata={"hnsw:space": "cosine"},
+            )
         except ImportError as e:
             logger.warning("sentence-transformers not available, using ChromaDB default: %s", e)
-            self._embed_fn = None
-
-        self._collection = self._client.get_or_create_collection(
-            name=_COLLECTION_NAME,
-            embedding_function=self._embed_fn,
-            metadata={"hnsw:space": "cosine"},
-        )
-        count = self._collection.count()
-        logger.info("VectorStore initialized: %s (%d chunks)", self._db_path, count)
 
     def close(self) -> None:
         """Close ChromaDB client."""
@@ -144,6 +155,7 @@ class VectorStore:
         Returns the number of chunks created.
         """
         collection = self._ensure_open()
+        self._ensure_embeddings()
 
         if not content.strip():
             return 0
@@ -303,6 +315,7 @@ class VectorStore:
         Returns list of unique documents ranked by relevance.
         """
         collection = self._ensure_open()
+        self._ensure_embeddings()
 
         where_filter = {"doc_id": {"$ne": ""}}  # non-empty doc_id
         if category:

@@ -12,6 +12,7 @@ dependencies = [
     "aiosqlite>=0.20",
     "chromadb>=1.0",
     "sentence-transformers>=5.0",
+    "uvloop>=0.22.1",
 ]
 
 [dependency-groups]
