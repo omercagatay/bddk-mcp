@@ -7,8 +7,9 @@ all BDDK decisions, regulations, and guidelines.
 Architecture:
   - Collection "bddk_documents": full documents stored as metadata, chunked for embeddings
   - Embedding model: multilingual-e5-base (best for Turkish legal text)
-  - Chunking: 1000-char chunks with 200-char overlap for context preservation
+  - Chunking: configurable chunks with overlap for context preservation
   - ID retrieval: O(1) via metadata filter, no network needed
+  - Offline-first: supports pre-downloaded model via BDDK_EMBEDDING_MODEL_PATH
 """
 
 import hashlib
@@ -19,16 +20,21 @@ from pathlib import Path
 import chromadb
 from chromadb.config import Settings
 
+from config import (
+    CHROMA_PATH,
+    EMBEDDING_CHUNK_OVERLAP,
+    EMBEDDING_CHUNK_SIZE,
+    EMBEDDING_MODEL_NAME,
+    EMBEDDING_MODEL_PATH,
+    PAGE_SIZE,
+)
+
 logger = logging.getLogger(__name__)
 
-_DEFAULT_CHROMA_PATH = Path(__file__).parent / "chroma_db"
-_CHUNK_SIZE = 1000
-_CHUNK_OVERLAP = 200
 _COLLECTION_NAME = "bddk_documents"
-_PAGE_SIZE = 5000  # For paginated output (same as doc_store)
 
 
-def _chunk_text(text: str, chunk_size: int = _CHUNK_SIZE, overlap: int = _CHUNK_OVERLAP) -> list[str]:
+def _chunk_text(text: str, chunk_size: int = EMBEDDING_CHUNK_SIZE, overlap: int = EMBEDDING_CHUNK_OVERLAP) -> list[str]:
     """Split text into overlapping chunks for embedding."""
     if not text:
         return []
@@ -61,12 +67,8 @@ class VectorStore:
         store.close()
     """
 
-    # Pin model revision to avoid silent changes on re-download
-    _DEFAULT_MODEL = "intfloat/multilingual-e5-base"
-    _DEFAULT_MODEL_REVISION = "d4210e50c0"  # v1.0.0 stable
-
-    def __init__(self, db_path: Path | None = None, embedding_model: str = _DEFAULT_MODEL) -> None:
-        self._db_path = db_path or _DEFAULT_CHROMA_PATH
+    def __init__(self, db_path: Path | None = None, embedding_model: str = EMBEDDING_MODEL_NAME) -> None:
+        self._db_path = db_path or CHROMA_PATH
         self._embedding_model = embedding_model
         self._client: chromadb.ClientAPI | None = None
         self._collection = None
@@ -91,25 +93,37 @@ class VectorStore:
         logger.info("VectorStore initialized: %s (%d chunks, embeddings=lazy)", self._db_path, count)
 
     def _ensure_embeddings(self) -> None:
-        """Lazy-load the embedding model on first search/add. Skips if already loaded."""
+        """Lazy-load the embedding model on first search/add. Skips if already loaded.
+
+        Offline-first: when BDDK_EMBEDDING_MODEL_PATH is set, loads from the
+        local directory without any network access.  Otherwise falls back to
+        the Hugging Face model name (may download on first use).
+        """
         if self._embed_fn is not None:
             return
 
         try:
             from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
+            # Prefer local model path for air-gapped / bank environments
+            model_ref = EMBEDDING_MODEL_PATH if EMBEDDING_MODEL_PATH else self._embedding_model
+            if EMBEDDING_MODEL_PATH:
+                logger.info("Loading embeddings from local path: %s", EMBEDDING_MODEL_PATH)
+            else:
+                logger.info("Loading embeddings from model name: %s (may download)", self._embedding_model)
+
             try:
                 self._embed_fn = SentenceTransformerEmbeddingFunction(
-                    model_name=self._embedding_model,
+                    model_name=model_ref,
                     device="cuda",
                 )
-                logger.info("Loaded GPU-accelerated embeddings: %s", self._embedding_model)
+                logger.info("Loaded GPU-accelerated embeddings: %s", model_ref)
             except (RuntimeError, ValueError):
                 self._embed_fn = SentenceTransformerEmbeddingFunction(
-                    model_name=self._embedding_model,
+                    model_name=model_ref,
                     device="cpu",
                 )
-                logger.info("Loaded CPU embeddings: %s", self._embedding_model)
+                logger.info("Loaded CPU embeddings: %s", model_ref)
 
             # Re-open collection with the embedding function
             self._collection = self._client.get_or_create_collection(
@@ -169,7 +183,7 @@ class VectorStore:
         if not chunks:
             return 0
 
-        total_pages = max(1, math.ceil(len(content) / _PAGE_SIZE))
+        total_pages = max(1, math.ceil(len(content) / PAGE_SIZE))
 
         ids = []
         documents = []
@@ -258,7 +272,7 @@ class VectorStore:
             return None
 
         content = doc["content"]
-        total_pages = max(1, math.ceil(len(content) / _PAGE_SIZE))
+        total_pages = max(1, math.ceil(len(content) / PAGE_SIZE))
 
         if page < 1 or page > total_pages:
             return {
@@ -269,8 +283,8 @@ class VectorStore:
                 "total_pages": total_pages,
             }
 
-        start = (page - 1) * _PAGE_SIZE
-        chunk = content[start : start + _PAGE_SIZE]
+        start = (page - 1) * PAGE_SIZE
+        chunk = content[start : start + PAGE_SIZE]
 
         return {
             "doc_id": doc_id,
@@ -282,23 +296,35 @@ class VectorStore:
         }
 
     def _reconstruct_content(self, chunk_data: list) -> str:
-        """Reconstruct full document from overlapping chunks."""
+        """Reconstruct full document from overlapping chunks.
+
+        Handles the overlap correctly by tracking the expected start offset
+        for each chunk rather than blindly slicing a fixed overlap amount.
+        This avoids data loss on the final (shorter) chunk.
+        """
         if not chunk_data:
             return ""
         if len(chunk_data) == 1:
             return chunk_data[0][1]
 
-        # Remove overlap between consecutive chunks
+        chunk_size = EMBEDDING_CHUNK_SIZE
+        overlap = EMBEDDING_CHUNK_OVERLAP
+        step = chunk_size - overlap
+
         parts = []
         for i, (_, text, _) in enumerate(chunk_data):
             if i == 0:
                 parts.append(text)
             else:
-                # Skip the overlap portion
-                if len(text) > _CHUNK_OVERLAP:
-                    parts.append(text[_CHUNK_OVERLAP:])
-                else:
-                    parts.append(text)
+                # How far into the original text this chunk starts
+                expected_start = i * step
+                # The previous chunks already covered up to this point
+                already_covered = (i - 1) * step + len(chunk_data[i - 1][1])
+                trim = max(0, already_covered - expected_start)
+                # Only trim if we actually have overlap to remove
+                if trim < len(text):
+                    parts.append(text[trim:])
+                # else: chunk is entirely within overlap, skip
 
         return "".join(parts)
 
