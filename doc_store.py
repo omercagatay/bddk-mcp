@@ -19,10 +19,11 @@ from pathlib import Path
 import aiosqlite
 from pydantic import BaseModel, Field
 
+from config import DB_PATH, PAGE_SIZE
+
 logger = logging.getLogger(__name__)
 
-_CHUNK_SIZE = 5000
-_DEFAULT_DB_PATH = Path(__file__).parent / "bddk_docs.db"
+_DEFAULT_DB_PATH = DB_PATH
 
 # ── Pydantic models ──────────────────────────────────────────────────────────
 
@@ -222,7 +223,25 @@ class DocumentStore:
         db = self._ensure_open()
         now = time.time()
         content_hash = _content_hash(doc.markdown_content) if doc.markdown_content else ""
-        total_pages = max(1, math.ceil(len(doc.markdown_content) / _CHUNK_SIZE)) if doc.markdown_content else 1
+        total_pages = max(1, math.ceil(len(doc.markdown_content) / PAGE_SIZE)) if doc.markdown_content else 1
+
+        # Archive previous version BEFORE upsert (otherwise the old content is lost)
+        if content_hash and doc.markdown_content:
+            async with db.execute(
+                "SELECT content_hash, markdown_content FROM documents WHERE document_id = ?",
+                (doc.document_id,),
+            ) as cursor:
+                existing = await cursor.fetchone()
+                if existing and existing["content_hash"] and existing["content_hash"] != content_hash:
+                    async with db.execute(
+                        "SELECT COALESCE(MAX(version), 0) FROM document_versions WHERE document_id = ?",
+                        (doc.document_id,),
+                    ) as vcursor:
+                        max_ver = (await vcursor.fetchone())[0]
+                    await db.execute(
+                        "INSERT INTO document_versions (document_id, version, content_hash, markdown_content, synced_at) VALUES (?, ?, ?, ?, ?)",
+                        (doc.document_id, max_ver + 1, existing["content_hash"], existing["markdown_content"], now),
+                    )
 
         await db.execute(
             """\
@@ -263,24 +282,6 @@ class DocumentStore:
                 doc.file_size or (len(doc.pdf_bytes) if doc.pdf_bytes else 0),
             ),
         )
-        # Archive previous version if content changed
-        if content_hash and doc.markdown_content:
-            async with db.execute(
-                "SELECT content_hash, markdown_content FROM documents WHERE document_id = ?",
-                (doc.document_id,),
-            ) as cursor:
-                existing = await cursor.fetchone()
-                if existing and existing["content_hash"] and existing["content_hash"] != content_hash:
-                    # Get next version number
-                    async with db.execute(
-                        "SELECT COALESCE(MAX(version), 0) FROM document_versions WHERE document_id = ?",
-                        (doc.document_id,),
-                    ) as vcursor:
-                        max_ver = (await vcursor.fetchone())[0]
-                    await db.execute(
-                        "INSERT INTO document_versions (document_id, version, content_hash, markdown_content, synced_at) VALUES (?, ?, ?, ?, ?)",
-                        (doc.document_id, max_ver + 1, existing["content_hash"], existing["markdown_content"], now),
-                    )
 
         await db.commit()
         logger.debug("Stored document %s (%s)", doc.document_id, doc.title[:60])
@@ -320,7 +321,7 @@ class DocumentStore:
                 return None
 
         md = row["markdown_content"] or ""
-        total_pages = max(1, math.ceil(len(md) / _CHUNK_SIZE))
+        total_pages = max(1, math.ceil(len(md) / PAGE_SIZE))
 
         if page < 1 or page > total_pages:
             return DocumentPage(
@@ -333,8 +334,8 @@ class DocumentStore:
                 category=row["category"] or "",
             )
 
-        start = (page - 1) * _CHUNK_SIZE
-        chunk = md[start : start + _CHUNK_SIZE]
+        start = (page - 1) * PAGE_SIZE
+        chunk = md[start : start + PAGE_SIZE]
 
         return DocumentPage(
             document_id=doc_id,

@@ -12,6 +12,14 @@ import httpx
 from bs4 import BeautifulSoup
 from markitdown import MarkItDown
 
+from config import (
+    CACHE_FILE,
+    CACHE_TTL_SECONDS,
+    MAX_RETRIES,
+    PAGE_SIZE,
+    REQUEST_TIMEOUT,
+    STALE_CACHE_FALLBACK,
+)
 from doc_store import DocumentStore
 from models import (
     BddkDecisionSummary,
@@ -24,10 +32,6 @@ logger = logging.getLogger(__name__)
 
 _DOCUMENT_URL_TEMPLATE = "https://www.bddk.org.tr/Mevzuat/DokumanGetir/{document_id}"
 _BDDK_BASE_URL = "https://www.bddk.org.tr"
-_CHUNK_SIZE = 5000
-_CACHE_TTL_SECONDS = 3600  # 1 hour
-_MAX_RETRIES = 3
-_CACHE_FILE = Path(__file__).parent / ".cache.json"
 
 # Pages that use accordion card structure (h5 headers with card-body)
 _ACCORDION_PAGE_IDS = [50, 51]
@@ -210,7 +214,7 @@ class BddkApiClient:
 
     def __init__(
         self,
-        request_timeout: float = 60.0,
+        request_timeout: float = REQUEST_TIMEOUT,
         doc_store: DocumentStore | None = None,
     ) -> None:
         self._http = httpx.AsyncClient(
@@ -250,16 +254,16 @@ class BddkApiClient:
     async def _fetch_with_retry(self, url: str) -> httpx.Response:
         """Fetch a URL with exponential backoff retry."""
         last_exc = None
-        for attempt in range(_MAX_RETRIES):
+        for attempt in range(MAX_RETRIES):
             try:
                 response = await self._http.get(url)
                 response.raise_for_status()
                 return response
             except (httpx.HTTPStatusError, httpx.TransportError) as exc:
                 last_exc = exc
-                if attempt < _MAX_RETRIES - 1:
+                if attempt < MAX_RETRIES - 1:
                     wait = 2**attempt
-                    logger.warning("Retry %d/%d for %s: %s", attempt + 1, _MAX_RETRIES, url, exc)
+                    logger.warning("Retry %d/%d for %s: %s", attempt + 1, MAX_RETRIES, url, exc)
                     import asyncio
 
                     await asyncio.sleep(wait)
@@ -274,7 +278,7 @@ class BddkApiClient:
                 "timestamp": self._cache_timestamp,
                 "items": [d.model_dump() for d in self._cache],
             }
-            _CACHE_FILE.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            CACHE_FILE.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
             logger.info("Cache saved to disk: %d items", len(self._cache))
         except (OSError, TypeError, ValueError) as e:
             logger.warning("Failed to save cache to disk: %s", e)
@@ -282,11 +286,11 @@ class BddkApiClient:
     def _load_cache_from_disk(self) -> bool:
         """Load cache from JSON file if it exists and is valid."""
         try:
-            if not _CACHE_FILE.exists():
+            if not CACHE_FILE.exists():
                 return False
-            data = json.loads(_CACHE_FILE.read_text(encoding="utf-8"))
+            data = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
             ts = data.get("timestamp", 0)
-            if (time.time() - ts) >= _CACHE_TTL_SECONDS:
+            if (time.time() - ts) >= CACHE_TTL_SECONDS:
                 return False
             self._cache = [BddkDecisionSummary(**item) for item in data["items"]]
             self._cache_timestamp = ts
@@ -299,7 +303,7 @@ class BddkApiClient:
     # -- cache ------------------------------------------------------------
 
     def _is_cache_valid(self) -> bool:
-        return len(self._cache) > 0 and (time.time() - self._cache_timestamp) < _CACHE_TTL_SECONDS
+        return len(self._cache) > 0 and (time.time() - self._cache_timestamp) < CACHE_TTL_SECONDS
 
     def cache_status(self) -> dict:
         """Return cache statistics."""
@@ -308,7 +312,7 @@ class BddkApiClient:
             "total_items": len(self._cache),
             "cache_age_seconds": round(age) if age else None,
             "cache_valid": self._is_cache_valid(),
-            "ttl_seconds": _CACHE_TTL_SECONDS,
+            "ttl_seconds": CACHE_TTL_SECONDS,
             "page_errors": dict(self._page_errors),
             "categories": _count_categories(self._cache),
         }
@@ -422,6 +426,12 @@ class BddkApiClient:
             raw_header = h5.get_text(strip=True)
             header_name = re.sub(r"\s*\(\d+\)\s*$", "", raw_header).strip()
             category = _ACCORDION_CATEGORY_MAP.get(header_name, header_name)
+            if header_name not in _ACCORDION_CATEGORY_MAP:
+                logger.warning(
+                    "Unmapped accordion category '%s' on page %d — using raw text as category",
+                    header_name,
+                    list_id,
+                )
 
             body = card.find("div", class_="card-body")
             if not body:
@@ -446,12 +456,33 @@ class BddkApiClient:
         logger.info("Parsed %d items from flat page %d", len(decisions), list_id)
         return decisions
 
+    def _load_stale_cache_from_disk(self) -> bool:
+        """Load cache from disk ignoring TTL — used when BDDK is unreachable."""
+        try:
+            if not CACHE_FILE.exists():
+                return False
+            data = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
+            items = data.get("items", [])
+            if not items:
+                return False
+            self._cache = [BddkDecisionSummary(**item) for item in items]
+            self._cache_timestamp = data.get("timestamp", time.time())
+            logger.warning(
+                "Serving STALE cache from disk (%d items, age=%.0fs) — BDDK unreachable",
+                len(self._cache),
+                time.time() - self._cache_timestamp,
+            )
+            return True
+        except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
+            logger.warning("Failed to load stale cache from disk: %s", e)
+            return False
+
     async def _ensure_cache(self) -> None:
         """Ensure the decision cache is populated and valid."""
         if self._is_cache_valid():
             return
 
-        # Try loading from disk first
+        # Try loading from disk first (within TTL)
         if self._load_cache_from_disk():
             return
 
@@ -474,6 +505,9 @@ class BddkApiClient:
 
         if not all_decisions and self._page_errors:
             logger.error("All page fetches failed: %s", self._page_errors)
+            # Fallback to stale disk cache when BDDK is unreachable
+            if STALE_CACHE_FALLBACK and self._load_stale_cache_from_disk():
+                return
 
         self._cache = all_decisions
         self._cache_timestamp = time.time()
@@ -685,7 +719,7 @@ class BddkApiClient:
             except (RuntimeError, OSError) as e:
                 logger.warning("Failed to store document %s: %s", document_id, e)
 
-        total_pages = max(1, math.ceil(len(markdown) / _CHUNK_SIZE))
+        total_pages = max(1, math.ceil(len(markdown) / PAGE_SIZE))
 
         if page_number < 1 or page_number > total_pages:
             return BddkDocumentMarkdown(
@@ -695,8 +729,8 @@ class BddkApiClient:
                 total_pages=total_pages,
             )
 
-        start = (page_number - 1) * _CHUNK_SIZE
-        page_content = markdown[start : start + _CHUNK_SIZE]
+        start = (page_number - 1) * PAGE_SIZE
+        page_content = markdown[start : start + PAGE_SIZE]
 
         return BddkDocumentMarkdown(
             document_id=document_id,

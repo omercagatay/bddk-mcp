@@ -21,6 +21,7 @@ import io
 import json
 import logging
 import time
+from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -28,6 +29,7 @@ import httpx
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
 
+from config import CACHE_FILE, MAX_RETRIES, REQUEST_TIMEOUT
 from doc_store import DocumentStore, StoredDocument
 
 logger = logging.getLogger(__name__)
@@ -42,11 +44,17 @@ _MEVZUAT_TUR_MAP = {
     "9": "teblig",
     "11": "cumhurbaskanligikararnamesi",
 }
-_CACHE_FILE = Path(__file__).parent / ".cache.json"
-_MAX_RETRIES = 3
 
 
 # ── Result models ────────────────────────────────────────────────────────────
+
+
+class ExtractionResult(BaseModel):
+    """Structured result from document extraction attempts."""
+    content: str = ""
+    method: str = "failed"
+    error: str = ""
+    retryable: bool = False
 
 
 class SyncResult(BaseModel):
@@ -164,7 +172,7 @@ def _extract_html_to_markdown(html: str) -> str:
 # ── Download helpers ─────────────────────────────────────────────────────────
 
 
-async def _fetch_with_retry(http: httpx.AsyncClient, url: str, max_retries: int = _MAX_RETRIES) -> httpx.Response:
+async def _fetch_with_retry(http: httpx.AsyncClient, url: str, max_retries: int = MAX_RETRIES) -> httpx.Response:
     """Fetch URL with exponential backoff."""
     last_exc = None
     for attempt in range(max_retries):
@@ -224,11 +232,13 @@ class DocumentSyncer:
     def __init__(
         self,
         store: DocumentStore,
-        request_timeout: float = 60.0,
+        request_timeout: float = REQUEST_TIMEOUT,
         prefer_nougat: bool = True,
+        progress_callback: "Callable[[str, int, int], None] | None" = None,
     ) -> None:
         self._store = store
         self._prefer_nougat = prefer_nougat
+        self._progress_callback = progress_callback
         self._http = httpx.AsyncClient(
             headers={
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -427,33 +437,54 @@ class DocumentSyncer:
     # ── Extraction ───────────────────────────────────────────────────────
 
     def _extract(self, content: bytes, ext: str) -> tuple[str, str]:
-        """Extract markdown from downloaded content. Returns (markdown, method)."""
+        """Extract markdown from downloaded content. Returns (markdown, method).
+
+        Uses a structured pipeline and logs detailed failure reasons.
+        """
+        extraction = self._extract_structured(content, ext)
+        if extraction.error:
+            logger.warning("Extraction issue: %s (method=%s, retryable=%s)", extraction.error, extraction.method, extraction.retryable)
+        return extraction.content, extraction.method
+
+    def _extract_structured(self, content: bytes, ext: str) -> ExtractionResult:
+        """Extract markdown with structured error reporting."""
+        errors: list[str] = []
 
         # For PDFs, try Nougat first if preferred
         if ext == ".pdf" and self._prefer_nougat:
             result = _extract_with_nougat(content)
             if result:
-                return result, "nougat"
+                return ExtractionResult(content=result, method="nougat")
+            errors.append("nougat: not available or failed")
 
         # markitdown for PDF and DOC
         if ext in (".pdf", ".doc", ".docx"):
             result = _extract_with_markitdown(content, ext)
             if result:
-                return result, "markitdown"
+                return ExtractionResult(content=result, method="markitdown")
+            errors.append(f"markitdown: failed for {ext}")
 
         # HTML content
         if ext in (".html", ".htm"):
             html_str = content.decode("utf-8", errors="replace")
             result = _extract_html_to_markdown(html_str)
             if result:
-                return result, "html_parser"
+                return ExtractionResult(content=result, method="html_parser")
+            errors.append("html_parser: no meaningful content extracted")
 
             # Try markitdown as HTML fallback
             result = _extract_with_markitdown(content, ".html")
             if result:
-                return result, "markitdown"
+                return ExtractionResult(content=result, method="markitdown")
+            errors.append("markitdown: HTML fallback also failed")
 
-        return "", "failed"
+        # Determine if retryable (content too small vs truly unreadable)
+        retryable = len(content) < 200  # Likely an error page, not actual content
+        return ExtractionResult(
+            method="failed",
+            error="; ".join(errors) if errors else f"Unsupported extension: {ext}",
+            retryable=retryable,
+        )
 
     # ── Batch sync ───────────────────────────────────────────────────────
 
@@ -463,15 +494,17 @@ class DocumentSyncer:
         concurrency: int = 5,
         force: bool = False,
     ) -> SyncReport:
-        """Sync a batch of documents with concurrency control."""
+        """Sync a batch of documents with concurrency control and progress reporting."""
         start = time.time()
         report = SyncReport(total=len(documents))
+        completed = 0
 
         semaphore = asyncio.Semaphore(concurrency)
 
         async def _sync_one(doc_info: dict) -> SyncResult:
+            nonlocal completed
             async with semaphore:
-                return await self.sync_document(
+                result = await self.sync_document(
                     doc_id=doc_info.get("document_id", ""),
                     title=doc_info.get("title", ""),
                     category=doc_info.get("category", ""),
@@ -480,6 +513,20 @@ class DocumentSyncer:
                     decision_number=doc_info.get("decision_number", ""),
                     force=force,
                 )
+                completed += 1
+                if self._progress_callback:
+                    self._progress_callback(doc_info.get("document_id", ""), completed, len(documents))
+                elif completed % 50 == 0 or completed == len(documents):
+                    elapsed = time.time() - start
+                    rate = completed / elapsed if elapsed > 0 else 0
+                    eta = (len(documents) - completed) / rate if rate > 0 else 0
+                    logger.info(
+                        "Sync progress: %d/%d (%.0f%%) — %.1f docs/s, ETA %.0fs",
+                        completed, len(documents),
+                        completed / len(documents) * 100,
+                        rate, eta,
+                    )
+                return result
 
         tasks = [_sync_one(doc) for doc in documents]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -504,11 +551,11 @@ class DocumentSyncer:
 
     async def import_and_sync_from_cache(self, force: bool = False, concurrency: int = 5) -> SyncReport:
         """Load documents from .cache.json and sync them all."""
-        if not _CACHE_FILE.exists():
-            logger.error("No cache file found at %s", _CACHE_FILE)
+        if not CACHE_FILE.exists():
+            logger.error("No cache file found at %s", CACHE_FILE)
             return SyncReport()
 
-        data = json.loads(_CACHE_FILE.read_text(encoding="utf-8"))
+        data = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
         items = data.get("items", [])
         if not items:
             logger.warning("Cache file is empty")
@@ -590,11 +637,11 @@ async def _cli_import(args: argparse.Namespace) -> None:
     async with DocumentStore(db_path=db_path) as store:
         await store.initialize()
 
-        if not _CACHE_FILE.exists():
-            print(f"No cache file at {_CACHE_FILE}")
+        if not CACHE_FILE.exists():
+            print(f"No cache file at {CACHE_FILE}")
             return
 
-        data = json.loads(_CACHE_FILE.read_text(encoding="utf-8"))
+        data = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
         items = data.get("items", [])
         imported = await store.import_from_cache(items)
         print(f"Imported {imported} new entries from cache ({len(items)} total in cache)")

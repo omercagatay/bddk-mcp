@@ -153,9 +153,9 @@ async def build_digest(
         cat = d.get("category", "Diğer")
         by_category.setdefault(cat, []).append(d)
 
-    # -- Recent announcements --
+    # -- Recent announcements (all 5 categories) --
     all_announcements: list[dict] = []
-    for cat_id in [39, 40]:  # Press + regulation announcements
+    for cat_id in [39, 40, 41, 42, 48]:  # Press, regulation, HR, data, institution
         anns = await fetch_announcements(http, cat_id)
         for a in anns:
             date_str = a.get("date", "")
@@ -269,7 +269,7 @@ async def check_updates(
     if known_announcement_ids is None:
         known_announcement_ids = set()
 
-    for cat_id in [39, 40]:  # Press + regulation
+    for cat_id in [39, 40, 41, 42, 48]:  # All 5 categories
         anns = await fetch_announcements(http, cat_id)
         for a in anns:
             if a.get("url") and a["url"] not in known_announcement_ids:
@@ -280,5 +280,8 @@ async def check_updates(
     return {
         "new_announcements": new_announcements[:10],
         "new_announcements_count": len(new_announcements),
-        "checked_categories": ["Basın Duyurusu", "Mevzuat Duyurusu"],
+        "checked_categories": [
+            "Basın Duyurusu", "Mevzuat Duyurusu", "İnsan Kaynakları Duyurusu",
+            "Veri Yayımlama Duyurusu", "Kuruluş Duyurusu",
+        ],
     }

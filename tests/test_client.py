@@ -58,7 +58,7 @@ class TestCachePersistence:
         client._cache = [BddkDecisionSummary(title="Test", document_id="1", content="test", category="Rehber")]
         client._cache_timestamp = time.time()
 
-        with patch("client._CACHE_FILE", cache_file):
+        with patch("client.CACHE_FILE", cache_file):
             client._save_cache_to_disk()
             assert cache_file.exists()
 
@@ -77,7 +77,7 @@ class TestCachePersistence:
         cache_file.write_text(json.dumps(data), encoding="utf-8")
 
         client = BddkApiClient()
-        with patch("client._CACHE_FILE", cache_file):
+        with patch("client.CACHE_FILE", cache_file):
             loaded = client._load_cache_from_disk()
         assert not loaded
 
@@ -86,7 +86,7 @@ class TestCachePersistence:
         cache_file.write_text("not valid json", encoding="utf-8")
 
         client = BddkApiClient()
-        with patch("client._CACHE_FILE", cache_file):
+        with patch("client.CACHE_FILE", cache_file):
             loaded = client._load_cache_from_disk()
         assert not loaded
 
