@@ -10,20 +10,15 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
 COPY *.py ./
-COPY tests/ tests/
 
 # Pre-download the embedding model at build time so runtime is fully offline.
-# HF_HOME controls where the model is cached; TRANSFORMERS_OFFLINE=1 prevents
-# any network requests at runtime (safe for air-gapped deployments).
 ENV HF_HOME=/app/model_cache
 RUN uv run python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('intfloat/multilingual-e5-base')"
 ENV TRANSFORMERS_OFFLINE=1
 ENV HF_HUB_OFFLINE=1
 
-# Create persistent data directory for SQLite document store
-RUN mkdir -p /app/data
-ENV BDDK_DB_PATH=/app/data/bddk_docs.db
-ENV BDDK_CHROMA_PATH=/app/data/chroma_db
+# PostgreSQL connection (override at runtime)
+ENV BDDK_DATABASE_URL=postgresql://bddk:bddk@db:5432/bddk
 
 # Auto-sync documents on first deploy if store is empty
 ENV BDDK_AUTO_SYNC=true

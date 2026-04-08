@@ -1,12 +1,11 @@
 {
   "mcpServers": {
-    "bddk-local": {
-      "command": "python",
-      "args": ["server.py"],
-      "cwd": "C:\\Users\\cagat\\bddk_mcp_module",
+    "bddk": {
+      "command": "uv",
+      "args": ["run", "--directory", "/home/cagatay/bddk-mcp", "--python", "3.12", "mcp", "run", "server.py"],
       "env": {
         "MCP_TRANSPORT": "stdio",
-        "BDDK_DB_PATH": "C:\\Users\\cagat\\bddk_mcp_module\\bddk_docs.db"
+        "BDDK_DATABASE_URL": "postgresql://bddk:bddk@localhost:5432/bddk"
       }
     }
   }

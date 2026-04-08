@@ -1,14 +1,136 @@
 """Shared test fixtures for BDDK MCP Server tests."""
 
+import asyncio
+import os
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock
 
+import asyncpg
 import httpx
 import pytest
+import pytest_asyncio
 
 from doc_store import DocumentStore, StoredDocument
 from models import BddkDecisionSummary
 
-# -- HTTP mocking helpers -----------------------------------------------
+# -- PostgreSQL test database -------------------------------------------------
+
+_TEST_DSN = os.environ.get("BDDK_TEST_DATABASE_URL", "postgresql://bddk:bddk@localhost:5432/bddk_test")
+
+
+# -- Pool fixture (created once per test, reused via caching) -----------------
+
+_pg_pool_cache: asyncpg.Pool | None = None
+_pg_pool_loop_id: int | None = None
+
+
+@pytest.fixture
+async def pg_pool():
+    """Provide a PostgreSQL pool. Skips if PG unavailable.
+
+    Caches the pool across tests sharing the same event loop.
+    """
+    global _pg_pool_cache, _pg_pool_loop_id
+
+    loop = asyncio.get_running_loop()
+    loop_id = id(loop)
+
+    # Reuse pool if on same loop
+    if _pg_pool_cache is not None and _pg_pool_loop_id == loop_id:
+        yield _pg_pool_cache
+        return
+
+    # Close stale pool from a different loop
+    if _pg_pool_cache is not None:
+        try:
+            await _pg_pool_cache.close()
+        except Exception:
+            pass
+        _pg_pool_cache = None
+
+    try:
+        pool = await asyncpg.create_pool(_TEST_DSN, min_size=1, max_size=5, timeout=5)
+        await pool.execute("CREATE EXTENSION IF NOT EXISTS vector")
+        await pool.execute("CREATE EXTENSION IF NOT EXISTS unaccent")
+        _pg_pool_cache = pool
+        _pg_pool_loop_id = loop_id
+        yield pool
+    except (asyncpg.PostgresError, OSError, asyncio.TimeoutError):
+        pytest.skip("PostgreSQL test database not available")
+
+
+class SingleConnPool:
+    """Wraps a single asyncpg connection to behave like a pool.
+
+    Used in tests so each test runs inside a transaction that gets rolled back.
+    """
+
+    def __init__(self, conn: asyncpg.Connection):
+        self._conn = conn
+
+    @asynccontextmanager
+    async def acquire(self):
+        yield self._conn
+
+    async def fetch(self, query, *args, **kwargs):
+        return await self._conn.fetch(query, *args, **kwargs)
+
+    async def fetchrow(self, query, *args, **kwargs):
+        return await self._conn.fetchrow(query, *args, **kwargs)
+
+    async def fetchval(self, query, *args, **kwargs):
+        return await self._conn.fetchval(query, *args, **kwargs)
+
+    async def execute(self, query, *args, **kwargs):
+        return await self._conn.execute(query, *args, **kwargs)
+
+
+@pytest.fixture
+async def doc_store(pg_pool):
+    """Create a DocumentStore inside a transaction (rolled back after test)."""
+    conn = await pg_pool.acquire()
+    tx = conn.transaction()
+    await tx.start()
+
+    pool_wrapper = SingleConnPool(conn)
+    store = DocumentStore(pool_wrapper)
+    await store.initialize()
+    yield store
+
+    await tx.rollback()
+    await pg_pool.release(conn)
+
+
+# -- Mock pool for tests that don't need real SQL ----------------------------
+
+
+class MockPool:
+    """A no-op pool for client tests that only test in-memory behavior."""
+
+    @asynccontextmanager
+    async def acquire(self):
+        yield AsyncMock()
+
+    async def fetch(self, *args, **kwargs):
+        return []
+
+    async def fetchrow(self, *args, **kwargs):
+        return None
+
+    async def fetchval(self, *args, **kwargs):
+        return None
+
+    async def execute(self, *args, **kwargs):
+        return "SELECT 0"
+
+
+@pytest.fixture
+def mock_pool():
+    """A mock pool for client tests that don't touch the database."""
+    return MockPool()
+
+
+# -- HTTP mocking helpers ---------------------------------------------------
 
 
 def make_http_response(
@@ -39,17 +161,7 @@ def mock_http():
     return client
 
 
-# -- DocumentStore fixtures ---------------------------------------------
-
-
-@pytest.fixture
-async def doc_store(tmp_path):
-    """Create a temporary DocumentStore."""
-    db_path = tmp_path / "test_docs.db"
-    s = DocumentStore(db_path=db_path)
-    await s.initialize()
-    yield s
-    await s.close()
+# -- DocumentStore fixtures ------------------------------------------------
 
 
 @pytest.fixture
@@ -87,7 +199,7 @@ def mevzuat_doc():
     )
 
 
-# -- Sample decision cache ----------------------------------------------
+# -- Sample decision cache -------------------------------------------------
 
 
 SAMPLE_DECISIONS = [
@@ -124,8 +236,7 @@ SAMPLE_DECISIONS = [
 ]
 
 
-# -- Sample HTML responses ----------------------------------------------
-
+# -- Sample HTML responses -------------------------------------------------
 
 BDDK_ACCORDION_HTML = """
 <div class="card">
