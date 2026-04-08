@@ -20,8 +20,9 @@ ENV HF_HUB_OFFLINE=1
 # PostgreSQL connection (override at runtime)
 ENV BDDK_DATABASE_URL=postgresql://bddk:bddk@db:5432/bddk
 
-# Auto-sync documents on first deploy if store is empty
-ENV BDDK_AUTO_SYNC=true
+# Auto-sync disabled by default — PostgreSQL persists across deploys.
+# Set to true only for first deploy with empty database.
+ENV BDDK_AUTO_SYNC=false
 
 # Default to streamable-http transport for remote deployment
 ENV MCP_TRANSPORT=streamable-http

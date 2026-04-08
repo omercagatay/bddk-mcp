@@ -450,18 +450,26 @@ class BddkApiClient:
         return decisions
 
     async def _ensure_cache(self) -> None:
-        """Ensure the decision cache is populated and valid."""
-        if self._is_cache_valid():
+        """Ensure the decision cache is populated.
+
+        Serves from in-memory cache or PostgreSQL without hitting BDDK.
+        Only scrapes BDDK if the database is completely empty.
+        Use refresh_cache() for an explicit BDDK refresh.
+        """
+        if self._cache:
             return
 
-        # Try loading from DB (always works, no TTL check on load)
-        if not self._cache and await self._load_cache_from_db():
-            # Cache loaded from DB — if within TTL, we're done
-            if self._is_cache_valid():
-                return
-            # Stale but usable — continue to serve stale, try refresh in background
+        # Try loading from DB — no network needed
+        if await self._load_cache_from_db():
+            logger.info("Serving %d items from PostgreSQL cache", len(self._cache))
+            return
 
-        logger.info("Refreshing BDDK cache...")
+        # DB is empty — must scrape BDDK for initial population
+        logger.info("PostgreSQL cache empty — initial scrape from BDDK...")
+        await self._scrape_bddk()
+
+    async def _scrape_bddk(self) -> None:
+        """Scrape all BDDK pages and persist to PostgreSQL."""
         all_decisions: list[BddkDecisionSummary] = []
         self._page_errors.clear()
 
@@ -480,7 +488,6 @@ class BddkApiClient:
 
         if not all_decisions and self._page_errors:
             logger.error("All page fetches failed: %s", self._page_errors)
-            # Fallback: serve stale cache from DB
             if STALE_CACHE_FALLBACK and self._cache:
                 logger.warning("Serving stale DB cache (%d items) — BDDK unreachable", len(self._cache))
                 return
@@ -494,6 +501,12 @@ class BddkApiClient:
     async def ensure_cache(self) -> None:
         """Public wrapper for _ensure_cache."""
         await self._ensure_cache()
+
+    async def refresh_cache(self) -> int:
+        """Force re-scrape BDDK and update PostgreSQL. Returns new item count."""
+        logger.info("Force-refreshing BDDK cache from live site...")
+        await self._scrape_bddk()
+        return len(self._cache)
 
     # -- public API -----------------------------------------------------------
 
