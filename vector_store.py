@@ -142,6 +142,11 @@ class VectorStore:
                         e,
                     )
                     self._client.delete_collection(_COLLECTION_NAME)
+                    # Reinitialize client to clear stale UUID references
+                    self._client = chromadb.PersistentClient(
+                        path=str(self._db_path),
+                        settings=Settings(anonymized_telemetry=False),
+                    )
                     self._collection = self._client.get_or_create_collection(
                         name=_COLLECTION_NAME,
                         embedding_function=self._embed_fn,
