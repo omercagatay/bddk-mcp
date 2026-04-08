@@ -42,4 +42,4 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["client", "models", "doc_store", "vector_store", "doc_sync", "data_sources", "analytics", "exceptions", "logging_config"]
+known-first-party = ["client", "config", "models", "doc_store", "vector_store", "doc_sync", "data_sources", "analytics", "exceptions", "logging_config"]

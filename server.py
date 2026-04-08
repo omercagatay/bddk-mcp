@@ -1,15 +1,28 @@
 """MCP server exposing BDDK decision search, document retrieval, and data tools."""
 
 import asyncio
+import contextlib
 import logging
 import os
 import time
-from pathlib import Path
+from collections.abc import AsyncIterator
 
 from mcp.server.fastmcp import FastMCP
 
 from analytics import analyze_trends, build_digest, check_updates, compare_metrics
 from client import BddkApiClient, _turkish_lower
+from config import (
+    AUTO_SYNC,
+    PREFER_NOUGAT,
+    SEARCH_CACHE_MAX,
+    SEARCH_CACHE_TTL,
+    validate_column,
+    validate_currency,
+    validate_metric_id,
+    validate_month,
+    validate_table_no,
+    validate_year,
+)
 from data_sources import (
     fetch_announcements,
     fetch_bulletin_snapshot,
@@ -26,15 +39,12 @@ from vector_store import VectorStore
 configure_logging()
 logger = logging.getLogger(__name__)
 
-import contextlib
-from collections.abc import AsyncIterator
-
 
 @contextlib.asynccontextmanager
 async def _app_lifespan(app: FastMCP) -> AsyncIterator[None]:
     """Lifecycle hook: start background sync on deploy, graceful shutdown."""
     print("[LIFESPAN] started", flush=True)
-    auto_sync = os.environ.get("BDDK_AUTO_SYNC", "").lower() in ("1", "true", "yes")
+    auto_sync = AUTO_SYNC
     print(f"[LIFESPAN] auto_sync={auto_sync}", flush=True)
     task = None
     if auto_sync:
@@ -65,8 +75,8 @@ _last_sync_time: float | None = None
 
 # TTL cache for search results (avoids redundant FTS/ChromaDB queries)
 _search_cache: dict[str, tuple[float, str]] = {}
-_SEARCH_CACHE_TTL = 300  # 5 minutes
-_SEARCH_CACHE_MAX = 200  # max entries
+_SEARCH_CACHE_TTL = SEARCH_CACHE_TTL
+_SEARCH_CACHE_MAX = SEARCH_CACHE_MAX
 
 
 def _cached_search(cache_key: str) -> str | None:
@@ -89,8 +99,9 @@ def _store_search(cache_key: str, result: str) -> None:
 async def _get_doc_store() -> DocumentStore:
     global _doc_store
     if _doc_store is None:
-        db_path = Path(os.environ.get("BDDK_DB_PATH", Path(__file__).parent / "bddk_docs.db"))
-        _doc_store = DocumentStore(db_path=db_path)
+        from config import DB_PATH
+
+        _doc_store = DocumentStore(db_path=DB_PATH)
         await _doc_store.initialize()
     return _doc_store
 
@@ -98,8 +109,9 @@ async def _get_doc_store() -> DocumentStore:
 def _get_vector_store() -> VectorStore:
     global _vector_store
     if _vector_store is None:
-        chroma_path = Path(os.environ.get("BDDK_CHROMA_PATH", Path(__file__).parent / "chroma_db"))
-        _vector_store = VectorStore(db_path=chroma_path)
+        from config import CHROMA_PATH
+
+        _vector_store = VectorStore(db_path=CHROMA_PATH)
         _vector_store.initialize()
     return _vector_store
 
@@ -156,12 +168,19 @@ async def search_bddk_decisions(
     if not result.decisions:
         return "No BDDK decisions found for the given keywords."
 
+    # Check for version history to surface in results
+    store = await _get_doc_store()
+
     lines = [f"Found {result.total_results} result(s) (page {result.page}):\n"]
     for d in result.decisions:
         date_info = f" ({d.decision_date} - {d.decision_number})" if d.decision_date else ""
         cat_info = f" [{d.category}]" if d.category else ""
         lines.append(f"**{d.title}**{date_info}{cat_info}")
         lines.append(f"  Document ID: {d.document_id}")
+        # Show version count if document has history
+        history = await store.get_document_history(d.document_id)
+        if history:
+            lines.append(f"  Versions: {len(history)} (latest: {history[0]['synced_at']})")
         lines.append(f"  {d.content}\n")
     output = "\n".join(lines)
     _store_search(cache_key, output)
@@ -289,6 +308,13 @@ async def get_bddk_bulletin(
         date: Specific date (DD.MM.YYYY), empty for latest
         days: Number of days of history (default 90)
     """
+    try:
+        validate_metric_id(metric_id)
+        validate_currency(currency, "weekly")
+        validate_column(column)
+    except ValueError as e:
+        return f"Validation error: {e}"
+
     client = await _get_client()
     data = await fetch_weekly_bulletin(
         client._http,
@@ -349,23 +375,37 @@ async def search_bddk_announcements(
     Args:
         keywords: Search terms in Turkish
         category: Announcement type: basın (press), mevzuat (regulation),
-            insan kaynakları (HR), veri (data publication)
+            insan kaynakları (HR), veri (data publication), kuruluş (institution).
+            Use "tümü" or "all" to search across all categories.
     """
     # Map category keywords to page IDs
     cat_lower = _turkish_lower(category)
-    if "basın" in cat_lower or "press" in cat_lower:
-        cat_id = 39
-    elif "mevzuat" in cat_lower or "regul" in cat_lower:
-        cat_id = 40
-    elif "insan" in cat_lower or "hr" in cat_lower:
-        cat_id = 41
-    elif "veri" in cat_lower or "data" in cat_lower:
-        cat_id = 42
-    else:
-        cat_id = 39
+
+    cat_map: dict[str, list[int]] = {
+        "basın": [39],
+        "press": [39],
+        "mevzuat": [40],
+        "regul": [40],
+        "insan": [41],
+        "hr": [41],
+        "veri": [42],
+        "data": [42],
+        "kuruluş": [48],
+        "institution": [48],
+        "tümü": [39, 40, 41, 42, 48],
+        "all": [39, 40, 41, 42, 48],
+    }
+
+    cat_ids = [39]  # default
+    for key, ids in cat_map.items():
+        if key in cat_lower:
+            cat_ids = ids
+            break
 
     client = await _get_client()
-    announcements = await fetch_announcements(client._http, cat_id)
+    announcements: list[dict] = []
+    for cat_id in cat_ids:
+        announcements.extend(await fetch_announcements(client._http, cat_id))
 
     if keywords:
         kw = _turkish_lower(keywords)
@@ -407,6 +447,13 @@ async def analyze_bulletin_trends(
         column: 1=TP (TL), 2=YP (Foreign Currency), 3=Toplam
         lookback_weeks: Number of weeks to analyze (default 12)
     """
+    try:
+        validate_metric_id(metric_id)
+        validate_currency(currency, "weekly")
+        validate_column(column)
+    except ValueError as e:
+        return f"Validation error: {e}"
+
     client = await _get_client()
     result = await analyze_trends(
         client._http,
@@ -507,6 +554,14 @@ async def compare_bulletin_metrics(
     if not ids:
         return "Please provide at least one metric ID."
 
+    try:
+        for mid in ids:
+            validate_metric_id(mid)
+        validate_currency(currency, "weekly")
+        validate_column(column)
+    except ValueError as e:
+        return f"Validation error: {e}"
+
     client = await _get_client()
     result = await compare_metrics(client._http, ids, currency, column, days)
 
@@ -543,7 +598,7 @@ async def check_bddk_updates() -> str:
         # First run — fetch and store current state as baseline
         from data_sources import fetch_announcements as _fa
 
-        for cat_id in [39, 40]:
+        for cat_id in [39, 40, 41, 42, 48]:
             anns = await _fa(client._http, cat_id)
             for a in anns:
                 if a.get("url"):
@@ -596,6 +651,14 @@ async def get_bddk_monthly(
             10003=Kalkınma ve Yatırım, 10004=Katılım Bankaları,
             20001=Kamu, 20002=Özel, 20003=Yabancı
     """
+    try:
+        validate_table_no(table_no)
+        validate_year(year)
+        validate_month(month)
+        validate_currency(currency, "monthly")
+    except ValueError as e:
+        return f"Validation error: {e}"
+
     from data_sources import fetch_monthly_bulletin
 
     client = await _get_client()
@@ -652,7 +715,7 @@ async def sync_bddk_documents(
     client = await _get_client()
     await client.ensure_cache()
 
-    async with DocumentSyncer(store, prefer_nougat=False) as syncer:
+    async with DocumentSyncer(store, prefer_nougat=PREFER_NOUGAT) as syncer:
         if document_id:
             # Single document
             source_url = ""
@@ -821,7 +884,7 @@ async def _startup_sync() -> None:
                 cache_size,
             )
             items = [d.model_dump() for d in client._cache]
-            async with DocumentSyncer(store, prefer_nougat=False) as syncer:
+            async with DocumentSyncer(store, prefer_nougat=PREFER_NOUGAT) as syncer:
                 report = await syncer.sync_all(items, concurrency=10, force=False)
             logger.info(
                 "SQLite sync: %d downloaded, %d failed, %.1fs",
@@ -1060,7 +1123,7 @@ if __name__ == "__main__":
             config = uvicorn.Config(app, host="0.0.0.0", port=port)
             server = uvicorn.Server(config)
 
-            auto_sync = os.environ.get("BDDK_AUTO_SYNC", "").lower() in ("1", "true", "yes")
+            auto_sync = AUTO_SYNC
             if auto_sync:
                 print("[STARTUP] launching background sync", flush=True)
                 asyncio.create_task(_startup_sync())

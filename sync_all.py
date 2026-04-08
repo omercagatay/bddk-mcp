@@ -27,7 +27,7 @@ async def main():
     async with DocumentSyncer(store, prefer_nougat=False) as syncer:
         report = await syncer.sync_all(items, concurrency=5, force=False)
 
-    print(f"\nSync Report:")
+    print("\nSync Report:")
     print(f"  Total:      {report.total}")
     print(f"  Downloaded: {report.downloaded}")
     print(f"  Skipped:    {report.skipped}")
@@ -35,7 +35,7 @@ async def main():
     print(f"  Time:       {report.elapsed_seconds}s")
 
     if report.errors:
-        print(f"\nFirst 10 errors:")
+        print("\nFirst 10 errors:")
         for e in report.errors[:10]:
             print(f"  [{e.document_id}] {e.error}")
 
