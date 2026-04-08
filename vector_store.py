@@ -125,12 +125,30 @@ class VectorStore:
                 )
                 logger.info("Loaded CPU embeddings: %s", model_ref)
 
-            # Re-open collection with the embedding function
-            self._collection = self._client.get_or_create_collection(
-                name=_COLLECTION_NAME,
-                embedding_function=self._embed_fn,
-                metadata={"hnsw:space": "cosine"},
-            )
+            # Re-open collection with the embedding function.
+            # If the collection was previously created with a different embedding
+            # function (e.g. "default"), delete and recreate it. The data will be
+            # re-populated from SQLite during the migration step.
+            try:
+                self._collection = self._client.get_or_create_collection(
+                    name=_COLLECTION_NAME,
+                    embedding_function=self._embed_fn,
+                    metadata={"hnsw:space": "cosine"},
+                )
+            except ValueError as e:
+                if "embedding function" in str(e).lower() or "conflict" in str(e).lower():
+                    logger.warning(
+                        "Embedding function conflict — recreating collection (data will be re-embedded from SQLite): %s",
+                        e,
+                    )
+                    self._client.delete_collection(_COLLECTION_NAME)
+                    self._collection = self._client.get_or_create_collection(
+                        name=_COLLECTION_NAME,
+                        embedding_function=self._embed_fn,
+                        metadata={"hnsw:space": "cosine"},
+                    )
+                else:
+                    raise
         except ImportError as e:
             logger.warning("sentence-transformers not available, using ChromaDB default: %s", e)
 
