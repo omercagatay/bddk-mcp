@@ -79,7 +79,7 @@ MAX_RETRIES = int(os.environ.get("BDDK_MAX_RETRIES", "3"))
 
 # -- Sync ---------------------------------------------------------------------
 
-AUTO_SYNC = os.environ.get("BDDK_AUTO_SYNC", "true").lower() in ("1", "true", "yes")
+AUTO_SYNC = os.environ.get("BDDK_AUTO_SYNC", "false").lower() in ("1", "true", "yes")
 SYNC_CONCURRENCY = int(os.environ.get("BDDK_SYNC_CONCURRENCY", "5"))
 PREFER_NOUGAT = os.environ.get("BDDK_PREFER_NOUGAT", "false").lower() in ("1", "true", "yes")
 

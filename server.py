@@ -748,6 +748,20 @@ async def get_bddk_monthly(
 
 
 @mcp.tool()
+async def refresh_bddk_cache() -> str:
+    """
+    Force re-scrape BDDK website and update the PostgreSQL decision cache.
+
+    Use this when you need the latest regulations/decisions from BDDK.
+    Normally the server serves from PostgreSQL without hitting BDDK.
+    This tool explicitly fetches fresh data from bddk.org.tr.
+    """
+    client = await _get_client()
+    count = await client.refresh_cache()
+    return f"BDDK cache refreshed: {count} decisions/regulations scraped and saved to PostgreSQL."
+
+
+@mcp.tool()
 async def sync_bddk_documents(
     force: bool = False,
     document_id: str | None = None,
@@ -951,7 +965,11 @@ async def document_store_stats() -> str:
 
 
 async def _startup_sync() -> None:
-    """Auto-sync documents on startup: download missing + embed to pgvector."""
+    """Auto-sync documents on startup: download missing + embed to pgvector.
+
+    Uses existing PostgreSQL cache — does NOT scrape BDDK for the decision list.
+    Only downloads document content that is missing from the document store.
+    """
     global _last_sync_time
     logger.info("Startup sync started...")
     try:
@@ -959,9 +977,11 @@ async def _startup_sync() -> None:
 
         store = await _get_doc_store()
         client = await _get_client()
-        logger.info("Ensuring BDDK decision cache...")
-        await client.ensure_cache()
-        logger.info("Cache loaded: %d documents", len(client._cache))
+        # Cache is already loaded from PostgreSQL in initialize() — no BDDK scraping
+        logger.info("Using existing cache: %d documents", len(client._cache))
+        if not client._cache:
+            logger.warning("Cache is empty — skipping startup sync (run refresh_bddk_cache first)")
+            return
 
         st = await store.stats()
         cache_size = len(client._cache)
