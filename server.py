@@ -1229,6 +1229,21 @@ if __name__ == "__main__":
             config = uvicorn.Config(app, host="0.0.0.0", port=port)
             server = uvicorn.Server(config)
 
+            # Seed DB from bundled JSON if tables are empty
+            try:
+                from seed import SEED_DIR, import_seed
+                if SEED_DIR.exists():
+                    result = await import_seed()
+                    if not result["skipped"]:
+                        logger.info(
+                            "Seed import: %d cache, %d docs, %d chunks",
+                            result["decision_cache"], result["documents"], result["chunks"],
+                        )
+                    else:
+                        logger.info("DB already populated — seed import skipped")
+            except Exception as e:
+                logger.warning("Seed import failed (non-fatal): %s", e)
+
             if AUTO_SYNC:
                 print("[STARTUP] launching background sync", flush=True)
                 asyncio.create_task(_startup_sync())

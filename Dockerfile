@@ -11,6 +11,9 @@ RUN uv sync --frozen --no-dev
 
 COPY *.py ./
 
+# Bundle pre-populated seed data (run `python seed.py export` locally first)
+COPY seed_data/ ./seed_data/
+
 # Pre-download the embedding model at build time so runtime is fully offline.
 ENV HF_HOME=/app/model_cache
 RUN uv run python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('intfloat/multilingual-e5-base')"
