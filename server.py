@@ -100,6 +100,7 @@ async def _get_doc_store() -> DocumentStore:
     global _doc_store
     if _doc_store is None:
         from config import DB_PATH
+
         _doc_store = DocumentStore(db_path=DB_PATH)
         await _doc_store.initialize()
     return _doc_store
@@ -109,6 +110,7 @@ def _get_vector_store() -> VectorStore:
     global _vector_store
     if _vector_store is None:
         from config import CHROMA_PATH
+
         _vector_store = VectorStore(db_path=CHROMA_PATH)
         _vector_store.initialize()
     return _vector_store
@@ -380,12 +382,18 @@ async def search_bddk_announcements(
     cat_lower = _turkish_lower(category)
 
     cat_map: dict[str, list[int]] = {
-        "basın": [39], "press": [39],
-        "mevzuat": [40], "regul": [40],
-        "insan": [41], "hr": [41],
-        "veri": [42], "data": [42],
-        "kuruluş": [48], "institution": [48],
-        "tümü": [39, 40, 41, 42, 48], "all": [39, 40, 41, 42, 48],
+        "basın": [39],
+        "press": [39],
+        "mevzuat": [40],
+        "regul": [40],
+        "insan": [41],
+        "hr": [41],
+        "veri": [42],
+        "data": [42],
+        "kuruluş": [48],
+        "institution": [48],
+        "tümü": [39, 40, 41, 42, 48],
+        "all": [39, 40, 41, 42, 48],
     }
 
     cat_ids = [39]  # default

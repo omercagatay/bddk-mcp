@@ -50,15 +50,11 @@ class TestChunkOverlapFix:
         chunks = _chunk_text(original, chunk_size=1000, overlap=200)
 
         # Simulate chunk_data format: (id, text, metadata)
-        chunk_data = [
-            (f"doc_chunk_{i}", chunk, {"chunk_index": i})
-            for i, chunk in enumerate(chunks)
-        ]
+        chunk_data = [(f"doc_chunk_{i}", chunk, {"chunk_index": i}) for i, chunk in enumerate(chunks)]
 
         reconstructed = vs._reconstruct_content(chunk_data)
         assert reconstructed == original, (
-            f"Reconstruction mismatch: len(original)={len(original)}, "
-            f"len(reconstructed)={len(reconstructed)}"
+            f"Reconstruction mismatch: len(original)={len(original)}, len(reconstructed)={len(reconstructed)}"
         )
 
     def test_reconstruction_large_document(self):
@@ -71,10 +67,7 @@ class TestChunkOverlapFix:
         original = "".join(chr(65 + (i % 26)) for i in range(10000))
         chunks = _chunk_text(original, chunk_size=1000, overlap=200)
 
-        chunk_data = [
-            (f"doc_chunk_{i}", chunk, {"chunk_index": i})
-            for i, chunk in enumerate(chunks)
-        ]
+        chunk_data = [(f"doc_chunk_{i}", chunk, {"chunk_index": i}) for i, chunk in enumerate(chunks)]
 
         reconstructed = vs._reconstruct_content(chunk_data)
         assert reconstructed == original

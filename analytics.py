@@ -281,7 +281,10 @@ async def check_updates(
         "new_announcements": new_announcements[:10],
         "new_announcements_count": len(new_announcements),
         "checked_categories": [
-            "Basın Duyurusu", "Mevzuat Duyurusu", "İnsan Kaynakları Duyurusu",
-            "Veri Yayımlama Duyurusu", "Kuruluş Duyurusu",
+            "Basın Duyurusu",
+            "Mevzuat Duyurusu",
+            "İnsan Kaynakları Duyurusu",
+            "Veri Yayımlama Duyurusu",
+            "Kuruluş Duyurusu",
         ],
     }

@@ -65,9 +65,7 @@ def validate_metric_id(metric_id: str) -> str:
     import re
 
     if not re.match(r"^\d+\.\d+\.\d+$", metric_id):
-        raise ValueError(
-            f"Invalid metric_id '{metric_id}'. Expected format: X.X.X (e.g. '1.0.1')"
-        )
+        raise ValueError(f"Invalid metric_id '{metric_id}'. Expected format: X.X.X (e.g. '1.0.1')")
     return metric_id
 
 

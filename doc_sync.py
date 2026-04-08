@@ -51,6 +51,7 @@ _MEVZUAT_TUR_MAP = {
 
 class ExtractionResult(BaseModel):
     """Structured result from document extraction attempts."""
+
     content: str = ""
     method: str = "failed"
     error: str = ""
@@ -443,7 +444,12 @@ class DocumentSyncer:
         """
         extraction = self._extract_structured(content, ext)
         if extraction.error:
-            logger.warning("Extraction issue: %s (method=%s, retryable=%s)", extraction.error, extraction.method, extraction.retryable)
+            logger.warning(
+                "Extraction issue: %s (method=%s, retryable=%s)",
+                extraction.error,
+                extraction.method,
+                extraction.retryable,
+            )
         return extraction.content, extraction.method
 
     def _extract_structured(self, content: bytes, ext: str) -> ExtractionResult:
@@ -522,9 +528,11 @@ class DocumentSyncer:
                     eta = (len(documents) - completed) / rate if rate > 0 else 0
                     logger.info(
                         "Sync progress: %d/%d (%.0f%%) — %.1f docs/s, ETA %.0fs",
-                        completed, len(documents),
+                        completed,
+                        len(documents),
                         completed / len(documents) * 100,
-                        rate, eta,
+                        rate,
+                        eta,
                     )
                 return result
 
