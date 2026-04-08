@@ -1,44 +1,15 @@
-"""Tests for DocumentStore (SQLite + FTS5)."""
+"""Tests for DocumentStore (PostgreSQL + tsvector)."""
 
 import pytest
 
 from doc_store import DocumentStore, StoredDocument
 
 
+# Uses doc_store, sample_doc, mevzuat_doc fixtures from conftest.py
+# Alias doc_store → store for shorter test signatures
 @pytest.fixture
-async def store(tmp_path):
-    """Create a temporary DocumentStore."""
-    db_path = tmp_path / "test_docs.db"
-    s = DocumentStore(db_path=db_path)
-    await s.initialize()
-    yield s
-    await s.close()
-
-
-@pytest.fixture
-def sample_doc():
-    return StoredDocument(
-        document_id="1291",
-        title="Sermaye Yeterliliği Rehberi",
-        category="Rehber",
-        decision_date="15.03.2024",
-        decision_number="11200",
-        source_url="https://www.bddk.org.tr/Mevzuat/DokumanGetir/1291",
-        markdown_content="# Sermaye Yeterliliği\n\nBu rehber bankacılık sektöründe sermaye yeterliliği hesaplamalarını düzenler.\n\n## MADDE 1\nKredi riski için asgari sermaye oranı %8 olarak belirlenmiştir.",
-        extraction_method="markitdown",
-    )
-
-
-@pytest.fixture
-def mevzuat_doc():
-    return StoredDocument(
-        document_id="mevzuat_42628",
-        title="Faiz Oranı Riski Yönetmeliği",
-        category="Yönetmelik",
-        source_url="https://mevzuat.gov.tr/MevzuatMetin/yonetmelik/7.5.42628",
-        markdown_content="# Faiz Oranı Riski\n\nİskonto formülü: $İO_{0,p}(t_o) = \\exp(-F_{0,p}(t_o) \\cdot t_o)$\n\n## MADDE 9\nBanka, faiz oranı riskini ölçmek için standart yaklaşım kullanır.",
-        extraction_method="nougat",
-    )
+async def store(doc_store):
+    yield doc_store
 
 
 async def test_store_and_retrieve(store, sample_doc):

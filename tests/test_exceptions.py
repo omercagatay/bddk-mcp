@@ -4,10 +4,7 @@ import json
 import logging
 
 from exceptions import (
-    BddkCacheError,
     BddkError,
-    BddkExtractionError,
-    BddkScrapingError,
     BddkStorageError,
     BddkVectorStoreError,
 )
@@ -25,17 +22,8 @@ class TestExceptionHierarchy:
         with __import__("pytest").raises(BddkError):
             raise BddkError("base error")
 
-    def test_scraping_error_is_bddk_error(self):
-        assert issubclass(BddkScrapingError, BddkError)
-
     def test_storage_error_is_bddk_error(self):
         assert issubclass(BddkStorageError, BddkError)
-
-    def test_extraction_error_is_bddk_error(self):
-        assert issubclass(BddkExtractionError, BddkError)
-
-    def test_cache_error_is_bddk_error(self):
-        assert issubclass(BddkCacheError, BddkError)
 
     def test_vector_store_error_is_storage_error(self):
         assert issubclass(BddkVectorStoreError, BddkStorageError)
@@ -43,7 +31,7 @@ class TestExceptionHierarchy:
 
     def test_catch_specific_as_base(self):
         try:
-            raise BddkScrapingError("test")
+            raise BddkStorageError("test")
         except BddkError as e:
             assert str(e) == "test"
 

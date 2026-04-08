@@ -29,7 +29,9 @@ import httpx
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
 
-from config import CACHE_FILE, MAX_RETRIES, REQUEST_TIMEOUT
+from config import BASE_DIR, MAX_RETRIES, REQUEST_TIMEOUT
+
+CACHE_FILE = BASE_DIR / ".cache.json"  # legacy path for CLI compat
 from doc_store import DocumentStore, StoredDocument
 
 logger = logging.getLogger(__name__)
@@ -137,6 +139,36 @@ def _extract_with_markitdown(content: bytes, ext: str = ".pdf") -> str | None:
     except (ValueError, OSError, UnicodeDecodeError) as e:
         logger.warning("markitdown extraction failed: %s", e)
         return None
+
+
+def _decode_html(content: bytes) -> str:
+    """Decode HTML content with encoding detection for Turkish text."""
+    for encoding in ("utf-8", "iso-8859-9", "windows-1254"):
+        try:
+            decoded = content.decode(encoding)
+            # Quick sanity: replacement char means wrong encoding
+            if "\ufffd" not in decoded[:500]:
+                return decoded
+        except (UnicodeDecodeError, LookupError):
+            continue
+    return content.decode("utf-8", errors="replace")
+
+
+# Known patterns from mevzuat.gov.tr error/navigation pages
+_ERROR_PAGE_PATTERNS = [
+    "Mevzuat TürüKanunlar",
+    "Mevzuat TuruKanunlar",
+    "404 - Sayfa Bulunamadı",
+    "404 - Sayfa Bulunamadi",
+    "Sayfa Bulunamadı",
+]
+
+
+def _is_error_page(content: str) -> bool:
+    """Detect 404 pages and navigation-only extractions from mevzuat.gov.tr."""
+    if len(content) > 2000:
+        return False
+    return any(pattern in content for pattern in _ERROR_PAGE_PATTERNS)
 
 
 def _extract_html_to_markdown(html: str) -> str:
@@ -472,20 +504,28 @@ class DocumentSyncer:
 
         # HTML content
         if ext in (".html", ".htm"):
-            html_str = content.decode("utf-8", errors="replace")
+            html_str = _decode_html(content)
             result = _extract_html_to_markdown(html_str)
             if result:
-                return ExtractionResult(content=result, method="html_parser")
-            errors.append("html_parser: no meaningful content extracted")
+                if _is_error_page(result):
+                    errors.append("html_parser: extracted content is a 404/navigation page")
+                else:
+                    return ExtractionResult(content=result, method="html_parser")
+
+            if not result:
+                errors.append("html_parser: no meaningful content extracted")
 
             # Try markitdown as HTML fallback
             result = _extract_with_markitdown(content, ".html")
             if result:
-                return ExtractionResult(content=result, method="markitdown")
+                if _is_error_page(result):
+                    errors.append("markitdown: extracted content is a 404/navigation page")
+                else:
+                    return ExtractionResult(content=result, method="markitdown")
             errors.append("markitdown: HTML fallback also failed")
 
-        # Determine if retryable (content too small vs truly unreadable)
-        retryable = len(content) < 200  # Likely an error page, not actual content
+        # Determine if retryable (content too small, or error page detected)
+        retryable = len(content) < 200 or any("404" in e or "navigation" in e for e in errors)
         return ExtractionResult(
             method="failed",
             error="; ".join(errors) if errors else f"Unsupported extension: {ext}",
@@ -581,19 +621,26 @@ class DocumentSyncer:
 # ── CLI ──────────────────────────────────────────────────────────────────────
 
 
+async def _create_pool_and_store(dsn: str | None) -> tuple:
+    """Create asyncpg pool and DocumentStore for CLI usage."""
+    import asyncpg as _asyncpg
+    from config import DATABASE_URL
+
+    pool = await _asyncpg.create_pool(dsn or DATABASE_URL, min_size=1, max_size=5)
+    store = DocumentStore(pool)
+    await store.initialize()
+    return pool, store
+
+
 async def _cli_sync(args: argparse.Namespace) -> None:
     """CLI: sync documents."""
-    db_path = Path(args.db) if args.db else None
-
-    async with DocumentStore(db_path=db_path) as store:
-        await store.initialize()
-
+    pool, store = await _create_pool_and_store(args.db)
+    try:
         async with DocumentSyncer(
             store,
             prefer_nougat=not args.no_nougat,
         ) as syncer:
             if args.doc_id:
-                # Single document sync
                 result = await syncer.sync_document(
                     doc_id=args.doc_id,
                     force=args.force,
@@ -601,7 +648,6 @@ async def _cli_sync(args: argparse.Namespace) -> None:
                 status = "OK" if result.success else "FAIL"
                 print(f"[{status}] {result.document_id}: {result.method or result.error}")
             else:
-                # Bulk sync from cache
                 report = await syncer.import_and_sync_from_cache(
                     force=args.force,
                     concurrency=args.concurrency,
@@ -616,14 +662,14 @@ async def _cli_sync(args: argparse.Namespace) -> None:
                     print("\nErrors:")
                     for e in report.errors[:20]:
                         print(f"  [{e.document_id}] {e.error}")
+    finally:
+        await pool.close()
 
 
 async def _cli_stats(args: argparse.Namespace) -> None:
     """CLI: show store stats."""
-    db_path = Path(args.db) if args.db else None
-
-    async with DocumentStore(db_path=db_path) as store:
-        await store.initialize()
+    pool, store = await _create_pool_and_store(args.db)
+    try:
         st = await store.stats()
         print(f"Documents: {st.total_documents}")
         print(f"Size: {st.total_size_mb} MB")
@@ -636,15 +682,14 @@ async def _cli_stats(args: argparse.Namespace) -> None:
             print("\nExtraction methods:")
             for m, count in st.extraction_methods.items():
                 print(f"  {m}: {count}")
+    finally:
+        await pool.close()
 
 
 async def _cli_import(args: argparse.Namespace) -> None:
     """CLI: import metadata from cache without downloading content."""
-    db_path = Path(args.db) if args.db else None
-
-    async with DocumentStore(db_path=db_path) as store:
-        await store.initialize()
-
+    pool, store = await _create_pool_and_store(args.db)
+    try:
         if not CACHE_FILE.exists():
             print(f"No cache file at {CACHE_FILE}")
             return
@@ -653,11 +698,13 @@ async def _cli_import(args: argparse.Namespace) -> None:
         items = data.get("items", [])
         imported = await store.import_from_cache(items)
         print(f"Imported {imported} new entries from cache ({len(items)} total in cache)")
+    finally:
+        await pool.close()
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="BDDK Document Sync")
-    parser.add_argument("--db", help="Path to SQLite database", default=None)
+    parser.add_argument("--db", help="PostgreSQL DSN (e.g. postgresql://user:pass@host/db)", default=None)
     sub = parser.add_subparsers(dest="command")
 
     # sync
@@ -671,7 +718,7 @@ def main() -> None:
     sub.add_parser("stats", help="Show document store statistics")
 
     # import-cache
-    sub.add_parser("import-cache", help="Import metadata from .cache.json")
+    sub.add_parser("import-cache", help="Import metadata from .cache.json (legacy)")
 
     args = parser.parse_args()
 

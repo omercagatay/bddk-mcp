@@ -7,12 +7,12 @@ import time
 from datetime import datetime
 from urllib.parse import parse_qs, urlparse
 
+import asyncpg
 import httpx
 from bs4 import BeautifulSoup
 from markitdown import MarkItDown
 
 from config import (
-    CACHE_FILE,
     CACHE_TTL_SECONDS,
     MAX_RETRIES,
     PAGE_SIZE,
@@ -80,66 +80,13 @@ _MEVZUAT_TUR_MAP = {
 
 # Common Turkish suffixes for basic stemming
 _TURKISH_SUFFIXES = [
-    "ları",
-    "leri",
-    "ların",
-    "lerin",
-    "lara",
-    "lere",
-    "lardan",
-    "lerden",
-    "larla",
-    "lerle",
-    "lar",
-    "ler",
-    "ının",
-    "inin",
-    "unun",
-    "ünün",
-    "ına",
-    "ine",
-    "una",
-    "üne",
-    "ında",
-    "inde",
-    "unda",
-    "ünde",
-    "ından",
-    "inden",
-    "undan",
-    "ünden",
-    "ıyla",
-    "iyle",
-    "uyla",
-    "üyle",
-    "nın",
-    "nin",
-    "nun",
-    "nün",
-    "dan",
-    "den",
-    "tan",
-    "ten",
-    "ya",
-    "ye",
-    "da",
-    "de",
-    "ta",
-    "te",
-    "ın",
-    "in",
-    "un",
-    "ün",
-    "na",
-    "ne",
-    "dır",
-    "dir",
-    "dur",
-    "dür",
-    "tır",
-    "tir",
-    "tur",
-    "tür",
+    "ları", "leri", "ların", "lerin", "lara", "lere", "lardan", "lerden",
+    "larla", "lerle", "lar", "ler", "ının", "inin", "unun", "ünün",
+    "ına", "ine", "una", "üne", "ında", "inde", "unda", "ünde",
+    "ından", "inden", "undan", "ünden", "ıyla", "iyle", "uyla", "üyle",
+    "nın", "nin", "nun", "nün", "dan", "den", "tan", "ten",
+    "ya", "ye", "da", "de", "ta", "te", "ın", "in", "un", "ün",
+    "na", "ne", "dır", "dir", "dur", "dür", "tır", "tir", "tur", "tür",
 ]
 
 
@@ -166,28 +113,23 @@ def _turkish_stem(word: str) -> str:
 
 
 def _parse_date(date_str: str) -> datetime | None:
-    """Parse DD.MM.YYYY date string to datetime."""
-    try:
-        return datetime.strptime(date_str, "%d.%m.%Y")
-    except (ValueError, TypeError):
-        return None
+    """Parse DD.MM.YYYY or DD/MM/YYYY date string to datetime."""
+    for fmt in ("%d.%m.%Y", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(date_str, fmt)
+        except (ValueError, TypeError):
+            continue
+    return None
 
 
 def _external_url_to_id(url: str) -> str | None:
-    """Generate a stable synthetic ID from an external URL.
-
-    For mevzuat.gov.tr URLs, extracts MevzuatNo to produce IDs like 'mevzuat_42628'.
-    Handles both new format (?MevzuatNo=42628) and old format (?MevzuatKod=7.5.24788).
-    Returns None if the URL cannot be parsed.
-    """
+    """Generate a stable synthetic ID from an external URL."""
     parsed = urlparse(url)
     if "mevzuat.gov.tr" in parsed.netloc:
         params = parse_qs(parsed.query)
-        # New format: ?MevzuatNo=42628
         mevzuat_no = params.get("MevzuatNo", [None])[0]
         if mevzuat_no:
             return f"mevzuat_{mevzuat_no}"
-        # Old format: ?MevzuatKod=7.5.24788 (last segment is the number)
         mevzuat_kod = params.get("MevzuatKod", [None])[0]
         if mevzuat_kod:
             parts = mevzuat_kod.split(".")
@@ -204,18 +146,39 @@ def _mevzuat_to_pdf_url(mevzuat_no: str, mevzuat_tur: str = "7", mevzuat_tertip:
     return f"https://www.mevzuat.gov.tr/MevzuatMetin/{path_segment}/{mevzuat_tur}.{mevzuat_tertip}.{mevzuat_no}.pdf"
 
 
+# -- Decision cache schema (PostgreSQL) ----------------------------------------
+
+_CACHE_SCHEMA_SQL = """\
+CREATE TABLE IF NOT EXISTS decision_cache (
+    document_id       TEXT PRIMARY KEY,
+    title             TEXT NOT NULL DEFAULT '',
+    content           TEXT DEFAULT '',
+    decision_date     TEXT DEFAULT '',
+    decision_number   TEXT DEFAULT '',
+    category          TEXT DEFAULT '',
+    source_url        TEXT DEFAULT '',
+    cached_at         DOUBLE PRECISION NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_decision_cache_category ON decision_cache(category);
+"""
+
+
 class BddkApiClient:
     """
     Client for searching and retrieving BDDK decisions and regulations.
 
-    Scrapes BDDK website, caches document lists in memory and on disk.
+    Scrapes BDDK website, caches document lists in PostgreSQL for instant
+    startup across server restarts.
     """
 
     def __init__(
         self,
+        pool: asyncpg.Pool,
         request_timeout: float = REQUEST_TIMEOUT,
         doc_store: DocumentStore | None = None,
     ) -> None:
+        self._pool = pool
         self._http = httpx.AsyncClient(
             headers={
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -235,9 +198,17 @@ class BddkApiClient:
         self._cache_timestamp: float = 0.0
         self._page_errors: dict[int, str] = {}
 
-    # -- context manager --------------------------------------------------
+    async def initialize(self) -> None:
+        """Create cache table and load existing cache from PostgreSQL."""
+        async with self._pool.acquire() as conn:
+            await conn.execute(_CACHE_SCHEMA_SQL)
+        # Eagerly load from DB — instant, no network needed
+        await self._load_cache_from_db()
+
+    # -- context manager ------------------------------------------------------
 
     async def __aenter__(self) -> "BddkApiClient":
+        await self.initialize()
         return self
 
     async def __aexit__(self, *exc) -> None:
@@ -248,7 +219,7 @@ class BddkApiClient:
         await self._http.aclose()
         logger.info("BddkApiClient session closed")
 
-    # -- HTTP with retry --------------------------------------------------
+    # -- HTTP with retry ------------------------------------------------------
 
     async def _fetch_with_retry(self, url: str) -> httpx.Response:
         """Fetch a URL with exponential backoff retry."""
@@ -264,42 +235,67 @@ class BddkApiClient:
                     wait = 2**attempt
                     logger.warning("Retry %d/%d for %s: %s", attempt + 1, MAX_RETRIES, url, exc)
                     import asyncio
-
                     await asyncio.sleep(wait)
         raise last_exc  # type: ignore[misc]
 
-    # -- cache persistence ------------------------------------------------
+    # -- cache persistence (PostgreSQL) ----------------------------------------
 
-    def _save_cache_to_disk(self) -> None:
-        """Persist cache to JSON file."""
+    async def _save_cache_to_db(self) -> None:
+        """Persist cache to PostgreSQL."""
         try:
-            data = {
-                "timestamp": self._cache_timestamp,
-                "items": [d.model_dump() for d in self._cache],
-            }
-            CACHE_FILE.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-            logger.info("Cache saved to disk: %d items", len(self._cache))
-        except (OSError, TypeError, ValueError) as e:
-            logger.warning("Failed to save cache to disk: %s", e)
+            async with self._pool.acquire() as conn:
+                async with conn.transaction():
+                    await conn.execute("DELETE FROM decision_cache")
+                    now = time.time()
+                    for d in self._cache:
+                        await conn.execute(
+                            """
+                            INSERT INTO decision_cache
+                                (document_id, title, content, decision_date, decision_number, category, source_url, cached_at)
+                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                            ON CONFLICT(document_id) DO UPDATE SET
+                                title=EXCLUDED.title, content=EXCLUDED.content,
+                                decision_date=EXCLUDED.decision_date, decision_number=EXCLUDED.decision_number,
+                                category=EXCLUDED.category, source_url=EXCLUDED.source_url,
+                                cached_at=EXCLUDED.cached_at
+                            """,
+                            d.document_id, d.title, d.content, d.decision_date,
+                            d.decision_number, d.category, d.source_url, now,
+                        )
+            logger.info("Cache saved to PostgreSQL: %d items", len(self._cache))
+        except (asyncpg.PostgresError, OSError) as e:
+            logger.warning("Failed to save cache to DB: %s", e)
 
-    def _load_cache_from_disk(self) -> bool:
-        """Load cache from JSON file if it exists and is valid."""
+    async def _load_cache_from_db(self) -> bool:
+        """Load cache from PostgreSQL. Always loads regardless of TTL."""
         try:
-            if not CACHE_FILE.exists():
+            rows = await self._pool.fetch(
+                "SELECT document_id, title, content, decision_date, decision_number, "
+                "category, source_url, cached_at FROM decision_cache"
+            )
+            if not rows:
                 return False
-            data = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
-            ts = data.get("timestamp", 0)
-            if (time.time() - ts) >= CACHE_TTL_SECONDS:
-                return False
-            self._cache = [BddkDecisionSummary(**item) for item in data["items"]]
-            self._cache_timestamp = ts
-            logger.info("Cache loaded from disk: %d items", len(self._cache))
+            self._cache = [
+                BddkDecisionSummary(
+                    document_id=row["document_id"],
+                    title=row["title"],
+                    content=row["content"] or "",
+                    decision_date=row["decision_date"] or "",
+                    decision_number=row["decision_number"] or "",
+                    category=row["category"] or "",
+                    source_url=row["source_url"] or "",
+                )
+                for row in rows
+            ]
+            # Use the most recent cached_at as timestamp
+            self._cache_timestamp = max(row["cached_at"] for row in rows)
+            logger.info("Cache loaded from PostgreSQL: %d items", len(self._cache))
             return True
-        except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
-            logger.warning("Failed to load cache from disk: %s", e)
+        except (asyncpg.PostgresError, OSError) as e:
+            logger.warning("Failed to load cache from DB: %s", e)
             return False
 
-    # -- cache ------------------------------------------------------------
+    # -- cache ----------------------------------------------------------------
 
     def _is_cache_valid(self) -> bool:
         return len(self._cache) > 0 and (time.time() - self._cache_timestamp) < CACHE_TTL_SECONDS
@@ -316,10 +312,10 @@ class BddkApiClient:
             "categories": _count_categories(self._cache),
         }
 
-    # -- parsers ----------------------------------------------------------
+    # -- parsers --------------------------------------------------------------
 
     def _extract_links(self, soup: BeautifulSoup, category: str) -> list[BddkDecisionSummary]:
-        """Extract document links from a soup fragment, handling both internal and external links."""
+        """Extract document links from a soup fragment."""
         decisions: list[BddkDecisionSummary] = []
         seen: set[str] = set()
 
@@ -333,7 +329,6 @@ class BddkApiClient:
                 continue
             seen.add(href)
 
-            # Internal DokumanGetir link
             doc_id_match = re.search(r"/DokumanGetir/(\d+)", href)
             if doc_id_match:
                 doc_id = doc_id_match.group(1)
@@ -349,7 +344,6 @@ class BddkApiClient:
                 )
                 continue
 
-            # External link (mevzuat.gov.tr or other)
             if href.startswith("http"):
                 synthetic_id = _external_url_to_id(href)
                 if synthetic_id:
@@ -384,7 +378,7 @@ class BddkApiClient:
             if not raw_text:
                 continue
 
-            date_match = re.match(r"\((\d{2}\.\d{2}\.\d{4})\s*-\s*(\d+)\)\s*(.*)", raw_text)
+            date_match = re.match(r"\((\d{2}[./]\d{2}[./]\d{4})\s*[-–—]\s*(\d+)\)\s*(.*)", raw_text)
             if date_match:
                 decision_date = date_match.group(1)
                 decision_number = date_match.group(2)
@@ -427,7 +421,7 @@ class BddkApiClient:
             category = _ACCORDION_CATEGORY_MAP.get(header_name, header_name)
             if header_name not in _ACCORDION_CATEGORY_MAP:
                 logger.warning(
-                    "Unmapped accordion category '%s' on page %d — using raw text as category",
+                    "Unmapped accordion category '%s' on page %d -- using raw text as category",
                     header_name,
                     list_id,
                 )
@@ -455,35 +449,17 @@ class BddkApiClient:
         logger.info("Parsed %d items from flat page %d", len(decisions), list_id)
         return decisions
 
-    def _load_stale_cache_from_disk(self) -> bool:
-        """Load cache from disk ignoring TTL — used when BDDK is unreachable."""
-        try:
-            if not CACHE_FILE.exists():
-                return False
-            data = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
-            items = data.get("items", [])
-            if not items:
-                return False
-            self._cache = [BddkDecisionSummary(**item) for item in items]
-            self._cache_timestamp = data.get("timestamp", time.time())
-            logger.warning(
-                "Serving STALE cache from disk (%d items, age=%.0fs) — BDDK unreachable",
-                len(self._cache),
-                time.time() - self._cache_timestamp,
-            )
-            return True
-        except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
-            logger.warning("Failed to load stale cache from disk: %s", e)
-            return False
-
     async def _ensure_cache(self) -> None:
         """Ensure the decision cache is populated and valid."""
         if self._is_cache_valid():
             return
 
-        # Try loading from disk first (within TTL)
-        if self._load_cache_from_disk():
-            return
+        # Try loading from DB (always works, no TTL check on load)
+        if not self._cache and await self._load_cache_from_db():
+            # Cache loaded from DB — if within TTL, we're done
+            if self._is_cache_valid():
+                return
+            # Stale but usable — continue to serve stale, try refresh in background
 
         logger.info("Refreshing BDDK cache...")
         all_decisions: list[BddkDecisionSummary] = []
@@ -504,20 +480,22 @@ class BddkApiClient:
 
         if not all_decisions and self._page_errors:
             logger.error("All page fetches failed: %s", self._page_errors)
-            # Fallback to stale disk cache when BDDK is unreachable
-            if STALE_CACHE_FALLBACK and self._load_stale_cache_from_disk():
+            # Fallback: serve stale cache from DB
+            if STALE_CACHE_FALLBACK and self._cache:
+                logger.warning("Serving stale DB cache (%d items) — BDDK unreachable", len(self._cache))
                 return
+            return
 
         self._cache = all_decisions
         self._cache_timestamp = time.time()
-        self._save_cache_to_disk()
+        await self._save_cache_to_db()
         logger.info("BDDK cache refreshed: %d total items", len(self._cache))
 
     async def ensure_cache(self) -> None:
         """Public wrapper for _ensure_cache."""
         await self._ensure_cache()
 
-    # -- public API -------------------------------------------------------
+    # -- public API -----------------------------------------------------------
 
     async def search_decisions(
         self,
@@ -530,20 +508,15 @@ class BddkApiClient:
         keyword_parts = keywords_lower.split()
         keyword_stems = [_turkish_stem(p) for p in keyword_parts]
 
-        # Optional category filter
         category_filter = _turkish_lower(request.category) if request.category else None
-
-        # Optional date range filter
         date_from = _parse_date(request.date_from) if request.date_from else None
         date_to = _parse_date(request.date_to) if request.date_to else None
 
         matching: list[tuple[int, BddkDecisionSummary]] = []
         for dec in self._cache:
-            # Category filter
             if category_filter and category_filter not in _turkish_lower(dec.category):
                 continue
 
-            # Date range filter (skip items without dates when filter is active)
             if date_from or date_to:
                 if not dec.decision_date:
                     continue
@@ -559,17 +532,16 @@ class BddkApiClient:
             text_words = text_lower.split()
             text_stems = [_turkish_stem(w) for w in text_words]
 
-            # Score: exact match in title > stem match > substring match
             score = 0
             title_lower = _turkish_lower(dec.title)
             all_match = True
             for part, stem in zip(keyword_parts, keyword_stems, strict=True):
                 if part in title_lower:
-                    score += 3  # exact in title
+                    score += 3
                 elif stem in " ".join(text_stems):
-                    score += 2  # stem match
+                    score += 2
                 elif part in text_lower:
-                    score += 1  # substring match
+                    score += 1
                 else:
                     all_match = False
                     break
@@ -577,7 +549,6 @@ class BddkApiClient:
             if all_match and score > 0:
                 matching.append((score, dec))
 
-        # Sort by relevance score (descending)
         matching.sort(key=lambda x: x[0], reverse=True)
         results_only = [dec for _, dec in matching]
 
@@ -603,25 +574,20 @@ class BddkApiClient:
 
     def _resolve_document_url(self, document_id: str) -> str:
         """Resolve a document ID to a fetchable URL."""
-        # Standard numeric BDDK document ID
         if document_id.isdigit():
             return _DOCUMENT_URL_TEMPLATE.format(document_id=document_id)
 
-        # Synthetic mevzuat.gov.tr ID (e.g., "mevzuat_42628")
         if document_id.startswith("mevzuat_"):
             mevzuat_no = document_id.removeprefix("mevzuat_")
-            # Look up source_url from cache for tur/tertip info
             for dec in self._cache:
                 if dec.document_id == document_id and dec.source_url:
                     source = dec.source_url
                     parsed = urlparse(source)
                     params = parse_qs(parsed.query)
 
-                    # New format: ?MevzuatNo=...&MevzuatTur=...
                     tur = params.get("MevzuatTur", [None])[0]
                     tertip = params.get("MevzuatTertip", [None])[0]
 
-                    # Old format: ?MevzuatKod=7.5.24788 (tur.tertip.no)
                     if not tur:
                         kod = params.get("MevzuatKod", [None])[0]
                         if kod:
@@ -635,12 +601,10 @@ class BddkApiClient:
                         return pdf_url
                     break
 
-            # Fallback: assume yönetmelik (tur=7, tertip=5)
             pdf_url = _mevzuat_to_pdf_url(mevzuat_no)
             if pdf_url:
                 return pdf_url
 
-        # Fallback: try as raw BDDK document ID
         return _DOCUMENT_URL_TEMPLATE.format(document_id=document_id)
 
     async def get_document_markdown(
@@ -651,9 +615,9 @@ class BddkApiClient:
         """Fetch a BDDK document and return its content as paginated Markdown.
 
         Uses store-first strategy: check local DocumentStore before fetching
-        from the network. If fetched live, stores result for future use.
+        from the network.
         """
-        # ── Store-first lookup ──
+        # Store-first lookup
         if self._doc_store:
             page = await self._doc_store.get_document_page(document_id, page_number)
             if page and page.markdown_content and "Invalid page" not in page.markdown_content:
@@ -667,7 +631,7 @@ class BddkApiClient:
                     total_pages=page.total_pages,
                 )
 
-        # ── Live fetch fallback ──
+        # Live fetch fallback
         url = self._resolve_document_url(document_id)
         logger.info("Fetching BDDK document (live): %s", url)
 
@@ -698,7 +662,7 @@ class BddkApiClient:
                 total_pages=1,
             )
 
-        # ── Store for future use ──
+        # Store for future use
         if self._doc_store and markdown:
             from doc_store import StoredDocument
 

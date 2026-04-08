@@ -7,12 +7,16 @@ import os
 import time
 from collections.abc import AsyncIterator
 
+import asyncpg
 from mcp.server.fastmcp import FastMCP
 
 from analytics import analyze_trends, build_digest, check_updates, compare_metrics
 from client import BddkApiClient, _turkish_lower
 from config import (
     AUTO_SYNC,
+    DATABASE_URL,
+    PG_POOL_MAX,
+    PG_POOL_MIN,
     PREFER_NOUGAT,
     SEARCH_CACHE_MAX,
     SEARCH_CACHE_TTL,
@@ -39,41 +43,39 @@ from vector_store import VectorStore
 configure_logging()
 logger = logging.getLogger(__name__)
 
-
-@contextlib.asynccontextmanager
-async def _app_lifespan(app: FastMCP) -> AsyncIterator[None]:
-    """Lifecycle hook: start background sync on deploy, graceful shutdown."""
-    print("[LIFESPAN] started", flush=True)
-    auto_sync = AUTO_SYNC
-    print(f"[LIFESPAN] auto_sync={auto_sync}", flush=True)
-    task = None
-    if auto_sync:
-        task = asyncio.create_task(_startup_sync())
-        print("[LIFESPAN] sync task created", flush=True)
-    yield
-    await _graceful_shutdown()
-    if task and not task.done():
-        task.cancel()
-
-
-_transport = os.environ.get("MCP_TRANSPORT", "stdio")
-print(f"[INIT] _transport={_transport!r}, lifespan={'YES' if _transport == 'streamable-http' else 'NO'}", flush=True)
+# -- FastMCP instance ---------------------------------------------------------
 
 mcp = FastMCP(
     "BDDK",
-    instructions="Search and retrieve BDDK (Turkish Banking Regulation) decisions and regulations (mevzuat)",
+    instructions="""\
+Search and retrieve BDDK (Turkish Banking Regulation) decisions, regulations, and statistical data.
+
+GROUNDING RULES — follow these strictly:
+1. ONLY use information returned by tool calls. Never supplement with your own knowledge about BDDK decisions.
+2. If a search returns no results, say so explicitly. Do NOT guess or invent decisions.
+3. Always include document_id, decision_date, and decision_number in your response when available.
+4. If document content is paginated, do NOT speculate about content on pages you have not retrieved.
+5. Never fabricate karar numarası (decision numbers), tarih (dates), or legal conclusions.
+6. When quoting from a document, quote only text that appears verbatim in the tool output.
+7. If relevance scores are below 50%, flag this to the user and recommend refining the query.
+8. Distinguish clearly between: (a) information from BDDK tools, and (b) your general knowledge.\
+""",
     host="0.0.0.0",
     port=int(os.environ.get("PORT", 8000)),
     stateless_http=True,
 )
 
+# -- Global state -------------------------------------------------------------
+
+_pool: asyncpg.Pool | None = None
 _client: BddkApiClient | None = None
 _doc_store: DocumentStore | None = None
 _vector_store: VectorStore | None = None
 _server_start_time: float = time.time()
 _last_sync_time: float | None = None
+_sync_task: asyncio.Task | None = None
 
-# TTL cache for search results (avoids redundant FTS/ChromaDB queries)
+# TTL cache for search results
 _search_cache: dict[str, tuple[float, str]] = {}
 _SEARCH_CACHE_TTL = SEARCH_CACHE_TTL
 _SEARCH_CACHE_MAX = SEARCH_CACHE_MAX
@@ -89,39 +91,56 @@ def _cached_search(cache_key: str) -> str | None:
 
 def _store_search(cache_key: str, result: str) -> None:
     """Store a search result in the TTL cache."""
-    # Evict oldest entries if cache is full
     if len(_search_cache) >= _SEARCH_CACHE_MAX:
         oldest_key = min(_search_cache, key=lambda k: _search_cache[k][0])
         del _search_cache[oldest_key]
     _search_cache[cache_key] = (time.time(), result)
 
 
+# -- Pool + component init ----------------------------------------------------
+
+
+async def _get_pool() -> asyncpg.Pool:
+    global _pool
+    if _pool is None:
+        _pool = await asyncpg.create_pool(
+            DATABASE_URL,
+            min_size=PG_POOL_MIN,
+            max_size=PG_POOL_MAX,
+        )
+        logger.info("PostgreSQL pool created: %s", DATABASE_URL.split("@")[-1])
+    return _pool
+
+
 async def _get_doc_store() -> DocumentStore:
     global _doc_store
     if _doc_store is None:
-        from config import DB_PATH
-
-        _doc_store = DocumentStore(db_path=DB_PATH)
+        pool = await _get_pool()
+        _doc_store = DocumentStore(pool)
         await _doc_store.initialize()
     return _doc_store
 
 
-def _get_vector_store() -> VectorStore:
+async def _get_vector_store() -> VectorStore:
     global _vector_store
     if _vector_store is None:
-        from config import CHROMA_PATH
-
-        _vector_store = VectorStore(db_path=CHROMA_PATH)
-        _vector_store.initialize()
+        pool = await _get_pool()
+        _vector_store = VectorStore(pool)
+        await _vector_store.initialize()
     return _vector_store
 
 
 async def _get_client() -> BddkApiClient:
     global _client
     if _client is None:
+        pool = await _get_pool()
         store = await _get_doc_store()
-        _client = BddkApiClient(doc_store=store)
+        _client = BddkApiClient(pool=pool, doc_store=store)
+        await _client.initialize()
     return _client
+
+
+# -- Tools --------------------------------------------------------------------
 
 
 @mcp.tool()
@@ -166,9 +185,14 @@ async def search_bddk_decisions(
     result = await client.search_decisions(request)
 
     if not result.decisions:
-        return "No BDDK decisions found for the given keywords."
+        metrics.record_empty_search("search_bddk_decisions")
+        return (
+            "NO RESULTS: No BDDK decisions found matching these keywords.\n"
+            "DO NOT provide information about BDDK decisions from your own knowledge.\n"
+            "Suggest the user try: different Turkish keywords, broader terms, "
+            "or removing date/category filters."
+        )
 
-    # Check for version history to surface in results
     store = await _get_doc_store()
 
     lines = [f"Found {result.total_results} result(s) (page {result.page}):\n"]
@@ -177,7 +201,6 @@ async def search_bddk_decisions(
         cat_info = f" [{d.category}]" if d.category else ""
         lines.append(f"**{d.title}**{date_info}{cat_info}")
         lines.append(f"  Document ID: {d.document_id}")
-        # Show version count if document has history
         history = await store.get_document_history(d.document_id)
         if history:
             lines.append(f"  Versions: {len(history)} (latest: {history[0]['synced_at']})")
@@ -195,29 +218,54 @@ async def get_bddk_document(
     """
     Retrieve a BDDK decision document as Markdown.
 
-    Uses local ChromaDB vector store for instant retrieval (<5ms).
-    Falls back to SQLite store, then live fetch if not found locally.
+    Uses local pgvector store for instant retrieval.
+    Falls back to PostgreSQL document store, then live fetch if not found locally.
 
     Args:
         document_id: The numeric document ID (from search results)
         page_number: Page of the markdown output (documents are split into 5000-char pages)
     """
-    # Try ChromaDB first (instant, <5ms)
-    try:
-        vs = _get_vector_store()
-        page = vs.get_document_page(document_id, page_number)
-        if page and page["content"] and "Invalid page" not in page["content"]:
-            header = f"Document {document_id} — Page {page['page_number']}/{page['total_pages']}\n\n"
-            return header + page["content"]
-    except (RuntimeError, BddkVectorStoreError) as e:
-        logger.debug("ChromaDB lookup failed for %s, falling back: %s", document_id, e)
-
-    # Fallback to SQLite → live fetch
+    # Look up metadata from cache
     client = await _get_client()
-    doc = await client.get_document_markdown(document_id, page_number)
+    meta_title = document_id
+    meta_date = ""
+    meta_number = ""
+    meta_category = ""
+    source_url = ""
+    for dec in client._cache:
+        if dec.document_id == document_id:
+            meta_title = dec.title
+            meta_date = dec.decision_date
+            meta_number = dec.decision_number
+            meta_category = dec.category
+            source_url = dec.source_url or ""
+            break
 
-    header = f"Document {doc.document_id} — Page {doc.page_number}/{doc.total_pages}\n\n"
-    return header + doc.markdown_content
+    def _build_header(page_num: int, total: int) -> str:
+        return (
+            f"## {meta_title}\n"
+            f"- Document ID: {document_id}\n"
+            f"- Decision Date: {meta_date or 'N/A'}\n"
+            f"- Decision Number: {meta_number or 'N/A'}\n"
+            f"- Category: {meta_category or 'N/A'}\n"
+            f"- Source: {source_url or 'N/A'}\n"
+            f"- Page: {page_num}/{total}\n"
+            f"---\n"
+            f"Use ONLY the text below. Do not add information not present in this document.\n\n"
+        )
+
+    # Try pgvector first (instant)
+    try:
+        vs = await _get_vector_store()
+        page = await vs.get_document_page(document_id, page_number)
+        if page and page["content"] and "Invalid page" not in page["content"]:
+            return _build_header(page["page_number"], page["total_pages"]) + page["content"]
+    except (RuntimeError, BddkVectorStoreError) as e:
+        logger.debug("pgvector lookup failed for %s, falling back: %s", document_id, e)
+
+    # Fallback to document store → live fetch
+    doc = await client.get_document_markdown(document_id, page_number)
+    return _build_header(doc.page_number, doc.total_pages) + doc.markdown_content
 
 
 @mcp.tool()
@@ -277,7 +325,12 @@ async def search_bddk_institutions(
         ]
 
     if not institutions:
-        return "No institutions found."
+        metrics.record_empty_search("search_bddk_institutions")
+        return (
+            "NO RESULTS: No institutions found matching these criteria.\n"
+            "DO NOT guess institution names, license statuses, or other details.\n"
+            "Suggest the user try: broader keywords or removing the type/active filter."
+        )
 
     lines = [f"Found {len(institutions)} institution(s):\n"]
     for i in institutions:
@@ -345,7 +398,7 @@ async def get_bddk_bulletin(
 @mcp.tool()
 async def get_bddk_bulletin_snapshot() -> str:
     """
-    Get the latest weekly bulletin snapshot — all metrics with current TP/YP values.
+    Get the latest weekly bulletin snapshot -- all metrics with current TP/YP values.
 
     Returns a table of all banking sector metrics (loans, deposits, etc.)
     with their latest TP (TL) and YP (foreign currency) values.
@@ -378,7 +431,6 @@ async def search_bddk_announcements(
             insan kaynakları (HR), veri (data publication), kuruluş (institution).
             Use "tümü" or "all" to search across all categories.
     """
-    # Map category keywords to page IDs
     cat_lower = _turkish_lower(category)
 
     cat_map: dict[str, list[int]] = {
@@ -412,10 +464,16 @@ async def search_bddk_announcements(
         announcements = [a for a in announcements if kw in _turkish_lower(a.get("title", ""))]
 
     if not announcements:
-        return "No announcements found."
+        metrics.record_empty_search("search_bddk_announcements")
+        return (
+            "NO RESULTS: No BDDK announcements found matching these criteria.\n"
+            "DO NOT fabricate announcements or press releases.\n"
+            "Suggest the user try: different keywords or a different category "
+            "(basın, mevzuat, insan kaynakları, veri, kuruluş, or tümü for all)."
+        )
 
     lines = [f"Found {len(announcements)} announcement(s):\n"]
-    for a in announcements[:20]:  # Limit to 20
+    for a in announcements[:20]:
         date_info = f" ({a['date']})" if a.get("date") else ""
         lines.append(f"**{a['title']}**{date_info}")
         if a.get("url"):
@@ -424,7 +482,7 @@ async def search_bddk_announcements(
     return "\n".join(lines)
 
 
-# -- v4 Analytics Tools ----------------------------------------------------
+# -- v4 Analytics Tools -------------------------------------------------------
 
 
 @mcp.tool()
@@ -491,7 +549,7 @@ async def get_regulatory_digest(
     an executive summary.
 
     Args:
-        period: Time period — week (7 days), month (30 days), quarter (90 days)
+        period: Time period -- week (7 days), month (30 days), quarter (90 days)
     """
     period_map = {"week": 7, "month": 30, "quarter": 90}
     days = period_map.get(period, 30)
@@ -590,12 +648,10 @@ async def check_bddk_updates() -> str:
     """
     client = await _get_client()
 
-    # Build set of known announcement URLs from previous checks
     known_urls: set[str] = set()
     if hasattr(client, "_known_announcements"):
         known_urls = client._known_announcements
     else:
-        # First run — fetch and store current state as baseline
         from data_sources import fetch_announcements as _fa
 
         for cat_id in [39, 40, 41, 42, 48]:
@@ -611,7 +667,6 @@ async def check_bddk_updates() -> str:
 
     result = await check_updates(client._http, client._cache, known_urls)
 
-    # Update known set
     for a in result.get("new_announcements", []):
         if a.get("url"):
             known_urls.add(a["url"])
@@ -689,7 +744,7 @@ async def get_bddk_monthly(
     return "\n".join(lines)
 
 
-# -- Document Store Tools ------------------------------------------------------
+# -- Document Store Tools -----------------------------------------------------
 
 
 @mcp.tool()
@@ -702,7 +757,7 @@ async def sync_bddk_documents(
     Sync BDDK documents to local storage.
 
     Downloads documents from BDDK and mevzuat.gov.tr, extracts content to
-    Markdown, and stores in local SQLite database for fast offline access.
+    Markdown, and stores in PostgreSQL database for fast offline access.
 
     Args:
         force: Re-download all documents even if already cached
@@ -715,9 +770,11 @@ async def sync_bddk_documents(
     client = await _get_client()
     await client.ensure_cache()
 
+    single_report = None
+    sync_report = None
+
     async with DocumentSyncer(store, prefer_nougat=PREFER_NOUGAT) as syncer:
         if document_id:
-            # Single document
             source_url = ""
             title = document_id
             category = ""
@@ -736,12 +793,11 @@ async def sync_bddk_documents(
                 force=force,
             )
             status = "OK" if result.success else "FAIL"
-            return f"[{status}] {result.document_id}: {result.method or result.error}"
+            single_report = f"[{status}] {result.document_id}: {result.method or result.error}"
         else:
-            # Bulk sync from cache
             items = [d.model_dump() for d in client._cache]
             report = await syncer.sync_all(items, concurrency=concurrency, force=force)
-            return (
+            sync_report = (
                 f"**Sync Report**\n"
                 f"  Total: {report.total}\n"
                 f"  Downloaded: {report.downloaded}\n"
@@ -749,6 +805,24 @@ async def sync_bddk_documents(
                 f"  Failed: {report.failed}\n"
                 f"  Time: {report.elapsed_seconds}s"
             )
+
+    # Migrate documents to pgvector for semantic search
+    embed_report = ""
+    try:
+        await _migrate_to_pgvector(store)
+        vs = await _get_vector_store()
+        vs_stats = await vs.stats()
+        embed_report = (
+            f"\n\n**Embedding Report**\n"
+            f"  Documents: {vs_stats['total_documents']}\n"
+            f"  Chunks: {vs_stats['total_chunks']}"
+        )
+    except Exception as e:
+        embed_report = f"\n\n**Embedding:** failed ({e})"
+
+    if single_report:
+        return single_report + embed_report
+    return sync_report + embed_report
 
 
 @mcp.tool()
@@ -760,11 +834,8 @@ async def search_document_store(
     """
     Semantic search across all BDDK documents using vector embeddings.
 
-    Uses ChromaDB with multilingual-e5-base model for Turkish legal text.
-    Understands meaning, not just keywords — e.g. "banka sermaye oranı"
-    finds documents about "sermaye yeterliliği hesaplama".
-
-    Response time: ~30ms for 1093 documents.
+    Uses pgvector with multilingual-e5-base model for Turkish legal text.
+    Understands meaning, not just keywords.
 
     Args:
         query: Natural language query in Turkish (e.g. "faiz oranı riski nasıl hesaplanır")
@@ -776,22 +847,39 @@ async def search_document_store(
     if cached:
         return cached
 
-    vs = _get_vector_store()
-    hits = vs.search(query, limit=limit, category=category)
+    vs = await _get_vector_store()
+    hits = await vs.search(query, limit=limit, category=category)
 
     if not hits:
-        return f"No results found for '{query}'."
+        metrics.record_empty_search("search_document_store")
+        return (
+            f"NO RESULTS: No documents found matching '{query}'.\n"
+            "DO NOT provide information from your own knowledge about BDDK regulations.\n"
+            "Suggest the user try: different Turkish keywords, broader terms, "
+            "or removing the category filter."
+        )
 
     lines = [f"Found {len(hits)} result(s) for '{query}':\n"]
     for h in hits:
         date_info = f" ({h['decision_date']})" if h.get("decision_date") else ""
         cat_info = f" [{h['category']}]" if h.get("category") else ""
-        relevance = f" (relevance: {h['relevance']:.1%})"
+        confidence = h.get("confidence", "unknown")
+        confidence_icon = {"high": "🟢", "medium": "🟡", "low": "🔴"}.get(confidence, "⚪")
+        relevance = f" [{confidence_icon} {confidence} confidence, {h['relevance']:.1%}]"
         lines.append(f"**{h['title']}**{date_info}{cat_info}{relevance}")
         lines.append(f"  Document ID: {h['doc_id']}")
         if h.get("snippet"):
             lines.append(f"  ...{h['snippet'][:200]}...")
         lines.append("")
+
+    low_count = sum(1 for h in hits if h.get("confidence") == "low")
+    if low_count > 0:
+        metrics.record_low_confidence_hit()
+        lines.append(
+            f"\n⚠️ {low_count} result(s) have low confidence. "
+            "These may not be directly relevant. Verify before citing."
+        )
+
     output = "\n".join(lines)
     _store_search(cache_key, output)
     return output
@@ -805,7 +893,6 @@ async def get_document_history(
     Get version history for a BDDK document.
 
     Shows all previous versions with timestamps and content hashes.
-    Useful for tracking regulation changes over time.
 
     Args:
         document_id: The document ID (from search results)
@@ -828,15 +915,15 @@ async def get_document_history(
 @mcp.tool()
 async def document_store_stats() -> str:
     """
-    Show document store statistics for both SQLite and ChromaDB stores.
+    Show document store statistics for PostgreSQL and pgvector stores.
     """
     lines = ["**Document Store Statistics**\n"]
 
-    # ChromaDB stats
+    # pgvector stats
     try:
-        vs = _get_vector_store()
-        vs_stats = vs.stats()
-        lines.append("**ChromaDB (Vector Store):**")
+        vs = await _get_vector_store()
+        vs_stats = await vs.stats()
+        lines.append("**pgvector (Vector Store):**")
         lines.append(f"  Documents: {vs_stats['total_documents']}")
         lines.append(f"  Chunks: {vs_stats['total_chunks']}")
         lines.append(f"  Embedding model: {vs_stats['embedding_model']}")
@@ -845,23 +932,26 @@ async def document_store_stats() -> str:
             for cat, count in vs_stats["categories"].items():
                 lines.append(f"    {cat}: {count}")
     except (RuntimeError, BddkVectorStoreError) as e:
-        lines.append(f"  ChromaDB: unavailable ({e})")
+        lines.append(f"  pgvector: unavailable ({e})")
 
-    # SQLite stats
+    # PostgreSQL document stats
     try:
         store = await _get_doc_store()
         st = await store.stats()
-        lines.append("\n**SQLite (Backup Store):**")
+        lines.append("\n**PostgreSQL (Document Store):**")
         lines.append(f"  Documents: {st.total_documents}")
         lines.append(f"  Size: {st.total_size_mb} MB")
     except (RuntimeError, BddkStorageError) as e:
-        lines.append(f"  SQLite: unavailable ({e})")
+        lines.append(f"  PostgreSQL: unavailable ({e})")
 
     return "\n".join(lines)
 
 
+# -- Startup sync -------------------------------------------------------------
+
+
 async def _startup_sync() -> None:
-    """Auto-sync documents on deploy: SQLite download + ChromaDB embedding."""
+    """Auto-sync documents on startup: download missing + embed to pgvector."""
     global _last_sync_time
     logger.info("Startup sync started...")
     try:
@@ -869,17 +959,17 @@ async def _startup_sync() -> None:
 
         store = await _get_doc_store()
         client = await _get_client()
-        logger.info("Fetching document metadata from BDDK...")
+        logger.info("Ensuring BDDK decision cache...")
         await client.ensure_cache()
         logger.info("Cache loaded: %d documents", len(client._cache))
 
         st = await store.stats()
         cache_size = len(client._cache)
 
-        # Phase 1: SQLite sync — download missing documents
+        # Phase 1: Download missing documents
         if st.total_documents < cache_size * 0.9:
             logger.info(
-                "SQLite incomplete (%d/%d) — downloading...",
+                "Document store incomplete (%d/%d) — downloading...",
                 st.total_documents,
                 cache_size,
             )
@@ -887,16 +977,16 @@ async def _startup_sync() -> None:
             async with DocumentSyncer(store, prefer_nougat=PREFER_NOUGAT) as syncer:
                 report = await syncer.sync_all(items, concurrency=10, force=False)
             logger.info(
-                "SQLite sync: %d downloaded, %d failed, %.1fs",
+                "Document sync: %d downloaded, %d failed, %.1fs",
                 report.downloaded,
                 report.failed,
                 report.elapsed_seconds,
             )
         else:
-            logger.info("SQLite has %d/%d documents, OK", st.total_documents, cache_size)
+            logger.info("Document store has %d/%d documents, OK", st.total_documents, cache_size)
 
-        # Phase 2: ChromaDB migration — embed documents from SQLite
-        await _migrate_to_chromadb(store)
+        # Phase 2: Migrate to pgvector
+        await _migrate_to_pgvector(store)
 
         _last_sync_time = time.time()
 
@@ -904,28 +994,26 @@ async def _startup_sync() -> None:
         logger.error("Startup sync failed: %s", e)
 
 
-async def _migrate_to_chromadb(store: DocumentStore) -> None:
-    """Migrate documents from SQLite to ChromaDB if needed."""
+async def _migrate_to_pgvector(store: DocumentStore) -> None:
+    """Migrate documents from document store to pgvector if needed."""
     try:
-        vs = _get_vector_store()
-        vs_stats = vs.stats()
+        vs = await _get_vector_store()
+        vs_stats = await vs.stats()
         sqlite_stats = await store.stats()
 
         if vs_stats["total_documents"] >= sqlite_stats.total_documents * 0.9:
             logger.info(
-                "ChromaDB has %d/%d documents, skipping migration",
+                "pgvector has %d/%d documents, skipping migration",
                 vs_stats["total_documents"],
                 sqlite_stats.total_documents,
             )
             return
 
         logger.info(
-            "ChromaDB incomplete (%d/%d) — migrating from SQLite...",
+            "pgvector incomplete (%d/%d) — migrating...",
             vs_stats["total_documents"],
             sqlite_stats.total_documents,
         )
-
-        import time
 
         start = time.time()
         docs = await store.list_documents(limit=2000)
@@ -934,14 +1022,14 @@ async def _migrate_to_chromadb(store: DocumentStore) -> None:
 
         for i, meta in enumerate(docs):
             doc_id = meta["document_id"]
-            if vs.has_document(doc_id):
+            if await vs.has_document(doc_id):
                 continue
 
             doc = await store.get_document(doc_id)
             if not doc or not doc.markdown_content:
                 continue
 
-            chunks = vs.add_document(
+            chunks = await vs.add_document(
                 doc_id=doc.document_id,
                 title=doc.title,
                 content=doc.markdown_content,
@@ -954,20 +1042,17 @@ async def _migrate_to_chromadb(store: DocumentStore) -> None:
             migrated += 1
 
             if (i + 1) % 100 == 0:
-                logger.info("ChromaDB migration: %d/%d docs", i + 1, len(docs))
+                logger.info("pgvector migration: %d/%d docs", i + 1, len(docs))
 
         elapsed = time.time() - start
         logger.info(
-            "ChromaDB migration complete: %d docs, %d chunks, %.1fs",
+            "pgvector migration complete: %d docs, %d chunks, %.1fs",
             migrated,
             total_chunks,
             elapsed,
         )
     except (BddkError, RuntimeError, OSError) as e:
-        logger.error("ChromaDB migration failed: %s", e)
-
-
-_sync_task: asyncio.Task | None = None
+        logger.error("pgvector migration failed: %s", e)
 
 
 @mcp.tool()
@@ -982,16 +1067,21 @@ async def trigger_startup_sync() -> str:
 
     store = await _get_doc_store()
     st = await store.stats()
-    return f"Store has {st.total_documents} documents. Use sync_bddk_documents to sync."
 
+    # Run pgvector migration if documents exist but embeddings are missing
+    embed_report = ""
+    try:
+        await _migrate_to_pgvector(store)
+        vs = await _get_vector_store()
+        vs_stats = await vs.stats()
+        embed_report = (
+            f"\n  Vector documents: {vs_stats['total_documents']}"
+            f"\n  Vector chunks: {vs_stats['total_chunks']}"
+        )
+    except Exception as e:
+        embed_report = f"\n  Embedding migration failed: {e}"
 
-async def _schedule_background_sync() -> None:
-    """Schedule startup sync as background task after server starts."""
-    global _sync_task
-    if os.environ.get("BDDK_AUTO_SYNC", "").lower() in ("1", "true", "yes"):
-        # Small delay to let server start accepting requests first
-        await asyncio.sleep(2)
-        _sync_task = asyncio.create_task(_startup_sync())
+    return f"Store has {st.total_documents} documents.{embed_report}"
 
 
 # -- Health Check Tool --------------------------------------------------------
@@ -1011,6 +1101,7 @@ async def health_check() -> str:
     lines = ["**BDDK MCP Server Health**\n"]
     lines.append("  Status: OK")
     lines.append(f"  Uptime: {hours}h {minutes}m {seconds}s")
+    lines.append(f"  Backend: PostgreSQL + pgvector")
 
     if _last_sync_time:
         ago = int(time.time() - _last_sync_time)
@@ -1031,9 +1122,9 @@ async def health_check() -> str:
     try:
         store = await _get_doc_store()
         st = await store.stats()
-        lines.append(f"  SQLite docs: {st.total_documents}")
+        lines.append(f"  Documents: {st.total_documents}")
     except (RuntimeError, BddkStorageError):
-        lines.append("  SQLite: unavailable")
+        lines.append("  Documents: unavailable")
 
     sync_status = "running" if (_sync_task and not _sync_task.done()) else "idle"
     lines.append(f"  Sync status: {sync_status}")
@@ -1071,10 +1162,9 @@ async def bddk_metrics() -> str:
 
 
 async def _graceful_shutdown() -> None:
-    """Flush stores and close connections cleanly."""
+    """Close connections cleanly."""
     logger.info("Graceful shutdown initiated...")
 
-    # Cancel running sync
     if _sync_task and not _sync_task.done():
         _sync_task.cancel()
         try:
@@ -1082,36 +1172,32 @@ async def _graceful_shutdown() -> None:
         except asyncio.CancelledError:
             pass
 
-    # Close document store (flushes WAL)
-    if _doc_store is not None:
-        await _doc_store.close()
-        logger.info("DocumentStore closed")
-
-    # Close vector store
-    if _vector_store is not None:
-        _vector_store.close()
-        logger.info("VectorStore closed")
-
-    # Close HTTP client
     if _client is not None:
         await _client.close()
         logger.info("HTTP client closed")
 
+    if _pool is not None:
+        await _pool.close()
+        logger.info("PostgreSQL pool closed")
+
     logger.info("Graceful shutdown complete")
 
 
+# -- Entry point --------------------------------------------------------------
+
+
 if __name__ == "__main__":
-    # Use uvloop for ~20-30% faster async I/O
     try:
         import uvloop
-
         uvloop.install()
-        logger.info("uvloop installed — faster async event loop active")
+        logger.info("uvloop installed")
     except ImportError:
         pass
 
+    _transport = os.environ.get("MCP_TRANSPORT", "stdio")
     logger.info("Transport: %s", _transport)
     logger.info("BDDK_AUTO_SYNC=%s", os.environ.get("BDDK_AUTO_SYNC", "(not set)"))
+    logger.info("DATABASE_URL=%s", DATABASE_URL.split("@")[-1])
 
     if _transport == "streamable-http":
         import uvicorn
@@ -1123,8 +1209,7 @@ if __name__ == "__main__":
             config = uvicorn.Config(app, host="0.0.0.0", port=port)
             server = uvicorn.Server(config)
 
-            auto_sync = AUTO_SYNC
-            if auto_sync:
+            if AUTO_SYNC:
                 print("[STARTUP] launching background sync", flush=True)
                 asyncio.create_task(_startup_sync())
 

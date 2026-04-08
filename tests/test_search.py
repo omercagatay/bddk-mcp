@@ -4,11 +4,12 @@ import pytest
 
 from client import BddkApiClient
 from models import BddkDecisionSummary, BddkSearchRequest
+from tests.conftest import MockPool
 
 
 def _make_client_with_cache(items: list[BddkDecisionSummary]) -> BddkApiClient:
     """Create a client with a pre-populated cache (no HTTP needed)."""
-    client = BddkApiClient()
+    client = BddkApiClient(pool=MockPool())
     client._cache = items
     client._cache_timestamp = 9999999999.0  # far future so cache stays valid
     return client

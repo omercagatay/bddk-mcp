@@ -13,6 +13,8 @@ class Metrics:
         self._total_latency: dict[str, float] = defaultdict(float)
         self._cache_hits: int = 0
         self._cache_misses: int = 0
+        self._empty_search_counts: dict[str, int] = defaultdict(int)
+        self._low_confidence_hits: int = 0
         self._start_time: float = time.time()
 
     def record_request(self, tool_name: str, duration_ms: float) -> None:
@@ -29,6 +31,12 @@ class Metrics:
 
     def record_cache_miss(self) -> None:
         self._cache_misses += 1
+
+    def record_empty_search(self, tool_name: str) -> None:
+        self._empty_search_counts[tool_name] += 1
+
+    def record_low_confidence_hit(self) -> None:
+        self._low_confidence_hits += 1
 
     def summary(self) -> dict:
         """Return a summary of all metrics."""
@@ -60,6 +68,8 @@ class Metrics:
             "cache_hit_rate": round(cache_hit_rate, 1),
             "cache_hits": self._cache_hits,
             "cache_misses": self._cache_misses,
+            "empty_searches": dict(self._empty_search_counts),
+            "low_confidence_hits": self._low_confidence_hits,
             "tools": tools,
         }
 

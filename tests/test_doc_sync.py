@@ -111,12 +111,8 @@ class TestFetchWithRetry:
 
 class TestDocumentSyncer:
     @pytest.fixture
-    async def store(self, tmp_path):
-        db_path = tmp_path / "sync_test.db"
-        s = DocumentStore(db_path=db_path)
-        await s.initialize()
-        yield s
-        await s.close()
+    async def store(self, doc_store):
+        yield doc_store
 
     @pytest.mark.asyncio
     async def test_sync_cached_document_skips(self, store):
@@ -204,7 +200,8 @@ class TestDocumentSyncer:
                 {"document_id": "102", "title": "B", "category": "Genelge", "source_url": ""},
             ]
 
-            report = await syncer.sync_all(docs, concurrency=2, force=True)
+            # concurrency=1 because test fixture uses a single-connection pool
+            report = await syncer.sync_all(docs, concurrency=1, force=True)
             assert report.total == 2
             assert report.downloaded == 2
             assert report.failed == 0

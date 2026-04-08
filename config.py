@@ -7,14 +7,21 @@ variables (prefixed with BDDK_).
 import os
 from pathlib import Path
 
-# ── Paths ────────────────────────────────────────────────────────────────────
+# -- Paths --------------------------------------------------------------------
 
 BASE_DIR = Path(__file__).parent
-DB_PATH = Path(os.environ.get("BDDK_DB_PATH", BASE_DIR / "bddk_docs.db"))
-CHROMA_PATH = Path(os.environ.get("BDDK_CHROMA_PATH", BASE_DIR / "chroma_db"))
-CACHE_FILE = BASE_DIR / ".cache.json"
+# -- PostgreSQL ---------------------------------------------------------------
 
-# ── Embedding model (offline-first) ─────────────────────────────────────────
+DATABASE_URL = os.environ.get(
+    "BDDK_DATABASE_URL",
+    "postgresql://bddk:bddk@localhost:5432/bddk",
+)
+
+# asyncpg pool settings
+PG_POOL_MIN = int(os.environ.get("BDDK_PG_POOL_MIN", "2"))
+PG_POOL_MAX = int(os.environ.get("BDDK_PG_POOL_MAX", "10"))
+
+# -- Embedding model (offline-first) -----------------------------------------
 
 # Path to a pre-downloaded model directory.  When set, the vector store loads
 # from this local path instead of downloading from Hugging Face.
@@ -22,7 +29,12 @@ EMBEDDING_MODEL_PATH = os.environ.get("BDDK_EMBEDDING_MODEL_PATH", "")
 EMBEDDING_MODEL_NAME = os.environ.get("BDDK_EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
 EMBEDDING_MODEL_REVISION = "d4210e50c0"  # v1.0.0 stable
 
-# ── Document chunking ───────────────────────────────────────────────────────
+# -- pgvector -----------------------------------------------------------------
+
+# Embedding dimension for intfloat/multilingual-e5-base
+EMBEDDING_DIMENSION = int(os.environ.get("BDDK_EMBEDDING_DIM", "768"))
+
+# -- Document chunking -------------------------------------------------------
 
 # Page size for paginated markdown output (client, doc_store, vector_store)
 PAGE_SIZE = int(os.environ.get("BDDK_PAGE_SIZE", "5000"))
@@ -31,30 +43,47 @@ PAGE_SIZE = int(os.environ.get("BDDK_PAGE_SIZE", "5000"))
 EMBEDDING_CHUNK_SIZE = int(os.environ.get("BDDK_EMBEDDING_CHUNK_SIZE", "1000"))
 EMBEDDING_CHUNK_OVERLAP = int(os.environ.get("BDDK_EMBEDDING_CHUNK_OVERLAP", "200"))
 
-# ── Cache ────────────────────────────────────────────────────────────────────
+# -- Cache --------------------------------------------------------------------
 
-# Decision list cache TTL (seconds) — how long before re-scraping BDDK pages
+# Decision list cache TTL (seconds) -- how long before re-scraping BDDK pages
 CACHE_TTL_SECONDS = int(os.environ.get("BDDK_CACHE_TTL", "3600"))
 
 # Search result in-memory cache
 SEARCH_CACHE_TTL = int(os.environ.get("BDDK_SEARCH_CACHE_TTL", "300"))
 SEARCH_CACHE_MAX = int(os.environ.get("BDDK_SEARCH_CACHE_MAX", "200"))
 
-# When BDDK is unreachable, serve stale disk cache even if TTL expired
+# When BDDK is unreachable, serve stale DB cache even if TTL expired
 STALE_CACHE_FALLBACK = os.environ.get("BDDK_STALE_CACHE_FALLBACK", "true").lower() in ("1", "true", "yes")
 
-# ── HTTP ─────────────────────────────────────────────────────────────────────
+# -- Relevance thresholds (anti-hallucination) --------------------------------
+
+SEMANTIC_RELEVANCE_THRESHOLD = float(os.environ.get("BDDK_SEMANTIC_THRESHOLD", "0.50"))
+FTS_RANK_THRESHOLD = float(os.environ.get("BDDK_FTS_THRESHOLD", "0.01"))
+
+# -- Hybrid search (dense + sparse fusion) ------------------------------------
+
+HYBRID_SEARCH = os.environ.get("BDDK_HYBRID_SEARCH", "true").lower() in ("1", "true", "yes")
+HYBRID_RRF_K = int(os.environ.get("BDDK_RRF_K", "60"))
+
+# -- Cross-encoder re-ranking -------------------------------------------------
+
+RERANKER_ENABLED = os.environ.get("BDDK_RERANKER", "false").lower() in ("1", "true", "yes")
+RERANKER_MODEL_NAME = os.environ.get("BDDK_RERANKER_MODEL", "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1")
+RERANKER_MODEL_PATH = os.environ.get("BDDK_RERANKER_MODEL_PATH", "")
+RERANKER_TOP_N = int(os.environ.get("BDDK_RERANKER_TOP_N", "20"))
+
+# -- HTTP ---------------------------------------------------------------------
 
 REQUEST_TIMEOUT = float(os.environ.get("BDDK_REQUEST_TIMEOUT", "60.0"))
 MAX_RETRIES = int(os.environ.get("BDDK_MAX_RETRIES", "3"))
 
-# ── Sync ─────────────────────────────────────────────────────────────────────
+# -- Sync ---------------------------------------------------------------------
 
-AUTO_SYNC = os.environ.get("BDDK_AUTO_SYNC", "").lower() in ("1", "true", "yes")
+AUTO_SYNC = os.environ.get("BDDK_AUTO_SYNC", "true").lower() in ("1", "true", "yes")
 SYNC_CONCURRENCY = int(os.environ.get("BDDK_SYNC_CONCURRENCY", "5"))
 PREFER_NOUGAT = os.environ.get("BDDK_PREFER_NOUGAT", "false").lower() in ("1", "true", "yes")
 
-# ── Validation helpers ───────────────────────────────────────────────────────
+# -- Validation helpers -------------------------------------------------------
 
 
 def validate_metric_id(metric_id: str) -> str:
