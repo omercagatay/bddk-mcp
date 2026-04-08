@@ -5,7 +5,6 @@ import math
 import re
 import time
 from datetime import datetime
-from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import httpx

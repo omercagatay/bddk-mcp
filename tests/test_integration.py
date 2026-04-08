@@ -12,7 +12,6 @@ from doc_sync import DocumentSyncer
 from models import BddkSearchRequest
 from tests.conftest import (
     BDDK_ACCORDION_HTML,
-    BDDK_DECISION_HTML,
     make_http_response,
 )
 
@@ -170,13 +169,13 @@ class TestExtractionPipelineFlow:
         syncer._http.aclose = AsyncMock()
 
         html_content = (
-            "<html><body>"
-            "<h1>Banking Regulation</h1>"
-            "<p>This regulation sets the rules for the banking sector.</p>"
-            "<h2>ARTICLE 1</h2>"
-            "<p>Purpose and scope</p>"
-            "</body></html>"
-        ).encode("utf-8")
+            b"<html><body>"
+            b"<h1>Banking Regulation</h1>"
+            b"<p>This regulation sets the rules for the banking sector.</p>"
+            b"<h2>ARTICLE 1</h2>"
+            b"<p>Purpose and scope</p>"
+            b"</body></html>"
+        )
 
         async def mock_download(doc_id):
             return html_content, "bddk_direct", ".html"
@@ -206,11 +205,10 @@ class TestConfigIntegration:
     """Test that config values are properly used across modules."""
 
     def test_page_size_consistent_across_modules(self):
-        from config import PAGE_SIZE
-
         # client.py, doc_store.py, and vector_store.py should all use PAGE_SIZE
         import client
         import doc_store
+        from config import PAGE_SIZE
 
         # They import PAGE_SIZE from config — verify it's the same value
         assert client.PAGE_SIZE == PAGE_SIZE

@@ -1,10 +1,11 @@
 """MCP server exposing BDDK decision search, document retrieval, and data tools."""
 
 import asyncio
+import contextlib
 import logging
 import os
 import time
-from pathlib import Path
+from collections.abc import AsyncIterator
 
 from mcp.server.fastmcp import FastMCP
 
@@ -15,7 +16,6 @@ from config import (
     PREFER_NOUGAT,
     SEARCH_CACHE_MAX,
     SEARCH_CACHE_TTL,
-    SYNC_CONCURRENCY,
     validate_column,
     validate_currency,
     validate_metric_id,
@@ -38,9 +38,6 @@ from vector_store import VectorStore
 
 configure_logging()
 logger = logging.getLogger(__name__)
-
-import contextlib
-from collections.abc import AsyncIterator
 
 
 @contextlib.asynccontextmanager

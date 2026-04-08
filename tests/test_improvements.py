@@ -2,16 +2,14 @@
 
 import json
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
 
 from client import BddkApiClient
-from doc_sync import DocumentSyncer, ExtractionResult, SyncResult, _extract_html_to_markdown
-from models import BddkDecisionSummary
+from doc_sync import DocumentSyncer, ExtractionResult
 from vector_store import _chunk_text
-
 
 # ── Chunk Overlap Reconstruction Bug Fix ─────────────────────────────────────
 
@@ -283,7 +281,7 @@ class TestSyncProgress:
             {"document_id": "1", "title": "Doc 1"},
             {"document_id": "2", "title": "Doc 2"},
         ]
-        report = await syncer.sync_all(documents, concurrency=1, force=True)
+        await syncer.sync_all(documents, concurrency=1, force=True)
 
         # Progress callback should be called for each doc
         assert len(progress_calls) == 2
@@ -336,7 +334,6 @@ class TestAllAnnouncementCategories:
 
         # Patch fetch_announcements to track which category_ids are called
         called_categories = []
-        original_fetch = None
 
         async def tracking_fetch(http, category_id):
             called_categories.append(category_id)
