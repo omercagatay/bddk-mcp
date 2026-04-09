@@ -95,6 +95,12 @@ async def doc_store(pg_pool):
     pool_wrapper = SingleConnPool(conn)
     store = DocumentStore(pool_wrapper)
     await store.initialize()
+
+    # Also create decision_cache table so BddkApiClient queries
+    # don't abort the transaction with "relation does not exist"
+    from client import _CACHE_SCHEMA_SQL
+    await conn.execute(_CACHE_SCHEMA_SQL)
+
     yield store
 
     await tx.rollback()

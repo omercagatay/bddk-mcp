@@ -125,8 +125,9 @@ async def _get_vector_store() -> VectorStore:
     global _vector_store
     if _vector_store is None:
         pool = await _get_pool()
-        _vector_store = VectorStore(pool)
-        await _vector_store.initialize()
+        vs = VectorStore(pool)
+        await vs.initialize()
+        _vector_store = vs
     return _vector_store
 
 
@@ -260,7 +261,7 @@ async def get_bddk_document(
         page = await vs.get_document_page(document_id, page_number)
         if page and page["content"] and "Invalid page" not in page["content"]:
             return _build_header(page["page_number"], page["total_pages"]) + page["content"]
-    except (RuntimeError, BddkVectorStoreError) as e:
+    except Exception as e:
         logger.debug("pgvector lookup failed for %s, falling back: %s", document_id, e)
 
     # Fallback to document store → live fetch
@@ -945,7 +946,7 @@ async def document_store_stats() -> str:
             lines.append("  Categories:")
             for cat, count in vs_stats["categories"].items():
                 lines.append(f"    {cat}: {count}")
-    except (RuntimeError, BddkVectorStoreError) as e:
+    except Exception as e:
         lines.append(f"  pgvector: unavailable ({e})")
 
     # PostgreSQL document stats
