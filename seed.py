@@ -108,6 +108,10 @@ async def import_seed(dsn: str | None = None, force: bool = False) -> dict:
         store = DocumentStore(pool)
         await store.initialize()
 
+        from vector_store import VectorStore
+        vs = VectorStore(pool)
+        await vs.initialize()
+
         from client import BddkApiClient
         client = BddkApiClient(pool)
         await client.initialize()
