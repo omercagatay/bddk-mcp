@@ -150,9 +150,9 @@ class VectorStore:
                     SELECT unaccent($1)
                 $$ LANGUAGE sql IMMUTABLE;
             """)
-            # Migration must run before schema (adds tsv column to existing tables)
-            await conn.execute(_MIGRATION_SQL)
             await conn.execute(_SCHEMA_SQL)
+            # Migration adds tsv column to tables created before FTS was added
+            await conn.execute(_MIGRATION_SQL)
             await conn.execute(_FTS_TRIGGER_SQL)
             await conn.execute(_HNSW_INDEX_SQL)
 
