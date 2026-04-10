@@ -396,7 +396,6 @@ class DocumentSyncer:
         """
         mevzuat_no = doc_id.removeprefix("mevzuat_")
         tur, tertip = "7", "5"
-        tur_from_source = False
 
         if source_url:
             no, t, te = _parse_mevzuat_params(source_url)
@@ -404,17 +403,13 @@ class DocumentSyncer:
                 mevzuat_no = no
             if t:
                 tur = t
-                tur_from_source = True
             if te:
                 tertip = te
 
         # Build list of tur values to try.
-        # If source_url provided the tur, only try that one.
-        # Otherwise, try the default first, then all others.
-        if tur_from_source:
-            tur_candidates = [tur]
-        else:
-            tur_candidates = [tur] + [t for t in _MEVZUAT_TUR_MAP if t != tur]
+        # Always try the source/default tur first, then fall back to all others.
+        # Even when source_url provides tur, it may be stale or wrong (404).
+        tur_candidates = [tur] + [t for t in _MEVZUAT_TUR_MAP if t != tur]
 
         for candidate_tur in tur_candidates:
             segment = _MEVZUAT_TUR_MAP.get(candidate_tur, "yonetmelik")
@@ -470,9 +465,9 @@ class DocumentSyncer:
             except Exception as e:
                 logger.debug("mevzuat %s: iframe/div failed (tur=%s): %s", doc_id, candidate_tur, e)
 
-            # Layer 4: Word (.doc) — heaviest, slowest (only try for the known/default tur
+            # Layer 4: Word (.doc) — heaviest, slowest (only try for the first/default tur
             # to avoid excessive requests during auto-detection)
-            if tur_from_source or candidate_tur == tur:
+            if candidate_tur == tur:
                 try:
                     doc_url = _mevzuat_doc_url(mevzuat_no, candidate_tur, tertip)
                     resp = await self._http.get(doc_url, timeout=httpx.Timeout(90.0, connect=15.0))
@@ -482,7 +477,7 @@ class DocumentSyncer:
                 except Exception as e:
                     logger.debug("mevzuat %s: .doc failed (tur=%s): %s", doc_id, candidate_tur, e)
 
-            if not tur_from_source and candidate_tur != tur_candidates[-1]:
+            if candidate_tur != tur_candidates[-1]:
                 logger.debug("mevzuat %s: tur=%s failed, trying next candidate", doc_id, candidate_tur)
 
         raise RuntimeError(f"All download methods failed for {doc_id} (tried tur values: {tur_candidates})")
