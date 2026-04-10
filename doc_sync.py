@@ -389,10 +389,14 @@ class DocumentSyncer:
         3. Main page iframe content — richest HTML
         4. Word (.doc) download — largest, slowest
 
+        When source_url is not provided and the default tur fails,
+        automatically tries all known tur values (tur auto-detection).
+
         Each layer has its own short timeout to avoid blocking others.
         """
         mevzuat_no = doc_id.removeprefix("mevzuat_")
         tur, tertip = "7", "5"
+        tur_from_source = False
 
         if source_url:
             no, t, te = _parse_mevzuat_params(source_url)
@@ -400,72 +404,88 @@ class DocumentSyncer:
                 mevzuat_no = no
             if t:
                 tur = t
+                tur_from_source = True
             if te:
                 tertip = te
 
-        segment = _MEVZUAT_TUR_MAP.get(tur, "yonetmelik")
-        base = f"{tur}.{tertip}.{mevzuat_no}"
+        # Build list of tur values to try.
+        # If source_url provided the tur, only try that one.
+        # Otherwise, try the default first, then all others.
+        if tur_from_source:
+            tur_candidates = [tur]
+        else:
+            tur_candidates = [tur] + [t for t in _MEVZUAT_TUR_MAP if t != tur]
 
-        # Per-layer timeout: short enough so one slow layer doesn't kill the rest
-        layer_timeout = httpx.Timeout(30.0, connect=10.0)
+        for candidate_tur in tur_candidates:
+            segment = _MEVZUAT_TUR_MAP.get(candidate_tur, "yonetmelik")
+            base = f"{candidate_tur}.{tertip}.{mevzuat_no}"
 
-        # Layer 1: Static .htm — smallest, fastest, always extractable
-        try:
-            htm_url = f"https://www.mevzuat.gov.tr/mevzuatmetin/{segment}/{base}.htm"
-            resp = await self._http.get(htm_url, timeout=layer_timeout)
-            if resp.status_code == 200 and len(resp.content) > 200:
-                logger.info("mevzuat %s: downloaded via .htm", doc_id)
-                return resp.content, "mevzuat_htm", ".html"
-        except Exception as e:
-            logger.debug("mevzuat %s: .htm failed: %s", doc_id, e)
+            # Per-layer timeout: short enough so one slow layer doesn't kill the rest
+            layer_timeout = httpx.Timeout(30.0, connect=10.0)
 
-        # Layer 2: Direct PDF download
-        try:
-            pdf_url = _mevzuat_pdf_url(mevzuat_no, tur, tertip)
-            if pdf_url:
-                resp = await self._http.get(pdf_url, timeout=layer_timeout)
-                if resp.status_code == 200 and len(resp.content) > 500:
-                    logger.info("mevzuat %s: downloaded via .pdf", doc_id)
-                    return resp.content, "mevzuat_pdf", ".pdf"
-        except Exception as e:
-            logger.debug("mevzuat %s: .pdf failed: %s", doc_id, e)
+            # Layer 1: Static .htm — smallest, fastest, always extractable
+            try:
+                htm_url = f"https://www.mevzuat.gov.tr/mevzuatmetin/{segment}/{base}.htm"
+                resp = await self._http.get(htm_url, timeout=layer_timeout)
+                if resp.status_code == 200 and len(resp.content) > 200:
+                    if not _is_error_page(resp.text):
+                        logger.info("mevzuat %s: downloaded via .htm (tur=%s)", doc_id, candidate_tur)
+                        return resp.content, "mevzuat_htm", ".html"
+            except Exception as e:
+                logger.debug("mevzuat %s: .htm failed (tur=%s): %s", doc_id, candidate_tur, e)
 
-        # Layer 3: Main page → iframe content (richer HTML)
-        try:
-            main_url = (
-                f"https://www.mevzuat.gov.tr/mevzuat?MevzuatNo={mevzuat_no}&MevzuatTur={tur}&MevzuatTertip={tertip}"
-            )
-            resp = await self._http.get(main_url, timeout=layer_timeout)
-            if resp.status_code == 200:
-                soup = BeautifulSoup(resp.text, "html.parser")
-                iframe = soup.find("iframe", src=True)
-                if iframe:
-                    iframe_url = iframe["src"]
-                    if not iframe_url.startswith("http"):
-                        iframe_url = f"https://www.mevzuat.gov.tr{iframe_url}"
-                    iframe_resp = await self._http.get(iframe_url, timeout=layer_timeout)
-                    if iframe_resp.status_code == 200 and len(iframe_resp.content) > 200:
-                        logger.info("mevzuat %s: downloaded via iframe", doc_id)
-                        return iframe_resp.content, "mevzuat_iframe", ".html"
-                # No iframe — use page body itself
-                div = soup.find("div", id="divMevzuatMetni")
-                if div and len(div.get_text(strip=True)) > 100:
-                    logger.info("mevzuat %s: downloaded via main page div", doc_id)
-                    return str(div).encode("utf-8"), "mevzuat_div", ".html"
-        except Exception as e:
-            logger.debug("mevzuat %s: iframe/div failed: %s", doc_id, e)
+            # Layer 2: Direct PDF download
+            try:
+                pdf_url = _mevzuat_pdf_url(mevzuat_no, candidate_tur, tertip)
+                if pdf_url:
+                    resp = await self._http.get(pdf_url, timeout=layer_timeout)
+                    if resp.status_code == 200 and len(resp.content) > 500:
+                        logger.info("mevzuat %s: downloaded via .pdf (tur=%s)", doc_id, candidate_tur)
+                        return resp.content, "mevzuat_pdf", ".pdf"
+            except Exception as e:
+                logger.debug("mevzuat %s: .pdf failed (tur=%s): %s", doc_id, candidate_tur, e)
 
-        # Layer 4: Word (.doc) — heaviest, slowest
-        try:
-            doc_url = _mevzuat_doc_url(mevzuat_no, tur, tertip)
-            resp = await self._http.get(doc_url, timeout=httpx.Timeout(90.0, connect=15.0))
-            if resp.status_code == 200 and len(resp.content) > 100:
-                logger.info("mevzuat %s: downloaded via .doc", doc_id)
-                return resp.content, "mevzuat_doc", ".doc"
-        except Exception as e:
-            logger.debug("mevzuat %s: .doc failed: %s", doc_id, e)
+            # Layer 3: Main page → iframe content (richer HTML)
+            try:
+                main_url = (
+                    f"https://www.mevzuat.gov.tr/mevzuat?MevzuatNo={mevzuat_no}&MevzuatTur={candidate_tur}&MevzuatTertip={tertip}"
+                )
+                resp = await self._http.get(main_url, timeout=layer_timeout)
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.text, "html.parser")
+                    iframe = soup.find("iframe", src=True)
+                    if iframe:
+                        iframe_url = iframe["src"]
+                        if not iframe_url.startswith("http"):
+                            iframe_url = f"https://www.mevzuat.gov.tr{iframe_url}"
+                        iframe_resp = await self._http.get(iframe_url, timeout=layer_timeout)
+                        if iframe_resp.status_code == 200 and len(iframe_resp.content) > 200:
+                            logger.info("mevzuat %s: downloaded via iframe (tur=%s)", doc_id, candidate_tur)
+                            return iframe_resp.content, "mevzuat_iframe", ".html"
+                    # No iframe — use page body itself
+                    div = soup.find("div", id="divMevzuatMetni")
+                    if div and len(div.get_text(strip=True)) > 100:
+                        logger.info("mevzuat %s: downloaded via main page div (tur=%s)", doc_id, candidate_tur)
+                        return str(div).encode("utf-8"), "mevzuat_div", ".html"
+            except Exception as e:
+                logger.debug("mevzuat %s: iframe/div failed (tur=%s): %s", doc_id, candidate_tur, e)
 
-        raise RuntimeError(f"All download methods failed for {doc_id}")
+            # Layer 4: Word (.doc) — heaviest, slowest (only try for the known/default tur
+            # to avoid excessive requests during auto-detection)
+            if tur_from_source or candidate_tur == tur:
+                try:
+                    doc_url = _mevzuat_doc_url(mevzuat_no, candidate_tur, tertip)
+                    resp = await self._http.get(doc_url, timeout=httpx.Timeout(90.0, connect=15.0))
+                    if resp.status_code == 200 and len(resp.content) > 100:
+                        logger.info("mevzuat %s: downloaded via .doc (tur=%s)", doc_id, candidate_tur)
+                        return resp.content, "mevzuat_doc", ".doc"
+                except Exception as e:
+                    logger.debug("mevzuat %s: .doc failed (tur=%s): %s", doc_id, candidate_tur, e)
+
+            if not tur_from_source and candidate_tur != tur_candidates[-1]:
+                logger.debug("mevzuat %s: tur=%s failed, trying next candidate", doc_id, candidate_tur)
+
+        raise RuntimeError(f"All download methods failed for {doc_id} (tried tur values: {tur_candidates})")
 
     # ── Extraction ───────────────────────────────────────────────────────
 
