@@ -13,6 +13,7 @@ Architecture:
   - Offline-first: supports pre-downloaded model via BDDK_EMBEDDING_MODEL_PATH
 """
 
+import asyncio
 import hashlib
 import logging
 import math
@@ -212,17 +213,15 @@ class VectorStore:
             self._rerank_fn = CrossEncoder(model_ref, device="cpu")
             logger.info("Loaded CPU reranker: %s", model_ref)
 
-    def _embed(self, texts: list[str], prefix: str = "passage") -> list[list[float]]:
-        """Generate embeddings for a list of texts.
-
-        Args:
-            texts: Texts to embed.
-            prefix: "query" for search queries, "passage" for documents.
-                    Required by multilingual-e5 models for best quality.
-        """
+    async def _embed(self, texts: list[str], prefix: str = "passage") -> list[list[float]]:
+        """Generate embeddings in a thread to avoid blocking the event loop."""
         self._ensure_embeddings()
         prefixed = [f"{prefix}: {t}" for t in texts]
-        embeddings = self._embed_fn.encode(prefixed, normalize_embeddings=True)
+        loop = asyncio.get_running_loop()
+        embeddings = await loop.run_in_executor(
+            None,
+            lambda: self._embed_fn.encode(prefixed, normalize_embeddings=True),
+        )
         return embeddings.tolist()
 
     # -- Add documents --------------------------------------------------------
@@ -249,7 +248,7 @@ class VectorStore:
         content_hash = hashlib.md5(content.encode()).hexdigest()
 
         # Generate embeddings
-        embeddings = self._embed(chunks)
+        embeddings = await self._embed(chunks)
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
@@ -383,7 +382,7 @@ class VectorStore:
     ) -> list[dict]:
         """Cosine similarity search via pgvector HNSW index."""
         self._ensure_embeddings()
-        query_embedding = self._embed([query], prefix="query")[0]
+        query_embedding = (await self._embed([query], prefix="query"))[0]
         vec_str = "[" + ",".join(str(v) for v in query_embedding) + "]"
 
         where_clause = ""
@@ -487,8 +486,10 @@ class VectorStore:
           - Score gap filtering: drop results that are far below the top hit
         """
         # Step 1: Parallel retrieval from both systems
-        vector_hits = await self._vector_search(query, limit=50, category=category, fetch_limit=100)
-        fts_hits = await self._fts_search(query, limit=50, category=category)
+        vector_hits, fts_hits = await asyncio.gather(
+            self._vector_search(query, limit=50, category=category, fetch_limit=100),
+            self._fts_search(query, limit=50, category=category),
+        )
 
         # Step 2: FTS gate — if FTS returns nothing, the query likely has no
         # keyword overlap with any document. Penalize vector-only scores heavily
@@ -506,7 +507,7 @@ class VectorStore:
         # Step 4: Cross-encoder re-ranking (optional)
         if RERANKER_ENABLED and fused:
             top_n = min(RERANKER_TOP_N, len(fused))
-            fused[:top_n] = self._rerank(query, fused[:top_n])
+            fused[:top_n] = await self._rerank(query, fused[:top_n])
 
         # Step 5: Apply threshold
         for hit in fused:
@@ -574,27 +575,18 @@ class VectorStore:
 
     # -- Cross-encoder re-ranking ---------------------------------------------
 
-    def _rerank(self, query: str, candidates: list[dict]) -> list[dict]:
-        """Re-rank candidates using a cross-encoder model.
-
-        The cross-encoder scores each (query, passage) pair independently,
-        providing much more accurate relevance scores than bi-encoder similarity.
-        """
+    async def _rerank(self, query: str, candidates: list[dict]) -> list[dict]:
+        """Re-rank candidates using a cross-encoder model in a thread."""
         if not candidates:
             return candidates
-
         self._ensure_reranker()
-
         pairs = [(query, c["snippet"]) for c in candidates]
-        scores = self._rerank_fn.predict(pairs)
-
+        loop = asyncio.get_running_loop()
+        scores = await loop.run_in_executor(None, self._rerank_fn.predict, pairs)
         for candidate, score in zip(candidates, scores):
             candidate["rerank_score"] = float(score)
-            # Normalize cross-encoder score to 0-1 range using sigmoid
-            # mmarco cross-encoders output logits, sigmoid maps to probability
             import math as _math
             candidate["relevance"] = round(1.0 / (1.0 + _math.exp(-float(score))), 4)
-
         return sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)
 
     # -- Bulk operations ------------------------------------------------------
