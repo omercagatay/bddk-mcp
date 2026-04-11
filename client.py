@@ -177,21 +177,26 @@ class BddkApiClient:
         pool: asyncpg.Pool,
         request_timeout: float = REQUEST_TIMEOUT,
         doc_store: DocumentStore | None = None,
+        http: httpx.AsyncClient | None = None,
     ) -> None:
         self._pool = pool
-        self._http = httpx.AsyncClient(
-            headers={
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
-                "User-Agent": (
-                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/120.0.0.0 Safari/537.36"
-                ),
-            },
-            timeout=httpx.Timeout(request_timeout),
-            follow_redirects=True,
-        )
+        self._owns_http = http is None
+        if http is not None:
+            self._http = http
+        else:
+            self._http = httpx.AsyncClient(
+                headers={
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
+                    "User-Agent": (
+                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/120.0.0.0 Safari/537.36"
+                    ),
+                },
+                timeout=httpx.Timeout(request_timeout),
+                follow_redirects=True,
+            )
         self._md = MarkItDown()
         self._doc_store = doc_store
         self._cache: list[BddkDecisionSummary] = []
@@ -216,8 +221,9 @@ class BddkApiClient:
 
     async def close(self) -> None:
         """Close the underlying HTTP session."""
-        await self._http.aclose()
-        logger.info("BddkApiClient session closed")
+        if self._owns_http:
+            await self._http.aclose()
+            logger.info("BddkApiClient session closed")
 
     # -- HTTP with retry ------------------------------------------------------
 
