@@ -511,7 +511,7 @@ class DocumentStore:
     async def get_document_history(self, doc_id: str) -> list[dict]:
         """Get version history for a document."""
         rows = await self._pool.fetch(
-            "SELECT version, content_hash, markdown_content, synced_at "
+            "SELECT version, content_hash, LENGTH(COALESCE(markdown_content, '')) AS content_length, synced_at "
             "FROM document_versions WHERE document_id = $1 ORDER BY version DESC",
             doc_id,
         )
@@ -520,10 +520,22 @@ class DocumentStore:
                 "version": row["version"],
                 "content_hash": row["content_hash"],
                 "synced_at": time.strftime("%Y-%m-%d %H:%M", time.localtime(row["synced_at"])),
-                "content_length": len(row["markdown_content"] or ""),
+                "content_length": row["content_length"],
             }
             for row in rows
         ]
+
+    async def get_version_count(self, doc_id: str) -> tuple[int, str | None]:
+        """Get version count and latest sync time for a document (lightweight)."""
+        row = await self._pool.fetchrow(
+            "SELECT COUNT(*) AS cnt, MAX(synced_at) AS latest "
+            "FROM document_versions WHERE document_id = $1",
+            doc_id,
+        )
+        if not row or row["cnt"] == 0:
+            return 0, None
+        latest = time.strftime("%Y-%m-%d %H:%M", time.localtime(row["latest"]))
+        return row["cnt"], latest
 
     # -- Incremental Sync Metadata --------------------------------------------
 
