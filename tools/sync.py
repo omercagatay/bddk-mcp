@@ -358,3 +358,72 @@ def register(mcp, deps: Dependencies) -> None:
             embed_report = f"\n  Embedding migration failed: {e}"
 
         return f"Store has {st.total_documents} documents.{embed_report}"
+
+    @mcp.tool()
+    async def document_health(retryable_only: bool = False) -> str:
+        """
+        Check document completeness and show any sync failures.
+
+        Reports:
+        - Total documents vs decision cache size
+        - Documents missing content
+        - Persistent sync failures with error categories
+        - Vector store coverage
+
+        Args:
+            retryable_only: Only show failures that can be retried (e.g. timeouts)
+        """
+        store = deps.doc_store
+        client = deps.client
+
+        # Document completeness
+        st = await store.stats()
+        cache_size = len(client._cache) if client._cache else 0
+
+        lines = ["**Document Health Report**\n"]
+        lines.append(f"Decision cache: {cache_size}")
+        lines.append(f"Documents with content: {st.total_documents}")
+
+        if cache_size > 0:
+            pct = st.total_documents / cache_size * 100
+            lines.append(f"Coverage: {pct:.1f}%")
+
+        # Sync failures
+        failures = await store.get_sync_failures(retryable_only=retryable_only)
+        if failures:
+            lines.append(f"\n**Sync Failures: {len(failures)}**")
+
+            # Group by category
+            by_cat: dict[str, list[dict]] = {}
+            for f in failures:
+                cat = f["error_category"]
+                by_cat.setdefault(cat, []).append(f)
+
+            for cat, items in sorted(by_cat.items()):
+                retryable_count = sum(1 for i in items if i["retryable"])
+                lines.append(f"\n  [{cat}] {len(items)} failures ({retryable_count} retryable)")
+                for item in items[:5]:
+                    lines.append(
+                        f"    - {item['document_id']}: {item['error'][:80]}"
+                        f" (attempts: {item['attempts']})"
+                    )
+                if len(items) > 5:
+                    lines.append(f"    ... and {len(items) - 5} more")
+
+            lines.append(
+                "\nTo retry failed documents, run sync_bddk_documents with force=True"
+            )
+        else:
+            lines.append("\nNo sync failures recorded.")
+
+        # Vector store
+        if deps.vector_store is not None:
+            try:
+                vs_stats = await deps.vector_store.stats()
+                lines.append(f"\n**Vector Store**")
+                lines.append(f"  Documents: {vs_stats['total_documents']}")
+                lines.append(f"  Chunks: {vs_stats['total_chunks']}")
+            except Exception:
+                lines.append("\n**Vector Store:** unavailable")
+
+        return "\n".join(lines)
