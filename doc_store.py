@@ -145,6 +145,17 @@ CREATE TABLE IF NOT EXISTS sync_metadata (
     last_sync_at      DOUBLE PRECISION,
     sync_count        INTEGER DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS sync_failures (
+    document_id       TEXT PRIMARY KEY,
+    error             TEXT NOT NULL,
+    error_category    TEXT NOT NULL DEFAULT 'unknown',
+    source_url        TEXT DEFAULT '',
+    retryable         BOOLEAN DEFAULT true,
+    attempts          INTEGER DEFAULT 1,
+    first_failed_at   DOUBLE PRECISION,
+    last_failed_at    DOUBLE PRECISION
+);
 """
 
 
@@ -409,6 +420,47 @@ class DocumentStore:
         )
         return row is not None
 
+    # -- Sync failure tracking ---------------------------------------------------
+
+    async def record_sync_failure(
+        self,
+        doc_id: str,
+        error: str,
+        category: str,
+        source_url: str = "",
+        retryable: bool = True,
+    ) -> None:
+        """Record or update a sync failure for a document."""
+        now = time.time()
+        await self._pool.execute(
+            """
+            INSERT INTO sync_failures (document_id, error, error_category, source_url, retryable, attempts, first_failed_at, last_failed_at)
+            VALUES ($1, $2, $3, $4, $5, 1, $6, $6)
+            ON CONFLICT(document_id) DO UPDATE SET
+                error = EXCLUDED.error,
+                error_category = EXCLUDED.error_category,
+                retryable = EXCLUDED.retryable,
+                attempts = sync_failures.attempts + 1,
+                last_failed_at = EXCLUDED.last_failed_at
+            """,
+            doc_id, error, category, source_url, retryable, now,
+        )
+
+    async def clear_sync_failure(self, doc_id: str) -> None:
+        """Remove a sync failure record after successful sync."""
+        await self._pool.execute(
+            "DELETE FROM sync_failures WHERE document_id = $1", doc_id
+        )
+
+    async def get_sync_failures(self, retryable_only: bool = False) -> list[dict]:
+        """Get all current sync failures."""
+        query = "SELECT * FROM sync_failures"
+        if retryable_only:
+            query += " WHERE retryable = true"
+        query += " ORDER BY last_failed_at DESC"
+        rows = await self._pool.fetch(query)
+        return [dict(r) for r in rows]
+
     async def import_from_cache(self, cache_items: list[dict]) -> int:
         """Import document metadata from BddkApiClient cache.
 
@@ -536,6 +588,24 @@ class DocumentStore:
             return 0, None
         latest = time.strftime("%Y-%m-%d %H:%M", time.localtime(row["latest"]))
         return row["cnt"], latest
+
+    async def get_version_counts(self, doc_ids: list[str]) -> dict[str, tuple[int, str | None]]:
+        """Batch version count for multiple documents. Returns {doc_id: (count, latest_date)}."""
+        if not doc_ids:
+            return {}
+        rows = await self._pool.fetch(
+            "SELECT document_id, COUNT(*) AS cnt, MAX(synced_at) AS latest "
+            "FROM document_versions WHERE document_id = ANY($1) "
+            "GROUP BY document_id",
+            doc_ids,
+        )
+        result = {}
+        for row in rows:
+            latest = None
+            if row["latest"]:
+                latest = time.strftime("%Y-%m-%d %H:%M", time.localtime(row["latest"]))
+            result[row["document_id"]] = (row["cnt"], latest)
+        return result
 
     # -- Incremental Sync Metadata --------------------------------------------
 

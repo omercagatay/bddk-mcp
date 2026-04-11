@@ -2,7 +2,7 @@
 Document sync engine for BDDK MCP Server.
 
 Downloads BDDK decisions and mevzuat.gov.tr documents, extracts content
-to markdown, and stores them in the local SQLite database.
+to markdown, and stores them in the PostgreSQL database.
 
 Supports three extraction methods:
   1. Nougat (GPU) — best quality LaTeX/formula extraction (local RTX 5080)
@@ -37,6 +37,25 @@ from doc_store import DocumentStore, StoredDocument
 logger = logging.getLogger(__name__)
 
 _BDDK_DOC_URL = "https://www.bddk.org.tr/Mevzuat/DokumanGetir/{document_id}"
+
+
+def _categorize_error(error: str) -> tuple[str, bool]:
+    """Categorize a sync error and determine if retryable.
+
+    Returns (category, retryable).
+    """
+    lower = error.lower()
+    if "robots" in lower or "403" in lower:
+        return "robots_txt", False
+    if "timeout" in lower or "timed out" in lower:
+        return "timeout", True
+    if "extraction failed" in lower or "404" in lower or "error page" in lower:
+        return "extraction", False
+    if "all download" in lower or "no content" in lower:
+        return "download", True
+    if "connect" in lower or "connection" in lower:
+        return "connection", True
+    return "unknown", True
 _MEVZUAT_TUR_MAP = {
     "1": "kanun",
     "2": "kanunhukmundekararname",
@@ -268,26 +287,32 @@ class DocumentSyncer:
         request_timeout: float = REQUEST_TIMEOUT,
         prefer_nougat: bool = True,
         progress_callback: "Callable[[str, int, int], None] | None" = None,
+        http: httpx.AsyncClient | None = None,
     ) -> None:
         self._store = store
         self._prefer_nougat = prefer_nougat
         self._progress_callback = progress_callback
-        self._http = httpx.AsyncClient(
-            headers={
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
-                "User-Agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/120.0.0.0 Safari/537.36"
-                ),
-            },
-            timeout=httpx.Timeout(request_timeout),
-            follow_redirects=True,
-        )
+        self._owns_http = http is None
+        if http is not None:
+            self._http = http
+        else:
+            self._http = httpx.AsyncClient(
+                headers={
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/120.0.0.0 Safari/537.36"
+                    ),
+                },
+                timeout=httpx.Timeout(request_timeout),
+                follow_redirects=True,
+            )
 
     async def close(self) -> None:
-        await self._http.aclose()
+        if self._owns_http:
+            await self._http.aclose()
 
     async def __aenter__(self) -> "DocumentSyncer":
         return self
@@ -325,26 +350,35 @@ class DocumentSyncer:
                     error=f"Unknown document ID format: {doc_id}",
                 )
         except Exception as e:
+            error_msg = str(e)
+            cat, retryable = _categorize_error(error_msg)
+            await self._store.record_sync_failure(doc_id, error_msg, cat, source_url, retryable)
             return SyncResult(
                 document_id=doc_id,
                 success=False,
-                error=str(e),
+                error=error_msg,
             )
 
         if not content:
+            error_msg = "No content downloaded"
+            cat, retryable = _categorize_error(error_msg)
+            await self._store.record_sync_failure(doc_id, error_msg, cat, source_url, retryable)
             return SyncResult(
                 document_id=doc_id,
                 success=False,
-                error="No content downloaded",
+                error=error_msg,
             )
 
         # Extract markdown
         markdown, extraction_method = self._extract(content, ext)
         if not markdown:
+            error_msg = f"Extraction failed (method={extraction_method})"
+            cat, retryable = _categorize_error(error_msg)
+            await self._store.record_sync_failure(doc_id, error_msg, cat, source_url, retryable)
             return SyncResult(
                 document_id=doc_id,
                 success=False,
-                error=f"Extraction failed (method={extraction_method})",
+                error=error_msg,
             )
 
         # Store
@@ -361,6 +395,7 @@ class DocumentSyncer:
             file_size=len(content),
         )
         await self._store.store_document(doc)
+        await self._store.clear_sync_failure(doc_id)
 
         return SyncResult(
             document_id=doc_id,
