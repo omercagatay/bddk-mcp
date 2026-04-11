@@ -92,6 +92,7 @@ async def _migrate_to_pgvector(deps: Dependencies) -> str:
         # Batch existence check: one query instead of N has_document() calls
         doc_ids = [meta["document_id"] for meta in docs]
         existing_ids: set[str] = set()
+        batch_succeeded = False
         if pool is not None and doc_ids:
             try:
                 rows = await pool.fetch(
@@ -99,9 +100,9 @@ async def _migrate_to_pgvector(deps: Dependencies) -> str:
                     doc_ids,
                 )
                 existing_ids = {r["doc_id"] for r in rows}
+                batch_succeeded = True
             except Exception as e:
                 logger.warning("Batch existence check failed, falling back to per-doc: %s", e)
-                # Fall through with empty set — will use vs.has_document() per doc below
 
         deadline = start + MIGRATION_TIMEOUT
 
@@ -113,7 +114,7 @@ async def _migrate_to_pgvector(deps: Dependencies) -> str:
             doc_id = meta["document_id"]
 
             # Use batch result if available, otherwise fall back to per-doc check
-            if existing_ids:
+            if batch_succeeded:
                 if doc_id in existing_ids:
                     continue
             else:
@@ -198,7 +199,7 @@ async def startup_sync(deps: Dependencies) -> None:
                     cache_size,
                 )
                 items = [d.model_dump() for d in client._cache]
-                async with DocumentSyncer(store, prefer_nougat=PREFER_NOUGAT) as syncer:
+                async with DocumentSyncer(store, prefer_nougat=PREFER_NOUGAT, http=deps.http) as syncer:
                     report = await syncer.sync_all(items, concurrency=10, force=False)
                 logger.info(
                     "Document sync: %d downloaded, %d failed, %.1fs",
@@ -270,7 +271,7 @@ def register(mcp, deps: Dependencies) -> None:
         single_report = None
         sync_report = None
 
-        async with DocumentSyncer(store, prefer_nougat=PREFER_NOUGAT) as syncer:
+        async with DocumentSyncer(store, prefer_nougat=PREFER_NOUGAT, http=deps.http) as syncer:
             if document_id:
                 source_url = ""
                 title = document_id

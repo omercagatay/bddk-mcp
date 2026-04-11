@@ -170,4 +170,24 @@ if __name__ == "__main__":
 
         asyncio.run(_run_server())
     else:
+        async def _run_stdio():
+            deps = await create_deps()
+
+            search.register(mcp, deps)
+            documents.register(mcp, deps)
+            bulletin.register(mcp, deps)
+            analytics.register(mcp, deps)
+            sync.register(mcp, deps)
+            admin.register(mcp, deps)
+
+            deps.vector_init_task = asyncio.create_task(init_vector_store(deps))
+
+            if AUTO_SYNC:
+                async def _sync_after_vector_init():
+                    if deps.vector_init_task:
+                        await deps.vector_init_task
+                    await sync.startup_sync(deps)
+                deps.sync_task = asyncio.create_task(_sync_after_vector_init())
+
+        asyncio.get_event_loop().run_until_complete(_run_stdio())
         mcp.run(transport=_transport)
