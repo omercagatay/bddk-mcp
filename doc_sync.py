@@ -268,26 +268,32 @@ class DocumentSyncer:
         request_timeout: float = REQUEST_TIMEOUT,
         prefer_nougat: bool = True,
         progress_callback: "Callable[[str, int, int], None] | None" = None,
+        http: httpx.AsyncClient | None = None,
     ) -> None:
         self._store = store
         self._prefer_nougat = prefer_nougat
         self._progress_callback = progress_callback
-        self._http = httpx.AsyncClient(
-            headers={
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
-                "User-Agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/120.0.0.0 Safari/537.36"
-                ),
-            },
-            timeout=httpx.Timeout(request_timeout),
-            follow_redirects=True,
-        )
+        self._owns_http = http is None
+        if http is not None:
+            self._http = http
+        else:
+            self._http = httpx.AsyncClient(
+                headers={
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/120.0.0.0 Safari/537.36"
+                    ),
+                },
+                timeout=httpx.Timeout(request_timeout),
+                follow_redirects=True,
+            )
 
     async def close(self) -> None:
-        await self._http.aclose()
+        if self._owns_http:
+            await self._http.aclose()
 
     async def __aenter__(self) -> "DocumentSyncer":
         return self
