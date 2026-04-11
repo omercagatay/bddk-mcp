@@ -255,21 +255,26 @@ class VectorStore:
                 # Delete old chunks
                 await conn.execute("DELETE FROM document_chunks WHERE doc_id = $1", doc_id)
 
-                # Insert new chunks with embeddings (tsv auto-populated by trigger)
+                # Bulk insert new chunks with embeddings (tsv auto-populated by trigger)
+                args_list = []
                 for i, (chunk, emb) in enumerate(zip(chunks, embeddings, strict=True)):
                     vec_str = "[" + ",".join(str(v) for v in emb) + "]"
-                    await conn.execute(
-                        """
-                        INSERT INTO document_chunks (
-                            doc_id, chunk_index, title, category, decision_date,
-                            decision_number, source_url, total_chunks, total_pages,
-                            content_hash, chunk_text, embedding
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::vector)
-                        """,
+                    args_list.append((
                         doc_id, i, title, category, decision_date,
                         decision_number, source_url, len(chunks), total_pages,
                         content_hash, chunk, vec_str,
-                    )
+                    ))
+
+                await conn.executemany(
+                    """
+                    INSERT INTO document_chunks (
+                        doc_id, chunk_index, title, category, decision_date,
+                        decision_number, source_url, total_chunks, total_pages,
+                        content_hash, chunk_text, embedding
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::vector)
+                    """,
+                    args_list,
+                )
 
         logger.debug("Added %s: %d chunks", doc_id, len(chunks))
         return len(chunks)
