@@ -308,33 +308,68 @@ class VectorStore:
         }
 
     async def get_document_page(self, doc_id: str, page: int = 1) -> dict | None:
-        """Retrieve a paginated page of a document."""
-        doc = await self.get_document(doc_id)
-        if not doc:
+        """Retrieve a paginated page by fetching only the overlapping chunks."""
+        # Get document metadata (total_pages, total_chunks, title)
+        meta = await self._pool.fetchrow(
+            "SELECT title, total_pages, total_chunks, category FROM document_chunks "
+            "WHERE doc_id = $1 LIMIT 1",
+            doc_id,
+        )
+        if not meta:
             return None
 
-        content = doc["content"]
-        total_pages = max(1, math.ceil(len(content) / PAGE_SIZE))
-
+        total_pages = meta["total_pages"] or 1
         if page < 1 or page > total_pages:
             return {
                 "doc_id": doc_id,
-                "title": doc["title"],
+                "title": meta["title"] or "",
                 "content": f"Invalid page {page}. Document has {total_pages} page(s).",
                 "page_number": page,
                 "total_pages": total_pages,
             }
 
-        start = (page - 1) * PAGE_SIZE
-        chunk = content[start : start + PAGE_SIZE]
+        # Calculate which chunks overlap with the requested page
+        step = EMBEDDING_CHUNK_SIZE - EMBEDDING_CHUNK_OVERLAP
+        start_char = (page - 1) * PAGE_SIZE
+        end_char = page * PAGE_SIZE
+        first_chunk = max(0, start_char // step)
+        last_chunk = end_char // step + 1  # +1 for safety margin
+
+        rows = await self._pool.fetch(
+            "SELECT chunk_index, chunk_text FROM document_chunks "
+            "WHERE doc_id = $1 AND chunk_index >= $2 AND chunk_index <= $3 "
+            "ORDER BY chunk_index",
+            doc_id, first_chunk, last_chunk,
+        )
+
+        if not rows:
+            # Fallback: fetch all chunks
+            doc = await self.get_document(doc_id)
+            if not doc:
+                return None
+            content = doc["content"]
+            chunk = content[start_char:end_char]
+            return {
+                "doc_id": doc_id,
+                "title": doc["title"],
+                "content": chunk,
+                "page_number": page,
+                "total_pages": total_pages,
+            }
+
+        # Reconstruct just the needed slice
+        content = self._reconstruct_content(rows)
+        local_start = start_char - first_chunk * step
+        local_start = max(0, local_start)
+        chunk = content[local_start:local_start + PAGE_SIZE]
 
         return {
             "doc_id": doc_id,
-            "title": doc["title"],
+            "title": meta["title"] or "",
             "content": chunk,
             "page_number": page,
             "total_pages": total_pages,
-            "category": doc["category"],
+            "category": meta["category"] or "",
         }
 
     def _reconstruct_content(self, rows: list[asyncpg.Record]) -> str:
