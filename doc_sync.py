@@ -2,7 +2,7 @@
 Document sync engine for BDDK MCP Server.
 
 Downloads BDDK decisions and mevzuat.gov.tr documents, extracts content
-to markdown, and stores them in the local SQLite database.
+to markdown, and stores them in the PostgreSQL database.
 
 Supports three extraction methods:
   1. Nougat (GPU) — best quality LaTeX/formula extraction (local RTX 5080)
