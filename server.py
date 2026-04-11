@@ -202,9 +202,9 @@ async def search_bddk_decisions(
         cat_info = f" [{d.category}]" if d.category else ""
         lines.append(f"**{d.title}**{date_info}{cat_info}")
         lines.append(f"  Document ID: {d.document_id}")
-        history = await store.get_document_history(d.document_id)
-        if history:
-            lines.append(f"  Versions: {len(history)} (latest: {history[0]['synced_at']})")
+        ver_count, ver_latest = await store.get_version_count(d.document_id)
+        if ver_count:
+            lines.append(f"  Versions: {ver_count} (latest: {ver_latest})")
         lines.append(f"  {d.content}\n")
     output = "\n".join(lines)
     _store_search(cache_key, output)
@@ -1246,8 +1246,9 @@ if __name__ == "__main__":
                 logger.warning("Seed import failed (non-fatal): %s", e)
 
             if AUTO_SYNC:
+                global _sync_task
                 print("[STARTUP] launching background sync", flush=True)
-                asyncio.create_task(_startup_sync())
+                _sync_task = asyncio.create_task(_startup_sync())
 
             await server.serve()
             await _graceful_shutdown()
