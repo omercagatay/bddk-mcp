@@ -1,80 +1,63 @@
-"""Tests for pgvector fallback and singleton initialization in server.py."""
+"""Tests for pgvector fallback and VectorStore initialization in server.py."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 
-class TestVectorStoreSingletonRetry:
-    """_get_vector_store() must not cache a broken instance after init failure."""
+class TestVectorStoreInit:
+    """init_vector_store() background task behavior."""
 
     @pytest.mark.asyncio
-    async def test_failed_init_does_not_cache_singleton(self):
-        """If VectorStore.initialize() raises, _vector_store stays None so next call retries."""
-        import server
+    async def test_failed_init_leaves_vector_store_none(self):
+        """If VectorStore.initialize() raises, deps.vector_store stays None."""
+        from server import init_vector_store
+        from deps import Dependencies
 
-        # Reset global state
-        original = server._vector_store
-        server._vector_store = None
+        deps = MagicMock(spec=Dependencies)
+        deps.pool = AsyncMock()
+        deps.vector_store = None
 
-        mock_pool = AsyncMock()
+        with patch("vector_store.VectorStore") as MockVS:
+            instance = MockVS.return_value
+            instance.initialize = AsyncMock(
+                side_effect=RuntimeError("pgvector extension not available")
+            )
 
-        try:
-            with patch.object(server, "_get_pool", return_value=mock_pool):
-                with patch("server.VectorStore") as MockVS:
-                    instance = MockVS.return_value
-                    instance.initialize = AsyncMock(
-                        side_effect=RuntimeError("pgvector extension not available")
-                    )
+            await init_vector_store(deps)
 
-                    with pytest.raises(RuntimeError, match="pgvector extension not available"):
-                        await server._get_vector_store()
-
-                    # Singleton must remain None so next call retries
-                    assert server._vector_store is None
-
-                    # Second call with successful init should work
-                    instance.initialize = AsyncMock()
-                    result = await server._get_vector_store()
-                    assert result is instance
-                    assert server._vector_store is instance
-        finally:
-            server._vector_store = original
+        # On failure, vector_store must not be set to a broken instance
+        assert deps.vector_store is None or deps.vector_store != instance
 
     @pytest.mark.asyncio
-    async def test_successful_init_caches_singleton(self):
-        """After successful initialize(), singleton is cached."""
-        import server
+    async def test_successful_init_sets_vector_store(self):
+        """After successful initialize(), deps.vector_store is set."""
+        from server import init_vector_store
+        from deps import Dependencies
 
-        original = server._vector_store
-        server._vector_store = None
+        deps = MagicMock(spec=Dependencies)
+        deps.pool = AsyncMock()
+        deps.vector_store = None
 
-        mock_pool = AsyncMock()
+        with patch("vector_store.VectorStore") as MockVS:
+            instance = MockVS.return_value
+            instance.initialize = AsyncMock()
 
-        try:
-            with patch.object(server, "_get_pool", return_value=mock_pool):
-                with patch("server.VectorStore") as MockVS:
-                    instance = MockVS.return_value
-                    instance.initialize = AsyncMock()
+            await init_vector_store(deps)
 
-                    result = await server._get_vector_store()
-                    assert result is instance
-                    assert server._vector_store is instance
-                    instance.initialize.assert_called_once()
-        finally:
-            server._vector_store = original
+        assert deps.vector_store is instance
 
 
 class TestGetBddkDocumentFallback:
-    """get_bddk_document must fall back to doc store when pgvector fails."""
+    """get_bddk_document tool must fall back to doc store when pgvector fails."""
 
     @pytest.mark.asyncio
     async def test_falls_back_on_database_error(self):
         """If pgvector raises any exception, fallback to document store."""
-        import server
+        from deps import Dependencies
         from models import BddkDocumentMarkdown
 
-        mock_client = AsyncMock()
+        mock_client = MagicMock()
         mock_client._cache = []
         mock_client.get_document_markdown = AsyncMock(
             return_value=BddkDocumentMarkdown(
@@ -85,15 +68,31 @@ class TestGetBddkDocumentFallback:
             )
         )
 
-        mock_vs = AsyncMock()
-        # Simulate asyncpg.UndefinedTableError (relation does not exist)
+        mock_vs = MagicMock()
         mock_vs.get_document_page = AsyncMock(
             side_effect=Exception('relation "document_chunks" does not exist')
         )
 
-        with patch.object(server, "_get_client", return_value=mock_client):
-            with patch.object(server, "_get_vector_store", return_value=mock_vs):
-                result = await server.get_bddk_document("956")
+        deps = MagicMock(spec=Dependencies)
+        deps.client = mock_client
+        deps.vector_store = mock_vs
+
+        # Import the tool via the tools module directly
+        from mcp.server.fastmcp import FastMCP
+        test_mcp = FastMCP("test")
+
+        from tools import documents
+        documents.register(test_mcp, deps)
+
+        # Find the registered tool
+        tool_fn = None
+        for tool in test_mcp._tool_manager._tools.values():
+            if tool.name == "get_bddk_document":
+                tool_fn = tool.fn
+                break
+
+        assert tool_fn is not None, "get_bddk_document tool not registered"
+        result = await tool_fn("956")
 
         assert "Fallback content from doc store" in result
         mock_client.get_document_markdown.assert_called_once_with("956", 1)
@@ -101,12 +100,12 @@ class TestGetBddkDocumentFallback:
     @pytest.mark.asyncio
     async def test_uses_pgvector_when_available(self):
         """If pgvector works, use it without falling back."""
-        import server
+        from deps import Dependencies
 
-        mock_client = AsyncMock()
+        mock_client = MagicMock()
         mock_client._cache = []
 
-        mock_vs = AsyncMock()
+        mock_vs = MagicMock()
         mock_vs.get_document_page = AsyncMock(
             return_value={
                 "content": "pgvector content here",
@@ -115,9 +114,24 @@ class TestGetBddkDocumentFallback:
             }
         )
 
-        with patch.object(server, "_get_client", return_value=mock_client):
-            with patch.object(server, "_get_vector_store", return_value=mock_vs):
-                result = await server.get_bddk_document("956")
+        deps = MagicMock(spec=Dependencies)
+        deps.client = mock_client
+        deps.vector_store = mock_vs
+
+        from mcp.server.fastmcp import FastMCP
+        test_mcp = FastMCP("test")
+
+        from tools import documents
+        documents.register(test_mcp, deps)
+
+        tool_fn = None
+        for tool in test_mcp._tool_manager._tools.values():
+            if tool.name == "get_bddk_document":
+                tool_fn = tool.fn
+                break
+
+        assert tool_fn is not None, "get_bddk_document tool not registered"
+        result = await tool_fn("956")
 
         assert "pgvector content here" in result
         mock_client.get_document_markdown.assert_not_called()

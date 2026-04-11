@@ -13,6 +13,7 @@ Architecture:
   - Offline-first: supports pre-downloaded model via BDDK_EMBEDDING_MODEL_PATH
 """
 
+import asyncio
 import hashlib
 import logging
 import math
@@ -212,17 +213,15 @@ class VectorStore:
             self._rerank_fn = CrossEncoder(model_ref, device="cpu")
             logger.info("Loaded CPU reranker: %s", model_ref)
 
-    def _embed(self, texts: list[str], prefix: str = "passage") -> list[list[float]]:
-        """Generate embeddings for a list of texts.
-
-        Args:
-            texts: Texts to embed.
-            prefix: "query" for search queries, "passage" for documents.
-                    Required by multilingual-e5 models for best quality.
-        """
+    async def _embed(self, texts: list[str], prefix: str = "passage") -> list[list[float]]:
+        """Generate embeddings in a thread to avoid blocking the event loop."""
         self._ensure_embeddings()
         prefixed = [f"{prefix}: {t}" for t in texts]
-        embeddings = self._embed_fn.encode(prefixed, normalize_embeddings=True)
+        loop = asyncio.get_running_loop()
+        embeddings = await loop.run_in_executor(
+            None,
+            lambda: self._embed_fn.encode(prefixed, normalize_embeddings=True),
+        )
         return embeddings.tolist()
 
     # -- Add documents --------------------------------------------------------
@@ -249,28 +248,33 @@ class VectorStore:
         content_hash = hashlib.md5(content.encode()).hexdigest()
 
         # Generate embeddings
-        embeddings = self._embed(chunks)
+        embeddings = await self._embed(chunks)
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 # Delete old chunks
                 await conn.execute("DELETE FROM document_chunks WHERE doc_id = $1", doc_id)
 
-                # Insert new chunks with embeddings (tsv auto-populated by trigger)
+                # Bulk insert new chunks with embeddings (tsv auto-populated by trigger)
+                args_list = []
                 for i, (chunk, emb) in enumerate(zip(chunks, embeddings, strict=True)):
                     vec_str = "[" + ",".join(str(v) for v in emb) + "]"
-                    await conn.execute(
-                        """
-                        INSERT INTO document_chunks (
-                            doc_id, chunk_index, title, category, decision_date,
-                            decision_number, source_url, total_chunks, total_pages,
-                            content_hash, chunk_text, embedding
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::vector)
-                        """,
+                    args_list.append((
                         doc_id, i, title, category, decision_date,
                         decision_number, source_url, len(chunks), total_pages,
                         content_hash, chunk, vec_str,
-                    )
+                    ))
+
+                await conn.executemany(
+                    """
+                    INSERT INTO document_chunks (
+                        doc_id, chunk_index, title, category, decision_date,
+                        decision_number, source_url, total_chunks, total_pages,
+                        content_hash, chunk_text, embedding
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::vector)
+                    """,
+                    args_list,
+                )
 
         logger.debug("Added %s: %d chunks", doc_id, len(chunks))
         return len(chunks)
@@ -304,33 +308,68 @@ class VectorStore:
         }
 
     async def get_document_page(self, doc_id: str, page: int = 1) -> dict | None:
-        """Retrieve a paginated page of a document."""
-        doc = await self.get_document(doc_id)
-        if not doc:
+        """Retrieve a paginated page by fetching only the overlapping chunks."""
+        # Get document metadata (total_pages, total_chunks, title)
+        meta = await self._pool.fetchrow(
+            "SELECT title, total_pages, total_chunks, category FROM document_chunks "
+            "WHERE doc_id = $1 LIMIT 1",
+            doc_id,
+        )
+        if not meta:
             return None
 
-        content = doc["content"]
-        total_pages = max(1, math.ceil(len(content) / PAGE_SIZE))
-
+        total_pages = meta["total_pages"] or 1
         if page < 1 or page > total_pages:
             return {
                 "doc_id": doc_id,
-                "title": doc["title"],
+                "title": meta["title"] or "",
                 "content": f"Invalid page {page}. Document has {total_pages} page(s).",
                 "page_number": page,
                 "total_pages": total_pages,
             }
 
-        start = (page - 1) * PAGE_SIZE
-        chunk = content[start : start + PAGE_SIZE]
+        # Calculate which chunks overlap with the requested page
+        step = EMBEDDING_CHUNK_SIZE - EMBEDDING_CHUNK_OVERLAP
+        start_char = (page - 1) * PAGE_SIZE
+        end_char = page * PAGE_SIZE
+        first_chunk = max(0, start_char // step)
+        last_chunk = end_char // step + 1  # +1 for safety margin
+
+        rows = await self._pool.fetch(
+            "SELECT chunk_index, chunk_text FROM document_chunks "
+            "WHERE doc_id = $1 AND chunk_index >= $2 AND chunk_index <= $3 "
+            "ORDER BY chunk_index",
+            doc_id, first_chunk, last_chunk,
+        )
+
+        if not rows:
+            # Fallback: fetch all chunks
+            doc = await self.get_document(doc_id)
+            if not doc:
+                return None
+            content = doc["content"]
+            chunk = content[start_char:end_char]
+            return {
+                "doc_id": doc_id,
+                "title": doc["title"],
+                "content": chunk,
+                "page_number": page,
+                "total_pages": total_pages,
+            }
+
+        # Reconstruct just the needed slice
+        content = self._reconstruct_content(rows)
+        local_start = start_char - first_chunk * step
+        local_start = max(0, local_start)
+        chunk = content[local_start:local_start + PAGE_SIZE]
 
         return {
             "doc_id": doc_id,
-            "title": doc["title"],
+            "title": meta["title"] or "",
             "content": chunk,
             "page_number": page,
             "total_pages": total_pages,
-            "category": doc["category"],
+            "category": meta["category"] or "",
         }
 
     def _reconstruct_content(self, rows: list[asyncpg.Record]) -> str:
@@ -383,7 +422,7 @@ class VectorStore:
     ) -> list[dict]:
         """Cosine similarity search via pgvector HNSW index."""
         self._ensure_embeddings()
-        query_embedding = self._embed([query], prefix="query")[0]
+        query_embedding = (await self._embed([query], prefix="query"))[0]
         vec_str = "[" + ",".join(str(v) for v in query_embedding) + "]"
 
         where_clause = ""
@@ -487,8 +526,10 @@ class VectorStore:
           - Score gap filtering: drop results that are far below the top hit
         """
         # Step 1: Parallel retrieval from both systems
-        vector_hits = await self._vector_search(query, limit=50, category=category, fetch_limit=100)
-        fts_hits = await self._fts_search(query, limit=50, category=category)
+        vector_hits, fts_hits = await asyncio.gather(
+            self._vector_search(query, limit=50, category=category, fetch_limit=100),
+            self._fts_search(query, limit=50, category=category),
+        )
 
         # Step 2: FTS gate — if FTS returns nothing, the query likely has no
         # keyword overlap with any document. Penalize vector-only scores heavily
@@ -506,7 +547,7 @@ class VectorStore:
         # Step 4: Cross-encoder re-ranking (optional)
         if RERANKER_ENABLED and fused:
             top_n = min(RERANKER_TOP_N, len(fused))
-            fused[:top_n] = self._rerank(query, fused[:top_n])
+            fused[:top_n] = await self._rerank(query, fused[:top_n])
 
         # Step 5: Apply threshold
         for hit in fused:
@@ -574,27 +615,18 @@ class VectorStore:
 
     # -- Cross-encoder re-ranking ---------------------------------------------
 
-    def _rerank(self, query: str, candidates: list[dict]) -> list[dict]:
-        """Re-rank candidates using a cross-encoder model.
-
-        The cross-encoder scores each (query, passage) pair independently,
-        providing much more accurate relevance scores than bi-encoder similarity.
-        """
+    async def _rerank(self, query: str, candidates: list[dict]) -> list[dict]:
+        """Re-rank candidates using a cross-encoder model in a thread."""
         if not candidates:
             return candidates
-
         self._ensure_reranker()
-
         pairs = [(query, c["snippet"]) for c in candidates]
-        scores = self._rerank_fn.predict(pairs)
-
+        loop = asyncio.get_running_loop()
+        scores = await loop.run_in_executor(None, self._rerank_fn.predict, pairs)
         for candidate, score in zip(candidates, scores):
             candidate["rerank_score"] = float(score)
-            # Normalize cross-encoder score to 0-1 range using sigmoid
-            # mmarco cross-encoders output logits, sigmoid maps to probability
             import math as _math
             candidate["relevance"] = round(1.0 / (1.0 + _math.exp(-float(score))), 4)
-
         return sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)
 
     # -- Bulk operations ------------------------------------------------------

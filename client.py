@@ -177,21 +177,26 @@ class BddkApiClient:
         pool: asyncpg.Pool,
         request_timeout: float = REQUEST_TIMEOUT,
         doc_store: DocumentStore | None = None,
+        http: httpx.AsyncClient | None = None,
     ) -> None:
         self._pool = pool
-        self._http = httpx.AsyncClient(
-            headers={
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
-                "User-Agent": (
-                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/120.0.0.0 Safari/537.36"
-                ),
-            },
-            timeout=httpx.Timeout(request_timeout),
-            follow_redirects=True,
-        )
+        self._owns_http = http is None
+        if http is not None:
+            self._http = http
+        else:
+            self._http = httpx.AsyncClient(
+                headers={
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
+                    "User-Agent": (
+                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/120.0.0.0 Safari/537.36"
+                    ),
+                },
+                timeout=httpx.Timeout(request_timeout),
+                follow_redirects=True,
+            )
         self._md = MarkItDown()
         self._doc_store = doc_store
         self._cache: list[BddkDecisionSummary] = []
@@ -216,8 +221,9 @@ class BddkApiClient:
 
     async def close(self) -> None:
         """Close the underlying HTTP session."""
-        await self._http.aclose()
-        logger.info("BddkApiClient session closed")
+        if self._owns_http:
+            await self._http.aclose()
+            logger.info("BddkApiClient session closed")
 
     # -- HTTP with retry ------------------------------------------------------
 
@@ -241,30 +247,34 @@ class BddkApiClient:
     # -- cache persistence (PostgreSQL) ----------------------------------------
 
     async def _save_cache_to_db(self) -> None:
-        """Persist cache to PostgreSQL."""
+        """Persist cache to PostgreSQL using upsert (no DELETE ALL)."""
         try:
             async with self._pool.acquire() as conn:
-                async with conn.transaction():
-                    await conn.execute("DELETE FROM decision_cache")
-                    now = time.time()
-                    for d in self._cache:
-                        await conn.execute(
-                            """
-                            INSERT INTO decision_cache
-                                (document_id, title, content, decision_date, decision_number, category, source_url, cached_at)
-                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                            ON CONFLICT(document_id) DO UPDATE SET
-                                title=EXCLUDED.title, content=EXCLUDED.content,
-                                decision_date=EXCLUDED.decision_date, decision_number=EXCLUDED.decision_number,
-                                category=EXCLUDED.category, source_url=EXCLUDED.source_url,
-                                cached_at=EXCLUDED.cached_at
-                            """,
-                            d.document_id, d.title, d.content, d.decision_date,
-                            d.decision_number, d.category, d.source_url, now,
-                        )
-            logger.info("Cache saved to PostgreSQL: %d items", len(self._cache))
+                now = time.time()
+                args_list = [
+                    (d.document_id, d.title, d.content, d.decision_date,
+                     d.decision_number, d.category, d.source_url or "", now)
+                    for d in self._cache
+                ]
+                await conn.executemany(
+                    """
+                    INSERT INTO decision_cache
+                        (document_id, title, content, decision_date, decision_number,
+                         category, source_url, cached_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    ON CONFLICT(document_id) DO UPDATE SET
+                        title=EXCLUDED.title, content=EXCLUDED.content,
+                        decision_date=EXCLUDED.decision_date,
+                        decision_number=EXCLUDED.decision_number,
+                        category=EXCLUDED.category, source_url=EXCLUDED.source_url,
+                        cached_at=EXCLUDED.cached_at
+                    """,
+                    args_list,
+                )
+                self._cache_timestamp = now
+                logger.debug("Cache saved to PostgreSQL: %d items", len(self._cache))
         except (asyncpg.PostgresError, OSError) as e:
-            logger.warning("Failed to save cache to DB: %s", e)
+            logger.error("Failed to save cache to PostgreSQL: %s", e)
 
     async def _load_cache_from_db(self) -> bool:
         """Load cache from PostgreSQL. Always loads regardless of TTL."""
