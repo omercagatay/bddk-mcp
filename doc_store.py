@@ -537,6 +537,24 @@ class DocumentStore:
         latest = time.strftime("%Y-%m-%d %H:%M", time.localtime(row["latest"]))
         return row["cnt"], latest
 
+    async def get_version_counts(self, doc_ids: list[str]) -> dict[str, tuple[int, str | None]]:
+        """Batch version count for multiple documents. Returns {doc_id: (count, latest_date)}."""
+        if not doc_ids:
+            return {}
+        rows = await self._pool.fetch(
+            "SELECT document_id, COUNT(*) AS cnt, MAX(synced_at) AS latest "
+            "FROM document_versions WHERE document_id = ANY($1) "
+            "GROUP BY document_id",
+            doc_ids,
+        )
+        result = {}
+        for row in rows:
+            latest = None
+            if row["latest"]:
+                latest = time.strftime("%Y-%m-%d %H:%M", time.localtime(row["latest"]))
+            result[row["document_id"]] = (row["cnt"], latest)
+        return result
+
     # -- Incremental Sync Metadata --------------------------------------------
 
     async def get_sync_metadata(self, doc_id: str) -> dict | None:
