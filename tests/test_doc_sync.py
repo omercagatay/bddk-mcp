@@ -10,6 +10,7 @@ from doc_sync import (
     DocumentSyncer,
     _extract_html_to_markdown,
     _mevzuat_doc_url,
+    _mevzuat_generate_pdf_url,
     _mevzuat_pdf_url,
     _parse_mevzuat_params,
 )
@@ -26,6 +27,21 @@ class TestMevzuatUrlHelpers:
 
     def test_mevzuat_pdf_url_unknown_tur(self):
         assert _mevzuat_pdf_url("123", "99", "5") is None
+
+    def test_mevzuat_generate_pdf_url_yonetmelik(self):
+        url = _mevzuat_generate_pdf_url("42628", "7", "5")
+        assert url == "https://www.mevzuat.gov.tr/File/GeneratePdf?mevzuatNo=42628&mevzuatTur=Yonetmelik&mevzuatTertip=5"
+
+    def test_mevzuat_generate_pdf_url_teblig(self):
+        url = _mevzuat_generate_pdf_url("21196", "9", "5")
+        assert url == "https://www.mevzuat.gov.tr/File/GeneratePdf?mevzuatNo=21196&mevzuatTur=Teblig&mevzuatTertip=5"
+
+    def test_mevzuat_generate_pdf_url_kanun(self):
+        url = _mevzuat_generate_pdf_url("5411", "1", "5")
+        assert url == "https://www.mevzuat.gov.tr/File/GeneratePdf?mevzuatNo=5411&mevzuatTur=Kanun&mevzuatTertip=5"
+
+    def test_mevzuat_generate_pdf_url_unknown_tur(self):
+        assert _mevzuat_generate_pdf_url("123", "99", "5") is None
 
     def test_mevzuat_doc_url(self):
         url = _mevzuat_doc_url("42628", "7", "5")
