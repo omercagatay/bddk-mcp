@@ -243,6 +243,7 @@ class BddkApiClient:
         self._cache: list[BddkDecisionSummary] = []
         self._cache_timestamp: float = 0.0
         self._page_errors: dict[int, str] = {}
+        self.known_announcements: set[str] = set()
 
     async def initialize(self) -> None:
         """Create cache table and load existing cache from PostgreSQL."""
@@ -357,6 +358,21 @@ class BddkApiClient:
             "page_errors": dict(self._page_errors),
             "categories": _count_categories(self._cache),
         }
+
+    def get_cache_items(self) -> list[BddkDecisionSummary]:
+        """Return the cached decision list (read-only view)."""
+        return self._cache
+
+    def find_by_id(self, doc_id: str) -> BddkDecisionSummary | None:
+        """Find a cached decision by document_id. Returns None if not found."""
+        for dec in self._cache:
+            if dec.document_id == doc_id:
+                return dec
+        return None
+
+    def cache_size(self) -> int:
+        """Return the number of items in the cache."""
+        return len(self._cache)
 
     # -- parsers --------------------------------------------------------------
 

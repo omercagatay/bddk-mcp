@@ -38,14 +38,13 @@ def register(mcp, deps: Dependencies) -> None:
         meta_number = ""
         meta_category = ""
         source_url = ""
-        for dec in client._cache:
-            if dec.document_id == document_id:
-                meta_title = dec.title
-                meta_date = dec.decision_date
-                meta_number = dec.decision_number
-                meta_category = dec.category
-                source_url = dec.source_url or ""
-                break
+        found = client.find_by_id(document_id)
+        if found:
+            meta_title = found.title
+            meta_date = found.decision_date
+            meta_number = found.decision_number
+            meta_category = found.category
+            source_url = found.source_url or ""
 
         def _build_header(page_num: int, total: int) -> str:
             return (
