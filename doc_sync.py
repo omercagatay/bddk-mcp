@@ -475,7 +475,7 @@ class DocumentSyncer:
                 pdf_url = _mevzuat_pdf_url(mevzuat_no, candidate_tur, tertip)
                 if pdf_url:
                     resp = await self._http.get(pdf_url, timeout=layer_timeout)
-                    if resp.status_code == 200 and len(resp.content) > 500:
+                    if resp.status_code == 200 and len(resp.content) > 500 and resp.content[:5] == b"%PDF-":
                         logger.info("mevzuat %s: downloaded via .pdf (tur=%s)", doc_id, candidate_tur)
                         return resp.content, "mevzuat_pdf", ".pdf"
             except Exception as e:
@@ -527,7 +527,11 @@ class DocumentSyncer:
                 try:
                     doc_url = _mevzuat_doc_url(mevzuat_no, candidate_tur, tertip)
                     resp = await self._http.get(doc_url, timeout=httpx.Timeout(90.0, connect=15.0))
-                    if resp.status_code == 200 and len(resp.content) > 100:
+                    if (
+                        resp.status_code == 200
+                        and len(resp.content) > 100
+                        and resp.content[:4] in (b"\xd0\xcf\x11\xe0", b"PK\x03\x04")
+                    ):
                         logger.info("mevzuat %s: downloaded via .doc (tur=%s)", doc_id, candidate_tur)
                         return resp.content, "mevzuat_doc", ".doc"
                 except Exception as e:
@@ -713,8 +717,19 @@ async def _cli_sync(args: argparse.Namespace) -> None:
             prefer_nougat=not args.no_nougat,
         ) as syncer:
             if args.doc_id:
+                # Look up metadata from decision_cache for source_url/title
+                row = await pool.fetchrow(
+                    "SELECT source_url, title, category, decision_date, decision_number"
+                    " FROM decision_cache WHERE document_id = $1",
+                    args.doc_id,
+                )
                 result = await syncer.sync_document(
                     doc_id=args.doc_id,
+                    source_url=row["source_url"] if row else "",
+                    title=row["title"] if row else "",
+                    category=row["category"] if row else "",
+                    decision_date=row["decision_date"] if row else "",
+                    decision_number=row["decision_number"] if row else "",
                     force=args.force,
                 )
                 status = "OK" if result.success else "FAIL"
