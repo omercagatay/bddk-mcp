@@ -177,9 +177,12 @@ _ERROR_PAGE_PATTERNS = [
 
 def _is_error_page(content: str) -> bool:
     """Detect 404 pages and navigation-only extractions from mevzuat.gov.tr."""
-    # Check the full content for critical error markers (404 pages can be large HTML)
+    import html
+
+    # Decode HTML entities so patterns match raw HTML (e.g. &#x131; → ı)
+    decoded = html.unescape(content)
     for pattern in _ERROR_PAGE_PATTERNS:
-        if pattern in content:
+        if pattern in decoded:
             return True
     return False
 
@@ -373,6 +376,10 @@ class DocumentSyncer:
             error_msg = f"Extraction failed (method={extraction_method})"
             cat, retryable = _categorize_error(error_msg)
             await self._store.record_sync_failure(doc_id, error_msg, cat, source_url, retryable)
+            # Clear corrupted content so has_document() returns False on next sync
+            if force:
+                await self._store.delete_document(doc_id)
+                logger.info("Cleared corrupted content for %s", doc_id)
             return SyncResult(
                 document_id=doc_id,
                 success=False,
