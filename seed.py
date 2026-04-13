@@ -29,9 +29,11 @@ SEED_DIR = Path(__file__).parent / "seed_data"
 # ── Export ───────────────────────────────────────────────────────────────────
 
 
-async def export_seed(dsn: str | None = None) -> None:
+async def export_seed(dsn: str | None = None, pool: asyncpg.Pool | None = None) -> None:
     """Export decision_cache and documents tables to seed_data/ as JSON."""
-    pool = await asyncpg.create_pool(dsn or DATABASE_URL, min_size=1, max_size=3)
+    owns_pool = pool is None
+    if owns_pool:
+        pool = await asyncpg.create_pool(dsn or DATABASE_URL, min_size=1, max_size=3)
     SEED_DIR.mkdir(exist_ok=True)
 
     try:
@@ -79,7 +81,8 @@ async def export_seed(dsn: str | None = None) -> None:
             print(f"Exported {len(chunks_data)} chunks → {chunks_path}")
 
     finally:
-        await pool.close()
+        if owns_pool:
+            await pool.close()
 
     print(f"\nSeed data written to {SEED_DIR}/")
     print("Commit this directory and rebuild your Docker image.")
@@ -88,7 +91,7 @@ async def export_seed(dsn: str | None = None) -> None:
 # ── Import ───────────────────────────────────────────────────────────────────
 
 
-async def import_seed(dsn: str | None = None, force: bool = False) -> dict:
+async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg.Pool | None = None) -> dict:
     """Import seed data from seed_data/ into PostgreSQL.
 
     Returns dict with counts of imported items.
@@ -100,7 +103,9 @@ async def import_seed(dsn: str | None = None, force: bool = False) -> dict:
         logger.info("No seed_data/ directory found — skipping seed import")
         return result
 
-    pool = await asyncpg.create_pool(dsn or DATABASE_URL, min_size=1, max_size=3)
+    owns_pool = pool is None
+    if owns_pool:
+        pool = await asyncpg.create_pool(dsn or DATABASE_URL, min_size=1, max_size=3)
 
     try:
         # Initialize schemas first
@@ -233,7 +238,8 @@ async def import_seed(dsn: str | None = None, force: bool = False) -> dict:
                     logger.info("Imported %d chunks", imported)
 
     finally:
-        await pool.close()
+        if owns_pool:
+            await pool.close()
 
     return result
 

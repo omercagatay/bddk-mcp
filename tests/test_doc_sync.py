@@ -9,12 +9,12 @@ from doc_store import StoredDocument
 from doc_sync import (
     DocumentSyncer,
     _extract_html_to_markdown,
-    _fetch_with_retry,
     _mevzuat_doc_url,
     _mevzuat_pdf_url,
     _parse_mevzuat_params,
 )
 from tests.conftest import make_http_response
+from utils import fetch_with_retry
 
 # -- URL helpers -----------------------------------------------------------
 
@@ -85,7 +85,7 @@ class TestFetchWithRetry:
         http = AsyncMock(spec=httpx.AsyncClient)
         http.get = AsyncMock(return_value=make_http_response("OK"))
 
-        resp = await _fetch_with_retry(http, "https://example.com")
+        resp = await fetch_with_retry(http, "https://example.com")
         assert resp.text == "OK"
 
     @pytest.mark.asyncio
@@ -94,7 +94,7 @@ class TestFetchWithRetry:
         ok_resp = make_http_response("OK")
         http.get = AsyncMock(side_effect=[httpx.TransportError("fail"), ok_resp])
 
-        resp = await _fetch_with_retry(http, "https://example.com")
+        resp = await fetch_with_retry(http, "https://example.com")
         assert resp.text == "OK"
 
     @pytest.mark.asyncio
@@ -103,7 +103,29 @@ class TestFetchWithRetry:
         http.get = AsyncMock(side_effect=httpx.TransportError("fail"))
 
         with pytest.raises(httpx.TransportError):
-            await _fetch_with_retry(http, "https://example.com")
+            await fetch_with_retry(http, "https://example.com")
+
+    @pytest.mark.asyncio
+    async def test_no_retry_on_404(self):
+        """4xx client errors must not be retried."""
+        http = AsyncMock(spec=httpx.AsyncClient)
+        http.get = AsyncMock(return_value=make_http_response("Not Found", status_code=404))
+
+        with pytest.raises(httpx.HTTPStatusError):
+            await fetch_with_retry(http, "https://example.com")
+
+        assert http.get.call_count == 1  # no retry
+
+    @pytest.mark.asyncio
+    async def test_retry_on_500(self):
+        """5xx server errors must be retried."""
+        http = AsyncMock(spec=httpx.AsyncClient)
+        ok_resp = make_http_response("OK", status_code=200)
+        http.get = AsyncMock(side_effect=[make_http_response("Server Error", status_code=500), ok_resp])
+
+        resp = await fetch_with_retry(http, "https://example.com")
+        assert resp.status_code == 200
+        assert http.get.call_count == 2
 
 
 # -- DocumentSyncer -------------------------------------------------------
