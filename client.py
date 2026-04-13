@@ -1,5 +1,4 @@
 import io
-import json
 import logging
 import math
 import re
@@ -80,13 +79,66 @@ _MEVZUAT_TUR_MAP = {
 
 # Common Turkish suffixes for basic stemming
 _TURKISH_SUFFIXES = [
-    "ları", "leri", "ların", "lerin", "lara", "lere", "lardan", "lerden",
-    "larla", "lerle", "lar", "ler", "ının", "inin", "unun", "ünün",
-    "ına", "ine", "una", "üne", "ında", "inde", "unda", "ünde",
-    "ından", "inden", "undan", "ünden", "ıyla", "iyle", "uyla", "üyle",
-    "nın", "nin", "nun", "nün", "dan", "den", "tan", "ten",
-    "ya", "ye", "da", "de", "ta", "te", "ın", "in", "un", "ün",
-    "na", "ne", "dır", "dir", "dur", "dür", "tır", "tir", "tur", "tür",
+    "ları",
+    "leri",
+    "ların",
+    "lerin",
+    "lara",
+    "lere",
+    "lardan",
+    "lerden",
+    "larla",
+    "lerle",
+    "lar",
+    "ler",
+    "ının",
+    "inin",
+    "unun",
+    "ünün",
+    "ına",
+    "ine",
+    "una",
+    "üne",
+    "ında",
+    "inde",
+    "unda",
+    "ünde",
+    "ından",
+    "inden",
+    "undan",
+    "ünden",
+    "ıyla",
+    "iyle",
+    "uyla",
+    "üyle",
+    "nın",
+    "nin",
+    "nun",
+    "nün",
+    "dan",
+    "den",
+    "tan",
+    "ten",
+    "ya",
+    "ye",
+    "da",
+    "de",
+    "ta",
+    "te",
+    "ın",
+    "in",
+    "un",
+    "ün",
+    "na",
+    "ne",
+    "dır",
+    "dir",
+    "dur",
+    "dür",
+    "tır",
+    "tir",
+    "tur",
+    "tür",
 ]
 
 
@@ -241,6 +293,7 @@ class BddkApiClient:
                     wait = 2**attempt
                     logger.warning("Retry %d/%d for %s: %s", attempt + 1, MAX_RETRIES, url, exc)
                     import asyncio
+
                     await asyncio.sleep(wait)
         raise last_exc  # type: ignore[misc]
 
@@ -252,8 +305,16 @@ class BddkApiClient:
             async with self._pool.acquire() as conn:
                 now = time.time()
                 args_list = [
-                    (d.document_id, d.title, d.content, d.decision_date,
-                     d.decision_number, d.category, d.source_url or "", now)
+                    (
+                        d.document_id,
+                        d.title,
+                        d.content,
+                        d.decision_date,
+                        d.decision_number,
+                        d.category,
+                        d.source_url or "",
+                        now,
+                    )
                     for d in self._cache
                 ]
                 await conn.executemany(

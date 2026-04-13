@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 # -- Circuit breaker constants ------------------------------------------------
 
 CIRCUIT_BREAKER_THRESHOLD = 10
-STARTUP_SYNC_TIMEOUT = 300   # 5 minutes
-MIGRATION_TIMEOUT = 600       # 10 minutes
+STARTUP_SYNC_TIMEOUT = 300  # 5 minutes
+MIGRATION_TIMEOUT = 600  # 10 minutes
 
 
 # -- Circuit breaker helpers --------------------------------------------------
@@ -74,9 +74,7 @@ async def _migrate_to_pgvector(deps: Dependencies) -> str:
                 vs_stats["total_documents"],
                 sqlite_stats.total_documents,
             )
-            return (
-                f"pgvector up-to-date: {vs_stats['total_documents']}/{sqlite_stats.total_documents} documents"
-            )
+            return f"pgvector up-to-date: {vs_stats['total_documents']}/{sqlite_stats.total_documents} documents"
 
         logger.info(
             "pgvector incomplete (%d/%d) — migrating...",
@@ -182,9 +180,7 @@ async def startup_sync(deps: Dependencies) -> None:
 
             logger.info("Using existing cache: %d documents", len(client._cache))
             if not client._cache:
-                logger.warning(
-                    "Cache is empty — skipping startup sync (run refresh_bddk_cache first)"
-                )
+                logger.warning("Cache is empty — skipping startup sync (run refresh_bddk_cache first)")
                 _record_sync_failure(deps, "Cache is empty")
                 return
 
@@ -208,9 +204,7 @@ async def startup_sync(deps: Dependencies) -> None:
                     report.elapsed_seconds,
                 )
             else:
-                logger.info(
-                    "Document store has %d/%d documents, OK", st.total_documents, cache_size
-                )
+                logger.info("Document store has %d/%d documents, OK", st.total_documents, cache_size)
 
             # Phase 2: Migrate to pgvector
             await _migrate_to_pgvector(deps)
@@ -403,16 +397,11 @@ def register(mcp, deps: Dependencies) -> None:
                 retryable_count = sum(1 for i in items if i["retryable"])
                 lines.append(f"\n  [{cat}] {len(items)} failures ({retryable_count} retryable)")
                 for item in items[:5]:
-                    lines.append(
-                        f"    - {item['document_id']}: {item['error'][:80]}"
-                        f" (attempts: {item['attempts']})"
-                    )
+                    lines.append(f"    - {item['document_id']}: {item['error'][:80]} (attempts: {item['attempts']})")
                 if len(items) > 5:
                     lines.append(f"    ... and {len(items) - 5} more")
 
-            lines.append(
-                "\nTo retry failed documents, run sync_bddk_documents with force=True"
-            )
+            lines.append("\nTo retry failed documents, run sync_bddk_documents with force=True")
         else:
             lines.append("\nNo sync failures recorded.")
 
@@ -420,7 +409,7 @@ def register(mcp, deps: Dependencies) -> None:
         if deps.vector_store is not None:
             try:
                 vs_stats = await deps.vector_store.stats()
-                lines.append(f"\n**Vector Store**")
+                lines.append("\n**Vector Store**")
                 lines.append(f"  Documents: {vs_stats['total_documents']}")
                 lines.append(f"  Chunks: {vs_stats['total_chunks']}")
             except Exception:

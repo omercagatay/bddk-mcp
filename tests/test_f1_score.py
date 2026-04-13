@@ -233,16 +233,18 @@ async def _run_evaluation(store: VectorStore, search_fn, label: str) -> dict:
         top3 = set(ranked_ids[:3])
         top5 = set(ranked_ids[:5])
 
-        results.append({
-            "query": description,
-            "expected": expected,
-            "ranked_ids": ranked_ids[:5],
-            "relevance": relevance_scores,
-            "f1_at_3": _compute_f1(top3, expected),
-            "f1_at_5": _compute_f1(top5, expected),
-            "mrr": _compute_mrr(ranked_ids, expected),
-            "hit_at_1": 1.0 if ranked_ids and ranked_ids[0] in expected else 0.0,
-        })
+        results.append(
+            {
+                "query": description,
+                "expected": expected,
+                "ranked_ids": ranked_ids[:5],
+                "relevance": relevance_scores,
+                "f1_at_3": _compute_f1(top3, expected),
+                "f1_at_5": _compute_f1(top5, expected),
+                "mrr": _compute_mrr(ranked_ids, expected),
+                "hit_at_1": 1.0 if ranked_ids and ranked_ids[0] in expected else 0.0,
+            }
+        )
 
     n = len(results)
     avg = {
@@ -272,9 +274,7 @@ def _print_report(evals: list[dict]) -> None:
             print(f"\n  [{status}] {r['query']}")
             print(f"    Expected:  {r['expected']}")
             print(f"    Top 5:     {r['ranked_ids']}")
-            scores_str = ", ".join(
-                f"{did}={r['relevance'].get(did, 0):.1%}" for did in r["ranked_ids"]
-            )
+            scores_str = ", ".join(f"{did}={r['relevance'].get(did, 0):.1%}" for did in r["ranked_ids"])
             print(f"    Scores:    {scores_str}")
             print(
                 f"    F1@3: {r['f1_at_3']['f1']:.2%}  "
@@ -291,15 +291,13 @@ def _print_report(evals: list[dict]) -> None:
     print(f"  {'─' * 30} {'─' * 8} {'─' * 8} {'─' * 8} {'─' * 8}")
     for ev in evals:
         a = ev["avg"]
-        print(
-            f"  {ev['label']:<30} {a['f1_at_3']:>7.1%} {a['f1_at_5']:>7.1%} "
-            f"{a['mrr']:>7.1%} {a['hit_at_1']:>7.1%}"
-        )
+        print(f"  {ev['label']:<30} {a['f1_at_3']:>7.1%} {a['f1_at_5']:>7.1%} {a['mrr']:>7.1%} {a['hit_at_1']:>7.1%}")
     print(f"  Queries: {len(GROUND_TRUTH)}  |  Corpus: {len(CORPUS)} documents")
     print("=" * 90)
 
 
 # -- Fixtures -----------------------------------------------------------------
+
 
 @pytest.fixture
 async def f1_store(pg_pool):
@@ -331,6 +329,7 @@ async def f1_store(pg_pool):
 
 # -- Tests --------------------------------------------------------------------
 
+
 class TestF1Score:
     """Evaluate semantic search quality using F1, MRR, and Hit@1."""
 
@@ -338,14 +337,10 @@ class TestF1Score:
     async def test_vector_vs_hybrid(self, f1_store):
         """Compare vector-only and hybrid search modes."""
         # Evaluate vector-only
-        ev_vector = await _run_evaluation(
-            f1_store, f1_store._vector_search, "Vector-only (cosine)"
-        )
+        ev_vector = await _run_evaluation(f1_store, f1_store._vector_search, "Vector-only (cosine)")
 
         # Evaluate hybrid (vector + FTS via RRF)
-        ev_hybrid = await _run_evaluation(
-            f1_store, f1_store._hybrid_search, "Hybrid (RRF: cosine + FTS)"
-        )
+        ev_hybrid = await _run_evaluation(f1_store, f1_store._hybrid_search, "Hybrid (RRF: cosine + FTS)")
 
         _print_report([ev_vector, ev_hybrid])
 
@@ -363,9 +358,7 @@ class TestF1Score:
     async def test_hit_at_1(self, f1_store):
         """The correct document should be the top result at least 50% of the time."""
         ev = await _run_evaluation(f1_store, f1_store.search, "Default mode")
-        assert ev["avg"]["hit_at_1"] >= 0.50, (
-            f"Hit@1 ({ev['avg']['hit_at_1']:.2%}) below 50%"
-        )
+        assert ev["avg"]["hit_at_1"] >= 0.50, f"Hit@1 ({ev['avg']['hit_at_1']:.2%}) below 50%"
 
     @pytest.mark.asyncio
     async def test_fts_finds_exact_terms(self, f1_store):
@@ -395,9 +388,7 @@ class TestF1Score:
         v_rank = v_ids.index("f1_mevduat") + 1 if "f1_mevduat" in v_ids else 99
         h_rank = h_ids.index("f1_mevduat") + 1 if "f1_mevduat" in h_ids else 99
 
-        assert h_rank <= v_rank, (
-            f"Hybrid rank ({h_rank}) should be <= vector rank ({v_rank}) for exact term"
-        )
+        assert h_rank <= v_rank, f"Hybrid rank ({h_rank}) should be <= vector rank ({v_rank}) for exact term"
 
     @pytest.mark.asyncio
     async def test_category_filter(self, f1_store):
@@ -446,9 +437,7 @@ class TestF1Score:
         )
 
         # Top result must be the correct one
-        assert test_hits[0]["doc_id"] == "f1_katilim", (
-            f"Top result should be f1_katilim, got {test_hits[0]['doc_id']}"
-        )
+        assert test_hits[0]["doc_id"] == "f1_katilim", f"Top result should be f1_katilim, got {test_hits[0]['doc_id']}"
 
         # All surviving results should be within 8% of the top score
         top_score = test_hits[0]["relevance"]
@@ -475,6 +464,4 @@ class TestF1Score:
 
         # Re-ranked results should have f1_sermaye at or near the top
         reranked_ids = [h["doc_id"] for h in reranked]
-        assert "f1_sermaye" in reranked_ids[:2], (
-            f"Cross-encoder should rank f1_sermaye in top 2, got: {reranked_ids}"
-        )
+        assert "f1_sermaye" in reranked_ids[:2], f"Cross-encoder should rank f1_sermaye in top 2, got: {reranked_ids}"

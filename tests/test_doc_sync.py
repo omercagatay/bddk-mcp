@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from doc_store import DocumentStore, StoredDocument
+from doc_store import StoredDocument
 from doc_sync import (
     DocumentSyncer,
     _extract_html_to_markdown,

@@ -76,7 +76,9 @@ class TestVectorStoreLifecycle:
         vs = VectorStore(pg_pool)
         await vs.initialize()
         # Clean up any leftover test data
-        await pg_pool.execute("DELETE FROM document_chunks WHERE doc_id LIKE 'test_%' OR doc_id IN ('a','b','d1','del_me','empty','multi','s1','s2')")
+        await pg_pool.execute(
+            "DELETE FROM document_chunks WHERE doc_id LIKE 'test_%' OR doc_id IN ('a','b','d1','del_me','empty','multi','s1','s2')"
+        )
         yield vs
 
     @pytest.mark.asyncio
