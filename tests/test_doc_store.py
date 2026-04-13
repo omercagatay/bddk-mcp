@@ -2,7 +2,7 @@
 
 import pytest
 
-from doc_store import DocumentStore, StoredDocument
+from doc_store import StoredDocument
 
 
 # Uses doc_store, sample_doc, mevzuat_doc fixtures from conftest.py
