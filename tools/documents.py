@@ -5,8 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from exceptions import BddkError, BddkStorageError
-from metrics import metrics
+from exceptions import BddkStorageError
 
 if TYPE_CHECKING:
     from deps import Dependencies

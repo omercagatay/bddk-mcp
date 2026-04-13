@@ -91,9 +91,7 @@ def register(mcp, deps: Dependencies) -> None:
         lines.append(f"{'#':<4} {'Metric':<50} {'TP':>15} {'YP':>15} {'ID'}")
         lines.append("-" * 100)
         for r in rows:
-            lines.append(
-                f"{r['row_number']:<4} {r['name']:<50} {r['tp']:>15} {r['yp']:>15} {r['metric_id']}"
-            )
+            lines.append(f"{r['row_number']:<4} {r['name']:<50} {r['tp']:>15} {r['yp']:>15} {r['metric_id']}")
         return "\n".join(lines)
 
     @mcp.tool()
@@ -151,9 +149,7 @@ def register(mcp, deps: Dependencies) -> None:
             lines.append(f"{'Kalem':<55} {'TP':>15} {'YP':>15} {'Toplam':>15}")
             lines.append("-" * 105)
             for r in rows:
-                lines.append(
-                    f"{r['name']:<55} {r.get('tp', ''):>15} {r.get('yp', ''):>15} {r.get('total', ''):>15}"
-                )
+                lines.append(f"{r['name']:<55} {r.get('tp', ''):>15} {r.get('yp', ''):>15} {r.get('total', ''):>15}")
 
         return "\n".join(lines)
 
