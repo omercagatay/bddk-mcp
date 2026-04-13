@@ -224,6 +224,26 @@ def _mevzuat_pdf_url(mevzuat_no: str, tur: str = "7", tertip: str = "5") -> str 
     return f"https://www.mevzuat.gov.tr/MevzuatMetin/{segment}/{tur}.{tertip}.{mevzuat_no}.pdf"
 
 
+# GeneratePdf API expects these exact mevzuatTur parameter values.
+_GENERATE_PDF_TUR_NAME: dict[str, str] = {
+    "1": "Kanun",
+    "2": "KanunHukmundeKararname",
+    "4": "CumhurbaskanligiKararnamesi",
+    "5": "Tuzuk",
+    "7": "Yonetmelik",
+    "9": "Teblig",
+    "11": "CumhurbaskanligiKararnamesi",
+}
+
+
+def _mevzuat_generate_pdf_url(mevzuat_no: str, tur: str = "7", tertip: str = "5") -> str | None:
+    """Build mevzuat.gov.tr GeneratePdf API URL (server-side PDF generation)."""
+    tur_name = _GENERATE_PDF_TUR_NAME.get(tur)
+    if not tur_name:
+        return None
+    return f"https://www.mevzuat.gov.tr/File/GeneratePdf?mevzuatNo={mevzuat_no}&mevzuatTur={tur_name}&mevzuatTertip={tertip}"
+
+
 def _mevzuat_doc_url(mevzuat_no: str, tur: str = "7", tertip: str = "5") -> str:
     """Build mevzuat.gov.tr Word (.doc) download URL."""
     segment = MEVZUAT_TUR_MAP.get(tur, "yonetmelik")
@@ -392,12 +412,13 @@ class DocumentSyncer:
 
     async def _download_mevzuat(self, doc_id: str, source_url: str = "") -> tuple[bytes, str, str]:
         """
-        Download from mevzuat.gov.tr with 4-layer fallback.
+        Download from mevzuat.gov.tr with 5-layer fallback.
 
         Order optimized for reliability (lightest/fastest first):
         1. Static .htm page — smallest, most reliable
-        2. PDF direct download
-        3. Main page iframe content — richest HTML
+        2. PDF direct download (static file)
+        3. Main page → iframe/div content extraction
+        3b. GeneratePdf API — requires session cookies from step 3
         4. Word (.doc) download — largest, slowest
 
         When source_url is not provided and the default tur fails,
@@ -451,11 +472,14 @@ class DocumentSyncer:
             except Exception as e:
                 logger.debug("mevzuat %s: .pdf failed (tur=%s): %s", doc_id, candidate_tur, e)
 
-            # Layer 3: Main page → iframe content (richer HTML)
+            # Layer 3: Main page visit (establishes session cookies for GeneratePdf)
+            #          Also tries iframe/div extraction as secondary benefit.
+            main_url = f"https://www.mevzuat.gov.tr/mevzuat?MevzuatNo={mevzuat_no}&MevzuatTur={candidate_tur}&MevzuatTertip={tertip}"
+            main_page_visited = False
             try:
-                main_url = f"https://www.mevzuat.gov.tr/mevzuat?MevzuatNo={mevzuat_no}&MevzuatTur={candidate_tur}&MevzuatTertip={tertip}"
                 resp = await self._http.get(main_url, timeout=layer_timeout)
                 if resp.status_code == 200:
+                    main_page_visited = True
                     soup = BeautifulSoup(resp.text, "html.parser")
                     iframe = soup.find("iframe", src=True)
                     if iframe:
@@ -473,6 +497,20 @@ class DocumentSyncer:
                         return str(div).encode("utf-8"), "mevzuat_div", ".html"
             except Exception as e:
                 logger.debug("mevzuat %s: iframe/div failed (tur=%s): %s", doc_id, candidate_tur, e)
+
+            # Layer 3b: GeneratePdf API (requires session cookies from main page visit above)
+            if not main_page_visited:
+                logger.debug("mevzuat %s: skipping GeneratePdf — no session cookies (tur=%s)", doc_id, candidate_tur)
+            else:
+                try:
+                    gen_pdf_url = _mevzuat_generate_pdf_url(mevzuat_no, candidate_tur, tertip)
+                    if gen_pdf_url:
+                        resp = await self._http.get(gen_pdf_url, timeout=layer_timeout)
+                        if resp.status_code == 200 and len(resp.content) > 500 and resp.content[:5] == b"%PDF-":
+                            logger.info("mevzuat %s: downloaded via GeneratePdf (tur=%s)", doc_id, candidate_tur)
+                            return resp.content, "mevzuat_generate_pdf", ".pdf"
+                except Exception as e:
+                    logger.debug("mevzuat %s: GeneratePdf failed (tur=%s): %s", doc_id, candidate_tur, e)
 
             # Layer 4: Word (.doc) — heaviest, slowest (only try for the first/default tur
             # to avoid excessive requests during auto-detection)
