@@ -366,8 +366,11 @@ def register(mcp, deps: Dependencies) -> None:
         Args:
             retryable_only: Only show failures that can be retried (e.g. timeouts)
         """
+        from doc_sync import _is_error_page
+
         store = deps.doc_store
         client = deps.client
+        pool = deps.pool
 
         # Document completeness
         st = await store.stats()
@@ -380,6 +383,49 @@ def register(mcp, deps: Dependencies) -> None:
         if cache_size > 0:
             pct = st.total_documents / cache_size * 100
             lines.append(f"Coverage: {pct:.1f}%")
+
+        # Content quality checks
+        corrupted: list[dict] = []
+        too_short: list[dict] = []
+        if pool is not None:
+            rows = await pool.fetch(
+                "SELECT document_id, title, length(markdown_content) as content_len, "
+                "left(markdown_content, 500) as preview "
+                "FROM documents WHERE markdown_content IS NOT NULL"
+            )
+            for r in rows:
+                if r["content_len"] < 100:
+                    too_short.append(dict(r))
+                elif _is_error_page(r["preview"]):
+                    corrupted.append(dict(r))
+
+        if corrupted:
+            lines.append(f"\n**Corrupted Content: {len(corrupted)}** (error/404 pages stored as documents)")
+            for doc in corrupted[:10]:
+                lines.append(f"  - {doc['document_id']}: {doc['title'][:60]} ({doc['content_len']} bytes)")
+            if len(corrupted) > 10:
+                lines.append(f"  ... and {len(corrupted) - 10} more")
+            lines.append("\nFix: run sync_bddk_documents with force=True for these document IDs")
+
+        if too_short:
+            lines.append(f"\n**Suspiciously Short: {len(too_short)}** (< 100 bytes)")
+            for doc in too_short[:10]:
+                lines.append(f"  - {doc['document_id']}: {doc['title'][:60]} ({doc['content_len']} bytes)")
+
+        # Chunk coverage
+        if pool is not None:
+            missing_chunks = await pool.fetch(
+                "SELECT d.document_id, d.title, length(d.markdown_content) as content_len "
+                "FROM documents d "
+                "LEFT JOIN (SELECT doc_id, count(*) as cnt FROM document_chunks GROUP BY doc_id) c "
+                "ON c.doc_id = d.document_id "
+                "WHERE length(d.markdown_content) > 1000 AND COALESCE(c.cnt, 0) <= 1"
+            )
+            if missing_chunks:
+                lines.append(f"\n**Missing Chunks: {len(missing_chunks)}** (content exists but not chunked)")
+                for doc in missing_chunks[:10]:
+                    lines.append(f"  - {doc['document_id']}: {doc['title'][:60]} ({doc['content_len']} bytes)")
+                lines.append("\nFix: run trigger_startup_sync to generate chunks")
 
         # Sync failures
         failures = await store.get_sync_failures(retryable_only=retryable_only)
@@ -413,5 +459,8 @@ def register(mcp, deps: Dependencies) -> None:
                 lines.append(f"  Chunks: {vs_stats['total_chunks']}")
             except Exception:
                 lines.append("\n**Vector Store:** unavailable")
+
+        if not corrupted and not too_short and not missing_chunks and not failures:
+            lines.append("\nAll documents healthy.")
 
         return "\n".join(lines)
