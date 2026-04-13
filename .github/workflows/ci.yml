@@ -23,6 +23,20 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: bddk
+          POSTGRES_PASSWORD: bddk
+          POSTGRES_DB: bddk_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -33,6 +47,8 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev --python ${{ matrix.python-version }}
       - name: Run tests
+        env:
+          BDDK_TEST_DATABASE_URL: postgresql://bddk:bddk@localhost:5432/bddk_test
         run: uv run pytest tests/ -v --tb=short
 
   smoke-test:
