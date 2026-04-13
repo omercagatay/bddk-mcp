@@ -124,7 +124,7 @@ class TestCacheFallbackFlow:
 
         # Should have loaded stale cache from DB
         assert client2.cache_size() >= 1
-        assert any(d.document_id == "stale_test_1" for d in client2._cache)
+        assert any(d.document_id == "stale_test_1" for d in client2.get_cache_items())
 
         await client.close()
         await client2.close()
