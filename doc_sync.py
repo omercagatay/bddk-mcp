@@ -177,9 +177,11 @@ _ERROR_PAGE_PATTERNS = [
 
 def _is_error_page(content: str) -> bool:
     """Detect 404 pages and navigation-only extractions from mevzuat.gov.tr."""
-    if len(content) > 2000:
-        return False
-    return any(pattern in content for pattern in _ERROR_PAGE_PATTERNS)
+    # Check the full content for critical error markers (404 pages can be large HTML)
+    for pattern in _ERROR_PAGE_PATTERNS:
+        if pattern in content:
+            return True
+    return False
 
 
 def _extract_html_to_markdown(html: str) -> str:
