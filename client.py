@@ -13,7 +13,6 @@ from markitdown import MarkItDown
 
 from config import (
     CACHE_TTL_SECONDS,
-    MAX_RETRIES,
     PAGE_SIZE,
     REQUEST_TIMEOUT,
     STALE_CACHE_FALLBACK,
@@ -25,6 +24,7 @@ from models import (
     BddkSearchRequest,
     BddkSearchResult,
 )
+from utils import MEVZUAT_TUR_MAP, fetch_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -64,17 +64,6 @@ _FLAT_PAGE_CATEGORY = {
     54: "BDDK Düzenlemesi",
     58: "Düzenleme Taslağı",
     63: "Mülga Düzenleme",
-}
-
-# mevzuat.gov.tr MevzuatTur to path segment mapping
-_MEVZUAT_TUR_MAP = {
-    "1": "kanun",
-    "2": "kanunhukmundekararname",
-    "4": "cumhurbaskanligikararnamesi",
-    "5": "tuzuk",
-    "7": "yonetmelik",
-    "9": "teblig",
-    "11": "cumhurbaskanligikararnamesi",
 }
 
 # Common Turkish suffixes for basic stemming
@@ -192,7 +181,7 @@ def _external_url_to_id(url: str) -> str | None:
 
 def _mevzuat_to_pdf_url(mevzuat_no: str, mevzuat_tur: str = "7", mevzuat_tertip: str = "5") -> str | None:
     """Convert mevzuat.gov.tr parameters to a direct PDF download URL."""
-    path_segment = _MEVZUAT_TUR_MAP.get(mevzuat_tur)
+    path_segment = MEVZUAT_TUR_MAP.get(mevzuat_tur)
     if not path_segment:
         return None
     return f"https://www.mevzuat.gov.tr/MevzuatMetin/{path_segment}/{mevzuat_tur}.{mevzuat_tertip}.{mevzuat_no}.pdf"
@@ -254,6 +243,7 @@ class BddkApiClient:
         self._cache: list[BddkDecisionSummary] = []
         self._cache_timestamp: float = 0.0
         self._page_errors: dict[int, str] = {}
+        self.known_announcements: set[str] = set()
 
     async def initialize(self) -> None:
         """Create cache table and load existing cache from PostgreSQL."""
@@ -281,21 +271,7 @@ class BddkApiClient:
 
     async def _fetch_with_retry(self, url: str) -> httpx.Response:
         """Fetch a URL with exponential backoff retry."""
-        last_exc = None
-        for attempt in range(MAX_RETRIES):
-            try:
-                response = await self._http.get(url)
-                response.raise_for_status()
-                return response
-            except (httpx.HTTPStatusError, httpx.TransportError) as exc:
-                last_exc = exc
-                if attempt < MAX_RETRIES - 1:
-                    wait = 2**attempt
-                    logger.warning("Retry %d/%d for %s: %s", attempt + 1, MAX_RETRIES, url, exc)
-                    import asyncio
-
-                    await asyncio.sleep(wait)
-        raise last_exc  # type: ignore[misc]
+        return await fetch_with_retry(self._http, url)
 
     # -- cache persistence (PostgreSQL) ----------------------------------------
 
@@ -382,6 +358,21 @@ class BddkApiClient:
             "page_errors": dict(self._page_errors),
             "categories": _count_categories(self._cache),
         }
+
+    def get_cache_items(self) -> list[BddkDecisionSummary]:
+        """Return a shallow copy of the cached decision list."""
+        return list(self._cache)
+
+    def find_by_id(self, doc_id: str) -> BddkDecisionSummary | None:
+        """Find a cached decision by document_id. Returns None if not found."""
+        for dec in self._cache:
+            if dec.document_id == doc_id:
+                return dec
+        return None
+
+    def cache_size(self) -> int:
+        """Return the number of items in the cache."""
+        return len(self._cache)
 
     # -- parsers --------------------------------------------------------------
 

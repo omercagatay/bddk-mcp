@@ -29,7 +29,7 @@ class TestSearchThenRetrieveFlow:
         client._cache = []
         client._cache_timestamp = 0
         await client._ensure_cache()
-        assert len(client._cache) > 0
+        assert client.cache_size() > 0
 
         request = BddkSearchRequest(keywords="Rehber")
         result = await client.search_decisions(request)
@@ -123,8 +123,8 @@ class TestCacheFallbackFlow:
             await client2._ensure_cache()
 
         # Should have loaded stale cache from DB
-        assert len(client2._cache) >= 1
-        assert any(d.document_id == "stale_test_1" for d in client2._cache)
+        assert client2.cache_size() >= 1
+        assert any(d.document_id == "stale_test_1" for d in client2.get_cache_items())
 
         await client.close()
         await client2.close()

@@ -83,7 +83,7 @@ def register(mcp, deps: Dependencies) -> None:
 
         await deps.client.ensure_cache()
 
-        digest = await build_digest(deps.http, deps.client._cache, days)
+        digest = await build_digest(deps.http, deps.client.get_cache_items(), days)
 
         lines = [f"**BDDK Düzenleyici Özet — Son {days} Gün**\n"]
         lines.append(digest["narrative"])
@@ -169,10 +169,8 @@ def register(mcp, deps: Dependencies) -> None:
         Compares current announcements with cached state to detect new items.
         Useful for monitoring regulatory changes.
         """
-        known_urls: set[str] = set()
-        if hasattr(deps.client, "_known_announcements"):
-            known_urls = deps.client._known_announcements
-        else:
+        known_urls = deps.client.known_announcements
+        if not known_urls:
             from data_sources import fetch_announcements as _fa
 
             for cat_id in [39, 40, 41, 42, 48]:
@@ -180,13 +178,13 @@ def register(mcp, deps: Dependencies) -> None:
                 for a in anns:
                     if a.get("url"):
                         known_urls.add(a["url"])
-            deps.client._known_announcements = known_urls
+            deps.client.known_announcements = known_urls
             return (
                 f"Baseline oluşturuldu: {len(known_urls)} duyuru biliniyor. "
                 "Bir sonraki çağrıda yeni duyurular tespit edilecek."
             )
 
-        result = await check_updates(deps.http, deps.client._cache, known_urls)
+        result = await check_updates(deps.http, deps.client.get_cache_items(), known_urls)
 
         for a in result.get("new_announcements", []):
             if a.get("url"):

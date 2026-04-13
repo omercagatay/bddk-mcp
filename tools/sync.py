@@ -178,14 +178,14 @@ async def startup_sync(deps: Dependencies) -> None:
             store = deps.doc_store
             client = deps.client
 
-            logger.info("Using existing cache: %d documents", len(client._cache))
-            if not client._cache:
+            logger.info("Using existing cache: %d documents", client.cache_size())
+            if not client.cache_size():
                 logger.warning("Cache is empty — skipping startup sync (run refresh_bddk_cache first)")
                 _record_sync_failure(deps, "Cache is empty")
                 return
 
             st = await store.stats()
-            cache_size = len(client._cache)
+            cache_size = client.cache_size()
 
             # Phase 1: Download missing documents
             if st.total_documents < cache_size * 0.9:
@@ -194,7 +194,7 @@ async def startup_sync(deps: Dependencies) -> None:
                     st.total_documents,
                     cache_size,
                 )
-                items = [d.model_dump() for d in client._cache]
+                items = [d.model_dump() for d in client.get_cache_items()]
                 async with DocumentSyncer(store, prefer_nougat=PREFER_NOUGAT, http=deps.http) as syncer:
                     report = await syncer.sync_all(items, concurrency=10, force=False)
                 logger.info(
@@ -270,12 +270,11 @@ def register(mcp, deps: Dependencies) -> None:
                 source_url = ""
                 title = document_id
                 category = ""
-                for dec in client._cache:
-                    if dec.document_id == document_id:
-                        source_url = dec.source_url
-                        title = dec.title
-                        category = dec.category
-                        break
+                found = client.find_by_id(document_id)
+                if found:
+                    source_url = found.source_url
+                    title = found.title
+                    category = found.category
 
                 result = await syncer.sync_document(
                     doc_id=document_id,
@@ -287,7 +286,7 @@ def register(mcp, deps: Dependencies) -> None:
                 status = "OK" if result.success else "FAIL"
                 single_report = f"[{status}] {result.document_id}: {result.method or result.error}"
             else:
-                items = [d.model_dump() for d in client._cache]
+                items = [d.model_dump() for d in client.get_cache_items()]
                 report = await syncer.sync_all(items, concurrency=concurrency, force=force)
                 sync_report = (
                     f"**Sync Report**\n"
@@ -372,7 +371,7 @@ def register(mcp, deps: Dependencies) -> None:
 
         # Document completeness
         st = await store.stats()
-        cache_size = len(client._cache) if client._cache else 0
+        cache_size = client.cache_size()
 
         lines = ["**Document Health Report**\n"]
         lines.append(f"Decision cache: {cache_size}")

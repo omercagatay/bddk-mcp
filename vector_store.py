@@ -241,7 +241,7 @@ class VectorStore:
             return 0
 
         total_pages = max(1, math.ceil(len(content) / PAGE_SIZE))
-        content_hash = hashlib.md5(content.encode()).hexdigest()
+        content_hash = hashlib.sha256(content.encode()).hexdigest()
 
         # Generate embeddings
         embeddings = await self._embed(chunks)
@@ -635,9 +635,7 @@ class VectorStore:
         scores = await loop.run_in_executor(None, self._rerank_fn.predict, pairs)
         for candidate, score in zip(candidates, scores, strict=False):
             candidate["rerank_score"] = float(score)
-            import math as _math
-
-            candidate["relevance"] = round(1.0 / (1.0 + _math.exp(-float(score))), 4)
+            candidate["relevance"] = round(1.0 / (1.0 + math.exp(-float(score))), 4)
         return sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)
 
     # -- Bulk operations ------------------------------------------------------
