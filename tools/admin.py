@@ -97,8 +97,6 @@ def register(mcp, deps: Dependencies) -> None:
             lines.append(f"  {'Tool':<35} {'Requests':>10} {'Errors':>8} {'Avg ms':>10}")
             lines.append("  " + "-" * 65)
             for t in m["tools"]:
-                lines.append(
-                    f"  {t['tool']:<35} {t['requests']:>10} {t['errors']:>8} {t['avg_latency_ms']:>10.1f}"
-                )
+                lines.append(f"  {t['tool']:<35} {t['requests']:>10} {t['errors']:>8} {t['avg_latency_ms']:>10.1f}")
 
         return "\n".join(lines)

@@ -11,7 +11,6 @@ from doc_sync import DocumentSyncer
 from models import BddkSearchRequest
 from tests.conftest import (
     BDDK_ACCORDION_HTML,
-    MockPool,
     make_http_response,
 )
 
@@ -108,7 +107,9 @@ class TestCacheFallbackFlow:
         await client.initialize()
         from models import BddkDecisionSummary
 
-        client._cache = [BddkDecisionSummary(title="Stale Reg", document_id="stale_test_1", content="Old", category="Yönetmelik")]
+        client._cache = [
+            BddkDecisionSummary(title="Stale Reg", document_id="stale_test_1", content="Old", category="Yönetmelik")
+        ]
         client._cache_timestamp = 1.0  # very old
         await client._save_cache_to_db()
 

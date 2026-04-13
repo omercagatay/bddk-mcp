@@ -105,14 +105,17 @@ async def import_seed(dsn: str | None = None, force: bool = False) -> dict:
     try:
         # Initialize schemas first
         from doc_store import DocumentStore
+
         store = DocumentStore(pool)
         await store.initialize()
 
         from vector_store import VectorStore
+
         vs = VectorStore(pool)
         await vs.initialize()
 
         from client import BddkApiClient
+
         client = BddkApiClient(pool)
         await client.initialize()
 
@@ -124,7 +127,8 @@ async def import_seed(dsn: str | None = None, force: bool = False) -> dict:
                 if cache_count > 0 and doc_count > 0:
                     logger.info(
                         "DB already has data (%d cache, %d docs) — skipping seed import",
-                        cache_count, doc_count,
+                        cache_count,
+                        doc_count,
                     )
                     result["skipped"] = True
                     return result
@@ -144,10 +148,14 @@ async def import_seed(dsn: str | None = None, force: bool = False) -> dict:
                                     decision_number, category, source_url, cached_at)
                                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
                                    ON CONFLICT(document_id) DO NOTHING""",
-                                d["document_id"], d.get("title", ""),
-                                d.get("content", ""), d.get("decision_date", ""),
-                                d.get("decision_number", ""), d.get("category", ""),
-                                d.get("source_url", ""), now,
+                                d["document_id"],
+                                d.get("title", ""),
+                                d.get("content", ""),
+                                d.get("decision_date", ""),
+                                d.get("decision_number", ""),
+                                d.get("category", ""),
+                                d.get("source_url", ""),
+                                now,
                             )
                     result["decision_cache"] = len(cache_data)
                     logger.info("Imported %d decision cache entries", len(cache_data))
@@ -168,13 +176,19 @@ async def import_seed(dsn: str | None = None, force: bool = False) -> dict:
                                     extraction_method, total_pages, file_size)
                                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
                                    ON CONFLICT(document_id) DO NOTHING""",
-                                d["document_id"], d.get("title", ""),
-                                d.get("category", ""), d.get("decision_date", ""),
-                                d.get("decision_number", ""), d.get("source_url", ""),
-                                d.get("markdown_content", ""), d.get("content_hash", ""),
-                                d.get("downloaded_at"), d.get("extracted_at"),
+                                d["document_id"],
+                                d.get("title", ""),
+                                d.get("category", ""),
+                                d.get("decision_date", ""),
+                                d.get("decision_number", ""),
+                                d.get("source_url", ""),
+                                d.get("markdown_content", ""),
+                                d.get("content_hash", ""),
+                                d.get("downloaded_at"),
+                                d.get("extracted_at"),
                                 d.get("extraction_method", "markitdown"),
-                                d.get("total_pages", 1), d.get("file_size", 0),
+                                d.get("total_pages", 1),
+                                d.get("file_size", 0),
                             )
                             imported += 1
                         except Exception as e:
@@ -198,17 +212,23 @@ async def import_seed(dsn: str | None = None, force: bool = False) -> dict:
                                     chunk_text)
                                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
                                    ON CONFLICT(doc_id, chunk_index) DO NOTHING""",
-                                c["doc_id"], c["chunk_index"],
-                                c.get("title", ""), c.get("category", ""),
-                                c.get("decision_date", ""), c.get("decision_number", ""),
-                                c.get("source_url", ""), c.get("total_chunks", 1),
-                                c.get("total_pages", 1), c.get("content_hash", ""),
+                                c["doc_id"],
+                                c["chunk_index"],
+                                c.get("title", ""),
+                                c.get("category", ""),
+                                c.get("decision_date", ""),
+                                c.get("decision_number", ""),
+                                c.get("source_url", ""),
+                                c.get("total_chunks", 1),
+                                c.get("total_pages", 1),
+                                c.get("content_hash", ""),
                                 c["chunk_text"],
                             )
                             imported += 1
                         except Exception as e:
-                            logger.warning("Failed to import chunk %s/%d: %s",
-                                           c.get("doc_id"), c.get("chunk_index", 0), e)
+                            logger.warning(
+                                "Failed to import chunk %s/%d: %s", c.get("doc_id"), c.get("chunk_index", 0), e
+                            )
                     result["chunks"] = imported
                     logger.info("Imported %d chunks", imported)
 
@@ -240,8 +260,9 @@ def main() -> None:
         if result["skipped"]:
             print("Skipped — DB already has data (use --force to overwrite)")
         else:
-            print(f"\nImported: {result['decision_cache']} cache, "
-                  f"{result['documents']} docs, {result['chunks']} chunks")
+            print(
+                f"\nImported: {result['decision_cache']} cache, {result['documents']} docs, {result['chunks']} chunks"
+            )
     else:
         parser.print_help()
 

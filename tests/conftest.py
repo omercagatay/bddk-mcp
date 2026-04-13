@@ -8,7 +8,6 @@ from unittest.mock import AsyncMock, MagicMock
 import asyncpg
 import httpx
 import pytest
-import pytest_asyncio
 
 from doc_store import DocumentStore, StoredDocument
 from models import BddkDecisionSummary
@@ -55,7 +54,7 @@ async def pg_pool():
         _pg_pool_cache = pool
         _pg_pool_loop_id = loop_id
         yield pool
-    except (asyncpg.PostgresError, OSError, asyncio.TimeoutError):
+    except (TimeoutError, asyncpg.PostgresError, OSError):
         pytest.skip("PostgreSQL test database not available")
 
 
@@ -99,6 +98,7 @@ async def doc_store(pg_pool):
     # Also create decision_cache table so BddkApiClient queries
     # don't abort the transaction with "relation does not exist"
     from client import _CACHE_SCHEMA_SQL
+
     await conn.execute(_CACHE_SCHEMA_SQL)
 
     yield store

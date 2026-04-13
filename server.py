@@ -57,8 +57,11 @@ async def create_deps() -> Dependencies:
     )
 
     pool = await asyncpg.create_pool(
-        DATABASE_URL, min_size=PG_POOL_MIN, max_size=PG_POOL_MAX,
-        command_timeout=30, timeout=10,
+        DATABASE_URL,
+        min_size=PG_POOL_MIN,
+        max_size=PG_POOL_MAX,
+        command_timeout=30,
+        timeout=10,
     )
     logger.info("PostgreSQL pool created: %s", DATABASE_URL.split("@")[-1])
 
@@ -69,8 +72,12 @@ async def create_deps() -> Dependencies:
     await client.initialize()
 
     return Dependencies(
-        pool=pool, doc_store=doc_store, client=client, http=http,
-        vector_store=None, server_start_time=time.time(),
+        pool=pool,
+        doc_store=doc_store,
+        client=client,
+        http=http,
+        vector_store=None,
+        server_start_time=time.time(),
     )
 
 
@@ -78,6 +85,7 @@ async def init_vector_store(deps: Dependencies) -> None:
     """Background task: load embedding model and initialize VectorStore."""
     try:
         from vector_store import VectorStore
+
         vs = VectorStore(deps.pool)
         await vs.initialize()
         deps.vector_store = vs
@@ -110,6 +118,7 @@ async def teardown_deps(deps: Dependencies) -> None:
 if __name__ == "__main__":
     try:
         import uvloop
+
         uvloop.install()
         logger.info("uvloop installed")
     except ImportError:
@@ -143,11 +152,16 @@ if __name__ == "__main__":
             # Seed DB
             try:
                 from seed import SEED_DIR, import_seed
+
                 if SEED_DIR.exists():
                     result = await import_seed()
                     if not result["skipped"]:
-                        logger.info("Seed: %d cache, %d docs, %d chunks",
-                                    result["decision_cache"], result["documents"], result["chunks"])
+                        logger.info(
+                            "Seed: %d cache, %d docs, %d chunks",
+                            result["decision_cache"],
+                            result["documents"],
+                            result["chunks"],
+                        )
                     else:
                         logger.info("DB populated — seed skipped")
             except Exception as e:
@@ -158,10 +172,12 @@ if __name__ == "__main__":
 
             # Background: auto-sync
             if AUTO_SYNC:
+
                 async def _sync_after_vector_init():
                     if deps.vector_init_task:
                         await deps.vector_init_task
                     await sync.startup_sync(deps)
+
                 deps.sync_task = asyncio.create_task(_sync_after_vector_init())
                 logger.info("[STARTUP] background sync scheduled")
 
@@ -170,6 +186,7 @@ if __name__ == "__main__":
 
         asyncio.run(_run_server())
     else:
+
         async def _run_stdio():
             deps = await create_deps()
 
@@ -183,10 +200,12 @@ if __name__ == "__main__":
             deps.vector_init_task = asyncio.create_task(init_vector_store(deps))
 
             if AUTO_SYNC:
+
                 async def _sync_after_vector_init():
                     if deps.vector_init_task:
                         await deps.vector_init_task
                     await sync.startup_sync(deps)
+
                 deps.sync_task = asyncio.create_task(_sync_after_vector_init())
 
         asyncio.get_event_loop().run_until_complete(_run_stdio())

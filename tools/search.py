@@ -163,9 +163,7 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
         if keywords:
             kw = _turkish_lower(keywords)
             institutions = [
-                i
-                for i in institutions
-                if kw in _turkish_lower(i["name"]) or kw in _turkish_lower(i.get("type", ""))
+                i for i in institutions if kw in _turkish_lower(i["name"]) or kw in _turkish_lower(i.get("type", ""))
             ]
 
         if not institutions:
@@ -264,10 +262,7 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
             limit: Maximum results to return (default 10)
         """
         if deps.vector_store is None:
-            return (
-                "Vector store is still initializing. "
-                "Please try again in a few moments."
-            )
+            return "Vector store is still initializing. Please try again in a few moments."
 
         cache_key = f"semantic:{query}:{category}:{limit}"
         cached = _search_cache.get(cache_key)

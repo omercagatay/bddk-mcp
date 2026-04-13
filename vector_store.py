@@ -38,7 +38,7 @@ from config import (
 
 logger = logging.getLogger(__name__)
 
-_SCHEMA_SQL = """\
+_SCHEMA_SQL = f"""\
 CREATE TABLE IF NOT EXISTS document_chunks (
     id              SERIAL PRIMARY KEY,
     doc_id          TEXT NOT NULL,
@@ -52,14 +52,14 @@ CREATE TABLE IF NOT EXISTS document_chunks (
     total_pages     INTEGER DEFAULT 1,
     content_hash    TEXT DEFAULT '',
     chunk_text      TEXT NOT NULL,
-    embedding       vector({dim}),
+    embedding       vector({EMBEDDING_DIMENSION}),
     tsv             tsvector,
     UNIQUE(doc_id, chunk_index)
 );
 
 CREATE INDEX IF NOT EXISTS idx_chunks_doc_id ON document_chunks(doc_id);
 CREATE INDEX IF NOT EXISTS idx_chunks_tsv ON document_chunks USING gin(tsv);
-""".format(dim=EMBEDDING_DIMENSION)
+"""
 
 # HNSW index created separately (expensive, only once)
 _HNSW_INDEX_SQL = """
@@ -158,14 +158,10 @@ class VectorStore:
             await conn.execute(_HNSW_INDEX_SQL)
 
         # Backfill tsvector for existing chunks that don't have it
-        null_count = await self._pool.fetchval(
-            "SELECT COUNT(*) FROM document_chunks WHERE tsv IS NULL"
-        )
+        null_count = await self._pool.fetchval("SELECT COUNT(*) FROM document_chunks WHERE tsv IS NULL")
         if null_count and null_count > 0:
             logger.info("Backfilling tsvector for %d chunks...", null_count)
-            await self._pool.execute(
-                "UPDATE document_chunks SET chunk_text = chunk_text WHERE tsv IS NULL"
-            )
+            await self._pool.execute("UPDATE document_chunks SET chunk_text = chunk_text WHERE tsv IS NULL")
             logger.info("tsvector backfill complete")
 
         logger.info("VectorStore initialized (pgvector + FTS hybrid)")
@@ -259,11 +255,22 @@ class VectorStore:
                 args_list = []
                 for i, (chunk, emb) in enumerate(zip(chunks, embeddings, strict=True)):
                     vec_str = "[" + ",".join(str(v) for v in emb) + "]"
-                    args_list.append((
-                        doc_id, i, title, category, decision_date,
-                        decision_number, source_url, len(chunks), total_pages,
-                        content_hash, chunk, vec_str,
-                    ))
+                    args_list.append(
+                        (
+                            doc_id,
+                            i,
+                            title,
+                            category,
+                            decision_date,
+                            decision_number,
+                            source_url,
+                            len(chunks),
+                            total_pages,
+                            content_hash,
+                            chunk,
+                            vec_str,
+                        )
+                    )
 
                 await conn.executemany(
                     """
@@ -311,8 +318,7 @@ class VectorStore:
         """Retrieve a paginated page by fetching only the overlapping chunks."""
         # Get document metadata (total_pages, total_chunks, title)
         meta = await self._pool.fetchrow(
-            "SELECT title, total_pages, total_chunks, category FROM document_chunks "
-            "WHERE doc_id = $1 LIMIT 1",
+            "SELECT title, total_pages, total_chunks, category FROM document_chunks WHERE doc_id = $1 LIMIT 1",
             doc_id,
         )
         if not meta:
@@ -339,7 +345,9 @@ class VectorStore:
             "SELECT chunk_index, chunk_text FROM document_chunks "
             "WHERE doc_id = $1 AND chunk_index >= $2 AND chunk_index <= $3 "
             "ORDER BY chunk_index",
-            doc_id, first_chunk, last_chunk,
+            doc_id,
+            first_chunk,
+            last_chunk,
         )
 
         if not rows:
@@ -361,7 +369,7 @@ class VectorStore:
         content = self._reconstruct_content(rows)
         local_start = start_char - first_chunk * step
         local_start = max(0, local_start)
-        chunk = content[local_start:local_start + PAGE_SIZE]
+        chunk = content[local_start : local_start + PAGE_SIZE]
 
         return {
             "doc_id": doc_id,
@@ -539,7 +547,9 @@ class VectorStore:
             _FTS_GATE_PENALTY = 0.65
             for hit in vector_hits:
                 hit["relevance"] = round(hit.get("relevance", 0) * _FTS_GATE_PENALTY, 4)
-            logger.debug("FTS gate: 0 keyword matches, applying %.0f%% penalty to vector scores", (1 - _FTS_GATE_PENALTY) * 100)
+            logger.debug(
+                "FTS gate: 0 keyword matches, applying %.0f%% penalty to vector scores", (1 - _FTS_GATE_PENALTY) * 100
+            )
 
         # Step 3: RRF fusion
         fused = self._rrf_fuse(vector_hits, fts_hits)
@@ -623,9 +633,10 @@ class VectorStore:
         pairs = [(query, c["snippet"]) for c in candidates]
         loop = asyncio.get_running_loop()
         scores = await loop.run_in_executor(None, self._rerank_fn.predict, pairs)
-        for candidate, score in zip(candidates, scores):
+        for candidate, score in zip(candidates, scores, strict=False):
             candidate["rerank_score"] = float(score)
             import math as _math
+
             candidate["relevance"] = round(1.0 / (1.0 + _math.exp(-float(score))), 4)
         return sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)
 
@@ -641,9 +652,7 @@ class VectorStore:
 
     async def document_count(self) -> int:
         """Return number of unique documents (not chunks)."""
-        return await self._pool.fetchval(
-            "SELECT COUNT(DISTINCT doc_id) FROM document_chunks"
-        )
+        return await self._pool.fetchval("SELECT COUNT(DISTINCT doc_id) FROM document_chunks")
 
     async def chunk_count(self) -> int:
         """Return total number of chunks."""
@@ -656,8 +665,7 @@ class VectorStore:
 
         categories: dict[str, int] = {}
         rows = await self._pool.fetch(
-            "SELECT category, COUNT(DISTINCT doc_id) AS cnt "
-            "FROM document_chunks GROUP BY category ORDER BY category"
+            "SELECT category, COUNT(DISTINCT doc_id) AS cnt FROM document_chunks GROUP BY category ORDER BY category"
         )
         for r in rows:
             categories[r["category"] or "Unknown"] = r["cnt"]
@@ -673,7 +681,5 @@ class VectorStore:
 
     async def delete_document(self, doc_id: str) -> bool:
         """Delete all chunks for a document."""
-        result = await self._pool.execute(
-            "DELETE FROM document_chunks WHERE doc_id = $1", doc_id
-        )
+        result = await self._pool.execute("DELETE FROM document_chunks WHERE doc_id = $1", doc_id)
         return result != "DELETE 0"

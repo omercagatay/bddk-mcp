@@ -350,10 +350,6 @@ class DocumentStore:
         if not terms:
             return []
 
-        # Build tsquery: each term joined with &
-        tsquery = " & ".join(f"unaccent('{t}')" for t in terms)
-        tsquery_expr = f"to_tsquery('simple', {tsquery})"
-
         # Use plainto_tsquery for safety, with unaccent on the query
         safe_query = " ".join(terms)
 
@@ -443,14 +439,17 @@ class DocumentStore:
                 attempts = sync_failures.attempts + 1,
                 last_failed_at = EXCLUDED.last_failed_at
             """,
-            doc_id, error, category, source_url, retryable, now,
+            doc_id,
+            error,
+            category,
+            source_url,
+            retryable,
+            now,
         )
 
     async def clear_sync_failure(self, doc_id: str) -> None:
         """Remove a sync failure record after successful sync."""
-        await self._pool.execute(
-            "DELETE FROM sync_failures WHERE document_id = $1", doc_id
-        )
+        await self._pool.execute("DELETE FROM sync_failures WHERE document_id = $1", doc_id)
 
     async def get_sync_failures(self, retryable_only: bool = False) -> list[dict]:
         """Get all current sync failures."""
@@ -474,9 +473,7 @@ class DocumentStore:
                     doc_id = item.get("document_id", "")
                     if not doc_id:
                         continue
-                    existing = await conn.fetchval(
-                        "SELECT 1 FROM documents WHERE document_id = $1", doc_id
-                    )
+                    existing = await conn.fetchval("SELECT 1 FROM documents WHERE document_id = $1", doc_id)
                     if existing:
                         continue
 
@@ -580,8 +577,7 @@ class DocumentStore:
     async def get_version_count(self, doc_id: str) -> tuple[int, str | None]:
         """Get version count and latest sync time for a document (lightweight)."""
         row = await self._pool.fetchrow(
-            "SELECT COUNT(*) AS cnt, MAX(synced_at) AS latest "
-            "FROM document_versions WHERE document_id = $1",
+            "SELECT COUNT(*) AS cnt, MAX(synced_at) AS latest FROM document_versions WHERE document_id = $1",
             doc_id,
         )
         if not row or row["cnt"] == 0:
@@ -637,5 +633,8 @@ class DocumentStore:
                 last_sync_at=EXCLUDED.last_sync_at,
                 sync_count=sync_metadata.sync_count + 1
             """,
-            doc_id, etag, last_modified, now,
+            doc_id,
+            etag,
+            last_modified,
+            now,
         )

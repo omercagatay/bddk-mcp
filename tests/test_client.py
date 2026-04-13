@@ -18,7 +18,6 @@ def _make_client(**kwargs) -> BddkApiClient:
 
 
 class TestFetchWithRetry:
-
     @pytest.mark.asyncio
     async def test_success_first_try(self):
         client = _make_client()
@@ -58,13 +57,14 @@ class TestCachePersistence:
     @pytest.mark.asyncio
     async def test_save_and_load_cache(self, doc_store):
         """Use doc_store fixture which provides a transactional pool wrapper."""
-        from tests.conftest import SingleConnPool
 
         pool = doc_store._pool  # SingleConnPool wrapping a real connection
         client = BddkApiClient(pool=pool)
         await client.initialize()
 
-        client._cache = [BddkDecisionSummary(title="Test", document_id="cache_test_1", content="test", category="Rehber")]
+        client._cache = [
+            BddkDecisionSummary(title="Test", document_id="cache_test_1", content="test", category="Rehber")
+        ]
         client._cache_timestamp = time.time()
 
         await client._save_cache_to_db()
@@ -89,7 +89,6 @@ class TestCachePersistence:
 
 
 class TestAccordionParsing:
-
     @pytest.mark.asyncio
     async def test_parse_accordion_page(self):
         client = _make_client()
@@ -112,7 +111,6 @@ class TestAccordionParsing:
 
 
 class TestDecisionParsing:
-
     @pytest.mark.asyncio
     async def test_parse_decision_page(self):
         client = _make_client()
@@ -136,7 +134,6 @@ class TestDecisionParsing:
 
 
 class TestDocumentUrlResolution:
-
     def test_numeric_id(self):
         client = _make_client()
         url = client._resolve_document_url("1296")
@@ -165,7 +162,6 @@ class TestDocumentUrlResolution:
 
 
 class TestCacheValidity:
-
     def test_empty_cache_invalid(self):
         client = _make_client()
         assert not client._is_cache_valid()
@@ -184,7 +180,6 @@ class TestCacheValidity:
 
 
 class TestCacheStatus:
-
     def test_cache_status_with_data(self):
         client = _make_client()
         client._cache = [

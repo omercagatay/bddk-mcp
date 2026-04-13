@@ -11,3 +11,6 @@ chroma_db/
 # SQLite WAL files
 *.db-shm
 *.db-wal
+
+# Environment variables
+.env

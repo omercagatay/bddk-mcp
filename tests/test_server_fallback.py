@@ -11,8 +11,8 @@ class TestVectorStoreInit:
     @pytest.mark.asyncio
     async def test_failed_init_leaves_vector_store_none(self):
         """If VectorStore.initialize() raises, deps.vector_store stays None."""
-        from server import init_vector_store
         from deps import Dependencies
+        from server import init_vector_store
 
         deps = MagicMock(spec=Dependencies)
         deps.pool = AsyncMock()
@@ -20,9 +20,7 @@ class TestVectorStoreInit:
 
         with patch("vector_store.VectorStore") as MockVS:
             instance = MockVS.return_value
-            instance.initialize = AsyncMock(
-                side_effect=RuntimeError("pgvector extension not available")
-            )
+            instance.initialize = AsyncMock(side_effect=RuntimeError("pgvector extension not available"))
 
             await init_vector_store(deps)
 
@@ -32,8 +30,8 @@ class TestVectorStoreInit:
     @pytest.mark.asyncio
     async def test_successful_init_sets_vector_store(self):
         """After successful initialize(), deps.vector_store is set."""
-        from server import init_vector_store
         from deps import Dependencies
+        from server import init_vector_store
 
         deps = MagicMock(spec=Dependencies)
         deps.pool = AsyncMock()
@@ -69,9 +67,7 @@ class TestGetBddkDocumentFallback:
         )
 
         mock_vs = MagicMock()
-        mock_vs.get_document_page = AsyncMock(
-            side_effect=Exception('relation "document_chunks" does not exist')
-        )
+        mock_vs.get_document_page = AsyncMock(side_effect=Exception('relation "document_chunks" does not exist'))
 
         deps = MagicMock(spec=Dependencies)
         deps.client = mock_client
@@ -79,9 +75,11 @@ class TestGetBddkDocumentFallback:
 
         # Import the tool via the tools module directly
         from mcp.server.fastmcp import FastMCP
+
         test_mcp = FastMCP("test")
 
         from tools import documents
+
         documents.register(test_mcp, deps)
 
         # Find the registered tool
@@ -119,9 +117,11 @@ class TestGetBddkDocumentFallback:
         deps.vector_store = mock_vs
 
         from mcp.server.fastmcp import FastMCP
+
         test_mcp = FastMCP("test")
 
         from tools import documents
+
         documents.register(test_mcp, deps)
 
         tool_fn = None

@@ -1,6 +1,5 @@
 """Tests for improvements: chunk overlap fix, stale cache, extraction errors, etc."""
 
-import time
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -16,7 +15,6 @@ from vector_store import _chunk_text
 
 
 class TestChunkOverlapFix:
-
     def test_short_text_no_chunking(self):
         chunks = _chunk_text("Hello world", chunk_size=100, overlap=20)
         assert len(chunks) == 1
@@ -51,6 +49,7 @@ class TestChunkOverlapFix:
         class FakeRecord:
             def __init__(self, text):
                 self._data = {"chunk_text": text}
+
             def __getitem__(self, key):
                 return self._data[key]
 
@@ -68,6 +67,7 @@ class TestChunkOverlapFix:
         class FakeRecord:
             def __init__(self, text):
                 self._data = {"chunk_text": text}
+
             def __getitem__(self, key):
                 return self._data[key]
 
@@ -83,6 +83,7 @@ class TestChunkOverlapFix:
         class FakeRecord:
             def __init__(self, text):
                 self._data = {"chunk_text": text}
+
             def __getitem__(self, key):
                 return self._data[key]
 
@@ -134,7 +135,6 @@ class TestStaleCacheFallback:
 
 
 class TestExtractionResult:
-
     def test_successful_extraction(self):
         result = ExtractionResult(content="# Hello", method="html_parser")
         assert result.content == "# Hello"
@@ -153,7 +153,6 @@ class TestExtractionResult:
 
 
 class TestExtractStructured:
-
     def test_html_extraction(self):
         syncer = DocumentSyncer.__new__(DocumentSyncer)
         syncer._prefer_nougat = False
@@ -192,7 +191,6 @@ class TestExtractStructured:
 
 
 class TestUnmappedCategoryWarning:
-
     @pytest.mark.asyncio
     async def test_unmapped_category_logged(self, caplog):
         html = """
@@ -208,6 +206,7 @@ class TestUnmappedCategoryWarning:
         client._http.get = AsyncMock(return_value=make_http_response(html))
 
         import logging
+
         with caplog.at_level(logging.WARNING, logger="client"):
             results = await client._fetch_and_parse_accordion_page(50)
 
@@ -224,6 +223,7 @@ class TestUnmappedCategoryWarning:
         client._http.get = AsyncMock(return_value=make_http_response(BDDK_ACCORDION_HTML))
 
         import logging
+
         with caplog.at_level(logging.WARNING, logger="client"):
             await client._fetch_and_parse_accordion_page(50)
 
@@ -234,7 +234,6 @@ class TestUnmappedCategoryWarning:
 
 
 class TestSyncProgress:
-
     @pytest.mark.asyncio
     async def test_progress_callback_called(self, doc_store):
         progress_calls = []
@@ -267,12 +266,12 @@ class TestSyncProgress:
 
 
 class TestDocumentVersioning:
-
     @pytest.mark.asyncio
     async def test_version_created_on_content_change(self, doc_store, sample_doc):
         await doc_store.store_document(sample_doc)
 
         from doc_store import StoredDocument
+
         updated = StoredDocument(
             document_id=sample_doc.document_id,
             title=sample_doc.title,
@@ -291,7 +290,6 @@ class TestDocumentVersioning:
 
 
 class TestAllAnnouncementCategories:
-
     @pytest.mark.asyncio
     async def test_check_updates_covers_all_categories(self):
         from analytics import check_updates

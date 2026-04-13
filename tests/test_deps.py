@@ -1,6 +1,7 @@
 """Tests for the Dependencies container."""
 
 import time
+
 from deps import Dependencies
 
 

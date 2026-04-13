@@ -1,12 +1,13 @@
 """Tests for circuit breaker logic in tools/sync.py."""
 
 import time
+
 from deps import Dependencies
 
 
 def test_circuit_opens_after_threshold():
     deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
-    from tools.sync import _record_sync_failure, CIRCUIT_BREAKER_THRESHOLD
+    from tools.sync import CIRCUIT_BREAKER_THRESHOLD, _record_sync_failure
 
     for _ in range(CIRCUIT_BREAKER_THRESHOLD):
         _record_sync_failure(deps, "test error")
@@ -32,7 +33,7 @@ def test_circuit_resets_on_success():
 
 def test_circuit_does_not_open_below_threshold():
     deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
-    from tools.sync import _record_sync_failure, CIRCUIT_BREAKER_THRESHOLD
+    from tools.sync import CIRCUIT_BREAKER_THRESHOLD, _record_sync_failure
 
     for _ in range(CIRCUIT_BREAKER_THRESHOLD - 1):
         _record_sync_failure(deps, "test error")

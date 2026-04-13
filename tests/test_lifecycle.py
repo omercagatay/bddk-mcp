@@ -1,6 +1,7 @@
 """Integration tests for server lifecycle."""
 
 import time
+
 from deps import Dependencies
 
 
@@ -37,6 +38,7 @@ def test_deps_health_state_tracking():
 def test_all_tool_modules_importable():
     """All tool modules can be imported and have register()."""
     from tools import admin, analytics, bulletin, documents, search, sync
+
     for mod in [admin, analytics, bulletin, documents, search, sync]:
         assert hasattr(mod, "register"), f"{mod.__name__} missing register()"
         assert callable(mod.register)
@@ -44,6 +46,8 @@ def test_all_tool_modules_importable():
 
 def test_sync_module_has_startup_sync():
     """sync module exposes startup_sync for server.py."""
-    from tools.sync import startup_sync
     import asyncio
+
+    from tools.sync import startup_sync
+
     assert asyncio.iscoroutinefunction(startup_sync)
