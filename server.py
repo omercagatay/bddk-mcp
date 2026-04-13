@@ -181,11 +181,14 @@ if __name__ == "__main__":
                 deps.sync_task = asyncio.create_task(_sync_after_vector_init())
                 logger.info("[STARTUP] background sync scheduled")
 
-            await server.serve()
-            await teardown_deps(deps)
+            try:
+                await server.serve()
+            finally:
+                await teardown_deps(deps)
 
         asyncio.run(_run_server())
     else:
+        # Default transport: stdio
         import anyio
 
         async def _run_stdio():
