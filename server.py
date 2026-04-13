@@ -130,14 +130,33 @@ if __name__ == "__main__":
     logger.info("DATABASE_URL=%s", DATABASE_URL.split("@")[-1])
 
     if _transport == "streamable-http":
+        import signal
+        import sys
         import uvicorn
+
+        _orig_sigterm = signal.getsignal(signal.SIGTERM)
+
+        def _diag_sigterm(signum, frame):
+            print(f"[DIAG] SIGTERM received! signum={signum}", file=sys.stderr, flush=True)
+            import traceback
+
+            traceback.print_stack(frame, file=sys.stderr)
+            # Restore and re-raise so uvicorn's handler still works
+            signal.signal(signal.SIGTERM, _orig_sigterm)
+            if callable(_orig_sigterm):
+                _orig_sigterm(signum, frame)
+
+        signal.signal(signal.SIGTERM, _diag_sigterm)
+        print("[DIAG] SIGTERM diagnostic handler installed", file=sys.stderr, flush=True)
 
         app = mcp.streamable_http_app()
         port = int(os.environ.get("PORT", 8000))
 
         async def _run_server():
+            print(f"[DIAG] _run_server() entered, should_exit check pending", file=sys.stderr, flush=True)
             config = uvicorn.Config(app, host="0.0.0.0", port=port)
             server = uvicorn.Server(config)
+            print(f"[DIAG] uvicorn.Server created, config.loaded={config.loaded}", file=sys.stderr, flush=True)
 
             deps = await create_deps()
 
@@ -181,9 +200,20 @@ if __name__ == "__main__":
                 deps.sync_task = asyncio.create_task(_sync_after_vector_init())
                 logger.info("[STARTUP] background sync scheduled")
 
+            import sys
+
+            print(f"[DIAG] about to call server.serve() port={port}", file=sys.stderr, flush=True)
             try:
                 await server.serve()
+            except BaseException as e:
+                print(f"[DIAG] server.serve() raised: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+                raise
             finally:
+                print(
+                    f"[DIAG] should_exit={server.should_exit} started={server.started}",
+                    file=sys.stderr,
+                    flush=True,
+                )
                 await teardown_deps(deps)
 
         asyncio.run(_run_server())
