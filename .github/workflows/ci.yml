@@ -34,3 +34,19 @@ jobs:
         run: uv sync --dev --python ${{ matrix.python-version }}
       - name: Run tests
         run: uv run pytest tests/ -v --tb=short
+
+  smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+      - name: Install dependencies
+        run: uv sync --frozen --no-dev
+      - name: Verify Python imports
+        run: uv run python -c "from tools import admin, analytics, bulletin, documents, search, sync; print('OK')"
+      - name: Verify Dockerfiles copy tools directory
+        run: |
+          grep -q "COPY tools/" Dockerfile
+          grep -q "COPY tools/" Dockerfile.spaces
