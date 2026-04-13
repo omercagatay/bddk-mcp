@@ -29,8 +29,9 @@ import httpx
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
 
-from config import BASE_DIR, MAX_RETRIES, REQUEST_TIMEOUT
+from config import BASE_DIR, REQUEST_TIMEOUT
 from doc_store import DocumentStore, StoredDocument
+from utils import MEVZUAT_TUR_MAP, fetch_with_retry
 
 CACHE_FILE = BASE_DIR / ".cache.json"  # legacy path for CLI compat
 
@@ -56,17 +57,6 @@ def _categorize_error(error: str) -> tuple[str, bool]:
     if "connect" in lower or "connection" in lower:
         return "connection", True
     return "unknown", True
-
-
-_MEVZUAT_TUR_MAP = {
-    "1": "kanun",
-    "2": "kanunhukmundekararname",
-    "4": "cumhurbaskanligikararnamesi",
-    "5": "tuzuk",
-    "7": "yonetmelik",
-    "9": "teblig",
-    "11": "cumhurbaskanligikararnamesi",
-}
 
 
 # ── Result models ────────────────────────────────────────────────────────────
@@ -226,25 +216,9 @@ def _extract_html_to_markdown(html: str) -> str:
 # ── Download helpers ─────────────────────────────────────────────────────────
 
 
-async def _fetch_with_retry(http: httpx.AsyncClient, url: str, max_retries: int = MAX_RETRIES) -> httpx.Response:
-    """Fetch URL with exponential backoff."""
-    last_exc = None
-    for attempt in range(max_retries):
-        try:
-            resp = await http.get(url)
-            resp.raise_for_status()
-            return resp
-        except (httpx.HTTPStatusError, httpx.TransportError) as e:
-            last_exc = e
-            if attempt < max_retries - 1:
-                await asyncio.sleep(2**attempt)
-                logger.warning("Retry %d for %s: %s", attempt + 1, url, e)
-    raise last_exc  # type: ignore
-
-
 def _mevzuat_pdf_url(mevzuat_no: str, tur: str = "7", tertip: str = "5") -> str | None:
     """Build mevzuat.gov.tr direct PDF URL."""
-    segment = _MEVZUAT_TUR_MAP.get(tur)
+    segment = MEVZUAT_TUR_MAP.get(tur)
     if not segment:
         return None
     return f"https://www.mevzuat.gov.tr/MevzuatMetin/{segment}/{tur}.{tertip}.{mevzuat_no}.pdf"
@@ -252,7 +226,7 @@ def _mevzuat_pdf_url(mevzuat_no: str, tur: str = "7", tertip: str = "5") -> str 
 
 def _mevzuat_doc_url(mevzuat_no: str, tur: str = "7", tertip: str = "5") -> str:
     """Build mevzuat.gov.tr Word (.doc) download URL."""
-    segment = _MEVZUAT_TUR_MAP.get(tur, "yonetmelik")
+    segment = MEVZUAT_TUR_MAP.get(tur, "yonetmelik")
     return f"https://www.mevzuat.gov.tr/MevzuatMetin/{segment}/{tur}.{tertip}.{mevzuat_no}.doc"
 
 
@@ -411,7 +385,7 @@ class DocumentSyncer:
     async def _download_bddk(self, doc_id: str) -> tuple[bytes, str, str]:
         """Download from BDDK DokumanGetir endpoint."""
         url = _BDDK_DOC_URL.format(document_id=doc_id)
-        resp = await _fetch_with_retry(self._http, url)
+        resp = await fetch_with_retry(self._http, url)
         content_type = resp.headers.get("content-type", "").lower()
         ext = ".pdf" if "pdf" in content_type else ".html"
         return resp.content, "bddk_direct", ext
@@ -446,10 +420,10 @@ class DocumentSyncer:
         # Build list of tur values to try.
         # Always try the source/default tur first, then fall back to all others.
         # Even when source_url provides tur, it may be stale or wrong (404).
-        tur_candidates = [tur] + [t for t in _MEVZUAT_TUR_MAP if t != tur]
+        tur_candidates = [tur] + [t for t in MEVZUAT_TUR_MAP if t != tur]
 
         for candidate_tur in tur_candidates:
-            segment = _MEVZUAT_TUR_MAP.get(candidate_tur, "yonetmelik")
+            segment = MEVZUAT_TUR_MAP.get(candidate_tur, "yonetmelik")
             base = f"{candidate_tur}.{tertip}.{mevzuat_no}"
 
             # Per-layer timeout: short enough so one slow layer doesn't kill the rest

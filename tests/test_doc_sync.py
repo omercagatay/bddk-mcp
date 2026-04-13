@@ -9,12 +9,12 @@ from doc_store import StoredDocument
 from doc_sync import (
     DocumentSyncer,
     _extract_html_to_markdown,
-    _fetch_with_retry,
     _mevzuat_doc_url,
     _mevzuat_pdf_url,
     _parse_mevzuat_params,
 )
 from tests.conftest import make_http_response
+from utils import fetch_with_retry
 
 # -- URL helpers -----------------------------------------------------------
 
@@ -85,7 +85,7 @@ class TestFetchWithRetry:
         http = AsyncMock(spec=httpx.AsyncClient)
         http.get = AsyncMock(return_value=make_http_response("OK"))
 
-        resp = await _fetch_with_retry(http, "https://example.com")
+        resp = await fetch_with_retry(http, "https://example.com")
         assert resp.text == "OK"
 
     @pytest.mark.asyncio
@@ -94,7 +94,7 @@ class TestFetchWithRetry:
         ok_resp = make_http_response("OK")
         http.get = AsyncMock(side_effect=[httpx.TransportError("fail"), ok_resp])
 
-        resp = await _fetch_with_retry(http, "https://example.com")
+        resp = await fetch_with_retry(http, "https://example.com")
         assert resp.text == "OK"
 
     @pytest.mark.asyncio
@@ -103,7 +103,7 @@ class TestFetchWithRetry:
         http.get = AsyncMock(side_effect=httpx.TransportError("fail"))
 
         with pytest.raises(httpx.TransportError):
-            await _fetch_with_retry(http, "https://example.com")
+            await fetch_with_retry(http, "https://example.com")
 
 
 # -- DocumentSyncer -------------------------------------------------------
