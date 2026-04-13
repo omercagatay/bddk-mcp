@@ -30,9 +30,9 @@ from bs4 import BeautifulSoup
 from pydantic import BaseModel
 
 from config import BASE_DIR, MAX_RETRIES, REQUEST_TIMEOUT
+from doc_store import DocumentStore, StoredDocument
 
 CACHE_FILE = BASE_DIR / ".cache.json"  # legacy path for CLI compat
-from doc_store import DocumentStore, StoredDocument
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +56,8 @@ def _categorize_error(error: str) -> tuple[str, bool]:
     if "connect" in lower or "connection" in lower:
         return "connection", True
     return "unknown", True
+
+
 _MEVZUAT_TUR_MAP = {
     "1": "kanun",
     "2": "kanunhukmundekararname",
@@ -477,9 +479,7 @@ class DocumentSyncer:
 
             # Layer 3: Main page → iframe content (richer HTML)
             try:
-                main_url = (
-                    f"https://www.mevzuat.gov.tr/mevzuat?MevzuatNo={mevzuat_no}&MevzuatTur={candidate_tur}&MevzuatTertip={tertip}"
-                )
+                main_url = f"https://www.mevzuat.gov.tr/mevzuat?MevzuatNo={mevzuat_no}&MevzuatTur={candidate_tur}&MevzuatTertip={tertip}"
                 resp = await self._http.get(main_url, timeout=layer_timeout)
                 if resp.status_code == 200:
                     soup = BeautifulSoup(resp.text, "html.parser")
@@ -674,6 +674,7 @@ class DocumentSyncer:
 async def _create_pool_and_store(dsn: str | None) -> tuple:
     """Create asyncpg pool and DocumentStore for CLI usage."""
     import asyncpg as _asyncpg
+
     from config import DATABASE_URL
 
     pool = await _asyncpg.create_pool(dsn or DATABASE_URL, min_size=1, max_size=5)

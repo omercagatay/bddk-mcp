@@ -5,7 +5,7 @@
       "args": ["run", "--directory", "/home/cagatay/bddk-mcp", "--python", "3.12", "mcp", "run", "server.py"],
       "env": {
         "MCP_TRANSPORT": "stdio",
-        "BDDK_DATABASE_URL": "postgresql://bddk:bddk@localhost:5432/bddk"
+        "BDDK_DATABASE_URL": "${BDDK_DATABASE_URL}"
       }
     }
   }

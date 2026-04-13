@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import time
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
 from tools.search import _LRUCache
-
 
 # -- LRU cache unit tests ---------------------------------------------------
 
