@@ -154,7 +154,7 @@ if __name__ == "__main__":
                 from seed import SEED_DIR, import_seed
 
                 if SEED_DIR.exists():
-                    result = await import_seed()
+                    result = await import_seed(pool=deps.pool)
                     if not result["skipped"]:
                         logger.info(
                             "Seed: %d cache, %d docs, %d chunks",
