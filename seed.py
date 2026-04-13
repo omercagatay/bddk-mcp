@@ -125,18 +125,42 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
         await client.initialize()
 
         async with pool.acquire() as conn:
-            # Check if DB already has data
+            # Check if DB already has data — compare counts to detect stale seed
+            cache_count = await conn.fetchval("SELECT COUNT(*) FROM decision_cache")
+            doc_count = await conn.fetchval("SELECT COUNT(*) FROM documents")
+            chunk_count = await conn.fetchval("SELECT COUNT(*) FROM document_chunks")
+
+            # Load seed file counts for comparison
+            cache_path = SEED_DIR / "decision_cache.json"
+            docs_path = SEED_DIR / "documents.json"
+            chunks_path = SEED_DIR / "chunks.json"
+            seed_cache = len(json.loads(cache_path.read_text(encoding="utf-8"))) if cache_path.exists() else 0
+            seed_docs = len(json.loads(docs_path.read_text(encoding="utf-8"))) if docs_path.exists() else 0
+            seed_chunks = len(json.loads(chunks_path.read_text(encoding="utf-8"))) if chunks_path.exists() else 0
+
             if not force:
-                cache_count = await conn.fetchval("SELECT COUNT(*) FROM decision_cache")
-                doc_count = await conn.fetchval("SELECT COUNT(*) FROM documents")
-                if cache_count > 0 and doc_count > 0:
+                # Skip only if DB has >= seed counts (i.e. seed is not newer)
+                if cache_count >= seed_cache and doc_count >= seed_docs and chunk_count >= seed_chunks:
                     logger.info(
-                        "DB already has data (%d cache, %d docs) — skipping seed import",
+                        "DB up-to-date (%d/%d cache, %d/%d docs, %d/%d chunks) — skipping seed",
                         cache_count,
+                        seed_cache,
                         doc_count,
+                        seed_docs,
+                        chunk_count,
+                        seed_chunks,
                     )
                     result["skipped"] = True
                     return result
+                logger.info(
+                    "Seed has newer data (DB: %d cache, %d docs, %d chunks; seed: %d, %d, %d) — importing",
+                    cache_count,
+                    doc_count,
+                    chunk_count,
+                    seed_cache,
+                    seed_docs,
+                    seed_chunks,
+                )
 
             # 1. Decision cache
             cache_path = SEED_DIR / "decision_cache.json"
@@ -152,7 +176,13 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
                                    (document_id, title, content, decision_date,
                                     decision_number, category, source_url, cached_at)
                                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-                                   ON CONFLICT(document_id) DO NOTHING""",
+                                   ON CONFLICT(document_id) DO UPDATE SET
+                                   title=EXCLUDED.title, content=EXCLUDED.content,
+                                   decision_date=EXCLUDED.decision_date,
+                                   decision_number=EXCLUDED.decision_number,
+                                   category=EXCLUDED.category,
+                                   source_url=EXCLUDED.source_url,
+                                   cached_at=EXCLUDED.cached_at""",
                                 d["document_id"],
                                 d.get("title", ""),
                                 d.get("content", ""),
@@ -180,7 +210,18 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
                                     content_hash, downloaded_at, extracted_at,
                                     extraction_method, total_pages, file_size)
                                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-                                   ON CONFLICT(document_id) DO NOTHING""",
+                                   ON CONFLICT(document_id) DO UPDATE SET
+                                   title=EXCLUDED.title, category=EXCLUDED.category,
+                                   decision_date=EXCLUDED.decision_date,
+                                   decision_number=EXCLUDED.decision_number,
+                                   source_url=EXCLUDED.source_url,
+                                   markdown_content=EXCLUDED.markdown_content,
+                                   content_hash=EXCLUDED.content_hash,
+                                   downloaded_at=EXCLUDED.downloaded_at,
+                                   extracted_at=EXCLUDED.extracted_at,
+                                   extraction_method=EXCLUDED.extraction_method,
+                                   total_pages=EXCLUDED.total_pages,
+                                   file_size=EXCLUDED.file_size""",
                                 d["document_id"],
                                 d.get("title", ""),
                                 d.get("category", ""),
@@ -216,7 +257,15 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
                                     total_chunks, total_pages, content_hash,
                                     chunk_text)
                                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-                                   ON CONFLICT(doc_id, chunk_index) DO NOTHING""",
+                                   ON CONFLICT(doc_id, chunk_index) DO UPDATE SET
+                                   title=EXCLUDED.title, category=EXCLUDED.category,
+                                   decision_date=EXCLUDED.decision_date,
+                                   decision_number=EXCLUDED.decision_number,
+                                   source_url=EXCLUDED.source_url,
+                                   total_chunks=EXCLUDED.total_chunks,
+                                   total_pages=EXCLUDED.total_pages,
+                                   content_hash=EXCLUDED.content_hash,
+                                   chunk_text=EXCLUDED.chunk_text""",
                                 c["doc_id"],
                                 c["chunk_index"],
                                 c.get("title", ""),
