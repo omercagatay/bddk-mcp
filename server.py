@@ -208,5 +208,8 @@ if __name__ == "__main__":
 
                 deps.sync_task = asyncio.create_task(_sync_after_vector_init())
 
-        asyncio.get_event_loop().run_until_complete(_run_stdio())
+            return deps
+
+        deps = asyncio.run(_run_stdio())
         mcp.run(transport=_transport)
+        asyncio.run(teardown_deps(deps))
