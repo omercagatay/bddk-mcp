@@ -200,3 +200,45 @@ class TestCacheStatus:
         status = client.cache_status()
         assert status["total_items"] == 0
         assert status["cache_valid"] is False
+
+
+class TestPublicCacheAPI:
+    """Tests for BddkApiClient public cache API methods."""
+
+    def _client_with_cache(self) -> BddkApiClient:
+        client = _make_client()
+        client._cache = [
+            BddkDecisionSummary(title="Rehber A", document_id="doc-1", content="", category="Rehber"),
+            BddkDecisionSummary(title="Genelge B", document_id="doc-2", content="", category="Genelge"),
+        ]
+        return client
+
+    def test_get_cache_items_returns_copy(self):
+        client = self._client_with_cache()
+        items = client.get_cache_items()
+        assert len(items) == 2
+        # Mutating the returned list must not affect internal cache
+        items.clear()
+        assert client.cache_size() == 2
+
+    def test_get_cache_items_empty(self):
+        client = _make_client()
+        assert client.get_cache_items() == []
+
+    def test_find_by_id_found(self):
+        client = self._client_with_cache()
+        result = client.find_by_id("doc-1")
+        assert result is not None
+        assert result.title == "Rehber A"
+
+    def test_find_by_id_not_found(self):
+        client = self._client_with_cache()
+        assert client.find_by_id("nonexistent") is None
+
+    def test_cache_size(self):
+        client = self._client_with_cache()
+        assert client.cache_size() == 2
+
+    def test_cache_size_empty(self):
+        client = _make_client()
+        assert client.cache_size() == 0

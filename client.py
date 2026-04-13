@@ -360,8 +360,8 @@ class BddkApiClient:
         }
 
     def get_cache_items(self) -> list[BddkDecisionSummary]:
-        """Return the internal cached decision list. Do not mutate the returned list."""
-        return self._cache
+        """Return a shallow copy of the cached decision list."""
+        return list(self._cache)
 
     def find_by_id(self, doc_id: str) -> BddkDecisionSummary | None:
         """Find a cached decision by document_id. Returns None if not found."""

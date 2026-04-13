@@ -29,14 +29,26 @@ async def fetch_with_retry(
     url: str,
     max_retries: int = MAX_RETRIES,
 ) -> httpx.Response:
-    """Fetch a URL with exponential backoff retry."""
+    """Fetch a URL with exponential backoff retry.
+
+    Only retries on 5xx server errors, 429 rate limiting, and transport errors.
+    4xx client errors are raised immediately without retrying.
+    """
     last_exc = None
     for attempt in range(max_retries):
         try:
             response = await http.get(url)
             response.raise_for_status()
             return response
-        except (httpx.HTTPStatusError, httpx.TransportError) as exc:
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code < 500 and exc.response.status_code != 429:
+                raise  # 4xx client errors: don't retry
+            last_exc = exc
+            if attempt < max_retries - 1:
+                wait = 2**attempt
+                logger.warning("Retry %d/%d for %s: %s", attempt + 1, max_retries, url, exc)
+                await asyncio.sleep(wait)
+        except httpx.TransportError as exc:
             last_exc = exc
             if attempt < max_retries - 1:
                 wait = 2**attempt
