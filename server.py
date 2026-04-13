@@ -181,11 +181,15 @@ if __name__ == "__main__":
                 deps.sync_task = asyncio.create_task(_sync_after_vector_init())
                 logger.info("[STARTUP] background sync scheduled")
 
-            await server.serve()
-            await teardown_deps(deps)
+            try:
+                await server.serve()
+            finally:
+                await teardown_deps(deps)
 
         asyncio.run(_run_server())
     else:
+        # Default transport: stdio
+        import anyio
 
         async def _run_stdio():
             deps = await create_deps()
@@ -197,6 +201,25 @@ if __name__ == "__main__":
             sync.register(mcp, deps)
             admin.register(mcp, deps)
 
+            # Seed DB
+            try:
+                from seed import SEED_DIR, import_seed
+
+                if SEED_DIR.exists():
+                    result = await import_seed(pool=deps.pool)
+                    if not result["skipped"]:
+                        logger.info(
+                            "Seed: %d cache, %d docs, %d chunks",
+                            result["decision_cache"],
+                            result["documents"],
+                            result["chunks"],
+                        )
+                    else:
+                        logger.info("DB populated — seed skipped")
+            except Exception as e:
+                logger.warning("Seed failed (non-fatal): %s", e)
+
+            # Background tasks — same event loop as MCP server so they actually run
             deps.vector_init_task = asyncio.create_task(init_vector_store(deps))
 
             if AUTO_SYNC:
@@ -207,9 +230,11 @@ if __name__ == "__main__":
                     await sync.startup_sync(deps)
 
                 deps.sync_task = asyncio.create_task(_sync_after_vector_init())
+                logger.info("[STARTUP] background sync scheduled")
 
-            return deps
+            try:
+                await mcp.run_stdio_async()
+            finally:
+                await teardown_deps(deps)
 
-        deps = asyncio.run(_run_stdio())
-        mcp.run(transport=_transport)
-        asyncio.run(teardown_deps(deps))
+        anyio.run(_run_stdio)
