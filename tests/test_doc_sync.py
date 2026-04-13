@@ -30,7 +30,9 @@ class TestMevzuatUrlHelpers:
 
     def test_mevzuat_generate_pdf_url_yonetmelik(self):
         url = _mevzuat_generate_pdf_url("42628", "7", "5")
-        assert url == "https://www.mevzuat.gov.tr/File/GeneratePdf?mevzuatNo=42628&mevzuatTur=Yonetmelik&mevzuatTertip=5"
+        assert (
+            url == "https://www.mevzuat.gov.tr/File/GeneratePdf?mevzuatNo=42628&mevzuatTur=Yonetmelik&mevzuatTertip=5"
+        )
 
     def test_mevzuat_generate_pdf_url_teblig(self):
         url = _mevzuat_generate_pdf_url("21196", "9", "5")
