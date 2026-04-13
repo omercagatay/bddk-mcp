@@ -460,7 +460,7 @@ class TestF1Score:
         hits = await f1_store._vector_search("sermaye yeterliliği", limit=10)
         test_hits = [h for h in hits if h["doc_id"].startswith("f1_")][:5]
 
-        reranked = f1_store._rerank("sermaye yeterliliği rasyosu hesaplama", test_hits)
+        reranked = await f1_store._rerank("sermaye yeterliliği rasyosu hesaplama", test_hits)
 
         # Re-ranked results should have f1_sermaye at or near the top
         reranked_ids = [h["doc_id"] for h in reranked]
