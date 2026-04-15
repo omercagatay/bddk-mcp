@@ -17,3 +17,6 @@ chroma_db/
 
 # Git worktrees
 .worktrees/
+
+# Benchmark results
+benchmark_results/
