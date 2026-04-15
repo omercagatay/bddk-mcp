@@ -1,0 +1,212 @@
+[
+  {
+    "id": 1,
+    "premise": "Bankaların sermaye yeterliliği standart rasyosu asgari yüzde sekiz olarak belirlenmiştir.",
+    "hypothesis": "Bankaların özkaynaklarının risk ağırlıklı varlıklarına oranı en az %8 olmalıdır.",
+    "label": "entailment",
+    "source": "sermaye_yeterliligi"
+  },
+  {
+    "id": 2,
+    "premise": "Takipteki alacaklar için ayrılacak özel karşılık oranları gruplara göre farklılık gösterir.",
+    "hypothesis": "Tüm takipteki alacaklara tek bir sabit karşılık oranı uygulanır.",
+    "label": "contradiction",
+    "source": "karsilik_yonetmeligi"
+  },
+  {
+    "id": 3,
+    "premise": "Bankalar, kredi kartı işlemlerinde taksit sayısını BDDK düzenlemelerine uygun şekilde belirler.",
+    "hypothesis": "BDDK, bankaların bilgi sistemleri altyapısını düzenli olarak denetler.",
+    "label": "neutral",
+    "source": "kredi_karti_vs_bilgi_sistemleri"
+  },
+  {
+    "id": 4,
+    "premise": "Katılım bankaları faizsiz bankacılık ilkelerine göre faaliyet gösterir.",
+    "hypothesis": "Katılım bankalarında murabaha ve sukuk gibi faizsiz finans araçları kullanılır.",
+    "label": "entailment",
+    "source": "faizsiz_bankacilik"
+  },
+  {
+    "id": 5,
+    "premise": "Mevduat sigortası kapsamında TMSF tarafından 150.000 TL'ye kadar koruma sağlanır.",
+    "hypothesis": "TMSF mevduat sigortası teminat limiti 250.000 TL olarak belirlenmiştir.",
+    "label": "contradiction",
+    "source": "mevduat_sigortasi"
+  },
+  {
+    "id": 6,
+    "premise": "Basel III düzenlemesi kapsamında likidite karşılama oranı asgari %100 olmalıdır.",
+    "hypothesis": "Bankaların faiz oranı riski yönetimi konusunda stres testi yapması gerekir.",
+    "label": "neutral",
+    "source": "basel_vs_faiz_riski"
+  },
+  {
+    "id": 7,
+    "premise": "Banka kuruluş ve faaliyet izinleri BDDK Kurulu tarafından verilir.",
+    "hypothesis": "Yeni banka kurulması için BDDK'dan izin alınması zorunludur.",
+    "label": "entailment",
+    "source": "faaliyet_izni"
+  },
+  {
+    "id": 8,
+    "premise": "Bankaların konsolide ve konsolide olmayan bazda sermaye yeterliliği oranı hesaplaması gerekir.",
+    "hypothesis": "Sermaye yeterliliği hesaplaması yalnızca solo bazda yapılır.",
+    "label": "contradiction",
+    "source": "sermaye_konsolidasyon"
+  },
+  {
+    "id": 9,
+    "premise": "Finansal kiralama şirketleri BDDK denetimine tabidir.",
+    "hypothesis": "Elektronik para kuruluşları da BDDK lisansı almak zorundadır.",
+    "label": "neutral",
+    "source": "leasing_vs_epara"
+  },
+  {
+    "id": 10,
+    "premise": "Bankaların iç denetim fonksiyonu yönetim kuruluna doğrudan bağlı olmalıdır.",
+    "hypothesis": "İç denetim birimi bağımsız olarak çalışır ve üst yönetime raporlar.",
+    "label": "entailment",
+    "source": "ic_denetim"
+  },
+  {
+    "id": 11,
+    "premise": "Kredi kartlarında taksit sayısı BDDK tarafından sınırlandırılabilir.",
+    "hypothesis": "Bankalar kredi kartı taksit sayısını serbestçe belirleyebilir.",
+    "label": "contradiction",
+    "source": "kredi_karti_taksit"
+  },
+  {
+    "id": 12,
+    "premise": "Zorunlu karşılık oranları TCMB tarafından belirlenir.",
+    "hypothesis": "BDDK, bankaların takipteki alacakları için karşılık ayırma esaslarını düzenler.",
+    "label": "neutral",
+    "source": "tcmb_vs_bddk_karsilik"
+  },
+  {
+    "id": 13,
+    "premise": "Bankaların operasyonel risk için sermaye ayırması gerekir.",
+    "hypothesis": "İç süreç, personel ve sistem kaynaklı riskler için asgari sermaye bulundurulmalıdır.",
+    "label": "entailment",
+    "source": "operasyonel_risk"
+  },
+  {
+    "id": 14,
+    "premise": "Bir bankadan tek bir borçluya kullandırılabilecek kredi tutarı özkaynaklarının %25'ini aşamaz.",
+    "hypothesis": "Kredi sınırlarında herhangi bir üst limit yoktur.",
+    "label": "contradiction",
+    "source": "kredi_siniri"
+  },
+  {
+    "id": 15,
+    "premise": "Net istikrarlı fonlama oranı (NSFR) asgari %100 olarak uygulanır.",
+    "hypothesis": "Sendikasyon kredileri birden fazla bankanın ortaklaşa kullandırdığı büyük tutarlı kredilerdir.",
+    "label": "neutral",
+    "source": "nsfr_vs_sendikasyon"
+  },
+  {
+    "id": 16,
+    "premise": "Bankacılık Kanunu'nun 5411 sayılı metninde bankacılık faaliyetlerinin kapsamı tanımlanmıştır.",
+    "hypothesis": "5411 sayılı Kanun bankacılık sektörünün temel yasal çerçevesini oluşturur.",
+    "label": "entailment",
+    "source": "bankacilik_kanunu"
+  },
+  {
+    "id": 17,
+    "premise": "Yüksek kaliteli likit varlıklar LKO hesabında pay olarak kullanılır.",
+    "hypothesis": "LKO hesabında paydaya 30 günlük net nakit çıkışları yazılır.",
+    "label": "entailment",
+    "source": "lko_hesaplama"
+  },
+  {
+    "id": 18,
+    "premise": "BDDK idari para cezası yetkisini 5411 sayılı Kanun'dan almaktadır.",
+    "hypothesis": "BDDK'nın herhangi bir yaptırım yetkisi bulunmamaktadır.",
+    "label": "contradiction",
+    "source": "idari_yaptirim"
+  },
+  {
+    "id": 19,
+    "premise": "Bankaların bilgi sistemleri BDDK düzenlemelerine uygun olmak zorundadır.",
+    "hypothesis": "Konut kredisi faiz oranları serbest piyasa koşullarına göre belirlenir.",
+    "label": "neutral",
+    "source": "bilgi_sistemleri_vs_konut_kredisi"
+  },
+  {
+    "id": 20,
+    "premise": "Yapılandırma işlemi, borçlunun geri ödeme koşullarının yeniden düzenlenmesidir.",
+    "hypothesis": "Geri ödemede zorluk yaşayan müşterinin kredi vadesi ve tutarı değiştirilebilir.",
+    "label": "entailment",
+    "source": "yapilandirma"
+  },
+  {
+    "id": 21,
+    "premise": "Risk ağırlıklı varlıklar hesaplamasında devlet tahvilleri %0 risk ağırlığı alır.",
+    "hypothesis": "Devlet tahvilleri %100 risk ağırlığı ile değerlendirilir.",
+    "label": "contradiction",
+    "source": "risk_agirligi"
+  },
+  {
+    "id": 22,
+    "premise": "Bağımsız denetim kuruluşları bankaların mali tablolarını inceler.",
+    "hypothesis": "Faktoring şirketleri vadeli alacakların iskontolanması hizmeti sunar.",
+    "label": "neutral",
+    "source": "denetim_vs_faktoring"
+  },
+  {
+    "id": 23,
+    "premise": "Kaldıraç oranı, ana sermayenin toplam risk pozisyonuna oranıdır.",
+    "hypothesis": "Bankaların kaldıraç oranı asgari %3 olmalıdır.",
+    "label": "entailment",
+    "source": "kaldirac_orani"
+  },
+  {
+    "id": 24,
+    "premise": "Suç gelirlerinin aklanmasının önlenmesi kapsamında bankalar şüpheli işlem bildirimi yapmakla yükümlüdür.",
+    "hypothesis": "Bankalar AML yükümlülükleri kapsamında şüpheli işlemleri MASAK'a raporlar.",
+    "label": "entailment",
+    "source": "aml_masak"
+  },
+  {
+    "id": 25,
+    "premise": "Katılım bankaları faiz geliri elde edemez.",
+    "hypothesis": "Katılım bankaları mevduat faizi öder.",
+    "label": "contradiction",
+    "source": "katilim_faiz"
+  },
+  {
+    "id": 26,
+    "premise": "Uyum fonksiyonu bankanın yasal düzenlemelere uygunluğunu sağlar.",
+    "hypothesis": "Stres testi bankanın olumsuz senaryolara dayanıklılığını ölçer.",
+    "label": "neutral",
+    "source": "uyum_vs_stres"
+  },
+  {
+    "id": 27,
+    "premise": "Tüketici kredileri gerçek kişilere ticari amaç dışında kullandırılır.",
+    "hypothesis": "Bireysel müşterilere kişisel ihtiyaçları için verilen krediler tüketici kredisi kapsamındadır.",
+    "label": "entailment",
+    "source": "tuketici_kredisi"
+  },
+  {
+    "id": 28,
+    "premise": "Mülga düzenlemeler yürürlükten kaldırılmış olan eski mevzuat metinleridir.",
+    "hypothesis": "Mülga düzenlemeler hâlâ bağlayıcı hukuki etkiye sahiptir.",
+    "label": "contradiction",
+    "source": "mulga_duzenleme"
+  },
+  {
+    "id": 29,
+    "premise": "Tahsili gecikmiş alacaklar 90 günü aşan kredi alacaklarıdır.",
+    "hypothesis": "Donuk alacaklar 90 günden fazla gecikmiş alacakları ifade eder.",
+    "label": "entailment",
+    "source": "tga_donuk"
+  },
+  {
+    "id": 30,
+    "premise": "Bankaların konsolide bilançosu ana banka ve bağlı ortaklıkları kapsar.",
+    "hypothesis": "Piyasa riski faiz, döviz ve hisse senedi fiyat değişimlerinden kaynaklanır.",
+    "label": "neutral",
+    "source": "konsolide_vs_piyasa_riski"
+  }
+]
