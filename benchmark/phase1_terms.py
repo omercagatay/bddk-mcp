@@ -13,7 +13,7 @@ import time
 
 import httpx
 
-from benchmark.config import OLLAMA_BASE_URL, OLLAMA_TIMEOUT
+from benchmark.config import LLM_BASE_URL, LLM_TIMEOUT
 from benchmark.terminology import TERMINOLOGY, TermQuestion
 
 logger = logging.getLogger(__name__)
@@ -74,9 +74,9 @@ async def _ask_term(
 
     start = time.time()
     resp = await client.post(
-        f"{OLLAMA_BASE_URL}/v1/chat/completions",
+        f"{LLM_BASE_URL}/v1/chat/completions",
         json=payload,
-        timeout=OLLAMA_TIMEOUT,
+        timeout=LLM_TIMEOUT,
     )
     latency = time.time() - start
     resp.raise_for_status()

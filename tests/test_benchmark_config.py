@@ -1,6 +1,6 @@
 """Tests for benchmark configuration."""
 
-from benchmark.config import MODELS, OLLAMA_BASE_URL, PHASE1_THRESHOLDS
+from benchmark.config import MODELS, LLM_BASE_URL, PHASE1_THRESHOLDS
 
 
 def test_models_not_empty():
@@ -8,7 +8,7 @@ def test_models_not_empty():
 
 
 def test_each_model_has_required_fields():
-    required = {"name", "ollama_tag", "active_params", "quantization"}
+    required = {"name", "model_id", "active_params", "quantization"}
     for model in MODELS:
         missing = required - set(model.keys())
         assert not missing, f"Model {model.get('name', '?')} missing: {missing}"
@@ -21,4 +21,4 @@ def test_thresholds_are_fractions():
 
 
 def test_ollama_base_url():
-    assert OLLAMA_BASE_URL.startswith("http")
+    assert LLM_BASE_URL.startswith("http")

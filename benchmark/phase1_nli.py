@@ -12,7 +12,7 @@ import time
 
 import httpx
 
-from benchmark.config import OLLAMA_BASE_URL, OLLAMA_TIMEOUT
+from benchmark.config import LLM_BASE_URL, LLM_TIMEOUT
 from benchmark.nli_dataset import load_pairs
 from benchmark.scoring import nli_metrics
 
@@ -63,9 +63,9 @@ async def _classify_pair(
 
     start = time.time()
     resp = await client.post(
-        f"{OLLAMA_BASE_URL}/v1/chat/completions",
+        f"{LLM_BASE_URL}/v1/chat/completions",
         json=payload,
-        timeout=OLLAMA_TIMEOUT,
+        timeout=LLM_TIMEOUT,
     )
     latency = time.time() - start
     resp.raise_for_status()
