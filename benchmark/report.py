@@ -71,9 +71,11 @@ def console_report(all_results: dict) -> str:
             lines.append(f"{model_name:<30} {cg:>9.1%} {mg:>9.1%} {cs:>9.1%} {er:>10}")
 
     # Threshold legend
-    lines.append(f"\n* Below threshold (tool>{PHASE1_THRESHOLDS['tool_selection']:.0%}, "
-                 f"nli>{PHASE1_THRESHOLDS['nli_macro_f1']:.2f}, "
-                 f"term>{PHASE1_THRESHOLDS['terminology']:.0%})")
+    lines.append(
+        f"\n* Below threshold (tool>{PHASE1_THRESHOLDS['tool_selection']:.0%}, "
+        f"nli>{PHASE1_THRESHOLDS['nli_macro_f1']:.2f}, "
+        f"term>{PHASE1_THRESHOLDS['terminology']:.0%})"
+    )
     lines.append("=" * 90)
 
     return "\n".join(lines)
@@ -117,9 +119,7 @@ def diagnosis_report(all_results: dict) -> str:
         if p1c:
             term_acc = p1c["accuracy"]
             if term_acc < PHASE1_THRESHOLDS["terminology"]:
-                failures.append(
-                    f"Terminology: {term_acc:.1%} (threshold: {PHASE1_THRESHOLDS['terminology']:.0%})"
-                )
+                failures.append(f"Terminology: {term_acc:.1%} (threshold: {PHASE1_THRESHOLDS['terminology']:.0%})")
                 recommendations.append("Try: BDDK glossary injection in system prompt")
 
         # Check Phase 2

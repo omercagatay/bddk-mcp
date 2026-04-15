@@ -90,9 +90,7 @@ async def run_phase1b(model_tag: str) -> dict:
         for pair in pairs:
             logger.info("Phase 1b: model=%s pair=%d", model_tag, pair.id)
             try:
-                pred, latency = await _classify_pair(
-                    client, model_tag, pair.premise, pair.hypothesis
-                )
+                pred, latency = await _classify_pair(client, model_tag, pair.premise, pair.hypothesis)
             except Exception as e:
                 logger.warning("NLI pair %d failed: %s", pair.id, e)
                 pred = "unknown"
@@ -100,13 +98,15 @@ async def run_phase1b(model_tag: str) -> dict:
 
             true_labels.append(pair.label)
             pred_labels.append(pred)
-            details.append({
-                "pair_id": pair.id,
-                "true_label": pair.label,
-                "pred_label": pred,
-                "correct": pair.label == pred,
-                "latency_s": latency,
-            })
+            details.append(
+                {
+                    "pair_id": pair.id,
+                    "true_label": pair.label,
+                    "pred_label": pred,
+                    "correct": pair.label == pred,
+                    "latency_s": latency,
+                }
+            )
 
     metrics = nli_metrics(true_labels, pred_labels)
     unknown_count = sum(1 for d in details if d["pred_label"] == "unknown")
