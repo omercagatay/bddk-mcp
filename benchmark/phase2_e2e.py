@@ -17,7 +17,7 @@ import time
 
 import httpx
 
-from benchmark.config import MAX_TOOL_CALLS, OLLAMA_BASE_URL, OLLAMA_TIMEOUT
+from benchmark.config import LLM_BASE_URL, LLM_TIMEOUT, MAX_TOOL_CALLS
 from benchmark.graders import code_grader, model_grader
 from benchmark.test_cases import TEST_CASES
 from benchmark.tool_schemas import TOOL_SCHEMAS
@@ -63,9 +63,9 @@ async def _run_agent_loop(
         }
 
         resp = await client.post(
-            f"{OLLAMA_BASE_URL}/v1/chat/completions",
+            f"{LLM_BASE_URL}/v1/chat/completions",
             json=payload,
-            timeout=OLLAMA_TIMEOUT,
+            timeout=LLM_TIMEOUT,
         )
         resp.raise_for_status()
         data = resp.json()

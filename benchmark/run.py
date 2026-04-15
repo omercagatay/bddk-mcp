@@ -87,7 +87,7 @@ async def _main() -> None:
         all_results["phase1c"] = {}
 
         for model in models:
-            tag = model["ollama_tag"]
+            tag = model["model_id"]
             name = model["name"]
             print(f"\n--- {name} ({tag}) ---\n")
 
@@ -107,7 +107,7 @@ async def _main() -> None:
 
         for model in models:
             name = model["name"]
-            tag = model["ollama_tag"]
+            tag = model["model_id"]
 
             if args.phase == 2 or _passes_phase1(all_results, name):
                 print(f"  {name}: running Phase 2...")
@@ -122,7 +122,7 @@ async def _main() -> None:
 
         for model in models:
             name = model["name"]
-            tag = model["ollama_tag"]
+            tag = model["model_id"]
             print(f"  {name}: testing prompt fixes...")
             all_results["phase3"][name] = await run_phase3(tag, all_results, args.mcp_url)
 

@@ -15,9 +15,9 @@ import time
 import httpx
 
 from benchmark.config import (  # noqa: F401 (MAX_TOOL_CALLS used in Phase 2)
+    LLM_BASE_URL,
+    LLM_TIMEOUT,
     MAX_TOOL_CALLS,
-    OLLAMA_BASE_URL,
-    OLLAMA_TIMEOUT,
     TRIALS_PER_CASE,
 )
 from benchmark.scoring import parameter_f1, pass_all_k, pass_at_k, tool_selection_accuracy
@@ -50,9 +50,9 @@ async def _call_model(
     }
 
     resp = await client.post(
-        f"{OLLAMA_BASE_URL}/v1/chat/completions",
+        f"{LLM_BASE_URL}/v1/chat/completions",
         json=payload,
-        timeout=OLLAMA_TIMEOUT,
+        timeout=LLM_TIMEOUT,
     )
     resp.raise_for_status()
     return resp.json()
