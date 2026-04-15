@@ -310,8 +310,7 @@ TOOL_SCHEMAS: list[dict] = [
         "function": {
             "name": "check_bddk_updates",
             "description": (
-                "Check for new BDDK announcements since last check. "
-                "Useful for monitoring regulatory changes."
+                "Check for new BDDK announcements since last check. Useful for monitoring regulatory changes."
             ),
             "parameters": {"type": "object", "properties": {}, "required": []},
         },

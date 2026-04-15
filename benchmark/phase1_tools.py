@@ -106,27 +106,31 @@ async def evaluate_single(
             tool_correct = tool_selection_accuracy(case.expected_tool, tool_name) == 1.0
             param_score = parameter_f1(case.expected_params, tool_args) if tool_correct else 0.0
 
-            trial_results.append({
-                "trial": trial + 1,
-                "tool_name": tool_name,
-                "tool_args": tool_args,
-                "tool_correct": tool_correct,
-                "param_f1": param_score,
-                "latency_s": latency,
-                "error": None,
-            })
+            trial_results.append(
+                {
+                    "trial": trial + 1,
+                    "tool_name": tool_name,
+                    "tool_args": tool_args,
+                    "tool_correct": tool_correct,
+                    "param_f1": param_score,
+                    "latency_s": latency,
+                    "error": None,
+                }
+            )
         except Exception as e:
             latency = time.time() - start
             logger.warning("Case %d trial %d failed: %s", case.id, trial + 1, e)
-            trial_results.append({
-                "trial": trial + 1,
-                "tool_name": "",
-                "tool_args": {},
-                "tool_correct": False,
-                "param_f1": 0.0,
-                "latency_s": latency,
-                "error": str(e),
-            })
+            trial_results.append(
+                {
+                    "trial": trial + 1,
+                    "tool_name": "",
+                    "tool_args": {},
+                    "tool_correct": False,
+                    "param_f1": 0.0,
+                    "latency_s": latency,
+                    "error": str(e),
+                }
+            )
 
     tool_successes = [t["tool_correct"] for t in trial_results]
     param_scores = [t["param_f1"] for t in trial_results]

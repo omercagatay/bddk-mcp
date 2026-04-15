@@ -116,11 +116,13 @@ async def _run_agent_loop(
                 result_text = f"Error executing tool: {e}"
 
             tool_results_text.append(result_text)
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tc.get("id", ""),
-                "content": result_text,
-            })
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tc.get("id", ""),
+                    "content": result_text,
+                }
+            )
 
     # Max steps reached
     return {
@@ -150,9 +152,7 @@ async def run_phase2(
             start = time.time()
 
             try:
-                trace = await _run_agent_loop(
-                    client, mcp_client, model_tag, case.question, mcp_base_url
-                )
+                trace = await _run_agent_loop(client, mcp_client, model_tag, case.question, mcp_base_url)
                 latency = time.time() - start
 
                 # Grade the answer
@@ -168,32 +168,36 @@ async def run_phase2(
                     actual_tools = [tc["name"] for tc in trace["tool_calls"]]
                     chain_complete = all(t in actual_tools for t in case.expected_chain)
 
-                results.append({
-                    "case_id": case.id,
-                    "question": case.question,
-                    "is_multi_tool": case.is_multi_tool,
-                    "tool_calls": trace["tool_calls"],
-                    "final_answer": answer[:500],
-                    "code_grounding_score": code_score,
-                    "model_grounding_score": model_score,
-                    "chain_complete": chain_complete,
-                    "steps": trace["steps"],
-                    "truncated": trace.get("truncated", False),
-                    "latency_s": latency,
-                    "error": None,
-                })
+                results.append(
+                    {
+                        "case_id": case.id,
+                        "question": case.question,
+                        "is_multi_tool": case.is_multi_tool,
+                        "tool_calls": trace["tool_calls"],
+                        "final_answer": answer[:500],
+                        "code_grounding_score": code_score,
+                        "model_grounding_score": model_score,
+                        "chain_complete": chain_complete,
+                        "steps": trace["steps"],
+                        "truncated": trace.get("truncated", False),
+                        "latency_s": latency,
+                        "error": None,
+                    }
+                )
 
             except Exception as e:
                 logger.warning("Phase 2 case %d failed: %s", case.id, e)
-                results.append({
-                    "case_id": case.id,
-                    "question": case.question,
-                    "error": str(e),
-                    "code_grounding_score": 0.0,
-                    "model_grounding_score": 0.0,
-                    "chain_complete": False,
-                    "latency_s": time.time() - start,
-                })
+                results.append(
+                    {
+                        "case_id": case.id,
+                        "question": case.question,
+                        "error": str(e),
+                        "code_grounding_score": 0.0,
+                        "model_grounding_score": 0.0,
+                        "chain_complete": False,
+                        "latency_s": time.time() - start,
+                    }
+                )
 
     # Aggregate
     n = len(results)

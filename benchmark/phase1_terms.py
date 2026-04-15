@@ -102,13 +102,15 @@ async def run_phase1c(model_tag: str) -> dict:
                 answer = ""
                 latency = 0.0
 
-            details.append({
-                "term": term.term,
-                "correct_letter": correct_letter,
-                "answer": answer,
-                "correct": answer == correct_letter,
-                "latency_s": latency,
-            })
+            details.append(
+                {
+                    "term": term.term,
+                    "correct_letter": correct_letter,
+                    "answer": answer,
+                    "correct": answer == correct_letter,
+                    "latency_s": latency,
+                }
+            )
 
     n = len(details)
     correct_count = sum(1 for d in details if d["correct"])
