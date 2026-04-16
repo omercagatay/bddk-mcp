@@ -55,8 +55,7 @@ async def main() -> int:
         "title": "Bankaların Likidite Karşılama Oranı Hesaplamasına İlişkin Yönetmelik",
         "category": "Yönetmelik",
         "source_url": (
-            "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.19498"
-            "&MevzuatIliski=0&sourceXmlSearch=likidite"
+            "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.19498&MevzuatIliski=0&sourceXmlSearch=likidite"
         ),
     }
 
