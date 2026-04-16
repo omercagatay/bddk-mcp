@@ -1,6 +1,6 @@
 """Tests for benchmark configuration."""
 
-from benchmark.config import MODELS, LLM_BASE_URL, PHASE1_THRESHOLDS
+from benchmark.config import LLM_BASE_URL, MODELS, PHASE1_THRESHOLDS
 
 
 def test_models_not_empty():

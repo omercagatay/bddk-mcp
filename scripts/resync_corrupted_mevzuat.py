@@ -131,7 +131,7 @@ async def main() -> int:
     now = time.time()
     total_chars_before = 0
     total_chars_after = 0
-    for did, method in ok:
+    for did, _method in ok:
         stored = store.docs[did]
         meta = by_id[did]
         before = meta.get("markdown_content", "")
