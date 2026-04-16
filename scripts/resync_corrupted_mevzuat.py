@@ -17,7 +17,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-SEED_PATH = ROOT.parent.parent.parent / "seed_data" / "documents.json"  # /home/cagatay/bddk-mcp/seed_data/documents.json
+SEED_PATH = (
+    ROOT.parent.parent.parent / "seed_data" / "documents.json"
+)  # /home/cagatay/bddk-mcp/seed_data/documents.json
 
 from doc_store import StoredDocument  # noqa: E402
 from doc_sync import DocumentSyncer  # noqa: E402
