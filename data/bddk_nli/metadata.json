@@ -1,0 +1,16 @@
+{
+  "name": "BDDK-NLI",
+  "description": "Banking-domain Natural Language Inference dataset for Turkish BDDK regulations",
+  "version": "0.1.0",
+  "language": "tr",
+  "labels": ["entailment", "contradiction", "neutral"],
+  "total_pairs": 30,
+  "target_pairs": 500,
+  "sources": [
+    "bddk-mcp document store",
+    "BDDK regulation hierarchy",
+    "Manual expert annotation"
+  ],
+  "license": "MIT",
+  "author": "oct92"
+}

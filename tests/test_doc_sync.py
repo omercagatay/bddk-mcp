@@ -8,6 +8,7 @@ import pytest
 from doc_store import StoredDocument
 from doc_sync import (
     DocumentSyncer,
+    _decode_html,
     _extract_html_to_markdown,
     _mevzuat_doc_url,
     _mevzuat_generate_pdf_url,
@@ -70,6 +71,17 @@ class TestMevzuatUrlHelpers:
 
 
 # -- Extraction backends ---------------------------------------------------
+
+
+class TestDecodeHtml:
+    def test_does_not_silently_return_replacement_chars_in_body(self):
+        # Regression for stored mevzuat_* docs. Prior version checked
+        # only decoded[:500] for U+FFFD and would return utf-8 decoded
+        # content even when body bytes contained literal EF BF BD,
+        # baking replacement chars into the document store.
+        content = (b"A" * 600) + b"\xef\xbf\xbd test"
+        result = _decode_html(content)
+        assert "\ufffd" not in result
 
 
 class TestHtmlToMarkdown:

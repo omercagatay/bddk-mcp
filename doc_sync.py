@@ -157,8 +157,10 @@ def _decode_html(content: bytes) -> str:
     for encoding in ("utf-8", "iso-8859-9", "windows-1254"):
         try:
             decoded = content.decode(encoding)
-            # Quick sanity: replacement char means wrong encoding
-            if "\ufffd" not in decoded[:500]:
+            # Replacement chars anywhere in the body indicate either the
+            # wrong encoding or a corrupt source. Either way, do not return
+            # silently — try the next encoding.
+            if "\ufffd" not in decoded:
                 return decoded
         except (UnicodeDecodeError, LookupError):
             continue
