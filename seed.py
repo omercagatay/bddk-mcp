@@ -139,10 +139,27 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
             seed_chunks = len(json.loads(chunks_path.read_text(encoding="utf-8"))) if chunks_path.exists() else 0
 
             if not force:
-                # Skip only if DB has >= seed counts (i.e. seed is not newer)
-                if cache_count >= seed_cache and doc_count >= seed_docs and chunk_count >= seed_chunks:
+                counts_ok = cache_count >= seed_cache and doc_count >= seed_docs and chunk_count >= seed_chunks
+                drift_count = 0
+                if counts_ok and docs_path.exists():
+                    seed_doc_hashes = {
+                        d["document_id"]: d.get("content_hash", "")
+                        for d in json.loads(docs_path.read_text(encoding="utf-8"))
+                    }
+                    db_rows = await conn.fetch("SELECT document_id, content_hash FROM documents")
+                    db_doc_hashes = {r["document_id"]: r["content_hash"] or "" for r in db_rows}
+                    drift_count = sum(1 for did, h in seed_doc_hashes.items() if db_doc_hashes.get(did) != h)
+                    # Also catch chunks-out-of-sync-with-docs (chunks regenerated independently)
+                    chunk_drift = await conn.fetchval(
+                        """SELECT COUNT(DISTINCT c.doc_id)
+                           FROM document_chunks c JOIN documents d ON c.doc_id = d.document_id
+                           WHERE c.content_hash != d.content_hash"""
+                    )
+                    drift_count += chunk_drift or 0
+
+                if counts_ok and drift_count == 0:
                     logger.info(
-                        "DB up-to-date (%d/%d cache, %d/%d docs, %d/%d chunks) — skipping seed",
+                        "DB up-to-date (%d/%d cache, %d/%d docs, %d/%d chunks, 0 hash drift) — skipping seed",
                         cache_count,
                         seed_cache,
                         doc_count,
@@ -152,15 +169,22 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
                     )
                     result["skipped"] = True
                     return result
-                logger.info(
-                    "Seed has newer data (DB: %d cache, %d docs, %d chunks; seed: %d, %d, %d) — importing",
-                    cache_count,
-                    doc_count,
-                    chunk_count,
-                    seed_cache,
-                    seed_docs,
-                    seed_chunks,
-                )
+                if drift_count > 0:
+                    logger.info(
+                        "Seed content drift detected (%d/%d docs differ from DB) — importing",
+                        drift_count,
+                        seed_docs,
+                    )
+                else:
+                    logger.info(
+                        "Seed has newer data (DB: %d cache, %d docs, %d chunks; seed: %d, %d, %d) — importing",
+                        cache_count,
+                        doc_count,
+                        chunk_count,
+                        seed_cache,
+                        seed_docs,
+                        seed_chunks,
+                    )
 
             # 1. Decision cache
             cache_path = SEED_DIR / "decision_cache.json"
