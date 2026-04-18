@@ -42,6 +42,9 @@ class MemStore:
     async def get_document(self, doc_id: str) -> StoredDocument | None:
         return self.docs.get(doc_id)
 
+    async def get_pdf_bytes(self, doc_id: str) -> bytes | None:
+        return None
+
     async def store_document(self, doc: StoredDocument) -> None:
         self.docs[doc.document_id] = doc
 

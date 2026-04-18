@@ -12,6 +12,8 @@ from __future__ import annotations
 import logging
 import tempfile
 
+from config import CHANDRA_MODEL_NAME
+
 logger = logging.getLogger(__name__)
 
 
@@ -47,9 +49,15 @@ class ChandraBackend:
         return _cuda_available() and _chandra_available()
 
     def _load_manager(self):
+        # chandra reads its checkpoint from chandra.settings.MODEL_CHECKPOINT
+        # (a Pydantic BaseSettings instance), not from any constructor argument.
+        # Mutate it before InferenceManager() so BDDK_CHANDRA_MODEL actually
+        # controls which weights load.
         from chandra.model import InferenceManager
+        from chandra.model import settings as chandra_settings
 
-        logger.info("Loading chandra InferenceManager(method='hf') — ~100s on first call")
+        chandra_settings.MODEL_CHECKPOINT = CHANDRA_MODEL_NAME
+        logger.info("Loading chandra InferenceManager(method='hf', model=%s) — ~100s on first call", CHANDRA_MODEL_NAME)
         return InferenceManager(method="hf")
 
     def extract(self, pdf_bytes: bytes) -> str | None:

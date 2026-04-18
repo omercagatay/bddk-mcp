@@ -125,3 +125,23 @@ class TestChandraBackend:
                 backend.extract(b"%PDF-a")
                 backend.extract(b"%PDF-b")
         assert load_calls["n"] == 1
+
+    def test_load_manager_propagates_model_name_to_chandra_settings(self, monkeypatch):
+        # chandra reads its checkpoint from chandra.settings.MODEL_CHECKPOINT,
+        # not a constructor arg — _load_manager must mutate it before
+        # InferenceManager() so BDDK_CHANDRA_MODEL is not a no-op.
+        from chandra.model import settings as chandra_settings
+
+        import ocr_backends_chandra
+
+        monkeypatch.setattr(chandra_settings, "MODEL_CHECKPOINT", chandra_settings.MODEL_CHECKPOINT)
+        monkeypatch.setattr(ocr_backends_chandra, "CHANDRA_MODEL_NAME", "test-org/override-model")
+
+        fake_mgr = MagicMock()
+        with patch("chandra.model.InferenceManager", return_value=fake_mgr) as mgr_cls:
+            backend = ocr_backends_chandra.ChandraBackend()
+            result = backend._load_manager()
+
+        assert chandra_settings.MODEL_CHECKPOINT == "test-org/override-model"
+        assert result is fake_mgr
+        mgr_cls.assert_called_once_with(method="hf")
