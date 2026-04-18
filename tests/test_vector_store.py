@@ -1,5 +1,7 @@
 """Tests for VectorStore (pgvector) — chunking, add, search, retrieval."""
 
+from unittest.mock import AsyncMock
+
 import pytest
 
 from vector_store import VectorStore, _chunk_text
@@ -44,6 +46,73 @@ class TestChunkText:
         chunks = _chunk_text(text, chunk_size=1000, overlap=200)
         for chunk in chunks:
             assert chunk.strip() != ""
+
+
+class TestHybridSearchOrdering:
+    """Regression coverage for the RRF-vs-cosine sort inconsistency.
+
+    _rrf_fuse() ranks candidates by rrf_score (dense rank + FTS rank) but the
+    `relevance` field surfaced to the user is the raw vector cosine. If the
+    final output is left in RRF order, callers observe non-monotonic scores
+    (e.g. rank #1 = 87.9%, rank #2 = 89.9%). _hybrid_search now re-sorts by
+    `relevance` after the threshold filter.
+    """
+
+    def test_rrf_fuse_leaves_fts_only_hits_at_zero_relevance(self):
+        """FTS-only hits have no cosine — stay at 0.0 so the
+        SEMANTIC_RELEVANCE_THRESHOLD filter drops them downstream."""
+        vs = VectorStore.__new__(VectorStore)
+
+        vector_hits = [{"doc_id": "a", "relevance": 0.9, "title": "A", "snippet": "a"}]
+        fts_hits = [
+            {"doc_id": "a", "fts_rank": 0.5, "title": "A", "snippet": "a"},
+            {"doc_id": "b", "fts_rank": 0.3, "title": "B", "snippet": "b"},  # FTS-only
+        ]
+
+        fused = vs._rrf_fuse(vector_hits, fts_hits)
+        by_id = {r["doc_id"]: r for r in fused}
+
+        assert by_id["a"]["relevance"] == 0.9
+        assert by_id["b"]["relevance"] == 0.0
+        assert "rrf_score" in by_id["a"]
+        assert "rrf_score" in by_id["b"]
+
+    @pytest.mark.asyncio
+    async def test_hybrid_search_output_monotonic_in_relevance(self):
+        """The RRF winner can have a lower cosine than a doc ranked below it
+        when the two signals disagree. _hybrid_search must re-sort so the
+        output order matches the displayed `relevance` — otherwise callers
+        see rank #1 scoring lower than rank #2.
+        """
+        vs = VectorStore.__new__(VectorStore)
+
+        # Cosines chosen close together so the 0.08 score-gap filter keeps
+        # all three hits. Vector and FTS rankings disagree: vector ranks
+        # a > b > c by cosine, FTS ranks c > a > b. With RRF sort, the
+        # output would be [a, c, b] — relevance [0.85, 0.80, 0.82] — which
+        # is non-monotonic. The fix re-sorts to [a, b, c].
+        vs._vector_search = AsyncMock(
+            return_value=[
+                {"doc_id": "a", "relevance": 0.85, "title": "A", "snippet": "a"},
+                {"doc_id": "b", "relevance": 0.82, "title": "B", "snippet": "b"},
+                {"doc_id": "c", "relevance": 0.80, "title": "C", "snippet": "c"},
+            ]
+        )
+        vs._fts_search = AsyncMock(
+            return_value=[
+                {"doc_id": "c", "fts_rank": 0.9, "title": "C", "snippet": "c"},
+                {"doc_id": "a", "fts_rank": 0.5, "title": "A", "snippet": "a"},
+                {"doc_id": "b", "fts_rank": 0.1, "title": "B", "snippet": "b"},
+            ]
+        )
+
+        results = await vs._hybrid_search("q", limit=10)
+
+        relevances = [r["relevance"] for r in results]
+        assert relevances == sorted(relevances, reverse=True), (
+            f"Results not monotonic in relevance: {relevances}"
+        )
+        assert [r["doc_id"] for r in results] == ["a", "b", "c"]
 
 
 async def _can_initialize_store(pg_pool) -> bool:
