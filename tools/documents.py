@@ -24,14 +24,14 @@ def register(mcp, deps: Dependencies) -> None:
         """
         Retrieve a BDDK decision document as Markdown.
 
-        Uses local pgvector store for instant retrieval.
-        Falls back to PostgreSQL document store, then live fetch if not found locally.
+        Airlocked: serves only from local stores (pgvector chunks, then PostgreSQL
+        documents). If the document is not present locally, returns a clear
+        "not in seed" error rather than live-fetching from mevzuat.gov.tr / BDDK.
 
         Args:
             document_id: The numeric document ID (from search results)
             page_number: Page of the markdown output (documents are split into 5000-char pages)
         """
-        # Look up metadata from cache
         client = deps.client
         meta_title = document_id
         meta_date = ""
@@ -59,18 +59,28 @@ def register(mcp, deps: Dependencies) -> None:
                 f"Use ONLY the text below. Do not add information not present in this document.\n\n"
             )
 
-        # Try pgvector first (instant)
         if deps.vector_store is not None:
             try:
                 page = await deps.vector_store.get_document_page(document_id, page_number)
                 if page and page["content"] and "Invalid page" not in page["content"]:
                     return _build_header(page["page_number"], page["total_pages"]) + page["content"]
             except Exception as e:
-                logger.debug("pgvector lookup failed for %s, falling back: %s", document_id, e)
+                logger.debug("pgvector lookup failed for %s, trying doc_store: %s", document_id, e)
 
-        # Fallback to document store → live fetch
-        doc = await client.get_document_markdown(document_id, page_number)
-        return _build_header(doc.page_number, doc.total_pages) + doc.markdown_content
+        try:
+            stored = await deps.doc_store.get_document_page(document_id, page_number)
+        except (RuntimeError, BddkStorageError) as e:
+            logger.warning("doc_store lookup failed for %s: %s", document_id, e)
+            stored = None
+
+        if stored and stored.markdown_content and "Invalid page" not in stored.markdown_content:
+            return _build_header(stored.page_number, stored.total_pages) + stored.markdown_content
+
+        return (
+            f"Document {document_id} is not available in the local store. "
+            "This MCP server is airlocked and does not fetch from live BDDK / mevzuat.gov.tr sources at runtime. "
+            "If the document should be available, re-run the seed (`seed.py import`) or sync pipeline."
+        )
 
     @mcp.tool()
     async def get_document_history(
