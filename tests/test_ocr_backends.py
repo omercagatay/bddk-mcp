@@ -1,10 +1,16 @@
 """Unit tests for OCR backend implementations."""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
-import pytest
-
-from ocr_backends import ExtractionAttempt, MarkitdownBackend, OCRBackend
+from ocr_backends import (
+    ExtractionAttempt,
+    LightOCRBackend,
+    MarkitdownBackend,
+    OCRBackend,
+    PPStructureBackend,
+    get_default_backends,
+    run_extraction_chain,
+)
 
 
 class TestMarkitdownBackend:
@@ -41,9 +47,6 @@ class TestProtocol:
         attempt = ExtractionAttempt(backend="markitdown_degraded", content="x", error="")
         assert attempt.backend == "markitdown_degraded"
         assert attempt.content == "x"
-
-
-from ocr_backends import run_extraction_chain
 
 
 class _FakeBackend:
@@ -115,11 +118,6 @@ class TestExtractionChain:
         assert attempt.backend == "first"
 
 
-from unittest.mock import MagicMock
-
-from ocr_backends import LightOCRBackend
-
-
 class TestLightOCRBackend:
     def test_name(self):
         backend = LightOCRBackend()
@@ -158,9 +156,6 @@ class TestLightOCRBackend:
                     assert result == "extracted"
 
 
-from ocr_backends import PPStructureBackend
-
-
 class TestPPStructureBackend:
     def test_name(self):
         backend = PPStructureBackend()
@@ -174,9 +169,6 @@ class TestPPStructureBackend:
     def test_extract_returns_none_on_empty(self):
         backend = PPStructureBackend()
         assert backend.extract(b"") is None
-
-
-from ocr_backends import get_default_backends
 
 
 class TestDefaultBackends:

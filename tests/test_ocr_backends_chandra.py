@@ -3,6 +3,8 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 
 class TestChandraBackend:
     def test_name(self):
@@ -40,6 +42,7 @@ class TestChandraBackend:
         assert ChandraBackend().extract(b"") is None
 
     def test_extract_concatenates_per_page_markdown(self):
+        pytest.importorskip("chandra")
         from ocr_backends_chandra import ChandraBackend
 
         backend = ChandraBackend()
@@ -57,6 +60,7 @@ class TestChandraBackend:
         assert fake_manager.generate.call_count == 2
 
     def test_extract_returns_none_when_all_pages_blank(self):
+        pytest.importorskip("chandra")
         from ocr_backends_chandra import ChandraBackend
 
         backend = ChandraBackend()
@@ -71,6 +75,7 @@ class TestChandraBackend:
         assert out is None
 
     def test_extract_returns_none_when_load_file_fails(self):
+        pytest.importorskip("chandra")
         from ocr_backends_chandra import ChandraBackend
 
         backend = ChandraBackend()
@@ -81,6 +86,7 @@ class TestChandraBackend:
         assert out is None
 
     def test_extract_returns_none_on_inference_error(self):
+        pytest.importorskip("chandra")
         from ocr_backends_chandra import ChandraBackend
 
         backend = ChandraBackend()
@@ -93,6 +99,7 @@ class TestChandraBackend:
         assert out is None
 
     def test_extract_returns_none_on_result_error_flag(self):
+        pytest.importorskip("chandra")
         from ocr_backends_chandra import ChandraBackend
 
         backend = ChandraBackend()
@@ -107,6 +114,7 @@ class TestChandraBackend:
         assert out is None
 
     def test_extract_lazy_loads_manager_once(self):
+        pytest.importorskip("chandra")
         from ocr_backends_chandra import ChandraBackend
 
         backend = ChandraBackend()
