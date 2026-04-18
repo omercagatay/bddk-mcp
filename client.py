@@ -17,6 +17,7 @@ from config import (
     PAGE_SIZE,
     REQUEST_TIMEOUT,
     STALE_CACHE_FALLBACK,
+    SYNC_CONCURRENCY,
 )
 from doc_store import DocumentStore
 from models import (
@@ -245,6 +246,10 @@ class BddkApiClient:
         self._cache_timestamp: float = 0.0
         self._page_errors: dict[int, str] = {}
         self.known_announcements: set[str] = set()
+        # Bound the parallel _scrape_bddk() fan-out so BDDK sees at most
+        # SYNC_CONCURRENCY (default 5) in-flight requests at once, matching
+        # the rate limit data_sources.py already enforces for the same host.
+        self._scrape_sem = asyncio.Semaphore(SYNC_CONCURRENCY)
 
     async def initialize(self) -> None:
         """Create cache table and load existing cache from PostgreSQL."""
@@ -541,16 +546,17 @@ class BddkApiClient:
         self._page_errors.clear()
 
         async def _fetch_page_safe(list_id: int) -> list[BddkDecisionSummary]:
-            try:
-                if list_id in _ACCORDION_PAGE_IDS:
-                    return await self._fetch_and_parse_accordion_page(list_id)
-                if list_id in _DECISION_PAGE_IDS:
-                    return await self._fetch_and_parse_decision_page(list_id)
-                return await self._fetch_and_parse_flat_page(list_id)
-            except (httpx.HTTPError, httpx.TransportError, ValueError, AttributeError) as e:
-                self._page_errors[list_id] = str(e)
-                logger.error("Failed to fetch BDDK list page %d: %s", list_id, e)
-                return []
+            async with self._scrape_sem:
+                try:
+                    if list_id in _ACCORDION_PAGE_IDS:
+                        return await self._fetch_and_parse_accordion_page(list_id)
+                    if list_id in _DECISION_PAGE_IDS:
+                        return await self._fetch_and_parse_decision_page(list_id)
+                    return await self._fetch_and_parse_flat_page(list_id)
+                except (httpx.HTTPError, httpx.TransportError, ValueError, AttributeError) as e:
+                    self._page_errors[list_id] = str(e)
+                    logger.error("Failed to fetch BDDK list page %d: %s", list_id, e)
+                    return []
 
         page_results = await asyncio.gather(*(_fetch_page_safe(pid) for pid in _ALL_PAGE_IDS))
         all_decisions: list[BddkDecisionSummary] = [dec for page in page_results for dec in page]
