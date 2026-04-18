@@ -29,6 +29,29 @@ EMBEDDING_MODEL_PATH = os.environ.get("BDDK_EMBEDDING_MODEL_PATH", "")
 EMBEDDING_MODEL_NAME = os.environ.get("BDDK_EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
 EMBEDDING_MODEL_REVISION = "d4210e50c0"  # v1.0.0 stable
 
+# -- OCR extraction backends -------------------------------------------------
+
+# Primary backend for PDF -> markdown extraction.
+# Options: lightocr, pp_structure, markitdown
+OCR_BACKEND = os.environ.get("BDDK_OCR_BACKEND", "lightocr")
+
+# LightOnOCR-2-1B model path (offline-first; empty = download from HF)
+LIGHTOCR_MODEL_PATH = os.environ.get("BDDK_LIGHTOCR_MODEL_PATH", "")
+LIGHTOCR_MODEL_NAME = os.environ.get("BDDK_LIGHTOCR_MODEL", "lightonai/LightOnOCR-2-1B")
+
+# Batch size for page-level inference (RTX 5080: 4 is safe)
+LIGHTOCR_BATCH_SIZE = int(os.environ.get("BDDK_LIGHTOCR_BATCH_SIZE", "4"))
+
+# Device: auto | cuda | cpu
+LIGHTOCR_DEVICE = os.environ.get("BDDK_LIGHTOCR_DEVICE", "auto")
+
+# Minimum extracted character count to accept a backend's output
+OCR_MIN_CONTENT_LEN = int(os.environ.get("BDDK_OCR_MIN_CONTENT_LEN", "500"))
+
+# -- Chandra2 (primary OCR, backfill-only, in-process HF) --------------------
+
+CHANDRA_MODEL_NAME = os.environ.get("BDDK_CHANDRA_MODEL", "datalab-to/chandra-ocr-2")
+
 # -- pgvector -----------------------------------------------------------------
 
 # Embedding dimension for intfloat/multilingual-e5-base
@@ -81,7 +104,6 @@ MAX_RETRIES = int(os.environ.get("BDDK_MAX_RETRIES", "3"))
 
 AUTO_SYNC = os.environ.get("BDDK_AUTO_SYNC", "false").lower() in ("1", "true", "yes")
 SYNC_CONCURRENCY = int(os.environ.get("BDDK_SYNC_CONCURRENCY", "5"))
-PREFER_NOUGAT = os.environ.get("BDDK_PREFER_NOUGAT", "false").lower() in ("1", "true", "yes")
 
 # -- Validation helpers -------------------------------------------------------
 

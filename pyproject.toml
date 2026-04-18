@@ -15,22 +15,35 @@ dependencies = [
     "sentence-transformers>=5.0",
     "uvloop>=0.22.1; sys_platform != 'win32'",
     "anthropic>=0.40",
+    "transformers>=4.50",
+    "accelerate>=1.0",
+    "pdf2image>=1.17",
+    "pillow>=10.0",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
     "pytest-asyncio>=0.24",
+    "pytest-httpx>=0.30",
     "ruff>=0.8",
+    "pdfplumber>=0.11",
 ]
 gpu = [
-    "nougat-ocr>=0.1.17",
     "torch>=2.0",
+    "torchvision>=0.15",
+    "paddleocr>=2.10",
+    "paddlepaddle-gpu>=2.6; platform_system!='Darwin' and python_version<'3.13'",
+    "chandra-ocr[hf]>=0.2",
 ]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 pythonpath = ["."]
+addopts = "-m 'not gpu'"
+markers = [
+    "gpu: requires CUDA GPU (skipped in CI)",
+]
 
 [tool.ruff]
 target-version = "py311"

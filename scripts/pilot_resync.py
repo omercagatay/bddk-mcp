@@ -59,7 +59,7 @@ async def main() -> int:
         ),
     }
 
-    async with DocumentSyncer(store, prefer_nougat=False) as syncer:
+    async with DocumentSyncer(store) as syncer:
         result = await syncer.sync_document(
             doc_id=target["document_id"],
             title=target["title"],

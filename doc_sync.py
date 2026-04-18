@@ -4,10 +4,11 @@ Document sync engine for BDDK MCP Server.
 Downloads BDDK decisions and mevzuat.gov.tr documents, extracts content
 to markdown, and stores them in the PostgreSQL database.
 
-Supports three extraction methods:
-  1. Nougat (GPU) — best quality LaTeX/formula extraction (local RTX 5080)
-  2. markitdown — lightweight fallback (Railway CPU)
-  3. HTML parsing — last resort for mevzuat.gov.tr
+Extraction pipeline (configured in ocr_backends.get_default_backends):
+  1. LightOnOCR-2-1B (GPU) — primary, formula-aware
+  2. PP-StructureV3 (GPU fallback)
+  3. markitdown — CPU last resort, no formulas
+  4. HTML parsing — mevzuat.gov.tr HTML fallback
 
 Usage:
     python doc_sync.py sync [--force] [--doc-id DOC_ID] [--concurrency 5]
@@ -22,16 +23,20 @@ import json
 import logging
 import time
 from collections.abc import Callable
-from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
 
-from config import BASE_DIR, REQUEST_TIMEOUT
+from config import BASE_DIR, OCR_MIN_CONTENT_LEN, REQUEST_TIMEOUT
 from doc_store import DocumentStore, StoredDocument
+from ocr_backends import OCRBackend, get_default_backends, run_extraction_chain
 from utils import MEVZUAT_TUR_MAP, fetch_with_retry
+
+if TYPE_CHECKING:
+    from vector_store import VectorStore
 
 CACHE_FILE = BASE_DIR / ".cache.json"  # legacy path for CLI compat
 
@@ -89,67 +94,6 @@ class SyncReport(BaseModel):
 
 
 # ── Extraction backends ──────────────────────────────────────────────────────
-
-
-def _extract_with_nougat(pdf_bytes: bytes) -> str | None:
-    """Extract PDF to LaTeX/Markdown using Nougat (requires GPU + nougat-ocr)."""
-    try:
-        import tempfile
-
-        import torch
-        from nougat import NougatModel
-        from nougat.utils.dataset import LazyDataset
-
-        if not torch.cuda.is_available():
-            logger.info("CUDA not available, skipping Nougat")
-            return None
-
-        model = NougatModel.from_pretrained("facebook/nougat-base")
-        model = model.to("cuda")
-        model.eval()
-
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
-            f.write(pdf_bytes)
-            tmp_path = Path(f.name)
-
-        try:
-            dataset = LazyDataset(tmp_path, model.encoder)
-            from torch.utils.data import DataLoader
-
-            dataloader = DataLoader(dataset, batch_size=1, shuffle=False)
-
-            pages = []
-            for batch in dataloader:
-                batch = {k: v.to("cuda") if hasattr(v, "to") else v for k, v in batch.items()}
-                with torch.no_grad():
-                    output = model.inference(image_tensors=batch["pixel_values"])
-                    for text in output["predictions"]:
-                        pages.append(text)
-
-            return "\n\n".join(pages) if pages else None
-        finally:
-            tmp_path.unlink(missing_ok=True)
-
-    except ImportError:
-        logger.debug("Nougat not installed, skipping")
-        return None
-    except (RuntimeError, ValueError, OSError) as e:
-        logger.warning("Nougat extraction failed: %s", e)
-        return None
-
-
-def _extract_with_markitdown(content: bytes, ext: str = ".pdf") -> str | None:
-    """Extract document using markitdown (CPU, lightweight)."""
-    try:
-        from markitdown import MarkItDown
-
-        md = MarkItDown()
-        result = md.convert_stream(io.BytesIO(content), file_extension=ext)
-        text = result.text_content.strip()
-        return text if text else None
-    except (ValueError, OSError, UnicodeDecodeError) as e:
-        logger.warning("markitdown extraction failed: %s", e)
-        return None
 
 
 def _decode_html(content: bytes) -> str:
@@ -288,13 +232,15 @@ class DocumentSyncer:
         self,
         store: DocumentStore,
         request_timeout: float = REQUEST_TIMEOUT,
-        prefer_nougat: bool = True,
+        ocr_backends: "list[OCRBackend] | None" = None,
         progress_callback: "Callable[[str, int, int], None] | None" = None,
         http: httpx.AsyncClient | None = None,
+        vector_store: "VectorStore | None" = None,
     ) -> None:
         self._store = store
-        self._prefer_nougat = prefer_nougat
+        self._ocr_backends = ocr_backends if ocr_backends is not None else get_default_backends()
         self._progress_callback = progress_callback
+        self._vector_store = vector_store
         self._owns_http = http is None
         if http is not None:
             self._http = http
@@ -341,8 +287,16 @@ class DocumentSyncer:
         if not force and await self._store.has_document(doc_id):
             return SyncResult(document_id=doc_id, success=True, method="cached")
 
+        # If re-extracting with force=True and the PDF is already cached in DB,
+        # skip re-downloading (bandwidth saving).
+        cached_pdf: bytes | None = None
+        if force and doc_id.startswith("mevzuat_"):
+            cached_pdf = await self._store.get_pdf_bytes(doc_id)
+
         try:
-            if doc_id.startswith("mevzuat_"):
+            if cached_pdf:
+                content, method, ext = cached_pdf, "cached_pdf", ".pdf"
+            elif doc_id.startswith("mevzuat_"):
                 content, method, ext = await self._download_mevzuat(doc_id, source_url)
             elif doc_id.isdigit():
                 content, method, ext = await self._download_bddk(doc_id)
@@ -378,10 +332,11 @@ class DocumentSyncer:
             error_msg = f"Extraction failed (method={extraction_method})"
             cat, retryable = _categorize_error(error_msg)
             await self._store.record_sync_failure(doc_id, error_msg, cat, source_url, retryable)
-            # Clear corrupted content so has_document() returns False on next sync
-            if force:
-                await self._store.delete_document(doc_id)
-                logger.info("Cleared corrupted content for %s", doc_id)
+            # Preserve old content on failed force re-extract — losing it would
+            # erase successful prior extractions when a new backend transiently fails.
+            logger.warning(
+                "Extraction failed for %s; preserving old content (force=%s)", doc_id, force
+            )
             return SyncResult(
                 document_id=doc_id,
                 success=False,
@@ -403,6 +358,32 @@ class DocumentSyncer:
         )
         await self._store.store_document(doc)
         await self._store.clear_sync_failure(doc_id)
+
+        if self._vector_store is not None:
+            try:
+                await self._vector_store.add_document(
+                    doc_id=doc_id,
+                    title=title or doc_id,
+                    content=markdown,
+                    category=category,
+                    decision_date=decision_date,
+                    decision_number=decision_number,
+                    source_url=source_url,
+                )
+            except Exception as e:
+                logger.warning(
+                    "Re-index failed for %s after successful sync: %s. "
+                    "documents table is fresh; chunks are stale — retry with force=True.",
+                    doc_id,
+                    e,
+                )
+                return SyncResult(
+                    document_id=doc_id,
+                    success=False,
+                    method=f"{method}+{extraction_method}",
+                    error=f"reindex_failed: {e}",
+                    size_bytes=len(content),
+                )
 
         return SyncResult(
             document_id=doc_id,
@@ -461,58 +442,20 @@ class DocumentSyncer:
             # Per-layer timeout: short enough so one slow layer doesn't kill the rest
             layer_timeout = httpx.Timeout(30.0, connect=10.0)
 
-            # Layer 1: Static .htm — smallest, fastest, always extractable
-            try:
-                htm_url = f"https://www.mevzuat.gov.tr/mevzuatmetin/{segment}/{base}.htm"
-                resp = await self._http.get(htm_url, timeout=layer_timeout)
-                if resp.status_code == 200 and len(resp.content) > 200:
-                    if not _is_error_page(resp.text):
-                        logger.info("mevzuat %s: downloaded via .htm (tur=%s)", doc_id, candidate_tur)
-                        return resp.content, "mevzuat_htm", ".html"
-            except Exception as e:
-                logger.debug("mevzuat %s: .htm failed (tur=%s): %s", doc_id, candidate_tur, e)
-
-            # Layer 2: Direct PDF download
-            try:
-                pdf_url = _mevzuat_pdf_url(mevzuat_no, candidate_tur, tertip)
-                if pdf_url:
-                    resp = await self._http.get(pdf_url, timeout=layer_timeout)
-                    if resp.status_code == 200 and len(resp.content) > 500 and resp.content[:5] == b"%PDF-":
-                        logger.info("mevzuat %s: downloaded via .pdf (tur=%s)", doc_id, candidate_tur)
-                        return resp.content, "mevzuat_pdf", ".pdf"
-            except Exception as e:
-                logger.debug("mevzuat %s: .pdf failed (tur=%s): %s", doc_id, candidate_tur, e)
-
-            # Layer 3: Main page visit (establishes session cookies for GeneratePdf)
-            #          Also tries iframe/div extraction as secondary benefit.
+            # Layer 1: Main page visit — establishes session cookies for GeneratePdf
             main_url = f"https://www.mevzuat.gov.tr/mevzuat?MevzuatNo={mevzuat_no}&MevzuatTur={candidate_tur}&MevzuatTertip={tertip}"
             main_page_visited = False
+            main_page_html = ""
             try:
                 resp = await self._http.get(main_url, timeout=layer_timeout)
                 if resp.status_code == 200:
                     main_page_visited = True
-                    soup = BeautifulSoup(resp.text, "html.parser")
-                    iframe = soup.find("iframe", src=True)
-                    if iframe:
-                        iframe_url = iframe["src"]
-                        if not iframe_url.startswith("http"):
-                            iframe_url = f"https://www.mevzuat.gov.tr{iframe_url}"
-                        iframe_resp = await self._http.get(iframe_url, timeout=layer_timeout)
-                        if iframe_resp.status_code == 200 and len(iframe_resp.content) > 200:
-                            logger.info("mevzuat %s: downloaded via iframe (tur=%s)", doc_id, candidate_tur)
-                            return iframe_resp.content, "mevzuat_iframe", ".html"
-                    # No iframe — use page body itself
-                    div = soup.find("div", id="divMevzuatMetni")
-                    if div and len(div.get_text(strip=True)) > 100:
-                        logger.info("mevzuat %s: downloaded via main page div (tur=%s)", doc_id, candidate_tur)
-                        return str(div).encode("utf-8"), "mevzuat_div", ".html"
+                    main_page_html = resp.text
             except Exception as e:
-                logger.debug("mevzuat %s: iframe/div failed (tur=%s): %s", doc_id, candidate_tur, e)
+                logger.debug("mevzuat %s: main page visit failed (tur=%s): %s", doc_id, candidate_tur, e)
 
-            # Layer 3b: GeneratePdf API (requires session cookies from main page visit above)
-            if not main_page_visited:
-                logger.debug("mevzuat %s: skipping GeneratePdf — no session cookies (tur=%s)", doc_id, candidate_tur)
-            else:
+            # Layer 2: GeneratePdf API (preferred — server-rendered PDF with all formulas as images)
+            if main_page_visited:
                 try:
                     gen_pdf_url = _mevzuat_generate_pdf_url(mevzuat_no, candidate_tur, tertip)
                     if gen_pdf_url:
@@ -523,7 +466,56 @@ class DocumentSyncer:
                 except Exception as e:
                     logger.debug("mevzuat %s: GeneratePdf failed (tur=%s): %s", doc_id, candidate_tur, e)
 
-            # Layer 4: Word (.doc) — heaviest, slowest (only try for the first/default tur
+            # Layer 3: Direct static .pdf
+            try:
+                pdf_url = _mevzuat_pdf_url(mevzuat_no, candidate_tur, tertip)
+                if pdf_url:
+                    resp = await self._http.get(pdf_url, timeout=layer_timeout)
+                    if resp.status_code == 200 and len(resp.content) > 500 and resp.content[:5] == b"%PDF-":
+                        logger.info("mevzuat %s: downloaded via .pdf (tur=%s)", doc_id, candidate_tur)
+                        return resp.content, "mevzuat_pdf", ".pdf"
+            except Exception as e:
+                logger.debug("mevzuat %s: .pdf failed (tur=%s): %s", doc_id, candidate_tur, e)
+
+            # Layer 4: .htm fallback — formulas may be lost (rendered as <img>)
+            try:
+                htm_url = f"https://www.mevzuat.gov.tr/mevzuatmetin/{segment}/{base}.htm"
+                resp = await self._http.get(htm_url, timeout=layer_timeout)
+                if resp.status_code == 200 and len(resp.content) > 200 and not _is_error_page(resp.text):
+                    logger.warning(
+                        "mevzuat %s: falling back to .htm (tur=%s) — formulas may be lost",
+                        doc_id,
+                        candidate_tur,
+                    )
+                    return resp.content, "mevzuat_htm", ".html"
+            except Exception as e:
+                logger.debug("mevzuat %s: .htm failed (tur=%s): %s", doc_id, candidate_tur, e)
+
+            # Layer 5: iframe/div from already-fetched main page
+            if main_page_visited and main_page_html:
+                try:
+                    soup = BeautifulSoup(main_page_html, "html.parser")
+                    iframe = soup.find("iframe", src=True)
+                    if iframe:
+                        iframe_url = iframe["src"]
+                        if not iframe_url.startswith("http"):
+                            iframe_url = f"https://www.mevzuat.gov.tr{iframe_url}"
+                        iframe_resp = await self._http.get(iframe_url, timeout=layer_timeout)
+                        if iframe_resp.status_code == 200 and len(iframe_resp.content) > 200:
+                            logger.warning(
+                                "mevzuat %s: falling back to iframe (tur=%s)", doc_id, candidate_tur
+                            )
+                            return iframe_resp.content, "mevzuat_iframe", ".html"
+                    div = soup.find("div", id="divMevzuatMetni")
+                    if div and len(div.get_text(strip=True)) > 100:
+                        logger.warning(
+                            "mevzuat %s: falling back to main page div (tur=%s)", doc_id, candidate_tur
+                        )
+                        return str(div).encode("utf-8"), "mevzuat_div", ".html"
+                except Exception as e:
+                    logger.debug("mevzuat %s: iframe/div parse failed (tur=%s): %s", doc_id, candidate_tur, e)
+
+            # Layer 6: Word (.doc) — heaviest, slowest (only try for the first/default tur
             # to avoid excessive requests during auto-detection)
             if candidate_tur == tur:
                 try:
@@ -562,52 +554,51 @@ class DocumentSyncer:
         return extraction.content, extraction.method
 
     def _extract_structured(self, content: bytes, ext: str) -> ExtractionResult:
-        """Extract markdown with structured error reporting."""
-        errors: list[str] = []
+        """Extract markdown via backend chain for PDFs, or HTML/markitdown path for others."""
+        if ext == ".pdf":
+            attempt = run_extraction_chain(content, self._ocr_backends, min_len=OCR_MIN_CONTENT_LEN)
+            if attempt.backend != "failed":
+                return ExtractionResult(content=attempt.content, method=attempt.backend)
+            return ExtractionResult(method="failed", error=attempt.error, retryable=False)
 
-        # For PDFs, try Nougat first if preferred
-        if ext == ".pdf" and self._prefer_nougat:
-            result = _extract_with_nougat(content)
-            if result:
-                return ExtractionResult(content=result, method="nougat")
-            errors.append("nougat: not available or failed")
-
-        # markitdown for PDF and DOC
-        if ext in (".pdf", ".doc", ".docx"):
-            result = _extract_with_markitdown(content, ext)
-            if result:
-                return ExtractionResult(content=result, method="markitdown")
-            errors.append(f"markitdown: failed for {ext}")
-
-        # HTML content
         if ext in (".html", ".htm"):
+            errors: list[str] = []
             html_str = _decode_html(content)
             result = _extract_html_to_markdown(html_str)
-            if result:
-                if _is_error_page(result):
-                    errors.append("html_parser: extracted content is a 404/navigation page")
-                else:
-                    return ExtractionResult(content=result, method="html_parser")
-
-            if not result:
+            if result and not _is_error_page(result):
+                return ExtractionResult(content=result, method="html_parser")
+            if result and _is_error_page(result):
+                errors.append("html_parser: extracted content is a 404/navigation page")
+            else:
                 errors.append("html_parser: no meaningful content extracted")
 
-            # Try markitdown as HTML fallback
-            result = _extract_with_markitdown(content, ".html")
-            if result:
-                if _is_error_page(result):
-                    errors.append("markitdown: extracted content is a 404/navigation page")
-                else:
-                    return ExtractionResult(content=result, method="markitdown")
-            errors.append("markitdown: HTML fallback also failed")
+            try:
+                from markitdown import MarkItDown
 
-        # Determine if retryable (content too small, or error page detected)
-        retryable = len(content) < 200 or any("404" in e or "navigation" in e for e in errors)
-        return ExtractionResult(
-            method="failed",
-            error="; ".join(errors) if errors else f"Unsupported extension: {ext}",
-            retryable=retryable,
-        )
+                md = MarkItDown()
+                html_result = md.convert_stream(io.BytesIO(content), file_extension=".html").text_content.strip()
+                if html_result and not _is_error_page(html_result):
+                    return ExtractionResult(content=html_result, method="markitdown")
+                errors.append("markitdown: HTML fallback failed or error page")
+            except (ValueError, OSError, UnicodeDecodeError) as e:
+                errors.append(f"markitdown: {e}")
+
+            retryable = len(content) < 200 or any("404" in e or "navigation" in e for e in errors)
+            return ExtractionResult(method="failed", error="; ".join(errors), retryable=retryable)
+
+        if ext in (".doc", ".docx"):
+            try:
+                from markitdown import MarkItDown
+
+                md = MarkItDown()
+                result = md.convert_stream(io.BytesIO(content), file_extension=ext).text_content.strip()
+                if result and len(result) >= OCR_MIN_CONTENT_LEN:
+                    return ExtractionResult(content=result, method="markitdown")
+                return ExtractionResult(method="failed", error="markitdown output too short", retryable=True)
+            except (ValueError, OSError, UnicodeDecodeError) as e:
+                return ExtractionResult(method="failed", error=f"markitdown: {e}", retryable=True)
+
+        return ExtractionResult(method="failed", error=f"Unsupported extension: {ext}", retryable=False)
 
     # ── Batch sync ───────────────────────────────────────────────────────
 
@@ -699,25 +690,36 @@ class DocumentSyncer:
 
 
 async def _create_pool_and_store(dsn: str | None) -> tuple:
-    """Create asyncpg pool and DocumentStore for CLI usage."""
+    """Create asyncpg pool, DocumentStore, and VectorStore for CLI usage.
+
+    Returns (pool, store, vector_store). `vector_store` may be None if
+    initialization fails — CLI sync then skips re-index.
+    """
     import asyncpg as _asyncpg
 
     from config import DATABASE_URL
+    from vector_store import VectorStore
 
     pool = await _asyncpg.create_pool(dsn or DATABASE_URL, min_size=1, max_size=5)
     store = DocumentStore(pool)
     await store.initialize()
-    return pool, store
+
+    vs: VectorStore | None
+    try:
+        vs = VectorStore(pool)
+        await vs.initialize()
+    except Exception as e:
+        logger.warning("VectorStore init failed (%s) — CLI sync will skip re-index", e)
+        vs = None
+
+    return pool, store, vs
 
 
 async def _cli_sync(args: argparse.Namespace) -> None:
     """CLI: sync documents."""
-    pool, store = await _create_pool_and_store(args.db)
+    pool, store, vs = await _create_pool_and_store(args.db)
     try:
-        async with DocumentSyncer(
-            store,
-            prefer_nougat=not args.no_nougat,
-        ) as syncer:
+        async with DocumentSyncer(store, vector_store=vs) as syncer:
             if args.doc_id:
                 # Look up metadata from decision_cache for source_url/title
                 row = await pool.fetchrow(
@@ -757,7 +759,7 @@ async def _cli_sync(args: argparse.Namespace) -> None:
 
 async def _cli_stats(args: argparse.Namespace) -> None:
     """CLI: show store stats."""
-    pool, store = await _create_pool_and_store(args.db)
+    pool, store, _vs = await _create_pool_and_store(args.db)
     try:
         st = await store.stats()
         print(f"Documents: {st.total_documents}")
@@ -777,7 +779,7 @@ async def _cli_stats(args: argparse.Namespace) -> None:
 
 async def _cli_import(args: argparse.Namespace) -> None:
     """CLI: import metadata from cache without downloading content."""
-    pool, store = await _create_pool_and_store(args.db)
+    pool, store, _vs = await _create_pool_and_store(args.db)
     try:
         if not CACHE_FILE.exists():
             print(f"No cache file at {CACHE_FILE}")
@@ -801,7 +803,6 @@ def main() -> None:
     sync_p.add_argument("--force", action="store_true", help="Re-download all")
     sync_p.add_argument("--doc-id", help="Sync a single document by ID")
     sync_p.add_argument("--concurrency", type=int, default=5)
-    sync_p.add_argument("--no-nougat", action="store_true", help="Skip Nougat, use markitdown")
 
     # stats
     sub.add_parser("stats", help="Show document store statistics")

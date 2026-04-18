@@ -155,7 +155,7 @@ class TestExtractionResult:
 class TestExtractStructured:
     def test_html_extraction(self):
         syncer = DocumentSyncer.__new__(DocumentSyncer)
-        syncer._prefer_nougat = False
+        syncer._ocr_backends = []
 
         html = b"<html><body><h1>Test</h1><p>Content here</p></body></html>"
         result = syncer._extract_structured(html, ".html")
@@ -165,7 +165,7 @@ class TestExtractStructured:
 
     def test_unknown_extension_fails(self):
         syncer = DocumentSyncer.__new__(DocumentSyncer)
-        syncer._prefer_nougat = False
+        syncer._ocr_backends = []
 
         result = syncer._extract_structured(b"data", ".xyz")
         assert result.method == "failed"
@@ -173,14 +173,14 @@ class TestExtractStructured:
 
     def test_empty_html_tries_fallback(self):
         syncer = DocumentSyncer.__new__(DocumentSyncer)
-        syncer._prefer_nougat = False
+        syncer._ocr_backends = []
 
         result = syncer._extract_structured(b"<html></html>", ".html")
         assert result.method in ("html_parser", "markitdown", "failed")
 
     def test_retryable_flag_for_small_content(self):
         syncer = DocumentSyncer.__new__(DocumentSyncer)
-        syncer._prefer_nougat = False
+        syncer._ocr_backends = []
 
         result = syncer._extract_structured(b"<h>err</h>", ".html")
         if result.method == "failed":
