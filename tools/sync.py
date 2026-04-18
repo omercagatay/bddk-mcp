@@ -194,9 +194,7 @@ async def startup_sync(deps: Dependencies) -> None:
                     cache_size,
                 )
                 items = [d.model_dump() for d in client.get_cache_items()]
-                async with DocumentSyncer(
-                    store, http=deps.http, vector_store=deps.vector_store
-                ) as syncer:
+                async with DocumentSyncer(store, http=deps.http, vector_store=deps.vector_store) as syncer:
                     report = await syncer.sync_all(items, concurrency=10, force=False)
                 logger.info(
                     "Document sync: %d downloaded, %d failed, %.1fs",
@@ -266,9 +264,7 @@ def register(mcp, deps: Dependencies) -> None:
         single_report = None
         sync_report = None
 
-        async with DocumentSyncer(
-            store, http=deps.http, vector_store=deps.vector_store
-        ) as syncer:
+        async with DocumentSyncer(store, http=deps.http, vector_store=deps.vector_store) as syncer:
             if document_id:
                 source_url = ""
                 title = document_id

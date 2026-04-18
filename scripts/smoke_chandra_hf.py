@@ -5,6 +5,7 @@ downloads ~10GB of model weights.
 
 Usage: uv run python scripts/smoke_chandra_hf.py
 """
+
 from __future__ import annotations
 
 import time

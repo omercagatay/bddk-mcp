@@ -35,22 +35,14 @@ def pdf_42628() -> bytes:
     """
     import httpx
 
-    ua = (
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
-    )
+    ua = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
     with httpx.Client(timeout=180.0, follow_redirects=True, headers={"User-Agent": ua}) as client:
-        client.get(
-            "https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=42628&MevzuatTur=7&MevzuatTertip=5"
-        )
+        client.get("https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=42628&MevzuatTur=7&MevzuatTertip=5")
         resp = client.get(
-            "https://www.mevzuat.gov.tr/File/GeneratePdf?"
-            "mevzuatNo=42628&mevzuatTur=Yonetmelik&mevzuatTertip=5"
+            "https://www.mevzuat.gov.tr/File/GeneratePdf?mevzuatNo=42628&mevzuatTur=Yonetmelik&mevzuatTertip=5"
         )
         if resp.status_code != 200 or resp.content[:5] != b"%PDF-":
-            resp = client.get(
-                "https://www.mevzuat.gov.tr/MevzuatMetin/yonetmelik/7.5.42628.pdf"
-            )
+            resp = client.get("https://www.mevzuat.gov.tr/MevzuatMetin/yonetmelik/7.5.42628.pdf")
     assert resp.status_code == 200, f"PDF fetch failed: {resp.status_code}"
     assert resp.content[:5] == b"%PDF-", f"Not a PDF: {resp.content[:20]!r}"
     return resp.content

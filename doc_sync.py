@@ -344,9 +344,7 @@ class DocumentSyncer:
             await self._store.record_sync_failure(doc_id, error_msg, cat, source_url, retryable)
             # Preserve old content on failed force re-extract — losing it would
             # erase successful prior extractions when a new backend transiently fails.
-            logger.warning(
-                "Extraction failed for %s; preserving old content (force=%s)", doc_id, force
-            )
+            logger.warning("Extraction failed for %s; preserving old content (force=%s)", doc_id, force)
             return SyncResult(
                 document_id=doc_id,
                 success=False,
@@ -512,15 +510,11 @@ class DocumentSyncer:
                             iframe_url = f"https://www.mevzuat.gov.tr{iframe_url}"
                         iframe_resp = await self._http.get(iframe_url, timeout=layer_timeout)
                         if iframe_resp.status_code == 200 and len(iframe_resp.content) > 200:
-                            logger.warning(
-                                "mevzuat %s: falling back to iframe (tur=%s)", doc_id, candidate_tur
-                            )
+                            logger.warning("mevzuat %s: falling back to iframe (tur=%s)", doc_id, candidate_tur)
                             return iframe_resp.content, "mevzuat_iframe", ".html"
                     div = soup.find("div", id="divMevzuatMetni")
                     if div and len(div.get_text(strip=True)) > 100:
-                        logger.warning(
-                            "mevzuat %s: falling back to main page div (tur=%s)", doc_id, candidate_tur
-                        )
+                        logger.warning("mevzuat %s: falling back to main page div (tur=%s)", doc_id, candidate_tur)
                         return str(div).encode("utf-8"), "mevzuat_div", ".html"
                 except Exception as e:
                     logger.debug("mevzuat %s: iframe/div parse failed (tur=%s): %s", doc_id, candidate_tur, e)

@@ -49,8 +49,7 @@ async def test_sync_document_calls_add_document_on_success():
         "<html><body><h1>Test Doc</h1>"
         "<p>Madde 1 - Bu belge bir test dokumanidir ve icerikte yeterli karakter "
         "bulunmaktadir cunku extraction minimum uzunluk esigini gecmesi "
-        "gerekmektedir. " * 4
-        + "</p></body></html>"
+        "gerekmektedir. " * 4 + "</p></body></html>"
     )
 
     async with DocumentSyncer(
@@ -59,9 +58,7 @@ async def test_sync_document_calls_add_document_on_success():
         vector_store=vector_store,
     ) as syncer:
         syncer._http = AsyncMock(spec=httpx.AsyncClient)
-        syncer._http.get = AsyncMock(
-            return_value=make_http_response(text=html, content_type="text/html")
-        )
+        syncer._http.get = AsyncMock(return_value=make_http_response(text=html, content_type="text/html"))
         result = await syncer.sync_document(
             doc_id="999999",
             title="Test Doc",

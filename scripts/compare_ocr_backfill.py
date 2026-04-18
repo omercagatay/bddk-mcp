@@ -176,33 +176,43 @@ def _render_markdown(rows: list[dict]) -> str:
 
 def _render_csv(rows: list[dict], csv_path: Path) -> None:
     fieldnames = [
-        "document_id", "extraction_method_before", "extraction_method_after",
-        "chars_before", "chars_after",
-        "form_drops_before", "form_drops_after",
-        "latex_markers_before", "latex_markers_after",
-        "md_image_refs_before", "md_image_refs_after",
-        "pdf_image_count", "regression", "silent_drop_candidate",
+        "document_id",
+        "extraction_method_before",
+        "extraction_method_after",
+        "chars_before",
+        "chars_after",
+        "form_drops_before",
+        "form_drops_after",
+        "latex_markers_before",
+        "latex_markers_after",
+        "md_image_refs_before",
+        "md_image_refs_after",
+        "pdf_image_count",
+        "regression",
+        "silent_drop_candidate",
     ]
     with csv_path.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
         for r in rows:
-            w.writerow({
-                "document_id": r["document_id"],
-                "extraction_method_before": r["extraction_method_before"],
-                "extraction_method_after": r["extraction_method_after"],
-                "chars_before": r["before"]["chars"],
-                "chars_after": r["after"]["chars"],
-                "form_drops_before": r["before"]["form_drops"],
-                "form_drops_after": r["after"]["form_drops"],
-                "latex_markers_before": r["before"]["latex_markers"],
-                "latex_markers_after": r["after"]["latex_markers"],
-                "md_image_refs_before": r["before"]["md_image_refs"],
-                "md_image_refs_after": r["after"]["md_image_refs"],
-                "pdf_image_count": r["pdf_image_count"],
-                "regression": r["regression"],
-                "silent_drop_candidate": r["silent_drop_candidate"],
-            })
+            w.writerow(
+                {
+                    "document_id": r["document_id"],
+                    "extraction_method_before": r["extraction_method_before"],
+                    "extraction_method_after": r["extraction_method_after"],
+                    "chars_before": r["before"]["chars"],
+                    "chars_after": r["after"]["chars"],
+                    "form_drops_before": r["before"]["form_drops"],
+                    "form_drops_after": r["after"]["form_drops"],
+                    "latex_markers_before": r["before"]["latex_markers"],
+                    "latex_markers_after": r["after"]["latex_markers"],
+                    "md_image_refs_before": r["before"]["md_image_refs"],
+                    "md_image_refs_after": r["after"]["md_image_refs"],
+                    "pdf_image_count": r["pdf_image_count"],
+                    "regression": r["regression"],
+                    "silent_drop_candidate": r["silent_drop_candidate"],
+                }
+            )
 
 
 async def _run(baseline_path: Path) -> int:

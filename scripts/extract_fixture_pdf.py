@@ -2,6 +2,7 @@
 
 Usage: uv run python scripts/extract_fixture_pdf.py
 """
+
 import asyncio
 import os
 from pathlib import Path
