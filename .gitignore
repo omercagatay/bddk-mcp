@@ -20,3 +20,11 @@ chroma_db/
 
 # Benchmark results
 benchmark_results/
+
+# Local script debugging artifacts
+scripts/*.log
+scripts/*.out
+scripts/doc_*.txt
+
+# Claude Code — per-machine permission allowlist
+.claude/settings.local.json
