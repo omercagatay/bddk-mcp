@@ -109,9 +109,7 @@ class TestHybridSearchOrdering:
         results = await vs._hybrid_search("q", limit=10)
 
         relevances = [r["relevance"] for r in results]
-        assert relevances == sorted(relevances, reverse=True), (
-            f"Results not monotonic in relevance: {relevances}"
-        )
+        assert relevances == sorted(relevances, reverse=True), f"Results not monotonic in relevance: {relevances}"
         assert [r["doc_id"] for r in results] == ["a", "b", "c"]
 
 
