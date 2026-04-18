@@ -99,3 +99,23 @@ class TestValidateColumn:
             validate_column("4")
         with pytest.raises(ValueError):
             validate_column("abc")
+
+
+class TestChandraConfig:
+    def test_chandra_model_name_default(self, monkeypatch):
+        monkeypatch.delenv("BDDK_CHANDRA_MODEL", raising=False)
+        import importlib
+
+        import config
+
+        importlib.reload(config)
+        assert config.CHANDRA_MODEL_NAME == "datalab-to/chandra-ocr-2"
+
+    def test_chandra_model_name_env_override(self, monkeypatch):
+        monkeypatch.setenv("BDDK_CHANDRA_MODEL", "custom/model")
+        import importlib
+
+        import config
+
+        importlib.reload(config)
+        assert config.CHANDRA_MODEL_NAME == "custom/model"

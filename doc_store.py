@@ -291,6 +291,16 @@ class DocumentStore:
             file_size=row["file_size"] or 0,
         )
 
+    async def get_pdf_bytes(self, document_id: str) -> bytes | None:
+        """Return cached PDF bytes for a document, or None if absent."""
+        row = await self._pool.fetchrow(
+            "SELECT pdf_blob FROM documents WHERE document_id = $1",
+            document_id,
+        )
+        if row is None or row["pdf_blob"] is None:
+            return None
+        return bytes(row["pdf_blob"])
+
     async def get_document_page(self, doc_id: str, page: int = 1) -> DocumentPage | None:
         """Retrieve a single paginated page of a document's markdown content."""
         row = await self._pool.fetchrow(

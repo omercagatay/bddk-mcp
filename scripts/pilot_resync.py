@@ -26,6 +26,9 @@ class MemStore:
     async def get_document(self, doc_id: str) -> StoredDocument | None:
         return self.docs.get(doc_id)
 
+    async def get_pdf_bytes(self, doc_id: str) -> bytes | None:
+        return None
+
     async def store_document(self, doc: StoredDocument) -> None:
         self.docs[doc.document_id] = doc
 
@@ -59,7 +62,7 @@ async def main() -> int:
         ),
     }
 
-    async with DocumentSyncer(store, prefer_nougat=False) as syncer:
+    async with DocumentSyncer(store) as syncer:
         result = await syncer.sync_document(
             doc_id=target["document_id"],
             title=target["title"],

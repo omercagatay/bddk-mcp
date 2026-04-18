@@ -42,6 +42,9 @@ class MemStore:
     async def get_document(self, doc_id: str) -> StoredDocument | None:
         return self.docs.get(doc_id)
 
+    async def get_pdf_bytes(self, doc_id: str) -> bytes | None:
+        return None
+
     async def store_document(self, doc: StoredDocument) -> None:
         self.docs[doc.document_id] = doc
 
@@ -75,7 +78,7 @@ async def main() -> int:
     store = MemStore()
     ok, failed, still_corrupt = [], [], []
 
-    async with DocumentSyncer(store, prefer_nougat=False) as syncer:
+    async with DocumentSyncer(store) as syncer:
         sem = asyncio.Semaphore(4)  # gentle — mevzuat.gov.tr is slow
 
         async def resync_one(meta: dict) -> tuple[str, bool, str]:
