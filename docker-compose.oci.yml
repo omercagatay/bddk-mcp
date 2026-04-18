@@ -1,0 +1,49 @@
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bddk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-bddk}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bddk}"]
+      interval: 5s
+      retries: 5
+
+  bddk:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      BDDK_DATABASE_URL: postgresql://${POSTGRES_USER:-bddk}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-bddk}
+      BDDK_AUTO_SYNC: ${BDDK_AUTO_SYNC:-false}
+      MCP_TRANSPORT: streamable-http
+      PORT: "8000"
+    volumes:
+      - bddk_data:/app/data
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env, e.g. bddk.example.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - bddk
+
+volumes:
+  pgdata:
+  bddk_data:
+  caddy_data:
+  caddy_config:
