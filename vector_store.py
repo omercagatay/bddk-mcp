@@ -633,7 +633,7 @@ class VectorStore:
         pairs = [(query, c["snippet"]) for c in candidates]
         loop = asyncio.get_running_loop()
         scores = await loop.run_in_executor(None, self._rerank_fn.predict, pairs)
-        for candidate, score in zip(candidates, scores, strict=False):
+        for candidate, score in zip(candidates, scores, strict=True):
             candidate["rerank_score"] = float(score)
             candidate["relevance"] = round(1.0 / (1.0 + math.exp(-float(score))), 4)
         return sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)
