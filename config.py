@@ -72,6 +72,8 @@ RERANKER_TOP_N = int(os.environ.get("BDDK_RERANKER_TOP_N", "20"))
 # -- HTTP ---------------------------------------------------------------------
 
 REQUEST_TIMEOUT = float(os.environ.get("BDDK_REQUEST_TIMEOUT", "60.0"))
+HTTP_CONNECT_TIMEOUT = float(os.environ.get("BDDK_HTTP_CONNECT_TIMEOUT", "10.0"))
+HTTP_POOL_TIMEOUT = float(os.environ.get("BDDK_HTTP_POOL_TIMEOUT", "10.0"))
 MAX_RETRIES = int(os.environ.get("BDDK_MAX_RETRIES", "3"))
 
 # -- Sync ---------------------------------------------------------------------

@@ -10,7 +10,15 @@ import httpx
 from mcp.server.fastmcp import FastMCP
 
 from client import BddkApiClient
-from config import AUTO_SYNC, DATABASE_URL, PG_POOL_MAX, PG_POOL_MIN, REQUEST_TIMEOUT
+from config import (
+    AUTO_SYNC,
+    DATABASE_URL,
+    HTTP_CONNECT_TIMEOUT,
+    HTTP_POOL_TIMEOUT,
+    PG_POOL_MAX,
+    PG_POOL_MIN,
+    REQUEST_TIMEOUT,
+)
 from deps import Dependencies
 from doc_store import DocumentStore
 from logging_config import configure_logging
@@ -59,7 +67,11 @@ async def create_deps() -> Dependencies:
                 "Chrome/120.0.0.0 Safari/537.36"
             ),
         },
-        timeout=httpx.Timeout(REQUEST_TIMEOUT),
+        timeout=httpx.Timeout(
+            REQUEST_TIMEOUT,
+            connect=HTTP_CONNECT_TIMEOUT,
+            pool=HTTP_POOL_TIMEOUT,
+        ),
         follow_redirects=True,
     )
 

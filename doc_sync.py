@@ -29,7 +29,7 @@ import httpx
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
 
-from config import BASE_DIR, REQUEST_TIMEOUT
+from config import BASE_DIR, HTTP_CONNECT_TIMEOUT, HTTP_POOL_TIMEOUT, REQUEST_TIMEOUT
 from doc_store import DocumentStore, StoredDocument
 from utils import MEVZUAT_TUR_MAP, fetch_with_retry
 
@@ -309,7 +309,11 @@ class DocumentSyncer:
                         "Chrome/120.0.0.0 Safari/537.36"
                     ),
                 },
-                timeout=httpx.Timeout(request_timeout),
+                timeout=httpx.Timeout(
+                    request_timeout,
+                    connect=HTTP_CONNECT_TIMEOUT,
+                    pool=HTTP_POOL_TIMEOUT,
+                ),
                 follow_redirects=True,
             )
 
