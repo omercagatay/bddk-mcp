@@ -138,6 +138,7 @@ class TestChandraBackend:
         # chandra reads its checkpoint from chandra.settings.MODEL_CHECKPOINT,
         # not a constructor arg — _load_manager must mutate it before
         # InferenceManager() so BDDK_CHANDRA_MODEL is not a no-op.
+        pytest.importorskip("chandra")
         from chandra.model import settings as chandra_settings
 
         import ocr_backends_chandra
