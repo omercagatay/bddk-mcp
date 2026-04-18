@@ -12,10 +12,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent
 # -- PostgreSQL ---------------------------------------------------------------
 
-DATABASE_URL = os.environ.get(
-    "BDDK_DATABASE_URL",
-    "postgresql://bddk:bddk@localhost:5432/bddk",
-)
+DATABASE_URL = os.environ.get("BDDK_DATABASE_URL", "")
 
 # asyncpg pool settings
 PG_POOL_MIN = int(os.environ.get("BDDK_PG_POOL_MIN", "2"))

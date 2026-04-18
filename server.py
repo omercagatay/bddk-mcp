@@ -42,6 +42,13 @@ GROUNDING RULES — follow these strictly:
 
 async def create_deps() -> Dependencies:
     """Create all dependencies eagerly. Fails fast if DB is unreachable."""
+    if not DATABASE_URL:
+        raise RuntimeError(
+            "BDDK_DATABASE_URL is not set. Copy .env.example to .env and "
+            "set a PostgreSQL DSN, or run `docker-compose up` which sets "
+            "it automatically."
+        )
+
     http = httpx.AsyncClient(
         headers={
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
