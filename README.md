@@ -253,7 +253,7 @@ All configuration is centralized in `config.py` and overridable via environment 
 |---|---|---|
 | `MCP_TRANSPORT` | `stdio` | Transport: `stdio` (local) or `streamable-http` (Railway) |
 | `PORT` | `8000` | Server port (streamable-http only) |
-| `BDDK_DATABASE_URL` | `postgresql://bddk:bddk@localhost:5432/bddk` | PostgreSQL connection string |
+| `BDDK_DATABASE_URL` | _(required)_ | PostgreSQL connection string — server/seed/doc_sync refuse to start if unset |
 | `BDDK_PG_POOL_MIN` | `2` | Minimum pool connections |
 | `BDDK_PG_POOL_MAX` | `10` | Maximum pool connections |
 | `BDDK_AUTO_SYNC` | `false` | Auto-sync documents on startup |

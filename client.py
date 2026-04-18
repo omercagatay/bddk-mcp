@@ -13,6 +13,8 @@ from markitdown import MarkItDown
 
 from config import (
     CACHE_TTL_SECONDS,
+    HTTP_CONNECT_TIMEOUT,
+    HTTP_POOL_TIMEOUT,
     PAGE_SIZE,
     REQUEST_TIMEOUT,
     STALE_CACHE_FALLBACK,
@@ -235,7 +237,11 @@ class BddkApiClient:
                         "Chrome/120.0.0.0 Safari/537.36"
                     ),
                 },
-                timeout=httpx.Timeout(request_timeout),
+                timeout=httpx.Timeout(
+                    request_timeout,
+                    connect=HTTP_CONNECT_TIMEOUT,
+                    pool=HTTP_POOL_TIMEOUT,
+                ),
                 follow_redirects=True,
             )
         self._md = MarkItDown()
