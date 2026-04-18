@@ -8,7 +8,6 @@ from pathlib import Path
 
 import asyncpg
 
-
 DOCUMENT_ID = "mevzuat_42628"
 OUT_PATH = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / f"{DOCUMENT_ID}_sample.pdf"
 

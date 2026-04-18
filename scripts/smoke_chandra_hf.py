@@ -14,10 +14,11 @@ import torch
 
 assert torch.cuda.is_available(), "CUDA not available"
 
-from chandra.input import load_file
-from chandra.model import InferenceManager
-from chandra.model.schema import BatchInputItem
-
+# Imports below are deferred until after the CUDA check so the script fails
+# fast on CPU-only machines without paying the heavy chandra import cost.
+from chandra.input import load_file  # noqa: E402
+from chandra.model import InferenceManager  # noqa: E402
+from chandra.model.schema import BatchInputItem  # noqa: E402
 
 FIXTURE = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "mevzuat_42628_sample.pdf"
 
