@@ -83,6 +83,13 @@ AUTO_SYNC = os.environ.get("BDDK_AUTO_SYNC", "false").lower() in ("1", "true", "
 SYNC_CONCURRENCY = int(os.environ.get("BDDK_SYNC_CONCURRENCY", "5"))
 PREFER_NOUGAT = os.environ.get("BDDK_PREFER_NOUGAT", "false").lower() in ("1", "true", "yes")
 
+# -- BDDK announcements -------------------------------------------------------
+
+# BDDK announcement category IDs surfaced on the public site.
+# 39=Basın (press), 40=Mevzuat (regulation), 41=İnsan Kaynakları (HR),
+# 42=Veri Yayınları (data), 48=Kuruluş (institution).
+ANNOUNCEMENT_CATEGORY_IDS: tuple[int, ...] = (39, 40, 41, 42, 48)
+
 # -- Validation helpers -------------------------------------------------------
 
 

@@ -12,7 +12,7 @@ from collections import OrderedDict
 from typing import TYPE_CHECKING
 
 from client import _turkish_lower
-from config import SEARCH_CACHE_MAX, SEARCH_CACHE_TTL
+from config import ANNOUNCEMENT_CATEGORY_IDS, SEARCH_CACHE_MAX, SEARCH_CACHE_TTL
 from data_sources import fetch_announcements, fetch_institutions
 from metrics import metrics
 from models import BddkSearchRequest
@@ -208,8 +208,8 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
             "data": [42],
             "kuruluş": [48],
             "institution": [48],
-            "tümü": [39, 40, 41, 42, 48],
-            "all": [39, 40, 41, 42, 48],
+            "tümü": list(ANNOUNCEMENT_CATEGORY_IDS),
+            "all": list(ANNOUNCEMENT_CATEGORY_IDS),
         }
 
         cat_ids = [39]  # default
