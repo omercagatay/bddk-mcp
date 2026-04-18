@@ -19,7 +19,7 @@ from pathlib import Path
 
 import asyncpg
 
-from config import DATABASE_URL
+from config import require_database_url
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ async def export_seed(dsn: str | None = None, pool: asyncpg.Pool | None = None) 
     """Export decision_cache and documents tables to seed_data/ as JSON."""
     owns_pool = pool is None
     if owns_pool:
-        pool = await asyncpg.create_pool(dsn or DATABASE_URL, min_size=1, max_size=3)
+        pool = await asyncpg.create_pool(dsn or require_database_url(), min_size=1, max_size=3)
     SEED_DIR.mkdir(exist_ok=True)
 
     try:
@@ -105,7 +105,7 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
 
     owns_pool = pool is None
     if owns_pool:
-        pool = await asyncpg.create_pool(dsn or DATABASE_URL, min_size=1, max_size=3)
+        pool = await asyncpg.create_pool(dsn or require_database_url(), min_size=1, max_size=3)
 
     try:
         # Initialize schemas first

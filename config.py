@@ -12,10 +12,26 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent
 # -- PostgreSQL ---------------------------------------------------------------
 
-DATABASE_URL = os.environ.get(
-    "BDDK_DATABASE_URL",
-    "postgresql://bddk:bddk@localhost:5432/bddk",
-)
+DATABASE_URL = os.environ.get("BDDK_DATABASE_URL", "")
+
+
+def require_database_url() -> str:
+    """Return BDDK_DATABASE_URL or raise with a friendly remediation message.
+
+    Call this at the start of any entry point (server, seed CLI, doc_sync CLI)
+    that needs to open a pool, instead of passing DATABASE_URL directly to
+    asyncpg. An unset env var then fails loudly at the boundary with a
+    message the operator can act on, rather than surfacing later as an
+    opaque asyncpg error.
+    """
+    if not DATABASE_URL:
+        raise RuntimeError(
+            "BDDK_DATABASE_URL is not set. Copy .env.example to .env and "
+            "set a PostgreSQL DSN, or run `docker-compose up` which sets "
+            "it automatically."
+        )
+    return DATABASE_URL
+
 
 # asyncpg pool settings
 PG_POOL_MIN = int(os.environ.get("BDDK_PG_POOL_MIN", "2"))
@@ -75,6 +91,8 @@ RERANKER_TOP_N = int(os.environ.get("BDDK_RERANKER_TOP_N", "20"))
 # -- HTTP ---------------------------------------------------------------------
 
 REQUEST_TIMEOUT = float(os.environ.get("BDDK_REQUEST_TIMEOUT", "60.0"))
+HTTP_CONNECT_TIMEOUT = float(os.environ.get("BDDK_HTTP_CONNECT_TIMEOUT", "10.0"))
+HTTP_POOL_TIMEOUT = float(os.environ.get("BDDK_HTTP_POOL_TIMEOUT", "10.0"))
 MAX_RETRIES = int(os.environ.get("BDDK_MAX_RETRIES", "3"))
 
 # -- Sync ---------------------------------------------------------------------

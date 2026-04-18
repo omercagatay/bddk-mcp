@@ -5,6 +5,7 @@ Common constants and helper functions used across client.py and doc_sync.py.
 
 import asyncio
 import logging
+import random
 
 import httpx
 
@@ -45,13 +46,13 @@ async def fetch_with_retry(
                 raise  # 4xx client errors: don't retry
             last_exc = exc
             if attempt < max_retries - 1:
-                wait = 2**attempt
+                wait = 2**attempt + random.uniform(0, 1)
                 logger.warning("Retry %d/%d for %s: %s", attempt + 1, max_retries, url, exc)
                 await asyncio.sleep(wait)
         except httpx.TransportError as exc:
             last_exc = exc
             if attempt < max_retries - 1:
-                wait = 2**attempt
+                wait = 2**attempt + random.uniform(0, 1)
                 logger.warning("Retry %d/%d for %s: %s", attempt + 1, max_retries, url, exc)
                 await asyncio.sleep(wait)
     raise last_exc  # type: ignore[misc]
