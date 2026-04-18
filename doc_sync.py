@@ -706,9 +706,9 @@ async def _create_pool_and_store(dsn: str | None) -> tuple:
     """Create asyncpg pool and DocumentStore for CLI usage."""
     import asyncpg as _asyncpg
 
-    from config import DATABASE_URL
+    from config import require_database_url
 
-    pool = await _asyncpg.create_pool(dsn or DATABASE_URL, min_size=1, max_size=5)
+    pool = await _asyncpg.create_pool(dsn or require_database_url(), min_size=1, max_size=5)
     store = DocumentStore(pool)
     await store.initialize()
     return pool, store

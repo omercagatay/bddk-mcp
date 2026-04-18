@@ -18,6 +18,7 @@ from config import (
     PG_POOL_MAX,
     PG_POOL_MIN,
     REQUEST_TIMEOUT,
+    require_database_url,
 )
 from deps import Dependencies
 from doc_store import DocumentStore
@@ -50,12 +51,7 @@ GROUNDING RULES — follow these strictly:
 
 async def create_deps() -> Dependencies:
     """Create all dependencies eagerly. Fails fast if DB is unreachable."""
-    if not DATABASE_URL:
-        raise RuntimeError(
-            "BDDK_DATABASE_URL is not set. Copy .env.example to .env and "
-            "set a PostgreSQL DSN, or run `docker-compose up` which sets "
-            "it automatically."
-        )
+    dsn = require_database_url()
 
     http = httpx.AsyncClient(
         headers={
@@ -76,13 +72,13 @@ async def create_deps() -> Dependencies:
     )
 
     pool = await asyncpg.create_pool(
-        DATABASE_URL,
+        dsn,
         min_size=PG_POOL_MIN,
         max_size=PG_POOL_MAX,
         command_timeout=30,
         timeout=10,
     )
-    logger.info("PostgreSQL pool created: %s", DATABASE_URL.split("@")[-1])
+    logger.info("PostgreSQL pool created: %s", dsn.split("@")[-1])
 
     doc_store = DocumentStore(pool)
     await doc_store.initialize()

@@ -14,6 +14,25 @@ BASE_DIR = Path(__file__).parent
 
 DATABASE_URL = os.environ.get("BDDK_DATABASE_URL", "")
 
+
+def require_database_url() -> str:
+    """Return BDDK_DATABASE_URL or raise with a friendly remediation message.
+
+    Call this at the start of any entry point (server, seed CLI, doc_sync CLI)
+    that needs to open a pool, instead of passing DATABASE_URL directly to
+    asyncpg. An unset env var then fails loudly at the boundary with a
+    message the operator can act on, rather than surfacing later as an
+    opaque asyncpg error.
+    """
+    if not DATABASE_URL:
+        raise RuntimeError(
+            "BDDK_DATABASE_URL is not set. Copy .env.example to .env and "
+            "set a PostgreSQL DSN, or run `docker-compose up` which sets "
+            "it automatically."
+        )
+    return DATABASE_URL
+
+
 # asyncpg pool settings
 PG_POOL_MIN = int(os.environ.get("BDDK_PG_POOL_MIN", "2"))
 PG_POOL_MAX = int(os.environ.get("BDDK_PG_POOL_MAX", "10"))
