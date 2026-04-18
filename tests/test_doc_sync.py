@@ -15,6 +15,7 @@ from doc_sync import (
     _mevzuat_pdf_url,
     _parse_mevzuat_params,
 )
+from ocr_backends import MarkitdownBackend
 from tests.conftest import make_http_response
 from utils import fetch_with_retry
 
@@ -177,14 +178,14 @@ class TestDocumentSyncer:
             )
         )
 
-        async with DocumentSyncer(store, prefer_nougat=False) as syncer:
+        async with DocumentSyncer(store, ocr_backends=[MarkitdownBackend()]) as syncer:
             result = await syncer.sync_document(doc_id="1291")
             assert result.success is True
             assert result.method == "cached"
 
     @pytest.mark.asyncio
     async def test_sync_bddk_document(self, store):
-        async with DocumentSyncer(store, prefer_nougat=False) as syncer:
+        async with DocumentSyncer(store, ocr_backends=[MarkitdownBackend()]) as syncer:
             # Mock HTTP response
             html_content = "<html><body><h1>Test</h1><p>Content here</p></body></html>"
             syncer._http = AsyncMock(spec=httpx.AsyncClient)
@@ -209,14 +210,14 @@ class TestDocumentSyncer:
 
     @pytest.mark.asyncio
     async def test_sync_unknown_id_format(self, store):
-        async with DocumentSyncer(store, prefer_nougat=False) as syncer:
+        async with DocumentSyncer(store, ocr_backends=[MarkitdownBackend()]) as syncer:
             result = await syncer.sync_document(doc_id="weird-format-123")
             assert result.success is False
             assert "Unknown" in result.error
 
     @pytest.mark.asyncio
     async def test_sync_mevzuat_htm_layer(self, store):
-        async with DocumentSyncer(store, prefer_nougat=False) as syncer:
+        async with DocumentSyncer(store, ocr_backends=[MarkitdownBackend()]) as syncer:
             # Content must be >200 bytes to pass the .htm layer check
             html_content = (
                 "<html><body><h1>Yönetmelik Başlığı</h1>"
@@ -242,7 +243,7 @@ class TestDocumentSyncer:
 
     @pytest.mark.asyncio
     async def test_sync_all_with_concurrency(self, store):
-        async with DocumentSyncer(store, prefer_nougat=False) as syncer:
+        async with DocumentSyncer(store, ocr_backends=[MarkitdownBackend()]) as syncer:
             html = "<html><body><h1>Doc</h1><p>Content</p></body></html>"
             syncer._http = AsyncMock(spec=httpx.AsyncClient)
             syncer._http.get = AsyncMock(return_value=make_http_response(text=html, content_type="text/html"))
@@ -260,7 +261,7 @@ class TestDocumentSyncer:
 
     @pytest.mark.asyncio
     async def test_sync_all_handles_failures(self, store):
-        async with DocumentSyncer(store, prefer_nougat=False) as syncer:
+        async with DocumentSyncer(store, ocr_backends=[MarkitdownBackend()]) as syncer:
             syncer._http = AsyncMock(spec=httpx.AsyncClient)
             syncer._http.get = AsyncMock(side_effect=httpx.TransportError("network error"))
 
@@ -283,7 +284,7 @@ class TestDocumentSyncer:
             )
         )
 
-        async with DocumentSyncer(store, prefer_nougat=False) as syncer:
+        async with DocumentSyncer(store, ocr_backends=[MarkitdownBackend()]) as syncer:
             html = "<html><body><h1>New</h1><p>New content</p></body></html>"
             syncer._http = AsyncMock(spec=httpx.AsyncClient)
             syncer._http.get = AsyncMock(return_value=make_http_response(text=html, content_type="text/html"))
@@ -291,3 +292,72 @@ class TestDocumentSyncer:
             result = await syncer.sync_document(doc_id="300", force=True)
             assert result.success is True
             assert result.method != "cached"
+
+
+@pytest.mark.asyncio
+async def test_mevzuat_download_tries_pdf_before_htm():
+    """_download_mevzuat must attempt PDF paths before HTML to preserve formulas."""
+    import httpx as _httpx
+
+    dummy_store = object()  # _download_mevzuat does not touch the store
+    async with DocumentSyncer(dummy_store, ocr_backends=[MarkitdownBackend()]) as syncer:
+        call_log: list[str] = []
+        main_html = b"<html><body>main page</body></html>"
+        pdf_bytes = b"%PDF-1.4\n" + b"x" * 1000
+
+        async def fake_get(url, timeout=None):
+            call_log.append(url)
+            if "mevzuat?MevzuatNo=42628" in url and "MevzuatTur=7" in url:
+                return make_http_response(content=main_html, content_type="text/html")
+            if "GeneratePdf" in url and "mevzuatNo=42628" in url:
+                return make_http_response(content=pdf_bytes, content_type="application/pdf")
+            # Anything else: 404 so test fails if wrong layer is tried
+            return make_http_response(status_code=404)
+
+        syncer._http = AsyncMock(spec=_httpx.AsyncClient)
+        syncer._http.get = AsyncMock(side_effect=fake_get)
+
+        content, method, ext = await syncer._download_mevzuat("mevzuat_42628")
+
+    assert ext == ".pdf"
+    assert method == "mevzuat_generate_pdf"
+    assert content.startswith(b"%PDF-")
+    # Verify .htm was NOT tried before GeneratePdf
+    htm_idx = next((i for i, u in enumerate(call_log) if ".htm" in u), -1)
+    gen_idx = next((i for i, u in enumerate(call_log) if "GeneratePdf" in u), -1)
+    if htm_idx >= 0:
+        assert gen_idx < htm_idx, f"GeneratePdf must be tried before .htm; order={call_log}"
+
+
+@pytest.mark.asyncio
+async def test_force_reextract_failure_preserves_old_content(doc_store):
+    """When force=True and new extraction fails, old markdown must remain in DB."""
+    original = StoredDocument(
+        document_id="42628",
+        title="Test doc",
+        markdown_content="ORIGINAL CONTENT",
+        extraction_method="lightocr",
+    )
+    await doc_store.store_document(original)
+
+    class _AlwaysFailBackend:
+        name = "test_fail"
+
+        def is_available(self) -> bool:
+            return True
+
+        def extract(self, pdf_bytes: bytes) -> str | None:
+            return None
+
+    async with DocumentSyncer(doc_store, ocr_backends=[_AlwaysFailBackend()]) as syncer:
+        # Stub HTTP to return a PDF so download succeeds but extraction fails
+        syncer._http = AsyncMock(spec=httpx.AsyncClient)
+        fake_pdf = b"%PDF-1.4\n" + b"x" * 1000
+        syncer._http.get = AsyncMock(return_value=make_http_response(content=fake_pdf, content_type="application/pdf"))
+
+        result = await syncer.sync_document(doc_id="42628", force=True)
+
+    assert result.success is False
+    stored = await doc_store.get_document("42628")
+    assert stored is not None
+    assert stored.markdown_content == "ORIGINAL CONTENT"
