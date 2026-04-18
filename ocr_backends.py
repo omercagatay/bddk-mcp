@@ -142,11 +142,9 @@ class LightOCRBackend:
         self,
         model_name: str = "",
         model_path: str = "",
-        batch_size: int = 0,
         device: str = "",
     ) -> None:
         from config import (
-            LIGHTOCR_BATCH_SIZE,
             LIGHTOCR_DEVICE,
             LIGHTOCR_MODEL_NAME,
             LIGHTOCR_MODEL_PATH,
@@ -154,7 +152,6 @@ class LightOCRBackend:
 
         self._model_name = model_name or LIGHTOCR_MODEL_NAME
         self._model_path = model_path or LIGHTOCR_MODEL_PATH
-        self._batch_size = batch_size or LIGHTOCR_BATCH_SIZE
         self._device_pref = device or LIGHTOCR_DEVICE
         self._model = None
 
@@ -184,13 +181,10 @@ class LightOCRBackend:
         # Put PyTorch model in inference mode (train(False) == eval()).
         model_obj.train(False)
 
-        batch_size = self._batch_size
-
         class _Wrapper:
-            def __init__(self, model, processor, batch_size, device):
+            def __init__(self, model, processor, device):
                 self.model = model
                 self.processor = processor
-                self.batch_size = batch_size
                 self.device = device
 
             def generate_markdown(self, pdf_bytes: bytes) -> str | None:
@@ -201,9 +195,7 @@ class LightOCRBackend:
                     return None
                 pages: list[str] = []
                 for image in images:
-                    conversation = [
-                        {"role": "user", "content": [{"type": "image", "url": image}]}
-                    ]
+                    conversation = [{"role": "user", "content": [{"type": "image", "url": image}]}]
                     inputs = self.processor.apply_chat_template(
                         conversation,
                         add_generation_prompt=True,
@@ -229,7 +221,7 @@ class LightOCRBackend:
                 return "\n\n".join(pages) if pages else None
 
         logger.info("LightOnOCR loaded, VRAM cached: %.1f GB", torch.cuda.memory_allocated() / 1e9)
-        return _Wrapper(model_obj, processor, batch_size, device)
+        return _Wrapper(model_obj, processor, device)
 
     def extract(self, pdf_bytes: bytes) -> str | None:
         if not pdf_bytes:

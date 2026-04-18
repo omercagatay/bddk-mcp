@@ -39,9 +39,6 @@ OCR_BACKEND = os.environ.get("BDDK_OCR_BACKEND", "lightocr")
 LIGHTOCR_MODEL_PATH = os.environ.get("BDDK_LIGHTOCR_MODEL_PATH", "")
 LIGHTOCR_MODEL_NAME = os.environ.get("BDDK_LIGHTOCR_MODEL", "lightonai/LightOnOCR-2-1B")
 
-# Batch size for page-level inference (RTX 5080: 4 is safe)
-LIGHTOCR_BATCH_SIZE = int(os.environ.get("BDDK_LIGHTOCR_BATCH_SIZE", "4"))
-
 # Device: auto | cuda | cpu
 LIGHTOCR_DEVICE = os.environ.get("BDDK_LIGHTOCR_DEVICE", "auto")
 
