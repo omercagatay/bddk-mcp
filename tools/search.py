@@ -12,7 +12,7 @@ from collections import OrderedDict
 from typing import TYPE_CHECKING
 
 from client import _turkish_lower
-from config import SEARCH_CACHE_MAX, SEARCH_CACHE_TTL
+from config import ANNOUNCEMENT_CATEGORY_IDS, SEARCH_CACHE_MAX, SEARCH_CACHE_TTL
 from data_sources import fetch_announcements, fetch_institutions
 from metrics import metrics
 from models import BddkSearchRequest
@@ -208,8 +208,8 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
             "data": [42],
             "kuruluş": [48],
             "institution": [48],
-            "tümü": [39, 40, 41, 42, 48],
-            "all": [39, 40, 41, 42, 48],
+            "tümü": list(ANNOUNCEMENT_CATEGORY_IDS),
+            "all": list(ANNOUNCEMENT_CATEGORY_IDS),
         }
 
         cat_ids = [39]  # default
@@ -285,8 +285,7 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
             date_info = f" ({h['decision_date']})" if h.get("decision_date") else ""
             cat_info = f" [{h['category']}]" if h.get("category") else ""
             confidence = h.get("confidence", "unknown")
-            confidence_icon = {"high": "🟢", "medium": "🟡", "low": "🔴"}.get(confidence, "⚪")
-            relevance = f" [{confidence_icon} {confidence} confidence, {h['relevance']:.1%}]"
+            relevance = f" [{confidence} confidence, {h['relevance']:.1%}]"
             lines.append(f"**{h['title']}**{date_info}{cat_info}{relevance}")
             lines.append(f"  Document ID: {h['doc_id']}")
             if h.get("snippet"):
@@ -297,7 +296,7 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
         if low_count > 0:
             metrics.record_low_confidence_hit()
             lines.append(
-                f"\n⚠️ {low_count} result(s) have low confidence. "
+                f"\nWARNING: {low_count} result(s) have low confidence. "
                 "These may not be directly relevant. Verify before citing."
             )
 

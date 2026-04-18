@@ -10,7 +10,16 @@ import httpx
 from mcp.server.fastmcp import FastMCP
 
 from client import BddkApiClient
-from config import AUTO_SYNC, DATABASE_URL, PG_POOL_MAX, PG_POOL_MIN, REQUEST_TIMEOUT
+from config import (
+    AUTO_SYNC,
+    DATABASE_URL,
+    HTTP_CONNECT_TIMEOUT,
+    HTTP_POOL_TIMEOUT,
+    PG_POOL_MAX,
+    PG_POOL_MIN,
+    REQUEST_TIMEOUT,
+    require_database_url,
+)
 from deps import Dependencies
 from doc_store import DocumentStore
 from logging_config import configure_logging
@@ -42,6 +51,8 @@ GROUNDING RULES — follow these strictly:
 
 async def create_deps() -> Dependencies:
     """Create all dependencies eagerly. Fails fast if DB is unreachable."""
+    dsn = require_database_url()
+
     http = httpx.AsyncClient(
         headers={
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -52,18 +63,22 @@ async def create_deps() -> Dependencies:
                 "Chrome/120.0.0.0 Safari/537.36"
             ),
         },
-        timeout=httpx.Timeout(REQUEST_TIMEOUT),
+        timeout=httpx.Timeout(
+            REQUEST_TIMEOUT,
+            connect=HTTP_CONNECT_TIMEOUT,
+            pool=HTTP_POOL_TIMEOUT,
+        ),
         follow_redirects=True,
     )
 
     pool = await asyncpg.create_pool(
-        DATABASE_URL,
+        dsn,
         min_size=PG_POOL_MIN,
         max_size=PG_POOL_MAX,
         command_timeout=30,
         timeout=10,
     )
-    logger.info("PostgreSQL pool created: %s", DATABASE_URL.split("@")[-1])
+    logger.info("PostgreSQL pool created: %s", dsn.split("@")[-1])
 
     doc_store = DocumentStore(pool)
     await doc_store.initialize()

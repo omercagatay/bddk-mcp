@@ -30,7 +30,13 @@ import httpx
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
 
-from config import BASE_DIR, OCR_MIN_CONTENT_LEN, REQUEST_TIMEOUT
+from config import (
+    BASE_DIR,
+    HTTP_CONNECT_TIMEOUT,
+    HTTP_POOL_TIMEOUT,
+    OCR_MIN_CONTENT_LEN,
+    REQUEST_TIMEOUT,
+)
 from doc_store import DocumentStore, StoredDocument
 from ocr_backends import OCRBackend, get_default_backends, run_extraction_chain
 from utils import MEVZUAT_TUR_MAP, fetch_with_retry
@@ -255,7 +261,11 @@ class DocumentSyncer:
                         "Chrome/120.0.0.0 Safari/537.36"
                     ),
                 },
-                timeout=httpx.Timeout(request_timeout),
+                timeout=httpx.Timeout(
+                    request_timeout,
+                    connect=HTTP_CONNECT_TIMEOUT,
+                    pool=HTTP_POOL_TIMEOUT,
+                ),
                 follow_redirects=True,
             )
 
@@ -697,10 +707,10 @@ async def _create_pool_and_store(dsn: str | None) -> tuple:
     """
     import asyncpg as _asyncpg
 
-    from config import DATABASE_URL
+    from config import require_database_url
     from vector_store import VectorStore
 
-    pool = await _asyncpg.create_pool(dsn or DATABASE_URL, min_size=1, max_size=5)
+    pool = await _asyncpg.create_pool(dsn or require_database_url(), min_size=1, max_size=5)
     store = DocumentStore(pool)
     await store.initialize()
 
