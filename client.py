@@ -1,3 +1,4 @@
+import asyncio
 import io
 import logging
 import math
@@ -531,22 +532,28 @@ class BddkApiClient:
         await self._scrape_bddk()
 
     async def _scrape_bddk(self) -> None:
-        """Scrape all BDDK pages and persist to PostgreSQL."""
-        all_decisions: list[BddkDecisionSummary] = []
+        """Scrape all BDDK pages in parallel and persist to PostgreSQL.
+
+        Previously serialised across _ALL_PAGE_IDS (9 pages × ~1–2s per
+        request on a cold cache). asyncio.gather() fans them out so the
+        full refresh completes in roughly the slowest single page.
+        """
         self._page_errors.clear()
 
-        for list_id in _ALL_PAGE_IDS:
+        async def _fetch_page_safe(list_id: int) -> list[BddkDecisionSummary]:
             try:
                 if list_id in _ACCORDION_PAGE_IDS:
-                    page_decisions = await self._fetch_and_parse_accordion_page(list_id)
-                elif list_id in _DECISION_PAGE_IDS:
-                    page_decisions = await self._fetch_and_parse_decision_page(list_id)
-                else:
-                    page_decisions = await self._fetch_and_parse_flat_page(list_id)
-                all_decisions.extend(page_decisions)
+                    return await self._fetch_and_parse_accordion_page(list_id)
+                if list_id in _DECISION_PAGE_IDS:
+                    return await self._fetch_and_parse_decision_page(list_id)
+                return await self._fetch_and_parse_flat_page(list_id)
             except (httpx.HTTPError, httpx.TransportError, ValueError, AttributeError) as e:
                 self._page_errors[list_id] = str(e)
                 logger.error("Failed to fetch BDDK list page %d: %s", list_id, e)
+                return []
+
+        page_results = await asyncio.gather(*(_fetch_page_safe(pid) for pid in _ALL_PAGE_IDS))
+        all_decisions: list[BddkDecisionSummary] = [dec for page in page_results for dec in page]
 
         if not all_decisions and self._page_errors:
             logger.error("All page fetches failed: %s", self._page_errors)
