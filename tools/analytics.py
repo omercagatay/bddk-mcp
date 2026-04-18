@@ -5,7 +5,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from analytics import analyze_trends, build_digest, check_updates, compare_metrics
-from config import validate_column, validate_currency, validate_metric_id
+from config import (
+    ANNOUNCEMENT_CATEGORY_IDS,
+    validate_column,
+    validate_currency,
+    validate_metric_id,
+)
+from data_sources import fetch_announcements
 
 if TYPE_CHECKING:
     from deps import Dependencies
@@ -171,10 +177,8 @@ def register(mcp, deps: Dependencies) -> None:
         """
         known_urls = deps.client.known_announcements
         if not known_urls:
-            from data_sources import fetch_announcements as _fa
-
-            for cat_id in [39, 40, 41, 42, 48]:
-                anns = await _fa(deps.http, cat_id)
+            for cat_id in ANNOUNCEMENT_CATEGORY_IDS:
+                anns = await fetch_announcements(deps.http, cat_id)
                 for a in anns:
                     if a.get("url"):
                         known_urls.add(a["url"])

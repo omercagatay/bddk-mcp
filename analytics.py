@@ -4,6 +4,7 @@ from datetime import datetime
 
 import httpx
 
+from config import ANNOUNCEMENT_CATEGORY_IDS
 from data_sources import (
     fetch_announcements,
     fetch_bulletin_snapshot,
@@ -155,7 +156,7 @@ async def build_digest(
 
     # -- Recent announcements (all 5 categories) --
     all_announcements: list[dict] = []
-    for cat_id in [39, 40, 41, 42, 48]:  # Press, regulation, HR, data, institution
+    for cat_id in ANNOUNCEMENT_CATEGORY_IDS:
         anns = await fetch_announcements(http, cat_id)
         for a in anns:
             date_str = a.get("date", "")
@@ -269,7 +270,7 @@ async def check_updates(
     if known_announcement_ids is None:
         known_announcement_ids = set()
 
-    for cat_id in [39, 40, 41, 42, 48]:  # All 5 categories
+    for cat_id in ANNOUNCEMENT_CATEGORY_IDS:
         anns = await fetch_announcements(http, cat_id)
         for a in anns:
             if a.get("url") and a["url"] not in known_announcement_ids:
