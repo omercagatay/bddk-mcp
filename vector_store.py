@@ -567,6 +567,18 @@ class VectorStore:
 
         fused = [h for h in fused if h["relevance"] >= SEMANTIC_RELEVANCE_THRESHOLD]
 
+        # Step 5b: Re-sort so output order matches the displayed `relevance`.
+        # _rrf_fuse() ranks by rrf_score (dense rank + FTS rank), but the
+        # number surfaced to the user is the vector cosine. When the two
+        # signals disagree, the output can be non-monotonic in the displayed
+        # score (e.g. rank #1 = 87.9%, rank #2 = 89.9%). Sorting by
+        # `relevance` here keeps RRF's value as a membership filter — FTS
+        # can still surface docs the vector search missed — while the final
+        # ordering matches what each row says. Idempotent for the reranker
+        # path, where `relevance` = sigmoid(rerank_score) is already the
+        # sort key in _rerank().
+        fused.sort(key=lambda h: h["relevance"], reverse=True)
+
         # Step 6: Score gap filtering — if there's a large gap between top-1 and
         # the rest, only keep results within a reasonable band of the best score.
         # This prevents returning 10 results when only 1-2 are truly relevant.
@@ -616,9 +628,11 @@ class VectorStore:
         for did in ranked_ids:
             entry = doc_data[did]
             entry["rrf_score"] = round(rrf_scores[did], 6)
-            # Preserve vector relevance if available, else estimate from RRF position
-            if "relevance" not in entry or entry["relevance"] == 0.0:
-                entry["relevance"] = entry.get("relevance", 0.0)
+            # FTS-only hits (not seen in vector_hits) have no cosine — leave
+            # `relevance` at 0.0 so the downstream SEMANTIC_RELEVANCE_THRESHOLD
+            # filter drops them rather than ranking them as top results with
+            # a fake score.
+            entry.setdefault("relevance", 0.0)
             results.append(entry)
 
         return results
