@@ -4,10 +4,11 @@ import time
 from unittest.mock import MagicMock
 
 from deps import Dependencies
+from tools.admin import register
 
 
 def test_admin_register():
-    """admin.register() adds health_check and bddk_metrics tools."""
+    """admin.register() exposes exactly health_check and bddk_metrics."""
     mcp = MagicMock()
     deps = Dependencies(
         pool=None,
@@ -16,7 +17,7 @@ def test_admin_register():
         http=None,
         server_start_time=time.time(),
     )
-    from tools.admin import register
-
     register(mcp, deps)
-    assert mcp.tool.call_count >= 2
+
+    tool_names = {call.args[0].__name__ for call in mcp.tool.return_value.call_args_list}
+    assert tool_names == {"health_check", "bddk_metrics"}

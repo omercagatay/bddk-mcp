@@ -68,14 +68,21 @@ def test_lru_cache_size_one():
 
 
 def test_search_register():
-    """search.register() adds the four search tools on the MCP instance."""
+    """search.register() exposes exactly the four documented search tools."""
     from deps import Dependencies
     from tools.search import register
 
     mcp = MagicMock()
     deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
     register(mcp, deps)
-    assert mcp.tool.call_count >= 4
+
+    tool_names = {call.args[0].__name__ for call in mcp.tool.return_value.call_args_list}
+    assert tool_names == {
+        "search_bddk_decisions",
+        "search_bddk_institutions",
+        "search_bddk_announcements",
+        "search_document_store",
+    }
 
 
 # -- get_version_counts integration test (requires PostgreSQL) ---------------
