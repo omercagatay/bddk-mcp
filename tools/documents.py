@@ -28,17 +28,66 @@ def register(mcp, deps: Dependencies) -> None:
         documents). If the document is not present locally, returns a clear
         "not in seed" error rather than live-fetching from mevzuat.gov.tr / BDDK.
 
+        A bare numeric ID (e.g. "21192") is also tried as `mevzuat_<id>` and
+        `bddk_<id>` so callers don't need to know the catalog's prefix
+        convention. The resolved ID is shown in the header.
+
         Args:
             document_id: The numeric document ID (from search results)
             page_number: Page of the markdown output (documents are split into 5000-char pages)
         """
-        client = deps.client
-        meta_title = document_id
+        candidates = (
+            [document_id, f"mevzuat_{document_id}", f"bddk_{document_id}"] if document_id.isdigit() else [document_id]
+        )
+
+        resolved_id: str | None = None
+        page_num = 0
+        total_pages = 0
+        content = ""
+
+        for cand in candidates:
+            if deps.vector_store is not None:
+                try:
+                    vp = await deps.vector_store.get_document_page(cand, page_number)
+                    if vp and vp["content"] and "Invalid page" not in vp["content"]:
+                        resolved_id = cand
+                        page_num, total_pages, content = (
+                            vp["page_number"],
+                            vp["total_pages"],
+                            vp["content"],
+                        )
+                        break
+                except Exception as e:
+                    logger.debug("pgvector lookup failed for %s: %s", cand, e)
+
+            try:
+                stored = await deps.doc_store.get_document_page(cand, page_number)
+            except (RuntimeError, BddkStorageError) as e:
+                logger.warning("doc_store lookup failed for %s: %s", cand, e)
+                stored = None
+
+            if stored and stored.markdown_content and "Invalid page" not in stored.markdown_content:
+                resolved_id = cand
+                page_num, total_pages, content = (
+                    stored.page_number,
+                    stored.total_pages,
+                    stored.markdown_content,
+                )
+                break
+
+        if resolved_id is None:
+            return (
+                f"Document {document_id} is not available in the local store. "
+                "This MCP server is airlocked and does not fetch from live BDDK / mevzuat.gov.tr sources at runtime. "
+                "If the document should be available, re-run the seed (`seed.py import`) or sync pipeline."
+            )
+
+        meta_title = resolved_id
         meta_date = ""
         meta_number = ""
         meta_category = ""
         source_url = ""
-        found = client.find_by_id(document_id)
+        found = deps.client.find_by_id(resolved_id)
         if found:
             meta_title = found.title
             meta_date = found.decision_date
@@ -46,41 +95,22 @@ def register(mcp, deps: Dependencies) -> None:
             meta_category = found.category
             source_url = found.source_url or ""
 
-        def _build_header(page_num: int, total: int) -> str:
-            return (
-                f"## {meta_title}\n"
-                f"- Document ID: {document_id}\n"
-                f"- Decision Date: {meta_date or 'N/A'}\n"
-                f"- Decision Number: {meta_number or 'N/A'}\n"
-                f"- Category: {meta_category or 'N/A'}\n"
-                f"- Source: {source_url or 'N/A'}\n"
-                f"- Page: {page_num}/{total}\n"
-                f"---\n"
-                f"Use ONLY the text below. Do not add information not present in this document.\n\n"
-            )
+        alias_line = f"- Resolved from: `{document_id}` -> `{resolved_id}`\n" if resolved_id != document_id else ""
 
-        if deps.vector_store is not None:
-            try:
-                page = await deps.vector_store.get_document_page(document_id, page_number)
-                if page and page["content"] and "Invalid page" not in page["content"]:
-                    return _build_header(page["page_number"], page["total_pages"]) + page["content"]
-            except Exception as e:
-                logger.debug("pgvector lookup failed for %s, trying doc_store: %s", document_id, e)
-
-        try:
-            stored = await deps.doc_store.get_document_page(document_id, page_number)
-        except (RuntimeError, BddkStorageError) as e:
-            logger.warning("doc_store lookup failed for %s: %s", document_id, e)
-            stored = None
-
-        if stored and stored.markdown_content and "Invalid page" not in stored.markdown_content:
-            return _build_header(stored.page_number, stored.total_pages) + stored.markdown_content
-
-        return (
-            f"Document {document_id} is not available in the local store. "
-            "This MCP server is airlocked and does not fetch from live BDDK / mevzuat.gov.tr sources at runtime. "
-            "If the document should be available, re-run the seed (`seed.py import`) or sync pipeline."
+        header = (
+            f"## {meta_title}\n"
+            f"- Document ID: {resolved_id}\n"
+            f"{alias_line}"
+            f"- Decision Date: {meta_date or 'N/A'}\n"
+            f"- Decision Number: {meta_number or 'N/A'}\n"
+            f"- Category: {meta_category or 'N/A'}\n"
+            f"- Source: {source_url or 'N/A'}\n"
+            f"- Page: {page_num}/{total_pages}\n"
+            f"---\n"
+            f"Use ONLY the text below. Do not add information not present in this document.\n\n"
         )
+
+        return header + content
 
     @mcp.tool()
     async def get_document_history(
