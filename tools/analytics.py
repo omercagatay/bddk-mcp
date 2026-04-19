@@ -82,9 +82,9 @@ def register(mcp, deps: Dependencies) -> None:
         an executive summary.
 
         Args:
-            period: Time period -- week (7 days), month (30 days), quarter (90 days)
+            period: Time period -- day (last 24 hours), week (7 days), month (30 days), quarter (90 days)
         """
-        period_map = {"week": 7, "month": 30, "quarter": 90}
+        period_map = {"day": 1, "week": 7, "month": 30, "quarter": 90}
         days = period_map.get(period, 30)
 
         await deps.client.ensure_cache()

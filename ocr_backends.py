@@ -3,8 +3,7 @@ OCR backend implementations for BDDK document extraction.
 
 Pluggable Protocol-based backends in preference order:
     1. LightOCRBackend       (GPU, formula-aware, primary)
-    2. PPStructureBackend    (GPU fallback, fast)
-    3. MarkitdownBackend     (CPU last resort, no formulas)
+    2. MarkitdownBackend     (CPU last resort, no formulas)
 
 Each backend owns its own model lifecycle and availability check.
 """
@@ -51,16 +50,6 @@ def _transformers_available() -> bool:
     """Isolated for test mocking."""
     try:
         import transformers  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
-
-
-def _paddleocr_available() -> bool:
-    """Isolated for test mocking."""
-    try:
-        import paddleocr  # noqa: F401
 
         return True
     except ImportError:
@@ -235,49 +224,6 @@ class LightOCRBackend:
             return None
 
 
-# --- PP-StructureV3 backend (GPU, fallback) ----------------------------------
-
-
-class PPStructureBackend:
-    """Fallback extractor: PaddleOCR PP-StructureV3. Fast, strong on formulas."""
-
-    name = "pp_structure"
-
-    def __init__(self) -> None:
-        self._engine = None
-
-    def is_available(self) -> bool:
-        return _paddleocr_available()
-
-    def _load_engine(self):
-        from paddleocr import PPStructureV3
-
-        logger.info("Loading PP-StructureV3")
-        return PPStructureV3(use_gpu=_cuda_available())
-
-    def extract(self, pdf_bytes: bytes) -> str | None:
-        if not pdf_bytes:
-            return None
-        try:
-            from pdf2image import convert_from_bytes
-
-            if self._engine is None:
-                self._engine = self._load_engine()
-            images = convert_from_bytes(pdf_bytes, dpi=200)
-            pages: list[str] = []
-            for img in images:
-                result = self._engine.predict(img)
-                # PP-StructureV3 predict returns list-like with 'markdown' key
-                for item in result or []:
-                    md = item.get("markdown") if isinstance(item, dict) else None
-                    if md:
-                        pages.append(md)
-            return "\n\n".join(pages) if pages else None
-        except Exception as e:
-            logger.warning("PPStructure extraction failed: %s", e)
-            return None
-
-
 def run_extraction_chain(
     pdf_bytes: bytes,
     backends: list[OCRBackend],
@@ -320,10 +266,10 @@ def run_extraction_chain(
 def get_default_backends(include_chandra: bool = False) -> list[OCRBackend]:
     """Return backend chain in preference order.
 
-    Default: [lightocr, pp_structure, markitdown_degraded].
-    With include_chandra=True: [chandra2, lightocr, pp_structure, markitdown_degraded].
+    Default: [lightocr, markitdown_degraded].
+    With include_chandra=True: [chandra2, lightocr, markitdown_degraded].
     """
-    chain: list[OCRBackend] = [LightOCRBackend(), PPStructureBackend(), MarkitdownBackend()]
+    chain: list[OCRBackend] = [LightOCRBackend(), MarkitdownBackend()]
     if include_chandra:
         from ocr_backends_chandra import ChandraBackend
 
