@@ -79,20 +79,15 @@ def main() -> None:
     # Breakdown by category of what's dropped
     dropped_items = [i for i in cache if i.get("document_id") in dropped_ids]
     from collections import Counter
+
     cats = Counter(i.get("category", "") for i in dropped_items)
     print("\nDropped by category:")
     for cat, n in cats.most_common():
         print(f"  {cat}: {n}")
 
-    cache_path.write_text(
-        json.dumps(kept_cache, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
-    docs_path.write_text(
-        json.dumps(kept_docs, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
-    chunks_path.write_text(
-        json.dumps(kept_chunks, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
+    cache_path.write_text(json.dumps(kept_cache, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    docs_path.write_text(json.dumps(kept_docs, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    chunks_path.write_text(json.dumps(kept_chunks, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print("\nWritten: decision_cache.json, documents.json, chunks.json")
 
 

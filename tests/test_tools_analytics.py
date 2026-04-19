@@ -43,13 +43,18 @@ async def test_regulatory_digest_period_mapping(period, expected_days):
     register(mcp, deps)
     get_regulatory_digest = _registered_tools(mcp)["get_regulatory_digest"]
 
-    with patch("tools.analytics.build_digest", new=AsyncMock(return_value={
-        "narrative": "ok",
-        "decisions_by_category": {},
-        "new_decisions": [],
-        "announcements": [],
-        "bulletin_snapshot": [],
-    })) as mock_digest:
+    with patch(
+        "tools.analytics.build_digest",
+        new=AsyncMock(
+            return_value={
+                "narrative": "ok",
+                "decisions_by_category": {},
+                "new_decisions": [],
+                "announcements": [],
+                "bulletin_snapshot": [],
+            }
+        ),
+    ) as mock_digest:
         out = await get_regulatory_digest(period=period)
 
     mock_digest.assert_awaited_once()

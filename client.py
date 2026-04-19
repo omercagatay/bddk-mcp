@@ -61,6 +61,7 @@ def _is_in_scope(dec: BddkDecisionSummary) -> bool:
     title_lower = (dec.title or "").lower()
     return not any(s.lower() in title_lower for s in _EXCLUDED_TITLE_SUBSTRINGS)
 
+
 # Maps h5 header text (without count suffix) to singular category name
 _ACCORDION_CATEGORY_MAP = {
     # Page 50
