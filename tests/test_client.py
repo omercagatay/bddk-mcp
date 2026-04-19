@@ -6,7 +6,14 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from client import BddkApiClient
+from client import (
+    _DECISION_PAGE_IDS,
+    _EXCLUDED_CATEGORIES,
+    _EXCLUDED_TITLE_SUBSTRINGS,
+    _FLAT_PAGE_IDS,
+    BddkApiClient,
+    _is_in_scope,
+)
 from models import BddkDecisionSummary
 from tests.conftest import BDDK_ACCORDION_HTML, BDDK_DECISION_HTML, MockPool, make_http_response
 
@@ -242,3 +249,35 @@ class TestPublicCacheAPI:
     def test_cache_size_empty(self):
         client = _make_client()
         assert client.cache_size() == 0
+
+
+class TestScopeFilter:
+    """Tests for _is_in_scope: excludes items not relevant to a conventional bank."""
+
+    def _dec(self, title: str = "T", category: str = "") -> BddkDecisionSummary:
+        return BddkDecisionSummary(title=title, document_id="x", content="", category=category)
+
+    def test_keeps_in_scope_item(self):
+        assert _is_in_scope(self._dec(title="Kredi Riski Azaltım Tebliği", category="Tebliğ")) is True
+
+    def test_drops_faizsiz_bankacilik_category(self):
+        assert _is_in_scope(self._dec(title="Herhangi bir başlık", category="Faizsiz Bankacılık")) is False
+
+    def test_drops_6361_sayili_title(self):
+        assert _is_in_scope(self._dec(title="6361 sayılı Kanun değişiklik", category="Kanun")) is False
+
+    def test_keeps_kurul_karari(self):
+        """_is_in_scope is generic — page-55 firm pattern is enforced at scrape time, not here."""
+        assert _is_in_scope(self._dec(title="27.04.2023 #10585", category="Kurul Kararı")) is True
+
+    def test_page_52_not_scraped(self):
+        """Page 52 (Finansal Kiralama/Faktoring) is removed from scrape loop."""
+        assert 52 not in _FLAT_PAGE_IDS
+
+    def test_page_55_not_scraped(self):
+        """Page 55 (firm-specific Kurul Kararları) is removed from decision page loop."""
+        assert 55 not in _DECISION_PAGE_IDS
+
+    def test_exclusion_constants_populated(self):
+        assert "Faizsiz Bankacılık" in _EXCLUDED_CATEGORIES
+        assert any("6361" in s for s in _EXCLUDED_TITLE_SUBSTRINGS)

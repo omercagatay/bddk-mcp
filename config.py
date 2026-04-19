@@ -47,10 +47,6 @@ EMBEDDING_MODEL_REVISION = "d4210e50c0"  # v1.0.0 stable
 
 # -- OCR extraction backends -------------------------------------------------
 
-# Primary backend for PDF -> markdown extraction.
-# Options: lightocr, pp_structure, markitdown
-OCR_BACKEND = os.environ.get("BDDK_OCR_BACKEND", "lightocr")
-
 # LightOnOCR-2-1B model path (offline-first; empty = download from HF)
 LIGHTOCR_MODEL_PATH = os.environ.get("BDDK_LIGHTOCR_MODEL_PATH", "")
 LIGHTOCR_MODEL_NAME = os.environ.get("BDDK_LIGHTOCR_MODEL", "lightonai/LightOnOCR-2-1B")

@@ -38,11 +38,28 @@ _BDDK_BASE_URL = "https://www.bddk.org.tr"
 # Pages that use accordion card structure (h5 headers with card-body)
 _ACCORDION_PAGE_IDS = [50, 51]
 # Pages that use flat list with DokumanGetir links and (date - number) format
-_DECISION_PAGE_IDS = [55, 56]
+# Page 55 (Kurul Kararları) excluded by default — mostly faaliyet/kuruluş izni decisions; revisit with whitelist if specific kararlar are needed.
+_DECISION_PAGE_IDS = [56]
 # Pages that use flat list with mixed link types (no date format)
-_FLAT_PAGE_IDS = [49, 52, 54, 58, 63]
+# Page 52 (Finansal Kiralama / Faktoring / Finansman / Tasarruf Finansman — non-bank) excluded — out of bank scope.
+_FLAT_PAGE_IDS = [49, 54, 58, 63]
 
 _ALL_PAGE_IDS = _ACCORDION_PAGE_IDS + _DECISION_PAGE_IDS + _FLAT_PAGE_IDS
+
+# Post-scrape filters: drop items not relevant to a conventional commercial bank.
+_EXCLUDED_CATEGORIES: set[str] = {"Faizsiz Bankacılık"}
+# Substring matched against decision title; case-insensitive.
+_EXCLUDED_TITLE_SUBSTRINGS: tuple[str, ...] = (
+    "6361 sayılı",  # Finansal Kiralama, Faktoring, Finansman ve Tasarruf Finansman Şirketleri Kanunu
+)
+
+
+def _is_in_scope(dec: BddkDecisionSummary) -> bool:
+    """True iff the decision should be kept (not in any exclusion list)."""
+    if dec.category in _EXCLUDED_CATEGORIES:
+        return False
+    title_lower = (dec.title or "").lower()
+    return not any(s.lower() in title_lower for s in _EXCLUDED_TITLE_SUBSTRINGS)
 
 # Maps h5 header text (without count suffix) to singular category name
 _ACCORDION_CATEGORY_MAP = {
@@ -64,7 +81,6 @@ _ACCORDION_CATEGORY_MAP = {
 # Category assigned to flat-list pages (by page ID)
 _FLAT_PAGE_CATEGORY = {
     49: "Kanun",
-    52: "Finansal Kiralama ve Faktoring",
     54: "BDDK Düzenlemesi",
     58: "Düzenleme Taslağı",
     63: "Mülga Düzenleme",
@@ -334,7 +350,7 @@ class BddkApiClient:
             )
             if not rows:
                 return False
-            self._cache = [
+            loaded = [
                 BddkDecisionSummary(
                     document_id=row["document_id"],
                     title=row["title"],
@@ -346,6 +362,8 @@ class BddkApiClient:
                 )
                 for row in rows
             ]
+            # Apply scope filter on every load — keeps stale DB items hidden after filter rules change.
+            self._cache = [dec for dec in loaded if _is_in_scope(dec)]
             # Use the most recent cached_at as timestamp
             self._cache_timestamp = max(row["cached_at"] for row in rows)
             logger.info("Cache loaded from PostgreSQL: %d items", len(self._cache))
@@ -565,7 +583,11 @@ class BddkApiClient:
                     return []
 
         page_results = await asyncio.gather(*(_fetch_page_safe(pid) for pid in _ALL_PAGE_IDS))
-        all_decisions: list[BddkDecisionSummary] = [dec for page in page_results for dec in page]
+        scraped: list[BddkDecisionSummary] = [dec for page in page_results for dec in page]
+        all_decisions = [dec for dec in scraped if _is_in_scope(dec)]
+        dropped = len(scraped) - len(all_decisions)
+        if dropped:
+            logger.info("Scope filter dropped %d/%d items", dropped, len(scraped))
 
         if not all_decisions and self._page_errors:
             logger.error("All page fetches failed: %s", self._page_errors)

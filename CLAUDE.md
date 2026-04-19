@@ -5,11 +5,13 @@ MCP server for Turkish banking regulatory intelligence (BDDK) — search decisio
 ## Commands
 
 ```bash
-uv sync --dev                              # Install dependencies
-uv run python server.py                    # Run MCP server
+docker compose up -d db                    # Start PostgreSQL + pgvector locally
+uv sync --dev                              # Install runtime + dev dependencies
+uv sync --group gpu                        # Add CUDA torch + chandra-ocr (for doc_sync OCR path)
+uv run python server.py                    # Run MCP server (needs db up + BDDK_DATABASE_URL)
 uv run python seed.py import               # Seed DB from seed_data/
 uv run python seed.py export               # Export DB to seed_data/
-uv run pytest tests/ -v --tb=short         # Run all tests
+uv run pytest tests/ -v --tb=short         # Run all tests (skips gpu marker)
 uv run pytest tests/test_client.py -v      # Run single test file
 uv run ruff check .                        # Lint
 uv run ruff format .                       # Format
@@ -17,23 +19,26 @@ uv run ruff format .                       # Format
 
 ## Architecture
 
+Two-layer pattern: each module under `tools/` is a thin MCP wrapper that calls into a top-level engine module. Edit the engine for logic; edit the tool for tool-shape (args, formatting, grounding text).
+
 - **Entry point**: `server.py` — FastMCP server with grounding rules
-- **Tools**: `tools/` directory (6 modules, 21 tools)
-  - `search.py` — decision search (keyword, semantic, hybrid)
-  - `documents.py` — document retrieval and management
-  - `bulletin.py` — weekly/monthly statistical bulletins
-  - `analytics.py` — trend analysis and comparisons
-  - `sync.py` — document synchronization from BDDK website
-  - `admin.py` — database health, stats, cache management
-- **Core logic**:
+- **MCP tool wrappers** (`tools/`, registered via `register(mcp, deps)`):
+  - `search.py` → `client.py` + `vector_store.py` (keyword, semantic, hybrid search)
+  - `documents.py` → `doc_store.py` (document retrieval and management)
+  - `bulletin.py` → `data_sources.py` (weekly/monthly statistical bulletins)
+  - `analytics.py` → `analytics.py` (top-level engine; trend/comparison)
+  - `sync.py` → `doc_sync.py` (document download, OCR, chunking)
+  - `admin.py` (database health, stats, cache management)
+- **Engine modules** (top-level):
   - `client.py` — BDDK website scraper (httpx, BeautifulSoup)
   - `doc_store.py` — PostgreSQL document storage with FTS
   - `vector_store.py` — pgvector semantic search
-  - `doc_sync.py` — document download and chunking pipeline
+  - `doc_sync.py` — document download → OCR → chunking pipeline
   - `data_sources.py` — bulletin data scrapers
   - `analytics.py` — trend/comparison analytics engine
+  - `ocr_backends.py` + `ocr_backends_chandra.py` — pluggable OCR (chandra2 primary, requires `gpu` group)
 - **Infrastructure**:
-  - `deps.py` — dependency injection container
+  - `deps.py` — dependency injection container (`Dependencies`)
   - `config.py` — all configuration via `BDDK_*` env vars
   - `models.py` — Pydantic request/response schemas
   - `exceptions.py` — custom exception hierarchy
@@ -41,7 +46,7 @@ uv run ruff format .                       # Format
 
 ## Conventions
 
-- Python 3.12+ (CI tests 3.11, 3.12, 3.13), async/await throughout
+- Python 3.11+ (`requires-python = ">=3.11,<3.14"`; CI matrix 3.11, 3.12, 3.13), async/await throughout
 - Pydantic models for all tool input/output schemas
 - Turkish-aware text processing (lowercase with Turkish locale, stemming)
 - Raw SQL via asyncpg — no ORM
@@ -56,4 +61,5 @@ uv run ruff format .                       # Format
 - Embedding model is offline-first (pre-downloaded via `BDDK_EMBEDDING_MODEL_PATH`)
 - All tools must receive dependencies through the `Dependencies` DI container
 - Keep `seed_data/` JSON files in sync after schema changes
-- All tool functions go in `tools/` modules, registered via `register_tools(mcp, deps)`
+- New tool modules go in `tools/` and expose `register(mcp, deps: Dependencies)` — `server.py` calls each module's `register`
+- OCR is part of the doc_sync path; chandra2 needs CUDA (the `gpu` group). For DB-only work the gpu group is optional and tests with `gpu` marker are skipped by default
