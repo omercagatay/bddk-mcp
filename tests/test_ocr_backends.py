@@ -7,7 +7,6 @@ from ocr_backends import (
     LightOCRBackend,
     MarkitdownBackend,
     OCRBackend,
-    PPStructureBackend,
     get_default_backends,
     run_extraction_chain,
 )
@@ -156,33 +155,18 @@ class TestLightOCRBackend:
                     assert result == "extracted"
 
 
-class TestPPStructureBackend:
-    def test_name(self):
-        backend = PPStructureBackend()
-        assert backend.name == "pp_structure"
-
-    def test_is_available_false_when_paddleocr_missing(self):
-        backend = PPStructureBackend()
-        with patch("ocr_backends._paddleocr_available", return_value=False):
-            assert backend.is_available() is False
-
-    def test_extract_returns_none_on_empty(self):
-        backend = PPStructureBackend()
-        assert backend.extract(b"") is None
-
-
 class TestDefaultBackends:
-    def test_default_order_is_lightocr_pp_markitdown(self):
+    def test_default_order_is_lightocr_markitdown(self):
         backends = get_default_backends()
         names = [b.name for b in backends]
-        assert names == ["lightocr", "pp_structure", "markitdown_degraded"]
+        assert names == ["lightocr", "markitdown_degraded"]
 
     def test_include_chandra_prepends_chandra2(self):
         backends = get_default_backends(include_chandra=True)
         names = [b.name for b in backends]
-        assert names == ["chandra2", "lightocr", "pp_structure", "markitdown_degraded"]
+        assert names == ["chandra2", "lightocr", "markitdown_degraded"]
 
     def test_default_without_chandra_unchanged(self):
         backends = get_default_backends(include_chandra=False)
         names = [b.name for b in backends]
-        assert names == ["lightocr", "pp_structure", "markitdown_degraded"]
+        assert names == ["lightocr", "markitdown_degraded"]

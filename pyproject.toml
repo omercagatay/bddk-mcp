@@ -10,13 +10,10 @@ dependencies = [
     "markitdown[pdf]>=0.1",
     "beautifulsoup4>=4.12",
     "asyncpg>=0.30",
-    "pgvector>=0.3",
-    "numpy>=1.26",
     "sentence-transformers>=5.0",
     "uvloop>=0.22.1; sys_platform != 'win32'",
     "anthropic>=0.40",
     "transformers>=4.50",
-    "accelerate>=1.0",
     "pdf2image>=1.17",
     "pillow>=10.0",
 ]
@@ -32,8 +29,6 @@ dev = [
 gpu = [
     "torch>=2.0",
     "torchvision>=0.15",
-    "paddleocr>=2.10",
-    "paddlepaddle-gpu>=2.6; platform_system!='Darwin' and python_version<'3.13'",
     "chandra-ocr[hf]>=0.2",
 ]
 
