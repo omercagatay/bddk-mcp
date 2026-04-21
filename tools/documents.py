@@ -12,6 +12,24 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Backend names whose output preserves mathematical formulas and inline images.
+# Combined method strings (e.g. "mevzuat_pdf+lightocr") are matched by substring.
+_FORMULA_AWARE_TOKENS = ("lightocr", "chandra2", "pp_structure")
+
+_DEGRADED_WARNING = (
+    "Bu belgedeki matematiksel formüller ve bazı görseller çıkartılamamış olabilir. "
+    "Metin 'aşağıdaki formül', 'aşağıda yer alan formül' gibi bir ifadeye atıfta bulunuyorsa, "
+    "formülü hafızadan veya standart literatürden yeniden kurma — kullanıcıyı kaynak PDF'e yönlendir."
+)
+
+
+def _is_formula_aware(method: str) -> bool:
+    """True when the extraction method used a formula-preserving OCR backend."""
+    if not method:
+        return False
+    lower = method.lower()
+    return any(token in lower for token in _FORMULA_AWARE_TOKENS)
+
 
 def register(mcp, deps: Dependencies) -> None:
     """Register document tools on the given MCP instance."""
@@ -44,6 +62,8 @@ def register(mcp, deps: Dependencies) -> None:
         page_num = 0
         total_pages = 0
         content = ""
+        extraction_method = ""
+        served_via_vector = False
 
         for cand in candidates:
             if deps.vector_store is not None:
@@ -56,6 +76,7 @@ def register(mcp, deps: Dependencies) -> None:
                             vp["total_pages"],
                             vp["content"],
                         )
+                        served_via_vector = True
                         break
                 except Exception as e:
                     logger.debug("pgvector lookup failed for %s: %s", cand, e)
@@ -73,6 +94,7 @@ def register(mcp, deps: Dependencies) -> None:
                     stored.total_pages,
                     stored.markdown_content,
                 )
+                extraction_method = stored.extraction_method or ""
                 break
 
         if resolved_id is None:
@@ -97,6 +119,20 @@ def register(mcp, deps: Dependencies) -> None:
 
         alias_line = f"- Resolved from: `{document_id}` -> `{resolved_id}`\n" if resolved_id != document_id else ""
 
+        # The pgvector chunk rows don't carry extraction_method; look it up.
+        if served_via_vector:
+            try:
+                extraction_method = await deps.doc_store.get_extraction_method(resolved_id) or ""
+            except (RuntimeError, BddkStorageError) as e:
+                logger.debug("extraction_method lookup failed for %s: %s", resolved_id, e)
+
+        degraded = bool(extraction_method) and not _is_formula_aware(extraction_method)
+        method_display = extraction_method or "unknown"
+        if degraded:
+            method_display = f"{method_display} (formula-unaware — equations/images may be missing)"
+
+        warning_block = f"⚠ {_DEGRADED_WARNING}\n\n" if degraded else ""
+
         header = (
             f"## {meta_title}\n"
             f"- Document ID: {resolved_id}\n"
@@ -106,8 +142,10 @@ def register(mcp, deps: Dependencies) -> None:
             f"- Category: {meta_category or 'N/A'}\n"
             f"- Source: {source_url or 'N/A'}\n"
             f"- Page: {page_num}/{total_pages}\n"
+            f"- Extraction: {method_display}\n"
             f"---\n"
             f"Use ONLY the text below. Do not add information not present in this document.\n\n"
+            f"{warning_block}"
         )
 
         return header + content

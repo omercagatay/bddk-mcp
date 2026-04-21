@@ -10,6 +10,7 @@ Safe to import even when torch / chandra-ocr are not installed.
 from __future__ import annotations
 
 import logging
+import os
 import tempfile
 
 from config import CHANDRA_MODEL_NAME
@@ -77,14 +78,21 @@ class ChandraBackend:
             logger.warning("chandra2: model load failed: %s", e)
             return None
 
-        with tempfile.NamedTemporaryFile(suffix=".pdf") as tf:
+        # delete=False so Windows lets chandra-ocr's load_file re-open the path.
+        tf = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+        try:
             tf.write(pdf_bytes)
-            tf.flush()
+            tf.close()
             try:
                 images = load_file(tf.name, {})
             except Exception as e:
                 logger.warning("chandra2: load_file failed: %s", e)
                 return None
+        finally:
+            try:
+                os.unlink(tf.name)
+            except OSError as e:
+                logger.debug("chandra2: temp cleanup failed for %s: %s", tf.name, e)
 
         if not images:
             return None

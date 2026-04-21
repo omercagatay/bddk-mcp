@@ -1,15 +1,19 @@
-"""Admin tools: health_check and bddk_metrics."""
+"""Admin tools: health_check, bddk_metrics, document_quality_report."""
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import TYPE_CHECKING
 
 from exceptions import BddkError, BddkStorageError
 from metrics import metrics
+from quality_scan import format_report, scan_quality
 
 if TYPE_CHECKING:
     from deps import Dependencies
+
+logger = logging.getLogger(__name__)
 
 
 def register(mcp, deps: Dependencies) -> None:
@@ -100,3 +104,26 @@ def register(mcp, deps: Dependencies) -> None:
                 lines.append(f"  {t['tool']:<35} {t['requests']:>10} {t['errors']:>8} {t['avg_latency_ms']:>10.1f}")
 
         return "\n".join(lines)
+
+    @mcp.tool()
+    async def document_quality_report() -> str:
+        """
+        Scan the document corpus for extraction anomalies.
+
+        Reports extraction-method distribution and counts for each of:
+        replacement characters, leaked HTML, short content, dot-leader runs,
+        word-concatenation (html whitespace loss), formula-references-without-
+        formulas, Turkish-diacritic outliers, orphan chunks, and docs missing
+        chunks. Returns sample document IDs for each firing signal so issues
+        can be traced to their source.
+
+        Read-only. No network calls. Safe to run against a live server.
+        """
+        if deps.pool is None:
+            return "Quality scan unavailable: DB pool not initialized."
+        try:
+            report = await scan_quality(deps.pool)
+        except (BddkError, BddkStorageError, RuntimeError) as exc:
+            logger.warning("document_quality_report: scan failed: %s", exc)
+            return f"Quality scan failed: {exc}"
+        return format_report(report)

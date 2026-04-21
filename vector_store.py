@@ -188,7 +188,8 @@ class VectorStore:
         try:
             self._embed_fn = SentenceTransformer(model_ref, device="cuda")
             logger.info("Loaded GPU-accelerated embeddings: %s", model_ref)
-        except (RuntimeError, ValueError):
+        except (RuntimeError, ValueError, AssertionError):
+            # CPU-only torch raises AssertionError on CUDA probe, not RuntimeError.
             self._embed_fn = SentenceTransformer(model_ref, device="cpu")
             logger.info("Loaded CPU embeddings: %s", model_ref)
 
@@ -205,7 +206,8 @@ class VectorStore:
         try:
             self._rerank_fn = CrossEncoder(model_ref, device="cuda")
             logger.info("Loaded GPU-accelerated reranker: %s", model_ref)
-        except (RuntimeError, ValueError):
+        except (RuntimeError, ValueError, AssertionError):
+            # CPU-only torch raises AssertionError on CUDA probe, not RuntimeError.
             self._rerank_fn = CrossEncoder(model_ref, device="cpu")
             logger.info("Loaded CPU reranker: %s", model_ref)
 

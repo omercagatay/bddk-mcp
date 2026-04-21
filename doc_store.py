@@ -301,6 +301,16 @@ class DocumentStore:
             return None
         return bytes(row["pdf_blob"])
 
+    async def get_extraction_method(self, document_id: str) -> str | None:
+        """Return the extraction_method recorded for a document, or None if absent."""
+        row = await self._pool.fetchrow(
+            "SELECT extraction_method FROM documents WHERE document_id = $1",
+            document_id,
+        )
+        if row is None:
+            return None
+        return row["extraction_method"] or ""
+
     async def get_document_page(self, doc_id: str, page: int = 1) -> DocumentPage | None:
         """Retrieve a single paginated page of a document's markdown content."""
         row = await self._pool.fetchrow(
