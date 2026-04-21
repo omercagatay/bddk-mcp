@@ -8,7 +8,7 @@ import pytest
 
 from deps import Dependencies
 from doc_store import DocumentPage
-from tools.documents import register
+from tools.documents import _is_formula_aware, register
 
 
 def test_register_adds_three_document_tools():
@@ -109,6 +109,101 @@ async def test_prefixed_id_does_not_get_expanded():
     assert "airlocked" in out
     assert doc_store.get_document_page.await_count == 1
     assert doc_store.get_document_page.await_args_list[0].args == ("mevzuat_21192", 1)
+
+
+@pytest.mark.parametrize(
+    "method,expected",
+    [
+        ("lightocr", True),
+        ("chandra2", True),
+        ("mevzuat_pdf+lightocr", True),
+        ("cached_pdf+chandra2", True),
+        ("markitdown", False),
+        ("markitdown_degraded", False),
+        ("manual_pdf+markitdown", False),
+        ("html_parser", False),
+        ("", False),
+        ("glm_ocr", False),
+    ],
+)
+def test_is_formula_aware_classification(method, expected):
+    assert _is_formula_aware(method) is expected
+
+
+@pytest.mark.asyncio
+async def test_degraded_extraction_emits_warning_and_method_line():
+    """A document extracted by markitdown must surface a formula-loss warning."""
+    page = DocumentPage(
+        document_id="mevzuat_20029",
+        title="Kredi Riski Azaltım Tekniklerine İlişkin Tebliğ",
+        markdown_content="MADDE 46 ... aşağıda yer alan formül kullanılarak artırılır.",
+        page_number=18,
+        total_pages=24,
+        extraction_method="manual_pdf+markitdown",
+    )
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(return_value=page)
+    doc_store.get_extraction_method = AsyncMock(return_value="manual_pdf+markitdown")
+    deps = _make_deps(doc_store=doc_store)
+
+    tool = _capture_get_bddk_document(deps)
+    out = await tool("mevzuat_20029", 18)
+
+    assert "- Extraction: manual_pdf+markitdown (formula-unaware" in out
+    assert "⚠" in out
+    assert "formülü hafızadan veya standart literatürden yeniden kurma" in out
+    # The extraction line must come before the content boundary.
+    assert out.index("- Extraction:") < out.index("---")
+
+
+@pytest.mark.asyncio
+async def test_formula_aware_extraction_no_warning():
+    """A lightocr-extracted document must NOT emit the formula-loss warning."""
+    page = DocumentPage(
+        document_id="mevzuat_20029",
+        title="Kredi Riski Azaltım Tekniklerine İlişkin Tebliğ",
+        markdown_content="formül içeren metin",
+        page_number=1,
+        total_pages=1,
+        extraction_method="mevzuat_pdf+lightocr",
+    )
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(return_value=page)
+    doc_store.get_extraction_method = AsyncMock(return_value="mevzuat_pdf+lightocr")
+    deps = _make_deps(doc_store=doc_store)
+
+    tool = _capture_get_bddk_document(deps)
+    out = await tool("mevzuat_20029", 1)
+
+    assert "- Extraction: mevzuat_pdf+lightocr" in out
+    assert "formula-unaware" not in out
+    assert "⚠" not in out
+
+
+@pytest.mark.asyncio
+async def test_pgvector_path_still_looks_up_extraction_method():
+    """When served via vector_store, the tool must still fetch extraction_method via doc_store."""
+    vector_store = MagicMock()
+    vector_store.get_document_page = AsyncMock(
+        return_value={
+            "doc_id": "mevzuat_20029",
+            "title": "Kredi Riski Azaltım Tekniklerine İlişkin Tebliğ",
+            "content": "page text",
+            "page_number": 1,
+            "total_pages": 24,
+        }
+    )
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(return_value=None)
+    doc_store.get_extraction_method = AsyncMock(return_value="markitdown")
+    deps = _make_deps(doc_store=doc_store, vector_store=vector_store)
+
+    tool = _capture_get_bddk_document(deps)
+    out = await tool("mevzuat_20029", 1)
+
+    doc_store.get_extraction_method.assert_awaited_once_with("mevzuat_20029")
+    assert "- Extraction: markitdown (formula-unaware" in out
+    assert "⚠" in out
 
 
 @pytest.mark.asyncio

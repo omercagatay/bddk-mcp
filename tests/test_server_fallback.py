@@ -120,6 +120,7 @@ class TestGetBddkDocumentAirlock:
         deps.vector_store = mock_vs
         deps.doc_store = MagicMock()
         deps.doc_store.get_document_page = AsyncMock()
+        deps.doc_store.get_extraction_method = AsyncMock(return_value="lightocr")
 
         result = await _register_and_get_tool(deps)("956")
 
