@@ -192,9 +192,7 @@ async def test_import_does_not_skip_when_chunks_out_of_sync_with_docs(clean_pool
 
 
 @pytest.mark.asyncio
-async def test_import_removes_stale_chunks_when_doc_reextracted_to_fewer_chunks(
-    clean_pool, temp_seed_dir
-):
+async def test_import_removes_stale_chunks_when_doc_reextracted_to_fewer_chunks(clean_pool, temp_seed_dir):
     """REGRESSION: re-extracted doc has fewer chunks than before — old tail must be deleted.
 
     Observed on 2026-04-21 when mevzuat_21193 was re-ingested from a manual PDF
@@ -255,8 +253,7 @@ async def test_import_removes_stale_chunks_when_doc_reextracted_to_fewer_chunks(
     assert result["skipped"] is False
     async with clean_pool.acquire() as conn:
         rows = await conn.fetch(
-            "SELECT chunk_index, chunk_text, content_hash FROM document_chunks "
-            "WHERE doc_id = $1 ORDER BY chunk_index",
+            "SELECT chunk_index, chunk_text, content_hash FROM document_chunks WHERE doc_id = $1 ORDER BY chunk_index",
             "test_shrinking_doc",
         )
     assert [r["chunk_index"] for r in rows] == [0, 1], "old chunks 2-4 must be deleted"
