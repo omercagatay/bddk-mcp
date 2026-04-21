@@ -133,6 +133,29 @@ class TestHtmlToMarkdown:
         assert md.count("Cell Content") == 1
 
 
+class TestSanitizeForStorage:
+    def test_strips_nul_bytes(self):
+        from doc_sync import _sanitize_for_storage
+
+        assert _sanitize_for_storage("hello\x00world") == "helloworld"
+
+    def test_preserves_clean_text(self):
+        from doc_sync import _sanitize_for_storage
+
+        clean = "Madde 1 — Bankaların risk yönetimi."
+        assert _sanitize_for_storage(clean) is clean
+
+    def test_preserves_other_control_chars(self):
+        from doc_sync import _sanitize_for_storage
+
+        assert _sanitize_for_storage("line1\nline2\tcol") == "line1\nline2\tcol"
+
+    def test_empty_is_passed_through(self):
+        from doc_sync import _sanitize_for_storage
+
+        assert _sanitize_for_storage("") == ""
+
+
 class TestFetchWithRetry:
     @pytest.mark.asyncio
     async def test_success(self):

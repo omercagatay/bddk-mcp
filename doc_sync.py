@@ -139,6 +139,19 @@ def _is_error_page(content: str) -> bool:
     return False
 
 
+def _sanitize_for_storage(text: str) -> str:
+    """Strip bytes PostgreSQL `text` columns can't hold.
+
+    PG rejects NUL (0x00) inside text — OCR backends occasionally emit one
+    from malformed PDFs, which aborts the INSERT and leaves the doc stuck on
+    its previous (possibly stale) content. Drop NULs here so every backend's
+    output flows into storage uniformly.
+    """
+    if not text or "\x00" not in text:
+        return text
+    return text.replace("\x00", "")
+
+
 def _extract_html_to_markdown(html: str) -> str:
     """Convert HTML content to simple markdown."""
     soup = BeautifulSoup(html, "html.parser")
@@ -342,6 +355,7 @@ class DocumentSyncer:
 
         # Extract markdown
         markdown, extraction_method = self._extract(content, ext)
+        markdown = _sanitize_for_storage(markdown or "")
         if not markdown:
             error_msg = f"Extraction failed (method={extraction_method})"
             cat, retryable = _categorize_error(error_msg)
