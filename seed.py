@@ -271,6 +271,14 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
             if chunks_path.exists():
                 chunks_data = json.loads(chunks_path.read_text(encoding="utf-8"))
                 if chunks_data:
+                    # Wipe existing chunks for every doc we're about to seed, so
+                    # re-extracted docs with fewer chunks don't leave stale rows
+                    # (and stale pgvector embeddings) from the previous extraction.
+                    seed_doc_ids = sorted({c["doc_id"] for c in chunks_data})
+                    await conn.execute(
+                        "DELETE FROM document_chunks WHERE doc_id = ANY($1::text[])",
+                        seed_doc_ids,
+                    )
                     imported = 0
                     for c in chunks_data:
                         try:
