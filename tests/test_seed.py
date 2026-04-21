@@ -189,3 +189,73 @@ async def test_import_does_not_skip_when_chunks_out_of_sync_with_docs(clean_pool
     assert row is not None
     assert row["chunk_text"] == "new clean content"
     assert row["content_hash"] == "doc_hash_new"
+
+
+@pytest.mark.asyncio
+async def test_import_removes_stale_chunks_when_doc_reextracted_to_fewer_chunks(clean_pool, temp_seed_dir):
+    """REGRESSION: re-extracted doc has fewer chunks than before — old tail must be deleted.
+
+    Observed on 2026-04-21 when mevzuat_21193 was re-ingested from a manual PDF
+    (fewer chunks than the html_parser version). Old chunks with index >=
+    new_max remained in document_chunks under the same doc_id because the
+    import used INSERT...ON CONFLICT UPDATE (upsert only). Those leftover
+    rows still carried the old chunk_text and a stale pgvector embedding, so
+    semantic search could surface pre-fix content.
+    """
+    docs = [
+        {
+            "document_id": "test_shrinking_doc",
+            "title": "Shrinking",
+            "markdown_content": "new shorter content",
+            "content_hash": "doc_hash_new",
+        }
+    ]
+    chunks_before = [
+        {
+            "doc_id": "test_shrinking_doc",
+            "chunk_index": i,
+            "chunk_text": f"old chunk {i}",
+            "content_hash": "doc_hash_old",
+        }
+        for i in range(5)
+    ]
+    _write_seed_files(
+        temp_seed_dir,
+        docs=[{**docs[0], "content_hash": "doc_hash_old"}],
+        chunks=chunks_before,
+    )
+    await seed.import_seed(pool=clean_pool, force=True)
+
+    async with clean_pool.acquire() as conn:
+        count_before = await conn.fetchval(
+            "SELECT COUNT(*) FROM document_chunks WHERE doc_id = $1",
+            "test_shrinking_doc",
+        )
+    assert count_before == 5
+
+    chunks_after = [
+        {
+            "doc_id": "test_shrinking_doc",
+            "chunk_index": 0,
+            "chunk_text": "new chunk 0",
+            "content_hash": "doc_hash_new",
+        },
+        {
+            "doc_id": "test_shrinking_doc",
+            "chunk_index": 1,
+            "chunk_text": "new chunk 1",
+            "content_hash": "doc_hash_new",
+        },
+    ]
+    _write_seed_files(temp_seed_dir, docs=docs, chunks=chunks_after)
+    result = await seed.import_seed(pool=clean_pool, force=False)
+
+    assert result["skipped"] is False
+    async with clean_pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT chunk_index, chunk_text, content_hash FROM document_chunks WHERE doc_id = $1 ORDER BY chunk_index",
+            "test_shrinking_doc",
+        )
+    assert [r["chunk_index"] for r in rows] == [0, 1], "old chunks 2-4 must be deleted"
+    assert all(r["chunk_text"].startswith("new chunk") for r in rows)
+    assert all(r["content_hash"] == "doc_hash_new" for r in rows)
