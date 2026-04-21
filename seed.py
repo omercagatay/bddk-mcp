@@ -325,6 +325,68 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
     return result
 
 
+async def embed_seed(dsn: str | None = None, pool: asyncpg.Pool | None = None) -> dict:
+    """Generate embeddings for all documents missing vector chunks.
+
+    Scans the documents table for docs that either:
+      - have no chunks in document_chunks, or
+      - have chunks with NULL embeddings
+
+    and re-chunks + embeds them via VectorStore.add_document().
+    """
+    result = {"scanned": 0, "embedded": 0, "skipped": 0, "errors": 0}
+
+    owns_pool = pool is None
+    if owns_pool:
+        pool = await asyncpg.create_pool(dsn or require_database_url(), min_size=1, max_size=3)
+
+    try:
+        from vector_store import VectorStore
+
+        vs = VectorStore(pool)
+        await vs.initialize()
+
+        rows = await pool.fetch(
+            """
+            SELECT d.document_id, d.title, d.category, d.decision_date,
+                   d.decision_number, d.source_url, d.markdown_content
+            FROM documents d
+            WHERE NOT EXISTS (
+                SELECT 1 FROM document_chunks c
+                WHERE c.doc_id = d.document_id AND c.embedding IS NOT NULL
+            )
+            ORDER BY d.document_id
+            """
+        )
+        result["scanned"] = len(rows)
+        logger.info("Found %d documents needing embeddings", len(rows))
+
+        for row in rows:
+            if not row["markdown_content"]:
+                result["skipped"] += 1
+                continue
+            try:
+                await vs.add_document(
+                    doc_id=row["document_id"],
+                    title=row["title"] or "",
+                    content=row["markdown_content"],
+                    category=row["category"] or "",
+                    decision_date=row["decision_date"] or "",
+                    decision_number=row["decision_number"] or "",
+                    source_url=row["source_url"] or "",
+                )
+                result["embedded"] += 1
+            except Exception as e:
+                logger.warning("Failed to embed %s: %s", row["document_id"], e)
+                result["errors"] += 1
+
+    finally:
+        if owns_pool:
+            await pool.close()
+
+    return result
+
+
 # ── CLI ──────────────────────────────────────────────────────────────────────
 
 
@@ -338,6 +400,8 @@ def main() -> None:
     imp = sub.add_parser("import", help="Import seed_data/ → DB")
     imp.add_argument("--force", action="store_true", help="Overwrite existing data")
 
+    sub.add_parser("embed", help="Generate embeddings for documents missing vector chunks")
+
     args = parser.parse_args()
 
     if args.command == "export":
@@ -350,6 +414,11 @@ def main() -> None:
             print(
                 f"\nImported: {result['decision_cache']} cache, {result['documents']} docs, {result['chunks']} chunks"
             )
+    elif args.command == "embed":
+        result = asyncio.run(embed_seed(args.db))
+        print(
+            f"\nEmbedded: {result['embedded']} docs, skipped {result['skipped']}, errors {result['errors']}"
+        )
     else:
         parser.print_help()
 

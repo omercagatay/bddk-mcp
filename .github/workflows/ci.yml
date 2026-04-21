@@ -46,6 +46,13 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
       - name: Install dependencies
         run: uv sync --dev --python ${{ matrix.python-version }}
+      - name: Cache embedding model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: huggingface-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
+      - name: Pre-download embedding model
+        run: uv run python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('intfloat/multilingual-e5-base')"
       - name: Run tests
         env:
           BDDK_TEST_DATABASE_URL: postgresql://bddk:bddk@localhost:5432/bddk_test

@@ -465,15 +465,20 @@ class DocumentSyncer:
             segment = MEVZUAT_TUR_MAP.get(candidate_tur, "yonetmelik")
             base = f"{candidate_tur}.{tertip}.{mevzuat_no}"
 
-            # Per-layer timeout: short enough so one slow layer doesn't kill the rest
-            layer_timeout = httpx.Timeout(30.0, connect=10.0)
+            # Per-layer timeouts tuned from empirical benchmarks:
+            #   - BDDK is fast (~150ms) — no change needed there.
+            #   - mevzuat.gov.tr GeneratePdf can take 30-90s for large regulations
+            #     (server-side rendering of 100+ page docs with formulas as images).
+            #   - HTML/iframe are lighter but the site itself is slow from some regions.
+            html_timeout = httpx.Timeout(45.0, connect=15.0)
+            pdf_timeout = httpx.Timeout(90.0, connect=15.0)
 
             # Layer 1: Main page visit — establishes session cookies for GeneratePdf
             main_url = f"https://www.mevzuat.gov.tr/mevzuat?MevzuatNo={mevzuat_no}&MevzuatTur={candidate_tur}&MevzuatTertip={tertip}"
             main_page_visited = False
             main_page_html = ""
             try:
-                resp = await self._http.get(main_url, timeout=layer_timeout)
+                resp = await self._http.get(main_url, timeout=html_timeout)
                 if resp.status_code == 200:
                     main_page_visited = True
                     main_page_html = resp.text
@@ -485,7 +490,7 @@ class DocumentSyncer:
                 try:
                     gen_pdf_url = _mevzuat_generate_pdf_url(mevzuat_no, candidate_tur, tertip)
                     if gen_pdf_url:
-                        resp = await self._http.get(gen_pdf_url, timeout=layer_timeout)
+                        resp = await self._http.get(gen_pdf_url, timeout=pdf_timeout)
                         if resp.status_code == 200 and len(resp.content) > 500 and resp.content[:5] == b"%PDF-":
                             logger.info("mevzuat %s: downloaded via GeneratePdf (tur=%s)", doc_id, candidate_tur)
                             return resp.content, "mevzuat_generate_pdf", ".pdf"
@@ -496,7 +501,7 @@ class DocumentSyncer:
             try:
                 pdf_url = _mevzuat_pdf_url(mevzuat_no, candidate_tur, tertip)
                 if pdf_url:
-                    resp = await self._http.get(pdf_url, timeout=layer_timeout)
+                    resp = await self._http.get(pdf_url, timeout=pdf_timeout)
                     if resp.status_code == 200 and len(resp.content) > 500 and resp.content[:5] == b"%PDF-":
                         logger.info("mevzuat %s: downloaded via .pdf (tur=%s)", doc_id, candidate_tur)
                         return resp.content, "mevzuat_pdf", ".pdf"
@@ -506,7 +511,7 @@ class DocumentSyncer:
             # Layer 4: .htm fallback — formulas may be lost (rendered as <img>)
             try:
                 htm_url = f"https://www.mevzuat.gov.tr/mevzuatmetin/{segment}/{base}.htm"
-                resp = await self._http.get(htm_url, timeout=layer_timeout)
+                resp = await self._http.get(htm_url, timeout=html_timeout)
                 if resp.status_code == 200 and len(resp.content) > 200 and not _is_error_page(resp.text):
                     logger.warning(
                         "mevzuat %s: falling back to .htm (tur=%s) — formulas may be lost",
@@ -526,7 +531,7 @@ class DocumentSyncer:
                         iframe_url = iframe["src"]
                         if not iframe_url.startswith("http"):
                             iframe_url = f"https://www.mevzuat.gov.tr{iframe_url}"
-                        iframe_resp = await self._http.get(iframe_url, timeout=layer_timeout)
+                        iframe_resp = await self._http.get(iframe_url, timeout=html_timeout)
                         if iframe_resp.status_code == 200 and len(iframe_resp.content) > 200:
                             logger.warning("mevzuat %s: falling back to iframe (tur=%s)", doc_id, candidate_tur)
                             return iframe_resp.content, "mevzuat_iframe", ".html"

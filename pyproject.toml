@@ -29,7 +29,8 @@ dev = [
 gpu = [
     "torch>=2.0",
     "torchvision>=0.15",
-    "chandra-ocr[hf]>=0.2",
+    "accelerate>=1.11",
+    "marker-pdf>=1.0",
 ]
 
 [tool.pytest.ini_options]

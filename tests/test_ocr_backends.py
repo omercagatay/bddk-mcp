@@ -155,18 +155,71 @@ class TestLightOCRBackend:
                     assert result == "extracted"
 
 
+class TestMarkerBackend:
+    def test_name_is_marker(self):
+        from ocr_backends import MarkerBackend
+        backend = MarkerBackend()
+        assert backend.name == "marker"
+
+    def test_is_available_when_marker_importable(self):
+        from ocr_backends import MarkerBackend
+        backend = MarkerBackend()
+        with patch("ocr_backends.MarkerBackend.is_available", return_value=True):
+            assert backend.is_available() is True
+
+    def test_formula_image_heuristic(self):
+        from ocr_backends import MarkerBackend
+        from unittest.mock import MagicMock
+
+        # Inline formula: wide and short
+        img = MagicMock()
+        img.size = (200, 30)
+        assert MarkerBackend._is_formula_image("test.jpg", img) is True
+
+        # Block formula: medium height, wide
+        img.size = (400, 80)
+        assert MarkerBackend._is_formula_image("test.jpg", img) is True
+
+        # Full-page figure: tall
+        img.size = (800, 600)
+        assert MarkerBackend._is_formula_image("test.jpg", img) is False
+
+        # Square image: not a formula
+        img.size = (200, 200)
+        assert MarkerBackend._is_formula_image("test.jpg", img) is False
+
+    def test_replace_image_refs(self):
+        from ocr_backends import MarkerBackend
+        from unittest.mock import MagicMock
+
+        img_formula = MagicMock()
+        img_formula.size = (200, 30)
+        img_figure = MagicMock()
+        img_figure.size = (800, 600)
+
+        text = "Some text ![alt](page_0_Picture_1.jpg) more ![desc](page_0_Figure_1.jpg)"
+        images = {
+            "page_0_Picture_1.jpg": img_formula,
+            "page_0_Figure_1.jpg": img_figure,
+        }
+        result = MarkerBackend._replace_image_refs(text, images)
+        assert "[FORMULA IMAGE: page_0_Picture_1.jpg]" in result
+        assert "[IMAGE: page_0_Figure_1.jpg]" in result
+        assert "![alt]" not in result
+
+
 class TestDefaultBackends:
-    def test_default_order_is_lightocr_markitdown(self):
+    def test_default_order_is_marker_lightocr_markitdown(self):
         backends = get_default_backends()
         names = [b.name for b in backends]
-        assert names == ["lightocr", "markitdown_degraded"]
+        assert names == ["marker", "lightocr", "markitdown_degraded"]
 
     def test_include_chandra_prepends_chandra2(self):
         backends = get_default_backends(include_chandra=True)
         names = [b.name for b in backends]
-        assert names == ["chandra2", "lightocr", "markitdown_degraded"]
+        assert names == ["chandra2", "marker", "lightocr", "markitdown_degraded"]
 
     def test_default_without_chandra_unchanged(self):
         backends = get_default_backends(include_chandra=False)
         names = [b.name for b in backends]
-        assert names == ["lightocr", "markitdown_degraded"]
+        assert names == ["marker", "lightocr", "markitdown_degraded"]

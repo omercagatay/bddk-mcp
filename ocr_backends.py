@@ -115,7 +115,108 @@ class MarkitdownBackend:
         return _run_markitdown(pdf_bytes)
 
 
-# --- LightOnOCR-2-1B backend (GPU, primary) ----------------------------------
+# --- Marker backend (GPU/CPU, formula-aware, primary for Turkish) ------------
+
+
+class MarkerBackend:
+    """Primary extractor: Marker PDF-to-Markdown converter.
+
+    Marker uses a vision transformer for layout detection and text
+    recognition. It handles formulas (LaTeX), tables, and mixed-language
+    documents better than OCR-centric models like Chandra2.
+
+    Loads models lazily on first extract().
+    """
+
+    name = "marker"
+
+    def __init__(self) -> None:
+        self._converter = None
+
+    def is_available(self) -> bool:
+        try:
+            import marker  # noqa: F401
+            return True
+        except ImportError:
+            return False
+
+    def _load_converter(self):
+        from marker.converters.pdf import PdfConverter
+        from marker.models import create_model_dict
+
+        logger.info("Loading Marker PDF converter...")
+        artifact_dict = create_model_dict()
+        return PdfConverter(artifact_dict=artifact_dict)
+
+    @staticmethod
+    def _is_formula_image(img_name: str, img) -> bool:
+        """Heuristic: small, wide images are likely inline/block formulas."""
+        w, h = img.size
+        if h <= 0:
+            return False
+        ratio = w / h
+        # Inline formulas: short (<60px) and wide (ratio > 2)
+        # Block formulas: medium (<150px) and wide (ratio > 1.5)
+        if h < 60 and ratio > 2:
+            return True
+        if h < 150 and ratio > 1.5:
+            return True
+        return False
+
+    @staticmethod
+    def _replace_image_refs(text: str, images: dict) -> str:
+        """Replace markdown image refs with [FORMULA IMAGE] or [IMAGE] placeholders."""
+        for img_name, img in images.items():
+            escaped = re.escape(img_name)
+            is_formula = MarkerBackend._is_formula_image(img_name, img)
+            placeholder = f"[FORMULA IMAGE: {img_name}]" if is_formula else f"[IMAGE: {img_name}]"
+            # Match markdown image syntax: ![alt](path)
+            text = re.sub(rf"!\[[^\]]*\]\({escaped}\)", placeholder, text)
+            # Also handle bare src references that might appear
+            text = re.sub(rf"(?<!\()\b{escaped}\b(?!\))", placeholder, text)
+        return text
+
+    def extract(self, pdf_bytes: bytes) -> str | None:
+        if not pdf_bytes:
+            return None
+        import tempfile
+
+        try:
+            if self._converter is None:
+                self._converter = self._load_converter()
+
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                tmp.write(pdf_bytes)
+                tmp_path = tmp.name
+
+            rendered = self._converter(tmp_path)
+
+            from marker.output import text_from_rendered
+
+            result = text_from_rendered(rendered)
+            if isinstance(result, tuple):
+                text = result[0]
+                images = result[2] if len(result) > 2 else {}
+            else:
+                text = result
+                images = {}
+
+            if images:
+                formula_count = sum(
+                    1 for name, img in images.items()
+                    if self._is_formula_image(name, img)
+                )
+                if formula_count:
+                    logger.info("Marker found %d formula image(s) out of %d total image(s)", formula_count, len(images))
+                text = self._replace_image_refs(text, images)
+
+            return text.strip() if text else None
+        except Exception as e:
+            logger.warning("Marker extraction failed: %s", e)
+            return None
+
+
+# --- LightOnOCR-2-1B backend (GPU, fallback) ---------------------------------
 
 
 class LightOCRBackend:
@@ -266,10 +367,10 @@ def run_extraction_chain(
 def get_default_backends(include_chandra: bool = False) -> list[OCRBackend]:
     """Return backend chain in preference order.
 
-    Default: [lightocr, markitdown_degraded].
-    With include_chandra=True: [chandra2, lightocr, markitdown_degraded].
+    Default: [marker, lightocr, markitdown_degraded].
+    With include_chandra=True: [chandra2, marker, lightocr, markitdown_degraded].
     """
-    chain: list[OCRBackend] = [LightOCRBackend(), MarkitdownBackend()]
+    chain: list[OCRBackend] = [MarkerBackend(), LightOCRBackend(), MarkitdownBackend()]
     if include_chandra:
         from ocr_backends_chandra import ChandraBackend
 

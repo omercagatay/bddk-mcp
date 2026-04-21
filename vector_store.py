@@ -164,6 +164,16 @@ class VectorStore:
             await self._pool.execute("UPDATE document_chunks SET chunk_text = chunk_text WHERE tsv IS NULL")
             logger.info("tsvector backfill complete")
 
+        # Warn about NULL embeddings — these break semantic search and usually
+        # mean seed data was imported without running embedding generation.
+        null_emb = await self._pool.fetchval("SELECT COUNT(*) FROM document_chunks WHERE embedding IS NULL")
+        if null_emb and null_emb > 0:
+            logger.warning(
+                "%d chunks have NULL embeddings — semantic search will skip them. "
+                "Run `python seed.py embed` (or re-seed with embedding generation) to fix.",
+                null_emb,
+            )
+
         logger.info("VectorStore initialized (pgvector + FTS hybrid)")
 
     async def close(self) -> None:
@@ -437,9 +447,11 @@ class VectorStore:
 
         where_clause = ""
         params: list = [vec_str]
+        where_parts = ["embedding IS NOT NULL"]
         if category:
-            where_clause = "WHERE category = $2"
+            where_parts.append(f"category = ${len(params) + 1}")
             params.append(category)
+        where_clause = "WHERE " + " AND ".join(where_parts)
 
         if fetch_limit is None:
             fetch_limit = min(limit * 5, 100)
@@ -460,6 +472,8 @@ class VectorStore:
         for row in rows:
             did = row["doc_id"]
             distance = row["distance"]
+            if distance is None:
+                continue
             if did not in seen or distance < seen[did]["distance"]:
                 seen[did] = {
                     "doc_id": did,
