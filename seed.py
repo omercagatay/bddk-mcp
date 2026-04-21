@@ -274,47 +274,53 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
                     # Wipe existing chunks for every doc we're about to seed, so
                     # re-extracted docs with fewer chunks don't leave stale rows
                     # (and stale pgvector embeddings) from the previous extraction.
+                    # Outer transaction guarantees atomicity — a crash between
+                    # DELETE and the final INSERT cannot leave a doc with zero chunks.
+                    # Per-chunk savepoint preserves best-effort: one bad chunk is
+                    # skipped without aborting the whole batch.
                     seed_doc_ids = sorted({c["doc_id"] for c in chunks_data})
-                    await conn.execute(
-                        "DELETE FROM document_chunks WHERE doc_id = ANY($1::text[])",
-                        seed_doc_ids,
-                    )
                     imported = 0
-                    for c in chunks_data:
-                        try:
-                            await conn.execute(
-                                """INSERT INTO document_chunks
-                                   (doc_id, chunk_index, title, category,
-                                    decision_date, decision_number, source_url,
-                                    total_chunks, total_pages, content_hash,
-                                    chunk_text)
-                                   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-                                   ON CONFLICT(doc_id, chunk_index) DO UPDATE SET
-                                   title=EXCLUDED.title, category=EXCLUDED.category,
-                                   decision_date=EXCLUDED.decision_date,
-                                   decision_number=EXCLUDED.decision_number,
-                                   source_url=EXCLUDED.source_url,
-                                   total_chunks=EXCLUDED.total_chunks,
-                                   total_pages=EXCLUDED.total_pages,
-                                   content_hash=EXCLUDED.content_hash,
-                                   chunk_text=EXCLUDED.chunk_text""",
-                                c["doc_id"],
-                                c["chunk_index"],
-                                c.get("title", ""),
-                                c.get("category", ""),
-                                c.get("decision_date", ""),
-                                c.get("decision_number", ""),
-                                c.get("source_url", ""),
-                                c.get("total_chunks", 1),
-                                c.get("total_pages", 1),
-                                c.get("content_hash", ""),
-                                c["chunk_text"],
-                            )
-                            imported += 1
-                        except Exception as e:
-                            logger.warning(
-                                "Failed to import chunk %s/%d: %s", c.get("doc_id"), c.get("chunk_index", 0), e
-                            )
+                    async with conn.transaction():
+                        await conn.execute(
+                            "DELETE FROM document_chunks WHERE doc_id = ANY($1::text[])",
+                            seed_doc_ids,
+                        )
+                        for c in chunks_data:
+                            try:
+                                async with conn.transaction():
+                                    await conn.execute(
+                                        """INSERT INTO document_chunks
+                                           (doc_id, chunk_index, title, category,
+                                            decision_date, decision_number, source_url,
+                                            total_chunks, total_pages, content_hash,
+                                            chunk_text)
+                                           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+                                           ON CONFLICT(doc_id, chunk_index) DO UPDATE SET
+                                           title=EXCLUDED.title, category=EXCLUDED.category,
+                                           decision_date=EXCLUDED.decision_date,
+                                           decision_number=EXCLUDED.decision_number,
+                                           source_url=EXCLUDED.source_url,
+                                           total_chunks=EXCLUDED.total_chunks,
+                                           total_pages=EXCLUDED.total_pages,
+                                           content_hash=EXCLUDED.content_hash,
+                                           chunk_text=EXCLUDED.chunk_text""",
+                                        c["doc_id"],
+                                        c["chunk_index"],
+                                        c.get("title", ""),
+                                        c.get("category", ""),
+                                        c.get("decision_date", ""),
+                                        c.get("decision_number", ""),
+                                        c.get("source_url", ""),
+                                        c.get("total_chunks", 1),
+                                        c.get("total_pages", 1),
+                                        c.get("content_hash", ""),
+                                        c["chunk_text"],
+                                    )
+                                imported += 1
+                            except Exception as e:
+                                logger.warning(
+                                    "Failed to import chunk %s/%d: %s", c.get("doc_id"), c.get("chunk_index", 0), e
+                                )
                     result["chunks"] = imported
                     logger.info("Imported %d chunks", imported)
 
@@ -416,9 +422,7 @@ def main() -> None:
             )
     elif args.command == "embed":
         result = asyncio.run(embed_seed(args.db))
-        print(
-            f"\nEmbedded: {result['embedded']} docs, skipped {result['skipped']}, errors {result['errors']}"
-        )
+        print(f"\nEmbedded: {result['embedded']} docs, skipped {result['skipped']}, errors {result['errors']}")
     else:
         parser.print_help()
 

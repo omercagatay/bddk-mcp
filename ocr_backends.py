@@ -136,6 +136,7 @@ class MarkerBackend:
     def is_available(self) -> bool:
         try:
             import marker  # noqa: F401
+
             return True
         except ImportError:
             return False
@@ -179,8 +180,10 @@ class MarkerBackend:
     def extract(self, pdf_bytes: bytes) -> str | None:
         if not pdf_bytes:
             return None
+        import os
         import tempfile
 
+        tmp_path: str | None = None
         try:
             if self._converter is None:
                 self._converter = self._load_converter()
@@ -202,10 +205,7 @@ class MarkerBackend:
                 images = {}
 
             if images:
-                formula_count = sum(
-                    1 for name, img in images.items()
-                    if self._is_formula_image(name, img)
-                )
+                formula_count = sum(1 for name, img in images.items() if self._is_formula_image(name, img))
                 if formula_count:
                     logger.info("Marker found %d formula image(s) out of %d total image(s)", formula_count, len(images))
                 text = self._replace_image_refs(text, images)
@@ -214,6 +214,12 @@ class MarkerBackend:
         except Exception as e:
             logger.warning("Marker extraction failed: %s", e)
             return None
+        finally:
+            if tmp_path is not None:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
 
 
 # --- LightOnOCR-2-1B backend (GPU, fallback) ---------------------------------

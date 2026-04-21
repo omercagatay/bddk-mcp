@@ -158,18 +158,21 @@ class TestLightOCRBackend:
 class TestMarkerBackend:
     def test_name_is_marker(self):
         from ocr_backends import MarkerBackend
+
         backend = MarkerBackend()
         assert backend.name == "marker"
 
     def test_is_available_when_marker_importable(self):
         from ocr_backends import MarkerBackend
+
         backend = MarkerBackend()
         with patch("ocr_backends.MarkerBackend.is_available", return_value=True):
             assert backend.is_available() is True
 
     def test_formula_image_heuristic(self):
-        from ocr_backends import MarkerBackend
         from unittest.mock import MagicMock
+
+        from ocr_backends import MarkerBackend
 
         # Inline formula: wide and short
         img = MagicMock()
@@ -189,8 +192,9 @@ class TestMarkerBackend:
         assert MarkerBackend._is_formula_image("test.jpg", img) is False
 
     def test_replace_image_refs(self):
-        from ocr_backends import MarkerBackend
         from unittest.mock import MagicMock
+
+        from ocr_backends import MarkerBackend
 
         img_formula = MagicMock()
         img_formula.size = (200, 30)
