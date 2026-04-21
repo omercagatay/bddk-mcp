@@ -8,7 +8,7 @@ from tools.admin import register
 
 
 def test_admin_register():
-    """admin.register() exposes exactly health_check and bddk_metrics."""
+    """admin.register() exposes the expected admin tools."""
     mcp = MagicMock()
     deps = Dependencies(
         pool=None,
@@ -20,4 +20,4 @@ def test_admin_register():
     register(mcp, deps)
 
     tool_names = {call.args[0].__name__ for call in mcp.tool.return_value.call_args_list}
-    assert tool_names == {"health_check", "bddk_metrics"}
+    assert tool_names == {"health_check", "bddk_metrics", "document_quality_report"}
