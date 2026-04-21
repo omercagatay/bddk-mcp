@@ -147,10 +147,14 @@ def _extract_html_to_markdown(html: str) -> str:
     for tag in soup.find_all(["script", "style"]):
         tag.decompose()
 
-    # Basic conversion
+    block_tags = ["h1", "h2", "h3", "h4", "h5", "p", "li", "td", "th"]
+
     lines = []
-    for elem in soup.find_all(["h1", "h2", "h3", "h4", "h5", "p", "li", "td", "th"]):
-        text = elem.get_text(strip=True)
+    for elem in soup.find_all(block_tags):
+        if elem.find(block_tags):
+            continue
+        text = elem.get_text(separator=" ", strip=True)
+        text = " ".join(text.split())
         if not text:
             continue
         tag = elem.name

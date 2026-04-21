@@ -109,6 +109,29 @@ class TestHtmlToMarkdown:
         assert "Content" in md
         assert "color" not in md
 
+    def test_adjacent_inline_tags_get_separated(self):
+        html = "<p><span>YÖNETMELİK</span><span>BİRİNCİ BÖLÜM</span></p>"
+        md = _extract_html_to_markdown(html)
+        assert "YÖNETMELİKBİRİNCİ" not in md
+        assert "YÖNETMELİK" in md
+        assert "BİRİNCİ BÖLÜM" in md
+
+    def test_mevzuat_heading_pattern(self):
+        html = (
+            "<p><b>YÖNETMELİK</b></p>"
+            "<p><b>BİRİNCİ BÖLÜM</b></p>"
+            "<p><b>Başlangıç Hükümleri</b></p>"
+            "<p><b>Amaç ve kapsam</b></p>"
+        )
+        md = _extract_html_to_markdown(html)
+        assert "BÖLÜMBaşlangıç" not in md
+        assert "HükümleriAmaç" not in md
+
+    def test_nested_block_elements_dont_duplicate(self):
+        html = "<table><tr><td><p>Cell Content</p></td></tr></table>"
+        md = _extract_html_to_markdown(html)
+        assert md.count("Cell Content") == 1
+
 
 class TestFetchWithRetry:
     @pytest.mark.asyncio
