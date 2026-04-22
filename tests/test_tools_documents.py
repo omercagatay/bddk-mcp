@@ -118,6 +118,8 @@ async def test_prefixed_id_does_not_get_expanded():
         ("chandra2", True),
         ("mevzuat_pdf+lightocr", True),
         ("cached_pdf+chandra2", True),
+        ("manual_latex", True),
+        ("html_parser+manual_latex", True),
         ("markitdown", False),
         ("markitdown_degraded", False),
         ("manual_pdf+markitdown", False),
