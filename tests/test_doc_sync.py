@@ -215,6 +215,39 @@ class TestHtmlToMarkdown:
         md = _extract_html_to_markdown(html)
         assert "[buraya](https://example.com/x)" in md
 
+    def test_cross_cell_body_duplication_is_deduped(self):
+        # SYSTEMIC-10. A handful of mevzuat pages (seen in mevzuat_24654)
+        # duplicate the entire article body across multiple <td> cells —
+        # sometimes within one table, sometimes across sibling tables —
+        # because of a layout quirk CSS hides in the browser. Without a
+        # defense, our extractor faithfully emits every copy and the user
+        # sees doubled/tripled prose. Large cell content (≥ the dedup
+        # threshold) that matches an earlier cell in the same document
+        # should be dropped.
+        body = "Uzun madde metni ilave edilmelidir. " * 50  # ≈ 1 850 chars
+        html = f"<table><tr><td>{body}</td><td>{body}</td></tr></table><table><tr><td>{body}</td></tr></table>"
+        md = _extract_html_to_markdown(html)
+        # `body` contains the phrase 50 times internally; emitted once = 50 hits.
+        assert md.count("Uzun madde metni") == 50
+
+    def test_short_duplicate_cells_are_kept(self):
+        # Labels, numbers, single words repeat legitimately across many
+        # tables and must not be stripped by the dedup pass.
+        html = "<table><tr><td>1</td><td>2</td><td>1</td></tr><tr><td>A</td><td>B</td><td>A</td></tr></table>"
+        md = _extract_html_to_markdown(html)
+        assert md.count("| 1 |") >= 1
+        assert md.count("| A |") >= 1
+
+    def test_long_but_distinct_cells_both_retained(self):
+        # Dedup must not flatten a real multi-column table whose cells
+        # happen to be long but carry different content.
+        a_block = "Madde hükmü A. " * 80
+        b_block = "Madde hükmü B. " * 80
+        html = f"<table><tr><td>{a_block}</td><td>{b_block}</td></tr></table>"
+        md = _extract_html_to_markdown(html)
+        assert "Madde hükmü A." in md
+        assert "Madde hükmü B." in md
+
 
 class TestSanitizeForStorage:
     def test_strips_nul_bytes(self):

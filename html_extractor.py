@@ -23,6 +23,27 @@ INLINE_TAGS = {"span", "font", "a", "u", "sub", "sup"}
 BOLD_TAGS = {"b", "strong"}
 ITALIC_TAGS = {"i", "em"}
 
+# Table-cell deduplication threshold. A handful of mevzuat pages copy the
+# entire article body into 3+ sibling <td> cells (hidden from the browser
+# view by a CSS layout trick, but surfaced verbatim by any non-rendering
+# extractor). Within a single document we suppress any cell whose content
+# duplicates a previously-seen cell *and* is at least this many characters
+# long. The length gate keeps short labels ("1", "A", "MADDE 1") legitimately
+# repeating across rows.
+_DEDUP_MIN_CELL_CHARS = 200
+
+
+def _cell_fingerprint(text: str) -> str:
+    """Alphanumeric-only signature used to detect duplicate cells.
+
+    Two cells whose visible prose is the same but which differ in bold
+    marker placement, stray whitespace, or trailing punctuation will share
+    a fingerprint and dedupe correctly. Short / empty cells collapse to
+    a short fingerprint that the caller further gates on length.
+    """
+    return "".join(c for c in text if c.isalnum())
+
+
 # Whitespace class includes zero-width space (U+200B) commonly emitted by MS
 # Word and the narrow no-break space (U+202F) seen in mevzuat exports.
 WS_RE = re.compile(r"[ \t\r\n​ \xa0]+")
@@ -150,8 +171,15 @@ def _cell_text(td: Tag) -> str:
     return text.replace("|", "\\|")
 
 
-def _render_table(table: Tag) -> str:
-    """Build a markdown table with colspan/rowspan flattened."""
+def _render_table(table: Tag, seen_cells: set[str] | None = None) -> str:
+    """Build a markdown table with colspan/rowspan flattened.
+
+    `seen_cells` is a document-scoped set of large cell contents already
+    emitted. Any cell whose text is at least `_DEDUP_MIN_CELL_CHARS` long
+    and matches a prior cell is blanked so the duplication doesn't reach
+    the reader. If dedup leaves the table entirely empty, the whole table
+    is skipped.
+    """
     rows_raw = table.find_all("tr")
     if not rows_raw:
         return ""
@@ -188,6 +216,28 @@ def _render_table(table: Tag) -> str:
     if not grid or max_cols == 0:
         return ""
 
+    # Dedup pass: compare cells by alphanumeric fingerprint so cosmetic
+    # differences (bold marker placement, whitespace, trailing punctuation)
+    # don't defeat the dedup. Blank any cell whose fingerprint has already
+    # been emitted in this document.
+    if seen_cells is not None:
+        for row in grid:
+            for i, cell_text in enumerate(row):
+                if len(cell_text) < _DEDUP_MIN_CELL_CHARS:
+                    continue
+                fp = _cell_fingerprint(cell_text)
+                if len(fp) < _DEDUP_MIN_CELL_CHARS:
+                    continue
+                if fp in seen_cells:
+                    row[i] = ""
+                else:
+                    seen_cells.add(fp)
+        # If every cell ended up blank after dedup, the table carries no
+        # new information — skip it entirely so the reader doesn't see
+        # an empty grid.
+        if not any(c.strip() for row in grid for c in row):
+            return ""
+
     header_idx = 0
     for r, tr in enumerate(rows_raw):
         if tr.find(["th"]) or tr.find(["b", "strong"]):
@@ -207,7 +257,7 @@ def _render_table(table: Tag) -> str:
     return "\n".join(lines)
 
 
-def _walk(container: Tag, out: list[str]) -> None:
+def _walk(container: Tag, out: list[str], seen_cells: set[str] | None = None) -> None:
     for child in container.children:
         if isinstance(child, NavigableString):
             t = str(child).strip()
@@ -223,7 +273,7 @@ def _walk(container: Tag, out: list[str]) -> None:
             continue
 
         if name == "table":
-            md = _render_table(child)
+            md = _render_table(child, seen_cells)
             if md:
                 out.append(md)
             continue
@@ -259,7 +309,7 @@ def _walk(container: Tag, out: list[str]) -> None:
             continue
 
         if name in ("div", "section", "article", "body", "main", "header", "footer"):
-            _walk(child, out)
+            _walk(child, out, seen_cells)
             continue
 
         # Fallback: inline-render anything else as a paragraph.
@@ -282,6 +332,7 @@ def html_to_markdown(html: str) -> str:
         tag.decompose()
     body = soup.body or soup
     out: list[str] = []
-    _walk(body, out)
+    seen_cells: set[str] = set()
+    _walk(body, out, seen_cells)
     result = "\n\n".join(p for p in (x.strip() for x in out) if p)
     return re.sub(r"\n{3,}", "\n\n", result).strip()
