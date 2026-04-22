@@ -4,6 +4,7 @@ __pycache__/
 .DS_Store
 .cache.json
 .pytest_cache/
+.ruff_cache/
 bddk_docs.db
 *.db
 chroma_db/
