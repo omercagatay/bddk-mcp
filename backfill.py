@@ -49,6 +49,12 @@ WHERE d.document_id LIKE 'mevzuat_%'
 ORDER BY d.document_id
 """
 
+# Extraction-artifact signatures added 2026-04-22 for the SYSTEMIC-1/3/8
+# repair pass (see error_reports.md). Unlike the mevzuat-only legacy
+# signatures, these can appear in plain BDDK (numeric) doc IDs too — Đ
+# garble in particular is a PDF-font decoding artifact common to both
+# catalogs — so the outer WHERE deliberately does not gate them on the
+# ``mevzuat_%`` prefix.
 _SCAN_ALL_CORRUPTION_SQL = """
 SELECT d.document_id,
        d.title,
@@ -58,17 +64,23 @@ SELECT d.document_id,
        d.decision_number,
        LENGTH(d.markdown_content) AS len,
        CASE
-           WHEN d.markdown_content LIKE '%' || chr(65533) || '%' THEN 'ufffd'
-           WHEN d.markdown_content LIKE '%<img%'                 THEN 'leaked_img'
-           WHEN LENGTH(d.markdown_content) < 500                 THEN 'too_short'
-           WHEN d.extraction_method = 'markitdown_degraded'      THEN 'markitdown_degraded'
+           WHEN d.markdown_content LIKE '%Đ%'                          THEN 'i_garble'
+           WHEN d.markdown_content LIKE '%' || chr(12) || '%'          THEN 'form_feeds'
+           WHEN d.markdown_content ~ '[-]'                 THEN 'c1_controls'
+           WHEN d.markdown_content LIKE '%' || chr(65533) || '%'       THEN 'ufffd'
+           WHEN d.markdown_content LIKE '%<img%'                       THEN 'leaked_img'
+           WHEN LENGTH(d.markdown_content) < 500                       THEN 'too_short'
+           WHEN d.extraction_method = 'markitdown_degraded'            THEN 'markitdown_degraded'
        END AS signature
 FROM documents d
-WHERE d.document_id LIKE 'mevzuat_%'
-  AND (d.markdown_content LIKE '%' || chr(65533) || '%'
-       OR d.markdown_content LIKE '%<img%'
-       OR LENGTH(d.markdown_content) < 500
-       OR d.extraction_method = 'markitdown_degraded')
+WHERE d.markdown_content LIKE '%Đ%'
+   OR d.markdown_content LIKE '%' || chr(12) || '%'
+   OR d.markdown_content ~ '[-]'
+   OR (d.document_id LIKE 'mevzuat_%'
+       AND (d.markdown_content LIKE '%' || chr(65533) || '%'
+            OR d.markdown_content LIKE '%<img%'
+            OR LENGTH(d.markdown_content) < 500
+            OR d.extraction_method = 'markitdown_degraded'))
 ORDER BY d.document_id
 """
 
