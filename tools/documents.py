@@ -13,8 +13,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Backend names whose output preserves mathematical formulas and inline images.
-# Combined method strings (e.g. "mevzuat_pdf+lightocr") are matched by substring.
-_FORMULA_AWARE_TOKENS = ("lightocr", "chandra2", "pp_structure")
+# Combined method strings (e.g. "mevzuat_pdf+lightocr", "html_parser+manual_latex")
+# are matched by substring. "manual_latex" is the marker for documents that were
+# hand-corrected to embed LaTeX where OCR failed.
+_FORMULA_AWARE_TOKENS = ("lightocr", "chandra2", "pp_structure", "manual_latex")
 
 _DEGRADED_WARNING = (
     "Bu belgedeki matematiksel formüller ve bazı görseller çıkartılamamış olabilir. "
