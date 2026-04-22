@@ -82,7 +82,27 @@ class TestDecodeHtml:
         # baking replacement chars into the document store.
         content = (b"A" * 600) + b"\xef\xbf\xbd test"
         result = _decode_html(content)
+
         assert "\ufffd" not in result
+
+    def test_maps_c1_en_dash_to_real_en_dash(self):
+        # SYSTEMIC-8. Mevzuat HTML sometimes carries a literal U+0096 (C1
+        # control) where an en-dash belongs — residue from Word export that
+        # stored the Windows-1252 byte 0x96 as its Unicode code point
+        # rather than mapping it to U+2013. After decode we remap the
+        # whole C1 block back to printable Windows-1252 equivalents so
+        # nothing downstream has to look at tofu boxes.
+        content = "MADDE 1  (1) Bu Yönetmelik".encode()
+        result = _decode_html(content)
+        assert "" not in result
+        assert "MADDE 1 – (1)" in result
+
+    def test_maps_all_seven_observed_c1_offenders(self):
+        # The seven C1 code points actually observed in stored html_parser
+        # docs (per error_reports.md SYSTEMIC-8 audit). One assertion over
+        # the full roster so the mapping stays auditable.
+        raw = "      ".encode()
+        assert _decode_html(raw) == "‘ ’ “ ” – — …"
 
 
 class TestHtmlToMarkdown:
@@ -217,6 +237,35 @@ class TestSanitizeForStorage:
         from doc_sync import _sanitize_for_storage
 
         assert _sanitize_for_storage("") == ""
+
+    def test_strips_form_feeds(self):
+        # SYSTEMIC-3. Markitdown leaves PDF page-break bytes (0x0C) in output.
+        # Visual noise with no semantic value — strip in the same pass that
+        # removes storage-unsafe NULs.
+        from doc_sync import _sanitize_for_storage
+
+        assert _sanitize_for_storage("page1\x0cpage2\x0cpage3") == "page1page2page3"
+
+    def test_replaces_garbled_turkish_capital_i(self):
+        # SYSTEMIC-1. Markitdown's PDF path decodes Turkish capital İ (U+0130)
+        # as Đ (U+0110) on BDDK legacy PDFs whose embedded font lacks a
+        # ToUnicode CMap. Blanket Đ→İ is safe because every Đ observed
+        # across 43 affected docs / 235 occurrences is a garbled İ, and Đ
+        # (Croatian/Vietnamese) never legitimately appears in Turkish
+        # regulatory text — verified by auditing every non-ASCII Turkish
+        # character in the document store.
+        from doc_sync import _sanitize_for_storage
+
+        assert _sanitize_for_storage("Tevfik BĐLGĐN") == "Tevfik BİLGİN"
+        assert _sanitize_for_storage("Đhraççı bankanın") == "İhraççı bankanın"
+
+    def test_all_three_artifacts_in_one_pass(self):
+        # Combined fix: one pass handles NUL (storage-unsafe) + form-feed
+        # (SYSTEMIC-3) + Đ-garble (SYSTEMIC-1). A markitdown output with
+        # all three defects gets cleaned in a single sweep.
+        from doc_sync import _sanitize_for_storage
+
+        assert _sanitize_for_storage("BĐLGĐN\x0cĐhraççı\x00") == "BİLGİNİhraççı"
 
 
 class TestFetchWithRetry:
