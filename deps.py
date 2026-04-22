@@ -38,3 +38,8 @@ class Dependencies:
     sync_consecutive_failures: int = 0
     sync_circuit_open: bool = False
     server_start_time: float = field(default_factory=time.time)
+
+    # Backfill state (for backfill_degraded_documents admin tool)
+    backfill_task: asyncio.Task | None = None
+    backfill_started_at: float | None = None
+    backfill_progress: dict = field(default_factory=dict)

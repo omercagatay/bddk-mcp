@@ -20,4 +20,10 @@ def test_admin_register():
     register(mcp, deps)
 
     tool_names = {call.args[0].__name__ for call in mcp.tool.return_value.call_args_list}
-    assert tool_names == {"health_check", "bddk_metrics", "document_quality_report"}
+    assert tool_names == {
+        "health_check",
+        "bddk_metrics",
+        "document_quality_report",
+        "backfill_degraded_documents",
+        "backfill_status",
+    }
