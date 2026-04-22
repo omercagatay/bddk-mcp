@@ -133,8 +133,14 @@ def register(mcp, deps: Dependencies) -> None:
                 the re-extraction in a background task.
             limit: Cap candidates processed (0 = no cap).
             include_legacy_corruption: Also match historical corruption signatures
-                (U+FFFD chars, leaked ``<img`` tags, <500-char content). Default
-                scans only ``extraction_method='markitdown_degraded'``.
+                (U+FFFD chars, leaked ``<img`` tags, <500-char content) **and
+                the three extraction-artifact signatures** detectable in
+                stored markdown: ``i_garble`` (Đ where İ belongs — markitdown
+                PDF font decode quirk, BDDK + mevzuat), ``form_feeds`` (PDF
+                page-break 0x0C bytes left inline), ``c1_controls`` (Windows-1252
+                punctuation bytes mis-decoded as C1 controls — shows as tofu
+                boxes in readers). Default scans only
+                ``extraction_method='markitdown_degraded'``.
 
         Returns a human-readable report. Destructive only when dry_run=False.
         """

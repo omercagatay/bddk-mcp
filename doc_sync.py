@@ -103,8 +103,54 @@ class SyncReport(BaseModel):
 # ── Extraction backends ──────────────────────────────────────────────────────
 
 
+# Windows-1252 C1-control → printable punctuation remap.
+# Mevzuat HTML occasionally carries literal U+0080..U+009F characters where
+# Windows-1252 punctuation belongs (en-dashes, smart quotes, ellipsis). This
+# is Word-export residue: the exporter stored byte 0x96 as Unicode U+0096
+# rather than mapping it to U+2013, so the resulting tofu boxes survive
+# every encoding round-trip. None of these code points legitimately appear
+# in Turkish regulatory text, so post-decode translation is unambiguous.
+# See error_reports.md SYSTEMIC-8 for the affected-doc roster.
+_WIN1252_C1_MAP = str.maketrans(
+    {
+        "": "€",
+        "": "‚",
+        "": "ƒ",
+        "": "„",
+        "": "…",
+        "": "†",
+        "": "‡",
+        "": "ˆ",
+        "": "‰",
+        "": "Š",
+        "": "‹",
+        "": "Œ",
+        "": "Ž",
+        "": "‘",
+        "": "’",
+        "": "“",
+        "": "”",
+        "": "•",
+        "": "–",
+        "": "—",
+        "": "˜",
+        "": "™",
+        "": "š",
+        "": "›",
+        "": "œ",
+        "": "ž",
+        "": "Ÿ",
+    }
+)
+
+
 def _decode_html(content: bytes) -> str:
-    """Decode HTML content with encoding detection for Turkish text."""
+    """Decode HTML content with encoding detection for Turkish text.
+
+    After successful decode, remap Windows-1252 C1 controls to their
+    printable equivalents so en-dashes and smart quotes survive intact
+    instead of rendering as tofu boxes downstream.
+    """
     for encoding in ("utf-8", "iso-8859-9", "windows-1254"):
         try:
             decoded = content.decode(encoding)
@@ -112,10 +158,10 @@ def _decode_html(content: bytes) -> str:
             # wrong encoding or a corrupt source. Either way, do not return
             # silently — try the next encoding.
             if "\ufffd" not in decoded:
-                return decoded
+                return decoded.translate(_WIN1252_C1_MAP)
         except (UnicodeDecodeError, LookupError):
             continue
-    return content.decode("utf-8", errors="replace")
+    return content.decode("utf-8", errors="replace").translate(_WIN1252_C1_MAP)
 
 
 # Known patterns from mevzuat.gov.tr error/navigation pages
@@ -141,16 +187,31 @@ def _is_error_page(content: str) -> bool:
 
 
 def _sanitize_for_storage(text: str) -> str:
-    """Strip bytes PostgreSQL `text` columns can't hold.
+    """Strip storage-unsafe bytes and uniformly-observed extraction artifacts.
 
-    PG rejects NUL (0x00) inside text — OCR backends occasionally emit one
-    from malformed PDFs, which aborts the INSERT and leaves the doc stuck on
-    its previous (possibly stale) content. Drop NULs here so every backend's
-    output flows into storage uniformly.
+    Every extraction path flows through here on the way to the document store,
+    so this is the one place all three fixes live:
+
+    - NUL (0x00): PG rejects it inside `text` columns, aborting the INSERT.
+      OCR backends occasionally emit one from malformed PDFs.
+
+    - Form-feed (0x0C, SYSTEMIC-3): PDF page-break byte left in markitdown
+      output. Visual noise, no semantic value.
+
+    - Đ → İ (U+0110 → U+0130, SYSTEMIC-1): markitdown's PDF path mis-decodes
+      Turkish capital İ as Đ on BDDK legacy PDFs with fonts that lack a
+      ToUnicode CMap. A blanket swap is unambiguous because Đ is Croatian /
+      Vietnamese and never appears in Turkish regulatory text — verified by
+      auditing every non-ASCII character in the stored corpus.
+
+    Fast path: return the input unchanged (same identity) when none of the
+    sentinels are present, so clean output doesn't allocate.
     """
-    if not text or "\x00" not in text:
+    if not text:
         return text
-    return text.replace("\x00", "")
+    if "\x00" not in text and "\x0c" not in text and "Đ" not in text:
+        return text
+    return text.replace("\x00", "").replace("\x0c", "").replace("Đ", "İ")
 
 
 def _extract_html_to_markdown(html: str) -> str:

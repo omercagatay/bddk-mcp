@@ -69,6 +69,39 @@ async def test_scan_include_legacy_expands_filters():
 
 
 @pytest.mark.asyncio
+async def test_scan_include_legacy_covers_extraction_artifact_signatures():
+    # Legacy-mode scan must also catch the three extraction-artifact
+    # signatures added for the SYSTEMIC-1/3/8 repair pass (see
+    # error_reports.md). These are character-level defects that appear in
+    # both mevzuat_ and plain numeric BDDK doc IDs, so the SQL must emit
+    # the signatures AND relax the mevzuat_%-prefix gate for them.
+    pool = _FakePool(
+        [
+            _row("mevzuat_1", "i_garble", 15000),
+            _row("40", "i_garble", 12000),
+            _row("mevzuat_2", "c1_controls", 20000),
+            _row("mevzuat_3", "form_feeds", 8000),
+        ]
+    )
+    candidates = await scan_candidates(pool, include_legacy_corruption=True)
+
+    assert len(candidates) == 4
+    assert {c.signature for c in candidates} == {"i_garble", "c1_controls", "form_feeds"}
+    # New signatures present in the emitted SQL.
+    assert "i_garble" in pool.last_sql
+    assert "c1_controls" in pool.last_sql
+    assert "form_feeds" in pool.last_sql
+    # And the new signatures are gated without the mevzuat_% prefix so a
+    # BDDK-numeric doc (e.g. "40") also gets picked up.
+    sql = pool.last_sql
+    i_garble_clause_start = sql.index("LIKE '%Đ%'")
+    # Walk back to the nearest WHERE/OR keyword and make sure it isn't
+    # preceded by "document_id LIKE 'mevzuat_%'" on the same clause.
+    preceding = sql[:i_garble_clause_start].splitlines()[-1]
+    assert "mevzuat_" not in preceding
+
+
+@pytest.mark.asyncio
 async def test_scan_respects_limit():
     rows = [_row(f"mevzuat_{i}") for i in range(50)]
     pool = _FakePool(rows)
