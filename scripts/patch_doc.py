@@ -25,6 +25,7 @@ import argparse
 import asyncio
 import hashlib
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any
@@ -33,7 +34,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from doc_store import DocumentStore  # noqa: E402
+from config import PAGE_SIZE  # noqa: E402
+from doc_store import DocumentStore, StoredDocument  # noqa: E402
 from seed import _strip_docs_dump_header  # noqa: E402
 from vector_store import VectorStore, _chunk_text  # noqa: E402
 
@@ -83,6 +85,7 @@ async def patch_document(
     chunks = _chunk_text(body)
     if not chunks:
         raise PatchError(f"chunk regeneration produced no chunks for {doc_id}")
+    total_pages = max(1, math.ceil(len(body) / PAGE_SIZE))
     result = {
         "doc_id": doc_id,
         "old_hash": current_doc.content_hash or "",
@@ -97,8 +100,36 @@ async def patch_document(
     if dry_run:
         return result
 
-    # --- 3-5 land in later tasks. Raise so Task 2 tests stay honest. -----
-    raise NotImplementedError("DB + seed writes land in later tasks")
+    # --- 3. DB update ----------------------------------------------------
+    # StoredDocument preserves existing metadata; only body, hash,
+    # extraction_method, total_pages, file_size change. Other fields
+    # (downloaded_at / extracted_at) are written by store_document itself.
+    stored = StoredDocument(
+        document_id=doc_id,
+        title=current_doc.title,
+        category=current_doc.category,
+        decision_date=current_doc.decision_date,
+        decision_number=current_doc.decision_number,
+        source_url=current_doc.source_url,
+        markdown_content=body,
+        content_hash=new_hash,
+        extraction_method=extraction_method,
+        total_pages=total_pages,
+        file_size=len(body.encode("utf-8")),
+    )
+    await doc_store.store_document(stored)
+    await vector_store.add_document(
+        doc_id=doc_id,
+        title=current_doc.title,
+        content=body,
+        category=current_doc.category or "",
+        decision_date=current_doc.decision_date or "",
+        decision_number=current_doc.decision_number or "",
+        source_url=current_doc.source_url or "",
+    )
+
+    # --- 4. Seed surgery lands in the next task. ------------------------
+    raise NotImplementedError("seed surgery lands in Task 4")
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:

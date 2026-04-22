@@ -228,3 +228,46 @@ async def test_strips_docs_dump_header_before_hashing(tmp_path):
 
     expected_hash = hashlib.sha256(body.encode("utf-8")).hexdigest()
     assert result["new_hash"] == expected_hash
+
+
+@pytest.mark.asyncio
+async def test_db_update_passes_body_and_metadata(tmp_path):
+    """store_document + add_document must be awaited with the stripped body."""
+    seed_dir = tmp_path / "seed_data"
+    seed_dir.mkdir()
+    _write_seed_files(seed_dir, docs=[_seed_doc_entry("mevzuat_20029")], chunks=[])
+    md = tmp_path / "body.md"
+    body = "fresh body content\n"
+    md.write_text(body, encoding="utf-8")
+
+    ds = _mock_doc_store(_stored_doc("mevzuat_20029"))
+    vs = _mock_vector_store()
+
+    with pytest.raises(NotImplementedError):  # seed surgery still TODO
+        await patch_doc.patch_document(
+            doc_id="mevzuat_20029",
+            markdown_path=md,
+            extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
+            doc_store=ds,
+            vector_store=vs,
+            seed_dir=seed_dir,
+            dry_run=False,
+        )
+
+    # store_document awaited once with the correct body + extraction_method
+    ds.store_document.assert_awaited_once()
+    stored = ds.store_document.await_args.args[0]
+    assert stored.document_id == "mevzuat_20029"
+    assert stored.markdown_content == body
+    assert stored.extraction_method == patch_doc.DEFAULT_EXTRACTION_METHOD
+    # Existing title / category / source_url carried over from the DB row
+    assert stored.title == "Title of mevzuat_20029"
+    assert stored.category == "Sermaye Yeterliliği"
+    assert stored.source_url == "https://example.org/mevzuat_20029"
+
+    # add_document awaited once with the same body
+    vs.add_document.assert_awaited_once()
+    kwargs = vs.add_document.await_args.kwargs
+    assert kwargs["doc_id"] == "mevzuat_20029"
+    assert kwargs["content"] == body
+    assert kwargs["title"] == "Title of mevzuat_20029"
