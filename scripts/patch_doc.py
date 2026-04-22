@@ -25,9 +25,7 @@ import argparse
 import asyncio
 import hashlib
 import json
-import math
 import sys
-import time  # noqa: F401  # used in Task 4 seed rewrites (extracted_at stamp)
 from pathlib import Path
 from typing import Any
 
@@ -35,10 +33,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import asyncpg  # noqa: E402,F401  # used in Task 5 CLI wiring
-
-from config import PAGE_SIZE, require_database_url  # noqa: E402,F401  # require_database_url used in Task 5
-from doc_store import DocumentStore, StoredDocument  # noqa: E402,F401  # StoredDocument used in Task 3+
+from doc_store import DocumentStore  # noqa: E402
 from seed import _strip_docs_dump_header  # noqa: E402
 from vector_store import VectorStore, _chunk_text  # noqa: E402
 
@@ -75,7 +70,6 @@ async def patch_document(
         raise PatchError(f"{doc_id} not found in DB")
 
     docs_path = seed_dir / "documents.json"
-    chunks_path = seed_dir / "chunks.json"  # noqa: F841  # used in Task 4 seed rewrite
     seed_docs = json.loads(docs_path.read_text(encoding="utf-8"))
     seed_entry = next((d for d in seed_docs if d.get("document_id") == doc_id), None)
     if seed_entry is None:
@@ -83,12 +77,12 @@ async def patch_document(
 
     # --- 2. Strip header + compute hash + regenerate chunks --------------
     body = _strip_docs_dump_header(raw)
+    if not body.strip():
+        raise PatchError(f"{markdown_path} has no content after stripping docs_dump header")
     new_hash = _content_hash(body)
     chunks = _chunk_text(body)
     if not chunks:
         raise PatchError(f"chunk regeneration produced no chunks for {doc_id}")
-    total_pages = max(1, math.ceil(len(body) / PAGE_SIZE))  # noqa: F841  # used in Task 3+ store_document
-
     result = {
         "doc_id": doc_id,
         "old_hash": current_doc.content_hash or "",

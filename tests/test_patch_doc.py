@@ -83,7 +83,7 @@ async def test_patch_document_aborts_when_markdown_file_missing(tmp_path):
         await patch_doc.patch_document(
             doc_id="mevzuat_20029",
             markdown_path=missing_md,
-            extraction_method="html_parser+manual_latex",
+            extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
             doc_store=_mock_doc_store(_stored_doc("mevzuat_20029")),
             vector_store=_mock_vector_store(),
             seed_dir=seed_dir,
@@ -103,7 +103,7 @@ async def test_patch_document_aborts_when_doc_missing_from_db(tmp_path):
         await patch_doc.patch_document(
             doc_id="mevzuat_20029",
             markdown_path=md,
-            extraction_method="html_parser+manual_latex",
+            extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
             doc_store=_mock_doc_store(None),
             vector_store=_mock_vector_store(),
             seed_dir=seed_dir,
@@ -123,7 +123,28 @@ async def test_patch_document_aborts_when_doc_missing_from_seed(tmp_path):
         await patch_doc.patch_document(
             doc_id="mevzuat_20029",
             markdown_path=md,
-            extraction_method="html_parser+manual_latex",
+            extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
+            doc_store=_mock_doc_store(_stored_doc("mevzuat_20029")),
+            vector_store=_mock_vector_store(),
+            seed_dir=seed_dir,
+            dry_run=True,
+        )
+
+
+@pytest.mark.asyncio
+async def test_patch_document_aborts_when_body_empty_after_header_strip(tmp_path):
+    """Header-only file (no body) gives a clear error instead of 'no chunks produced'."""
+    seed_dir = tmp_path / "seed_data"
+    seed_dir.mkdir()
+    _write_seed_files(seed_dir, docs=[_seed_doc_entry("mevzuat_20029")], chunks=[])
+    md = tmp_path / "header_only.md"
+    md.write_text("# Title\n- Document ID: mevzuat_20029\n---\n", encoding="utf-8")
+
+    with pytest.raises(patch_doc.PatchError, match="no content after stripping"):
+        await patch_doc.patch_document(
+            doc_id="mevzuat_20029",
+            markdown_path=md,
+            extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
             doc_store=_mock_doc_store(_stored_doc("mevzuat_20029")),
             vector_store=_mock_vector_store(),
             seed_dir=seed_dir,
@@ -161,7 +182,7 @@ async def test_dry_run_performs_no_writes(tmp_path):
     result = await patch_doc.patch_document(
         doc_id="mevzuat_20029",
         markdown_path=md,
-        extraction_method="html_parser+manual_latex",
+        extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
         doc_store=ds,
         vector_store=vs,
         seed_dir=seed_dir,
@@ -198,7 +219,7 @@ async def test_strips_docs_dump_header_before_hashing(tmp_path):
     result = await patch_doc.patch_document(
         doc_id="mevzuat_20029",
         markdown_path=md,
-        extraction_method="html_parser+manual_latex",
+        extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
         doc_store=_mock_doc_store(_stored_doc("mevzuat_20029")),
         vector_store=_mock_vector_store(),
         seed_dir=seed_dir,
