@@ -132,6 +132,69 @@ class TestHtmlToMarkdown:
         md = _extract_html_to_markdown(html)
         assert md.count("Cell Content") == 1
 
+    def test_bold_inline_preserved(self):
+        html = "<p><b>Madde 1</b> — Bu yönetmelik düzenler.</p>"
+        md = _extract_html_to_markdown(html)
+        assert "**Madde 1**" in md
+
+    def test_bold_via_font_weight_style(self):
+        html = '<p><span style="font-weight:700">Önemli</span> metin.</p>'
+        md = _extract_html_to_markdown(html)
+        assert "**Önemli**" in md
+
+    def test_italic_inline_preserved(self):
+        html = "<p>Bu <i>italik</i> örnektir.</p>"
+        md = _extract_html_to_markdown(html)
+        assert "*italik*" in md
+
+    def test_table_rendered_as_gfm(self):
+        html = (
+            "<table>"
+            "<tr><th>Sütun A</th><th>Sütun B</th></tr>"
+            "<tr><td>a1</td><td>b1</td></tr>"
+            "<tr><td>a2</td><td>b2</td></tr>"
+            "</table>"
+        )
+        md = _extract_html_to_markdown(html)
+        assert "| Sütun A | Sütun B |" in md
+        assert "|---|---|" in md
+        assert "| a1 | b1 |" in md
+        assert "| a2 | b2 |" in md
+
+    def test_table_colspan_flattened(self):
+        html = "<table><tr><th colspan='2'>Birleşik Başlık</th></tr><tr><td>x</td><td>y</td></tr></table>"
+        md = _extract_html_to_markdown(html)
+        assert "| Birleşik Başlık |" in md
+        assert "| x | y |" in md
+
+    def test_formula_image_preserved(self):
+        html = '<p>x = <img src="formul_1.gif" alt="eq"/> + 1</p>'
+        md = _extract_html_to_markdown(html)
+        assert "![eq](formul_1.gif)" in md
+
+    def test_bolum_heading_promoted(self):
+        html = "<p>BİRİNCİ BÖLÜM</p><p>Başlangıç Hükümleri</p>"
+        md = _extract_html_to_markdown(html)
+        assert "## BİRİNCİ BÖLÜM" in md
+
+    def test_ek_heading_promoted(self):
+        html = "<p>EK-1</p><p>Hesaplama Tablosu</p>"
+        md = _extract_html_to_markdown(html)
+        assert "## EK-1" in md
+
+    def test_paragraph_with_inline_bold_and_plain(self):
+        """Bold run inside a paragraph must not swallow surrounding plain text."""
+        html = "<p>Öncesi <b>vurgu</b> sonrası metin.</p>"
+        md = _extract_html_to_markdown(html)
+        assert "Öncesi" in md
+        assert "**vurgu**" in md
+        assert "sonrası metin." in md
+
+    def test_link_preserves_href(self):
+        html = '<p>Bkz. <a href="https://example.com/x">buraya</a> bakın.</p>'
+        md = _extract_html_to_markdown(html)
+        assert "[buraya](https://example.com/x)" in md
+
 
 class TestSanitizeForStorage:
     def test_strips_nul_bytes(self):
@@ -342,11 +405,15 @@ class TestDocumentSyncer:
 
 @pytest.mark.asyncio
 async def test_mevzuat_download_tries_pdf_before_htm():
-    """_download_mevzuat must attempt PDF paths before HTML to preserve formulas."""
+    """With prefer_html_for_mevzuat=False, PDF paths run before HTML to preserve formulas."""
     import httpx as _httpx
 
     dummy_store = object()  # _download_mevzuat does not touch the store
-    async with DocumentSyncer(dummy_store, ocr_backends=[MarkitdownBackend()]) as syncer:
+    async with DocumentSyncer(
+        dummy_store,
+        ocr_backends=[MarkitdownBackend()],
+        prefer_html_for_mevzuat=False,
+    ) as syncer:
         call_log: list[str] = []
         main_html = b"<html><body>main page</body></html>"
         pdf_bytes = b"%PDF-1.4\n" + b"x" * 1000
@@ -373,6 +440,86 @@ async def test_mevzuat_download_tries_pdf_before_htm():
     gen_idx = next((i for i, u in enumerate(call_log) if "GeneratePdf" in u), -1)
     if htm_idx >= 0:
         assert gen_idx < htm_idx, f"GeneratePdf must be tried before .htm; order={call_log}"
+
+
+@pytest.mark.asyncio
+async def test_mevzuat_download_prefers_iframe_when_html_first():
+    """When prefer_html_for_mevzuat=True, the iframe layer wins before any PDF call."""
+    import httpx as _httpx
+
+    dummy_store = object()
+    async with DocumentSyncer(
+        dummy_store,
+        ocr_backends=[MarkitdownBackend()],
+        prefer_html_for_mevzuat=True,
+    ) as syncer:
+        call_log: list[str] = []
+        main_html = (
+            '<html><body><iframe id="mevzuatDetayIframe" src="/api/Mevzuat/42628/IframeDetay"></iframe></body></html>'
+        )
+        iframe_body = "<html><body><p><b>YONETMELIK</b></p><p>Madde 1 -- icerik.</p></body></html>" * 5
+
+        async def fake_get(url, timeout=None):
+            call_log.append(url)
+            if "mevzuat?MevzuatNo=42628" in url:
+                return make_http_response(text=main_html, content_type="text/html")
+            if "IframeDetay" in url:
+                return make_http_response(text=iframe_body, content_type="text/html")
+            # Anything else must not be reached before iframe success.
+            return make_http_response(status_code=404)
+
+        syncer._http = AsyncMock(spec=_httpx.AsyncClient)
+        syncer._http.get = AsyncMock(side_effect=fake_get)
+
+        content, method, ext = await syncer._download_mevzuat("mevzuat_42628")
+
+    assert method == "mevzuat_iframe"
+    assert ext == ".html"
+    assert b"Madde 1" in content
+    # iframe must be fetched and no PDF-generating call should precede it.
+    iframe_idx = next((i for i, u in enumerate(call_log) if "IframeDetay" in u), -1)
+    assert iframe_idx >= 0, f"iframe was never fetched; order={call_log}"
+    gen_idx = next((i for i, u in enumerate(call_log) if "GeneratePdf" in u), -1)
+    pdf_idx = next((i for i, u in enumerate(call_log) if u.endswith(".pdf")), -1)
+    assert gen_idx == -1, f"GeneratePdf must not be tried before iframe; order={call_log}"
+    assert pdf_idx == -1, f"static .pdf must not be tried before iframe; order={call_log}"
+
+
+def test_resolve_html_first_flag_auto_detects_markitdown_only():
+    """With only MarkitdownBackend available, auto mode must flip to True."""
+    dummy_store = object()
+    syncer = DocumentSyncer(dummy_store, ocr_backends=[MarkitdownBackend()])
+    assert syncer._prefer_html_for_mevzuat is True
+
+
+def test_resolve_html_first_flag_explicit_false_overrides_auto():
+    dummy_store = object()
+    syncer = DocumentSyncer(
+        dummy_store,
+        ocr_backends=[MarkitdownBackend()],
+        prefer_html_for_mevzuat=False,
+    )
+    assert syncer._prefer_html_for_mevzuat is False
+
+
+def test_resolve_html_first_flag_formula_capable_backend_flips_auto_false():
+    """When a non-markitdown backend reports available, auto should keep PDF-first."""
+
+    class _FakeGPUBackend:
+        name = "fake_gpu"
+
+        def is_available(self) -> bool:
+            return True
+
+        def extract(self, pdf_bytes: bytes):
+            return None
+
+    dummy_store = object()
+    syncer = DocumentSyncer(
+        dummy_store,
+        ocr_backends=[_FakeGPUBackend(), MarkitdownBackend()],
+    )
+    assert syncer._prefer_html_for_mevzuat is False
 
 
 @pytest.mark.asyncio

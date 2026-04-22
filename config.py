@@ -116,6 +116,12 @@ MAX_RETRIES = int(os.environ.get("BDDK_MAX_RETRIES", "3"))
 AUTO_SYNC = os.environ.get("BDDK_AUTO_SYNC", "false").lower() in ("1", "true", "yes")
 SYNC_CONCURRENCY = int(os.environ.get("BDDK_SYNC_CONCURRENCY", "5"))
 
+# Prefer the iframe/HTML download path over PDF for mevzuat.gov.tr documents.
+# Values: "true" | "false" | "auto". "auto" flips to true when no GPU OCR
+# backend is available — markitdown-on-PDF produces no formulas / no tables,
+# so the rich HTML path is the better CPU-only choice.
+PREFER_HTML_FOR_MEVZUAT = os.environ.get("BDDK_PREFER_HTML_FOR_MEVZUAT", "auto").lower()
+
 # -- BDDK announcements -------------------------------------------------------
 
 # BDDK announcement category IDs surfaced on the public site.

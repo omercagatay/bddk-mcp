@@ -35,6 +35,7 @@ from config import (
     HTTP_CONNECT_TIMEOUT,
     HTTP_POOL_TIMEOUT,
     OCR_MIN_CONTENT_LEN,
+    PREFER_HTML_FOR_MEVZUAT,
     REQUEST_TIMEOUT,
 )
 from doc_store import DocumentStore, StoredDocument
@@ -153,38 +154,14 @@ def _sanitize_for_storage(text: str) -> str:
 
 
 def _extract_html_to_markdown(html: str) -> str:
-    """Convert HTML content to simple markdown."""
-    soup = BeautifulSoup(html, "html.parser")
+    """Convert HTML content to markdown.
 
-    # Remove script/style tags
-    for tag in soup.find_all(["script", "style"]):
-        tag.decompose()
+    Delegates to `html_extractor.html_to_markdown` which preserves tables,
+    inline bold/italic, formula image refs, and mevzuat BÖLÜM / EK headings.
+    """
+    from html_extractor import html_to_markdown
 
-    block_tags = ["h1", "h2", "h3", "h4", "h5", "p", "li", "td", "th"]
-
-    lines = []
-    for elem in soup.find_all(block_tags):
-        if elem.find(block_tags):
-            continue
-        text = elem.get_text(separator=" ", strip=True)
-        text = " ".join(text.split())
-        if not text:
-            continue
-        tag = elem.name
-        if tag == "h1":
-            lines.append(f"# {text}")
-        elif tag == "h2":
-            lines.append(f"## {text}")
-        elif tag == "h3":
-            lines.append(f"### {text}")
-        elif tag in ("h4", "h5"):
-            lines.append(f"#### {text}")
-        elif tag == "li":
-            lines.append(f"- {text}")
-        else:
-            lines.append(text)
-
-    return "\n\n".join(lines)
+    return html_to_markdown(html)
 
 
 # ── Download helpers ─────────────────────────────────────────────────────────
@@ -259,11 +236,13 @@ class DocumentSyncer:
         progress_callback: "Callable[[str, int, int], None] | None" = None,
         http: httpx.AsyncClient | None = None,
         vector_store: "VectorStore | None" = None,
+        prefer_html_for_mevzuat: bool | None = None,
     ) -> None:
         self._store = store
         self._ocr_backends = ocr_backends if ocr_backends is not None else get_default_backends()
         self._progress_callback = progress_callback
         self._vector_store = vector_store
+        self._prefer_html_for_mevzuat = self._resolve_html_first_flag(prefer_html_for_mevzuat)
         self._owns_http = http is None
         if http is not None:
             self._http = http
@@ -296,6 +275,28 @@ class DocumentSyncer:
     async def __aexit__(self, *exc) -> None:
         await self.close()
 
+    def _resolve_html_first_flag(self, explicit: bool | None) -> bool:
+        """Pick the effective HTML-first routing flag for mevzuat downloads.
+
+        Precedence: explicit ctor arg → BDDK_PREFER_HTML_FOR_MEVZUAT env var
+        (via config.PREFER_HTML_FOR_MEVZUAT). When the env var resolves to
+        "auto", flip to True iff no formula-capable OCR backend is available
+        — markitdown-on-PDF loses formulas and tables, so the rich HTML path
+        beats it whenever only markitdown is on hand.
+        """
+        if explicit is not None:
+            return explicit
+        setting = PREFER_HTML_FOR_MEVZUAT
+        if setting in ("1", "true", "yes"):
+            return True
+        if setting in ("0", "false", "no"):
+            return False
+        # "auto": prefer HTML iff every available backend is markitdown-only.
+        formula_capable = any(
+            getattr(b, "name", "") != "markitdown_degraded" and b.is_available() for b in self._ocr_backends
+        )
+        return not formula_capable
+
     # ── Single document sync ─────────────────────────────────────────────
 
     async def sync_document(
@@ -316,8 +317,11 @@ class DocumentSyncer:
 
         # If re-extracting with force=True and the PDF is already cached in DB,
         # skip re-downloading (bandwidth saving).
+        # Exception: when HTML-first routing is active, the whole point is to
+        # route *around* the PDF, so the cached PDF shortcut would sabotage it
+        # (re-extracting the same PDF reproduces the degraded markdown).
         cached_pdf: bytes | None = None
-        if force and doc_id.startswith("mevzuat_"):
+        if force and doc_id.startswith("mevzuat_") and not self._prefer_html_for_mevzuat:
             cached_pdf = await self._store.get_pdf_bytes(doc_id)
 
         try:
@@ -480,6 +484,14 @@ class DocumentSyncer:
             except Exception as e:
                 logger.debug("mevzuat %s: main page visit failed (tur=%s): %s", doc_id, candidate_tur, e)
 
+            # Layer 1b (HTML-first route): when no formula-capable OCR backend is
+            # available, the rich iframe HTML produces a better extraction than
+            # markitdown-on-PDF. Try the iframe immediately after the main page.
+            if self._prefer_html_for_mevzuat and main_page_visited and main_page_html:
+                iframe_result = await self._try_iframe_layer(doc_id, candidate_tur, main_page_html, layer_timeout)
+                if iframe_result is not None:
+                    return iframe_result
+
             # Layer 2: GeneratePdf API (preferred — server-rendered PDF with all formulas as images)
             if main_page_visited:
                 try:
@@ -519,23 +531,9 @@ class DocumentSyncer:
 
             # Layer 5: iframe/div from already-fetched main page
             if main_page_visited and main_page_html:
-                try:
-                    soup = BeautifulSoup(main_page_html, "html.parser")
-                    iframe = soup.find("iframe", src=True)
-                    if iframe:
-                        iframe_url = iframe["src"]
-                        if not iframe_url.startswith("http"):
-                            iframe_url = f"https://www.mevzuat.gov.tr{iframe_url}"
-                        iframe_resp = await self._http.get(iframe_url, timeout=layer_timeout)
-                        if iframe_resp.status_code == 200 and len(iframe_resp.content) > 200:
-                            logger.warning("mevzuat %s: falling back to iframe (tur=%s)", doc_id, candidate_tur)
-                            return iframe_resp.content, "mevzuat_iframe", ".html"
-                    div = soup.find("div", id="divMevzuatMetni")
-                    if div and len(div.get_text(strip=True)) > 100:
-                        logger.warning("mevzuat %s: falling back to main page div (tur=%s)", doc_id, candidate_tur)
-                        return str(div).encode("utf-8"), "mevzuat_div", ".html"
-                except Exception as e:
-                    logger.debug("mevzuat %s: iframe/div parse failed (tur=%s): %s", doc_id, candidate_tur, e)
+                iframe_result = await self._try_iframe_layer(doc_id, candidate_tur, main_page_html, layer_timeout)
+                if iframe_result is not None:
+                    return iframe_result
 
             # Layer 6: Word (.doc) — heaviest, slowest (only try for the first/default tur
             # to avoid excessive requests during auto-detection)
@@ -557,6 +555,38 @@ class DocumentSyncer:
                 logger.debug("mevzuat %s: tur=%s failed, trying next candidate", doc_id, candidate_tur)
 
         raise RuntimeError(f"All download methods failed for {doc_id} (tried tur values: {tur_candidates})")
+
+    async def _try_iframe_layer(
+        self,
+        doc_id: str,
+        candidate_tur: str,
+        main_page_html: str,
+        layer_timeout: httpx.Timeout,
+    ) -> tuple[bytes, str, str] | None:
+        """Fetch mevzuatDetayIframe content referenced by the main page.
+
+        Returns (content, method, ext) or None if the iframe/div can't be
+        resolved. Exceptions are caught and logged — the caller falls through
+        to other download layers.
+        """
+        try:
+            soup = BeautifulSoup(main_page_html, "html.parser")
+            iframe = soup.find("iframe", src=True)
+            if iframe:
+                iframe_url = iframe["src"]
+                if not iframe_url.startswith("http"):
+                    iframe_url = f"https://www.mevzuat.gov.tr{iframe_url}"
+                iframe_resp = await self._http.get(iframe_url, timeout=layer_timeout)
+                if iframe_resp.status_code == 200 and len(iframe_resp.content) > 200:
+                    logger.info("mevzuat %s: fetched iframe (tur=%s)", doc_id, candidate_tur)
+                    return iframe_resp.content, "mevzuat_iframe", ".html"
+            div = soup.find("div", id="divMevzuatMetni")
+            if div and len(div.get_text(strip=True)) > 100:
+                logger.info("mevzuat %s: fetched main page div (tur=%s)", doc_id, candidate_tur)
+                return str(div).encode("utf-8"), "mevzuat_div", ".html"
+        except Exception as e:
+            logger.debug("mevzuat %s: iframe/div parse failed (tur=%s): %s", doc_id, candidate_tur, e)
+        return None
 
     # ── Extraction ───────────────────────────────────────────────────────
 
