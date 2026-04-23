@@ -27,6 +27,7 @@ import hashlib
 import json
 import math
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -130,8 +131,48 @@ async def patch_document(
         source_url=current_doc.source_url,
     )
 
-    # --- 4. Seed surgery lands in the next task. ------------------------
-    raise NotImplementedError("seed surgery lands in Task 4")
+    # --- 4. Seed surgery -------------------------------------------------
+    now = time.time()
+
+    # documents.json — update target entry in place
+    seed_entry["markdown_content"] = body
+    seed_entry["content_hash"] = new_hash
+    seed_entry["extraction_method"] = extraction_method
+    seed_entry["extracted_at"] = now
+    seed_entry["total_pages"] = total_pages
+    seed_entry["file_size"] = len(body.encode("utf-8"))
+    docs_path.write_text(
+        json.dumps(seed_docs, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    # chunks.json — strip old entries for doc_id, append fresh ones
+    chunks_path = seed_dir / "chunks.json"
+    seed_chunks = json.loads(chunks_path.read_text(encoding="utf-8"))
+    seed_chunks = [c for c in seed_chunks if c.get("doc_id") != doc_id]
+    for i, chunk_text in enumerate(chunks):
+        new_chunk = {
+            "doc_id": doc_id,
+            "chunk_index": i,
+            "title": current_doc.title,
+            "category": current_doc.category,
+            "decision_date": current_doc.decision_date,
+            "decision_number": current_doc.decision_number,
+            "source_url": current_doc.source_url,
+            "total_chunks": len(chunks),
+            "total_pages": total_pages,
+            "content_hash": new_hash,
+            "chunk_text": chunk_text,
+        }
+        # Belt-and-suspenders: doc hash and chunk hash must agree
+        assert new_chunk["content_hash"] == new_hash, f"hash divergence at chunk {i} for {doc_id}"
+        seed_chunks.append(new_chunk)
+    chunks_path.write_text(
+        json.dumps(seed_chunks, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    return result
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:

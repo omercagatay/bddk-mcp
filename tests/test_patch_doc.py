@@ -243,16 +243,15 @@ async def test_db_update_passes_body_and_metadata(tmp_path):
     ds = _mock_doc_store(_stored_doc("mevzuat_20029"))
     vs = _mock_vector_store()
 
-    with pytest.raises(NotImplementedError):  # seed surgery still TODO
-        await patch_doc.patch_document(
-            doc_id="mevzuat_20029",
-            markdown_path=md,
-            extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
-            doc_store=ds,
-            vector_store=vs,
-            seed_dir=seed_dir,
-            dry_run=False,
-        )
+    await patch_doc.patch_document(
+        doc_id="mevzuat_20029",
+        markdown_path=md,
+        extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
+        doc_store=ds,
+        vector_store=vs,
+        seed_dir=seed_dir,
+        dry_run=False,
+    )
 
     # store_document awaited once with the correct body + extraction_method
     ds.store_document.assert_awaited_once()
@@ -284,3 +283,156 @@ async def test_db_update_passes_body_and_metadata(tmp_path):
     assert kwargs["doc_id"] == "mevzuat_20029"
     assert kwargs["content"] == body
     assert kwargs["title"] == "Title of mevzuat_20029"
+
+
+@pytest.mark.asyncio
+async def test_seed_surgery_updates_only_target_doc(tmp_path):
+    """documents.json: target updated, sibling byte-identical."""
+    seed_dir = tmp_path / "seed_data"
+    seed_dir.mkdir()
+    target = _seed_doc_entry("mevzuat_20029", markdown="old body", content_hash="oldhash")
+    sibling = _seed_doc_entry("mevzuat_99999", markdown="sibling body", content_hash="siblinghash")
+    _write_seed_files(seed_dir, docs=[target, sibling], chunks=[])
+    md = tmp_path / "body.md"
+    md.write_text("new corrected body\n", encoding="utf-8")
+
+    await patch_doc.patch_document(
+        doc_id="mevzuat_20029",
+        markdown_path=md,
+        extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
+        doc_store=_mock_doc_store(_stored_doc("mevzuat_20029")),
+        vector_store=_mock_vector_store(),
+        seed_dir=seed_dir,
+        dry_run=False,
+    )
+
+    written = json.loads((seed_dir / "documents.json").read_text(encoding="utf-8"))
+    assert len(written) == 2
+    target_out = next(d for d in written if d["document_id"] == "mevzuat_20029")
+    sibling_out = next(d for d in written if d["document_id"] == "mevzuat_99999")
+    assert target_out["markdown_content"] == "new corrected body\n"
+    assert target_out["content_hash"] != "oldhash"
+    assert target_out["extraction_method"] == patch_doc.DEFAULT_EXTRACTION_METHOD
+    assert target_out["extracted_at"] > 1_700_000_000  # newer than the seeded value
+    # Sibling preserved exactly
+    assert sibling_out == sibling
+
+
+@pytest.mark.asyncio
+async def test_seed_surgery_rewrites_chunks_for_target_only(tmp_path):
+    """chunks.json: target chunks replaced with fresh ones carrying new hash;
+    sibling chunks byte-identical."""
+    seed_dir = tmp_path / "seed_data"
+    seed_dir.mkdir()
+    _write_seed_files(
+        seed_dir,
+        docs=[_seed_doc_entry("mevzuat_20029"), _seed_doc_entry("mevzuat_99999")],
+        chunks=[
+            {
+                "doc_id": "mevzuat_20029",
+                "chunk_index": 0,
+                "title": "Title of mevzuat_20029",
+                "category": "",
+                "decision_date": "",
+                "decision_number": "",
+                "source_url": "",
+                "total_chunks": 2,
+                "total_pages": 1,
+                "content_hash": "oldhash",
+                "chunk_text": "old part 1",
+            },
+            {
+                "doc_id": "mevzuat_20029",
+                "chunk_index": 1,
+                "title": "Title of mevzuat_20029",
+                "category": "",
+                "decision_date": "",
+                "decision_number": "",
+                "source_url": "",
+                "total_chunks": 2,
+                "total_pages": 1,
+                "content_hash": "oldhash",
+                "chunk_text": "old part 2",
+            },
+            {
+                "doc_id": "mevzuat_99999",
+                "chunk_index": 0,
+                "title": "Title of mevzuat_99999",
+                "category": "",
+                "decision_date": "",
+                "decision_number": "",
+                "source_url": "",
+                "total_chunks": 1,
+                "total_pages": 1,
+                "content_hash": "siblinghash",
+                "chunk_text": "sibling text",
+            },
+        ],
+    )
+    md = tmp_path / "body.md"
+    md.write_text("new body for reembed\n", encoding="utf-8")
+
+    await patch_doc.patch_document(
+        doc_id="mevzuat_20029",
+        markdown_path=md,
+        extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
+        doc_store=_mock_doc_store(_stored_doc("mevzuat_20029")),
+        vector_store=_mock_vector_store(),
+        seed_dir=seed_dir,
+        dry_run=False,
+    )
+
+    written = json.loads((seed_dir / "chunks.json").read_text(encoding="utf-8"))
+    target_chunks = [c for c in written if c["doc_id"] == "mevzuat_20029"]
+    sibling_chunks = [c for c in written if c["doc_id"] == "mevzuat_99999"]
+
+    # Target replaced: every new chunk carries the same new hash, none have oldhash
+    assert target_chunks, "target chunks missing after patch"
+    assert all(c["content_hash"] != "oldhash" for c in target_chunks)
+    assert len({c["content_hash"] for c in target_chunks}) == 1
+
+    # Sibling preserved exactly (unchanged order, unchanged content)
+    assert sibling_chunks == [
+        {
+            "doc_id": "mevzuat_99999",
+            "chunk_index": 0,
+            "title": "Title of mevzuat_99999",
+            "category": "",
+            "decision_date": "",
+            "decision_number": "",
+            "source_url": "",
+            "total_chunks": 1,
+            "total_pages": 1,
+            "content_hash": "siblinghash",
+            "chunk_text": "sibling text",
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_seed_surgery_matches_doc_and_chunk_hashes(tmp_path):
+    """Sanity: every new chunk_text concat back to body; hashes agree with doc."""
+    seed_dir = tmp_path / "seed_data"
+    seed_dir.mkdir()
+    _write_seed_files(seed_dir, docs=[_seed_doc_entry("mevzuat_20029")], chunks=[])
+    md = tmp_path / "body.md"
+    md.write_text("consistent body check\n", encoding="utf-8")
+
+    await patch_doc.patch_document(
+        doc_id="mevzuat_20029",
+        markdown_path=md,
+        extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
+        doc_store=_mock_doc_store(_stored_doc("mevzuat_20029")),
+        vector_store=_mock_vector_store(),
+        seed_dir=seed_dir,
+        dry_run=False,
+    )
+
+    docs_after = json.loads((seed_dir / "documents.json").read_text(encoding="utf-8"))
+    chunks_after = json.loads((seed_dir / "chunks.json").read_text(encoding="utf-8"))
+
+    target_doc = next(d for d in docs_after if d["document_id"] == "mevzuat_20029")
+    target_chunks = [c for c in chunks_after if c["doc_id"] == "mevzuat_20029"]
+
+    assert target_chunks
+    assert all(c["content_hash"] == target_doc["content_hash"] for c in target_chunks)
