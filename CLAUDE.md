@@ -46,7 +46,7 @@ Two-layer pattern: each module under `tools/` is a thin MCP wrapper that calls i
 
 ## Conventions
 
-- Python 3.11+ (`requires-python = ">=3.11,<3.14"`; CI matrix 3.11, 3.12, 3.13), async/await throughout
+- Python 3.12+ (`requires-python = ">=3.12,<3.14"`; CI matrix 3.12, 3.13), async/await throughout
 - Pydantic models for all tool input/output schemas
 - Turkish-aware text processing (lowercase with Turkish locale, stemming)
 - Raw SQL via asyncpg — no ORM
