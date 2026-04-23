@@ -65,7 +65,7 @@ Filtre `client.py` içindeki `_is_in_scope` fonksiyonunda uygulanır ve idempote
 
 ### Kurulum
 
-**Gereksinimler:** Python 3.11–3.13, [uv](https://docs.astral.sh/uv/), PostgreSQL (pgvector eklentisi ile)
+**Gereksinimler:** Python 3.12–3.13, [uv](https://docs.astral.sh/uv/), PostgreSQL (pgvector eklentisi ile)
 
 **Claude Code** — `~/.claude/settings.json` dosyasına ekleyin:
 
@@ -221,7 +221,7 @@ Sync failures are tracked persistently with error categorization (robots_txt, ti
 
 #### Prerequisites
 
-- Python 3.11–3.13
+- Python 3.12–3.13
 - [uv](https://docs.astral.sh/uv/)
 - PostgreSQL with pgvector extension
 
