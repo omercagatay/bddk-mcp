@@ -26,6 +26,18 @@ logger = logging.getLogger(__name__)
 SEED_DIR = Path(__file__).parent / "seed_data"
 
 
+def _strip_docs_dump_header(text: str) -> str:
+    """Return the body of a docs_dump-style markdown file.
+
+    docs_dump files follow the shape ``# Title\n- Document ID: ...\n---\n<body>``.
+    Split on the first ``\\n---\\n`` so only the article body is retained. Returns
+    ``text`` unchanged when no separator is present — the caller can pass either
+    raw markdown or a dump file without branching.
+    """
+    parts = text.split("\n---\n", 1)
+    return parts[1].lstrip() if len(parts) == 2 else text
+
+
 # ── Export ───────────────────────────────────────────────────────────────────
 
 
