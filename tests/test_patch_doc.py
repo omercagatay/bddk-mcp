@@ -132,6 +132,30 @@ async def test_patch_document_aborts_when_doc_missing_from_seed(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_patch_document_aborts_when_chunks_file_missing(tmp_path):
+    seed_dir = tmp_path / "seed_data"
+    seed_dir.mkdir()
+    # Write documents.json but NOT chunks.json
+    (seed_dir / "documents.json").write_text(
+        json.dumps([_seed_doc_entry("mevzuat_20029")], ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    md = tmp_path / "body.md"
+    md.write_text("new body\n", encoding="utf-8")
+
+    with pytest.raises(patch_doc.PatchError, match="chunks.json not found"):
+        await patch_doc.patch_document(
+            doc_id="mevzuat_20029",
+            markdown_path=md,
+            extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
+            doc_store=_mock_doc_store(_stored_doc("mevzuat_20029")),
+            vector_store=_mock_vector_store(),
+            seed_dir=seed_dir,
+            dry_run=True,
+        )
+
+
+@pytest.mark.asyncio
 async def test_patch_document_aborts_when_body_empty_after_header_strip(tmp_path):
     """Header-only file (no body) gives a clear error instead of 'no chunks produced'."""
     seed_dir = tmp_path / "seed_data"
@@ -316,6 +340,11 @@ async def test_seed_surgery_updates_only_target_doc(tmp_path):
     assert target_out["extracted_at"] > 1_700_000_000  # newer than the seeded value
     # Sibling preserved exactly
     assert sibling_out == sibling
+
+    # ensure_ascii=False regression guard — Turkish characters must render
+    # as themselves, not \u-escapes, otherwise diff noise explodes in real repos.
+    raw_text = (seed_dir / "documents.json").read_text(encoding="utf-8")
+    assert "Sermaye Yeterliliği" in raw_text
 
 
 @pytest.mark.asyncio

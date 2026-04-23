@@ -73,10 +73,13 @@ async def patch_document(
         raise PatchError(f"{doc_id} not found in DB")
 
     docs_path = seed_dir / "documents.json"
+    chunks_path = seed_dir / "chunks.json"
     seed_docs = json.loads(docs_path.read_text(encoding="utf-8"))
     seed_entry = next((d for d in seed_docs if d.get("document_id") == doc_id), None)
     if seed_entry is None:
         raise PatchError(f"{doc_id} not found in seed_data/documents.json")
+    if not chunks_path.exists():
+        raise PatchError(f"seed_data/chunks.json not found at {chunks_path}")
 
     # --- 2. Strip header + compute hash + regenerate chunks --------------
     body = _strip_docs_dump_header(raw)
@@ -141,13 +144,14 @@ async def patch_document(
     seed_entry["extracted_at"] = now
     seed_entry["total_pages"] = total_pages
     seed_entry["file_size"] = len(body.encode("utf-8"))
-    docs_path.write_text(
+    docs_tmp = docs_path.with_suffix(".json.new")
+    docs_tmp.write_text(
         json.dumps(seed_docs, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    docs_tmp.replace(docs_path)
 
     # chunks.json — strip old entries for doc_id, append fresh ones
-    chunks_path = seed_dir / "chunks.json"
     seed_chunks = json.loads(chunks_path.read_text(encoding="utf-8"))
     seed_chunks = [c for c in seed_chunks if c.get("doc_id") != doc_id]
     for i, chunk_text in enumerate(chunks):
@@ -167,10 +171,12 @@ async def patch_document(
         # Belt-and-suspenders: doc hash and chunk hash must agree
         assert new_chunk["content_hash"] == new_hash, f"hash divergence at chunk {i} for {doc_id}"
         seed_chunks.append(new_chunk)
-    chunks_path.write_text(
+    chunks_tmp = chunks_path.with_suffix(".json.new")
+    chunks_tmp.write_text(
         json.dumps(seed_chunks, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    chunks_tmp.replace(chunks_path)
 
     return result
 
