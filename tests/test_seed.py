@@ -259,3 +259,19 @@ async def test_import_removes_stale_chunks_when_doc_reextracted_to_fewer_chunks(
     assert [r["chunk_index"] for r in rows] == [0, 1], "old chunks 2-4 must be deleted"
     assert all(r["chunk_text"].startswith("new chunk") for r in rows)
     assert all(r["content_hash"] == "doc_hash_new" for r in rows)
+
+
+class TestStripDocsDumpHeader:
+    """Cover both header-present and header-absent inputs."""
+
+    def test_strips_header_when_separator_present(self):
+        text = "# Kredi Riski\n- Document ID: mevzuat_20029\n- Decision Date: N/A\n---\nbody line one\nbody line two\n"
+        assert seed._strip_docs_dump_header(text) == "body line one\nbody line two\n"
+
+    def test_passes_through_when_no_separator(self):
+        text = "body line one\nbody line two\n"
+        assert seed._strip_docs_dump_header(text) == text
+
+    def test_splits_only_on_first_separator(self):
+        text = "header\n---\nbody with\n---\nembedded separator\n"
+        assert seed._strip_docs_dump_header(text) == "body with\n---\nembedded separator\n"
