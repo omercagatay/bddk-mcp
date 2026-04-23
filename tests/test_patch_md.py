@@ -44,6 +44,21 @@ def test_insert_fails_when_anchor_missing_and_suggests_partial():
     assert "5411 sayılı Bankacılık Kanunu" in msg
 
 
+def test_insert_partial_match_tolerates_typo_near_anchor_start():
+    """If the typo lands in the first 30 chars, the head-of-anchor probe
+    misses but the tail-of-anchor probe should still surface the real line."""
+    body = "2) Gelişmiş İDD Yaklaşımının kullanıldığı durumda RA, formülü uygulanır.\n" + "filler\n" * 200
+    # Typo in "Geliş" → "Geliştiş" (first 30 chars broken, tail still correct).
+    op = Insert("2) Geliştiş İDD Yaklaşımının kullanıldığı durumda RA,", "$$RA = …$$")
+    with pytest.raises(AnchorError) as exc:
+        apply_ops(body, [op])
+    msg = str(exc.value)
+    assert "0 matches" in msg
+    # Head probe fails, tail probe ("kullanıldığı durumda RA,") succeeds.
+    assert "line 1" in msg
+    assert "kullanıldığı durumda RA" in msg
+
+
 def test_insert_fails_when_anchor_matches_twice_and_lists_locations():
     body = "c) 0 < TO < 1 için.\n\nblah blah.\n\nc) 0 < TO < 1 için.\n"
     op = Insert("c) 0 < TO < 1 için.", "$$formula$$")

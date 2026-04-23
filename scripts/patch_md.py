@@ -103,22 +103,40 @@ def _line_number(body: str, pos: int) -> int:
 def _find_partial_matches(body: str, anchor: str, *, limit: int = 3) -> list[tuple[int, str]]:
     """Best-effort nearest matches when the full anchor isn't found.
 
-    Strategy: take the first 30 chars of the anchor and search for them
-    as a substring. Returns up to `limit` hits with surrounding context.
+    Strategy: try two probes — the first 30 chars of the anchor and the last
+    30 chars. If the author's typo is at one end, the other end's probe will
+    still locate the real text. Dedupe and return up to `limit` hits total.
     """
     if not anchor.strip():
         return []
-    probe = anchor[:30]
+    probes: list[str] = []
+    if len(anchor) >= 30:
+        probes.append(anchor[:30])
+        tail = anchor[-30:]
+        if tail != probes[0]:
+            probes.append(tail)
+    else:
+        probes.append(anchor)
+
     hits: list[tuple[int, str]] = []
-    start = 0
-    while len(hits) < limit:
-        idx = body.find(probe, start)
-        if idx < 0:
-            break
-        snippet = body[idx : idx + max(len(anchor), 80)]
-        snippet = re.sub(r"\s+", " ", snippet).strip()
-        hits.append((idx, snippet))
-        start = idx + 1
+    seen_positions: set[int] = set()
+    for probe in probes:
+        start = 0
+        while len(hits) < limit:
+            idx = body.find(probe, start)
+            if idx < 0:
+                break
+            # Dedupe by proximity — if two probes land within 40 chars of
+            # each other they're almost certainly the same real occurrence.
+            if any(abs(idx - p) < 40 for p in seen_positions):
+                start = idx + 1
+                continue
+            snippet = body[idx : idx + max(len(anchor), 80)]
+            snippet = re.sub(r"\s+", " ", snippet).strip()
+            hits.append((idx, snippet))
+            seen_positions.add(idx)
+            start = idx + 1
+    hits.sort(key=lambda pair: pair[0])
     return hits
 
 
