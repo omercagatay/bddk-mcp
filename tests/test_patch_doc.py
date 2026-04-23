@@ -177,6 +177,55 @@ async def test_patch_document_aborts_when_body_empty_after_header_strip(tmp_path
 
 
 @pytest.mark.asyncio
+async def test_patch_document_rejects_unbalanced_latex(tmp_path):
+    """An unclosed `$$` block in the corrected markdown should fail fast,
+    before touching DB or seed_data."""
+    seed_dir = tmp_path / "seed_data"
+    seed_dir.mkdir()
+    _write_seed_files(seed_dir, docs=[_seed_doc_entry("mevzuat_20029")], chunks=[])
+    md = tmp_path / "bad_latex.md"
+    md.write_text(
+        "opens but never closes: $$RA = \\max\\{0;\n\nmore text below.\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(patch_doc.PatchError, match="LaTeX validation failed"):
+        await patch_doc.patch_document(
+            doc_id="mevzuat_20029",
+            markdown_path=md,
+            extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
+            doc_store=_mock_doc_store(_stored_doc("mevzuat_20029")),
+            vector_store=_mock_vector_store(),
+            seed_dir=seed_dir,
+            dry_run=True,
+        )
+
+
+@pytest.mark.asyncio
+async def test_patch_document_skip_latex_check_bypasses_validator(tmp_path):
+    """--skip-latex-check lets a body with unbalanced $ through — useful for
+    documents that legitimately contain currency figures or other bare `$`."""
+    seed_dir = tmp_path / "seed_data"
+    seed_dir.mkdir()
+    _write_seed_files(seed_dir, docs=[_seed_doc_entry("mevzuat_20029")], chunks=[])
+    md = tmp_path / "bare_dollar.md"
+    md.write_text("price $100 and $200 — total $300", encoding="utf-8")
+
+    # Doesn't raise — bypass path is honored.
+    result = await patch_doc.patch_document(
+        doc_id="mevzuat_20029",
+        markdown_path=md,
+        extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
+        doc_store=_mock_doc_store(_stored_doc("mevzuat_20029")),
+        vector_store=_mock_vector_store(),
+        seed_dir=seed_dir,
+        dry_run=True,
+        skip_latex_check=True,
+    )
+    assert result["dry_run"] is True
+
+
+@pytest.mark.asyncio
 async def test_dry_run_performs_no_writes(tmp_path):
     seed_dir = tmp_path / "seed_data"
     seed_dir.mkdir()

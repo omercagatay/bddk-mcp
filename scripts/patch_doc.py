@@ -36,6 +36,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 import asyncpg  # noqa: E402
+from patch_md import validate_latex  # noqa: E402
 
 from config import PAGE_SIZE, require_database_url  # noqa: E402
 from doc_store import DocumentStore, StoredDocument  # noqa: E402
@@ -62,6 +63,7 @@ async def patch_document(
     vector_store: VectorStore,
     seed_dir: Path,
     dry_run: bool = False,
+    skip_latex_check: bool = False,
 ) -> dict[str, Any]:
     # --- 1. Validate inputs ----------------------------------------------
     if not markdown_path.exists():
@@ -83,10 +85,18 @@ async def patch_document(
     if not chunks_path.exists():
         raise PatchError(f"seed_data/chunks.json not found at {chunks_path}")
 
-    # --- 2. Strip header + compute hash + regenerate chunks --------------
+    # --- 2. Strip header + validate LaTeX + compute hash + regenerate chunks
     body = _strip_docs_dump_header(raw)
     if not body.strip():
         raise PatchError(f"{markdown_path} has no content after stripping docs_dump header")
+    if not skip_latex_check:
+        latex_issues = validate_latex(body)
+        if latex_issues:
+            formatted = "\n  - ".join(latex_issues)
+            raise PatchError(
+                f"LaTeX validation failed for {markdown_path}:\n  - {formatted}\n"
+                "Fix the markdown or pass --skip-latex-check to proceed anyway."
+            )
     new_hash = _content_hash(body)
     chunks = _chunk_text(body)
     if not chunks:
@@ -193,6 +203,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help=f"Value for documents.extraction_method (default: {DEFAULT_EXTRACTION_METHOD!r})",
     )
     p.add_argument("--dry-run", action="store_true", help="Validate and print plan without writing")
+    p.add_argument(
+        "--skip-latex-check",
+        action="store_true",
+        help="Bypass the LaTeX pre-flight validator (use only when the body legitimately contains unbalanced $-like tokens)",
+    )
     return p
 
 
@@ -215,6 +230,7 @@ async def _main_async(args: argparse.Namespace) -> int:
                 vector_store=vector_store,
                 seed_dir=seed_dir,
                 dry_run=args.dry_run,
+                skip_latex_check=args.skip_latex_check,
             )
         except (PatchError, FileNotFoundError) as e:
             print(f"ERROR: {e}", file=sys.stderr)
