@@ -88,9 +88,9 @@ async def patch_document(
     total_pages = max(1, math.ceil(len(body) / PAGE_SIZE))
     result = {
         "doc_id": doc_id,
-        "old_hash": current_doc.content_hash or "",
+        "old_hash": current_doc.content_hash,
         "new_hash": new_hash,
-        "old_len": len(current_doc.markdown_content or ""),
+        "old_len": len(current_doc.markdown_content),
         "new_len": len(body),
         "chunk_count": len(chunks),
         "extraction_method": extraction_method,
@@ -101,9 +101,12 @@ async def patch_document(
         return result
 
     # --- 3. DB update ----------------------------------------------------
-    # StoredDocument preserves existing metadata; only body, hash,
-    # extraction_method, total_pages, file_size change. Other fields
-    # (downloaded_at / extracted_at) are written by store_document itself.
+    # StoredDocument preserves existing metadata; only body, extraction_method,
+    # total_pages, and file_size change. content_hash is recomputed from
+    # markdown_content by store_document itself, as are downloaded_at /
+    # extracted_at. Both DB writes are idempotent on re-run — store_document
+    # via ON CONFLICT UPDATE, add_document via DELETE-then-INSERT — so a
+    # crash between them is recoverable by re-running the script.
     stored = StoredDocument(
         document_id=doc_id,
         title=current_doc.title,
@@ -112,7 +115,6 @@ async def patch_document(
         decision_number=current_doc.decision_number,
         source_url=current_doc.source_url,
         markdown_content=body,
-        content_hash=new_hash,
         extraction_method=extraction_method,
         total_pages=total_pages,
         file_size=len(body.encode("utf-8")),
@@ -122,10 +124,10 @@ async def patch_document(
         doc_id=doc_id,
         title=current_doc.title,
         content=body,
-        category=current_doc.category or "",
-        decision_date=current_doc.decision_date or "",
-        decision_number=current_doc.decision_number or "",
-        source_url=current_doc.source_url or "",
+        category=current_doc.category,
+        decision_date=current_doc.decision_date,
+        decision_number=current_doc.decision_number,
+        source_url=current_doc.source_url,
     )
 
     # --- 4. Seed surgery lands in the next task. ------------------------

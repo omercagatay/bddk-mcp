@@ -265,6 +265,19 @@ async def test_db_update_passes_body_and_metadata(tmp_path):
     assert stored.category == "Sermaye Yeterliliği"
     assert stored.source_url == "https://example.org/mevzuat_20029"
 
+    # Hash invariant — store_document recomputes from markdown_content; the
+    # StoredDocument we pass should already carry that exact hash for the
+    # body we patched.
+    import hashlib
+
+    expected_hash = hashlib.sha256(body.encode("utf-8")).hexdigest()
+    # store_document recomputes hash from markdown_content, so we verify
+    # the body itself round-trips to the expected hash. (The Pydantic model's
+    # content_hash field is unused by store_document.)
+    assert hashlib.sha256(stored.markdown_content.encode("utf-8")).hexdigest() == expected_hash
+    # total_pages is computed in patch_document and passed verbatim
+    assert stored.total_pages == 1  # body is 19 bytes, well under PAGE_SIZE
+
     # add_document awaited once with the same body
     vs.add_document.assert_awaited_once()
     kwargs = vs.add_document.await_args.kwargs
