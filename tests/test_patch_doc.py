@@ -465,3 +465,30 @@ async def test_seed_surgery_matches_doc_and_chunk_hashes(tmp_path):
 
     assert target_chunks
     assert all(c["content_hash"] == target_doc["content_hash"] for c in target_chunks)
+
+
+def test_arg_parser_requires_doc_id_and_markdown():
+    parser = patch_doc._build_arg_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args([])  # missing positional + required --markdown
+    args = parser.parse_args(["mevzuat_20029", "--markdown", "body.md"])
+    assert args.doc_id == "mevzuat_20029"
+    assert args.markdown == Path("body.md")
+    assert args.extraction_method == patch_doc.DEFAULT_EXTRACTION_METHOD
+    assert args.dry_run is False
+
+
+def test_arg_parser_honors_flags():
+    parser = patch_doc._build_arg_parser()
+    args = parser.parse_args(
+        [
+            "mevzuat_20029",
+            "--markdown",
+            "body.md",
+            "--extraction-method",
+            "html_parser",
+            "--dry-run",
+        ]
+    )
+    assert args.extraction_method == "html_parser"
+    assert args.dry_run is True

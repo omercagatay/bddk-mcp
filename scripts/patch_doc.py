@@ -35,7 +35,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from config import PAGE_SIZE  # noqa: E402
+import asyncpg  # noqa: E402
+
+from config import PAGE_SIZE, require_database_url  # noqa: E402
 from doc_store import DocumentStore, StoredDocument  # noqa: E402
 from seed import _strip_docs_dump_header  # noqa: E402
 from vector_store import VectorStore, _chunk_text  # noqa: E402
@@ -195,9 +197,41 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 
 
 async def _main_async(args: argparse.Namespace) -> int:
-    # Task 5 will wire the real asyncpg pool + stores. For now this path is
-    # exercised only by integration tests (skipped for Task 2).
-    raise NotImplementedError("CLI wiring lands in Task 5")
+    pool = await asyncpg.create_pool(require_database_url(), min_size=1, max_size=3)
+    try:
+        doc_store = DocumentStore(pool)
+        await doc_store.initialize()
+        vector_store = VectorStore(pool)
+        await vector_store.initialize()
+
+        seed_dir = ROOT / "seed_data"
+
+        try:
+            result = await patch_document(
+                doc_id=args.doc_id,
+                markdown_path=args.markdown,
+                extraction_method=args.extraction_method,
+                doc_store=doc_store,
+                vector_store=vector_store,
+                seed_dir=seed_dir,
+                dry_run=args.dry_run,
+            )
+        except (PatchError, FileNotFoundError) as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 1
+
+        prefix = "[DRY RUN] " if result["dry_run"] else ""
+        print(f"{prefix}{result['doc_id']}:")
+        print(f"  old_hash: {result['old_hash']}")
+        print(f"  new_hash: {result['new_hash']}")
+        print(f"  char_len: {result['old_len']} -> {result['new_len']}")
+        print(f"  chunks:   {result['chunk_count']}")
+        print(f"  method:   {result['extraction_method']}")
+        if not result["dry_run"]:
+            print("\nrun 'git diff --stat seed_data/' to review the seed changes")
+        return 0
+    finally:
+        await pool.close()
 
 
 def main() -> int:
