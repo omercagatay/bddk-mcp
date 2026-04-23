@@ -49,6 +49,57 @@ def _write_seed_files(
 
 
 @pytest.mark.asyncio
+async def test_import_backfills_embeddings_for_new_chunks(clean_pool, temp_seed_dir):
+    """Seed import must not leave chunks with NULL embeddings — otherwise
+    semantic search is silently broken for most queries (see #62: the main
+    production DB had 96% NULL embeddings after a seed import)."""
+    docs = [
+        {
+            "document_id": "test_embed_1",
+            "title": "Embed Test",
+            "markdown_content": "test body for embedding",
+            "content_hash": "h1",
+        }
+    ]
+    chunks = [
+        {
+            "doc_id": "test_embed_1",
+            "chunk_index": 0,
+            "chunk_text": "kredi riski ve sermaye yeterliliği",
+            "content_hash": "h1",
+        },
+        {
+            "doc_id": "test_embed_1",
+            "chunk_index": 1,
+            "chunk_text": "temerrüt halinde kayıp tahmini",
+            "content_hash": "h1",
+        },
+    ]
+    _write_seed_files(temp_seed_dir, docs=docs, chunks=chunks)
+
+    result = await seed.import_seed(pool=clean_pool, force=True)
+    assert result["chunks"] == 2
+    assert result["embedded"] == 2
+
+    # Verify no NULL embeddings remain for this doc.
+    null_count = await clean_pool.fetchval(
+        "SELECT COUNT(*) FROM document_chunks WHERE doc_id = $1 AND embedding IS NULL",
+        "test_embed_1",
+    )
+    assert null_count == 0
+
+    # Idempotency: a second import without --force should skip (content
+    # already matches), leaving the embeddings from the first run intact.
+    result2 = await seed.import_seed(pool=clean_pool, force=False)
+    assert result2["skipped"] is True
+    null_count_after = await clean_pool.fetchval(
+        "SELECT COUNT(*) FROM document_chunks WHERE doc_id = $1 AND embedding IS NULL",
+        "test_embed_1",
+    )
+    assert null_count_after == 0
+
+
+@pytest.mark.asyncio
 async def test_import_skips_when_db_matches_seed(clean_pool, temp_seed_dir):
     """Baseline: matching counts AND matching content hashes → skip."""
     docs = [
