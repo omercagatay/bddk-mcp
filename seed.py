@@ -330,11 +330,72 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
                     result["chunks"] = imported
                     logger.info("Imported %d chunks", imported)
 
+            # 4. Embedding backfill — seed data carries no embeddings (exported
+            # chunks.json is text-only, see export_seed), so every chunk lands
+            # with `embedding IS NULL` and is invisible to semantic search.
+            # Populate embeddings in-process here using the same VectorStore
+            # instance the server uses at runtime. Idempotent: only touches
+            # rows where embedding IS NULL, so a crash between insert and
+            # embed is recoverable by re-running `seed import --force`.
+            result["embedded"] = await _backfill_null_embeddings(pool, vs)
+
     finally:
         if owns_pool:
             await pool.close()
 
     return result
+
+
+async def _backfill_null_embeddings(
+    pool: asyncpg.Pool,
+    vs: "VectorStore",  # noqa: F821 — forward ref, imported inside import_seed
+    *,
+    batch_size: int = 32,
+) -> int:
+    """Fill in embeddings for any chunk currently missing one.
+
+    Fetches NULL-embedding rows in batches, encodes chunk_text with the same
+    multilingual-e5 prefix used at query time, and UPDATEs the row. Returns
+    the count of chunks embedded.
+
+    Called at the end of import_seed; safe to call independently if someone
+    ends up with a partially-embedded corpus for any other reason.
+    """
+    total_null = await pool.fetchval("SELECT COUNT(*) FROM document_chunks WHERE embedding IS NULL")
+    if total_null == 0:
+        logger.info("Embeddings: already complete (no NULL rows)")
+        return 0
+    logger.info("Embedding backfill: %d chunks missing embeddings, batch_size=%d", total_null, batch_size)
+
+    embedded = 0
+    while True:
+        rows = await pool.fetch(
+            """SELECT doc_id, chunk_index, chunk_text
+               FROM document_chunks
+               WHERE embedding IS NULL
+               ORDER BY doc_id, chunk_index
+               LIMIT $1""",
+            batch_size,
+        )
+        if not rows:
+            break
+        texts = [r["chunk_text"] for r in rows]
+        vectors = await vs._embed(texts, prefix="passage")
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                for row, vec in zip(rows, vectors, strict=True):
+                    vec_str = "[" + ",".join(str(v) for v in vec) + "]"
+                    await conn.execute(
+                        "UPDATE document_chunks SET embedding = $1::vector WHERE doc_id = $2 AND chunk_index = $3",
+                        vec_str,
+                        row["doc_id"],
+                        row["chunk_index"],
+                    )
+        embedded += len(rows)
+        logger.info("Embedded %d / %d chunks", embedded, total_null)
+
+    logger.info("Embedding backfill complete: %d chunks", embedded)
+    return embedded
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────────
@@ -359,8 +420,10 @@ def main() -> None:
         if result["skipped"]:
             print("Skipped — DB already has data (use --force to overwrite)")
         else:
+            embedded = result.get("embedded", 0)
             print(
-                f"\nImported: {result['decision_cache']} cache, {result['documents']} docs, {result['chunks']} chunks"
+                f"\nImported: {result['decision_cache']} cache, {result['documents']} docs, "
+                f"{result['chunks']} chunks ({embedded} embedded)"
             )
     else:
         parser.print_help()
