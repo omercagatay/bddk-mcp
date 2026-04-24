@@ -8,11 +8,26 @@ import pytest
 
 from deps import Dependencies
 from doc_store import DocumentPage
+from tools import documents as documents_mod
 from tools.documents import _is_formula_aware, register
 
 
-def test_register_adds_three_document_tools():
-    """register() should expose exactly the three documented document tools."""
+def test_register_exposes_end_user_tools_only_by_default():
+    """Default (ADMIN_TOOLS=false) hides document_store_stats from end users."""
+    mcp = MagicMock()
+    deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
+    register(mcp, deps)
+
+    tool_names = {call.args[0].__name__ for call in mcp.tool.return_value.call_args_list}
+    assert tool_names == {
+        "get_bddk_document",
+        "get_document_history",
+    }
+
+
+def test_register_adds_admin_tool_when_flag_enabled(monkeypatch):
+    """With ADMIN_TOOLS=true the operator-only document_store_stats is also exposed."""
+    monkeypatch.setattr(documents_mod, "ADMIN_TOOLS", True)
     mcp = MagicMock()
     deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
     register(mcp, deps)

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from config import (
+    ADMIN_TOOLS,
     validate_column,
     validate_currency,
     validate_metric_id,
@@ -152,6 +153,9 @@ def register(mcp, deps: Dependencies) -> None:
                 lines.append(f"{r['name']:<55} {r.get('tp', ''):>15} {r.get('yp', ''):>15} {r.get('total', ''):>15}")
 
         return "\n".join(lines)
+
+    if not ADMIN_TOOLS:
+        return
 
     @mcp.tool()
     async def bddk_cache_status() -> str:
