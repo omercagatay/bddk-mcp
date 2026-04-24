@@ -365,6 +365,43 @@ Kapsam filtresi sonrası katalog (318 karar). `Faizsiz Bankacılık` ve `Finansa
 | Haftalık Bülten | bddk.org.tr/bultenhaftalik | Bankacılık sektörü metrikleri |
 | Aylık Bülten | bddk.org.tr/BultenAylik | Detaylı aylık istatistikler (17 tablo) |
 
+### Benchmark
+
+Offline-first evaluation harness for tool-selection accuracy, NLI consistency, Turkish banking terminology, and live end-to-end runs against the MCP server. Uses local Ollama as the LLM backend; Claude Opus 4.6 as the grader. Target models live in `benchmark/config.py`.
+
+**Prerequisites**
+
+1. Install [Ollama](https://ollama.com/download/windows) and start the daemon (`ollama serve` or the Windows tray service).
+2. Pull the 7 benchmark models (≈80 GB total, resumable):
+   ```powershell
+   .\scripts\pull_benchmark_models.ps1
+   ```
+3. Set an Anthropic key for the grader:
+   ```bash
+   export ANTHROPIC_API_KEY=sk-ant-...   # bash
+   $env:ANTHROPIC_API_KEY="sk-ant-..."   # PowerShell
+   ```
+
+**Run**
+
+```bash
+# Phase 1 only (offline — tool schemas, NLI, terminology; no MCP server needed)
+uv run python -m benchmark.run --phase 1
+
+# Phase 2 requires a running MCP server with admin tools exposed
+# (the hardcoded tool schemas include admin/sync tools by design):
+BDDK_ADMIN_TOOLS=true uv run python server.py     # terminal 1
+uv run python -m benchmark.run --phase 2          # terminal 2
+
+# Full pipeline, single model
+uv run python -m benchmark.run --model qwen3.6-27b
+
+# All phases, all models (several hours on RTX 5080)
+uv run python -m benchmark.run
+```
+
+Results land in `benchmark_results/` as timestamped JSON.
+
 ## License
 
 MIT
