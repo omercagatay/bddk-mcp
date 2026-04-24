@@ -111,6 +111,14 @@ HTTP_CONNECT_TIMEOUT = float(os.environ.get("BDDK_HTTP_CONNECT_TIMEOUT", "10.0")
 HTTP_POOL_TIMEOUT = float(os.environ.get("BDDK_HTTP_POOL_TIMEOUT", "10.0"))
 MAX_RETRIES = int(os.environ.get("BDDK_MAX_RETRIES", "3"))
 
+# -- Tool exposure ------------------------------------------------------------
+
+# Expose operator/admin tools (health_check, bddk_metrics, sync_bddk_documents,
+# refresh_bddk_cache, backfill_*, document_health, document_quality_report,
+# document_store_stats, bddk_cache_status, trigger_startup_sync). End-user
+# deployments keep only the search / retrieval / bulletin / analytics surface.
+ADMIN_TOOLS = os.environ.get("BDDK_ADMIN_TOOLS", "false").lower() in ("1", "true", "yes")
+
 # -- Sync ---------------------------------------------------------------------
 
 AUTO_SYNC = os.environ.get("BDDK_AUTO_SYNC", "false").lower() in ("1", "true", "yes")
