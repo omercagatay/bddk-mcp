@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from config import ADMIN_TOOLS
 from exceptions import BddkStorageError
 
 if TYPE_CHECKING:
@@ -177,6 +178,9 @@ def register(mcp, deps: Dependencies) -> None:
             )
 
         return "\n".join(lines)
+
+    if not ADMIN_TOOLS:
+        return
 
     @mcp.tool()
     async def document_store_stats() -> str:

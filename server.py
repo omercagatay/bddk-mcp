@@ -11,6 +11,7 @@ from mcp.server.fastmcp import FastMCP
 
 from client import BddkApiClient
 from config import (
+    ADMIN_TOOLS,
     AUTO_SYNC,
     DATABASE_URL,
     HTTP_CONNECT_TIMEOUT,
@@ -164,8 +165,9 @@ if __name__ == "__main__":
             documents.register(mcp, deps)
             bulletin.register(mcp, deps)
             analytics.register(mcp, deps)
-            sync.register(mcp, deps)
-            admin.register(mcp, deps)
+            if ADMIN_TOOLS:
+                sync.register(mcp, deps)
+                admin.register(mcp, deps)
 
             # Seed DB
             try:
@@ -216,8 +218,9 @@ if __name__ == "__main__":
             documents.register(mcp, deps)
             bulletin.register(mcp, deps)
             analytics.register(mcp, deps)
-            sync.register(mcp, deps)
-            admin.register(mcp, deps)
+            if ADMIN_TOOLS:
+                sync.register(mcp, deps)
+                admin.register(mcp, deps)
 
             # Seed DB
             try:
