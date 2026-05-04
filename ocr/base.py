@@ -271,7 +271,7 @@ def get_default_backends(include_chandra: bool = False) -> list[OCRBackend]:
     """
     chain: list[OCRBackend] = [LightOCRBackend(), MarkitdownBackend()]
     if include_chandra:
-        from ocr_backends_chandra import ChandraBackend
+        from ocr.chandra import ChandraBackend
 
         chain.insert(0, ChandraBackend())
     return chain

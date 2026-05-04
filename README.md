@@ -206,7 +206,7 @@ server.py (FastMCP entry point, lifecycle management)
 
 ### Extraction Pipeline
 
-Documents are downloaded and converted to Markdown via an ordered backend chain (`ocr_backends.get_default_backends`):
+Documents are downloaded and converted to Markdown via an ordered backend chain (`ocr.base.get_default_backends`):
 
 1. **LightOnOCR-2-1B** (GPU, primary) — formula-aware, requires CUDA (`gpu` group)
 2. **markitdown** (CPU fallback) — lightweight PDF/DOCX extraction, no formulas

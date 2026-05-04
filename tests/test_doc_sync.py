@@ -15,7 +15,7 @@ from doc_sync import (
     _mevzuat_pdf_url,
     _parse_mevzuat_params,
 )
-from ocr_backends import MarkitdownBackend
+from ocr.base import MarkitdownBackend
 from tests.conftest import make_http_response
 from utils import fetch_with_retry
 

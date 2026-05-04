@@ -4,7 +4,7 @@ Document sync engine for BDDK MCP Server.
 Downloads BDDK decisions and mevzuat.gov.tr documents, extracts content
 to markdown, and stores them in the PostgreSQL database.
 
-Extraction pipeline (configured in ocr_backends.get_default_backends):
+Extraction pipeline (configured in ocr.base.get_default_backends):
   1. LightOnOCR-2-1B (GPU) — primary, formula-aware
   2. PP-StructureV3 (GPU fallback)
   3. markitdown — CPU last resort, no formulas
@@ -39,7 +39,7 @@ from config import (
     REQUEST_TIMEOUT,
 )
 from doc_store import DocumentStore, StoredDocument
-from ocr_backends import OCRBackend, get_default_backends, run_extraction_chain
+from ocr.base import OCRBackend, get_default_backends, run_extraction_chain
 from utils import MEVZUAT_TUR_MAP, fetch_with_retry
 
 if TYPE_CHECKING:
