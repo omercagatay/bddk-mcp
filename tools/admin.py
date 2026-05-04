@@ -87,10 +87,8 @@ def register(mcp, deps: Dependencies) -> None:
         ]
 
         if m["tools"]:
-            lines.append(
-                f"\n**Per-Tool Metrics:**\n  {'Tool':<35} {'Requests':>10} {'Errors':>8} {'Avg ms':>10}\n  "
-                + "-" * 65
-            )
+            lines.append(f"\n**Per-Tool Metrics:**\n  {'Tool':<35} {'Requests':>10} {'Errors':>8} {'Avg ms':>10}")
+            lines.append("  " + "-" * 65)
             for t in m["tools"]:
                 lines.append(f"  {t['tool']:<35} {t['requests']:>10} {t['errors']:>8} {t['avg_latency_ms']:>10.1f}")
 
