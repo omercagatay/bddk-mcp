@@ -87,9 +87,10 @@ def register(mcp, deps: Dependencies) -> None:
         ]
 
         if m["tools"]:
-            lines.append("\n**Per-Tool Metrics:**")
-            lines.append(f"  {'Tool':<35} {'Requests':>10} {'Errors':>8} {'Avg ms':>10}")
-            lines.append("  " + "-" * 65)
+            lines.append(
+                f"\n**Per-Tool Metrics:**\n  {'Tool':<35} {'Requests':>10} {'Errors':>8} {'Avg ms':>10}\n  "
+                + "-" * 65
+            )
             for t in m["tools"]:
                 lines.append(f"  {t['tool']:<35} {t['requests']:>10} {t['errors']:>8} {t['avg_latency_ms']:>10.1f}")
 
@@ -238,10 +239,8 @@ def register(mcp, deps: Dependencies) -> None:
         if deps.backfill_started_at:
             lines.append(f"  Elapsed: {time.time() - deps.backfill_started_at:.1f}s")
 
-        if state == "running":
-            current = p.get("current", "")
-            if current:
-                lines.append(f"  Current: {current}")
+        if state == "running" and (current := p.get("current", "")):
+            lines.append(f"  Current: {current}")
         elif state == "done":
             lines.append(f"  Total time: {p.get('elapsed_seconds', 0):.1f}s")
             failures = p.get("failures", [])
