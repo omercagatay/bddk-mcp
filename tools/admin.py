@@ -32,48 +32,39 @@ def register(mcp, deps: Dependencies) -> None:
         hours, remainder = divmod(uptime_s, 3600)
         minutes, seconds = divmod(remainder, 60)
 
-        lines = ["**BDDK MCP Server Health**\n"]
-
         if deps.sync_circuit_open:
-            lines.append("  Status: DEGRADED (sync circuit open after 10 consecutive failures)")
+            status = "  Status: DEGRADED (sync circuit open after 10 consecutive failures)"
         elif deps.vector_store is None:
-            lines.append("  Status: INITIALIZING (vector store loading)")
+            status = "  Status: INITIALIZING (vector store loading)"
         else:
-            lines.append("  Status: OK")
-
-        lines.append(f"  Uptime: {hours}h {minutes}m {seconds}s")
-        lines.append("  Backend: PostgreSQL + pgvector")
-
-        if deps.last_sync_time:
-            ago = int(time.time() - deps.last_sync_time)
-            lines.append(f"  Last sync: {ago}s ago")
-        else:
-            lines.append("  Last sync: never")
-
+            status = "  Status: OK"
+        last_sync = (
+            f"  Last sync: {int(time.time() - deps.last_sync_time)}s ago"
+            if deps.last_sync_time
+            else "  Last sync: never"
+        )
+        lines = [
+            f"**BDDK MCP Server Health**\n\n{status}\n  Uptime: {hours}h {minutes}m {seconds}s\n  Backend: PostgreSQL + pgvector",
+            last_sync,
+        ]
         if deps.last_sync_error:
             lines.append(f"  Last sync error: {deps.last_sync_error}")
 
-        # Cache status
         try:
-            status = deps.client.cache_status()
-            lines.append(f"  Cache items: {status['total_items']}")
-            lines.append(f"  Cache valid: {status['cache_valid']}")
+            cs = deps.client.cache_status()
+            lines.append(f"  Cache items: {cs['total_items']}\n  Cache valid: {cs['cache_valid']}")
         except (RuntimeError, BddkError, AttributeError):
             lines.append("  Cache: unavailable")
 
-        # Store status
         try:
             st = await deps.doc_store.stats()
             lines.append(f"  Documents: {st.total_documents}")
         except (RuntimeError, BddkStorageError, AttributeError):
             lines.append("  Documents: unavailable")
 
-        # Pool utilization
         try:
-            size = deps.pool.get_size()
-            max_size = deps.pool.get_max_size()
-            idle = deps.pool.get_idle_size()
-            lines.append(f"  Pool: {size}/{max_size} connections ({idle} idle)")
+            pool = deps.pool
+            lines.append(f"  Pool: {pool.get_size()}/{pool.get_max_size()} connections ({pool.get_idle_size()} idle)")
         except (RuntimeError, AttributeError):
             lines.append("  Pool: unavailable")
 
@@ -91,17 +82,19 @@ def register(mcp, deps: Dependencies) -> None:
         """
         m = metrics.summary()
 
-        lines = ["**BDDK MCP Server Metrics**\n"]
-        lines.append(f"  Uptime: {m['uptime_seconds']}s")
-        lines.append(f"  Total requests: {m['total_requests']}")
-        lines.append(f"  Total errors: {m['total_errors']}")
-        lines.append(f"  Cache hit rate: {m['cache_hit_rate']}%")
-        lines.append(f"  Cache hits/misses: {m['cache_hits']}/{m['cache_misses']}")
+        lines = [
+            "**BDDK MCP Server Metrics**\n",
+            f"  Uptime: {m['uptime_seconds']}s",
+            f"  Total requests: {m['total_requests']}",
+            f"  Total errors: {m['total_errors']}",
+            f"  Cache hit rate: {m['cache_hit_rate']}%",
+            f"  Cache hits/misses: {m['cache_hits']}/{m['cache_misses']}",
+        ]
 
         if m["tools"]:
-            lines.append("\n**Per-Tool Metrics:**")
-            lines.append(f"  {'Tool':<35} {'Requests':>10} {'Errors':>8} {'Avg ms':>10}")
-            lines.append("  " + "-" * 65)
+            lines.append(
+                f"\n**Per-Tool Metrics:**\n  {'Tool':<35} {'Requests':>10} {'Errors':>8} {'Avg ms':>10}\n  " + "-" * 65
+            )
             for t in m["tools"]:
                 lines.append(f"  {t['tool']:<35} {t['requests']:>10} {t['errors']:>8} {t['avg_latency_ms']:>10.1f}")
 
@@ -154,9 +147,7 @@ def register(mcp, deps: Dependencies) -> None:
 
         try:
             candidates = await scan_candidates(
-                deps.pool,
-                include_legacy_corruption=include_legacy_corruption,
-                limit=limit,
+                deps.pool, include_legacy_corruption=include_legacy_corruption, limit=limit
             )
         except (BddkError, BddkStorageError, RuntimeError) as exc:
             logger.warning("backfill_degraded_documents scan failed: %s", exc)
@@ -166,10 +157,9 @@ def register(mcp, deps: Dependencies) -> None:
         lines = [f"**Backfill candidates: {len(candidates)}**"]
         for sig, count in sorted(by_sig.items()):
             lines.append(f"  {sig}: {count}")
-        preview = candidates[:10]
-        if preview:
+        if candidates:
             lines.append("\n**First 10:**")
-            for c in preview:
+            for c in candidates[:10]:
                 lines.append(f"  {c.document_id}  len={c.len:>6}  sig={c.signature}")
         if len(candidates) > 10:
             lines.append(f"  ... and {len(candidates) - 10} more")
@@ -182,7 +172,6 @@ def register(mcp, deps: Dependencies) -> None:
             lines.append("\nDry run — no changes made. Call with dry_run=False to execute.")
             return "\n".join(lines)
 
-        # Kick off the background task
         deps.backfill_progress = {
             "total": len(candidates),
             "processed": 0,
@@ -197,25 +186,17 @@ def register(mcp, deps: Dependencies) -> None:
         async def _run_backfill() -> None:
             from doc_sync import DocumentSyncer
 
-            store = deps.doc_store
-            http = deps.http
-            vector_store = deps.vector_store
-
             async def on_progress(index: int, total: int, outcome: BackfillOutcome) -> None:
                 deps.backfill_progress["processed"] = index
-                if outcome.success:
-                    deps.backfill_progress["succeeded"] += 1
-                else:
-                    deps.backfill_progress["failed"] += 1
+                deps.backfill_progress["succeeded" if outcome.success else "failed"] += 1
                 deps.backfill_progress["current"] = outcome.document_id
 
             try:
-                async with DocumentSyncer(store, http=http, vector_store=vector_store) as syncer:
+                async with DocumentSyncer(deps.doc_store, http=deps.http, vector_store=deps.vector_store) as syncer:
                     report = await execute_backfill(syncer, candidates, on_progress=on_progress)
-                deps.backfill_progress["state"] = "done"
-                deps.backfill_progress["elapsed_seconds"] = report.elapsed_seconds
-                deps.backfill_progress["ok"] = len(report.ok)
-                deps.backfill_progress["failures"] = report.failed
+                deps.backfill_progress.update(
+                    state="done", elapsed_seconds=report.elapsed_seconds, ok=len(report.ok), failures=report.failed
+                )
             except Exception as exc:
                 logger.exception("Backfill task crashed")
                 deps.backfill_progress["state"] = "error"
@@ -241,28 +222,17 @@ def register(mcp, deps: Dependencies) -> None:
 
         p = deps.backfill_progress
         state = p.get("state", "unknown")
-        total = p.get("total", 0)
-        processed = p.get("processed", 0)
-        succeeded = p.get("succeeded", 0)
-        failed = p.get("failed", 0)
-
-        lines = [f"**Backfill: {state}**"]
-        lines.append(f"  Processed: {processed}/{total}")
-        lines.append(f"  Succeeded: {succeeded}")
-        lines.append(f"  Failed: {failed}")
-
+        lines = [
+            f"**Backfill: {state}**\n  Processed: {p.get('processed', 0)}/{p.get('total', 0)}\n  Succeeded: {p.get('succeeded', 0)}\n  Failed: {p.get('failed', 0)}"
+        ]
         if deps.backfill_started_at:
-            elapsed = time.time() - deps.backfill_started_at
-            lines.append(f"  Elapsed: {elapsed:.1f}s")
+            lines.append(f"  Elapsed: {time.time() - deps.backfill_started_at:.1f}s")
 
-        if state == "running":
-            current = p.get("current", "")
-            if current:
-                lines.append(f"  Current: {current}")
+        if state == "running" and (current := p.get("current", "")):
+            lines.append(f"  Current: {current}")
         elif state == "done":
             lines.append(f"  Total time: {p.get('elapsed_seconds', 0):.1f}s")
-            failures = p.get("failures", [])
-            if failures:
+            if failures := p.get("failures", []):
                 lines.append(f"\n**Failed IDs ({len(failures)}):**")
                 for doc_id, reason in failures[:20]:
                     lines.append(f"  {doc_id}: {reason}")

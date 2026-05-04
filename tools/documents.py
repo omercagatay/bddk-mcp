@@ -57,8 +57,8 @@ def register(mcp, deps: Dependencies) -> None:
             document_id: The numeric document ID (from search results)
             page_number: Page of the markdown output (documents are split into 5000-char pages)
         """
-        candidates = (
-            [document_id, f"mevzuat_{document_id}", f"bddk_{document_id}"] if document_id.isdigit() else [document_id]
+        candidates = [document_id] + (
+            [f"mevzuat_{document_id}", f"bddk_{document_id}"] if document_id.isdigit() else []
         )
 
         resolved_id: str | None = None
@@ -74,11 +74,7 @@ def register(mcp, deps: Dependencies) -> None:
                     vp = await deps.vector_store.get_document_page(cand, page_number)
                     if vp and vp["content"] and "Invalid page" not in vp["content"]:
                         resolved_id = cand
-                        page_num, total_pages, content = (
-                            vp["page_number"],
-                            vp["total_pages"],
-                            vp["content"],
-                        )
+                        page_num, total_pages, content = vp["page_number"], vp["total_pages"], vp["content"]
                         served_via_vector = True
                         break
                 except Exception as e:
@@ -92,33 +88,19 @@ def register(mcp, deps: Dependencies) -> None:
 
             if stored and stored.markdown_content and "Invalid page" not in stored.markdown_content:
                 resolved_id = cand
-                page_num, total_pages, content = (
-                    stored.page_number,
-                    stored.total_pages,
-                    stored.markdown_content,
-                )
+                page_num, total_pages, content = stored.page_number, stored.total_pages, stored.markdown_content
                 extraction_method = stored.extraction_method or ""
                 break
 
         if resolved_id is None:
-            return (
-                f"Document {document_id} is not available in the local store. "
-                "This MCP server is airlocked and does not fetch from live BDDK / mevzuat.gov.tr sources at runtime. "
-                "If the document should be available, re-run the seed (`seed.py import`) or sync pipeline."
-            )
+            return f"Document {document_id} is not available in the local store. This MCP server is airlocked and does not fetch from live BDDK / mevzuat.gov.tr sources at runtime. If the document should be available, re-run the seed (`seed.py import`) or sync pipeline."
 
-        meta_title = resolved_id
-        meta_date = ""
-        meta_number = ""
-        meta_category = ""
-        source_url = ""
         found = deps.client.find_by_id(resolved_id)
-        if found:
-            meta_title = found.title
-            meta_date = found.decision_date
-            meta_number = found.decision_number
-            meta_category = found.category
-            source_url = found.source_url or ""
+        meta_title, meta_date, meta_number, meta_category, source_url = (
+            (found.title, found.decision_date, found.decision_number, found.category, found.source_url or "")
+            if found
+            else (resolved_id, "", "", "", "")
+        )
 
         alias_line = f"- Resolved from: `{document_id}` -> `{resolved_id}`\n" if resolved_id != document_id else ""
 
@@ -137,18 +119,11 @@ def register(mcp, deps: Dependencies) -> None:
         warning_block = f"⚠ {_DEGRADED_WARNING}\n\n" if degraded else ""
 
         header = (
-            f"## {meta_title}\n"
-            f"- Document ID: {resolved_id}\n"
-            f"{alias_line}"
-            f"- Decision Date: {meta_date or 'N/A'}\n"
-            f"- Decision Number: {meta_number or 'N/A'}\n"
-            f"- Category: {meta_category or 'N/A'}\n"
-            f"- Source: {source_url or 'N/A'}\n"
-            f"- Page: {page_num}/{total_pages}\n"
-            f"- Extraction: {method_display}\n"
-            f"---\n"
-            f"Use ONLY the text below. Do not add information not present in this document.\n\n"
-            f"{warning_block}"
+            f"## {meta_title}\n- Document ID: {resolved_id}\n{alias_line}"
+            f"- Decision Date: {meta_date or 'N/A'}\n- Decision Number: {meta_number or 'N/A'}\n"
+            f"- Category: {meta_category or 'N/A'}\n- Source: {source_url or 'N/A'}\n"
+            f"- Page: {page_num}/{total_pages}\n- Extraction: {method_display}\n---\n"
+            f"Use ONLY the text below. Do not add information not present in this document.\n\n{warning_block}"
         )
 
         return header + content
@@ -189,30 +164,27 @@ def register(mcp, deps: Dependencies) -> None:
         """
         lines = ["**Document Store Statistics**\n"]
 
-        # pgvector stats
         if deps.vector_store is not None:
             try:
-                vs_stats = await deps.vector_store.stats()
-                lines.append("**pgvector (Vector Store):**")
-                lines.append(f"  Documents: {vs_stats['total_documents']}")
-                lines.append(f"  Chunks: {vs_stats['total_chunks']}")
-                lines.append(f"  Embedding model: {vs_stats['embedding_model']}")
-                if vs_stats.get("categories"):
+                vs = await deps.vector_store.stats()
+                lines.append(
+                    f"**pgvector (Vector Store):**\n  Documents: {vs['total_documents']}\n"
+                    f"  Chunks: {vs['total_chunks']}\n  Embedding model: {vs['embedding_model']}"
+                )
+                if vs.get("categories"):
                     lines.append("  Categories:")
-                    for cat, count in vs_stats["categories"].items():
+                    for cat, count in vs["categories"].items():
                         lines.append(f"    {cat}: {count}")
             except Exception as e:
                 lines.append(f"  pgvector: unavailable ({e})")
         else:
             lines.append("  pgvector: unavailable (not initialized)")
 
-        # PostgreSQL document stats
         try:
-            store = deps.doc_store
-            st = await store.stats()
-            lines.append("\n**PostgreSQL (Document Store):**")
-            lines.append(f"  Documents: {st.total_documents}")
-            lines.append(f"  Size: {st.total_size_mb} MB")
+            st = await deps.doc_store.stats()
+            lines.append(
+                f"\n**PostgreSQL (Document Store):**\n  Documents: {st.total_documents}\n  Size: {st.total_size_mb} MB"
+            )
         except (RuntimeError, BddkStorageError) as e:
             lines.append(f"  PostgreSQL: unavailable ({e})")
 

@@ -17,14 +17,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# -- Circuit breaker constants ------------------------------------------------
-
 CIRCUIT_BREAKER_THRESHOLD = 10
 STARTUP_SYNC_TIMEOUT = 300  # 5 minutes
 MIGRATION_TIMEOUT = 600  # 10 minutes
-
-
-# -- Circuit breaker helpers --------------------------------------------------
 
 
 def _record_sync_failure(deps: Dependencies, error: str) -> None:
@@ -41,9 +36,6 @@ def _record_sync_success(deps: Dependencies) -> None:
     deps.sync_circuit_open = False
     deps.last_sync_time = time.time()
     deps.last_sync_error = None
-
-
-# -- Migration helper ---------------------------------------------------------
 
 
 async def _migrate_to_pgvector(deps: Dependencies) -> str:
@@ -66,20 +58,13 @@ async def _migrate_to_pgvector(deps: Dependencies) -> str:
     try:
         vs_stats = await vs.stats()
         sqlite_stats = await store.stats()
+        have, want = vs_stats["total_documents"], sqlite_stats.total_documents
 
-        if vs_stats["total_documents"] >= sqlite_stats.total_documents * 0.9:
-            logger.info(
-                "pgvector has %d/%d documents, skipping migration",
-                vs_stats["total_documents"],
-                sqlite_stats.total_documents,
-            )
-            return f"pgvector up-to-date: {vs_stats['total_documents']}/{sqlite_stats.total_documents} documents"
+        if have >= want * 0.9:
+            logger.info("pgvector has %d/%d documents, skipping migration", have, want)
+            return f"pgvector up-to-date: {have}/{want} documents"
 
-        logger.info(
-            "pgvector incomplete (%d/%d) — migrating...",
-            vs_stats["total_documents"],
-            sqlite_stats.total_documents,
-        )
+        logger.info("pgvector incomplete (%d/%d) — migrating...", have, want)
 
         start = time.time()
         docs = await store.list_documents(limit=2000)
@@ -92,10 +77,7 @@ async def _migrate_to_pgvector(deps: Dependencies) -> str:
         batch_succeeded = False
         if pool is not None and doc_ids:
             try:
-                rows = await pool.fetch(
-                    "SELECT DISTINCT doc_id FROM document_chunks WHERE doc_id = ANY($1)",
-                    doc_ids,
-                )
+                rows = await pool.fetch("SELECT DISTINCT doc_id FROM document_chunks WHERE doc_id = ANY($1)", doc_ids)
                 existing_ids = {r["doc_id"] for r in rows}
                 batch_succeeded = True
             except Exception as e:
@@ -109,14 +91,8 @@ async def _migrate_to_pgvector(deps: Dependencies) -> str:
                 break
 
             doc_id = meta["document_id"]
-
-            # Use batch result if available, otherwise fall back to per-doc check
-            if batch_succeeded:
-                if doc_id in existing_ids:
-                    continue
-            else:
-                if await vs.has_document(doc_id):
-                    continue
+            if (doc_id in existing_ids) if batch_succeeded else await vs.has_document(doc_id):
+                continue
 
             doc = await store.get_document(doc_id)
             if not doc or not doc.markdown_content:
@@ -138,20 +114,12 @@ async def _migrate_to_pgvector(deps: Dependencies) -> str:
                 logger.info("pgvector migration: %d/%d docs", i + 1, len(docs))
 
         elapsed = time.time() - start
-        logger.info(
-            "pgvector migration complete: %d docs, %d chunks, %.1fs",
-            migrated,
-            total_chunks,
-            elapsed,
-        )
+        logger.info("pgvector migration complete: %d docs, %d chunks, %.1fs", migrated, total_chunks, elapsed)
         return f"Migrated {migrated} documents, {total_chunks} chunks in {elapsed:.1f}s"
 
     except (BddkError, RuntimeError, OSError) as e:
         logger.error("pgvector migration failed: %s", e)
         return f"Migration failed: {e}"
-
-
-# -- Startup sync (module-level, called from server.py) -----------------------
 
 
 async def startup_sync(deps: Dependencies) -> None:
@@ -188,11 +156,7 @@ async def startup_sync(deps: Dependencies) -> None:
 
             # Phase 1: Download missing documents
             if st.total_documents < cache_size * 0.9:
-                logger.info(
-                    "Document store incomplete (%d/%d) — downloading...",
-                    st.total_documents,
-                    cache_size,
-                )
+                logger.info("Document store incomplete (%d/%d) — downloading...", st.total_documents, cache_size)
                 items = [d.model_dump() for d in client.get_cache_items()]
                 async with DocumentSyncer(store, http=deps.http, vector_store=deps.vector_store) as syncer:
                     report = await syncer.sync_all(items, concurrency=10, force=False)
@@ -218,9 +182,6 @@ async def startup_sync(deps: Dependencies) -> None:
         msg = str(e)
         logger.error("Startup sync failed: %s", msg)
         _record_sync_failure(deps, msg)
-
-
-# -- Tool registration --------------------------------------------------------
 
 
 def register(mcp, deps: Dependencies) -> None:
@@ -261,19 +222,12 @@ def register(mcp, deps: Dependencies) -> None:
         client = deps.client
         await client.ensure_cache()
 
-        single_report = None
-        sync_report = None
-
         async with DocumentSyncer(store, http=deps.http, vector_store=deps.vector_store) as syncer:
             if document_id:
-                source_url = ""
-                title = document_id
-                category = ""
                 found = client.find_by_id(document_id)
-                if found:
-                    source_url = found.source_url
-                    title = found.title
-                    category = found.category
+                title, source_url, category = (
+                    (found.title, found.source_url, found.category) if found else (document_id, "", "")
+                )
 
                 result = await syncer.sync_document(
                     doc_id=document_id,
@@ -283,17 +237,13 @@ def register(mcp, deps: Dependencies) -> None:
                     force=force,
                 )
                 status = "OK" if result.success else "FAIL"
-                single_report = f"[{status}] {result.document_id}: {result.method or result.error}"
+                report = f"[{status}] {result.document_id}: {result.method or result.error}"
             else:
                 items = [d.model_dump() for d in client.get_cache_items()]
-                report = await syncer.sync_all(items, concurrency=concurrency, force=force)
-                sync_report = (
-                    f"**Sync Report**\n"
-                    f"  Total: {report.total}\n"
-                    f"  Downloaded: {report.downloaded}\n"
-                    f"  Skipped: {report.skipped}\n"
-                    f"  Failed: {report.failed}\n"
-                    f"  Time: {report.elapsed_seconds}s"
+                sync_result = await syncer.sync_all(items, concurrency=concurrency, force=force)
+                report = (
+                    f"**Sync Report**\n  Total: {sync_result.total}\n  Downloaded: {sync_result.downloaded}\n"
+                    f"  Skipped: {sync_result.skipped}\n  Failed: {sync_result.failed}\n  Time: {sync_result.elapsed_seconds}s"
                 )
 
         # Migrate documents to pgvector for semantic search
@@ -302,20 +252,13 @@ def register(mcp, deps: Dependencies) -> None:
             migration_status = await _migrate_to_pgvector(deps)
             if deps.vector_store is not None:
                 vs_stats = await deps.vector_store.stats()
-                embed_report = (
-                    f"\n\n**Embedding Report**\n"
-                    f"  {migration_status}\n"
-                    f"  Documents: {vs_stats['total_documents']}\n"
-                    f"  Chunks: {vs_stats['total_chunks']}"
-                )
+                embed_report = f"\n\n**Embedding Report**\n  {migration_status}\n  Documents: {vs_stats['total_documents']}\n  Chunks: {vs_stats['total_chunks']}"
             else:
                 embed_report = f"\n\n**Embedding:** {migration_status}"
         except Exception as e:
             embed_report = f"\n\n**Embedding:** failed ({e})"
 
-        if single_report:
-            return single_report + embed_report
-        return sync_report + embed_report
+        return report + embed_report
 
     @mcp.tool()
     async def trigger_startup_sync() -> str:
@@ -330,8 +273,7 @@ def register(mcp, deps: Dependencies) -> None:
         deps.sync_circuit_open = False
         deps.sync_consecutive_failures = 0
 
-        store = deps.doc_store
-        st = await store.stats()
+        st = await deps.doc_store.stats()
 
         # Run pgvector migration if documents exist but embeddings are missing
         embed_report = ""
@@ -339,11 +281,7 @@ def register(mcp, deps: Dependencies) -> None:
             migration_status = await _migrate_to_pgvector(deps)
             if deps.vector_store is not None:
                 vs_stats = await deps.vector_store.stats()
-                embed_report = (
-                    f"\n  {migration_status}"
-                    f"\n  Vector documents: {vs_stats['total_documents']}"
-                    f"\n  Vector chunks: {vs_stats['total_chunks']}"
-                )
+                embed_report = f"\n  {migration_status}\n  Vector documents: {vs_stats['total_documents']}\n  Vector chunks: {vs_stats['total_chunks']}"
             else:
                 embed_report = f"\n  {migration_status}"
         except Exception as e:
@@ -375,15 +313,12 @@ def register(mcp, deps: Dependencies) -> None:
         st = await store.stats()
         cache_size = client.cache_size()
 
-        lines = ["**Document Health Report**\n"]
-        lines.append(f"Decision cache: {cache_size}")
-        lines.append(f"Documents with content: {st.total_documents}")
-
+        lines = [
+            f"**Document Health Report**\n\nDecision cache: {cache_size}\nDocuments with content: {st.total_documents}"
+        ]
         if cache_size > 0:
-            pct = st.total_documents / cache_size * 100
-            lines.append(f"Coverage: {pct:.1f}%")
+            lines.append(f"Coverage: {st.total_documents / cache_size * 100:.1f}%")
 
-        # Content quality checks
         corrupted: list[dict] = []
         too_short: list[dict] = []
         if pool is not None:
@@ -411,7 +346,6 @@ def register(mcp, deps: Dependencies) -> None:
             for doc in too_short[:10]:
                 lines.append(f"  - {doc['document_id']}: {doc['title'][:60]} ({doc['content_len']} bytes)")
 
-        # Chunk coverage
         if pool is not None:
             missing_chunks = await pool.fetch(
                 "SELECT d.document_id, d.title, length(d.markdown_content) as content_len "
@@ -431,11 +365,9 @@ def register(mcp, deps: Dependencies) -> None:
         if failures:
             lines.append(f"\n**Sync Failures: {len(failures)}**")
 
-            # Group by category
             by_cat: dict[str, list[dict]] = {}
             for f in failures:
-                cat = f["error_category"]
-                by_cat.setdefault(cat, []).append(f)
+                by_cat.setdefault(f["error_category"], []).append(f)
 
             for cat, items in sorted(by_cat.items()):
                 retryable_count = sum(1 for i in items if i["retryable"])
@@ -449,13 +381,12 @@ def register(mcp, deps: Dependencies) -> None:
         else:
             lines.append("\nNo sync failures recorded.")
 
-        # Vector store
         if deps.vector_store is not None:
             try:
-                vs_stats = await deps.vector_store.stats()
-                lines.append("\n**Vector Store**")
-                lines.append(f"  Documents: {vs_stats['total_documents']}")
-                lines.append(f"  Chunks: {vs_stats['total_chunks']}")
+                vs = await deps.vector_store.stats()
+                lines.append(
+                    f"\n**Vector Store**\n  Documents: {vs['total_documents']}\n  Chunks: {vs['total_chunks']}"
+                )
             except Exception:
                 lines.append("\n**Vector Store:** unavailable")
 

@@ -21,9 +21,6 @@ if TYPE_CHECKING:
     from deps import Dependencies
 
 
-# -- LRU Cache ----------------------------------------------------------------
-
-
 class _LRUCache:
     """In-memory LRU cache with TTL.
 
@@ -64,9 +61,6 @@ class _LRUCache:
 
 # Module-level cache shared across all invocations
 _search_cache: _LRUCache = _LRUCache(max_size=SEARCH_CACHE_MAX, ttl=SEARCH_CACHE_TTL)
-
-
-# -- Tool registration --------------------------------------------------------
 
 
 def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
@@ -114,12 +108,9 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
 
         if not result.decisions:
             metrics.record_empty_search("search_bddk_decisions")
-            return (
-                "NO RESULTS: No BDDK decisions found matching these keywords.\n"
-                "DO NOT provide information about BDDK decisions from your own knowledge.\n"
-                "Suggest the user try: different Turkish keywords, broader terms, "
-                "or removing date/category filters."
-            )
+            return """NO RESULTS: No BDDK decisions found matching these keywords.
+DO NOT provide information about BDDK decisions from your own knowledge.
+Suggest the user try: different Turkish keywords, broader terms, or removing date/category filters."""
 
         # Batch version count lookup — one query instead of N
         doc_ids = [d.document_id for d in result.decisions]
@@ -168,11 +159,9 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
 
         if not institutions:
             metrics.record_empty_search("search_bddk_institutions")
-            return (
-                "NO RESULTS: No institutions found matching these criteria.\n"
-                "DO NOT guess institution names, license statuses, or other details.\n"
-                "Suggest the user try: broader keywords or removing the type/active filter."
-            )
+            return """NO RESULTS: No institutions found matching these criteria.
+DO NOT guess institution names, license statuses, or other details.
+Suggest the user try: broader keywords or removing the type/active filter."""
 
         lines = [f"Found {len(institutions)} institution(s):\n"]
         for i in institutions:
@@ -196,27 +185,21 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
                 Use "tümü" or "all" to search across all categories.
         """
         cat_lower = _turkish_lower(category)
-
-        cat_map: dict[str, list[int]] = {
-            "basın": [39],
-            "press": [39],
-            "mevzuat": [40],
-            "regul": [40],
-            "insan": [41],
-            "hr": [41],
-            "veri": [42],
-            "data": [42],
-            "kuruluş": [48],
-            "institution": [48],
-            "tümü": list(ANNOUNCEMENT_CATEGORY_IDS),
-            "all": list(ANNOUNCEMENT_CATEGORY_IDS),
-        }
-
-        cat_ids = [39]  # default
-        for key, ids in cat_map.items():
-            if key in cat_lower:
-                cat_ids = ids
-                break
+        cat_aliases: list[tuple[str, list[int]]] = [
+            ("basın", [39]),
+            ("press", [39]),
+            ("mevzuat", [40]),
+            ("regul", [40]),
+            ("insan", [41]),
+            ("hr", [41]),
+            ("veri", [42]),
+            ("data", [42]),
+            ("kuruluş", [48]),
+            ("institution", [48]),
+            ("tümü", list(ANNOUNCEMENT_CATEGORY_IDS)),
+            ("all", list(ANNOUNCEMENT_CATEGORY_IDS)),
+        ]
+        cat_ids = next((ids for key, ids in cat_aliases if key in cat_lower), [39])
 
         announcements: list[dict] = []
         for cat_id in cat_ids:
@@ -228,12 +211,9 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
 
         if not announcements:
             metrics.record_empty_search("search_bddk_announcements")
-            return (
-                "NO RESULTS: No BDDK announcements found matching these criteria.\n"
-                "DO NOT fabricate announcements or press releases.\n"
-                "Suggest the user try: different keywords or a different category "
-                "(basın, mevzuat, insan kaynakları, veri, kuruluş, or tümü for all)."
-            )
+            return """NO RESULTS: No BDDK announcements found matching these criteria.
+DO NOT fabricate announcements or press releases.
+Suggest the user try: different keywords or a different category (basın, mevzuat, insan kaynakları, veri, kuruluş, or tümü for all)."""
 
         lines = [f"Found {len(announcements)} announcement(s):\n"]
         for a in announcements[:20]:
@@ -273,19 +253,15 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
 
         if not hits:
             metrics.record_empty_search("search_document_store")
-            return (
-                f"NO RESULTS: No documents found matching '{query}'.\n"
-                "DO NOT provide information from your own knowledge about BDDK regulations.\n"
-                "Suggest the user try: different Turkish keywords, broader terms, "
-                "or removing the category filter."
-            )
+            return f"""NO RESULTS: No documents found matching '{query}'.
+DO NOT provide information from your own knowledge about BDDK regulations.
+Suggest the user try: different Turkish keywords, broader terms, or removing the category filter."""
 
         lines = [f"Found {len(hits)} result(s) for '{query}':\n"]
         for h in hits:
             date_info = f" ({h['decision_date']})" if h.get("decision_date") else ""
             cat_info = f" [{h['category']}]" if h.get("category") else ""
-            confidence = h.get("confidence", "unknown")
-            relevance = f" [{confidence} confidence, {h['relevance']:.1%}]"
+            relevance = f" [{h.get('confidence', 'unknown')} confidence, {h['relevance']:.1%}]"
             lines.append(f"**{h['title']}**{date_info}{cat_info}{relevance}")
             lines.append(f"  Document ID: {h['doc_id']}")
             if h.get("snippet"):
@@ -296,8 +272,7 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
         if low_count > 0:
             metrics.record_low_confidence_hit()
             lines.append(
-                f"\nWARNING: {low_count} result(s) have low confidence. "
-                "These may not be directly relevant. Verify before citing."
+                f"\nWARNING: {low_count} result(s) have low confidence. These may not be directly relevant. Verify before citing."
             )
 
         output = "\n".join(lines)

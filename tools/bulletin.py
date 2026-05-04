@@ -13,7 +13,7 @@ from config import (
     validate_table_no,
     validate_year,
 )
-from data_sources import fetch_bulletin_snapshot, fetch_weekly_bulletin
+from data_sources import fetch_bulletin_snapshot, fetch_monthly_bulletin, fetch_weekly_bulletin
 
 if TYPE_CHECKING:
     from deps import Dependencies
@@ -50,23 +50,13 @@ def register(mcp, deps: Dependencies) -> None:
         except ValueError as e:
             return f"Validation error: {e}"
 
-        data = await fetch_weekly_bulletin(
-            deps.http,
-            metric_id,
-            currency,
-            days,
-            date,
-            column,
-        )
+        data = await fetch_weekly_bulletin(deps.http, metric_id, currency, days, date, column)
 
         if "error" in data:
             return f"Error fetching bulletin: {data['error']}"
 
         lines = [f"**{data.get('title', 'BDDK Weekly Bulletin')}** ({data['currency']})\n"]
-
-        dates = data.get("dates", [])
-        values = data.get("values", [])
-
+        dates, values = data.get("dates", []), data.get("values", [])
         if dates and values:
             for d, v in zip(dates[-10:], values[-10:], strict=False):
                 lines.append(f"  {d}: {v}")
@@ -126,16 +116,7 @@ def register(mcp, deps: Dependencies) -> None:
         except ValueError as e:
             return f"Validation error: {e}"
 
-        from data_sources import fetch_monthly_bulletin
-
-        result = await fetch_monthly_bulletin(
-            deps.http,
-            table_no,
-            year,
-            month,
-            currency,
-            party_code,
-        )
+        result = await fetch_monthly_bulletin(deps.http, table_no, year, month, currency, party_code)
 
         if "error" in result:
             return f"Error: {result['error']}"
