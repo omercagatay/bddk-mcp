@@ -152,8 +152,7 @@ async def startup_sync(deps: Dependencies) -> None:
     if deps.sync_circuit_open:
         logger.warning(
             "Startup sync skipped: circuit breaker open (%d consecutive failures, last: %s)",
-            deps.sync_consecutive_failures,
-            deps.last_sync_error,
+            deps.sync_consecutive_failures, deps.last_sync_error,
         )
         return
 
@@ -176,19 +175,13 @@ async def startup_sync(deps: Dependencies) -> None:
 
             # Phase 1: Download missing documents
             if st.total_documents < cache_size * 0.9:
-                logger.info(
-                    "Document store incomplete (%d/%d) — downloading...",
-                    st.total_documents,
-                    cache_size,
-                )
+                logger.info("Document store incomplete (%d/%d) — downloading...", st.total_documents, cache_size)
                 items = [d.model_dump() for d in client.get_cache_items()]
                 async with DocumentSyncer(store, http=deps.http, vector_store=deps.vector_store) as syncer:
                     report = await syncer.sync_all(items, concurrency=10, force=False)
                 logger.info(
                     "Document sync: %d downloaded, %d failed, %.1fs",
-                    report.downloaded,
-                    report.failed,
-                    report.elapsed_seconds,
+                    report.downloaded, report.failed, report.elapsed_seconds,
                 )
             else:
                 logger.info("Document store has %d/%d documents, OK", st.total_documents, cache_size)
