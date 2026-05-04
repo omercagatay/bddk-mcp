@@ -97,18 +97,11 @@ def register(mcp, deps: Dependencies) -> None:
                 "If the document should be available, re-run the seed (`seed.py import`) or sync pipeline."
             )
 
-        meta_title = resolved_id
-        meta_date = ""
-        meta_number = ""
-        meta_category = ""
-        source_url = ""
         found = deps.client.find_by_id(resolved_id)
-        if found:
-            meta_title = found.title
-            meta_date = found.decision_date
-            meta_number = found.decision_number
-            meta_category = found.category
-            source_url = found.source_url or ""
+        meta_title, meta_date, meta_number, meta_category, source_url = (
+            (found.title, found.decision_date, found.decision_number, found.category, found.source_url or "")
+            if found else (resolved_id, "", "", "", "")
+        )
 
         alias_line = f"- Resolved from: `{document_id}` -> `{resolved_id}`\n" if resolved_id != document_id else ""
 
