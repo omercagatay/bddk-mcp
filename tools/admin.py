@@ -32,7 +32,12 @@ def register(mcp, deps: Dependencies) -> None:
         hours, remainder = divmod(uptime_s, 3600)
         minutes, seconds = divmod(remainder, 60)
 
-        status = "  Status: DEGRADED (sync circuit open after 10 consecutive failures)" if deps.sync_circuit_open else "  Status: INITIALIZING (vector store loading)" if deps.vector_store is None else "  Status: OK"
+        if deps.sync_circuit_open:
+            status = "  Status: DEGRADED (sync circuit open after 10 consecutive failures)"
+        elif deps.vector_store is None:
+            status = "  Status: INITIALIZING (vector store loading)"
+        else:
+            status = "  Status: OK"
         last_sync = f"  Last sync: {int(time.time() - deps.last_sync_time)}s ago" if deps.last_sync_time else "  Last sync: never"
         lines = [f"**BDDK MCP Server Health**\n\n{status}\n  Uptime: {hours}h {minutes}m {seconds}s\n  Backend: PostgreSQL + pgvector", last_sync]
         if deps.last_sync_error:
@@ -70,7 +75,14 @@ def register(mcp, deps: Dependencies) -> None:
         """
         m = metrics.summary()
 
-        lines = [f"**BDDK MCP Server Metrics**\n\n  Uptime: {m['uptime_seconds']}s\n  Total requests: {m['total_requests']}\n  Total errors: {m['total_errors']}\n  Cache hit rate: {m['cache_hit_rate']}%\n  Cache hits/misses: {m['cache_hits']}/{m['cache_misses']}"]
+        lines = [
+            "**BDDK MCP Server Metrics**\n",
+            f"  Uptime: {m['uptime_seconds']}s",
+            f"  Total requests: {m['total_requests']}",
+            f"  Total errors: {m['total_errors']}",
+            f"  Cache hit rate: {m['cache_hit_rate']}%",
+            f"  Cache hits/misses: {m['cache_hits']}/{m['cache_misses']}",
+        ]
 
         if m["tools"]:
             lines.append(f"\n**Per-Tool Metrics:**\n  {'Tool':<35} {'Requests':>10} {'Errors':>8} {'Avg ms':>10}\n  " + "-" * 65)
