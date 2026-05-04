@@ -85,9 +85,7 @@ def register(mcp, deps: Dependencies) -> None:
 
         digest = await build_digest(deps.http, deps.client.get_cache_items(), days)
 
-        lines = [f"**BDDK Düzenleyici Özet — Son {days} Gün**\n"]
-        lines.append(digest["narrative"])
-        lines.append("")
+        lines = [f"**BDDK Düzenleyici Özet — Son {days} Gün**\n", digest["narrative"], ""]
 
         if digest["decisions_by_category"]:
             lines.append("**Kararlar (kategoriye göre):**")
@@ -98,8 +96,7 @@ def register(mcp, deps: Dependencies) -> None:
         if digest["new_decisions"]:
             lines.append("**Son Kararlar:**")
             for d in digest["new_decisions"][:10]:
-                date = d.get("decision_date", "")
-                lines.append(f"  - {d['title']} ({date}) [{d.get('category', '')}]")
+                lines.append(f"  - {d['title']} ({d.get('decision_date', '')}) [{d.get('category', '')}]")
             lines.append("")
 
         if digest["announcements"]:
@@ -148,16 +145,16 @@ def register(mcp, deps: Dependencies) -> None:
         result = await compare_metrics(deps.http, ids, currency, column, days)
 
         col_label = {"1": "TP", "2": "YP", "3": "Toplam"}.get(column, column)
-        lines = [f"**Metrik Karşılaştırması** ({currency}, {col_label})\n"]
-        lines.append(f"{'Metrik':<55} {'Güncel':>15} {'Haftalık %':>12}")
-        lines.append("-" * 85)
-
+        lines = [
+            f"**Metrik Karşılaştırması** ({currency}, {col_label})\n",
+            f"{'Metrik':<55} {'Güncel':>15} {'Haftalık %':>12}",
+            "-" * 85,
+        ]
         for m in result["metrics"]:
             if "error" in m:
                 lines.append(f"{m['metric_id']:<55} {'HATA':>15} {'-':>12}")
             else:
-                title = m["title"][:55]
-                lines.append(f"{title:<55} {m['current']:>15,.2f} {m['wow_pct']:>+11.2f}%")
+                lines.append(f"{m['title'][:55]:<55} {m['current']:>15,.2f} {m['wow_pct']:>+11.2f}%")
 
         return "\n".join(lines)
 
