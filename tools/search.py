@@ -114,12 +114,9 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
 
         if not result.decisions:
             metrics.record_empty_search("search_bddk_decisions")
-            return (
-                "NO RESULTS: No BDDK decisions found matching these keywords.\n"
-                "DO NOT provide information about BDDK decisions from your own knowledge.\n"
-                "Suggest the user try: different Turkish keywords, broader terms, "
-                "or removing date/category filters."
-            )
+            return """NO RESULTS: No BDDK decisions found matching these keywords.
+DO NOT provide information about BDDK decisions from your own knowledge.
+Suggest the user try: different Turkish keywords, broader terms, or removing date/category filters."""
 
         # Batch version count lookup — one query instead of N
         doc_ids = [d.document_id for d in result.decisions]
@@ -168,11 +165,9 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
 
         if not institutions:
             metrics.record_empty_search("search_bddk_institutions")
-            return (
-                "NO RESULTS: No institutions found matching these criteria.\n"
-                "DO NOT guess institution names, license statuses, or other details.\n"
-                "Suggest the user try: broader keywords or removing the type/active filter."
-            )
+            return """NO RESULTS: No institutions found matching these criteria.
+DO NOT guess institution names, license statuses, or other details.
+Suggest the user try: broader keywords or removing the type/active filter."""
 
         lines = [f"Found {len(institutions)} institution(s):\n"]
         for i in institutions:
@@ -228,12 +223,9 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
 
         if not announcements:
             metrics.record_empty_search("search_bddk_announcements")
-            return (
-                "NO RESULTS: No BDDK announcements found matching these criteria.\n"
-                "DO NOT fabricate announcements or press releases.\n"
-                "Suggest the user try: different keywords or a different category "
-                "(basın, mevzuat, insan kaynakları, veri, kuruluş, or tümü for all)."
-            )
+            return """NO RESULTS: No BDDK announcements found matching these criteria.
+DO NOT fabricate announcements or press releases.
+Suggest the user try: different keywords or a different category (basın, mevzuat, insan kaynakları, veri, kuruluş, or tümü for all)."""
 
         lines = [f"Found {len(announcements)} announcement(s):\n"]
         for a in announcements[:20]:
@@ -273,12 +265,9 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
 
         if not hits:
             metrics.record_empty_search("search_document_store")
-            return (
-                f"NO RESULTS: No documents found matching '{query}'.\n"
-                "DO NOT provide information from your own knowledge about BDDK regulations.\n"
-                "Suggest the user try: different Turkish keywords, broader terms, "
-                "or removing the category filter."
-            )
+            return f"""NO RESULTS: No documents found matching '{query}'.
+DO NOT provide information from your own knowledge about BDDK regulations.
+Suggest the user try: different Turkish keywords, broader terms, or removing the category filter."""
 
         lines = [f"Found {len(hits)} result(s) for '{query}':\n"]
         for h in hits:
