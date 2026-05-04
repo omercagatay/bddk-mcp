@@ -221,8 +221,7 @@ def register(mcp, deps: Dependencies) -> None:
             lines.append(f"  Current: {current}")
         elif state == "done":
             lines.append(f"  Total time: {p.get('elapsed_seconds', 0):.1f}s")
-            failures = p.get("failures", [])
-            if failures:
+            if failures := p.get("failures", []):
                 lines.append(f"\n**Failed IDs ({len(failures)}):**")
                 for doc_id, reason in failures[:20]:
                     lines.append(f"  {doc_id}: {reason}")

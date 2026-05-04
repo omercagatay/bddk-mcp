@@ -270,8 +270,7 @@ def register(mcp, deps: Dependencies) -> None:
         deps.sync_circuit_open = False
         deps.sync_consecutive_failures = 0
 
-        store = deps.doc_store
-        st = await store.stats()
+        st = await deps.doc_store.stats()
 
         # Run pgvector migration if documents exist but embeddings are missing
         embed_report = ""

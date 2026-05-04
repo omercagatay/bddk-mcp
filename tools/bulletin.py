@@ -13,7 +13,7 @@ from config import (
     validate_table_no,
     validate_year,
 )
-from data_sources import fetch_bulletin_snapshot, fetch_weekly_bulletin
+from data_sources import fetch_bulletin_snapshot, fetch_monthly_bulletin, fetch_weekly_bulletin
 
 if TYPE_CHECKING:
     from deps import Dependencies
@@ -118,8 +118,6 @@ def register(mcp, deps: Dependencies) -> None:
             validate_currency(currency, "monthly")
         except ValueError as e:
             return f"Validation error: {e}"
-
-        from data_sources import fetch_monthly_bulletin
 
         result = await fetch_monthly_bulletin(deps.http, table_no, year, month, currency, party_code)
 
