@@ -21,9 +21,6 @@ if TYPE_CHECKING:
     from deps import Dependencies
 
 
-# -- LRU Cache ----------------------------------------------------------------
-
-
 class _LRUCache:
     """In-memory LRU cache with TTL.
 
@@ -64,9 +61,6 @@ class _LRUCache:
 
 # Module-level cache shared across all invocations
 _search_cache: _LRUCache = _LRUCache(max_size=SEARCH_CACHE_MAX, ttl=SEARCH_CACHE_TTL)
-
-
-# -- Tool registration --------------------------------------------------------
 
 
 def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
