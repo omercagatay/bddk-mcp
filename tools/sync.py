@@ -66,20 +66,13 @@ async def _migrate_to_pgvector(deps: Dependencies) -> str:
     try:
         vs_stats = await vs.stats()
         sqlite_stats = await store.stats()
+        have, want = vs_stats["total_documents"], sqlite_stats.total_documents
 
-        if vs_stats["total_documents"] >= sqlite_stats.total_documents * 0.9:
-            logger.info(
-                "pgvector has %d/%d documents, skipping migration",
-                vs_stats["total_documents"],
-                sqlite_stats.total_documents,
-            )
-            return f"pgvector up-to-date: {vs_stats['total_documents']}/{sqlite_stats.total_documents} documents"
+        if have >= want * 0.9:
+            logger.info("pgvector has %d/%d documents, skipping migration", have, want)
+            return f"pgvector up-to-date: {have}/{want} documents"
 
-        logger.info(
-            "pgvector incomplete (%d/%d) — migrating...",
-            vs_stats["total_documents"],
-            sqlite_stats.total_documents,
-        )
+        logger.info("pgvector incomplete (%d/%d) — migrating...", have, want)
 
         start = time.time()
         docs = await store.list_documents(limit=2000)
@@ -138,12 +131,7 @@ async def _migrate_to_pgvector(deps: Dependencies) -> str:
                 logger.info("pgvector migration: %d/%d docs", i + 1, len(docs))
 
         elapsed = time.time() - start
-        logger.info(
-            "pgvector migration complete: %d docs, %d chunks, %.1fs",
-            migrated,
-            total_chunks,
-            elapsed,
-        )
+        logger.info("pgvector migration complete: %d docs, %d chunks, %.1fs", migrated, total_chunks, elapsed)
         return f"Migrated {migrated} documents, {total_chunks} chunks in {elapsed:.1f}s"
 
     except (BddkError, RuntimeError, OSError) as e:
