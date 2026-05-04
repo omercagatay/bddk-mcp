@@ -103,12 +103,8 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
             return cached  # type: ignore[return-value]
 
         request = BddkSearchRequest(
-            keywords=keywords,
-            page=page,
-            page_size=page_size,
-            category=category,
-            date_from=date_from,
-            date_to=date_to,
+            keywords=keywords, page=page, page_size=page_size,
+            category=category, date_from=date_from, date_to=date_to,
         )
         result = await deps.client.search_decisions(request)
 
@@ -159,9 +155,7 @@ Suggest the user try: different Turkish keywords, broader terms, or removing dat
 
         if keywords:
             kw = _turkish_lower(keywords)
-            institutions = [
-                i for i in institutions if kw in _turkish_lower(i["name"]) or kw in _turkish_lower(i.get("type", ""))
-            ]
+            institutions = [i for i in institutions if kw in _turkish_lower(i["name"]) or kw in _turkish_lower(i.get("type", ""))]
 
         if not institutions:
             metrics.record_empty_search("search_bddk_institutions")
