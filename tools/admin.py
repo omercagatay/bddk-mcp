@@ -149,10 +149,9 @@ def register(mcp, deps: Dependencies) -> None:
         lines = [f"**Backfill candidates: {len(candidates)}**"]
         for sig, count in sorted(by_sig.items()):
             lines.append(f"  {sig}: {count}")
-        preview = candidates[:10]
-        if preview:
+        if candidates:
             lines.append("\n**First 10:**")
-            for c in preview:
+            for c in candidates[:10]:
                 lines.append(f"  {c.document_id}  len={c.len:>6}  sig={c.signature}")
         if len(candidates) > 10:
             lines.append(f"  ... and {len(candidates) - 10} more")
@@ -165,15 +164,9 @@ def register(mcp, deps: Dependencies) -> None:
             lines.append("\nDry run — no changes made. Call with dry_run=False to execute.")
             return "\n".join(lines)
 
-        # Kick off the background task
         deps.backfill_progress = {
-            "total": len(candidates),
-            "processed": 0,
-            "succeeded": 0,
-            "failed": 0,
-            "current": "",
-            "state": "running",
-            "signatures": by_sig,
+            "total": len(candidates), "processed": 0, "succeeded": 0, "failed": 0,
+            "current": "", "state": "running", "signatures": by_sig,
         }
         deps.backfill_started_at = time.time()
 
