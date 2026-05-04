@@ -75,8 +75,7 @@ def register(mcp, deps: Dependencies) -> None:
         lines = [f"**BDDK MCP Server Metrics**\n\n  Uptime: {m['uptime_seconds']}s\n  Total requests: {m['total_requests']}\n  Total errors: {m['total_errors']}\n  Cache hit rate: {m['cache_hit_rate']}%\n  Cache hits/misses: {m['cache_hits']}/{m['cache_misses']}"]
 
         if m["tools"]:
-            lines.append(f"\n**Per-Tool Metrics:**\n  {'Tool':<35} {'Requests':>10} {'Errors':>8} {'Avg ms':>10}")
-            lines.append("  " + "-" * 65)
+            lines.append(f"\n**Per-Tool Metrics:**\n  {'Tool':<35} {'Requests':>10} {'Errors':>8} {'Avg ms':>10}\n  " + "-" * 65)
             for t in m["tools"]:
                 lines.append(f"  {t['tool']:<35} {t['requests']:>10} {t['errors']:>8} {t['avg_latency_ms']:>10.1f}")
 
