@@ -33,10 +33,8 @@ def register(mcp, deps: Dependencies) -> None:
         minutes, seconds = divmod(remainder, 60)
 
         status = "  Status: DEGRADED (sync circuit open after 10 consecutive failures)" if deps.sync_circuit_open else "  Status: INITIALIZING (vector store loading)" if deps.vector_store is None else "  Status: OK"
-        lines = [
-            f"**BDDK MCP Server Health**\n\n{status}\n  Uptime: {hours}h {minutes}m {seconds}s\n  Backend: PostgreSQL + pgvector",
-            f"  Last sync: {int(time.time() - deps.last_sync_time)}s ago" if deps.last_sync_time else "  Last sync: never",
-        ]
+        last_sync = f"  Last sync: {int(time.time() - deps.last_sync_time)}s ago" if deps.last_sync_time else "  Last sync: never"
+        lines = [f"**BDDK MCP Server Health**\n\n{status}\n  Uptime: {hours}h {minutes}m {seconds}s\n  Backend: PostgreSQL + pgvector", last_sync]
         if deps.last_sync_error:
             lines.append(f"  Last sync error: {deps.last_sync_error}")
 
