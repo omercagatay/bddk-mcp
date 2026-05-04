@@ -32,48 +32,36 @@ def register(mcp, deps: Dependencies) -> None:
         hours, remainder = divmod(uptime_s, 3600)
         minutes, seconds = divmod(remainder, 60)
 
-        lines = ["**BDDK MCP Server Health**\n"]
-
-        if deps.sync_circuit_open:
-            lines.append("  Status: DEGRADED (sync circuit open after 10 consecutive failures)")
-        elif deps.vector_store is None:
-            lines.append("  Status: INITIALIZING (vector store loading)")
-        else:
-            lines.append("  Status: OK")
-
-        lines.append(f"  Uptime: {hours}h {minutes}m {seconds}s")
-        lines.append("  Backend: PostgreSQL + pgvector")
-
-        if deps.last_sync_time:
-            ago = int(time.time() - deps.last_sync_time)
-            lines.append(f"  Last sync: {ago}s ago")
-        else:
-            lines.append("  Last sync: never")
-
+        status = (
+            "  Status: DEGRADED (sync circuit open after 10 consecutive failures)" if deps.sync_circuit_open
+            else "  Status: INITIALIZING (vector store loading)" if deps.vector_store is None
+            else "  Status: OK"
+        )
+        lines = [
+            "**BDDK MCP Server Health**\n",
+            status,
+            f"  Uptime: {hours}h {minutes}m {seconds}s",
+            "  Backend: PostgreSQL + pgvector",
+            f"  Last sync: {int(time.time() - deps.last_sync_time)}s ago" if deps.last_sync_time else "  Last sync: never",
+        ]
         if deps.last_sync_error:
             lines.append(f"  Last sync error: {deps.last_sync_error}")
 
-        # Cache status
         try:
-            status = deps.client.cache_status()
-            lines.append(f"  Cache items: {status['total_items']}")
-            lines.append(f"  Cache valid: {status['cache_valid']}")
+            cs = deps.client.cache_status()
+            lines.append(f"  Cache items: {cs['total_items']}\n  Cache valid: {cs['cache_valid']}")
         except (RuntimeError, BddkError, AttributeError):
             lines.append("  Cache: unavailable")
 
-        # Store status
         try:
             st = await deps.doc_store.stats()
             lines.append(f"  Documents: {st.total_documents}")
         except (RuntimeError, BddkStorageError, AttributeError):
             lines.append("  Documents: unavailable")
 
-        # Pool utilization
         try:
-            size = deps.pool.get_size()
-            max_size = deps.pool.get_max_size()
-            idle = deps.pool.get_idle_size()
-            lines.append(f"  Pool: {size}/{max_size} connections ({idle} idle)")
+            pool = deps.pool
+            lines.append(f"  Pool: {pool.get_size()}/{pool.get_max_size()} connections ({pool.get_idle_size()} idle)")
         except (RuntimeError, AttributeError):
             lines.append("  Pool: unavailable")
 
