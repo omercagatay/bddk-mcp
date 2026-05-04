@@ -91,11 +91,7 @@ def register(mcp, deps: Dependencies) -> None:
                 break
 
         if resolved_id is None:
-            return (
-                f"Document {document_id} is not available in the local store. "
-                "This MCP server is airlocked and does not fetch from live BDDK / mevzuat.gov.tr sources at runtime. "
-                "If the document should be available, re-run the seed (`seed.py import`) or sync pipeline."
-            )
+            return f"Document {document_id} is not available in the local store. This MCP server is airlocked and does not fetch from live BDDK / mevzuat.gov.tr sources at runtime. If the document should be available, re-run the seed (`seed.py import`) or sync pipeline."
 
         found = deps.client.find_by_id(resolved_id)
         meta_title, meta_date, meta_number, meta_category, source_url = (

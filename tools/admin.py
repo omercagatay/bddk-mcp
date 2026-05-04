@@ -76,11 +76,7 @@ def register(mcp, deps: Dependencies) -> None:
         """
         m = metrics.summary()
 
-        lines = [
-            f"**BDDK MCP Server Metrics**\n\n  Uptime: {m['uptime_seconds']}s\n  Total requests: {m['total_requests']}\n"
-            f"  Total errors: {m['total_errors']}\n  Cache hit rate: {m['cache_hit_rate']}%\n"
-            f"  Cache hits/misses: {m['cache_hits']}/{m['cache_misses']}"
-        ]
+        lines = [f"**BDDK MCP Server Metrics**\n\n  Uptime: {m['uptime_seconds']}s\n  Total requests: {m['total_requests']}\n  Total errors: {m['total_errors']}\n  Cache hit rate: {m['cache_hit_rate']}%\n  Cache hits/misses: {m['cache_hits']}/{m['cache_misses']}"]
 
         if m["tools"]:
             lines.append(f"\n**Per-Tool Metrics:**\n  {'Tool':<35} {'Requests':>10} {'Errors':>8} {'Avg ms':>10}")
@@ -208,12 +204,7 @@ def register(mcp, deps: Dependencies) -> None:
 
         p = deps.backfill_progress
         state = p.get("state", "unknown")
-        lines = [
-            f"**Backfill: {state}**",
-            f"  Processed: {p.get('processed', 0)}/{p.get('total', 0)}",
-            f"  Succeeded: {p.get('succeeded', 0)}",
-            f"  Failed: {p.get('failed', 0)}",
-        ]
+        lines = [f"**Backfill: {state}**\n  Processed: {p.get('processed', 0)}/{p.get('total', 0)}\n  Succeeded: {p.get('succeeded', 0)}\n  Failed: {p.get('failed', 0)}"]
         if deps.backfill_started_at:
             lines.append(f"  Elapsed: {time.time() - deps.backfill_started_at:.1f}s")
 

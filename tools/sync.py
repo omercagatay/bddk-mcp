@@ -310,9 +310,7 @@ def register(mcp, deps: Dependencies) -> None:
         st = await store.stats()
         cache_size = client.cache_size()
 
-        lines = [
-            f"**Document Health Report**\n\nDecision cache: {cache_size}\nDocuments with content: {st.total_documents}",
-        ]
+        lines = [f"**Document Health Report**\n\nDecision cache: {cache_size}\nDocuments with content: {st.total_documents}"]
         if cache_size > 0:
             lines.append(f"Coverage: {st.total_documents / cache_size * 100:.1f}%")
 

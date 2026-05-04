@@ -145,11 +145,7 @@ def register(mcp, deps: Dependencies) -> None:
         result = await compare_metrics(deps.http, ids, currency, column, days)
 
         col_label = {"1": "TP", "2": "YP", "3": "Toplam"}.get(column, column)
-        lines = [
-            f"**Metrik Karşılaştırması** ({currency}, {col_label})\n",
-            f"{'Metrik':<55} {'Güncel':>15} {'Haftalık %':>12}",
-            "-" * 85,
-        ]
+        lines = [f"**Metrik Karşılaştırması** ({currency}, {col_label})\n", f"{'Metrik':<55} {'Güncel':>15} {'Haftalık %':>12}", "-" * 85]
         for m in result["metrics"]:
             if "error" in m:
                 lines.append(f"{m['metric_id']:<55} {'HATA':>15} {'-':>12}")
