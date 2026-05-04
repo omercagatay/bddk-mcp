@@ -363,13 +363,11 @@ def register(mcp, deps: Dependencies) -> None:
         st = await store.stats()
         cache_size = client.cache_size()
 
-        lines = ["**Document Health Report**\n"]
-        lines.append(f"Decision cache: {cache_size}")
-        lines.append(f"Documents with content: {st.total_documents}")
-
+        lines = [
+            f"**Document Health Report**\n\nDecision cache: {cache_size}\nDocuments with content: {st.total_documents}",
+        ]
         if cache_size > 0:
-            pct = st.total_documents / cache_size * 100
-            lines.append(f"Coverage: {pct:.1f}%")
+            lines.append(f"Coverage: {st.total_documents / cache_size * 100:.1f}%")
 
         # Content quality checks
         corrupted: list[dict] = []
@@ -437,13 +435,10 @@ def register(mcp, deps: Dependencies) -> None:
         else:
             lines.append("\nNo sync failures recorded.")
 
-        # Vector store
         if deps.vector_store is not None:
             try:
-                vs_stats = await deps.vector_store.stats()
-                lines.append("\n**Vector Store**")
-                lines.append(f"  Documents: {vs_stats['total_documents']}")
-                lines.append(f"  Chunks: {vs_stats['total_chunks']}")
+                vs = await deps.vector_store.stats()
+                lines.append(f"\n**Vector Store**\n  Documents: {vs['total_documents']}\n  Chunks: {vs['total_chunks']}")
             except Exception:
                 lines.append("\n**Vector Store:** unavailable")
 
