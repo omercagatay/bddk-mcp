@@ -85,10 +85,7 @@ async def _migrate_to_pgvector(deps: Dependencies) -> str:
         batch_succeeded = False
         if pool is not None and doc_ids:
             try:
-                rows = await pool.fetch(
-                    "SELECT DISTINCT doc_id FROM document_chunks WHERE doc_id = ANY($1)",
-                    doc_ids,
-                )
+                rows = await pool.fetch("SELECT DISTINCT doc_id FROM document_chunks WHERE doc_id = ANY($1)", doc_ids)
                 existing_ids = {r["doc_id"] for r in rows}
                 batch_succeeded = True
             except Exception as e:
@@ -102,27 +99,16 @@ async def _migrate_to_pgvector(deps: Dependencies) -> str:
                 break
 
             doc_id = meta["document_id"]
-
-            # Use batch result if available, otherwise fall back to per-doc check
-            if batch_succeeded:
-                if doc_id in existing_ids:
-                    continue
-            else:
-                if await vs.has_document(doc_id):
-                    continue
+            if (doc_id in existing_ids) if batch_succeeded else await vs.has_document(doc_id):
+                continue
 
             doc = await store.get_document(doc_id)
             if not doc or not doc.markdown_content:
                 continue
 
             chunks = await vs.add_document(
-                doc_id=doc.document_id,
-                title=doc.title,
-                content=doc.markdown_content,
-                category=doc.category,
-                decision_date=doc.decision_date,
-                decision_number=doc.decision_number,
-                source_url=doc.source_url,
+                doc_id=doc.document_id, title=doc.title, content=doc.markdown_content, category=doc.category,
+                decision_date=doc.decision_date, decision_number=doc.decision_number, source_url=doc.source_url,
             )
             total_chunks += chunks
             migrated += 1
