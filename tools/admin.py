@@ -38,10 +38,7 @@ def register(mcp, deps: Dependencies) -> None:
             else "  Status: OK"
         )
         lines = [
-            "**BDDK MCP Server Health**\n",
-            status,
-            f"  Uptime: {hours}h {minutes}m {seconds}s",
-            "  Backend: PostgreSQL + pgvector",
+            f"**BDDK MCP Server Health**\n\n{status}\n  Uptime: {hours}h {minutes}m {seconds}s\n  Backend: PostgreSQL + pgvector",
             f"  Last sync: {int(time.time() - deps.last_sync_time)}s ago" if deps.last_sync_time else "  Last sync: never",
         ]
         if deps.last_sync_error:
@@ -80,9 +77,8 @@ def register(mcp, deps: Dependencies) -> None:
         m = metrics.summary()
 
         lines = [
-            f"**BDDK MCP Server Metrics**\n\n  Uptime: {m['uptime_seconds']}s\n"
-            f"  Total requests: {m['total_requests']}\n  Total errors: {m['total_errors']}\n"
-            f"  Cache hit rate: {m['cache_hit_rate']}%\n"
+            f"**BDDK MCP Server Metrics**\n\n  Uptime: {m['uptime_seconds']}s\n  Total requests: {m['total_requests']}\n"
+            f"  Total errors: {m['total_errors']}\n  Cache hit rate: {m['cache_hit_rate']}%\n"
             f"  Cache hits/misses: {m['cache_hits']}/{m['cache_misses']}"
         ]
 
