@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from config import ADMIN_TOOLS, validate_column, validate_currency, validate_metric_id, validate_month, validate_table_no, validate_year
+from config import (
+    ADMIN_TOOLS,
+    validate_column,
+    validate_currency,
+    validate_metric_id,
+    validate_month,
+    validate_table_no,
+    validate_year,
+)
 from data_sources import fetch_bulletin_snapshot, fetch_monthly_bulletin, fetch_weekly_bulletin
 
 if TYPE_CHECKING:

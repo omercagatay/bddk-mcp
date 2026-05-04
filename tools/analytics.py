@@ -5,7 +5,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from analytics import analyze_trends, build_digest, check_updates, compare_metrics
-from config import ANNOUNCEMENT_CATEGORY_IDS, validate_column, validate_currency, validate_metric_id
+from config import (
+    ANNOUNCEMENT_CATEGORY_IDS,
+    validate_column,
+    validate_currency,
+    validate_metric_id,
+)
 from data_sources import fetch_announcements
 
 if TYPE_CHECKING:

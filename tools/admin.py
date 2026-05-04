@@ -32,7 +32,11 @@ def register(mcp, deps: Dependencies) -> None:
         hours, remainder = divmod(uptime_s, 3600)
         minutes, seconds = divmod(remainder, 60)
 
-        status = "  Status: DEGRADED (sync circuit open after 10 consecutive failures)" if deps.sync_circuit_open else "  Status: INITIALIZING (vector store loading)" if deps.vector_store is None else "  Status: OK"
+        status = (
+            "  Status: DEGRADED (sync circuit open after 10 consecutive failures)" if deps.sync_circuit_open
+            else "  Status: INITIALIZING (vector store loading)" if deps.vector_store is None
+            else "  Status: OK"
+        )
         lines = [
             f"**BDDK MCP Server Health**\n\n{status}\n  Uptime: {hours}h {minutes}m {seconds}s\n  Backend: PostgreSQL + pgvector",
             f"  Last sync: {int(time.time() - deps.last_sync_time)}s ago" if deps.last_sync_time else "  Last sync: never",
@@ -169,7 +173,12 @@ def register(mcp, deps: Dependencies) -> None:
             try:
                 async with DocumentSyncer(deps.doc_store, http=deps.http, vector_store=deps.vector_store) as syncer:
                     report = await execute_backfill(syncer, candidates, on_progress=on_progress)
-                deps.backfill_progress.update(state="done", elapsed_seconds=report.elapsed_seconds, ok=len(report.ok), failures=report.failed)
+                deps.backfill_progress.update(
+                    state="done",
+                    elapsed_seconds=report.elapsed_seconds,
+                    ok=len(report.ok),
+                    failures=report.failed,
+                )
             except Exception as exc:
                 logger.exception("Backfill task crashed")
                 deps.backfill_progress["state"] = "error"
