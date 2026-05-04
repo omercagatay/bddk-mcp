@@ -140,11 +140,7 @@ def register(mcp, deps: Dependencies) -> None:
             return "Backfill already running. Call `backfill_status` to see progress."
 
         try:
-            candidates = await scan_candidates(
-                deps.pool,
-                include_legacy_corruption=include_legacy_corruption,
-                limit=limit,
-            )
+            candidates = await scan_candidates(deps.pool, include_legacy_corruption=include_legacy_corruption, limit=limit)
         except (BddkError, BddkStorageError, RuntimeError) as exc:
             logger.warning("backfill_degraded_documents scan failed: %s", exc)
             return f"Scan failed: {exc}"

@@ -47,13 +47,7 @@ def register(mcp, deps: Dependencies) -> None:
         except ValueError as e:
             return f"Validation error: {e}"
 
-        result = await analyze_trends(
-            deps.http,
-            metric_id,
-            currency,
-            column,
-            lookback_weeks,
-        )
+        result = await analyze_trends(deps.http, metric_id, currency, column, lookback_weeks)
 
         if "error" in result:
             return f"Error: {result['error']}"

@@ -50,14 +50,7 @@ def register(mcp, deps: Dependencies) -> None:
         except ValueError as e:
             return f"Validation error: {e}"
 
-        data = await fetch_weekly_bulletin(
-            deps.http,
-            metric_id,
-            currency,
-            days,
-            date,
-            column,
-        )
+        data = await fetch_weekly_bulletin(deps.http, metric_id, currency, days, date, column)
 
         if "error" in data:
             return f"Error fetching bulletin: {data['error']}"
@@ -128,14 +121,7 @@ def register(mcp, deps: Dependencies) -> None:
 
         from data_sources import fetch_monthly_bulletin
 
-        result = await fetch_monthly_bulletin(
-            deps.http,
-            table_no,
-            year,
-            month,
-            currency,
-            party_code,
-        )
+        result = await fetch_monthly_bulletin(deps.http, table_no, year, month, currency, party_code)
 
         if "error" in result:
             return f"Error: {result['error']}"

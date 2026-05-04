@@ -74,11 +74,7 @@ def register(mcp, deps: Dependencies) -> None:
                     vp = await deps.vector_store.get_document_page(cand, page_number)
                     if vp and vp["content"] and "Invalid page" not in vp["content"]:
                         resolved_id = cand
-                        page_num, total_pages, content = (
-                            vp["page_number"],
-                            vp["total_pages"],
-                            vp["content"],
-                        )
+                        page_num, total_pages, content = vp["page_number"], vp["total_pages"], vp["content"]
                         served_via_vector = True
                         break
                 except Exception as e:
@@ -92,11 +88,7 @@ def register(mcp, deps: Dependencies) -> None:
 
             if stored and stored.markdown_content and "Invalid page" not in stored.markdown_content:
                 resolved_id = cand
-                page_num, total_pages, content = (
-                    stored.page_number,
-                    stored.total_pages,
-                    stored.markdown_content,
-                )
+                page_num, total_pages, content = stored.page_number, stored.total_pages, stored.markdown_content
                 extraction_method = stored.extraction_method or ""
                 break
 
