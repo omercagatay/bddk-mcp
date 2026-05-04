@@ -317,15 +317,10 @@ def register(mcp, deps: Dependencies) -> None:
         if cache_size > 0:
             lines.append(f"Coverage: {st.total_documents / cache_size * 100:.1f}%")
 
-        # Content quality checks
         corrupted: list[dict] = []
         too_short: list[dict] = []
         if pool is not None:
-            rows = await pool.fetch(
-                "SELECT document_id, title, length(markdown_content) as content_len, "
-                "left(markdown_content, 500) as preview "
-                "FROM documents WHERE markdown_content IS NOT NULL"
-            )
+            rows = await pool.fetch("SELECT document_id, title, length(markdown_content) as content_len, left(markdown_content, 500) as preview FROM documents WHERE markdown_content IS NOT NULL")
             for r in rows:
                 if r["content_len"] < 100:
                     too_short.append(dict(r))
@@ -346,11 +341,7 @@ def register(mcp, deps: Dependencies) -> None:
                 lines.append(f"  - {doc['document_id']}: {doc['title'][:60]} ({doc['content_len']} bytes)")
 
         if pool is not None:
-            missing_chunks = await pool.fetch(
-                "SELECT d.document_id, d.title, length(d.markdown_content) as content_len FROM documents d "
-                "LEFT JOIN (SELECT doc_id, count(*) as cnt FROM document_chunks GROUP BY doc_id) c "
-                "ON c.doc_id = d.document_id WHERE length(d.markdown_content) > 1000 AND COALESCE(c.cnt, 0) <= 1"
-            )
+            missing_chunks = await pool.fetch("SELECT d.document_id, d.title, length(d.markdown_content) as content_len FROM documents d LEFT JOIN (SELECT doc_id, count(*) as cnt FROM document_chunks GROUP BY doc_id) c ON c.doc_id = d.document_id WHERE length(d.markdown_content) > 1000 AND COALESCE(c.cnt, 0) <= 1")
             if missing_chunks:
                 lines.append(f"\n**Missing Chunks: {len(missing_chunks)}** (content exists but not chunked)")
                 for doc in missing_chunks[:10]:
