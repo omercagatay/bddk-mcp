@@ -184,25 +184,20 @@ def register(mcp, deps: Dependencies) -> None:
         async def _run_backfill() -> None:
             from doc_sync import DocumentSyncer
 
-            store = deps.doc_store
-            http = deps.http
-            vector_store = deps.vector_store
-
             async def on_progress(index: int, total: int, outcome: BackfillOutcome) -> None:
                 deps.backfill_progress["processed"] = index
-                if outcome.success:
-                    deps.backfill_progress["succeeded"] += 1
-                else:
-                    deps.backfill_progress["failed"] += 1
+                deps.backfill_progress["succeeded" if outcome.success else "failed"] += 1
                 deps.backfill_progress["current"] = outcome.document_id
 
             try:
-                async with DocumentSyncer(store, http=http, vector_store=vector_store) as syncer:
+                async with DocumentSyncer(deps.doc_store, http=deps.http, vector_store=deps.vector_store) as syncer:
                     report = await execute_backfill(syncer, candidates, on_progress=on_progress)
-                deps.backfill_progress["state"] = "done"
-                deps.backfill_progress["elapsed_seconds"] = report.elapsed_seconds
-                deps.backfill_progress["ok"] = len(report.ok)
-                deps.backfill_progress["failures"] = report.failed
+                deps.backfill_progress.update(
+                    state="done",
+                    elapsed_seconds=report.elapsed_seconds,
+                    ok=len(report.ok),
+                    failures=report.failed,
+                )
             except Exception as exc:
                 logger.exception("Backfill task crashed")
                 deps.backfill_progress["state"] = "error"
