@@ -8,42 +8,42 @@ import pytest
 
 class TestChandraBackend:
     def test_name(self):
-        from ocr_backends_chandra import ChandraBackend
+        from ocr.chandra import ChandraBackend
 
         assert ChandraBackend().name == "chandra2"
 
     def test_is_available_false_without_cuda(self):
-        from ocr_backends_chandra import ChandraBackend
+        from ocr.chandra import ChandraBackend
 
         backend = ChandraBackend()
-        with patch("ocr_backends_chandra._cuda_available", return_value=False):
-            with patch("ocr_backends_chandra._chandra_available", return_value=True):
+        with patch("ocr.chandra._cuda_available", return_value=False):
+            with patch("ocr.chandra._chandra_available", return_value=True):
                 assert backend.is_available() is False
 
     def test_is_available_false_without_chandra(self):
-        from ocr_backends_chandra import ChandraBackend
+        from ocr.chandra import ChandraBackend
 
         backend = ChandraBackend()
-        with patch("ocr_backends_chandra._cuda_available", return_value=True):
-            with patch("ocr_backends_chandra._chandra_available", return_value=False):
+        with patch("ocr.chandra._cuda_available", return_value=True):
+            with patch("ocr.chandra._chandra_available", return_value=False):
                 assert backend.is_available() is False
 
     def test_is_available_true(self):
-        from ocr_backends_chandra import ChandraBackend
+        from ocr.chandra import ChandraBackend
 
         backend = ChandraBackend()
-        with patch("ocr_backends_chandra._cuda_available", return_value=True):
-            with patch("ocr_backends_chandra._chandra_available", return_value=True):
+        with patch("ocr.chandra._cuda_available", return_value=True):
+            with patch("ocr.chandra._chandra_available", return_value=True):
                 assert backend.is_available() is True
 
     def test_extract_empty_returns_none(self):
-        from ocr_backends_chandra import ChandraBackend
+        from ocr.chandra import ChandraBackend
 
         assert ChandraBackend().extract(b"") is None
 
     def test_extract_concatenates_per_page_markdown(self):
         pytest.importorskip("chandra")
-        from ocr_backends_chandra import ChandraBackend
+        from ocr.chandra import ChandraBackend
 
         backend = ChandraBackend()
         fake_manager = MagicMock()
@@ -61,7 +61,7 @@ class TestChandraBackend:
 
     def test_extract_returns_none_when_all_pages_blank(self):
         pytest.importorskip("chandra")
-        from ocr_backends_chandra import ChandraBackend
+        from ocr.chandra import ChandraBackend
 
         backend = ChandraBackend()
         fake_manager = MagicMock()
@@ -76,7 +76,7 @@ class TestChandraBackend:
 
     def test_extract_returns_none_when_load_file_fails(self):
         pytest.importorskip("chandra")
-        from ocr_backends_chandra import ChandraBackend
+        from ocr.chandra import ChandraBackend
 
         backend = ChandraBackend()
         backend._manager = MagicMock()
@@ -87,7 +87,7 @@ class TestChandraBackend:
 
     def test_extract_returns_none_on_inference_error(self):
         pytest.importorskip("chandra")
-        from ocr_backends_chandra import ChandraBackend
+        from ocr.chandra import ChandraBackend
 
         backend = ChandraBackend()
         fake_manager = MagicMock()
@@ -100,7 +100,7 @@ class TestChandraBackend:
 
     def test_extract_returns_none_on_result_error_flag(self):
         pytest.importorskip("chandra")
-        from ocr_backends_chandra import ChandraBackend
+        from ocr.chandra import ChandraBackend
 
         backend = ChandraBackend()
         fake_manager = MagicMock()
@@ -115,7 +115,7 @@ class TestChandraBackend:
 
     def test_extract_lazy_loads_manager_once(self):
         pytest.importorskip("chandra")
-        from ocr_backends_chandra import ChandraBackend
+        from ocr.chandra import ChandraBackend
 
         backend = ChandraBackend()
         load_calls = {"n": 0}
@@ -141,14 +141,14 @@ class TestChandraBackend:
         pytest.importorskip("chandra")
         from chandra.model import settings as chandra_settings
 
-        import ocr_backends_chandra
+        import ocr.chandra
 
         monkeypatch.setattr(chandra_settings, "MODEL_CHECKPOINT", chandra_settings.MODEL_CHECKPOINT)
-        monkeypatch.setattr(ocr_backends_chandra, "CHANDRA_MODEL_NAME", "test-org/override-model")
+        monkeypatch.setattr(ocr.chandra, "CHANDRA_MODEL_NAME", "test-org/override-model")
 
         fake_mgr = MagicMock()
         with patch("chandra.model.InferenceManager", return_value=fake_mgr) as mgr_cls:
-            backend = ocr_backends_chandra.ChandraBackend()
+            backend = ocr.chandra.ChandraBackend()
             result = backend._load_manager()
 
         assert chandra_settings.MODEL_CHECKPOINT == "test-org/override-model"

@@ -135,7 +135,7 @@ class TestExtractionPipelineFlow:
 
     @pytest.mark.asyncio
     async def test_html_extraction_end_to_end(self, doc_store):
-        from ocr_backends import MarkitdownBackend
+        from ocr.base import MarkitdownBackend
 
         syncer = DocumentSyncer(doc_store, ocr_backends=[MarkitdownBackend()])
         syncer._http = AsyncMock(spec=httpx.AsyncClient)

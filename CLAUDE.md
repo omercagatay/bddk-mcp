@@ -36,7 +36,7 @@ Two-layer pattern: each module under `tools/` is a thin MCP wrapper that calls i
   - `doc_sync.py` — document download → OCR → chunking pipeline
   - `data_sources.py` — bulletin data scrapers
   - `analytics.py` — trend/comparison analytics engine
-  - `ocr_backends.py` + `ocr_backends_chandra.py` — pluggable OCR (chandra2 primary, requires `gpu` group)
+  - `ocr/base.py` + `ocr/chandra.py` — pluggable OCR (chandra2 primary, requires `gpu` group)
 - **Infrastructure**:
   - `deps.py` — dependency injection container (`Dependencies`)
   - `config.py` — all configuration via `BDDK_*` env vars

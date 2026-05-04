@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from doc_sync import DocumentSyncer
-from ocr_backends import MarkitdownBackend
+from ocr.base import MarkitdownBackend
 from tests.conftest import make_http_response
 
 
