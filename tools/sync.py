@@ -17,14 +17,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# -- Circuit breaker constants ------------------------------------------------
-
 CIRCUIT_BREAKER_THRESHOLD = 10
 STARTUP_SYNC_TIMEOUT = 300  # 5 minutes
 MIGRATION_TIMEOUT = 600  # 10 minutes
-
-
-# -- Circuit breaker helpers --------------------------------------------------
 
 
 def _record_sync_failure(deps: Dependencies, error: str) -> None:
@@ -41,9 +36,6 @@ def _record_sync_success(deps: Dependencies) -> None:
     deps.sync_circuit_open = False
     deps.last_sync_time = time.time()
     deps.last_sync_error = None
-
-
-# -- Migration helper ---------------------------------------------------------
 
 
 async def _migrate_to_pgvector(deps: Dependencies) -> str:
@@ -125,9 +117,6 @@ async def _migrate_to_pgvector(deps: Dependencies) -> str:
         return f"Migration failed: {e}"
 
 
-# -- Startup sync (module-level, called from server.py) -----------------------
-
-
 async def startup_sync(deps: Dependencies) -> None:
     """Auto-sync documents on startup: download missing + embed to pgvector.
 
@@ -179,9 +168,6 @@ async def startup_sync(deps: Dependencies) -> None:
         msg = str(e)
         logger.error("Startup sync failed: %s", msg)
         _record_sync_failure(deps, msg)
-
-
-# -- Tool registration --------------------------------------------------------
 
 
 def register(mcp, deps: Dependencies) -> None:
