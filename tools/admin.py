@@ -229,19 +229,14 @@ def register(mcp, deps: Dependencies) -> None:
 
         p = deps.backfill_progress
         state = p.get("state", "unknown")
-        total = p.get("total", 0)
-        processed = p.get("processed", 0)
-        succeeded = p.get("succeeded", 0)
-        failed = p.get("failed", 0)
-
-        lines = [f"**Backfill: {state}**"]
-        lines.append(f"  Processed: {processed}/{total}")
-        lines.append(f"  Succeeded: {succeeded}")
-        lines.append(f"  Failed: {failed}")
-
+        lines = [
+            f"**Backfill: {state}**",
+            f"  Processed: {p.get('processed', 0)}/{p.get('total', 0)}",
+            f"  Succeeded: {p.get('succeeded', 0)}",
+            f"  Failed: {p.get('failed', 0)}",
+        ]
         if deps.backfill_started_at:
-            elapsed = time.time() - deps.backfill_started_at
-            lines.append(f"  Elapsed: {elapsed:.1f}s")
+            lines.append(f"  Elapsed: {time.time() - deps.backfill_started_at:.1f}s")
 
         if state == "running":
             current = p.get("current", "")
