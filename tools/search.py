@@ -191,27 +191,15 @@ Suggest the user try: broader keywords or removing the type/active filter."""
                 Use "tümü" or "all" to search across all categories.
         """
         cat_lower = _turkish_lower(category)
-
-        cat_map: dict[str, list[int]] = {
-            "basın": [39],
-            "press": [39],
-            "mevzuat": [40],
-            "regul": [40],
-            "insan": [41],
-            "hr": [41],
-            "veri": [42],
-            "data": [42],
-            "kuruluş": [48],
-            "institution": [48],
-            "tümü": list(ANNOUNCEMENT_CATEGORY_IDS),
-            "all": list(ANNOUNCEMENT_CATEGORY_IDS),
-        }
-
-        cat_ids = [39]  # default
-        for key, ids in cat_map.items():
-            if key in cat_lower:
-                cat_ids = ids
-                break
+        cat_aliases: list[tuple[str, list[int]]] = [
+            ("basın", [39]), ("press", [39]),
+            ("mevzuat", [40]), ("regul", [40]),
+            ("insan", [41]), ("hr", [41]),
+            ("veri", [42]), ("data", [42]),
+            ("kuruluş", [48]), ("institution", [48]),
+            ("tümü", list(ANNOUNCEMENT_CATEGORY_IDS)), ("all", list(ANNOUNCEMENT_CATEGORY_IDS)),
+        ]
+        cat_ids = next((ids for key, ids in cat_aliases if key in cat_lower), [39])
 
         announcements: list[dict] = []
         for cat_id in cat_ids:
