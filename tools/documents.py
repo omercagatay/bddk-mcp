@@ -139,15 +139,13 @@ def register(mcp, deps: Dependencies) -> None:
         header = (
             f"## {meta_title}\n"
             f"- Document ID: {resolved_id}\n"
-            f"{alias_line}"
-            f"- Decision Date: {meta_date or 'N/A'}\n"
+            f"{alias_line}- Decision Date: {meta_date or 'N/A'}\n"
             f"- Decision Number: {meta_number or 'N/A'}\n"
             f"- Category: {meta_category or 'N/A'}\n"
             f"- Source: {source_url or 'N/A'}\n"
             f"- Page: {page_num}/{total_pages}\n"
             f"- Extraction: {method_display}\n"
-            f"---\n"
-            f"Use ONLY the text below. Do not add information not present in this document.\n\n"
+            f"---\nUse ONLY the text below. Do not add information not present in this document.\n\n"
             f"{warning_block}"
         )
 

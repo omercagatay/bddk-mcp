@@ -288,12 +288,8 @@ def register(mcp, deps: Dependencies) -> None:
                 items = [d.model_dump() for d in client.get_cache_items()]
                 report = await syncer.sync_all(items, concurrency=concurrency, force=force)
                 sync_report = (
-                    f"**Sync Report**\n"
-                    f"  Total: {report.total}\n"
-                    f"  Downloaded: {report.downloaded}\n"
-                    f"  Skipped: {report.skipped}\n"
-                    f"  Failed: {report.failed}\n"
-                    f"  Time: {report.elapsed_seconds}s"
+                    f"**Sync Report**\n  Total: {report.total}\n  Downloaded: {report.downloaded}\n"
+                    f"  Skipped: {report.skipped}\n  Failed: {report.failed}\n  Time: {report.elapsed_seconds}s"
                 )
 
         # Migrate documents to pgvector for semantic search
@@ -303,10 +299,8 @@ def register(mcp, deps: Dependencies) -> None:
             if deps.vector_store is not None:
                 vs_stats = await deps.vector_store.stats()
                 embed_report = (
-                    f"\n\n**Embedding Report**\n"
-                    f"  {migration_status}\n"
-                    f"  Documents: {vs_stats['total_documents']}\n"
-                    f"  Chunks: {vs_stats['total_chunks']}"
+                    f"\n\n**Embedding Report**\n  {migration_status}\n"
+                    f"  Documents: {vs_stats['total_documents']}\n  Chunks: {vs_stats['total_chunks']}"
                 )
             else:
                 embed_report = f"\n\n**Embedding:** {migration_status}"
@@ -340,8 +334,7 @@ def register(mcp, deps: Dependencies) -> None:
             if deps.vector_store is not None:
                 vs_stats = await deps.vector_store.stats()
                 embed_report = (
-                    f"\n  {migration_status}"
-                    f"\n  Vector documents: {vs_stats['total_documents']}"
+                    f"\n  {migration_status}\n  Vector documents: {vs_stats['total_documents']}"
                     f"\n  Vector chunks: {vs_stats['total_chunks']}"
                 )
             else:

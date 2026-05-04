@@ -183,10 +183,7 @@ def register(mcp, deps: Dependencies) -> None:
                     if a.get("url"):
                         known_urls.add(a["url"])
             deps.client.known_announcements = known_urls
-            return (
-                f"Baseline oluşturuldu: {len(known_urls)} duyuru biliniyor. "
-                "Bir sonraki çağrıda yeni duyurular tespit edilecek."
-            )
+            return f"Baseline oluşturuldu: {len(known_urls)} duyuru biliniyor. Bir sonraki çağrıda yeni duyurular tespit edilecek."
 
         result = await check_updates(deps.http, deps.client.get_cache_items(), known_urls)
 
