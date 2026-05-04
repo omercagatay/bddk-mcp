@@ -56,10 +56,7 @@ def register(mcp, deps: Dependencies) -> None:
             return f"Error fetching bulletin: {data['error']}"
 
         lines = [f"**{data.get('title', 'BDDK Weekly Bulletin')}** ({data['currency']})\n"]
-
-        dates = data.get("dates", [])
-        values = data.get("values", [])
-
+        dates, values = data.get("dates", []), data.get("values", [])
         if dates and values:
             for d, v in zip(dates[-10:], values[-10:], strict=False):
                 lines.append(f"  {d}: {v}")

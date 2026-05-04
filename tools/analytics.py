@@ -160,10 +160,7 @@ def register(mcp, deps: Dependencies) -> None:
         known_urls = deps.client.known_announcements
         if not known_urls:
             for cat_id in ANNOUNCEMENT_CATEGORY_IDS:
-                anns = await fetch_announcements(deps.http, cat_id)
-                for a in anns:
-                    if a.get("url"):
-                        known_urls.add(a["url"])
+                known_urls.update(a["url"] for a in await fetch_announcements(deps.http, cat_id) if a.get("url"))
             deps.client.known_announcements = known_urls
             return f"Baseline oluşturuldu: {len(known_urls)} duyuru biliniyor. Bir sonraki çağrıda yeni duyurular tespit edilecek."
 
