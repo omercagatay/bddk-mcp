@@ -38,8 +38,15 @@ def register(mcp, deps: Dependencies) -> None:
             status = "  Status: INITIALIZING (vector store loading)"
         else:
             status = "  Status: OK"
-        last_sync = f"  Last sync: {int(time.time() - deps.last_sync_time)}s ago" if deps.last_sync_time else "  Last sync: never"
-        lines = [f"**BDDK MCP Server Health**\n\n{status}\n  Uptime: {hours}h {minutes}m {seconds}s\n  Backend: PostgreSQL + pgvector", last_sync]
+        last_sync = (
+            f"  Last sync: {int(time.time() - deps.last_sync_time)}s ago"
+            if deps.last_sync_time
+            else "  Last sync: never"
+        )
+        lines = [
+            f"**BDDK MCP Server Health**\n\n{status}\n  Uptime: {hours}h {minutes}m {seconds}s\n  Backend: PostgreSQL + pgvector",
+            last_sync,
+        ]
         if deps.last_sync_error:
             lines.append(f"  Last sync error: {deps.last_sync_error}")
 
@@ -85,7 +92,9 @@ def register(mcp, deps: Dependencies) -> None:
         ]
 
         if m["tools"]:
-            lines.append(f"\n**Per-Tool Metrics:**\n  {'Tool':<35} {'Requests':>10} {'Errors':>8} {'Avg ms':>10}\n  " + "-" * 65)
+            lines.append(
+                f"\n**Per-Tool Metrics:**\n  {'Tool':<35} {'Requests':>10} {'Errors':>8} {'Avg ms':>10}\n  " + "-" * 65
+            )
             for t in m["tools"]:
                 lines.append(f"  {t['tool']:<35} {t['requests']:>10} {t['errors']:>8} {t['avg_latency_ms']:>10.1f}")
 
@@ -137,7 +146,9 @@ def register(mcp, deps: Dependencies) -> None:
             return "Backfill already running. Call `backfill_status` to see progress."
 
         try:
-            candidates = await scan_candidates(deps.pool, include_legacy_corruption=include_legacy_corruption, limit=limit)
+            candidates = await scan_candidates(
+                deps.pool, include_legacy_corruption=include_legacy_corruption, limit=limit
+            )
         except (BddkError, BddkStorageError, RuntimeError) as exc:
             logger.warning("backfill_degraded_documents scan failed: %s", exc)
             return f"Scan failed: {exc}"
@@ -162,8 +173,13 @@ def register(mcp, deps: Dependencies) -> None:
             return "\n".join(lines)
 
         deps.backfill_progress = {
-            "total": len(candidates), "processed": 0, "succeeded": 0, "failed": 0,
-            "current": "", "state": "running", "signatures": by_sig,
+            "total": len(candidates),
+            "processed": 0,
+            "succeeded": 0,
+            "failed": 0,
+            "current": "",
+            "state": "running",
+            "signatures": by_sig,
         }
         deps.backfill_started_at = time.time()
 
@@ -178,7 +194,9 @@ def register(mcp, deps: Dependencies) -> None:
             try:
                 async with DocumentSyncer(deps.doc_store, http=deps.http, vector_store=deps.vector_store) as syncer:
                     report = await execute_backfill(syncer, candidates, on_progress=on_progress)
-                deps.backfill_progress.update(state="done", elapsed_seconds=report.elapsed_seconds, ok=len(report.ok), failures=report.failed)
+                deps.backfill_progress.update(
+                    state="done", elapsed_seconds=report.elapsed_seconds, ok=len(report.ok), failures=report.failed
+                )
             except Exception as exc:
                 logger.exception("Backfill task crashed")
                 deps.backfill_progress["state"] = "error"
@@ -204,7 +222,9 @@ def register(mcp, deps: Dependencies) -> None:
 
         p = deps.backfill_progress
         state = p.get("state", "unknown")
-        lines = [f"**Backfill: {state}**\n  Processed: {p.get('processed', 0)}/{p.get('total', 0)}\n  Succeeded: {p.get('succeeded', 0)}\n  Failed: {p.get('failed', 0)}"]
+        lines = [
+            f"**Backfill: {state}**\n  Processed: {p.get('processed', 0)}/{p.get('total', 0)}\n  Succeeded: {p.get('succeeded', 0)}\n  Failed: {p.get('failed', 0)}"
+        ]
         if deps.backfill_started_at:
             lines.append(f"  Elapsed: {time.time() - deps.backfill_started_at:.1f}s")
 

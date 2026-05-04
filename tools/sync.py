@@ -99,8 +99,13 @@ async def _migrate_to_pgvector(deps: Dependencies) -> str:
                 continue
 
             chunks = await vs.add_document(
-                doc_id=doc.document_id, title=doc.title, content=doc.markdown_content, category=doc.category,
-                decision_date=doc.decision_date, decision_number=doc.decision_number, source_url=doc.source_url,
+                doc_id=doc.document_id,
+                title=doc.title,
+                content=doc.markdown_content,
+                category=doc.category,
+                decision_date=doc.decision_date,
+                decision_number=doc.decision_number,
+                source_url=doc.source_url,
             )
             total_chunks += chunks
             migrated += 1
@@ -125,7 +130,11 @@ async def startup_sync(deps: Dependencies) -> None:
     Wrapped in asyncio.timeout(STARTUP_SYNC_TIMEOUT) to prevent hanging.
     """
     if deps.sync_circuit_open:
-        logger.warning("Startup sync skipped: circuit breaker open (%d consecutive failures, last: %s)", deps.sync_consecutive_failures, deps.last_sync_error)
+        logger.warning(
+            "Startup sync skipped: circuit breaker open (%d consecutive failures, last: %s)",
+            deps.sync_consecutive_failures,
+            deps.last_sync_error,
+        )
         return
 
     logger.info("Startup sync started...")
@@ -151,7 +160,12 @@ async def startup_sync(deps: Dependencies) -> None:
                 items = [d.model_dump() for d in client.get_cache_items()]
                 async with DocumentSyncer(store, http=deps.http, vector_store=deps.vector_store) as syncer:
                     report = await syncer.sync_all(items, concurrency=10, force=False)
-                logger.info("Document sync: %d downloaded, %d failed, %.1fs", report.downloaded, report.failed, report.elapsed_seconds)
+                logger.info(
+                    "Document sync: %d downloaded, %d failed, %.1fs",
+                    report.downloaded,
+                    report.failed,
+                    report.elapsed_seconds,
+                )
             else:
                 logger.info("Document store has %d/%d documents, OK", st.total_documents, cache_size)
 
@@ -211,10 +225,16 @@ def register(mcp, deps: Dependencies) -> None:
         async with DocumentSyncer(store, http=deps.http, vector_store=deps.vector_store) as syncer:
             if document_id:
                 found = client.find_by_id(document_id)
-                title, source_url, category = (found.title, found.source_url, found.category) if found else (document_id, "", "")
+                title, source_url, category = (
+                    (found.title, found.source_url, found.category) if found else (document_id, "", "")
+                )
 
                 result = await syncer.sync_document(
-                    doc_id=document_id, title=title, category=category, source_url=source_url, force=force,
+                    doc_id=document_id,
+                    title=title,
+                    category=category,
+                    source_url=source_url,
+                    force=force,
                 )
                 status = "OK" if result.success else "FAIL"
                 report = f"[{status}] {result.document_id}: {result.method or result.error}"
@@ -293,7 +313,9 @@ def register(mcp, deps: Dependencies) -> None:
         st = await store.stats()
         cache_size = client.cache_size()
 
-        lines = [f"**Document Health Report**\n\nDecision cache: {cache_size}\nDocuments with content: {st.total_documents}"]
+        lines = [
+            f"**Document Health Report**\n\nDecision cache: {cache_size}\nDocuments with content: {st.total_documents}"
+        ]
         if cache_size > 0:
             lines.append(f"Coverage: {st.total_documents / cache_size * 100:.1f}%")
 
@@ -362,7 +384,9 @@ def register(mcp, deps: Dependencies) -> None:
         if deps.vector_store is not None:
             try:
                 vs = await deps.vector_store.stats()
-                lines.append(f"\n**Vector Store**\n  Documents: {vs['total_documents']}\n  Chunks: {vs['total_chunks']}")
+                lines.append(
+                    f"\n**Vector Store**\n  Documents: {vs['total_documents']}\n  Chunks: {vs['total_chunks']}"
+                )
             except Exception:
                 lines.append("\n**Vector Store:** unavailable")
 

@@ -57,7 +57,9 @@ def register(mcp, deps: Dependencies) -> None:
             document_id: The numeric document ID (from search results)
             page_number: Page of the markdown output (documents are split into 5000-char pages)
         """
-        candidates = [document_id] + ([f"mevzuat_{document_id}", f"bddk_{document_id}"] if document_id.isdigit() else [])
+        candidates = [document_id] + (
+            [f"mevzuat_{document_id}", f"bddk_{document_id}"] if document_id.isdigit() else []
+        )
 
         resolved_id: str | None = None
         page_num = 0
@@ -96,7 +98,8 @@ def register(mcp, deps: Dependencies) -> None:
         found = deps.client.find_by_id(resolved_id)
         meta_title, meta_date, meta_number, meta_category, source_url = (
             (found.title, found.decision_date, found.decision_number, found.category, found.source_url or "")
-            if found else (resolved_id, "", "", "", "")
+            if found
+            else (resolved_id, "", "", "", "")
         )
 
         alias_line = f"- Resolved from: `{document_id}` -> `{resolved_id}`\n" if resolved_id != document_id else ""
@@ -179,7 +182,9 @@ def register(mcp, deps: Dependencies) -> None:
 
         try:
             st = await deps.doc_store.stats()
-            lines.append(f"\n**PostgreSQL (Document Store):**\n  Documents: {st.total_documents}\n  Size: {st.total_size_mb} MB")
+            lines.append(
+                f"\n**PostgreSQL (Document Store):**\n  Documents: {st.total_documents}\n  Size: {st.total_size_mb} MB"
+            )
         except (RuntimeError, BddkStorageError) as e:
             lines.append(f"  PostgreSQL: unavailable ({e})")
 

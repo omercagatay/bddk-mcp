@@ -97,8 +97,12 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
             return cached  # type: ignore[return-value]
 
         request = BddkSearchRequest(
-            keywords=keywords, page=page, page_size=page_size,
-            category=category, date_from=date_from, date_to=date_to,
+            keywords=keywords,
+            page=page,
+            page_size=page_size,
+            category=category,
+            date_from=date_from,
+            date_to=date_to,
         )
         result = await deps.client.search_decisions(request)
 
@@ -149,7 +153,9 @@ Suggest the user try: different Turkish keywords, broader terms, or removing dat
 
         if keywords:
             kw = _turkish_lower(keywords)
-            institutions = [i for i in institutions if kw in _turkish_lower(i["name"]) or kw in _turkish_lower(i.get("type", ""))]
+            institutions = [
+                i for i in institutions if kw in _turkish_lower(i["name"]) or kw in _turkish_lower(i.get("type", ""))
+            ]
 
         if not institutions:
             metrics.record_empty_search("search_bddk_institutions")
@@ -180,12 +186,18 @@ Suggest the user try: broader keywords or removing the type/active filter."""
         """
         cat_lower = _turkish_lower(category)
         cat_aliases: list[tuple[str, list[int]]] = [
-            ("basın", [39]), ("press", [39]),
-            ("mevzuat", [40]), ("regul", [40]),
-            ("insan", [41]), ("hr", [41]),
-            ("veri", [42]), ("data", [42]),
-            ("kuruluş", [48]), ("institution", [48]),
-            ("tümü", list(ANNOUNCEMENT_CATEGORY_IDS)), ("all", list(ANNOUNCEMENT_CATEGORY_IDS)),
+            ("basın", [39]),
+            ("press", [39]),
+            ("mevzuat", [40]),
+            ("regul", [40]),
+            ("insan", [41]),
+            ("hr", [41]),
+            ("veri", [42]),
+            ("data", [42]),
+            ("kuruluş", [48]),
+            ("institution", [48]),
+            ("tümü", list(ANNOUNCEMENT_CATEGORY_IDS)),
+            ("all", list(ANNOUNCEMENT_CATEGORY_IDS)),
         ]
         cat_ids = next((ids for key, ids in cat_aliases if key in cat_lower), [39])
 
@@ -259,7 +271,9 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
         low_count = sum(1 for h in hits if h.get("confidence") == "low")
         if low_count > 0:
             metrics.record_low_confidence_hit()
-            lines.append(f"\nWARNING: {low_count} result(s) have low confidence. These may not be directly relevant. Verify before citing.")
+            lines.append(
+                f"\nWARNING: {low_count} result(s) have low confidence. These may not be directly relevant. Verify before citing."
+            )
 
         output = "\n".join(lines)
         _search_cache.set(cache_key, output)
