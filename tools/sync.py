@@ -261,9 +261,6 @@ def register(mcp, deps: Dependencies) -> None:
         client = deps.client
         await client.ensure_cache()
 
-        single_report = None
-        sync_report = None
-
         async with DocumentSyncer(store, http=deps.http, vector_store=deps.vector_store) as syncer:
             if document_id:
                 source_url = ""
@@ -283,13 +280,13 @@ def register(mcp, deps: Dependencies) -> None:
                     force=force,
                 )
                 status = "OK" if result.success else "FAIL"
-                single_report = f"[{status}] {result.document_id}: {result.method or result.error}"
+                report = f"[{status}] {result.document_id}: {result.method or result.error}"
             else:
                 items = [d.model_dump() for d in client.get_cache_items()]
-                report = await syncer.sync_all(items, concurrency=concurrency, force=force)
-                sync_report = (
-                    f"**Sync Report**\n  Total: {report.total}\n  Downloaded: {report.downloaded}\n"
-                    f"  Skipped: {report.skipped}\n  Failed: {report.failed}\n  Time: {report.elapsed_seconds}s"
+                sync_result = await syncer.sync_all(items, concurrency=concurrency, force=force)
+                report = (
+                    f"**Sync Report**\n  Total: {sync_result.total}\n  Downloaded: {sync_result.downloaded}\n"
+                    f"  Skipped: {sync_result.skipped}\n  Failed: {sync_result.failed}\n  Time: {sync_result.elapsed_seconds}s"
                 )
 
         # Migrate documents to pgvector for semantic search
@@ -307,9 +304,7 @@ def register(mcp, deps: Dependencies) -> None:
         except Exception as e:
             embed_report = f"\n\n**Embedding:** failed ({e})"
 
-        if single_report:
-            return single_report + embed_report
-        return sync_report + embed_report
+        return report + embed_report
 
     @mcp.tool()
     async def trigger_startup_sync() -> str:
