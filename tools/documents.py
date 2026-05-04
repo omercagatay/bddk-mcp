@@ -187,30 +187,25 @@ def register(mcp, deps: Dependencies) -> None:
         """
         lines = ["**Document Store Statistics**\n"]
 
-        # pgvector stats
         if deps.vector_store is not None:
             try:
-                vs_stats = await deps.vector_store.stats()
-                lines.append("**pgvector (Vector Store):**")
-                lines.append(f"  Documents: {vs_stats['total_documents']}")
-                lines.append(f"  Chunks: {vs_stats['total_chunks']}")
-                lines.append(f"  Embedding model: {vs_stats['embedding_model']}")
-                if vs_stats.get("categories"):
+                vs = await deps.vector_store.stats()
+                lines.append(
+                    f"**pgvector (Vector Store):**\n  Documents: {vs['total_documents']}\n"
+                    f"  Chunks: {vs['total_chunks']}\n  Embedding model: {vs['embedding_model']}"
+                )
+                if vs.get("categories"):
                     lines.append("  Categories:")
-                    for cat, count in vs_stats["categories"].items():
+                    for cat, count in vs["categories"].items():
                         lines.append(f"    {cat}: {count}")
             except Exception as e:
                 lines.append(f"  pgvector: unavailable ({e})")
         else:
             lines.append("  pgvector: unavailable (not initialized)")
 
-        # PostgreSQL document stats
         try:
-            store = deps.doc_store
-            st = await store.stats()
-            lines.append("\n**PostgreSQL (Document Store):**")
-            lines.append(f"  Documents: {st.total_documents}")
-            lines.append(f"  Size: {st.total_size_mb} MB")
+            st = await deps.doc_store.stats()
+            lines.append(f"\n**PostgreSQL (Document Store):**\n  Documents: {st.total_documents}\n  Size: {st.total_size_mb} MB")
         except (RuntimeError, BddkStorageError) as e:
             lines.append(f"  PostgreSQL: unavailable ({e})")
 
