@@ -255,8 +255,7 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
         for h in hits:
             date_info = f" ({h['decision_date']})" if h.get("decision_date") else ""
             cat_info = f" [{h['category']}]" if h.get("category") else ""
-            confidence = h.get("confidence", "unknown")
-            relevance = f" [{confidence} confidence, {h['relevance']:.1%}]"
+            relevance = f" [{h.get('confidence', 'unknown')} confidence, {h['relevance']:.1%}]"
             lines.append(f"**{h['title']}**{date_info}{cat_info}{relevance}")
             lines.append(f"  Document ID: {h['doc_id']}")
             if h.get("snippet"):
@@ -266,10 +265,7 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
         low_count = sum(1 for h in hits if h.get("confidence") == "low")
         if low_count > 0:
             metrics.record_low_confidence_hit()
-            lines.append(
-                f"\nWARNING: {low_count} result(s) have low confidence. "
-                "These may not be directly relevant. Verify before citing."
-            )
+            lines.append(f"\nWARNING: {low_count} result(s) have low confidence. These may not be directly relevant. Verify before citing.")
 
         output = "\n".join(lines)
         _search_cache.set(cache_key, output)
