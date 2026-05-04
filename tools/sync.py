@@ -230,21 +230,11 @@ def register(mcp, deps: Dependencies) -> None:
 
         async with DocumentSyncer(store, http=deps.http, vector_store=deps.vector_store) as syncer:
             if document_id:
-                source_url = ""
-                title = document_id
-                category = ""
                 found = client.find_by_id(document_id)
-                if found:
-                    source_url = found.source_url
-                    title = found.title
-                    category = found.category
+                title, source_url, category = (found.title, found.source_url, found.category) if found else (document_id, "", "")
 
                 result = await syncer.sync_document(
-                    doc_id=document_id,
-                    title=title,
-                    category=category,
-                    source_url=source_url,
-                    force=force,
+                    doc_id=document_id, title=title, category=category, source_url=source_url, force=force,
                 )
                 status = "OK" if result.success else "FAIL"
                 report = f"[{status}] {result.document_id}: {result.method or result.error}"
@@ -355,14 +345,11 @@ def register(mcp, deps: Dependencies) -> None:
             for doc in too_short[:10]:
                 lines.append(f"  - {doc['document_id']}: {doc['title'][:60]} ({doc['content_len']} bytes)")
 
-        # Chunk coverage
         if pool is not None:
             missing_chunks = await pool.fetch(
-                "SELECT d.document_id, d.title, length(d.markdown_content) as content_len "
-                "FROM documents d "
+                "SELECT d.document_id, d.title, length(d.markdown_content) as content_len FROM documents d "
                 "LEFT JOIN (SELECT doc_id, count(*) as cnt FROM document_chunks GROUP BY doc_id) c "
-                "ON c.doc_id = d.document_id "
-                "WHERE length(d.markdown_content) > 1000 AND COALESCE(c.cnt, 0) <= 1"
+                "ON c.doc_id = d.document_id WHERE length(d.markdown_content) > 1000 AND COALESCE(c.cnt, 0) <= 1"
             )
             if missing_chunks:
                 lines.append(f"\n**Missing Chunks: {len(missing_chunks)}** (content exists but not chunked)")
@@ -375,11 +362,9 @@ def register(mcp, deps: Dependencies) -> None:
         if failures:
             lines.append(f"\n**Sync Failures: {len(failures)}**")
 
-            # Group by category
             by_cat: dict[str, list[dict]] = {}
             for f in failures:
-                cat = f["error_category"]
-                by_cat.setdefault(cat, []).append(f)
+                by_cat.setdefault(f["error_category"], []).append(f)
 
             for cat, items in sorted(by_cat.items()):
                 retryable_count = sum(1 for i in items if i["retryable"])
