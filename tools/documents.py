@@ -57,9 +57,7 @@ def register(mcp, deps: Dependencies) -> None:
             document_id: The numeric document ID (from search results)
             page_number: Page of the markdown output (documents are split into 5000-char pages)
         """
-        candidates = (
-            [document_id, f"mevzuat_{document_id}", f"bddk_{document_id}"] if document_id.isdigit() else [document_id]
-        )
+        candidates = [document_id] + ([f"mevzuat_{document_id}", f"bddk_{document_id}"] if document_id.isdigit() else [])
 
         resolved_id: str | None = None
         page_num = 0

@@ -265,10 +265,7 @@ def register(mcp, deps: Dependencies) -> None:
             else:
                 items = [d.model_dump() for d in client.get_cache_items()]
                 sync_result = await syncer.sync_all(items, concurrency=concurrency, force=force)
-                report = (
-                    f"**Sync Report**\n  Total: {sync_result.total}\n  Downloaded: {sync_result.downloaded}\n"
-                    f"  Skipped: {sync_result.skipped}\n  Failed: {sync_result.failed}\n  Time: {sync_result.elapsed_seconds}s"
-                )
+                report = f"**Sync Report**\n  Total: {sync_result.total}\n  Downloaded: {sync_result.downloaded}\n  Skipped: {sync_result.skipped}\n  Failed: {sync_result.failed}\n  Time: {sync_result.elapsed_seconds}s"
 
         # Migrate documents to pgvector for semantic search
         embed_report = ""
@@ -276,10 +273,7 @@ def register(mcp, deps: Dependencies) -> None:
             migration_status = await _migrate_to_pgvector(deps)
             if deps.vector_store is not None:
                 vs_stats = await deps.vector_store.stats()
-                embed_report = (
-                    f"\n\n**Embedding Report**\n  {migration_status}\n"
-                    f"  Documents: {vs_stats['total_documents']}\n  Chunks: {vs_stats['total_chunks']}"
-                )
+                embed_report = f"\n\n**Embedding Report**\n  {migration_status}\n  Documents: {vs_stats['total_documents']}\n  Chunks: {vs_stats['total_chunks']}"
             else:
                 embed_report = f"\n\n**Embedding:** {migration_status}"
         except Exception as e:
@@ -309,10 +303,7 @@ def register(mcp, deps: Dependencies) -> None:
             migration_status = await _migrate_to_pgvector(deps)
             if deps.vector_store is not None:
                 vs_stats = await deps.vector_store.stats()
-                embed_report = (
-                    f"\n  {migration_status}\n  Vector documents: {vs_stats['total_documents']}"
-                    f"\n  Vector chunks: {vs_stats['total_chunks']}"
-                )
+                embed_report = f"\n  {migration_status}\n  Vector documents: {vs_stats['total_documents']}\n  Vector chunks: {vs_stats['total_chunks']}"
             else:
                 embed_report = f"\n  {migration_status}"
         except Exception as e:
