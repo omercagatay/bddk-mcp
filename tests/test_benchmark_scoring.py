@@ -55,10 +55,10 @@ class TestPassAllK:
 
 class TestToolSelectionAccuracy:
     def test_correct(self):
-        assert tool_selection_accuracy("search_bddk_decisions", "search_bddk_decisions") == 1.0
+        assert tool_selection_accuracy("search_bddk_regulations", "search_bddk_regulations") == 1.0
 
     def test_incorrect(self):
-        assert tool_selection_accuracy("search_bddk_decisions", "get_bddk_bulletin") == 0.0
+        assert tool_selection_accuracy("search_bddk_regulations", "get_bddk_bulletin") == 0.0
 
 
 class TestNLIMetrics:

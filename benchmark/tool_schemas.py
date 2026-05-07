@@ -12,10 +12,13 @@ TOOL_SCHEMAS: list[dict] = [
     {
         "type": "function",
         "function": {
-            "name": "search_bddk_decisions",
+            "name": "search_bddk_regulations",
             "description": (
-                "Search for BDDK (Banking Regulation and Supervision Agency) decisions. "
-                "Returns matching regulations, communiques, board decisions, and guidelines."
+                "Search the BDDK regulations catalog by title, category, decision number, "
+                "and date. Title/metadata only — does not search document body content. "
+                "Covers yönetmelik, tebliğ, genelge, rehber, kurul kararı, kanun, etc. "
+                "For body-content queries (e.g. 'TFRS 9', article references), use "
+                "search_document_store."
             ),
             "parameters": {
                 "type": "object",

@@ -78,7 +78,7 @@ def test_search_register():
 
     tool_names = {call.args[0].__name__ for call in mcp.tool.return_value.call_args_list}
     assert tool_names == {
-        "search_bddk_decisions",
+        "search_bddk_regulations",
         "search_bddk_institutions",
         "search_bddk_announcements",
         "search_document_store",
