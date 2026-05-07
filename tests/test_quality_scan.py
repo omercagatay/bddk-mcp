@@ -9,9 +9,12 @@ import pytest
 
 from quality_scan import (
     AnomalyCount,
+    DocumentFinding,
     MethodBreakdown,
     QualityReport,
     format_report,
+    format_report_csv,
+    format_report_json,
     scan_quality,
 )
 
@@ -32,6 +35,7 @@ def _make_report(**overrides) -> QualityReport:
         ],
         orphan_chunks=0,
         docs_without_chunks=0,
+        document_findings=[],
     )
     base.update(overrides)
     return QualityReport(**base)
@@ -72,6 +76,55 @@ def test_format_report_shows_chunk_integrity():
     out = format_report(report)
     assert "Orphan chunks (no parent doc): 3" in out
     assert "Docs >500 chars missing chunks: 7" in out
+
+
+def test_format_report_shows_document_level_findings():
+    report = _make_report(
+        document_findings=[
+            DocumentFinding(
+                document_id="mevzuat_21192",
+                label="fail",
+                flags=["data_uri_image", "wmf_data_uri"],
+                sample="raw image blob",
+            ),
+            DocumentFinding(
+                document_id="943",
+                label="warning",
+                flags=["control_char"],
+                sample="TFRS 9",
+            ),
+        ]
+    )
+
+    out = format_report(report)
+
+    assert "**Document findings**" in out
+    assert "mevzuat_21192" in out
+    assert "fail" in out
+    assert "data_uri_image" in out
+    assert "943" in out
+
+
+def test_format_report_json_and_csv_include_findings():
+    report = _make_report(
+        document_findings=[
+            DocumentFinding(
+                document_id="mevzuat_21192",
+                label="fail",
+                flags=["data_uri_image"],
+                counts={"data_uri_image": 1},
+                sample="blob",
+            )
+        ]
+    )
+
+    as_json = format_report_json(report)
+    as_csv = format_report_csv(report)
+
+    assert as_json["document_findings"][0]["document_id"] == "mevzuat_21192"
+    assert as_json["document_findings"][0]["label"] == "fail"
+    assert "document_id,label,flags,sample" in as_csv
+    assert "mevzuat_21192,fail,data_uri_image,blob" in as_csv
 
 
 # -- scan_quality: integration against a single-connection pool --------------
@@ -116,6 +169,8 @@ async def seeded_quality_pool(pg_pool):
             ("doc_camelcase", "BÖLÜMBaşlangıç HükümleriAmaç " + "çğıöşü " * 120, "html_parser"),
             ("doc_replacement", "Some text � with replacement " + "çğıöşü " * 120, "markitdown"),
             ("doc_imgtag", "Some <img src='x.png'> leaked " + "çğıöşü " * 120, "markitdown"),
+            ("doc_data_uri", "Some <img src='data:image/x-wmf;base64,AAA'> leaked " + "çğıöşü " * 120, "markitdown"),
+            ("doc_cid", ("cid:12 " * 25) + "çğıöşü " * 120, "markitdown"),
             ("doc_short", "tiny", "markitdown"),
             ("doc_dots", "TOC entry .......... page 3 " + "çğıöşü " * 120, "markitdown"),
             (
@@ -154,7 +209,7 @@ async def seeded_quality_pool(pg_pool):
 async def test_scan_quality_detects_all_seeded_anomalies(seeded_quality_pool):
     report = await scan_quality(seeded_quality_pool)
 
-    assert report.total_documents == 9
+    assert report.total_documents == 11
     method_names = {m.method for m in report.methods}
     assert {"markitdown", "html_parser", "chandra2", "glm_ocr"} <= method_names
 
@@ -168,6 +223,12 @@ async def test_scan_quality_detects_all_seeded_anomalies(seeded_quality_pool):
 
     assert signals["leaked_img_tag"].docs_flagged >= 1
     assert "doc_imgtag" in signals["leaked_img_tag"].sample_doc_ids
+
+    assert signals["data_uri_image"].docs_flagged >= 1
+    assert "doc_data_uri" in signals["data_uri_image"].sample_doc_ids
+
+    assert signals["cid_marker"].docs_flagged >= 1
+    assert "doc_cid" in signals["cid_marker"].sample_doc_ids
 
     assert signals["short_content"].docs_flagged >= 1
     assert "doc_short" in signals["short_content"].sample_doc_ids
@@ -183,6 +244,15 @@ async def test_scan_quality_detects_all_seeded_anomalies(seeded_quality_pool):
     assert "doc_no_diacritics" in signals["diacritic_outlier"].sample_doc_ids
 
     assert report.orphan_chunks == 1
+
+    findings = {f.document_id: f for f in report.document_findings}
+    assert findings["doc_data_uri"].label == "fail"
+    assert "data_uri_image" in findings["doc_data_uri"].flags
+    assert findings["doc_cid"].label == "fail"
+    assert "cid_marker" in findings["doc_cid"].flags
+    assert findings["doc_formula_missing"].label == "warning"
+    assert "formula_ref_without_latex_or_image" in findings["doc_formula_missing"].flags
+    assert "doc_clean" not in findings
 
 
 # -- admin tool wrapper -------------------------------------------------------
