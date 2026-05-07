@@ -1,0 +1,34 @@
+fail_documents:
+  - document_id: mevzuat_21192
+    reason: raw_html_data_uri_formula_artifacts
+    preferred_backfill: html_parser_or_ocr_manual_latex
+  - document_id: 1314
+    reason: severe_cid_formula_corruption
+    preferred_backfill: ocr_or_manual_latex
+  - document_id: 1313
+    reason: cid_and_phi_formula_corruption
+    preferred_backfill: ocr_or_manual_latex
+  - document_id: 1043
+    reason: repeated_account_plan_blocks
+    preferred_backfill: structural_table_cleanup
+  - document_id: 1045
+    reason: repeated_account_plan_blocks
+    preferred_backfill: structural_table_cleanup
+  - document_id: 1334
+    reason: repeated_account_plan_blocks
+    preferred_backfill: structural_table_cleanup
+  - document_id: 903
+    reason: concatenation_formula_table_artifacts
+    preferred_backfill: ocr_or_manual_latex
+  - document_id: 905
+    reason: concatenation_formula_table_artifacts
+    preferred_backfill: ocr_or_manual_latex
+  - document_id: 907
+    reason: concatenation_formula_table_artifacts
+    preferred_backfill: ocr_or_manual_latex
+  - document_id: mevzuat_16290
+    reason: financial_statement_annex_table_layout_degradation
+    preferred_backfill: structural_table_cleanup
+  - document_id: 1305
+    reason: repeated_blocks_formula_artifacts
+    preferred_backfill: ocr_or_manual_latex
