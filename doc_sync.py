@@ -39,6 +39,7 @@ from config import (
     REQUEST_TIMEOUT,
 )
 from doc_store import DocumentStore, StoredDocument
+from markdown_quality import sanitize_markdown_for_storage
 from ocr.base import OCRBackend, get_default_backends, run_extraction_chain
 from utils import MEVZUAT_TUR_MAP, fetch_with_retry
 
@@ -209,9 +210,18 @@ def _sanitize_for_storage(text: str) -> str:
     """
     if not text:
         return text
-    if "\x00" not in text and "\x0c" not in text and "Đ" not in text:
+    if (
+        "\x00" not in text
+        and "\x0c" not in text
+        and "Đ" not in text
+        and "\u00a0" not in text
+        and "\u200b" not in text
+        and "****" not in text
+        and "__________" not in text
+    ):
         return text
-    return text.replace("\x00", "").replace("\x0c", "").replace("Đ", "İ")
+    repaired = text.replace("\x00", "").replace("\x0c", "").replace("Đ", "İ")
+    return sanitize_markdown_for_storage(repaired)
 
 
 def _extract_html_to_markdown(html: str) -> str:

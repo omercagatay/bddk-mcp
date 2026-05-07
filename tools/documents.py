@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from config import ADMIN_TOOLS
 from exceptions import BddkStorageError
+from markdown_quality import assess_markdown_quality, sanitize_markdown_for_context
 
 if TYPE_CHECKING:
     from deps import Dependencies
@@ -111,19 +112,35 @@ def register(mcp, deps: Dependencies) -> None:
             except (RuntimeError, BddkStorageError) as e:
                 logger.debug("extraction_method lookup failed for %s: %s", resolved_id, e)
 
-        degraded = bool(extraction_method) and not _is_formula_aware(extraction_method)
+        formula_aware = _is_formula_aware(extraction_method)
+        quality = assess_markdown_quality(content, document_id=resolved_id)
+        if formula_aware and quality.flags == ["formula_ref_without_latex_or_image"]:
+            quality.label = "clean"
+            quality.flags = []
+            quality.warning = ""
+        content = sanitize_markdown_for_context(content)
+
+        degraded = bool(extraction_method) and not formula_aware
         method_display = extraction_method or "unknown"
         if degraded:
             method_display = f"{method_display} (formula-unaware — equations/images may be missing)"
 
-        warning_block = f"⚠ {_DEGRADED_WARNING}\n\n" if degraded else ""
+        quality_lines = ""
+        quality_warning_block = ""
+        if quality.label != "clean":
+            flags = ", ".join(quality.flags) if quality.flags else "none"
+            quality_lines = f"- Quality: {quality.label}\n- Quality flags: {flags}\n"
+            quality_warning_block = f"⚠ Quality warning: {quality.warning}\n\n" if quality.warning else ""
+
+        degraded_warning_block = f"⚠ {_DEGRADED_WARNING}\n\n" if degraded else ""
 
         header = (
             f"## {meta_title}\n- Document ID: {resolved_id}\n{alias_line}"
             f"- Decision Date: {meta_date or 'N/A'}\n- Decision Number: {meta_number or 'N/A'}\n"
             f"- Category: {meta_category or 'N/A'}\n- Source: {source_url or 'N/A'}\n"
-            f"- Page: {page_num}/{total_pages}\n- Extraction: {method_display}\n---\n"
-            f"Use ONLY the text below. Do not add information not present in this document.\n\n{warning_block}"
+            f"- Page: {page_num}/{total_pages}\n- Extraction: {method_display}\n{quality_lines}---\n"
+            "Use ONLY the text below. Do not add information not present in this document.\n\n"
+            f"{quality_warning_block}{degraded_warning_block}"
         )
 
         return header + content
