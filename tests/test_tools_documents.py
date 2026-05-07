@@ -224,6 +224,37 @@ async def test_pgvector_path_still_looks_up_extraction_method():
 
 
 @pytest.mark.asyncio
+async def test_get_bddk_document_sanitizes_context_output_and_warns_for_fail():
+    """Unsafe extraction blobs must never leak through public document retrieval."""
+    page = DocumentPage(
+        document_id="mevzuat_21192",
+        title="Risk Yönetimi",
+        markdown_content="<div><img src='data:image/x-wmf;base64,AAA'>cid:12</div>Madde 1",
+        page_number=1,
+        total_pages=1,
+        extraction_method="markitdown",
+    )
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(return_value=page)
+    doc_store.get_extraction_method = AsyncMock(return_value="markitdown")
+    deps = _make_deps(doc_store=doc_store)
+
+    tool = _capture_get_bddk_document(deps)
+    out = await tool("mevzuat_21192", 1)
+
+    assert "data:image/" not in out
+    assert "base64" not in out
+    assert "<img" not in out.lower()
+    assert "<div" not in out.lower()
+    assert "cid:" not in out
+    assert "Quality: fail" in out
+    assert "Quality flags:" in out
+    assert "severe extraction artifacts" in out
+    assert "[removed embedded image/formula artifact]" in out
+    assert "Madde 1" in out
+
+
+@pytest.mark.asyncio
 async def test_missing_doc_returns_airlocked_error_for_all_candidates():
     """When no candidate hits, return the airlock error referencing the original ID."""
     doc_store = MagicMock()

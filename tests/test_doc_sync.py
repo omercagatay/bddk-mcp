@@ -300,6 +300,17 @@ class TestSanitizeForStorage:
 
         assert _sanitize_for_storage("BĐLGĐN\x0cĐhraççı\x00") == "BİLGİNİhraççı"
 
+    def test_uses_shared_markdown_quality_storage_rules(self):
+        from doc_sync import _sanitize_for_storage
+
+        out = _sanitize_for_storage("A\u00a0B\u200bC\n****\n" + "_" * 80)
+
+        assert "\u00a0" not in out
+        assert "\u200b" not in out
+        assert "****" not in out
+        assert "_" * 40 not in out
+        assert "A BC" in out
+
 
 class TestFetchWithRetry:
     @pytest.mark.asyncio
