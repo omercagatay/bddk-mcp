@@ -29,3 +29,10 @@ scripts/doc_*.txt
 
 # Claude Code — per-machine permission allowlist
 .claude/settings.local.json
+
+# Internal planning / design / research notes (kept local only)
+docs/superpowers/
+docs/hibrit-arama-siralamasi.md
+learn/
+.codex
+.agents/
