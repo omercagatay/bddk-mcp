@@ -56,7 +56,7 @@ Filtre `client.py` içindeki `_is_in_scope` fonksiyonunda uygulanır ve idempote
 
 | Modül | Araçlar |
 |---|---|
-| **Arama** | `search_bddk_decisions`, `search_document_store`, `search_bddk_institutions`, `search_bddk_announcements` |
+| **Arama** | `search_bddk_regulations`, `search_document_store`, `search_bddk_institutions`, `search_bddk_announcements` |
 | **Doküman** | `get_bddk_document`, `get_document_history`, `document_store_stats` |
 | **Bülten** | `get_bddk_bulletin`, `get_bddk_bulletin_snapshot`, `get_bddk_monthly`, `compare_bulletin_metrics` |
 | **Analitik** | `analyze_bulletin_trends`, `get_regulatory_digest`, `check_bddk_updates`, `bddk_cache_status` |
@@ -91,7 +91,7 @@ Filtre `client.py` içindeki `_is_in_scope` fonksiyonunda uygulanır ve idempote
 
 ```
 # Sermaye yeterliliği düzenlemelerini ara
-search_bddk_decisions(keywords="sermaye yeterliliği")
+search_bddk_regulations(keywords="sermaye yeterliliği")
 
 # Semantik arama
 search_document_store(query="faiz oranı riski nasıl hesaplanır")
@@ -166,7 +166,7 @@ The filter lives in `_is_in_scope` (`client.py`) and is idempotent; reseeding pr
 
 | Module | Tools |
 |---|---|
-| **Search** | `search_bddk_decisions`, `search_document_store`, `search_bddk_institutions`, `search_bddk_announcements` |
+| **Search** | `search_bddk_regulations`, `search_document_store`, `search_bddk_institutions`, `search_bddk_announcements` |
 | **Documents** | `get_bddk_document`, `get_document_history`, `document_store_stats` |
 | **Bulletin** | `get_bddk_bulletin`, `get_bddk_bulletin_snapshot`, `get_bddk_monthly`, `compare_bulletin_metrics` |
 | **Analytics** | `analyze_bulletin_trends`, `get_regulatory_digest`, `check_bddk_updates`, `bddk_cache_status` |

@@ -1,4 +1,4 @@
-"""Search tools: search_bddk_decisions, search_bddk_institutions,
+"""Search tools: search_bddk_regulations, search_bddk_institutions,
 search_bddk_announcements, and search_document_store.
 
 Uses an OrderedDict-based LRU cache for O(1) eviction instead of the
@@ -67,7 +67,7 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
     """Register the four search tools on the given MCP instance."""
 
     @mcp.tool()
-    async def search_bddk_decisions(
+    async def search_bddk_regulations(
         keywords: str,
         page: int = 1,
         page_size: int = 10,
@@ -76,7 +76,22 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
         date_to: str | None = None,
     ) -> str:
         """
-        Search for BDDK (Banking Regulation and Supervision Agency) decisions.
+        Search the BDDK regulations CATALOG by title, category, decision number, and date.
+
+        Covers all BDDK regulatory document types: yönetmelik, tebliğ, genelge, rehber,
+        kurul kararı, kanun, mülga düzenleme, etc. ("decisions" is loose terminology;
+        the catalog is broader than just kararlar.)
+
+        This is a TITLE/METADATA search only — it does NOT search document body content.
+        Use this when you know words that appear in the regulation's name itself
+        (e.g. "kredilerin sınıflandırılması", "elektronik para", "banka kartları").
+
+        For terms that appear only inside document bodies — abbreviations like "TFRS 9",
+        article references ("madde 5"), defined terms, calculation formulas — use
+        search_document_store instead (semantic search over full text).
+
+        All keyword tokens must match somewhere in title/category/date/number; one
+        missing token returns zero results.
 
         Args:
             keywords: Search terms in Turkish (e.g. "elektronik para", "banka lisansı")
@@ -91,7 +106,7 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
             date_from: Optional start date filter (DD.MM.YYYY)
             date_to: Optional end date filter (DD.MM.YYYY)
         """
-        cache_key = f"decisions:{keywords}:{page}:{page_size}:{category}:{date_from}:{date_to}"
+        cache_key = f"regulations:{keywords}:{page}:{page_size}:{category}:{date_from}:{date_to}"
         cached = _search_cache.get(cache_key)
         if cached:
             return cached  # type: ignore[return-value]
@@ -107,10 +122,12 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
         result = await deps.client.search_decisions(request)
 
         if not result.decisions:
-            metrics.record_empty_search("search_bddk_decisions")
-            return """NO RESULTS: No BDDK decisions found matching these keywords.
-DO NOT provide information about BDDK decisions from your own knowledge.
-Suggest the user try: different Turkish keywords, broader terms, or removing date/category filters."""
+            metrics.record_empty_search("search_bddk_regulations")
+            return """NO RESULTS: No BDDK regulations found whose title/category/date/number matches ALL keywords.
+This tool searches catalog metadata only — not document bodies.
+DO NOT provide information about BDDK regulations from your own knowledge.
+Try: (1) call search_document_store with the same query for full-text semantic search, or
+(2) use only words you'd expect in the regulation's title."""
 
         # Batch version count lookup — one query instead of N
         doc_ids = [d.document_id for d in result.decisions]
@@ -231,10 +248,15 @@ Suggest the user try: different keywords or a different category (basın, mevzua
         limit: int = 10,
     ) -> str:
         """
-        Semantic search across all BDDK documents using vector embeddings.
+        Semantic search over BDDK document BODIES (full text via pgvector).
 
-        Uses pgvector with multilingual-e5-base model for Turkish legal text.
-        Understands meaning, not just keywords.
+        Uses multilingual-e5-base embeddings on chunked document content. Use this
+        when query terms might appear inside the document text rather than in the
+        title — abbreviations like "TFRS 9", article references, calculation
+        formulas, defined terms. Understands meaning, not just keywords.
+
+        For title-only catalog lookups (where you know words from the regulation's
+        name), use search_bddk_regulations instead.
 
         Args:
             query: Natural language query in Turkish (e.g. "faiz oranı riski nasıl hesaplanır")

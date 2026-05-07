@@ -28,14 +28,14 @@ TEST_CASES: list[TestCase] = [
     TestCase(
         id=1,
         question="Sermaye yeterliliği rasyosu hesaplamasına ilişkin güncel düzenlemeler nelerdir?",
-        expected_tool="search_bddk_decisions",
+        expected_tool="search_bddk_regulations",
         expected_params={"keywords": "sermaye yeterliliği"},
         category="search",
     ),
     TestCase(
         id=2,
         question="Takipteki alacaklara ilişkin karşılık oranları hakkında BDDK kararları var mı?",
-        expected_tool="search_bddk_decisions",
+        expected_tool="search_bddk_regulations",
         expected_params={"keywords": "takipteki alacak karşılık"},
         category="search",
     ),
@@ -173,11 +173,11 @@ TEST_CASES: list[TestCase] = [
     TestCase(
         id=21,
         question="Kredi kartı taksit düzenlemelerini bul ve ilgili dökümanın tam metnini getir",
-        expected_tool="search_bddk_decisions",
+        expected_tool="search_bddk_regulations",
         expected_params={"keywords": "kredi kartı taksit"},
         category="multi_tool",
         is_multi_tool=True,
-        expected_chain=["search_bddk_decisions", "get_bddk_document"],
+        expected_chain=["search_bddk_regulations", "get_bddk_document"],
     ),
     TestCase(
         id=22,
@@ -186,7 +186,7 @@ TEST_CASES: list[TestCase] = [
         expected_params={},
         category="multi_tool",
         is_multi_tool=True,
-        expected_chain=["analyze_bulletin_trends", "search_bddk_decisions"],
+        expected_chain=["analyze_bulletin_trends", "search_bddk_regulations"],
     ),
     TestCase(
         id=23,

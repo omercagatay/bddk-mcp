@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 FEW_SHOT_EXAMPLES = """
 Örnek 1:
 Soru: Sermaye yeterliliği oranı hakkında düzenlemeler neler?
-Araç: search_bddk_decisions
+Araç: search_bddk_regulations
 Parametreler: {"keywords": "sermaye yeterliliği"}
 
 Örnek 2:

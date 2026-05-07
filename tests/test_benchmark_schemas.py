@@ -20,14 +20,14 @@ def test_each_schema_has_required_fields():
 
 def test_get_tool_names():
     names = get_tool_names()
-    assert "search_bddk_decisions" in names
+    assert "search_bddk_regulations" in names
     assert "get_bddk_bulletin" in names
     assert "health_check" in names
     assert len(names) == 21
 
 
-def test_search_bddk_decisions_schema():
-    schema = next(s for s in TOOL_SCHEMAS if s["function"]["name"] == "search_bddk_decisions")
+def test_search_bddk_regulations_schema():
+    schema = next(s for s in TOOL_SCHEMAS if s["function"]["name"] == "search_bddk_regulations")
     params = schema["function"]["parameters"]["properties"]
     assert "keywords" in params
     assert "category" in params
