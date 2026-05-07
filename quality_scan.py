@@ -12,8 +12,13 @@ markdown_content column via PostgreSQL).
 
 from __future__ import annotations
 
+import csv
+import io
+
 import asyncpg
 from pydantic import BaseModel, Field
+
+from markdown_quality import assess_markdown_quality
 
 
 class AnomalyCount(BaseModel):
@@ -29,12 +34,21 @@ class MethodBreakdown(BaseModel):
     avg_chars: int
 
 
+class DocumentFinding(BaseModel):
+    document_id: str
+    label: str
+    flags: list[str] = Field(default_factory=list)
+    counts: dict[str, int] = Field(default_factory=dict)
+    sample: str = ""
+
+
 class QualityReport(BaseModel):
     total_documents: int
     methods: list[MethodBreakdown]
     anomalies: list[AnomalyCount]
     orphan_chunks: int
     docs_without_chunks: int
+    document_findings: list[DocumentFinding] = Field(default_factory=list)
 
 
 _SAMPLE_LIMIT = 5
@@ -71,6 +85,21 @@ async def scan_quality(pool: asyncpg.Pool) -> QualityReport:
             "leaked_img_tag",
             "Raw <img> tag leaked into markdown",
             "markdown_content ~* '<img[[:space:]>]'",
+        ),
+        (
+            "data_uri_image",
+            "Embedded data:image/... payload leaked into markdown",
+            "markdown_content ~* 'data:image/'",
+        ),
+        (
+            "wmf_data_uri",
+            "Embedded data:image/x-wmf payload leaked into markdown",
+            "markdown_content ~* 'data:image/x-wmf'",
+        ),
+        (
+            "cid_marker",
+            "CID image/formula markers leaked into markdown",
+            "markdown_content ~* 'cid:'",
         ),
         (
             "leaked_html_block",
@@ -158,12 +187,38 @@ async def scan_quality(pool: asyncpg.Pool) -> QualityReport:
         """
     )
 
+    finding_rows = await pool.fetch(
+        """
+        SELECT document_id, markdown_content
+        FROM documents
+        WHERE markdown_content != ''
+        ORDER BY document_id
+        """
+    )
+    document_findings: list[DocumentFinding] = []
+    for row in finding_rows:
+        document_id = row["document_id"]
+        markdown = row["markdown_content"] or ""
+        quality = assess_markdown_quality(markdown, document_id=document_id)
+        if quality.label == "clean":
+            continue
+        document_findings.append(
+            DocumentFinding(
+                document_id=document_id,
+                label=quality.label,
+                flags=quality.flags,
+                counts=quality.counts,
+                sample=_sample_text(markdown),
+            )
+        )
+
     return QualityReport(
         total_documents=total,
         methods=methods,
         anomalies=anomalies,
         orphan_chunks=orphan_chunks or 0,
         docs_without_chunks=docs_without_chunks or 0,
+        document_findings=document_findings,
     )
 
 
@@ -199,6 +254,22 @@ def format_report(report: QualityReport) -> str:
     lines.append(f"  Orphan chunks (no parent doc): {report.orphan_chunks}")
     lines.append(f"  Docs >500 chars missing chunks: {report.docs_without_chunks}")
 
+    if report.document_findings:
+        lines.append("")
+        lines.append("**Document findings**")
+        lines.append("")
+        lines.append(f"  {'Document ID':<24} {'Label':<8} Flags")
+        lines.append("  " + "-" * 88)
+        label_rank = {"fail": 0, "warning": 1, "clean": 2}
+        findings = sorted(
+            report.document_findings,
+            key=lambda f: (label_rank.get(f.label, 9), f.document_id),
+        )
+        for finding in findings[:20]:
+            lines.append(f"  {finding.document_id:<24} {finding.label:<8} {', '.join(finding.flags)}")
+        if len(findings) > 20:
+            lines.append(f"  ... and {len(findings) - 20} more finding(s)")
+
     flagged_signals = [a for a in report.anomalies if a.docs_flagged > 0]
     if flagged_signals:
         lines.append("")
@@ -212,3 +283,30 @@ def format_report(report: QualityReport) -> str:
         lines.append("All anomaly signals are clean.")
 
     return "\n".join(lines)
+
+
+def format_report_json(report: QualityReport) -> dict:
+    """Render a QualityReport as a JSON-serializable dictionary."""
+    return report.model_dump()
+
+
+def format_report_csv(report: QualityReport) -> str:
+    """Render document-level quality findings as CSV."""
+    output = io.StringIO()
+    writer = csv.writer(output, lineterminator="\n")
+    writer.writerow(["document_id", "label", "flags", "sample"])
+    for finding in report.document_findings:
+        writer.writerow(
+            [
+                finding.document_id,
+                finding.label,
+                "|".join(finding.flags),
+                finding.sample,
+            ]
+        )
+    return output.getvalue()
+
+
+def _sample_text(markdown: str, limit: int = 160) -> str:
+    """Return a compact one-line sample for quality reports."""
+    return " ".join(markdown.split())[:limit]
