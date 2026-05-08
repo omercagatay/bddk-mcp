@@ -112,6 +112,56 @@ class TestHybridSearchOrdering:
         assert relevances == sorted(relevances, reverse=True), f"Results not monotonic in relevance: {relevances}"
         assert [r["doc_id"] for r in results] == ["a", "b", "c"]
 
+    @pytest.mark.asyncio
+    async def test_hybrid_search_preserves_fts_only_exact_legal_reference(self):
+        """Exact legal-reference FTS hits must survive semantic thresholding.
+
+        A query like `Madde 9` can be best answered by an exact lexical hit even
+        when dense retrieval misses it or gives it no cosine relevance.
+        """
+        vs = VectorStore.__new__(VectorStore)
+
+        vs._vector_search = AsyncMock(return_value=[])
+        vs._fts_search = AsyncMock(
+            return_value=[
+                {
+                    "doc_id": "mevzuat_22599",
+                    "fts_rank": 0.4,
+                    "title": "Karşılık Yönetmeliği",
+                    "snippet": "MADDE 9 - TFRS 9 kapsamında karşılık ayrılır.",
+                }
+            ]
+        )
+
+        results = await vs._hybrid_search("Karşılık Yönetmeliği Madde 9 TFRS 9", limit=10)
+
+        assert [r["doc_id"] for r in results] == ["mevzuat_22599"]
+        assert results[0]["match_type"] == "fts_exact"
+        assert results[0]["semantic_relevance"] == 0.0
+        assert results[0]["fts_rank"] == 0.4
+        assert results[0]["relevance"] == 0.0
+
+    @pytest.mark.asyncio
+    async def test_hybrid_search_drops_fts_only_non_legal_query(self):
+        """FTS-only bypass is limited to exact legal-reference queries."""
+        vs = VectorStore.__new__(VectorStore)
+
+        vs._vector_search = AsyncMock(return_value=[])
+        vs._fts_search = AsyncMock(
+            return_value=[
+                {
+                    "doc_id": "general",
+                    "fts_rank": 0.4,
+                    "title": "General",
+                    "snippet": "Bankacılık işlemleri genel hükümler.",
+                }
+            ]
+        )
+
+        results = await vs._hybrid_search("bankacılık işlemleri", limit=10)
+
+        assert results == []
+
 
 async def _can_initialize_store(pg_pool) -> bool:
     """Check if VectorStore can initialize with embeddings."""
