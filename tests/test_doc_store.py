@@ -2,7 +2,8 @@
 
 import pytest
 
-from doc_store import StoredDocument
+from doc_store import _SCHEMA_SQL, StoredDocument, StoredDocumentSection
+from section_index import extract_document_sections
 
 
 # Uses doc_store, sample_doc, mevzuat_doc fixtures from conftest.py
@@ -10,6 +11,28 @@ from doc_store import StoredDocument
 @pytest.fixture
 async def store(doc_store):
     yield doc_store
+
+
+def test_document_sections_schema_is_declared():
+    assert "CREATE TABLE IF NOT EXISTS document_sections" in _SCHEMA_SQL
+    assert "UNIQUE(doc_id, section_type, section_ref, content_hash)" in _SCHEMA_SQL
+    assert "idx_document_sections_tsv" in _SCHEMA_SQL
+
+
+def test_stored_document_section_model():
+    section = StoredDocumentSection(
+        doc_id="943",
+        section_type="ilke",
+        section_ref="5",
+        heading="Model validasyonu",
+        start_char=0,
+        end_char=42,
+        content="İlke 5 - Model validasyonu",
+        content_hash="abc",
+    )
+
+    assert section.doc_id == "943"
+    assert section.section_type == "ilke"
 
 
 async def test_store_and_retrieve(store, sample_doc):
@@ -89,6 +112,45 @@ async def test_delete_document(store, sample_doc):
     deleted = await store.delete_document("1291")
     assert deleted is True
     assert await store.has_document("1291") is False
+
+
+async def test_replace_and_get_document_sections(store):
+    text = "İlke 5 - Model validasyonu\nBankalar modeli doğrular.\n\nİlke 6\nSonraki ilke."
+    sections = extract_document_sections("943", text)
+
+    await store.replace_document_sections("943", sections)
+    found = await store.get_document_section("943", section_type="ilke", section_ref="5")
+
+    assert len(found) == 1
+    assert found[0].doc_id == "943"
+    assert found[0].section_type == "ilke"
+    assert found[0].section_ref == "5"
+    assert "Bankalar modeli doğrular." in found[0].content
+
+
+async def test_replace_document_sections_deletes_stale_rows(store):
+    first = extract_document_sections("943", "İlke 5\nEski içerik.\n\nİlke 6\nSilinecek.")
+    second = extract_document_sections("943", "İlke 5\nYeni içerik.")
+
+    await store.replace_document_sections("943", first)
+    await store.replace_document_sections("943", second)
+
+    found = await store.get_document_section("943", section_type="ilke")
+    assert len(found) == 1
+    assert found[0].section_ref == "5"
+    assert "Yeni içerik." in found[0].content
+
+
+async def test_search_document_sections(store):
+    text = "MADDE 9 - TFRS 9 karşılık\nBankalar karşılık ayırır.\n\nMADDE 10\nBaşka hüküm."
+    await store.replace_document_sections("mevzuat_22599", extract_document_sections("mevzuat_22599", text))
+
+    hits = await store.search_document_sections("TFRS 9 karşılık", document_id="mevzuat_22599")
+
+    assert len(hits) >= 1
+    assert hits[0].doc_id == "mevzuat_22599"
+    assert hits[0].section_type == "madde"
+    assert hits[0].section_ref == "9"
 
 
 async def test_upsert(store, sample_doc):
