@@ -35,6 +35,8 @@ from config import (
     RERANKER_TOP_N,
     SEMANTIC_RELEVANCE_THRESHOLD,
 )
+from legal_ref import parse_legal_refs
+from markdown_quality import assess_markdown_quality
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +116,16 @@ def _chunk_text(text: str, chunk_size: int = EMBEDDING_CHUNK_SIZE, overlap: int 
         start += chunk_size - overlap
 
     return chunks
+
+
+def _has_exact_legal_reference(query: str) -> bool:
+    refs = parse_legal_refs(query)
+    return bool(refs.sections or refs.decision_numbers or refs.dates)
+
+
+def _quality_metadata(text: str, doc_id: str) -> dict:
+    quality = assess_markdown_quality(text or "", document_id=doc_id)
+    return {"quality_label": quality.label, "quality_flags": quality.flags}
 
 
 class VectorStore:
@@ -469,6 +481,10 @@ class VectorStore:
                     "snippet": (row["chunk_text"] or "")[:800],
                     "distance": distance,
                     "relevance": round(1 - distance, 4),
+                    "semantic_relevance": round(1 - distance, 4),
+                    "fts_rank": 0.0,
+                    "match_type": "vector",
+                    **_quality_metadata(row["chunk_text"] or "", did),
                 }
 
         hits = sorted(seen.values(), key=lambda x: x["distance"])
@@ -517,6 +533,9 @@ class VectorStore:
                     "decision_date": row["decision_date"] or "",
                     "snippet": (row["chunk_text"] or "")[:800],
                     "fts_rank": rank,
+                    "semantic_relevance": 0.0,
+                    "match_type": "fts",
+                    **_quality_metadata(row["chunk_text"] or "", did),
                 }
 
         return sorted(seen.values(), key=lambda x: x["fts_rank"], reverse=True)
@@ -540,6 +559,9 @@ class VectorStore:
             self._vector_search(query, limit=50, category=category, fetch_limit=100),
             self._fts_search(query, limit=50, category=category),
         )
+        exact_legal_query = _has_exact_legal_reference(query)
+        vector_by_doc = {hit["doc_id"]: hit for hit in vector_hits}
+        fts_by_doc = {hit["doc_id"]: hit for hit in fts_hits}
 
         # Step 2: FTS gate — if FTS returns nothing, the query likely has no
         # keyword overlap with any document. Penalize vector-only scores heavily
@@ -555,6 +577,22 @@ class VectorStore:
 
         # Step 3: RRF fusion
         fused = self._rrf_fuse(vector_hits, fts_hits)
+        for hit in fused:
+            did = hit["doc_id"]
+            hit["semantic_relevance"] = round(hit.get("relevance", 0.0), 4)
+            if did in fts_by_doc:
+                hit["fts_rank"] = fts_by_doc[did].get("fts_rank", 0.0)
+            else:
+                hit.setdefault("fts_rank", 0.0)
+
+            if did in vector_by_doc and did in fts_by_doc:
+                hit["match_type"] = "hybrid"
+            elif did in fts_by_doc and exact_legal_query:
+                hit["match_type"] = "fts_exact"
+            elif did in fts_by_doc:
+                hit["match_type"] = "fts"
+            else:
+                hit["match_type"] = "vector"
 
         # Step 4: Cross-encoder re-ranking (optional)
         if RERANKER_ENABLED and fused:
@@ -567,7 +605,11 @@ class VectorStore:
                 hit["relevance"] = 0.0
             hit["relevance"] = round(hit["relevance"], 4)
 
-        fused = [h for h in fused if h["relevance"] >= SEMANTIC_RELEVANCE_THRESHOLD]
+        fused = [
+            h
+            for h in fused
+            if h["semantic_relevance"] >= SEMANTIC_RELEVANCE_THRESHOLD or h["match_type"] == "fts_exact"
+        ]
 
         # Step 5b: Re-sort so output order matches the displayed `relevance`.
         # _rrf_fuse() ranks by rrf_score (dense rank + FTS rank), but the
@@ -579,15 +621,19 @@ class VectorStore:
         # ordering matches what each row says. Idempotent for the reranker
         # path, where `relevance` = sigmoid(rerank_score) is already the
         # sort key in _rerank().
-        fused.sort(key=lambda h: h["relevance"], reverse=True)
+        exact_hits = [h for h in fused if h["match_type"] == "fts_exact"]
+        semantic_hits = [h for h in fused if h["match_type"] != "fts_exact"]
+        semantic_hits.sort(key=lambda h: h["relevance"], reverse=True)
 
         # Step 6: Score gap filtering — if there's a large gap between top-1 and
         # the rest, only keep results within a reasonable band of the best score.
         # This prevents returning 10 results when only 1-2 are truly relevant.
-        if len(fused) > 1:
+        if len(semantic_hits) > 1:
             _SCORE_GAP_THRESHOLD = 0.08  # drop results >8% below top hit
-            top_score = fused[0]["relevance"]
-            fused = [h for h in fused if (top_score - h["relevance"]) <= _SCORE_GAP_THRESHOLD]
+            top_score = semantic_hits[0]["relevance"]
+            semantic_hits = [h for h in semantic_hits if (top_score - h["relevance"]) <= _SCORE_GAP_THRESHOLD]
+
+        fused = exact_hits + semantic_hits
 
         # Step 7: Add confidence labels
         for h in fused:
