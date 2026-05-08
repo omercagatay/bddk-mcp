@@ -1,0 +1,68 @@
+"""Tests for legal/regulatory section extraction."""
+
+from __future__ import annotations
+
+from section_index import extract_document_sections
+
+
+def test_extracts_madde_sections_with_offsets_and_content_hash():
+    text = "Başlangıç\n\nMadde 9 - Karşılık ayrılması\n(1) Birinci fıkra.\n\nMADDE 10\n(1) İkinci madde."
+
+    sections = extract_document_sections("mevzuat_22599", text)
+
+    madde9 = next(s for s in sections if s.section_type == "madde" and s.section_ref == "9")
+    assert madde9.doc_id == "mevzuat_22599"
+    assert madde9.heading == "Karşılık ayrılması"
+    assert "(1) Birinci fıkra." in madde9.content
+    assert "MADDE 10" not in madde9.content
+    assert madde9.start_char < madde9.end_char
+    assert len(madde9.content_hash) == 64
+
+
+def test_extracts_ilke_and_paragraf_sections():
+    text = "İlke 5: Model validasyonu\nBankalar modeli doğrular.\n\nParagraf 76\nÖnemli artış kriterleri."
+
+    sections = extract_document_sections("943", text)
+
+    assert ("ilke", "5") in {(s.section_type, s.section_ref) for s in sections}
+    assert ("paragraf", "76") in {(s.section_type, s.section_ref) for s in sections}
+    ilke5 = next(s for s in sections if s.section_type == "ilke")
+    assert "Model validasyonu" in ilke5.heading
+    assert "Bankalar modeli doğrular." in ilke5.content
+
+
+def test_extracts_turkish_letter_subsections():
+    text = "MADDE 1\n(1) Birinci fıkra.\n(a) A bendi.\n(ç) Ç bendi.\n\nMadde 2\nSonraki madde."
+
+    sections = extract_document_sections("doc", text)
+
+    refs = {(s.section_type, s.section_ref) for s in sections}
+    assert ("fikra", "1") in refs
+    assert ("bent", "a") in refs
+    assert ("bent", "ç") in refs
+
+
+def test_extracts_gecici_madde_and_ek_headings():
+    text = "Geçici Madde 3 - Uyum süreci\nHüküm.\n\nEk-1\nHesaplama Tablosu\n\nEK 2\nAçıklama"
+
+    sections = extract_document_sections("doc", text)
+
+    refs = {(s.section_type, s.section_ref) for s in sections}
+    assert ("gecici_madde", "3") in refs
+    assert ("ek", "1") in refs
+    assert ("ek", "2") in refs
+
+
+def test_no_sections_for_plain_text():
+    assert extract_document_sections("doc", "Sadece normal paragraf.") == []
+
+
+def test_benchmark_critical_refs_are_identified():
+    tfrs9_text = "İlke 5 - Model Validasyonu\nModel validasyonu bağımsız yapılır."
+    karsilik_text = "MADDE 9 - TFRS 9 kapsamında karşılık ayrılması\nBankalar karşılık ayırır."
+
+    tfrs9_sections = extract_document_sections("943", tfrs9_text)
+    karsilik_sections = extract_document_sections("mevzuat_22599", karsilik_text)
+
+    assert any(s.section_type == "ilke" and s.section_ref == "5" for s in tfrs9_sections)
+    assert any(s.section_type == "madde" and s.section_ref == "9" for s in karsilik_sections)
