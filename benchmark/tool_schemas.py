@@ -1,5 +1,5 @@
 # benchmark/tool_schemas.py
-"""21 bddk-mcp tool schemas in OpenAI function-calling format.
+"""23 bddk-mcp tool schemas in OpenAI function-calling format.
 
 Each schema mirrors the tool's actual signature from the tools/ modules.
 Ollama's /v1/chat/completions accepts these in the `tools` array.
@@ -126,6 +126,72 @@ TOOL_SCHEMAS: list[dict] = [
                     "limit": {
                         "type": "integer",
                         "description": "Maximum results to return (default 10)",
+                        "default": 10,
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    # -- sections.py (2 tools) -----------------------------------------------
+    {
+        "type": "function",
+        "function": {
+            "name": "get_document_section",
+            "description": (
+                "Retrieve exact structural sections from a stored BDDK document, "
+                "such as `943 İlke 5` or `mevzuat_22599 Madde 9`."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "document_id": {
+                        "type": "string",
+                        "description": "Stored document ID, e.g. `943` or `mevzuat_22599`",
+                    },
+                    "section_type": {
+                        "type": "string",
+                        "description": "Optional exact section type, e.g. madde, ilke, paragraf, ek",
+                    },
+                    "section_ref": {
+                        "type": "string",
+                        "description": "Optional exact section reference, e.g. 9 or 5",
+                    },
+                    "heading": {
+                        "type": "string",
+                        "description": "Optional heading substring filter",
+                    },
+                },
+                "required": ["document_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_document_sections",
+            "description": (
+                "Search section-level content in stored BDDK documents. "
+                "Use for exact legal references and article/principle-level retrieval."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Turkish legal query, e.g. `943 İlke 5 model validasyonu`",
+                    },
+                    "document_id": {
+                        "type": "string",
+                        "description": "Optional document ID filter",
+                    },
+                    "section_type": {
+                        "type": "string",
+                        "description": "Optional section type filter",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of section results",
                         "default": 10,
                     },
                 },

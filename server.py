@@ -24,7 +24,7 @@ from config import (
 from deps import Dependencies
 from doc_store import DocumentStore
 from logging_config import configure_logging
-from tools import admin, analytics, bulletin, documents, search, sync
+from tools import admin, analytics, bulletin, documents, search, sections, sync
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -163,6 +163,7 @@ if __name__ == "__main__":
             # Register all tool modules
             search.register(mcp, deps)
             documents.register(mcp, deps)
+            sections.register(mcp, deps)
             bulletin.register(mcp, deps)
             analytics.register(mcp, deps)
             if ADMIN_TOOLS:
@@ -216,6 +217,7 @@ if __name__ == "__main__":
 
             search.register(mcp, deps)
             documents.register(mcp, deps)
+            sections.register(mcp, deps)
             bulletin.register(mcp, deps)
             analytics.register(mcp, deps)
             if ADMIN_TOOLS:

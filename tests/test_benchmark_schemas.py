@@ -4,8 +4,8 @@ from benchmark.tool_schemas import TOOL_SCHEMAS, get_tool_names
 
 
 def test_schema_count():
-    """We have 21 tools in bddk-mcp."""
-    assert len(TOOL_SCHEMAS) == 21
+    """We have 23 tools in bddk-mcp."""
+    assert len(TOOL_SCHEMAS) == 23
 
 
 def test_each_schema_has_required_fields():
@@ -21,9 +21,11 @@ def test_each_schema_has_required_fields():
 def test_get_tool_names():
     names = get_tool_names()
     assert "search_bddk_regulations" in names
+    assert "search_document_sections" in names
+    assert "get_document_section" in names
     assert "get_bddk_bulletin" in names
     assert "health_check" in names
-    assert len(names) == 21
+    assert len(names) == 23
 
 
 def test_search_bddk_regulations_schema():
