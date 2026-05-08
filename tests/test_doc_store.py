@@ -141,6 +141,45 @@ async def test_replace_document_sections_deletes_stale_rows(store):
     assert "Yeni içerik." in found[0].content
 
 
+async def test_store_document_auto_indexes_sections(store):
+    doc = StoredDocument(
+        document_id="auto_sections",
+        title="Auto Section Doc",
+        markdown_content="MADDE 9 - TFRS 9 karşılık\nBankalar karşılık ayırır.\n\nMADDE 10\nBaşka hüküm.",
+    )
+
+    await store.store_document(doc)
+    found = await store.get_document_section("auto_sections", section_type="madde", section_ref="9")
+
+    assert len(found) == 1
+    assert "Bankalar karşılık ayırır." in found[0].content
+
+
+async def test_store_document_replaces_stale_auto_indexed_sections(store):
+    first = StoredDocument(
+        document_id="auto_sections", title="Doc", markdown_content="İlke 5\nEski içerik.\n\nİlke 6\nSilinecek."
+    )
+    second = StoredDocument(document_id="auto_sections", title="Doc", markdown_content="İlke 5\nYeni içerik.")
+
+    await store.store_document(first)
+    await store.store_document(second)
+
+    found = await store.get_document_section("auto_sections", section_type="ilke")
+    assert len(found) == 1
+    assert found[0].section_ref == "5"
+    assert "Yeni içerik." in found[0].content
+
+
+async def test_store_document_empty_content_clears_sections(store):
+    first = StoredDocument(document_id="auto_sections", title="Doc", markdown_content="İlke 5\nEski içerik.")
+    empty = StoredDocument(document_id="auto_sections", title="Doc", markdown_content="")
+
+    await store.store_document(first)
+    await store.store_document(empty)
+
+    assert await store.get_document_section("auto_sections") == []
+
+
 async def test_search_document_sections(store):
     text = "MADDE 9 - TFRS 9 karşılık\nBankalar karşılık ayırır.\n\nMADDE 10\nBaşka hüküm."
     await store.replace_document_sections("mevzuat_22599", extract_document_sections("mevzuat_22599", text))

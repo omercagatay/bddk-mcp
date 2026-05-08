@@ -17,6 +17,7 @@ import asyncpg
 from pydantic import BaseModel, Field
 
 from config import FTS_RANK_THRESHOLD, PAGE_SIZE
+from section_index import extract_document_sections
 
 logger = logging.getLogger(__name__)
 
@@ -335,6 +336,9 @@ class DocumentStore:
                 )
 
         logger.debug("Stored document %s (%s)", doc.document_id, doc.title[:60])
+
+        sections = extract_document_sections(doc.document_id, doc.markdown_content) if doc.markdown_content else []
+        await self.replace_document_sections(doc.document_id, sections)
 
     async def get_document(self, doc_id: str) -> StoredDocument | None:
         """Retrieve a full document by ID."""
