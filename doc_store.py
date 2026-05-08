@@ -17,6 +17,7 @@ import asyncpg
 from pydantic import BaseModel, Field
 
 from config import FTS_RANK_THRESHOLD, PAGE_SIZE
+from section_index import extract_document_sections
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,21 @@ class SearchHit(BaseModel):
     decision_date: str = ""
 
 
+class StoredDocumentSection(BaseModel):
+    """A structural section persisted for a document."""
+
+    doc_id: str
+    section_type: str
+    section_ref: str
+    heading: str = ""
+    start_char: int
+    end_char: int
+    content: str
+    content_hash: str
+    page_start: int | None = None
+    page_end: int | None = None
+
+
 class StoreStats(BaseModel):
     """Statistics about the document store."""
 
@@ -110,6 +126,26 @@ CREATE INDEX IF NOT EXISTS idx_documents_category ON documents(category);
 CREATE INDEX IF NOT EXISTS idx_documents_date ON documents(decision_date);
 CREATE INDEX IF NOT EXISTS idx_documents_tsv ON documents USING GIN(tsv);
 
+CREATE TABLE IF NOT EXISTS document_sections (
+    id            SERIAL PRIMARY KEY,
+    doc_id        TEXT NOT NULL,
+    section_type  TEXT NOT NULL,
+    section_ref   TEXT NOT NULL,
+    heading       TEXT DEFAULT '',
+    start_char    INTEGER NOT NULL,
+    end_char      INTEGER NOT NULL,
+    content       TEXT NOT NULL,
+    content_hash  TEXT NOT NULL,
+    page_start    INTEGER,
+    page_end      INTEGER,
+    tsv           tsvector,
+    UNIQUE(doc_id, section_type, section_ref, content_hash)
+);
+
+CREATE INDEX IF NOT EXISTS idx_document_sections_doc_id ON document_sections(doc_id);
+CREATE INDEX IF NOT EXISTS idx_document_sections_ref ON document_sections(section_type, section_ref);
+CREATE INDEX IF NOT EXISTS idx_document_sections_tsv ON document_sections USING GIN(tsv);
+
 -- Trigger to keep tsv column in sync
 CREATE OR REPLACE FUNCTION documents_tsv_trigger() RETURNS trigger AS $$
 BEGIN
@@ -125,6 +161,20 @@ DROP TRIGGER IF EXISTS trg_documents_tsv ON documents;
 CREATE TRIGGER trg_documents_tsv
     BEFORE INSERT OR UPDATE ON documents
     FOR EACH ROW EXECUTE FUNCTION documents_tsv_trigger();
+
+CREATE OR REPLACE FUNCTION document_sections_tsv_trigger() RETURNS trigger AS $$
+BEGIN
+    NEW.tsv :=
+        to_tsvector('simple', immutable_unaccent(coalesce(NEW.heading, '')))
+        || to_tsvector('simple', immutable_unaccent(coalesce(NEW.content, '')));
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_document_sections_tsv ON document_sections;
+CREATE TRIGGER trg_document_sections_tsv
+    BEFORE INSERT OR UPDATE ON document_sections
+    FOR EACH ROW EXECUTE FUNCTION document_sections_tsv_trigger();
 
 CREATE TABLE IF NOT EXISTS document_versions (
     id                SERIAL PRIMARY KEY,
@@ -162,6 +212,22 @@ CREATE TABLE IF NOT EXISTS sync_failures (
 def _content_hash(content: str) -> str:
     """SHA-256 hash of document content for change detection."""
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+def _section_from_row(row) -> StoredDocumentSection:
+    """Convert an asyncpg row into a StoredDocumentSection."""
+    return StoredDocumentSection(
+        doc_id=row["doc_id"],
+        section_type=row["section_type"],
+        section_ref=row["section_ref"],
+        heading=row["heading"] or "",
+        start_char=row["start_char"],
+        end_char=row["end_char"],
+        content=row["content"] or "",
+        content_hash=row["content_hash"] or "",
+        page_start=row["page_start"],
+        page_end=row["page_end"],
+    )
 
 
 # -- DocumentStore ------------------------------------------------------------
@@ -271,6 +337,9 @@ class DocumentStore:
 
         logger.debug("Stored document %s (%s)", doc.document_id, doc.title[:60])
 
+        sections = extract_document_sections(doc.document_id, doc.markdown_content) if doc.markdown_content else []
+        await self.replace_document_sections(doc.document_id, sections)
+
     async def get_document(self, doc_id: str) -> StoredDocument | None:
         """Retrieve a full document by ID."""
         row = await self._pool.fetchrow("SELECT * FROM documents WHERE document_id = $1", doc_id)
@@ -350,8 +419,123 @@ class DocumentStore:
 
     async def delete_document(self, doc_id: str) -> bool:
         """Delete a document by ID. Returns True if deleted."""
+        await self.delete_document_sections(doc_id)
         result = await self._pool.execute("DELETE FROM documents WHERE document_id = $1", doc_id)
         return result == "DELETE 1"
+
+    # -- Sections -------------------------------------------------------------
+
+    async def replace_document_sections(self, doc_id: str, sections: list) -> int:
+        """Replace all indexed structural sections for a document."""
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute("DELETE FROM document_sections WHERE doc_id = $1", doc_id)
+                if not sections:
+                    return 0
+
+                args = [
+                    (
+                        getattr(section, "doc_id", doc_id),
+                        section.section_type,
+                        section.section_ref,
+                        section.heading,
+                        section.start_char,
+                        section.end_char,
+                        section.content,
+                        section.content_hash,
+                        section.page_start,
+                        section.page_end,
+                    )
+                    for section in sections
+                ]
+                await conn.executemany(
+                    """
+                    INSERT INTO document_sections (
+                        doc_id, section_type, section_ref, heading, start_char, end_char,
+                        content, content_hash, page_start, page_end
+                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+                    ON CONFLICT(doc_id, section_type, section_ref, content_hash) DO UPDATE SET
+                        heading=EXCLUDED.heading,
+                        start_char=EXCLUDED.start_char,
+                        end_char=EXCLUDED.end_char,
+                        content=EXCLUDED.content,
+                        page_start=EXCLUDED.page_start,
+                        page_end=EXCLUDED.page_end
+                    """,
+                    args,
+                )
+        return len(args)
+
+    async def delete_document_sections(self, doc_id: str) -> bool:
+        """Delete all structural sections for a document."""
+        result = await self._pool.execute("DELETE FROM document_sections WHERE doc_id = $1", doc_id)
+        return result != "DELETE 0"
+
+    async def get_document_section(
+        self,
+        doc_id: str,
+        *,
+        section_type: str | None = None,
+        section_ref: str | None = None,
+        heading: str | None = None,
+    ) -> list[StoredDocumentSection]:
+        """Fetch structural sections by document ID and optional exact refs."""
+        where = ["doc_id = $1"]
+        params: list = [doc_id]
+        if section_type:
+            params.append(section_type)
+            where.append(f"section_type = ${len(params)}")
+        if section_ref:
+            params.append(section_ref)
+            where.append(f"section_ref = ${len(params)}")
+        if heading:
+            params.append(f"%{heading}%")
+            where.append(f"heading ILIKE ${len(params)}")
+
+        rows = await self._pool.fetch(
+            f"""
+            SELECT doc_id, section_type, section_ref, heading, start_char, end_char,
+                   content, content_hash, page_start, page_end
+            FROM document_sections
+            WHERE {" AND ".join(where)}
+            ORDER BY start_char
+            """,
+            *params,
+        )
+        return [_section_from_row(row) for row in rows]
+
+    async def search_document_sections(
+        self,
+        query: str,
+        *,
+        document_id: str | None = None,
+        section_type: str | None = None,
+        limit: int = 10,
+    ) -> list[StoredDocumentSection]:
+        """Full-text search over structural sections."""
+        where = ["tsv @@ plainto_tsquery('simple', immutable_unaccent($1))"]
+        params: list = [query]
+        if document_id:
+            params.append(document_id)
+            where.append(f"doc_id = ${len(params)}")
+        if section_type:
+            params.append(section_type)
+            where.append(f"section_type = ${len(params)}")
+        params.append(limit)
+
+        rows = await self._pool.fetch(
+            f"""
+            SELECT doc_id, section_type, section_ref, heading, start_char, end_char,
+                   content, content_hash, page_start, page_end,
+                   ts_rank_cd(tsv, plainto_tsquery('simple', immutable_unaccent($1))) AS rank
+            FROM document_sections
+            WHERE {" AND ".join(where)}
+            ORDER BY rank DESC, start_char
+            LIMIT ${len(params)}
+            """,
+            *params,
+        )
+        return [_section_from_row(row) for row in rows]
 
     # -- Search ---------------------------------------------------------------
 
