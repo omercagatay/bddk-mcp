@@ -188,6 +188,14 @@ railway run --service Postgres --environment production \
   sh -c 'uv run python scripts/reindex_document_sections.py --database-url "$DATABASE_PUBLIC_URL" --execute'
 ```
 
+Opsiyonel retrieval telemetry:
+
+```bash
+BDDK_TELEMETRY_ENABLED=true uv run python server.py
+```
+
+Telemetry varsayılan olarak kapalıdır. Açıldığında `tool_call_traces` tablosuna latency, result count, doc ID, kalite etiketi ve relevance özeti yazar; query/prompt metni hash/uzunluk özeti olarak saklanır. Raw metin yalnızca `BDDK_TELEMETRY_STORE_TEXT=true` açıkça set edilirse yazılır.
+
 ### Mimari
 
 ```text
@@ -398,6 +406,14 @@ One-off section reindex on Railway production:
 railway run --service Postgres --environment production \
   sh -c 'uv run python scripts/reindex_document_sections.py --database-url "$DATABASE_PUBLIC_URL" --execute'
 ```
+
+Optional retrieval telemetry:
+
+```bash
+BDDK_TELEMETRY_ENABLED=true uv run python server.py
+```
+
+Telemetry is disabled by default. When enabled, the server writes latency, result counts, document IDs, quality labels, and relevance summaries to `tool_call_traces`; query/prompt text is stored as a hash and length summary. Raw text is only stored when `BDDK_TELEMETRY_STORE_TEXT=true` is explicitly set.
 
 ### Architecture
 

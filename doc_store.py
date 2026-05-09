@@ -188,6 +188,25 @@ CREATE TABLE IF NOT EXISTS document_versions (
 
 CREATE INDEX IF NOT EXISTS idx_versions_doc_id ON document_versions(document_id);
 
+CREATE TABLE IF NOT EXISTS tool_call_traces (
+    id             BIGSERIAL PRIMARY KEY,
+    created_at     TIMESTAMPTZ DEFAULT now(),
+    tool_name      TEXT NOT NULL,
+    args_hash      TEXT NOT NULL,
+    args_summary   JSONB,
+    latency_ms     INTEGER,
+    result_count   INTEGER,
+    doc_ids        TEXT[],
+    quality_labels JSONB,
+    relevance_stats JSONB,
+    model_id       TEXT,
+    session_id     TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_tool_call_traces_created_at ON tool_call_traces(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tool_call_traces_tool_name ON tool_call_traces(tool_name);
+CREATE INDEX IF NOT EXISTS idx_tool_call_traces_doc_ids ON tool_call_traces USING GIN(doc_ids);
+
 CREATE TABLE IF NOT EXISTS sync_metadata (
     document_id       TEXT PRIMARY KEY,
     etag              TEXT DEFAULT '',

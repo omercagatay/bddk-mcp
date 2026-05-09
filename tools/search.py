@@ -16,6 +16,13 @@ from config import ANNOUNCEMENT_CATEGORY_IDS, SEARCH_CACHE_MAX, SEARCH_CACHE_TTL
 from data_sources import fetch_announcements, fetch_institutions
 from metrics import metrics
 from models import BddkSearchRequest
+from telemetry import (
+    elapsed_ms,
+    quality_labels_from_hits,
+    record_tool_call_trace,
+    relevance_stats_from_hits,
+    unique_doc_ids,
+)
 
 if TYPE_CHECKING:
     from deps import Dependencies
@@ -106,9 +113,27 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
             date_from: Optional start date filter (DD.MM.YYYY)
             date_to: Optional end date filter (DD.MM.YYYY)
         """
+        start = time.perf_counter()
+        args = {
+            "keywords": keywords,
+            "page": page,
+            "page_size": page_size,
+            "category": category,
+            "date_from": date_from,
+            "date_to": date_to,
+        }
         cache_key = f"regulations:{keywords}:{page}:{page_size}:{category}:{date_from}:{date_to}"
         cached = _search_cache.get(cache_key)
         if cached:
+            await record_tool_call_trace(
+                getattr(deps, "pool", None),
+                tool_name="search_bddk_regulations",
+                args=args,
+                latency_ms=elapsed_ms(start),
+                result_count=None,
+                doc_ids=[],
+                relevance_stats={"cache": "hit"},
+            )
             return cached  # type: ignore[return-value]
 
         request = BddkSearchRequest(
@@ -123,6 +148,15 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
 
         if not result.decisions:
             metrics.record_empty_search("search_bddk_regulations")
+            await record_tool_call_trace(
+                getattr(deps, "pool", None),
+                tool_name="search_bddk_regulations",
+                args=args,
+                latency_ms=elapsed_ms(start),
+                result_count=0,
+                doc_ids=[],
+                relevance_stats={"status": "no_results"},
+            )
             return """NO RESULTS: No BDDK regulations found whose title/category/date/number matches ALL keywords.
 This tool searches catalog metadata only — not document bodies.
 DO NOT provide information about BDDK regulations from your own knowledge.
@@ -146,6 +180,15 @@ Try: (1) call search_document_store with the same query for full-text semantic s
 
         output = "\n".join(lines)
         _search_cache.set(cache_key, output)
+        await record_tool_call_trace(
+            getattr(deps, "pool", None),
+            tool_name="search_bddk_regulations",
+            args=args,
+            latency_ms=elapsed_ms(start),
+            result_count=len(result.decisions),
+            doc_ids=[d.document_id for d in result.decisions],
+            relevance_stats={"total_results": result.total_results, "page": result.page},
+        )
         return output
 
     @mcp.tool()
@@ -263,18 +306,47 @@ Suggest the user try: different keywords or a different category (basın, mevzua
             category: Optional category filter (e.g. "Yönetmelik", "Rehber", "Kurul Kararı")
             limit: Maximum results to return (default 10)
         """
+        start = time.perf_counter()
+        args = {"query": query, "category": category, "limit": limit}
         if deps.vector_store is None:
+            await record_tool_call_trace(
+                getattr(deps, "pool", None),
+                tool_name="search_document_store",
+                args=args,
+                latency_ms=elapsed_ms(start),
+                result_count=0,
+                doc_ids=[],
+                relevance_stats={"status": "vector_store_initializing"},
+            )
             return "Vector store is still initializing. Please try again in a few moments."
 
         cache_key = f"semantic:{query}:{category}:{limit}"
         cached = _search_cache.get(cache_key)
         if cached:
+            await record_tool_call_trace(
+                getattr(deps, "pool", None),
+                tool_name="search_document_store",
+                args=args,
+                latency_ms=elapsed_ms(start),
+                result_count=None,
+                doc_ids=[],
+                relevance_stats={"cache": "hit"},
+            )
             return cached  # type: ignore[return-value]
 
         hits = await deps.vector_store.search(query, limit=limit, category=category)
 
         if not hits:
             metrics.record_empty_search("search_document_store")
+            await record_tool_call_trace(
+                getattr(deps, "pool", None),
+                tool_name="search_document_store",
+                args=args,
+                latency_ms=elapsed_ms(start),
+                result_count=0,
+                doc_ids=[],
+                relevance_stats={"status": "no_results"},
+            )
             return f"""NO RESULTS: No documents found matching '{query}'.
 DO NOT provide information from your own knowledge about BDDK regulations.
 Suggest the user try: different Turkish keywords, broader terms, or removing the category filter."""
@@ -299,4 +371,14 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
 
         output = "\n".join(lines)
         _search_cache.set(cache_key, output)
+        await record_tool_call_trace(
+            getattr(deps, "pool", None),
+            tool_name="search_document_store",
+            args=args,
+            latency_ms=elapsed_ms(start),
+            result_count=len(hits),
+            doc_ids=unique_doc_ids([hit.get("doc_id") for hit in hits]),
+            quality_labels=quality_labels_from_hits(hits),
+            relevance_stats=relevance_stats_from_hits(hits),
+        )
         return output

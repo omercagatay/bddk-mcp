@@ -122,6 +122,15 @@ MAX_RETRIES = int(os.environ.get("BDDK_MAX_RETRIES", "3"))
 # deployments keep only the search / retrieval / bulletin / analytics surface.
 ADMIN_TOOLS = os.environ.get("BDDK_ADMIN_TOOLS", "false").lower() in ("1", "true", "yes")
 
+# -- Optional telemetry -------------------------------------------------------
+
+# Disabled by default. When enabled, retrieval tools persist privacy-safe
+# call traces for production retrieval debugging and benchmark comparison.
+TELEMETRY_ENABLED = os.environ.get("BDDK_TELEMETRY_ENABLED", "false").lower() in ("1", "true", "yes")
+TELEMETRY_STORE_TEXT = os.environ.get("BDDK_TELEMETRY_STORE_TEXT", "false").lower() in ("1", "true", "yes")
+TELEMETRY_MODEL_ID = os.environ.get("BDDK_TELEMETRY_MODEL_ID", "")
+TELEMETRY_SESSION_ID = os.environ.get("BDDK_TELEMETRY_SESSION_ID", "")
+
 # -- Sync ---------------------------------------------------------------------
 
 AUTO_SYNC = os.environ.get("BDDK_AUTO_SYNC", "false").lower() in ("1", "true", "yes")
