@@ -57,12 +57,16 @@ def audit_grade_metrics(
     transport_success = error is None and not trace.get("transport_error", False)
     tool_routing_success = _tool_routing_success(expected_tool, expected_chain, actual_tools)
     retrieval_completion_success = _retrieval_completion_success(expected_source_tools, tool_calls, tool_results)
+    source_metrics = source_correctness_metrics(case, trace)
     grounded_answer_success = (
         bool(answer.strip())
         and code_score >= GROUNDING_SUCCESS_THRESHOLD
         and model_score >= GROUNDING_SUCCESS_THRESHOLD
     )
-    citation_or_source_trace_score = _source_trace_score(expected_source_tools, actual_tools, tool_results, case)
+    citation_or_source_trace_score = min(
+        _source_trace_score(expected_source_tools, actual_tools, tool_results, case),
+        source_metrics["retrieval_source_correctness_score"],
+    )
     language_stability = _language_stability(answer)
 
     audit_grade_success = all(
@@ -85,6 +89,55 @@ def audit_grade_metrics(
         "audit_grade_success": audit_grade_success,
         "citation_or_source_trace_score": citation_or_source_trace_score,
         "language_stability": language_stability,
+        **source_metrics,
+    }
+
+
+def source_correctness_metrics(case: Any, trace: dict) -> dict:
+    """Grade whether retrieved evidence contains expected documents, sections, and terms."""
+    evidence = _normalize_for_matching("\n".join(trace.get("tool_results") or []))
+    expected_documents = [str(doc_id) for doc_id in getattr(case, "expected_documents", []) or []]
+    expected_sections = list(getattr(case, "expected_sections", []) or [])
+    expected_terms = [str(term) for term in getattr(case, "expected_terms", []) or []]
+
+    expected_checks = 0
+    matched_checks = 0
+    missing_documents: list[str] = []
+    missing_sections: list[dict] = []
+    missing_terms: list[str] = []
+
+    for doc_id in expected_documents:
+        expected_checks += 1
+        if _normalize_for_matching(doc_id) in evidence:
+            matched_checks += 1
+        else:
+            missing_documents.append(doc_id)
+
+    for section in expected_sections:
+        expected_checks += 1
+        section_type = _normalize_for_matching(str(section.get("type", "")))
+        section_ref = _normalize_for_matching(str(section.get("ref", "")))
+        if section_type in evidence and section_ref in evidence:
+            matched_checks += 1
+        else:
+            missing_sections.append({"type": str(section.get("type", "")), "ref": str(section.get("ref", ""))})
+
+    for term in expected_terms:
+        expected_checks += 1
+        if _normalize_for_matching(term) in evidence:
+            matched_checks += 1
+        else:
+            missing_terms.append(term)
+
+    score = matched_checks / expected_checks if expected_checks else 1.0
+    return {
+        "expected_source_checks": expected_checks,
+        "matched_source_checks": matched_checks,
+        "retrieval_source_correctness_score": score,
+        "retrieval_source_correctness_success": score >= 1.0,
+        "missing_expected_documents": missing_documents,
+        "missing_expected_sections": missing_sections,
+        "missing_expected_terms": missing_terms,
     }
 
 

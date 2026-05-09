@@ -14,9 +14,9 @@ from dataclasses import dataclass, field
 class TestCase:
     """A single tool-calling test case."""
 
-    id: int
+    id: int | str
     question: str
-    expected_tool: str
+    expected_tool: str = ""
     expected_params: dict = field(default_factory=dict)
     category: str = ""
     is_multi_tool: bool = False
@@ -24,6 +24,7 @@ class TestCase:
     expected_source_tools: list[str] = field(default_factory=list)
     expected_documents: list[str] = field(default_factory=list)
     expected_sections: list[dict] = field(default_factory=list)
+    expected_terms: list[str] = field(default_factory=list)
 
 
 TEST_CASES: list[TestCase] = [
