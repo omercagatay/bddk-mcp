@@ -13,12 +13,15 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import subprocess
 import time
 
 import httpx
 
-from benchmark.config import LLM_BASE_URL, LLM_TIMEOUT, MAX_TOOL_CALLS
+from benchmark.config import LLM_BASE_URL, LLM_TEMPERATURE, LLM_TIMEOUT, MAX_TOOL_CALLS
 from benchmark.graders import code_grader, model_grader
+from benchmark.scoring import audit_grade_metrics
 from benchmark.test_cases import TEST_CASES
 from benchmark.tool_schemas import TOOL_SCHEMAS
 
@@ -60,6 +63,7 @@ async def _run_agent_loop(
             "messages": messages,
             "tools": TOOL_SCHEMAS,
             "stream": False,
+            "temperature": LLM_TEMPERATURE,
         }
 
         resp = await client.post(
@@ -161,6 +165,7 @@ async def run_phase2(
 
                 code_score = code_grader(combined_tool_results, answer)
                 model_score = await model_grader(combined_tool_results, answer)
+                audit_metrics = audit_grade_metrics(case, trace, code_score, model_score)
 
                 # Check if multi-tool chain was completed
                 chain_complete = True
@@ -178,6 +183,7 @@ async def run_phase2(
                         "code_grounding_score": code_score,
                         "model_grounding_score": model_score,
                         "chain_complete": chain_complete,
+                        **audit_metrics,
                         "steps": trace["steps"],
                         "truncated": trace.get("truncated", False),
                         "latency_s": latency,
@@ -187,6 +193,7 @@ async def run_phase2(
 
             except Exception as e:
                 logger.warning("Phase 2 case %d failed: %s", case.id, e)
+                audit_metrics = audit_grade_metrics(case, {}, 0.0, 0.0, error=str(e))
                 results.append(
                     {
                         "case_id": case.id,
@@ -195,6 +202,7 @@ async def run_phase2(
                         "code_grounding_score": 0.0,
                         "model_grounding_score": 0.0,
                         "chain_complete": False,
+                        **audit_metrics,
                         "latency_s": time.time() - start,
                     }
                 )
@@ -211,7 +219,53 @@ async def run_phase2(
         "avg_code_grounding": sum(r["code_grounding_score"] for r in valid) / len(valid) if valid else 0.0,
         "avg_model_grounding": sum(r["model_grounding_score"] for r in valid) / len(valid) if valid else 0.0,
         "chain_success_rate": sum(1 for r in multi if r.get("chain_complete")) / len(multi) if multi else 0.0,
+        "transport_success_rate": _rate(results, "transport_success"),
+        "tool_routing_success_rate": _rate(results, "tool_routing_success"),
+        "retrieval_completion_success_rate": _rate(results, "retrieval_completion_success"),
+        "grounded_answer_success_rate": _rate(results, "grounded_answer_success"),
+        "audit_grade_success_rate": _rate(results, "audit_grade_success"),
+        "avg_citation_or_source_trace_score": _average(results, "citation_or_source_trace_score"),
+        "avg_language_stability": _average(results, "language_stability"),
         "error_count": sum(1 for r in results if r.get("error")),
         "avg_latency_s": sum(r["latency_s"] for r in results) / n if n else 0.0,
+        "run_metadata": _run_metadata(model_tag, mcp_base_url),
         "details": results,
     }
+
+
+def _rate(results: list[dict], key: str) -> float:
+    return sum(1 for result in results if result.get(key)) / len(results) if results else 0.0
+
+
+def _average(results: list[dict], key: str) -> float:
+    return sum(float(result.get(key, 0.0) or 0.0) for result in results) / len(results) if results else 0.0
+
+
+def _run_metadata(model_id: str, mcp_base_url: str) -> dict:
+    tool_names = [schema["function"]["name"] for schema in TOOL_SCHEMAS]
+    return {
+        "model_id": model_id,
+        "commit_sha": _current_commit_sha(),
+        "exposed_tool_list": tool_names,
+        "deployment_config": {
+            "mcp_base_url": mcp_base_url,
+            "llm_base_url": LLM_BASE_URL,
+            "max_tool_calls": MAX_TOOL_CALLS,
+            "tool_count": len(tool_names),
+        },
+        "temperature": LLM_TEMPERATURE,
+        "mcp_server_version": os.environ.get("BDDK_MCP_VERSION", "unknown"),
+    }
+
+
+def _current_commit_sha() -> str:
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "--short=12", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except Exception:
+        return "unknown"
+    return completed.stdout.strip() or "unknown"

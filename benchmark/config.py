@@ -6,6 +6,7 @@ import os
 
 LLM_BASE_URL = os.environ.get("BDDK_LLM_URL", "http://localhost:1234")
 LLM_TIMEOUT = float(os.environ.get("BDDK_LLM_TIMEOUT", "120.0"))
+LLM_TEMPERATURE = float(os.environ.get("BDDK_LLM_TEMPERATURE", "0.0"))
 
 MODELS = [
     {
