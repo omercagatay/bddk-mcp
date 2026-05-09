@@ -488,6 +488,38 @@ async def test_seed_surgery_rewrites_chunks_for_target_only(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_seed_surgery_writes_section_metadata_for_target_chunks(tmp_path):
+    seed_dir = tmp_path / "seed_data"
+    seed_dir.mkdir()
+    _write_seed_files(seed_dir, docs=[_seed_doc_entry("mevzuat_22599")], chunks=[])
+    md = tmp_path / "body.md"
+    md.write_text(
+        "MADDE 9 - TFRS 9 karşılık\nBankalar karşılık ayırır.\n\nMADDE 10 - Diğer hükümler\nBaşka hüküm uygulanır.\n",
+        encoding="utf-8",
+    )
+
+    await patch_doc.patch_document(
+        doc_id="mevzuat_22599",
+        markdown_path=md,
+        extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
+        doc_store=_mock_doc_store(_stored_doc("mevzuat_22599")),
+        vector_store=_mock_vector_store(),
+        seed_dir=seed_dir,
+        dry_run=False,
+    )
+
+    written = json.loads((seed_dir / "chunks.json").read_text(encoding="utf-8"))
+    target_chunks = [c for c in written if c["doc_id"] == "mevzuat_22599"]
+
+    assert target_chunks
+    assert target_chunks[0]["section_type"] == "madde"
+    assert target_chunks[0]["section_ref"] == "9"
+    assert target_chunks[0]["section_start_char"] == 0
+    assert target_chunks[0]["section_end_char"] > 0
+    assert len(target_chunks[0]["section_content_hash"]) == 64
+
+
+@pytest.mark.asyncio
 async def test_seed_surgery_matches_doc_and_chunk_hashes(tmp_path):
     """Sanity: every new chunk_text concat back to body; hashes agree with doc."""
     seed_dir = tmp_path / "seed_data"

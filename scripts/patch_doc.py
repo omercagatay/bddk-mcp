@@ -5,8 +5,8 @@ recover image-based formulas). For one doc_id, this script:
 
   1. validates inputs (markdown exists, doc_id present in both DB and seed),
   2. strips any docs_dump-style header from the markdown,
-  3. computes the new content hash and regenerates chunks via the same
-     _chunk_text used by vector_store.add_document and seed.py,
+  3. computes the new content hash and regenerates section-aware chunks via
+     the same chunker used by vector_store.add_document and seed.py,
   4. on --dry-run, stops here and prints the planned delta,
   5. otherwise calls DocumentStore.store_document + VectorStore.add_document,
   6. surgically rewrites only the target doc's entries in seed_data/
@@ -41,7 +41,7 @@ from patch_md import validate_latex  # noqa: E402
 from config import PAGE_SIZE, require_database_url  # noqa: E402
 from doc_store import DocumentStore, StoredDocument  # noqa: E402
 from seed import _strip_docs_dump_header  # noqa: E402
-from vector_store import VectorStore, _chunk_text  # noqa: E402
+from vector_store import VectorStore, _chunk_document  # noqa: E402
 
 DEFAULT_EXTRACTION_METHOD = "html_parser+manual_latex"
 
@@ -98,7 +98,7 @@ async def patch_document(
                 "Fix the markdown or pass --skip-latex-check to proceed anyway."
             )
     new_hash = _content_hash(body)
-    chunks = _chunk_text(body)
+    chunks = _chunk_document(doc_id, body)
     if not chunks:
         raise PatchError(f"chunk regeneration produced no chunks for {doc_id}")
     total_pages = max(1, math.ceil(len(body) / PAGE_SIZE))
@@ -166,7 +166,7 @@ async def patch_document(
     # chunks.json — strip old entries for doc_id, append fresh ones
     seed_chunks = json.loads(chunks_path.read_text(encoding="utf-8"))
     seed_chunks = [c for c in seed_chunks if c.get("doc_id") != doc_id]
-    for i, chunk_text in enumerate(chunks):
+    for i, chunk in enumerate(chunks):
         new_chunk = {
             "doc_id": doc_id,
             "chunk_index": i,
@@ -178,7 +178,12 @@ async def patch_document(
             "total_chunks": len(chunks),
             "total_pages": total_pages,
             "content_hash": new_hash,
-            "chunk_text": chunk_text,
+            "section_type": chunk.section_type,
+            "section_ref": chunk.section_ref,
+            "section_start_char": chunk.section_start_char,
+            "section_end_char": chunk.section_end_char,
+            "section_content_hash": chunk.section_content_hash,
+            "chunk_text": chunk.chunk_text,
         }
         # Belt-and-suspenders: doc hash and chunk hash must agree
         assert new_chunk["content_hash"] == new_hash, f"hash divergence at chunk {i} for {doc_id}"

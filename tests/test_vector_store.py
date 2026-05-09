@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from vector_store import VectorStore, _chunk_text
+from vector_store import _SCHEMA_SQL, VectorStore, _chunk_document, _chunk_text
 
 # VectorStore integration tests require both PostgreSQL and the embedding model.
 # They skip if either is unavailable.
@@ -46,6 +46,28 @@ class TestChunkText:
         chunks = _chunk_text(text, chunk_size=1000, overlap=200)
         for chunk in chunks:
             assert chunk.strip() != ""
+
+    def test_chunk_document_attaches_section_metadata(self):
+        text = (
+            "MADDE 9 - TFRS 9 karşılık\nBankalar karşılık ayırır.\n\nMADDE 10 - Diğer hükümler\nBaşka hüküm uygulanır."
+        )
+
+        chunks = _chunk_document("mevzuat_22599", text, chunk_size=55, overlap=0)
+
+        assert chunks[0].chunk_text.startswith("MADDE 9")
+        assert chunks[0].section_type == "madde"
+        assert chunks[0].section_ref == "9"
+        assert chunks[0].section_start_char == 0
+        assert chunks[0].section_end_char > chunks[0].section_start_char
+        assert len(chunks[0].section_content_hash) == 64
+        assert any(chunk.section_ref == "10" for chunk in chunks)
+
+    def test_document_chunks_schema_declares_section_metadata_columns(self):
+        assert "section_type" in _SCHEMA_SQL
+        assert "section_ref" in _SCHEMA_SQL
+        assert "section_start_char" in _SCHEMA_SQL
+        assert "section_end_char" in _SCHEMA_SQL
+        assert "section_content_hash" in _SCHEMA_SQL
 
 
 class TestHybridSearchOrdering:

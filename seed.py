@@ -82,7 +82,8 @@ async def export_seed(dsn: str | None = None, pool: asyncpg.Pool | None = None) 
             rows = await conn.fetch(
                 "SELECT doc_id, chunk_index, title, category, decision_date, "
                 "decision_number, source_url, total_chunks, total_pages, "
-                "content_hash, chunk_text FROM document_chunks"
+                "content_hash, section_type, section_ref, section_start_char, "
+                "section_end_char, section_content_hash, chunk_text FROM document_chunks"
             )
             chunks_data = [dict(r) for r in rows]
             chunks_path = SEED_DIR / "chunks.json"
@@ -299,8 +300,9 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
                                    (doc_id, chunk_index, title, category,
                                     decision_date, decision_number, source_url,
                                     total_chunks, total_pages, content_hash,
-                                    chunk_text)
-                                   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+                                    section_type, section_ref, section_start_char,
+                                    section_end_char, section_content_hash, chunk_text)
+                                   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
                                    ON CONFLICT(doc_id, chunk_index) DO UPDATE SET
                                    title=EXCLUDED.title, category=EXCLUDED.category,
                                    decision_date=EXCLUDED.decision_date,
@@ -309,6 +311,11 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
                                    total_chunks=EXCLUDED.total_chunks,
                                    total_pages=EXCLUDED.total_pages,
                                    content_hash=EXCLUDED.content_hash,
+                                   section_type=EXCLUDED.section_type,
+                                   section_ref=EXCLUDED.section_ref,
+                                   section_start_char=EXCLUDED.section_start_char,
+                                   section_end_char=EXCLUDED.section_end_char,
+                                   section_content_hash=EXCLUDED.section_content_hash,
                                    chunk_text=EXCLUDED.chunk_text""",
                                 c["doc_id"],
                                 c["chunk_index"],
@@ -320,6 +327,11 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
                                 c.get("total_chunks", 1),
                                 c.get("total_pages", 1),
                                 c.get("content_hash", ""),
+                                c.get("section_type", ""),
+                                c.get("section_ref", ""),
+                                c.get("section_start_char"),
+                                c.get("section_end_char"),
+                                c.get("section_content_hash", ""),
                                 c["chunk_text"],
                             )
                             imported += 1
