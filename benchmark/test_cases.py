@@ -21,6 +21,9 @@ class TestCase:
     category: str = ""
     is_multi_tool: bool = False
     expected_chain: list[str] = field(default_factory=list)
+    expected_source_tools: list[str] = field(default_factory=list)
+    expected_documents: list[str] = field(default_factory=list)
+    expected_sections: list[dict] = field(default_factory=list)
 
 
 TEST_CASES: list[TestCase] = [
@@ -132,6 +135,8 @@ TEST_CASES: list[TestCase] = [
         expected_tool="get_bddk_document",
         expected_params={"document_id": "1291"},
         category="document",
+        expected_source_tools=["get_bddk_document"],
+        expected_documents=["1291"],
     ),
     TestCase(
         id=16,
@@ -178,6 +183,7 @@ TEST_CASES: list[TestCase] = [
         category="multi_tool",
         is_multi_tool=True,
         expected_chain=["search_bddk_regulations", "get_bddk_document"],
+        expected_source_tools=["get_bddk_document"],
     ),
     TestCase(
         id=22,
@@ -204,6 +210,7 @@ TEST_CASES: list[TestCase] = [
         expected_tool="search_document_store",
         expected_params={"query": "sermaye yeterliliği rasyosu hesaplama"},
         category="semantic_search",
+        expected_source_tools=["search_document_store"],
     ),
     TestCase(
         id=25,
@@ -211,6 +218,7 @@ TEST_CASES: list[TestCase] = [
         expected_tool="search_document_store",
         expected_params={"query": "faiz oranı riski yönetimi stres testi"},
         category="semantic_search",
+        expected_source_tools=["search_document_store"],
     ),
     TestCase(
         id=26,
@@ -218,6 +226,7 @@ TEST_CASES: list[TestCase] = [
         expected_tool="search_document_store",
         expected_params={"query": "kredi kartı limit taksit kuralları"},
         category="semantic_search",
+        expected_source_tools=["search_document_store"],
     ),
     TestCase(
         id=27,
@@ -225,6 +234,7 @@ TEST_CASES: list[TestCase] = [
         expected_tool="search_document_store",
         expected_params={"query": "takipteki alacak sınıflandırma karşılık oranları"},
         category="semantic_search",
+        expected_source_tools=["search_document_store"],
     ),
     TestCase(
         id=28,
@@ -232,6 +242,7 @@ TEST_CASES: list[TestCase] = [
         expected_tool="search_document_store",
         expected_params={"query": "katılım bankası faizsiz finans murabaha sukuk"},
         category="semantic_search",
+        expected_source_tools=["search_document_store"],
     ),
     TestCase(
         id=29,
@@ -239,6 +250,7 @@ TEST_CASES: list[TestCase] = [
         expected_tool="search_document_store",
         expected_params={"query": "mevduat sigortası TMSF teminat limiti"},
         category="semantic_search",
+        expected_source_tools=["search_document_store"],
     ),
     TestCase(
         id=30,
@@ -246,5 +258,6 @@ TEST_CASES: list[TestCase] = [
         expected_tool="search_document_store",
         expected_params={"query": "Basel III likidite karşılama oranı"},
         category="semantic_search",
+        expected_source_tools=["search_document_store"],
     ),
 ]

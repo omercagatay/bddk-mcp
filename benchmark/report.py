@@ -61,14 +61,15 @@ def console_report(all_results: dict) -> str:
     # Phase 2 summary table
     if "phase2" in all_results:
         lines.append("\n## Phase 2: End-to-End Grounding\n")
-        lines.append(f"{'Model':<30} {'Code Grd':>10} {'Model Grd':>10} {'Chain %':>10} {'Errors':>10}")
-        lines.append("-" * 72)
+        lines.append(f"{'Model':<30} {'Code Grd':>10} {'Model Grd':>10} {'Retrieval':>10} {'Audit':>10} {'Errors':>10}")
+        lines.append("-" * 84)
         for model_name, result in all_results["phase2"].items():
             cg = result["avg_code_grounding"]
             mg = result["avg_model_grounding"]
-            cs = result["chain_success_rate"]
+            rc = result.get("retrieval_completion_success_rate", result.get("chain_success_rate", 0.0))
+            ag = result.get("audit_grade_success_rate", 0.0)
             er = result["error_count"]
-            lines.append(f"{model_name:<30} {cg:>9.1%} {mg:>9.1%} {cs:>9.1%} {er:>10}")
+            lines.append(f"{model_name:<30} {cg:>9.1%} {mg:>9.1%} {rc:>9.1%} {ag:>9.1%} {er:>10}")
 
     # Threshold legend
     lines.append(
@@ -126,9 +127,15 @@ def diagnosis_report(all_results: dict) -> str:
         p2 = all_results.get("phase2", {}).get(model_name)
         if p2:
             grounding = p2["avg_model_grounding"]
+            audit_grade = p2.get("audit_grade_success_rate", 0.0)
             if grounding < 0.6:
                 failures.append(f"Grounding: {grounding:.1%}")
                 recommendations.append("Try: RAG grounding instruction ('only cite tool results')")
+            if audit_grade < 0.6:
+                failures.append(f"Audit-grade success: {audit_grade:.1%}")
+                recommendations.append(
+                    "Inspect Phase 2 details for search-only traces, missing document fetches, or weak citations"
+                )
 
         if not failures:
             lines.append("  PASS — All metrics above threshold")
