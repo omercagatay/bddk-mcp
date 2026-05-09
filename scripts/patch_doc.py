@@ -98,7 +98,10 @@ async def patch_document(
                 "Fix the markdown or pass --skip-latex-check to proceed anyway."
             )
     new_hash = _content_hash(body)
-    chunks = _chunk_document(doc_id, body)
+    tokenizer = (
+        vector_store._chunk_tokenizer() if callable(getattr(type(vector_store), "_chunk_tokenizer", None)) else None
+    )
+    chunks = _chunk_document(doc_id, body, tokenizer=tokenizer)
     if not chunks:
         raise PatchError(f"chunk regeneration produced no chunks for {doc_id}")
     total_pages = max(1, math.ceil(len(body) / PAGE_SIZE))
@@ -178,6 +181,8 @@ async def patch_document(
             "total_chunks": len(chunks),
             "total_pages": total_pages,
             "content_hash": new_hash,
+            "chunk_start_char": chunk.start_char,
+            "chunk_end_char": chunk.end_char,
             "section_type": chunk.section_type,
             "section_ref": chunk.section_ref,
             "section_start_char": chunk.section_start_char,

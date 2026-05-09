@@ -20,18 +20,29 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from config import PAGE_SIZE  # noqa: E402
-from vector_store import _chunk_document  # noqa: E402
+from vector_store import _chunk_document, _load_embedding_tokenizer  # noqa: E402
 
 DOCS_PATH = ROOT / "seed_data" / "documents.json"
 CHUNKS_PATH = ROOT / "seed_data" / "chunks.json"
 
 
-def build_chunk_records(document: dict) -> list[dict]:
+def build_chunk_records(
+    document: dict,
+    *,
+    tokenizer=None,
+    target_tokens: int | None = None,
+    token_overlap: int | None = None,
+) -> list[dict]:
     content = document.get("markdown_content", "")
     if not content.strip():
         return []
 
-    chunks = _chunk_document(document["document_id"], content)
+    chunk_kwargs = {"tokenizer": tokenizer}
+    if target_tokens is not None:
+        chunk_kwargs["target_tokens"] = target_tokens
+    if token_overlap is not None:
+        chunk_kwargs["token_overlap"] = token_overlap
+    chunks = _chunk_document(document["document_id"], content, **chunk_kwargs)
     if not chunks:
         return []
 
@@ -55,6 +66,8 @@ def build_chunk_records(document: dict) -> list[dict]:
             "total_chunks": len(chunks),
             "total_pages": total_pages,
             "content_hash": content_hash,
+            "chunk_start_char": chunk.start_char,
+            "chunk_end_char": chunk.end_char,
             "section_type": chunk.section_type,
             "section_ref": chunk.section_ref,
             "section_start_char": chunk.section_start_char,
@@ -74,11 +87,12 @@ def main() -> int:
     skipped_empty = 0
     total_ufffd_in = 0
     total_ufffd_out = 0
+    tokenizer = _load_embedding_tokenizer()
 
     for d in docs:
         content = d.get("markdown_content", "")
         total_ufffd_in += content.count("\ufffd")
-        chunk_records = build_chunk_records(d)
+        chunk_records = build_chunk_records(d, tokenizer=tokenizer)
         if not chunk_records:
             skipped_empty += 1
             continue

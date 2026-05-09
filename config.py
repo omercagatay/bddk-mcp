@@ -74,6 +74,9 @@ PAGE_SIZE = int(os.environ.get("BDDK_PAGE_SIZE", "5000"))
 # Embedding chunk size and overlap (vector_store only)
 EMBEDDING_CHUNK_SIZE = int(os.environ.get("BDDK_EMBEDDING_CHUNK_SIZE", "1000"))
 EMBEDDING_CHUNK_OVERLAP = int(os.environ.get("BDDK_EMBEDDING_CHUNK_OVERLAP", "200"))
+EMBEDDING_CHUNK_MODE = os.environ.get("BDDK_EMBEDDING_CHUNK_MODE", "token").lower()
+EMBEDDING_CHUNK_TARGET_TOKENS = int(os.environ.get("BDDK_EMBEDDING_CHUNK_TARGET_TOKENS", "400"))
+EMBEDDING_CHUNK_TOKEN_OVERLAP = int(os.environ.get("BDDK_EMBEDDING_CHUNK_TOKEN_OVERLAP", "40"))
 
 # -- Cache --------------------------------------------------------------------
 
