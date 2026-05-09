@@ -17,13 +17,17 @@ import asyncio
 import hashlib
 import logging
 import math
+import re
 from dataclasses import dataclass
 
 import asyncpg
 
 from config import (
+    EMBEDDING_CHUNK_MODE,
     EMBEDDING_CHUNK_OVERLAP,
     EMBEDDING_CHUNK_SIZE,
+    EMBEDDING_CHUNK_TARGET_TOKENS,
+    EMBEDDING_CHUNK_TOKEN_OVERLAP,
     EMBEDDING_DIMENSION,
     EMBEDDING_MODEL_NAME,
     EMBEDDING_MODEL_PATH,
@@ -55,6 +59,8 @@ CREATE TABLE IF NOT EXISTS document_chunks (
     total_chunks    INTEGER DEFAULT 1,
     total_pages     INTEGER DEFAULT 1,
     content_hash    TEXT DEFAULT '',
+    chunk_start_char INTEGER,
+    chunk_end_char   INTEGER,
     section_type    TEXT DEFAULT '',
     section_ref     TEXT DEFAULT '',
     section_start_char INTEGER,
@@ -110,6 +116,18 @@ _SECTION_METADATA_MIGRATION_SQL = """\
 DO $$ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'document_chunks' AND column_name = 'chunk_start_char'
+    ) THEN
+        ALTER TABLE document_chunks ADD COLUMN chunk_start_char INTEGER;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'document_chunks' AND column_name = 'chunk_end_char'
+    ) THEN
+        ALTER TABLE document_chunks ADD COLUMN chunk_end_char INTEGER;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'document_chunks' AND column_name = 'section_type'
     ) THEN
         ALTER TABLE document_chunks ADD COLUMN section_type TEXT DEFAULT '';
@@ -157,6 +175,24 @@ class DocumentChunk:
     section_content_hash: str = ""
 
 
+@dataclass(frozen=True)
+class _ChunkSpan:
+    start_char: int
+    end_char: int
+    section: DocumentSection | None = None
+
+
+@dataclass(frozen=True)
+class _TextUnit:
+    start_char: int
+    end_char: int
+    text: str
+    token_count: int
+
+
+_WORD_UNIT_RE = re.compile(r"\S+\s*", re.MULTILINE)
+
+
 def _chunk_text(text: str, chunk_size: int = EMBEDDING_CHUNK_SIZE, overlap: int = EMBEDDING_CHUNK_OVERLAP) -> list[str]:
     """Split text into overlapping chunks for embedding."""
     if not text:
@@ -166,26 +202,48 @@ def _chunk_text(text: str, chunk_size: int = EMBEDDING_CHUNK_SIZE, overlap: int 
 
     chunks = []
     start = 0
+    step = max(1, chunk_size - overlap)
     while start < len(text):
         end = start + chunk_size
         chunk = text[start:end]
         if chunk.strip():
             chunks.append(chunk)
-        start += chunk_size - overlap
+        start += step
 
     return chunks
 
 
 def _chunk_document(
-    doc_id: str, text: str, chunk_size: int = EMBEDDING_CHUNK_SIZE, overlap: int = EMBEDDING_CHUNK_OVERLAP
+    doc_id: str,
+    text: str,
+    chunk_size: int = EMBEDDING_CHUNK_SIZE,
+    overlap: int = EMBEDDING_CHUNK_OVERLAP,
+    tokenizer=None,
+    target_tokens: int = EMBEDDING_CHUNK_TARGET_TOKENS,
+    token_overlap: int = EMBEDDING_CHUNK_TOKEN_OVERLAP,
+    use_token_chunking: bool | None = None,
 ) -> list[DocumentChunk]:
     """Split text into chunks and attach best-effort legal section metadata."""
     if not text:
         return []
     sections = extract_document_sections(doc_id, text)
+    if use_token_chunking is None:
+        use_token_chunking = EMBEDDING_CHUNK_MODE == "token"
+    if use_token_chunking and tokenizer is not None:
+        return _chunk_document_by_tokens(doc_id, text, sections, tokenizer, target_tokens, token_overlap)
+    return _chunk_document_by_chars(doc_id, text, sections, chunk_size, overlap)
+
+
+def _chunk_document_by_chars(
+    doc_id: str,
+    text: str,
+    sections: list[DocumentSection],
+    chunk_size: int = EMBEDDING_CHUNK_SIZE,
+    overlap: int = EMBEDDING_CHUNK_OVERLAP,
+) -> list[DocumentChunk]:
     chunks: list[DocumentChunk] = []
     start = 0
-    step = chunk_size - overlap
+    step = max(1, chunk_size - overlap)
     while start < len(text):
         end = min(len(text), start + chunk_size)
         chunk = text[start:end]
@@ -205,6 +263,191 @@ def _chunk_document(
             )
         start += step
     return chunks
+
+
+def _chunk_document_by_tokens(
+    doc_id: str,
+    text: str,
+    sections: list[DocumentSection],
+    tokenizer,
+    target_tokens: int,
+    token_overlap: int,
+) -> list[DocumentChunk]:
+    target_tokens = max(1, target_tokens)
+    token_overlap = max(0, min(token_overlap, target_tokens - 1))
+    chunks: list[DocumentChunk] = []
+    for span in _chunk_spans(text, sections):
+        for start_char, end_char in _token_budget_ranges(
+            text=text,
+            span=span,
+            tokenizer=tokenizer,
+            target_tokens=target_tokens,
+            token_overlap=token_overlap,
+        ):
+            chunk_text = text[start_char:end_char]
+            if not chunk_text.strip():
+                continue
+            section = span.section or _section_for_chunk(start_char, end_char, sections)
+            chunks.append(
+                DocumentChunk(
+                    chunk_text=chunk_text,
+                    start_char=start_char,
+                    end_char=end_char,
+                    section_type=section.section_type if section else "",
+                    section_ref=section.section_ref if section else "",
+                    section_start_char=section.start_char if section else None,
+                    section_end_char=section.end_char if section else None,
+                    section_content_hash=section.content_hash if section else "",
+                )
+            )
+    return chunks
+
+
+def _chunk_spans(text: str, sections: list[DocumentSection]) -> list[_ChunkSpan]:
+    if not sections:
+        return [_ChunkSpan(start_char=0, end_char=len(text))] if text.strip() else []
+
+    spans: list[_ChunkSpan] = []
+    sorted_sections = sorted(sections, key=lambda section: (section.start_char, section.end_char))
+    cursor = 0
+    for index, section in enumerate(sorted_sections):
+        if cursor < section.start_char and text[cursor : section.start_char].strip():
+            spans.append(_ChunkSpan(start_char=cursor, end_char=section.start_char))
+
+        later_starts = [
+            later.start_char
+            for later in sorted_sections[index + 1 :]
+            if section.start_char < later.start_char < section.end_char
+        ]
+        end_char = min(section.end_char, later_starts[0]) if later_starts else section.end_char
+        if section.start_char < end_char and text[section.start_char : end_char].strip():
+            spans.append(_ChunkSpan(start_char=section.start_char, end_char=end_char, section=section))
+        cursor = max(cursor, end_char)
+
+    if cursor < len(text) and text[cursor:].strip():
+        spans.append(_ChunkSpan(start_char=cursor, end_char=len(text)))
+    return spans
+
+
+def _token_budget_ranges(
+    text: str,
+    span: _ChunkSpan,
+    tokenizer,
+    target_tokens: int,
+    token_overlap: int,
+) -> list[tuple[int, int]]:
+    units = _text_units(text[span.start_char : span.end_char], span.start_char, tokenizer, target_tokens)
+    ranges: list[tuple[int, int]] = []
+    current: list[_TextUnit] = []
+    current_tokens = 0
+
+    for unit in units:
+        if current and current_tokens + unit.token_count > target_tokens:
+            ranges.append((current[0].start_char, current[-1].end_char))
+            current = _overlap_units(current, token_overlap)
+            current_tokens = sum(item.token_count for item in current)
+            if current and current_tokens + unit.token_count > target_tokens:
+                current = []
+                current_tokens = 0
+
+        current.append(unit)
+        current_tokens += unit.token_count
+
+    if current:
+        ranges.append((current[0].start_char, current[-1].end_char))
+    return ranges
+
+
+def _text_units(text: str, absolute_start: int, tokenizer, target_tokens: int) -> list[_TextUnit]:
+    units: list[_TextUnit] = []
+    for match in _WORD_UNIT_RE.finditer(text):
+        unit_text = match.group(0)
+        start_char = absolute_start + match.start()
+        token_count = max(1, _count_tokens(unit_text, tokenizer))
+        if token_count <= target_tokens:
+            units.append(
+                _TextUnit(
+                    start_char=start_char,
+                    end_char=absolute_start + match.end(),
+                    text=unit_text,
+                    token_count=token_count,
+                )
+            )
+        else:
+            units.extend(_split_oversized_unit(unit_text, start_char, tokenizer, target_tokens))
+    return units
+
+
+def _split_oversized_unit(text: str, absolute_start: int, tokenizer, target_tokens: int) -> list[_TextUnit]:
+    units: list[_TextUnit] = []
+    cursor = 0
+    while cursor < len(text):
+        lo = 1
+        hi = len(text) - cursor
+        best = 1
+        while lo <= hi:
+            mid = (lo + hi) // 2
+            candidate = text[cursor : cursor + mid]
+            if _count_tokens(candidate, tokenizer) <= target_tokens or mid == 1:
+                best = mid
+                lo = mid + 1
+            else:
+                hi = mid - 1
+        chunk_text = text[cursor : cursor + best]
+        units.append(
+            _TextUnit(
+                start_char=absolute_start + cursor,
+                end_char=absolute_start + cursor + best,
+                text=chunk_text,
+                token_count=max(1, _count_tokens(chunk_text, tokenizer)),
+            )
+        )
+        cursor += best
+    return units
+
+
+def _overlap_units(units: list[_TextUnit], token_overlap: int) -> list[_TextUnit]:
+    if token_overlap <= 0:
+        return []
+    kept: list[_TextUnit] = []
+    total = 0
+    for unit in reversed(units):
+        if total + unit.token_count > token_overlap:
+            break
+        kept.append(unit)
+        total += unit.token_count
+    return list(reversed(kept))
+
+
+def _count_tokens(text: str, tokenizer) -> int:
+    try:
+        return len(tokenizer.encode(text, add_special_tokens=False))
+    except TypeError:
+        return len(tokenizer.encode(text))
+
+
+def _tokenizer_from_model(model):
+    tokenizer = getattr(model, "tokenizer", None)
+    if tokenizer is not None:
+        return tokenizer
+    try:
+        first_module = model[0]
+    except (TypeError, KeyError, IndexError):
+        return None
+    return getattr(first_module, "tokenizer", None)
+
+
+def _load_embedding_tokenizer():
+    if EMBEDDING_CHUNK_MODE != "token":
+        return None
+    model_ref = EMBEDDING_MODEL_PATH if EMBEDDING_MODEL_PATH else EMBEDDING_MODEL_NAME
+    try:
+        from transformers import AutoTokenizer
+
+        return AutoTokenizer.from_pretrained(model_ref)
+    except Exception as exc:
+        logger.warning("Falling back to character chunking; tokenizer load failed for %s: %s", model_ref, exc)
+        return None
 
 
 def _section_for_chunk(start_char: int, end_char: int, sections: list[DocumentSection]) -> DocumentSection | None:
@@ -240,6 +483,13 @@ def _section_metadata_from_row(row) -> dict:
         "section_end_char": row["section_end_char"],
         "section_content_hash": row["section_content_hash"] or "",
     }
+
+
+def _row_get(row, key: str, default=None):
+    try:
+        return row[key]
+    except (KeyError, IndexError, TypeError):
+        return default
 
 
 class VectorStore:
@@ -320,6 +570,15 @@ class VectorStore:
             self._embed_fn = SentenceTransformer(model_ref, device="cpu")
             logger.info("Loaded CPU embeddings: %s", model_ref)
 
+    def _chunk_tokenizer(self):
+        if EMBEDDING_CHUNK_MODE != "token":
+            return None
+        self._ensure_embeddings()
+        tokenizer = _tokenizer_from_model(self._embed_fn)
+        if tokenizer is None:
+            logger.warning("Embedding model did not expose a tokenizer; falling back to character chunking")
+        return tokenizer
+
     def _ensure_reranker(self) -> None:
         """Lazy-load the cross-encoder re-ranking model."""
         if self._rerank_fn is not None:
@@ -365,7 +624,7 @@ class VectorStore:
         if not content.strip():
             return 0
 
-        chunks = _chunk_document(doc_id, content)
+        chunks = _chunk_document(doc_id, content, tokenizer=self._chunk_tokenizer())
         if not chunks:
             return 0
 
@@ -396,6 +655,8 @@ class VectorStore:
                             len(chunks),
                             total_pages,
                             content_hash,
+                            chunk.start_char,
+                            chunk.end_char,
                             chunk.section_type,
                             chunk.section_ref,
                             chunk.section_start_char,
@@ -411,9 +672,10 @@ class VectorStore:
                     INSERT INTO document_chunks (
                         doc_id, chunk_index, title, category, decision_date,
                         decision_number, source_url, total_chunks, total_pages,
-                        content_hash, section_type, section_ref, section_start_char,
+                        content_hash, chunk_start_char, chunk_end_char,
+                        section_type, section_ref, section_start_char,
                         section_end_char, section_content_hash, chunk_text, embedding
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::vector)
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::vector)
                     """,
                     args_list,
                 )
@@ -427,7 +689,8 @@ class VectorStore:
         """Retrieve a full document by ID. Reconstructs from chunks."""
         rows = await self._pool.fetch(
             "SELECT chunk_index, chunk_text, title, category, decision_date, "
-            "decision_number, source_url, total_chunks, total_pages "
+            "decision_number, source_url, total_chunks, total_pages, "
+            "chunk_start_char, chunk_end_char "
             "FROM document_chunks WHERE doc_id = $1 ORDER BY chunk_index",
             doc_id,
         )
@@ -469,21 +732,32 @@ class VectorStore:
                 "total_pages": total_pages,
             }
 
-        # Calculate which chunks overlap with the requested page
-        step = EMBEDDING_CHUNK_SIZE - EMBEDDING_CHUNK_OVERLAP
         start_char = (page - 1) * PAGE_SIZE
         end_char = page * PAGE_SIZE
-        first_chunk = max(0, start_char // step)
-        last_chunk = end_char // step + 1  # +1 for safety margin
-
         rows = await self._pool.fetch(
-            "SELECT chunk_index, chunk_text FROM document_chunks "
-            "WHERE doc_id = $1 AND chunk_index >= $2 AND chunk_index <= $3 "
-            "ORDER BY chunk_index",
+            "SELECT chunk_index, chunk_text, chunk_start_char, chunk_end_char FROM document_chunks "
+            "WHERE doc_id = $1 AND chunk_start_char IS NOT NULL AND chunk_end_char IS NOT NULL "
+            "AND chunk_end_char > $2 AND chunk_start_char < $3 "
+            "ORDER BY chunk_start_char, chunk_index",
             doc_id,
-            first_chunk,
-            last_chunk,
+            start_char,
+            end_char,
         )
+        used_offsets = bool(rows)
+
+        if not rows:
+            # Fallback for legacy rows without chunk offsets.
+            step = max(1, EMBEDDING_CHUNK_SIZE - EMBEDDING_CHUNK_OVERLAP)
+            first_chunk = max(0, start_char // step)
+            last_chunk = end_char // step + 1  # +1 for safety margin
+            rows = await self._pool.fetch(
+                "SELECT chunk_index, chunk_text, chunk_start_char, chunk_end_char FROM document_chunks "
+                "WHERE doc_id = $1 AND chunk_index >= $2 AND chunk_index <= $3 "
+                "ORDER BY chunk_index",
+                doc_id,
+                first_chunk,
+                last_chunk,
+            )
 
         if not rows:
             # Fallback: fetch all chunks
@@ -502,7 +776,13 @@ class VectorStore:
 
         # Reconstruct just the needed slice
         content = self._reconstruct_content(rows)
-        local_start = start_char - first_chunk * step
+        if used_offsets:
+            first_start = min(_row_get(row, "chunk_start_char", start_char) for row in rows)
+            local_start = start_char - first_start
+        else:
+            step = max(1, EMBEDDING_CHUNK_SIZE - EMBEDDING_CHUNK_OVERLAP)
+            first_chunk = rows[0]["chunk_index"]
+            local_start = start_char - first_chunk * step
         local_start = max(0, local_start)
         chunk = content[local_start : local_start + PAGE_SIZE]
 
@@ -522,9 +802,31 @@ class VectorStore:
         if len(rows) == 1:
             return rows[0]["chunk_text"]
 
+        if all(_row_get(row, "chunk_start_char") is not None for row in rows) and all(
+            _row_get(row, "chunk_end_char") is not None for row in rows
+        ):
+            parts = []
+            cursor: int | None = None
+            for row in sorted(
+                rows,
+                key=lambda item: (_row_get(item, "chunk_start_char", 0), _row_get(item, "chunk_index", 0)),
+            ):
+                text = row["chunk_text"]
+                start_char = _row_get(row, "chunk_start_char", 0)
+                end_char = _row_get(row, "chunk_end_char", start_char + len(text))
+                if cursor is None:
+                    parts.append(text)
+                elif start_char < cursor:
+                    trim = min(len(text), cursor - start_char)
+                    parts.append(text[trim:])
+                else:
+                    parts.append(text)
+                cursor = max(cursor or end_char, end_char)
+            return "".join(parts)
+
         chunk_size = EMBEDDING_CHUNK_SIZE
         overlap = EMBEDDING_CHUNK_OVERLAP
-        step = chunk_size - overlap
+        step = max(1, chunk_size - overlap)
 
         parts = []
         for i, row in enumerate(rows):

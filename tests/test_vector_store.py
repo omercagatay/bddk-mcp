@@ -11,6 +11,15 @@ from vector_store import _SCHEMA_SQL, VectorStore, _chunk_document, _chunk_text
 _SKIP_REASON = "Embedding model not available or PostgreSQL not reachable"
 
 
+class WhitespaceTokenizer:
+    def encode(self, text: str, **_kwargs):
+        return text.split()
+
+
+def _token_count(text: str) -> int:
+    return len(text.split())
+
+
 class TestChunkText:
     """Test the text chunking utility (no DB needed)."""
 
@@ -62,12 +71,63 @@ class TestChunkText:
         assert len(chunks[0].section_content_hash) == 64
         assert any(chunk.section_ref == "10" for chunk in chunks)
 
+    def test_chunk_document_uses_token_budget_when_tokenizer_provided(self):
+        text = (
+            "MADDE 9 - Karşılık ayrılması\n"
+            "bir iki üç dört beş altı yedi sekiz dokuz on onbir oniki\n\n"
+            "MADDE 10 - Diğer hükümler\n"
+            "kısa hüküm metni"
+        )
+
+        chunks = _chunk_document(
+            "mevzuat_22599",
+            text,
+            tokenizer=WhitespaceTokenizer(),
+            target_tokens=8,
+            token_overlap=2,
+        )
+
+        assert len(chunks) > 2
+        assert all(_token_count(chunk.chunk_text) <= 8 for chunk in chunks)
+        assert {chunk.section_ref for chunk in chunks} >= {"9", "10"}
+
+    def test_token_aware_chunks_do_not_cross_section_boundaries(self):
+        text = (
+            "MADDE 9 - Karşılık ayrılması\n"
+            "bir iki üç dört beş altı yedi sekiz\n\n"
+            "MADDE 10 - Diğer hükümler\n"
+            "dokuz on onbir oniki"
+        )
+
+        chunks = _chunk_document(
+            "mevzuat_22599",
+            text,
+            tokenizer=WhitespaceTokenizer(),
+            target_tokens=40,
+            token_overlap=0,
+        )
+
+        assert not any("MADDE 9" in chunk.chunk_text and "MADDE 10" in chunk.chunk_text for chunk in chunks)
+
     def test_document_chunks_schema_declares_section_metadata_columns(self):
         assert "section_type" in _SCHEMA_SQL
         assert "section_ref" in _SCHEMA_SQL
         assert "section_start_char" in _SCHEMA_SQL
         assert "section_end_char" in _SCHEMA_SQL
         assert "section_content_hash" in _SCHEMA_SQL
+
+    def test_document_chunks_schema_declares_chunk_offset_columns(self):
+        assert "chunk_start_char" in _SCHEMA_SQL
+        assert "chunk_end_char" in _SCHEMA_SQL
+
+    def test_reconstruct_content_uses_chunk_offsets_for_token_overlap(self):
+        vs = VectorStore.__new__(VectorStore)
+        rows = [
+            {"chunk_text": "alpha beta", "chunk_start_char": 0, "chunk_end_char": 10},
+            {"chunk_text": "beta gamma", "chunk_start_char": 6, "chunk_end_char": 16},
+        ]
+
+        assert vs._reconstruct_content(rows) == "alpha beta gamma"
 
 
 class TestHybridSearchOrdering:
