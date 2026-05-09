@@ -48,7 +48,7 @@ Varsayılan public deployment `BDDK_ADMIN_TOOLS=false` ile 16 read-only araç ex
 | Bülten | `get_bddk_bulletin`, `get_bddk_bulletin_snapshot`, `get_bddk_monthly`, `bddk_cache_status` |
 | Analitik | `analyze_bulletin_trends`, `get_regulatory_digest`, `compare_bulletin_metrics`, `check_bddk_updates` |
 
-`BDDK_ADMIN_TOOLS=true` ile ek operatör araçları açılır:
+`BDDK_ADMIN_TOOLS=true` ile ek operatör araçları açılır. Admin/operator deployment toplam 26 tools olarak belgelenir: 16 public araç + 10 operatör aracı.
 
 - `document_store_stats`
 - `refresh_bddk_cache`
@@ -60,6 +60,8 @@ Varsayılan public deployment `BDDK_ADMIN_TOOLS=false` ile 16 read-only araç ex
 - `backfill_degraded_documents`
 - `backfill_status`
 - `document_quality_report`
+
+Geçerli runtime için toplam olası MCP araç sayısı 26 tools olarak belgelenir. Benchmark schema fixture sayısı runtime deployment sayısından farklı olabilir; benchmark koşuları kullandıkları exact tool listesini kaydetmelidir. Bkz. [benchmark/README.md](benchmark/README.md).
 
 ### Hızlı Başlangıç
 
@@ -256,7 +258,7 @@ The default public deployment with `BDDK_ADMIN_TOOLS=false` exposes 16 read-only
 | Bulletin | `get_bddk_bulletin`, `get_bddk_bulletin_snapshot`, `get_bddk_monthly`, `bddk_cache_status` |
 | Analytics | `analyze_bulletin_trends`, `get_regulatory_digest`, `compare_bulletin_metrics`, `check_bddk_updates` |
 
-With `BDDK_ADMIN_TOOLS=true`, operator tools are also exposed:
+With `BDDK_ADMIN_TOOLS=true`, operator tools are also exposed. The admin/operator deployment exposes 26 tools total: 16 public tools plus 10 operator tools.
 
 - `document_store_stats`
 - `refresh_bddk_cache`
@@ -268,6 +270,8 @@ With `BDDK_ADMIN_TOOLS=true`, operator tools are also exposed:
 - `backfill_degraded_documents`
 - `backfill_status`
 - `document_quality_report`
+
+Total possible MCP tools in the current runtime is 26. Benchmark schema fixture counts can differ from runtime deployment counts; benchmark runs should record the exact exposed tool list they used. See [benchmark/README.md](benchmark/README.md).
 
 ### Quick Start
 
