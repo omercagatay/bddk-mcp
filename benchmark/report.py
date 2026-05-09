@@ -61,15 +61,18 @@ def console_report(all_results: dict) -> str:
     # Phase 2 summary table
     if "phase2" in all_results:
         lines.append("\n## Phase 2: End-to-End Grounding\n")
-        lines.append(f"{'Model':<30} {'Code Grd':>10} {'Model Grd':>10} {'Retrieval':>10} {'Audit':>10} {'Errors':>10}")
-        lines.append("-" * 84)
+        lines.append(
+            f"{'Model':<30} {'Code Grd':>10} {'Model Grd':>10} {'Retrieval':>10} {'Source':>10} {'Audit':>10} {'Errors':>10}"
+        )
+        lines.append("-" * 96)
         for model_name, result in all_results["phase2"].items():
             cg = result["avg_code_grounding"]
             mg = result["avg_model_grounding"]
             rc = result.get("retrieval_completion_success_rate", result.get("chain_success_rate", 0.0))
+            sc = result.get("avg_retrieval_source_correctness", result.get("avg_citation_or_source_trace_score", 0.0))
             ag = result.get("audit_grade_success_rate", 0.0)
             er = result["error_count"]
-            lines.append(f"{model_name:<30} {cg:>9.1%} {mg:>9.1%} {rc:>9.1%} {ag:>9.1%} {er:>10}")
+            lines.append(f"{model_name:<30} {cg:>9.1%} {mg:>9.1%} {rc:>9.1%} {sc:>9.1%} {ag:>9.1%} {er:>10}")
 
     # Threshold legend
     lines.append(

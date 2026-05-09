@@ -1,0 +1,21 @@
+- id: tfrs9_ilke5
+  query: "943 numaralı rehberde İlke 5 model validasyonu ne diyor?"
+  expected_documents: ["943"]
+  expected_sections:
+    - type: "ilke"
+      ref: "5"
+
+- id: karsilik_madde9
+  query: "Karşılık Yönetmeliği Madde 9 TFRS 9 kapsamında ne düzenliyor?"
+  expected_documents: ["mevzuat_22599"]
+  expected_sections:
+    - type: "madde"
+      ref: "9"
+
+- id: sicr_criteria
+  query: "TFRS 9 kredi riskinde önemli artış kriterleri nelerdir?"
+  expected_documents: ["943"]
+  expected_terms:
+    - "30 günden fazla gecikme"
+    - "kredi derecesi"
+    - "makroekonomik görünüm"

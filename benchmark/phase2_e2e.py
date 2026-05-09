@@ -20,12 +20,14 @@ import time
 import httpx
 
 from benchmark.config import LLM_BASE_URL, LLM_TEMPERATURE, LLM_TIMEOUT, MAX_TOOL_CALLS
+from benchmark.gold_cases import gold_cases_as_test_cases
 from benchmark.graders import code_grader, model_grader
 from benchmark.scoring import audit_grade_metrics
 from benchmark.test_cases import TEST_CASES
 from benchmark.tool_schemas import TOOL_SCHEMAS
 
 logger = logging.getLogger(__name__)
+PHASE2_CASES = [*TEST_CASES, *gold_cases_as_test_cases()]
 
 SYSTEM_PROMPT = (
     "Sen bir Türk bankacılık düzenleme uzmanısın. BDDK mevzuatı ve verileri hakkında "
@@ -151,8 +153,8 @@ async def run_phase2(
     results = []
 
     async with httpx.AsyncClient() as client, httpx.AsyncClient() as mcp_client:
-        for case in TEST_CASES:
-            logger.info("Phase 2: model=%s case=%d", model_tag, case.id)
+        for case in PHASE2_CASES:
+            logger.info("Phase 2: model=%s case=%s", model_tag, case.id)
             start = time.time()
 
             try:
@@ -192,7 +194,7 @@ async def run_phase2(
                 )
 
             except Exception as e:
-                logger.warning("Phase 2 case %d failed: %s", case.id, e)
+                logger.warning("Phase 2 case %s failed: %s", case.id, e)
                 audit_metrics = audit_grade_metrics(case, {}, 0.0, 0.0, error=str(e))
                 results.append(
                     {
@@ -225,6 +227,8 @@ async def run_phase2(
         "grounded_answer_success_rate": _rate(results, "grounded_answer_success"),
         "audit_grade_success_rate": _rate(results, "audit_grade_success"),
         "avg_citation_or_source_trace_score": _average(results, "citation_or_source_trace_score"),
+        "retrieval_source_correctness_success_rate": _rate(results, "retrieval_source_correctness_success"),
+        "avg_retrieval_source_correctness": _average(results, "retrieval_source_correctness_score"),
         "avg_language_stability": _average(results, "language_stability"),
         "error_count": sum(1 for r in results if r.get("error")),
         "avg_latency_s": sum(r["latency_s"] for r in results) / n if n else 0.0,
