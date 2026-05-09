@@ -17,6 +17,7 @@ import asyncio
 import hashlib
 import logging
 import math
+from dataclasses import dataclass
 
 import asyncpg
 
@@ -37,6 +38,7 @@ from config import (
 )
 from legal_ref import parse_legal_refs
 from markdown_quality import assess_markdown_quality
+from section_index import DocumentSection, extract_document_sections
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +55,11 @@ CREATE TABLE IF NOT EXISTS document_chunks (
     total_chunks    INTEGER DEFAULT 1,
     total_pages     INTEGER DEFAULT 1,
     content_hash    TEXT DEFAULT '',
+    section_type    TEXT DEFAULT '',
+    section_ref     TEXT DEFAULT '',
+    section_start_char INTEGER,
+    section_end_char   INTEGER,
+    section_content_hash TEXT DEFAULT '',
     chunk_text      TEXT NOT NULL,
     embedding       vector({EMBEDDING_DIMENSION}),
     tsv             tsvector,
@@ -60,6 +67,7 @@ CREATE TABLE IF NOT EXISTS document_chunks (
 );
 
 CREATE INDEX IF NOT EXISTS idx_chunks_doc_id ON document_chunks(doc_id);
+CREATE INDEX IF NOT EXISTS idx_chunks_section_ref ON document_chunks(section_type, section_ref);
 CREATE INDEX IF NOT EXISTS idx_chunks_tsv ON document_chunks USING gin(tsv);
 """
 
@@ -98,6 +106,56 @@ DO $$ BEGIN
 END $$;
 """
 
+_SECTION_METADATA_MIGRATION_SQL = """\
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'document_chunks' AND column_name = 'section_type'
+    ) THEN
+        ALTER TABLE document_chunks ADD COLUMN section_type TEXT DEFAULT '';
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'document_chunks' AND column_name = 'section_ref'
+    ) THEN
+        ALTER TABLE document_chunks ADD COLUMN section_ref TEXT DEFAULT '';
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'document_chunks' AND column_name = 'section_start_char'
+    ) THEN
+        ALTER TABLE document_chunks ADD COLUMN section_start_char INTEGER;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'document_chunks' AND column_name = 'section_end_char'
+    ) THEN
+        ALTER TABLE document_chunks ADD COLUMN section_end_char INTEGER;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'document_chunks' AND column_name = 'section_content_hash'
+    ) THEN
+        ALTER TABLE document_chunks ADD COLUMN section_content_hash TEXT DEFAULT '';
+    END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS idx_chunks_section_ref ON document_chunks(section_type, section_ref);
+"""
+
+
+@dataclass(frozen=True)
+class DocumentChunk:
+    """A text chunk plus optional legal section metadata."""
+
+    chunk_text: str
+    start_char: int
+    end_char: int
+    section_type: str = ""
+    section_ref: str = ""
+    section_start_char: int | None = None
+    section_end_char: int | None = None
+    section_content_hash: str = ""
+
 
 def _chunk_text(text: str, chunk_size: int = EMBEDDING_CHUNK_SIZE, overlap: int = EMBEDDING_CHUNK_OVERLAP) -> list[str]:
     """Split text into overlapping chunks for embedding."""
@@ -118,6 +176,52 @@ def _chunk_text(text: str, chunk_size: int = EMBEDDING_CHUNK_SIZE, overlap: int 
     return chunks
 
 
+def _chunk_document(
+    doc_id: str, text: str, chunk_size: int = EMBEDDING_CHUNK_SIZE, overlap: int = EMBEDDING_CHUNK_OVERLAP
+) -> list[DocumentChunk]:
+    """Split text into chunks and attach best-effort legal section metadata."""
+    if not text:
+        return []
+    sections = extract_document_sections(doc_id, text)
+    chunks: list[DocumentChunk] = []
+    start = 0
+    step = chunk_size - overlap
+    while start < len(text):
+        end = min(len(text), start + chunk_size)
+        chunk = text[start:end]
+        if chunk.strip():
+            section = _section_for_chunk(start, end, sections)
+            chunks.append(
+                DocumentChunk(
+                    chunk_text=chunk,
+                    start_char=start,
+                    end_char=end,
+                    section_type=section.section_type if section else "",
+                    section_ref=section.section_ref if section else "",
+                    section_start_char=section.start_char if section else None,
+                    section_end_char=section.end_char if section else None,
+                    section_content_hash=section.content_hash if section else "",
+                )
+            )
+        start += step
+    return chunks
+
+
+def _section_for_chunk(start_char: int, end_char: int, sections: list[DocumentSection]) -> DocumentSection | None:
+    for section in sections:
+        if section.start_char <= start_char < section.end_char:
+            return section
+    overlapping = [
+        section for section in sections if max(start_char, section.start_char) < min(end_char, section.end_char)
+    ]
+    if not overlapping:
+        return None
+    return max(
+        overlapping,
+        key=lambda section: min(end_char, section.end_char) - max(start_char, section.start_char),
+    )
+
+
 def _has_exact_legal_reference(query: str) -> bool:
     refs = parse_legal_refs(query)
     return bool(refs.sections or refs.decision_numbers or refs.dates)
@@ -126,6 +230,16 @@ def _has_exact_legal_reference(query: str) -> bool:
 def _quality_metadata(text: str, doc_id: str) -> dict:
     quality = assess_markdown_quality(text or "", document_id=doc_id)
     return {"quality_label": quality.label, "quality_flags": quality.flags}
+
+
+def _section_metadata_from_row(row) -> dict:
+    return {
+        "section_type": row["section_type"] or "",
+        "section_ref": row["section_ref"] or "",
+        "section_start_char": row["section_start_char"],
+        "section_end_char": row["section_end_char"],
+        "section_content_hash": row["section_content_hash"] or "",
+    }
 
 
 class VectorStore:
@@ -166,6 +280,7 @@ class VectorStore:
             await conn.execute(_SCHEMA_SQL)
             # Migration adds tsv column to tables created before FTS was added
             await conn.execute(_MIGRATION_SQL)
+            await conn.execute(_SECTION_METADATA_MIGRATION_SQL)
             await conn.execute(_FTS_TRIGGER_SQL)
             await conn.execute(_HNSW_INDEX_SQL)
 
@@ -250,7 +365,7 @@ class VectorStore:
         if not content.strip():
             return 0
 
-        chunks = _chunk_text(content)
+        chunks = _chunk_document(doc_id, content)
         if not chunks:
             return 0
 
@@ -258,7 +373,7 @@ class VectorStore:
         content_hash = hashlib.sha256(content.encode()).hexdigest()
 
         # Generate embeddings
-        embeddings = await self._embed(chunks)
+        embeddings = await self._embed([chunk.chunk_text for chunk in chunks])
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
@@ -281,7 +396,12 @@ class VectorStore:
                             len(chunks),
                             total_pages,
                             content_hash,
-                            chunk,
+                            chunk.section_type,
+                            chunk.section_ref,
+                            chunk.section_start_char,
+                            chunk.section_end_char,
+                            chunk.section_content_hash,
+                            chunk.chunk_text,
                             vec_str,
                         )
                     )
@@ -291,8 +411,9 @@ class VectorStore:
                     INSERT INTO document_chunks (
                         doc_id, chunk_index, title, category, decision_date,
                         decision_number, source_url, total_chunks, total_pages,
-                        content_hash, chunk_text, embedding
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::vector)
+                        content_hash, section_type, section_ref, section_start_char,
+                        section_end_char, section_content_hash, chunk_text, embedding
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::vector)
                     """,
                     args_list,
                 )
@@ -457,6 +578,7 @@ class VectorStore:
             fetch_limit = min(limit * 5, 100)
         sql = f"""
             SELECT doc_id, title, category, decision_date, chunk_text,
+                   section_type, section_ref, section_start_char, section_end_char, section_content_hash,
                    embedding <=> $1::vector AS distance
             FROM document_chunks
             {where_clause}
@@ -484,6 +606,7 @@ class VectorStore:
                     "semantic_relevance": round(1 - distance, 4),
                     "fts_rank": 0.0,
                     "match_type": "vector",
+                    **_section_metadata_from_row(row),
                     **_quality_metadata(row["chunk_text"] or "", did),
                 }
 
@@ -511,6 +634,7 @@ class VectorStore:
 
         sql = f"""
             SELECT doc_id, title, category, decision_date, chunk_text,
+                   section_type, section_ref, section_start_char, section_end_char, section_content_hash,
                    ts_rank_cd(tsv, plainto_tsquery('simple', immutable_unaccent($1))) AS fts_rank
             FROM document_chunks
             WHERE {where_clause}
@@ -535,6 +659,7 @@ class VectorStore:
                     "fts_rank": rank,
                     "semantic_relevance": 0.0,
                     "match_type": "fts",
+                    **_section_metadata_from_row(row),
                     **_quality_metadata(row["chunk_text"] or "", did),
                 }
 
