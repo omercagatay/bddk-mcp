@@ -213,6 +213,7 @@ benchmark/                Tool schema ve benchmark altyapısı
 - Formül ağır veya OCR bozuk dokümanlarda kaynak PDF incelemesi gerekebilir.
 - Tool cevaplarında data URI, raw HTML ve bazı OCR artefact'ları temizlenir.
 - Model cevap verirken sadece tool çıktısına dayanmalıdır; karar numarası, tarih veya hukuki sonuç uydurulmamalıdır.
+- Bilinen extraction sorunları, fail doküman listesi ve backfill komutları için [docs/DOCUMENT_QUALITY.md](docs/DOCUMENT_QUALITY.md) sayfasına bakın.
 
 ---
 
@@ -423,6 +424,7 @@ benchmark/                Tool schemas and benchmark infrastructure
 - Formula-heavy or OCR-corrupted documents may require source PDF review.
 - Data URIs, raw HTML, and selected OCR artifacts are removed before model context.
 - The model should answer only from tool output. It should not invent decision numbers, dates, or legal conclusions.
+- See [docs/DOCUMENT_QUALITY.md](docs/DOCUMENT_QUALITY.md) for known extraction issues, the tracked fail list, and backfill commands.
 
 ### Development Commands
 
