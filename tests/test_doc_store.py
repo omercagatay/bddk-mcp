@@ -19,6 +19,13 @@ def test_document_sections_schema_is_declared():
     assert "idx_document_sections_tsv" in _SCHEMA_SQL
 
 
+def test_tool_call_trace_schema_is_declared():
+    assert "CREATE TABLE IF NOT EXISTS tool_call_traces" in _SCHEMA_SQL
+    assert "args_summary   JSONB" in _SCHEMA_SQL
+    assert "quality_labels JSONB" in _SCHEMA_SQL
+    assert "idx_tool_call_traces_doc_ids" in _SCHEMA_SQL
+
+
 def test_stored_document_section_model():
     section = StoredDocumentSection(
         doc_id="943",

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING
 
 from legal_ref import parse_legal_refs
+from telemetry import elapsed_ms, record_tool_call_trace, unique_doc_ids
 
 if TYPE_CHECKING:
     from deps import Dependencies
@@ -64,6 +66,13 @@ def register(mcp, deps: Dependencies) -> None:
             section_ref: Optional exact section reference, e.g. 9 or 5
             heading: Optional heading substring filter
         """
+        start = time.perf_counter()
+        args = {
+            "document_id": document_id,
+            "section_type": section_type,
+            "section_ref": section_ref,
+            "heading": heading,
+        }
         sections = await deps.doc_store.get_document_section(
             document_id,
             section_type=_normalize_optional(section_type),
@@ -74,12 +83,30 @@ def register(mcp, deps: Dependencies) -> None:
             query = " ".join(
                 part for part in (document_id, section_type or "", section_ref or "", heading or "") if part
             )
+            await record_tool_call_trace(
+                getattr(deps, "pool", None),
+                tool_name="get_document_section",
+                args=args,
+                latency_ms=elapsed_ms(start),
+                result_count=0,
+                doc_ids=[],
+                relevance_stats={"status": "not_found"},
+            )
             return (
                 f"No section found for document {document_id} with the requested filters.\n"
                 f"Try search_document_sections with query: {query or document_id}"
             )
 
         if len(sections) == 1:
+            await record_tool_call_trace(
+                getattr(deps, "pool", None),
+                tool_name="get_document_section",
+                args=args,
+                latency_ms=elapsed_ms(start),
+                result_count=1,
+                doc_ids=[sections[0].doc_id],
+                relevance_stats={"status": "exact_match"},
+            )
             return _format_section(sections[0])
 
         lines = [f"Multiple sections matched ({len(sections)}). Narrow by section_type, section_ref, or heading:\n"]
@@ -92,6 +119,15 @@ def register(mcp, deps: Dependencies) -> None:
             lines.append(f"  {_section_preview(section)}")
         if len(sections) > 10:
             lines.append(f"... {len(sections) - 10} more match(es) omitted.")
+        await record_tool_call_trace(
+            getattr(deps, "pool", None),
+            tool_name="get_document_section",
+            args=args,
+            latency_ms=elapsed_ms(start),
+            result_count=len(sections),
+            doc_ids=unique_doc_ids([section.doc_id for section in sections]),
+            relevance_stats={"status": "disambiguation"},
+        )
         return "\n".join(lines)
 
     @mcp.tool()
@@ -113,13 +149,16 @@ def register(mcp, deps: Dependencies) -> None:
             section_type: Optional section type filter
             limit: Maximum number of section results
         """
+        start = time.perf_counter()
+        args = {"query": query, "document_id": document_id, "section_type": section_type, "limit": limit}
         refs = parse_legal_refs(query)
         inferred_doc_id = document_id or (refs.document_ids[0] if refs.document_ids else None)
         inferred_section_type = section_type or (refs.sections[0][0] if refs.sections else None)
         inferred_section_ref = refs.sections[0][1] if refs.sections else None
+        exact_ref_detected = bool(inferred_doc_id and inferred_section_type and inferred_section_ref)
 
         exact_hits = []
-        if inferred_doc_id and inferred_section_type and inferred_section_ref:
+        if exact_ref_detected:
             exact_hits = await deps.doc_store.get_document_section(
                 inferred_doc_id,
                 section_type=_normalize_optional(inferred_section_type),
@@ -135,6 +174,15 @@ def register(mcp, deps: Dependencies) -> None:
             seen = {_section_key(section) for section in exact_hits}
             hits = exact_hits + [section for section in hits if _section_key(section) not in seen]
         if not hits:
+            await record_tool_call_trace(
+                getattr(deps, "pool", None),
+                tool_name="search_document_sections",
+                args=args,
+                latency_ms=elapsed_ms(start),
+                result_count=0,
+                doc_ids=[],
+                relevance_stats={"exact_ref_detected": exact_ref_detected, "status": "no_results"},
+            )
             return (
                 f"NO RESULTS: No document sections found matching '{query}'.\n"
                 "Try a broader query, remove the document_id/section_type filter, or retrieve the full document."
@@ -151,4 +199,13 @@ def register(mcp, deps: Dependencies) -> None:
             if preview:
                 lines.append(f"  ...{preview}...")
             lines.append("")
+        await record_tool_call_trace(
+            getattr(deps, "pool", None),
+            tool_name="search_document_sections",
+            args=args,
+            latency_ms=elapsed_ms(start),
+            result_count=len(hits),
+            doc_ids=unique_doc_ids([hit.doc_id for hit in hits]),
+            relevance_stats={"exact_ref_detected": exact_ref_detected},
+        )
         return "\n".join(lines)

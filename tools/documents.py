@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import TYPE_CHECKING
 
 from config import ADMIN_TOOLS
 from exceptions import BddkStorageError
 from markdown_quality import assess_markdown_quality, sanitize_markdown_for_context
+from telemetry import elapsed_ms, record_tool_call_trace
 
 if TYPE_CHECKING:
     from deps import Dependencies
@@ -58,6 +60,8 @@ def register(mcp, deps: Dependencies) -> None:
             document_id: The numeric document ID (from search results)
             page_number: Page of the markdown output (documents are split into 5000-char pages)
         """
+        start = time.perf_counter()
+        args = {"document_id": document_id, "page_number": page_number}
         candidates = [document_id] + (
             [f"mevzuat_{document_id}", f"bddk_{document_id}"] if document_id.isdigit() else []
         )
@@ -94,6 +98,15 @@ def register(mcp, deps: Dependencies) -> None:
                 break
 
         if resolved_id is None:
+            await record_tool_call_trace(
+                getattr(deps, "pool", None),
+                tool_name="get_bddk_document",
+                args=args,
+                latency_ms=elapsed_ms(start),
+                result_count=0,
+                doc_ids=[],
+                relevance_stats={"status": "not_found"},
+            )
             return f"Document {document_id} is not available in the local store. This MCP server is airlocked and does not fetch from live BDDK / mevzuat.gov.tr sources at runtime. If the document should be available, re-run the seed (`seed.py import`) or sync pipeline."
 
         found = deps.client.find_by_id(resolved_id)
@@ -143,6 +156,26 @@ def register(mcp, deps: Dependencies) -> None:
             f"{quality_warning_block}{degraded_warning_block}"
         )
 
+        await record_tool_call_trace(
+            getattr(deps, "pool", None),
+            tool_name="get_bddk_document",
+            args=args,
+            latency_ms=elapsed_ms(start),
+            result_count=1,
+            doc_ids=[resolved_id],
+            quality_labels={
+                resolved_id: {
+                    "label": quality.label,
+                    "flags": quality.flags,
+                    "extraction_method": extraction_method or "unknown",
+                }
+            },
+            relevance_stats={
+                "page_number": page_num,
+                "total_pages": total_pages,
+                "served_via": "vector_store" if served_via_vector else "document_store",
+            },
+        )
         return header + content
 
     @mcp.tool()

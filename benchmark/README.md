@@ -55,3 +55,5 @@ Phase 2 result JSON records the exact tool surface used in each run:
 - `mcp_server_version`
 
 When comparing benchmark runs, compare the recorded `exposed_tool_list` and `deployment_config.tool_count` first. A run against `benchmark-schema-fixture` is not directly comparable to a live `runtime-public` or `runtime-admin` run unless the exposed tools are the same.
+
+For production-style benchmark debugging, set `BDDK_TELEMETRY_ENABLED=true` on the MCP server. Retrieval tools then persist privacy-safe rows in `tool_call_traces` with tool name, args hash/summary, latency, result counts, document IDs, quality labels, relevance stats, optional `BDDK_TELEMETRY_MODEL_ID`, and optional `BDDK_TELEMETRY_SESSION_ID`.
