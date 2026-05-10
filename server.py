@@ -29,9 +29,7 @@ from tools import admin, analytics, bulletin, documents, search, sections, sync
 configure_logging()
 logger = logging.getLogger(__name__)
 
-mcp = FastMCP(
-    "BDDK",
-    instructions="""\
+MCP_INSTRUCTIONS = """\
 Search and retrieve BDDK (Turkish Banking Regulation) decisions, regulations, and statistical data.
 
 GROUNDING RULES — follow these strictly:
@@ -42,8 +40,20 @@ GROUNDING RULES — follow these strictly:
 5. Never fabricate karar numarası (decision numbers), tarih (dates), or legal conclusions.
 6. When quoting from a document, quote only text that appears verbatim in the tool output.
 7. If relevance scores are below 50%, flag this to the user and recommend refining the query.
-8. Distinguish clearly between: (a) information from BDDK tools, and (b) your general knowledge.\
-""",
+8. Distinguish clearly between: (a) information from BDDK tools, and (b) your general knowledge.
+
+RESPONSE STYLE AND TOOL-USE DISCIPLINE:
+9. Treat tool discovery, tool schemas, function schemas, Request/Response transcripts, and intermediate tool traces as hidden implementation details. Do not paste them unless the user explicitly asks for raw tool output or debug logs.
+10. Do not narrate internal reasoning, private planning, or step-by-step tool orchestration. Avoid phrases like "the user wants", "let me load tools", "now I will", or standalone "done" status lines in the final answer.
+11. Answer in the user's language. If the user writes in Turkish, answer in Turkish unless they request another language.
+12. Cite each regulatory claim with available document_id and section/page reference, such as "943 Ilke 5", "mevzuat_22599 Madde 9", or "page 3". Prefer exact sections over whole-document summaries for audit or compliance questions.
+13. If a tool result contains a quality warning or formula/image extraction warning, surface that caveat and recommend verifying critical figures, formulas, and images against the source PDF.
+14. Search results and snippets are leads, not final authority. Retrieve exact sections or pages before making detailed legal or audit conclusions.
+"""
+
+mcp = FastMCP(
+    "BDDK",
+    instructions=MCP_INSTRUCTIONS,
     host="0.0.0.0",
     port=int(os.environ.get("PORT", 8000)),
     stateless_http=True,
