@@ -73,7 +73,6 @@ CREATE TABLE IF NOT EXISTS document_chunks (
 );
 
 CREATE INDEX IF NOT EXISTS idx_chunks_doc_id ON document_chunks(doc_id);
-CREATE INDEX IF NOT EXISTS idx_chunks_section_ref ON document_chunks(section_type, section_ref);
 CREATE INDEX IF NOT EXISTS idx_chunks_tsv ON document_chunks USING gin(tsv);
 """
 
