@@ -268,6 +268,62 @@ async def _check_model(pg_pool):
 class TestVectorStoreLifecycle:
     """Test VectorStore initialization and basic operations."""
 
+    @pytest.mark.asyncio
+    async def test_initialize_migrates_legacy_chunks_before_section_index(self, pg_pool):
+        from tests.conftest import SingleConnPool
+
+        conn = await pg_pool.acquire()
+        tx = conn.transaction()
+        await tx.start()
+        try:
+            await conn.execute("DROP TABLE IF EXISTS document_chunks CASCADE")
+            await conn.execute("""
+                CREATE TABLE document_chunks (
+                    id SERIAL PRIMARY KEY,
+                    doc_id TEXT NOT NULL,
+                    chunk_index INTEGER NOT NULL,
+                    title TEXT DEFAULT '',
+                    category TEXT DEFAULT '',
+                    decision_date TEXT DEFAULT '',
+                    decision_number TEXT DEFAULT '',
+                    source_url TEXT DEFAULT '',
+                    total_chunks INTEGER DEFAULT 1,
+                    total_pages INTEGER DEFAULT 1,
+                    content_hash TEXT DEFAULT '',
+                    chunk_text TEXT NOT NULL,
+                    embedding vector(384),
+                    tsv tsvector,
+                    UNIQUE(doc_id, chunk_index)
+                )
+            """)
+
+            vs = VectorStore(SingleConnPool(conn))
+            await vs.initialize()
+
+            columns = {
+                row["column_name"]
+                for row in await conn.fetch(
+                    """
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_name = 'document_chunks'
+                    """
+                )
+            }
+            assert {
+                "chunk_start_char",
+                "chunk_end_char",
+                "section_type",
+                "section_ref",
+                "section_start_char",
+                "section_end_char",
+                "section_content_hash",
+            } <= columns
+            assert await conn.fetchval("SELECT to_regclass('idx_chunks_section_ref')") == "idx_chunks_section_ref"
+        finally:
+            await tx.rollback()
+            await pg_pool.release(conn)
+
     @pytest.fixture
     async def store(self, pg_pool, _check_model):
         if not _check_model:
