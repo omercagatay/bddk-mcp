@@ -147,3 +147,30 @@ def test_quality_assessment_does_not_warn_for_short_repeated_boilerplate():
     assert result.counts["duplicate_paragraphs"] == 2
     assert result.counts["repeated_para_blocks_gt2"] == 0
     assert result.label == "clean"
+
+
+def test_quality_assessment_warns_for_true_missing_space_camelcase():
+    result = assess_markdown_quality("Mehmet Ali AKBENBaşkanSayı ve HakkındaYönetmeliğin metni.", document_id="x")
+
+    assert result.counts["camelcase_concat"] == 2
+    assert result.label == "warning"
+
+
+def test_quality_assessment_ignores_known_mixed_case_terms():
+    result = assess_markdown_quality(
+        "iOS cihazlar, mTLS bağlantısı, RmD modeli, nSEB koşulu, kW değeri ve HashCalc aracı.",
+        document_id="x",
+    )
+
+    assert result.counts["camelcase_concat"] == 0
+    assert result.label == "clean"
+
+
+def test_quality_assessment_ignores_camelcase_inside_urls():
+    result = assess_markdown_quality(
+        "Kaynak http://www.bddk.org.tr/WebSitesi/turkce/Mevzuat adresinde yayımlandı.",
+        document_id="x",
+    )
+
+    assert result.counts["camelcase_concat"] == 0
+    assert result.label == "clean"

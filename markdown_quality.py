@@ -42,6 +42,10 @@ _DASH_LEADER_RE = re.compile(r"(?m)^[ \t]*-{10,}[ \t]*$")
 _DOT_LEADER_RE = re.compile(r"(?m)(?<!\.)\.{10,}(?!\.)")
 _INVISIBLE_SPACE_RE = re.compile(r"[\u200b\u200c\u200d\ufeff]")
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+_CAMELCASE_TRANSITION_RE = re.compile(r"[a-zçğıöşü][A-ZÇĞİÖŞÜ]")
+_KNOWN_MIXED_CASE_TERMS = {
+    "HashCalc",
+}
 _FORMULA_REF_RE = re.compile(
     r"aşağıdaki form[üu]l(?:[üu]|ler)?"
     r"|yer alan form[üu]l(?:[üu]|ler)?"
@@ -166,7 +170,7 @@ def _count_signals(text: str) -> dict[str, int]:
         "duplicate_paragraphs": max(0, duplicate_paragraphs),
         "replacement_char": text.count("\ufffd"),
         "long_underscore_run": len(re.findall(r"_{10,}", text)),
-        "camelcase_concat": len(re.findall(r"[a-zçğıöşü][A-ZÇĞİÖŞÜ]", text)),
+        "camelcase_concat": _count_camelcase_concat(text),
         "formula_ref_without_latex_or_image": int(_has_formula_ref_without_extractable_formula(text)),
     }
 
@@ -208,6 +212,44 @@ def _count_malformed_table_rows(text: str) -> int:
 
 def _count_excessive_pipe_density(text: str) -> int:
     return sum(1 for line in text.splitlines() if len(line) > 80 and line.count("|") >= 12)
+
+
+def _count_camelcase_concat(text: str) -> int:
+    return sum(1 for match in _CAMELCASE_TRANSITION_RE.finditer(text) if not _is_camelcase_false_positive(text, match))
+
+
+def _is_camelcase_false_positive(text: str, match: re.Match[str]) -> bool:
+    start, end = _token_bounds(text, match.start(), match.end())
+    token = text[start:end]
+    if token in _KNOWN_MIXED_CASE_TERMS:
+        return True
+    if _is_inside_url_context(text, start):
+        return True
+    if len(token) <= 3:
+        return True
+
+    upper_index = match.start() + 1
+    upper_run = 0
+    while upper_index + upper_run < len(text) and text[upper_index + upper_run].isupper():
+        upper_run += 1
+    return upper_run >= 2
+
+
+def _token_bounds(text: str, start: int, end: int) -> tuple[int, int]:
+    while start > 0 and _is_token_char(text[start - 1]):
+        start -= 1
+    while end < len(text) and _is_token_char(text[end]):
+        end += 1
+    return start, end
+
+
+def _is_token_char(char: str) -> bool:
+    return char.isalnum()
+
+
+def _is_inside_url_context(text: str, start: int) -> bool:
+    prefix = text[max(0, start - 80) : start].lower()
+    return "http://" in prefix or "https://" in prefix or "www." in prefix
 
 
 def _count_repeated_para_blocks(text: str) -> int:
