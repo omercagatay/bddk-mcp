@@ -18,6 +18,7 @@ import hashlib
 import logging
 import math
 import re
+import unicodedata
 from dataclasses import dataclass
 
 import asyncpg
@@ -75,6 +76,8 @@ _FTS_RELAXED_STOPWORDS = {
 _FTS_RELAXED_MIN_TERMS = 3
 _FTS_RELAXED_MAX_TERMS = 12
 _LEXICAL_RELEVANCE_BOOST = 0.045
+_PHRASE_RELEVANCE_BOOST = 0.03
+_PHRASE_RELEVANCE_MAX = 0.06
 
 _SCHEMA_SQL = f"""\
 CREATE TABLE IF NOT EXISTS document_chunks (
@@ -514,6 +517,40 @@ def _relaxed_fts_query(query: str) -> str | None:
     if len(terms) < _FTS_RELAXED_MIN_TERMS:
         return None
     return " | ".join(f"{term}:*" for term in terms)
+
+
+def _normalize_search_text(text: str) -> str:
+    text = text.translate(str.maketrans({"ı": "i", "İ": "i"})).lower()
+    normalized = unicodedata.normalize("NFKD", text)
+    return "".join(char for char in normalized if not unicodedata.combining(char))
+
+
+def _stem_search_term(term: str) -> str:
+    for suffix in ("leri", "lari", "inin", "unun", "nin", "nun", "ler", "lar", "si", "su", "i", "u"):
+        if len(term) > len(suffix) + 3 and term.endswith(suffix):
+            return term[: -len(suffix)]
+    return term
+
+
+def _phrase_match_count(query: str, text: str) -> int:
+    normalized_query = _normalize_search_text(query)
+    normalized_text_terms = [
+        _stem_search_term(match.group(0)) for match in re.finditer(r"[0-9a-z]{3,}", _normalize_search_text(text))
+    ]
+    normalized_text = " ".join(normalized_text_terms)
+    stopwords = {_normalize_search_text(term) for term in _FTS_RELAXED_STOPWORDS}
+    terms = [
+        _stem_search_term(match.group(0))
+        for match in re.finditer(r"[0-9a-z]{3,}", normalized_query)
+        if match.group(0) not in stopwords
+    ]
+
+    phrases: set[str] = set()
+    for size in (3, 2):
+        for index in range(0, len(terms) - size + 1):
+            phrases.add(" ".join(terms[index : index + size]))
+
+    return sum(1 for phrase in phrases if phrase in normalized_text)
 
 
 def _quality_metadata(text: str, doc_id: str) -> dict:
@@ -1096,6 +1133,20 @@ class VectorStore:
                     if hit.get("semantic_relevance", 0.0) > 0 and lexical_relevance > 0:
                         hit["relevance"] = round(
                             min(1.0, hit.get("relevance", 0.0) + (lexical_relevance * _LEXICAL_RELEVANCE_BOOST)),
+                            4,
+                        )
+                    phrase_matches = _phrase_match_count(
+                        query,
+                        f"{hit.get('title', '')} {hit.get('snippet', '')}",
+                    )
+                    hit["phrase_match_count"] = phrase_matches
+                    if hit.get("semantic_relevance", 0.0) > 0 and phrase_matches > 0:
+                        hit["relevance"] = round(
+                            min(
+                                1.0,
+                                hit.get("relevance", 0.0)
+                                + min(_PHRASE_RELEVANCE_MAX, phrase_matches * _PHRASE_RELEVANCE_BOOST),
+                            ),
                             4,
                         )
 
