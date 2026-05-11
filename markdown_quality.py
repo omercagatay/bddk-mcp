@@ -44,6 +44,16 @@ _INVISIBLE_SPACE_RE = re.compile(r"[\u200b\u200c\u200d\ufeff]")
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 _FORMULA_REF_RE = re.compile(r"\bform[üu]l\b|aşağıdaki form[üu]l|yer alan form[üu]l", re.IGNORECASE)
 _LATEX_OR_IMAGE_RE = re.compile(r"\$\$|!\[[^\]]*]\([^)]*\)|<img\b|data:image/", re.IGNORECASE)
+_INLINE_FORMULA_RE = re.compile(
+    r"(?im)"
+    r"(?:^|[.;:\n]\s*)"
+    r"[A-ZÇĞİÖŞÜa-zçğıöşüΑ-Ωα-ω]"
+    r"[A-ZÇĞİÖŞÜa-zçğıöşüΑ-Ωα-ω0-9\s*/().,*+\-×÷]*"
+    r"\s*=\s*"
+    r"(?=[^\n]{3,240})"
+    r"(?=[^\n]*(?:\d|[+*/×÷^∑√]|maksimum|minimum|min|max|α|β|γ|ρ))"
+    r"[^\n]{3,240}",
+)
 
 
 class QualityAssessment(BaseModel):
@@ -151,9 +161,7 @@ def _count_signals(text: str) -> dict[str, int]:
         "replacement_char": text.count("\ufffd"),
         "long_underscore_run": len(re.findall(r"_{10,}", text)),
         "camelcase_concat": len(re.findall(r"[a-zçğıöşü][A-ZÇĞİÖŞÜ]", text)),
-        "formula_ref_without_latex_or_image": int(
-            bool(_FORMULA_REF_RE.search(text) and not _LATEX_OR_IMAGE_RE.search(text))
-        ),
+        "formula_ref_without_latex_or_image": int(_has_formula_ref_without_extractable_formula(text)),
     }
 
 
@@ -205,6 +213,17 @@ def _count_repeated_para_blocks(text: str) -> int:
         if counts[para] == 3:
             repeated += 1
     return repeated
+
+
+def _has_formula_ref_without_extractable_formula(text: str) -> bool:
+    if not _FORMULA_REF_RE.search(text):
+        return False
+    if _LATEX_OR_IMAGE_RE.search(text):
+        return False
+    return not any(
+        _INLINE_FORMULA_RE.search(text[max(0, match.start() - 500) : match.end() + 1500])
+        for match in _FORMULA_REF_RE.finditer(text)
+    )
 
 
 def _quality_warning(label: str, flags: list[str]) -> str:

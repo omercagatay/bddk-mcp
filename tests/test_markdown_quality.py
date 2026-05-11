@@ -78,6 +78,27 @@ def test_quality_assessment_marks_warning_for_formula_reference_without_formula(
     assert "formula_ref_without_latex_or_image" in result.flags
 
 
+def test_quality_assessment_accepts_inline_extracted_formula():
+    result = assess_markdown_quality(
+        "Her bir münferit opsiyon için aşağıdaki formül ile bulunur: Gama Etkisi = 1/2 x Gama x (FD)2",
+        document_id="x",
+    )
+
+    assert result.label == "clean"
+    assert "formula_ref_without_latex_or_image" not in result.flags
+
+
+def test_quality_assessment_still_warns_when_formula_reference_has_only_prose():
+    result = assess_markdown_quality(
+        "Bu durumda öncelikle aşağıdaki formülü kullanarak hesaplama yapılır. "
+        "Birinci bankanın ipotek hakkı ve ikinci bankanın alacağı daha sonra değerlendirilir.",
+        document_id="x",
+    )
+
+    assert result.label == "warning"
+    assert "formula_ref_without_latex_or_image" in result.flags
+
+
 def test_quality_assessment_counts_but_does_not_warn_for_one_duplicate_paragraph():
     paragraph = "Bu paragraf mevzuat içinde iki kez geçen uzun ve anlamlı bir listedir."
     result = assess_markdown_quality(f"{paragraph}\n\n{paragraph}", document_id="x")
