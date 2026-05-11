@@ -480,13 +480,13 @@ class TestF1Score:
         # Top result must be the correct one
         assert test_hits[0]["doc_id"] == "f1_katilim", f"Top result should be f1_katilim, got {test_hits[0]['doc_id']}"
 
-        # All surviving results should be within 8% of the top score
+        # All surviving results should be within 5.1% of the top score
         top_score = test_hits[0]["relevance"]
         for h in test_hits:
             gap = top_score - h["relevance"]
-            assert gap <= 0.081, (
+            assert gap <= 0.052, (
                 f"{h['doc_id']} relevance {h['relevance']:.1%} is {gap:.1%} below "
-                f"top ({top_score:.1%}), exceeds 8% gap threshold"
+                f"top ({top_score:.1%}), exceeds 5.1% gap threshold"
             )
 
     @pytest.mark.asyncio

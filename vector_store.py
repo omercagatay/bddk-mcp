@@ -1129,7 +1129,7 @@ class VectorStore:
         # the rest, only keep results within a reasonable band of the best score.
         # This prevents returning 10 results when only 1-2 are truly relevant.
         if len(semantic_hits) > 1:
-            _SCORE_GAP_THRESHOLD = 0.08  # drop results >8% below top hit
+            _SCORE_GAP_THRESHOLD = 0.051  # drop results >5.1% below top hit
             top_score = semantic_hits[0]["relevance"]
             semantic_hits = [h for h in semantic_hits if (top_score - h["relevance"]) <= _SCORE_GAP_THRESHOLD]
 
