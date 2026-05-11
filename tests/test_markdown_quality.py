@@ -76,3 +76,22 @@ def test_quality_assessment_marks_warning_for_formula_reference_without_formula(
 
     assert result.label == "warning"
     assert "formula_ref_without_latex_or_image" in result.flags
+
+
+def test_quality_assessment_counts_but_does_not_warn_for_one_duplicate_paragraph():
+    paragraph = "Bu paragraf mevzuat içinde iki kez geçen uzun ve anlamlı bir listedir."
+    result = assess_markdown_quality(f"{paragraph}\n\n{paragraph}", document_id="x")
+
+    assert result.counts["duplicate_paragraphs"] == 1
+    assert result.label == "clean"
+
+
+def test_quality_assessment_warns_for_repeated_paragraph_blocks():
+    paragraph = (
+        "Bu paragrafın üç kez tekrarlanması çıkarım kalitesi açısından şüphelidir ve "
+        "kaynak metinde tekrar eden bozuk blok bulunduğunu gösterebilir."
+    )
+    result = assess_markdown_quality(f"{paragraph}\n\n{paragraph}\n\n{paragraph}", document_id="x")
+
+    assert result.counts["repeated_para_blocks_gt2"] == 1
+    assert result.label == "warning"

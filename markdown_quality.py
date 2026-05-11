@@ -107,7 +107,7 @@ def assess_markdown_quality(text: str, document_id: str = "") -> QualityAssessme
         or counts["formula_ref_without_latex_or_image"] > 0
         or counts["long_underscore_run"] > 0
         or counts["camelcase_concat"] > 0
-        or counts["duplicate_paragraphs"] > 0
+        or counts["repeated_para_blocks_gt2"] > 0
     )
 
     label = "fail" if fail else "warning" if warning else "clean"
