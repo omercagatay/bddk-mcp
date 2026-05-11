@@ -388,6 +388,27 @@ class TestF1Score:
         assert "f1_katilim" in doc_ids, "FTS should find exact term 'murabaha'"
 
     @pytest.mark.asyncio
+    async def test_fts_relaxes_long_audit_queries(self, f1_store):
+        """Long audit questions should still get lexical matches."""
+        hits = await f1_store._fts_search(
+            "konsolide ve konsolide olmayan bankacılık hesaplarından kaynaklanan "
+            "faiz oranı riski standart rasyosu maksimum kaç olabilir",
+            limit=5,
+        )
+
+        assert hits[0]["doc_id"] == "f1_faiz"
+
+    @pytest.mark.asyncio
+    async def test_hybrid_uses_lexical_signal_for_audit_ratio_ties(self, f1_store):
+        """Exact regulatory terms should break dense-retrieval near ties."""
+        hits = await f1_store.search(
+            "konsolide ve konsolide olmayan toplam likidite karşılama oranı minimum kaç olmalıdır",
+            limit=5,
+        )
+
+        assert hits[0]["doc_id"] == "f1_likidite"
+
+    @pytest.mark.asyncio
     async def test_fts_unrelated_query_empty(self, f1_store):
         """FTS should return nothing for completely unrelated queries."""
         hits = await f1_store._fts_search("quantum physics dark matter", limit=5)
