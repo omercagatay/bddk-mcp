@@ -41,6 +41,18 @@ def composite_score(avg: dict[str, float]) -> float:
     return (avg["mrr"] * 40) + (avg["hit_at_1"] * 40) + (avg["f1_at_3"] * 20)
 
 
+def _json_safe(value):
+    if isinstance(value, set):
+        return sorted(value)
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, tuple):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    return value
+
+
 async def _populate(store: VectorStore, corpus: list[dict]) -> None:
     for doc in corpus:
         await store.delete_document(doc["doc_id"])
@@ -84,7 +96,7 @@ async def run_score(dsn: str, *, verbose: bool = False) -> dict:
             "queries": len(f1.GROUND_TRUTH),
         }
         if verbose:
-            result["results"] = evaluation["results"]
+            result["results"] = _json_safe(evaluation["results"])
         return result
     finally:
         await pool.close()
