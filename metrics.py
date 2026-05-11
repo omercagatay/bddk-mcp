@@ -38,6 +38,9 @@ class Metrics:
     def record_low_confidence_hit(self) -> None:
         self._low_confidence_hits += 1
 
+    def record_weak_match_hit(self) -> None:
+        self._low_confidence_hits += 1
+
     def summary(self) -> dict:
         """Return a summary of all metrics."""
         uptime = time.time() - self._start_time
