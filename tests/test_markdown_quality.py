@@ -110,9 +110,20 @@ def test_quality_assessment_counts_but_does_not_warn_for_one_duplicate_paragraph
 def test_quality_assessment_warns_for_repeated_paragraph_blocks():
     paragraph = (
         "Bu paragrafın üç kez tekrarlanması çıkarım kalitesi açısından şüphelidir ve "
-        "kaynak metinde tekrar eden bozuk blok bulunduğunu gösterebilir."
+        "kaynak metinde tekrar eden bozuk blok bulunduğunu gösterebilir. Aynı uzun "
+        "bloğun sayfa sayfa tekrarlanması kullanıcıya sunulan mevzuat metninin "
+        "çıkarım kalitesini doğrudan etkiler."
     )
     result = assess_markdown_quality(f"{paragraph}\n\n{paragraph}\n\n{paragraph}", document_id="x")
 
     assert result.counts["repeated_para_blocks_gt2"] == 1
     assert result.label == "warning"
+
+
+def test_quality_assessment_does_not_warn_for_short_repeated_boilerplate():
+    paragraph = "Atatürk Bulvarı No:191 Kavaklıdere 06680 ANKARA Tel: (312) 455 67 80"
+    result = assess_markdown_quality(f"{paragraph}\n\n{paragraph}\n\n{paragraph}", document_id="x")
+
+    assert result.counts["duplicate_paragraphs"] == 2
+    assert result.counts["repeated_para_blocks_gt2"] == 0
+    assert result.label == "clean"

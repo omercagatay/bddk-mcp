@@ -205,7 +205,7 @@ def _count_excessive_pipe_density(text: str) -> int:
 
 
 def _count_repeated_para_blocks(text: str) -> int:
-    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if len(p.strip()) >= 80]
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if len(p.strip()) >= 160]
     counts: dict[str, int] = {}
     repeated = 0
     for para in paragraphs:
