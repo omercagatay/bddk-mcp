@@ -46,6 +46,7 @@ _CAMELCASE_TRANSITION_RE = re.compile(r"[a-zçğıöşü][A-ZÇĞİÖŞÜ]")
 _KNOWN_MIXED_CASE_TERMS = {
     "HashCalc",
 }
+_MIXED_CASE_UNIT_RE = re.compile(r"^\d+(?:kW|MW|GW|kWh|MWh|GWh)$")
 _FORMULA_REF_RE = re.compile(
     r"aşağıdaki form[üu]l(?:[üu]|ler)?"
     r"|yer alan form[üu]l(?:[üu]|ler)?"
@@ -222,6 +223,8 @@ def _is_camelcase_false_positive(text: str, match: re.Match[str]) -> bool:
     start, end = _token_bounds(text, match.start(), match.end())
     token = text[start:end]
     if token in _KNOWN_MIXED_CASE_TERMS:
+        return True
+    if _MIXED_CASE_UNIT_RE.fullmatch(token):
         return True
     if _is_inside_url_context(text, start):
         return True

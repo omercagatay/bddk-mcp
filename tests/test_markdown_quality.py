@@ -158,7 +158,7 @@ def test_quality_assessment_warns_for_true_missing_space_camelcase():
 
 def test_quality_assessment_ignores_known_mixed_case_terms():
     result = assess_markdown_quality(
-        "iOS cihazlar, mTLS bağlantısı, RmD modeli, nSEB koşulu, kW değeri ve HashCalc aracı.",
+        "iOS cihazlar, mTLS bağlantısı, RmD modeli, nSEB koşulu, 250kW değeri ve HashCalc aracı.",
         document_id="x",
     )
 
