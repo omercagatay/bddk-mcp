@@ -142,6 +142,11 @@ GROUND_TRUTH = [
         "Faiz riski",
     ),
     (
+        "konsolide ve konsolide olmayan bankacılık hesaplarından kaynaklanan faiz oranı riski standart rasyosu maksimum kaç olabilir",
+        {"f1_faiz"},
+        "Bankacılık hesaplarından kaynaklanan faiz oranı riski standart rasyosu",
+    ),
+    (
         "kredi kartı limit ve taksit kuralları",
         {"f1_kart"},
         "Kredi kartları",
@@ -180,6 +185,11 @@ GROUND_TRUTH = [
         "Basel III likidite karşılama oranı",
         {"f1_likidite", "f1_sermaye"},
         "Basel III likidite",
+    ),
+    (
+        "konsolide ve konsolide olmayan toplam likidite karşılama oranı minimum kaç olmalıdır",
+        {"f1_likidite"},
+        "Toplam likidite karşılama oranı minimumu",
     ),
     (
         "net istikrarlı fonlama oranı hesaplaması nasıl yapılır",
