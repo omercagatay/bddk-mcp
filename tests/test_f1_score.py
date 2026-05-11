@@ -152,6 +152,11 @@ GROUND_TRUTH = [
         "Takipteki alacaklar ve karşılıklar",
     ),
     (
+        "donuk alacak olarak sınıflandırılan kredilerin özellikleri nelerdir",
+        {"f1_takip"},
+        "Donuk alacak özellikleri",
+    ),
+    (
         "katılım bankası faizsiz finans ürünleri murabaha sukuk",
         {"f1_katilim"},
         "Faizsiz bankacılık",
@@ -175,6 +180,11 @@ GROUND_TRUTH = [
         "Basel III likidite karşılama oranı",
         {"f1_likidite", "f1_sermaye"},
         "Basel III likidite",
+    ),
+    (
+        "net istikrarlı fonlama oranı hesaplaması nasıl yapılır",
+        {"f1_likidite"},
+        "Net istikrarlı fonlama oranı",
     ),
     (
         "tüketici kredisi konut kredisi risk değerlendirmesi",
