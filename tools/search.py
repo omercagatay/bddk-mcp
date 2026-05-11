@@ -70,6 +70,14 @@ class _LRUCache:
 _search_cache: _LRUCache = _LRUCache(max_size=SEARCH_CACHE_MAX, ttl=SEARCH_CACHE_TTL)
 
 
+def _match_strength(relevance: float) -> str:
+    if relevance >= 0.70:
+        return "strong match"
+    if relevance >= 0.50:
+        return "moderate match"
+    return "weak match"
+
+
 def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
     """Register the four search tools on the given MCP instance."""
 
@@ -301,6 +309,11 @@ Suggest the user try: different keywords or a different category (basın, mevzua
         For title-only catalog lookups (where you know words from the regulation's
         name), use search_bddk_regulations instead.
 
+        For legal or audit questions, use a section-first workflow and treat these
+        document-level results as leads.
+        Prefer search_document_sections or get_document_section for exact articles,
+        principles, paragraphs, and cited legal conclusions.
+
         Args:
             query: Natural language query in Turkish (e.g. "faiz oranı riski nasıl hesaplanır")
             category: Optional category filter (e.g. "Yönetmelik", "Rehber", "Kurul Kararı")
@@ -355,18 +368,23 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
         for h in hits:
             date_info = f" ({h['decision_date']})" if h.get("decision_date") else ""
             cat_info = f" [{h['category']}]" if h.get("category") else ""
-            relevance = f" [{h.get('confidence', 'unknown')} confidence, {h['relevance']:.1%}]"
+            relevance = f" [{_match_strength(h['relevance'])}, relevance {h['relevance']:.1%}]"
             lines.append(f"**{h['title']}**{date_info}{cat_info}{relevance}")
             lines.append(f"  Document ID: {h['doc_id']}")
             if h.get("snippet"):
                 lines.append(f"  ...{h['snippet'][:200]}...")
             lines.append("")
 
-        low_count = sum(1 for h in hits if h.get("confidence") == "low")
+        lines.append(
+            "For legal/audit answers, use these results as leads; retrieve exact provisions with "
+            "search_document_sections or get_document_section before making detailed conclusions."
+        )
+
+        low_count = sum(1 for h in hits if h.get("relevance", 0) < 0.50)
         if low_count > 0:
             metrics.record_low_confidence_hit()
             lines.append(
-                f"\nWARNING: {low_count} result(s) have low confidence. These may not be directly relevant. Verify before citing."
+                f"\nWARNING: {low_count} result(s) are weak matches. They may not be directly relevant. Verify before citing."
             )
 
         output = "\n".join(lines)

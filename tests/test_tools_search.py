@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import time
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from tools.search import _LRUCache
+from tools.search import _LRUCache, _search_cache
 
 # -- LRU cache unit tests ---------------------------------------------------
 
@@ -83,6 +83,43 @@ def test_search_register():
         "search_bddk_announcements",
         "search_document_store",
     }
+
+
+def _registered_tools(mcp: MagicMock) -> dict:
+    return {call.args[0].__name__: call.args[0] for call in mcp.tool.return_value.call_args_list}
+
+
+@pytest.mark.asyncio
+async def test_search_document_store_uses_match_wording_and_section_guidance():
+    from deps import Dependencies
+    from tools.search import register
+
+    _search_cache._data.clear()
+    vector_store = MagicMock()
+    vector_store.search = AsyncMock(
+        return_value=[
+            {
+                "title": "TFRS 9 Uyarınca Beklenen Kredi Zararı Karşılığı Hesaplamasına İlişkin Rehber",
+                "category": "Rehber",
+                "decision_date": "",
+                "doc_id": "943",
+                "snippet": "İlke 5 - BKZ model validasyonu",
+                "relevance": 0.58,
+                "confidence": "medium",
+            }
+        ]
+    )
+    deps = Dependencies(pool=None, doc_store=None, client=None, http=None, vector_store=vector_store)
+    mcp = MagicMock()
+    register(mcp, deps)
+    search_document_store = _registered_tools(mcp)["search_document_store"]
+
+    out = await search_document_store("TFRS 9 denetimi", limit=1)
+
+    assert "moderate match" in out
+    assert "confidence" not in out.lower()
+    assert "search_document_sections" in out
+    assert "get_document_section" in out
 
 
 # -- get_version_counts integration test (requires PostgreSQL) ---------------
