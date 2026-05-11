@@ -88,6 +88,16 @@ def test_quality_assessment_accepts_inline_extracted_formula():
     assert "formula_ref_without_latex_or_image" not in result.flags
 
 
+def test_quality_assessment_accepts_inline_ratio_formula():
+    result = assess_markdown_quality(
+        "Süreklilik Yüzdesi: MTBF/(MTBF+MTTR) formülü ile bulunacak yüzdesel değeri ifade eder.",
+        document_id="x",
+    )
+
+    assert result.label == "clean"
+    assert "formula_ref_without_latex_or_image" not in result.flags
+
+
 def test_quality_assessment_still_warns_when_formula_reference_has_only_prose():
     result = assess_markdown_quality(
         "Bu durumda öncelikle aşağıdaki formülü kullanarak hesaplama yapılır. "
@@ -97,6 +107,16 @@ def test_quality_assessment_still_warns_when_formula_reference_has_only_prose():
 
     assert result.label == "warning"
     assert "formula_ref_without_latex_or_image" in result.flags
+
+
+def test_quality_assessment_ignores_generic_formula_mentions():
+    result = assess_markdown_quality(
+        "Referans değer, periyodik ya da düzenli olarak bir formül yoluyla belirlenen tutardır.",
+        document_id="x",
+    )
+
+    assert result.label == "clean"
+    assert "formula_ref_without_latex_or_image" not in result.flags
 
 
 def test_quality_assessment_counts_but_does_not_warn_for_one_duplicate_paragraph():

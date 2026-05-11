@@ -42,17 +42,23 @@ _DASH_LEADER_RE = re.compile(r"(?m)^[ \t]*-{10,}[ \t]*$")
 _DOT_LEADER_RE = re.compile(r"(?m)(?<!\.)\.{10,}(?!\.)")
 _INVISIBLE_SPACE_RE = re.compile(r"[\u200b\u200c\u200d\ufeff]")
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
-_FORMULA_REF_RE = re.compile(r"\bform[üu]l\b|aşağıdaki form[üu]l|yer alan form[üu]l", re.IGNORECASE)
+_FORMULA_REF_RE = re.compile(
+    r"aşağıdaki form[üu]l(?:[üu]|ler)?"
+    r"|yer alan form[üu]l(?:[üu]|ler)?"
+    r"|form[üu]l(?:[üu]|ler)?\s+(?:ile|uyarınca|vasıtasıyla|aracılığıyla|kullanılarak)",
+    re.IGNORECASE,
+)
 _LATEX_OR_IMAGE_RE = re.compile(r"\$\$|!\[[^\]]*]\([^)]*\)|<img\b|data:image/", re.IGNORECASE)
 _INLINE_FORMULA_RE = re.compile(
     r"(?im)"
-    r"(?:^|[.;:\n]\s*)"
+    r"(?:(?:^|[.;:\n]\s*)"
     r"[A-ZÇĞİÖŞÜa-zçğıöşüΑ-Ωα-ω]"
     r"[A-ZÇĞİÖŞÜa-zçğıöşüΑ-Ωα-ω0-9\s*/().,*+\-×÷]*"
     r"\s*=\s*"
     r"(?=[^\n]{3,240})"
     r"(?=[^\n]*(?:\d|[+*/×÷^∑√]|maksimum|minimum|min|max|α|β|γ|ρ))"
-    r"[^\n]{3,240}",
+    r"[^\n]{3,240}"
+    r"|\b[A-ZÇĞİÖŞÜΑ-Ω]{2,}[A-ZÇĞİÖŞÜΑ-Ω0-9]*\s*/\s*\([^)\n]{3,120}[+\-*/×÷][^)\n]{1,120}\))",
 )
 
 

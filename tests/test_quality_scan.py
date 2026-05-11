@@ -175,7 +175,7 @@ async def seeded_quality_pool(pg_pool):
             ("doc_dots", "TOC entry .......... page 3 " + "çğıöşü " * 120, "markitdown"),
             (
                 "doc_formula_missing",
-                "Article references formül ama formül yok. " + "çğıöşü " * 120,
+                "Article references aşağıdaki formül ama formül yok. " + "çğıöşü " * 120,
                 "markitdown",
             ),
             (
