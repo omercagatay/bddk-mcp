@@ -120,6 +120,19 @@ def test_quality_assessment_accepts_inline_ratio_formula():
     assert "formula_ref_without_latex_or_image" not in result.flags
 
 
+def test_quality_assessment_accepts_lettered_annex_formulas():
+    result = assess_markdown_quality(
+        "Ek-3'te yer alan formül uyarınca hesaplanır.\n\n"
+        "Yüksek kaliteli likit varlık stokunun hesaplamasında aşağıdaki formüller kullanılır.\n"
+        "(a) 2B Kalite Likit Varlıklar için %15 Üst Sınır Aşım Tutarı =\n"
+        "Maksimum [Düzeltilmiş 2B Kalite Likit Varlıklar - 15/85 x Düzeltilmiş Birinci Kalite, 0]",
+        document_id="x",
+    )
+
+    assert result.label == "clean"
+    assert "formula_ref_without_latex_or_image" not in result.flags
+
+
 def test_quality_assessment_still_warns_when_formula_reference_has_only_prose():
     result = assess_markdown_quality(
         "Bu durumda öncelikle aşağıdaki formülü kullanarak hesaplama yapılır. "
