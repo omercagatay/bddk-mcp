@@ -82,6 +82,20 @@ def test_storage_sanitizer_removes_cid_image_references():
     assert "sonrası hukuki metin" in out
 
 
+def test_storage_sanitizer_removes_markdown_data_image_blobs():
+    raw = (
+        "Aşağıdaki denklem uygulanır.\n\n"
+        "![](data:image/x-wmf;base64,AQAJAAADcgIAAAIAHAAAAAAABQAAAA==) = maksimum (teminat, 0)\n\n"
+        "Bu denklemde teminat tutarı dikkate alınır."
+    )
+    out = sanitize_markdown_for_storage(raw)
+
+    assert "data:image/" not in out
+    assert "base64" not in out
+    assert "maksimum (teminat, 0)" in out
+    assert "Bu denklemde teminat" in out
+
+
 def test_context_sanitizer_caps_pathological_line_lengths():
     raw = "A" * 3500
     out = sanitize_markdown_for_context(raw, max_line_length=1000)
@@ -100,6 +114,12 @@ def test_quality_assessment_marks_known_hard_fail_signals():
     assert "wmf_data_uri" in result.flags
     assert "cid_marker" in result.flags
     assert result.warning
+
+
+def test_quality_assessment_does_not_fail_cleaned_document_by_legacy_id():
+    result = assess_markdown_quality("MADDE 1 - Temiz mevzuat metni.", document_id="mevzuat_21192")
+
+    assert result.label == "clean"
 
 
 def test_quality_assessment_marks_warning_for_formula_reference_without_formula():

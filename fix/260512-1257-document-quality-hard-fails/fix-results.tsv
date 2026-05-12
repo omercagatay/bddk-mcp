@@ -1,3 +1,4 @@
 iteration	category	target	delta_fail_docs	delta_score	guard	status	description
 0	baseline	seed document quality	0	0	pass	baseline	13 fail docs, 46 anomaly hits, score 97.0726
 1	warning	cid artifacts	-2	+0.4557	pass	fixed	remove cid image references from storage sanitizer and backfill five seed documents
+2	fail	mevzuat_21192 embedded data images	-1	+0.2188	pass	fixed	remove markdown data-image blobs, backfill chunks, and stop forcing cleaned mevzuat_21192 to fail by ID

@@ -23,10 +23,10 @@ _KNOWN_FAIL_DOCUMENT_IDS = {
     "905",
     "907",
     "mevzuat_16290",
-    "mevzuat_21192",
 }
 
 _EMBEDDED_ARTIFACT_MARKER = "[removed embedded image/formula artifact]"
+_MARKDOWN_DATA_IMAGE_RE = re.compile(r"!\[[^\]]*]\(data:image/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=\s]+?\)", re.IGNORECASE)
 _DATA_URI_RE = re.compile(r"data:image/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=\s]+", re.IGNORECASE)
 _CID_RE = re.compile(r"\bcid:[^\s\])>\"']+", re.IGNORECASE)
 _IMG_TAG_RE = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
@@ -94,6 +94,7 @@ def sanitize_markdown_for_storage(text: str) -> str:
     out = _UNDERSCORE_LEADER_RE.sub("", out)
     out = _DASH_LEADER_RE.sub("", out)
     out = _DOT_LEADER_RE.sub(" ... ", out)
+    out = _MARKDOWN_DATA_IMAGE_RE.sub("", out)
     out = _CID_RE.sub("", out)
     out = _repair_pdf_spacing_loss(out)
     out = _BLANK_LINES_RE.sub("\n\n", out)
