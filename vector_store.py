@@ -18,6 +18,7 @@ import hashlib
 import logging
 import math
 import re
+import unicodedata
 from dataclasses import dataclass
 
 import asyncpg
@@ -45,6 +46,38 @@ from markdown_quality import assess_markdown_quality
 from section_index import DocumentSection, extract_document_sections
 
 logger = logging.getLogger(__name__)
+
+_FTS_TOKEN_RE = re.compile(r"[0-9A-Za-zÇĞİÖŞÜçğıöşü]{3,}")
+_FTS_RELAXED_STOPWORDS = {
+    "acaba",
+    "ancak",
+    "bir",
+    "buna",
+    "göre",
+    "gore",
+    "hangi",
+    "için",
+    "icin",
+    "ile",
+    "kaç",
+    "kac",
+    "kadar",
+    "nasıl",
+    "nasil",
+    "nedir",
+    "nelerdir",
+    "olan",
+    "olarak",
+    "olabilir",
+    "olmalıdır",
+    "olmalidir",
+    "veya",
+}
+_FTS_RELAXED_MIN_TERMS = 3
+_FTS_RELAXED_MAX_TERMS = 12
+_LEXICAL_RELEVANCE_BOOST = 0.045
+_PHRASE_RELEVANCE_BOOST = 0.03
+_PHRASE_RELEVANCE_MAX = 0.06
 
 _SCHEMA_SQL = f"""\
 CREATE TABLE IF NOT EXISTS document_chunks (
@@ -467,6 +500,57 @@ def _section_for_chunk(start_char: int, end_char: int, sections: list[DocumentSe
 def _has_exact_legal_reference(query: str) -> bool:
     refs = parse_legal_refs(query)
     return bool(refs.sections or refs.decision_numbers or refs.dates)
+
+
+def _relaxed_fts_query(query: str) -> str | None:
+    terms: list[str] = []
+    seen: set[str] = set()
+    for match in _FTS_TOKEN_RE.finditer(query):
+        term = match.group(0).lower()
+        if term in _FTS_RELAXED_STOPWORDS or term in seen:
+            continue
+        seen.add(term)
+        terms.append(term)
+        if len(terms) >= _FTS_RELAXED_MAX_TERMS:
+            break
+
+    if len(terms) < _FTS_RELAXED_MIN_TERMS:
+        return None
+    return " | ".join(f"{term}:*" for term in terms)
+
+
+def _normalize_search_text(text: str) -> str:
+    text = text.translate(str.maketrans({"ı": "i", "İ": "i"})).lower()
+    normalized = unicodedata.normalize("NFKD", text)
+    return "".join(char for char in normalized if not unicodedata.combining(char))
+
+
+def _stem_search_term(term: str) -> str:
+    for suffix in ("leri", "lari", "inin", "unun", "nin", "nun", "ler", "lar", "si", "su", "i", "u"):
+        if len(term) > len(suffix) + 3 and term.endswith(suffix):
+            return term[: -len(suffix)]
+    return term
+
+
+def _phrase_match_count(query: str, text: str) -> int:
+    normalized_query = _normalize_search_text(query)
+    normalized_text_terms = [
+        _stem_search_term(match.group(0)) for match in re.finditer(r"[0-9a-z]{3,}", _normalize_search_text(text))
+    ]
+    normalized_text = " ".join(normalized_text_terms)
+    stopwords = {_normalize_search_text(term) for term in _FTS_RELAXED_STOPWORDS}
+    terms = [
+        _stem_search_term(match.group(0))
+        for match in re.finditer(r"[0-9a-z]{3,}", normalized_query)
+        if match.group(0) not in stopwords
+    ]
+
+    phrases: set[str] = set()
+    for size in (3, 2):
+        for index in range(0, len(terms) - size + 1):
+            phrases.add(" ".join(terms[index : index + size]))
+
+    return sum(1 for phrase in phrases if phrase in normalized_text)
 
 
 def _quality_metadata(text: str, doc_id: str) -> dict:
@@ -923,27 +1007,9 @@ class VectorStore:
         category: str | None = None,
     ) -> list[dict]:
         """Full-text search on chunk tsvector with ts_rank_cd scoring."""
-        where_parts = ["tsv @@ plainto_tsquery('simple', immutable_unaccent($1))"]
-        params: list = [query]
-
-        if category:
-            where_parts.append(f"category = ${len(params) + 1}")
-            params.append(category)
-
-        where_clause = " AND ".join(where_parts)
-        params.append(limit)
-
-        sql = f"""
-            SELECT doc_id, title, category, decision_date, chunk_text,
-                   section_type, section_ref, section_start_char, section_end_char, section_content_hash,
-                   ts_rank_cd(tsv, plainto_tsquery('simple', immutable_unaccent($1))) AS fts_rank
-            FROM document_chunks
-            WHERE {where_clause}
-            ORDER BY fts_rank DESC
-            LIMIT ${len(params)}
-        """
-
-        rows = await self._pool.fetch(sql, *params)
+        rows = await self._fts_rows(query, limit=limit, category=category, relaxed=False)
+        if not rows and (relaxed_query := _relaxed_fts_query(query)):
+            rows = await self._fts_rows(relaxed_query, limit=limit, category=category, relaxed=True)
 
         # Deduplicate by doc_id, keep best FTS rank
         seen: dict[str, dict] = {}
@@ -965,6 +1031,40 @@ class VectorStore:
                 }
 
         return sorted(seen.values(), key=lambda x: x["fts_rank"], reverse=True)
+
+    async def _fts_rows(
+        self,
+        query: str,
+        *,
+        limit: int,
+        category: str | None,
+        relaxed: bool,
+    ) -> list[asyncpg.Record]:
+        tsquery = (
+            "to_tsquery('simple', immutable_unaccent($1))"
+            if relaxed
+            else "plainto_tsquery('simple', immutable_unaccent($1))"
+        )
+        where_parts = [f"tsv @@ {tsquery}"]
+        params: list = [query]
+
+        if category:
+            where_parts.append(f"category = ${len(params) + 1}")
+            params.append(category)
+
+        where_clause = " AND ".join(where_parts)
+        params.append(limit)
+
+        sql = f"""
+            SELECT doc_id, title, category, decision_date, chunk_text,
+                   section_type, section_ref, section_start_char, section_end_char, section_content_hash,
+                   ts_rank_cd(tsv, {tsquery}) AS fts_rank
+            FROM document_chunks
+            WHERE {where_clause}
+            ORDER BY fts_rank DESC
+            LIMIT ${len(params)}
+        """
+        return await self._pool.fetch(sql, *params)
 
     # -- Hybrid search (RRF fusion) -------------------------------------------
 
@@ -1024,6 +1124,31 @@ class VectorStore:
         if RERANKER_ENABLED and fused:
             top_n = min(RERANKER_TOP_N, len(fused))
             fused[:top_n] = await self._rerank(query, fused[:top_n])
+        elif fts_hits:
+            max_fts_rank = max((hit.get("fts_rank", 0.0) for hit in fts_hits), default=0.0)
+            if max_fts_rank > 0:
+                for hit in fused:
+                    lexical_relevance = float(hit.get("fts_rank", 0.0)) / max_fts_rank
+                    hit["lexical_relevance"] = round(lexical_relevance, 4)
+                    if hit.get("semantic_relevance", 0.0) > 0 and lexical_relevance > 0:
+                        hit["relevance"] = round(
+                            min(1.0, hit.get("relevance", 0.0) + (lexical_relevance * _LEXICAL_RELEVANCE_BOOST)),
+                            4,
+                        )
+                    phrase_matches = _phrase_match_count(
+                        query,
+                        f"{hit.get('title', '')} {hit.get('snippet', '')}",
+                    )
+                    hit["phrase_match_count"] = phrase_matches
+                    if hit.get("semantic_relevance", 0.0) > 0 and phrase_matches > 0:
+                        hit["relevance"] = round(
+                            min(
+                                1.0,
+                                hit.get("relevance", 0.0)
+                                + min(_PHRASE_RELEVANCE_MAX, phrase_matches * _PHRASE_RELEVANCE_BOOST),
+                            ),
+                            4,
+                        )
 
         # Step 5: Apply threshold
         for hit in fused:
@@ -1055,7 +1180,7 @@ class VectorStore:
         # the rest, only keep results within a reasonable band of the best score.
         # This prevents returning 10 results when only 1-2 are truly relevant.
         if len(semantic_hits) > 1:
-            _SCORE_GAP_THRESHOLD = 0.08  # drop results >8% below top hit
+            _SCORE_GAP_THRESHOLD = 0.051  # drop results >5.1% below top hit
             top_score = semantic_hits[0]["relevance"]
             semantic_hits = [h for h in semantic_hits if (top_score - h["relevance"]) <= _SCORE_GAP_THRESHOLD]
 

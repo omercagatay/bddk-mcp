@@ -142,6 +142,11 @@ GROUND_TRUTH = [
         "Faiz riski",
     ),
     (
+        "konsolide ve konsolide olmayan bankacılık hesaplarından kaynaklanan faiz oranı riski standart rasyosu maksimum kaç olabilir",
+        {"f1_faiz"},
+        "Bankacılık hesaplarından kaynaklanan faiz oranı riski standart rasyosu",
+    ),
+    (
         "kredi kartı limit ve taksit kuralları",
         {"f1_kart"},
         "Kredi kartları",
@@ -150,6 +155,11 @@ GROUND_TRUTH = [
         "takipteki alacakların sınıflandırılması ve karşılık oranları",
         {"f1_takip", "f1_kredi"},
         "Takipteki alacaklar ve karşılıklar",
+    ),
+    (
+        "donuk alacak olarak sınıflandırılan kredilerin özellikleri nelerdir",
+        {"f1_takip"},
+        "Donuk alacak özellikleri",
     ),
     (
         "katılım bankası faizsiz finans ürünleri murabaha sukuk",
@@ -175,6 +185,16 @@ GROUND_TRUTH = [
         "Basel III likidite karşılama oranı",
         {"f1_likidite", "f1_sermaye"},
         "Basel III likidite",
+    ),
+    (
+        "konsolide ve konsolide olmayan toplam likidite karşılama oranı minimum kaç olmalıdır",
+        {"f1_likidite"},
+        "Toplam likidite karşılama oranı minimumu",
+    ),
+    (
+        "net istikrarlı fonlama oranı hesaplaması nasıl yapılır",
+        {"f1_likidite"},
+        "Net istikrarlı fonlama oranı",
     ),
     (
         "tüketici kredisi konut kredisi risk değerlendirmesi",
@@ -368,6 +388,48 @@ class TestF1Score:
         assert "f1_katilim" in doc_ids, "FTS should find exact term 'murabaha'"
 
     @pytest.mark.asyncio
+    async def test_fts_relaxes_long_audit_queries(self, f1_store):
+        """Long audit questions should still get lexical matches."""
+        hits = await f1_store._fts_search(
+            "konsolide ve konsolide olmayan bankacılık hesaplarından kaynaklanan "
+            "faiz oranı riski standart rasyosu maksimum kaç olabilir",
+            limit=5,
+        )
+
+        assert hits[0]["doc_id"] == "f1_faiz"
+
+    @pytest.mark.asyncio
+    async def test_hybrid_uses_lexical_signal_for_audit_ratio_ties(self, f1_store):
+        """Exact regulatory terms should break dense-retrieval near ties."""
+        hits = await f1_store.search(
+            "konsolide ve konsolide olmayan toplam likidite karşılama oranı minimum kaç olmalıdır",
+            limit=5,
+        )
+
+        assert hits[0]["doc_id"] == "f1_likidite"
+
+    @pytest.mark.asyncio
+    async def test_hybrid_exact_phrases_prune_audit_ratio_neighbors(self, f1_store):
+        """Contiguous regulatory phrases should suppress generic neighbors."""
+        hits = await f1_store.search(
+            "konsolide ve konsolide olmayan bankacılık hesaplarından kaynaklanan "
+            "faiz oranı riski standart rasyosu maksimum kaç olabilir",
+            limit=5,
+        )
+
+        assert [hit["doc_id"] for hit in hits if hit["doc_id"].startswith("f1_")] == ["f1_faiz"]
+
+    @pytest.mark.asyncio
+    async def test_hybrid_phrase_matching_folds_turkish_suffixes(self, f1_store):
+        """Phrase matching should connect singular query forms to plural legal text."""
+        hits = await f1_store.search(
+            "tüketici kredisi konut kredisi risk değerlendirmesi",
+            limit=5,
+        )
+
+        assert [hit["doc_id"] for hit in hits if hit["doc_id"].startswith("f1_")] == ["f1_kredi"]
+
+    @pytest.mark.asyncio
     async def test_fts_unrelated_query_empty(self, f1_store):
         """FTS should return nothing for completely unrelated queries."""
         hits = await f1_store._fts_search("quantum physics dark matter", limit=5)
@@ -439,13 +501,13 @@ class TestF1Score:
         # Top result must be the correct one
         assert test_hits[0]["doc_id"] == "f1_katilim", f"Top result should be f1_katilim, got {test_hits[0]['doc_id']}"
 
-        # All surviving results should be within 8% of the top score
+        # All surviving results should be within 5.1% of the top score
         top_score = test_hits[0]["relevance"]
         for h in test_hits:
             gap = top_score - h["relevance"]
-            assert gap <= 0.081, (
+            assert gap <= 0.052, (
                 f"{h['doc_id']} relevance {h['relevance']:.1%} is {gap:.1%} below "
-                f"top ({top_score:.1%}), exceeds 8% gap threshold"
+                f"top ({top_score:.1%}), exceeds 5.1% gap threshold"
             )
 
     @pytest.mark.asyncio

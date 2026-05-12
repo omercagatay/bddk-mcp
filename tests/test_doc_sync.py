@@ -1,5 +1,7 @@
 """Tests for doc_sync.py — document download and extraction pipeline."""
 
+import io
+import zipfile
 from unittest.mock import AsyncMock
 
 import httpx
@@ -576,6 +578,64 @@ async def test_mevzuat_download_prefers_iframe_when_html_first():
     pdf_idx = next((i for i, u in enumerate(call_log) if u.endswith(".pdf")), -1)
     assert gen_idx == -1, f"GeneratePdf must not be tried before iframe; order={call_log}"
     assert pdf_idx == -1, f"static .pdf must not be tried before iframe; order={call_log}"
+
+
+@pytest.mark.asyncio
+async def test_mevzuat_iframe_download_appends_docx_annex_zip_when_present():
+    """HTML-first mevzuat downloads should merge docx annex formulas linked from the iframe."""
+    import httpx as _httpx
+
+    dummy_store = object()
+    async with DocumentSyncer(
+        dummy_store,
+        ocr_backends=[MarkitdownBackend()],
+        prefer_html_for_mevzuat=True,
+    ) as syncer:
+        main_html = (
+            '<html><body><iframe id="mevzuatDetayIframe" '
+            'src="/anasayfa/MevzuatFihristDetayIframe?MevzuatTur=7&MevzuatNo=19498&MevzuatTertip=5">'
+            "</iframe></body></html>"
+        )
+        iframe_body = (
+            "<html><body><p>MADDE 9 - Ek-3’te yer alan formül uyarınca hesaplanır.</p>"
+            '<a href="7.5.19498-ek.zip">Eki için tıklayınız.</a></body></html>'
+        ) * 3
+        docx_xml = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            "<w:body><w:p><w:r><w:t>EK:3</w:t></w:r></w:p>"
+            "<w:p><w:r><w:t>Yüksek Kaliteli Likit Varlık Stoku = Birinci Kalite + 2A + 2B</w:t></w:r></w:p>"
+            "</w:body></w:document>"
+        )
+        zip_buf = io.BytesIO()
+        with zipfile.ZipFile(zip_buf, "w") as zf:
+            zf.writestr("EK-3.docx", _build_minimal_docx(document_xml=docx_xml))
+
+        async def fake_get(url, timeout=None):
+            if "mevzuat?MevzuatNo=19498" in url:
+                return make_http_response(text=main_html, content_type="text/html")
+            if "MevzuatFihristDetayIframe" in url:
+                return make_http_response(text=iframe_body, content_type="text/html")
+            if "MevzuatMetin/yonetmelik/7.5.19498-ek.zip" in url:
+                return make_http_response(content=zip_buf.getvalue(), content_type="application/zip")
+            return make_http_response(status_code=404)
+
+        syncer._http = AsyncMock(spec=_httpx.AsyncClient)
+        syncer._http.get = AsyncMock(side_effect=fake_get)
+
+        content, method, ext = await syncer._download_mevzuat("mevzuat_19498")
+
+    assert method == "mevzuat_iframe+annex_zip"
+    assert ext == ".html"
+    assert "Yüksek Kaliteli Likit Varlık Stoku".encode() in content
+
+
+def _build_minimal_docx(*, document_xml: str) -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("[Content_Types].xml", "<Types/>")
+        zf.writestr("word/document.xml", document_xml)
+    return buf.getvalue()
 
 
 def test_resolve_html_first_flag_auto_detects_markitdown_only():

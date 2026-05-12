@@ -131,13 +131,11 @@ class TestChunkText:
 
 
 class TestHybridSearchOrdering:
-    """Regression coverage for the RRF-vs-cosine sort inconsistency.
+    """Regression coverage for the RRF-vs-final-relevance sort invariant.
 
     _rrf_fuse() ranks candidates by rrf_score (dense rank + FTS rank) but the
-    `relevance` field surfaced to the user is the raw vector cosine. If the
-    final output is left in RRF order, callers observe non-monotonic scores
-    (e.g. rank #1 = 87.9%, rank #2 = 89.9%). _hybrid_search now re-sorts by
-    `relevance` after the threshold filter.
+    `relevance` field surfaced to the user is the final dense+lexical score.
+    _hybrid_search must keep output order monotonic in that displayed score.
     """
 
     def test_rrf_fuse_leaves_fts_only_hits_at_zero_relevance(self):
@@ -168,11 +166,11 @@ class TestHybridSearchOrdering:
         """
         vs = VectorStore.__new__(VectorStore)
 
-        # Cosines chosen close together so the 0.08 score-gap filter keeps
+        # Cosines chosen close together so the score-gap filter keeps
         # all three hits. Vector and FTS rankings disagree: vector ranks
-        # a > b > c by cosine, FTS ranks c > a > b. With RRF sort, the
-        # output would be [a, c, b] — relevance [0.85, 0.80, 0.82] — which
-        # is non-monotonic. The fix re-sorts to [a, b, c].
+        # a > b > c by cosine, FTS ranks c > a > b. The lexical boost lets
+        # c outrank b, but the final output must still be monotonic in the
+        # displayed score.
         vs._vector_search = AsyncMock(
             return_value=[
                 {"doc_id": "a", "relevance": 0.85, "title": "A", "snippet": "a"},
@@ -192,7 +190,7 @@ class TestHybridSearchOrdering:
 
         relevances = [r["relevance"] for r in results]
         assert relevances == sorted(relevances, reverse=True), f"Results not monotonic in relevance: {relevances}"
-        assert [r["doc_id"] for r in results] == ["a", "b", "c"]
+        assert [r["doc_id"] for r in results] == ["a", "c", "b"]
 
     @pytest.mark.asyncio
     async def test_hybrid_search_preserves_fts_only_exact_legal_reference(self):

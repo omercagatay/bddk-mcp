@@ -7,6 +7,7 @@ from ocr.base import (
     LightOCRBackend,
     MarkitdownBackend,
     OCRBackend,
+    PdftotextBackend,
     get_default_backends,
     run_extraction_chain,
 )
@@ -32,6 +33,31 @@ class TestMarkitdownBackend:
             mock.return_value = "extracted text"
             result = backend.extract(b"%PDF-1.4\nfake")
             assert result == "extracted text"
+            mock.assert_called_once()
+
+
+class TestPdftotextBackend:
+    def test_name_is_pdftotext_degraded(self):
+        backend = PdftotextBackend()
+        assert backend.name == "pdftotext_degraded"
+
+    def test_is_available_checks_pdftotext_binary(self):
+        backend = PdftotextBackend()
+        with patch("ocr.base.shutil.which", return_value="/usr/bin/pdftotext"):
+            assert backend.is_available() is True
+        with patch("ocr.base.shutil.which", return_value=None):
+            assert backend.is_available() is False
+
+    def test_extract_returns_none_on_empty_pdf(self):
+        backend = PdftotextBackend()
+        assert backend.extract(b"") is None
+
+    def test_extract_wraps_pdftotext(self):
+        backend = PdftotextBackend()
+        with patch("ocr.base._run_pdftotext") as mock:
+            mock.return_value = "layout text"
+            result = backend.extract(b"%PDF-1.4\nfake")
+            assert result == "layout text"
             mock.assert_called_once()
 
 
@@ -156,17 +182,17 @@ class TestLightOCRBackend:
 
 
 class TestDefaultBackends:
-    def test_default_order_is_lightocr_markitdown(self):
+    def test_default_order_is_lightocr_pdftotext_markitdown(self):
         backends = get_default_backends()
         names = [b.name for b in backends]
-        assert names == ["lightocr", "markitdown_degraded"]
+        assert names == ["lightocr", "pdftotext_degraded", "markitdown_degraded"]
 
     def test_include_chandra_prepends_chandra2(self):
         backends = get_default_backends(include_chandra=True)
         names = [b.name for b in backends]
-        assert names == ["chandra2", "lightocr", "markitdown_degraded"]
+        assert names == ["chandra2", "lightocr", "pdftotext_degraded", "markitdown_degraded"]
 
     def test_default_without_chandra_unchanged(self):
         backends = get_default_backends(include_chandra=False)
         names = [b.name for b in backends]
-        assert names == ["lightocr", "markitdown_degraded"]
+        assert names == ["lightocr", "pdftotext_degraded", "markitdown_degraded"]

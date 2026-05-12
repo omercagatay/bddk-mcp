@@ -42,8 +42,33 @@ _DASH_LEADER_RE = re.compile(r"(?m)^[ \t]*-{10,}[ \t]*$")
 _DOT_LEADER_RE = re.compile(r"(?m)(?<!\.)\.{10,}(?!\.)")
 _INVISIBLE_SPACE_RE = re.compile(r"[\u200b\u200c\u200d\ufeff]")
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
-_FORMULA_REF_RE = re.compile(r"\bform[üu]l\b|aşağıdaki form[üu]l|yer alan form[üu]l", re.IGNORECASE)
+_BDDK_CIRCULAR_AUTHOR_RE = re.compile(r"\b([A-ZÇĞİÖŞÜ]{2,})BaşkanSayı\s*:\s*")
+_BDDK_CIRCULAR_SUBJECT_RE = re.compile(r"(\d{4})Konu\s*:\s*")
+_BDDK_CIRCULAR_NUMBER_RE = re.compile(r"\b(GENELGE)(\d{4}/\d+)\b")
+_CAMELCASE_TRANSITION_RE = re.compile(r"[a-zçğıöşü][A-ZÇĞİÖŞÜ]")
+_KNOWN_MIXED_CASE_TERMS = {
+    "HashCalc",
+}
+_MIXED_CASE_UNIT_RE = re.compile(r"^\d+(?:kW|MW|GW|kWh|MWh|GWh)$")
+_FORMULA_REF_RE = re.compile(
+    r"aşağıdaki form[üu]l(?:[üu]|ler)?"
+    r"|yer alan form[üu]l(?:[üu]|ler)?"
+    r"|form[üu]l(?:[üu]|ler)?\s+(?:ile|uyarınca|vasıtasıyla|aracılığıyla|kullanılarak)",
+    re.IGNORECASE,
+)
 _LATEX_OR_IMAGE_RE = re.compile(r"\$\$|!\[[^\]]*]\([^)]*\)|<img\b|data:image/", re.IGNORECASE)
+_INLINE_FORMULA_RE = re.compile(
+    r"(?im)"
+    r"(?:(?:^|[.;:\n]\s*)"
+    r"(?:\([A-ZÇĞİÖŞÜa-zçğıöşü0-9]+\)\s*)?"
+    r"[A-ZÇĞİÖŞÜa-zçğıöşüΑ-Ωα-ω0-9]"
+    r"[A-ZÇĞİÖŞÜa-zçğıöşüΑ-Ωα-ω0-9\s*/().,*+\-%×÷]*"
+    r"\s*=\s*"
+    r"(?=[^\n]{3,240})"
+    r"(?=[^\n]*(?:\d|[+*/×÷^∑√]|maksimum|minimum|min|max|α|β|γ|ρ))"
+    r"[^\n]{3,240}"
+    r"|\b[A-ZÇĞİÖŞÜΑ-Ω]{2,}[A-ZÇĞİÖŞÜΑ-Ω0-9]*\s*/\s*\([^)\n]{3,120}[+\-*/×÷][^)\n]{1,120}\))",
+)
 
 
 class QualityAssessment(BaseModel):
@@ -69,6 +94,7 @@ def sanitize_markdown_for_storage(text: str) -> str:
     out = _UNDERSCORE_LEADER_RE.sub("", out)
     out = _DASH_LEADER_RE.sub("", out)
     out = _DOT_LEADER_RE.sub(" ... ", out)
+    out = _repair_pdf_spacing_loss(out)
     out = _BLANK_LINES_RE.sub("\n\n", out)
     return out.strip() + ("\n" if out.endswith("\n") else "")
 
@@ -107,7 +133,7 @@ def assess_markdown_quality(text: str, document_id: str = "") -> QualityAssessme
         or counts["formula_ref_without_latex_or_image"] > 0
         or counts["long_underscore_run"] > 0
         or counts["camelcase_concat"] > 0
-        or counts["duplicate_paragraphs"] > 0
+        or counts["repeated_para_blocks_gt2"] > 0
     )
 
     label = "fail" if fail else "warning" if warning else "clean"
@@ -150,10 +176,8 @@ def _count_signals(text: str) -> dict[str, int]:
         "duplicate_paragraphs": max(0, duplicate_paragraphs),
         "replacement_char": text.count("\ufffd"),
         "long_underscore_run": len(re.findall(r"_{10,}", text)),
-        "camelcase_concat": len(re.findall(r"[a-zçğıöşü][A-ZÇĞİÖŞÜ]", text)),
-        "formula_ref_without_latex_or_image": int(
-            bool(_FORMULA_REF_RE.search(text) and not _LATEX_OR_IMAGE_RE.search(text))
-        ),
+        "camelcase_concat": _count_camelcase_concat(text),
+        "formula_ref_without_latex_or_image": int(_has_formula_ref_without_extractable_formula(text)),
     }
 
 
@@ -196,8 +220,63 @@ def _count_excessive_pipe_density(text: str) -> int:
     return sum(1 for line in text.splitlines() if len(line) > 80 and line.count("|") >= 12)
 
 
+def _repair_pdf_spacing_loss(text: str) -> str:
+    out = _BDDK_CIRCULAR_AUTHOR_RE.sub(r"\1\nBaşkan\nSayı: ", text)
+    out = _BDDK_CIRCULAR_SUBJECT_RE.sub(r"\1\nKonu: ", out)
+    out = _BDDK_CIRCULAR_NUMBER_RE.sub(r"\1 \2", out)
+    replacements = {
+        "HakkındaYönetmeliğ": "Hakkında Yönetmeliğ",
+        "ilişkinYönetmelik": "ilişkin Yönetmelik",
+        "ConsistencyAssessment": "Consistency Assessment",
+        "StandartYaklaşım": "Standart Yaklaşım",
+    }
+    for needle, replacement in replacements.items():
+        out = out.replace(needle, replacement)
+    return out
+
+
+def _count_camelcase_concat(text: str) -> int:
+    return sum(1 for match in _CAMELCASE_TRANSITION_RE.finditer(text) if not _is_camelcase_false_positive(text, match))
+
+
+def _is_camelcase_false_positive(text: str, match: re.Match[str]) -> bool:
+    start, end = _token_bounds(text, match.start(), match.end())
+    token = text[start:end]
+    if token in _KNOWN_MIXED_CASE_TERMS:
+        return True
+    if _MIXED_CASE_UNIT_RE.fullmatch(token):
+        return True
+    if _is_inside_url_context(text, start):
+        return True
+    if len(token) <= 3:
+        return True
+
+    upper_index = match.start() + 1
+    upper_run = 0
+    while upper_index + upper_run < len(text) and text[upper_index + upper_run].isupper():
+        upper_run += 1
+    return upper_run >= 2
+
+
+def _token_bounds(text: str, start: int, end: int) -> tuple[int, int]:
+    while start > 0 and _is_token_char(text[start - 1]):
+        start -= 1
+    while end < len(text) and _is_token_char(text[end]):
+        end += 1
+    return start, end
+
+
+def _is_token_char(char: str) -> bool:
+    return char.isalnum()
+
+
+def _is_inside_url_context(text: str, start: int) -> bool:
+    prefix = text[max(0, start - 80) : start].lower()
+    return "http://" in prefix or "https://" in prefix or "www." in prefix
+
+
 def _count_repeated_para_blocks(text: str) -> int:
-    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if len(p.strip()) >= 80]
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if len(p.strip()) >= 160]
     counts: dict[str, int] = {}
     repeated = 0
     for para in paragraphs:
@@ -205,6 +284,17 @@ def _count_repeated_para_blocks(text: str) -> int:
         if counts[para] == 3:
             repeated += 1
     return repeated
+
+
+def _has_formula_ref_without_extractable_formula(text: str) -> bool:
+    if not _FORMULA_REF_RE.search(text):
+        return False
+    if _LATEX_OR_IMAGE_RE.search(text):
+        return False
+    return not any(
+        _INLINE_FORMULA_RE.search(text[max(0, match.start() - 500) : match.end() + 1500])
+        for match in _FORMULA_REF_RE.finditer(text)
+    )
 
 
 def _quality_warning(label: str, flags: list[str]) -> str:
