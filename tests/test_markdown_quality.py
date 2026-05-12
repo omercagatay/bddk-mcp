@@ -34,6 +34,28 @@ def test_storage_sanitizer_preserves_markdown_tables_and_legal_numbering():
     assert "(1) Birinci fıkra." in out
 
 
+def test_storage_sanitizer_repairs_bddk_circular_header_spacing():
+    raw = "Mehmet Ali AKBENBaşkanSayı :24049440-010.06[4/5]-E.109/03/2017Konu:Nakit Kredi  GENELGE2017/1"
+    out = sanitize_markdown_for_storage(raw)
+
+    assert "AKBEN\nBaşkan\nSayı: 24049440-010.06[4/5]-E.109/03/2017" in out
+    assert "Konu: Nakit Kredi" in out
+    assert "GENELGE 2017/1" in out
+
+
+def test_storage_sanitizer_repairs_common_pdf_spacing_loss_phrases():
+    raw = (
+        "Esaslar HakkındaYönetmeliğin hükümleri ve Ölçülmesine ilişkinYönetmelik "
+        "Regulatory ConsistencyAssessment Programme Kredi Riski StandartYaklaşımı"
+    )
+    out = sanitize_markdown_for_storage(raw)
+
+    assert "Hakkında Yönetmeliğin" in out
+    assert "ilişkin Yönetmelik" in out
+    assert "Consistency Assessment Programme" in out
+    assert "Standart Yaklaşımı" in out
+
+
 def test_context_sanitizer_removes_unsafe_embedded_blobs_and_raw_html():
     raw = (
         "<div><table><tr><td>Madde 9</td></tr></table>"
@@ -91,6 +113,19 @@ def test_quality_assessment_accepts_inline_extracted_formula():
 def test_quality_assessment_accepts_inline_ratio_formula():
     result = assess_markdown_quality(
         "Süreklilik Yüzdesi: MTBF/(MTBF+MTTR) formülü ile bulunacak yüzdesel değeri ifade eder.",
+        document_id="x",
+    )
+
+    assert result.label == "clean"
+    assert "formula_ref_without_latex_or_image" not in result.flags
+
+
+def test_quality_assessment_accepts_lettered_annex_formulas():
+    result = assess_markdown_quality(
+        "Ek-3'te yer alan formül uyarınca hesaplanır.\n\n"
+        "Yüksek kaliteli likit varlık stokunun hesaplamasında aşağıdaki formüller kullanılır.\n"
+        "(a) 2B Kalite Likit Varlıklar için %15 Üst Sınır Aşım Tutarı =\n"
+        "Maksimum [Düzeltilmiş 2B Kalite Likit Varlıklar - 15/85 x Düzeltilmiş Birinci Kalite, 0]",
         document_id="x",
     )
 

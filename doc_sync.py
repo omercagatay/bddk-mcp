@@ -18,13 +18,16 @@ Usage:
 
 import argparse
 import asyncio
+import html
 import io
 import json
 import logging
 import time
+import zipfile
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlparse
+from xml.etree import ElementTree
 
 import httpx
 from bs4 import BeautifulSoup
@@ -272,6 +275,14 @@ def _mevzuat_doc_url(mevzuat_no: str, tur: str = "7", tertip: str = "5") -> str:
     return f"https://www.mevzuat.gov.tr/MevzuatMetin/{segment}/{tur}.{tertip}.{mevzuat_no}.doc"
 
 
+def _mevzuat_annex_zip_url(mevzuat_no: str, tur: str = "7", tertip: str = "5") -> str | None:
+    """Build mevzuat.gov.tr annex ZIP URL used by `Eki için tıklayınız` links."""
+    segment = MEVZUAT_TUR_MAP.get(tur)
+    if not segment:
+        return None
+    return f"https://www.mevzuat.gov.tr/MevzuatMetin/{segment}/{tur}.{tertip}.{mevzuat_no}-ek.zip"
+
+
 def _parse_mevzuat_params(source_url: str) -> tuple[str, str, str]:
     """Extract mevzuat_no, tur, tertip from a mevzuat.gov.tr URL."""
     parsed = urlparse(source_url)
@@ -291,6 +302,35 @@ def _parse_mevzuat_params(source_url: str) -> tuple[str, str, str]:
                 mevzuat_no = parts[-1]
 
     return mevzuat_no, tur, tertip
+
+
+def _extract_annex_zip_markdown(zip_bytes: bytes) -> str:
+    """Extract supported annex files from a mevzuat `*-ek.zip` archive."""
+    sections: list[str] = []
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        for name in zf.namelist():
+            lower = name.lower()
+            if lower.endswith(".docx"):
+                text = _extract_docx_text(zf.read(name))
+                if text:
+                    title = name.rsplit("/", 1)[-1]
+                    sections.append(f"### {title}\n\n{text}")
+    return "\n\n".join(sections)
+
+
+def _extract_docx_text(docx_bytes: bytes) -> str:
+    """Extract paragraph text from a DOCX without optional markitdown dependencies."""
+    ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+    with zipfile.ZipFile(io.BytesIO(docx_bytes)) as zf:
+        xml_bytes = zf.read("word/document.xml")
+    root = ElementTree.fromstring(xml_bytes)
+    paragraphs: list[str] = []
+    for para in root.findall(".//w:p", ns):
+        parts = [node.text or "" for node in para.findall(".//w:t", ns)]
+        text = "".join(parts).replace("\u00a0", " ").strip()
+        if text:
+            paragraphs.append(text)
+    return "\n".join(paragraphs)
 
 
 # ── DocumentSyncer ───────────────────────────────────────────────────────────
@@ -559,7 +599,14 @@ class DocumentSyncer:
             # available, the rich iframe HTML produces a better extraction than
             # markitdown-on-PDF. Try the iframe immediately after the main page.
             if self._prefer_html_for_mevzuat and main_page_visited and main_page_html:
-                iframe_result = await self._try_iframe_layer(doc_id, candidate_tur, main_page_html, layer_timeout)
+                iframe_result = await self._try_iframe_layer(
+                    doc_id,
+                    candidate_tur,
+                    main_page_html,
+                    layer_timeout,
+                    mevzuat_no=mevzuat_no,
+                    tertip=tertip,
+                )
                 if iframe_result is not None:
                     return iframe_result
 
@@ -602,7 +649,14 @@ class DocumentSyncer:
 
             # Layer 5: iframe/div from already-fetched main page
             if main_page_visited and main_page_html:
-                iframe_result = await self._try_iframe_layer(doc_id, candidate_tur, main_page_html, layer_timeout)
+                iframe_result = await self._try_iframe_layer(
+                    doc_id,
+                    candidate_tur,
+                    main_page_html,
+                    layer_timeout,
+                    mevzuat_no=mevzuat_no,
+                    tertip=tertip,
+                )
                 if iframe_result is not None:
                     return iframe_result
 
@@ -633,6 +687,8 @@ class DocumentSyncer:
         candidate_tur: str,
         main_page_html: str,
         layer_timeout: httpx.Timeout,
+        mevzuat_no: str = "",
+        tertip: str = "5",
     ) -> tuple[bytes, str, str] | None:
         """Fetch mevzuatDetayIframe content referenced by the main page.
 
@@ -650,7 +706,16 @@ class DocumentSyncer:
                 iframe_resp = await self._http.get(iframe_url, timeout=layer_timeout)
                 if iframe_resp.status_code == 200 and len(iframe_resp.content) > 200:
                     logger.info("mevzuat %s: fetched iframe (tur=%s)", doc_id, candidate_tur)
-                    return iframe_resp.content, "mevzuat_iframe", ".html"
+                    content, annex_merged = await self._append_annex_zip_if_present(
+                        iframe_resp.content,
+                        doc_id=doc_id,
+                        mevzuat_no=mevzuat_no or doc_id.removeprefix("mevzuat_"),
+                        tur=candidate_tur,
+                        tertip=tertip,
+                        layer_timeout=layer_timeout,
+                    )
+                    method = "mevzuat_iframe+annex_zip" if annex_merged else "mevzuat_iframe"
+                    return content, method, ".html"
             div = soup.find("div", id="divMevzuatMetni")
             if div and len(div.get_text(strip=True)) > 100:
                 logger.info("mevzuat %s: fetched main page div (tur=%s)", doc_id, candidate_tur)
@@ -658,6 +723,41 @@ class DocumentSyncer:
         except Exception as e:
             logger.debug("mevzuat %s: iframe/div parse failed (tur=%s): %s", doc_id, candidate_tur, e)
         return None
+
+    async def _append_annex_zip_if_present(
+        self,
+        content: bytes,
+        *,
+        doc_id: str,
+        mevzuat_no: str,
+        tur: str,
+        tertip: str,
+        layer_timeout: httpx.Timeout,
+    ) -> tuple[bytes, bool]:
+        """Append docx annex text from mevzuat `*-ek.zip` links when present."""
+        html_text = _decode_html(content)
+        soup = BeautifulSoup(html_text, "html.parser")
+        if not soup.find("a", href=lambda href: bool(href and href.lower().endswith("-ek.zip"))):
+            return content, False
+
+        annex_url = _mevzuat_annex_zip_url(mevzuat_no, tur, tertip)
+        if not annex_url:
+            return content, False
+        try:
+            resp = await self._http.get(annex_url, timeout=layer_timeout)
+            if resp.status_code != 200 or len(resp.content) < 100:
+                return content, False
+            annex_markdown = _extract_annex_zip_markdown(resp.content)
+        except Exception as e:
+            logger.debug("mevzuat %s: annex zip fetch/extract failed: %s", doc_id, e)
+            return content, False
+
+        if not annex_markdown:
+            return content, False
+        annex_html = (
+            f'\n\n<div id="mevzuat-ekler">\n<h2>Ekler</h2>\n<pre>{html.escape(annex_markdown)}</pre>\n</div>\n'
+        ).encode()
+        return content + annex_html, True
 
     # ── Extraction ───────────────────────────────────────────────────────
 

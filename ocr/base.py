@@ -3,7 +3,8 @@ OCR backend implementations for BDDK document extraction.
 
 Pluggable Protocol-based backends in preference order:
     1. LightOCRBackend       (GPU, formula-aware, primary)
-    2. MarkitdownBackend     (CPU last resort, no formulas)
+    2. PdftotextBackend      (CPU layout fallback, no formulas)
+    3. MarkitdownBackend     (CPU last resort, no formulas)
 
 Each backend owns its own model lifecycle and availability check.
 """
@@ -13,6 +14,9 @@ from __future__ import annotations
 import io
 import logging
 import re
+import shutil
+import subprocess
+import tempfile
 from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel
@@ -113,6 +117,50 @@ class MarkitdownBackend:
         if not pdf_bytes:
             return None
         return _run_markitdown(pdf_bytes)
+
+
+# --- pdftotext backend (CPU, layout-preserving text fallback) ----------------
+
+
+def _run_pdftotext(pdf_bytes: bytes) -> str | None:
+    """Invoke poppler pdftotext on raw PDF bytes. Isolated for mocking in tests."""
+    if not shutil.which("pdftotext"):
+        return None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".pdf") as f:
+            f.write(pdf_bytes)
+            f.flush()
+            proc = subprocess.run(
+                ["pdftotext", "-layout", "-enc", "UTF-8", f.name, "-"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=60,
+                check=False,
+            )
+        if proc.returncode != 0:
+            logger.warning("pdftotext extraction failed: %s", proc.stderr.strip())
+            return None
+        text = proc.stdout.strip()
+        return text if text else None
+    except (OSError, subprocess.TimeoutExpired, UnicodeDecodeError) as e:
+        logger.warning("pdftotext extraction failed: %s", e)
+        return None
+
+
+class PdftotextBackend:
+    """CPU-only layout-preserving PDF text extraction. No formula support."""
+
+    name = "pdftotext_degraded"
+
+    def is_available(self) -> bool:
+        return shutil.which("pdftotext") is not None
+
+    def extract(self, pdf_bytes: bytes) -> str | None:
+        if not pdf_bytes:
+            return None
+        return _run_pdftotext(pdf_bytes)
 
 
 # --- LightOnOCR-2-1B backend (GPU, primary) ----------------------------------
@@ -266,10 +314,10 @@ def run_extraction_chain(
 def get_default_backends(include_chandra: bool = False) -> list[OCRBackend]:
     """Return backend chain in preference order.
 
-    Default: [lightocr, markitdown_degraded].
-    With include_chandra=True: [chandra2, lightocr, markitdown_degraded].
+    Default: [lightocr, pdftotext_degraded, markitdown_degraded].
+    With include_chandra=True: [chandra2, lightocr, pdftotext_degraded, markitdown_degraded].
     """
-    chain: list[OCRBackend] = [LightOCRBackend(), MarkitdownBackend()]
+    chain: list[OCRBackend] = [LightOCRBackend(), PdftotextBackend(), MarkitdownBackend()]
     if include_chandra:
         from ocr.chandra import ChandraBackend
 
