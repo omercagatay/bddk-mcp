@@ -1,0 +1,3 @@
+iteration	category	target	delta_fail_docs	delta_score	guard	status	description
+0	baseline	seed document quality	0	0	pass	baseline	13 fail docs, 46 anomaly hits, score 97.0726
+1	warning	cid artifacts	-2	+0.4557	pass	fixed	remove cid image references from storage sanitizer and backfill five seed documents

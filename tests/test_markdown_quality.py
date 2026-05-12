@@ -73,6 +73,15 @@ def test_context_sanitizer_removes_unsafe_embedded_blobs_and_raw_html():
     assert "Madde 9" in out
 
 
+def test_storage_sanitizer_removes_cid_image_references():
+    raw = "MADDE 1 - Metin öncesi cid:image001.png@01D12345 sonrası hukuki metin."
+    out = sanitize_markdown_for_storage(raw)
+
+    assert "cid:" not in out
+    assert "MADDE 1" in out
+    assert "sonrası hukuki metin" in out
+
+
 def test_context_sanitizer_caps_pathological_line_lengths():
     raw = "A" * 3500
     out = sanitize_markdown_for_context(raw, max_line_length=1000)

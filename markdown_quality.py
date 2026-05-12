@@ -94,6 +94,7 @@ def sanitize_markdown_for_storage(text: str) -> str:
     out = _UNDERSCORE_LEADER_RE.sub("", out)
     out = _DASH_LEADER_RE.sub("", out)
     out = _DOT_LEADER_RE.sub(" ... ", out)
+    out = _CID_RE.sub("", out)
     out = _repair_pdf_spacing_loss(out)
     out = _BLANK_LINES_RE.sub("\n\n", out)
     return out.strip() + ("\n" if out.endswith("\n") else "")
