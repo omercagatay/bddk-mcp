@@ -56,6 +56,13 @@ def test_storage_sanitizer_repairs_common_pdf_spacing_loss_phrases():
     assert "Standart Yaklaşımı" in out
 
 
+def test_storage_sanitizer_repairs_ocr_doubled_uppercase_headings():
+    raw = "BBANKACILIK DDÜZENLEME VE DDENETLEME KKURUMU"
+    out = sanitize_markdown_for_storage(raw)
+
+    assert out == "BANKACILIK DÜZENLEME VE DENETLEME KURUMU"
+
+
 def test_context_sanitizer_removes_unsafe_embedded_blobs_and_raw_html():
     raw = (
         "<div><table><tr><td>Madde 9</td></tr></table>"
@@ -71,6 +78,29 @@ def test_context_sanitizer_removes_unsafe_embedded_blobs_and_raw_html():
         assert tag not in out.lower()
     assert "[removed embedded image/formula artifact]" in out
     assert "Madde 9" in out
+
+
+def test_storage_sanitizer_removes_cid_image_references():
+    raw = "MADDE 1 - Metin öncesi cid:image001.png@01D12345 sonrası hukuki metin."
+    out = sanitize_markdown_for_storage(raw)
+
+    assert "cid:" not in out
+    assert "MADDE 1" in out
+    assert "sonrası hukuki metin" in out
+
+
+def test_storage_sanitizer_removes_markdown_data_image_blobs():
+    raw = (
+        "Aşağıdaki denklem uygulanır.\n\n"
+        "![](data:image/x-wmf;base64,AQAJAAADcgIAAAIAHAAAAAAABQAAAA==) = maksimum (teminat, 0)\n\n"
+        "Bu denklemde teminat tutarı dikkate alınır."
+    )
+    out = sanitize_markdown_for_storage(raw)
+
+    assert "data:image/" not in out
+    assert "base64" not in out
+    assert "maksimum (teminat, 0)" in out
+    assert "Bu denklemde teminat" in out
 
 
 def test_context_sanitizer_caps_pathological_line_lengths():
@@ -91,6 +121,30 @@ def test_quality_assessment_marks_known_hard_fail_signals():
     assert "wmf_data_uri" in result.flags
     assert "cid_marker" in result.flags
     assert result.warning
+
+
+def test_quality_assessment_does_not_fail_cleaned_document_by_legacy_id():
+    result = assess_markdown_quality("MADDE 1 - Temiz mevzuat metni.", document_id="mevzuat_21192")
+
+    assert result.label == "clean"
+
+
+def test_quality_assessment_does_not_fail_cleaned_legacy_ids():
+    for document_id in (
+        "903",
+        "905",
+        "907",
+        "1043",
+        "1045",
+        "1305",
+        "1313",
+        "1314",
+        "1334",
+        "mevzuat_16290",
+    ):
+        result = assess_markdown_quality("MADDE 1 - Temiz mevzuat metni.", document_id=document_id)
+
+        assert result.label == "clean"
 
 
 def test_quality_assessment_marks_warning_for_formula_reference_without_formula():
@@ -204,6 +258,16 @@ def test_quality_assessment_ignores_known_mixed_case_terms():
 def test_quality_assessment_ignores_camelcase_inside_urls():
     result = assess_markdown_quality(
         "Kaynak http://www.bddk.org.tr/WebSitesi/turkce/Mevzuat adresinde yayımlandı.",
+        document_id="x",
+    )
+
+    assert result.counts["camelcase_concat"] == 0
+    assert result.label == "clean"
+
+
+def test_quality_assessment_ignores_camelcase_inside_xml_tags():
+    result = assess_markdown_quality(
+        "<GuncellemeTarihi>2010-12-22T12:45:00</GuncellemeTarihi> <HizmetAdi>Bireysel Kredi</HizmetAdi>",
         document_id="x",
     )
 

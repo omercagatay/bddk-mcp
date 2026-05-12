@@ -12,21 +12,10 @@ import textwrap
 
 from pydantic import BaseModel, Field
 
-_KNOWN_FAIL_DOCUMENT_IDS = {
-    "1043",
-    "1045",
-    "1305",
-    "1313",
-    "1314",
-    "1334",
-    "903",
-    "905",
-    "907",
-    "mevzuat_16290",
-    "mevzuat_21192",
-}
+_KNOWN_FAIL_DOCUMENT_IDS: set[str] = set()
 
 _EMBEDDED_ARTIFACT_MARKER = "[removed embedded image/formula artifact]"
+_MARKDOWN_DATA_IMAGE_RE = re.compile(r"!\[[^\]]*]\(data:image/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=\s]+?\)", re.IGNORECASE)
 _DATA_URI_RE = re.compile(r"data:image/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=\s]+", re.IGNORECASE)
 _CID_RE = re.compile(r"\bcid:[^\s\])>\"']+", re.IGNORECASE)
 _IMG_TAG_RE = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
@@ -45,6 +34,7 @@ _CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 _BDDK_CIRCULAR_AUTHOR_RE = re.compile(r"\b([A-ZÇĞİÖŞÜ]{2,})BaşkanSayı\s*:\s*")
 _BDDK_CIRCULAR_SUBJECT_RE = re.compile(r"(\d{4})Konu\s*:\s*")
 _BDDK_CIRCULAR_NUMBER_RE = re.compile(r"\b(GENELGE)(\d{4}/\d+)\b")
+_OCR_DOUBLED_UPPERCASE_WORD_RE = re.compile(r"\b([A-ZÇĞİÖŞÜ])\1([A-ZÇĞİÖŞÜ]{3,})\b")
 _CAMELCASE_TRANSITION_RE = re.compile(r"[a-zçğıöşü][A-ZÇĞİÖŞÜ]")
 _KNOWN_MIXED_CASE_TERMS = {
     "HashCalc",
@@ -94,6 +84,8 @@ def sanitize_markdown_for_storage(text: str) -> str:
     out = _UNDERSCORE_LEADER_RE.sub("", out)
     out = _DASH_LEADER_RE.sub("", out)
     out = _DOT_LEADER_RE.sub(" ... ", out)
+    out = _MARKDOWN_DATA_IMAGE_RE.sub("", out)
+    out = _CID_RE.sub("", out)
     out = _repair_pdf_spacing_loss(out)
     out = _BLANK_LINES_RE.sub("\n\n", out)
     return out.strip() + ("\n" if out.endswith("\n") else "")
@@ -224,6 +216,7 @@ def _repair_pdf_spacing_loss(text: str) -> str:
     out = _BDDK_CIRCULAR_AUTHOR_RE.sub(r"\1\nBaşkan\nSayı: ", text)
     out = _BDDK_CIRCULAR_SUBJECT_RE.sub(r"\1\nKonu: ", out)
     out = _BDDK_CIRCULAR_NUMBER_RE.sub(r"\1 \2", out)
+    out = _OCR_DOUBLED_UPPERCASE_WORD_RE.sub(r"\1\2", out)
     replacements = {
         "HakkındaYönetmeliğ": "Hakkında Yönetmeliğ",
         "ilişkinYönetmelik": "ilişkin Yönetmelik",
@@ -247,6 +240,8 @@ def _is_camelcase_false_positive(text: str, match: re.Match[str]) -> bool:
     if _MIXED_CASE_UNIT_RE.fullmatch(token):
         return True
     if _is_inside_url_context(text, start):
+        return True
+    if _is_inside_xml_tag_context(text, start, end):
         return True
     if len(token) <= 3:
         return True
@@ -273,6 +268,18 @@ def _is_token_char(char: str) -> bool:
 def _is_inside_url_context(text: str, start: int) -> bool:
     prefix = text[max(0, start - 80) : start].lower()
     return "http://" in prefix or "https://" in prefix or "www." in prefix
+
+
+def _is_inside_xml_tag_context(text: str, start: int, end: int) -> bool:
+    left = text.rfind("<", max(0, start - 80), start + 1)
+    right = text.find(">", end, min(len(text), end + 80))
+    if left == -1 or right == -1:
+        return False
+    if "\n" in text[left:right]:
+        return False
+    prefix = text[left + 1 : start]
+    suffix = text[end:right]
+    return prefix in {"", "/"} and (not suffix or suffix[0].isspace())
 
 
 def _count_repeated_para_blocks(text: str) -> int:
