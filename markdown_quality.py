@@ -42,6 +42,9 @@ _DASH_LEADER_RE = re.compile(r"(?m)^[ \t]*-{10,}[ \t]*$")
 _DOT_LEADER_RE = re.compile(r"(?m)(?<!\.)\.{10,}(?!\.)")
 _INVISIBLE_SPACE_RE = re.compile(r"[\u200b\u200c\u200d\ufeff]")
 _CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+_BDDK_CIRCULAR_AUTHOR_RE = re.compile(r"\b([A-ZÇĞİÖŞÜ]{2,})BaşkanSayı\s*:\s*")
+_BDDK_CIRCULAR_SUBJECT_RE = re.compile(r"(\d{4})Konu\s*:\s*")
+_BDDK_CIRCULAR_NUMBER_RE = re.compile(r"\b(GENELGE)(\d{4}/\d+)\b")
 _CAMELCASE_TRANSITION_RE = re.compile(r"[a-zçğıöşü][A-ZÇĞİÖŞÜ]")
 _KNOWN_MIXED_CASE_TERMS = {
     "HashCalc",
@@ -90,6 +93,7 @@ def sanitize_markdown_for_storage(text: str) -> str:
     out = _UNDERSCORE_LEADER_RE.sub("", out)
     out = _DASH_LEADER_RE.sub("", out)
     out = _DOT_LEADER_RE.sub(" ... ", out)
+    out = _repair_pdf_spacing_loss(out)
     out = _BLANK_LINES_RE.sub("\n\n", out)
     return out.strip() + ("\n" if out.endswith("\n") else "")
 
@@ -213,6 +217,21 @@ def _count_malformed_table_rows(text: str) -> int:
 
 def _count_excessive_pipe_density(text: str) -> int:
     return sum(1 for line in text.splitlines() if len(line) > 80 and line.count("|") >= 12)
+
+
+def _repair_pdf_spacing_loss(text: str) -> str:
+    out = _BDDK_CIRCULAR_AUTHOR_RE.sub(r"\1\nBaşkan\nSayı: ", text)
+    out = _BDDK_CIRCULAR_SUBJECT_RE.sub(r"\1\nKonu: ", out)
+    out = _BDDK_CIRCULAR_NUMBER_RE.sub(r"\1 \2", out)
+    replacements = {
+        "HakkındaYönetmeliğ": "Hakkında Yönetmeliğ",
+        "ilişkinYönetmelik": "ilişkin Yönetmelik",
+        "ConsistencyAssessment": "Consistency Assessment",
+        "StandartYaklaşım": "Standart Yaklaşım",
+    }
+    for needle, replacement in replacements.items():
+        out = out.replace(needle, replacement)
+    return out
 
 
 def _count_camelcase_concat(text: str) -> int:

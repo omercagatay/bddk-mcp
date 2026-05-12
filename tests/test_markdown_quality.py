@@ -34,6 +34,28 @@ def test_storage_sanitizer_preserves_markdown_tables_and_legal_numbering():
     assert "(1) Birinci fıkra." in out
 
 
+def test_storage_sanitizer_repairs_bddk_circular_header_spacing():
+    raw = "Mehmet Ali AKBENBaşkanSayı :24049440-010.06[4/5]-E.109/03/2017Konu:Nakit Kredi  GENELGE2017/1"
+    out = sanitize_markdown_for_storage(raw)
+
+    assert "AKBEN\nBaşkan\nSayı: 24049440-010.06[4/5]-E.109/03/2017" in out
+    assert "Konu: Nakit Kredi" in out
+    assert "GENELGE 2017/1" in out
+
+
+def test_storage_sanitizer_repairs_common_pdf_spacing_loss_phrases():
+    raw = (
+        "Esaslar HakkındaYönetmeliğin hükümleri ve Ölçülmesine ilişkinYönetmelik "
+        "Regulatory ConsistencyAssessment Programme Kredi Riski StandartYaklaşımı"
+    )
+    out = sanitize_markdown_for_storage(raw)
+
+    assert "Hakkında Yönetmeliğin" in out
+    assert "ilişkin Yönetmelik" in out
+    assert "Consistency Assessment Programme" in out
+    assert "Standart Yaklaşımı" in out
+
+
 def test_context_sanitizer_removes_unsafe_embedded_blobs_and_raw_html():
     raw = (
         "<div><table><tr><td>Madde 9</td></tr></table>"
