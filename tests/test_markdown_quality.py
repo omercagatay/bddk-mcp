@@ -122,6 +122,13 @@ def test_quality_assessment_does_not_fail_cleaned_document_by_legacy_id():
     assert result.label == "clean"
 
 
+def test_quality_assessment_does_not_fail_cleaned_legacy_ids():
+    for document_id in ("905", "1334", "1314", "1313", "1305"):
+        result = assess_markdown_quality("MADDE 1 - Temiz mevzuat metni.", document_id=document_id)
+
+        assert result.label == "clean"
+
+
 def test_quality_assessment_marks_warning_for_formula_reference_without_formula():
     result = assess_markdown_quality("Bu metinde aşağıdaki formül kullanılır.", document_id="x")
 
