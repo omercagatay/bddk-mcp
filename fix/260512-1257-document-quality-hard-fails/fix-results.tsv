@@ -4,3 +4,4 @@ iteration	category	target	delta_fail_docs	delta_score	guard	status	description
 2	fail	mevzuat_21192 embedded data images	-1	+0.2188	pass	fixed	remove markdown data-image blobs, backfill chunks, and stop forcing cleaned mevzuat_21192 to fail by ID
 3	fail	stale clean known-fail ids	-5	+1.1130	pass	fixed	retire known-fail IDs whose current seed content has no fail or warning-level signals
 4	fail	907 circular OCR/XML artifacts	-1	+0.1415	pass	fixed	repair doubled uppercase OCR headings, ignore XML tag camelcase, and downgrade 907 from fail to warning
+5	fail	903 collapsed formula extraction	-1	+0.1431	pass	fixed	backfill 903 from pdftotext extraction and retire its forced-fail ID

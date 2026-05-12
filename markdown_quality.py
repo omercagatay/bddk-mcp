@@ -15,7 +15,6 @@ from pydantic import BaseModel, Field
 _KNOWN_FAIL_DOCUMENT_IDS = {
     "1043",
     "1045",
-    "903",
     "mevzuat_16290",
 }
 
