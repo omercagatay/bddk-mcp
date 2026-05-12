@@ -56,6 +56,13 @@ def test_storage_sanitizer_repairs_common_pdf_spacing_loss_phrases():
     assert "Standart Yaklaşımı" in out
 
 
+def test_storage_sanitizer_repairs_ocr_doubled_uppercase_headings():
+    raw = "BBANKACILIK DDÜZENLEME VE DDENETLEME KKURUMU"
+    out = sanitize_markdown_for_storage(raw)
+
+    assert out == "BANKACILIK DÜZENLEME VE DENETLEME KURUMU"
+
+
 def test_context_sanitizer_removes_unsafe_embedded_blobs_and_raw_html():
     raw = (
         "<div><table><tr><td>Madde 9</td></tr></table>"
@@ -123,7 +130,7 @@ def test_quality_assessment_does_not_fail_cleaned_document_by_legacy_id():
 
 
 def test_quality_assessment_does_not_fail_cleaned_legacy_ids():
-    for document_id in ("905", "1334", "1314", "1313", "1305"):
+    for document_id in ("905", "907", "1334", "1314", "1313", "1305"):
         result = assess_markdown_quality("MADDE 1 - Temiz mevzuat metni.", document_id=document_id)
 
         assert result.label == "clean"
@@ -240,6 +247,16 @@ def test_quality_assessment_ignores_known_mixed_case_terms():
 def test_quality_assessment_ignores_camelcase_inside_urls():
     result = assess_markdown_quality(
         "Kaynak http://www.bddk.org.tr/WebSitesi/turkce/Mevzuat adresinde yayımlandı.",
+        document_id="x",
+    )
+
+    assert result.counts["camelcase_concat"] == 0
+    assert result.label == "clean"
+
+
+def test_quality_assessment_ignores_camelcase_inside_xml_tags():
+    result = assess_markdown_quality(
+        "<GuncellemeTarihi>2010-12-22T12:45:00</GuncellemeTarihi> <HizmetAdi>Bireysel Kredi</HizmetAdi>",
         document_id="x",
     )
 
