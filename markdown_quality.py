@@ -12,11 +12,7 @@ import textwrap
 
 from pydantic import BaseModel, Field
 
-_KNOWN_FAIL_DOCUMENT_IDS = {
-    "1043",
-    "1045",
-    "mevzuat_16290",
-}
+_KNOWN_FAIL_DOCUMENT_IDS: set[str] = set()
 
 _EMBEDDED_ARTIFACT_MARKER = "[removed embedded image/formula artifact]"
 _MARKDOWN_DATA_IMAGE_RE = re.compile(r"!\[[^\]]*]\(data:image/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=\s]+?\)", re.IGNORECASE)

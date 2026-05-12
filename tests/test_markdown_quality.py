@@ -130,7 +130,18 @@ def test_quality_assessment_does_not_fail_cleaned_document_by_legacy_id():
 
 
 def test_quality_assessment_does_not_fail_cleaned_legacy_ids():
-    for document_id in ("903", "905", "907", "1334", "1314", "1313", "1305"):
+    for document_id in (
+        "903",
+        "905",
+        "907",
+        "1043",
+        "1045",
+        "1305",
+        "1313",
+        "1314",
+        "1334",
+        "mevzuat_16290",
+    ):
         result = assess_markdown_quality("MADDE 1 - Temiz mevzuat metni.", document_id=document_id)
 
         assert result.label == "clean"
