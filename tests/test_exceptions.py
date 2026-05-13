@@ -82,6 +82,37 @@ class TestJsonFormatter:
         assert parsed["correlation_id"] == "abc123"
         set_correlation_id("")
 
+    def test_format_includes_tool_boundary_fields(self):
+        formatter = JsonFormatter()
+        record = logging.LogRecord(
+            name="tools.search",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="MCP tool call completed",
+            args=(),
+            exc_info=None,
+        )
+        record.operation = "mcp_tool_call"
+        record.tool_name = "search_document_store"
+        record.tool_args = {"query": "teminat", "limit": 3}
+        record.duration_ms = 12.4
+        record.result_type = "str"
+        record.result_size = 512
+        record.result_preview_chars = 200
+        record.result_preview = "Found 3 result(s)..."
+
+        parsed = json.loads(formatter.format(record))
+
+        assert parsed["operation"] == "mcp_tool_call"
+        assert parsed["tool_name"] == "search_document_store"
+        assert parsed["tool_args"] == {"query": "teminat", "limit": 3}
+        assert parsed["duration_ms"] == 12.4
+        assert parsed["result_type"] == "str"
+        assert parsed["result_size"] == 512
+        assert parsed["result_preview_chars"] == 200
+        assert parsed["result_preview"] == "Found 3 result(s)..."
+
 
 class TestConfigureLogging:
     def test_configure_human(self):

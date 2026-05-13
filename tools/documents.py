@@ -10,6 +10,7 @@ from config import ADMIN_TOOLS
 from exceptions import BddkStorageError
 from markdown_quality import assess_markdown_quality, sanitize_markdown_for_context
 from telemetry import elapsed_ms, record_tool_call_trace
+from tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
     from deps import Dependencies
@@ -41,6 +42,7 @@ def register(mcp, deps: Dependencies) -> None:
     """Register document tools on the given MCP instance."""
 
     @mcp.tool()
+    @logged_tool(logger)
     async def get_bddk_document(
         document_id: str,
         page_number: int = 1,
@@ -179,6 +181,7 @@ def register(mcp, deps: Dependencies) -> None:
         return header + content
 
     @mcp.tool()
+    @logged_tool(logger)
     async def get_document_history(
         document_id: str,
     ) -> str:
@@ -208,6 +211,7 @@ def register(mcp, deps: Dependencies) -> None:
         return
 
     @mcp.tool()
+    @logged_tool(logger)
     async def document_store_stats() -> str:
         """
         Show document store statistics for PostgreSQL and pgvector stores.

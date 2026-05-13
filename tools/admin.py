@@ -11,6 +11,7 @@ from backfill import BackfillOutcome, execute_backfill, group_by_signature, scan
 from exceptions import BddkError, BddkStorageError
 from metrics import metrics
 from quality_scan import format_report, scan_quality
+from tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
     from deps import Dependencies
@@ -22,6 +23,7 @@ def register(mcp, deps: Dependencies) -> None:
     """Register admin tools on the given MCP instance."""
 
     @mcp.tool()
+    @logged_tool(logger)
     async def health_check() -> str:
         """
         Check server health status.
@@ -74,6 +76,7 @@ def register(mcp, deps: Dependencies) -> None:
         return "\n".join(lines)
 
     @mcp.tool()
+    @logged_tool(logger)
     async def bddk_metrics() -> str:
         """
         Show server performance metrics.
@@ -101,6 +104,7 @@ def register(mcp, deps: Dependencies) -> None:
         return "\n".join(lines)
 
     @mcp.tool()
+    @logged_tool(logger)
     async def backfill_degraded_documents(
         dry_run: bool = True,
         limit: int = 0,
@@ -209,6 +213,7 @@ def register(mcp, deps: Dependencies) -> None:
         return "\n".join(lines)
 
     @mcp.tool()
+    @logged_tool(logger)
     async def backfill_status() -> str:
         """
         Report progress of the most recent ``backfill_degraded_documents`` run.
@@ -244,6 +249,7 @@ def register(mcp, deps: Dependencies) -> None:
         return "\n".join(lines)
 
     @mcp.tool()
+    @logged_tool(logger)
     async def document_quality_report() -> str:
         """
         Scan the document corpus for extraction anomalies.

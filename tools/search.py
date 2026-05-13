@@ -7,6 +7,7 @@ O(n) min() scan in server.py.
 
 from __future__ import annotations
 
+import logging
 import time
 from collections import OrderedDict
 from typing import TYPE_CHECKING
@@ -23,9 +24,12 @@ from telemetry import (
     relevance_stats_from_hits,
     unique_doc_ids,
 )
+from tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
     from deps import Dependencies
+
+logger = logging.getLogger(__name__)
 
 
 class _LRUCache:
@@ -82,6 +86,7 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
     """Register the four search tools on the given MCP instance."""
 
     @mcp.tool()
+    @logged_tool(logger)
     async def search_bddk_regulations(
         keywords: str,
         page: int = 1,
@@ -200,6 +205,7 @@ Try: (1) call search_document_store with the same query for full-text semantic s
         return output
 
     @mcp.tool()
+    @logged_tool(logger)
     async def search_bddk_institutions(
         keywords: str = "",
         institution_type: str | None = None,
@@ -239,6 +245,7 @@ Suggest the user try: broader keywords or removing the type/active filter."""
         return "\n".join(lines)
 
     @mcp.tool()
+    @logged_tool(logger)
     async def search_bddk_announcements(
         keywords: str = "",
         category: str = "basın",
@@ -293,6 +300,7 @@ Suggest the user try: different keywords or a different category (basın, mevzua
         return "\n".join(lines)
 
     @mcp.tool()
+    @logged_tool(logger)
     async def search_document_store(
         query: str,
         category: str | None = None,

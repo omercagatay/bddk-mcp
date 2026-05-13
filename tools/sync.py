@@ -11,6 +11,7 @@ import time
 from typing import TYPE_CHECKING
 
 from exceptions import BddkError
+from tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
     from deps import Dependencies
@@ -188,6 +189,7 @@ def register(mcp, deps: Dependencies) -> None:
     """Register sync tools on the given MCP instance."""
 
     @mcp.tool()
+    @logged_tool(logger)
     async def refresh_bddk_cache() -> str:
         """
         Force re-scrape BDDK website and update the PostgreSQL decision cache.
@@ -200,6 +202,7 @@ def register(mcp, deps: Dependencies) -> None:
         return f"BDDK cache refreshed: {count} decisions/regulations scraped and saved to PostgreSQL."
 
     @mcp.tool()
+    @logged_tool(logger)
     async def sync_bddk_documents(
         force: bool = False,
         document_id: str | None = None,
@@ -261,6 +264,7 @@ def register(mcp, deps: Dependencies) -> None:
         return report + embed_report
 
     @mcp.tool()
+    @logged_tool(logger)
     async def trigger_startup_sync() -> str:
         """
         Manually trigger document sync if auto-sync is still running or was skipped.
@@ -290,6 +294,7 @@ def register(mcp, deps: Dependencies) -> None:
         return f"Store has {st.total_documents} documents.{embed_report}"
 
     @mcp.tool()
+    @logged_tool(logger)
     async def document_health(retryable_only: bool = False) -> str:
         """
         Check document completeness and show any sync failures.
