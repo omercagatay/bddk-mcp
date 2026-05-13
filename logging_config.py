@@ -41,7 +41,21 @@ class JsonFormatter(logging.Formatter):
             log_entry["exception"] = self.formatException(record.exc_info)
 
         # Include extra fields from record
-        for key in ("operation", "duration_ms", "doc_id", "query", "result_count"):
+        for key in (
+            "operation",
+            "duration_ms",
+            "doc_id",
+            "query",
+            "result_count",
+            "tool_name",
+            "tool_args",
+            "result_type",
+            "result_size",
+            "result_preview_chars",
+            "result_preview",
+            "error_type",
+            "error_message",
+        ):
             val = getattr(record, key, None)
             if val is not None:
                 log_entry[key] = val

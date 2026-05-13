@@ -2,20 +2,25 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from analytics import analyze_trends, build_digest, check_updates, compare_metrics
 from config import ANNOUNCEMENT_CATEGORY_IDS, validate_column, validate_currency, validate_metric_id
 from data_sources import fetch_announcements
+from tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
     from deps import Dependencies
+
+logger = logging.getLogger(__name__)
 
 
 def register(mcp, deps: Dependencies) -> None:
     """Register analytics tools on the given MCP instance."""
 
     @mcp.tool()
+    @logged_tool(logger)
     async def analyze_bulletin_trends(
         metric_id: str = "1.0.1",
         currency: str = "TRY",
@@ -61,6 +66,7 @@ def register(mcp, deps: Dependencies) -> None:
         return "\n".join(lines)
 
     @mcp.tool()
+    @logged_tool(logger)
     async def get_regulatory_digest(
         period: str = "month",
     ) -> str:
@@ -108,6 +114,7 @@ def register(mcp, deps: Dependencies) -> None:
         return "\n".join(lines)
 
     @mcp.tool()
+    @logged_tool(logger)
     async def compare_bulletin_metrics(
         metric_ids: str = "1.0.1,1.0.2",
         currency: str = "TRY",
@@ -154,6 +161,7 @@ def register(mcp, deps: Dependencies) -> None:
         return "\n".join(lines)
 
     @mcp.tool()
+    @logged_tool(logger)
     async def check_bddk_updates() -> str:
         """
         Check for new BDDK announcements since last check.

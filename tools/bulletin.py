@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from config import (
@@ -14,15 +15,19 @@ from config import (
     validate_year,
 )
 from data_sources import fetch_bulletin_snapshot, fetch_monthly_bulletin, fetch_weekly_bulletin
+from tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
     from deps import Dependencies
+
+logger = logging.getLogger(__name__)
 
 
 def register(mcp, deps: Dependencies) -> None:
     """Register bulletin tools on the given MCP instance."""
 
     @mcp.tool()
+    @logged_tool(logger)
     async def get_bddk_bulletin(
         metric_id: str = "1.0.1",
         currency: str = "TRY",
@@ -66,6 +71,7 @@ def register(mcp, deps: Dependencies) -> None:
         return "\n".join(lines)
 
     @mcp.tool()
+    @logged_tool(logger)
     async def get_bddk_bulletin_snapshot() -> str:
         """
         Get the latest weekly bulletin snapshot -- all metrics with current TP/YP values.
@@ -86,6 +92,7 @@ def register(mcp, deps: Dependencies) -> None:
         return "\n".join(lines)
 
     @mcp.tool()
+    @logged_tool(logger)
     async def get_bddk_monthly(
         table_no: int = 1,
         year: int = 2025,
@@ -139,6 +146,7 @@ def register(mcp, deps: Dependencies) -> None:
         return
 
     @mcp.tool()
+    @logged_tool(logger)
     async def bddk_cache_status() -> str:
         """
         Show BDDK cache statistics: total items, age, categories, and any page errors.
