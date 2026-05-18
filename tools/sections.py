@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from typing import TYPE_CHECKING
 
@@ -11,6 +12,29 @@ from telemetry import elapsed_ms, record_tool_call_trace, unique_doc_ids
 if TYPE_CHECKING:
     from deps import Dependencies
     from doc_store import StoredDocumentSection
+
+
+_LOOSE_SECTION_SEARCH_STOPWORDS = {
+    "acaba",
+    "altına",
+    "aşağıdaki",
+    "aşağıdakilerden",
+    "bir",
+    "biri",
+    "değildir",
+    "göre",
+    "hangi",
+    "hangisi",
+    "hakkında",
+    "için",
+    "ilişkin",
+    "olan",
+    "olarak",
+    "ve",
+    "veya",
+    "yanlıştır",
+    "yer",
+}
 
 
 def _format_section(section: StoredDocumentSection, *, include_content: bool = True) -> str:
@@ -42,6 +66,55 @@ def _normalize_optional(value: str | int | None) -> str | None:
         return None
     value = str(value).strip()
     return value.lower() if value else None
+
+
+def _loose_search_terms(query: str, *, limit: int = 16) -> list[str]:
+    terms: list[str] = []
+    seen: set[str] = set()
+    for raw_term in query.strip().split():
+        term = re.sub(r"[^\w]+", "", raw_term, flags=re.UNICODE).casefold()
+        if len(term) < 3 or term in _LOOSE_SECTION_SEARCH_STOPWORDS or term in seen:
+            continue
+        terms.append(term)
+        seen.add(term)
+        if len(terms) >= limit:
+            break
+    return terms
+
+
+def _loose_section_score(section: StoredDocumentSection, terms: list[str]) -> int:
+    text = f"{section.heading} {section.content}".casefold()
+    return sum(1 for term in terms if term in text)
+
+
+async def _search_sections_loose(
+    deps: Dependencies,
+    query: str,
+    *,
+    document_id: str | None,
+    section_type: str | None,
+    limit: int,
+) -> list[StoredDocumentSection]:
+    terms = _loose_search_terms(query)
+    if not terms:
+        return []
+
+    merged: dict[tuple[str, str, str, str], StoredDocumentSection] = {}
+    for term in terms:
+        term_hits = await deps.doc_store.search_document_sections(
+            term,
+            document_id=document_id,
+            section_type=section_type,
+            limit=limit,
+        )
+        for section in term_hits:
+            merged[_section_key(section)] = section
+
+    ranked = sorted(
+        merged.values(),
+        key=lambda section: (-_loose_section_score(section, terms), section.doc_id, section.start_char),
+    )
+    return ranked[:limit]
 
 
 def register(mcp, deps: Dependencies) -> None:
@@ -170,6 +243,16 @@ def register(mcp, deps: Dependencies) -> None:
             section_type=_normalize_optional(inferred_section_type),
             limit=limit,
         )
+        loose_fallback_used = False
+        if not hits and not exact_hits:
+            hits = await _search_sections_loose(
+                deps,
+                query,
+                document_id=inferred_doc_id,
+                section_type=_normalize_optional(inferred_section_type),
+                limit=limit,
+            )
+            loose_fallback_used = bool(hits)
         if exact_hits:
             seen = {_section_key(section) for section in exact_hits}
             hits = exact_hits + [section for section in hits if _section_key(section) not in seen]
@@ -206,6 +289,6 @@ def register(mcp, deps: Dependencies) -> None:
             latency_ms=elapsed_ms(start),
             result_count=len(hits),
             doc_ids=unique_doc_ids([hit.doc_id for hit in hits]),
-            relevance_stats={"exact_ref_detected": exact_ref_detected},
+            relevance_stats={"exact_ref_detected": exact_ref_detected, "loose_fallback": loose_fallback_used},
         )
         return "\n".join(lines)
