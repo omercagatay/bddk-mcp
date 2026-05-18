@@ -198,6 +198,102 @@ async def test_formula_aware_extraction_no_warning():
 
 
 @pytest.mark.asyncio
+async def test_large_document_emits_targeted_retrieval_warning():
+    """Long documents should warn callers away from page-by-page full retrieval."""
+    page = DocumentPage(
+        document_id="mevzuat_5411",
+        title="5411 sayılı Bankacılık Kanunu",
+        markdown_content="MADDE 1 — Amaç",
+        page_number=1,
+        total_pages=67,
+        extraction_method="mevzuat_pdf+lightocr",
+    )
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(return_value=page)
+    doc_store.get_extraction_method = AsyncMock(return_value="mevzuat_pdf+lightocr")
+    deps = _make_deps(doc_store=doc_store)
+
+    tool = _capture_get_bddk_document(deps)
+    out = await tool("mevzuat_5411", 1)
+
+    assert "- Page: 1/67" in out
+    assert "Bu belge 67 sayfa" in out
+    assert "search_document_sections" in out
+    assert "get_document_section" in out
+
+
+@pytest.mark.asyncio
+async def test_get_bddk_document_can_return_limited_consecutive_pages():
+    """max_pages returns a bounded consecutive page window from the resolved document."""
+    pages = {
+        2: DocumentPage(
+            document_id="mevzuat_5411",
+            title="5411 sayılı Bankacılık Kanunu",
+            markdown_content="MADDE 2 — Tanımlar",
+            page_number=2,
+            total_pages=67,
+            extraction_method="mevzuat_pdf+lightocr",
+        ),
+        3: DocumentPage(
+            document_id="mevzuat_5411",
+            title="5411 sayılı Bankacılık Kanunu",
+            markdown_content="MADDE 3 — Kapsam",
+            page_number=3,
+            total_pages=67,
+            extraction_method="mevzuat_pdf+lightocr",
+        ),
+    }
+
+    async def fake_get_page(doc_id, page_number):
+        assert doc_id == "mevzuat_5411"
+        return pages.get(page_number)
+
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(side_effect=fake_get_page)
+    doc_store.get_extraction_method = AsyncMock(return_value="mevzuat_pdf+lightocr")
+    deps = _make_deps(doc_store=doc_store)
+
+    tool = _capture_get_bddk_document(deps)
+    out = await tool("mevzuat_5411", page_number=2, max_pages=2)
+
+    assert "- Page: 2-3/67" in out
+    assert "### Page 2/67" in out
+    assert "MADDE 2 — Tanımlar" in out
+    assert "### Page 3/67" in out
+    assert "MADDE 3 — Kapsam" in out
+    assert doc_store.get_document_page.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_bddk_document_caps_max_pages_per_response():
+    """Large max_pages requests are capped to protect the model context."""
+    pages = {
+        page_number: DocumentPage(
+            document_id="mevzuat_5411",
+            title="5411 sayılı Bankacılık Kanunu",
+            markdown_content=f"Sayfa {page_number}",
+            page_number=page_number,
+            total_pages=67,
+            extraction_method="mevzuat_pdf+lightocr",
+        )
+        for page_number in range(1, 7)
+    }
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(side_effect=lambda _doc_id, page_number: pages.get(page_number))
+    doc_store.get_extraction_method = AsyncMock(return_value="mevzuat_pdf+lightocr")
+    deps = _make_deps(doc_store=doc_store)
+
+    tool = _capture_get_bddk_document(deps)
+    out = await tool("mevzuat_5411", page_number=1, max_pages=99)
+
+    assert "- Page: 1-5/67" in out
+    assert "Requested max_pages was capped at 5" in out
+    assert "Sayfa 5" in out
+    assert "Sayfa 6" not in out
+    assert doc_store.get_document_page.await_count == 5
+
+
+@pytest.mark.asyncio
 async def test_pgvector_path_still_looks_up_extraction_method():
     """When served via vector_store, the tool must still fetch extraction_method via doc_store."""
     vector_store = MagicMock()

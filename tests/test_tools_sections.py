@@ -92,6 +92,19 @@ async def test_get_document_section_no_match_suggests_search():
 
 
 @pytest.mark.asyncio
+async def test_get_document_section_integer_ref_no_match_suggests_search():
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[])
+    deps = Dependencies(pool=None, doc_store=doc_store, client=None, http=None)
+
+    tool = _capture_tool(deps, "get_document_section")
+    out = await tool("943", section_type="madde", section_ref=99)
+
+    assert "No section found" in out
+    assert "943 madde 99" in out
+
+
+@pytest.mark.asyncio
 async def test_get_document_section_disambiguates_duplicate_matches():
     doc_store = MagicMock()
     doc_store.get_document_section = AsyncMock(
