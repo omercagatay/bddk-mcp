@@ -29,6 +29,14 @@ _DEGRADED_WARNING = (
     "formülü hafızadan veya standart literatürden yeniden kurma — kullanıcıyı kaynak PDF'e yönlendir."
 )
 
+_LARGE_DOCUMENT_PAGE_THRESHOLD = 20
+_MAX_PAGES_PER_RESPONSE = 5
+_LARGE_DOCUMENT_WARNING_TEMPLATE = (
+    "Bu belge {total_pages} sayfa. Tam belgeyi sayfa sayfa çekmek context'i hızla şişirebilir. "
+    "Hedefli retrieval için önce search_document_sections veya get_document_section kullan; "
+    "yalnızca gerekli sayfalar için get_bddk_document içinde page_number ve max_pages parametrelerini kullan."
+)
+
 
 def _is_formula_aware(method: str) -> bool:
     """True when the extraction method used a formula-preserving OCR backend."""
@@ -36,6 +44,15 @@ def _is_formula_aware(method: str) -> bool:
         return False
     lower = method.lower()
     return any(token in lower for token in _FORMULA_AWARE_TOKENS)
+
+
+def _normalize_max_pages(max_pages: int) -> tuple[int, bool]:
+    try:
+        requested = int(max_pages)
+    except (TypeError, ValueError):
+        requested = 1
+    normalized = max(1, min(requested, _MAX_PAGES_PER_RESPONSE))
+    return normalized, requested != normalized
 
 
 def register(mcp, deps: Dependencies) -> None:
@@ -46,6 +63,7 @@ def register(mcp, deps: Dependencies) -> None:
     async def get_bddk_document(
         document_id: str,
         page_number: int = 1,
+        max_pages: int = 1,
     ) -> str:
         """
         Retrieve a BDDK decision document as Markdown.
@@ -60,43 +78,55 @@ def register(mcp, deps: Dependencies) -> None:
 
         Args:
             document_id: The numeric document ID (from search results)
-            page_number: Page of the markdown output (documents are split into 5000-char pages)
+            page_number: First page of the markdown output (documents are split into 5000-char pages)
+            max_pages: Maximum consecutive pages to return, capped at 5 to avoid context overflow
         """
         start = time.perf_counter()
-        args = {"document_id": document_id, "page_number": page_number}
+        max_pages, max_pages_capped = _normalize_max_pages(max_pages)
+        args = {"document_id": document_id, "page_number": page_number, "max_pages": max_pages}
         candidates = [document_id] + (
             [f"mevzuat_{document_id}", f"bddk_{document_id}"] if document_id.isdigit() else []
         )
 
-        resolved_id: str | None = None
-        page_num = 0
-        total_pages = 0
-        content = ""
-        extraction_method = ""
-        served_via_vector = False
-
-        for cand in candidates:
+        async def _lookup_page(cand: str, page: int) -> tuple[int, int, str, str, bool] | None:
             if deps.vector_store is not None:
                 try:
-                    vp = await deps.vector_store.get_document_page(cand, page_number)
+                    vp = await deps.vector_store.get_document_page(cand, page)
                     if vp and vp["content"] and "Invalid page" not in vp["content"]:
-                        resolved_id = cand
-                        page_num, total_pages, content = vp["page_number"], vp["total_pages"], vp["content"]
-                        served_via_vector = True
-                        break
+                        return vp["page_number"], vp["total_pages"], vp["content"], "", True
                 except Exception as e:
                     logger.debug("pgvector lookup failed for %s: %s", cand, e)
 
             try:
-                stored = await deps.doc_store.get_document_page(cand, page_number)
+                stored = await deps.doc_store.get_document_page(cand, page)
             except (RuntimeError, BddkStorageError) as e:
                 logger.warning("doc_store lookup failed for %s: %s", cand, e)
                 stored = None
 
             if stored and stored.markdown_content and "Invalid page" not in stored.markdown_content:
+                return (
+                    stored.page_number,
+                    stored.total_pages,
+                    stored.markdown_content,
+                    stored.extraction_method or "",
+                    False,
+                )
+            return None
+
+        resolved_id: str | None = None
+        page_num = 0
+        total_pages = 0
+        page_contents: list[tuple[int, str]] = []
+        extraction_method = ""
+        served_sources: set[str] = set()
+
+        for cand in candidates:
+            found_page = await _lookup_page(cand, page_number)
+            if found_page:
                 resolved_id = cand
-                page_num, total_pages, content = stored.page_number, stored.total_pages, stored.markdown_content
-                extraction_method = stored.extraction_method or ""
+                page_num, total_pages, content, extraction_method, served_via_vector = found_page
+                page_contents.append((page_num, content))
+                served_sources.add("vector_store" if served_via_vector else "document_store")
                 break
 
         if resolved_id is None:
@@ -120,12 +150,32 @@ def register(mcp, deps: Dependencies) -> None:
 
         alias_line = f"- Resolved from: `{document_id}` -> `{resolved_id}`\n" if resolved_id != document_id else ""
 
+        last_page_num = page_num
+        if max_pages > 1 and page_num < total_pages:
+            final_page = min(page_num + max_pages - 1, total_pages)
+            for next_page in range(page_num + 1, final_page + 1):
+                found_page = await _lookup_page(resolved_id, next_page)
+                if not found_page:
+                    break
+                last_page_num, total_pages, page_content, page_extraction_method, served_via_vector = found_page
+                page_contents.append((last_page_num, page_content))
+                served_sources.add("vector_store" if served_via_vector else "document_store")
+                if page_extraction_method and not extraction_method:
+                    extraction_method = page_extraction_method
+
         # The pgvector chunk rows don't carry extraction_method; look it up.
-        if served_via_vector:
+        if "vector_store" in served_sources:
             try:
                 extraction_method = await deps.doc_store.get_extraction_method(resolved_id) or ""
             except (RuntimeError, BddkStorageError) as e:
                 logger.debug("extraction_method lookup failed for %s: %s", resolved_id, e)
+
+        if len(page_contents) > 1:
+            content = "\n\n---\n\n".join(
+                f"### Page {page}/{total_pages}\n\n{page_content}" for page, page_content in page_contents
+            )
+        else:
+            content = page_contents[0][1]
 
         formula_aware = _is_formula_aware(extraction_method)
         quality = assess_markdown_quality(content, document_id=resolved_id)
@@ -147,17 +197,29 @@ def register(mcp, deps: Dependencies) -> None:
             quality_lines = f"- Quality: {quality.label}\n- Quality flags: {flags}\n"
             quality_warning_block = f"⚠ Quality warning: {quality.warning}\n\n" if quality.warning else ""
 
+        large_document_warning_block = ""
+        if total_pages >= _LARGE_DOCUMENT_PAGE_THRESHOLD:
+            large_document_warning_block = f"⚠ {_LARGE_DOCUMENT_WARNING_TEMPLATE.format(total_pages=total_pages)}\n\n"
+
+        page_limit_warning_block = ""
+        if max_pages_capped:
+            page_limit_warning_block = (
+                f"⚠ Requested max_pages was capped at {_MAX_PAGES_PER_RESPONSE} pages per response.\n\n"
+            )
+
         degraded_warning_block = f"⚠ {_DEGRADED_WARNING}\n\n" if degraded else ""
+        page_display = f"{page_num}/{total_pages}" if last_page_num == page_num else f"{page_num}-{last_page_num}/{total_pages}"
 
         header = (
             f"## {meta_title}\n- Document ID: {resolved_id}\n{alias_line}"
             f"- Decision Date: {meta_date or 'N/A'}\n- Decision Number: {meta_number or 'N/A'}\n"
             f"- Category: {meta_category or 'N/A'}\n- Source: {source_url or 'N/A'}\n"
-            f"- Page: {page_num}/{total_pages}\n- Extraction: {method_display}\n{quality_lines}---\n"
+            f"- Page: {page_display}\n- Extraction: {method_display}\n{quality_lines}---\n"
             "Use ONLY the text below. Do not add information not present in this document.\n\n"
-            f"{quality_warning_block}{degraded_warning_block}"
+            f"{large_document_warning_block}{page_limit_warning_block}{quality_warning_block}{degraded_warning_block}"
         )
 
+        served_via = next(iter(served_sources)) if len(served_sources) == 1 else "mixed"
         await record_tool_call_trace(
             getattr(deps, "pool", None),
             tool_name="get_bddk_document",
@@ -174,8 +236,10 @@ def register(mcp, deps: Dependencies) -> None:
             },
             relevance_stats={
                 "page_number": page_num,
+                "last_page_number": last_page_num,
                 "total_pages": total_pages,
-                "served_via": "vector_store" if served_via_vector else "document_store",
+                "pages_returned": len(page_contents),
+                "served_via": served_via,
             },
         )
         return header + content

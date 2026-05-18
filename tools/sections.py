@@ -81,7 +81,7 @@ def register(mcp, deps: Dependencies) -> None:
         )
         if not sections:
             query = " ".join(
-                part for part in (document_id, section_type or "", section_ref or "", heading or "") if part
+                str(part) for part in (document_id, section_type or "", section_ref or "", heading or "") if part
             )
             await record_tool_call_trace(
                 getattr(deps, "pool", None),
