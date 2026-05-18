@@ -162,3 +162,38 @@ async def test_search_document_sections_boosts_exact_legal_reference():
     assert out.index("ilke 5") < out.index("ilke 6")
     assert out.count("943 — ilke 5") == 1
     doc_store.get_document_section.assert_awaited_once_with("943", section_type="ilke", section_ref="5")
+
+
+@pytest.mark.asyncio
+async def test_search_document_sections_uses_loose_fallback_when_strict_misses():
+    query = "Bilgi Sistemleri ve İş Süreçleri Bağımsız Denetimi denetim teknikleri dış teyit tetkik gözlem"
+    target = _section(
+        "mevzuat_39257",
+        "madde",
+        "31",
+        "MADDE 31 - Denetim teknikleri\nDenetçi; tetkik, gözlem ve yeniden uygulama tekniklerini kullanır.",
+    )
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[])
+
+    async def search_side_effect(search_query, *, document_id=None, section_type=None, limit=10):
+        if search_query == query:
+            return []
+        if search_query in {"denetim", "teknikleri", "tetkik", "gözlem"}:
+            return [target]
+        return []
+
+    doc_store.search_document_sections = AsyncMock(side_effect=search_side_effect)
+    deps = Dependencies(pool=None, doc_store=doc_store, client=None, http=None)
+
+    tool = _capture_tool(deps, "search_document_sections")
+    out = await tool(query, limit=5)
+
+    assert "Found 1 section result(s)" in out
+    assert "mevzuat_39257 — madde 31" in out
+    assert "Denetim teknikleri" in out
+    assert doc_store.search_document_sections.await_args_list[0].kwargs == {
+        "document_id": None,
+        "section_type": None,
+        "limit": 5,
+    }
