@@ -65,6 +65,19 @@ async def test_get_document_section_returns_exact_match():
 
 
 @pytest.mark.asyncio
+async def test_get_document_section_accepts_integer_section_ref():
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[_section()])
+    deps = Dependencies(pool=None, doc_store=doc_store, client=None, http=None)
+
+    tool = _capture_tool(deps, "get_document_section")
+    out = await tool("943", section_type="ilke", section_ref=5)
+
+    assert "Section: ilke 5" in out
+    doc_store.get_document_section.assert_awaited_once_with("943", section_type="ilke", section_ref="5", heading=None)
+
+
+@pytest.mark.asyncio
 async def test_get_document_section_no_match_suggests_search():
     doc_store = MagicMock()
     doc_store.get_document_section = AsyncMock(return_value=[])

@@ -37,10 +37,10 @@ def _section_key(section: StoredDocumentSection) -> tuple[str, str, str, str]:
     return (section.doc_id, section.section_type, section.section_ref, section.content_hash)
 
 
-def _normalize_optional(value: str | None) -> str | None:
+def _normalize_optional(value: str | int | None) -> str | None:
     if value is None:
         return None
-    value = value.strip()
+    value = str(value).strip()
     return value.lower() if value else None
 
 
@@ -51,7 +51,7 @@ def register(mcp, deps: Dependencies) -> None:
     async def get_document_section(
         document_id: str,
         section_type: str | None = None,
-        section_ref: str | None = None,
+        section_ref: str | int | None = None,
         heading: str | None = None,
     ) -> str:
         """
