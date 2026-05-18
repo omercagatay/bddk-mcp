@@ -208,7 +208,9 @@ def register(mcp, deps: Dependencies) -> None:
             )
 
         degraded_warning_block = f"⚠ {_DEGRADED_WARNING}\n\n" if degraded else ""
-        page_display = f"{page_num}/{total_pages}" if last_page_num == page_num else f"{page_num}-{last_page_num}/{total_pages}"
+        page_display = (
+            f"{page_num}/{total_pages}" if last_page_num == page_num else f"{page_num}-{last_page_num}/{total_pages}"
+        )
 
         header = (
             f"## {meta_title}\n- Document ID: {resolved_id}\n{alias_line}"
