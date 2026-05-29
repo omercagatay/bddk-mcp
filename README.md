@@ -212,7 +212,21 @@ doc_sync.py               İndirme ve extraction pipeline'ı
 tools/                    MCP tool modülleri
 scripts/                  Operatör ve backfill scriptleri
 benchmark/                Tool schema ve benchmark altyapısı
+docs/                     Proje dokümantasyonu, kalite notları ve referanslar
+docs/reference/           Üretilmiş/büyük referans çıktıları
+docs/fixes/               Geçmiş bakım ve kalite düzeltme kayıtları
+seed_data/                Offline deployment için üretilmiş seed verisi
+.github/                  CI, issue şablonları ve PR şablonu
 ```
+
+### Dokümantasyon
+
+- [Repository structure](docs/REPOSITORY_STRUCTURE.md)
+- [Contributing](CONTRIBUTING.md)
+- [Document quality](docs/DOCUMENT_QUALITY.md)
+- [Generated document catalog](docs/reference/DOCUMENTS.md)
+- [Security policy](SECURITY.md)
+- [Benchmark notes](benchmark/README.md)
 
 ### Veri Kalitesi ve Güvenlik Notları
 
@@ -431,7 +445,21 @@ doc_sync.py               Download and extraction pipeline
 tools/                    MCP tool modules
 scripts/                  Operator and backfill scripts
 benchmark/                Tool schemas and benchmark infrastructure
+docs/                     Project documentation, quality notes, and references
+docs/reference/           Generated or bulky reference output
+docs/fixes/               Historical maintenance and quality fix logs
+seed_data/                Generated seed data for offline deployment
+.github/                  CI, issue templates, and PR template
 ```
+
+### Documentation
+
+- [Repository structure](docs/REPOSITORY_STRUCTURE.md)
+- [Contributing](CONTRIBUTING.md)
+- [Document quality](docs/DOCUMENT_QUALITY.md)
+- [Generated document catalog](docs/reference/DOCUMENTS.md)
+- [Security policy](SECURITY.md)
+- [Benchmark notes](benchmark/README.md)
 
 ### Data Quality And Safety Notes
 
@@ -460,4 +488,4 @@ uv run pytest tests/test_vector_store.py tests/test_legal_ref.py -v -rs
 
 ### License
 
-No license file is currently included. Treat reuse rights as unspecified until a license is added.
+MIT. See [LICENSE](LICENSE).

@@ -1,0 +1,7 @@
+# Keep generated/reference artifacts from dominating GitHub language stats and diffs.
+seed_data/*.json linguist-generated=true -diff
+docs/reference/DOCUMENTS.md linguist-generated=true -diff
+uv.lock linguist-generated=true
+
+# Binary fixtures should not render as text diffs.
+tests/fixtures/*.pdf binary

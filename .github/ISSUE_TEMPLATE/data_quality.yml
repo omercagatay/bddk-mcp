@@ -1,0 +1,29 @@
+name: Data quality issue
+description: Track extraction, OCR, seed data, and legal-reference quality problems.
+title: "[Data Quality]: "
+labels: ["data-quality"]
+body:
+  - type: input
+    id: document_id
+    attributes:
+      label: Document ID
+      placeholder: "mevzuat_22599 or 943"
+    validations:
+      required: true
+  - type: textarea
+    id: issue
+    attributes:
+      label: Issue
+      description: What text, section, page, formula, or OCR artifact is wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Include source links, expected text, scan output, or tool output.
+  - type: textarea
+    id: proposed_fix
+    attributes:
+      label: Proposed fix
+      description: If known, list the backfill, patch, or quality-scan command to use.
