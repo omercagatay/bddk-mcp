@@ -362,5 +362,40 @@ async def test_missing_doc_returns_airlocked_error_for_all_candidates():
 
     assert "Document 99999999 is not available" in out
     assert "airlocked" in out
+    # Structured error: machine-parseable first line so callers can tell
+    # NOT_FOUND apart from transient failures.
+    assert out.splitlines()[0] == "[ERROR:NOT_FOUND] retryable=false"
     # All three candidates probed: bare, mevzuat_, bddk_
     assert doc_store.get_document_page.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_multi_page_gap_is_surfaced_as_warning():
+    """A missing middle page must produce an explicit gap warning, not silent truncation."""
+
+    def make_page(n: int) -> DocumentPage:
+        return DocumentPage(
+            document_id="mevzuat_1",
+            title="Test Yönetmeliği",
+            markdown_content=f"içerik sayfa {n}",
+            page_number=n,
+            total_pages=4,
+        )
+
+    async def fake_get_page(doc_id, page_number):
+        if page_number == 2:
+            return None  # missing/corrupt middle page
+        return make_page(page_number)
+
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(side_effect=fake_get_page)
+    deps = _make_deps(doc_store=doc_store)
+
+    tool = _capture_get_bddk_document(deps)
+    out = await tool("mevzuat_1", 1, 3)
+
+    assert "içerik sayfa 1" in out
+    assert "içerik sayfa 2" not in out
+    assert "Sayfa 2 local store'dan alınamadı" in out
+    # Still a successful (partial) response, not an error
+    assert "[ERROR" not in out

@@ -133,6 +133,12 @@ def test_parse_tabpane_institutions_empty():
 # -- fetch_institutions integration (mocked HTTP) --
 
 
+@pytest.fixture(autouse=True)
+def _no_retry_backoff(monkeypatch):
+    """Skip the exponential-backoff sleeps in request_with_retry so 5xx paths stay fast."""
+    monkeypatch.setattr("utils.asyncio.sleep", AsyncMock())
+
+
 @pytest.fixture
 def mock_http():
     """Create a mock httpx.AsyncClient."""
