@@ -15,6 +15,7 @@ from config import (
     validate_year,
 )
 from data_sources import fetch_bulletin_snapshot, fetch_monthly_bulletin, fetch_weekly_bulletin
+from tools.errors import INVALID_INPUT, UPSTREAM_FETCH_FAILED, tool_error
 from tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
@@ -53,12 +54,17 @@ def register(mcp, deps: Dependencies) -> None:
             validate_currency(currency, "weekly")
             validate_column(column)
         except ValueError as e:
-            return f"Validation error: {e}"
+            return tool_error(INVALID_INPUT, f"Validation error: {e}", retryable=False)
 
         data = await fetch_weekly_bulletin(deps.http, metric_id, currency, days, date, column)
 
         if "error" in data:
-            return f"Error fetching bulletin: {data['error']}"
+            return tool_error(
+                UPSTREAM_FETCH_FAILED,
+                f"Error fetching bulletin: {data['error']}",
+                retryable=True,
+                hint="BDDK upstream may be temporarily unavailable; retry later.",
+            )
 
         lines = [f"**{data.get('title', 'BDDK Weekly Bulletin')}** ({data['currency']})\n"]
         dates, values = data.get("dates", []), data.get("values", [])
@@ -121,12 +127,17 @@ def register(mcp, deps: Dependencies) -> None:
             validate_month(month)
             validate_currency(currency, "monthly")
         except ValueError as e:
-            return f"Validation error: {e}"
+            return tool_error(INVALID_INPUT, f"Validation error: {e}", retryable=False)
 
         result = await fetch_monthly_bulletin(deps.http, table_no, year, month, currency, party_code)
 
         if "error" in result:
-            return f"Error: {result['error']}"
+            return tool_error(
+                UPSTREAM_FETCH_FAILED,
+                f"Error fetching monthly bulletin: {result['error']}",
+                retryable=True,
+                hint="BDDK upstream may be temporarily unavailable; retry later.",
+            )
 
         lines = [f"**{result.get('title', 'BDDK Aylık Bülten')}**\n"]
         lines.append(f"Dönem: {month}/{year} | Para Birimi: {currency}\n")

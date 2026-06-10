@@ -120,6 +120,62 @@ async def init_vector_store(deps: Dependencies) -> None:
         logger.error("VectorStore init failed: %s", e)
 
 
+def register_tools(deps: Dependencies) -> None:
+    """Register all tool modules on the shared FastMCP instance."""
+    search.register(mcp, deps)
+    documents.register(mcp, deps)
+    sections.register(mcp, deps)
+    bulletin.register(mcp, deps)
+    analytics.register(mcp, deps)
+    if ADMIN_TOOLS:
+        sync.register(mcp, deps)
+        admin.register(mcp, deps)
+
+
+async def import_seed_data(deps: Dependencies) -> None:
+    """Seed the DB from bundled seed_data/ when present (non-fatal on failure)."""
+    try:
+        from seed import SEED_DIR, import_seed
+
+        if SEED_DIR.exists():
+            result = await import_seed(pool=deps.pool)
+            if not result["skipped"]:
+                logger.info(
+                    "Seed: %d cache, %d docs, %d chunks",
+                    result["decision_cache"],
+                    result["documents"],
+                    result["chunks"],
+                )
+            else:
+                logger.info("DB populated — seed skipped")
+    except Exception as e:
+        logger.warning("Seed failed (non-fatal): %s", e)
+
+
+def start_background_tasks(deps: Dependencies) -> None:
+    """Kick off vector-store init and (optionally) auto-sync on the running loop."""
+    deps.vector_init_task = asyncio.create_task(init_vector_store(deps))
+
+    if AUTO_SYNC:
+
+        async def _sync_after_vector_init():
+            if deps.vector_init_task:
+                await deps.vector_init_task
+            await sync.startup_sync(deps)
+
+        deps.sync_task = asyncio.create_task(_sync_after_vector_init())
+        logger.info("[STARTUP] background sync scheduled")
+
+
+async def startup() -> Dependencies:
+    """Shared startup sequence for both transports."""
+    deps = await create_deps()
+    register_tools(deps)
+    await import_seed_data(deps)
+    start_background_tasks(deps)
+    return deps
+
+
 async def teardown_deps(deps: Dependencies) -> None:
     """Shut down in correct order: tasks first, then connections."""
     logger.info("Graceful shutdown initiated...")
@@ -168,50 +224,7 @@ if __name__ == "__main__":
             config = uvicorn.Config(app, host="0.0.0.0", port=port)
             server = uvicorn.Server(config)
 
-            deps = await create_deps()
-
-            # Register all tool modules
-            search.register(mcp, deps)
-            documents.register(mcp, deps)
-            sections.register(mcp, deps)
-            bulletin.register(mcp, deps)
-            analytics.register(mcp, deps)
-            if ADMIN_TOOLS:
-                sync.register(mcp, deps)
-                admin.register(mcp, deps)
-
-            # Seed DB
-            try:
-                from seed import SEED_DIR, import_seed
-
-                if SEED_DIR.exists():
-                    result = await import_seed(pool=deps.pool)
-                    if not result["skipped"]:
-                        logger.info(
-                            "Seed: %d cache, %d docs, %d chunks",
-                            result["decision_cache"],
-                            result["documents"],
-                            result["chunks"],
-                        )
-                    else:
-                        logger.info("DB populated — seed skipped")
-            except Exception as e:
-                logger.warning("Seed failed (non-fatal): %s", e)
-
-            # Background: vector store init
-            deps.vector_init_task = asyncio.create_task(init_vector_store(deps))
-
-            # Background: auto-sync
-            if AUTO_SYNC:
-
-                async def _sync_after_vector_init():
-                    if deps.vector_init_task:
-                        await deps.vector_init_task
-                    await sync.startup_sync(deps)
-
-                deps.sync_task = asyncio.create_task(_sync_after_vector_init())
-                logger.info("[STARTUP] background sync scheduled")
-
+            deps = await startup()
             try:
                 await server.serve()
             finally:
@@ -223,48 +236,8 @@ if __name__ == "__main__":
         import anyio
 
         async def _run_stdio():
-            deps = await create_deps()
-
-            search.register(mcp, deps)
-            documents.register(mcp, deps)
-            sections.register(mcp, deps)
-            bulletin.register(mcp, deps)
-            analytics.register(mcp, deps)
-            if ADMIN_TOOLS:
-                sync.register(mcp, deps)
-                admin.register(mcp, deps)
-
-            # Seed DB
-            try:
-                from seed import SEED_DIR, import_seed
-
-                if SEED_DIR.exists():
-                    result = await import_seed(pool=deps.pool)
-                    if not result["skipped"]:
-                        logger.info(
-                            "Seed: %d cache, %d docs, %d chunks",
-                            result["decision_cache"],
-                            result["documents"],
-                            result["chunks"],
-                        )
-                    else:
-                        logger.info("DB populated — seed skipped")
-            except Exception as e:
-                logger.warning("Seed failed (non-fatal): %s", e)
-
-            # Background tasks — same event loop as MCP server so they actually run
-            deps.vector_init_task = asyncio.create_task(init_vector_store(deps))
-
-            if AUTO_SYNC:
-
-                async def _sync_after_vector_init():
-                    if deps.vector_init_task:
-                        await deps.vector_init_task
-                    await sync.startup_sync(deps)
-
-                deps.sync_task = asyncio.create_task(_sync_after_vector_init())
-                logger.info("[STARTUP] background sync scheduled")
-
+            # startup() schedules background tasks on this same event loop so they actually run
+            deps = await startup()
             try:
                 await mcp.run_stdio_async()
             finally:

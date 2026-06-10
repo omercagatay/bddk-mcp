@@ -7,12 +7,26 @@ import re
 import httpx
 from bs4 import BeautifulSoup
 
+from utils import request_with_retry
+
 logger = logging.getLogger(__name__)
 
 _BDDK_BASE_URL = "https://www.bddk.org.tr"
 
 # Rate limiter: max 5 concurrent outbound requests to BDDK
 _request_semaphore = asyncio.Semaphore(5)
+
+
+async def _get(http: httpx.AsyncClient, url: str, **kwargs) -> httpx.Response:
+    """GET with rate limiting and exponential backoff retry."""
+    async with _request_semaphore:
+        return await request_with_retry(http, "GET", url, **kwargs)
+
+
+async def _post(http: httpx.AsyncClient, url: str, **kwargs) -> httpx.Response:
+    """POST with rate limiting and exponential backoff retry."""
+    async with _request_semaphore:
+        return await request_with_retry(http, "POST", url, **kwargs)
 
 
 def _format_number(val) -> str:
@@ -165,9 +179,7 @@ async def fetch_institutions(
     for page_id, inst_type in pages.items():
         try:
             url = f"{_BDDK_BASE_URL}/Kurulus/Liste/{page_id}"
-            async with _request_semaphore:
-                response = await http.get(url)
-            response.raise_for_status()
+            response = await _get(http, url)
             soup = BeautifulSoup(response.text, "html.parser")
 
             if page_id in _CARD_INSTITUTION_PAGES:
@@ -211,8 +223,7 @@ async def fetch_weekly_bulletin(
     try:
         # Step 1: Visit the page to get session cookies and CSRF token
         page_url = f"{_BDDK_BASE_URL}/bultenhaftalik"
-        page_resp = await http.get(page_url)
-        page_resp.raise_for_status()
+        page_resp = await _get(http, page_url)
         soup = BeautifulSoup(page_resp.text, "html.parser")
 
         token_input = soup.find("input", {"name": "__RequestVerificationToken"})
@@ -240,7 +251,8 @@ async def fetch_weekly_bulletin(
         if token:
             post_data["__RequestVerificationToken"] = token
 
-        response = await http.post(
+        response = await _post(
+            http,
             api_url,
             data=post_data,
             headers={
@@ -249,7 +261,6 @@ async def fetch_weekly_bulletin(
                 "Referer": page_url,
             },
         )
-        response.raise_for_status()
         data = response.json()
 
         return {
@@ -273,8 +284,7 @@ async def fetch_bulletin_snapshot(
     """
     try:
         page_url = f"{_BDDK_BASE_URL}/bultenhaftalik"
-        response = await http.get(page_url)
-        response.raise_for_status()
+        response = await _get(http, page_url)
         soup = BeautifulSoup(response.text, "html.parser")
 
         table = soup.find("table", id="Tablo")
@@ -323,8 +333,7 @@ async def fetch_announcements(
     category_name = _ANNOUNCEMENT_PAGES.get(category_id, f"Duyuru ({category_id})")
 
     try:
-        response = await http.get(url)
-        response.raise_for_status()
+        response = await _get(http, url)
         soup = BeautifulSoup(response.text, "html.parser")
 
         announcements: list[dict] = []
@@ -391,8 +400,7 @@ async def fetch_monthly_bulletin(
     """
     try:
         page_url = f"{_BDDK_BASE_URL}/BultenAylik"
-        page_resp = await http.get(page_url)
-        page_resp.raise_for_status()
+        page_resp = await _get(http, page_url)
         soup = BeautifulSoup(page_resp.text, "html.parser")
 
         token_input = soup.find("input", {"name": "__RequestVerificationToken"})
@@ -409,7 +417,8 @@ async def fetch_monthly_bulletin(
         if token:
             post_data["__RequestVerificationToken"] = token
 
-        response = await http.post(
+        response = await _post(
+            http,
             api_url,
             data=post_data,
             headers={
@@ -418,7 +427,6 @@ async def fetch_monthly_bulletin(
                 "Referer": page_url,
             },
         )
-        response.raise_for_status()
         result = response.json()
 
         # Response: {success, Json: {data: {rows: [{cell: [group, idx, name, font, tp, yp, total]}]}}}

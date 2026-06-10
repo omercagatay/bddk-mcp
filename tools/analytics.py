@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from analytics import analyze_trends, build_digest, check_updates, compare_metrics
 from config import ANNOUNCEMENT_CATEGORY_IDS, validate_column, validate_currency, validate_metric_id
 from data_sources import fetch_announcements
+from tools.errors import INVALID_INPUT, UPSTREAM_FETCH_FAILED, tool_error
 from tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
@@ -45,12 +46,17 @@ def register(mcp, deps: Dependencies) -> None:
             validate_currency(currency, "weekly")
             validate_column(column)
         except ValueError as e:
-            return f"Validation error: {e}"
+            return tool_error(INVALID_INPUT, f"Validation error: {e}", retryable=False)
 
         result = await analyze_trends(deps.http, metric_id, currency, column, lookback_weeks)
 
         if "error" in result:
-            return f"Error: {result['error']}"
+            return tool_error(
+                UPSTREAM_FETCH_FAILED,
+                f"Error analyzing trends: {result['error']}",
+                retryable=True,
+                hint="BDDK upstream may be temporarily unavailable; retry later.",
+            )
 
         lines = [f"**Trend Analizi: {result['title']}**\n"]
         lines.append(result["narrative"])
@@ -134,7 +140,7 @@ def register(mcp, deps: Dependencies) -> None:
         """
         ids = [m.strip() for m in metric_ids.split(",") if m.strip()]
         if not ids:
-            return "Please provide at least one metric ID."
+            return tool_error(INVALID_INPUT, "Please provide at least one metric ID.", retryable=False)
 
         try:
             for mid in ids:
@@ -142,7 +148,7 @@ def register(mcp, deps: Dependencies) -> None:
             validate_currency(currency, "weekly")
             validate_column(column)
         except ValueError as e:
-            return f"Validation error: {e}"
+            return tool_error(INVALID_INPUT, f"Validation error: {e}", retryable=False)
 
         result = await compare_metrics(deps.http, ids, currency, column, days)
 

@@ -10,6 +10,7 @@ from config import ADMIN_TOOLS
 from exceptions import BddkStorageError
 from markdown_quality import assess_markdown_quality, sanitize_markdown_for_context
 from telemetry import elapsed_ms, record_tool_call_trace
+from tools.errors import NOT_FOUND, tool_error
 from tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
@@ -31,6 +32,10 @@ _DEGRADED_WARNING = (
 
 _LARGE_DOCUMENT_PAGE_THRESHOLD = 20
 _MAX_PAGES_PER_RESPONSE = 5
+_PAGE_GAP_WARNING_TEMPLATE = (
+    "Sayfa {missing_page} local store'dan alınamadı; yalnızca {first_page}-{last_page} arası döndürüldü. "
+    "Belge toplam {total_pages} sayfa olarak kayıtlı — eksik sayfa, store tutarsızlığına işaret edebilir."
+)
 _LARGE_DOCUMENT_WARNING_TEMPLATE = (
     "Bu belge {total_pages} sayfa. Tam belgeyi sayfa sayfa çekmek context'i hızla şişirebilir. "
     "Hedefli retrieval için önce search_document_sections veya get_document_section kullan; "
@@ -95,7 +100,7 @@ def register(mcp, deps: Dependencies) -> None:
                     if vp and vp["content"] and "Invalid page" not in vp["content"]:
                         return vp["page_number"], vp["total_pages"], vp["content"], "", True
                 except Exception as e:
-                    logger.debug("pgvector lookup failed for %s: %s", cand, e)
+                    logger.warning("pgvector lookup failed for %s, falling back to doc_store: %s", cand, e)
 
             try:
                 stored = await deps.doc_store.get_document_page(cand, page)
@@ -139,7 +144,13 @@ def register(mcp, deps: Dependencies) -> None:
                 doc_ids=[],
                 relevance_stats={"status": "not_found"},
             )
-            return f"Document {document_id} is not available in the local store. This MCP server is airlocked and does not fetch from live BDDK / mevzuat.gov.tr sources at runtime. If the document should be available, re-run the seed (`seed.py import`) or sync pipeline."
+            return tool_error(
+                NOT_FOUND,
+                f"Document {document_id} is not available in the local store. This MCP server is airlocked "
+                "and does not fetch from live BDDK / mevzuat.gov.tr sources at runtime.",
+                retryable=False,
+                hint="If the document should be available, re-run the seed (`seed.py import`) or sync pipeline.",
+            )
 
         found = deps.client.find_by_id(resolved_id)
         meta_title, meta_date, meta_number, meta_category, source_url = (
@@ -151,11 +162,19 @@ def register(mcp, deps: Dependencies) -> None:
         alias_line = f"- Resolved from: `{document_id}` -> `{resolved_id}`\n" if resolved_id != document_id else ""
 
         last_page_num = page_num
+        missing_page: int | None = None
         if max_pages > 1 and page_num < total_pages:
             final_page = min(page_num + max_pages - 1, total_pages)
             for next_page in range(page_num + 1, final_page + 1):
                 found_page = await _lookup_page(resolved_id, next_page)
                 if not found_page:
+                    missing_page = next_page
+                    logger.warning(
+                        "Page %d of %s missing from local stores (total_pages=%d)",
+                        next_page,
+                        resolved_id,
+                        total_pages,
+                    )
                     break
                 last_page_num, total_pages, page_content, page_extraction_method, served_via_vector = found_page
                 page_contents.append((last_page_num, page_content))
@@ -207,6 +226,19 @@ def register(mcp, deps: Dependencies) -> None:
                 f"⚠ Requested max_pages was capped at {_MAX_PAGES_PER_RESPONSE} pages per response.\n\n"
             )
 
+        page_gap_warning_block = ""
+        if missing_page is not None:
+            page_gap_warning_block = (
+                "⚠ "
+                + _PAGE_GAP_WARNING_TEMPLATE.format(
+                    missing_page=missing_page,
+                    first_page=page_num,
+                    last_page=last_page_num,
+                    total_pages=total_pages,
+                )
+                + "\n\n"
+            )
+
         degraded_warning_block = f"⚠ {_DEGRADED_WARNING}\n\n" if degraded else ""
         page_display = (
             f"{page_num}/{total_pages}" if last_page_num == page_num else f"{page_num}-{last_page_num}/{total_pages}"
@@ -218,10 +250,20 @@ def register(mcp, deps: Dependencies) -> None:
             f"- Category: {meta_category or 'N/A'}\n- Source: {source_url or 'N/A'}\n"
             f"- Page: {page_display}\n- Extraction: {method_display}\n{quality_lines}---\n"
             "Use ONLY the text below. Do not add information not present in this document.\n\n"
-            f"{large_document_warning_block}{page_limit_warning_block}{quality_warning_block}{degraded_warning_block}"
+            f"{large_document_warning_block}{page_limit_warning_block}{page_gap_warning_block}"
+            f"{quality_warning_block}{degraded_warning_block}"
         )
 
         served_via = next(iter(served_sources)) if len(served_sources) == 1 else "mixed"
+        relevance_stats = {
+            "page_number": page_num,
+            "last_page_number": last_page_num,
+            "total_pages": total_pages,
+            "pages_returned": len(page_contents),
+            "served_via": served_via,
+        }
+        if missing_page is not None:
+            relevance_stats["missing_page"] = missing_page
         await record_tool_call_trace(
             getattr(deps, "pool", None),
             tool_name="get_bddk_document",
@@ -236,13 +278,7 @@ def register(mcp, deps: Dependencies) -> None:
                     "extraction_method": extraction_method or "unknown",
                 }
             },
-            relevance_stats={
-                "page_number": page_num,
-                "last_page_number": last_page_num,
-                "total_pages": total_pages,
-                "pages_returned": len(page_contents),
-                "served_via": served_via,
-            },
+            relevance_stats=relevance_stats,
         )
         return header + content
 
