@@ -172,7 +172,10 @@ TOOL_SCHEMAS: list[dict] = [
             "name": "search_document_sections",
             "description": (
                 "Search section-level content in stored BDDK documents. "
-                "Use for exact legal references and article/principle-level retrieval."
+                "Use for exact legal references and article/principle-level retrieval. "
+                "FTS hits include a 'Match rank' (length-normalized ts_rank_cd, "
+                "relative scale): comparable within one query's results and usable "
+                "to gate low-confidence retrieval."
             ),
             "parameters": {
                 "type": "object",

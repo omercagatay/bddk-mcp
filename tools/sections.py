@@ -108,7 +108,9 @@ async def _search_sections_loose(
             limit=limit,
         )
         for section in term_hits:
-            merged[_section_key(section)] = section
+            # Per-term ranks come from different tsqueries and are not
+            # comparable; surfacing them would mislead rank-gating clients.
+            merged[_section_key(section)] = section.model_copy(update={"rank": None})
 
     ranked = sorted(
         merged.values(),
@@ -258,6 +260,14 @@ def register(mcp, deps: Dependencies) -> None:
             )
             loose_fallback_used = bool(hits)
         if exact_hits:
+            # Exact-ref lookups carry no FTS rank; inherit it from the FTS
+            # duplicate being deduplicated away so the top hit is not the
+            # only unscored result.
+            fts_ranks = {_section_key(s): s.rank for s in hits if s.rank is not None}
+            exact_hits = [
+                s.model_copy(update={"rank": fts_ranks.get(_section_key(s))}) if s.rank is None else s
+                for s in exact_hits
+            ]
             seen = {_section_key(section) for section in exact_hits}
             hits = exact_hits + [section for section in hits if _section_key(section) not in seen]
         if not hits:
@@ -283,7 +293,9 @@ def register(mcp, deps: Dependencies) -> None:
             lines.append(f"  Section: {hit.section_type} {hit.section_ref}")
             lines.append(f"  Character range: {hit.start_char}-{hit.end_char}")
             if hit.rank is not None:
-                lines.append(f"  Match rank: {hit.rank:.4f}")
+                # "relative" guards against conflation with the percent-scale
+                # relevance gate in the server instructions (store search).
+                lines.append(f"  Match rank: {hit.rank:.4f} (relative, FTS)")
             preview = _section_preview(hit)
             if preview:
                 lines.append(f"  ...{preview}...")
