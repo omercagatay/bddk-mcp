@@ -221,6 +221,10 @@ def register(mcp, deps: Dependencies) -> None:
             document_id: Optional document ID filter
             section_type: Optional section type filter
             limit: Maximum number of section results
+
+        Each FTS hit includes a `Match rank` (length-normalized ts_rank_cd):
+        higher is better; ranks are comparable within one query's results and
+        can be used to gate low-confidence retrieval.
         """
         start = time.perf_counter()
         args = {"query": query, "document_id": document_id, "section_type": section_type, "limit": limit}
@@ -278,6 +282,8 @@ def register(mcp, deps: Dependencies) -> None:
             lines.append(f"  Document ID: {hit.doc_id}")
             lines.append(f"  Section: {hit.section_type} {hit.section_ref}")
             lines.append(f"  Character range: {hit.start_char}-{hit.end_char}")
+            if hit.rank is not None:
+                lines.append(f"  Match rank: {hit.rank:.4f}")
             preview = _section_preview(hit)
             if preview:
                 lines.append(f"  ...{preview}...")

@@ -128,6 +128,12 @@ async def scan_quality(pool: asyncpg.Pool) -> QualityReport:
             "References a formula (`formül`) but emits no LaTeX `$$...$$` block",
             "markdown_content ~* 'formül' AND markdown_content !~ E'\\\\$\\\\$'",
         ),
+        (
+            "zero_sections_despite_content",
+            "Substantial content but zero parsed sections — invisible to section search",
+            "LENGTH(markdown_content) > 1000"
+            " AND NOT EXISTS (SELECT 1 FROM document_sections s WHERE s.doc_id = documents.document_id)",
+        ),
     ]
 
     for name, description, predicate in checks:
