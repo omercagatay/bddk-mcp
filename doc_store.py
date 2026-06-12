@@ -79,6 +79,9 @@ class StoredDocumentSection(BaseModel):
     content_hash: str
     page_start: int | None = None
     page_end: int | None = None
+    rank: float | None = None
+    """FTS match rank (ts_rank_cd, length-normalized). Only set by search paths;
+    comparable within one query's result set, not across queries."""
 
 
 class StoreStats(BaseModel):
@@ -246,6 +249,7 @@ def _section_from_row(row) -> StoredDocumentSection:
         content_hash=row["content_hash"] or "",
         page_start=row["page_start"],
         page_end=row["page_end"],
+        rank=row["rank"] if "rank" in row.keys() else None,
     )
 
 
@@ -546,7 +550,9 @@ class DocumentStore:
             f"""
             SELECT doc_id, section_type, section_ref, heading, start_char, end_char,
                    content, content_hash, page_start, page_end,
-                   ts_rank_cd(tsv, plainto_tsquery('simple', immutable_unaccent($1))) AS rank
+                   -- normalization flag 1 divides by 1+log(length): without it,
+                   -- jumbo boilerplate sections outrank on-point short maddeler
+                   ts_rank_cd(tsv, plainto_tsquery('simple', immutable_unaccent($1)), 1) AS rank
             FROM document_sections
             WHERE {" AND ".join(where)}
             ORDER BY rank DESC, start_char

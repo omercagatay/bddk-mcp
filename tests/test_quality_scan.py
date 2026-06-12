@@ -164,6 +164,17 @@ async def seeded_quality_pool(pg_pool):
             )
             """
         )
+        await conn.execute(
+            """
+            CREATE TABLE document_sections (
+                id serial PRIMARY KEY,
+                doc_id text NOT NULL,
+                section_type text NOT NULL,
+                section_ref text NOT NULL,
+                content text NOT NULL
+            )
+            """
+        )
         docs = [
             ("doc_clean", "Normal document with çğıöşü letters " * 120, "markitdown"),
             ("doc_camelcase", "BÖLÜMBaşlangıç HükümleriAmaç " + "çğıöşü " * 120, "html_parser"),
@@ -195,6 +206,10 @@ async def seeded_quality_pool(pg_pool):
                 method,
             )
         await conn.execute("INSERT INTO document_chunks (doc_id) VALUES ('doc_clean'), ('missing_parent_doc')")
+        await conn.execute(
+            "INSERT INTO document_sections (doc_id, section_type, section_ref, content)"
+            " VALUES ('doc_clean', 'madde', '1', 'Hüküm içeriği.')"
+        )
 
         yield SingleConnPool(conn)
     finally:
@@ -242,6 +257,10 @@ async def test_scan_quality_detects_all_seeded_anomalies(seeded_quality_pool):
 
     assert signals["diacritic_outlier"].docs_flagged >= 1
     assert "doc_no_diacritics" in signals["diacritic_outlier"].sample_doc_ids
+
+    assert signals["zero_sections_despite_content"].docs_flagged >= 1
+    assert "doc_cid" in signals["zero_sections_despite_content"].sample_doc_ids
+    assert "doc_clean" not in signals["zero_sections_despite_content"].sample_doc_ids
 
     assert report.orphan_chunks == 1
 

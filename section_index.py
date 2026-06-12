@@ -3,18 +3,34 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 
 from pydantic import BaseModel
 
+logger = logging.getLogger(__name__)
+
+# Hard upper bound for a single section's span. Legitimate maddeler are a few
+# thousand chars; spans beyond this are parser artifacts (typically trailing EK
+# annexes swallowed by the last matched heading) and poison section search.
+MAX_SECTION_CHARS = 20_000
+
+# Dash class includes \x96/\x97: Windows-1252 en/em dashes that survive in
+# documents extracted from cp1252 source HTML (e.g. mevzuat.gov.tr), where
+# every heading reads "MADDE 1 \x96 (1) ...". Bold markers require 2-3
+# asterisks ("**MADDE 1** – ..."): a single "* " is a markdown bullet, and
+# amendment lists ("* Madde 5 – ... değiştirilmiştir.") must not index as
+# headings.
 _HEADING_RE = re.compile(
-    r"^(?P<prefix>\s*)"
+    r"^(?P<prefix>\s*(?:\*{2,3}\s*)?)"
     r"(?:(?P<gecici>geçici\s+madde)\s+(?P<gecici_ref>\d+[A-Za-zÇĞİÖŞÜçğıöşü]?)"
     r"|(?P<madde>madde)\s+(?P<madde_ref>\d+[A-Za-zÇĞİÖŞÜçğıöşü]?)"
     r"|(?P<ilke>ilke)\s+(?P<ilke_ref>\d+[A-Za-zÇĞİÖŞÜçğıöşü]?)"
     r"|(?P<paragraf>paragraf)\s+(?P<paragraf_ref>\d+[A-Za-zÇĞİÖŞÜçğıöşü]?)"
     r"|(?P<ek>ek)[-\s]*(?P<ek_ref>\d+[A-Za-zÇĞİÖŞÜçğıöşü]?))"
-    r"\s*(?:[-:–—]\s*(?P<title>.*))?$",
+    r"(?:\s*\*{1,3})?"
+    r"\s*(?:[-:–—\x96\x97]\s*(?P<title>.*?))?"
+    r"\s*\*{0,3}\s*$",
     re.IGNORECASE,
 )
 _SUBSECTION_RE = re.compile(r"^\s*\((?P<ref>\d+|[A-Za-zÇĞİÖŞÜçğıöşü])\)\s+(?P<title>.*)$")
@@ -41,12 +57,49 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
         return []
 
     matches = _find_section_starts(text)
+    if not matches and len(text) > 1000:
+        logger.warning(
+            "extract_document_sections: no section headings matched for %s (%d chars); "
+            "document will be invisible to section search. Head: %r",
+            doc_id,
+            len(text),
+            text[:80],
+        )
     sections: list[DocumentSection] = []
+    level1_capped_end: int | None = None
     for index, start in enumerate(matches):
+        if start["level"] == 2 and level1_capped_end is not None and start["start_char"] >= level1_capped_end:
+            # Subsection markers found beyond a capped parent span are annex
+            # artifacts (tables/lists swallowed by the last heading), not real
+            # fıkra/bent rows; indexing them collides with genuine refs.
+            continue
         end_char = _section_end_char(matches, index, len(text))
+        truncated_from = None
+        if end_char - start["start_char"] > MAX_SECTION_CHARS:
+            truncated_from = end_char - start["start_char"]
+            logger.warning(
+                "extract_document_sections: capping %s %s %s span %d-%d (%d chars) to %d",
+                doc_id,
+                start["section_type"],
+                start["section_ref"],
+                start["start_char"],
+                end_char,
+                truncated_from,
+                MAX_SECTION_CHARS,
+            )
+            end_char = start["start_char"] + MAX_SECTION_CHARS
+        if start["level"] == 1:
+            level1_capped_end = end_char if truncated_from else None
         content = text[start["start_char"] : end_char].strip()
         if not content:
             continue
+        if truncated_from is not None:
+            # The marker travels inside the stored content so every consumer
+            # (get_document_section, search previews) sees the truncation.
+            content += (
+                f"\n\n[BÖLÜM KESİLDİ: içerik {truncated_from} karakterden "
+                f"{MAX_SECTION_CHARS} karaktere kısaltıldı — tam metin için get_bddk_document kullanın]"
+            )
         sections.append(
             DocumentSection(
                 doc_id=doc_id,
