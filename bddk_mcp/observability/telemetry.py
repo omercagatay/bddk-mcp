@@ -8,7 +8,7 @@ import logging
 import time
 from typing import Any
 
-from config import TELEMETRY_ENABLED, TELEMETRY_MODEL_ID, TELEMETRY_SESSION_ID, TELEMETRY_STORE_TEXT
+from bddk_mcp.core.config import TELEMETRY_ENABLED, TELEMETRY_MODEL_ID, TELEMETRY_SESSION_ID, TELEMETRY_STORE_TEXT
 
 logger = logging.getLogger(__name__)
 

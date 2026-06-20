@@ -12,22 +12,22 @@ import time
 from collections import OrderedDict
 from typing import TYPE_CHECKING
 
-from client import _turkish_lower
-from config import ANNOUNCEMENT_CATEGORY_IDS, SEARCH_CACHE_MAX, SEARCH_CACHE_TTL
-from data_sources import fetch_announcements, fetch_institutions
-from metrics import metrics
-from models import BddkSearchRequest
-from telemetry import (
+from bddk_mcp.core.config import ANNOUNCEMENT_CATEGORY_IDS, SEARCH_CACHE_MAX, SEARCH_CACHE_TTL
+from bddk_mcp.core.models import BddkSearchRequest
+from bddk_mcp.ingest.client import _turkish_lower
+from bddk_mcp.ingest.data_sources import fetch_announcements, fetch_institutions
+from bddk_mcp.observability.metrics import metrics
+from bddk_mcp.observability.telemetry import (
     elapsed_ms,
     quality_labels_from_hits,
     record_tool_call_trace,
     relevance_stats_from_hits,
     unique_doc_ids,
 )
-from tools.tool_logging import logged_tool
+from bddk_mcp.tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
-    from deps import Dependencies
+    from bddk_mcp.core.deps import Dependencies
 
 logger = logging.getLogger(__name__)
 

@@ -2,7 +2,7 @@
 
 import time
 
-from deps import Dependencies
+from bddk_mcp.core.deps import Dependencies
 
 
 def test_deps_creation():
@@ -37,7 +37,7 @@ def test_deps_health_state_tracking():
 
 def test_all_tool_modules_importable():
     """All tool modules can be imported and have register()."""
-    from tools import admin, analytics, bulletin, documents, search, sync
+    from bddk_mcp.tools import admin, analytics, bulletin, documents, search, sync
 
     for mod in [admin, analytics, bulletin, documents, search, sync]:
         assert hasattr(mod, "register"), f"{mod.__name__} missing register()"
@@ -48,6 +48,6 @@ def test_sync_module_has_startup_sync():
     """sync module exposes startup_sync for server.py."""
     import asyncio
 
-    from tools.sync import startup_sync
+    from bddk_mcp.tools.sync import startup_sync
 
     assert asyncio.iscoroutinefunction(startup_sync)

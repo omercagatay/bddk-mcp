@@ -7,7 +7,7 @@ import re
 import httpx
 from bs4 import BeautifulSoup
 
-from utils import request_with_retry
+from bddk_mcp.core.utils import request_with_retry
 
 logger = logging.getLogger(__name__)
 

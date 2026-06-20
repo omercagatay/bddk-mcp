@@ -18,7 +18,7 @@ import io
 import asyncpg
 from pydantic import BaseModel, Field
 
-from markdown_quality import assess_markdown_quality
+from bddk_mcp.quality.markdown_quality import assess_markdown_quality
 
 
 class AnomalyCount(BaseModel):

@@ -13,9 +13,9 @@ import asyncpg
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from config import require_database_url  # noqa: E402
-from markdown_quality import assess_markdown_quality  # noqa: E402
-from quality_scan import (  # noqa: E402
+from bddk_mcp.core.config import require_database_url  # noqa: E402
+from bddk_mcp.quality.markdown_quality import assess_markdown_quality  # noqa: E402
+from bddk_mcp.quality.quality_scan import (  # noqa: E402
     DocumentFinding,
     MethodBreakdown,
     QualityReport,
@@ -104,7 +104,7 @@ def write_outputs(report: QualityReport, out_dir: Path) -> None:
 
 
 def _anomalies_from_findings(findings: list[DocumentFinding]):
-    from quality_scan import AnomalyCount
+    from bddk_mcp.quality.quality_scan import AnomalyCount
 
     counts: dict[str, list[str]] = {}
     for finding in findings:

@@ -12,7 +12,7 @@ import httpx
 from bs4 import BeautifulSoup
 from markitdown import MarkItDown
 
-from config import (
+from bddk_mcp.core.config import (
     CACHE_TTL_SECONDS,
     HTTP_CONNECT_TIMEOUT,
     HTTP_POOL_TIMEOUT,
@@ -21,14 +21,14 @@ from config import (
     STALE_CACHE_FALLBACK,
     SYNC_CONCURRENCY,
 )
-from doc_store import DocumentStore
-from models import (
+from bddk_mcp.core.models import (
     BddkDecisionSummary,
     BddkDocumentMarkdown,
     BddkSearchRequest,
     BddkSearchResult,
 )
-from utils import MEVZUAT_TUR_MAP, fetch_with_retry
+from bddk_mcp.core.utils import MEVZUAT_TUR_MAP, fetch_with_retry
+from bddk_mcp.store.doc_store import DocumentStore
 
 logger = logging.getLogger(__name__)
 
@@ -781,7 +781,7 @@ class BddkApiClient:
 
         # Store for future use
         if self._doc_store and markdown:
-            from doc_store import StoredDocument
+            from bddk_mcp.store.doc_store import StoredDocument
 
             try:
                 await self._doc_store.store_document(

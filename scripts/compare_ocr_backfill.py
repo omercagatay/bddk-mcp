@@ -91,8 +91,8 @@ ORDER BY document_id
 async def _build_rows(baseline: list[dict]) -> list[dict]:
     import asyncpg
 
-    from config import DATABASE_URL
-    from doc_store import DocumentStore
+    from bddk_mcp.core.config import DATABASE_URL
+    from bddk_mcp.store.doc_store import DocumentStore
 
     ids = [b["document_id"] for b in baseline]
     by_id_before = {b["document_id"]: b for b in baseline}

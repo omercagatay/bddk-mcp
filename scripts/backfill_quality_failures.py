@@ -15,9 +15,9 @@ import httpx
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from config import require_database_url  # noqa: E402
-from doc_store import DocumentStore  # noqa: E402
-from doc_sync import DocumentSyncer  # noqa: E402
+from bddk_mcp.core.config import require_database_url  # noqa: E402
+from bddk_mcp.ingest.doc_sync import DocumentSyncer  # noqa: E402
+from bddk_mcp.store.doc_store import DocumentStore  # noqa: E402
 from scripts.scan_document_quality import load_quality_failures  # noqa: E402
 
 

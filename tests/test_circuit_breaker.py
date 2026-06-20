@@ -2,12 +2,12 @@
 
 import time
 
-from deps import Dependencies
+from bddk_mcp.core.deps import Dependencies
 
 
 def test_circuit_opens_after_threshold():
     deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
-    from tools.sync import CIRCUIT_BREAKER_THRESHOLD, _record_sync_failure
+    from bddk_mcp.tools.sync import CIRCUIT_BREAKER_THRESHOLD, _record_sync_failure
 
     for _ in range(CIRCUIT_BREAKER_THRESHOLD):
         _record_sync_failure(deps, "test error")
@@ -21,7 +21,7 @@ def test_circuit_resets_on_success():
     deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
     deps.sync_consecutive_failures = 5
     deps.sync_circuit_open = True
-    from tools.sync import _record_sync_success
+    from bddk_mcp.tools.sync import _record_sync_success
 
     _record_sync_success(deps)
 
@@ -33,7 +33,7 @@ def test_circuit_resets_on_success():
 
 def test_circuit_does_not_open_below_threshold():
     deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
-    from tools.sync import CIRCUIT_BREAKER_THRESHOLD, _record_sync_failure
+    from bddk_mcp.tools.sync import CIRCUIT_BREAKER_THRESHOLD, _record_sync_failure
 
     for _ in range(CIRCUIT_BREAKER_THRESHOLD - 1):
         _record_sync_failure(deps, "test error")
@@ -44,7 +44,7 @@ def test_circuit_does_not_open_below_threshold():
 
 def test_record_sync_success_sets_last_sync_time():
     deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
-    from tools.sync import _record_sync_success
+    from bddk_mcp.tools.sync import _record_sync_success
 
     before = time.time()
     _record_sync_success(deps)

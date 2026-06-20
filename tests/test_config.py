@@ -2,7 +2,7 @@
 
 import pytest
 
-from config import (
+from bddk_mcp.core.config import (
     validate_column,
     validate_currency,
     validate_metric_id,
@@ -106,7 +106,7 @@ class TestChandraConfig:
         monkeypatch.delenv("BDDK_CHANDRA_MODEL", raising=False)
         import importlib
 
-        import config
+        from bddk_mcp.core import config
 
         importlib.reload(config)
         assert config.CHANDRA_MODEL_NAME == "datalab-to/chandra-ocr-2"
@@ -115,7 +115,7 @@ class TestChandraConfig:
         monkeypatch.setenv("BDDK_CHANDRA_MODEL", "custom/model")
         import importlib
 
-        import config
+        from bddk_mcp.core import config
 
         importlib.reload(config)
         assert config.CHANDRA_MODEL_NAME == "custom/model"

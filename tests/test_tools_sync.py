@@ -11,8 +11,8 @@ from __future__ import annotations
 import time
 from unittest.mock import MagicMock
 
-from deps import Dependencies
-from tools.sync import (
+from bddk_mcp.core.deps import Dependencies
+from bddk_mcp.tools.sync import (
     CIRCUIT_BREAKER_THRESHOLD,
     _record_sync_failure,
     _record_sync_success,

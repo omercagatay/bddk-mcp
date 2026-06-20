@@ -11,9 +11,9 @@ if TYPE_CHECKING:
     import asyncpg
     import httpx
 
-    from client import BddkApiClient
-    from doc_store import DocumentStore
-    from vector_store import VectorStore
+    from bddk_mcp.ingest.client import BddkApiClient
+    from bddk_mcp.store.doc_store import DocumentStore
+    from bddk_mcp.store.vector_store import VectorStore
 
 
 @dataclass

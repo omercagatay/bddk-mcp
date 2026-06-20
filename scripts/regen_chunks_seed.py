@@ -19,8 +19,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from config import PAGE_SIZE  # noqa: E402
-from vector_store import _chunk_document, _load_embedding_tokenizer  # noqa: E402
+from bddk_mcp.core.config import PAGE_SIZE  # noqa: E402
+from bddk_mcp.store.vector_store import _chunk_document, _load_embedding_tokenizer  # noqa: E402
 
 DOCS_PATH = ROOT / "seed_data" / "documents.json"
 CHUNKS_PATH = ROOT / "seed_data" / "chunks.json"

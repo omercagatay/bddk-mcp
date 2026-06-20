@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from section_index import extract_document_sections
+from bddk_mcp.store.section_index import extract_document_sections
 
 
 def test_extracts_madde_sections_with_offsets_and_content_hash():
@@ -88,7 +88,7 @@ def test_bold_markdown_headings_parse():
 
 
 def test_jumbo_section_span_is_capped():
-    from section_index import MAX_SECTION_CHARS
+    from bddk_mcp.store.section_index import MAX_SECTION_CHARS
 
     filler = "EK TABLO satırı içerik " * 2000  # ~46k chars of trailing annex junk
     text = "Madde 39 - Yürürlük\nHüküm.\n" + filler

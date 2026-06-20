@@ -33,7 +33,7 @@ import httpx
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
 
-from config import (
+from bddk_mcp.core.config import (
     BASE_DIR,
     HTTP_CONNECT_TIMEOUT,
     HTTP_POOL_TIMEOUT,
@@ -41,13 +41,13 @@ from config import (
     PREFER_HTML_FOR_MEVZUAT,
     REQUEST_TIMEOUT,
 )
-from doc_store import DocumentStore, StoredDocument
-from markdown_quality import sanitize_markdown_for_storage
-from ocr.base import OCRBackend, get_default_backends, run_extraction_chain
-from utils import MEVZUAT_TUR_MAP, fetch_with_retry
+from bddk_mcp.core.utils import MEVZUAT_TUR_MAP, fetch_with_retry
+from bddk_mcp.ocr.base import OCRBackend, get_default_backends, run_extraction_chain
+from bddk_mcp.quality.markdown_quality import sanitize_markdown_for_storage
+from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
 
 if TYPE_CHECKING:
-    from vector_store import VectorStore
+    from bddk_mcp.store.vector_store import VectorStore
 
 CACHE_FILE = BASE_DIR / ".cache.json"  # legacy path for CLI compat
 
@@ -233,7 +233,7 @@ def _extract_html_to_markdown(html: str) -> str:
     Delegates to `html_extractor.html_to_markdown` which preserves tables,
     inline bold/italic, formula image refs, and mevzuat BÖLÜM / EK headings.
     """
-    from html_extractor import html_to_markdown
+    from bddk_mcp.ingest.html_extractor import html_to_markdown
 
     return html_to_markdown(html)
 
@@ -920,8 +920,8 @@ async def _create_pool_and_store(dsn: str | None) -> tuple:
     """
     import asyncpg as _asyncpg
 
-    from config import require_database_url
-    from vector_store import VectorStore
+    from bddk_mcp.core.config import require_database_url
+    from bddk_mcp.store.vector_store import VectorStore
 
     pool = await _asyncpg.create_pool(dsn or require_database_url(), min_size=1, max_size=5)
     store = DocumentStore(pool)

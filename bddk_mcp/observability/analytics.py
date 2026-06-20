@@ -4,8 +4,8 @@ from datetime import datetime
 
 import httpx
 
-from config import ANNOUNCEMENT_CATEGORY_IDS
-from data_sources import (
+from bddk_mcp.core.config import ANNOUNCEMENT_CATEGORY_IDS
+from bddk_mcp.ingest.data_sources import (
     fetch_announcements,
     fetch_bulletin_snapshot,
     fetch_weekly_bulletin,

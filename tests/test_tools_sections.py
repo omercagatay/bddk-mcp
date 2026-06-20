@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from deps import Dependencies
-from doc_store import StoredDocumentSection
-from tools.sections import register
+from bddk_mcp.core.deps import Dependencies
+from bddk_mcp.store.doc_store import StoredDocumentSection
+from bddk_mcp.tools.sections import register
 
 
 def _capture_tool(deps: Dependencies, name: str):

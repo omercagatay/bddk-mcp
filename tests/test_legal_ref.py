@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from legal_ref import parse_legal_refs, turkish_casefold
+from bddk_mcp.store.legal_ref import parse_legal_refs, turkish_casefold
 
 
 def test_parse_document_ids_numeric_and_prefixed():

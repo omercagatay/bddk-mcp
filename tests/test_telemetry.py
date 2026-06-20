@@ -13,7 +13,7 @@ def _json(value):
 
 
 def test_summarize_args_redacts_query_text_by_default():
-    from telemetry import summarize_args
+    from bddk_mcp.observability.telemetry import summarize_args
 
     query = "TFRS 9 kredi riskinde önemli artış"
     summary = summarize_args({"query": query, "limit": 5})
@@ -26,7 +26,7 @@ def test_summarize_args_redacts_query_text_by_default():
 
 
 def test_summarize_args_can_store_text_when_explicitly_enabled():
-    from telemetry import summarize_args
+    from bddk_mcp.observability.telemetry import summarize_args
 
     summary = summarize_args({"query": "TFRS 9 kredi riski"}, store_text=True)
 
@@ -36,7 +36,7 @@ def test_summarize_args_can_store_text_when_explicitly_enabled():
 
 @pytest.mark.asyncio
 async def test_record_tool_call_trace_is_disabled_by_default(monkeypatch):
-    import telemetry
+    from bddk_mcp.observability import telemetry
 
     monkeypatch.setattr(telemetry, "TELEMETRY_ENABLED", False)
     pool = AsyncMock()
@@ -55,7 +55,7 @@ async def test_record_tool_call_trace_is_disabled_by_default(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_record_tool_call_trace_persists_privacy_safe_summary(doc_store, monkeypatch):
-    import telemetry
+    from bddk_mcp.observability import telemetry
 
     monkeypatch.setattr(telemetry, "TELEMETRY_ENABLED", True)
     monkeypatch.setattr(telemetry, "TELEMETRY_STORE_TEXT", False)

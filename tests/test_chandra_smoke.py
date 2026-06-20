@@ -30,7 +30,7 @@ def test_chandra_end_to_end_on_real_fixture():
     if not FIXTURE_PDF.exists():
         pytest.skip(f"fixture missing: {FIXTURE_PDF}")
 
-    from ocr.chandra import ChandraBackend
+    from bddk_mcp.ocr.chandra import ChandraBackend
 
     pdf_bytes = FIXTURE_PDF.read_bytes()
 

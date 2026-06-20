@@ -3,12 +3,12 @@
 import json
 import logging
 
-from exceptions import (
+from bddk_mcp.core.exceptions import (
     BddkError,
     BddkStorageError,
     BddkVectorStoreError,
 )
-from logging_config import (
+from bddk_mcp.core.logging_config import (
     HumanFormatter,
     JsonFormatter,
     configure_logging,

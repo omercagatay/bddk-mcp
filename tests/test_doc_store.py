@@ -2,8 +2,8 @@
 
 import pytest
 
-from doc_store import _SCHEMA_SQL, StoredDocument, StoredDocumentSection
-from section_index import extract_document_sections
+from bddk_mcp.store.doc_store import _SCHEMA_SQL, StoredDocument, StoredDocumentSection
+from bddk_mcp.store.section_index import extract_document_sections
 
 
 # Uses doc_store, sample_doc, mevzuat_doc fixtures from conftest.py

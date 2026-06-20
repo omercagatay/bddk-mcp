@@ -3,8 +3,8 @@
 import time
 from unittest.mock import MagicMock
 
-from deps import Dependencies
-from tools.admin import register
+from bddk_mcp.core.deps import Dependencies
+from bddk_mcp.tools.admin import register
 
 
 def test_admin_register():

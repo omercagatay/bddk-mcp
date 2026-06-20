@@ -13,9 +13,9 @@ import asyncpg
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from config import require_database_url  # noqa: E402
-from doc_store import DocumentStore  # noqa: E402
-from section_index import extract_document_sections  # noqa: E402
+from bddk_mcp.core.config import require_database_url  # noqa: E402
+from bddk_mcp.store.doc_store import DocumentStore  # noqa: E402
+from bddk_mcp.store.section_index import extract_document_sections  # noqa: E402
 
 
 @dataclass

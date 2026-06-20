@@ -181,7 +181,7 @@ class LightOCRBackend:
         model_path: str = "",
         device: str = "",
     ) -> None:
-        from config import (
+        from bddk_mcp.core.config import (
             LIGHTOCR_DEVICE,
             LIGHTOCR_MODEL_NAME,
             LIGHTOCR_MODEL_PATH,
@@ -319,7 +319,7 @@ def get_default_backends(include_chandra: bool = False) -> list[OCRBackend]:
     """
     chain: list[OCRBackend] = [LightOCRBackend(), PdftotextBackend(), MarkitdownBackend()]
     if include_chandra:
-        from ocr.chandra import ChandraBackend
+        from bddk_mcp.ocr.chandra import ChandraBackend
 
         chain.insert(0, ChandraBackend())
     return chain

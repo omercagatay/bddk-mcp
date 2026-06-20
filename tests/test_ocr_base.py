@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from ocr.base import (
+from bddk_mcp.ocr.base import (
     ExtractionAttempt,
     LightOCRBackend,
     MarkitdownBackend,
@@ -29,7 +29,7 @@ class TestMarkitdownBackend:
 
     def test_extract_wraps_markitdown(self):
         backend = MarkitdownBackend()
-        with patch("ocr.base._run_markitdown") as mock:
+        with patch("bddk_mcp.ocr.base._run_markitdown") as mock:
             mock.return_value = "extracted text"
             result = backend.extract(b"%PDF-1.4\nfake")
             assert result == "extracted text"
@@ -43,9 +43,9 @@ class TestPdftotextBackend:
 
     def test_is_available_checks_pdftotext_binary(self):
         backend = PdftotextBackend()
-        with patch("ocr.base.shutil.which", return_value="/usr/bin/pdftotext"):
+        with patch("bddk_mcp.ocr.base.shutil.which", return_value="/usr/bin/pdftotext"):
             assert backend.is_available() is True
-        with patch("ocr.base.shutil.which", return_value=None):
+        with patch("bddk_mcp.ocr.base.shutil.which", return_value=None):
             assert backend.is_available() is False
 
     def test_extract_returns_none_on_empty_pdf(self):
@@ -54,7 +54,7 @@ class TestPdftotextBackend:
 
     def test_extract_wraps_pdftotext(self):
         backend = PdftotextBackend()
-        with patch("ocr.base._run_pdftotext") as mock:
+        with patch("bddk_mcp.ocr.base._run_pdftotext") as mock:
             mock.return_value = "layout text"
             result = backend.extract(b"%PDF-1.4\nfake")
             assert result == "layout text"
@@ -150,19 +150,19 @@ class TestLightOCRBackend:
 
     def test_is_available_false_when_no_cuda(self):
         backend = LightOCRBackend()
-        with patch("ocr.base._cuda_available", return_value=False):
+        with patch("bddk_mcp.ocr.base._cuda_available", return_value=False):
             assert backend.is_available() is False
 
     def test_is_available_false_when_transformers_missing(self):
         backend = LightOCRBackend()
-        with patch("ocr.base._cuda_available", return_value=True):
-            with patch("ocr.base._transformers_available", return_value=False):
+        with patch("bddk_mcp.ocr.base._cuda_available", return_value=True):
+            with patch("bddk_mcp.ocr.base._transformers_available", return_value=False):
                 assert backend.is_available() is False
 
     def test_is_available_true_when_all_present(self):
         backend = LightOCRBackend()
-        with patch("ocr.base._cuda_available", return_value=True):
-            with patch("ocr.base._transformers_available", return_value=True):
+        with patch("bddk_mcp.ocr.base._cuda_available", return_value=True):
+            with patch("bddk_mcp.ocr.base._transformers_available", return_value=True):
                 assert backend.is_available() is True
 
     def test_extract_returns_none_on_empty_pdf(self):
@@ -172,8 +172,8 @@ class TestLightOCRBackend:
     def test_extract_loads_model_lazily(self):
         backend = LightOCRBackend()
         assert backend._model is None  # not loaded at init
-        with patch("ocr.base._cuda_available", return_value=True):
-            with patch("ocr.base._transformers_available", return_value=True):
+        with patch("bddk_mcp.ocr.base._cuda_available", return_value=True):
+            with patch("bddk_mcp.ocr.base._transformers_available", return_value=True):
                 mock_model = MagicMock()
                 mock_model.generate_markdown.return_value = "extracted"
                 with patch.object(backend, "_load_model", return_value=mock_model):

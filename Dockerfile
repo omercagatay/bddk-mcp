@@ -10,7 +10,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
 COPY *.py ./
-COPY tools/ ./tools/
+COPY bddk_mcp/ ./bddk_mcp/
 
 # Bundle pre-populated seed data (run `python seed.py export` locally first)
 COPY seed_data/ ./seed_data/

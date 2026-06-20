@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from config import (
+from bddk_mcp.core.config import (
     ADMIN_TOOLS,
     validate_column,
     validate_currency,
@@ -14,12 +14,12 @@ from config import (
     validate_table_no,
     validate_year,
 )
-from data_sources import fetch_bulletin_snapshot, fetch_monthly_bulletin, fetch_weekly_bulletin
-from tools.errors import INVALID_INPUT, UPSTREAM_FETCH_FAILED, tool_error
-from tools.tool_logging import logged_tool
+from bddk_mcp.ingest.data_sources import fetch_bulletin_snapshot, fetch_monthly_bulletin, fetch_weekly_bulletin
+from bddk_mcp.tools.errors import INVALID_INPUT, UPSTREAM_FETCH_FAILED, tool_error
+from bddk_mcp.tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
-    from deps import Dependencies
+    from bddk_mcp.core.deps import Dependencies
 
 logger = logging.getLogger(__name__)
 

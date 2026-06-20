@@ -11,14 +11,14 @@ class TestVectorStoreInit:
     @pytest.mark.asyncio
     async def test_failed_init_leaves_vector_store_none(self):
         """If VectorStore.initialize() raises, deps.vector_store stays None."""
-        from deps import Dependencies
-        from server import init_vector_store
+        from bddk_mcp.core.deps import Dependencies
+        from bddk_mcp.server import init_vector_store
 
         deps = MagicMock(spec=Dependencies)
         deps.pool = AsyncMock()
         deps.vector_store = None
 
-        with patch("vector_store.VectorStore") as MockVS:
+        with patch("bddk_mcp.store.vector_store.VectorStore") as MockVS:
             instance = MockVS.return_value
             instance.initialize = AsyncMock(side_effect=RuntimeError("pgvector extension not available"))
 
@@ -30,14 +30,14 @@ class TestVectorStoreInit:
     @pytest.mark.asyncio
     async def test_successful_init_sets_vector_store(self):
         """After successful initialize(), deps.vector_store is set."""
-        from deps import Dependencies
-        from server import init_vector_store
+        from bddk_mcp.core.deps import Dependencies
+        from bddk_mcp.server import init_vector_store
 
         deps = MagicMock(spec=Dependencies)
         deps.pool = AsyncMock()
         deps.vector_store = None
 
-        with patch("vector_store.VectorStore") as MockVS:
+        with patch("bddk_mcp.store.vector_store.VectorStore") as MockVS:
             instance = MockVS.return_value
             instance.initialize = AsyncMock()
 
@@ -51,7 +51,7 @@ def _register_and_get_tool(deps):
 
     test_mcp = FastMCP("test")
 
-    from tools import documents
+    from bddk_mcp.tools import documents
 
     documents.register(test_mcp, deps)
 
@@ -67,8 +67,8 @@ class TestGetBddkDocumentAirlock:
     @pytest.mark.asyncio
     async def test_falls_back_to_doc_store_on_pgvector_error(self):
         """If pgvector raises, fall back to the local PostgreSQL doc_store (still local)."""
-        from deps import Dependencies
-        from doc_store import DocumentPage
+        from bddk_mcp.core.deps import Dependencies
+        from bddk_mcp.store.doc_store import DocumentPage
 
         mock_client = MagicMock()
         mock_client._cache = []
@@ -104,7 +104,7 @@ class TestGetBddkDocumentAirlock:
     @pytest.mark.asyncio
     async def test_uses_pgvector_when_available(self):
         """If pgvector works, use it without falling back."""
-        from deps import Dependencies
+        from bddk_mcp.core.deps import Dependencies
 
         mock_client = MagicMock()
         mock_client._cache = []
@@ -131,7 +131,7 @@ class TestGetBddkDocumentAirlock:
     @pytest.mark.asyncio
     async def test_returns_not_in_seed_when_both_stores_miss(self):
         """When both pgvector and doc_store miss, return an error — never live-fetch."""
-        from deps import Dependencies
+        from bddk_mcp.core.deps import Dependencies
 
         mock_client = MagicMock()
         mock_client._cache = []

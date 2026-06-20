@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from doc_sync import DocumentSyncer
-from ocr.base import MarkitdownBackend
+from bddk_mcp.ingest.doc_sync import DocumentSyncer
+from bddk_mcp.ocr.base import MarkitdownBackend
 from tests.conftest import make_http_response
 
 

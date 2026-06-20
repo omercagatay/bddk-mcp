@@ -6,15 +6,15 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
-from config import ADMIN_TOOLS
-from exceptions import BddkStorageError
-from markdown_quality import assess_markdown_quality, sanitize_markdown_for_context
-from telemetry import elapsed_ms, record_tool_call_trace
-from tools.errors import NOT_FOUND, tool_error
-from tools.tool_logging import logged_tool
+from bddk_mcp.core.config import ADMIN_TOOLS
+from bddk_mcp.core.exceptions import BddkStorageError
+from bddk_mcp.observability.telemetry import elapsed_ms, record_tool_call_trace
+from bddk_mcp.quality.markdown_quality import assess_markdown_quality, sanitize_markdown_for_context
+from bddk_mcp.tools.errors import NOT_FOUND, tool_error
+from bddk_mcp.tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
-    from deps import Dependencies
+    from bddk_mcp.core.deps import Dependencies
 
 logger = logging.getLogger(__name__)
 

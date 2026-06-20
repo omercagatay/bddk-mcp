@@ -6,12 +6,12 @@ import re
 import time
 from typing import TYPE_CHECKING
 
-from legal_ref import parse_legal_refs
-from telemetry import elapsed_ms, record_tool_call_trace, unique_doc_ids
+from bddk_mcp.observability.telemetry import elapsed_ms, record_tool_call_trace, unique_doc_ids
+from bddk_mcp.store.legal_ref import parse_legal_refs
 
 if TYPE_CHECKING:
-    from deps import Dependencies
-    from doc_store import StoredDocumentSection
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.store.doc_store import StoredDocumentSection
 
 
 _LOOSE_SECTION_SEARCH_STOPWORDS = {

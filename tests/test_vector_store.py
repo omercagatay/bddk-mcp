@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from vector_store import _SCHEMA_SQL, VectorStore, _chunk_document, _chunk_text
+from bddk_mcp.store.vector_store import _SCHEMA_SQL, VectorStore, _chunk_document, _chunk_text
 
 # VectorStore integration tests require both PostgreSQL and the embedding model.
 # They skip if either is unavailable.

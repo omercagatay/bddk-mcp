@@ -16,8 +16,8 @@ import time
 import asyncpg
 from pydantic import BaseModel, Field
 
-from config import FTS_RANK_THRESHOLD, PAGE_SIZE
-from section_index import extract_document_sections
+from bddk_mcp.core.config import FTS_RANK_THRESHOLD, PAGE_SIZE
+from bddk_mcp.store.section_index import extract_document_sections
 
 logger = logging.getLogger(__name__)
 

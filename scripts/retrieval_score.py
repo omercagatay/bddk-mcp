@@ -23,7 +23,7 @@ import asyncpg
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from vector_store import VectorStore  # noqa: E402
+from bddk_mcp.store.vector_store import VectorStore  # noqa: E402
 
 DEFAULT_DSN = "postgresql://bddk:bddk@localhost:5432/bddk_test"
 

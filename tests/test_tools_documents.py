@@ -6,10 +6,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from deps import Dependencies
-from doc_store import DocumentPage
-from tools import documents as documents_mod
-from tools.documents import _is_formula_aware, register
+from bddk_mcp.core.deps import Dependencies
+from bddk_mcp.store.doc_store import DocumentPage
+from bddk_mcp.tools import documents as documents_mod
+from bddk_mcp.tools.documents import _is_formula_aware, register
 
 
 def test_register_exposes_end_user_tools_only_by_default():

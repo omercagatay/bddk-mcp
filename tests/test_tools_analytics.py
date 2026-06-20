@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from deps import Dependencies
-from tools.analytics import register
+from bddk_mcp.core.deps import Dependencies
+from bddk_mcp.tools.analytics import register
 
 
 def _registered_tools(mcp: MagicMock) -> dict:
@@ -44,7 +44,7 @@ async def test_regulatory_digest_period_mapping(period, expected_days):
     get_regulatory_digest = _registered_tools(mcp)["get_regulatory_digest"]
 
     with patch(
-        "tools.analytics.build_digest",
+        "bddk_mcp.tools.analytics.build_digest",
         new=AsyncMock(
             return_value={
                 "narrative": "ok",

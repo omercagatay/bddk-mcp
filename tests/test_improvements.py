@@ -5,11 +5,11 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from client import BddkApiClient
-from doc_sync import DocumentSyncer, ExtractionResult
-from models import BddkDecisionSummary
+from bddk_mcp.core.models import BddkDecisionSummary
+from bddk_mcp.ingest.client import BddkApiClient
+from bddk_mcp.ingest.doc_sync import DocumentSyncer, ExtractionResult
+from bddk_mcp.store.vector_store import _chunk_text
 from tests.conftest import MockPool, make_http_response
-from vector_store import _chunk_text
 
 # -- Chunk Overlap Reconstruction Bug Fix ------------------------------------
 
@@ -38,7 +38,7 @@ class TestChunkOverlapFix:
 
     def test_reconstruction_preserves_content(self):
         """The critical test: reconstruct must produce the original text."""
-        from vector_store import VectorStore
+        from bddk_mcp.store.vector_store import VectorStore
 
         vs = VectorStore.__new__(VectorStore)
 
@@ -58,7 +58,7 @@ class TestChunkOverlapFix:
         assert reconstructed == original
 
     def test_reconstruction_large_document(self):
-        from vector_store import VectorStore
+        from bddk_mcp.store.vector_store import VectorStore
 
         vs = VectorStore.__new__(VectorStore)
         original = "".join(chr(65 + (i % 26)) for i in range(10000))
@@ -76,7 +76,7 @@ class TestChunkOverlapFix:
         assert reconstructed == original
 
     def test_reconstruction_single_chunk(self):
-        from vector_store import VectorStore
+        from bddk_mcp.store.vector_store import VectorStore
 
         vs = VectorStore.__new__(VectorStore)
 
@@ -91,7 +91,7 @@ class TestChunkOverlapFix:
         assert vs._reconstruct_content(rows) == "Hello world"
 
     def test_reconstruction_empty(self):
-        from vector_store import VectorStore
+        from bddk_mcp.store.vector_store import VectorStore
 
         vs = VectorStore.__new__(VectorStore)
         assert vs._reconstruct_content([]) == ""
@@ -270,7 +270,7 @@ class TestDocumentVersioning:
     async def test_version_created_on_content_change(self, doc_store, sample_doc):
         await doc_store.store_document(sample_doc)
 
-        from doc_store import StoredDocument
+        from bddk_mcp.store.doc_store import StoredDocument
 
         updated = StoredDocument(
             document_id=sample_doc.document_id,
@@ -292,7 +292,7 @@ class TestDocumentVersioning:
 class TestAllAnnouncementCategories:
     @pytest.mark.asyncio
     async def test_check_updates_covers_all_categories(self):
-        from analytics import check_updates
+        from bddk_mcp.observability.analytics import check_updates
 
         mock_http = AsyncMock(spec=httpx.AsyncClient)
         called_categories = []
@@ -301,7 +301,7 @@ class TestAllAnnouncementCategories:
             called_categories.append(category_id)
             return []
 
-        with patch("analytics.fetch_announcements", side_effect=tracking_fetch):
+        with patch("bddk_mcp.observability.analytics.fetch_announcements", side_effect=tracking_fetch):
             result = await check_updates(mock_http, [], set())
 
         assert set(called_categories) == {39, 40, 41, 42, 48}
