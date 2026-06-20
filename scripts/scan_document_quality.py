@@ -27,7 +27,7 @@ from bddk_mcp.quality.quality_scan import (  # noqa: E402
 
 
 def load_quality_failures(path: Path) -> list[dict[str, str]]:
-    """Load the small project-local quality_failures.yml without a YAML dependency."""
+    """Load the small project-local config/quality_failures.yml without a YAML dependency."""
     if not path.exists():
         return []
 
@@ -156,7 +156,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--out-dir", type=Path, required=True, help="Directory for quality report outputs")
     parser.add_argument("--allow-failures", action="store_true", help="Exit zero even when fail-labeled docs exist")
     parser.add_argument("--fail-on", default="", help="Comma-separated quality flags that should force non-zero exit")
-    parser.add_argument("--quality-failures", type=Path, default=ROOT / "quality_failures.yml")
+    parser.add_argument("--quality-failures", type=Path, default=ROOT / "config" / "quality_failures.yml")
     return parser
 
 

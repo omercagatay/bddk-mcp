@@ -12,7 +12,7 @@ from backfill_quality_failures import load_fail_documents, main  # noqa: E402
 
 
 def test_load_fail_documents_from_quality_failures_yml():
-    candidates = load_fail_documents(ROOT / "quality_failures.yml")
+    candidates = load_fail_documents(ROOT / "config" / "quality_failures.yml")
     doc_ids = {candidate.document_id for candidate in candidates}
 
     assert {
@@ -44,7 +44,7 @@ def test_load_fail_documents_from_quality_findings_csv(tmp_path):
 
 
 def test_backfill_quality_failures_dry_run_lists_known_failures(capsys):
-    code = main(["--dry-run", "--config", str(ROOT / "quality_failures.yml")])
+    code = main(["--dry-run", "--config", str(ROOT / "config" / "quality_failures.yml")])
     out = capsys.readouterr().out
 
     assert code == 0
@@ -55,7 +55,7 @@ def test_backfill_quality_failures_dry_run_lists_known_failures(capsys):
 
 
 def test_backfill_quality_failures_doc_id_filters_one_candidate(capsys):
-    code = main(["--dry-run", "--config", str(ROOT / "quality_failures.yml"), "--doc-id", "mevzuat_21192"])
+    code = main(["--dry-run", "--config", str(ROOT / "config" / "quality_failures.yml"), "--doc-id", "mevzuat_21192"])
     out = capsys.readouterr().out
 
     assert code == 0

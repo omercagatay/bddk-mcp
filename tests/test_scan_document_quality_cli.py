@@ -13,7 +13,7 @@ from scan_document_quality import load_quality_failures, main  # noqa: E402
 
 
 def test_load_quality_failures_reads_known_fail_list():
-    failures = load_quality_failures(ROOT / "quality_failures.yml")
+    failures = load_quality_failures(ROOT / "config" / "quality_failures.yml")
 
     doc_ids = {item["document_id"] for item in failures}
     assert {

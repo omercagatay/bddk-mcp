@@ -30,7 +30,7 @@ Labels are deterministic signals, not legal conclusions. A `clean` document is n
 
 ## Known Fail List
 
-The tracked fail list lives in `quality_failures.yml`. These documents are known quality targets until they are repaired and rescanned:
+The tracked fail list lives in `config/quality_failures.yml`. These documents are known quality targets until they are repaired and rescanned:
 
 | Document ID | Reason | Preferred backfill |
 |---|---|---|
