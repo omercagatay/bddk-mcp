@@ -27,6 +27,12 @@ scripts/*.log
 scripts/*.out
 scripts/doc_*.txt
 
+# Local fix/analysis artifacts
+fix/
+
+# Quality scan output reports
+quality_reports/
+
 # Claude Code — per-machine permission allowlist
 .claude/settings.local.json
 

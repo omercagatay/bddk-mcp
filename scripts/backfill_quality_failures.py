@@ -29,7 +29,7 @@ class QualityFailureCandidate:
 
 
 def load_fail_documents(path: Path) -> list[QualityFailureCandidate]:
-    """Load fail documents from quality_failures.yml or quality_findings.csv."""
+    """Load fail documents from config/quality_failures.yml or quality_findings.csv."""
     if path.suffix.lower() == ".csv":
         return _load_fail_documents_from_csv(path)
     return [
@@ -121,7 +121,7 @@ async def execute_quality_backfill(candidates: list[QualityFailureCandidate], *,
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Backfill documents labeled as quality failures.")
-    parser.add_argument("--config", type=Path, default=ROOT / "quality_failures.yml")
+    parser.add_argument("--config", type=Path, default=ROOT / "config" / "quality_failures.yml")
     parser.add_argument("--doc-id", help="Target one document ID")
     parser.add_argument("--dry-run", action="store_true", default=True)
     parser.add_argument("--execute", action="store_true", help="Actually re-extract matching documents")

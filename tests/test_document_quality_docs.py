@@ -39,7 +39,7 @@ def test_document_quality_page_covers_operator_workflow():
 
 def test_document_quality_page_lists_tracked_fail_documents():
     page = _read("docs/DOCUMENT_QUALITY.md")
-    candidates = load_fail_documents(ROOT / "quality_failures.yml")
+    candidates = load_fail_documents(ROOT / "config" / "quality_failures.yml")
 
     assert len(candidates) == 11
     for candidate in candidates:
