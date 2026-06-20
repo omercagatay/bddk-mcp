@@ -1,6 +1,6 @@
 """Tests for tools/errors.py — structured tool error formatting."""
 
-from tools.errors import INVALID_INPUT, NOT_FOUND, UPSTREAM_FETCH_FAILED, tool_error
+from bddk_mcp.tools.errors import INVALID_INPUT, NOT_FOUND, UPSTREAM_FETCH_FAILED, tool_error
 
 
 def test_tool_error_first_line_is_machine_parseable():

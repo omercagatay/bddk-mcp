@@ -5,7 +5,7 @@ Skipped in CI (no GPU). Run locally: pytest tests/test_integration_lightocr.py -
 
 import pytest
 
-from ocr.base import LightOCRBackend
+from bddk_mcp.ocr.base import LightOCRBackend
 
 pytestmark = pytest.mark.gpu
 

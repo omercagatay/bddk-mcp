@@ -2,7 +2,7 @@
 
 import time
 
-from deps import Dependencies
+from bddk_mcp.core.deps import Dependencies
 
 
 def test_dependencies_defaults():

@@ -9,7 +9,7 @@ import random
 
 import httpx
 
-from config import MAX_RETRIES
+from bddk_mcp.core.config import MAX_RETRIES
 
 logger = logging.getLogger(__name__)
 

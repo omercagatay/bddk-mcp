@@ -23,7 +23,7 @@ from dataclasses import dataclass
 
 import asyncpg
 
-from config import (
+from bddk_mcp.core.config import (
     EMBEDDING_CHUNK_MODE,
     EMBEDDING_CHUNK_OVERLAP,
     EMBEDDING_CHUNK_SIZE,
@@ -41,9 +41,9 @@ from config import (
     RERANKER_TOP_N,
     SEMANTIC_RELEVANCE_THRESHOLD,
 )
-from legal_ref import parse_legal_refs
-from markdown_quality import assess_markdown_quality
-from section_index import DocumentSection, extract_document_sections
+from bddk_mcp.quality.markdown_quality import assess_markdown_quality
+from bddk_mcp.store.legal_ref import parse_legal_refs
+from bddk_mcp.store.section_index import DocumentSection, extract_document_sections
 
 logger = logging.getLogger(__name__)
 

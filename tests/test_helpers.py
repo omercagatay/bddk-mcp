@@ -1,6 +1,6 @@
 """Unit tests for helper functions in client.py."""
 
-from client import (
+from bddk_mcp.ingest.client import (
     _external_url_to_id,
     _mevzuat_to_pdf_url,
     _parse_date,

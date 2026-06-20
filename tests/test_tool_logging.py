@@ -6,7 +6,7 @@ import logging
 
 import pytest
 
-from tools.tool_logging import _summarize_args, _summarize_result, logged_tool
+from bddk_mcp.tools.tool_logging import _summarize_args, _summarize_result, logged_tool
 
 
 def test_summarize_args_redacts_sensitive_values_and_truncates_long_text():

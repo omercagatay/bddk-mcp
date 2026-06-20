@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from deps import Dependencies
-from doc_store import StoredDocumentSection
-from tools.sections import register as register_sections
+from bddk_mcp.core.deps import Dependencies
+from bddk_mcp.store.doc_store import StoredDocumentSection
+from bddk_mcp.tools.sections import register as register_sections
 
 
 def _capture_section_tool(deps: Dependencies, name: str):
@@ -36,7 +36,7 @@ def _section(doc_id: str, section_ref: str) -> StoredDocumentSection:
 
 @pytest.mark.asyncio
 async def test_search_document_sections_records_doc_ids_and_latency(monkeypatch):
-    from tools import sections as sections_mod
+    from bddk_mcp.tools import sections as sections_mod
 
     recorder = AsyncMock(return_value=True)
     monkeypatch.setattr(sections_mod, "record_tool_call_trace", recorder)

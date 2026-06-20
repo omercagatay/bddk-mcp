@@ -1,6 +1,6 @@
 import json
 
-from quality_scan import AnomalyCount, DocumentFinding, MethodBreakdown, QualityReport
+from bddk_mcp.quality.quality_scan import AnomalyCount, DocumentFinding, MethodBreakdown, QualityReport
 from scripts.document_quality_score import quality_score, scan_seed_dir
 
 

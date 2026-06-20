@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-import seed
+from bddk_mcp.ingest import seed
 
 
 @pytest.fixture

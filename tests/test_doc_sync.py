@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from doc_store import StoredDocument
-from doc_sync import (
+from bddk_mcp.core.utils import fetch_with_retry
+from bddk_mcp.ingest.doc_sync import (
     DocumentSyncer,
     _decode_html,
     _extract_html_to_markdown,
@@ -17,9 +17,9 @@ from doc_sync import (
     _mevzuat_pdf_url,
     _parse_mevzuat_params,
 )
-from ocr.base import MarkitdownBackend
+from bddk_mcp.ocr.base import MarkitdownBackend
+from bddk_mcp.store.doc_store import StoredDocument
 from tests.conftest import make_http_response
-from utils import fetch_with_retry
 
 # -- URL helpers -----------------------------------------------------------
 
@@ -253,23 +253,23 @@ class TestHtmlToMarkdown:
 
 class TestSanitizeForStorage:
     def test_strips_nul_bytes(self):
-        from doc_sync import _sanitize_for_storage
+        from bddk_mcp.ingest.doc_sync import _sanitize_for_storage
 
         assert _sanitize_for_storage("hello\x00world") == "helloworld"
 
     def test_preserves_clean_text(self):
-        from doc_sync import _sanitize_for_storage
+        from bddk_mcp.ingest.doc_sync import _sanitize_for_storage
 
         clean = "Madde 1 — Bankaların risk yönetimi."
         assert _sanitize_for_storage(clean) is clean
 
     def test_preserves_other_control_chars(self):
-        from doc_sync import _sanitize_for_storage
+        from bddk_mcp.ingest.doc_sync import _sanitize_for_storage
 
         assert _sanitize_for_storage("line1\nline2\tcol") == "line1\nline2\tcol"
 
     def test_empty_is_passed_through(self):
-        from doc_sync import _sanitize_for_storage
+        from bddk_mcp.ingest.doc_sync import _sanitize_for_storage
 
         assert _sanitize_for_storage("") == ""
 
@@ -277,7 +277,7 @@ class TestSanitizeForStorage:
         # SYSTEMIC-3. Markitdown leaves PDF page-break bytes (0x0C) in output.
         # Visual noise with no semantic value — strip in the same pass that
         # removes storage-unsafe NULs.
-        from doc_sync import _sanitize_for_storage
+        from bddk_mcp.ingest.doc_sync import _sanitize_for_storage
 
         assert _sanitize_for_storage("page1\x0cpage2\x0cpage3") == "page1page2page3"
 
@@ -289,7 +289,7 @@ class TestSanitizeForStorage:
         # (Croatian/Vietnamese) never legitimately appears in Turkish
         # regulatory text — verified by auditing every non-ASCII Turkish
         # character in the document store.
-        from doc_sync import _sanitize_for_storage
+        from bddk_mcp.ingest.doc_sync import _sanitize_for_storage
 
         assert _sanitize_for_storage("Tevfik BĐLGĐN") == "Tevfik BİLGİN"
         assert _sanitize_for_storage("Đhraççı bankanın") == "İhraççı bankanın"
@@ -298,12 +298,12 @@ class TestSanitizeForStorage:
         # Combined fix: one pass handles NUL (storage-unsafe) + form-feed
         # (SYSTEMIC-3) + Đ-garble (SYSTEMIC-1). A markitdown output with
         # all three defects gets cleaned in a single sweep.
-        from doc_sync import _sanitize_for_storage
+        from bddk_mcp.ingest.doc_sync import _sanitize_for_storage
 
         assert _sanitize_for_storage("BĐLGĐN\x0cĐhraççı\x00") == "BİLGİNİhraççı"
 
     def test_uses_shared_markdown_quality_storage_rules(self):
-        from doc_sync import _sanitize_for_storage
+        from bddk_mcp.ingest.doc_sync import _sanitize_for_storage
 
         out = _sanitize_for_storage("A\u00a0B\u200bC\n****\n" + "_" * 80)
 

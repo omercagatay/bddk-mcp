@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import patch_doc  # type: ignore  # noqa: E402
 
-from doc_store import StoredDocument  # noqa: E402
+from bddk_mcp.store.doc_store import StoredDocument  # noqa: E402
 
 
 def _stored_doc(doc_id: str, *, markdown: str = "old body", content_hash: str = "deadbeef") -> StoredDocument:

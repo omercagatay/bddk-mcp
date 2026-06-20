@@ -6,7 +6,8 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from client import (
+from bddk_mcp.core.models import BddkDecisionSummary
+from bddk_mcp.ingest.client import (
     _DECISION_PAGE_IDS,
     _EXCLUDED_CATEGORIES,
     _EXCLUDED_TITLE_SUBSTRINGS,
@@ -14,7 +15,6 @@ from client import (
     BddkApiClient,
     _is_in_scope,
 )
-from models import BddkDecisionSummary
 from tests.conftest import BDDK_ACCORDION_HTML, BDDK_DECISION_HTML, MockPool, make_http_response
 
 

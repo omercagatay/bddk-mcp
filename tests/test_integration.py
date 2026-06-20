@@ -5,10 +5,10 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from client import BddkApiClient
-from doc_store import StoredDocument
-from doc_sync import DocumentSyncer
-from models import BddkSearchRequest
+from bddk_mcp.core.models import BddkSearchRequest
+from bddk_mcp.ingest.client import BddkApiClient
+from bddk_mcp.ingest.doc_sync import DocumentSyncer
+from bddk_mcp.store.doc_store import StoredDocument
 from tests.conftest import (
     BDDK_ACCORDION_HTML,
     make_http_response,
@@ -105,7 +105,7 @@ class TestCacheFallbackFlow:
         # Pre-populate DB cache
         client = BddkApiClient(pool=pool)
         await client.initialize()
-        from models import BddkDecisionSummary
+        from bddk_mcp.core.models import BddkDecisionSummary
 
         client._cache = [
             BddkDecisionSummary(title="Stale Reg", document_id="stale_test_1", content="Old", category="Yönetmelik")
@@ -119,7 +119,7 @@ class TestCacheFallbackFlow:
         client2._http = AsyncMock(spec=httpx.AsyncClient)
         client2._http.get = AsyncMock(side_effect=httpx.TransportError("Network unreachable"))
 
-        with patch("client.STALE_CACHE_FALLBACK", True):
+        with patch("bddk_mcp.ingest.client.STALE_CACHE_FALLBACK", True):
             await client2._ensure_cache()
 
         # Should have loaded stale cache from DB
@@ -135,7 +135,7 @@ class TestExtractionPipelineFlow:
 
     @pytest.mark.asyncio
     async def test_html_extraction_end_to_end(self, doc_store):
-        from ocr.base import MarkitdownBackend
+        from bddk_mcp.ocr.base import MarkitdownBackend
 
         syncer = DocumentSyncer(doc_store, ocr_backends=[MarkitdownBackend()])
         syncer._http = AsyncMock(spec=httpx.AsyncClient)
@@ -174,9 +174,9 @@ class TestConfigIntegration:
     """Test that config values are properly used across modules."""
 
     def test_page_size_consistent_across_modules(self):
-        import client
-        import doc_store
-        from config import PAGE_SIZE
+        from bddk_mcp.core.config import PAGE_SIZE
+        from bddk_mcp.ingest import client
+        from bddk_mcp.store import doc_store
 
         assert client.PAGE_SIZE == PAGE_SIZE
         assert doc_store.PAGE_SIZE == PAGE_SIZE

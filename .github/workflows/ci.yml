@@ -64,8 +64,8 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --no-dev
       - name: Verify Python imports
-        run: uv run python -c "from tools import admin, analytics, bulletin, documents, search, sync; print('OK')"
-      - name: Verify Dockerfiles copy tools directory
+        run: uv run python -c "from bddk_mcp.tools import admin, analytics, bulletin, documents, search, sync; print('OK')"
+      - name: Verify Dockerfiles copy bddk_mcp package
         run: |
-          grep -q "COPY tools/" Dockerfile
-          grep -q "COPY tools/" Dockerfile.spaces
+          grep -q "COPY bddk_mcp/" Dockerfile
+          grep -q "COPY bddk_mcp/" Dockerfile.spaces

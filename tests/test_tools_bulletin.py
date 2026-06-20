@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from deps import Dependencies
-from tools import bulletin as bulletin_mod
-from tools.bulletin import register
+from bddk_mcp.core.deps import Dependencies
+from bddk_mcp.tools import bulletin as bulletin_mod
+from bddk_mcp.tools.bulletin import register
 
 
 def test_register_exposes_end_user_tools_only_by_default():

@@ -13,7 +13,7 @@ import logging
 import os
 import tempfile
 
-from config import CHANDRA_MODEL_NAME
+from bddk_mcp.core.config import CHANDRA_MODEL_NAME
 
 logger = logging.getLogger(__name__)
 

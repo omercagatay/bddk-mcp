@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from markdown_quality import (
+from bddk_mcp.quality.markdown_quality import (
     assess_markdown_quality,
     sanitize_markdown_for_context,
     sanitize_markdown_for_storage,

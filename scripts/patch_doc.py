@@ -38,10 +38,10 @@ sys.path.insert(0, str(ROOT))
 import asyncpg  # noqa: E402
 from patch_md import validate_latex  # noqa: E402
 
-from config import PAGE_SIZE, require_database_url  # noqa: E402
-from doc_store import DocumentStore, StoredDocument  # noqa: E402
-from seed import _strip_docs_dump_header  # noqa: E402
-from vector_store import VectorStore, _chunk_document  # noqa: E402
+from bddk_mcp.core.config import PAGE_SIZE, require_database_url  # noqa: E402
+from bddk_mcp.ingest.seed import _strip_docs_dump_header  # noqa: E402
+from bddk_mcp.store.doc_store import DocumentStore, StoredDocument  # noqa: E402
+from bddk_mcp.store.vector_store import VectorStore, _chunk_document  # noqa: E402
 
 DEFAULT_EXTRACTION_METHOD = "html_parser+manual_latex"
 

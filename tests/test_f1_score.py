@@ -9,7 +9,7 @@ of Turkish banking regulation queries. Compares three search modes:
 
 import pytest
 
-from vector_store import VectorStore
+from bddk_mcp.store.vector_store import VectorStore
 
 _SKIP_REASON = "Embedding model not available or PostgreSQL not reachable"
 

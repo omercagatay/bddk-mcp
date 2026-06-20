@@ -21,9 +21,9 @@ import asyncpg
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from config import require_database_url  # noqa: E402
-from markdown_quality import assess_markdown_quality  # noqa: E402
-from quality_scan import (  # noqa: E402
+from bddk_mcp.core.config import require_database_url  # noqa: E402
+from bddk_mcp.quality.markdown_quality import assess_markdown_quality  # noqa: E402
+from bddk_mcp.quality.quality_scan import (  # noqa: E402
     AnomalyCount,
     DocumentFinding,
     MethodBreakdown,

@@ -6,7 +6,7 @@ import httpx
 import pytest
 from bs4 import BeautifulSoup
 
-from data_sources import (
+from bddk_mcp.ingest.data_sources import (
     _parse_card_institutions,
     _parse_tabpane_institutions,
     fetch_announcements,
@@ -136,7 +136,7 @@ def test_parse_tabpane_institutions_empty():
 @pytest.fixture(autouse=True)
 def _no_retry_backoff(monkeypatch):
     """Skip the exponential-backoff sleeps in request_with_retry so 5xx paths stay fast."""
-    monkeypatch.setattr("utils.asyncio.sleep", AsyncMock())
+    monkeypatch.setattr("bddk_mcp.core.utils.asyncio.sleep", AsyncMock())
 
 
 @pytest.fixture

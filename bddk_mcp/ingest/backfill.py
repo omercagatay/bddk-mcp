@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import asyncpg
 
-    from doc_sync import DocumentSyncer
+    from bddk_mcp.ingest.doc_sync import DocumentSyncer
 
 logger = logging.getLogger(__name__)
 

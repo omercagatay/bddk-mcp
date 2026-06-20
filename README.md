@@ -199,17 +199,17 @@ Telemetry varsayılan olarak kapalıdır. Açıldığında `tool_call_traces` ta
 ### Mimari
 
 ```text
-server.py                 FastMCP giriş noktası ve lifecycle
-deps.py                   Paylaşılan bağımlılık container'ı
-config.py                 Ortam değişkenleri ve validasyon
-client.py                 BDDK katalog/cache istemcisi
-doc_store.py              PostgreSQL doküman, versiyon, FTS ve bölüm deposu
-vector_store.py           pgvector + hibrit semantik/FTS arama
-section_index.py          Madde/İlke/Paragraf/Ek parser'ı
-legal_ref.py              Türkçe legal-reference parser'ı
-markdown_quality.py       Markdown sanitization ve kalite etiketleri
-doc_sync.py               İndirme ve extraction pipeline'ı
-tools/                    MCP tool modülleri
+server.py                 Kök shim → bddk_mcp/server.py
+seed.py                   Kök shim → bddk_mcp/ingest/seed.py
+bddk_mcp/                 Ana paket
+  server.py               FastMCP giriş noktası ve lifecycle
+  core/                   config, deps, exceptions, logging_config, models, utils
+  store/                  doc_store, vector_store, section_index, legal_ref
+  ingest/                 client, data_sources, doc_sync, html_extractor, backfill, seed
+  quality/                markdown_quality, quality_scan
+  observability/          analytics, telemetry, metrics
+  tools/                  MCP tool modülleri
+  ocr/                    base, chandra (pluggable OCR)
 scripts/                  Operatör ve backfill scriptleri
 benchmark/                Tool schema ve benchmark altyapısı
 ```
@@ -418,17 +418,17 @@ Telemetry is disabled by default. When enabled, the server writes latency, resul
 ### Architecture
 
 ```text
-server.py                 FastMCP entry point and lifecycle
-deps.py                   Shared dependency container
-config.py                 Environment configuration and validation
-client.py                 BDDK catalog/cache client
-doc_store.py              PostgreSQL document, version, FTS, and section store
-vector_store.py           pgvector + hybrid semantic/FTS search
-section_index.py          Madde/Ilke/Paragraf/Ek parser
-legal_ref.py              Turkish legal-reference parser
-markdown_quality.py       Markdown sanitization and quality labels
-doc_sync.py               Download and extraction pipeline
-tools/                    MCP tool modules
+server.py                 Root shim → bddk_mcp/server.py
+seed.py                   Root shim → bddk_mcp/ingest/seed.py
+bddk_mcp/                 Main package
+  server.py               FastMCP entry point and lifecycle
+  core/                   config, deps, exceptions, logging_config, models, utils
+  store/                  doc_store, vector_store, section_index, legal_ref
+  ingest/                 client, data_sources, doc_sync, html_extractor, backfill, seed
+  quality/                markdown_quality, quality_scan
+  observability/          analytics, telemetry, metrics
+  tools/                  MCP tool modules
+  ocr/                    base, chandra (pluggable OCR)
 scripts/                  Operator and backfill scripts
 benchmark/                Tool schemas and benchmark infrastructure
 ```

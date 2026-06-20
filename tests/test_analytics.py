@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from analytics import analyze_trends, build_digest, check_updates, compare_metrics
+from bddk_mcp.observability.analytics import analyze_trends, build_digest, check_updates, compare_metrics
 
 
 def _make_response(text: str = "", status_code: int = 200, json_data=None):

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from quality_scan import (
+from bddk_mcp.quality.quality_scan import (
     AnomalyCount,
     DocumentFinding,
     MethodBreakdown,
@@ -279,8 +279,8 @@ async def test_scan_quality_detects_all_seeded_anomalies(seeded_quality_pool):
 
 @pytest.mark.asyncio
 async def test_document_quality_report_without_pool_returns_message():
-    from deps import Dependencies
-    from tools.admin import register
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.tools.admin import register
 
     mcp = MagicMock()
     captured: dict[str, object] = {}

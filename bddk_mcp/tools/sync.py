@@ -10,11 +10,11 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
-from exceptions import BddkError
-from tools.tool_logging import logged_tool
+from bddk_mcp.core.exceptions import BddkError
+from bddk_mcp.tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
-    from deps import Dependencies
+    from bddk_mcp.core.deps import Dependencies
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +141,7 @@ async def startup_sync(deps: Dependencies) -> None:
     logger.info("Startup sync started...")
     try:
         async with asyncio.timeout(STARTUP_SYNC_TIMEOUT):
-            from doc_sync import DocumentSyncer
+            from bddk_mcp.ingest.doc_sync import DocumentSyncer
 
             store = deps.doc_store
             client = deps.client
@@ -219,7 +219,7 @@ def register(mcp, deps: Dependencies) -> None:
             document_id: Sync a single document by ID (e.g. "1291" or "mevzuat_42628")
             concurrency: Number of parallel downloads (default 5)
         """
-        from doc_sync import DocumentSyncer
+        from bddk_mcp.ingest.doc_sync import DocumentSyncer
 
         store = deps.doc_store
         client = deps.client
@@ -308,7 +308,7 @@ def register(mcp, deps: Dependencies) -> None:
         Args:
             retryable_only: Only show failures that can be retried (e.g. timeouts)
         """
-        from doc_sync import _is_error_page
+        from bddk_mcp.ingest.doc_sync import _is_error_page
 
         store = deps.doc_store
         client = deps.client

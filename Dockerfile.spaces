@@ -10,7 +10,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
 COPY *.py ./
-COPY tools/ ./tools/
+COPY bddk_mcp/ ./bddk_mcp/
 
 # Pre-download the embedding model at build time so runtime is fully offline.
 ENV HF_HOME=/app/model_cache

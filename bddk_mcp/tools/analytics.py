@@ -5,14 +5,14 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from analytics import analyze_trends, build_digest, check_updates, compare_metrics
-from config import ANNOUNCEMENT_CATEGORY_IDS, validate_column, validate_currency, validate_metric_id
-from data_sources import fetch_announcements
-from tools.errors import INVALID_INPUT, UPSTREAM_FETCH_FAILED, tool_error
-from tools.tool_logging import logged_tool
+from bddk_mcp.core.config import ANNOUNCEMENT_CATEGORY_IDS, validate_column, validate_currency, validate_metric_id
+from bddk_mcp.ingest.data_sources import fetch_announcements
+from bddk_mcp.observability.analytics import analyze_trends, build_digest, check_updates, compare_metrics
+from bddk_mcp.tools.errors import INVALID_INPUT, UPSTREAM_FETCH_FAILED, tool_error
+from bddk_mcp.tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
-    from deps import Dependencies
+    from bddk_mcp.core.deps import Dependencies
 
 logger = logging.getLogger(__name__)
 

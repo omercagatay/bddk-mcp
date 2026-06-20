@@ -2,8 +2,8 @@
 
 import pytest
 
-from client import BddkApiClient
-from models import BddkDecisionSummary, BddkSearchRequest
+from bddk_mcp.core.models import BddkDecisionSummary, BddkSearchRequest
+from bddk_mcp.ingest.client import BddkApiClient
 from tests.conftest import MockPool
 
 

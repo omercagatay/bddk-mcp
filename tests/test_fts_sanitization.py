@@ -2,7 +2,7 @@
 
 import pytest
 
-from doc_store import DocumentStore, StoredDocument
+from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
 
 
 class TestFtsSanitization:

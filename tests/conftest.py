@@ -9,8 +9,8 @@ import asyncpg
 import httpx
 import pytest
 
-from doc_store import DocumentStore, StoredDocument
-from models import BddkDecisionSummary
+from bddk_mcp.core.models import BddkDecisionSummary
+from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
 
 # -- PostgreSQL test database -------------------------------------------------
 
@@ -97,7 +97,7 @@ async def doc_store(pg_pool):
 
     # Also create decision_cache table so BddkApiClient queries
     # don't abort the transaction with "relation does not exist"
-    from client import _CACHE_SCHEMA_SQL
+    from bddk_mcp.ingest.client import _CACHE_SCHEMA_SQL
 
     await conn.execute(_CACHE_SCHEMA_SQL)
 

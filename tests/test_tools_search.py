@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from tools.search import _LRUCache, _search_cache
+from bddk_mcp.tools.search import _LRUCache, _search_cache
 
 # -- LRU cache unit tests ---------------------------------------------------
 
@@ -69,8 +69,8 @@ def test_lru_cache_size_one():
 
 def test_search_register():
     """search.register() exposes exactly the four documented search tools."""
-    from deps import Dependencies
-    from tools.search import register
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.tools.search import register
 
     mcp = MagicMock()
     deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
@@ -91,8 +91,8 @@ def _registered_tools(mcp: MagicMock) -> dict:
 
 @pytest.mark.asyncio
 async def test_search_document_store_uses_match_wording_and_section_guidance():
-    from deps import Dependencies
-    from tools.search import register
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.tools.search import register
 
     _search_cache._data.clear()
     vector_store = MagicMock()

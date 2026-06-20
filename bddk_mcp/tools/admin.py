@@ -7,14 +7,14 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
-from backfill import BackfillOutcome, execute_backfill, group_by_signature, scan_candidates
-from exceptions import BddkError, BddkStorageError
-from metrics import metrics
-from quality_scan import format_report, scan_quality
-from tools.tool_logging import logged_tool
+from bddk_mcp.core.exceptions import BddkError, BddkStorageError
+from bddk_mcp.ingest.backfill import BackfillOutcome, execute_backfill, group_by_signature, scan_candidates
+from bddk_mcp.observability.metrics import metrics
+from bddk_mcp.quality.quality_scan import format_report, scan_quality
+from bddk_mcp.tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
-    from deps import Dependencies
+    from bddk_mcp.core.deps import Dependencies
 
 logger = logging.getLogger(__name__)
 
@@ -188,7 +188,7 @@ def register(mcp, deps: Dependencies) -> None:
         deps.backfill_started_at = time.time()
 
         async def _run_backfill() -> None:
-            from doc_sync import DocumentSyncer
+            from bddk_mcp.ingest.doc_sync import DocumentSyncer
 
             async def on_progress(index: int, total: int, outcome: BackfillOutcome) -> None:
                 deps.backfill_progress["processed"] = index

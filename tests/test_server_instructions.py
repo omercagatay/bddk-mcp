@@ -1,4 +1,4 @@
-from server import MCP_INSTRUCTIONS
+from bddk_mcp.server import MCP_INSTRUCTIONS
 
 
 def test_mcp_instructions_hide_tool_protocol_details():

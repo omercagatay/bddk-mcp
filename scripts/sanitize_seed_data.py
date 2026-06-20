@@ -18,8 +18,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from config import PAGE_SIZE  # noqa: E402
-from markdown_quality import sanitize_markdown_for_storage  # noqa: E402
+from bddk_mcp.core.config import PAGE_SIZE  # noqa: E402
+from bddk_mcp.quality.markdown_quality import sanitize_markdown_for_storage  # noqa: E402
 
 DEFAULT_DOCS_PATH = ROOT / "seed_data" / "documents.json"
 

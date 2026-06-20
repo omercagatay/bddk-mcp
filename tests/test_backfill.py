@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from backfill import (
+from bddk_mcp.ingest.backfill import (
     BackfillCandidate,
     execute_backfill,
     group_by_signature,
