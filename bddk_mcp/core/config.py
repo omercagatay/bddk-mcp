@@ -27,7 +27,7 @@ def require_database_url() -> str:
     if not DATABASE_URL:
         raise RuntimeError(
             "BDDK_DATABASE_URL is not set. Copy .env.example to .env and "
-            "set a PostgreSQL DSN, or run `docker-compose up` which sets "
+            "set a PostgreSQL DSN, or run `docker compose up` which sets "
             "it automatically."
         )
     return DATABASE_URL

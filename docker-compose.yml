@@ -14,14 +14,24 @@ services:
       interval: 5s
       retries: 5
 
-  bddk:
+  bddk-init:
     build: .
     depends_on:
       db:
         condition: service_healthy
     environment:
       BDDK_DATABASE_URL: postgresql://bddk:bddk@db:5432/bddk
+    command: [".venv/bin/bddk-mcp", "bootstrap"]
+
+  bddk:
+    build: .
+    depends_on:
+      bddk-init:
+        condition: service_completed_successfully
+    environment:
+      BDDK_DATABASE_URL: postgresql://bddk:bddk@db:5432/bddk
       MCP_TRANSPORT: streamable-http
+      MCP_HOST: 0.0.0.0
       PORT: "8000"
     ports:
       - "8000:8000"

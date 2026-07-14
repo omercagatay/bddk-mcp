@@ -122,6 +122,39 @@ async def test_search_document_store_uses_match_wording_and_section_guidance():
     assert "get_document_section" in out
 
 
+@pytest.mark.asyncio
+async def test_search_document_store_registry_overrides_stale_clean_index_metadata():
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    vector_store = MagicMock()
+    vector_store.search = AsyncMock(
+        return_value=[
+            {
+                "title": "Configured quality failure",
+                "category": "Rehber",
+                "decision_date": "",
+                "doc_id": "903",
+                "snippet": "MADDE 1 - Temiz görünen metin",
+                "relevance": 0.81,
+                "quality_label": "clean",
+                "quality_flags": [],
+            }
+        ]
+    )
+    deps = Dependencies(pool=None, doc_store=None, client=None, http=None, vector_store=vector_store)
+    mcp = MagicMock()
+    register(mcp, deps)
+    search_document_store = _registered_tools(mcp)["search_document_store"]
+
+    out = await search_document_store("örnek", limit=1)
+
+    assert "Quality: fail" in out
+    assert "configured_quality_failure" in out
+    assert "listed in the configured quality-failure registry" in out
+
+
 # -- get_version_counts integration test (requires PostgreSQL) ---------------
 
 

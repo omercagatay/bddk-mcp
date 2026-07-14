@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
+from bddk_mcp.core.exceptions import BddkStorageError
 from bddk_mcp.core.models import BddkDecisionSummary
 from bddk_mcp.ingest.client import (
     _DECISION_PAGE_IDS,
@@ -93,6 +94,16 @@ class TestCachePersistence:
         client = BddkApiClient(pool=pool)
         loaded = await client._load_cache_from_db()
         assert not loaded
+
+    @pytest.mark.asyncio
+    async def test_serving_mode_never_populates_an_empty_cache_from_network(self):
+        client = BddkApiClient(pool=MockPool(), allow_live_population=False)
+        client._scrape_bddk = AsyncMock()
+
+        with pytest.raises(BddkStorageError, match="will not populate it from the network"):
+            await client._ensure_cache()
+
+        client._scrape_bddk.assert_not_awaited()
 
 
 class TestAccordionParsing:

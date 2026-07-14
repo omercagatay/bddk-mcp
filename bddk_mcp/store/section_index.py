@@ -60,10 +60,9 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
     if not matches and len(text) > 1000:
         logger.warning(
             "extract_document_sections: no section headings matched for %s (%d chars); "
-            "document will be invisible to section search. Head: %r",
+            "document will be invisible to section search",
             doc_id,
             len(text),
-            text[:80],
         )
     sections: list[DocumentSection] = []
     level1_capped_end: int | None = None

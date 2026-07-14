@@ -65,6 +65,22 @@ async def test_get_document_section_returns_exact_match():
 
 
 @pytest.mark.asyncio
+async def test_get_document_section_surfaces_configured_failure_before_content():
+    section = _section("903", "madde", "1", "MADDE 1 - Temiz görünen mevzuat metni.")
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[section])
+    deps = Dependencies(pool=None, doc_store=doc_store, client=None, http=None)
+
+    tool = _capture_tool(deps, "get_document_section")
+    out = await tool("903", section_type="madde", section_ref="1")
+
+    assert "Quality: fail" in out
+    assert "configured_quality_failure" in out
+    assert "listed in the configured quality-failure registry" in out
+    assert out.index("Quality warning") < out.index("MADDE 1")
+
+
+@pytest.mark.asyncio
 async def test_get_document_section_accepts_integer_section_ref():
     doc_store = MagicMock()
     doc_store.get_document_section = AsyncMock(return_value=[_section()])
@@ -75,6 +91,24 @@ async def test_get_document_section_accepts_integer_section_ref():
 
     assert "Section: ilke 5" in out
     doc_store.get_document_section.assert_awaited_once_with("943", section_type="ilke", section_ref="5", heading=None)
+
+
+@pytest.mark.asyncio
+async def test_get_document_section_resolves_bare_mevzuat_alias():
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(
+        side_effect=[[], [_section("mevzuat_22599", "madde", "9", "MADDE 9 - Karşılıklar")]]
+    )
+    deps = Dependencies(pool=None, doc_store=doc_store, client=None, http=None)
+
+    tool = _capture_tool(deps, "get_document_section")
+    out = await tool("22599", section_type="madde", section_ref="9")
+
+    assert "Document ID: mevzuat_22599" in out
+    assert [call.args[0] for call in doc_store.get_document_section.await_args_list] == [
+        "22599",
+        "mevzuat_22599",
+    ]
 
 
 @pytest.mark.asyncio
@@ -145,6 +179,23 @@ async def test_search_document_sections_outputs_ranked_sections():
     doc_store.search_document_sections.assert_awaited_once_with(
         "943 İlke 5 model validasyonu", document_id="943", section_type="ilke", limit=5
     )
+
+
+@pytest.mark.asyncio
+async def test_search_document_sections_surfaces_configured_failure():
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[])
+    doc_store.search_document_sections = AsyncMock(
+        return_value=[_section("903", "madde", "1", "MADDE 1 - Temiz görünen mevzuat metni.")]
+    )
+    deps = Dependencies(pool=None, doc_store=doc_store, client=None, http=None)
+
+    tool = _capture_tool(deps, "search_document_sections")
+    out = await tool("örnek", limit=1)
+
+    assert "Quality: fail" in out
+    assert "configured_quality_failure" in out
+    assert "listed in the configured quality-failure registry" in out
 
 
 @pytest.mark.asyncio

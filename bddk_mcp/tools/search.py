@@ -19,10 +19,14 @@ from bddk_mcp.ingest.data_sources import fetch_announcements, fetch_institutions
 from bddk_mcp.observability.metrics import metrics
 from bddk_mcp.observability.telemetry import (
     elapsed_ms,
-    quality_labels_from_hits,
     record_tool_call_trace,
     relevance_stats_from_hits,
     unique_doc_ids,
+)
+from bddk_mcp.quality.markdown_quality import (
+    QualityAssessment,
+    assess_markdown_quality,
+    quality_assessment_from_metadata,
 )
 from bddk_mcp.tools.tool_logging import logged_tool
 
@@ -80,6 +84,25 @@ def _match_strength(relevance: float) -> str:
     if relevance >= 0.50:
         return "moderate match"
     return "weak match"
+
+
+def _quality_result_lines(quality: QualityAssessment, *, indent: str = "  ") -> list[str]:
+    """Return consistent user-visible quality metadata for a non-clean hit."""
+    if quality.label not in {"warning", "fail"}:
+        return []
+    flags = ", ".join(quality.flags) if quality.flags else "none"
+    lines = [f"{indent}Quality: {quality.label}", f"{indent}Quality flags: {flags}"]
+    if quality.warning:
+        lines.append(f"{indent}⚠ Quality warning: {quality.warning}")
+    return lines
+
+
+def _search_hit_quality(hit: dict) -> QualityAssessment:
+    return quality_assessment_from_metadata(
+        str(hit.get("doc_id") or hit.get("document_id") or ""),
+        hit.get("quality_label"),
+        list(hit.get("quality_flags") or []),
+    )
 
 
 def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
@@ -189,6 +212,7 @@ Try: (1) call search_document_store with the same query for full-text semantic s
             ver_count, ver_latest = version_counts.get(d.document_id, (0, None))
             if ver_count:
                 lines.append(f"  Versions: {ver_count} (latest: {ver_latest})")
+            lines.extend(_quality_result_lines(assess_markdown_quality("", document_id=d.document_id)))
             lines.append(f"  {d.content}\n")
 
         output = "\n".join(lines)
@@ -373,12 +397,16 @@ DO NOT provide information from your own knowledge about BDDK regulations.
 Suggest the user try: different Turkish keywords, broader terms, or removing the category filter."""
 
         lines = [f"Found {len(hits)} result(s) for '{query}':\n"]
+        hit_quality: dict[str, QualityAssessment] = {}
         for h in hits:
             date_info = f" ({h['decision_date']})" if h.get("decision_date") else ""
             cat_info = f" [{h['category']}]" if h.get("category") else ""
             relevance = f" [{_match_strength(h['relevance'])}, relevance {h['relevance']:.1%}]"
             lines.append(f"**{h['title']}**{date_info}{cat_info}{relevance}")
             lines.append(f"  Document ID: {h['doc_id']}")
+            quality = _search_hit_quality(h)
+            hit_quality[str(h["doc_id"])] = quality
+            lines.extend(_quality_result_lines(quality))
             if h.get("snippet"):
                 lines.append(f"  ...{h['snippet'][:200]}...")
             lines.append("")
@@ -404,7 +432,9 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
             latency_ms=elapsed_ms(start),
             result_count=len(hits),
             doc_ids=unique_doc_ids([hit.get("doc_id") for hit in hits]),
-            quality_labels=quality_labels_from_hits(hits),
+            quality_labels={
+                doc_id: {"label": quality.label, "flags": quality.flags} for doc_id, quality in hit_quality.items()
+            },
             relevance_stats=relevance_stats_from_hits(hits),
         )
         return output

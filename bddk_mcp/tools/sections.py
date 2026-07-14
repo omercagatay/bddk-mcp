@@ -7,7 +7,8 @@ import time
 from typing import TYPE_CHECKING
 
 from bddk_mcp.observability.telemetry import elapsed_ms, record_tool_call_trace, unique_doc_ids
-from bddk_mcp.store.legal_ref import parse_legal_refs
+from bddk_mcp.quality.markdown_quality import QualityAssessment, assess_markdown_quality
+from bddk_mcp.store.legal_ref import document_id_candidates, parse_legal_refs
 
 if TYPE_CHECKING:
     from bddk_mcp.core.deps import Dependencies
@@ -37,7 +38,35 @@ _LOOSE_SECTION_SEARCH_STOPWORDS = {
 }
 
 
-def _format_section(section: StoredDocumentSection, *, include_content: bool = True) -> str:
+def _section_quality(section: StoredDocumentSection) -> QualityAssessment:
+    return assess_markdown_quality(section.content, document_id=section.doc_id)
+
+
+def _quality_lines(quality: QualityAssessment, *, prefix: str) -> list[str]:
+    """Return consistent user-visible quality metadata for a non-clean section."""
+    if quality.label not in {"warning", "fail"}:
+        return []
+    flags = ", ".join(quality.flags) if quality.flags else "none"
+    lines = [f"{prefix}Quality: {quality.label}", f"{prefix}Quality flags: {flags}"]
+    if quality.warning:
+        lines.append(f"{prefix}⚠ Quality warning: {quality.warning}")
+    return lines
+
+
+def _quality_labels(sections: list[StoredDocumentSection]) -> dict[str, dict[str, object]]:
+    labels: dict[str, dict[str, object]] = {}
+    for section in sections:
+        quality = _section_quality(section)
+        labels[section.doc_id] = {"label": quality.label, "flags": quality.flags}
+    return labels
+
+
+def _format_section(
+    section: StoredDocumentSection,
+    *,
+    include_content: bool = True,
+    quality: QualityAssessment | None = None,
+) -> str:
     heading = f" — {section.heading}" if section.heading else ""
     lines = [
         f"### {section.doc_id} — {section.section_type} {section.section_ref}{heading}",
@@ -48,6 +77,8 @@ def _format_section(section: StoredDocumentSection, *, include_content: bool = T
     if section.page_start is not None:
         page_end = section.page_end if section.page_end is not None else section.page_start
         lines.append(f"- Pages: {section.page_start}-{page_end}")
+    quality = quality or _section_quality(section)
+    lines.extend(_quality_lines(quality, prefix="- "))
     if include_content:
         lines.extend(["", section.content])
     return "\n".join(lines)
@@ -148,12 +179,16 @@ def register(mcp, deps: Dependencies) -> None:
             "section_ref": section_ref,
             "heading": heading,
         }
-        sections = await deps.doc_store.get_document_section(
-            document_id,
-            section_type=_normalize_optional(section_type),
-            section_ref=_normalize_optional(section_ref),
-            heading=heading,
-        )
+        sections = []
+        for candidate in document_id_candidates(document_id):
+            sections = await deps.doc_store.get_document_section(
+                candidate,
+                section_type=_normalize_optional(section_type),
+                section_ref=_normalize_optional(section_ref),
+                heading=heading,
+            )
+            if sections:
+                break
         if not sections:
             query = " ".join(
                 str(part) for part in (document_id, section_type or "", section_ref or "", heading or "") if part
@@ -173,6 +208,7 @@ def register(mcp, deps: Dependencies) -> None:
             )
 
         if len(sections) == 1:
+            quality = _section_quality(sections[0])
             await record_tool_call_trace(
                 getattr(deps, "pool", None),
                 tool_name="get_document_section",
@@ -180,9 +216,10 @@ def register(mcp, deps: Dependencies) -> None:
                 latency_ms=elapsed_ms(start),
                 result_count=1,
                 doc_ids=[sections[0].doc_id],
+                quality_labels={sections[0].doc_id: {"label": quality.label, "flags": quality.flags}},
                 relevance_stats={"status": "exact_match"},
             )
-            return _format_section(sections[0])
+            return _format_section(sections[0], quality=quality)
 
         lines = [f"Multiple sections matched ({len(sections)}). Narrow by section_type, section_ref, or heading:\n"]
         for section in sections[:10]:
@@ -191,6 +228,7 @@ def register(mcp, deps: Dependencies) -> None:
                 f"- {section.doc_id} {section.section_type} {section.section_ref}{heading_text} "
                 f"(start_char={section.start_char}, hash={section.content_hash[:12]})"
             )
+            lines.extend(_quality_lines(_section_quality(section), prefix="  "))
             lines.append(f"  {_section_preview(section)}")
         if len(sections) > 10:
             lines.append(f"... {len(sections) - 10} more match(es) omitted.")
@@ -201,6 +239,7 @@ def register(mcp, deps: Dependencies) -> None:
             latency_ms=elapsed_ms(start),
             result_count=len(sections),
             doc_ids=unique_doc_ids([section.doc_id for section in sections]),
+            quality_labels=_quality_labels(sections),
             relevance_stats={"status": "disambiguation"},
         )
         return "\n".join(lines)
@@ -235,29 +274,42 @@ def register(mcp, deps: Dependencies) -> None:
         inferred_section_type = section_type or (refs.sections[0][0] if refs.sections else None)
         inferred_section_ref = refs.sections[0][1] if refs.sections else None
         exact_ref_detected = bool(inferred_doc_id and inferred_section_type and inferred_section_ref)
+        candidate_doc_ids: list[str | None] = (
+            list(document_id_candidates(inferred_doc_id)) if inferred_doc_id else [None]
+        )
 
         exact_hits = []
         if exact_ref_detected:
-            exact_hits = await deps.doc_store.get_document_section(
-                inferred_doc_id,
-                section_type=_normalize_optional(inferred_section_type),
-                section_ref=_normalize_optional(inferred_section_ref),
-            )
-        hits = await deps.doc_store.search_document_sections(
-            query,
-            document_id=inferred_doc_id,
-            section_type=_normalize_optional(inferred_section_type),
-            limit=limit,
-        )
-        loose_fallback_used = False
-        if not hits and not exact_hits:
-            hits = await _search_sections_loose(
-                deps,
+            for candidate_doc_id in candidate_doc_ids:
+                exact_hits = await deps.doc_store.get_document_section(
+                    candidate_doc_id,
+                    section_type=_normalize_optional(inferred_section_type),
+                    section_ref=_normalize_optional(inferred_section_ref),
+                )
+                if exact_hits:
+                    break
+        hits = []
+        for candidate_doc_id in candidate_doc_ids:
+            hits = await deps.doc_store.search_document_sections(
                 query,
-                document_id=inferred_doc_id,
+                document_id=candidate_doc_id,
                 section_type=_normalize_optional(inferred_section_type),
                 limit=limit,
             )
+            if hits:
+                break
+        loose_fallback_used = False
+        if not hits and not exact_hits:
+            for candidate_doc_id in candidate_doc_ids:
+                hits = await _search_sections_loose(
+                    deps,
+                    query,
+                    document_id=candidate_doc_id,
+                    section_type=_normalize_optional(inferred_section_type),
+                    limit=limit,
+                )
+                if hits:
+                    break
             loose_fallback_used = bool(hits)
         if exact_hits:
             # Exact-ref lookups carry no FTS rank; inherit it from the FTS
@@ -296,6 +348,7 @@ def register(mcp, deps: Dependencies) -> None:
                 # "relative" guards against conflation with the percent-scale
                 # relevance gate in the server instructions (store search).
                 lines.append(f"  Match rank: {hit.rank:.4f} (relative, FTS)")
+            lines.extend(_quality_lines(_section_quality(hit), prefix="  "))
             preview = _section_preview(hit)
             if preview:
                 lines.append(f"  ...{preview}...")
@@ -307,6 +360,7 @@ def register(mcp, deps: Dependencies) -> None:
             latency_ms=elapsed_ms(start),
             result_count=len(hits),
             doc_ids=unique_doc_ids([hit.doc_id for hit in hits]),
+            quality_labels=_quality_labels(hits),
             relevance_stats={"exact_ref_detected": exact_ref_detected, "loose_fallback": loose_fallback_used},
         )
         return "\n".join(lines)

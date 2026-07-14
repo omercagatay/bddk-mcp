@@ -10,6 +10,7 @@ from bddk_mcp.core.config import ADMIN_TOOLS
 from bddk_mcp.core.exceptions import BddkStorageError
 from bddk_mcp.observability.telemetry import elapsed_ms, record_tool_call_trace
 from bddk_mcp.quality.markdown_quality import assess_markdown_quality, sanitize_markdown_for_context
+from bddk_mcp.store.legal_ref import document_id_candidates
 from bddk_mcp.tools.errors import NOT_FOUND, tool_error
 from bddk_mcp.tools.tool_logging import logged_tool
 
@@ -60,7 +61,12 @@ def _normalize_max_pages(max_pages: int) -> tuple[int, bool]:
     return normalized, requested != normalized
 
 
-def register(mcp, deps: Dependencies) -> None:
+def register(
+    mcp,
+    deps: Dependencies,
+    *,
+    include_operator: bool | None = None,
+) -> None:
     """Register document tools on the given MCP instance."""
 
     @mcp.tool()
@@ -89,9 +95,7 @@ def register(mcp, deps: Dependencies) -> None:
         start = time.perf_counter()
         max_pages, max_pages_capped = _normalize_max_pages(max_pages)
         args = {"document_id": document_id, "page_number": page_number, "max_pages": max_pages}
-        candidates = [document_id] + (
-            [f"mevzuat_{document_id}", f"bddk_{document_id}"] if document_id.isdigit() else []
-        )
+        candidates = document_id_candidates(document_id)
 
         async def _lookup_page(cand: str, page: int) -> tuple[int, int, str, str, bool] | None:
             if deps.vector_store is not None:
@@ -309,7 +313,9 @@ def register(mcp, deps: Dependencies) -> None:
 
         return "\n".join(lines)
 
-    if not ADMIN_TOOLS:
+    if include_operator is None:
+        include_operator = ADMIN_TOOLS
+    if not include_operator:
         return
 
     @mcp.tool()

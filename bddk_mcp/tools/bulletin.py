@@ -24,7 +24,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def register(mcp, deps: Dependencies) -> None:
+def register(
+    mcp,
+    deps: Dependencies,
+    *,
+    include_operator: bool | None = None,
+) -> None:
     """Register bulletin tools on the given MCP instance."""
 
     @mcp.tool()
@@ -153,7 +158,9 @@ def register(mcp, deps: Dependencies) -> None:
 
         return "\n".join(lines)
 
-    if not ADMIN_TOOLS:
+    if include_operator is None:
+        include_operator = ADMIN_TOOLS
+    if not include_operator:
         return
 
     @mcp.tool()

@@ -5,33 +5,33 @@ WORKDIR /app
 # Install uv for fast dependency resolution
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Copy project files
-COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
-
-COPY *.py ./
+# Copy install metadata and package source before syncing so the packaged
+# bddk-mcp / bddk-seed console entry points are installed in the image.
+COPY pyproject.toml uv.lock README.md LICENSE ./
 COPY bddk_mcp/ ./bddk_mcp/
+RUN uv sync --frozen --no-dev
 
 # Bundle pre-populated seed data (run `python seed.py export` locally first)
 COPY seed_data/ ./seed_data/
 
 # Pre-download the embedding model at build time so runtime is fully offline.
 ENV HF_HOME=/app/model_cache
-RUN uv run python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('intfloat/multilingual-e5-base')"
+RUN .venv/bin/python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('intfloat/multilingual-e5-base')"
 ENV TRANSFORMERS_OFFLINE=1
 ENV HF_HUB_OFFLINE=1
 
-# PostgreSQL connection (override at runtime)
-ENV BDDK_DATABASE_URL=postgresql://bddk:bddk@db:5432/bddk
+# PostgreSQL connection is required and must be injected at runtime.
+ENV BDDK_DATABASE_URL=""
 
-# Auto-sync disabled by default — PostgreSQL persists across deploys.
-# Set to true only for first deploy with empty database.
+# Serving is read-only with respect to corpus/schema lifecycle. Run
+# `bddk-mcp bootstrap` as an explicit init Job before starting this process.
 ENV BDDK_AUTO_SYNC=false
 
 # Default to streamable-http transport for remote deployment
 ENV MCP_TRANSPORT=streamable-http
+ENV MCP_HOST=0.0.0.0
 ENV PORT=8000
 
 EXPOSE 8000
 
-CMD ["uv", "run", "python", "server.py"]
+CMD [".venv/bin/bddk-mcp", "serve"]

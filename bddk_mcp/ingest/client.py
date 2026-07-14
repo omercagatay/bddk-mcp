@@ -21,6 +21,7 @@ from bddk_mcp.core.config import (
     STALE_CACHE_FALLBACK,
     SYNC_CONCURRENCY,
 )
+from bddk_mcp.core.exceptions import BddkStorageError
 from bddk_mcp.core.models import (
     BddkDecisionSummary,
     BddkDocumentMarkdown,
@@ -226,6 +227,16 @@ CREATE INDEX IF NOT EXISTS idx_decision_cache_category ON decision_cache(categor
 """
 
 
+async def initialize_cache_schema(pool: asyncpg.Pool) -> None:
+    """Explicitly create the decision-cache schema.
+
+    Serving code must use :meth:`BddkApiClient.load_cache_read_only` instead;
+    this mutating helper is reserved for migration/bootstrap workflows.
+    """
+    async with pool.acquire() as conn:
+        await conn.execute(_CACHE_SCHEMA_SQL)
+
+
 class BddkApiClient:
     """
     Client for searching and retrieving BDDK decisions and regulations.
@@ -240,6 +251,7 @@ class BddkApiClient:
         request_timeout: float = REQUEST_TIMEOUT,
         doc_store: DocumentStore | None = None,
         http: httpx.AsyncClient | None = None,
+        allow_live_population: bool = True,
     ) -> None:
         self._pool = pool
         self._owns_http = http is None
@@ -265,6 +277,7 @@ class BddkApiClient:
             )
         self._md = MarkItDown()
         self._doc_store = doc_store
+        self._allow_live_population = allow_live_population
         self._cache: list[BddkDecisionSummary] = []
         self._cache_timestamp: float = 0.0
         self._page_errors: dict[int, str] = {}
@@ -276,8 +289,7 @@ class BddkApiClient:
 
     async def initialize(self) -> None:
         """Create cache table and load existing cache from PostgreSQL."""
-        async with self._pool.acquire() as conn:
-            await conn.execute(_CACHE_SCHEMA_SQL)
+        await initialize_cache_schema(self._pool)
         # Eagerly load from DB — instant, no network needed
         await self._load_cache_from_db()
 
@@ -342,35 +354,57 @@ class BddkApiClient:
         except (asyncpg.PostgresError, OSError) as e:
             logger.error("Failed to save cache to PostgreSQL: %s", e)
 
-    async def _load_cache_from_db(self) -> bool:
-        """Load cache from PostgreSQL. Always loads regardless of TTL."""
+    async def load_cache_read_only(self, *, require_nonempty: bool = True) -> int:
+        """Load the decision cache with one SELECT and no repair or live fetch.
+
+        Raises a sanitized :class:`BddkStorageError` when serving prerequisites
+        are absent.  The error deliberately excludes driver text, SQL, paths,
+        and connection details.
+        """
         try:
             rows = await self._pool.fetch(
                 "SELECT document_id, title, content, decision_date, decision_number, "
                 "category, source_url, cached_at FROM decision_cache"
             )
-            if not rows:
-                return False
-            loaded = [
-                BddkDecisionSummary(
-                    document_id=row["document_id"],
-                    title=row["title"],
-                    content=row["content"] or "",
-                    decision_date=row["decision_date"] or "",
-                    decision_number=row["decision_number"] or "",
-                    category=row["category"] or "",
-                    source_url=row["source_url"] or "",
-                )
-                for row in rows
-            ]
-            # Apply scope filter on every load — keeps stale DB items hidden after filter rules change.
-            self._cache = [dec for dec in loaded if _is_in_scope(dec)]
-            # Use the most recent cached_at as timestamp
-            self._cache_timestamp = max(row["cached_at"] for row in rows)
+        except (asyncpg.PostgresError, OSError):
+            raise BddkStorageError(
+                "Decision cache could not be read with serving credentials. Run `bddk-mcp migrate` and "
+                "`bddk-mcp bootstrap` with operator credentials, then grant the serving role SELECT access."
+            ) from None
+
+        loaded = [
+            BddkDecisionSummary(
+                document_id=row["document_id"],
+                title=row["title"],
+                content=row["content"] or "",
+                decision_date=row["decision_date"] or "",
+                decision_number=row["decision_number"] or "",
+                category=row["category"] or "",
+                source_url=row["source_url"] or "",
+            )
+            for row in rows
+        ]
+        # Apply scope filtering on every load so stale excluded rows cannot
+        # become visible after filtering rules change.
+        self._cache = [decision for decision in loaded if _is_in_scope(decision)]
+        self._cache_timestamp = max((row["cached_at"] for row in rows), default=0.0)
+
+        if require_nonempty and not self._cache:
+            raise BddkStorageError(
+                "Decision cache is empty or contains no in-scope documents. Run `bddk-mcp bootstrap` with the "
+                "reviewed seed corpus before starting the server."
+            )
+
+        if self._cache:
             logger.info("Cache loaded from PostgreSQL: %d items", len(self._cache))
-            return True
-        except (asyncpg.PostgresError, OSError) as e:
-            logger.warning("Failed to load cache from DB: %s", e)
+        return len(self._cache)
+
+    async def _load_cache_from_db(self) -> bool:
+        """Best-effort compatibility wrapper for legacy auto-population paths."""
+        try:
+            return (await self.load_cache_read_only(require_nonempty=False)) > 0
+        except BddkStorageError:
+            logger.warning("Decision cache could not be loaded from PostgreSQL")
             return False
 
     # -- cache ----------------------------------------------------------------
@@ -556,6 +590,12 @@ class BddkApiClient:
         if await self._load_cache_from_db():
             logger.info("Serving %d items from PostgreSQL cache", len(self._cache))
             return
+
+        if not self._allow_live_population:
+            raise BddkStorageError(
+                "Decision cache became unavailable while the server was running. "
+                "Restore the reviewed corpus with `bddk-mcp bootstrap`; serving mode will not populate it from the network."
+            )
 
         # DB is empty — must scrape BDDK for initial population
         logger.info("PostgreSQL cache empty — initial scrape from BDDK...")

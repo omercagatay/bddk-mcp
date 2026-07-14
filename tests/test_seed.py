@@ -23,7 +23,13 @@ async def clean_pool(pg_pool):
     and after the test, so seed import tests don't pollute other tests."""
 
     async def _truncate(conn):
-        for tbl in ("documents", "document_chunks", "decision_cache", "document_versions"):
+        for tbl in (
+            "documents",
+            "document_chunks",
+            "document_sections",
+            "decision_cache",
+            "document_versions",
+        ):
             try:
                 await conn.execute(f"TRUNCATE {tbl} RESTART IDENTITY")
             except Exception:
@@ -326,3 +332,70 @@ class TestStripDocsDumpHeader:
     def test_splits_only_on_first_separator(self):
         text = "header\n---\nbody with\n---\nembedded separator\n"
         assert seed._strip_docs_dump_header(text) == "body with\n---\nembedded separator\n"
+
+
+def test_expected_seed_sections_parses_article_references():
+    sections = seed._expected_seed_sections(
+        [
+            {
+                "document_id": "mevzuat_22599",
+                "markdown_content": "MADDE 9 - TFRS 9 karşılık\nBankalar karşılık ayırır.\n",
+            }
+        ]
+    )
+
+    assert [(item.section_type, item.section_ref) for item in sections["mevzuat_22599"]] == [("madde", "9")]
+
+
+def test_reviewed_seed_contains_required_exact_section_fixtures():
+    documents = json.loads((seed.SEED_DIR / "documents.json").read_text(encoding="utf-8"))
+    targets = {"943", "mevzuat_22599"}
+    sections = seed._expected_seed_sections(
+        [document for document in documents if document.get("document_id") in targets]
+    )
+
+    assert any(item.section_type == "ilke" and item.section_ref == "5" for item in sections["943"])
+    assert any(item.section_type == "madde" and item.section_ref == "9" for item in sections["mevzuat_22599"])
+
+
+@pytest.mark.asyncio
+async def test_import_restores_missing_section_index(clean_pool, temp_seed_dir):
+    """Matching documents and chunks must not hide a missing section index."""
+    docs = [
+        {
+            "document_id": "mevzuat_22599",
+            "title": "TFRS 9 Test",
+            "markdown_content": "MADDE 9 - Karşılıklar\nBankalar beklenen kredi zararı hesaplar.\n",
+            "content_hash": "section_hash",
+        }
+    ]
+    chunks = [
+        {
+            "doc_id": "mevzuat_22599",
+            "chunk_index": 0,
+            "chunk_text": docs[0]["markdown_content"],
+            "content_hash": "section_hash",
+        }
+    ]
+    _write_seed_files(temp_seed_dir, docs=docs, chunks=chunks)
+
+    first = await seed.import_seed(pool=clean_pool, force=True)
+    assert first["sections"] == 1
+    await clean_pool.execute(
+        "DELETE FROM document_sections WHERE doc_id = $1",
+        "mevzuat_22599",
+    )
+
+    repaired = await seed.import_seed(pool=clean_pool, force=False)
+    assert repaired["skipped"] is False
+    assert repaired["sections"] == 1
+    row = await clean_pool.fetchrow(
+        """SELECT section_type, section_ref
+           FROM document_sections
+           WHERE doc_id = $1""",
+        "mevzuat_22599",
+    )
+    assert (row["section_type"], row["section_ref"]) == ("madde", "9")
+
+    current = await seed.import_seed(pool=clean_pool, force=False)
+    assert current["skipped"] is True

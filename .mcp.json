@@ -2,7 +2,7 @@
   "mcpServers": {
     "bddk": {
       "command": "uv",
-      "args": ["run", "--directory", "/home/cagatay/bddk-mcp", "--python", "3.12", "mcp", "run", "server.py"],
+      "args": ["run", "--frozen", "bddk-mcp"],
       "env": {
         "MCP_TRANSPORT": "stdio",
         "BDDK_DATABASE_URL": "${BDDK_DATABASE_URL}"

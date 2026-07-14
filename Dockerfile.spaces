@@ -5,30 +5,34 @@ WORKDIR /app
 # Install uv for fast dependency resolution
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Copy project files
-COPY pyproject.toml uv.lock ./
+# Copy install metadata and package source before syncing so the packaged
+# bddk-mcp / bddk-seed console entry points are installed in the image.
+COPY pyproject.toml uv.lock README.md LICENSE ./
+COPY bddk_mcp/ ./bddk_mcp/
 RUN uv sync --frozen --no-dev
 
-COPY *.py ./
-COPY bddk_mcp/ ./bddk_mcp/
+# Bundle the same reviewed corpus as the standard image. An explicit
+# `bddk-mcp bootstrap` operation must import it before the server starts.
+COPY seed_data/ ./seed_data/
 
 # Pre-download the embedding model at build time so runtime is fully offline.
 ENV HF_HOME=/app/model_cache
-RUN uv run python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('intfloat/multilingual-e5-base')"
+RUN .venv/bin/python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('intfloat/multilingual-e5-base')"
 ENV TRANSFORMERS_OFFLINE=1
 ENV HF_HUB_OFFLINE=1
 
-# PostgreSQL connection (override at runtime)
-ENV BDDK_DATABASE_URL=postgresql://bddk:bddk@db:5432/bddk
+# PostgreSQL connection is required and must be injected at runtime.
+ENV BDDK_DATABASE_URL=""
 
-# Auto-sync documents on first deploy if store is empty
-ENV BDDK_AUTO_SYNC=true
+# Seed import is handled separately; do not enable upstream synchronization by default.
+ENV BDDK_AUTO_SYNC=false
 
 # Default to streamable-http transport for remote deployment
 ENV MCP_TRANSPORT=streamable-http
+ENV MCP_HOST=0.0.0.0
 
 # HuggingFace Spaces requires port 7860
 ENV PORT=7860
 EXPOSE 7860
 
-CMD ["uv", "run", "python", "server.py"]
+CMD [".venv/bin/bddk-mcp", "serve"]

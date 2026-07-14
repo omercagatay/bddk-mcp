@@ -9,10 +9,100 @@ from __future__ import annotations
 
 import re
 import textwrap
+from collections.abc import Mapping
+from dataclasses import dataclass
+from pathlib import Path
+from types import MappingProxyType
 
+import yaml
 from pydantic import BaseModel, Field
 
-_KNOWN_FAIL_DOCUMENT_IDS: set[str] = set()
+QUALITY_FAILURES_PATH = Path(__file__).with_name("quality_failures.yml")
+_CONFIGURED_QUALITY_FAILURE_FLAG = "configured_quality_failure"
+
+
+@dataclass(frozen=True, slots=True)
+class QualityFailure:
+    """An operator-reviewed document failure from the canonical registry."""
+
+    document_id: str
+    reason: str
+    preferred_backfill: str
+
+
+def load_quality_failure_registry(path: Path = QUALITY_FAILURES_PATH) -> dict[str, QualityFailure]:
+    """Load and validate a quality-failure registry.
+
+    A missing or malformed registry is a startup/configuration error. Silently
+    treating registered documents as clean would undermine the registry's role
+    as the operator-approved source of truth.
+    """
+    try:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        raise RuntimeError(f"Unable to load quality-failure registry at {path}: {exc}") from exc
+
+    if not isinstance(payload, dict) or not isinstance(payload.get("fail_documents"), list):
+        raise RuntimeError(f"Invalid quality-failure registry at {path}: 'fail_documents' must be a list")
+
+    failures: dict[str, QualityFailure] = {}
+    for index, item in enumerate(payload["fail_documents"]):
+        if not isinstance(item, dict):
+            raise RuntimeError(f"Invalid quality-failure registry at {path}: entry {index} must be a mapping")
+        document_id = str(item.get("document_id", "")).strip()
+        reason = str(item.get("reason", "")).strip()
+        preferred_backfill = str(item.get("preferred_backfill", "")).strip()
+        if not document_id or not reason or not preferred_backfill:
+            raise RuntimeError(
+                f"Invalid quality-failure registry at {path}: entry {index} requires "
+                "document_id, reason, and preferred_backfill"
+            )
+        if document_id in failures:
+            raise RuntimeError(f"Invalid quality-failure registry at {path}: duplicate document_id {document_id}")
+        failures[document_id] = QualityFailure(
+            document_id=document_id,
+            reason=reason,
+            preferred_backfill=preferred_backfill,
+        )
+    return failures
+
+
+_QUALITY_FAILURES: Mapping[str, QualityFailure] = MappingProxyType(load_quality_failure_registry())
+
+
+def get_configured_quality_failure(document_id: str) -> QualityFailure | None:
+    """Return the registry entry for a document, if it is operator-labeled fail."""
+    return _QUALITY_FAILURES.get(document_id)
+
+
+def quality_assessment_from_metadata(
+    document_id: str,
+    label: str | None,
+    flags: list[str] | None = None,
+) -> QualityAssessment:
+    """Normalize stored quality metadata and apply the canonical registry.
+
+    Search indexes can contain quality metadata produced before the registry was
+    updated. Registry membership therefore always overrides an indexed label.
+    """
+    normalized_label = label if label in {"clean", "warning", "fail"} else "unknown"
+    normalized_flags = list(dict.fromkeys(str(flag) for flag in flags or [] if flag))
+    configured_failure = get_configured_quality_failure(document_id)
+    if configured_failure is not None:
+        normalized_label = "fail"
+        if _CONFIGURED_QUALITY_FAILURE_FLAG not in normalized_flags:
+            normalized_flags.append(_CONFIGURED_QUALITY_FAILURE_FLAG)
+    return QualityAssessment(
+        document_id=document_id,
+        label=normalized_label,
+        flags=normalized_flags,
+        warning=_quality_warning(
+            normalized_label,
+            normalized_flags,
+            configured_failure=configured_failure,
+        ),
+    )
+
 
 _EMBEDDED_ARTIFACT_MARKER = "[removed embedded image/formula artifact]"
 _MARKDOWN_DATA_IMAGE_RE = re.compile(r"!\[[^\]]*]\(data:image/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=\s]+?\)", re.IGNORECASE)
@@ -110,6 +200,9 @@ def assess_markdown_quality(text: str, document_id: str = "") -> QualityAssessme
     """Return deterministic quality flags and a clean/warning/fail label."""
     counts = _count_signals(text)
     flags = [name for name, count in counts.items() if count > 0]
+    configured_failure = get_configured_quality_failure(document_id)
+    if configured_failure is not None:
+        flags.append(_CONFIGURED_QUALITY_FAILURE_FLAG)
 
     fail = (
         counts["raw_html_tag"] > 0
@@ -117,7 +210,7 @@ def assess_markdown_quality(text: str, document_id: str = "") -> QualityAssessme
         or counts["cid_marker"] >= 20
         or counts["replacement_char"] > 0
         or (counts["very_long_lines_gt_3000"] > 0 and _has_raw_markup_or_blob(text))
-        or document_id in _KNOWN_FAIL_DOCUMENT_IDS
+        or configured_failure is not None
     )
 
     warning = (
@@ -134,7 +227,7 @@ def assess_markdown_quality(text: str, document_id: str = "") -> QualityAssessme
         label=label,
         flags=flags,
         counts=counts,
-        warning=_quality_warning(label, flags),
+        warning=_quality_warning(label, flags, configured_failure=configured_failure),
     )
 
 
@@ -304,8 +397,19 @@ def _has_formula_ref_without_extractable_formula(text: str) -> bool:
     )
 
 
-def _quality_warning(label: str, flags: list[str]) -> str:
+def _quality_warning(
+    label: str,
+    flags: list[str],
+    *,
+    configured_failure: QualityFailure | None = None,
+) -> str:
     if label == "fail":
+        if configured_failure is not None:
+            return (
+                "This document is listed in the configured quality-failure registry "
+                f"(reason: {configured_failure.reason}) and is treated as containing severe extraction artifacts; "
+                "do not rely on it for audit-grade or calculation-level answers without source review."
+            )
         return (
             "This document contains severe extraction artifacts; do not rely on it for audit-grade "
             "or calculation-level answers without source review."

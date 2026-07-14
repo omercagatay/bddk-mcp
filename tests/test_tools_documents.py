@@ -351,6 +351,31 @@ async def test_get_bddk_document_sanitizes_context_output_and_warns_for_fail():
 
 
 @pytest.mark.asyncio
+async def test_get_bddk_document_surfaces_configured_failure_for_clean_page_content():
+    """Registry membership must remain visible even when a retrieved page looks clean."""
+    page = DocumentPage(
+        document_id="903",
+        title="Configured quality failure",
+        markdown_content="MADDE 1 - Temiz görünen mevzuat metni.",
+        page_number=1,
+        total_pages=1,
+        extraction_method="manual_latex",
+    )
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(return_value=page)
+    deps = _make_deps(doc_store=doc_store)
+
+    tool = _capture_get_bddk_document(deps)
+    out = await tool("903", 1)
+
+    assert "Quality: fail" in out
+    assert "configured_quality_failure" in out
+    assert "concatenation_formula_table_artifacts" in out
+    assert "listed in the configured quality-failure registry" in out
+    assert out.index("Quality warning") < out.index("MADDE 1")
+
+
+@pytest.mark.asyncio
 async def test_missing_doc_returns_airlocked_error_for_all_candidates():
     """When no candidate hits, return the airlock error referencing the original ID."""
     doc_store = MagicMock()

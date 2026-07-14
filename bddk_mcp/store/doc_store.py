@@ -619,7 +619,7 @@ class DocumentStore:
             if (row["rank"] or 0.0) >= FTS_RANK_THRESHOLD
         ]
 
-        logger.info("FTS search '%s': %d hits", query, len(hits))
+        logger.info("FTS search completed: query_chars=%d hits=%d", len(query), len(hits))
         return hits
 
     # -- Utilities ------------------------------------------------------------

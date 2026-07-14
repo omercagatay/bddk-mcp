@@ -20,10 +20,65 @@ from pathlib import Path
 import asyncpg
 
 from bddk_mcp.core.config import require_database_url
+from bddk_mcp.store.section_index import DocumentSection, extract_document_sections
 
 logger = logging.getLogger(__name__)
 
 SEED_DIR = Path(__file__).resolve().parents[2] / "seed_data"
+
+
+def _expected_seed_sections(docs: list[dict]) -> dict[str, list[DocumentSection]]:
+    """Parse the deterministic section index expected from seed documents."""
+    return {
+        doc["document_id"]: extract_document_sections(
+            doc["document_id"],
+            doc.get("markdown_content", ""),
+        )
+        for doc in docs
+        if doc.get("document_id")
+    }
+
+
+async def _section_index_matches(
+    conn,
+    expected_sections: dict[str, list[DocumentSection]],
+) -> bool:
+    """Return whether seeded documents have the exact expected section index."""
+    if not expected_sections:
+        return True
+    rows = await conn.fetch(
+        """
+        SELECT doc_id, section_type, section_ref, content_hash,
+               start_char, end_char
+        FROM document_sections
+        WHERE doc_id = ANY($1::text[])
+        """,
+        sorted(expected_sections),
+    )
+    actual = {
+        (
+            row["doc_id"],
+            row["section_type"],
+            row["section_ref"],
+            row["content_hash"],
+            row["start_char"],
+            row["end_char"],
+        )
+        for row in rows
+    }
+    expected = {
+        (
+            doc_id,
+            section.section_type,
+            section.section_ref,
+            section.content_hash,
+            section.start_char,
+            section.end_char,
+        )
+        for doc_id, sections in expected_sections.items()
+        for section in sections
+    }
+    return actual == expected
 
 
 def _strip_docs_dump_header(text: str) -> str:
@@ -111,7 +166,14 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
     Returns dict with counts of imported items.
     Skips import if tables already have data (unless force=True).
     """
-    result = {"decision_cache": 0, "documents": 0, "chunks": 0, "skipped": False}
+    result = {
+        "decision_cache": 0,
+        "documents": 0,
+        "sections": 0,
+        "chunks": 0,
+        "embedded": 0,
+        "skipped": False,
+    }
 
     if not SEED_DIR.exists():
         logger.info("No seed_data/ directory found — skipping seed import")
@@ -143,23 +205,26 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
             cache_count = await conn.fetchval("SELECT COUNT(*) FROM decision_cache")
             doc_count = await conn.fetchval("SELECT COUNT(*) FROM documents")
             chunk_count = await conn.fetchval("SELECT COUNT(*) FROM document_chunks")
+            null_embedding_count = await conn.fetchval("SELECT COUNT(*) FROM document_chunks WHERE embedding IS NULL")
 
             # Load seed file counts for comparison
             cache_path = SEED_DIR / "decision_cache.json"
             docs_path = SEED_DIR / "documents.json"
             chunks_path = SEED_DIR / "chunks.json"
-            seed_cache = len(json.loads(cache_path.read_text(encoding="utf-8"))) if cache_path.exists() else 0
-            seed_docs = len(json.loads(docs_path.read_text(encoding="utf-8"))) if docs_path.exists() else 0
-            seed_chunks = len(json.loads(chunks_path.read_text(encoding="utf-8"))) if chunks_path.exists() else 0
+            cache_data = json.loads(cache_path.read_text(encoding="utf-8")) if cache_path.exists() else []
+            docs_data = json.loads(docs_path.read_text(encoding="utf-8")) if docs_path.exists() else []
+            chunks_data = json.loads(chunks_path.read_text(encoding="utf-8")) if chunks_path.exists() else []
+            expected_sections = _expected_seed_sections(docs_data)
+            seed_cache = len(cache_data)
+            seed_docs = len(docs_data)
+            seed_chunks = len(chunks_data)
 
             if not force:
                 counts_ok = cache_count >= seed_cache and doc_count >= seed_docs and chunk_count >= seed_chunks
                 drift_count = 0
-                if counts_ok and docs_path.exists():
-                    seed_doc_hashes = {
-                        d["document_id"]: d.get("content_hash", "")
-                        for d in json.loads(docs_path.read_text(encoding="utf-8"))
-                    }
+                sections_ok = not docs_data
+                if counts_ok and docs_data:
+                    seed_doc_hashes = {d["document_id"]: d.get("content_hash", "") for d in docs_data}
                     db_rows = await conn.fetch("SELECT document_id, content_hash FROM documents")
                     db_doc_hashes = {r["document_id"]: r["content_hash"] or "" for r in db_rows}
                     drift_count = sum(1 for did, h in seed_doc_hashes.items() if db_doc_hashes.get(did) != h)
@@ -170,10 +235,12 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
                            WHERE c.content_hash != d.content_hash"""
                     )
                     drift_count += chunk_drift or 0
+                    sections_ok = await _section_index_matches(conn, expected_sections)
 
-                if counts_ok and drift_count == 0:
+                if counts_ok and drift_count == 0 and sections_ok and null_embedding_count == 0:
                     logger.info(
-                        "DB up-to-date (%d/%d cache, %d/%d docs, %d/%d chunks, 0 hash drift) — skipping seed",
+                        "DB up-to-date (%d/%d cache, %d/%d docs, %d/%d chunks, section index ready, "
+                        "0 hash drift) — skipping seed",
                         cache_count,
                         seed_cache,
                         doc_count,
@@ -189,6 +256,13 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
                         drift_count,
                         seed_docs,
                     )
+                elif not sections_ok:
+                    logger.info("Seed section index missing or stale — importing")
+                elif null_embedding_count:
+                    logger.info(
+                        "Seed embeddings incomplete (%d chunks missing vectors) — importing/backfilling",
+                        null_embedding_count,
+                    )
                 else:
                     logger.info(
                         "Seed has newer data (DB: %d cache, %d docs, %d chunks; seed: %d, %d, %d) — importing",
@@ -202,15 +276,13 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
 
             # 1. Decision cache
             cache_path = SEED_DIR / "decision_cache.json"
-            if cache_path.exists():
-                cache_data = json.loads(cache_path.read_text(encoding="utf-8"))
-                if cache_data:
-                    now = time.time()
-                    async with conn.transaction():
-                        await conn.execute("DELETE FROM decision_cache")
-                        for d in cache_data:
-                            await conn.execute(
-                                """INSERT INTO decision_cache
+            if cache_data:
+                now = time.time()
+                async with conn.transaction():
+                    await conn.execute("DELETE FROM decision_cache")
+                    for d in cache_data:
+                        await conn.execute(
+                            """INSERT INTO decision_cache
                                    (document_id, title, content, decision_date,
                                     decision_number, category, source_url, cached_at)
                                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
@@ -221,28 +293,26 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
                                    category=EXCLUDED.category,
                                    source_url=EXCLUDED.source_url,
                                    cached_at=EXCLUDED.cached_at""",
-                                d["document_id"],
-                                d.get("title", ""),
-                                d.get("content", ""),
-                                d.get("decision_date", ""),
-                                d.get("decision_number", ""),
-                                d.get("category", ""),
-                                d.get("source_url", ""),
-                                now,
-                            )
-                    result["decision_cache"] = len(cache_data)
-                    logger.info("Imported %d decision cache entries", len(cache_data))
+                            d["document_id"],
+                            d.get("title", ""),
+                            d.get("content", ""),
+                            d.get("decision_date", ""),
+                            d.get("decision_number", ""),
+                            d.get("category", ""),
+                            d.get("source_url", ""),
+                            now,
+                        )
+                result["decision_cache"] = len(cache_data)
+                logger.info("Imported %d decision cache entries", len(cache_data))
 
             # 2. Documents
-            docs_path = SEED_DIR / "documents.json"
-            if docs_path.exists():
-                docs_data = json.loads(docs_path.read_text(encoding="utf-8"))
-                if docs_data:
-                    imported = 0
-                    for d in docs_data:
-                        try:
-                            await conn.execute(
-                                """INSERT INTO documents
+            if docs_data:
+                imported = 0
+                imported_doc_ids: set[str] = set()
+                for d in docs_data:
+                    try:
+                        await conn.execute(
+                            """INSERT INTO documents
                                    (document_id, title, category, decision_date,
                                     decision_number, source_url, markdown_content,
                                     content_hash, downloaded_at, extracted_at,
@@ -260,44 +330,55 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
                                    extraction_method=EXCLUDED.extraction_method,
                                    total_pages=EXCLUDED.total_pages,
                                    file_size=EXCLUDED.file_size""",
-                                d["document_id"],
-                                d.get("title", ""),
-                                d.get("category", ""),
-                                d.get("decision_date", ""),
-                                d.get("decision_number", ""),
-                                d.get("source_url", ""),
-                                d.get("markdown_content", ""),
-                                d.get("content_hash", ""),
-                                d.get("downloaded_at"),
-                                d.get("extracted_at"),
-                                d.get("extraction_method", "markitdown"),
-                                d.get("total_pages", 1),
-                                d.get("file_size", 0),
-                            )
-                            imported += 1
-                        except Exception as e:
-                            logger.warning("Failed to import doc %s: %s", d.get("document_id"), e)
-                    result["documents"] = imported
-                    logger.info("Imported %d documents", imported)
+                            d["document_id"],
+                            d.get("title", ""),
+                            d.get("category", ""),
+                            d.get("decision_date", ""),
+                            d.get("decision_number", ""),
+                            d.get("source_url", ""),
+                            d.get("markdown_content", ""),
+                            d.get("content_hash", ""),
+                            d.get("downloaded_at"),
+                            d.get("extracted_at"),
+                            d.get("extraction_method", "markitdown"),
+                            d.get("total_pages", 1),
+                            d.get("file_size", 0),
+                        )
+                        imported += 1
+                        imported_doc_ids.add(d["document_id"])
+                    except Exception as e:
+                        logger.warning("Failed to import doc %s: %s", d.get("document_id"), e)
+                result["documents"] = imported
+                logger.info("Imported %d documents", imported)
+
+                indexed_sections = 0
+                for doc_id in sorted(imported_doc_ids):
+                    indexed_sections += await store.replace_document_sections(
+                        doc_id,
+                        expected_sections.get(doc_id, []),
+                    )
+                result["sections"] = indexed_sections
+                logger.info(
+                    "Indexed %d structural sections for %d seeded documents",
+                    indexed_sections,
+                    len(imported_doc_ids),
+                )
 
             # 3. Chunks (text only — embeddings regenerated on first use)
-            chunks_path = SEED_DIR / "chunks.json"
-            if chunks_path.exists():
-                chunks_data = json.loads(chunks_path.read_text(encoding="utf-8"))
-                if chunks_data:
-                    # Wipe existing chunks for every doc we're about to seed, so
-                    # re-extracted docs with fewer chunks don't leave stale rows
-                    # (and stale pgvector embeddings) from the previous extraction.
-                    seed_doc_ids = sorted({c["doc_id"] for c in chunks_data})
-                    await conn.execute(
-                        "DELETE FROM document_chunks WHERE doc_id = ANY($1::text[])",
-                        seed_doc_ids,
-                    )
-                    imported = 0
-                    for c in chunks_data:
-                        try:
-                            await conn.execute(
-                                """INSERT INTO document_chunks
+            if chunks_data:
+                # Wipe existing chunks for every doc we're about to seed, so
+                # re-extracted docs with fewer chunks don't leave stale rows
+                # (and stale pgvector embeddings) from the previous extraction.
+                seed_doc_ids = sorted({c["doc_id"] for c in chunks_data})
+                await conn.execute(
+                    "DELETE FROM document_chunks WHERE doc_id = ANY($1::text[])",
+                    seed_doc_ids,
+                )
+                imported = 0
+                for c in chunks_data:
+                    try:
+                        await conn.execute(
+                            """INSERT INTO document_chunks
                                    (doc_id, chunk_index, title, category,
                                     decision_date, decision_number, source_url,
                                     total_chunks, total_pages, content_hash,
@@ -321,32 +402,30 @@ async def import_seed(dsn: str | None = None, force: bool = False, pool: asyncpg
                                    section_end_char=EXCLUDED.section_end_char,
                                    section_content_hash=EXCLUDED.section_content_hash,
                                    chunk_text=EXCLUDED.chunk_text""",
-                                c["doc_id"],
-                                c["chunk_index"],
-                                c.get("title", ""),
-                                c.get("category", ""),
-                                c.get("decision_date", ""),
-                                c.get("decision_number", ""),
-                                c.get("source_url", ""),
-                                c.get("total_chunks", 1),
-                                c.get("total_pages", 1),
-                                c.get("content_hash", ""),
-                                c.get("chunk_start_char"),
-                                c.get("chunk_end_char"),
-                                c.get("section_type", ""),
-                                c.get("section_ref", ""),
-                                c.get("section_start_char"),
-                                c.get("section_end_char"),
-                                c.get("section_content_hash", ""),
-                                c["chunk_text"],
-                            )
-                            imported += 1
-                        except Exception as e:
-                            logger.warning(
-                                "Failed to import chunk %s/%d: %s", c.get("doc_id"), c.get("chunk_index", 0), e
-                            )
-                    result["chunks"] = imported
-                    logger.info("Imported %d chunks", imported)
+                            c["doc_id"],
+                            c["chunk_index"],
+                            c.get("title", ""),
+                            c.get("category", ""),
+                            c.get("decision_date", ""),
+                            c.get("decision_number", ""),
+                            c.get("source_url", ""),
+                            c.get("total_chunks", 1),
+                            c.get("total_pages", 1),
+                            c.get("content_hash", ""),
+                            c.get("chunk_start_char"),
+                            c.get("chunk_end_char"),
+                            c.get("section_type", ""),
+                            c.get("section_ref", ""),
+                            c.get("section_start_char"),
+                            c.get("section_end_char"),
+                            c.get("section_content_hash", ""),
+                            c["chunk_text"],
+                        )
+                        imported += 1
+                    except Exception as e:
+                        logger.warning("Failed to import chunk %s/%d: %s", c.get("doc_id"), c.get("chunk_index", 0), e)
+                result["chunks"] = imported
+                logger.info("Imported %d chunks", imported)
 
             # 4. Embedding backfill — seed data carries no embeddings (exported
             # chunks.json is text-only, see export_seed), so every chunk lands

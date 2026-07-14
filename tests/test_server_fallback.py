@@ -1,49 +1,8 @@
-"""Tests for pgvector fallback and VectorStore initialization in server.py."""
+"""Tests for local pgvector/document-store retrieval fallback."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
-
-class TestVectorStoreInit:
-    """init_vector_store() background task behavior."""
-
-    @pytest.mark.asyncio
-    async def test_failed_init_leaves_vector_store_none(self):
-        """If VectorStore.initialize() raises, deps.vector_store stays None."""
-        from bddk_mcp.core.deps import Dependencies
-        from bddk_mcp.server import init_vector_store
-
-        deps = MagicMock(spec=Dependencies)
-        deps.pool = AsyncMock()
-        deps.vector_store = None
-
-        with patch("bddk_mcp.store.vector_store.VectorStore") as MockVS:
-            instance = MockVS.return_value
-            instance.initialize = AsyncMock(side_effect=RuntimeError("pgvector extension not available"))
-
-            await init_vector_store(deps)
-
-        # On failure, vector_store must not be set to a broken instance
-        assert deps.vector_store is None or deps.vector_store != instance
-
-    @pytest.mark.asyncio
-    async def test_successful_init_sets_vector_store(self):
-        """After successful initialize(), deps.vector_store is set."""
-        from bddk_mcp.core.deps import Dependencies
-        from bddk_mcp.server import init_vector_store
-
-        deps = MagicMock(spec=Dependencies)
-        deps.pool = AsyncMock()
-        deps.vector_store = None
-
-        with patch("bddk_mcp.store.vector_store.VectorStore") as MockVS:
-            instance = MockVS.return_value
-            instance.initialize = AsyncMock()
-
-            await init_vector_store(deps)
-
-        assert deps.vector_store is instance
 
 
 def _register_and_get_tool(deps):
