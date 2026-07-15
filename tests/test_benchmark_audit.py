@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from benchmark.audit import REDACTED, canonical_sha256, sanitize_for_audit
-from benchmark.report import save_json_results
+from benchmark.report import diagnosis_report, save_json_results
 
 
 def test_recursive_sanitizer_redacts_sensitive_keys_and_values_without_mutating_input():
@@ -69,3 +69,18 @@ def test_text_redaction_covers_authorization_headers_jwts_and_common_provider_ke
     assert "eyJabcdefghijk" not in rendered
     assert synthetic_aws_key not in rendered
     assert rendered.count(REDACTED) == 3
+
+
+def test_diagnosis_ignores_evaluation_evidence_metadata():
+    report = diagnosis_report(
+        {
+            "evaluation_evidence": {
+                "classification": "exploratory_not_release_evidence",
+                "release_preflight_status": "not_executed",
+            },
+            "phase1a": {},
+        }
+    )
+
+    assert "exploratory_not_release_evidence" not in report
+    assert "release_preflight_status" not in report

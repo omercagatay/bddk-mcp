@@ -97,7 +97,8 @@ def diagnosis_report(all_results: dict) -> str:
     lines.append("=" * 90)
 
     models = set()
-    for phase_results in all_results.values():
+    for phase_name in ("phase1a", "phase1b", "phase1c", "phase2", "phase3"):
+        phase_results = all_results.get(phase_name)
         if isinstance(phase_results, dict):
             models.update(phase_results.keys())
 

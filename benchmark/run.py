@@ -93,7 +93,13 @@ async def _main() -> None:
     )
 
     models = _get_models(args.model)
-    all_results: dict = {}
+    all_results: dict = {
+        "evaluation_evidence": {
+            "classification": "exploratory_not_release_evidence",
+            "release_preflight_status": "not_executed",
+            "reason": "expert_dataset_execution_not_implemented",
+        }
+    }
 
     # Phase 1
     if args.phase is None or args.phase == 1:
