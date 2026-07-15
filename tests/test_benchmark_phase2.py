@@ -30,6 +30,7 @@ from benchmark.phase2_e2e import (
     _stdio_subprocess_env,
     _tool_result_record,
     _tool_result_text,
+    _validated_corpus_manifest_identity,
     open_mcp_session,
     run_phase2,
 )
@@ -269,6 +270,17 @@ def test_dataset_and_corpus_identities_are_stable_and_evidence_based(monkeypatch
     assert len(corpus["observed_evidence_sha256"]) == 64
 
 
+def test_benchmark_manifest_identity_is_verified_and_path_free():
+    identity = _validated_corpus_manifest_identity()
+
+    assert identity["manifest_id"] == "bddk-job-corpus-2026-07-15"
+    assert identity["exhaustive"] is False
+    assert len(identity["manifest_sha256"]) == 64
+    assert len(identity["artifact_set_sha256"]) == 64
+    assert identity["artifact_count"] == 3
+    assert all("path" not in key for key in identity)
+
+
 @pytest.mark.asyncio
 async def test_phase2_result_retains_auditable_trace_and_separates_retrieval_comparability(monkeypatch):
     from benchmark import phase2_e2e
@@ -332,6 +344,7 @@ async def test_phase2_result_retains_auditable_trace_and_separates_retrieval_com
     assert result["run_metadata"]["git"]["dirty"] is True
     assert result["run_metadata"]["dataset_identity"]["case_ids"] == ["live-1"]
     assert result["run_metadata"]["corpus_identity"]["observed_reference_count"] == 1
+    assert result["run_metadata"]["corpus_manifest"]["manifest_id"] == "bddk-job-corpus-2026-07-15"
 
 
 @pytest.mark.asyncio

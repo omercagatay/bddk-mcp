@@ -16,7 +16,9 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.types import LATEST_PROTOCOL_VERSION
 
 from bddk_mcp import __version__
+from bddk_mcp.corpus_manifest import CORPUS_SCOPE_WARNING
 from bddk_mcp.tools.registry import PUBLIC_TOOL_NAMES
+from bddk_mcp.tools.structured_outputs import SOURCE_DATA_BEGIN, SOURCE_DATA_END
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 E2E_SUPPORT = Path(__file__).resolve().parent / "e2e_support"
@@ -68,7 +70,11 @@ async def test_installed_stdio_command_protocol_and_clean_shutdown(tmp_path: Pat
                         {"document_id": "943"},
                     )
                     assert first.isError is False
-                    assert first.content[0].text == "No version history found for document 943."
+                    first_text = first.content[0].text
+                    assert SOURCE_DATA_BEGIN in first_text
+                    assert "No version history found for document 943." in first_text
+                    assert SOURCE_DATA_END in first_text
+                    assert CORPUS_SCOPE_WARNING in first_text
 
                     rejected = await session.call_tool(
                         "get_document_history",
@@ -84,7 +90,11 @@ async def test_installed_stdio_command_protocol_and_clean_shutdown(tmp_path: Pat
                         {"document_id": "22599"},
                     )
                     assert follow_up.isError is False
-                    assert follow_up.content[0].text == "No version history found for document 22599."
+                    follow_up_text = follow_up.content[0].text
+                    assert SOURCE_DATA_BEGIN in follow_up_text
+                    assert "No version history found for document 22599." in follow_up_text
+                    assert SOURCE_DATA_END in follow_up_text
+                    assert CORPUS_SCOPE_WARNING in follow_up_text
                     assert not teardown_sentinel.exists()
 
         child_stderr.seek(0)

@@ -23,7 +23,6 @@ from bddk_mcp.tools.structured_outputs import (
     DocumentVersionItem,
     EvidenceReference,
     QualityMetadata,
-    frame_untrusted_source,
     structured_tool_result,
 )
 from bddk_mcp.tools.tool_logging import logged_tool
@@ -322,7 +321,7 @@ def register(
         )
         response = DocumentResponse(
             status="partial" if missing_page is not None else "ok",
-            text=header + frame_untrusted_source(content),
+            text=header + content,
             evidence=[
                 EvidenceReference(
                     document_id=resolved_id,

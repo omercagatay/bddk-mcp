@@ -7,16 +7,28 @@ versioning for BDDK decisions, regulations, and mevzuat.gov.tr documents.
 Requires: asyncpg, PostgreSQL 14+ with unaccent extension.
 """
 
+from __future__ import annotations
+
 import hashlib
 import logging
 import math
 import re
 import time
+from datetime import datetime
 
 import asyncpg
 from pydantic import BaseModel, Field
 
 from bddk_mcp.core.config import FTS_RANK_THRESHOLD, PAGE_SIZE
+from bddk_mcp.regulatory.legal_versions import (
+    AuthorityLevel,
+    artifact_id_for,
+    blob_id_for,
+    evidence_id_for,
+    instrument_id_for,
+    legal_version_id_for,
+    provision_id_for,
+)
 from bddk_mcp.store.section_index import extract_document_sections
 
 logger = logging.getLogger(__name__)
@@ -66,6 +78,30 @@ class SearchHit(BaseModel):
     decision_date: str = ""
 
 
+class StoredSectionCitationMapping(BaseModel):
+    """Validated database mapping needed to construct Citation v1."""
+
+    instrument_id: str
+    instrument_jurisdiction: str
+    instrument_authority_code: str
+    instrument_identity_key: str
+    legal_version_id: str
+    legal_version_key: str
+    legal_validation_record_sha256: str
+    provision_validation_record_sha256: str
+    artifact_id: str
+    artifact_blob_id: str
+    artifact_sha256: str
+    source_url: str
+    artifact_retrieved_at: datetime
+    evidence_id: str
+    evidence_locator: str
+    evidence_statement_sha256: str
+    provision_id: str
+    provision_kind: str
+    provision_path: str
+
+
 class StoredDocumentSection(BaseModel):
     """A structural section persisted for a document."""
 
@@ -79,6 +115,9 @@ class StoredDocumentSection(BaseModel):
     content_hash: str
     page_start: int | None = None
     page_end: int | None = None
+    normalized_source_range: str = ""
+    source_content_hash: str = ""
+    citation_mapping: StoredSectionCitationMapping | None = None
     rank: float | None = None
     """FTS match rank (ts_rank_cd, length-normalized). Only set by search paths;
     comparable within one query's result set, not across queries."""
@@ -101,8 +140,78 @@ def _content_hash(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
+def _citation_identities_match(row) -> bool:
+    """Recheck content-derived identities before exposing a trusted mapping."""
+
+    statement_sha256 = row["citation_evidence_statement_sha256"]
+    return (
+        row["citation_instrument_id"]
+        == instrument_id_for(
+            jurisdiction=row["citation_instrument_jurisdiction"],
+            authority_code=row["citation_instrument_authority_code"],
+            identity_key=row["citation_instrument_identity_key"],
+        )
+        and row["citation_legal_version_id"]
+        == legal_version_id_for(
+            instrument_id=row["citation_instrument_id"],
+            version_key=row["citation_legal_version_key"],
+            legal_text_sha256=row["source_content_hash"],
+        )
+        and row["citation_artifact_blob_id"] == blob_id_for(content_sha256=row["citation_artifact_sha256"])
+        and row["citation_artifact_id"]
+        == artifact_id_for(
+            blob_id=row["citation_artifact_blob_id"],
+            canonical_uri=row["citation_source_url"],
+            retrieved_at=row["citation_artifact_retrieved_at"],
+        )
+        and statement_sha256 == row["content_hash"]
+        and row["citation_evidence_id"]
+        == evidence_id_for(
+            artifact_id=row["citation_artifact_id"],
+            locator=row["citation_evidence_locator"],
+            statement_sha256=statement_sha256,
+            authority_level=AuthorityLevel.AUTHORITATIVE,
+        )
+        and row["citation_provision_id"]
+        == provision_id_for(
+            instrument_id=row["citation_instrument_id"],
+            kind=row["citation_provision_kind"],
+            canonical_path=row["citation_provision_path"],
+        )
+    )
+
+
 def _section_from_row(row) -> StoredDocumentSection:
     """Convert an asyncpg row into a StoredDocumentSection."""
+    keys = set(row.keys())
+    citation_mapping = None
+    if "citation_instrument_id" in keys and row["citation_instrument_id"] is not None:
+        try:
+            if not _citation_identities_match(row):
+                raise ValueError("citation identity mismatch")
+            citation_mapping = StoredSectionCitationMapping(
+                instrument_id=row["citation_instrument_id"],
+                instrument_jurisdiction=row["citation_instrument_jurisdiction"],
+                instrument_authority_code=row["citation_instrument_authority_code"],
+                instrument_identity_key=row["citation_instrument_identity_key"],
+                legal_version_id=row["citation_legal_version_id"],
+                legal_version_key=row["citation_legal_version_key"],
+                legal_validation_record_sha256=row["citation_legal_validation_record_sha256"],
+                provision_validation_record_sha256=row["citation_provision_validation_record_sha256"],
+                artifact_id=row["citation_artifact_id"],
+                artifact_blob_id=row["citation_artifact_blob_id"],
+                artifact_sha256=row["citation_artifact_sha256"],
+                source_url=row["citation_source_url"],
+                artifact_retrieved_at=row["citation_artifact_retrieved_at"],
+                evidence_id=row["citation_evidence_id"],
+                evidence_locator=row["citation_evidence_locator"],
+                evidence_statement_sha256=row["citation_evidence_statement_sha256"],
+                provision_id=row["citation_provision_id"],
+                provision_kind=row["citation_provision_kind"],
+                provision_path=row["citation_provision_path"],
+            )
+        except (KeyError, TypeError, ValueError):
+            logger.warning("Validated citation view returned a noncanonical identity; mapping omitted")
     return StoredDocumentSection(
         doc_id=row["doc_id"],
         section_type=row["section_type"],
@@ -114,7 +223,10 @@ def _section_from_row(row) -> StoredDocumentSection:
         content_hash=row["content_hash"] or "",
         page_start=row["page_start"],
         page_end=row["page_end"],
-        rank=row["rank"] if "rank" in row.keys() else None,
+        normalized_source_range=row["normalized_source_range"] if "normalized_source_range" in keys else "",
+        source_content_hash=row["source_content_hash"] if "source_content_hash" in keys else "",
+        citation_mapping=citation_mapping,
+        rank=row["rank"] if "rank" in keys else None,
     )
 
 
@@ -150,7 +262,7 @@ class DocumentStore:
         """No-op — pool lifecycle is managed externally."""
         logger.info("DocumentStore closed")
 
-    async def __aenter__(self) -> "DocumentStore":
+    async def __aenter__(self) -> DocumentStore:
         # Context entry is a runtime path and must not acquire DDL privileges.
         # Use the shared SELECT-only catalog check so a missing migration fails
         # with an actionable error before callers attempt document DML.
@@ -463,11 +575,64 @@ class DocumentStore:
             f"""
             SELECT section.doc_id, section.section_type, section.section_ref, section.heading,
                    section.start_char, section.end_char, section.content, section.content_hash,
-                   section.page_start, section.page_end
+                   section.page_start, section.page_end,
+                   pg_catalog.substr(
+                       document.markdown_content,
+                       section.start_char + 1,
+                       section.end_char - section.start_char
+                   ) AS normalized_source_range,
+                   document.content_hash AS source_content_hash,
+                   citation.instrument_id AS citation_instrument_id,
+                   citation.instrument_jurisdiction AS citation_instrument_jurisdiction,
+                   citation.instrument_authority_code AS citation_instrument_authority_code,
+                   citation.instrument_identity_key AS citation_instrument_identity_key,
+                   citation.legal_version_id AS citation_legal_version_id,
+                   citation.legal_version_key AS citation_legal_version_key,
+                   citation.review_record_sha256 AS citation_legal_validation_record_sha256,
+                   citation.provision_review_record_sha256 AS citation_provision_validation_record_sha256,
+                   citation.artifact_id AS citation_artifact_id,
+                   citation.artifact_blob_id AS citation_artifact_blob_id,
+                   citation.artifact_sha256 AS citation_artifact_sha256,
+                   citation.source_url AS citation_source_url,
+                   citation.artifact_retrieved_at AS citation_artifact_retrieved_at,
+                   citation.evidence_id AS citation_evidence_id,
+                   citation.evidence_locator AS citation_evidence_locator,
+                   citation.evidence_statement_sha256 AS citation_evidence_statement_sha256,
+                   citation.provision_id AS citation_provision_id,
+                   citation.provision_kind AS citation_provision_kind,
+                   citation.provision_path AS citation_provision_path
             FROM public.document_sections AS section
             JOIN public.documents AS document
               ON document.document_id = section.doc_id
              AND document.content_hash = section.source_content_hash
+            LEFT JOIN LATERAL (
+                SELECT mapping.instrument_id,
+                       mapping.instrument_jurisdiction,
+                       mapping.instrument_authority_code,
+                       mapping.instrument_identity_key,
+                       mapping.legal_version_id,
+                       mapping.legal_version_key,
+                       mapping.review_record_sha256,
+                       mapping.provision_review_record_sha256,
+                       mapping.artifact_id,
+                       mapping.artifact_blob_id,
+                       mapping.artifact_sha256,
+                       mapping.source_url,
+                       mapping.artifact_retrieved_at,
+                       mapping.evidence_id,
+                       mapping.evidence_locator,
+                       mapping.evidence_statement_sha256,
+                       mapping.provision_id,
+                       mapping.provision_kind,
+                       mapping.provision_path
+                FROM public.regulatory_validated_section_citations AS mapping
+                WHERE mapping.document_section_id = section.id
+                  AND mapping.source_document_id = section.doc_id
+                  AND mapping.normalized_document_sha256 = document.content_hash
+                  AND mapping.normalized_section_sha256 = section.content_hash
+                  AND mapping.legal_text_sha256 = document.content_hash
+                  AND mapping.provision_text_sha256 = section.content_hash
+            ) AS citation ON true
             WHERE {" AND ".join(where)}
             ORDER BY section.start_char
             {limit_clause}
@@ -500,6 +665,31 @@ class DocumentStore:
             SELECT section.doc_id, section.section_type, section.section_ref, section.heading,
                    section.start_char, section.end_char, section.content, section.content_hash,
                    section.page_start, section.page_end,
+                   pg_catalog.substr(
+                       document.markdown_content,
+                       section.start_char + 1,
+                       section.end_char - section.start_char
+                   ) AS normalized_source_range,
+                   document.content_hash AS source_content_hash,
+                   citation.instrument_id AS citation_instrument_id,
+                   citation.instrument_jurisdiction AS citation_instrument_jurisdiction,
+                   citation.instrument_authority_code AS citation_instrument_authority_code,
+                   citation.instrument_identity_key AS citation_instrument_identity_key,
+                   citation.legal_version_id AS citation_legal_version_id,
+                   citation.legal_version_key AS citation_legal_version_key,
+                   citation.review_record_sha256 AS citation_legal_validation_record_sha256,
+                   citation.provision_review_record_sha256 AS citation_provision_validation_record_sha256,
+                   citation.artifact_id AS citation_artifact_id,
+                   citation.artifact_blob_id AS citation_artifact_blob_id,
+                   citation.artifact_sha256 AS citation_artifact_sha256,
+                   citation.source_url AS citation_source_url,
+                   citation.artifact_retrieved_at AS citation_artifact_retrieved_at,
+                   citation.evidence_id AS citation_evidence_id,
+                   citation.evidence_locator AS citation_evidence_locator,
+                   citation.evidence_statement_sha256 AS citation_evidence_statement_sha256,
+                   citation.provision_id AS citation_provision_id,
+                   citation.provision_kind AS citation_provision_kind,
+                   citation.provision_path AS citation_provision_path,
                    -- normalization flag 1 divides by 1+log(length): without it,
                    -- jumbo boilerplate sections outrank on-point short maddeler
                    pg_catalog.ts_rank_cd(
@@ -511,6 +701,34 @@ class DocumentStore:
             JOIN public.documents AS document
               ON document.document_id = section.doc_id
              AND document.content_hash = section.source_content_hash
+            LEFT JOIN LATERAL (
+                SELECT mapping.instrument_id,
+                       mapping.instrument_jurisdiction,
+                       mapping.instrument_authority_code,
+                       mapping.instrument_identity_key,
+                       mapping.legal_version_id,
+                       mapping.legal_version_key,
+                       mapping.review_record_sha256,
+                       mapping.provision_review_record_sha256,
+                       mapping.artifact_id,
+                       mapping.artifact_blob_id,
+                       mapping.artifact_sha256,
+                       mapping.source_url,
+                       mapping.artifact_retrieved_at,
+                       mapping.evidence_id,
+                       mapping.evidence_locator,
+                       mapping.evidence_statement_sha256,
+                       mapping.provision_id,
+                       mapping.provision_kind,
+                       mapping.provision_path
+                FROM public.regulatory_validated_section_citations AS mapping
+                WHERE mapping.document_section_id = section.id
+                  AND mapping.source_document_id = section.doc_id
+                  AND mapping.normalized_document_sha256 = document.content_hash
+                  AND mapping.normalized_section_sha256 = section.content_hash
+                  AND mapping.legal_text_sha256 = document.content_hash
+                  AND mapping.provision_text_sha256 = section.content_hash
+            ) AS citation ON true
             WHERE {" AND ".join(where)}
             ORDER BY rank DESC, section.start_char
             LIMIT ${len(params)}

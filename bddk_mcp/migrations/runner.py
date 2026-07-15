@@ -9,6 +9,7 @@ from typing import Any, Final
 
 import asyncpg
 
+from bddk_mcp.db_compatibility import PostgreSQLCompatibilityError, assert_supported_postgresql
 from bddk_mcp.migrations.legacy import (
     LEGACY_SOURCE_KIND,
     LEGACY_VERIFIER_VERSION,
@@ -21,11 +22,13 @@ from bddk_mcp.migrations.model import Migration
 from bddk_mcp.migrations.v0001_core import V0001_CORE
 from bddk_mcp.migrations.v0002_operator_jobs import V0002_OPERATOR_JOBS
 from bddk_mcp.migrations.v0003_retrieval_publication import V0003_RETRIEVAL_PUBLICATION
+from bddk_mcp.migrations.v0004_canonical_legal_versions import V0004_CANONICAL_LEGAL_VERSIONS
 
 MIGRATIONS: Final[tuple[Migration, ...]] = (
     V0001_CORE,
     V0002_OPERATOR_JOBS,
     V0003_RETRIEVAL_PUBLICATION,
+    V0004_CANONICAL_LEGAL_VERSIONS,
 )
 LATEST_SCHEMA_VERSION: Final[int] = MIGRATIONS[-1].version
 MIGRATION_LOCK_TIMEOUT: Final[str] = "5s"
@@ -112,6 +115,10 @@ class MigrationError(RuntimeError):
 
 class MigrationPrerequisiteError(MigrationError):
     """Raised when DBA-managed PostgreSQL prerequisites are unavailable."""
+
+
+class MigrationCompatibilityError(MigrationError):
+    """Raised when the PostgreSQL major-version contract is not satisfied."""
 
 
 class MigrationHistoryError(MigrationError):
@@ -305,83 +312,89 @@ async def migrate(
     """
 
     try:
-        async with pool.acquire() as connection, connection.transaction():
-            await connection.execute(f"SET LOCAL lock_timeout = '{MIGRATION_LOCK_TIMEOUT}'")
-            await connection.execute(f"SET LOCAL statement_timeout = '{MIGRATION_STATEMENT_TIMEOUT}'")
-            await connection.fetchval(
-                "SELECT pg_catalog.pg_advisory_xact_lock($1::pg_catalog.int8)",
-                _HISTORY_LOCK_KEY,
-            )
-            await _verify_prerequisites(connection)
-            history_relation = await connection.fetchval(_HISTORY_EXISTS_SQL, _HISTORY_RELATION)
-
-            pending_adoption: tuple[str, str, tuple[str, ...]] | None = None
-            if adopt_legacy and history_relation is None:
-                # Inspection is deliberately complete and SELECT-only.  The
-                # catalog is mutated only after it proves the single supported
-                # pre-ledger schema shape.
-                await inspect_legacy_v1(connection, allow_known_legacy=True)
-                await lock_legacy_v1_tables(connection)
-                # Repeat under table locks so the fingerprint, maximum IDs,
-                # and sequence state cannot race an uncooperative legacy
-                # writer that does not take the migration advisory lock.
-                legacy_before = await inspect_legacy_v1(connection, allow_known_legacy=True)
-                await normalize_legacy_v1(connection, legacy_before)
-                legacy_after = await inspect_legacy_v1(connection, allow_known_legacy=False)
-
-                await connection.execute(_CREATE_META_SCHEMA_SQL)
-                await connection.execute(_CREATE_HISTORY_SQL)
-                await connection.execute(
-                    _INSERT_HISTORY_SQL,
-                    V0001_CORE.version,
-                    V0001_CORE.name,
-                    V0001_CORE.checksum,
+        async with pool.acquire() as connection:
+            # Refuse an untested backend before opening the migration
+            # transaction, taking a lock, or executing any mutating statement.
+            await assert_supported_postgresql(connection)
+            async with connection.transaction():
+                await connection.execute(f"SET LOCAL lock_timeout = '{MIGRATION_LOCK_TIMEOUT}'")
+                await connection.execute(f"SET LOCAL statement_timeout = '{MIGRATION_STATEMENT_TIMEOUT}'")
+                await connection.fetchval(
+                    "SELECT pg_catalog.pg_advisory_xact_lock($1::pg_catalog.int8)",
+                    _HISTORY_LOCK_KEY,
                 )
-                pending_adoption = (
-                    legacy_before.fingerprint,
-                    legacy_after.fingerprint,
-                    legacy_before.normalizations,
-                )
-                state = MigrationState(current_version=V0001_CORE.version)
-            else:
-                await connection.execute(_CREATE_META_SCHEMA_SQL)
-                await connection.execute(_CREATE_HISTORY_SQL)
-                state = await inspect_migration_state_connection(connection)
+                await _verify_prerequisites(connection)
+                history_relation = await connection.fetchval(_HISTORY_EXISTS_SQL, _HISTORY_RELATION)
 
-            for version in state.pending_versions:
-                migration = MIGRATIONS[version - 1]
-                if migration.version == V0003_RETRIEVAL_PUBLICATION.version:
-                    await _require_retrieval_publication_backfill_approval(
-                        connection,
-                        allow_retrieval_publication_backfill=allow_retrieval_publication_backfill,
+                pending_adoption: tuple[str, str, tuple[str, ...]] | None = None
+                if adopt_legacy and history_relation is None:
+                    # Inspection is deliberately complete and SELECT-only. The
+                    # catalog is mutated only after it proves the single
+                    # supported pre-ledger schema shape.
+                    await inspect_legacy_v1(connection, allow_known_legacy=True)
+                    await lock_legacy_v1_tables(connection)
+                    # Repeat under table locks so the fingerprint, maximum IDs,
+                    # and sequence state cannot race an uncooperative legacy
+                    # writer that does not take the migration advisory lock.
+                    legacy_before = await inspect_legacy_v1(connection, allow_known_legacy=True)
+                    await normalize_legacy_v1(connection, legacy_before)
+                    legacy_after = await inspect_legacy_v1(connection, allow_known_legacy=False)
+
+                    await connection.execute(_CREATE_META_SCHEMA_SQL)
+                    await connection.execute(_CREATE_HISTORY_SQL)
+                    await connection.execute(
+                        _INSERT_HISTORY_SQL,
+                        V0001_CORE.version,
+                        V0001_CORE.name,
+                        V0001_CORE.checksum,
                     )
-                for statement in migration.statements:
-                    await connection.execute(statement)
-                await connection.execute(
-                    _INSERT_HISTORY_SQL,
-                    migration.version,
-                    migration.name,
-                    migration.checksum,
-                )
+                    pending_adoption = (
+                        legacy_before.fingerprint,
+                        legacy_after.fingerprint,
+                        legacy_before.normalizations,
+                    )
+                    state = MigrationState(current_version=V0001_CORE.version)
+                else:
+                    await connection.execute(_CREATE_META_SCHEMA_SQL)
+                    await connection.execute(_CREATE_HISTORY_SQL)
+                    state = await inspect_migration_state_connection(connection)
 
-            if pending_adoption is not None:
-                pre_fingerprint, post_fingerprint, normalizations = pending_adoption
-                await connection.execute(
-                    _INSERT_ADOPTION_AUDIT_SQL,
-                    LEGACY_SOURCE_KIND,
-                    LEGACY_VERIFIER_VERSION,
-                    V0001_CORE.checksum,
-                    pre_fingerprint,
-                    post_fingerprint,
-                    list(normalizations),
-                )
+                for version in state.pending_versions:
+                    migration = MIGRATIONS[version - 1]
+                    if migration.version == V0003_RETRIEVAL_PUBLICATION.version:
+                        await _require_retrieval_publication_backfill_approval(
+                            connection,
+                            allow_retrieval_publication_backfill=allow_retrieval_publication_backfill,
+                        )
+                    for statement in migration.statements:
+                        await connection.execute(statement)
+                    await connection.execute(
+                        _INSERT_HISTORY_SQL,
+                        migration.version,
+                        migration.name,
+                        migration.checksum,
+                    )
 
-            final_state = await inspect_migration_state_connection(connection)
-            if not final_state.current:
-                raise MigrationHistoryError(
-                    "Migration history did not reach the required version; changes rolled back."
-                )
-            return final_state
+                if pending_adoption is not None:
+                    pre_fingerprint, post_fingerprint, normalizations = pending_adoption
+                    await connection.execute(
+                        _INSERT_ADOPTION_AUDIT_SQL,
+                        LEGACY_SOURCE_KIND,
+                        LEGACY_VERIFIER_VERSION,
+                        V0001_CORE.checksum,
+                        pre_fingerprint,
+                        post_fingerprint,
+                        list(normalizations),
+                    )
+
+                final_state = await inspect_migration_state_connection(connection)
+                if not final_state.current:
+                    raise MigrationHistoryError(
+                        "Migration history did not reach the required version; changes rolled back."
+                    )
+                return final_state
+    except PostgreSQLCompatibilityError as exc:
+        raise MigrationCompatibilityError(str(exc)) from None
     except (MigrationError, LegacyAdoptionError):
         raise
     except asyncpg.LockNotAvailableError:

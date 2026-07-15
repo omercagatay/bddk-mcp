@@ -8,10 +8,17 @@ import asyncpg
 import pytest
 
 from bddk_mcp.catalog_integrity import (
+    _CITATION_VIEW_COLUMNS,
+    _CITATION_VIEW_DEPENDENCIES,
+    _CITATION_VIEW_REQUIRED_DEFINITION,
     _EXPECTED_CONSTRAINTS,
     _EXPECTED_INDEXES,
     _EXPECTED_ROUTINES,
     _EXPECTED_TRIGGERS,
+    _EXPECTED_V4_CONSTRAINT_CATALOG_SHA256,
+    _EXPECTED_V4_CONSTRAINT_COUNT,
+    _EXPECTED_V4_INDEX_CATALOG_SHA256,
+    _EXPECTED_V4_INDEX_COUNT,
 )
 from bddk_mcp.core.exceptions import BddkStorageError
 from bddk_mcp.db_lifecycle import (
@@ -51,6 +58,134 @@ def _ready_corpus(**overrides) -> dict[str, bool]:
     return values
 
 
+def test_readiness_requires_every_canonical_legal_version_column() -> None:
+    expected = {
+        "regulatory_instruments": {
+            "instrument_id",
+            "jurisdiction",
+            "authority_code",
+            "identity_key",
+            "canonical_title",
+            "instrument_type",
+            "created_at",
+        },
+        "regulatory_family_imports": {
+            "bundle_id",
+            "bundle_sha256",
+            "instrument_id",
+            "schema_version",
+            "fixture_only",
+            "imported_by",
+            "imported_current_user",
+            "imported_session_user",
+            "predecessor_bundle_sha256",
+            "member_manifest",
+            "imported_at",
+        },
+        "regulatory_source_blobs": {"blob_id", "content_sha256"},
+        "regulatory_source_artifacts": {
+            "artifact_id",
+            "blob_id",
+            "canonical_uri",
+            "source_authority",
+            "media_type",
+            "retrieved_at",
+            "repository_document_id",
+            "fixture_only",
+        },
+        "regulatory_evidence": {
+            "evidence_id",
+            "artifact_id",
+            "locator",
+            "statement_sha256",
+            "authority_level",
+        },
+        "regulatory_legal_versions": {
+            "legal_version_id",
+            "instrument_id",
+            "version_key",
+            "legal_text_sha256",
+            "predecessor_version_id",
+            "consolidation_state",
+            "validation_state",
+            "validated_by",
+            "validated_at",
+            "validation_method",
+            "review_record_sha256",
+            "created_at",
+        },
+        "regulatory_legal_version_artifacts": {"legal_version_id", "artifact_id", "source_role"},
+        "regulatory_legal_events": {
+            "event_id",
+            "legal_version_id",
+            "event_type",
+            "event_date",
+            "evidence_id",
+            "target_legal_version_id",
+            "validation_state",
+            "validated_by",
+            "validated_at",
+            "validation_method",
+            "review_record_sha256",
+        },
+        "regulatory_legal_status_assertions": {
+            "assertion_id",
+            "legal_version_id",
+            "legal_status",
+            "valid_from",
+            "valid_through",
+            "evidence_id",
+            "validation_state",
+            "validated_by",
+            "validated_at",
+            "validation_method",
+            "review_record_sha256",
+        },
+        "regulatory_provisions": {"provision_id", "instrument_id", "provision_kind", "canonical_path"},
+        "regulatory_legal_version_provisions": {
+            "legal_version_id",
+            "provision_id",
+            "provision_text_sha256",
+            "document_section_id",
+            "evidence_id",
+            "validation_state",
+            "validated_by",
+            "validated_at",
+            "validation_method",
+            "review_record_sha256",
+        },
+        "regulatory_validated_section_citations": {
+            "document_section_id",
+            "source_document_id",
+            "normalized_document_sha256",
+            "normalized_section_sha256",
+            "instrument_id",
+            "instrument_jurisdiction",
+            "instrument_authority_code",
+            "instrument_identity_key",
+            "legal_version_id",
+            "legal_version_key",
+            "legal_text_sha256",
+            "review_record_sha256",
+            "provision_review_record_sha256",
+            "artifact_id",
+            "artifact_blob_id",
+            "artifact_sha256",
+            "source_url",
+            "artifact_retrieved_at",
+            "evidence_id",
+            "evidence_locator",
+            "evidence_statement_sha256",
+            "provision_id",
+            "provision_kind",
+            "provision_path",
+            "provision_text_sha256",
+        },
+    }
+
+    assert {name: set(_REQUIRED_COLUMNS[name]) for name in expected} == expected
+
+
 class ReadOnlyReadinessPool:
     """Catalog-shaped pool that rejects every mutating SQL API."""
 
@@ -61,6 +196,7 @@ class ReadOnlyReadinessPool:
         relations: set[str] | None = None,
         columns: dict[str, set[str]] | None = None,
         corpus: dict[str, bool] | None = None,
+        server_version_num: int = 170000,
     ) -> None:
         self.extensions = extensions if extensions is not None else {"unaccent", "vector"}
         self.relations = relations if relations is not None else set(_REQUIRED_COLUMNS)
@@ -70,6 +206,7 @@ class ReadOnlyReadinessPool:
             else {table_name: set(required) for table_name, required in _REQUIRED_COLUMNS.items()}
         )
         self.corpus = corpus if corpus is not None else _ready_corpus()
+        self.server_version_num = server_version_num
         self.statements: list[str] = []
 
     def _record_select(self, query: str) -> None:
@@ -153,12 +290,34 @@ class ReadOnlyReadinessPool:
 
     async def fetchval(self, query: str, *args):
         self._record_select(query)
+        if "server_version_num" in query:
+            return self.server_version_num
         if "to_regclass" in query:
             return "bddk_meta.schema_migrations"
         raise AssertionError(f"unexpected readiness query: {query}")
 
     async def fetchrow(self, query: str, *args):
         self._record_select(query)
+        if "v4_constraint_catalog_sha256" in query:
+            return {
+                "object_count": _EXPECTED_V4_CONSTRAINT_COUNT,
+                "v4_constraint_catalog_sha256": _EXPECTED_V4_CONSTRAINT_CATALOG_SHA256,
+            }
+        if "v4_index_catalog_sha256" in query:
+            return {
+                "object_count": _EXPECTED_V4_INDEX_COUNT,
+                "v4_index_catalog_sha256": _EXPECTED_V4_INDEX_CATALOG_SHA256,
+            }
+        if "pg_get_viewdef" in query:
+            return {
+                "relkind": "v",
+                "owner_name": "bddk_schema_owner",
+                "ledger_owner_name": "bddk_schema_owner",
+                "options": ["security_barrier=true", "security_invoker=false"],
+                "definition": " ".join(_CITATION_VIEW_REQUIRED_DEFINITION),
+                "columns": list(_CITATION_VIEW_COLUMNS),
+                "dependencies": list(_CITATION_VIEW_DEPENDENCIES),
+            }
         assert "has_decision_cache" in query
         return self.corpus
 
@@ -177,7 +336,7 @@ async def test_readiness_accepts_current_schema_and_uses_only_selects():
 
     assert report == DatabaseReadiness()
     assert report.ready
-    assert len(pool.statements) == 10
+    assert len(pool.statements) == 14
     assert all(statement.upper().startswith(("SELECT", "WITH")) for statement in pool.statements)
 
 
@@ -188,7 +347,7 @@ async def test_schema_only_readiness_skips_all_corpus_queries():
     report = await inspect_database_readiness(pool, require_corpus=False)  # type: ignore[arg-type]
 
     assert report.ready
-    assert len(pool.statements) == 9
+    assert len(pool.statements) == 13
 
 
 @pytest.mark.asyncio
@@ -207,7 +366,7 @@ async def test_readiness_reports_missing_schema_artifacts_without_querying_corpu
     assert report.missing_relations == ("document_versions",)
     assert report.missing_columns == ("document_chunks.embedding",)
     assert report.corpus_issues == ()
-    assert len(pool.statements) == 5
+    assert len(pool.statements) == 6
 
 
 @pytest.mark.asyncio
@@ -278,7 +437,19 @@ async def test_readiness_driver_error_is_sanitized():
 
     assert sentinel not in str(exc_info.value)
     assert exc_info.value.__cause__ is None
-    assert "SELECT access" in str(exc_info.value)
+    assert "compatibility could not be verified" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_readiness_refuses_unsupported_postgresql_before_catalog_or_corpus_inspection():
+    pool = ReadOnlyReadinessPool(server_version_num=160012)
+
+    with pytest.raises(DatabaseLifecycleError) as exc_info:
+        await inspect_database_readiness(pool)  # type: ignore[arg-type]
+
+    assert "requires PostgreSQL 17" in str(exc_info.value)
+    assert "160012" not in str(exc_info.value)
+    assert len(pool.statements) == 1
 
 
 @pytest.mark.asyncio
@@ -437,6 +608,7 @@ def _valid_schema_owner_identity(**overrides):
 @pytest.mark.asyncio
 async def test_schema_owner_identity_accepts_exact_restricted_boundary():
     pool = MagicMock()
+    pool.fetchval = AsyncMock(return_value=170000)
     pool.fetchrow = AsyncMock(return_value=_valid_schema_owner_identity())
 
     await assert_schema_owner_identity(pool, "bddk")
@@ -459,10 +631,25 @@ async def test_schema_owner_identity_accepts_exact_restricted_boundary():
 )
 async def test_schema_owner_identity_rejects_wrong_target_or_privilege(override, value):
     pool = MagicMock()
+    pool.fetchval = AsyncMock(return_value=170000)
     pool.fetchrow = AsyncMock(return_value=_valid_schema_owner_identity(**{override: value}))
 
     with pytest.raises(SchemaOwnerIdentityError, match="exact schema-owner contract"):
         await assert_schema_owner_identity(pool, "bddk")
+
+
+@pytest.mark.asyncio
+async def test_schema_owner_identity_refuses_unsupported_postgresql_before_role_inspection():
+    pool = MagicMock()
+    pool.fetchval = AsyncMock(return_value=160012)
+    pool.fetchrow = AsyncMock(return_value=_valid_schema_owner_identity())
+
+    with pytest.raises(SchemaOwnerIdentityError) as exc_info:
+        await assert_schema_owner_identity(pool, "bddk")
+
+    assert "requires PostgreSQL 17" in str(exc_info.value)
+    assert "160012" not in str(exc_info.value)
+    pool.fetchrow.assert_not_awaited()
 
 
 class CachePool:

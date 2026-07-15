@@ -21,6 +21,8 @@ from typing import Any, Literal
 
 import asyncpg
 
+from bddk_mcp.db_compatibility import PostgreSQLCompatibilityError, assert_supported_postgresql
+
 DatabaseIdentityProfile = Literal["public", "operator", "ingestion"]
 
 _TABLE_PRIVILEGES = frozenset(
@@ -61,12 +63,33 @@ _INGESTION_TABLES = _CORPUS_TABLES | {
     "public.sync_metadata",
     "public.sync_failures",
 }
-_ALL_TABLES = _INGESTION_TABLES | {
-    "public.tool_call_traces",
-    "bddk_meta.schema_migrations",
-    "bddk_meta.legacy_schema_adoptions",
-    "bddk_operator.operator_jobs",
-}
+_REGULATORY_VERSION_TABLES = frozenset(
+    {
+        "public.regulatory_evidence",
+        "public.regulatory_family_imports",
+        "public.regulatory_instruments",
+        "public.regulatory_legal_events",
+        "public.regulatory_legal_status_assertions",
+        "public.regulatory_legal_version_artifacts",
+        "public.regulatory_legal_version_provisions",
+        "public.regulatory_legal_versions",
+        "public.regulatory_provisions",
+        "public.regulatory_source_blobs",
+        "public.regulatory_source_artifacts",
+    }
+)
+_REGULATORY_PUBLIC_VIEWS = frozenset({"public.regulatory_validated_section_citations"})
+_ALL_TABLES = (
+    _INGESTION_TABLES
+    | {
+        "public.tool_call_traces",
+        "bddk_meta.schema_migrations",
+        "bddk_meta.legacy_schema_adoptions",
+        "bddk_operator.operator_jobs",
+    }
+    | _REGULATORY_VERSION_TABLES
+    | _REGULATORY_PUBLIC_VIEWS
+)
 _ALL_SEQUENCES = frozenset(
     {
         "public.document_sections_id_seq",
@@ -135,7 +158,7 @@ def _object_contract(
 
 
 def _build_contracts() -> Mapping[str, _IdentityContract]:
-    read_tables = {name: frozenset({"SELECT"}) for name in _CORPUS_TABLES}
+    read_tables = {name: frozenset({"SELECT"}) for name in _CORPUS_TABLES | _REGULATORY_PUBLIC_VIEWS}
     read_tables["bddk_meta.schema_migrations"] = frozenset({"SELECT"})
 
     ingestion_tables = {name: frozenset({"SELECT", "INSERT", "UPDATE", "DELETE"}) for name in _INGESTION_TABLES}
@@ -143,6 +166,8 @@ def _build_contracts() -> Mapping[str, _IdentityContract]:
 
     operator_tables = dict(ingestion_tables)
     operator_tables["bddk_operator.operator_jobs"] = frozenset({"SELECT", "INSERT", "UPDATE", "DELETE"})
+    for name in _REGULATORY_PUBLIC_VIEWS:
+        operator_tables[name] = frozenset({"SELECT"})
 
     public_schemas = MappingProxyType(
         {
@@ -571,6 +596,7 @@ async def inspect_database_connection_identity(
 ) -> DatabaseIdentityInspection:
     """Inspect one physical connection before it is admitted to a pool."""
 
+    await assert_supported_postgresql(connection)
     identity = await connection.fetchrow(_IDENTITY_SQL)
     schema_rows = await connection.fetch(_SCHEMAS_SQL)
     relation_rows = await connection.fetch(_RELATIONS_SQL)
@@ -667,6 +693,8 @@ async def assert_database_identity(
             )
     except DatabaseIdentityError:
         raise
+    except PostgreSQLCompatibilityError as exc:
+        raise DatabaseIdentityError(str(exc)) from None
     except Exception:
         raise DatabaseIdentityError(
             f"The configured {profile} database identity could not be verified against its least-privilege contract."
@@ -696,6 +724,8 @@ async def assert_database_connection_identity(
             )
     except DatabaseIdentityError:
         raise
+    except PostgreSQLCompatibilityError as exc:
+        raise DatabaseIdentityError(str(exc)) from None
     except Exception:
         raise DatabaseIdentityError(
             f"A {profile} database connection could not be verified against its least-privilege contract."

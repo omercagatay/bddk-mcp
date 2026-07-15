@@ -14,6 +14,7 @@ from bddk_mcp.migrations import (
     MIGRATION_LOCK_TIMEOUT,
     MIGRATION_STATEMENT_TIMEOUT,
     MIGRATIONS,
+    MigrationCompatibilityError,
     MigrationError,
     MigrationHistoryError,
     MigrationLockTimeoutError,
@@ -88,9 +89,11 @@ def test_history_validation_reports_pending_versions_only_after_valid_prefix():
 
 class _Transaction:
     def __init__(self) -> None:
+        self.entered = False
         self.rolled_back = False
 
     async def __aenter__(self):
+        self.entered = True
         return self
 
     async def __aexit__(self, exc_type, exc, traceback):
@@ -106,11 +109,13 @@ class _FakeMigrationConnection:
         fail_statement: str | None = None,
         fail_exception: Exception | None = None,
         retrieval_tables_populated: bool = False,
+        server_version_num: int = 170000,
     ) -> None:
         self.extensions = extensions if extensions is not None else {"unaccent": "public", "vector": "public"}
         self.fail_statement = fail_statement
         self.fail_exception = fail_exception
         self.retrieval_tables_populated = retrieval_tables_populated
+        self.server_version_num = server_version_num
         self.history_exists = False
         self.history: list[dict[str, object]] = []
         self.executed: list[tuple[str, tuple[object, ...]]] = []
@@ -120,6 +125,8 @@ class _FakeMigrationConnection:
         return self.transaction_record
 
     async def fetchval(self, query: str, *args):
+        if "server_version_num" in query:
+            return self.server_version_num
         if "pg_advisory_xact_lock" in query:
             return None
         if "to_regclass" in query:
@@ -182,7 +189,26 @@ class _PinnedPool:
 
 
 async def _downgrade_current_schema_to_v2(connection) -> None:
-    """Remove only unreleased v3 artifacts inside a rollback-only test transaction."""
+    """Remove unreleased v4/v3 artifacts inside a rollback-only test transaction."""
+
+    await connection.execute(
+        """
+        DROP TABLE IF EXISTS
+            public.regulatory_legal_version_provisions,
+            public.regulatory_legal_status_assertions,
+            public.regulatory_legal_events,
+            public.regulatory_legal_version_artifacts,
+            public.regulatory_provisions,
+            public.regulatory_legal_versions,
+            public.regulatory_evidence,
+            public.regulatory_source_artifacts,
+            public.regulatory_source_blobs,
+            public.regulatory_family_imports,
+            public.regulatory_instruments
+        CASCADE
+        """
+    )
+    await connection.execute("DELETE FROM bddk_meta.schema_migrations WHERE version = 4")
 
     await connection.execute(
         "DROP TRIGGER IF EXISTS invalidate_retrieval_publication_on_chunk_change ON public.document_chunks"
@@ -209,6 +235,21 @@ async def test_migrate_serializes_sets_fixed_timeouts_and_records_every_checksum
     assert statements[1] == f"SET LOCAL statement_timeout = '{MIGRATION_STATEMENT_TIMEOUT}'"
     assert connection.history == _history_rows()
     assert connection.transaction_record.rolled_back is False
+
+
+@pytest.mark.asyncio
+async def test_migrate_refuses_unsupported_postgresql_before_transaction_or_mutation():
+    connection = _FakeMigrationConnection(server_version_num=160012)
+
+    with pytest.raises(MigrationCompatibilityError) as exc_info:
+        await migrate(_FakePool(connection))  # type: ignore[arg-type]
+
+    assert "requires PostgreSQL 17" in str(exc_info.value)
+    assert "160012" not in str(exc_info.value)
+    assert not connection.transaction_record.entered
+    assert connection.executed == []
+    assert connection.history == []
+    assert not connection.history_exists
 
 
 @pytest.mark.asyncio
@@ -522,6 +563,17 @@ async def test_postgres_refuses_unmanaged_schema_and_rolls_back_the_entire_invoc
     await pg_pool.execute(
         """
         DROP TABLE IF EXISTS
+            public.regulatory_legal_version_provisions,
+            public.regulatory_legal_status_assertions,
+            public.regulatory_legal_events,
+            public.regulatory_legal_version_artifacts,
+            public.regulatory_provisions,
+            public.regulatory_legal_versions,
+            public.regulatory_evidence,
+            public.regulatory_source_artifacts,
+            public.regulatory_source_blobs,
+            public.regulatory_family_imports,
+            public.regulatory_instruments,
             public.document_retrieval_publications,
             public.document_chunks,
             public.decision_cache,

@@ -8,8 +8,10 @@ from mcp.shared.memory import create_connected_server_and_client_session
 
 from bddk_mcp import __version__
 from bddk_mcp.core.deps import Dependencies
+from bddk_mcp.corpus_manifest import CORPUS_SCOPE_WARNING
 from bddk_mcp.jobs import DrainReport, OperatorJobManager
 from bddk_mcp.tools.registry import OPERATOR_TOOL_NAMES, PUBLIC_TOOL_NAMES, ToolProfile
+from bddk_mcp.tools.structured_outputs import SOURCE_DATA_BEGIN, SOURCE_DATA_END
 
 
 @pytest.mark.asyncio
@@ -41,7 +43,11 @@ async def test_factory_supports_protocol_tool_call_without_database():
         result = await session.call_tool("get_document_history", {"document_id": "943"})
 
     assert result.isError is False
-    assert result.content[0].text == "No version history found for document 943."
+    text = result.content[0].text
+    assert SOURCE_DATA_BEGIN in text
+    assert "No version history found for document 943." in text
+    assert SOURCE_DATA_END in text
+    assert CORPUS_SCOPE_WARNING in text
     doc_store.get_document_history.assert_awaited_once_with("943")
     assert test_server._mcp_server.version == __version__
 

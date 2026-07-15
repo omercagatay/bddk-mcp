@@ -11,8 +11,10 @@ from mcp.client.streamable_http import streamable_http_client
 from mcp.server.auth.provider import AccessToken
 
 from bddk_mcp.core.deps import Dependencies
+from bddk_mcp.corpus_manifest import CORPUS_SCOPE_WARNING
 from bddk_mcp.http_security import HttpSecurityMiddleware, load_http_security_config
 from bddk_mcp.tools.registry import PUBLIC_TOOL_NAMES, ToolProfile
+from bddk_mcp.tools.structured_outputs import SOURCE_DATA_BEGIN, SOURCE_DATA_END
 
 
 @pytest.mark.asyncio
@@ -42,7 +44,11 @@ async def test_official_client_initializes_lists_and_calls_over_secured_local_ht
     assert initialized.serverInfo.name == "BDDK"
     assert {tool.name for tool in listed.tools} == set(PUBLIC_TOOL_NAMES)
     assert result.isError is False
-    assert result.content[0].text == "No version history found for document 943."
+    text = result.content[0].text
+    assert SOURCE_DATA_BEGIN in text
+    assert "No version history found for document 943." in text
+    assert SOURCE_DATA_END in text
+    assert CORPUS_SCOPE_WARNING in text
 
 
 class _TestTokenVerifier:
@@ -96,16 +102,27 @@ async def test_http_auth_scope_and_origin_statuses_are_fail_closed():
             base_url="https://mcp.bank.example",
             headers={"origin": "https://client.bank.example"},
         ) as client:
+            protected_resource = await client.get("/.well-known/oauth-protected-resource/mcp")
             missing = await client.post("/mcp", json={})
             invalid = await client.post("/mcp", json={}, headers={"authorization": "Bearer invalid"})
             under_scoped = await client.post("/mcp", json={}, headers={"authorization": "Bearer under-scoped"})
             bad_origin = await client.post("/mcp", json={}, headers={"origin": "https://evil.example"})
 
+    assert protected_resource.status_code == 200
+    assert protected_resource.json() == {
+        "resource": "https://mcp.bank.example/mcp",
+        "authorization_servers": ["https://id.bank.example/realms/bddk"],
+        "scopes_supported": ["bddk.read"],
+        "bearer_methods_supported": ["header"],
+    }
     assert missing.status_code == 401
     assert invalid.status_code == 401
     assert under_scoped.status_code == 403
     assert bad_origin.status_code == 403
-    assert "resource_metadata" in missing.headers["www-authenticate"]
+    assert (
+        'resource_metadata="https://mcp.bank.example/.well-known/oauth-protected-resource/mcp"'
+        in missing.headers["www-authenticate"]
+    )
 
 
 @pytest.mark.asyncio

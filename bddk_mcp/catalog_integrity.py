@@ -15,6 +15,8 @@ from typing import Any, Final
 
 import asyncpg
 
+from bddk_mcp.regulatory.text_profile import PROVISION_BOUNDARY_CODEPOINTS_V1
+
 _CONSTRAINTS_SQL = """
 SELECT namespace.nspname || '.' || relation.relname AS table_name,
        constraint_record.conname,
@@ -119,10 +121,161 @@ WHERE namespace.nspname = 'public'
 ORDER BY routine.proname, pg_catalog.pg_get_function_identity_arguments(routine.oid)
 """
 
+_CITATION_VIEW_SQL = """
+SELECT relation.relkind,
+       owner.rolname AS owner_name,
+       (
+           SELECT ledger_owner.rolname
+           FROM pg_catalog.pg_class AS ledger
+           JOIN pg_catalog.pg_namespace AS ledger_namespace
+             ON ledger_namespace.oid = ledger.relnamespace
+           JOIN pg_catalog.pg_roles AS ledger_owner
+             ON ledger_owner.oid = ledger.relowner
+           WHERE ledger_namespace.nspname = 'bddk_meta'
+             AND ledger.relname = 'schema_migrations'
+             AND ledger.relkind IN ('r', 'p')
+       ) AS ledger_owner_name,
+       COALESCE(relation.reloptions, ARRAY[]::pg_catalog.text[]) AS options,
+       pg_catalog.pg_get_viewdef(relation.oid, false) AS definition,
+       COALESCE(
+           ARRAY(
+               SELECT attribute.attname
+               FROM pg_catalog.pg_attribute AS attribute
+               WHERE attribute.attrelid = relation.oid
+                 AND attribute.attnum > 0
+                 AND NOT attribute.attisdropped
+               ORDER BY attribute.attnum
+           ),
+           ARRAY[]::pg_catalog.name[]
+       ) AS columns,
+       COALESCE(
+           ARRAY(
+               SELECT DISTINCT dependency_namespace.nspname || '.' || dependency_relation.relname
+               FROM pg_catalog.pg_rewrite AS rewrite
+               JOIN pg_catalog.pg_depend AS dependency
+                 ON dependency.classid = 'pg_catalog.pg_rewrite'::pg_catalog.regclass
+                AND dependency.objid = rewrite.oid
+                AND dependency.refclassid = 'pg_catalog.pg_class'::pg_catalog.regclass
+               JOIN pg_catalog.pg_class AS dependency_relation
+                 ON dependency_relation.oid = dependency.refobjid
+               JOIN pg_catalog.pg_namespace AS dependency_namespace
+                 ON dependency_namespace.oid = dependency_relation.relnamespace
+               WHERE rewrite.ev_class = relation.oid
+                 AND dependency_relation.oid <> relation.oid
+                 AND dependency_namespace.nspname = 'public'
+               ORDER BY dependency_namespace.nspname || '.' || dependency_relation.relname
+           ),
+           ARRAY[]::pg_catalog.text[]
+       ) AS dependencies
+FROM pg_catalog.pg_class AS relation
+JOIN pg_catalog.pg_namespace AS namespace
+  ON namespace.oid = relation.relnamespace
+JOIN pg_catalog.pg_roles AS owner
+  ON owner.oid = relation.relowner
+WHERE namespace.nspname = 'public'
+  AND relation.relname = 'regulatory_validated_section_citations'
+"""
+
+_V4_TABLES: Final[tuple[str, ...]] = (
+    "regulatory_evidence",
+    "regulatory_family_imports",
+    "regulatory_instruments",
+    "regulatory_legal_events",
+    "regulatory_legal_status_assertions",
+    "regulatory_legal_version_artifacts",
+    "regulatory_legal_version_provisions",
+    "regulatory_legal_versions",
+    "regulatory_provisions",
+    "regulatory_source_artifacts",
+    "regulatory_source_blobs",
+)
+
+_V4_CONSTRAINT_CATALOG_SQL = """
+WITH catalog_items AS (
+    SELECT pg_catalog.jsonb_build_array(
+               relation.relname,
+               constraint_record.conname,
+               constraint_record.contype,
+               constraint_record.convalidated,
+               pg_catalog.pg_get_constraintdef(constraint_record.oid, false)
+           )::pg_catalog.text AS item
+    FROM pg_catalog.pg_constraint AS constraint_record
+    JOIN pg_catalog.pg_class AS relation
+      ON relation.oid = constraint_record.conrelid
+    JOIN pg_catalog.pg_namespace AS namespace
+      ON namespace.oid = relation.relnamespace
+    WHERE namespace.nspname = 'public'
+      AND relation.relname = ANY($1::pg_catalog.text[])
+)
+SELECT pg_catalog.count(*)::pg_catalog.int4 AS object_count,
+       pg_catalog.encode(
+           pg_catalog.sha256(
+               pg_catalog.convert_to(
+                   pg_catalog.string_agg(item, E'\\n' ORDER BY item),
+                   'UTF8'
+               )
+           ),
+           'hex'
+       ) AS v4_constraint_catalog_sha256
+FROM catalog_items
+"""
+
+_V4_INDEX_CATALOG_SQL = """
+WITH catalog_items AS (
+    SELECT pg_catalog.jsonb_build_array(
+               table_relation.relname,
+               index_relation.relname,
+               access_method.amname,
+               index_record.indisunique,
+               index_record.indisprimary,
+               index_record.indisvalid,
+               index_record.indisready,
+               index_record.indisclustered,
+               index_record.indisreplident,
+               index_record.indnullsnotdistinct,
+               pg_catalog.pg_get_indexdef(index_record.indexrelid, 0, false),
+               COALESCE(index_relation.reloptions, ARRAY[]::pg_catalog.text[])
+           )::pg_catalog.text AS item
+    FROM pg_catalog.pg_index AS index_record
+    JOIN pg_catalog.pg_class AS index_relation
+      ON index_relation.oid = index_record.indexrelid
+    JOIN pg_catalog.pg_class AS table_relation
+      ON table_relation.oid = index_record.indrelid
+    JOIN pg_catalog.pg_namespace AS namespace
+      ON namespace.oid = table_relation.relnamespace
+    JOIN pg_catalog.pg_am AS access_method
+      ON access_method.oid = index_relation.relam
+    WHERE namespace.nspname = 'public'
+      AND table_relation.relname = ANY($1::pg_catalog.text[])
+)
+SELECT pg_catalog.count(*)::pg_catalog.int4 AS object_count,
+       pg_catalog.encode(
+           pg_catalog.sha256(
+               pg_catalog.convert_to(
+                   pg_catalog.string_agg(item, E'\\n' ORDER BY item),
+                   'UTF8'
+               )
+           ),
+           'hex'
+       ) AS v4_index_catalog_sha256
+FROM catalog_items
+"""
+
+_EXPECTED_V4_CONSTRAINT_COUNT: Final[int] = 69
+_EXPECTED_V4_CONSTRAINT_CATALOG_SHA256: Final[str] = "145336033f6236c27c925a4c2339423d398b7358da5c0d589bee3e96cbec0e3a"
+_EXPECTED_V4_INDEX_COUNT: Final[int] = 21
+_EXPECTED_V4_INDEX_CATALOG_SHA256: Final[str] = "7917cee6cca9a86c358cee10916c0b7fcccebfdaef9ad18bf2ffab5415896c04"
+
 
 def _normalize_sql(value: Any) -> str:
     text = re.sub(r"\s+", " ", str(value or "").strip().lower())
     return text.replace("public.", "").replace("::text", "")
+
+
+def _normalize_view_sql(value: Any) -> str:
+    """Normalize PostgreSQL 17's view deparse without weakening source DDL."""
+
+    return _normalize_sql(value).replace('"', "").replace("pg_catalog.", "").replace("::name", "")
 
 
 _EXPECTED_CONSTRAINTS: Final[dict[tuple[str, str], tuple[str, str]]] = {
@@ -288,6 +441,98 @@ _EXPECTED_ROUTINES: Final[dict[str, tuple[str, str, str, str]]] = {
     ),
 }
 
+_CITATION_VIEW_DEPENDENCIES: Final[tuple[str, ...]] = (
+    "public.document_sections",
+    "public.documents",
+    "public.regulatory_evidence",
+    "public.regulatory_instruments",
+    "public.regulatory_legal_version_artifacts",
+    "public.regulatory_legal_version_provisions",
+    "public.regulatory_legal_versions",
+    "public.regulatory_provisions",
+    "public.regulatory_source_artifacts",
+    "public.regulatory_source_blobs",
+)
+_CITATION_VIEW_COLUMNS: Final[tuple[str, ...]] = (
+    "document_section_id",
+    "source_document_id",
+    "normalized_document_sha256",
+    "normalized_section_sha256",
+    "instrument_id",
+    "instrument_jurisdiction",
+    "instrument_authority_code",
+    "instrument_identity_key",
+    "legal_version_id",
+    "legal_version_key",
+    "legal_text_sha256",
+    "review_record_sha256",
+    "provision_review_record_sha256",
+    "artifact_id",
+    "artifact_blob_id",
+    "artifact_sha256",
+    "source_url",
+    "artifact_retrieved_at",
+    "evidence_id",
+    "evidence_locator",
+    "evidence_statement_sha256",
+    "provision_id",
+    "provision_kind",
+    "provision_path",
+    "provision_text_sha256",
+)
+_CITATION_VIEW_REQUIRED_DEFINITION: Final[tuple[str, ...]] = (
+    "occurrence.document_section_id",
+    "section.doc_id as source_document_id",
+    "document.content_hash as normalized_document_sha256",
+    "section.content_hash as normalized_section_sha256",
+    "version.instrument_id",
+    "instrument.jurisdiction as instrument_jurisdiction",
+    "instrument.authority_code as instrument_authority_code",
+    "instrument.identity_key as instrument_identity_key",
+    "version.legal_version_id",
+    "version.version_key as legal_version_key",
+    "version.legal_text_sha256",
+    "version.review_record_sha256",
+    "occurrence.review_record_sha256 as provision_review_record_sha256",
+    "artifact.artifact_id",
+    "artifact.blob_id as artifact_blob_id",
+    "blob.content_sha256 as artifact_sha256",
+    "artifact.canonical_uri as source_url",
+    "artifact.retrieved_at as artifact_retrieved_at",
+    "evidence.evidence_id",
+    "evidence.locator as evidence_locator",
+    "evidence.statement_sha256 as evidence_statement_sha256",
+    "provision.provision_id",
+    "provision.provision_kind",
+    "provision.canonical_path as provision_path",
+    "occurrence.provision_text_sha256",
+    "section.id = occurrence.document_section_id",
+    "section.content_hash = occurrence.provision_text_sha256",
+    "section.content_hash = pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(section.content, 'utf8')), 'hex')",
+    "document.document_id = section.doc_id",
+    "document.content_hash = section.source_content_hash",
+    "document.content_hash = pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(document.markdown_content, 'utf8')), 'hex')",
+    "section.content = pg_catalog.btrim(pg_catalog.substr(document.markdown_content, (section.start_char + 1), (section.end_char - section.start_char))",
+    "version.legal_version_id = occurrence.legal_version_id",
+    "version.legal_text_sha256 = document.content_hash",
+    "instrument.instrument_id = version.instrument_id",
+    "provision.provision_id = occurrence.provision_id",
+    "provision.instrument_id = version.instrument_id",
+    "evidence.evidence_id = occurrence.evidence_id",
+    "evidence.statement_sha256 = occurrence.provision_text_sha256",
+    "artifact.artifact_id = evidence.artifact_id",
+    "artifact.repository_document_id = section.doc_id",
+    "blob.blob_id = artifact.blob_id",
+    "version_artifact.legal_version_id = version.legal_version_id",
+    "version_artifact.artifact_id = artifact.artifact_id",
+    "version_artifact.source_role = 'legal_text'",
+    "occurrence.validation_state = 'validated'",
+    "version.validation_state = 'validated'",
+    "evidence.authority_level = 'authoritative'",
+    "artifact.fixture_only = false",
+    *(f"pg_catalog.chr({codepoint})" for codepoint in PROVISION_BOUNDARY_CODEPOINTS_V1),
+)
+
 
 @dataclass(frozen=True, slots=True)
 class CatalogIntegrity:
@@ -404,5 +649,38 @@ async def inspect_catalog_integrity(pool: asyncpg.Pool) -> CatalogIntegrity:
             _normalize_sql(source),
         ):
             failures.append(f"routine:public.{identity}")
+
+    v4_constraints = await pool.fetchrow(_V4_CONSTRAINT_CATALOG_SQL, list(_V4_TABLES))
+    if (
+        int(_value(v4_constraints, "object_count", -1)) != _EXPECTED_V4_CONSTRAINT_COUNT
+        or str(_value(v4_constraints, "v4_constraint_catalog_sha256", "")) != _EXPECTED_V4_CONSTRAINT_CATALOG_SHA256
+    ):
+        failures.append("constraints:public.regulatory_v4_exact")
+
+    v4_indexes = await pool.fetchrow(_V4_INDEX_CATALOG_SQL, list(_V4_TABLES))
+    if (
+        int(_value(v4_indexes, "object_count", -1)) != _EXPECTED_V4_INDEX_COUNT
+        or str(_value(v4_indexes, "v4_index_catalog_sha256", "")) != _EXPECTED_V4_INDEX_CATALOG_SHA256
+    ):
+        failures.append("indexes:public.regulatory_v4_exact")
+
+    citation_view = await pool.fetchrow(_CITATION_VIEW_SQL)
+    view_definition = _normalize_view_sql(_value(citation_view, "definition"))
+    view_valid = bool(
+        citation_view is not None
+        and _catalog_char(_value(citation_view, "relkind")) == "v"
+        and bool(str(_value(citation_view, "ledger_owner_name", "")))
+        and str(_value(citation_view, "owner_name")) == str(_value(citation_view, "ledger_owner_name", ""))
+        and tuple(sorted(str(item) for item in (_value(citation_view, "options", ()) or ())))
+        == ("security_barrier=true", "security_invoker=false")
+        and tuple(str(item) for item in (_value(citation_view, "dependencies", ()) or ()))
+        == _CITATION_VIEW_DEPENDENCIES
+        and tuple(str(item) for item in (_value(citation_view, "columns", ()) or ())) == _CITATION_VIEW_COLUMNS
+        and all(_normalize_view_sql(fragment) in view_definition for fragment in _CITATION_VIEW_REQUIRED_DEFINITION)
+        and " or " not in view_definition
+        and " union " not in view_definition
+    )
+    if not view_valid:
+        failures.append("view:public.regulatory_validated_section_citations")
 
     return CatalogIntegrity(tuple(sorted(failures)))

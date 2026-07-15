@@ -19,6 +19,7 @@ from bddk_mcp.tools.contract_types import (
     parse_metric_ids,
 )
 from bddk_mcp.tools.errors import INVALID_INPUT, UPSTREAM_FETCH_FAILED, tool_error
+from bddk_mcp.tools.structured_outputs import frame_untrusted_source
 from bddk_mcp.tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
@@ -79,7 +80,7 @@ def register(mcp, deps: Dependencies) -> None:
         lines.append(f"  Dönem max: {result['max']:,.2f} ({result['max_date']})")
         lines.append(f"  Trend: {result['trend_direction']}")
         lines.append(f"  Veri noktası: {result['data_points']}")
-        return "\n".join(lines)
+        return frame_untrusted_source("\n".join(lines))
 
     @mcp.tool()
     @logged_tool(logger)
@@ -129,7 +130,7 @@ def register(mcp, deps: Dependencies) -> None:
             for r in digest["bulletin_snapshot"]:
                 lines.append(f"  {r['name']}: TP={r['tp']}, YP={r['yp']}")
 
-        return "\n".join(lines)
+        return frame_untrusted_source("\n".join(lines))
 
     @mcp.tool()
     @logged_tool(logger)
@@ -174,7 +175,7 @@ def register(mcp, deps: Dependencies) -> None:
             else:
                 lines.append(f"{m['title'][:55]:<55} {m['current']:>15,.2f} {m['wow_pct']:>+11.2f}%")
 
-        return "\n".join(lines)
+        return frame_untrusted_source("\n".join(lines))
 
     @mcp.tool()
     @logged_tool(logger)
@@ -207,4 +208,4 @@ def register(mcp, deps: Dependencies) -> None:
             lines.append(f"  - {a['title']} ({date})")
             if a.get("url"):
                 lines.append(f"    {a['url']}")
-        return "\n".join(lines)
+        return frame_untrusted_source("\n".join(lines))

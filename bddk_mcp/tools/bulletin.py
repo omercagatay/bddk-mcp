@@ -27,6 +27,7 @@ from bddk_mcp.tools.contract_types import (
     WeeklyCurrency,
 )
 from bddk_mcp.tools.errors import INVALID_INPUT, UPSTREAM_FETCH_FAILED, tool_error
+from bddk_mcp.tools.structured_outputs import frame_untrusted_source
 from bddk_mcp.tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
@@ -90,7 +91,7 @@ def register(
         else:
             lines.append("No data returned for the given parameters.")
 
-        return "\n".join(lines)
+        return frame_untrusted_source("\n".join(lines))
 
     @mcp.tool()
     @logged_tool(logger)
@@ -111,7 +112,7 @@ def register(
         lines.append("-" * 100)
         for r in rows:
             lines.append(f"{r['row_number']:<4} {r['name']:<50} {r['tp']:>15} {r['yp']:>15} {r['metric_id']}")
-        return "\n".join(lines)
+        return frame_untrusted_source("\n".join(lines))
 
     @mcp.tool()
     @logged_tool(logger)
@@ -167,7 +168,7 @@ def register(
             for r in rows:
                 lines.append(f"{r['name']:<55} {r.get('tp', ''):>15} {r.get('yp', ''):>15} {r.get('total', ''):>15}")
 
-        return "\n".join(lines)
+        return frame_untrusted_source("\n".join(lines))
 
     if not include_operator:
         return
@@ -197,4 +198,4 @@ def register(
             lines.append("\n**Page Errors:**")
             lines.append(f"  {len(status['page_errors'])} page(s) failed; details withheld.")
 
-        return "\n".join(lines)
+        return frame_untrusted_source("\n".join(lines))

@@ -23,6 +23,13 @@ from pathlib import Path
 import asyncpg
 
 from bddk_mcp.core.config import require_database_url
+from bddk_mcp.corpus_manifest import (
+    CORPUS_MANIFEST_FILENAME,
+    CorpusArtifact,
+    CorpusManifestError,
+    CorpusManifestValidation,
+    load_and_validate_corpus_manifest,
+)
 from bddk_mcp.db_identity import assert_database_connection_identity, assert_database_identity
 from bddk_mcp.db_transport import assert_database_transport
 from bddk_mcp.store.section_index import DocumentSection, extract_document_sections
@@ -30,6 +37,65 @@ from bddk_mcp.store.section_index import DocumentSection, extract_document_secti
 logger = logging.getLogger(__name__)
 
 SEED_DIR = Path(__file__).resolve().parents[2] / "seed_data"
+_RESERVED_SEED_ARTIFACTS = frozenset({"documents.json", "chunks.json", "decision_cache.json"})
+
+
+def _load_manifest_bound_records(root: Path, artifact: CorpusArtifact) -> list[dict]:
+    """Read the exact bounded JSON bytes whose role and digest were reviewed."""
+
+    path = (root / artifact.path).resolve()
+    try:
+        with path.open("rb") as handle:
+            payload = handle.read(artifact.bytes + 1)
+    except OSError as exc:
+        raise RuntimeError(f"Reviewed seed artifact could not be read: {artifact.role}.") from exc
+    if len(payload) != artifact.bytes or hashlib.sha256(payload).hexdigest() != artifact.sha256:
+        raise RuntimeError(f"Reviewed seed artifact changed after manifest validation: {artifact.role}.")
+    try:
+        records = json.loads(payload)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Reviewed seed artifact is not valid JSON: {artifact.role}.") from exc
+    if not isinstance(records, list) or any(not isinstance(record, dict) for record in records):
+        raise RuntimeError(f"Reviewed seed artifact must contain object records: {artifact.role}.")
+    return records
+
+
+def _manifest_seed_artifacts(
+    seed_root: Path,
+    *,
+    require_quantified_freshness: bool,
+    require_measured_freshness: bool,
+    require_verified_signature: bool,
+    trusted_signing_key: Path | None,
+) -> tuple[CorpusManifestValidation | None, dict[str, CorpusArtifact]]:
+    """Validate the corpus declaration and close reserved filename bypasses."""
+
+    manifest_path = seed_root / CORPUS_MANIFEST_FILENAME
+    reserved_present = {name for name in _RESERVED_SEED_ARTIFACTS if (seed_root / name).exists()}
+    if not manifest_path.exists():
+        if reserved_present:
+            raise RuntimeError(
+                "Reviewed seed corpus manifest validation failed: required corpus manifest is missing: "
+                f"{CORPUS_MANIFEST_FILENAME}"
+            )
+        return None, {}
+    try:
+        validation = load_and_validate_corpus_manifest(
+            manifest_path,
+            corpus_root=seed_root,
+            require_quantified_freshness=require_quantified_freshness,
+            require_measured_freshness=require_measured_freshness,
+            require_verified_signature=require_verified_signature,
+            trusted_signing_key=trusted_signing_key,
+        )
+    except CorpusManifestError as exc:
+        raise RuntimeError(f"Reviewed seed corpus manifest validation failed: {exc}") from exc
+    declared_paths = {artifact.path for artifact in validation.manifest.artifacts}
+    undeclared_reserved = reserved_present - declared_paths
+    if undeclared_reserved:
+        raise RuntimeError("Reviewed seed corpus contains an undeclared reserved seed artifact.")
+    by_role = {artifact.role: artifact for artifact in validation.manifest.artifacts if artifact.role != "other"}
+    return validation, by_role
 
 
 def _validate_seed_documents(docs: list[dict]) -> dict[str, str]:
@@ -256,6 +322,10 @@ async def import_seed(
     pool: asyncpg.Pool | None = None,
     *,
     reindex_existing: bool = False,
+    require_quantified_freshness: bool = False,
+    require_measured_freshness: bool = False,
+    require_verified_signature: bool = False,
+    trusted_signing_key: Path | None = None,
 ) -> dict:
     """Import seed data from seed_data/ into PostgreSQL.
 
@@ -272,11 +342,34 @@ async def import_seed(
         "reindex_published": 0,
         "reindex_current": 0,
         "skipped": False,
+        "corpus_manifest_id": None,
+        "corpus_manifest_sha256": None,
+        "corpus_scope_warnings": [],
     }
 
     if not SEED_DIR.exists():
         logger.info("No seed_data/ directory found — skipping seed import")
         return result
+
+    manifest_validation, artifacts_by_role = _manifest_seed_artifacts(
+        SEED_DIR,
+        require_quantified_freshness=require_quantified_freshness,
+        require_measured_freshness=require_measured_freshness,
+        require_verified_signature=require_verified_signature,
+        trusted_signing_key=trusted_signing_key,
+    )
+    if manifest_validation is not None:
+        result.update(
+            corpus_manifest_id=manifest_validation.manifest.manifest_id,
+            corpus_manifest_sha256=manifest_validation.manifest_sha256,
+            corpus_scope_warnings=list(manifest_validation.warnings),
+        )
+        for warning in manifest_validation.warnings:
+            logger.warning("Seed corpus scope: %s", warning)
+    documents_artifact = artifacts_by_role.get("documents")
+    cache_artifact = artifacts_by_role.get("decision_cache")
+    docs_data = _load_manifest_bound_records(SEED_DIR, documents_artifact) if documents_artifact is not None else []
+    cache_data = _load_manifest_bound_records(SEED_DIR, cache_artifact) if cache_artifact is not None else []
 
     owns_pool = pool is None
     if owns_pool:
@@ -306,14 +399,10 @@ async def import_seed(
 
         vs = VectorStore(pool)
 
-        cache_path = SEED_DIR / "decision_cache.json"
-        docs_path = SEED_DIR / "documents.json"
-        cache_data = json.loads(cache_path.read_text(encoding="utf-8")) if cache_path.exists() else []
-        docs_data = json.loads(docs_path.read_text(encoding="utf-8")) if docs_path.exists() else []
-        seed_hashes = _validate_seed_documents(docs_data)
         if not cache_data and not docs_data and not reindex_existing:
             logger.info("Reviewed seed files are empty; no data was imported")
             return result
+        seed_hashes = _validate_seed_documents(docs_data)
         expected_sections = _expected_seed_sections(docs_data)
         seed_doc_ids = sorted(seed_hashes)
         seed_cache_ids = sorted(item["document_id"] for item in cache_data)

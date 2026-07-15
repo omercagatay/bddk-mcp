@@ -14,6 +14,7 @@ import asyncpg
 
 from bddk_mcp.catalog_integrity import inspect_catalog_integrity
 from bddk_mcp.core.config import require_database_url, require_expected_database_name
+from bddk_mcp.db_compatibility import PostgreSQLCompatibilityError, assert_supported_postgresql
 from bddk_mcp.db_transport import assert_database_transport
 from bddk_mcp.migrations import LATEST_SCHEMA_VERSION, LegacyAdoptionError, MigrationError, inspect_migration_state
 from bddk_mcp.migrations import migrate as apply_migrations
@@ -132,6 +133,145 @@ _REQUIRED_COLUMNS: dict[str, frozenset[str]] = {
             "last_failed_at",
         }
     ),
+    "regulatory_instruments": frozenset(
+        {
+            "instrument_id",
+            "jurisdiction",
+            "authority_code",
+            "identity_key",
+            "canonical_title",
+            "instrument_type",
+            "created_at",
+        }
+    ),
+    "regulatory_family_imports": frozenset(
+        {
+            "bundle_id",
+            "bundle_sha256",
+            "instrument_id",
+            "schema_version",
+            "fixture_only",
+            "imported_by",
+            "imported_current_user",
+            "imported_session_user",
+            "predecessor_bundle_sha256",
+            "member_manifest",
+            "imported_at",
+        }
+    ),
+    "regulatory_source_blobs": frozenset({"blob_id", "content_sha256"}),
+    "regulatory_source_artifacts": frozenset(
+        {
+            "artifact_id",
+            "blob_id",
+            "canonical_uri",
+            "source_authority",
+            "media_type",
+            "retrieved_at",
+            "repository_document_id",
+            "fixture_only",
+        }
+    ),
+    "regulatory_evidence": frozenset(
+        {
+            "evidence_id",
+            "artifact_id",
+            "locator",
+            "statement_sha256",
+            "authority_level",
+        }
+    ),
+    "regulatory_legal_versions": frozenset(
+        {
+            "legal_version_id",
+            "instrument_id",
+            "version_key",
+            "legal_text_sha256",
+            "predecessor_version_id",
+            "consolidation_state",
+            "validation_state",
+            "validated_by",
+            "validated_at",
+            "validation_method",
+            "review_record_sha256",
+            "created_at",
+        }
+    ),
+    "regulatory_legal_version_artifacts": frozenset({"legal_version_id", "artifact_id", "source_role"}),
+    "regulatory_legal_events": frozenset(
+        {
+            "event_id",
+            "legal_version_id",
+            "event_type",
+            "event_date",
+            "evidence_id",
+            "target_legal_version_id",
+            "validation_state",
+            "validated_by",
+            "validated_at",
+            "validation_method",
+            "review_record_sha256",
+        }
+    ),
+    "regulatory_legal_status_assertions": frozenset(
+        {
+            "assertion_id",
+            "legal_version_id",
+            "legal_status",
+            "valid_from",
+            "valid_through",
+            "evidence_id",
+            "validation_state",
+            "validated_by",
+            "validated_at",
+            "validation_method",
+            "review_record_sha256",
+        }
+    ),
+    "regulatory_provisions": frozenset({"provision_id", "instrument_id", "provision_kind", "canonical_path"}),
+    "regulatory_legal_version_provisions": frozenset(
+        {
+            "legal_version_id",
+            "provision_id",
+            "provision_text_sha256",
+            "document_section_id",
+            "evidence_id",
+            "validation_state",
+            "validated_by",
+            "validated_at",
+            "validation_method",
+            "review_record_sha256",
+        }
+    ),
+    "regulatory_validated_section_citations": frozenset(
+        {
+            "document_section_id",
+            "source_document_id",
+            "normalized_document_sha256",
+            "normalized_section_sha256",
+            "instrument_id",
+            "instrument_jurisdiction",
+            "instrument_authority_code",
+            "instrument_identity_key",
+            "legal_version_id",
+            "legal_version_key",
+            "legal_text_sha256",
+            "review_record_sha256",
+            "provision_review_record_sha256",
+            "artifact_id",
+            "artifact_blob_id",
+            "artifact_sha256",
+            "source_url",
+            "artifact_retrieved_at",
+            "evidence_id",
+            "evidence_locator",
+            "evidence_statement_sha256",
+            "provision_id",
+            "provision_kind",
+            "provision_path",
+            "provision_text_sha256",
+        }
+    ),
 }
 
 _EXTENSIONS_SQL = """
@@ -149,7 +289,7 @@ LEFT JOIN pg_catalog.pg_namespace AS namespace
 LEFT JOIN pg_catalog.pg_class AS relation
   ON relation.relnamespace = namespace.oid
  AND relation.relname = requested.relation_name
- AND relation.relkind IN ('r', 'p')
+ AND relation.relkind IN ('r', 'p', 'v')
 """
 
 _COLUMNS_SQL = """
@@ -161,7 +301,7 @@ JOIN pg_catalog.pg_namespace AS namespace
 JOIN pg_catalog.pg_class AS relation
   ON relation.relnamespace = namespace.oid
  AND relation.relname = requested.relation_name
- AND relation.relkind IN ('r', 'p')
+ AND relation.relkind IN ('r', 'p', 'v')
 JOIN pg_catalog.pg_attribute AS attribute
   ON attribute.attrelid = relation.oid
 WHERE attribute.attnum > 0
@@ -458,6 +598,7 @@ async def assert_schema_owner_identity(pool: asyncpg.Pool, expected_database: st
     """Fail closed unless migration uses the exact restricted owner boundary."""
 
     try:
+        await assert_supported_postgresql(pool)
         row = await pool.fetchrow(_SCHEMA_OWNER_IDENTITY_SQL)
         valid = (
             row is not None
@@ -483,6 +624,8 @@ async def assert_schema_owner_identity(pool: asyncpg.Pool, expected_database: st
             )
     except SchemaOwnerIdentityError:
         raise
+    except PostgreSQLCompatibilityError as exc:
+        raise SchemaOwnerIdentityError(str(exc)) from None
     except Exception:
         raise SchemaOwnerIdentityError(
             "The migration database identity and target could not be verified safely."
@@ -498,6 +641,7 @@ async def inspect_database_readiness(pool: asyncpg.Pool, *, require_corpus: bool
     """
     table_names = sorted(_REQUIRED_COLUMNS)
     try:
+        await assert_supported_postgresql(pool)
         migration_state = await inspect_migration_state(pool)
         extension_rows = await pool.fetch(_EXTENSIONS_SQL, sorted(_REQUIRED_EXTENSIONS))
         installed_extensions = {str(_row_value(row, "extname", "")) for row in extension_rows}
@@ -574,6 +718,8 @@ async def inspect_database_readiness(pool: asyncpg.Pool, *, require_corpus: bool
             catalog_issues=catalog_issues,
             corpus_issues=tuple(corpus_issues),
         )
+    except PostgreSQLCompatibilityError as exc:
+        raise DatabaseLifecycleError(str(exc)) from None
     except (MigrationError, asyncpg.PostgresError, OSError):
         raise DatabaseLifecycleError(
             "Database readiness could not be verified. Ensure the database is reachable and the serving role "

@@ -37,6 +37,26 @@ def _exact_telemetry_privileges() -> dict[str, bool]:
     }
 
 
+def test_telemetry_identity_inventory_includes_the_denied_legal_version_workspace() -> None:
+    from bddk_mcp.observability.telemetry import _TELEMETRY_PRIVILEGES_SQL
+
+    for relation in (
+        "regulatory_instruments",
+        "regulatory_family_imports",
+        "regulatory_source_blobs",
+        "regulatory_source_artifacts",
+        "regulatory_evidence",
+        "regulatory_legal_versions",
+        "regulatory_legal_version_artifacts",
+        "regulatory_legal_events",
+        "regulatory_legal_status_assertions",
+        "regulatory_provisions",
+        "regulatory_legal_version_provisions",
+        "regulatory_validated_section_citations",
+    ):
+        assert f"('public', '{relation}')" in _TELEMETRY_PRIVILEGES_SQL
+
+
 def test_summarize_args_redacts_query_text_by_default():
     from bddk_mcp.observability.telemetry import summarize_args
 
@@ -93,6 +113,7 @@ async def test_telemetry_identity_accepts_exact_insert_only_privileges():
     from bddk_mcp.observability.telemetry import assert_telemetry_writer_ready
 
     pool = AsyncMock()
+    pool.fetchval.return_value = 170000
     pool.fetchrow.return_value = _exact_telemetry_privileges()
 
     await assert_telemetry_writer_ready(pool)
@@ -121,6 +142,7 @@ async def test_telemetry_identity_rejects_excess_table_privilege(unexpected_priv
     privileges = _exact_telemetry_privileges()
     privileges[unexpected_privilege] = True
     pool = AsyncMock()
+    pool.fetchval.return_value = 170000
     pool.fetchrow.return_value = privileges
 
     with pytest.raises(TelemetryIdentityError, match="INSERT-only"):
@@ -147,10 +169,26 @@ async def test_telemetry_identity_rejects_broader_identity_capabilities(required
     privileges = _exact_telemetry_privileges()
     privileges[required_isolation] = False
     pool = AsyncMock()
+    pool.fetchval.return_value = 170000
     pool.fetchrow.return_value = privileges
 
     with pytest.raises(TelemetryIdentityError, match="INSERT-only"):
         await assert_telemetry_writer_ready(pool)
+
+
+@pytest.mark.asyncio
+async def test_telemetry_identity_refuses_unsupported_postgresql_before_privilege_inspection():
+    from bddk_mcp.observability.telemetry import TelemetryIdentityError, assert_telemetry_writer_ready
+
+    pool = AsyncMock()
+    pool.fetchval.return_value = 160012
+
+    with pytest.raises(TelemetryIdentityError) as exc_info:
+        await assert_telemetry_writer_ready(pool)
+
+    assert "requires PostgreSQL 17" in str(exc_info.value)
+    assert "160012" not in str(exc_info.value)
+    pool.fetchrow.assert_not_awaited()
 
 
 @pytest.mark.asyncio

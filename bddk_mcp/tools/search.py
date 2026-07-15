@@ -266,7 +266,7 @@ Try: (1) call search_document_store with the same query for full-text semantic s
                 lines.append(f"  Versions: {ver_count} (latest: {ver_latest})")
             quality = assess_markdown_quality("", document_id=d.document_id)
             lines.extend(_quality_result_lines(quality))
-            lines.append(f"  {frame_untrusted_source(d.content)}\n")
+            lines.append(f"  {d.content}\n")
             quality_metadata = _quality_metadata(quality)
             if quality.warning:
                 warnings.append(quality.warning)
@@ -360,7 +360,7 @@ Suggest the user try: broader keywords or removing the type/active filter."""
             status = f" ({i['status']})" if i["status"] != "Aktif" else ""
             website = f" — {i['website']}" if i["website"] else ""
             lines.append(f"**{i['name']}**{status} [{i['type']}]{website}")
-        return "\n".join(lines)
+        return frame_untrusted_source("\n".join(lines))
 
     @mcp.tool()
     @logged_tool(logger)
@@ -409,7 +409,7 @@ Suggest the user try: different keywords or a different category (basın, mevzua
             if a.get("url"):
                 lines.append(f"  URL: {a['url']}")
             lines.append("")
-        return "\n".join(lines)
+        return frame_untrusted_source("\n".join(lines))
 
     @mcp.tool()
     @logged_tool(logger)
@@ -516,8 +516,7 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
             hit_quality[str(h["doc_id"])] = quality
             lines.extend(_quality_result_lines(quality))
             if h.get("snippet"):
-                framed_snippet = frame_untrusted_source(f"...{h['snippet'][:200]}...")
-                lines.append(f"  {framed_snippet}")
+                lines.append(f"  ...{h['snippet'][:200]}...")
             lines.append("")
             quality_metadata = _quality_metadata(quality)
             if quality.warning:

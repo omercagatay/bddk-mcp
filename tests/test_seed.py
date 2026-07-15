@@ -5,11 +5,16 @@ from __future__ import annotations
 import hashlib
 import json
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import yaml
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from bddk_mcp.corpus_manifest import canonical_manifest_payload, canonical_manifest_sha256
 from bddk_mcp.db_lifecycle import DatabaseNotReadyError
 from bddk_mcp.ingest import seed
 
@@ -55,15 +60,23 @@ def _write_seed_files(
     cache: list[dict] | None = None,
 ) -> None:
     normalized_docs = json.loads(json.dumps(docs, ensure_ascii=False))
+    observed_at = datetime(2026, 1, 1, tzinfo=UTC)
     hashes: dict[str, str] = {}
     for document in normalized_docs:
         content_hash = hashlib.sha256(document.get("markdown_content", "").encode()).hexdigest()
         document["content_hash"] = content_hash
+        document.setdefault("downloaded_at", observed_at.timestamp())
+        document.setdefault("extracted_at", observed_at.timestamp())
         hashes[document["document_id"]] = content_hash
     normalized_chunks = json.loads(json.dumps(chunks or [], ensure_ascii=False))
     for chunk in normalized_chunks:
         if chunk.get("doc_id") in hashes:
             chunk["content_hash"] = hashes[chunk["doc_id"]]
+    artifact_values = {
+        "documents.json": normalized_docs,
+        "chunks.json": normalized_chunks,
+        "decision_cache.json": cache or [],
+    }
     (seed_dir / "documents.json").write_text(
         json.dumps(normalized_docs, ensure_ascii=False),
         encoding="utf-8",
@@ -73,6 +86,50 @@ def _write_seed_files(
         encoding="utf-8",
     )
     (seed_dir / "decision_cache.json").write_text(json.dumps(cache or [], ensure_ascii=False), encoding="utf-8")
+    raw_manifest = {
+        "schema_version": 1,
+        "manifest_id": "test-seed-corpus-v1",
+        "selection_owner": "test-suite",
+        "purpose": "Test-only seed import corpus.",
+        "exhaustive": False,
+        "included_source_classes": ["test-fixtures"],
+        "excluded_source_classes": ["all-production-sources"],
+        "known_gaps": ["not-authoritative"],
+        "freshness": {
+            "source_observed_start": observed_at.isoformat(),
+            "source_observed_end": observed_at.isoformat(),
+            "corpus_built_at": observed_at.isoformat(),
+            "scope_reviewed_at": observed_at.isoformat(),
+            "business_expectation": "test-only",
+            "source_detection_slo_seconds": None,
+            "publication_slo_seconds": None,
+            "max_manifest_age_seconds": None,
+        },
+        "artifacts": [
+            {
+                "role": role,
+                "path": name,
+                "sha256": hashlib.sha256((seed_dir / name).read_bytes()).hexdigest(),
+                "bytes": (seed_dir / name).stat().st_size,
+                "records": len(value),
+            }
+            for role, name, value in (
+                ("documents", "documents.json", artifact_values["documents.json"]),
+                ("chunks", "chunks.json", artifact_values["chunks.json"]),
+                ("decision_cache", "decision_cache.json", artifact_values["decision_cache.json"]),
+            )
+        ],
+        "integrity": {
+            "manifest_sha256": "0" * 64,
+            "signature_status": "not_configured",
+            "signature_reference": None,
+        },
+    }
+    raw_manifest["integrity"]["manifest_sha256"] = canonical_manifest_sha256(raw_manifest)
+    (seed_dir / "corpus_scope.yml").write_text(
+        yaml.safe_dump(raw_manifest, sort_keys=False),
+        encoding="utf-8",
+    )
 
 
 def _content_hash(content: str) -> str:
@@ -155,6 +212,124 @@ async def test_import_fails_readiness_before_opening_a_dml_connection(temp_seed_
     pool.acquire.assert_not_called()
     document_store_class.assert_not_called()
     vector_store_class.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_nonempty_import_requires_a_verified_corpus_manifest_before_dml(temp_seed_dir):
+    (temp_seed_dir / "documents.json").write_text("[]", encoding="utf-8")
+    (temp_seed_dir / "decision_cache.json").write_text('[{"document_id":"doc-1"}]', encoding="utf-8")
+    pool = _SelectOnlyBootstrapPool()
+
+    with (
+        patch("bddk_mcp.db_lifecycle.assert_database_ready", new=AsyncMock()),
+        patch("bddk_mcp.store.doc_store.DocumentStore", return_value=MagicMock()),
+        patch("bddk_mcp.store.vector_store.VectorStore", return_value=MagicMock()),
+        pytest.raises(RuntimeError, match="required corpus manifest is missing"),
+    ):
+        await seed.import_seed(pool=pool, force=True)
+
+    assert pool.selects == []
+
+
+@pytest.mark.asyncio
+async def test_import_rejects_artifact_tampering_before_dml(temp_seed_dir):
+    docs = [{"document_id": "doc-1", "markdown_content": "reviewed"}]
+    _write_seed_files(temp_seed_dir, docs=docs)
+    (temp_seed_dir / "documents.json").write_text('[{"document_id":"doc-1"}]', encoding="utf-8")
+    pool = _SelectOnlyBootstrapPool()
+
+    with (
+        patch("bddk_mcp.db_lifecycle.assert_database_ready", new=AsyncMock()),
+        patch("bddk_mcp.store.doc_store.DocumentStore", return_value=MagicMock()),
+        patch("bddk_mcp.store.vector_store.VectorStore", return_value=MagicMock()),
+        pytest.raises(RuntimeError, match="artifact size differs"),
+    ):
+        await seed.import_seed(pool=pool, force=True)
+
+    assert pool.selects == []
+
+
+@pytest.mark.asyncio
+async def test_import_reads_documents_from_the_validated_manifest_role_path(temp_seed_dir):
+    _write_seed_files(temp_seed_dir, docs=[{"document_id": "doc-1", "markdown_content": "reviewed"}])
+    source = temp_seed_dir / "documents.json"
+    renamed = temp_seed_dir / "reviewed-documents.json"
+    source.rename(renamed)
+    manifest_path = temp_seed_dir / "corpus_scope.yml"
+    raw = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+    documents = next(item for item in raw["artifacts"] if item["role"] == "documents")
+    documents["path"] = renamed.name
+    documents["sha256"] = hashlib.sha256(renamed.read_bytes()).hexdigest()
+    documents["bytes"] = renamed.stat().st_size
+    raw["integrity"]["manifest_sha256"] = canonical_manifest_sha256(raw)
+    manifest_path.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
+    pool = _SelectOnlyBootstrapPool()
+
+    with (
+        patch("bddk_mcp.db_lifecycle.assert_database_ready", new=AsyncMock()),
+        patch("bddk_mcp.store.doc_store.DocumentStore", return_value=MagicMock()),
+        patch("bddk_mcp.store.vector_store.VectorStore", return_value=MagicMock()),
+        patch.object(seed, "_validate_seed_documents", side_effect=RuntimeError("renamed role was loaded")),
+        pytest.raises(RuntimeError, match="renamed role was loaded"),
+    ):
+        await seed.import_seed(pool=pool, force=True)
+
+
+@pytest.mark.asyncio
+async def test_import_rejects_an_undeclared_reserved_cache_before_database_use(temp_seed_dir):
+    _write_seed_files(temp_seed_dir, docs=[{"document_id": "doc-1", "markdown_content": "reviewed"}])
+    manifest_path = temp_seed_dir / "corpus_scope.yml"
+    raw = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+    raw["artifacts"] = [item for item in raw["artifacts"] if item["role"] != "decision_cache"]
+    raw["integrity"]["manifest_sha256"] = canonical_manifest_sha256(raw)
+    manifest_path.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
+    pool = _SelectOnlyBootstrapPool()
+
+    with pytest.raises(RuntimeError, match="undeclared reserved seed artifact"):
+        await seed.import_seed(pool=pool, force=True)
+
+    assert pool.selects == []
+
+
+@pytest.mark.asyncio
+async def test_signed_corpus_bootstrap_uses_a_separate_trust_key(temp_seed_dir):
+    _write_seed_files(temp_seed_dir, docs=[{"document_id": "doc-1", "markdown_content": "reviewed"}])
+    manifest_path = temp_seed_dir / "corpus_scope.yml"
+    raw = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+    private_key = Ed25519PrivateKey.generate()
+    public_key = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    trusted_key = temp_seed_dir / "trusted-corpus-key.pem"
+    trusted_key.write_bytes(public_key)
+    raw["integrity"].update(
+        signature_status="verified",
+        signature_algorithm="ed25519",
+        signature_reference="corpus_scope.sig",
+        signature_public_key_sha256=hashlib.sha256(public_key).hexdigest(),
+    )
+    (temp_seed_dir / "corpus_scope.sig").write_bytes(private_key.sign(canonical_manifest_payload(raw)))
+    raw["integrity"]["manifest_sha256"] = canonical_manifest_sha256(raw)
+    manifest_path.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
+    pool = _SelectOnlyBootstrapPool()
+
+    with pytest.raises(RuntimeError, match="separately supplied trusted public key"):
+        await seed.import_seed(pool=pool, force=True, require_verified_signature=True)
+
+    with (
+        patch("bddk_mcp.db_lifecycle.assert_database_ready", new=AsyncMock()),
+        patch("bddk_mcp.store.doc_store.DocumentStore", return_value=MagicMock()),
+        patch("bddk_mcp.store.vector_store.VectorStore", return_value=MagicMock()),
+        patch.object(seed, "_validate_seed_documents", side_effect=RuntimeError("signed corpus was loaded")),
+        pytest.raises(RuntimeError, match="signed corpus was loaded"),
+    ):
+        await seed.import_seed(
+            pool=pool,
+            force=True,
+            require_verified_signature=True,
+            trusted_signing_key=trusted_key,
+        )
 
 
 @pytest.mark.asyncio

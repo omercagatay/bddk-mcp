@@ -1,0 +1,552 @@
+schema_version: 1
+dataset_id: bddk-expert-pilot-tr
+dataset_version: 0.1.0-draft.1
+language: tr
+intended_grain: one adjudicated query case
+intended_use: >-
+  Owner-reviewable Turkish pilot for retrieval, abstention, citation, and
+  model/tool-calling evaluation. Draft proposals become evaluation cases only
+  after independent expert annotation, adjudication, and owner approval.
+created_at: "2026-07-15T00:00:00+03:00"
+corpus:
+  manifest_id: bddk-job-corpus-2026-07-15
+  manifest_sha256: &corpus_manifest_sha fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
+  corpus_built_at: "2026-05-12T10:18:42.094284Z"
+  documents_sha256: 5ee7fcb3ec8163d2f20d980466722986dcf105aaf305f8111e71e5325fbeb8d3
+  chunks_sha256: 1ce6c0b9be3f827a0249d9fef328a003bb07098873e56578098d0a09055b3307
+
+evidence_catalog:
+  - evidence_id: ev-tfrs9-ilke-1
+    document_id: "943"
+    document_title: &tfrs9_title TFRS 9 Uyarınca Beklenen Kredi Zararı Karşılığı Hesaplamasına İlişkin Rehber
+    document_content_sha256: &tfrs9_hash 3dff93f2768b86e35b9ccaa897a70f8fe682279b41ef56ecf81d8438f908c8cc
+    source_url: &tfrs9_url https://www.bddk.org.tr/Mevzuat/DokumanGetir/943
+    granularity: section
+    section_type: ilke
+    section_ref: "1"
+    section_content_sha256: dfc1bcf727cdff98715597a90a26613bdf96789afcca611de7b494a1db15add6
+    citation_label: BDDK Belge 943, İlke 1
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+  - evidence_id: ev-tfrs9-ilke-3
+    document_id: "943"
+    document_title: *tfrs9_title
+    document_content_sha256: *tfrs9_hash
+    source_url: *tfrs9_url
+    granularity: section
+    section_type: ilke
+    section_ref: "3"
+    section_content_sha256: ad9da962ca13c987780ef8ab877473c6ef916313f99c94d524303d466ee0e5c9
+    citation_label: BDDK Belge 943, İlke 3
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+  - evidence_id: ev-tfrs9-ilke-5
+    document_id: "943"
+    document_title: *tfrs9_title
+    document_content_sha256: *tfrs9_hash
+    source_url: *tfrs9_url
+    granularity: section
+    section_type: ilke
+    section_ref: "5"
+    section_content_sha256: 00829e9552d460d4630d462d03d953a1bc8f814fa43bcea5f0aeb1a2b8a608f0
+    citation_label: BDDK Belge 943, İlke 5
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+  - evidence_id: ev-tfrs9-ilke-6
+    document_id: "943"
+    document_title: *tfrs9_title
+    document_content_sha256: *tfrs9_hash
+    source_url: *tfrs9_url
+    granularity: section
+    section_type: ilke
+    section_ref: "6"
+    section_content_sha256: d6a057b5e501592c9a28e983930aac34a281e9badb5fd75cce0483d6d3f58e2d
+    citation_label: BDDK Belge 943, İlke 6
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+
+  - evidence_id: ev-karsilik-madde-4
+    document_id: mevzuat_22599
+    document_title: &karsilik_title Kredilerin Sınıflandırılması ve Bunlar İçin Ayrılacak Karşılıklara İlişkin Usul ve Esaslar Hakkında Yönetmelik
+    document_content_sha256: &karsilik_hash cf1af936f1ba010a0748d09f79dd1a0d0750c30603b545fe2a65266753a4fb58
+    source_url: &karsilik_url http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.22599&MevzuatIliski=0&sourceXmlSearch=kredilerin sınıflandırılması
+    granularity: section
+    section_type: madde
+    section_ref: "4"
+    section_content_sha256: 8ba58858b9c7204f8123d5ad3c9299af9dc95bf2de64be23d3d5ae5d1a736d40
+    citation_label: Karşılık Yönetmeliği, Madde 4
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+  - evidence_id: ev-karsilik-madde-9
+    document_id: mevzuat_22599
+    document_title: *karsilik_title
+    document_content_sha256: *karsilik_hash
+    source_url: *karsilik_url
+    granularity: section
+    section_type: madde
+    section_ref: "9"
+    section_content_sha256: 7854c436329acdd527a4f347a285c4c504f80f52367a97b2ed09db82d351ea82
+    citation_label: Karşılık Yönetmeliği, Madde 9
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+  - evidence_id: ev-karsilik-madde-10
+    document_id: mevzuat_22599
+    document_title: *karsilik_title
+    document_content_sha256: *karsilik_hash
+    source_url: *karsilik_url
+    granularity: section
+    section_type: madde
+    section_ref: "10"
+    section_content_sha256: 108852d2953b574e8a3a9710631d91cba3b3830c7c80a4b1fabe5549654955c5
+    citation_label: Karşılık Yönetmeliği, Madde 10
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+
+  - evidence_id: ev-sermaye-madde-4
+    document_id: mevzuat_21192
+    document_title: &sermaye_title Bankaların Sermaye Yeterliliğinin Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmelik
+    document_content_sha256: &sermaye_hash d38a07ede28c8e9cc5c99ec29fff1717c76421473aec60a4959d124e14315a75
+    source_url: &sermaye_url http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.21192&MevzuatIliski=0&sourceXmlSearch=sermaye yeterliliği
+    granularity: section
+    section_type: madde
+    section_ref: "4"
+    section_content_sha256: 1f80931ef5fe36bb4fe4d842ea57ddabe455062e502595da210858a5c1ebcf8a
+    citation_label: Sermaye Yeterliliği Yönetmeliği, Madde 4
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+  - evidence_id: ev-sermaye-madde-9
+    document_id: mevzuat_21192
+    document_title: *sermaye_title
+    document_content_sha256: *sermaye_hash
+    source_url: *sermaye_url
+    granularity: section
+    section_type: madde
+    section_ref: "9"
+    section_content_sha256: f42cf2912ccabfe662a02da1e5dc3eb95b5642974a3dd61c88b43fd8c0e41cbb
+    citation_label: Sermaye Yeterliliği Yönetmeliği, Madde 9
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+  - evidence_id: ev-sermaye-madde-25
+    document_id: mevzuat_21192
+    document_title: *sermaye_title
+    document_content_sha256: *sermaye_hash
+    source_url: *sermaye_url
+    granularity: section
+    section_type: madde
+    section_ref: "25"
+    section_content_sha256: efa71bb76b33003bbbfb546b8703a3c725fae9c949244fd5fc10b894c9c573be
+    citation_label: Sermaye Yeterliliği Yönetmeliği, Madde 25
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+
+  - evidence_id: ev-irb-madde-4
+    document_id: mevzuat_21194
+    document_title: &irb_title Kredi Riskine Esas Tutarın İçsel Derecelendirmeye Dayalı Yaklaşımlar ile Hesaplanmasına İlişkin Tebliğ
+    document_content_sha256: &irb_hash 3a4d719ca873f9bcc4c74b81db348f3d69e3bee519823eea36f22d7b5bb939d9
+    source_url: &irb_url http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=9.5.21194&MevzuatIliski=0&sourceXmlSearch=kredi riskine esas
+    granularity: section
+    section_type: madde
+    section_ref: "4"
+    section_content_sha256: 6c7d4ac805167e3c873f9664fd72326bb2107b12a28cdaa8cbef8016aafc66d3
+    citation_label: İDD Tebliği, Madde 4
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+  - evidence_id: ev-irb-madde-5
+    document_id: mevzuat_21194
+    document_title: *irb_title
+    document_content_sha256: *irb_hash
+    source_url: *irb_url
+    granularity: section
+    section_type: madde
+    section_ref: "5"
+    section_content_sha256: ddfc2dd3b6bdcfd01f2718958ed701b3af39a5cbfa90d26a45ae9969f766c24b
+    citation_label: İDD Tebliği, Madde 5
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+  - evidence_id: ev-irb-madde-9
+    document_id: mevzuat_21194
+    document_title: *irb_title
+    document_content_sha256: *irb_hash
+    source_url: *irb_url
+    granularity: section
+    section_type: madde
+    section_ref: "9"
+    section_content_sha256: b6cf5199b483406a4a2d470d666a4b91d21e7c55c010d73d3e066adaaaf7f0a1
+    citation_label: İDD Tebliği, Madde 9
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+
+  - evidence_id: ev-isedes-document
+    document_id: mevzuat_19864
+    document_title: Bankaların İç Sistemleri ve İçsel Sermaye Yeterliliği Değerlendirme Süreci Hakkında Yönetmelik
+    document_content_sha256: 941cb3d7afd3b42de348e13630aa0a6ecd8f40034a59f6d5c4c0c264388c0a6c
+    source_url: http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.19864&MevzuatIliski=0&sourceXmlSearch=iç sistemleri
+    granularity: document
+    citation_label: İç Sistemler ve İSEDES Yönetmeliği, corpus snapshot
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+  - evidence_id: ev-likidite-guide-document
+    document_id: "954"
+    document_title: Likidite Riskinin Yönetimine İlişkin Rehber
+    document_content_sha256: 22fb1969d4b357ced6d4491d020dfa7af566c0bb422f64a66d5f3818e188364c
+    source_url: https://www.bddk.org.tr/Mevzuat/DokumanGetir/954
+    granularity: document
+    citation_label: BDDK Belge 954, corpus snapshot
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+  - evidence_id: ev-lko-document
+    document_id: mevzuat_19498
+    document_title: Bankaların Likidite Karşılama Oranı Hesaplamasına İlişkin Yönetmelik
+    document_content_sha256: 0c7d9ff0504f6ac98a09e2a839cea50eaa041dd69302ee85bb843e1387edfc5f
+    source_url: http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.19498&MevzuatIliski=0&sourceXmlSearch=likidite
+    granularity: document
+    citation_label: Likidite Karşılama Oranı Yönetmeliği, corpus snapshot
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+
+  - evidence_id: ev-bhfor-ilke-3
+    document_id: "1291"
+    document_title: &bhfor_title Bankacılık Hesaplarından Kaynaklanan Faiz Oranı Riskinin Yönetimine İlişkin Rehber
+    document_content_sha256: &bhfor_hash 73b9aff9357daa016cc81b2273a32e00b658e02701efc45ad628a6a46195a720
+    source_url: &bhfor_url https://www.bddk.org.tr/Mevzuat/DokumanGetir/1291
+    granularity: section
+    section_type: ilke
+    section_ref: "3"
+    section_content_sha256: fc29fb048bc896880d295b144b05dc917da77d6763b03d3572710cf20ae96917
+    citation_label: BDDK Belge 1291, İlke 3
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+  - evidence_id: ev-bhfor-ilke-4
+    document_id: "1291"
+    document_title: *bhfor_title
+    document_content_sha256: *bhfor_hash
+    source_url: *bhfor_url
+    granularity: section
+    section_type: ilke
+    section_ref: "4"
+    section_content_sha256: 16fef6cb28fa17f2bb0ccf17c5e7d778c94aa71d5015d0088e7f184d52b6fad3
+    citation_label: BDDK Belge 1291, İlke 4
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+  - evidence_id: ev-bhfor-ilke-5
+    document_id: "1291"
+    document_title: *bhfor_title
+    document_content_sha256: *bhfor_hash
+    source_url: *bhfor_url
+    granularity: section
+    section_type: ilke
+    section_ref: "5"
+    section_content_sha256: 720d38e00c6630b0df6b92c10774a2ac6c9f29901b2e86ec8c0edb841e4c1f79
+    citation_label: BDDK Belge 1291, İlke 5
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+  - evidence_id: ev-bhfor-standart-madde-4
+    document_id: mevzuat_42628
+    document_title: &bhfor_standard_title Bankacılık Hesaplarından Kaynaklanan Faiz Oranı Riskinin Standart Yaklaşımla Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmelik
+    document_content_sha256: &bhfor_standard_hash 1753bd25e591fa54270ee9ba4af95ec0d975e62a8459cc95f008870ec81e21b3
+    source_url: &bhfor_standard_url https://mevzuat.gov.tr/mevzuat?MevzuatNo=42628&MevzuatTur=7&MevzuatTertip=5
+    granularity: section
+    section_type: madde
+    section_ref: "4"
+    section_content_sha256: e6c6e0dfad89de99b252c58f223c06916c2c7a2f149b7c48951eeb27b3e152cc
+    citation_label: BHFOR Standart Yaklaşım Yönetmeliği, Madde 4
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+  - evidence_id: ev-bhfor-standart-madde-10
+    document_id: mevzuat_42628
+    document_title: *bhfor_standard_title
+    document_content_sha256: *bhfor_standard_hash
+    source_url: *bhfor_standard_url
+    granularity: section
+    section_type: madde
+    section_ref: "10"
+    section_content_sha256: b69f28505030dd8d8ca9ce8c04524feb68214f1ad4d6f07b236c634426799b2f
+    citation_label: BHFOR Standart Yaklaşım Yönetmeliği, Madde 10
+    citation_v1_status: pending_legal_mapping
+    corpus_manifest_sha256: *corpus_manifest_sha
+    legal_currentness: not_verified
+
+cases:
+  - case_id: tr-tfrs9-governance-01
+    query: "943 numaralı TFRS 9 rehberinde yönetim kurulu ve üst düzey yönetim sorumluluklarını düzenleyen ilkeyi getir."
+    query_class: specific_provision
+    domain: tfrs9_ecl
+    answerability: supported
+    positive_evidence_ids: [ev-tfrs9-ilke-1]
+    hard_negative_evidence_ids: [ev-tfrs9-ilke-5]
+    annotations:
+      - {annotation_id: ann-tfrs9-governance-domain, annotator_role: regulatory_domain_expert, independent: true, status: pending}
+      - {annotation_id: ann-tfrs9-governance-retrieval, annotator_role: retrieval_evaluator, independent: true, status: pending}
+    adjudication: {status: pending, adjudicator_role: dataset_owner, disagreement: unassessed}
+    approval: {state: draft, owner_role: dataset_owner}
+  - case_id: tr-tfrs9-validation-02
+    query: "TFRS 9 beklenen kredi zararı model validasyonuna ilişkin İlke 5'i getir."
+    query_class: specific_provision
+    domain: tfrs9_ecl
+    answerability: supported
+    positive_evidence_ids: [ev-tfrs9-ilke-5]
+    hard_negative_evidence_ids: [ev-tfrs9-ilke-6]
+    annotations:
+      - {annotation_id: ann-tfrs9-validation-domain, annotator_role: regulatory_domain_expert, independent: true, status: pending}
+      - {annotation_id: ann-tfrs9-validation-retrieval, annotator_role: retrieval_evaluator, independent: true, status: pending}
+    adjudication: {status: pending, adjudicator_role: dataset_owner, disagreement: unassessed}
+    approval: {state: draft, owner_role: dataset_owner}
+  - case_id: tr-tfrs9-expert-judgment-03
+    query: "Beklenen kredi zararının ölçümünde uzman görüşünü ele alan rehber ilkesini bul."
+    query_class: specific_provision
+    domain: tfrs9_ecl
+    answerability: supported
+    positive_evidence_ids: [ev-tfrs9-ilke-6]
+    hard_negative_evidence_ids: [ev-tfrs9-ilke-3]
+    annotations:
+      - {annotation_id: ann-tfrs9-expert-domain, annotator_role: regulatory_domain_expert, independent: true, status: pending}
+      - {annotation_id: ann-tfrs9-expert-retrieval, annotator_role: retrieval_evaluator, independent: true, status: pending}
+    adjudication: {status: pending, adjudicator_role: dataset_owner, disagreement: unassessed}
+    approval: {state: draft, owner_role: dataset_owner}
+  - case_id: tr-credit-classification-04
+    query: "Kredilerin gruplar itibarıyla sınıflandırılmasını düzenleyen Karşılık Yönetmeliği maddesini getir."
+    query_class: specific_provision
+    domain: credit_classification_provisioning
+    answerability: supported
+    positive_evidence_ids: [ev-karsilik-madde-4]
+    hard_negative_evidence_ids: [ev-karsilik-madde-9]
+    annotations:
+      - {annotation_id: ann-credit-class-domain, annotator_role: regulatory_domain_expert, independent: true, status: pending}
+      - {annotation_id: ann-credit-class-audit, annotator_role: audit_practitioner, independent: true, status: pending}
+    adjudication: {status: pending, adjudicator_role: dataset_owner, disagreement: unassessed}
+    approval: {state: draft, owner_role: dataset_owner}
+  - case_id: tr-tfrs9-provision-basis-05
+    query: "Krediler için TFRS 9 kapsamında karşılık ayrılmasını esas alan Karşılık Yönetmeliği hükmünü getir."
+    query_class: specific_provision
+    domain: credit_classification_provisioning
+    answerability: supported
+    positive_evidence_ids: [ev-karsilik-madde-9]
+    hard_negative_evidence_ids: [ev-karsilik-madde-10]
+    annotations:
+      - {annotation_id: ann-provision-basis-domain, annotator_role: regulatory_domain_expert, independent: true, status: pending}
+      - {annotation_id: ann-provision-basis-audit, annotator_role: audit_practitioner, independent: true, status: pending}
+    adjudication: {status: pending, adjudicator_role: dataset_owner, disagreement: unassessed}
+    approval: {state: draft, owner_role: dataset_owner}
+  - case_id: tr-capital-credit-risk-06
+    query: "Kredi riskine esas tutarın bileşimini düzenleyen sermaye yeterliliği maddesini getir."
+    query_class: specific_provision
+    domain: capital_adequacy
+    answerability: supported
+    positive_evidence_ids: [ev-sermaye-madde-4]
+    hard_negative_evidence_ids: [ev-sermaye-madde-9]
+    annotations:
+      - {annotation_id: ann-capital-credit-domain, annotator_role: regulatory_domain_expert, independent: true, status: pending}
+      - {annotation_id: ann-capital-credit-retrieval, annotator_role: retrieval_evaluator, independent: true, status: pending}
+    adjudication: {status: pending, adjudicator_role: dataset_owner, disagreement: unassessed}
+    approval: {state: draft, owner_role: dataset_owner}
+  - case_id: tr-operational-risk-capital-07
+    query: "Operasyonel riske esas tutarın temel gösterge yöntemiyle hesaplanmasını içeren maddeyi getir."
+    query_class: specific_provision
+    domain: operational_risk
+    answerability: supported
+    positive_evidence_ids: [ev-sermaye-madde-25]
+    hard_negative_evidence_ids: [ev-sermaye-madde-4]
+    annotations:
+      - {annotation_id: ann-operational-domain, annotator_role: regulatory_domain_expert, independent: true, status: pending}
+      - {annotation_id: ann-operational-audit, annotator_role: audit_practitioner, independent: true, status: pending}
+    adjudication: {status: pending, adjudicator_role: dataset_owner, disagreement: unassessed}
+    approval: {state: draft, owner_role: dataset_owner}
+  - case_id: tr-irb-permission-08
+    query: "İçsel derecelendirmeye dayalı yaklaşımların kullanım iznini düzenleyen tebliğ maddesini getir."
+    query_class: specific_provision
+    domain: irb_credit_risk
+    answerability: supported
+    positive_evidence_ids: [ev-irb-madde-4]
+    hard_negative_evidence_ids: [ev-irb-madde-5]
+    annotations:
+      - {annotation_id: ann-irb-permission-domain, annotator_role: regulatory_domain_expert, independent: true, status: pending}
+      - {annotation_id: ann-irb-permission-audit, annotator_role: audit_practitioner, independent: true, status: pending}
+    adjudication: {status: pending, adjudicator_role: dataset_owner, disagreement: unassessed}
+    approval: {state: draft, owner_role: dataset_owner}
+  - case_id: tr-irb-standard-exceptions-09
+    query: "İDD izni olan bankaların standart yaklaşımı uygulayabileceği istisnaları düzenleyen maddeyi getir."
+    query_class: specific_provision
+    domain: irb_credit_risk
+    answerability: supported
+    positive_evidence_ids: [ev-irb-madde-9]
+    hard_negative_evidence_ids: [ev-irb-madde-4]
+    annotations:
+      - {annotation_id: ann-irb-exceptions-domain, annotator_role: regulatory_domain_expert, independent: true, status: pending}
+      - {annotation_id: ann-irb-exceptions-audit, annotator_role: audit_practitioner, independent: true, status: pending}
+    adjudication: {status: pending, adjudicator_role: dataset_owner, disagreement: unassessed}
+    approval: {state: draft, owner_role: dataset_owner}
+  - case_id: tr-isedes-document-10
+    query: "İç sistemler ve İSEDES süreçlerini düzenleyen yönetmelik belgesini getir."
+    query_class: document_lookup
+    domain: icaap_isedes
+    answerability: supported
+    positive_evidence_ids: [ev-isedes-document]
+    hard_negative_evidence_ids: [ev-lko-document]
+    annotations:
+      - {annotation_id: ann-isedes-document-domain, annotator_role: regulatory_domain_expert, independent: true, status: pending}
+      - {annotation_id: ann-isedes-document-retrieval, annotator_role: retrieval_evaluator, independent: true, status: pending}
+    adjudication: {status: pending, adjudicator_role: dataset_owner, disagreement: unassessed}
+    approval: {state: draft, owner_role: dataset_owner}
+  - case_id: tr-liquidity-guide-11
+    query: "Likidite Riskinin Yönetimine İlişkin Rehber başlıklı BDDK belgesini getir."
+    query_class: document_lookup
+    domain: liquidity_risk
+    answerability: supported
+    positive_evidence_ids: [ev-likidite-guide-document]
+    hard_negative_evidence_ids: [ev-lko-document]
+    annotations:
+      - {annotation_id: ann-liquidity-guide-domain, annotator_role: regulatory_domain_expert, independent: true, status: pending}
+      - {annotation_id: ann-liquidity-guide-retrieval, annotator_role: retrieval_evaluator, independent: true, status: pending}
+    adjudication: {status: pending, adjudicator_role: dataset_owner, disagreement: unassessed}
+    approval: {state: draft, owner_role: dataset_owner}
+  - case_id: tr-lcr-regulation-12
+    query: "Likidite karşılama oranı hesaplamasını düzenleyen yönetmelik belgesini getir."
+    query_class: document_lookup
+    domain: liquidity_risk
+    answerability: supported
+    positive_evidence_ids: [ev-lko-document]
+    hard_negative_evidence_ids: [ev-likidite-guide-document]
+    annotations:
+      - {annotation_id: ann-lcr-regulation-domain, annotator_role: regulatory_domain_expert, independent: true, status: pending}
+      - {annotation_id: ann-lcr-regulation-retrieval, annotator_role: retrieval_evaluator, independent: true, status: pending}
+    adjudication: {status: pending, adjudicator_role: dataset_owner, disagreement: unassessed}
+    approval: {state: draft, owner_role: dataset_owner}
+  - case_id: tr-bhfor-risk-appetite-13
+    query: "Bankacılık hesaplarından kaynaklanan faiz oranı riski için risk iştahını ele alan rehber ilkesini getir."
+    query_class: specific_provision
+    domain: interest_rate_risk
+    answerability: supported
+    positive_evidence_ids: [ev-bhfor-ilke-3]
+    hard_negative_evidence_ids: [ev-bhfor-ilke-4]
+    annotations:
+      - {annotation_id: ann-bhfor-appetite-domain, annotator_role: regulatory_domain_expert, independent: true, status: pending}
+      - {annotation_id: ann-bhfor-appetite-audit, annotator_role: audit_practitioner, independent: true, status: pending}
+    adjudication: {status: pending, adjudicator_role: dataset_owner, disagreement: unassessed}
+    approval: {state: draft, owner_role: dataset_owner}
+  - case_id: tr-bhfor-assumptions-14
+    query: "BHFOR ölçümünde müşteri davranışı ve model varsayımlarını ele alan rehber ilkesini getir."
+    query_class: specific_provision
+    domain: interest_rate_risk
+    answerability: supported
+    positive_evidence_ids: [ev-bhfor-ilke-5]
+    hard_negative_evidence_ids: [ev-bhfor-ilke-3]
+    annotations:
+      - {annotation_id: ann-bhfor-assumptions-domain, annotator_role: regulatory_domain_expert, independent: true, status: pending}
+      - {annotation_id: ann-bhfor-assumptions-audit, annotator_role: audit_practitioner, independent: true, status: pending}
+    adjudication: {status: pending, adjudicator_role: dataset_owner, disagreement: unassessed}
+    approval: {state: draft, owner_role: dataset_owner}
+  - case_id: tr-bhfor-standard-ratio-15
+    query: "BHFOR standart rasyosunun ekonomik değer değişimi risk tutarı ve ana sermaye ile hesaplanmasını düzenleyen maddeyi getir."
+    query_class: specific_provision
+    domain: interest_rate_risk
+    answerability: supported
+    positive_evidence_ids: [ev-bhfor-standart-madde-4]
+    hard_negative_evidence_ids: [ev-bhfor-standart-madde-10]
+    annotations:
+      - {annotation_id: ann-bhfor-ratio-domain, annotator_role: regulatory_domain_expert, independent: true, status: pending}
+      - {annotation_id: ann-bhfor-ratio-retrieval, annotator_role: retrieval_evaluator, independent: true, status: pending}
+    adjudication: {status: pending, adjudicator_role: dataset_owner, disagreement: unassessed}
+    approval: {state: draft, owner_role: dataset_owner}
+
+  - case_id: tr-tfrs9-current-effective-16
+    query: "Bugün itibarıyla yürürlükte olan en güncel BDDK TFRS 9 rehberi hangisidir?"
+    query_class: currentness
+    domain: tfrs9_ecl
+    answerability: abstain
+    no_answer:
+      reason_code: legal_currentness_not_modeled
+      basis_corpus_manifest_sha256: *corpus_manifest_sha
+      required_follow_up: Güncellik ve yürürlük durumu yetkili BDDK ve Resmî Gazete kaynaklarından doğrulanmalıdır.
+    annotations:
+      - {annotation_id: ann-tfrs9-current-legal, annotator_role: legal_reviewer, independent: true, status: pending}
+      - {annotation_id: ann-tfrs9-current-retrieval, annotator_role: retrieval_evaluator, independent: true, status: pending}
+    adjudication: {status: pending, adjudicator_role: dataset_owner, disagreement: unassessed}
+    approval: {state: draft, owner_role: dataset_owner}
+  - case_id: tr-capital-amendments-latest-17
+    query: "Sermaye yeterliliği düzenlemesinde corpus oluşturulduktan sonra yayımlanan bütün değişiklikleri listele."
+    query_class: amendment_tracking
+    domain: capital_adequacy
+    answerability: abstain
+    no_answer:
+      reason_code: corpus_freshness_not_guaranteed
+      basis_corpus_manifest_sha256: *corpus_manifest_sha
+      required_follow_up: Corpus gözlem tarihinden sonraki değişiklikler yetkili kaynak envanteriyle yeniden taranmalıdır.
+    annotations:
+      - {annotation_id: ann-capital-latest-legal, annotator_role: legal_reviewer, independent: true, status: pending}
+      - {annotation_id: ann-capital-latest-retrieval, annotator_role: retrieval_evaluator, independent: true, status: pending}
+    adjudication: {status: pending, adjudicator_role: dataset_owner, disagreement: unassessed}
+    approval: {state: draft, owner_role: dataset_owner}
+  - case_id: tr-isedes-version-comparison-18
+    query: "İSEDES Yönetmeliğinin yürürlükteki metni ile bir önceki konsolide sürümü arasındaki farkları karşılaştır."
+    query_class: version_comparison
+    domain: icaap_isedes
+    answerability: abstain
+    no_answer:
+      reason_code: version_history_not_modeled
+      basis_corpus_manifest_sha256: *corpus_manifest_sha
+      required_follow_up: Yetkili kaynaktan tarihli sürümler alınmalı, değişiklik ilişkileri uzman tarafından doğrulanmalıdır.
+    annotations:
+      - {annotation_id: ann-isedes-version-legal, annotator_role: legal_reviewer, independent: true, status: pending}
+      - {annotation_id: ann-isedes-version-audit, annotator_role: audit_practitioner, independent: true, status: pending}
+    adjudication: {status: pending, adjudicator_role: dataset_owner, disagreement: unassessed}
+    approval: {state: draft, owner_role: dataset_owner}
+  - case_id: tr-lcr-current-threshold-19
+    query: "Bugün uygulanması gereken güncel likidite karşılama oranı eşiği nedir?"
+    query_class: currentness
+    domain: liquidity_risk
+    answerability: abstain
+    no_answer:
+      reason_code: legal_currentness_not_modeled
+      basis_corpus_manifest_sha256: *corpus_manifest_sha
+      required_follow_up: Güncel eşik, geçiş hükmü ve Kurul kararları yetkili kaynaklardan tarih itibarıyla doğrulanmalıdır.
+    annotations:
+      - {annotation_id: ann-lcr-threshold-legal, annotator_role: legal_reviewer, independent: true, status: pending}
+      - {annotation_id: ann-lcr-threshold-domain, annotator_role: regulatory_domain_expert, independent: true, status: pending}
+    adjudication: {status: pending, adjudicator_role: dataset_owner, disagreement: unassessed}
+    approval: {state: draft, owner_role: dataset_owner}
+  - case_id: tr-bhfor-latest-change-20
+    query: "BHFOR standart yaklaşım düzenlemesindeki en son değişikliğin yürürlük tarihini ve etkisini açıkla."
+    query_class: amendment_tracking
+    domain: interest_rate_risk
+    answerability: abstain
+    no_answer:
+      reason_code: corpus_not_exhaustive
+      basis_corpus_manifest_sha256: *corpus_manifest_sha
+      required_follow_up: Değişiklik, yürürlük ve etki analizi yetkili mevzuat zinciri ile uzman incelemesine bağlanmalıdır.
+    annotations:
+      - {annotation_id: ann-bhfor-latest-legal, annotator_role: legal_reviewer, independent: true, status: pending}
+      - {annotation_id: ann-bhfor-latest-domain, annotator_role: regulatory_domain_expert, independent: true, status: pending}
+    adjudication: {status: pending, adjudicator_role: dataset_owner, disagreement: unassessed}
+    approval: {state: draft, owner_role: dataset_owner}
+
+limitations:
+  - All twenty cases are draft proposals pending independent domain review, adjudication, and owner approval.
+  - The corpus is job-specific and non-exhaustive; absence from it does not prove absence from authoritative sources.
+  - Legal currentness, amendment, repeal, supersession, consolidation, and effective dates are not authoritatively modeled.
+  - Document-level evidence is used where the tracked extraction has no stable section locator.
+  - The checksum binds this draft to one corpus snapshot but is not a digital signature.
+approval:
+  state: draft
+  owner_role: dataset_owner
+integrity:
+  dataset_sha256: "76cd0d6f2e4d93881a263b32c91f67e34eda2c2b2eb78c1964ccf7d85c730b81"

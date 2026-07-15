@@ -2,11 +2,22 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 import time
 from typing import TYPE_CHECKING
 
+from pydantic import ValidationError
+
+from bddk_mcp.citations import (
+    CitationQuality,
+    CitationV1,
+    NormalizedTextRange,
+    TrustedCitationContext,
+    build_normalized_range_citation,
+    section_retrieval_profile_sha256,
+)
 from bddk_mcp.observability.telemetry import elapsed_ms, record_tool_call_trace, unique_doc_ids
 from bddk_mcp.quality.markdown_quality import (
     QualityAssessment,
@@ -32,7 +43,6 @@ from bddk_mcp.tools.structured_outputs import (
     SectionItem,
     SectionSearchResponse,
     SectionSearchToolResult,
-    frame_untrusted_source,
     structured_tool_result,
 )
 from bddk_mcp.tools.tool_logging import logged_tool
@@ -50,6 +60,20 @@ _MAX_DISAMBIGUATION_RESULTS = 10
 _SECTION_TRUNCATION_WARNING = (
     "One or more section bodies were returned as bounded excerpts. Use an exact document/section reference "
     "or paginated full-document retrieval before relying on omitted text."
+)
+_CITATION_UNAVAILABLE_NO_MAPPING = (
+    "[citation_v1_unavailable_no_validated_mapping] Citation v1 was not emitted: this section has no "
+    "validated authoritative, non-fixture legal-version occurrence mapping."
+)
+_CITATION_UNAVAILABLE_TRUNCATED = (
+    "[citation_v1_unavailable_truncated] Citation v1 was not emitted because the returned section body is truncated."
+)
+_CITATION_UNAVAILABLE_QUALITY_FAILURE = (
+    "[citation_v1_unavailable_quality_failure] Citation v1 was not emitted because extraction quality is failed."
+)
+_CITATION_UNAVAILABLE_RECONSTRUCTION = (
+    "[citation_v1_unavailable_reconstruction_mismatch] Citation v1 was not emitted because the returned text "
+    "could not be reconstructed exactly from the validated normalized-document range."
 )
 
 _LOOSE_SECTION_SEARCH_STOPWORDS = {
@@ -174,9 +198,14 @@ def _section_item(
     )
 
 
-def _section_evidence(section: StoredDocumentSection) -> EvidenceReference:
+def _section_evidence(
+    section: StoredDocumentSection,
+    *,
+    citation: CitationV1 | None = None,
+) -> EvidenceReference:
     return EvidenceReference(
         document_id=section.doc_id,
+        source_url=citation.source_url if citation else None,
         retrieval_source="section_index",
         page_start=section.page_start,
         page_end=section.page_end,
@@ -186,7 +215,104 @@ def _section_evidence(section: StoredDocumentSection) -> EvidenceReference:
         end_char=section.end_char,
         content_hash=section.content_hash,
         quality=_quality_metadata(_section_quality(section)),
+        citation=citation,
     )
+
+
+def _sha256_text(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _build_exact_section_citation(
+    section: StoredDocumentSection,
+    *,
+    section_item: SectionItem,
+    quality: QualityAssessment,
+) -> tuple[CitationV1 | None, str | None]:
+    """Build Citation v1 only for an exact, complete, validated occurrence."""
+
+    mapping = section.citation_mapping
+    if mapping is None:
+        return None, _CITATION_UNAVAILABLE_NO_MAPPING
+    if section_item.content_truncated:
+        return None, _CITATION_UNAVAILABLE_TRUNCATED
+    if quality.label == "fail":
+        return None, _CITATION_UNAVAILABLE_QUALITY_FAILURE
+
+    normalized_source_range = section.normalized_source_range
+    try:
+        trusted = TrustedCitationContext(
+            instrument_id=mapping.instrument_id,
+            instrument_jurisdiction=mapping.instrument_jurisdiction,
+            instrument_authority_code=mapping.instrument_authority_code,
+            instrument_identity_key=mapping.instrument_identity_key,
+            legal_version_id=mapping.legal_version_id,
+            legal_version_key=mapping.legal_version_key,
+            legal_validation_record_sha256=mapping.legal_validation_record_sha256,
+            provision_validation_record_sha256=mapping.provision_validation_record_sha256,
+            artifact_id=mapping.artifact_id,
+            artifact_blob_id=mapping.artifact_blob_id,
+            artifact_sha256=mapping.artifact_sha256,
+            source_url=mapping.source_url,
+            artifact_retrieved_at=mapping.artifact_retrieved_at,
+            source_document_id=section.doc_id,
+            normalized_document_sha256=section.source_content_hash,
+            evidence_id=mapping.evidence_id,
+            evidence_locator=mapping.evidence_locator,
+            evidence_statement_sha256=mapping.evidence_statement_sha256,
+            provision_id=mapping.provision_id,
+            provision_kind=mapping.provision_kind,
+            provision_path=mapping.provision_path,
+            provision_text_sha256=section.content_hash,
+            locator=NormalizedTextRange(
+                start_char=section.start_char,
+                end_char=section.end_char,
+                normalized_range_sha256=_sha256_text(normalized_source_range),
+            ),
+            excerpt_sha256=_sha256_text(section_item.content),
+            excerpt_length=len(section_item.content),
+            retrieval_profile_sha256=section_retrieval_profile_sha256(),
+            quality=CitationQuality(
+                label=quality.label,
+                flags=tuple(sorted(set(quality.flags))),
+                warning=quality.warning or None,
+            ),
+        )
+        citation = build_normalized_range_citation(
+            trusted=trusted,
+            provision_text=section.content,
+            normalized_source_range=normalized_source_range,
+            rendered_excerpt=section_item.content,
+        )
+    except (ValidationError, ValueError):
+        logger.warning(
+            "Citation v1 reconstruction rejected for document=%s section=%s/%s",
+            section.doc_id,
+            section.section_type,
+            section.section_ref,
+        )
+        return None, _CITATION_UNAVAILABLE_RECONSTRUCTION
+    return citation, None
+
+
+def _citation_lines(citation: CitationV1) -> list[str]:
+    locator = citation.locator
+    return [
+        "",
+        "#### Citation v1",
+        f"- Citation ID: {citation.citation_id}",
+        f"- Instrument ID: {citation.instrument_id}",
+        f"- Legal version ID: {citation.legal_version_id}",
+        f"- Artifact ID: {citation.artifact_id}",
+        f"- Evidence ID: {citation.evidence_id}",
+        f"- Provision ID: {citation.provision_id}",
+        f"- Authoritative source: {citation.source_url}",
+        f"- Normalized document SHA-256: {citation.normalized_document_sha256}",
+        f"- Provision SHA-256: {citation.provision_text_sha256}",
+        (f"- Normalized Markdown code-point range: [{locator.start_char}, {locator.end_char}); not source PDF pages"),
+        f"- Normalized range SHA-256: {locator.normalized_range_sha256}",
+        f"- Returned excerpt SHA-256: {citation.excerpt_sha256}",
+    ]
 
 
 def _section_warnings(
@@ -208,17 +334,18 @@ def _format_section(
     *,
     include_content: bool = True,
     quality: QualityAssessment | None = None,
+    citation: CitationV1 | None = None,
 ) -> str:
     heading = f" — {section.heading}" if section.heading else ""
     lines = [
         f"### {section.doc_id} — {section.section_type} {section.section_ref}{heading}",
         f"- Document ID: {section.doc_id}",
         f"- Section: {section.section_type} {section.section_ref}",
-        f"- Character range: {section.start_char}-{section.end_char}",
+        (f"- Normalized Markdown code-point range: [{section.start_char}, {section.end_char}); not source PDF pages"),
     ]
     if section.page_start is not None:
         page_end = section.page_end if section.page_end is not None else section.page_start
-        lines.append(f"- Pages: {section.page_start}-{page_end}")
+        lines.append(f"- Normalized page window: {section.page_start}-{page_end} (not verified source PDF pages)")
     quality = quality or _section_quality(section)
     lines.extend(_quality_lines(quality, prefix="- "))
     if include_content:
@@ -227,8 +354,12 @@ def _format_section(
             max_chars=_MAX_EXACT_SECTION_CHARS,
         )
         if truncated:
-            lines.append(f"- Returned excerpt: characters {excerpt_start}-{excerpt_end} (section body truncated)")
-        lines.extend(["", frame_untrusted_source(excerpt)])
+            lines.append(
+                f"- Returned normalized excerpt range: [{excerpt_start}, {excerpt_end}) (section body truncated)"
+            )
+        lines.extend(["", excerpt])
+    if citation is not None:
+        lines.extend(_citation_lines(citation))
     return "\n".join(lines)
 
 
@@ -370,6 +501,11 @@ def register(mcp, deps: Dependencies) -> None:
         if len(sections) == 1:
             quality = _section_quality(sections[0])
             section_item = _section_item(sections[0], max_chars=_MAX_EXACT_SECTION_CHARS)
+            citation, citation_warning = _build_exact_section_citation(
+                sections[0],
+                section_item=section_item,
+                quality=quality,
+            )
             await record_tool_call_trace(
                 getattr(deps, "telemetry_pool", None),
                 tool_name="get_document_section",
@@ -384,12 +520,15 @@ def register(mcp, deps: Dependencies) -> None:
             return structured_tool_result(
                 DocumentSectionResponse(
                     status="partial" if section_item.content_truncated else "ok",
-                    text=_format_section(section, quality=quality),
-                    evidence=[_section_evidence(section)],
-                    warnings=_section_warnings(
-                        [section],
-                        content_truncated=section_item.content_truncated,
-                    ),
+                    text=_format_section(section, quality=quality, citation=citation),
+                    evidence=[_section_evidence(section, citation=citation)],
+                    warnings=[
+                        *_section_warnings(
+                            [section],
+                            content_truncated=section_item.content_truncated,
+                        ),
+                        *([citation_warning] if citation_warning else []),
+                    ],
                     requested_document_id=document_id,
                     section_type=_normalize_optional(section_type),
                     section_ref=_normalize_optional(section_ref),
@@ -415,7 +554,7 @@ def register(mcp, deps: Dependencies) -> None:
                 f"(start_char={section.start_char}, hash={section.content_hash[:12]})"
             )
             lines.extend(_quality_lines(_section_quality(section), prefix="  "))
-            lines.append(f"  {frame_untrusted_source(_section_preview(section))}")
+            lines.append(f"  {_section_preview(section)}")
         if more_results:
             lines.append("... additional matches omitted; add a section reference or heading filter.")
         result_items = [_section_item(section) for section in result_sections]
@@ -560,7 +699,9 @@ def register(mcp, deps: Dependencies) -> None:
             lines.append(f"**{hit.doc_id} — {hit.section_type} {hit.section_ref}{heading}**")
             lines.append(f"  Document ID: {hit.doc_id}")
             lines.append(f"  Section: {hit.section_type} {hit.section_ref}")
-            lines.append(f"  Character range: {hit.start_char}-{hit.end_char}")
+            lines.append(
+                f"  Normalized Markdown code-point range: [{hit.start_char}, {hit.end_char}); not source PDF pages"
+            )
             if hit.rank is not None:
                 # "relative" guards against conflation with the percent-scale
                 # relevance gate in the server instructions (store search).
@@ -568,7 +709,7 @@ def register(mcp, deps: Dependencies) -> None:
             lines.extend(_quality_lines(_section_quality(hit), prefix="  "))
             preview = _section_preview(hit)
             if preview:
-                lines.append(f"  {frame_untrusted_source(f'...{preview}...')}")
+                lines.append(f"  ...{preview}...")
             lines.append("")
         await record_tool_call_trace(
             getattr(deps, "telemetry_pool", None),

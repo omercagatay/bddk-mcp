@@ -597,7 +597,7 @@ def create_mcp(
         auth=auth,
         token_verifier=token_verifier,
     )
-    # FastMCP 1.27 does not expose the low-level version in its constructor.
+    # FastMCP v1.x does not expose the low-level version in its constructor.
     # Set the SDK Server field so initialize returns this project's version,
     # rather than the installed `mcp` library version.
     server._mcp_server.version = __version__

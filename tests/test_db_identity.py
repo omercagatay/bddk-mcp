@@ -46,6 +46,35 @@ def test_reviewed_identity_contracts_are_exact_and_satisfiable(profile: str) -> 
     assert identity_contract_failures(_valid_inspection(profile), profile) == ()
 
 
+def test_canonical_legal_version_workspace_is_inventoried_with_zero_runtime_rights() -> None:
+    expected = {
+        "public.regulatory_evidence",
+        "public.regulatory_family_imports",
+        "public.regulatory_instruments",
+        "public.regulatory_legal_events",
+        "public.regulatory_legal_status_assertions",
+        "public.regulatory_legal_version_artifacts",
+        "public.regulatory_legal_version_provisions",
+        "public.regulatory_legal_versions",
+        "public.regulatory_provisions",
+        "public.regulatory_source_blobs",
+        "public.regulatory_source_artifacts",
+    }
+
+    assert db_identity._REGULATORY_VERSION_TABLES == expected
+    assert not expected.intersection(db_identity._CORPUS_TABLES)
+    assert not expected.intersection(db_identity._INGESTION_TABLES)
+    for profile in ("public", "ingestion", "operator"):
+        contract = db_identity._CONTRACTS[profile]
+        assert {table: contract.tables[table] for table in expected} == {table: frozenset() for table in expected}
+
+    view = "public.regulatory_validated_section_citations"
+    assert db_identity._REGULATORY_PUBLIC_VIEWS == {view}
+    assert db_identity._CONTRACTS["public"].tables[view] == frozenset({"SELECT"})
+    assert db_identity._CONTRACTS["ingestion"].tables[view] == frozenset()
+    assert db_identity._CONTRACTS["operator"].tables[view] == frozenset({"SELECT"})
+
+
 @pytest.mark.parametrize(
     ("field", "value", "failure"),
     [
@@ -188,6 +217,20 @@ async def test_physical_connection_assertion_rejects_and_sanitizes_drift() -> No
     assert "private_remapped_login" not in str(exc_info.value)
     assert "CREATE" not in str(exc_info.value)
     assert "least-privilege contract" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_physical_connection_refuses_unsupported_postgresql_before_acl_inspection() -> None:
+    connection = AsyncMock()
+    connection.fetchval.return_value = 160012
+
+    with pytest.raises(DatabaseIdentityError) as exc_info:
+        await assert_database_connection_identity(connection, profile="public")
+
+    assert "requires PostgreSQL 17" in str(exc_info.value)
+    assert "160012" not in str(exc_info.value)
+    connection.fetchrow.assert_not_awaited()
+    connection.fetch.assert_not_awaited()
 
 
 @pytest.mark.postgres

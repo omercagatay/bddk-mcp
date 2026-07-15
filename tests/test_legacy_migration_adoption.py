@@ -40,6 +40,27 @@ def test_adoption_requires_an_explicit_cli_flag() -> None:
 async def _remove_managed_history(connection) -> None:
     await connection.execute("DROP SCHEMA IF EXISTS bddk_operator CASCADE")
     await connection.execute("DROP SCHEMA IF EXISTS bddk_meta CASCADE")
+    # Remove the additive v4 legal-curation pilot before reconstructing the
+    # exact unmanaged v1 fixture.  Leaving any one of these relations behind
+    # must make real legacy adoption fail closed as an unexpected catalog.
+    await connection.execute("DROP VIEW IF EXISTS public.regulatory_validated_section_citations")
+    await connection.execute(
+        """
+        DROP TABLE IF EXISTS
+            public.regulatory_legal_version_provisions,
+            public.regulatory_provisions,
+            public.regulatory_legal_status_assertions,
+            public.regulatory_legal_events,
+            public.regulatory_legal_version_artifacts,
+            public.regulatory_legal_versions,
+            public.regulatory_evidence,
+            public.regulatory_source_artifacts,
+            public.regulatory_source_blobs,
+            public.regulatory_family_imports,
+            public.regulatory_instruments
+        CASCADE
+        """
+    )
     # Reverse the additive v3 artifacts inside the surrounding rollback-only
     # transaction so the strict adopter sees the exact pre-ledger v1 catalog.
     await connection.execute(

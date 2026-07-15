@@ -44,6 +44,7 @@ PUBLIC_CORPUS_TABLES = {
     "public.document_chunks",
     "public.document_retrieval_publications",
 }
+PUBLIC_READ_RELATIONS = PUBLIC_CORPUS_TABLES | {"public.regulatory_validated_section_citations"}
 INGESTION_TABLES = PUBLIC_CORPUS_TABLES | {
     "public.sync_metadata",
     "public.sync_failures",
@@ -52,6 +53,19 @@ INGESTION_SEQUENCES = {
     "public.document_sections_id_seq",
     "public.document_versions_id_seq",
     "public.document_chunks_id_seq",
+}
+REGULATORY_VERSION_TABLES = {
+    "public.regulatory_evidence",
+    "public.regulatory_family_imports",
+    "public.regulatory_instruments",
+    "public.regulatory_legal_events",
+    "public.regulatory_legal_status_assertions",
+    "public.regulatory_legal_version_artifacts",
+    "public.regulatory_legal_version_provisions",
+    "public.regulatory_legal_versions",
+    "public.regulatory_provisions",
+    "public.regulatory_source_blobs",
+    "public.regulatory_source_artifacts",
 }
 
 
@@ -130,9 +144,32 @@ def test_positive_runtime_grants_are_explicit_not_default_wildcards() -> None:
     normalized = _normalized_sql(GRANTS_SQL)
 
     assert not re.search(r"(?:^|;) grant [^;]* on all (tables|sequences)", normalized)
-    assert _grant_object_list(GRANTS_SQL, "select", "bddk_public_reader") == PUBLIC_CORPUS_TABLES
+    assert _grant_object_list(GRANTS_SQL, "select", "bddk_public_reader") == PUBLIC_READ_RELATIONS
     assert _grant_object_list(GRANTS_SQL, "select, insert, update, delete", "bddk_ingestion") == INGESTION_TABLES
     assert _grant_object_list(GRANTS_SQL, "usage", "bddk_ingestion", kind="sequence") == INGESTION_SEQUENCES
+
+
+def test_legal_version_workspace_is_owned_but_denied_to_every_runtime_role() -> None:
+    normalized = _normalized_sql(GRANTS_SQL)
+
+    for relation in REGULATORY_VERSION_TABLES:
+        assert f"alter table {relation} owner to bddk_schema_owner;" in normalized
+        assert not re.search(rf"grant [^;]+ on table [^;]*\b{re.escape(relation)}\b", normalized)
+
+    revoke = re.search(
+        r"revoke all privileges on table (.*?) from public, bddk_public_reader, bddk_ingestion, "
+        r"bddk_operator_runtime, bddk_telemetry_writer;",
+        normalized,
+    )
+    assert revoke is not None
+    assert {item.strip() for item in revoke.group(1).split(",")} == REGULATORY_VERSION_TABLES
+
+    view = "public.regulatory_validated_section_citations"
+    assert f"alter view {view} owner to bddk_schema_owner;" in normalized
+    assert (
+        f"revoke all privileges on table {view} from public, bddk_public_reader, bddk_ingestion, "
+        "bddk_operator_runtime, bddk_telemetry_writer;"
+    ) in normalized
 
 
 def test_operator_and_telemetry_grants_are_narrow() -> None:
@@ -528,6 +565,9 @@ class _SingleConnectionPool:
 
     async def fetchrow(self, query: str, *args):
         return await self._connection.fetchrow(query, *args)
+
+    async def fetchval(self, query: str, *args):
+        return await self._connection.fetchval(query, *args)
 
 
 async def _assert_permission_denied(connection: asyncpg.Connection, statement: str) -> None:

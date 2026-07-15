@@ -11,6 +11,7 @@ from typing import Any
 import asyncpg
 
 from bddk_mcp.core.config import TELEMETRY_ENABLED, TELEMETRY_MODEL_ID, TELEMETRY_SESSION_ID, TELEMETRY_STORE_TEXT
+from bddk_mcp.db_compatibility import PostgreSQLCompatibilityError, assert_supported_postgresql
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,18 @@ WITH RECURSIVE target AS (
         ('public', 'document_retrieval_publications'),
         ('public', 'sync_metadata'),
         ('public', 'sync_failures'),
+        ('public', 'regulatory_instruments'),
+        ('public', 'regulatory_family_imports'),
+        ('public', 'regulatory_source_blobs'),
+        ('public', 'regulatory_source_artifacts'),
+        ('public', 'regulatory_evidence'),
+        ('public', 'regulatory_legal_versions'),
+        ('public', 'regulatory_legal_version_artifacts'),
+        ('public', 'regulatory_legal_events'),
+        ('public', 'regulatory_legal_status_assertions'),
+        ('public', 'regulatory_provisions'),
+        ('public', 'regulatory_legal_version_provisions'),
+        ('public', 'regulatory_validated_section_citations'),
         ('bddk_meta', 'schema_migrations'),
         ('bddk_operator', 'operator_jobs')
 ), other_relations(relation_oid) AS (
@@ -184,6 +197,7 @@ async def assert_telemetry_writer_ready(
     """Prove that the configured identity is INSERT-only for trace rows."""
 
     try:
+        await assert_supported_postgresql(pool)
         privileges = await pool.fetchrow(_TELEMETRY_PRIVILEGES_SQL)
         identity_allowed = bool(
             not require_session_identity
@@ -227,6 +241,8 @@ async def assert_telemetry_writer_ready(
             raise TelemetryIdentityError("Telemetry database identity is not INSERT-only for public.tool_call_traces.")
     except TelemetryIdentityError:
         raise
+    except PostgreSQLCompatibilityError as exc:
+        raise TelemetryIdentityError(str(exc)) from None
     except (asyncpg.PostgresError, OSError, KeyError, TypeError):
         raise TelemetryIdentityError(
             "Telemetry database identity could not be verified against the required INSERT-only contract."

@@ -33,6 +33,18 @@ ALTER TABLE public.document_retrieval_publications OWNER TO bddk_schema_owner;
 ALTER TABLE public.tool_call_traces OWNER TO bddk_schema_owner;
 ALTER TABLE public.sync_metadata OWNER TO bddk_schema_owner;
 ALTER TABLE public.sync_failures OWNER TO bddk_schema_owner;
+ALTER TABLE public.regulatory_instruments OWNER TO bddk_schema_owner;
+ALTER TABLE public.regulatory_family_imports OWNER TO bddk_schema_owner;
+ALTER TABLE public.regulatory_source_blobs OWNER TO bddk_schema_owner;
+ALTER TABLE public.regulatory_source_artifacts OWNER TO bddk_schema_owner;
+ALTER TABLE public.regulatory_evidence OWNER TO bddk_schema_owner;
+ALTER TABLE public.regulatory_legal_versions OWNER TO bddk_schema_owner;
+ALTER TABLE public.regulatory_legal_version_artifacts OWNER TO bddk_schema_owner;
+ALTER TABLE public.regulatory_legal_events OWNER TO bddk_schema_owner;
+ALTER TABLE public.regulatory_legal_status_assertions OWNER TO bddk_schema_owner;
+ALTER TABLE public.regulatory_provisions OWNER TO bddk_schema_owner;
+ALTER TABLE public.regulatory_legal_version_provisions OWNER TO bddk_schema_owner;
+ALTER VIEW public.regulatory_validated_section_citations OWNER TO bddk_schema_owner;
 ALTER TABLE bddk_operator.operator_jobs OWNER TO bddk_schema_owner;
 
 ALTER SEQUENCE public.document_sections_id_seq OWNER TO bddk_schema_owner;
@@ -67,6 +79,25 @@ REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA bddk_meta
     FROM bddk_public_reader, bddk_ingestion, bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA bddk_meta
     FROM bddk_public_reader, bddk_ingestion, bddk_operator_runtime, bddk_telemetry_writer;
+
+-- Canonical legal-version base tables are an owner-only validation workspace.
+-- Runtime citation reads use only the separately hardened view granted below.
+REVOKE ALL PRIVILEGES ON TABLE
+    public.regulatory_instruments,
+    public.regulatory_family_imports,
+    public.regulatory_source_blobs,
+    public.regulatory_source_artifacts,
+    public.regulatory_evidence,
+    public.regulatory_legal_versions,
+    public.regulatory_legal_version_artifacts,
+    public.regulatory_legal_events,
+    public.regulatory_legal_status_assertions,
+    public.regulatory_provisions,
+    public.regulatory_legal_version_provisions
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_operator_runtime, bddk_telemetry_writer;
+
+REVOKE ALL PRIVILEGES ON TABLE public.regulatory_validated_section_citations
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_operator_runtime, bddk_telemetry_writer;
 
 REVOKE ALL PRIVILEGES ON SCHEMA bddk_operator FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON SCHEMA bddk_meta FROM PUBLIC;
@@ -106,7 +137,8 @@ GRANT SELECT ON TABLE
     public.document_sections,
     public.document_versions,
     public.document_chunks,
-    public.document_retrieval_publications
+    public.document_retrieval_publications,
+    public.regulatory_validated_section_citations
 TO bddk_public_reader;
 GRANT USAGE ON SCHEMA bddk_meta TO bddk_public_reader;
 GRANT SELECT ON TABLE bddk_meta.schema_migrations TO bddk_public_reader;

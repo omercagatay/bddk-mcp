@@ -70,6 +70,56 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Rebuild and publish every canonical document under the current retrieval profile",
     )
+    bootstrap.add_argument(
+        "--require-quantified-freshness",
+        action="store_true",
+        help="Fail unless the imported corpus declares numeric freshness objectives",
+    )
+    bootstrap.add_argument(
+        "--require-measured-freshness",
+        action="store_true",
+        help="Fail unless per-document freshness events satisfy the declared objectives",
+    )
+    bootstrap.add_argument(
+        "--require-verified-signature",
+        action="store_true",
+        help="Fail unless the imported corpus signature verifies against --trusted-signing-key",
+    )
+    bootstrap.add_argument(
+        "--trusted-signing-key",
+        type=Path,
+        help="Separately mounted PEM Ed25519 public key for the imported corpus manifest",
+    )
+
+    verify_corpus = subparsers.add_parser(
+        "verify-corpus",
+        help="Verify the reviewed corpus manifest and every declared seed artifact without database access",
+    )
+    verify_corpus.add_argument(
+        "--seed-dir",
+        type=Path,
+        help="Corpus directory; defaults to BDDK_SEED_DIR or checkout seed_data",
+    )
+    verify_corpus.add_argument(
+        "--require-quantified-freshness",
+        action="store_true",
+        help="Fail unless source-detection, publication, and maximum-age objectives are numeric",
+    )
+    verify_corpus.add_argument(
+        "--require-measured-freshness",
+        action="store_true",
+        help="Fail unless per-document source-detection and retrieval-publication events meet declared SLOs",
+    )
+    verify_corpus.add_argument(
+        "--require-verified-signature",
+        action="store_true",
+        help="Fail unless a detached Ed25519 signature verifies against --trusted-signing-key",
+    )
+    verify_corpus.add_argument(
+        "--trusted-signing-key",
+        type=Path,
+        help="Separately provisioned PEM Ed25519 public key used to verify a signed corpus manifest",
+    )
 
     return parser
 
@@ -112,6 +162,10 @@ async def _bootstrap(
     force: bool,
     *,
     reindex_existing: bool = False,
+    require_quantified_freshness: bool = False,
+    require_measured_freshness: bool = False,
+    require_verified_signature: bool = False,
+    trusted_signing_key: Path | None = None,
 ) -> dict:
     from bddk_mcp.core.config import require_database_url
     from bddk_mcp.db_lifecycle import assert_database_ready
@@ -139,9 +193,52 @@ async def _bootstrap(
         dsn=selected_dsn,
         force=force,
         reindex_existing=reindex_existing,
+        require_quantified_freshness=require_quantified_freshness,
+        require_measured_freshness=require_measured_freshness,
+        require_verified_signature=require_verified_signature,
+        trusted_signing_key=trusted_signing_key,
     )
     await assert_database_ready(dsn=selected_dsn)
     return result
+
+
+def _verify_corpus(
+    seed_dir: Path | None,
+    *,
+    require_quantified_freshness: bool = False,
+    require_measured_freshness: bool = False,
+    require_verified_signature: bool = False,
+    trusted_signing_key: Path | None = None,
+) -> dict:
+    from bddk_mcp.corpus_manifest import (
+        CORPUS_MANIFEST_FILENAME,
+        CorpusManifestError,
+        load_and_validate_corpus_manifest,
+    )
+    from bddk_mcp.ingest.seed import SEED_DIR
+
+    selected_dir = seed_dir
+    if selected_dir is None and os.environ.get("BDDK_SEED_DIR"):
+        selected_dir = Path(os.environ["BDDK_SEED_DIR"])
+    root = (selected_dir or SEED_DIR).resolve()
+    try:
+        validation = load_and_validate_corpus_manifest(
+            root / CORPUS_MANIFEST_FILENAME,
+            corpus_root=root,
+            require_quantified_freshness=require_quantified_freshness,
+            require_measured_freshness=require_measured_freshness,
+            require_verified_signature=require_verified_signature,
+            trusted_signing_key=trusted_signing_key,
+        )
+    except CorpusManifestError as exc:
+        raise RuntimeError(f"Corpus verification failed: {exc}") from exc
+    return {
+        "manifest_id": validation.manifest.manifest_id,
+        "manifest_sha256": validation.manifest_sha256,
+        "artifact_count": len(validation.manifest.artifacts),
+        "exhaustive": validation.manifest.exhaustive,
+        "warnings": list(validation.warnings),
+    }
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -173,6 +270,10 @@ def main(argv: Sequence[str] | None = None) -> None:
                     args.seed_dir,
                     args.force,
                     reindex_existing=args.reindex_existing,
+                    require_quantified_freshness=args.require_quantified_freshness,
+                    require_measured_freshness=args.require_measured_freshness,
+                    require_verified_signature=args.require_verified_signature,
+                    trusted_signing_key=args.trusted_signing_key,
                 )
             )
             print(
@@ -182,6 +283,26 @@ def main(argv: Sequence[str] | None = None) -> None:
                 f"{result.get('embedded', 0)} embeddings, "
                 f"{result.get('reindex_published', 0)} existing documents reindexed."
             )
+            if result.get("corpus_manifest_id") and result.get("corpus_manifest_sha256"):
+                print(
+                    f"Corpus manifest used: id={result['corpus_manifest_id']} sha256={result['corpus_manifest_sha256']}"
+                )
+            return
+        if args.command == "verify-corpus":
+            result = _verify_corpus(
+                args.seed_dir,
+                require_quantified_freshness=args.require_quantified_freshness,
+                require_measured_freshness=args.require_measured_freshness,
+                require_verified_signature=args.require_verified_signature,
+                trusted_signing_key=args.trusted_signing_key,
+            )
+            print(
+                "Corpus manifest verified: "
+                f"id={result['manifest_id']} sha256={result['manifest_sha256']} "
+                f"artifacts={result['artifact_count']} exhaustive={str(result['exhaustive']).lower()}"
+            )
+            for warning in result["warnings"]:
+                print(f"WARNING: {warning}")
             return
     except RuntimeError as exc:
         parser.error(str(exc))
