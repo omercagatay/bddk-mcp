@@ -270,13 +270,17 @@ def _load_mapping(
     path: Path, *, label: str, maximum_bytes: int, json_only: bool = False
 ) -> tuple[dict[str, Any], bytes]:
     raw_bytes = _bounded_regular_bytes(path, label=label, maximum_bytes=maximum_bytes)
+    return _parse_mapping_bytes(raw_bytes, label=label, json_only=json_only), raw_bytes
+
+
+def _parse_mapping_bytes(raw_bytes: bytes, *, label: str, json_only: bool = False) -> dict[str, Any]:
     try:
         raw = json.loads(raw_bytes) if json_only else yaml.safe_load(raw_bytes)
     except (UnicodeError, json.JSONDecodeError, yaml.YAMLError) as exc:
         raise LegalReleaseEvidenceError(f"{label} is invalid") from exc
     if not isinstance(raw, dict):
         raise LegalReleaseEvidenceError(f"{label} must be an object")
-    return raw, raw_bytes
+    return raw
 
 
 def _resolve_reference(root: Path, reference: str, *, label: str) -> Path:
@@ -361,28 +365,26 @@ def _verify_checkpoint_retention(
             label="retained authoritative source bytes",
             maximum_bytes=_MAX_SOURCE_BYTES,
         )
-        acquisition_path, _ = _verify_sealed_file(
+        _, acquisition_bytes = _verify_sealed_file(
             root,
             evidence.acquisition_record,
             label="retained source acquisition record",
             maximum_bytes=_MAX_ACQUISITION_RECORD_BYTES,
         )
-        page_proof_path, _ = _verify_sealed_file(
+        _, page_proof_bytes = _verify_sealed_file(
             root,
             evidence.page_mapping_proof,
             label="retained source page-mapping proof",
             maximum_bytes=_MAX_PAGE_PROOF_BYTES,
         )
-        raw_acquisition, _ = _load_mapping(
-            acquisition_path,
+        raw_acquisition = _parse_mapping_bytes(
+            acquisition_bytes,
             label="retained source acquisition record",
-            maximum_bytes=_MAX_ACQUISITION_RECORD_BYTES,
             json_only=True,
         )
-        raw_page_proof, _ = _load_mapping(
-            page_proof_path,
+        raw_page_proof = _parse_mapping_bytes(
+            page_proof_bytes,
             label="retained source page-mapping proof",
-            maximum_bytes=_MAX_PAGE_PROOF_BYTES,
             json_only=True,
         )
         try:

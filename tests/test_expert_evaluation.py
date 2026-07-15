@@ -12,6 +12,7 @@ import yaml
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+import benchmark.legal_release_evidence as legal_release_evidence
 from bddk_mcp.citations import (
     CitationQuality,
     NormalizedTextRange,
@@ -741,6 +742,57 @@ def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_la
             predecessor_legal_release_checkpoint_path=predecessor_path,
             now=datetime(2026, 7, 16, tzinfo=UTC),
         )
+
+
+def test_legal_release_parses_the_exact_acquisition_bytes_that_were_hash_checked(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    raw = _raw_dataset()
+    citation = _verified_tracked_citation(raw)
+    raw["evidence_catalog"][0].update(
+        citation_v1_status="verified",
+        citation_v1_id=citation["citation_id"],
+        citation_v1=citation,
+    )
+    dataset_path = _write_sealed_dataset(tmp_path, raw)
+    pack_path, attestation_path, curator_key, _ = _write_signed_legal_pack(tmp_path, citation)
+    checkpoint_path, release_key, latest_hash, source_root, _, _, _ = _write_legal_release_checkpoint(
+        tmp_path,
+        raw_dataset=raw,
+        citation=citation,
+        pack_path=pack_path,
+    )
+
+    original_verify = legal_release_evidence._verify_sealed_file
+    replaced_acquisition: dict[str, tuple[Path, bytes]] = {}
+
+    def verify_then_replace(root, sealed, *, label, maximum_bytes):
+        if label == "retained source acquisition record" and replaced_acquisition:
+            path, original_bytes = replaced_acquisition.popitem()[1]
+            path.write_bytes(original_bytes)
+        result = original_verify(root, sealed, label=label, maximum_bytes=maximum_bytes)
+        if label == "retained source acquisition record" and not replaced_acquisition:
+            path, original_bytes = result
+            replaced_acquisition["pending"] = (path, original_bytes)
+            path.write_bytes(b"{}")
+        return result
+
+    monkeypatch.setattr(legal_release_evidence, "_verify_sealed_file", verify_then_replace)
+
+    validation = load_expert_evaluation_dataset(
+        dataset_path,
+        validated_legal_pack_path=pack_path,
+        legal_attestation_path=attestation_path,
+        trusted_legal_attestation_key=curator_key,
+        legal_release_checkpoint_path=checkpoint_path,
+        legal_release_source_root=source_root,
+        trusted_legal_release_signing_key=release_key,
+        trusted_latest_legal_checkpoint_sha256=latest_hash,
+        now=datetime(2026, 7, 16, tzinfo=UTC),
+    )
+
+    assert validation.legal_release_evidence_verified is True
 
 
 def test_partial_legal_attestation_inputs_fail_closed(tmp_path: Path) -> None:
