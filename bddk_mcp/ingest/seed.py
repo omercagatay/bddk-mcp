@@ -23,6 +23,7 @@ from pathlib import Path
 import asyncpg
 
 from bddk_mcp.core.config import require_database_url
+from bddk_mcp.corpus_coordination import acquire_corpus_mutation_lock
 from bddk_mcp.corpus_manifest import (
     CORPUS_MANIFEST_FILENAME,
     CorpusArtifact,
@@ -36,6 +37,12 @@ from bddk_mcp.corpus_publication import (
 )
 from bddk_mcp.db_identity import assert_database_connection_identity, assert_database_identity
 from bddk_mcp.db_transport import assert_database_transport
+from bddk_mcp.store.bulk_write import (
+    insert_document_chunk_rows,
+    insert_document_version_rows,
+    upsert_decision_cache_rows,
+    upsert_document_rows,
+)
 from bddk_mcp.store.section_index import DocumentSection, extract_document_sections
 
 logger = logging.getLogger(__name__)
@@ -193,6 +200,7 @@ async def _activate_strict_release(
     expected_documents: list[dict],
     expected_cache: list[dict],
     expected_chunks: list[dict],
+    expected_embeddings: list[list[float]],
     expected_sections: dict[str, list[DocumentSection]],
     require_quantified_freshness: bool,
     require_measured_freshness: bool,
@@ -235,6 +243,7 @@ async def _activate_strict_release(
                 expected_documents=expected_documents,
                 expected_cache=expected_cache,
                 expected_chunks=expected_chunks,
+                expected_embeddings=expected_embeddings,
                 expected_sections=expected_sections,
                 retrieval_profile_sha256=retrieval_profile_sha256,
             )
@@ -401,12 +410,90 @@ def _record_chunk_artifact_match(
     )
 
 
+def _embedding_vector(value, *, dimension: int) -> tuple[float, ...] | None:
+    """Parse one expected or pgvector-text value under strict numeric rules."""
+
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(value, list | tuple) or len(value) != dimension:
+        return None
+    parsed: list[float] = []
+    for component in value:
+        if isinstance(component, bool):
+            return None
+        try:
+            number = float(component)
+        except (TypeError, ValueError, OverflowError):
+            return None
+        if not math.isfinite(number):
+            return None
+        parsed.append(number)
+    if math.fsum(component * component for component in parsed) <= 0.0:
+        return None
+    return tuple(parsed)
+
+
+def _stored_embeddings_match_regeneration(
+    expected_chunks: list[dict],
+    expected_embeddings: list[list[float]],
+    stored_chunks: list[dict],
+) -> bool:
+    """Compare every stored vector with an independently regenerated vector."""
+
+    from bddk_mcp.store.vector_store import (
+        EMBEDDING_DIMENSION,
+        PUBLICATION_EMBEDDING_MAX_ABS_ERROR,
+        PUBLICATION_EMBEDDING_MIN_COSINE_SIMILARITY,
+    )
+
+    if len(expected_chunks) != len(expected_embeddings) or len(stored_chunks) != len(expected_chunks):
+        return False
+    expected_by_key: dict[tuple[str, int], tuple[float, ...]] = {}
+    for chunk, embedding in zip(expected_chunks, expected_embeddings, strict=True):
+        try:
+            key = (str(chunk["doc_id"]), int(chunk["chunk_index"]))
+        except (KeyError, TypeError, ValueError):
+            return False
+        vector = _embedding_vector(embedding, dimension=EMBEDDING_DIMENSION)
+        if not key[0] or vector is None or key in expected_by_key:
+            return False
+        expected_by_key[key] = vector
+
+    actual_keys: set[tuple[str, int]] = set()
+    for chunk in stored_chunks:
+        try:
+            key = (str(chunk["doc_id"]), int(chunk["chunk_index"]))
+            stored = _embedding_vector(chunk.get("embedding"), dimension=EMBEDDING_DIMENSION)
+        except (KeyError, TypeError, ValueError):
+            return False
+        expected = expected_by_key.get(key)
+        if stored is None or expected is None or key in actual_keys:
+            return False
+        actual_keys.add(key)
+        if max(abs(left - right) for left, right in zip(stored, expected, strict=True)) > (
+            PUBLICATION_EMBEDDING_MAX_ABS_ERROR
+        ):
+            return False
+        stored_norm = math.sqrt(math.fsum(value * value for value in stored))
+        expected_norm = math.sqrt(math.fsum(value * value for value in expected))
+        cosine = math.fsum(left * right for left, right in zip(stored, expected, strict=True)) / (
+            stored_norm * expected_norm
+        )
+        if not math.isfinite(cosine) or cosine < PUBLICATION_EMBEDDING_MIN_COSINE_SIMILARITY:
+            return False
+    return actual_keys == set(expected_by_key)
+
+
 async def _assert_strict_seed_membership(
     connection,
     *,
     expected_documents: list[dict],
     expected_cache: list[dict],
     expected_chunks: list[dict],
+    expected_embeddings: list[list[float]],
     expected_sections: dict[str, list[DocumentSection]],
     retrieval_profile_sha256: str,
 ) -> None:
@@ -442,7 +529,8 @@ async def _assert_strict_seed_membership(
                decision_number, source_url, total_chunks, total_pages,
                content_hash, chunk_start_char, chunk_end_char, section_type,
                section_ref, section_start_char, section_end_char,
-               section_content_hash, chunk_text
+               section_content_hash, chunk_text,
+               embedding::pg_catalog.text AS embedding
         FROM public.document_chunks
         ORDER BY doc_id, chunk_index
         """
@@ -540,10 +628,20 @@ async def _assert_strict_seed_membership(
         ),
         key=lambda item: item["doc_id"],
     )
+    actual_chunks = [
+        {field: row[field] for field in _CHUNK_ARTIFACT_FIELDS}
+        for row in chunk_rows
+        if _CHUNK_ARTIFACT_FIELDS.issubset(set(row.keys()))
+    ]
     if (
         [dict(row) for row in document_rows] != canonical_documents
         or [dict(row) for row in cache_rows] != canonical_cache
-        or not _chunk_artifact_matches_generated(expected_chunks, [dict(row) for row in chunk_rows])
+        or not _chunk_artifact_matches_generated(expected_chunks, actual_chunks)
+        or not _stored_embeddings_match_regeneration(
+            expected_chunks,
+            expected_embeddings,
+            [dict(row) for row in chunk_rows],
+        )
         or [dict(row) for row in section_rows] != canonical_sections
         or [dict(row) for row in publication_rows] != canonical_publications
         or unrepresented_versions
@@ -600,17 +698,35 @@ def _generate_seed_chunks(vs, docs: list[dict]) -> tuple[list[dict], dict[str, l
     return generated, grouped
 
 
-async def _embed_seed_chunks(vs, chunks: list[dict], *, batch_size: int = 32) -> list[str]:
-    """Precompute every seed vector before opening the publication transaction."""
+async def _regenerate_seed_embedding_vectors(
+    vs,
+    chunks: list[dict],
+    *,
+    batch_size: int = 32,
+) -> list[list[float]]:
+    """Regenerate and validate every vector under the store's pinned profile."""
 
-    vectors: list[str] = []
+    from bddk_mcp.store.vector_store import EMBEDDING_DIMENSION
+
+    vectors: list[list[float]] = []
     for start in range(0, len(chunks), batch_size):
         batch = chunks[start : start + batch_size]
         embedded = await vs._embed([chunk["chunk_text"] for chunk in batch], prefix="passage")
-        vectors.extend("[" + ",".join(str(value) for value in vector) + "]" for vector in embedded)
+        for vector in embedded:
+            parsed = _embedding_vector(vector, dimension=EMBEDDING_DIMENSION)
+            if parsed is None:
+                raise RuntimeError("Seed embedding output was malformed.")
+            vectors.append(list(parsed))
     if len(vectors) != len(chunks):
         raise RuntimeError("Seed embedding output was incomplete.")
     return vectors
+
+
+async def _embed_seed_chunks(vs, chunks: list[dict], *, batch_size: int = 32) -> list[str]:
+    """Precompute every seed vector before opening the publication transaction."""
+
+    vectors = await _regenerate_seed_embedding_vectors(vs, chunks, batch_size=batch_size)
+    return ["[" + ",".join(str(value) for value in vector) + "]" for vector in vectors]
 
 
 def _expected_seed_sections(docs: list[dict]) -> dict[str, list[DocumentSection]]:
@@ -928,13 +1044,8 @@ async def import_seed(
         chunks_data, grouped_chunks = prepared_chunks
         vector_values = await _embed_seed_chunks(vs, chunks_data)
 
-        from bddk_mcp.jobs.postgres import corpus_mutation_advisory_key
-
         async with pool.acquire() as conn, conn.transaction():
-            await conn.fetchval(
-                "SELECT pg_catalog.pg_advisory_xact_lock($1::pg_catalog.int8)",
-                corpus_mutation_advisory_key(),
-            )
+            await acquire_corpus_mutation_lock(conn)
             locked_rows = await conn.fetch(
                 "SELECT document_id, content_hash, markdown_content FROM public.documents "
                 "WHERE document_id = ANY($1::text[]) FOR UPDATE",
@@ -955,13 +1066,8 @@ async def import_seed(
                     "DELETE FROM public.decision_cache WHERE document_id = ANY($1::text[])",
                     seed_cache_ids,
                 )
-                await conn.executemany(
-                    """
-                    INSERT INTO public.decision_cache (
-                        document_id, title, content, decision_date, decision_number,
-                        category, source_url, cached_at
-                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-                    """,
+                await upsert_decision_cache_rows(
+                    conn,
                     [
                         (
                             item["document_id"],
@@ -977,88 +1083,72 @@ async def import_seed(
                     ],
                 )
 
-            indexed_sections = 0
-            for document in docs_data:
-                doc_id = document["document_id"]
-                await conn.fetchval(
-                    "SELECT pg_catalog.pg_advisory_xact_lock("
-                    "pg_catalog.hashtextextended($1::pg_catalog.text, 1095652431))",
-                    doc_id,
+            version_sources = {
+                doc_id: existing
+                for doc_id, existing in locked_documents.items()
+                if existing["content_hash"] and existing["content_hash"] != seed_hashes[doc_id]
+            }
+            max_versions: dict[str, int] = {}
+            if version_sources:
+                version_rows = await conn.fetch(
+                    """
+                    SELECT requested.document_id,
+                           COALESCE(pg_catalog.max(version.version), 0)::pg_catalog.int4 AS max_version
+                    FROM pg_catalog.unnest($1::pg_catalog.text[]) AS requested(document_id)
+                    LEFT JOIN public.document_versions AS version
+                      ON version.document_id = requested.document_id
+                    GROUP BY requested.document_id
+                    """,
+                    sorted(version_sources),
                 )
-                existing = locked_documents.get(doc_id)
-                if existing and existing["content_hash"] and existing["content_hash"] != document["content_hash"]:
-                    max_version = await conn.fetchval(
-                        "SELECT COALESCE(MAX(version), 0) FROM public.document_versions WHERE document_id = $1",
+                max_versions = {str(row["document_id"]): int(row["max_version"]) for row in version_rows}
+            await insert_document_version_rows(
+                conn,
+                [
+                    (
                         doc_id,
-                    )
-                    await conn.execute(
-                        "INSERT INTO public.document_versions "
-                        "(document_id, version, content_hash, markdown_content, synced_at) "
-                        "VALUES ($1, $2, $3, $4, $5)",
-                        doc_id,
-                        max_version + 1,
-                        existing["content_hash"],
-                        existing["markdown_content"],
+                        max_versions[doc_id] + 1,
+                        version_sources[doc_id]["content_hash"],
+                        version_sources[doc_id]["markdown_content"],
                         now,
                     )
-                await conn.execute(
-                    """
-                    INSERT INTO public.documents (
-                        document_id, title, category, decision_date, decision_number,
-                        source_url, markdown_content, content_hash, downloaded_at,
-                        extracted_at, extraction_method, total_pages, file_size
-                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-                    ON CONFLICT(document_id) DO UPDATE SET
-                        title=EXCLUDED.title,
-                        category=EXCLUDED.category,
-                        decision_date=EXCLUDED.decision_date,
-                        decision_number=EXCLUDED.decision_number,
-                        source_url=EXCLUDED.source_url,
-                        markdown_content=EXCLUDED.markdown_content,
-                        content_hash=EXCLUDED.content_hash,
-                        downloaded_at=EXCLUDED.downloaded_at,
-                        extracted_at=EXCLUDED.extracted_at,
-                        extraction_method=EXCLUDED.extraction_method,
-                        total_pages=EXCLUDED.total_pages,
-                        file_size=EXCLUDED.file_size
-                    """,
-                    doc_id,
-                    document.get("title", ""),
-                    document.get("category", ""),
-                    document.get("decision_date", ""),
-                    document.get("decision_number", ""),
-                    document.get("source_url", ""),
-                    document.get("markdown_content", ""),
-                    document["content_hash"],
-                    document.get("downloaded_at"),
-                    document.get("extracted_at"),
-                    document.get("extraction_method", "markitdown"),
-                    document.get("total_pages", 1),
-                    document.get("file_size", 0),
-                )
-                indexed_sections += await store._replace_document_sections_on_connection(
-                    conn,
-                    doc_id,
-                    expected_sections[doc_id],
-                    source_content_hash=document["content_hash"],
-                )
-
-            await conn.execute(
-                "DELETE FROM public.document_chunks WHERE doc_id = ANY($1::text[])",
-                seed_doc_ids,
+                    for doc_id in sorted(version_sources)
+                ],
             )
-            await conn.executemany(
-                """
-                INSERT INTO public.document_chunks (
-                    doc_id, chunk_index, title, category, decision_date,
-                    decision_number, source_url, total_chunks, total_pages,
-                    content_hash, chunk_start_char, chunk_end_char, section_type,
-                    section_ref, section_start_char, section_end_char,
-                    section_content_hash, chunk_text, embedding
-                ) VALUES (
-                    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::public.vector
+            await upsert_document_rows(
+                conn,
+                [
+                    (
+                        document["document_id"],
+                        document.get("title", ""),
+                        document.get("category", ""),
+                        document.get("decision_date", ""),
+                        document.get("decision_number", ""),
+                        document.get("source_url", ""),
+                        document.get("markdown_content", ""),
+                        document["content_hash"],
+                        document.get("downloaded_at"),
+                        document.get("extracted_at"),
+                        document.get("extraction_method", "markitdown"),
+                        document.get("total_pages", 1),
+                        document.get("file_size", 0),
+                    )
+                    for document in docs_data
+                ],
+            )
+            indexed_sections = await store._replace_document_sections_many_on_connection(
+                conn,
+                {doc_id: expected_sections[doc_id] for doc_id in seed_doc_ids},
+                source_content_hashes=seed_hashes,
+            )
+
+            if seed_doc_ids:
+                await conn.execute(
+                    "DELETE FROM public.document_chunks WHERE doc_id = ANY($1::text[])",
+                    seed_doc_ids,
                 )
-                """,
+            await insert_document_chunk_rows(
+                conn,
                 [
                     (
                         chunk["doc_id"],
@@ -1084,13 +1174,10 @@ async def import_seed(
                     for chunk, vector in zip(chunks_data, vector_values, strict=True)
                 ],
             )
-            for doc_id, document_chunks in grouped_chunks.items():
-                await vs._publish_document_on_connection(
-                    conn,
-                    doc_id=doc_id,
-                    content_hash=seed_hashes[doc_id],
-                    expected_chunks=len(document_chunks),
-                )
+            await vs._publish_documents_on_connection(
+                conn,
+                [(doc_id, seed_hashes[doc_id], len(grouped_chunks[doc_id])) for doc_id in sorted(grouped_chunks)],
+            )
 
             result.update(
                 decision_cache=len(cache_data),
@@ -1183,6 +1270,10 @@ async def publish_seed_release(
             generated_chunks=generated_chunks,
             strict_release=True,
         )
+        # This is deliberately independent of the vectors already stored in
+        # PostgreSQL.  Loading/encoding through VectorStore pins the exact model
+        # and runtime descriptor whose hash is activated below.
+        expected_embeddings = await _regenerate_seed_embedding_vectors(vector_store, generated_chunks)
         active_release = await _activate_strict_release(
             pool,
             validation=manifest_validation,
@@ -1190,6 +1281,7 @@ async def publish_seed_release(
             expected_documents=documents,
             expected_cache=decision_cache,
             expected_chunks=generated_chunks,
+            expected_embeddings=expected_embeddings,
             expected_sections=expected_sections,
             require_quantified_freshness=True,
             require_measured_freshness=True,
@@ -1218,22 +1310,9 @@ async def reindex_existing_documents(pool: asyncpg.Pool, *, vs=None) -> dict[str
         from bddk_mcp.store.vector_store import VectorStore
 
         vs = VectorStore(pool)
-    from bddk_mcp.jobs.postgres import corpus_mutation_advisory_key
-
-    lease_connection = await pool.acquire()
-    lock_key = corpus_mutation_advisory_key()
-    acquired = False
     scanned = published = current = 0
-    try:
-        acquired = bool(
-            await lease_connection.fetchval(
-                "SELECT pg_catalog.pg_try_advisory_lock($1::pg_catalog.int8)",
-                lock_key,
-            )
-        )
-        if not acquired:
-            raise RuntimeError("Another corpus mutation is active; vector reindex was not started.")
-        rows = await lease_connection.fetch(
+    async with pool.acquire() as connection:
+        rows = await connection.fetch(
             """
             SELECT document_id, title, markdown_content, category, decision_date,
                    decision_number, source_url
@@ -1242,28 +1321,25 @@ async def reindex_existing_documents(pool: asyncpg.Pool, *, vs=None) -> dict[str
             ORDER BY document_id
             """
         )
-        for row in rows:
-            scanned += 1
-            if await vs.has_document(row["document_id"]):
-                current += 1
-                continue
-            await vs.add_document(
-                doc_id=row["document_id"],
-                title=row["title"] or row["document_id"],
-                content=row["markdown_content"],
-                category=row["category"] or "",
-                decision_date=row["decision_date"] or "",
-                decision_number=row["decision_number"] or "",
-                source_url=row["source_url"] or "",
-            )
-            published += 1
-    finally:
-        if acquired:
-            await lease_connection.fetchval(
-                "SELECT pg_catalog.pg_advisory_unlock($1::pg_catalog.int8)",
-                lock_key,
-            )
-        await pool.release(lease_connection)
+    # Each publication has its own short transaction-scoped mutation lock.
+    # Operator jobs already hold the distinct session admission lease; taking
+    # the mutation key on the reader connection here would make add_document's
+    # second connection wait forever on the same job.
+    for row in rows:
+        scanned += 1
+        if await vs.has_document(row["document_id"]):
+            current += 1
+            continue
+        await vs.add_document(
+            doc_id=row["document_id"],
+            title=row["title"] or row["document_id"],
+            content=row["markdown_content"],
+            category=row["category"] or "",
+            decision_date=row["decision_date"] or "",
+            decision_number=row["decision_number"] or "",
+            source_url=row["source_url"] or "",
+        )
+        published += 1
 
     logger.info(
         "Existing-document vector reconciliation complete (scanned=%d, published=%d, current=%d)",

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -18,6 +19,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from bddk_mcp.corpus_manifest import canonical_manifest_payload, canonical_manifest_sha256
 from bddk_mcp.db_lifecycle import DatabaseNotReadyError
 from bddk_mcp.ingest import seed
+from bddk_mcp.store import vector_store
 
 
 @pytest.fixture
@@ -306,6 +308,7 @@ async def test_strict_release_checks_membership_after_publisher_locks_in_same_tr
         expected_documents=[],
         expected_cache=[],
         expected_chunks=[],
+        expected_embeddings=[],
         expected_sections={},
         require_quantified_freshness=True,
         require_measured_freshness=True,
@@ -347,6 +350,7 @@ async def test_strict_membership_rejects_unsigned_derived_or_legal_rows() -> Non
         "expected_documents": [],
         "expected_cache": [],
         "expected_chunks": [],
+        "expected_embeddings": [],
         "expected_sections": {},
         "retrieval_profile_sha256": "7" * 64,
     }
@@ -364,6 +368,159 @@ async def test_strict_membership_rejects_unsigned_derived_or_legal_rows() -> Non
 
     connection.publications = []
     connection.legal_rows = 1
+    with pytest.raises(RuntimeError, match="not exactly represented"):
+        await seed._assert_strict_seed_membership(connection, **arguments)
+
+
+def test_strict_embedding_membership_rejects_tampering_and_malformed_vectors() -> None:
+    dimension = vector_store.EMBEDDING_DIMENSION
+    component = 1.0 / math.sqrt(dimension)
+    expected = [component] * dimension
+    chunk = {"doc_id": "d1", "chunk_index": 0}
+
+    assert seed._stored_embeddings_match_regeneration(
+        [chunk],
+        [expected],
+        [{**chunk, "embedding": json.dumps(expected)}],
+    )
+
+    excessive_error = expected.copy()
+    excessive_error[0] += vector_store.PUBLICATION_EMBEDDING_MAX_ABS_ERROR * 2
+    assert not seed._stored_embeddings_match_regeneration(
+        [chunk],
+        [expected],
+        [{**chunk, "embedding": json.dumps(excessive_error)}],
+    )
+
+    # Every component remains within the absolute tolerance, while accumulated
+    # alternating drift violates the independently enforced cosine floor.
+    cosine_drift = [value + (0.0009 if index % 2 else -0.0009) for index, value in enumerate(expected)]
+    assert max(abs(left - right) for left, right in zip(expected, cosine_drift, strict=True)) < 0.001
+    assert not seed._stored_embeddings_match_regeneration(
+        [chunk],
+        [expected],
+        [{**chunk, "embedding": json.dumps(cosine_drift)}],
+    )
+
+    for malformed in (None, "not-a-vector", [0.0] * dimension, [float("nan")] * dimension, [1.0]):
+        assert not seed._stored_embeddings_match_regeneration(
+            [chunk],
+            [expected],
+            [{**chunk, "embedding": malformed}],
+        )
+
+
+@pytest.mark.asyncio
+async def test_strict_embedding_regeneration_covers_every_chunk() -> None:
+    dimension = vector_store.EMBEDDING_DIMENSION
+
+    class Store:
+        def __init__(self) -> None:
+            self.calls: list[list[str]] = []
+
+        async def _embed(self, texts, *, prefix):
+            assert prefix == "passage"
+            self.calls.append(texts)
+            return [[1.0, *([0.0] * (dimension - 1))] for _ in texts]
+
+    store = Store()
+    chunks = [{"chunk_text": f"chunk {index}"} for index in range(5)]
+
+    vectors = await seed._regenerate_seed_embedding_vectors(store, chunks, batch_size=2)
+
+    assert len(vectors) == len(chunks)
+    assert store.calls == [["chunk 0", "chunk 1"], ["chunk 2", "chunk 3"], ["chunk 4"]]
+
+
+@pytest.mark.asyncio
+async def test_strict_membership_fetches_and_rejects_tampered_stored_embedding() -> None:
+    document = {
+        "document_id": "strict-vector-doc",
+        "title": "Strict vector",
+        "category": "test",
+        "decision_date": "",
+        "decision_number": "",
+        "source_url": "",
+        "markdown_content": "MADDE",
+        "content_hash": hashlib.sha256(b"MADDE").hexdigest(),
+        "downloaded_at": 1.0,
+        "extracted_at": 1.0,
+        "extraction_method": "markitdown",
+        "total_pages": 1,
+        "file_size": 0,
+    }
+    cache = {
+        "document_id": document["document_id"],
+        "title": document["title"],
+        "content": "",
+        "decision_date": "",
+        "decision_number": "",
+        "category": "test",
+        "source_url": "",
+    }
+    chunk = {
+        "doc_id": document["document_id"],
+        "chunk_index": 0,
+        "title": document["title"],
+        "category": "test",
+        "decision_date": "",
+        "decision_number": "",
+        "source_url": "",
+        "total_chunks": 1,
+        "total_pages": 1,
+        "content_hash": document["content_hash"],
+        "chunk_start_char": 0,
+        "chunk_end_char": 5,
+        "section_type": "",
+        "section_ref": "",
+        "section_start_char": None,
+        "section_end_char": None,
+        "section_content_hash": "",
+        "chunk_text": "MADDE",
+    }
+    vector = [1.0, *([0.0] * (vector_store.EMBEDDING_DIMENSION - 1))]
+
+    class Connection:
+        def __init__(self) -> None:
+            self.embedding = json.dumps(vector)
+
+        async def fetch(self, query: str):
+            if "FROM public.documents" in query:
+                return [document]
+            if "FROM public.decision_cache" in query:
+                return [cache]
+            if "FROM public.document_chunks" in query:
+                return [{**chunk, "embedding": self.embedding}]
+            if "FROM public.document_sections" in query:
+                return []
+            if "FROM public.document_retrieval_publications" in query:
+                return [
+                    {
+                        "doc_id": document["document_id"],
+                        "content_hash": document["content_hash"],
+                        "retrieval_profile_hash": "7" * 64,
+                        "expected_chunks": 1,
+                    }
+                ]
+            raise AssertionError("unexpected strict membership query")
+
+        async def fetchval(self, _query: str):
+            return 0
+
+    connection = Connection()
+    arguments = {
+        "expected_documents": [document],
+        "expected_cache": [cache],
+        "expected_chunks": [chunk],
+        "expected_embeddings": [vector],
+        "expected_sections": {document["document_id"]: []},
+        "retrieval_profile_sha256": "7" * 64,
+    }
+
+    await seed._assert_strict_seed_membership(connection, **arguments)
+    tampered = vector.copy()
+    tampered[0] += 0.002
+    connection.embedding = json.dumps(tampered)
     with pytest.raises(RuntimeError, match="not exactly represented"):
         await seed._assert_strict_seed_membership(connection, **arguments)
 

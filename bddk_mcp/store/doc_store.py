@@ -20,6 +20,7 @@ import asyncpg
 from pydantic import BaseModel, Field
 
 from bddk_mcp.core.config import FTS_RANK_THRESHOLD, PAGE_SIZE
+from bddk_mcp.corpus_coordination import acquire_corpus_mutation_lock
 from bddk_mcp.regulatory.legal_versions import (
     AuthorityLevel,
     artifact_id_for,
@@ -29,6 +30,7 @@ from bddk_mcp.regulatory.legal_versions import (
     legal_version_id_for,
     provision_id_for,
 )
+from bddk_mcp.store.bulk_write import insert_document_metadata_rows, insert_document_section_rows
 from bddk_mcp.store.section_index import extract_document_sections
 
 logger = logging.getLogger(__name__)
@@ -297,6 +299,7 @@ class DocumentStore:
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                await acquire_corpus_mutation_lock(conn)
                 # Serialize every canonical/derived write for this document,
                 # including concurrent first inserts where no row exists yet.
                 await conn.fetchval(
@@ -456,17 +459,15 @@ class DocumentStore:
         """Delete a document by ID. Returns True if deleted."""
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                await acquire_corpus_mutation_lock(conn)
                 await conn.fetchval(
                     "SELECT pg_catalog.pg_advisory_xact_lock("
                     "pg_catalog.hashtextextended($1::pg_catalog.text, 1095652431))",
                     doc_id,
                 )
-                # Current migrations cascade sections, chunks, and the active
-                # retrieval publication.  The explicit deletes keep this
-                # method safe during a controlled v2-to-v3 maintenance window.
-                await conn.execute("DELETE FROM public.document_retrieval_publications WHERE doc_id = $1", doc_id)
-                await conn.execute("DELETE FROM public.document_chunks WHERE doc_id = $1", doc_id)
-                await conn.execute("DELETE FROM public.document_sections WHERE doc_id = $1", doc_id)
+                # Current canonical foreign keys cascade sections, chunks, and
+                # retrieval publication from this one parent mutation.  A
+                # pre-v3 schema is not a supported writable state.
                 result = await conn.execute("DELETE FROM public.documents WHERE document_id = $1", doc_id)
                 return result == "DELETE 1"
 
@@ -482,6 +483,7 @@ class DocumentStore:
         """Replace sections only when they were parsed from the current body."""
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                await acquire_corpus_mutation_lock(conn)
                 await conn.fetchval(
                     "SELECT pg_catalog.pg_advisory_xact_lock("
                     "pg_catalog.hashtextextended($1::pg_catalog.text, 1095652431))",
@@ -510,52 +512,69 @@ class DocumentStore:
     ) -> int:
         """Replace derived sections using the caller's publication transaction."""
 
-        if any(getattr(section, "doc_id", doc_id) != doc_id for section in sections):
-            raise ValueError("section document identity does not match the publication target")
-
-        await conn.execute("DELETE FROM public.document_sections WHERE doc_id = $1", doc_id)
-        if not sections:
-            return 0
-
-        args = [
-            (
-                doc_id,
-                section.section_type,
-                section.section_ref,
-                section.heading,
-                section.start_char,
-                section.end_char,
-                section.content,
-                section.content_hash,
-                section.page_start,
-                section.page_end,
-                source_content_hash,
-            )
-            for section in sections
-        ]
-        await conn.executemany(
-            """
-            INSERT INTO public.document_sections (
-                doc_id, section_type, section_ref, heading, start_char, end_char,
-                content, content_hash, page_start, page_end, source_content_hash
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-            ON CONFLICT(doc_id, section_type, section_ref, content_hash) DO UPDATE SET
-                heading=EXCLUDED.heading,
-                start_char=EXCLUDED.start_char,
-                end_char=EXCLUDED.end_char,
-                content=EXCLUDED.content,
-                page_start=EXCLUDED.page_start,
-                page_end=EXCLUDED.page_end,
-                source_content_hash=EXCLUDED.source_content_hash
-            """,
-            args,
+        return await DocumentStore._replace_document_sections_many_on_connection(
+            conn,
+            {doc_id: sections},
+            source_content_hashes={doc_id: source_content_hash},
         )
-        return len(args)
+
+    @staticmethod
+    async def _replace_document_sections_many_on_connection(
+        conn,
+        sections_by_document: dict[str, list],
+        *,
+        source_content_hashes: dict[str, str],
+    ) -> int:
+        """Replace sections for many documents with two bounded statements.
+
+        The caller owns the encompassing transaction and corpus mutation lock.
+        Documents with no parsed sections are included in the delete membership
+        so their stale derived rows are still removed.
+        """
+
+        document_ids = sorted(sections_by_document)
+        if set(document_ids) != set(source_content_hashes):
+            raise ValueError("section sources must exactly match replacement document membership")
+        if any(not doc_id or not isinstance(source_content_hashes[doc_id], str) for doc_id in document_ids):
+            raise ValueError("section replacement document identities and hashes must be valid strings")
+        rows: list[tuple] = []
+        for doc_id in document_ids:
+            sections = sections_by_document[doc_id]
+            if any(getattr(section, "doc_id", doc_id) != doc_id for section in sections):
+                raise ValueError("section document identity does not match the publication target")
+            rows.extend(
+                (
+                    doc_id,
+                    section.section_type,
+                    section.section_ref,
+                    section.heading,
+                    section.start_char,
+                    section.end_char,
+                    section.content,
+                    section.content_hash,
+                    section.page_start,
+                    section.page_end,
+                    source_content_hashes[doc_id],
+                )
+                for section in sections
+            )
+        if document_ids:
+            await conn.execute(
+                "DELETE FROM public.document_sections WHERE doc_id = ANY($1::pg_catalog.text[])",
+                document_ids,
+            )
+        return await insert_document_section_rows(conn, rows)
 
     async def delete_document_sections(self, doc_id: str) -> bool:
         """Delete all structural sections for a document."""
-        result = await self._pool.execute("DELETE FROM document_sections WHERE doc_id = $1", doc_id)
-        return result != "DELETE 0"
+        async with self._pool.acquire() as conn, conn.transaction():
+            await acquire_corpus_mutation_lock(conn)
+            await conn.fetchval(
+                "SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended($1::pg_catalog.text, 1095652431))",
+                doc_id,
+            )
+            result = await conn.execute("DELETE FROM public.document_sections WHERE doc_id = $1", doc_id)
+            return result != "DELETE 0"
 
     async def get_document_section(
         self,
@@ -888,32 +907,42 @@ class DocumentStore:
         Only creates entries for documents not already in the store.
         Does NOT download content -- use doc_sync for that.
         """
-        imported = 0
-        async with self._pool.acquire() as conn:
-            async with conn.transaction():
-                for item in cache_items:
-                    doc_id = item.get("document_id", "")
-                    if not doc_id:
-                        continue
-                    existing = await conn.fetchval("SELECT 1 FROM documents WHERE document_id = $1", doc_id)
-                    if existing:
-                        continue
+        # Collapse duplicate cache entries deterministically before acquiring
+        # the global writer lock.  The last entry is the same behavior callers
+        # would observe from a later catalog refresh.
+        by_id: dict[str, dict] = {}
+        for item in cache_items:
+            doc_id = item.get("document_id", "")
+            if isinstance(doc_id, str) and doc_id:
+                by_id[doc_id] = item
+        if not by_id:
+            return 0
 
-                    await conn.execute(
-                        """
-                        INSERT INTO documents (document_id, title, category, decision_date,
-                            decision_number, source_url, downloaded_at)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7)
-                        """,
-                        doc_id,
-                        item.get("title", ""),
-                        item.get("category", ""),
-                        item.get("decision_date", ""),
-                        item.get("decision_number", ""),
-                        item.get("source_url", ""),
-                        time.time(),
-                    )
-                    imported += 1
+        async with self._pool.acquire() as conn, conn.transaction():
+            await acquire_corpus_mutation_lock(conn)
+            candidate_ids = sorted(by_id)
+            existing_rows = await conn.fetch(
+                "SELECT document_id FROM public.documents WHERE document_id = ANY($1::pg_catalog.text[])",
+                candidate_ids,
+            )
+            existing_ids = {str(row["document_id"]) for row in existing_rows}
+            now = time.time()
+            rows = [
+                (
+                    doc_id,
+                    by_id[doc_id].get("title", ""),
+                    by_id[doc_id].get("category", ""),
+                    by_id[doc_id].get("decision_date", ""),
+                    by_id[doc_id].get("decision_number", ""),
+                    by_id[doc_id].get("source_url", ""),
+                    now,
+                )
+                for doc_id in candidate_ids
+                if doc_id not in existing_ids
+            ]
+            # Empty input is a true no-op: no INSERT statement means no corpus
+            # epoch trigger fires on repeated imports.
+            imported = await insert_document_metadata_rows(conn, rows)
 
         logger.info("Imported %d items from cache", imported)
         return imported

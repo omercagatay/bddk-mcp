@@ -78,6 +78,16 @@ def test_descriptor_binds_end_to_end_retrieval_determinants():
     assert descriptor["embedding"]["passage_prefix"] == "passage: "
     assert descriptor["embedding"]["query_prefix"] == "query: "
     assert descriptor["embedding"]["normalize_embeddings"] is True
+    assert descriptor["publication_verification"] == {
+        "version": vector_store.PUBLICATION_EMBEDDING_VERIFICATION_VERSION,
+        "regenerate_every_chunk_embedding": True,
+        "stored_dimension": vector_store.EMBEDDING_DIMENSION,
+        "require_finite_components": True,
+        "require_nonzero_l2_norm": True,
+        "maximum_absolute_component_error": 0.001,
+        "minimum_cosine_similarity": 0.99999,
+        "hardware_calibration": "representative_cpu_gpu_acceptance_gate_required",
+    }
     assert descriptor["chunking"]["version"] == vector_store.CHUNKER_PROFILE_VERSION
     assert descriptor["chunking"]["tokenizer_model"] == descriptor["embedding"]["model"]
     assert descriptor["section_parser"]["version"] == vector_store.SECTION_PARSER_PROFILE_VERSION

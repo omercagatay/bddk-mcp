@@ -17,6 +17,7 @@ from uuid import UUID
 
 import asyncpg
 
+from bddk_mcp.corpus_coordination import CORPUS_JOB_EXECUTION_ADVISORY_KEY
 from bddk_mcp.jobs.models import JobKind, JobProgress, JobState, OperatorJob, normalize_metrics
 from bddk_mcp.jobs.repository import JobExecutionLease
 from bddk_mcp.migrations import MigrationError, inspect_migration_state_connection
@@ -529,12 +530,6 @@ def _advisory_key(namespace: str, resource: str) -> int:
     return int.from_bytes(hashlib.sha256(material).digest()[:8], "big", signed=True)
 
 
-def corpus_mutation_advisory_key() -> int:
-    """Return the shared lock key used by every mutable-corpus workflow."""
-
-    return _advisory_key("execution", "corpus_mutation")
-
-
 def _metrics_json(job: OperatorJob) -> str:
     return json.dumps(dict(job.result_metrics), sort_keys=True, separators=(",", ":"))
 
@@ -784,7 +779,7 @@ class PostgresJobRepository:
         try:
             connection = await self._pool.acquire()
             key = (
-                corpus_mutation_advisory_key()
+                CORPUS_JOB_EXECUTION_ADVISORY_KEY
                 if resource == "corpus_mutation"
                 else _advisory_key("execution", resource)
             )

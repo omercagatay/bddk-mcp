@@ -50,7 +50,12 @@ from bddk_mcp.core.config import (
     RERANKER_TOP_N,
     SEMANTIC_RELEVANCE_THRESHOLD,
 )
+from bddk_mcp.corpus_coordination import acquire_corpus_mutation_lock
 from bddk_mcp.quality.markdown_quality import assess_markdown_quality, quality_retrieval_profile_descriptor
+from bddk_mcp.store.bulk_write import (
+    insert_document_chunk_rows,
+    upsert_document_retrieval_publication_rows,
+)
 from bddk_mcp.store.doc_store import DOCUMENT_STORE_SEARCH_PROFILE_VERSION
 from bddk_mcp.store.legal_ref import parse_legal_refs
 from bddk_mcp.store.section_index import (
@@ -80,6 +85,9 @@ RETRIEVAL_SCORING_PROFILE_VERSION = "hybrid-pgvector-fts-scoring-v3"
 FTS_PROFILE_VERSION = "postgres-simple-unaccent-tsrankcd-v2"
 LEGAL_REFERENCE_MATCH_PROFILE_VERSION = "turkish-legal-reference-bypass-v1"
 PHRASE_MATCH_PROFILE_VERSION = "turkish-normalized-phrase-boost-v1"
+PUBLICATION_EMBEDDING_VERIFICATION_VERSION = "regenerate-all-vectors-tolerance-v1"
+PUBLICATION_EMBEDDING_MAX_ABS_ERROR = 0.001
+PUBLICATION_EMBEDDING_MIN_COSINE_SIMILARITY = 0.99999
 _PASSAGE_PREFIX = "passage"
 _QUERY_PREFIX = "query"
 _PREFIX_SEPARATOR = ": "
@@ -456,6 +464,16 @@ def retrieval_profile_descriptor(embedding_model: str | None = None) -> dict:
             "show_progress_bar": False,
             "trust_remote_code": False,
             "text_encoding": "utf-8",
+        },
+        "publication_verification": {
+            "version": PUBLICATION_EMBEDDING_VERIFICATION_VERSION,
+            "regenerate_every_chunk_embedding": True,
+            "stored_dimension": EMBEDDING_DIMENSION,
+            "require_finite_components": True,
+            "require_nonzero_l2_norm": True,
+            "maximum_absolute_component_error": PUBLICATION_EMBEDDING_MAX_ABS_ERROR,
+            "minimum_cosine_similarity": PUBLICATION_EMBEDDING_MIN_COSINE_SIMILARITY,
+            "hardware_calibration": "representative_cpu_gpu_acceptance_gate_required",
         },
         "chunking": {
             "version": CHUNKER_PROFILE_VERSION,
@@ -1229,6 +1247,7 @@ class VectorStore:
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                await acquire_corpus_mutation_lock(conn)
                 stored_hash = await conn.fetchval(
                     "SELECT content_hash FROM public.documents WHERE document_id = $1 FOR SHARE",
                     doc_id,
@@ -1268,18 +1287,7 @@ class VectorStore:
                         )
                     )
 
-                await conn.executemany(
-                    """
-                    INSERT INTO public.document_chunks (
-                        doc_id, chunk_index, title, category, decision_date,
-                        decision_number, source_url, total_chunks, total_pages,
-                        content_hash, chunk_start_char, chunk_end_char,
-                        section_type, section_ref, section_start_char,
-                        section_end_char, section_content_hash, chunk_text, embedding
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::vector)
-                    """,
-                    args_list,
-                )
+                await insert_document_chunk_rows(conn, args_list)
                 await self._publish_document_on_connection(
                     conn,
                     doc_id=doc_id,
@@ -1299,6 +1307,42 @@ class VectorStore:
         expected_chunks: int,
     ) -> None:
         """Publish one complete, embedded chunk set inside its write transaction."""
+
+        publication = await self._validate_document_publication_on_connection(
+            conn,
+            doc_id=doc_id,
+            content_hash=content_hash,
+            expected_chunks=expected_chunks,
+        )
+        await upsert_document_retrieval_publication_rows(conn, [publication])
+
+    async def _publish_documents_on_connection(
+        self,
+        conn,
+        documents: list[tuple[str, str, int]],
+    ) -> None:
+        """Validate many chunk sets, then publish their memberships set-wise."""
+
+        publications = [
+            await self._validate_document_publication_on_connection(
+                conn,
+                doc_id=doc_id,
+                content_hash=content_hash,
+                expected_chunks=expected_chunks,
+            )
+            for doc_id, content_hash, expected_chunks in documents
+        ]
+        await upsert_document_retrieval_publication_rows(conn, publications)
+
+    async def _validate_document_publication_on_connection(
+        self,
+        conn,
+        *,
+        doc_id: str,
+        content_hash: str,
+        expected_chunks: int,
+    ) -> tuple[str, str, str, int]:
+        """Prove one chunk set is complete and return its publication row."""
 
         if not re.fullmatch(r"[0-9a-f]{64}", content_hash) or expected_chunks < 1:
             raise VectorIndexConsistencyError("Vector chunks failed publication integrity validation.")
@@ -1385,22 +1429,7 @@ class VectorStore:
             or not integrity["totals_match"]
         ):
             raise VectorIndexConsistencyError("Vector chunks failed publication integrity validation.")
-        await conn.execute(
-            """
-            INSERT INTO public.document_retrieval_publications (
-                doc_id, content_hash, retrieval_profile_hash, expected_chunks, published_at
-            ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
-            ON CONFLICT (doc_id) DO UPDATE SET
-                content_hash = EXCLUDED.content_hash,
-                retrieval_profile_hash = EXCLUDED.retrieval_profile_hash,
-                expected_chunks = EXCLUDED.expected_chunks,
-                published_at = EXCLUDED.published_at
-            """,
-            doc_id,
-            content_hash,
-            self.retrieval_profile_hash,
-            expected_chunks,
-        )
+        return doc_id, content_hash, self.retrieval_profile_hash, expected_chunks
 
     # -- Retrieve by ID -------------------------------------------------------
 
@@ -2028,5 +2057,7 @@ class VectorStore:
 
     async def delete_document(self, doc_id: str) -> bool:
         """Delete all chunks for a document."""
-        result = await self._pool.execute("DELETE FROM public.document_chunks WHERE doc_id = $1", doc_id)
-        return result != "DELETE 0"
+        async with self._pool.acquire() as conn, conn.transaction():
+            await acquire_corpus_mutation_lock(conn)
+            result = await conn.execute("DELETE FROM public.document_chunks WHERE doc_id = $1", doc_id)
+            return result != "DELETE 0"

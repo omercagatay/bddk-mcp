@@ -36,6 +36,8 @@ from bddk_mcp.core.outbound_http import (
     bounded_request_with_retry,
 )
 from bddk_mcp.core.utils import MEVZUAT_TUR_MAP
+from bddk_mcp.corpus_coordination import acquire_corpus_mutation_lock
+from bddk_mcp.store.bulk_write import upsert_decision_cache_rows
 from bddk_mcp.store.doc_store import DocumentStore
 
 logger = logging.getLogger(__name__)
@@ -373,8 +375,6 @@ class BddkApiClient:
             raise BddkStorageError("An empty decision catalog cannot replace the last known-good publication.")
         try:
             async with self._pool.acquire() as conn:
-                from bddk_mcp.jobs.postgres import corpus_mutation_advisory_key
-
                 now = time.time()
                 document_ids = [decision.document_id for decision in self._cache]
                 args_list = [
@@ -396,25 +396,8 @@ class BddkApiClient:
                     # direct refresh must not interleave its exact-membership
                     # replacement with another corpus writer merely because it
                     # was invoked outside the operator job manager.
-                    await conn.fetchval(
-                        "SELECT pg_catalog.pg_advisory_xact_lock($1::pg_catalog.int8)",
-                        corpus_mutation_advisory_key(),
-                    )
-                    await conn.executemany(
-                        """
-                        INSERT INTO public.decision_cache
-                            (document_id, title, content, decision_date, decision_number,
-                             category, source_url, cached_at)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                        ON CONFLICT(document_id) DO UPDATE SET
-                            title=EXCLUDED.title, content=EXCLUDED.content,
-                            decision_date=EXCLUDED.decision_date,
-                            decision_number=EXCLUDED.decision_number,
-                            category=EXCLUDED.category, source_url=EXCLUDED.source_url,
-                            cached_at=EXCLUDED.cached_at
-                        """,
-                        args_list,
-                    )
+                    await acquire_corpus_mutation_lock(conn)
+                    await upsert_decision_cache_rows(conn, args_list)
                     await conn.execute(
                         """
                         DELETE FROM public.decision_cache

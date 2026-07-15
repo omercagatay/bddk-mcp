@@ -31,6 +31,9 @@ async def acquire_corpus_mutation_lock(connection: Any) -> None:
     of that transaction, including rollback and cancellation paths.
     """
 
+    in_transaction = getattr(connection, "is_in_transaction", None)
+    if not callable(in_transaction) or in_transaction() is not True:
+        raise RuntimeError("corpus mutation lock requires an active explicit transaction")
     await connection.fetchval(
         "SELECT pg_catalog.pg_advisory_xact_lock($1::pg_catalog.int8)",
         CORPUS_MUTATION_ADVISORY_KEY,

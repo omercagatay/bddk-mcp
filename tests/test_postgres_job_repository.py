@@ -13,6 +13,10 @@ from uuid import UUID, uuid4
 import asyncpg
 import pytest
 
+from bddk_mcp.corpus_coordination import (
+    CORPUS_JOB_EXECUTION_ADVISORY_KEY,
+    CORPUS_MUTATION_ADVISORY_KEY,
+)
 from bddk_mcp.jobs import (
     MIN_OPERATOR_JOB_POOL_SIZE,
     OPERATOR_JOB_MIGRATION_VERSION,
@@ -220,6 +224,8 @@ async def test_execution_lease_keeps_connection_pinned_until_idempotent_release(
     assert lease is not None
     assert pool.released == []
     assert "pg_try_advisory_lock" in connection.fetchval.await_args_list[0].args[0]
+    assert connection.fetchval.await_args_list[0].args[1] == CORPUS_JOB_EXECUTION_ADVISORY_KEY
+    assert CORPUS_JOB_EXECUTION_ADVISORY_KEY != CORPUS_MUTATION_ADVISORY_KEY
     await lease.release()
     await lease.release()
     assert pool.released == [connection]
