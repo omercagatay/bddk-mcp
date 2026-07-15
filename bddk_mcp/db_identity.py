@@ -88,6 +88,7 @@ _ALL_TABLES = (
         "bddk_meta.legacy_schema_adoptions",
         "bddk_meta.corpus_releases",
         "bddk_meta.corpus_release_activations",
+        "bddk_meta.corpus_state_epoch",
         "bddk_operator.operator_jobs",
     }
     | _REGULATORY_VERSION_TABLES
@@ -118,6 +119,7 @@ _ALL_ROUTINES = frozenset(
         "public.chunks_tsv_trigger()",
         "public.invalidate_retrieval_publication()",
         "bddk_meta.corpus_fingerprint_frame(text)",
+        "bddk_meta.bump_corpus_state_epoch()",
         "bddk_meta.current_corpus_state_sha256(text)",
         "bddk_meta.corpus_retrieval_ready(text)",
         "bddk_meta.reject_corpus_release_mutation()",
@@ -210,8 +212,6 @@ def _build_contracts() -> Mapping[str, _IdentityContract]:
         _ALL_ROUTINES,
         {
             "public.immutable_unaccent(text)": frozenset({"EXECUTE"}),
-            "bddk_meta.current_corpus_state_sha256(text)": frozenset({"EXECUTE"}),
-            "bddk_meta.corpus_retrieval_ready(text)": frozenset({"EXECUTE"}),
             "bddk_meta.resolve_regulation_status(text, date)": frozenset({"EXECUTE"}),
         },
     )
@@ -219,8 +219,6 @@ def _build_contracts() -> Mapping[str, _IdentityContract]:
         _ALL_ROUTINES,
         {
             "public.immutable_unaccent(text)": frozenset({"EXECUTE"}),
-            "bddk_meta.current_corpus_state_sha256(text)": frozenset({"EXECUTE"}),
-            "bddk_meta.corpus_retrieval_ready(text)": frozenset({"EXECUTE"}),
         },
     )
     publisher_routines = _object_contract(
@@ -237,8 +235,6 @@ def _build_contracts() -> Mapping[str, _IdentityContract]:
         _ALL_ROUTINES,
         {
             "public.immutable_unaccent(text)": frozenset({"EXECUTE"}),
-            "bddk_meta.current_corpus_state_sha256(text)": frozenset({"EXECUTE"}),
-            "bddk_meta.corpus_retrieval_ready(text)": frozenset({"EXECUTE"}),
             "bddk_meta.resolve_regulation_status(text, date)": frozenset({"EXECUTE"}),
         },
     )

@@ -84,8 +84,10 @@ WITH RECURSIVE target AS (
         ('public', 'regulatory_legal_version_provisions'),
         ('public', 'regulatory_validated_section_citations'),
         ('bddk_meta', 'schema_migrations'),
+        ('bddk_meta', 'legacy_schema_adoptions'),
         ('bddk_meta', 'corpus_releases'),
         ('bddk_meta', 'corpus_release_activations'),
+        ('bddk_meta', 'corpus_state_epoch'),
         ('bddk_meta', 'active_corpus_release'),
         ('bddk_operator', 'operator_jobs')
 ), other_relations(relation_oid) AS (
@@ -114,7 +116,12 @@ WITH RECURSIVE target AS (
 ), requested_functions(schema_name, function_name, argument_types) AS (
     VALUES
         ('public', 'immutable_unaccent', 'text'),
+        ('public', 'documents_tsv_trigger', ''),
+        ('public', 'document_sections_tsv_trigger', ''),
+        ('public', 'chunks_tsv_trigger', ''),
+        ('public', 'invalidate_retrieval_publication', ''),
         ('bddk_meta', 'corpus_fingerprint_frame', 'text'),
+        ('bddk_meta', 'bump_corpus_state_epoch', ''),
         ('bddk_meta', 'current_corpus_state_sha256', 'text'),
         ('bddk_meta', 'corpus_retrieval_ready', 'text'),
         ('bddk_meta', 'reject_corpus_release_mutation', ''),

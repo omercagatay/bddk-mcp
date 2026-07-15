@@ -17,6 +17,12 @@ if TYPE_CHECKING:
     from bddk_mcp.store.vector_store import VectorStore
 
 
+def _initially_idle_event() -> asyncio.Event:
+    event = asyncio.Event()
+    event.set()
+    return event
+
+
 @dataclass
 class Dependencies:
     """Shared state for all tool modules.
@@ -35,11 +41,13 @@ class Dependencies:
     sync_task: asyncio.Task | None = None
     vector_init_task: asyncio.Task | None = None
 
-    # Strict serving state.  The lock is shared by the public and operator MCP
-    # surfaces when they close over the same dependency container.  Holding it
-    # for the complete local-corpus tool call prevents one call from returning
-    # an old in-memory catalog while another call switches release epochs.
+    # Strict serving state shared by public and operator MCP surfaces that close
+    # over this dependency container.  The lock protects short lease-state
+    # transitions; same-epoch tool bodies execute concurrently.  A release
+    # switch waits for ``active_corpus_idle`` before clearing/reloading caches.
     active_corpus_lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
+    active_corpus_idle: asyncio.Event = field(default_factory=_initially_idle_event, repr=False)
+    active_corpus_readers: int = 0
     served_corpus_release_id: str | None = None
 
     # Health state

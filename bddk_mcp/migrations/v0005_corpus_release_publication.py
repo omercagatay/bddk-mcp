@@ -7,12 +7,47 @@ that activation.  It is therefore not possible for a failed replacement or a
 later corpus mutation to leave an older release looking active.
 """
 
+from typing import Final
+
+from bddk_mcp.corpus_coordination import CORPUS_MUTATION_ADVISORY_KEY
 from bddk_mcp.migrations.model import Migration
+
+CORPUS_EPOCH_TRACKED_TABLES: Final[tuple[str, ...]] = (
+    "decision_cache",
+    "documents",
+    "document_sections",
+    "document_versions",
+    "document_chunks",
+    "document_retrieval_publications",
+    "regulatory_instruments",
+    "regulatory_family_imports",
+    "regulatory_source_blobs",
+    "regulatory_source_artifacts",
+    "regulatory_evidence",
+    "regulatory_legal_versions",
+    "regulatory_legal_version_artifacts",
+    "regulatory_legal_events",
+    "regulatory_legal_status_assertions",
+    "regulatory_provisions",
+    "regulatory_legal_version_provisions",
+)
 
 V0005_CORPUS_RELEASE_PUBLICATION = Migration(
     version=5,
     name="verified_corpus_release_publication",
     statements=(
+        """
+        CREATE TABLE bddk_meta.corpus_state_epoch (
+            singleton_id pg_catalog.bool PRIMARY KEY DEFAULT true,
+            epoch pg_catalog.int8 NOT NULL DEFAULT 0,
+            CONSTRAINT corpus_state_epoch_singleton_check CHECK (singleton_id),
+            CONSTRAINT corpus_state_epoch_nonnegative_check CHECK (epoch >= 0)
+        )
+        """,
+        """
+        INSERT INTO bddk_meta.corpus_state_epoch (singleton_id, epoch)
+        VALUES (true, 0)
+        """,
         """
         CREATE TABLE bddk_meta.corpus_releases (
             release_id pg_catalog.text PRIMARY KEY,
@@ -52,6 +87,7 @@ V0005_CORPUS_RELEASE_PUBLICATION = Migration(
         CREATE TABLE bddk_meta.corpus_release_activations (
             activation_sequence pg_catalog.int8 GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
             release_id pg_catalog.text NOT NULL,
+            corpus_epoch pg_catalog.int8 NOT NULL,
             completed_at pg_catalog.timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
             actor_fingerprint_sha256 pg_catalog.text NOT NULL,
             CONSTRAINT corpus_release_activations_release_fk
@@ -60,6 +96,84 @@ V0005_CORPUS_RELEASE_PUBLICATION = Migration(
             CONSTRAINT corpus_release_activations_actor_hash_check
                 CHECK (actor_fingerprint_sha256 ~ '^[0-9a-f]{64}$')
         )
+        """,
+        """
+        CREATE FUNCTION bddk_meta.bump_corpus_state_epoch()
+        RETURNS trigger
+        LANGUAGE plpgsql
+        VOLATILE
+        PARALLEL UNSAFE
+        SECURITY DEFINER
+        SET search_path = pg_catalog
+        AS $function$
+        BEGIN
+            UPDATE bddk_meta.corpus_state_epoch
+            SET epoch = epoch + 1
+            WHERE singleton_id;
+            RETURN NULL;
+        END
+        $function$
+        """,
+        *(
+            f"""
+            CREATE TRIGGER bump_corpus_state_epoch_on_change
+            AFTER INSERT OR UPDATE OR DELETE OR TRUNCATE ON public.{table_name}
+            FOR EACH STATEMENT EXECUTE FUNCTION bddk_meta.bump_corpus_state_epoch()
+            """
+            for table_name in CORPUS_EPOCH_TRACKED_TABLES
+        ),
+        """
+        DROP TRIGGER IF EXISTS invalidate_retrieval_publication_on_chunk_change
+        ON public.document_chunks
+        """,
+        """
+        CREATE OR REPLACE FUNCTION public.invalidate_retrieval_publication()
+        RETURNS trigger
+        LANGUAGE plpgsql
+        SET search_path = pg_catalog, public
+        AS $function$
+        BEGIN
+            IF TG_OP = 'INSERT' THEN
+                DELETE FROM public.document_retrieval_publications AS publication
+                WHERE publication.doc_id IN (
+                    SELECT DISTINCT changed.doc_id
+                    FROM changed_chunks AS changed
+                );
+            ELSIF TG_OP = 'DELETE' THEN
+                DELETE FROM public.document_retrieval_publications AS publication
+                WHERE publication.doc_id IN (
+                    SELECT DISTINCT changed.doc_id
+                    FROM changed_chunks AS changed
+                );
+            ELSE
+                DELETE FROM public.document_retrieval_publications AS publication
+                WHERE publication.doc_id IN (
+                    SELECT old_chunk.doc_id FROM old_chunks AS old_chunk
+                    UNION
+                    SELECT new_chunk.doc_id FROM new_chunks AS new_chunk
+                );
+            END IF;
+            RETURN NULL;
+        END
+        $function$
+        """,
+        """
+        CREATE TRIGGER invalidate_retrieval_publication_on_chunk_insert
+        AFTER INSERT ON public.document_chunks
+        REFERENCING NEW TABLE AS changed_chunks
+        FOR EACH STATEMENT EXECUTE FUNCTION public.invalidate_retrieval_publication()
+        """,
+        """
+        CREATE TRIGGER invalidate_retrieval_publication_on_chunk_delete
+        AFTER DELETE ON public.document_chunks
+        REFERENCING OLD TABLE AS changed_chunks
+        FOR EACH STATEMENT EXECUTE FUNCTION public.invalidate_retrieval_publication()
+        """,
+        """
+        CREATE TRIGGER invalidate_retrieval_publication_on_chunk_update
+        AFTER UPDATE ON public.document_chunks
+        REFERENCING OLD TABLE AS old_chunks NEW TABLE AS new_chunks
+        FOR EACH STATEMENT EXECUTE FUNCTION public.invalidate_retrieval_publication()
         """,
         """
         CREATE FUNCTION bddk_meta.corpus_fingerprint_frame(value pg_catalog.text)
@@ -746,6 +860,7 @@ V0005_CORPUS_RELEASE_PUBLICATION = Migration(
             selected_state_sha256 pg_catalog.text;
             selected_release_id pg_catalog.text;
             selected_actor_fingerprint pg_catalog.text;
+            selected_corpus_epoch pg_catalog.int8;
         BEGIN
             IF pg_catalog.to_regrole('bddk_release_publisher') IS NULL THEN
                 RAISE EXCEPTION 'verified corpus release caller is not authorized'
@@ -777,6 +892,9 @@ V0005_CORPUS_RELEASE_PUBLICATION = Migration(
                     USING ERRCODE = '22023';
             END IF;
 
+            PERFORM pg_catalog.pg_advisory_xact_lock(
+                __CORPUS_MUTATION_ADVISORY_KEY__::pg_catalog.int8
+            );
             LOCK TABLE bddk_meta.corpus_release_activations IN SHARE ROW EXCLUSIVE MODE;
             LOCK TABLE public.decision_cache,
                        public.documents,
@@ -796,6 +914,11 @@ V0005_CORPUS_RELEASE_PUBLICATION = Migration(
                        public.regulatory_provisions,
                        public.regulatory_legal_version_provisions
                 IN SHARE MODE;
+
+            SELECT epoch.epoch
+            INTO STRICT selected_corpus_epoch
+            FROM bddk_meta.corpus_state_epoch AS epoch
+            WHERE epoch.singleton_id;
 
             IF NOT bddk_meta.corpus_retrieval_ready(requested_retrieval_profile_sha256) THEN
                 RAISE EXCEPTION 'verified corpus release is not retrieval-ready'
@@ -865,12 +988,15 @@ V0005_CORPUS_RELEASE_PUBLICATION = Migration(
                     FROM bddk_meta.corpus_release_activations AS latest
                 )
                   AND activation.release_id = selected_release_id
+                  AND activation.corpus_epoch = selected_corpus_epoch
             ) THEN
                 INSERT INTO bddk_meta.corpus_release_activations (
                     release_id,
+                    corpus_epoch,
                     actor_fingerprint_sha256
                 ) VALUES (
                     selected_release_id,
+                    selected_corpus_epoch,
                     selected_actor_fingerprint
                 );
             END IF;
@@ -894,10 +1020,11 @@ V0005_CORPUS_RELEASE_PUBLICATION = Migration(
                 SELECT MAX(latest.activation_sequence)
                 FROM bddk_meta.corpus_release_activations AS latest
             )
-              AND release.release_id = selected_release_id;
+              AND release.release_id = selected_release_id
+              AND activation.corpus_epoch = selected_corpus_epoch;
         END
         $function$
-        """,
+        """.replace("__CORPUS_MUTATION_ADVISORY_KEY__", str(CORPUS_MUTATION_ADVISORY_KEY)),
         """
         CREATE VIEW bddk_meta.active_corpus_release
         WITH (security_barrier = true, security_invoker = false)
@@ -912,21 +1039,27 @@ V0005_CORPUS_RELEASE_PUBLICATION = Migration(
                release.max_manifest_age_seconds,
                release.retrieval_profile_sha256,
                release.corpus_state_sha256,
-               activation.completed_at
+               release.created_at,
+               activation.activation_sequence,
+               activation.completed_at,
+               activation.actor_fingerprint_sha256,
+               activation.corpus_epoch
         FROM bddk_meta.corpus_release_activations AS activation
         JOIN bddk_meta.corpus_releases AS release
           ON release.release_id = activation.release_id
+        CROSS JOIN bddk_meta.corpus_state_epoch AS epoch
         WHERE activation.activation_sequence = (
             SELECT MAX(latest.activation_sequence)
             FROM bddk_meta.corpus_release_activations AS latest
         )
-          AND release.corpus_state_sha256 = bddk_meta.current_corpus_state_sha256(
-              release.retrieval_profile_sha256
-          )
-          AND bddk_meta.corpus_retrieval_ready(release.retrieval_profile_sha256)
+          AND epoch.singleton_id
+          AND activation.corpus_epoch = epoch.epoch
         """,
         """
         REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.corpus_fingerprint_frame(pg_catalog.text) FROM PUBLIC
+        """,
+        """
+        REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.bump_corpus_state_epoch() FROM PUBLIC
         """,
         """
         REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.current_corpus_state_sha256(pg_catalog.text) FROM PUBLIC

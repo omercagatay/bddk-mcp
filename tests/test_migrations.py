@@ -9,6 +9,7 @@ from unittest.mock import patch
 import asyncpg
 import pytest
 
+from bddk_mcp.corpus_coordination import CORPUS_MUTATION_ADVISORY_KEY
 from bddk_mcp.migrations import (
     LATEST_SCHEMA_VERSION,
     MIGRATION_LOCK_TIMEOUT,
@@ -26,6 +27,10 @@ from bddk_mcp.migrations import (
     migrate,
     validate_migration_history,
 )
+from bddk_mcp.migrations.v0005_corpus_release_publication import (
+    CORPUS_EPOCH_TRACKED_TABLES,
+    V0005_CORPUS_RELEASE_PUBLICATION,
+)
 
 
 def _history_rows(*, migrations=MIGRATIONS):
@@ -38,6 +43,35 @@ def test_registry_is_sequential_named_and_sha256_versioned():
     assert all(len(item.checksum) == 64 for item in MIGRATIONS)
     assert all(item.checksum == replace(item).checksum for item in MIGRATIONS)
     assert replace(MIGRATIONS[0], name="changed_name").checksum != MIGRATIONS[0].checksum
+
+
+def test_v5_epoch_and_set_based_chunk_invalidation_contract_is_complete() -> None:
+    statements = tuple(" ".join(statement.split()) for statement in V0005_CORPUS_RELEASE_PUBLICATION.statements)
+    ddl = "\n".join(statements)
+
+    assert len(CORPUS_EPOCH_TRACKED_TABLES) == 17
+    for table_name in CORPUS_EPOCH_TRACKED_TABLES:
+        assert (
+            "CREATE TRIGGER bump_corpus_state_epoch_on_change "
+            f"AFTER INSERT OR UPDATE OR DELETE OR TRUNCATE ON public.{table_name} "
+            "FOR EACH STATEMENT EXECUTE FUNCTION bddk_meta.bump_corpus_state_epoch()"
+        ) in ddl
+
+    assert "REFERENCING NEW TABLE AS changed_chunks" in ddl
+    assert "REFERENCING OLD TABLE AS changed_chunks" in ddl
+    assert "REFERENCING OLD TABLE AS old_chunks NEW TABLE AS new_chunks" in ddl
+    assert "FOR EACH ROW EXECUTE FUNCTION public.invalidate_retrieval_publication()" not in ddl
+
+    publisher = next(statement for statement in statements if "publish_verified_corpus_release" in statement)
+    assert f"pg_advisory_xact_lock( {CORPUS_MUTATION_ADVISORY_KEY}::pg_catalog.int8 )" in publisher
+    assert publisher.index("pg_advisory_xact_lock") < publisher.index("LOCK TABLE")
+
+    active_view = next(
+        statement for statement in statements if statement.startswith("CREATE VIEW bddk_meta.active_corpus_release")
+    )
+    assert "activation.corpus_epoch = epoch.epoch" in active_view
+    assert "current_corpus_state_sha256" not in active_view
+    assert "corpus_retrieval_ready" not in active_view
 
 
 def test_migrations_never_install_dba_managed_extensions_and_qualify_created_relations():
@@ -196,8 +230,11 @@ async def _downgrade_current_schema_to_v2(connection) -> None:
     )
     await connection.execute("DELETE FROM bddk_meta.schema_migrations WHERE version = 6")
     await connection.execute("DROP VIEW IF EXISTS bddk_meta.active_corpus_release")
+    for table_name in CORPUS_EPOCH_TRACKED_TABLES:
+        await connection.execute(f"DROP TRIGGER IF EXISTS bump_corpus_state_epoch_on_change ON public.{table_name}")
     await connection.execute(
-        "DROP TABLE IF EXISTS bddk_meta.corpus_release_activations, bddk_meta.corpus_releases CASCADE"
+        "DROP TABLE IF EXISTS bddk_meta.corpus_release_activations, "
+        "bddk_meta.corpus_releases, bddk_meta.corpus_state_epoch CASCADE"
     )
     await connection.execute(
         "DROP FUNCTION IF EXISTS bddk_meta.publish_verified_corpus_release("
@@ -207,6 +244,7 @@ async def _downgrade_current_schema_to_v2(connection) -> None:
     await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.corpus_retrieval_ready(pg_catalog.text)")
     await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.current_corpus_state_sha256(pg_catalog.text)")
     await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.corpus_fingerprint_frame(pg_catalog.text)")
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.bump_corpus_state_epoch()")
     await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.reject_corpus_release_mutation()")
     await connection.execute("DELETE FROM bddk_meta.schema_migrations WHERE version = 5")
 
@@ -229,9 +267,12 @@ async def _downgrade_current_schema_to_v2(connection) -> None:
     )
     await connection.execute("DELETE FROM bddk_meta.schema_migrations WHERE version = 4")
 
-    await connection.execute(
-        "DROP TRIGGER IF EXISTS invalidate_retrieval_publication_on_chunk_change ON public.document_chunks"
-    )
+    for trigger_name in (
+        "invalidate_retrieval_publication_on_chunk_insert",
+        "invalidate_retrieval_publication_on_chunk_delete",
+        "invalidate_retrieval_publication_on_chunk_update",
+    ):
+        await connection.execute(f"DROP TRIGGER IF EXISTS {trigger_name} ON public.document_chunks")
     await connection.execute("DROP FUNCTION IF EXISTS public.invalidate_retrieval_publication()")
     await connection.execute("DROP TABLE IF EXISTS public.document_retrieval_publications")
     await connection.execute("ALTER TABLE public.document_chunks DROP CONSTRAINT IF EXISTS document_chunks_document_fk")

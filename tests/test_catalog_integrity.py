@@ -7,6 +7,7 @@ import pytest
 from bddk_mcp.catalog_integrity import inspect_catalog_integrity
 from bddk_mcp.db_lifecycle import inspect_database_readiness
 from bddk_mcp.migrations.v0004_canonical_legal_versions import V0004_CANONICAL_LEGAL_VERSIONS
+from bddk_mcp.migrations.v0005_corpus_release_publication import CORPUS_EPOCH_TRACKED_TABLES
 from bddk_mcp.regulatory.text_profile import PROVISION_BOUNDARY_CODEPOINTS_V1
 
 
@@ -37,22 +38,93 @@ async def test_current_migrations_have_valid_retrieval_catalog(pg_pool) -> None:
 
 @pytest.mark.postgres
 @pytest.mark.asyncio
+async def test_each_tracked_corpus_statement_advances_the_singleton_epoch(pg_pool) -> None:
+    async with pg_pool.acquire() as connection:
+        transaction = connection.transaction()
+        await transaction.start()
+        try:
+            previous = await connection.fetchval("SELECT epoch FROM bddk_meta.corpus_state_epoch WHERE singleton_id")
+            assert previous is not None
+
+            for table_name in CORPUS_EPOCH_TRACKED_TABLES:
+                await connection.execute(f"DELETE FROM public.{table_name} WHERE false")
+                current = await connection.fetchval("SELECT epoch FROM bddk_meta.corpus_state_epoch WHERE singleton_id")
+                # A chunk statement also invokes the set-based publication
+                # invalidator, whose publication DELETE is independently
+                # tracked even when its transition table is empty.
+                expected_delta = 2 if table_name == "document_chunks" else 1
+                assert current == previous + expected_delta
+                previous = current
+        finally:
+            await transaction.rollback()
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
 async def test_disabled_publication_invalidation_trigger_fails_readiness(pg_pool) -> None:
     async with pg_pool.acquire() as connection:
         transaction = connection.transaction()
         await transaction.start()
         try:
             await connection.execute(
-                "ALTER TABLE public.document_chunks DISABLE TRIGGER invalidate_retrieval_publication_on_chunk_change"
+                "ALTER TABLE public.document_chunks DISABLE TRIGGER invalidate_retrieval_publication_on_chunk_insert"
             )
 
             report = await inspect_catalog_integrity(connection)
             readiness = await inspect_database_readiness(connection, require_corpus=False)
 
-            expected = "trigger:public.document_chunks.invalidate_retrieval_publication_on_chunk_change"
+            expected = "trigger:public.document_chunks.invalidate_retrieval_publication_on_chunk_insert"
             assert expected in report.failures
             assert expected in readiness.catalog_issues
             assert not readiness.ready
+        finally:
+            await transaction.rollback()
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_unexpected_public_trigger_fails_exact_catalog_attestation(pg_pool) -> None:
+    async with pg_pool.acquire() as connection:
+        transaction = connection.transaction()
+        await transaction.start()
+        try:
+            await connection.execute(
+                """
+                CREATE TRIGGER unexpected_documents_tsv_trigger
+                BEFORE INSERT ON public.documents
+                FOR EACH ROW EXECUTE FUNCTION public.documents_tsv_trigger()
+                """
+            )
+
+            report = await inspect_catalog_integrity(connection)
+
+            assert "triggers:public.exact" in report.failures
+        finally:
+            await transaction.rollback()
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_changed_transition_table_alias_fails_trigger_attestation(pg_pool) -> None:
+    async with pg_pool.acquire() as connection:
+        transaction = connection.transaction()
+        await transaction.start()
+        try:
+            await connection.execute(
+                "DROP TRIGGER invalidate_retrieval_publication_on_chunk_insert ON public.document_chunks"
+            )
+            await connection.execute(
+                """
+                CREATE TRIGGER invalidate_retrieval_publication_on_chunk_insert
+                AFTER INSERT ON public.document_chunks
+                REFERENCING NEW TABLE AS unexpected_chunks
+                FOR EACH STATEMENT EXECUTE FUNCTION public.invalidate_retrieval_publication()
+                """
+            )
+
+            report = await inspect_catalog_integrity(connection)
+
+            assert "trigger:public.document_chunks.invalidate_retrieval_publication_on_chunk_insert" in report.failures
         finally:
             await transaction.rollback()
 

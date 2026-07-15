@@ -243,13 +243,23 @@ def test_application_function_ownership_and_execute_are_exact() -> None:
         "public.documents_tsv_trigger()",
         "public.document_sections_tsv_trigger()",
         "public.chunks_tsv_trigger()",
+        "public.invalidate_retrieval_publication()",
     }
     for function in functions:
         assert f"alter function {function} owner to bddk_schema_owner;" in normalized
         assert f"revoke all privileges on function {function} from public;" in normalized
+    assert "alter function bddk_meta.bump_corpus_state_epoch() owner to bddk_schema_owner;" in normalized
+    assert "revoke all privileges on function bddk_meta.bump_corpus_state_epoch()" in normalized
     assert "grant execute on function public.immutable_unaccent(pg_catalog.text) to bddk_public_reader;" in normalized
     assert "grant execute on function public.immutable_unaccent(pg_catalog.text) to bddk_ingestion;" in normalized
-    for role in ("bddk_public_reader", "bddk_ingestion", "bddk_release_publisher"):
+    for role in ("bddk_public_reader", "bddk_ingestion", "bddk_operator_runtime"):
+        assert (
+            f"grant execute on function bddk_meta.current_corpus_state_sha256(pg_catalog.text) to {role};"
+        ) not in normalized
+        assert (
+            f"grant execute on function bddk_meta.corpus_retrieval_ready(pg_catalog.text) to {role};"
+        ) not in normalized
+    for role in ("bddk_release_publisher",):
         assert (
             f"grant execute on function bddk_meta.current_corpus_state_sha256(pg_catalog.text) to {role};"
         ) in normalized
@@ -269,6 +279,7 @@ def test_application_function_ownership_and_execute_are_exact() -> None:
     assert f"grant execute on function {resolver} to bddk_operator_runtime;" not in normalized
     assert "grant usage on schema bddk_meta to bddk_release_publisher;" in normalized
     assert "bddk_meta.active_corpus_release to bddk_release_publisher;" in normalized
+    assert "alter table bddk_meta.corpus_state_epoch owner to bddk_schema_owner;" in normalized
 
 
 def test_deployment_documentation_maps_separate_workload_identities() -> None:
@@ -380,6 +391,7 @@ async def test_live_role_allow_and_deny_matrix_is_transactional() -> None:
             "INSERT INTO public.documents VALUES ('reader-write')",
         )
         await _assert_permission_denied(connection, "SELECT * FROM public.sync_failures")
+        await _assert_corpus_epoch_admin_denied(connection)
 
         await connection.execute("SET LOCAL ROLE bddk_ingestion")
         await connection.execute(
@@ -392,6 +404,7 @@ async def test_live_role_allow_and_deny_matrix_is_transactional() -> None:
         )
         await _assert_permission_denied(connection, "SELECT * FROM public.tool_call_traces")
         await _assert_permission_denied(connection, "CREATE TABLE public.ingestion_ddl (id integer)")
+        await _assert_corpus_epoch_admin_denied(connection)
         assert not await connection.fetchval(
             "SELECT pg_catalog.has_function_privilege("
             "current_user, 'bddk_meta.publish_verified_corpus_release(text,text,text,integer,integer,integer,text)', "
@@ -409,6 +422,10 @@ async def test_live_role_allow_and_deny_matrix_is_transactional() -> None:
         assert await connection.fetchval("SELECT count(*) FROM public.regulatory_instruments") == 0
         await _assert_permission_denied(connection, "INSERT INTO public.documents VALUES ('publisher-write')")
         await _assert_permission_denied(connection, "SELECT * FROM bddk_meta.corpus_releases")
+        await _assert_permission_denied(connection, "SELECT * FROM bddk_meta.corpus_state_epoch")
+        assert not await connection.fetchval(
+            "SELECT pg_catalog.has_function_privilege(current_user, 'bddk_meta.bump_corpus_state_epoch()', 'EXECUTE')"
+        )
 
         await connection.execute("SET LOCAL ROLE bddk_operator_runtime")
         await connection.execute(
@@ -421,6 +438,7 @@ async def test_live_role_allow_and_deny_matrix_is_transactional() -> None:
             """
         )
         await _assert_permission_denied(connection, "SELECT * FROM public.documents")
+        await _assert_corpus_epoch_admin_denied(connection)
         assert not await connection.fetchval(
             "SELECT pg_catalog.has_function_privilege("
             "current_user, 'bddk_meta.publish_verified_corpus_release(text,text,text,integer,integer,integer,text)', "
@@ -436,6 +454,7 @@ async def test_live_role_allow_and_deny_matrix_is_transactional() -> None:
             "INSERT INTO public.tool_call_traces (tool_name, args_hash) VALUES ('search', 'digest')"
         )
         await _assert_permission_denied(connection, "SELECT * FROM public.tool_call_traces")
+        await _assert_corpus_epoch_admin_denied(connection)
         await _assert_permission_denied(
             connection,
             "INSERT INTO public.tool_call_traces (id, tool_name, args_hash) VALUES (99, 'search', 'digest')",
@@ -650,6 +669,26 @@ class _SingleConnectionPool:
 
     async def fetchval(self, query: str, *args):
         return await self._connection.fetchval(query, *args)
+
+
+async def _assert_corpus_epoch_admin_denied(connection: asyncpg.Connection) -> None:
+    await _assert_permission_denied(connection, "SELECT * FROM bddk_meta.corpus_state_epoch")
+    for function_name in (
+        "bump_corpus_state_epoch",
+        "current_corpus_state_sha256",
+        "corpus_retrieval_ready",
+    ):
+        assert not await connection.fetchval(
+            """
+            SELECT pg_catalog.has_function_privilege(current_user, routine.oid, 'EXECUTE')
+            FROM pg_catalog.pg_proc AS routine
+            JOIN pg_catalog.pg_namespace AS namespace
+              ON namespace.oid = routine.pronamespace
+            WHERE namespace.nspname = 'bddk_meta'
+              AND routine.proname = $1
+            """,
+            function_name,
+        )
 
 
 async def _assert_permission_denied(connection: asyncpg.Connection, statement: str) -> None:

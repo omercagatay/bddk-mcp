@@ -206,6 +206,176 @@ async def test_concurrent_calls_cannot_return_old_epoch_after_replacement():
 
 
 @pytest.mark.asyncio
+async def test_same_epoch_reader_leases_allow_tool_bodies_to_overlap():
+    from bddk_mcp.server import create_mcp
+
+    release = _release("a")
+    both_entered = asyncio.Event()
+    allow_bodies_to_finish = asyncio.Event()
+    body_calls = 0
+
+    async def history(_document_id):
+        nonlocal body_calls
+        body_calls += 1
+        if body_calls == 2:
+            both_entered.set()
+        await allow_bodies_to_finish.wait()
+        return []
+
+    deps = _deps(release_id=release.release_id)
+    deps.doc_store.get_document_history = AsyncMock(side_effect=history)
+    server = create_mcp(deps, require_active_corpus_release=True)
+
+    with patch("bddk_mcp.corpus_serving.inspect_active_corpus_release", new=AsyncMock(return_value=release)):
+        first = asyncio.create_task(server.call_tool("get_document_history", {"document_id": "943"}))
+        second = asyncio.create_task(server.call_tool("get_document_history", {"document_id": "943"}))
+        await asyncio.wait_for(both_entered.wait(), timeout=1)
+
+        assert deps.active_corpus_readers == 2
+        assert not deps.active_corpus_idle.is_set()
+        deps.client.load_cache_read_only.assert_not_awaited()
+
+        allow_bodies_to_finish.set()
+        first_result, second_result = await asyncio.gather(first, second)
+
+    assert first_result
+    assert second_result
+    assert deps.active_corpus_readers == 0
+    assert deps.active_corpus_idle.is_set()
+
+
+@pytest.mark.asyncio
+async def test_epoch_switch_waits_until_every_prior_reader_has_drained():
+    from bddk_mcp.server import create_mcp
+
+    old = _release("a")
+    new = _release("b")
+    current_release = old
+    old_bodies_entered = asyncio.Event()
+    allow_old_bodies_to_finish = asyncio.Event()
+    body_calls = 0
+
+    async def inspect_release(_pool):
+        return current_release
+
+    async def history(_document_id):
+        nonlocal body_calls
+        body_calls += 1
+        if body_calls <= 2:
+            if body_calls == 2:
+                old_bodies_entered.set()
+            await allow_old_bodies_to_finish.wait()
+        return []
+
+    deps = _deps(release_id=old.release_id)
+    deps.doc_store.get_document_history = AsyncMock(side_effect=history)
+    server = create_mcp(deps, require_active_corpus_release=True)
+
+    with patch("bddk_mcp.corpus_serving.inspect_active_corpus_release", side_effect=inspect_release):
+        old_calls = [
+            asyncio.create_task(server.call_tool("get_document_history", {"document_id": str(index)}))
+            for index in (1, 2)
+        ]
+        await asyncio.wait_for(old_bodies_entered.wait(), timeout=1)
+        current_release = new
+        new_call = asyncio.create_task(server.call_tool("get_document_history", {"document_id": "3"}))
+        await asyncio.sleep(0)
+
+        assert body_calls == 2
+        deps.client.load_cache_read_only.assert_not_awaited()
+
+        allow_old_bodies_to_finish.set()
+        for call in old_calls:
+            with pytest.raises(ToolError, match="CORPUS_RELEASE_UNAVAILABLE"):
+                await call
+        new_result = await new_call
+
+    assert new_result
+    assert body_calls == 3
+    assert deps.served_corpus_release_id == new.release_id
+    deps.client.load_cache_read_only.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+async def test_last_stale_reader_write_is_cleared_before_new_epoch_reload():
+    from bddk_mcp.server import create_mcp
+
+    old = _release("a")
+    new = _release("b")
+    current_release = old
+    both_entered = asyncio.Event()
+    finish_first = asyncio.Event()
+    finish_second = asyncio.Event()
+    body_calls = 0
+
+    async def inspect_release(_pool):
+        return current_release
+
+    async def history(_document_id):
+        nonlocal body_calls
+        body_calls += 1
+        call_number = body_calls
+        if body_calls == 2:
+            both_entered.set()
+        if call_number == 1:
+            await finish_first.wait()
+        else:
+            await finish_second.wait()
+            _search_cache.set("late-stale-write", object())
+        return []
+
+    deps = _deps(release_id=old.release_id)
+    deps.doc_store.get_document_history = AsyncMock(side_effect=history)
+    server = create_mcp(deps, require_active_corpus_release=True)
+
+    with patch("bddk_mcp.corpus_serving.inspect_active_corpus_release", side_effect=inspect_release):
+        first = asyncio.create_task(server.call_tool("get_document_history", {"document_id": "1"}))
+        second = asyncio.create_task(server.call_tool("get_document_history", {"document_id": "2"}))
+        await asyncio.wait_for(both_entered.wait(), timeout=1)
+        current_release = new
+
+        finish_first.set()
+        with pytest.raises(ToolError, match="CORPUS_RELEASE_UNAVAILABLE"):
+            await first
+        assert deps.active_corpus_readers == 1
+
+        finish_second.set()
+        with pytest.raises(ToolError, match="CORPUS_RELEASE_UNAVAILABLE"):
+            await second
+
+    assert deps.active_corpus_readers == 0
+    assert deps.active_corpus_idle.is_set()
+    assert _search_cache.get("late-stale-write") is None
+
+
+@pytest.mark.asyncio
+async def test_cancelled_body_returns_reader_lease_and_keeps_guard_usable():
+    from bddk_mcp.corpus_serving import ActiveCorpusGuard
+
+    release = _release("a")
+    deps = _deps(release_id=release.release_id)
+    guard = ActiveCorpusGuard(deps, required=True)
+    body_entered = asyncio.Event()
+
+    async def guarded_body():
+        async with guard.tool_call("get_document_history"):
+            body_entered.set()
+            await asyncio.Event().wait()
+
+    with patch("bddk_mcp.corpus_serving.inspect_active_corpus_release", new=AsyncMock(return_value=release)):
+        task = asyncio.create_task(guarded_body())
+        await asyncio.wait_for(body_entered.wait(), timeout=1)
+        assert deps.active_corpus_readers == 1
+
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    assert deps.active_corpus_readers == 0
+    assert deps.active_corpus_idle.is_set()
+
+
+@pytest.mark.asyncio
 async def test_non_strict_local_read_does_not_inspect_or_reload_release():
     from bddk_mcp.server import create_mcp
 

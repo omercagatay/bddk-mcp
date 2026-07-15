@@ -63,9 +63,12 @@ async def _remove_managed_history(connection) -> None:
     )
     # Reverse the additive v3 artifacts inside the surrounding rollback-only
     # transaction so the strict adopter sees the exact pre-ledger v1 catalog.
-    await connection.execute(
-        "DROP TRIGGER IF EXISTS invalidate_retrieval_publication_on_chunk_change ON public.document_chunks"
-    )
+    for trigger_name in (
+        "invalidate_retrieval_publication_on_chunk_insert",
+        "invalidate_retrieval_publication_on_chunk_delete",
+        "invalidate_retrieval_publication_on_chunk_update",
+    ):
+        await connection.execute(f"DROP TRIGGER IF EXISTS {trigger_name} ON public.document_chunks")
     await connection.execute("DROP FUNCTION IF EXISTS public.invalidate_retrieval_publication()")
     await connection.execute("DROP TABLE IF EXISTS public.document_retrieval_publications")
     await connection.execute("ALTER TABLE public.document_chunks DROP CONSTRAINT IF EXISTS document_chunks_document_fk")

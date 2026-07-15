@@ -57,8 +57,14 @@ def test_telemetry_identity_inventory_includes_the_denied_legal_version_workspac
         "regulatory_validated_section_citations",
     ):
         assert f"('public', '{relation}')" in normalized_sql
+    for relation in (
+        "legacy_schema_adoptions",
+        "corpus_state_epoch",
+    ):
+        assert f"('bddk_meta', '{relation}')" in normalized_sql
     for function_name in (
         "corpus_fingerprint_frame",
+        "bump_corpus_state_epoch",
         "current_corpus_state_sha256",
         "corpus_retrieval_ready",
         "reject_corpus_release_mutation",
@@ -66,6 +72,13 @@ def test_telemetry_identity_inventory_includes_the_denied_legal_version_workspac
         "resolve_regulation_status",
     ):
         assert f"'bddk_meta', '{function_name}'" in normalized_sql
+    for function_name in (
+        "documents_tsv_trigger",
+        "document_sections_tsv_trigger",
+        "chunks_tsv_trigger",
+        "invalidate_retrieval_publication",
+    ):
+        assert f"'public', '{function_name}'" in normalized_sql
     assert "to_regclass('bddk_meta" not in normalized_sql
 
 

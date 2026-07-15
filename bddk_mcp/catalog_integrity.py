@@ -15,7 +15,10 @@ from typing import Any, Final
 
 import asyncpg
 
-from bddk_mcp.migrations.v0005_corpus_release_publication import V0005_CORPUS_RELEASE_PUBLICATION
+from bddk_mcp.migrations.v0005_corpus_release_publication import (
+    CORPUS_EPOCH_TRACKED_TABLES,
+    V0005_CORPUS_RELEASE_PUBLICATION,
+)
 from bddk_mcp.migrations.v0006_legal_status_resolver import V0006_LEGAL_STATUS_RESOLVER
 from bddk_mcp.regulatory.text_profile import PROVISION_BOUNDARY_CODEPOINTS_V1
 
@@ -214,6 +217,8 @@ SELECT namespace.nspname || '.' || relation.relname AS table_name,
        trigger_record.tgname,
        trigger_record.tgenabled,
        trigger_record.tgtype,
+       trigger_record.tgoldtable,
+       trigger_record.tgnewtable,
        routine.proname || '(' || pg_catalog.pg_get_function_identity_arguments(routine.oid) || ')'
            AS function_identity
 FROM pg_catalog.pg_trigger AS trigger_record
@@ -454,12 +459,15 @@ def _normalize_view_sql(value: Any) -> str:
     return _normalize_sql(value).replace('"', "").replace("pg_catalog.", "").replace("::name", "")
 
 
-def _v5_function_source(name: str) -> str:
+def _v5_function_source(name: str, *, schema: str = "bddk_meta") -> str:
     """Extract the immutable function body from migration v0005."""
 
-    prefix = f"CREATE FUNCTION bddk_meta.{name}("
+    prefixes = (
+        f"CREATE FUNCTION {schema}.{name}(",
+        f"CREATE OR REPLACE FUNCTION {schema}.{name}(",
+    )
     statement = next(
-        (item for item in V0005_CORPUS_RELEASE_PUBLICATION.statements if item.strip().startswith(prefix)),
+        (item for item in V0005_CORPUS_RELEASE_PUBLICATION.statements if item.strip().startswith(prefixes)),
         None,
     )
     if statement is None:
@@ -500,7 +508,11 @@ _CORPUS_RELEASE_RELATIONS: Final[dict[str, tuple[str, tuple[str, ...], tuple[str
             "max_manifest_age_seconds",
             "retrieval_profile_sha256",
             "corpus_state_sha256",
+            "created_at",
+            "activation_sequence",
             "completed_at",
+            "actor_fingerprint_sha256",
+            "corpus_epoch",
         ),
         ("security_barrier=true", "security_invoker=false"),
     ),
@@ -509,12 +521,21 @@ _CORPUS_RELEASE_RELATIONS: Final[dict[str, tuple[str, tuple[str, ...], tuple[str
         (
             "activation_sequence",
             "release_id",
+            "corpus_epoch",
             "completed_at",
             "actor_fingerprint_sha256",
         ),
         (),
     ),
     "corpus_release_activations_activation_sequence_seq": ("S", (), ()),
+    "corpus_state_epoch": (
+        "r",
+        (
+            "singleton_id",
+            "epoch",
+        ),
+        (),
+    ),
     "corpus_releases": (
         "r",
         (
@@ -535,6 +556,15 @@ _CORPUS_RELEASE_RELATIONS: Final[dict[str, tuple[str, tuple[str, ...], tuple[str
 }
 
 _CORPUS_RELEASE_CONSTRAINTS: Final[dict[tuple[str, str], tuple[str, str]]] = {
+    ("corpus_state_epoch", "corpus_state_epoch_pkey"): ("p", "PRIMARY KEY (singleton_id)"),
+    ("corpus_state_epoch", "corpus_state_epoch_singleton_check"): (
+        "c",
+        "CHECK (singleton_id)",
+    ),
+    ("corpus_state_epoch", "corpus_state_epoch_nonnegative_check"): (
+        "c",
+        "CHECK ((epoch >= 0))",
+    ),
     ("corpus_releases", "corpus_releases_pkey"): ("p", "PRIMARY KEY (release_id)"),
     ("corpus_releases", "corpus_releases_id_check"): (
         "c",
@@ -602,6 +632,13 @@ _CORPUS_RELEASE_TRIGGERS: Final[dict[tuple[str, str], tuple[str, int]]] = {
 }
 
 _CORPUS_RELEASE_ROUTINES: Final[dict[str, tuple[str, str, str, bool, str]]] = {
+    "bump_corpus_state_epoch()": (
+        "plpgsql",
+        "v",
+        "u",
+        True,
+        _v5_function_source("bump_corpus_state_epoch"),
+    ),
     "corpus_fingerprint_frame(text)": (
         "sql",
         "i",
@@ -642,12 +679,13 @@ _CORPUS_RELEASE_ROUTINES: Final[dict[str, tuple[str, str, str, bool, str]]] = {
 _ACTIVE_CORPUS_RELEASE_DEPENDENCIES: Final[tuple[str, ...]] = (
     "bddk_meta.corpus_release_activations",
     "bddk_meta.corpus_releases",
+    "bddk_meta.corpus_state_epoch",
 )
 _ACTIVE_CORPUS_RELEASE_REQUIRED_DEFINITION: Final[tuple[str, ...]] = (
     "activation.activation_sequence = ( select max(latest.activation_sequence) as max",
     "release.release_id = activation.release_id",
-    "release.corpus_state_sha256 = bddk_meta.current_corpus_state_sha256(release.retrieval_profile_sha256)",
-    "bddk_meta.corpus_retrieval_ready(release.retrieval_profile_sha256)",
+    "activation.corpus_epoch = epoch.epoch",
+    "epoch.singleton_id",
 )
 _LEGAL_STATUS_RESULT_TYPE: Final[str] = (
     "TABLE(resolved boolean, reason text, instrument_id text, as_of date, legal_version_id text, "
@@ -698,16 +736,41 @@ _EXPECTED_CONSTRAINTS: Final[dict[tuple[str, str], tuple[str, str]]] = {
     ),
 }
 
-_EXPECTED_TRIGGERS: Final[dict[tuple[str, str], tuple[str, int]]] = {
-    ("public.documents", "trg_documents_tsv"): ("documents_tsv_trigger()", 23),
+_EXPECTED_TRIGGERS: Final[dict[tuple[str, str], tuple[str, int, str | None, str | None]]] = {
+    **{
+        (f"public.{table_name}", "bump_corpus_state_epoch_on_change"): (
+            "bump_corpus_state_epoch()",
+            60,
+            None,
+            None,
+        )
+        for table_name in CORPUS_EPOCH_TRACKED_TABLES
+    },
+    ("public.documents", "trg_documents_tsv"): ("documents_tsv_trigger()", 23, None, None),
     ("public.document_sections", "trg_document_sections_tsv"): (
         "document_sections_tsv_trigger()",
         23,
+        None,
+        None,
     ),
-    ("public.document_chunks", "chunks_tsv_update"): ("chunks_tsv_trigger()", 23),
-    ("public.document_chunks", "invalidate_retrieval_publication_on_chunk_change"): (
+    ("public.document_chunks", "chunks_tsv_update"): ("chunks_tsv_trigger()", 23, None, None),
+    ("public.document_chunks", "invalidate_retrieval_publication_on_chunk_insert"): (
         "invalidate_retrieval_publication()",
-        29,
+        4,
+        None,
+        "changed_chunks",
+    ),
+    ("public.document_chunks", "invalidate_retrieval_publication_on_chunk_delete"): (
+        "invalidate_retrieval_publication()",
+        8,
+        "changed_chunks",
+        None,
+    ),
+    ("public.document_chunks", "invalidate_retrieval_publication_on_chunk_update"): (
+        "invalidate_retrieval_publication()",
+        16,
+        "old_chunks",
+        "new_chunks",
     ),
 }
 
@@ -797,25 +860,7 @@ _EXPECTED_ROUTINES: Final[dict[str, tuple[str, str, str, str]]] = {
         "plpgsql",
         "v",
         "u",
-        """
-        BEGIN
-            IF TG_OP = 'INSERT' THEN
-                DELETE FROM public.document_retrieval_publications
-                WHERE doc_id = NEW.doc_id;
-                RETURN NEW;
-            END IF;
-            DELETE FROM public.document_retrieval_publications
-            WHERE doc_id = OLD.doc_id;
-            IF TG_OP = 'UPDATE' THEN
-                IF OLD.doc_id IS DISTINCT FROM NEW.doc_id THEN
-                    DELETE FROM public.document_retrieval_publications
-                    WHERE doc_id = NEW.doc_id;
-                END IF;
-                RETURN NEW;
-            END IF;
-            RETURN OLD;
-        END
-        """,
+        _v5_function_source("invalidate_retrieval_publication", schema="public"),
     ),
 }
 
@@ -966,11 +1011,15 @@ async def inspect_catalog_integrity(pool: asyncpg.Pool) -> CatalogIntegrity:
             str(_value(row, "function_identity")),
             int(_value(row, "tgtype", -1)),
             _catalog_char(_value(row, "tgenabled")),
+            None if _value(row, "tgoldtable") is None else str(_value(row, "tgoldtable")),
+            None if _value(row, "tgnewtable") is None else str(_value(row, "tgnewtable")),
         )
         for row in trigger_rows
     }
-    for key, (function_identity, trigger_type) in _EXPECTED_TRIGGERS.items():
-        if actual_triggers.get(key) != (function_identity, trigger_type, "O"):
+    if set(actual_triggers) != set(_EXPECTED_TRIGGERS):
+        failures.append("triggers:public.exact")
+    for key, (function_identity, trigger_type, old_table, new_table) in _EXPECTED_TRIGGERS.items():
+        if actual_triggers.get(key) != (function_identity, trigger_type, "O", old_table, new_table):
             failures.append(f"trigger:{key[0]}.{key[1]}")
 
     index_rows = await pool.fetch(_INDEXES_SQL, sorted(_EXPECTED_INDEXES))
@@ -1086,7 +1135,7 @@ async def inspect_catalog_integrity(pool: asyncpg.Pool) -> CatalogIntegrity:
 
     release_constraint_rows = await pool.fetch(
         _CORPUS_RELEASE_CONSTRAINTS_SQL,
-        ["corpus_release_activations", "corpus_releases"],
+        ["corpus_release_activations", "corpus_releases", "corpus_state_epoch"],
     )
     actual_release_constraints = {
         (str(_value(row, "relname")), str(_value(row, "conname"))): (
@@ -1170,6 +1219,8 @@ async def inspect_catalog_integrity(pool: asyncpg.Pool) -> CatalogIntegrity:
         )
         and " union " not in active_release_definition
         and " or " not in active_release_definition
+        and "current_corpus_state_sha256" not in active_release_definition
+        and "corpus_retrieval_ready" not in active_release_definition
     ):
         failures.append("view:bddk_meta.active_corpus_release")
 

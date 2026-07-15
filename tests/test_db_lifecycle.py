@@ -295,9 +295,16 @@ class ReadOnlyReadinessPool:
                     "tgname": name,
                     "tgenabled": "O",
                     "tgtype": trigger_type,
+                    "tgoldtable": old_table,
+                    "tgnewtable": new_table,
                     "function_identity": function_identity,
                 }
-                for (table, name), (function_identity, trigger_type) in _EXPECTED_TRIGGERS.items()
+                for (table, name), (
+                    function_identity,
+                    trigger_type,
+                    old_table,
+                    new_table,
+                ) in _EXPECTED_TRIGGERS.items()
             ]
         if "pg_index" in query:
             return [
