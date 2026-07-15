@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from benchmark.audit import REDACTED, canonical_sha256, sanitize_for_audit
-from benchmark.report import diagnosis_report, save_json_results
+from benchmark.report import console_report, diagnosis_report, save_json_results
 
 
 def test_recursive_sanitizer_redacts_sensitive_keys_and_values_without_mutating_input():
@@ -84,3 +84,32 @@ def test_diagnosis_ignores_evaluation_evidence_metadata():
 
     assert "exploratory_not_release_evidence" not in report
     assert "release_preflight_status" not in report
+    assert "EXPLORATORY ONLY" in report
+
+
+def test_human_reports_never_turn_unauthorized_scores_into_deployment_advice():
+    results = {
+        "evaluation_evidence": {
+            "classification": "exploratory_not_release_evidence",
+            "model_scores_authorized": False,
+        },
+        "phase1a": {
+            "model-a": {
+                "tool_selection_accuracy": 1.0,
+                "tool_consistency": 1.0,
+                "avg_parameter_f1": 1.0,
+                "avg_latency_s": 0.1,
+            }
+        },
+        "phase1b": {"model-a": {"accuracy": 1.0, "macro_f1": 1.0}},
+        "phase1c": {"model-a": {"accuracy": 1.0, "correct": 1}},
+    }
+
+    console = console_report(results)
+    diagnosis = diagnosis_report(results)
+
+    assert "EXPLORATORY ONLY" in console
+    assert "do not authorize deployment" in console
+    assert "EXPLORATORY PASS" in diagnosis
+    assert "Do not deploy based on these scores" in diagnosis
+    assert "Deploy with RAG" not in diagnosis

@@ -14,6 +14,23 @@ from benchmark.config import PHASE1_THRESHOLDS
 logger = logging.getLogger(__name__)
 
 
+def _model_scores_authorized(all_results: dict) -> bool:
+    evidence = all_results.get("evaluation_evidence")
+    return isinstance(evidence, dict) and evidence.get("model_scores_authorized") is True
+
+
+def _append_evidence_banner(lines: list[str], all_results: dict) -> None:
+    if _model_scores_authorized(all_results):
+        lines.append("EVIDENCE STATUS: release-grade model scores authorized")
+        return
+    lines.extend(
+        (
+            "EVIDENCE STATUS: EXPLORATORY ONLY",
+            "These model scores are not release evidence and do not authorize deployment.",
+        )
+    )
+
+
 def console_report(all_results: dict) -> str:
     """Generate a human-readable console report."""
     lines = []
@@ -21,6 +38,7 @@ def console_report(all_results: dict) -> str:
     lines.append("BDDK BENCHMARK RESULTS")
     lines.append(f"Date: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}")
     lines.append("=" * 90)
+    _append_evidence_banner(lines, all_results)
 
     # Phase 1a summary table
     if "phase1a" in all_results:
@@ -95,6 +113,7 @@ def diagnosis_report(all_results: dict) -> str:
     lines.append("=" * 90)
     lines.append("BDDK BENCHMARK — DIAGNOSIS REPORT")
     lines.append("=" * 90)
+    _append_evidence_banner(lines, all_results)
 
     models = set()
     for phase_name in ("phase1a", "phase1b", "phase1c", "phase2", "phase3"):
@@ -149,8 +168,12 @@ def diagnosis_report(all_results: dict) -> str:
                 )
 
         if not failures:
-            lines.append("  PASS — All metrics above threshold")
-            lines.append("  Recommendation: Deploy with RAG + current prompts")
+            if _model_scores_authorized(all_results):
+                lines.append("  PASS — All metrics above threshold")
+                lines.append("  Recommendation: Eligible for the remaining release and deployment acceptance gates")
+            else:
+                lines.append("  EXPLORATORY PASS — All measured metrics above exploratory thresholds")
+                lines.append("  Recommendation: Do not deploy based on these scores; complete release-grade evaluation")
         else:
             lines.append("  FAILURES:")
             for f in failures:

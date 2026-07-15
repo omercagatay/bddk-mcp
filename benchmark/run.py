@@ -98,6 +98,7 @@ async def _main() -> None:
             "classification": "exploratory_not_release_evidence",
             "release_preflight_status": "not_executed",
             "reason": "expert_dataset_execution_not_implemented",
+            "model_scores_authorized": False,
         }
     }
 
