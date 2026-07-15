@@ -36,6 +36,11 @@ from bddk_mcp.corpus_manifest import (
     CorpusManifestValidation,
     load_and_validate_corpus_manifest,
 )
+from benchmark.legal_release_evidence import (
+    LegalReleaseEvidenceError,
+    LegalReleaseEvidenceValidation,
+    validate_legal_release_evidence,
+)
 
 EXPERT_EVALUATION_DRAFT_PATH = Path(__file__).with_name("expert_evaluation_draft.yml")
 _MAX_DATASET_BYTES = 4 * 1024 * 1024
@@ -448,6 +453,10 @@ class ExpertEvaluationValidation:
     dataset_signature_verified: bool
     legal_attestation_verified: bool
     legal_attestation_key_sha256: str | None
+    legal_release_evidence_verified: bool
+    legal_release_checkpoint_sha256: str | None
+    legal_release_signing_key_sha256: str | None
+    legal_release_latest_checkpoint_verified: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -472,6 +481,8 @@ class ExpertDatasetQualityProfile:
     citation_v1_status_counts: dict[str, int]
     dataset_signature_verified: bool
     legal_attestation_verified: bool
+    legal_release_evidence_verified: bool
+    legal_release_latest_checkpoint_verified: bool
     corpus_signature_verified: bool
     corpus_freshness_quantified: bool
     corpus_freshness_measured: bool
@@ -585,6 +596,13 @@ def _load_bounded_mapping(path: Path, *, label: str, maximum_bytes: int) -> tupl
     return raw, raw_bytes
 
 
+@dataclass(frozen=True, slots=True)
+class _VerifiedLegalPack:
+    pack: ValidatedLegalCitationPack
+    pack_sha256: str
+    attestation_key_sha256: str
+
+
 def _verify_legal_attestation(
     dataset: ExpertEvaluationDataset,
     *,
@@ -592,7 +610,7 @@ def _verify_legal_attestation(
     attestation_path: Path,
     trusted_signing_key: Path,
     current: datetime,
-) -> str:
+) -> _VerifiedLegalPack:
     raw_pack, pack_bytes = _load_bounded_mapping(
         legal_pack_path.resolve(), label="validated legal citation pack", maximum_bytes=_MAX_LEGAL_PACK_BYTES
     )
@@ -606,7 +624,8 @@ def _verify_legal_attestation(
         raise ExpertEvaluationError("legal citation pack or attestation schema validation failed") from exc
     if attestation.integrity.attestation_sha256 != canonical_legal_attestation_sha256(raw_attestation):
         raise ExpertEvaluationError("legal citation attestation checksum mismatch")
-    if hashlib.sha256(pack_bytes).hexdigest() != attestation.pack_sha256:
+    pack_sha256 = hashlib.sha256(pack_bytes).hexdigest()
+    if pack_sha256 != attestation.pack_sha256:
         raise ExpertEvaluationError("validated legal citation pack hash differs from its attestation")
 
     key_path = trusted_signing_key.resolve()
@@ -646,7 +665,11 @@ def _verify_legal_attestation(
         raise ExpertEvaluationError("expert dataset Citation v1 bundle differs from the validated legal pack")
     if any(citation.generated_at > pack.exported_at for citation in pack.citations):
         raise ExpertEvaluationError("validated legal pack export predates a Citation v1 bundle")
-    return key_sha256
+    return _VerifiedLegalPack(
+        pack=pack,
+        pack_sha256=pack_sha256,
+        attestation_key_sha256=key_sha256,
+    )
 
 
 def _load_yaml_mapping(path: Path) -> dict[str, Any]:
@@ -858,6 +881,11 @@ def load_expert_evaluation_dataset(
     validated_legal_pack_path: str | Path | None = None,
     legal_attestation_path: str | Path | None = None,
     trusted_legal_attestation_key: str | Path | None = None,
+    legal_release_checkpoint_path: str | Path | None = None,
+    legal_release_source_root: str | Path | None = None,
+    trusted_legal_release_signing_key: str | Path | None = None,
+    predecessor_legal_release_checkpoint_path: str | Path | None = None,
+    trusted_latest_legal_checkpoint_sha256: str | None = None,
     now: datetime | None = None,
     require_release_ready: bool = False,
 ) -> ExpertEvaluationValidation:
@@ -910,9 +938,9 @@ def load_expert_evaluation_dataset(
     legal_inputs = (validated_legal_pack_path, legal_attestation_path, trusted_legal_attestation_key)
     if any(value is not None for value in legal_inputs) and not all(value is not None for value in legal_inputs):
         raise ExpertEvaluationError("validated legal pack, attestation, and separate trust anchor are all required")
-    legal_attestation_key_sha256: str | None = None
+    verified_legal_pack: _VerifiedLegalPack | None = None
     if all(value is not None for value in legal_inputs):
-        legal_attestation_key_sha256 = _verify_legal_attestation(
+        verified_legal_pack = _verify_legal_attestation(
             dataset,
             legal_pack_path=Path(str(validated_legal_pack_path)).resolve(),
             attestation_path=Path(str(legal_attestation_path)).resolve(),
@@ -920,13 +948,65 @@ def load_expert_evaluation_dataset(
             current=current,
         )
 
+    release_evidence_inputs = (
+        legal_release_checkpoint_path,
+        legal_release_source_root,
+        trusted_legal_release_signing_key,
+    )
+    if any(value is not None for value in release_evidence_inputs) and not all(
+        value is not None for value in release_evidence_inputs
+    ):
+        raise ExpertEvaluationError(
+            "legal release checkpoint, retained-source root, and separate trust anchor are all required"
+        )
+    if (
+        predecessor_legal_release_checkpoint_path is not None or trusted_latest_legal_checkpoint_sha256 is not None
+    ) and not all(value is not None for value in release_evidence_inputs):
+        raise ExpertEvaluationError("legal release predecessor/latest evidence requires a complete checkpoint input")
+
+    legal_release_validation: LegalReleaseEvidenceValidation | None = None
+    if all(value is not None for value in release_evidence_inputs):
+        if verified_legal_pack is None:
+            raise ExpertEvaluationError("legal release evidence requires a verified legal citation pack")
+        try:
+            legal_release_validation = validate_legal_release_evidence(
+                checkpoint_path=Path(str(legal_release_checkpoint_path)).resolve(),
+                trusted_signing_key=Path(str(trusted_legal_release_signing_key)).resolve(),
+                source_root=Path(str(legal_release_source_root)).resolve(),
+                legal_pack_sha256=verified_legal_pack.pack_sha256,
+                legal_pack_exported_at=verified_legal_pack.pack.exported_at,
+                corpus_manifest_sha256=dataset.corpus.manifest_sha256,
+                citations=verified_legal_pack.pack.citations,
+                now=current,
+                predecessor_checkpoint_path=(
+                    Path(str(predecessor_legal_release_checkpoint_path)).resolve()
+                    if predecessor_legal_release_checkpoint_path is not None
+                    else None
+                ),
+                trusted_latest_checkpoint_sha256=trusted_latest_legal_checkpoint_sha256,
+            )
+        except LegalReleaseEvidenceError as exc:
+            raise ExpertEvaluationError(f"legal release evidence validation failed: {exc}") from exc
+
     result = ExpertEvaluationValidation(
         dataset=dataset,
         dataset_sha256=checksum,
         corpus_validation=corpus_validation,
         dataset_signature_verified=dataset_signature_verified,
-        legal_attestation_verified=legal_attestation_key_sha256 is not None,
-        legal_attestation_key_sha256=legal_attestation_key_sha256,
+        legal_attestation_verified=verified_legal_pack is not None,
+        legal_attestation_key_sha256=(
+            verified_legal_pack.attestation_key_sha256 if verified_legal_pack is not None else None
+        ),
+        legal_release_evidence_verified=legal_release_validation is not None,
+        legal_release_checkpoint_sha256=(
+            legal_release_validation.checkpoint_sha256 if legal_release_validation is not None else None
+        ),
+        legal_release_signing_key_sha256=(
+            legal_release_validation.signing_key_sha256 if legal_release_validation is not None else None
+        ),
+        legal_release_latest_checkpoint_verified=(
+            legal_release_validation.latest_checkpoint_verified if legal_release_validation is not None else False
+        ),
     )
     if require_release_ready:
         require_expert_dataset_release_ready(result)
@@ -952,6 +1032,15 @@ def _release_blockers(validation: ExpertEvaluationValidation) -> Counter[str]:
         and validation.legal_attestation_key_sha256 == dataset.integrity.signature_public_key_sha256
     ):
         blockers["dataset_and_legal_signers_not_separated"] += 1
+    if not validation.legal_release_evidence_verified:
+        blockers["legal_release_evidence_not_verified"] += 1
+    else:
+        if validation.legal_release_signing_key_sha256 == dataset.integrity.signature_public_key_sha256:
+            blockers["dataset_and_legal_release_signers_not_separated"] += 1
+        if validation.legal_release_signing_key_sha256 == validation.legal_attestation_key_sha256:
+            blockers["curator_and_legal_release_signers_not_separated"] += 1
+    if not validation.legal_release_latest_checkpoint_verified:
+        blockers["latest_legal_release_checkpoint_not_verified"] += 1
     corpus_integrity = validation.corpus_validation.manifest.integrity
     if corpus_integrity.signature_status != "verified":
         blockers["corpus_signature_not_verified"] += 1
@@ -1080,6 +1169,8 @@ def profile_expert_evaluation_dataset(
         ),
         dataset_signature_verified=validation.dataset_signature_verified,
         legal_attestation_verified=validation.legal_attestation_verified,
+        legal_release_evidence_verified=validation.legal_release_evidence_verified,
+        legal_release_latest_checkpoint_verified=validation.legal_release_latest_checkpoint_verified,
         corpus_signature_verified=(validation.corpus_validation.manifest.integrity.signature_status == "verified"),
         corpus_freshness_quantified=all(
             value is not None

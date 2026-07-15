@@ -42,6 +42,7 @@ from benchmark.expert_evaluation import (
     load_expert_evaluation_dataset,
     profile_expert_evaluation_dataset,
 )
+from benchmark.legal_release_evidence import canonical_checkpoint_payload, canonical_checkpoint_sha256
 
 
 def _raw_dataset() -> dict[str, Any]:
@@ -294,16 +295,10 @@ def test_complete_citation_bundle_is_reconstructed_against_the_bound_corpus(tmp_
     assert validation.dataset.evidence_catalog[0].citation_v1 is not None
 
 
-def test_separately_signed_legal_pack_attests_the_exact_citation_inventory(tmp_path: Path) -> None:
-    raw = _raw_dataset()
-    citation = _verified_tracked_citation(raw)
-    raw["evidence_catalog"][0].update(
-        citation_v1_status="verified",
-        citation_v1_id=citation["citation_id"],
-        citation_v1=citation,
-    )
-    dataset_path = _write_sealed_dataset(tmp_path, raw)
-
+def _write_signed_legal_pack(
+    tmp_path: Path,
+    citation: dict[str, Any],
+) -> tuple[Path, Path, Path, str]:
     pack = {
         "schema_version": 1,
         "export_id": "legal-pack-test-v1",
@@ -339,6 +334,19 @@ def test_separately_signed_legal_pack_attests_the_exact_citation_inventory(tmp_p
     attestation["integrity"]["attestation_sha256"] = canonical_legal_attestation_sha256(attestation)
     attestation_path = tmp_path / "legal-attestation.yml"
     attestation_path.write_text(yaml.safe_dump(attestation, sort_keys=False), encoding="utf-8")
+    return pack_path, attestation_path, trusted_key, hashlib.sha256(public_key).hexdigest()
+
+
+def test_separately_signed_legal_pack_attests_the_exact_citation_inventory(tmp_path: Path) -> None:
+    raw = _raw_dataset()
+    citation = _verified_tracked_citation(raw)
+    raw["evidence_catalog"][0].update(
+        citation_v1_status="verified",
+        citation_v1_id=citation["citation_id"],
+        citation_v1=citation,
+    )
+    dataset_path = _write_sealed_dataset(tmp_path, raw)
+    pack_path, attestation_path, trusted_key, key_sha256 = _write_signed_legal_pack(tmp_path, citation)
 
     validation = load_expert_evaluation_dataset(
         dataset_path,
@@ -349,7 +357,171 @@ def test_separately_signed_legal_pack_attests_the_exact_citation_inventory(tmp_p
     )
 
     assert validation.legal_attestation_verified is True
-    assert validation.legal_attestation_key_sha256 == hashlib.sha256(public_key).hexdigest()
+    assert validation.legal_attestation_key_sha256 == key_sha256
+
+
+def _sealed_file(path: Path, root: Path) -> dict[str, Any]:
+    payload = path.read_bytes()
+    return {
+        "reference": path.relative_to(root).as_posix(),
+        "sha256": hashlib.sha256(payload).hexdigest(),
+        "bytes": len(payload),
+    }
+
+
+def _write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.write_bytes(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode())
+
+
+def _write_legal_release_checkpoint(
+    tmp_path: Path,
+    *,
+    raw_dataset: dict[str, Any],
+    citation: dict[str, Any],
+    pack_path: Path,
+) -> tuple[Path, Path, str, Path]:
+    source_root = tmp_path / "retained-legal-source"
+    source_root.mkdir()
+    documents = json.loads((Path(__file__).parents[1] / "seed_data" / "documents.json").read_text())
+    document = next(item for item in documents if item["document_id"] == citation["source_document_id"])
+    source_bytes = document["markdown_content"].encode()
+    source_path = source_root / "authoritative-source.bin"
+    source_path.write_bytes(source_bytes)
+    assert hashlib.sha256(source_bytes).hexdigest() == citation["artifact_sha256"]
+
+    acquisition_path = source_root / "acquisition.json"
+    _write_json(
+        acquisition_path,
+        {
+            "schema_version": 1,
+            "artifact_id": citation["artifact_id"],
+            "blob_id": citation["artifact_blob_id"],
+            "canonical_uri": citation["source_url"],
+            "retrieved_at": citation["artifact_retrieved_at"],
+            "captured_at": "2026-07-15T12:15:00Z",
+            "source_authority": "BDDK",
+            "media_type": "text/markdown",
+            "response_status": 200,
+            "response_body_sha256": citation["artifact_sha256"],
+            "response_body_bytes": len(source_bytes),
+        },
+    )
+
+    start = citation["locator"]["start_char"]
+    end = citation["locator"]["end_char"]
+    excerpt = sanitize_markdown_for_context(document["markdown_content"][start:end].strip())
+    assert hashlib.sha256(excerpt.encode()).hexdigest() == citation["excerpt_sha256"]
+    page_text_path = source_root / "page-1.txt"
+    page_text_path.write_text(document["markdown_content"], encoding="utf-8")
+    excerpt_path = source_root / "citation-excerpt.txt"
+    excerpt_path.write_text(excerpt, encoding="utf-8")
+    page_proof_path = source_root / "page-proof.json"
+    _write_json(
+        page_proof_path,
+        {
+            "schema_version": 1,
+            "proof_method": "reviewed_source_page_mapping_v1",
+            "artifact_id": citation["artifact_id"],
+            "source_bytes_sha256": citation["artifact_sha256"],
+            "source_bytes": len(source_bytes),
+            "pages": [{"page_number": 1, "rendered_text": _sealed_file(page_text_path, source_root)}],
+            "citation_mappings": [
+                {
+                    "citation_id": citation["citation_id"],
+                    "page_numbers": [1],
+                    "rendered_excerpt": _sealed_file(excerpt_path, source_root),
+                }
+            ],
+            "reviewed_by_role": "legal_source_reviewer",
+            "reviewed_at": "2026-07-15T13:30:00Z",
+        },
+    )
+
+    private_key = Ed25519PrivateKey.generate()
+    public_key = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    trusted_key = tmp_path / "trusted-legal-release.pem"
+    trusted_key.write_bytes(public_key)
+    checkpoint = {
+        "schema_version": 1,
+        "checkpoint_id": "legal-release-test-v1",
+        "legal_pack_sha256": hashlib.sha256(pack_path.read_bytes()).hexdigest(),
+        "corpus_manifest_sha256": raw_dataset["corpus"]["manifest_sha256"],
+        "created_at": "2026-07-15T14:00:00Z",
+        "predecessor_checkpoint_sha256": None,
+        "artifacts": [
+            {
+                "artifact_id": citation["artifact_id"],
+                "blob_id": citation["artifact_blob_id"],
+                "citation_ids": [citation["citation_id"]],
+                "source_bytes": _sealed_file(source_path, source_root),
+                "acquisition_record": _sealed_file(acquisition_path, source_root),
+                "page_mapping_proof": _sealed_file(page_proof_path, source_root),
+            }
+        ],
+        "integrity": {
+            "checkpoint_sha256": "0" * 64,
+            "signature_algorithm": "ed25519",
+            "signature_reference": "legal-release.sig",
+            "signature_public_key_sha256": hashlib.sha256(public_key).hexdigest(),
+        },
+    }
+    (tmp_path / "legal-release.sig").write_bytes(private_key.sign(canonical_checkpoint_payload(checkpoint)))
+    checkpoint["integrity"]["checkpoint_sha256"] = canonical_checkpoint_sha256(checkpoint)
+    checkpoint_path = tmp_path / "legal-release.yml"
+    checkpoint_path.write_text(yaml.safe_dump(checkpoint, sort_keys=False), encoding="utf-8")
+    return checkpoint_path, trusted_key, checkpoint["integrity"]["checkpoint_sha256"], source_root
+
+
+def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_latest_hash(
+    tmp_path: Path,
+) -> None:
+    raw = _raw_dataset()
+    citation = _verified_tracked_citation(raw)
+    raw["evidence_catalog"][0].update(
+        citation_v1_status="verified",
+        citation_v1_id=citation["citation_id"],
+        citation_v1=citation,
+    )
+    dataset_path = _write_sealed_dataset(tmp_path, raw)
+    pack_path, attestation_path, curator_key, _ = _write_signed_legal_pack(tmp_path, citation)
+    checkpoint_path, release_key, latest_hash, source_root = _write_legal_release_checkpoint(
+        tmp_path,
+        raw_dataset=raw,
+        citation=citation,
+        pack_path=pack_path,
+    )
+
+    validation = load_expert_evaluation_dataset(
+        dataset_path,
+        validated_legal_pack_path=pack_path,
+        legal_attestation_path=attestation_path,
+        trusted_legal_attestation_key=curator_key,
+        legal_release_checkpoint_path=checkpoint_path,
+        legal_release_source_root=source_root,
+        trusted_legal_release_signing_key=release_key,
+        trusted_latest_legal_checkpoint_sha256=latest_hash,
+        now=datetime(2026, 7, 16, tzinfo=UTC),
+    )
+
+    assert validation.legal_release_evidence_verified is True
+    assert validation.legal_release_latest_checkpoint_verified is True
+    assert validation.legal_release_checkpoint_sha256 == latest_hash
+
+    (source_root / "authoritative-source.bin").write_bytes(b"tampered")
+    with pytest.raises(ExpertEvaluationError, match="retained authoritative source bytes differs"):
+        load_expert_evaluation_dataset(
+            dataset_path,
+            validated_legal_pack_path=pack_path,
+            legal_attestation_path=attestation_path,
+            trusted_legal_attestation_key=curator_key,
+            legal_release_checkpoint_path=checkpoint_path,
+            legal_release_source_root=source_root,
+            trusted_legal_release_signing_key=release_key,
+            now=datetime(2026, 7, 16, tzinfo=UTC),
+        )
 
 
 def test_partial_legal_attestation_inputs_fail_closed(tmp_path: Path) -> None:
@@ -456,6 +628,8 @@ def test_release_use_refuses_pending_expert_and_owner_work() -> None:
     assert "dataset_signature_not_verified=1" in message
     assert "corpus_signature_not_verified=1" in message
     assert "legal_citation_attestation_not_verified=1" in message
+    assert "legal_release_evidence_not_verified=1" in message
+    assert "latest_legal_release_checkpoint_not_verified=1" in message
     assert "unquantified_corpus_freshness_objectives=3" in message
     assert "corpus_freshness_slo_not_measured=1" in message
     assert "missing_required_query_classes=2" in message
@@ -475,6 +649,8 @@ def test_quality_profile_is_aggregate_only_and_release_aware() -> None:
     assert profile.citation_v1_status_counts == {"pending_legal_mapping": 21}
     assert profile.dataset_signature_verified is False
     assert profile.legal_attestation_verified is False
+    assert profile.legal_release_evidence_verified is False
+    assert profile.legal_release_latest_checkpoint_verified is False
     assert profile.corpus_signature_verified is False
     assert profile.corpus_freshness_quantified is False
     assert profile.corpus_freshness_measured is False
