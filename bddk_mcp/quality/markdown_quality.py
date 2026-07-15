@@ -7,6 +7,8 @@ stricter because its output is sent to LLMs and MCP clients.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import textwrap
 from collections.abc import Mapping
@@ -18,6 +20,8 @@ import yaml
 from pydantic import BaseModel, Field
 
 QUALITY_FAILURES_PATH = Path(__file__).with_name("quality_failures.yml")
+QUALITY_ASSESSMENT_POLICY_VERSION = "markdown-quality-assessment-v2"
+QUALITY_FAILURE_REGISTRY_FORMAT_VERSION = 1
 _CONFIGURED_QUALITY_FAILURE_FLAG = "configured_quality_failure"
 
 
@@ -39,26 +43,25 @@ def load_quality_failure_registry(path: Path = QUALITY_FAILURES_PATH) -> dict[st
     """
     try:
         payload = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError) as exc:
-        raise RuntimeError(f"Unable to load quality-failure registry at {path}: {exc}") from exc
+    except (OSError, UnicodeError, yaml.YAMLError):
+        raise RuntimeError("Unable to load quality-failure registry (read_or_parse_failed).") from None
 
     if not isinstance(payload, dict) or not isinstance(payload.get("fail_documents"), list):
-        raise RuntimeError(f"Invalid quality-failure registry at {path}: 'fail_documents' must be a list")
+        raise RuntimeError("Invalid quality-failure registry: fail_documents must be a list.")
 
     failures: dict[str, QualityFailure] = {}
     for index, item in enumerate(payload["fail_documents"]):
         if not isinstance(item, dict):
-            raise RuntimeError(f"Invalid quality-failure registry at {path}: entry {index} must be a mapping")
+            raise RuntimeError(f"Invalid quality-failure registry: entry {index} must be a mapping.")
         document_id = str(item.get("document_id", "")).strip()
         reason = str(item.get("reason", "")).strip()
         preferred_backfill = str(item.get("preferred_backfill", "")).strip()
         if not document_id or not reason or not preferred_backfill:
             raise RuntimeError(
-                f"Invalid quality-failure registry at {path}: entry {index} requires "
-                "document_id, reason, and preferred_backfill"
+                f"Invalid quality-failure registry: entry {index} requires document_id, reason, and preferred_backfill"
             )
         if document_id in failures:
-            raise RuntimeError(f"Invalid quality-failure registry at {path}: duplicate document_id {document_id}")
+            raise RuntimeError(f"Invalid quality-failure registry: duplicate entry at index {index}.")
         failures[document_id] = QualityFailure(
             document_id=document_id,
             reason=reason,
@@ -68,6 +71,31 @@ def load_quality_failure_registry(path: Path = QUALITY_FAILURES_PATH) -> dict[st
 
 
 _QUALITY_FAILURES: Mapping[str, QualityFailure] = MappingProxyType(load_quality_failure_registry())
+
+
+def quality_retrieval_profile_descriptor() -> dict[str, int | str]:
+    """Return a path-free identity for user-visible retrieval quality signals."""
+
+    canonical_failures = [
+        {
+            "document_id": failure.document_id,
+            "reason": failure.reason,
+            "preferred_backfill": failure.preferred_backfill,
+        }
+        for failure in sorted(_QUALITY_FAILURES.values(), key=lambda item: item.document_id)
+    ]
+    encoded = json.dumps(
+        canonical_failures,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    ).encode("utf-8")
+    return {
+        "assessment_policy_version": QUALITY_ASSESSMENT_POLICY_VERSION,
+        "registry_format_version": QUALITY_FAILURE_REGISTRY_FORMAT_VERSION,
+        "registry_sha256": hashlib.sha256(encoded).hexdigest(),
+        "failure_count": len(canonical_failures),
+    }
 
 
 def get_configured_quality_failure(document_id: str) -> QualityFailure | None:

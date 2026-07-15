@@ -40,6 +40,8 @@ def _exact_telemetry_privileges() -> dict[str, bool]:
 def test_telemetry_identity_inventory_includes_the_denied_legal_version_workspace() -> None:
     from bddk_mcp.observability.telemetry import _TELEMETRY_PRIVILEGES_SQL
 
+    normalized_sql = " ".join(_TELEMETRY_PRIVILEGES_SQL.split())
+
     for relation in (
         "regulatory_instruments",
         "regulatory_family_imports",
@@ -54,7 +56,17 @@ def test_telemetry_identity_inventory_includes_the_denied_legal_version_workspac
         "regulatory_legal_version_provisions",
         "regulatory_validated_section_citations",
     ):
-        assert f"('public', '{relation}')" in _TELEMETRY_PRIVILEGES_SQL
+        assert f"('public', '{relation}')" in normalized_sql
+    for function_name in (
+        "corpus_fingerprint_frame",
+        "current_corpus_state_sha256",
+        "corpus_retrieval_ready",
+        "reject_corpus_release_mutation",
+        "publish_verified_corpus_release",
+        "resolve_regulation_status",
+    ):
+        assert f"'bddk_meta', '{function_name}'" in normalized_sql
+    assert "to_regclass('bddk_meta" not in normalized_sql
 
 
 def test_summarize_args_redacts_query_text_by_default():

@@ -5,6 +5,7 @@ from __future__ import annotations
 import functools
 import inspect
 import logging
+import re
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, TypeVar
@@ -24,14 +25,50 @@ _SENSITIVE_KEY_PARTS = (
     "private_key",
     "secret_key",
 )
+_SENSITIVE_ASSIGNMENT_RE = re.compile(
+    r"(?i)\b(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|"
+    r"private[_-]?key|dsn|database[_-]?url|connection[_-]?(?:string|url))"
+    r"\s*[:=]\s*(?:\"[^\"]*\"|'[^']*'|[^\s,;]+)"
+)
+_PATH_ASSIGNMENT_RE = re.compile(r"(?i)\b(path|file|filename|directory|dir)\s*[:=]\s*(?:\"[^\"]*\"|'[^']*'|[^\s,;]+)")
+_URI_RE = re.compile(
+    r"(?i)\b(?:postgres(?:ql)?|mysql|mariadb|redis|rediss|mongodb(?:\+srv)?|"
+    r"amqps?|https?|file)://[^\s<>'\"`]+"
+)
+_BEARER_RE = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+")
+_PRIVATE_KEY_RE = re.compile(
+    r"-----BEGIN [^-\r\n]*PRIVATE KEY-----.*?-----END [^-\r\n]*PRIVATE KEY-----",
+    re.DOTALL,
+)
+_WINDOWS_PATH_RE = re.compile(r"(?<![A-Za-z0-9_])(?:[A-Za-z]:[\\/]|\\\\)[^\s<>'\"`]+")
+_HOME_PATH_RE = re.compile(r"(?<![A-Za-z0-9_])~[/\\][^\s<>'\"`]+")
+_POSIX_PATH_RE = re.compile(r"(?<![A-Za-z0-9_.:])/(?!/)[^/\s<>'\"`]+(?:/[^\s<>'\"`]*)*")
 
 F = TypeVar("F", bound=Callable[..., Awaitable[Any]])
 
 
+def _redact_sensitive_text(value: str) -> str:
+    """Remove connection strings, URL details, secrets, and local paths.
+
+    Content previews remain an explicit operator opt-in, but enabling them must
+    not turn logging into a credential or filesystem-discovery channel.
+    """
+
+    value = _SENSITIVE_ASSIGNMENT_RE.sub(lambda match: f"{match.group(1)}=<redacted>", value)
+    value = _PATH_ASSIGNMENT_RE.sub(lambda match: f"{match.group(1)}=<redacted-path>", value)
+    value = _PRIVATE_KEY_RE.sub("<redacted-private-key>", value)
+    value = _BEARER_RE.sub("Bearer <redacted>", value)
+    value = _URI_RE.sub("<redacted-uri>", value)
+    value = _WINDOWS_PATH_RE.sub("<redacted-path>", value)
+    value = _HOME_PATH_RE.sub("<redacted-path>", value)
+    return _POSIX_PATH_RE.sub("<redacted-path>", value)
+
+
 def _truncate(value: str, max_chars: int = _MAX_TEXT_CHARS) -> str:
-    if len(value) <= max_chars:
-        return value
-    return value[:max_chars] + "..."
+    sanitized = _redact_sensitive_text(value)
+    if len(sanitized) <= max_chars:
+        return sanitized
+    return sanitized[:max_chars] + "..."
 
 
 def _is_sensitive_key(key: str) -> bool:
@@ -160,7 +197,11 @@ def logged_tool(logger: logging.Logger) -> Callable[[F], F]:
                 }
                 if include_content:
                     failure_metadata["error_message"] = _truncate(str(exc))
-                    logger.exception("MCP tool call failed", extra=failure_metadata)
+                    # A formatted traceback includes absolute source paths and
+                    # may repeat untrusted exception text.  Preserve the
+                    # explicitly requested sanitized message without attaching
+                    # exc_info to a production log record.
+                    logger.error("MCP tool call failed", extra=failure_metadata)
                 else:
                     # Exception messages and formatted tracebacks can contain the
                     # caller's query or retrieved content. Keep production logs

@@ -957,7 +957,11 @@ class DocumentSyncer:
             await self._store.record_sync_failure(doc_id, error_msg, cat, source_url, retryable)
             # Preserve old content on failed force re-extract — losing it would
             # erase successful prior extractions when a new backend transiently fails.
-            logger.warning("Extraction failed for %s; preserving old content (force=%s)", doc_id, force)
+            logger.warning(
+                "Document extraction failed; preserving old content (force=%s)",
+                force,
+                extra={"error_type": "EmptyExtractionResult"},
+            )
             return SyncResult(
                 document_id=doc_id,
                 success=False,
@@ -994,7 +998,7 @@ class DocumentSyncer:
                 logger.warning(
                     "Vector index publication failed after document sync; "
                     "hash-gated retrieval will hide stale chunks until retry",
-                    extra={"document_id": doc_id, "error_type": type(error).__name__},
+                    extra={"error_type": type(error).__name__},
                 )
                 await self._store.record_sync_failure(
                     doc_id,
@@ -1098,10 +1102,8 @@ class DocumentSyncer:
                 raise
             except Exception as error:
                 logger.debug(
-                    "mevzuat %s: main page visit failed (tur=%s, error_type=%s)",
-                    doc_id,
-                    candidate_tur,
-                    type(error).__name__,
+                    "Mevzuat main-page visit failed",
+                    extra={"error_type": type(error).__name__},
                 )
 
             # Layer 1b (HTML-first route): when no formula-capable OCR backend is
@@ -1130,16 +1132,14 @@ class DocumentSyncer:
                             max_bytes=_MAX_PDF_DOWNLOAD_BYTES,
                         )
                         if resp.status_code == 200 and len(resp.content) > 500 and resp.content[:5] == b"%PDF-":
-                            logger.info("mevzuat %s: downloaded via GeneratePdf (tur=%s)", doc_id, candidate_tur)
+                            logger.info("Mevzuat document downloaded via GeneratePdf")
                             return resp.content, "mevzuat_generate_pdf", ".pdf"
                 except UnsafeUpstreamResourceError:
                     raise
                 except Exception as error:
                     logger.debug(
-                        "mevzuat %s: GeneratePdf failed (tur=%s, error_type=%s)",
-                        doc_id,
-                        candidate_tur,
-                        type(error).__name__,
+                        "Mevzuat GeneratePdf download failed",
+                        extra={"error_type": type(error).__name__},
                     )
 
             # Layer 3: Direct static .pdf
@@ -1152,16 +1152,14 @@ class DocumentSyncer:
                         max_bytes=_MAX_PDF_DOWNLOAD_BYTES,
                     )
                     if resp.status_code == 200 and len(resp.content) > 500 and resp.content[:5] == b"%PDF-":
-                        logger.info("mevzuat %s: downloaded via .pdf (tur=%s)", doc_id, candidate_tur)
+                        logger.info("Mevzuat document downloaded via static PDF")
                         return resp.content, "mevzuat_pdf", ".pdf"
             except UnsafeUpstreamResourceError:
                 raise
             except Exception as error:
                 logger.debug(
-                    "mevzuat %s: .pdf failed (tur=%s, error_type=%s)",
-                    doc_id,
-                    candidate_tur,
-                    type(error).__name__,
+                    "Mevzuat static-PDF download failed",
+                    extra={"error_type": type(error).__name__},
                 )
 
             # Layer 4: .htm fallback — formulas may be lost (rendered as <img>)
@@ -1177,20 +1175,14 @@ class DocumentSyncer:
                     and len(resp.content) > 200
                     and not _is_error_page(_decode_html(resp.content))
                 ):
-                    logger.warning(
-                        "mevzuat %s: falling back to .htm (tur=%s) — formulas may be lost",
-                        doc_id,
-                        candidate_tur,
-                    )
+                    logger.warning("Mevzuat extraction is falling back to HTML; formulas may be lost")
                     return resp.content, "mevzuat_htm", ".html"
             except UnsafeUpstreamResourceError:
                 raise
             except Exception as error:
                 logger.debug(
-                    "mevzuat %s: .htm failed (tur=%s, error_type=%s)",
-                    doc_id,
-                    candidate_tur,
-                    type(error).__name__,
+                    "Mevzuat HTML download failed",
+                    extra={"error_type": type(error).__name__},
                 )
 
             # Layer 5: iframe/div from already-fetched main page
@@ -1221,20 +1213,18 @@ class DocumentSyncer:
                         and len(resp.content) > 100
                         and resp.content[:4] in (b"\xd0\xcf\x11\xe0", b"PK\x03\x04")
                     ):
-                        logger.info("mevzuat %s: downloaded via .doc (tur=%s)", doc_id, candidate_tur)
+                        logger.info("Mevzuat document downloaded via Word fallback")
                         return resp.content, "mevzuat_doc", ".doc"
                 except UnsafeUpstreamResourceError:
                     raise
                 except Exception as error:
                     logger.debug(
-                        "mevzuat %s: .doc failed (tur=%s, error_type=%s)",
-                        doc_id,
-                        candidate_tur,
-                        type(error).__name__,
+                        "Mevzuat Word download failed",
+                        extra={"error_type": type(error).__name__},
                     )
 
             if candidate_tur != tur_candidates[-1]:
-                logger.debug("mevzuat %s: tur=%s failed, trying next candidate", doc_id, candidate_tur)
+                logger.debug("Mevzuat download candidate failed; trying next configured candidate")
 
         raise RuntimeError(f"All download methods failed for {doc_id} (tried tur values: {tur_candidates})")
 
@@ -1263,7 +1253,7 @@ class DocumentSyncer:
                     max_bytes=_MAX_IFRAME_BYTES,
                 )
                 if iframe_resp.status_code == 200 and len(iframe_resp.content) > 200:
-                    logger.info("mevzuat %s: fetched iframe (tur=%s)", doc_id, candidate_tur)
+                    logger.info("Mevzuat document fetched from approved iframe layer")
                     content, annex_merged = await self._append_annex_zip_if_present(
                         iframe_resp.content,
                         doc_id=doc_id,
@@ -1276,14 +1266,12 @@ class DocumentSyncer:
                     return content, method, ".html"
             div = soup.find("div", id="divMevzuatMetni")
             if div and len(div.get_text(strip=True)) > 100:
-                logger.info("mevzuat %s: fetched main page div (tur=%s)", doc_id, candidate_tur)
+                logger.info("Mevzuat document fetched from approved main-page layer")
                 return str(div).encode("utf-8"), "mevzuat_div", ".html"
         except Exception as error:
             logger.debug(
-                "mevzuat %s: iframe/div layer failed (tur=%s, error_type=%s)",
-                doc_id,
-                candidate_tur,
-                type(error).__name__,
+                "Mevzuat iframe/main-page layer failed",
+                extra={"error_type": type(error).__name__},
             )
         return None
 
@@ -1317,9 +1305,8 @@ class DocumentSyncer:
             annex_markdown = _extract_annex_zip_markdown(resp.content)
         except Exception as error:
             logger.debug(
-                "mevzuat %s: annex zip fetch/extract failed (error_type=%s)",
-                doc_id,
-                type(error).__name__,
+                "Mevzuat annex archive fetch or extraction failed",
+                extra={"error_type": type(error).__name__},
             )
             return content, False
 
@@ -1340,10 +1327,9 @@ class DocumentSyncer:
         extraction = self._extract_structured(content, ext)
         if extraction.error:
             logger.warning(
-                "Extraction issue: %s (method=%s, retryable=%s)",
-                extraction.error,
-                extraction.method,
+                "Document extraction returned an issue (retryable=%s)",
                 extraction.retryable,
+                extra={"error_type": "ExtractionIssue"},
             )
         return extraction.content, extraction.method
 
@@ -1490,7 +1476,7 @@ class DocumentSyncer:
     async def import_and_sync_from_cache(self, force: bool = False, concurrency: int = 5) -> SyncReport:
         """Load documents from .cache.json and sync them all."""
         if not CACHE_FILE.exists():
-            logger.error("No cache file found at %s", CACHE_FILE)
+            logger.error("Legacy cache file was not found")
             return SyncReport()
 
         data = json.loads(CACHE_FILE.read_text(encoding="utf-8"))

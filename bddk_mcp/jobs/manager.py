@@ -25,6 +25,7 @@ from bddk_mcp.jobs.repository import JobExecutionLease, JobRepository
 
 type JobRunner = Callable[["JobContext"], Awaitable[JobOutcome | None]]
 _SAFE_CODE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+_QUEUED_RECOVERY_ERROR_CODE = "job_runner_unavailable"
 
 
 class IdempotencyConflictError(RuntimeError):
@@ -153,9 +154,11 @@ class OperatorJobManager:
                     raise IdempotencyConflictError()
                 # A process may have crashed after persisting QUEUED but before
                 # its local task obtained the execution lease. A retry with the
-                # same idempotency key may safely resume that record. Competing
-                # replicas can schedule it too: only one obtains the repository
-                # lease, and the others observe the resulting terminal state.
+                # same idempotency key may safely supply a new runner while the
+                # record is still QUEUED. Competing replicas can schedule it too:
+                # only one obtains the repository lease. Startup recovery may
+                # instead terminalize an unleased record because neither raw
+                # arguments nor this process-local runner is durably retained.
                 if job.state is JobState.QUEUED and job.job_id not in self._tasks:
                     self._schedule(job.job_id, runner)
                 return job
@@ -248,48 +251,68 @@ class OperatorJobManager:
         )
 
     async def recover_interrupted(self) -> int:
-        """Resolve abandoned durable records without stealing live queued work.
+        """Terminalize unfinished records only while holding their execution lease.
 
-        RUNNING records acquired the repository lease before that transition,
-        so obtaining it here proves no live worker still owns the mutation.
-        QUEUED records are deliberately not guessed stale: another replica may
-        be between persistence and lease acquisition. They can be resumed by an
-        idempotent resubmission or cancelled explicitly.
+        The durable row intentionally stores argument and idempotency digests,
+        not raw arguments or a serializable runner. A QUEUED row therefore cannot
+        be reconstructed after its submitting process disappears. If recovery
+        acquires the same cross-replica resource lease used by execution, it
+        marks that row INTERRUPTED with ``job_runner_unavailable`` instead of
+        pretending it can resume. If a live replica already owns the lease,
+        recovery does not wait for, cancel, or steal it and leaves the row alone.
+
+        There is an unavoidable race for a live runner that is queued but has not
+        yet acquired the lease: execution and recovery compete for the same
+        non-stealable lease, and whichever acquires it first determines whether
+        the row runs or becomes terminal. Persisted encrypted/replay-safe payloads
+        plus worker ownership and heartbeats would be required for true resume.
         """
 
         async with self._submission_lock:
             if any(not task.done() for task in self._tasks.values()):
                 raise RuntimeError("cannot recover interrupted jobs while local jobs are active")
-        unfinished = await self._repository.list_unfinished()
-        recovered = 0
-        for job in unfinished:
-            if job.state is JobState.QUEUED:
-                continue
-            lease = await self._repository.try_acquire_execution_lease(
-                job_id=job.job_id,
-                resource=job.kind.execution_resource,
-            )
-            if lease is None:
-                continue
-            try:
-                if job.state is JobState.CANCEL_REQUESTED:
-                    target = JobState.CANCELLED
-                    error_code = None
-                else:
-                    target = JobState.INTERRUPTED
-                    error_code = "job_interrupted"
-                updated = await self._transition(
-                    job.job_id,
-                    {job.state},
-                    target,
-                    error_code=error_code,
+            unfinished = await self._repository.list_unfinished()
+            recovered = 0
+            for job in unfinished:
+                lease = await self._repository.try_acquire_execution_lease(
+                    job_id=job.job_id,
+                    resource=job.kind.execution_resource,
                 )
-                if updated is not None and updated.state is target:
-                    recovered += 1
-            finally:
-                await lease.release()
-        await self._repository.prune_terminal(keep=self._retained_history)
-        return recovered
+                if lease is None:
+                    continue
+                try:
+                    while True:
+                        current = await self.get(job.job_id)
+                        if current is None or current.state.terminal:
+                            break
+                        if current.state is JobState.CANCEL_REQUESTED:
+                            target = JobState.CANCELLED
+                            error_code = None
+                        elif current.state is JobState.QUEUED:
+                            target = JobState.INTERRUPTED
+                            error_code = _QUEUED_RECOVERY_ERROR_CODE
+                        else:
+                            target = JobState.INTERRUPTED
+                            error_code = "job_interrupted"
+                        updated = await self._transition(
+                            current.job_id,
+                            {current.state},
+                            target,
+                            error_code=error_code,
+                        )
+                        if updated is None:
+                            break
+                        if updated.state is target:
+                            recovered += 1
+                            break
+                        # A concurrent cancellation may win the QUEUED/RUNNING
+                        # CAS after recovery acquires the lease. Re-read under
+                        # the same lease so CANCEL_REQUESTED reaches CANCELLED
+                        # instead of becoming a new orphan.
+                finally:
+                    await lease.release()
+            await self._repository.prune_terminal(keep=self._retained_history)
+            return recovered
 
     async def _execute(self, job_id: UUID, runner: JobRunner) -> None:
         lease: JobExecutionLease | None = None

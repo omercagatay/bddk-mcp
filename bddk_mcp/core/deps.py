@@ -35,6 +35,13 @@ class Dependencies:
     sync_task: asyncio.Task | None = None
     vector_init_task: asyncio.Task | None = None
 
+    # Strict serving state.  The lock is shared by the public and operator MCP
+    # surfaces when they close over the same dependency container.  Holding it
+    # for the complete local-corpus tool call prevents one call from returning
+    # an old in-memory catalog while another call switches release epochs.
+    active_corpus_lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
+    served_corpus_release_id: str | None = None
+
     # Health state
     last_sync_time: float | None = None
     last_sync_error: str | None = None

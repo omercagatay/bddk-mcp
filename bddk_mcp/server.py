@@ -27,12 +27,19 @@ from bddk_mcp.core.config import (
     PG_POOL_MAX,
     PG_POOL_MIN,
     REQUEST_TIMEOUT,
+    REQUIRE_ACTIVE_CORPUS_RELEASE,
     TELEMETRY_ENABLED,
     require_database_url,
     require_telemetry_database_url,
 )
 from bddk_mcp.core.deps import Dependencies
 from bddk_mcp.core.logging_config import configure_logging
+from bddk_mcp.corpus_publication import (
+    CorpusPublicationError,
+    CorpusReleaseIdentity,
+    inspect_active_corpus_release,
+)
+from bddk_mcp.corpus_serving import ActiveCorpusGuard
 from bddk_mcp.db_identity import assert_database_connection_identity, assert_database_identity
 from bddk_mcp.db_lifecycle import assert_database_ready
 from bddk_mcp.http_security import (
@@ -52,6 +59,7 @@ from bddk_mcp.jobs import (
 )
 from bddk_mcp.mcp_server import BddkFastMCP
 from bddk_mcp.observability.telemetry import assert_telemetry_writer_ready
+from bddk_mcp.resources import register_resources
 from bddk_mcp.store.doc_store import DocumentStore
 from bddk_mcp.store.vector_store import VectorStore
 from bddk_mcp.tools.registry import ToolProfile, assert_tool_profile, register_tool_profile
@@ -93,6 +101,18 @@ _runtime_profile: ToolProfile | None = None
 
 _TRANSPORTS = frozenset({"stdio", "streamable-http"})
 _READINESS_ATTESTATION_TTL_SECONDS = 5.0
+
+
+def _requires_active_release_for_readiness(profile: ToolProfile) -> bool:
+    """Keep operator recovery available while strict corpus reads fail closed."""
+
+    return REQUIRE_ACTIVE_CORPUS_RELEASE and profile is ToolProfile.PUBLIC
+
+
+def _requires_corpus_for_readiness(profile: ToolProfile) -> bool:
+    """Permit the strict operator plane to repair an empty or invalid corpus."""
+
+    return not (REQUIRE_ACTIVE_CORPUS_RELEASE and profile is ToolProfile.OPERATOR)
 
 
 def _runtime_host() -> str:
@@ -205,7 +225,11 @@ async def create_deps(profile: ToolProfile = ToolProfile.PUBLIC) -> Dependencies
         )
         logger.info("PostgreSQL pool created")
 
-        await assert_database_ready(pool=pool)
+        await assert_database_ready(
+            pool=pool,
+            require_corpus=_requires_corpus_for_readiness(profile),
+            require_active_release=_requires_active_release_for_readiness(profile),
+        )
         await assert_database_identity(pool, profile.value)
         if profile is ToolProfile.OPERATOR:
             await assert_operator_job_schema_ready(pool)
@@ -308,35 +332,41 @@ def register_health_routes(
     """Expose content-free liveness/readiness probes for orchestrators."""
 
     attestation_lock = asyncio.Lock()
+    require_corpus_for_readiness = _requires_corpus_for_readiness(profile)
+    require_active_release_for_readiness = _requires_active_release_for_readiness(profile)
     last_attested_at = 0.0
-    last_attestation_ready = False
+    last_readiness = None
 
-    async def database_attestation_ready() -> bool:
+    async def database_attestation():
         """Periodically re-check schema, catalog, and least-privilege state."""
 
-        nonlocal last_attested_at, last_attestation_ready
+        nonlocal last_attested_at, last_readiness
         now = time.monotonic()
         if last_attested_at and now - last_attested_at < _READINESS_ATTESTATION_TTL_SECONDS:
-            return last_attestation_ready
+            return last_readiness
 
         async with attestation_lock:
             now = time.monotonic()
             if last_attested_at and now - last_attested_at < _READINESS_ATTESTATION_TTL_SECONDS:
-                return last_attestation_ready
+                return last_readiness
             try:
                 async with asyncio.timeout(5):
-                    await assert_database_ready(pool=deps.pool)
+                    readiness = await assert_database_ready(
+                        pool=deps.pool,
+                        require_corpus=require_corpus_for_readiness,
+                        require_active_release=require_active_release_for_readiness,
+                    )
                     await assert_database_identity(deps.pool, profile.value)
                     if profile is ToolProfile.OPERATOR:
                         await assert_operator_job_schema_ready(deps.pool)
                     if deps.telemetry_pool is not None:
                         await assert_telemetry_writer_ready(deps.telemetry_pool)
             except (TimeoutError, RuntimeError, OSError, asyncpg.PostgresError):
-                last_attestation_ready = False
+                last_readiness = None
             else:
-                last_attestation_ready = True
+                last_readiness = readiness
             last_attested_at = time.monotonic()
-            return last_attestation_ready
+            return last_readiness
 
     @server.custom_route("/health/live", methods=["GET"], include_in_schema=False)
     async def liveness(_request: Request) -> JSONResponse:
@@ -346,9 +376,34 @@ def register_health_routes(
     async def readiness(_request: Request) -> JSONResponse:
         if deps.pool is None or deps.doc_store is None or deps.client is None:
             return JSONResponse({"status": "not_ready"}, status_code=503)
-        if not await database_attestation_ready():
+        database_readiness = await database_attestation()
+        if database_readiness is None:
             return JSONResponse({"status": "not_ready"}, status_code=503)
-        return JSONResponse({"status": "ready"})
+        active_release = getattr(database_readiness, "active_corpus_release", None)
+        if require_active_release_for_readiness:
+            # Schema/ACL attestation is intentionally cached, but a corpus
+            # mutation must invalidate strict readiness immediately.  Re-read
+            # the security-barrier active view on every probe instead of
+            # serving the cached release identity for the attestation TTL.
+            try:
+                async with asyncio.timeout(5):
+                    current_release = await inspect_active_corpus_release(deps.pool)
+            except (TimeoutError, CorpusPublicationError, OSError, asyncpg.PostgresError):
+                return JSONResponse({"status": "not_ready"}, status_code=503)
+            if (
+                not isinstance(active_release, CorpusReleaseIdentity)
+                or current_release is None
+                or current_release.release_id != active_release.release_id
+            ):
+                return JSONResponse({"status": "not_ready"}, status_code=503)
+            active_release = current_release
+        response: dict[str, object] = {"status": "ready"}
+        if isinstance(active_release, CorpusReleaseIdentity):
+            # This route is intentionally unauthenticated. Expose only the
+            # opaque release identifier; signer, policy, manifest and state
+            # evidence remain operator-only.
+            response["active_corpus_release_id"] = active_release.release_id
+        return JSONResponse(response)
 
 
 async def teardown_deps(deps: Dependencies) -> None:
@@ -565,6 +620,7 @@ def create_mcp(
     lifespan=None,
     profile: ToolProfile | None = None,
     http_security: HttpSecurityConfig | None = None,
+    require_active_corpus_release: bool | None = None,
 ) -> FastMCP:
     """Construct a fully registered BDDK FastMCP server.
 
@@ -603,7 +659,14 @@ def create_mcp(
     server._mcp_server.version = __version__
     server._bddk_tool_profile = selected_profile
     server._bddk_http_security = security
+    server._bddk_active_corpus_guard = ActiveCorpusGuard(
+        deps,
+        required=(
+            REQUIRE_ACTIVE_CORPUS_RELEASE if require_active_corpus_release is None else require_active_corpus_release
+        ),
+    )
     register_tools(server, deps, profile=selected_profile)
+    register_resources(server, deps)
     register_health_routes(server, deps, profile=selected_profile)
     return server
 
@@ -633,7 +696,7 @@ def main() -> None:
     selected_mcp = mcp if profile is ToolProfile.PUBLIC else operator_mcp
     logger.info("Transport: %s", _transport)
     logger.info("Tool profile: %s", profile.value)
-    logger.info("BDDK_AUTO_SYNC=%s", os.environ.get("BDDK_AUTO_SYNC", "(not set)"))
+    logger.info("Automatic startup synchronization enabled: %s", AUTO_SYNC)
     logger.info("Database configuration is validated during profile startup")
 
     if _transport == "streamable-http":

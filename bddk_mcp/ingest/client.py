@@ -76,6 +76,27 @@ def _is_in_scope(dec: BddkDecisionSummary) -> bool:
     return not any(s.lower() in title_lower for s in _EXCLUDED_TITLE_SUBSTRINGS)
 
 
+def _canonicalize_catalog(decisions: list[BddkDecisionSummary]) -> list[BddkDecisionSummary]:
+    """Return one deterministic row per upstream document identifier.
+
+    Exact duplicates can legitimately be linked from more than one list page,
+    but conflicting metadata for the same identifier is ambiguous and must not
+    be silently resolved by PostgreSQL's last-write-wins upsert.
+    """
+
+    by_id: dict[str, BddkDecisionSummary] = {}
+    for decision in decisions:
+        existing = by_id.get(decision.document_id)
+        if existing is None:
+            by_id[decision.document_id] = decision
+        elif existing != decision:
+            raise BddkUpstreamError(
+                "BDDK catalog refresh contained conflicting records for one document; "
+                "the last known-good cache was retained."
+            )
+    return list(by_id.values())
+
+
 # Maps h5 header text (without count suffix) to singular category name
 _ACCORDION_CATEGORY_MAP = {
     # Page 50
@@ -347,10 +368,15 @@ class BddkApiClient:
     # -- cache persistence (PostgreSQL) ----------------------------------------
 
     async def _save_cache_to_db(self) -> None:
-        """Persist cache to PostgreSQL using upsert (no DELETE ALL)."""
+        """Atomically publish the complete validated upstream catalog membership."""
+        if not self._cache:
+            raise BddkStorageError("An empty decision catalog cannot replace the last known-good publication.")
         try:
             async with self._pool.acquire() as conn:
+                from bddk_mcp.jobs.postgres import corpus_mutation_advisory_key
+
                 now = time.time()
+                document_ids = [decision.document_id for decision in self._cache]
                 args_list = [
                     (
                         d.document_id,
@@ -364,21 +390,38 @@ class BddkApiClient:
                     )
                     for d in self._cache
                 ]
-                await conn.executemany(
-                    """
-                    INSERT INTO decision_cache
-                        (document_id, title, content, decision_date, decision_number,
-                         category, source_url, cached_at)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                    ON CONFLICT(document_id) DO UPDATE SET
-                        title=EXCLUDED.title, content=EXCLUDED.content,
-                        decision_date=EXCLUDED.decision_date,
-                        decision_number=EXCLUDED.decision_number,
-                        category=EXCLUDED.category, source_url=EXCLUDED.source_url,
-                        cached_at=EXCLUDED.cached_at
-                    """,
-                    args_list,
-                )
+                async with conn.transaction():
+                    # Use the same transaction-scoped lock as seed import,
+                    # document synchronization, and vector publication.  A
+                    # direct refresh must not interleave its exact-membership
+                    # replacement with another corpus writer merely because it
+                    # was invoked outside the operator job manager.
+                    await conn.fetchval(
+                        "SELECT pg_catalog.pg_advisory_xact_lock($1::pg_catalog.int8)",
+                        corpus_mutation_advisory_key(),
+                    )
+                    await conn.executemany(
+                        """
+                        INSERT INTO public.decision_cache
+                            (document_id, title, content, decision_date, decision_number,
+                             category, source_url, cached_at)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                        ON CONFLICT(document_id) DO UPDATE SET
+                            title=EXCLUDED.title, content=EXCLUDED.content,
+                            decision_date=EXCLUDED.decision_date,
+                            decision_number=EXCLUDED.decision_number,
+                            category=EXCLUDED.category, source_url=EXCLUDED.source_url,
+                            cached_at=EXCLUDED.cached_at
+                        """,
+                        args_list,
+                    )
+                    await conn.execute(
+                        """
+                        DELETE FROM public.decision_cache
+                        WHERE NOT (document_id = ANY($1::pg_catalog.text[]))
+                        """,
+                        document_ids,
+                    )
                 self._cache_timestamp = now
                 logger.debug("Cache saved to PostgreSQL: %d items", len(self._cache))
         except (asyncpg.PostgresError, OSError) as exc:
@@ -582,9 +625,9 @@ class BddkApiClient:
             category = _ACCORDION_CATEGORY_MAP.get(header_name, header_name)
             if header_name not in _ACCORDION_CATEGORY_MAP:
                 logger.warning(
-                    "Unmapped accordion category '%s' on page %d -- using raw text as category",
-                    header_name,
+                    "Unmapped accordion category on page %d; using upstream text as category (chars=%d)",
                     list_id,
+                    len(header_name),
                 )
 
             body = card.find("div", class_="card-body")
@@ -679,10 +722,14 @@ class BddkApiClient:
 
         page_results = await asyncio.gather(*(_fetch_page_safe(pid) for pid in _ALL_PAGE_IDS))
         scraped: list[BddkDecisionSummary] = [dec for page in page_results for dec in page]
-        all_decisions = [dec for dec in scraped if _is_in_scope(dec)]
-        dropped = len(scraped) - len(all_decisions)
-        if dropped:
-            logger.info("Scope filter dropped %d/%d items", dropped, len(scraped))
+        in_scope = [dec for dec in scraped if _is_in_scope(dec)]
+        all_decisions = _canonicalize_catalog(in_scope)
+        scope_dropped = len(scraped) - len(in_scope)
+        duplicate_links = len(in_scope) - len(all_decisions)
+        if scope_dropped:
+            logger.info("Scope filter dropped %d/%d items", scope_dropped, len(scraped))
+        if duplicate_links:
+            logger.info("Catalog canonicalization collapsed %d duplicate links", duplicate_links)
 
         if self._page_errors:
             logger.error(
@@ -781,8 +828,9 @@ class BddkApiClient:
         page_results = results_only[start_idx:end_idx]
 
         logger.info(
-            "BDDK search for '%s': %d matches, returning page %d (%d items)",
-            request.keywords,
+            "BDDK search completed: keyword_chars=%d keyword_terms=%d matches=%d page=%d returned=%d",
+            len(request.keywords),
+            len(keyword_parts),
             total_results,
             request.page,
             len(page_results),
@@ -857,7 +905,9 @@ class BddkApiClient:
             page = await self._doc_store.get_document_page(document_id, page_number)
             if page and page.markdown_content and "Invalid page" not in page.markdown_content:
                 logger.info(
-                    "Document %s served from store (page %d/%d)", document_id, page.page_number, page.total_pages
+                    "Document served from store (page %d/%d)",
+                    page.page_number,
+                    page.total_pages,
                 )
                 return BddkDocumentMarkdown(
                     document_id=page.document_id,
@@ -920,11 +970,11 @@ class BddkApiClient:
                         pdf_bytes=response.content if ext == ".pdf" else None,
                     )
                 )
-                logger.info("Stored document %s in local store", document_id)
+                logger.info("Converted regulatory document stored in local document store")
             except (RuntimeError, OSError) as exc:
                 logger.warning(
                     "Failed to store converted regulatory document",
-                    extra={"document_id": document_id, "error_type": type(exc).__name__},
+                    extra={"error_type": type(exc).__name__},
                 )
 
         total_pages = max(1, math.ceil(len(markdown) / PAGE_SIZE))

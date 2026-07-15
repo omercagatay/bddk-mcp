@@ -206,15 +206,20 @@ async def execute_backfill(
                 decision_number=cand.decision_number,
                 force=True,
             )
-        except Exception as e:
+        except Exception as exc:
             outcome = BackfillOutcome(
                 document_id=cand.document_id,
                 success=False,
-                error=f"{type(e).__name__}: {e}",
+                error=f"{type(exc).__name__}: {exc}",
                 elapsed_seconds=time.monotonic() - t0,
             )
             report.failed.append((cand.document_id, outcome.error))
-            logger.error("backfill %s failed: %s", cand.document_id, e)
+            logger.error(
+                "Backfill item %d/%d failed",
+                i,
+                len(candidates),
+                extra={"error_type": type(exc).__name__},
+            )
         else:
             outcome = BackfillOutcome(
                 document_id=cand.document_id,
@@ -227,15 +232,20 @@ async def execute_backfill(
             if outcome.success:
                 report.ok.append(cand.document_id)
                 logger.info(
-                    "backfill %s ok in %.1fs (method=%s, size=%dB)",
-                    cand.document_id,
+                    "Backfill item %d/%d succeeded in %.1fs (size=%dB)",
+                    i,
+                    len(candidates),
                     outcome.elapsed_seconds,
-                    outcome.method,
                     outcome.size_bytes,
                 )
             else:
                 report.failed.append((cand.document_id, outcome.error or "unknown"))
-                logger.warning("backfill %s failed: %s", cand.document_id, outcome.error)
+                logger.warning(
+                    "Backfill item %d/%d returned a failure",
+                    i,
+                    len(candidates),
+                    extra={"error_type": "SyncResultFailure"},
+                )
 
         if on_progress is not None:
             cb_result = on_progress(i, len(candidates), outcome)

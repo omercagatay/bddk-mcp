@@ -449,7 +449,9 @@ async def test_adoption_refuses_tampered_or_incompatible_legacy_catalogs_without
             )
         elif tamper == "vector":
             await connection.execute(
-                "ALTER TABLE public.document_chunks ALTER COLUMN embedding TYPE public.vector(384)"
+                "ALTER TABLE public.document_chunks "
+                "ALTER COLUMN embedding TYPE public.vector(384) "
+                "USING NULL::public.vector(384)"
             )
         elif tamper == "index":
             await connection.execute("DROP INDEX public.idx_documents_tsv")

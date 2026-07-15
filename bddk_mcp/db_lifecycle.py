@@ -14,6 +14,11 @@ import asyncpg
 
 from bddk_mcp.catalog_integrity import inspect_catalog_integrity
 from bddk_mcp.core.config import require_database_url, require_expected_database_name
+from bddk_mcp.corpus_publication import (
+    CorpusPublicationError,
+    CorpusReleaseIdentity,
+    inspect_active_corpus_release,
+)
 from bddk_mcp.db_compatibility import PostgreSQLCompatibilityError, assert_supported_postgresql
 from bddk_mcp.db_transport import assert_database_transport
 from bddk_mcp.migrations import LATEST_SCHEMA_VERSION, LegacyAdoptionError, MigrationError, inspect_migration_state
@@ -549,6 +554,7 @@ class DatabaseReadiness:
     missing_columns: tuple[str, ...] = ()
     catalog_issues: tuple[str, ...] = ()
     corpus_issues: tuple[str, ...] = ()
+    active_corpus_release: CorpusReleaseIdentity | None = None
 
     @property
     def ready(self) -> bool:
@@ -632,13 +638,20 @@ async def assert_schema_owner_identity(pool: asyncpg.Pool, expected_database: st
         ) from None
 
 
-async def inspect_database_readiness(pool: asyncpg.Pool, *, require_corpus: bool = True) -> DatabaseReadiness:
+async def inspect_database_readiness(
+    pool: asyncpg.Pool,
+    *,
+    require_corpus: bool = True,
+    require_active_release: bool = False,
+) -> DatabaseReadiness:
     """Inspect readiness using SELECT statements only.
 
     Compatible schema supersets are accepted.  Corpus checks run only after all
     required relations and columns exist, preventing secondary undefined-table
     errors from obscuring the actionable schema diagnosis.
     """
+    if require_active_release and not require_corpus:
+        raise ValueError("an active corpus release cannot be required without corpus readiness")
     table_names = sorted(_REQUIRED_COLUMNS)
     try:
         await assert_supported_postgresql(pool)
@@ -675,6 +688,7 @@ async def inspect_database_readiness(pool: asyncpg.Pool, *, require_corpus: bool
             catalog_issues = (await inspect_catalog_integrity(pool)).failures
 
         corpus_issues: list[str] = []
+        active_corpus_release: CorpusReleaseIdentity | None = None
         if require_corpus and not missing_relations and not missing_columns and not catalog_issues:
             from bddk_mcp.store.vector_store import retrieval_profile_hash
 
@@ -709,6 +723,9 @@ async def inspect_database_readiness(pool: asyncpg.Pool, *, require_corpus: bool
                 corpus_issues.append("documents require publication for the current retrieval profile")
             if _row_value(corpus, "invalid_chunk_publication", False):
                 corpus_issues.append("retrieval publication is incomplete")
+            active_corpus_release = await inspect_active_corpus_release(pool)
+            if require_active_release and active_corpus_release is None:
+                corpus_issues.append("no verified corpus release is active")
 
         return DatabaseReadiness(
             migration_version=migration_state.current_version,
@@ -717,10 +734,11 @@ async def inspect_database_readiness(pool: asyncpg.Pool, *, require_corpus: bool
             missing_columns=missing_columns,
             catalog_issues=catalog_issues,
             corpus_issues=tuple(corpus_issues),
+            active_corpus_release=active_corpus_release,
         )
     except PostgreSQLCompatibilityError as exc:
         raise DatabaseLifecycleError(str(exc)) from None
-    except (MigrationError, asyncpg.PostgresError, OSError):
+    except (CorpusPublicationError, MigrationError, asyncpg.PostgresError, OSError):
         raise DatabaseLifecycleError(
             "Database readiness could not be verified. Ensure the database is reachable and the serving role "
             "has catalog and SELECT access; run `bddk-mcp migrate` with schema-owner credentials and "
@@ -733,6 +751,7 @@ async def assert_database_ready(
     *,
     pool: asyncpg.Pool | None = None,
     require_corpus: bool = True,
+    require_active_release: bool = False,
 ) -> DatabaseReadiness:
     """Raise an actionable error unless the database is ready for serving."""
     owns_pool = pool is None
@@ -741,7 +760,11 @@ async def assert_database_ready(
         if active_pool is None:
             selected_dsn = assert_database_transport(dsn) if dsn else require_database_url()
             active_pool = await asyncpg.create_pool(selected_dsn, min_size=1, max_size=3)
-        readiness = await inspect_database_readiness(active_pool, require_corpus=require_corpus)
+        readiness = await inspect_database_readiness(
+            active_pool,
+            require_corpus=require_corpus,
+            require_active_release=require_active_release,
+        )
         if not readiness.ready:
             raise DatabaseNotReadyError(
                 "Database is not ready for serving ("

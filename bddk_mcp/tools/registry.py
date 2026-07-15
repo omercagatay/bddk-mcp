@@ -8,7 +8,7 @@ from mcp.types import ToolAnnotations
 from pydantic import ConfigDict
 
 from bddk_mcp.core.deps import Dependencies
-from bddk_mcp.tools import admin, analytics, bulletin, documents, search, sections, sync
+from bddk_mcp.tools import admin, analytics, bulletin, documents, legal_status, search, sections, sync
 
 
 class ToolProfile(StrEnum):
@@ -27,16 +27,34 @@ PUBLIC_TOOL_NAMES: tuple[str, ...] = (
     "get_document_history",
     "get_document_section",
     "search_document_sections",
+    "resolve_regulation_status",
     "get_bddk_bulletin",
     "get_bddk_bulletin_snapshot",
     "get_bddk_monthly",
     "analyze_bulletin_trends",
     "get_regulatory_digest",
     "compare_bulletin_metrics",
-    "check_bddk_updates",
+)
+
+# Public tools whose answer can contain data from the locally published
+# regulatory corpus.  Strict serving verifies the active corpus release around
+# these calls.  Pure upstream bulletin/institution/announcement tools and
+# operator recovery tools deliberately remain outside this gate.
+LOCAL_CORPUS_PUBLIC_TOOL_NAMES: frozenset[str] = frozenset(
+    {
+        "search_bddk_regulations",
+        "search_document_store",
+        "get_bddk_document",
+        "get_document_history",
+        "get_document_section",
+        "search_document_sections",
+        "resolve_regulation_status",
+        "get_regulatory_digest",
+    }
 )
 
 OPERATOR_TOOL_NAMES: tuple[str, ...] = (
+    "check_bddk_updates",
     "document_store_stats",
     "bddk_cache_status",
     "refresh_bddk_cache",
@@ -93,6 +111,7 @@ TOOL_ANNOTATIONS: dict[str, ToolAnnotations] = {
     "get_document_history": _CLOSED_READ,
     "get_document_section": _CLOSED_READ,
     "search_document_sections": _CLOSED_READ,
+    "resolve_regulation_status": _CLOSED_READ,
     "document_store_stats": _CLOSED_READ,
     "bddk_cache_status": _CLOSED_READ,
     "document_health": _CLOSED_READ,
@@ -190,8 +209,9 @@ def register_tool_profile(server, deps: Dependencies, profile: ToolProfile) -> N
     search.register(server, deps)
     documents.register(server, deps, include_operator=include_operator)
     sections.register(server, deps)
+    legal_status.register(server, deps)
     bulletin.register(server, deps, include_operator=include_operator)
-    analytics.register(server, deps)
+    analytics.register(server, deps, include_operator=include_operator)
     if include_operator:
         sync.register(server, deps)
         admin.register(server, deps)

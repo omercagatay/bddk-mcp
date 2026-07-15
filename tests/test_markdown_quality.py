@@ -146,8 +146,32 @@ def test_quality_assessment_keeps_unregistered_clean_document_clean():
 
 
 def test_quality_failure_registry_fails_closed_when_missing(tmp_path):
-    with pytest.raises(RuntimeError, match="Unable to load quality-failure registry"):
-        load_quality_failure_registry(tmp_path / "missing.yml")
+    missing = tmp_path / "PRIVATE_REGISTRY_PATH" / "missing.yml"
+    with pytest.raises(RuntimeError, match="Unable to load quality-failure registry") as raised:
+        load_quality_failure_registry(missing)
+
+    assert str(missing) not in str(raised.value)
+
+
+def test_quality_failure_registry_validation_error_omits_document_identity(tmp_path):
+    private_document_id = "PRIVATE_DOCUMENT_91f8"
+    registry = tmp_path / "registry.yml"
+    registry.write_text(
+        "fail_documents:\n"
+        f"  - document_id: {private_document_id}\n"
+        "    reason: extraction_failure\n"
+        "    preferred_backfill: reviewed_source\n"
+        f"  - document_id: {private_document_id}\n"
+        "    reason: extraction_failure\n"
+        "    preferred_backfill: reviewed_source\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="duplicate entry at index 1") as raised:
+        load_quality_failure_registry(registry)
+
+    assert private_document_id not in str(raised.value)
+    assert str(registry) not in str(raised.value)
 
 
 def test_quality_assessment_marks_warning_for_formula_reference_without_formula():

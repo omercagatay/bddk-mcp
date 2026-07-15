@@ -106,9 +106,7 @@ async def patch_document(
                 "Fix the markdown or pass --skip-latex-check to proceed anyway."
             )
     new_hash = _content_hash(body)
-    tokenizer = (
-        vector_store._chunk_tokenizer() if callable(getattr(type(vector_store), "_chunk_tokenizer", None)) else None
-    )
+    tokenizer = vector_store._chunk_tokenizer()
     chunks = _chunk_document(doc_id, body, tokenizer=tokenizer)
     if not chunks:
         raise PatchError(f"chunk regeneration produced no chunks for {doc_id}")

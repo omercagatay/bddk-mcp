@@ -28,8 +28,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def register(mcp, deps: Dependencies) -> None:
-    """Register analytics tools on the given MCP instance."""
+def register(mcp, deps: Dependencies, *, include_operator: bool = False) -> None:
+    """Register public analytics and, when requested, stateful monitoring."""
 
     @mcp.tool()
     @logged_tool(logger)
@@ -176,6 +176,9 @@ def register(mcp, deps: Dependencies) -> None:
                 lines.append(f"{m['title'][:55]:<55} {m['current']:>15,.2f} {m['wow_pct']:>+11.2f}%")
 
         return frame_untrusted_source("\n".join(lines))
+
+    if not include_operator:
+        return
 
     @mcp.tool()
     @logged_tool(logger)

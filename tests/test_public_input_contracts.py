@@ -9,7 +9,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.shared.memory import create_connected_server_and_client_session
 
 from bddk_mcp.core.deps import Dependencies
-from bddk_mcp.tools import analytics, bulletin, search, sections
+from bddk_mcp.tools import analytics, bulletin, legal_status, search, sections
 from bddk_mcp.tools.contract_types import MAX_METRIC_IDS, MAX_QUERY_LENGTH
 
 _PARAMETERS = {
@@ -19,13 +19,13 @@ _PARAMETERS = {
     "search_document_store": {"query", "category", "limit"},
     "get_document_section": {"document_id", "section_type", "section_ref", "heading"},
     "search_document_sections": {"query", "document_id", "section_type", "limit"},
+    "resolve_regulation_status": {"instrument_id", "as_of"},
     "get_bddk_bulletin": {"metric_id", "currency", "column", "date", "days"},
     "get_bddk_bulletin_snapshot": set(),
     "get_bddk_monthly": {"table_no", "year", "month", "currency", "party_code"},
     "analyze_bulletin_trends": {"metric_id", "currency", "column", "lookback_weeks"},
     "get_regulatory_digest": {"period"},
     "compare_bulletin_metrics": {"metric_ids", "currency", "column", "days"},
-    "check_bddk_updates": set(),
 }
 
 
@@ -44,9 +44,24 @@ def _server(*, include_operator: bool = False) -> tuple[FastMCP, Dependencies]:
     )
     search.register(server, deps)
     sections.register(server, deps)
+    legal_status.register(server, deps)
     bulletin.register(server, deps, include_operator=include_operator)
-    analytics.register(server, deps)
+    analytics.register(server, deps, include_operator=include_operator)
     return server, deps
+
+
+@pytest.mark.asyncio
+async def test_stateful_update_monitor_schema_is_operator_only():
+    public_server, _ = _server()
+    operator_server, _ = _server(include_operator=True)
+
+    async with create_connected_server_and_client_session(public_server) as session:
+        public_names = {tool.name for tool in (await session.list_tools()).tools}
+    async with create_connected_server_and_client_session(operator_server) as session:
+        operator_schemas = {tool.name: tool.inputSchema for tool in (await session.list_tools()).tools}
+
+    assert "check_bddk_updates" not in public_names
+    assert operator_schemas["check_bddk_updates"]["properties"] == {}
 
 
 def _nonnull(schema: dict) -> dict:
@@ -84,6 +99,11 @@ async def test_tools_list_describes_every_public_parameter_and_important_bounds(
     assert section["document_id"]["pattern"] == r"^[A-Za-z0-9_-]+$"
     assert "gecici_madde" in _nonnull(section["section_type"])["enum"]
     assert any(item.get("pattern") for item in section["section_ref"]["anyOf"])
+
+    legal_status_schema = schemas["resolve_regulation_status"]["properties"]
+    assert legal_status_schema["instrument_id"]["pattern"] == r"^inst_sha256_[0-9a-f]{64}$"
+    assert legal_status_schema["as_of"]["pattern"] == r"^\d{4}-\d{2}-\d{2}$"
+    assert legal_status_schema["as_of"]["format"] == "date"
 
     weekly = schemas["get_bddk_bulletin"]["properties"]
     assert weekly["metric_id"]["pattern"] == r"^\d+\.\d+\.\d+$"

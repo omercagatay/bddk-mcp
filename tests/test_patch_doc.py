@@ -68,6 +68,9 @@ def _mock_doc_store(current_doc: StoredDocument | None) -> MagicMock:
 
 def _mock_vector_store() -> MagicMock:
     vs = MagicMock()
+    tokenizer = MagicMock()
+    tokenizer.encode.side_effect = lambda text, *, add_special_tokens=False: list(text.encode("utf-8"))
+    vs._chunk_tokenizer.return_value = tokenizer
     vs.add_document = AsyncMock(return_value=1)
     return vs
 

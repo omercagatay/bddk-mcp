@@ -105,12 +105,14 @@ def test_zero_sections_warning_logged(caplog):
     import logging
 
     sentinel = "PRIVATE_AUDIT_SUBJECT_123"
-    with caplog.at_level(logging.WARNING, logger="section_index"):
-        result = extract_document_sections("doc", (sentinel + " uzun ama yapısız metin. ") * 100)
+    document_sentinel = "PRIVATE_DOCUMENT_ID_456"
+    with caplog.at_level(logging.WARNING, logger="bddk_mcp.store.section_index"):
+        result = extract_document_sections(document_sentinel, (sentinel + " uzun ama yapısız metin. ") * 100)
 
     assert result == []
     assert any("no section headings matched" in r.message for r in caplog.records)
     assert sentinel not in caplog.text
+    assert document_sentinel not in caplog.text
 
 
 def test_bold_closed_heading_with_endash_parses():

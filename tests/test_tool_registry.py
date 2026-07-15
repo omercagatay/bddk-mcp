@@ -30,6 +30,7 @@ def test_public_profile_matches_reviewed_runtime_contract():
 
     assert set(registered_tool_names(server)) == set(PUBLIC_TOOL_NAMES)
     assert len(PUBLIC_TOOL_NAMES) == 15
+    assert "check_bddk_updates" not in PUBLIC_TOOL_NAMES
     assert_tool_profile(server, ToolProfile.PUBLIC)
 
 
@@ -37,8 +38,9 @@ def test_operator_profile_is_public_plus_reviewed_operator_contract():
     server = _profile_server(ToolProfile.OPERATOR)
 
     assert set(registered_tool_names(server)) == set(expected_tool_names(ToolProfile.OPERATOR))
-    assert len(OPERATOR_TOOL_NAMES) == 13
-    assert len(registered_tool_names(server)) == 28
+    assert len(OPERATOR_TOOL_NAMES) == 14
+    assert "check_bddk_updates" in OPERATOR_TOOL_NAMES
+    assert len(registered_tool_names(server)) == 29
     assert_tool_profile(server, ToolProfile.OPERATOR)
 
 
@@ -51,6 +53,7 @@ _EXPECTED_ANNOTATIONS = {
     "get_document_history": (True, False, True, False),
     "get_document_section": (True, False, True, False),
     "search_document_sections": (True, False, True, False),
+    "resolve_regulation_status": (True, False, True, False),
     "get_bddk_bulletin": (True, False, True, True),
     "get_bddk_bulletin_snapshot": (True, False, True, True),
     "get_bddk_monthly": (True, False, True, True),

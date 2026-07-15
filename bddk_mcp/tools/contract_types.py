@@ -9,7 +9,7 @@ error contract instead of exposing Pydantic internals or the supplied value.
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Literal, Never
 
 from pydantic import BeforeValidator, Field
@@ -33,6 +33,8 @@ METRIC_ID_PATTERN = r"^\d+\.\d+\.\d+$"
 METRIC_LIST_PATTERN = r"^\d+\.\d+\.\d+(?:\s*,\s*\d+\.\d+\.\d+)*$"
 DOCUMENT_ID_PATTERN = r"^[A-Za-z0-9_-]+$"
 SECTION_REF_PATTERN = r"^\d+[A-Za-zÇĞİÖŞÜçğıöşü]?$"
+INSTRUMENT_ID_PATTERN = r"^inst_sha256_[0-9a-f]{64}$"
+ISO_DATE_PATTERN = r"^\d{4}-\d{2}-\d{2}$"
 
 REGULATION_CATEGORIES = (
     "Yönetmelik",
@@ -117,6 +119,28 @@ def _optional_date(value: object, *, name: str) -> str | None:
     if value is None:
         return None
     return _date(value, name=name, allow_empty=False)
+
+
+def _instrument_id(value: object) -> str:
+    if not isinstance(value, str) or value != value.strip():
+        _invalid("instrument_id must be an exact canonical identifier without surrounding whitespace.")
+    normalized = _string(value, name="instrument_id", maximum=76, allow_empty=False)
+    if re.fullmatch(INSTRUMENT_ID_PATTERN, normalized) is None:
+        _invalid("instrument_id must be a canonical inst_sha256 identifier.")
+    return normalized
+
+
+def _iso_date(value: object) -> str:
+    if not isinstance(value, str) or value != value.strip():
+        _invalid("as_of must be an exact ISO date without surrounding whitespace.")
+    normalized = _string(value, name="as_of", maximum=10, allow_empty=False)
+    if re.fullmatch(ISO_DATE_PATTERN, normalized) is None:
+        _invalid("as_of must use ISO YYYY-MM-DD format.")
+    try:
+        date.fromisoformat(normalized)
+    except ValueError:
+        _invalid("as_of must be a real calendar date in ISO YYYY-MM-DD format.")
+    return normalized
 
 
 def _metric_id(value: object) -> str:
@@ -418,6 +442,27 @@ OptionalDocumentId = Annotated[
         description="Optional stored document ID filter.",
     ),
     BeforeValidator(_optional_document_id),
+]
+InstrumentId = Annotated[
+    str,
+    Field(
+        min_length=76,
+        max_length=76,
+        pattern=INSTRUMENT_ID_PATTERN,
+        description="Exact canonical legal instrument ID in inst_sha256_<64 lowercase hex> form.",
+    ),
+    BeforeValidator(_instrument_id),
+]
+AsOfDate = Annotated[
+    str,
+    Field(
+        min_length=10,
+        max_length=10,
+        pattern=ISO_DATE_PATTERN,
+        description="Required inclusive legal-status date in ISO YYYY-MM-DD format; currentness is never inferred.",
+        json_schema_extra={"format": "date"},
+    ),
+    BeforeValidator(_iso_date),
 ]
 SectionType = Annotated[
     Literal["madde", "gecici_madde", "ilke", "paragraf", "ek", "fikra", "bent"] | None,

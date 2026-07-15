@@ -29,6 +29,7 @@ BEGIN
         'bddk_schema_owner',
         'bddk_public_reader',
         'bddk_ingestion',
+        'bddk_release_publisher',
         'bddk_operator_runtime',
         'bddk_telemetry_writer'
     ]
@@ -47,6 +48,8 @@ ALTER ROLE bddk_schema_owner
 ALTER ROLE bddk_public_reader
     NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 ALTER ROLE bddk_ingestion
+    NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+ALTER ROLE bddk_release_publisher
     NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 ALTER ROLE bddk_operator_runtime
     NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
@@ -68,7 +71,7 @@ BEGIN
     );
     EXECUTE format(
         'GRANT CONNECT ON DATABASE %I TO bddk_public_reader, bddk_ingestion, '
-        'bddk_operator_runtime, bddk_telemetry_writer',
+        'bddk_release_publisher, bddk_operator_runtime, bddk_telemetry_writer',
         current_database()
     );
 END

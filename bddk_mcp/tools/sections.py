@@ -285,12 +285,7 @@ def _build_exact_section_citation(
             rendered_excerpt=section_item.content,
         )
     except (ValidationError, ValueError):
-        logger.warning(
-            "Citation v1 reconstruction rejected for document=%s section=%s/%s",
-            section.doc_id,
-            section.section_type,
-            section.section_ref,
-        )
+        logger.warning("Citation v1 reconstruction rejected for a retrieved section")
         return None, _CITATION_UNAVAILABLE_RECONSTRUCTION
     return citation, None
 

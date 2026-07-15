@@ -192,6 +192,25 @@ async def _downgrade_current_schema_to_v2(connection) -> None:
     """Remove unreleased v4/v3 artifacts inside a rollback-only test transaction."""
 
     await connection.execute(
+        "DROP FUNCTION IF EXISTS bddk_meta.resolve_regulation_status(pg_catalog.text, pg_catalog.date)"
+    )
+    await connection.execute("DELETE FROM bddk_meta.schema_migrations WHERE version = 6")
+    await connection.execute("DROP VIEW IF EXISTS bddk_meta.active_corpus_release")
+    await connection.execute(
+        "DROP TABLE IF EXISTS bddk_meta.corpus_release_activations, bddk_meta.corpus_releases CASCADE"
+    )
+    await connection.execute(
+        "DROP FUNCTION IF EXISTS bddk_meta.publish_verified_corpus_release("
+        "pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.int4, "
+        "pg_catalog.int4, pg_catalog.int4, pg_catalog.text)"
+    )
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.corpus_retrieval_ready(pg_catalog.text)")
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.current_corpus_state_sha256(pg_catalog.text)")
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.corpus_fingerprint_frame(pg_catalog.text)")
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.reject_corpus_release_mutation()")
+    await connection.execute("DELETE FROM bddk_meta.schema_migrations WHERE version = 5")
+
+    await connection.execute(
         """
         DROP TABLE IF EXISTS
             public.regulatory_legal_version_provisions,
@@ -353,6 +372,20 @@ async def test_migrate_rolls_back_and_sanitizes_statement_failures():
         await migrate(_FakePool(connection))  # type: ignore[arg-type]
 
     assert connection.transaction_record.rolled_back
+    assert "private database details" not in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_v5_publication_migration_failure_rolls_back_without_recording_version() -> None:
+    connection = _FakeMigrationConnection(fail_statement="CREATE TABLE bddk_meta.corpus_release_activations")
+    connection.history_exists = True
+    connection.history = _history_rows()[:4]
+
+    with pytest.raises(MigrationError) as exc_info:
+        await migrate(_FakePool(connection))  # type: ignore[arg-type]
+
+    assert connection.transaction_record.rolled_back
+    assert connection.history == _history_rows()[:4]
     assert "private database details" not in str(exc_info.value)
 
 

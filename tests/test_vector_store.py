@@ -116,7 +116,13 @@ class TestChunkText:
             "MADDE 9 - TFRS 9 karşılık\nBankalar karşılık ayırır.\n\nMADDE 10 - Diğer hükümler\nBaşka hüküm uygulanır."
         )
 
-        chunks = _chunk_document("mevzuat_22599", text, chunk_size=55, overlap=0)
+        chunks = _chunk_document(
+            "mevzuat_22599",
+            text,
+            chunk_size=55,
+            overlap=0,
+            use_token_chunking=False,
+        )
 
         assert chunks[0].chunk_text.startswith("MADDE 9")
         assert chunks[0].section_type == "madde"
@@ -194,17 +200,28 @@ class TestModelReproducibility:
             store = VectorStore(MagicMock(), embedding_model="reviewed/model")
             store._ensure_embeddings()
 
-        assert calls == [("reviewed/model", {"device": "cuda", "revision": "a" * 40})]
+        assert calls == [
+            (
+                "reviewed/model",
+                {
+                    "device": "cuda",
+                    "backend": "torch",
+                    "local_files_only": False,
+                    "trust_remote_code": False,
+                    "revision": "a" * 40,
+                },
+            )
+        ]
 
     def test_remote_custom_embedding_model_requires_revision(self):
         with (
             patch("bddk_mcp.store.vector_store.EMBEDDING_MODEL_PATH", ""),
             patch("bddk_mcp.store.vector_store.EMBEDDING_MODEL_REVISION", ""),
-            pytest.raises(RuntimeError, match="BDDK_EMBEDDING_MODEL_REVISION"),
+            pytest.raises(RuntimeError, match="remote embedding model revision"),
         ):
             VectorStore(MagicMock(), embedding_model="custom/model")._ensure_embeddings()
 
-    def test_wrong_embedding_dimension_is_rejected(self):
+    def test_wrong_embedding_dimension_is_rejected(self, tmp_path):
         class FakeSentenceTransformer:
             def __init__(self, _model_ref: str, **_kwargs):
                 pass
@@ -213,9 +230,12 @@ class TestModelReproducibility:
                 return 384
 
         fake_module = SimpleNamespace(SentenceTransformer=FakeSentenceTransformer)
+        model_path = tmp_path / "reviewed-local-model"
+        model_path.mkdir()
+        (model_path / "config.json").write_text("{}", encoding="utf-8")
         with (
             patch.dict("sys.modules", {"sentence_transformers": fake_module}),
-            patch("bddk_mcp.store.vector_store.EMBEDDING_MODEL_PATH", "/reviewed/local/model"),
+            patch("bddk_mcp.store.vector_store.EMBEDDING_MODEL_PATH", str(model_path)),
             pytest.raises(RuntimeError, match="dimension must be 768"),
         ):
             VectorStore(MagicMock())._ensure_embeddings()
@@ -233,11 +253,23 @@ class TestModelReproducibility:
             patch("bddk_mcp.store.vector_store.RERANKER_MODEL_PATH", ""),
             patch("bddk_mcp.store.vector_store.RERANKER_MODEL_NAME", "reviewed/reranker"),
             patch("bddk_mcp.store.vector_store.RERANKER_MODEL_REVISION", "b" * 40),
+            patch("bddk_mcp.store.vector_store.RERANKER_ENABLED", True),
         ):
             store = VectorStore(MagicMock())
             store._ensure_reranker()
 
-        assert calls == [("reviewed/reranker", {"device": "cuda", "revision": "b" * 40})]
+        assert calls == [
+            (
+                "reviewed/reranker",
+                {
+                    "device": "cuda",
+                    "backend": "torch",
+                    "local_files_only": False,
+                    "trust_remote_code": False,
+                    "revision": "b" * 40,
+                },
+            )
+        ]
 
 
 class TestHybridSearchOrdering:

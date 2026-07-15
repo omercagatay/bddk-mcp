@@ -15,7 +15,183 @@ from typing import Any, Final
 
 import asyncpg
 
+from bddk_mcp.migrations.v0005_corpus_release_publication import V0005_CORPUS_RELEASE_PUBLICATION
+from bddk_mcp.migrations.v0006_legal_status_resolver import V0006_LEGAL_STATUS_RESOLVER
 from bddk_mcp.regulatory.text_profile import PROVISION_BOUNDARY_CODEPOINTS_V1
+
+_CORPUS_RELEASE_RELATIONS_SQL = """
+SELECT relation.relname,
+       relation.relkind,
+       owner.rolname AS owner_name,
+       ledger_owner.rolname AS ledger_owner_name,
+       COALESCE(relation.reloptions, ARRAY[]::pg_catalog.text[]) AS options,
+       CASE WHEN relation.relkind = 'S' THEN ARRAY[]::pg_catalog.name[]
+            ELSE COALESCE(
+                ARRAY(
+                    SELECT attribute.attname
+                    FROM pg_catalog.pg_attribute AS attribute
+                    WHERE attribute.attrelid = relation.oid
+                      AND attribute.attnum > 0
+                      AND NOT attribute.attisdropped
+                    ORDER BY attribute.attnum
+                ),
+                ARRAY[]::pg_catalog.name[]
+            )
+       END AS columns
+FROM pg_catalog.pg_class AS relation
+JOIN pg_catalog.pg_namespace AS namespace
+  ON namespace.oid = relation.relnamespace
+JOIN pg_catalog.pg_roles AS owner
+  ON owner.oid = relation.relowner
+JOIN pg_catalog.pg_class AS ledger
+  ON ledger.oid = 'bddk_meta.schema_migrations'::pg_catalog.regclass
+JOIN pg_catalog.pg_roles AS ledger_owner
+  ON ledger_owner.oid = ledger.relowner
+WHERE namespace.nspname = 'bddk_meta'
+  AND relation.relname = ANY($1::pg_catalog.text[])
+ORDER BY relation.relname
+"""
+
+_CORPUS_RELEASE_CONSTRAINTS_SQL = """
+SELECT relation.relname,
+       constraint_record.conname,
+       constraint_record.contype,
+       constraint_record.convalidated,
+       pg_catalog.pg_get_constraintdef(constraint_record.oid, false) AS definition
+FROM pg_catalog.pg_constraint AS constraint_record
+JOIN pg_catalog.pg_class AS relation
+  ON relation.oid = constraint_record.conrelid
+JOIN pg_catalog.pg_namespace AS namespace
+  ON namespace.oid = relation.relnamespace
+WHERE namespace.nspname = 'bddk_meta'
+  AND relation.relname = ANY($1::pg_catalog.text[])
+ORDER BY relation.relname, constraint_record.conname
+"""
+
+_CORPUS_RELEASE_TRIGGERS_SQL = """
+SELECT relation.relname,
+       trigger_record.tgname,
+       trigger_record.tgenabled,
+       trigger_record.tgtype,
+       routine_namespace.nspname || '.' || routine.proname || '('
+           || pg_catalog.pg_get_function_identity_arguments(routine.oid) || ')'
+           AS function_identity
+FROM pg_catalog.pg_trigger AS trigger_record
+JOIN pg_catalog.pg_class AS relation
+  ON relation.oid = trigger_record.tgrelid
+JOIN pg_catalog.pg_namespace AS namespace
+  ON namespace.oid = relation.relnamespace
+JOIN pg_catalog.pg_proc AS routine
+  ON routine.oid = trigger_record.tgfoid
+JOIN pg_catalog.pg_namespace AS routine_namespace
+  ON routine_namespace.oid = routine.pronamespace
+WHERE namespace.nspname = 'bddk_meta'
+  AND relation.relname = ANY($1::pg_catalog.text[])
+  AND NOT trigger_record.tgisinternal
+ORDER BY relation.relname, trigger_record.tgname
+"""
+
+_CORPUS_RELEASE_ROUTINES_SQL = """
+SELECT routine.proname || '(' || pg_catalog.oidvectortypes(routine.proargtypes) || ')'
+           AS function_identity,
+       language.lanname AS language,
+       routine.provolatile,
+       routine.proparallel,
+       routine.prosecdef,
+       routine.proleakproof,
+       COALESCE(routine.proconfig, ARRAY[]::pg_catalog.text[]) AS configuration,
+       routine.prosrc AS source,
+       owner.rolname AS owner_name,
+       ledger_owner.rolname AS ledger_owner_name,
+       EXISTS (
+           SELECT 1
+           FROM pg_catalog.aclexplode(
+               COALESCE(routine.proacl, pg_catalog.acldefault('f'::"char", routine.proowner))
+           ) AS acl
+           WHERE acl.grantee = 0
+             AND acl.privilege_type = 'EXECUTE'
+       ) AS public_can_execute
+FROM pg_catalog.pg_proc AS routine
+JOIN pg_catalog.pg_namespace AS namespace
+  ON namespace.oid = routine.pronamespace
+JOIN pg_catalog.pg_language AS language
+  ON language.oid = routine.prolang
+JOIN pg_catalog.pg_roles AS owner
+  ON owner.oid = routine.proowner
+JOIN pg_catalog.pg_class AS ledger
+  ON ledger.oid = 'bddk_meta.schema_migrations'::pg_catalog.regclass
+JOIN pg_catalog.pg_roles AS ledger_owner
+  ON ledger_owner.oid = ledger.relowner
+WHERE namespace.nspname = 'bddk_meta'
+  AND routine.proname = ANY($1::pg_catalog.text[])
+ORDER BY routine.proname, pg_catalog.oidvectortypes(routine.proargtypes)
+"""
+
+_ACTIVE_CORPUS_RELEASE_VIEW_SQL = """
+SELECT pg_catalog.pg_get_viewdef(relation.oid, false) AS definition,
+       COALESCE(
+           ARRAY(
+               SELECT DISTINCT dependency_namespace.nspname || '.' || dependency_relation.relname
+               FROM pg_catalog.pg_rewrite AS rewrite
+               JOIN pg_catalog.pg_depend AS dependency
+                 ON dependency.classid = 'pg_catalog.pg_rewrite'::pg_catalog.regclass
+                AND dependency.objid = rewrite.oid
+                AND dependency.refclassid = 'pg_catalog.pg_class'::pg_catalog.regclass
+               JOIN pg_catalog.pg_class AS dependency_relation
+                 ON dependency_relation.oid = dependency.refobjid
+               JOIN pg_catalog.pg_namespace AS dependency_namespace
+                 ON dependency_namespace.oid = dependency_relation.relnamespace
+               WHERE rewrite.ev_class = relation.oid
+                 AND dependency_relation.oid <> relation.oid
+               ORDER BY dependency_namespace.nspname || '.' || dependency_relation.relname
+           ),
+           ARRAY[]::pg_catalog.text[]
+       ) AS dependencies
+FROM pg_catalog.pg_class AS relation
+JOIN pg_catalog.pg_namespace AS namespace
+  ON namespace.oid = relation.relnamespace
+WHERE namespace.nspname = 'bddk_meta'
+  AND relation.relname = 'active_corpus_release'
+  AND relation.relkind = 'v'
+"""
+
+_LEGAL_STATUS_ROUTINE_SQL = """
+SELECT routine.proname || '(' || pg_catalog.oidvectortypes(routine.proargtypes) || ')'
+           AS function_identity,
+       language.lanname AS language,
+       routine.provolatile,
+       routine.proparallel,
+       routine.prosecdef,
+       routine.proleakproof,
+       routine.proisstrict,
+       routine.proretset,
+       pg_catalog.pg_get_function_result(routine.oid) AS result_type,
+       COALESCE(routine.proconfig, ARRAY[]::pg_catalog.text[]) AS configuration,
+       routine.prosrc AS source,
+       owner.rolname AS owner_name,
+       ledger_owner.rolname AS ledger_owner_name,
+       EXISTS (
+           SELECT 1
+           FROM pg_catalog.aclexplode(
+               COALESCE(routine.proacl, pg_catalog.acldefault('f'::"char", routine.proowner))
+           ) AS acl
+           WHERE acl.grantee = 0
+             AND acl.privilege_type = 'EXECUTE'
+       ) AS public_can_execute
+FROM pg_catalog.pg_proc AS routine
+JOIN pg_catalog.pg_namespace AS namespace
+  ON namespace.oid = routine.pronamespace
+JOIN pg_catalog.pg_language AS language
+  ON language.oid = routine.prolang
+JOIN pg_catalog.pg_roles AS owner
+  ON owner.oid = routine.proowner
+JOIN pg_catalog.pg_class AS ledger
+  ON ledger.oid = 'bddk_meta.schema_migrations'::pg_catalog.regclass
+JOIN pg_catalog.pg_roles AS ledger_owner
+  ON ledger_owner.oid = ledger.relowner
+WHERE namespace.nspname = 'bddk_meta'
+  AND routine.proname = 'resolve_regulation_status'
+"""
 
 _CONSTRAINTS_SQL = """
 SELECT namespace.nspname || '.' || relation.relname AS table_name,
@@ -276,6 +452,208 @@ def _normalize_view_sql(value: Any) -> str:
     """Normalize PostgreSQL 17's view deparse without weakening source DDL."""
 
     return _normalize_sql(value).replace('"', "").replace("pg_catalog.", "").replace("::name", "")
+
+
+def _v5_function_source(name: str) -> str:
+    """Extract the immutable function body from migration v0005."""
+
+    prefix = f"CREATE FUNCTION bddk_meta.{name}("
+    statement = next(
+        (item for item in V0005_CORPUS_RELEASE_PUBLICATION.statements if item.strip().startswith(prefix)),
+        None,
+    )
+    if statement is None:
+        raise RuntimeError(f"migration v0005 is missing {name}")
+    match = re.search(r"\bAS \$function\$\s*(.*?)\s*\$function\$\s*$", statement, re.DOTALL)
+    if match is None:
+        raise RuntimeError(f"migration v0005 has an invalid {name} body")
+    return match.group(1)
+
+
+def _v6_legal_status_function_source() -> str:
+    """Extract the immutable resolver body from migration v0006."""
+
+    prefix = "CREATE FUNCTION bddk_meta.resolve_regulation_status("
+    statement = next(
+        (item for item in V0006_LEGAL_STATUS_RESOLVER.statements if item.strip().startswith(prefix)),
+        None,
+    )
+    if statement is None:
+        raise RuntimeError("migration v0006 is missing the legal-status resolver")
+    match = re.search(r"\bAS \$function\$\s*(.*?)\s*\$function\$\s*$", statement, re.DOTALL)
+    if match is None:
+        raise RuntimeError("migration v0006 has an invalid legal-status resolver body")
+    return match.group(1)
+
+
+_CORPUS_RELEASE_RELATIONS: Final[dict[str, tuple[str, tuple[str, ...], tuple[str, ...]]]] = {
+    "active_corpus_release": (
+        "v",
+        (
+            "release_id",
+            "manifest_id",
+            "manifest_sha256",
+            "signer_key_sha256",
+            "freshness_policy_result",
+            "source_detection_slo_seconds",
+            "publication_slo_seconds",
+            "max_manifest_age_seconds",
+            "retrieval_profile_sha256",
+            "corpus_state_sha256",
+            "completed_at",
+        ),
+        ("security_barrier=true", "security_invoker=false"),
+    ),
+    "corpus_release_activations": (
+        "r",
+        (
+            "activation_sequence",
+            "release_id",
+            "completed_at",
+            "actor_fingerprint_sha256",
+        ),
+        (),
+    ),
+    "corpus_release_activations_activation_sequence_seq": ("S", (), ()),
+    "corpus_releases": (
+        "r",
+        (
+            "release_id",
+            "manifest_id",
+            "manifest_sha256",
+            "signer_key_sha256",
+            "freshness_policy_result",
+            "source_detection_slo_seconds",
+            "publication_slo_seconds",
+            "max_manifest_age_seconds",
+            "retrieval_profile_sha256",
+            "corpus_state_sha256",
+            "created_at",
+        ),
+        (),
+    ),
+}
+
+_CORPUS_RELEASE_CONSTRAINTS: Final[dict[tuple[str, str], tuple[str, str]]] = {
+    ("corpus_releases", "corpus_releases_pkey"): ("p", "PRIMARY KEY (release_id)"),
+    ("corpus_releases", "corpus_releases_id_check"): (
+        "c",
+        "CHECK ((release_id ~ '^corpus_release_sha256_[0-9a-f]{64}$'))",
+    ),
+    ("corpus_releases", "corpus_releases_manifest_id_check"): (
+        "c",
+        "CHECK ((manifest_id ~ '^[a-z0-9][a-z0-9._-]{2,127}$'))",
+    ),
+    ("corpus_releases", "corpus_releases_manifest_hash_check"): (
+        "c",
+        "CHECK ((manifest_sha256 ~ '^[0-9a-f]{64}$'))",
+    ),
+    ("corpus_releases", "corpus_releases_signer_hash_check"): (
+        "c",
+        "CHECK ((signer_key_sha256 ~ '^[0-9a-f]{64}$'))",
+    ),
+    ("corpus_releases", "corpus_releases_policy_result_check"): (
+        "c",
+        "CHECK ((freshness_policy_result = 'quantified_measured_signature_verified_pass'))",
+    ),
+    ("corpus_releases", "corpus_releases_source_detection_slo_check"): (
+        "c",
+        "CHECK ((source_detection_slo_seconds > 0))",
+    ),
+    ("corpus_releases", "corpus_releases_publication_slo_check"): (
+        "c",
+        "CHECK ((publication_slo_seconds > 0))",
+    ),
+    ("corpus_releases", "corpus_releases_max_age_check"): (
+        "c",
+        "CHECK ((max_manifest_age_seconds > 0))",
+    ),
+    ("corpus_releases", "corpus_releases_profile_hash_check"): (
+        "c",
+        "CHECK ((retrieval_profile_sha256 ~ '^[0-9a-f]{64}$'))",
+    ),
+    ("corpus_releases", "corpus_releases_state_hash_check"): (
+        "c",
+        "CHECK ((corpus_state_sha256 ~ '^[0-9a-f]{64}$'))",
+    ),
+    ("corpus_release_activations", "corpus_release_activations_pkey"): (
+        "p",
+        "PRIMARY KEY (activation_sequence)",
+    ),
+    ("corpus_release_activations", "corpus_release_activations_release_fk"): (
+        "f",
+        "FOREIGN KEY (release_id) REFERENCES bddk_meta.corpus_releases(release_id)",
+    ),
+    ("corpus_release_activations", "corpus_release_activations_actor_hash_check"): (
+        "c",
+        "CHECK ((actor_fingerprint_sha256 ~ '^[0-9a-f]{64}$'))",
+    ),
+}
+
+_CORPUS_RELEASE_TRIGGERS: Final[dict[tuple[str, str], tuple[str, int]]] = {
+    ("corpus_releases", "reject_corpus_release_update_delete"): (
+        "bddk_meta.reject_corpus_release_mutation()",
+        27,
+    ),
+    ("corpus_release_activations", "reject_corpus_release_activation_update_delete"): (
+        "bddk_meta.reject_corpus_release_mutation()",
+        27,
+    ),
+}
+
+_CORPUS_RELEASE_ROUTINES: Final[dict[str, tuple[str, str, str, bool, str]]] = {
+    "corpus_fingerprint_frame(text)": (
+        "sql",
+        "i",
+        "s",
+        False,
+        _v5_function_source("corpus_fingerprint_frame"),
+    ),
+    "corpus_retrieval_ready(text)": (
+        "sql",
+        "s",
+        "u",
+        True,
+        _v5_function_source("corpus_retrieval_ready"),
+    ),
+    "current_corpus_state_sha256(text)": (
+        "sql",
+        "s",
+        "u",
+        True,
+        _v5_function_source("current_corpus_state_sha256"),
+    ),
+    "publish_verified_corpus_release(text, text, text, integer, integer, integer, text)": (
+        "plpgsql",
+        "v",
+        "u",
+        True,
+        _v5_function_source("publish_verified_corpus_release"),
+    ),
+    "reject_corpus_release_mutation()": (
+        "plpgsql",
+        "v",
+        "u",
+        False,
+        _v5_function_source("reject_corpus_release_mutation"),
+    ),
+}
+
+_ACTIVE_CORPUS_RELEASE_DEPENDENCIES: Final[tuple[str, ...]] = (
+    "bddk_meta.corpus_release_activations",
+    "bddk_meta.corpus_releases",
+)
+_ACTIVE_CORPUS_RELEASE_REQUIRED_DEFINITION: Final[tuple[str, ...]] = (
+    "activation.activation_sequence = ( select max(latest.activation_sequence) as max",
+    "release.release_id = activation.release_id",
+    "release.corpus_state_sha256 = bddk_meta.current_corpus_state_sha256(release.retrieval_profile_sha256)",
+    "bddk_meta.corpus_retrieval_ready(release.retrieval_profile_sha256)",
+)
+_LEGAL_STATUS_RESULT_TYPE: Final[str] = (
+    "TABLE(resolved boolean, reason text, instrument_id text, as_of date, legal_version_id text, "
+    "version_key text, legal_text_sha256 text, version_review_record_sha256 text, amends_version_id text, "
+    "consolidation_state text, evidence_json text)"
+)
 
 
 _EXPECTED_CONSTRAINTS: Final[dict[tuple[str, str], tuple[str, str]]] = {
@@ -682,5 +1060,139 @@ async def inspect_catalog_integrity(pool: asyncpg.Pool) -> CatalogIntegrity:
     )
     if not view_valid:
         failures.append("view:public.regulatory_validated_section_citations")
+
+    release_relation_rows = await pool.fetch(
+        _CORPUS_RELEASE_RELATIONS_SQL,
+        sorted(_CORPUS_RELEASE_RELATIONS),
+    )
+    actual_release_relations = {
+        str(_value(row, "relname")): (
+            _catalog_char(_value(row, "relkind")),
+            tuple(str(item) for item in (_value(row, "columns", ()) or ())),
+            tuple(sorted(str(item) for item in (_value(row, "options", ()) or ()))),
+            str(_value(row, "owner_name", "")),
+            str(_value(row, "ledger_owner_name", "")),
+        )
+        for row in release_relation_rows
+    }
+    expected_release_relation_names = set(_CORPUS_RELEASE_RELATIONS)
+    if set(actual_release_relations) != expected_release_relation_names:
+        failures.append("relations:bddk_meta.corpus_release_exact")
+    else:
+        for name, (relation_kind, columns, options) in _CORPUS_RELEASE_RELATIONS.items():
+            actual = actual_release_relations[name]
+            if actual[:3] != (relation_kind, columns, options) or not actual[3] or actual[3] != actual[4]:
+                failures.append(f"relation:bddk_meta.{name}")
+
+    release_constraint_rows = await pool.fetch(
+        _CORPUS_RELEASE_CONSTRAINTS_SQL,
+        ["corpus_release_activations", "corpus_releases"],
+    )
+    actual_release_constraints = {
+        (str(_value(row, "relname")), str(_value(row, "conname"))): (
+            _catalog_char(_value(row, "contype")),
+            bool(_value(row, "convalidated", False)),
+            _normalize_sql(_value(row, "definition")),
+        )
+        for row in release_constraint_rows
+    }
+    expected_release_constraints = {
+        key: (constraint_type, True, _normalize_sql(definition))
+        for key, (constraint_type, definition) in _CORPUS_RELEASE_CONSTRAINTS.items()
+    }
+    if actual_release_constraints != expected_release_constraints:
+        failures.append("constraints:bddk_meta.corpus_release_exact")
+
+    release_trigger_rows = await pool.fetch(
+        _CORPUS_RELEASE_TRIGGERS_SQL,
+        ["corpus_release_activations", "corpus_releases"],
+    )
+    actual_release_triggers = {
+        (str(_value(row, "relname")), str(_value(row, "tgname"))): (
+            str(_value(row, "function_identity")),
+            int(_value(row, "tgtype", -1)),
+            _catalog_char(_value(row, "tgenabled")),
+        )
+        for row in release_trigger_rows
+    }
+    expected_release_triggers = {
+        key: (function_identity, trigger_type, "O")
+        for key, (function_identity, trigger_type) in _CORPUS_RELEASE_TRIGGERS.items()
+    }
+    if actual_release_triggers != expected_release_triggers:
+        failures.append("triggers:bddk_meta.corpus_release_exact")
+
+    release_routine_rows = await pool.fetch(
+        _CORPUS_RELEASE_ROUTINES_SQL,
+        sorted(identity.partition("(")[0] for identity in _CORPUS_RELEASE_ROUTINES),
+    )
+    actual_release_routines = {
+        str(_value(row, "function_identity")): (
+            str(_value(row, "language")),
+            _catalog_char(_value(row, "provolatile")),
+            _catalog_char(_value(row, "proparallel")),
+            bool(_value(row, "prosecdef", False)),
+            bool(_value(row, "proleakproof", True)),
+            tuple(str(item) for item in (_value(row, "configuration", ()) or ())),
+            _normalize_sql(_value(row, "source")),
+            str(_value(row, "owner_name", "")),
+            str(_value(row, "ledger_owner_name", "")),
+            bool(_value(row, "public_can_execute", True)),
+        )
+        for row in release_routine_rows
+    }
+    if set(actual_release_routines) != set(_CORPUS_RELEASE_ROUTINES):
+        failures.append("routines:bddk_meta.corpus_release_exact")
+    else:
+        for identity, (language, volatility, parallel, security_definer, source) in _CORPUS_RELEASE_ROUTINES.items():
+            actual = actual_release_routines[identity]
+            expected_prefix = (
+                language,
+                volatility,
+                parallel,
+                security_definer,
+                False,
+                ("search_path=pg_catalog",),
+                _normalize_sql(source),
+            )
+            if actual[:7] != expected_prefix or not actual[7] or actual[7] != actual[8] or actual[9]:
+                failures.append(f"routine:bddk_meta.{identity}")
+
+    active_release_view = await pool.fetchrow(_ACTIVE_CORPUS_RELEASE_VIEW_SQL)
+    active_release_definition = _normalize_view_sql(_value(active_release_view, "definition"))
+    if not (
+        active_release_view is not None
+        and tuple(str(item) for item in (_value(active_release_view, "dependencies", ()) or ()))
+        == _ACTIVE_CORPUS_RELEASE_DEPENDENCIES
+        and all(
+            _normalize_view_sql(fragment) in active_release_definition
+            for fragment in _ACTIVE_CORPUS_RELEASE_REQUIRED_DEFINITION
+        )
+        and " union " not in active_release_definition
+        and " or " not in active_release_definition
+    ):
+        failures.append("view:bddk_meta.active_corpus_release")
+
+    legal_status_routine = await pool.fetchrow(_LEGAL_STATUS_ROUTINE_SQL)
+    if not (
+        legal_status_routine is not None
+        and str(_value(legal_status_routine, "function_identity")) == "resolve_regulation_status(text, date)"
+        and str(_value(legal_status_routine, "language")) == "sql"
+        and _catalog_char(_value(legal_status_routine, "provolatile")) == "s"
+        and _catalog_char(_value(legal_status_routine, "proparallel")) == "s"
+        and bool(_value(legal_status_routine, "prosecdef", False))
+        and not bool(_value(legal_status_routine, "proleakproof", True))
+        and bool(_value(legal_status_routine, "proisstrict", False))
+        and bool(_value(legal_status_routine, "proretset", False))
+        and _normalize_sql(_value(legal_status_routine, "result_type")) == _normalize_sql(_LEGAL_STATUS_RESULT_TYPE)
+        and tuple(str(item) for item in (_value(legal_status_routine, "configuration", ()) or ()))
+        == ("search_path=pg_catalog",)
+        and _normalize_sql(_value(legal_status_routine, "source")) == _normalize_sql(_v6_legal_status_function_source())
+        and bool(str(_value(legal_status_routine, "owner_name", "")))
+        and str(_value(legal_status_routine, "owner_name"))
+        == str(_value(legal_status_routine, "ledger_owner_name", ""))
+        and not bool(_value(legal_status_routine, "public_can_execute", True))
+    ):
+        failures.append("routine:bddk_meta.resolve_regulation_status(text, date)")
 
     return CatalogIntegrity(tuple(sorted(failures)))

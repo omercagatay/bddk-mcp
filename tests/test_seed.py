@@ -7,6 +7,7 @@ import json
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -147,6 +148,224 @@ def test_seed_document_validation_rejects_a_copied_or_tampered_hash() -> None:
                 }
             ]
         )
+
+
+def _complete_chunk_row(*, text: str = "canonical", index: int = 0) -> dict:
+    return {
+        "doc_id": "doc-1",
+        "chunk_index": index,
+        "title": "Title",
+        "category": "Test",
+        "decision_date": "2026-01-01",
+        "decision_number": "1",
+        "source_url": "https://example.invalid/document",
+        "total_chunks": 1,
+        "total_pages": 1,
+        "content_hash": _content_hash(text),
+        "chunk_start_char": 0,
+        "chunk_end_char": len(text),
+        "section_type": "",
+        "section_ref": "",
+        "section_start_char": None,
+        "section_end_char": None,
+        "section_content_hash": "",
+        "chunk_text": text,
+    }
+
+
+def test_chunk_artifact_comparison_is_exact_order_independent_and_duplicate_safe() -> None:
+    first = _complete_chunk_row(text="first")
+    first["total_chunks"] = 2
+    second = _complete_chunk_row(text="second", index=1)
+    second["total_chunks"] = 2
+    second["chunk_start_char"] = len("first")
+    second["chunk_end_char"] = len("firstsecond")
+
+    assert seed._chunk_artifact_matches_generated([second, first], [first, second])
+
+    changed = json.loads(json.dumps([first, second]))
+    changed[1]["chunk_text"] = "unsigned replacement"
+    assert not seed._chunk_artifact_matches_generated(changed, [first, second])
+    assert not seed._chunk_artifact_matches_generated([first, first], [first, second])
+
+    partial = json.loads(json.dumps([first, second]))
+    partial[0].pop("chunk_end_char")
+    assert not seed._chunk_artifact_matches_generated(partial, [first, second])
+
+    extra = json.loads(json.dumps([first, second]))
+    extra[0]["ignored"] = "signed-but-unused"
+    assert not seed._chunk_artifact_matches_generated(extra, [first, second])
+
+
+def test_strict_chunk_drift_is_rejected_but_local_drift_is_explicit() -> None:
+    generated = [_complete_chunk_row()]
+    reviewed = [_complete_chunk_row(text="different")]
+    local_result = {"chunk_artifact_match": None, "corpus_scope_warnings": []}
+
+    seed._record_chunk_artifact_match(
+        local_result,
+        reviewed_chunks=reviewed,
+        generated_chunks=generated,
+        strict_release=False,
+    )
+
+    assert local_result["chunk_artifact_match"] is False
+    assert local_result["corpus_scope_warnings"] == ["chunk_artifact_does_not_match_current_retrieval_profile"]
+    with pytest.raises(RuntimeError, match="signed chunk artifact does not exactly match"):
+        seed._record_chunk_artifact_match(
+            {"chunk_artifact_match": None, "corpus_scope_warnings": []},
+            reviewed_chunks=reviewed,
+            generated_chunks=generated,
+            strict_release=True,
+        )
+
+
+def test_strict_seed_shapes_reject_signed_but_ignored_fields() -> None:
+    observed_at = datetime(2026, 1, 1, tzinfo=UTC).timestamp()
+    document = {
+        "document_id": "doc-1",
+        "title": "Title",
+        "category": "Test",
+        "decision_date": "2026-01-01",
+        "decision_number": "1",
+        "source_url": "https://example.invalid/document",
+        "markdown_content": "canonical",
+        "content_hash": _content_hash("canonical"),
+        "downloaded_at": observed_at,
+        "extracted_at": observed_at,
+        "extraction_method": "test",
+        "total_pages": 1,
+        "file_size": 9,
+        "authoritative_published_at": observed_at,
+        "source_detected_at": observed_at,
+        "retrieval_published_at": observed_at,
+    }
+    cache = {
+        "document_id": "doc-1",
+        "title": "Title",
+        "content": "Summary",
+        "decision_date": "2026-01-01",
+        "decision_number": "1",
+        "category": "Test",
+        "source_url": "https://example.invalid/document",
+    }
+
+    seed._validate_strict_seed_artifact_shapes([document], [cache])
+
+    extra_document = dict(document, ignored_signed_field="not-persisted")
+    with pytest.raises(RuntimeError, match="document artifact schema"):
+        seed._validate_strict_seed_artifact_shapes([extra_document], [cache])
+
+    incomplete_cache = dict(cache)
+    incomplete_cache.pop("content")
+    with pytest.raises(RuntimeError, match="decision-cache artifact schema"):
+        seed._validate_strict_seed_artifact_shapes([document], [incomplete_cache])
+
+
+@pytest.mark.asyncio
+async def test_strict_release_checks_membership_after_publisher_locks_in_same_transaction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[object] = []
+
+    class Connection:
+        @asynccontextmanager
+        async def transaction(self):
+            events.append("transaction_started")
+            yield
+            events.append("transaction_committed")
+
+    connection = Connection()
+
+    class Pool:
+        @asynccontextmanager
+        async def acquire(self):
+            events.append("connection_acquired")
+            yield connection
+
+    identity = SimpleNamespace(release_id="release-1", safe_dict=lambda: {"release_id": "release-1"})
+
+    async def publish(selected_connection, *_args, **_kwargs):
+        assert selected_connection is connection
+        events.append("publisher_locks_held")
+        return identity
+
+    async def assert_membership(selected_connection, **_kwargs):
+        assert selected_connection is connection
+        events.append("membership_checked")
+
+    readiness = SimpleNamespace(active_corpus_release=identity)
+    monkeypatch.setattr("bddk_mcp.db_lifecycle.assert_database_ready", AsyncMock(return_value=readiness))
+    monkeypatch.setattr(seed, "publish_strict_corpus_release", publish)
+    monkeypatch.setattr(seed, "_assert_strict_seed_membership", assert_membership)
+
+    result = await seed._activate_strict_release(
+        Pool(),
+        validation=SimpleNamespace(),
+        retrieval_profile_sha256="7" * 64,
+        expected_documents=[],
+        expected_cache=[],
+        expected_chunks=[],
+        expected_sections={},
+        require_quantified_freshness=True,
+        require_measured_freshness=True,
+        require_verified_signature=True,
+    )
+
+    assert result == {"release_id": "release-1"}
+    assert events == [
+        "connection_acquired",
+        "transaction_started",
+        "publisher_locks_held",
+        "membership_checked",
+        "transaction_committed",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_strict_membership_rejects_unsigned_derived_or_legal_rows() -> None:
+    class Connection:
+        def __init__(self) -> None:
+            self.sections: list[dict] = []
+            self.publications: list[dict] = []
+            self.legal_rows = 0
+
+        async def fetch(self, query: str):
+            if "FROM public.document_sections" in query:
+                return self.sections
+            if "FROM public.document_retrieval_publications" in query:
+                return self.publications
+            return []
+
+        async def fetchval(self, query: str):
+            if "regulatory_instruments" in query:
+                return self.legal_rows
+            return 0
+
+    connection = Connection()
+    arguments = {
+        "expected_documents": [],
+        "expected_cache": [],
+        "expected_chunks": [],
+        "expected_sections": {},
+        "retrieval_profile_sha256": "7" * 64,
+    }
+
+    await seed._assert_strict_seed_membership(connection, **arguments)
+
+    connection.sections = [{"doc_id": "unrepresented"}]
+    with pytest.raises(RuntimeError, match="not exactly represented"):
+        await seed._assert_strict_seed_membership(connection, **arguments)
+
+    connection.sections = []
+    connection.publications = [{"doc_id": "unrepresented"}]
+    with pytest.raises(RuntimeError, match="not exactly represented"):
+        await seed._assert_strict_seed_membership(connection, **arguments)
+
+    connection.publications = []
+    connection.legal_rows = 1
+    with pytest.raises(RuntimeError, match="not exactly represented"):
+        await seed._assert_strict_seed_membership(connection, **arguments)
 
 
 class _SelectOnlyBootstrapPool:
@@ -354,6 +573,69 @@ async def test_owned_bootstrap_pool_requires_exact_ingestion_identity_before_dml
 
 
 @pytest.mark.asyncio
+async def test_strict_import_reports_separate_publication_without_activating(temp_seed_dir):
+    validation = SimpleNamespace(
+        warnings=(), manifest=SimpleNamespace(manifest_id="strict-test"), manifest_sha256="a" * 64
+    )
+    artifacts = {name: object() for name in ("documents", "chunks", "decision_cache")}
+    pool = MagicMock()
+    vector_store = MagicMock()
+    activate = AsyncMock(side_effect=AssertionError("ingestion must not activate a release"))
+
+    with (
+        patch.object(seed, "_manifest_seed_artifacts", return_value=(validation, artifacts)),
+        patch.object(seed, "_load_manifest_bound_records", return_value=[]),
+        patch("bddk_mcp.db_lifecycle.assert_database_ready", new=AsyncMock()),
+        patch("bddk_mcp.store.doc_store.DocumentStore"),
+        patch("bddk_mcp.store.vector_store.VectorStore", return_value=vector_store),
+        patch.object(seed, "_activate_strict_release", new=activate),
+    ):
+        result = await seed.import_seed(
+            pool=pool,
+            force=True,
+            require_quantified_freshness=True,
+            require_measured_freshness=True,
+            require_verified_signature=True,
+            trusted_signing_key=Path("/separately-mounted/trust.pem"),
+        )
+
+    assert result["release_publication_required"] is True
+    assert result["active_corpus_release"] is None
+    activate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_owned_release_publication_pool_requires_exact_publisher_identity(temp_seed_dir):
+    validation = SimpleNamespace(
+        warnings=(), manifest=SimpleNamespace(manifest_id="strict-test"), manifest_sha256="a" * 64
+    )
+    artifacts = {name: object() for name in ("documents", "chunks", "decision_cache")}
+    pool = MagicMock()
+    pool.close = AsyncMock()
+    identity = AsyncMock(side_effect=RuntimeError("publisher identity rejected"))
+
+    with (
+        patch.object(seed, "_manifest_seed_artifacts", return_value=(validation, artifacts)),
+        patch.object(seed, "_load_manifest_bound_records", return_value=[]),
+        patch("bddk_mcp.ingest.seed.assert_database_transport", side_effect=lambda value: value),
+        patch("bddk_mcp.ingest.seed.asyncpg.create_pool", new=AsyncMock(return_value=pool)) as create_pool,
+        patch("bddk_mcp.ingest.seed.assert_database_identity", new=identity),
+        pytest.raises(RuntimeError, match="publisher identity rejected"),
+    ):
+        await seed.publish_seed_release(
+            dsn="postgresql://release-publisher",
+            trusted_signing_key=Path("/separately-mounted/trust.pem"),
+        )
+
+    create_pool.assert_awaited_once()
+    assert create_pool.await_args.kwargs["init"].keywords == {"profile": "release-publisher"}
+    identity.assert_awaited_once_with(pool, "release-publisher")
+    pool.acquire.assert_not_called()
+    pool.execute.assert_not_called()
+    pool.close.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
 async def test_import_backfills_embeddings_for_new_chunks(clean_pool, temp_seed_dir):
     """Seed import must not leave chunks with NULL embeddings — otherwise
     semantic search is silently broken for most queries (see #62: the main
@@ -528,7 +810,9 @@ async def test_import_ignores_untrusted_committed_chunks_and_regenerates_from_do
         }
     ]
     _write_seed_files(temp_seed_dir, docs=docs, chunks=chunks_old)
-    await seed.import_seed(pool=clean_pool, force=True)
+    first = await seed.import_seed(pool=clean_pool, force=True)
+    assert first["chunk_artifact_match"] is False
+    assert "chunk_artifact_does_not_match_current_retrieval_profile" in first["corpus_scope_warnings"]
 
     result = await seed.import_seed(pool=clean_pool, force=False)
 

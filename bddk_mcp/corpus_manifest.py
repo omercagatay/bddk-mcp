@@ -17,11 +17,12 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
 
-import yaml
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from bddk_mcp.release_yaml import ReleaseYamlError, load_bounded_release_yaml
 
 CORPUS_MANIFEST_FILENAME = "corpus_scope.yml"
 CORPUS_SCOPE_WARNING = (
@@ -351,8 +352,11 @@ def load_and_validate_corpus_manifest(
     if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > _MAX_MANIFEST_BYTES:
         raise CorpusManifestError("corpus manifest is not a bounded regular file")
     try:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, yaml.YAMLError) as exc:
+        raw = load_bounded_release_yaml(
+            path.read_text(encoding="utf-8"),
+            maximum_bytes=_MAX_MANIFEST_BYTES,
+        )
+    except (OSError, UnicodeError, ReleaseYamlError) as exc:
         raise CorpusManifestError("corpus manifest YAML is invalid") from exc
     if not isinstance(raw, dict):
         raise CorpusManifestError("corpus manifest must be a mapping")

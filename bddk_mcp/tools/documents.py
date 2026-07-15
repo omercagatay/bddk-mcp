@@ -193,9 +193,8 @@ def register(
                 if not found_page:
                     missing_page = next_page
                     logger.warning(
-                        "Page %d of %s missing from local stores (total_pages=%d)",
+                        "Requested page %d is missing from local stores (total_pages=%d)",
                         next_page,
-                        resolved_id,
                         total_pages,
                     )
                     break

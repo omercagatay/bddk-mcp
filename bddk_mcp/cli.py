@@ -91,6 +91,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Separately mounted PEM Ed25519 public key for the imported corpus manifest",
     )
 
+    publish_release = subparsers.add_parser(
+        "publish-corpus-release",
+        help="Verify and activate an imported strict corpus using the dedicated release-publisher identity",
+    )
+    publish_release.add_argument(
+        "--db",
+        help="PostgreSQL DSN; defaults to BDDK_RELEASE_PUBLISHER_DATABASE_URL",
+    )
+    publish_release.add_argument(
+        "--seed-dir",
+        type=Path,
+        help="Seed directory; defaults to BDDK_SEED_DIR or checkout seed_data",
+    )
+    publish_release.add_argument(
+        "--trusted-signing-key",
+        type=Path,
+        required=True,
+        help="Separately mounted PEM Ed25519 public key for the imported corpus manifest",
+    )
+
     verify_corpus = subparsers.add_parser(
         "verify-corpus",
         help="Verify the reviewed corpus manifest and every declared seed artifact without database access",
@@ -202,6 +222,33 @@ async def _bootstrap(
     return result
 
 
+async def _publish_corpus_release(
+    dsn: str | None,
+    seed_dir: Path | None,
+    *,
+    trusted_signing_key: Path,
+) -> dict:
+    from bddk_mcp.core.config import require_database_url
+    from bddk_mcp.ingest import seed
+
+    selected_dsn = dsn or require_database_url("release-publisher")
+    selected_seed_dir = seed_dir
+    if selected_seed_dir is None and os.environ.get("BDDK_SEED_DIR"):
+        selected_seed_dir = Path(os.environ["BDDK_SEED_DIR"])
+    if selected_seed_dir is not None:
+        seed.SEED_DIR = selected_seed_dir.resolve()
+    if not seed.SEED_DIR.is_dir():
+        raise RuntimeError(
+            f"Seed directory is unavailable: {seed.SEED_DIR}. "
+            "Mount the reviewed corpus and pass --seed-dir or BDDK_SEED_DIR."
+        )
+
+    return await seed.publish_seed_release(
+        dsn=selected_dsn,
+        trusted_signing_key=trusted_signing_key,
+    )
+
+
 def _verify_corpus(
     seed_dir: Path | None,
     *,
@@ -287,6 +334,36 @@ def main(argv: Sequence[str] | None = None) -> None:
                 print(
                     f"Corpus manifest used: id={result['corpus_manifest_id']} sha256={result['corpus_manifest_sha256']}"
                 )
+            for warning in result.get("corpus_scope_warnings", []):
+                print(f"WARNING: {warning}")
+            if result.get("release_publication_required"):
+                print(
+                    "Release publication required: run publish-corpus-release with the separate "
+                    "release-publisher database identity after reviewing the imported state."
+                )
+            elif active_release := result.get("active_corpus_release"):
+                print(
+                    "Active corpus release: "
+                    f"id={active_release['release_id']} "
+                    f"manifest_sha256={active_release['manifest_sha256']} "
+                    f"profile_sha256={active_release['retrieval_profile_sha256']}"
+                )
+            return
+        if args.command == "publish-corpus-release":
+            result = asyncio.run(
+                _publish_corpus_release(
+                    args.db,
+                    args.seed_dir,
+                    trusted_signing_key=args.trusted_signing_key,
+                )
+            )
+            active_release = result["active_corpus_release"]
+            print(
+                "Corpus release published: "
+                f"id={active_release['release_id']} "
+                f"manifest_sha256={active_release['manifest_sha256']} "
+                f"profile_sha256={active_release['retrieval_profile_sha256']}"
+            )
             return
         if args.command == "verify-corpus":
             result = _verify_corpus(

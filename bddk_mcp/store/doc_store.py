@@ -32,6 +32,18 @@ from bddk_mcp.regulatory.legal_versions import (
 from bddk_mcp.store.section_index import extract_document_sections
 
 logger = logging.getLogger(__name__)
+DOCUMENT_STORE_SEARCH_PROFILE_VERSION = "document-store-simple-fts-v2"
+_SAFE_SYNC_FAILURE_TOKEN_RE = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
+
+
+def _safe_sync_failure_fields(error: str, category: str) -> tuple[str, str]:
+    """Return bounded codes suitable for durable operational metadata."""
+
+    safe_category = category if _SAFE_SYNC_FAILURE_TOKEN_RE.fullmatch(category) else "unknown"
+    if _SAFE_SYNC_FAILURE_TOKEN_RE.fullmatch(error):
+        return error, safe_category
+    return f"sync_{safe_category}_failed", safe_category
+
 
 # -- Pydantic models ----------------------------------------------------------
 
@@ -357,7 +369,11 @@ class DocumentStore:
                     source_content_hash=content_hash,
                 )
 
-        logger.debug("Stored document %s (%s)", doc.document_id, doc.title[:60])
+        logger.debug(
+            "Stored document (content_chars=%d, sections=%d)",
+            len(doc.markdown_content),
+            len(sections),
+        )
 
     async def get_document(self, doc_id: str) -> StoredDocument | None:
         """Retrieve a full document by ID."""
@@ -830,8 +846,9 @@ class DocumentStore:
         source_url: str = "",
         retryable: bool = True,
     ) -> None:
-        """Record or update a sync failure for a document."""
+        """Record a privacy-safe failure code without exception text or URLs."""
         now = time.time()
+        safe_error, safe_category = _safe_sync_failure_fields(error, category)
         await self._pool.execute(
             """
             INSERT INTO sync_failures (document_id, error, error_category, source_url, retryable, attempts, first_failed_at, last_failed_at)
@@ -839,14 +856,15 @@ class DocumentStore:
             ON CONFLICT(document_id) DO UPDATE SET
                 error = EXCLUDED.error,
                 error_category = EXCLUDED.error_category,
+                source_url = EXCLUDED.source_url,
                 retryable = EXCLUDED.retryable,
                 attempts = sync_failures.attempts + 1,
                 last_failed_at = EXCLUDED.last_failed_at
             """,
             doc_id,
-            error,
-            category,
-            source_url,
+            safe_error,
+            safe_category,
+            "",
             retryable,
             now,
         )

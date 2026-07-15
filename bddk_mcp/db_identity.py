@@ -4,7 +4,7 @@ The deployment SQL grants capabilities to small NOLOGIN group roles.  A DSN
 string is not an authorization boundary: two differently written DSNs can
 still authenticate as the same PostgreSQL LOGIN.  This module therefore
 checks the effective identity and every application-object privilege before a
-public, operator, or ingestion workload is allowed to run.
+public, operator, ingestion, or release-publication workload is allowed to run.
 
 The contract intentionally assumes the dedicated database topology described
 by ``deploy/postgres/README.md``.  Unexpected application schemas or objects
@@ -23,7 +23,7 @@ import asyncpg
 
 from bddk_mcp.db_compatibility import PostgreSQLCompatibilityError, assert_supported_postgresql
 
-DatabaseIdentityProfile = Literal["public", "operator", "ingestion"]
+DatabaseIdentityProfile = Literal["public", "operator", "ingestion", "release-publisher"]
 
 _TABLE_PRIVILEGES = frozenset(
     {
@@ -79,16 +79,20 @@ _REGULATORY_VERSION_TABLES = frozenset(
     }
 )
 _REGULATORY_PUBLIC_VIEWS = frozenset({"public.regulatory_validated_section_citations"})
+_CORPUS_RELEASE_VIEWS = frozenset({"bddk_meta.active_corpus_release"})
 _ALL_TABLES = (
     _INGESTION_TABLES
     | {
         "public.tool_call_traces",
         "bddk_meta.schema_migrations",
         "bddk_meta.legacy_schema_adoptions",
+        "bddk_meta.corpus_releases",
+        "bddk_meta.corpus_release_activations",
         "bddk_operator.operator_jobs",
     }
     | _REGULATORY_VERSION_TABLES
     | _REGULATORY_PUBLIC_VIEWS
+    | _CORPUS_RELEASE_VIEWS
 )
 _ALL_SEQUENCES = frozenset(
     {
@@ -96,6 +100,7 @@ _ALL_SEQUENCES = frozenset(
         "public.document_versions_id_seq",
         "public.document_chunks_id_seq",
         "public.tool_call_traces_id_seq",
+        "bddk_meta.corpus_release_activations_activation_sequence_seq",
     }
 )
 _INGESTION_SEQUENCES = frozenset(
@@ -112,6 +117,12 @@ _ALL_ROUTINES = frozenset(
         "public.document_sections_tsv_trigger()",
         "public.chunks_tsv_trigger()",
         "public.invalidate_retrieval_publication()",
+        "bddk_meta.corpus_fingerprint_frame(text)",
+        "bddk_meta.current_corpus_state_sha256(text)",
+        "bddk_meta.corpus_retrieval_ready(text)",
+        "bddk_meta.reject_corpus_release_mutation()",
+        "bddk_meta.publish_verified_corpus_release(text, text, text, integer, integer, integer, text)",
+        "bddk_meta.resolve_regulation_status(text, date)",
     }
 )
 
@@ -158,11 +169,18 @@ def _object_contract(
 
 
 def _build_contracts() -> Mapping[str, _IdentityContract]:
-    read_tables = {name: frozenset({"SELECT"}) for name in _CORPUS_TABLES | _REGULATORY_PUBLIC_VIEWS}
+    read_tables = {
+        name: frozenset({"SELECT"}) for name in _CORPUS_TABLES | _REGULATORY_PUBLIC_VIEWS | _CORPUS_RELEASE_VIEWS
+    }
     read_tables["bddk_meta.schema_migrations"] = frozenset({"SELECT"})
 
     ingestion_tables = {name: frozenset({"SELECT", "INSERT", "UPDATE", "DELETE"}) for name in _INGESTION_TABLES}
     ingestion_tables["bddk_meta.schema_migrations"] = frozenset({"SELECT"})
+    ingestion_tables["bddk_meta.active_corpus_release"] = frozenset({"SELECT"})
+
+    publisher_tables = {name: frozenset({"SELECT"}) for name in _CORPUS_TABLES | _REGULATORY_VERSION_TABLES}
+    publisher_tables["bddk_meta.schema_migrations"] = frozenset({"SELECT"})
+    publisher_tables["bddk_meta.active_corpus_release"] = frozenset({"SELECT"})
 
     operator_tables = dict(ingestion_tables)
     operator_tables["bddk_operator.operator_jobs"] = frozenset({"SELECT", "INSERT", "UPDATE", "DELETE"})
@@ -188,9 +206,41 @@ def _build_contracts() -> Mapping[str, _IdentityContract]:
         _ALL_SEQUENCES,
         {name: frozenset({"USAGE"}) for name in _INGESTION_SEQUENCES},
     )
-    searchable_routines = _object_contract(
+    public_routines = _object_contract(
         _ALL_ROUTINES,
-        {"public.immutable_unaccent(text)": frozenset({"EXECUTE"})},
+        {
+            "public.immutable_unaccent(text)": frozenset({"EXECUTE"}),
+            "bddk_meta.current_corpus_state_sha256(text)": frozenset({"EXECUTE"}),
+            "bddk_meta.corpus_retrieval_ready(text)": frozenset({"EXECUTE"}),
+            "bddk_meta.resolve_regulation_status(text, date)": frozenset({"EXECUTE"}),
+        },
+    )
+    ingestion_routines = _object_contract(
+        _ALL_ROUTINES,
+        {
+            "public.immutable_unaccent(text)": frozenset({"EXECUTE"}),
+            "bddk_meta.current_corpus_state_sha256(text)": frozenset({"EXECUTE"}),
+            "bddk_meta.corpus_retrieval_ready(text)": frozenset({"EXECUTE"}),
+        },
+    )
+    publisher_routines = _object_contract(
+        _ALL_ROUTINES,
+        {
+            "bddk_meta.current_corpus_state_sha256(text)": frozenset({"EXECUTE"}),
+            "bddk_meta.corpus_retrieval_ready(text)": frozenset({"EXECUTE"}),
+            "bddk_meta.publish_verified_corpus_release(text, text, text, integer, integer, integer, text)": (
+                frozenset({"EXECUTE"})
+            ),
+        },
+    )
+    operator_routines = _object_contract(
+        _ALL_ROUTINES,
+        {
+            "public.immutable_unaccent(text)": frozenset({"EXECUTE"}),
+            "bddk_meta.current_corpus_state_sha256(text)": frozenset({"EXECUTE"}),
+            "bddk_meta.corpus_retrieval_ready(text)": frozenset({"EXECUTE"}),
+            "bddk_meta.resolve_regulation_status(text, date)": frozenset({"EXECUTE"}),
+        },
     )
 
     return MappingProxyType(
@@ -200,14 +250,21 @@ def _build_contracts() -> Mapping[str, _IdentityContract]:
                 schemas=public_schemas,
                 tables=_object_contract(_ALL_TABLES, read_tables),
                 sequences=no_sequences,
-                routines=searchable_routines,
+                routines=public_routines,
             ),
             "ingestion": _IdentityContract(
                 memberships=frozenset({"bddk_ingestion"}),
                 schemas=public_schemas,
                 tables=_object_contract(_ALL_TABLES, ingestion_tables),
                 sequences=ingestion_sequences,
-                routines=searchable_routines,
+                routines=ingestion_routines,
+            ),
+            "release-publisher": _IdentityContract(
+                memberships=frozenset({"bddk_release_publisher"}),
+                schemas=public_schemas,
+                tables=_object_contract(_ALL_TABLES, publisher_tables),
+                sequences=no_sequences,
+                routines=publisher_routines,
             ),
             "operator": _IdentityContract(
                 memberships=frozenset(
@@ -220,7 +277,7 @@ def _build_contracts() -> Mapping[str, _IdentityContract]:
                 schemas=operator_schemas,
                 tables=_object_contract(_ALL_TABLES, operator_tables),
                 sequences=ingestion_sequences,
-                routines=searchable_routines,
+                routines=operator_routines,
             ),
         }
     )
@@ -449,7 +506,7 @@ ORDER BY namespace.nspname, relation.relname
 
 _ROUTINES_SQL = """
 SELECT namespace.nspname || '.' || routine.proname || '('
-           || pg_catalog.pg_get_function_identity_arguments(routine.oid) || ')' AS object_name,
+           || pg_catalog.oidvectortypes(routine.proargtypes) || ')' AS object_name,
        pg_catalog.array_remove(ARRAY[
            CASE WHEN pg_catalog.has_function_privilege(current_user, routine.oid, 'EXECUTE')
                THEN 'EXECUTE' END,
@@ -473,7 +530,7 @@ WHERE namespace.nspname NOT IN ('pg_catalog', 'information_schema')
         AND dependency.deptype = 'e'
   )
 ORDER BY namespace.nspname, routine.proname,
-         pg_catalog.pg_get_function_identity_arguments(routine.oid)
+         pg_catalog.oidvectortypes(routine.proargtypes)
 """
 
 _ACL_PROVENANCE_SQL = """

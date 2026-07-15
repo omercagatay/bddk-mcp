@@ -84,6 +84,9 @@ WITH RECURSIVE target AS (
         ('public', 'regulatory_legal_version_provisions'),
         ('public', 'regulatory_validated_section_citations'),
         ('bddk_meta', 'schema_migrations'),
+        ('bddk_meta', 'corpus_releases'),
+        ('bddk_meta', 'corpus_release_activations'),
+        ('bddk_meta', 'active_corpus_release'),
         ('bddk_operator', 'operator_jobs')
 ), other_relations(relation_oid) AS (
     SELECT relation.oid
@@ -93,12 +96,43 @@ WITH RECURSIVE target AS (
     LEFT JOIN pg_catalog.pg_class AS relation
       ON relation.relnamespace = namespace.oid
      AND relation.relname = requested.relation_name
+), requested_sequences(schema_name, sequence_name) AS (
+    VALUES
+        ('public', 'document_sections_id_seq'),
+        ('public', 'document_versions_id_seq'),
+        ('public', 'document_chunks_id_seq'),
+        ('bddk_meta', 'corpus_release_activations_activation_sequence_seq')
 ), other_sequences(sequence_oid) AS (
-    SELECT unnest(ARRAY[
-        to_regclass('public.document_sections_id_seq'),
-        to_regclass('public.document_versions_id_seq'),
-        to_regclass('public.document_chunks_id_seq')
-    ])
+    SELECT sequence.oid
+    FROM requested_sequences AS requested
+    LEFT JOIN pg_catalog.pg_namespace AS namespace
+      ON namespace.nspname = requested.schema_name
+    LEFT JOIN pg_catalog.pg_class AS sequence
+      ON sequence.relnamespace = namespace.oid
+     AND sequence.relname = requested.sequence_name
+     AND sequence.relkind = 'S'
+), requested_functions(schema_name, function_name, argument_types) AS (
+    VALUES
+        ('public', 'immutable_unaccent', 'text'),
+        ('bddk_meta', 'corpus_fingerprint_frame', 'text'),
+        ('bddk_meta', 'current_corpus_state_sha256', 'text'),
+        ('bddk_meta', 'corpus_retrieval_ready', 'text'),
+        ('bddk_meta', 'reject_corpus_release_mutation', ''),
+        (
+            'bddk_meta',
+            'publish_verified_corpus_release',
+            'text, text, text, integer, integer, integer, text'
+        ),
+        ('bddk_meta', 'resolve_regulation_status', 'text, date')
+), application_functions(function_oid) AS (
+    SELECT routine.oid
+    FROM requested_functions AS requested
+    LEFT JOIN pg_catalog.pg_namespace AS namespace
+      ON namespace.nspname = requested.schema_name
+    LEFT JOIN pg_catalog.pg_proc AS routine
+      ON routine.pronamespace = namespace.oid
+     AND routine.proname = requested.function_name
+     AND pg_catalog.oidvectortypes(routine.proargtypes) = requested.argument_types
 )
 SELECT relation_oid IS NOT NULL AS relation_exists,
        sequence_oid IS NOT NULL AS sequence_exists,
@@ -144,10 +178,11 @@ SELECT relation_oid IS NOT NULL AS relation_exists,
               OR has_sequence_privilege(current_user, sequence_oid, 'SELECT')
               OR has_sequence_privilege(current_user, sequence_oid, 'UPDATE')
        ) AS other_sequences_isolated,
-       NOT has_function_privilege(
-           current_user,
-           'public.immutable_unaccent(pg_catalog.text)',
-           'EXECUTE'
+       NOT EXISTS (
+           SELECT 1
+           FROM application_functions
+           WHERE function_oid IS NULL
+              OR pg_catalog.has_function_privilege(current_user, function_oid, 'EXECUTE')
        ) AS application_functions_isolated,
        CASE WHEN relation_oid IS NULL THEN false
             ELSE (

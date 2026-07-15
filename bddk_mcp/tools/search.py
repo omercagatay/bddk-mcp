@@ -103,9 +103,18 @@ class _LRUCache:
             # popitem(last=False) removes the front — oldest/least-recently-used
             self._data.popitem(last=False)
 
+    def clear(self) -> None:
+        """Remove every cached response when the served corpus epoch changes."""
+        self._data.clear()
+
 
 # Module-level cache shared across all invocations
 _search_cache: _LRUCache = _LRUCache(max_size=SEARCH_CACHE_MAX, ttl=SEARCH_CACHE_TTL)
+
+
+def clear_search_cache() -> None:
+    """Invalidate all query results derived from the previous corpus release."""
+    _search_cache.clear()
 
 
 def _match_strength(relevance: float) -> str:

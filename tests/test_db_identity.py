@@ -41,7 +41,7 @@ def _valid_inspection(profile: str, *, login: str = "bank_workload_login") -> Da
     )
 
 
-@pytest.mark.parametrize("profile", ["public", "ingestion", "operator"])
+@pytest.mark.parametrize("profile", ["public", "ingestion", "release-publisher", "operator"])
 def test_reviewed_identity_contracts_are_exact_and_satisfiable(profile: str) -> None:
     assert identity_contract_failures(_valid_inspection(profile), profile) == ()
 
@@ -67,11 +67,16 @@ def test_canonical_legal_version_workspace_is_inventoried_with_zero_runtime_righ
     for profile in ("public", "ingestion", "operator"):
         contract = db_identity._CONTRACTS[profile]
         assert {table: contract.tables[table] for table in expected} == {table: frozenset() for table in expected}
+    publisher = db_identity._CONTRACTS["release-publisher"]
+    assert {table: publisher.tables[table] for table in expected} == {
+        table: frozenset({"SELECT"}) for table in expected
+    }
 
     view = "public.regulatory_validated_section_citations"
     assert db_identity._REGULATORY_PUBLIC_VIEWS == {view}
     assert db_identity._CONTRACTS["public"].tables[view] == frozenset({"SELECT"})
     assert db_identity._CONTRACTS["ingestion"].tables[view] == frozenset()
+    assert db_identity._CONTRACTS["release-publisher"].tables[view] == frozenset()
     assert db_identity._CONTRACTS["operator"].tables[view] == frozenset({"SELECT"})
 
 
@@ -254,6 +259,7 @@ _RUN_LIVE_IDENTITY_TEST = os.environ.get("BDDK_ALLOW_IDENTITY_LOGIN_TEST", "").l
 _LIVE_IDENTITY_DSNS = {
     "public": os.environ.get("BDDK_PUBLIC_IDENTITY_TEST_DATABASE_URL", ""),
     "ingestion": os.environ.get("BDDK_INGESTION_IDENTITY_TEST_DATABASE_URL", ""),
+    "release-publisher": os.environ.get("BDDK_RELEASE_PUBLISHER_IDENTITY_TEST_DATABASE_URL", ""),
     "operator": os.environ.get("BDDK_OPERATOR_IDENTITY_TEST_DATABASE_URL", ""),
 }
 
@@ -261,7 +267,7 @@ _LIVE_IDENTITY_DSNS = {
 @pytest.mark.postgres
 @pytest.mark.skipif(
     not (_RUN_LIVE_IDENTITY_TEST and all(_LIVE_IDENTITY_DSNS.values())),
-    reason="requires explicitly approved DSNs for all three real workload LOGINs",
+    reason="requires explicitly approved DSNs for all four real workload LOGINs",
 )
 @pytest.mark.asyncio
 async def test_live_workload_login_contracts() -> None:
@@ -290,7 +296,7 @@ _REJECTED_IDENTITY_DSN = os.environ.get("BDDK_REJECTED_IDENTITY_TEST_DATABASE_UR
 async def test_live_wrong_or_elevated_login_is_rejected_for_every_profile() -> None:
     pool = await asyncpg.create_pool(_REJECTED_IDENTITY_DSN, min_size=1, max_size=1, timeout=5)
     try:
-        for profile in ("public", "ingestion", "operator"):
+        for profile in ("public", "ingestion", "release-publisher", "operator"):
             with pytest.raises(DatabaseIdentityError):
                 await assert_database_identity(pool, profile)
     finally:

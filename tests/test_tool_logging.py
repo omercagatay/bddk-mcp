@@ -171,3 +171,37 @@ async def test_logged_tool_content_preview_requires_explicit_environment_opt_in(
     success = next(record for record in caplog.records if record.message == "MCP tool call completed")
     assert start.tool_args["query"] == QUERY_SENTINEL
     assert success.result_preview == RESULT_SENTINEL
+
+
+@pytest.mark.asyncio
+async def test_opt_in_error_preview_redacts_paths_uris_and_credentials_without_traceback(caplog, monkeypatch):
+    monkeypatch.setenv("BDDK_TOOL_LOG_CONTENT", "true")
+    logger = logging.getLogger("tests.tool_logging.opt_in_failure")
+
+    @logged_tool(logger)
+    async def sample_tool(query: str) -> str:
+        raise RuntimeError(
+            f"{ERROR_SENTINEL}: {query}; "
+            "dsn=postgresql://private:password@db/bddk; "
+            "token=PRIVATE_TOKEN; path=/bank/private/audit.txt; "
+            "source=https://internal.example/reg?secret=value"
+        )
+
+    with caplog.at_level(logging.INFO, logger=logger.name):
+        with pytest.raises(RuntimeError, match=ERROR_SENTINEL):
+            await sample_tool(QUERY_SENTINEL)
+
+    failure = next(record for record in caplog.records if record.message == "MCP tool call failed")
+    assert ERROR_SENTINEL in failure.error_message
+    assert failure.exc_info is None
+    rendered = _render_records(caplog.records)
+    for secret in (
+        "postgresql://private",
+        "password@db",
+        "PRIVATE_TOKEN",
+        "/bank/private/audit.txt",
+        "https://internal.example",
+        "?secret=value",
+    ):
+        assert secret not in rendered
+    assert "<redacted" in rendered

@@ -156,6 +156,21 @@ def test_manifest_rejects_checksum_tampering_before_artifact_use(tmp_path: Path)
         load_and_validate_corpus_manifest(manifest)
 
 
+@pytest.mark.parametrize(
+    "payload",
+    (
+        "schema_version: 1\nschema_version: 2\n",
+        "schema_version: &version 1\ncopied_version: *version\n",
+    ),
+)
+def test_manifest_rejects_ambiguous_yaml_before_schema_validation(tmp_path: Path, payload: str):
+    manifest = tmp_path / "corpus_scope.yml"
+    manifest.write_text(payload, encoding="utf-8")
+
+    with pytest.raises(CorpusManifestError, match="corpus manifest YAML is invalid"):
+        load_and_validate_corpus_manifest(manifest)
+
+
 def test_manifest_rejects_scope_review_that_predates_the_corpus_build(tmp_path: Path):
     manifest = _write_manifest(tmp_path)
     raw = yaml.safe_load(manifest.read_text(encoding="utf-8"))

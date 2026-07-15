@@ -125,6 +125,28 @@ async def test_weakened_validated_citation_view_fails_readiness(pg_pool) -> None
 
 @pytest.mark.postgres
 @pytest.mark.asyncio
+async def test_weakened_legal_status_resolver_fails_readiness(pg_pool) -> None:
+    async with pg_pool.acquire() as connection:
+        transaction = connection.transaction()
+        await transaction.start()
+        try:
+            await connection.execute(
+                "ALTER FUNCTION bddk_meta.resolve_regulation_status(pg_catalog.text, pg_catalog.date) SECURITY INVOKER"
+            )
+
+            report = await inspect_catalog_integrity(connection)
+            readiness = await inspect_database_readiness(connection, require_corpus=False)
+
+            expected = "routine:bddk_meta.resolve_regulation_status(text, date)"
+            assert expected in report.failures
+            assert expected in readiness.catalog_issues
+            assert not readiness.ready
+        finally:
+            await transaction.rollback()
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
 async def test_weakened_v4_constraint_fails_exact_catalog_attestation(pg_pool) -> None:
     async with pg_pool.acquire() as connection:
         transaction = connection.transaction()

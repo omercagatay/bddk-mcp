@@ -23,12 +23,16 @@ from bddk_mcp.migrations.v0001_core import V0001_CORE
 from bddk_mcp.migrations.v0002_operator_jobs import V0002_OPERATOR_JOBS
 from bddk_mcp.migrations.v0003_retrieval_publication import V0003_RETRIEVAL_PUBLICATION
 from bddk_mcp.migrations.v0004_canonical_legal_versions import V0004_CANONICAL_LEGAL_VERSIONS
+from bddk_mcp.migrations.v0005_corpus_release_publication import V0005_CORPUS_RELEASE_PUBLICATION
+from bddk_mcp.migrations.v0006_legal_status_resolver import V0006_LEGAL_STATUS_RESOLVER
 
 MIGRATIONS: Final[tuple[Migration, ...]] = (
     V0001_CORE,
     V0002_OPERATOR_JOBS,
     V0003_RETRIEVAL_PUBLICATION,
     V0004_CANONICAL_LEGAL_VERSIONS,
+    V0005_CORPUS_RELEASE_PUBLICATION,
+    V0006_LEGAL_STATUS_RESOLVER,
 )
 LATEST_SCHEMA_VERSION: Final[int] = MIGRATIONS[-1].version
 MIGRATION_LOCK_TIMEOUT: Final[str] = "5s"

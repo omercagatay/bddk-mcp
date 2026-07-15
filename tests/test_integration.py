@@ -27,7 +27,12 @@ class TestSearchThenRetrieveFlow:
         # Populate cache directly (bypass DB cache)
         client._cache = []
         client._cache_timestamp = 0
-        await client._ensure_cache()
+        # This flow exercises one complete, configured catalog source.  Reusing
+        # the same accordion HTML for every production list page would assign
+        # page-specific categories to the same document IDs and therefore
+        # (correctly) fail the catalog's ambiguity check.
+        with patch("bddk_mcp.ingest.client._ALL_PAGE_IDS", [50]):
+            await client._ensure_cache()
         assert client.cache_size() > 0
 
         request = BddkSearchRequest(keywords="Rehber")

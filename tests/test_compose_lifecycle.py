@@ -81,8 +81,9 @@ def test_local_login_fixture_is_explicitly_non_production_and_least_privileged()
     sql = (ROOT / "deploy" / "postgres" / "local-dev" / "01_identities.sql").read_text(encoding="utf-8")
     assert "LOCAL DEVELOPMENT ONLY" in sql
     assert "Never apply this file" in sql
-    assert sql.count("NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS") == 5
+    assert sql.count("NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS") == 6
     assert "GRANT bddk_schema_owner TO bddk_local_migrator" in sql
     assert "GRANT bddk_ingestion TO bddk_local_ingestion" in sql
+    assert "GRANT bddk_release_publisher TO bddk_local_release_publisher" in sql
     assert "GRANT bddk_public_reader TO bddk_local_public" in sql
     assert "GRANT bddk_telemetry_writer TO bddk_local_telemetry" in sql

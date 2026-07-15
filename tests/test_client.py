@@ -1,5 +1,6 @@
 """Tests for BddkApiClient: HTTP scraping, caching, and document retrieval."""
 
+import logging
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -7,7 +8,7 @@ import httpx
 import pytest
 
 from bddk_mcp.core.exceptions import BddkStorageError, BddkUpstreamError
-from bddk_mcp.core.models import BddkDecisionSummary
+from bddk_mcp.core.models import BddkDecisionSummary, BddkSearchRequest
 from bddk_mcp.ingest.client import (
     _ALL_PAGE_IDS,
     _DECISION_PAGE_IDS,
@@ -24,6 +25,30 @@ def _make_client(**kwargs) -> BddkApiClient:
     """Create a client with a mock pool (no real DB)."""
     c = BddkApiClient(pool=MockPool(), **kwargs)
     return c
+
+
+@pytest.mark.asyncio
+async def test_search_operational_log_omits_raw_regulatory_query(caplog):
+    """Internal research terms must not cross the production log boundary."""
+
+    sentinel = "PRIVATE_AUDIT_SEARCH_TERM_7f31"
+    client = _make_client()
+    client._cache = [
+        BddkDecisionSummary(
+            title=sentinel,
+            document_id="privacy-log-proof",
+            category="Düzenleme",
+        )
+    ]
+    client._cache_timestamp = time.time()
+
+    with caplog.at_level(logging.INFO, logger="bddk_mcp.ingest.client"):
+        result = await client.search_decisions(BddkSearchRequest(keywords=sentinel))
+
+    assert result.total_results == 1
+    assert sentinel not in caplog.text
+    assert f"keyword_chars={len(sentinel)}" in caplog.text
+    assert "keyword_terms=1 matches=1 page=1 returned=1" in caplog.text
 
 
 class TestFetchWithRetry:
@@ -111,6 +136,34 @@ class TestCachePersistence:
 
         await client.close()
         await client2.close()
+
+    @pytest.mark.asyncio
+    async def test_complete_catalog_publication_retires_removed_upstream_rows(self, doc_store):
+        """A successful full refresh must publish exact membership, not append forever."""
+
+        pool = doc_store._pool
+        client = BddkApiClient(pool=pool)
+        client._cache = [
+            BddkDecisionSummary(title="Retained", document_id="catalog-retained", category="Rehber"),
+            BddkDecisionSummary(title="Removed", document_id="catalog-removed", category="Rehber"),
+        ]
+        await client._save_cache_to_db()
+
+        client._cache = [
+            BddkDecisionSummary(title="Retained", document_id="catalog-retained", category="Rehber"),
+        ]
+        await client._save_cache_to_db()
+
+        rows = await pool.fetch("SELECT document_id FROM public.decision_cache ORDER BY document_id")
+        assert [row["document_id"] for row in rows] == ["catalog-retained"]
+
+    @pytest.mark.asyncio
+    async def test_empty_catalog_cannot_erase_last_known_good_publication(self):
+        client = _make_client()
+        client._cache = []
+
+        with pytest.raises(BddkStorageError, match="empty decision catalog"):
+            await client._save_cache_to_db()
 
     @pytest.mark.asyncio
     async def test_load_empty_cache(self):
@@ -291,6 +344,41 @@ class TestCacheRefreshIntegrity:
         assert count == len(_ALL_PAGE_IDS)
         assert {item.document_id for item in client.get_cache_items()} == {str(page_id) for page_id in _ALL_PAGE_IDS}
         client._save_cache_to_db.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_exact_duplicate_catalog_links_are_published_once(self):
+        client = _make_client()
+        duplicate = self._decision("shared-document")
+        client._fetch_and_parse_accordion_page = AsyncMock(return_value=[duplicate])
+        client._fetch_and_parse_decision_page = AsyncMock(return_value=[duplicate])
+        client._fetch_and_parse_flat_page = AsyncMock(return_value=[duplicate])
+        client._save_cache_to_db = AsyncMock()
+
+        count = await client.refresh_cache()
+
+        assert count == 1
+        assert [item.document_id for item in client.get_cache_items()] == ["shared-document"]
+        client._save_cache_to_db.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_conflicting_duplicate_catalog_links_retain_last_known_good(self):
+        client = _make_client()
+        previous = self._decision("last-known-good")
+        client._cache = [previous]
+        client._cache_timestamp = 789.0
+        left = self._decision("shared-document")
+        right = left.model_copy(update={"title": "Conflicting upstream title"})
+        client._fetch_and_parse_accordion_page = AsyncMock(return_value=[left])
+        client._fetch_and_parse_decision_page = AsyncMock(return_value=[right])
+        client._fetch_and_parse_flat_page = AsyncMock(return_value=[left])
+        client._save_cache_to_db = AsyncMock()
+
+        with pytest.raises(BddkUpstreamError, match="conflicting records"):
+            await client.refresh_cache()
+
+        assert client.get_cache_items() == [previous]
+        assert client._cache_timestamp == 789.0
+        client._save_cache_to_db.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_partial_fetch_failure_retains_last_known_good_catalog(self):

@@ -8,9 +8,15 @@ import asyncpg
 import pytest
 
 from bddk_mcp.catalog_integrity import (
+    _ACTIVE_CORPUS_RELEASE_DEPENDENCIES,
+    _ACTIVE_CORPUS_RELEASE_REQUIRED_DEFINITION,
     _CITATION_VIEW_COLUMNS,
     _CITATION_VIEW_DEPENDENCIES,
     _CITATION_VIEW_REQUIRED_DEFINITION,
+    _CORPUS_RELEASE_CONSTRAINTS,
+    _CORPUS_RELEASE_RELATIONS,
+    _CORPUS_RELEASE_ROUTINES,
+    _CORPUS_RELEASE_TRIGGERS,
     _EXPECTED_CONSTRAINTS,
     _EXPECTED_INDEXES,
     _EXPECTED_ROUTINES,
@@ -19,6 +25,8 @@ from bddk_mcp.catalog_integrity import (
     _EXPECTED_V4_CONSTRAINT_COUNT,
     _EXPECTED_V4_INDEX_CATALOG_SHA256,
     _EXPECTED_V4_INDEX_COUNT,
+    _LEGAL_STATUS_RESULT_TYPE,
+    _v6_legal_status_function_source,
 )
 from bddk_mcp.core.exceptions import BddkStorageError
 from bddk_mcp.db_lifecycle import (
@@ -216,7 +224,7 @@ class ReadOnlyReadinessPool:
 
     async def fetch(self, query: str, *args):
         self._record_select(query)
-        if "bddk_meta.schema_migrations" in query:
+        if "SELECT version, name, checksum" in query:
             return [{"version": item.version, "name": item.name, "checksum": item.checksum} for item in MIGRATIONS]
         if "pg_extension" in query:
             return [{"extname": name} for name in sorted(self.extensions)]
@@ -228,6 +236,18 @@ class ReadOnlyReadinessPool:
                 }
                 for table_name in args[0]
             ]
+        if "ledger_owner.rolname AS ledger_owner_name" in query and "relation.relkind" in query:
+            return [
+                {
+                    "relname": name,
+                    "relkind": relation_kind,
+                    "owner_name": "bddk_schema_owner",
+                    "ledger_owner_name": "bddk_schema_owner",
+                    "options": options,
+                    "columns": columns,
+                }
+                for name, (relation_kind, columns, options) in _CORPUS_RELEASE_RELATIONS.items()
+            ]
         if "pg_attribute" in query:
             return [
                 {"table_name": table_name, "column_name": column_name}
@@ -236,6 +256,17 @@ class ReadOnlyReadinessPool:
                 for column_name in sorted(self.columns.get(table_name, set()))
             ]
         if "pg_constraint" in query:
+            if "namespace.nspname = 'bddk_meta'" in query:
+                return [
+                    {
+                        "relname": table,
+                        "conname": name,
+                        "contype": constraint_type,
+                        "convalidated": True,
+                        "definition": definition,
+                    }
+                    for (table, name), (constraint_type, definition) in _CORPUS_RELEASE_CONSTRAINTS.items()
+                ]
             return [
                 {
                     "table_name": table,
@@ -247,6 +278,17 @@ class ReadOnlyReadinessPool:
                 for (table, name), (constraint_type, definition) in _EXPECTED_CONSTRAINTS.items()
             ]
         if "pg_trigger" in query:
+            if "namespace.nspname = 'bddk_meta'" in query:
+                return [
+                    {
+                        "relname": table,
+                        "tgname": name,
+                        "tgenabled": "O",
+                        "tgtype": trigger_type,
+                        "function_identity": function_identity,
+                    }
+                    for (table, name), (function_identity, trigger_type) in _CORPUS_RELEASE_TRIGGERS.items()
+                ]
             return [
                 {
                     "table_name": table,
@@ -273,6 +315,29 @@ class ReadOnlyReadinessPool:
                 for name, (method, keys, opclasses, options) in _EXPECTED_INDEXES.items()
             ]
         if "pg_proc" in query:
+            if "namespace.nspname = 'bddk_meta'" in query:
+                return [
+                    {
+                        "function_identity": identity,
+                        "language": language,
+                        "provolatile": volatility,
+                        "proparallel": parallel,
+                        "prosecdef": security_definer,
+                        "proleakproof": False,
+                        "configuration": ["search_path=pg_catalog"],
+                        "source": source,
+                        "owner_name": "bddk_schema_owner",
+                        "ledger_owner_name": "bddk_schema_owner",
+                        "public_can_execute": False,
+                    }
+                    for identity, (
+                        language,
+                        volatility,
+                        parallel,
+                        security_definer,
+                        source,
+                    ) in _CORPUS_RELEASE_ROUTINES.items()
+                ]
             return [
                 {
                     "function_identity": identity,
@@ -298,6 +363,23 @@ class ReadOnlyReadinessPool:
 
     async def fetchrow(self, query: str, *args):
         self._record_select(query)
+        if "resolve_regulation_status" in query and "pg_proc" in query:
+            return {
+                "function_identity": "resolve_regulation_status(text, date)",
+                "language": "sql",
+                "provolatile": "s",
+                "proparallel": "s",
+                "prosecdef": True,
+                "proleakproof": False,
+                "proisstrict": True,
+                "proretset": True,
+                "result_type": _LEGAL_STATUS_RESULT_TYPE,
+                "configuration": ["search_path=pg_catalog"],
+                "source": _v6_legal_status_function_source(),
+                "owner_name": "bddk_schema_owner",
+                "ledger_owner_name": "bddk_schema_owner",
+                "public_can_execute": False,
+            }
         if "v4_constraint_catalog_sha256" in query:
             return {
                 "object_count": _EXPECTED_V4_CONSTRAINT_COUNT,
@@ -309,6 +391,11 @@ class ReadOnlyReadinessPool:
                 "v4_index_catalog_sha256": _EXPECTED_V4_INDEX_CATALOG_SHA256,
             }
         if "pg_get_viewdef" in query:
+            if "active_corpus_release" in query:
+                return {
+                    "definition": " ".join(_ACTIVE_CORPUS_RELEASE_REQUIRED_DEFINITION),
+                    "dependencies": list(_ACTIVE_CORPUS_RELEASE_DEPENDENCIES),
+                }
             return {
                 "relkind": "v",
                 "owner_name": "bddk_schema_owner",
@@ -318,6 +405,8 @@ class ReadOnlyReadinessPool:
                 "columns": list(_CITATION_VIEW_COLUMNS),
                 "dependencies": list(_CITATION_VIEW_DEPENDENCIES),
             }
+        if "FROM bddk_meta.active_corpus_release" in query:
+            return None
         assert "has_decision_cache" in query
         return self.corpus
 
@@ -336,7 +425,7 @@ async def test_readiness_accepts_current_schema_and_uses_only_selects():
 
     assert report == DatabaseReadiness()
     assert report.ready
-    assert len(pool.statements) == 14
+    assert len(pool.statements) == 21
     assert all(statement.upper().startswith(("SELECT", "WITH")) for statement in pool.statements)
 
 
@@ -347,7 +436,7 @@ async def test_schema_only_readiness_skips_all_corpus_queries():
     report = await inspect_database_readiness(pool, require_corpus=False)  # type: ignore[arg-type]
 
     assert report.ready
-    assert len(pool.statements) == 13
+    assert len(pool.statements) == 19
 
 
 @pytest.mark.asyncio

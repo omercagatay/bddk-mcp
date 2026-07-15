@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Annotated
 from pydantic import BeforeValidator, Field
 
 from bddk_mcp.core.exceptions import BddkError, BddkStorageError
+from bddk_mcp.corpus_publication import CorpusPublicationError, inspect_active_corpus_release
 from bddk_mcp.ingest.backfill import BackfillOutcome, execute_backfill, group_by_signature, scan_candidates
 from bddk_mcp.jobs import JobContext, JobExecutionError, JobKind, JobOutcome
 from bddk_mcp.observability.metrics import metrics
@@ -103,6 +104,30 @@ def register(mcp, deps: Dependencies) -> None:
         manager = _job_manager(deps)
         active_jobs = await manager.active_task_count() if manager is not None else 0
         lines.append(f"  Operator jobs active: {active_jobs}")
+
+        try:
+            release = await inspect_active_corpus_release(deps.pool) if deps.pool is not None else None
+        except CorpusPublicationError:
+            lines.append("  Active corpus release: unavailable")
+        else:
+            if release is None:
+                lines.append("  Active corpus release: none")
+            else:
+                lines.extend(
+                    (
+                        f"  Active corpus release: {release.release_id}",
+                        f"  Corpus manifest: id={release.manifest_id} sha256={release.manifest_sha256}",
+                        f"  Corpus signer key sha256: {release.signer_key_sha256}",
+                        f"  Corpus freshness policy: {release.freshness_policy_result}",
+                        "  Corpus freshness SLOs: "
+                        f"detection={release.source_detection_slo_seconds}s "
+                        f"publication={release.publication_slo_seconds}s "
+                        f"max_age={release.max_manifest_age_seconds}s",
+                        f"  Retrieval profile sha256: {release.retrieval_profile_sha256}",
+                        f"  Corpus state sha256: {release.corpus_state_sha256}",
+                        f"  Corpus release completed at: {release.completed_at.isoformat()}",
+                    )
+                )
 
         return "\n".join(lines)
 

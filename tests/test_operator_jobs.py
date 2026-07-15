@@ -403,7 +403,7 @@ async def test_drain_closes_admission_cancels_after_timeout_and_awaits_tasks():
 
 
 @pytest.mark.asyncio
-async def test_recovery_skips_queued_and_resolves_only_proven_abandoned_records():
+async def test_recovery_terminalizes_every_unleased_unfinished_record_with_state_specific_safe_outcome():
     repository = InMemoryJobRepository()
     manager = OperatorJobManager(repository, lease_retry_seconds=0.001)
     now = datetime.now(UTC)
@@ -429,13 +429,117 @@ async def test_recovery_skips_queued_and_resolves_only_proven_abandoned_records(
             job = replacement
         jobs.append(job)
 
-    assert await manager.recover_interrupted() == 2
+    assert await manager.recover_interrupted() == 3
     queued, running, cancel_requested = [await manager.get(job.job_id) for job in jobs]
-    assert queued is not None and queued.state is JobState.QUEUED and queued.error_code is None
+    assert queued is not None and queued.state is JobState.INTERRUPTED
+    assert queued.error_code == "job_runner_unavailable"
     assert running is not None and running.state is JobState.INTERRUPTED
     assert running.error_code == "job_interrupted"
     assert cancel_requested is not None and cancel_requested.state is JobState.CANCELLED
     assert cancel_requested.error_code is None
+
+
+@pytest.mark.asyncio
+async def test_recovery_does_not_steal_live_cross_replica_lease_from_queued_record():
+    repository = InMemoryJobRepository()
+    queued = OperatorJob.create(
+        kind=JobKind.DOCUMENT_SYNC,
+        args_fingerprint=fingerprint_arguments(JobKind.DOCUMENT_SYNC, {"force": False}),
+        idempotency_digest=None,
+    )
+    stored, created = await repository.create_or_reuse(queued)
+    assert created
+    live_lease = await repository.try_acquire_execution_lease(
+        job_id=stored.job_id,
+        resource=stored.kind.execution_resource,
+    )
+    assert live_lease is not None
+
+    recovering_manager = OperatorJobManager(repository, lease_retry_seconds=0.001)
+    assert await recovering_manager.recover_interrupted() == 0
+    still_queued = await recovering_manager.get(stored.job_id)
+    assert still_queued is not None and still_queued.state is JobState.QUEUED
+
+    await live_lease.release()
+    assert await recovering_manager.recover_interrupted() == 1
+    recovered = await recovering_manager.get(stored.job_id)
+    assert recovered is not None and recovered.state is JobState.INTERRUPTED
+    assert recovered.error_code == "job_runner_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_recovered_queued_record_is_not_fake_resumed_without_persisted_arguments():
+    repository = InMemoryJobRepository()
+    key = "queued-crash-idempotency"
+    sentinel = "RAW-ARGUMENT-NOT-PERSISTED"
+    arguments = {"document_id": sentinel, "force": False}
+    queued = OperatorJob.create(
+        kind=JobKind.DOCUMENT_SYNC,
+        args_fingerprint=fingerprint_arguments(JobKind.DOCUMENT_SYNC, arguments),
+        idempotency_digest=digest_idempotency_key(key),
+    )
+    stored, created = await repository.create_or_reuse(queued)
+    assert created
+    manager = OperatorJobManager(repository, lease_retry_seconds=0.001)
+
+    assert await manager.recover_interrupted() == 1
+    runner_called = False
+
+    async def replacement_runner(_context):
+        nonlocal runner_called
+        runner_called = True
+
+    reused = await manager.submit(
+        kind=JobKind.DOCUMENT_SYNC,
+        arguments=arguments,
+        idempotency_key=key,
+        runner=replacement_runner,
+    )
+
+    assert reused.job_id == stored.job_id
+    assert reused.state is JobState.INTERRUPTED
+    assert reused.error_code == "job_runner_unavailable"
+    assert runner_called is False
+    assert await manager.active_task_count() == 0
+    assert sentinel not in repr(reused)
+    assert key not in repr(reused)
+
+
+@pytest.mark.asyncio
+async def test_cancellation_winning_queued_recovery_cas_finishes_cancelled_without_error():
+    class CancellationRaceRepository(InMemoryJobRepository):
+        inject_cancellation = True
+
+        async def compare_and_set(self, replacement, *, expected_revision):
+            if self.inject_cancellation and replacement.state is JobState.INTERRUPTED:
+                current = await self.get(replacement.job_id)
+                assert current is not None and current.state is JobState.QUEUED
+                self.inject_cancellation = False
+                cancelled_requested = replace(
+                    current,
+                    state=JobState.CANCEL_REQUESTED,
+                    updated_at=datetime.now(UTC),
+                    revision=current.revision + 1,
+                )
+                assert await super().compare_and_set(cancelled_requested, expected_revision=current.revision)
+                return False
+            return await super().compare_and_set(replacement, expected_revision=expected_revision)
+
+    repository = CancellationRaceRepository()
+    queued = OperatorJob.create(
+        kind=JobKind.DOCUMENT_SYNC,
+        args_fingerprint=fingerprint_arguments(JobKind.DOCUMENT_SYNC, {}),
+        idempotency_digest=None,
+    )
+    stored, created = await repository.create_or_reuse(queued)
+    assert created
+
+    manager = OperatorJobManager(repository, lease_retry_seconds=0.001)
+    assert await manager.recover_interrupted() == 1
+    recovered = await manager.get(stored.job_id)
+    assert recovered is not None and recovered.state is JobState.CANCELLED
+    assert recovered.error_code is None
+    assert recovered.finished_at is not None
 
 
 @pytest.mark.asyncio

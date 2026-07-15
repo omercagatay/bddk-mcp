@@ -279,7 +279,9 @@ async def test_cancelled_readiness_rolls_back_unpublished_dependencies():
 
     entered = asyncio.Event()
 
-    async def blocking_readiness(*, pool):
+    async def blocking_readiness(*, pool, require_corpus, require_active_release):
+        assert require_corpus is True
+        assert require_active_release is server_module.REQUIRE_ACTIVE_CORPUS_RELEASE
         entered.set()
         await asyncio.Event().wait()
 
@@ -349,7 +351,11 @@ async def test_create_deps_uses_only_read_only_runtime_initialization():
     pool_init = create_pool.await_args.kwargs["init"]
     assert pool_init.func is server_module.assert_database_connection_identity
     assert pool_init.keywords == {"profile": "public"}
-    readiness.assert_awaited_once_with(pool=pool)
+    readiness.assert_awaited_once_with(
+        pool=pool,
+        require_corpus=True,
+        require_active_release=server_module.REQUIRE_ACTIVE_CORPUS_RELEASE,
+    )
     identity_readiness.assert_awaited_once_with(pool, "public")
     client.load_cache_read_only.assert_awaited_once_with()
     client_type.assert_called_once_with(
@@ -424,6 +430,7 @@ async def test_operator_runtime_gets_separate_dsn_and_job_manager():
     repository = MagicMock()
     repository.list_unfinished = AsyncMock(return_value=[])
     repository.prune_terminal = AsyncMock(return_value=0)
+    database_readiness = AsyncMock()
     operator_readiness = AsyncMock()
     identity_readiness = AsyncMock()
 
@@ -432,7 +439,8 @@ async def test_operator_runtime_gets_separate_dsn_and_job_manager():
         patch.object(server_module, "require_database_url", return_value="postgresql://operator") as require_dsn,
         patch.object(server_module.httpx, "AsyncClient", return_value=http),
         patch.object(server_module.asyncpg, "create_pool", new=AsyncMock(return_value=pool)),
-        patch.object(server_module, "assert_database_ready", new=AsyncMock()),
+        patch.object(server_module, "REQUIRE_ACTIVE_CORPUS_RELEASE", True),
+        patch.object(server_module, "assert_database_ready", new=database_readiness),
         patch.object(server_module, "assert_database_identity", new=identity_readiness),
         patch.object(server_module, "assert_operator_job_schema_ready", new=operator_readiness),
         patch.object(server_module, "PostgresJobRepository", return_value=repository) as repository_type,
@@ -441,12 +449,27 @@ async def test_operator_runtime_gets_separate_dsn_and_job_manager():
         deps = await server_module.create_deps(ToolProfile.OPERATOR)
 
     require_dsn.assert_called_once_with("operator")
+    database_readiness.assert_awaited_once_with(
+        pool=pool,
+        require_corpus=False,
+        require_active_release=False,
+    )
     identity_readiness.assert_awaited_once_with(pool, "operator")
     operator_readiness.assert_awaited_once_with(pool)
     repository_type.assert_called_once_with(pool)
     repository.list_unfinished.assert_awaited_once_with()
     assert isinstance(deps.job_manager, OperatorJobManager)
     await deps.job_manager.drain(timeout=0)
+
+
+def test_strict_release_readiness_blocks_public_startup_but_not_operator_recovery() -> None:
+    import bddk_mcp.server as server_module
+
+    with patch.object(server_module, "REQUIRE_ACTIVE_CORPUS_RELEASE", True):
+        assert server_module._requires_active_release_for_readiness(ToolProfile.PUBLIC)
+        assert not server_module._requires_active_release_for_readiness(ToolProfile.OPERATOR)
+        assert server_module._requires_corpus_for_readiness(ToolProfile.PUBLIC)
+        assert not server_module._requires_corpus_for_readiness(ToolProfile.OPERATOR)
 
 
 @pytest.mark.asyncio

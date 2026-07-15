@@ -39,6 +39,18 @@ def test_parser_exposes_explicit_runtime_commands():
     assert bootstrap.require_measured_freshness is True
     assert bootstrap.require_verified_signature is True
     assert bootstrap.trusted_signing_key == Path("/trust/corpus.pem")
+    publish = parser.parse_args(
+        [
+            "publish-corpus-release",
+            "--seed-dir",
+            "/corpus",
+            "--trusted-signing-key",
+            "/trust/corpus.pem",
+        ]
+    )
+    assert publish.command == "publish-corpus-release"
+    assert publish.seed_dir == Path("/corpus")
+    assert publish.trusted_signing_key == Path("/trust/corpus.pem")
     verify = parser.parse_args(
         [
             "verify-corpus",
@@ -88,6 +100,8 @@ def test_bootstrap_reports_the_path_free_manifest_identity(capsys):
         "reindex_published": 0,
         "corpus_manifest_id": "reviewed-corpus-v1",
         "corpus_manifest_sha256": "a" * 64,
+        "corpus_scope_warnings": ["chunk_artifact_does_not_match_current_retrieval_profile"],
+        "release_publication_required": True,
     }
     with (
         patch("bddk_mcp.cli._bootstrap") as bootstrap,
@@ -110,7 +124,43 @@ def test_bootstrap_reports_the_path_free_manifest_identity(capsys):
     output = capsys.readouterr().out
     assert "Corpus manifest used: id=reviewed-corpus-v1" in output
     assert "sha256=" + "a" * 64 in output
+    assert "WARNING: chunk_artifact_does_not_match_current_retrieval_profile" in output
+    assert "Release publication required" in output
     assert "seed_data" not in output
+
+
+def test_publish_release_uses_dedicated_command_and_reports_safe_identity(capsys):
+    active_release = {
+        "release_id": "corpus_release_sha256_" + "a" * 64,
+        "manifest_sha256": "b" * 64,
+        "retrieval_profile_sha256": "c" * 64,
+    }
+    result = {"active_corpus_release": active_release}
+    with (
+        patch("bddk_mcp.cli._publish_corpus_release") as publish,
+        patch("bddk_mcp.cli.asyncio.run", return_value=result) as run,
+    ):
+        cli.main(
+            [
+                "publish-corpus-release",
+                "--seed-dir",
+                "/corpus",
+                "--trusted-signing-key",
+                "/trust/corpus.pem",
+            ]
+        )
+
+    publish.assert_called_once_with(
+        None,
+        Path("/corpus"),
+        trusted_signing_key=Path("/trust/corpus.pem"),
+    )
+    run.assert_called_once()
+    run.call_args.args[0].close()
+    output = capsys.readouterr().out
+    assert active_release["release_id"] in output
+    assert active_release["manifest_sha256"] in output
+    assert active_release["retrieval_profile_sha256"] in output
 
 
 def test_serve_applies_overrides_before_import():
