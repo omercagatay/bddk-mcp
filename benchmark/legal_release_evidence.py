@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import stat
 from collections.abc import Sequence
@@ -21,13 +22,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
-import yaml
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from bddk_mcp.citations import CitationV1
+from bddk_mcp.release_yaml import ReleaseYamlError, load_bounded_release_yaml
 from benchmark.signing import ed25519_public_key_fingerprint_sha256
 
 _MAX_CHECKPOINT_BYTES = 8 * 1024 * 1024
@@ -38,6 +39,11 @@ _MAX_ACQUISITION_RECORD_BYTES = 1 * 1024 * 1024
 _MAX_PAGE_PROOF_BYTES = 32 * 1024 * 1024
 _MAX_PAGE_TEXT_BYTES = 8 * 1024 * 1024
 _MAX_CITATION_EXCERPT_BYTES = 128 * 1024
+_MAX_CHAIN_CHECKPOINTS = 256
+_MAX_RETAINED_FILES_PER_CHAIN = 100_000
+_MAX_RETAINED_BYTES_PER_CHAIN = 8 * 1024 * 1024 * 1024
+_MAX_PAGE_TEXT_BYTES_PER_ARTIFACT = 256 * 1024 * 1024
+_HASH_BLOCK_BYTES = 1024 * 1024
 _SHA256_PATTERN = r"^[0-9a-f]{64}$"
 _ARTIFACT_ID_PATTERN = r"^art_sha256_[0-9a-f]{64}$"
 _BLOB_ID_PATTERN = r"^blob_sha256_[0-9a-f]{64}$"
@@ -46,6 +52,19 @@ _CITATION_ID_PATTERN = r"^cite_sha256_[0-9a-f]{64}$"
 
 class LegalReleaseEvidenceError(ValueError):
     """Raised when a legal-release checkpoint or retained artifact is invalid."""
+
+
+class _DuplicateJsonKeyError(ValueError):
+    """Internal marker for ambiguous release-significant JSON."""
+
+
+def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise _DuplicateJsonKeyError("duplicate JSON object key")
+        result[key] = value
+    return result
 
 
 class _StrictModel(BaseModel):
@@ -59,6 +78,12 @@ def _safe_relative_reference(value: str) -> str:
     if candidate.is_absolute() or not candidate.parts or any(part in {"", ".", ".."} for part in candidate.parts):
         raise ValueError("artifact reference must be a normalized relative path")
     return candidate.as_posix()
+
+
+def _as_utc(value: datetime, *, label: str) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise LegalReleaseEvidenceError(f"{label} must include a timezone")
+    return value.astimezone(UTC)
 
 
 class SealedFile(_StrictModel):
@@ -218,6 +243,8 @@ class LegalReleaseEvidenceValidation:
     signing_key_sha256: str
     signing_key_fingerprint_sha256: str
     latest_checkpoint_verified: bool
+    chain_checkpoint_count: int
+    genesis_checkpoint_sha256: str
     artifact_count: int
     citation_count: int
 
@@ -229,6 +256,20 @@ class _RetainedArtifact:
     page_proof: PageMappingProof
     mapping_by_citation_id: dict[str, CitationPageMapping]
     excerpt_length_by_citation_id: dict[str, int]
+
+
+@dataclass(slots=True)
+class _RetentionBudget:
+    file_count: int = 0
+    declared_bytes: int = 0
+
+    def consume(self, sealed: SealedFile) -> None:
+        self.file_count += 1
+        self.declared_bytes += sealed.bytes
+        if self.file_count > _MAX_RETAINED_FILES_PER_CHAIN:
+            raise LegalReleaseEvidenceError("legal release retained-file count exceeds its chain bound")
+        if self.declared_bytes > _MAX_RETAINED_BYTES_PER_CHAIN:
+            raise LegalReleaseEvidenceError("legal release retained bytes exceed their chain bound")
 
 
 def canonical_checkpoint_payload(raw_checkpoint: dict[str, Any]) -> bytes:
@@ -255,15 +296,24 @@ def canonical_checkpoint_sha256(raw_checkpoint: dict[str, Any]) -> str:
 
 def _bounded_regular_bytes(path: Path, *, label: str, maximum_bytes: int) -> bytes:
     try:
-        metadata = path.lstat()
+        descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0))
     except OSError as exc:
         raise LegalReleaseEvidenceError(f"{label} is unavailable") from exc
-    if not stat.S_ISREG(metadata.st_mode) or not 1 <= metadata.st_size <= maximum_bytes:
-        raise LegalReleaseEvidenceError(f"{label} is not a bounded regular file")
     try:
-        return path.read_bytes()
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or not 1 <= metadata.st_size <= maximum_bytes:
+            raise LegalReleaseEvidenceError(f"{label} is not a bounded regular file")
+        with os.fdopen(descriptor, "rb") as handle:
+            descriptor = -1
+            payload = handle.read(maximum_bytes + 1)
+        if len(payload) != metadata.st_size:
+            raise LegalReleaseEvidenceError(f"{label} changed while it was read")
+        return payload
     except OSError as exc:
         raise LegalReleaseEvidenceError(f"{label} could not be read") from exc
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
 
 
 def _load_mapping(
@@ -275,8 +325,12 @@ def _load_mapping(
 
 def _parse_mapping_bytes(raw_bytes: bytes, *, label: str, json_only: bool = False) -> dict[str, Any]:
     try:
-        raw = json.loads(raw_bytes) if json_only else yaml.safe_load(raw_bytes)
-    except (UnicodeError, json.JSONDecodeError, yaml.YAMLError) as exc:
+        raw = (
+            json.loads(raw_bytes, object_pairs_hook=_unique_json_object)
+            if json_only
+            else load_bounded_release_yaml(raw_bytes, maximum_bytes=len(raw_bytes))
+        )
+    except (UnicodeError, json.JSONDecodeError, _DuplicateJsonKeyError, ReleaseYamlError) as exc:
         raise LegalReleaseEvidenceError(f"{label} is invalid") from exc
     if not isinstance(raw, dict):
         raise LegalReleaseEvidenceError(f"{label} must be an object")
@@ -284,7 +338,16 @@ def _parse_mapping_bytes(raw_bytes: bytes, *, label: str, json_only: bool = Fals
 
 
 def _resolve_reference(root: Path, reference: str, *, label: str) -> Path:
-    candidate = (root / reference).resolve()
+    unresolved = root / reference
+    cursor = root
+    for part in Path(reference).parts:
+        cursor /= part
+        try:
+            if stat.S_ISLNK(cursor.lstat().st_mode):
+                raise LegalReleaseEvidenceError(f"{label} uses a symbolic-link path")
+        except FileNotFoundError:
+            break
+    candidate = unresolved.resolve()
     if not candidate.is_relative_to(root):
         raise LegalReleaseEvidenceError(f"{label} escaped its approved root")
     return candidate
@@ -298,6 +361,45 @@ def _verify_sealed_file(root: Path, sealed: SealedFile, *, label: str, maximum_b
     if len(raw_bytes) != sealed.bytes or hashlib.sha256(raw_bytes).hexdigest() != sealed.sha256:
         raise LegalReleaseEvidenceError(f"{label} differs from its sealed identity")
     return path, raw_bytes
+
+
+def _verify_sealed_file_streaming(
+    root: Path,
+    sealed: SealedFile,
+    *,
+    label: str,
+    maximum_bytes: int,
+) -> tuple[Path, int]:
+    """Verify a sealed file without retaining its potentially large body."""
+
+    if sealed.bytes > maximum_bytes:
+        raise LegalReleaseEvidenceError(f"{label} exceeds its size bound")
+    path = _resolve_reference(root, sealed.reference, label=label)
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0))
+    except OSError as exc:
+        raise LegalReleaseEvidenceError(f"{label} is unavailable") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size != sealed.bytes:
+            raise LegalReleaseEvidenceError(f"{label} differs from its sealed identity")
+        digest = hashlib.sha256()
+        read_bytes = 0
+        with os.fdopen(descriptor, "rb") as handle:
+            descriptor = -1
+            while block := handle.read(_HASH_BLOCK_BYTES):
+                read_bytes += len(block)
+                if read_bytes > maximum_bytes:
+                    raise LegalReleaseEvidenceError(f"{label} exceeds its size bound")
+                digest.update(block)
+        if read_bytes != sealed.bytes or digest.hexdigest() != sealed.sha256:
+            raise LegalReleaseEvidenceError(f"{label} differs from its sealed identity")
+        return path, read_bytes
+    except OSError as exc:
+        raise LegalReleaseEvidenceError(f"{label} could not be read") from exc
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
 
 
 def _verify_checkpoint_signature(
@@ -354,23 +456,27 @@ def _verify_checkpoint_retention(
     checkpoint: LegalReleaseCheckpoint,
     *,
     root: Path,
+    budget: _RetentionBudget,
 ) -> dict[str, _RetainedArtifact]:
     """Re-hash every retained artifact named by one signed checkpoint."""
 
     retained: dict[str, _RetainedArtifact] = {}
     for evidence in checkpoint.artifacts:
-        _, source_bytes = _verify_sealed_file(
+        budget.consume(evidence.source_bytes)
+        _, source_bytes_size = _verify_sealed_file_streaming(
             root,
             evidence.source_bytes,
             label="retained authoritative source bytes",
             maximum_bytes=_MAX_SOURCE_BYTES,
         )
+        budget.consume(evidence.acquisition_record)
         _, acquisition_bytes = _verify_sealed_file(
             root,
             evidence.acquisition_record,
             label="retained source acquisition record",
             maximum_bytes=_MAX_ACQUISITION_RECORD_BYTES,
         )
+        budget.consume(evidence.page_mapping_proof)
         _, page_proof_bytes = _verify_sealed_file(
             root,
             evidence.page_mapping_proof,
@@ -397,21 +503,26 @@ def _verify_checkpoint_retention(
             acquisition.artifact_id != evidence.artifact_id
             or acquisition.blob_id != evidence.blob_id
             or acquisition.response_body_sha256 != evidence.source_bytes.sha256
-            or acquisition.response_body_bytes != len(source_bytes)
+            or acquisition.response_body_bytes != source_bytes_size
             or acquisition.captured_at > checkpoint.created_at
         ):
             raise LegalReleaseEvidenceError("retained acquisition record differs from its signed checkpoint")
         if (
             page_proof.artifact_id != evidence.artifact_id
             or page_proof.source_bytes_sha256 != evidence.source_bytes.sha256
-            or page_proof.source_bytes != len(source_bytes)
+            or page_proof.source_bytes != source_bytes_size
             or page_proof.reviewed_at < acquisition.captured_at
             or page_proof.reviewed_at > checkpoint.created_at
         ):
             raise LegalReleaseEvidenceError("retained page-mapping proof differs from its signed checkpoint")
 
         page_text_by_number: dict[int, str] = {}
+        page_text_declared_bytes = 0
         for page in page_proof.pages:
+            budget.consume(page.rendered_text)
+            page_text_declared_bytes += page.rendered_text.bytes
+            if page_text_declared_bytes > _MAX_PAGE_TEXT_BYTES_PER_ARTIFACT:
+                raise LegalReleaseEvidenceError("retained source-page text exceeds its per-artifact bound")
             _, page_text_bytes = _verify_sealed_file(
                 root,
                 page.rendered_text,
@@ -428,6 +539,7 @@ def _verify_checkpoint_retention(
             raise LegalReleaseEvidenceError("page-mapping citation inventory differs from its signed checkpoint")
         excerpt_lengths: dict[str, int] = {}
         for citation_id, mapping in mappings.items():
+            budget.consume(mapping.rendered_excerpt)
             _, excerpt_bytes = _verify_sealed_file(
                 root,
                 mapping.rendered_excerpt,
@@ -443,7 +555,7 @@ def _verify_checkpoint_retention(
                 raise LegalReleaseEvidenceError("retained Citation v1 excerpt is absent from its mapped pages")
             excerpt_lengths[citation_id] = len(excerpt)
         retained[evidence.artifact_id] = _RetainedArtifact(
-            source_bytes_size=len(source_bytes),
+            source_bytes_size=source_bytes_size,
             acquisition=acquisition,
             page_proof=page_proof,
             mapping_by_citation_id=mappings,
@@ -459,7 +571,9 @@ def validate_legal_release_evidence(
     source_root: str | Path,
     legal_pack_sha256: str,
     legal_pack_exported_at: datetime,
+    legal_pack_attested_at: datetime,
     corpus_manifest_sha256: str,
+    corpus_approved_at: datetime,
     citations: Sequence[CitationV1],
     now: datetime,
     predecessor_checkpoint_path: str | Path | None = None,
@@ -481,17 +595,24 @@ def validate_legal_release_evidence(
         raise LegalReleaseEvidenceError("legal release checkpoint refers to a different legal pack")
     if checkpoint.corpus_manifest_sha256 != corpus_manifest_sha256:
         raise LegalReleaseEvidenceError("legal release checkpoint refers to a different corpus manifest")
-    exported_at = legal_pack_exported_at.astimezone(UTC)
+    exported_at = _as_utc(legal_pack_exported_at, label="legal pack export timestamp")
     if checkpoint.created_at < exported_at:
         raise LegalReleaseEvidenceError("legal release checkpoint predates the validated legal pack")
+    attested_at = _as_utc(legal_pack_attested_at, label="legal-curator approval timestamp")
+    if checkpoint.created_at < attested_at:
+        raise LegalReleaseEvidenceError("legal release checkpoint predates legal-curator approval")
+    approved_at = _as_utc(corpus_approved_at, label="corpus approval timestamp")
+    if checkpoint.created_at < approved_at:
+        raise LegalReleaseEvidenceError("legal release checkpoint predates corpus build or scope approval")
 
     root = Path(source_root).resolve()
-    retained_by_artifact = _verify_checkpoint_retention(checkpoint, root=root)
+    retention_budget = _RetentionBudget()
+    retained_by_artifact = _verify_checkpoint_retention(checkpoint, root=root, budget=retention_budget)
     supplied_predecessor = Path(predecessor_checkpoint_path).resolve() if predecessor_checkpoint_path else None
     chain_path = checkpoint_file
     chain_checkpoint = checkpoint
     seen_checkpoints = {checkpoint.integrity.checkpoint_sha256}
-    for depth in range(1_000):
+    for depth in range(_MAX_CHAIN_CHECKPOINTS):
         predecessor_sha256 = chain_checkpoint.predecessor_checkpoint_sha256
         predecessor_reference = chain_checkpoint.predecessor_checkpoint_reference
         if predecessor_sha256 is None or predecessor_reference is None:
@@ -521,7 +642,7 @@ def validate_legal_release_evidence(
             raise LegalReleaseEvidenceError("legal release predecessor uses a different trust anchor")
         if predecessor_key_fingerprint != key_fingerprint:
             raise LegalReleaseEvidenceError("legal release predecessor uses a different signer")
-        _verify_checkpoint_retention(predecessor, root=root)
+        _verify_checkpoint_retention(predecessor, root=root, budget=retention_budget)
         seen_checkpoints.add(predecessor.integrity.checkpoint_sha256)
         chain_path = predecessor_path
         chain_checkpoint = predecessor
@@ -590,6 +711,8 @@ def validate_legal_release_evidence(
         signing_key_sha256=key_sha256,
         signing_key_fingerprint_sha256=key_fingerprint,
         latest_checkpoint_verified=latest_verified,
+        chain_checkpoint_count=len(seen_checkpoints),
+        genesis_checkpoint_sha256=chain_checkpoint.integrity.checkpoint_sha256,
         artifact_count=len(evidence_by_artifact),
         citation_count=len(citation_by_id),
     )

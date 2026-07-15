@@ -178,6 +178,7 @@ class CorpusScopeManifest(_StrictModel):
 class CorpusManifestValidation:
     manifest: CorpusScopeManifest
     manifest_sha256: str
+    signing_key_fingerprint_sha256: str | None
     warnings: tuple[str, ...]
 
 
@@ -231,10 +232,10 @@ def _verify_manifest_signature(
     *,
     corpus_root: Path,
     trusted_signing_key: Path | None,
-) -> None:
+) -> str | None:
     integrity = manifest.integrity
     if integrity.signature_status != "verified":
-        return
+        return None
     if trusted_signing_key is None:
         raise CorpusManifestError("verified corpus signature requires a separately supplied trusted public key")
 
@@ -255,6 +256,11 @@ def _verify_manifest_signature(
         public_key.verify(signature, canonical_manifest_payload(raw_manifest))
     except (InvalidSignature, TypeError, ValueError):
         raise CorpusManifestError("corpus manifest detached signature verification failed") from None
+    canonical_key = public_key.public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    return hashlib.sha256(canonical_key).hexdigest()
 
 
 def _artifact_path(root: Path, relative_path: str) -> Path:
@@ -371,7 +377,7 @@ def load_and_validate_corpus_manifest(
         raise CorpusManifestError("corpus manifest canonicalization failed") from exc
     if manifest.integrity.manifest_sha256 != expected_checksum:
         raise CorpusManifestError("corpus manifest checksum mismatch")
-    _verify_manifest_signature(
+    signing_key_fingerprint = _verify_manifest_signature(
         raw,
         manifest,
         corpus_root=root,
@@ -423,5 +429,6 @@ def load_and_validate_corpus_manifest(
     return CorpusManifestValidation(
         manifest=manifest,
         manifest_sha256=expected_checksum,
+        signing_key_fingerprint_sha256=signing_key_fingerprint,
         warnings=tuple(warnings),
     )

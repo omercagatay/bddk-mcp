@@ -18,7 +18,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
-import yaml
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
@@ -36,6 +35,7 @@ from bddk_mcp.corpus_manifest import (
     CorpusManifestValidation,
     load_and_validate_corpus_manifest,
 )
+from bddk_mcp.release_yaml import ReleaseYamlError, load_bounded_release_yaml
 from benchmark.legal_release_evidence import (
     LegalReleaseEvidenceError,
     LegalReleaseEvidenceValidation,
@@ -454,6 +454,8 @@ class ExpertEvaluationValidation:
     dataset_signature_verified: bool
     dataset_signing_key_fingerprint_sha256: str | None
     legal_attestation_verified: bool
+    legal_pack_sha256: str | None
+    legal_attestation_sha256: str | None
     legal_attestation_key_sha256: str | None
     legal_attestation_key_fingerprint_sha256: str | None
     legal_release_evidence_verified: bool
@@ -461,6 +463,8 @@ class ExpertEvaluationValidation:
     legal_release_signing_key_sha256: str | None
     legal_release_signing_key_fingerprint_sha256: str | None
     legal_release_latest_checkpoint_verified: bool
+    legal_release_chain_checkpoint_count: int | None
+    legal_release_genesis_checkpoint_sha256: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -592,8 +596,8 @@ def canonical_legal_attestation_sha256(raw_attestation: dict[str, Any]) -> str:
 def _load_bounded_mapping(path: Path, *, label: str, maximum_bytes: int) -> tuple[dict[str, Any], bytes]:
     raw_bytes = _bounded_regular_bytes(path, label=label, maximum_bytes=maximum_bytes)
     try:
-        raw = yaml.safe_load(raw_bytes)
-    except yaml.YAMLError as exc:
+        raw = load_bounded_release_yaml(raw_bytes, maximum_bytes=maximum_bytes)
+    except ReleaseYamlError as exc:
         raise ExpertEvaluationError(f"expert dataset {label} is invalid") from exc
     if not isinstance(raw, dict):
         raise ExpertEvaluationError(f"expert dataset {label} must be a mapping")
@@ -604,6 +608,8 @@ def _load_bounded_mapping(path: Path, *, label: str, maximum_bytes: int) -> tupl
 class _VerifiedLegalPack:
     pack: ValidatedLegalCitationPack
     pack_sha256: str
+    attestation_sha256: str
+    attested_at: datetime
     attestation_key_sha256: str
     attestation_key_fingerprint_sha256: str
 
@@ -673,6 +679,8 @@ def _verify_legal_attestation(
     return _VerifiedLegalPack(
         pack=pack,
         pack_sha256=pack_sha256,
+        attestation_sha256=attestation.integrity.attestation_sha256,
+        attested_at=attestation.attested_at.astimezone(UTC),
         attestation_key_sha256=key_sha256,
         attestation_key_fingerprint_sha256=ed25519_public_key_fingerprint_sha256(public_key),
     )
@@ -686,8 +694,8 @@ def _load_yaml_mapping(path: Path) -> dict[str, Any]:
     if not stat.S_ISREG(metadata.st_mode) or not 1 <= metadata.st_size <= _MAX_DATASET_BYTES:
         raise ExpertEvaluationError("expert evaluation dataset is not a bounded regular file")
     try:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, yaml.YAMLError) as exc:
+        raw = load_bounded_release_yaml(path.read_bytes(), maximum_bytes=_MAX_DATASET_BYTES)
+    except (OSError, ReleaseYamlError) as exc:
         raise ExpertEvaluationError("expert evaluation dataset YAML is invalid") from exc
     if not isinstance(raw, dict):
         raise ExpertEvaluationError("expert evaluation dataset must be a mapping")
@@ -981,7 +989,12 @@ def load_expert_evaluation_dataset(
                 source_root=Path(str(legal_release_source_root)).resolve(),
                 legal_pack_sha256=verified_legal_pack.pack_sha256,
                 legal_pack_exported_at=verified_legal_pack.pack.exported_at,
+                legal_pack_attested_at=verified_legal_pack.attested_at,
                 corpus_manifest_sha256=dataset.corpus.manifest_sha256,
+                corpus_approved_at=max(
+                    corpus_validation.manifest.freshness.corpus_built_at,
+                    corpus_validation.manifest.freshness.scope_reviewed_at,
+                ),
                 citations=verified_legal_pack.pack.citations,
                 now=current,
                 predecessor_checkpoint_path=(
@@ -1001,6 +1014,8 @@ def load_expert_evaluation_dataset(
         dataset_signature_verified=dataset_signing_key_fingerprint is not None,
         dataset_signing_key_fingerprint_sha256=dataset_signing_key_fingerprint,
         legal_attestation_verified=verified_legal_pack is not None,
+        legal_pack_sha256=verified_legal_pack.pack_sha256 if verified_legal_pack is not None else None,
+        legal_attestation_sha256=(verified_legal_pack.attestation_sha256 if verified_legal_pack is not None else None),
         legal_attestation_key_sha256=(
             verified_legal_pack.attestation_key_sha256 if verified_legal_pack is not None else None
         ),
@@ -1019,6 +1034,12 @@ def load_expert_evaluation_dataset(
         ),
         legal_release_latest_checkpoint_verified=(
             legal_release_validation.latest_checkpoint_verified if legal_release_validation is not None else False
+        ),
+        legal_release_chain_checkpoint_count=(
+            legal_release_validation.chain_checkpoint_count if legal_release_validation is not None else None
+        ),
+        legal_release_genesis_checkpoint_sha256=(
+            legal_release_validation.genesis_checkpoint_sha256 if legal_release_validation is not None else None
         ),
     )
     if require_release_ready:
@@ -1060,6 +1081,16 @@ def _release_blockers(validation: ExpertEvaluationValidation) -> Counter[str]:
     corpus_integrity = validation.corpus_validation.manifest.integrity
     if corpus_integrity.signature_status != "verified":
         blockers["corpus_signature_not_verified"] += 1
+    else:
+        corpus_signer = validation.corpus_validation.signing_key_fingerprint_sha256
+        if corpus_signer is None:
+            blockers["corpus_signer_identity_not_verified"] += 1
+        if corpus_signer == validation.dataset_signing_key_fingerprint_sha256:
+            blockers["corpus_and_dataset_signers_not_separated"] += 1
+        if corpus_signer == validation.legal_attestation_key_fingerprint_sha256:
+            blockers["corpus_and_curator_signers_not_separated"] += 1
+        if corpus_signer == validation.legal_release_signing_key_fingerprint_sha256:
+            blockers["corpus_and_legal_release_signers_not_separated"] += 1
     freshness = validation.corpus_validation.manifest.freshness
     freshness_values = (
         freshness.source_detection_slo_seconds,

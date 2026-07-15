@@ -26,6 +26,15 @@ from benchmark.expert_evaluation import (
 )
 
 
+class ReleasePreflightArgumentError(ValueError):
+    """Raised without echoing an untrusted CLI argument."""
+
+
+class _SafeArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        raise ReleasePreflightArgumentError("release preflight arguments are invalid")
+
+
 @dataclass(frozen=True, slots=True)
 class ReleasePreflightInputs:
     dataset: Path
@@ -41,7 +50,12 @@ class ReleasePreflightInputs:
     trusted_legal_release_key: Path | None
     predecessor_legal_release_checkpoint: Path | None
     trusted_latest_legal_checkpoint_sha256: str | None
-    now: datetime | None
+
+
+def _trusted_now() -> datetime:
+    """Read the process clock; release callers cannot inject validation time."""
+
+    return datetime.now(UTC)
 
 
 def _canonical_sha256(value: dict) -> str:
@@ -72,33 +86,50 @@ def run_release_preflight(inputs: ReleasePreflightInputs) -> dict:
         trusted_legal_release_signing_key=inputs.trusted_legal_release_key,
         predecessor_legal_release_checkpoint_path=inputs.predecessor_legal_release_checkpoint,
         trusted_latest_legal_checkpoint_sha256=inputs.trusted_latest_legal_checkpoint_sha256,
-        now=inputs.now,
     )
     profile = profile_expert_evaluation_dataset(validation)
     require_expert_dataset_release_ready(validation)
-    validated_at = (inputs.now or datetime.now(UTC)).astimezone(UTC).isoformat()
+    validated_at = _trusted_now().astimezone(UTC).isoformat()
     report = {
         "schema_version": 1,
-        "status": "release_preflight_passed",
-        "scope": "expert_evaluation_trust_chain_only",
+        "status": "cryptographic_preflight_passed",
+        "scope": "operator_supplied_expert_evaluation_trust_chain",
+        "bank_authorization_verified": False,
         "model_scores_authorized": False,
         "reason_model_scores_not_authorized": "expert_dataset_execution_not_implemented",
+        "authorized_capabilities": [],
+        "unsupported_capabilities": [
+            "model_score_release_authorization",
+            "currentness_scoring",
+            "version_comparison_scoring",
+            "amendment_tracking_scoring",
+        ],
+        "self_checksum_algorithm": "sha256_canonical_json_unsigned",
         "validated_at": validated_at,
         "dataset_id": profile.dataset_id,
         "dataset_version": profile.dataset_version,
         "dataset_sha256": profile.dataset_sha256,
         "corpus_manifest_id": profile.corpus_manifest_id,
         "corpus_manifest_sha256": profile.corpus_manifest_sha256,
+        "corpus_signing_key_fingerprint_sha256": validation.corpus_validation.signing_key_fingerprint_sha256,
+        "dataset_signing_key_fingerprint_sha256": validation.dataset_signing_key_fingerprint_sha256,
+        "legal_pack_sha256": validation.legal_pack_sha256,
+        "legal_attestation_sha256": validation.legal_attestation_sha256,
+        "legal_attestation_key_fingerprint_sha256": validation.legal_attestation_key_fingerprint_sha256,
         "legal_release_checkpoint_sha256": validation.legal_release_checkpoint_sha256,
+        "legal_release_signing_key_fingerprint_sha256": validation.legal_release_signing_key_fingerprint_sha256,
+        "legal_release_chain_checkpoint_count": validation.legal_release_chain_checkpoint_count,
+        "legal_release_genesis_checkpoint_sha256": validation.legal_release_genesis_checkpoint_sha256,
+        "latest_checkpoint_anchor_provenance": "caller_supplied_argument",
         "case_count": profile.case_count,
         "evidence_count": profile.evidence_count,
         "release_blocker_counts": profile.release_blocker_counts,
     }
-    return {**report, "preflight_sha256": _canonical_sha256(report)}
+    return {**report, "preflight_self_checksum_sha256": _canonical_sha256(report)}
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Validate expert-evaluation release evidence without running a model.")
+    parser = _SafeArgumentParser(description="Validate expert-evaluation release evidence without running a model.")
     parser.add_argument("--dataset", type=Path, default=EXPERT_EVALUATION_DRAFT_PATH)
     parser.add_argument("--corpus-manifest", type=Path)
     parser.add_argument("--corpus-root", type=Path)
@@ -112,7 +143,6 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--trusted-legal-release-key", type=Path)
     parser.add_argument("--predecessor-legal-release-checkpoint", type=Path)
     parser.add_argument("--trusted-latest-legal-checkpoint-sha256")
-    parser.add_argument("--now", type=datetime.fromisoformat, help=argparse.SUPPRESS)
     return parser
 
 
@@ -131,15 +161,23 @@ def _inputs(args: argparse.Namespace) -> ReleasePreflightInputs:
         trusted_legal_release_key=args.trusted_legal_release_key,
         predecessor_legal_release_checkpoint=args.predecessor_legal_release_checkpoint,
         trusted_latest_legal_checkpoint_sha256=args.trusted_latest_legal_checkpoint_sha256,
-        now=args.now,
     )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
-    inputs = _inputs(args)
     try:
+        args = _parser().parse_args(argv)
+        inputs = _inputs(args)
         report = run_release_preflight(inputs)
+    except ReleasePreflightArgumentError:
+        failure = {
+            "schema_version": 1,
+            "status": "release_preflight_failed",
+            "error_code": "RELEASE_PREFLIGHT_ARGUMENTS_INVALID",
+            "model_scores_authorized": False,
+        }
+        print(json.dumps(failure, sort_keys=True, separators=(",", ":")), file=sys.stderr)
+        return 64
     except ExpertEvaluationReleaseError:
         # Reloading is unnecessary: the release exception is based entirely on
         # aggregate blocker counts already covered by focused library tests.

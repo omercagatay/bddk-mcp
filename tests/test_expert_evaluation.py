@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 import benchmark.legal_release_evidence as legal_release_evidence
 from bddk_mcp.citations import (
     CitationQuality,
+    CitationV1,
     NormalizedTextRange,
     TrustedCitationContext,
     build_normalized_range_citation,
@@ -43,7 +44,11 @@ from benchmark.expert_evaluation import (
     load_expert_evaluation_dataset,
     profile_expert_evaluation_dataset,
 )
-from benchmark.legal_release_evidence import canonical_checkpoint_payload, canonical_checkpoint_sha256
+from benchmark.legal_release_evidence import (
+    canonical_checkpoint_payload,
+    canonical_checkpoint_sha256,
+    validate_legal_release_evidence,
+)
 
 
 def _raw_dataset() -> dict[str, Any]:
@@ -302,6 +307,7 @@ def _write_signed_legal_pack(
     *,
     private_key: Ed25519PrivateKey | None = None,
     trusted_key_bytes: bytes | None = None,
+    attested_at: str = "2026-07-15T13:00:00Z",
 ) -> tuple[Path, Path, Path, str]:
     pack = {
         "schema_version": 1,
@@ -327,7 +333,7 @@ def _write_signed_legal_pack(
         "curator_role": "legal_curator",
         "pack_sha256": hashlib.sha256(pack_path.read_bytes()).hexdigest(),
         "citation_ids": [citation["citation_id"]],
-        "attested_at": "2026-07-15T13:00:00Z",
+        "attested_at": attested_at,
         "integrity": {
             "attestation_sha256": "0" * 64,
             "signature_algorithm": "ed25519",
@@ -435,6 +441,7 @@ def _write_legal_release_checkpoint(
     raw_dataset: dict[str, Any],
     citation: dict[str, Any],
     pack_path: Path,
+    page_text_content: str | None = None,
 ) -> tuple[Path, Path, str, Path, Path, Path, Path]:
     source_root = tmp_path / "retained-legal-source"
     source_root.mkdir()
@@ -468,7 +475,7 @@ def _write_legal_release_checkpoint(
     excerpt = sanitize_markdown_for_context(document["markdown_content"][start:end].strip())
     assert hashlib.sha256(excerpt.encode()).hexdigest() == citation["excerpt_sha256"]
     page_text_path = source_root / "page-1.txt"
-    page_text_path.write_text(document["markdown_content"], encoding="utf-8")
+    page_text_path.write_text(page_text_content or document["markdown_content"], encoding="utf-8")
     excerpt_path = source_root / "citation-excerpt.txt"
     excerpt_path.write_text(excerpt, encoding="utf-8")
     page_proof_path = source_root / "page-proof.json"
@@ -795,6 +802,158 @@ def test_legal_release_parses_the_exact_acquisition_bytes_that_were_hash_checked
     assert validation.legal_release_evidence_verified is True
 
 
+def test_release_significant_json_rejects_nested_duplicate_keys() -> None:
+    with pytest.raises(legal_release_evidence.LegalReleaseEvidenceError, match="is invalid"):
+        legal_release_evidence._parse_mapping_bytes(
+            b'{"outer":{"artifact_id":"first","artifact_id":"second"}}',
+            label="retained source acquisition record",
+            json_only=True,
+        )
+
+
+def test_legal_release_rejects_an_excerpt_absent_from_its_signed_page_mapping(tmp_path: Path) -> None:
+    raw = _raw_dataset()
+    citation = _verified_tracked_citation(raw)
+    raw["evidence_catalog"][0].update(
+        citation_v1_status="verified",
+        citation_v1_id=citation["citation_id"],
+        citation_v1=citation,
+    )
+    dataset_path = _write_sealed_dataset(tmp_path, raw)
+    pack_path, attestation_path, curator_key, _ = _write_signed_legal_pack(tmp_path, citation)
+    checkpoint_path, release_key, _, source_root, _, _, _ = _write_legal_release_checkpoint(
+        tmp_path,
+        raw_dataset=raw,
+        citation=citation,
+        pack_path=pack_path,
+        page_text_content="signed page that does not contain the citation excerpt",
+    )
+
+    with pytest.raises(ExpertEvaluationError, match="excerpt is absent from its mapped pages"):
+        load_expert_evaluation_dataset(
+            dataset_path,
+            validated_legal_pack_path=pack_path,
+            legal_attestation_path=attestation_path,
+            trusted_legal_attestation_key=curator_key,
+            legal_release_checkpoint_path=checkpoint_path,
+            legal_release_source_root=source_root,
+            trusted_legal_release_signing_key=release_key,
+            now=datetime(2026, 7, 16, tzinfo=UTC),
+        )
+
+
+def test_legal_release_path_and_aggregate_budget_guards(tmp_path: Path) -> None:
+    root = tmp_path / "retained"
+    root.mkdir()
+    outside = tmp_path / "outside.bin"
+    outside.write_bytes(b"outside")
+    (root / "linked.bin").symlink_to(outside)
+    sealed_link = legal_release_evidence.SealedFile(
+        reference="linked.bin",
+        sha256=hashlib.sha256(outside.read_bytes()).hexdigest(),
+        bytes=outside.stat().st_size,
+    )
+
+    with pytest.raises(legal_release_evidence.LegalReleaseEvidenceError, match="symbolic-link path"):
+        legal_release_evidence._verify_sealed_file(
+            root,
+            sealed_link,
+            label="retained test artifact",
+            maximum_bytes=1024,
+        )
+    inside = root / "inside.bin"
+    inside.write_bytes(b"inside")
+    (root / "inside-link.bin").symlink_to(inside)
+    sealed_inside_link = legal_release_evidence.SealedFile(
+        reference="inside-link.bin",
+        sha256=hashlib.sha256(inside.read_bytes()).hexdigest(),
+        bytes=inside.stat().st_size,
+    )
+    with pytest.raises(legal_release_evidence.LegalReleaseEvidenceError, match="symbolic-link path"):
+        legal_release_evidence._verify_sealed_file(
+            root,
+            sealed_inside_link,
+            label="retained test artifact",
+            maximum_bytes=1024,
+        )
+    with pytest.raises(ValueError, match="normalized relative path"):
+        legal_release_evidence.SealedFile(reference="../outside.bin", sha256="0" * 64, bytes=1)
+
+    budget = legal_release_evidence._RetentionBudget()
+    budget.consume(
+        legal_release_evidence.SealedFile(
+            reference="first.bin",
+            sha256="0" * 64,
+            bytes=legal_release_evidence._MAX_RETAINED_BYTES_PER_CHAIN,
+        )
+    )
+    with pytest.raises(legal_release_evidence.LegalReleaseEvidenceError, match="retained bytes exceed"):
+        budget.consume(legal_release_evidence.SealedFile(reference="second.bin", sha256="0" * 64, bytes=1))
+
+
+def test_legal_release_checkpoint_must_follow_curator_attestation(tmp_path: Path) -> None:
+    raw = _raw_dataset()
+    citation = _verified_tracked_citation(raw)
+    raw["evidence_catalog"][0].update(
+        citation_v1_status="verified",
+        citation_v1_id=citation["citation_id"],
+        citation_v1=citation,
+    )
+    dataset_path = _write_sealed_dataset(tmp_path, raw)
+    pack_path, attestation_path, curator_key, _ = _write_signed_legal_pack(
+        tmp_path,
+        citation,
+        attested_at="2026-07-15T14:30:00Z",
+    )
+    checkpoint_path, release_key, _, source_root, _, _, _ = _write_legal_release_checkpoint(
+        tmp_path,
+        raw_dataset=raw,
+        citation=citation,
+        pack_path=pack_path,
+    )
+
+    with pytest.raises(ExpertEvaluationError, match="predates legal-curator approval"):
+        load_expert_evaluation_dataset(
+            dataset_path,
+            validated_legal_pack_path=pack_path,
+            legal_attestation_path=attestation_path,
+            trusted_legal_attestation_key=curator_key,
+            legal_release_checkpoint_path=checkpoint_path,
+            legal_release_source_root=source_root,
+            trusted_legal_release_signing_key=release_key,
+            now=datetime(2026, 7, 16, tzinfo=UTC),
+        )
+
+
+def test_legal_release_checkpoint_must_follow_corpus_scope_approval(tmp_path: Path) -> None:
+    raw = _raw_dataset()
+    citation = _verified_tracked_citation(raw)
+    pack_path, _, _, _ = _write_signed_legal_pack(tmp_path, citation)
+    checkpoint_path, release_key, _, source_root, _, _, _ = _write_legal_release_checkpoint(
+        tmp_path,
+        raw_dataset=raw,
+        citation=citation,
+        pack_path=pack_path,
+    )
+
+    with pytest.raises(
+        legal_release_evidence.LegalReleaseEvidenceError,
+        match="predates corpus build or scope approval",
+    ):
+        validate_legal_release_evidence(
+            checkpoint_path=checkpoint_path,
+            trusted_signing_key=release_key,
+            source_root=source_root,
+            legal_pack_sha256=hashlib.sha256(pack_path.read_bytes()).hexdigest(),
+            legal_pack_exported_at=datetime(2026, 7, 15, 12, 30, tzinfo=UTC),
+            legal_pack_attested_at=datetime(2026, 7, 15, 13, 0, tzinfo=UTC),
+            corpus_manifest_sha256=raw["corpus"]["manifest_sha256"],
+            corpus_approved_at=datetime(2026, 7, 15, 14, 30, tzinfo=UTC),
+            citations=[CitationV1.model_validate(citation)],
+            now=datetime(2026, 7, 16, tzinfo=UTC),
+        )
+
+
 def test_partial_legal_attestation_inputs_fail_closed(tmp_path: Path) -> None:
     path = _write_sealed_dataset(tmp_path, _raw_dataset())
 
@@ -848,7 +1007,7 @@ def test_future_annotation_timestamp_fails_dataset_integrity(tmp_path: Path) -> 
         status="completed",
         annotator_id="domain-reviewer-1",
         verdict="supported",
-        selected_positive_evidence_ids=raw["cases"][0]["positive_evidence_ids"],
+        selected_positive_evidence_ids=list(raw["cases"][0]["positive_evidence_ids"]),
         completed_at="2027-01-01T00:00:00Z",
     )
     path = _write_sealed_dataset(tmp_path, raw)

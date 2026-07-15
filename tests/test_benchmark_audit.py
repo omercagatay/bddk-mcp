@@ -113,3 +113,8 @@ def test_human_reports_never_turn_unauthorized_scores_into_deployment_advice():
     assert "EXPLORATORY PASS" in diagnosis
     assert "Do not deploy based on these scores" in diagnosis
     assert "Deploy with RAG" not in diagnosis
+
+    results["evaluation_evidence"]["model_scores_authorized"] = True
+    forged_diagnosis = diagnosis_report(results)
+    assert "EXPLORATORY ONLY" in forged_diagnosis
+    assert "release-grade model scores authorized" not in forged_diagnosis

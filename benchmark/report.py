@@ -15,8 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 def _model_scores_authorized(all_results: dict) -> bool:
-    evidence = all_results.get("evaluation_evidence")
-    return isinstance(evidence, dict) and evidence.get("model_scores_authorized") is True
+    # Release-grade execution of the expert dataset is not implemented.  A raw
+    # result JSON field is not signed execution evidence and must never promote
+    # the human report, even if a caller edits it to true.
+    return False
 
 
 def _append_evidence_banner(lines: list[str], all_results: dict) -> None:

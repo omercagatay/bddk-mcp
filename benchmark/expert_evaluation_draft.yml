@@ -10,7 +10,7 @@ intended_use: >-
 created_at: "2026-07-15T00:00:00+03:00"
 corpus:
   manifest_id: bddk-job-corpus-2026-07-15
-  manifest_sha256: &corpus_manifest_sha fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
+  manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
   corpus_built_at: "2026-05-12T10:18:42.094284Z"
   documents_sha256: 5ee7fcb3ec8163d2f20d980466722986dcf105aaf305f8111e71e5325fbeb8d3
   chunks_sha256: 1ce6c0b9be3f827a0249d9fef328a003bb07098873e56578098d0a09055b3307
@@ -18,175 +18,175 @@ corpus:
 evidence_catalog:
   - evidence_id: ev-tfrs9-ilke-1
     document_id: "943"
-    document_title: &tfrs9_title TFRS 9 Uyarınca Beklenen Kredi Zararı Karşılığı Hesaplamasına İlişkin Rehber
-    document_content_sha256: &tfrs9_hash 3dff93f2768b86e35b9ccaa897a70f8fe682279b41ef56ecf81d8438f908c8cc
-    source_url: &tfrs9_url https://www.bddk.org.tr/Mevzuat/DokumanGetir/943
+    document_title: TFRS 9 Uyarınca Beklenen Kredi Zararı Karşılığı Hesaplamasına İlişkin Rehber
+    document_content_sha256: 3dff93f2768b86e35b9ccaa897a70f8fe682279b41ef56ecf81d8438f908c8cc
+    source_url: https://www.bddk.org.tr/Mevzuat/DokumanGetir/943
     granularity: section
     section_type: ilke
     section_ref: "1"
     section_content_sha256: dfc1bcf727cdff98715597a90a26613bdf96789afcca611de7b494a1db15add6
     citation_label: BDDK Belge 943, İlke 1
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
   - evidence_id: ev-tfrs9-ilke-3
     document_id: "943"
-    document_title: *tfrs9_title
-    document_content_sha256: *tfrs9_hash
-    source_url: *tfrs9_url
+    document_title: TFRS 9 Uyarınca Beklenen Kredi Zararı Karşılığı Hesaplamasına İlişkin Rehber
+    document_content_sha256: 3dff93f2768b86e35b9ccaa897a70f8fe682279b41ef56ecf81d8438f908c8cc
+    source_url: https://www.bddk.org.tr/Mevzuat/DokumanGetir/943
     granularity: section
     section_type: ilke
     section_ref: "3"
     section_content_sha256: ad9da962ca13c987780ef8ab877473c6ef916313f99c94d524303d466ee0e5c9
     citation_label: BDDK Belge 943, İlke 3
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
   - evidence_id: ev-tfrs9-ilke-5
     document_id: "943"
-    document_title: *tfrs9_title
-    document_content_sha256: *tfrs9_hash
-    source_url: *tfrs9_url
+    document_title: TFRS 9 Uyarınca Beklenen Kredi Zararı Karşılığı Hesaplamasına İlişkin Rehber
+    document_content_sha256: 3dff93f2768b86e35b9ccaa897a70f8fe682279b41ef56ecf81d8438f908c8cc
+    source_url: https://www.bddk.org.tr/Mevzuat/DokumanGetir/943
     granularity: section
     section_type: ilke
     section_ref: "5"
     section_content_sha256: 00829e9552d460d4630d462d03d953a1bc8f814fa43bcea5f0aeb1a2b8a608f0
     citation_label: BDDK Belge 943, İlke 5
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
   - evidence_id: ev-tfrs9-ilke-6
     document_id: "943"
-    document_title: *tfrs9_title
-    document_content_sha256: *tfrs9_hash
-    source_url: *tfrs9_url
+    document_title: TFRS 9 Uyarınca Beklenen Kredi Zararı Karşılığı Hesaplamasına İlişkin Rehber
+    document_content_sha256: 3dff93f2768b86e35b9ccaa897a70f8fe682279b41ef56ecf81d8438f908c8cc
+    source_url: https://www.bddk.org.tr/Mevzuat/DokumanGetir/943
     granularity: section
     section_type: ilke
     section_ref: "6"
     section_content_sha256: d6a057b5e501592c9a28e983930aac34a281e9badb5fd75cce0483d6d3f58e2d
     citation_label: BDDK Belge 943, İlke 6
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
 
   - evidence_id: ev-karsilik-madde-4
     document_id: mevzuat_22599
-    document_title: &karsilik_title Kredilerin Sınıflandırılması ve Bunlar İçin Ayrılacak Karşılıklara İlişkin Usul ve Esaslar Hakkında Yönetmelik
-    document_content_sha256: &karsilik_hash cf1af936f1ba010a0748d09f79dd1a0d0750c30603b545fe2a65266753a4fb58
-    source_url: &karsilik_url http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.22599&MevzuatIliski=0&sourceXmlSearch=kredilerin sınıflandırılması
+    document_title: Kredilerin Sınıflandırılması ve Bunlar İçin Ayrılacak Karşılıklara İlişkin Usul ve Esaslar Hakkında Yönetmelik
+    document_content_sha256: cf1af936f1ba010a0748d09f79dd1a0d0750c30603b545fe2a65266753a4fb58
+    source_url: http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.22599&MevzuatIliski=0&sourceXmlSearch=kredilerin sınıflandırılması
     granularity: section
     section_type: madde
     section_ref: "4"
     section_content_sha256: 8ba58858b9c7204f8123d5ad3c9299af9dc95bf2de64be23d3d5ae5d1a736d40
     citation_label: Karşılık Yönetmeliği, Madde 4
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
   - evidence_id: ev-karsilik-madde-9
     document_id: mevzuat_22599
-    document_title: *karsilik_title
-    document_content_sha256: *karsilik_hash
-    source_url: *karsilik_url
+    document_title: Kredilerin Sınıflandırılması ve Bunlar İçin Ayrılacak Karşılıklara İlişkin Usul ve Esaslar Hakkında Yönetmelik
+    document_content_sha256: cf1af936f1ba010a0748d09f79dd1a0d0750c30603b545fe2a65266753a4fb58
+    source_url: http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.22599&MevzuatIliski=0&sourceXmlSearch=kredilerin sınıflandırılması
     granularity: section
     section_type: madde
     section_ref: "9"
     section_content_sha256: 7854c436329acdd527a4f347a285c4c504f80f52367a97b2ed09db82d351ea82
     citation_label: Karşılık Yönetmeliği, Madde 9
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
   - evidence_id: ev-karsilik-madde-10
     document_id: mevzuat_22599
-    document_title: *karsilik_title
-    document_content_sha256: *karsilik_hash
-    source_url: *karsilik_url
+    document_title: Kredilerin Sınıflandırılması ve Bunlar İçin Ayrılacak Karşılıklara İlişkin Usul ve Esaslar Hakkında Yönetmelik
+    document_content_sha256: cf1af936f1ba010a0748d09f79dd1a0d0750c30603b545fe2a65266753a4fb58
+    source_url: http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.22599&MevzuatIliski=0&sourceXmlSearch=kredilerin sınıflandırılması
     granularity: section
     section_type: madde
     section_ref: "10"
     section_content_sha256: 108852d2953b574e8a3a9710631d91cba3b3830c7c80a4b1fabe5549654955c5
     citation_label: Karşılık Yönetmeliği, Madde 10
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
 
   - evidence_id: ev-sermaye-madde-4
     document_id: mevzuat_21192
-    document_title: &sermaye_title Bankaların Sermaye Yeterliliğinin Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmelik
-    document_content_sha256: &sermaye_hash d38a07ede28c8e9cc5c99ec29fff1717c76421473aec60a4959d124e14315a75
-    source_url: &sermaye_url http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.21192&MevzuatIliski=0&sourceXmlSearch=sermaye yeterliliği
+    document_title: Bankaların Sermaye Yeterliliğinin Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmelik
+    document_content_sha256: d38a07ede28c8e9cc5c99ec29fff1717c76421473aec60a4959d124e14315a75
+    source_url: http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.21192&MevzuatIliski=0&sourceXmlSearch=sermaye yeterliliği
     granularity: section
     section_type: madde
     section_ref: "4"
     section_content_sha256: 1f80931ef5fe36bb4fe4d842ea57ddabe455062e502595da210858a5c1ebcf8a
     citation_label: Sermaye Yeterliliği Yönetmeliği, Madde 4
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
   - evidence_id: ev-sermaye-madde-9
     document_id: mevzuat_21192
-    document_title: *sermaye_title
-    document_content_sha256: *sermaye_hash
-    source_url: *sermaye_url
+    document_title: Bankaların Sermaye Yeterliliğinin Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmelik
+    document_content_sha256: d38a07ede28c8e9cc5c99ec29fff1717c76421473aec60a4959d124e14315a75
+    source_url: http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.21192&MevzuatIliski=0&sourceXmlSearch=sermaye yeterliliği
     granularity: section
     section_type: madde
     section_ref: "9"
     section_content_sha256: f42cf2912ccabfe662a02da1e5dc3eb95b5642974a3dd61c88b43fd8c0e41cbb
     citation_label: Sermaye Yeterliliği Yönetmeliği, Madde 9
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
   - evidence_id: ev-sermaye-madde-25
     document_id: mevzuat_21192
-    document_title: *sermaye_title
-    document_content_sha256: *sermaye_hash
-    source_url: *sermaye_url
+    document_title: Bankaların Sermaye Yeterliliğinin Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmelik
+    document_content_sha256: d38a07ede28c8e9cc5c99ec29fff1717c76421473aec60a4959d124e14315a75
+    source_url: http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.21192&MevzuatIliski=0&sourceXmlSearch=sermaye yeterliliği
     granularity: section
     section_type: madde
     section_ref: "25"
     section_content_sha256: efa71bb76b33003bbbfb546b8703a3c725fae9c949244fd5fc10b894c9c573be
     citation_label: Sermaye Yeterliliği Yönetmeliği, Madde 25
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
 
   - evidence_id: ev-irb-madde-4
     document_id: mevzuat_21194
-    document_title: &irb_title Kredi Riskine Esas Tutarın İçsel Derecelendirmeye Dayalı Yaklaşımlar ile Hesaplanmasına İlişkin Tebliğ
-    document_content_sha256: &irb_hash 3a4d719ca873f9bcc4c74b81db348f3d69e3bee519823eea36f22d7b5bb939d9
-    source_url: &irb_url http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=9.5.21194&MevzuatIliski=0&sourceXmlSearch=kredi riskine esas
+    document_title: Kredi Riskine Esas Tutarın İçsel Derecelendirmeye Dayalı Yaklaşımlar ile Hesaplanmasına İlişkin Tebliğ
+    document_content_sha256: 3a4d719ca873f9bcc4c74b81db348f3d69e3bee519823eea36f22d7b5bb939d9
+    source_url: http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=9.5.21194&MevzuatIliski=0&sourceXmlSearch=kredi riskine esas
     granularity: section
     section_type: madde
     section_ref: "4"
     section_content_sha256: 6c7d4ac805167e3c873f9664fd72326bb2107b12a28cdaa8cbef8016aafc66d3
     citation_label: İDD Tebliği, Madde 4
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
   - evidence_id: ev-irb-madde-5
     document_id: mevzuat_21194
-    document_title: *irb_title
-    document_content_sha256: *irb_hash
-    source_url: *irb_url
+    document_title: Kredi Riskine Esas Tutarın İçsel Derecelendirmeye Dayalı Yaklaşımlar ile Hesaplanmasına İlişkin Tebliğ
+    document_content_sha256: 3a4d719ca873f9bcc4c74b81db348f3d69e3bee519823eea36f22d7b5bb939d9
+    source_url: http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=9.5.21194&MevzuatIliski=0&sourceXmlSearch=kredi riskine esas
     granularity: section
     section_type: madde
     section_ref: "5"
     section_content_sha256: ddfc2dd3b6bdcfd01f2718958ed701b3af39a5cbfa90d26a45ae9969f766c24b
     citation_label: İDD Tebliği, Madde 5
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
   - evidence_id: ev-irb-madde-9
     document_id: mevzuat_21194
-    document_title: *irb_title
-    document_content_sha256: *irb_hash
-    source_url: *irb_url
+    document_title: Kredi Riskine Esas Tutarın İçsel Derecelendirmeye Dayalı Yaklaşımlar ile Hesaplanmasına İlişkin Tebliğ
+    document_content_sha256: 3a4d719ca873f9bcc4c74b81db348f3d69e3bee519823eea36f22d7b5bb939d9
+    source_url: http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=9.5.21194&MevzuatIliski=0&sourceXmlSearch=kredi riskine esas
     granularity: section
     section_type: madde
     section_ref: "9"
     section_content_sha256: b6cf5199b483406a4a2d470d666a4b91d21e7c55c010d73d3e066adaaaf7f0a1
     citation_label: İDD Tebliği, Madde 9
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
 
   - evidence_id: ev-isedes-document
@@ -197,7 +197,7 @@ evidence_catalog:
     granularity: document
     citation_label: İç Sistemler ve İSEDES Yönetmeliği, corpus snapshot
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
   - evidence_id: ev-likidite-guide-document
     document_id: "954"
@@ -207,7 +207,7 @@ evidence_catalog:
     granularity: document
     citation_label: BDDK Belge 954, corpus snapshot
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
   - evidence_id: ev-lko-document
     document_id: mevzuat_19498
@@ -217,73 +217,73 @@ evidence_catalog:
     granularity: document
     citation_label: Likidite Karşılama Oranı Yönetmeliği, corpus snapshot
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
 
   - evidence_id: ev-bhfor-ilke-3
     document_id: "1291"
-    document_title: &bhfor_title Bankacılık Hesaplarından Kaynaklanan Faiz Oranı Riskinin Yönetimine İlişkin Rehber
-    document_content_sha256: &bhfor_hash 73b9aff9357daa016cc81b2273a32e00b658e02701efc45ad628a6a46195a720
-    source_url: &bhfor_url https://www.bddk.org.tr/Mevzuat/DokumanGetir/1291
+    document_title: Bankacılık Hesaplarından Kaynaklanan Faiz Oranı Riskinin Yönetimine İlişkin Rehber
+    document_content_sha256: 73b9aff9357daa016cc81b2273a32e00b658e02701efc45ad628a6a46195a720
+    source_url: https://www.bddk.org.tr/Mevzuat/DokumanGetir/1291
     granularity: section
     section_type: ilke
     section_ref: "3"
     section_content_sha256: fc29fb048bc896880d295b144b05dc917da77d6763b03d3572710cf20ae96917
     citation_label: BDDK Belge 1291, İlke 3
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
   - evidence_id: ev-bhfor-ilke-4
     document_id: "1291"
-    document_title: *bhfor_title
-    document_content_sha256: *bhfor_hash
-    source_url: *bhfor_url
+    document_title: Bankacılık Hesaplarından Kaynaklanan Faiz Oranı Riskinin Yönetimine İlişkin Rehber
+    document_content_sha256: 73b9aff9357daa016cc81b2273a32e00b658e02701efc45ad628a6a46195a720
+    source_url: https://www.bddk.org.tr/Mevzuat/DokumanGetir/1291
     granularity: section
     section_type: ilke
     section_ref: "4"
     section_content_sha256: 16fef6cb28fa17f2bb0ccf17c5e7d778c94aa71d5015d0088e7f184d52b6fad3
     citation_label: BDDK Belge 1291, İlke 4
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
   - evidence_id: ev-bhfor-ilke-5
     document_id: "1291"
-    document_title: *bhfor_title
-    document_content_sha256: *bhfor_hash
-    source_url: *bhfor_url
+    document_title: Bankacılık Hesaplarından Kaynaklanan Faiz Oranı Riskinin Yönetimine İlişkin Rehber
+    document_content_sha256: 73b9aff9357daa016cc81b2273a32e00b658e02701efc45ad628a6a46195a720
+    source_url: https://www.bddk.org.tr/Mevzuat/DokumanGetir/1291
     granularity: section
     section_type: ilke
     section_ref: "5"
     section_content_sha256: 720d38e00c6630b0df6b92c10774a2ac6c9f29901b2e86ec8c0edb841e4c1f79
     citation_label: BDDK Belge 1291, İlke 5
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
   - evidence_id: ev-bhfor-standart-madde-4
     document_id: mevzuat_42628
-    document_title: &bhfor_standard_title Bankacılık Hesaplarından Kaynaklanan Faiz Oranı Riskinin Standart Yaklaşımla Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmelik
-    document_content_sha256: &bhfor_standard_hash 1753bd25e591fa54270ee9ba4af95ec0d975e62a8459cc95f008870ec81e21b3
-    source_url: &bhfor_standard_url https://mevzuat.gov.tr/mevzuat?MevzuatNo=42628&MevzuatTur=7&MevzuatTertip=5
+    document_title: Bankacılık Hesaplarından Kaynaklanan Faiz Oranı Riskinin Standart Yaklaşımla Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmelik
+    document_content_sha256: 1753bd25e591fa54270ee9ba4af95ec0d975e62a8459cc95f008870ec81e21b3
+    source_url: https://mevzuat.gov.tr/mevzuat?MevzuatNo=42628&MevzuatTur=7&MevzuatTertip=5
     granularity: section
     section_type: madde
     section_ref: "4"
     section_content_sha256: e6c6e0dfad89de99b252c58f223c06916c2c7a2f149b7c48951eeb27b3e152cc
     citation_label: BHFOR Standart Yaklaşım Yönetmeliği, Madde 4
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
   - evidence_id: ev-bhfor-standart-madde-10
     document_id: mevzuat_42628
-    document_title: *bhfor_standard_title
-    document_content_sha256: *bhfor_standard_hash
-    source_url: *bhfor_standard_url
+    document_title: Bankacılık Hesaplarından Kaynaklanan Faiz Oranı Riskinin Standart Yaklaşımla Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmelik
+    document_content_sha256: 1753bd25e591fa54270ee9ba4af95ec0d975e62a8459cc95f008870ec81e21b3
+    source_url: https://mevzuat.gov.tr/mevzuat?MevzuatNo=42628&MevzuatTur=7&MevzuatTertip=5
     granularity: section
     section_type: madde
     section_ref: "10"
     section_content_sha256: b69f28505030dd8d8ca9ce8c04524feb68214f1ad4d6f07b236c634426799b2f
     citation_label: BHFOR Standart Yaklaşım Yönetmeliği, Madde 10
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: *corpus_manifest_sha
+    corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
     legal_currentness: not_verified
 
 cases:
@@ -475,7 +475,7 @@ cases:
     answerability: abstain
     no_answer:
       reason_code: legal_currentness_not_modeled
-      basis_corpus_manifest_sha256: *corpus_manifest_sha
+      basis_corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
       required_follow_up: Güncellik ve yürürlük durumu yetkili BDDK ve Resmî Gazete kaynaklarından doğrulanmalıdır.
     annotations:
       - {annotation_id: ann-tfrs9-current-legal, annotator_role: legal_reviewer, independent: true, status: pending}
@@ -489,7 +489,7 @@ cases:
     answerability: abstain
     no_answer:
       reason_code: corpus_freshness_not_guaranteed
-      basis_corpus_manifest_sha256: *corpus_manifest_sha
+      basis_corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
       required_follow_up: Corpus gözlem tarihinden sonraki değişiklikler yetkili kaynak envanteriyle yeniden taranmalıdır.
     annotations:
       - {annotation_id: ann-capital-latest-legal, annotator_role: legal_reviewer, independent: true, status: pending}
@@ -503,7 +503,7 @@ cases:
     answerability: abstain
     no_answer:
       reason_code: version_history_not_modeled
-      basis_corpus_manifest_sha256: *corpus_manifest_sha
+      basis_corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
       required_follow_up: Yetkili kaynaktan tarihli sürümler alınmalı, değişiklik ilişkileri uzman tarafından doğrulanmalıdır.
     annotations:
       - {annotation_id: ann-isedes-version-legal, annotator_role: legal_reviewer, independent: true, status: pending}
@@ -517,7 +517,7 @@ cases:
     answerability: abstain
     no_answer:
       reason_code: legal_currentness_not_modeled
-      basis_corpus_manifest_sha256: *corpus_manifest_sha
+      basis_corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
       required_follow_up: Güncel eşik, geçiş hükmü ve Kurul kararları yetkili kaynaklardan tarih itibarıyla doğrulanmalıdır.
     annotations:
       - {annotation_id: ann-lcr-threshold-legal, annotator_role: legal_reviewer, independent: true, status: pending}
@@ -531,7 +531,7 @@ cases:
     answerability: abstain
     no_answer:
       reason_code: corpus_not_exhaustive
-      basis_corpus_manifest_sha256: *corpus_manifest_sha
+      basis_corpus_manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
       required_follow_up: Değişiklik, yürürlük ve etki analizi yetkili mevzuat zinciri ile uzman incelemesine bağlanmalıdır.
     annotations:
       - {annotation_id: ann-bhfor-latest-legal, annotator_role: legal_reviewer, independent: true, status: pending}
