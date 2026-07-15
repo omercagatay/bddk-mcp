@@ -41,6 +41,7 @@ from benchmark.legal_release_evidence import (
     LegalReleaseEvidenceValidation,
     validate_legal_release_evidence,
 )
+from benchmark.signing import ed25519_public_key_fingerprint_sha256
 
 EXPERT_EVALUATION_DRAFT_PATH = Path(__file__).with_name("expert_evaluation_draft.yml")
 _MAX_DATASET_BYTES = 4 * 1024 * 1024
@@ -451,11 +452,14 @@ class ExpertEvaluationValidation:
     dataset_sha256: str
     corpus_validation: CorpusManifestValidation
     dataset_signature_verified: bool
+    dataset_signing_key_fingerprint_sha256: str | None
     legal_attestation_verified: bool
     legal_attestation_key_sha256: str | None
+    legal_attestation_key_fingerprint_sha256: str | None
     legal_release_evidence_verified: bool
     legal_release_checkpoint_sha256: str | None
     legal_release_signing_key_sha256: str | None
+    legal_release_signing_key_fingerprint_sha256: str | None
     legal_release_latest_checkpoint_verified: bool
 
 
@@ -535,10 +539,10 @@ def _verify_dataset_signature(
     *,
     dataset_path: Path,
     trusted_signing_key: Path | None,
-) -> bool:
+) -> str | None:
     integrity = dataset.integrity
     if integrity.signature_status != "verified":
-        return False
+        return None
     if trusted_signing_key is None:
         raise ExpertEvaluationError("verified expert dataset requires a separately supplied trusted public key")
 
@@ -558,7 +562,7 @@ def _verify_dataset_signature(
         public_key.verify(signature, canonical_dataset_payload(raw_dataset))
     except (InvalidSignature, TypeError, ValueError):
         raise ExpertEvaluationError("expert dataset detached signature verification failed") from None
-    return True
+    return ed25519_public_key_fingerprint_sha256(public_key)
 
 
 def canonical_legal_attestation_payload(raw_attestation: dict[str, Any]) -> bytes:
@@ -601,6 +605,7 @@ class _VerifiedLegalPack:
     pack: ValidatedLegalCitationPack
     pack_sha256: str
     attestation_key_sha256: str
+    attestation_key_fingerprint_sha256: str
 
 
 def _verify_legal_attestation(
@@ -669,6 +674,7 @@ def _verify_legal_attestation(
         pack=pack,
         pack_sha256=pack_sha256,
         attestation_key_sha256=key_sha256,
+        attestation_key_fingerprint_sha256=ed25519_public_key_fingerprint_sha256(public_key),
     )
 
 
@@ -902,7 +908,7 @@ def load_expert_evaluation_dataset(
         raise ExpertEvaluationError("expert evaluation dataset schema validation failed") from exc
     if dataset.integrity.dataset_sha256 != checksum:
         raise ExpertEvaluationError("expert evaluation dataset checksum mismatch")
-    dataset_signature_verified = _verify_dataset_signature(
+    dataset_signing_key_fingerprint = _verify_dataset_signature(
         raw,
         dataset,
         dataset_path=dataset_path,
@@ -992,10 +998,14 @@ def load_expert_evaluation_dataset(
         dataset=dataset,
         dataset_sha256=checksum,
         corpus_validation=corpus_validation,
-        dataset_signature_verified=dataset_signature_verified,
+        dataset_signature_verified=dataset_signing_key_fingerprint is not None,
+        dataset_signing_key_fingerprint_sha256=dataset_signing_key_fingerprint,
         legal_attestation_verified=verified_legal_pack is not None,
         legal_attestation_key_sha256=(
             verified_legal_pack.attestation_key_sha256 if verified_legal_pack is not None else None
+        ),
+        legal_attestation_key_fingerprint_sha256=(
+            verified_legal_pack.attestation_key_fingerprint_sha256 if verified_legal_pack is not None else None
         ),
         legal_release_evidence_verified=legal_release_validation is not None,
         legal_release_checkpoint_sha256=(
@@ -1003,6 +1013,9 @@ def load_expert_evaluation_dataset(
         ),
         legal_release_signing_key_sha256=(
             legal_release_validation.signing_key_sha256 if legal_release_validation is not None else None
+        ),
+        legal_release_signing_key_fingerprint_sha256=(
+            legal_release_validation.signing_key_fingerprint_sha256 if legal_release_validation is not None else None
         ),
         legal_release_latest_checkpoint_verified=(
             legal_release_validation.latest_checkpoint_verified if legal_release_validation is not None else False
@@ -1028,16 +1041,19 @@ def _release_blockers(validation: ExpertEvaluationValidation) -> Counter[str]:
     if not validation.legal_attestation_verified:
         blockers["legal_citation_attestation_not_verified"] += 1
     elif (
-        dataset.integrity.signature_public_key_sha256 is not None
-        and validation.legal_attestation_key_sha256 == dataset.integrity.signature_public_key_sha256
+        validation.dataset_signing_key_fingerprint_sha256 is not None
+        and validation.legal_attestation_key_fingerprint_sha256 == validation.dataset_signing_key_fingerprint_sha256
     ):
         blockers["dataset_and_legal_signers_not_separated"] += 1
     if not validation.legal_release_evidence_verified:
         blockers["legal_release_evidence_not_verified"] += 1
     else:
-        if validation.legal_release_signing_key_sha256 == dataset.integrity.signature_public_key_sha256:
+        if validation.legal_release_signing_key_fingerprint_sha256 == validation.dataset_signing_key_fingerprint_sha256:
             blockers["dataset_and_legal_release_signers_not_separated"] += 1
-        if validation.legal_release_signing_key_sha256 == validation.legal_attestation_key_sha256:
+        if (
+            validation.legal_release_signing_key_fingerprint_sha256
+            == validation.legal_attestation_key_fingerprint_sha256
+        ):
             blockers["curator_and_legal_release_signers_not_separated"] += 1
     if not validation.legal_release_latest_checkpoint_verified:
         blockers["latest_legal_release_checkpoint_not_verified"] += 1

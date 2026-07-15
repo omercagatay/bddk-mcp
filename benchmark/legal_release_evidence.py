@@ -28,6 +28,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from bddk_mcp.citations import CitationV1
+from benchmark.signing import ed25519_public_key_fingerprint_sha256
 
 _MAX_CHECKPOINT_BYTES = 8 * 1024 * 1024
 _MAX_PUBLIC_KEY_BYTES = 16 * 1024
@@ -203,6 +204,7 @@ class PageMappingProof(_StrictModel):
 class LegalReleaseEvidenceValidation:
     checkpoint_sha256: str
     signing_key_sha256: str
+    signing_key_fingerprint_sha256: str
     latest_checkpoint_verified: bool
     artifact_count: int
     citation_count: int
@@ -278,7 +280,7 @@ def _verify_checkpoint_signature(
     trusted_signing_key: Path,
     *,
     current: datetime,
-) -> tuple[LegalReleaseCheckpoint, dict[str, Any], str]:
+) -> tuple[LegalReleaseCheckpoint, dict[str, Any], str, str]:
     raw, _ = _load_mapping(
         checkpoint_path,
         label="legal release checkpoint",
@@ -319,7 +321,7 @@ def _verify_checkpoint_signature(
         public_key.verify(signature, canonical_checkpoint_payload(raw))
     except (InvalidSignature, TypeError, ValueError):
         raise LegalReleaseEvidenceError("legal release checkpoint signature verification failed") from None
-    return checkpoint, raw, key_sha256
+    return checkpoint, raw, key_sha256, ed25519_public_key_fingerprint_sha256(public_key)
 
 
 def validate_legal_release_evidence(
@@ -342,7 +344,11 @@ def validate_legal_release_evidence(
         raise LegalReleaseEvidenceError("legal release validation time must include a timezone")
     checkpoint_file = Path(checkpoint_path).resolve()
     trusted_key = Path(trusted_signing_key).resolve()
-    checkpoint, _, key_sha256 = _verify_checkpoint_signature(checkpoint_file, trusted_key, current=current)
+    checkpoint, _, key_sha256, key_fingerprint = _verify_checkpoint_signature(
+        checkpoint_file,
+        trusted_key,
+        current=current,
+    )
     if checkpoint.legal_pack_sha256 != legal_pack_sha256:
         raise LegalReleaseEvidenceError("legal release checkpoint refers to a different legal pack")
     if checkpoint.corpus_manifest_sha256 != corpus_manifest_sha256:
@@ -355,7 +361,7 @@ def validate_legal_release_evidence(
     if (checkpoint.predecessor_checkpoint_sha256 is None) != (predecessor_path is None):
         raise LegalReleaseEvidenceError("legal release predecessor checkpoint evidence is incomplete")
     if predecessor_path is not None:
-        predecessor, _, predecessor_key_sha256 = _verify_checkpoint_signature(
+        predecessor, _, predecessor_key_sha256, predecessor_key_fingerprint = _verify_checkpoint_signature(
             predecessor_path,
             trusted_key,
             current=current,
@@ -366,6 +372,8 @@ def validate_legal_release_evidence(
             raise LegalReleaseEvidenceError("legal release predecessor does not predate the checkpoint")
         if predecessor_key_sha256 != key_sha256:
             raise LegalReleaseEvidenceError("legal release predecessor uses a different trust anchor")
+        if predecessor_key_fingerprint != key_fingerprint:
+            raise LegalReleaseEvidenceError("legal release predecessor uses a different signer")
 
     latest_verified = False
     if trusted_latest_checkpoint_sha256 is not None:
@@ -498,6 +506,7 @@ def validate_legal_release_evidence(
     return LegalReleaseEvidenceValidation(
         checkpoint_sha256=checkpoint.integrity.checkpoint_sha256,
         signing_key_sha256=key_sha256,
+        signing_key_fingerprint_sha256=key_fingerprint,
         latest_checkpoint_verified=latest_verified,
         artifact_count=len(evidence_by_artifact),
         citation_count=len(citation_by_id),

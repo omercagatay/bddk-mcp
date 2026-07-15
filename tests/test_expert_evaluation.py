@@ -298,6 +298,9 @@ def test_complete_citation_bundle_is_reconstructed_against_the_bound_corpus(tmp_
 def _write_signed_legal_pack(
     tmp_path: Path,
     citation: dict[str, Any],
+    *,
+    private_key: Ed25519PrivateKey | None = None,
+    trusted_key_bytes: bytes | None = None,
 ) -> tuple[Path, Path, Path, str]:
     pack = {
         "schema_version": 1,
@@ -309,11 +312,12 @@ def _write_signed_legal_pack(
     pack_path = tmp_path / "validated-legal-pack.yml"
     pack_path.write_text(yaml.safe_dump(pack, sort_keys=False), encoding="utf-8")
 
-    private_key = Ed25519PrivateKey.generate()
-    public_key = private_key.public_key().public_bytes(
+    private_key = private_key or Ed25519PrivateKey.generate()
+    canonical_public_key = private_key.public_key().public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo,
     )
+    public_key = trusted_key_bytes or canonical_public_key
     trusted_key = tmp_path / "trusted-legal-curator.pem"
     trusted_key.write_bytes(public_key)
     attestation = {
@@ -358,6 +362,57 @@ def test_separately_signed_legal_pack_attests_the_exact_citation_inventory(tmp_p
 
     assert validation.legal_attestation_verified is True
     assert validation.legal_attestation_key_sha256 == key_sha256
+
+
+def test_same_ed25519_key_with_different_pem_bytes_is_not_a_separate_signer(tmp_path: Path) -> None:
+    raw = _raw_dataset()
+    citation = _verified_tracked_citation(raw)
+    raw["evidence_catalog"][0].update(
+        citation_v1_status="verified",
+        citation_v1_id=citation["citation_id"],
+        citation_v1=citation,
+    )
+    private_key = Ed25519PrivateKey.generate()
+    canonical_pem = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    dataset_pem = canonical_pem
+    curator_pem = canonical_pem + b"\n"
+    assert hashlib.sha256(dataset_pem).digest() != hashlib.sha256(curator_pem).digest()
+
+    dataset_key = tmp_path / "trusted-dataset-key.pem"
+    dataset_key.write_bytes(dataset_pem)
+    raw["integrity"].update(
+        signature_status="verified",
+        signature_algorithm="ed25519",
+        signature_reference="expert-evaluation-shared-key.sig",
+        signature_public_key_sha256=hashlib.sha256(dataset_pem).hexdigest(),
+    )
+    (tmp_path / "expert-evaluation-shared-key.sig").write_bytes(private_key.sign(canonical_dataset_payload(raw)))
+    dataset_path = _write_sealed_dataset(tmp_path, raw)
+    pack_path, attestation_path, curator_key, _ = _write_signed_legal_pack(
+        tmp_path,
+        citation,
+        private_key=private_key,
+        trusted_key_bytes=curator_pem,
+    )
+
+    validation = load_expert_evaluation_dataset(
+        dataset_path,
+        trusted_dataset_signing_key=dataset_key,
+        validated_legal_pack_path=pack_path,
+        legal_attestation_path=attestation_path,
+        trusted_legal_attestation_key=curator_key,
+        now=datetime(2026, 7, 16, tzinfo=UTC),
+    )
+
+    assert validation.dataset_signing_key_fingerprint_sha256
+    assert validation.dataset_signing_key_fingerprint_sha256 == validation.legal_attestation_key_fingerprint_sha256
+    assert (
+        profile_expert_evaluation_dataset(validation).release_blocker_counts["dataset_and_legal_signers_not_separated"]
+        == 1
+    )
 
 
 def _sealed_file(path: Path, root: Path) -> dict[str, Any]:
