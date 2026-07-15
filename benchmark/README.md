@@ -13,8 +13,8 @@ uv sync --group benchmark
 | Profile | Count | Source | Notes |
 |---|---:|---|---|
 | `runtime-public` | 15 | `BDDK_TOOL_PROFILE=public` | Default public process and public database identity. |
-| `runtime-operator` | 28 | `BDDK_TOOL_PROFILE=operator` | Separate operator process and DSN; 15 public plus 13 operator tools. |
-| `benchmark-operator-contract` | 28 | `benchmark/tool_schemas.py` | OpenAI-compatible schemas exported from the same canonical operator registry used by the runtime. |
+| `runtime-operator` | 29 | `BDDK_TOOL_PROFILE=operator` | Separate operator process and DSN; 15 public plus 14 operator tools. |
+| `benchmark-operator-contract` | 29 | `benchmark/tool_schemas.py` | OpenAI-compatible schemas exported from the same canonical operator registry used by the runtime. |
 
 ## Runtime Public Tools
 
@@ -26,18 +26,19 @@ uv sync --group benchmark
 - `get_document_history`
 - `get_document_section`
 - `search_document_sections`
+- `resolve_regulation_status`
 - `get_bddk_bulletin`
 - `get_bddk_bulletin_snapshot`
 - `get_bddk_monthly`
 - `analyze_bulletin_trends`
 - `get_regulatory_digest`
 - `compare_bulletin_metrics`
-- `check_bddk_updates`
 
 ## Runtime Operator Additions
 
 With `BDDK_TOOL_PROFILE=operator` or `bddk-mcp serve --profile operator`, the runtime also exposes:
 
+- `check_bddk_updates`
 - `document_store_stats`
 - `bddk_cache_status`
 - `refresh_bddk_cache`

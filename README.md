@@ -44,12 +44,13 @@ Varsayılan `public` process profili (`BDDK_TOOL_PROFILE=public` veya `bddk-mcp 
 |---|---|
 | Arama | `search_bddk_regulations`, `search_document_store`, `search_bddk_institutions`, `search_bddk_announcements` |
 | Doküman | `get_bddk_document`, `get_document_history` |
-| Bölümler | `get_document_section`, `search_document_sections` |
+| Bölümler ve hukuki durum | `get_document_section`, `search_document_sections`, `resolve_regulation_status` |
 | Bülten | `get_bddk_bulletin`, `get_bddk_bulletin_snapshot`, `get_bddk_monthly` |
-| Analitik | `analyze_bulletin_trends`, `get_regulatory_digest`, `compare_bulletin_metrics`, `check_bddk_updates` |
+| Analitik | `analyze_bulletin_trends`, `get_regulatory_digest`, `compare_bulletin_metrics` |
 
-Ayrı `operator` process profili (`BDDK_TOOL_PROFILE=operator` veya `bddk-mcp serve --profile operator`) 15 public araca 13 operatör aracı ekler ve toplam 28 araç expose eder. Bu profil ayrı, yazma yetkili `BDDK_OPERATOR_DATABASE_URL` ister; public DSN'e geri dönmez.
+Ayrı `operator` process profili (`BDDK_TOOL_PROFILE=operator` veya `bddk-mcp serve --profile operator`) 15 public araca 14 operatör aracı ekler ve toplam 29 araç expose eder. Bu profil ayrı, yazma yetkili `BDDK_OPERATOR_DATABASE_URL` ister; public DSN'e geri dönmez.
 
+- `check_bddk_updates`
 - `document_store_stats`
 - `bddk_cache_status`
 - `refresh_bddk_cache`
@@ -64,7 +65,7 @@ Ayrı `operator` process profili (`BDDK_TOOL_PROFILE=operator` veya `bddk-mcp se
 - `backfill_degraded_documents`
 - `document_quality_report`
 
-Geçerli runtime için canonical operator registry 15 public ve 13 operatör aracı, yani toplam 28 MCP aracı içerir. Mutating operatör araçları hemen bir job receipt döner; durum `get_operator_job`, `list_operator_jobs` ve `cancel_operator_job` ile izlenir. Job kayıtları, hash'lenmiş idempotency anahtarları, sayısal progress ve sınırlı sonuç metrikleri PostgreSQL'deki `bddk_operator.operator_jobs` tablosunda durable olarak tutulur; session-level advisory lease corpus mutation'ını process'ler arasında serialize eder. Runner task'ları hâlâ operator process'indedir; stale `queued` işler otomatik tahmin edilmez ve çok-replica failover banka ortamında doğrulanmamıştır. Bu nedenle OpenShift starter tek `Recreate` replica kullanır ve sistem bank-grade workflow queue olarak sunulmamalıdır. Benchmark şemaları aynı canonical operatör registry'sinden üretilir; benchmark koşuları yine de kullandıkları exact tool listesini ve profili kaydetmelidir. Bkz. [benchmark/README.md](benchmark/README.md).
+Geçerli runtime için canonical operator registry 15 public ve 14 operatör aracı, yani toplam 29 MCP aracı içerir. Mutating operatör araçları hemen bir job receipt döner; durum `get_operator_job`, `list_operator_jobs` ve `cancel_operator_job` ile izlenir. Job kayıtları, hash'lenmiş idempotency anahtarları, sayısal progress ve sınırlı sonuç metrikleri PostgreSQL'deki `bddk_operator.operator_jobs` tablosunda durable olarak tutulur; session-level advisory lease corpus mutation'ını process'ler arasında serialize eder. Runner task'ları hâlâ operator process'indedir; stale `queued` işler otomatik tahmin edilmez ve çok-replica failover banka ortamında doğrulanmamıştır. Bu nedenle OpenShift starter tek `Recreate` replica kullanır ve sistem bank-grade workflow queue olarak sunulmamalıdır. Benchmark şemaları aynı canonical operatör registry'sinden üretilir; benchmark koşuları yine de kullandıkları exact tool listesini ve profili kaydetmelidir. Bkz. [benchmark/README.md](benchmark/README.md).
 
 ### Hızlı Başlangıç
 
@@ -336,12 +337,13 @@ The default `public` process profile (`BDDK_TOOL_PROFILE=public` or `bddk-mcp se
 |---|---|
 | Search | `search_bddk_regulations`, `search_document_store`, `search_bddk_institutions`, `search_bddk_announcements` |
 | Documents | `get_bddk_document`, `get_document_history` |
-| Sections | `get_document_section`, `search_document_sections` |
+| Sections and legal status | `get_document_section`, `search_document_sections`, `resolve_regulation_status` |
 | Bulletin | `get_bddk_bulletin`, `get_bddk_bulletin_snapshot`, `get_bddk_monthly` |
-| Analytics | `analyze_bulletin_trends`, `get_regulatory_digest`, `compare_bulletin_metrics`, `check_bddk_updates` |
+| Analytics | `analyze_bulletin_trends`, `get_regulatory_digest`, `compare_bulletin_metrics` |
 
-The separate `operator` process profile (`BDDK_TOOL_PROFILE=operator` or `bddk-mcp serve --profile operator`) adds 13 operator tools to the 15 public tools and exposes 28 tools total. It requires a separate, write-capable `BDDK_OPERATOR_DATABASE_URL` and never falls back to the public DSN.
+The separate `operator` process profile (`BDDK_TOOL_PROFILE=operator` or `bddk-mcp serve --profile operator`) adds 14 operator tools to the 15 public tools and exposes 29 tools total. It requires a separate, write-capable `BDDK_OPERATOR_DATABASE_URL` and never falls back to the public DSN.
 
+- `check_bddk_updates`
 - `document_store_stats`
 - `bddk_cache_status`
 - `refresh_bddk_cache`
@@ -356,7 +358,7 @@ The separate `operator` process profile (`BDDK_TOOL_PROFILE=operator` or `bddk-m
 - `backfill_degraded_documents`
 - `document_quality_report`
 
-The canonical operator registry contains 15 public tools plus 13 operator tools, or 28 MCP tools total. Mutating operator tools return an immediate job receipt; use `get_operator_job`, `list_operator_jobs`, and `cancel_operator_job` to observe them. Job records, hashed idempotency keys, numeric progress, and bounded result metrics are durable in PostgreSQL table `bddk_operator.operator_jobs`; a session advisory lease serializes corpus mutation across processes. Runner tasks still live in the operator process, stale `queued` work is never guessed automatically, and multi-replica failover has not been accepted in a bank environment. The OpenShift starter therefore uses one `Recreate` replica, and this is not represented as a bank-grade workflow queue. Benchmark schemas are exported from the same canonical operator registry; benchmark runs should still record the exact tool list and profile they used. See [benchmark/README.md](benchmark/README.md).
+The canonical operator registry contains 15 public tools plus 14 operator tools, or 29 MCP tools total. Mutating operator tools return an immediate job receipt; use `get_operator_job`, `list_operator_jobs`, and `cancel_operator_job` to observe them. Job records, hashed idempotency keys, numeric progress, and bounded result metrics are durable in PostgreSQL table `bddk_operator.operator_jobs`; a session advisory lease serializes corpus mutation across processes. Runner tasks still live in the operator process, stale `queued` work is never guessed automatically, and multi-replica failover has not been accepted in a bank environment. The OpenShift starter therefore uses one `Recreate` replica, and this is not represented as a bank-grade workflow queue. Benchmark schemas are exported from the same canonical operator registry; benchmark runs should still record the exact tool list and profile they used. See [benchmark/README.md](benchmark/README.md).
 
 ### Quick Start
 
