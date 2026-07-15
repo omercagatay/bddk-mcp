@@ -421,6 +421,7 @@ def _write_legal_release_checkpoint(
         {
             "schema_version": 1,
             "proof_method": "reviewed_source_page_mapping_v1",
+            "mapping_profile": "exact_utf8_excerpt_in_concatenated_page_text_v1",
             "artifact_id": citation["artifact_id"],
             "source_bytes_sha256": citation["artifact_sha256"],
             "source_bytes": len(source_bytes),

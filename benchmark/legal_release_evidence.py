@@ -166,6 +166,7 @@ class CitationPageMapping(_StrictModel):
 class PageMappingProof(_StrictModel):
     schema_version: Literal[1]
     proof_method: Literal["reviewed_source_page_mapping_v1"]
+    mapping_profile: Literal["exact_utf8_excerpt_in_concatenated_page_text_v1"]
     artifact_id: str = Field(pattern=_ARTIFACT_ID_PATTERN)
     source_bytes_sha256: str = Field(pattern=_SHA256_PATTERN)
     source_bytes: int = Field(ge=1)
@@ -459,13 +460,18 @@ def validate_legal_release_evidence(
             or page_proof.reviewed_at > checkpoint.created_at
         ):
             raise LegalReleaseEvidenceError("retained page-mapping proof differs from Citation v1 or source bytes")
+        page_text_by_number: dict[int, str] = {}
         for page in page_proof.pages:
-            _verify_sealed_file(
+            _, page_text_bytes = _verify_sealed_file(
                 root,
                 page.rendered_text,
                 label="retained source-page text",
                 maximum_bytes=_MAX_PAGE_TEXT_BYTES,
             )
+            try:
+                page_text_by_number[page.page_number] = page_text_bytes.decode("utf-8")
+            except UnicodeError:
+                raise LegalReleaseEvidenceError("retained source-page text is not UTF-8") from None
         mappings = {item.citation_id: item for item in page_proof.citation_mappings}
         if set(mappings) != set(expected_citation_ids):
             raise LegalReleaseEvidenceError("page-mapping citation inventory differs from the validated legal pack")
@@ -485,6 +491,9 @@ def validate_legal_release_evidence(
                 raise LegalReleaseEvidenceError("retained Citation v1 excerpt is not UTF-8 text") from None
             if len(excerpt) != citation.excerpt_length:
                 raise LegalReleaseEvidenceError("retained Citation v1 excerpt length differs from Citation v1")
+            mapped_page_text = "\n".join(page_text_by_number[number] for number in mapping.page_numbers)
+            if excerpt not in mapped_page_text:
+                raise LegalReleaseEvidenceError("retained Citation v1 excerpt is absent from its mapped pages")
 
     return LegalReleaseEvidenceValidation(
         checkpoint_sha256=checkpoint.integrity.checkpoint_sha256,
