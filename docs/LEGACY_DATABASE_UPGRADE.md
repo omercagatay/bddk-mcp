@@ -136,10 +136,15 @@ ledger, audit evidence, and all pending migrations together.
    The fingerprints cover catalog structure only. They contain no row counts,
    document IDs, text, PDF bytes, embeddings, query arguments, or trace data.
 8. With the ingestion identity, run the controlled bootstrap/reindex using the
-   approved seed directory and `--reindex-existing`. Migration v0003 leaves
-   existing chunks unpublished by design; retrieval must remain fail closed
-   until every approved document is rebuilt and published under the active
-   retrieval profile.
+   approved seed directory, `--reindex-existing`, all three
+   `--require-quantified-freshness`, `--require-measured-freshness`, and
+   `--require-verified-signature` gates, and a `--trusted-signing-key` mounted
+   separately from the corpus. Do not treat a prior `verify-corpus` run as a
+   trust handoff. Retain bootstrap's path-free manifest ID/SHA output because
+   it is not yet persisted in PostgreSQL. Migration v0003 leaves existing
+   chunks unpublished by design; retrieval must remain fail closed until every
+   approved document is rebuilt and published under the active retrieval
+   profile.
 9. Run schema/catalog readiness, corpus-integrity, retrieval, citation, and
    client smoke tests before restarting traffic. Compare pre/post table counts
    and application-level content hashes from the approved change evidence. Do

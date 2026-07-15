@@ -26,17 +26,31 @@ Release order:
 4. Create a ConfigMap named `bddk-mcp-postgres-ca` with the approved PostgreSQL
    trust root under key `ca.crt`. This is distinct from the OpenShift service CA
    used for the MCP application sockets.
-5. Before creating a selected pod, apply a bank-specific egress NetworkPolicy
-   that permits only the required DNS, PostgreSQL, IdP/JWKS, approved
-   BDDK/Mevzuat and enterprise-proxy destinations. The checked-in base adds a
-   default-deny egress policy but cannot supply environment-specific allows.
+5. Before creating a selected pod, apply the bank-specific exact egress
+   NetworkPolicies. Public and operator require DNS, PostgreSQL, IdP/JWKS, and
+   TCP 443 to the approved regulatory-source destination or enterprise proxy;
+   public access is required because institution, announcement, bulletin, and
+   update tools can call live BDDK services. Lifecycle Jobs require DNS and
+   PostgreSQL only and must not receive regulatory-source/proxy egress. The
+   checked-in base adds default deny but cannot supply bank addresses or peer
+   selectors.
 6. Apply `jobs/migrate.yaml` and wait for successful completion. Then apply
    `deploy/postgres/02_grants.sql` as the database administrator with the same
    independent `bddk.expected_database` target guard.
-7. Apply `jobs/bootstrap.yaml` and wait for successful completion. Its
-   `--reindex-existing` argument rebuilds and publishes every canonical
-   document under the active retrieval profile, including an existing corpus
-   made unpublished by migration v0003.
+7. Provision PVC `bddk-mcp-approved-corpus` and Secret
+   `bddk-mcp-corpus-trust` with key `ed25519-public-key.pem` through approved
+   bank controls. Use the exact
+   `deploy/openshift-overlays/bank-bootstrap` contract: it mounts the PVC and
+   Secret separately and read-only, and passes `--require-quantified-freshness`,
+   `--require-measured-freshness`, `--require-verified-signature`, and the
+   mounted `--trusted-signing-key` directly to bootstrap. After migration and
+   grants have succeeded, apply the accepted strict bootstrap Job through a
+   lifecycle mechanism that preserves that order, wait for completion, and
+   retain its path-free manifest ID/SHA output. The overlay renders runtime,
+   migration, and bootstrap resources together for exact preflight; that is
+   not authorization to start both lifecycle Jobs concurrently. The base
+   `jobs/bootstrap.yaml` remains a development/baseline Job and is not a
+   production trust gate.
 8. Apply the runtime resources with `oc apply -k deploy/openshift`.
 9. Wait for the service-serving certificate controller to create
    `bddk-mcp-public-tls` and `bddk-mcp-operator-tls` and for both Deployments to
@@ -45,6 +59,51 @@ Release order:
    Service's certificate chain, `/health/live`, `/health/ready`, JWT
    rejection/acceptance, public tool discovery, and denial of operator tools
    through the public Route.
+
+Before applying anything, copy `acceptance.example.yaml` and
+`acceptance-egress.example.yaml` to a secret-free release workspace, resolve
+every placeholder (including the installed binary's SHA-256), install the
+checksum-verified standalone Kustomize v5.8.1 used by CI, and run:
+
+```console
+uv run python scripts/openshift_acceptance.py --config /path/to/acceptance.yaml
+```
+
+The offline harness hashes the resolved Kustomize executable and requires that
+digest to equal `release.kustomize_binary_sha256` in addition to requiring the
+exact v5.8.1 version. It validates immutable image references, release and
+rollback metadata, Route/TLS and JWT claim inputs, exact rendered-object and
+NetworkPolicy inventories, exact selectors/labels/namespaces, exact
+runtime/lifecycle database Secret and ConfigMap key boundaries, PostgreSQL CA
+mounts, commands, ports, probes, volumes, and restrictive pod/container
+security contexts. Sidecars, init/ephemeral containers, command overrides,
+host namespace sharing, extra Secret/ConfigMap injection, broadened ingress or
+egress, and omitted Kustomize resources fail closed. It prints only
+digests, hashed environment identity and named check results. A successful
+result is deliberately named `preflight_passed_external_gates_pending`; it
+always records the live cluster, IdP, PostgreSQL, network, backup/restore and
+client/model exercises as `not_run`. Do not treat repository preflight evidence
+as bank acceptance.
+
+The command builds a private temporary copy of the reviewed bank-bootstrap
+overlay with the pinned Kustomize renderer, adds the declared egress resources,
+applies the configured namespace, and never writes into the checkout or
+applies to a cluster. It rejects a missing runtime resource, unresolved
+placeholder, wrong renderer
+version, or operator Service DNS that does not match the namespace. Build the
+same overlay from the exact accepted release values, run preflight against that
+release checkout, and retain the emitted input and rendered manifest hashes
+with the release evidence.
+
+The acceptance inventory recognizes the exact base and lifecycle
+Kustomizations plus `deploy/openshift-overlays/bank-bootstrap`. It fails closed
+if the strict bootstrap arguments, approved-corpus PVC, corpus-trust Secret,
+read-only mounts, Secret key, or separate volume sources drift. The focused
+acceptance/manifest/registry run passed 74 tests with checksum-pinned Kustomize
+v5.8.1. This
+proves the repository render and policy contract only: the PVC and Secret must
+still be provisioned, and the lifecycle Job must run successfully in an
+isolated bank-like namespace before production use.
 
 The supplied migration Job runs ordinary `bddk-mcp migrate`; this is the only
 correct mode for a clean database. If a pre-ledger database must be preserved,
@@ -106,9 +165,11 @@ bank acceptance suite covers overlapping-pod and multi-replica failover.
 The included NetworkPolicies restrict ingress and default-deny all egress for
 pods labeled `app.kubernetes.io/name=bddk-mcp`. No generic egress allowlist is
 safe to ship because bank addresses, namespace labels and proxy topology are
-environment-specific. Without the bank-specific allow policy, lifecycle Jobs
-cannot reach PostgreSQL and runtime pods cannot reach DNS, PostgreSQL or the
-IdP/JWKS endpoint; readiness failure is expected. Cluster ingress must also
+environment-specific. The acceptance matrix requires DNS/PostgreSQL for every
+component, IdP/JWKS for both runtimes, and approved regulatory-source or proxy
+TCP 443 for both public and operator; it forbids giving that source reach to
+lifecycle Jobs. Without the bank-specific allow policies, connectivity and
+readiness failure are expected. Cluster ingress must also
 provide global/client-aware rate limiting because the application limiter sees
 the router peer and is only a per-process guard.
 

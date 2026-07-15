@@ -34,27 +34,42 @@ This is a current-working-tree checkpoint; the roadmap tables below remain the o
 | H0-01 server lifecycle | Complete | The installed stdio subprocess is initialized, listed, called, recovered after invalid input, and shut down by the official client (**tests/test_mcp_stdio_e2e.py**). |
 | H0-02 packaging | Complete | CI builds and verifies wheel/sdist content, installs outside the checkout, and exercises the CLI on Python 3.12/3.13 (**.github/workflows/ci.yml; scripts/verify_distribution.py**). |
 | H0-03 canonical inventory | Complete | One registry defines 15 public plus 13 operator tools—28 total—and owns profile/risk/schema metadata (**bddk_mcp/tools/registry.py**). The historical 15/26 acceptance text below is superseded. |
-| H0-04 seed/section correctness | Complete for the reviewed seed path | Import regenerates sections and chunks from canonical text, validates hashes, supports resumable full reindex, and rejects tampered derived input (**bddk_mcp/ingest/seed.py; tests/test_seed.py**). Canonical legal versions and corpus generations are later-horizon work. |
+| H0-04 seed/section correctness | Complete for the reviewed seed path | Import regenerates sections and chunks from canonical text, validates hashes, supports resumable full reindex, reads the exact manifest-role paths, and rejects tampered or undeclared reserved seed artifacts before opening a DB pool (**bddk_mcp/ingest/seed.py; tests/test_seed.py**). Bootstrap accepts the same strict freshness/signature/key gates as read-only verification, emits path-free manifest ID/SHA evidence, and does not yet persist that identity. Canonical legal versions and corpus generations remain later-horizon work. |
 | H0-05 quality governance | Partial | A fail-closed quality registry and warning propagation have focused coverage; expert resolution/approval, corpus-scope reconciliation, and immutable correction provenance remain. |
 | H0-06 privacy-safe logging | Complete at code boundary | Production tool logs avoid query/result text, privacy-safe correlation is propagated, and sentinel/redaction tests exist. Bank retention/access/export policy remains operational acceptance. |
-| H0-07 explicit lifecycle | Complete as a repository boundary | Serving is free of DDL/seed/sync/embedding writes. A checksum v0001-v0003 ledger, catalog attestation, schema-owner/wrong-target verification, exact role assets, TLS enforcement, and clean/legacy/populated-v2 tests exist (**bddk_mcp/migrations/; bddk_mcp/db_lifecycle.py; deploy/postgres/**). The blocking populated-v2 v3 backfill requires explicit maintenance approval after backup and size-matched rehearsal. |
+| H0-07 explicit lifecycle | Complete as a repository boundary | Serving is free of DDL/seed/sync/embedding writes. A checksum v0001-v0004 ledger, catalog attestation, schema-owner/wrong-target verification, exact role assets, TLS enforcement, and clean/legacy/populated-v2 tests exist (**bddk_mcp/migrations/; bddk_mcp/db_lifecycle.py; deploy/postgres/**). The blocking populated-v2 v3 backfill requires explicit maintenance approval after backup and size-matched rehearsal. |
 | H0-08 operator lifecycle | Partial | Mutations return receipts and use durable PostgreSQL records, hashed idempotency, recovery, CAS progress, cancellation, and a connection-pinned advisory lease (**bddk_mcp/jobs/postgres.py; tests/test_postgres_job_repository.py**). The task runner is still process-resident; multi-replica failover and ambiguous crash ownership remain unaccepted. |
 | H0-09 documentation truth | Partial | Launch, profiles, security boundaries, deployment assumptions, and current tool counts are documented. A named-client/version compatibility matrix and bank deployment evidence remain open. |
-| H0-10 licensing/provenance | Open | The owner accepted current source/data use for this job, but no legal decision record or technical entitlement design now prevents unauthorized corporate use. |
+| H0-10 licensing/provenance | Partial | **docs/LICENSING_AND_PROVENANCE.md** now records MIT's commercial-use effect, separate code/data/knowledge-pack boundaries, and a fail-closed release decision checklist. Counsel-approved source/redistribution terms and any service entitlement contract remain external. |
 | H1-01 and H1-03 input/risk contracts | Complete | Generated models reject extras and expose constraints; all 28 tools have reviewed annotations (**bddk_mcp/tools/registry.py:56-184; tests/test_public_input_contracts.py**). |
-| H1-02 structured results | Partial | Stable privacy-safe errors and six structured retrieval evidence outputs exist (**bddk_mcp/mcp_server.py; bddk_mcp/tools/structured_outputs.py**). Uniform typed success/citation/warning/meta envelopes remain open across the other tools. |
+| H1-02 structured results | Partial | Stable privacy-safe errors and six structured retrieval evidence outputs exist; exact validated sections can carry Citation v1. Every source-backed public text renderer now puts titles, headings, dates, URLs, snippets, bodies, and delimiter spoofs inside one untrusted-data envelope (**bddk_mcp/tools/structured_outputs.py; tests/test_structured_retrieval_outputs.py**). Uniform typed success envelopes remain open across the other tools. |
 | H1-04 remote HTTP baseline | Complete at the application boundary | Non-loopback startup requires exact Host and HTTPS Origin allowlists, complete asymmetric JWT/JWKS verification, and profile scope; request body, rate, and concurrency admission are bounded per process (**bddk_mcp/http_security.py:320-393,437-488,542-698**). Shared ingress controls and bank TLS/IdP acceptance remain deployment work. |
 | H1-05 public/operator planes | Complete as a repository boundary | One profile is served per process; scopes, DSNs, role inventories, pool-connection identity checks, and OpenShift workloads differ. Bank-created principals, network policy allows, and principal audit integration remain acceptance work. |
-| H1-06 migrations and roles | Complete as a repository boundary | Immutable checksums, advisory serialization, role/grant SQL, wrong-target and TLS guards, write-denial tests, catalog attestation, and prior-shape upgrades exist. Shared-cluster naming and bank DBA execution remain external; future large migrations should use expand/backfill/contract phases. |
+| H1-06 migrations and roles | Complete as a repository boundary | Immutable checksums, advisory serialization, role/grant SQL, wrong-target and TLS guards, write-denial tests, catalog attestation, and prior-shape upgrades exist through v0004. Disposable PG17 transactional allow/deny and actual-LOGIN identity/ACL contracts passed locally. The public reader sees only a validated-citation view; public, ingestion, and operator identities have no direct privilege on the eleven legal-curation tables. Readiness attests exactly 69 v0004 constraints and 21 indexes. Shared-cluster naming, curator identity, bank LOGINs, and bank DBA execution remain external. |
 | H1-07 protocol E2E | Partial | Official stdio subprocess and JSON Streamable HTTP tests cover initialize/list/call, strict input, health, authentication, Origin, scopes, and operator opt-in (**tests/test_mcp_stdio_e2e.py:25-97; tests/test_mcp_http_runtime.py:18-149**). Full named-client/prior-protocol and durable cancellation matrices remain. |
-| H1-08 observability | Partial | Liveness/readiness, privacy-safe correlation, and thread-safe request/error/latency metrics are wired and tested. Standard metric export, traces, retention, SLOs, and recovery evidence remain open. |
-| H1-09 OpenShift AI | Partial | The starter supplies separate non-root/read-only public/operator workloads, exact Secrets, TLS probes, lifecycle Jobs, stable selectors, telemetry overlay, digest-only image placeholders, and default-deny ingress/egress. Bank image/CA/IdP/registry/egress values and real-cluster validation remain open (**deploy/openshift/; tests/test_openshift_manifests.py**). |
+| H1-08 observability | Partial | Liveness/readiness, privacy-safe correlation, thread-safe metrics, and privacy-safe recovery/supply-chain evidence schemas are wired and tested. Standard metric export, traces, retention, numeric SLO/RPO/RTO, and bank evidence retention remain open. |
+| H1-09 OpenShift AI | Partial | The starter supplies separate non-root/read-only public/operator workloads, exact Secrets, TLS probes, lifecycle Jobs, stable selectors, telemetry overlay, digest-only image placeholders, and default-deny ingress/egress. A secret-free offline acceptance preflight binds the checksum-verified Kustomize v5.8.1 binary and enforces exact resource/policy/config/workload/security-context inventories. The accepted `bank-bootstrap` overlay passes the strict corpus gates directly to bootstrap with separate read-only corpus/trust sources. The required egress matrix gives approved regulatory-source/proxy HTTPS to both runtimes and not lifecycle. Bank peer values, actual PVC/Secret provisioning, lifecycle execution, CNI enforcement, and real-cluster validation remain open (**deploy/openshift-overlays/bank-bootstrap/**; **bddk_mcp/openshift_acceptance.py; deploy/openshift/**). |
 | H2-02 retrieval publication | Partial | Document/sections replace transactionally and chunks are visible only under a current content/profile publication record; mutation invalidates publication. Immutable whole-corpus generations, active-pointer rollback, and per-request generation binding remain open. |
 | H3-01 evaluation runner | Complete as a harness | Phase 2 now uses official stdio or `/mcp`, paginates live discovery, calls tools through `ClientSession`, fails closed, and records audit identities (**benchmark/phase2_e2e.py; tests/test_benchmark_phase2.py**). Expert data, claim/citation grading, named model runs, and recommendations remain open. |
-| Supporting security and release controls | Partial | SSRF/redirect/response and ZIP/DOCX archive bounds, immutable model/base references, container recipe checks, and distribution verification are delivered. Prompt-injection elevation, executable image/SBOM scans, load/recovery, and bank supply-chain acceptance remain. |
-| H1-10, H1-11, H2 legal/evidence work, H3-02 onward, H4 | Open | Backup/restore, named-client evidence, immutable corpus generations, legal version/currentness, page/formula fidelity, audit-grade citations, expert Turkish evaluation, validated regulatory relations, and audit knowledge workflows remain future work. |
+| Supporting security and release controls | Partial | SSRF/redirect/response and archive bounds, immutable build inputs, Buildx descriptor/config/loaded-image/Syft binding, deterministic SBOM and unsigned repository SLSA generation, model-manifest/runtime/Dockerfile consistency, complete-history secret scanning, fresh vulnerability scanning, and High/Critical policy enforcement are delivered. Buildx itself runs `--provenance=false --load`; pending exceptions always leave promotion ineligible. Signing, admission/promotion, load, full restore, and bank supply-chain acceptance remain external. |
+| H1-10, H1-11, H2 legal/evidence work, H3-02 onward, H4 | Partial/Open | Guarded migration and logical-restore workflows, a synthetic 11-table canonical legal-version pilot, exact-section Citation v1, a corpus-scope manifest, and a 20-case Turkish **draft** now exist. The technical path separates source-content and acquisition identities, binds frozen-whitespace offsets, attests 69 constraints/21 indexes, and passes synthetic official-MCP/real-PostgreSQL integration. A second-cluster restore run, real authoritative family, retained artifact-byte/page and curator/source authenticity, expert annotation/adjudication/approval, named-client evidence, immutable corpus generations, and audit knowledge workflows remain open. |
 
-Current repository gates now include official stdio and HTTP E2E, required PostgreSQL CI on Python 3.12/3.13, a dedicated actual-LOGIN/ACL role-contract job, distribution verification, and checksum-pinned mandatory Kustomize rendering of the base and telemetry overlay. This overlay does not claim an OpenShift cluster, recovery, retrieval, citation, or live-model acceptance run.
+### Residual issue execution checkpoint
+
+| Issue | Repository status | What still prevents closure of the full outcome |
+|---|---|---|
+| R-01 | Complete at repository-test scale | Bank-sized rehearsal, measured maintenance window, and approved evidence retention. |
+| R-02 | Workflow and fail-closed tests complete; execution partial | No completed `pg_dump` to a second isolated cluster, numeric RTO/RPO, PITR, or bank DBA evidence. |
+| R-03 | Complete: PostgreSQL 17 only | The bank must select and operate a supported PG17 topology. |
+| R-04 | Strict bank-import repository preflight complete; cluster acceptance open | The exact checksum-verified Kustomize binary, base/lifecycle inventories, and `bank-bootstrap` overlay are repository-gated, including direct strict arguments and separate read-only corpus/key sources. Complete the actual bank PVC/Secret lifecycle run plus namespace, IdP/JWKS, CA/Route, registry, signed digest, egress, database, backup, and rollback exercises. |
+| R-05 | Unsigned repository evidence lane implemented; promotion open | Buildx runs `--provenance=false --load`; repository-generated SLSA is unsigned. Bank signing identity, registry, admission/promotion verification, approval of pending exceptions, and disconnected-runner execution remain external; pending exceptions never qualify for promotion. |
+| R-06 | Synthetic technical pilot complete; product pilot partial | Eleven owner-only tables, source-content/acquisition separation, 69-constraint/21-index attestation, and synthetic official-MCP/real-PG evidence exist. Authoritative non-fixture regulation family, authenticated curator/reviewer workflow, retained authoritative bytes, and source authenticity remain external. |
+| R-07 | Exact-section technical path complete; corpus rollout partial | Frozen-whitespace exact offsets and Citation reconstruction are implemented. Real validated occurrence mappings, retained artifact-byte verification, authoritative source pages, and curator/source authenticity remain external. |
+| R-08 | Checksummed manifest/import contract complete; production governance partial | Bootstrap is manifest-path-bound, closes reserved-filename bypasses, and can apply `--require-quantified-freshness`, `--require-measured-freshness`, `--require-verified-signature`, and a separately mounted `--trusted-signing-key` directly in the importing process. Its path-free manifest ID/SHA output is operator evidence, not yet DB-persisted identity. Actual signature, numeric objectives, per-document measured events, authoritative coverage reconciliation, and legal reuse approval remain external. A prior `verify-corpus` run is diagnostic only. |
+| R-09 | Fail-closed schema and 20-case draft complete; adjudicated pilot open | Two independent annotations, adjudication, owner approval, verified Citation v1 evidence, and three trust inputs remain: signed measured corpus, separately signed dataset, and separately signed exact legal Citation export/attestation under a distinct curator key. |
+| R-10 | Complete at the renderer/official-MCP contract | Host/model resistance must still be measured in the future security/model evaluation matrix. |
+
+Current repository gates include official stdio and HTTP E2E, required PostgreSQL CI on Python 3.12/3.13, actual-LOGIN/ACL contracts, distribution verification, mandatory Kustomize rendering, guarded recovery workflows, and supply-chain evidence policy. None of these repository checks claims a bank OpenShift, full restore/PITR, authoritative legal review, or live-model acceptance run.
 
 ## Horizon 0 — Stabilize and clarify
 
@@ -145,8 +160,10 @@ This section preserves the original 2026-07-14 implementation sequence as review
 - shutdown closes dependencies and stdout remains protocol-only;
 - regression test fails against the old behavior.
 
-**Labels:** bug, mcp, P0, tests, effort-M  
-**Dependencies:** none  
+**Labels:** bug, mcp, P0, tests, effort-M
+
+**Dependencies:** none
+
 **Roadmap:** H0-01
 
 ### Issue 2 — Make the project buildable and add a portable bddk-mcp CLI
@@ -162,8 +179,10 @@ This section preserves the original 2026-07-14 implementation sequence as review
 - package contents contain only intended modules/data;
 - no checked-in user-specific absolute path.
 
-**Labels:** packaging, developer-experience, P0, effort-S  
-**Dependencies:** issue 1  
+**Labels:** packaging, developer-experience, P0, effort-S
+
+**Dependencies:** issue 1
+
 **Roadmap:** H0-02
 
 ### Issue 3 — Generate exact public/operator tool contracts from runtime
@@ -178,8 +197,10 @@ This section preserves the original 2026-07-14 implementation sequence as review
 - project version is present in initialization metadata;
 - no test merely checks literal count text.
 
-**Labels:** mcp, contracts, documentation, P0, effort-M  
-**Dependencies:** issue 1  
+**Labels:** mcp, contracts, documentation, P0, effort-M
+
+**Dependencies:** issue 1
+
 **Roadmap:** H0-03
 
 ### Issue 4 — Enforce loopback, Host, and Origin policy for Streamable HTTP
@@ -195,8 +216,10 @@ This section preserves the original 2026-07-14 implementation sequence as review
 - tests use the official Streamable HTTP client and current protocol;
 - behavior is documented.
 
-**Labels:** security, mcp, http, P0, effort-S  
-**Dependencies:** issue 1  
+**Labels:** security, mcp, http, P0, effort-S
+
+**Dependencies:** issue 1
+
 **Roadmap:** H1-04, first slice
 
 ### Issue 5 — Split public and operator tool profiles at the process boundary
@@ -211,8 +234,10 @@ This section preserves the original 2026-07-14 implementation sequence as review
 - tests cover exact surfaces and negative cross-profile calls;
 - deployment docs identify the operator plane as private.
 
-**Labels:** security, architecture, mcp, P0, effort-M  
-**Dependencies:** issue 3, issue 4  
+**Labels:** security, architecture, mcp, P0, effort-M
+
+**Dependencies:** issue 3, issue 4
+
 **Roadmap:** H1-05, first slice
 
 ### Issue 6 — Remove automatic seed import, DDL, and embedding work from serving startup
@@ -227,8 +252,10 @@ This section preserves the original 2026-07-14 implementation sequence as review
 - a DB document with a hash different from bundled seed is unchanged after restart;
 - startup time no longer scales with corpus embedding.
 
-**Labels:** correctness, database, deployment, P0, effort-M  
-**Dependencies:** issue 2  
+**Labels:** correctness, database, deployment, P0, effort-M
+
+**Dependencies:** issue 2
+
 **Roadmap:** H0-07
 
 ### Issue 7 — Populate document_sections during seed bootstrap and validate section readiness
@@ -243,8 +270,10 @@ This section preserves the original 2026-07-14 implementation sequence as review
 - alias form 22599 resolves consistently;
 - CI seed-integrity job fails when a required section index is absent.
 
-**Labels:** retrieval, ingestion, bug, P0, effort-S  
-**Dependencies:** issue 6  
+**Labels:** retrieval, ingestion, bug, P0, effort-S
+
+**Dependencies:** issue 6
+
 **Roadmap:** H0-04
 
 ### Issue 8 — Connect the known-quality registry to every retrieval surface
@@ -259,8 +288,10 @@ This section preserves the original 2026-07-14 implementation sequence as review
 - resolution requires reason, reviewer/date, and regression fixture;
 - a known-failed result cannot appear without warning.
 
-**Labels:** data-quality, retrieval, compliance, P0, effort-M  
-**Dependencies:** none  
+**Labels:** data-quality, retrieval, compliance, P0, effort-M
+
+**Dependencies:** none
+
 **Roadmap:** H0-05
 
 ### Issue 9 — Stop logging queries and result excerpts by default
@@ -275,8 +306,10 @@ This section preserves the original 2026-07-14 implementation sequence as review
 - debug text mode is opt-in and documented with retention warning;
 - tests cover all tool families and JSON logs.
 
-**Labels:** security, privacy, observability, P0, effort-S  
-**Dependencies:** none  
+**Labels:** security, privacy, observability, P0, effort-S
+
+**Dependencies:** none
+
 **Roadmap:** H0-06
 
 ### Issue 10 — Replace benchmark Phase 2 with official MCP calls and fail-closed scoring
@@ -292,8 +325,10 @@ This section preserves the original 2026-07-14 implementation sequence as review
 - grader absence is an explicit failure/not-comparable state;
 - regression test demonstrates old /call-tool path would fail.
 
-**Labels:** evaluation, mcp, bug, P0, effort-M  
-**Dependencies:** issue 1, issue 3  
+**Labels:** evaluation, mcp, bug, P0, effort-M
+
+**Dependencies:** issue 1, issue 3
+
 **Roadmap:** H3-01
 
 ## Historical issue dependency graph
@@ -427,72 +462,99 @@ Exit:
 
 ## Historical recommended release sequence
 
-1. **v5.0.1 — Runtime correctness patch**  
+1. **v5.0.1 — Runtime correctness patch**
    Fix lifecycle, packaging, tool-surface truth, seed section readiness, and documentation. Keep local/pre-production label.
 
-2. **v5.1.0 — Secure MCP foundation**  
+2. **v5.1.0 — Secure MCP foundation**
    Add structured contracts, secure HTTP, public/operator separation, explicit migrations/bootstrap, privacy-safe logs, protocol E2E, and health/metrics. Permit remote beta only after security gates.
 
-3. **v5.2.0 — Versioned regulatory evidence**  
+3. **v5.2.0 — Versioned regulatory evidence**
    Add canonical artifacts, corpus generations, legal versions/status, hierarchical provisions, page/formula preservation, citation engine, DB roles, backup/restore. First candidate for controlled regulatory research, not automatic legal conclusions.
 
-4. **v5.3.0 — Evaluated retrieval and compatibility**  
+4. **v5.3.0 — Evaluated retrieval and compatibility**
    Publish expert-reviewed retrieval/citation/grounding baseline and client/model matrix. Enable reranking or model changes only when measured.
 
-5. **v6.0.0 — Regulatory knowledge pilot**  
+5. **v6.0.0 — Regulatory knowledge pilot**
    Add validated relations, obligations, audit mappings, evidence packs, and governed accumulated knowledge for a limited set of domains.
 
-## First 10 residual GitHub issues — 2026-07-15
+## R-01–R-10 implementation ledger — 2026-07-15
 
-These issues begin after the completed stabilization batch. They are deliberately bounded residuals; none repeats the already-delivered launcher, packaging, registry, HTTP, durable-ledger, migration framework, SSRF/archive controls, Phase 2 MCP runner, actual-LOGIN CI contract, or mandatory OpenShift rendering.
+The earlier R-01–R-10 proposals are retained as a delivery ledger, not as ten
+issues to reopen. Their current boundaries are summarized here; the next ten
+actionable issues follow.
 
-| Issue | Suggested title and description | Acceptance criteria | Priority / effort | Suggested labels | Dependencies |
-|---|---|---|---|---|---|
-| R-01 | **Produce a repeatable populated-v2 migration rehearsal report.** Wrap the existing v3 approval gate in a non-production rehearsal workflow that records scale and operational evidence without relaxing timeouts. | Default populated-v2 migration refuses; an explicitly approved disposable restore completes or fails closed; the report records source DB fingerprint, row/relation sizes, elapsed time, lock waits, database/WAL growth, migration checksum, trigger/constraint state, and reindex/readiness results; secrets and corpus text are absent. | P0 / M | `database`, `migration`, `operations`, `p0` | Delivered actual-LOGIN CI gate |
-| R-02 | **Add a disposable backup-and-restore integrity drill.** Define the minimum logical restore test while leaving the bank's PITR implementation external. | A scheduled job backs up an approved test database, restores to a new database, reapplies identity/grants, and passes migration-ledger, catalog, document/section/chunk/publication-hash, retrieval, and MCP-readiness checks; measured recovery time and failures are retained as privacy-safe artifacts. | P0 / M | `database`, `recovery`, `testing`, `p0` | Delivered role and catalog contracts |
-| R-03 | **Define and test the supported PostgreSQL version contract.** Resolve the current PG17-only CI evidence before choosing the bank database. | Documentation names each supported major version; CI runs the migration, catalog, identity, role, retrieval-publication, and operator-job contract on every supported version; an unsupported major fails startup/preflight with a safe error; the bank-selected version must be inside the tested set. | P1 / M | `database`, `compatibility`, `testing` | Bank PostgreSQL version decision for final acceptance |
-| R-04 | **Create a bank OpenShift acceptance harness and evidence bundle.** Turn the starter manifests into a reproducible namespace-level smoke test without checking bank values into Git. | A parameterized, secret-free fixture verifies signed digest-only images, Route/TLS and JWT claim mapping, exact public/operator scopes and Secrets, PostgreSQL CA/LOGIN separation, required egress, NetworkPolicy denies, probes, migration/bootstrap Jobs, telemetry isolation, and rollback; the run records sanitized versions/results and fails on placeholders. | P1 / L | `openshift`, `security`, `deployment`, `bank-acceptance` | R-02, R-03, R-05; bank IdP/CA/registry/egress inputs |
-| R-05 | **Generate SBOMs and enforce signed, scanned release artifacts.** Add a reviewable software-supply-chain lane without introducing a new runtime service. | Wheel/sdist and both container variants produce SBOM/provenance artifacts; pinned scanners have an approved severity policy and exception record; application images are signed by the selected bank-compatible mechanism; OpenShift promotion verifies digest, signature, and policy; a vulnerable fixture proves fail-closed behavior. | P1 / M | `supply-chain`, `security`, `release` | Bank registry/signing-policy decision for final promotion |
-| R-06 | **Implement a canonical legal-version pilot for one regulation family.** Separate extraction revisions from legal versions before claiming current or historical applicability. | Stable instrument/version/provision identities represent publication, effective, expiry, repeal/supersession, consolidation, validation state, and source evidence; one amendment chain imports deterministically; current/as-of queries return the validated version or explicitly abstain when status is unknown; migration and regression tests pass. | P1 / L | `regulatory-model`, `versioning`, `retrieval` | R-08 and an authoritative status-validation workflow |
-| R-07 | **Define Citation v1 and reconstruct one exact-section path.** Start with `get_document_section`; never label normalized offsets as source pages. | Citation schema identifies instrument/legal version, artifact and text hashes, source URL, provision identity, labeled page or normalized range, quality, and retrieval profile; a verifier reconstructs the exact excerpt; wrong hash/range/version fails; text fallback matches structured evidence. | P1 / M | `citations`, `contracts`, `retrieval` | R-06, R-08 |
-| R-08 | **Add a machine-readable corpus-scope and freshness manifest.** Represent the owner's selected job corpus without claiming exhaustive BDDK coverage. | A versioned schema records included/excluded source classes, selection owner/purpose, artifact hashes, retrieval/freshness times, known gaps, and signature/checksum; bootstrap and benchmark audit record its hash; stale, missing, or inconsistent entries fail validation; responses expose a concise scope warning. | P1 / M | `data-governance`, `corpus`, `documentation` | None |
-| R-09 | **Create the expert-evaluation schema and a 20-case adjudicated pilot.** Establish governance before scaling to the 100-case release set. | Dataset validation requires immutable source/Citation evidence, query class/domain, positives/hard negatives/no-answer, annotator roles, disagreement/adjudication, and version; 20 owner-approved Turkish cases cover at least five selected domains and include exact, semantic, currentness-unknown, table/formula, and abstention cases. | P1 / M | `evaluation`, `turkish`, `domain-review` | R-06, R-07, R-08 |
-| R-10 | **Standardize the untrusted-document envelope and prompt-injection negatives.** Mark retrieved and upstream text as evidence, never instructions, across all six structured retrieval tools. | Structured evidence carries an untrusted-source marker and quality warnings; fixtures containing tool-use, credential, data-exfiltration, and policy-override instructions remain inert data; public scope cannot become operator scope; logs/traces do not copy payloads; behavior is tested over official MCP. | P1 / M | `security`, `retrieval`, `prompt-injection` | None |
+| Ledger ID | Current state | Residual boundary |
+|---|---|---|
+| R-01 | Repository workflow complete | Populated-v2 refusal/rehearsal is automated; production-size bank execution remains external. |
+| R-02 | Workflow complete; execution partial | Logical-restore orchestration and fail-closed checks exist; a full second-cluster run has not been executed. |
+| R-03 | Complete for PostgreSQL 17 | Any other major requires the same mandatory evidence before support is claimed. |
+| R-04 | Repository preflight complete; bank run open | The strict bank-bootstrap overlay and exact Kustomize acceptance contract pass; eight live gates remain `not_run`. |
+| R-05 | Repository evidence lane complete; promotion open | SBOM/scans/unsigned provenance are gated; bank signing, admission, registry, and promotion are external. |
+| R-06 | Synthetic technical pilot complete | No authoritative real regulation family, retained authoritative bytes/pages, or authenticated curator evidence exists. |
+| R-07 | Synthetic Citation v1 path complete | Real-corpus occurrence mappings and true source-page reconstruction remain open. |
+| R-08 | Manifest/import contract complete; governed release open | The tracked corpus is unsigned, unquantified, unmeasured, and its bootstrap identity is not DB-persisted. |
+| R-09 | Validator and 20-case draft complete | Independent annotations, adjudications, approvals, verified Citations, and release signatures remain open. |
+| R-10 | Current renderer contract complete | Named live host/model prompt-injection and tool-escalation evaluation remains open. |
+
+## First 10 currently open GitHub issues
+
+These are the next small, reviewable units. “External” means completion needs a
+bank, owner, curator, or expert action; repository evidence alone cannot close
+that issue.
+
+| Issue | Suggested title | Issue description | Acceptance criteria | Priority / effort | Suggested labels | Dependencies |
+|---|---|---|---|---|---|---|
+| C-01 | **Persist the verified corpus release identity at bootstrap commit** | Add an append-only corpus-release/publication record so the imported manifest identity is recoverable after Job logs expire. | A successful strict bootstrap atomically records manifest ID/SHA-256, signer-key fingerprint, enforced freshness-policy result, retrieval-profile identity, and completion time; a failed/rejected import creates no active record; readiness and privacy-safe operator evidence expose the active identity; migration, rollback, ACL, and tamper tests pass. | P0 / M | `corpus`, `database`, `traceability`, `p0` | Delivered R-08 import contract |
+| C-02 | **Approve numeric freshness, SLO, RPO, RTO, and evidence-retention targets** | Replace the owner's “immediate” expectation with measurable production decisions before infrastructure acceptance. | One owner-approved ADR names numeric corpus freshness, availability, latency, RPO, RTO, evidence-retention, and alert thresholds; each target maps to a metric or drill and an accountable owner; no production document uses “immediate” as an acceptance criterion. | P0 / S | `decision`, `operations`, `governance`, `p0` | Project owner; bank operations input |
+| C-03 | **Execute the full isolated PostgreSQL 17 logical-restore drill** | Run the delivered restore workflow against a distinct empty PG17 cluster and retain sanitized evidence. | `pg_dump` and `pg_restore` execute against separate source/target clusters; roles/grants are reapplied; migration ledger, 69-constraint/21-index catalog digest, ACL/identity, corpus fingerprints, retrieval, Citation, and readiness checks pass; elapsed recovery and failure evidence contain no secrets or corpus text and meet C-02 targets. | P0 / M | `database`, `recovery`, `testing`, `p0` | C-02; disposable PG17 source and target |
+| C-04 | **Validate bank-managed PostgreSQL LOGIN, TLS, HBA, and ACL contracts** | Exercise the repository's exact identity checks with the actual bank-created principals rather than local disposable roles. | Schema-owner, ingestion, public, operator, and optional telemetry LOGINs have only reviewed memberships; every DSN uses `verify-full` with the approved CA; positive and forbidden SQL cases pass under the real authenticated identities; target-database/HBA/ACL evidence is sanitized and DBA-approved. | P0 / M | `database`, `security`, `bank-acceptance`, `p0` | Bank DBA; selected PG17 service and CA |
+| C-05 | **Publish the first signed and measured approved corpus release** | Turn the selected corpus from a checksummed draft into a release artifact that can pass strict bootstrap without exceptions. | Numeric objectives from C-02 are present; every included document has bounded source-detection/download/extraction/retrieval-publication measurements; scope/gaps/provenance are owner-approved; the canonical manifest and detached Ed25519 signature verify; the public key is delivered separately; strict bootstrap succeeds on a disposable database and its path-free identity is retained. | P0 / L | `corpus`, `data-governance`, `signing`, `p0` | C-01, C-02; source inventory; owner approval |
+| C-06 | **Run the strict bank-bootstrap lifecycle in an isolated OpenShift namespace** | Execute, rather than merely render, the reviewed lifecycle contract using bank-managed storage and trust material. | Migration completes before DBA grants and bootstrap; PVC `bddk-mcp-approved-corpus` and Secret `bddk-mcp-corpus-trust` are separate/read-only; the exact strict command succeeds and records manifest ID/SHA; wrong key, altered artifact, undeclared reserved file, and missing measurement fail before mutation; public/operator source/proxy HTTPS and lifecycle denial pass under the target CNI; the lifecycle/network external gates change from `not_run` only in separately retained live evidence. | P0 / M | `openshift`, `corpus`, `bank-acceptance`, `p0` | C-04, C-05, C-08; isolated bank-like namespace |
+| C-07 | **Validate bank OAuth discovery, token, Route, and CA behavior** | Prove the application authorization boundary through the real bank ingress/IdP instead of relying only on local JWT fixtures. | The public Route serves `/.well-known/oauth-protected-resource/mcp`; 401 advertises the matching `resource_metadata`; approved access tokens work; wrong issuer/audience/type/scope and ID tokens fail; operator remains private and separately scoped; re-encrypt and service-CA chains, rotation, and shared ingress limits pass documented positive/negative tests. | P0 / L | `mcp`, `oauth`, `security`, `bank-acceptance`, `p0` | Bank IdP/registration, Route, CA, and ingress policy |
+| C-08 | **Sign, admit, and promote the exact release image digest** | Complete the bank-owned half of the repository supply-chain lane. | Both runtime image variants and Python artifacts have accepted SBOM/provenance; the chosen bank identity signs the exact digest; admission accepts that digest and rejects unsigned, wrong-key, altered, High/Critical-blocked, or pending-exception artifacts; registry promotion and rollback evidence bind the same digest without secrets. | P0 / M | `supply-chain`, `security`, `release`, `p0` | Bank registry, signing identity, admission and exception policy |
+| C-09 | **Curate one authoritative real regulation amendment family** | Replace the synthetic legal pilot with one bounded, reviewer-approved family before making currentness claims. | Retained authoritative artifact bytes and acquisition evidence reproduce source hashes/pages; stable instrument/version/provision IDs cover publication, effective date, amendment, supersession/repeal, and unknown states; source and curator authority are recorded; two-person validation or an approved equivalent signs the exact Citation export; current/as-of queries return validated evidence or abstain. | P1 / L | `regulatory-model`, `citations`, `domain-review` | Approved source-retention/provenance policy; legal-curator identity |
+| C-10 | **Adjudicate the 20-case Turkish pilot and run one pinned model baseline** | Complete one vertical evaluation slice before expanding to a broad model matrix. | All 20 cases have two independent annotations, adjudication, owner approval, verified Citation v1 mappings, and legal-currentness states; the dataset signature and legal-curator attestation use different keys; one pinned client/host/model executes the real MCP harness reproducibly; tool calls, retrieval, citations, abstention, grounding, latency, and failures are reported without unsupported product claims. | P1 / L | `evaluation`, `turkish`, `mcp`, `model-benchmark` | C-05, C-09; independent annotators/adjudicator; selected baseline client/model |
 
 ## Current issue dependencies and parallel work
 
 ~~~mermaid
 flowchart LR
-    R02[R-02 restore drill] --> R04[R-04 bank OpenShift acceptance]
-    R03[R-03 PostgreSQL contract] --> R04
-    R05[R-05 signed supply chain] --> R04
-    R08[R-08 scope manifest] --> R06[R-06 legal-version pilot]
-    R06 --> R07[R-07 Citation v1]
-    R08 --> R07
-    R06 --> R09[R-09 expert pilot]
-    R07 --> R09
-    R08 --> R09
-    R01[R-01 v3 rehearsal]
-    R10[R-10 injection envelope]
+    C01[C-01 persist corpus identity] --> C05[C-05 signed measured corpus]
+    C02[C-02 numeric targets] --> C03[C-03 isolated restore]
+    C02 --> C05
+    C04[C-04 bank DB identities] --> C06[C-06 strict namespace bootstrap]
+    C05 --> C06
+    C08[C-08 signed image promotion] --> C06
+    C05 --> C10[C-10 adjudicated model baseline]
+    C09[C-09 real legal family] --> C10
+    C07[C-07 bank OAuth/Route/CA]
 ~~~
 
-R-01, R-02, R-03, R-05, R-08, and R-10 can start in parallel with separate file ownership. R-04 can build its secret-free harness while those run, but bank acceptance cannot close before R-02, R-03, and R-05. R-06 follows the scope contract and authoritative legal-status workflow; R-07 follows that pilot; R-09 follows the legal-version, Citation, and scope contracts. Avoid combining R-01 with a migration rewrite: its purpose is to measure and gate the current v3 path.
+C-01, C-02, C-04, C-07, C-08, and C-09 can start in parallel with separate
+owners. C-03 follows the numeric recovery decision. C-05 follows the corpus
+identity record and numeric freshness target. C-06 waits for bank database
+identities, an approved signed corpus, and the admitted image. C-10 waits for
+the approved corpus and real-family legal evidence. Expanding to a named
+Claude/Codex/GPT-OSS/LM Studio matrix is the next issue after the single pinned
+baseline proves the dataset and runner together.
 
 ## Current milestone structure
 
 | Milestone | Included issues | Exit criteria |
 |---|---|---|
-| **v5.0.1 Repository Evidence** | R-01, R-02 | A populated-v2 rehearsal and disposable restore prove that the delivered migration, catalog, role, and publication controls survive realistic recovery. This is repository evidence, not bank acceptance. |
-| **v5.1 Bank Integration Candidate** | R-03, R-04, R-05, R-10 | Supported PostgreSQL versions are explicit, artifacts are signed/scanned, untrusted evidence is tested, and the bank acceptance harness passes with controlled values. |
-| **v5.2 Regulatory Evidence Pilot** | R-06, R-07, R-08, R-09 | One legal-version chain and Citation v1 reconstruct exact evidence, scope/freshness is machine-readable, and the adjudicated pilot dataset validates. Expand to the 100-case release set only after pilot review. |
-| **v6.0 Knowledge Platform Pilot** | Immutable corpus generations plus remaining Horizon 2/Horizon 4 items | Atomic corpus rollback, broader legal applicability/currentness, audit-grade citations, expert release evaluation, and validated knowledge workflows pass before this milestone is scheduled. |
+| **v5.0.2 Repository Evidence** | C-01, C-02, C-03 | Active corpus identity is durable, targets are numeric, and a distinct-cluster PG17 restore meets the accepted repository recovery contract. This is still not bank production approval. |
+| **v5.1 Bank Integration Candidate** | C-04–C-08 | Actual bank identities, strict corpus lifecycle, OAuth/Route/CA behavior, and signed-image admission have separately retained positive and negative evidence. Bank backup/PITR and client/model gates remain explicit blockers until their later acceptance work completes. |
+| **v5.2 Regulatory Evidence Pilot** | C-09, C-10 | One authoritative family and one fully adjudicated 20-case/pinned-model vertical slice pass; claims remain limited to that reviewed scope. |
+| **v5.3 Compatibility and Retrieval Baseline** | Follow-on named-client/model matrix and expanded expert set | Release-specific clients/models, Turkish retrieval/grounding thresholds, latency, and failure modes are compared reproducibly before a model recommendation is made. |
+| **v6.0 Knowledge Platform Pilot** | Remaining Horizon 2 and Horizon 4 work | Whole-corpus activation/rollback, broader legal relationships, correction governance, and validated control/workpaper mappings pass for selected domains. |
 
 ## Current recommended release sequence
 
-1. **v5.0.1 — hardened repository candidate.** Keep the delivered MCP/security/database/publication foundations and close R-01 and R-02. Do not call it bank-production-ready.
-2. **v5.1 — controlled bank integration candidate.** Close R-03 through R-05 and R-10, then require the bank's IdP, CA, signed-image, egress, monitoring, backup/PITR, and namespace evidence. A passing repository suite alone is insufficient.
-3. **v5.2 — regulatory evidence pilot.** Close R-06 through R-09, scale the expert set, and block legal-currentness or audit-grade claims until version/page/citation acceptance passes.
-4. **v6.0 — regulatory knowledge pilot.** Introduce immutable corpus generations, legal versions/relations, reviewer workflows, and control mappings incrementally; do not infer completion from document-search quality.
+1. **v5.0.2 — evidence-complete repository candidate.** Close C-01 through C-03. Do not call this bank-production-ready.
+2. **v5.1 — controlled bank integration candidate.** Close C-04 through C-08 and retain the live external-gate bundle. Promotion requires bank approval, not just green repository tests.
+3. **v5.2 — bounded regulatory evidence pilot.** Close C-09 and C-10; permit claims only for the accepted family, dataset, client, and model revisions.
+4. **v5.3 — evaluated compatibility release.** Expand the expert set and named client/model matrix only after the pilot is trustworthy.
+5. **v6.0 — regulatory knowledge pilot.** Add whole-corpus generations, broader validated relations, obligations, and control mappings incrementally; do not infer knowledge maturity from document-search quality.
 
 ## Decision points
 

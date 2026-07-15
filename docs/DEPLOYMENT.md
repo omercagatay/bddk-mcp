@@ -35,8 +35,17 @@ PGOPTIONS='-c bddk.expected_database=DATABASE' \
   psql --single-transaction --set ON_ERROR_STOP=1 DBA_DSN \
   --file deploy/postgres/02_grants.sql
 
+# Optional diagnostic only; this result is not a trust handoff to bootstrap.
+uv run --frozen bddk-mcp verify-corpus --seed-dir /APPROVED/CORPUS
+
 BDDK_INGESTION_DATABASE_URL='postgresql://INGESTION:SECRET@HOST:5432/DATABASE?sslmode=verify-full&sslrootcert=%2FAPPROVED%2Fpostgres-ca.crt' \
-  uv run --frozen bddk-mcp bootstrap --reindex-existing
+  uv run --frozen bddk-mcp bootstrap \
+    --seed-dir /APPROVED/CORPUS \
+    --reindex-existing \
+    --require-quantified-freshness \
+    --require-measured-freshness \
+    --require-verified-signature \
+    --trusted-signing-key /APPROVED/TRUST/corpus-signing-public-key.pem
 ```
 
 `bddk-mcp migrate` performs immutable schema work only; it never installs
@@ -49,7 +58,23 @@ profile. It is required after migration v0003 for an existing corpus, which
 remains intentionally unsearchable until republished. The legacy `bddk-seed
 import|export` helper remains available for reviewed corpus maintenance. The
 checked-in seed corpus is job-specific and is not a claim of exhaustive BDDK
-coverage.
+coverage. Bootstrap itself binds the reviewed scope declaration to the exact
+manifest-declared artifact paths, checksums, byte sizes, record counts, and
+extraction timestamps before it opens a database pool. It rejects a present
+but undeclared reserved `documents.json`, `chunks.json`, or
+`decision_cache.json`; it does not fall back from the manifest to a familiar
+filename. A prior `verify-corpus` run is useful diagnostics only and transfers
+no trust to this mutating process. Production passes
+`--require-quantified-freshness`, `--require-measured-freshness`, and
+`--require-verified-signature` directly to bootstrap, with
+`--trusted-signing-key` on a separately mounted approved Secret. Numeric
+objectives and evidence are different gates: `measured` requires per-document
+authoritative-publication, source-detection, download, extraction, and
+retrieval-publication events whose calculated lags satisfy all three
+objectives. Successful bootstrap output includes the path-free manifest ID and
+SHA-256 for retained operator evidence; that identity is not yet persisted in
+PostgreSQL. The current manifest is unsigned, unquantified, and not measured;
+it intentionally fails the production bootstrap gate.
 
 The ordinary migration refuses an unmanaged pre-ledger schema. The explicit
 `bddk-mcp migrate --adopt-legacy` path supports only the exact verified legacy
@@ -81,6 +106,13 @@ it is not the OpenShift service CA used for MCP application sockets.
 `BDDK_ALLOW_INSECURE_DATABASE=true` bypasses this application check only for an
 isolated local-development database. Never set it in a shared, remote, bank,
 staging or production workload.
+
+This release supports **PostgreSQL major 17 only**. Migration, readiness,
+schema-owner, public, ingestion, operator, and telemetry connection boundaries
+verify `server_version_num` and refuse any other or unverifiable major before
+performing application work. Expanding the supported set requires the same
+mandatory full migration/catalog/role/publication/job suite on the additional
+major; “likely compatible” is not an admission rule.
 
 ### Database identity contract
 
@@ -181,7 +213,7 @@ Loopback (`127.0.0.1`) is the default bind and is the appropriate development de
 | `BDDK_TLS_CERT_FILE`, `BDDK_TLS_KEY_FILE` | Optional paired PEM paths for HTTPS at the application socket; one without the other, unreadable material, encrypted keys, or a mismatched pair fails startup |
 | `BDDK_OPERATOR_REMOTE_ENABLED` | Must be explicitly `true` for a non-loopback operator profile |
 
-The issuer, resource, JWKS, audience, token type, and scope values are deployment-specific. Obtain them from the bank-approved identity design; do not copy values from repository tests. `BDDK_JWT_RESOURCE` identifies this protected resource to MCP clients; access-token binding is enforced through `BDDK_JWT_AUDIENCE`. Configure a dedicated API/resource-server audience distinct from interactive OAuth client audiences so a Keycloak-style ID token cannot be confused with an access token. Keep the fail-closed `at+jwt` default when the issuer supports RFC 9068. Set `BDDK_JWT_ACCESS_TOKEN_TYPES=at+jwt,JWT` only when generic `JWT` is required by the approved Keycloak/IdP profile.
+The issuer, resource, JWKS, audience, token type, and scope values are deployment-specific. Obtain them from the bank-approved identity design; do not copy values from repository tests. `BDDK_JWT_RESOURCE` identifies this protected resource to MCP clients; the composed application publishes RFC 9728 metadata at `/.well-known/oauth-protected-resource/mcp`, and its unauthenticated 401 challenge supplies the same URL through `resource_metadata`. Access-token binding is enforced through `BDDK_JWT_AUDIENCE`. Configure a dedicated API/resource-server audience distinct from interactive OAuth client audiences so a Keycloak-style ID token cannot be confused with an access token. Keep the fail-closed `at+jwt` default when the issuer supports RFC 9068. Set `BDDK_JWT_ACCESS_TOKEN_TYPES=at+jwt,JWT` only when generic `JWT` is required by the approved Keycloak/IdP profile. This discovery contract is application evidence only; client registration and the complete bank IdP authorization flow still require live acceptance.
 
 Host, Origin, content type, duplicate headers, and request-body size are validated before bearer authentication. JWT verification then bounds token length and checks the asymmetric signature, key ID/algorithm, access-token type, issuer, exact resource-server audience, expiry, optional not-before time, and subject. A custom token `resource` claim is neither required nor trusted. Missing or invalid authentication returns 401; a cryptographically valid token without the profile's required scope returns 403.
 
@@ -281,6 +313,18 @@ evaluation workflows from a source checkout with `uv sync --group benchmark`.
 
 The Compose and image definitions bind HTTP on `0.0.0.0`. Under the fail-closed HTTP policy, a container must receive the exact Host/Origin and complete JWT settings above or startup will be refused. Development credentials and database ports from Compose must never be reused or exposed outside a developer environment.
 
+The repository supply-chain lane invokes Buildx with
+`--provenance=false --load`, then binds the exact manifest descriptor/digest,
+image-config digest,
+loaded local image identity, and Syft SBOM before producing canonical evidence.
+It separately creates an **unsigned** repository SLSA provenance envelope; that
+envelope is not Buildx or bank-signed attestation. The lane also requires the
+model manifest's immutable Git commit to agree with runtime configuration and
+both Dockerfiles. An applied pending vulnerability or secret exception is
+reported as external approval required and always leaves
+`release_promotion_eligible=false`, including when repository policy otherwise
+passes. The workflow does not push, sign, admit, or promote an image.
+
 ### Outbound regulatory HTTP
 
 Live catalog, document-sync, institution, announcement, and bulletin paths use
@@ -295,10 +339,14 @@ authenticity, malware-scanning, or network-isolation guarantees.
 DNS validation and the subsequent socket connection are not atomic. A bank
 deployment must enforce the same destinations with OpenShift egress
 NetworkPolicy, an approved egress proxy/firewall, DNS policy, and TLS inspection
-rules where required. The repository starter default-denies egress for all BDDK
-MCP pods but deliberately supplies no environment-specific allowlist. Without a
-bank overlay allowing the required destinations, lifecycle and runtime
-connectivity is expected to fail closed.
+rules where required. Public institution, announcement, bulletin, and update
+tools can call live BDDK sources, so both public and operator runtimes require
+narrow TCP 443 egress to an approved regulatory-source destination or enterprise
+proxy. Lifecycle Jobs require DNS/PostgreSQL only and must not inherit this
+source reach. The repository starter default-denies egress for all BDDK MCP
+pods but deliberately supplies no bank addresses or peer selectors. Without
+the bank-specific exact allow policies, connectivity is expected to fail
+closed.
 
 ## OpenShift AI Starter
 
@@ -312,12 +360,30 @@ CA contract; and separately applied migration/bootstrap Jobs. Every workload
 uses a fail-closed image-digest placeholder, the image uses a digest-pinned `uv`
 source, the embedding-model revision is pinned, and the default non-root UID is
 compatible with OpenShift's arbitrary-UID model. Version labels are excluded
-from immutable selectors.
+from immutable selectors. The offline preflight executes exact standalone
+Kustomize v5.8.1 and binds the actual executable SHA-256 to the reviewed release
+input. It requires exact rendered-object, selector/label/namespace,
+NetworkPolicy, Secret/ConfigMap-key, command/port, volume/mount, pod-container,
+and restricted security-context inventories; omissions, additions, sidecars,
+init/ephemeral containers, host namespace sharing, command overrides, and
+broadened ingress/egress fail closed.
+
+The production-import repository contract is the separately reviewed
+[`deploy/openshift-overlays/bank-bootstrap`](../deploy/openshift-overlays/bank-bootstrap/)
+overlay. It renders the runtime and lifecycle inventory while patching the
+bootstrap Job to use the read-only `bddk-mcp-approved-corpus` PVC and the
+separate read-only `bddk-mcp-corpus-trust` Secret. The exact command passes
+`--require-quantified-freshness`, `--require-measured-freshness`,
+`--require-verified-signature`, and `--trusted-signing-key` directly to the
+mutating bootstrap process. The offline preflight renders and checks this
+overlay; it does not prove that either bank-managed source exists or that the
+Job ran successfully.
 
 This is repository-level implementation evidence, not bank acceptance or a production-ready platform configuration,
 including for OpenShift AI. No target
 bank cluster, SCC, namespace policy, storage class, PostgreSQL service, IdP,
-internal registry, or enterprise proxy was available for this review. Every `REPLACE_*` value must be
+internal registry, or enterprise proxy was available for this review. Every
+`REPLACE_*` value must be
 resolved through the bank design, and Secret examples must never contain real
 values in Git. The manifests still require validation against the bank's SCC,
 trust-bundle injection, registry/image policy, ingress, IdP, namespace labels,
@@ -327,9 +393,10 @@ supplied. Operator job records and advisory leases are durable, but the
 in-process runner/failover behavior remains unaccepted, so the starter
 deliberately uses one `Recreate` operator replica.
 
-The automated database lifecycle and role-isolation lane currently exercises
-PostgreSQL 17. Other PostgreSQL versions may work, but remain unaccepted until
-the same migration, extension, privilege, ingestion, and rollback checks pass.
+The automated database lifecycle and role-isolation lane exercises the complete
+declared compatibility set, currently PostgreSQL 17 only. A bank-selected
+version outside that set is rejected and requires a separately reviewed release
+that adds equivalent mandatory evidence before deployment.
 
 For the target bank deployment:
 
@@ -341,17 +408,29 @@ For the target bank deployment:
 2. Replace the application image placeholder with the scanned immutable digest,
    create `bddk-mcp-postgres-ca` with key `ca.crt`, and keep every workload DSN
    at `sslmode=verify-full` with the mounted absolute CA path.
-3. Run public and operator profiles as separate workloads; inject `BDDK_DATABASE_URL` only into public and `BDDK_OPERATOR_DATABASE_URL` only into operator.
-4. Keep remote operator disabled unless a private operator Route, `bddk.operator` authorization, and explicit `BDDK_OPERATOR_REMOTE_ENABLED=true` have been approved.
-5. Add bank-specific least-privilege egress for DNS, PostgreSQL, IdP/JWKS,
-   approved BDDK/Mevzuat hosts and the enterprise proxy before starting selected
-   pods; retain the checked-in default deny.
-6. Review and adapt the starter, then validate the exact `/health/live` and `/health/ready` probes in a disposable bank-like namespace.
-7. Validate the re-encrypt Route-to-pod handshake and operator Service TLS against the injected OpenShift service CA; retain the application's JWT checks and place shared request limits and audit events at the approved ingress boundary.
-8. Prove backup, point-in-time/selected restore, schema upgrade, legacy refusal
+3. Provision the approved corpus as read-only PVC
+   `bddk-mcp-approved-corpus` and its Ed25519 public verification key as key
+   `ed25519-public-key.pem` in the separate read-only Secret
+   `bddk-mcp-corpus-trust`. Use the reviewed `bank-bootstrap` overlay contract,
+   which passes all strict freshness/signature flags and the separately mounted
+   `--trusted-signing-key` directly to bootstrap. Preserve migration → grants →
+   bootstrap ordering; do not start both lifecycle Jobs concurrently merely
+   because the overlay renders them together. Retain bootstrap's path-free
+   manifest ID/SHA output. The base `jobs/bootstrap.yaml` remains a
+   development/baseline Job and is not a production trust gate.
+4. Run public and operator profiles as separate workloads; inject `BDDK_DATABASE_URL` only into public and `BDDK_OPERATOR_DATABASE_URL` only into operator.
+5. Keep remote operator disabled unless a private operator Route, `bddk.operator` authorization, and explicit `BDDK_OPERATOR_REMOTE_ENABLED=true` have been approved.
+6. Add bank-specific least-privilege egress for DNS, PostgreSQL, IdP/JWKS,
+   and TCP 443 to the approved BDDK/Mevzuat source or enterprise proxy before
+   starting either public or operator runtime; retain the checked-in default
+   deny. Keep lifecycle Jobs limited to DNS/PostgreSQL, without regulatory-source
+   or proxy reach.
+7. Review and adapt the starter, then validate the exact `/health/live` and `/health/ready` probes in a disposable bank-like namespace.
+8. Validate the re-encrypt Route-to-pod handshake and operator Service TLS against the injected OpenShift service CA; retain the application's JWT checks and place shared request limits and audit events at the approved ingress boundary.
+9. Prove backup, point-in-time/selected restore, schema upgrade, legacy refusal
    or adoption where relevant, and rollback/cutover procedures in an isolated
    environment.
-9. Run release-specific MCP discovery, schema, authentication, tool-call,
+10. Run release-specific MCP discovery, schema, authentication, tool-call,
    structured-output, timeout, and citation tests for every actual client/model
    combination used by the bank.
 

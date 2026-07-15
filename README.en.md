@@ -97,6 +97,34 @@ DBA, and only then run `bddk-mcp bootstrap` with the exact ingestion identity.
 `bootstrap` imports corpus data, sections, and embeddings into an already
 migrated schema; it never migrates.
 
+`verify-corpus` is an optional read-only preflight that opens no database
+connection. It does not transfer trust to a later import. A production
+promotion must pass both numeric-objective and per-document measurement gates,
+plus detached-signature verification, directly to `bootstrap`:
+
+```bash
+BDDK_INGESTION_DATABASE_URL='postgresql://INGESTION:SECRET@HOST:5432/DATABASE?sslmode=verify-full&sslrootcert=%2FAPPROVED%2Fpostgres-ca.crt' \
+  uv run --frozen bddk-mcp bootstrap \
+  --seed-dir /APPROVED/CORPUS \
+  --reindex-existing \
+  --require-quantified-freshness \
+  --require-measured-freshness \
+  --require-verified-signature \
+  --trusted-signing-key /APPROVED/TRUST/corpus-signing-public-key.pem
+```
+
+Before opening a database pool, bootstrap validates the exact
+`corpus_scope.yml` and reads document/cache input only from manifest-declared
+paths with the declared byte length and hash. It rejects a present but
+undeclared `documents.json`, `chunks.json`, or `decision_cache.json`. The trust
+key must be delivered through a mount/Secret separate from the corpus. On
+completion, bootstrap emits the path-free manifest ID and SHA-256 as operator
+evidence; it does not yet persist that identity in PostgreSQL.
+
+The tracked 318-document selection is deliberately non-exhaustive, unsigned,
+unquantified, and not measured; it is a reviewed development corpus, not a
+production-freshness claim.
+
 Ordinary migration refuses a pre-ledger unmanaged schema. The explicit
 `bddk-mcp migrate --adopt-legacy` option accepts only the exact supported shape
 after a proven backup and the
@@ -114,7 +142,8 @@ Outside the isolated local Compose profile, every PostgreSQL DSN must use
 
 The required automated PostgreSQL and role-contract lanes currently prove
 PostgreSQL 17 only. Treat other major versions as unsupported until the
-compatibility matrix is implemented and the bank-selected version passes it.
+compatibility matrix is explicitly expanded and the bank-selected version
+passes the full contract.
 
 ## Database and Retrieval Identity
 
@@ -143,6 +172,19 @@ ingestion republishes only after chunk/embedding integrity checks pass. Run the
 required bootstrap or controlled reindex after a schema/model-profile upgrade;
 unpublished or stale chunks fail closed instead of entering results.
 
+Migration v0004 adds eleven owner-only legal-curation tables. It separates
+content-addressed `SourceBlob` identity from acquisition-addressed
+`SourceArtifact` identity, binds frozen-whitespace normalized ranges to exact
+retained section text, and attests exactly 69 constraints and 21 indexes. An
+official MCP session against real PostgreSQL proves this path with synthetic
+data only. Authoritative bytes/pages, a real regulation family, and authenticated
+curator/source evidence remain outside the repository.
+
+The tracked expert set is also non-release. R09 requires three trust inputs:
+signed corpus with measured freshness, a separately signed expert dataset, and
+a separately signed legal-curator attestation over the exact validated Citation
+export. Dataset/legal signer reuse is rejected.
+
 ## Streamable HTTP Contract
 
 The HTTP transport is selected with `MCP_TRANSPORT=streamable-http`. It serves MCP at `/mcp` using stateless JSON responses. Loopback is the default bind.
@@ -170,7 +212,7 @@ the listener opens. The OpenShift starter supplies them with service-serving
 certificates and uses a re-encrypt Route; certificate rotation currently
 requires a controlled pod restart.
 
-Do not copy example identity-provider URLs from tests into a deployment. Obtain issuer, resource, JWKS, audience, token-type, and scope values from the bank-approved identity design. The protected-resource URL is used for MCP discovery/authorization metadata; tokens are bound to that API through the exact configured audience. Use a dedicated resource-server audience rather than an interactive client's ID-token audience.
+Do not copy example identity-provider URLs from tests into a deployment. Obtain issuer, resource, JWKS, audience, token-type, and scope values from the bank-approved identity design. The composed remote application publishes RFC 9728 metadata at `/.well-known/oauth-protected-resource/mcp`, and its 401 challenge identifies that URL through `resource_metadata`. Tokens are bound to the API through the exact configured audience. This is application-level MCP authorization discovery, not bank IdP client registration or end-to-end flow acceptance. Use a dedicated resource-server audience rather than an interactive client's ID-token audience.
 
 Host, Origin, content type, and request-body size are checked before bearer authentication. Valid JWT access tokens are verified against JWKS, issuer, exact resource-server audience, approved JOSE type, required/optional time claims, algorithm, and scope authorization. Tokens need not carry a custom `resource` claim or `nbf`; when `nbf` is present it is validated. The fail-closed default accepts only RFC 9068 `at+jwt`; generic Keycloak-style `JWT` requires the explicit `BDDK_JWT_ACCESS_TOKEN_TYPES=at+jwt,JWT` compatibility opt-in and a dedicated API audience.
 
@@ -181,7 +223,11 @@ public-address DNS checks, destination revalidation on bounded redirects,
 streamed response limits by artifact class, and retry logs without raw URLs,
 queries, or exception messages. DNS validation and socket connection are not
 atomic, so the target OpenShift environment must enforce matching egress with
-NetworkPolicy and/or an approved proxy/firewall.
+NetworkPolicy and/or an approved proxy/firewall. Public institution,
+announcement, bulletin, and update tools can call live BDDK sources; therefore
+both public and operator runtimes require narrowly approved regulatory-source
+or proxy TCP 443 egress. Lifecycle Jobs require DNS/PostgreSQL only and must not
+receive that source egress.
 
 The runtime wheel/sdist exclude `seed_data`, tests, benchmark code, and
 deployment assets. The provided container explicitly includes the reviewed
@@ -193,5 +239,16 @@ proven through the bank backup/restore process, or certified across a
 release-specific Claude, Codex, GPT, LM Studio, GPT-OSS, and local-model client
 matrix. The included client configurations and OpenShift manifests are starter
 evidence, not certification.
+
+Repository preflight binds the exact checksum-verified Kustomize v5.8.1 binary
+and strict rendered/security inventories. It renders the exact
+`deploy/openshift-overlays/bank-bootstrap` contract, including direct strict
+bootstrap flags, a read-only approved-corpus PVC, and a separate read-only
+corpus-trust Secret, but deliberately leaves actual bank provisioning and all
+eight live gates unrun. Supply-chain evidence builds with Buildx `--provenance=false --load`,
+binds descriptor/manifest/config/loaded-image/Syft identities, and emits an
+unsigned repository SLSA envelope. Pending exceptions never make a result
+promotion eligible; signing, admission, and registry promotion remain bank
+controls.
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) before enabling any remote profile.

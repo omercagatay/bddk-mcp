@@ -8,15 +8,17 @@ BDDK MCP is now a coherent engineering beta with a credible MCP, database-safety
 
 The repository does more than a basic chatbot demo. It collects and normalizes regulatory documents, stores and searches them with keyword and semantic techniques, recognizes Turkish legal section types, protects important publication boundaries, exposes strict tools through official MCP transports, and tests fail-closed remote and database behavior.
 
-The missing pieces are now concentrated in the high-value product and deployment layers: authoritative version history, effective dates, amendment/repeal relationships, exact source-page evidence, whole-corpus rollback, expert Turkish evaluation, accepted bank identity/network/CA/backup controls, and proof with the intended client/model combinations.
+The missing pieces are now concentrated in the high-value trust and deployment layers: applying the new legal-version model to a real authoritative regulation family, retaining and verifying source bytes/pages, human approval of the Turkish evaluation set, whole-corpus rollback, accepted bank identity/network/CA/backup/signing controls, and proof with the intended client/model combinations.
 
 ## Implementation progress overlay — 2026-07-15
 
 The current working tree has moved beyond the original engineering prototype in several concrete ways:
 
-- **Complete at repository/application level:** a packaged MCP service with official installed stdio and Streamable HTTP tests; one strict registry with 15 public plus 13 additional operator tools; privacy-safe protocol errors; separate public/operator profiles and DSNs; fail-closed Host, HTTPS Origin, asymmetric JWT, scope, body, rate, and concurrency checks; checksum v0001-v0003 migrations; reviewed PostgreSQL role/grant assets; exact target-database, schema-owner, TLS, ACL-provenance, effective-privilege, per-connection identity, and catalog-readiness checks; durable PostgreSQL job records and advisory leases; bounded SSRF/archive acquisition; pinned base/action/model revisions; PostgreSQL/distribution CI; and a non-root OpenShift starter with digest images, stable selectors, exact Secret references, PostgreSQL CA wiring, and default-deny egress.
-- **Partial:** six high-value retrieval tools return structured evidence; document/section replacement and current-hash publication fail closed per document; migration v0003 refuses a blocking populated-corpus backfill by default and requires controlled reindexing after approval. Metrics and correlation-safe logging exist. The OpenShift starter still needs bank-specific values and has not run in the bank cluster; there is no immutable whole-corpus generation or rollback.
-- **Open:** legal version/effective-state modeling, amendment/repeal lineage, authoritative source-page citations, expert-reviewed Turkish retrieval and answer-grounding evaluation, live named client/model certification, bank-applied identity/CA/egress/LOGIN proof, signed release/SBOM policy, backup/restore drills, numeric SLOs, and validated provision-to-audit-control mappings.
+- **Complete at repository/application level:** a packaged MCP service with official installed stdio and Streamable HTTP tests; one strict registry with 15 public plus 13 additional operator tools; privacy-safe protocol errors; separate public/operator profiles and DSNs; fail-closed Host, HTTPS Origin, asymmetric JWT, scope, body, rate, and concurrency checks; RFC 9728 protected-resource discovery plus the matching 401 challenge; checksum v0001-v0004 migrations; exact PostgreSQL identity/ACL/TLS/catalog contracts; durable operator jobs; bounded acquisition; PG17 compatibility enforcement; a checksummed corpus-scope manifest; and a hardened OpenShift starter. Bootstrap now reads exact manifest-role paths, rejects undeclared reserved seed files, and can enforce freshness/signature policy with a separately mounted key in the same importing process before opening a database pool. Its completion output includes path-free manifest ID/SHA evidence, though that identity is not yet stored in PostgreSQL. Every source-backed public text result encloses metadata and bodies in one escaped untrusted-data boundary. The offline deployment preflight hashes the exact Kustomize v5.8.1 executable and rejects drift in the reviewed manifest and restricted-security inventories.
+- **Complete as technical pilots, not production evidence:** v0004 provides eleven owner-only canonical legal tables. `SourceBlob` represents content identity and `SourceArtifact` separately represents an acquisition; the frozen-whitespace profile binds normalized offsets to exact retained section text. Catalog readiness attests 69 constraints and 21 indexes. Citation v1 reconstruction is proven with synthetic data through an official MCP session and real PostgreSQL. These controls do not retain authoritative source bytes/pages, authenticate a curator or source, or establish any real regulation family's legal currentness.
+- **Partial:** guarded migration rehearsal and logical restore workflows exist, but the full second-cluster restore/PITR/RTO/RPO run is external. The OpenShift acceptance harness performs a strict, secret-free repository preflight, not a bank namespace run. It renders and checks a `bank-bootstrap` overlay that passes the strict corpus gates directly, mounts the read-only corpus PVC separately from its verification-key Secret, requires approved live-source/proxy HTTPS for both public and operator, and denies that reach to lifecycle Jobs; all eight live bank/cluster gates remain open. The supply-chain lane builds with Buildx `--provenance=false --load`, binds descriptor/manifest/config/loaded-image/Syft evidence, emits an unsigned repository SLSA envelope, checks model-manifest/runtime/Dockerfile consistency, and enforces secret and High/Critical vulnerability policy. Pending exceptions always leave promotion ineligible; bank signing/admission/promotion remains open. The 20-case Turkish evaluation file is deliberately a draft with all annotations, adjudications, approvals, and Citation mappings pending.
+- **Release trust boundary:** expert evaluation can become release evidence only with three separately verified inputs: a signed corpus manifest with per-document measured freshness, a separately signed expert dataset, and a separately signed legal-curator attestation over the exact validated Citation export. Reusing the dataset signer as the legal-curator signer is rejected. The checked-in corpus/dataset fail these gates by design.
+- **Open:** a real authoritative legal family and curator/reviewer authority; retained artifact bytes and true source-page evidence; expert-approved Turkish retrieval/grounding results; named client/model certification; bank-applied identity/CA/egress/LOGIN/registry/signing proof; numeric SLOs; whole-corpus generation rollback; and validated provision-to-audit-control mappings.
 
 The secure remote application path is now credible for pre-production integration, but this is not production or bank deployment approval. Bank IdP, CA, registry, Route, egress, and network decisions remain unknown. Any older “working-tree” checkpoint sentence in the historical sections below is superseded by this dated overlay.
 
@@ -27,9 +29,9 @@ The secure remote application path is now credible for pre-production integratio
 | Overall maturity | 3/5 | The project is a coherent engineering beta with clear boundaries, but not yet an audit-grade regulatory knowledge product. |
 | Production readiness | 2/5 | Strong repository controls and deployment starters exist; bank integration, recovery, signed delivery, SLOs, and cluster acceptance remain unproved. |
 | MCP implementation | 4/5 | Official transports, strict profiles/contracts, stable errors, authentication, and protocol E2E tests are strong; named-client/version evidence remains. |
-| Retrieval quality | 3/5 | Hybrid retrieval, structural parsing, current-hash publication guards, and pinned models are credible; legal currentness, authoritative pages, and representative Turkish evaluation remain unsolved. |
+| Retrieval quality | 3/5 | Hybrid retrieval, structural parsing, current-hash publication, a synthetic legal-version pilot, and exact Citation v1 are credible; real legal currentness, authoritative pages/bytes, and expert-approved Turkish evaluation remain unsolved. |
 | Security | 3/5 | Application, database identity/ACL/TLS, acquisition, job-durability, and starter-platform controls fail closed in important paths; bank-specific acceptance and recovery remain. |
-| Testing and evaluation | 3/5 | Unit, PostgreSQL, protocol, package, deployment-contract, and benchmark-contract coverage is broad; expert, live-model, load, recovery, and cluster evidence remains open. |
+| Testing and evaluation | 3/5 | Unit, PostgreSQL 17, protocol, package, migration/recovery, deployment-contract, supply-chain-policy, and benchmark-contract coverage is broad; expert approval, live models, load, full restore, and cluster evidence remain open. |
 | Documentation | 4/5 | Architecture, security, deployment, testing, and roadmap boundaries are now extensive; external runbooks and measured acceptance evidence remain. |
 
 ## Baseline ratings at the reviewed commit
@@ -112,7 +114,7 @@ Operator tools now require a distinct process profile, DSN, scope, and explicit 
 
 ### Database privilege
 
-The current repository removes schema, seed, cache-population, and embedding lifecycle writes from serving; supplies separate schema-owner, ingestion, public, operator, and telemetry roles/grants; requires the expected database and schema owner; enforces `verify-full` transport; detects ACL provenance and effective privilege; and validates every pooled public/operator connection. Repository PostgreSQL tests prove the denial/allow matrix. The unsafe unknown is whether the bank's actual LOGINs, memberships, HBA/TLS policy, role names, and restore/upgrade process satisfy that contract.
+The current repository removes schema, seed, cache-population, and embedding lifecycle writes from serving; supplies separate schema-owner, ingestion, public, operator, and telemetry roles/grants; requires the expected database and schema owner; enforces `verify-full` transport; detects ACL provenance and effective privilege; and validates every pooled public/operator connection. The disposable PG17 transactional denial/allow and actual-LOGIN identity/ACL contracts executed locally and passed. The unsafe unknown is whether the bank's actual LOGINs, memberships, HBA/TLS policy, role names, and restore/upgrade process satisfy that contract.
 
 ### Private query logging
 
@@ -159,25 +161,25 @@ Only two of 318 seeded documents were marked with a formula-aware extraction met
 
 ## What should be done first
 
-### 1. Run a bank integration and recovery acceptance track
+### 1. Make a signed corpus release durable and traceable
 
-Apply the reviewed role/grant assets to actual bank LOGINs; validate shared-cluster naming, memberships, ACL provenance, HBA/TLS and `verify-full`; fill the OpenShift IdP/CA/Route/registry/egress values; deploy separate public/operator workloads; rehearse v0003 on size-matched data; and prove backup/restore before accepting production.
+Persist the verified manifest identity atomically with successful bootstrap, set numeric freshness objectives, collect the per-document measurement chain, sign the canonical manifest, keep the trust key separate, and prove the same strict import on a disposable database. Job output alone is not durable release identity.
 
-### 2. Define the legal evidence and version contract
+### 2. Set numeric operational targets and execute the full restore
 
-Represent a stable regulation/provision identity, official source artifact and hash, publication/effective/repeal state, amendment/consolidation relations, source pages/tables/formulas, quality status, and reviewer validation. Make “current as of date” unavailable until this data is validated.
+Approve availability, latency, freshness, RPO, RTO, alert, and evidence-retention values; then run the delivered `pg_dump`/`pg_restore` workflow between distinct PG17 clusters and retain sanitized measured evidence.
 
-### 3. Add immutable whole-corpus publication and rollback
+### 3. Execute the bank integration controls, not just repository preflight
 
-Stage and validate one complete document/section/chunk/model manifest, atomically activate it, bind every query to its generation, retain the prior generation, and prove rollback after simulated ingestion and indexing failures.
+Apply the reviewed roles to actual bank LOGINs; validate HBA/TLS/`verify-full`; provision the separate corpus PVC and trust Secret; run migration → grants → strict bootstrap in order; validate RFC 9728 discovery and JWT behavior through the bank Route/IdP; and admit only the signed release-image digest.
 
-### 4. Build expert Turkish evaluation and named compatibility evidence
+### 4. Curate one authoritative real regulation family
 
-Expand exact-article, cross-reference, acronym, table/formula, currentness, negative, tool-argument, and claim-grounding cases. Have the owner validate judgments, then run the intended Claude, Codex, GPT/GPT-OSS, and LM Studio host/model versions through the same official MCP benchmark.
+Retain authoritative bytes and page evidence, load one bounded amendment chain into the v0004 model, record effective/repeal/unknown states and curator authority, and permit current/as-of answers only when exact Citation evidence validates.
 
-### 5. Make operations measurable
+### 5. Complete one expert/model vertical slice
 
-Export metrics/traces without query text, define numeric availability/publication-lag/RPO/RTO targets, configure alerts and retention, add signed-image/SBOM/vulnerability gates, and schedule upgrade and restore drills with retained evidence.
+Finish two annotations and adjudication for all 20 Turkish pilot cases, bind them to verified Citations and separately signed corpus/dataset/legal attestations, then run one pinned client/host/model through the real MCP harness. Expand to Claude, Codex, GPT/GPT-OSS, and LM Studio only after that pilot is trustworthy.
 
 ## What this project could realistically become
 

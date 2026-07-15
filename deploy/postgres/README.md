@@ -73,11 +73,26 @@ SQL error. Apply each file as one transaction, for example with
    an equivalent database-scoped role default through the DBA.
 5. Apply `02_grants.sql` with the same independent `PGOPTIONS` target guard. It
    intentionally fails if an expected migrated table or sequence is absent.
-6. Run `bddk-mcp bootstrap --reindex-existing` with the ingestion identity,
-   then start the public and operator workloads with their separate identities.
-   The option rebuilds and publishes all canonical documents for the active
-   retrieval profile; it is mandatory when migration v0003 has made a pre-existing
-   corpus fail closed until republished.
+6. Run strict bootstrap with the ingestion identity and a trust key mounted
+   separately from the corpus:
+
+   ```bash
+   bddk-mcp bootstrap \
+     --seed-dir /APPROVED/CORPUS \
+     --reindex-existing \
+     --require-quantified-freshness \
+     --require-measured-freshness \
+     --require-verified-signature \
+     --trusted-signing-key /APPROVED/TRUST/corpus-signing-public-key.pem
+   ```
+
+   Bootstrap revalidates the exact manifest-declared paths and rejects
+   undeclared reserved seed filenames before opening a database pool; a prior
+   `verify-corpus` result is not a trust handoff. Retain its path-free manifest
+   ID/SHA completion output because this identity is not yet persisted in
+   PostgreSQL. Then start the public and operator workloads with their separate
+   identities. Reindexing is mandatory when migration v0003 has made a
+   pre-existing corpus fail closed until republished.
 7. Reapply and test `02_grants.sql` after every schema migration. A migration
    that adds a relation must add an explicit grant here in the same release.
 
@@ -113,6 +128,41 @@ database-wide by design.
 | `bddk_ingestion` | Corpus and sync-state `SELECT`/`INSERT`/`UPDATE`/`DELETE`, three corpus ID sequences, and read-only global migration ledger |
 | `bddk_operator_runtime` | Job-ledger read/write/prune in `bddk_operator` and read-only global migration ledger |
 | `bddk_telemetry_writer` | Column-scoped `INSERT` on `tool_call_traces` and `USAGE` on its sequence; no trace reads or changes |
+
+Migration v0004's eleven `regulatory_*` base tables are an owner-only canonical
+legal-version validation workspace. No public, ingestion, operator, or
+telemetry runtime role has any privilege on those tables. The public reader
+gets `SELECT` only on the owner-executed, security-barrier
+`regulatory_validated_section_citations` view; the operator sees that view only
+through its separate `bddk_public_reader` membership. The view exposes only
+validated, authoritative, non-fixture occurrences whose source, normalized
+document, section, legal-version, provision, and evidence hashes agree. Do not
+grant ad hoc base-table access or broaden the view outside a reviewed migration.
+
+Readiness attests the complete v0004 catalog, not just selected object names:
+the canonical digest must cover exactly 69 constraints and 21 indexes across
+those eleven tables. An added, omitted, renamed, or definition-drifted object
+fails readiness. Repository PostgreSQL tests also call `get_document_section`
+through an official MCP session against the real validated view using a
+synthetic legal family. That integration proves the SQL/MCP/contract path; it
+does not authenticate a real BDDK source or curator.
+
+The view also recomputes `documents.content_hash` from the retained normalized
+Markdown and `document_sections.content_hash` from the exact retained section
+text with schema-qualified PostgreSQL expressions. The document expression is
+`pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(document.markdown_content, 'UTF8')), 'hex')`;
+the section expression applies the same construction to `section.content`.
+Stale document or section text cannot retain a citation merely because its
+stored hash was not updated. The view also binds the section offsets back to
+the exact normalized-document substring using the frozen Citation v1 boundary
+whitespace transform. At bundle-mapping time, the declared content SHA is
+checked against its content-derived `SourceBlob` identity, while each
+`SourceArtifact` identity is derived separately from that blob identity plus
+its canonical URI and acquisition timestamp. Migration v0004 does **not**,
+however, retain or reconstruct source-artifact bytes in a form that can be
+rehashed against the blob claim. Citation v1 is therefore a partial pilot for
+validated normalized text and acquisition identity, not proof of
+source-artifact authenticity.
 
 The SQL deliberately does **not** create a role named `bddk_operator`; that
 identifier is the operator schema and using it for both would make deployment
@@ -180,10 +230,15 @@ not the administrator account:
   its operator-only role alone cannot access the corpus;
 - telemetry can execute the application's column-scoped trace insert but cannot
   select, update, delete, override `id`/`created_at`, or create objects;
+- every runtime identity is denied access to the eleven owner-only `regulatory_*`
+  base tables; public/operator citation reads succeed only through the
+  attested `regulatory_validated_section_citations` view;
 - an unprivileged database identity inheriting none of these roles cannot
   connect after the `PUBLIC` revocation.
 - disabling a publication-invalidation trigger, replacing its function, or
   dropping a required FTS index makes catalog readiness fail closed.
+- changing the validated-citation view's owner, security options, dependencies,
+  projection, joins, or validation predicates makes catalog readiness fail closed.
 
 `tests/test_postgres_role_assets.py` enforces the static privilege contract and
 contains an opt-in transactional PostgreSQL denial test for a dedicated test

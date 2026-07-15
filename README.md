@@ -72,7 +72,7 @@ Gereksinimler:
 
 - Python 3.12 veya 3.13
 - `uv`
-- PostgreSQL, `pgvector` ve `unaccent` (otomatik deployment/test lane'i PostgreSQL 17 kullanır; diğer sürümler için compatibility acceptance yapılmamıştır)
+- PostgreSQL 17, `pgvector` ve `unaccent` (bu release test edilmemiş major sürümleri fail-closed reddeder)
 - Opsiyonel: Docker Compose
 
 Kurulum:
@@ -96,6 +96,40 @@ export BDDK_DATABASE_URL=postgresql://bddk_local_public:local-only-public@localh
 ```
 
 Compose yalnızca loopback geliştirme ortamında DBA role/extension hazırlığı → schema-owner `migrate` → DBA grants → ingestion `bootstrap` sırasını çalıştırır. `.invalid` JWT değerleri Compose'un kullanılmayan HTTP service tanımını parse etmesi içindir; bu lifecycle komutu HTTP server başlatmaz ve bu değerler server çalıştırmak için geçerli değildir. Sabit şifreler public test fixture'larıdır ve remote ortamda kullanılmamalıdır. Üretimde `bddk-mcp migrate` yalnız schema işidir; `bddk-mcp bootstrap` önceden migrate edilmiş ve grant uygulanmış şemaya reviewed seed, section ve 768-boyutlu embedding yazar, migration çalıştırmaz. Ayrı kimlik ve tam sıra için [deployment belgesine](docs/DEPLOYMENT.md) bakın.
+
+Corpus kapsamını ve üç seed artifact'ını DB bağlantısı kurmadan incelemek için
+isteğe bağlı read-only preflight çalıştırın:
+
+```bash
+uv run --frozen bddk-mcp verify-corpus
+```
+
+Bu komut checksum, boyut, kayıt sayısı ve freshness zamanlarını doğrular; ancak
+sonraki bir process'e güven aktarmaz. Production import aynı strict policy'leri
+doğrudan mutating `bootstrap` invocation'ında yeniden uygulamalıdır:
+
+```bash
+BDDK_INGESTION_DATABASE_URL='postgresql://INGESTION:SECRET@HOST:5432/DATABASE?sslmode=verify-full&sslrootcert=%2FAPPROVED%2Fpostgres-ca.crt' \
+  uv run --frozen bddk-mcp bootstrap \
+    --seed-dir /APPROVED/CORPUS \
+    --reindex-existing \
+    --require-quantified-freshness \
+    --require-measured-freshness \
+    --require-verified-signature \
+    --trusted-signing-key /APPROVED/TRUST/corpus-signing-public-key.pem
+```
+
+`bootstrap`, DB pool açmadan önce exact `corpus_scope.yml` ve manifest'te
+tanımlanan artifact path/bytes/hash'lerini doğrular; mevcut fakat manifest'te
+tanımsız `documents.json`, `chunks.json` veya `decision_cache.json` dosyasını
+reddeder. Trust key corpus'tan ayrı bir Secret/mount ile gelmelidir. Numeric
+hedef tanımlamak tek başına ölçüm değildir: `measured` durumunda her doküman
+için authoritative publication → source detection → download → extraction →
+retrieval publication zaman zinciri ve hesaplanan gecikmeler hedefler içinde
+olmalıdır. Mevcut reviewed manifest imzasızdır, numeric hedefleri yoktur ve
+`slo_evidence_status: not_measured` kabul edilir; bu production bootstrap'ını
+bilinçli olarak geçmez. Başarılı bootstrap, operator evidence için path-free
+manifest ID ve SHA-256 döndürür; bu identity henüz PostgreSQL'e persist edilmez.
 
 Ledger öncesi eski bir veritabanı ordinary migration tarafından fail-closed reddedilir. `--adopt-legacy` yalnız exact desteklenen shape için, doğrulanmış backup ve [legacy upgrade runbook'u](docs/LEGACY_DATABASE_UPGRADE.md) ile kullanılan açık bir seçimdir; clean install veya genel repair flag'i değildir.
 
@@ -124,7 +158,7 @@ PORT=8000 \
 uv run --frozen bddk-mcp serve
 ```
 
-Streamable HTTP MCP endpoint'i `http://localhost:8000/mcp` olur ve server stateless JSON response modunda çalışır. Sabit, content-free probe endpoint'leri `GET /health/live` ve `GET /health/ready`'dir; readiness migration, kritik catalog objeleri, corpus publication ve workload ACL'lerini periyodik olarak yeniden doğrular. Probe'lar authentication/Host kontrolü dışında olsa da process rate ve concurrency limitlerine tabidir. Loopback dışı bind fail-closed davranır: exact Host/HTTPS Origin allowlist'leri ve tam JWT/JWKS ayarları zorunludur; public profil `bddk.read`, operator profil `bddk.operator` scope'u ister. Remote operator ayrıca `BDDK_OPERATOR_REMOTE_ENABLED=true` ile açık opt-in ister. Body, concurrency ve dakikalık rate limitleri uygulama process'i içinde uygulanır; replica'lar arasında global ingress limiti sağlamaz. Ayrıntılar için [deployment belgesine](docs/DEPLOYMENT.md) bakın.
+Streamable HTTP MCP endpoint'i `http://localhost:8000/mcp` olur ve server stateless JSON response modunda çalışır. Remote uygulama RFC 9728 protected-resource metadata'yı `/.well-known/oauth-protected-resource/mcp` yolunda yayınlar; 401 challenge aynı URL'yi `resource_metadata` ile bildirir. Bu application-level MCP authorization discovery'dir; bank IdP client registration/flow acceptance kanıtı değildir. Sabit, content-free probe endpoint'leri `GET /health/live` ve `GET /health/ready`'dir; readiness migration, kritik catalog objeleri, corpus publication ve workload ACL'lerini periyodik olarak yeniden doğrular. Probe'lar authentication/Host kontrolü dışında olsa da process rate ve concurrency limitlerine tabidir. Loopback dışı bind fail-closed davranır: exact Host/HTTPS Origin allowlist'leri ve tam JWT/JWKS ayarları zorunludur; public profil `bddk.read`, operator profil `bddk.operator` scope'u ister. Remote operator ayrıca `BDDK_OPERATOR_REMOTE_ENABLED=true` ile açık opt-in ister. Body, concurrency ve dakikalık rate limitleri uygulama process'i içinde uygulanır; replica'lar arasında global ingress limiti sağlamaz. Ayrıntılar için [deployment belgesine](docs/DEPLOYMENT.md) bakın.
 
 Eski seed import/export yardımcı komutu da korunur; yeni deployment'larda doğrulama içeren `bddk-mcp bootstrap` tercih edilir:
 
@@ -247,9 +281,13 @@ benchmark/                Tool schema ve benchmark altyapısı
 
 - Tam düzenleme dokümanı ve bölüm retrieval cevapları lokal store'dan gelir; bu iki akış runtime'da doküman live-fetch yapmaz.
 - Katalog cache yenileme, kurum/duyuru araması ve bülten araçları yapılandırmaya ve cache durumuna göre BDDK upstream servislerine erişebilir.
-- Live regulatory HTTP path'leri exact BDDK/mevzuat HTTPS host'ları, redirect/DNS revalidation ve artifact tipine göre code-owned streaming limitleri uygular; URL/query/exception metni retry loglarına yazılmaz. DNS-to-connect yarışı nedeniyle OpenShift'te yine egress NetworkPolicy veya approved proxy/firewall zorunludur.
+- Live regulatory HTTP path'leri exact BDDK/mevzuat HTTPS host'ları, redirect/DNS revalidation ve artifact tipine göre code-owned streaming limitleri uygular; URL/query/exception metni retry loglarına yazılmaz. Public kurum/duyuru/bülten/update araçları da live BDDK erişimi yapabildiği için OpenShift egress kontratı hem public hem operator runtime'a yalnız approved regulatory-source veya proxy için TCP 443 vermeli; lifecycle Job'larına bu erişim verilmemelidir. DNS-to-connect yarışı nedeniyle NetworkPolicy veya approved proxy/firewall zorunludur.
 - Default embedding modeli full commit `d13f1b27baf31030b7fd040960d60d909913633f`, opsiyonel default reranker `1427fd652930e4ba29e8149678df786c240d8825` ile pinlenmiştir; immutable şema yalnız `vector(768)` kabul eder. Model/chunk ayarı değişikliği kontrollü full re-embedding ve retrieval regression gerektirir.
 - Retrieval publication kaydı yalnız chunk bütünlüğü, güncel content hash'i ve aktif retrieval profile doğrulandıktan sonra yazılır; eksik veya stale index arama sonuçlarına sessizce karışmaz.
+- Bootstrap, reviewed corpus'u manifest'in exact artifact path'lerine bağlar ve reserved seed filename bypass'ını reddeder. Ayrı `verify-corpus` koşusu yalnız diagnostic preflight'tır; production güven gate'leri doğrudan aynı `bootstrap` komutuna ve ayrı mount edilen trust key'e verilmelidir. `deploy/openshift-overlays/bank-bootstrap` bu exact komutu, read-only approved-corpus PVC'yi ve ayrı read-only corpus-trust Secret'ını repository preflight'ında doğrular; gerçek bank PVC/Secret provision ve Job koşusu hâlâ dış gate'tir.
+- v0004'ün 11 owner-only legal-curation tablosu `SourceBlob` içerik kimliğini `SourceArtifact` acquisition kimliğinden ayırır. Validated view frozen-whitespace normalized offset'lerini exact retained section text'e bağlar; 69 constraint ve 21 index için catalog attestation vardır. Bu yol official MCP session + gerçek PostgreSQL üzerinde synthetic fixture ile doğrulanmıştır; authoritative source bytes, gerçek regulation family ve curator/source authenticity kanıtı değildir.
+- R09 evaluation release gate'i üç ayrı güven girdisini birlikte ister: ölçülmüş freshness taşıyan imzalı corpus manifest, ayrı imzalı expert dataset ve exact validated Citation export'una bağlanan ayrı imzalı legal-curator attestation. Legal-curator anahtarı dataset signer anahtarıyla aynı olursa gate reddeder. Tracked 20-case dataset draft'tır ve release evidence değildir.
+- Supply-chain lane container'ları Buildx `--provenance=false --load` ile lokal olarak üretir; manifest descriptor/digest, config digest, loaded image ve Syft SBOM aynı image'a fail-closed bağlanır. Repository ayrıca unsigned SLSA provenance üretir ve model manifest/runtime/Dockerfile pinlerinin uyumunu doğrular. Pending exception kullanılan sonuç hiçbir zaman promotion-eligible değildir; bank signing, admission ve registry promotion yine dış gate'tir.
 - Runtime wheel/sdist `seed_data`, benchmark ve deployment asset'lerini içermez; sağlanan container reviewed seed'i açıkça içerir. Wheel kurulumu approved corpus mount etmeli ve bootstrap'a `--seed-dir` veya `BDDK_SEED_DIR` vermelidir.
 - Kalitesi düşük extraction çıktıları `warning` veya `fail` olarak işaretlenir.
 - Formül ağır veya OCR bozuk dokümanlarda kaynak PDF incelemesi gerekebilir.
@@ -326,7 +364,7 @@ Requirements:
 
 - Python 3.12 or 3.13
 - `uv`
-- PostgreSQL with `pgvector` and `unaccent` (the automated deployment/test lane uses PostgreSQL 17; other versions have not completed compatibility acceptance)
+- PostgreSQL 17 with `pgvector` and `unaccent` (this release fails closed on untested major versions)
 - Optional: Docker Compose
 
 Install:
@@ -350,6 +388,41 @@ export BDDK_DATABASE_URL=postgresql://bddk_local_public:local-only-public@localh
 ```
 
 For loopback development only, Compose runs DBA role/extension setup → schema-owner `migrate` → DBA grants → ingestion `bootstrap`. The reserved `.invalid` JWT values only let Compose parse an unused HTTP service definition; this lifecycle target starts no HTTP server, and those values are not valid server configuration. Its fixed passwords are public test fixtures and must not be copied remotely. In production, `bddk-mcp migrate` performs schema work only. `bddk-mcp bootstrap` requires an already migrated and granted schema, then imports the reviewed seed, sections, and 768-dimensional embeddings; it does not migrate. See the [deployment guide](docs/DEPLOYMENT.md) for the complete identity and apply order.
+
+Use the optional read-only preflight to inspect the corpus declaration and all
+three seed artifacts without opening a database connection:
+
+```bash
+uv run --frozen bddk-mcp verify-corpus
+```
+
+The command checks checksums, sizes, record counts, and freshness timestamps,
+but it does not transfer trust to a later process. The production import must
+reapply the strict policies directly in the mutating `bootstrap` invocation:
+
+```bash
+BDDK_INGESTION_DATABASE_URL='postgresql://INGESTION:SECRET@HOST:5432/DATABASE?sslmode=verify-full&sslrootcert=%2FAPPROVED%2Fpostgres-ca.crt' \
+  uv run --frozen bddk-mcp bootstrap \
+    --seed-dir /APPROVED/CORPUS \
+    --reindex-existing \
+    --require-quantified-freshness \
+    --require-measured-freshness \
+    --require-verified-signature \
+    --trusted-signing-key /APPROVED/TRUST/corpus-signing-public-key.pem
+```
+
+Before opening a database pool, `bootstrap` validates the exact
+`corpus_scope.yml` and the manifest-declared artifact paths, bytes, and hashes;
+it rejects a present but undeclared `documents.json`, `chunks.json`, or
+`decision_cache.json`. Supply the trust key from a Secret/mount separate from
+the corpus. Declaring numeric objectives is not measurement: `measured` status
+requires a per-document authoritative-publication → source-detection → download
+→ extraction → retrieval-publication timeline and calculated lags within those
+objectives. The current reviewed manifest is unsigned, has no numeric
+objectives, and is treated as `slo_evidence_status: not_measured`; it
+intentionally fails this production bootstrap. Successful bootstrap output
+includes the path-free manifest ID and SHA-256 for operator evidence; that
+identity is not yet persisted in PostgreSQL.
 
 Ordinary migration fails closed on a pre-ledger unmanaged database. `--adopt-legacy` is an explicit option only for the exact supported shape after a proven backup and the [legacy upgrade runbook](docs/LEGACY_DATABASE_UPGRADE.md); it is not a clean-install or general repair flag.
 
@@ -378,7 +451,7 @@ PORT=8000 \
 uv run --frozen bddk-mcp serve
 ```
 
-The Streamable HTTP MCP endpoint is `http://localhost:8000/mcp`, configured for stateless JSON responses. The fixed, content-free probe endpoints are `GET /health/live` and `GET /health/ready`; readiness periodically re-attests migrations, critical catalog objects, corpus publication, and workload ACLs. Probes bypass authentication/Host checks but remain subject to process rate and concurrency admission. A non-loopback bind fails closed unless exact Host/HTTPS Origin allowlists and the complete JWT/JWKS configuration are supplied; the public profile requires `bddk.read`, while the operator profile requires `bddk.operator`. Remote operator HTTP also requires the explicit `BDDK_OPERATOR_REMOTE_ENABLED=true` opt-in. Body, concurrency, and per-minute rate controls are local to one application process and are not a shared ingress rate limit across replicas. See the [deployment guide](docs/DEPLOYMENT.md) for the complete contract.
+The Streamable HTTP MCP endpoint is `http://localhost:8000/mcp`, configured for stateless JSON responses. The remote application publishes RFC 9728 protected-resource metadata at `/.well-known/oauth-protected-resource/mcp`, and its 401 challenge identifies the same URL through `resource_metadata`. This is application-level MCP authorization discovery, not proof of bank IdP client registration or flow acceptance. The fixed, content-free probe endpoints are `GET /health/live` and `GET /health/ready`; readiness periodically re-attests migrations, critical catalog objects, corpus publication, and workload ACLs. Probes bypass authentication/Host checks but remain subject to process rate and concurrency admission. A non-loopback bind fails closed unless exact Host/HTTPS Origin allowlists and the complete JWT/JWKS configuration are supplied; the public profile requires `bddk.read`, while the operator profile requires `bddk.operator`. Remote operator HTTP also requires the explicit `BDDK_OPERATOR_REMOTE_ENABLED=true` opt-in. Body, concurrency, and per-minute rate controls are local to one application process and are not a shared ingress rate limit across replicas. See the [deployment guide](docs/DEPLOYMENT.md) for the complete contract.
 
 The legacy seed import/export helper remains available; prefer `bddk-mcp bootstrap` for new deployments because it includes readiness validation:
 
@@ -501,9 +574,13 @@ benchmark/                Tool schemas and benchmark infrastructure
 
 - Full regulation-document and section retrieval responses are served from the local store; those paths do not live-fetch documents at runtime.
 - Catalog refresh, institution/announcement search, and bulletin tools can access BDDK upstream services depending on configuration and cache state.
-- Live regulatory HTTP paths enforce exact BDDK/mevzuat HTTPS hosts, redirect/DNS revalidation, and code-owned streaming limits by artifact type; retry logs omit URLs, query strings, and exception text. Because DNS validation cannot eliminate the DNS-to-connect race, OpenShift still requires egress NetworkPolicy or an approved proxy/firewall.
+- Live regulatory HTTP paths enforce exact BDDK/mevzuat HTTPS hosts, redirect/DNS revalidation, and code-owned streaming limits by artifact type; retry logs omit URLs, query strings, and exception text. Because public institution, announcement, bulletin, and update tools can also call live BDDK sources, the OpenShift egress contract must grant approved regulatory-source or proxy TCP 443 to both public and operator runtimes, but not to lifecycle Jobs. NetworkPolicy or an approved proxy/firewall remains required because DNS validation cannot eliminate the DNS-to-connect race.
 - The default embedding model is pinned to full commit `d13f1b27baf31030b7fd040960d60d909913633f`, the optional default reranker to `1427fd652930e4ba29e8149678df786c240d8825`, and the immutable schema accepts only `vector(768)`. A model/chunk-setting change requires controlled full re-embedding and retrieval regression testing.
 - A retrieval publication record is written only after chunk integrity, the current content hash, and the active retrieval profile pass validation; incomplete or stale indexes are not silently mixed into search results.
+- Bootstrap binds the reviewed corpus to the manifest's exact artifact paths and rejects reserved seed-filename bypasses. A separate `verify-corpus` run is diagnostic preflight only; production trust gates must be passed directly to the same `bootstrap` invocation with a separately mounted trust key. `deploy/openshift-overlays/bank-bootstrap` exact-inventory-checks that command, a read-only approved-corpus PVC, and a separate read-only corpus-trust Secret in repository preflight; actual bank provisioning and Job execution remain external gates.
+- Migration v0004's 11 owner-only legal-curation tables separate `SourceBlob` content identity from `SourceArtifact` acquisition identity. The validated view binds frozen-whitespace normalized offsets to exact retained section text, and readiness attests 69 constraints and 21 indexes. This path is validated with a synthetic fixture through an official MCP session and real PostgreSQL; it does not prove authoritative source bytes, a real regulation family, or curator/source authenticity.
+- The R09 evaluation release gate requires three separate trust inputs together: a signed corpus manifest with measured freshness, a separately signed expert dataset, and a separately signed legal-curator attestation over the exact validated Citation export. Reusing the dataset signer as the legal-curator signer is rejected. The tracked 20-case dataset is a draft, not release evidence.
+- The supply-chain lane builds containers locally with Buildx `--provenance=false --load`; it fail-closed binds the manifest descriptor/digest, config digest, loaded image, and Syft SBOM to the same image. The repository separately creates unsigned SLSA provenance and verifies model-manifest/runtime/Dockerfile pin consistency. Any result that applies a pending exception is never promotion-eligible; bank signing, admission, and registry promotion remain external gates.
 - Runtime wheels/sdists exclude `seed_data`, benchmark code, and deployment assets; the provided container explicitly includes the reviewed seed. A wheel deployment must mount an approved corpus and pass `--seed-dir` or `BDDK_SEED_DIR` to bootstrap.
 - Low-quality extractions are marked as `warning` or `fail`.
 - Formula-heavy or OCR-corrupted documents may require source PDF review.
@@ -530,4 +607,4 @@ uv run pytest tests/test_vector_store.py tests/test_legal_ref.py -v -rs
 
 ### License
 
-The source code is distributed under the [MIT License](LICENSE). Regulatory-source documents and other third-party data may have separate provenance or reuse conditions; the code license does not grant additional rights over those materials.
+The source code is distributed under the [MIT License](LICENSE). Regulatory-source documents and other third-party data may have separate provenance or reuse conditions; the code license does not grant additional rights over those materials. The confirmed boundary, unresolved decisions, and release gate are recorded in [Licensing and Provenance](docs/LICENSING_AND_PROVENANCE.md).
