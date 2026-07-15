@@ -13,6 +13,7 @@ import yaml
 ROOT = Path(__file__).parents[1]
 OPENSHIFT = ROOT / "deploy" / "openshift"
 OPENSHIFT_TELEMETRY = ROOT / "deploy" / "openshift-overlays" / "telemetry"
+OPENSHIFT_BANK_BOOTSTRAP = ROOT / "deploy" / "openshift-overlays" / "bank-bootstrap"
 
 
 def _documents(path: Path) -> list[dict]:
@@ -99,6 +100,12 @@ def test_kustomization_references_runtime_resources_but_not_secret_examples_or_j
             "includeTemplates": True,
         },
     ]
+    lifecycle = yaml.safe_load((OPENSHIFT / "jobs" / "kustomization.yaml").read_text(encoding="utf-8"))
+    assert lifecycle == {
+        "apiVersion": "kustomize.config.k8s.io/v1beta1",
+        "kind": "Kustomization",
+        "resources": ["migrate.yaml", "bootstrap.yaml"],
+    }
 
 
 def test_release_version_is_absent_from_source_selectors():
@@ -339,6 +346,129 @@ def test_telemetry_overlay_is_an_explicit_exact_key_opt_in():
 
     assert config_targets == {"bddk-mcp-public-config", "bddk-mcp-operator-config"}
     assert deployment_targets == {"bddk-mcp-public", "bddk-mcp-operator"}
+
+
+def test_bank_bootstrap_overlay_is_an_exact_separate_trust_promotion_contract():
+    overlay = yaml.safe_load((OPENSHIFT_BANK_BOOTSTRAP / "kustomization.yaml").read_text(encoding="utf-8"))
+    patch = yaml.safe_load((OPENSHIFT_BANK_BOOTSTRAP / "bootstrap-job-patch.yaml").read_text(encoding="utf-8"))
+
+    assert overlay == {
+        "apiVersion": "kustomize.config.k8s.io/v1beta1",
+        "kind": "Kustomization",
+        "resources": [
+            "../../openshift",
+            "../../openshift/jobs",
+        ],
+        "patches": [
+            {
+                "path": "bootstrap-job-patch.yaml",
+                "target": {
+                    "group": "batch",
+                    "version": "v1",
+                    "kind": "Job",
+                    "name": "bddk-mcp-bootstrap-v5-0-1",
+                },
+            }
+        ],
+        "labels": [
+            {
+                "pairs": {"app.kubernetes.io/name": "bddk-mcp"},
+                "includeSelectors": True,
+                "includeTemplates": True,
+            },
+            {
+                "pairs": {"app.kubernetes.io/version": "5.0.1"},
+                "includeSelectors": False,
+                "includeTemplates": True,
+            },
+        ],
+    }
+    container = patch["spec"]["template"]["spec"]["containers"][0]
+    assert container["args"] == [
+        ".venv/bin/bddk-mcp",
+        "bootstrap",
+        "--seed-dir",
+        "/var/run/bddk-mcp/corpus",
+        "--reindex-existing",
+        "--require-quantified-freshness",
+        "--require-measured-freshness",
+        "--require-verified-signature",
+        "--trusted-signing-key",
+        "/var/run/secrets/bddk-mcp/corpus-trust/ed25519-public-key.pem",
+    ]
+    assert container["volumeMounts"] == [
+        {"name": "approved-corpus", "mountPath": "/var/run/bddk-mcp/corpus", "readOnly": True},
+        {
+            "name": "corpus-signing-key",
+            "mountPath": "/var/run/secrets/bddk-mcp/corpus-trust",
+            "readOnly": True,
+        },
+    ]
+    assert patch["spec"]["template"]["spec"]["volumes"] == [
+        {
+            "name": "approved-corpus",
+            "persistentVolumeClaim": {"claimName": "bddk-mcp-approved-corpus", "readOnly": True},
+        },
+        {
+            "name": "corpus-signing-key",
+            "secret": {
+                "secretName": "bddk-mcp-corpus-trust",
+                "defaultMode": 0o440,
+                "items": [{"key": "ed25519-public-key.pem", "path": "ed25519-public-key.pem"}],
+            },
+        },
+    ]
+
+
+def test_rendered_bank_bootstrap_overlay_retains_the_exact_strict_contract():
+    baseline_bootstrap = _documents(OPENSHIFT / "jobs" / "bootstrap.yaml")[0]
+    assert _container(baseline_bootstrap)["args"] == [
+        ".venv/bin/bddk-mcp",
+        "bootstrap",
+        "--reindex-existing",
+    ]
+
+    rendered = _render_kustomization(OPENSHIFT_BANK_BOOTSTRAP)
+    jobs = {item["metadata"]["name"]: item for item in rendered if item["kind"] == "Job"}
+    assert set(jobs) == {"bddk-mcp-migrate-v5-0-1", "bddk-mcp-bootstrap-v5-0-1"}
+    bootstrap = jobs["bddk-mcp-bootstrap-v5-0-1"]
+    container = _container(bootstrap)
+    mounts = {item["name"]: item for item in container["volumeMounts"]}
+    volumes = {item["name"]: item for item in bootstrap["spec"]["template"]["spec"]["volumes"]}
+    assert container["args"] == [
+        ".venv/bin/bddk-mcp",
+        "bootstrap",
+        "--seed-dir",
+        "/var/run/bddk-mcp/corpus",
+        "--reindex-existing",
+        "--require-quantified-freshness",
+        "--require-measured-freshness",
+        "--require-verified-signature",
+        "--trusted-signing-key",
+        "/var/run/secrets/bddk-mcp/corpus-trust/ed25519-public-key.pem",
+    ]
+    assert mounts["approved-corpus"] == {
+        "name": "approved-corpus",
+        "mountPath": "/var/run/bddk-mcp/corpus",
+        "readOnly": True,
+    }
+    assert mounts["corpus-signing-key"] == {
+        "name": "corpus-signing-key",
+        "mountPath": "/var/run/secrets/bddk-mcp/corpus-trust",
+        "readOnly": True,
+    }
+    assert volumes["approved-corpus"] == {
+        "name": "approved-corpus",
+        "persistentVolumeClaim": {"claimName": "bddk-mcp-approved-corpus", "readOnly": True},
+    }
+    assert volumes["corpus-signing-key"] == {
+        "name": "corpus-signing-key",
+        "secret": {
+            "secretName": "bddk-mcp-corpus-trust",
+            "defaultMode": 0o440,
+            "items": [{"key": "ed25519-public-key.pem", "path": "ed25519-public-key.pem"}],
+        },
+    }
 
 
 def test_rendered_baseline_excludes_telemetry_and_overlay_enables_it():

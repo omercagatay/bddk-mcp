@@ -5,6 +5,7 @@ metadata:
   annotations:
     service.beta.openshift.io/serving-cert-secret-name: bddk-mcp-public-tls
 spec:
+  type: ClusterIP
   selector:
     app.kubernetes.io/name: bddk-mcp
     app.kubernetes.io/component: public
@@ -21,6 +22,7 @@ metadata:
   annotations:
     service.beta.openshift.io/serving-cert-secret-name: bddk-mcp-operator-tls
 spec:
+  type: ClusterIP
   selector:
     app.kubernetes.io/name: bddk-mcp
     app.kubernetes.io/component: operator

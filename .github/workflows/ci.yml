@@ -187,6 +187,7 @@ jobs:
         run: >-
           uv run pytest
           tests/test_openshift_manifests.py
+          tests/test_openshift_acceptance.py
           --strict-markers -v --tb=short
       - name: Validate Compose interpolation and structure
         env:

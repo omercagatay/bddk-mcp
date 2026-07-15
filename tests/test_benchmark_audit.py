@@ -57,11 +57,15 @@ def test_canonical_hash_is_stable_after_redaction_and_does_not_depend_on_key_ord
 
 
 def test_text_redaction_covers_authorization_headers_jwts_and_common_provider_keys():
-    value = "Authorization: Basic dXNlcjpwYXNzd29yZA== eyJabcdefghijk.abcdefghijkl.abcdefghijkl AKIAABCDEFGHIJKLMNOP"
+    # Build the detector-shaped synthetic key at runtime. Keeping the complete
+    # literal in Git would create a new Gitleaks history finding on every commit
+    # that carries this redaction regression test.
+    synthetic_aws_key = "AKIA" + "ABCDEFGHIJKLMNOP"
+    value = f"Authorization: Basic dXNlcjpwYXNzd29yZA== eyJabcdefghijk.abcdefghijkl.abcdefghijkl {synthetic_aws_key}"
 
     rendered = sanitize_for_audit(value)
 
     assert "dXNlcjpwYXNzd29yZA" not in rendered
     assert "eyJabcdefghijk" not in rendered
-    assert "AKIAABCDEFGHIJKLMNOP" not in rendered
+    assert synthetic_aws_key not in rendered
     assert rendered.count(REDACTED) == 3

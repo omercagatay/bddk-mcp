@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "platform": "linux_amd64",
+  "builder_image": {
+    "reference": "moby/buildkit:v0.31.1@sha256:6b59b7df63a8cb9902736f9ddf7fcff8261613d3e7449b8ea8b7537fc399c03a",
+    "source": "https://github.com/moby/buildkit/releases/tag/v0.31.1"
+  },
+  "tools": {
+    "buildx": {
+      "version": "0.35.0",
+      "url": "https://github.com/docker/buildx/releases/download/v0.35.0/buildx-v0.35.0.linux-amd64",
+      "sha256": "d41ece72044243b4f58b343441ae37446d9c29a7d6b5e11c61847bbcf8f7dfda",
+      "format": "binary",
+      "binary": "docker-buildx",
+      "source": "https://github.com/docker/buildx/releases/tag/v0.35.0"
+    },
+    "syft": {
+      "version": "1.46.0",
+      "url": "https://github.com/anchore/syft/releases/download/v1.46.0/syft_1.46.0_linux_amd64.tar.gz",
+      "sha256": "d654f678b709eb53c393d38519d5ed7d2e57205529404018614cfefa0fb2b5ca",
+      "format": "tar.gz",
+      "member": "syft",
+      "binary": "syft",
+      "source": "https://github.com/anchore/syft/releases/tag/v1.46.0"
+    },
+    "grype": {
+      "version": "0.115.0",
+      "url": "https://github.com/anchore/grype/releases/download/v0.115.0/grype_0.115.0_linux_amd64.tar.gz",
+      "sha256": "3fad92940650e514c0aa2dad83526942a055e210cec09a8a59d9c024adc2b90e",
+      "format": "tar.gz",
+      "member": "grype",
+      "binary": "grype",
+      "source": "https://github.com/anchore/grype/releases/tag/v0.115.0"
+    },
+    "gitleaks": {
+      "version": "8.30.1",
+      "url": "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz",
+      "sha256": "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb",
+      "format": "tar.gz",
+      "member": "gitleaks",
+      "binary": "gitleaks",
+      "source": "https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1"
+    }
+  }
+}

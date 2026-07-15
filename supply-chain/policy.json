@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "vulnerabilities": {
+    "scanner_version": "0.115.0",
+    "blocked_severities": [
+      "Critical",
+      "High"
+    ],
+    "maximum_database_age_hours": 72,
+    "exceptions": []
+  },
+  "secrets": {
+    "block_all": true,
+    "exceptions": [
+      {
+        "fingerprint": "b5f26bb30adab6b0483f5e5bf5bb819c574389b8:tests/test_benchmark_audit.py:aws-access-token:60",
+        "reason": "Synthetic provider-token fixture used only to prove benchmark-output redaction.",
+        "owner": "project-owner",
+        "approval_state": "pending_bank_release_review",
+        "expires_on": "2026-10-15"
+      },
+      {
+        "fingerprint": "b5f26bb30adab6b0483f5e5bf5bb819c574389b8:tests/test_benchmark_audit.py:aws-access-token:66",
+        "reason": "Synthetic provider-token fixture used only to prove benchmark-output redaction.",
+        "owner": "project-owner",
+        "approval_state": "pending_bank_release_review",
+        "expires_on": "2026-10-15"
+      }
+    ]
+  }
+}
