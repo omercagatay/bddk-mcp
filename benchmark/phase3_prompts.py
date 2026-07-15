@@ -13,6 +13,7 @@ Re-runs Phase 1 + 2 with each fix applied.
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 
 from benchmark.phase1_nli import run_phase1b
 from benchmark.phase1_terms import run_phase1c
@@ -113,7 +114,11 @@ PROMPT_FIXES = {
 async def run_phase3(
     model_tag: str,
     baseline_results: dict,
-    mcp_base_url: str = "http://localhost:8000",
+    mcp_base_url: str = "http://127.0.0.1:8000/mcp",
+    *,
+    transport: str = "streamable-http",
+    stdio_command: str = "bddk-mcp",
+    stdio_args: Sequence[str] = ("serve", "--profile", "public", "--transport", "stdio"),
 ) -> dict:
     """Run Phase 3 prompt engineering experiments.
 
@@ -168,7 +173,13 @@ async def run_phase3(
                 results["phase1c"] = await run_phase1c(model_tag)
 
             if "grounding" in fix_info["targets"]:
-                results["phase2"] = await run_phase2(model_tag, mcp_base_url)
+                results["phase2"] = await run_phase2(
+                    model_tag,
+                    mcp_base_url,
+                    transport=transport,
+                    stdio_command=stdio_command,
+                    stdio_args=stdio_args,
+                )
 
         finally:
             # Restore original prompts

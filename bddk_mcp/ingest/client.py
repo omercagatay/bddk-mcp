@@ -21,20 +21,33 @@ from bddk_mcp.core.config import (
     STALE_CACHE_FALLBACK,
     SYNC_CONCURRENCY,
 )
-from bddk_mcp.core.exceptions import BddkStorageError
+from bddk_mcp.core.exceptions import BddkStorageError, BddkUpstreamError
 from bddk_mcp.core.models import (
     BddkDecisionSummary,
     BddkDocumentMarkdown,
     BddkSearchRequest,
     BddkSearchResult,
 )
-from bddk_mcp.core.utils import MEVZUAT_TUR_MAP, fetch_with_retry
+from bddk_mcp.core.outbound_http import (
+    BDDK_HTTPS_HOSTS,
+    MEVZUAT_HTTPS_HOSTS,
+    OutboundHttpPolicyError,
+    assert_public_https_resolution,
+    bounded_request_with_retry,
+)
+from bddk_mcp.core.utils import MEVZUAT_TUR_MAP
 from bddk_mcp.store.doc_store import DocumentStore
 
 logger = logging.getLogger(__name__)
 
 _DOCUMENT_URL_TEMPLATE = "https://www.bddk.org.tr/Mevzuat/DokumanGetir/{document_id}"
 _BDDK_BASE_URL = "https://www.bddk.org.tr"
+
+# Code-owned limits keep an operator-triggered refresh or live fallback from
+# buffering an unbounded upstream response. Catalog pages should be small;
+# document fallback permits large regulatory PDFs while remaining finite.
+_MAX_CATALOG_RESPONSE_BYTES = 8 * 1024 * 1024
+_MAX_DOCUMENT_RESPONSE_BYTES = 128 * 1024 * 1024
 
 # Pages that use accordion card structure (h5 headers with card-body)
 _ACCORDION_PAGE_IDS = [50, 51]
@@ -187,54 +200,44 @@ def _parse_date(date_str: str) -> datetime | None:
 
 def _external_url_to_id(url: str) -> str | None:
     """Generate a stable synthetic ID from an external URL."""
-    parsed = urlparse(url)
-    if "mevzuat.gov.tr" in parsed.netloc:
+    try:
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").rstrip(".").lower()
+    except ValueError:
+        return None
+    if host in MEVZUAT_HTTPS_HOSTS and parsed.username is None and parsed.password is None:
         params = parse_qs(parsed.query)
         mevzuat_no = params.get("MevzuatNo", [None])[0]
-        if mevzuat_no:
+        if mevzuat_no and re.fullmatch(r"[0-9]{1,20}", mevzuat_no):
             return f"mevzuat_{mevzuat_no}"
         mevzuat_kod = params.get("MevzuatKod", [None])[0]
         if mevzuat_kod:
             parts = mevzuat_kod.split(".")
-            if len(parts) >= 3:
+            if len(parts) >= 3 and re.fullmatch(r"[0-9]{1,20}", parts[-1]):
                 return f"mevzuat_{parts[-1]}"
     return None
 
 
 def _mevzuat_to_pdf_url(mevzuat_no: str, mevzuat_tur: str = "7", mevzuat_tertip: str = "5") -> str | None:
     """Convert mevzuat.gov.tr parameters to a direct PDF download URL."""
+    if not re.fullmatch(r"[0-9]{1,20}", mevzuat_no) or not re.fullmatch(r"[0-9]{1,4}", mevzuat_tertip):
+        return None
     path_segment = MEVZUAT_TUR_MAP.get(mevzuat_tur)
     if not path_segment:
         return None
     return f"https://www.mevzuat.gov.tr/MevzuatMetin/{path_segment}/{mevzuat_tur}.{mevzuat_tertip}.{mevzuat_no}.pdf"
 
 
-# -- Decision cache schema (PostgreSQL) ----------------------------------------
-
-_CACHE_SCHEMA_SQL = """\
-CREATE TABLE IF NOT EXISTS decision_cache (
-    document_id       TEXT PRIMARY KEY,
-    title             TEXT NOT NULL DEFAULT '',
-    content           TEXT DEFAULT '',
-    decision_date     TEXT DEFAULT '',
-    decision_number   TEXT DEFAULT '',
-    category          TEXT DEFAULT '',
-    source_url        TEXT DEFAULT '',
-    cached_at         DOUBLE PRECISION NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_decision_cache_category ON decision_cache(category);
-"""
-
-
 async def initialize_cache_schema(pool: asyncpg.Pool) -> None:
-    """Explicitly create the decision-cache schema.
+    """Deprecated compatibility wrapper for database readiness.
 
-    Serving code must use :meth:`BddkApiClient.load_cache_read_only` instead;
-    this mutating helper is reserved for migration/bootstrap workflows.
+    Schema ownership belongs exclusively to :mod:`bddk_mcp.migrations`.  The
+    historical function name is retained for callers that have not migrated,
+    but it now performs only the shared SELECT-based readiness check.
     """
-    async with pool.acquire() as conn:
-        await conn.execute(_CACHE_SCHEMA_SQL)
+    from bddk_mcp.db_lifecycle import assert_database_ready
+
+    await assert_database_ready(pool=pool, require_corpus=False)
 
 
 class BddkApiClient:
@@ -273,7 +276,7 @@ class BddkApiClient:
                     connect=HTTP_CONNECT_TIMEOUT,
                     pool=HTTP_POOL_TIMEOUT,
                 ),
-                follow_redirects=True,
+                follow_redirects=False,
             )
         self._md = MarkItDown()
         self._doc_store = doc_store
@@ -288,7 +291,12 @@ class BddkApiClient:
         self._scrape_sem = asyncio.Semaphore(SYNC_CONCURRENCY)
 
     async def initialize(self) -> None:
-        """Create cache table and load existing cache from PostgreSQL."""
+        """Deprecated SELECT-only readiness and cache-load wrapper.
+
+        Run ``bddk-mcp migrate`` separately with schema-owner credentials.
+        Runtime and context-manager paths should call
+        :meth:`load_cache_read_only` directly.
+        """
         await initialize_cache_schema(self._pool)
         # Eagerly load from DB — instant, no network needed
         await self._load_cache_from_db()
@@ -296,7 +304,9 @@ class BddkApiClient:
     # -- context manager ------------------------------------------------------
 
     async def __aenter__(self) -> "BddkApiClient":
-        await self.initialize()
+        # A client context may read a prepared cache but must never create or
+        # repair its schema implicitly.
+        await self.load_cache_read_only(require_nonempty=False)
         return self
 
     async def __aexit__(self, *exc) -> None:
@@ -310,9 +320,29 @@ class BddkApiClient:
 
     # -- HTTP with retry ------------------------------------------------------
 
-    async def _fetch_with_retry(self, url: str) -> httpx.Response:
-        """Fetch a URL with exponential backoff retry."""
-        return await fetch_with_retry(self._http, url)
+    async def _assert_public_resolution(self, url: str) -> None:
+        """Compatibility seam for exact-host public-address validation."""
+
+        await assert_public_https_resolution(url)
+
+    async def _fetch_with_retry(
+        self,
+        url: str,
+        *,
+        max_bytes: int = _MAX_CATALOG_RESPONSE_BYTES,
+    ) -> httpx.Response:
+        """Fetch one approved BDDK/mevzuat URL with bounded safe retries."""
+
+        return await bounded_request_with_retry(
+            self._http,
+            "GET",
+            url,
+            base_url=f"{_BDDK_BASE_URL}/",
+            allowed_hosts=BDDK_HTTPS_HOSTS | MEVZUAT_HTTPS_HOSTS,
+            boundary_name="BDDK or mevzuat",
+            max_bytes=max_bytes,
+            resolve=self._assert_public_resolution,
+        )
 
     # -- cache persistence (PostgreSQL) ----------------------------------------
 
@@ -351,8 +381,12 @@ class BddkApiClient:
                 )
                 self._cache_timestamp = now
                 logger.debug("Cache saved to PostgreSQL: %d items", len(self._cache))
-        except (asyncpg.PostgresError, OSError) as e:
-            logger.error("Failed to save cache to PostgreSQL: %s", e)
+        except (asyncpg.PostgresError, OSError) as exc:
+            logger.error(
+                "Failed to save decision cache",
+                extra={"error_type": type(exc).__name__},
+            )
+            raise BddkStorageError("Decision cache could not be persisted safely.") from None
 
     async def load_cache_read_only(self, *, require_nonempty: bool = True) -> int:
         """Load the decision cache with one SELECT and no repair or live fetch.
@@ -369,7 +403,7 @@ class BddkApiClient:
         except (asyncpg.PostgresError, OSError):
             raise BddkStorageError(
                 "Decision cache could not be read with serving credentials. Run `bddk-mcp migrate` and "
-                "`bddk-mcp bootstrap` with operator credentials, then grant the serving role SELECT access."
+                "`bddk-mcp bootstrap` with ingestion credentials, then grant the serving role SELECT access."
             ) from None
 
         loaded = [
@@ -601,12 +635,17 @@ class BddkApiClient:
         logger.info("PostgreSQL cache empty — initial scrape from BDDK...")
         await self._scrape_bddk()
 
-    async def _scrape_bddk(self) -> None:
-        """Scrape all BDDK pages in parallel and persist to PostgreSQL.
+    async def _scrape_bddk(self) -> int:
+        """Atomically refresh all expected BDDK pages and return item count.
 
         Previously serialised across _ALL_PAGE_IDS (9 pages × ~1–2s per
         request on a cold cache). asyncio.gather() fans them out so the
         full refresh completes in roughly the slowest single page.
+
+        The previous in-memory and PostgreSQL catalog remains authoritative
+        unless every configured source page is fetched and parsed and the new
+        catalog is persisted.  This prevents a partial upstream outage or an
+        HTML layout change from being reported as a successful refresh.
         """
         self._page_errors.clear()
 
@@ -614,13 +653,28 @@ class BddkApiClient:
             async with self._scrape_sem:
                 try:
                     if list_id in _ACCORDION_PAGE_IDS:
-                        return await self._fetch_and_parse_accordion_page(list_id)
-                    if list_id in _DECISION_PAGE_IDS:
-                        return await self._fetch_and_parse_decision_page(list_id)
-                    return await self._fetch_and_parse_flat_page(list_id)
-                except (httpx.HTTPError, httpx.TransportError, ValueError, AttributeError) as e:
-                    self._page_errors[list_id] = str(e)
-                    logger.error("Failed to fetch BDDK list page %d: %s", list_id, e)
+                        decisions = await self._fetch_and_parse_accordion_page(list_id)
+                    elif list_id in _DECISION_PAGE_IDS:
+                        decisions = await self._fetch_and_parse_decision_page(list_id)
+                    else:
+                        decisions = await self._fetch_and_parse_flat_page(list_id)
+                    if not decisions:
+                        self._page_errors[list_id] = "empty_page"
+                        logger.error("BDDK list page %d returned no parseable items", list_id)
+                    return decisions
+                except (
+                    httpx.HTTPError,
+                    httpx.TransportError,
+                    OutboundHttpPolicyError,
+                    ValueError,
+                    AttributeError,
+                ) as exc:
+                    self._page_errors[list_id] = type(exc).__name__
+                    logger.error(
+                        "Failed to fetch BDDK list page %d",
+                        list_id,
+                        extra={"error_type": type(exc).__name__},
+                    )
                     return []
 
         page_results = await asyncio.gather(*(_fetch_page_safe(pid) for pid in _ALL_PAGE_IDS))
@@ -630,17 +684,30 @@ class BddkApiClient:
         if dropped:
             logger.info("Scope filter dropped %d/%d items", dropped, len(scraped))
 
-        if not all_decisions and self._page_errors:
-            logger.error("All page fetches failed: %s", self._page_errors)
+        if self._page_errors:
+            logger.error(
+                "BDDK catalog refresh rejected because %d/%d source pages failed validation",
+                len(self._page_errors),
+                len(_ALL_PAGE_IDS),
+            )
             if STALE_CACHE_FALLBACK and self._cache:
-                logger.warning("Serving stale DB cache (%d items) — BDDK unreachable", len(self._cache))
-                return
-            return
+                logger.warning("Retaining last known-good decision cache (%d items)", len(self._cache))
+            raise BddkUpstreamError("BDDK catalog refresh was incomplete; the last known-good cache was retained.")
 
+        if not all_decisions:
+            raise BddkUpstreamError("BDDK catalog refresh returned no in-scope documents.")
+
+        previous_cache = self._cache
+        previous_timestamp = self._cache_timestamp
         self._cache = all_decisions
-        self._cache_timestamp = time.time()
-        await self._save_cache_to_db()
+        try:
+            await self._save_cache_to_db()
+        except BddkStorageError:
+            self._cache = previous_cache
+            self._cache_timestamp = previous_timestamp
+            raise
         logger.info("BDDK cache refreshed: %d total items", len(self._cache))
+        return len(self._cache)
 
     async def ensure_cache(self) -> None:
         """Public wrapper for _ensure_cache."""
@@ -649,8 +716,7 @@ class BddkApiClient:
     async def refresh_cache(self) -> int:
         """Force re-scrape BDDK and update PostgreSQL. Returns new item count."""
         logger.info("Force-refreshing BDDK cache from live site...")
-        await self._scrape_bddk()
-        return len(self._cache)
+        return await self._scrape_bddk()
 
     # -- public API -----------------------------------------------------------
 
@@ -731,15 +797,27 @@ class BddkApiClient:
 
     def _resolve_document_url(self, document_id: str) -> str:
         """Resolve a document ID to a fetchable URL."""
-        if document_id.isdigit():
+        if re.fullmatch(r"[0-9]{1,20}", document_id):
             return _DOCUMENT_URL_TEMPLATE.format(document_id=document_id)
 
         if document_id.startswith("mevzuat_"):
             mevzuat_no = document_id.removeprefix("mevzuat_")
+            if not re.fullmatch(r"[0-9]{1,20}", mevzuat_no):
+                raise OutboundHttpPolicyError("Document identifier is invalid for live retrieval.")
             for dec in self._cache:
                 if dec.document_id == document_id and dec.source_url:
                     source = dec.source_url
-                    parsed = urlparse(source)
+                    try:
+                        parsed = urlparse(source)
+                        source_host = (parsed.hostname or "").rstrip(".").lower()
+                    except ValueError:
+                        continue
+                    if (
+                        source_host not in MEVZUAT_HTTPS_HOSTS
+                        or parsed.username is not None
+                        or parsed.password is not None
+                    ):
+                        continue
                     params = parse_qs(parsed.query)
 
                     tur = params.get("MevzuatTur", [None])[0]
@@ -762,7 +840,7 @@ class BddkApiClient:
             if pdf_url:
                 return pdf_url
 
-        return _DOCUMENT_URL_TEMPLATE.format(document_id=document_id)
+        raise OutboundHttpPolicyError("Document identifier is invalid for live retrieval.")
 
     async def get_document_markdown(
         self,
@@ -789,15 +867,18 @@ class BddkApiClient:
                 )
 
         # Live fetch fallback
-        url = self._resolve_document_url(document_id)
-        logger.info("Fetching BDDK document (live): %s", url)
-
         try:
-            response = await self._fetch_with_retry(url)
-        except (httpx.HTTPError, httpx.TransportError) as e:
+            url = self._resolve_document_url(document_id)
+            logger.info("Fetching approved regulatory document from live upstream")
+            response = await self._fetch_with_retry(url, max_bytes=_MAX_DOCUMENT_RESPONSE_BYTES)
+        except (httpx.HTTPError, httpx.TransportError, OutboundHttpPolicyError) as exc:
+            logger.warning(
+                "Approved regulatory document fetch failed",
+                extra={"error_type": type(exc).__name__},
+            )
             return BddkDocumentMarkdown(
                 document_id=document_id,
-                markdown_content=f"Error fetching document: {e}\nSource URL: {url}",
+                markdown_content="Error fetching document from the approved regulatory upstream.",
                 page_number=1,
                 total_pages=1,
             )
@@ -811,10 +892,14 @@ class BddkApiClient:
                 file_extension=ext,
             )
             markdown = result.text_content.strip()
-        except (ValueError, OSError, UnicodeDecodeError) as e:
+        except (ValueError, OSError, UnicodeDecodeError) as exc:
+            logger.warning(
+                "Approved regulatory document conversion failed",
+                extra={"error_type": type(exc).__name__},
+            )
             return BddkDocumentMarkdown(
                 document_id=document_id,
-                markdown_content=f"Error converting document to Markdown: {e}\nSource URL: {url}",
+                markdown_content="Error converting the approved regulatory document to Markdown.",
                 page_number=1,
                 total_pages=1,
             )
@@ -836,8 +921,11 @@ class BddkApiClient:
                     )
                 )
                 logger.info("Stored document %s in local store", document_id)
-            except (RuntimeError, OSError) as e:
-                logger.warning("Failed to store document %s: %s", document_id, e)
+            except (RuntimeError, OSError) as exc:
+                logger.warning(
+                    "Failed to store converted regulatory document",
+                    extra={"document_id": document_id, "error_type": type(exc).__name__},
+                )
 
         total_pages = max(1, math.ceil(len(markdown) / PAGE_SIZE))
 

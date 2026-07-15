@@ -96,141 +96,6 @@ class StoreStats(BaseModel):
     documents_needing_refresh: int = 0
 
 
-# -- Schema -------------------------------------------------------------------
-
-_SCHEMA_SQL = """\
-CREATE EXTENSION IF NOT EXISTS unaccent;
-
--- Make unaccent() usable in immutable contexts (triggers, indexes)
-CREATE OR REPLACE FUNCTION immutable_unaccent(text)
-RETURNS text AS $$
-    SELECT unaccent($1);
-$$ LANGUAGE sql IMMUTABLE PARALLEL SAFE;
-
-CREATE TABLE IF NOT EXISTS documents (
-    document_id       TEXT PRIMARY KEY,
-    title             TEXT NOT NULL,
-    category          TEXT DEFAULT '',
-    decision_date     TEXT DEFAULT '',
-    decision_number   TEXT DEFAULT '',
-    source_url        TEXT DEFAULT '',
-    pdf_blob          BYTEA,
-    markdown_content  TEXT DEFAULT '',
-    content_hash      TEXT DEFAULT '',
-    downloaded_at     DOUBLE PRECISION,
-    extracted_at      DOUBLE PRECISION,
-    extraction_method TEXT DEFAULT 'markitdown',
-    total_pages       INTEGER DEFAULT 1,
-    file_size         INTEGER DEFAULT 0,
-    tsv               tsvector
-);
-
-CREATE INDEX IF NOT EXISTS idx_documents_category ON documents(category);
-CREATE INDEX IF NOT EXISTS idx_documents_date ON documents(decision_date);
-CREATE INDEX IF NOT EXISTS idx_documents_tsv ON documents USING GIN(tsv);
-
-CREATE TABLE IF NOT EXISTS document_sections (
-    id            SERIAL PRIMARY KEY,
-    doc_id        TEXT NOT NULL,
-    section_type  TEXT NOT NULL,
-    section_ref   TEXT NOT NULL,
-    heading       TEXT DEFAULT '',
-    start_char    INTEGER NOT NULL,
-    end_char      INTEGER NOT NULL,
-    content       TEXT NOT NULL,
-    content_hash  TEXT NOT NULL,
-    page_start    INTEGER,
-    page_end      INTEGER,
-    tsv           tsvector,
-    UNIQUE(doc_id, section_type, section_ref, content_hash)
-);
-
-CREATE INDEX IF NOT EXISTS idx_document_sections_doc_id ON document_sections(doc_id);
-CREATE INDEX IF NOT EXISTS idx_document_sections_ref ON document_sections(section_type, section_ref);
-CREATE INDEX IF NOT EXISTS idx_document_sections_tsv ON document_sections USING GIN(tsv);
-
--- Trigger to keep tsv column in sync
-CREATE OR REPLACE FUNCTION documents_tsv_trigger() RETURNS trigger AS $$
-BEGIN
-    NEW.tsv :=
-        to_tsvector('simple', immutable_unaccent(coalesce(NEW.title, '')))
-        || to_tsvector('simple', immutable_unaccent(coalesce(NEW.markdown_content, '')))
-        || to_tsvector('simple', immutable_unaccent(coalesce(NEW.category, '')));
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trg_documents_tsv ON documents;
-CREATE TRIGGER trg_documents_tsv
-    BEFORE INSERT OR UPDATE ON documents
-    FOR EACH ROW EXECUTE FUNCTION documents_tsv_trigger();
-
-CREATE OR REPLACE FUNCTION document_sections_tsv_trigger() RETURNS trigger AS $$
-BEGIN
-    NEW.tsv :=
-        to_tsvector('simple', immutable_unaccent(coalesce(NEW.heading, '')))
-        || to_tsvector('simple', immutable_unaccent(coalesce(NEW.content, '')));
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trg_document_sections_tsv ON document_sections;
-CREATE TRIGGER trg_document_sections_tsv
-    BEFORE INSERT OR UPDATE ON document_sections
-    FOR EACH ROW EXECUTE FUNCTION document_sections_tsv_trigger();
-
-CREATE TABLE IF NOT EXISTS document_versions (
-    id                SERIAL PRIMARY KEY,
-    document_id       TEXT NOT NULL,
-    version           INTEGER NOT NULL DEFAULT 1,
-    content_hash      TEXT NOT NULL,
-    markdown_content  TEXT DEFAULT '',
-    synced_at         DOUBLE PRECISION NOT NULL,
-    UNIQUE(document_id, version)
-);
-
-CREATE INDEX IF NOT EXISTS idx_versions_doc_id ON document_versions(document_id);
-
-CREATE TABLE IF NOT EXISTS tool_call_traces (
-    id             BIGSERIAL PRIMARY KEY,
-    created_at     TIMESTAMPTZ DEFAULT now(),
-    tool_name      TEXT NOT NULL,
-    args_hash      TEXT NOT NULL,
-    args_summary   JSONB,
-    latency_ms     INTEGER,
-    result_count   INTEGER,
-    doc_ids        TEXT[],
-    quality_labels JSONB,
-    relevance_stats JSONB,
-    model_id       TEXT,
-    session_id     TEXT
-);
-
-CREATE INDEX IF NOT EXISTS idx_tool_call_traces_created_at ON tool_call_traces(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_tool_call_traces_tool_name ON tool_call_traces(tool_name);
-CREATE INDEX IF NOT EXISTS idx_tool_call_traces_doc_ids ON tool_call_traces USING GIN(doc_ids);
-
-CREATE TABLE IF NOT EXISTS sync_metadata (
-    document_id       TEXT PRIMARY KEY,
-    etag              TEXT DEFAULT '',
-    last_modified     TEXT DEFAULT '',
-    last_sync_at      DOUBLE PRECISION,
-    sync_count        INTEGER DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS sync_failures (
-    document_id       TEXT PRIMARY KEY,
-    error             TEXT NOT NULL,
-    error_category    TEXT NOT NULL DEFAULT 'unknown',
-    source_url        TEXT DEFAULT '',
-    retryable         BOOLEAN DEFAULT true,
-    attempts          INTEGER DEFAULT 1,
-    first_failed_at   DOUBLE PRECISION,
-    last_failed_at    DOUBLE PRECISION
-);
-"""
-
-
 def _content_hash(content: str) -> str:
     """SHA-256 hash of document content for change detection."""
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
@@ -262,8 +127,8 @@ class DocumentStore:
 
     Usage::
 
+        # First run ``bddk-mcp migrate`` with schema-owner credentials.
         store = DocumentStore(pool)
-        await store.initialize()
         await store.store_document(doc)
         page = await store.get_document_page("1291", page=1)
         hits = await store.search_content("sermaye yeterliliği")
@@ -273,17 +138,25 @@ class DocumentStore:
         self._pool = pool
 
     async def initialize(self) -> None:
-        """Create schema if needed."""
-        async with self._pool.acquire() as conn:
-            await conn.execute(_SCHEMA_SQL)
-        logger.info("DocumentStore initialized (PostgreSQL)")
+        """Deprecated SELECT-only compatibility readiness check.
+
+        Schema creation is available only through ``bddk-mcp migrate``.
+        """
+        from bddk_mcp.db_lifecycle import assert_database_ready
+
+        await assert_database_ready(pool=self._pool, require_corpus=False)
 
     async def close(self) -> None:
         """No-op — pool lifecycle is managed externally."""
         logger.info("DocumentStore closed")
 
     async def __aenter__(self) -> "DocumentStore":
-        await self.initialize()
+        # Context entry is a runtime path and must not acquire DDL privileges.
+        # Use the shared SELECT-only catalog check so a missing migration fails
+        # with an actionable error before callers attempt document DML.
+        from bddk_mcp.db_lifecycle import assert_database_ready
+
+        await assert_database_ready(pool=self._pool, require_corpus=False)
         return self
 
     async def __aexit__(self, *exc) -> None:
@@ -292,37 +165,45 @@ class DocumentStore:
     # -- CRUD -----------------------------------------------------------------
 
     async def store_document(self, doc: StoredDocument) -> None:
-        """Insert or replace a document in the store."""
+        """Atomically replace a document and its derived structural sections."""
         now = time.time()
         content_hash = _content_hash(doc.markdown_content) if doc.markdown_content else ""
         total_pages = max(1, math.ceil(len(doc.markdown_content) / PAGE_SIZE)) if doc.markdown_content else 1
+        sections = extract_document_sections(doc.document_id, doc.markdown_content) if doc.markdown_content else []
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                # Serialize every canonical/derived write for this document,
+                # including concurrent first inserts where no row exists yet.
+                await conn.fetchval(
+                    "SELECT pg_catalog.pg_advisory_xact_lock("
+                    "pg_catalog.hashtextextended($1::pg_catalog.text, 1095652431))",
+                    doc.document_id,
+                )
                 # Archive previous version if content changed
-                if content_hash and doc.markdown_content:
-                    existing = await conn.fetchrow(
-                        "SELECT content_hash, markdown_content FROM documents WHERE document_id = $1",
+                existing = await conn.fetchrow(
+                    "SELECT content_hash, markdown_content FROM public.documents WHERE document_id = $1 FOR UPDATE",
+                    doc.document_id,
+                )
+                if existing and existing["content_hash"] and existing["content_hash"] != content_hash:
+                    max_ver = await conn.fetchval(
+                        "SELECT COALESCE(MAX(version), 0) FROM public.document_versions WHERE document_id = $1",
                         doc.document_id,
                     )
-                    if existing and existing["content_hash"] and existing["content_hash"] != content_hash:
-                        max_ver = await conn.fetchval(
-                            "SELECT COALESCE(MAX(version), 0) FROM document_versions WHERE document_id = $1",
-                            doc.document_id,
-                        )
-                        await conn.execute(
-                            "INSERT INTO document_versions (document_id, version, content_hash, markdown_content, synced_at) "
-                            "VALUES ($1, $2, $3, $4, $5)",
-                            doc.document_id,
-                            max_ver + 1,
-                            existing["content_hash"],
-                            existing["markdown_content"],
-                            now,
-                        )
+                    await conn.execute(
+                        "INSERT INTO public.document_versions "
+                        "(document_id, version, content_hash, markdown_content, synced_at) "
+                        "VALUES ($1, $2, $3, $4, $5)",
+                        doc.document_id,
+                        max_ver + 1,
+                        existing["content_hash"],
+                        existing["markdown_content"],
+                        now,
+                    )
 
                 await conn.execute(
                     """
-                    INSERT INTO documents (
+                    INSERT INTO public.documents (
                         document_id, title, category, decision_date, decision_number,
                         source_url, pdf_blob, markdown_content, content_hash,
                         downloaded_at, extracted_at, extraction_method, total_pages, file_size
@@ -357,11 +238,14 @@ class DocumentStore:
                     total_pages,
                     doc.file_size or (len(doc.pdf_bytes) if doc.pdf_bytes else 0),
                 )
+                await self._replace_document_sections_on_connection(
+                    conn,
+                    doc.document_id,
+                    sections,
+                    source_content_hash=content_hash,
+                )
 
         logger.debug("Stored document %s (%s)", doc.document_id, doc.title[:60])
-
-        sections = extract_document_sections(doc.document_id, doc.markdown_content) if doc.markdown_content else []
-        await self.replace_document_sections(doc.document_id, sections)
 
     async def get_document(self, doc_id: str) -> StoredDocument | None:
         """Retrieve a full document by ID."""
@@ -442,51 +326,102 @@ class DocumentStore:
 
     async def delete_document(self, doc_id: str) -> bool:
         """Delete a document by ID. Returns True if deleted."""
-        await self.delete_document_sections(doc_id)
-        result = await self._pool.execute("DELETE FROM documents WHERE document_id = $1", doc_id)
-        return result == "DELETE 1"
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.fetchval(
+                    "SELECT pg_catalog.pg_advisory_xact_lock("
+                    "pg_catalog.hashtextextended($1::pg_catalog.text, 1095652431))",
+                    doc_id,
+                )
+                # Current migrations cascade sections, chunks, and the active
+                # retrieval publication.  The explicit deletes keep this
+                # method safe during a controlled v2-to-v3 maintenance window.
+                await conn.execute("DELETE FROM public.document_retrieval_publications WHERE doc_id = $1", doc_id)
+                await conn.execute("DELETE FROM public.document_chunks WHERE doc_id = $1", doc_id)
+                await conn.execute("DELETE FROM public.document_sections WHERE doc_id = $1", doc_id)
+                result = await conn.execute("DELETE FROM public.documents WHERE document_id = $1", doc_id)
+                return result == "DELETE 1"
 
     # -- Sections -------------------------------------------------------------
 
-    async def replace_document_sections(self, doc_id: str, sections: list) -> int:
-        """Replace all indexed structural sections for a document."""
+    async def replace_document_sections(
+        self,
+        doc_id: str,
+        sections: list,
+        *,
+        source_content_hash: str,
+    ) -> int:
+        """Replace sections only when they were parsed from the current body."""
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                await conn.execute("DELETE FROM document_sections WHERE doc_id = $1", doc_id)
-                if not sections:
-                    return 0
-
-                args = [
-                    (
-                        getattr(section, "doc_id", doc_id),
-                        section.section_type,
-                        section.section_ref,
-                        section.heading,
-                        section.start_char,
-                        section.end_char,
-                        section.content,
-                        section.content_hash,
-                        section.page_start,
-                        section.page_end,
-                    )
-                    for section in sections
-                ]
-                await conn.executemany(
-                    """
-                    INSERT INTO document_sections (
-                        doc_id, section_type, section_ref, heading, start_char, end_char,
-                        content, content_hash, page_start, page_end
-                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-                    ON CONFLICT(doc_id, section_type, section_ref, content_hash) DO UPDATE SET
-                        heading=EXCLUDED.heading,
-                        start_char=EXCLUDED.start_char,
-                        end_char=EXCLUDED.end_char,
-                        content=EXCLUDED.content,
-                        page_start=EXCLUDED.page_start,
-                        page_end=EXCLUDED.page_end
-                    """,
-                    args,
+                await conn.fetchval(
+                    "SELECT pg_catalog.pg_advisory_xact_lock("
+                    "pg_catalog.hashtextextended($1::pg_catalog.text, 1095652431))",
+                    doc_id,
                 )
+                stored_hash = await conn.fetchval(
+                    "SELECT content_hash FROM public.documents WHERE document_id = $1 FOR UPDATE",
+                    doc_id,
+                )
+                if stored_hash is None or stored_hash != source_content_hash:
+                    raise ValueError("sections were not published because the source document changed")
+                return await self._replace_document_sections_on_connection(
+                    conn,
+                    doc_id,
+                    sections,
+                    source_content_hash=source_content_hash,
+                )
+
+    @staticmethod
+    async def _replace_document_sections_on_connection(
+        conn,
+        doc_id: str,
+        sections: list,
+        *,
+        source_content_hash: str,
+    ) -> int:
+        """Replace derived sections using the caller's publication transaction."""
+
+        if any(getattr(section, "doc_id", doc_id) != doc_id for section in sections):
+            raise ValueError("section document identity does not match the publication target")
+
+        await conn.execute("DELETE FROM public.document_sections WHERE doc_id = $1", doc_id)
+        if not sections:
+            return 0
+
+        args = [
+            (
+                doc_id,
+                section.section_type,
+                section.section_ref,
+                section.heading,
+                section.start_char,
+                section.end_char,
+                section.content,
+                section.content_hash,
+                section.page_start,
+                section.page_end,
+                source_content_hash,
+            )
+            for section in sections
+        ]
+        await conn.executemany(
+            """
+            INSERT INTO public.document_sections (
+                doc_id, section_type, section_ref, heading, start_char, end_char,
+                content, content_hash, page_start, page_end, source_content_hash
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+            ON CONFLICT(doc_id, section_type, section_ref, content_hash) DO UPDATE SET
+                heading=EXCLUDED.heading,
+                start_char=EXCLUDED.start_char,
+                end_char=EXCLUDED.end_char,
+                content=EXCLUDED.content,
+                page_start=EXCLUDED.page_start,
+                page_end=EXCLUDED.page_end,
+                source_content_hash=EXCLUDED.source_content_hash
+            """,
+            args,
+        )
         return len(args)
 
     async def delete_document_sections(self, doc_id: str) -> bool:
@@ -501,8 +436,11 @@ class DocumentStore:
         section_type: str | None = None,
         section_ref: str | None = None,
         heading: str | None = None,
+        limit: int | None = None,
     ) -> list[StoredDocumentSection]:
         """Fetch structural sections by document ID and optional exact refs."""
+        if limit is not None and (isinstance(limit, bool) or not 1 <= limit <= 1_000):
+            raise ValueError("section limit must be between 1 and 1000")
         where = ["doc_id = $1"]
         params: list = [doc_id]
         if section_type:
@@ -515,13 +453,24 @@ class DocumentStore:
             params.append(f"%{heading}%")
             where.append(f"heading ILIKE ${len(params)}")
 
+        limit_clause = ""
+        if limit is not None:
+            params.append(limit)
+            limit_clause = f"LIMIT ${len(params)}"
+
+        where = [f"section.{condition}" for condition in where]
         rows = await self._pool.fetch(
             f"""
-            SELECT doc_id, section_type, section_ref, heading, start_char, end_char,
-                   content, content_hash, page_start, page_end
-            FROM document_sections
+            SELECT section.doc_id, section.section_type, section.section_ref, section.heading,
+                   section.start_char, section.end_char, section.content, section.content_hash,
+                   section.page_start, section.page_end
+            FROM public.document_sections AS section
+            JOIN public.documents AS document
+              ON document.document_id = section.doc_id
+             AND document.content_hash = section.source_content_hash
             WHERE {" AND ".join(where)}
-            ORDER BY start_char
+            ORDER BY section.start_char
+            {limit_clause}
             """,
             *params,
         )
@@ -536,26 +485,34 @@ class DocumentStore:
         limit: int = 10,
     ) -> list[StoredDocumentSection]:
         """Full-text search over structural sections."""
-        where = ["tsv @@ plainto_tsquery('simple', immutable_unaccent($1))"]
+        where = ["section.tsv @@ pg_catalog.plainto_tsquery('simple', public.immutable_unaccent($1))"]
         params: list = [query]
         if document_id:
             params.append(document_id)
-            where.append(f"doc_id = ${len(params)}")
+            where.append(f"section.doc_id = ${len(params)}")
         if section_type:
             params.append(section_type)
-            where.append(f"section_type = ${len(params)}")
+            where.append(f"section.section_type = ${len(params)}")
         params.append(limit)
 
         rows = await self._pool.fetch(
             f"""
-            SELECT doc_id, section_type, section_ref, heading, start_char, end_char,
-                   content, content_hash, page_start, page_end,
+            SELECT section.doc_id, section.section_type, section.section_ref, section.heading,
+                   section.start_char, section.end_char, section.content, section.content_hash,
+                   section.page_start, section.page_end,
                    -- normalization flag 1 divides by 1+log(length): without it,
                    -- jumbo boilerplate sections outrank on-point short maddeler
-                   ts_rank_cd(tsv, plainto_tsquery('simple', immutable_unaccent($1)), 1) AS rank
-            FROM document_sections
+                   pg_catalog.ts_rank_cd(
+                       section.tsv,
+                       pg_catalog.plainto_tsquery('simple', public.immutable_unaccent($1)),
+                       1
+                   ) AS rank
+            FROM public.document_sections AS section
+            JOIN public.documents AS document
+              ON document.document_id = section.doc_id
+             AND document.content_hash = section.source_content_hash
             WHERE {" AND ".join(where)}
-            ORDER BY rank DESC, start_char
+            ORDER BY rank DESC, section.start_char
             LIMIT ${len(params)}
             """,
             *params,

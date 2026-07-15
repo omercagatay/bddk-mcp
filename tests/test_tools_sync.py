@@ -122,13 +122,16 @@ def test_failure_cycle_then_success_fully_recovers():
 # -- Tool registration -------------------------------------------------------
 
 
-def test_register_adds_four_sync_tools():
-    """register() should expose exactly the four documented sync tools."""
+def test_register_adds_sync_and_generic_job_tools():
+    """register() exposes starts, status/cancel, and document health."""
     mcp = MagicMock()
     register(mcp, _fresh_deps())
     assert _registered_tool_names(mcp) == {
         "refresh_bddk_cache",
         "sync_bddk_documents",
         "trigger_startup_sync",
+        "get_operator_job",
+        "list_operator_jobs",
+        "cancel_operator_job",
         "document_health",
     }

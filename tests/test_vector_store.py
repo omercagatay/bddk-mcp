@@ -1,14 +1,69 @@
 """Tests for VectorStore (pgvector) — chunking, add, search, retrieval."""
 
-from unittest.mock import AsyncMock
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from bddk_mcp.store.vector_store import _SCHEMA_SQL, VectorStore, _chunk_document, _chunk_text
+from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
+from bddk_mcp.store.vector_store import VectorIndexConsistencyError, VectorStore, _chunk_document, _chunk_text
 
 # VectorStore integration tests require both PostgreSQL and the embedding model.
 # They skip if either is unavailable.
 _SKIP_REASON = "Embedding model not available or PostgreSQL not reachable"
+_VECTOR_TEST_IDS = {
+    "a",
+    "b",
+    "capital",
+    "d1",
+    "del_me",
+    "empty",
+    "interest",
+    "loans",
+    "multi",
+    "s1",
+    "s2",
+    "tampered-chunk",
+    "test_1",
+    "test_doc1",
+    "test_long",
+}
+
+
+async def _store_and_index(
+    vector_store: VectorStore,
+    pool,
+    *,
+    doc_id: str,
+    title: str,
+    content: str,
+    category: str = "",
+    decision_date: str = "",
+) -> int:
+    await DocumentStore(pool).store_document(
+        StoredDocument(
+            document_id=doc_id,
+            title=title,
+            markdown_content=content,
+            category=category,
+            decision_date=decision_date,
+        )
+    )
+    return await vector_store.add_document(
+        doc_id=doc_id,
+        title=title,
+        content=content,
+        category=category,
+        decision_date=decision_date,
+    )
+
+
+async def _clean_vector_test_documents(pool) -> None:
+    ids = sorted(_VECTOR_TEST_IDS)
+    await pool.execute("DELETE FROM public.document_chunks WHERE doc_id = ANY($1::text[])", ids)
+    await pool.execute("DELETE FROM public.document_sections WHERE doc_id = ANY($1::text[])", ids)
+    await pool.execute("DELETE FROM public.document_versions WHERE document_id = ANY($1::text[])", ids)
+    await pool.execute("DELETE FROM public.documents WHERE document_id = ANY($1::text[])", ids)
 
 
 class WhitespaceTokenizer:
@@ -109,17 +164,6 @@ class TestChunkText:
 
         assert not any("MADDE 9" in chunk.chunk_text and "MADDE 10" in chunk.chunk_text for chunk in chunks)
 
-    def test_document_chunks_schema_declares_section_metadata_columns(self):
-        assert "section_type" in _SCHEMA_SQL
-        assert "section_ref" in _SCHEMA_SQL
-        assert "section_start_char" in _SCHEMA_SQL
-        assert "section_end_char" in _SCHEMA_SQL
-        assert "section_content_hash" in _SCHEMA_SQL
-
-    def test_document_chunks_schema_declares_chunk_offset_columns(self):
-        assert "chunk_start_char" in _SCHEMA_SQL
-        assert "chunk_end_char" in _SCHEMA_SQL
-
     def test_reconstruct_content_uses_chunk_offsets_for_token_overlap(self):
         vs = VectorStore.__new__(VectorStore)
         rows = [
@@ -128,6 +172,72 @@ class TestChunkText:
         ]
 
         assert vs._reconstruct_content(rows) == "alpha beta gamma"
+
+
+class TestModelReproducibility:
+    def test_remote_embedding_model_uses_pinned_revision_and_dimension(self):
+        calls: list[tuple[str, dict]] = []
+
+        class FakeSentenceTransformer:
+            def __init__(self, model_ref: str, **kwargs):
+                calls.append((model_ref, kwargs))
+
+            def get_sentence_embedding_dimension(self):
+                return 768
+
+        fake_module = SimpleNamespace(SentenceTransformer=FakeSentenceTransformer)
+        with (
+            patch.dict("sys.modules", {"sentence_transformers": fake_module}),
+            patch("bddk_mcp.store.vector_store.EMBEDDING_MODEL_PATH", ""),
+            patch("bddk_mcp.store.vector_store.EMBEDDING_MODEL_REVISION", "a" * 40),
+        ):
+            store = VectorStore(MagicMock(), embedding_model="reviewed/model")
+            store._ensure_embeddings()
+
+        assert calls == [("reviewed/model", {"device": "cuda", "revision": "a" * 40})]
+
+    def test_remote_custom_embedding_model_requires_revision(self):
+        with (
+            patch("bddk_mcp.store.vector_store.EMBEDDING_MODEL_PATH", ""),
+            patch("bddk_mcp.store.vector_store.EMBEDDING_MODEL_REVISION", ""),
+            pytest.raises(RuntimeError, match="BDDK_EMBEDDING_MODEL_REVISION"),
+        ):
+            VectorStore(MagicMock(), embedding_model="custom/model")._ensure_embeddings()
+
+    def test_wrong_embedding_dimension_is_rejected(self):
+        class FakeSentenceTransformer:
+            def __init__(self, _model_ref: str, **_kwargs):
+                pass
+
+            def get_sentence_embedding_dimension(self):
+                return 384
+
+        fake_module = SimpleNamespace(SentenceTransformer=FakeSentenceTransformer)
+        with (
+            patch.dict("sys.modules", {"sentence_transformers": fake_module}),
+            patch("bddk_mcp.store.vector_store.EMBEDDING_MODEL_PATH", "/reviewed/local/model"),
+            pytest.raises(RuntimeError, match="dimension must be 768"),
+        ):
+            VectorStore(MagicMock())._ensure_embeddings()
+
+    def test_remote_reranker_uses_pinned_revision(self):
+        calls: list[tuple[str, dict]] = []
+
+        class FakeCrossEncoder:
+            def __init__(self, model_ref: str, **kwargs):
+                calls.append((model_ref, kwargs))
+
+        fake_module = SimpleNamespace(CrossEncoder=FakeCrossEncoder)
+        with (
+            patch.dict("sys.modules", {"sentence_transformers": fake_module}),
+            patch("bddk_mcp.store.vector_store.RERANKER_MODEL_PATH", ""),
+            patch("bddk_mcp.store.vector_store.RERANKER_MODEL_NAME", "reviewed/reranker"),
+            patch("bddk_mcp.store.vector_store.RERANKER_MODEL_REVISION", "b" * 40),
+        ):
+            store = VectorStore(MagicMock())
+            store._ensure_reranker()
+
+        assert calls == [("reviewed/reranker", {"device": "cuda", "revision": "b" * 40})]
 
 
 class TestHybridSearchOrdering:
@@ -243,11 +353,10 @@ class TestHybridSearchOrdering:
         assert results == []
 
 
-async def _can_initialize_store(pg_pool) -> bool:
-    """Check if VectorStore can initialize with embeddings."""
+async def _can_load_embedding_model(pg_pool) -> bool:
+    """Check whether the configured embedding model can be loaded."""
     try:
         vs = VectorStore(pg_pool)
-        await vs.initialize()
         vs._ensure_embeddings()
         return True
     except Exception:
@@ -258,7 +367,7 @@ async def _can_initialize_store(pg_pool) -> bool:
 async def _check_model(pg_pool):
     """Check if embedding model is available."""
     try:
-        return await _can_initialize_store(pg_pool)
+        return await _can_load_embedding_model(pg_pool)
     except Exception:
         return False
 
@@ -267,72 +376,28 @@ class TestVectorStoreLifecycle:
     """Test VectorStore initialization and basic operations."""
 
     @pytest.mark.asyncio
-    async def test_initialize_migrates_legacy_chunks_before_section_index(self, pg_pool):
-        from tests.conftest import SingleConnPool
+    async def test_initialize_is_select_only_readiness_wrapper(self):
+        pool = MagicMock()
+        readiness = AsyncMock()
 
-        conn = await pg_pool.acquire()
-        tx = conn.transaction()
-        await tx.start()
-        try:
-            await conn.execute("DROP TABLE IF EXISTS document_chunks CASCADE")
-            await conn.execute("""
-                CREATE TABLE document_chunks (
-                    id SERIAL PRIMARY KEY,
-                    doc_id TEXT NOT NULL,
-                    chunk_index INTEGER NOT NULL,
-                    title TEXT DEFAULT '',
-                    category TEXT DEFAULT '',
-                    decision_date TEXT DEFAULT '',
-                    decision_number TEXT DEFAULT '',
-                    source_url TEXT DEFAULT '',
-                    total_chunks INTEGER DEFAULT 1,
-                    total_pages INTEGER DEFAULT 1,
-                    content_hash TEXT DEFAULT '',
-                    chunk_text TEXT NOT NULL,
-                    embedding vector(384),
-                    tsv tsvector,
-                    UNIQUE(doc_id, chunk_index)
-                )
-            """)
+        with patch("bddk_mcp.db_lifecycle.assert_database_ready", new=readiness):
+            await VectorStore(pool).initialize()
 
-            vs = VectorStore(SingleConnPool(conn))
-            await vs.initialize()
-
-            columns = {
-                row["column_name"]
-                for row in await conn.fetch(
-                    """
-                    SELECT column_name
-                    FROM information_schema.columns
-                    WHERE table_name = 'document_chunks'
-                    """
-                )
-            }
-            assert {
-                "chunk_start_char",
-                "chunk_end_char",
-                "section_type",
-                "section_ref",
-                "section_start_char",
-                "section_end_char",
-                "section_content_hash",
-            } <= columns
-            assert await conn.fetchval("SELECT to_regclass('idx_chunks_section_ref')") == "idx_chunks_section_ref"
-        finally:
-            await tx.rollback()
-            await pg_pool.release(conn)
+        readiness.assert_awaited_once_with(pool=pool, require_corpus=False)
+        pool.acquire.assert_not_called()
+        pool.execute.assert_not_called()
 
     @pytest.fixture
     async def store(self, pg_pool, _check_model):
         if not _check_model:
             pytest.skip(_SKIP_REASON)
         vs = VectorStore(pg_pool)
-        await vs.initialize()
         # Clean up any leftover test data
-        await pg_pool.execute(
-            "DELETE FROM document_chunks WHERE doc_id LIKE 'test_%' OR doc_id IN ('a','b','d1','del_me','empty','multi','s1','s2')"
-        )
-        yield vs
+        await _clean_vector_test_documents(pg_pool)
+        try:
+            yield vs
+        finally:
+            await _clean_vector_test_documents(pg_pool)
 
     @pytest.mark.asyncio
     async def test_initialize(self, store):
@@ -341,8 +406,10 @@ class TestVectorStoreLifecycle:
         assert isinstance(stats["total_chunks"], int)
 
     @pytest.mark.asyncio
-    async def test_add_document(self, store):
-        chunks = await store.add_document(
+    async def test_add_document(self, store, pg_pool):
+        chunks = await _store_and_index(
+            store,
+            pg_pool,
             doc_id="test_1",
             title="Test Document",
             content="This is a test document with some content.",
@@ -361,9 +428,21 @@ class TestVectorStoreLifecycle:
         assert not await store.has_document("empty")
 
     @pytest.mark.asyncio
-    async def test_add_document_replaces_existing(self, store):
-        await store.add_document(doc_id="d1", title="V1", content="Version one content")
-        await store.add_document(doc_id="d1", title="V2", content="Version two content updated")
+    async def test_add_document_replaces_existing(self, store, pg_pool):
+        await _store_and_index(
+            store,
+            pg_pool,
+            doc_id="d1",
+            title="V1",
+            content="Version one content",
+        )
+        await _store_and_index(
+            store,
+            pg_pool,
+            doc_id="d1",
+            title="V2",
+            content="Version two content updated",
+        )
 
         doc = await store.get_document("d1")
         assert doc is not None
@@ -372,8 +451,68 @@ class TestVectorStoreLifecycle:
         await store.delete_document("d1")
 
     @pytest.mark.asyncio
-    async def test_get_document(self, store):
-        await store.add_document(
+    async def test_stale_chunks_are_hidden_until_matching_index_is_published(self, store, pg_pool):
+        await _store_and_index(
+            store,
+            pg_pool,
+            doc_id="d1",
+            title="V1",
+            content="Version one content",
+        )
+        assert await store.has_document("d1")
+
+        await DocumentStore(pg_pool).store_document(
+            StoredDocument(
+                document_id="d1",
+                title="V2",
+                markdown_content="Version two content updated",
+            )
+        )
+        assert not await store.has_document("d1")
+        assert await store.get_document("d1") is None
+
+        with pytest.raises(VectorIndexConsistencyError, match="stored document hash does not match"):
+            await store.add_document(doc_id="d1", title="V1", content="Version one content")
+
+        await store.add_document(doc_id="d1", title="V2", content="Version two content updated")
+        assert await store.has_document("d1")
+
+    @pytest.mark.asyncio
+    async def test_publication_refuses_chunk_text_not_regenerated_from_canonical_document(self, store, pg_pool):
+        chunks = await _store_and_index(
+            store,
+            pg_pool,
+            doc_id="tampered-chunk",
+            title="Canonical",
+            content="Canonical regulatory text",
+        )
+        content_hash = await pg_pool.fetchval(
+            "SELECT content_hash FROM public.documents WHERE document_id = $1",
+            "tampered-chunk",
+        )
+        await pg_pool.execute(
+            "UPDATE public.document_chunks SET chunk_text = $2 WHERE doc_id = $1 AND chunk_index = 0",
+            "tampered-chunk",
+            "Unsupported replacement text",
+        )
+
+        async with pg_pool.acquire() as connection:
+            with pytest.raises(VectorIndexConsistencyError, match="publication integrity validation"):
+                await store._publish_document_on_connection(
+                    connection,
+                    doc_id="tampered-chunk",
+                    content_hash=content_hash,
+                    expected_chunks=chunks,
+                )
+
+        assert not await store.has_document("tampered-chunk")
+        await store.delete_document("tampered-chunk")
+
+    @pytest.mark.asyncio
+    async def test_get_document(self, store, pg_pool):
+        await _store_and_index(
+            store,
+            pg_pool,
             doc_id="test_doc1",
             title="Capital Adequacy",
             content="Capital adequacy regulation for banks.",
@@ -394,9 +533,15 @@ class TestVectorStoreLifecycle:
         assert await store.get_document("nonexistent") is None
 
     @pytest.mark.asyncio
-    async def test_get_document_page(self, store):
+    async def test_get_document_page(self, store, pg_pool):
         long_content = "A" * 12000
-        await store.add_document(doc_id="test_long", title="Long Doc", content=long_content)
+        await _store_and_index(
+            store,
+            pg_pool,
+            doc_id="test_long",
+            title="Long Doc",
+            content=long_content,
+        )
 
         page1 = await store.get_document_page("test_long", page=1)
         assert page1 is not None
@@ -409,8 +554,14 @@ class TestVectorStoreLifecycle:
         await store.delete_document("test_long")
 
     @pytest.mark.asyncio
-    async def test_delete_document(self, store):
-        await store.add_document(doc_id="del_me", title="Delete Me", content="Some content")
+    async def test_delete_document(self, store, pg_pool):
+        await _store_and_index(
+            store,
+            pg_pool,
+            doc_id="del_me",
+            title="Delete Me",
+            content="Some content",
+        )
         assert await store.has_document("del_me")
 
         deleted = await store.delete_document("del_me")
@@ -431,36 +582,39 @@ class TestVectorStoreSearch:
         if not _check_model:
             pytest.skip(_SKIP_REASON)
         vs = VectorStore(pg_pool)
-        await vs.initialize()
 
         # Clean and populate
-        for did in ("capital", "interest", "loans"):
-            await vs.delete_document(did)
+        await _clean_vector_test_documents(pg_pool)
 
-        await vs.add_document(
+        await _store_and_index(
+            vs,
+            pg_pool,
             doc_id="capital",
             title="Sermaye Yeterliliği Rehberi",
             content="Bu rehber bankacılık sektöründe sermaye yeterliliği hesaplamalarını düzenler.",
             category="Rehber",
         )
-        await vs.add_document(
+        await _store_and_index(
+            vs,
+            pg_pool,
             doc_id="interest",
             title="Faiz Oranı Riski Yönetmeliği",
             content="Banka faiz oranı riskini ölçmek için standart yaklaşım kullanır.",
             category="Yönetmelik",
         )
-        await vs.add_document(
+        await _store_and_index(
+            vs,
+            pg_pool,
             doc_id="loans",
             title="Kredi İşlemleri Genelgesi",
             content="Bankaların kredi işlemlerine ilişkin genel kurallar ve prosedürler.",
             category="Genelge",
         )
 
-        yield vs
-
-        # Cleanup
-        for did in ("capital", "interest", "loans"):
-            await vs.delete_document(did)
+        try:
+            yield vs
+        finally:
+            await _clean_vector_test_documents(pg_pool)
 
     @pytest.mark.asyncio
     async def test_search_returns_results(self, populated_store):

@@ -8,6 +8,8 @@ import logging
 import time
 from typing import Any
 
+import asyncpg
+
 from bddk_mcp.core.config import TELEMETRY_ENABLED, TELEMETRY_MODEL_ID, TELEMETRY_SESSION_ID, TELEMETRY_STORE_TEXT
 
 logger = logging.getLogger(__name__)
@@ -39,6 +41,197 @@ _SAFE_ARG_KEYS = {
     "year",
 }
 
+_TELEMETRY_PRIVILEGES_SQL = """
+WITH RECURSIVE target AS (
+    SELECT to_regclass('public.tool_call_traces') AS relation_oid,
+           to_regclass('public.tool_call_traces_id_seq') AS sequence_oid
+), session_role AS (
+    SELECT role.oid,
+           role.rolsuper,
+           role.rolcreaterole,
+           role.rolcreatedb,
+           role.rolreplication,
+           role.rolbypassrls
+    FROM pg_catalog.pg_roles AS role
+    WHERE role.rolname = session_user
+), role_closure(role_oid) AS (
+    SELECT oid FROM session_role
+    UNION
+    SELECT membership.roleid
+    FROM pg_catalog.pg_auth_members AS membership
+    JOIN role_closure AS inherited ON inherited.role_oid = membership.member
+), requested_relations(schema_name, relation_name) AS (
+    VALUES
+        ('public', 'decision_cache'),
+        ('public', 'documents'),
+        ('public', 'document_sections'),
+        ('public', 'document_versions'),
+        ('public', 'document_chunks'),
+        ('public', 'document_retrieval_publications'),
+        ('public', 'sync_metadata'),
+        ('public', 'sync_failures'),
+        ('bddk_meta', 'schema_migrations'),
+        ('bddk_operator', 'operator_jobs')
+), other_relations(relation_oid) AS (
+    SELECT relation.oid
+    FROM requested_relations AS requested
+    LEFT JOIN pg_catalog.pg_namespace AS namespace
+      ON namespace.nspname = requested.schema_name
+    LEFT JOIN pg_catalog.pg_class AS relation
+      ON relation.relnamespace = namespace.oid
+     AND relation.relname = requested.relation_name
+), other_sequences(sequence_oid) AS (
+    SELECT unnest(ARRAY[
+        to_regclass('public.document_sections_id_seq'),
+        to_regclass('public.document_versions_id_seq'),
+        to_regclass('public.document_chunks_id_seq')
+    ])
+)
+SELECT relation_oid IS NOT NULL AS relation_exists,
+       sequence_oid IS NOT NULL AS sequence_exists,
+       current_user = session_user AS session_is_current,
+       COALESCE((
+           SELECT NOT (rolsuper OR rolcreaterole OR rolcreatedb OR rolreplication OR rolbypassrls)
+           FROM session_role
+       ), false) AS identity_hardened,
+       pg_has_role(session_user, 'bddk_telemetry_writer', 'MEMBER')
+           AND NOT EXISTS (
+               SELECT 1
+               FROM role_closure
+               JOIN pg_catalog.pg_roles AS inherited_role ON inherited_role.oid = role_closure.role_oid
+               WHERE inherited_role.rolname NOT IN (session_user, 'bddk_telemetry_writer')
+           ) AS membership_isolated,
+       NOT has_database_privilege(current_user, current_database(), 'CREATE')
+           AND NOT has_database_privilege(current_user, current_database(), 'TEMPORARY')
+           AS database_capabilities_isolated,
+       has_schema_privilege(current_user, 'public', 'USAGE') AS schema_usage,
+       NOT has_schema_privilege(current_user, 'public', 'CREATE')
+           AND NOT has_schema_privilege(current_user, 'bddk_meta', 'USAGE')
+           AND NOT has_schema_privilege(current_user, 'bddk_meta', 'CREATE')
+           AND NOT has_schema_privilege(current_user, 'bddk_operator', 'USAGE')
+           AND NOT has_schema_privilege(current_user, 'bddk_operator', 'CREATE')
+           AS application_schemas_isolated,
+       NOT EXISTS (
+           SELECT 1
+           FROM other_relations
+           WHERE relation_oid IS NULL
+              OR has_any_column_privilege(current_user, relation_oid, 'SELECT')
+              OR has_any_column_privilege(current_user, relation_oid, 'INSERT')
+              OR has_any_column_privilege(current_user, relation_oid, 'UPDATE')
+              OR has_any_column_privilege(current_user, relation_oid, 'REFERENCES')
+              OR has_table_privilege(current_user, relation_oid, 'DELETE')
+              OR has_table_privilege(current_user, relation_oid, 'TRUNCATE')
+              OR has_table_privilege(current_user, relation_oid, 'TRIGGER')
+       ) AS other_relations_isolated,
+       NOT EXISTS (
+           SELECT 1
+           FROM other_sequences
+           WHERE sequence_oid IS NULL
+              OR has_sequence_privilege(current_user, sequence_oid, 'USAGE')
+              OR has_sequence_privilege(current_user, sequence_oid, 'SELECT')
+              OR has_sequence_privilege(current_user, sequence_oid, 'UPDATE')
+       ) AS other_sequences_isolated,
+       NOT has_function_privilege(
+           current_user,
+           'public.immutable_unaccent(pg_catalog.text)',
+           'EXECUTE'
+       ) AS application_functions_isolated,
+       CASE WHEN relation_oid IS NULL THEN false
+            ELSE (
+                has_column_privilege(current_user, relation_oid, 'tool_name', 'INSERT')
+                AND has_column_privilege(current_user, relation_oid, 'args_hash', 'INSERT')
+                AND has_column_privilege(current_user, relation_oid, 'args_summary', 'INSERT')
+                AND has_column_privilege(current_user, relation_oid, 'latency_ms', 'INSERT')
+                AND has_column_privilege(current_user, relation_oid, 'result_count', 'INSERT')
+                AND has_column_privilege(current_user, relation_oid, 'doc_ids', 'INSERT')
+                AND has_column_privilege(current_user, relation_oid, 'quality_labels', 'INSERT')
+                AND has_column_privilege(current_user, relation_oid, 'relevance_stats', 'INSERT')
+                AND has_column_privilege(current_user, relation_oid, 'model_id', 'INSERT')
+                AND has_column_privilege(current_user, relation_oid, 'session_id', 'INSERT')
+            ) END AS can_insert_required_columns,
+       CASE WHEN relation_oid IS NULL THEN false
+            ELSE (
+                has_column_privilege(current_user, relation_oid, 'id', 'INSERT')
+                OR has_column_privilege(current_user, relation_oid, 'created_at', 'INSERT')
+            ) END AS can_insert_managed_columns,
+       CASE WHEN relation_oid IS NULL THEN false
+            ELSE has_any_column_privilege(current_user, relation_oid, 'SELECT') END AS can_select,
+       CASE WHEN relation_oid IS NULL THEN false
+            ELSE has_any_column_privilege(current_user, relation_oid, 'UPDATE') END AS can_update,
+       CASE WHEN relation_oid IS NULL THEN false
+            ELSE has_table_privilege(current_user, relation_oid, 'DELETE') END AS can_delete,
+       CASE WHEN relation_oid IS NULL THEN false
+            ELSE has_table_privilege(current_user, relation_oid, 'TRUNCATE') END AS can_truncate,
+       CASE WHEN sequence_oid IS NULL THEN false
+            ELSE has_sequence_privilege(current_user, sequence_oid, 'USAGE') END AS sequence_usage,
+       CASE WHEN sequence_oid IS NULL THEN false
+            ELSE has_sequence_privilege(current_user, sequence_oid, 'SELECT') END AS sequence_select,
+       CASE WHEN sequence_oid IS NULL THEN false
+            ELSE has_sequence_privilege(current_user, sequence_oid, 'UPDATE') END AS sequence_update
+FROM target
+"""
+
+
+class TelemetryIdentityError(RuntimeError):
+    """The telemetry pool is missing its exact least-privilege contract."""
+
+
+async def assert_telemetry_writer_ready(
+    pool: asyncpg.Pool,
+    *,
+    require_session_identity: bool = True,
+) -> None:
+    """Prove that the configured identity is INSERT-only for trace rows."""
+
+    try:
+        privileges = await pool.fetchrow(_TELEMETRY_PRIVILEGES_SQL)
+        identity_allowed = bool(
+            not require_session_identity
+            or (
+                privileges
+                and privileges["session_is_current"]
+                and privileges["identity_hardened"]
+                and privileges["membership_isolated"]
+            )
+        )
+        allowed = bool(
+            privileges
+            and privileges["relation_exists"]
+            and privileges["sequence_exists"]
+            and identity_allowed
+            and privileges["database_capabilities_isolated"]
+            and privileges["schema_usage"]
+            and privileges["application_schemas_isolated"]
+            and privileges["other_relations_isolated"]
+            and privileges["other_sequences_isolated"]
+            and privileges["application_functions_isolated"]
+            and privileges["can_insert_required_columns"]
+            and privileges["sequence_usage"]
+        )
+        forbidden = bool(
+            privileges
+            and any(
+                privileges[key]
+                for key in (
+                    "can_select",
+                    "can_update",
+                    "can_delete",
+                    "can_truncate",
+                    "can_insert_managed_columns",
+                    "sequence_select",
+                    "sequence_update",
+                )
+            )
+        )
+        if not allowed or forbidden:
+            raise TelemetryIdentityError("Telemetry database identity is not INSERT-only for public.tool_call_traces.")
+    except TelemetryIdentityError:
+        raise
+    except (asyncpg.PostgresError, OSError, KeyError, TypeError):
+        raise TelemetryIdentityError(
+            "Telemetry database identity could not be verified against the required INSERT-only contract."
+        ) from None
+
 
 def elapsed_ms(start: float) -> int:
     """Return elapsed milliseconds since a perf_counter start timestamp."""
@@ -66,7 +259,10 @@ def summarize_args(args: dict[str, Any], *, store_text: bool = False) -> dict[st
         elif key in _SAFE_ARG_KEYS or isinstance(value, (bool, int, float)):
             summary[key] = value
         elif isinstance(value, str):
-            summary[key] = _text_summary(value, include_value=store_text) if len(value) > 80 else value
+            # Unknown string fields are user-controlled by default. Never let
+            # a newly added tool argument become raw telemetry merely because
+            # it is short; only reviewed identifier keys may pass unchanged.
+            summary[key] = _text_summary(value, include_value=store_text)
         else:
             summary[key] = {"type": type(value).__name__}
     return summary
@@ -136,7 +332,7 @@ async def record_tool_call_trace(
     try:
         await pool.execute(
             """
-            INSERT INTO tool_call_traces (
+            INSERT INTO public.tool_call_traces (
                 tool_name, args_hash, args_summary, latency_ms, result_count,
                 doc_ids, quality_labels, relevance_stats, model_id, session_id
             )
@@ -154,8 +350,12 @@ async def record_tool_call_trace(
             session_id if session_id is not None else TELEMETRY_SESSION_ID or None,
         )
         return True
-    except Exception as exc:
-        logger.debug("tool telemetry write failed for %s: %s", tool_name, exc)
+    except Exception as error:
+        logger.debug(
+            "tool telemetry write failed for %s (error_type=%s)",
+            tool_name,
+            type(error).__name__,
+        )
         return False
 
 

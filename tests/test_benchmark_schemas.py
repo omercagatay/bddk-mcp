@@ -5,7 +5,7 @@ from benchmark.tool_schemas import TOOL_SCHEMAS, get_tool_names
 
 
 def test_schema_count():
-    assert len(TOOL_SCHEMAS) == 26
+    assert len(TOOL_SCHEMAS) == len(expected_tool_names(ToolProfile.OPERATOR))
 
 
 def test_each_schema_has_required_fields():

@@ -1,0 +1,161 @@
+-- Exact bddk-mcp runtime privileges.
+--
+-- Run as the database owner or an approved database administrator after every
+-- successful schema migration.  Missing expected relations are a hard error:
+-- do not hide an incomplete or out-of-order deployment with conditional GRANTs.
+
+DO $target_database$
+DECLARE
+    expected_database text := current_setting('bddk.expected_database', true);
+BEGIN
+    IF expected_database IS NULL OR btrim(expected_database) = '' THEN
+        RAISE EXCEPTION 'bddk.expected_database must be set before grant reconciliation';
+    END IF;
+    IF current_database() <> expected_database THEN
+        RAISE EXCEPTION 'grant reconciliation target database does not match the approved database';
+    END IF;
+END
+$target_database$;
+
+-- Normalize ownership for installations whose historical migrations ran as a
+-- LOGIN role.  Subsequent migrations must SET ROLE bddk_schema_owner.
+ALTER SCHEMA bddk_meta OWNER TO bddk_schema_owner;
+ALTER SCHEMA bddk_operator OWNER TO bddk_schema_owner;
+
+ALTER TABLE bddk_meta.schema_migrations OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_meta.legacy_schema_adoptions OWNER TO bddk_schema_owner;
+ALTER TABLE public.decision_cache OWNER TO bddk_schema_owner;
+ALTER TABLE public.documents OWNER TO bddk_schema_owner;
+ALTER TABLE public.document_sections OWNER TO bddk_schema_owner;
+ALTER TABLE public.document_versions OWNER TO bddk_schema_owner;
+ALTER TABLE public.document_chunks OWNER TO bddk_schema_owner;
+ALTER TABLE public.document_retrieval_publications OWNER TO bddk_schema_owner;
+ALTER TABLE public.tool_call_traces OWNER TO bddk_schema_owner;
+ALTER TABLE public.sync_metadata OWNER TO bddk_schema_owner;
+ALTER TABLE public.sync_failures OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_operator.operator_jobs OWNER TO bddk_schema_owner;
+
+ALTER SEQUENCE public.document_sections_id_seq OWNER TO bddk_schema_owner;
+ALTER SEQUENCE public.document_versions_id_seq OWNER TO bddk_schema_owner;
+ALTER SEQUENCE public.document_chunks_id_seq OWNER TO bddk_schema_owner;
+ALTER SEQUENCE public.tool_call_traces_id_seq OWNER TO bddk_schema_owner;
+
+ALTER FUNCTION public.immutable_unaccent(pg_catalog.text) OWNER TO bddk_schema_owner;
+ALTER FUNCTION public.documents_tsv_trigger() OWNER TO bddk_schema_owner;
+ALTER FUNCTION public.document_sections_tsv_trigger() OWNER TO bddk_schema_owner;
+ALTER FUNCTION public.chunks_tsv_trigger() OWNER TO bddk_schema_owner;
+ALTER FUNCTION public.invalidate_retrieval_publication() OWNER TO bddk_schema_owner;
+
+-- Revoke first so rerunning this file also removes privileges deleted from the
+-- reviewed matrix.  No runtime role receives CREATE on an application schema.
+REVOKE ALL PRIVILEGES ON SCHEMA public
+    FROM bddk_public_reader, bddk_ingestion, bddk_operator_runtime, bddk_telemetry_writer;
+REVOKE ALL PRIVILEGES ON SCHEMA bddk_operator
+    FROM bddk_public_reader, bddk_ingestion, bddk_operator_runtime, bddk_telemetry_writer;
+REVOKE ALL PRIVILEGES ON SCHEMA bddk_meta
+    FROM bddk_public_reader, bddk_ingestion, bddk_operator_runtime, bddk_telemetry_writer;
+
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public
+    FROM bddk_public_reader, bddk_ingestion, bddk_operator_runtime, bddk_telemetry_writer;
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public
+    FROM bddk_public_reader, bddk_ingestion, bddk_operator_runtime, bddk_telemetry_writer;
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA bddk_operator
+    FROM bddk_public_reader, bddk_ingestion, bddk_operator_runtime, bddk_telemetry_writer;
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA bddk_operator
+    FROM bddk_public_reader, bddk_ingestion, bddk_operator_runtime, bddk_telemetry_writer;
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA bddk_meta
+    FROM bddk_public_reader, bddk_ingestion, bddk_operator_runtime, bddk_telemetry_writer;
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA bddk_meta
+    FROM bddk_public_reader, bddk_ingestion, bddk_operator_runtime, bddk_telemetry_writer;
+
+REVOKE ALL PRIVILEGES ON SCHEMA bddk_operator FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON SCHEMA bddk_meta FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA bddk_operator FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA bddk_operator FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA bddk_meta FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA bddk_meta FROM PUBLIC;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE bddk_schema_owner IN SCHEMA bddk_operator
+    REVOKE ALL PRIVILEGES ON TABLES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE bddk_schema_owner IN SCHEMA bddk_operator
+    REVOKE ALL PRIVILEGES ON SEQUENCES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE bddk_schema_owner IN SCHEMA bddk_operator
+    REVOKE ALL PRIVILEGES ON FUNCTIONS FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE bddk_schema_owner IN SCHEMA bddk_meta
+    REVOKE ALL PRIVILEGES ON TABLES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE bddk_schema_owner IN SCHEMA bddk_meta
+    REVOKE ALL PRIVILEGES ON SEQUENCES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE bddk_schema_owner IN SCHEMA bddk_meta
+    REVOKE ALL PRIVILEGES ON FUNCTIONS FROM PUBLIC;
+
+-- Revoke only application-owned functions, not vector/unaccent extension
+-- functions in the same schema.  Search roles need the immutable wrapper;
+-- trigger functions are invoked by their existing triggers, not directly.
+REVOKE ALL PRIVILEGES ON FUNCTION public.immutable_unaccent(pg_catalog.text) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.documents_tsv_trigger() FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.document_sections_tsv_trigger() FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.chunks_tsv_trigger() FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.invalidate_retrieval_publication() FROM PUBLIC;
+
+-- Public MCP corpus: read-only, with no access to operational failure or trace
+-- tables.  document_versions is included because get_document_history is public.
+GRANT USAGE ON SCHEMA public TO bddk_public_reader;
+GRANT SELECT ON TABLE
+    public.decision_cache,
+    public.documents,
+    public.document_sections,
+    public.document_versions,
+    public.document_chunks,
+    public.document_retrieval_publications
+TO bddk_public_reader;
+GRANT USAGE ON SCHEMA bddk_meta TO bddk_public_reader;
+GRANT SELECT ON TABLE bddk_meta.schema_migrations TO bddk_public_reader;
+GRANT EXECUTE ON FUNCTION public.immutable_unaccent(pg_catalog.text) TO bddk_public_reader;
+
+-- Bootstrap/synchronization workers may mutate the corpus and its operational
+-- sync state, but cannot read or write telemetry or operator-job relations.
+GRANT USAGE ON SCHEMA public TO bddk_ingestion;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
+    public.decision_cache,
+    public.documents,
+    public.document_sections,
+    public.document_versions,
+    public.document_chunks,
+    public.document_retrieval_publications,
+    public.sync_metadata,
+    public.sync_failures
+TO bddk_ingestion;
+GRANT USAGE ON SEQUENCE
+    public.document_sections_id_seq,
+    public.document_versions_id_seq,
+    public.document_chunks_id_seq
+TO bddk_ingestion;
+GRANT USAGE ON SCHEMA bddk_meta TO bddk_ingestion;
+GRANT SELECT ON TABLE bddk_meta.schema_migrations TO bddk_ingestion;
+GRANT EXECUTE ON FUNCTION public.immutable_unaccent(pg_catalog.text) TO bddk_ingestion;
+
+-- Operator lifecycle state is isolated in its own schema.  The runtime may
+-- update/prune jobs and can only read the global migration ledger.
+GRANT USAGE ON SCHEMA bddk_operator TO bddk_operator_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE bddk_operator.operator_jobs
+    TO bddk_operator_runtime;
+GRANT USAGE ON SCHEMA bddk_meta TO bddk_operator_runtime;
+GRANT SELECT ON TABLE bddk_meta.schema_migrations TO bddk_operator_runtime;
+
+-- Telemetry is append-only.  Column-level INSERT prevents callers from
+-- overriding the generated id or created_at fields; sequence USAGE permits the
+-- BIGSERIAL default without granting SELECT, UPDATE, or DELETE on trace rows.
+GRANT USAGE ON SCHEMA public TO bddk_telemetry_writer;
+GRANT INSERT (
+    tool_name,
+    args_hash,
+    args_summary,
+    latency_ms,
+    result_count,
+    doc_ids,
+    quality_labels,
+    relevance_stats,
+    model_id,
+    session_id
+) ON TABLE public.tool_call_traces TO bddk_telemetry_writer;
+GRANT USAGE ON SEQUENCE public.tool_call_traces_id_seq TO bddk_telemetry_writer;

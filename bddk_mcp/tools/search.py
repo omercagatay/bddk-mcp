@@ -28,6 +28,36 @@ from bddk_mcp.quality.markdown_quality import (
     assess_markdown_quality,
     quality_assessment_from_metadata,
 )
+from bddk_mcp.tools.contract_types import (
+    ActiveOnly,
+    AnnouncementCategory,
+    DateFrom,
+    DateTo,
+    InstitutionType,
+    OptionalRegulationCategory,
+    OptionalSearchKeywords,
+    PageNumber,
+    PageSize,
+    RegulationKeywords,
+    ResultLimit,
+    SemanticQuery,
+    normalize_announcement_category,
+    normalize_institution_type,
+    validate_date_order,
+)
+from bddk_mcp.tools.structured_outputs import (
+    UNTRUSTED_SOURCE_WARNING,
+    DocumentSearchItem,
+    DocumentSearchResponse,
+    DocumentSearchToolResult,
+    EvidenceReference,
+    QualityMetadata,
+    RegulationCatalogItem,
+    RegulationCatalogResponse,
+    RegulationCatalogToolResult,
+    frame_untrusted_source,
+    structured_tool_result,
+)
 from bddk_mcp.tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
@@ -80,10 +110,18 @@ _search_cache: _LRUCache = _LRUCache(max_size=SEARCH_CACHE_MAX, ttl=SEARCH_CACHE
 
 def _match_strength(relevance: float) -> str:
     if relevance >= 0.70:
-        return "strong match"
+        return "strong"
     if relevance >= 0.50:
-        return "moderate match"
-    return "weak match"
+        return "moderate"
+    return "weak"
+
+
+def _quality_metadata(quality: QualityAssessment) -> QualityMetadata:
+    return QualityMetadata(
+        label=quality.label,  # type: ignore[arg-type]
+        flags=list(quality.flags),
+        warning=quality.warning or None,
+    )
 
 
 def _quality_result_lines(quality: QualityAssessment, *, indent: str = "  ") -> list[str]:
@@ -111,13 +149,13 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
     @mcp.tool()
     @logged_tool(logger)
     async def search_bddk_regulations(
-        keywords: str,
-        page: int = 1,
-        page_size: int = 10,
-        category: str | None = None,
-        date_from: str | None = None,
-        date_to: str | None = None,
-    ) -> str:
+        keywords: RegulationKeywords,
+        page: PageNumber = 1,
+        page_size: PageSize = 10,
+        category: OptionalRegulationCategory = None,
+        date_from: DateFrom = None,
+        date_to: DateTo = None,
+    ) -> RegulationCatalogToolResult:
         """
         Search the BDDK regulations CATALOG by title, category, decision number, and date.
 
@@ -158,19 +196,20 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
             "date_from": date_from,
             "date_to": date_to,
         }
+        validate_date_order(date_from, date_to)
         cache_key = f"regulations:{keywords}:{page}:{page_size}:{category}:{date_from}:{date_to}"
         cached = _search_cache.get(cache_key)
-        if cached:
+        if isinstance(cached, RegulationCatalogResponse):
             await record_tool_call_trace(
-                getattr(deps, "pool", None),
+                getattr(deps, "telemetry_pool", None),
                 tool_name="search_bddk_regulations",
                 args=args,
                 latency_ms=elapsed_ms(start),
                 result_count=None,
-                doc_ids=[],
+                doc_ids=[item.document_id for item in cached.results],
                 relevance_stats={"cache": "hit"},
             )
-            return cached  # type: ignore[return-value]
+            return structured_tool_result(cached)
 
         request = BddkSearchRequest(
             keywords=keywords,
@@ -185,7 +224,7 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
         if not result.decisions:
             metrics.record_empty_search("search_bddk_regulations")
             await record_tool_call_trace(
-                getattr(deps, "pool", None),
+                getattr(deps, "telemetry_pool", None),
                 tool_name="search_bddk_regulations",
                 args=args,
                 latency_ms=elapsed_ms(start),
@@ -193,17 +232,30 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
                 doc_ids=[],
                 relevance_stats={"status": "no_results"},
             )
-            return """NO RESULTS: No BDDK regulations found whose title/category/date/number matches ALL keywords.
+            output = """NO RESULTS: No BDDK regulations found whose title/category/date/number matches ALL keywords.
 This tool searches catalog metadata only — not document bodies.
 DO NOT provide information about BDDK regulations from your own knowledge.
 Try: (1) call search_document_store with the same query for full-text semantic search, or
 (2) use only words you'd expect in the regulation's title."""
+            return structured_tool_result(
+                RegulationCatalogResponse(
+                    status="no_results",
+                    text=output,
+                    keywords=keywords,
+                    page=result.page,
+                    page_size=result.page_size,
+                    total_results=result.total_results,
+                )
+            )
 
         # Batch version count lookup — one query instead of N
         doc_ids = [d.document_id for d in result.decisions]
         version_counts = await deps.doc_store.get_version_counts(doc_ids)
 
         lines = [f"Found {result.total_results} result(s) (page {result.page}):\n"]
+        items: list[RegulationCatalogItem] = []
+        evidence: list[EvidenceReference] = []
+        warnings: list[str] = [UNTRUSTED_SOURCE_WARNING]
         for d in result.decisions:
             date_info = f" ({d.decision_date} - {d.decision_number})" if d.decision_date else ""
             cat_info = f" [{d.category}]" if d.category else ""
@@ -212,13 +264,54 @@ Try: (1) call search_document_store with the same query for full-text semantic s
             ver_count, ver_latest = version_counts.get(d.document_id, (0, None))
             if ver_count:
                 lines.append(f"  Versions: {ver_count} (latest: {ver_latest})")
-            lines.extend(_quality_result_lines(assess_markdown_quality("", document_id=d.document_id)))
-            lines.append(f"  {d.content}\n")
+            quality = assess_markdown_quality("", document_id=d.document_id)
+            lines.extend(_quality_result_lines(quality))
+            lines.append(f"  {frame_untrusted_source(d.content)}\n")
+            quality_metadata = _quality_metadata(quality)
+            if quality.warning:
+                warnings.append(quality.warning)
+            items.append(
+                RegulationCatalogItem(
+                    document_id=d.document_id,
+                    title=d.title,
+                    summary=d.content,
+                    decision_date=d.decision_date,
+                    decision_number=d.decision_number,
+                    category=d.category,
+                    source_url=d.source_url,
+                    version_count=ver_count,
+                    latest_version_at=ver_latest,
+                    quality=quality_metadata,
+                )
+            )
+            evidence.append(
+                EvidenceReference(
+                    document_id=d.document_id,
+                    title=d.title,
+                    source_url=d.source_url or None,
+                    decision_date=d.decision_date or None,
+                    decision_number=d.decision_number or None,
+                    category=d.category or None,
+                    retrieval_source="catalog",
+                    quality=quality_metadata,
+                )
+            )
 
         output = "\n".join(lines)
-        _search_cache.set(cache_key, output)
+        response = RegulationCatalogResponse(
+            status="ok",
+            text=output,
+            evidence=evidence,
+            warnings=list(dict.fromkeys(warnings)),
+            keywords=keywords,
+            page=result.page,
+            page_size=result.page_size,
+            total_results=result.total_results,
+            results=items,
+        )
+        _search_cache.set(cache_key, response)
         await record_tool_call_trace(
-            getattr(deps, "pool", None),
+            getattr(deps, "telemetry_pool", None),
             tool_name="search_bddk_regulations",
             args=args,
             latency_ms=elapsed_ms(start),
@@ -226,14 +319,14 @@ Try: (1) call search_document_store with the same query for full-text semantic s
             doc_ids=[d.document_id for d in result.decisions],
             relevance_stats={"total_results": result.total_results, "page": result.page},
         )
-        return output
+        return structured_tool_result(response)
 
     @mcp.tool()
     @logged_tool(logger)
     async def search_bddk_institutions(
-        keywords: str = "",
-        institution_type: str | None = None,
-        active_only: bool = True,
+        keywords: OptionalSearchKeywords = "",
+        institution_type: InstitutionType = None,
+        active_only: ActiveOnly = True,
     ) -> str:
         """
         Search the BDDK institution directory (banks, leasing, factoring, etc.).
@@ -244,6 +337,7 @@ Try: (1) call search_document_store with the same query for full-text semantic s
                 Faktoring Şirketi, Finansman Şirketi, Varlık Yönetim Şirketi
             active_only: If true (default), only show active institutions
         """
+        institution_type = normalize_institution_type(institution_type)
         institutions = await fetch_institutions(deps.http, institution_type)
 
         if active_only:
@@ -271,8 +365,8 @@ Suggest the user try: broader keywords or removing the type/active filter."""
     @mcp.tool()
     @logged_tool(logger)
     async def search_bddk_announcements(
-        keywords: str = "",
-        category: str = "basın",
+        keywords: OptionalSearchKeywords = "",
+        category: AnnouncementCategory = "basın",
     ) -> str:
         """
         Search BDDK announcements and press releases.
@@ -283,22 +377,16 @@ Suggest the user try: broader keywords or removing the type/active filter."""
                 insan kaynakları (HR), veri (data publication), kuruluş (institution).
                 Use "tümü" or "all" to search across all categories.
         """
-        cat_lower = _turkish_lower(category)
-        cat_aliases: list[tuple[str, list[int]]] = [
-            ("basın", [39]),
-            ("press", [39]),
-            ("mevzuat", [40]),
-            ("regul", [40]),
-            ("insan", [41]),
-            ("hr", [41]),
-            ("veri", [42]),
-            ("data", [42]),
-            ("kuruluş", [48]),
-            ("institution", [48]),
-            ("tümü", list(ANNOUNCEMENT_CATEGORY_IDS)),
-            ("all", list(ANNOUNCEMENT_CATEGORY_IDS)),
-        ]
-        cat_ids = next((ids for key, ids in cat_aliases if key in cat_lower), [39])
+        category = normalize_announcement_category(category)
+        category_ids = {
+            "basın": [39],
+            "mevzuat": [40],
+            "insan kaynakları": [41],
+            "veri": [42],
+            "kuruluş": [48],
+            "tümü": list(ANNOUNCEMENT_CATEGORY_IDS),
+        }
+        cat_ids = category_ids[category]
 
         announcements: list[dict] = []
         for cat_id in cat_ids:
@@ -326,10 +414,10 @@ Suggest the user try: different keywords or a different category (basın, mevzua
     @mcp.tool()
     @logged_tool(logger)
     async def search_document_store(
-        query: str,
-        category: str | None = None,
-        limit: int = 10,
-    ) -> str:
+        query: SemanticQuery,
+        category: OptionalRegulationCategory = None,
+        limit: ResultLimit = 10,
+    ) -> DocumentSearchToolResult:
         """
         Semantic search over BDDK document BODIES (full text via pgvector).
 
@@ -355,7 +443,7 @@ Suggest the user try: different keywords or a different category (basın, mevzua
         args = {"query": query, "category": category, "limit": limit}
         if deps.vector_store is None:
             await record_tool_call_trace(
-                getattr(deps, "pool", None),
+                getattr(deps, "telemetry_pool", None),
                 tool_name="search_document_store",
                 args=args,
                 latency_ms=elapsed_ms(start),
@@ -363,28 +451,36 @@ Suggest the user try: different keywords or a different category (basın, mevzua
                 doc_ids=[],
                 relevance_stats={"status": "vector_store_initializing"},
             )
-            return "Vector store is still initializing. Please try again in a few moments."
+            output = "Vector store is still initializing. Please try again in a few moments."
+            return structured_tool_result(
+                DocumentSearchResponse(
+                    status="unavailable",
+                    text=output,
+                    query=query,
+                    category=category,
+                )
+            )
 
         cache_key = f"semantic:{query}:{category}:{limit}"
         cached = _search_cache.get(cache_key)
-        if cached:
+        if isinstance(cached, DocumentSearchResponse):
             await record_tool_call_trace(
-                getattr(deps, "pool", None),
+                getattr(deps, "telemetry_pool", None),
                 tool_name="search_document_store",
                 args=args,
                 latency_ms=elapsed_ms(start),
                 result_count=None,
-                doc_ids=[],
+                doc_ids=[item.document_id for item in cached.results],
                 relevance_stats={"cache": "hit"},
             )
-            return cached  # type: ignore[return-value]
+            return structured_tool_result(cached)
 
         hits = await deps.vector_store.search(query, limit=limit, category=category)
 
         if not hits:
             metrics.record_empty_search("search_document_store")
             await record_tool_call_trace(
-                getattr(deps, "pool", None),
+                getattr(deps, "telemetry_pool", None),
                 tool_name="search_document_store",
                 args=args,
                 latency_ms=elapsed_ms(start),
@@ -392,24 +488,62 @@ Suggest the user try: different keywords or a different category (basın, mevzua
                 doc_ids=[],
                 relevance_stats={"status": "no_results"},
             )
-            return f"""NO RESULTS: No documents found matching '{query}'.
+            output = f"""NO RESULTS: No documents found matching '{query}'.
 DO NOT provide information from your own knowledge about BDDK regulations.
 Suggest the user try: different Turkish keywords, broader terms, or removing the category filter."""
+            return structured_tool_result(
+                DocumentSearchResponse(
+                    status="no_results",
+                    text=output,
+                    query=query,
+                    category=category,
+                )
+            )
 
         lines = [f"Found {len(hits)} result(s) for '{query}':\n"]
         hit_quality: dict[str, QualityAssessment] = {}
+        items: list[DocumentSearchItem] = []
+        evidence: list[EvidenceReference] = []
+        warnings: list[str] = [UNTRUSTED_SOURCE_WARNING]
         for h in hits:
             date_info = f" ({h['decision_date']})" if h.get("decision_date") else ""
             cat_info = f" [{h['category']}]" if h.get("category") else ""
-            relevance = f" [{_match_strength(h['relevance'])}, relevance {h['relevance']:.1%}]"
+            match_strength = _match_strength(h["relevance"])
+            relevance = f" [{match_strength} match, relevance {h['relevance']:.1%}]"
             lines.append(f"**{h['title']}**{date_info}{cat_info}{relevance}")
             lines.append(f"  Document ID: {h['doc_id']}")
             quality = _search_hit_quality(h)
             hit_quality[str(h["doc_id"])] = quality
             lines.extend(_quality_result_lines(quality))
             if h.get("snippet"):
-                lines.append(f"  ...{h['snippet'][:200]}...")
+                framed_snippet = frame_untrusted_source(f"...{h['snippet'][:200]}...")
+                lines.append(f"  {framed_snippet}")
             lines.append("")
+            quality_metadata = _quality_metadata(quality)
+            if quality.warning:
+                warnings.append(quality.warning)
+            items.append(
+                DocumentSearchItem(
+                    document_id=str(h["doc_id"]),
+                    title=str(h.get("title") or h["doc_id"]),
+                    category=str(h.get("category") or ""),
+                    decision_date=str(h.get("decision_date") or ""),
+                    snippet=str(h.get("snippet") or ""),
+                    relevance=float(h["relevance"]),
+                    match_strength=match_strength,  # type: ignore[arg-type]
+                    quality=quality_metadata,
+                )
+            )
+            evidence.append(
+                EvidenceReference(
+                    document_id=str(h["doc_id"]),
+                    title=str(h.get("title") or h["doc_id"]),
+                    decision_date=str(h.get("decision_date") or "") or None,
+                    category=str(h.get("category") or "") or None,
+                    retrieval_source="vector_store",
+                    quality=quality_metadata,
+                )
+            )
 
         lines.append(
             "For legal/audit answers, use these results as leads; retrieve exact provisions with "
@@ -422,11 +556,21 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
             lines.append(
                 f"\nWARNING: {low_count} result(s) are weak matches. They may not be directly relevant. Verify before citing."
             )
+            warnings.append(f"{low_count} result(s) are weak matches; verify before citing.")
 
         output = "\n".join(lines)
-        _search_cache.set(cache_key, output)
+        response = DocumentSearchResponse(
+            status="ok",
+            text=output,
+            evidence=evidence,
+            warnings=list(dict.fromkeys(warnings)),
+            query=query,
+            category=category,
+            results=items,
+        )
+        _search_cache.set(cache_key, response)
         await record_tool_call_trace(
-            getattr(deps, "pool", None),
+            getattr(deps, "telemetry_pool", None),
             tool_name="search_document_store",
             args=args,
             latency_ms=elapsed_ms(start),
@@ -437,4 +581,4 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
             },
             relevance_stats=relevance_stats_from_hits(hits),
         )
-        return output
+        return structured_tool_result(response)

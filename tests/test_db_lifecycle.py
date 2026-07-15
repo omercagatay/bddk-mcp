@@ -7,17 +7,26 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import asyncpg
 import pytest
 
+from bddk_mcp.catalog_integrity import (
+    _EXPECTED_CONSTRAINTS,
+    _EXPECTED_INDEXES,
+    _EXPECTED_ROUTINES,
+    _EXPECTED_TRIGGERS,
+)
 from bddk_mcp.core.exceptions import BddkStorageError
 from bddk_mcp.db_lifecycle import (
     _REQUIRED_COLUMNS,
     DatabaseLifecycleError,
     DatabaseNotReadyError,
     DatabaseReadiness,
+    SchemaOwnerIdentityError,
     assert_database_ready,
+    assert_schema_owner_identity,
     inspect_database_readiness,
     migrate_database,
 )
 from bddk_mcp.ingest.client import BddkApiClient
+from bddk_mcp.migrations import MIGRATIONS, LegacyAdoptionError, MigrationScaleError
 
 
 def _ready_corpus(**overrides) -> dict[str, bool]:
@@ -33,6 +42,10 @@ def _ready_corpus(**overrides) -> dict[str, bool]:
         "chunk_hash_mismatch": False,
         "orphan_chunks": False,
         "documents_without_chunks": False,
+        "invalid_document_hash": False,
+        "invalid_section_publication": False,
+        "missing_current_publication": False,
+        "invalid_chunk_publication": False,
     }
     values.update(overrides)
     return values
@@ -61,12 +74,14 @@ class ReadOnlyReadinessPool:
 
     def _record_select(self, query: str) -> None:
         normalized = query.strip()
-        assert normalized.upper().startswith("SELECT"), normalized
+        assert normalized.upper().startswith(("SELECT", "WITH")), normalized
         self.statements.append(normalized)
 
     async def fetch(self, query: str, *args):
         self._record_select(query)
-        if "FROM pg_extension" in query:
+        if "bddk_meta.schema_migrations" in query:
+            return [{"version": item.version, "name": item.name, "checksum": item.checksum} for item in MIGRATIONS]
+        if "pg_extension" in query:
             return [{"extname": name} for name in sorted(self.extensions)]
         if "resolved_relation" in query:
             return [
@@ -83,6 +98,63 @@ class ReadOnlyReadinessPool:
                 if table_name in self.relations
                 for column_name in sorted(self.columns.get(table_name, set()))
             ]
+        if "pg_constraint" in query:
+            return [
+                {
+                    "table_name": table,
+                    "conname": name,
+                    "contype": constraint_type,
+                    "convalidated": True,
+                    "definition": definition,
+                }
+                for (table, name), (constraint_type, definition) in _EXPECTED_CONSTRAINTS.items()
+            ]
+        if "pg_trigger" in query:
+            return [
+                {
+                    "table_name": table,
+                    "tgname": name,
+                    "tgenabled": "O",
+                    "tgtype": trigger_type,
+                    "function_identity": function_identity,
+                }
+                for (table, name), (function_identity, trigger_type) in _EXPECTED_TRIGGERS.items()
+            ]
+        if "pg_index" in query:
+            return [
+                {
+                    "index_name": name,
+                    "method": method,
+                    "indisunique": False,
+                    "indisprimary": False,
+                    "indisvalid": True,
+                    "indisready": True,
+                    "keys": keys,
+                    "opclasses": opclasses,
+                    "options": options,
+                }
+                for name, (method, keys, opclasses, options) in _EXPECTED_INDEXES.items()
+            ]
+        if "pg_proc" in query:
+            return [
+                {
+                    "function_identity": identity,
+                    "language": language,
+                    "provolatile": volatility,
+                    "proparallel": parallel,
+                    "prosecdef": False,
+                    "proleakproof": False,
+                    "configuration": ["search_path=pg_catalog, public"],
+                    "source": source,
+                }
+                for identity, (language, volatility, parallel, source) in _EXPECTED_ROUTINES.items()
+            ]
+        raise AssertionError(f"unexpected readiness query: {query}")
+
+    async def fetchval(self, query: str, *args):
+        self._record_select(query)
+        if "to_regclass" in query:
+            return "bddk_meta.schema_migrations"
         raise AssertionError(f"unexpected readiness query: {query}")
 
     async def fetchrow(self, query: str, *args):
@@ -105,8 +177,8 @@ async def test_readiness_accepts_current_schema_and_uses_only_selects():
 
     assert report == DatabaseReadiness()
     assert report.ready
-    assert len(pool.statements) == 4
-    assert all(statement.upper().startswith("SELECT") for statement in pool.statements)
+    assert len(pool.statements) == 10
+    assert all(statement.upper().startswith(("SELECT", "WITH")) for statement in pool.statements)
 
 
 @pytest.mark.asyncio
@@ -116,7 +188,7 @@ async def test_schema_only_readiness_skips_all_corpus_queries():
     report = await inspect_database_readiness(pool, require_corpus=False)  # type: ignore[arg-type]
 
     assert report.ready
-    assert len(pool.statements) == 3
+    assert len(pool.statements) == 9
 
 
 @pytest.mark.asyncio
@@ -135,7 +207,7 @@ async def test_readiness_reports_missing_schema_artifacts_without_querying_corpu
     assert report.missing_relations == ("document_versions",)
     assert report.missing_columns == ("document_chunks.embedding",)
     assert report.corpus_issues == ()
-    assert len(pool.statements) == 3
+    assert len(pool.statements) == 5
 
 
 @pytest.mark.asyncio
@@ -195,6 +267,9 @@ async def test_readiness_driver_error_is_sanitized():
     sentinel = "postgresql://private:password@secret-host/bddk"
 
     class FailingPool:
+        async def fetchval(self, *args, **kwargs):
+            raise asyncpg.PostgresError(sentinel)
+
         async def fetch(self, *args, **kwargs):
             raise asyncpg.PostgresError(sentinel)
 
@@ -211,44 +286,183 @@ async def test_migrate_orchestrates_every_schema_then_validates_schema_only():
     events: list[str] = []
     pool = MagicMock()
 
-    async def record_documents():
-        events.append("documents")
+    async def record_migrations(_pool):
+        events.append("migrations")
 
-    async def record_cache(_pool):
-        events.append("cache")
-
-    async def record_vectors():
-        events.append("vectors")
-
-    document_store = MagicMock()
-    document_store.initialize = AsyncMock(side_effect=record_documents)
-    vector_store = MagicMock()
-    vector_store.initialize = AsyncMock(side_effect=record_vectors)
     ready = DatabaseReadiness()
 
     with (
-        patch("bddk_mcp.store.doc_store.DocumentStore", return_value=document_store),
-        patch("bddk_mcp.ingest.client.initialize_cache_schema", new=AsyncMock(side_effect=record_cache)),
-        patch("bddk_mcp.store.vector_store.VectorStore", return_value=vector_store),
+        patch("bddk_mcp.db_lifecycle.assert_schema_owner_identity", new=AsyncMock()) as owner_check,
+        patch("bddk_mcp.db_lifecycle.apply_migrations", new=AsyncMock(side_effect=record_migrations)) as migrate,
         patch("bddk_mcp.db_lifecycle.assert_database_ready", new=AsyncMock(return_value=ready)) as validate,
     ):
-        result = await migrate_database(pool=pool)
+        result = await migrate_database(pool=pool, expected_database="bddk_test")
 
     assert result is ready
-    assert events == ["documents", "cache", "vectors"]
+    assert events == ["migrations"]
+    owner_check.assert_awaited_once_with(pool, "bddk_test")
+    migrate.assert_awaited_once_with(pool)
     validate.assert_awaited_once_with(pool=pool, require_corpus=False)
+
+
+@pytest.mark.asyncio
+async def test_migrate_forwards_explicit_legacy_adoption_only_when_requested():
+    pool = MagicMock()
+    ready = DatabaseReadiness()
+
+    with (
+        patch("bddk_mcp.db_lifecycle.assert_schema_owner_identity", new=AsyncMock()),
+        patch("bddk_mcp.db_lifecycle.apply_migrations", new=AsyncMock()) as migrate,
+        patch("bddk_mcp.db_lifecycle.assert_database_ready", new=AsyncMock(return_value=ready)),
+    ):
+        result = await migrate_database(pool=pool, adopt_legacy=True, expected_database="bddk_test")
+
+    assert result is ready
+    migrate.assert_awaited_once_with(pool, adopt_legacy=True)
+
+
+@pytest.mark.asyncio
+async def test_migrate_forwards_retrieval_backfill_approval_only_when_explicit():
+    pool = MagicMock()
+    ready = DatabaseReadiness()
+
+    with (
+        patch("bddk_mcp.db_lifecycle.assert_schema_owner_identity", new=AsyncMock()),
+        patch("bddk_mcp.db_lifecycle.apply_migrations", new=AsyncMock()) as migrate,
+        patch("bddk_mcp.db_lifecycle.assert_database_ready", new=AsyncMock(return_value=ready)),
+    ):
+        result = await migrate_database(
+            pool=pool,
+            allow_retrieval_publication_backfill=True,
+            expected_database="bddk_test",
+        )
+
+    assert result is ready
+    migrate.assert_awaited_once_with(pool, allow_retrieval_publication_backfill=True)
+
+
+@pytest.mark.asyncio
+async def test_migrate_preserves_bounded_actionable_adoption_refusal():
+    pool = MagicMock()
+    refusal = LegacyAdoptionError(
+        "Legacy adoption refused. No corpus rows were changed. Follow the blue-green runbook."
+    )
+
+    with (
+        patch("bddk_mcp.db_lifecycle.assert_schema_owner_identity", new=AsyncMock()),
+        patch("bddk_mcp.db_lifecycle.apply_migrations", new=AsyncMock(side_effect=refusal)),
+    ):
+        with pytest.raises(DatabaseLifecycleError, match="No corpus rows were changed") as exc_info:
+            await migrate_database(pool=pool, adopt_legacy=True, expected_database="bddk_test")
+
+    assert exc_info.value.__cause__ is None
+
+
+@pytest.mark.asyncio
+async def test_migrate_preserves_actionable_sanitized_scale_refusal():
+    pool = MagicMock()
+    refusal = MigrationScaleError(
+        "Migration refused before its blocking backfill. Use --allow-retrieval-publication-backfill after rehearsal."
+    )
+
+    with (
+        patch("bddk_mcp.db_lifecycle.assert_schema_owner_identity", new=AsyncMock()),
+        patch("bddk_mcp.db_lifecycle.apply_migrations", new=AsyncMock(side_effect=refusal)),
+    ):
+        with pytest.raises(DatabaseLifecycleError, match="after rehearsal") as exc_info:
+            await migrate_database(pool=pool, expected_database="bddk_test")
+
+    assert exc_info.value.__cause__ is None
+
+
+@pytest.mark.asyncio
+async def test_migrate_uses_schema_owner_profile_when_no_dsn_or_pool_is_supplied():
+    pool = MagicMock()
+    pool.close = AsyncMock()
+    ready = DatabaseReadiness()
+
+    with (
+        patch(
+            "bddk_mcp.db_lifecycle.require_database_url",
+            return_value="postgresql://schema-owner",
+        ) as require_url,
+        patch("bddk_mcp.db_lifecycle.asyncpg.create_pool", new=AsyncMock(return_value=pool)) as create_pool,
+        patch("bddk_mcp.db_lifecycle.require_expected_database_name", return_value="bddk") as expected_name,
+        patch("bddk_mcp.db_lifecycle.assert_schema_owner_identity", new=AsyncMock()) as owner_check,
+        patch("bddk_mcp.db_lifecycle.apply_migrations", new=AsyncMock()),
+        patch("bddk_mcp.db_lifecycle.assert_database_ready", new=AsyncMock(return_value=ready)),
+    ):
+        result = await migrate_database()
+
+    assert result is ready
+    require_url.assert_called_once_with("schema-owner")
+    expected_name.assert_called_once_with()
+    owner_check.assert_awaited_once_with(pool, "bddk")
+    create_pool.assert_awaited_once_with("postgresql://schema-owner", min_size=1, max_size=3)
+    pool.close.assert_awaited_once_with()
 
 
 @pytest.mark.asyncio
 async def test_readiness_queries_execute_against_postgresql(pg_pool):
     """Validate the catalog and corpus SELECT syntax against real PostgreSQL."""
-    await migrate_database(pool=pg_pool)
-
     schema_report = await inspect_database_readiness(pg_pool, require_corpus=False)
     corpus_report = await inspect_database_readiness(pg_pool, require_corpus=True)
 
     assert schema_report.ready
     assert isinstance(corpus_report, DatabaseReadiness)
+
+
+def _valid_schema_owner_identity(**overrides):
+    values = {
+        "database_name": "bddk",
+        "current_user_name": "bddk_schema_owner",
+        "session_user_name": "bddk_migrator",
+        "current_role_is_restricted_owner": True,
+        "session_role_is_restricted_login": True,
+        "direct_memberships": ["bddk_schema_owner"],
+        "membership_admin": False,
+        "unsafe_inherited_role": False,
+        "session_owns_database": False,
+        "owner_can_connect": True,
+        "owner_can_create": True,
+        "owner_can_create_temporary": False,
+        "owner_owns_public_schema": True,
+        "owner_has_public_usage": True,
+        "owner_has_public_create": True,
+    }
+    values.update(overrides)
+    return values
+
+
+@pytest.mark.asyncio
+async def test_schema_owner_identity_accepts_exact_restricted_boundary():
+    pool = MagicMock()
+    pool.fetchrow = AsyncMock(return_value=_valid_schema_owner_identity())
+
+    await assert_schema_owner_identity(pool, "bddk")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("override", "value"),
+    [
+        ("database_name", "wrong_database"),
+        ("current_user_name", "bddk_migrator"),
+        ("session_role_is_restricted_login", False),
+        ("direct_memberships", ["bddk_schema_owner", "unrelated_role"]),
+        ("membership_admin", True),
+        ("unsafe_inherited_role", True),
+        ("session_owns_database", True),
+        ("owner_can_create_temporary", True),
+        ("owner_owns_public_schema", False),
+    ],
+)
+async def test_schema_owner_identity_rejects_wrong_target_or_privilege(override, value):
+    pool = MagicMock()
+    pool.fetchrow = AsyncMock(return_value=_valid_schema_owner_identity(**{override: value}))
+
+    with pytest.raises(SchemaOwnerIdentityError, match="exact schema-owner contract"):
+        await assert_schema_owner_identity(pool, "bddk")
 
 
 class CachePool:

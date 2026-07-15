@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from mcp.server.fastmcp.exceptions import ToolError
 
 from bddk_mcp.core.deps import Dependencies
 from bddk_mcp.tools.analytics import register
@@ -32,7 +33,7 @@ def test_register_adds_four_analytics_tools():
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "period,expected_days",
-    [("day", 1), ("week", 7), ("month", 30), ("quarter", 90), ("unknown", 30)],
+    [("day", 1), ("week", 7), ("month", 30), ("quarter", 90)],
 )
 async def test_regulatory_digest_period_mapping(period, expected_days):
     """get_regulatory_digest must map 'day' → 1 day and fall back to 30 on unknown."""
@@ -61,3 +62,14 @@ async def test_regulatory_digest_period_mapping(period, expected_days):
     called_period_days = mock_digest.await_args.args[2]
     assert called_period_days == expected_days
     assert f"Son {expected_days} Gün" in out
+
+
+@pytest.mark.asyncio
+async def test_regulatory_digest_rejects_unknown_period():
+    mcp = MagicMock()
+    deps = Dependencies(pool=None, doc_store=None, client=MagicMock(), http=MagicMock())
+    register(mcp, deps)
+    get_regulatory_digest = _registered_tools(mcp)["get_regulatory_digest"]
+
+    with pytest.raises(ToolError, match="INVALID_INPUT"):
+        await get_regulatory_digest(period="unknown")

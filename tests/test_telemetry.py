@@ -12,6 +12,31 @@ def _json(value):
     return json.loads(value) if isinstance(value, str) else value
 
 
+def _exact_telemetry_privileges() -> dict[str, bool]:
+    return {
+        "relation_exists": True,
+        "sequence_exists": True,
+        "session_is_current": True,
+        "identity_hardened": True,
+        "membership_isolated": True,
+        "database_capabilities_isolated": True,
+        "schema_usage": True,
+        "application_schemas_isolated": True,
+        "other_relations_isolated": True,
+        "other_sequences_isolated": True,
+        "application_functions_isolated": True,
+        "can_insert_required_columns": True,
+        "can_insert_managed_columns": False,
+        "can_select": False,
+        "can_update": False,
+        "can_delete": False,
+        "can_truncate": False,
+        "sequence_usage": True,
+        "sequence_select": False,
+        "sequence_update": False,
+    }
+
+
 def test_summarize_args_redacts_query_text_by_default():
     from bddk_mcp.observability.telemetry import summarize_args
 
@@ -34,6 +59,16 @@ def test_summarize_args_can_store_text_when_explicitly_enabled():
     assert summary["query"]["chars"] == 18
 
 
+def test_summarize_args_redacts_unknown_short_strings_fail_closed():
+    from bddk_mcp.observability.telemetry import summarize_args
+
+    summary = summarize_args({"future_user_field": "short secret"})
+
+    assert summary["future_user_field"]["chars"] == 12
+    assert summary["future_user_field"]["sha256"]
+    assert "short secret" not in json.dumps(summary)
+
+
 @pytest.mark.asyncio
 async def test_record_tool_call_trace_is_disabled_by_default(monkeypatch):
     from bddk_mcp.observability import telemetry
@@ -51,6 +86,71 @@ async def test_record_tool_call_trace_is_disabled_by_default(monkeypatch):
 
     assert recorded is False
     pool.execute.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_telemetry_identity_accepts_exact_insert_only_privileges():
+    from bddk_mcp.observability.telemetry import assert_telemetry_writer_ready
+
+    pool = AsyncMock()
+    pool.fetchrow.return_value = _exact_telemetry_privileges()
+
+    await assert_telemetry_writer_ready(pool)
+
+    query = pool.fetchrow.await_args.args[0]
+    assert query.lstrip().startswith("WITH RECURSIVE target AS")
+    assert "('public', 'document_retrieval_publications')" in query
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "unexpected_privilege",
+    [
+        "can_select",
+        "can_update",
+        "can_delete",
+        "can_truncate",
+        "can_insert_managed_columns",
+        "sequence_select",
+        "sequence_update",
+    ],
+)
+async def test_telemetry_identity_rejects_excess_table_privilege(unexpected_privilege):
+    from bddk_mcp.observability.telemetry import TelemetryIdentityError, assert_telemetry_writer_ready
+
+    privileges = _exact_telemetry_privileges()
+    privileges[unexpected_privilege] = True
+    pool = AsyncMock()
+    pool.fetchrow.return_value = privileges
+
+    with pytest.raises(TelemetryIdentityError, match="INSERT-only"):
+        await assert_telemetry_writer_ready(pool)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "required_isolation",
+    [
+        "session_is_current",
+        "identity_hardened",
+        "membership_isolated",
+        "database_capabilities_isolated",
+        "application_schemas_isolated",
+        "other_relations_isolated",
+        "other_sequences_isolated",
+        "application_functions_isolated",
+    ],
+)
+async def test_telemetry_identity_rejects_broader_identity_capabilities(required_isolation):
+    from bddk_mcp.observability.telemetry import TelemetryIdentityError, assert_telemetry_writer_ready
+
+    privileges = _exact_telemetry_privileges()
+    privileges[required_isolation] = False
+    pool = AsyncMock()
+    pool.fetchrow.return_value = privileges
+
+    with pytest.raises(TelemetryIdentityError, match="INSERT-only"):
+        await assert_telemetry_writer_ready(pool)
 
 
 @pytest.mark.asyncio

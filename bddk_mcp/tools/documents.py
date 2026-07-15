@@ -4,14 +4,28 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
-from bddk_mcp.core.config import ADMIN_TOOLS
+from pydantic import Field
+
 from bddk_mcp.core.exceptions import BddkStorageError
 from bddk_mcp.observability.telemetry import elapsed_ms, record_tool_call_trace
 from bddk_mcp.quality.markdown_quality import assess_markdown_quality, sanitize_markdown_for_context
 from bddk_mcp.store.legal_ref import document_id_candidates
-from bddk_mcp.tools.errors import NOT_FOUND, tool_error
+from bddk_mcp.tools.errors import INVALID_INPUT, NOT_FOUND, tool_error
+from bddk_mcp.tools.structured_outputs import (
+    UNTRUSTED_SOURCE_WARNING,
+    DocumentHistoryResponse,
+    DocumentHistoryToolResult,
+    DocumentPageContent,
+    DocumentResponse,
+    DocumentToolResult,
+    DocumentVersionItem,
+    EvidenceReference,
+    QualityMetadata,
+    frame_untrusted_source,
+    structured_tool_result,
+)
 from bddk_mcp.tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
@@ -33,6 +47,17 @@ _DEGRADED_WARNING = (
 
 _LARGE_DOCUMENT_PAGE_THRESHOLD = 20
 _MAX_PAGES_PER_RESPONSE = 5
+DocumentId = Annotated[
+    str,
+    Field(
+        min_length=1,
+        max_length=128,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+        description="Local BDDK/mevzuat document identifier returned by search.",
+    ),
+]
+PageNumber = Annotated[int, Field(ge=1, le=10_000, description="1-based normalized document page number.")]
+MaxPages = Annotated[int, Field(ge=1, le=5, description="Consecutive pages to return (1-5).")]
 _PAGE_GAP_WARNING_TEMPLATE = (
     "Sayfa {missing_page} local store'dan alınamadı; yalnızca {first_page}-{last_page} arası döndürüldü. "
     "Belge toplam {total_pages} sayfa olarak kayıtlı — eksik sayfa, store tutarsızlığına işaret edebilir."
@@ -52,30 +77,21 @@ def _is_formula_aware(method: str) -> bool:
     return any(token in lower for token in _FORMULA_AWARE_TOKENS)
 
 
-def _normalize_max_pages(max_pages: int) -> tuple[int, bool]:
-    try:
-        requested = int(max_pages)
-    except (TypeError, ValueError):
-        requested = 1
-    normalized = max(1, min(requested, _MAX_PAGES_PER_RESPONSE))
-    return normalized, requested != normalized
-
-
 def register(
     mcp,
     deps: Dependencies,
     *,
-    include_operator: bool | None = None,
+    include_operator: bool = False,
 ) -> None:
     """Register document tools on the given MCP instance."""
 
     @mcp.tool()
     @logged_tool(logger)
     async def get_bddk_document(
-        document_id: str,
-        page_number: int = 1,
-        max_pages: int = 1,
-    ) -> str:
+        document_id: DocumentId,
+        page_number: PageNumber = 1,
+        max_pages: MaxPages = 1,
+    ) -> DocumentToolResult:
         """
         Retrieve a BDDK decision document as Markdown.
 
@@ -90,10 +106,11 @@ def register(
         Args:
             document_id: The numeric document ID (from search results)
             page_number: First page of the markdown output (documents are split into 5000-char pages)
-            max_pages: Maximum consecutive pages to return, capped at 5 to avoid context overflow
+            max_pages: Consecutive pages to return (1-5)
         """
         start = time.perf_counter()
-        max_pages, max_pages_capped = _normalize_max_pages(max_pages)
+        if isinstance(max_pages, bool) or not 1 <= max_pages <= _MAX_PAGES_PER_RESPONSE:
+            return tool_error(INVALID_INPUT, "max_pages must be between 1 and 5.", retryable=False)
         args = {"document_id": document_id, "page_number": page_number, "max_pages": max_pages}
         candidates = document_id_candidates(document_id)
 
@@ -103,13 +120,16 @@ def register(
                     vp = await deps.vector_store.get_document_page(cand, page)
                     if vp and vp["content"] and "Invalid page" not in vp["content"]:
                         return vp["page_number"], vp["total_pages"], vp["content"], "", True
-                except Exception as e:
-                    logger.warning("pgvector lookup failed for %s, falling back to doc_store: %s", cand, e)
+                except Exception as exc:
+                    logger.warning(
+                        "Vector page lookup failed; falling back to document store",
+                        extra={"error_type": type(exc).__name__},
+                    )
 
             try:
                 stored = await deps.doc_store.get_document_page(cand, page)
-            except (RuntimeError, BddkStorageError) as e:
-                logger.warning("doc_store lookup failed for %s: %s", cand, e)
+            except (RuntimeError, BddkStorageError) as exc:
+                logger.warning("Document page lookup failed", extra={"error_type": type(exc).__name__})
                 stored = None
 
             if stored and stored.markdown_content and "Invalid page" not in stored.markdown_content:
@@ -140,7 +160,7 @@ def register(
 
         if resolved_id is None:
             await record_tool_call_trace(
-                getattr(deps, "pool", None),
+                getattr(deps, "telemetry_pool", None),
                 tool_name="get_bddk_document",
                 args=args,
                 latency_ms=elapsed_ms(start),
@@ -190,23 +210,35 @@ def register(
         if "vector_store" in served_sources:
             try:
                 extraction_method = await deps.doc_store.get_extraction_method(resolved_id) or ""
-            except (RuntimeError, BddkStorageError) as e:
-                logger.debug("extraction_method lookup failed for %s: %s", resolved_id, e)
+            except (RuntimeError, BddkStorageError) as exc:
+                logger.debug("Extraction method lookup failed", extra={"error_type": type(exc).__name__})
 
         if len(page_contents) > 1:
-            content = "\n\n---\n\n".join(
+            raw_content = "\n\n---\n\n".join(
                 f"### Page {page}/{total_pages}\n\n{page_content}" for page, page_content in page_contents
             )
         else:
-            content = page_contents[0][1]
+            raw_content = page_contents[0][1]
 
         formula_aware = _is_formula_aware(extraction_method)
-        quality = assess_markdown_quality(content, document_id=resolved_id)
+        quality = assess_markdown_quality(raw_content, document_id=resolved_id)
         if formula_aware and quality.flags == ["formula_ref_without_latex_or_image"]:
             quality.label = "clean"
             quality.flags = []
             quality.warning = ""
-        content = sanitize_markdown_for_context(content)
+        sanitized_pages = [
+            DocumentPageContent(
+                page_number=page,
+                content=sanitize_markdown_for_context(page_content),
+            )
+            for page, page_content in page_contents
+        ]
+        if len(sanitized_pages) > 1:
+            content = "\n\n---\n\n".join(
+                f"### Page {page.page_number}/{total_pages}\n\n{page.content}" for page in sanitized_pages
+            )
+        else:
+            content = sanitized_pages[0].content
 
         degraded = bool(extraction_method) and not formula_aware
         method_display = extraction_method or "unknown"
@@ -215,35 +247,34 @@ def register(
 
         quality_lines = ""
         quality_warning_block = ""
+        warnings: list[str] = [UNTRUSTED_SOURCE_WARNING]
         if quality.label != "clean":
             flags = ", ".join(quality.flags) if quality.flags else "none"
             quality_lines = f"- Quality: {quality.label}\n- Quality flags: {flags}\n"
             quality_warning_block = f"⚠ Quality warning: {quality.warning}\n\n" if quality.warning else ""
+            if quality.warning:
+                warnings.append(quality.warning)
 
         large_document_warning_block = ""
         if total_pages >= _LARGE_DOCUMENT_PAGE_THRESHOLD:
-            large_document_warning_block = f"⚠ {_LARGE_DOCUMENT_WARNING_TEMPLATE.format(total_pages=total_pages)}\n\n"
-
-        page_limit_warning_block = ""
-        if max_pages_capped:
-            page_limit_warning_block = (
-                f"⚠ Requested max_pages was capped at {_MAX_PAGES_PER_RESPONSE} pages per response.\n\n"
-            )
+            large_document_warning = _LARGE_DOCUMENT_WARNING_TEMPLATE.format(total_pages=total_pages)
+            large_document_warning_block = f"⚠ {large_document_warning}\n\n"
+            warnings.append(large_document_warning)
 
         page_gap_warning_block = ""
         if missing_page is not None:
-            page_gap_warning_block = (
-                "⚠ "
-                + _PAGE_GAP_WARNING_TEMPLATE.format(
-                    missing_page=missing_page,
-                    first_page=page_num,
-                    last_page=last_page_num,
-                    total_pages=total_pages,
-                )
-                + "\n\n"
+            page_gap_warning = _PAGE_GAP_WARNING_TEMPLATE.format(
+                missing_page=missing_page,
+                first_page=page_num,
+                last_page=last_page_num,
+                total_pages=total_pages,
             )
+            page_gap_warning_block = "⚠ " + page_gap_warning + "\n\n"
+            warnings.append(page_gap_warning)
 
         degraded_warning_block = f"⚠ {_DEGRADED_WARNING}\n\n" if degraded else ""
+        if degraded:
+            warnings.append(_DEGRADED_WARNING)
         page_display = (
             f"{page_num}/{total_pages}" if last_page_num == page_num else f"{page_num}-{last_page_num}/{total_pages}"
         )
@@ -254,7 +285,7 @@ def register(
             f"- Category: {meta_category or 'N/A'}\n- Source: {source_url or 'N/A'}\n"
             f"- Page: {page_display}\n- Extraction: {method_display}\n{quality_lines}---\n"
             "Use ONLY the text below. Do not add information not present in this document.\n\n"
-            f"{large_document_warning_block}{page_limit_warning_block}{page_gap_warning_block}"
+            f"{large_document_warning_block}{page_gap_warning_block}"
             f"{quality_warning_block}{degraded_warning_block}"
         )
 
@@ -269,7 +300,7 @@ def register(
         if missing_page is not None:
             relevance_stats["missing_page"] = missing_page
         await record_tool_call_trace(
-            getattr(deps, "pool", None),
+            getattr(deps, "telemetry_pool", None),
             tool_name="get_bddk_document",
             args=args,
             latency_ms=elapsed_ms(start),
@@ -284,13 +315,52 @@ def register(
             },
             relevance_stats=relevance_stats,
         )
-        return header + content
+        quality_metadata = QualityMetadata(
+            label=quality.label,  # type: ignore[arg-type]
+            flags=list(quality.flags),
+            warning=quality.warning or None,
+        )
+        response = DocumentResponse(
+            status="partial" if missing_page is not None else "ok",
+            text=header + frame_untrusted_source(content),
+            evidence=[
+                EvidenceReference(
+                    document_id=resolved_id,
+                    title=meta_title,
+                    source_url=source_url or None,
+                    decision_date=meta_date or None,
+                    decision_number=meta_number or None,
+                    category=meta_category or None,
+                    retrieval_source=served_via,
+                    page_start=page_num,
+                    page_end=last_page_num,
+                    extraction_method=extraction_method or "unknown",
+                    quality=quality_metadata,
+                )
+            ],
+            warnings=list(dict.fromkeys(warnings)),
+            requested_document_id=document_id,
+            resolved_document_id=resolved_id,
+            title=meta_title,
+            decision_date=meta_date,
+            decision_number=meta_number,
+            category=meta_category,
+            source_url=source_url,
+            first_page=page_num,
+            last_page=last_page_num,
+            total_pages=total_pages,
+            pages=sanitized_pages,
+            extraction_method=extraction_method or "unknown",
+            served_via=served_via,  # type: ignore[arg-type]
+            quality=quality_metadata,
+        )
+        return structured_tool_result(response)
 
     @mcp.tool()
     @logged_tool(logger)
     async def get_document_history(
-        document_id: str,
-    ) -> str:
+        document_id: DocumentId,
+    ) -> DocumentHistoryToolResult:
         """
         Get version history for a BDDK document.
 
@@ -303,18 +373,47 @@ def register(
         history = await store.get_document_history(document_id)
 
         if not history:
-            return f"No version history found for document {document_id}."
+            output = f"No version history found for document {document_id}."
+            return structured_tool_result(
+                DocumentHistoryResponse(
+                    status="no_results",
+                    text=output,
+                    document_id=document_id,
+                )
+            )
 
         lines = [f"**Version History for {document_id}** ({len(history)} version(s)):\n"]
+        versions: list[DocumentVersionItem] = []
+        evidence: list[EvidenceReference] = []
         for v in history:
             lines.append(
                 f"  v{v['version']} — {v['synced_at']} (hash: {v['content_hash'][:12]}..., {v['content_length']} chars)"
             )
+            version = DocumentVersionItem(
+                version=int(v["version"]),
+                synced_at=str(v["synced_at"]),
+                content_hash=str(v["content_hash"]),
+                content_length=int(v["content_length"]),
+            )
+            versions.append(version)
+            evidence.append(
+                EvidenceReference(
+                    document_id=document_id,
+                    retrieval_source="version_store",
+                    content_hash=version.content_hash,
+                )
+            )
 
-        return "\n".join(lines)
+        return structured_tool_result(
+            DocumentHistoryResponse(
+                status="ok",
+                text="\n".join(lines),
+                evidence=evidence,
+                document_id=document_id,
+                versions=versions,
+            )
+        )
 
-    if include_operator is None:
-        include_operator = ADMIN_TOOLS
     if not include_operator:
         return
 
@@ -337,8 +436,9 @@ def register(
                     lines.append("  Categories:")
                     for cat, count in vs["categories"].items():
                         lines.append(f"    {cat}: {count}")
-            except Exception as e:
-                lines.append(f"  pgvector: unavailable ({e})")
+            except Exception as exc:
+                logger.warning("Vector store statistics unavailable", extra={"error_type": type(exc).__name__})
+                lines.append("  pgvector: unavailable")
         else:
             lines.append("  pgvector: unavailable (not initialized)")
 
@@ -347,7 +447,8 @@ def register(
             lines.append(
                 f"\n**PostgreSQL (Document Store):**\n  Documents: {st.total_documents}\n  Size: {st.total_size_mb} MB"
             )
-        except (RuntimeError, BddkStorageError) as e:
-            lines.append(f"  PostgreSQL: unavailable ({e})")
+        except (RuntimeError, BddkStorageError) as exc:
+            logger.warning("Document store statistics unavailable", extra={"error_type": type(exc).__name__})
+            lines.append("  PostgreSQL: unavailable")
 
         return "\n".join(lines)

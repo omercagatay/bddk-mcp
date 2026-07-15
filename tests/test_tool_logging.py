@@ -6,7 +6,9 @@ import logging
 
 import pytest
 
+import bddk_mcp.tools.tool_logging as tool_logging_module
 from bddk_mcp.core.logging_config import JsonFormatter
+from bddk_mcp.observability.metrics import Metrics
 from bddk_mcp.tools.tool_logging import _summarize_args, _summarize_result, logged_tool
 
 QUERY_SENTINEL = "PRIVATE_QUERY_SENTINEL_7f9d"
@@ -72,6 +74,8 @@ def test_summaries_expose_truncated_content_only_when_explicitly_requested():
 @pytest.mark.asyncio
 async def test_logged_tool_success_is_metadata_only_by_default(caplog, monkeypatch):
     monkeypatch.delenv("BDDK_TOOL_LOG_CONTENT", raising=False)
+    collector = Metrics()
+    monkeypatch.setattr(tool_logging_module, "metrics", collector)
     logger = logging.getLogger("tests.tool_logging.success")
 
     @logged_tool(logger)
@@ -101,11 +105,15 @@ async def test_logged_tool_success_is_metadata_only_by_default(caplog, monkeypat
     rendered = _render_records(caplog.records)
     assert QUERY_SENTINEL not in rendered
     assert RESULT_SENTINEL not in rendered
+    assert collector.summary()["tools"][0]["requests"] == 1
+    assert collector.summary()["tools"][0]["errors"] == 0
 
 
 @pytest.mark.asyncio
 async def test_logged_tool_failure_omits_arguments_message_and_traceback_by_default(caplog, monkeypatch):
     monkeypatch.delenv("BDDK_TOOL_LOG_CONTENT", raising=False)
+    collector = Metrics()
+    monkeypatch.setattr(tool_logging_module, "metrics", collector)
     logger = logging.getLogger("tests.tool_logging.failure")
 
     @logged_tool(logger)
@@ -143,6 +151,8 @@ async def test_logged_tool_failure_omits_arguments_message_and_traceback_by_defa
         "private_column",
     ):
         assert secret not in rendered
+    assert collector.summary()["tools"][0]["requests"] == 1
+    assert collector.summary()["tools"][0]["errors"] == 1
 
 
 @pytest.mark.asyncio

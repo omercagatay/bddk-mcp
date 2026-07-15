@@ -14,6 +14,8 @@ from dataclasses import dataclass, field
 class TestCase:
     """A single tool-calling test case."""
 
+    __test__ = False
+
     id: int | str
     question: str
     expected_tool: str = ""

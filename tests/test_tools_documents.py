@@ -5,10 +5,10 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from mcp.server.fastmcp.exceptions import ToolError
 
 from bddk_mcp.core.deps import Dependencies
 from bddk_mcp.store.doc_store import DocumentPage
-from bddk_mcp.tools import documents as documents_mod
 from bddk_mcp.tools.documents import _is_formula_aware, register
 
 
@@ -25,12 +25,11 @@ def test_register_exposes_end_user_tools_only_by_default():
     }
 
 
-def test_register_adds_admin_tool_when_flag_enabled(monkeypatch):
-    """With ADMIN_TOOLS=true the operator-only document_store_stats is also exposed."""
-    monkeypatch.setattr(documents_mod, "ADMIN_TOOLS", True)
+def test_register_adds_admin_tool_only_when_explicitly_requested():
+    """The registry must explicitly request the operator-only store tool."""
     mcp = MagicMock()
     deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
-    register(mcp, deps)
+    register(mcp, deps, include_operator=True)
 
     tool_names = {call.args[0].__name__ for call in mcp.tool.return_value.call_args_list}
     assert tool_names == {
@@ -118,7 +117,9 @@ async def test_prefixed_id_does_not_get_expanded():
     deps = _make_deps(doc_store=doc_store)
 
     tool = _capture_get_bddk_document(deps)
-    out = await tool("mevzuat_21192", 1)
+    with pytest.raises(ToolError) as exc_info:
+        await tool("mevzuat_21192", 1)
+    out = str(exc_info.value)
 
     assert "not available in the local store" in out
     assert "airlocked" in out
@@ -265,8 +266,8 @@ async def test_get_bddk_document_can_return_limited_consecutive_pages():
 
 
 @pytest.mark.asyncio
-async def test_get_bddk_document_caps_max_pages_per_response():
-    """Large max_pages requests are capped to protect the model context."""
+async def test_get_bddk_document_rejects_oversized_page_window():
+    """Large max_pages requests fail instead of silently changing arguments."""
     pages = {
         page_number: DocumentPage(
             document_id="mevzuat_5411",
@@ -284,13 +285,10 @@ async def test_get_bddk_document_caps_max_pages_per_response():
     deps = _make_deps(doc_store=doc_store)
 
     tool = _capture_get_bddk_document(deps)
-    out = await tool("mevzuat_5411", page_number=1, max_pages=99)
+    with pytest.raises(ToolError, match="INVALID_INPUT"):
+        await tool("mevzuat_5411", page_number=1, max_pages=99)
 
-    assert "- Page: 1-5/67" in out
-    assert "Requested max_pages was capped at 5" in out
-    assert "Sayfa 5" in out
-    assert "Sayfa 6" not in out
-    assert doc_store.get_document_page.await_count == 5
+    doc_store.get_document_page.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -383,7 +381,9 @@ async def test_missing_doc_returns_airlocked_error_for_all_candidates():
     deps = _make_deps(doc_store=doc_store)
 
     tool = _capture_get_bddk_document(deps)
-    out = await tool("99999999", 1)
+    with pytest.raises(ToolError) as exc_info:
+        await tool("99999999", 1)
+    out = str(exc_info.value)
 
     assert "Document 99999999 is not available" in out
     assert "airlocked" in out

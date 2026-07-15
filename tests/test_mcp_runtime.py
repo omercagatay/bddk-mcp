@@ -8,7 +8,8 @@ from mcp.shared.memory import create_connected_server_and_client_session
 
 from bddk_mcp import __version__
 from bddk_mcp.core.deps import Dependencies
-from bddk_mcp.tools.registry import PUBLIC_TOOL_NAMES
+from bddk_mcp.jobs import DrainReport, OperatorJobManager
+from bddk_mcp.tools.registry import OPERATOR_TOOL_NAMES, PUBLIC_TOOL_NAMES, ToolProfile
 
 
 @pytest.mark.asyncio
@@ -45,6 +46,32 @@ async def test_factory_supports_protocol_tool_call_without_database():
     assert test_server._mcp_server.version == __version__
 
 
+@pytest.mark.asyncio
+async def test_production_boundary_sanitizes_validation_and_handler_failures():
+    from bddk_mcp.server import create_mcp
+
+    sentinel = "RAW-PRIVATE-HANDLER-FAILURE"
+    doc_store = MagicMock()
+    doc_store.get_document_history = AsyncMock(side_effect=RuntimeError(sentinel))
+    deps = Dependencies(pool=None, doc_store=doc_store, client=MagicMock(), http=None)
+    test_server = create_mcp(deps)
+
+    async with create_connected_server_and_client_session(test_server) as session:
+        invalid = await session.call_tool(
+            "get_document_history",
+            {"document_id": "943", "misspelled_private_argument": sentinel},
+        )
+        failed = await session.call_tool("get_document_history", {"document_id": "943"})
+
+    assert invalid.isError is True
+    assert invalid.content[0].text.startswith("[ERROR:INVALID_INPUT] retryable=false")
+    assert "misspelled_private_argument" not in invalid.content[0].text
+    assert "pydantic.dev" not in invalid.content[0].text
+    assert failed.isError is True
+    assert failed.content[0].text.startswith("[ERROR:TOOL_EXECUTION_FAILED] retryable=true")
+    assert sentinel not in failed.content[0].text
+
+
 def test_runtime_defaults_to_loopback_and_rejects_unknown_transport(monkeypatch):
     import bddk_mcp.server as server_module
 
@@ -54,6 +81,33 @@ def test_runtime_defaults_to_loopback_and_rejects_unknown_transport(monkeypatch)
     monkeypatch.setenv("MCP_TRANSPORT", "legacy-sse")
     with pytest.raises(RuntimeError, match="Invalid MCP_TRANSPORT"):
         server_module._runtime_transport()
+
+
+def test_process_profile_defaults_public_and_rejects_legacy_combined_flag(monkeypatch):
+    import bddk_mcp.server as server_module
+
+    monkeypatch.delenv("BDDK_TOOL_PROFILE", raising=False)
+    monkeypatch.delenv("BDDK_ADMIN_TOOLS", raising=False)
+    assert server_module.configured_tool_profile() is ToolProfile.PUBLIC
+
+    monkeypatch.setenv("BDDK_TOOL_PROFILE", "operator")
+    assert server_module.configured_tool_profile() is ToolProfile.OPERATOR
+
+    monkeypatch.setenv("BDDK_ADMIN_TOOLS", "true")
+    with pytest.raises(RuntimeError, match="no longer supported"):
+        server_module.configured_tool_profile()
+
+
+def test_exported_servers_have_distinct_reviewed_tool_surfaces():
+    import bddk_mcp.server as server_module
+
+    public_names = {tool.name for tool in server_module.mcp._tool_manager.list_tools()}
+    operator_names = {tool.name for tool in server_module.operator_mcp._tool_manager.list_tools()}
+
+    assert public_names == set(PUBLIC_TOOL_NAMES)
+    assert operator_names == set(PUBLIC_TOOL_NAMES + OPERATOR_TOOL_NAMES)
+    assert server_module.mcp._bddk_tool_profile is ToolProfile.PUBLIC
+    assert server_module.operator_mcp._bddk_tool_profile is ToolProfile.OPERATOR
 
 
 @pytest.mark.asyncio
@@ -82,6 +136,29 @@ async def test_nested_lifespans_share_one_dependency_runtime():
     assert server_module._runtime_deps.pool is None
     assert server_module._runtime_lock is None
     assert server_module._runtime_loop is None
+
+
+@pytest.mark.asyncio
+async def test_active_runtime_cannot_be_shared_across_process_profiles():
+    import bddk_mcp.server as server_module
+
+    created = Dependencies(pool=MagicMock(), doc_store=MagicMock(), client=MagicMock(), http=MagicMock())
+    server_module._runtime_leases = 0
+    server_module._runtime_profile = None
+    server_module._runtime_lock = None
+    server_module._empty_runtime_deps()
+
+    with (
+        patch.object(server_module, "create_deps", new=AsyncMock(return_value=created)),
+        patch.object(server_module, "teardown_deps", new=AsyncMock()),
+    ):
+        await server_module.startup(ToolProfile.PUBLIC)
+        with pytest.raises(RuntimeError, match="Cannot share"):
+            await server_module.startup(ToolProfile.OPERATOR)
+        await server_module.shutdown()
+
+    assert server_module._runtime_leases == 0
+    assert server_module._runtime_profile is None
 
 
 @pytest.mark.asyncio
@@ -118,7 +195,11 @@ async def test_create_deps_closes_pool_and_http_when_readiness_fails():
     with (
         patch.object(server_module, "require_database_url", return_value="postgresql://test"),
         patch.object(server_module.httpx, "AsyncClient", return_value=http),
-        patch.object(server_module.asyncpg, "create_pool", new=AsyncMock(return_value=pool)),
+        patch.object(
+            server_module.asyncpg,
+            "create_pool",
+            new=AsyncMock(return_value=pool),
+        ),
         patch.object(
             server_module,
             "assert_database_ready",
@@ -152,6 +233,37 @@ async def test_teardown_attempts_every_close_and_aggregates_failures():
     client.close.assert_awaited_once()
     http.aclose.assert_awaited_once()
     pool.close.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_teardown_drains_operator_jobs_before_resource_close():
+    import bddk_mcp.server as server_module
+
+    close_order: list[str] = []
+    manager = MagicMock()
+    manager.drain = AsyncMock(
+        side_effect=lambda **_kwargs: (
+            close_order.append("jobs") or DrainReport(observed=1, completed=1, cancelled=0, still_running=0)
+        )
+    )
+    client = MagicMock()
+    client.close = AsyncMock(side_effect=lambda: close_order.append("client"))
+    http = MagicMock()
+    http.aclose = AsyncMock(side_effect=lambda: close_order.append("http"))
+    pool = MagicMock()
+    pool.close = AsyncMock(side_effect=lambda: close_order.append("pool"))
+    deps = Dependencies(
+        pool=pool,
+        doc_store=MagicMock(),
+        client=client,
+        http=http,
+        job_manager=manager,
+    )
+
+    await server_module.teardown_deps(deps)
+
+    manager.drain.assert_awaited_once_with(timeout=server_module.OPERATOR_JOB_DRAIN_TIMEOUT)
+    assert close_order == ["jobs", "client", "http", "pool"]
 
 
 @pytest.mark.asyncio
@@ -212,20 +324,27 @@ async def test_create_deps_uses_only_read_only_runtime_initialization():
     client.load_cache_read_only = AsyncMock(return_value=1)
     vector_store = MagicMock()
     readiness = AsyncMock()
+    identity_readiness = AsyncMock()
+    create_pool = AsyncMock(return_value=pool)
 
     with (
         patch.object(server_module, "AUTO_SYNC", False),
         patch.object(server_module, "require_database_url", return_value="postgresql://test"),
         patch.object(server_module.httpx, "AsyncClient", return_value=http),
-        patch.object(server_module.asyncpg, "create_pool", new=AsyncMock(return_value=pool)),
+        patch.object(server_module.asyncpg, "create_pool", new=create_pool),
         patch.object(server_module, "assert_database_ready", new=readiness),
+        patch.object(server_module, "assert_database_identity", new=identity_readiness),
         patch.object(server_module, "DocumentStore", return_value=doc_store),
         patch.object(server_module, "BddkApiClient", return_value=client) as client_type,
         patch.object(server_module, "VectorStore", return_value=vector_store),
     ):
         deps = await server_module.create_deps()
 
+    pool_init = create_pool.await_args.kwargs["init"]
+    assert pool_init.func is server_module.assert_database_connection_identity
+    assert pool_init.keywords == {"profile": "public"}
     readiness.assert_awaited_once_with(pool=pool)
+    identity_readiness.assert_awaited_once_with(pool, "public")
     client.load_cache_read_only.assert_awaited_once_with()
     client_type.assert_called_once_with(
         pool=pool,
@@ -234,7 +353,108 @@ async def test_create_deps_uses_only_read_only_runtime_initialization():
         allow_live_population=False,
     )
     assert deps.vector_store is vector_store
+    assert deps.job_manager is None
     assert not hasattr(doc_store, "initialize") or doc_store.initialize.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_enabled_telemetry_uses_separate_verified_pool():
+    import bddk_mcp.server as server_module
+
+    http = MagicMock()
+    http.aclose = AsyncMock()
+    public_pool = MagicMock()
+    public_pool.close = AsyncMock()
+    telemetry_pool = MagicMock()
+    telemetry_pool.close = AsyncMock()
+    client = MagicMock()
+    client.close = AsyncMock()
+    client.load_cache_read_only = AsyncMock(return_value=1)
+    create_pool = AsyncMock(side_effect=[public_pool, telemetry_pool])
+    verify_telemetry = AsyncMock()
+
+    with (
+        patch.object(server_module, "AUTO_SYNC", False),
+        patch.object(server_module, "TELEMETRY_ENABLED", True),
+        patch.object(server_module, "require_database_url", return_value="postgresql://public-reader"),
+        patch.object(
+            server_module,
+            "require_telemetry_database_url",
+            return_value="postgresql://telemetry-writer",
+        ),
+        patch.object(server_module.httpx, "AsyncClient", return_value=http),
+        patch.object(server_module.asyncpg, "create_pool", new=create_pool),
+        patch.object(server_module, "assert_database_ready", new=AsyncMock()),
+        patch.object(server_module, "assert_database_identity", new=AsyncMock()),
+        patch.object(server_module, "assert_telemetry_writer_ready", new=verify_telemetry),
+        patch.object(server_module, "BddkApiClient", return_value=client),
+    ):
+        deps = await server_module.create_deps()
+
+    assert create_pool.await_count == 2
+    assert create_pool.await_args_list[0].args[0] == "postgresql://public-reader"
+    assert create_pool.await_args_list[1].args[0] == "postgresql://telemetry-writer"
+    assert create_pool.await_args_list[1].kwargs["init"] is verify_telemetry
+    verify_telemetry.assert_awaited_once_with(telemetry_pool)
+    assert deps.pool is public_pool
+    assert deps.telemetry_pool is telemetry_pool
+
+    await server_module.teardown_deps(deps)
+    public_pool.close.assert_awaited_once()
+    telemetry_pool.close.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_operator_runtime_gets_separate_dsn_and_job_manager():
+    import bddk_mcp.server as server_module
+
+    http = MagicMock()
+    http.aclose = AsyncMock()
+    pool = MagicMock()
+    pool.close = AsyncMock()
+    pool.get_max_size.return_value = 10
+    client = MagicMock()
+    client.load_cache_read_only = AsyncMock(return_value=1)
+    repository = MagicMock()
+    repository.list_unfinished = AsyncMock(return_value=[])
+    repository.prune_terminal = AsyncMock(return_value=0)
+    operator_readiness = AsyncMock()
+    identity_readiness = AsyncMock()
+
+    with (
+        patch.object(server_module, "AUTO_SYNC", False),
+        patch.object(server_module, "require_database_url", return_value="postgresql://operator") as require_dsn,
+        patch.object(server_module.httpx, "AsyncClient", return_value=http),
+        patch.object(server_module.asyncpg, "create_pool", new=AsyncMock(return_value=pool)),
+        patch.object(server_module, "assert_database_ready", new=AsyncMock()),
+        patch.object(server_module, "assert_database_identity", new=identity_readiness),
+        patch.object(server_module, "assert_operator_job_schema_ready", new=operator_readiness),
+        patch.object(server_module, "PostgresJobRepository", return_value=repository) as repository_type,
+        patch.object(server_module, "BddkApiClient", return_value=client),
+    ):
+        deps = await server_module.create_deps(ToolProfile.OPERATOR)
+
+    require_dsn.assert_called_once_with("operator")
+    identity_readiness.assert_awaited_once_with(pool, "operator")
+    operator_readiness.assert_awaited_once_with(pool)
+    repository_type.assert_called_once_with(pool)
+    repository.list_unfinished.assert_awaited_once_with()
+    assert isinstance(deps.job_manager, OperatorJobManager)
+    await deps.job_manager.drain(timeout=0)
+
+
+@pytest.mark.asyncio
+async def test_operator_runtime_rejects_pool_too_small_before_opening_resources():
+    import bddk_mcp.server as server_module
+
+    with (
+        patch.object(server_module, "PG_POOL_MAX", server_module.MIN_OPERATOR_JOB_POOL_SIZE - 1),
+        patch.object(server_module.httpx, "AsyncClient") as http_type,
+        pytest.raises(RuntimeError, match="durable execution lease"),
+    ):
+        await server_module.create_deps(ToolProfile.OPERATOR)
+
+    http_type.assert_not_called()
 
 
 @pytest.mark.asyncio

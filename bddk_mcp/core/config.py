@@ -5,6 +5,7 @@ variables (prefixed with BDDK_).
 """
 
 import os
+import re
 from pathlib import Path
 
 # -- Paths --------------------------------------------------------------------
@@ -13,24 +14,85 @@ BASE_DIR = Path(__file__).parent
 # -- PostgreSQL ---------------------------------------------------------------
 
 DATABASE_URL = os.environ.get("BDDK_DATABASE_URL", "")
+OPERATOR_DATABASE_URL = os.environ.get("BDDK_OPERATOR_DATABASE_URL", "")
+SCHEMA_OWNER_DATABASE_URL = os.environ.get("BDDK_SCHEMA_OWNER_DATABASE_URL", "")
+INGESTION_DATABASE_URL = os.environ.get("BDDK_INGESTION_DATABASE_URL", "")
+EXPECTED_DATABASE_NAME = os.environ.get("BDDK_EXPECTED_DATABASE_NAME", "").strip()
+_DATABASE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$")
 
 
-def require_database_url() -> str:
-    """Return BDDK_DATABASE_URL or raise with a friendly remediation message.
+def require_expected_database_name() -> str:
+    """Return the independently configured lifecycle target database name."""
+
+    if not EXPECTED_DATABASE_NAME:
+        raise RuntimeError(
+            "BDDK_EXPECTED_DATABASE_NAME is required for database lifecycle operations. "
+            "Set it independently from the connection URL to guard against a wrong-database deployment."
+        )
+    if not _DATABASE_NAME_RE.fullmatch(EXPECTED_DATABASE_NAME):
+        raise RuntimeError(
+            "BDDK_EXPECTED_DATABASE_NAME must be 1-63 characters using only letters, digits, '.', '_' or '-'."
+        )
+    return EXPECTED_DATABASE_NAME
+
+
+def require_database_url(profile: str = "public") -> str:
+    """Return the database URL assigned to one process profile.
 
     Call this at the start of any entry point (server, seed CLI, doc_sync CLI)
-    that needs to open a pool, instead of passing DATABASE_URL directly to
-    asyncpg. An unset env var then fails loudly at the boundary with a
-    message the operator can act on, rather than surfacing later as an
-    opaque asyncpg error.
+    that needs to open a pool.  Public serving uses ``BDDK_DATABASE_URL``;
+    operator serving must use the separately provisioned
+    ``BDDK_OPERATOR_DATABASE_URL`` so enabling mutation tools cannot silently
+    reuse the public runtime identity.
     """
-    if not DATABASE_URL:
+    normalized = profile.strip().lower()
+    if normalized == "public":
+        variable = "BDDK_DATABASE_URL"
+        dsn = DATABASE_URL
+    elif normalized == "operator":
+        variable = "BDDK_OPERATOR_DATABASE_URL"
+        dsn = OPERATOR_DATABASE_URL
+    elif normalized == "schema-owner":
+        variable = "BDDK_SCHEMA_OWNER_DATABASE_URL"
+        dsn = SCHEMA_OWNER_DATABASE_URL
+    elif normalized == "ingestion":
+        variable = "BDDK_INGESTION_DATABASE_URL"
+        dsn = INGESTION_DATABASE_URL
+    else:
         raise RuntimeError(
-            "BDDK_DATABASE_URL is not set. Copy .env.example to .env and "
-            "set a PostgreSQL DSN, or run `docker compose up` which sets "
-            "it automatically."
+            f"Unknown database profile {profile!r}; expected public, operator, schema-owner, or ingestion"
         )
-    return DATABASE_URL
+
+    if not dsn:
+        raise RuntimeError(
+            f"{variable} is not set for the {normalized} process profile. "
+            "Provision a PostgreSQL DSN with the least-privileged role for "
+            "that profile before starting the server."
+        )
+    if normalized == "operator" and DATABASE_URL and dsn == DATABASE_URL:
+        raise RuntimeError(
+            "BDDK_OPERATOR_DATABASE_URL must not reuse BDDK_DATABASE_URL. "
+            "Provision a distinct least-privileged operator database identity."
+        )
+    if normalized in {"schema-owner", "ingestion"}:
+        other_identities = {
+            name: value
+            for name, value in {
+                "BDDK_DATABASE_URL": DATABASE_URL,
+                "BDDK_OPERATOR_DATABASE_URL": OPERATOR_DATABASE_URL,
+                "BDDK_SCHEMA_OWNER_DATABASE_URL": SCHEMA_OWNER_DATABASE_URL,
+                "BDDK_INGESTION_DATABASE_URL": INGESTION_DATABASE_URL,
+            }.items()
+            if value and name != variable
+        }
+        reused = next((name for name, value in other_identities.items() if value == dsn), None)
+        if reused is not None:
+            raise RuntimeError(
+                f"{variable} must not reuse {reused}. Provision a distinct database identity for each lifecycle plane."
+            )
+    from bddk_mcp.db_transport import assert_database_transport
+
+    return assert_database_transport(dsn)
 
 
 # asyncpg pool settings
@@ -43,7 +105,11 @@ PG_POOL_MAX = int(os.environ.get("BDDK_PG_POOL_MAX", "10"))
 # from this local path instead of downloading from Hugging Face.
 EMBEDDING_MODEL_PATH = os.environ.get("BDDK_EMBEDDING_MODEL_PATH", "")
 EMBEDDING_MODEL_NAME = os.environ.get("BDDK_EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
-EMBEDDING_MODEL_REVISION = "d4210e50c0"  # v1.0.0 stable
+_DEFAULT_EMBEDDING_MODEL_REVISION = "d13f1b27baf31030b7fd040960d60d909913633f"
+EMBEDDING_MODEL_REVISION = os.environ.get(
+    "BDDK_EMBEDDING_MODEL_REVISION",
+    _DEFAULT_EMBEDDING_MODEL_REVISION if EMBEDDING_MODEL_NAME == "intfloat/multilingual-e5-base" else "",
+)
 
 # -- OCR extraction backends -------------------------------------------------
 
@@ -63,8 +129,18 @@ CHANDRA_MODEL_NAME = os.environ.get("BDDK_CHANDRA_MODEL", "datalab-to/chandra-oc
 
 # -- pgvector -----------------------------------------------------------------
 
-# Embedding dimension for intfloat/multilingual-e5-base
-EMBEDDING_DIMENSION = int(os.environ.get("BDDK_EMBEDDING_DIM", "768"))
+# The immutable PostgreSQL migration stores public.vector(768), and the default
+# E5 model emits exactly 768 values. Reject a misleading override instead of
+# allowing ingestion to fail after an expensive embedding run.
+EMBEDDING_DIMENSION = 768
+_configured_embedding_dimension = os.environ.get("BDDK_EMBEDDING_DIM", str(EMBEDDING_DIMENSION))
+try:
+    if int(_configured_embedding_dimension) != EMBEDDING_DIMENSION:
+        raise RuntimeError("BDDK_EMBEDDING_DIM must be 768 for the current immutable database schema.")
+except ValueError:
+    raise RuntimeError(
+        "BDDK_EMBEDDING_DIM must be the integer 768 for the current immutable database schema."
+    ) from None
 
 # -- Document chunking -------------------------------------------------------
 
@@ -105,6 +181,11 @@ HYBRID_RRF_K = int(os.environ.get("BDDK_RRF_K", "60"))
 RERANKER_ENABLED = os.environ.get("BDDK_RERANKER", "false").lower() in ("1", "true", "yes")
 RERANKER_MODEL_NAME = os.environ.get("BDDK_RERANKER_MODEL", "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1")
 RERANKER_MODEL_PATH = os.environ.get("BDDK_RERANKER_MODEL_PATH", "")
+_DEFAULT_RERANKER_MODEL_REVISION = "1427fd652930e4ba29e8149678df786c240d8825"
+RERANKER_MODEL_REVISION = os.environ.get(
+    "BDDK_RERANKER_MODEL_REVISION",
+    _DEFAULT_RERANKER_MODEL_REVISION if RERANKER_MODEL_NAME == "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1" else "",
+)
 RERANKER_TOP_N = int(os.environ.get("BDDK_RERANKER_TOP_N", "20"))
 
 # -- HTTP ---------------------------------------------------------------------
@@ -114,27 +195,43 @@ HTTP_CONNECT_TIMEOUT = float(os.environ.get("BDDK_HTTP_CONNECT_TIMEOUT", "10.0")
 HTTP_POOL_TIMEOUT = float(os.environ.get("BDDK_HTTP_POOL_TIMEOUT", "10.0"))
 MAX_RETRIES = int(os.environ.get("BDDK_MAX_RETRIES", "3"))
 
-# -- Tool exposure ------------------------------------------------------------
-
-# Expose operator/admin tools (health_check, bddk_metrics, sync_bddk_documents,
-# refresh_bddk_cache, backfill_*, document_health, document_quality_report,
-# document_store_stats, bddk_cache_status, trigger_startup_sync). End-user
-# deployments keep only the search / retrieval / bulletin / analytics surface.
-ADMIN_TOOLS = os.environ.get("BDDK_ADMIN_TOOLS", "false").lower() in ("1", "true", "yes")
-
 # -- Optional telemetry -------------------------------------------------------
 
 # Disabled by default. When enabled, retrieval tools persist privacy-safe
 # call traces for production retrieval debugging and benchmark comparison.
 TELEMETRY_ENABLED = os.environ.get("BDDK_TELEMETRY_ENABLED", "false").lower() in ("1", "true", "yes")
+TELEMETRY_DATABASE_URL = os.environ.get("BDDK_TELEMETRY_DATABASE_URL", "")
 TELEMETRY_STORE_TEXT = os.environ.get("BDDK_TELEMETRY_STORE_TEXT", "false").lower() in ("1", "true", "yes")
 TELEMETRY_MODEL_ID = os.environ.get("BDDK_TELEMETRY_MODEL_ID", "")
 TELEMETRY_SESSION_ID = os.environ.get("BDDK_TELEMETRY_SESSION_ID", "")
+
+
+def require_telemetry_database_url() -> str:
+    """Return a dedicated telemetry-writer DSN when telemetry is enabled."""
+
+    if not TELEMETRY_ENABLED:
+        raise RuntimeError("Telemetry is disabled; no telemetry database identity should be opened")
+    if not TELEMETRY_DATABASE_URL:
+        raise RuntimeError(
+            "BDDK_TELEMETRY_DATABASE_URL is required when BDDK_TELEMETRY_ENABLED=true. "
+            "Provision a dedicated INSERT-only telemetry database identity."
+        )
+    if TELEMETRY_DATABASE_URL in {DATABASE_URL, OPERATOR_DATABASE_URL}:
+        raise RuntimeError(
+            "BDDK_TELEMETRY_DATABASE_URL must not reuse a public or operator database identity. "
+            "Provision a dedicated INSERT-only telemetry role."
+        )
+    from bddk_mcp.db_transport import assert_database_transport
+
+    return assert_database_transport(TELEMETRY_DATABASE_URL)
+
 
 # -- Sync ---------------------------------------------------------------------
 
 AUTO_SYNC = os.environ.get("BDDK_AUTO_SYNC", "false").lower() in ("1", "true", "yes")
 SYNC_CONCURRENCY = int(os.environ.get("BDDK_SYNC_CONCURRENCY", "5"))
+OPERATOR_JOB_DRAIN_TIMEOUT = float(os.environ.get("BDDK_OPERATOR_JOB_DRAIN_TIMEOUT", "30"))
+OPERATOR_JOB_HISTORY = int(os.environ.get("BDDK_OPERATOR_JOB_HISTORY", "1000"))
 
 # Prefer the iframe/HTML download path over PDF for mevzuat.gov.tr documents.
 # Values: "true" | "false" | "auto". "auto" flips to true when no GPU OCR

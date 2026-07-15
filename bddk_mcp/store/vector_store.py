@@ -15,6 +15,7 @@ Architecture:
 
 import asyncio
 import hashlib
+import json
 import logging
 import math
 import re
@@ -32,12 +33,14 @@ from bddk_mcp.core.config import (
     EMBEDDING_DIMENSION,
     EMBEDDING_MODEL_NAME,
     EMBEDDING_MODEL_PATH,
+    EMBEDDING_MODEL_REVISION,
     HYBRID_RRF_K,
     HYBRID_SEARCH,
     PAGE_SIZE,
     RERANKER_ENABLED,
     RERANKER_MODEL_NAME,
     RERANKER_MODEL_PATH,
+    RERANKER_MODEL_REVISION,
     RERANKER_TOP_N,
     SEMANTIC_RELEVANCE_THRESHOLD,
 )
@@ -46,6 +49,33 @@ from bddk_mcp.store.legal_ref import parse_legal_refs
 from bddk_mcp.store.section_index import DocumentSection, extract_document_sections
 
 logger = logging.getLogger(__name__)
+
+
+class VectorIndexConsistencyError(RuntimeError):
+    """The vector index cannot be published for a missing or different source."""
+
+
+def retrieval_profile_hash(embedding_model: str = EMBEDDING_MODEL_NAME) -> str:
+    """Fingerprint every setting that affects persisted passage vectors."""
+
+    if not EMBEDDING_MODEL_REVISION:
+        raise RuntimeError("BDDK_EMBEDDING_MODEL_REVISION is required to identify the persisted retrieval profile.")
+    payload = {
+        "schema": 1,
+        "embedding_model": embedding_model,
+        "embedding_revision": EMBEDDING_MODEL_REVISION,
+        "embedding_dimension": EMBEDDING_DIMENSION,
+        "passage_prefix": "passage: ",
+        "query_prefix": "query: ",
+        "chunk_mode": EMBEDDING_CHUNK_MODE,
+        "chunk_size": EMBEDDING_CHUNK_SIZE,
+        "chunk_overlap": EMBEDDING_CHUNK_OVERLAP,
+        "chunk_target_tokens": EMBEDDING_CHUNK_TARGET_TOKENS,
+        "chunk_token_overlap": EMBEDDING_CHUNK_TOKEN_OVERLAP,
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
 
 _FTS_TOKEN_RE = re.compile(r"[0-9A-Za-zÇĞİÖŞÜçğıöşü]{3,}")
 _FTS_RELAXED_STOPWORDS = {
@@ -78,119 +108,6 @@ _FTS_RELAXED_MAX_TERMS = 12
 _LEXICAL_RELEVANCE_BOOST = 0.045
 _PHRASE_RELEVANCE_BOOST = 0.03
 _PHRASE_RELEVANCE_MAX = 0.06
-
-_SCHEMA_SQL = f"""\
-CREATE TABLE IF NOT EXISTS document_chunks (
-    id              SERIAL PRIMARY KEY,
-    doc_id          TEXT NOT NULL,
-    chunk_index     INTEGER NOT NULL,
-    title           TEXT DEFAULT '',
-    category        TEXT DEFAULT '',
-    decision_date   TEXT DEFAULT '',
-    decision_number TEXT DEFAULT '',
-    source_url      TEXT DEFAULT '',
-    total_chunks    INTEGER DEFAULT 1,
-    total_pages     INTEGER DEFAULT 1,
-    content_hash    TEXT DEFAULT '',
-    chunk_start_char INTEGER,
-    chunk_end_char   INTEGER,
-    section_type    TEXT DEFAULT '',
-    section_ref     TEXT DEFAULT '',
-    section_start_char INTEGER,
-    section_end_char   INTEGER,
-    section_content_hash TEXT DEFAULT '',
-    chunk_text      TEXT NOT NULL,
-    embedding       vector({EMBEDDING_DIMENSION}),
-    tsv             tsvector,
-    UNIQUE(doc_id, chunk_index)
-);
-
-CREATE INDEX IF NOT EXISTS idx_chunks_doc_id ON document_chunks(doc_id);
-CREATE INDEX IF NOT EXISTS idx_chunks_tsv ON document_chunks USING gin(tsv);
-"""
-
-# HNSW index created separately (expensive, only once)
-_HNSW_INDEX_SQL = """
-CREATE INDEX IF NOT EXISTS idx_chunks_embedding_hnsw
-ON document_chunks USING hnsw (embedding vector_cosine_ops)
-WITH (m = 16, ef_construction = 64);
-"""
-
-# Trigger to auto-populate tsvector on insert/update
-_FTS_TRIGGER_SQL = """\
-CREATE OR REPLACE FUNCTION chunks_tsv_trigger() RETURNS trigger AS $$
-BEGIN
-    NEW.tsv := to_tsvector('simple', immutable_unaccent(coalesce(NEW.title, '')))
-            || to_tsvector('simple', immutable_unaccent(coalesce(NEW.chunk_text, '')));
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS chunks_tsv_update ON document_chunks;
-CREATE TRIGGER chunks_tsv_update BEFORE INSERT OR UPDATE
-ON document_chunks FOR EACH ROW EXECUTE FUNCTION chunks_tsv_trigger();
-"""
-
-# Migration for existing installations without tsv column
-_MIGRATION_SQL = """\
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'document_chunks' AND column_name = 'tsv'
-    ) THEN
-        ALTER TABLE document_chunks ADD COLUMN tsv tsvector;
-        CREATE INDEX IF NOT EXISTS idx_chunks_tsv ON document_chunks USING gin(tsv);
-    END IF;
-END $$;
-"""
-
-_SECTION_METADATA_MIGRATION_SQL = """\
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'document_chunks' AND column_name = 'chunk_start_char'
-    ) THEN
-        ALTER TABLE document_chunks ADD COLUMN chunk_start_char INTEGER;
-    END IF;
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'document_chunks' AND column_name = 'chunk_end_char'
-    ) THEN
-        ALTER TABLE document_chunks ADD COLUMN chunk_end_char INTEGER;
-    END IF;
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'document_chunks' AND column_name = 'section_type'
-    ) THEN
-        ALTER TABLE document_chunks ADD COLUMN section_type TEXT DEFAULT '';
-    END IF;
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'document_chunks' AND column_name = 'section_ref'
-    ) THEN
-        ALTER TABLE document_chunks ADD COLUMN section_ref TEXT DEFAULT '';
-    END IF;
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'document_chunks' AND column_name = 'section_start_char'
-    ) THEN
-        ALTER TABLE document_chunks ADD COLUMN section_start_char INTEGER;
-    END IF;
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'document_chunks' AND column_name = 'section_end_char'
-    ) THEN
-        ALTER TABLE document_chunks ADD COLUMN section_end_char INTEGER;
-    END IF;
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'document_chunks' AND column_name = 'section_content_hash'
-    ) THEN
-        ALTER TABLE document_chunks ADD COLUMN section_content_hash TEXT DEFAULT '';
-    END IF;
-END $$;
-CREATE INDEX IF NOT EXISTS idx_chunks_section_ref ON document_chunks(section_type, section_ref);
-"""
 
 
 @dataclass(frozen=True)
@@ -587,7 +504,6 @@ class VectorStore:
     Usage::
 
         store = VectorStore(pool)
-        await store.initialize()
         await store.add_document(doc_id="1291", title="...", content="...", metadata={...})
         results = await store.search("sermaye yeterliliği hesaplama", limit=10)
         doc = await store.get_document("1291")
@@ -599,32 +515,21 @@ class VectorStore:
         self._embed_fn = None
         self._rerank_fn = None
 
+    @property
+    def retrieval_profile_hash(self) -> str:
+        """Return the exact profile accepted by this runtime."""
+
+        return retrieval_profile_hash(self._embedding_model)
+
     async def initialize(self) -> None:
-        """Create schema, indexes, FTS trigger, and run migrations."""
-        async with self._pool.acquire() as conn:
-            # Extensions and helper function first
-            await conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
-            await conn.execute("CREATE EXTENSION IF NOT EXISTS unaccent")
-            await conn.execute("""
-                CREATE OR REPLACE FUNCTION immutable_unaccent(text) RETURNS text AS $$
-                    SELECT unaccent($1)
-                $$ LANGUAGE sql IMMUTABLE;
-            """)
-            await conn.execute(_SCHEMA_SQL)
-            # Migration adds tsv column to tables created before FTS was added
-            await conn.execute(_MIGRATION_SQL)
-            await conn.execute(_SECTION_METADATA_MIGRATION_SQL)
-            await conn.execute(_FTS_TRIGGER_SQL)
-            await conn.execute(_HNSW_INDEX_SQL)
+        """Deprecated SELECT-only compatibility readiness check.
 
-        # Backfill tsvector for existing chunks that don't have it
-        null_count = await self._pool.fetchval("SELECT COUNT(*) FROM document_chunks WHERE tsv IS NULL")
-        if null_count and null_count > 0:
-            logger.info("Backfilling tsvector for %d chunks...", null_count)
-            await self._pool.execute("UPDATE document_chunks SET chunk_text = chunk_text WHERE tsv IS NULL")
-            logger.info("tsvector backfill complete")
+        Schema migrations and data backfills are explicit operator actions;
+        this method never mutates database state.
+        """
+        from bddk_mcp.db_lifecycle import assert_database_ready
 
-        logger.info("VectorStore initialized (pgvector + FTS hybrid)")
+        await assert_database_ready(pool=self._pool, require_corpus=False)
 
     async def close(self) -> None:
         """No-op — pool lifecycle is managed externally."""
@@ -640,18 +545,30 @@ class VectorStore:
         from sentence_transformers import SentenceTransformer
 
         model_ref = EMBEDDING_MODEL_PATH if EMBEDDING_MODEL_PATH else self._embedding_model
+        model_kwargs = {}
         if EMBEDDING_MODEL_PATH:
             logger.info("Loading embeddings from local path: %s", EMBEDDING_MODEL_PATH)
         else:
-            logger.info("Loading embeddings from model name: %s (may download)", self._embedding_model)
+            if not EMBEDDING_MODEL_REVISION:
+                raise RuntimeError(
+                    "BDDK_EMBEDDING_MODEL_REVISION is required when loading a remote custom embedding model."
+                )
+            model_kwargs["revision"] = EMBEDDING_MODEL_REVISION
+            logger.info("Loading pinned embeddings from remote model name: %s", self._embedding_model)
 
         try:
-            self._embed_fn = SentenceTransformer(model_ref, device="cuda")
+            self._embed_fn = SentenceTransformer(model_ref, device="cuda", **model_kwargs)
             logger.info("Loaded GPU-accelerated embeddings: %s", model_ref)
         except (RuntimeError, ValueError, AssertionError):
             # CPU-only torch raises AssertionError on CUDA probe, not RuntimeError.
-            self._embed_fn = SentenceTransformer(model_ref, device="cpu")
+            self._embed_fn = SentenceTransformer(model_ref, device="cpu", **model_kwargs)
             logger.info("Loaded CPU embeddings: %s", model_ref)
+        dimension = self._embed_fn.get_sentence_embedding_dimension()
+        if dimension != EMBEDDING_DIMENSION:
+            self._embed_fn = None
+            raise RuntimeError(
+                f"Embedding model dimension must be {EMBEDDING_DIMENSION} for the current database schema."
+            )
 
     def _chunk_tokenizer(self):
         if EMBEDDING_CHUNK_MODE != "token":
@@ -670,14 +587,21 @@ class VectorStore:
         from sentence_transformers import CrossEncoder
 
         model_ref = RERANKER_MODEL_PATH if RERANKER_MODEL_PATH else RERANKER_MODEL_NAME
+        model_kwargs = {}
+        if not RERANKER_MODEL_PATH:
+            if not RERANKER_MODEL_REVISION:
+                raise RuntimeError(
+                    "BDDK_RERANKER_MODEL_REVISION is required when loading a remote custom reranker model."
+                )
+            model_kwargs["revision"] = RERANKER_MODEL_REVISION
         logger.info("Loading cross-encoder reranker: %s", model_ref)
 
         try:
-            self._rerank_fn = CrossEncoder(model_ref, device="cuda")
+            self._rerank_fn = CrossEncoder(model_ref, device="cuda", **model_kwargs)
             logger.info("Loaded GPU-accelerated reranker: %s", model_ref)
         except (RuntimeError, ValueError, AssertionError):
             # CPU-only torch raises AssertionError on CUDA probe, not RuntimeError.
-            self._rerank_fn = CrossEncoder(model_ref, device="cpu")
+            self._rerank_fn = CrossEncoder(model_ref, device="cpu", **model_kwargs)
             logger.info("Loaded CPU reranker: %s", model_ref)
 
     async def _embed(self, texts: list[str], prefix: str = "passage") -> list[list[float]]:
@@ -719,8 +643,16 @@ class VectorStore:
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                stored_hash = await conn.fetchval(
+                    "SELECT content_hash FROM public.documents WHERE document_id = $1 FOR SHARE",
+                    doc_id,
+                )
+                if stored_hash != content_hash:
+                    raise VectorIndexConsistencyError(
+                        "Vector chunks were not published because the stored document hash does not match."
+                    )
                 # Delete old chunks
-                await conn.execute("DELETE FROM document_chunks WHERE doc_id = $1", doc_id)
+                await conn.execute("DELETE FROM public.document_chunks WHERE doc_id = $1", doc_id)
 
                 # Bulk insert new chunks with embeddings (tsv auto-populated by trigger)
                 args_list = []
@@ -752,7 +684,7 @@ class VectorStore:
 
                 await conn.executemany(
                     """
-                    INSERT INTO document_chunks (
+                    INSERT INTO public.document_chunks (
                         doc_id, chunk_index, title, category, decision_date,
                         decision_number, source_url, total_chunks, total_pages,
                         content_hash, chunk_start_char, chunk_end_char,
@@ -762,20 +694,146 @@ class VectorStore:
                     """,
                     args_list,
                 )
+                await self._publish_document_on_connection(
+                    conn,
+                    doc_id=doc_id,
+                    content_hash=content_hash,
+                    expected_chunks=len(chunks),
+                )
 
         logger.debug("Added %s: %d chunks", doc_id, len(chunks))
         return len(chunks)
+
+    async def _publish_document_on_connection(
+        self,
+        conn,
+        *,
+        doc_id: str,
+        content_hash: str,
+        expected_chunks: int,
+    ) -> None:
+        """Publish one complete, embedded chunk set inside its write transaction."""
+
+        if not re.fullmatch(r"[0-9a-f]{64}", content_hash) or expected_chunks < 1:
+            raise VectorIndexConsistencyError("Vector chunks failed publication integrity validation.")
+        source = await conn.fetchrow(
+            "SELECT markdown_content, content_hash FROM public.documents WHERE document_id = $1",
+            doc_id,
+        )
+        if source is None or source["content_hash"] != content_hash:
+            raise VectorIndexConsistencyError("Vector chunks failed publication integrity validation.")
+        expected = _chunk_document(
+            doc_id,
+            source["markdown_content"] or "",
+            tokenizer=self._chunk_tokenizer(),
+        )
+        actual = await conn.fetch(
+            """
+            SELECT chunk_index, chunk_text, chunk_start_char, chunk_end_char,
+                   section_type, section_ref, section_start_char, section_end_char,
+                   section_content_hash, content_hash, total_chunks
+            FROM public.document_chunks
+            WHERE doc_id = $1
+            ORDER BY chunk_index
+            """,
+            doc_id,
+        )
+        if len(expected) != expected_chunks or len(actual) != expected_chunks:
+            raise VectorIndexConsistencyError("Vector chunks failed publication integrity validation.")
+        for index, (expected_chunk, actual_chunk) in enumerate(zip(expected, actual, strict=True)):
+            expected_values = (
+                index,
+                expected_chunk.chunk_text,
+                expected_chunk.start_char,
+                expected_chunk.end_char,
+                expected_chunk.section_type,
+                expected_chunk.section_ref,
+                expected_chunk.section_start_char,
+                expected_chunk.section_end_char,
+                expected_chunk.section_content_hash,
+                content_hash,
+                expected_chunks,
+            )
+            actual_values = (
+                actual_chunk["chunk_index"],
+                actual_chunk["chunk_text"],
+                actual_chunk["chunk_start_char"],
+                actual_chunk["chunk_end_char"],
+                actual_chunk["section_type"] or "",
+                actual_chunk["section_ref"] or "",
+                actual_chunk["section_start_char"],
+                actual_chunk["section_end_char"],
+                actual_chunk["section_content_hash"] or "",
+                actual_chunk["content_hash"] or "",
+                actual_chunk["total_chunks"],
+            )
+            if actual_values != expected_values:
+                raise VectorIndexConsistencyError("Vector chunks failed publication integrity validation.")
+        integrity = await conn.fetchrow(
+            """
+            SELECT document.content_hash AS document_hash,
+                   COUNT(chunk.id)::pg_catalog.int4 AS chunk_count,
+                   MIN(chunk.chunk_index)::pg_catalog.int4 AS first_index,
+                   MAX(chunk.chunk_index)::pg_catalog.int4 AS last_index,
+                   pg_catalog.bool_and(chunk.content_hash = $2) AS hashes_match,
+                   pg_catalog.bool_and(chunk.embedding IS NOT NULL) AS embeddings_complete,
+                   pg_catalog.bool_and(chunk.total_chunks = $3) AS totals_match
+            FROM public.documents AS document
+            LEFT JOIN public.document_chunks AS chunk
+              ON chunk.doc_id = document.document_id
+            WHERE document.document_id = $1
+            GROUP BY document.content_hash
+            """,
+            doc_id,
+            content_hash,
+            expected_chunks,
+        )
+        if (
+            integrity is None
+            or integrity["document_hash"] != content_hash
+            or integrity["chunk_count"] != expected_chunks
+            or integrity["first_index"] != 0
+            or integrity["last_index"] != expected_chunks - 1
+            or not integrity["hashes_match"]
+            or not integrity["embeddings_complete"]
+            or not integrity["totals_match"]
+        ):
+            raise VectorIndexConsistencyError("Vector chunks failed publication integrity validation.")
+        await conn.execute(
+            """
+            INSERT INTO public.document_retrieval_publications (
+                doc_id, content_hash, retrieval_profile_hash, expected_chunks, published_at
+            ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+            ON CONFLICT (doc_id) DO UPDATE SET
+                content_hash = EXCLUDED.content_hash,
+                retrieval_profile_hash = EXCLUDED.retrieval_profile_hash,
+                expected_chunks = EXCLUDED.expected_chunks,
+                published_at = EXCLUDED.published_at
+            """,
+            doc_id,
+            content_hash,
+            self.retrieval_profile_hash,
+            expected_chunks,
+        )
 
     # -- Retrieve by ID -------------------------------------------------------
 
     async def get_document(self, doc_id: str) -> dict | None:
         """Retrieve a full document by ID. Reconstructs from chunks."""
         rows = await self._pool.fetch(
-            "SELECT chunk_index, chunk_text, title, category, decision_date, "
-            "decision_number, source_url, total_chunks, total_pages, "
-            "chunk_start_char, chunk_end_char "
-            "FROM document_chunks WHERE doc_id = $1 ORDER BY chunk_index",
+            "SELECT chunk.chunk_index, chunk.chunk_text, document.title, document.category, "
+            "document.decision_date, document.decision_number, document.source_url, "
+            "publication.expected_chunks AS total_chunks, document.total_pages, "
+            "chunk.chunk_start_char, chunk.chunk_end_char "
+            "FROM public.document_chunks AS chunk "
+            "JOIN public.documents AS document "
+            "ON document.document_id = chunk.doc_id AND document.content_hash = chunk.content_hash "
+            "JOIN public.document_retrieval_publications AS publication "
+            "ON publication.doc_id = chunk.doc_id AND publication.content_hash = chunk.content_hash "
+            "WHERE chunk.doc_id = $1 AND publication.retrieval_profile_hash = $2 "
+            "ORDER BY chunk.chunk_index",
             doc_id,
+            self.retrieval_profile_hash,
         )
         if not rows:
             return None
@@ -799,8 +857,16 @@ class VectorStore:
         """Retrieve a paginated page by fetching only the overlapping chunks."""
         # Get document metadata (total_pages, total_chunks, title)
         meta = await self._pool.fetchrow(
-            "SELECT title, total_pages, total_chunks, category FROM document_chunks WHERE doc_id = $1 LIMIT 1",
+            "SELECT document.title, document.total_pages, publication.expected_chunks AS total_chunks, "
+            "document.category "
+            "FROM public.document_chunks AS chunk "
+            "JOIN public.documents AS document "
+            "ON document.document_id = chunk.doc_id AND document.content_hash = chunk.content_hash "
+            "JOIN public.document_retrieval_publications AS publication "
+            "ON publication.doc_id = chunk.doc_id AND publication.content_hash = chunk.content_hash "
+            "WHERE chunk.doc_id = $1 AND publication.retrieval_profile_hash = $2 LIMIT 1",
             doc_id,
+            self.retrieval_profile_hash,
         )
         if not meta:
             return None
@@ -818,11 +884,18 @@ class VectorStore:
         start_char = (page - 1) * PAGE_SIZE
         end_char = page * PAGE_SIZE
         rows = await self._pool.fetch(
-            "SELECT chunk_index, chunk_text, chunk_start_char, chunk_end_char FROM document_chunks "
-            "WHERE doc_id = $1 AND chunk_start_char IS NOT NULL AND chunk_end_char IS NOT NULL "
-            "AND chunk_end_char > $2 AND chunk_start_char < $3 "
-            "ORDER BY chunk_start_char, chunk_index",
+            "SELECT chunk.chunk_index, chunk.chunk_text, chunk.chunk_start_char, chunk.chunk_end_char "
+            "FROM public.document_chunks AS chunk "
+            "JOIN public.documents AS document "
+            "ON document.document_id = chunk.doc_id AND document.content_hash = chunk.content_hash "
+            "JOIN public.document_retrieval_publications AS publication "
+            "ON publication.doc_id = chunk.doc_id AND publication.content_hash = chunk.content_hash "
+            "WHERE chunk.doc_id = $1 AND publication.retrieval_profile_hash = $2 "
+            "AND chunk.chunk_start_char IS NOT NULL "
+            "AND chunk.chunk_end_char IS NOT NULL AND chunk.chunk_end_char > $3 "
+            "AND chunk.chunk_start_char < $4 ORDER BY chunk.chunk_start_char, chunk.chunk_index",
             doc_id,
+            self.retrieval_profile_hash,
             start_char,
             end_char,
         )
@@ -834,10 +907,17 @@ class VectorStore:
             first_chunk = max(0, start_char // step)
             last_chunk = end_char // step + 1  # +1 for safety margin
             rows = await self._pool.fetch(
-                "SELECT chunk_index, chunk_text, chunk_start_char, chunk_end_char FROM document_chunks "
-                "WHERE doc_id = $1 AND chunk_index >= $2 AND chunk_index <= $3 "
-                "ORDER BY chunk_index",
+                "SELECT chunk.chunk_index, chunk.chunk_text, chunk.chunk_start_char, chunk.chunk_end_char "
+                "FROM public.document_chunks AS chunk "
+                "JOIN public.documents AS document "
+                "ON document.document_id = chunk.doc_id AND document.content_hash = chunk.content_hash "
+                "JOIN public.document_retrieval_publications AS publication "
+                "ON publication.doc_id = chunk.doc_id AND publication.content_hash = chunk.content_hash "
+                "WHERE chunk.doc_id = $1 AND publication.retrieval_profile_hash = $2 "
+                "AND chunk.chunk_index >= $3 AND chunk.chunk_index <= $4 "
+                "ORDER BY chunk.chunk_index",
                 doc_id,
+                self.retrieval_profile_hash,
                 first_chunk,
                 last_chunk,
             )
@@ -953,21 +1033,29 @@ class VectorStore:
         query_embedding = (await self._embed([query], prefix="query"))[0]
         vec_str = "[" + ",".join(str(v) for v in query_embedding) + "]"
 
-        where_clause = ""
-        params: list = [vec_str]
+        where_parts = ["publication.retrieval_profile_hash = $2"]
+        params: list = [vec_str, self.retrieval_profile_hash]
         if category:
-            where_clause = "WHERE category = $2"
+            where_parts.append(f"document.category = ${len(params) + 1}")
             params.append(category)
+        where_clause = "WHERE " + " AND ".join(where_parts)
 
         if fetch_limit is None:
             fetch_limit = min(limit * 5, 100)
         sql = f"""
-            SELECT doc_id, title, category, decision_date, chunk_text,
-                   section_type, section_ref, section_start_char, section_end_char, section_content_hash,
-                   embedding <=> $1::vector AS distance
-            FROM document_chunks
+            SELECT chunk.doc_id, document.title, document.category, document.decision_date, chunk.chunk_text,
+                   chunk.section_type, chunk.section_ref, chunk.section_start_char, chunk.section_end_char,
+                   chunk.section_content_hash,
+                   chunk.embedding <=> $1::vector AS distance
+            FROM public.document_chunks AS chunk
+            JOIN public.documents AS document
+              ON document.document_id = chunk.doc_id
+             AND document.content_hash = chunk.content_hash
+            JOIN public.document_retrieval_publications AS publication
+              ON publication.doc_id = chunk.doc_id
+             AND publication.content_hash = chunk.content_hash
             {where_clause}
-            ORDER BY embedding <=> $1::vector
+            ORDER BY chunk.embedding <=> $1::vector
             LIMIT ${len(params) + 1}
         """
         params.append(fetch_limit)
@@ -1041,25 +1129,32 @@ class VectorStore:
         relaxed: bool,
     ) -> list[asyncpg.Record]:
         tsquery = (
-            "to_tsquery('simple', immutable_unaccent($1))"
+            "to_tsquery('simple', public.immutable_unaccent($1))"
             if relaxed
-            else "plainto_tsquery('simple', immutable_unaccent($1))"
+            else "plainto_tsquery('simple', public.immutable_unaccent($1))"
         )
-        where_parts = [f"tsv @@ {tsquery}"]
-        params: list = [query]
+        where_parts = [f"chunk.tsv @@ {tsquery}", "publication.retrieval_profile_hash = $2"]
+        params: list = [query, self.retrieval_profile_hash]
 
         if category:
-            where_parts.append(f"category = ${len(params) + 1}")
+            where_parts.append(f"document.category = ${len(params) + 1}")
             params.append(category)
 
         where_clause = " AND ".join(where_parts)
         params.append(limit)
 
         sql = f"""
-            SELECT doc_id, title, category, decision_date, chunk_text,
-                   section_type, section_ref, section_start_char, section_end_char, section_content_hash,
-                   ts_rank_cd(tsv, {tsquery}) AS fts_rank
-            FROM document_chunks
+            SELECT chunk.doc_id, document.title, document.category, document.decision_date, chunk.chunk_text,
+                   chunk.section_type, chunk.section_ref, chunk.section_start_char, chunk.section_end_char,
+                   chunk.section_content_hash,
+                   ts_rank_cd(chunk.tsv, {tsquery}) AS fts_rank
+            FROM public.document_chunks AS chunk
+            JOIN public.documents AS document
+              ON document.document_id = chunk.doc_id
+             AND document.content_hash = chunk.content_hash
+            JOIN public.document_retrieval_publications AS publication
+              ON publication.doc_id = chunk.doc_id
+             AND publication.content_hash = chunk.content_hash
             WHERE {where_clause}
             ORDER BY fts_rank DESC
             LIMIT ${len(params)}
@@ -1256,18 +1351,40 @@ class VectorStore:
     async def has_document(self, doc_id: str) -> bool:
         """Check if a document exists in the store."""
         row = await self._pool.fetchval(
-            "SELECT 1 FROM document_chunks WHERE doc_id = $1 LIMIT 1",
+            "SELECT 1 FROM public.document_chunks AS chunk "
+            "JOIN public.documents AS document "
+            "ON document.document_id = chunk.doc_id AND document.content_hash = chunk.content_hash "
+            "JOIN public.document_retrieval_publications AS publication "
+            "ON publication.doc_id = chunk.doc_id AND publication.content_hash = chunk.content_hash "
+            "WHERE chunk.doc_id = $1 AND publication.retrieval_profile_hash = $2 LIMIT 1",
             doc_id,
+            self.retrieval_profile_hash,
         )
         return row is not None
 
     async def document_count(self) -> int:
         """Return number of unique documents (not chunks)."""
-        return await self._pool.fetchval("SELECT COUNT(DISTINCT doc_id) FROM document_chunks")
+        return await self._pool.fetchval(
+            "SELECT COUNT(DISTINCT chunk.doc_id) FROM public.document_chunks AS chunk "
+            "JOIN public.documents AS document "
+            "ON document.document_id = chunk.doc_id AND document.content_hash = chunk.content_hash "
+            "JOIN public.document_retrieval_publications AS publication "
+            "ON publication.doc_id = chunk.doc_id AND publication.content_hash = chunk.content_hash "
+            "WHERE publication.retrieval_profile_hash = $1",
+            self.retrieval_profile_hash,
+        )
 
     async def chunk_count(self) -> int:
         """Return total number of chunks."""
-        return await self._pool.fetchval("SELECT COUNT(*) FROM document_chunks")
+        return await self._pool.fetchval(
+            "SELECT COUNT(*) FROM public.document_chunks AS chunk "
+            "JOIN public.documents AS document "
+            "ON document.document_id = chunk.doc_id AND document.content_hash = chunk.content_hash "
+            "JOIN public.document_retrieval_publications AS publication "
+            "ON publication.doc_id = chunk.doc_id AND publication.content_hash = chunk.content_hash "
+            "WHERE publication.retrieval_profile_hash = $1",
+            self.retrieval_profile_hash,
+        )
 
     async def stats(self) -> dict:
         """Return store statistics."""
@@ -1276,7 +1393,14 @@ class VectorStore:
 
         categories: dict[str, int] = {}
         rows = await self._pool.fetch(
-            "SELECT category, COUNT(DISTINCT doc_id) AS cnt FROM document_chunks GROUP BY category ORDER BY category"
+            "SELECT document.category, COUNT(DISTINCT chunk.doc_id) AS cnt "
+            "FROM public.document_chunks AS chunk JOIN public.documents AS document "
+            "ON document.document_id = chunk.doc_id AND document.content_hash = chunk.content_hash "
+            "JOIN public.document_retrieval_publications AS publication "
+            "ON publication.doc_id = chunk.doc_id AND publication.content_hash = chunk.content_hash "
+            "WHERE publication.retrieval_profile_hash = $1 "
+            "GROUP BY document.category ORDER BY document.category",
+            self.retrieval_profile_hash,
         )
         for r in rows:
             categories[r["category"] or "Unknown"] = r["cnt"]
@@ -1286,11 +1410,17 @@ class VectorStore:
             "total_chunks": chunks,
             "categories": categories,
             "embedding_model": self._embedding_model,
+            "embedding_model_revision": "local" if EMBEDDING_MODEL_PATH else EMBEDDING_MODEL_REVISION,
+            "embedding_dimension": EMBEDDING_DIMENSION,
+            "retrieval_profile_hash": self.retrieval_profile_hash,
             "hybrid_search": HYBRID_SEARCH,
             "reranker_enabled": RERANKER_ENABLED,
+            "reranker_model_revision": (
+                "local" if RERANKER_MODEL_PATH else RERANKER_MODEL_REVISION if RERANKER_ENABLED else None
+            ),
         }
 
     async def delete_document(self, doc_id: str) -> bool:
         """Delete all chunks for a document."""
-        result = await self._pool.execute("DELETE FROM document_chunks WHERE doc_id = $1", doc_id)
+        result = await self._pool.execute("DELETE FROM public.document_chunks WHERE doc_id = $1", doc_id)
         return result != "DELETE 0"

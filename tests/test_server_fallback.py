@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from mcp.server.fastmcp.exceptions import ToolError
 
 
 def _register_and_get_tool(deps):
@@ -31,6 +32,7 @@ class TestGetBddkDocumentAirlock:
 
         mock_client = MagicMock()
         mock_client._cache = []
+        mock_client.find_by_id.return_value = None
         mock_client.get_document_markdown = AsyncMock()
 
         mock_vs = MagicMock()
@@ -67,6 +69,7 @@ class TestGetBddkDocumentAirlock:
 
         mock_client = MagicMock()
         mock_client._cache = []
+        mock_client.find_by_id.return_value = None
         mock_client.get_document_markdown = AsyncMock()
 
         mock_vs = MagicMock()
@@ -94,6 +97,7 @@ class TestGetBddkDocumentAirlock:
 
         mock_client = MagicMock()
         mock_client._cache = []
+        mock_client.find_by_id.return_value = None
         mock_client.get_document_markdown = AsyncMock()
 
         mock_vs = MagicMock()
@@ -107,8 +111,10 @@ class TestGetBddkDocumentAirlock:
         deps.vector_store = mock_vs
         deps.doc_store = mock_doc_store
 
-        result = await _register_and_get_tool(deps)("mevzuat_42626")
+        with pytest.raises(ToolError) as error:
+            await _register_and_get_tool(deps)("mevzuat_42626")
 
-        assert "airlocked" in result.lower()
-        assert "mevzuat_42626" in result
+        assert "[ERROR:NOT_FOUND] retryable=false" in str(error.value)
+        assert "airlocked" in str(error.value).lower()
+        assert "mevzuat_42626" in str(error.value)
         mock_client.get_document_markdown.assert_not_called()

@@ -1,6 +1,6 @@
 # BDDK MCP Server
 
-[Türkçe](#turkce) | [English](#english)
+[Türkçe](#turkce) | [English](#english) | [English-only operational guide](README.en.md)
 
 BDDK MCP Server is an offline-first Model Context Protocol server for searching, retrieving, and analyzing Turkish banking regulation data from BDDK and mevzuat.gov.tr. It combines catalog search, document retrieval, section-level legal lookup, semantic search, bulletin analytics, document quality checks, and operator backfill workflows.
 
@@ -26,7 +26,7 @@ Temel kullanım alanları:
 
 ### Öne Çıkan Özellikler
 
-- **MCP uyumlu araçlar:** Claude, Codex ve MCP destekleyen istemcilerle çalışır.
+- **MCP SDK tabanlı araçlar:** stdio ve Streamable HTTP için Claude/Codex yapılandırma örnekleri vardır; bunlar release-spesifik istemci uyumluluk sertifikası değildir.
 - **Offline-first doküman retrieval:** Düzenleme metinleri ve bölümleri PostgreSQL/pgvector üzerinden servis edilir; kurum, duyuru ve bülten araçları upstream erişimi gerektirebilir.
 - **Katalog ve gövde araması ayrımı:** `search_bddk_regulations` sadece başlık/metadata arar; `search_document_store` doküman gövdesinde semantik arama yapar.
 - **Bölüm bazlı erişim:** `get_document_section` ve `search_document_sections` ile `943 İlke 5` veya `mevzuat_22599 Madde 9` gibi referanslar doğrudan bulunur.
@@ -38,7 +38,7 @@ Temel kullanım alanları:
 
 ### Araç Yüzeyi
 
-Varsayılan public deployment `BDDK_ADMIN_TOOLS=false` ile 15 public araç expose eder.
+Varsayılan `public` process profili (`BDDK_TOOL_PROFILE=public` veya `bddk-mcp serve --profile public`) yalnızca 15 public araç expose eder.
 
 | Modül | Araçlar |
 |---|---|
@@ -48,21 +48,23 @@ Varsayılan public deployment `BDDK_ADMIN_TOOLS=false` ile 15 public araç expos
 | Bülten | `get_bddk_bulletin`, `get_bddk_bulletin_snapshot`, `get_bddk_monthly` |
 | Analitik | `analyze_bulletin_trends`, `get_regulatory_digest`, `compare_bulletin_metrics`, `check_bddk_updates` |
 
-`BDDK_ADMIN_TOOLS=true` ile 11 ek operatör aracı açılır. Admin/operator deployment toplam 26 araç expose eder: 15 public araç + 11 operatör aracı.
+Ayrı `operator` process profili (`BDDK_TOOL_PROFILE=operator` veya `bddk-mcp serve --profile operator`) 15 public araca 13 operatör aracı ekler ve toplam 28 araç expose eder. Bu profil ayrı, yazma yetkili `BDDK_OPERATOR_DATABASE_URL` ister; public DSN'e geri dönmez.
 
 - `document_store_stats`
 - `bddk_cache_status`
 - `refresh_bddk_cache`
 - `sync_bddk_documents`
 - `trigger_startup_sync`
+- `get_operator_job`
+- `list_operator_jobs`
+- `cancel_operator_job`
 - `document_health`
 - `health_check`
 - `bddk_metrics`
 - `backfill_degraded_documents`
-- `backfill_status`
 - `document_quality_report`
 
-Geçerli runtime için toplam olası MCP araç sayısı 26'dır. Benchmark şemaları aynı canonical operatör registry'sinden üretilir; benchmark koşuları yine de kullandıkları exact tool listesini ve profili kaydetmelidir. Bkz. [benchmark/README.md](benchmark/README.md).
+Geçerli runtime için canonical operator registry 15 public ve 13 operatör aracı, yani toplam 28 MCP aracı içerir. Mutating operatör araçları hemen bir job receipt döner; durum `get_operator_job`, `list_operator_jobs` ve `cancel_operator_job` ile izlenir. Job kayıtları, hash'lenmiş idempotency anahtarları, sayısal progress ve sınırlı sonuç metrikleri PostgreSQL'deki `bddk_operator.operator_jobs` tablosunda durable olarak tutulur; session-level advisory lease corpus mutation'ını process'ler arasında serialize eder. Runner task'ları hâlâ operator process'indedir; stale `queued` işler otomatik tahmin edilmez ve çok-replica failover banka ortamında doğrulanmamıştır. Bu nedenle OpenShift starter tek `Recreate` replica kullanır ve sistem bank-grade workflow queue olarak sunulmamalıdır. Benchmark şemaları aynı canonical operatör registry'sinden üretilir; benchmark koşuları yine de kullandıkları exact tool listesini ve profili kaydetmelidir. Bkz. [benchmark/README.md](benchmark/README.md).
 
 ### Hızlı Başlangıç
 
@@ -70,7 +72,7 @@ Gereksinimler:
 
 - Python 3.12 veya 3.13
 - `uv`
-- PostgreSQL 14+ ve `pgvector`
+- PostgreSQL, `pgvector` ve `unaccent` (otomatik deployment/test lane'i PostgreSQL 17 kullanır; diğer sürümler için compatibility acceptance yapılmamıştır)
 - Opsiyonel: Docker Compose
 
 Kurulum:
@@ -81,15 +83,23 @@ cd bddk-mcp
 uv sync
 ```
 
-Lokal PostgreSQL:
+Disposable lokal PostgreSQL lifecycle:
 
 ```bash
-docker compose up -d db
-export BDDK_DATABASE_URL=postgresql://bddk:bddk@localhost:5432/bddk
-uv run --frozen bddk-mcp bootstrap
+export BDDK_JWT_ISSUER=https://idp.invalid
+export BDDK_JWT_RESOURCE=https://localhost:8000/mcp
+export BDDK_JWT_JWKS_URL=https://idp.invalid/jwks
+export BDDK_JWT_AUDIENCE=bddk-mcp-local
+docker compose up --build -d bddk-bootstrap
+docker compose wait bddk-bootstrap
+export BDDK_DATABASE_URL=postgresql://bddk_local_public:local-only-public@localhost:5432/bddk
 ```
 
-`bootstrap`, schema migration, reviewed seed import, section index ve embedding backfill işlemlerini açık bir operatör adımı olarak çalıştırır. `serve` bu işlemleri otomatik yapmaz ve hazır olmayan veritabanında açıklayıcı bir hata ile durur.
+Compose yalnızca loopback geliştirme ortamında DBA role/extension hazırlığı → schema-owner `migrate` → DBA grants → ingestion `bootstrap` sırasını çalıştırır. `.invalid` JWT değerleri Compose'un kullanılmayan HTTP service tanımını parse etmesi içindir; bu lifecycle komutu HTTP server başlatmaz ve bu değerler server çalıştırmak için geçerli değildir. Sabit şifreler public test fixture'larıdır ve remote ortamda kullanılmamalıdır. Üretimde `bddk-mcp migrate` yalnız schema işidir; `bddk-mcp bootstrap` önceden migrate edilmiş ve grant uygulanmış şemaya reviewed seed, section ve 768-boyutlu embedding yazar, migration çalıştırmaz. Ayrı kimlik ve tam sıra için [deployment belgesine](docs/DEPLOYMENT.md) bakın.
+
+Ledger öncesi eski bir veritabanı ordinary migration tarafından fail-closed reddedilir. `--adopt-legacy` yalnız exact desteklenen shape için, doğrulanmış backup ve [legacy upgrade runbook'u](docs/LEGACY_DATABASE_UPGRADE.md) ile kullanılan açık bir seçimdir; clean install veya genel repair flag'i değildir.
+
+Dolu bir version-2 veritabanında migration 3 de blocking retrieval-publication backfill ve foreign-key validation nedeniyle varsayılan olarak reddedilir. `--allow-retrieval-publication-backfill` yalnız workload'lar durdurulduktan, geri yüklenebilir backup kanıtlandıktan ve aynı boyuttaki restore üzerinde prova yapıldıktan sonra kontrollü bakım penceresinde kullanılmalıdır. `BDDK_EXPECTED_DATABASE_NAME` ve DBA script'lerinin bağımsız hedef ayarı aktif veritabanıyla eşleşmelidir. İzole lokal Compose profili dışında PostgreSQL DSN'leri `sslmode=verify-full` ve absolute `sslrootcert` kullanmak zorundadır.
 
 Test:
 
@@ -114,12 +124,12 @@ PORT=8000 \
 uv run --frozen bddk-mcp serve
 ```
 
-Streamable HTTP MCP endpoint'i `http://localhost:8000/mcp` olur. Mevcut sunucuda uygulama-seviyesi kimlik doğrulama veya rate limiting yoktur; güvenlik katmanı eklenmeden güvenilmeyen bir ağa açmayın.
+Streamable HTTP MCP endpoint'i `http://localhost:8000/mcp` olur ve server stateless JSON response modunda çalışır. Sabit, content-free probe endpoint'leri `GET /health/live` ve `GET /health/ready`'dir; readiness migration, kritik catalog objeleri, corpus publication ve workload ACL'lerini periyodik olarak yeniden doğrular. Probe'lar authentication/Host kontrolü dışında olsa da process rate ve concurrency limitlerine tabidir. Loopback dışı bind fail-closed davranır: exact Host/HTTPS Origin allowlist'leri ve tam JWT/JWKS ayarları zorunludur; public profil `bddk.read`, operator profil `bddk.operator` scope'u ister. Remote operator ayrıca `BDDK_OPERATOR_REMOTE_ENABLED=true` ile açık opt-in ister. Body, concurrency ve dakikalık rate limitleri uygulama process'i içinde uygulanır; replica'lar arasında global ingress limiti sağlamaz. Ayrıntılar için [deployment belgesine](docs/DEPLOYMENT.md) bakın.
 
 Eski seed import/export yardımcı komutu da korunur; yeni deployment'larda doğrulama içeren `bddk-mcp bootstrap` tercih edilir:
 
 ```bash
-BDDK_DATABASE_URL=postgresql://bddk:bddk@localhost:5432/bddk \
+BDDK_INGESTION_DATABASE_URL=postgresql://bddk_local_ingestion:local-only-ingestion@localhost:5432/bddk \
 uv run --frozen bddk-seed import
 ```
 
@@ -193,26 +203,25 @@ Belirli bir kalite failure dokümanını yeniden çekme:
 uv run python scripts/backfill_quality_failures.py --doc-id mevzuat_21192 --execute
 ```
 
-Mevcut dokümanlardan `document_sections` tablosunu yeniden oluşturma:
+Mevcut dokümanlardan `document_sections` tablosunu ingestion kimliğiyle yeniden oluşturma:
 
 ```bash
-uv run python scripts/reindex_document_sections.py --execute
+BDDK_INGESTION_DATABASE_URL=postgresql://INGESTION:SECRET@HOST:5432/DB \
+  uv run python scripts/reindex_document_sections.py --execute
 ```
 
-Railway production üzerinde tek seferlik section reindex:
-
-```bash
-railway run --service Postgres --environment production \
-  sh -c 'uv run python scripts/reindex_document_sections.py --database-url "$DATABASE_PUBLIC_URL" --execute'
-```
+Execution yapan quality backfill, sync ve reindex scriptleri de `BDDK_INGESTION_DATABASE_URL` ister ve exact `bddk_ingestion` privilege contract'ını doğrular; public veya operator DSN'iyle çalıştırılmamalıdır.
 
 Opsiyonel retrieval telemetry:
 
 ```bash
-BDDK_TELEMETRY_ENABLED=true uv run --frozen bddk-mcp
+BDDK_DATABASE_URL=postgresql://PUBLIC:SECRET@HOST:5432/DB \
+BDDK_TELEMETRY_ENABLED=true \
+BDDK_TELEMETRY_DATABASE_URL=postgresql://TELEMETRY:SECRET@HOST:5432/DB \
+  uv run --frozen bddk-mcp serve --profile public
 ```
 
-Telemetry varsayılan olarak kapalıdır. Açıldığında `tool_call_traces` tablosuna latency, result count, doc ID, kalite etiketi ve relevance özeti yazar; query/prompt metni hash/uzunluk özeti olarak saklanır. Raw metin yalnızca `BDDK_TELEMETRY_STORE_TEXT=true` açıkça set edilirse yazılır.
+Telemetry varsayılan olarak kapalıdır. Açıldığında ayrı LOGIN yalnız `bddk_telemetry_writer` rolünü inherit etmelidir; startup column-scoped INSERT-only yetkiyi doğrular ve trace okuma/değiştirme veya geniş membership'i reddeder. `tool_call_traces` tablosuna latency, result count, doc ID, kalite etiketi ve relevance özeti yazar; query/prompt metni hash/uzunluk özeti olarak saklanır. Raw metin yalnızca `BDDK_TELEMETRY_STORE_TEXT=true` açıkça set edilirse yazılır.
 
 ### Mimari
 
@@ -221,7 +230,9 @@ server.py                 Kök shim → bddk_mcp/server.py
 seed.py                   Kök shim → bddk_mcp/ingest/seed.py
 bddk_mcp/                 Ana paket
   server.py               FastMCP giriş noktası ve lifecycle
-  core/                   config, deps, exceptions, logging_config, models, utils
+  core/                   config, DB identity, outbound HTTP, logging ve modeller
+  migrations/             Immutable global PostgreSQL migration ledger
+  jobs/                   Durable operator job modelleri ve PostgreSQL repository
   store/                  doc_store, vector_store, section_index, legal_ref
   ingest/                 client, data_sources, doc_sync, html_extractor, backfill, seed
   quality/                markdown_quality, quality_scan
@@ -236,11 +247,16 @@ benchmark/                Tool schema ve benchmark altyapısı
 
 - Tam düzenleme dokümanı ve bölüm retrieval cevapları lokal store'dan gelir; bu iki akış runtime'da doküman live-fetch yapmaz.
 - Katalog cache yenileme, kurum/duyuru araması ve bülten araçları yapılandırmaya ve cache durumuna göre BDDK upstream servislerine erişebilir.
+- Live regulatory HTTP path'leri exact BDDK/mevzuat HTTPS host'ları, redirect/DNS revalidation ve artifact tipine göre code-owned streaming limitleri uygular; URL/query/exception metni retry loglarına yazılmaz. DNS-to-connect yarışı nedeniyle OpenShift'te yine egress NetworkPolicy veya approved proxy/firewall zorunludur.
+- Default embedding modeli full commit `d13f1b27baf31030b7fd040960d60d909913633f`, opsiyonel default reranker `1427fd652930e4ba29e8149678df786c240d8825` ile pinlenmiştir; immutable şema yalnız `vector(768)` kabul eder. Model/chunk ayarı değişikliği kontrollü full re-embedding ve retrieval regression gerektirir.
+- Retrieval publication kaydı yalnız chunk bütünlüğü, güncel content hash'i ve aktif retrieval profile doğrulandıktan sonra yazılır; eksik veya stale index arama sonuçlarına sessizce karışmaz.
+- Runtime wheel/sdist `seed_data`, benchmark ve deployment asset'lerini içermez; sağlanan container reviewed seed'i açıkça içerir. Wheel kurulumu approved corpus mount etmeli ve bootstrap'a `--seed-dir` veya `BDDK_SEED_DIR` vermelidir.
 - Kalitesi düşük extraction çıktıları `warning` veya `fail` olarak işaretlenir.
 - Formül ağır veya OCR bozuk dokümanlarda kaynak PDF incelemesi gerekebilir.
 - `get_bddk_document` cevaplarında data URI, raw HTML ve bazı OCR artefact'ları temizlenir.
 - Model cevap verirken sadece tool çıktısına dayanmalıdır; karar numarası, tarih veya hukuki sonuç uydurulmamalıdır.
 - Bilinen extraction sorunları, fail doküman listesi ve backfill komutları için [docs/DOCUMENT_QUALITY.md](docs/DOCUMENT_QUALITY.md) sayfasına bakın.
+- Bankanın OpenShift AI cluster'ı, backup/restore akışı ve Claude/Codex/GPT/GPT-OSS/LM Studio/local model client matrix'i henüz bu repository ile acceptance testinden geçmemiştir.
 
 ---
 
@@ -264,7 +280,7 @@ Common use cases:
 
 ### Highlights
 
-- **MCP-compatible tools:** works with Claude, Codex, and other MCP clients.
+- **MCP SDK tool surface:** stdio and Streamable HTTP examples are provided for Claude/Codex; examples are not release-specific compatibility certification.
 - **Offline-first document retrieval:** regulation text and sections are served from PostgreSQL/pgvector; institution, announcement, and bulletin tools may require upstream access.
 - **Catalog/body separation:** `search_bddk_regulations` searches metadata; `search_document_store` searches document bodies.
 - **Section-level retrieval:** `get_document_section` and `search_document_sections` support references like `943 Ilke 5` and `mevzuat_22599 Madde 9`.
@@ -276,7 +292,7 @@ Common use cases:
 
 ### Tool Surface
 
-The default public deployment with `BDDK_ADMIN_TOOLS=false` exposes 15 public tools.
+The default `public` process profile (`BDDK_TOOL_PROFILE=public` or `bddk-mcp serve --profile public`) exposes only 15 public tools.
 
 | Module | Tools |
 |---|---|
@@ -286,21 +302,23 @@ The default public deployment with `BDDK_ADMIN_TOOLS=false` exposes 15 public to
 | Bulletin | `get_bddk_bulletin`, `get_bddk_bulletin_snapshot`, `get_bddk_monthly` |
 | Analytics | `analyze_bulletin_trends`, `get_regulatory_digest`, `compare_bulletin_metrics`, `check_bddk_updates` |
 
-With `BDDK_ADMIN_TOOLS=true`, 11 additional operator tools are exposed. The admin/operator deployment exposes 26 tools total: 15 public tools plus 11 operator tools.
+The separate `operator` process profile (`BDDK_TOOL_PROFILE=operator` or `bddk-mcp serve --profile operator`) adds 13 operator tools to the 15 public tools and exposes 28 tools total. It requires a separate, write-capable `BDDK_OPERATOR_DATABASE_URL` and never falls back to the public DSN.
 
 - `document_store_stats`
 - `bddk_cache_status`
 - `refresh_bddk_cache`
 - `sync_bddk_documents`
 - `trigger_startup_sync`
+- `get_operator_job`
+- `list_operator_jobs`
+- `cancel_operator_job`
 - `document_health`
 - `health_check`
 - `bddk_metrics`
 - `backfill_degraded_documents`
-- `backfill_status`
 - `document_quality_report`
 
-The current runtime has 26 possible MCP tools. Benchmark schemas are exported from the same canonical operator registry; benchmark runs should still record the exact tool list and profile they used. See [benchmark/README.md](benchmark/README.md).
+The canonical operator registry contains 15 public tools plus 13 operator tools, or 28 MCP tools total. Mutating operator tools return an immediate job receipt; use `get_operator_job`, `list_operator_jobs`, and `cancel_operator_job` to observe them. Job records, hashed idempotency keys, numeric progress, and bounded result metrics are durable in PostgreSQL table `bddk_operator.operator_jobs`; a session advisory lease serializes corpus mutation across processes. Runner tasks still live in the operator process, stale `queued` work is never guessed automatically, and multi-replica failover has not been accepted in a bank environment. The OpenShift starter therefore uses one `Recreate` replica, and this is not represented as a bank-grade workflow queue. Benchmark schemas are exported from the same canonical operator registry; benchmark runs should still record the exact tool list and profile they used. See [benchmark/README.md](benchmark/README.md).
 
 ### Quick Start
 
@@ -308,7 +326,7 @@ Requirements:
 
 - Python 3.12 or 3.13
 - `uv`
-- PostgreSQL 14+ with `pgvector`
+- PostgreSQL with `pgvector` and `unaccent` (the automated deployment/test lane uses PostgreSQL 17; other versions have not completed compatibility acceptance)
 - Optional: Docker Compose
 
 Install:
@@ -319,15 +337,23 @@ cd bddk-mcp
 uv sync
 ```
 
-Local PostgreSQL:
+Disposable local PostgreSQL lifecycle:
 
 ```bash
-docker compose up -d db
-export BDDK_DATABASE_URL=postgresql://bddk:bddk@localhost:5432/bddk
-uv run --frozen bddk-mcp bootstrap
+export BDDK_JWT_ISSUER=https://idp.invalid
+export BDDK_JWT_RESOURCE=https://localhost:8000/mcp
+export BDDK_JWT_JWKS_URL=https://idp.invalid/jwks
+export BDDK_JWT_AUDIENCE=bddk-mcp-local
+docker compose up --build -d bddk-bootstrap
+docker compose wait bddk-bootstrap
+export BDDK_DATABASE_URL=postgresql://bddk_local_public:local-only-public@localhost:5432/bddk
 ```
 
-`bootstrap` explicitly runs schema migration, reviewed seed import, section indexing, and embedding backfill. `serve` never performs these lifecycle writes and exits with an actionable error when the database is not ready.
+For loopback development only, Compose runs DBA role/extension setup → schema-owner `migrate` → DBA grants → ingestion `bootstrap`. The reserved `.invalid` JWT values only let Compose parse an unused HTTP service definition; this lifecycle target starts no HTTP server, and those values are not valid server configuration. Its fixed passwords are public test fixtures and must not be copied remotely. In production, `bddk-mcp migrate` performs schema work only. `bddk-mcp bootstrap` requires an already migrated and granted schema, then imports the reviewed seed, sections, and 768-dimensional embeddings; it does not migrate. See the [deployment guide](docs/DEPLOYMENT.md) for the complete identity and apply order.
+
+Ordinary migration fails closed on a pre-ledger unmanaged database. `--adopt-legacy` is an explicit option only for the exact supported shape after a proven backup and the [legacy upgrade runbook](docs/LEGACY_DATABASE_UPGRADE.md); it is not a clean-install or general repair flag.
+
+A populated version-2 database also refuses migration 3 by default because the retrieval-publication backfill takes blocking locks and validates foreign keys. Use `--allow-retrieval-publication-backfill` only in a controlled maintenance window after stopping workloads, proving a restorable backup, and rehearsing a size-matched restore. `BDDK_EXPECTED_DATABASE_NAME` and the independent DBA-script target must match the active database. Outside isolated local Compose, PostgreSQL DSNs must use `sslmode=verify-full` and an absolute `sslrootcert` path.
 
 Test:
 
@@ -352,12 +378,12 @@ PORT=8000 \
 uv run --frozen bddk-mcp serve
 ```
 
-The Streamable HTTP MCP endpoint is `http://localhost:8000/mcp`. The current server has no application-level authentication or rate limiting; do not expose it to an untrusted network until a security layer is added.
+The Streamable HTTP MCP endpoint is `http://localhost:8000/mcp`, configured for stateless JSON responses. The fixed, content-free probe endpoints are `GET /health/live` and `GET /health/ready`; readiness periodically re-attests migrations, critical catalog objects, corpus publication, and workload ACLs. Probes bypass authentication/Host checks but remain subject to process rate and concurrency admission. A non-loopback bind fails closed unless exact Host/HTTPS Origin allowlists and the complete JWT/JWKS configuration are supplied; the public profile requires `bddk.read`, while the operator profile requires `bddk.operator`. Remote operator HTTP also requires the explicit `BDDK_OPERATOR_REMOTE_ENABLED=true` opt-in. Body, concurrency, and per-minute rate controls are local to one application process and are not a shared ingress rate limit across replicas. See the [deployment guide](docs/DEPLOYMENT.md) for the complete contract.
 
 The legacy seed import/export helper remains available; prefer `bddk-mcp bootstrap` for new deployments because it includes readiness validation:
 
 ```bash
-BDDK_DATABASE_URL=postgresql://bddk:bddk@localhost:5432/bddk \
+BDDK_INGESTION_DATABASE_URL=postgresql://bddk_local_ingestion:local-only-ingestion@localhost:5432/bddk \
 uv run --frozen bddk-seed import
 ```
 
@@ -431,26 +457,25 @@ Re-extract one known failed document:
 uv run python scripts/backfill_quality_failures.py --doc-id mevzuat_21192 --execute
 ```
 
-Rebuild `document_sections` for existing stored documents:
+Rebuild `document_sections` for existing stored documents with the ingestion identity:
 
 ```bash
-uv run python scripts/reindex_document_sections.py --execute
+BDDK_INGESTION_DATABASE_URL=postgresql://INGESTION:SECRET@HOST:5432/DB \
+  uv run python scripts/reindex_document_sections.py --execute
 ```
 
-One-off section reindex on Railway production:
-
-```bash
-railway run --service Postgres --environment production \
-  sh -c 'uv run python scripts/reindex_document_sections.py --database-url "$DATABASE_PUBLIC_URL" --execute'
-```
+Executed quality backfill, synchronization, and reindex scripts likewise require `BDDK_INGESTION_DATABASE_URL` and verify the exact `bddk_ingestion` privilege contract. Do not run them with the public or operator DSN.
 
 Optional retrieval telemetry:
 
 ```bash
-BDDK_TELEMETRY_ENABLED=true uv run --frozen bddk-mcp
+BDDK_DATABASE_URL=postgresql://PUBLIC:SECRET@HOST:5432/DB \
+BDDK_TELEMETRY_ENABLED=true \
+BDDK_TELEMETRY_DATABASE_URL=postgresql://TELEMETRY:SECRET@HOST:5432/DB \
+  uv run --frozen bddk-mcp serve --profile public
 ```
 
-Telemetry is disabled by default. When enabled, the server writes latency, result counts, document IDs, quality labels, and relevance summaries to `tool_call_traces`; query/prompt text is stored as a hash and length summary. Raw text is only stored when `BDDK_TELEMETRY_STORE_TEXT=true` is explicitly set.
+Telemetry is disabled by default. When enabled, its distinct LOGIN must inherit only `bddk_telemetry_writer`; startup verifies the exact column-scoped INSERT-only contract and rejects trace reads/changes or broader membership. The server writes latency, result counts, document IDs, quality labels, and relevance summaries to `tool_call_traces`; query/prompt text is stored as a hash and length summary. Raw text is only stored when `BDDK_TELEMETRY_STORE_TEXT=true` is explicitly set.
 
 ### Architecture
 
@@ -459,7 +484,9 @@ server.py                 Root shim → bddk_mcp/server.py
 seed.py                   Root shim → bddk_mcp/ingest/seed.py
 bddk_mcp/                 Main package
   server.py               FastMCP entry point and lifecycle
-  core/                   config, deps, exceptions, logging_config, models, utils
+  core/                   configuration, DB identity, outbound HTTP, logging, models
+  migrations/             Immutable global PostgreSQL migration ledger
+  jobs/                   Durable operator-job models and PostgreSQL repository
   store/                  doc_store, vector_store, section_index, legal_ref
   ingest/                 client, data_sources, doc_sync, html_extractor, backfill, seed
   quality/                markdown_quality, quality_scan
@@ -474,11 +501,16 @@ benchmark/                Tool schemas and benchmark infrastructure
 
 - Full regulation-document and section retrieval responses are served from the local store; those paths do not live-fetch documents at runtime.
 - Catalog refresh, institution/announcement search, and bulletin tools can access BDDK upstream services depending on configuration and cache state.
+- Live regulatory HTTP paths enforce exact BDDK/mevzuat HTTPS hosts, redirect/DNS revalidation, and code-owned streaming limits by artifact type; retry logs omit URLs, query strings, and exception text. Because DNS validation cannot eliminate the DNS-to-connect race, OpenShift still requires egress NetworkPolicy or an approved proxy/firewall.
+- The default embedding model is pinned to full commit `d13f1b27baf31030b7fd040960d60d909913633f`, the optional default reranker to `1427fd652930e4ba29e8149678df786c240d8825`, and the immutable schema accepts only `vector(768)`. A model/chunk-setting change requires controlled full re-embedding and retrieval regression testing.
+- A retrieval publication record is written only after chunk integrity, the current content hash, and the active retrieval profile pass validation; incomplete or stale indexes are not silently mixed into search results.
+- Runtime wheels/sdists exclude `seed_data`, benchmark code, and deployment assets; the provided container explicitly includes the reviewed seed. A wheel deployment must mount an approved corpus and pass `--seed-dir` or `BDDK_SEED_DIR` to bootstrap.
 - Low-quality extractions are marked as `warning` or `fail`.
 - Formula-heavy or OCR-corrupted documents may require source PDF review.
 - `get_bddk_document` removes data URIs, raw HTML, and selected OCR artifacts before model context.
 - The model should answer only from tool output. It should not invent decision numbers, dates, or legal conclusions.
 - See [docs/DOCUMENT_QUALITY.md](docs/DOCUMENT_QUALITY.md) for known extraction issues, the tracked fail list, and backfill commands.
+- The target bank's OpenShift AI cluster, backup/restore process, and Claude/Codex/GPT/GPT-OSS/LM Studio/local-model client matrix have not yet completed acceptance testing with this repository.
 
 ### Development Commands
 

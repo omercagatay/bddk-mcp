@@ -3,6 +3,8 @@
 import json
 import logging
 
+import pytest
+
 from bddk_mcp.core.exceptions import (
     BddkError,
     BddkStorageError,
@@ -12,6 +14,7 @@ from bddk_mcp.core.logging_config import (
     HumanFormatter,
     JsonFormatter,
     configure_logging,
+    correlation_scope,
     get_correlation_id,
     set_correlation_id,
 )
@@ -46,6 +49,20 @@ class TestCorrelationId:
         set_correlation_id("test123")
         assert get_correlation_id() == "test123"
         set_correlation_id("")  # cleanup
+
+    def test_scope_is_unique_and_restores_parent(self):
+        set_correlation_id("parent")
+        with correlation_scope() as first:
+            assert get_correlation_id() == first
+            assert first != "parent"
+        assert get_correlation_id() == "parent"
+        set_correlation_id("")
+
+    @pytest.mark.parametrize("value", ["", "contains space", "line\nbreak", "x" * 65])
+    def test_scope_rejects_unsafe_explicit_ids(self, value):
+        with pytest.raises(ValueError, match="safe identifier"):
+            with correlation_scope(value):
+                pass
 
 
 class TestJsonFormatter:

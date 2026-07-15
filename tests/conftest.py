@@ -15,6 +15,20 @@ from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
 # -- PostgreSQL test database -------------------------------------------------
 
 _TEST_DSN = os.environ.get("BDDK_TEST_DATABASE_URL", "postgresql://bddk:bddk@localhost:5432/bddk_test")
+_REQUIRE_TEST_DATABASE = os.environ.get("BDDK_REQUIRE_TEST_DATABASE", "").lower() in {"1", "true", "yes"}
+
+
+def pytest_collection_modifyitems(items):
+    """Label every test that depends on the real PostgreSQL fixture.
+
+    Keeping this at the fixture boundary prevents newly-added database tests
+    from silently escaping the dedicated CI gate simply because an author
+    forgot a decorator.
+    """
+    postgres = pytest.mark.postgres
+    for item in items:
+        if "pg_pool" in item.fixturenames:
+            item.add_marker(postgres)
 
 
 # -- Pool fixture (created once per test, reused via caching) -----------------
@@ -51,10 +65,21 @@ async def pg_pool():
         pool = await asyncpg.create_pool(_TEST_DSN, min_size=1, max_size=5, timeout=5)
         await pool.execute("CREATE EXTENSION IF NOT EXISTS vector")
         await pool.execute("CREATE EXTENSION IF NOT EXISTS unaccent")
+        # Every PostgreSQL test starts from the same checksum-verified schema;
+        # fixtures never create an independent application schema.
+        from bddk_mcp.migrations import migrate
+
+        await migrate(pool)
         _pg_pool_cache = pool
         _pg_pool_loop_id = loop_id
         yield pool
-    except (TimeoutError, asyncpg.PostgresError, OSError):
+    except (TimeoutError, asyncpg.PostgresError, OSError) as exc:
+        if _REQUIRE_TEST_DATABASE:
+            pytest.fail(
+                f"Required PostgreSQL test database is unavailable ({type(exc).__name__}). "
+                "Check BDDK_TEST_DATABASE_URL and required extensions.",
+                pytrace=False,
+            )
         pytest.skip("PostgreSQL test database not available")
 
 
@@ -93,13 +118,8 @@ async def doc_store(pg_pool):
 
     pool_wrapper = SingleConnPool(conn)
     store = DocumentStore(pool_wrapper)
-    await store.initialize()
-
-    # Also create decision_cache table so BddkApiClient queries
-    # don't abort the transaction with "relation does not exist"
-    from bddk_mcp.ingest.client import _CACHE_SCHEMA_SQL
-
-    await conn.execute(_CACHE_SCHEMA_SQL)
+    # The session pool has already run the canonical global migrations.  Test
+    # fixtures deliberately never maintain an independent application schema.
 
     yield store
 

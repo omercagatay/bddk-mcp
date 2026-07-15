@@ -1,14 +1,15 @@
 """Tests for BddkApiClient: HTTP scraping, caching, and document retrieval."""
 
 import time
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 
-from bddk_mcp.core.exceptions import BddkStorageError
+from bddk_mcp.core.exceptions import BddkStorageError, BddkUpstreamError
 from bddk_mcp.core.models import BddkDecisionSummary
 from bddk_mcp.ingest.client import (
+    _ALL_PAGE_IDS,
     _DECISION_PAGE_IDS,
     _EXCLUDED_CATEGORIES,
     _EXCLUDED_TITLE_SUBSTRINGS,
@@ -28,35 +29,60 @@ def _make_client(**kwargs) -> BddkApiClient:
 class TestFetchWithRetry:
     @pytest.mark.asyncio
     async def test_success_first_try(self):
-        client = _make_client()
-        client._http = AsyncMock(spec=httpx.AsyncClient)
-        resp = make_http_response("OK")
-        client._http.get = AsyncMock(return_value=resp)
+        calls = 0
 
-        result = await client._fetch_with_retry("https://example.com")
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
+            return httpx.Response(200, text="OK", request=request)
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+            client = _make_client(http=http)
+            client._assert_public_resolution = AsyncMock()
+            result = await client._fetch_with_retry("https://www.bddk.org.tr/Mevzuat/Liste/50")
+
         assert result.text == "OK"
-        assert client._http.get.call_count == 1
+        assert calls == 1
 
     @pytest.mark.asyncio
     async def test_retry_on_transport_error(self):
-        client = _make_client()
-        client._http = AsyncMock(spec=httpx.AsyncClient)
-        resp = make_http_response("OK")
-        client._http.get = AsyncMock(side_effect=[httpx.TransportError("timeout"), resp])
+        calls = 0
 
-        result = await client._fetch_with_retry("https://example.com")
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise httpx.ConnectError("timeout", request=request)
+            return httpx.Response(200, text="OK", request=request)
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+            client = _make_client(http=http)
+            client._assert_public_resolution = AsyncMock()
+            with patch("bddk_mcp.core.outbound_http.asyncio.sleep", new=AsyncMock()):
+                result = await client._fetch_with_retry("https://www.bddk.org.tr/Mevzuat/Liste/50")
+
         assert result.text == "OK"
-        assert client._http.get.call_count == 2
+        assert calls == 2
 
     @pytest.mark.asyncio
     async def test_max_retries_exhausted(self):
-        client = _make_client()
-        client._http = AsyncMock(spec=httpx.AsyncClient)
-        client._http.get = AsyncMock(side_effect=httpx.TransportError("timeout"))
+        calls = 0
 
-        with pytest.raises(httpx.TransportError):
-            await client._fetch_with_retry("https://example.com")
-        assert client._http.get.call_count == 3
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal calls
+            calls += 1
+            raise httpx.ConnectError("timeout", request=request)
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+            client = _make_client(http=http)
+            client._assert_public_resolution = AsyncMock()
+            with (
+                patch("bddk_mcp.core.outbound_http.asyncio.sleep", new=AsyncMock()),
+                pytest.raises(httpx.TransportError),
+            ):
+                await client._fetch_with_retry("https://www.bddk.org.tr/Mevzuat/Liste/50")
+
+        assert calls == 3
 
 
 class TestCachePersistence:
@@ -68,7 +94,6 @@ class TestCachePersistence:
 
         pool = doc_store._pool  # SingleConnPool wrapping a real connection
         client = BddkApiClient(pool=pool)
-        await client.initialize()
 
         client._cache = [
             BddkDecisionSummary(title="Test", document_id="cache_test_1", content="test", category="Rehber")
@@ -96,6 +121,47 @@ class TestCachePersistence:
         assert not loaded
 
     @pytest.mark.asyncio
+    async def test_context_entry_loads_cache_with_select_and_never_initializes_schema(self):
+        class SelectOnlyPool:
+            def __init__(self) -> None:
+                self.statements: list[str] = []
+
+            async def fetch(self, query: str, *_args):
+                normalized = query.strip()
+                assert normalized.upper().startswith("SELECT"), normalized
+                self.statements.append(normalized)
+                return []
+
+            async def execute(self, *_args, **_kwargs):
+                raise AssertionError("client context entry must not execute DDL")
+
+        pool = SelectOnlyPool()
+        client = BddkApiClient(pool=pool, http=AsyncMock(spec=httpx.AsyncClient))
+        client.initialize = AsyncMock()
+
+        async with client as entered:
+            assert entered is client
+
+        client.initialize.assert_not_awaited()
+        assert len(pool.statements) == 1
+        assert pool.statements[0].upper().startswith("SELECT")
+
+    @pytest.mark.asyncio
+    async def test_legacy_initialize_is_select_only_readiness_wrapper(self):
+        pool = MagicMock()
+        client = BddkApiClient(pool=pool, http=AsyncMock(spec=httpx.AsyncClient))
+        client._load_cache_from_db = AsyncMock(return_value=False)
+        readiness = AsyncMock()
+
+        with patch("bddk_mcp.db_lifecycle.assert_database_ready", new=readiness):
+            await client.initialize()
+
+        readiness.assert_awaited_once_with(pool=pool, require_corpus=False)
+        client._load_cache_from_db.assert_awaited_once_with()
+        pool.acquire.assert_not_called()
+        pool.execute.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_serving_mode_never_populates_an_empty_cache_from_network(self):
         client = BddkApiClient(pool=MockPool(), allow_live_population=False)
         client._scrape_bddk = AsyncMock()
@@ -110,8 +176,7 @@ class TestAccordionParsing:
     @pytest.mark.asyncio
     async def test_parse_accordion_page(self):
         client = _make_client()
-        client._http = AsyncMock(spec=httpx.AsyncClient)
-        client._http.get = AsyncMock(return_value=make_http_response(BDDK_ACCORDION_HTML))
+        client._fetch_with_retry = AsyncMock(return_value=make_http_response(BDDK_ACCORDION_HTML))
 
         decisions = await client._fetch_and_parse_accordion_page(50)
         assert len(decisions) >= 1
@@ -121,8 +186,7 @@ class TestAccordionParsing:
     @pytest.mark.asyncio
     async def test_parse_accordion_empty(self):
         client = _make_client()
-        client._http = AsyncMock(spec=httpx.AsyncClient)
-        client._http.get = AsyncMock(return_value=make_http_response("<html><body></body></html>"))
+        client._fetch_with_retry = AsyncMock(return_value=make_http_response("<html><body></body></html>"))
 
         decisions = await client._fetch_and_parse_accordion_page(50)
         assert decisions == []
@@ -132,8 +196,7 @@ class TestDecisionParsing:
     @pytest.mark.asyncio
     async def test_parse_decision_page(self):
         client = _make_client()
-        client._http = AsyncMock(spec=httpx.AsyncClient)
-        client._http.get = AsyncMock(return_value=make_http_response(BDDK_DECISION_HTML))
+        client._fetch_with_retry = AsyncMock(return_value=make_http_response(BDDK_DECISION_HTML))
 
         decisions = await client._fetch_and_parse_decision_page(55)
         assert len(decisions) == 2
@@ -144,8 +207,7 @@ class TestDecisionParsing:
     @pytest.mark.asyncio
     async def test_parse_decision_page_empty(self):
         client = _make_client()
-        client._http = AsyncMock(spec=httpx.AsyncClient)
-        client._http.get = AsyncMock(return_value=make_http_response("<html></html>"))
+        client._fetch_with_retry = AsyncMock(return_value=make_http_response("<html></html>"))
 
         decisions = await client._fetch_and_parse_decision_page(55)
         assert decisions == []
@@ -178,11 +240,110 @@ class TestDocumentUrlResolution:
         assert "mevzuat.gov.tr" in url
         assert "99999" in url
 
+    def test_unsafe_document_identifier_is_rejected(self):
+        client = _make_client()
+
+        with pytest.raises(RuntimeError, match="identifier is invalid"):
+            client._resolve_document_url("../../private?token=secret")
+
+
+class TestLiveDocumentFailureSafety:
+    @pytest.mark.asyncio
+    async def test_transport_details_and_source_url_are_not_returned(self):
+        client = _make_client()
+        client._fetch_with_retry = AsyncMock(
+            side_effect=httpx.ConnectError("proxy password and private network address")
+        )
+
+        result = await client.get_document_markdown("1296")
+
+        assert "proxy password" not in result.markdown_content
+        assert "https://" not in result.markdown_content
+        assert result.markdown_content == "Error fetching document from the approved regulatory upstream."
+
 
 class TestCacheValidity:
     def test_empty_cache_invalid(self):
         client = _make_client()
         assert not client._is_cache_valid()
+
+
+class TestCacheRefreshIntegrity:
+    """A refresh must never publish a partial or unpersisted catalog."""
+
+    @staticmethod
+    def _decision(document_id: str) -> BddkDecisionSummary:
+        return BddkDecisionSummary(title=f"Document {document_id}", document_id=document_id, content="")
+
+    def _mock_all_pages(self, client: BddkApiClient) -> None:
+        client._fetch_and_parse_accordion_page = AsyncMock(side_effect=lambda page_id: [self._decision(str(page_id))])
+        client._fetch_and_parse_decision_page = AsyncMock(side_effect=lambda page_id: [self._decision(str(page_id))])
+        client._fetch_and_parse_flat_page = AsyncMock(side_effect=lambda page_id: [self._decision(str(page_id))])
+        client._save_cache_to_db = AsyncMock()
+
+    @pytest.mark.asyncio
+    async def test_complete_refresh_publishes_and_persists_new_catalog(self):
+        client = _make_client()
+        self._mock_all_pages(client)
+
+        count = await client.refresh_cache()
+
+        assert count == len(_ALL_PAGE_IDS)
+        assert {item.document_id for item in client.get_cache_items()} == {str(page_id) for page_id in _ALL_PAGE_IDS}
+        client._save_cache_to_db.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_partial_fetch_failure_retains_last_known_good_catalog(self):
+        client = _make_client()
+        previous = self._decision("last-known-good")
+        client._cache = [previous]
+        client._cache_timestamp = 123.0
+        self._mock_all_pages(client)
+        sentinel = "sensitive-upstream-detail"
+
+        async def flat_page(page_id: int):
+            if page_id == _FLAT_PAGE_IDS[0]:
+                raise httpx.TransportError(sentinel)
+            return [self._decision(str(page_id))]
+
+        client._fetch_and_parse_flat_page = AsyncMock(side_effect=flat_page)
+
+        with pytest.raises(BddkUpstreamError, match="incomplete"):
+            await client.refresh_cache()
+
+        assert client.get_cache_items() == [previous]
+        assert client._cache_timestamp == 123.0
+        assert sentinel not in repr(client.cache_status()["page_errors"])
+        client._save_cache_to_db.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_empty_parsed_page_rejects_refresh(self):
+        client = _make_client()
+        previous = self._decision("last-known-good")
+        client._cache = [previous]
+        self._mock_all_pages(client)
+        client._fetch_and_parse_decision_page = AsyncMock(return_value=[])
+
+        with pytest.raises(BddkUpstreamError, match="incomplete"):
+            await client.refresh_cache()
+
+        assert client.get_cache_items() == [previous]
+        client._save_cache_to_db.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_persistence_failure_rolls_back_in_memory_catalog(self):
+        client = _make_client()
+        previous = self._decision("last-known-good")
+        client._cache = [previous]
+        client._cache_timestamp = 456.0
+        self._mock_all_pages(client)
+        client._save_cache_to_db = AsyncMock(side_effect=BddkStorageError("safe"))
+
+        with pytest.raises(BddkStorageError):
+            await client.refresh_cache()
+
+        assert client.get_cache_items() == [previous]
+        assert client._cache_timestamp == 456.0
 
     def test_fresh_cache_valid(self):
         client = _make_client()

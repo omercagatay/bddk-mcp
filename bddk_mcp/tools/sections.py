@@ -2,18 +2,55 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import time
 from typing import TYPE_CHECKING
 
 from bddk_mcp.observability.telemetry import elapsed_ms, record_tool_call_trace, unique_doc_ids
-from bddk_mcp.quality.markdown_quality import QualityAssessment, assess_markdown_quality
+from bddk_mcp.quality.markdown_quality import (
+    QualityAssessment,
+    assess_markdown_quality,
+    sanitize_markdown_for_context,
+)
 from bddk_mcp.store.legal_ref import document_id_candidates, parse_legal_refs
+from bddk_mcp.tools.contract_types import (
+    DocumentId,
+    HeadingFilter,
+    OptionalDocumentId,
+    SectionQuery,
+    SectionRef,
+    SectionResultLimit,
+    SectionType,
+)
+from bddk_mcp.tools.structured_outputs import (
+    UNTRUSTED_SOURCE_WARNING,
+    DocumentSectionResponse,
+    DocumentSectionToolResult,
+    EvidenceReference,
+    QualityMetadata,
+    SectionItem,
+    SectionSearchResponse,
+    SectionSearchToolResult,
+    frame_untrusted_source,
+    structured_tool_result,
+)
+from bddk_mcp.tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
     from bddk_mcp.core.deps import Dependencies
     from bddk_mcp.store.doc_store import StoredDocumentSection
 
+logger = logging.getLogger(__name__)
+
+
+_MAX_EXACT_SECTION_CHARS = 30_000
+_MAX_SEARCH_EXCERPT_CHARS = 2_000
+_MAX_DISAMBIGUATION_RESULTS = 10
+_SECTION_TRUNCATION_WARNING = (
+    "One or more section bodies were returned as bounded excerpts. Use an exact document/section reference "
+    "or paginated full-document retrieval before relying on omitted text."
+)
 
 _LOOSE_SECTION_SEARCH_STOPWORDS = {
     "acaba",
@@ -61,6 +98,111 @@ def _quality_labels(sections: list[StoredDocumentSection]) -> dict[str, dict[str
     return labels
 
 
+def _quality_metadata(quality: QualityAssessment) -> QualityMetadata:
+    return QualityMetadata(
+        label=quality.label,  # type: ignore[arg-type]
+        flags=list(quality.flags),
+        warning=quality.warning or None,
+    )
+
+
+def _section_excerpt(
+    section: StoredDocumentSection,
+    *,
+    max_chars: int,
+    query: str | None = None,
+) -> tuple[str, bool, int, int]:
+    """Return a bounded excerpt and absolute offsets into normalized content."""
+
+    raw_content = section.content or ""
+    if len(raw_content) <= max_chars:
+        local_start = 0
+        local_end = len(raw_content)
+    else:
+        match_offset = 0
+        if query:
+            folded = raw_content.casefold()
+            candidates = [query.casefold(), *(_loose_search_terms(query))]
+            offsets = [folded.find(candidate) for candidate in candidates if candidate]
+            found_offsets = [offset for offset in offsets if offset >= 0]
+            if found_offsets:
+                match_offset = min(found_offsets)
+        local_start = max(0, min(match_offset - max_chars // 4, len(raw_content) - max_chars))
+        local_end = min(len(raw_content), local_start + max_chars)
+
+    excerpt = sanitize_markdown_for_context(raw_content[local_start:local_end])
+    # Context sanitization can add line wraps. Keep the serialized MCP field
+    # within the advertised bound as well as the raw source slice.
+    while len(excerpt) > max_chars and local_end > local_start:
+        local_end -= min(local_end - local_start, len(excerpt) - max_chars)
+        excerpt = sanitize_markdown_for_context(raw_content[local_start:local_end])
+    return (
+        excerpt,
+        local_start > 0 or local_end < len(raw_content),
+        section.start_char + local_start,
+        section.start_char + local_end,
+    )
+
+
+def _section_item(
+    section: StoredDocumentSection,
+    *,
+    max_chars: int = _MAX_SEARCH_EXCERPT_CHARS,
+    query: str | None = None,
+) -> SectionItem:
+    content, truncated, excerpt_start, excerpt_end = _section_excerpt(
+        section,
+        max_chars=max_chars,
+        query=query,
+    )
+    return SectionItem(
+        document_id=section.doc_id,
+        section_type=section.section_type,
+        section_ref=section.section_ref,
+        heading=section.heading,
+        start_char=section.start_char,
+        end_char=section.end_char,
+        page_start=section.page_start,
+        page_end=section.page_end,
+        content=content,
+        content_truncated=truncated,
+        excerpt_start_char=excerpt_start,
+        excerpt_end_char=excerpt_end,
+        content_hash=section.content_hash,
+        rank=section.rank,
+        quality=_quality_metadata(_section_quality(section)),
+    )
+
+
+def _section_evidence(section: StoredDocumentSection) -> EvidenceReference:
+    return EvidenceReference(
+        document_id=section.doc_id,
+        retrieval_source="section_index",
+        page_start=section.page_start,
+        page_end=section.page_end,
+        section_type=section.section_type,
+        section_ref=section.section_ref,
+        start_char=section.start_char,
+        end_char=section.end_char,
+        content_hash=section.content_hash,
+        quality=_quality_metadata(_section_quality(section)),
+    )
+
+
+def _section_warnings(
+    sections: list[StoredDocumentSection],
+    *,
+    content_truncated: bool = False,
+) -> list[str]:
+    quality_warnings = list(
+        dict.fromkeys(quality.warning for section in sections if (quality := _section_quality(section)).warning)
+    )
+    warnings = [UNTRUSTED_SOURCE_WARNING, *quality_warnings] if sections else quality_warnings
+    if content_truncated:
+        warnings.append(_SECTION_TRUNCATION_WARNING)
+    return warnings
+
+
 def _format_section(
     section: StoredDocumentSection,
     *,
@@ -80,7 +222,13 @@ def _format_section(
     quality = quality or _section_quality(section)
     lines.extend(_quality_lines(quality, prefix="- "))
     if include_content:
-        lines.extend(["", section.content])
+        excerpt, truncated, excerpt_start, excerpt_end = _section_excerpt(
+            section,
+            max_chars=_MAX_EXACT_SECTION_CHARS,
+        )
+        if truncated:
+            lines.append(f"- Returned excerpt: characters {excerpt_start}-{excerpt_end} (section body truncated)")
+        lines.extend(["", frame_untrusted_source(excerpt)])
     return "\n".join(lines)
 
 
@@ -154,12 +302,13 @@ def register(mcp, deps: Dependencies) -> None:
     """Register section tools on the given MCP instance."""
 
     @mcp.tool()
+    @logged_tool(logger)
     async def get_document_section(
-        document_id: str,
-        section_type: str | None = None,
-        section_ref: str | int | None = None,
-        heading: str | None = None,
-    ) -> str:
+        document_id: DocumentId,
+        section_type: SectionType = None,
+        section_ref: SectionRef = None,
+        heading: HeadingFilter = None,
+    ) -> DocumentSectionToolResult:
         """
         Retrieve exact structural sections from a stored BDDK document.
 
@@ -186,6 +335,7 @@ def register(mcp, deps: Dependencies) -> None:
                 section_type=_normalize_optional(section_type),
                 section_ref=_normalize_optional(section_ref),
                 heading=heading,
+                limit=_MAX_DISAMBIGUATION_RESULTS + 1,
             )
             if sections:
                 break
@@ -194,7 +344,7 @@ def register(mcp, deps: Dependencies) -> None:
                 str(part) for part in (document_id, section_type or "", section_ref or "", heading or "") if part
             )
             await record_tool_call_trace(
-                getattr(deps, "pool", None),
+                getattr(deps, "telemetry_pool", None),
                 tool_name="get_document_section",
                 args=args,
                 latency_ms=elapsed_ms(start),
@@ -202,15 +352,26 @@ def register(mcp, deps: Dependencies) -> None:
                 doc_ids=[],
                 relevance_stats={"status": "not_found"},
             )
-            return (
+            output = (
                 f"No section found for document {document_id} with the requested filters.\n"
                 f"Try search_document_sections with query: {query or document_id}"
+            )
+            return structured_tool_result(
+                DocumentSectionResponse(
+                    status="no_results",
+                    text=output,
+                    requested_document_id=document_id,
+                    section_type=_normalize_optional(section_type),
+                    section_ref=_normalize_optional(section_ref),
+                    heading=heading,
+                )
             )
 
         if len(sections) == 1:
             quality = _section_quality(sections[0])
+            section_item = _section_item(sections[0], max_chars=_MAX_EXACT_SECTION_CHARS)
             await record_tool_call_trace(
-                getattr(deps, "pool", None),
+                getattr(deps, "telemetry_pool", None),
                 tool_name="get_document_section",
                 args=args,
                 latency_ms=elapsed_ms(start),
@@ -219,38 +380,81 @@ def register(mcp, deps: Dependencies) -> None:
                 quality_labels={sections[0].doc_id: {"label": quality.label, "flags": quality.flags}},
                 relevance_stats={"status": "exact_match"},
             )
-            return _format_section(sections[0], quality=quality)
+            section = sections[0]
+            return structured_tool_result(
+                DocumentSectionResponse(
+                    status="partial" if section_item.content_truncated else "ok",
+                    text=_format_section(section, quality=quality),
+                    evidence=[_section_evidence(section)],
+                    warnings=_section_warnings(
+                        [section],
+                        content_truncated=section_item.content_truncated,
+                    ),
+                    requested_document_id=document_id,
+                    section_type=_normalize_optional(section_type),
+                    section_ref=_normalize_optional(section_ref),
+                    heading=heading,
+                    results=[section_item],
+                )
+            )
 
-        lines = [f"Multiple sections matched ({len(sections)}). Narrow by section_type, section_ref, or heading:\n"]
-        for section in sections[:10]:
+        result_sections = sections[:_MAX_DISAMBIGUATION_RESULTS]
+        more_results = len(sections) > len(result_sections)
+        lines = [
+            (
+                f"More than {_MAX_DISAMBIGUATION_RESULTS} sections matched. "
+                if more_results
+                else f"Multiple sections matched ({len(result_sections)}). "
+            )
+            + "Narrow by section_type, section_ref, or heading:\n"
+        ]
+        for section in result_sections:
             heading_text = f" — {section.heading}" if section.heading else ""
             lines.append(
                 f"- {section.doc_id} {section.section_type} {section.section_ref}{heading_text} "
                 f"(start_char={section.start_char}, hash={section.content_hash[:12]})"
             )
             lines.extend(_quality_lines(_section_quality(section), prefix="  "))
-            lines.append(f"  {_section_preview(section)}")
-        if len(sections) > 10:
-            lines.append(f"... {len(sections) - 10} more match(es) omitted.")
+            lines.append(f"  {frame_untrusted_source(_section_preview(section))}")
+        if more_results:
+            lines.append("... additional matches omitted; add a section reference or heading filter.")
+        result_items = [_section_item(section) for section in result_sections]
+        result_content_truncated = more_results or any(item.content_truncated for item in result_items)
         await record_tool_call_trace(
-            getattr(deps, "pool", None),
+            getattr(deps, "telemetry_pool", None),
             tool_name="get_document_section",
             args=args,
             latency_ms=elapsed_ms(start),
-            result_count=len(sections),
-            doc_ids=unique_doc_ids([section.doc_id for section in sections]),
-            quality_labels=_quality_labels(sections),
-            relevance_stats={"status": "disambiguation"},
+            result_count=len(result_sections),
+            doc_ids=unique_doc_ids([section.doc_id for section in result_sections]),
+            quality_labels=_quality_labels(result_sections),
+            relevance_stats={"status": "disambiguation", "additional_matches_omitted": more_results},
         )
-        return "\n".join(lines)
+        return structured_tool_result(
+            DocumentSectionResponse(
+                status="partial" if result_content_truncated else "ok",
+                text="\n".join(lines),
+                evidence=[_section_evidence(section) for section in result_sections],
+                warnings=_section_warnings(
+                    result_sections,
+                    content_truncated=result_content_truncated,
+                ),
+                requested_document_id=document_id,
+                section_type=_normalize_optional(section_type),
+                section_ref=_normalize_optional(section_ref),
+                heading=heading,
+                results=result_items,
+            )
+        )
 
     @mcp.tool()
+    @logged_tool(logger)
     async def search_document_sections(
-        query: str,
-        document_id: str | None = None,
-        section_type: str | None = None,
-        limit: int = 10,
-    ) -> str:
+        query: SectionQuery,
+        document_id: OptionalDocumentId = None,
+        section_type: SectionType = None,
+        limit: SectionResultLimit = 10,
+    ) -> SectionSearchToolResult:
         """
         Search section-level content in stored BDDK documents.
 
@@ -285,6 +489,7 @@ def register(mcp, deps: Dependencies) -> None:
                     candidate_doc_id,
                     section_type=_normalize_optional(inferred_section_type),
                     section_ref=_normalize_optional(inferred_section_ref),
+                    limit=limit,
                 )
                 if exact_hits:
                     break
@@ -321,10 +526,10 @@ def register(mcp, deps: Dependencies) -> None:
                 for s in exact_hits
             ]
             seen = {_section_key(section) for section in exact_hits}
-            hits = exact_hits + [section for section in hits if _section_key(section) not in seen]
+            hits = (exact_hits + [section for section in hits if _section_key(section) not in seen])[:limit]
         if not hits:
             await record_tool_call_trace(
-                getattr(deps, "pool", None),
+                getattr(deps, "telemetry_pool", None),
                 tool_name="search_document_sections",
                 args=args,
                 latency_ms=elapsed_ms(start),
@@ -332,9 +537,21 @@ def register(mcp, deps: Dependencies) -> None:
                 doc_ids=[],
                 relevance_stats={"exact_ref_detected": exact_ref_detected, "status": "no_results"},
             )
-            return (
+            output = (
                 f"NO RESULTS: No document sections found matching '{query}'.\n"
                 "Try a broader query, remove the document_id/section_type filter, or retrieve the full document."
+            )
+            return structured_tool_result(
+                SectionSearchResponse(
+                    status="no_results",
+                    text=output,
+                    query=query,
+                    document_id=inferred_doc_id,
+                    section_type=_normalize_optional(inferred_section_type),
+                    section_ref=_normalize_optional(inferred_section_ref),
+                    exact_reference_detected=exact_ref_detected,
+                    loose_fallback_used=False,
+                )
             )
 
         lines = [f"Found {len(hits)} section result(s) for '{query}':\n"]
@@ -351,10 +568,10 @@ def register(mcp, deps: Dependencies) -> None:
             lines.extend(_quality_lines(_section_quality(hit), prefix="  "))
             preview = _section_preview(hit)
             if preview:
-                lines.append(f"  ...{preview}...")
+                lines.append(f"  {frame_untrusted_source(f'...{preview}...')}")
             lines.append("")
         await record_tool_call_trace(
-            getattr(deps, "pool", None),
+            getattr(deps, "telemetry_pool", None),
             tool_name="search_document_sections",
             args=args,
             latency_ms=elapsed_ms(start),
@@ -363,4 +580,20 @@ def register(mcp, deps: Dependencies) -> None:
             quality_labels=_quality_labels(hits),
             relevance_stats={"exact_ref_detected": exact_ref_detected, "loose_fallback": loose_fallback_used},
         )
-        return "\n".join(lines)
+        result_items = [_section_item(hit, query=query) for hit in hits]
+        result_content_truncated = any(item.content_truncated for item in result_items)
+        return structured_tool_result(
+            SectionSearchResponse(
+                status="partial" if result_content_truncated else "ok",
+                text="\n".join(lines),
+                evidence=[_section_evidence(hit) for hit in hits],
+                warnings=_section_warnings(hits, content_truncated=result_content_truncated),
+                query=query,
+                document_id=inferred_doc_id,
+                section_type=_normalize_optional(inferred_section_type),
+                section_ref=_normalize_optional(inferred_section_ref),
+                exact_reference_detected=exact_ref_detected,
+                loose_fallback_used=loose_fallback_used,
+                results=result_items,
+            )
+        )

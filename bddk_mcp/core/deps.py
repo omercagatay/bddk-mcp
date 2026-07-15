@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     import httpx
 
     from bddk_mcp.ingest.client import BddkApiClient
+    from bddk_mcp.jobs import OperatorJobManager
     from bddk_mcp.store.doc_store import DocumentStore
     from bddk_mcp.store.vector_store import VectorStore
 
@@ -28,7 +29,9 @@ class Dependencies:
     doc_store: DocumentStore | None
     client: BddkApiClient | None
     http: httpx.AsyncClient | None
+    telemetry_pool: asyncpg.Pool | None = None
     vector_store: VectorStore | None = None
+    job_manager: OperatorJobManager | None = None
     sync_task: asyncio.Task | None = None
     vector_init_task: asyncio.Task | None = None
 

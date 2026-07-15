@@ -1,0 +1,197 @@
+# BDDK MCP Server — English Operational Guide
+
+[Bilingual project README](README.md) | [Deployment guide](docs/DEPLOYMENT.md) | [Benchmark guide](benchmark/README.md)
+
+BDDK MCP Server is an offline-first Model Context Protocol server for searching, retrieving, and analyzing Turkish banking regulation data from BDDK and mevzuat.gov.tr. This page summarizes the current runtime contract; the bilingual README contains the broader feature and development guide.
+
+## Process Profiles and Tool Surface
+
+The server exposes exactly one reviewed profile per process:
+
+| Profile | Selection | Database identity | MCP tools |
+|---|---|---|---:|
+| Public | `BDDK_TOOL_PROFILE=public` or `bddk-mcp serve --profile public` | `BDDK_DATABASE_URL` | 15 public tools |
+| Operator | `BDDK_TOOL_PROFILE=operator` or `bddk-mcp serve --profile operator` | `BDDK_OPERATOR_DATABASE_URL` | 15 public tools plus 13 operator tools, 28 tools total |
+
+The operator profile requires its own DSN and does not fall back to `BDDK_DATABASE_URL`. Run public and operator profiles as separate processes, database roles, service accounts, and network boundaries.
+
+### Public tools (15)
+
+- `search_bddk_regulations`
+- `search_document_store`
+- `search_bddk_institutions`
+- `search_bddk_announcements`
+- `get_bddk_document`
+- `get_document_history`
+- `get_document_section`
+- `search_document_sections`
+- `get_bddk_bulletin`
+- `get_bddk_bulletin_snapshot`
+- `get_bddk_monthly`
+- `analyze_bulletin_trends`
+- `get_regulatory_digest`
+- `compare_bulletin_metrics`
+- `check_bddk_updates`
+
+### Operator additions (13)
+
+- `document_store_stats`
+- `bddk_cache_status`
+- `refresh_bddk_cache`
+- `sync_bddk_documents`
+- `trigger_startup_sync`
+- `get_operator_job`
+- `list_operator_jobs`
+- `cancel_operator_job`
+- `document_health`
+- `health_check`
+- `bddk_metrics`
+- `backfill_degraded_documents`
+- `document_quality_report`
+
+Mutating operator tools return a job receipt immediately. Records, hashed
+idempotency keys, numeric progress, and bounded result metrics are durable in
+PostgreSQL table `bddk_operator.operator_jobs`. A session advisory lease
+serializes corpus mutation across processes. Runner tasks still execute inside
+the operator process: abandoned `running` work is marked `interrupted` only
+after recovery obtains the lease, while `queued` work is never guessed stale
+and must be resumed with the same idempotency key or cancelled explicitly. The
+OpenShift starter remains one `Recreate` replica until multi-replica and
+failover behavior is bank-accepted; this is not a general workflow queue.
+
+## Local Start
+
+For disposable loopback development, let Compose run role/extension setup,
+schema-owner migration, DBA grants, and ingestion bootstrap as separate stages,
+then start the default public stdio profile:
+
+```bash
+export BDDK_JWT_ISSUER=https://idp.invalid
+export BDDK_JWT_RESOURCE=https://localhost:8000/mcp
+export BDDK_JWT_JWKS_URL=https://idp.invalid/jwks
+export BDDK_JWT_AUDIENCE=bddk-mcp-local
+docker compose up --build -d bddk-bootstrap
+docker compose wait bddk-bootstrap
+export BDDK_DATABASE_URL=postgresql://bddk_local_public:local-only-public@localhost:5432/bddk
+uv run --frozen bddk-mcp serve --profile public
+```
+
+Start a local operator process only with a separately provisioned operator role:
+
+```bash
+export BDDK_OPERATOR_DATABASE_URL=postgresql://bddk_local_operator:local-only-operator@localhost:5432/bddk
+uv run --frozen bddk-mcp serve --profile operator
+```
+
+The reserved `.invalid` JWT values only allow Compose to parse an unused HTTP
+service definition; the lifecycle target starts no HTTP server, and those
+values are not valid server configuration. The fixed local passwords are
+public test fixtures, not production credential recommendations. Put real DSNs
+in the platform secret store.
+
+For a bank database, a DBA must first install `vector` and `unaccent` in
+`public`, apply `deploy/postgres/01_roles.sql`, and provision distinct LOGIN
+identities. Run `bddk-mcp migrate` only with the schema-owner connection that
+executes `SET ROLE bddk_schema_owner`, apply `deploy/postgres/02_grants.sql` as
+DBA, and only then run `bddk-mcp bootstrap` with the exact ingestion identity.
+`bootstrap` imports corpus data, sections, and embeddings into an already
+migrated schema; it never migrates.
+
+Ordinary migration refuses a pre-ledger unmanaged schema. The explicit
+`bddk-mcp migrate --adopt-legacy` option accepts only the exact supported shape
+after a proven backup and the
+[`docs/LEGACY_DATABASE_UPGRADE.md`](docs/LEGACY_DATABASE_UPGRADE.md) procedure;
+it is not a clean-install or general repair flag.
+
+A populated version-2 database also refuses migration 3 by default because its
+retrieval-publication backfill takes blocking locks and validates large foreign
+keys. Use `--allow-retrieval-publication-backfill` only during a reviewed
+maintenance window after stopping workloads, proving a restorable backup, and
+rehearsing against a size-matched restore. `BDDK_EXPECTED_DATABASE_NAME` and
+the independent DBA-script target setting must match the active database.
+Outside the isolated local Compose profile, every PostgreSQL DSN must use
+`sslmode=verify-full` and an absolute `sslrootcert` path.
+
+The required automated PostgreSQL and role-contract lanes currently prove
+PostgreSQL 17 only. Treat other major versions as unsupported until the
+compatibility matrix is implemented and the bank-selected version passes it.
+
+## Database and Retrieval Identity
+
+The required NOLOGIN memberships are exact: public gets only
+`bddk_public_reader`; ingestion gets only `bddk_ingestion`; operator gets
+`bddk_public_reader`, `bddk_ingestion`, and `bddk_operator_runtime`; optional
+telemetry gets only `bddk_telemetry_writer`. Public, ingestion, and operator
+startup verify the actual PostgreSQL session, memberships, and effective
+object privileges on every physical pool connection. They also reject
+privileges sourced from `PUBLIC` or direct LOGIN ACLs instead of the reviewed
+group roles. Telemetry separately verifies column-scoped INSERT-only
+access and refuses trace reads/changes or broader membership. Differently
+spelled DSNs do not bypass these checks.
+
+The default embedding model is pinned to full commit
+`d13f1b27baf31030b7fd040960d60d909913633f`; the container saves it locally for
+offline runtime use. The immutable database schema is `public.vector(768)` and
+rejects every other configured dimension. The optional built-in reranker is
+pinned to `1427fd652930e4ba29e8149678df786c240d8825`. Changing the model,
+tokenizer, prefixes, or chunk settings requires controlled full re-embedding
+and retrieval regression testing.
+
+Retrieval requires a publication record matching the document content hash and
+active retrieval-profile hash. Chunk mutation invalidates that record, and
+ingestion republishes only after chunk/embedding integrity checks pass. Run the
+required bootstrap or controlled reindex after a schema/model-profile upgrade;
+unpublished or stale chunks fail closed instead of entering results.
+
+## Streamable HTTP Contract
+
+The HTTP transport is selected with `MCP_TRANSPORT=streamable-http`. It serves MCP at `/mcp` using stateless JSON responses. Loopback is the default bind.
+
+Only two fixed, content-free HTTP probe routes bypass MCP authentication and Host/Origin admission so an orchestrator can use a pod-IP Host header:
+
+- `GET /health/live` returns process liveness.
+- `GET /health/ready` periodically re-attests migrations, critical catalog objects, corpus readiness, workload ACLs, and optional operator/telemetry storage; it returns 503 on drift or unavailability.
+
+Both unauthenticated probe routes remain subject to the process rate and
+concurrency admission limits.
+
+A non-loopback bind fails at startup unless all of the following are configured:
+
+- exact `BDDK_HTTP_ALLOWED_HOSTS` values, without wildcards;
+- exact HTTPS `BDDK_HTTP_ALLOWED_ORIGINS` values, without wildcards;
+- complete `BDDK_JWT_ISSUER`, `BDDK_JWT_RESOURCE`, `BDDK_JWT_JWKS_URL`, and `BDDK_JWT_AUDIENCE` settings;
+- asymmetric `BDDK_JWT_ALGORITHMS`, approved `BDDK_JWT_ACCESS_TOKEN_TYPES`, and at least one `BDDK_JWT_REQUIRED_SCOPES` value;
+- the profile scope: `bddk.read` for public or `bddk.operator` for operator;
+- `BDDK_OPERATOR_REMOTE_ENABLED=true` for a non-loopback operator process.
+
+`BDDK_TLS_CERT_FILE` and `BDDK_TLS_KEY_FILE` optionally enable HTTPS at the
+application socket. They are an inseparable PEM pair and are validated before
+the listener opens. The OpenShift starter supplies them with service-serving
+certificates and uses a re-encrypt Route; certificate rotation currently
+requires a controlled pod restart.
+
+Do not copy example identity-provider URLs from tests into a deployment. Obtain issuer, resource, JWKS, audience, token-type, and scope values from the bank-approved identity design. The protected-resource URL is used for MCP discovery/authorization metadata; tokens are bound to that API through the exact configured audience. Use a dedicated resource-server audience rather than an interactive client's ID-token audience.
+
+Host, Origin, content type, and request-body size are checked before bearer authentication. Valid JWT access tokens are verified against JWKS, issuer, exact resource-server audience, approved JOSE type, required/optional time claims, algorithm, and scope authorization. Tokens need not carry a custom `resource` claim or `nbf`; when `nbf` is present it is validated. The fail-closed default accepts only RFC 9068 `at+jwt`; generic Keycloak-style `JWT` requires the explicit `BDDK_JWT_ACCESS_TOKEN_TYPES=at+jwt,JWT` compatibility opt-in and a dedicated API audience.
+
+`BDDK_HTTP_MAX_BODY_BYTES`, `BDDK_HTTP_MAX_CONCURRENCY`, and `BDDK_HTTP_RATE_LIMIT_PER_MINUTE` provide coarse protection inside each application process. Rate identity comes from the ASGI peer address; untrusted forwarding headers are not accepted by default. These controls are neither shared across replicas nor a global ingress limit. OpenShift deployments still need an approved end-to-end TLS topology, identity-aware ingress, shared request/rate policy, audit events, and NetworkPolicy controls.
+
+Live regulatory fetch paths separately enforce exact BDDK/mevzuat HTTPS hosts,
+public-address DNS checks, destination revalidation on bounded redirects,
+streamed response limits by artifact class, and retry logs without raw URLs,
+queries, or exception messages. DNS validation and socket connection are not
+atomic, so the target OpenShift environment must enforce matching egress with
+NetworkPolicy and/or an approved proxy/firewall.
+
+The runtime wheel/sdist exclude `seed_data`, tests, benchmark code, and
+deployment assets. The provided container explicitly includes the reviewed
+seed corpus; a wheel deployment must mount an approved corpus and pass
+`--seed-dir` or `BDDK_SEED_DIR` to `bootstrap`.
+
+The repository has not yet been accepted on the bank's OpenShift AI cluster,
+proven through the bank backup/restore process, or certified across a
+release-specific Claude, Codex, GPT, LM Studio, GPT-OSS, and local-model client
+matrix. The included client configurations and OpenShift manifests are starter
+evidence, not certification.
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) before enabling any remote profile.

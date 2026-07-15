@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from backfill_quality_failures import load_fail_documents, main  # noqa: E402
+from backfill_quality_failures import execute_quality_backfill, load_fail_documents, main  # noqa: E402
 
 
 def test_load_fail_documents_from_quality_failures_yml():
@@ -70,3 +73,26 @@ def test_backfill_quality_failures_doc_id_filters_one_candidate(capsys):
     assert "Quality failure backfill candidates: 1" in out
     assert "mevzuat_21192" in out
     assert "1314" not in out
+
+
+@pytest.mark.asyncio
+async def test_executing_backfill_requires_verified_ingestion_identity() -> None:
+    pool = MagicMock()
+    pool.close = AsyncMock()
+    http = MagicMock()
+    http.aclose = AsyncMock()
+    identity = AsyncMock(side_effect=RuntimeError("identity rejected"))
+
+    with (
+        patch("backfill_quality_failures.assert_database_transport", side_effect=lambda value: value),
+        patch("backfill_quality_failures.asyncpg.create_pool", new=AsyncMock(return_value=pool)),
+        patch("backfill_quality_failures.httpx.AsyncClient", return_value=http),
+        patch("backfill_quality_failures.assert_database_ready", new=AsyncMock()),
+        patch("backfill_quality_failures.assert_database_identity", new=identity),
+        pytest.raises(RuntimeError, match="identity rejected"),
+    ):
+        await execute_quality_backfill([], dsn="postgresql://different-text-same-login")
+
+    identity.assert_awaited_once_with(pool, "ingestion")
+    pool.close.assert_awaited_once_with()
+    http.aclose.assert_awaited_once_with()

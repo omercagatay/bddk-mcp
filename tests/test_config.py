@@ -3,6 +3,9 @@
 import pytest
 
 from bddk_mcp.core.config import (
+    require_database_url,
+    require_expected_database_name,
+    require_telemetry_database_url,
     validate_column,
     validate_currency,
     validate_metric_id,
@@ -10,6 +13,107 @@ from bddk_mcp.core.config import (
     validate_table_no,
     validate_year,
 )
+
+
+@pytest.fixture(autouse=True)
+def _allow_insecure_database_for_config_selection_tests(monkeypatch):
+    monkeypatch.setenv("BDDK_ALLOW_INSECURE_DATABASE", "true")
+
+
+def test_expected_database_name_is_required_and_bounded(monkeypatch):
+    from bddk_mcp.core import config
+
+    monkeypatch.setattr(config, "EXPECTED_DATABASE_NAME", "bddk_prod")
+    assert require_expected_database_name() == "bddk_prod"
+
+    monkeypatch.setattr(config, "EXPECTED_DATABASE_NAME", "")
+    with pytest.raises(RuntimeError, match="BDDK_EXPECTED_DATABASE_NAME is required"):
+        require_expected_database_name()
+
+    monkeypatch.setattr(config, "EXPECTED_DATABASE_NAME", "unsafe database/name")
+    with pytest.raises(RuntimeError, match="must be 1-63 characters"):
+        require_expected_database_name()
+
+
+def test_database_url_is_selected_by_process_profile(monkeypatch):
+    from bddk_mcp.core import config
+
+    monkeypatch.setattr(config, "DATABASE_URL", "postgresql://public")
+    monkeypatch.setattr(config, "OPERATOR_DATABASE_URL", "postgresql://operator")
+    monkeypatch.setattr(config, "SCHEMA_OWNER_DATABASE_URL", "postgresql://schema-owner")
+    monkeypatch.setattr(config, "INGESTION_DATABASE_URL", "postgresql://ingestion")
+
+    assert require_database_url("public") == "postgresql://public"
+    assert require_database_url("operator") == "postgresql://operator"
+    assert require_database_url("schema-owner") == "postgresql://schema-owner"
+    assert require_database_url("ingestion") == "postgresql://ingestion"
+
+
+def test_operator_profile_requires_its_own_database_identity(monkeypatch):
+    from bddk_mcp.core import config
+
+    monkeypatch.setattr(config, "DATABASE_URL", "postgresql://public")
+    monkeypatch.setattr(config, "OPERATOR_DATABASE_URL", "")
+
+    with pytest.raises(RuntimeError, match="BDDK_OPERATOR_DATABASE_URL"):
+        require_database_url("operator")
+
+
+def test_operator_profile_rejects_the_public_database_identity(monkeypatch):
+    from bddk_mcp.core import config
+
+    shared_dsn = "postgresql://shared"
+    monkeypatch.setattr(config, "DATABASE_URL", shared_dsn)
+    monkeypatch.setattr(config, "OPERATOR_DATABASE_URL", shared_dsn)
+
+    with pytest.raises(RuntimeError, match="must not reuse"):
+        require_database_url("operator")
+
+
+def test_unknown_database_profile_is_rejected():
+    with pytest.raises(RuntimeError, match="Unknown database profile"):
+        require_database_url("combined")
+
+
+@pytest.mark.parametrize(
+    ("profile", "variable"),
+    [("schema-owner", "SCHEMA_OWNER_DATABASE_URL"), ("ingestion", "INGESTION_DATABASE_URL")],
+)
+def test_lifecycle_profiles_require_distinct_database_identities(monkeypatch, profile, variable):
+    from bddk_mcp.core import config
+
+    monkeypatch.setattr(config, "DATABASE_URL", "postgresql://public")
+    monkeypatch.setattr(config, "OPERATOR_DATABASE_URL", "postgresql://operator")
+    monkeypatch.setattr(config, "SCHEMA_OWNER_DATABASE_URL", "postgresql://schema-owner")
+    monkeypatch.setattr(config, "INGESTION_DATABASE_URL", "postgresql://ingestion")
+    monkeypatch.setattr(config, variable, "postgresql://public")
+
+    with pytest.raises(RuntimeError, match="must not reuse"):
+        require_database_url(profile)
+
+
+def test_enabled_telemetry_requires_dedicated_identity(monkeypatch):
+    from bddk_mcp.core import config
+
+    monkeypatch.setattr(config, "TELEMETRY_ENABLED", True)
+    monkeypatch.setattr(config, "DATABASE_URL", "postgresql://public")
+    monkeypatch.setattr(config, "OPERATOR_DATABASE_URL", "postgresql://operator")
+    monkeypatch.setattr(config, "TELEMETRY_DATABASE_URL", "postgresql://telemetry")
+
+    assert require_telemetry_database_url() == "postgresql://telemetry"
+
+
+@pytest.mark.parametrize("dsn", ["", "postgresql://public", "postgresql://operator"])
+def test_enabled_telemetry_rejects_missing_or_reused_identity(monkeypatch, dsn):
+    from bddk_mcp.core import config
+
+    monkeypatch.setattr(config, "TELEMETRY_ENABLED", True)
+    monkeypatch.setattr(config, "DATABASE_URL", "postgresql://public")
+    monkeypatch.setattr(config, "OPERATOR_DATABASE_URL", "postgresql://operator")
+    monkeypatch.setattr(config, "TELEMETRY_DATABASE_URL", dsn)
+
+    with pytest.raises(RuntimeError, match="BDDK_TELEMETRY_DATABASE_URL|must not reuse"):
+        require_telemetry_database_url()
 
 
 class TestValidateMetricId:

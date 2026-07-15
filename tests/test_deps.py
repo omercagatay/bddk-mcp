@@ -13,6 +13,7 @@ def test_dependencies_defaults():
         client=None,
         http=None,
     )
+    assert deps.telemetry_pool is None
     assert deps.vector_store is None
     assert deps.sync_task is None
     assert deps.vector_init_task is None

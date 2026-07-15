@@ -91,13 +91,13 @@ ORDER BY document_id
 async def _build_rows(baseline: list[dict]) -> list[dict]:
     import asyncpg
 
-    from bddk_mcp.core.config import DATABASE_URL
+    from bddk_mcp.core.config import require_database_url
     from bddk_mcp.store.doc_store import DocumentStore
 
     ids = [b["document_id"] for b in baseline]
     by_id_before = {b["document_id"]: b for b in baseline}
 
-    pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=3)
+    pool = await asyncpg.create_pool(require_database_url(), min_size=1, max_size=3)
     try:
         current = await pool.fetch(CURRENT_SQL, ids)
         store = DocumentStore(pool)

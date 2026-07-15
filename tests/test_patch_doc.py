@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -573,3 +573,27 @@ def test_arg_parser_honors_flags():
     )
     assert args.extraction_method == "html_parser"
     assert args.dry_run is True
+
+
+@pytest.mark.asyncio
+async def test_patch_cli_verifies_ingestion_identity_before_opening_stores(tmp_path: Path) -> None:
+    pool = MagicMock()
+    pool.close = AsyncMock()
+    identity = AsyncMock(side_effect=RuntimeError("identity rejected"))
+    args = patch_doc._build_arg_parser().parse_args(
+        ["mevzuat_20029", "--markdown", str(tmp_path / "body.md"), "--dry-run"]
+    )
+
+    with (
+        patch.object(patch_doc.asyncpg, "create_pool", new=AsyncMock(return_value=pool)),
+        patch.object(patch_doc, "require_database_url", return_value="postgresql://ingestion"),
+        patch.object(patch_doc, "assert_database_ready", new=AsyncMock()),
+        patch.object(patch_doc, "assert_database_identity", new=identity),
+        patch.object(patch_doc, "DocumentStore") as document_store,
+        pytest.raises(RuntimeError, match="identity rejected"),
+    ):
+        await patch_doc._main_async(args)
+
+    identity.assert_awaited_once_with(pool, "ingestion")
+    document_store.assert_not_called()
+    pool.close.assert_awaited_once_with()

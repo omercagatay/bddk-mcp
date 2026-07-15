@@ -14,6 +14,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from bddk_mcp.core.config import require_database_url  # noqa: E402
+from bddk_mcp.db_identity import assert_database_identity  # noqa: E402
+from bddk_mcp.db_lifecycle import assert_database_ready  # noqa: E402
 from bddk_mcp.store.doc_store import DocumentStore  # noqa: E402
 from bddk_mcp.store.section_index import extract_document_sections  # noqa: E402
 
@@ -22,6 +24,7 @@ from bddk_mcp.store.section_index import extract_document_sections  # noqa: E402
 class DocumentSectionReindexCandidate:
     document_id: str
     markdown_content: str
+    content_hash: str
 
 
 @dataclass
@@ -29,6 +32,14 @@ class SectionReindexStats:
     scanned_documents: int = 0
     documents_with_sections: int = 0
     sections_indexed: int = 0
+
+
+def _resolve_ingestion_database_url(override: str | None) -> str:
+    """Resolve only the configured ingestion identity, never an ad-hoc DSN."""
+    configured = require_database_url("ingestion")
+    if override is not None and override.strip() != configured:
+        raise RuntimeError("--database-url must match BDDK_INGESTION_DATABASE_URL")
+    return configured
 
 
 async def reindex_document_rows(
@@ -46,7 +57,11 @@ async def reindex_document_rows(
             stats.documents_with_sections += 1
             stats.sections_indexed += len(sections)
         if not dry_run:
-            await store.replace_document_sections(row.document_id, sections)
+            await store.replace_document_sections(
+                row.document_id,
+                sections,
+                source_content_hash=row.content_hash,
+            )
     return stats
 
 
@@ -64,8 +79,8 @@ async def load_document_rows(
         where.append(f"document_id = ${len(params)}")
 
     sql = f"""
-        SELECT document_id, markdown_content
-        FROM documents
+        SELECT document_id, markdown_content, content_hash
+        FROM public.documents
         WHERE {" AND ".join(where)}
         ORDER BY document_id
     """
@@ -78,6 +93,7 @@ async def load_document_rows(
         DocumentSectionReindexCandidate(
             document_id=row["document_id"],
             markdown_content=row["markdown_content"] or "",
+            content_hash=row["content_hash"] or "",
         )
         for row in rows
     ]
@@ -91,10 +107,11 @@ async def execute_reindex(
     dry_run: bool,
 ) -> SectionReindexStats:
     """Load documents from PostgreSQL and rebuild section indexes."""
-    pool = await asyncpg.create_pool(dsn or require_database_url(), min_size=1, max_size=3)
+    pool = await asyncpg.create_pool(_resolve_ingestion_database_url(dsn), min_size=1, max_size=3)
     try:
+        await assert_database_ready(pool=pool, require_corpus=False)
+        await assert_database_identity(pool, "ingestion")
         store = DocumentStore(pool)
-        await store.initialize()
         rows = await load_document_rows(pool, doc_id=doc_id, limit=limit)
         return await reindex_document_rows(rows, store=store, dry_run=dry_run)
     finally:
@@ -122,7 +139,7 @@ def render_summary(
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Rebuild document_sections from stored Markdown content.")
-    parser.add_argument("--database-url", help="Override BDDK_DATABASE_URL")
+    parser.add_argument("--database-url", help="Override BDDK_INGESTION_DATABASE_URL")
     parser.add_argument("--doc-id", help="Target one document ID")
     parser.add_argument("--limit", type=int, help="Maximum number of documents to scan")
     parser.add_argument("--execute", action="store_true", help="Actually replace document_sections rows")
