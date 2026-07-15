@@ -53,6 +53,8 @@ class _StrictModel(BaseModel):
 
 
 def _safe_relative_reference(value: str) -> str:
+    if "\\" in value or any(ord(character) < 32 or ord(character) == 127 for character in value):
+        raise ValueError("artifact reference must use printable POSIX path characters")
     candidate = Path(value)
     if candidate.is_absolute() or not candidate.parts or any(part in {"", ".", ".."} for part in candidate.parts):
         raise ValueError("artifact reference must be a normalized relative path")
@@ -95,12 +97,14 @@ class CheckpointIntegrity(_StrictModel):
 
 
 class LegalReleaseCheckpoint(_StrictModel):
-    schema_version: Literal[1]
+    schema_version: Literal[2]
     checkpoint_id: str = Field(pattern=r"^[a-z0-9][a-z0-9._-]{2,127}$")
+    signer_role: Literal["legal_release_certifier"]
     legal_pack_sha256: str = Field(pattern=_SHA256_PATTERN)
     corpus_manifest_sha256: str = Field(pattern=_SHA256_PATTERN)
     created_at: datetime
     predecessor_checkpoint_sha256: str | None = Field(default=None, pattern=_SHA256_PATTERN)
+    predecessor_checkpoint_reference: str | None = Field(default=None, max_length=500)
     artifacts: tuple[LegalArtifactEvidence, ...] = Field(min_length=1, max_length=10_000)
     integrity: CheckpointIntegrity
 
@@ -116,7 +120,15 @@ class LegalReleaseCheckpoint(_StrictModel):
         identities = tuple(item.artifact_id for item in self.artifacts)
         if len(identities) != len(set(identities)) or identities != tuple(sorted(identities)):
             raise ValueError("legal release artifacts must be unique and canonically ordered")
+        predecessor_values = (self.predecessor_checkpoint_sha256, self.predecessor_checkpoint_reference)
+        if (predecessor_values[0] is None) != (predecessor_values[1] is None):
+            raise ValueError("legal release predecessor hash and reference must be supplied together")
         return self
+
+    @field_validator("predecessor_checkpoint_reference")
+    @classmethod
+    def _safe_predecessor_reference(cls, value: str | None) -> str | None:
+        return _safe_relative_reference(value) if value is not None else None
 
 
 class AcquisitionRecord(_StrictModel):
@@ -210,6 +222,15 @@ class LegalReleaseEvidenceValidation:
     citation_count: int
 
 
+@dataclass(frozen=True, slots=True)
+class _RetainedArtifact:
+    source_bytes_size: int
+    acquisition: AcquisitionRecord
+    page_proof: PageMappingProof
+    mapping_by_citation_id: dict[str, CitationPageMapping]
+    excerpt_length_by_citation_id: dict[str, int]
+
+
 def canonical_checkpoint_payload(raw_checkpoint: dict[str, Any]) -> bytes:
     """Return deterministic bytes covered by checksum and detached signature."""
 
@@ -280,10 +301,11 @@ def _verify_checkpoint_signature(
     trusted_signing_key: Path,
     *,
     current: datetime,
+    label: str = "legal release checkpoint",
 ) -> tuple[LegalReleaseCheckpoint, dict[str, Any], str, str]:
     raw, _ = _load_mapping(
         checkpoint_path,
-        label="legal release checkpoint",
+        label=label,
         maximum_bytes=_MAX_CHECKPOINT_BYTES,
     )
     try:
@@ -324,6 +346,110 @@ def _verify_checkpoint_signature(
     return checkpoint, raw, key_sha256, ed25519_public_key_fingerprint_sha256(public_key)
 
 
+def _verify_checkpoint_retention(
+    checkpoint: LegalReleaseCheckpoint,
+    *,
+    root: Path,
+) -> dict[str, _RetainedArtifact]:
+    """Re-hash every retained artifact named by one signed checkpoint."""
+
+    retained: dict[str, _RetainedArtifact] = {}
+    for evidence in checkpoint.artifacts:
+        _, source_bytes = _verify_sealed_file(
+            root,
+            evidence.source_bytes,
+            label="retained authoritative source bytes",
+            maximum_bytes=_MAX_SOURCE_BYTES,
+        )
+        acquisition_path, _ = _verify_sealed_file(
+            root,
+            evidence.acquisition_record,
+            label="retained source acquisition record",
+            maximum_bytes=_MAX_ACQUISITION_RECORD_BYTES,
+        )
+        page_proof_path, _ = _verify_sealed_file(
+            root,
+            evidence.page_mapping_proof,
+            label="retained source page-mapping proof",
+            maximum_bytes=_MAX_PAGE_PROOF_BYTES,
+        )
+        raw_acquisition, _ = _load_mapping(
+            acquisition_path,
+            label="retained source acquisition record",
+            maximum_bytes=_MAX_ACQUISITION_RECORD_BYTES,
+            json_only=True,
+        )
+        raw_page_proof, _ = _load_mapping(
+            page_proof_path,
+            label="retained source page-mapping proof",
+            maximum_bytes=_MAX_PAGE_PROOF_BYTES,
+            json_only=True,
+        )
+        try:
+            acquisition = AcquisitionRecord.model_validate(raw_acquisition)
+            page_proof = PageMappingProof.model_validate(raw_page_proof)
+        except (ValueError, RecursionError) as exc:
+            raise LegalReleaseEvidenceError("retained legal source evidence schema validation failed") from exc
+
+        if (
+            acquisition.artifact_id != evidence.artifact_id
+            or acquisition.blob_id != evidence.blob_id
+            or acquisition.response_body_sha256 != evidence.source_bytes.sha256
+            or acquisition.response_body_bytes != len(source_bytes)
+            or acquisition.captured_at > checkpoint.created_at
+        ):
+            raise LegalReleaseEvidenceError("retained acquisition record differs from its signed checkpoint")
+        if (
+            page_proof.artifact_id != evidence.artifact_id
+            or page_proof.source_bytes_sha256 != evidence.source_bytes.sha256
+            or page_proof.source_bytes != len(source_bytes)
+            or page_proof.reviewed_at < acquisition.captured_at
+            or page_proof.reviewed_at > checkpoint.created_at
+        ):
+            raise LegalReleaseEvidenceError("retained page-mapping proof differs from its signed checkpoint")
+
+        page_text_by_number: dict[int, str] = {}
+        for page in page_proof.pages:
+            _, page_text_bytes = _verify_sealed_file(
+                root,
+                page.rendered_text,
+                label="retained source-page text",
+                maximum_bytes=_MAX_PAGE_TEXT_BYTES,
+            )
+            try:
+                page_text_by_number[page.page_number] = page_text_bytes.decode("utf-8")
+            except UnicodeError:
+                raise LegalReleaseEvidenceError("retained source-page text is not UTF-8") from None
+
+        mappings = {item.citation_id: item for item in page_proof.citation_mappings}
+        if set(mappings) != set(evidence.citation_ids):
+            raise LegalReleaseEvidenceError("page-mapping citation inventory differs from its signed checkpoint")
+        excerpt_lengths: dict[str, int] = {}
+        for citation_id, mapping in mappings.items():
+            _, excerpt_bytes = _verify_sealed_file(
+                root,
+                mapping.rendered_excerpt,
+                label="retained Citation v1 excerpt",
+                maximum_bytes=_MAX_CITATION_EXCERPT_BYTES,
+            )
+            try:
+                excerpt = excerpt_bytes.decode("utf-8")
+            except UnicodeError:
+                raise LegalReleaseEvidenceError("retained Citation v1 excerpt is not UTF-8 text") from None
+            mapped_page_text = "\n".join(page_text_by_number[number] for number in mapping.page_numbers)
+            if excerpt not in mapped_page_text:
+                raise LegalReleaseEvidenceError("retained Citation v1 excerpt is absent from its mapped pages")
+            excerpt_lengths[citation_id] = len(excerpt)
+        retained[evidence.artifact_id] = _RetainedArtifact(
+            source_bytes_size=len(source_bytes),
+            acquisition=acquisition,
+            page_proof=page_proof,
+            mapping_by_citation_id=mappings,
+            excerpt_length_by_citation_id=excerpt_lengths,
+        )
+    return retained
+
+
 def validate_legal_release_evidence(
     *,
     checkpoint_path: str | Path,
@@ -357,23 +483,48 @@ def validate_legal_release_evidence(
     if checkpoint.created_at < exported_at:
         raise LegalReleaseEvidenceError("legal release checkpoint predates the validated legal pack")
 
-    predecessor_path = Path(predecessor_checkpoint_path).resolve() if predecessor_checkpoint_path else None
-    if (checkpoint.predecessor_checkpoint_sha256 is None) != (predecessor_path is None):
-        raise LegalReleaseEvidenceError("legal release predecessor checkpoint evidence is incomplete")
-    if predecessor_path is not None:
+    root = Path(source_root).resolve()
+    retained_by_artifact = _verify_checkpoint_retention(checkpoint, root=root)
+    supplied_predecessor = Path(predecessor_checkpoint_path).resolve() if predecessor_checkpoint_path else None
+    chain_path = checkpoint_file
+    chain_checkpoint = checkpoint
+    seen_checkpoints = {checkpoint.integrity.checkpoint_sha256}
+    for depth in range(1_000):
+        predecessor_sha256 = chain_checkpoint.predecessor_checkpoint_sha256
+        predecessor_reference = chain_checkpoint.predecessor_checkpoint_reference
+        if predecessor_sha256 is None or predecessor_reference is None:
+            if depth == 0 and supplied_predecessor is not None:
+                raise LegalReleaseEvidenceError("a genesis legal release checkpoint cannot have predecessor input")
+            break
+        predecessor_path = _resolve_reference(
+            chain_path.parent.resolve(),
+            predecessor_reference,
+            label="legal release predecessor checkpoint",
+        )
+        if depth == 0 and supplied_predecessor is not None and predecessor_path != supplied_predecessor:
+            raise LegalReleaseEvidenceError("supplied legal release predecessor differs from the signed reference")
         predecessor, _, predecessor_key_sha256, predecessor_key_fingerprint = _verify_checkpoint_signature(
             predecessor_path,
             trusted_key,
             current=current,
+            label="legal release predecessor checkpoint",
         )
-        if predecessor.integrity.checkpoint_sha256 != checkpoint.predecessor_checkpoint_sha256:
+        if predecessor.integrity.checkpoint_sha256 != predecessor_sha256:
             raise LegalReleaseEvidenceError("legal release predecessor checksum differs from the checkpoint")
-        if predecessor.created_at >= checkpoint.created_at:
+        if predecessor.integrity.checkpoint_sha256 in seen_checkpoints:
+            raise LegalReleaseEvidenceError("legal release predecessor chain contains a cycle")
+        if predecessor.created_at >= chain_checkpoint.created_at:
             raise LegalReleaseEvidenceError("legal release predecessor does not predate the checkpoint")
         if predecessor_key_sha256 != key_sha256:
             raise LegalReleaseEvidenceError("legal release predecessor uses a different trust anchor")
         if predecessor_key_fingerprint != key_fingerprint:
             raise LegalReleaseEvidenceError("legal release predecessor uses a different signer")
+        _verify_checkpoint_retention(predecessor, root=root)
+        seen_checkpoints.add(predecessor.integrity.checkpoint_sha256)
+        chain_path = predecessor_path
+        chain_checkpoint = predecessor
+    else:
+        raise LegalReleaseEvidenceError("legal release predecessor chain exceeds its verification bound")
 
     latest_verified = False
     if trusted_latest_checkpoint_sha256 is not None:
@@ -396,9 +547,9 @@ def validate_legal_release_evidence(
     if set(evidence_by_artifact) != set(citations_by_artifact):
         raise LegalReleaseEvidenceError("legal release artifact inventory differs from the validated legal pack")
 
-    root = Path(source_root).resolve()
     for artifact_id, artifact_citations in citations_by_artifact.items():
         evidence = evidence_by_artifact[artifact_id]
+        retained = retained_by_artifact[artifact_id]
         expected_citation_ids = tuple(sorted(item.citation_id for item in artifact_citations))
         if evidence.citation_ids != expected_citation_ids:
             raise LegalReleaseEvidenceError("legal release citation inventory differs from its artifact evidence")
@@ -414,94 +565,23 @@ def validate_legal_release_evidence(
         if evidence.blob_id != first.artifact_blob_id or evidence.source_bytes.sha256 != first.artifact_sha256:
             raise LegalReleaseEvidenceError("retained source identity differs from Citation v1")
 
-        _, source_bytes = _verify_sealed_file(
-            root,
-            evidence.source_bytes,
-            label="retained authoritative source bytes",
-            maximum_bytes=_MAX_SOURCE_BYTES,
-        )
-        acquisition_path, _ = _verify_sealed_file(
-            root,
-            evidence.acquisition_record,
-            label="retained source acquisition record",
-            maximum_bytes=_MAX_ACQUISITION_RECORD_BYTES,
-        )
-        page_proof_path, _ = _verify_sealed_file(
-            root,
-            evidence.page_mapping_proof,
-            label="retained source page-mapping proof",
-            maximum_bytes=_MAX_PAGE_PROOF_BYTES,
-        )
-
-        raw_acquisition, _ = _load_mapping(
-            acquisition_path,
-            label="retained source acquisition record",
-            maximum_bytes=_MAX_ACQUISITION_RECORD_BYTES,
-            json_only=True,
-        )
-        raw_page_proof, _ = _load_mapping(
-            page_proof_path,
-            label="retained source page-mapping proof",
-            maximum_bytes=_MAX_PAGE_PROOF_BYTES,
-            json_only=True,
-        )
-        try:
-            acquisition = AcquisitionRecord.model_validate(raw_acquisition)
-            page_proof = PageMappingProof.model_validate(raw_page_proof)
-        except (ValueError, RecursionError) as exc:
-            raise LegalReleaseEvidenceError("retained legal source evidence schema validation failed") from exc
-
         if (
-            acquisition.artifact_id != artifact_id
-            or acquisition.blob_id != first.artifact_blob_id
-            or acquisition.canonical_uri != first.source_url
-            or acquisition.retrieved_at != first.artifact_retrieved_at
-            or acquisition.response_body_sha256 != first.artifact_sha256
-            or acquisition.response_body_bytes != len(source_bytes)
-            or acquisition.captured_at > checkpoint.created_at
+            retained.acquisition.canonical_uri != first.source_url
+            or retained.acquisition.retrieved_at != first.artifact_retrieved_at
+            or retained.acquisition.response_body_sha256 != first.artifact_sha256
         ):
             raise LegalReleaseEvidenceError("retained acquisition record differs from Citation v1 or source bytes")
         if (
-            page_proof.artifact_id != artifact_id
-            or page_proof.source_bytes_sha256 != first.artifact_sha256
-            or page_proof.source_bytes != len(source_bytes)
-            or page_proof.reviewed_at > checkpoint.created_at
+            retained.page_proof.source_bytes_sha256 != first.artifact_sha256
+            or retained.page_proof.source_bytes != retained.source_bytes_size
         ):
             raise LegalReleaseEvidenceError("retained page-mapping proof differs from Citation v1 or source bytes")
-        page_text_by_number: dict[int, str] = {}
-        for page in page_proof.pages:
-            _, page_text_bytes = _verify_sealed_file(
-                root,
-                page.rendered_text,
-                label="retained source-page text",
-                maximum_bytes=_MAX_PAGE_TEXT_BYTES,
-            )
-            try:
-                page_text_by_number[page.page_number] = page_text_bytes.decode("utf-8")
-            except UnicodeError:
-                raise LegalReleaseEvidenceError("retained source-page text is not UTF-8") from None
-        mappings = {item.citation_id: item for item in page_proof.citation_mappings}
-        if set(mappings) != set(expected_citation_ids):
-            raise LegalReleaseEvidenceError("page-mapping citation inventory differs from the validated legal pack")
         for citation in artifact_citations:
-            mapping = mappings[citation.citation_id]
+            mapping = retained.mapping_by_citation_id[citation.citation_id]
             if mapping.rendered_excerpt.sha256 != citation.excerpt_sha256:
                 raise LegalReleaseEvidenceError("page-mapping excerpt identity differs from Citation v1")
-            _, excerpt_bytes = _verify_sealed_file(
-                root,
-                mapping.rendered_excerpt,
-                label="retained Citation v1 excerpt",
-                maximum_bytes=_MAX_CITATION_EXCERPT_BYTES,
-            )
-            try:
-                excerpt = excerpt_bytes.decode("utf-8")
-            except UnicodeError:
-                raise LegalReleaseEvidenceError("retained Citation v1 excerpt is not UTF-8 text") from None
-            if len(excerpt) != citation.excerpt_length:
+            if retained.excerpt_length_by_citation_id[citation.citation_id] != citation.excerpt_length:
                 raise LegalReleaseEvidenceError("retained Citation v1 excerpt length differs from Citation v1")
-            mapped_page_text = "\n".join(page_text_by_number[number] for number in mapping.page_numbers)
-            if excerpt not in mapped_page_text:
-                raise LegalReleaseEvidenceError("retained Citation v1 excerpt is absent from its mapped pages")
 
     return LegalReleaseEvidenceValidation(
         checkpoint_sha256=checkpoint.integrity.checkpoint_sha256,

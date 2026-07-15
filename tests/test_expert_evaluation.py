@@ -434,7 +434,7 @@ def _write_legal_release_checkpoint(
     raw_dataset: dict[str, Any],
     citation: dict[str, Any],
     pack_path: Path,
-) -> tuple[Path, Path, str, Path, Path]:
+) -> tuple[Path, Path, str, Path, Path, Path, Path]:
     source_root = tmp_path / "retained-legal-source"
     source_root.mkdir()
     documents = json.loads((Path(__file__).parents[1] / "seed_data" / "documents.json").read_text())
@@ -501,7 +501,8 @@ def _write_legal_release_checkpoint(
     trusted_key = tmp_path / "trusted-legal-release.pem"
     trusted_key.write_bytes(public_key)
     checkpoint_common = {
-        "schema_version": 1,
+        "schema_version": 2,
+        "signer_role": "legal_release_certifier",
         "legal_pack_sha256": hashlib.sha256(pack_path.read_bytes()).hexdigest(),
         "corpus_manifest_sha256": raw_dataset["corpus"]["manifest_sha256"],
         "artifacts": [
@@ -515,6 +516,14 @@ def _write_legal_release_checkpoint(
             }
         ],
     }
+    historical_source_path = source_root / "historical-authoritative-source.bin"
+    historical_source_path.write_bytes(source_bytes)
+    predecessor_artifacts = copy.deepcopy(checkpoint_common["artifacts"])
+    predecessor_artifacts[0]["source_bytes"] = _sealed_file(historical_source_path, source_root)
+    oldest_source_path = source_root / "oldest-authoritative-source.bin"
+    oldest_source_path.write_bytes(source_bytes)
+    oldest_artifacts = copy.deepcopy(checkpoint_common["artifacts"])
+    oldest_artifacts[0]["source_bytes"] = _sealed_file(oldest_source_path, source_root)
 
     def seal_checkpoint(checkpoint: dict[str, Any], *, name: str) -> tuple[Path, str]:
         signature_name = f"{name}.sig"
@@ -530,12 +539,25 @@ def _write_legal_release_checkpoint(
         checkpoint_path.write_text(yaml.safe_dump(checkpoint, sort_keys=False), encoding="utf-8")
         return checkpoint_path, checkpoint["integrity"]["checkpoint_sha256"]
 
+    oldest_path, oldest_sha256 = seal_checkpoint(
+        {
+            **checkpoint_common,
+            "artifacts": oldest_artifacts,
+            "checkpoint_id": "legal-release-test-oldest",
+            "created_at": "2026-07-15T13:35:00Z",
+            "predecessor_checkpoint_sha256": None,
+            "predecessor_checkpoint_reference": None,
+        },
+        name="legal-release-oldest",
+    )
     predecessor_path, predecessor_sha256 = seal_checkpoint(
         {
             **checkpoint_common,
+            "artifacts": predecessor_artifacts,
             "checkpoint_id": "legal-release-test-predecessor",
             "created_at": "2026-07-15T13:45:00Z",
-            "predecessor_checkpoint_sha256": None,
+            "predecessor_checkpoint_sha256": oldest_sha256,
+            "predecessor_checkpoint_reference": "legal-release-oldest.yml",
         },
         name="legal-release-predecessor",
     )
@@ -545,10 +567,19 @@ def _write_legal_release_checkpoint(
             "checkpoint_id": "legal-release-test-v1",
             "created_at": "2026-07-15T14:00:00Z",
             "predecessor_checkpoint_sha256": predecessor_sha256,
+            "predecessor_checkpoint_reference": "legal-release-predecessor.yml",
         },
         name="legal-release",
     )
-    return checkpoint_path, trusted_key, checkpoint_sha256, source_root, predecessor_path
+    return (
+        checkpoint_path,
+        trusted_key,
+        checkpoint_sha256,
+        source_root,
+        predecessor_path,
+        oldest_path,
+        oldest_source_path,
+    )
 
 
 def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_latest_hash(
@@ -563,12 +594,15 @@ def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_la
     )
     dataset_path = _write_sealed_dataset(tmp_path, raw)
     pack_path, attestation_path, curator_key, _ = _write_signed_legal_pack(tmp_path, citation)
-    checkpoint_path, release_key, latest_hash, source_root, predecessor_path = _write_legal_release_checkpoint(
-        tmp_path,
-        raw_dataset=raw,
-        citation=citation,
-        pack_path=pack_path,
-    )
+    (
+        checkpoint_path,
+        release_key,
+        latest_hash,
+        source_root,
+        predecessor_path,
+        oldest_path,
+        oldest_source,
+    ) = _write_legal_release_checkpoint(tmp_path, raw_dataset=raw, citation=citation, pack_path=pack_path)
 
     validation = load_expert_evaluation_dataset(
         dataset_path,
@@ -590,6 +624,20 @@ def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_la
     assert "legal_release_evidence_not_verified" not in blockers
     assert "latest_legal_release_checkpoint_not_verified" not in blockers
 
+    with pytest.raises(ExpertEvaluationError, match="not the bank-approved latest checkpoint"):
+        load_expert_evaluation_dataset(
+            dataset_path,
+            validated_legal_pack_path=pack_path,
+            legal_attestation_path=attestation_path,
+            trusted_legal_attestation_key=curator_key,
+            legal_release_checkpoint_path=checkpoint_path,
+            legal_release_source_root=source_root,
+            trusted_legal_release_signing_key=release_key,
+            predecessor_legal_release_checkpoint_path=predecessor_path,
+            trusted_latest_legal_checkpoint_sha256="f" * 64,
+            now=datetime(2026, 7, 16, tzinfo=UTC),
+        )
+
     without_external_latest = load_expert_evaluation_dataset(
         dataset_path,
         validated_legal_pack_path=pack_path,
@@ -603,6 +651,82 @@ def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_la
     )
     assert without_external_latest.legal_release_evidence_verified is True
     assert without_external_latest.legal_release_latest_checkpoint_verified is False
+
+    unrelated_predecessor = tmp_path / "unrelated-predecessor.yml"
+    unrelated_predecessor.write_text("not used", encoding="utf-8")
+    with pytest.raises(ExpertEvaluationError, match="supplied legal release predecessor differs"):
+        load_expert_evaluation_dataset(
+            dataset_path,
+            validated_legal_pack_path=pack_path,
+            legal_attestation_path=attestation_path,
+            trusted_legal_attestation_key=curator_key,
+            legal_release_checkpoint_path=checkpoint_path,
+            legal_release_source_root=source_root,
+            trusted_legal_release_signing_key=release_key,
+            predecessor_legal_release_checkpoint_path=unrelated_predecessor,
+            now=datetime(2026, 7, 16, tzinfo=UTC),
+        )
+
+    predecessor_bytes = predecessor_path.read_bytes()
+    predecessor_path.unlink()
+    with pytest.raises(ExpertEvaluationError, match="predecessor checkpoint is unavailable"):
+        load_expert_evaluation_dataset(
+            dataset_path,
+            validated_legal_pack_path=pack_path,
+            legal_attestation_path=attestation_path,
+            trusted_legal_attestation_key=curator_key,
+            legal_release_checkpoint_path=checkpoint_path,
+            legal_release_source_root=source_root,
+            trusted_legal_release_signing_key=release_key,
+            now=datetime(2026, 7, 16, tzinfo=UTC),
+        )
+    predecessor_path.write_bytes(predecessor_bytes)
+
+    oldest_bytes = oldest_path.read_bytes()
+    oldest_path.unlink()
+    with pytest.raises(ExpertEvaluationError, match="predecessor checkpoint is unavailable"):
+        load_expert_evaluation_dataset(
+            dataset_path,
+            validated_legal_pack_path=pack_path,
+            legal_attestation_path=attestation_path,
+            trusted_legal_attestation_key=curator_key,
+            legal_release_checkpoint_path=checkpoint_path,
+            legal_release_source_root=source_root,
+            trusted_legal_release_signing_key=release_key,
+            now=datetime(2026, 7, 16, tzinfo=UTC),
+        )
+    oldest_path.write_bytes(oldest_bytes)
+
+    oldest_source_bytes = oldest_source.read_bytes()
+    oldest_source.unlink()
+    with pytest.raises(ExpertEvaluationError, match="retained authoritative source bytes is unavailable"):
+        load_expert_evaluation_dataset(
+            dataset_path,
+            validated_legal_pack_path=pack_path,
+            legal_attestation_path=attestation_path,
+            trusted_legal_attestation_key=curator_key,
+            legal_release_checkpoint_path=checkpoint_path,
+            legal_release_source_root=source_root,
+            trusted_legal_release_signing_key=release_key,
+            now=datetime(2026, 7, 16, tzinfo=UTC),
+        )
+    oldest_source.write_bytes(oldest_source_bytes)
+
+    historical_source = source_root / "historical-authoritative-source.bin"
+    historical_bytes = historical_source.read_bytes()
+    historical_source.unlink()
+    with pytest.raises(ExpertEvaluationError, match="retained authoritative source bytes is unavailable"):
+        load_expert_evaluation_dataset(
+            dataset_path,
+            validated_legal_pack_path=pack_path,
+            legal_attestation_path=attestation_path,
+            trusted_legal_attestation_key=curator_key,
+            legal_release_checkpoint_path=checkpoint_path,
+            legal_release_source_root=source_root,
+            trusted_legal_release_signing_key=release_key,
+            now=datetime(2026, 7, 16, tzinfo=UTC),
+        )
+    historical_source.write_bytes(historical_bytes)
 
     (source_root / "authoritative-source.bin").write_bytes(b"tampered")
     with pytest.raises(ExpertEvaluationError, match="retained authoritative source bytes differs"):
