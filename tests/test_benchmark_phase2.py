@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import json
 import os
 import sys
 from contextlib import asynccontextmanager
@@ -26,6 +27,7 @@ from benchmark.phase2_e2e import (
     _corpus_identity,
     _dataset_identity,
     _list_all_tools,
+    _read_active_corpus_release,
     _run_agent_loop,
     _stdio_subprocess_env,
     _tool_result_record,
@@ -62,6 +64,20 @@ def _contract() -> LiveMcpContract:
 
 def _response(payload: dict) -> httpx.Response:
     return httpx.Response(200, json=payload, request=httpx.Request("POST", "http://llm/v1/chat/completions"))
+
+
+def _active_release_resource(**overrides: str) -> SimpleNamespace:
+    manifest = _validated_corpus_manifest_identity()
+    payload = {
+        "schema_version": "1.0",
+        "status": "active",
+        "release_id": "corpus_release_sha256_" + "a" * 64,
+        "manifest_id": manifest["manifest_id"],
+        "manifest_sha256": manifest["manifest_sha256"],
+        "retrieval_profile_sha256": "b" * 64,
+        **overrides,
+    }
+    return SimpleNamespace(contents=[SimpleNamespace(text=json.dumps(payload))])
 
 
 def test_harness_has_no_nonstandard_call_tool_http_route():
@@ -314,9 +330,12 @@ async def test_phase2_result_retains_auditable_trace_and_separates_retrieval_com
         "steps": 1,
     }
 
+    session = AsyncMock()
+    session.read_resource = AsyncMock(return_value=_active_release_resource())
+
     @asynccontextmanager
     async def fake_session(_endpoint):
-        yield AsyncMock(), _contract()
+        yield session, _contract()
 
     monkeypatch.setattr(phase2_e2e, "open_mcp_session", fake_session)
     monkeypatch.setattr(phase2_e2e, "_run_agent_loop", AsyncMock(return_value=trace))
@@ -345,6 +364,9 @@ async def test_phase2_result_retains_auditable_trace_and_separates_retrieval_com
     assert result["run_metadata"]["dataset_identity"]["case_ids"] == ["live-1"]
     assert result["run_metadata"]["corpus_identity"]["observed_reference_count"] == 1
     assert result["run_metadata"]["corpus_manifest"]["manifest_id"] == "bddk-job-corpus-2026-07-15"
+    assert result["run_metadata"]["active_corpus_release"]["release_id"].startswith("corpus_release_sha256_")
+    session.read_resource.assert_awaited()
+    assert session.read_resource.await_count == 2
 
 
 @pytest.mark.asyncio
@@ -377,9 +399,12 @@ async def test_external_grader_unavailable_does_not_turn_retrieval_into_transpor
         "steps": 1,
     }
 
+    session = AsyncMock()
+    session.read_resource = AsyncMock(return_value=_active_release_resource())
+
     @asynccontextmanager
     async def fake_session(_endpoint):
-        yield AsyncMock(), _contract()
+        yield session, _contract()
 
     monkeypatch.setattr(phase2_e2e, "open_mcp_session", fake_session)
     monkeypatch.setattr(phase2_e2e, "_run_agent_loop", AsyncMock(return_value=trace))
@@ -408,6 +433,64 @@ async def test_external_grader_unavailable_does_not_turn_retrieval_into_transpor
     assert result["retrieval_completion_success_rate"] == 1.0
     assert result["avg_numeric_claim_support"] is None
     assert result["avg_retrieval_source_correctness"] is None
+
+
+@pytest.mark.asyncio
+async def test_active_release_attestation_rejects_unavailable_and_malformed_resources():
+    unavailable = AsyncMock()
+    unavailable.read_resource.return_value = SimpleNamespace(
+        contents=[SimpleNamespace(text='{"schema_version":"1.0","status":"unavailable"}')]
+    )
+    with pytest.raises(BenchmarkProtocolError, match="no verified active corpus"):
+        await _read_active_corpus_release(unavailable)
+
+    malformed = AsyncMock()
+    malformed.read_resource.return_value = SimpleNamespace(contents=[SimpleNamespace(text="not-json")])
+    with pytest.raises(BenchmarkProtocolError, match="malformed JSON"):
+        await _read_active_corpus_release(malformed)
+
+
+@pytest.mark.asyncio
+async def test_phase2_rejects_active_release_change_on_the_same_session(monkeypatch):
+    from benchmark import phase2_e2e
+
+    session = AsyncMock()
+    session.read_resource = AsyncMock(
+        side_effect=[
+            _active_release_resource(),
+            _active_release_resource(release_id="corpus_release_sha256_" + "c" * 64),
+        ]
+    )
+
+    @asynccontextmanager
+    async def fake_session(_endpoint):
+        yield session, _contract()
+
+    monkeypatch.setattr(phase2_e2e, "open_mcp_session", fake_session)
+
+    with pytest.raises(BenchmarkProtocolError, match="changed during Phase 2"):
+        await run_phase2("model-test", cases=[])
+
+    assert session.read_resource.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_phase2_rejects_live_release_for_a_different_manifest(monkeypatch):
+    from benchmark import phase2_e2e
+
+    session = AsyncMock()
+    session.read_resource = AsyncMock(return_value=_active_release_resource(manifest_sha256="d" * 64))
+
+    @asynccontextmanager
+    async def fake_session(_endpoint):
+        yield session, _contract()
+
+    monkeypatch.setattr(phase2_e2e, "open_mcp_session", fake_session)
+
+    with pytest.raises(BenchmarkProtocolError, match="does not match"):
+        await run_phase2("model-test", cases=[])
+
+    session.read_resource.assert_awaited_once()
 
 
 def test_live_contract_hash_covers_discovered_schema_and_is_stable():

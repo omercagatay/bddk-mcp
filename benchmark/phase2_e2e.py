@@ -13,6 +13,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import subprocess
 import time
 from collections.abc import AsyncIterator, Mapping, Sequence
@@ -30,6 +31,10 @@ from mcp.client.streamable_http import streamablehttp_client
 from mcp.types import CallToolResult, Tool
 
 from bddk_mcp.corpus_manifest import CORPUS_MANIFEST_FILENAME, load_and_validate_corpus_manifest
+from bddk_mcp.resources import (
+    ACTIVE_CORPUS_RELEASE_RESOURCE_SCHEMA_VERSION,
+    ACTIVE_CORPUS_RELEASE_RESOURCE_URI,
+)
 from benchmark.audit import canonical_sha256, sanitize_for_audit
 from benchmark.config import LLM_BASE_URL, LLM_TEMPERATURE, LLM_TIMEOUT, MAX_TOOL_CALLS
 from benchmark.gold_cases import gold_cases_as_test_cases
@@ -58,6 +63,8 @@ SYSTEM_PROMPT = (
 
 CORPUS_MANIFEST_PATH_ENV = "BDDK_CORPUS_MANIFEST_PATH"
 CORPUS_TRUSTED_SIGNING_KEY_ENV = "BDDK_CORPUS_TRUSTED_SIGNING_KEY"
+_RELEASE_ID_RE = re.compile(r"corpus_release_sha256_[0-9a-f]{64}")
+_SHA256_RE = re.compile(r"[0-9a-f]{64}")
 
 McpTransport = Literal["streamable-http", "stdio"]
 
@@ -153,6 +160,26 @@ class BenchmarkProtocolError(RuntimeError):
 
 class McpToolInvocationError(RuntimeError):
     """A live MCP tool call returned an MCP-level error."""
+
+
+@dataclass(frozen=True, slots=True)
+class ActiveCorpusReleaseAttestation:
+    """Path-free identity read from the live server through the evaluated session."""
+
+    release_id: str
+    manifest_id: str
+    manifest_sha256: str
+    retrieval_profile_sha256: str
+
+    def safe_dict(self) -> dict[str, str]:
+        return {
+            "schema_version": ACTIVE_CORPUS_RELEASE_RESOURCE_SCHEMA_VERSION,
+            "status": "active",
+            "release_id": self.release_id,
+            "manifest_id": self.manifest_id,
+            "manifest_sha256": self.manifest_sha256,
+            "retrieval_profile_sha256": self.retrieval_profile_sha256,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -272,6 +299,61 @@ async def _list_all_tools(session: ClientSession) -> tuple[Tool, ...]:
     if len(names) != len(set(names)):
         raise BenchmarkProtocolError("MCP tools/list returned duplicate tool names")
     return tuple(tools)
+
+
+async def _read_active_corpus_release(session: ClientSession) -> ActiveCorpusReleaseAttestation:
+    """Read and validate the release identity through the evaluated MCP session."""
+
+    try:
+        result = await session.read_resource(ACTIVE_CORPUS_RELEASE_RESOURCE_URI)
+    except Exception as error:
+        raise BenchmarkProtocolError("active corpus release MCP resource could not be read") from error
+
+    contents = getattr(result, "contents", None)
+    if not isinstance(contents, list) or len(contents) != 1:
+        raise BenchmarkProtocolError("active corpus release MCP resource returned an invalid content set")
+    text = getattr(contents[0], "text", None)
+    if not isinstance(text, str):
+        raise BenchmarkProtocolError("active corpus release MCP resource was not JSON text")
+    try:
+        payload = json.loads(text)
+    except (json.JSONDecodeError, UnicodeError):
+        raise BenchmarkProtocolError("active corpus release MCP resource returned malformed JSON") from None
+    if not isinstance(payload, dict):
+        raise BenchmarkProtocolError("active corpus release MCP resource was not an object")
+    if payload.get("schema_version") != ACTIVE_CORPUS_RELEASE_RESOURCE_SCHEMA_VERSION:
+        raise BenchmarkProtocolError("active corpus release MCP resource schema is unsupported")
+    if payload.get("status") != "active":
+        raise BenchmarkProtocolError("no verified active corpus release is available for evaluation")
+    expected_keys = {
+        "schema_version",
+        "status",
+        "release_id",
+        "manifest_id",
+        "manifest_sha256",
+        "retrieval_profile_sha256",
+    }
+    if set(payload) != expected_keys:
+        raise BenchmarkProtocolError("active corpus release MCP resource has an unexpected shape")
+
+    release_id = payload.get("release_id")
+    manifest_id = payload.get("manifest_id")
+    manifest_sha256 = payload.get("manifest_sha256")
+    retrieval_profile_sha256 = payload.get("retrieval_profile_sha256")
+    if not isinstance(release_id, str) or _RELEASE_ID_RE.fullmatch(release_id) is None:
+        raise BenchmarkProtocolError("active corpus release identity is invalid")
+    if not isinstance(manifest_id, str) or not manifest_id.strip() or len(manifest_id) > 200:
+        raise BenchmarkProtocolError("active corpus manifest identity is invalid")
+    if not isinstance(manifest_sha256, str) or _SHA256_RE.fullmatch(manifest_sha256) is None:
+        raise BenchmarkProtocolError("active corpus manifest checksum is invalid")
+    if not isinstance(retrieval_profile_sha256, str) or _SHA256_RE.fullmatch(retrieval_profile_sha256) is None:
+        raise BenchmarkProtocolError("active retrieval profile checksum is invalid")
+    return ActiveCorpusReleaseAttestation(
+        release_id=release_id,
+        manifest_id=manifest_id,
+        manifest_sha256=manifest_sha256,
+        retrieval_profile_sha256=retrieval_profile_sha256,
+    )
 
 
 def _live_contract(initialized: Any, tools: tuple[Tool, ...]) -> LiveMcpContract:
@@ -469,6 +551,12 @@ async def run_phase2(
     results: list[dict[str, Any]] = []
 
     async with open_mcp_session(endpoint) as (mcp_session, contract):
+        active_release = await _read_active_corpus_release(mcp_session)
+        if (
+            active_release.manifest_id != corpus_manifest_identity["manifest_id"]
+            or active_release.manifest_sha256 != corpus_manifest_identity["manifest_sha256"]
+        ):
+            raise BenchmarkProtocolError("live active corpus release does not match the benchmark corpus manifest")
         async with httpx.AsyncClient() as llm_client:
             for case in selected_cases:
                 missing_tools = sorted(_required_case_tools(case) - contract.names)
@@ -566,6 +654,9 @@ async def run_phase2(
                         }
                     )
 
+        confirmed_release = await _read_active_corpus_release(mcp_session)
+        if confirmed_release != active_release:
+            raise BenchmarkProtocolError("active corpus release changed during Phase 2 evaluation")
         return _aggregate_results(
             model_tag,
             endpoint,
@@ -573,6 +664,7 @@ async def run_phase2(
             results,
             selected_cases,
             corpus_manifest_identity,
+            active_release,
         )
 
 
@@ -621,6 +713,7 @@ def _aggregate_results(
     results: list[dict[str, Any]],
     cases: Sequence[TestCase],
     corpus_manifest_identity: Mapping[str, Any],
+    active_release: ActiveCorpusReleaseAttestation,
 ) -> dict[str, Any]:
     comparable = [result for result in results if result.get("comparable") and not result.get("error")]
     live_eligible = [result for result in results if result.get("error") != "LIVE_TOOL_UNAVAILABLE"]
@@ -661,6 +754,7 @@ def _aggregate_results(
             results,
             cases,
             corpus_manifest_identity,
+            active_release,
         ),
         "details": results,
     }
@@ -695,6 +789,7 @@ def _run_metadata(
     results: Sequence[dict[str, Any]],
     cases: Sequence[TestCase],
     corpus_manifest_identity: Mapping[str, Any],
+    active_release: ActiveCorpusReleaseAttestation,
 ) -> dict[str, Any]:
     tool_names = [tool.name for tool in contract.tools]
     return {
@@ -712,6 +807,7 @@ def _run_metadata(
         "dataset_identity": _dataset_identity(cases),
         "corpus_identity": _corpus_identity(results),
         "corpus_manifest": dict(corpus_manifest_identity),
+        "active_corpus_release": active_release.safe_dict(),
         "external_model_grader": {
             "explicit_opt_in_env": EXTERNAL_GRADER_OPT_IN_ENV,
             "egress_enabled": external_grader_opted_in(),
