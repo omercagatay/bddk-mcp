@@ -9,6 +9,7 @@ data:
   BDDK_TOOL_PROFILE: public
   BDDK_AUTO_SYNC: "false"
   BDDK_ALLOW_INSECURE_DATABASE: "false"
+  BDDK_REQUIRE_ACTIVE_CORPUS_RELEASE: "true"
   # Baseline workloads do not receive telemetry credentials. Apply the explicit
   # telemetry overlay only after its data flow and retention have been approved.
   BDDK_TELEMETRY_ENABLED: "false"
@@ -40,6 +41,7 @@ data:
   BDDK_TOOL_PROFILE: operator
   BDDK_AUTO_SYNC: "false"
   BDDK_ALLOW_INSECURE_DATABASE: "false"
+  BDDK_REQUIRE_ACTIVE_CORPUS_RELEASE: "true"
   BDDK_TELEMETRY_ENABLED: "false"
   BDDK_OPERATOR_REMOTE_ENABLED: "true"
   BDDK_HTTP_ALLOWED_HOSTS: REPLACE_OPERATOR_SERVICE_HOST

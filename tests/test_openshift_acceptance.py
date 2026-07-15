@@ -373,10 +373,9 @@ def test_live_outbound_public_tools_are_bound_to_runtime_regulatory_egress():
         "get_bddk_bulletin_snapshot",
         "get_bddk_monthly",
         "analyze_bulletin_trends",
-        "get_regulatory_digest",
-        "compare_bulletin_metrics",
-        "check_bddk_updates",
-    }
+            "get_regulatory_digest",
+            "compare_bulletin_metrics",
+        }
     annotated_live_tools = {name for name in PUBLIC_TOOL_NAMES if TOOL_ANNOTATIONS[name].openWorldHint is True}
     assert annotated_live_tools == expected_live_tools
 

@@ -57,10 +57,28 @@ _PG_TOOL_TIMEOUT_DEFAULT_SECONDS: Final[int] = 1800
 _PG_TOOL_TIMEOUT_MIN_SECONDS: Final[int] = 30
 _PG_TOOL_TIMEOUT_MAX_SECONDS: Final[int] = 21600
 _PG_TOOL_TERMINATION_GRACE_SECONDS: Final[int] = 10
+_ACTIVATION_SEQUENCE: Final[str] = (
+    "bddk_meta.corpus_release_activations_activation_sequence_seq"
+)
+_ACTIVATION_TABLE: Final[str] = "bddk_meta.corpus_release_activations"
+_ACTIVATION_COLUMN: Final[str] = "activation_sequence"
+_RUNTIME_DATABASE_URL_VARIABLES: Final[tuple[str, ...]] = (
+    "BDDK_DATABASE_URL",
+    "BDDK_OPERATOR_DATABASE_URL",
+    "BDDK_SCHEMA_OWNER_DATABASE_URL",
+    "BDDK_INGESTION_DATABASE_URL",
+    "BDDK_TELEMETRY_DATABASE_URL",
+    "BDDK_RELEASE_PUBLISHER_DATABASE_URL",
+)
 
 _MANAGED_RELATIONS: Final[tuple[str, ...]] = (
     "bddk_meta.legacy_schema_adoptions",
     "bddk_meta.schema_migrations",
+    "bddk_meta.corpus_state_epoch",
+    "bddk_meta.corpus_releases",
+    "bddk_meta.corpus_release_activations",
+    "bddk_meta.active_corpus_release",
+    _ACTIVATION_SEQUENCE,
     "bddk_operator.operator_jobs",
     "public.decision_cache",
     "public.documents",
@@ -94,6 +112,89 @@ _SAFE_FINGERPRINT_QUERIES: Final[tuple[tuple[str, str], ...]] = (
         SELECT version, name, checksum
         FROM bddk_meta.schema_migrations
         ORDER BY version
+        """,
+    ),
+    (
+        "corpus_state_epoch",
+        """
+        SELECT singleton_id, epoch
+        FROM bddk_meta.corpus_state_epoch
+        ORDER BY singleton_id
+        """,
+    ),
+    (
+        "corpus_releases",
+        """
+        SELECT release_id, manifest_id, manifest_sha256, signer_key_sha256,
+               freshness_policy_result, source_detection_slo_seconds,
+               publication_slo_seconds, max_manifest_age_seconds,
+               retrieval_profile_sha256, corpus_state_sha256, created_at
+        FROM bddk_meta.corpus_releases
+        ORDER BY release_id
+        """,
+    ),
+    (
+        "corpus_release_activations",
+        """
+        SELECT activation_sequence, release_id, completed_at,
+               actor_fingerprint_sha256, corpus_epoch
+        FROM bddk_meta.corpus_release_activations
+        ORDER BY activation_sequence
+        """,
+    ),
+    (
+        "active_corpus_release",
+        """
+        SELECT release_id, manifest_id, manifest_sha256, signer_key_sha256,
+               freshness_policy_result, source_detection_slo_seconds,
+               publication_slo_seconds, max_manifest_age_seconds,
+               retrieval_profile_sha256, corpus_state_sha256, created_at,
+               activation_sequence, completed_at, actor_fingerprint_sha256,
+               corpus_epoch
+        FROM bddk_meta.active_corpus_release
+        ORDER BY activation_sequence
+        """,
+    ),
+    (
+        "corpus_release_activation_sequence",
+        """
+        SELECT state.last_value, state.is_called,
+               sequence.seqstart, sequence.seqincrement, sequence.seqmax,
+               sequence.seqmin, sequence.seqcache, sequence.seqcycle,
+               attribute.attidentity, dependency.deptype,
+               COALESCE(activation.maximum_activation_sequence, 0)
+                   AS maximum_activation_sequence
+        FROM pg_catalog.pg_class AS sequence_relation
+        JOIN pg_catalog.pg_namespace AS sequence_namespace
+          ON sequence_namespace.oid = sequence_relation.relnamespace
+        JOIN pg_catalog.pg_sequence AS sequence
+          ON sequence.seqrelid = sequence_relation.oid
+        JOIN pg_catalog.pg_depend AS dependency
+          ON dependency.classid = 'pg_catalog.pg_class'::pg_catalog.regclass
+         AND dependency.objid = sequence_relation.oid
+         AND dependency.objsubid = 0
+         AND dependency.refclassid = 'pg_catalog.pg_class'::pg_catalog.regclass
+         AND dependency.deptype = 'i'
+        JOIN pg_catalog.pg_class AS owner_relation
+          ON owner_relation.oid = dependency.refobjid
+        JOIN pg_catalog.pg_namespace AS owner_namespace
+          ON owner_namespace.oid = owner_relation.relnamespace
+        JOIN pg_catalog.pg_attribute AS attribute
+          ON attribute.attrelid = owner_relation.oid
+         AND attribute.attnum = dependency.refobjsubid
+         AND NOT attribute.attisdropped
+        CROSS JOIN bddk_meta.corpus_release_activations_activation_sequence_seq AS state
+        CROSS JOIN LATERAL (
+            SELECT MAX(activation_sequence) AS maximum_activation_sequence
+            FROM bddk_meta.corpus_release_activations
+        ) AS activation
+        WHERE sequence_namespace.nspname = 'bddk_meta'
+          AND sequence_relation.relname =
+              'corpus_release_activations_activation_sequence_seq'
+          AND sequence_relation.relkind = 'S'
+          AND owner_namespace.nspname = 'bddk_meta'
+          AND owner_relation.relname = 'corpus_release_activations'
+          AND attribute.attname = 'activation_sequence'
         """,
     ),
     (
@@ -433,6 +534,25 @@ class RelationEvidence:
 
 
 @dataclass(frozen=True, slots=True)
+class IdentitySequenceEvidence:
+    """Collision-safety evidence for the release activation identity."""
+
+    sequence_name: str
+    owned_by: str
+    identity_generation: str
+    last_value: int
+    is_called: bool
+    start_value: int
+    increment_by: int
+    minimum_value: int
+    maximum_value: int
+    cache_size: int
+    cycle: bool
+    next_candidate: int
+    maximum_retained_activation: int
+
+
+@dataclass(frozen=True, slots=True)
 class SnapshotEvidence:
     """Read-only integrity and scale evidence for one database snapshot."""
 
@@ -446,6 +566,8 @@ class SnapshotEvidence:
     catalog_failures: tuple[str, ...]
     readiness_ready: bool
     readiness_issues: tuple[str, ...]
+    active_corpus_release_id: str | None
+    activation_sequence: IdentitySequenceEvidence | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -524,6 +646,12 @@ def _row_value(row: Any, key: str, default: Any = None) -> Any:
         return default
 
 
+def _catalog_char(value: Any) -> str:
+    if isinstance(value, bytes):
+        return value.decode("ascii", errors="strict")
+    return str(value)
+
+
 def require_disposable_acknowledgement(value: str) -> None:
     """Require one exact opt-in before opening a mutating target connection."""
 
@@ -557,19 +685,35 @@ def _target_fingerprint(name: str) -> str:
     return hashlib.sha256(name.encode("utf-8")).hexdigest()
 
 
+def _normalized_database_identity(dsn: str) -> tuple[str, int, str, str]:
+    """Return a credential- and option-independent PostgreSQL endpoint identity."""
+
+    try:
+        parsed = urlsplit(dsn.strip())
+        if parsed.scheme not in {"postgres", "postgresql"} or not parsed.hostname:
+            raise ValueError
+        database_name = unquote(parsed.path.removeprefix("/"))
+        username = unquote(parsed.username or "")
+        if not database_name:
+            raise ValueError
+        return (
+            parsed.hostname.casefold(),
+            parsed.port or 5432,
+            database_name,
+            username,
+        )
+    except (TypeError, ValueError):
+        raise RecoveryDrillError("unsupported_database_url") from None
+
+
 def _assert_dsn_not_runtime(dsn: str) -> None:
-    normalized = dsn.strip()
-    if not normalized:
+    candidate = dsn.strip()
+    if not candidate:
         raise RecoveryDrillError("database_url_required")
-    for variable in (
-        "BDDK_DATABASE_URL",
-        "BDDK_OPERATOR_DATABASE_URL",
-        "BDDK_SCHEMA_OWNER_DATABASE_URL",
-        "BDDK_INGESTION_DATABASE_URL",
-        "BDDK_TELEMETRY_DATABASE_URL",
-    ):
+    candidate_identity = _normalized_database_identity(candidate)
+    for variable in _RUNTIME_DATABASE_URL_VARIABLES:
         configured = os.environ.get(variable, "").strip()
-        if configured and hmac.compare_digest(configured, normalized):
+        if configured and _normalized_database_identity(configured) == candidate_identity:
             raise RecoveryDrillError("recovery_admin_reuses_runtime_identity")
 
 
@@ -741,7 +885,10 @@ async def _relation_evidence(pool: Any) -> dict[str, RelationEvidence]:
             continue
         # Relation names are drawn only from the immutable module constant.
         row_count = int(await pool.fetchval(f"SELECT COUNT(*) FROM {relation}"))
-        if relation == "public.regulatory_validated_section_citations":
+        if relation in {
+            "bddk_meta.active_corpus_release",
+            "public.regulatory_validated_section_citations",
+        }:
             heap_bytes = total_bytes = 0
         else:
             sizes = await pool.fetchrow(
@@ -761,17 +908,78 @@ async def _relation_evidence(pool: Any) -> dict[str, RelationEvidence]:
     return result
 
 
+async def _collect_activation_sequence_evidence(pool: Any) -> IdentitySequenceEvidence:
+    """Prove the identity sequence cannot collide with a retained activation."""
+
+    try:
+        rows = await pool.fetch(dict(_SAFE_FINGERPRINT_QUERIES)["corpus_release_activation_sequence"])
+    except Exception:
+        raise RecoveryDrillError("identity_sequence_evidence_failed") from None
+    if len(rows) != 1:
+        raise RecoveryDrillError("identity_sequence_contract_invalid")
+    row = rows[0]
+    try:
+        last_value = int(_row_value(row, "last_value"))
+        is_called = bool(_row_value(row, "is_called"))
+        start_value = int(_row_value(row, "seqstart"))
+        increment_by = int(_row_value(row, "seqincrement"))
+        minimum_value = int(_row_value(row, "seqmin"))
+        maximum_value = int(_row_value(row, "seqmax"))
+        cache_size = int(_row_value(row, "seqcache"))
+        cycle = bool(_row_value(row, "seqcycle"))
+        maximum_retained = int(_row_value(row, "maximum_activation_sequence", 0) or 0)
+        identity_generation = _catalog_char(_row_value(row, "attidentity", ""))
+        dependency_type = _catalog_char(_row_value(row, "deptype", ""))
+    except (TypeError, UnicodeError, ValueError):
+        raise RecoveryDrillError("identity_sequence_contract_invalid") from None
+    next_candidate = last_value + increment_by if is_called else last_value
+    if (
+        identity_generation != "a"
+        or dependency_type != "i"
+        or increment_by <= 0
+        or cache_size != 1
+        or cycle
+        or not minimum_value <= start_value <= maximum_value
+        or not minimum_value <= last_value <= maximum_value
+        or not minimum_value <= next_candidate <= maximum_value
+    ):
+        raise RecoveryDrillError("identity_sequence_contract_invalid")
+    if next_candidate <= maximum_retained:
+        raise RecoveryDrillError("identity_sequence_collision_risk")
+    return IdentitySequenceEvidence(
+        sequence_name=_ACTIVATION_SEQUENCE,
+        owned_by=f"{_ACTIVATION_TABLE}.{_ACTIVATION_COLUMN}",
+        identity_generation="always",
+        last_value=last_value,
+        is_called=is_called,
+        start_value=start_value,
+        increment_by=increment_by,
+        minimum_value=minimum_value,
+        maximum_value=maximum_value,
+        cache_size=cache_size,
+        cycle=cycle,
+        next_candidate=next_candidate,
+        maximum_retained_activation=maximum_retained,
+    )
+
+
 async def _collect_snapshot_evidence_pinned(
     pool: Any,
     connection: asyncpg.Connection,
     *,
     require_corpus: bool,
+    require_active_release: bool,
 ) -> SnapshotEvidence:
     migration = await inspect_migration_state(pool)
     relations = await _relation_evidence(pool)
     hasher = hashlib.sha256()
     for label, query in _SAFE_FINGERPRINT_QUERIES:
         relation_by_label = {
+            "corpus_state_epoch": "bddk_meta.corpus_state_epoch",
+            "corpus_releases": "bddk_meta.corpus_releases",
+            "corpus_release_activations": "bddk_meta.corpus_release_activations",
+            "active_corpus_release": "bddk_meta.active_corpus_release",
+            "corpus_release_activation_sequence": _ACTIVATION_SEQUENCE,
             "publications": "public.document_retrieval_publications",
             "decision_cache": "public.decision_cache",
             "document_versions": "public.document_versions",
@@ -801,7 +1009,11 @@ async def _collect_snapshot_evidence_pinned(
     catalog_failures: tuple[str, ...] = ()
     if migration.current:
         catalog_failures = (await inspect_catalog_integrity(pool)).failures
-    readiness = await inspect_database_readiness(pool, require_corpus=require_corpus)
+    readiness = await inspect_database_readiness(
+        pool,
+        require_corpus=require_corpus,
+        require_active_release=require_active_release,
+    )
     readiness_issues = (
         readiness.missing_extensions
         + readiness.missing_relations
@@ -812,6 +1024,15 @@ async def _collect_snapshot_evidence_pinned(
     checksum = ""
     if migration.current_version:
         checksum = MIGRATIONS[migration.current_version - 1].checksum
+    activation_sequence: IdentitySequenceEvidence | None = None
+    if _ACTIVATION_SEQUENCE in relations:
+        activation_sequence = await _collect_activation_sequence_evidence(pool)
+    elif migration.current:
+        raise RecoveryDrillError("identity_sequence_contract_invalid")
+    active_release = readiness.active_corpus_release
+    active_release_id = active_release.release_id if active_release is not None else None
+    if require_active_release and active_release_id is None:
+        raise RecoveryDrillError("active_corpus_release_required")
     return SnapshotEvidence(
         migration_version=migration.current_version,
         migration_checksum=checksum,
@@ -823,10 +1044,17 @@ async def _collect_snapshot_evidence_pinned(
         catalog_failures=catalog_failures,
         readiness_ready=readiness.ready,
         readiness_issues=tuple(readiness_issues),
+        active_corpus_release_id=active_release_id,
+        activation_sequence=activation_sequence,
     )
 
 
-async def collect_snapshot_evidence(pool: Any, *, require_corpus: bool) -> SnapshotEvidence:
+async def collect_snapshot_evidence(
+    pool: Any,
+    *,
+    require_corpus: bool,
+    require_active_release: bool = False,
+) -> SnapshotEvidence:
     """Collect fixed-field integrity evidence from one bounded, repeatable snapshot."""
 
     if isinstance(pool, _PinnedPool):
@@ -834,6 +1062,7 @@ async def collect_snapshot_evidence(pool: Any, *, require_corpus: bool) -> Snaps
             pool,
             pool._connection,
             require_corpus=require_corpus,
+            require_active_release=require_active_release,
         )
     async with pool.acquire() as connection:
         async with connection.transaction(isolation="repeatable_read", readonly=True):
@@ -841,6 +1070,7 @@ async def collect_snapshot_evidence(pool: Any, *, require_corpus: bool) -> Snaps
                 _PinnedPool(connection),
                 connection,
                 require_corpus=require_corpus,
+                require_active_release=require_active_release,
             )
 
 
@@ -960,7 +1190,7 @@ async def run_populated_v2_rehearsal(
         restored.wal_lsn,
     )
     return RecoveryEvidence(
-        schema_version=1,
+        schema_version=2,
         workflow="populated_v2_migration_rehearsal",
         status="passed",
         target_fingerprint_sha256=_target_fingerprint(expected_target),
@@ -1080,6 +1310,7 @@ async def _provision_verification_logins(
         "schema_owner": (("bddk_schema_owner",), "bddk_schema_owner"),
         "public": (("bddk_public_reader",), None),
         "ingestion": (("bddk_ingestion",), None),
+        "release_publisher": (("bddk_release_publisher",), None),
         "operator": (("bddk_public_reader", "bddk_ingestion", "bddk_operator_runtime"), None),
         "telemetry": (("bddk_telemetry_writer",), None),
     }
@@ -1132,8 +1363,9 @@ async def _verify_restored_identities(
         for profile, (username, password, role) in login_specs.items():
             dsn = _database_dsn(admin_dsn, target_name, username=username, password=password, role=role)
             init = None
-            if profile in {"public", "ingestion", "operator"}:
-                init = partial(assert_database_connection_identity, profile=profile)
+            identity_profile = "release-publisher" if profile == "release_publisher" else profile
+            if identity_profile in {"public", "ingestion", "release-publisher", "operator"}:
+                init = partial(assert_database_connection_identity, profile=identity_profile)
             pool = await asyncpg.create_pool(dsn, min_size=1, max_size=2, timeout=10, init=init)
             pools.append(pool)
             by_profile[profile] = pool
@@ -1141,8 +1373,13 @@ async def _verify_restored_identities(
         await assert_schema_owner_identity(by_profile["schema_owner"], target_name)
         for profile in ("public", "ingestion", "operator"):
             await assert_database_identity(by_profile[profile], profile)  # type: ignore[arg-type]
+        await assert_database_identity(by_profile["release_publisher"], "release-publisher")
         await assert_telemetry_writer_ready(by_profile["telemetry"])
-        evidence = await collect_snapshot_evidence(by_profile["schema_owner"], require_corpus=True)
+        evidence = await collect_snapshot_evidence(
+            by_profile["schema_owner"],
+            require_corpus=True,
+            require_active_release=True,
+        )
         if not evidence.readiness_ready or not evidence.catalog_valid:
             raise RecoveryDrillError("restored_database_not_ready")
         return evidence
@@ -1161,6 +1398,15 @@ def _same_logical_snapshot(source: SnapshotEvidence, restored: SnapshotEvidence)
     if (
         source.migration_version != restored.migration_version
         or source.migration_checksum != restored.migration_checksum
+    ):
+        return False
+    if (
+        source.active_corpus_release_id is None
+        or restored.active_corpus_release_id is None
+        or source.active_corpus_release_id != restored.active_corpus_release_id
+        or source.activation_sequence is None
+        or restored.activation_sequence is None
+        or source.activation_sequence != restored.activation_sequence
     ):
         return False
     return {name: relation.rows for name, relation in source.relations.items()} == {
@@ -1252,7 +1498,11 @@ async def run_backup_restore_drill(
                 await transaction.start()
                 try:
                     snapshot_id = str(await source_connection.fetchval("SELECT pg_catalog.pg_export_snapshot()"))
-                    source = await collect_snapshot_evidence(_PinnedPool(source_connection), require_corpus=True)
+                    source = await collect_snapshot_evidence(
+                        _PinnedPool(source_connection),
+                        require_corpus=True,
+                        require_active_release=True,
+                    )
                     if (
                         source.migration_version != LATEST_SCHEMA_VERSION
                         or not source.catalog_valid
@@ -1319,7 +1569,7 @@ async def run_backup_restore_drill(
                 raise RecoveryDrillError("restored_logical_fingerprint_mismatch")
 
             return RecoveryEvidence(
-                schema_version=1,
+                schema_version=2,
                 workflow="logical_backup_restore_drill",
                 status="passed",
                 target_fingerprint_sha256=_target_fingerprint(target_database),

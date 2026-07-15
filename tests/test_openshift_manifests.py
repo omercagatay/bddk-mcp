@@ -104,7 +104,7 @@ def test_kustomization_references_runtime_resources_but_not_secret_examples_or_j
     assert lifecycle == {
         "apiVersion": "kustomize.config.k8s.io/v1beta1",
         "kind": "Kustomization",
-        "resources": ["migrate.yaml", "bootstrap.yaml"],
+        "resources": ["migrate.yaml", "bootstrap.yaml", "publish-release.yaml"],
     }
 
 
@@ -196,9 +196,22 @@ def test_public_and_operator_use_distinct_profiles_identities_and_database_secre
     assert operator["spec"]["strategy"]["type"] == "Recreate"
 
 
+def test_workload_service_accounts_are_an_exact_non_token_bearing_inventory():
+    accounts = _documents(OPENSHIFT / "serviceaccounts.yaml")
+    assert {account["metadata"]["name"] for account in accounts} == {
+        "bddk-mcp-public",
+        "bddk-mcp-operator",
+        "bddk-mcp-lifecycle",
+        "bddk-mcp-ingestion",
+        "bddk-mcp-release-publisher",
+    }
+    assert all(account["automountServiceAccountToken"] is False for account in accounts)
+
+
 def test_workloads_meet_restricted_security_and_probe_baseline():
     workloads = [document for document in _runtime_documents() if document["kind"] == "Deployment"] + [
-        _documents(OPENSHIFT / "jobs" / name)[0] for name in ("migrate.yaml", "bootstrap.yaml")
+        _documents(OPENSHIFT / "jobs" / name)[0]
+        for name in ("migrate.yaml", "bootstrap.yaml", "publish-release.yaml")
     ]
     for workload in workloads:
         pod = workload["spec"]["template"]["spec"]
@@ -250,10 +263,13 @@ def test_workloads_meet_restricted_security_and_probe_baseline():
 def test_lifecycle_jobs_use_distinct_database_secrets_and_service_account():
     migrate = _documents(OPENSHIFT / "jobs" / "migrate.yaml")[0]
     bootstrap = _documents(OPENSHIFT / "jobs" / "bootstrap.yaml")[0]
+    publisher = _documents(OPENSHIFT / "jobs" / "publish-release.yaml")[0]
     assert migrate["spec"]["template"]["spec"]["serviceAccountName"] == "bddk-mcp-lifecycle"
-    assert bootstrap["spec"]["template"]["spec"]["serviceAccountName"] == "bddk-mcp-lifecycle"
+    assert bootstrap["spec"]["template"]["spec"]["serviceAccountName"] == "bddk-mcp-ingestion"
+    assert publisher["spec"]["template"]["spec"]["serviceAccountName"] == "bddk-mcp-release-publisher"
     assert "envFrom" not in _container(migrate)
     assert "envFrom" not in _container(bootstrap)
+    assert "envFrom" not in _container(publisher)
     assert _container(migrate)["env"] == [
         {
             "name": "BDDK_EXPECTED_DATABASE_NAME",
@@ -280,11 +296,23 @@ def test_lifecycle_jobs_use_distinct_database_secrets_and_service_account():
             },
         }
     ]
+    assert _container(publisher)["env"] == [
+        {
+            "name": "BDDK_RELEASE_PUBLISHER_DATABASE_URL",
+            "valueFrom": {
+                "secretKeyRef": {
+                    "name": "bddk-mcp-release-publisher-db",
+                    "key": "BDDK_RELEASE_PUBLISHER_DATABASE_URL",
+                }
+            },
+        }
+    ]
 
 
 def test_every_workload_uses_one_immutable_application_digest_placeholder():
     workloads = [document for document in _runtime_documents() if document["kind"] == "Deployment"] + [
-        _documents(OPENSHIFT / "jobs" / name)[0] for name in ("migrate.yaml", "bootstrap.yaml")
+        _documents(OPENSHIFT / "jobs" / name)[0]
+        for name in ("migrate.yaml", "bootstrap.yaml", "publish-release.yaml")
     ]
     images = {_container(workload)["image"] for workload in workloads}
     assert images == {"REPLACE_IMAGE_REGISTRY/bddk-mcp@sha256:REPLACE_64_HEX_IMAGE_DIGEST"}
@@ -303,7 +331,8 @@ def test_baseline_fails_closed_with_default_deny_egress():
 
 def test_no_baseline_workload_imports_a_whole_secret():
     workloads = [document for document in _runtime_documents() if document["kind"] == "Deployment"] + [
-        _documents(OPENSHIFT / "jobs" / name)[0] for name in ("migrate.yaml", "bootstrap.yaml")
+        _documents(OPENSHIFT / "jobs" / name)[0]
+        for name in ("migrate.yaml", "bootstrap.yaml", "publish-release.yaml")
     ]
     for workload in workloads:
         for source in _container(workload).get("envFrom", []):
@@ -430,7 +459,11 @@ def test_rendered_bank_bootstrap_overlay_retains_the_exact_strict_contract():
 
     rendered = _render_kustomization(OPENSHIFT_BANK_BOOTSTRAP)
     jobs = {item["metadata"]["name"]: item for item in rendered if item["kind"] == "Job"}
-    assert set(jobs) == {"bddk-mcp-migrate-v5-0-1", "bddk-mcp-bootstrap-v5-0-1"}
+    assert set(jobs) == {
+        "bddk-mcp-migrate-v5-0-1",
+        "bddk-mcp-bootstrap-v5-0-1",
+        "bddk-mcp-publish-release-v5-0-1",
+    }
     bootstrap = jobs["bddk-mcp-bootstrap-v5-0-1"]
     container = _container(bootstrap)
     mounts = {item["name"]: item for item in container["volumeMounts"]}
@@ -469,6 +502,23 @@ def test_rendered_bank_bootstrap_overlay_retains_the_exact_strict_contract():
             "items": [{"key": "ed25519-public-key.pem", "path": "ed25519-public-key.pem"}],
         },
     }
+    publisher = jobs["bddk-mcp-publish-release-v5-0-1"]
+    publisher_container = _container(publisher)
+    publisher_mounts = {item["name"]: item for item in publisher_container["volumeMounts"]}
+    publisher_volumes = {item["name"]: item for item in publisher["spec"]["template"]["spec"]["volumes"]}
+    assert publisher["spec"]["template"]["spec"]["serviceAccountName"] == "bddk-mcp-release-publisher"
+    assert publisher_container["args"] == [
+        ".venv/bin/bddk-mcp",
+        "publish-corpus-release",
+        "--seed-dir",
+        "/var/run/bddk-mcp/corpus",
+        "--trusted-signing-key",
+        "/var/run/secrets/bddk-mcp/corpus-trust/ed25519-public-key.pem",
+    ]
+    assert publisher_mounts["approved-corpus"] == mounts["approved-corpus"]
+    assert publisher_mounts["corpus-signing-key"] == mounts["corpus-signing-key"]
+    assert publisher_volumes["approved-corpus"] == volumes["approved-corpus"]
+    assert publisher_volumes["corpus-signing-key"] == volumes["corpus-signing-key"]
 
 
 def test_rendered_baseline_excludes_telemetry_and_overlay_enables_it():
@@ -512,6 +562,9 @@ def test_secret_examples_assign_one_database_variable_per_identity():
             )
         },
         "bddk-mcp-ingestion-db": {"BDDK_INGESTION_DATABASE_URL": f"postgresql://REPLACE_INGESTION_DSN?{tls}"},
+        "bddk-mcp-release-publisher-db": {
+            "BDDK_RELEASE_PUBLISHER_DATABASE_URL": f"postgresql://REPLACE_RELEASE_PUBLISHER_DSN?{tls}"
+        },
         "bddk-mcp-telemetry-db": {"BDDK_TELEMETRY_DATABASE_URL": f"postgresql://REPLACE_TELEMETRY_WRITER_DSN?{tls}"},
     }
 
@@ -529,6 +582,7 @@ def test_remote_profiles_are_fail_closed_and_scoped():
     assert operator["BDDK_TELEMETRY_ENABLED"] == "false"
     for config in (public, operator):
         assert config["BDDK_ALLOW_INSECURE_DATABASE"] == "false"
+        assert config["BDDK_REQUIRE_ACTIVE_CORPUS_RELEASE"] == "true"
         assert config["MCP_HOST"] == "0.0.0.0"
         assert config["BDDK_HTTP_ALLOWED_HOSTS"]
         assert config["BDDK_HTTP_ALLOWED_ORIGINS"].startswith("https://")

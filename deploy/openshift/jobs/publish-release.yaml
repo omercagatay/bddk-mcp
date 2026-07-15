@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: bddk-mcp-bootstrap-v5-0-1
+  name: bddk-mcp-publish-release-v5-0-1
   labels:
     app.kubernetes.io/name: bddk-mcp
     app.kubernetes.io/component: lifecycle
@@ -15,23 +15,29 @@ spec:
         app.kubernetes.io/component: lifecycle
     spec:
       restartPolicy: Never
-      serviceAccountName: bddk-mcp-ingestion
+      serviceAccountName: bddk-mcp-release-publisher
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: bootstrap
+        - name: publish-release
           image: REPLACE_IMAGE_REGISTRY/bddk-mcp@sha256:REPLACE_64_HEX_IMAGE_DIGEST
           imagePullPolicy: IfNotPresent
-          args: [".venv/bin/bddk-mcp", "bootstrap", "--reindex-existing"]
+          args:
+            - .venv/bin/bddk-mcp
+            - publish-corpus-release
+            - --seed-dir
+            - /var/run/bddk-mcp/corpus
+            - --trusted-signing-key
+            - /var/run/secrets/bddk-mcp/corpus-trust/ed25519-public-key.pem
           env:
-            - name: BDDK_INGESTION_DATABASE_URL
+            - name: BDDK_RELEASE_PUBLISHER_DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: bddk-mcp-ingestion-db
-                  key: BDDK_INGESTION_DATABASE_URL
+                  name: bddk-mcp-release-publisher-db
+                  key: BDDK_RELEASE_PUBLISHER_DATABASE_URL
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -50,6 +56,12 @@ spec:
               readOnly: true
             - name: runtime-tmp
               mountPath: /tmp
+            - name: approved-corpus
+              mountPath: /var/run/bddk-mcp/corpus
+              readOnly: true
+            - name: corpus-signing-key
+              mountPath: /var/run/secrets/bddk-mcp/corpus-trust
+              readOnly: true
       volumes:
         - name: postgres-ca
           configMap:
@@ -60,3 +72,14 @@ spec:
         - name: runtime-tmp
           emptyDir:
             sizeLimit: 1Gi
+        - name: approved-corpus
+          persistentVolumeClaim:
+            claimName: bddk-mcp-approved-corpus
+            readOnly: true
+        - name: corpus-signing-key
+          secret:
+            secretName: bddk-mcp-corpus-trust
+            defaultMode: 0440
+            items:
+              - key: ed25519-public-key.pem
+                path: ed25519-public-key.pem

@@ -6,13 +6,16 @@ import asyncio
 import hashlib
 import inspect
 import json
+from dataclasses import replace
 
 import pytest
 
 from bddk_mcp.migrations import LATEST_SCHEMA_VERSION, MIGRATIONS
+from bddk_mcp.migrations.v0005_corpus_release_publication import CORPUS_EPOCH_TRACKED_TABLES
 from bddk_mcp.operations import recovery
 from bddk_mcp.operations.recovery import (
     DISPOSABLE_ACKNOWLEDGEMENT,
+    IdentitySequenceEvidence,
     RecoveryDrillError,
     RecoveryEvidence,
     RelationEvidence,
@@ -43,6 +46,24 @@ class _PinnedPool(recovery._PinnedPool):
     """Test alias for the production pinned-connection contract."""
 
 
+def _sequence() -> IdentitySequenceEvidence:
+    return IdentitySequenceEvidence(
+        sequence_name="bddk_meta.corpus_release_activations_activation_sequence_seq",
+        owned_by="bddk_meta.corpus_release_activations.activation_sequence",
+        identity_generation="always",
+        last_value=7,
+        is_called=True,
+        start_value=1,
+        increment_by=1,
+        minimum_value=1,
+        maximum_value=9_223_372_036_854_775_807,
+        cache_size=1,
+        cycle=False,
+        next_candidate=8,
+        maximum_retained_activation=7,
+    )
+
+
 def _snapshot(fingerprint: str = "a" * 64) -> SnapshotEvidence:
     return SnapshotEvidence(
         migration_version=3,
@@ -55,6 +76,8 @@ def _snapshot(fingerprint: str = "a" * 64) -> SnapshotEvidence:
         catalog_failures=(),
         readiness_ready=True,
         readiness_issues=(),
+        active_corpus_release_id="corpus_release_sha256_" + "d" * 64,
+        activation_sequence=_sequence(),
     )
 
 
@@ -150,6 +173,40 @@ def test_target_dsn_replaces_database_and_encodes_ephemeral_login() -> None:
     assert "/bddk_restore_drill_20260715?" in dsn
     assert "role%3Dbddk_schema_owner" in dsn
     assert "old" not in dsn
+
+
+@pytest.mark.parametrize("variable", recovery._RUNTIME_DATABASE_URL_VARIABLES)
+def test_recovery_admin_rejects_every_runtime_endpoint_identity(
+    monkeypatch: pytest.MonkeyPatch,
+    variable: str,
+) -> None:
+    for name in recovery._RUNTIME_DATABASE_URL_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv(
+        variable,
+        "postgres://runtime%20user:runtime-password@DB.BANK.EXAMPLE/bddk%5Fruntime"
+        "?sslmode=require&application_name=serving",
+    )
+
+    with pytest.raises(RecoveryDrillError, match="recovery_admin_reuses_runtime_identity"):
+        recovery._assert_dsn_not_runtime(
+            "postgresql://runtime%20user:different-password@db.bank.example:5432/bddk_runtime?sslmode=verify-full"
+        )
+
+
+def test_recovery_admin_endpoint_identity_preserves_database_user_and_nondefault_port(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for name in recovery._RUNTIME_DATABASE_URL_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv(
+        "BDDK_DATABASE_URL",
+        "postgresql://runtime@db.bank.example:5433/bddk_runtime",
+    )
+
+    recovery._assert_dsn_not_runtime("postgresql://admin@db.bank.example:5433/bddk_runtime")
+    recovery._assert_dsn_not_runtime("postgresql://runtime@db.bank.example:5432/bddk_runtime")
+    recovery._assert_dsn_not_runtime("postgresql://runtime@db.bank.example:5433/bddk_recovery_admin")
 
 
 @pytest.mark.asyncio
@@ -293,7 +350,7 @@ def test_pg_tool_timeout_environment_is_bounded_and_sanitized(monkeypatch, value
 
 def test_report_schema_contains_no_target_name_secret_or_corpus_text() -> None:
     evidence = RecoveryEvidence(
-        schema_version=1,
+        schema_version=2,
         workflow="logical_backup_restore_drill",
         status="passed",
         target_fingerprint_sha256=hashlib.sha256(b"bddk_restore_drill_private").hexdigest(),
@@ -312,6 +369,61 @@ def test_report_schema_contains_no_target_name_secret_or_corpus_text() -> None:
     assert "password" not in report
     assert "regulatory corpus body" not in report
     assert "postgresql://" not in report
+    payload = json.loads(report)
+    assert payload["schema_version"] == 2
+    assert set(payload) == {
+        "backup_elapsed_ms",
+        "default_refusal_proved",
+        "dump_bytes",
+        "dump_sha256",
+        "elapsed_ms",
+        "identities_verified",
+        "lock_samples",
+        "maximum_lock_waiters",
+        "migration_elapsed_ms",
+        "reindex_current",
+        "reindex_elapsed_ms",
+        "reindex_published",
+        "reindex_scanned",
+        "restore_elapsed_ms",
+        "restored",
+        "schema_version",
+        "source",
+        "started_at_epoch",
+        "status",
+        "target_fingerprint_sha256",
+        "wal_generated_bytes",
+        "workflow",
+    }
+    assert set(payload["source"]) == {
+        "activation_sequence",
+        "active_corpus_release_id",
+        "catalog_failures",
+        "catalog_valid",
+        "database_bytes",
+        "logical_fingerprint_sha256",
+        "migration_checksum",
+        "migration_version",
+        "readiness_issues",
+        "readiness_ready",
+        "relations",
+        "wal_lsn",
+    }
+    assert set(payload["source"]["activation_sequence"]) == {
+        "cache_size",
+        "cycle",
+        "identity_generation",
+        "increment_by",
+        "is_called",
+        "last_value",
+        "maximum_retained_activation",
+        "maximum_value",
+        "minimum_value",
+        "next_candidate",
+        "owned_by",
+        "sequence_name",
+        "start_value",
+    }
 
 
 def test_failure_report_is_bounded_and_hashes_target() -> None:
@@ -369,7 +481,110 @@ def test_recovery_evidence_covers_legal_version_relations_in_fk_safe_order() -> 
         assert "ORDER BY" in query
 
 
+def test_recovery_inventory_covers_release_epoch_views_and_identity_sequence() -> None:
+    assert len(recovery._MANAGED_RELATIONS) == 29
+    assert {
+        "bddk_meta.corpus_state_epoch",
+        "bddk_meta.corpus_releases",
+        "bddk_meta.corpus_release_activations",
+        "bddk_meta.active_corpus_release",
+        "bddk_meta.corpus_release_activations_activation_sequence_seq",
+    } <= set(recovery._MANAGED_RELATIONS)
+    fingerprint_labels = {label for label, _query in recovery._SAFE_FINGERPRINT_QUERIES}
+    assert {
+        "corpus_state_epoch",
+        "corpus_releases",
+        "corpus_release_activations",
+        "active_corpus_release",
+        "corpus_release_activation_sequence",
+    } <= fingerprint_labels
+
+
+@pytest.mark.asyncio
+async def test_identity_sequence_evidence_requires_collision_safe_generated_always_contract() -> None:
+    row = {
+        "last_value": 7,
+        "is_called": True,
+        "seqstart": 1,
+        "seqincrement": 1,
+        "seqmax": 9_223_372_036_854_775_807,
+        "seqmin": 1,
+        "seqcache": 1,
+        "seqcycle": False,
+        "attidentity": "a",
+        "deptype": "i",
+        "maximum_activation_sequence": 7,
+    }
+
+    class _Pool:
+        async def fetch(self, _query):
+            return [row]
+
+    assert await recovery._collect_activation_sequence_evidence(_Pool()) == _sequence()
+
+    class _AsyncpgCatalogPool:
+        async def fetch(self, _query):
+            return [{**row, "attidentity": b"a", "deptype": b"i"}]
+
+    assert await recovery._collect_activation_sequence_evidence(_AsyncpgCatalogPool()) == _sequence()
+
+    invalid_cases = (
+        {**row, "attidentity": "d"},
+        {**row, "seqcache": 2},
+        {**row, "seqcycle": True},
+        {**row, "seqincrement": -1},
+    )
+    for invalid in invalid_cases:
+
+        class _InvalidPool:
+            async def fetch(self, _query, value=invalid):
+                return [value]
+
+        with pytest.raises(RecoveryDrillError, match="identity_sequence_contract_invalid"):
+            await recovery._collect_activation_sequence_evidence(_InvalidPool())
+
+    class _CollisionPool:
+        async def fetch(self, _query):
+            return [{**row, "last_value": 7, "is_called": False}]
+
+    with pytest.raises(RecoveryDrillError, match="identity_sequence_collision_risk"):
+        await recovery._collect_activation_sequence_evidence(_CollisionPool())
+
+
+def test_logical_snapshot_requires_same_non_null_release_and_sequence_state() -> None:
+    baseline = _snapshot()
+    assert recovery._same_logical_snapshot(baseline, baseline)
+    assert not recovery._same_logical_snapshot(
+        baseline,
+        replace(baseline, active_corpus_release_id=None),
+    )
+    assert not recovery._same_logical_snapshot(
+        baseline,
+        replace(baseline, activation_sequence=replace(_sequence(), last_value=8, next_candidate=9)),
+    )
+
+
 async def _downgrade_to_v2(connection) -> None:
+    await connection.execute(
+        "DROP FUNCTION IF EXISTS bddk_meta.resolve_regulation_status(pg_catalog.text, pg_catalog.date)"
+    )
+    await connection.execute("DROP VIEW IF EXISTS bddk_meta.active_corpus_release")
+    for table_name in CORPUS_EPOCH_TRACKED_TABLES:
+        await connection.execute(f"DROP TRIGGER IF EXISTS bump_corpus_state_epoch_on_change ON public.{table_name}")
+    await connection.execute(
+        "DROP TABLE IF EXISTS bddk_meta.corpus_release_activations, "
+        "bddk_meta.corpus_releases, bddk_meta.corpus_state_epoch CASCADE"
+    )
+    await connection.execute(
+        "DROP FUNCTION IF EXISTS bddk_meta.publish_verified_corpus_release("
+        "pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.int4, "
+        "pg_catalog.int4, pg_catalog.int4, pg_catalog.text)"
+    )
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.corpus_retrieval_ready(pg_catalog.text)")
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.current_corpus_state_sha256(pg_catalog.text)")
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.corpus_fingerprint_frame(pg_catalog.text)")
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.bump_corpus_state_epoch()")
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.reject_corpus_release_mutation()")
     await connection.execute("DROP VIEW IF EXISTS public.regulatory_validated_section_citations")
     for table in (
         "regulatory_legal_version_provisions",
@@ -385,9 +600,12 @@ async def _downgrade_to_v2(connection) -> None:
         "regulatory_instruments",
     ):
         await connection.execute(f"DROP TABLE IF EXISTS public.{table}")
-    await connection.execute(
-        "DROP TRIGGER IF EXISTS invalidate_retrieval_publication_on_chunk_change ON public.document_chunks"
-    )
+    for trigger_name in (
+        "invalidate_retrieval_publication_on_chunk_insert",
+        "invalidate_retrieval_publication_on_chunk_delete",
+        "invalidate_retrieval_publication_on_chunk_update",
+    ):
+        await connection.execute(f"DROP TRIGGER IF EXISTS {trigger_name} ON public.document_chunks")
     await connection.execute("DROP FUNCTION IF EXISTS public.invalidate_retrieval_publication()")
     await connection.execute("DROP TABLE IF EXISTS public.document_retrieval_publications")
     await connection.execute("ALTER TABLE public.document_chunks DROP CONSTRAINT IF EXISTS document_chunks_document_fk")
@@ -631,4 +849,83 @@ async def test_live_logical_fingerprint_detects_same_length_text_and_embedding_c
         assert embedding_corruption.logical_fingerprint_sha256 != baseline.logical_fingerprint_sha256
     finally:
         await transaction.rollback()
+        await pg_pool.release(connection)
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_live_snapshot_rejects_activation_identity_collision_and_restores_sequence_state(pg_pool) -> None:
+    """setval is nontransactional, so the regression restores its exact prior state."""
+
+    connection = await pg_pool.acquire()
+    original = await connection.fetchrow(
+        """
+        SELECT last_value, is_called
+        FROM bddk_meta.corpus_release_activations_activation_sequence_seq
+        """
+    )
+    transaction = connection.transaction()
+    await transaction.start()
+    release_id = "corpus_release_sha256_" + "e" * 64
+    try:
+        await connection.execute(
+            """
+            INSERT INTO bddk_meta.corpus_releases (
+                release_id, manifest_id, manifest_sha256, signer_key_sha256,
+                freshness_policy_result, source_detection_slo_seconds,
+                publication_slo_seconds, max_manifest_age_seconds,
+                retrieval_profile_sha256, corpus_state_sha256
+            ) VALUES (
+                $1, 'recovery-sequence-collision-proof', $2, $3,
+                'quantified_measured_signature_verified_pass', 60, 120, 3600,
+                $4, $5
+            )
+            """,
+            release_id,
+            "1" * 64,
+            "2" * 64,
+            "3" * 64,
+            "4" * 64,
+        )
+        activation_sequence = int(
+            await connection.fetchval(
+                """
+                INSERT INTO bddk_meta.corpus_release_activations (
+                    release_id, actor_fingerprint_sha256, corpus_epoch
+                )
+                SELECT $1, $2, epoch
+                FROM bddk_meta.corpus_state_epoch
+                WHERE singleton_id = TRUE
+                RETURNING activation_sequence
+                """,
+                release_id,
+                "5" * 64,
+            )
+        )
+        await connection.fetchval(
+            """
+            SELECT pg_catalog.setval(
+                'bddk_meta.corpus_release_activations_activation_sequence_seq'::pg_catalog.regclass,
+                $1,
+                FALSE
+            )
+            """,
+            activation_sequence,
+        )
+
+        with pytest.raises(RecoveryDrillError, match="identity_sequence_collision_risk"):
+            await collect_snapshot_evidence(_PinnedPool(connection), require_corpus=False)
+    finally:
+        await transaction.rollback()
+        await connection.fetchval(
+            """
+            SELECT pg_catalog.setval(
+                'bddk_meta.corpus_release_activations_activation_sequence_seq'::pg_catalog.regclass,
+                $1,
+                $2
+            )
+            """,
+            int(original["last_value"]),
+            bool(original["is_called"]),
+        )
         await pg_pool.release(connection)

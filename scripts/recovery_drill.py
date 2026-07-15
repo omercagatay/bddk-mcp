@@ -72,7 +72,7 @@ def _write_report(report: str, output: Path | None) -> None:
 
 def _failure_report(command: str, target: str, started: int, error_code: str) -> str:
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "workflow": command.replace("-", "_"),
         "status": "failed",
         "target_fingerprint_sha256": hashlib.sha256(target.encode("utf-8")).hexdigest(),

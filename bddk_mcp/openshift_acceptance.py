@@ -505,7 +505,8 @@ _EXTERNAL_GATES: tuple[dict[str, str | bool], ...] = tuple(
         ("network-enforcement", "requires the target CNI, DNS, firewall, proxy, and negative-connectivity tests"),
         (
             "lifecycle-jobs",
-            "requires the approved corpus PVC, corpus-trust Secret, migrate, and strict bootstrap Jobs in an "
+            "requires the approved corpus PVC, corpus-trust Secret, migrate, strict bootstrap, and separate "
+            "release-publication Jobs in an "
             "isolated bank-like namespace",
         ),
         ("backup-restore-rollback", "requires a target backup, restore, upgrade, and rollback drill"),
@@ -587,7 +588,7 @@ _RUNTIME_RESOURCES = (
     "public-route.yaml",
     "networkpolicies.yaml",
 )
-_LIFECYCLE_RESOURCES = ("jobs/migrate.yaml", "jobs/bootstrap.yaml")
+_LIFECYCLE_RESOURCES = ("jobs/migrate.yaml", "jobs/bootstrap.yaml", "jobs/publish-release.yaml")
 _BANK_BOOTSTRAP_OVERLAY = "openshift-overlays/bank-bootstrap"
 _BANK_BOOTSTRAP_PATCH = "bootstrap-job-patch.yaml"
 _BANK_BOOTSTRAP_RESOURCES = (
@@ -603,6 +604,14 @@ _BANK_BOOTSTRAP_ARGS = [
     "--require-quantified-freshness",
     "--require-measured-freshness",
     "--require-verified-signature",
+    "--trusted-signing-key",
+    "/var/run/secrets/bddk-mcp/corpus-trust/ed25519-public-key.pem",
+]
+_PUBLISH_RELEASE_ARGS = [
+    ".venv/bin/bddk-mcp",
+    "publish-corpus-release",
+    "--seed-dir",
+    "/var/run/bddk-mcp/corpus",
     "--trusted-signing-key",
     "/var/run/secrets/bddk-mcp/corpus-trust/ed25519-public-key.pem",
 ]
@@ -630,7 +639,10 @@ _BANK_TRUST_VOLUME = {
 }
 _BASE_RENDERED_RESOURCES = frozenset(
     {
-        *(("v1", "ServiceAccount", f"bddk-mcp-{component}") for component in ("public", "operator", "lifecycle")),
+        *(
+            ("v1", "ServiceAccount", f"bddk-mcp-{component}")
+            for component in ("public", "operator", "lifecycle", "ingestion", "release-publisher")
+        ),
         ("v1", "ConfigMap", "bddk-mcp-service-ca"),
         ("v1", "ConfigMap", "bddk-mcp-public-config"),
         ("v1", "ConfigMap", "bddk-mcp-operator-config"),
@@ -652,6 +664,7 @@ _COMMON_CONFIG_KEYS = {
     "BDDK_TOOL_PROFILE",
     "BDDK_AUTO_SYNC",
     "BDDK_ALLOW_INSECURE_DATABASE",
+    "BDDK_REQUIRE_ACTIVE_CORPUS_RELEASE",
     "BDDK_TELEMETRY_ENABLED",
     "BDDK_HTTP_ALLOWED_HOSTS",
     "BDDK_HTTP_ALLOWED_ORIGINS",
@@ -698,7 +711,7 @@ def _validated_lifecycle_kustomization(openshift: Path) -> None:
     if kustomization != {
         "apiVersion": "kustomize.config.k8s.io/v1beta1",
         "kind": "Kustomization",
-        "resources": ["migrate.yaml", "bootstrap.yaml"],
+        "resources": ["migrate.yaml", "bootstrap.yaml", "publish-release.yaml"],
     }:
         raise OpenShiftAcceptanceError(
             "invalid-kustomization", "lifecycle Kustomization must contain the exact reviewed Job inventory"
@@ -898,6 +911,7 @@ def _render_repository_documents(
         *_BASE_RENDERED_RESOURCES,
         ("batch/v1", "Job", f"bddk-mcp-migrate-v{job_suffix}"),
         ("batch/v1", "Job", f"bddk-mcp-bootstrap-v{job_suffix}"),
+        ("batch/v1", "Job", f"bddk-mcp-publish-release-v{job_suffix}"),
         *(("networking.k8s.io/v1", "NetworkPolicy", policy_name) for policy_name in expected_egress_policies),
     }
     if set(resource_keys) != expected_resources:
@@ -906,7 +920,7 @@ def _render_repository_documents(
     runtime = [item for item in rendered if item.get("kind") != "Job"]
     if len(jobs) != len(_LIFECYCLE_RESOURCES):
         raise OpenShiftAcceptanceError("render-inventory", "rendered lifecycle Job inventory is incomplete")
-    job_rank = {"bddk-mcp-migrate": 0, "bddk-mcp-bootstrap": 1}
+    job_rank = {"bddk-mcp-migrate": 0, "bddk-mcp-bootstrap": 1, "bddk-mcp-publish-release": 2}
     try:
         jobs.sort(
             key=lambda item: next(
@@ -1080,6 +1094,7 @@ def _check_jwt(runtime: list[dict[str, Any]], config: AcceptanceInput) -> None:
         "PORT": "8000",
         "BDDK_AUTO_SYNC": "false",
         "BDDK_ALLOW_INSECURE_DATABASE": "false",
+        "BDDK_REQUIRE_ACTIVE_CORPUS_RELEASE": "true",
         "BDDK_TELEMETRY_ENABLED": "false",
         "BDDK_JWT_ISSUER": config.jwt.issuer,
         "BDDK_JWT_JWKS_URL": config.jwt.jwks_url,
@@ -1142,7 +1157,7 @@ def _check_identities(runtime: list[dict[str, Any]], jobs: list[dict[str, Any]],
         == {"name": "bddk-mcp-operator-db", "key": "BDDK_OPERATOR_DATABASE_URL"},
         "operator DB Secret mismatch",
     )
-    migrate, bootstrap = jobs
+    migrate, bootstrap, publisher = jobs
     _expect(
         _secret_ref(_container(migrate), "BDDK_SCHEMA_OWNER_DATABASE_URL")
         == {"name": "bddk-mcp-schema-owner-db", "key": "BDDK_SCHEMA_OWNER_DATABASE_URL"},
@@ -1153,11 +1168,20 @@ def _check_identities(runtime: list[dict[str, Any]], jobs: list[dict[str, Any]],
         == {"name": "bddk-mcp-ingestion-db", "key": "BDDK_INGESTION_DATABASE_URL"},
         "ingestion DB Secret mismatch",
     )
+    _expect(
+        _secret_ref(_container(publisher), "BDDK_RELEASE_PUBLISHER_DATABASE_URL")
+        == {
+            "name": "bddk-mcp-release-publisher-db",
+            "key": "BDDK_RELEASE_PUBLISHER_DATABASE_URL",
+        },
+        "release-publisher DB Secret mismatch",
+    )
     all_secret_names = {
         "bddk-mcp-public-db",
         "bddk-mcp-operator-db",
         "bddk-mcp-schema-owner-db",
         "bddk-mcp-ingestion-db",
+        "bddk-mcp-release-publisher-db",
     }
     for workload in (public, operator, *jobs):
         container = _container(workload)
@@ -1192,6 +1216,7 @@ def _check_identities(runtime: list[dict[str, Any]], jobs: list[dict[str, Any]],
         "bddk-mcp-operator-db": "BDDK_OPERATOR_DATABASE_URL",
         "bddk-mcp-schema-owner-db": "BDDK_SCHEMA_OWNER_DATABASE_URL",
         "bddk-mcp-ingestion-db": "BDDK_INGESTION_DATABASE_URL",
+        "bddk-mcp-release-publisher-db": "BDDK_RELEASE_PUBLISHER_DATABASE_URL",
         "bddk-mcp-telemetry-db": "BDDK_TELEMETRY_DATABASE_URL",
     }
     _expect(set(secret_examples) == set(expected_keys), "database Secret example inventory mismatch")
@@ -1404,11 +1429,13 @@ def _check_workloads(runtime: list[dict[str, Any]], jobs: list[dict[str, Any]], 
             "workload requires bounded writable temporary storage",
         )
         runtime_workload = workload.get("kind") == "Deployment"
-        bank_bootstrap = workload.get("kind") == "Job" and workload["metadata"]["name"].startswith("bddk-mcp-bootstrap")
+        corpus_admission_job = workload.get("kind") == "Job" and workload["metadata"]["name"].startswith(
+            ("bddk-mcp-bootstrap", "bddk-mcp-publish-release")
+        )
         expected_volume_names = (
             {"postgres-ca", "runtime-tmp"}
             | ({"service-tls"} if runtime_workload else set())
-            | ({"approved-corpus", "corpus-signing-key"} if bank_bootstrap else set())
+            | ({"approved-corpus", "corpus-signing-key"} if corpus_admission_job else set())
         )
         volumes = pod.get("volumes", [])
         mounts = container.get("volumeMounts", [])
@@ -1494,11 +1521,13 @@ def _check_workloads(runtime: list[dict[str, Any]], jobs: list[dict[str, Any]], 
                 "lifecycle container field inventory mismatch",
             )
             _expect(not container.get("envFrom"), "lifecycle Jobs cannot import whole ConfigMaps or Secrets")
-            expected_env_names = (
-                {"BDDK_EXPECTED_DATABASE_NAME", "BDDK_SCHEMA_OWNER_DATABASE_URL"}
-                if workload["metadata"]["name"].startswith("bddk-mcp-migrate")
-                else {"BDDK_INGESTION_DATABASE_URL"}
-            )
+            job_name = workload["metadata"]["name"]
+            if job_name.startswith("bddk-mcp-migrate"):
+                expected_env_names = {"BDDK_EXPECTED_DATABASE_NAME", "BDDK_SCHEMA_OWNER_DATABASE_URL"}
+            elif job_name.startswith("bddk-mcp-bootstrap"):
+                expected_env_names = {"BDDK_INGESTION_DATABASE_URL"}
+            else:
+                expected_env_names = {"BDDK_RELEASE_PUBLISHER_DATABASE_URL"}
             _expect("command" not in container and not container.get("ports"), "lifecycle execution surface mismatch")
         _expect(
             {item.get("name") for item in container.get("env", [])} == expected_env_names,
@@ -1519,6 +1548,7 @@ def _check_workloads(runtime: list[dict[str, Any]], jobs: list[dict[str, Any]], 
         == [
             f"bddk-mcp-migrate-v{config.release.version.replace('.', '-')}",
             f"bddk-mcp-bootstrap-v{config.release.version.replace('.', '-')}",
+            f"bddk-mcp-publish-release-v{config.release.version.replace('.', '-')}",
         ],
         "lifecycle Job order or naming mismatch",
     )
@@ -1538,24 +1568,33 @@ def _check_workloads(runtime: list[dict[str, Any]], jobs: list[dict[str, Any]], 
         and _container(named_deployments["bddk-mcp-operator"])["args"][-2:] == ["--profile", "operator"],
         "runtime profile separation mismatch",
     )
-    for job in jobs:
+    for index, job in enumerate(jobs):
         _expect(job["spec"].get("backoffLimit") == 1, "lifecycle Job backoff must be bounded")
         _expect(job["spec"].get("ttlSecondsAfterFinished") == 86400, "lifecycle Job evidence retention mismatch")
         pod = job["spec"]["template"]["spec"]
-        _expect(pod.get("serviceAccountName") == "bddk-mcp-lifecycle", "lifecycle service-account mismatch")
+        expected_service_account = (
+            "bddk-mcp-lifecycle",
+            "bddk-mcp-ingestion",
+            "bddk-mcp-release-publisher",
+        )[index]
+        _expect(
+            pod.get("serviceAccountName") == expected_service_account,
+            "lifecycle service-account mismatch",
+        )
         _expect(pod.get("restartPolicy") == "Never", "lifecycle Job restart policy mismatch")
     _expect(_container(jobs[0])["args"] == [".venv/bin/bddk-mcp", "migrate"], "migration Job command mismatch")
     _expect(
         _container(jobs[1])["args"] == _BANK_BOOTSTRAP_ARGS,
         "bootstrap Job command mismatch",
     )
+    _expect(_container(jobs[2])["args"] == _PUBLISH_RELEASE_ARGS, "release publication Job command mismatch")
     expected_db = next(item for item in _container(jobs[0])["env"] if item["name"] == "BDDK_EXPECTED_DATABASE_NAME")
     _expect(expected_db["value"] == config.platform.database_name, "migration target-database guard mismatch")
 
 
 def _check_bank_bootstrap(jobs: list[dict[str, Any]]) -> None:
-    _expect(len(jobs) == 2, "strict bank bootstrap requires the reviewed lifecycle Job pair")
-    bootstrap = jobs[1]
+    _expect(len(jobs) == 3, "strict bank bootstrap requires the reviewed three-stage lifecycle Jobs")
+    bootstrap, publisher = jobs[1], jobs[2]
     _expect(
         bootstrap.get("metadata", {}).get("name", "").startswith("bddk-mcp-bootstrap-v"),
         "strict bank bootstrap Job identity mismatch",
@@ -1573,6 +1612,22 @@ def _check_bank_bootstrap(jobs: list[dict[str, Any]]) -> None:
         volumes.get("approved-corpus") == _BANK_CORPUS_VOLUME
         and volumes.get("corpus-signing-key") == _BANK_TRUST_VOLUME,
         "approved corpus and signing trust must use separate reviewed volume sources",
+    )
+    publisher_container = _container(publisher)
+    publisher_pod = publisher["spec"]["template"]["spec"]
+    publisher_mounts = {item.get("name"): item for item in publisher_container.get("volumeMounts", [])}
+    publisher_volumes = {item.get("name"): item for item in publisher_pod.get("volumes", [])}
+    _expect(publisher_container.get("args") == _PUBLISH_RELEASE_ARGS, "release publication arguments mismatch")
+    _expect(
+        publisher_pod.get("serviceAccountName") == "bddk-mcp-release-publisher",
+        "release publication service-account mismatch",
+    )
+    _expect(
+        publisher_mounts.get("approved-corpus") == _BANK_CORPUS_MOUNT
+        and publisher_mounts.get("corpus-signing-key") == _BANK_TRUST_MOUNT
+        and publisher_volumes.get("approved-corpus") == _BANK_CORPUS_VOLUME
+        and publisher_volumes.get("corpus-signing-key") == _BANK_TRUST_VOLUME,
+        "release publication trust mounts mismatch",
     )
 
 
