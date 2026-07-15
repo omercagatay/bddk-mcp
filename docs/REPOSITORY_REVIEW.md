@@ -12,21 +12,48 @@ The reviewed commit is not ready for production regulatory reliance or an Intern
 
 The appropriate near-term direction is stabilization, not a rewrite. Preserve the ingestion, storage, parsing, retrieval, and modular tool foundations; establish trustworthy runtime, security, versioning, citation, evaluation, and release contracts around them.
 
-## Post-review working-tree status — 2026-07-14
+## Implementation progress overlay — 2026-07-15
 
-This section is a status overlay, not a rewrite of the commit-scoped evidence below.
+This is the authoritative current-working-tree checkpoint. The detailed review below remains an intentionally preserved snapshot of commit **5684a34c10e6d90bc22d6ab2a6466944afb6bf81**; statements in that historical layer do not override this table. **Complete** means implemented and covered by a focused repository test, not accepted by a bank. **Partial** means a useful control exists with an explicit residual boundary. **Open** means the stated regulatory or operational capability is still absent.
 
-- **Implemented; acceptance open:** the exported server has a populated 15-tool public registry; package metadata, console commands, and portable client configuration exist; benchmark function schemas derive from the canonical 26-tool operator registry; default tool-boundary logs omit content; and the packaged 11-item quality registry is applied to retrieval outputs.
-- **Implemented; database acceptance open:** explicit migration/bootstrap owns schema, seed, section, and embedding work; `serve` validates existing state without lifecycle writes; seed import builds `document_sections`; and document/section paths share a numeric-alias resolver in focused tests. Disposable-PostgreSQL bootstrap, corpus-wide alias reconciliation, restart immutability, role-level write denial, and idempotency acceptance remain open.
-- **Still open:** application authentication and authorization, explicit remote Host/Origin and rate controls, separate public/operator processes and database roles, immutable/atomic corpus generations, legal version/effective-state modeling, audit-grade citations, official documented-command subprocess/HTTP tests, representative model and retrieval evaluation, health/recovery operations, and hardened OpenShift AI deployment.
+| Status | Current result | Evidence and residual boundary |
+|---|---|---|
+| Complete | MCP runtime and transport foundation | The packaged CLI serves exactly 15 public tools or 28 public-plus-operator tools. The operator profile has a separate DSN, scope, process, and explicit remote opt-in. Unknown arguments fail closed; stable errors do not expose raw exceptions. Official MCP clients exercise installed stdio and Streamable HTTP initialize/list/call flows. Evidence: **bddk_mcp/cli.py; bddk_mcp/server.py; bddk_mcp/mcp_server.py; bddk_mcp/tools/registry.py; tests/test_mcp_stdio_e2e.py; tests/test_mcp_http_runtime.py**. Named Claude, Codex, GPT, GPT-OSS, and LM Studio release certification remains open. |
+| Complete | Application HTTP security baseline | A non-loopback listener requires exact Host and HTTPS Origin allowlists, a complete asymmetric JWT/JWKS profile, the correct public/operator scope, and explicit operator exposure. Token, body, concurrency, and per-process rate bounds are enforced; fixed liveness/readiness routes disclose no corpus data. Evidence: **bddk_mcp/http_security.py; bddk_mcp/transport_tls.py; bddk_mcp/server.py; tests/test_http_security.py; tests/test_server_tls.py**. This is not bank ingress, CA, or global rate-limit acceptance. |
+| Complete | Explicit database lifecycle and repository-level least privilege | Serving performs no DDL, seed import, synchronization, or embedding backfill. Checksum-verified v0001-v0003 migrations, explicit bootstrap, reviewed role/grant assets, exact schema-owner and target-database checks, `verify-full` database transport, ACL-provenance checks, per-connection public/operator identity admission, and live catalog readiness now fail closed. Evidence: **bddk_mcp/migrations/**; **bddk_mcp/db_lifecycle.py**; **bddk_mcp/db_identity.py**; **bddk_mcp/db_transport.py**; **bddk_mcp/catalog_integrity.py**; **deploy/postgres/**; **tests/test_migrations.py**; **tests/test_db_identity.py**; **tests/test_catalog_integrity.py**. Migration v0003 refuses a populated corpus by default until its blocking backfill is explicitly approved. Shared-cluster role naming, size-matched upgrade rehearsal, and proof with the bank's actual LOGINs/DBA process remain deployment gates. |
+| Complete | Durable single-replica operator jobs | Operator jobs persist privacy-safe state in `bddk_operator.operator_jobs`; PostgreSQL advisory leases serialize corpus mutation across processes, and recovery handles abandoned running and cancel-requested work. Evidence: **bddk_mcp/jobs/postgres.py; bddk_mcp/jobs/manager.py; bddk_mcp/server.py; tests/test_postgres_job_repository.py; tests/test_operator_jobs.py**. Execution still occurs in-process; the supplied OpenShift operator therefore remains one `Recreate` replica and is not a distributed workflow engine. |
+| Complete | Bounded outbound acquisition baseline | Regulatory HTTP paths enforce exact approved HTTPS hosts, public-address DNS preflight, redirect revalidation, streamed decoded-body limits, bounded retries, archive limits, sanitized logs/errors, and hardened Office XML parsing. Evidence: **bddk_mcp/core/outbound_http.py; bddk_mcp/ingest/client.py; bddk_mcp/ingest/data_sources.py; bddk_mcp/ingest/doc_sync.py; tests/test_outbound_http.py; tests/test_doc_sync.py**. DNS validation and socket connection are not atomic; platform egress and malware/source-authenticity controls remain required. |
+| Partial | Retrieval consistency and structured evidence | Document text and parsed sections publish in one transaction. Search joins chunks to the current document hash, and migration v0003 adds retrieval-publication records, invalidation, integrity checks, controlled existing-document reindex, and default refusal of a blocking populated-corpus backfill. Six high-value retrieval tools return structured result/evidence envelopes. Evidence: **bddk_mcp/store/doc_store.py; bddk_mcp/store/vector_store.py; bddk_mcp/ingest/seed.py; bddk_mcp/migrations/v0003_retrieval_publication.py; bddk_mcp/tools/structured_outputs.py; tests/test_seed.py; tests/test_structured_retrieval_outputs.py**. This is a fail-closed per-document consistency guard, not immutable whole-corpus generations, historical rollback, authoritative page reconstruction, or legal applicability. |
+| Partial | Reproducible model and benchmark baseline | Embedding dimension is fixed at 768; the default embedding and optional reranker use immutable upstream revisions. Phase 2 now launches the actual stdio MCP server, grades tool arguments/order and evidence association, records bounded redacted audit artifacts, and refuses silent grader-method changes. Evidence: **bddk_mcp/core/config.py; bddk_mcp/store/vector_store.py; Dockerfile; benchmark/phase2_e2e.py; benchmark/graders.py; benchmark/audit.py; tests/test_benchmark_phase2.py**. The gold/NLI data remain too small for model selection, and no external live-model comparison was accepted. |
+| Partial | Packaging, observability, and deployment | Wheel/sdist installation, PostgreSQL CI, digest-pinned base images/actions, correlation-aware safe logging, thread-safe metrics, a dedicated telemetry identity, Compose lifecycle ordering, and a non-root OpenShift starter exist. OpenShift workloads and Jobs require an application image digest, keep version labels out of selectors, reference Secrets key-by-key, mount a separate PostgreSQL CA, require `verify-full`, and default-deny egress. Evidence: **.github/workflows/ci.yml; scripts/verify_distribution.py; bddk_mcp/observability/**; **docker-compose.yml; deploy/openshift/**; **tests/test_openshift_manifests.py**. Bank-specific egress allows, IdP/Route/CA integration, signed-image/SBOM/vulnerability gates, restore drills, release SLOs, and cluster acceptance remain open. |
+| Open | Regulatory knowledge and audit-grade legal evidence | The schema still cannot determine legal effective state, amendment/repeal/supersession, consolidated provision lineage, or applicability at a requested date. Display offsets and pseudo-pages are not authoritative source pages. No validated provision-to-control/audit-workpaper layer exists. These remain Horizon 2/4 work and must not be implied by current search results. |
 
-The maturity ratings below remain the baseline review ratings. They have not been recalculated from the uncommitted working-tree checkpoint.
+### Implementation-checkpoint ratings
+
+These ratings measure the current working tree against the same high-stakes scale; the historical baseline ratings remain below.
+
+| Dimension | Current rating | Reason for movement or hold |
+|---|---:|---|
+| Overall repository maturity | 3/5 | The repository is now a coherent engineering beta with explicit lifecycle and security boundaries. It is not yet an audit-grade regulatory knowledge product. |
+| Production readiness | 2/5 | Repository controls are materially stronger, but bank-integrated TLS/IdP/egress, signed application delivery, backup/restore, SLOs, and cluster acceptance remain unproved. |
+| MCP implementation | 4/5 | Official transports, strict profiles/contracts, stable errors, authentication, and E2E tests are strong. Named-client/version coverage and fully uniform structured outputs remain. |
+| Retrieval quality | 3/5 | Hybrid retrieval, current-hash publication guards, section structure, and pinned models are credible; legal versions, authoritative pages/citations, and representative Turkish evaluation are not. |
+| Security | 3/5 | Application, database-role/ACL, secure-transport, acquisition, and starter-platform controls now fail closed in important paths. Bank-specific egress, IdP/CA/Route, actual LOGIN, signed-image, recovery, and formal security testing remain release blockers. |
+| Testing and evaluation | 3/5 | Broad unit/PostgreSQL/protocol/package and benchmark-contract coverage exists. Live models, expert regulatory judgments, load, recovery, and OpenShift acceptance are missing. |
+| Documentation | 4/5 | The repository now has extensive evidence-based architecture, security, deployment, testing, and roadmap documentation; external runbooks and measured acceptance evidence remain. |
 
 ## Scope, method, and evidence rules
 
 The review covered the complete committed repository: source, tests, seed corpus, benchmark code, CI, containers, deployment manifests, configuration, documentation, packaging, and license.
 
-The checkout already contained deletion entries for every tracked file before this review began. Those changes were treated as user-owned and were not restored. Analysis and tests were performed against an immutable archive of the reviewed commit at **/tmp/bddk-mcp-review.GHa4FE**. Only the eight requested review documents were added to the working tree.
+Initial-checkout provenance: before the review began, the owner's original
+checkout showed deletion entries for every tracked file. Those pre-existing,
+user-owned entries were not created, restored, or committed by the review. The
+commit-scoped analysis and tests below therefore ran against an immutable
+archive of the reviewed commit at **/tmp/bddk-mcp-review.GHa4FE**. Subsequent
+roadmap implementation used a separate clean worktree; the initial deletion
+state is historical provenance, not a claim that the current implementation
+worktree has deleted source files.
 
 Evidence labels used below:
 
@@ -48,9 +75,14 @@ The project owner supplied the following deployment and governance decisions on 
 - multi-tenancy and confidential/private-document scope are undecided, so the safe interim design is single-tenant with no private-corpus capability;
 - freshness, availability, and recovery are expected to be “immediate,” but that term must be converted into measurable SLO, RPO, and RTO values before production acceptance.
 
-These clarifications reduce governance ambiguity but do not change the maturity ratings. In particular, no current external security control means the repository's HTTP/authentication findings remain P0.
+These clarifications reduce governance ambiguity but do not by themselves
+change maturity. At the reviewed commit, absent endpoint protection made the
+HTTP/authentication findings P0. The 2026-07-15 overlay records the repository
+controls added since then; actual bank ingress, identity, CA, egress, rate and
+network enforcement remain release acceptance gates rather than presumed
+controls.
 
-## Maturity ratings
+## Baseline maturity ratings at the reviewed commit
 
 The scale is fitness for the stated high-stakes regulatory use, not code volume:
 
@@ -330,16 +362,19 @@ Confirmed gaps:
 The benchmark has material validity defects:
 
 - Phase 1 tests static OpenAI-compatible Chat Completions function schemas, not MCP discovery (**benchmark/phase1_tools.py:36-58**).
-- At the reviewed commit, the static benchmark defined 23 schemas, unlike the 15/26 runtime profiles. The working tree now derives a 26-tool function contract from the canonical operator registry; live MCP discovery remains absent.
-- Phase 2 claims stdio MCP but POSTs to a non-existent **/call-tool** route (**benchmark/phase2_e2e.py:1-10,107-121**); the server exposes **/mcp**.
-- HTTP errors are converted to strings and may not fail transport scoring.
+- At the reviewed commit, the static benchmark defined 23 schemas, unlike the 15/26 runtime profiles. The current tree derives all 28 function schemas from the canonical 15-public/13-operator registry, and Phase 2 discovers the live MCP contract.
+- At the reviewed commit, Phase 2 claimed stdio MCP but POSTed to a non-existent **/call-tool** route (**benchmark/phase2_e2e.py:1-10,107-121**). The current runner uses the official `ClientSession` over stdio or **/mcp** and fails closed on protocol/tool errors.
+- At the reviewed commit, HTTP errors were converted to strings and could miss transport failure; current benchmark tests reject that behavior.
 - source-trace scoring examines tool results rather than final-answer citations.
 - the code grader checks numeric/date recall and does not penalize unsupported added claims (**benchmark/graders.py:20-66**).
-- absent Anthropic credentials silently change the grading method to the weak code grader (**graders.py:91-126**).
+- at the reviewed commit, absent Anthropic credentials silently changed the grading method to the weak code grader (**graders.py:91-126**); the current runner records an explicit unavailable/non-comparable result instead.
 - only three gold cases exist (**benchmark/gold_cases.yml**).
 - the NLI set has 30 pairs against a stated target of 500 and lacks document/section/hash provenance (**data/bddk_nli/metadata.json:1-16**).
 
-No model-comparison conclusion should be published from the current Phase 2 results.
+The transport/grader defects are corrected, but no model-selection conclusion
+should be published from the current Phase 2 data: three gold cases and the
+small NLI set are not representative, and no external live-model comparison
+has been accepted.
 
 ### Deployment and operations
 
@@ -580,8 +615,8 @@ The status overlay near the beginning of this document identifies which commit-s
 
 ### Reasonable inferences
 
-- At the reviewed commit, small/local models were likely to underperform against the sparse runtime schemas compared with the richer static benchmark schemas. The working tree removes that schema divergence, but runtime property metadata remains sparse and model behavior remains unevaluated.
-- Multiple HTTP workers will disagree about caches, metrics, jobs, and update baselines.
+- At the reviewed commit, small/local models were likely to underperform against the sparse runtime schemas compared with the richer static benchmark schemas. The current tree removes that inventory divergence and strengthens schemas, but named host/model behavior remains unevaluated.
+- Multiple HTTP workers will still disagree about process-local caches, metrics, and update baselines. Operator job state and corpus-mutation leases are now PostgreSQL-backed rather than replica-local, but execution remains in process.
 - An answer can sound well grounded while citing a pseudo-page or legally obsolete text.
 - The synchronous first-start embedding workload can cause deployment startup timeouts.
 - Enterprise audit queries may leak through platform log retention.
@@ -589,9 +624,16 @@ The status overlay near the beginning of this document identifies which commit-s
 
 ### Remaining unknowns requiring investigation
 
-- Exact OpenShift AI topology, ingress/Route, TLS, bank identity provider, NetworkPolicy, secrets, monitoring, and rate-limit controls.
-- Actual PostgreSQL roles, privileges, SSL, backups, restore tests, and production data; the project owner is accountable, but the implemented controls remain unspecified.
-- Whether public and operator profiles run separately.
+- Exact bank OpenShift AI topology and accepted values for ingress/Route, IdP,
+  application/service/PostgreSQL CAs, registry, egress allows, monitoring,
+  shared rate limits, SCC and namespace policy. Repository starter contracts
+  exist; bank application and acceptance do not.
+- Actual bank PostgreSQL LOGINs, direct memberships, ACL provenance, TLS/HBA,
+  backups, restore tests, database size and production data. Repository role,
+  target-name, `verify-full`, per-connection identity and catalog contracts
+  exist, but the opt-in actual-LOGIN proof has not run in the bank environment.
+- Whether the bank deployment actually runs the public and operator profiles as
+  separate workloads, as the repository now requires.
 - Which Claude, Codex, GPT, LM Studio, and local-host versions are target requirements.
 - Real client behavior for structured content, output schemas, annotations, instructions, and older transports.
 - Completeness and freshness against the owner's intentional job-specific corpus scope; exhaustive BDDK coverage is not currently intended.
@@ -601,13 +643,13 @@ The status overlay near the beginning of this document identifies which commit-s
 - Enterprise tenant model and whether private documents will enter the system; single-tenant/no-private-corpus is the interim assumption.
 - Numeric availability, source-detection/publication freshness, RPO, and RTO targets that operationalize “immediate.”
 
-## Validation record
+## Historical validation record for commit 5684a34
 
 Commands were non-destructive and ran in the immutable commit archive.
 
 | Command or check | Result |
 |---|---|
-| git status, log, ls-tree, remote verification | Reviewed commit matches origin/main; working tree had pre-existing deletion of all tracked files. |
+| git status, log, ls-tree, remote verification | Reviewed commit matched origin/main; the owner's initial checkout had pre-existing deletion entries for all tracked files, so review execution used the immutable archive. This is not the state of the later clean implementation worktree. |
 | uv sync --frozen --dev | Completed; isolated environment created. |
 | uv run ruff check . | Passed. |
 | uv run ruff format --check . | Passed; 138 files already formatted. |
@@ -642,7 +684,9 @@ These require external state, credentials, model downloads, database writes, ins
 
 ## Review conclusion
 
-The repository should be treated as a promising research and local-development system. Its next release should first make the advertised MCP path real, establish secure public/operator boundaries, separate migrations and corpus publication from serving, and create honest structured tool/citation contracts. Only then should retrieval sophistication and regulatory knowledge features be expanded.
+At the reviewed commit, the repository was a promising research and local-development system whose advertised MCP path, remote boundary, lifecycle, packaging, and evaluation contracts needed stabilization. That conclusion is preserved as historical evidence, not as a description of the current working tree.
+
+The 2026-07-15 implementation is a coherent engineering beta. It now has a real packaged MCP path, secure application profiles, explicit database lifecycle and identity checks, durable PostgreSQL-backed operator job records, bounded acquisition, guarded per-document retrieval publication, and hardened deployment starters. It is still not ready for audit-grade legal reliance or bank production acceptance. The next priorities are bank integration with actual LOGIN and upgrade/restore proof; whole-corpus generation and rollback; legal version, currentness, and authoritative citation evidence; expert Turkish retrieval evaluation and named-client/model certification; and measurable operations SLOs.
 
 The detailed prioritized gaps, target design, test strategy, security controls, and first ten implementation issues are in:
 

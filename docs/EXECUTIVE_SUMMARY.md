@@ -4,29 +4,45 @@ Review baseline: commit **5684a34c10e6d90bc22d6ab2a6466944afb6bf81**, reviewed 2
 
 ## Bottom line
 
-BDDK MCP is a promising working prototype, but it should not yet be relied on to decide which Turkish banking rule is legally applicable, or be exposed as an unauthenticated Internet service.
+BDDK MCP is now a coherent engineering beta with a credible MCP, database-safety, acquisition, and deployment foundation. It should still not be relied on to decide which Turkish banking rule is legally applicable, produce audit-grade evidence, or enter bank production until the remaining legal-evidence and bank-acceptance work is completed.
 
-The repository already does more than a basic chatbot demo. It collects and normalizes regulatory documents, stores and searches them with both keyword and semantic techniques, recognizes many Turkish legal section types, warns about some extraction problems, and exposes the results through MCP. It also has a large automated test suite.
+The repository does more than a basic chatbot demo. It collects and normalizes regulatory documents, stores and searches them with keyword and semantic techniques, recognizes Turkish legal section types, protects important publication boundaries, exposes strict tools through official MCP transports, and tests fail-closed remote and database behavior.
 
-The missing pieces are the ones that matter most when the answer may be reviewed by an auditor, compliance officer, model validator, or regulator: authoritative version history, effective dates, amendment/repeal relationships, exact source-page evidence, secure remote access, reliable client startup, and a benchmark that proves the system retrieved and cited the right rule.
+The missing pieces are now concentrated in the high-value product and deployment layers: authoritative version history, effective dates, amendment/repeal relationships, exact source-page evidence, whole-corpus rollback, expert Turkish evaluation, accepted bank identity/network/CA/backup controls, and proof with the intended client/model combinations.
 
-## Post-review implementation checkpoint
+## Implementation progress overlay — 2026-07-15
 
-The working tree now fixes several immediate engineering defects found in the baseline review: the importable MCP server exposes the canonical 15-tool public surface; buildable package metadata and portable console commands exist; serving startup is separated from explicit migration/bootstrap work; seed bootstrap builds section indexes and accepts common numeric aliases; the 11-item quality-failure registry is applied at runtime; and default tool-boundary logs omit query, result, and error content. Benchmark function schemas are now derived from the canonical 26-tool operator registry.
+The current working tree has moved beyond the original engineering prototype in several concrete ways:
 
-These changes are meaningful stabilization, not production approval. Official documented-command subprocess tests, clean installation acceptance, disposable-PostgreSQL bootstrap tests, application authentication and authorization, Host/Origin and rate controls, separate operator/public processes and database roles, atomic corpus publication, legal-version/currentness evidence, audit-grade citations, OpenShift hardening, and representative model/retrieval evaluation remain open.
+- **Complete at repository/application level:** a packaged MCP service with official installed stdio and Streamable HTTP tests; one strict registry with 15 public plus 13 additional operator tools; privacy-safe protocol errors; separate public/operator profiles and DSNs; fail-closed Host, HTTPS Origin, asymmetric JWT, scope, body, rate, and concurrency checks; checksum v0001-v0003 migrations; reviewed PostgreSQL role/grant assets; exact target-database, schema-owner, TLS, ACL-provenance, effective-privilege, per-connection identity, and catalog-readiness checks; durable PostgreSQL job records and advisory leases; bounded SSRF/archive acquisition; pinned base/action/model revisions; PostgreSQL/distribution CI; and a non-root OpenShift starter with digest images, stable selectors, exact Secret references, PostgreSQL CA wiring, and default-deny egress.
+- **Partial:** six high-value retrieval tools return structured evidence; document/section replacement and current-hash publication fail closed per document; migration v0003 refuses a blocking populated-corpus backfill by default and requires controlled reindexing after approval. Metrics and correlation-safe logging exist. The OpenShift starter still needs bank-specific values and has not run in the bank cluster; there is no immutable whole-corpus generation or rollback.
+- **Open:** legal version/effective-state modeling, amendment/repeal lineage, authoritative source-page citations, expert-reviewed Turkish retrieval and answer-grounding evaluation, live named client/model certification, bank-applied identity/CA/egress/LOGIN proof, signed release/SBOM policy, backup/restore drills, numeric SLOs, and validated provision-to-audit-control mappings.
 
-## Ratings
+The secure remote application path is now credible for pre-production integration, but this is not production or bank deployment approval. Bank IdP, CA, registry, Route, egress, and network decisions remain unknown. Any older “working-tree” checkpoint sentence in the historical sections below is superseded by this dated overlay.
+
+### Implementation-checkpoint ratings
+
+| Area | Current rating | Plain-language meaning |
+|---|---:|---|
+| Overall maturity | 3/5 | The project is a coherent engineering beta with clear boundaries, but not yet an audit-grade regulatory knowledge product. |
+| Production readiness | 2/5 | Strong repository controls and deployment starters exist; bank integration, recovery, signed delivery, SLOs, and cluster acceptance remain unproved. |
+| MCP implementation | 4/5 | Official transports, strict profiles/contracts, stable errors, authentication, and protocol E2E tests are strong; named-client/version evidence remains. |
+| Retrieval quality | 3/5 | Hybrid retrieval, structural parsing, current-hash publication guards, and pinned models are credible; legal currentness, authoritative pages, and representative Turkish evaluation remain unsolved. |
+| Security | 3/5 | Application, database identity/ACL/TLS, acquisition, job-durability, and starter-platform controls fail closed in important paths; bank-specific acceptance and recovery remain. |
+| Testing and evaluation | 3/5 | Unit, PostgreSQL, protocol, package, deployment-contract, and benchmark-contract coverage is broad; expert, live-model, load, recovery, and cluster evidence remains open. |
+| Documentation | 4/5 | Architecture, security, deployment, testing, and roadmap boundaries are now extensive; external runbooks and measured acceptance evidence remain. |
+
+## Baseline ratings at the reviewed commit
 
 | Area | Rating | Plain-language meaning |
 |---|---:|---|
 | Overall maturity | 2/5 | A functional prototype with sound building blocks, not a stable product. |
 | Production readiness | 1/5 | Important correctness, security, deployment, and recovery controls are absent. |
-| MCP implementation | 2/5 | At the reviewed commit, the right SDK and transports were present but the documented local client command exposed no tools. The working-tree fix still needs subprocess acceptance. |
+| MCP implementation | 2/5 | At the reviewed commit, the right SDK and transports were present but the documented local client command exposed no tools. |
 | Retrieval quality | 2/5 | Search technology is promising; legal currentness and audit-grade citations are not solved. |
 | Security | 1/5 | Remote HTTP has no built-in identity/permission boundary and operator access is only an on/off flag. |
 | Testing and evaluation | 2/5 | Many code tests pass, but real MCP, database, client, citation, and model evaluations are incomplete. |
-| Documentation | 2/5 | At the reviewed commit, documentation was helpful and bilingual but several important claims were inaccurate. A truth pass is now present, with compatibility evidence still incomplete. |
+| Documentation | 2/5 | At the reviewed commit, documentation was helpful and bilingual but several important claims were inaccurate. |
 
 These are the review-baseline scores, not a post-implementation rerating. They measure suitability for high-stakes regulatory use. They do not mean the code is poor; they mean the evidence and controls required for that use are not complete.
 
@@ -66,41 +82,41 @@ Evidence: **bddk_mcp/server.py:32-52**.
 
 The reviewed README and checked-in client configuration used **mcp run server.py**. That command imported the server object but skipped the project's startup function, where tools and dependencies were registered. A runtime check found zero tools.
 
-The working tree now exports a populated server, provides a packaged CLI, and passes official in-memory client list/call tests. A real documented-command subprocess test, protocol-only stdout check, and installed-server initialization test are still required before closing the finding.
+The current working tree closes this launcher defect with an installed subprocess test that covers initialize/list/call, protocol-only stdout, invalid-input recovery, and shutdown. Named client/version compatibility remains broader follow-on evidence.
 
-### The corpus is not published atomically
+### Publication is guarded per document, not as one corpus generation
 
-The current document, its sections, and its vector chunks are updated in separate steps. If vector indexing fails after a document changes, the exact document and search index can disagree. Retrieval can prefer the stale index.
+At the reviewed commit, document, section, and vector updates could diverge and retrieval could prefer stale chunks. The current repository replaces document text and parsed sections in one transaction, joins chunks to the current document hash, records retrieval-publication state, invalidates incomplete indexes, and refuses retrieval when integrity is not satisfied. Migration v0003 also refuses its blocking backfill on a populated corpus unless the operator explicitly approves it and then reindexes existing content.
 
-At the reviewed commit, startup seed import could also treat any content difference as drift and overwrite a fresher deployed document with the bundled copy without preserving the normal version archive. The working tree removes this import from `serve`, but explicit bootstrap still lacks immutable staging and atomic generation publication.
+This closes the stale-current-document failure mode, but it is not immutable whole-corpus staging, one atomic release switch, or rollback to a previously validated generation.
 
 ### Fresh seed installations lacked exact sections at the reviewed commit
 
-The reviewed seed import loaded documents and chunks but did not populate the `document_sections` table. The working tree now builds and validates parser-detectable sections and includes focused exact-reference/alias fixtures. Fresh disposable-PostgreSQL and repeat-bootstrap acceptance remain open.
+The reviewed seed import loaded documents and chunks but did not populate the `document_sections` table. The current repository builds and validates parser-detectable sections, exercises fresh PostgreSQL bootstrap and reindex paths, and includes exact-reference/alias fixtures. A rehearsal on the bank's actual corpus size and database remains open.
 
 ### Packaging and deployment are incomplete
 
-At the reviewed commit the Python package could not be built and the containers mixed startup, database schema changes, seed import, embedding, and serving. The working tree now builds wheel/sdist artifacts and uses explicit bootstrap before read-only lifecycle startup. The containers still lack an application health route, run as root, use mutable supply-chain references, and have not been accepted on OpenShift.
+At the reviewed commit the Python package could not be built and the containers mixed startup, database schema changes, seed import, embedding, and serving. The current repository builds and externally installs wheel/sdist artifacts, separates migration/bootstrap from serving, adds fixed health routes, and supplies a non-root OpenShift starter with digest-only application images, stable selectors, exact Secret references, PostgreSQL CA/`verify-full`, and default-deny egress. Bank-specific egress, IdP, Route, CA and registry values; signing/SBOM/vulnerability acceptance; restore evidence; and a real cluster deployment remain open.
 
-### Observability gives false confidence
+### Observability is instrumented but not yet an operational service
 
-The metrics object exists, but normal tool calls do not update it. The operator metrics tool can therefore report zero activity while the service is being used.
+Current tool calls update thread-safe metrics and correlation-aware, content-safe logs; telemetry can use a distinct append-only PostgreSQL identity. Metrics are still process-local and are not exported through an accepted Prometheus/OpenTelemetry pipeline. There are no measured release SLOs, bank retention rules, or alerts proven in the target cluster.
 
 ## What is unsafe
 
 ### Remote HTTP access
 
-The reviewed Streamable HTTP server listened on all interfaces. The working tree defaults local HTTP to loopback, while container profiles explicitly bind all interfaces. The repository still does not implement caller authentication, tool authorization, inbound rate limits, or an explicit deployment-reviewed Host/Origin allowlist.
+The reviewed Streamable HTTP server listened on all interfaces without a caller boundary. The current application fails closed on non-loopback startup unless exact Host/HTTPS Origin, asymmetric JWT/JWKS, profile-scope, body, rate, and concurrency controls are configured. Limits remain process-local, and actual bank TLS/IdP/ingress integration and global enforcement are unproved.
 
-Operator tools are hidden by default, but enabling the environment flag exposes sync, refresh, migration-like, and backfill actions to every caller of that server. The flag controls visibility; it is not a permission system.
+Operator tools now require a distinct process profile, DSN, scope, and explicit remote opt-in. Job records and privacy-safe audit state are durable in PostgreSQL, and advisory leases serialize mutations. The bank must still prove private network reachability, actual principals/scopes, and one-replica operator operation.
 
 ### Database privilege
 
-The working tree removes schema, seed, cache-population, and embedding lifecycle writes from normal serving startup, and telemetry remains off by default. It has not yet provisioned or proved separate schema-owner, ingestion, serving-reader, operator, and telemetry roles; enabling telemetry or operator tools still requires write authority.
+The current repository removes schema, seed, cache-population, and embedding lifecycle writes from serving; supplies separate schema-owner, ingestion, public, operator, and telemetry roles/grants; requires the expected database and schema owner; enforces `verify-full` transport; detects ACL provenance and effective privilege; and validates every pooled public/operator connection. Repository PostgreSQL tests prove the denial/allow matrix. The unsafe unknown is whether the bank's actual LOGINs, memberships, HBA/TLS policy, role names, and restore/upgrade process satisfy that contract.
 
 ### Private query logging
 
-At the reviewed commit, normal INFO logs included truncated tool arguments and result previews. Working-tree tool-boundary logs now retain metadata only by default, with content preview behind an explicit warned opt-in. Complete tool-family coverage, broader internal/upstream exception review, correlation, and an approved retention/access policy remain open.
+At the reviewed commit, normal INFO logs included truncated tool arguments and result previews. Current tool-boundary logs retain metadata only by default, add correlation, and put content preview behind an explicit warned opt-in. Bank log export, retention, access, and incident-response policy remain open.
 
 ### Misleading citations
 
@@ -122,46 +138,46 @@ Only two of 318 seeded documents were marked with a formula-aware extraction met
 - hierarchical provision IDs such as article/fıkra/bent;
 - immutable official source artifacts and hashes;
 - physical source-page/table/formula provenance;
-- a typed citation that a reviewer can reconstruct;
-- atomic staging, validation, publication, and rollback of a corpus;
-- separate public and operator services and database roles;
-- secure remote authentication and authorization;
-- official MCP end-to-end tests and client compatibility matrix;
+- an audit-grade citation that a reviewer can reconstruct to an authoritative source page and legal version;
+- immutable whole-corpus staging, validation, one-step publication, and rollback;
+- application of the repository database-role/identity contract to the bank's actual LOGINs and proof of bank-cluster public/operator isolation;
+- bank-integrated TLS, IdP, ingress-global limits, and authorization evidence;
+- named MCP host/model compatibility matrix beyond official reference-client E2E;
 - representative Turkish regulatory retrieval and citation benchmarks;
 - claim-by-claim answer grounding evaluation;
 - validated mappings from provisions to obligations, controls, audit steps, and evidence;
-- health checks, metrics/traces, backups, restore drills, versioned migration history, and upgrade procedures;
+- exported metrics/traces, measured SLOs, backups, restore drills, and bank-sized upgrade procedures;
 - clear code/data licensing and provenance policy.
 
 ## The five most important findings
 
-1. **The advertised stdio integration exposed zero tools at the reviewed commit.** The working tree corrects registration and packaging, but subprocess and installed-server acceptance remain open.
-2. **Remote serving has no trustworthy access-control boundary.** HTTP is open by repository design, and operator mode is only a global flag.
-3. **The system cannot prove legal applicability.** It has extraction snapshots, not official legal versions, effective dates, or amendment/repeal status.
-4. **Citations can look more precise than the evidence.** Character windows are presented as pages, and official source-page coordinates are not retained.
-5. **Current evaluation cannot support model-selection claims.** The nominal end-to-end benchmark calls a route the MCP server does not expose, uses three gold cases, and can silently weaken its grader.
+1. **The system still cannot prove legal applicability.** It has extraction snapshots, not validated official legal versions, effective intervals, or amendment/repeal/consolidation status.
+2. **Citations can look more precise than the source evidence.** Character windows are presented as pages, and authoritative source-page/table/formula coordinates are not retained.
+3. **Consistency is per document, not per released corpus.** Current-hash publication now fails closed, but there is no immutable validated generation, atomic whole-corpus switch, or rollback.
+4. **Bank production acceptance remains unproved.** Repository controls are strong, but actual LOGINs, IdP/CA/Route/egress, signed image delivery, backup/restore, SLOs, and OpenShift cluster behavior have not been accepted.
+5. **Evaluation cannot yet support client/model selection or audit-reliability claims.** Phase 2 now uses official MCP stdio/HTTP sessions and a fail-closed grader, but the expert gold data is too small and no named live model/client result is accepted.
 
 ## What should be done first
 
-### 1. Finish acceptance of the corrected MCP path
+### 1. Run a bank integration and recovery acceptance track
 
-The working tree adds an installed entry point and canonical 15/26 registry. Complete official-client subprocess/HTTP tests, installed-wheel initialization, cancellation/shutdown checks, and client compatibility evidence.
+Apply the reviewed role/grant assets to actual bank LOGINs; validate shared-cluster naming, memberships, ACL provenance, HBA/TLS and `verify-full`; fill the OpenShift IdP/CA/Route/registry/egress values; deploy separate public/operator workloads; rehearse v0003 on size-matched data; and prove backup/restore before accepting production.
 
-### 2. Close the remote/operator security gap
+### 2. Define the legal evidence and version contract
 
-Local HTTP now defaults to loopback and default tool logs omit content. Require Host/Origin policy, identity, scopes, and rate limits for remote use; put operator tools in a separate private process; and approve retention/access policy.
+Represent a stable regulation/provision identity, official source artifact and hash, publication/effective/repeal state, amendment/consolidation relations, source pages/tables/formulas, quality status, and reviewer validation. Make “current as of date” unavailable until this data is validated.
 
-### 3. Stop changing the corpus during serving startup
+### 3. Add immutable whole-corpus publication and rollback
 
-Explicit migration/bootstrap now owns schema, seed, section, and embedding work. Prove serving-reader write denial, separate operator roles/jobs, and publish a validated corpus generation atomically.
+Stage and validate one complete document/section/chunk/model manifest, atomically activate it, bind every query to its generation, retain the prior generation, and prove rollback after simulated ingestion and indexing failures.
 
-### 4. Define the evidence contract
+### 4. Build expert Turkish evaluation and named compatibility evidence
 
-Create structured outputs and citations that name the document, legal version, provision, official URL, source hash, true page or normalized range, quality state, and corpus generation. Never call a display window a source page.
+Expand exact-article, cross-reference, acronym, table/formula, currentness, negative, tool-argument, and claim-grounding cases. Have the owner validate judgments, then run the intended Claude, Codex, GPT/GPT-OSS, and LM Studio host/model versions through the same official MCP benchmark.
 
-### 5. Build the legal-version foundation and a trustworthy benchmark
+### 5. Make operations measurable
 
-Represent publication/effective/repeal state and amendment relations. Then create expert-reviewed Turkish queries for exact articles, cross-references, acronyms, tables/formulas, currentness, negative cases, and claim-level citation correctness.
+Export metrics/traces without query text, define numeric availability/publication-lag/RPO/RTO targets, configure alerts and retention, add signed-image/SBOM/vulnerability gates, and schedule upgrade and restore drills with retained evidence.
 
 ## What this project could realistically become
 
@@ -192,9 +208,11 @@ Authentication, authorization, entitlements, and contracts can control a hosted 
 
 ## Review limitations
 
-The review used the exact origin/main commit and did not inspect production infrastructure. Database/GPU integration tests, real clients, live BDDK sources, model runs, and deployment state remain unverified. No secret values were inspected or exposed.
+The initial review used an immutable archive of the exact origin/main commit and did not inspect production infrastructure. The owner's initial checkout had pre-existing Git deletion entries for tracked files; the review did not create, restore, or commit those entries, and later implementation used a separate clean worktree. That historical provenance does not mean current source files are deleted.
 
-Owner clarifications after the review establish that the corpus is an intentional job-specific selection, the owner will validate regulatory content and administer the data layer, source/data use is accepted by the owner, and the deployment target is a bank's on-premises OpenShift AI environment. Exact client versions, tenant/private-document needs, platform security controls, and measurable “immediate” freshness/availability/recovery targets remain to be defined. Until then, the recommended deployment assumption is single-tenant, private network, separate public/operator planes, and no private-document ingestion.
+The current repository has focused PostgreSQL privilege/lifecycle/publication tests, a dedicated actual-LOGIN/ACL CI contract, official MCP stdio/HTTP tests, package-install verification, and mandatory rendered OpenShift contract tests. It still has no evidence from the bank's cluster or bank LOGINs, live upstream production operation, intended named clients/models, GPU workload, size-matched migration, or backup/restore drill. No secret values were inspected or exposed.
+
+Owner clarifications establish that the corpus is an intentional job-specific selection, the owner will validate regulatory content and administer the data layer, source/data use is accepted by the owner, and deployment is expected immediately on a bank's on-premises OpenShift AI environment. Exact client versions, tenant/private-document needs, bank platform values, and measurable “immediate” freshness/availability/recovery targets remain to be defined. Until then, the safe deployment assumption is single-tenant, private network, separate public/operator planes, and no private-document ingestion.
 
 For detailed evidence and the implementation plan:
 

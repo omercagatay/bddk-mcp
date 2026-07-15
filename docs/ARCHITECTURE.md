@@ -2,17 +2,47 @@
 
 This document describes the architecture implemented at commit **5684a34c10e6d90bc22d6ab2a6466944afb6bf81**. It is descriptive, not the target design.
 
-## Post-review working-tree delta — 2026-07-14
+## Implementation progress overlay — 2026-07-15
 
-The diagrams and detailed evidence below intentionally remain a snapshot of the reviewed commit. The working tree changes the immediate runtime and deployment lifecycle as follows:
+The diagrams and detailed evidence below intentionally remain a snapshot of the reviewed commit. Unless a later note explicitly says otherwise, everything after this overlay is historical commit evidence. The current architecture is still a modular monolith, but it now has explicit process, lifecycle, privilege, and publication boundaries:
 
-1. `bddk-mcp` is now the packaged entry point for stdio or Streamable HTTP, with explicit `migrate` and `bootstrap` subcommands.
-2. The importable FastMCP object is populated before dependency startup. A canonical registry defines 15 public tools and 11 additional operator tools; the benchmark exports the same 26-tool operator contract.
-3. A lifespan-managed dependency lease validates an existing database, loads the decision cache read-only, and constructs search stores without DDL, seed import, synchronization, or embedding backfill.
-4. Seed bootstrap now creates and validates parser-detectable `document_sections`; common numeric document aliases share one resolver.
-5. Docker Compose now uses a one-shot bootstrap service before starting the serving container, and local HTTP defaults to loopback while container profiles explicitly bind all interfaces.
+| Status | Architectural delta | Evidence and remaining boundary |
+|---|---|---|
+| Complete | MCP and process profiles | The packaged CLI selects one registry per process. Public uses only `BDDK_DATABASE_URL`; operator requires its own DSN, authorization scope, and remote opt-in. The registry contains 15 public and 13 additional operator tools with strict input schemas and risk annotations. Evidence: **bddk_mcp/cli.py; bddk_mcp/core/config.py; bddk_mcp/server.py; bddk_mcp/tools/registry.py**. |
+| Complete | Transport and request boundary | Stdio and stateless JSON Streamable HTTP use the official SDK. Non-loopback HTTP requires Host/Origin allowlists, asymmetric JWT/JWKS verification, profile scope, bounded body/token/concurrency/rate admission, and optional validated server TLS. Evidence: **bddk_mcp/http_security.py; bddk_mcp/transport_tls.py; tests/test_mcp_stdio_e2e.py; tests/test_mcp_http_runtime.py**. |
+| Complete | Explicit lifecycle and PostgreSQL authorization | `serve` is read-only with respect to schema/corpus lifecycle. A checksum ledger owns v0001-v0003 migrations; exact schema-owner identity and expected target database are checked; production transport requires `sslmode=verify-full` and an absolute CA path; ACL provenance and effective capabilities are verified; and every pooled public/operator connection is admitted against its expected identity. Readiness rechecks catalog, identity, operator-job, and telemetry contracts. Migration v0003 refuses the blocking publication backfill on a populated v2 corpus unless an operator explicitly approves it, after which existing documents must be reindexed. Evidence: **bddk_mcp/migrations/**; **bddk_mcp/db_lifecycle.py**; **bddk_mcp/db_transport.py**; **bddk_mcp/db_identity.py**; **bddk_mcp/catalog_integrity.py**; **deploy/postgres/**. Shared-cluster role naming, proof with the bank's actual LOGINs, and a size-matched upgrade rehearsal remain deployment work. |
+| Complete | Durable single-replica operator control plane | `PostgresJobRepository` persists privacy-safe job records and PostgreSQL advisory leases serialize corpus mutation. Recovery is explicit. Evidence: **bddk_mcp/jobs/postgres.py; bddk_mcp/jobs/manager.py; bddk_mcp/server.py**. Runners remain in the operator process; multi-replica dispatch/failover is deliberately unsupported. |
+| Partial | Retrieval publication | Canonical document and section replacement is transactional. Current-hash joins and `document_retrieval_publications` prevent stale or incomplete chunks from being returned as current, while invalidation, integrity checks, controlled reindexing, and v0003's default populated-corpus refusal protect the migration boundary. Six retrieval tools expose structured evidence. Evidence: **bddk_mcp/store/doc_store.py; bddk_mcp/store/vector_store.py; bddk_mcp/migrations/v0003_retrieval_publication.py; bddk_mcp/tools/structured_outputs.py**. These are per-document guards, not immutable whole-corpus generations, historical rollback, model-profile manifests per generation, or audit-grade pages. |
+| Partial | Acquisition, supply chain, and observability | Outbound source requests have exact-host, redirect, public-address DNS, body, retry, archive-member, expansion-ratio, and decoded-size controls; Office XML parsing is hardened. Default embedding/reranker revisions and base images/actions are immutable. Logging is correlation-aware and content-safe by default; metrics are thread-safe; telemetry uses a distinct append-only identity. Evidence: **bddk_mcp/core/outbound_http.py; bddk_mcp/ingest/doc_sync.py; bddk_mcp/core/config.py; Dockerfile; bddk_mcp/core/logging_config.py; bddk_mcp/observability/**. DNS validation is not atomic with socket connection; platform egress, malware/source-authenticity checks, exported metrics/traces, SLOs, and bank retention policy remain open. |
+| Partial | OpenShift topology | Separate non-root public/operator workloads, service accounts, TLS Services, a public-only Route, probes, lifecycle Jobs, ingress policies, and explicit telemetry overlay exist. Workloads and Jobs require an application-image digest, version labels stay out of immutable selectors, database DSNs use exact Secret-key references, a separate PostgreSQL CA is mounted for `verify-full`, and egress is default-deny. Checksum-pinned Kustomize rendering is mandatory in CI. Evidence: **deploy/openshift/**; **deploy/openshift-overlays/**; **tests/test_openshift_manifests.py**. Bank-specific egress allows, IdP/Route/CA and registry values, signed image/SBOM/vulnerability policy, restore evidence, and cluster acceptance remain open. |
+| Open | Legal and knowledge architecture | No canonical model yet represents legal versions, effective intervals, amendment/repeal/supersession, consolidated provision lineage, authoritative source pages, provision-to-control mappings, or validated audit knowledge. PostgreSQL remains sufficient for the proposed first implementation. |
 
-The runtime remains a modular monolith. Public and operator tools can still be co-hosted behind a process-wide profile flag, database roles are not separated or proved, telemetry/operator actions can write, corpus publication is not atomic, and no application authentication, rate control, production health endpoints, or OpenShift workload boundary has been added. Official subprocess/HTTP client acceptance also remains open.
+Current deployment and data flow:
+
+~~~mermaid
+flowchart LR
+    Client[MCP client or model host]
+    Gateway[Bank ingress and identity boundary]
+    Public[Public MCP process\n15 tools]
+    Operator[Operator MCP process\n28 tools]
+    Migrate[Schema-owner migration Job]
+    Bootstrap[Ingestion bootstrap Job]
+    PG[(PostgreSQL + pgvector)]
+    Sources[Approved BDDK and Mevzuat sources]
+    Evidence[Current document + sections + published chunks]
+
+    Client --> Gateway --> Public
+    Client -->|private operator path| Gateway --> Operator
+    Public -->|reader identity| PG
+    Operator -->|ingestion + job identities| PG
+    Operator --> Sources
+    Migrate -->|schema-owner identity| PG
+    Bootstrap -->|ingestion identity| PG
+    Sources --> Bootstrap
+    PG --> Evidence
+~~~
+
+The historical system-context and trust-boundary diagrams below must therefore be read as commit evidence, not as diagrams of the implementation overlay.
 
 ## System context
 
@@ -66,7 +96,7 @@ The implementation is a single-process modular monolith:
 - in-process model loading and embedding;
 - optional in-process background sync and backfill jobs.
 
-This was a reasonable shape for local deployment. At the reviewed commit, the same process combined public serving, operator control, schema creation, migrations, seed publication, extraction, embedding, caching, and monitoring, which was too broad for remote or enterprise operation. The working-tree lifecycle split removes automatic schema/seed/embedding work from `serve`, but it does not yet create separate process or privilege boundaries.
+This was a reasonable shape for local deployment. At the reviewed commit, the same process combined public serving, operator control, schema creation, migrations, seed publication, extraction, embedding, caching, and monitoring, which was too broad for remote or enterprise operation. The current implementation supersedes that behavior with explicit public/operator processes, migration/bootstrap commands, PostgreSQL identities, and a durable job ledger; the sequence diagram remains historical evidence only.
 
 ## Entry points
 

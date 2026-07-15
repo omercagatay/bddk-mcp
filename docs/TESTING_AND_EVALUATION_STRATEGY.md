@@ -9,7 +9,7 @@ The test strategy must answer four different questions:
 3. **Does retrieval return the legally applicable, traceable evidence?**
 4. **Does the final answer make only claims supported by that evidence?**
 
-The current repository has substantial unit coverage, but its benchmark and protocol tests do not yet answer questions 2–4 reliably.
+The current repository now has reliable protocol and real-MCP runner coverage. It still does not answer questions 2–4 at a product-evidence level because named host/model runs, representative expert retrieval judgments, legal-currentness fixtures, reconstructable citations, and claim-level grounding remain incomplete.
 
 ## Current baseline
 
@@ -36,11 +36,23 @@ Skipped:
 
 This review deliberately did not start a database, mutate schemas, access live BDDK services, download/run models, inspect secrets, or use production clients.
 
-### Post-review working-tree checkpoint — 2026-07-14
+### Implementation progress overlay — 2026-07-15
 
-The working tree now builds wheel/sdist artifacts, exposes packaged CLIs, derives the 26-tool benchmark function contract from the canonical runtime registry, and includes official in-memory MCP list/call tests plus focused lifecycle, readiness, section, alias, quality-registry, and privacy-log tests. The server is configured with the project version rather than the SDK version.
+This checkpoint describes the current working tree; the executed-check table above remains the reviewed-commit baseline. **Complete** means a repository gate or focused automated contract exists, not that every target environment has passed it. **Partial** means meaningful coverage exists with important gaps. **Open** means the evaluation outcome remains unproved.
 
-This is not the protocol/release evidence required by this strategy. A clean Python 3.12 no-dependency wheel install passed version/help/package-data checks, and installed wheel code completed an official in-memory tool call using the existing dependency environment. A fully isolated dependency install, Python 3.13 acceptance, documented-command subprocess and Streamable HTTP tests, live benchmark discovery/calls, disposable-PostgreSQL bootstrap/migration tests, container/OpenShift tests, and representative retrieval/citation/model benchmarks remain open. The final local suite under the locked MCP 1.28.1 environment produced 569 passed, 86 skipped, and 3 GPU-marked tests deselected; 79 skips require PostgreSQL and 7 require the optional Chandra OCR package.
+| Test/evaluation slice | Status | Current evidence and remaining gap |
+|---|---|---|
+| Installed MCP transport E2E | Complete | The official client exercises the installed stdio subprocess through initialize/version/list/call/invalid-extra/recovery/shutdown and checks protocol-only stdout. Streamable HTTP tests cover initialize/list/call, health, Host/Origin, JWT/JWKS, scope, operator opt-in, and shutdown (**tests/test_mcp_stdio_e2e.py; tests/test_mcp_http_runtime.py**). |
+| Tool contracts and protocol errors | Partial | The 15-public/28-operator registry owns strict generated argument models and risk annotations; stable privacy-safe error codes are tested. Six retrieval tools validate structured evidence payloads (**tests/test_public_input_contracts.py; tests/test_structured_retrieval_outputs.py**). A uniform output contract and audit-grade Citation remain open across the full surface. |
+| PostgreSQL and distribution gates | Complete as repository gates | CI requires PostgreSQL-backed tests on Python 3.12/3.13 and separately builds, inspects, installs outside the checkout, and invokes wheel/sdist CLIs (**.github/workflows/ci.yml; scripts/verify_distribution.py**). This records configured repository gates, not a target-bank runner result. |
+| Security and deployment tests | Partial | Host/Origin/JWT/scope/body/rate/concurrency, exact DB identity/TLS/role denial, SSRF/redirect/size, archive-bomb, and static OpenShift security contracts exist (**tests/test_http_security.py; tests/test_db_identity.py; tests/test_db_transport.py; tests/test_outbound_http.py; tests/test_openshift_manifests.py**). Shared ingress controls, prompt-injection elevation, executable image scans, and a real bank-like OpenShift deployment remain unproved. |
+| Database lifecycle and recovery | Partial | Checksum migrations, exact schema-owner/target verification, catalog attestation, role/grant assets, durable jobs, clean/legacy/populated-v2 upgrades, and rollback injection are covered. A populated v2 requires the explicit v3 maintenance approval only after backup and size-matched rehearsal (**tests/test_migrations.py; tests/test_legacy_migration_adoption.py; tests/test_postgres_job_repository.py**). Whole-corpus generations, low-downtime large-corpus migration, backup/restore, PITR, and bank DBA evidence remain open. |
+| Real MCP Phase 2 runner | Complete as a harness | Phase 2 uses official `ClientSession` transports for stdio and `/mcp`, paginates live discovery, executes actual `call_tool`, fails cases on MCP errors, sanitizes audit artifacts, and records schema/server/protocol/corpus/dataset identities (**benchmark/phase2_e2e.py; benchmark/audit.py; tests/test_benchmark_phase2.py**). No named model/client score or product recommendation follows until an approved corpus and grader suite is run. |
+| Observability tests | Partial | Correlation IDs and thread-safe request/error/latency metrics are wired at the MCP/tool boundary and telemetry uses a separate verified writer identity (**tests/test_metrics.py; tests/test_mcp_runtime.py; tests/test_telemetry.py**). Standard exporter/tracing, SLO, retention, load, and bank monitoring tests remain. |
+| Retrieval, citation, and answer evaluation | Open | Representative Turkish retrieval judgments, immutable legal-version/currentness cases, citation reconstruction, claim-level grounding, abstention, and unsupported-addition grading remain. |
+| Model/client compatibility and operations | Open | No supported named-host/model matrix, reproducible live-model comparison, load/resilience baseline, recovery drill, or real OpenShift deployment acceptance has been produced. |
+
+No aggregate current-suite count is asserted here: the trustworthy current claims are the explicit repository gates and focused contracts above.
 
 ## Benchmark defects identified at the reviewed commit and current status
 
@@ -50,11 +62,11 @@ This is not the protocol/release evidence required by this strategy. A clean Pyt
 
 ### Static schemas drifted from runtime at the reviewed commit
 
-At the reviewed commit, the benchmark defined 23 static schemas while runtime exposed 15 public or 26 operator tools. The working tree now exports all 26 OpenAI-style function schemas from the canonical operator registry, eliminating that inventory drift. Benchmark Phase 1 is still function calling rather than MCP, and Phase 2 still needs official-client live discovery and calls before results measure the deployed server contract.
+At the reviewed commit, the benchmark defined 23 static schemas while runtime exposed 15 public or 26 operator tools. The working tree now exports all 28 OpenAI-style function schemas from the canonical 15-public/13-operator registry, eliminating that inventory drift. Benchmark Phase 1 remains function calling rather than MCP. Phase 2 now discovers the live MCP schema and therefore no longer shares this defect.
 
-### Phase 2 does not call this MCP server
+### Phase 2 did not call this MCP server at the reviewed commit; this is corrected
 
-**benchmark/phase2_e2e.py:107-121** POSTs to **/call-tool**, a route the server does not expose. The real SDK endpoint is **/mcp**. The phase describes stdio but does not launch a stdio client. HTTP exceptions become result strings and can fail to mark transport failure.
+The reviewed-commit implementation POSTed to nonexistent **/call-tool**, described stdio without launching it, and converted HTTP failures into result strings. Current **benchmark/phase2_e2e.py** opens an official SDK session over stdio or Streamable HTTP **/mcp**, paginates `tools/list`, invokes `ClientSession.call_tool`, and raises on transport, protocol, malformed-model, or tool errors. **tests/test_benchmark_phase2.py** verifies those fail-closed paths and checks that the obsolete route is absent.
 
 ### Grounding/citation scores are not claim validation
 
@@ -71,7 +83,7 @@ If the Anthropic key/API is unavailable, model grading silently becomes the weak
 - generic source labels rather than immutable document/version/provision/hash citations
 - unclear independent annotation and adjudication
 
-No client/model recommendation should be based on current Phase 2 scores.
+No client/model recommendation should be based on repository presence or harness tests alone. A recommendation requires a recorded successful run on the approved corpus, expert-reviewed cases, pinned host/model/hardware, and the claim/citation methodology below.
 
 ## Quality model
 
@@ -154,6 +166,8 @@ Property-based/fuzz candidates:
 ### Layer 2 — PostgreSQL integration
 
 Run against disposable pgvector PostgreSQL in a required CI job. Database absence must fail the job, not skip it.
+
+The current repository covers clean and idempotent migrations, strict legacy adoption, populated-v2 refusal/approved v3 backfill, transactional rollback injection, catalog attestation, durable job concurrency/leases, fail-closed retrieval publication, and role/identity/write-denial contracts. The list below is the full target; supported-release restore, target-bank identities, low-downtime large-corpus migration, whole-corpus generations, and PITR remain residual work.
 
 Test:
 
@@ -240,7 +254,7 @@ Use the official MCP Python client rather than custom JSON-RPC scripts as the pr
 
 Assert:
 
-- exact 15 public and 26 operator names until intentionally versioned;
+- exact 15 public and 28 operator names until intentionally versioned;
 - every property has description and applicable bounds/enums/formats;
 - no unexpected fields;
 - every output has stable status/data/citations/warnings/meta;
@@ -567,6 +581,8 @@ Before expanding gold data:
 
 ## Continuous integration design
 
+The pull-request implementation already gates lint/format, unit tests, required PostgreSQL tests on Python 3.12/3.13, a dedicated actual-LOGIN/ACL role contract, official-client MCP tests, distribution build/content/external-install, Dockerfile static checks, and checksum-pinned mandatory Kustomize rendering. Items below that are not in those configured jobs remain target lanes rather than implied delivered coverage.
+
 ### Pull-request lane
 
 - static/lint/type;
@@ -660,15 +676,16 @@ Targets should be approved by domain and product owners after a baseline. The fo
 
 Any threshold exception must be documented with affected cases, risk owner, expiry date, and compensating control.
 
-## First evaluation deliverables
+## Next evaluation deliverables
 
-1. Replace Phase 2 with official MCP stdio and HTTP clients.
-2. Export schemas from the runtime registry and delete hand drift.
-3. Build a 25-case protocol/tool-routing smoke set.
-4. Build a 100-query expert-reviewed retrieval/citation set across priority domains.
-5. Add exact-reference, currentness, hard-negative, degraded-extraction, and prompt-injection cases.
-6. Implement deterministic citation reconstruction.
-7. Implement claim-evidence grading with human calibration.
-8. Publish the first versioned baseline across the official client plus selected Claude, Codex/ChatGPT, LM Studio, and GPT-OSS host/model profiles.
+The original first two deliverables are complete: Phase 2 uses official MCP stdio/HTTP sessions, and Phase 1 schemas derive from the canonical runtime registry. The next reviewable deliverables are:
+
+1. Build a versioned 25-case protocol/tool-routing smoke set that records the live schema hash and includes recovery, pagination, unnecessary-call, and operator-avoidance cases.
+2. Build a 100-query expert-reviewed Turkish retrieval/citation set across the selected regulatory domains.
+3. Add exact-reference, legal-currentness, amendment, hard-negative, no-answer, degraded-extraction, table/formula, and prompt-injection cases with immutable source provenance.
+4. Implement deterministic citation reconstruction against artifact/version/provision/hash/page-or-range evidence.
+5. Implement claim-evidence grading, unsupported-addition penalties, abstention/currentness scoring, and human calibration without silent grader substitution.
+6. Add a scheduled size-matched migration/reindex rehearsal that records elapsed time, lock behavior, database/WAL growth, and restore evidence before the v3 maintenance approval can be used outside disposable tests.
+7. Publish the first versioned baseline across the official client plus selected Claude, Codex/ChatGPT, LM Studio, and GPT-OSS host/model profiles; record skipped/unavailable profiles rather than imputing success.
 
 The roadmap maps these deliverables into reviewable issues: [ROADMAP.md](ROADMAP.md).

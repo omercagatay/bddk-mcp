@@ -15,6 +15,26 @@ The next major version should turn the current prototype into a dependable regul
 
 PostgreSQL plus pgvector remains sufficient. A separate graph database, message broker, service mesh, Kubernetes requirement, or distributed vector database is not justified now.
 
+## Implementation progress overlay — 2026-07-15
+
+This checkpoint maps the current working tree to the target below. **Complete** means the repository implementation and a focused automated contract exist; it is not bank deployment acceptance. **Partial** means a useful slice is implemented but at least one target invariant or acceptance gate remains. **Open** means the target capability is not yet adequately implemented.
+
+| Target slice | Status | Current evidence and remaining target work |
+|---|---|---|
+| MCP factory, registry, and transport | Partial | The installed server factory/lifespan selects exactly the 15-tool public or 28-tool operator profile. Strict generated arguments, risk annotations, stable protocol errors, and official-SDK stdio and Streamable HTTP initialize/list/call/error/shutdown tests are present (**bddk_mcp/server.py; bddk_mcp/mcp_server.py; bddk_mcp/tools/registry.py; tests/test_mcp_stdio_e2e.py; tests/test_mcp_http_runtime.py**). Six retrieval tools now expose validated structured evidence, but invariant 9 remains open for a uniform output schema across every tool and for named-client compatibility. |
+| Secure remote HTTP | Complete at the application boundary | Non-loopback startup requires exact Host and HTTPS Origin allowlists plus complete asymmetric JWT/JWKS configuration and profile scopes; request body, rate, and concurrency admission are bounded (**bddk_mcp/http_security.py:320-393,437-488,542-698**). Bank TLS termination, a real IdP/CA, and ingress-wide limits remain deployment responsibilities. |
+| Public/operator and database authorization | Complete as a repository boundary; bank acceptance open | Public/operator registries, scopes, DSNs, workloads, service accounts, Secrets, and exposure differ. Versioned DBA assets create NOLOGIN capability roles; startup verifies the exact LOGIN/effective-role membership and effective object privilege inventory, including every new pool connection. Schema-owner migration additionally verifies the exact target database and restricted identity; non-local PostgreSQL DSNs require `sslmode=verify-full` plus an absolute CA path (**bddk_mcp/db_identity.py; bddk_mcp/db_lifecycle.py; bddk_mcp/db_transport.py; deploy/postgres/**). Bank-created LOGINs, IdP mappings, network isolation, and DBA execution evidence remain external acceptance work. |
+| Operator jobs | Partial | Mutating operations use durable PostgreSQL job records, hashed idempotency keys, CAS state/progress, crash recovery, and a connection-pinned advisory execution lease (**bddk_mcp/jobs/postgres.py; bddk_mcp/jobs/manager.py; tests/test_postgres_job_repository.py**). The runner task still executes inside one operator process; automatic ownership transfer for an ambiguous crash window, multi-replica failover, and target-bank operational acceptance remain open. |
+| Database lifecycle and migration | Partial | A checksum-verified global v0001-v0003 ledger, advisory serialization, catalog attestation, schema-owner/wrong-target checks, role grants, clean/legacy/populated-v2 upgrade tests, and explicit migrate/bootstrap Jobs are implemented (**bddk_mcp/migrations/**; **bddk_mcp/catalog_integrity.py**; **tests/test_migrations.py**; **tests/test_legacy_migration_adoption.py**). A populated v2-to-v3 upgrade fails closed unless `--allow-retrieval-publication-backfill` is explicitly supplied after a stopped-workload, restorable-backup, size-matched rehearsal. Bank restore evidence, shared-cluster role naming, and future large-corpus expand/backfill/contract migrations remain open. |
+| Retrieval publication consistency | Partial | Canonical document and section replacement is transactional. Chunks publish only after ordering, count, embedding, source-content, document-content, and retrieval-profile checks; mutation invalidates the publication row and serving joins only the current content/profile (**bddk_mcp/store/doc_store.py; bddk_mcp/store/vector_store.py; bddk_mcp/migrations/v0003_retrieval_publication.py**). This prevents serving stale/incomplete chunks but is not an immutable whole-corpus generation, atomic active pointer, or rollback mechanism. |
+| Outbound and document-ingestion safety | Partial | Exact HTTPS destination policy, private/reserved-address rejection, redirect revalidation, bounded streaming/retry behavior, content signatures, and ZIP/DOCX member/count/size/ratio checks now have negative tests (**bddk_mcp/core/outbound_http.py; bddk_mcp/ingest/doc_sync.py; tests/test_outbound_http.py; tests/test_doc_sync.py**). Bank egress allowlists/DNS controls, prompt-injection treatment, parser sandboxing, and live-source acceptance remain open. |
+| Observability | Partial | One MCP/tool boundary now propagates privacy-safe correlation IDs and updates thread-safe request/error/latency metrics; health/readiness and a separately scoped telemetry writer exist (**bddk_mcp/mcp_server.py; bddk_mcp/observability/metrics.py; bddk_mcp/observability/telemetry.py; tests/test_metrics.py**). A standard metrics endpoint/exporter, distributed traces, retention/access policy, SLOs, and bank monitoring integration remain open. |
+| Evaluation, CI, and release verification | Partial | Phase 2 now uses the official MCP client over stdio or `/mcp`, discovers the live paginated schema, calls tools through `ClientSession`, fails closed on protocol/tool errors, and records audit identities (**benchmark/phase2_e2e.py; benchmark/audit.py; tests/test_benchmark_phase2.py**). CI requires PostgreSQL on Python 3.12/3.13, builds/verifies/install-tests distributions, and checks container recipes. Coverage/type/security/image execution, restore/load gates, expert Turkish cases, citation/claim grading, and named model/client runs remain open. |
+| Packaging and OpenShift AI baseline | Partial | Digest-pinned build inputs, offline pinned model assets, distribution-content verification, non-root/read-only workloads, digest-only application image placeholders, exact Secret keys, TLS probes, stable selectors, lifecycle Jobs, a telemetry overlay, and default-deny ingress/egress manifests exist. CI installs checksum-pinned Kustomize and requires the base and telemetry overlay to render; missing tooling fails rather than skips (**Dockerfile; .github/workflows/ci.yml; scripts/verify_distribution.py; deploy/openshift/; deploy/openshift-overlays/; tests/test_openshift_manifests.py**). The bank must still supply signed application-image digests, egress allow rules, CA/IdP/registry policy, backup/restore, and real-cluster acceptance. |
+| Regulatory evidence platform | Open | Immutable corpus generations, legal versions and effective state, amendment/repeal relationships, hierarchical provision identity, audit-grade citations, representative Turkish retrieval evaluation, and validated audit/control mappings remain the core next-major-version work. |
+
+The guiding invariants remain acceptance criteria even where a row above is complete for one repository boundary. Application HTTP controls do not prove the enterprise gateway, durable rows do not make the in-process runner a bank-grade workflow engine, and fail-closed per-document retrieval publication is not an immutable corpus-generation switch.
+
 ## Guiding invariants
 
 1. A public serving process never performs DDL, corpus ingestion, embedding backfill, or seed replacement.
@@ -610,79 +630,80 @@ Exact OpenShift AI, MCP client, model-serving, identity, storage, and monitoring
 
 - official MCP Python SDK;
 - stdio and Streamable HTTP;
+- the installed server factory/lifespan and canonical public/operator tool registry;
 - modular register-function organization;
 - asyncpg connection pooling and parameterized SQL;
 - PostgreSQL, pgvector, and unaccent;
+- checksum-verified migrations, catalog attestation, and versioned PostgreSQL role/grant assets;
+- exact runtime database-identity and TLS transport verification;
+- durable PostgreSQL operator-job records and advisory execution leases;
 - BDDK client/source adapters;
+- bounded exact-host outbound HTTP and archive validation;
 - custom HTML converter;
 - OCR provider abstraction;
 - deterministic quality checks and content hashes;
+- fail-closed per-document retrieval publication as an interim consistency boundary;
 - section-aware/token-aware chunking;
 - multilingual-e5 baseline and RRF;
+- privacy-safe correlation and request/error/latency instrumentation;
+- official-client protocol E2E and the real MCP Phase 2 runner;
+- verified package artifacts and the hardened OpenShift starter;
 - local-only exact document retrieval;
 - uv lockfile and Python 3.12/3.13 matrix.
 
 ### Refactor
 
-- global server into factory/lifespan;
-- configuration into validated settings;
-- tools into declarative typed registry;
+- environment-backed configuration into one immutable validated settings object without weakening current fail-closed guards;
+- the remaining tools into uniform typed success/evidence/error outputs;
 - current document schema into instrument/version/provision entities;
-- sync into staged jobs and atomic publication;
+- the in-process durable-job runner into an explicitly claimable/recoverable worker only if multi-replica operation is required;
+- sync into staged corpus generations and atomic publication;
 - section parser into hierarchical provision parser;
 - quality registry into one runtime/CI source of truth;
 - retrieval fusion at provision/chunk level;
-- logging/metrics at one tool boundary;
-- benchmarks into official MCP and claim-level evaluation.
+- metrics/correlation into standard export, tracing, SLO, and retention contracts;
+- the real MCP benchmark into expert-reviewed retrieval, citation, claim-grounding, and model/client evaluation.
 
 ### Replace
 
-- environment flag as authorization boundary;
-- serving-time DDL/seed/backfill;
 - mutable in-place active-corpus replacement;
 - pseudo-page citations;
-- string-only responses/in-band errors;
-- static benchmark tool schemas;
-- ad-hoc schema migration;
-- raw MCP smoke scripts as the principal protocol assurance;
-- silent grader fallback.
+- remaining string-only success responses and evidence encoded only in prose;
+- extraction snapshots as a substitute for legal versions/currentness;
+- ad hoc manual correction provenance with reviewed correction records;
+- process-local admission limits with bank ingress-wide policy where remote scale requires it.
 
 ### Remove
 
-- broken **mcp run server.py** configuration;
-- hard-coded developer path;
-- misleading public/offline/tool-count/license claims;
-- unused/misleading metrics until wired;
-- operator behavior whose name does not match implementation;
+- unsupported deployment/client claims that have no pinned acceptance evidence;
+- any future bypass for database target, TLS, identity, catalog, migration, or retrieval-publication checks;
 - direct publication of known-failed or unreviewed extraction.
 
 ### Add
 
-- console entry point and server factory;
-- explicit public/operator profiles and auth scopes;
-- transport security and rate limits;
-- database roles and versioned migrations;
 - immutable source artifacts and canonical legal versions;
 - hierarchical provisions and typed regulatory relations;
 - corpus generations and atomic publish/rollback;
 - citation/evidence engine;
 - expert-reviewed Turkish/domain benchmarks;
-- protocol/client compatibility suite;
-- health, metrics, traces, backups, and operational runbooks;
+- named-client/model compatibility evidence;
+- standard metrics/traces, SLOs, backups, restore drills, and operational acceptance evidence;
 - validation workflow for obligations/control mappings;
 - licensing/data-provenance governance.
 
 ## Transition sequence
 
-1. Fix the launcher and make the current runtime contract observable.
-2. Secure HTTP and split the operator registry/process.
-3. Move DDL, seed, and backfills out of serving startup.
-4. Add typed outputs/errors and a versioned Citation object while mapping current IDs.
-5. Introduce migrations, roles, and corpus generations.
-6. Preserve immutable artifacts/pages and populate hierarchical provisions.
-7. Introduce legal version/status and amendment relations.
-8. Rebuild retrieval and evaluation on the canonical layer.
-9. Add validated audit knowledge mappings.
+| Step | Current state on 2026-07-15 | Next acceptance boundary |
+|---|---|---|
+| 1. Fix launcher and expose one runtime contract | Complete | Retain official-client stdio/HTTP and distribution gates. |
+| 2. Secure HTTP and split public/operator processes | Complete at repository boundary | Prove bank IdP, CA, ingress, egress, and scope mappings. |
+| 3. Remove DDL, seed, and backfill from serving | Complete | Retain explicit lifecycle identities and fail-closed readiness. |
+| 4. Add typed outputs/errors and Citation mapping | Partial | Extend structured evidence from the six retrieval tools to the complete surface; add reconstructable Citation. |
+| 5. Add migrations, roles, and corpus publication | Partial | Migrations/roles and per-document retrieval publication are delivered; immutable corpus generations and rollback remain. Rehearse the blocking populated-v2 v3 migration before any real upgrade. |
+| 6. Preserve immutable artifacts/pages and hierarchical provisions | Open | Implement and validate against priority formula/table/page fixtures. |
+| 7. Add legal version/status and amendment relations | Open | Require official evidence, explicit unknown state, and expert validation. |
+| 8. Rebuild retrieval and evaluation on the canonical layer | Partial | Real MCP Phase 2 is delivered; expert Turkish judgments, citation/currentness/claim graders, and model runs remain. |
+| 9. Add validated audit knowledge mappings | Open | Start only after temporal, citation, and expert-evaluation foundations pass. |
 
 This sequence lets the project improve without a big-bang rewrite. The existing document/chunk tables can serve as a compatibility view during migration.
 

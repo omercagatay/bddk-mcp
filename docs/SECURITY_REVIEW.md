@@ -2,25 +2,30 @@
 
 Review basis: commit **5684a34c10e6d90bc22d6ab2a6466944afb6bf81**, reviewed 2026-07-14.
 
-## Post-review security status — 2026-07-14
+## Implementation progress overlay — 2026-07-15
 
-The working tree narrows several risks without creating a production security boundary:
+The findings and severities below remain the reviewed-commit baseline. **Complete** here means an application/repository control and focused automated contract exist; it is not a bank security approval. **Partial** means material residual risk remains. **Open** means the control is not adequately implemented.
 
-- local Streamable HTTP now defaults to loopback, while container profiles deliberately bind all interfaces;
-- normal serving startup validates existing state without DDL, seed import, live cache population, synchronization, or embedding backfill;
-- telemetry is disabled by default, and default tool-boundary logs no longer include argument, result, or error content;
-- the project MCP configuration no longer contains a user-specific absolute path.
+| Security slice | Status | Current evidence and residual boundary |
+|---|---|---|
+| Remote application identity and request boundary | Complete | Non-loopback startup fails closed without exact Host and HTTPS Origin allowlists, complete asymmetric JWT/JWKS verification, and the profile scope. Body, rate, and concurrency admission are bounded per process (**bddk_mcp/http_security.py:320-393,437-488,542-698**); official HTTP tests cover authentication, Origin, scope, and operator opt-in negatives (**tests/test_mcp_http_runtime.py:18-149**). This is not shared ingress enforcement or proof of bank TLS/IdP integration. |
+| Public/operator application separation | Complete | Exactly one strict profile is served per process; public uses `BDDK_DATABASE_URL`, operator requires `BDDK_OPERATOR_DATABASE_URL`, its own scope, and explicit non-loopback opt-in (**bddk_mcp/core/config.py:15-43; bddk_mcp/server.py:112-125,222-250**). |
+| Error, logging, and health behavior | Complete | Validation/unknown/execution failures are stable and privacy-safe; default tool logging omits request/result/error content. Liveness is fixed; bounded, periodically refreshed readiness rechecks database/catalog, expected identity, operator-job, and telemetry contracts (**bddk_mcp/mcp_server.py; bddk_mcp/server.py; bddk_mcp/catalog_integrity.py**). Bank retention and observability governance remain separate acceptance work. |
+| Work admission and operator execution | Partial | HTTP admission remains per process. Operator job records and privacy-safe audit state are durable in PostgreSQL; advisory leases serialize corpus mutation across processes; startup recovery handles abandoned running and cancel-requested work (**bddk_mcp/jobs/postgres.py; bddk_mcp/jobs/manager.py; bddk_mcp/server.py**). Execution remains in-process, so the supported operator topology is one `Recreate` replica rather than a distributed runner or global ingress quota. |
+| Database privilege boundary | Complete at repository boundary | Reviewed role/grant assets, v0001-v0003 checksum migrations, exact schema-owner and expected-database checks, production `sslmode=verify-full` with an absolute CA, ACL-provenance/effective-privilege checks, per-connection identity admission, and live catalog readiness fail closed (**bddk_mcp/db_lifecycle.py; bddk_mcp/db_transport.py; bddk_mcp/db_identity.py; bddk_mcp/catalog_integrity.py; deploy/postgres/**). Migration v0003 refuses its blocking populated-corpus backfill unless explicitly approved. The opt-in proof has not run with the bank's actual LOGINs, and shared-cluster role names and size-matched upgrades require DBA acceptance. |
+| OpenShift deployment boundary | Partial | The non-root starter separates public/operator workloads, identities, Secrets, Routes, probes, Jobs, and ingress. Workloads and Jobs require an application-image digest, keep version labels out of selectors, reference Secret keys exactly, mount a PostgreSQL CA for `verify-full`, and default-deny egress. CI requires checksum-pinned rendering of the base and telemetry overlay (**deploy/openshift/**; **deploy/openshift-overlays/**; **tests/test_openshift_manifests.py**). Bank egress allows, IdP/Route/CA and registry values, signing/SBOM/vulnerability policy, and cluster acceptance remain open. |
+| Corpus, egress, tenancy, and recovery controls | Partial | Per-document current-hash publication checks fail closed; outbound regulatory fetches enforce exact approved HTTPS hosts, redirect and public-address DNS validation, bounded decoded bodies/retries, archive member/size/ratio limits, and hardened XML parsing. Base images/actions and default model revisions are immutable (**bddk_mcp/core/outbound_http.py; bddk_mcp/ingest/doc_sync.py; bddk_mcp/migrations/v0003_retrieval_publication.py; Dockerfile; .github/workflows/ci.yml**). Whole-corpus generations/rollback, prompt-injection evaluation, tenant/private-corpus policy, backup/restore proof, source authenticity/malware controls, and bank egress enforcement remain open. |
 
-Application authentication and authorization, explicit remote Host/Origin policy, rate/concurrency controls, separate public/operator processes, proved database roles, tenant isolation, atomic corpus publication, non-root OpenShift deployment controls, and security E2E tests remain absent. A serving-reader role is now architecturally plausible with telemetry disabled, but the repository does not provision that role or prove write denial. The original findings below remain commit-scoped evidence and are not silently removed.
+Provisional current security maturity is **3/5**, up from the 1/5 baseline because the repository now has coherent fail-closed application, database, acquisition, job-durability, and starter-platform controls. Production approval remains blocked by bank-applied identity/network/CA/egress controls, actual-LOGIN and upgrade evidence, recovery proof, prompt-injection evaluation, supply-chain acceptance, and real cluster validation.
 
-## Security conclusion
+## Baseline security conclusion at the reviewed commit
 
-The repository is suitable only for trusted local experimentation in its current form. It is not safe as an Internet-facing MCP endpoint or as a shared enterprise service.
+At the reviewed commit, the repository was suitable only for trusted local experimentation. It was not safe as an Internet-facing MCP endpoint or as a shared enterprise service.
 
 The most important distinction is between safety features and security boundaries:
 
 - Parameterized SQL, local-only full-document retrieval, response page caps, content sanitation, and a default-hidden operator profile are useful safety features.
-- At the reviewed commit, none of them authenticated a caller, authorized a tool, isolated a tenant, made the serving database read-only, or protected an HTTP listener. The post-review lifecycle split reduces database authority needed by `serve`, but no role or remote security boundary is yet provisioned or proved.
+- At the reviewed commit, none of them authenticated a caller, authorized a tool, isolated a tenant, made the serving database read-only, or protected an HTTP listener. The dated implementation overlay records the later repository controls, including reviewed role/grant assets and runtime identity/ACL/catalog assertions. Whether the bank has applied those assets to its actual LOGINs and accepted the deployed boundaries remains unproved.
 
 No confirmed committed production secret, arbitrary SQL tool, direct SQL injection, path traversal extraction, or active production breach was found. No Critical finding is assigned. The High findings must nevertheless be resolved before remote or regulatory production use.
 
@@ -103,7 +108,7 @@ flowchart LR
     Upstream -->|untrusted content| DB
 ~~~
 
-Current trust-boundary failures:
+Trust-boundary failures at the reviewed commit:
 
 - the HTTP boundary verifies no identity;
 - public and operator tools can share the same listener and process;
@@ -153,12 +158,14 @@ No confirmed production credential was found in tracked source. .env is ignored.
 
 The project owner confirms that no external endpoint protection is currently in place, the target is a bank's on-premises OpenShift AI environment, and exact client, tenancy, and private-document requirements are not yet known. The owner will administer the database and validate regulatory content. Accordingly:
 
-- SEC-H1 and SEC-H2 are immediate release blockers, not controls that can be presumed to exist at ingress;
+- SEC-H1 and SEC-H2 were immediate blockers at the reviewed commit. Repository controls now close their application-level defects, but actual bank ingress, identity, private operator exposure, and shared rate enforcement remain release-acceptance gates;
 - the target baseline is separate public/operator workloads and database roles in a single-tenant namespace;
 - private-document ingestion remains disabled until confidentiality and tenancy requirements are approved;
 - “immediate” availability/freshness/recovery must be converted to numeric SLO, publication-lag, RPO, and RTO acceptance tests.
 
-## High findings
+## Historical High findings at commit 5684a34
+
+The five findings in this section preserve the reviewed-commit threat analysis and evidence, with explicit current-disposition notes where needed. Their current disposition is authoritative only in the 2026-07-15 overlay; historical evidence and remediation text below must not be read as claims that the current code still lacks those controls.
 
 ### SEC-H1 — Unauthenticated, under-protected Streamable HTTP
 
@@ -226,7 +233,7 @@ Evidence:
 - cache initialization: **ingest/client.py:277 onward**
 - startup seed and embeddings: **ingest/seed.py:108-416**
 
-At the reviewed commit, the serving process could not operate with a read-only account. The working tree removes schema/corpus/cache-population/embedding initialization from `serve`, so a public profile with telemetry disabled is intended to support a serving-reader role. That role has not been provisioned or tested; operator tools and optional telemetry still write, and versioned migration/role boundaries remain required.
+At the reviewed commit, the serving process could not operate with a read-only account. The current repository removes schema/corpus/cache-population/embedding initialization from `serve`; supplies separate schema-owner, ingestion, public, operator, and telemetry role/grant assets; and verifies exact effective privileges, ACL provenance, database/schema ownership, expected database, secure transport, and every public/operator pool connection. Repository PostgreSQL tests prove the intended denial/allow matrix. The remaining gap is deployment evidence with the bank's actual LOGINs, DBA membership model, TLS/HBA policy, shared-cluster role names, and real upgrade data—not an absent repository role contract.
 
 Required remediation:
 
@@ -287,7 +294,9 @@ Excluded by default:
 
 Provide an explicit local-debug text mode with warnings, short retention, and tests.
 
-## Medium findings
+## Historical Medium findings at commit 5684a34
+
+These findings and code references describe the reviewed commit. The 2026-07-15 overlay records the implemented SSRF, archive, immutable-pinning, error, request-admission, logging, and deployment controls and their remaining boundaries.
 
 ### Unbounded costly inputs
 
@@ -393,7 +402,9 @@ Controls:
 - prohibit this profile for remote deployment;
 - add a separate hardened compose/example.
 
-## SQL safety assessment
+## Historical SQL safety assessment at commit 5684a34
+
+The table records the reviewed commit. Current database-role, transport, ACL-provenance, per-connection identity, catalog-readiness, and migration-scale controls are summarized in the overlay.
 
 | Question | Finding |
 |---|---|
@@ -422,7 +433,9 @@ Recommended SQL tests:
 
 Do not add an arbitrary SQL MCP tool. If an analytical SQL capability is ever required, expose fixed parameterized report definitions or a parsed read-only AST with a dedicated replica/role, strict statement/resource bounds, and independent threat review.
 
-## Secrets and configuration
+## Historical secrets and configuration assessment at commit 5684a34
+
+The missing-control list below records the reviewed commit. The current repository now has fail-closed remote configuration, exact OpenShift Secret-key references, PostgreSQL CA mounts, `verify-full` enforcement, separate DSNs, and startup validation; bank-applied values, rotation, and acceptance evidence remain open.
 
 Confirmed:
 
@@ -456,12 +469,13 @@ Requirements:
 
 No caller-controlled file-path MCP tool exists. The inspected archive path reads members in memory rather than writing member names to disk, so a direct Zip Slip/path traversal finding was not confirmed.
 
-Risk remains in:
+The current acquisition path additionally bounds archive member count, compressed/uncompressed bytes, expansion ratio, decoded response size, retries, redirects, and approved public-address hosts, and uses hardened Office XML parsing. Residual risk remains in:
 
 - future private/local ingestion features;
 - manually invoked repair scripts;
-- large/malformed archives;
-- source URL/redirect resolution.
+- source authenticity and malware detection;
+- the non-atomic interval between DNS validation and socket connection;
+- bank platform egress enforcement.
 
 Any future file-ingestion tool must:
 
@@ -474,7 +488,7 @@ Any future file-ingestion tool must:
 
 ## Observability security
 
-The desired observability design must avoid becoming a second data leak:
+Current tool-boundary logging is metadata-only by default and correlation-aware; metrics are thread-safe; optional telemetry has a distinct append-only identity. The remaining operational design must avoid becoming a second data leak:
 
 - generate request IDs at transport ingress;
 - avoid query/result text in logs, metrics labels, and traces;
@@ -488,7 +502,7 @@ The desired observability design must avoid becoming a second data leak:
 
 ## Backup, recovery, and integrity
 
-No repository runbook or automated evidence covers:
+Repository upgrade documentation requires a restorable backup and size-matched rehearsal before dangerous migration approval. No bank-accepted or automated evidence yet covers:
 
 - managed backup/PITR;
 - restore verification;
@@ -557,13 +571,13 @@ No remote production release until all pass:
 
 ## Important unknowns
 
-- the owner confirms no external endpoint protection is currently in place; the exact OpenShift AI ingress/Route, TLS, bank identity provider, NetworkPolicy, and rate-limit design remains undefined;
-- actual value of BDDK_ADMIN_TOOLS in deployments;
-- database roles, grants, SSL mode, network rules, and backups; the project owner is accountable, but technical evidence is not yet defined;
-- OpenShift AI namespace, security context, secrets, image registry, routes, monitoring, persistent services, and logs;
+- exact bank OpenShift AI values and accepted design for ingress/Route, bank IdP, application/service/PostgreSQL CAs, registry, egress allows, shared rate limits, monitoring, SCC, namespace policy, and retention; repository starter contracts exist, but bank application and acceptance do not;
+- whether the bank deployment actually keeps public and operator profiles as separate workloads and gives the operator only private, scope-protected reachability, as the repository now requires;
+- actual bank PostgreSQL LOGINs, memberships and ACL provenance; TLS/HBA policy; shared-cluster role names; database size; backups; and restore/upgrade results. Repository role, target-database, `verify-full`, per-connection identity, catalog, and v0003 scale-refusal contracts exist, but the opt-in actual-LOGIN proof has not run in that environment;
+- OpenShift AI monitoring/log export, persistent services, backup ownership, and incident-response integration;
 - whether private documents or sensitive queries are already processed;
 - tenant/shared-service plans; use single-tenant and prohibit private-corpus ingestion until decided;
-- current locked dependency and base-image vulnerabilities;
+- current locked dependency and built-image vulnerabilities, plus the bank's required SBOM, signing, provenance, malware, and source-authenticity gates;
 - written contributor/source/data provenance supporting the owner's statement that usage rights are acceptable;
 - measurable incident response, retention, availability, freshness, RPO, and RTO targets; “immediate” is the business expectation but is not yet a testable objective.
 
