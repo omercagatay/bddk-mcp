@@ -379,7 +379,7 @@ def _write_legal_release_checkpoint(
     raw_dataset: dict[str, Any],
     citation: dict[str, Any],
     pack_path: Path,
-) -> tuple[Path, Path, str, Path]:
+) -> tuple[Path, Path, str, Path, Path]:
     source_root = tmp_path / "retained-legal-source"
     source_root.mkdir()
     documents = json.loads((Path(__file__).parents[1] / "seed_data" / "documents.json").read_text())
@@ -444,13 +444,10 @@ def _write_legal_release_checkpoint(
     )
     trusted_key = tmp_path / "trusted-legal-release.pem"
     trusted_key.write_bytes(public_key)
-    checkpoint = {
+    checkpoint_common = {
         "schema_version": 1,
-        "checkpoint_id": "legal-release-test-v1",
         "legal_pack_sha256": hashlib.sha256(pack_path.read_bytes()).hexdigest(),
         "corpus_manifest_sha256": raw_dataset["corpus"]["manifest_sha256"],
-        "created_at": "2026-07-15T14:00:00Z",
-        "predecessor_checkpoint_sha256": None,
         "artifacts": [
             {
                 "artifact_id": citation["artifact_id"],
@@ -461,18 +458,41 @@ def _write_legal_release_checkpoint(
                 "page_mapping_proof": _sealed_file(page_proof_path, source_root),
             }
         ],
-        "integrity": {
+    }
+
+    def seal_checkpoint(checkpoint: dict[str, Any], *, name: str) -> tuple[Path, str]:
+        signature_name = f"{name}.sig"
+        checkpoint["integrity"] = {
             "checkpoint_sha256": "0" * 64,
             "signature_algorithm": "ed25519",
-            "signature_reference": "legal-release.sig",
+            "signature_reference": signature_name,
             "signature_public_key_sha256": hashlib.sha256(public_key).hexdigest(),
+        }
+        (tmp_path / signature_name).write_bytes(private_key.sign(canonical_checkpoint_payload(checkpoint)))
+        checkpoint["integrity"]["checkpoint_sha256"] = canonical_checkpoint_sha256(checkpoint)
+        checkpoint_path = tmp_path / f"{name}.yml"
+        checkpoint_path.write_text(yaml.safe_dump(checkpoint, sort_keys=False), encoding="utf-8")
+        return checkpoint_path, checkpoint["integrity"]["checkpoint_sha256"]
+
+    predecessor_path, predecessor_sha256 = seal_checkpoint(
+        {
+            **checkpoint_common,
+            "checkpoint_id": "legal-release-test-predecessor",
+            "created_at": "2026-07-15T13:45:00Z",
+            "predecessor_checkpoint_sha256": None,
         },
-    }
-    (tmp_path / "legal-release.sig").write_bytes(private_key.sign(canonical_checkpoint_payload(checkpoint)))
-    checkpoint["integrity"]["checkpoint_sha256"] = canonical_checkpoint_sha256(checkpoint)
-    checkpoint_path = tmp_path / "legal-release.yml"
-    checkpoint_path.write_text(yaml.safe_dump(checkpoint, sort_keys=False), encoding="utf-8")
-    return checkpoint_path, trusted_key, checkpoint["integrity"]["checkpoint_sha256"], source_root
+        name="legal-release-predecessor",
+    )
+    checkpoint_path, checkpoint_sha256 = seal_checkpoint(
+        {
+            **checkpoint_common,
+            "checkpoint_id": "legal-release-test-v1",
+            "created_at": "2026-07-15T14:00:00Z",
+            "predecessor_checkpoint_sha256": predecessor_sha256,
+        },
+        name="legal-release",
+    )
+    return checkpoint_path, trusted_key, checkpoint_sha256, source_root, predecessor_path
 
 
 def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_latest_hash(
@@ -487,7 +507,7 @@ def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_la
     )
     dataset_path = _write_sealed_dataset(tmp_path, raw)
     pack_path, attestation_path, curator_key, _ = _write_signed_legal_pack(tmp_path, citation)
-    checkpoint_path, release_key, latest_hash, source_root = _write_legal_release_checkpoint(
+    checkpoint_path, release_key, latest_hash, source_root, predecessor_path = _write_legal_release_checkpoint(
         tmp_path,
         raw_dataset=raw,
         citation=citation,
@@ -502,6 +522,7 @@ def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_la
         legal_release_checkpoint_path=checkpoint_path,
         legal_release_source_root=source_root,
         trusted_legal_release_signing_key=release_key,
+        predecessor_legal_release_checkpoint_path=predecessor_path,
         trusted_latest_legal_checkpoint_sha256=latest_hash,
         now=datetime(2026, 7, 16, tzinfo=UTC),
     )
@@ -509,6 +530,23 @@ def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_la
     assert validation.legal_release_evidence_verified is True
     assert validation.legal_release_latest_checkpoint_verified is True
     assert validation.legal_release_checkpoint_sha256 == latest_hash
+    blockers = profile_expert_evaluation_dataset(validation).release_blocker_counts
+    assert "legal_release_evidence_not_verified" not in blockers
+    assert "latest_legal_release_checkpoint_not_verified" not in blockers
+
+    without_external_latest = load_expert_evaluation_dataset(
+        dataset_path,
+        validated_legal_pack_path=pack_path,
+        legal_attestation_path=attestation_path,
+        trusted_legal_attestation_key=curator_key,
+        legal_release_checkpoint_path=checkpoint_path,
+        legal_release_source_root=source_root,
+        trusted_legal_release_signing_key=release_key,
+        predecessor_legal_release_checkpoint_path=predecessor_path,
+        now=datetime(2026, 7, 16, tzinfo=UTC),
+    )
+    assert without_external_latest.legal_release_evidence_verified is True
+    assert without_external_latest.legal_release_latest_checkpoint_verified is False
 
     (source_root / "authoritative-source.bin").write_bytes(b"tampered")
     with pytest.raises(ExpertEvaluationError, match="retained authoritative source bytes differs"):
@@ -520,6 +558,7 @@ def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_la
             legal_release_checkpoint_path=checkpoint_path,
             legal_release_source_root=source_root,
             trusted_legal_release_signing_key=release_key,
+            predecessor_legal_release_checkpoint_path=predecessor_path,
             now=datetime(2026, 7, 16, tzinfo=UTC),
         )
 
