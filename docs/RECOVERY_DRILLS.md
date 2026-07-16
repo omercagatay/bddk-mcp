@@ -163,12 +163,17 @@ Repository evidence is complete only when:
 7. the evidence artifact is retained under approved access and retention rules.
 
 The local repository run on 2026-07-15 proved the guarded, rollback-only
-populated-v2 migration path on disposable PostgreSQL 17. A full
-`pg_dump`→isolated-cluster→`pg_restore` run was not possible because compatible
-host client binaries and a second isolated cluster were unavailable. The
-workflow fails closed when either binary is absent. This is an explicit open
-acceptance gate, not a skipped success. That run predates schema v7 and is not
-evidence that the 51-object retained-generation restore path has executed.
+populated-v2 migration path on disposable PostgreSQL 17. On 2026-07-16, the
+schema-v7 workflow also completed a full
+`pg_dump`→isolated-cluster→`pg_restore` run against two disposable PostgreSQL 17
+clusters. The retained report inventories all 51 managed objects, including
+two sealed generations across all 17 retained member relations, and proves
+equal logical fingerprints, active-release identity, locale evidence,
+catalog/readiness state, activation-sequence state, and six restored LOGIN
+profiles (**docs/evidence/LOCAL_PG17_V7_RECOVERY_DRILL.md**). This is a
+synthetic repository-scale proof only. Bank backup custody, PITR, TLS/HBA,
+bank-sized capacity and elapsed-time evidence, approved RPO/RTO, and bank DBA
+acceptance remain explicit open gates.
 
 When available, the `retain-corpus-generation` CLI's WAL field is a cluster-wide
 observed interval around its transaction, not exact WAL attributable to one
