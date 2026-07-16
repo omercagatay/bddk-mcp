@@ -453,13 +453,14 @@ async def _verify_and_stage_corpus_release(
             strict_release=True,
         )
         expected_embeddings = await seed._regenerate_seed_embedding_vectors(vector_store, generated_chunks)
+        verification_run_sha256 = secrets.token_hex(32)
         verification_evidence_sha256 = strict_verification_evidence_sha256(
             validation,
             signature_sha256=signature_sha256,
             retrieval_profile_sha256=vector_store.retrieval_profile_hash,
             verifier_revision_sha256=revision,
             verifier_image_digest=image_digest,
-            verification_run_sha256=secrets.token_hex(32),
+            verification_run_sha256=verification_run_sha256,
         )
         try:
             async with pool.acquire() as connection:
@@ -512,6 +513,7 @@ async def _verify_and_stage_corpus_release(
         "schema_version": 1,
         "corpus_release_request": request.safe_dict(),
         "verification_evidence_sha256": verification_evidence_sha256,
+        "verification_run_sha256": verification_run_sha256,
         "chunk_artifact_match": comparison["chunk_artifact_match"],
         "corpus_manifest_id": validation.manifest.manifest_id,
         "corpus_manifest_sha256": validation.manifest_sha256,

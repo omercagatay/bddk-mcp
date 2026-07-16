@@ -404,7 +404,7 @@ async def test_staging_helper_uses_verifier_identity_and_checks_membership_insid
         patch(
             "bddk_mcp.corpus_publication.strict_verification_evidence_sha256",
             return_value="2" * 64,
-        ),
+        ) as evidence_hash,
         patch(
             "bddk_mcp.corpus_publication.stage_strict_corpus_release",
             new=AsyncMock(side_effect=stage_release),
@@ -441,6 +441,9 @@ async def test_staging_helper_uses_verifier_identity_and_checks_membership_insid
         assert transaction.__aexit__.await_args.args == (None, None, None)
         assert result is not None
         assert result["corpus_release_request"] == request.safe_dict()
+        assert len(result["verification_run_sha256"]) == 64
+        assert set(result["verification_run_sha256"]) <= set("0123456789abcdef")
+        assert evidence_hash.call_args.kwargs["verification_run_sha256"] == result["verification_run_sha256"]
 
 
 @pytest.mark.asyncio
