@@ -57,7 +57,7 @@ asyncio_mode = "auto"
 pythonpath = ["."]
 addopts = "-m 'not gpu'"
 markers = [
-    "gpu: requires CUDA GPU (skipped in CI)",
+    "gpu: requires explicit offline GPU/OCR provisioning via BDDK_REQUIRE_GPU_OCR=1",
     "postgres: requires the PostgreSQL + pgvector test service",
 ]
 

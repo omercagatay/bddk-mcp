@@ -2,7 +2,16 @@
 
 This benchmark directory keeps tool-calling cases and result reporting separate from runtime deployment mode. Its schemas come from the canonical operator registry, but a benchmark contract is not proof of a live server's configured profile.
 
-The production wheel intentionally contains only `bddk_mcp`; run benchmarks from a source checkout. Install the optional provider-backed grader dependency with:
+All reports produced by `python -m benchmark.run` are **exploratory only**. The
+runner records `classification: exploratory_not_release_evidence` and
+`model_scores_authorized: false`; its human reports explicitly say that the
+scores do not authorize deployment. The release preflight described below is a
+different command and does not execute a model.
+
+The production wheel and runtime image intentionally contain only `bddk_mcp`;
+run benchmarks from a source checkout. An OpenShift evaluation needs a separate,
+reviewed evaluation image or Job rather than the serving image. Install the
+optional provider-backed grader dependency with:
 
 ```bash
 uv sync --group benchmark
@@ -15,6 +24,13 @@ uv sync --group benchmark
 | `runtime-public` | 15 | `BDDK_TOOL_PROFILE=public` | Default public process and public database identity. |
 | `runtime-operator` | 29 | `BDDK_TOOL_PROFILE=operator` | Separate operator process and DSN; 15 public plus 14 operator tools. |
 | `benchmark-operator-contract` | 29 | `benchmark/tool_schemas.py` | OpenAI-compatible schemas exported from the same canonical operator registry used by the runtime. |
+
+Both runtime profiles register exactly one MCP resource,
+`bddk://corpus/active-release`, and no MCP prompts. The resource returns only a
+path-free active release identity (`release_id`, manifest ID/hash, and retrieval
+profile hash), or `status: unavailable`; signing-key and full corpus-state
+evidence remain on operator-only surfaces. Phase 2 treats an unavailable or
+malformed resource as a protocol failure.
 
 ## Runtime Public Tools
 
@@ -81,9 +97,22 @@ must not exist in production or shared databases.
 ## Phase 2 live MCP execution
 
 Phase 2 now uses the official MCP Python client for both supported transports.
-It runs `initialize`, discovers the complete live `tools/list` contract, and
-executes every tool with `ClientSession.call_tool`. It does not use a custom
-HTTP `/call-tool` route.
+It runs `initialize`, discovers the complete live `tools/list` contract, reads
+the active release resource, and executes every tool with
+`ClientSession.call_tool`. It does not use a custom HTTP `/call-tool` route.
+
+Before the first model call, the harness validates the selected local corpus
+manifest and requires its manifest ID and SHA-256 to equal the active release
+reported through that same MCP session. After all cases it reads the resource
+again on the same session and rejects any release change. Configure the exact
+deployed declaration with `BDDK_CORPUS_MANIFEST_PATH`; when it is signed, set
+`BDDK_CORPUS_TRUSTED_SIGNING_KEY` to the separately mounted public key.
+
+The checked-in declaration cannot currently satisfy this gate: it is unsigned,
+unmeasured, non-exhaustive, declares 8,286 chunks, and a read-only regeneration
+under the current pinned profile produced 9,675. Strict publication rejects the
+drift until the chunk artifact is regenerated, independently reviewed, and
+re-signed.
 
 Streamable HTTP (the URL must include the MCP path):
 
@@ -171,6 +200,7 @@ Phase 2 result JSON records the contract discovered from the live process:
 - `mcp_transport`
 - `mcp_protocol_version`
 - `mcp_server_version`
+- validated local `corpus_manifest` identity and the same-session `active_corpus_release` identity
 - full redacted final answers and structured tool evidence, plus SHA-256 trace hashes
 - external grader model, status, and safe reason code
 - Git commit and dirty-state fingerprint
@@ -181,12 +211,67 @@ Compare `live_tool_schema_sha256`, server/protocol version, corpus release, mode
 identifier, and grader status before comparing scores across runs. A public-only
 run is not directly comparable to an operator-profile run.
 
-For a named corpus release, set `BDDK_BENCHMARK_CORPUS_ID` and, when known,
-`BDDK_BENCHMARK_CORPUS_SHA256`. These values describe the already-deployed
-corpus; the harness also fingerprints document/section/content-hash references
-actually observed during the run. Result writing performs a final recursive
-credential redaction. Bearer tokens, API keys, passwords, DSNs, cookies, and
-credential-bearing URLs must not be persisted.
+`BDDK_BENCHMARK_CORPUS_ID` and `BDDK_BENCHMARK_CORPUS_SHA256` are optional
+operator labels only; they are not the trusted binding. The enforced binding is
+the validated `BDDK_CORPUS_MANIFEST_PATH` identity matched to
+`bddk://corpus/active-release` before and after calls. The harness also
+fingerprints document/section/content-hash references actually observed during
+the run. Result writing performs a final recursive credential redaction. Bearer
+tokens, API keys, passwords, DSNs, cookies, and credential-bearing URLs must not
+be persisted.
+
+## Expert-evaluation release preflight
+
+Run the preflight only from a source checkout. It validates four separately
+signed layers:
+
+1. the measured corpus manifest;
+2. the exact expert dataset;
+3. the exact validated Citation pack plus its legal-curator attestation; and
+4. a legal-release checkpoint over retained source bytes, acquisition records,
+   page text/mappings, Citation excerpts, and signed predecessor checkpoints.
+
+The corpus, dataset, curator, and legal-release public keys must resolve to four
+different canonical Ed25519 fingerprints. Re-encoding one key as different PEM
+bytes does not create an independent signer.
+
+```bash
+python -m benchmark.release_preflight \
+  --dataset /APPROVED/EVALUATION/expert-evaluation.yml \
+  --corpus-manifest /APPROVED/CORPUS/corpus_scope.yml \
+  --corpus-root /APPROVED/CORPUS \
+  --trusted-corpus-key /APPROVED/TRUST/corpus.pem \
+  --trusted-dataset-key /APPROVED/TRUST/dataset.pem \
+  --legal-pack /APPROVED/LEGAL/validated-citations.json \
+  --legal-attestation /APPROVED/LEGAL/legal-attestation.yml \
+  --trusted-legal-attestation-key /APPROVED/TRUST/curator.pem \
+  --legal-release-checkpoint /APPROVED/LEGAL/latest-checkpoint.yml \
+  --legal-release-source-root /APPROVED/LEGAL/retained \
+  --trusted-legal-release-key /APPROVED/TRUST/legal-release.pem \
+  --trusted-latest-legal-checkpoint-sha256 REPLACE_WITH_APPROVED_SHA256
+```
+
+A pass means only that the operator-supplied artifacts, keys, and latest-head
+argument form a cryptographically consistent chain. The report deliberately
+sets `bank_authorization_verified: false`, `model_scores_authorized: false`, and
+`latest_checkpoint_anchor_provenance: caller_supplied_argument`. There is no
+bank trust-policy registry, key validity/revocation handling, or legal-release
+key rotation; every predecessor currently has to verify under the same exact
+key material as the latest checkpoint.
+
+The verifier re-hashes retained evidence for every checkpoint, but it validates
+the exact Citation pack only for the current checkpoint. Historical pack bytes
+are not retained and replayed against each predecessor. Page evidence proves
+that the exact excerpt occurs in the retained text for the attested page
+numbers; the `legal_source_reviewer` role string does not prove reviewer identity
+or reproducibly prove that page text was derived from the raw PDF/source bytes.
+Those are bank governance and evidence-production gates.
+
+Finally, the preflight does not run the expert dataset against a model. The
+tracked dataset marks legal currentness `not_verified`, and currentness,
+version-comparison, and amendment-tracking score authorization remain
+unsupported. Do not combine a preflight pass with ordinary benchmark scores to
+claim a release-grade model result.
 
 For production-style benchmark debugging, telemetry requires both
 `BDDK_TELEMETRY_ENABLED=true` and a distinct

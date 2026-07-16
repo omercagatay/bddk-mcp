@@ -113,13 +113,22 @@ zero storage bytes in the relation evidence because it is not materialized. A
 restore with omitted or changed legal-version state therefore fails the same
 equality gate as a changed retrieval corpus.
 
+Recovery evidence schema v2 currently inventories 29 managed relations,
+including v5 release state/view objects and the activation sequence. It rejects
+reuse of any of the six application DSNs for recovery administration and
+verifies six restored LOGIN profiles, including the independent release
+publisher. Active release identity, activation-sequence identity/ownership,
+row counts, and logical fingerprints must match exactly. This repository
+contract does not substitute for retained bank PITR, backup-custody, or numeric
+RPO/RTO acceptance evidence.
+
 Repository evidence is complete only when:
 
 1. default populated-v2 migration refusal is observed without schema change;
 2. the approved rehearsal reaches the current checksum and a ready published
    corpus;
 3. an isolated logical restore has the same logical fingerprint and row counts;
-4. schema-owner, public, ingestion, operator, and telemetry LOGIN contracts pass;
+4. schema-owner, public, ingestion, release-publisher, operator, and telemetry LOGIN contracts pass;
 5. a representative MCP read/retrieval and release-specific citation check pass;
 6. the measured duration satisfies the bank's numeric RTO and the backup point
    satisfies its RPO; and

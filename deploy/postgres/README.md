@@ -6,7 +6,7 @@ database. Bank IAM/database administrators remain responsible for identities,
 credential rotation, TLS, PostgreSQL host-based access rules and database
 provisioning.
 
-The five `bddk_*` group-role names are cluster-global. Production therefore
+The six `bddk_*` group-role names are cluster-global. Production therefore
 requires either a dedicated PostgreSQL cluster/service for this installation
 or a formal DBA reservation proving those exact names belong only to this
 deployment. A dedicated database inside an otherwise shared cluster is not by
@@ -89,11 +89,19 @@ SQL error. Apply each file as one transaction, for example with
    Bootstrap revalidates the exact manifest-declared paths and rejects
    undeclared reserved seed filenames before opening a database pool; a prior
    `verify-corpus` result is not a trust handoff. Retain its path-free manifest
-   ID/SHA completion output because this identity is not yet persisted in
-   PostgreSQL. Then start the public and operator workloads with their separate
-   identities. Reindexing is mandatory when migration v0003 has made a
+   ID/SHA completion output. Bootstrap reports that publication is required but
+   does not persist a release candidate.
+7. Run `bddk-mcp publish-corpus-release` through the distinct
+   `bddk-mcp-release-publisher-db` Secret
+   (`BDDK_RELEASE_PUBLISHER_DATABASE_URL`). The release-publisher revalidates
+   the imported corpus and signature before atomically persisting the v0005
+   content-addressed release and activation;
+   it must inherit exactly `bddk_release_publisher` and no ingestion or runtime
+   role.
+8. Start the public and operator workloads with their separate identities.
+   Reindexing and publication are mandatory when migration v0003 has made a
    pre-existing corpus fail closed until republished.
-7. Reapply and test `02_grants.sql` after every schema migration. A migration
+9. Reapply and test `02_grants.sql` after every schema migration. A migration
    that adds a relation must add an explicit grant here in the same release.
 
 The ordinary migration is the clean-install/default path and refuses managed
@@ -124,8 +132,9 @@ database-wide by design.
 | NOLOGIN group role | Exact purpose |
 |---|---|
 | `bddk_schema_owner` | Owns the `public`, `bddk_meta`, and `bddk_operator` schemas and managed objects; runs migrations through `SET ROLE` |
-| `bddk_public_reader` | `SELECT` on the six public corpus relations and read-only global migration ledger |
+| `bddk_public_reader` | Read-only access to the six public corpus relations, validated-citation and active-release views, migration ledger, and narrowly granted public functions |
 | `bddk_ingestion` | Corpus and sync-state `SELECT`/`INSERT`/`UPDATE`/`DELETE`, three corpus ID sequences, and read-only global migration ledger |
+| `bddk_release_publisher` | Revalidates the imported corpus and atomically persists its release and activation; cannot mutate corpus content or run application tools |
 | `bddk_operator_runtime` | Job-ledger read/write/prune in `bddk_operator` and read-only global migration ledger |
 | `bddk_telemetry_writer` | Column-scoped `INSERT` on `tool_call_traces` and `USAGE` on its sequence; no trace reads or changes |
 
@@ -177,6 +186,7 @@ credentials through the bank's approved controls.
 |---|---|
 | Migration / `bddk-mcp-schema-owner-db` (`BDDK_SCHEMA_OWNER_DATABASE_URL`) | `bddk_schema_owner` (connection must `SET ROLE` it) |
 | Bootstrap and ingestion / `bddk-mcp-ingestion-db` (`BDDK_INGESTION_DATABASE_URL`) | `bddk_ingestion` |
+| Release publication / `bddk-mcp-release-publisher-db` (`BDDK_RELEASE_PUBLISHER_DATABASE_URL`) | `bddk_release_publisher` |
 | Public MCP / `bddk-mcp-public-db` | `bddk_public_reader` |
 | Operator MCP / `bddk-mcp-operator-db` | `bddk_public_reader`, `bddk_ingestion`, `bddk_operator_runtime` |
 

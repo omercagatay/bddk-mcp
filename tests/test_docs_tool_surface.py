@@ -8,6 +8,17 @@ from bddk_mcp.tools.registry import OPERATOR_TOOL_NAMES, PUBLIC_TOOL_NAMES
 
 ROOT = Path(__file__).resolve().parents[1]
 
+REVIEW_DOCUMENTS = (
+    "docs/EXECUTIVE_SUMMARY.md",
+    "docs/REPOSITORY_REVIEW.md",
+    "docs/ARCHITECTURE.md",
+    "docs/TARGET_ARCHITECTURE.md",
+    "docs/ROADMAP.md",
+    "docs/GAP_REGISTER.md",
+    "docs/TESTING_AND_EVALUATION_STRATEGY.md",
+    "docs/SECURITY_REVIEW.md",
+)
+
 
 def _read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
@@ -149,3 +160,47 @@ def test_runtime_distribution_excludes_repository_only_benchmark():
     assert "anthropic>=0.40" not in project["project"]["dependencies"]
     assert "anthropic>=0.40" in project["dependency-groups"]["benchmark"]
     assert "uv sync --group benchmark" in _read("benchmark/README.md")
+
+
+def test_required_review_documents_have_a_current_checkpoint():
+    for path in REVIEW_DOCUMENTS:
+        content = _read(path)
+        assert "2026-07-16" in content, path
+
+    architecture = _read("docs/ARCHITECTURE.md")
+    assert "15 public tools plus 14 operator additions" in architecture
+    assert "bddk://corpus/active-release" in architecture
+    assert "zero prompts" in architecture
+    assert "schema v6" in _read("docs/EXECUTIVE_SUMMARY.md")
+
+
+def test_current_lifecycle_docs_name_the_real_publisher_boundary():
+    lifecycle_docs = (
+        "README.md",
+        "README.en.md",
+        "docs/ARCHITECTURE.md",
+        "docs/DEPLOYMENT.md",
+        "deploy/postgres/README.md",
+    )
+    for path in lifecycle_docs:
+        content = _read(path)
+        assert "bddk-mcp publish-release" not in content, path
+
+    for path in ("README.md", "README.en.md", "docs/ARCHITECTURE.md", "deploy/postgres/README.md"):
+        assert "publish-corpus-release" in _read(path), path
+
+    for path in ("README.md", "README.en.md", "docs/DEPLOYMENT.md"):
+        content = _read(path)
+        assert "session advisory lease serializes corpus mutation" not in content, path
+
+
+def test_current_gap_and_issue_registers_are_traceable():
+    gap_register = _read("docs/GAP_REGISTER.md")
+    roadmap = _read("docs/ROADMAP.md")
+
+    for gap_number in range(1, 17):
+        assert f"CUR-{gap_number:03d}" in gap_register
+    for issue_number in range(1, 11):
+        assert f"N-{issue_number:02d}" in roadmap
+    assert "Current gap-to-delivery traceability" in roadmap
+    assert "CUR-016" in roadmap

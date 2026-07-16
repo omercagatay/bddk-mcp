@@ -2,21 +2,22 @@
 
 This document describes the architecture implemented at commit **5684a34c10e6d90bc22d6ab2a6466944afb6bf81**. It is descriptive, not the target design.
 
-## Implementation progress overlay — 2026-07-15
+## Implementation progress overlay — 2026-07-16
 
-The diagrams and detailed evidence below intentionally remain a snapshot of the reviewed commit. Unless a later note explicitly says otherwise, everything after this overlay is historical commit evidence. The current architecture is still a modular monolith, but it now has explicit process, lifecycle, privilege, and publication boundaries:
+The current diagram and table in this overlay describe the 2026-07-16 worktree. The detailed architecture after the explicit historical marker preserves the reviewed commit. The current architecture remains a modular monolith, but it now has explicit process, lifecycle, privilege, release-publication and evaluation boundaries:
 
 | Status | Architectural delta | Evidence and remaining boundary |
 |---|---|---|
-| Complete | MCP and process profiles | The packaged CLI selects one registry per process. Public uses only `BDDK_DATABASE_URL`; operator requires its own DSN, authorization scope, and remote opt-in. The registry contains 15 public and 13 additional operator tools with strict input schemas and risk annotations. Evidence: **bddk_mcp/cli.py; bddk_mcp/core/config.py; bddk_mcp/server.py; bddk_mcp/tools/registry.py**. |
+| Complete | MCP and process profiles | The packaged CLI selects one registry per process. Public uses only `BDDK_DATABASE_URL`; operator requires its own DSN, authorization scope and remote opt-in. The registry contains 15 public tools plus 14 operator additions—29 total—with strict input schemas and risk annotations. Both profiles register the one path-free `bddk://corpus/active-release` resource and zero prompts. Evidence: **bddk_mcp/tools/registry.py:21-71,172-176; bddk_mcp/resources.py:17-75; bddk_mcp/server.py:668-670; tests/test_mcp_http_runtime.py:35-57**. |
 | Complete | Transport and request boundary | Stdio and stateless JSON Streamable HTTP use the official SDK. Non-loopback HTTP requires Host/Origin allowlists, asymmetric JWT/JWKS verification, profile scope, bounded body/token/concurrency/rate admission, and optional validated server TLS. The composed HTTP application exposes RFC 9728 protected-resource metadata at `/.well-known/oauth-protected-resource/mcp`, and its 401 challenge supplies the same URL through `resource_metadata`. Evidence: **bddk_mcp/http_security.py; bddk_mcp/transport_tls.py; tests/test_mcp_stdio_e2e.py; tests/test_mcp_http_runtime.py**. Bank IdP registration and end-to-end authorization-flow acceptance remain external. |
-| Complete | Explicit lifecycle and PostgreSQL authorization | `serve` is read-only with respect to schema/corpus lifecycle. The checksum ledger owns v0001-v0004; exact owner/target/TLS/ACL/catalog/connection identities are checked. Bootstrap validates and then reads exact manifest-role paths, rejects undeclared reserved seed filenames, and applies strict freshness/signature/key policy in the importing process before opening a DB pool. It emits path-free manifest ID/SHA evidence, not a persisted corpus-publication identity. v0004 adds eleven owner-only legal-curation tables and one validated-citation view; readiness binds the complete v0004 catalog to exactly 69 constraints and 21 indexes. Public can SELECT the view but not the base tables; ingestion/operator have no legal-curation DML. Disposable PG17 transactional and actual-LOGIN role contracts passed locally. Evidence: **bddk_mcp/ingest/seed.py; bddk_mcp/cli.py; bddk_mcp/migrations/**; **bddk_mcp/db_lifecycle.py**; **bddk_mcp/db_identity.py**; **bddk_mcp/catalog_integrity.py**; **deploy/postgres/**. The bank still needs distinct curator/DBA principals and bank-LOGIN acceptance. |
-| Complete | Durable single-replica operator control plane | `PostgresJobRepository` persists privacy-safe job records and PostgreSQL advisory leases serialize corpus mutation. Recovery is explicit. Evidence: **bddk_mcp/jobs/postgres.py; bddk_mcp/jobs/manager.py; bddk_mcp/server.py**. Runners remain in the operator process; multi-replica dispatch/failover is deliberately unsupported. |
-| Partial | Retrieval publication and Citation v1 | Transactional document/section publication and current-hash chunk guards remain. Exact-section retrieval can additionally construct Citation v1 from the validated view; that view recomputes normalized-document/section hashes, applies the frozen-whitespace offset transform, and filters fixture/unvalidated/secondary/mismatched evidence. `SourceBlob` owns content identity while `SourceArtifact` owns acquisition identity. An official MCP session against real PostgreSQL proves synthetic end-to-end reconstruction. Evidence: **bddk_mcp/citations.py; bddk_mcp/store/doc_store.py; tests/test_citations.py; tests/test_legal_versions.py**. Immutable whole-corpus generations, retained authoritative bytes, true source pages, real legal families, and curator/source authenticity remain open. |
-| Partial | Acquisition, supply chain, and observability | Bounded outbound acquisition, safe logging/metrics, and telemetry isolation remain. A separate workflow builds reproducible Python artifacts and containers with Buildx `--provenance=false --load`; it binds descriptor/manifest, config, loaded image and Syft SBOM, emits unsigned repository SLSA, verifies model-manifest/runtime/Dockerfile pins, scans complete Git history/fresh vulnerability data, and blocks High/Critical/secret findings. Applied pending exceptions always leave promotion ineligible. Evidence: **bddk_mcp/core/outbound_http.py; .github/workflows/supply-chain.yml; scripts/supply_chain_evidence.py; supply-chain/**. Platform egress, malware/source authenticity, signing/admission/promotion, exporters, SLOs, and bank retention remain external. |
-| Partial | OpenShift and recovery topology | Hardened public/operator workloads and lifecycle Jobs now have a secret-free acceptance preflight. It binds the exact checksum-verified Kustomize v5.8.1 executable and enforces strict rendered-object, selector, namespace, policy, Secret/ConfigMap, workload-shape and restricted-security-context inventories. The exact `bank-bootstrap` overlay mounts `bddk-mcp-approved-corpus` read-only, mounts the `bddk-mcp-corpus-trust` Secret separately and read-only, and passes all strict freshness/signature/key gates directly to bootstrap. The egress contract gives approved regulatory-source/proxy HTTPS to both public and operator runtimes but keeps lifecycle at DNS/PostgreSQL only. Guarded workflows rehearse populated-v2 migration and define a second-cluster logical restore with identity/catalog/fingerprint checks. Evidence: **deploy/openshift-overlays/bank-bootstrap/**; **bddk_mcp/openshift_acceptance.py; bddk_mcp/operations/recovery.py; deploy/openshift/**. Eight live-environment gates, actual bank CNI enforcement, a bank namespace run, and a full second-cluster restore/PITR remain open. |
-| Partial | Legal and knowledge architecture | v0004 models instruments, `SourceBlob` content identities, separate `SourceArtifact` acquisitions, evidence, legal versions, source links, events, status assertions, hierarchical provision identities, validated occurrences, immutable family imports, and append-only validation decisions. A synthetic family demonstrates deterministic import and explicit current/as-of abstention. It is deliberately not wired to ordinary ingestion. Authoritative source bytes/pages, real-family review authority/authenticity, cross-document relationships, and provision-to-control knowledge remain open. |
-| Partial | Evaluation trust architecture | R09 release validation composes three independent artifacts: a signed corpus manifest with per-document measured freshness, a separately signed expert dataset, and a separately signed exact validated-Citation export/attestation under a legal-curator key. The legal and dataset signer keys must differ. Evidence: **bddk_mcp/corpus_manifest.py; benchmark/expert_evaluation.py; tests/test_expert_evaluation.py**. The tracked corpus/dataset intentionally fail these release gates. |
+| Complete | Explicit lifecycle and PostgreSQL authorization | `serve` is read-only with respect to schema/corpus lifecycle. The checksum ledger ends at v6: v4 supplies eleven owner-only legal-curation tables and the validated-citation view, v5 supplies corpus release/activation/epoch state, and v6 supplies the security-definer legal-status resolver. Exact target/TLS/ACL/catalog/connection identities are checked for schema-owner, ingestion, release-publisher, public, operator and telemetry profiles. The v4 legal subset remains attested at 69 constraints and 21 indexes. Evidence: **bddk_mcp/migrations/runner.py:22-37; bddk_mcp/db_identity.py; bddk_mcp/db_lifecycle.py; bddk_mcp/catalog_integrity.py; deploy/postgres/**. Bank LOGIN/HBA/DBA acceptance remains external. |
+| Complete | Durable single-replica operator control plane and writer coordination | `PostgresJobRepository` persists privacy-safe job state. A session-scoped job-admission lease and a distinct transaction-scoped corpus-mutation lock are separate protocols; every sanctioned writer and the release publisher use the transaction key. Evidence: **bddk_mcp/corpus_coordination.py:1-40; bddk_mcp/jobs/postgres.py; bddk_mcp/jobs/manager.py; tests/test_bulk_write.py:118-231**. Runners remain in the operator process; multi-replica dispatch/failover is unsupported. |
+| Complete mechanism; governed release blocked | Active corpus publication and strict serving | V5 appends release/activation evidence and increments one statement-level epoch on mutations to 17 tracked corpus tables. The security-barrier active view exists only while the latest activation epoch equals current state. Strict local-corpus calls acquire same-release reader leases and perform a post-call release check; OpenShift enables strict mode while local research defaults it off. The publisher independently regenerates derivatives and verifies exact database membership before activation. Evidence: **bddk_mcp/migrations/v0005_corpus_release_publication.py:15-124,831-1056; bddk_mcp/corpus_serving.py:29-35,104-187; bddk_mcp/ingest/seed.py:1207-1300**. The tracked artifact declares 8,286 chunks but regenerates as 9,675 and is rejected by strict publication; immutable generations and rollback remain open. |
+| Partial | Retrieval, Citation v1 and legal-status resolution | Transactional document/section publication and current-profile chunk guards remain. Citation v1 reconstructs exact normalized ranges through the validated v4 view. V6 exposes an abstention-first public resolver that returns one validated authoritative legal version for a requested date or no conclusion. A separate legal-release verifier can re-hash retained source bytes, acquisition records, page text/mappings and Citation excerpts and recursively verify signed history. Evidence: **bddk_mcp/citations.py; bddk_mcp/tools/legal_status.py:27-105; benchmark/legal_release_evidence.py:353-616**. Only synthetic legal-family evidence exists; no real retained bundle or curator/source authority has been accepted. |
+| Partial | Acquisition, supply chain, observability and objectives | Bounded acquisition, safe logs/metrics and isolated telemetry exist. The supply-chain lane binds reproducible artifacts, image descriptor/config, loaded image and SBOM but does not sign or promote. A versioned bank-on-prem OpenShift objectives contract defines eight metrics, yet every target/window is null and unapproved and alert/evidence integrations remain unverified. Evidence: **bddk_mcp/core/outbound_http.py; .github/workflows/supply-chain.yml; docs/decisions/operational-objectives.v1.yml; bddk_mcp/operational_objectives.py:333-501**. Platform egress, signing/admission, exporters, approved objectives and retention remain external. |
+| Partial | OpenShift and recovery topology | The starter separates public/operator workloads and three lifecycle Jobs: schema-owner migration, ingestion bootstrap/reindex, and independent release publication, each with reviewed ServiceAccounts and Secrets. Recovery evidence schema v2 fingerprints 29 managed relations plus the activation sequence, rejects six runtime DSNs for admin use, verifies six restored LOGIN profiles, and requires exact active-release/sequence equality. Evidence: **deploy/openshift/serviceaccounts.yaml; deploy/openshift/jobs/**; **bddk_mcp/operations/recovery.py:60-106,555-603,1305-1414**. Eight live-environment gates, bank CNI enforcement, namespace execution, retained bank restore/PITR evidence and approved RPO/RTO remain open. |
+| Partial | Legal and knowledge architecture | V4 models instruments, separate content/acquisition identities, evidence, legal versions, events/status assertions, hierarchical provisions, validated occurrences, family imports and review decisions; v6 resolves validated as-of status or abstains. Ordinary ingestion is deliberately unable to write the legal layer. No authoritative real-family import, authenticated reviewer authority, cross-document relationships or provision-to-control knowledge exists. |
+| Partial, deliberately non-release | Evaluation trust architecture | Phase 2 validates the selected manifest, reads and rechecks the active release on the same evaluated MCP session, and records the attestation. Release validation composes four signed layers: measured corpus manifest, expert dataset, legal-curator Citation-pack attestation, and legal-release checkpoint over retained evidence and predecessor history. Four canonical signer identities must be separated. Even a passing cryptographic preflight sets bank authorization and model-score authorization false because expert-dataset execution is absent. Evidence: **benchmark/phase2_e2e.py:304-350,531-570,657-668; benchmark/expert_evaluation.py; benchmark/release_preflight.py:89-124**. |
 
 Current deployment and data flow:
 
@@ -25,33 +26,55 @@ flowchart LR
     Client[MCP client or model host]
     Gateway[Bank ingress and identity boundary]
     Public[Public MCP process\n15 tools]
-    Operator[Operator MCP process\n28 tools]
+    Operator[Operator MCP process\n29 tools]
+    Resource[Active-release MCP resource\n1 resource / 0 prompts]
+    Guard[Strict local-corpus read guard\npre/post release check]
     Migrate[Schema-owner migration Job]
     Bootstrap[Ingestion bootstrap Job]
+    Publisher[Independent release-publisher Job]
     PG[(Operational PostgreSQL + pgvector)]
+    Release[(V5 release + activation + epoch)]
     Legal[(Owner-only v0004 legal tables)]
+    Resolver[V6 legal-status resolver]
     CitationView[Validated citation view]
     Pilot[Offline legal-family importer\nsynthetic pilot only]
     Sources[Approved BDDK and Mevzuat sources]
     Evidence[Current document + sections + published chunks]
+    Eval[Phase 2 same-session harness]
+    Trust[Four-layer signed evaluation evidence]
 
-    Client --> Gateway --> Public
-    Client -->|private operator path| Gateway --> Operator
-    Public -->|reader identity| PG
+    Client --> Gateway
+    Gateway --> Public
+    Gateway -->|private operator path| Operator
+    Client --> Eval
+    Eval -->|resource read, tool calls, resource recheck| Public
+    Public --> Resource
+    Resource --> Release
+    Public --> Guard
+    Guard -->|reader identity| PG
     Public -->|SELECT only| CitationView
     CitationView --> Legal
+    Public --> Resolver
+    Resolver --> Legal
     Operator -->|ingestion + job identities| PG
     Operator -. no base-table privilege .-> Legal
     Operator --> Sources
     Migrate -->|schema-owner identity| PG
     Migrate -->|schema-owner identity| Legal
     Bootstrap -->|ingestion identity| PG
+    Publisher -->|release-publisher identity| Release
+    Publisher -->|verify exact corpus membership| PG
     Sources --> Bootstrap
     Pilot -. future curator identity required .-> Legal
     PG --> Evidence
+    Trust -. release evidence only - no model authorization .-> Eval
 ~~~
 
 The historical system-context and trust-boundary diagrams below must therefore be read as commit evidence, not as diagrams of the implementation overlay.
+
+## Historical baseline architecture begins here
+
+Everything below this heading describes commit **5684a34c** unless a sentence explicitly points back to the 2026-07-16 overlay. Labels such as “current” in the preserved baseline mean current at that reviewed commit.
 
 ## System context
 
@@ -105,7 +128,7 @@ The implementation is a single-process modular monolith:
 - in-process model loading and embedding;
 - optional in-process background sync and backfill jobs.
 
-This was a reasonable shape for local deployment. At the reviewed commit, the same process combined public serving, operator control, schema creation, migrations, seed publication, extraction, embedding, caching, and monitoring, which was too broad for remote or enterprise operation. The current implementation supersedes that behavior with explicit public/operator processes, migration/bootstrap commands, PostgreSQL identities, and a durable job ledger; the sequence diagram remains historical evidence only.
+This was a reasonable shape for local deployment. At the reviewed commit, the same process combined public serving, operator control, schema creation, migrations, seed publication, extraction, embedding, caching, and monitoring, which was too broad for remote or enterprise operation. The current implementation supersedes that behavior with explicit public/operator processes, separate `migrate`, `bootstrap`, and `publish-corpus-release` commands, PostgreSQL identities, an active-release epoch and a durable job ledger; the sequence diagram remains historical evidence only.
 
 ## Entry points
 
@@ -118,7 +141,7 @@ This was a reasonable shape for local deployment. At the reviewed commit, the sa
 | Seed CLI | **seed.py; bddk_mcp/ingest/seed.py:422 onward** | Exports/imports bundled database content. |
 | Benchmark CLI | **benchmark/__main__.py; benchmark/run.py** | Runs static tool, NLI, terminology, and nominal E2E phases. |
 
-At the reviewed commit, the checked-in .mcp.json also embedded a developer-specific absolute path, so it was not portable. The working tree replaces it with the packaged entry point and no user-specific path.
+At the reviewed commit, the checked-in .mcp.json also embedded a developer-specific absolute path, so it was not portable. The current worktree replaces it with the packaged entry point and no user-specific path.
 
 ## Server construction and lifecycle
 

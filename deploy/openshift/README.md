@@ -156,8 +156,9 @@ service-CA rollover. A successful pod probe alone does not prove that the
 router or an operator client validates the intended certificate chain.
 
 The operator Service intentionally has no Route and one replica. Job records
-are durable in PostgreSQL and a session advisory lease serializes corpus
-mutation. A restart marks abandoned running work interrupted; a persisted
+are durable in PostgreSQL; a session advisory lease controls runner admission,
+while a distinct transaction advisory lock serializes sanctioned corpus writers
+and publication. A restart marks abandoned running work interrupted; a persisted
 queued job is never guessed stale and can be resumed by retrying the same
 idempotency key or cancelled explicitly. Keep `Recreate`/one replica until the
 bank acceptance suite covers overlapping-pod and multi-replica failover.

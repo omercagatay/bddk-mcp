@@ -15,7 +15,25 @@ The next major version should turn the current prototype into a dependable regul
 
 PostgreSQL plus pgvector remains sufficient. A separate graph database, message broker, service mesh, Kubernetes requirement, or distributed vector database is not justified now.
 
-## Implementation progress overlay — 2026-07-15
+## Current implementation checkpoint — 2026-07-16
+
+This table is authoritative over the dated overlay retained below. “Complete” means implemented and contract-tested in the repository; it never means bank acceptance or legally validated source content.
+
+| Target slice | Status | Evidence and remaining boundary |
+|---|---|---|
+| MCP interface | Repository-complete foundation | One registry exposes 15 public tools and 14 operator additions (29 total), with strict schemas and risk annotations. Official SDK tests cover stdio and Streamable HTTP. One resource, `bddk://corpus/active-release`, is registered; prompts remain absent (**bddk_mcp/tools/registry.py; bddk_mcp/resources.py; tests/test_mcp_stdio_e2e.py; tests/test_mcp_http_runtime.py**). Named Claude/Codex/GPT-OSS/LM Studio certification remains open. |
+| Security planes | Repository boundary complete; bank acceptance open | Public, operator, migrator, ingestion, release-publisher, and telemetry responsibilities are separated by configuration, DSN, role assets, workloads, scopes, and fail-closed identity checks. Remote HTTP requires Host/Origin and asymmetric JWT/JWKS policy (**bddk_mcp/http_security.py; bddk_mcp/db_identity.py; deploy/postgres/; deploy/openshift/**). Bank IdP, CA, Route, CNI, HBA, and LOGIN evidence remain external. |
+| Database lifecycle | Current through schema v6 | v4 is the canonical legal model, v5 adds corpus release/activation/epoch state, and v6 adds least-privilege status resolution. Recovery evidence schema v2 covers 29 managed relations, the activation sequence, six application DSN exclusions, and six restored LOGIN profiles (**bddk_mcp/migrations/; bddk_mcp/operations/recovery.py**). Retained bank PITR/RPO/RTO evidence remains open. |
+| Corpus publication | Partial target | A strict publisher independently revalidates the corpus, persists an append-only release and atomic activation, and every corpus mutation increments an epoch that invalidates the active view. Strict local-corpus calls lease and recheck one active release (**bddk_mcp/migrations/v0005_corpus_release_publication.py; bddk_mcp/ingest/seed.py; bddk_mcp/corpus_serving.py**). Immutable retained generations and rollback/reactivation remain absent. |
+| Current tracked corpus | Blocked | The manifest is non-exhaustive, unsigned, unmeasured, and declares 8,286 chunks; current profile-v2 regeneration produces 9,675. Strict publication therefore refuses it until regeneration, independent review, and re-signing (**seed_data/corpus_scope.yml; bddk_mcp/ingest/seed.py**). |
+| Regulatory model and citations | Partial technical pilot | Canonical instruments, versions, provisions, events, status assertions, a public abstention-first resolver, and Citation v1 exist. Legal-release verification can rehash retained source/acquisition/page/excerpt evidence and a signed predecessor chain (**bddk_mcp/regulatory/; bddk_mcp/tools/legal_status.py; benchmark/legal_release_evidence.py**). No authoritative real family, bank trust policy, key rotation, independently proven page derivation, or complete historical legal-pack replay exists. |
+| Evaluation | Partial, deliberately non-release | Phase 2 binds the selected manifest to the active release before and after calls on the same MCP session. The expert gate composes signed corpus, signed dataset, signed legal-curator pack attestation, and a signed retained-evidence checkpoint with distinct canonical signer fingerprints (**benchmark/phase2_e2e.py; benchmark/expert_evaluation.py; benchmark/release_preflight.py**). Inputs and latest-head anchors are operator supplied, bank authorization is false, model execution is unimplemented, and all ordinary scores remain exploratory. |
+| OpenShift operations | Repository manifests/preflight complete; live gates open | Separate migrate, bootstrap, and release-publisher Jobs and identities exist; publisher activation precedes strict serving. Exact Kustomize/render/security/egress contracts are tested (**deploy/openshift/jobs/; deploy/openshift/serviceaccounts.yaml; bddk_mcp/openshift_acceptance.py**). Namespace execution and bank controls remain external. |
+| Objectives and observability | Deliberately non-production | A versioned eight-metric operational contract exists, but every target and rolling window is unset and unapproved (**docs/decisions/operational-objectives.v1.yml; bddk_mcp/operational_objectives.py**). Metrics, alerts, retention, tracing, load, and resilience require bank decisions and execution evidence. |
+
+Maturity remains: overall **3/5**, production readiness **2/5**, MCP **4/5**, retrieval **3/5**, security **3/5**, testing/evaluation **3/5**, documentation **4/5**.
+
+## Prior implementation overlay — 2026-07-15 (superseded where it conflicts)
 
 This checkpoint maps the current working tree to the target below. **Complete** means the repository implementation and a focused automated contract exist; it is not bank deployment acceptance. **Partial** means a useful slice is implemented but at least one target invariant or acceptance gate remains. **Open** means the target capability is not yet adequately implemented.
 
@@ -667,7 +685,8 @@ Exact OpenShift AI, MCP client, model-serving, identity, storage, and monitoring
 - the synthetic legal-family importer into a separately authenticated curator/reviewer workflow with authoritative retained evidence;
 - Citation v1 from normalized-range pilot to artifact-byte/page reconstruction and a uniform citation surface;
 - the in-process durable-job runner into an explicitly claimable/recoverable worker only if multi-replica operation is required;
-- sync into staged corpus generations and atomic publication;
+- sync into immutable staged corpus generations with rollback/reactivation on
+  top of the implemented v5 atomic publication boundary;
 - section parser into hierarchical provision parser;
 - quality registry into one runtime/CI source of truth;
 - retrieval fusion at provision/chunk level;
@@ -692,9 +711,11 @@ Exact OpenShift AI, MCP client, model-serving, identity, storage, and monitoring
 
 ### Add
 
-- retained authoritative source bytes and page/coordinate evidence for the v0004 artifact declarations;
+- a bank-signed evaluation trust policy and rotation/revocation-capable keyring that bind named roles to canonical fingerprints and an approved checkpoint head;
+- reproducible page derivation plus reviewer-identity evidence for retained authoritative source bytes and page/coordinate mappings;
+- end-to-end replay of historical legal packs, curator attestations, and retained artifacts;
 - real-family legal-version curation, reviewer authority, hierarchical provision coverage, and typed cross-document relations;
-- corpus generations and atomic publish/rollback;
+- immutable retained corpus generations and authorized rollback/reactivation on top of the implemented v5 publish/epoch contract;
 - artifact/page-capable citation verification beyond the normalized-range Citation v1 pilot;
 - expert-reviewed Turkish/domain benchmarks;
 - named-client/model compatibility evidence;
@@ -704,16 +725,16 @@ Exact OpenShift AI, MCP client, model-serving, identity, storage, and monitoring
 
 ## Transition sequence
 
-| Step | Current state on 2026-07-15 | Next acceptance boundary |
+| Step | Current state on 2026-07-16 | Next acceptance boundary |
 |---|---|---|
 | 1. Fix launcher and expose one runtime contract | Complete | Retain official-client stdio/HTTP and distribution gates. |
 | 2. Secure HTTP and split public/operator processes | Complete at repository boundary | Prove bank IdP, CA, ingress, egress, and scope mappings. |
 | 3. Remove DDL, seed, and backfill from serving | Complete | Retain explicit lifecycle identities and fail-closed readiness. |
 | 4. Add typed outputs/errors and Citation mapping | Partial | Six retrieval tools are typed and exact validated sections can carry reconstructable normalized-range Citation v1. Extend the contract to every tool and bind citations to retained authoritative bytes/pages. |
-| 5. Add migrations, roles, and corpus publication | Partial | Migrations/roles are delivered through v0004 and per-document retrieval publication is fail-closed. The guarded v2-to-v4 rehearsal exists, but a full isolated restore has not run; immutable corpus generations and rollback remain. |
+| 5. Add migrations, roles, and corpus publication | Repository publication boundary complete through v6 | v5 persists releases/activations and invalidates them by epoch; strict calls bind one active release. Execute recovery-v2/bank identity evidence and add immutable retained generations/rollback. |
 | 6. Preserve immutable artifacts/pages and hierarchical provisions | Partial pilot | v0004 declares artifacts and stable provision identities for a synthetic family. Retain authoritative bytes, source pages, tables/formulas, and real-family mappings before regulatory reliance. |
-| 7. Add legal version/status and amendment relations | Partial pilot | The v0004 schema and resolver represent validated claims and abstain on conflict/unknown state. Ordinary ingestion, real authoritative families, curator identity, and amendment/currentness review remain open. |
-| 8. Rebuild retrieval and evaluation on the canonical layer | Partial, non-release | Real MCP Phase 2 and a 20-case/eight-domain draft exist. Complete Citation bundles, signed corpus with measured per-document freshness, separately signed dataset, separately signed exact legal-Citation export/attestation under a distinct curator key, independent annotation/adjudication, claim graders, and named model runs remain release gates. |
+| 7. Add legal version/status and amendment relations | Partial pilot | v4 plus the v6 resolver represent validated claims and abstain on conflict/unknown state. Ordinary ingestion, one real authoritative family, policy-bound reviewer identity, and amendment/currentness review remain open. |
+| 8. Rebuild retrieval and evaluation on the canonical layer | Partial, non-release | Phase 2 now binds one active release on the same MCP session, and a four-layer cryptographic preflight exists. Repair/sign the corpus, add a bank trust policy/key rotation, finish adjudication, implement exact expert-case execution, and run named models before authorizing scores. |
 | 9. Add validated audit knowledge mappings | Open | Start only after temporal, citation, and expert-evaluation foundations pass. |
 
 This sequence lets the project improve without a big-bang rewrite. The existing document/chunk tables can serve as a compatibility view during migration.

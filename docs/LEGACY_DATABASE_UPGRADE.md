@@ -1,8 +1,9 @@
 # Legacy database upgrade
 
 This runbook covers one transition only: a database created by the final
-pre-ledger `bddk-mcp` initializers into migration v0001 and then through the
-current v0002-v0003 sequence. It is not a general schema-repair command.
+pre-ledger `bddk-mcp` initializers. Adoption verifies and records canonical
+v0001, then applies every pending migration through the current schema v6. It
+is not a general schema-repair command.
 
 The ordinary command remains fail-closed:
 
@@ -79,7 +80,7 @@ each serial column, the runner reads the old sequence state and maximum ID,
 recreates the standard identity sequence, and advances it beyond both values.
 It does not update, delete, truncate, or overwrite any table row. A second,
 strict catalog verification must match canonical v0001 before the runner can
-record v0001 or apply v0002-v0003. Any error rolls back the normalizations,
+record v0001 or apply every pending migration through v0006. Any error rolls back the normalizations,
 ledger, audit evidence, and all pending migrations together.
 
 ## Change procedure
@@ -140,8 +141,9 @@ ledger, audit evidence, and all pending migrations together.
    `--require-quantified-freshness`, `--require-measured-freshness`, and
    `--require-verified-signature` gates, and a `--trusted-signing-key` mounted
    separately from the corpus. Do not treat a prior `verify-corpus` run as a
-   trust handoff. Retain bootstrap's path-free manifest ID/SHA output because
-   it is not yet persisted in PostgreSQL. Migration v0003 leaves existing
+   trust handoff. Retain bootstrap's path-free manifest ID/SHA output and run
+   the independent release publisher; v0005 persists the release and activation
+   together only after that separate revalidation. Migration v0003 leaves existing
    chunks unpublished by design; retrieval must remain fail closed until every
    approved document is rebuilt and published under the active retrieval
    profile.

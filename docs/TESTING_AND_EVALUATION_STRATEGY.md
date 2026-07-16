@@ -9,7 +9,7 @@ The test strategy must answer four different questions:
 3. **Does retrieval return the legally applicable, traceable evidence?**
 4. **Does the final answer make only claims supported by that evidence?**
 
-The current repository now has reliable protocol and real-MCP runner coverage, plus a reconstructable normalized-range Citation v1 technical pilot. It still does not answer questions 2–4 at a product-evidence level because named host/model runs, independently approved retrieval judgments, authoritative legal-currentness fixtures, artifact/page-backed citations, and claim-level grounding remain incomplete.
+The current repository now has reliable protocol and real-MCP runner coverage, a reconstructable normalized-range Citation v1 pilot, and a verifier for separately retained source/acquisition/page/excerpt evidence. It still does not answer questions 2–4 at a product-evidence level because named host/model runs, independently approved retrieval judgments, authoritative legal-currentness fixtures, real non-fixture legal evidence, reproducible source-to-page derivation, and claim-level grounding remain incomplete.
 
 ## Current baseline
 
@@ -36,25 +36,62 @@ Skipped:
 
 This review deliberately did not start a database, mutate schemas, access live BDDK services, download/run models, inspect secrets, or use production clients.
 
-### Implementation progress overlay — 2026-07-15
+### Implementation progress overlay — 2026-07-16
 
 This checkpoint describes the current working tree; the executed-check table above remains the reviewed-commit baseline. **Complete** means a repository gate or focused automated contract exists, not that every target environment has passed it. **Partial** means meaningful coverage exists with important gaps. **Open** means the evaluation outcome remains unproved.
 
 | Test/evaluation slice | Status | Current evidence and remaining gap |
 |---|---|---|
-| Installed MCP transport E2E | Complete | The official client exercises the installed stdio subprocess through initialize/version/list/call/invalid-extra/recovery/shutdown and checks protocol-only stdout. Streamable HTTP tests cover initialize/list/call, health, Host/Origin, JWT/JWKS, scope, operator opt-in, RFC 9728 protected-resource metadata, the matching `resource_metadata` 401 challenge, and shutdown (**tests/test_mcp_stdio_e2e.py; tests/test_mcp_http_runtime.py**). Bank IdP registration and authorization-flow acceptance remain external. |
-| Tool contracts and protocol errors | Partial | The 15-public/28-operator registry owns strict generated arguments and risk annotations; stable privacy-safe errors are tested. Six retrieval tools validate structured evidence payloads (**tests/test_public_input_contracts.py; tests/test_structured_retrieval_outputs.py**). The remaining tools do not yet share one structured result contract. |
-| PostgreSQL compatibility and lifecycle | Partial | PostgreSQL 17 is the explicit repository contract. The disposable transactional allow/deny and actual-LOGIN identity/ACL role tests executed locally and passed (2 passed). Focused core/legal/seed PostgreSQL validation passed (27 passed, 2 skipped). An earlier broad generic run recorded 127 passed, 4 skipped, and 3 legacy-fixture teardown failures; the fixture was corrected and those three focused cases pass, but that entire broad command was not rerun afterward. Tests cover v0001-v0004, catalog/ACL/identity, the exact 69-constraint/21-index digest, validated-view-only public access, owner-only legal tables, and synthetic-family resolution (**bddk_mcp/db_compatibility.py; bddk_mcp/catalog_integrity.py; tests/test_db_compatibility.py; tests/test_postgres_role_assets.py; tests/test_legal_versions.py; tests/test_seed.py**). Bank LOGINs, production-size upgrade, failover, and DBA evidence remain external. |
-| Recovery workflows | Partial | Tests exercise the guarded populated-v2-to-v4 rehearsal, default refusal, actual-content fingerprints for documents/sections/chunks/PDF/decision cache/vector serialization, bounded subprocess timeouts, and terminate/kill cleanup (**bddk_mcp/operations/recovery.py; tests/test_recovery_workflows.py**). A full `pg_dump`/`pg_restore` into a second isolated cluster has not been executed; PITR, RPO/RTO, and bank recovery acceptance are unproved. |
-| Citation v1 and legal-version pilot | Partial technical evidence | Citation tests cover canonical identity, separate `SourceBlob` content and `SourceArtifact` acquisition identities, frozen-whitespace exact normalized ranges, Unicode/CRLF/astral round trips, excerpt reconstruction, mismatch refusal, and omission for unvalidated/truncated/failed-quality cases. PostgreSQL joins expose only validated authoritative non-fixture mappings whose stored/recomputed document/section hashes agree. An official MCP session calls `get_document_section` against the real PostgreSQL validated view and reconstructs the synthetic Citation (**bddk_mcp/citations.py; bddk_mcp/migrations/v0004_canonical_legal_versions.py; tests/test_citations.py; tests/test_legal_versions.py**). No real authoritative family, retained source bytes, true-page reconstruction, or authenticated curator/source is tested. |
+| Installed MCP transport E2E | Complete | The official client exercises the installed stdio subprocess through initialize/version/list/call/invalid-extra/recovery/shutdown and checks protocol-only stdout. Streamable HTTP tests cover initialize/list/call, the single `bddk://corpus/active-release` resource, health, Host/Origin, JWT/JWKS, scope, operator opt-in, RFC 9728 protected-resource metadata, the matching `resource_metadata` 401 challenge, and shutdown. No MCP prompts are registered (**bddk_mcp/resources.py; tests/test_mcp_stdio_e2e.py; tests/test_mcp_http_runtime.py**). Bank IdP registration and authorization-flow acceptance remain external. |
+| Tool contracts and protocol errors | Partial | The 15-public/29-operator registry (15 public plus 14 operator additions) owns strict generated arguments and risk annotations; stable privacy-safe errors are tested. Six retrieval tools validate structured evidence payloads (**tests/test_tool_registry.py; tests/test_public_input_contracts.py; tests/test_structured_retrieval_outputs.py**). The remaining tools do not yet share one structured result contract. |
+| PostgreSQL compatibility and lifecycle | Partial | PostgreSQL 17 is the explicit repository contract. The final disposable local run recorded exactly **143 passed, 4 skipped** in 633.42 seconds; the separate actual-LOGIN identity/ACL allow-and-deny lane passed both selected tests. Migrations run through v0006: v4's legal subset still attests exactly 69 constraints/21 indexes, v5 adds append-only corpus release/activation and epoch invalidation, and v6 adds the least-privilege abstention-first legal-status resolver (**bddk_mcp/migrations/runner.py; bddk_mcp/catalog_integrity.py; tests/test_migrations.py; tests/test_catalog_integrity.py; tests/test_corpus_publication.py; tests/test_legal_versions.py**). Bank LOGINs, production-size upgrade, failover, and DBA evidence remain external. |
+| Recovery workflows | Partial | Tests exercise the guarded populated-v2-to-current-schema rehearsal, default refusal, actual-content fingerprints, bounded subprocess cleanup, and recovery-evidence schema v2. That schema covers 29 managed relations plus activation sequence, rejects all six application DSNs as recovery administration, and verifies six restored LOGIN profiles (**bddk_mcp/operations/recovery.py; tests/test_recovery_workflows.py**). A retained bank-like `pg_dump`/`pg_restore` acceptance report, PITR, RPO/RTO, and bank recovery approval remain unproved. |
+| Citation v1 and legal-version pilot | Partial technical evidence | Citation tests cover canonical identity, separate `SourceBlob` content and `SourceArtifact` acquisition identities, frozen-whitespace exact normalized ranges, Unicode/CRLF/astral round trips, excerpt reconstruction, mismatch refusal, and omission for unvalidated/truncated/failed-quality cases. PostgreSQL exposes only validated authoritative non-fixture mappings whose hashes agree. The legal-release verifier additionally re-hashes retained source bytes, acquisition records, page mapping/text, exact excerpts, and every predecessor's retained files (**bddk_mcp/citations.py; benchmark/legal_release_evidence.py; tests/test_citations.py; tests/test_expert_evaluation.py; tests/test_legal_versions.py**). The only end-to-end family remains synthetic; a reviewer-role string is not authenticated bank identity, exact excerpt-in-page-text containment does not independently prove source/PDF-to-page-text derivation, and historical Citation packs are not retained/replayed for predecessor checkpoints. |
 | Untrusted-document rendering | Complete at current code boundary; live-model evaluation open | Tests cover the escaped untrusted-data envelope and delimiter spoofing across all six retrieval tools and the other source-backed public renderers; official MCP output checks keep malicious metadata and body text inside the data boundary (**bddk_mcp/tools/structured_outputs.py; tests/test_structured_retrieval_outputs.py**). No live host/model prompt-injection or tool-escalation benchmark has run. |
 | OpenShift repository preflight | Partial | The acceptance suite requires exactly Kustomize v5.8.1 and the configured SHA-256 of the resolved executable, executes a bounded offline render, and rejects drift in exact resources, namespace, selectors/labels, NetworkPolicies, Secret/ConfigMap keys, container shape/commands/ports/volumes, and restricted security contexts. It renders the reviewed `bank-bootstrap` overlay and checks the exact direct strict arguments, read-only approved-corpus PVC, separately mounted read-only corpus-trust Secret, and mutation failures. The registry contract identifies nine public open-world/live-outbound tools. Network tests require at least one approved `regulatory_source` or `enterprise_proxy` TCP/443 permission for each public and operator runtime, constrain every such permission to TCP/443, and reject every lifecycle purpose outside DNS/PostgreSQL. The mandatory focused acceptance/manifest/registry run passed **74 tests** with real checksum-pinned Kustomize v5.8.1. It still records eight live external gates as `not_run` (**deploy/openshift-overlays/bank-bootstrap/**; **bddk_mcp/openshift_acceptance.py; tests/test_openshift_acceptance.py; tests/test_openshift_manifests.py; tests/test_tool_registry.py**). This is repository preflight evidence, not a bank namespace, CNI, IdP, CA, registry, database, backup, or client/model test. |
 | Supply-chain lane | Partial | Focused tests cover pinned tool checksums, reproducible distributions, Buildx `--provenance=false --load` descriptor/manifest/config/loaded-image/Syft binding, deterministic SBOM and unsigned repository SLSA, model-manifest/runtime/Dockerfile consistency, complete-history secret policy, vulnerability-database freshness, High/Critical blocking, and explicit expiring exceptions. Pending applied exceptions always make promotion ineligible (**tests/test_supply_chain.py; .github/workflows/supply-chain.yml; scripts/supply_chain_evidence.py; supply-chain/**). The complete hosted linux/amd64 workflow, including both container builds, has not been executed in this review; no signing, admission, or promotion test exists. |
-| Corpus and expert dataset integrity | Partial, deliberately non-release | Tests prove bootstrap uses manifest-role paths, rechecks exact bytes/hashes, rejects undeclared reserved seed filenames before database use, accepts the same quantified/measured/signature/key gates as `verify-corpus`, and requires the Ed25519 key as a separately supplied file. Completion exposes path-free manifest ID/SHA evidence, but no test can recover that identity from PostgreSQL because it is not persisted (**bddk_mcp/ingest/seed.py; bddk_mcp/cli.py; tests/test_seed.py; tests/test_cli.py; tests/test_corpus_manifest.py**). The checked-in 318-document manifest remains non-exhaustive, unsigned, unquantified, and unmeasured. The 20-case Turkish draft still has pending Citation mappings, legal currentness, 40 annotations, 20 adjudications, and approvals. Release requires signed measured corpus, separately signed dataset, and separately signed exact validated-Citation export/attestation under a distinct legal-curator key (**benchmark/expert_evaluation.py; tests/test_expert_evaluation.py**). |
-| Real MCP Phase 2 runner | Complete as a harness | Phase 2 uses official `ClientSession` transports for stdio and `/mcp`, paginates live discovery, executes actual `call_tool`, fails cases on MCP errors, sanitizes audit artifacts, and records schema/server/protocol/corpus/dataset identities (**benchmark/phase2_e2e.py; benchmark/audit.py; tests/test_benchmark_phase2.py**). No named model/client score or product recommendation follows from harness correctness. |
+| Corpus and expert dataset integrity | Partial, deliberately non-release | Strict import and the distinct publisher verify manifest-role bytes and policy, compare the complete regenerated chunk inventory, persist the active manifest/retrieval-profile/corpus-state identity, and invalidate it through a mutation epoch (**bddk_mcp/ingest/seed.py; bddk_mcp/corpus_publication.py; tests/test_seed.py; tests/test_corpus_publication.py**). The tracked 318-document manifest remains non-exhaustive, unsigned, unquantified, and unmeasured; its declared 8,286 chunks differ from the 9,675 produced by current-profile regeneration, so strict publication refuses it. The 20-case Turkish draft still has pending Citations, `legal_currentness: not_verified`, 40 annotations, 20 adjudications, and approvals. |
+| Evaluation release preflight | Partial, deliberately non-release | Release validation requires four separate signed layers—measured corpus, expert dataset, exact Citation pack/legal-curator attestation, and a legal-release checkpoint over retained evidence/history—and rejects any reuse among the four canonical Ed25519 signer fingerprints. Focused YAML/expert/preflight/report tests passed 45 cases (**benchmark/expert_evaluation.py; benchmark/legal_release_evidence.py; benchmark/release_preflight.py; tests/test_release_yaml.py; tests/test_expert_evaluation.py; tests/test_release_preflight.py; tests/test_benchmark_audit.py**). Trust keys and latest-head hash are still caller supplied; no bank trust policy, rotation/revocation, authenticated reviewer identity, historical pack replay, or model execution exists. A pass explicitly leaves bank authorization and model-score authorization false. |
+| Real MCP Phase 2 runner | Complete as a harness | Phase 2 uses official `ClientSession` transports for stdio and `/mcp`, paginates live discovery, reads `bddk://corpus/active-release`, requires its manifest ID/SHA to match the validated local manifest, executes actual `call_tool` on that same session, and rejects a release change on the final same-session read. It sanitizes audit artifacts and records schema/server/protocol/manifest/active-release/dataset identities (**benchmark/phase2_e2e.py; benchmark/audit.py; tests/test_benchmark_phase2.py**). No named model/client score or product recommendation follows from harness correctness. |
+| Ordinary benchmark reports | Exploratory only | `benchmark.run` always marks results `exploratory_not_release_evidence` and `model_scores_authorized: false`; console and diagnosis reports refuse deployment advice even if a result JSON is edited. These runners do not execute the expert dataset or invoke the release preflight (**benchmark/run.py; benchmark/report.py; tests/test_benchmark_audit.py**). |
 | Observability, load, and client/model operations | Open/Partial | Correlation IDs, privacy-safe request/error/latency metrics, readiness, and isolated telemetry have tests. Standard export/tracing, numeric SLOs, retention, load/resilience, full recovery, and a named Claude/Codex/GPT-OSS/LM Studio matrix remain unproved. |
 
-No aggregate current-suite count is asserted here: the trustworthy current claims are the explicit repository gates and focused contracts above. Current testing/evaluation maturity remains **3/5**; the other calibrated ratings remain overall **3/5**, production readiness **2/5**, MCP **4/5**, retrieval **3/5**, security **3/5**, and documentation **4/5**.
+Final local validation on 2026-07-16 also passed **1,311** non-GPU,
+non-PostgreSQL tests with 34 capability-gated skips and 150 deselections in
+52.59 seconds. The PostgreSQL and role-contract results are reported separately
+above so skipped capabilities are not hidden inside one inflated aggregate.
+`uv lock --check`, Ruff lint and format checks, distribution build/content
+verification, isolated wheel import/resource/CLI checks on Python 3.12.13 and
+3.13.13, and `git diff --check` also passed. Current testing/evaluation
+maturity remains **3/5** because these repository results do not supply expert,
+live-model, load, bank-platform, or PITR acceptance; the other calibrated
+ratings remain overall **3/5**, production readiness **2/5**, MCP **4/5**,
+retrieval **3/5**, security **3/5**, and documentation **4/5**.
+
+The optional GPU/OCR lane was also probed. Before the lane contract was fixed,
+CUDA detection alone started three integration cases in a base development
+environment: Chandra was absent and LightOCR could not load its remote-default
+model, so all three failed. This was a provisioning-boundary failure, not a
+validated OCR regression. The lane now skips only when
+`BDDK_REQUIRE_GPU_OCR` is absent; when set to `1`, it fails closed unless CUDA,
+the `gpu` dependency group, offline mode, and local LightOCR and Chandra model
+directories are present. Both OCR tests use the retained PDF fixture and make
+no live source request.
+
+Required invocation shape:
+
+```bash
+uv sync --frozen --dev --group gpu
+BDDK_REQUIRE_GPU_OCR=1 \
+HF_HUB_OFFLINE=1 \
+TRANSFORMERS_OFFLINE=1 \
+BDDK_LIGHTOCR_MODEL_PATH=/APPROVED/MODELS/LIGHTOCR \
+BDDK_CHANDRA_MODEL=/APPROVED/MODELS/CHANDRA \
+  uv run --frozen --group gpu pytest -m gpu -v
+```
+
+The current machine does not have those two approved local model directories
+or the Chandra optional package, so no OCR-quality pass is claimed.
 
 ## Benchmark defects identified at the reviewed commit and current status
 
@@ -64,7 +101,7 @@ No aggregate current-suite count is asserted here: the trustworthy current claim
 
 ### Static schemas drifted from runtime at the reviewed commit
 
-At the reviewed commit, the benchmark defined 23 static schemas while runtime exposed 15 public or 26 operator tools. The working tree now exports all 28 OpenAI-style function schemas from the canonical 15-public/13-operator registry, eliminating that inventory drift. Benchmark Phase 1 remains function calling rather than MCP. Phase 2 now discovers the live MCP schema and therefore no longer shares this defect.
+At the reviewed commit, the benchmark defined 23 static schemas while runtime exposed 15 public or 26 operator tools. The working tree now exports all 29 OpenAI-style function schemas from the canonical 15-public/14-operator registry, eliminating that inventory drift. Benchmark Phase 1 remains function calling rather than MCP. Phase 2 discovers the live MCP schema and therefore no longer shares this defect.
 
 ### Phase 2 did not call this MCP server at the reviewed commit; this is corrected
 
@@ -74,9 +111,9 @@ The reviewed-commit implementation POSTed to nonexistent **/call-tool**, describ
 
 The source-trace score examines tool results, not whether final-answer claims cite and follow the evidence. The code grader checks required numbers/dates and does not penalize unsupported additions (**benchmark/graders.py:20-66; benchmark/scoring.py:191 onward**).
 
-### Silent grader fallback
+### Silent grader fallback at the reviewed commit is corrected
 
-If the Anthropic key/API is unavailable, model grading silently becomes the weak code score (**benchmark/graders.py:91-126**). A benchmark must never change methodology without failing or making the run non-comparable.
+At the reviewed commit, an unavailable Anthropic key/API silently substituted the weak code score (**historical benchmark/graders.py:91-126**). Current Phase 2 instead records an explicit unavailable/not-comparable model-grader state while preserving separately labelled deterministic retrieval and numeric-claim metrics. Ordinary human and JSON reports remain exploratory regardless of threshold results (**benchmark/graders.py; benchmark/phase2_e2e.py; benchmark/report.py**).
 
 ### Data is too small and weakly sourced
 
@@ -86,6 +123,41 @@ If the Anthropic key/API is unavailable, model grading silently becomes the weak
 - unclear independent annotation and adjudication
 
 No client/model recommendation should be based on repository presence or harness tests alone. A recommendation requires a recorded successful run on the approved corpus, expert-reviewed cases, pinned host/model/hardware, and the claim/citation methodology below.
+
+### What the current release preflight does and does not prove
+
+`python -m benchmark.release_preflight` is source-checkout-only: package
+discovery and the runtime image include `bddk_mcp`, not `benchmark`
+(**pyproject.toml:78-82; Dockerfile:9-16**). It validates the complete current
+four-layer trust chain and emits content-free aggregate identities. Canonical raw
+Ed25519 fingerprints prevent one signer from appearing independent merely by
+changing PEM encoding.
+
+Its positive status is `cryptographic_preflight_passed`, scoped to an
+`operator_supplied_expert_evaluation_trust_chain`. The trusted keys and
+latest-checkpoint SHA-256 are caller inputs, so the output deliberately states
+`bank_authorization_verified: false`, `model_scores_authorized: false`, and
+`latest_checkpoint_anchor_provenance: caller_supplied_argument`. A bank-owned
+policy must still map fingerprints to approved owners/roles, validity windows,
+revocation, and the approved chain head. The current legal checkpoint chain also
+requires every ancestor to use the same exact legal-release key; rotation and
+revocation are not modeled.
+
+The checkpoint verifier re-hashes source, acquisition, page mapping/text, and
+excerpt files for the full predecessor chain. Only the current checkpoint's
+legal pack is loaded and compared object-for-object with the dataset; historical
+pack bytes/Citation inventories are not retained and replayed. Exact excerpt
+containment in retained mapped-page text is verified, but the signed
+`legal_source_reviewer` role is an attestation field rather than authenticated
+reviewer identity, and raw source/PDF-to-page-text derivation is not reproduced.
+
+Most importantly, preflight does not execute the expert cases. The ordinary
+Phase 1/2/3 datasets and scores are separate and always exploratory. All tracked
+expert evidence remains `legal_currentness: not_verified`; currentness,
+version-comparison, and amendment-tracking cases are forced to abstain, and the
+preflight lists their score authorization as unsupported. A cryptographic pass
+must never be joined to an ordinary benchmark report to manufacture a model
+release claim.
 
 ## Quality model
 
@@ -169,7 +241,7 @@ Property-based/fuzz candidates:
 
 Run against disposable pgvector PostgreSQL in a required CI job. Database absence must fail the job, not skip it.
 
-The current repository covers clean and idempotent migrations through v0004, strict legacy adoption, populated-v2 refusal/approved backfill to the current schema, transactional rollback injection, catalog attestation, durable job concurrency/leases, fail-closed retrieval publication, owner-only legal tables, and role/identity/write-denial contracts. A guarded v2-to-v4 rehearsal and logical-restore workflow are present. The list below is the full target; a full second-cluster restore, target-bank identities, low-downtime large-corpus migration, whole-corpus generations, and PITR remain residual work.
+The current repository covers clean and idempotent migrations through v0006, strict legacy adoption, populated-v2 refusal/approved backfill to the current schema, transactional rollback injection, catalog attestation, durable job concurrency/leases, fail-closed retrieval publication, owner-only legal tables, active-release/epoch state, and role/identity/write-denial contracts. A guarded populated-v2-to-current rehearsal and logical-restore workflow are present. The list below is the full target; retained bank-like restore evidence, target-bank identities, low-downtime large-corpus migration, immutable retained corpus generations, and PITR remain residual work.
 
 Test:
 
@@ -256,7 +328,8 @@ Use the official MCP Python client rather than custom JSON-RPC scripts as the pr
 
 Assert:
 
-- exact 15 public and 28 operator names until intentionally versioned;
+- exact 15 public and 29 operator names (15 plus 14) until intentionally versioned;
+- exactly one `bddk://corpus/active-release` resource and no MCP prompts;
 - every property has description and applicable bounds/enums/formats;
 - no unexpected fields;
 - every output has stable status/data/citations/warnings/meta;
@@ -539,6 +612,13 @@ Block publication if:
 - a priority formula/table document fails review;
 - benchmark guardrails regress beyond approved tolerances.
 
+The tracked bundle currently fails this gate before model benchmarking: its
+manifest declares 8,286 chunk rows while current-profile regeneration produced
+9,675. The strict publisher compares the full canonical rows, not only their
+count, and requires regeneration, independent review, updated hashes/counts,
+and a new signature (**seed_data/corpus_scope.yml:31-40;
+bddk_mcp/ingest/seed.py:335-410,1262-1272**).
+
 The reviewed-commit quality score of 99.5692 must not be used as an overall corpus-accuracy score. It checked implemented text anomalies only and conflicted with 11 configured failures. The working tree now applies those 11 cases through one packaged fail-closed registry, removing that direct inconsistency; the resulting score still measures only implemented extraction-quality rules, not legal accuracy, completeness, currentness, or citation correctness.
 
 ## Reproducibility contract
@@ -550,6 +630,8 @@ Every benchmark report must include:
 - MCP SDK/protocol/client versions;
 - public/operator registry hash;
 - corpus generation and artifact manifest hash;
+- the active-release ID, manifest identity, and retrieval-profile hash read
+  before and after Phase 2 on the same MCP session;
 - embedding and reranker names/revisions;
 - database/pgvector version and retrieval settings;
 - model/host/backend/quantization;
@@ -558,6 +640,12 @@ Every benchmark report must include:
 - hardware and timing environment;
 - seeds/trials/temperature;
 - skipped/failed cases and exact reason.
+
+Every ordinary report must also retain its
+`exploratory_not_release_evidence`/`model_scores_authorized: false`
+classification. A separate preflight report may prove the operator-supplied
+cryptographic chain, but until an expert-dataset execution format is implemented
+it cannot authorize or sign ordinary model scores.
 
 Never:
 
@@ -611,7 +699,8 @@ The pull-request implementation already gates lint/format, unit tests, required 
 ### Scheduled lane
 
 - live-source drift monitor in a controlled non-production environment;
-- optional OCR/GPU suite;
+- explicitly provisioned, offline OCR/GPU suite (the required lane must fail if
+  `BDDK_REQUIRE_GPU_OCR=1` prerequisites are absent);
 - model/client matrix;
 - load/resilience;
 - vulnerability rescans;
@@ -685,9 +774,16 @@ The original first two deliverables are complete: Phase 2 uses official MCP stdi
 1. Build a versioned 25-case protocol/tool-routing smoke set that records the live schema hash and includes recovery, pagination, unnecessary-call, and operator-avoidance cases.
 2. Independently annotate, adjudicate, approve, and then expand the tracked 20-case/eight-domain Turkish draft toward a 100-query retrieval/citation set.
 3. Add exact-reference, legal-currentness, amendment, hard-negative, no-answer, degraded-extraction, table/formula, and prompt-injection cases with immutable source provenance.
-4. Implement deterministic citation reconstruction against artifact/version/provision/hash/page-or-range evidence.
-5. Implement claim-evidence grading, unsupported-addition penalties, abstention/currentness scoring, and human calibration without silent grader substitution.
-6. Run the guarded v2-to-v4 migration/reindex rehearsal at representative scale and execute the full logical dump into a second isolated cluster, retaining elapsed time, lock, database/WAL, fingerprint, and restore evidence before any bank upgrade.
+4. Replace the synthetic legal-release fixture with one real authoritative
+   family; retain the exact historical packs and reproducibly derive page text
+   from raw source bytes (or record an explicitly policy-bound human exception).
+5. Implement execution of the exact approved expert dataset, claim-evidence
+   grading, unsupported-addition penalties, abstention scoring, and human
+   calibration. Keep currentness/version/amendment scoring disabled until real
+   authoritative fixtures support it.
+6. Execute the recovery-v2 workflow at representative bank-like scale and retain
+   accepted elapsed time, lock, database/WAL, 29-relation, activation-sequence,
+   LOGIN, fingerprint, and restore evidence before any bank upgrade.
 7. Publish the first versioned baseline across the official client plus selected Claude, Codex/ChatGPT, LM Studio, and GPT-OSS host/model profiles; record skipped/unavailable profiles rather than imputing success.
 
 The roadmap maps these deliverables into reviewable issues: [ROADMAP.md](ROADMAP.md).

@@ -1,8 +1,10 @@
 """Shared test fixtures for BDDK MCP Server tests."""
 
 import asyncio
+import importlib.util
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import asyncpg
@@ -16,6 +18,38 @@ from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
 
 _TEST_DSN = os.environ.get("BDDK_TEST_DATABASE_URL", "postgresql://bddk:bddk@localhost:5432/bddk_test")
 _REQUIRE_TEST_DATABASE = os.environ.get("BDDK_REQUIRE_TEST_DATABASE", "").lower() in {"1", "true", "yes"}
+
+
+@pytest.fixture(scope="session")
+def provisioned_gpu_ocr_lane() -> None:
+    """Require a complete, offline GPU/OCR environment only when opted in.
+
+    Merely detecting CUDA must never trigger model downloads or live-source
+    access in the ordinary test suite. Once the explicit lane is requested,
+    missing dependencies or local model assets are failures rather than skips.
+    """
+    if os.environ.get("BDDK_REQUIRE_GPU_OCR") != "1":
+        pytest.skip("GPU OCR lane not provisioned; set BDDK_REQUIRE_GPU_OCR=1 to require it")
+
+    if os.environ.get("HF_HUB_OFFLINE") != "1" or os.environ.get("TRANSFORMERS_OFFLINE") != "1":
+        pytest.fail(
+            "Required GPU OCR lane must set HF_HUB_OFFLINE=1 and TRANSFORMERS_OFFLINE=1.",
+            pytrace=False,
+        )
+
+    for variable in ("BDDK_LIGHTOCR_MODEL_PATH", "BDDK_CHANDRA_MODEL"):
+        configured_path = os.environ.get(variable, "")
+        if not configured_path or not Path(configured_path).is_dir():
+            pytest.fail(f"Required GPU OCR lane needs {variable} to name a local model directory.", pytrace=False)
+
+    for package in ("chandra", "torch", "torchvision", "transformers"):
+        if importlib.util.find_spec(package) is None:
+            pytest.fail(f"Required GPU OCR lane is missing the optional {package} package.", pytrace=False)
+
+    import torch
+
+    if not torch.cuda.is_available():
+        pytest.fail("Required GPU OCR lane cannot access CUDA.", pytrace=False)
 
 
 def pytest_collection_modifyitems(items):

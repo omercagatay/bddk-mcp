@@ -37,8 +37,8 @@ timestamp inconsistency, or stale quantified manifest exits nonzero.
 Its success is not a capability token or trust handoff: a later process can see
 different bytes, flags, environment, or trust material.
 
-Production promotion must therefore apply the strict policy in the same
-mutating bootstrap process that reads and imports the artifacts:
+Production import must therefore apply the strict policy in the same mutating
+bootstrap process that reads and imports the artifacts:
 
 ```bash
 BDDK_INGESTION_DATABASE_URL='postgresql://INGESTION:SECRET@HOST:5432/DATABASE?sslmode=verify-full&sslrootcert=%2FAPPROVED%2Fpostgres-ca.crt' \
@@ -48,6 +48,19 @@ BDDK_INGESTION_DATABASE_URL='postgresql://INGESTION:SECRET@HOST:5432/DATABASE?ss
   --require-quantified-freshness \
   --require-measured-freshness \
   --require-verified-signature \
+  --trusted-signing-key /APPROVED/TRUST/corpus-signing-public-key.pem
+```
+
+Strict bootstrap is intentionally not the release authority. It returns
+`release_publication_required` after import/reindex, and a separate
+release-publisher PostgreSQL identity must revalidate the same mounted artifacts,
+regenerate every deterministic chunk and embedding, prove exact database
+membership, and append the activation:
+
+```bash
+BDDK_RELEASE_PUBLISHER_DATABASE_URL='postgresql://PUBLISHER:SECRET@HOST:5432/DATABASE?sslmode=verify-full&sslrootcert=%2FAPPROVED%2Fpostgres-ca.crt' \
+  uv run --frozen bddk-mcp publish-corpus-release \
+  --seed-dir /APPROVED/CORPUS \
   --trusted-signing-key /APPROVED/TRUST/corpus-signing-public-key.pem
 ```
 
@@ -61,6 +74,13 @@ bootstrap command. It mounts PVC `bddk-mcp-approved-corpus` at
 these arguments and sources. It does not provision them, execute the Job, or
 approve their bank custody.
 
+The same overlay also includes a separate `publish-release` Job with its own
+ServiceAccount and `BDDK_RELEASE_PUBLISHER_DATABASE_URL`. It mounts the same
+approved corpus PVC and trust Secret read-only and is intended to run only after
+ingestion and review (**deploy/openshift/jobs/publish-release.yaml**). Repository
+rendering is still not evidence that either Job ran in a bank namespace or that
+the lifecycle order was enforced.
+
 The checked-in manifest intentionally fails those additional policy gates:
 the owner's “immediate” expectation has not been translated into numeric source
 detection, publication, and maximum-age objectives, and no bank-approved
@@ -71,6 +91,15 @@ objectives. A future `verified` declaration must
 carry a detached Ed25519 signature that validates against this separately
 provisioned trust anchor; a self-declared status is rejected. Do not weaken the flags to make a bank
 promotion pass; decide and record those controls first.
+
+It also has a confirmed derived-artifact drift: the tracked manifest declares
+318 documents and 8,286 chunk rows, while a read-only regeneration under the
+current pinned retrieval profile produced 9,675 rows. Strict import/publication
+compares the complete canonical chunk inventory and refuses this mismatch
+(**seed_data/corpus_scope.yml:31-40; bddk_mcp/ingest/seed.py:335-410,1262-1272**).
+The next governed bundle must regenerate the artifact, record and independently
+review the intentional delta, then update and re-sign the manifest; a checksum
+edit alone is not review evidence.
 
 ## Bootstrap and benchmark behavior
 
@@ -84,50 +113,68 @@ Production supplies the detached-signature trust key as a separately mounted
 file, never as part of the corpus tree or repository.
 
 Successful bootstrap output records a path-free manifest ID, manifest SHA-256,
-and scope warnings for operator evidence. That identity is **not yet persisted
-in PostgreSQL**, so the output must be retained with the release evidence and
-cannot be inferred later from database state alone. Derived sections, chunks,
-and embeddings are still regenerated from canonical reviewed document text; a
-manifest does not make committed derived rows executable or authoritative.
+scope warnings, and the need for independent publication. A successful
+`publish-corpus-release` then persists an append-only release/activation in
+PostgreSQL with the manifest identity, signer-key hash, numeric freshness policy,
+retrieval-profile hash, exact corpus-state fingerprint, activation sequence, and
+corpus epoch (**bddk_mcp/corpus_publication.py;
+bddk_mcp/migrations/v0005_corpus_release_publication.py**). Any tracked corpus
+mutation advances the epoch and makes the active view unavailable until a new
+strict publication. The public MCP resource `bddk://corpus/active-release`
+exposes only the path-free release, manifest, and retrieval-profile identity.
 
-Phase-2 evaluation verifies the same manifest before opening MCP or model
-connections. Its audit metadata records a path-free manifest ID/hash, an
-artifact-set hash, build/review times, signature state, and warnings. Set
-`BDDK_CORPUS_MANIFEST_PATH` to the reviewed declaration that actually describes
-the tested deployment. For a signed declaration, separately set
-`BDDK_CORPUS_TRUSTED_SIGNING_KEY` to the approved PEM public-key mount. A
-benchmark against a different remote corpus without a
-matching declaration is not comparable evidence.
+Derived sections, chunks, and embeddings are still regenerated from canonical
+reviewed document text. Persistence proves which verified state was activated;
+it does not make unchecked derived rows or the source declaration authoritative.
+
+Phase-2 evaluation verifies the selected manifest before model execution, then
+reads `bddk://corpus/active-release` through the evaluated MCP session. It
+requires exact manifest ID/SHA equality, performs all calls on that same session,
+and re-reads the resource afterward; an unavailable, malformed, mismatched, or
+changed release fails the run (**benchmark/phase2_e2e.py:304-350,531-568,657-668;
+tests/test_benchmark_phase2.py:438-493**). Its audit metadata records both the
+validated local declaration and active release. Set `BDDK_CORPUS_MANIFEST_PATH`
+to the declaration that actually describes the deployment and, for a signed
+declaration, set `BDDK_CORPUS_TRUSTED_SIGNING_KEY` to the separately mounted PEM
+public key. `BDDK_BENCHMARK_CORPUS_ID` and `BDDK_BENCHMARK_CORPUS_SHA256` remain
+labels, not the enforced release binding.
 
 ## Reviewed update procedure
 
 1. Acquire and normalize sources through the bounded ingestion path.
 2. Review selection scope, known gaps, extraction quality, and source rights.
-3. Produce the three JSON artifacts deterministically.
-4. Recalculate artifact SHA-256 values, sizes, counts, and observed timestamps.
+3. Produce the three JSON artifacts deterministically; compare the complete
+   chunk artifact to regeneration under the pinned retrieval profile.
+4. Recalculate artifact SHA-256 values, sizes, counts, and observed timestamps,
+   and retain independent review of every intentional derived-artifact delta.
 5. Update `manifest_id`, purpose/scope, and `scope_reviewed_at`; never copy a
    prior checksum into a changed declaration.
 6. Recalculate the canonical manifest checksum with
    `canonical_manifest_sha256`; optionally run `bddk-mcp verify-corpus` as a
    read-only diagnostic.
-7. Run bootstrap against a disposable database with the same strict
+7. Obtain the detached signature through the approved process and verify it
+   before changing `signature_status` to `verified`; the string in the manifest
+   alone is not a signature verifier.
+8. Run bootstrap against a disposable database with the same strict
    quantified/measured/signature flags and separately mounted trust key that
    production will use. Retain its path-free manifest ID/SHA output, then run
    exact-section, retrieval-publication, and benchmark regression gates.
-8. Once signing is designed, verify the external signature before changing
-   `signature_status` to `verified`; the string in the manifest alone is not a
-   signature verifier.
+9. With the distinct release-publisher identity, run
+   `publish-corpus-release`; verify the persisted active identity and read it
+   through `bddk://corpus/active-release` before permitting strict serving.
 
 Retain the prior manifest and artifacts under the bank's immutable release and
-retention controls. The repository does not yet implement whole-corpus
-generation activation or rollback, so a validated manifest must not be
-described as an atomic corpus-release mechanism.
+retention controls. The repository now implements an atomic active identity and
+epoch invalidation, but the mutable serving tables are not retained as
+independently servable immutable generations and no tested rollback/reactivation
+workflow exists. An activation therefore must not be described as historical
+corpus recovery evidence.
 
 ## Evaluation-release trust boundary
 
 R09 deliberately does not let one checksum or one reviewer establish release
-evidence. A release-ready expert evaluation must receive all three of these
-separately verified inputs:
+evidence. A release-ready expert evaluation must receive all four of these
+separately verified, signed layers:
 
 1. this corpus manifest, detached-Ed25519 signed against a separately mounted
    trust anchor, with all three numeric objectives and
@@ -136,10 +183,31 @@ separately verified inputs:
    this manifest and its artifact hashes; and
 3. an exact export of `public.regulatory_validated_section_citations`, plus a
    detached legal-curator attestation binding the pack hash and complete sorted
-   Citation ID inventory to a separately supplied curator trust key.
+   Citation ID inventory to a separately supplied curator trust key; and
+4. a separately signed legal-release checkpoint binding that corpus and legal
+   pack to retained source bytes, acquisition records, reviewed page text and
+   mappings, exact Citation excerpts, and its predecessor checkpoint chain.
 
-The validated Citation objects in the dataset must equal the exported objects,
-not merely share IDs. Reusing the expert-dataset signing key as the legal
-curator key fails release validation. The tracked manifest and 20-case dataset
-do not satisfy these gates; they remain governance fixtures, not model-release
-or legal-currentness evidence.
+The validated Citation objects in the dataset must equal the current exported
+objects, not merely share IDs. Canonical Ed25519 fingerprints—not PEM file
+bytes—identify signers, and corpus, dataset, curator, and legal-release signers
+must all be different. The legal checkpoint must follow corpus-scope approval
+and curator attestation and equal a separately supplied latest-checkpoint hash.
+
+These are cryptographic consistency controls, not bank authorization. The keys
+and latest hash are operator-supplied inputs; no bank-owned trust policy binds
+fingerprints to named people/roles, validity periods, revocation, or an approved
+head. The legal checkpoint chain currently requires the same exact key material
+for every predecessor and therefore has no key-rotation path. Every predecessor's
+retained files are re-hashed, but historical legal-pack bytes are not retained
+and replayed against their historical Citation inventories.
+
+Page verification proves exact UTF-8 excerpt containment in the retained text
+for the attested pages. The `legal_source_reviewer` role field is signed data,
+not authenticated reviewer identity, and the verifier does not independently
+reproduce page text from the raw PDF/source bytes. The tracked manifest and
+20-case dataset do not satisfy these gates; all evidence is `not_verified` for
+legal currentness and currentness/version/amendment score authorization remains
+unsupported. `python -m benchmark.release_preflight` validates only this chain,
+from a source checkout, and explicitly reports both bank authorization and model
+score authorization as false; it does not execute the expert dataset.
