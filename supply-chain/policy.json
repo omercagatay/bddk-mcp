@@ -20,6 +20,13 @@
         "expires_on": "2026-10-15"
       },
       {
+        "fingerprint": "f155005c8a2bd272b1b8634d3ff054909dfa4301:tests/test_expert_evaluation.py:generic-api-key:554",
+        "reason": "Squash-commit repeat of a false-positive match on an Ed25519 signing-key parameter; the test key is generated at runtime and no credential literal is stored.",
+        "owner": "project-owner",
+        "approval_state": "pending_bank_release_review",
+        "expires_on": "2026-10-15"
+      },
+      {
         "fingerprint": "670a5588c519ebf92708792df9da90cbe56fb136:tests/test_expert_evaluation.py:generic-api-key:302",
         "reason": "False-positive match on an optional Ed25519 private-key parameter; the test generates the key at runtime and contains no credential literal.",
         "owner": "project-owner",
@@ -27,8 +34,22 @@
         "expires_on": "2026-10-15"
       },
       {
+        "fingerprint": "f155005c8a2bd272b1b8634d3ff054909dfa4301:tests/test_expert_evaluation.py:generic-api-key:308",
+        "reason": "Squash-commit repeat of a false-positive match on an optional Ed25519 private-key parameter; the key is generated or supplied at runtime and no credential literal is stored.",
+        "owner": "project-owner",
+        "approval_state": "pending_bank_release_review",
+        "expires_on": "2026-10-15"
+      },
+      {
         "fingerprint": "af275eb420ee6b36e7b59e46f69fe7a03419e8a5:tests/test_migrations.py:generic-api-key:897",
         "reason": "Ephemeral PostgreSQL test password generated at runtime for a disposable role and database that are removed during test cleanup.",
+        "owner": "project-owner",
+        "approval_state": "pending_bank_release_review",
+        "expires_on": "2026-10-15"
+      },
+      {
+        "fingerprint": "f155005c8a2bd272b1b8634d3ff054909dfa4301:tests/test_migrations.py:generic-api-key:1352",
+        "reason": "Squash-commit finding on a PostgreSQL test password generated at runtime for a disposable role and database; no credential literal is stored and cleanup removes both.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
         "expires_on": "2026-10-15"
