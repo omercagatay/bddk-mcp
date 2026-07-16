@@ -342,7 +342,7 @@ jobs:
 
       - name: Verify the exact downloaded evidence manifest
         run: |
-          python scripts/supply_chain_evidence.py verify-manifest \
+          python3 scripts/supply_chain_evidence.py verify-manifest \
             --root artifacts \
             --manifest artifacts/evidence-manifest.json
           cmp artifacts/policy.json supply-chain/policy.json
@@ -355,7 +355,7 @@ jobs:
             grype_args+=(--grype-report "$report")
           done
           evaluation_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          python scripts/supply_chain_evidence.py enforce-policy \
+          python3 scripts/supply_chain_evidence.py enforce-policy \
             --policy supply-chain/policy.json \
             "${grype_args[@]}" \
             --gitleaks-report artifacts/secrets/gitleaks.json \
@@ -366,7 +366,7 @@ jobs:
 
       - name: Reject pending external approvals
         run: |
-          python - <<'PY'
+          python3 - <<'PY'
           import json
           from pathlib import Path
 

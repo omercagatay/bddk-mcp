@@ -774,6 +774,8 @@ def test_workflow_is_isolated_immutable_pinned_and_does_not_claim_signing():
     assert workflow_text.count("bddk-supply-chain-${{ github.run_id }}-${{ github.run_attempt }}") == 2
     assert "verify-manifest" in workflow_text
     assert "git merge-base --is-ancestor" in workflow_text
+    assert "python3 scripts/supply_chain_evidence.py verify-manifest" in workflow_text
+    assert "python3 scripts/supply_chain_evidence.py enforce-policy" in workflow_text
     checkout = integrity_job["steps"][0]
     assert checkout["with"]["persist-credentials"] is False
 
