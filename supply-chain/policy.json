@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "vulnerabilities": {
     "scanner_version": "0.115.0",
     "blocked_severities": [

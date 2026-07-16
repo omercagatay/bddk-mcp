@@ -7,6 +7,7 @@ import io
 import json
 import re
 import subprocess
+import sys
 import tarfile
 import zipfile
 from datetime import UTC, datetime
@@ -30,6 +31,7 @@ from scripts.supply_chain_evidence import (
     load_external_material_manifest,
     normalize_sdist,
     validate_embedding_model_materials,
+    verify_evidence_manifest,
 )
 
 ROOT = Path(__file__).parents[1]
@@ -52,6 +54,7 @@ def _clean_grype_report(*, built: str = "2026-07-15T08:00:00Z") -> dict:
             "configuration": {
                 "only-fixed": False,
                 "only-notfixed": False,
+                "show-suppressed": True,
                 "ignore": [],
                 "exclude": [],
                 "vex-documents": [],
@@ -59,6 +62,23 @@ def _clean_grype_report(*, built: str = "2026-07-15T08:00:00Z") -> dict:
             },
         },
         "ignoredMatches": [],
+    }
+
+
+def _vulnerability_exception(*, target: str, material_sha256: str) -> dict[str, str]:
+    return {
+        "target": target,
+        "id": "CVE-2099-0001",
+        "namespace": "nvd:cpe",
+        "package": "deliberately-vulnerable-fixture",
+        "version": "1.0.0",
+        "type": "python",
+        "match_type": "exact-direct-match",
+        "material_sha256": material_sha256,
+        "reason": "Temporary fixture acceptance for a reviewed test only.",
+        "owner": "security-reviewer",
+        "approval_state": "pending_bank_release_review",
+        "expires_on": "2026-07-16",
     }
 
 
@@ -417,6 +437,9 @@ def test_high_vulnerability_fixture_and_secret_fixture_fail_closed():
     )
     assert not result["passed"]
     assert result["blocked_vulnerability_finding_count"] == 1
+    assert result["unexcepted_vulnerability_finding_count"] == 1
+    assert result["unexcepted_secret_finding_count"] == 0
+    assert result["evidence_integrity_passed"] is True
     assert "CVE-2099-0001" in violations[0]
 
     result, violations = enforce_policy(
@@ -427,7 +450,18 @@ def test_high_vulnerability_fixture_and_secret_fixture_fail_closed():
     )
     assert not result["passed"]
     assert result["secret_finding_count"] == 1
+    assert result["unexcepted_secret_finding_count"] == 1
+    assert result["evidence_integrity_passed"] is False
     assert violations == ["unexcepted secret finding detected"]
+
+    duplicate_secret = _json(FIXTURES / "gitleaks_finding.json") * 2
+    with pytest.raises(EvidenceError, match="duplicate fingerprint"):
+        enforce_policy(
+            policy,
+            [("clean.grype.json", _clean_grype_report())],
+            duplicate_secret,
+            evaluation_time=EVALUATION_TIME,
+        )
 
 
 def test_policy_accepts_clean_evidence_and_rejects_stale_or_malformed_database():
@@ -443,6 +477,9 @@ def test_policy_accepts_clean_evidence_and_rejects_stale_or_malformed_database()
     assert result["status"] == "repository_policy_passed_unsigned_evidence"
     assert result["external_approval_required"] is False
     assert result["release_promotion_eligible"] is False
+    assert result["unexcepted_vulnerability_finding_count"] == 0
+    assert result["unexcepted_secret_finding_count"] == 0
+    assert result["evidence_integrity_passed"] is True
 
     with pytest.raises(EvidenceError, match="stale"):
         enforce_policy(
@@ -471,27 +508,51 @@ def test_policy_accepts_clean_evidence_and_rejects_stale_or_malformed_database()
     )
     assert not result["passed"]
     assert result["suppressed_match_count"] == 1
-    assert "suppressed High" in violations[0]
+    assert result["evidence_integrity_passed"] is False
+    assert any("suppressed High" in violation for violation in violations)
+
+    ignored_low = _clean_grype_report()
+    low_match = copy.deepcopy(_json(FIXTURES / "grype_high.json")["matches"][0])
+    low_match["vulnerability"]["severity"] = "Low"
+    ignored_low["ignoredMatches"] = [low_match]
+    result, violations = enforce_policy(
+        policy,
+        [("ignored-low.grype.json", ignored_low)],
+        [],
+        evaluation_time=EVALUATION_TIME,
+    )
+    assert not result["passed"]
+    assert result["blocked_vulnerability_finding_count"] == 0
+    assert result["unexcepted_vulnerability_finding_count"] == 0
+    assert result["suppressed_match_count"] == 1
+    assert result["evidence_integrity_passed"] is False
+    assert violations == [
+        "ignored-low.grype.json: suppressed Low vulnerability finding CVE-2099-0001 in deliberately-vulnerable-fixture"
+    ]
+
+    hidden_suppression = _clean_grype_report()
+    hidden_suppression["descriptor"]["configuration"]["show-suppressed"] = False
+    with pytest.raises(EvidenceError, match="suppressive"):
+        enforce_policy(
+            policy,
+            [("hidden-suppression.grype.json", hidden_suppression)],
+            [],
+            evaluation_time=EVALUATION_TIME,
+        )
 
 
 def test_exceptions_are_exact_owned_reasoned_and_time_bounded():
     policy = _json(SUPPLY_CHAIN / "policy.json")
+    material_sha256 = "a" * 64
     policy["vulnerabilities"]["exceptions"] = [
-        {
-            "id": "CVE-2099-0001",
-            "package": "deliberately-vulnerable-fixture",
-            "target": "fixture.grype.json",
-            "reason": "Temporary fixture acceptance for a reviewed test only.",
-            "owner": "security-reviewer",
-            "approval_state": "pending_bank_release_review",
-            "expires_on": "2026-07-16",
-        }
+        _vulnerability_exception(target="fixture.grype.json", material_sha256=material_sha256)
     ]
     result, violations = enforce_policy(
         policy,
         [("fixture.grype.json", _json(FIXTURES / "grype_high.json"))],
         [],
         evaluation_time=EVALUATION_TIME,
+        target_material_sha256={"fixture.grype.json": material_sha256},
     )
     assert result["passed"]
     assert violations == []
@@ -508,6 +569,7 @@ def test_exceptions_are_exact_owned_reasoned_and_time_bounded():
             [("fixture.grype.json", _json(FIXTURES / "grype_high.json"))],
             [],
             evaluation_time=EVALUATION_TIME,
+            target_material_sha256={"fixture.grype.json": material_sha256},
         )
 
     policy["vulnerabilities"]["exceptions"][0]["expires_on"] = "2026-07-16"
@@ -518,21 +580,175 @@ def test_exceptions_are_exact_owned_reasoned_and_time_bounded():
             [("fixture.grype.json", _json(FIXTURES / "grype_high.json"))],
             [],
             evaluation_time=EVALUATION_TIME,
+            target_material_sha256={"fixture.grype.json": material_sha256},
         )
+
+
+def test_vulnerability_exceptions_require_exact_material_and_match_identity():
+    policy = _json(SUPPLY_CHAIN / "policy.json")
+    material_sha256 = "a" * 64
+    policy["vulnerabilities"]["exceptions"] = [
+        _vulnerability_exception(target="fixture.grype.json", material_sha256=material_sha256)
+    ]
+    report = _json(FIXTURES / "grype_high.json")
+
+    with pytest.raises(EvidenceError, match="lacks material evidence"):
+        enforce_policy(
+            policy,
+            [("fixture.grype.json", report)],
+            [],
+            evaluation_time=EVALUATION_TIME,
+        )
+    with pytest.raises(EvidenceError, match="no matching Grype report"):
+        enforce_policy(
+            _json(SUPPLY_CHAIN / "policy.json"),
+            [("fixture.grype.json", _clean_grype_report())],
+            [],
+            evaluation_time=EVALUATION_TIME,
+            target_material_sha256={"missing.grype.json": material_sha256},
+        )
+    with pytest.raises(EvidenceError, match="material differs"):
+        enforce_policy(
+            policy,
+            [("fixture.grype.json", report)],
+            [],
+            evaluation_time=EVALUATION_TIME,
+            target_material_sha256={"fixture.grype.json": "b" * 64},
+        )
+
+    stale_identity = copy.deepcopy(policy)
+    stale_identity["vulnerabilities"]["exceptions"][0]["version"] = "0.9.0"
+    with pytest.raises(EvidenceError, match="unused vulnerability exception"):
+        enforce_policy(
+            stale_identity,
+            [("fixture.grype.json", report)],
+            [],
+            evaluation_time=EVALUATION_TIME,
+            target_material_sha256={"fixture.grype.json": material_sha256},
+        )
+
+    invalid_schema = copy.deepcopy(policy)
+    del invalid_schema["vulnerabilities"]["exceptions"][0]["match_type"]
+    with pytest.raises(EvidenceError, match="invalid schema"):
+        enforce_policy(
+            invalid_schema,
+            [("fixture.grype.json", report)],
+            [],
+            evaluation_time=EVALUATION_TIME,
+            target_material_sha256={"fixture.grype.json": material_sha256},
+        )
+
+    legacy_schema = copy.deepcopy(policy)
+    legacy_schema["schema_version"] = 1
+    with pytest.raises(EvidenceError, match="unsupported"):
+        enforce_policy(
+            legacy_schema,
+            [("fixture.grype.json", report)],
+            [],
+            evaluation_time=EVALUATION_TIME,
+            target_material_sha256={"fixture.grype.json": material_sha256},
+        )
+
+
+def test_policy_cli_separates_evidence_integrity_from_release_enforcement(tmp_path: Path):
+    empty_secrets = tmp_path / "gitleaks-empty.json"
+    empty_secrets.write_text("[]\n", encoding="utf-8")
+    material = tmp_path / "Dockerfile"
+    material.write_text("FROM scratch\n", encoding="utf-8")
+    vulnerable_report = FIXTURES / "grype_high.json"
+
+    def run_policy(command: str, report: Path, secrets: Path, output: Path) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "supply_chain_evidence.py"),
+                command,
+                "--policy",
+                str(SUPPLY_CHAIN / "policy.json"),
+                "--grype-report",
+                str(report),
+                "--gitleaks-report",
+                str(secrets),
+                "--target-material",
+                f"{report.name}={material}",
+                "--evaluation-time",
+                "2026-07-15T12:00:00Z",
+                "--output",
+                str(output),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    integrity_output = tmp_path / "integrity-result.json"
+    integrity = run_policy("evaluate-policy", vulnerable_report, empty_secrets, integrity_output)
+    assert integrity.returncode == 0, integrity.stderr
+    integrity_result = _json(integrity_output)
+    assert integrity_result["passed"] is False
+    assert integrity_result["evidence_integrity_passed"] is True
+    assert integrity_result["unexcepted_vulnerability_finding_count"] == 1
+    assert integrity_result["release_promotion_eligible"] is False
+
+    release_output = tmp_path / "release-result.json"
+    release = run_policy("enforce-policy", vulnerable_report, empty_secrets, release_output)
+    assert release.returncode == 2
+    assert "blocked High vulnerability CVE-2099-0001" in release.stderr
+    assert _json(release_output) == integrity_result
+
+    clean_report = tmp_path / "clean.grype.json"
+    clean_report.write_text(json.dumps(_clean_grype_report()), encoding="utf-8")
+    secret_output = tmp_path / "secret-result.json"
+    secret = run_policy(
+        "evaluate-policy",
+        clean_report,
+        FIXTURES / "gitleaks_finding.json",
+        secret_output,
+    )
+    assert secret.returncode == 2
+    assert "unexcepted secret finding detected" in secret.stderr
+    assert _json(secret_output)["evidence_integrity_passed"] is False
 
 
 def test_evidence_manifest_hashes_regular_files_and_rejects_symlinks(tmp_path: Path):
     root = tmp_path / "evidence"
     root.mkdir()
-    (root / "report.json").write_text("{}\n", encoding="utf-8")
+    report = root / "report.json"
+    report.write_text("{}\n", encoding="utf-8")
     output = root / "manifest.json"
     manifest = create_evidence_manifest(root, output)
     assert manifest["files"][0]["path"] == "report.json"
     assert re.fullmatch(r"[0-9a-f]{64}", manifest["files"][0]["sha256"])
+    output.write_text(json.dumps(manifest), encoding="utf-8")
+    assert verify_evidence_manifest(root, output) == {"schema_version": 1, "verified_file_count": 1}
 
-    (root / "link").symlink_to(root / "report.json")
+    report.write_text("tampered", encoding="utf-8")
+    with pytest.raises(EvidenceError, match="does not exactly match"):
+        verify_evidence_manifest(root, output)
+    report.write_text("{}\n", encoding="utf-8")
+
+    unsafe = copy.deepcopy(manifest)
+    unsafe["files"][0]["path"] = "../report.json"
+    output.write_text(json.dumps(unsafe), encoding="utf-8")
+    with pytest.raises(EvidenceError, match="unsafe"):
+        verify_evidence_manifest(root, output)
+    output.write_text(json.dumps(manifest), encoding="utf-8")
+
+    (root / "link").symlink_to(report)
     with pytest.raises(EvidenceError, match="non-regular"):
         create_evidence_manifest(root, output)
+    with pytest.raises(EvidenceError, match="non-regular"):
+        verify_evidence_manifest(root, output)
+
+    (root / "link").unlink()
+    directory = root / "directory"
+    directory.mkdir()
+    (root / "directory-link").symlink_to(directory, target_is_directory=True)
+    with pytest.raises(EvidenceError, match="non-regular"):
+        create_evidence_manifest(root, output)
+    with pytest.raises(EvidenceError, match="non-regular"):
+        verify_evidence_manifest(root, output)
 
 
 def test_workflow_is_isolated_immutable_pinned_and_does_not_claim_signing():
@@ -541,8 +757,24 @@ def test_workflow_is_isolated_immutable_pinned_and_does_not_claim_signing():
     workflow = yaml.safe_load(workflow_text)
     assert isinstance(workflow, dict)
     assert workflow["permissions"] == {"contents": "read"}
-    assert workflow["jobs"]["evidence"]["runs-on"] == "ubuntu-24.04"
-    checkout = workflow["jobs"]["evidence"]["steps"][0]
+    integrity_job = workflow["jobs"]["evidence-integrity"]
+    release_job = workflow["jobs"]["release-policy"]
+    assert integrity_job["name"] == "evidence-integrity"
+    assert integrity_job["runs-on"] == "ubuntu-24.04"
+    assert release_job["name"] == "release-eligibility"
+    assert release_job["needs"] == "evidence-integrity"
+    assert release_job["runs-on"] == "ubuntu-24.04"
+    release_condition = release_job["if"]
+    assert "always()" in release_condition
+    assert "refs/tags/v" in release_condition
+    assert "workflow_dispatch" in release_condition
+    assert "github.ref == 'refs/heads/main'" in release_condition
+    assert "inputs.evaluate_release_policy == true" in release_condition
+    assert "needs.evidence-integrity.result" in workflow_text
+    assert workflow_text.count("bddk-supply-chain-${{ github.run_id }}-${{ github.run_attempt }}") == 2
+    assert "verify-manifest" in workflow_text
+    assert "git merge-base --is-ancestor" in workflow_text
+    checkout = integrity_job["steps"][0]
     assert checkout["with"]["persist-credentials"] is False
 
     action_refs = re.findall(r"^\s*uses:\s*[^@\s]+@([^\s#]+)", workflow_text, flags=re.MULTILINE)
@@ -553,9 +785,7 @@ def test_workflow_is_isolated_immutable_pinned_and_does_not_claim_signing():
     assert "--load" in workflow_text
     assert "BUILDX_METADATA_PROVENANCE" not in workflow_text
     container_steps = [
-        step.get("run", "")
-        for step in workflow["jobs"]["evidence"]["steps"]
-        if "docker buildx build" in step.get("run", "")
+        step.get("run", "") for step in integrity_job["steps"] if "docker buildx build" in step.get("run", "")
     ]
     assert len(container_steps) == 1
     container_script = container_steps[0]
@@ -564,7 +794,13 @@ def test_workflow_is_isolated_immutable_pinned_and_does_not_claim_signing():
     assert "docker buildx prune --builder bddk-supply-chain --all --force" in container_script
     assert "grype db update" in workflow_text
     assert "--config supply-chain/grype.yaml" in workflow_text
+    assert "evaluate-policy" in workflow_text
     assert "enforce-policy" in workflow_text
+    assert workflow_text.count("--target-material standard.grype.json=Dockerfile") == 2
+    assert workflow_text.count("--target-material spaces.grype.json=Dockerfile.spaces") == 2
+    assert "actions/download-artifact@" in workflow_text
+    assert "cmp artifacts/policy.json supply-chain/policy.json" in workflow_text
+    assert "external_approval_required" in workflow_text
     assert "extract-wheel" in workflow_text
     assert "gitleaks git" in workflow_text and '--log-opts="--all"' in workflow_text
     assert "continue-on-error" not in workflow_text
@@ -583,7 +819,8 @@ def test_workflow_is_isolated_immutable_pinned_and_does_not_claim_signing():
     assert grype_config["only-fixed"] is False
     assert grype_config["only-notfixed"] is False
 
-    for step in workflow["jobs"]["evidence"]["steps"]:
-        if script := step.get("run"):
-            syntax = subprocess.run(["bash", "-n"], input=script, text=True, capture_output=True, check=False)
-            assert syntax.returncode == 0, f"{step.get('name')}: {syntax.stderr}"
+    for job in workflow["jobs"].values():
+        for step in job["steps"]:
+            if script := step.get("run"):
+                syntax = subprocess.run(["bash", "-n"], input=script, text=True, capture_output=True, check=False)
+                assert syntax.returncode == 0, f"{step.get('name')}: {syntax.stderr}"

@@ -415,10 +415,35 @@ loaded local image identity, and Syft SBOM before producing canonical evidence.
 It separately creates an **unsigned** repository SLSA provenance envelope; that
 envelope is not Buildx or bank-signed attestation. The lane also requires the
 model manifest's immutable Git commit to agree with runtime configuration and
-both Dockerfiles. An applied pending vulnerability or secret exception is
-reported as external approval required and always leaves
-`release_promotion_eligible=false`, including when repository policy otherwise
-passes. The workflow does not push, sign, admit, or promote an image.
+both Dockerfiles.
+
+The workflow has two deliberately different repository decisions. The
+always-run `evidence-integrity` job builds and scans everything, verifies
+fresh/non-suppressive evidence, fails on unexcepted secrets, and records
+unresolved High/Critical vulnerabilities without making them a pull-request
+failure by themselves. The `release-eligibility` job runs only on a `v*` tag or
+when a manual workflow invocation explicitly sets
+`evaluate_release_policy=true` **on `main`**; a feature-branch manual run cannot
+produce that job. For a `v*` push, the checked-out tag commit must be in
+`origin/main` history; a tag on an unmerged feature commit fails closed. It
+requires the same run's integrity job to
+succeed, downloads the artifact bound to that run ID and attempt, and exactly
+re-hashes that run's complete evidence manifest before it binds
+the standard and Spaces scan reports to their respective Dockerfile SHA-256,
+and then fails on any unexcepted High/Critical finding. It also fails whenever
+an applied pending vulnerability or secret exception reports
+`external_approval_required=true`.
+
+Despite its name, a green `release-eligibility` job is only a repository
+precondition. It cannot authenticate bank risk acceptance, sign an artifact,
+prove internal-registry custody, verify the digest selected by an OpenShift
+deployment, apply an admission policy, or authorize promotion. The repository
+result therefore keeps `release_promotion_eligible=false`; the bank-controlled
+promotion path must independently authenticate approvals and verify the exact
+image digest, signature, provenance, SBOM, scanner age, and retained evidence.
+The GitHub workflow itself does not push, sign, admit, or promote an image.
+Protecting the workflow, policy, and release tags with repository rulesets and
+CODEOWNERS remains a separate GitHub governance requirement.
 
 ### Outbound regulatory HTTP
 

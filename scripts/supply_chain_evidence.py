@@ -17,7 +17,7 @@ import tarfile
 import tempfile
 import uuid
 import zipfile
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -32,6 +32,17 @@ MAX_SDIST_TOTAL_BYTES = 512 * 1024 * 1024
 MAX_WHEEL_MEMBERS = 100_000
 MAX_WHEEL_FILE_BYTES = 256 * 1024 * 1024
 MAX_WHEEL_TOTAL_BYTES = 512 * 1024 * 1024
+VULNERABILITY_EXCEPTION_IDENTITY_FIELDS = (
+    "target",
+    "id",
+    "namespace",
+    "package",
+    "version",
+    "type",
+    "match_type",
+    "material_sha256",
+)
+EXCEPTION_GOVERNANCE_FIELDS = ("reason", "owner", "approval_state", "expires_on")
 
 
 class EvidenceError(RuntimeError):
@@ -591,7 +602,7 @@ def _parse_date(value: Any, label: str) -> date:
 
 
 def _validate_policy(raw: Any, evaluation_time: datetime) -> tuple[dict[str, Any], dict[str, Any]]:
-    if not isinstance(raw, dict) or raw.get("schema_version") != 1:
+    if not isinstance(raw, dict) or raw.get("schema_version") != 2:
         raise EvidenceError("unsupported supply-chain policy schema")
     vulnerabilities = raw.get("vulnerabilities")
     secrets = raw.get("secrets")
@@ -616,20 +627,12 @@ def _validate_policy(raw: Any, evaluation_time: datetime) -> tuple[dict[str, Any
         (
             "vulnerability",
             vulnerabilities,
-            {
-                "id",
-                "package",
-                "target",
-                "reason",
-                "owner",
-                "approval_state",
-                "expires_on",
-            },
+            set(VULNERABILITY_EXCEPTION_IDENTITY_FIELDS + EXCEPTION_GOVERNANCE_FIELDS),
         ),
         (
             "secret",
             secrets,
-            {"fingerprint", "reason", "owner", "approval_state", "expires_on"},
+            {"fingerprint", *EXCEPTION_GOVERNANCE_FIELDS},
         ),
     ):
         exceptions = section.get("exceptions")
@@ -647,7 +650,9 @@ def _validate_policy(raw: Any, evaluation_time: datetime) -> tuple[dict[str, Any
                 raise EvidenceError(f"{kind} exception cannot claim bank release approval in repository policy")
             if _parse_date(exception["expires_on"], f"{kind} exception expiry") < evaluation_time.date():
                 raise EvidenceError(f"{kind} exception is expired")
-            identity_keys = ("id", "package", "target") if kind == "vulnerability" else ("fingerprint",)
+            if kind == "vulnerability" and not SHA256_RE.fullmatch(exception["material_sha256"]):
+                raise EvidenceError("vulnerability exception material_sha256 must be an exact lowercase SHA-256")
+            identity_keys = VULNERABILITY_EXCEPTION_IDENTITY_FIELDS if kind == "vulnerability" else ("fingerprint",)
             identity = tuple(exception[key] for key in identity_keys)
             if identity in identities:
                 raise EvidenceError(f"duplicate {kind} exception")
@@ -668,6 +673,7 @@ def _grype_db_time(report: dict[str, Any], expected_version: str) -> datetime:
         not isinstance(configuration, dict)
         or configuration.get("only-fixed") is not False
         or configuration.get("only-notfixed") is not False
+        or configuration.get("show-suppressed") is not True
         or configuration.get("exclude") != []
         or configuration.get("vex-documents") != []
         or configuration.get("vex-add") != []
@@ -692,23 +698,47 @@ def enforce_policy(
     gitleaks_report: Any,
     *,
     evaluation_time: datetime,
+    target_material_sha256: Mapping[str, str] | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
     if evaluation_time.tzinfo is None:
         raise EvidenceError("policy evaluation time must include a time zone")
     evaluation_time = evaluation_time.astimezone(UTC)
     vulnerability_policy, secret_policy = _validate_policy(policy, evaluation_time)
     blocked = set(vulnerability_policy["blocked_severities"])
+    material_digests: dict[str, str] = {}
+    if target_material_sha256 is not None:
+        if not isinstance(target_material_sha256, Mapping):
+            raise EvidenceError("target material digests must be a mapping")
+        for target, digest in target_material_sha256.items():
+            if not isinstance(target, str) or not target:
+                raise EvidenceError("target material names must be non-empty strings")
+            material_digests[target] = _require_sha256(digest, f"target material {target}")
+
     vulnerability_exceptions = {
-        (item["target"], item["id"], item["package"]) for item in vulnerability_policy["exceptions"]
+        tuple(item[key] for key in VULNERABILITY_EXCEPTION_IDENTITY_FIELDS)
+        for item in vulnerability_policy["exceptions"]
     }
+    for exception in vulnerability_policy["exceptions"]:
+        target = exception["target"]
+        actual_digest = material_digests.get(target)
+        if actual_digest is None:
+            raise EvidenceError(f"vulnerability exception target lacks material evidence: {target}")
+        if actual_digest != exception["material_sha256"]:
+            raise EvidenceError(f"vulnerability exception material differs from scanned target: {target}")
     secret_exceptions = {item["fingerprint"] for item in secret_policy["exceptions"]}
 
     violations: list[str] = []
     vulnerability_findings = 0
+    unexcepted_vulnerability_findings = 0
     applied_pending_vulnerability_exceptions = 0
+    applied_vulnerability_exception_identities: set[tuple[str, ...]] = set()
     suppressed_match_count = 0
     report_count = 0
+    report_targets: set[str] = set()
     for target, raw in grype_reports:
+        if not isinstance(target, str) or not target or target in report_targets:
+            raise EvidenceError("Grype report target names must be unique non-empty strings")
+        report_targets.add(target)
         report_count += 1
         if not isinstance(raw, dict) or not isinstance(raw.get("matches"), list):
             raise EvidenceError(f"invalid Grype report schema: {target}")
@@ -731,51 +761,106 @@ def enforce_policy(
             if not isinstance(vulnerability, dict) or not isinstance(artifact, dict):
                 raise EvidenceError(f"incomplete Grype match: {target}")
             vulnerability_id = vulnerability.get("id")
+            namespace = vulnerability.get("namespace")
             severity = vulnerability.get("severity")
             package = artifact.get("name")
-            if not all(isinstance(item, str) and item for item in (vulnerability_id, severity, package)):
+            version = artifact.get("version")
+            package_type = artifact.get("type")
+            match_details = match.get("matchDetails")
+            if not all(
+                isinstance(item, str) and item
+                for item in (vulnerability_id, namespace, severity, package, version, package_type)
+            ):
                 raise EvidenceError(f"Grype match lacks identity fields: {target}")
+            if not isinstance(match_details, list) or not match_details:
+                raise EvidenceError(f"Grype match lacks exact match details: {target}")
+            match_types = {
+                detail.get("type")
+                for detail in match_details
+                if isinstance(detail, dict) and isinstance(detail.get("type"), str) and detail["type"]
+            }
+            if len(match_types) != 1 or len(match_types) != len(
+                {detail.get("type") for detail in match_details if isinstance(detail, dict)}
+            ):
+                raise EvidenceError(f"Grype match must identify one exact match type: {target}")
+            if any(not isinstance(detail, dict) or detail.get("type") not in match_types for detail in match_details):
+                raise EvidenceError(f"Grype match must identify one exact match type: {target}")
+            match_type = next(iter(match_types))
             if severity not in KNOWN_SEVERITIES:
                 raise EvidenceError(f"Grype returned an unknown severity: {target}")
+            material_sha256 = material_digests.get(target, "")
+            exception_identity = (
+                target,
+                vulnerability_id,
+                namespace,
+                package,
+                version,
+                package_type,
+                match_type,
+                material_sha256,
+            )
+            if suppressed:
+                violations.append(
+                    f"{target}: suppressed {severity} vulnerability finding {vulnerability_id} in {package}"
+                )
             if severity in blocked:
                 vulnerability_findings += 1
-                if (target, vulnerability_id, package) in vulnerability_exceptions:
+                if exception_identity in vulnerability_exceptions:
                     applied_pending_vulnerability_exceptions += 1
+                    applied_vulnerability_exception_identities.add(exception_identity)
                 else:
-                    qualifier = " suppressed" if suppressed else ""
-                    violations.append(
-                        f"{target}: blocked{qualifier} {severity} vulnerability {vulnerability_id} in {package}"
-                    )
+                    unexcepted_vulnerability_findings += 1
+                    violations.append(f"{target}: blocked {severity} vulnerability {vulnerability_id} in {package}")
     if report_count == 0:
         raise EvidenceError("at least one Grype report is required")
+    unused_material_targets = set(material_digests) - report_targets
+    if unused_material_targets:
+        target = sorted(unused_material_targets)[0]
+        raise EvidenceError(f"target material has no matching Grype report: {target}")
+    unused_vulnerability_exceptions = vulnerability_exceptions - applied_vulnerability_exception_identities
+    if unused_vulnerability_exceptions:
+        target, vulnerability_id, _namespace, package, *_rest = sorted(unused_vulnerability_exceptions)[0]
+        raise EvidenceError(
+            f"unused vulnerability exception does not match scan evidence: {target}/{vulnerability_id}/{package}"
+        )
 
     if not isinstance(gitleaks_report, list):
         raise EvidenceError("Gitleaks report must be a JSON array")
     secret_findings = 0
+    unexcepted_secret_findings = 0
     applied_pending_secret_exceptions = 0
+    reported_secret_fingerprints: set[str] = set()
     for finding in gitleaks_report:
         if not isinstance(finding, dict):
             raise EvidenceError("invalid Gitleaks finding")
         fingerprint = finding.get("Fingerprint")
         if not isinstance(fingerprint, str) or not fingerprint:
             raise EvidenceError("Gitleaks finding lacks a stable fingerprint")
+        if fingerprint in reported_secret_fingerprints:
+            raise EvidenceError("Gitleaks report contains a duplicate fingerprint")
+        reported_secret_fingerprints.add(fingerprint)
         secret_findings += 1
         if fingerprint in secret_exceptions:
             applied_pending_secret_exceptions += 1
         else:
+            unexcepted_secret_findings += 1
             violations.append("unexcepted secret finding detected")
 
     external_approval_required = bool(applied_pending_vulnerability_exceptions or applied_pending_secret_exceptions)
+    evidence_integrity_passed = suppressed_match_count == 0 and unexcepted_secret_findings == 0
     passed = not violations
     result = {
         "schema_version": 1,
         "evaluation_time": evaluation_time.isoformat().replace("+00:00", "Z"),
         "grype_report_count": report_count,
         "blocked_vulnerability_finding_count": vulnerability_findings,
+        "unexcepted_vulnerability_finding_count": unexcepted_vulnerability_findings,
         "suppressed_match_count": suppressed_match_count,
         "secret_finding_count": secret_findings,
+        "unexcepted_secret_finding_count": unexcepted_secret_findings,
         "applied_pending_vulnerability_exception_count": applied_pending_vulnerability_exceptions,
         "applied_pending_secret_exception_count": applied_pending_secret_exceptions,
+        "evidence_integrity_passed": evidence_integrity_passed,
         "external_approval_required": external_approval_required,
         "release_promotion_eligible": False,
         "violation_count": len(violations),
@@ -800,9 +885,13 @@ def create_evidence_manifest(root: Path, output: Path) -> dict[str, Any]:
         raise EvidenceError("manifest output must be inside an existing evidence directory")
     files: list[dict[str, Any]] = []
     for path in sorted(root.rglob("*")):
-        if path == output or path.is_dir():
+        if path == output:
             continue
-        if path.is_symlink() or not path.is_file():
+        if path.is_symlink():
+            raise EvidenceError("evidence directory contains a non-regular file")
+        if path.is_dir():
+            continue
+        if not path.is_file():
             raise EvidenceError("evidence directory contains a non-regular file")
         files.append(
             {
@@ -814,6 +903,64 @@ def create_evidence_manifest(root: Path, output: Path) -> dict[str, Any]:
     if not files:
         raise EvidenceError("evidence directory is empty")
     return {"schema_version": 1, "files": files}
+
+
+def verify_evidence_manifest(root: Path, manifest_path: Path) -> dict[str, int]:
+    if manifest_path.is_symlink():
+        raise EvidenceError("evidence manifest must be a regular file")
+    root = root.resolve()
+    manifest_path = manifest_path.resolve()
+    if not root.is_dir() or root not in manifest_path.parents or not manifest_path.is_file():
+        raise EvidenceError("evidence manifest must be a regular file inside the evidence directory")
+
+    manifest = _read_json(manifest_path)
+    if not isinstance(manifest, dict) or set(manifest) != {"schema_version", "files"}:
+        raise EvidenceError("evidence manifest has an invalid schema")
+    if manifest["schema_version"] != 1 or not isinstance(manifest["files"], list) or not manifest["files"]:
+        raise EvidenceError("evidence manifest has an unsupported schema or empty inventory")
+
+    expected: dict[str, tuple[str, int]] = {}
+    for record in manifest["files"]:
+        if not isinstance(record, dict) or set(record) != {"path", "sha256", "size"}:
+            raise EvidenceError("evidence manifest contains a malformed record")
+        relative = record["path"]
+        parsed = PurePosixPath(relative) if isinstance(relative, str) else PurePosixPath()
+        if (
+            not isinstance(relative, str)
+            or not relative
+            or parsed.is_absolute()
+            or ".." in parsed.parts
+            or parsed.as_posix() != relative
+            or relative in expected
+        ):
+            raise EvidenceError("evidence manifest contains an unsafe or duplicate path")
+        digest = record["sha256"]
+        size = record["size"]
+        if (
+            not isinstance(digest, str)
+            or not SHA256_RE.fullmatch(digest)
+            or not isinstance(size, int)
+            or isinstance(size, bool)
+            or size < 0
+        ):
+            raise EvidenceError("evidence manifest contains invalid digest or size metadata")
+        expected[relative] = (digest, size)
+
+    actual: dict[str, tuple[str, int]] = {}
+    for path in root.rglob("*"):
+        if path == manifest_path:
+            continue
+        if path.is_symlink():
+            raise EvidenceError("evidence directory contains a non-regular file")
+        if path.is_dir():
+            continue
+        if not path.is_file():
+            raise EvidenceError("evidence directory contains a non-regular file")
+        relative = path.relative_to(root).as_posix()
+        actual[relative] = (_sha256(path), path.stat().st_size)
+    if actual != expected:
+        raise EvidenceError("downloaded evidence does not exactly match its manifest")
+    return {"schema_version": 1, "verified_file_count": len(expected)}
 
 
 def _command_compare(args: argparse.Namespace) -> None:
@@ -903,15 +1050,37 @@ def _command_container_evidence(args: argparse.Namespace) -> None:
     _write_json(args.output_identity, identity)
 
 
-def _command_enforce(args: argparse.Namespace) -> None:
+def _target_material_digests(values: Iterable[str]) -> dict[str, str]:
+    digests: dict[str, str] = {}
+    for value in values:
+        target, path = _split_mapping(value, "target material")
+        if target in digests:
+            raise EvidenceError(f"duplicate target material: {target}")
+        digests[target] = _sha256(Path(path))
+    return digests
+
+
+def _evaluate_policy_args(args: argparse.Namespace) -> tuple[dict[str, Any], list[str]]:
     evaluation_time = _parse_iso_datetime(args.evaluation_time, "policy evaluation time")
     reports = [(path.name, _read_json(path)) for path in args.grype_report]
-    result, violations = enforce_policy(
+    return enforce_policy(
         _read_json(args.policy),
         reports,
         _read_json(args.gitleaks_report),
         evaluation_time=evaluation_time,
+        target_material_sha256=_target_material_digests(args.target_material),
     )
+
+
+def _command_evaluate(args: argparse.Namespace) -> None:
+    result, violations = _evaluate_policy_args(args)
+    _write_json(args.output, result)
+    if not result["evidence_integrity_passed"]:
+        raise EvidenceError("; ".join(violations))
+
+
+def _command_enforce(args: argparse.Namespace) -> None:
+    result, violations = _evaluate_policy_args(args)
     _write_json(args.output, result)
     if violations:
         raise EvidenceError("; ".join(violations))
@@ -919,6 +1088,10 @@ def _command_enforce(args: argparse.Namespace) -> None:
 
 def _command_manifest(args: argparse.Namespace) -> None:
     _write_json(args.output, create_evidence_manifest(args.root, args.output))
+
+
+def _command_verify_manifest(args: argparse.Namespace) -> None:
+    verify_evidence_manifest(args.root, args.manifest)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -1001,18 +1174,36 @@ def _parser() -> argparse.ArgumentParser:
     container.add_argument("--external-material-manifest", type=Path)
     container.set_defaults(handler=_command_container_evidence)
 
+    def add_policy_arguments(command: argparse.ArgumentParser) -> None:
+        command.add_argument("--policy", type=Path, required=True)
+        command.add_argument("--grype-report", type=Path, action="append", required=True)
+        command.add_argument("--gitleaks-report", type=Path, required=True)
+        command.add_argument("--target-material", action="append", default=[], metavar="TARGET=PATH")
+        command.add_argument("--evaluation-time", required=True)
+        command.add_argument("--output", type=Path, required=True)
+
+    evaluate = subparsers.add_parser(
+        "evaluate-policy",
+        help="verify evidence integrity while reporting unexcepted vulnerabilities",
+    )
+    add_policy_arguments(evaluate)
+    evaluate.set_defaults(handler=_command_evaluate)
+
     enforce = subparsers.add_parser("enforce-policy", help="fail on stale scans or unexcepted findings")
-    enforce.add_argument("--policy", type=Path, required=True)
-    enforce.add_argument("--grype-report", type=Path, action="append", required=True)
-    enforce.add_argument("--gitleaks-report", type=Path, required=True)
-    enforce.add_argument("--evaluation-time", required=True)
-    enforce.add_argument("--output", type=Path, required=True)
+    add_policy_arguments(enforce)
     enforce.set_defaults(handler=_command_enforce)
 
     manifest = subparsers.add_parser("manifest", help="hash every evidence file into a canonical manifest")
     manifest.add_argument("--root", type=Path, required=True)
     manifest.add_argument("--output", type=Path, required=True)
     manifest.set_defaults(handler=_command_manifest)
+
+    verify_manifest = subparsers.add_parser(
+        "verify-manifest", help="verify the exact regular-file inventory in an evidence manifest"
+    )
+    verify_manifest.add_argument("--root", type=Path, required=True)
+    verify_manifest.add_argument("--manifest", type=Path, required=True)
+    verify_manifest.set_defaults(handler=_command_verify_manifest)
     return parser
 
 

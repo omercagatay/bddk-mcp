@@ -25,18 +25,57 @@ For every pull request, `main` push, release tag, or manual run, the workflow:
 6. inspects each loaded image by immutable config ID, requires that ID in the
    raw Syft SBOM, verifies the Buildx descriptor against its manifest digest,
    and emits a CycloneDX JSON SBOM plus unsigned in-toto/SLSA v1 envelope;
-7. refreshes Grype's vulnerability database, scans every SBOM with the
-   non-suppressive [`grype.yaml`](grype.yaml) configuration, and rejects a
-   database older than the limit in [`policy.json`](policy.json);
-8. blocks every unexcepted High or Critical vulnerability and every
-   unexcepted secret; and
-9. uploads the artifacts, SBOMs, scanner reports, Buildx metadata, policy
-   result, tool inventory, and a SHA-256 evidence manifest for review.
+7. refreshes Grype's vulnerability database and scans every SBOM with the
+   non-suppressive [`grype.yaml`](grype.yaml) configuration;
+8. runs the `evidence-integrity` gate, which records all vulnerability findings
+   and fails closed on stale or malformed scan evidence, scanner suppression,
+   unexcepted secrets, and invalid, unused, or material-mismatched exceptions;
+   and
+9. uploads the artifacts, SBOMs, scanner reports, Buildx metadata, integrity
+   policy result, tool inventory, and a SHA-256 evidence manifest for review.
 
-The workflow deliberately lets scanners finish and then applies one policy
-gate. A Gitleaks exit code of `10` means findings were written to the redacted
-report; any other non-zero exit is a scanner failure. Findings are never
-treated as success: the later policy step rejects them.
+The workflow deliberately lets scanners finish before applying policy. A
+Gitleaks exit code of `10` means findings were written to the redacted report;
+any other non-zero exit is a scanner failure. An unexcepted secret remains an
+integrity failure. High and Critical vulnerability findings remain visible in
+`integrity-policy-result.json`, but they do not make a pull-request integrity
+check fail by themselves. They are enforced by the separate release policy
+described below; this split must not be interpreted as vulnerability
+suppression or release approval.
+
+## Evidence integrity versus release policy
+
+`evidence-integrity` runs for every pull request, `main` push, `v*` tag, and
+manual invocation. It always performs the complete builds, SBOM generation,
+secret-history scan, current-database vulnerability scans, evidence binding,
+and manifest/upload path. Its policy evaluation is an integrity gate: it
+rejects incomplete, stale, malformed, or suppressive evidence and unexcepted
+secrets while preserving unresolved High/Critical findings for review.
+
+The separate `release-eligibility` job runs only for a `v*` tag push or a manual
+run on `main` whose `evaluate_release_policy` boolean is explicitly enabled. A
+feature-branch dispatch cannot create this release decision. For a `v*` push,
+the tag commit must be an ancestor of `origin/main`; tagging an unmerged feature
+commit fails closed. The job downloads
+the evidence artifact whose name is bound to the same GitHub run ID and attempt,
+requires its complete file set, sizes, and SHA-256 values to match the embedded
+manifest exactly, and re-evaluates it with `enforce-policy`. Unlike the
+pull-request gate, it fails on every unexcepted
+High/Critical vulnerability as well as every secret or evidence-integrity
+violation. The two container reports are bound to the SHA-256 of their exact
+recipe material: `standard.grype.json` to `Dockerfile` and
+`spaces.grype.json` to `Dockerfile.spaces`.
+
+The repository release job also fails whenever the result says
+`external_approval_required=true`. It has no bank signing identity and no
+trusted channel for accepting an approval. A green `release-eligibility` job is
+therefore only a repository policy precondition. It does not sign an image,
+authenticate a bank risk acceptance, verify an internal-registry digest, admit
+an OpenShift workload, or authorize promotion. Those remain separate,
+bank-controlled gates over the exact image digest and retained evidence.
+Repository CODEOWNERS/ruleset protection for the workflow, policy, and release
+tags—including tag creation/deletion authorization—is an additional governance
+control and is not established by this file.
 
 ## Determinism and time-dependent evidence
 
@@ -73,25 +112,30 @@ moving asset.
 
 ## Repository policy and exceptions
 
-The repository default blocks High and Critical vulnerabilities, including
-unfixed findings, and blocks all detected secrets. The evidence validator
-requires the exact Grype version, a valid database status, `only-fixed: false`,
-`only-notfixed: false`, no excluded packages or VEX input, and policy evaluation
-of both ordinary and suppressed matches. High/Critical findings therefore
+The repository default classifies High and Critical vulnerabilities, including
+unfixed findings, as release-blocking and blocks all detected secrets at both
+gates. The evidence validator requires the exact Grype version, a valid
+database status, `only-fixed: false`, `only-notfixed: false`, no excluded
+packages or VEX input, and policy evaluation of both ordinary and suppressed
+matches. A suppressed match is an integrity failure, so High/Critical findings
 cannot escape through a scanner ignore rule. The checked-in scanner config has
 no project ignore rules. It does not silently allowlist fixtures, paths,
 packages, or vulnerability families.
 
 An exception is an explicit code change to `policy.json`. Vulnerability
-exceptions must match the report target, vulnerability ID, and package name;
-secret exceptions must match the Gitleaks fingerprint. Every exception must
-have a substantive reason, responsible owner, ISO expiry date, and
+exceptions must match the report target, vulnerability ID, package identity,
+and the exact SHA-256 of the target's Dockerfile material; secret exceptions
+must match the Gitleaks fingerprint. Every exception must have a substantive
+reason, responsible owner, ISO expiry date, and
 `pending_bank_release_review` approval state. Repository policy deliberately
 rejects any field that claims bank release approval: that approval belongs to
 the bank's external promotion control. Expired, duplicate, partial,
-wildcard-like, or malformed entries fail closed. This repository policy is a
-safe default, not a claim that the bank has approved its severity, expiry, or
-evidence-retention values.
+wildcard-like, material-mismatched, or malformed entries fail closed, as does
+an unused vulnerability exception. Unused secret exceptions remain visible
+governance records because a full-history finding can disappear when history
+or detector behavior changes; their lifecycle needs separate review. This
+repository policy is a safe default, not a claim that the bank has approved its
+severity, expiry, or evidence-retention values.
 
 When an exact pending exception matches, the result records separate applied
 vulnerability and secret counts, sets `external_approval_required=true`, keeps

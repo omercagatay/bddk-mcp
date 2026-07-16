@@ -8,8 +8,14 @@
       },
       "vulnerability": {
         "id": "CVE-2099-0001",
+        "namespace": "nvd:cpe",
         "severity": "High"
-      }
+      },
+      "matchDetails": [
+        {
+          "type": "exact-direct-match"
+        }
+      ]
     }
   ],
   "descriptor": {
@@ -25,6 +31,7 @@
     "configuration": {
       "only-fixed": false,
       "only-notfixed": false,
+      "show-suppressed": true,
       "ignore": [],
       "exclude": [],
       "vex-documents": [],
