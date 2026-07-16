@@ -52,17 +52,93 @@ from bddk_mcp.migrations.v0007_retained_corpus_generations import (
     RETAINED_CORPUS_RELATIONS,
     V0007_RETAINED_CORPUS_GENERATIONS,
 )
+from bddk_mcp.migrations.v0008_staged_corpus_releases import (
+    MAX_RELEASE_REQUEST_TTL_SECONDS,
+    MIN_RELEASE_REQUEST_TTL_SECONDS,
+    RELEASE_REQUEST_ID_PREFIX,
+    V0008_STAGED_CORPUS_RELEASES,
+)
 from tests.test_corpus_publication import (
     _PROFILE_SHA256,
     _ensure_release_publisher_role,
     _insert_canonical_legal_state,
     _insert_ready_corpus,
     _publish,
+    _rollback_savepoint,
 )
 
 
 def _history_rows(*, migrations=MIGRATIONS):
     return [{"version": item.version, "name": item.name, "checksum": item.checksum} for item in migrations]
+
+
+async def _ensure_v8_release_roles(connection: asyncpg.Connection) -> None:
+    await _ensure_release_publisher_role(connection)
+    await connection.execute(
+        """
+        DO $roles$
+        BEGIN
+            IF pg_catalog.to_regrole('bddk_release_verifier') IS NULL THEN
+                CREATE ROLE bddk_release_verifier NOLOGIN NOSUPERUSER NOCREATEDB
+                    NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+            END IF;
+        END
+        $roles$
+        """
+    )
+    await connection.execute("REVOKE bddk_release_publisher FROM bddk_release_verifier")
+    await connection.execute("REVOKE bddk_release_verifier FROM bddk_release_publisher")
+    await connection.execute("GRANT USAGE ON SCHEMA bddk_meta TO bddk_release_verifier, bddk_release_publisher")
+    await connection.execute(
+        "GRANT EXECUTE ON FUNCTION bddk_meta.stage_verified_corpus_release("
+        "pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.text, "
+        "pg_catalog.int4, pg_catalog.int4, pg_catalog.int4, pg_catalog.text, pg_catalog.text, "
+        "pg_catalog.text, pg_catalog.int4) TO bddk_release_verifier"
+    )
+    await connection.execute(
+        "GRANT EXECUTE ON FUNCTION bddk_meta.activate_staged_corpus_release(pg_catalog.text) TO bddk_release_publisher"
+    )
+
+
+@asynccontextmanager
+async def _session_authorization(connection: asyncpg.Connection, role_name: str):
+    if role_name not in {
+        "bddk_legacy_direct_grantee",
+        "bddk_release_verifier",
+        "bddk_release_publisher",
+        "bddk_v8_dual_role",
+    }:
+        raise AssertionError("unexpected test authorization role")
+    await connection.execute(f"SET SESSION AUTHORIZATION {role_name}")
+    try:
+        yield
+    finally:
+        await connection.execute("RESET SESSION AUTHORIZATION")
+
+
+async def _stage_v8_release(
+    connection: asyncpg.Connection,
+    *,
+    manifest_id: str = "staged-release-001",
+    verification_evidence_sha256: str = "5" * 64,
+    retrieval_profile_sha256: str = _PROFILE_SHA256,
+):
+    return await connection.fetchrow(
+        """
+        SELECT *
+        FROM bddk_meta.stage_verified_corpus_release(
+            $1, $2, $3, $4, $5, 60, 120, 3600, $6, $7, $8, 900
+        )
+        """,
+        manifest_id,
+        "1" * 64,
+        "2" * 64,
+        "3" * 64,
+        verification_evidence_sha256,
+        retrieval_profile_sha256,
+        "6" * 64,
+        "sha256:" + "7" * 64,
+    )
 
 
 def test_registry_is_sequential_named_and_sha256_versioned():
@@ -100,6 +176,353 @@ def test_v5_epoch_and_set_based_chunk_invalidation_contract_is_complete() -> Non
     assert "activation.corpus_epoch = epoch.epoch" in active_view
     assert "current_corpus_state_sha256" not in active_view
     assert "corpus_retrieval_ready" not in active_view
+
+
+def test_v8_separates_verification_claims_from_request_only_activation() -> None:
+    statements = tuple(" ".join(statement.split()) for statement in V0008_STAGED_CORPUS_RELEASES.statements)
+    ddl = "\n".join(statements)
+    stage = next(
+        statement for statement in statements if statement.startswith("CREATE FUNCTION bddk_meta.stage_verified")
+    )
+    compact_stage = stage.replace("( ", "(")
+    activate = next(
+        statement for statement in statements if statement.startswith("CREATE FUNCTION bddk_meta.activate_staged")
+    )
+
+    assert "CREATE TABLE bddk_meta.corpus_release_requests" in ddl
+    assert "CREATE TABLE bddk_meta.corpus_release_request_activations" in ddl
+    assert "reject_corpus_release_request_update_delete" in ddl
+    assert "reject_corpus_release_request_activation_update_delete" in ddl
+    assert f"BETWEEN {MIN_RELEASE_REQUEST_TTL_SECONDS} AND {MAX_RELEASE_REQUEST_TTL_SECONDS}" in stage
+    assert "pg_has_role( SESSION_USER, pg_catalog.to_regrole('bddk_release_verifier'), 'MEMBER' )" in stage
+    assert stage.index("pg_advisory_xact_lock") < stage.index("LOCK TABLE")
+    for material_claim in (
+        "selected_release_id",
+        "requested_manifest_id",
+        "requested_manifest_sha256",
+        "requested_signature_sha256",
+        "requested_signer_key_sha256",
+        "requested_verification_evidence_sha256",
+        "requested_source_detection_slo_seconds",
+        "requested_publication_slo_seconds",
+        "requested_max_manifest_age_seconds",
+        "requested_retrieval_profile_sha256",
+        "selected_state_sha256",
+        "selected_corpus_epoch",
+        "requested_verifier_revision_sha256",
+        "requested_verifier_image_digest",
+        "requested_valid_for_seconds",
+        "selected_actor_fingerprint",
+    ):
+        assert f"corpus_fingerprint_frame({material_claim}" in compact_stage
+    assert "ON CONFLICT ON CONSTRAINT corpus_release_requests_pkey DO NOTHING" in stage
+
+    assert "requested_request_id pg_catalog.text" in activate
+    assert "requested_manifest" not in activate.split("RETURNS TABLE", 1)[0]
+    assert "pg_has_role( SESSION_USER, pg_catalog.to_regrole('bddk_release_publisher'), 'MEMBER' )" in activate
+    assert "verification_expires_at" in activate
+    assert "selected_live_epoch IS DISTINCT FROM selected_request.corpus_epoch" in activate
+    assert "selected_live_state_sha256 IS DISTINCT FROM selected_request.corpus_state_sha256" in activate
+    assert "staged corpus release request was already activated" in activate
+    assert "INSERT INTO bddk_meta.corpus_release_request_activations" in activate
+    assert "pg_catalog.aclexplode" in ddl
+    assert "acl.grantee <> routine.proowner" in ddl
+    assert "REVOKE EXECUTE ON FUNCTION %s FROM %I CASCADE" in ddl
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_v8_staged_release_is_duplicate_suppressed_short_lived_and_single_use(pg_pool) -> None:
+    connection = await pg_pool.acquire()
+    transaction = connection.transaction()
+    await transaction.start()
+    try:
+        await _ensure_v8_release_roles(connection)
+        content_hash = await _insert_ready_corpus(connection, "v8-staged-release")
+        await _insert_canonical_legal_state(
+            connection,
+            document_id="v8-staged-release",
+            content_hash=content_hash,
+        )
+
+        async with _session_authorization(connection, "bddk_release_verifier"):
+            staged = await _stage_v8_release(connection)
+            duplicate = await _stage_v8_release(connection)
+        assert staged is not None and duplicate is not None
+        assert staged["request_id"] == duplicate["request_id"]
+        assert staged["release_id"] == duplicate["release_id"]
+        assert staged["staged_at"] == duplicate["staged_at"]
+        assert staged["verification_expires_at"] == duplicate["verification_expires_at"]
+        assert str(staged["request_id"]).startswith(RELEASE_REQUEST_ID_PREFIX)
+        assert await connection.fetchval("SELECT count(*) FROM bddk_meta.corpus_release_requests") == 1
+
+        async with _session_authorization(connection, "bddk_release_publisher"):
+            activated = await connection.fetchrow(
+                "SELECT * FROM bddk_meta.activate_staged_corpus_release($1)",
+                staged["request_id"],
+            )
+        assert activated is not None
+        assert activated["request_id"] == staged["request_id"]
+        assert activated["release_id"] == staged["release_id"]
+        assert (
+            await connection.fetchval(
+                "SELECT count(*) FROM bddk_meta.corpus_release_request_activations WHERE request_id = $1",
+                staged["request_id"],
+            )
+            == 1
+        )
+        assert (
+            await connection.fetchval("SELECT release_id FROM bddk_meta.active_corpus_release") == staged["release_id"]
+        )
+
+        async with _session_authorization(connection, "bddk_release_publisher"):
+            async with _rollback_savepoint(connection):
+                with pytest.raises(asyncpg.ObjectNotInPrerequisiteStateError, match="already activated"):
+                    await connection.fetchrow(
+                        "SELECT * FROM bddk_meta.activate_staged_corpus_release($1)",
+                        staged["request_id"],
+                    )
+
+        async with _rollback_savepoint(connection):
+            with pytest.raises(asyncpg.ObjectNotInPrerequisiteStateError, match="append-only"):
+                await connection.execute(
+                    "UPDATE bddk_meta.corpus_release_requests SET valid_for_seconds = 60 WHERE request_id = $1",
+                    staged["request_id"],
+                )
+
+        async with _session_authorization(connection, "bddk_release_verifier"):
+            expiring = await _stage_v8_release(
+                connection,
+                manifest_id="staged-release-expired",
+                verification_evidence_sha256="8" * 64,
+            )
+        assert expiring is not None
+        await connection.execute(
+            "ALTER TABLE bddk_meta.corpus_release_requests DISABLE TRIGGER reject_corpus_release_request_update_delete"
+        )
+        await connection.execute(
+            """
+            WITH expired AS (
+                SELECT pg_catalog.clock_timestamp() - pg_catalog.interval '2 hours' AS staged_at
+            )
+            UPDATE bddk_meta.corpus_release_requests AS request
+            SET staged_at = expired.staged_at,
+                verification_expires_at = expired.staged_at
+                    + request.valid_for_seconds * pg_catalog.interval '1 second'
+            FROM expired
+            WHERE request.request_id = $1
+            """,
+            expiring["request_id"],
+        )
+        await connection.execute(
+            "ALTER TABLE bddk_meta.corpus_release_requests ENABLE TRIGGER reject_corpus_release_request_update_delete"
+        )
+        async with _session_authorization(connection, "bddk_release_publisher"):
+            async with _rollback_savepoint(connection):
+                with pytest.raises(asyncpg.ObjectNotInPrerequisiteStateError, match="expired"):
+                    await connection.fetchrow(
+                        "SELECT * FROM bddk_meta.activate_staged_corpus_release($1)",
+                        expiring["request_id"],
+                    )
+
+        async with _session_authorization(connection, "bddk_release_verifier"):
+            changed = await _stage_v8_release(
+                connection,
+                manifest_id="staged-release-changed",
+                verification_evidence_sha256="9" * 64,
+            )
+        assert changed is not None
+        async with _rollback_savepoint(connection):
+            await connection.execute(
+                "UPDATE public.decision_cache SET cached_at = cached_at + 1 WHERE document_id = $1",
+                "v8-staged-release",
+            )
+            async with _session_authorization(connection, "bddk_release_publisher"):
+                async with _rollback_savepoint(connection):
+                    with pytest.raises(asyncpg.ObjectNotInPrerequisiteStateError, match="epoch has changed"):
+                        await connection.fetchrow(
+                            "SELECT * FROM bddk_meta.activate_staged_corpus_release($1)",
+                            changed["request_id"],
+                        )
+
+        async with _session_authorization(connection, "bddk_release_verifier"):
+            async with _rollback_savepoint(connection):
+                with pytest.raises(asyncpg.ObjectNotInPrerequisiteStateError, match="not retrieval-ready"):
+                    await _stage_v8_release(
+                        connection,
+                        manifest_id="staged-release-wrong-profile",
+                        verification_evidence_sha256="a" * 64,
+                        retrieval_profile_sha256="f" * 64,
+                    )
+
+        await connection.execute("CREATE ROLE bddk_v8_dual_role NOLOGIN")
+        await connection.execute("GRANT bddk_release_verifier, bddk_release_publisher TO bddk_v8_dual_role")
+        async with _session_authorization(connection, "bddk_v8_dual_role"):
+            async with _rollback_savepoint(connection):
+                with pytest.raises(asyncpg.InsufficientPrivilegeError, match="not authorized"):
+                    await _stage_v8_release(
+                        connection,
+                        manifest_id="staged-release-dual-role",
+                        verification_evidence_sha256="b" * 64,
+                    )
+
+        assert not await connection.fetchval(
+            "SELECT pg_catalog.has_function_privilege("
+            "'bddk_release_publisher', "
+            "'bddk_meta.publish_verified_corpus_release(text,text,text,integer,integer,integer,text)', "
+            "'EXECUTE')"
+        )
+    finally:
+        await transaction.rollback()
+        await pg_pool.release(connection)
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_v8_migration_retires_every_nonowner_legacy_publication_grant(pg_pool) -> None:
+    async with pg_pool.acquire() as connection:
+        transaction = connection.transaction()
+        await transaction.start()
+        try:
+            await _downgrade_current_schema_to_v7(connection)
+            await connection.execute("CREATE ROLE bddk_legacy_direct_grantee NOLOGIN")
+            await connection.execute("CREATE ROLE bddk_legacy_downstream_grantee NOLOGIN")
+            await connection.execute("GRANT USAGE ON SCHEMA bddk_meta TO bddk_legacy_direct_grantee")
+            legacy_identity = "bddk_meta.publish_verified_corpus_release(text,text,text,integer,integer,integer,text)"
+            await connection.execute(
+                "GRANT EXECUTE ON FUNCTION " + legacy_identity + " TO bddk_legacy_direct_grantee WITH GRANT OPTION"
+            )
+            async with _session_authorization(connection, "bddk_legacy_direct_grantee"):
+                await connection.execute(
+                    "GRANT EXECUTE ON FUNCTION " + legacy_identity + " TO bddk_legacy_downstream_grantee"
+                )
+            assert await connection.fetchval(
+                "SELECT pg_catalog.has_function_privilege($1, $2, 'EXECUTE')",
+                "bddk_legacy_direct_grantee",
+                legacy_identity,
+            )
+
+            migrated = await migrate(_PinnedPool(connection))  # type: ignore[arg-type]
+
+            assert migrated.current
+            assert not await connection.fetchval(
+                "SELECT pg_catalog.has_function_privilege($1, $2, 'EXECUTE')",
+                "bddk_legacy_direct_grantee",
+                legacy_identity,
+            )
+            assert not await connection.fetchval(
+                "SELECT pg_catalog.has_function_privilege($1, $2, 'EXECUTE')",
+                "bddk_legacy_downstream_grantee",
+                legacy_identity,
+            )
+        finally:
+            await transaction.rollback()
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_v8_concurrent_publishers_can_bind_one_staged_request_only_once(pg_pool) -> None:
+    token = secrets.token_hex(32)
+    document_id = "v8-concurrent-" + token[:12]
+    request_id: str | None = None
+    release_id: str | None = None
+
+    async def activate_once() -> tuple[str, object]:
+        connection = await pg_pool.acquire()
+        try:
+            try:
+                async with _session_authorization(connection, "bddk_release_publisher"):
+                    async with connection.transaction():
+                        row = await connection.fetchrow(
+                            "SELECT * FROM bddk_meta.activate_staged_corpus_release($1)",
+                            request_id,
+                        )
+                return "activated", row
+            except asyncpg.ObjectNotInPrerequisiteStateError as exc:
+                return "rejected", exc
+        finally:
+            await pg_pool.release(connection)
+
+    try:
+        async with pg_pool.acquire() as setup, setup.transaction():
+            await _ensure_v8_release_roles(setup)
+            await _insert_ready_corpus(setup, document_id)
+            async with _session_authorization(setup, "bddk_release_verifier"):
+                staged = await _stage_v8_release(
+                    setup,
+                    manifest_id="staged-concurrent-" + token[:12],
+                    verification_evidence_sha256=token,
+                )
+            assert staged is not None
+            request_id = str(staged["request_id"])
+            release_id = str(staged["release_id"])
+
+        outcomes = await asyncio.gather(activate_once(), activate_once())
+
+        assert sorted(status for status, _result in outcomes) == ["activated", "rejected"]
+        rejection = next(result for status, result in outcomes if status == "rejected")
+        assert "already activated" in str(rejection)
+        assert (
+            await pg_pool.fetchval(
+                "SELECT count(*) FROM bddk_meta.corpus_release_request_activations WHERE request_id = $1",
+                request_id,
+            )
+            == 1
+        )
+        assert (
+            await pg_pool.fetchval(
+                "SELECT count(*) FROM bddk_meta.corpus_release_activations WHERE release_id = $1",
+                release_id,
+            )
+            == 1
+        )
+    finally:
+        async with pg_pool.acquire() as cleanup, cleanup.transaction():
+            await cleanup.execute(
+                "ALTER TABLE bddk_meta.corpus_release_request_activations "
+                "DISABLE TRIGGER reject_corpus_release_request_activation_update_delete"
+            )
+            await cleanup.execute(
+                "DELETE FROM bddk_meta.corpus_release_request_activations WHERE request_id = $1",
+                request_id,
+            )
+            await cleanup.execute(
+                "ALTER TABLE bddk_meta.corpus_release_request_activations "
+                "ENABLE TRIGGER reject_corpus_release_request_activation_update_delete"
+            )
+            await cleanup.execute(
+                "ALTER TABLE bddk_meta.corpus_release_activations "
+                "DISABLE TRIGGER reject_corpus_release_activation_update_delete"
+            )
+            await cleanup.execute(
+                "DELETE FROM bddk_meta.corpus_release_activations WHERE release_id = $1",
+                release_id,
+            )
+            await cleanup.execute(
+                "ALTER TABLE bddk_meta.corpus_release_activations "
+                "ENABLE TRIGGER reject_corpus_release_activation_update_delete"
+            )
+            await cleanup.execute(
+                "ALTER TABLE bddk_meta.corpus_releases DISABLE TRIGGER reject_corpus_release_update_delete"
+            )
+            await cleanup.execute("DELETE FROM bddk_meta.corpus_releases WHERE release_id = $1", release_id)
+            await cleanup.execute(
+                "ALTER TABLE bddk_meta.corpus_releases ENABLE TRIGGER reject_corpus_release_update_delete"
+            )
+            await cleanup.execute(
+                "ALTER TABLE bddk_meta.corpus_release_requests "
+                "DISABLE TRIGGER reject_corpus_release_request_update_delete"
+            )
+            await cleanup.execute(
+                "DELETE FROM bddk_meta.corpus_release_requests WHERE request_id = $1",
+                request_id,
+            )
+            await cleanup.execute(
+                "ALTER TABLE bddk_meta.corpus_release_requests "
+                "ENABLE TRIGGER reject_corpus_release_request_update_delete"
+            )
+            await cleanup.execute("DELETE FROM public.documents WHERE document_id = $1", document_id)
+            await cleanup.execute("DELETE FROM public.decision_cache WHERE document_id = $1", document_id)
 
 
 def test_v7_retains_exactly_the_v5_corpus_as_typed_generation_members() -> None:
@@ -430,8 +853,26 @@ async def _provision_exact_v5_publisher_login(
     )
 
 
+async def _downgrade_current_schema_to_v7(connection) -> None:
+    """Remove only v8 inside a rollback-only PostgreSQL test transaction."""
+
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.activate_staged_corpus_release(pg_catalog.text)")
+    await connection.execute(
+        "DROP FUNCTION IF EXISTS bddk_meta.stage_verified_corpus_release("
+        "pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.text, "
+        "pg_catalog.int4, pg_catalog.int4, pg_catalog.int4, pg_catalog.text, pg_catalog.text, "
+        "pg_catalog.text, pg_catalog.int4)"
+    )
+    await connection.execute(
+        "DROP TABLE IF EXISTS bddk_meta.corpus_release_request_activations, bddk_meta.corpus_release_requests CASCADE"
+    )
+    await connection.execute("DELETE FROM bddk_meta.schema_migrations WHERE version = 8")
+
+
 async def _downgrade_current_schema_to_v6(connection) -> None:
-    """Remove only v7 inside a rollback-only PostgreSQL test transaction."""
+    """Remove v8 and v7 inside a rollback-only PostgreSQL test transaction."""
+
+    await _downgrade_current_schema_to_v7(connection)
 
     await connection.execute("DROP SCHEMA IF EXISTS bddk_retained CASCADE")
     await connection.execute("DROP VIEW IF EXISTS bddk_meta.corpus_release_retention_status")
@@ -862,6 +1303,18 @@ async def test_postgres_v7_refuses_noncanonical_v5_release_then_accepts_reviewed
         assert canonical_release.corpus_state_sha256 != noncanonical_release["corpus_state_sha256"]
         assert await connection.fetchval("SELECT current_setting('DateStyle')") == "ISO, YMD"
 
+        ledger_owner = await connection.fetchval(
+            "SELECT pg_catalog.pg_get_userbyid(relation.relowner) "
+            "FROM pg_catalog.pg_class AS relation "
+            "WHERE relation.oid = 'bddk_meta.schema_migrations'::pg_catalog.regclass"
+        )
+        current_user = await connection.fetchval("SELECT CURRENT_USER")
+        if ledger_owner != current_user:
+            quoted_owner = await connection.fetchval(
+                "SELECT pg_catalog.quote_ident($1::pg_catalog.text)",
+                ledger_owner,
+            )
+            await connection.execute(f"SET LOCAL ROLE {quoted_owner}")
         migrated = await migrate(_PinnedPool(connection))  # type: ignore[arg-type]
         catalog = await inspect_catalog_integrity(connection)
         with patch("bddk_mcp.store.vector_store.retrieval_profile_hash", return_value=_PROFILE_SHA256):
@@ -872,7 +1325,9 @@ async def test_postgres_v7_refuses_noncanonical_v5_release_then_accepts_reviewed
             )
 
         assert migrated.current
-        assert await connection.fetchval("SELECT max(version) FROM bddk_meta.schema_migrations") == 7
+        assert (
+            await connection.fetchval("SELECT max(version) FROM bddk_meta.schema_migrations") == LATEST_SCHEMA_VERSION
+        )
         assert catalog.valid
         assert readiness.ready
         assert readiness.active_corpus_release is not None
@@ -1014,7 +1469,10 @@ async def test_actual_v5_publisher_login_can_use_supported_canonical_republicati
         await publisher_pool.close()
         publisher_pool = None
         assert (await migrate(isolated_pool)).current
-        assert await isolated_pool.fetchval("SELECT max(version) FROM bddk_meta.schema_migrations") == 7
+        assert (
+            await isolated_pool.fetchval("SELECT max(version) FROM bddk_meta.schema_migrations")
+            == LATEST_SCHEMA_VERSION
+        )
     finally:
         if publisher_pool is not None:
             await publisher_pool.close()

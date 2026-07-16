@@ -46,7 +46,10 @@ def _valid_inspection(profile: str, *, login: str = "bank_workload_login") -> Da
     return _contract_inspection(db_identity._CONTRACTS[profile], login=login)
 
 
-@pytest.mark.parametrize("profile", ["public", "ingestion", "release-publisher", "operator"])
+@pytest.mark.parametrize(
+    "profile",
+    ["public", "ingestion", "release-verifier", "release-publisher", "operator"],
+)
 def test_reviewed_identity_contracts_are_exact_and_satisfiable(profile: str) -> None:
     assert identity_contract_failures(_valid_inspection(profile), profile) == ()
 
@@ -72,15 +75,16 @@ def test_canonical_legal_version_workspace_is_inventoried_with_zero_runtime_righ
     for profile in ("public", "ingestion", "operator"):
         contract = db_identity._CONTRACTS[profile]
         assert {table: contract.tables[table] for table in expected} == {table: frozenset() for table in expected}
+    verifier = db_identity._CONTRACTS["release-verifier"]
+    assert {table: verifier.tables[table] for table in expected} == {table: frozenset({"SELECT"}) for table in expected}
     publisher = db_identity._CONTRACTS["release-publisher"]
-    assert {table: publisher.tables[table] for table in expected} == {
-        table: frozenset({"SELECT"}) for table in expected
-    }
+    assert {table: publisher.tables[table] for table in expected} == {table: frozenset() for table in expected}
 
     view = "public.regulatory_validated_section_citations"
     assert db_identity._REGULATORY_PUBLIC_VIEWS == {view}
     assert db_identity._CONTRACTS["public"].tables[view] == frozenset({"SELECT"})
     assert db_identity._CONTRACTS["ingestion"].tables[view] == frozenset()
+    assert db_identity._CONTRACTS["release-verifier"].tables[view] == frozenset()
     assert db_identity._CONTRACTS["release-publisher"].tables[view] == frozenset()
     assert db_identity._CONTRACTS["operator"].tables[view] == frozenset({"SELECT"})
 
@@ -90,7 +94,7 @@ def test_retained_generation_store_is_exactly_inventoried_and_runtime_denied() -
 
     assert len(retained_tables) == 17
     assert db_identity._RETAINED_CORPUS_TABLES == retained_tables
-    for profile in ("public", "ingestion", "release-publisher", "operator"):
+    for profile in ("public", "ingestion", "release-verifier", "release-publisher", "operator"):
         contract = db_identity._CONTRACTS[profile]
         assert contract.schemas["bddk_retained"] == frozenset()
         assert {table: contract.tables[table] for table in retained_tables} == {
@@ -100,7 +104,7 @@ def test_retained_generation_store_is_exactly_inventoried_and_runtime_denied() -
     retention_view = "bddk_meta.corpus_release_retention_status"
     retain_routine = "bddk_meta.retain_active_corpus_generation(text)"
     storage_routine = "bddk_meta.inspect_retained_generation_storage(text)"
-    for profile in ("public", "ingestion", "operator"):
+    for profile in ("public", "ingestion", "release-verifier", "operator"):
         contract = db_identity._CONTRACTS[profile]
         assert contract.tables[retention_view] == frozenset()
         assert contract.routines[retain_routine] == frozenset()
@@ -116,12 +120,39 @@ def test_retained_generation_store_is_exactly_inventoried_and_runtime_denied() -
     assert publisher.routines["bddk_meta.reject_retained_generation_mutation()"] == frozenset()
 
 
+def test_release_verifier_and_publisher_capabilities_are_mutually_separated() -> None:
+    stage = (
+        "bddk_meta.stage_verified_corpus_release(text, text, text, text, text, integer, integer, integer, "
+        "text, text, text, integer)"
+    )
+    activate = "bddk_meta.activate_staged_corpus_release(text)"
+    legacy = "bddk_meta.publish_verified_corpus_release(text, text, text, integer, integer, integer, text)"
+    verifier = db_identity._CONTRACTS["release-verifier"]
+    publisher = db_identity._CONTRACTS["release-publisher"]
+
+    assert verifier.routines[stage] == frozenset({"EXECUTE"})
+    assert verifier.routines[activate] == frozenset()
+    assert publisher.routines[stage] == frozenset()
+    assert publisher.routines[activate] == frozenset({"EXECUTE"})
+    assert verifier.routines[legacy] == frozenset()
+    assert publisher.routines[legacy] == frozenset()
+    for table in db_identity._CORPUS_TABLES | db_identity._REGULATORY_VERSION_TABLES:
+        assert verifier.tables[table] == frozenset({"SELECT"})
+        assert publisher.tables[table] == frozenset()
+    for table in (
+        "bddk_meta.corpus_release_requests",
+        "bddk_meta.corpus_release_request_activations",
+    ):
+        assert verifier.tables[table] == frozenset()
+        assert publisher.tables[table] == frozenset()
+
+
 @pytest.mark.parametrize(
     ("schema_version", "contract"),
     (
         (5, db_identity._V5_RELEASE_PUBLISHER_CONTRACT),
         (6, db_identity._V6_RELEASE_PUBLISHER_CONTRACT),
-        (7, db_identity._CONTRACTS["release-publisher"]),
+        (7, db_identity._V7_RELEASE_PUBLISHER_CONTRACT),
     ),
 )
 def test_publication_only_identity_contracts_are_exact_by_schema_version(schema_version: int, contract) -> None:
@@ -153,7 +184,7 @@ def test_publication_only_identity_contracts_are_exact_by_schema_version(schema_
     (
         (5, db_identity._V5_RELEASE_PUBLISHER_CONTRACT),
         (6, db_identity._V6_RELEASE_PUBLISHER_CONTRACT),
-        (7, db_identity._CONTRACTS["release-publisher"]),
+        (7, db_identity._V7_RELEASE_PUBLISHER_CONTRACT),
     ),
 )
 async def test_publication_connection_identity_selects_only_the_exact_compatible_contract(
@@ -370,6 +401,7 @@ _RUN_LIVE_IDENTITY_TEST = os.environ.get("BDDK_ALLOW_IDENTITY_LOGIN_TEST", "").l
 _LIVE_IDENTITY_DSNS = {
     "public": os.environ.get("BDDK_PUBLIC_IDENTITY_TEST_DATABASE_URL", ""),
     "ingestion": os.environ.get("BDDK_INGESTION_IDENTITY_TEST_DATABASE_URL", ""),
+    "release-verifier": os.environ.get("BDDK_RELEASE_VERIFIER_IDENTITY_TEST_DATABASE_URL", ""),
     "release-publisher": os.environ.get("BDDK_RELEASE_PUBLISHER_IDENTITY_TEST_DATABASE_URL", ""),
     "operator": os.environ.get("BDDK_OPERATOR_IDENTITY_TEST_DATABASE_URL", ""),
 }
@@ -378,7 +410,7 @@ _LIVE_IDENTITY_DSNS = {
 @pytest.mark.postgres
 @pytest.mark.skipif(
     not (_RUN_LIVE_IDENTITY_TEST and all(_LIVE_IDENTITY_DSNS.values())),
-    reason="requires explicitly approved DSNs for all four real workload LOGINs",
+    reason="requires explicitly approved DSNs for all five real workload LOGINs",
 )
 @pytest.mark.asyncio
 async def test_live_workload_login_contracts() -> None:
@@ -407,7 +439,7 @@ _REJECTED_IDENTITY_DSN = os.environ.get("BDDK_REJECTED_IDENTITY_TEST_DATABASE_UR
 async def test_live_wrong_or_elevated_login_is_rejected_for_every_profile() -> None:
     pool = await asyncpg.create_pool(_REJECTED_IDENTITY_DSN, min_size=1, max_size=1, timeout=5)
     try:
-        for profile in ("public", "ingestion", "release-publisher", "operator"):
+        for profile in ("public", "ingestion", "release-verifier", "release-publisher", "operator"):
             with pytest.raises(DatabaseIdentityError):
                 await assert_database_identity(pool, profile)
     finally:

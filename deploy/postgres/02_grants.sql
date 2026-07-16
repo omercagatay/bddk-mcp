@@ -27,6 +27,8 @@ ALTER TABLE bddk_meta.schema_migrations OWNER TO bddk_schema_owner;
 ALTER TABLE bddk_meta.legacy_schema_adoptions OWNER TO bddk_schema_owner;
 ALTER TABLE bddk_meta.corpus_releases OWNER TO bddk_schema_owner;
 ALTER TABLE bddk_meta.corpus_release_activations OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_meta.corpus_release_requests OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_meta.corpus_release_request_activations OWNER TO bddk_schema_owner;
 ALTER TABLE bddk_meta.corpus_state_epoch OWNER TO bddk_schema_owner;
 ALTER TABLE bddk_meta.corpus_generations OWNER TO bddk_schema_owner;
 ALTER TABLE bddk_meta.corpus_generation_relation_inventory OWNER TO bddk_schema_owner;
@@ -100,6 +102,22 @@ ALTER FUNCTION bddk_meta.publish_verified_corpus_release(
     pg_catalog.int4,
     pg_catalog.text
 ) OWNER TO bddk_schema_owner;
+ALTER FUNCTION bddk_meta.stage_verified_corpus_release(
+    pg_catalog.text,
+    pg_catalog.text,
+    pg_catalog.text,
+    pg_catalog.text,
+    pg_catalog.text,
+    pg_catalog.int4,
+    pg_catalog.int4,
+    pg_catalog.int4,
+    pg_catalog.text,
+    pg_catalog.text,
+    pg_catalog.text,
+    pg_catalog.int4
+) OWNER TO bddk_schema_owner;
+ALTER FUNCTION bddk_meta.activate_staged_corpus_release(pg_catalog.text)
+    OWNER TO bddk_schema_owner;
 ALTER FUNCTION bddk_meta.resolve_regulation_status(
     pg_catalog.text,
     pg_catalog.date
@@ -120,45 +138,45 @@ ALTER FUNCTION bddk_meta.inspect_retained_generation_storage(pg_catalog.text)
 -- Revoke first so rerunning this file also removes privileges deleted from the
 -- reviewed matrix.  No runtime role receives CREATE on an application schema.
 REVOKE ALL PRIVILEGES ON SCHEMA public
-    FROM bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+    FROM bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
          bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON SCHEMA bddk_operator
-    FROM bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+    FROM bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
          bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON SCHEMA bddk_meta
-    FROM bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+    FROM bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
          bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON SCHEMA bddk_retained
-    FROM bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+    FROM bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
          bddk_operator_runtime, bddk_telemetry_writer;
 
 REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public
-    FROM bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+    FROM bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
          bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public
-    FROM bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+    FROM bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
          bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA bddk_operator
-    FROM bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+    FROM bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
          bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA bddk_operator
-    FROM bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+    FROM bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
          bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA bddk_meta
-    FROM bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+    FROM bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
          bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA bddk_meta
-    FROM bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+    FROM bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
          bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA bddk_retained
-    FROM bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+    FROM bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
          bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA bddk_retained
-    FROM bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+    FROM bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
          bddk_operator_runtime, bddk_telemetry_writer;
 
 -- Canonical legal-version base tables are denied to serving and ingestion
--- workloads. The release-publisher receives read-only access later solely to
+-- workloads. The release-verifier receives read-only access later solely to
 -- prove that no unsigned legal state is present during exact corpus admission.
 REVOKE ALL PRIVILEGES ON TABLE
     public.regulatory_instruments,
@@ -172,20 +190,22 @@ REVOKE ALL PRIVILEGES ON TABLE
     public.regulatory_legal_status_assertions,
     public.regulatory_provisions,
     public.regulatory_legal_version_provisions
-FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
      bddk_operator_runtime, bddk_telemetry_writer;
 
 REVOKE ALL PRIVILEGES ON TABLE public.regulatory_validated_section_citations
-FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
      bddk_operator_runtime, bddk_telemetry_writer;
 
 -- Verified corpus evidence is immutable and owner-only. Runtimes see only the
--- content-free active view. Only the bootstrap-only release-publisher
--- capability can append through the reviewed SECURITY DEFINER function; no
--- runtime role receives base-table or sequence access.
+-- content-free active view. Separate verifier and publisher identities can
+-- append only through their respective SECURITY DEFINER routines; no runtime
+-- role receives base-table or sequence access.
 REVOKE ALL PRIVILEGES ON TABLE
     bddk_meta.corpus_releases,
     bddk_meta.corpus_release_activations,
+    bddk_meta.corpus_release_requests,
+    bddk_meta.corpus_release_request_activations,
     bddk_meta.corpus_state_epoch,
     bddk_meta.corpus_generations,
     bddk_meta.corpus_generation_relation_inventory,
@@ -193,7 +213,7 @@ REVOKE ALL PRIVILEGES ON TABLE
     bddk_meta.corpus_retained_releases,
     bddk_meta.active_corpus_release,
     bddk_meta.corpus_release_retention_status
-FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
      bddk_operator_runtime, bddk_telemetry_writer;
 
 REVOKE ALL PRIVILEGES ON SCHEMA bddk_operator FROM PUBLIC;
@@ -234,19 +254,19 @@ REVOKE ALL PRIVILEGES ON FUNCTION public.document_sections_tsv_trigger() FROM PU
 REVOKE ALL PRIVILEGES ON FUNCTION public.chunks_tsv_trigger() FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION public.invalidate_retrieval_publication() FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.corpus_fingerprint_frame(pg_catalog.text)
-FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
      bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.bump_corpus_state_epoch()
-FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
      bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.current_corpus_state_sha256(pg_catalog.text)
-FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
      bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.corpus_retrieval_ready(pg_catalog.text)
-FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
      bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.reject_corpus_release_mutation()
-FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
      bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.publish_verified_corpus_release(
     pg_catalog.text,
@@ -256,34 +276,99 @@ REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.publish_verified_corpus_release(
     pg_catalog.int4,
     pg_catalog.int4,
     pg_catalog.text
-) FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+) FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
        bddk_operator_runtime, bddk_telemetry_writer;
+-- Reconciliation must also retire an unreviewed direct LOGIN/group grant made
+-- after migration v8. Enumerate every release-facade ACL instead of assuming
+-- that the repository-owned role list is exhaustive; intended grants are
+-- restored explicitly below.
+DO $reset_release_facades$
+DECLARE
+    selected_routine pg_catalog.regprocedure;
+    selected_grantee pg_catalog.name;
+BEGIN
+    FOREACH selected_routine IN ARRAY ARRAY[
+        'bddk_meta.publish_verified_corpus_release('
+            'pg_catalog.text, pg_catalog.text, pg_catalog.text, '
+            'pg_catalog.int4, pg_catalog.int4, pg_catalog.int4, '
+            'pg_catalog.text)'::pg_catalog.regprocedure,
+        'bddk_meta.stage_verified_corpus_release('
+            'pg_catalog.text, pg_catalog.text, pg_catalog.text, '
+            'pg_catalog.text, pg_catalog.text, pg_catalog.int4, '
+            'pg_catalog.int4, pg_catalog.int4, pg_catalog.text, '
+            'pg_catalog.text, pg_catalog.text, pg_catalog.int4)'
+            ::pg_catalog.regprocedure,
+        'bddk_meta.activate_staged_corpus_release(pg_catalog.text)'
+            ::pg_catalog.regprocedure
+    ]
+    LOOP
+        FOR selected_grantee IN
+            SELECT grantee.rolname
+            FROM pg_catalog.pg_proc AS routine
+            CROSS JOIN LATERAL pg_catalog.aclexplode(
+                COALESCE(
+                    routine.proacl,
+                    pg_catalog.acldefault('f'::"char", routine.proowner)
+                )
+            ) AS acl
+            JOIN pg_catalog.pg_roles AS grantee ON grantee.oid = acl.grantee
+            WHERE routine.oid = selected_routine
+              AND acl.grantee <> routine.proowner
+              AND acl.privilege_type = 'EXECUTE'
+        LOOP
+            EXECUTE pg_catalog.format(
+                'REVOKE EXECUTE ON FUNCTION %s FROM %I CASCADE',
+                selected_routine,
+                selected_grantee
+            );
+        END LOOP;
+    END LOOP;
+END
+$reset_release_facades$;
+REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.stage_verified_corpus_release(
+    pg_catalog.text,
+    pg_catalog.text,
+    pg_catalog.text,
+    pg_catalog.text,
+    pg_catalog.text,
+    pg_catalog.int4,
+    pg_catalog.int4,
+    pg_catalog.int4,
+    pg_catalog.text,
+    pg_catalog.text,
+    pg_catalog.text,
+    pg_catalog.int4
+) FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
+       bddk_operator_runtime, bddk_telemetry_writer;
+REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.activate_staged_corpus_release(pg_catalog.text)
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
+     bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.resolve_regulation_status(
     pg_catalog.text,
     pg_catalog.date
-) FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+) FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
        bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.retained_corpus_state_sha256(
     pg_catalog.text,
     pg_catalog.text
-) FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+) FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
        bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.retained_row_sha256(
     anyelement,
     pg_catalog.bool
-) FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+) FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
        bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.guard_retained_generation_member()
-FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
      bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.reject_retained_generation_mutation()
-FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
      bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.retain_active_corpus_generation(pg_catalog.text)
-FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
      bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.inspect_retained_generation_storage(pg_catalog.text)
-FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
      bddk_operator_runtime, bddk_telemetry_writer;
 
 -- Public MCP corpus: read-only, with no access to operational failure or trace
@@ -329,11 +414,11 @@ GRANT USAGE ON SCHEMA bddk_meta TO bddk_ingestion;
 GRANT SELECT ON TABLE bddk_meta.schema_migrations TO bddk_ingestion;
 GRANT EXECUTE ON FUNCTION public.immutable_unaccent(pg_catalog.text) TO bddk_ingestion;
 GRANT SELECT ON TABLE bddk_meta.active_corpus_release TO bddk_ingestion;
--- Release publication is a separate two-person/two-credential stage. The
--- publisher can inspect the exact corpus and canonical legal state, but cannot
--- mutate either; the only write path is the reviewed SECURITY DEFINER routine.
-GRANT USAGE ON SCHEMA public TO bddk_release_publisher;
-GRANT USAGE ON SCHEMA bddk_meta TO bddk_release_publisher;
+-- The verifier independently checks signed artifacts against the exact locked
+-- corpus/legal state. It can stage a short-lived request but cannot activate or
+-- retain a release, and receives no base-table mutation privileges.
+GRANT USAGE ON SCHEMA public TO bddk_release_verifier;
+GRANT USAGE ON SCHEMA bddk_meta TO bddk_release_verifier;
 GRANT SELECT ON TABLE
     public.decision_cache,
     public.documents,
@@ -352,23 +437,34 @@ GRANT SELECT ON TABLE
     public.regulatory_legal_status_assertions,
     public.regulatory_provisions,
     public.regulatory_legal_version_provisions,
+    bddk_meta.schema_migrations
+TO bddk_release_verifier;
+GRANT EXECUTE ON FUNCTION bddk_meta.stage_verified_corpus_release(
+    pg_catalog.text,
+    pg_catalog.text,
+    pg_catalog.text,
+    pg_catalog.text,
+    pg_catalog.text,
+    pg_catalog.int4,
+    pg_catalog.int4,
+    pg_catalog.int4,
+    pg_catalog.text,
+    pg_catalog.text,
+    pg_catalog.text,
+    pg_catalog.int4
+) TO bddk_release_verifier;
+
+-- The publisher sees only content-free status and can activate an exact request
+-- identity or retain an already active release. It cannot stage, inspect raw
+-- corpus/legal rows, or invoke the legacy direct-publication routine.
+GRANT USAGE ON SCHEMA bddk_meta TO bddk_release_publisher;
+GRANT SELECT ON TABLE
     bddk_meta.schema_migrations,
     bddk_meta.active_corpus_release,
     bddk_meta.corpus_release_retention_status
 TO bddk_release_publisher;
-GRANT EXECUTE ON FUNCTION bddk_meta.current_corpus_state_sha256(pg_catalog.text)
+GRANT EXECUTE ON FUNCTION bddk_meta.activate_staged_corpus_release(pg_catalog.text)
 TO bddk_release_publisher;
-GRANT EXECUTE ON FUNCTION bddk_meta.corpus_retrieval_ready(pg_catalog.text)
-TO bddk_release_publisher;
-GRANT EXECUTE ON FUNCTION bddk_meta.publish_verified_corpus_release(
-    pg_catalog.text,
-    pg_catalog.text,
-    pg_catalog.text,
-    pg_catalog.int4,
-    pg_catalog.int4,
-    pg_catalog.int4,
-    pg_catalog.text
-) TO bddk_release_publisher;
 GRANT EXECUTE ON FUNCTION bddk_meta.retain_active_corpus_generation(pg_catalog.text)
 TO bddk_release_publisher;
 GRANT EXECUTE ON FUNCTION bddk_meta.inspect_retained_generation_storage(pg_catalog.text)

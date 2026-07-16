@@ -327,3 +327,95 @@ async def test_v7_column_level_grant_fails_exact_acl_attestation(pg_pool) -> Non
             assert not readiness.ready
         finally:
             await transaction.rollback()
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("tamper_sql", "expected"),
+    (
+        (
+            "ALTER FUNCTION bddk_meta.activate_staged_corpus_release(pg_catalog.text) SECURITY INVOKER",
+            "routine:bddk_meta.activate_staged_corpus_release(text)",
+        ),
+        (
+            "ALTER TABLE bddk_meta.corpus_release_requests DISABLE TRIGGER reject_corpus_release_request_update_delete",
+            "triggers:bddk_meta.corpus_release_exact",
+        ),
+        (
+            "ALTER TABLE bddk_meta.corpus_release_request_activations "
+            "DROP CONSTRAINT corpus_release_request_activations_activation_fk",
+            "constraints:bddk_meta.corpus_release_exact",
+        ),
+    ),
+    ids=("security-invoker", "disabled-append-only-trigger", "missing-activation-binding"),
+)
+async def test_v8_staged_release_catalog_tampering_fails_attestation(
+    pg_pool,
+    tamper_sql: str,
+    expected: str,
+) -> None:
+    async with pg_pool.acquire() as connection:
+        transaction = connection.transaction()
+        await transaction.start()
+        try:
+            await connection.execute(tamper_sql)
+
+            report = await inspect_catalog_integrity(connection)
+            readiness = await inspect_database_readiness(connection, require_corpus=False)
+
+            assert expected in report.failures
+            assert expected in readiness.catalog_issues
+            assert not readiness.ready
+        finally:
+            await transaction.rollback()
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_v8_legacy_direct_publication_grant_fails_acl_attestation(pg_pool) -> None:
+    async with pg_pool.acquire() as connection:
+        transaction = connection.transaction()
+        await transaction.start()
+        try:
+            await connection.execute(
+                """
+                DO $publisher$
+                BEGIN
+                    IF pg_catalog.to_regrole('bddk_release_publisher') IS NULL THEN
+                        CREATE ROLE bddk_release_publisher NOLOGIN;
+                    END IF;
+                END
+                $publisher$
+                """
+            )
+            await connection.execute(
+                """
+                GRANT EXECUTE ON FUNCTION bddk_meta.publish_verified_corpus_release(
+                    pg_catalog.text, pg_catalog.text, pg_catalog.text,
+                    pg_catalog.int4, pg_catalog.int4, pg_catalog.int4, pg_catalog.text
+                ) TO bddk_release_publisher
+                """
+            )
+
+            report = await inspect_catalog_integrity(connection)
+
+            assert "acl:bddk_meta.staged_corpus_release_exact" in report.failures
+        finally:
+            await transaction.rollback()
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_v8_request_table_grant_fails_acl_attestation(pg_pool) -> None:
+    async with pg_pool.acquire() as connection:
+        transaction = connection.transaction()
+        await transaction.start()
+        try:
+            await connection.execute("GRANT SELECT ON bddk_meta.corpus_release_requests TO PUBLIC")
+
+            report = await inspect_catalog_integrity(connection)
+
+            assert "acl:bddk_meta.staged_corpus_release_exact" in report.failures
+        finally:
+            await transaction.rollback()

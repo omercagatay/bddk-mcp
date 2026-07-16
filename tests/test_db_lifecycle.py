@@ -28,7 +28,12 @@ from bddk_mcp.catalog_integrity import (
     _EXPECTED_V4_INDEX_COUNT,
     _EXPECTED_V7_CATALOG_OBJECT_COUNT,
     _EXPECTED_V7_CATALOG_SHA256,
+    _EXPECTED_V8_DEPLOYED_ROUTINE_ACL,
     _LEGAL_STATUS_RESULT_TYPE,
+    _V8_CORPUS_RELEASE_CONSTRAINTS,
+    _V8_CORPUS_RELEASE_RELATIONS,
+    _V8_CORPUS_RELEASE_ROUTINES,
+    _V8_CORPUS_RELEASE_TRIGGERS,
     _v6_legal_status_function_source,
 )
 from bddk_mcp.core.exceptions import BddkStorageError
@@ -240,6 +245,7 @@ class ReadOnlyReadinessPool:
                 for table_name in args[0]
             ]
         if "ledger_owner.rolname AS ledger_owner_name" in query and "relation.relkind" in query:
+            release_relations = {**_CORPUS_RELEASE_RELATIONS, **_V8_CORPUS_RELEASE_RELATIONS}
             return [
                 {
                     "relname": name,
@@ -249,7 +255,7 @@ class ReadOnlyReadinessPool:
                     "options": options,
                     "columns": columns,
                 }
-                for name, (relation_kind, columns, options) in _CORPUS_RELEASE_RELATIONS.items()
+                for name, (relation_kind, columns, options) in release_relations.items()
             ]
         if "pg_attribute" in query:
             return [
@@ -260,6 +266,7 @@ class ReadOnlyReadinessPool:
             ]
         if "pg_constraint" in query:
             if "namespace.nspname = 'bddk_meta'" in query:
+                release_constraints = {**_CORPUS_RELEASE_CONSTRAINTS, **_V8_CORPUS_RELEASE_CONSTRAINTS}
                 return [
                     {
                         "relname": table,
@@ -268,7 +275,7 @@ class ReadOnlyReadinessPool:
                         "convalidated": True,
                         "definition": definition,
                     }
-                    for (table, name), (constraint_type, definition) in _CORPUS_RELEASE_CONSTRAINTS.items()
+                    for (table, name), (constraint_type, definition) in release_constraints.items()
                 ]
             return [
                 {
@@ -282,6 +289,7 @@ class ReadOnlyReadinessPool:
             ]
         if "pg_trigger" in query:
             if "namespace.nspname = 'bddk_meta'" in query:
+                release_triggers = {**_CORPUS_RELEASE_TRIGGERS, **_V8_CORPUS_RELEASE_TRIGGERS}
                 return [
                     {
                         "relname": table,
@@ -290,7 +298,7 @@ class ReadOnlyReadinessPool:
                         "tgtype": trigger_type,
                         "function_identity": function_identity,
                     }
-                    for (table, name), (function_identity, trigger_type) in _CORPUS_RELEASE_TRIGGERS.items()
+                    for (table, name), (function_identity, trigger_type) in release_triggers.items()
                 ]
             return [
                 {
@@ -325,7 +333,20 @@ class ReadOnlyReadinessPool:
                 for name, (method, keys, opclasses, options) in _EXPECTED_INDEXES.items()
             ]
         if "pg_proc" in query:
+            if "object_identity" in query and "acl_items" in query:
+                return [
+                    {
+                        "object_identity": object_identity,
+                        "grantee_name": grantee_name,
+                        "privilege_type": privilege_type,
+                        "is_grantable": is_grantable,
+                    }
+                    for object_identity, grantee_name, privilege_type, is_grantable in (
+                        _EXPECTED_V8_DEPLOYED_ROUTINE_ACL
+                    )
+                ]
             if "namespace.nspname = 'bddk_meta'" in query:
+                release_routines = {**_CORPUS_RELEASE_ROUTINES, **_V8_CORPUS_RELEASE_ROUTINES}
                 return [
                     {
                         "function_identity": identity,
@@ -350,7 +371,7 @@ class ReadOnlyReadinessPool:
                         parallel,
                         security_definer,
                         source,
-                    ) in _CORPUS_RELEASE_ROUTINES.items()
+                    ) in release_routines.items()
                 ]
             return [
                 {
@@ -444,7 +465,7 @@ async def test_readiness_accepts_current_schema_and_uses_only_selects():
 
     assert report == DatabaseReadiness()
     assert report.ready
-    assert len(pool.statements) == 23
+    assert len(pool.statements) == 24
     assert all(statement.upper().startswith(("SELECT", "WITH")) for statement in pool.statements)
 
 
@@ -455,7 +476,7 @@ async def test_schema_only_readiness_skips_all_corpus_queries():
     report = await inspect_database_readiness(pool, require_corpus=False)  # type: ignore[arg-type]
 
     assert report.ready
-    assert len(pool.statements) == 21
+    assert len(pool.statements) == 22
 
 
 @pytest.mark.asyncio

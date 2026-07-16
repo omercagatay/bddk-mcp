@@ -20,6 +20,7 @@ from bddk_mcp.migrations.v0005_corpus_release_publication import (
     V0005_CORPUS_RELEASE_PUBLICATION,
 )
 from bddk_mcp.migrations.v0006_legal_status_resolver import V0006_LEGAL_STATUS_RESOLVER
+from bddk_mcp.migrations.v0008_staged_corpus_releases import V0008_STAGED_CORPUS_RELEASES
 from bddk_mcp.regulatory.text_profile import PROVISION_BOUNDARY_CODEPOINTS_V1
 
 _CORPUS_RELEASE_RELATIONS_SQL = """
@@ -128,6 +129,45 @@ JOIN pg_catalog.pg_roles AS ledger_owner
 WHERE namespace.nspname = 'bddk_meta'
   AND routine.proname = ANY($1::pg_catalog.text[])
 ORDER BY routine.proname, pg_catalog.oidvectortypes(routine.proargtypes)
+"""
+
+_STAGED_RELEASE_ACL_SQL = """
+WITH acl_items AS (
+    SELECT routine.proname || '('
+               || pg_catalog.pg_get_function_identity_arguments(routine.oid) || ')'
+               AS object_identity,
+           CASE WHEN acl.grantee = 0 THEN 'PUBLIC'::pg_catalog.text
+                ELSE grantee.rolname::pg_catalog.text END AS grantee_name,
+           acl.privilege_type,
+           acl.is_grantable
+    FROM pg_catalog.pg_proc AS routine
+    JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = routine.pronamespace
+    CROSS JOIN LATERAL pg_catalog.aclexplode(
+        COALESCE(routine.proacl, pg_catalog.acldefault('f'::"char", routine.proowner))
+    ) AS acl
+    LEFT JOIN pg_catalog.pg_roles AS grantee ON grantee.oid = acl.grantee
+    WHERE namespace.nspname = 'bddk_meta'
+      AND routine.proname = ANY($1::pg_catalog.text[])
+      AND acl.grantee <> routine.proowner
+    UNION ALL
+    SELECT 'bddk_meta.' || relation.relname,
+           CASE WHEN acl.grantee = 0 THEN 'PUBLIC'::pg_catalog.text
+                ELSE grantee.rolname::pg_catalog.text END,
+           acl.privilege_type,
+           acl.is_grantable
+    FROM pg_catalog.pg_class AS relation
+    JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+    CROSS JOIN LATERAL pg_catalog.aclexplode(
+        COALESCE(relation.relacl, pg_catalog.acldefault('r'::"char", relation.relowner))
+    ) AS acl
+    LEFT JOIN pg_catalog.pg_roles AS grantee ON grantee.oid = acl.grantee
+    WHERE namespace.nspname = 'bddk_meta'
+      AND relation.relname = ANY($2::pg_catalog.text[])
+      AND acl.grantee <> relation.relowner
+)
+SELECT object_identity, grantee_name, privilege_type, is_grantable
+FROM acl_items
+ORDER BY object_identity, grantee_name, privilege_type, is_grantable
 """
 
 _ACTIVE_CORPUS_RELEASE_VIEW_SQL = """
@@ -791,6 +831,22 @@ def _v6_legal_status_function_source() -> str:
     return match.group(1)
 
 
+def _v8_function_source(name: str) -> str:
+    """Extract an immutable staged-release function body from migration v0008."""
+
+    prefix = f"CREATE FUNCTION bddk_meta.{name}("
+    statement = next(
+        (item for item in V0008_STAGED_CORPUS_RELEASES.statements if item.strip().startswith(prefix)),
+        None,
+    )
+    if statement is None:
+        raise RuntimeError(f"migration v0008 is missing {name}")
+    match = re.search(r"\bAS \$function\$\s*(.*?)\s*\$function\$\s*$", statement, re.DOTALL)
+    if match is None:
+        raise RuntimeError(f"migration v0008 has an invalid {name} body")
+    return match.group(1)
+
+
 _CORPUS_RELEASE_RELATIONS: Final[dict[str, tuple[str, tuple[str, ...], tuple[str, ...]]]] = {
     "active_corpus_release": (
         "v",
@@ -847,6 +903,46 @@ _CORPUS_RELEASE_RELATIONS: Final[dict[str, tuple[str, tuple[str, ...], tuple[str
             "retrieval_profile_sha256",
             "corpus_state_sha256",
             "created_at",
+        ),
+        (),
+    ),
+}
+
+_V8_CORPUS_RELEASE_RELATIONS: Final[dict[str, tuple[str, tuple[str, ...], tuple[str, ...]]]] = {
+    "corpus_release_requests": (
+        "r",
+        (
+            "request_id",
+            "release_id",
+            "manifest_id",
+            "manifest_sha256",
+            "signature_sha256",
+            "signer_key_sha256",
+            "verification_evidence_sha256",
+            "freshness_policy_result",
+            "source_detection_slo_seconds",
+            "publication_slo_seconds",
+            "max_manifest_age_seconds",
+            "retrieval_profile_sha256",
+            "corpus_state_sha256",
+            "corpus_epoch",
+            "verifier_revision_sha256",
+            "verifier_image_digest",
+            "valid_for_seconds",
+            "staged_at",
+            "verification_expires_at",
+            "verifier_fingerprint_sha256",
+        ),
+        (),
+    ),
+    "corpus_release_request_activations": (
+        "r",
+        (
+            "request_id",
+            "activation_sequence",
+            "release_id",
+            "bound_at",
+            "publisher_fingerprint_sha256",
         ),
         (),
     ),
@@ -928,12 +1024,147 @@ _CORPUS_RELEASE_CONSTRAINTS: Final[dict[tuple[str, str], tuple[str, str]]] = {
     ),
 }
 
+_V8_CORPUS_RELEASE_CONSTRAINTS: Final[dict[tuple[str, str], tuple[str, str]]] = {
+    ("corpus_release_requests", "corpus_release_requests_pkey"): (
+        "p",
+        "PRIMARY KEY (request_id)",
+    ),
+    ("corpus_release_requests", "corpus_release_requests_id_check"): (
+        "c",
+        "CHECK ((request_id ~ '^corpus_release_request_sha256_[0-9a-f]{64}$'))",
+    ),
+    ("corpus_release_requests", "corpus_release_requests_release_id_check"): (
+        "c",
+        "CHECK ((release_id ~ '^corpus_release_sha256_[0-9a-f]{64}$'))",
+    ),
+    ("corpus_release_requests", "corpus_release_requests_manifest_id_check"): (
+        "c",
+        "CHECK ((manifest_id ~ '^[a-z0-9][a-z0-9._-]{2,127}$'))",
+    ),
+    ("corpus_release_requests", "corpus_release_requests_manifest_hash_check"): (
+        "c",
+        "CHECK ((manifest_sha256 ~ '^[0-9a-f]{64}$'))",
+    ),
+    ("corpus_release_requests", "corpus_release_requests_signature_hash_check"): (
+        "c",
+        "CHECK ((signature_sha256 ~ '^[0-9a-f]{64}$'))",
+    ),
+    ("corpus_release_requests", "corpus_release_requests_signer_hash_check"): (
+        "c",
+        "CHECK ((signer_key_sha256 ~ '^[0-9a-f]{64}$'))",
+    ),
+    ("corpus_release_requests", "corpus_release_requests_evidence_hash_check"): (
+        "c",
+        "CHECK ((verification_evidence_sha256 ~ '^[0-9a-f]{64}$'))",
+    ),
+    ("corpus_release_requests", "corpus_release_requests_policy_result_check"): (
+        "c",
+        "CHECK ((freshness_policy_result = 'quantified_measured_signature_verified_pass'))",
+    ),
+    ("corpus_release_requests", "corpus_release_requests_source_slo_check"): (
+        "c",
+        "CHECK ((source_detection_slo_seconds > 0))",
+    ),
+    ("corpus_release_requests", "corpus_release_requests_publication_slo_check"): (
+        "c",
+        "CHECK ((publication_slo_seconds > 0))",
+    ),
+    ("corpus_release_requests", "corpus_release_requests_max_age_check"): (
+        "c",
+        "CHECK ((max_manifest_age_seconds > 0))",
+    ),
+    ("corpus_release_requests", "corpus_release_requests_profile_hash_check"): (
+        "c",
+        "CHECK ((retrieval_profile_sha256 ~ '^[0-9a-f]{64}$'))",
+    ),
+    ("corpus_release_requests", "corpus_release_requests_state_hash_check"): (
+        "c",
+        "CHECK ((corpus_state_sha256 ~ '^[0-9a-f]{64}$'))",
+    ),
+    ("corpus_release_requests", "corpus_release_requests_epoch_check"): (
+        "c",
+        "CHECK ((corpus_epoch >= 0))",
+    ),
+    ("corpus_release_requests", "corpus_release_requests_revision_hash_check"): (
+        "c",
+        "CHECK ((verifier_revision_sha256 ~ '^[0-9a-f]{64}$'))",
+    ),
+    ("corpus_release_requests", "corpus_release_requests_image_digest_check"): (
+        "c",
+        "CHECK ((verifier_image_digest ~ '^sha256:[0-9a-f]{64}$'))",
+    ),
+    ("corpus_release_requests", "corpus_release_requests_ttl_check"): (
+        "c",
+        "CHECK (((valid_for_seconds >= 60) AND (valid_for_seconds <= 3600)))",
+    ),
+    ("corpus_release_requests", "corpus_release_requests_expiry_check"): (
+        "c",
+        "CHECK ((verification_expires_at = (staged_at + ((valid_for_seconds)::double precision * "
+        "'00:00:01'::interval))))",
+    ),
+    ("corpus_release_requests", "corpus_release_requests_actor_hash_check"): (
+        "c",
+        "CHECK ((verifier_fingerprint_sha256 ~ '^[0-9a-f]{64}$'))",
+    ),
+    ("corpus_release_requests", "corpus_release_requests_release_identity_uq"): (
+        "u",
+        "UNIQUE (request_id, release_id)",
+    ),
+    ("corpus_release_request_activations", "corpus_release_request_activations_pkey"): (
+        "p",
+        "PRIMARY KEY (request_id)",
+    ),
+    (
+        "corpus_release_request_activations",
+        "corpus_release_request_activations_activation_sequence_key",
+    ): (
+        "u",
+        "UNIQUE (activation_sequence)",
+    ),
+    (
+        "corpus_release_request_activations",
+        "corpus_release_request_activations_request_fk",
+    ): (
+        "f",
+        "FOREIGN KEY (request_id, release_id) REFERENCES bddk_meta.corpus_release_requests(request_id, release_id)",
+    ),
+    (
+        "corpus_release_request_activations",
+        "corpus_release_request_activations_activation_fk",
+    ): (
+        "f",
+        "FOREIGN KEY (activation_sequence, release_id) "
+        "REFERENCES bddk_meta.corpus_release_activations(activation_sequence, release_id)",
+    ),
+    (
+        "corpus_release_request_activations",
+        "corpus_release_request_activations_actor_hash_check",
+    ): (
+        "c",
+        "CHECK ((publisher_fingerprint_sha256 ~ '^[0-9a-f]{64}$'))",
+    ),
+}
+
 _CORPUS_RELEASE_TRIGGERS: Final[dict[tuple[str, str], tuple[str, int]]] = {
     ("corpus_releases", "reject_corpus_release_update_delete"): (
         "bddk_meta.reject_corpus_release_mutation()",
         27,
     ),
     ("corpus_release_activations", "reject_corpus_release_activation_update_delete"): (
+        "bddk_meta.reject_corpus_release_mutation()",
+        27,
+    ),
+}
+
+_V8_CORPUS_RELEASE_TRIGGERS: Final[dict[tuple[str, str], tuple[str, int]]] = {
+    ("corpus_release_requests", "reject_corpus_release_request_update_delete"): (
+        "bddk_meta.reject_corpus_release_mutation()",
+        27,
+    ),
+    (
+        "corpus_release_request_activations",
+        "reject_corpus_release_request_activation_update_delete",
+    ): (
         "bddk_meta.reject_corpus_release_mutation()",
         27,
     ),
@@ -983,6 +1214,46 @@ _CORPUS_RELEASE_ROUTINES: Final[dict[str, tuple[str, str, str, bool, str]]] = {
         _v5_function_source("reject_corpus_release_mutation"),
     ),
 }
+
+_V8_CORPUS_RELEASE_ROUTINES: Final[dict[str, tuple[str, str, str, bool, str]]] = {
+    "activate_staged_corpus_release(text)": (
+        "plpgsql",
+        "v",
+        "u",
+        True,
+        _v8_function_source("activate_staged_corpus_release"),
+    ),
+    (
+        "stage_verified_corpus_release(text, text, text, text, text, integer, integer, integer, "
+        "text, text, text, integer)"
+    ): (
+        "plpgsql",
+        "v",
+        "u",
+        True,
+        _v8_function_source("stage_verified_corpus_release"),
+    ),
+}
+
+_EXPECTED_V8_DEPLOYED_ROUTINE_ACL: Final[tuple[tuple[str, str, str, bool], ...]] = (
+    (
+        "activate_staged_corpus_release(requested_request_id text)",
+        "bddk_release_publisher",
+        "EXECUTE",
+        False,
+    ),
+    (
+        "stage_verified_corpus_release(requested_manifest_id text, requested_manifest_sha256 text, "
+        "requested_signature_sha256 text, requested_signer_key_sha256 text, "
+        "requested_verification_evidence_sha256 text, requested_source_detection_slo_seconds integer, "
+        "requested_publication_slo_seconds integer, requested_max_manifest_age_seconds integer, "
+        "requested_retrieval_profile_sha256 text, requested_verifier_revision_sha256 text, "
+        "requested_verifier_image_digest text, requested_valid_for_seconds integer)",
+        "bddk_release_verifier",
+        "EXECUTE",
+        False,
+    ),
+)
 
 _CANONICAL_FINGERPRINT_CONFIGURATION: Final[tuple[str, ...]] = (
     "search_path=pg_catalog",
@@ -1301,18 +1572,20 @@ def _catalog_char(value: Any) -> str:
 async def inspect_catalog_integrity(
     pool: asyncpg.Pool,
     *,
-    expected_schema_version: int = 7,
+    expected_schema_version: int = 8,
 ) -> CatalogIntegrity:
     """Verify critical constraints, triggers, indexes, and function bodies.
 
     Schema v5/v6 remains a deliberately narrow compatibility target for the one
     canonical-republication operation required when the v7 upgrade guard
-    rejects a historical, session-dependent corpus fingerprint.  Ordinary
-    serving and every other workload continue to require the latest schema.
+    rejects a historical, session-dependent corpus fingerprint.  Schema v7 is
+    retained so a staged-release migration can attest its prerequisite catalog.
+    Ordinary serving and every other workload continue to require the latest
+    schema.
     """
 
-    if expected_schema_version not in {5, 6, 7}:
-        raise ValueError("catalog integrity supports only schema versions 5, 6, and 7")
+    if expected_schema_version not in {5, 6, 7, 8}:
+        raise ValueError("catalog integrity supports only schema versions 5, 6, 7, and 8")
 
     failures: list[str] = []
 
@@ -1440,9 +1713,12 @@ async def inspect_catalog_integrity(
     if not view_valid:
         failures.append("view:public.regulatory_validated_section_citations")
 
+    release_relations = dict(_CORPUS_RELEASE_RELATIONS)
+    if expected_schema_version >= 8:
+        release_relations.update(_V8_CORPUS_RELEASE_RELATIONS)
     release_relation_rows = await pool.fetch(
         _CORPUS_RELEASE_RELATIONS_SQL,
-        sorted(_CORPUS_RELEASE_RELATIONS),
+        sorted(release_relations),
     )
     actual_release_relations = {
         str(_value(row, "relname")): (
@@ -1454,18 +1730,21 @@ async def inspect_catalog_integrity(
         )
         for row in release_relation_rows
     }
-    expected_release_relation_names = set(_CORPUS_RELEASE_RELATIONS)
+    expected_release_relation_names = set(release_relations)
     if set(actual_release_relations) != expected_release_relation_names:
         failures.append("relations:bddk_meta.corpus_release_exact")
     else:
-        for name, (relation_kind, columns, options) in _CORPUS_RELEASE_RELATIONS.items():
+        for name, (relation_kind, columns, options) in release_relations.items():
             actual = actual_release_relations[name]
             if actual[:3] != (relation_kind, columns, options) or not actual[3] or actual[3] != actual[4]:
                 failures.append(f"relation:bddk_meta.{name}")
 
+    release_constraint_relations = ["corpus_release_activations", "corpus_releases", "corpus_state_epoch"]
+    if expected_schema_version >= 8:
+        release_constraint_relations.extend(("corpus_release_request_activations", "corpus_release_requests"))
     release_constraint_rows = await pool.fetch(
         _CORPUS_RELEASE_CONSTRAINTS_SQL,
-        ["corpus_release_activations", "corpus_releases", "corpus_state_epoch"],
+        release_constraint_relations,
     )
     actual_release_constraints = {
         (str(_value(row, "relname")), str(_value(row, "conname"))): (
@@ -1478,8 +1757,10 @@ async def inspect_catalog_integrity(
     release_constraints = {
         key: value
         for key, value in _CORPUS_RELEASE_CONSTRAINTS.items()
-        if expected_schema_version == 7 or not key[1].endswith("_retention_identity_uq")
+        if expected_schema_version >= 7 or not key[1].endswith("_retention_identity_uq")
     }
+    if expected_schema_version >= 8:
+        release_constraints.update(_V8_CORPUS_RELEASE_CONSTRAINTS)
     expected_release_constraints = {
         key: (constraint_type, True, _normalize_sql(definition))
         for key, (constraint_type, definition) in release_constraints.items()
@@ -1487,9 +1768,12 @@ async def inspect_catalog_integrity(
     if actual_release_constraints != expected_release_constraints:
         failures.append("constraints:bddk_meta.corpus_release_exact")
 
+    release_triggers = dict(_CORPUS_RELEASE_TRIGGERS)
+    if expected_schema_version >= 8:
+        release_triggers.update(_V8_CORPUS_RELEASE_TRIGGERS)
     release_trigger_rows = await pool.fetch(
         _CORPUS_RELEASE_TRIGGERS_SQL,
-        ["corpus_release_activations", "corpus_releases"],
+        sorted({relation for relation, _trigger in release_triggers}),
     )
     actual_release_triggers = {
         (str(_value(row, "relname")), str(_value(row, "tgname"))): (
@@ -1501,14 +1785,17 @@ async def inspect_catalog_integrity(
     }
     expected_release_triggers = {
         key: (function_identity, trigger_type, "O")
-        for key, (function_identity, trigger_type) in _CORPUS_RELEASE_TRIGGERS.items()
+        for key, (function_identity, trigger_type) in release_triggers.items()
     }
     if actual_release_triggers != expected_release_triggers:
         failures.append("triggers:bddk_meta.corpus_release_exact")
 
+    release_routines = dict(_CORPUS_RELEASE_ROUTINES)
+    if expected_schema_version >= 8:
+        release_routines.update(_V8_CORPUS_RELEASE_ROUTINES)
     release_routine_rows = await pool.fetch(
         _CORPUS_RELEASE_ROUTINES_SQL,
-        sorted(identity.partition("(")[0] for identity in _CORPUS_RELEASE_ROUTINES),
+        sorted(identity.partition("(")[0] for identity in release_routines),
     )
     actual_release_routines = {
         str(_value(row, "function_identity")): (
@@ -1525,14 +1812,14 @@ async def inspect_catalog_integrity(
         )
         for row in release_routine_rows
     }
-    if set(actual_release_routines) != set(_CORPUS_RELEASE_ROUTINES):
+    if set(actual_release_routines) != set(release_routines):
         failures.append("routines:bddk_meta.corpus_release_exact")
     else:
-        for identity, (language, volatility, parallel, security_definer, source) in _CORPUS_RELEASE_ROUTINES.items():
+        for identity, (language, volatility, parallel, security_definer, source) in release_routines.items():
             actual = actual_release_routines[identity]
             expected_configuration = (
                 _CANONICAL_FINGERPRINT_CONFIGURATION
-                if expected_schema_version == 7 and identity == "current_corpus_state_sha256(text)"
+                if expected_schema_version >= 7 and identity == "current_corpus_state_sha256(text)"
                 else ("search_path=pg_catalog",)
             )
             expected_prefix = (
@@ -1586,7 +1873,7 @@ async def inspect_catalog_integrity(
     ):
         failures.append("routine:bddk_meta.resolve_regulation_status(text, date)")
 
-    if expected_schema_version == 7:
+    if expected_schema_version >= 7:
         v7_catalog = await pool.fetchrow(
             _V7_CATALOG_SQL,
             list(_V7_META_RELATIONS),
@@ -1615,5 +1902,27 @@ async def inspect_catalog_integrity(
         )
         if v7_acl not in ((), _EXPECTED_V7_DEPLOYED_ACL):
             failures.append("acl:bddk_retained.v7_exact")
+
+    if expected_schema_version >= 8:
+        staged_acl_rows = await pool.fetch(
+            _STAGED_RELEASE_ACL_SQL,
+            [
+                "activate_staged_corpus_release",
+                "publish_verified_corpus_release",
+                "stage_verified_corpus_release",
+            ],
+            ["corpus_release_request_activations", "corpus_release_requests"],
+        )
+        staged_acl = tuple(
+            (
+                str(_value(row, "object_identity", "")),
+                str(_value(row, "grantee_name", "")),
+                str(_value(row, "privilege_type", "")),
+                bool(_value(row, "is_grantable", True)),
+            )
+            for row in staged_acl_rows
+        )
+        if staged_acl not in ((), _EXPECTED_V8_DEPLOYED_ROUTINE_ACL):
+            failures.append("acl:bddk_meta.staged_corpus_release_exact")
 
     return CatalogIntegrity(tuple(sorted(failures)))

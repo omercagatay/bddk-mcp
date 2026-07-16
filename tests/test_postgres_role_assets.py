@@ -33,6 +33,7 @@ GROUP_ROLES = {
     "bddk_schema_owner",
     "bddk_public_reader",
     "bddk_ingestion",
+    "bddk_release_verifier",
     "bddk_release_publisher",
     "bddk_operator_runtime",
     "bddk_telemetry_writer",
@@ -71,14 +72,16 @@ REGULATORY_VERSION_TABLES = {
     "public.regulatory_source_blobs",
     "public.regulatory_source_artifacts",
 }
-PUBLISHER_READ_RELATIONS = (
-    PUBLIC_CORPUS_TABLES
-    | REGULATORY_VERSION_TABLES
-    | {
-        "bddk_meta.schema_migrations",
-        "bddk_meta.active_corpus_release",
-        "bddk_meta.corpus_release_retention_status",
-    }
+VERIFIER_READ_RELATIONS = PUBLIC_CORPUS_TABLES | REGULATORY_VERSION_TABLES | {"bddk_meta.schema_migrations"}
+PUBLISHER_READ_RELATIONS = {
+    "bddk_meta.schema_migrations",
+    "bddk_meta.active_corpus_release",
+    "bddk_meta.corpus_release_retention_status",
+}
+STAGE_ROUTINE = (
+    "bddk_meta.stage_verified_corpus_release( pg_catalog.text, pg_catalog.text, pg_catalog.text, "
+    "pg_catalog.text, pg_catalog.text, pg_catalog.int4, pg_catalog.int4, pg_catalog.int4, "
+    "pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.int4 )"
 )
 RETAINED_CORPUS_TABLES = {
     "bddk_retained.decision_cache",
@@ -144,7 +147,7 @@ def test_public_defaults_and_existing_objects_are_revoked() -> None:
 
     assert "revoke connect, create, temporary on database" in normalized
     assert "grant connect, create on database" in normalized
-    assert "revoke create on schema public from public;" in normalized
+    assert "revoke usage, create on schema public from public;" in normalized
     assert "create schema" not in normalized
     assert "revoke all privileges on all tables in schema public from public;" in normalized
     assert "revoke all privileges on all sequences in schema public from public;" in normalized
@@ -167,10 +170,16 @@ def test_post_migration_schemas_and_ledger_are_hardened() -> None:
                 f"alter default privileges for role bddk_schema_owner in schema {schema} "
                 f"revoke all privileges on {object_kind} from public;"
             ) in normalized
-    for role in ("bddk_public_reader", "bddk_ingestion", "bddk_operator_runtime"):
+    for role in (
+        "bddk_public_reader",
+        "bddk_ingestion",
+        "bddk_operator_runtime",
+    ):
         assert f"grant usage on schema bddk_meta to {role};" in normalized
         assert f"grant select on table bddk_meta.schema_migrations to {role};" in normalized
     assert "grant usage on schema bddk_meta to bddk_release_publisher;" in normalized
+    assert "grant usage on schema bddk_meta to bddk_release_verifier;" in normalized
+    assert "bddk_meta.schema_migrations" in _grant_object_list(GRANTS_SQL, "select", "bddk_release_verifier")
     assert "bddk_meta.schema_migrations" in _grant_object_list(GRANTS_SQL, "select", "bddk_release_publisher")
 
 
@@ -208,6 +217,7 @@ def test_positive_runtime_grants_are_explicit_not_default_wildcards() -> None:
     assert _grant_object_list(GRANTS_SQL, "select, insert, update, delete", "bddk_ingestion") == INGESTION_TABLES
     assert _grant_object_list(GRANTS_SQL, "usage", "bddk_ingestion", kind="sequence") == INGESTION_SEQUENCES
     assert _grant_object_list(GRANTS_SQL, "select", "bddk_release_publisher") == PUBLISHER_READ_RELATIONS
+    assert _grant_object_list(GRANTS_SQL, "select", "bddk_release_verifier") == VERIFIER_READ_RELATIONS
 
 
 def test_legal_version_workspace_is_owned_but_denied_to_every_runtime_role() -> None:
@@ -225,13 +235,13 @@ def test_legal_version_workspace_is_owned_but_denied_to_every_runtime_role() -> 
                 statement
                 for statement in normalized.split(";")
                 if statement.strip().startswith("grant select on table")
-                and statement.strip().endswith("to bddk_release_publisher")
+                and statement.strip().endswith("to bddk_release_verifier")
             )
         ]
 
     revoke = re.search(
         r"revoke all privileges on table (.*?) from public, bddk_public_reader, bddk_ingestion, "
-        r"bddk_release_publisher, bddk_operator_runtime, bddk_telemetry_writer;",
+        r"bddk_release_verifier, bddk_release_publisher, bddk_operator_runtime, bddk_telemetry_writer;",
         normalized,
     )
     assert revoke is not None
@@ -241,7 +251,7 @@ def test_legal_version_workspace_is_owned_but_denied_to_every_runtime_role() -> 
     assert f"alter view {view} owner to bddk_schema_owner;" in normalized
     assert (
         f"revoke all privileges on table {view} from public, bddk_public_reader, bddk_ingestion, "
-        "bddk_release_publisher, bddk_operator_runtime, bddk_telemetry_writer;"
+        "bddk_release_verifier, bddk_release_publisher, bddk_operator_runtime, bddk_telemetry_writer;"
     ) in normalized
 
 
@@ -295,6 +305,16 @@ def test_application_function_ownership_and_execute_are_exact() -> None:
         assert f"alter function {function} owner to bddk_schema_owner;" in normalized
         assert f"revoke all privileges on function {function} from public;" in normalized
     assert "alter function bddk_meta.bump_corpus_state_epoch() owner to bddk_schema_owner;" in normalized
+    assert f"alter function {STAGE_ROUTINE} owner to bddk_schema_owner;" in normalized
+    assert (
+        "alter function bddk_meta.activate_staged_corpus_release(pg_catalog.text) owner to bddk_schema_owner;"
+        in normalized
+    )
+    for table in (
+        "bddk_meta.corpus_release_requests",
+        "bddk_meta.corpus_release_request_activations",
+    ):
+        assert f"alter table {table} owner to bddk_schema_owner;" in normalized
     assert "revoke all privileges on function bddk_meta.bump_corpus_state_epoch()" in normalized
     assert "grant execute on function public.immutable_unaccent(pg_catalog.text) to bddk_public_reader;" in normalized
     assert "grant execute on function public.immutable_unaccent(pg_catalog.text) to bddk_ingestion;" in normalized
@@ -305,25 +325,31 @@ def test_application_function_ownership_and_execute_are_exact() -> None:
         assert (
             f"grant execute on function bddk_meta.corpus_retrieval_ready(pg_catalog.text) to {role};"
         ) not in normalized
-    for role in ("bddk_release_publisher",):
-        assert (
-            f"grant execute on function bddk_meta.current_corpus_state_sha256(pg_catalog.text) to {role};"
-        ) in normalized
-        assert (f"grant execute on function bddk_meta.corpus_retrieval_ready(pg_catalog.text) to {role};") in normalized
     assert "grant execute on function public.documents_tsv_trigger()" not in normalized
-    publisher = (
+    legacy = (
         "bddk_meta.publish_verified_corpus_release( pg_catalog.text, pg_catalog.text, "
         "pg_catalog.text, pg_catalog.int4, pg_catalog.int4, pg_catalog.int4, pg_catalog.text )"
     )
-    assert f"grant execute on function {publisher} to bddk_release_publisher;" in normalized
-    assert f"grant execute on function {publisher} to bddk_ingestion;" not in normalized
-    assert f"grant execute on function {publisher} to bddk_operator_runtime;" not in normalized
+    assert f"grant execute on function {STAGE_ROUTINE} to bddk_release_verifier;" in normalized
+    assert "grant execute on function bddk_meta.activate_staged_corpus_release(pg_catalog.text) " in normalized
+    for role in GROUP_ROLES - {"bddk_schema_owner"}:
+        assert f"grant execute on function {legacy} to {role};" not in normalized
+        if role != "bddk_release_verifier":
+            assert f"grant execute on function {STAGE_ROUTINE} to {role};" not in normalized
+        if role != "bddk_release_publisher":
+            assert (
+                f"grant execute on function bddk_meta.activate_staged_corpus_release(pg_catalog.text) to {role};"
+            ) not in normalized
+    assert "cross join lateral pg_catalog.aclexplode(" in normalized
+    assert "acl.grantee <> routine.proowner" in normalized
+    assert "revoke execute on function %s from %i cascade" in normalized
     resolver = "bddk_meta.resolve_regulation_status( pg_catalog.text, pg_catalog.date )"
     assert f"alter function {resolver} owner to bddk_schema_owner;" in normalized
     assert f"grant execute on function {resolver} to bddk_public_reader;" in normalized
     assert f"grant execute on function {resolver} to bddk_ingestion;" not in normalized
     assert f"grant execute on function {resolver} to bddk_operator_runtime;" not in normalized
     assert "grant usage on schema bddk_meta to bddk_release_publisher;" in normalized
+    assert "grant usage on schema public to bddk_release_publisher;" not in normalized
     publisher_reads = _grant_object_list(GRANTS_SQL, "select", "bddk_release_publisher")
     assert "bddk_meta.active_corpus_release" in publisher_reads
     assert "bddk_meta.corpus_release_retention_status" in publisher_reads
@@ -355,7 +381,10 @@ def test_deployment_documentation_maps_separate_workload_identities() -> None:
     assert "does **not** create a role named `bddk_operator`" in README
     assert "BDDK_SCHEMA_OWNER_DATABASE_URL" in OPENSHIFT_SECRETS
     assert "BDDK_INGESTION_DATABASE_URL" in OPENSHIFT_SECRETS
+    assert "bddk-mcp-release-verifier-db" in OPENSHIFT_SECRETS
+    assert "BDDK_RELEASE_VERIFIER_DATABASE_URL" in OPENSHIFT_SECRETS
     assert "LOGIN membership: bddk_ingestion" in OPENSHIFT_SECRETS
+    assert "LOGIN membership: bddk_release_verifier" in OPENSHIFT_SECRETS
     assert "LOGIN membership: bddk_release_publisher" in OPENSHIFT_SECRETS
     assert "operator LOGIN must never" in OPENSHIFT_SECRETS
     assert "options=-c%20role%3Dbddk_schema_owner" in OPENSHIFT_SECRETS
@@ -426,6 +455,20 @@ async def test_live_role_allow_and_deny_matrix_is_transactional() -> None:
         await connection.execute("CREATE ROLE bddk_role_test_unprivileged NOLOGIN")
         await connection.execute("INSERT INTO public.documents (document_id, title) VALUES ('existing', 'Title')")
         await connection.execute(GRANTS_SQL)
+        sensitive_facades = (
+            "bddk_meta.publish_verified_corpus_release(text,text,text,integer,integer,integer,text)",
+            "bddk_meta.stage_verified_corpus_release("
+            "text,text,text,text,text,integer,integer,integer,text,text,text,integer)",
+            "bddk_meta.activate_staged_corpus_release(text)",
+        )
+        for routine in sensitive_facades:
+            await connection.execute(f"GRANT EXECUTE ON FUNCTION {routine} TO bddk_role_test_unprivileged")
+        await connection.execute(GRANTS_SQL)
+        for routine in sensitive_facades:
+            assert not await connection.fetchval(
+                "SELECT pg_catalog.has_function_privilege('bddk_role_test_unprivileged', $1, 'EXECUTE')",
+                routine,
+            )
 
         roles_with_login = await connection.fetchval(
             "SELECT count(*) FROM pg_roles WHERE rolname = ANY($1::text[]) AND rolcanlogin",
@@ -470,17 +513,43 @@ async def test_live_role_allow_and_deny_matrix_is_transactional() -> None:
             "'EXECUTE')"
         )
 
+        await connection.execute("SET LOCAL ROLE bddk_release_verifier")
+        assert await connection.fetchval(
+            "SELECT pg_catalog.has_function_privilege("
+            "current_user, 'bddk_meta.stage_verified_corpus_release("
+            "text,text,text,text,text,integer,integer,integer,text,text,text,integer)', "
+            "'EXECUTE')"
+        )
+        assert await connection.fetchval("SELECT count(*) FROM public.documents") == 1
+        assert await connection.fetchval("SELECT count(*) FROM public.regulatory_instruments") == 0
+        await _assert_permission_denied(connection, "INSERT INTO public.documents VALUES ('verifier-write')")
+        await _assert_permission_denied(connection, "SELECT * FROM bddk_meta.corpus_release_requests")
+        assert not await connection.fetchval(
+            "SELECT pg_catalog.has_function_privilege("
+            "current_user, 'bddk_meta.activate_staged_corpus_release(text)', 'EXECUTE')"
+        )
+
         await connection.execute("SET LOCAL ROLE bddk_release_publisher")
         assert await connection.fetchval(
+            "SELECT pg_catalog.has_function_privilege("
+            "current_user, 'bddk_meta.activate_staged_corpus_release(text)', 'EXECUTE')"
+        )
+        assert not await connection.fetchval(
             "SELECT pg_catalog.has_function_privilege("
             "current_user, 'bddk_meta.publish_verified_corpus_release(text,text,text,integer,integer,integer,text)', "
             "'EXECUTE')"
         )
+        assert not await connection.fetchval(
+            "SELECT pg_catalog.has_function_privilege("
+            "current_user, 'bddk_meta.stage_verified_corpus_release("
+            "text,text,text,text,text,integer,integer,integer,text,text,text,integer)', "
+            "'EXECUTE')"
+        )
         assert await connection.fetchval("SELECT count(*) FROM bddk_meta.active_corpus_release") == 0
-        assert await connection.fetchval("SELECT count(*) FROM public.documents") == 1
-        assert await connection.fetchval("SELECT count(*) FROM public.regulatory_instruments") == 0
-        await _assert_permission_denied(connection, "INSERT INTO public.documents VALUES ('publisher-write')")
+        await _assert_permission_denied(connection, "SELECT * FROM public.documents")
+        await _assert_permission_denied(connection, "SELECT * FROM public.regulatory_instruments")
         await _assert_permission_denied(connection, "SELECT * FROM bddk_meta.corpus_releases")
+        await _assert_permission_denied(connection, "SELECT * FROM bddk_meta.corpus_release_requests")
         await _assert_permission_denied(connection, "SELECT * FROM bddk_meta.corpus_state_epoch")
         assert not await connection.fetchval(
             "SELECT pg_catalog.has_function_privilege(current_user, 'bddk_meta.bump_corpus_state_epoch()', 'EXECUTE')"
@@ -581,6 +650,7 @@ async def test_live_actual_login_identity_and_acl_provenance_contracts() -> None
             "schema": "bddk_identity_schema_login",
             "public": "bddk_identity_public_login",
             "ingestion": "bddk_identity_ingestion_login",
+            "release-verifier": "bddk_identity_release_verifier_login",
             "release-publisher": "bddk_identity_release_publisher_login",
             "operator": "bddk_identity_operator_login",
             "telemetry": "bddk_identity_telemetry_login",
@@ -600,6 +670,7 @@ async def test_live_actual_login_identity_and_acl_provenance_contracts() -> None
         await admin.execute(f"GRANT bddk_schema_owner TO {login_roles['schema']}")
         await admin.execute(f"GRANT bddk_public_reader TO {login_roles['public']}")
         await admin.execute(f"GRANT bddk_ingestion TO {login_roles['ingestion']}")
+        await admin.execute(f"GRANT bddk_release_verifier TO {login_roles['release-verifier']}")
         await admin.execute(f"GRANT bddk_release_publisher TO {login_roles['release-publisher']}")
         await admin.execute(
             f"GRANT bddk_public_reader, bddk_ingestion, bddk_operator_runtime TO {login_roles['operator']}"
@@ -627,7 +698,8 @@ async def test_live_actual_login_identity_and_acl_provenance_contracts() -> None
             return pool
 
         workload_pools: dict[str, asyncpg.Pool] = {}
-        for profile in ("public", "ingestion", "release-publisher", "operator"):
+        profiles = {"public", "ingestion", "release-verifier", "release-publisher", "operator"}
+        for profile in sorted(profiles):
             pool = await workload_pool(profile)
             workload_pools[profile] = pool
             await assert_database_identity(pool, profile)  # type: ignore[arg-type]
@@ -639,7 +711,7 @@ async def test_live_actual_login_identity_and_acl_provenance_contracts() -> None
                 assert first_pid != second_pid
                 assert await first.fetchval("SELECT session_user") == login_roles[profile]
                 assert await second.fetchval("SELECT session_user") == login_roles[profile]
-            for wrong_profile in {"public", "ingestion", "release-publisher", "operator"} - {profile}:
+            for wrong_profile in profiles - {profile}:
                 with pytest.raises(DatabaseIdentityError):
                     await assert_database_identity(pool, wrong_profile)  # type: ignore[arg-type]
 
@@ -677,7 +749,7 @@ async def test_live_actual_login_identity_and_acl_provenance_contracts() -> None
 
         elevated_pool = await asyncpg.create_pool(_ROLE_TEST_DSN, min_size=1, max_size=1)
         pools.append(elevated_pool)
-        for profile in ("public", "ingestion", "release-publisher", "operator"):
+        for profile in sorted(profiles):
             with pytest.raises(DatabaseIdentityError):
                 await assert_database_identity(elevated_pool, profile)  # type: ignore[arg-type]
 

@@ -29,6 +29,7 @@ BEGIN
         'bddk_schema_owner',
         'bddk_public_reader',
         'bddk_ingestion',
+        'bddk_release_verifier',
         'bddk_release_publisher',
         'bddk_operator_runtime',
         'bddk_telemetry_writer'
@@ -48,6 +49,8 @@ ALTER ROLE bddk_schema_owner
 ALTER ROLE bddk_public_reader
     NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 ALTER ROLE bddk_ingestion
+    NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+ALTER ROLE bddk_release_verifier
     NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 ALTER ROLE bddk_release_publisher
     NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
@@ -71,7 +74,7 @@ BEGIN
     );
     EXECUTE format(
         'GRANT CONNECT ON DATABASE %I TO bddk_public_reader, bddk_ingestion, '
-        'bddk_release_publisher, bddk_operator_runtime, bddk_telemetry_writer',
+        'bddk_release_verifier, bddk_release_publisher, bddk_operator_runtime, bddk_telemetry_writer',
         current_database()
     );
 END
@@ -82,7 +85,7 @@ $database_privileges$;
 -- bddk_operator; pre-creating them here would make its immutable first version
 -- fail.  Do not create a role named bddk_operator: that identifier is reserved
 -- for the post-migration schema.
-REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+REVOKE USAGE, CREATE ON SCHEMA public FROM PUBLIC;
 ALTER SCHEMA public OWNER TO bddk_schema_owner;
 GRANT USAGE, CREATE ON SCHEMA public TO bddk_schema_owner;
 

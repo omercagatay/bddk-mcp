@@ -25,7 +25,7 @@ from bddk_mcp.db_compatibility import PostgreSQLCompatibilityError, assert_suppo
 from bddk_mcp.migrations import inspect_migration_state
 from bddk_mcp.migrations.v0007_retained_corpus_generations import RETAINED_CORPUS_RELATIONS
 
-DatabaseIdentityProfile = Literal["public", "operator", "ingestion", "release-publisher"]
+DatabaseIdentityProfile = Literal["public", "operator", "ingestion", "release-verifier", "release-publisher"]
 
 _TABLE_PRIVILEGES = frozenset(
     {
@@ -92,6 +92,8 @@ _ALL_TABLES = (
         "bddk_meta.legacy_schema_adoptions",
         "bddk_meta.corpus_releases",
         "bddk_meta.corpus_release_activations",
+        "bddk_meta.corpus_release_requests",
+        "bddk_meta.corpus_release_request_activations",
         "bddk_meta.corpus_state_epoch",
         "bddk_meta.corpus_generations",
         "bddk_meta.corpus_generation_relation_inventory",
@@ -134,6 +136,8 @@ _ALL_ROUTINES = frozenset(
         "bddk_meta.corpus_retrieval_ready(text)",
         "bddk_meta.reject_corpus_release_mutation()",
         "bddk_meta.publish_verified_corpus_release(text, text, text, integer, integer, integer, text)",
+        "bddk_meta.stage_verified_corpus_release(text, text, text, text, text, integer, integer, integer, text, text, text, integer)",
+        "bddk_meta.activate_staged_corpus_release(text)",
         "bddk_meta.resolve_regulation_status(text, date)",
         "bddk_meta.retained_corpus_state_sha256(text, text)",
         "bddk_meta.retained_row_sha256(anyelement, boolean)",
@@ -141,6 +145,18 @@ _ALL_ROUTINES = frozenset(
         "bddk_meta.reject_retained_generation_mutation()",
         "bddk_meta.retain_active_corpus_generation(text)",
         "bddk_meta.inspect_retained_generation_storage(text)",
+    }
+)
+_V8_ONLY_TABLES = frozenset(
+    {
+        "bddk_meta.corpus_release_requests",
+        "bddk_meta.corpus_release_request_activations",
+    }
+)
+_V8_ONLY_ROUTINES = frozenset(
+    {
+        "bddk_meta.stage_verified_corpus_release(text, text, text, text, text, integer, integer, integer, text, text, text, integer)",
+        "bddk_meta.activate_staged_corpus_release(text)",
     }
 )
 _V7_ONLY_TABLES = (
@@ -165,8 +181,10 @@ _V7_ONLY_ROUTINES = frozenset(
         "bddk_meta.inspect_retained_generation_storage(text)",
     }
 )
-_V6_ALL_TABLES = _ALL_TABLES - _V7_ONLY_TABLES
-_V6_ALL_ROUTINES = _ALL_ROUTINES - _V7_ONLY_ROUTINES
+_V7_ALL_TABLES = _ALL_TABLES - _V8_ONLY_TABLES
+_V7_ALL_ROUTINES = _ALL_ROUTINES - _V8_ONLY_ROUTINES
+_V6_ALL_TABLES = _V7_ALL_TABLES - _V7_ONLY_TABLES
+_V6_ALL_ROUTINES = _V7_ALL_ROUTINES - _V7_ONLY_ROUTINES
 _V5_ALL_ROUTINES = _V6_ALL_ROUTINES - frozenset({"bddk_meta.resolve_regulation_status(text, date)"})
 
 
@@ -221,7 +239,10 @@ def _build_contracts() -> Mapping[str, _IdentityContract]:
     ingestion_tables["bddk_meta.schema_migrations"] = frozenset({"SELECT"})
     ingestion_tables["bddk_meta.active_corpus_release"] = frozenset({"SELECT"})
 
-    publisher_tables = {name: frozenset({"SELECT"}) for name in _CORPUS_TABLES | _REGULATORY_VERSION_TABLES}
+    verifier_tables = {name: frozenset({"SELECT"}) for name in _CORPUS_TABLES | _REGULATORY_VERSION_TABLES}
+    verifier_tables["bddk_meta.schema_migrations"] = frozenset({"SELECT"})
+
+    publisher_tables: dict[str, frozenset[str]] = {}
     publisher_tables["bddk_meta.schema_migrations"] = frozenset({"SELECT"})
     publisher_tables["bddk_meta.active_corpus_release"] = frozenset({"SELECT"})
     publisher_tables["bddk_meta.corpus_release_retention_status"] = frozenset({"SELECT"})
@@ -247,6 +268,14 @@ def _build_contracts() -> Mapping[str, _IdentityContract]:
             "bddk_retained": frozenset(),
         }
     )
+    publisher_schemas = MappingProxyType(
+        {
+            "public": frozenset(),
+            "bddk_meta": frozenset({"USAGE"}),
+            "bddk_operator": frozenset(),
+            "bddk_retained": frozenset(),
+        }
+    )
     no_sequences = _object_contract(_ALL_SEQUENCES, {})
     ingestion_sequences = _object_contract(
         _ALL_SEQUENCES,
@@ -265,14 +294,18 @@ def _build_contracts() -> Mapping[str, _IdentityContract]:
             "public.immutable_unaccent(text)": frozenset({"EXECUTE"}),
         },
     )
+    verifier_routines = _object_contract(
+        _ALL_ROUTINES,
+        {
+            "bddk_meta.stage_verified_corpus_release(text, text, text, text, text, integer, integer, integer, text, text, text, integer)": frozenset(
+                {"EXECUTE"}
+            ),
+        },
+    )
     publisher_routines = _object_contract(
         _ALL_ROUTINES,
         {
-            "bddk_meta.current_corpus_state_sha256(text)": frozenset({"EXECUTE"}),
-            "bddk_meta.corpus_retrieval_ready(text)": frozenset({"EXECUTE"}),
-            "bddk_meta.publish_verified_corpus_release(text, text, text, integer, integer, integer, text)": (
-                frozenset({"EXECUTE"})
-            ),
+            "bddk_meta.activate_staged_corpus_release(text)": frozenset({"EXECUTE"}),
             "bddk_meta.retain_active_corpus_generation(text)": frozenset({"EXECUTE"}),
             "bddk_meta.inspect_retained_generation_storage(text)": frozenset({"EXECUTE"}),
         },
@@ -301,9 +334,16 @@ def _build_contracts() -> Mapping[str, _IdentityContract]:
                 sequences=ingestion_sequences,
                 routines=ingestion_routines,
             ),
+            "release-verifier": _IdentityContract(
+                memberships=frozenset({"bddk_release_verifier"}),
+                schemas=public_schemas,
+                tables=_object_contract(_ALL_TABLES, verifier_tables),
+                sequences=no_sequences,
+                routines=verifier_routines,
+            ),
             "release-publisher": _IdentityContract(
                 memberships=frozenset({"bddk_release_publisher"}),
-                schemas=public_schemas,
+                schemas=publisher_schemas,
                 tables=_object_contract(_ALL_TABLES, publisher_tables),
                 sequences=no_sequences,
                 routines=publisher_routines,
@@ -328,20 +368,22 @@ def _build_contracts() -> Mapping[str, _IdentityContract]:
 _CONTRACTS = _build_contracts()
 
 
-def _build_pre_v7_release_publisher_contract(*, schema_version: int) -> _IdentityContract:
-    """Return an exact pre-v7 publisher boundary used only for remediation.
+def _build_pre_v8_release_publisher_contract(*, schema_version: int) -> _IdentityContract:
+    """Return an exact pre-v8 publisher boundary used only for remediation.
 
     This is intentionally not added to ``_CONTRACTS``: ordinary workload
     admission remains latest-schema-only.  The compatibility boundary exists
     solely so the supported publication command can append a canonical release
-    on the unchanged v5 or v6 schema, after which migration to v7 must resume.
+    on an unchanged v5-v7 schema, after which migration to v8 must resume.
     """
 
-    if schema_version not in {5, 6}:
-        raise ValueError("pre-v7 publication identity supports only schema versions 5 and 6")
+    if schema_version not in {5, 6, 7}:
+        raise ValueError("pre-v8 publication identity supports only schema versions 5, 6, and 7")
     publisher_tables = {name: frozenset({"SELECT"}) for name in _CORPUS_TABLES | _REGULATORY_VERSION_TABLES}
     publisher_tables["bddk_meta.schema_migrations"] = frozenset({"SELECT"})
     publisher_tables["bddk_meta.active_corpus_release"] = frozenset({"SELECT"})
+    if schema_version == 7:
+        publisher_tables["bddk_meta.corpus_release_retention_status"] = frozenset({"SELECT"})
     publisher_routines = {
         "bddk_meta.current_corpus_state_sha256(text)": frozenset({"EXECUTE"}),
         "bddk_meta.corpus_retrieval_ready(text)": frozenset({"EXECUTE"}),
@@ -349,6 +391,17 @@ def _build_pre_v7_release_publisher_contract(*, schema_version: int) -> _Identit
             {"EXECUTE"}
         ),
     }
+    if schema_version == 7:
+        publisher_routines.update(
+            {
+                "bddk_meta.retain_active_corpus_generation(text)": frozenset({"EXECUTE"}),
+                "bddk_meta.inspect_retained_generation_storage(text)": frozenset({"EXECUTE"}),
+            }
+        )
+    tables = _V7_ALL_TABLES if schema_version == 7 else _V6_ALL_TABLES
+    routines = (
+        _V5_ALL_ROUTINES if schema_version == 5 else _V6_ALL_ROUTINES if schema_version == 6 else _V7_ALL_ROUTINES
+    )
     return _IdentityContract(
         memberships=frozenset({"bddk_release_publisher"}),
         schemas=MappingProxyType(
@@ -356,19 +409,21 @@ def _build_pre_v7_release_publisher_contract(*, schema_version: int) -> _Identit
                 "public": frozenset({"USAGE"}),
                 "bddk_meta": frozenset({"USAGE"}),
                 "bddk_operator": frozenset(),
+                **({"bddk_retained": frozenset()} if schema_version == 7 else {}),
             }
         ),
-        tables=_object_contract(_V6_ALL_TABLES, publisher_tables),
+        tables=_object_contract(tables, publisher_tables),
         sequences=_object_contract(_ALL_SEQUENCES, {}),
         routines=_object_contract(
-            _V5_ALL_ROUTINES if schema_version == 5 else _V6_ALL_ROUTINES,
+            routines,
             publisher_routines,
         ),
     )
 
 
-_V5_RELEASE_PUBLISHER_CONTRACT = _build_pre_v7_release_publisher_contract(schema_version=5)
-_V6_RELEASE_PUBLISHER_CONTRACT = _build_pre_v7_release_publisher_contract(schema_version=6)
+_V5_RELEASE_PUBLISHER_CONTRACT = _build_pre_v8_release_publisher_contract(schema_version=5)
+_V6_RELEASE_PUBLISHER_CONTRACT = _build_pre_v8_release_publisher_contract(schema_version=6)
+_V7_RELEASE_PUBLISHER_CONTRACT = _build_pre_v8_release_publisher_contract(schema_version=7)
 
 _IDENTITY_SQL = """
 WITH RECURSIVE session_role AS (
@@ -832,7 +887,7 @@ def release_publication_identity_contract_failures(
     elif schema_version == 6:
         contract = _V6_RELEASE_PUBLISHER_CONTRACT
     elif schema_version == 7:
-        contract = _CONTRACTS["release-publisher"]
+        contract = _V7_RELEASE_PUBLISHER_CONTRACT
     else:
         return ("unsupported_schema_version",)
     return _identity_contract_failures(inspection, contract)
@@ -899,11 +954,11 @@ async def assert_database_connection_identity(
 
 
 async def assert_release_publication_connection_identity(connection: asyncpg.Connection) -> None:
-    """Admit an exact publisher on v5/v6 remediation or the current v7 schema.
+    """Admit the legacy publisher only for exact v5-v7 migration remediation.
 
     This narrowly scoped compatibility function must be used only by the
-    signed corpus publication command.  Retention, serving, ingestion, and all
-    other workloads continue to call the latest-schema identity functions.
+    signed legacy corpus publication library path. Schema v8 revokes that
+    capability and uses verifier staging plus separate publisher activation.
     """
 
     try:
