@@ -56,6 +56,34 @@ def test_parser_exposes_explicit_runtime_commands():
     assert publish.command == "publish-corpus-release"
     assert publish.seed_dir == Path("/corpus")
     assert publish.trusted_signing_key == Path("/trust/corpus.pem")
+    stage = parser.parse_args(
+        [
+            "verify-and-stage-corpus-release",
+            "--seed-dir",
+            "/corpus",
+            "--trusted-signing-key",
+            "/trust/corpus.pem",
+            "--verifier-revision-sha256",
+            "a" * 64,
+            "--verifier-image-digest",
+            "sha256:" + "b" * 64,
+            "--verification-valid-for-seconds",
+            "900",
+        ]
+    )
+    assert stage.command == "verify-and-stage-corpus-release"
+    assert stage.verifier_revision_sha256 == "a" * 64
+    assert stage.verifier_image_digest == "sha256:" + "b" * 64
+    assert stage.verification_valid_for_seconds == 900
+    activate = parser.parse_args(
+        [
+            "activate-corpus-release",
+            "--request-id",
+            "corpus_release_request_sha256_" + "c" * 64,
+        ]
+    )
+    assert activate.command == "activate-corpus-release"
+    assert activate.request_id == "corpus_release_request_sha256_" + "c" * 64
     retain = parser.parse_args(
         [
             "retain-corpus-generation",
@@ -143,17 +171,8 @@ def test_bootstrap_reports_the_path_free_manifest_identity(capsys):
     assert "seed_data" not in output
 
 
-def test_publish_release_uses_dedicated_command_and_reports_safe_identity(capsys):
-    active_release = {
-        "release_id": "corpus_release_sha256_" + "a" * 64,
-        "manifest_sha256": "b" * 64,
-        "retrieval_profile_sha256": "c" * 64,
-    }
-    result = {"active_corpus_release": active_release}
-    with (
-        patch("bddk_mcp.cli._publish_corpus_release") as publish,
-        patch("bddk_mcp.cli.asyncio.run", return_value=result) as run,
-    ):
+def test_legacy_publish_release_command_fails_closed_with_migration_guidance(capsys):
+    with pytest.raises(SystemExit, match="2"):
         cli.main(
             [
                 "publish-corpus-release",
@@ -164,17 +183,238 @@ def test_publish_release_uses_dedicated_command_and_reports_safe_identity(capsys
             ]
         )
 
-    publish.assert_called_once_with(
+    error = capsys.readouterr().err
+    assert "publish-corpus-release is disabled" in error
+    assert "verify-and-stage-corpus-release" in error
+    assert "activate-corpus-release" in error
+    assert "/corpus" not in error
+    assert "/trust" not in error
+
+
+def test_stage_and_activation_commands_forward_separate_inputs(capsys):
+    request_id = "corpus_release_request_sha256_" + "c" * 64
+    staged = {"corpus_release_request": {"request_id": request_id}}
+    active_release = {
+        "release_id": "corpus_release_sha256_" + "a" * 64,
+        "manifest_sha256": "b" * 64,
+        "retrieval_profile_sha256": "d" * 64,
+    }
+    with (
+        patch("bddk_mcp.cli._verify_and_stage_corpus_release") as stage,
+        patch("bddk_mcp.cli.asyncio.run", return_value=staged) as run,
+    ):
+        cli.main(
+            [
+                "verify-and-stage-corpus-release",
+                "--seed-dir",
+                "/corpus",
+                "--trusted-signing-key",
+                "/trust/corpus.pem",
+                "--verifier-revision-sha256",
+                "a" * 64,
+                "--verifier-image-digest",
+                "sha256:" + "b" * 64,
+            ]
+        )
+    stage.assert_called_once_with(
         None,
         Path("/corpus"),
         trusted_signing_key=Path("/trust/corpus.pem"),
+        verifier_revision_sha256="a" * 64,
+        verifier_image_digest="sha256:" + "b" * 64,
+        valid_for_seconds=None,
     )
-    run.assert_called_once()
+    run.call_args.args[0].close()
+    assert request_id in capsys.readouterr().out
+
+    with (
+        patch("bddk_mcp.cli._activate_corpus_release") as activate,
+        patch(
+            "bddk_mcp.cli.asyncio.run",
+            return_value={"active_corpus_release": active_release},
+        ) as run,
+    ):
+        cli.main(["activate-corpus-release", "--request-id", request_id])
+    activate.assert_called_once_with(None, request_id=request_id)
     run.call_args.args[0].close()
     output = capsys.readouterr().out
     assert active_release["release_id"] in output
     assert active_release["manifest_sha256"] in output
-    assert active_release["retrieval_profile_sha256"] in output
+
+
+@pytest.mark.asyncio
+async def test_activation_helper_uses_only_publisher_identity_and_request_id():
+    from bddk_mcp.corpus_publication import (
+        CorpusReleaseActivationReceipt,
+        CorpusReleaseIdentity,
+    )
+
+    request_id = "corpus_release_request_sha256_" + "a" * 64
+    release = CorpusReleaseIdentity(
+        release_id="corpus_release_sha256_" + "b" * 64,
+        manifest_id="release-test-001",
+        manifest_sha256="c" * 64,
+        signer_key_sha256="d" * 64,
+        freshness_policy_result="quantified_measured_signature_verified_pass",
+        source_detection_slo_seconds=60,
+        publication_slo_seconds=120,
+        max_manifest_age_seconds=3600,
+        retrieval_profile_sha256="e" * 64,
+        corpus_state_sha256="f" * 64,
+        completed_at=datetime(2026, 7, 16, tzinfo=UTC),
+    )
+    receipt = CorpusReleaseActivationReceipt(
+        request_id=request_id,
+        activation_sequence=3,
+        release=release,
+    )
+    connection = MagicMock()
+    connection.execute = AsyncMock()
+    transaction = connection.transaction.return_value
+    acquire = MagicMock()
+    acquire.__aenter__ = AsyncMock(return_value=connection)
+    acquire.__aexit__ = AsyncMock(return_value=False)
+    pool = MagicMock()
+    pool.acquire.return_value = acquire
+    pool.close = AsyncMock()
+
+    with (
+        patch("bddk_mcp.db_transport.assert_database_transport", return_value="postgresql://verified") as transport,
+        patch("bddk_mcp.db_identity.assert_database_connection_identity") as connection_identity,
+        patch("bddk_mcp.db_identity.assert_database_identity", new=AsyncMock()) as identity,
+        patch(
+            "bddk_mcp.corpus_publication.activate_staged_corpus_release",
+            new=AsyncMock(return_value=receipt),
+        ) as activate,
+        patch(
+            "bddk_mcp.corpus_publication.inspect_active_corpus_release",
+            new=AsyncMock(return_value=release),
+        ) as inspect_active,
+        patch("asyncpg.create_pool", new=AsyncMock(return_value=pool)) as create_pool,
+    ):
+        result = await cli._activate_corpus_release(
+            "postgresql://requested",
+            request_id=request_id,
+        )
+
+    transport.assert_called_once_with("postgresql://requested")
+    init = create_pool.await_args.kwargs["init"]
+    assert init.func is connection_identity
+    assert init.keywords == {"profile": "release-publisher"}
+    identity.assert_awaited_once_with(pool, "release-publisher")
+    activate.assert_awaited_once_with(connection, request_id=request_id)
+    inspect_active.assert_awaited_once_with(connection)
+    assert transaction.__aenter__.await_count == 1
+    assert pool.close.await_count == 1
+    assert result == {"schema_version": 1, **receipt.safe_dict()}
+
+
+@pytest.mark.asyncio
+async def test_activation_helper_sanitizes_database_connection_failures():
+    request_id = "corpus_release_request_sha256_" + "a" * 64
+    with (
+        patch("bddk_mcp.db_transport.assert_database_transport", return_value="postgresql://verified"),
+        patch("asyncpg.create_pool", new=AsyncMock(side_effect=RuntimeError("private DSN and principal"))),
+    ):
+        with pytest.raises(RuntimeError) as captured:
+            await cli._activate_corpus_release(
+                "postgresql://requested",
+                request_id=request_id,
+            )
+
+    assert str(captured.value) == "Release-publisher database connection could not be established safely."
+    assert "private" not in str(captured.value)
+
+
+@pytest.mark.asyncio
+async def test_staging_helper_uses_verifier_identity_and_checks_membership_inside_transaction(tmp_path):
+    from types import SimpleNamespace
+
+    from bddk_mcp.corpus_publication import CorpusReleaseRequestIdentity
+
+    (tmp_path / "manifest.sig").write_bytes(b"detached-signature")
+    validation = SimpleNamespace(
+        manifest_sha256="b" * 64,
+        warnings=(),
+        manifest=SimpleNamespace(
+            manifest_id="release-test-001",
+            integrity=SimpleNamespace(signature_reference="manifest.sig"),
+        ),
+    )
+    artifacts = {name: SimpleNamespace(role=name) for name in ("documents", "chunks", "decision_cache")}
+    request = CorpusReleaseRequestIdentity(
+        request_id="corpus_release_request_sha256_" + "a" * 64,
+        release_id="corpus_release_sha256_" + "c" * 64,
+        corpus_state_sha256="d" * 64,
+        corpus_epoch=4,
+        staged_at=datetime(2026, 7, 16, tzinfo=UTC),
+        verification_expires_at=datetime(2026, 7, 16, 0, 15, tzinfo=UTC),
+    )
+    events: list[str] = []
+    connection = MagicMock()
+    connection.execute = AsyncMock()
+    transaction = connection.transaction.return_value
+    transaction.__aenter__ = AsyncMock(side_effect=lambda: events.append("transaction-enter"))
+    transaction.__aexit__ = AsyncMock(side_effect=lambda *_args: events.append("transaction-exit"))
+    acquire = MagicMock()
+    acquire.__aenter__ = AsyncMock(return_value=connection)
+    acquire.__aexit__ = AsyncMock(return_value=False)
+    pool = MagicMock()
+    pool.acquire.return_value = acquire
+    pool.close = AsyncMock()
+    vector_store = SimpleNamespace(retrieval_profile_hash="e" * 64)
+
+    async def stage_release(*_args, **_kwargs):
+        events.append("stage")
+        return request
+
+    async def membership(*_args, **_kwargs):
+        events.append("membership")
+
+    with (
+        patch("bddk_mcp.core.config.RELEASE_VERIFIER_REVISION_SHA256", "f" * 64),
+        patch("bddk_mcp.core.config.RELEASE_VERIFIER_IMAGE_DIGEST", "sha256:" + "1" * 64),
+        patch("bddk_mcp.db_transport.assert_database_transport", return_value="postgresql://verified"),
+        patch("bddk_mcp.db_identity.assert_database_connection_identity") as connection_identity,
+        patch("bddk_mcp.db_identity.assert_database_identity", new=AsyncMock()) as identity,
+        patch("bddk_mcp.ingest.seed._manifest_seed_artifacts", return_value=(validation, artifacts)),
+        patch("bddk_mcp.ingest.seed._load_manifest_bound_records", side_effect=[[], [], []]),
+        patch("bddk_mcp.ingest.seed._validate_seed_documents"),
+        patch("bddk_mcp.ingest.seed._validate_strict_seed_artifact_shapes"),
+        patch("bddk_mcp.ingest.seed._expected_seed_sections", return_value={}),
+        patch("bddk_mcp.ingest.seed._generate_seed_chunks", return_value=([], {})),
+        patch("bddk_mcp.ingest.seed._record_chunk_artifact_match") as chunk_match,
+        patch("bddk_mcp.ingest.seed._regenerate_seed_embedding_vectors", new=AsyncMock(return_value=[])),
+        patch("bddk_mcp.ingest.seed._assert_strict_seed_membership", new=AsyncMock(side_effect=membership)) as member,
+        patch("bddk_mcp.store.vector_store.VectorStore", return_value=vector_store),
+        patch(
+            "bddk_mcp.corpus_publication.strict_verification_evidence_sha256",
+            return_value="2" * 64,
+        ),
+        patch(
+            "bddk_mcp.corpus_publication.stage_strict_corpus_release",
+            new=AsyncMock(side_effect=stage_release),
+        ) as stage,
+        patch("asyncpg.create_pool", new=AsyncMock(return_value=pool)) as create_pool,
+    ):
+        chunk_match.side_effect = lambda result, **_kwargs: result.update(chunk_artifact_match=True)
+        result = await cli._verify_and_stage_corpus_release(
+            "postgresql://requested",
+            tmp_path,
+            trusted_signing_key=tmp_path / "trusted.pem",
+            verifier_revision_sha256=None,
+            verifier_image_digest=None,
+            valid_for_seconds=None,
+        )
+
+    init = create_pool.await_args.kwargs["init"]
+    assert init.func is connection_identity
+    assert init.keywords == {"profile": "release-verifier"}
+    identity.assert_awaited_once_with(pool, "release-verifier")
+    stage.assert_awaited_once()
+    member.assert_awaited_once()
+    assert events == ["transaction-enter", "stage", "membership", "transaction-exit"]
+    assert result["corpus_release_request"] == request.safe_dict()
 
 
 @pytest.mark.asyncio

@@ -46,12 +46,14 @@ def test_database_url_is_selected_by_process_profile(monkeypatch):
     monkeypatch.setattr(config, "OPERATOR_DATABASE_URL", "postgresql://operator")
     monkeypatch.setattr(config, "SCHEMA_OWNER_DATABASE_URL", "postgresql://schema-owner")
     monkeypatch.setattr(config, "INGESTION_DATABASE_URL", "postgresql://ingestion")
+    monkeypatch.setattr(config, "RELEASE_VERIFIER_DATABASE_URL", "postgresql://release-verifier")
     monkeypatch.setattr(config, "RELEASE_PUBLISHER_DATABASE_URL", "postgresql://release-publisher")
 
     assert require_database_url("public") == "postgresql://public"
     assert require_database_url("operator") == "postgresql://operator"
     assert require_database_url("schema-owner") == "postgresql://schema-owner"
     assert require_database_url("ingestion") == "postgresql://ingestion"
+    assert require_database_url("release-verifier") == "postgresql://release-verifier"
     assert require_database_url("release-publisher") == "postgresql://release-publisher"
 
 
@@ -86,6 +88,7 @@ def test_unknown_database_profile_is_rejected():
     [
         ("schema-owner", "SCHEMA_OWNER_DATABASE_URL"),
         ("ingestion", "INGESTION_DATABASE_URL"),
+        ("release-verifier", "RELEASE_VERIFIER_DATABASE_URL"),
         ("release-publisher", "RELEASE_PUBLISHER_DATABASE_URL"),
     ],
 )
@@ -96,6 +99,7 @@ def test_lifecycle_profiles_require_distinct_database_identities(monkeypatch, pr
     monkeypatch.setattr(config, "OPERATOR_DATABASE_URL", "postgresql://operator")
     monkeypatch.setattr(config, "SCHEMA_OWNER_DATABASE_URL", "postgresql://schema-owner")
     monkeypatch.setattr(config, "INGESTION_DATABASE_URL", "postgresql://ingestion")
+    monkeypatch.setattr(config, "RELEASE_VERIFIER_DATABASE_URL", "postgresql://release-verifier")
     monkeypatch.setattr(config, "RELEASE_PUBLISHER_DATABASE_URL", "postgresql://release-publisher")
     monkeypatch.setattr(config, variable, "postgresql://public")
 
@@ -157,6 +161,10 @@ def _import_config_in_subprocess(**overrides: str) -> subprocess.CompletedProces
         (
             {"BDDK_EMBEDDING_CHUNK_SIZE": "100", "BDDK_EMBEDDING_CHUNK_OVERLAP": "100"},
             "BDDK_EMBEDDING_CHUNK_OVERLAP must be smaller",
+        ),
+        (
+            {"BDDK_RELEASE_VERIFICATION_VALIDITY_SECONDS": "30"},
+            "BDDK_RELEASE_VERIFICATION_VALIDITY_SECONDS must be an integer",
         ),
     ],
 )

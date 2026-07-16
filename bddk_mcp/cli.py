@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import os
+import re
+import secrets
 from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
@@ -18,6 +21,11 @@ _OBSERVED_WAL_BYTES_SQL = "SELECT pg_catalog.pg_wal_lsn_diff($1::pg_catalog.pg_l
 _SCHEMA_MIGRATION_LOCK_SQL = "SELECT pg_catalog.pg_advisory_xact_lock($1::pg_catalog.int8)"
 _CORPUS_RETENTION_LOCK_TIMEOUT: Final[str] = "30s"
 _CORPUS_RETENTION_STATEMENT_TIMEOUT: Final[str] = "30min"
+_CORPUS_RELEASE_LOCK_TIMEOUT: Final[str] = "30s"
+_CORPUS_RELEASE_STATEMENT_TIMEOUT: Final[str] = "2min"
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+_IMAGE_DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+_REQUEST_ID_RE = re.compile(r"^corpus_release_request_sha256_[0-9a-f]{64}$")
 
 
 def _positive_port(value: str) -> int:
@@ -25,6 +33,31 @@ def _positive_port(value: str) -> int:
     if not 1 <= port <= 65535:
         raise argparse.ArgumentTypeError("port must be between 1 and 65535")
     return port
+
+
+def _sha256(value: str) -> str:
+    if _SHA256_RE.fullmatch(value) is None:
+        raise argparse.ArgumentTypeError("value must be exactly 64 lowercase hexadecimal characters")
+    return value
+
+
+def _image_digest(value: str) -> str:
+    if _IMAGE_DIGEST_RE.fullmatch(value) is None:
+        raise argparse.ArgumentTypeError("image digest must be sha256: followed by 64 lowercase hexadecimal characters")
+    return value
+
+
+def _release_request_id(value: str) -> str:
+    if _REQUEST_ID_RE.fullmatch(value) is None:
+        raise argparse.ArgumentTypeError("request id must be a corpus_release_request_sha256_ identity")
+    return value
+
+
+def _verification_validity(value: str) -> int:
+    seconds = int(value)
+    if not 60 <= seconds <= 3600:
+        raise argparse.ArgumentTypeError("verification validity must be between 60 and 3600 seconds")
+    return seconds
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -102,7 +135,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     publish_release = subparsers.add_parser(
         "publish-corpus-release",
-        help="Verify and activate an imported strict corpus using the dedicated release-publisher identity",
+        help="Deprecated fail-closed alias; use independent verification staging and activation commands",
     )
     publish_release.add_argument(
         "--db",
@@ -111,15 +144,63 @@ def build_parser() -> argparse.ArgumentParser:
     publish_release.add_argument(
         "--seed-dir",
         type=Path,
-        help="Seed directory; defaults to BDDK_SEED_DIR or checkout seed_data",
+        help="Deprecated compatibility input; it is never read",
     )
     publish_release.add_argument(
+        "--trusted-signing-key",
+        type=Path,
+        help="Deprecated compatibility input; it is never read",
+    )
+
+    verify_and_stage = subparsers.add_parser(
+        "verify-and-stage-corpus-release",
+        help="Verify signed corpus membership and stage a short-lived request without activating it",
+    )
+    verify_and_stage.add_argument(
+        "--db",
+        help="PostgreSQL DSN; defaults to BDDK_RELEASE_VERIFIER_DATABASE_URL",
+    )
+    verify_and_stage.add_argument(
+        "--seed-dir",
+        type=Path,
+        help="Seed directory; defaults to BDDK_SEED_DIR or checkout seed_data",
+    )
+    verify_and_stage.add_argument(
         "--trusted-signing-key",
         type=Path,
         required=True,
         help="Separately mounted PEM Ed25519 public key for the imported corpus manifest",
     )
+    verify_and_stage.add_argument(
+        "--verifier-revision-sha256",
+        type=_sha256,
+        help="Verifier source revision; defaults to BDDK_RELEASE_VERIFIER_REVISION_SHA256",
+    )
+    verify_and_stage.add_argument(
+        "--verifier-image-digest",
+        type=_image_digest,
+        help="Immutable verifier image; defaults to BDDK_RELEASE_VERIFIER_IMAGE_DIGEST",
+    )
+    verify_and_stage.add_argument(
+        "--verification-valid-for-seconds",
+        type=_verification_validity,
+        help="Short request lifetime; defaults to BDDK_RELEASE_VERIFICATION_VALIDITY_SECONDS (900)",
+    )
 
+    activate_release = subparsers.add_parser(
+        "activate-corpus-release",
+        help="Activate one unexpired staged request using only the publisher identity and request id",
+    )
+    activate_release.add_argument(
+        "--db",
+        help="PostgreSQL DSN; defaults to BDDK_RELEASE_PUBLISHER_DATABASE_URL",
+    )
+    activate_release.add_argument(
+        "--request-id",
+        type=_release_request_id,
+        required=True,
+        help="Exact corpus_release_request_sha256_... identity produced by independent staging",
+    )
     retain_generation = subparsers.add_parser(
         "retain-corpus-generation",
         help="Atomically retain and seal the expected active release using the release-publisher identity",
@@ -249,27 +330,275 @@ async def _publish_corpus_release(
     dsn: str | None,
     seed_dir: Path | None,
     *,
-    trusted_signing_key: Path,
+    trusted_signing_key: Path | None,
 ) -> dict:
-    from bddk_mcp.core.config import require_database_url
-    from bddk_mcp.ingest import seed
+    del dsn, seed_dir, trusted_signing_key
+    raise RuntimeError(
+        "publish-corpus-release is disabled because one publisher credential must not both verify and activate. "
+        "Run verify-and-stage-corpus-release with the release-verifier identity, then pass only its request id "
+        "to activate-corpus-release with the separate release-publisher identity."
+    )
 
-    selected_dsn = dsn or require_database_url("release-publisher")
-    selected_seed_dir = seed_dir
-    if selected_seed_dir is None and os.environ.get("BDDK_SEED_DIR"):
-        selected_seed_dir = Path(os.environ["BDDK_SEED_DIR"])
-    if selected_seed_dir is not None:
-        seed.SEED_DIR = selected_seed_dir.resolve()
-    if not seed.SEED_DIR.is_dir():
+
+def _required_sha256(value: str, *, variable: str, label: str) -> str:
+    if _SHA256_RE.fullmatch(value) is None:
+        raise RuntimeError(f"{variable} must be set to a 64-character lowercase hexadecimal {label}.")
+    return value
+
+
+def _required_image_digest(value: str) -> str:
+    if _IMAGE_DIGEST_RE.fullmatch(value) is None:
         raise RuntimeError(
-            f"Seed directory is unavailable: {seed.SEED_DIR}. "
-            "Mount the reviewed corpus and pass --seed-dir or BDDK_SEED_DIR."
+            "BDDK_RELEASE_VERIFIER_IMAGE_DIGEST must be set to sha256: followed by 64 lowercase hexadecimal characters."
+        )
+    return value
+
+
+def _detached_signature_sha256(seed_root: Path, signature_reference: str | None) -> str:
+    if not signature_reference:
+        raise RuntimeError("Verified corpus release staging requires a detached signature reference.")
+    path = (seed_root / signature_reference).resolve()
+    if not path.is_relative_to(seed_root):
+        raise RuntimeError("Verified corpus release staging signature path is invalid.")
+    try:
+        with path.open("rb") as handle:
+            payload = handle.read(1025)
+    except OSError:
+        raise RuntimeError("Verified corpus release staging signature could not be read.") from None
+    if not 1 <= len(payload) <= 1024:
+        raise RuntimeError("Verified corpus release staging signature is not a bounded file.")
+    return hashlib.sha256(payload).hexdigest()
+
+
+async def _verify_and_stage_corpus_release(
+    dsn: str | None,
+    seed_dir: Path | None,
+    *,
+    trusted_signing_key: Path,
+    verifier_revision_sha256: str | None,
+    verifier_image_digest: str | None,
+    valid_for_seconds: int | None,
+) -> dict:
+    """Verify signed artifacts against locked DB state and stage, but never activate."""
+
+    from functools import partial
+
+    import asyncpg
+
+    from bddk_mcp.core import config
+    from bddk_mcp.corpus_publication import (
+        CorpusPublicationError,
+        stage_strict_corpus_release,
+        strict_verification_evidence_sha256,
+    )
+    from bddk_mcp.db_identity import (
+        DatabaseIdentityError,
+        assert_database_connection_identity,
+        assert_database_identity,
+    )
+    from bddk_mcp.db_transport import assert_database_transport
+    from bddk_mcp.ingest import seed
+    from bddk_mcp.store.vector_store import VectorStore
+
+    selected_dsn = assert_database_transport(dsn) if dsn else config.require_database_url("release-verifier")
+    revision = _required_sha256(
+        verifier_revision_sha256 or config.RELEASE_VERIFIER_REVISION_SHA256,
+        variable="BDDK_RELEASE_VERIFIER_REVISION_SHA256",
+        label="verifier revision",
+    )
+    image_digest = _required_image_digest(verifier_image_digest or config.RELEASE_VERIFIER_IMAGE_DIGEST)
+    validity = valid_for_seconds if valid_for_seconds is not None else config.RELEASE_VERIFICATION_VALIDITY_SECONDS
+    if isinstance(validity, bool) or not isinstance(validity, int) or not 60 <= validity <= 3600:
+        raise RuntimeError("Corpus release verification validity must be between 60 and 3600 seconds.")
+
+    selected_root = seed_dir
+    if selected_root is None and os.environ.get("BDDK_SEED_DIR"):
+        selected_root = Path(os.environ["BDDK_SEED_DIR"])
+    root = (selected_root or seed.SEED_DIR).resolve()
+    if not root.is_dir():
+        raise RuntimeError(
+            f"Seed directory is unavailable: {root}. Mount the reviewed corpus and pass --seed-dir or BDDK_SEED_DIR."
         )
 
-    return await seed.publish_seed_release(
-        dsn=selected_dsn,
+    validation, artifacts_by_role = seed._manifest_seed_artifacts(
+        root,
+        require_quantified_freshness=True,
+        require_measured_freshness=True,
+        require_verified_signature=True,
         trusted_signing_key=trusted_signing_key,
     )
+    if validation is None:
+        raise RuntimeError("Strict corpus release staging requires a verified manifest.")
+    missing_roles = {"documents", "chunks", "decision_cache"} - set(artifacts_by_role)
+    if missing_roles:
+        raise RuntimeError(
+            "Strict corpus release requires manifest-bound documents, chunks, and decision-cache artifacts."
+        )
+    documents = seed._load_manifest_bound_records(root, artifacts_by_role["documents"])
+    reviewed_chunks = seed._load_manifest_bound_records(root, artifacts_by_role["chunks"])
+    decision_cache = seed._load_manifest_bound_records(root, artifacts_by_role["decision_cache"])
+    seed._validate_seed_documents(documents)
+    seed._validate_strict_seed_artifact_shapes(documents, decision_cache)
+    expected_sections = seed._expected_seed_sections(documents)
+    signature_sha256 = _detached_signature_sha256(
+        root,
+        validation.manifest.integrity.signature_reference,
+    )
+
+    try:
+        pool = await asyncpg.create_pool(
+            selected_dsn,
+            min_size=1,
+            max_size=3,
+            init=partial(assert_database_connection_identity, profile="release-verifier"),
+        )
+    except Exception:
+        raise RuntimeError("Release-verifier database connection could not be established safely.") from None
+    operation_committed = False
+    try:
+        await assert_database_identity(pool, "release-verifier")
+        vector_store = VectorStore(pool)
+        generated_chunks, _grouped = seed._generate_seed_chunks(vector_store, documents)
+        comparison = {
+            "chunk_artifact_match": None,
+            "corpus_scope_warnings": list(validation.warnings),
+        }
+        seed._record_chunk_artifact_match(
+            comparison,
+            reviewed_chunks=reviewed_chunks,
+            generated_chunks=generated_chunks,
+            strict_release=True,
+        )
+        expected_embeddings = await seed._regenerate_seed_embedding_vectors(vector_store, generated_chunks)
+        verification_evidence_sha256 = strict_verification_evidence_sha256(
+            validation,
+            signature_sha256=signature_sha256,
+            retrieval_profile_sha256=vector_store.retrieval_profile_hash,
+            verifier_revision_sha256=revision,
+            verifier_image_digest=image_digest,
+            verification_run_sha256=secrets.token_hex(32),
+        )
+        try:
+            async with pool.acquire() as connection:
+                async with connection.transaction():
+                    await connection.execute(f"SET LOCAL lock_timeout = '{_CORPUS_RELEASE_LOCK_TIMEOUT}'")
+                    await connection.execute(f"SET LOCAL statement_timeout = '{_CORPUS_RELEASE_STATEMENT_TIMEOUT}'")
+                    request = await stage_strict_corpus_release(
+                        connection,
+                        validation,
+                        signature_sha256=signature_sha256,
+                        verification_evidence_sha256=verification_evidence_sha256,
+                        retrieval_profile_sha256=vector_store.retrieval_profile_hash,
+                        verifier_revision_sha256=revision,
+                        verifier_image_digest=image_digest,
+                        valid_for_seconds=validity,
+                    )
+                    # The stage routine holds the corpus mutation/table locks
+                    # through this transaction. A mismatch rolls the request back.
+                    await seed._assert_strict_seed_membership(
+                        connection,
+                        expected_documents=documents,
+                        expected_cache=decision_cache,
+                        expected_chunks=generated_chunks,
+                        expected_embeddings=expected_embeddings,
+                        expected_sections=expected_sections,
+                        retrieval_profile_sha256=vector_store.retrieval_profile_hash,
+                    )
+                operation_committed = True
+        except Exception:
+            if not operation_committed:
+                raise
+    except (CorpusPublicationError, DatabaseIdentityError) as exc:
+        raise RuntimeError(str(exc)) from None
+    except RuntimeError:
+        raise
+    except Exception:
+        raise RuntimeError("Verified corpus release evidence could not be staged.") from None
+    finally:
+        try:
+            await pool.close()
+        except Exception:
+            if not operation_committed:
+                raise RuntimeError("Verified corpus release evidence could not be staged.") from None
+
+    return {
+        "schema_version": 1,
+        "corpus_release_request": request.safe_dict(),
+        "verification_evidence_sha256": verification_evidence_sha256,
+        "chunk_artifact_match": comparison["chunk_artifact_match"],
+        "corpus_manifest_id": validation.manifest.manifest_id,
+        "corpus_manifest_sha256": validation.manifest_sha256,
+        "corpus_scope_warnings": comparison["corpus_scope_warnings"],
+        "documents": len(documents),
+        "chunks": len(generated_chunks),
+    }
+
+
+async def _activate_corpus_release(
+    dsn: str | None,
+    *,
+    request_id: str,
+) -> dict:
+    """Activate one staged request without access to corpus or trust files."""
+
+    from functools import partial
+
+    import asyncpg
+
+    from bddk_mcp.core.config import require_database_url
+    from bddk_mcp.corpus_publication import (
+        CorpusPublicationError,
+        activate_staged_corpus_release,
+        inspect_active_corpus_release,
+    )
+    from bddk_mcp.db_identity import (
+        DatabaseIdentityError,
+        assert_database_connection_identity,
+        assert_database_identity,
+    )
+    from bddk_mcp.db_transport import assert_database_transport
+
+    if _REQUEST_ID_RE.fullmatch(request_id) is None:
+        raise RuntimeError("Corpus release request identity is invalid.")
+    selected_dsn = assert_database_transport(dsn) if dsn else require_database_url("release-publisher")
+    try:
+        pool = await asyncpg.create_pool(
+            selected_dsn,
+            min_size=1,
+            max_size=1,
+            init=partial(assert_database_connection_identity, profile="release-publisher"),
+        )
+    except Exception:
+        raise RuntimeError("Release-publisher database connection could not be established safely.") from None
+    operation_committed = False
+    try:
+        await assert_database_identity(pool, "release-publisher")
+        try:
+            async with pool.acquire() as connection:
+                async with connection.transaction():
+                    await connection.execute(f"SET LOCAL lock_timeout = '{_CORPUS_RELEASE_LOCK_TIMEOUT}'")
+                    await connection.execute(f"SET LOCAL statement_timeout = '{_CORPUS_RELEASE_STATEMENT_TIMEOUT}'")
+                    receipt = await activate_staged_corpus_release(connection, request_id=request_id)
+                    active = await inspect_active_corpus_release(connection)
+                    if active is None or active.release_id != receipt.release.release_id:
+                        raise RuntimeError("Activated corpus release could not be verified.")
+                operation_committed = True
+        except Exception:
+            if not operation_committed:
+                raise
+    except (CorpusPublicationError, DatabaseIdentityError) as exc:
+        raise RuntimeError(str(exc)) from None
+    except RuntimeError:
+        raise
+    except Exception:
+        raise RuntimeError("Staged corpus release could not be activated.") from None
+    finally:
+        try:
+            await pool.close()
+        except Exception:
+            if not operation_committed:
+                raise RuntimeError("Staged corpus release could not be activated.") from None
+    return {"schema_version": 1, **receipt.safe_dict()}
 
 
 async def _retain_corpus_generation(
@@ -509,8 +838,8 @@ def main(argv: Sequence[str] | None = None) -> None:
                 print(f"WARNING: {warning}")
             if result.get("release_publication_required"):
                 print(
-                    "Release publication required: run publish-corpus-release with the separate "
-                    "release-publisher database identity after reviewing the imported state."
+                    "Release publication required: run verify-and-stage-corpus-release with the independent "
+                    "release-verifier identity, then activate-corpus-release with the separate publisher identity."
                 )
             elif active_release := result.get("active_corpus_release"):
                 print(
@@ -521,16 +850,37 @@ def main(argv: Sequence[str] | None = None) -> None:
                 )
             return
         if args.command == "publish-corpus-release":
-            result = asyncio.run(
+            asyncio.run(
                 _publish_corpus_release(
                     args.db,
                     args.seed_dir,
                     trusted_signing_key=args.trusted_signing_key,
                 )
             )
+            return
+        if args.command == "verify-and-stage-corpus-release":
+            result = asyncio.run(
+                _verify_and_stage_corpus_release(
+                    args.db,
+                    args.seed_dir,
+                    trusted_signing_key=args.trusted_signing_key,
+                    verifier_revision_sha256=args.verifier_revision_sha256,
+                    verifier_image_digest=args.verifier_image_digest,
+                    valid_for_seconds=args.verification_valid_for_seconds,
+                )
+            )
+            print(json.dumps(result, sort_keys=True, separators=(",", ":")))
+            return
+        if args.command == "activate-corpus-release":
+            result = asyncio.run(
+                _activate_corpus_release(
+                    args.db,
+                    request_id=args.request_id,
+                )
+            )
             active_release = result["active_corpus_release"]
             print(
-                "Corpus release published: "
+                "Corpus release activated: "
                 f"id={active_release['release_id']} "
                 f"manifest_sha256={active_release['manifest_sha256']} "
                 f"profile_sha256={active_release['retrieval_profile_sha256']}"

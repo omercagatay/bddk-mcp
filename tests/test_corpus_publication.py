@@ -21,14 +21,45 @@ from bddk_mcp.corpus_generations import (
 )
 from bddk_mcp.corpus_publication import (
     CorpusPublicationError,
+    activate_staged_corpus_release,
     assert_release_publication_ready,
     inspect_active_corpus_release,
     publish_strict_corpus_release,
+    stage_strict_corpus_release,
+    strict_verification_evidence_sha256,
 )
 from bddk_mcp.migrations.v0007_retained_corpus_generations import RETAINED_CORPUS_RELATIONS
 
 _PROFILE_SHA256 = "7" * 64
 _ZERO_VECTOR = "[" + ",".join("0" for _ in range(768)) + "]"
+
+
+def _strict_validation() -> SimpleNamespace:
+    return SimpleNamespace(
+        manifest_sha256="8" * 64,
+        manifest=SimpleNamespace(
+            manifest_id="release-test-001",
+            artifacts=[
+                SimpleNamespace(
+                    role="documents",
+                    path="documents.json",
+                    sha256="3" * 64,
+                    bytes=123,
+                    records=2,
+                )
+            ],
+            freshness=SimpleNamespace(
+                source_detection_slo_seconds=60,
+                publication_slo_seconds=120,
+                max_manifest_age_seconds=3600,
+                slo_evidence_status="measured",
+            ),
+            integrity=SimpleNamespace(
+                signature_status="verified",
+                signature_public_key_sha256="9" * 64,
+            ),
+        ),
+    )
 
 
 @pytest.mark.asyncio
@@ -107,6 +138,106 @@ async def test_application_publication_contract_supplies_exact_sql_arguments() -
     assert "CROSS JOIN LATERAL bddk_meta.publish_verified_corpus_release(" in connection.query
     assert "inputs.retrieval_profile_sha256" in connection.query
     assert identity.completed_at == expected_completed_at
+
+
+@pytest.mark.asyncio
+async def test_staging_contract_supplies_exact_sql_arguments_without_activation() -> None:
+    staged_at = datetime(2026, 1, 2, tzinfo=UTC)
+    expires_at = datetime(2026, 1, 2, 0, 15, tzinfo=UTC)
+    returned_row = {
+        "request_id": "corpus_release_request_sha256_" + "a" * 64,
+        "release_id": "corpus_release_sha256_" + "b" * 64,
+        "corpus_state_sha256": "2" * 64,
+        "corpus_epoch": 7,
+        "staged_at": staged_at,
+        "verification_expires_at": expires_at,
+    }
+    connection = SimpleNamespace(fetchrow=AsyncMock(return_value=returned_row))
+
+    request = await stage_strict_corpus_release(
+        connection,
+        _strict_validation(),
+        signature_sha256="4" * 64,
+        verification_evidence_sha256="5" * 64,
+        retrieval_profile_sha256=_PROFILE_SHA256,
+        verifier_revision_sha256="6" * 64,
+        verifier_image_digest="sha256:" + "7" * 64,
+        valid_for_seconds=900,
+    )
+
+    query, *arguments = connection.fetchrow.await_args.args
+    assert "bddk_meta.stage_verified_corpus_release(" in query
+    assert "activate_staged_corpus_release" not in query
+    assert arguments == [
+        "release-test-001",
+        "8" * 64,
+        "4" * 64,
+        "9" * 64,
+        "5" * 64,
+        60,
+        120,
+        3600,
+        _PROFILE_SHA256,
+        "6" * 64,
+        "sha256:" + "7" * 64,
+        900,
+    ]
+    assert request.request_id == returned_row["request_id"]
+    assert request.release_id == returned_row["release_id"]
+    assert request.verification_expires_at == expires_at
+
+
+@pytest.mark.asyncio
+async def test_activation_contract_accepts_only_request_identity() -> None:
+    completed_at = datetime(2026, 1, 2, tzinfo=UTC)
+    request_id = "corpus_release_request_sha256_" + "a" * 64
+    returned_row = {
+        "request_id": request_id,
+        "release_id": "corpus_release_sha256_" + "1" * 64,
+        "manifest_id": "release-test-001",
+        "manifest_sha256": "8" * 64,
+        "signer_key_sha256": "9" * 64,
+        "freshness_policy_result": "quantified_measured_signature_verified_pass",
+        "source_detection_slo_seconds": 60,
+        "publication_slo_seconds": 120,
+        "max_manifest_age_seconds": 3600,
+        "retrieval_profile_sha256": _PROFILE_SHA256,
+        "corpus_state_sha256": "2" * 64,
+        "activation_sequence": 3,
+        "completed_at": completed_at,
+    }
+    connection = SimpleNamespace(fetchrow=AsyncMock(return_value=returned_row))
+
+    receipt = await activate_staged_corpus_release(connection, request_id=request_id)
+
+    query, argument = connection.fetchrow.await_args.args
+    assert "activate_staged_corpus_release($1" in query
+    assert "stage_verified_corpus_release" not in query
+    assert argument == request_id
+    assert receipt.request_id == request_id
+    assert receipt.activation_sequence == 3
+    assert receipt.release.release_id == returned_row["release_id"]
+
+
+def test_verification_evidence_binds_verifier_and_fresh_run() -> None:
+    arguments = {
+        "signature_sha256": "4" * 64,
+        "retrieval_profile_sha256": _PROFILE_SHA256,
+        "verifier_revision_sha256": "6" * 64,
+        "verifier_image_digest": "sha256:" + "7" * 64,
+        "verification_run_sha256": "a" * 64,
+    }
+
+    first = strict_verification_evidence_sha256(_strict_validation(), **arguments)
+    repeated = strict_verification_evidence_sha256(_strict_validation(), **arguments)
+    second_run = strict_verification_evidence_sha256(
+        _strict_validation(),
+        **{**arguments, "verification_run_sha256": "b" * 64},
+    )
+
+    assert first == repeated
+    assert first != second_run
+    assert len(first) == 64
 
 
 @pytest.mark.asyncio

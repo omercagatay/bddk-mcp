@@ -84,6 +84,15 @@ OPERATOR_DATABASE_URL = os.environ.get("BDDK_OPERATOR_DATABASE_URL", "")
 SCHEMA_OWNER_DATABASE_URL = os.environ.get("BDDK_SCHEMA_OWNER_DATABASE_URL", "")
 INGESTION_DATABASE_URL = os.environ.get("BDDK_INGESTION_DATABASE_URL", "")
 RELEASE_PUBLISHER_DATABASE_URL = os.environ.get("BDDK_RELEASE_PUBLISHER_DATABASE_URL", "")
+RELEASE_VERIFIER_DATABASE_URL = os.environ.get("BDDK_RELEASE_VERIFIER_DATABASE_URL", "")
+RELEASE_VERIFIER_REVISION_SHA256 = os.environ.get("BDDK_RELEASE_VERIFIER_REVISION_SHA256", "").strip()
+RELEASE_VERIFIER_IMAGE_DIGEST = os.environ.get("BDDK_RELEASE_VERIFIER_IMAGE_DIGEST", "").strip()
+RELEASE_VERIFICATION_VALIDITY_SECONDS = _environment_int(
+    "BDDK_RELEASE_VERIFICATION_VALIDITY_SECONDS",
+    default=900,
+    minimum=60,
+    maximum=3600,
+)
 EXPECTED_DATABASE_NAME = os.environ.get("BDDK_EXPECTED_DATABASE_NAME", "").strip()
 _DATABASE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$")
 
@@ -128,10 +137,13 @@ def require_database_url(profile: str = "public") -> str:
     elif normalized == "release-publisher":
         variable = "BDDK_RELEASE_PUBLISHER_DATABASE_URL"
         dsn = RELEASE_PUBLISHER_DATABASE_URL
+    elif normalized == "release-verifier":
+        variable = "BDDK_RELEASE_VERIFIER_DATABASE_URL"
+        dsn = RELEASE_VERIFIER_DATABASE_URL
     else:
         raise RuntimeError(
             f"Unknown database profile {profile!r}; expected public, operator, schema-owner, ingestion, "
-            "or release-publisher"
+            "release-verifier, or release-publisher"
         )
 
     if not dsn:
@@ -145,7 +157,7 @@ def require_database_url(profile: str = "public") -> str:
             "BDDK_OPERATOR_DATABASE_URL must not reuse BDDK_DATABASE_URL. "
             "Provision a distinct least-privileged operator database identity."
         )
-    if normalized in {"schema-owner", "ingestion", "release-publisher"}:
+    if normalized in {"schema-owner", "ingestion", "release-verifier", "release-publisher"}:
         other_identities = {
             name: value
             for name, value in {
@@ -153,6 +165,7 @@ def require_database_url(profile: str = "public") -> str:
                 "BDDK_OPERATOR_DATABASE_URL": OPERATOR_DATABASE_URL,
                 "BDDK_SCHEMA_OWNER_DATABASE_URL": SCHEMA_OWNER_DATABASE_URL,
                 "BDDK_INGESTION_DATABASE_URL": INGESTION_DATABASE_URL,
+                "BDDK_RELEASE_VERIFIER_DATABASE_URL": RELEASE_VERIFIER_DATABASE_URL,
                 "BDDK_RELEASE_PUBLISHER_DATABASE_URL": RELEASE_PUBLISHER_DATABASE_URL,
             }.items()
             if value and name != variable
