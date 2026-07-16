@@ -612,6 +612,7 @@ def register(mcp, deps: Dependencies) -> None:
 
         corrupted: list[dict] = []
         too_short: list[dict] = []
+        missing_chunks: list[dict] = []
         if pool is not None:
             rows = await pool.fetch(
                 "SELECT document_id, title, length(markdown_content) as content_len, "

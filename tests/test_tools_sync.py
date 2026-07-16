@@ -9,7 +9,11 @@ stops without anyone noticing.
 from __future__ import annotations
 
 import time
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+from mcp.server.fastmcp import FastMCP
+from mcp.shared.memory import create_connected_server_and_client_session
 
 from bddk_mcp.core.deps import Dependencies
 from bddk_mcp.tools.sync import (
@@ -135,3 +139,29 @@ def test_register_adds_sync_and_generic_job_tools():
         "cancel_operator_job",
         "document_health",
     }
+
+
+@pytest.mark.asyncio
+async def test_document_health_without_pool_reports_available_checks_instead_of_crashing():
+    store = MagicMock()
+    store.stats = AsyncMock(return_value=MagicMock(total_documents=0))
+    store.get_sync_failures = AsyncMock(return_value=[])
+    client = MagicMock()
+    client.cache_size.return_value = 0
+    deps = Dependencies(
+        pool=None,
+        doc_store=store,
+        client=client,
+        http=None,
+        vector_store=None,
+    )
+    server = FastMCP("document-health-no-pool-test")
+    register(server, deps)
+
+    async with create_connected_server_and_client_session(server) as session:
+        result = await session.call_tool("document_health", {})
+
+    assert result.isError is False
+    assert "Decision cache: 0" in result.content[0].text
+    assert "No sync failures recorded" in result.content[0].text
+    assert "All documents healthy" in result.content[0].text
