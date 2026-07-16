@@ -13,6 +13,7 @@ from bddk_mcp.core.config import MAX_RETRIES
 
 logger = logging.getLogger(__name__)
 
+
 # mevzuat.gov.tr MevzuatTur to path segment mapping
 MEVZUAT_TUR_MAP: dict[str, str] = {
     "1": "kanun",
@@ -52,7 +53,15 @@ async def request_with_retry(
             last_exc = exc
         if attempt < max_retries - 1:
             wait = 2**attempt + random.uniform(0, 1)
-            logger.warning("Retry %d/%d for %s %s: %s", attempt + 1, max_retries, method.upper(), url, last_exc)
+            logger.warning(
+                "Retrying upstream HTTP request",
+                extra={
+                    "attempt": attempt + 1,
+                    "max_retries": max_retries,
+                    "http_method": method.upper(),
+                    "error_type": type(last_exc).__name__,
+                },
+            )
             await asyncio.sleep(wait)
     raise last_exc  # type: ignore[misc]
 

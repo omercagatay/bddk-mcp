@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bddk-mcp-bootstrap-v5-0-1
+spec:
+  template:
+    spec:
+      containers:
+        - name: bootstrap
+          args:
+            - .venv/bin/bddk-mcp
+            - bootstrap
+            - --seed-dir
+            - /var/run/bddk-mcp/corpus
+            - --reindex-existing
+            - --require-quantified-freshness
+            - --require-measured-freshness
+            - --require-verified-signature
+            - --trusted-signing-key
+            - /var/run/secrets/bddk-mcp/corpus-trust/ed25519-public-key.pem
+          volumeMounts:
+            - name: approved-corpus
+              mountPath: /var/run/bddk-mcp/corpus
+              readOnly: true
+            - name: corpus-signing-key
+              mountPath: /var/run/secrets/bddk-mcp/corpus-trust
+              readOnly: true
+      volumes:
+        - name: approved-corpus
+          persistentVolumeClaim:
+            claimName: bddk-mcp-approved-corpus
+            readOnly: true
+        - name: corpus-signing-key
+          secret:
+            secretName: bddk-mcp-corpus-trust
+            defaultMode: 0440
+            items:
+              - key: ed25519-public-key.pem
+                path: ed25519-public-key.pem

@@ -1,0 +1,606 @@
+{
+  "backup_elapsed_ms": 243,
+  "default_refusal_proved": false,
+  "dump_bytes": 322806,
+  "dump_sha256": "bea19c37878f54b1322b05f7fef79107ebdca83784e4e2296e8b8ca5ee996baa",
+  "elapsed_ms": 1373,
+  "identities_verified": true,
+  "lock_samples": 0,
+  "maximum_lock_waiters": 0,
+  "migration_elapsed_ms": 0,
+  "reindex_current": 0,
+  "reindex_elapsed_ms": 0,
+  "reindex_published": 0,
+  "reindex_scanned": 0,
+  "restore_elapsed_ms": 280,
+  "restored": {
+    "activation_sequence": {
+      "cache_size": 1,
+      "cycle": false,
+      "identity_generation": "always",
+      "increment_by": 1,
+      "is_called": true,
+      "last_value": 2,
+      "maximum_retained_activation": 2,
+      "maximum_value": 9223372036854775807,
+      "minimum_value": 1,
+      "next_candidate": 3,
+      "owned_by": "bddk_meta.corpus_release_activations.activation_sequence",
+      "sequence_name": "bddk_meta.corpus_release_activations_activation_sequence_seq",
+      "start_value": 1
+    },
+    "active_corpus_release_id": "corpus_release_sha256_ae59abf8fd7787fffb6e538c20e778651758cc6846ff0adaa7b404a847ff182f",
+    "catalog_failures": [],
+    "catalog_valid": true,
+    "database_bytes": 11441843,
+    "database_character_classification": "en_US.utf8",
+    "database_collation": "en_US.utf8",
+    "database_collation_actual_version": "2.36",
+    "database_collation_version": "2.36",
+    "database_encoding": "UTF8",
+    "database_icu_rules": null,
+    "database_locale": null,
+    "database_locale_provider": "c",
+    "logical_fingerprint_sha256": "f39a4be10a493e9301c6ccf4014802b5de9750e55d72c39d2026a090a6224d82",
+    "migration_checksum": "93268dcc5e1edde8e941ecd39c5315136450a405ed06b164799d405335aff2f5",
+    "migration_version": 7,
+    "readiness_issues": [],
+    "readiness_ready": true,
+    "relations": {
+      "bddk_meta.active_corpus_release": {
+        "heap_bytes": 0,
+        "rows": 1,
+        "total_bytes": 0
+      },
+      "bddk_meta.corpus_generation_relation_inventory": {
+        "heap_bytes": 8192,
+        "rows": 34,
+        "total_bytes": 32768
+      },
+      "bddk_meta.corpus_generation_seals": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 65536
+      },
+      "bddk_meta.corpus_generations": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 65536
+      },
+      "bddk_meta.corpus_release_activations": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "bddk_meta.corpus_release_activations_activation_sequence_seq": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 8192
+      },
+      "bddk_meta.corpus_release_retention_status": {
+        "heap_bytes": 0,
+        "rows": 2,
+        "total_bytes": 0
+      },
+      "bddk_meta.corpus_releases": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "bddk_meta.corpus_retained_releases": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 65536
+      },
+      "bddk_meta.corpus_state_epoch": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 24576
+      },
+      "bddk_meta.legacy_schema_adoptions": {
+        "heap_bytes": 0,
+        "rows": 0,
+        "total_bytes": 16384
+      },
+      "bddk_meta.schema_migrations": {
+        "heap_bytes": 8192,
+        "rows": 7,
+        "total_bytes": 49152
+      },
+      "bddk_operator.operator_jobs": {
+        "heap_bytes": 0,
+        "rows": 0,
+        "total_bytes": 49152
+      },
+      "bddk_retained.decision_cache": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 32768
+      },
+      "bddk_retained.document_chunks": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 65536
+      },
+      "bddk_retained.document_retrieval_publications": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 32768
+      },
+      "bddk_retained.document_sections": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "bddk_retained.document_versions": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "bddk_retained.documents": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 32768
+      },
+      "bddk_retained.regulatory_evidence": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 32768
+      },
+      "bddk_retained.regulatory_family_imports": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 32768
+      },
+      "bddk_retained.regulatory_instruments": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "bddk_retained.regulatory_legal_events": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "bddk_retained.regulatory_legal_status_assertions": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 32768
+      },
+      "bddk_retained.regulatory_legal_version_artifacts": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 32768
+      },
+      "bddk_retained.regulatory_legal_version_provisions": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "bddk_retained.regulatory_legal_versions": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "bddk_retained.regulatory_provisions": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "bddk_retained.regulatory_source_artifacts": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "bddk_retained.regulatory_source_blobs": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "public.decision_cache": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 49152
+      },
+      "public.document_chunks": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 131072
+      },
+      "public.document_retrieval_publications": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 32768
+      },
+      "public.document_sections": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 98304
+      },
+      "public.document_versions": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 65536
+      },
+      "public.documents": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 81920
+      },
+      "public.regulatory_evidence": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 32768
+      },
+      "public.regulatory_family_imports": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 32768
+      },
+      "public.regulatory_instruments": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 49152
+      },
+      "public.regulatory_legal_events": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 65536
+      },
+      "public.regulatory_legal_status_assertions": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 49152
+      },
+      "public.regulatory_legal_version_artifacts": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 32768
+      },
+      "public.regulatory_legal_version_provisions": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 49152
+      },
+      "public.regulatory_legal_versions": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 65536
+      },
+      "public.regulatory_provisions": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 49152
+      },
+      "public.regulatory_source_artifacts": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 49152
+      },
+      "public.regulatory_source_blobs": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 49152
+      },
+      "public.regulatory_validated_section_citations": {
+        "heap_bytes": 0,
+        "rows": 1,
+        "total_bytes": 0
+      },
+      "public.sync_failures": {
+        "heap_bytes": 0,
+        "rows": 0,
+        "total_bytes": 16384
+      },
+      "public.sync_metadata": {
+        "heap_bytes": 0,
+        "rows": 0,
+        "total_bytes": 16384
+      },
+      "public.tool_call_traces": {
+        "heap_bytes": 0,
+        "rows": 0,
+        "total_bytes": 49152
+      }
+    },
+    "wal_lsn": "0/1FE04E0"
+  },
+  "schema_version": 2,
+  "source": {
+    "activation_sequence": {
+      "cache_size": 1,
+      "cycle": false,
+      "identity_generation": "always",
+      "increment_by": 1,
+      "is_called": true,
+      "last_value": 2,
+      "maximum_retained_activation": 2,
+      "maximum_value": 9223372036854775807,
+      "minimum_value": 1,
+      "next_candidate": 3,
+      "owned_by": "bddk_meta.corpus_release_activations.activation_sequence",
+      "sequence_name": "bddk_meta.corpus_release_activations_activation_sequence_seq",
+      "start_value": 1
+    },
+    "active_corpus_release_id": "corpus_release_sha256_ae59abf8fd7787fffb6e538c20e778651758cc6846ff0adaa7b404a847ff182f",
+    "catalog_failures": [],
+    "catalog_valid": true,
+    "database_bytes": 11564723,
+    "database_character_classification": "en_US.utf8",
+    "database_collation": "en_US.utf8",
+    "database_collation_actual_version": "2.36",
+    "database_collation_version": "2.36",
+    "database_encoding": "UTF8",
+    "database_icu_rules": null,
+    "database_locale": null,
+    "database_locale_provider": "c",
+    "logical_fingerprint_sha256": "f39a4be10a493e9301c6ccf4014802b5de9750e55d72c39d2026a090a6224d82",
+    "migration_checksum": "93268dcc5e1edde8e941ecd39c5315136450a405ed06b164799d405335aff2f5",
+    "migration_version": 7,
+    "readiness_issues": [],
+    "readiness_ready": true,
+    "relations": {
+      "bddk_meta.active_corpus_release": {
+        "heap_bytes": 0,
+        "rows": 1,
+        "total_bytes": 0
+      },
+      "bddk_meta.corpus_generation_relation_inventory": {
+        "heap_bytes": 8192,
+        "rows": 34,
+        "total_bytes": 32768
+      },
+      "bddk_meta.corpus_generation_seals": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 65536
+      },
+      "bddk_meta.corpus_generations": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 65536
+      },
+      "bddk_meta.corpus_release_activations": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "bddk_meta.corpus_release_activations_activation_sequence_seq": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 8192
+      },
+      "bddk_meta.corpus_release_retention_status": {
+        "heap_bytes": 0,
+        "rows": 2,
+        "total_bytes": 0
+      },
+      "bddk_meta.corpus_releases": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "bddk_meta.corpus_retained_releases": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 65536
+      },
+      "bddk_meta.corpus_state_epoch": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 24576
+      },
+      "bddk_meta.legacy_schema_adoptions": {
+        "heap_bytes": 0,
+        "rows": 0,
+        "total_bytes": 16384
+      },
+      "bddk_meta.schema_migrations": {
+        "heap_bytes": 8192,
+        "rows": 7,
+        "total_bytes": 49152
+      },
+      "bddk_operator.operator_jobs": {
+        "heap_bytes": 0,
+        "rows": 0,
+        "total_bytes": 49152
+      },
+      "bddk_retained.decision_cache": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 32768
+      },
+      "bddk_retained.document_chunks": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 65536
+      },
+      "bddk_retained.document_retrieval_publications": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 32768
+      },
+      "bddk_retained.document_sections": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "bddk_retained.document_versions": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "bddk_retained.documents": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 32768
+      },
+      "bddk_retained.regulatory_evidence": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 32768
+      },
+      "bddk_retained.regulatory_family_imports": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 32768
+      },
+      "bddk_retained.regulatory_instruments": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "bddk_retained.regulatory_legal_events": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "bddk_retained.regulatory_legal_status_assertions": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 32768
+      },
+      "bddk_retained.regulatory_legal_version_artifacts": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 32768
+      },
+      "bddk_retained.regulatory_legal_version_provisions": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "bddk_retained.regulatory_legal_versions": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "bddk_retained.regulatory_provisions": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "bddk_retained.regulatory_source_artifacts": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "bddk_retained.regulatory_source_blobs": {
+        "heap_bytes": 8192,
+        "rows": 2,
+        "total_bytes": 49152
+      },
+      "public.decision_cache": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 49152
+      },
+      "public.document_chunks": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 139264
+      },
+      "public.document_retrieval_publications": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 32768
+      },
+      "public.document_sections": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 106496
+      },
+      "public.document_versions": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 65536
+      },
+      "public.documents": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 90112
+      },
+      "public.regulatory_evidence": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 32768
+      },
+      "public.regulatory_family_imports": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 32768
+      },
+      "public.regulatory_instruments": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 49152
+      },
+      "public.regulatory_legal_events": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 65536
+      },
+      "public.regulatory_legal_status_assertions": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 49152
+      },
+      "public.regulatory_legal_version_artifacts": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 32768
+      },
+      "public.regulatory_legal_version_provisions": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 49152
+      },
+      "public.regulatory_legal_versions": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 65536
+      },
+      "public.regulatory_provisions": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 49152
+      },
+      "public.regulatory_source_artifacts": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 49152
+      },
+      "public.regulatory_source_blobs": {
+        "heap_bytes": 8192,
+        "rows": 1,
+        "total_bytes": 49152
+      },
+      "public.regulatory_validated_section_citations": {
+        "heap_bytes": 0,
+        "rows": 1,
+        "total_bytes": 0
+      },
+      "public.sync_failures": {
+        "heap_bytes": 0,
+        "rows": 0,
+        "total_bytes": 16384
+      },
+      "public.sync_metadata": {
+        "heap_bytes": 0,
+        "rows": 0,
+        "total_bytes": 16384
+      },
+      "public.tool_call_traces": {
+        "heap_bytes": 0,
+        "rows": 0,
+        "total_bytes": 49152
+      }
+    },
+    "wal_lsn": "0/1CD4A48"
+  },
+  "started_at_epoch": 1784176515,
+  "status": "passed",
+  "target_fingerprint_sha256": "57d3d691e3e87dfcc4a3aa9e783fab0d936e29b023034696a16efad1a35f8a01",
+  "wal_generated_bytes": 0,
+  "workflow": "logical_backup_restore_drill"
+}

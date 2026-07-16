@@ -36,7 +36,24 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--phase", type=int, choices=[1, 2, 3], help="Run specific phase only")
     parser.add_argument("--model", type=str, help="Run single model (by name)")
     parser.add_argument("--diagnose", action="store_true", help="Print diagnosis from last results")
-    parser.add_argument("--mcp-url", default="http://localhost:8000", help="MCP server URL for Phase 2")
+    parser.add_argument(
+        "--mcp-transport",
+        choices=("streamable-http", "stdio"),
+        default="streamable-http",
+        help="Official MCP transport used by Phase 2/3",
+    )
+    parser.add_argument(
+        "--mcp-url",
+        default="http://127.0.0.1:8000/mcp",
+        help="Streamable HTTP MCP endpoint for Phase 2/3",
+    )
+    parser.add_argument("--mcp-command", default="bddk-mcp", help="stdio MCP executable")
+    parser.add_argument(
+        "--mcp-arg",
+        action="append",
+        dest="mcp_args",
+        help="Repeatable stdio MCP process argument",
+    )
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose logging")
     return parser.parse_args()
 
@@ -76,7 +93,14 @@ async def _main() -> None:
     )
 
     models = _get_models(args.model)
-    all_results: dict = {}
+    all_results: dict = {
+        "evaluation_evidence": {
+            "classification": "exploratory_not_release_evidence",
+            "release_preflight_status": "not_executed",
+            "reason": "expert_dataset_execution_not_implemented",
+            "model_scores_authorized": False,
+        }
+    }
 
     # Phase 1
     if args.phase is None or args.phase == 1:
@@ -111,7 +135,13 @@ async def _main() -> None:
 
             if args.phase == 2 or _passes_phase1(all_results, name):
                 print(f"  {name}: running Phase 2...")
-                all_results["phase2"][name] = await run_phase2(tag, args.mcp_url)
+                all_results["phase2"][name] = await run_phase2(
+                    tag,
+                    args.mcp_url,
+                    transport=args.mcp_transport,
+                    stdio_command=args.mcp_command,
+                    stdio_args=args.mcp_args or ("serve", "--profile", "public", "--transport", "stdio"),
+                )
             else:
                 print(f"  {name}: SKIPPED (below Phase 1 thresholds)")
 
@@ -124,7 +154,14 @@ async def _main() -> None:
             name = model["name"]
             tag = model["model_id"]
             print(f"  {name}: testing prompt fixes...")
-            all_results["phase3"][name] = await run_phase3(tag, all_results, args.mcp_url)
+            all_results["phase3"][name] = await run_phase3(
+                tag,
+                all_results,
+                args.mcp_url,
+                transport=args.mcp_transport,
+                stdio_command=args.mcp_command,
+                stdio_args=args.mcp_args or ("serve", "--profile", "public", "--transport", "stdio"),
+            )
 
     # Reports
     print("\n" + console_report(all_results))

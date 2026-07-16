@@ -1,0 +1,97 @@
+# Structural template only. Replace its selectors/CIDRs together with the
+# matching declarations in acceptance.example.yaml. Never use a whole-Internet
+# CIDR. OpenShift NetworkPolicy cannot authorize DNS names; enforce exact
+# BDDK/Mevzuat/IdP names at the approved proxy or firewall as well.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: bddk-mcp-public-required-egress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: bddk-mcp
+      app.kubernetes.io/component: public
+  policyTypes: [Egress]
+  egress:
+    - to: &dns_to
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: REPLACE_DNS_NAMESPACE
+          podSelector:
+            matchLabels:
+              REPLACE_DNS_POD_LABEL_KEY: REPLACE_DNS_POD_LABEL_VALUE
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    - to: &postgres_to
+        - ipBlock: {cidr: REPLACE_POSTGRES_CIDR}
+      ports:
+        - {protocol: TCP, port: 5432}
+    - to: &idp_to
+        - ipBlock: {cidr: REPLACE_IDP_OR_PROXY_CIDR}
+      ports:
+        - {protocol: TCP, port: 443}
+    - to:
+        - ipBlock: {cidr: REPLACE_REGULATORY_PROXY_CIDR}
+      ports:
+        - {protocol: TCP, port: 443}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: bddk-mcp-operator-required-egress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: bddk-mcp
+      app.kubernetes.io/component: operator
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: REPLACE_DNS_NAMESPACE
+          podSelector:
+            matchLabels:
+              REPLACE_DNS_POD_LABEL_KEY: REPLACE_DNS_POD_LABEL_VALUE
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    - to:
+        - ipBlock: {cidr: REPLACE_POSTGRES_CIDR}
+      ports:
+        - {protocol: TCP, port: 5432}
+    - to:
+        - ipBlock: {cidr: REPLACE_IDP_OR_PROXY_CIDR}
+      ports:
+        - {protocol: TCP, port: 443}
+    - to:
+        - ipBlock: {cidr: REPLACE_REGULATORY_PROXY_CIDR}
+      ports:
+        - {protocol: TCP, port: 443}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: bddk-mcp-lifecycle-required-egress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: bddk-mcp
+      app.kubernetes.io/component: lifecycle
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: REPLACE_DNS_NAMESPACE
+          podSelector:
+            matchLabels:
+              REPLACE_DNS_POD_LABEL_KEY: REPLACE_DNS_POD_LABEL_VALUE
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    - to:
+        - ipBlock: {cidr: REPLACE_POSTGRES_CIDR}
+      ports:
+        - {protocol: TCP, port: 5432}

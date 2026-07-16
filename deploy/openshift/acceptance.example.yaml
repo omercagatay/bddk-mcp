@@ -1,0 +1,128 @@
+# Secret-free offline preflight input. Copy this file outside version control,
+# replace every REPLACE_* value, and keep credentials, tokens, DSNs, private
+# keys, and certificate material out of it. Paths are relative to this file.
+schema_version: 1
+release:
+  version: 5.0.1
+  image: REPLACE_IMAGE_REGISTRY/bddk-mcp@sha256:REPLACE_64_HEX_IMAGE_DIGEST
+  previous_image: REPLACE_PREVIOUS_IMAGE_REGISTRY/bddk-mcp@sha256:REPLACE_PREVIOUS_64_HEX_IMAGE_DIGEST
+  manifest_revision: REPLACE_FULL_GIT_OR_CONTENT_DIGEST
+  release_request_id: REPLACE_STAGED_RELEASE_REQUEST_ID
+  kustomize_binary_sha256: REPLACE_64_HEX_KUSTOMIZE_BINARY_SHA256
+platform:
+  namespace: REPLACE_NAMESPACE
+  public_route_host: REPLACE_PUBLIC_ROUTE_HOST
+  operator_service_host: REPLACE_OPERATOR_SERVICE_HOST
+  operator_client_origin: https://REPLACE_OPERATOR_CLIENT_ORIGIN
+  database_name: REPLACE_DATABASE_NAME
+jwt:
+  issuer: https://REPLACE_BANK_IDP_ISSUER
+  jwks_url: https://REPLACE_BANK_IDP_JWKS
+  public_audience: REPLACE_PUBLIC_AUDIENCE
+  operator_audience: REPLACE_OPERATOR_AUDIENCE
+  public_required_scopes: [bddk.read]
+  operator_required_scopes: [bddk.operator]
+  # These are the only claim names currently understood by the verifier.
+  scope_claims: [scope, scp]
+  algorithms: [RS256]
+  access_token_types: [at+jwt]
+egress_policy_files:
+  - acceptance-egress.example.yaml
+required_egress:
+  - &public_dns_udp
+    id: public-dns-udp
+    policy: bddk-mcp-public-required-egress
+    component: public
+    purpose: dns
+    protocol: UDP
+    port: 53
+    peer: &dns_peer
+      namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: REPLACE_DNS_NAMESPACE
+      podSelector:
+        matchLabels:
+          REPLACE_DNS_POD_LABEL_KEY: REPLACE_DNS_POD_LABEL_VALUE
+  - <<: *public_dns_udp
+    id: public-dns-tcp
+    protocol: TCP
+  - id: public-postgresql
+    policy: bddk-mcp-public-required-egress
+    component: public
+    purpose: postgresql
+    protocol: TCP
+    port: 5432
+    peer: &postgres_peer
+      ipBlock:
+        cidr: REPLACE_POSTGRES_CIDR
+  - id: public-idp
+    policy: bddk-mcp-public-required-egress
+    component: public
+    purpose: idp_jwks
+    protocol: TCP
+    port: 443
+    peer: &idp_peer
+      ipBlock:
+        cidr: REPLACE_IDP_OR_PROXY_CIDR
+  - id: public-regulatory-source
+    policy: bddk-mcp-public-required-egress
+    component: public
+    purpose: regulatory_source
+    protocol: TCP
+    port: 443
+    peer: &regulatory_proxy_peer
+      ipBlock:
+        cidr: REPLACE_REGULATORY_PROXY_CIDR
+  - <<: *public_dns_udp
+    id: operator-dns-udp
+    policy: bddk-mcp-operator-required-egress
+    component: operator
+  - <<: *public_dns_udp
+    id: operator-dns-tcp
+    policy: bddk-mcp-operator-required-egress
+    component: operator
+    protocol: TCP
+  - id: operator-postgresql
+    policy: bddk-mcp-operator-required-egress
+    component: operator
+    purpose: postgresql
+    protocol: TCP
+    port: 5432
+    peer: *postgres_peer
+  - id: operator-idp
+    policy: bddk-mcp-operator-required-egress
+    component: operator
+    purpose: idp_jwks
+    protocol: TCP
+    port: 443
+    peer: *idp_peer
+  - id: operator-regulatory-source
+    policy: bddk-mcp-operator-required-egress
+    component: operator
+    purpose: regulatory_source
+    protocol: TCP
+    port: 443
+    peer: *regulatory_proxy_peer
+  - <<: *public_dns_udp
+    id: lifecycle-dns-udp
+    policy: bddk-mcp-lifecycle-required-egress
+    component: lifecycle
+  - <<: *public_dns_udp
+    id: lifecycle-dns-tcp
+    policy: bddk-mcp-lifecycle-required-egress
+    component: lifecycle
+    protocol: TCP
+  - id: lifecycle-postgresql
+    policy: bddk-mcp-lifecycle-required-egress
+    component: lifecycle
+    purpose: postgresql
+    protocol: TCP
+    port: 5432
+    peer: *postgres_peer
+rollback:
+  # Opaque record identifier only; do not put a backup URL or credential here.
+  backup_evidence_id: REPLACE_OPAQUE_BACKUP_EVIDENCE_ID
+  restore_drill_evidence_sha256: REPLACE_RESTORE_DRILL_EVIDENCE_SHA256
+  runbook_revision: REPLACE_FULL_RUNBOOK_GIT_OR_CONTENT_DIGEST
+  database_strategy: restore
+  maximum_recovery_minutes: 120

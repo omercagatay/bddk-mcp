@@ -14,7 +14,11 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from bddk_mcp.core.config import require_database_url  # noqa: E402
-from bddk_mcp.quality.markdown_quality import assess_markdown_quality  # noqa: E402
+from bddk_mcp.quality.markdown_quality import (  # noqa: E402
+    QUALITY_FAILURES_PATH,
+    assess_markdown_quality,
+    load_quality_failure_registry,
+)
 from bddk_mcp.quality.quality_scan import (  # noqa: E402
     DocumentFinding,
     MethodBreakdown,
@@ -27,27 +31,15 @@ from bddk_mcp.quality.quality_scan import (  # noqa: E402
 
 
 def load_quality_failures(path: Path) -> list[dict[str, str]]:
-    """Load the small project-local config/quality_failures.yml without a YAML dependency."""
-    if not path.exists():
-        return []
-
-    items: list[dict[str, str]] = []
-    current: dict[str, str] | None = None
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or line == "fail_documents:":
-            continue
-        if line.startswith("- "):
-            if current:
-                items.append(current)
-            current = {}
-            line = line[2:].strip()
-        if ":" in line and current is not None:
-            key, value = line.split(":", 1)
-            current[key.strip()] = value.strip().strip("\"'")
-    if current:
-        items.append(current)
-    return items
+    """Load a validated quality-failure registry for CLI reporting."""
+    return [
+        {
+            "document_id": failure.document_id,
+            "reason": failure.reason,
+            "preferred_backfill": failure.preferred_backfill,
+        }
+        for failure in load_quality_failure_registry(path).values()
+    ]
 
 
 def scan_markdown_dir(md_dir: Path, manifest: Path | None = None) -> QualityReport:
@@ -156,7 +148,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--out-dir", type=Path, required=True, help="Directory for quality report outputs")
     parser.add_argument("--allow-failures", action="store_true", help="Exit zero even when fail-labeled docs exist")
     parser.add_argument("--fail-on", default="", help="Comma-separated quality flags that should force non-zero exit")
-    parser.add_argument("--quality-failures", type=Path, default=ROOT / "config" / "quality_failures.yml")
+    parser.add_argument("--quality-failures", type=Path, default=QUALITY_FAILURES_PATH)
     return parser
 
 

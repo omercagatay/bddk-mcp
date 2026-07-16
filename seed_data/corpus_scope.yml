@@ -1,0 +1,51 @@
+schema_version: 1
+manifest_id: bddk-job-corpus-2026-07-15
+selection_owner: project_owner
+purpose: >-
+  Reviewed job-specific corpus for Turkish banking-regulation research,
+  compliance, internal-audit, retrieval, and model/tool-calling evaluation.
+  This selection is intentionally narrower than the complete BDDK corpus.
+exhaustive: false
+included_source_classes:
+  - Selected public BDDK regulations, communiques, circulars, guides, decisions, and drafts
+  - Selected public Turkish banking-law texts linked from official regulatory sources
+excluded_source_classes:
+  - Exhaustive historical BDDK and Official Gazette coverage
+  - Bank-internal policies, controls, workpapers, findings, and supervisory correspondence
+  - Unselected case law, secondary commentary, and non-banking legislation
+known_gaps:
+  - Legal publication, effective, amendment, repeal, supersession, and consolidation status is not authoritatively modeled
+  - Page, table, image, annex, and formula fidelity is not uniformly audit-grade
+  - Corpus freshness expectation is immediate but has no numeric detection or publication SLO
+  - Selection completeness has not been independently reconciled against an authoritative full-source inventory
+freshness:
+  source_observed_start: "2026-04-08T16:50:25.439181Z"
+  source_observed_end: "2026-04-21T16:04:00.957507Z"
+  corpus_built_at: "2026-05-12T10:18:42.094284Z"
+  scope_reviewed_at: "2026-07-15T00:00:00+03:00"
+  business_expectation: immediate
+  source_detection_slo_seconds: null
+  publication_slo_seconds: null
+  max_manifest_age_seconds: null
+artifacts:
+  - role: documents
+    path: documents.json
+    sha256: 5ee7fcb3ec8163d2f20d980466722986dcf105aaf305f8111e71e5325fbeb8d3
+    bytes: 8769689
+    records: 318
+  - role: chunks
+    path: chunks.json
+    sha256: 1ce6c0b9be3f827a0249d9fef328a003bb07098873e56578098d0a09055b3307
+    bytes: 15454535
+    records: 8286
+  - role: decision_cache
+    path: decision_cache.json
+    sha256: 9e5677b1a2ffc9fe9d5ed122a90171c896e5f14ee83d958b724e1d2b8b8fd894
+    bytes: 153040
+    records: 318
+integrity:
+  manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
+  signature_status: not_configured
+  signature_algorithm: null
+  signature_reference: null
+  signature_public_key_sha256: null

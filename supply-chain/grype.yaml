@@ -1,0 +1,10 @@
+check-for-app-update: false
+only-fixed: false
+only-notfixed: false
+show-suppressed: true
+ignore: []
+db:
+  auto-update: false
+  validate-by-hash-on-start: true
+  validate-age: true
+  max-allowed-built-age: 72h

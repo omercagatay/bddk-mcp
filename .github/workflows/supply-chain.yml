@@ -1,0 +1,398 @@
+name: Supply chain evidence
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      evaluate_release_policy:
+        description: Enforce release eligibility against the generated evidence
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supply-chain-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.11.14"
+  PYTHON_VERSION: "3.12"
+  BUILDKIT_IMAGE: moby/buildkit:v0.31.1@sha256:6b59b7df63a8cb9902736f9ddf7fcff8261613d3e7449b8ea8b7537fc399c03a
+  SYFT_CHECK_FOR_APP_UPDATE: "false"
+  GRYPE_CHECK_FOR_APP_UPDATE: "false"
+  GRYPE_DB_AUTO_UPDATE: "false"
+
+jobs:
+  evidence-integrity:
+    name: evidence-integrity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Check out the complete history for secret scanning
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install pinned Python build tooling
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Validate the fail-closed policy implementation
+        run: |
+          uv sync --frozen --dev --python "${PYTHON_VERSION}"
+          uv run pytest tests/test_supply_chain.py --strict-markers -v --tb=short
+
+      - name: Install checksum-verified scanners and builder
+        run: |
+          python scripts/install_supply_chain_tools.py \
+            --manifest supply-chain/tools.json \
+            --destination "$RUNNER_TEMP/supply-chain-tools"
+          mkdir -p "$HOME/.docker/cli-plugins"
+          cp "$RUNNER_TEMP/supply-chain-tools/docker-buildx" "$HOME/.docker/cli-plugins/docker-buildx"
+          chmod 0755 "$HOME/.docker/cli-plugins/docker-buildx"
+          echo "$RUNNER_TEMP/supply-chain-tools" >> "$GITHUB_PATH"
+
+      - name: Start the digest-pinned BuildKit builder
+        run: |
+          docker buildx version | grep -F "v0.35.0"
+          docker buildx create \
+            --name bddk-supply-chain \
+            --driver docker-container \
+            --driver-opt "image=${BUILDKIT_IMAGE}" \
+            --use
+          docker buildx inspect --bootstrap
+
+      - name: Record the deterministic build epoch
+        run: |
+          source_date_epoch="$(git show -s --format=%ct "${GITHUB_SHA}")"
+          test -n "$source_date_epoch"
+          echo "SOURCE_DATE_EPOCH=$source_date_epoch" >> "$GITHUB_ENV"
+
+      - name: Scan the complete Git history for secrets
+        run: |
+          mkdir -p artifacts/secrets
+          set +e
+          gitleaks git \
+            --redact \
+            --report-format json \
+            --report-path artifacts/secrets/gitleaks.json \
+            --exit-code 10 \
+            --log-opts="--all" \
+            .
+          status=$?
+          set -e
+          if [[ "$status" -ne 0 && "$status" -ne 10 ]]; then
+            exit "$status"
+          fi
+
+      - name: Build wheel and sdist twice and require byte-for-byte identity
+        run: |
+          mkdir -p artifacts/python "$RUNNER_TEMP/python-rebuild"
+          SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" uv build --out-dir artifacts/python
+          SOURCE_DATE_EPOCH="$SOURCE_DATE_EPOCH" uv build --out-dir "$RUNNER_TEMP/python-rebuild"
+          uv run python scripts/supply_chain_evidence.py normalize-sdist \
+            --input artifacts/python/*.tar.gz \
+            --source-date-epoch "$SOURCE_DATE_EPOCH" \
+            --output artifacts/python-sdist-normalization.json
+          uv run python scripts/supply_chain_evidence.py normalize-sdist \
+            --input "$RUNNER_TEMP"/python-rebuild/*.tar.gz \
+            --source-date-epoch "$SOURCE_DATE_EPOCH" \
+            --output "$RUNNER_TEMP/python-sdist-normalization.json"
+          uv run python scripts/verify_distribution.py artifacts/python
+          uv run python scripts/supply_chain_evidence.py compare-distributions \
+            --first artifacts/python \
+            --second "$RUNNER_TEMP/python-rebuild" \
+            --output artifacts/python-reproducibility.json
+          rm -f artifacts/python/.gitignore
+
+      - name: Generate Python artifact SBOMs and provenance
+        env:
+          SOURCE_URI: https://github.com/${{ github.repository }}
+          BUILDER_ID: https://github.com/${{ github.repository }}/.github/workflows/supply-chain.yml
+          BUILD_TYPE: https://github.com/${{ github.repository }}/.github/workflows/supply-chain.yml#python-v1
+        run: |
+          for artifact in artifacts/python/*.whl artifacts/python/*.tar.gz; do
+            test -f "$artifact"
+            artifact_name="$(basename "$artifact")"
+            if [[ "$artifact" == *.whl ]]; then
+              artifact_kind=python-wheel
+            else
+              artifact_kind=python-sdist
+            fi
+            raw_sbom="$RUNNER_TEMP/${artifact_name}.raw.cdx.json"
+            sbom="artifacts/python/${artifact_name}.cdx.json"
+            if [[ "$artifact" == *.whl ]]; then
+              wheel_root="$RUNNER_TEMP/wheel-${artifact_name}"
+              uv run python scripts/supply_chain_evidence.py extract-wheel \
+                --input "$artifact" \
+                --destination "$wheel_root" \
+                --output "artifacts/python/${artifact_name}.extraction.json"
+              syft "dir:${wheel_root}" \
+                --override-default-catalogers python-installed-package-cataloger \
+                --select-catalogers=-file \
+                --source-name "$artifact_name" \
+                --output "cyclonedx-json=${raw_sbom}"
+            else
+              syft "file:${artifact}" \
+                --select-catalogers=-file \
+                --source-name "$artifact_name" \
+                --output "cyclonedx-json=${raw_sbom}"
+            fi
+            uv run python scripts/supply_chain_evidence.py canonicalize-sbom \
+              --input "$raw_sbom" \
+              --output "$sbom" \
+              --subject-name "python/${artifact_name}" \
+              --subject-type file \
+              --subject-file "$artifact" \
+              --source-date-epoch "$SOURCE_DATE_EPOCH"
+            uv run python scripts/supply_chain_evidence.py provenance \
+              --subject-name "python/${artifact_name}" \
+              --subject-kind "$artifact_kind" \
+              --subject-file "$artifact" \
+              --source-uri "$SOURCE_URI" \
+              --source-commit "$GITHUB_SHA" \
+              --builder-id "$BUILDER_ID" \
+              --build-type "$BUILD_TYPE" \
+              --material pyproject.toml=pyproject.toml \
+              --material uv.lock=uv.lock \
+              --output "artifacts/python/${artifact_name}.provenance.json"
+          done
+
+      - name: Build, attest, and release each container recipe
+        env:
+          BUILDX_METADATA_WARNINGS: "true"
+          SOURCE_URI: https://github.com/${{ github.repository }}
+          BUILDER_ID: https://github.com/${{ github.repository }}/.github/workflows/supply-chain.yml
+          BUILD_TYPE: https://github.com/${{ github.repository }}/.github/workflows/supply-chain.yml#container-v1
+        run: |
+          mkdir -p artifacts/containers
+          uv run python scripts/supply_chain_evidence.py verify-model-materials \
+            --manifest supply-chain/model-assets.json \
+            --runtime-config bddk_mcp/core/config.py \
+            --dockerfile Dockerfile \
+            --dockerfile Dockerfile.spaces \
+            --output artifacts/model-material-consistency.json
+          for variant in standard spaces; do
+            if [[ "$variant" == standard ]]; then
+              dockerfile=Dockerfile
+            else
+              dockerfile=Dockerfile.spaces
+            fi
+            raw_sbom="$RUNNER_TEMP/${variant}.raw.cdx.json"
+            local_reference="bddk-mcp-${variant}:ci-${GITHUB_SHA}"
+            image_inspect="$RUNNER_TEMP/${variant}.image-inspect.json"
+
+            cleanup_image() {
+              if docker image inspect "$local_reference" >/dev/null 2>&1; then
+                docker image rm --force "$local_reference"
+              fi
+            }
+            trap cleanup_image EXIT
+
+            df -h /
+            docker system df
+            docker buildx build \
+              --builder bddk-supply-chain \
+              --file "$dockerfile" \
+              --tag "$local_reference" \
+              --platform linux/amd64 \
+              --build-arg "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" \
+              --provenance=false \
+              --load \
+              --metadata-file "artifacts/containers/${variant}.buildx.json" \
+              .
+            docker image inspect "$local_reference" > "$image_inspect"
+            image_id="$(docker image inspect --format '{{.Id}}' "$local_reference")"
+            test -n "$image_id"
+            syft "docker:${image_id}" --output "cyclonedx-json=${raw_sbom}"
+            uv run python scripts/supply_chain_evidence.py container-evidence \
+              --buildx-metadata "artifacts/containers/${variant}.buildx.json" \
+              --raw-sbom "$raw_sbom" \
+              --image-inspect "$image_inspect" \
+              --expected-local-reference "$local_reference" \
+              --output-sbom "artifacts/containers/${variant}.cdx.json" \
+              --output-provenance "artifacts/containers/${variant}.provenance.json" \
+              --output-identity "artifacts/containers/${variant}.identity.json" \
+              --subject-name "bddk-mcp-${variant}" \
+              --source-uri "$SOURCE_URI" \
+              --source-commit "$GITHUB_SHA" \
+              --builder-id "$BUILDER_ID" \
+              --build-type "$BUILD_TYPE" \
+              --source-date-epoch "$SOURCE_DATE_EPOCH" \
+              --material "${variant}.dockerfile=${dockerfile}" \
+              --material pyproject.toml=pyproject.toml \
+              --material uv.lock=uv.lock \
+              --material embedding-runtime-config=bddk_mcp/core/config.py \
+              --material embedding-model-manifest=supply-chain/model-assets.json \
+              --external-material-manifest supply-chain/model-assets.json
+
+            cleanup_image
+            trap - EXIT
+            rm -f "$raw_sbom" "$image_inspect"
+            docker buildx prune --builder bddk-supply-chain --all --force
+          done
+
+      - name: Update the current vulnerability database
+        run: grype db update
+
+      - name: Scan every SBOM without suppressing unfixed findings
+        run: |
+          for sbom in artifacts/python/*.cdx.json artifacts/containers/*.cdx.json; do
+            test -f "$sbom"
+            report="${sbom%.cdx.json}.grype.json"
+            grype --config supply-chain/grype.yaml "sbom:${sbom}" --output json --file "$report"
+          done
+
+      - name: Evaluate evidence integrity and record vulnerability findings
+        run: |
+          grype_args=()
+          for report in artifacts/python/*.grype.json artifacts/containers/*.grype.json; do
+            test -f "$report"
+            grype_args+=(--grype-report "$report")
+          done
+          evaluation_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          uv run python scripts/supply_chain_evidence.py evaluate-policy \
+            --policy supply-chain/policy.json \
+            "${grype_args[@]}" \
+            --gitleaks-report artifacts/secrets/gitleaks.json \
+            --evaluation-time "$evaluation_time" \
+            --target-material standard.grype.json=Dockerfile \
+            --target-material spaces.grype.json=Dockerfile.spaces \
+            --output artifacts/integrity-policy-result.json
+
+      - name: Record tool versions and hash the complete evidence set
+        if: always()
+        run: |
+          {
+            docker buildx version
+            syft version
+            grype version
+            gitleaks version
+            uv --version
+          } > artifacts/tool-versions.txt
+          cp supply-chain/policy.json artifacts/policy.json
+          cp supply-chain/grype.yaml artifacts/grype.yaml
+          cp supply-chain/tools.json artifacts/tools.json
+          cp supply-chain/model-assets.json artifacts/model-assets.json
+          uv run python scripts/supply_chain_evidence.py manifest \
+            --root artifacts \
+            --output artifacts/evidence-manifest.json
+
+      - name: Upload review evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bddk-supply-chain-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove the ephemeral builder
+        if: always()
+        run: docker buildx rm bddk-supply-chain
+
+  release-policy:
+    name: release-eligibility
+    needs: evidence-integrity
+    if: >-
+      ${{ always() &&
+          ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+           (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' &&
+            inputs.evaluate_release_policy == true)) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Require successful evidence integrity from this workflow run
+        env:
+          EVIDENCE_INTEGRITY_RESULT: ${{ needs.evidence-integrity.result }}
+        run: test "$EVIDENCE_INTEGRITY_RESULT" = success
+
+      - name: Check out the policy implementation for this commit
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Require a trusted main-line release source
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            test "$GITHUB_REF_TYPE" = tag
+            [[ "$GITHUB_REF" == refs/tags/v* ]]
+            git show-ref --verify --quiet refs/remotes/origin/main
+            git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main
+          else
+            test "$GITHUB_EVENT_NAME" = workflow_dispatch
+            test "$GITHUB_REF" = refs/heads/main
+          fi
+
+      - name: Download the evidence produced by this workflow run
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: bddk-supply-chain-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts
+
+      - name: Verify the exact downloaded evidence manifest
+        run: |
+          python3 scripts/supply_chain_evidence.py verify-manifest \
+            --root artifacts \
+            --manifest artifacts/evidence-manifest.json
+          cmp artifacts/policy.json supply-chain/policy.json
+
+      - name: Enforce release vulnerability and secret policy
+        run: |
+          grype_args=()
+          for report in artifacts/python/*.grype.json artifacts/containers/*.grype.json; do
+            test -f "$report"
+            grype_args+=(--grype-report "$report")
+          done
+          evaluation_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          python3 scripts/supply_chain_evidence.py enforce-policy \
+            --policy supply-chain/policy.json \
+            "${grype_args[@]}" \
+            --gitleaks-report artifacts/secrets/gitleaks.json \
+            --evaluation-time "$evaluation_time" \
+            --target-material standard.grype.json=Dockerfile \
+            --target-material spaces.grype.json=Dockerfile.spaces \
+            --output artifacts/release-policy-result.json
+
+      - name: Reject pending external approvals
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          result = json.loads(Path("artifacts/release-policy-result.json").read_text(encoding="utf-8"))
+          if result.get("external_approval_required") is not False:
+              raise SystemExit(
+                  "release eligibility failed: pending exceptions require authenticated external bank approval"
+              )
+          PY
+
+      - name: Summarize the repository-only release decision
+        if: always()
+        run: |
+          {
+            echo "## Repository release-policy precondition"
+            echo
+            echo "This job evaluates repository evidence only. It does not sign, admit, or promote an image and is not bank approval."
+            echo
+            echo "The bank-controlled promotion gate must independently authenticate approvals and verify the exact promoted digest."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the repository release-policy decision
+        if: ${{ always() && hashFiles('artifacts/release-policy-result.json') != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bddk-release-policy-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/release-policy-result.json
+          if-no-files-found: error
+          retention-days: 30

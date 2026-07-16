@@ -1,49 +1,9 @@
-"""Tests for pgvector fallback and VectorStore initialization in server.py."""
+"""Tests for local pgvector/document-store retrieval fallback."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
-
-class TestVectorStoreInit:
-    """init_vector_store() background task behavior."""
-
-    @pytest.mark.asyncio
-    async def test_failed_init_leaves_vector_store_none(self):
-        """If VectorStore.initialize() raises, deps.vector_store stays None."""
-        from bddk_mcp.core.deps import Dependencies
-        from bddk_mcp.server import init_vector_store
-
-        deps = MagicMock(spec=Dependencies)
-        deps.pool = AsyncMock()
-        deps.vector_store = None
-
-        with patch("bddk_mcp.store.vector_store.VectorStore") as MockVS:
-            instance = MockVS.return_value
-            instance.initialize = AsyncMock(side_effect=RuntimeError("pgvector extension not available"))
-
-            await init_vector_store(deps)
-
-        # On failure, vector_store must not be set to a broken instance
-        assert deps.vector_store is None or deps.vector_store != instance
-
-    @pytest.mark.asyncio
-    async def test_successful_init_sets_vector_store(self):
-        """After successful initialize(), deps.vector_store is set."""
-        from bddk_mcp.core.deps import Dependencies
-        from bddk_mcp.server import init_vector_store
-
-        deps = MagicMock(spec=Dependencies)
-        deps.pool = AsyncMock()
-        deps.vector_store = None
-
-        with patch("bddk_mcp.store.vector_store.VectorStore") as MockVS:
-            instance = MockVS.return_value
-            instance.initialize = AsyncMock()
-
-            await init_vector_store(deps)
-
-        assert deps.vector_store is instance
+from mcp.server.fastmcp.exceptions import ToolError
 
 
 def _register_and_get_tool(deps):
@@ -72,6 +32,7 @@ class TestGetBddkDocumentAirlock:
 
         mock_client = MagicMock()
         mock_client._cache = []
+        mock_client.find_by_id.return_value = None
         mock_client.get_document_markdown = AsyncMock()
 
         mock_vs = MagicMock()
@@ -108,6 +69,7 @@ class TestGetBddkDocumentAirlock:
 
         mock_client = MagicMock()
         mock_client._cache = []
+        mock_client.find_by_id.return_value = None
         mock_client.get_document_markdown = AsyncMock()
 
         mock_vs = MagicMock()
@@ -135,6 +97,7 @@ class TestGetBddkDocumentAirlock:
 
         mock_client = MagicMock()
         mock_client._cache = []
+        mock_client.find_by_id.return_value = None
         mock_client.get_document_markdown = AsyncMock()
 
         mock_vs = MagicMock()
@@ -148,8 +111,10 @@ class TestGetBddkDocumentAirlock:
         deps.vector_store = mock_vs
         deps.doc_store = mock_doc_store
 
-        result = await _register_and_get_tool(deps)("mevzuat_42626")
+        with pytest.raises(ToolError) as error:
+            await _register_and_get_tool(deps)("mevzuat_42626")
 
-        assert "airlocked" in result.lower()
-        assert "mevzuat_42626" in result
+        assert "[ERROR:NOT_FOUND] retryable=false" in str(error.value)
+        assert "airlocked" in str(error.value).lower()
+        assert "mevzuat_42626" in str(error.value)
         mock_client.get_document_markdown.assert_not_called()

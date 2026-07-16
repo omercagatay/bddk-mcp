@@ -44,12 +44,20 @@ async def test_search_document_sections_records_doc_ids_and_latency(monkeypatch)
     doc_store = MagicMock()
     doc_store.get_document_section = AsyncMock(return_value=[])
     doc_store.search_document_sections = AsyncMock(return_value=[_section("943", "5"), _section("943", "6")])
-    deps = Dependencies(pool=object(), doc_store=doc_store, client=None, http=None)
+    telemetry_pool = object()
+    deps = Dependencies(
+        pool=object(),
+        doc_store=doc_store,
+        client=None,
+        http=None,
+        telemetry_pool=telemetry_pool,
+    )
 
     tool = _capture_section_tool(deps, "search_document_sections")
     await tool("943 İlke 5 model validasyonu", limit=5)
 
     recorder.assert_awaited_once()
+    assert recorder.await_args.args == (telemetry_pool,)
     kwargs = recorder.await_args.kwargs
     assert kwargs["tool_name"] == "search_document_sections"
     assert kwargs["args"]["query"] == "943 İlke 5 model validasyonu"

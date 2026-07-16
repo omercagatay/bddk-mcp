@@ -1,30 +1,163 @@
+# Local-development topology only. The fixed credentials below are disposable
+# fixtures, not production defaults. PostgreSQL is bound to host loopback.
 services:
   db:
-    image: pgvector/pgvector:pg17
+    image: pgvector/pgvector:pg17@sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0
     environment:
-      POSTGRES_USER: bddk
-      POSTGRES_PASSWORD: bddk
+      POSTGRES_USER: bddk_local_admin
+      POSTGRES_PASSWORD: local-only-admin
       POSTGRES_DB: bddk
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bddk"]
+      test: ["CMD-SHELL", "pg_isready -U bddk_local_admin -d bddk"]
       interval: 5s
-      retries: 5
+      timeout: 5s
+      retries: 10
 
-  bddk:
-    build: .
+  # Reapply the idempotent group-role baseline on every `compose up`. These
+  # administrator credentials exist only inside this loopback-bound topology.
+  bddk-db-roles:
+    image: pgvector/pgvector:pg17@sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0
     depends_on:
       db:
         condition: service_healthy
     environment:
-      BDDK_DATABASE_URL: postgresql://bddk:bddk@db:5432/bddk
+      PGPASSWORD: local-only-admin
+      PGOPTIONS: -c bddk.expected_database=bddk
+    volumes:
+      - ./deploy/postgres/01_roles.sql:/sql/01_roles.sql:ro
+    entrypoint: ["psql"]
+    command:
+      - --host=db
+      - --username=bddk_local_admin
+      - --dbname=bddk
+      - --set=ON_ERROR_STOP=1
+      - --single-transaction
+      - --file=/sql/01_roles.sql
+
+  # Create disposable LOGIN identities and approved extensions for local
+  # development. Bank-managed identities remain entirely outside this file.
+  bddk-local-identities:
+    image: pgvector/pgvector:pg17@sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0
+    depends_on:
+      bddk-db-roles:
+        condition: service_completed_successfully
+    environment:
+      PGPASSWORD: local-only-admin
+    volumes:
+      - ./deploy/postgres/local-dev/01_identities.sql:/sql/01_identities.sql:ro
+    entrypoint: ["psql"]
+    command:
+      - --host=db
+      - --username=bddk_local_admin
+      - --dbname=bddk
+      - --set=ON_ERROR_STOP=1
+      - --single-transaction
+      - --file=/sql/01_identities.sql
+
+  bddk-migrate:
+    image: bddk-mcp-local:dev
+    build: .
+    depends_on:
+      bddk-local-identities:
+        condition: service_completed_successfully
+    environment:
+      BDDK_SCHEMA_OWNER_DATABASE_URL: postgresql://bddk_local_migrator:local-only-migrator@db:5432/bddk?options=-c%20role%3Dbddk_schema_owner
+      BDDK_EXPECTED_DATABASE_NAME: bddk
+      BDDK_ALLOW_INSECURE_DATABASE: "true"
+    command: [".venv/bin/bddk-mcp", "migrate"]
+
+  # Runtime grants are deliberately a distinct DBA-controlled stage after
+  # migration. The application image never receives the administrator DSN.
+  bddk-db-grants:
+    image: pgvector/pgvector:pg17@sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0
+    depends_on:
+      bddk-migrate:
+        condition: service_completed_successfully
+    environment:
+      PGPASSWORD: local-only-admin
+      PGOPTIONS: -c bddk.expected_database=bddk
+    volumes:
+      - ./deploy/postgres/02_grants.sql:/sql/02_grants.sql:ro
+    entrypoint: ["psql"]
+    command:
+      - --host=db
+      - --username=bddk_local_admin
+      - --dbname=bddk
+      - --set=ON_ERROR_STOP=1
+      - --single-transaction
+      - --file=/sql/02_grants.sql
+
+  bddk-bootstrap:
+    image: bddk-mcp-local:dev
+    build: .
+    depends_on:
+      bddk-db-grants:
+        condition: service_completed_successfully
+    environment:
+      BDDK_INGESTION_DATABASE_URL: postgresql://bddk_local_ingestion:local-only-ingestion@db:5432/bddk
+      BDDK_ALLOW_INSECURE_DATABASE: "true"
+    command: [".venv/bin/bddk-mcp", "bootstrap", "--reindex-existing"]
+
+  bddk:
+    image: bddk-mcp-local:dev
+    build: .
+    depends_on:
+      bddk-bootstrap:
+        condition: service_completed_successfully
+    environment:
+      BDDK_DATABASE_URL: postgresql://bddk_local_public:local-only-public@db:5432/bddk
+      BDDK_ALLOW_INSECURE_DATABASE: "true"
+      BDDK_TELEMETRY_ENABLED: ${BDDK_TELEMETRY_ENABLED:-false}
+      BDDK_TELEMETRY_DATABASE_URL: postgresql://bddk_local_telemetry:local-only-telemetry@db:5432/bddk
       MCP_TRANSPORT: streamable-http
+      MCP_HOST: 0.0.0.0
       PORT: "8000"
+      BDDK_TOOL_PROFILE: public
+      BDDK_HTTP_ALLOWED_HOSTS: ${BDDK_HTTP_ALLOWED_HOSTS:-localhost:8000}
+      # Origin is required as an explicit allowlist even when a non-browser MCP
+      # client omits the Origin header. Non-loopback deployments require HTTPS.
+      BDDK_HTTP_ALLOWED_ORIGINS: ${BDDK_HTTP_ALLOWED_ORIGINS:-https://localhost:8000}
+      BDDK_JWT_ISSUER: ${BDDK_JWT_ISSUER:?set BDDK_JWT_ISSUER to an HTTPS issuer}
+      BDDK_JWT_RESOURCE: ${BDDK_JWT_RESOURCE:?set BDDK_JWT_RESOURCE to the protected HTTPS resource}
+      BDDK_JWT_JWKS_URL: ${BDDK_JWT_JWKS_URL:?set BDDK_JWT_JWKS_URL to an HTTPS JWKS endpoint}
+      BDDK_JWT_AUDIENCE: ${BDDK_JWT_AUDIENCE:?set BDDK_JWT_AUDIENCE}
+      BDDK_JWT_REQUIRED_SCOPES: ${BDDK_JWT_REQUIRED_SCOPES:-bddk.read}
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
+
+  # Opt-in local operator endpoint: `docker compose --profile operator up`.
+  # It remains JWT-protected and host-loopback-bound despite the container's
+  # non-loopback bind. It never reuses the public database identity.
+  bddk-operator:
+    profiles: ["operator"]
+    image: bddk-mcp-local:dev
+    build: .
+    depends_on:
+      bddk-bootstrap:
+        condition: service_completed_successfully
+    environment:
+      BDDK_OPERATOR_DATABASE_URL: postgresql://bddk_local_operator:local-only-operator@db:5432/bddk
+      BDDK_ALLOW_INSECURE_DATABASE: "true"
+      BDDK_TELEMETRY_ENABLED: ${BDDK_TELEMETRY_ENABLED:-false}
+      BDDK_TELEMETRY_DATABASE_URL: postgresql://bddk_local_telemetry:local-only-telemetry@db:5432/bddk
+      MCP_TRANSPORT: streamable-http
+      MCP_HOST: 0.0.0.0
+      PORT: "8000"
+      BDDK_TOOL_PROFILE: operator
+      BDDK_OPERATOR_REMOTE_ENABLED: "true"
+      BDDK_HTTP_ALLOWED_HOSTS: ${BDDK_OPERATOR_HTTP_ALLOWED_HOSTS:-localhost:8001}
+      BDDK_HTTP_ALLOWED_ORIGINS: ${BDDK_OPERATOR_HTTP_ALLOWED_ORIGINS:-https://localhost:8001}
+      BDDK_JWT_ISSUER: ${BDDK_JWT_ISSUER:?set BDDK_JWT_ISSUER to an HTTPS issuer}
+      BDDK_JWT_RESOURCE: ${BDDK_OPERATOR_JWT_RESOURCE:-https://localhost:8001/mcp}
+      BDDK_JWT_JWKS_URL: ${BDDK_JWT_JWKS_URL:?set BDDK_JWT_JWKS_URL to an HTTPS JWKS endpoint}
+      BDDK_JWT_AUDIENCE: ${BDDK_OPERATOR_JWT_AUDIENCE:-bddk-mcp-operator-local}
+      BDDK_JWT_REQUIRED_SCOPES: bddk.operator
+    ports:
+      - "127.0.0.1:8001:8000"
 
 volumes:
   pgdata:

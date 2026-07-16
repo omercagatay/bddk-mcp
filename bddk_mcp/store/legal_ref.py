@@ -36,6 +36,18 @@ class LegalRefs(BaseModel):
     categories: list[str] = Field(default_factory=list)
 
 
+def document_id_candidates(document_id: str) -> list[str]:
+    """Return stable local-ID aliases in lookup priority order."""
+    normalized = _normalize_doc_id(document_id.strip())
+    if not normalized:
+        return []
+    if normalized.isdigit():
+        return [normalized, f"mevzuat_{normalized}", f"bddk_{normalized}"]
+    if normalized.startswith(("mevzuat_", "bddk_")):
+        return [normalized]
+    return [normalized]
+
+
 def turkish_casefold(text: str) -> str:
     """Lowercase with Turkish dotted/dotless-I behavior."""
     return text.translate(str.maketrans({"I": "ı", "İ": "i"})).lower()

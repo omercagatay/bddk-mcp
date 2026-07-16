@@ -1,0 +1,42 @@
+{
+  "matches": [
+    {
+      "artifact": {
+        "name": "deliberately-vulnerable-fixture",
+        "version": "1.0.0",
+        "type": "python"
+      },
+      "vulnerability": {
+        "id": "CVE-2099-0001",
+        "namespace": "nvd:cpe",
+        "severity": "High"
+      },
+      "matchDetails": [
+        {
+          "type": "exact-direct-match"
+        }
+      ]
+    }
+  ],
+  "descriptor": {
+    "name": "grype",
+    "version": "0.115.0",
+    "db": {
+      "status": {
+        "built": "2026-07-15T08:00:00Z",
+        "schemaVersion": "v6.0.2",
+        "valid": true
+      }
+    },
+    "configuration": {
+      "only-fixed": false,
+      "only-notfixed": false,
+      "show-suppressed": true,
+      "ignore": [],
+      "exclude": [],
+      "vex-documents": [],
+      "vex-add": []
+    }
+  },
+  "ignoredMatches": []
+}

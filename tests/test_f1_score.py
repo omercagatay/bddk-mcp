@@ -9,6 +9,7 @@ of Turkish banking regulation queries. Compares three search modes:
 
 import pytest
 
+from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
 from bddk_mcp.store.vector_store import VectorStore
 
 _SKIP_REASON = "Embedding model not available or PostgreSQL not reachable"
@@ -324,16 +325,27 @@ async def f1_store(pg_pool):
     """Populate a VectorStore with the F1 test corpus."""
     try:
         vs = VectorStore(pg_pool)
-        await vs.initialize()
         vs._ensure_embeddings()
     except Exception:
         pytest.skip(_SKIP_REASON)
 
-    # Clean and populate
-    for doc in CORPUS:
-        await vs.delete_document(doc["doc_id"])
+    # Clean and populate complete source+index pairs. Retrieval deliberately
+    # hides orphan or stale chunks whose hash differs from the source record.
+    doc_ids = [doc["doc_id"] for doc in CORPUS]
+    await pg_pool.execute("DELETE FROM public.document_chunks WHERE doc_id = ANY($1::text[])", doc_ids)
+    await pg_pool.execute("DELETE FROM public.document_sections WHERE doc_id = ANY($1::text[])", doc_ids)
+    await pg_pool.execute("DELETE FROM public.document_versions WHERE document_id = ANY($1::text[])", doc_ids)
+    await pg_pool.execute("DELETE FROM public.documents WHERE document_id = ANY($1::text[])", doc_ids)
 
     for doc in CORPUS:
+        await DocumentStore(pg_pool).store_document(
+            StoredDocument(
+                document_id=doc["doc_id"],
+                title=doc["title"],
+                markdown_content=doc["content"],
+                category=doc["category"],
+            )
+        )
         await vs.add_document(
             doc_id=doc["doc_id"],
             title=doc["title"],
@@ -341,10 +353,13 @@ async def f1_store(pg_pool):
             category=doc["category"],
         )
 
-    yield vs
-
-    for doc in CORPUS:
-        await vs.delete_document(doc["doc_id"])
+    try:
+        yield vs
+    finally:
+        await pg_pool.execute("DELETE FROM public.document_chunks WHERE doc_id = ANY($1::text[])", doc_ids)
+        await pg_pool.execute("DELETE FROM public.document_sections WHERE doc_id = ANY($1::text[])", doc_ids)
+        await pg_pool.execute("DELETE FROM public.document_versions WHERE document_id = ANY($1::text[])", doc_ids)
+        await pg_pool.execute("DELETE FROM public.documents WHERE document_id = ANY($1::text[])", doc_ids)
 
 
 # -- Tests --------------------------------------------------------------------

@@ -20,28 +20,36 @@ import argparse
 import asyncio
 import html
 import io
+import ipaddress
 import json
 import logging
+import re
+import socket
+import stat
 import time
 import zipfile
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass
+from functools import partial
 from typing import TYPE_CHECKING
-from urllib.parse import parse_qs, urlparse
-from xml.etree import ElementTree
+from urllib.parse import parse_qs, urljoin, urlparse, urlsplit, urlunsplit
 
 import httpx
 from bs4 import BeautifulSoup
+from defusedxml import ElementTree
+from defusedxml.common import DefusedXmlException
 from pydantic import BaseModel
 
 from bddk_mcp.core.config import (
     BASE_DIR,
     HTTP_CONNECT_TIMEOUT,
     HTTP_POOL_TIMEOUT,
+    MAX_RETRIES,
     OCR_MIN_CONTENT_LEN,
     PREFER_HTML_FOR_MEVZUAT,
     REQUEST_TIMEOUT,
 )
-from bddk_mcp.core.utils import MEVZUAT_TUR_MAP, fetch_with_retry
+from bddk_mcp.core.utils import MEVZUAT_TUR_MAP
 from bddk_mcp.ocr.base import OCRBackend, get_default_backends, run_extraction_chain
 from bddk_mcp.quality.markdown_quality import sanitize_markdown_for_storage
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
@@ -54,6 +62,228 @@ CACHE_FILE = BASE_DIR / ".cache.json"  # legacy path for CLI compat
 logger = logging.getLogger(__name__)
 
 _BDDK_DOC_URL = "https://www.bddk.org.tr/Mevzuat/DokumanGetir/{document_id}"
+
+# Untrusted upstream HTML may contain iframe and annex links.  These limits are
+# deliberately code-owned safety invariants: a deployment setting must not be
+# able to turn an accidental archive or response into unbounded memory/CPU use.
+_MEVZUAT_HTTPS_HOSTS = frozenset({"mevzuat.gov.tr", "www.mevzuat.gov.tr"})
+_BDDK_HTTPS_HOSTS = frozenset({"bddk.org.tr", "www.bddk.org.tr"})
+_MAX_UPSTREAM_REDIRECTS = 3
+_MAX_IFRAME_BYTES = 8 * 1024 * 1024
+_MAX_MAIN_PAGE_BYTES = 8 * 1024 * 1024
+_MAX_HTML_DOWNLOAD_BYTES = 16 * 1024 * 1024
+_MAX_ANNEX_DOWNLOAD_BYTES = 32 * 1024 * 1024
+_MAX_DOC_DOWNLOAD_BYTES = 64 * 1024 * 1024
+_MAX_PDF_DOWNLOAD_BYTES = 128 * 1024 * 1024
+_MAX_ARCHIVE_MEMBERS = 128
+_MAX_ARCHIVE_MEMBER_BYTES = 16 * 1024 * 1024
+_MAX_ARCHIVE_UNCOMPRESSED_BYTES = 64 * 1024 * 1024
+_MAX_ARCHIVE_EXPANSION_RATIO = 100
+_MAX_DOCX_MEMBERS = 256
+_MAX_DOCX_UNCOMPRESSED_BYTES = 32 * 1024 * 1024
+_MAX_DOCX_XML_BYTES = 16 * 1024 * 1024
+_MAX_BDDK_ERROR_BODY_BYTES = 64 * 1024
+_MAX_BDDK_RETRY_ATTEMPTS = 4
+_MAX_BDDK_RETRY_DELAY_SECONDS = 4
+_ZIP_LOCAL_FILE_HEADER = b"PK\x03\x04"
+_OLE_COMPOUND_FILE_HEADER = b"\xd0\xcf\x11\xe0"
+_APPROVED_PDF_MEDIA_TYPES = frozenset(
+    {
+        "application/pdf",
+        "application/octet-stream",
+        "application/download",
+        "application/force-download",
+        "binary/octet-stream",
+    }
+)
+_APPROVED_HTML_MEDIA_TYPES = frozenset({"text/html", "application/xhtml+xml"})
+_SOFT_ERROR_PAGE_MARKERS = (
+    "access denied",
+    "internal server error",
+    "service unavailable",
+    "temporarily unavailable",
+    "bir hata oluştu",
+    "bir hata olustu",
+    "erişim engellendi",
+    "erisim engellendi",
+    "geçici olarak hizmet verememektedir",
+    "gecici olarak hizmet verememektedir",
+)
+
+
+class UnsafeUpstreamResourceError(RuntimeError):
+    """A privacy-safe rejection of an unsafe URL, redirect, or payload."""
+
+
+@dataclass(frozen=True, slots=True)
+class _BoundedHttpResponse:
+    status_code: int
+    content: bytes
+    headers: Mapping[str, str]
+
+
+def _normalize_approved_https_url(
+    candidate: str,
+    *,
+    base_url: str,
+    allowed_hosts: frozenset[str],
+    boundary_name: str,
+) -> str:
+    """Return one canonical URL inside an exact-host HTTPS boundary.
+
+    ``urljoin`` handles ordinary relative iframe links.  Scheme-relative URLs,
+    embedded credentials, non-default ports, and lookalike hostnames are then
+    rejected by the same exact policy as absolute URLs.
+    """
+
+    if not isinstance(candidate, str) or not candidate.strip():
+        raise UnsafeUpstreamResourceError("Upstream URL is missing or invalid.")
+    if any(ord(character) < 0x20 for character in candidate) or "\\" in candidate:
+        raise UnsafeUpstreamResourceError("Upstream URL is missing or invalid.")
+
+    joined = urljoin(base_url, candidate.strip())
+    parsed = urlsplit(joined)
+    host = (parsed.hostname or "").rstrip(".").lower()
+    try:
+        port = parsed.port
+    except ValueError:
+        raise UnsafeUpstreamResourceError("Upstream URL is missing or invalid.") from None
+    if (
+        parsed.scheme.lower() != "https"
+        or host not in allowed_hosts
+        or parsed.username is not None
+        or parsed.password is not None
+        or port not in {None, 443}
+    ):
+        raise UnsafeUpstreamResourceError(f"Upstream URL is outside the approved {boundary_name} HTTPS boundary.")
+
+    netloc = host if port is None else f"{host}:{port}"
+    return urlunsplit(("https", netloc, parsed.path or "/", parsed.query, ""))
+
+
+def _normalize_mevzuat_url(candidate: str, *, base_url: str = "https://www.mevzuat.gov.tr/") -> str:
+    """Return one canonical, exact-host HTTPS mevzuat URL."""
+
+    return _normalize_approved_https_url(
+        candidate,
+        base_url=base_url,
+        allowed_hosts=_MEVZUAT_HTTPS_HOSTS,
+        boundary_name="mevzuat",
+    )
+
+
+def _normalize_bddk_url(candidate: str, *, base_url: str = "https://www.bddk.org.tr/") -> str:
+    """Return one canonical, exact-host HTTPS BDDK URL."""
+
+    return _normalize_approved_https_url(
+        candidate,
+        base_url=base_url,
+        allowed_hosts=_BDDK_HTTPS_HOSTS,
+        boundary_name="BDDK",
+    )
+
+
+def _validate_zip_metadata(
+    archive: zipfile.ZipFile,
+    *,
+    max_members: int,
+    max_member_bytes: int,
+    max_total_bytes: int,
+    max_expansion_ratio: int,
+) -> list[zipfile.ZipInfo]:
+    """Validate archive metadata before reading a single member body."""
+
+    members = archive.infolist()
+    if len(members) > max_members:
+        raise UnsafeUpstreamResourceError("Archive contains too many members.")
+
+    total = 0
+    for member in members:
+        if member.flag_bits & 0x1:
+            raise UnsafeUpstreamResourceError("Encrypted archive members are not supported.")
+        if member.file_size < 0 or member.compress_size < 0 or member.file_size > max_member_bytes:
+            raise UnsafeUpstreamResourceError("Archive member exceeds the extraction limit.")
+        total += member.file_size
+        if total > max_total_bytes:
+            raise UnsafeUpstreamResourceError("Archive exceeds the total extraction limit.")
+        if member.file_size:
+            if member.compress_size == 0 or member.file_size > member.compress_size * max_expansion_ratio:
+                raise UnsafeUpstreamResourceError("Archive expansion ratio exceeds the extraction limit.")
+    return members
+
+
+def _validate_office_archive_for_markitdown(office_bytes: bytes) -> None:
+    """Validate a ZIP-based Office document before third-party parsing.
+
+    MarkItDown and its transitive Office parsers receive only archives with a
+    bounded compressed body, member count, member size, aggregate expanded
+    size, and expansion ratio.  Every XML relationship/body part is parsed by
+    defusedxml first so entity declarations cannot be deferred to a downstream
+    parser.  No archive member is ever extracted to the filesystem here.
+
+    Legacy OLE ``.doc`` files are not ZIP containers and therefore cannot use
+    these structural checks.  They remain download-size bounded, but complete
+    CPU/time isolation requires moving the legacy converter to a constrained
+    worker process.
+    """
+
+    if len(office_bytes) > _MAX_DOC_DOWNLOAD_BYTES:
+        raise UnsafeUpstreamResourceError("Office document exceeds the processing limit.")
+    if not office_bytes.startswith(_ZIP_LOCAL_FILE_HEADER):
+        raise UnsafeUpstreamResourceError("Office archive signature is invalid.")
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(office_bytes)) as archive:
+            members = _validate_zip_metadata(
+                archive,
+                max_members=_MAX_DOCX_MEMBERS,
+                max_member_bytes=_MAX_ARCHIVE_MEMBER_BYTES,
+                max_total_bytes=_MAX_DOCX_UNCOMPRESSED_BYTES,
+                max_expansion_ratio=_MAX_ARCHIVE_EXPANSION_RATIO,
+            )
+            seen_names: set[str] = set()
+            document_body_found = False
+            for member in members:
+                normalized_name = member.filename.replace("\\", "/")
+                path_parts = normalized_name.split("/")
+                unix_mode = (member.external_attr >> 16) & 0o170000
+                if (
+                    not normalized_name
+                    or normalized_name.startswith("/")
+                    or re.match(r"^[A-Za-z]:", normalized_name)
+                    or any(ord(character) < 0x20 for character in normalized_name)
+                    or any(part == ".." for part in path_parts)
+                    or unix_mode == stat.S_IFLNK
+                    or normalized_name in seen_names
+                ):
+                    raise UnsafeUpstreamResourceError("Office archive member layout is unsafe.")
+                seen_names.add(normalized_name)
+                if normalized_name == "word/document.xml" and not member.is_dir():
+                    document_body_found = True
+
+                lower_name = normalized_name.casefold()
+                if member.is_dir() or not (lower_name.endswith(".xml") or lower_name.endswith(".rels")):
+                    continue
+                xml_bytes = archive.read(member)
+                if len(xml_bytes) > _MAX_DOCX_XML_BYTES:
+                    raise UnsafeUpstreamResourceError("Office XML exceeds the processing limit.")
+                ElementTree.fromstring(xml_bytes)
+
+            if not document_body_found:
+                raise UnsafeUpstreamResourceError("Office archive has no document body.")
+    except UnsafeUpstreamResourceError:
+        raise
+    except (
+        zipfile.BadZipFile,
+        zipfile.LargeZipFile,
+        ElementTree.ParseError,
+        DefusedXmlException,
+        EOFError,
+        NotImplementedError,
+        OSError,
+        RuntimeError,
+    ):
+        raise UnsafeUpstreamResourceError("Office archive is invalid or unsupported.") from None
 
 
 def _categorize_error(error: str) -> tuple[str, bool]:
@@ -190,6 +420,55 @@ def _is_error_page(content: str) -> bool:
     return False
 
 
+def _response_media_type(headers: Mapping[str, str]) -> str:
+    """Return a normalized media type without parameters."""
+
+    return headers.get("content-type", "").split(";", 1)[0].strip().casefold()
+
+
+def _looks_like_html_document(content: bytes) -> bool:
+    """Recognize an HTML envelope without trusting its declared media type."""
+
+    prefix = content[:4096].lstrip(b"\xef\xbb\xbf\x00\t\r\n ").lower()
+    return any(marker in prefix for marker in (b"<!doctype html", b"<html", b"<head", b"<body"))
+
+
+def _looks_like_soft_error_page(content: bytes) -> bool:
+    """Reject known navigation and generic upstream error envelopes."""
+
+    decoded = _decode_html(content[:_MAX_BDDK_ERROR_BODY_BYTES])
+    if _is_error_page(decoded):
+        return True
+    folded = html.unescape(decoded).casefold()
+    return any(marker in folded for marker in _SOFT_ERROR_PAGE_MARKERS)
+
+
+def _classify_bddk_document_response(response: _BoundedHttpResponse) -> str:
+    """Return the approved extension for one successful BDDK response."""
+
+    if response.status_code != 200:
+        raise UnsafeUpstreamResourceError("BDDK upstream did not return a successful document response.")
+    if not response.content:
+        raise UnsafeUpstreamResourceError("BDDK upstream returned an empty document response.")
+
+    media_type = _response_media_type(response.headers)
+    if media_type in _APPROVED_PDF_MEDIA_TYPES:
+        if not response.content.lstrip(b"\xef\xbb\xbf\x00\t\r\n ").startswith(b"%PDF-"):
+            raise UnsafeUpstreamResourceError("BDDK PDF response signature is invalid.")
+        return ".pdf"
+
+    if media_type in _APPROVED_HTML_MEDIA_TYPES:
+        if len(response.content) > _MAX_HTML_DOWNLOAD_BYTES:
+            raise UnsafeUpstreamResourceError("BDDK HTML response exceeds the processing limit.")
+        if not _looks_like_html_document(response.content):
+            raise UnsafeUpstreamResourceError("BDDK HTML response signature is invalid.")
+        if _looks_like_soft_error_page(response.content):
+            raise UnsafeUpstreamResourceError("BDDK upstream returned an error page instead of a document.")
+        return ".html"
+
+    raise UnsafeUpstreamResourceError("BDDK upstream returned an unsupported document media type.")
+
+
 def _sanitize_for_storage(text: str) -> str:
     """Strip storage-unsafe bytes and uniformly-observed extraction artifacts.
 
@@ -306,24 +585,64 @@ def _parse_mevzuat_params(source_url: str) -> tuple[str, str, str]:
 
 def _extract_annex_zip_markdown(zip_bytes: bytes) -> str:
     """Extract supported annex files from a mevzuat `*-ek.zip` archive."""
+    if len(zip_bytes) > _MAX_ANNEX_DOWNLOAD_BYTES:
+        raise UnsafeUpstreamResourceError("Annex archive exceeds the download limit.")
     sections: list[str] = []
-    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
-        for name in zf.namelist():
-            lower = name.lower()
-            if lower.endswith(".docx"):
-                text = _extract_docx_text(zf.read(name))
-                if text:
-                    title = name.rsplit("/", 1)[-1]
+    try:
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            members = _validate_zip_metadata(
+                zf,
+                max_members=_MAX_ARCHIVE_MEMBERS,
+                max_member_bytes=_MAX_ARCHIVE_MEMBER_BYTES,
+                max_total_bytes=_MAX_ARCHIVE_UNCOMPRESSED_BYTES,
+                max_expansion_ratio=_MAX_ARCHIVE_EXPANSION_RATIO,
+            )
+            for member in members:
+                lower = member.filename.lower()
+                if lower.endswith(".docx") and not member.is_dir():
+                    text = _extract_docx_text(zf.read(member))
+                    if not text:
+                        continue
+                    title = member.filename.rsplit("/", 1)[-1]
                     sections.append(f"### {title}\n\n{text}")
+    except UnsafeUpstreamResourceError:
+        raise
+    except (zipfile.BadZipFile, zipfile.LargeZipFile, RuntimeError):
+        raise UnsafeUpstreamResourceError("Annex archive is invalid or unsupported.") from None
     return "\n\n".join(sections)
 
 
 def _extract_docx_text(docx_bytes: bytes) -> str:
     """Extract paragraph text from a DOCX without optional markitdown dependencies."""
+    if len(docx_bytes) > _MAX_ARCHIVE_MEMBER_BYTES:
+        raise UnsafeUpstreamResourceError("DOCX annex exceeds the extraction limit.")
     ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
-    with zipfile.ZipFile(io.BytesIO(docx_bytes)) as zf:
-        xml_bytes = zf.read("word/document.xml")
-    root = ElementTree.fromstring(xml_bytes)
+    try:
+        with zipfile.ZipFile(io.BytesIO(docx_bytes)) as zf:
+            members = _validate_zip_metadata(
+                zf,
+                max_members=_MAX_DOCX_MEMBERS,
+                max_member_bytes=_MAX_DOCX_XML_BYTES,
+                max_total_bytes=_MAX_DOCX_UNCOMPRESSED_BYTES,
+                max_expansion_ratio=_MAX_ARCHIVE_EXPANSION_RATIO,
+            )
+            document = next((member for member in members if member.filename == "word/document.xml"), None)
+            if document is None or document.is_dir():
+                raise UnsafeUpstreamResourceError("DOCX annex has no document body.")
+            xml_bytes = zf.read(document)
+        if len(xml_bytes) > _MAX_DOCX_XML_BYTES:
+            raise UnsafeUpstreamResourceError("DOCX XML exceeds the extraction limit.")
+        root = ElementTree.fromstring(xml_bytes)
+    except UnsafeUpstreamResourceError:
+        raise
+    except (
+        zipfile.BadZipFile,
+        zipfile.LargeZipFile,
+        ElementTree.ParseError,
+        DefusedXmlException,
+        RuntimeError,
+    ):
+        raise UnsafeUpstreamResourceError("DOCX annex is invalid or unsupported.") from None
     paragraphs: list[str] = []
     for para in root.findall(".//w:p", ns):
         parts = [node.text or "" for node in para.findall(".//w:t", ns)]
@@ -385,6 +704,167 @@ class DocumentSyncer:
 
     async def __aexit__(self, *exc) -> None:
         await self.close()
+
+    async def _assert_public_resolution(self, url: str) -> None:
+        """Fail closed when an approved hostname resolves to a non-public IP.
+
+        Exact HTTPS host validation remains the primary application boundary;
+        this DNS check adds defense in depth.  Production also needs an
+        OpenShift egress policy because name resolution and connection are not
+        an atomic operation at the Python HTTP-client layer.
+        """
+
+        host = urlsplit(url).hostname
+        if host is None:
+            raise UnsafeUpstreamResourceError("Approved upstream hostname could not be resolved.")
+        try:
+            answers = await asyncio.to_thread(socket.getaddrinfo, host, 443, type=socket.SOCK_STREAM)
+            addresses = {item[4][0].split("%", 1)[0] for item in answers}
+            parsed_addresses = {ipaddress.ip_address(address) for address in addresses}
+        except (OSError, ValueError):
+            raise UnsafeUpstreamResourceError("Approved upstream hostname could not be resolved.") from None
+        if not parsed_addresses or any(not address.is_global for address in parsed_addresses):
+            raise UnsafeUpstreamResourceError("Approved upstream hostname resolved outside the public network.")
+
+    async def _assert_public_mevzuat_resolution(self, url: str) -> None:
+        """Compatibility seam for testing and mevzuat-specific policy."""
+
+        await self._assert_public_resolution(url)
+
+    async def _assert_public_bddk_resolution(self, url: str) -> None:
+        """Compatibility seam for testing and BDDK-specific policy."""
+
+        await self._assert_public_resolution(url)
+
+    async def _fetch_bounded_https(
+        self,
+        candidate_url: str,
+        *,
+        timeout: httpx.Timeout,
+        max_bytes: int,
+        base_url: str,
+        normalize_url: Callable[..., str],
+        assert_public_resolution: Callable[[str], Awaitable[None]],
+        read_body_statuses: frozenset[int] | None = None,
+    ) -> _BoundedHttpResponse:
+        """Stream one exact-host HTTPS resource with redirect and size bounds."""
+
+        if max_bytes < 1:
+            raise ValueError("max_bytes must be positive")
+        current_url = normalize_url(candidate_url, base_url=base_url)
+
+        for redirect_count in range(_MAX_UPSTREAM_REDIRECTS + 1):
+            await assert_public_resolution(current_url)
+            async with self._http.stream(
+                "GET",
+                current_url,
+                timeout=timeout,
+                follow_redirects=False,
+            ) as response:
+                if response.status_code in {301, 302, 303, 307, 308}:
+                    location = response.headers.get("location", "")
+                    if redirect_count >= _MAX_UPSTREAM_REDIRECTS or not location:
+                        raise UnsafeUpstreamResourceError("Upstream redirect policy was not satisfied.")
+                    current_url = normalize_url(location, base_url=current_url)
+                    continue
+
+                # Error bodies are not useful to the BDDK document importer.
+                # Returning status and headers without consuming an arbitrarily
+                # large error page also keeps each retry cheap.  Mevzuat callers
+                # retain the previous behavior by leaving this option unset.
+                if read_body_statuses is not None and response.status_code not in read_body_statuses:
+                    return _BoundedHttpResponse(
+                        status_code=response.status_code,
+                        content=b"",
+                        headers=dict(response.headers),
+                    )
+
+                content_length = response.headers.get("content-length")
+                if content_length:
+                    try:
+                        if int(content_length) > max_bytes:
+                            raise UnsafeUpstreamResourceError("Upstream response exceeds the download limit.")
+                    except ValueError:
+                        raise UnsafeUpstreamResourceError("Upstream response length is invalid.") from None
+
+                chunks: list[bytes] = []
+                received = 0
+                async for chunk in response.aiter_bytes():
+                    received += len(chunk)
+                    if received > max_bytes:
+                        raise UnsafeUpstreamResourceError("Upstream response exceeds the download limit.")
+                    chunks.append(chunk)
+                return _BoundedHttpResponse(
+                    status_code=response.status_code,
+                    content=b"".join(chunks),
+                    headers=dict(response.headers),
+                )
+
+        raise UnsafeUpstreamResourceError("Upstream redirect policy was not satisfied.")
+
+    async def _fetch_trusted_mevzuat(
+        self,
+        candidate_url: str,
+        *,
+        timeout: httpx.Timeout,
+        max_bytes: int,
+        base_url: str = "https://www.mevzuat.gov.tr/",
+    ) -> _BoundedHttpResponse:
+        """Stream one approved mevzuat resource with redirect and size bounds."""
+
+        return await self._fetch_bounded_https(
+            candidate_url,
+            timeout=timeout,
+            max_bytes=max_bytes,
+            base_url=base_url,
+            normalize_url=_normalize_mevzuat_url,
+            assert_public_resolution=self._assert_public_mevzuat_resolution,
+        )
+
+    async def _fetch_trusted_bddk(
+        self,
+        candidate_url: str,
+        *,
+        timeout: httpx.Timeout,
+        max_bytes: int,
+    ) -> _BoundedHttpResponse:
+        """Stream one approved BDDK resource with bounded transient retries."""
+
+        attempts = min(max(1, MAX_RETRIES), _MAX_BDDK_RETRY_ATTEMPTS)
+        for attempt in range(attempts):
+            retry_status: int | None = None
+            retry_error_type: str | None = None
+            try:
+                response = await self._fetch_bounded_https(
+                    candidate_url,
+                    timeout=timeout,
+                    max_bytes=max_bytes,
+                    base_url="https://www.bddk.org.tr/",
+                    normalize_url=_normalize_bddk_url,
+                    assert_public_resolution=self._assert_public_bddk_resolution,
+                    read_body_statuses=frozenset({200}),
+                )
+                retry_status = response.status_code
+                retryable = response.status_code == 429 or response.status_code >= 500
+                if not retryable or attempt == attempts - 1:
+                    return response
+            except httpx.TransportError as error:
+                retry_error_type = type(error).__name__
+                if attempt == attempts - 1:
+                    raise UnsafeUpstreamResourceError("BDDK upstream request failed after bounded retries.") from None
+
+            logger.warning(
+                "Retrying bounded BDDK document request",
+                extra={
+                    "attempt": attempt + 1,
+                    "max_attempts": attempts,
+                    "status_code": retry_status,
+                    "error_type": retry_error_type,
+                },
+            )
+            await asyncio.sleep(min(2**attempt, _MAX_BDDK_RETRY_DELAY_SECONDS))
+
+        raise UnsafeUpstreamResourceError("BDDK upstream request failed after bounded retries.")
 
     def _resolve_html_first_flag(self, explicit: bool | None) -> bool:
         """Pick the effective HTML-first routing flag for mevzuat downloads.
@@ -477,7 +957,11 @@ class DocumentSyncer:
             await self._store.record_sync_failure(doc_id, error_msg, cat, source_url, retryable)
             # Preserve old content on failed force re-extract — losing it would
             # erase successful prior extractions when a new backend transiently fails.
-            logger.warning("Extraction failed for %s; preserving old content (force=%s)", doc_id, force)
+            logger.warning(
+                "Document extraction failed; preserving old content (force=%s)",
+                force,
+                extra={"error_type": "EmptyExtractionResult"},
+            )
             return SyncResult(
                 document_id=doc_id,
                 success=False,
@@ -498,7 +982,6 @@ class DocumentSyncer:
             file_size=len(content),
         )
         await self._store.store_document(doc)
-        await self._store.clear_sync_failure(doc_id)
 
         if self._vector_store is not None:
             try:
@@ -511,21 +994,28 @@ class DocumentSyncer:
                     decision_number=decision_number,
                     source_url=source_url,
                 )
-            except Exception as e:
+            except Exception as error:
                 logger.warning(
-                    "Re-index failed for %s after successful sync: %s. "
-                    "documents table is fresh; chunks are stale — retry with force=True.",
+                    "Vector index publication failed after document sync; "
+                    "hash-gated retrieval will hide stale chunks until retry",
+                    extra={"error_type": type(error).__name__},
+                )
+                await self._store.record_sync_failure(
                     doc_id,
-                    e,
+                    "reindex_failed",
+                    "index",
+                    source_url,
+                    True,
                 )
                 return SyncResult(
                     document_id=doc_id,
                     success=False,
                     method=f"{method}+{extraction_method}",
-                    error=f"reindex_failed: {e}",
+                    error="reindex_failed",
                     size_bytes=len(content),
                 )
 
+        await self._store.clear_sync_failure(doc_id)
         return SyncResult(
             document_id=doc_id,
             success=True,
@@ -537,10 +1027,15 @@ class DocumentSyncer:
 
     async def _download_bddk(self, doc_id: str) -> tuple[bytes, str, str]:
         """Download from BDDK DokumanGetir endpoint."""
+        if not re.fullmatch(r"[0-9]{1,20}", doc_id):
+            raise UnsafeUpstreamResourceError("BDDK document identifier is invalid.")
         url = _BDDK_DOC_URL.format(document_id=doc_id)
-        resp = await fetch_with_retry(self._http, url)
-        content_type = resp.headers.get("content-type", "").lower()
-        ext = ".pdf" if "pdf" in content_type else ".html"
+        resp = await self._fetch_trusted_bddk(
+            url,
+            timeout=httpx.Timeout(REQUEST_TIMEOUT, connect=HTTP_CONNECT_TIMEOUT, pool=HTTP_POOL_TIMEOUT),
+            max_bytes=_MAX_PDF_DOWNLOAD_BYTES,
+        )
+        ext = _classify_bddk_document_response(resp)
         return resp.content, "bddk_direct", ext
 
     async def _download_mevzuat(self, doc_id: str, source_url: str = "") -> tuple[bytes, str, str]:
@@ -571,6 +1066,13 @@ class DocumentSyncer:
             if te:
                 tertip = te
 
+        if not re.fullmatch(r"[0-9]{1,20}", mevzuat_no):
+            raise UnsafeUpstreamResourceError("Mevzuat document identifier is invalid.")
+        if tur not in MEVZUAT_TUR_MAP:
+            raise UnsafeUpstreamResourceError("Mevzuat document type is invalid.")
+        if not re.fullmatch(r"[0-9]{1,3}", tertip):
+            raise UnsafeUpstreamResourceError("Mevzuat document series is invalid.")
+
         # Build list of tur values to try.
         # Always try the source/default tur first, then fall back to all others.
         # Even when source_url provides tur, it may be stale or wrong (404).
@@ -588,12 +1090,21 @@ class DocumentSyncer:
             main_page_visited = False
             main_page_html = ""
             try:
-                resp = await self._http.get(main_url, timeout=layer_timeout)
+                resp = await self._fetch_trusted_mevzuat(
+                    main_url,
+                    timeout=layer_timeout,
+                    max_bytes=_MAX_MAIN_PAGE_BYTES,
+                )
                 if resp.status_code == 200:
                     main_page_visited = True
-                    main_page_html = resp.text
-            except Exception as e:
-                logger.debug("mevzuat %s: main page visit failed (tur=%s): %s", doc_id, candidate_tur, e)
+                    main_page_html = _decode_html(resp.content)
+            except UnsafeUpstreamResourceError:
+                raise
+            except Exception as error:
+                logger.debug(
+                    "Mevzuat main-page visit failed",
+                    extra={"error_type": type(error).__name__},
+                )
 
             # Layer 1b (HTML-first route): when no formula-capable OCR backend is
             # available, the rich iframe HTML produces a better extraction than
@@ -615,37 +1126,64 @@ class DocumentSyncer:
                 try:
                     gen_pdf_url = _mevzuat_generate_pdf_url(mevzuat_no, candidate_tur, tertip)
                     if gen_pdf_url:
-                        resp = await self._http.get(gen_pdf_url, timeout=layer_timeout)
+                        resp = await self._fetch_trusted_mevzuat(
+                            gen_pdf_url,
+                            timeout=layer_timeout,
+                            max_bytes=_MAX_PDF_DOWNLOAD_BYTES,
+                        )
                         if resp.status_code == 200 and len(resp.content) > 500 and resp.content[:5] == b"%PDF-":
-                            logger.info("mevzuat %s: downloaded via GeneratePdf (tur=%s)", doc_id, candidate_tur)
+                            logger.info("Mevzuat document downloaded via GeneratePdf")
                             return resp.content, "mevzuat_generate_pdf", ".pdf"
-                except Exception as e:
-                    logger.debug("mevzuat %s: GeneratePdf failed (tur=%s): %s", doc_id, candidate_tur, e)
+                except UnsafeUpstreamResourceError:
+                    raise
+                except Exception as error:
+                    logger.debug(
+                        "Mevzuat GeneratePdf download failed",
+                        extra={"error_type": type(error).__name__},
+                    )
 
             # Layer 3: Direct static .pdf
             try:
                 pdf_url = _mevzuat_pdf_url(mevzuat_no, candidate_tur, tertip)
                 if pdf_url:
-                    resp = await self._http.get(pdf_url, timeout=layer_timeout)
+                    resp = await self._fetch_trusted_mevzuat(
+                        pdf_url,
+                        timeout=layer_timeout,
+                        max_bytes=_MAX_PDF_DOWNLOAD_BYTES,
+                    )
                     if resp.status_code == 200 and len(resp.content) > 500 and resp.content[:5] == b"%PDF-":
-                        logger.info("mevzuat %s: downloaded via .pdf (tur=%s)", doc_id, candidate_tur)
+                        logger.info("Mevzuat document downloaded via static PDF")
                         return resp.content, "mevzuat_pdf", ".pdf"
-            except Exception as e:
-                logger.debug("mevzuat %s: .pdf failed (tur=%s): %s", doc_id, candidate_tur, e)
+            except UnsafeUpstreamResourceError:
+                raise
+            except Exception as error:
+                logger.debug(
+                    "Mevzuat static-PDF download failed",
+                    extra={"error_type": type(error).__name__},
+                )
 
             # Layer 4: .htm fallback — formulas may be lost (rendered as <img>)
             try:
                 htm_url = f"https://www.mevzuat.gov.tr/mevzuatmetin/{segment}/{base}.htm"
-                resp = await self._http.get(htm_url, timeout=layer_timeout)
-                if resp.status_code == 200 and len(resp.content) > 200 and not _is_error_page(resp.text):
-                    logger.warning(
-                        "mevzuat %s: falling back to .htm (tur=%s) — formulas may be lost",
-                        doc_id,
-                        candidate_tur,
-                    )
+                resp = await self._fetch_trusted_mevzuat(
+                    htm_url,
+                    timeout=layer_timeout,
+                    max_bytes=_MAX_HTML_DOWNLOAD_BYTES,
+                )
+                if (
+                    resp.status_code == 200
+                    and len(resp.content) > 200
+                    and not _is_error_page(_decode_html(resp.content))
+                ):
+                    logger.warning("Mevzuat extraction is falling back to HTML; formulas may be lost")
                     return resp.content, "mevzuat_htm", ".html"
-            except Exception as e:
-                logger.debug("mevzuat %s: .htm failed (tur=%s): %s", doc_id, candidate_tur, e)
+            except UnsafeUpstreamResourceError:
+                raise
+            except Exception as error:
+                logger.debug(
+                    "Mevzuat HTML download failed",
+                    extra={"error_type": type(error).__name__},
+                )
 
             # Layer 5: iframe/div from already-fetched main page
             if main_page_visited and main_page_html:
@@ -665,19 +1203,28 @@ class DocumentSyncer:
             if candidate_tur == tur:
                 try:
                     doc_url = _mevzuat_doc_url(mevzuat_no, candidate_tur, tertip)
-                    resp = await self._http.get(doc_url, timeout=httpx.Timeout(90.0, connect=15.0))
+                    resp = await self._fetch_trusted_mevzuat(
+                        doc_url,
+                        timeout=httpx.Timeout(90.0, connect=15.0),
+                        max_bytes=_MAX_DOC_DOWNLOAD_BYTES,
+                    )
                     if (
                         resp.status_code == 200
                         and len(resp.content) > 100
                         and resp.content[:4] in (b"\xd0\xcf\x11\xe0", b"PK\x03\x04")
                     ):
-                        logger.info("mevzuat %s: downloaded via .doc (tur=%s)", doc_id, candidate_tur)
+                        logger.info("Mevzuat document downloaded via Word fallback")
                         return resp.content, "mevzuat_doc", ".doc"
-                except Exception as e:
-                    logger.debug("mevzuat %s: .doc failed (tur=%s): %s", doc_id, candidate_tur, e)
+                except UnsafeUpstreamResourceError:
+                    raise
+                except Exception as error:
+                    logger.debug(
+                        "Mevzuat Word download failed",
+                        extra={"error_type": type(error).__name__},
+                    )
 
             if candidate_tur != tur_candidates[-1]:
-                logger.debug("mevzuat %s: tur=%s failed, trying next candidate", doc_id, candidate_tur)
+                logger.debug("Mevzuat download candidate failed; trying next configured candidate")
 
         raise RuntimeError(f"All download methods failed for {doc_id} (tried tur values: {tur_candidates})")
 
@@ -700,12 +1247,13 @@ class DocumentSyncer:
             soup = BeautifulSoup(main_page_html, "html.parser")
             iframe = soup.find("iframe", src=True)
             if iframe:
-                iframe_url = iframe["src"]
-                if not iframe_url.startswith("http"):
-                    iframe_url = f"https://www.mevzuat.gov.tr{iframe_url}"
-                iframe_resp = await self._http.get(iframe_url, timeout=layer_timeout)
+                iframe_resp = await self._fetch_trusted_mevzuat(
+                    str(iframe["src"]),
+                    timeout=layer_timeout,
+                    max_bytes=_MAX_IFRAME_BYTES,
+                )
                 if iframe_resp.status_code == 200 and len(iframe_resp.content) > 200:
-                    logger.info("mevzuat %s: fetched iframe (tur=%s)", doc_id, candidate_tur)
+                    logger.info("Mevzuat document fetched from approved iframe layer")
                     content, annex_merged = await self._append_annex_zip_if_present(
                         iframe_resp.content,
                         doc_id=doc_id,
@@ -718,10 +1266,13 @@ class DocumentSyncer:
                     return content, method, ".html"
             div = soup.find("div", id="divMevzuatMetni")
             if div and len(div.get_text(strip=True)) > 100:
-                logger.info("mevzuat %s: fetched main page div (tur=%s)", doc_id, candidate_tur)
+                logger.info("Mevzuat document fetched from approved main-page layer")
                 return str(div).encode("utf-8"), "mevzuat_div", ".html"
-        except Exception as e:
-            logger.debug("mevzuat %s: iframe/div parse failed (tur=%s): %s", doc_id, candidate_tur, e)
+        except Exception as error:
+            logger.debug(
+                "Mevzuat iframe/main-page layer failed",
+                extra={"error_type": type(error).__name__},
+            )
         return None
 
     async def _append_annex_zip_if_present(
@@ -744,12 +1295,19 @@ class DocumentSyncer:
         if not annex_url:
             return content, False
         try:
-            resp = await self._http.get(annex_url, timeout=layer_timeout)
+            resp = await self._fetch_trusted_mevzuat(
+                annex_url,
+                timeout=layer_timeout,
+                max_bytes=_MAX_ANNEX_DOWNLOAD_BYTES,
+            )
             if resp.status_code != 200 or len(resp.content) < 100:
                 return content, False
             annex_markdown = _extract_annex_zip_markdown(resp.content)
-        except Exception as e:
-            logger.debug("mevzuat %s: annex zip fetch/extract failed: %s", doc_id, e)
+        except Exception as error:
+            logger.debug(
+                "Mevzuat annex archive fetch or extraction failed",
+                extra={"error_type": type(error).__name__},
+            )
             return content, False
 
         if not annex_markdown:
@@ -769,10 +1327,9 @@ class DocumentSyncer:
         extraction = self._extract_structured(content, ext)
         if extraction.error:
             logger.warning(
-                "Extraction issue: %s (method=%s, retryable=%s)",
-                extraction.error,
-                extraction.method,
+                "Document extraction returned an issue (retryable=%s)",
                 extraction.retryable,
+                extra={"error_type": "ExtractionIssue"},
             )
         return extraction.content, extraction.method
 
@@ -810,11 +1367,39 @@ class DocumentSyncer:
             return ExtractionResult(method="failed", error="; ".join(errors), retryable=retryable)
 
         if ext in (".doc", ".docx"):
+            if len(content) > _MAX_DOC_DOWNLOAD_BYTES:
+                return ExtractionResult(
+                    method="failed",
+                    error="office document exceeds the processing limit",
+                    retryable=False,
+                )
+            markitdown_extension = ext
+            if content.startswith(_ZIP_LOCAL_FILE_HEADER):
+                try:
+                    _validate_office_archive_for_markitdown(content)
+                except UnsafeUpstreamResourceError:
+                    return ExtractionResult(
+                        method="failed",
+                        error="office archive rejected by safety policy",
+                        retryable=False,
+                    )
+                # Mevzuat labels both legacy OLE and OOXML downloads as .doc.
+                # Route a validated ZIP container through the DOCX converter.
+                markitdown_extension = ".docx"
+            elif ext == ".docx" or not content.startswith(_OLE_COMPOUND_FILE_HEADER):
+                return ExtractionResult(
+                    method="failed",
+                    error="office document signature is invalid",
+                    retryable=False,
+                )
             try:
                 from markitdown import MarkItDown
 
                 md = MarkItDown()
-                result = md.convert_stream(io.BytesIO(content), file_extension=ext).text_content.strip()
+                result = md.convert_stream(
+                    io.BytesIO(content),
+                    file_extension=markitdown_extension,
+                ).text_content.strip()
                 if result and len(result) >= OCR_MIN_CONTENT_LEN:
                     return ExtractionResult(content=result, method="markitdown")
                 return ExtractionResult(method="failed", error="markitdown output too short", retryable=True)
@@ -891,7 +1476,7 @@ class DocumentSyncer:
     async def import_and_sync_from_cache(self, force: bool = False, concurrency: int = 5) -> SyncReport:
         """Load documents from .cache.json and sync them all."""
         if not CACHE_FILE.exists():
-            logger.error("No cache file found at %s", CACHE_FILE)
+            logger.error("Legacy cache file was not found")
             return SyncReport()
 
         data = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
@@ -915,27 +1500,34 @@ class DocumentSyncer:
 async def _create_pool_and_store(dsn: str | None) -> tuple:
     """Create asyncpg pool, DocumentStore, and VectorStore for CLI usage.
 
-    Returns (pool, store, vector_store). `vector_store` may be None if
-    initialization fails — CLI sync then skips re-index.
+    The standalone CLI is a data operation.  It requires a schema prepared by
+    ``bddk-mcp migrate`` and never creates or upgrades database objects itself.
     """
     import asyncpg as _asyncpg
 
     from bddk_mcp.core.config import require_database_url
+    from bddk_mcp.db_identity import assert_database_connection_identity, assert_database_identity
+    from bddk_mcp.db_lifecycle import assert_database_ready
+    from bddk_mcp.db_transport import assert_database_transport
     from bddk_mcp.store.vector_store import VectorStore
 
-    pool = await _asyncpg.create_pool(dsn or require_database_url(), min_size=1, max_size=5)
-    store = DocumentStore(pool)
-    await store.initialize()
-
-    vs: VectorStore | None
+    selected_dsn = assert_database_transport(dsn) if dsn else require_database_url("ingestion")
+    pool = await _asyncpg.create_pool(
+        selected_dsn,
+        min_size=1,
+        max_size=5,
+        init=partial(assert_database_connection_identity, profile="ingestion"),
+    )
     try:
-        vs = VectorStore(pool)
-        await vs.initialize()
-    except Exception as e:
-        logger.warning("VectorStore init failed (%s) — CLI sync will skip re-index", e)
-        vs = None
+        await assert_database_ready(pool=pool, require_corpus=False)
+        await assert_database_identity(pool, "ingestion")
+        store = DocumentStore(pool)
+        vector_store = VectorStore(pool)
+    except BaseException:
+        await pool.close()
+        raise
 
-    return pool, store, vs
+    return pool, store, vector_store
 
 
 async def _cli_sync(args: argparse.Namespace) -> None:

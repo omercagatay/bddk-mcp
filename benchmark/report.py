@@ -8,9 +8,29 @@ import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
+from benchmark.audit import sanitize_for_audit
 from benchmark.config import PHASE1_THRESHOLDS
 
 logger = logging.getLogger(__name__)
+
+
+def _model_scores_authorized(all_results: dict) -> bool:
+    # Release-grade execution of the expert dataset is not implemented.  A raw
+    # result JSON field is not signed execution evidence and must never promote
+    # the human report, even if a caller edits it to true.
+    return False
+
+
+def _append_evidence_banner(lines: list[str], all_results: dict) -> None:
+    if _model_scores_authorized(all_results):
+        lines.append("EVIDENCE STATUS: release-grade model scores authorized")
+        return
+    lines.extend(
+        (
+            "EVIDENCE STATUS: EXPLORATORY ONLY",
+            "These model scores are not release evidence and do not authorize deployment.",
+        )
+    )
 
 
 def console_report(all_results: dict) -> str:
@@ -20,6 +40,7 @@ def console_report(all_results: dict) -> str:
     lines.append("BDDK BENCHMARK RESULTS")
     lines.append(f"Date: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}")
     lines.append("=" * 90)
+    _append_evidence_banner(lines, all_results)
 
     # Phase 1a summary table
     if "phase1a" in all_results:
@@ -62,17 +83,20 @@ def console_report(all_results: dict) -> str:
     if "phase2" in all_results:
         lines.append("\n## Phase 2: End-to-End Grounding\n")
         lines.append(
-            f"{'Model':<30} {'Code Grd':>10} {'Model Grd':>10} {'Retrieval':>10} {'Source':>10} {'Audit':>10} {'Errors':>10}"
+            f"{'Model':<30} {'Claim Sup':>10} {'Model Grd':>10} {'Retrieval':>10} {'Source':>10} {'Audit':>10} {'Errors':>10}"
         )
         lines.append("-" * 96)
         for model_name, result in all_results["phase2"].items():
-            cg = result["avg_code_grounding"]
+            cg = result.get("avg_numeric_claim_support", 0.0)
             mg = result["avg_model_grounding"]
             rc = result.get("retrieval_completion_success_rate", result.get("chain_success_rate", 0.0))
             sc = result.get("avg_retrieval_source_correctness", result.get("avg_citation_or_source_trace_score", 0.0))
             ag = result.get("audit_grade_success_rate", 0.0)
             er = result["error_count"]
-            lines.append(f"{model_name:<30} {cg:>9.1%} {mg:>9.1%} {rc:>9.1%} {sc:>9.1%} {ag:>9.1%} {er:>10}")
+            lines.append(
+                f"{model_name:<30} {_format_percent(cg):>10} {_format_percent(mg):>10} "
+                f"{_format_percent(rc):>10} {_format_percent(sc):>10} {_format_percent(ag):>10} {er:>10}"
+            )
 
     # Threshold legend
     lines.append(
@@ -91,9 +115,11 @@ def diagnosis_report(all_results: dict) -> str:
     lines.append("=" * 90)
     lines.append("BDDK BENCHMARK — DIAGNOSIS REPORT")
     lines.append("=" * 90)
+    _append_evidence_banner(lines, all_results)
 
     models = set()
-    for phase_results in all_results.values():
+    for phase_name in ("phase1a", "phase1b", "phase1c", "phase2", "phase3"):
+        phase_results = all_results.get(phase_name)
         if isinstance(phase_results, dict):
             models.update(phase_results.keys())
 
@@ -131,7 +157,10 @@ def diagnosis_report(all_results: dict) -> str:
         if p2:
             grounding = p2["avg_model_grounding"]
             audit_grade = p2.get("audit_grade_success_rate", 0.0)
-            if grounding < 0.6:
+            if grounding is None:
+                failures.append("Grounding: not comparable (external grader unavailable or unscored)")
+                recommendations.append("Enable the external grader only for an explicitly approved egress run")
+            elif grounding < 0.6:
                 failures.append(f"Grounding: {grounding:.1%}")
                 recommendations.append("Try: RAG grounding instruction ('only cite tool results')")
             if audit_grade < 0.6:
@@ -141,8 +170,12 @@ def diagnosis_report(all_results: dict) -> str:
                 )
 
         if not failures:
-            lines.append("  PASS — All metrics above threshold")
-            lines.append("  Recommendation: Deploy with RAG + current prompts")
+            if _model_scores_authorized(all_results):
+                lines.append("  PASS — All metrics above threshold")
+                lines.append("  Recommendation: Eligible for the remaining release and deployment acceptance gates")
+            else:
+                lines.append("  EXPLORATORY PASS — All measured metrics above exploratory thresholds")
+                lines.append("  Recommendation: Do not deploy based on these scores; complete release-grade evaluation")
         else:
             lines.append("  FAILURES:")
             for f in failures:
@@ -157,14 +190,23 @@ def diagnosis_report(all_results: dict) -> str:
     return "\n".join(lines)
 
 
+def _format_percent(value: object) -> str:
+    if value is None:
+        return "n/a"
+    try:
+        return f"{float(value):.1%}"
+    except (TypeError, ValueError):
+        return "n/a"
+
+
 def save_json_results(all_results: dict, output_dir: Path) -> Path:
-    """Save results to a timestamped JSON file."""
+    """Save a redacted result artifact to a timestamped JSON file."""
     output_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     path = output_dir / f"benchmark_{timestamp}.json"
 
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(all_results, f, ensure_ascii=False, indent=2, default=str)
+        json.dump(sanitize_for_audit(all_results), f, ensure_ascii=False, indent=2, default=str)
 
     logger.info("Results saved to %s", path)
     return path

@@ -59,7 +59,19 @@ def test_source_correctness_scores_expected_docs_sections_and_terms():
                 "args": {"document_id": "943", "section_type": "ilke", "section_ref": "5"},
             }
         ],
-        "tool_results": ["Document 943\nİlke 5 - Model validasyonu\nModel validasyonu bağımsız yapılır."],
+        "tool_results": [
+            _structured_result(
+                evidence=[{"document_id": "943", "section_type": "ilke", "section_ref": "5"}],
+                results=[
+                    {
+                        "document_id": "943",
+                        "section_type": "ilke",
+                        "section_ref": "5",
+                        "content": "Model validasyonu bağımsız yapılır.",
+                    }
+                ],
+            )
+        ],
     }
 
     metrics = source_correctness_metrics(case, trace)
@@ -74,7 +86,19 @@ def test_source_correctness_catches_missing_expected_terms():
     case = gold_cases_as_test_cases()[2]
     trace = {
         "tool_calls": [{"name": "search_document_sections", "args": {"query": case.question}}],
-        "tool_results": ["Document 943\nKredi riskinde önemli artış için kredi derecesi dikkate alınır."],
+        "tool_results": [
+            _structured_result(
+                evidence=[{"document_id": "943", "section_type": "ilke", "section_ref": "4"}],
+                results=[
+                    {
+                        "document_id": "943",
+                        "section_type": "ilke",
+                        "section_ref": "4",
+                        "content": "Kredi riskinde önemli artış için kredi derecesi dikkate alınır.",
+                    }
+                ],
+            )
+        ],
     }
 
     metrics = source_correctness_metrics(case, trace)
@@ -93,11 +117,23 @@ def test_audit_grade_metrics_include_gold_source_correctness():
                 "args": {"document_id": "943", "section_type": "ilke", "section_ref": "5"},
             }
         ],
-        "tool_results": ["Document 943\nİlke 5 - Model validasyonu\nModel validasyonu bağımsız yapılır."],
+        "tool_results": [
+            _structured_result(
+                evidence=[{"document_id": "943", "section_type": "ilke", "section_ref": "5"}],
+                results=[
+                    {
+                        "document_id": "943",
+                        "section_type": "ilke",
+                        "section_ref": "5",
+                        "content": "Model validasyonu bağımsız yapılır.",
+                    }
+                ],
+            )
+        ],
         "final_answer": "943 numaralı rehberde İlke 5, model validasyonunun bağımsız yapılmasını düzenler.",
     }
 
-    metrics = audit_grade_metrics(case, trace, code_score=0.8, model_score=0.8)
+    metrics = audit_grade_metrics(case, trace, claim_support_score=0.8, model_score=0.8)
 
     assert metrics["retrieval_source_correctness_score"] == 1.0
     assert metrics["retrieval_source_correctness_success"] is True
@@ -106,3 +142,16 @@ def test_audit_grade_metrics_include_gold_source_correctness():
 
 def test_gold_cases_file_is_repo_relative():
     assert Path("benchmark/gold_cases.yml").exists()
+
+
+def _structured_result(*, evidence: list[dict], results: list[dict]) -> dict:
+    return {
+        "structured_content": {
+            "schema_version": "1.0",
+            "status": "ok",
+            "text": "structured evidence",
+            "evidence": evidence,
+            "results": results,
+        },
+        "model_content": "structured evidence",
+    }

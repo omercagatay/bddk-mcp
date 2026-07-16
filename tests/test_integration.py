@@ -22,13 +22,17 @@ class TestSearchThenRetrieveFlow:
     async def test_search_then_get_document(self, doc_store):
         """Search for decisions, pick one, retrieve its markdown."""
         client = BddkApiClient(pool=doc_store._pool, doc_store=doc_store)
-        client._http = AsyncMock(spec=httpx.AsyncClient)
-        client._http.get = AsyncMock(return_value=make_http_response(BDDK_ACCORDION_HTML))
+        client._fetch_with_retry = AsyncMock(return_value=make_http_response(BDDK_ACCORDION_HTML))
 
         # Populate cache directly (bypass DB cache)
         client._cache = []
         client._cache_timestamp = 0
-        await client._ensure_cache()
+        # This flow exercises one complete, configured catalog source.  Reusing
+        # the same accordion HTML for every production list page would assign
+        # page-specific categories to the same document IDs and therefore
+        # (correctly) fail the catalog's ambiguity check.
+        with patch("bddk_mcp.ingest.client._ALL_PAGE_IDS", [50]):
+            await client._ensure_cache()
         assert client.cache_size() > 0
 
         request = BddkSearchRequest(keywords="Rehber")
@@ -36,7 +40,7 @@ class TestSearchThenRetrieveFlow:
         assert result.total_results > 0
 
         doc_html = "<html><body><h1>Sermaye Rehberi</h1><p>Bu rehber bankacilik sektorunde...</p></body></html>"
-        client._http.get = AsyncMock(return_value=make_http_response(doc_html))
+        client._fetch_with_retry = AsyncMock(return_value=make_http_response(doc_html))
 
         doc = await client.get_document_markdown(result.decisions[0].document_id, 1)
         assert doc.markdown_content
@@ -104,7 +108,6 @@ class TestCacheFallbackFlow:
 
         # Pre-populate DB cache
         client = BddkApiClient(pool=pool)
-        await client.initialize()
         from bddk_mcp.core.models import BddkDecisionSummary
 
         client._cache = [
@@ -115,7 +118,7 @@ class TestCacheFallbackFlow:
 
         # New client, all HTTP fails
         client2 = BddkApiClient(pool=pool)
-        await client2.initialize()
+        await client2.load_cache_read_only(require_nonempty=False)
         client2._http = AsyncMock(spec=httpx.AsyncClient)
         client2._http.get = AsyncMock(side_effect=httpx.TransportError("Network unreachable"))
 

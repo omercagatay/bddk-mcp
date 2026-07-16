@@ -6,7 +6,6 @@ import logging
 from typing import TYPE_CHECKING
 
 from bddk_mcp.core.config import (
-    ADMIN_TOOLS,
     validate_column,
     validate_currency,
     validate_metric_id,
@@ -15,7 +14,20 @@ from bddk_mcp.core.config import (
     validate_year,
 )
 from bddk_mcp.ingest.data_sources import fetch_bulletin_snapshot, fetch_monthly_bulletin, fetch_weekly_bulletin
+from bddk_mcp.tools.contract_types import (
+    BulletinColumn,
+    BulletinDate,
+    HistoryDays,
+    MetricId,
+    MonthlyCurrency,
+    MonthlyMonth,
+    MonthlyTableNumber,
+    MonthlyYear,
+    PartyCode,
+    WeeklyCurrency,
+)
 from bddk_mcp.tools.errors import INVALID_INPUT, UPSTREAM_FETCH_FAILED, tool_error
+from bddk_mcp.tools.structured_outputs import frame_untrusted_source
 from bddk_mcp.tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
@@ -24,17 +36,22 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def register(mcp, deps: Dependencies) -> None:
+def register(
+    mcp,
+    deps: Dependencies,
+    *,
+    include_operator: bool = False,
+) -> None:
     """Register bulletin tools on the given MCP instance."""
 
     @mcp.tool()
     @logged_tool(logger)
     async def get_bddk_bulletin(
-        metric_id: str = "1.0.1",
-        currency: str = "TRY",
-        column: str = "1",
-        date: str = "",
-        days: int = 90,
+        metric_id: MetricId = "1.0.1",
+        currency: WeeklyCurrency = "TRY",
+        column: BulletinColumn = "1",
+        date: BulletinDate = "",
+        days: HistoryDays = 90,
     ) -> str:
         """
         Get weekly banking sector bulletin time-series data from BDDK.
@@ -53,15 +70,15 @@ def register(mcp, deps: Dependencies) -> None:
             validate_metric_id(metric_id)
             validate_currency(currency, "weekly")
             validate_column(column)
-        except ValueError as e:
-            return tool_error(INVALID_INPUT, f"Validation error: {e}", retryable=False)
+        except ValueError:
+            return tool_error(INVALID_INPUT, "One or more bulletin parameters are invalid.", retryable=False)
 
         data = await fetch_weekly_bulletin(deps.http, metric_id, currency, days, date, column)
 
         if "error" in data:
             return tool_error(
                 UPSTREAM_FETCH_FAILED,
-                f"Error fetching bulletin: {data['error']}",
+                "BDDK weekly bulletin data could not be retrieved.",
                 retryable=True,
                 hint="BDDK upstream may be temporarily unavailable; retry later.",
             )
@@ -74,7 +91,7 @@ def register(mcp, deps: Dependencies) -> None:
         else:
             lines.append("No data returned for the given parameters.")
 
-        return "\n".join(lines)
+        return frame_untrusted_source("\n".join(lines))
 
     @mcp.tool()
     @logged_tool(logger)
@@ -95,16 +112,16 @@ def register(mcp, deps: Dependencies) -> None:
         lines.append("-" * 100)
         for r in rows:
             lines.append(f"{r['row_number']:<4} {r['name']:<50} {r['tp']:>15} {r['yp']:>15} {r['metric_id']}")
-        return "\n".join(lines)
+        return frame_untrusted_source("\n".join(lines))
 
     @mcp.tool()
     @logged_tool(logger)
     async def get_bddk_monthly(
-        table_no: int = 1,
-        year: int = 2025,
-        month: int = 12,
-        currency: str = "TL",
-        party_code: str = "10001",
+        table_no: MonthlyTableNumber = 1,
+        year: MonthlyYear = 2025,
+        month: MonthlyMonth = 12,
+        currency: MonthlyCurrency = "TL",
+        party_code: PartyCode = "10001",
     ) -> str:
         """
         Get BDDK monthly banking sector data (more detailed than weekly bulletin).
@@ -126,15 +143,15 @@ def register(mcp, deps: Dependencies) -> None:
             validate_year(year)
             validate_month(month)
             validate_currency(currency, "monthly")
-        except ValueError as e:
-            return tool_error(INVALID_INPUT, f"Validation error: {e}", retryable=False)
+        except ValueError:
+            return tool_error(INVALID_INPUT, "One or more monthly bulletin parameters are invalid.", retryable=False)
 
         result = await fetch_monthly_bulletin(deps.http, table_no, year, month, currency, party_code)
 
         if "error" in result:
             return tool_error(
                 UPSTREAM_FETCH_FAILED,
-                f"Error fetching monthly bulletin: {result['error']}",
+                "BDDK monthly bulletin data could not be retrieved.",
                 retryable=True,
                 hint="BDDK upstream may be temporarily unavailable; retry later.",
             )
@@ -151,9 +168,9 @@ def register(mcp, deps: Dependencies) -> None:
             for r in rows:
                 lines.append(f"{r['name']:<55} {r.get('tp', ''):>15} {r.get('yp', ''):>15} {r.get('total', ''):>15}")
 
-        return "\n".join(lines)
+        return frame_untrusted_source("\n".join(lines))
 
-    if not ADMIN_TOOLS:
+    if not include_operator:
         return
 
     @mcp.tool()
@@ -179,7 +196,6 @@ def register(mcp, deps: Dependencies) -> None:
 
         if status["page_errors"]:
             lines.append("\n**Page Errors:**")
-            for page_id, err in status["page_errors"].items():
-                lines.append(f"  Page {page_id}: {err}")
+            lines.append(f"  {len(status['page_errors'])} page(s) failed; details withheld.")
 
-        return "\n".join(lines)
+        return frame_untrusted_source("\n".join(lines))

@@ -1,11 +1,11 @@
-"""Tests for benchmark tool schemas."""
+"""Tests for runtime-derived benchmark tool schemas."""
 
+from bddk_mcp.tools.registry import ToolProfile, expected_tool_names
 from benchmark.tool_schemas import TOOL_SCHEMAS, get_tool_names
 
 
 def test_schema_count():
-    """We have 23 tools in bddk-mcp."""
-    assert len(TOOL_SCHEMAS) == 23
+    assert len(TOOL_SCHEMAS) == len(expected_tool_names(ToolProfile.OPERATOR))
 
 
 def test_each_schema_has_required_fields():
@@ -25,7 +25,7 @@ def test_get_tool_names():
     assert "get_document_section" in names
     assert "get_bddk_bulletin" in names
     assert "health_check" in names
-    assert len(names) == 23
+    assert set(names) == set(expected_tool_names(ToolProfile.OPERATOR))
 
 
 def test_search_bddk_regulations_schema():

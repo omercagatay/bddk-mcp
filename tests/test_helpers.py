@@ -71,6 +71,18 @@ class TestExternalUrlToId:
     def test_non_mevzuat_url(self):
         assert _external_url_to_id("https://example.com/doc") is None
 
+    def test_mevzuat_lookalike_host_is_not_trusted(self):
+        assert _external_url_to_id("https://mevzuat.gov.tr.evil.example/?MevzuatNo=42628") is None
+
+    def test_mevzuat_userinfo_trick_is_not_trusted(self):
+        assert _external_url_to_id("https://mevzuat.gov.tr@evil.example/?MevzuatNo=42628") is None
+
+    def test_non_numeric_mevzuat_number_is_rejected(self):
+        assert _external_url_to_id("https://mevzuat.gov.tr/?MevzuatNo=../private") is None
+
+    def test_malformed_authority_is_rejected_without_parser_error(self):
+        assert _external_url_to_id("https://[invalid/?MevzuatNo=42628") is None
+
     def test_mevzuat_url_without_params(self):
         assert _external_url_to_id("https://mevzuat.gov.tr/") is None
 
@@ -100,6 +112,10 @@ class TestMevzuatToPdfUrl:
     def test_default_params(self):
         url = _mevzuat_to_pdf_url("42628")
         assert url == "https://www.mevzuat.gov.tr/MevzuatMetin/yonetmelik/7.5.42628.pdf"
+
+    def test_invalid_path_components_are_rejected(self):
+        assert _mevzuat_to_pdf_url("../private", "7", "5") is None
+        assert _mevzuat_to_pdf_url("42628", "7", "../5") is None
 
 
 class TestParseDate:

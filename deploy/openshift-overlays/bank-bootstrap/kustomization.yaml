@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../openshift
+  - ../../openshift/jobs
+patches:
+  - path: bootstrap-job-patch.yaml
+    target:
+      group: batch
+      version: v1
+      kind: Job
+      name: bddk-mcp-bootstrap-v5-0-1
+labels:
+  - pairs:
+      app.kubernetes.io/name: bddk-mcp
+    includeSelectors: true
+    includeTemplates: true
+  - pairs:
+      app.kubernetes.io/version: 5.0.1
+    includeSelectors: false
+    includeTemplates: true

@@ -1,0 +1,68 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bddk-mcp-activate-release-v5-0-1
+  labels:
+    app.kubernetes.io/name: bddk-mcp
+    app.kubernetes.io/component: lifecycle
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: bddk-mcp
+        app.kubernetes.io/component: lifecycle
+    spec:
+      restartPolicy: Never
+      serviceAccountName: bddk-mcp-release-publisher
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: activate-release
+          image: REPLACE_IMAGE_REGISTRY/bddk-mcp@sha256:REPLACE_64_HEX_IMAGE_DIGEST
+          imagePullPolicy: IfNotPresent
+          args:
+            - .venv/bin/bddk-mcp
+            - activate-corpus-release
+            - --request-id
+            - $(BDDK_RELEASE_REQUEST_ID)
+          env:
+            - name: BDDK_RELEASE_PUBLISHER_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: bddk-mcp-release-publisher-db
+                  key: BDDK_RELEASE_PUBLISHER_DATABASE_URL
+            - name: BDDK_RELEASE_REQUEST_ID
+              value: REPLACE_RELEASE_REQUEST_ID
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          volumeMounts:
+            - name: postgres-ca
+              mountPath: /var/run/configmaps/bddk-mcp/postgres
+              readOnly: true
+            - name: runtime-tmp
+              mountPath: /tmp
+      volumes:
+        - name: postgres-ca
+          configMap:
+            name: bddk-mcp-postgres-ca
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: runtime-tmp
+          emptyDir:
+            sizeLimit: 128Mi

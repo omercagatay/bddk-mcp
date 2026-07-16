@@ -1,0 +1,58 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: bddk-mcp-default-deny-egress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: bddk-mcp
+  policyTypes: ["Egress"]
+  egress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: bddk-mcp-default-deny-ingress
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: bddk-mcp
+  policyTypes: ["Ingress"]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: bddk-mcp-public-from-router
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: bddk-mcp
+      app.kubernetes.io/component: public
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              network.openshift.io/policy-group: ingress
+      ports:
+        - protocol: TCP
+          port: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: bddk-mcp-operator-from-approved-clients
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: bddk-mcp
+      app.kubernetes.io/component: operator
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              bddk.bank/operator-client: "true"
+      ports:
+        - protocol: TCP
+          port: 8000

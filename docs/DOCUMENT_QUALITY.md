@@ -30,7 +30,10 @@ Labels are deterministic signals, not legal conclusions. A `clean` document is n
 
 ## Known Fail List
 
-The tracked fail list lives in `config/quality_failures.yml`. These documents are known quality targets until they are repaired and rescanned:
+The authoritative tracked fail list is packaged with the runtime at
+`bddk_mcp/quality/quality_failures.yml`. Registry membership overrides content heuristics: a
+listed document remains `fail` in search and retrieval results until it is repaired,
+rescanned, reviewed, and then removed from this file:
 
 | Document ID | Reason | Preferred backfill |
 |---|---|---|
@@ -132,5 +135,8 @@ Recommended operator loop:
 3. Execute one targeted backfill at a time.
 4. Re-run the quality scan.
 5. Compare before/after labels, flags, snippets, and content hashes.
+6. After owner review confirms the repair, remove the document from
+   `bddk_mcp/quality/quality_failures.yml` and redeploy/restart the server; until then, runtime retrieval continues
+   to label it `fail`.
 
 Backfill should not erase prior versions. It should create a fresh stored version or preserve enough hash/version history to compare old and new extraction output.

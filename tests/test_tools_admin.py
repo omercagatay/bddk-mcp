@@ -25,5 +25,4 @@ def test_admin_register():
         "bddk_metrics",
         "document_quality_report",
         "backfill_degraded_documents",
-        "backfill_status",
     }

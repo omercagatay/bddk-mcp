@@ -1,23 +1,39 @@
+[build-system]
+requires = ["setuptools>=81"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "bddk-mcp"
-version = "5.0.0"
+version = "5.0.1"
 description = "MCP server for BDDK regulatory intelligence — search, analytics, and monitoring (PostgreSQL + pgvector)"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.12,<3.14"
 dependencies = [
-    "mcp[cli]>=1.0.0",
+    "mcp[cli]>=1.27,<2",
     "httpx>=0.27",
     "pydantic>=2.0",
+    "PyJWT[crypto]>=2.10,<3",
     "pyyaml>=6.0",
     "markitdown[pdf]>=0.1",
     "beautifulsoup4>=4.12",
+    "defusedxml>=0.7.1,<1",
     "asyncpg>=0.30",
     "sentence-transformers>=5.0",
     "uvloop>=0.22.1; sys_platform != 'win32'",
-    "anthropic>=0.40",
     "transformers>=4.50",
     "pdf2image>=1.17",
     "pillow>=10.0",
 ]
+
+[project.urls]
+Repository = "https://github.com/omercagatay/bddk-mcp"
+Issues = "https://github.com/omercagatay/bddk-mcp/issues"
+
+[project.scripts]
+bddk-mcp = "bddk_mcp.cli:main"
+bddk-seed = "bddk_mcp.ingest.seed:main"
 
 [dependency-groups]
 dev = [
@@ -26,6 +42,9 @@ dev = [
     "pytest-httpx>=0.30",
     "ruff>=0.8",
     "pdfplumber>=0.11",
+]
+benchmark = [
+    "anthropic>=0.40",
 ]
 gpu = [
     "torch>=2.0",
@@ -38,7 +57,8 @@ asyncio_mode = "auto"
 pythonpath = ["."]
 addopts = "-m 'not gpu'"
 markers = [
-    "gpu: requires CUDA GPU (skipped in CI)",
+    "gpu: requires explicit offline GPU/OCR provisioning via BDDK_REQUIRE_GPU_OCR=1",
+    "postgres: requires the PostgreSQL + pgvector test service",
 ]
 
 [tool.ruff]
@@ -54,3 +74,9 @@ ignore = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["bddk_mcp"]
+
+[tool.setuptools.packages.find]
+include = ["bddk_mcp*"]
+
+[tool.setuptools.package-data]
+"bddk_mcp.quality" = ["*.yml"]

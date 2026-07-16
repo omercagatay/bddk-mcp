@@ -58,7 +58,7 @@ class ChandraBackend:
         from chandra.model import settings as chandra_settings
 
         chandra_settings.MODEL_CHECKPOINT = CHANDRA_MODEL_NAME
-        logger.info("Loading chandra InferenceManager(method='hf', model=%s) — ~100s on first call", CHANDRA_MODEL_NAME)
+        logger.info("Loading Chandra OCR inference manager (method=hf)")
         return InferenceManager(method="hf")
 
     def extract(self, pdf_bytes: bytes) -> str | None:
@@ -67,15 +67,21 @@ class ChandraBackend:
         try:
             from chandra.input import load_file
             from chandra.model.schema import BatchInputItem
-        except ImportError as e:
-            logger.warning("chandra2: chandra-ocr not installed: %s", e)
+        except ImportError as exc:
+            logger.warning(
+                "Chandra OCR dependency is unavailable",
+                extra={"error_type": type(exc).__name__},
+            )
             return None
 
         try:
             if self._manager is None:
                 self._manager = self._load_manager()
-        except Exception as e:
-            logger.warning("chandra2: model load failed: %s", e)
+        except Exception as exc:
+            logger.warning(
+                "Chandra OCR model load failed",
+                extra={"error_type": type(exc).__name__},
+            )
             return None
 
         # delete=False so Windows lets chandra-ocr's load_file re-open the path.
@@ -85,14 +91,20 @@ class ChandraBackend:
             tf.close()
             try:
                 images = load_file(tf.name, {})
-            except Exception as e:
-                logger.warning("chandra2: load_file failed: %s", e)
+            except Exception as exc:
+                logger.warning(
+                    "Chandra OCR input loading failed",
+                    extra={"error_type": type(exc).__name__},
+                )
                 return None
         finally:
             try:
                 os.unlink(tf.name)
-            except OSError as e:
-                logger.debug("chandra2: temp cleanup failed for %s: %s", tf.name, e)
+            except OSError as exc:
+                logger.debug(
+                    "Chandra OCR temporary-file cleanup failed",
+                    extra={"error_type": type(exc).__name__},
+                )
 
         if not images:
             return None
@@ -102,8 +114,12 @@ class ChandraBackend:
             batch = [BatchInputItem(image=img, prompt_type="ocr_layout")]
             try:
                 outputs = self._manager.generate(batch)
-            except Exception as e:
-                logger.warning("chandra2: inference failed on page %d: %s", idx, e)
+            except Exception as exc:
+                logger.warning(
+                    "Chandra OCR inference failed on page %d",
+                    idx,
+                    extra={"error_type": type(exc).__name__},
+                )
                 return None
             if not outputs:
                 return None

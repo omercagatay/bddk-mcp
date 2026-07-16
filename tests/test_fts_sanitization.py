@@ -1,5 +1,7 @@
 """Tests for FTS query sanitization in DocumentStore."""
 
+import logging
+
 import pytest
 
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
@@ -90,3 +92,20 @@ class TestFtsSearchSanitized:
     async def test_search_all_operators_returns_empty(self, doc_store):
         hits = await doc_store.search_content("AND OR NOT")
         assert hits == []
+
+
+@pytest.mark.asyncio
+async def test_fts_operational_log_does_not_include_raw_query(caplog):
+    sentinel = "PRIVATE_FTS_QUERY_SENTINEL_4d2a"
+
+    class EmptyPool:
+        async def fetch(self, query, *args):
+            return []
+
+    store = DocumentStore(EmptyPool())  # type: ignore[arg-type]
+    with caplog.at_level(logging.INFO, logger="bddk_mcp.store.doc_store"):
+        hits = await store.search_content(sentinel)
+
+    assert hits == []
+    assert sentinel not in caplog.text
+    assert f"query_chars={len(sentinel)} hits=0" in caplog.text

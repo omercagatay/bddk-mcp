@@ -1,8 +1,11 @@
 """Tests for DocumentStore (PostgreSQL + tsvector)."""
 
+import hashlib
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
-from bddk_mcp.store.doc_store import _SCHEMA_SQL, StoredDocument, StoredDocumentSection
+from bddk_mcp.store.doc_store import DocumentStore, StoredDocument, StoredDocumentSection
 from bddk_mcp.store.section_index import extract_document_sections
 
 
@@ -11,19 +14,6 @@ from bddk_mcp.store.section_index import extract_document_sections
 @pytest.fixture
 async def store(doc_store):
     yield doc_store
-
-
-def test_document_sections_schema_is_declared():
-    assert "CREATE TABLE IF NOT EXISTS document_sections" in _SCHEMA_SQL
-    assert "UNIQUE(doc_id, section_type, section_ref, content_hash)" in _SCHEMA_SQL
-    assert "idx_document_sections_tsv" in _SCHEMA_SQL
-
-
-def test_tool_call_trace_schema_is_declared():
-    assert "CREATE TABLE IF NOT EXISTS tool_call_traces" in _SCHEMA_SQL
-    assert "args_summary   JSONB" in _SCHEMA_SQL
-    assert "quality_labels JSONB" in _SCHEMA_SQL
-    assert "idx_tool_call_traces_doc_ids" in _SCHEMA_SQL
 
 
 def test_stored_document_section_model():
@@ -40,6 +30,35 @@ def test_stored_document_section_model():
 
     assert section.doc_id == "943"
     assert section.section_type == "ilke"
+
+
+@pytest.mark.asyncio
+async def test_context_entry_checks_schema_without_initializing_it():
+    pool = MagicMock()
+    store = DocumentStore(pool)
+    store.initialize = AsyncMock()
+    readiness = AsyncMock()
+
+    with patch("bddk_mcp.db_lifecycle.assert_database_ready", new=readiness):
+        async with store as entered:
+            assert entered is store
+
+    readiness.assert_awaited_once_with(pool=pool, require_corpus=False)
+    store.initialize.assert_not_awaited()
+    pool.execute.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_legacy_initialize_is_select_only_readiness_wrapper():
+    pool = MagicMock()
+    readiness = AsyncMock()
+
+    with patch("bddk_mcp.db_lifecycle.assert_database_ready", new=readiness):
+        await DocumentStore(pool).initialize()
+
+    readiness.assert_awaited_once_with(pool=pool, require_corpus=False)
+    pool.acquire.assert_not_called()
+    pool.execute.assert_not_called()
 
 
 async def test_store_and_retrieve(store, sample_doc):
@@ -124,8 +143,10 @@ async def test_delete_document(store, sample_doc):
 async def test_replace_and_get_document_sections(store):
     text = "İlke 5 - Model validasyonu\nBankalar modeli doğrular.\n\nİlke 6\nSonraki ilke."
     sections = extract_document_sections("943", text)
+    source_hash = hashlib.sha256(text.encode()).hexdigest()
+    await store.store_document(StoredDocument(document_id="943", title="Test", markdown_content=text))
 
-    await store.replace_document_sections("943", sections)
+    await store.replace_document_sections("943", sections, source_content_hash=source_hash)
     found = await store.get_document_section("943", section_type="ilke", section_ref="5")
 
     assert len(found) == 1
@@ -136,11 +157,23 @@ async def test_replace_and_get_document_sections(store):
 
 
 async def test_replace_document_sections_deletes_stale_rows(store):
-    first = extract_document_sections("943", "İlke 5\nEski içerik.\n\nİlke 6\nSilinecek.")
-    second = extract_document_sections("943", "İlke 5\nYeni içerik.")
+    first_text = "İlke 5\nEski içerik.\n\nİlke 6\nSilinecek."
+    second_text = "İlke 5\nYeni içerik."
+    first = extract_document_sections("943", first_text)
+    second = extract_document_sections("943", second_text)
 
-    await store.replace_document_sections("943", first)
-    await store.replace_document_sections("943", second)
+    await store.store_document(StoredDocument(document_id="943", title="Test", markdown_content=first_text))
+    await store.replace_document_sections(
+        "943",
+        first,
+        source_content_hash=hashlib.sha256(first_text.encode()).hexdigest(),
+    )
+    await store.store_document(StoredDocument(document_id="943", title="Test", markdown_content=second_text))
+    await store.replace_document_sections(
+        "943",
+        second,
+        source_content_hash=hashlib.sha256(second_text.encode()).hexdigest(),
+    )
 
     found = await store.get_document_section("943", section_type="ilke")
     assert len(found) == 1
@@ -177,6 +210,31 @@ async def test_store_document_replaces_stale_auto_indexed_sections(store):
     assert "Yeni içerik." in found[0].content
 
 
+async def test_document_and_sections_publish_in_one_transaction(store, monkeypatch):
+    original = StoredDocument(
+        document_id="atomic_sections",
+        title="Original",
+        markdown_content="İlke 5\nEski içerik.",
+    )
+    await store.store_document(original)
+    section_failure = AsyncMock(side_effect=RuntimeError("synthetic section failure"))
+    monkeypatch.setattr(store, "_replace_document_sections_on_connection", section_failure)
+
+    with pytest.raises(RuntimeError, match="synthetic section failure"):
+        await store.store_document(
+            StoredDocument(
+                document_id="atomic_sections",
+                title="Replacement",
+                markdown_content="İlke 5\nYeni içerik.",
+            )
+        )
+
+    stored = await store.get_document("atomic_sections")
+    assert stored is not None
+    assert stored.title == "Original"
+    assert stored.markdown_content == original.markdown_content
+
+
 async def test_store_document_empty_content_clears_sections(store):
     first = StoredDocument(document_id="auto_sections", title="Doc", markdown_content="İlke 5\nEski içerik.")
     empty = StoredDocument(document_id="auto_sections", title="Doc", markdown_content="")
@@ -189,7 +247,12 @@ async def test_store_document_empty_content_clears_sections(store):
 
 async def test_search_document_sections(store):
     text = "MADDE 9 - TFRS 9 karşılık\nBankalar karşılık ayırır.\n\nMADDE 10\nBaşka hüküm."
-    await store.replace_document_sections("mevzuat_22599", extract_document_sections("mevzuat_22599", text))
+    await store.store_document(StoredDocument(document_id="mevzuat_22599", title="Test", markdown_content=text))
+    await store.replace_document_sections(
+        "mevzuat_22599",
+        extract_document_sections("mevzuat_22599", text),
+        source_content_hash=hashlib.sha256(text.encode()).hexdigest(),
+    )
 
     hits = await store.search_document_sections("TFRS 9 karşılık", document_id="mevzuat_22599")
 

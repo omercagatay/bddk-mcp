@@ -2,21 +2,52 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
+
+from pydantic import BeforeValidator, Field
 
 from bddk_mcp.core.exceptions import BddkError, BddkStorageError
+from bddk_mcp.corpus_publication import CorpusPublicationError, inspect_active_corpus_release
 from bddk_mcp.ingest.backfill import BackfillOutcome, execute_backfill, group_by_signature, scan_candidates
+from bddk_mcp.jobs import JobContext, JobExecutionError, JobKind, JobOutcome
 from bddk_mcp.observability.metrics import metrics
 from bddk_mcp.quality.quality_scan import format_report, scan_quality
+from bddk_mcp.tools.sync import (
+    JobView,
+    OptionalIdempotencyKey,
+    _job_manager,
+    _submit_tracked_job,
+    _tool_error,
+)
 from bddk_mcp.tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
     from bddk_mcp.core.deps import Dependencies
 
 logger = logging.getLogger(__name__)
+
+BackfillLimit = Annotated[
+    int,
+    Field(ge=1, le=1000, description="Maximum candidates to process (1-1000)."),
+]
+BackfillDryRun = Annotated[
+    bool,
+    Field(description="When true, scan and report without changing stored documents."),
+    BeforeValidator(lambda value: _strict_bool(value, name="dry_run")),
+]
+IncludeLegacyCorruption = Annotated[
+    bool,
+    Field(description="When true, include reviewed historical extraction-corruption signatures."),
+    BeforeValidator(lambda value: _strict_bool(value, name="include_legacy_corruption")),
+]
+
+
+def _strict_bool(value: object, *, name: str) -> bool:
+    if type(value) is not bool:
+        _tool_error(f"invalid_{name}")
+    return value
 
 
 def register(mcp, deps: Dependencies) -> None:
@@ -50,7 +81,7 @@ def register(mcp, deps: Dependencies) -> None:
             last_sync,
         ]
         if deps.last_sync_error:
-            lines.append(f"  Last sync error: {deps.last_sync_error}")
+            lines.append("  Last sync error: recorded (details withheld from tool output)")
 
         try:
             cs = deps.client.cache_status()
@@ -70,8 +101,33 @@ def register(mcp, deps: Dependencies) -> None:
         except (RuntimeError, AttributeError):
             lines.append("  Pool: unavailable")
 
-        sync_status = "running" if (deps.sync_task and not deps.sync_task.done()) else "idle"
-        lines.append(f"  Sync status: {sync_status}")
+        manager = _job_manager(deps)
+        active_jobs = await manager.active_task_count() if manager is not None else 0
+        lines.append(f"  Operator jobs active: {active_jobs}")
+
+        try:
+            release = await inspect_active_corpus_release(deps.pool) if deps.pool is not None else None
+        except CorpusPublicationError:
+            lines.append("  Active corpus release: unavailable")
+        else:
+            if release is None:
+                lines.append("  Active corpus release: none")
+            else:
+                lines.extend(
+                    (
+                        f"  Active corpus release: {release.release_id}",
+                        f"  Corpus manifest: id={release.manifest_id} sha256={release.manifest_sha256}",
+                        f"  Corpus signer key sha256: {release.signer_key_sha256}",
+                        f"  Corpus freshness policy: {release.freshness_policy_result}",
+                        "  Corpus freshness SLOs: "
+                        f"detection={release.source_detection_slo_seconds}s "
+                        f"publication={release.publication_slo_seconds}s "
+                        f"max_age={release.max_manifest_age_seconds}s",
+                        f"  Retrieval profile sha256: {release.retrieval_profile_sha256}",
+                        f"  Corpus state sha256: {release.corpus_state_sha256}",
+                        f"  Corpus release completed at: {release.completed_at.isoformat()}",
+                    )
+                )
 
         return "\n".join(lines)
 
@@ -106,17 +162,17 @@ def register(mcp, deps: Dependencies) -> None:
     @mcp.tool()
     @logged_tool(logger)
     async def backfill_degraded_documents(
-        dry_run: bool = True,
-        limit: int = 0,
-        include_legacy_corruption: bool = False,
-    ) -> str:
+        dry_run: BackfillDryRun = True,
+        limit: BackfillLimit = 100,
+        include_legacy_corruption: IncludeLegacyCorruption = False,
+        idempotency_key: OptionalIdempotencyKey = None,
+    ) -> str | JobView:
         """
         Scan for degraded mevzuat documents and (optionally) re-extract them.
 
         Defaults to dry_run=True: reports candidates without modifying anything.
-        Set dry_run=False to kick off the rescue in a background task; poll
-        ``backfill_status`` to watch it, or ``document_quality_report`` to
-        confirm the ``markitdown_degraded`` count has dropped to zero.
+        Set dry_run=False to submit a tracked rescue job and receive its UUID;
+        poll ``get_operator_job`` or ``list_operator_jobs`` for progress.
 
         The rescue path relies on HTML-first routing (``BDDK_PREFER_HTML_FOR_MEVZUAT``).
         On CPU-only deployments the default ``auto`` flips to True, and the
@@ -128,7 +184,7 @@ def register(mcp, deps: Dependencies) -> None:
         Args:
             dry_run: If True (default), only scan and report. If False, execute
                 the re-extraction in a background task.
-            limit: Cap candidates processed (0 = no cap).
+            limit: Cap candidates processed (1-1000; default 100).
             include_legacy_corruption: Also match historical corruption signatures
                 (U+FFFD chars, leaked ``<img`` tags, <500-char content) **and
                 the three extraction-artifact signatures** detectable in
@@ -141,112 +197,89 @@ def register(mcp, deps: Dependencies) -> None:
 
         Returns a human-readable report. Destructive only when dry_run=False.
         """
+        if isinstance(limit, bool) or not 1 <= limit <= 1000:
+            return _tool_error("invalid_limit")
         if deps.pool is None:
             return "Backfill unavailable: DB pool not initialized."
         if deps.doc_store is None:
             return "Backfill unavailable: document store not initialized."
 
-        if not dry_run and deps.backfill_task and not deps.backfill_task.done():
-            return "Backfill already running. Call `backfill_status` to see progress."
-
-        try:
-            candidates = await scan_candidates(
-                deps.pool, include_legacy_corruption=include_legacy_corruption, limit=limit
-            )
-        except (BddkError, BddkStorageError, RuntimeError) as exc:
-            logger.warning("backfill_degraded_documents scan failed: %s", exc)
-            return f"Scan failed: {exc}"
-
-        by_sig = group_by_signature(candidates)
-        lines = [f"**Backfill candidates: {len(candidates)}**"]
-        for sig, count in sorted(by_sig.items()):
-            lines.append(f"  {sig}: {count}")
-        if candidates:
-            lines.append("\n**First 10:**")
-            for c in candidates[:10]:
-                lines.append(f"  {c.document_id}  len={c.len:>6}  sig={c.signature}")
-        if len(candidates) > 10:
-            lines.append(f"  ... and {len(candidates) - 10} more")
-
-        if not candidates:
-            lines.append("\nNothing to backfill.")
-            return "\n".join(lines)
-
         if dry_run:
+            try:
+                candidates = await scan_candidates(
+                    deps.pool,
+                    include_legacy_corruption=include_legacy_corruption,
+                    limit=limit,
+                )
+            except (BddkError, BddkStorageError, RuntimeError, OSError) as exc:
+                logger.warning("Backfill candidate scan failed", extra={"error_type": type(exc).__name__})
+                return _tool_error("backfill_scan_failed", retryable=True)
+
+            by_sig = group_by_signature(candidates)
+            lines = [f"**Backfill candidates: {len(candidates)}**"]
+            for sig, count in sorted(by_sig.items()):
+                lines.append(f"  {sig}: {count}")
+            if candidates:
+                lines.append("\n**First 10:**")
+                for candidate in candidates[:10]:
+                    lines.append(f"  {candidate.document_id}  len={candidate.len:>6}  sig={candidate.signature}")
+            if len(candidates) > 10:
+                lines.append(f"  ... and {len(candidates) - 10} more")
+            if not candidates:
+                lines.append("\nNothing to backfill.")
+                return "\n".join(lines)
             lines.append("\nDry run — no changes made. Call with dry_run=False to execute.")
             return "\n".join(lines)
 
-        deps.backfill_progress = {
-            "total": len(candidates),
-            "processed": 0,
-            "succeeded": 0,
-            "failed": 0,
-            "current": "",
-            "state": "running",
-            "signatures": by_sig,
-        }
-        deps.backfill_started_at = time.time()
-
-        async def _run_backfill() -> None:
+        async def runner(context: JobContext) -> JobOutcome:
             from bddk_mcp.ingest.doc_sync import DocumentSyncer
 
-            async def on_progress(index: int, total: int, outcome: BackfillOutcome) -> None:
-                deps.backfill_progress["processed"] = index
-                deps.backfill_progress["succeeded" if outcome.success else "failed"] += 1
-                deps.backfill_progress["current"] = outcome.document_id
-
             try:
+                await context.checkpoint()
+                candidates = await scan_candidates(
+                    deps.pool,
+                    include_legacy_corruption=include_legacy_corruption,
+                    limit=limit,
+                )
+                succeeded = 0
+                failed = 0
+
+                async def on_progress(index: int, total: int, outcome: BackfillOutcome) -> None:
+                    nonlocal succeeded, failed
+                    succeeded += int(outcome.success)
+                    failed += int(not outcome.success)
+                    await context.update_progress(
+                        total=total,
+                        completed=index,
+                        succeeded=succeeded,
+                        failed=failed,
+                    )
+
                 async with DocumentSyncer(deps.doc_store, http=deps.http, vector_store=deps.vector_store) as syncer:
                     report = await execute_backfill(syncer, candidates, on_progress=on_progress)
-                deps.backfill_progress.update(
-                    state="done", elapsed_seconds=report.elapsed_seconds, ok=len(report.ok), failures=report.failed
+                return JobOutcome.from_metrics(
+                    {
+                        "total": report.total,
+                        "succeeded": len(report.ok),
+                        "failed": len(report.failed),
+                    },
+                    completed_with_errors=bool(report.failed),
                 )
-            except Exception as exc:
-                logger.exception("Backfill task crashed")
-                deps.backfill_progress["state"] = "error"
-                deps.backfill_progress["error"] = f"{type(exc).__name__}: {exc}"
+            except JobExecutionError:
+                raise
+            except (BddkError, BddkStorageError, RuntimeError, OSError, AttributeError, TypeError, ValueError):
+                raise JobExecutionError("backfill_failed") from None
 
-        deps.backfill_task = asyncio.create_task(_run_backfill())
-
-        lines.append(f"\nStarted backfill of {len(candidates)} documents in background.")
-        lines.append("Call `backfill_status` for progress (≈13s/doc on CPU-only deployments).")
-        return "\n".join(lines)
-
-    @mcp.tool()
-    @logged_tool(logger)
-    async def backfill_status() -> str:
-        """
-        Report progress of the most recent ``backfill_degraded_documents`` run.
-
-        Shows running / done / error state, processed-vs-total counts, the
-        current document ID (while running), elapsed time, and the list of
-        failed IDs (when finished). Safe to poll.
-        """
-        if not deps.backfill_progress:
-            return "No backfill has been triggered yet."
-
-        p = deps.backfill_progress
-        state = p.get("state", "unknown")
-        lines = [
-            f"**Backfill: {state}**\n  Processed: {p.get('processed', 0)}/{p.get('total', 0)}\n  Succeeded: {p.get('succeeded', 0)}\n  Failed: {p.get('failed', 0)}"
-        ]
-        if deps.backfill_started_at:
-            lines.append(f"  Elapsed: {time.time() - deps.backfill_started_at:.1f}s")
-
-        if state == "running" and (current := p.get("current", "")):
-            lines.append(f"  Current: {current}")
-        elif state == "done":
-            lines.append(f"  Total time: {p.get('elapsed_seconds', 0):.1f}s")
-            if failures := p.get("failures", []):
-                lines.append(f"\n**Failed IDs ({len(failures)}):**")
-                for doc_id, reason in failures[:20]:
-                    lines.append(f"  {doc_id}: {reason}")
-                if len(failures) > 20:
-                    lines.append(f"  ... and {len(failures) - 20} more")
-        elif state == "error":
-            lines.append(f"  Error: {p.get('error', 'unknown')}")
-
-        return "\n".join(lines)
+        return await _submit_tracked_job(
+            deps,
+            kind=JobKind.BACKFILL,
+            arguments={
+                "limit": limit,
+                "include_legacy_corruption": include_legacy_corruption,
+            },
+            idempotency_key=idempotency_key,
+            runner=runner,
+        )
 
     @mcp.tool()
     @logged_tool(logger)
@@ -268,6 +301,6 @@ def register(mcp, deps: Dependencies) -> None:
         try:
             report = await scan_quality(deps.pool)
         except (BddkError, BddkStorageError, RuntimeError) as exc:
-            logger.warning("document_quality_report: scan failed: %s", exc)
-            return f"Quality scan failed: {exc}"
+            logger.warning("Document quality scan failed", extra={"error_type": type(exc).__name__})
+            return _tool_error("quality_scan_failed", retryable=True)
         return format_report(report)
