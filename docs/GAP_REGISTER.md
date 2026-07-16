@@ -48,7 +48,7 @@ worktree, without being misrepresented as bank acceptance:
   state/epoch/profile-bound request staged by `bddk_release_verifier` and a
   one-time request-ID-only activation by `bddk_release_publisher`; the publisher
   cannot execute the old direct routine. Focused evidence passed 59 PG17
-  migration/catalog tests, 117 application/role tests, and two actual-LOGIN
+  migration/catalog tests, 118 application/role tests, and two actual-LOGIN
   tests. CUR-017 retains the external credential-custody risk.
 - The HTTP middleware previously admitted and buffered a request body without
   first-byte, inter-chunk, or total body deadlines. Those three deadlines now
