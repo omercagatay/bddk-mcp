@@ -6,7 +6,7 @@ database. Bank IAM/database administrators remain responsible for identities,
 credential rotation, TLS, PostgreSQL host-based access rules and database
 provisioning.
 
-The six `bddk_*` group-role names are cluster-global. Production therefore
+The seven `bddk_*` group-role names are cluster-global. Production therefore
 requires either a dedicated PostgreSQL cluster/service for this installation
 or a formal DBA reservation proving those exact names belong only to this
 deployment. A dedicated database inside an otherwise shared cluster is not by
@@ -91,14 +91,45 @@ SQL error. Apply each file as one transaction, for example with
    `verify-corpus` result is not a trust handoff. Retain its path-free manifest
    ID/SHA completion output. Bootstrap reports that publication is required but
    does not persist a release candidate.
-7. Run `bddk-mcp publish-corpus-release` through the distinct
+7. Run independent verification and staging through the
+   `bddk-mcp-release-verifier-db` Secret
+   (`BDDK_RELEASE_VERIFIER_DATABASE_URL`) and a LOGIN that inherits exactly
+   `bddk_release_verifier`:
+
+   ```bash
+   BDDK_RELEASE_VERIFIER_DATABASE_URL='postgresql://VERIFIER:SECRET@HOST:5432/DATABASE?sslmode=verify-full&sslrootcert=%2FAPPROVED%2Fpostgres-ca.crt' \
+   BDDK_RELEASE_VERIFIER_REVISION_SHA256='REPLACE_64_LOWERCASE_HEX_REVISION' \
+   BDDK_RELEASE_VERIFIER_IMAGE_DIGEST='sha256:REPLACE_64_LOWERCASE_HEX_IMAGE_DIGEST' \
+   BDDK_RELEASE_VERIFICATION_VALIDITY_SECONDS=900 \
+     bddk-mcp verify-and-stage-corpus-release \
+       --seed-dir /APPROVED/CORPUS \
+       --trusted-signing-key /APPROVED/TRUST/corpus-signing-public-key.pem
+   ```
+
+   The verifier revalidates the signed corpus and deterministic derivatives,
+   proves exact database state/epoch/profile membership, and returns one
+   `corpus_release_request_sha256_...` identity. Its revision must be 64
+   lowercase hexadecimal characters, its image must be a `sha256:` digest, and
+   validity is bounded to 60–3,600 seconds (default 900). It can stage but cannot
+   activate or retain a release. The trust key must be supplied from outside the
+   corpus root; an in-tree path or symlink is rejected.
+8. Before expiry, pass only that request ID through the distinct
    `bddk-mcp-release-publisher-db` Secret
-   (`BDDK_RELEASE_PUBLISHER_DATABASE_URL`). The release-publisher revalidates
-   the imported corpus and signature before atomically persisting the v0005
-   content-addressed release and activation;
-   it must inherit exactly `bddk_release_publisher` and no ingestion or runtime
-   role.
-8. For a release that must become an immutable recovery/rollback target, run
+   (`BDDK_RELEASE_PUBLISHER_DATABASE_URL`) and a LOGIN that inherits exactly
+   `bddk_release_publisher`:
+
+   ```bash
+   BDDK_RELEASE_PUBLISHER_DATABASE_URL='postgresql://PUBLISHER:SECRET@HOST:5432/DATABASE?sslmode=verify-full&sslrootcert=%2FAPPROVED%2Fpostgres-ca.crt' \
+     bddk-mcp activate-corpus-release \
+       --request-id corpus_release_request_sha256_REPLACE_64_LOWERCASE_HEX
+   ```
+
+   The publisher must receive no corpus directory/PVC, manifest, signature,
+   trust key, verifier DSN, or verifier role. The facade uses the request ID to
+   recheck expiry, single use, corpus epoch/state, and retrieval readiness before
+   atomically appending the v5 release/activation and v8 request binding. The old
+   `publish-corpus-release` CLI is disabled and must not be used as a fallback.
+9. For a release that must become an immutable recovery/rollback target, run
    the one-shot administrative command through the same distinct release
    publisher identity:
 
@@ -109,17 +140,18 @@ SQL error. Apply each file as one transaction, for example with
 
    `BDDK_RELEASE_PUBLISHER_DATABASE_URL` is required unless an explicitly
    supplied `--db` passes the same transport and exact-identity checks. Run this
-   only after publication has made the expected release active. The CLI applies
+   only after request-ID activation has made the expected release active. The
+   CLI applies
    transaction-local `lock_timeout=30s` and `statement_timeout=30min`; either
    timeout rolls back the retention transaction, so resolve contention and
    recheck the expected active release before a reviewed retry. The command is
    deliberately absent from both MCP registries and does not activate,
    reactivate, or serve retained rows. Retain its content-free JSON receipt and
    storage evidence under the approved operational-evidence policy.
-9. Start the public and operator workloads with their separate identities.
+10. Start the public and operator workloads with their separate identities.
    Reindexing and publication are mandatory when migration v0003 has made a
    pre-existing corpus fail closed until republished.
-10. Reapply and test `02_grants.sql` after every schema migration. A migration
+11. Reapply and test `02_grants.sql` after every schema migration. A migration
    that adds a relation must add an explicit grant here in the same release.
 
 The ordinary migration is the clean-install/default path and refuses managed
@@ -152,13 +184,16 @@ database-wide by design.
 | `bddk_schema_owner` | Owns the `public`, `bddk_meta`, `bddk_operator`, and `bddk_retained` schemas and managed objects; runs migrations through `SET ROLE` |
 | `bddk_public_reader` | Read-only access to the six public corpus relations, validated-citation and active-release views, migration ledger, and narrowly granted public functions |
 | `bddk_ingestion` | Corpus and sync-state `SELECT`/`INSERT`/`UPDATE`/`DELETE`, three corpus ID sequences, and read-only global migration ledger |
-| `bddk_release_publisher` | Revalidates the imported corpus, atomically persists its release/activation, and can invoke the narrow v7 retention/status facades; cannot mutate live corpus content, access retained tables directly, or run application tools |
+| `bddk_release_verifier` | Read-only corpus/legal-state inspection plus `EXECUTE` on `stage_verified_corpus_release`; cannot activate, retain, mutate corpus, or read request base tables |
+| `bddk_release_publisher` | Content-free active/retention-status reads plus `EXECUTE` on request-ID activation and the narrow v7 retention/storage facades; cannot stage, directly publish, inspect corpus/legal rows, access request/retained base tables, or run application tools |
 | `bddk_operator_runtime` | Job-ledger read/write/prune in `bddk_operator` and read-only global migration ledger |
 | `bddk_telemetry_writer` | Column-scoped `INSERT` on `tool_call_traces` and `USAGE` on its sequence; no trace reads or changes |
 
-Migration v0004's eleven `regulatory_*` base tables are an owner-only canonical
-legal-version validation workspace. No public, ingestion, operator, or
-telemetry runtime role has any privilege on those tables. The public reader
+Migration v0004's eleven `regulatory_*` base tables are an owner-controlled
+canonical legal-version validation workspace. No public, ingestion, publisher,
+operator, or telemetry runtime role has any privilege on those tables. Schema
+v8 gives the release verifier read-only access solely for exact signed-corpus
+membership proof; it receives no mutation privilege. The public reader
 gets `SELECT` only on the owner-executed, security-barrier
 `regulatory_validated_section_citations` view; the operator sees that view only
 through its separate `bddk_public_reader` membership. The view exposes only
@@ -191,6 +226,54 @@ rehashed against the blob claim. Citation v1 is therefore a partial pilot for
 validated normalized text and acquisition identity, not proof of
 source-artifact authenticity.
 
+## Schema v8 staged-release boundary
+
+Migration v0008 is additive over v7. It creates append-only
+`bddk_meta.corpus_release_requests` and
+`bddk_meta.corpus_release_request_activations`, immutable update/delete guards,
+`stage_verified_corpus_release(...)`, and
+`activate_staged_corpus_release(text)`. It does not rewrite the existing v5
+release/activation ledger or any v7 retained generation, seal, inventory, or
+release binding. During migration it enumerates and revokes every non-owner
+`EXECUTE` grant on `publish_verified_corpus_release(...)`; `02_grants.sql`
+reconciles that revocation and grants only the new verifier/publisher facades.
+Never re-grant the direct routine on v8.
+
+The staging facade admits only a session whose LOGIN inherits
+`bddk_release_verifier` and not `bddk_release_publisher`. It takes the shared
+corpus-mutation lock, locks all 17 state relations, checks retrieval readiness,
+computes state/epoch and the release identity in PostgreSQL, and records the
+strict manifest/signature/freshness/profile claims plus verifier revision,
+image digest, hashed LOGIN fingerprint, and expiry. Validity is 60–3,600
+seconds. The verifier receives read-only access to the exact live corpus and
+legal-version relations needed for membership proof, but no base-table mutation
+or activation/retention privilege.
+
+The activation facade admits only a session whose LOGIN inherits
+`bddk_release_publisher` and not `bddk_release_verifier`. Its sole selection
+argument is the staged request ID. Under the same corpus lock it rejects missing,
+expired, already activated, wrong-epoch, changed-state, non-ready, or
+identity-inconsistent evidence, then appends the release, activation, and
+request-to-activation binding in one transaction. The publisher has no corpus
+or legal-row `SELECT`, no request-table access, no staging/direct-publication
+execution, and no sequence privilege. Its separate v7 retention/status grants
+do not broaden activation input.
+
+Current application identity and catalog admission requires schema v8. A v7
+database is a supported ordinary migration source, not a compatible steady-state
+target: stop workloads, run `bddk-mcp migrate`, and reapply `02_grants.sql`
+before staging, activation, retention, or serving. Existing valid active-release
+and retained-generation evidence is preserved by that additive transition.
+
+The exact pre-v8 direct-publication contracts for schema 5, 6, and 7 remain in
+code only for separately reviewed migration remediation. The current
+`publish-corpus-release` CLI is disabled, and v8 removes its database grant. If
+the v7 canonical-hash guard refuses a v5/v6 active release, leave that database
+unchanged, preserve the old row, use only the approved exact-schema remediation
+procedure, retry v7, then continue through v8 and grants. Never update/backfill
+the historical release or synthesize a retention binding; serving and retention
+remain stopped during remediation.
+
 ## Schema v7 retained-generation boundary
 
 Migration v0007 creates `bddk_retained` with 17 typed, generation-qualified
@@ -214,10 +297,11 @@ Migration does not rewrite historical v5 release hashes. Before changing the
 hash function, v7 recomputes any active v5/v6 release canonically and refuses
 the migration on mismatch. Do not edit the release ledger or synthesize a
 retention binding: on the unchanged pre-v7 schema (v5 or v6), independently
-review and revalidate the unchanged corpus, then use the exact
-publication-only `publish-corpus-release` compatibility path to append and
-activate a canonical release. Retry v7 before retention. Serving, retention,
-and every other workload remain v7-only.
+review and revalidate the unchanged corpus, then use only the separately
+approved exact-schema publication-remediation procedure to append and activate
+a canonical release. Retry v7, continue through v8, and reconcile grants before
+retention or serving. The current direct-publication CLI is disabled; never
+edit the historical row or re-grant its routine on v8.
 
 `bddk_meta.retain_active_corpus_generation(text)` acquires the schema-migration
 lock before the corpus-mutation lock, locks the live 17-relation state, copies
@@ -272,7 +356,8 @@ credentials through the bank's approved controls.
 |---|---|
 | Migration / `bddk-mcp-schema-owner-db` (`BDDK_SCHEMA_OWNER_DATABASE_URL`) | `bddk_schema_owner` (connection must `SET ROLE` it) |
 | Bootstrap and ingestion / `bddk-mcp-ingestion-db` (`BDDK_INGESTION_DATABASE_URL`) | `bddk_ingestion` |
-| Release publication / `bddk-mcp-release-publisher-db` (`BDDK_RELEASE_PUBLISHER_DATABASE_URL`) | `bddk_release_publisher` |
+| Verification/staging / `bddk-mcp-release-verifier-db` (`BDDK_RELEASE_VERIFIER_DATABASE_URL`) | `bddk_release_verifier` |
+| Request-ID activation/retention / `bddk-mcp-release-publisher-db` (`BDDK_RELEASE_PUBLISHER_DATABASE_URL`) | `bddk_release_publisher` |
 | Public MCP / `bddk-mcp-public-db` | `bddk_public_reader` |
 | Operator MCP / `bddk-mcp-operator-db` | `bddk_public_reader`, `bddk_ingestion`, `bddk_operator_runtime` |
 
@@ -287,15 +372,20 @@ separate `BDDK_TELEMETRY_DATABASE_URL` whose LOGIN inherits only
 contract and refuses a role that can read or modify trace rows. Never grant
 `bddk_telemetry_writer` to the public or operator workload LOGIN.
 
-At runtime, public, ingestion, and operator entry points verify the authenticating
-session, exact direct/inherited application-role closure, database/schema/table/
-sequence/routine privileges, and absence of unreviewed managed objects. The
-telemetry path independently verifies its exact column-scoped INSERT-only
+At runtime, public, ingestion, verifier, publisher, and operator entry points
+verify the authenticating session, exact direct/inherited application-role
+closure, database/schema/table/sequence/routine privileges, and absence of
+unreviewed managed objects. The telemetry path independently verifies its exact
+column-scoped INSERT-only
 contract. DSN string inequality is not treated as an authorization boundary;
 an over-privileged or multiply affiliated LOGIN is refused even through a
-differently written connection URL. Public/operator pools repeat a bounded
-identity assertion for every connection they open, not only the first startup
-connection.
+differently written connection URL. Public, operator, ingestion, verifier, and
+publisher pools repeat a bounded identity assertion for every connection they
+open, not only the first startup connection. The verifier and publisher DSNs
+must be different, their LOGINs must
+not inherit one another's role, and no principal or ServiceAccount should be able
+to retrieve both credentials; schema-owner authority can bypass either facade
+and requires separate custody.
 
 Readiness also performs a live, `SELECT`-only catalog attestation of critical
 constraints, trigger definitions and enablement, function bodies/security and
@@ -322,13 +412,23 @@ not the administrator account:
   `sync_failures`, access operator jobs, or create schema objects;
 - ingestion can mutate corpus/sync tables but cannot access traces or operator
   jobs and cannot create tables;
+- release verifier can read the exact corpus/legal-version state and invoke only
+  the staging facade; it cannot activate, retain, directly publish, mutate
+  corpus, or inspect request/retained base tables;
+- release publisher can activate only by request ID and invoke the separate
+  retention/status facades; it cannot stage/directly publish, inspect
+  corpus/legal/request rows, or receive a sequence privilege;
+- a LOGIN inheriting both verifier and publisher roles is refused by both
+  security-definer facades and by exact identity admission;
 - operator runtime can mutate `operator_jobs` and read the global schema ledger but
   its operator-only role alone cannot access the corpus;
 - telemetry can execute the application's column-scoped trace insert but cannot
   select, update, delete, override `id`/`created_at`, or create objects;
-- every runtime identity is denied access to the eleven owner-only `regulatory_*`
-  base tables; public/operator citation reads succeed only through the
-  attested `regulatory_validated_section_citations` view;
+- public, ingestion, publisher, operator, and telemetry identities are denied
+  the eleven owner-controlled `regulatory_*` base tables; the verifier's
+  separately tested exception is read-only, while public/operator citation
+  reads succeed only through the attested
+  `regulatory_validated_section_citations` view;
 - an unprivileged database identity inheriting none of these roles cannot
   connect after the `PUBLIC` revocation.
 - disabling a publication-invalidation trigger, replacing its function, or

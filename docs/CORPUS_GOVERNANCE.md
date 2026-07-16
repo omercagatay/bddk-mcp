@@ -52,17 +52,54 @@ BDDK_INGESTION_DATABASE_URL='postgresql://INGESTION:SECRET@HOST:5432/DATABASE?ss
 ```
 
 Strict bootstrap is intentionally not the release authority. It returns
-`release_publication_required` after import/reindex, and a separate
-release-publisher PostgreSQL identity must revalidate the same mounted artifacts,
-regenerate every deterministic chunk and embedding, prove exact database
-membership, and append the activation:
+`release_publication_required` after import/reindex. Schema v8 then separates
+independent verification from activation. A `bddk_release_verifier` identity
+must revalidate the same mounted artifacts and trust key, regenerate every
+deterministic chunk and embedding, prove exact database membership, and stage a
+short-lived request without activating it:
+
+```bash
+BDDK_RELEASE_VERIFIER_DATABASE_URL='postgresql://VERIFIER:SECRET@HOST:5432/DATABASE?sslmode=verify-full&sslrootcert=%2FAPPROVED%2Fpostgres-ca.crt' \
+BDDK_RELEASE_VERIFIER_REVISION_SHA256='REPLACE_64_LOWERCASE_HEX_REVISION' \
+BDDK_RELEASE_VERIFIER_IMAGE_DIGEST='sha256:REPLACE_64_LOWERCASE_HEX_IMAGE_DIGEST' \
+BDDK_RELEASE_VERIFICATION_VALIDITY_SECONDS=900 \
+  uv run --frozen bddk-mcp verify-and-stage-corpus-release \
+    --seed-dir /APPROVED/CORPUS \
+    --trusted-signing-key /APPROVED/TRUST/corpus-signing-public-key.pem
+```
+
+The verifier outputs a `corpus_release_request_sha256_...` identity together
+with `verification_run_sha256` and the resulting
+`verification_evidence_sha256`. Recomputing the canonical receipt requires the
+reviewed manifest, exact detached-signature SHA, retrieval-profile SHA, exact
+verifier revision/image provenance, `verification_run_sha256`, and a governed
+export of the append-only staged-request evidence. Retain that complete set
+without corpus text in logs; the path-free CLI summary alone is not a complete
+audit export. Its
+append-only database evidence binds the exact manifest/signature/signer,
+freshness policy, retrieval profile, database-computed corpus state and epoch,
+per-run verification evidence, verifier LOGIN fingerprint, source revision,
+immutable image digest, staging time, and expiry. Revision is exactly 64
+lowercase hexadecimal characters; image provenance is a `sha256:` digest. The
+validity is accepted only from 60 through 3,600 seconds and defaults to 900.
+Treat expiry as a bound on verification freshness, not a scheduling target: if
+there is not enough time for reviewed handoff, rerun verification rather than
+extending or editing a staged row.
+
+Pass only the exact request ID to a separate `bddk_release_publisher` identity:
 
 ```bash
 BDDK_RELEASE_PUBLISHER_DATABASE_URL='postgresql://PUBLISHER:SECRET@HOST:5432/DATABASE?sslmode=verify-full&sslrootcert=%2FAPPROVED%2Fpostgres-ca.crt' \
-  uv run --frozen bddk-mcp publish-corpus-release \
-  --seed-dir /APPROVED/CORPUS \
-  --trusted-signing-key /APPROVED/TRUST/corpus-signing-public-key.pem
+  uv run --frozen bddk-mcp activate-corpus-release \
+    --request-id corpus_release_request_sha256_REPLACE_64_LOWERCASE_HEX
 ```
+
+The publisher process must not receive the corpus PVC/directory, manifest,
+detached signature, trust key/Secret, verifier DSN, or verifier role. Its only
+release-selection input is the request ID. Activation atomically rejects an
+unavailable, expired, previously used, wrong-epoch, changed-state, or non-ready
+request before writing the release, activation, and request binding. The old
+`publish-corpus-release` CLI always fails closed and is not a fallback.
 
 For the OpenShift target, the reviewed
 `deploy/openshift-overlays/bank-bootstrap` contract invokes that same strict
@@ -74,12 +111,15 @@ bootstrap command. It mounts PVC `bddk-mcp-approved-corpus` at
 these arguments and sources. It does not provision them, execute the Job, or
 approve their bank custody.
 
-The same overlay also includes a separate `publish-release` Job with its own
-ServiceAccount and `BDDK_RELEASE_PUBLISHER_DATABASE_URL`. It mounts the same
-approved corpus PVC and trust Secret read-only and is intended to run only after
-ingestion and review (**deploy/openshift/jobs/publish-release.yaml**). Repository
-rendering is still not evidence that either Job ran in a bank namespace or that
-the lifecycle order was enforced.
+The same overlay includes `verify-stage-release.yaml` and
+`activate-release.yaml`. The verifier Job uses ServiceAccount
+`bddk-mcp-release-verifier`, Secret `bddk-mcp-release-verifier-db`, the approved
+corpus PVC, and the corpus-trust Secret. The activation Job uses ServiceAccount
+`bddk-mcp-release-publisher`, Secret `bddk-mcp-release-publisher-db`, and
+`BDDK_RELEASE_REQUEST_ID`; it mounts only PostgreSQL CA and bounded temporary
+storage, never corpus or trust material. Repository rendering is still not
+evidence that the four Jobs ran in the required `migrate` → `bootstrap` →
+verify-and-stage → activate order in a bank namespace.
 
 The checked-in manifest intentionally fails those additional policy gates:
 the owner's “immediate” expectation has not been translated into numeric source
@@ -110,18 +150,28 @@ only the declared bounded byte count, and rechecks each hash after validation.
 It rejects a present `documents.json`, `chunks.json`, or `decision_cache.json`
 when that reserved filename is not declared, closing fallback-filename bypasses.
 Production supplies the detached-signature trust key as a separately mounted
-file, never as part of the corpus tree or repository.
+file, never as part of the corpus tree or repository. Verification rejects both
+a supplied path and a resolved path inside the corpus root, so a symlink from
+the corpus mount to an external key is not a valid separation boundary.
 
 Successful bootstrap output records a path-free manifest ID, manifest SHA-256,
-scope warnings, and the need for independent publication. A successful
-`publish-corpus-release` then persists an append-only release/activation in
-PostgreSQL with the manifest identity, signer-key hash, numeric freshness policy,
-retrieval-profile hash, exact corpus-state fingerprint, activation sequence, and
-corpus epoch (**bddk_mcp/corpus_publication.py;
-bddk_mcp/migrations/v0005_corpus_release_publication.py**). Any tracked corpus
-mutation advances the epoch and makes the active view unavailable until a new
-strict publication. The public MCP resource `bddk://corpus/active-release`
-exposes only the path-free release, manifest, and retrieval-profile identity.
+scope warnings, and the need for independent publication. A successful v8
+verifier run first persists the append-only staged request and returns its
+path-free request/release/state identity, expiry, and bounded verification
+summary. A successful
+`activate-corpus-release` then uses that request to append the v5 release and
+activation plus the v8 one-time request binding. The persisted evidence includes
+manifest/signature/signer and verifier provenance, numeric freshness policy,
+retrieval-profile hash, exact corpus-state fingerprint, corpus epoch, activation
+sequence, and hashed verifier/publisher database actors
+(**bddk_mcp/corpus_publication.py;
+bddk_mcp/migrations/v0005_corpus_release_publication.py;
+bddk_mcp/migrations/v0008_staged_corpus_releases.py**). Neither role can read
+the request base tables directly; each can invoke only its own security-definer
+facade. Any tracked corpus mutation advances the epoch and makes the active view
+unavailable until a new strict verification and activation. The public MCP
+resource `bddk://corpus/active-release` exposes only the path-free release,
+manifest, and retrieval-profile identity.
 
 Derived sections, chunks, and embeddings are still regenerated from canonical
 reviewed document text. Persistence proves which verified state was activated;
@@ -159,10 +209,19 @@ labels, not the enforced release binding.
    quantified/measured/signature flags and separately mounted trust key that
    production will use. Retain its path-free manifest ID/SHA output, then run
    exact-section, retrieval-publication, and benchmark regression gates.
-9. With the distinct release-publisher identity, run
-   `publish-corpus-release`; verify the persisted active identity and read it
-   through `bddk://corpus/active-release` before permitting strict serving.
-10. If the active release must be retained as an immutable database recovery
+9. With the distinct release-verifier identity and only its verifier DSN,
+   corpus/trust mounts, revision SHA-256, immutable image digest, and reviewed
+   TTL, run `verify-and-stage-corpus-release`. Retain the request ID, staged and
+   expiry timestamps, corpus state/epoch, and path-free verification evidence.
+   Do not pass publisher credentials into this process.
+10. Before expiry, pass only that exact request ID to
+    `activate-corpus-release` through the separate release-publisher identity.
+    Do not give the publisher corpus/trust material or verifier credentials.
+    Verify the persisted active identity and read it through
+    `bddk://corpus/active-release` before permitting strict serving. An expired
+    or changed-state request requires a new verifier run, not a retry with
+    weakened evidence.
+11. If the active release must be retained as an immutable database recovery
     target, run `bddk-mcp retain-corpus-generation --expected-release-id ...`
     through that same publisher identity and retain its content-free receipt.
     The command is administrative CLI only; it is not an MCP tool and does not
@@ -180,11 +239,21 @@ V7 fixes retained-row and both current/retained state hashing to function-local
 not rewritten. Before installing v7, the migration recomputes any active v5/v6
 release under those canonical settings and refuses the upgrade if it differs.
 Preserve that historical evidence; on the unchanged pre-v7 schema (v5 or v6),
-independently review/revalidate the exact corpus and use the exact
-publication-only `publish-corpus-release` compatibility path to publish and
-activate a new release under the canonical settings. Then retry v7 and retain
-it. Serving, retention, and other workload admission remain v7-only. Never
-manufacture a binding or update the old release hash.
+independently review/revalidate the exact corpus and use only the separately
+approved exact-schema publication-remediation procedure to publish and activate
+a new release under the canonical settings. Then retry v7 and continue through
+v8. Never manufacture a binding, update the old release hash, or admit serving
+or retention during remediation.
+
+V8 is the current schema and ordinary workload admission is v8-only. Its
+additive migration preserves existing v5/v7 release and retention evidence,
+creates append-only request/binding relations and two role-separated facades,
+and revokes every non-owner grant on the old direct-publication routine. Apply
+`deploy/postgres/02_grants.sql` after migration. The code retains exact
+v5/v6/v7 publisher catalog/identity checks solely for reviewed migration
+remediation, but the current `publish-corpus-release` CLI is disabled and the
+direct routine must never be re-granted on v8. A v7 database is therefore an
+upgrade source, not a steady-state target for the four-job release flow.
 
 Retain the prior manifest and artifacts under the bank's immutable release and
 retention controls. Schema v7 can copy and seal the exact active v5 state across

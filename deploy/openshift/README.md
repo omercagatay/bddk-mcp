@@ -11,15 +11,24 @@ with the exact digest of the scanned release image, never a tag.
 
 Release order:
 
+The checked-in lifecycle inventory is exactly four Jobs, and production must
+execute them serially: `bddk-mcp-migrate-v5-0-1` →
+`bddk-mcp-bootstrap-v5-0-1` → `bddk-mcp-verify-stage-release-v5-0-1` →
+`bddk-mcp-activate-release-v5-0-1`. DBA grant reconciliation runs after the
+migration Job and before bootstrap; it is not a Kubernetes Job in this starter.
+
 1. Build and scan the image, replace its digest in every manifest, and resolve
-   every other `REPLACE_*` value, including the exact
-   `REPLACE_DATABASE_NAME` used by the migration target guard.
+   every other value available before staging, including the exact
+   `REPLACE_DATABASE_NAME` used by the migration target guard. Do not invent
+   `REPLACE_RELEASE_REQUEST_ID`; resolve it only from the verifier output in
+   step 8.
 2. Provision a dedicated PostgreSQL database and approved extensions. Apply
    `deploy/postgres/01_roles.sql` with
    `PGOPTIONS='-c bddk.expected_database=DATABASE'`, then bind bank-managed
    LOGIN identities to the reviewed NOLOGIN group roles in
    `deploy/postgres/README.md`.
-3. Provision the four required Secret names shown in `secrets.example.yaml`
+3. Provision the six required database Secret names shown in
+   `secrets.example.yaml`
    through the approved secret manager. Every PostgreSQL DSN must retain
    `sslmode=verify-full` and the encoded absolute `sslrootcert` path shown in
    the example. Never apply that example with real values in Git.
@@ -46,28 +55,61 @@ Release order:
    mounted `--trusted-signing-key` directly to bootstrap. After migration and
    grants have succeeded, apply the accepted strict bootstrap Job through a
    lifecycle mechanism that preserves that order, wait for completion, and
-   retain its path-free manifest ID/SHA output. The overlay renders runtime,
-   migration, and bootstrap resources together for exact preflight; that is
-   not authorization to start both lifecycle Jobs concurrently. The base
+   retain its path-free manifest ID/SHA output. The overlay renders runtime and
+   all four lifecycle resources together for exact preflight; that is
+   not authorization to start lifecycle Jobs concurrently. The base
    `jobs/bootstrap.yaml` remains a development/baseline Job and is not a
    production trust gate.
-8. Apply the runtime resources with `oc apply -k deploy/openshift`.
-9. Wait for the service-serving certificate controller to create
+8. Apply `jobs/verify-stage-release.yaml` only after strict bootstrap succeeds.
+   Its `bddk-mcp-release-verifier` ServiceAccount and
+   `bddk-mcp-release-verifier-db` Secret (key
+   `BDDK_RELEASE_VERIFIER_DATABASE_URL`) are distinct from the publisher. Supply
+   the exact image/source provenance through
+   `BDDK_RELEASE_VERIFIER_IMAGE_DIGEST` and
+   `BDDK_RELEASE_VERIFIER_REVISION_SHA256`; keep
+   `BDDK_RELEASE_VERIFICATION_VALIDITY_SECONDS` between 60 and 3,600 seconds
+   (the manifest default is 900). It mounts the approved corpus and trust Secret
+   read-only, proves exact database membership/state/epoch, and emits a
+   `corpus_release_request_sha256_...` request ID plus its expiry.
+   Keep those as separate volume sources and paths: verification rejects a
+   trust-key path supplied or resolved beneath the corpus root.
+9. Before that request expires, set the exact ID as
+   `release.release_request_id` in the secret-free acceptance input and as
+   the resolved value of `BDDK_RELEASE_REQUEST_ID` (replacing
+   `REPLACE_RELEASE_REQUEST_ID`) in `jobs/activate-release.yaml`; rerun offline
+   preflight for the exact resolved activation manifest, then apply only that
+   Job. It uses the separate `bddk-mcp-release-publisher` ServiceAccount and
+   `bddk-mcp-release-publisher-db` Secret (key
+   `BDDK_RELEASE_PUBLISHER_DATABASE_URL`). The activation pod must receive only
+   its publisher DSN, PostgreSQL CA, bounded temporary storage, and request ID—no
+   corpus PVC, trust Secret/key, manifest/signature, verifier DSN, or verifier
+   role. An expired, used, or changed-state request requires a fresh verifier
+   Job. Never substitute the disabled `publish-corpus-release` alias.
+10. Apply the runtime resources with `oc apply -k deploy/openshift`.
+11. Wait for the service-serving certificate controller to create
    `bddk-mcp-public-tls` and `bddk-mcp-operator-tls` and for both Deployments to
    become ready.
-10. Verify the public Route's re-encrypt handshake, the internal operator
+12. Verify the public Route's re-encrypt handshake, the internal operator
    Service's certificate chain, `/health/live`, `/health/ready`, JWT
    rejection/acceptance, public tool discovery, and denial of operator tools
    through the public Route.
 
-Before applying anything, copy `acceptance.example.yaml` and
+Before activation or runtime apply, copy `acceptance.example.yaml` and
 `acceptance-egress.example.yaml` to a secret-free release workspace, resolve
-every placeholder (including the installed binary's SHA-256), install the
-checksum-verified standalone Kustomize v5.8.1 used by CI, and run:
+every placeholder (including the installed binary's SHA-256 and the actual
+unexpired verifier request ID), install the checksum-verified standalone
+Kustomize v5.8.1 used by CI, and run:
 
 ```console
 uv run python scripts/openshift_acceptance.py --config /path/to/acceptance.yaml
 ```
+
+A complete release preflight cannot exist before verification has staged the
+request ID. Execute migrate, grant reconciliation, strict bootstrap, and the
+verifier Job through their separately reviewed lifecycle gate first; then run
+preflight against the exact final activation/runtime release workspace. Never
+use a dummy request ID to obtain a passing report, and never apply the combined
+overlay as a way to impose ordering.
 
 The offline harness hashes the resolved Kustomize executable and requires that
 digest to equal `release.kustomize_binary_sha256` in addition to requiring the
@@ -95,12 +137,13 @@ same overlay from the exact accepted release values, run preflight against that
 release checkout, and retain the emitted input and rendered manifest hashes
 with the release evidence.
 
-The acceptance inventory recognizes the exact base and lifecycle
+The acceptance inventory recognizes the exact base and four-Job lifecycle
 Kustomizations plus `deploy/openshift-overlays/bank-bootstrap`. It fails closed
-if the strict bootstrap arguments, approved-corpus PVC, corpus-trust Secret,
-read-only mounts, Secret key, or separate volume sources drift. The focused
-acceptance/manifest/registry run passed 74 tests with checksum-pinned Kustomize
-v5.8.1. This
+if the strict bootstrap/verifier arguments, approved-corpus PVC, corpus-trust
+Secret, read-only mounts, verifier provenance/TTL, role-specific DSN Secret,
+request ID, or separate volume sources drift. It also rejects any corpus/trust
+mount or verifier credential on the activation Job. The focused
+acceptance/manifest contract uses checksum-pinned Kustomize v5.8.1. This
 proves the repository render and policy contract only: the PVC and Secret must
 still be provisioned, and the lifecycle Job must run successfully in an
 isolated bank-like namespace before production use.
@@ -121,10 +164,31 @@ that flag for the v0003 migration. The standard bootstrap Job subsequently
 runs `--reindex-existing` so validated retrieval publications exist before
 serving.
 
+The current ledger ends at schema v8. An ordinary stopped-workload v7 → v8
+migration preserves existing releases and retained-generation evidence, adds
+the append-only request/binding relations and role-separated facades, and
+revokes non-owner execution of the v5 direct-publication routine. Reapply
+`02_grants.sql` before any verifier, publisher, or runtime starts. Current
+workload identity/catalog admission is v8-only; a v7 database is an upgrade
+source, not a compatible runtime target.
+
+If the earlier v7 canonical-hash guard refuses an active v5/v6 release, keep the
+pre-v7 database unchanged and follow the separately approved exact-schema
+publication remediation before retrying v7 and then v8. The current
+`publish-corpus-release` CLI is disabled even though exact v5/v6/v7 compatibility
+checks remain in code for reviewed migration remediation. Do not re-grant the
+direct routine on v8, update historical release rows, synthesize retention
+bindings, or run serving/retention during remediation.
+
 The migration Job receives `BDDK_SCHEMA_OWNER_DATABASE_URL` and the independent
 `BDDK_EXPECTED_DATABASE_NAME`; the bootstrap Job receives only
-`BDDK_INGESTION_DATABASE_URL`. Runtime Deployments receive their own
-public/operator DSN and never receive either lifecycle DSN. Baseline workloads
+`BDDK_INGESTION_DATABASE_URL`; the verifier's environment receives its verifier
+DSN plus non-secret revision/image/TTL provenance; and the activator's
+environment receives its publisher DSN plus the staged request ID. Runtime
+Deployments receive their own
+public/operator DSN and never receive a lifecycle DSN. The verifier and
+publisher must use distinct LOGINs, Secrets, ServiceAccounts, and custodians;
+neither role may inherit the other. Baseline workloads
 do not reference the optional `bddk-mcp-telemetry-db` Secret and keep telemetry
 disabled. Enabling it requires the explicit
 `deploy/openshift-overlays/telemetry` Kustomize overlay and a distinct LOGIN
@@ -158,10 +222,11 @@ router or an operator client validates the intended certificate chain.
 The operator Service intentionally has no Route and one replica. Job records
 are durable in PostgreSQL; a session advisory lease controls runner admission,
 while a distinct transaction advisory lock serializes sanctioned corpus writers
-and publication. A restart marks abandoned running work interrupted; a persisted
-queued job is never guessed stale and can be resumed by retrying the same
-idempotency key or cancelled explicitly. Keep `Recreate`/one replica until the
-bank acceptance suite covers overlapping-pod and multi-replica failover.
+and corpus verification/activation/retention state changes. A restart marks
+abandoned running work interrupted; a persisted queued job is never guessed
+stale and can be resumed by retrying the same idempotency key or cancelled
+explicitly. Keep `Recreate`/one replica until the bank acceptance suite covers
+overlapping-pod and multi-replica failover.
 
 The included NetworkPolicies restrict ingress and default-deny all egress for
 pods labeled `app.kubernetes.io/name=bddk-mcp`. No generic egress allowlist is
@@ -195,11 +260,17 @@ NetworkPolicy implementation, trust bundle injection, image policy and
 OpenShift AI conventions before promotion. Release labels intentionally do not
 enter immutable Deployment, Service or NetworkPolicy selectors.
 
-No bank OpenShift AI cluster, bank PostgreSQL backup/restore workflow, or
+The retained
+[local PostgreSQL 17 v8 recovery drill](../../docs/evidence/LOCAL_PG17_V8_RECOVERY_DRILL.md)
+passed across two disposable clusters for 53 managed objects and seven LOGIN
+profiles including the verifier. It is synthetic repository evidence, not bank
+backup/PITR, TLS/HBA, custody, target-size RPO/RTO, or capacity acceptance. No
+bank OpenShift AI cluster, bank PostgreSQL backup/restore workflow, or
 release-specific MCP client/model compatibility matrix was available for this
-starter. Prove those controls—including restore, rollback, certificate
-rotation, database failover, client discovery/authentication/tool calls, and
-citation output—in an isolated bank-like namespace before promotion.
+starter. Prove those controls—including bank-boundary v8 restore, rollback,
+certificate rotation, database failover, client
+discovery/authentication/tool calls, and citation output—in an isolated
+bank-like namespace before promotion.
 
 Platform references: [OpenShift service-serving certificate and injected CA
 configuration](https://docs.redhat.com/en/documentation/openshift_container_platform/4.22/html/security_and_compliance/configuring-certificates)

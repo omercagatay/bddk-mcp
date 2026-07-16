@@ -131,9 +131,39 @@ olmalıdır. Mevcut reviewed manifest imzasızdır, numeric hedefleri yoktur ve
 `slo_evidence_status: not_measured` kabul edilir; bu production bootstrap'ını
 bilinçli olarak geçmez. Başarılı bootstrap, operator evidence için path-free
 manifest ID ve SHA-256 döndürür ve ayrı publication gerektiğini bildirir.
-`bddk-mcp publish-corpus-release`, bağımsız `bddk_release_publisher` identity'si
-ile corpus'u yeniden doğrular; release ve activation kayıtlarını aynı
-transaction içinde persist eder.
+Production lifecycle sırası `migrate` → `bootstrap` →
+`verify-and-stage-corpus-release` → `activate-corpus-release` şeklindedir (DBA
+`02_grants.sql`, migration ile bootstrap arasında uygulanır). Verifier,
+`BDDK_RELEASE_VERIFIER_DATABASE_URL` ile ayrı `bddk_release_verifier`
+identity'sini kullanır; corpus ve trust key'i yeniden doğrular, exact DB
+membership/state/epoch'i kontrol eder ve kısa ömürlü bir request ID döndürür.
+Trust key ayrı mount edilmeli ve hem verilen hem resolve edilen yolu corpus
+root'un dışında kalmalıdır.
+`BDDK_RELEASE_VERIFIER_REVISION_SHA256` 64 küçük harfli hex revision,
+`BDDK_RELEASE_VERIFIER_IMAGE_DIGEST` `sha256:` digest ve
+`BDDK_RELEASE_VERIFICATION_VALIDITY_SECONDS` 60–3.600 saniye (default 900)
+olmalıdır. Publisher yalnız bu request ID'yi ve
+`BDDK_RELEASE_PUBLISHER_DATABASE_URL` değerini alır; corpus PVC'si, manifest,
+signature veya trust key almaz:
+
+```bash
+BDDK_RELEASE_VERIFIER_DATABASE_URL='postgresql://VERIFIER:SECRET@HOST:5432/DATABASE?sslmode=verify-full&sslrootcert=%2FAPPROVED%2Fpostgres-ca.crt' \
+BDDK_RELEASE_VERIFIER_REVISION_SHA256='REPLACE_64_LOWERCASE_HEX_REVISION' \
+BDDK_RELEASE_VERIFIER_IMAGE_DIGEST='sha256:REPLACE_64_LOWERCASE_HEX_IMAGE_DIGEST' \
+BDDK_RELEASE_VERIFICATION_VALIDITY_SECONDS=900 \
+  uv run --frozen bddk-mcp verify-and-stage-corpus-release \
+    --seed-dir /APPROVED/CORPUS \
+    --trusted-signing-key /APPROVED/TRUST/corpus-signing-public-key.pem
+
+BDDK_RELEASE_PUBLISHER_DATABASE_URL='postgresql://PUBLISHER:SECRET@HOST:5432/DATABASE?sslmode=verify-full&sslrootcert=%2FAPPROVED%2Fpostgres-ca.crt' \
+  uv run --frozen bddk-mcp activate-corpus-release \
+    --request-id corpus_release_request_sha256_REPLACE_64_LOWERCASE_HEX
+```
+
+Activation request'in süresi dolmuşsa, daha önce kullanılmışsa veya corpus
+state/epoch/readiness değişmişse fail closed olur. Eski
+`publish-corpus-release` alias'ı credential separation'ı korumak için devre
+dışıdır.
 
 Ledger öncesi eski bir veritabanı ordinary migration tarafından fail-closed reddedilir. `--adopt-legacy` yalnız exact desteklenen shape için, doğrulanmış backup ve [legacy upgrade runbook'u](docs/LEGACY_DATABASE_UPGRADE.md) ile kullanılan açık bir seçimdir; clean install veya genel repair flag'i değildir.
 
@@ -289,8 +319,8 @@ benchmark/                Tool schema ve benchmark altyapısı
 - Default embedding modeli full commit `d13f1b27baf31030b7fd040960d60d909913633f`, opsiyonel default reranker `1427fd652930e4ba29e8149678df786c240d8825` ile pinlenmiştir; immutable şema yalnız `vector(768)` kabul eder. Model/chunk ayarı değişikliği kontrollü full re-embedding ve retrieval regression gerektirir.
 - Retrieval publication kaydı yalnız chunk bütünlüğü, güncel content hash'i ve aktif retrieval profile doğrulandıktan sonra yazılır; eksik veya stale index arama sonuçlarına sessizce karışmaz.
 - Bootstrap, reviewed corpus'u manifest'in exact artifact path'lerine bağlar ve reserved seed filename bypass'ını reddeder. Ayrı `verify-corpus` koşusu yalnız diagnostic preflight'tır; production güven gate'leri doğrudan aynı `bootstrap` komutuna ve ayrı mount edilen trust key'e verilmelidir. `deploy/openshift-overlays/bank-bootstrap` bu exact komutu, read-only approved-corpus PVC'yi ve ayrı read-only corpus-trust Secret'ını repository preflight'ında doğrular; gerçek bank PVC/Secret provision ve Job koşusu hâlâ dış gate'tir.
-- v0005 strict publisher'ın bağımsız doğruladığı manifest/retrieval kimliğini append-only release ve activation olarak PostgreSQL'e kaydeder. On yedi corpus tablosundaki her mutation singleton epoch'i artırıp active view'ı geçersiz kılar; strict local-corpus tool çağrıları aynı release'i çağrı öncesi/sonrası doğrular. v0007 ayrıca ayrı release-publisher kimliğinin `bddk-mcp retain-corpus-generation --expected-release-id ...` ile exact active state'i 17 typed retained relation'a kopyalayıp mühürlemesini sağlar. Physical generation ve seal corpus state/retrieval profile'dan türetilir; aynı exact state/profile'ı yöneten farklı release'ler depolamayı çoğaltmak yerine aynı generation/seal'e ayrı release binding'leri alır. v7 retained-row ile current/retained state hashlerini function-local `TimeZone=UTC`, `DateStyle=ISO, YMD`, `IntervalStyle=postgres`, `bytea_output=hex` ve `extra_float_digits=3` ayarlarıyla session formatından bağımsızlaştırır. v7 öncesinde farklı ayarlar altında publish edilmiş active release canonical recomputation ile uyuşmazsa v7 migration hash fonksiyonunu değiştirmeden fail closed olur; historical release satırı değiştirilmeden veya backfill edilmeden, değişmeden kalan v7-öncesi şemada (v5 veya v6) yalnız publication için tanımlı exact `publish-corpus-release` uyumluluk yolu corpus'u yeniden review ederek canonical release'i publish/activate etmeli ve ardından v7 tekrar denenmelidir. Serving, retention ve diğer workload admission yolları v7-only kalır. Bu administrative CLI bir MCP tool'u değildir; retained veriyi serve, activate, reactivate veya rollback etmez. Generation-bound serving ve authorized rollback H2-02B'de açıktır; backup growth `not_measured` ve banka retention/capacity onayı eksiktir. Tracked manifest'teki 8.286 chunk, mevcut profile-v2'nin ürettiği 9.675 satırla uyuşmadığı için tracked corpus şu anda strict publish edilemez.
-- v0004'ün 11 owner-only legal-curation tablosu `SourceBlob` içerik kimliğini `SourceArtifact` acquisition kimliğinden ayırır; v0006 public `resolve_regulation_status` fonksiyon/tool yolunu conflict veya eksik kanıtta abstain edecek şekilde ekler. Synthetic real-PostgreSQL kanıtı gerçek regulation family/currentness kanıtı değildir.
+- v0005 append-only release/activation ve 17 corpus tablosunu kapsayan mutation epoch'ini ekler; strict local-corpus çağrıları aynı active release'i çağrı öncesi/sonrası doğrular. v0008 bunun eski direct-publication yetkisini publisher'dan kaldırır: `bddk_release_verifier` corpus/trust materialini okuyup strict membership'i kanıtlar ve verifier revision/image digest'i ile 60–3.600 saniyelik TTL'ye bağlı request'i stage eder; `bddk_release_publisher` yalnız tek kullanımlık request ID ile activation yapabilir. Activation expiry, reuse, retrieval readiness, corpus epoch ve state hash'i atomik olarak yeniden kontrol eder. Her iki role veya schema-owner yetkisine aynı principal'ın erişmesi separation'ı bozar; bank Secret/RBAC custody bunu önlemelidir. v0007 ayrı olarak `retain-corpus-generation --expected-release-id ...` ile exact active state'i 17 typed retained relation'a kopyalayıp mühürler; retained generation serving/reactivation değildir. v7 öncesi noncanonical hash remediation yalnız değişmeden kalan v5/v6 şemada exact, reviewed publication-only compatibility boundary'sidir; v7'ye geçildikten sonra da v8'e geçiş için direct path steady-state olarak kullanılmamalıdır. Geçerli binary'nin `publish-corpus-release` CLI'ı devre dışıdır; historical row/binding üretmeyin, approved upgrade remediation'ını uygulayıp v8 migration ve grants'i tamamlayın. Tracked 8.286 chunk, profile-v2'nin ürettiği 9.675 satırla uyuşmadığı için strict staging şu anda başarısız olur.
+- v0004'ün 11 owner-controlled legal-curation tablosu `SourceBlob` içerik kimliğini `SourceArtifact` acquisition kimliğinden ayırır. Mutation yetkisi yalnız owner'dadır; v0008 release verifier'a publication kanıtını yeniden hesaplamak için exact read-only istisna verir. v0006 public `resolve_regulation_status` fonksiyon/tool yolunu conflict veya eksik kanıtta abstain edecek şekilde ekler. Synthetic real-PostgreSQL kanıtı gerçek regulation family/currentness kanıtı değildir.
 - Evaluation gate dört imzalı katman ister: ölçülmüş corpus, expert dataset, exact Citation pack için legal-curator attestation ve retained source/acquisition/page/excerpt zincirini bağlayan legal-release checkpoint. Canonical corpus/dataset/curator/release signer fingerprint'leri ayrı olmalıdır. Mevcut preflight yalnız operator-supplied anchor'lar altında cryptographic consistency kanıtlar; bank authorization ve model-score authorization her zaman false'tur. Tracked 20-case dataset draft'tır; key rotation, named reviewer policy ve expert-case execution henüz yoktur.
 - Supply-chain lane container'ları Buildx `--provenance=false --load` ile lokal olarak üretir; manifest descriptor/digest, config digest, loaded image ve Syft SBOM aynı image'a fail-closed bağlanır. Repository ayrıca unsigned SLSA provenance üretir ve model manifest/runtime/Dockerfile pinlerinin uyumunu doğrular. Pending exception kullanılan sonuç hiçbir zaman promotion-eligible değildir; bank signing, admission ve registry promotion yine dış gate'tir.
 - Runtime wheel/sdist `seed_data`, benchmark ve deployment asset'lerini içermez; sağlanan container reviewed seed'i açıkça içerir. Wheel kurulumu approved corpus mount etmeli ve bootstrap'a `--seed-dir` veya `BDDK_SEED_DIR` vermelidir.
@@ -428,10 +458,38 @@ objectives. The current reviewed manifest is unsigned, has no numeric
 objectives, and is treated as `slo_evidence_status: not_measured`; it
 intentionally fails this production bootstrap. Successful bootstrap output
 includes the path-free manifest ID and SHA-256 for operator evidence and marks
-publication as required; it does not persist a candidate. The separate
-`bddk-mcp publish-corpus-release` step revalidates the corpus, then persists the
-content-addressed release and its activation atomically through the
-`bddk_release_publisher` identity.
+publication as required; it does not persist a candidate. The production
+lifecycle is `migrate` → `bootstrap` → `verify-and-stage-corpus-release` →
+`activate-corpus-release` (the DBA applies `02_grants.sql` between migration and
+bootstrap). The verifier uses a distinct `bddk_release_verifier` identity and
+`BDDK_RELEASE_VERIFIER_DATABASE_URL`; it revalidates the corpus and trust key,
+checks exact database membership/state/epoch, and returns a short-lived request
+ID. The trust key must be a separate mount whose supplied and resolved paths
+both remain outside the corpus root. `BDDK_RELEASE_VERIFIER_REVISION_SHA256`
+must be 64 lowercase hexadecimal
+characters, `BDDK_RELEASE_VERIFIER_IMAGE_DIGEST` must be a `sha256:` digest, and
+`BDDK_RELEASE_VERIFICATION_VALIDITY_SECONDS` is bounded to 60–3,600 seconds
+(default 900). The publisher receives only that request ID and
+`BDDK_RELEASE_PUBLISHER_DATABASE_URL`—no corpus PVC, manifest, signature, or
+trust key:
+
+```bash
+BDDK_RELEASE_VERIFIER_DATABASE_URL='postgresql://VERIFIER:SECRET@HOST:5432/DATABASE?sslmode=verify-full&sslrootcert=%2FAPPROVED%2Fpostgres-ca.crt' \
+BDDK_RELEASE_VERIFIER_REVISION_SHA256='REPLACE_64_LOWERCASE_HEX_REVISION' \
+BDDK_RELEASE_VERIFIER_IMAGE_DIGEST='sha256:REPLACE_64_LOWERCASE_HEX_IMAGE_DIGEST' \
+BDDK_RELEASE_VERIFICATION_VALIDITY_SECONDS=900 \
+  uv run --frozen bddk-mcp verify-and-stage-corpus-release \
+    --seed-dir /APPROVED/CORPUS \
+    --trusted-signing-key /APPROVED/TRUST/corpus-signing-public-key.pem
+
+BDDK_RELEASE_PUBLISHER_DATABASE_URL='postgresql://PUBLISHER:SECRET@HOST:5432/DATABASE?sslmode=verify-full&sslrootcert=%2FAPPROVED%2Fpostgres-ca.crt' \
+  uv run --frozen bddk-mcp activate-corpus-release \
+    --request-id corpus_release_request_sha256_REPLACE_64_LOWERCASE_HEX
+```
+
+Activation fails closed if the request expired, was already used, or corpus
+state, epoch, or readiness changed. The old `publish-corpus-release` alias is
+disabled to preserve credential separation.
 
 Ordinary migration fails closed on a pre-ledger unmanaged database. `--adopt-legacy` is an explicit option only for the exact supported shape after a proven backup and the [legacy upgrade runbook](docs/LEGACY_DATABASE_UPGRADE.md); it is not a clean-install or general repair flag.
 
@@ -587,8 +645,8 @@ benchmark/                Tool schemas and benchmark infrastructure
 - The default embedding model is pinned to full commit `d13f1b27baf31030b7fd040960d60d909913633f`, the optional default reranker to `1427fd652930e4ba29e8149678df786c240d8825`, and the immutable schema accepts only `vector(768)`. A model/chunk-setting change requires controlled full re-embedding and retrieval regression testing.
 - A retrieval publication record is written only after chunk integrity, the current content hash, and the active retrieval profile pass validation; incomplete or stale indexes are not silently mixed into search results.
 - Bootstrap binds the reviewed corpus to the manifest's exact artifact paths and rejects reserved seed-filename bypasses. A separate `verify-corpus` run is diagnostic preflight only; production trust gates must be passed directly to the same `bootstrap` invocation with a separately mounted trust key. `deploy/openshift-overlays/bank-bootstrap` exact-inventory-checks that command, a read-only approved-corpus PVC, and a separate read-only corpus-trust Secret in repository preflight; actual bank provisioning and Job execution remain external gates.
-- Migration v0005 persists an independently revalidated manifest/retrieval identity as an append-only release and activation. Mutation of any of 17 corpus tables advances a singleton epoch and invalidates the active view; strict local-corpus calls verify one release before and after execution. Migration v0007 additionally lets the distinct release-publisher identity run `bddk-mcp retain-corpus-generation --expected-release-id ...` to copy and seal the exact active state across 17 typed retained relations. Physical generation and seal identities are derived from corpus state and retrieval profile, so differently governed releases over the same exact state/profile receive distinct release bindings to the same retained generation and seal instead of duplicating storage. V7 makes retained-row and current/retained state hashing session-independent with function-local `TimeZone=UTC`, `DateStyle=ISO, YMD`, `IntervalStyle=postgres`, `bytea_output=hex`, and `extra_float_digits=3`. If an active pre-v7 release does not match the canonical recomputation, the v7 migration fails before replacing the hash function. On the unchanged pre-v7 schema (v5 or v6), the exact publication-only `publish-corpus-release` compatibility path reviews, publishes, and activates a new canonical release instead of rewriting or backfilling its historical row; then retry v7. Serving, retention, and every other workload remain v7-only. This administrative CLI is not an MCP tool and does not serve, activate, reactivate, or roll back retained data. Generation-bound serving and authorized rollback remain H2-02B; backup growth is `not_measured`, and bank retention/capacity approval is open. The tracked 8,286-chunk artifact currently differs from the 9,675 rows generated by profile v2, so the tracked corpus cannot pass strict publication.
-- Migration v0004's 11 owner-only legal-curation tables separate source-content and acquisition identity; v0006 adds the public abstention-first `resolve_regulation_status` path. Synthetic real-PostgreSQL evidence does not establish a real regulation family's currentness.
+- Migration v0005 adds append-only release/activation evidence and a mutation epoch over 17 corpus tables; strict local-corpus calls verify the same active release before and after execution. Migration v0008 retires the publisher's old direct-publication grant: `bddk_release_verifier` reads corpus/trust material, proves strict membership, and stages a request bound to verifier revision/image provenance and a 60–3,600 second TTL; `bddk_release_publisher` can activate only the one-time request ID. Activation atomically rechecks expiry, reuse, retrieval readiness, corpus epoch, and state hash. Access by one principal to both roles—or to schema-owner authority—collapses the separation, so bank Secret/RBAC custody remains mandatory. Migration v0007 separately lets the publisher run `retain-corpus-generation --expected-release-id ...` to seal the exact active state across 17 typed retained relations; retention is not generation-bound serving or reactivation. Pre-v7 noncanonical-hash remediation remains an exact, reviewed publication-only compatibility boundary on the unchanged v5/v6 schema; after reaching v7 it must not become a steady-state bypass on the way to v8. The current binary disables the `publish-corpus-release` CLI; never manufacture a historical row or binding—follow the approved upgrade remediation, then complete v8 migration and grants. The tracked 8,286 chunks differ from the 9,675 rows generated by profile v2, so strict staging currently fails.
+- Migration v0004's 11 owner-controlled legal-curation tables separate source-content and acquisition identity. Mutation remains owner-only; v0008 gives the release verifier the exact read-only exception needed to recompute publication evidence. V0006 adds the public abstention-first `resolve_regulation_status` path. Synthetic real-PostgreSQL evidence does not establish a real regulation family's currentness.
 - The evaluation gate requires four signed layers: measured corpus, expert dataset, legal-curator attestation over the exact Citation pack, and a legal-release checkpoint over retained source/acquisition/page/excerpt history. Canonical corpus/dataset/curator/release signer fingerprints must differ. Current preflight proves only cryptographic consistency under operator-supplied anchors; bank authorization and model-score authorization remain false. The 20-case set is draft, and key rotation, named-reviewer policy, and expert-case execution remain open.
 - The supply-chain lane builds containers locally with Buildx `--provenance=false --load`; it fail-closed binds the manifest descriptor/digest, config digest, loaded image, and Syft SBOM to the same image. The repository separately creates unsigned SLSA provenance and verifies model-manifest/runtime/Dockerfile pin consistency. Any result that applies a pending exception is never promotion-eligible; bank signing, admission, and registry promotion remain external gates.
 - Runtime wheels/sdists exclude `seed_data`, benchmark code, and deployment assets; the provided container explicitly includes the reviewed seed. A wheel deployment must mount an approved corpus and pass `--seed-dir` or `BDDK_SEED_DIR` to bootstrap.

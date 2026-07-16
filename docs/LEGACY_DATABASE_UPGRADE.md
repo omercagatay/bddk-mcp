@@ -2,10 +2,10 @@
 
 This runbook covers one transition only: a database created by the final
 pre-ledger `bddk-mcp` initializers. Adoption verifies and records canonical
-v0001, then applies every pending migration through the current schema v7. It
+v0001, then applies every pending migration through the current schema v8. It
 is not a general schema-repair command.
 
-An already-ledgered v5/v6 database uses ordinary migration, not
+An already-ledgered v5/v6/v7 database uses ordinary migration, not
 `--adopt-legacy`. V7 makes retained-row and v5/retained state hashing
 session-independent with function-local `TimeZone=UTC`,
 `DateStyle=ISO, YMD`, `IntervalStyle=postgres`, `bytea_output=hex`, and
@@ -13,11 +13,16 @@ session-independent with function-local `TimeZone=UTC`,
 hash. If a pre-v7 release was published under different session formatting,
 the v7 migration fails before replacing the hash function when the canonical
 current-state hash differs from the recorded hash. Preserve the old ledger
-evidence. On the unchanged pre-v7 schema (v5 or v6), independently review and
-revalidate the corpus and use the exact publication-only
-`publish-corpus-release` compatibility path to append and activate a canonical
-release. Then retry v7; do not update the old row or backfill a retention
-binding. Serving, retention, and every other workload remain v7-only.
+evidence. The current binary deliberately disables `publish-corpus-release`
+and must not be used to manufacture a historical row or binding. If an
+unchanged v5/v6 database hits this exact guard, stop the upgrade and use only a
+separately approved, digest-pinned pre-v8 remediation build under an isolated
+maintenance procedure, or take the blue-green data-only path below. Revalidate
+and canonically republish on that unchanged pre-v7 schema, then remove the
+remediation capability before retrying migrations through v8. This repository
+does not automate that break-glass decision in the current CLI. Serving,
+retention, verification, activation, and every other steady-state workload
+remain latest-schema-only.
 
 The ordinary command remains fail-closed:
 
@@ -94,7 +99,7 @@ each serial column, the runner reads the old sequence state and maximum ID,
 recreates the standard identity sequence, and advances it beyond both values.
 It does not update, delete, truncate, or overwrite any table row. A second,
 strict catalog verification must match canonical v0001 before the runner can
-record v0001 or apply every pending migration through v0007. Any error rolls back the normalizations,
+record v0001 or apply every pending migration through v0008. Any error rolls back the normalizations,
 ledger, audit evidence, and all pending migrations together.
 
 ## Change procedure
@@ -154,13 +159,16 @@ ledger, audit evidence, and all pending migrations together.
    approved seed directory, `--reindex-existing`, all three
    `--require-quantified-freshness`, `--require-measured-freshness`, and
    `--require-verified-signature` gates, and a `--trusted-signing-key` mounted
-   separately from the corpus. Do not treat a prior `verify-corpus` run as a
-   trust handoff. Retain bootstrap's path-free manifest ID/SHA output and run
-   the independent release publisher; v0005 persists the release and activation
-   together only after that separate revalidation. Migration v0003 leaves existing
-   chunks unpublished by design; retrieval must remain fail closed until every
-   approved document is rebuilt and published under the active retrieval
-   profile.
+   separately from and outside the corpus root. Do not treat a prior
+   `verify-corpus` run as a trust handoff. Retain bootstrap's path-free manifest
+   ID/SHA output. Then run `verify-and-stage-corpus-release` with the distinct
+   release-verifier identity, pinned verifier revision/image provenance and a
+   short TTL. Pass only the resulting request ID to
+   `activate-corpus-release` under the separate release-publisher identity;
+   that publisher must receive no corpus mount, signature or trust key.
+   Migration v0003 leaves existing chunks unpublished by design; retrieval
+   must remain fail closed until every approved document is rebuilt and
+   published under the active retrieval profile.
 9. Run schema/catalog readiness, corpus-integrity, retrieval, citation, and
    client smoke tests before restarting traffic. Compare pre/post table counts
    and application-level content hashes from the approved change evidence. Do

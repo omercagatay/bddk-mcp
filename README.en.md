@@ -123,9 +123,13 @@ undeclared `documents.json`, `chunks.json`, or `decision_cache.json`. The trust
 key must be delivered through a mount/Secret separate from the corpus. On
 completion, bootstrap emits the path-free manifest ID and SHA-256 as operator
 evidence and reports that release publication is required; it does not persist
-a candidate. The separate `bddk-mcp publish-corpus-release` step revalidates the
-corpus, then persists the content-addressed release and its activation atomically
-with the `bddk_release_publisher` identity.
+a candidate. Release admission is a two-credential flow:
+`verify-and-stage-corpus-release` uses the distinct `bddk_release_verifier`
+identity, externally mounted trust key, pinned verifier revision/image digest,
+and a 60–3,600 second TTL; `activate-corpus-release` gives the
+`bddk_release_publisher` only the resulting opaque request ID. Activation
+fails closed after expiry, reuse, or corpus state/epoch/profile drift. The old
+`publish-corpus-release` alias is disabled.
 
 The tracked 318-document selection is deliberately non-exhaustive, unsigned,
 unquantified, and not measured; it is a reviewed development corpus, not a
@@ -154,7 +158,9 @@ passes the full contract.
 ## Database and Retrieval Identity
 
 The required NOLOGIN memberships are exact: public gets only
-`bddk_public_reader`; ingestion gets only `bddk_ingestion`; operator gets
+`bddk_public_reader`; ingestion gets only `bddk_ingestion`; release verification
+gets only `bddk_release_verifier`; activation/retention gets only
+`bddk_release_publisher`; operator gets
 `bddk_public_reader`, `bddk_ingestion`, and `bddk_operator_runtime`; optional
 telemetry gets only `bddk_telemetry_writer`. Public, ingestion, and operator
 startup verify the actual PostgreSQL session, memberships, and effective
@@ -193,14 +199,14 @@ both current/retained state hashing independent of session formatting by fixing
 function-local `TimeZone=UTC`, `DateStyle=ISO, YMD`,
 `IntervalStyle=postgres`, `bytea_output=hex`, and `extra_float_digits=3`.
 A release published before v7 under different settings makes the v7 migration
-fail closed before the hash function changes. On the unchanged pre-v7 schema
-(v5 or v6), the exact publication-only `publish-corpus-release` compatibility
-path can review, republish, and activate it under the canonical settings
-instead of rewriting or backfilling its historical release row; then retry v7.
-Serving, retention, and every other workload remain v7-only. This
-administrative CLI is
-not an MCP tool and does not serve, activate, reactivate, or roll back retained
-data; generation-bound serving and authorized rollback remain H2-02B. Backup
+fail closed before the hash function changes. The current binary disables the
+old direct-publication CLI. An unchanged v5/v6 database that hits this exact
+guard therefore requires the separately approved, digest-pinned pre-v8
+remediation described in the legacy-upgrade runbook, or the blue-green
+data-only path; never manufacture a historical release row or binding. After
+v8, the verifier stages short-lived evidence and the publisher activates only
+its one-time request ID. These administrative CLIs are not MCP tools.
+Generation-bound serving and authorized rollback remain H2-02B. Backup
 growth is still `not_measured`, and bank retention/capacity approval remains
 open. The tracked 8,286-chunk artifact differs from the 9,675 rows regenerated
 by profile v2, so the tracked corpus currently fails strict publication.

@@ -127,6 +127,18 @@ Catalog readiness and database-identity checks separately verify the v7
 triggers, routines, constraints, view, ownership, and ACL boundary. The report
 still emits hashes/counts/sizes rather than corpus text or principals.
 
+For schema v0008, recovery additionally inventories
+`bddk_meta.corpus_release_requests` and
+`bddk_meta.corpus_release_request_activations`. The current restore ordering and
+fingerprint contract therefore cover **53 managed objects**. Identity recovery
+also adds the independent `release_verifier` profile, so the current matrix has
+**seven** application LOGIN profiles. Readiness verifies that the verifier can
+stage but cannot activate/retain, while the publisher can activate a one-time
+request ID and retain but cannot stage or call the old direct publication
+routine. These current code/test contracts are now also exercised by the local
+two-cluster v8 report described below; that synthetic report is still not bank
+production acceptance evidence.
+
 V7 retention preserves fields already stored in PostgreSQL, including a
 `documents.pdf_blob` when present. It does not make missing external
 authoritative source files part of the database backup, and
@@ -134,11 +146,13 @@ authoritative source files part of the database backup, and
 artifact bytes. Recovery evidence must not be described as source-authenticity
 or off-database evidence-pack recovery.
 
-Recovery evidence schema v2 now inventories those 51 objects, including v5
-release state/view objects, v7 retained state, and the activation sequence. It rejects
-reuse of any of the six application DSNs for recovery administration and
-verifies six restored LOGIN profiles, including the independent release
-publisher. Active release identity, activation-sequence identity/ownership,
+Recovery evidence schema v2 now inventories 53 objects: the v5 release
+state/view objects, v7 retained state, the activation sequence, and the two v8
+request/activation-binding relations. It rejects reuse of any of the seven
+application DSNs for recovery administration and verifies seven restored LOGIN
+profiles, including the independent release verifier and release publisher.
+Active release identity, staged-request/activation-binding state,
+activation-sequence identity/ownership,
 database encoding, collation/character-classification names, locale provider,
 provider locale, ICU rules, stored/actual collation versions, row counts, and
 logical fingerprints must match exactly. A stored/actual collation-version
@@ -156,7 +170,8 @@ Repository evidence is complete only when:
 2. the approved rehearsal reaches the current checksum and a ready published
    corpus;
 3. an isolated logical restore has the same logical fingerprint and row counts;
-4. schema-owner, public, ingestion, release-publisher, operator, and telemetry LOGIN contracts pass;
+4. schema-owner, public, ingestion, release-verifier, release-publisher,
+   operator, and telemetry LOGIN contracts pass;
 5. a representative MCP read/retrieval and release-specific citation check pass;
 6. the measured duration satisfies the bank's numeric RTO and the backup point
    satisfies its RPO; and
@@ -164,16 +179,27 @@ Repository evidence is complete only when:
 
 The local repository run on 2026-07-15 proved the guarded, rollback-only
 populated-v2 migration path on disposable PostgreSQL 17. On 2026-07-16, the
-schema-v7 workflow also completed a full
+then-current schema-v7 workflow also completed a full
 `pg_dump`→isolated-cluster→`pg_restore` run against two disposable PostgreSQL 17
 clusters. The retained report inventories all 51 managed objects, including
 two sealed generations across all 17 retained member relations, and proves
 equal logical fingerprints, active-release identity, locale evidence,
 catalog/readiness state, activation-sequence state, and six restored LOGIN
 profiles (**docs/evidence/LOCAL_PG17_V7_RECOVERY_DRILL.md**). This is a
-synthetic repository-scale proof only. Bank backup custody, PITR, TLS/HBA,
-bank-sized capacity and elapsed-time evidence, approved RPO/RTO, and bank DBA
-acceptance remain explicit open gates.
+synthetic, **historical schema-v7/51-object/six-identity proof only**. It must
+not be cited as current-schema evidence.
+
+Later on 2026-07-16, the current schema-v8 workflow completed a separate
+`pg_dump`→isolated-cluster→`pg_restore` run on PostgreSQL 17.10. Its report
+preserves all 53 managed objects, two staged requests and their activation
+bindings, two retained generations, the exact active release and logical
+fingerprint, catalog/readiness state, activation-sequence state, and all seven
+restored LOGIN-profile contracts
+(**docs/evidence/LOCAL_PG17_V8_RECOVERY_DRILL.md**). This proves execution of
+the repository's current synthetic v8 restore contract. Bank backup custody,
+PITR, TLS/HBA, bank-sized capacity and elapsed-time evidence, representative
+MCP/citation smoke checks, approved RPO/RTO, and bank DBA acceptance remain
+explicit external gates.
 
 When available, the `retain-corpus-generation` CLI's WAL field is a cluster-wide
 observed interval around its transaction, not exact WAL attributable to one
