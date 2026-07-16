@@ -240,6 +240,7 @@ class PageMappingProof(_StrictModel):
 @dataclass(frozen=True, slots=True)
 class LegalReleaseEvidenceValidation:
     checkpoint_sha256: str
+    checkpoint_created_at: datetime
     signing_key_sha256: str
     signing_key_fingerprint_sha256: str
     latest_checkpoint_verified: bool
@@ -247,6 +248,21 @@ class LegalReleaseEvidenceValidation:
     genesis_checkpoint_sha256: str
     artifact_count: int
     citation_count: int
+    chain_signers: tuple[LegalReleaseCheckpointSigner, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class LegalReleaseCheckpointSigner:
+    checkpoint_sha256: str
+    checkpoint_created_at: datetime
+    signing_key_fingerprint_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class _TrustedSigningKey:
+    key_sha256: str
+    key_fingerprint_sha256: str
+    public_key: Ed25519PublicKey
 
 
 @dataclass(frozen=True, slots=True)
@@ -404,7 +420,7 @@ def _verify_sealed_file_streaming(
 
 def _verify_checkpoint_signature(
     checkpoint_path: Path,
-    trusted_signing_key: Path,
+    trusted_keys_by_sha256: dict[str, _TrustedSigningKey],
     *,
     current: datetime,
     label: str = "legal release checkpoint",
@@ -424,14 +440,9 @@ def _verify_checkpoint_signature(
     if checkpoint.created_at > current:
         raise LegalReleaseEvidenceError("legal release checkpoint is from the future")
 
-    key_bytes = _bounded_regular_bytes(
-        trusted_signing_key.resolve(),
-        label="trusted legal-release signing key",
-        maximum_bytes=_MAX_PUBLIC_KEY_BYTES,
-    )
-    key_sha256 = hashlib.sha256(key_bytes).hexdigest()
-    if key_sha256 != checkpoint.integrity.signature_public_key_sha256:
-        raise LegalReleaseEvidenceError("trusted legal-release key hash differs from the checkpoint")
+    trusted_key = trusted_keys_by_sha256.get(checkpoint.integrity.signature_public_key_sha256)
+    if trusted_key is None:
+        raise LegalReleaseEvidenceError("legal release checkpoint uses an untrusted signing key")
     signature_path = _resolve_reference(
         checkpoint_path.parent.resolve(),
         checkpoint.integrity.signature_reference,
@@ -443,13 +454,52 @@ def _verify_checkpoint_signature(
         maximum_bytes=_MAX_SIGNATURE_BYTES,
     )
     try:
-        public_key = serialization.load_pem_public_key(key_bytes)
-        if not isinstance(public_key, Ed25519PublicKey):
-            raise ValueError("unsupported public key type")
-        public_key.verify(signature, canonical_checkpoint_payload(raw))
-    except (InvalidSignature, TypeError, ValueError):
+        trusted_key.public_key.verify(signature, canonical_checkpoint_payload(raw))
+    except InvalidSignature:
         raise LegalReleaseEvidenceError("legal release checkpoint signature verification failed") from None
-    return checkpoint, raw, key_sha256, ed25519_public_key_fingerprint_sha256(public_key)
+    return (
+        checkpoint,
+        raw,
+        trusted_key.key_sha256,
+        trusted_key.key_fingerprint_sha256,
+    )
+
+
+def _load_trusted_signing_keyring(
+    signing_keys: Sequence[str | Path],
+) -> tuple[dict[str, _TrustedSigningKey], str]:
+    if not 1 <= len(signing_keys) <= 32:
+        raise LegalReleaseEvidenceError("legal release signing keyring exceeds its bound")
+    by_sha256: dict[str, _TrustedSigningKey] = {}
+    fingerprints: set[str] = set()
+    primary_key_sha256: str | None = None
+    for position, signing_key in enumerate(signing_keys):
+        key_bytes = _bounded_regular_bytes(
+            Path(signing_key),
+            label="trusted legal-release signing key",
+            maximum_bytes=_MAX_PUBLIC_KEY_BYTES,
+        )
+        key_sha256 = hashlib.sha256(key_bytes).hexdigest()
+        try:
+            public_key = serialization.load_pem_public_key(key_bytes)
+            if not isinstance(public_key, Ed25519PublicKey):
+                raise ValueError("unsupported public key type")
+        except (TypeError, ValueError):
+            raise LegalReleaseEvidenceError("trusted legal-release signing key is invalid") from None
+        fingerprint = ed25519_public_key_fingerprint_sha256(public_key)
+        if key_sha256 in by_sha256 or fingerprint in fingerprints:
+            raise LegalReleaseEvidenceError("legal release signing keyring contains a duplicate signer")
+        by_sha256[key_sha256] = _TrustedSigningKey(
+            key_sha256=key_sha256,
+            key_fingerprint_sha256=fingerprint,
+            public_key=public_key,
+        )
+        fingerprints.add(fingerprint)
+        if position == 0:
+            primary_key_sha256 = key_sha256
+    if primary_key_sha256 is None:  # pragma: no cover - guarded by the length bound
+        raise LegalReleaseEvidenceError("legal release signing keyring is empty")
+    return by_sha256, primary_key_sha256
 
 
 def _verify_checkpoint_retention(
@@ -578,6 +628,7 @@ def validate_legal_release_evidence(
     now: datetime,
     predecessor_checkpoint_path: str | Path | None = None,
     trusted_latest_checkpoint_sha256: str | None = None,
+    trusted_predecessor_signing_keys: Sequence[str | Path] = (),
 ) -> LegalReleaseEvidenceValidation:
     """Verify a signed checkpoint and every referenced retained evidence file."""
 
@@ -585,12 +636,16 @@ def validate_legal_release_evidence(
     if current is None:
         raise LegalReleaseEvidenceError("legal release validation time must include a timezone")
     checkpoint_file = Path(checkpoint_path).resolve()
-    trusted_key = Path(trusted_signing_key).resolve()
+    trusted_keyring, primary_key_sha256 = _load_trusted_signing_keyring(
+        (trusted_signing_key, *trusted_predecessor_signing_keys)
+    )
     checkpoint, _, key_sha256, key_fingerprint = _verify_checkpoint_signature(
         checkpoint_file,
-        trusted_key,
+        trusted_keyring,
         current=current,
     )
+    if key_sha256 != primary_key_sha256:
+        raise LegalReleaseEvidenceError("latest legal release checkpoint does not use the primary signing key")
     if checkpoint.legal_pack_sha256 != legal_pack_sha256:
         raise LegalReleaseEvidenceError("legal release checkpoint refers to a different legal pack")
     if checkpoint.corpus_manifest_sha256 != corpus_manifest_sha256:
@@ -612,6 +667,13 @@ def validate_legal_release_evidence(
     chain_path = checkpoint_file
     chain_checkpoint = checkpoint
     seen_checkpoints = {checkpoint.integrity.checkpoint_sha256}
+    chain_signers = [
+        LegalReleaseCheckpointSigner(
+            checkpoint_sha256=checkpoint.integrity.checkpoint_sha256,
+            checkpoint_created_at=checkpoint.created_at,
+            signing_key_fingerprint_sha256=key_fingerprint,
+        )
+    ]
     for depth in range(_MAX_CHAIN_CHECKPOINTS):
         predecessor_sha256 = chain_checkpoint.predecessor_checkpoint_sha256
         predecessor_reference = chain_checkpoint.predecessor_checkpoint_reference
@@ -626,9 +688,9 @@ def validate_legal_release_evidence(
         )
         if depth == 0 and supplied_predecessor is not None and predecessor_path != supplied_predecessor:
             raise LegalReleaseEvidenceError("supplied legal release predecessor differs from the signed reference")
-        predecessor, _, predecessor_key_sha256, predecessor_key_fingerprint = _verify_checkpoint_signature(
+        predecessor, _, _, predecessor_key_fingerprint = _verify_checkpoint_signature(
             predecessor_path,
-            trusted_key,
+            trusted_keyring,
             current=current,
             label="legal release predecessor checkpoint",
         )
@@ -638,12 +700,15 @@ def validate_legal_release_evidence(
             raise LegalReleaseEvidenceError("legal release predecessor chain contains a cycle")
         if predecessor.created_at >= chain_checkpoint.created_at:
             raise LegalReleaseEvidenceError("legal release predecessor does not predate the checkpoint")
-        if predecessor_key_sha256 != key_sha256:
-            raise LegalReleaseEvidenceError("legal release predecessor uses a different trust anchor")
-        if predecessor_key_fingerprint != key_fingerprint:
-            raise LegalReleaseEvidenceError("legal release predecessor uses a different signer")
         _verify_checkpoint_retention(predecessor, root=root, budget=retention_budget)
         seen_checkpoints.add(predecessor.integrity.checkpoint_sha256)
+        chain_signers.append(
+            LegalReleaseCheckpointSigner(
+                checkpoint_sha256=predecessor.integrity.checkpoint_sha256,
+                checkpoint_created_at=predecessor.created_at,
+                signing_key_fingerprint_sha256=predecessor_key_fingerprint,
+            )
+        )
         chain_path = predecessor_path
         chain_checkpoint = predecessor
     else:
@@ -708,6 +773,7 @@ def validate_legal_release_evidence(
 
     return LegalReleaseEvidenceValidation(
         checkpoint_sha256=checkpoint.integrity.checkpoint_sha256,
+        checkpoint_created_at=checkpoint.created_at,
         signing_key_sha256=key_sha256,
         signing_key_fingerprint_sha256=key_fingerprint,
         latest_checkpoint_verified=latest_verified,
@@ -715,12 +781,14 @@ def validate_legal_release_evidence(
         genesis_checkpoint_sha256=chain_checkpoint.integrity.checkpoint_sha256,
         artifact_count=len(evidence_by_artifact),
         citation_count=len(citation_by_id),
+        chain_signers=tuple(reversed(chain_signers)),
     )
 
 
 __all__ = (
     "LegalReleaseEvidenceError",
     "LegalReleaseEvidenceValidation",
+    "LegalReleaseCheckpointSigner",
     "canonical_checkpoint_payload",
     "canonical_checkpoint_sha256",
     "validate_legal_release_evidence",

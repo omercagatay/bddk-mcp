@@ -51,7 +51,7 @@ This checkpoint describes the current working tree; the executed-check table abo
 | OpenShift repository preflight | Partial | The acceptance suite requires exactly Kustomize v5.8.1 and the configured SHA-256 of the resolved executable, executes a bounded offline render, and rejects drift in exact resources, namespace, selectors/labels, NetworkPolicies, Secret/ConfigMap keys, container shape/commands/ports/volumes, and restricted security contexts. It renders the reviewed `bank-bootstrap` overlay and checks the exact direct strict arguments, read-only approved-corpus PVC, separately mounted read-only corpus-trust Secret, and mutation failures. The registry contract identifies nine public open-world/live-outbound tools. Network tests require at least one approved `regulatory_source` or `enterprise_proxy` TCP/443 permission for each public and operator runtime, constrain every such permission to TCP/443, and reject every lifecycle purpose outside DNS/PostgreSQL. The mandatory focused acceptance/manifest/registry run passed **74 tests** with real checksum-pinned Kustomize v5.8.1. It still records eight live external gates as `not_run` (**deploy/openshift-overlays/bank-bootstrap/**; **bddk_mcp/openshift_acceptance.py; tests/test_openshift_acceptance.py; tests/test_openshift_manifests.py; tests/test_tool_registry.py**). This is repository preflight evidence, not a bank namespace, CNI, IdP, CA, registry, database, backup, or client/model test. |
 | Supply-chain lane | Partial | Focused tests cover pinned tool checksums, reproducible distributions, Buildx `--provenance=false --load` descriptor/manifest/config/loaded-image/Syft binding, deterministic SBOM and unsigned repository SLSA, model-manifest/runtime/Dockerfile consistency, complete-history secret policy, vulnerability-database freshness, High/Critical blocking, and explicit expiring exceptions. Pending applied exceptions always make promotion ineligible (**tests/test_supply_chain.py; .github/workflows/supply-chain.yml; scripts/supply_chain_evidence.py; supply-chain/**). The complete hosted linux/amd64 workflow, including both container builds, has not been executed in this review; no signing, admission, or promotion test exists. |
 | Corpus and expert dataset integrity | Partial, deliberately non-release | Strict import and the distinct publisher verify manifest-role bytes and policy, compare the complete regenerated chunk inventory, persist the active manifest/retrieval-profile/corpus-state identity, and invalidate it through a mutation epoch (**bddk_mcp/ingest/seed.py; bddk_mcp/corpus_publication.py; tests/test_seed.py; tests/test_corpus_publication.py**). The tracked 318-document manifest remains non-exhaustive, unsigned, unquantified, and unmeasured; its declared 8,286 chunks differ from the 9,675 produced by current-profile regeneration, so strict publication refuses it. The 20-case Turkish draft still has pending Citations, `legal_currentness: not_verified`, 40 annotations, 20 adjudications, and approvals. |
-| Evaluation release preflight | Partial, deliberately non-release | Release validation requires four separate signed layers—measured corpus, expert dataset, exact Citation pack/legal-curator attestation, and a legal-release checkpoint over retained evidence/history—and rejects any reuse among the four canonical Ed25519 signer fingerprints. Focused YAML/expert/preflight/report tests passed 45 cases (**benchmark/expert_evaluation.py; benchmark/legal_release_evidence.py; benchmark/release_preflight.py; tests/test_release_yaml.py; tests/test_expert_evaluation.py; tests/test_release_preflight.py; tests/test_benchmark_audit.py**). Trust keys and latest-head hash are still caller supplied; no bank trust policy, rotation/revocation, authenticated reviewer identity, historical pack replay, or model execution exists. A pass explicitly leaves bank authorization and model-score authorization false. |
+| Evaluation release preflight | Partial, deliberately non-release | Release validation requires four separate signed layers—measured corpus, expert dataset, exact Citation pack/legal-curator attestation, and a legal-release checkpoint over retained evidence/history—and rejects signer reuse across separated roles. Development mode retains operator-supplied keys/latest head. Bank-policy mode verifies a separately signed policy, exact dataset/manifest/pack/attestation/checkpoint hashes, four distinct signer roles and owners, validity/effective revocations, forward legal-release rotation, and a separately supplied current policy SHA/version pin (**benchmark/evaluation_trust_policy.py; benchmark/legal_release_evidence.py; benchmark/release_preflight.py; tests/test_evaluation_trust_policy.py; tests/test_expert_evaluation.py; tests/test_release_preflight.py**). Both modes keep bank authorization and model-score authorization false. Bank RBAC mount custody/promotion, stale-pin authority, authenticated reviewer identity, historical pack replay, and model execution remain open. |
 | Real MCP Phase 2 runner | Complete as a harness | Phase 2 uses official `ClientSession` transports for stdio and `/mcp`, paginates live discovery, reads `bddk://corpus/active-release`, requires its manifest ID/SHA to match the validated local manifest, executes actual `call_tool` on that same session, and rejects a release change on the final same-session read. It sanitizes audit artifacts and records schema/server/protocol/manifest/active-release/dataset identities (**benchmark/phase2_e2e.py; benchmark/audit.py; tests/test_benchmark_phase2.py**). No named model/client score or product recommendation follows from harness correctness. |
 | Ordinary benchmark reports | Exploratory only | `benchmark.run` always marks results `exploratory_not_release_evidence` and `model_scores_authorized: false`; console and diagnosis reports refuse deployment advice even if a result JSON is edited. These runners do not execute the expert dataset or invoke the release preflight (**benchmark/run.py; benchmark/report.py; tests/test_benchmark_audit.py**). |
 | Observability, load, and client/model operations | Open/Partial | Correlation IDs, privacy-safe request/error/latency metrics, readiness, and isolated telemetry have tests. Standard export/tracing, numeric SLOs, retention, load/resilience, full recovery, and a named Claude/Codex/GPT-OSS/LM Studio matrix remain unproved. |
@@ -133,15 +133,46 @@ four-layer trust chain and emits content-free aggregate identities. Canonical ra
 Ed25519 fingerprints prevent one signer from appearing independent merely by
 changing PEM encoding.
 
-Its positive status is `cryptographic_preflight_passed`, scoped to an
-`operator_supplied_expert_evaluation_trust_chain`. The trusted keys and
-latest-checkpoint SHA-256 are caller inputs, so the output deliberately states
-`bank_authorization_verified: false`, `model_scores_authorized: false`, and
-`latest_checkpoint_anchor_provenance: caller_supplied_argument`. A bank-owned
-policy must still map fingerprints to approved owners/roles, validity windows,
-revocation, and the approved chain head. The current legal checkpoint chain also
-requires every ancestor to use the same exact legal-release key; rotation and
-revocation are not modeled.
+The default `development` mode uses operator-supplied operational keys and a
+manual latest-checkpoint SHA-256. It forbids current bank-policy pins. This mode
+is appropriate for fixtures and cryptographic consistency checks, not bank
+authority.
+
+The `bank-policy` mode requires the policy bytes, detached Ed25519 signature,
+trusted policy-root key, and exact separately supplied current policy
+SHA-256/version. A validly signed but different policy is rejected as stale.
+The policy supplies the approved latest checkpoint, so a simultaneous manual
+latest-head argument is forbidden. It binds five exact release identities—the
+dataset, corpus manifest, legal pack, legal attestation, and legal-release
+checkpoint—and authorizes four distinct roles and owners:
+`corpus_scope_approver`, `expert_dataset_owner`, `legal_curator`, and
+`legal_release_certifier`. The root authority cannot be an operational owner or
+signer. The report exposes bounded policy identity/count evidence, not owner
+IDs or labels.
+
+Legal-release history can use one primary current key plus explicit predecessor
+keys. The latest checkpoint must use the primary key. Policy entries use
+`replaces_key_id`; tests reject disconnected/cyclic rotation, reversal to an old
+key, wrong-time use, duplicate canonical signers, effective key revocation, and
+effective checkpoint revocation. A retired but non-revoked key remains valid
+only for checkpoint time within its authorization window. Policy versions after
+v1 must name the superseded policy SHA-256, but the source-checkout verifier does
+not retrieve or prove the complete external policy-promotion history.
+
+Both modes deliberately report `bank_authorization_verified: false` and
+`model_scores_authorized: false`. Even bank-policy mode cannot prove that the
+policy root, policy/key mounts, and current SHA/version pins came from bank RBAC
+or an approved promotion. If the externally configured pin is itself stale, the
+offline source-checkout verifier has no independent current-policy service from
+which to discover that fact. This repository slice therefore does not close the
+bank governance issue.
+
+The bank-policy success label is intentionally
+`configured_policy_head_preflight_passed`, not a bank-authorization label. Its
+three relevant booleans are `configured_root_policy_signature_verified`,
+`policy_approved_release_binding_verified`, and
+`policy_current_head_pin_verified`; the input provenance remains
+`caller_or_deployment_supplied`.
 
 The checkpoint verifier re-hashes source, acquisition, page mapping/text, and
 excerpt files for the full predecessor chain. Only the current checkpoint's
@@ -643,9 +674,10 @@ Every benchmark report must include:
 
 Every ordinary report must also retain its
 `exploratory_not_release_evidence`/`model_scores_authorized: false`
-classification. A separate preflight report may prove the operator-supplied
-cryptographic chain, but until an expert-dataset execution format is implemented
-it cannot authorize or sign ordinary model scores.
+classification. A separate preflight report may prove an operator-supplied
+development chain or a configured-policy-bound chain, but until an expert-dataset
+execution format and external bank authorization evidence exist it cannot
+authorize or sign ordinary model scores.
 
 Never:
 

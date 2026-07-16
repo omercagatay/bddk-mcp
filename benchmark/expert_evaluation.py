@@ -13,6 +13,7 @@ import json
 import re
 import stat
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -37,6 +38,7 @@ from bddk_mcp.corpus_manifest import (
 )
 from bddk_mcp.release_yaml import ReleaseYamlError, load_bounded_release_yaml
 from benchmark.legal_release_evidence import (
+    LegalReleaseCheckpointSigner,
     LegalReleaseEvidenceError,
     LegalReleaseEvidenceValidation,
     validate_legal_release_evidence,
@@ -458,13 +460,16 @@ class ExpertEvaluationValidation:
     legal_attestation_sha256: str | None
     legal_attestation_key_sha256: str | None
     legal_attestation_key_fingerprint_sha256: str | None
+    legal_attestation_attested_at: datetime | None
     legal_release_evidence_verified: bool
     legal_release_checkpoint_sha256: str | None
+    legal_release_checkpoint_created_at: datetime | None
     legal_release_signing_key_sha256: str | None
     legal_release_signing_key_fingerprint_sha256: str | None
     legal_release_latest_checkpoint_verified: bool
     legal_release_chain_checkpoint_count: int | None
     legal_release_genesis_checkpoint_sha256: str | None
+    legal_release_chain_signers: tuple[LegalReleaseCheckpointSigner, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -898,6 +903,7 @@ def load_expert_evaluation_dataset(
     legal_release_checkpoint_path: str | Path | None = None,
     legal_release_source_root: str | Path | None = None,
     trusted_legal_release_signing_key: str | Path | None = None,
+    trusted_legal_release_predecessor_signing_keys: Sequence[str | Path] = (),
     predecessor_legal_release_checkpoint_path: str | Path | None = None,
     trusted_latest_legal_checkpoint_sha256: str | None = None,
     now: datetime | None = None,
@@ -977,6 +983,10 @@ def load_expert_evaluation_dataset(
         predecessor_legal_release_checkpoint_path is not None or trusted_latest_legal_checkpoint_sha256 is not None
     ) and not all(value is not None for value in release_evidence_inputs):
         raise ExpertEvaluationError("legal release predecessor/latest evidence requires a complete checkpoint input")
+    if trusted_legal_release_predecessor_signing_keys and not all(
+        value is not None for value in release_evidence_inputs
+    ):
+        raise ExpertEvaluationError("legal release predecessor keys require a complete checkpoint input")
 
     legal_release_validation: LegalReleaseEvidenceValidation | None = None
     if all(value is not None for value in release_evidence_inputs):
@@ -1003,6 +1013,7 @@ def load_expert_evaluation_dataset(
                     else None
                 ),
                 trusted_latest_checkpoint_sha256=trusted_latest_legal_checkpoint_sha256,
+                trusted_predecessor_signing_keys=trusted_legal_release_predecessor_signing_keys,
             )
         except LegalReleaseEvidenceError as exc:
             raise ExpertEvaluationError(f"legal release evidence validation failed: {exc}") from exc
@@ -1022,9 +1033,13 @@ def load_expert_evaluation_dataset(
         legal_attestation_key_fingerprint_sha256=(
             verified_legal_pack.attestation_key_fingerprint_sha256 if verified_legal_pack is not None else None
         ),
+        legal_attestation_attested_at=(verified_legal_pack.attested_at if verified_legal_pack is not None else None),
         legal_release_evidence_verified=legal_release_validation is not None,
         legal_release_checkpoint_sha256=(
             legal_release_validation.checkpoint_sha256 if legal_release_validation is not None else None
+        ),
+        legal_release_checkpoint_created_at=(
+            legal_release_validation.checkpoint_created_at if legal_release_validation is not None else None
         ),
         legal_release_signing_key_sha256=(
             legal_release_validation.signing_key_sha256 if legal_release_validation is not None else None
@@ -1040,6 +1055,9 @@ def load_expert_evaluation_dataset(
         ),
         legal_release_genesis_checkpoint_sha256=(
             legal_release_validation.genesis_checkpoint_sha256 if legal_release_validation is not None else None
+        ),
+        legal_release_chain_signers=(
+            legal_release_validation.chain_signers if legal_release_validation is not None else ()
         ),
     )
     if require_release_ready:
@@ -1069,12 +1087,12 @@ def _release_blockers(validation: ExpertEvaluationValidation) -> Counter[str]:
     if not validation.legal_release_evidence_verified:
         blockers["legal_release_evidence_not_verified"] += 1
     else:
-        if validation.legal_release_signing_key_fingerprint_sha256 == validation.dataset_signing_key_fingerprint_sha256:
+        legal_release_signers = {
+            signer.signing_key_fingerprint_sha256 for signer in validation.legal_release_chain_signers
+        }
+        if validation.dataset_signing_key_fingerprint_sha256 in legal_release_signers:
             blockers["dataset_and_legal_release_signers_not_separated"] += 1
-        if (
-            validation.legal_release_signing_key_fingerprint_sha256
-            == validation.legal_attestation_key_fingerprint_sha256
-        ):
+        if validation.legal_attestation_key_fingerprint_sha256 in legal_release_signers:
             blockers["curator_and_legal_release_signers_not_separated"] += 1
     if not validation.legal_release_latest_checkpoint_verified:
         blockers["latest_legal_release_checkpoint_not_verified"] += 1
@@ -1089,7 +1107,9 @@ def _release_blockers(validation: ExpertEvaluationValidation) -> Counter[str]:
             blockers["corpus_and_dataset_signers_not_separated"] += 1
         if corpus_signer == validation.legal_attestation_key_fingerprint_sha256:
             blockers["corpus_and_curator_signers_not_separated"] += 1
-        if corpus_signer == validation.legal_release_signing_key_fingerprint_sha256:
+        if corpus_signer in {
+            signer.signing_key_fingerprint_sha256 for signer in validation.legal_release_chain_signers
+        }:
             blockers["corpus_and_legal_release_signers_not_separated"] += 1
     freshness = validation.corpus_validation.manifest.freshness
     freshness_values = (

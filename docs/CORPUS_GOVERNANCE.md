@@ -191,16 +191,42 @@ separately verified, signed layers:
 The validated Citation objects in the dataset must equal the current exported
 objects, not merely share IDs. Canonical Ed25519 fingerprints—not PEM file
 bytes—identify signers, and corpus, dataset, curator, and legal-release signers
-must all be different. The legal checkpoint must follow corpus-scope approval
-and curator attestation and equal a separately supplied latest-checkpoint hash.
+must all be different. Every historical legal-release signer must also remain
+separate from the other three operational roles.
 
-These are cryptographic consistency controls, not bank authorization. The keys
-and latest hash are operator-supplied inputs; no bank-owned trust policy binds
-fingerprints to named people/roles, validity periods, revocation, or an approved
-head. The legal checkpoint chain currently requires the same exact key material
-for every predecessor and therefore has no key-rotation path. Every predecessor's
-retained files are re-hashed, but historical legal-pack bytes are not retained
-and replayed against their historical Citation inventories.
+The preflight has two explicit trust modes. Default `development` mode accepts
+operator-supplied operational keys and a separately supplied latest-checkpoint
+hash; it is a fixture/consistency boundary only. `bank-policy` mode instead
+requires an exact detached-signed policy, trusted policy-root key, and separately
+configured current policy SHA-256/version pins. The policy supplies the latest
+checkpoint, so a manual head hash is rejected in that mode.
+
+The closed policy binds the exact expert-dataset, corpus-manifest, legal-pack,
+legal-attestation, and legal-release-checkpoint SHA-256 values. It maps keys and
+opaque owner identities to `corpus_scope_approver`, `expert_dataset_owner`,
+`legal_curator`, and `legal_release_certifier`, with authorization windows. Keys
+are unique across roles, owners cannot cross separated roles, and the policy
+root cannot also be an operational signer or owner.
+
+Legal-release checkpoints now support forward key rotation. The latest
+checkpoint must verify with the primary current key; older checkpoints can use
+explicit predecessor keys. The signed policy connects those keys with
+`replaces_key_id` and rejects cycles, disconnected chains, backwards rotation,
+wrong-time use, effective key revocation, and effective checkpoint revocation.
+A retired, non-revoked key can verify only history created within its validity
+window. Every predecessor's retained files are still re-hashed, but historical
+legal-pack bytes are not retained and replayed against their historical Citation
+inventories.
+
+These remain cryptographic/policy-consistency controls, not bank authorization.
+The repository does not prove who owns the configured policy root or that the
+policy, operational keys, and current SHA/version pins arrived through bank
+RBAC and an approved atomic promotion. A signed policy that differs from the
+configured current pins fails in bank-policy mode; if the external pins
+themselves are stale, the offline verifier cannot discover the newer policy.
+Bank deployment must mount these inputs separately, retain the promotion and
+approval record, and exercise revocation/compromise handling. This implemented
+slice does not by itself complete the bank trust-policy issue.
 
 Page verification proves exact UTF-8 excerpt containment in the retained text
 for the attested pages. The `legal_source_reviewer` role field is signed data,

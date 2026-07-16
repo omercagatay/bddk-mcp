@@ -7,7 +7,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 import benchmark.release_preflight as release_preflight
+from benchmark.evaluation_trust_policy import EvaluationTrustAuthorization
 from benchmark.expert_evaluation import ExpertEvaluationError
 from benchmark.release_preflight import ReleasePreflightInputs, main, run_release_preflight
 
@@ -84,6 +87,46 @@ def test_cli_does_not_accept_a_caller_controlled_clock(capsys) -> None:
     assert "2099-01-01" not in captured.err
 
 
+def test_required_or_partial_trust_policy_fails_with_content_free_error(capsys) -> None:
+    result = main(["--trust-mode", "bank-policy"])
+
+    captured = capsys.readouterr()
+    assert result == 4
+    assert captured.out == ""
+    assert json.loads(captured.err) == {
+        "schema_version": 1,
+        "status": "release_preflight_failed",
+        "error_code": "EVALUATION_TRUST_POLICY_VALIDATION_FAILED",
+        "bank_authorization_verified": False,
+        "model_scores_authorized": False,
+    }
+
+    result = main(["--bank-trust-policy", "/private/bank/policy.yml"])
+    captured = capsys.readouterr()
+    assert result == 4
+    assert "/private/bank/policy.yml" not in captured.err
+
+
+def test_signed_policy_forbids_a_manual_latest_head(capsys) -> None:
+    result = main(
+        [
+            "--bank-trust-policy",
+            "missing-policy.yml",
+            "--bank-trust-policy-signature",
+            "missing-policy.sig",
+            "--trusted-bank-policy-key",
+            "missing-root.pem",
+            "--trusted-latest-legal-checkpoint-sha256",
+            "f" * 64,
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert result == 4
+    assert captured.out == ""
+    assert "missing" not in captured.err
+
+
 def test_success_report_records_trust_identities_and_unsigned_checksum(monkeypatch) -> None:
     validation = SimpleNamespace(
         legal_release_checkpoint_sha256="1" * 64,
@@ -95,6 +138,7 @@ def test_success_report_records_trust_identities_and_unsigned_checksum(monkeypat
         legal_attestation_key_fingerprint_sha256="6" * 64,
         dataset_signing_key_fingerprint_sha256="7" * 64,
         corpus_validation=SimpleNamespace(signing_key_fingerprint_sha256="8" * 64),
+        legal_release_chain_signers=(SimpleNamespace(signing_key_fingerprint_sha256="3" * 64),),
     )
     profile = SimpleNamespace(
         dataset_id="dataset-v1",
@@ -134,7 +178,150 @@ def test_success_report_records_trust_identities_and_unsigned_checksum(monkeypat
     assert checksum == release_preflight.hashlib.sha256(canonical.encode()).hexdigest()
     assert report["self_checksum_algorithm"] == "sha256_canonical_json_unsigned"
     assert report["status"] == "cryptographic_preflight_passed"
+    assert report["schema_version"] == 2
     assert report["bank_authorization_verified"] is False
+    assert report["configured_root_policy_signature_verified"] is False
+    assert report["policy_approved_release_binding_verified"] is False
     assert report["latest_checkpoint_anchor_provenance"] == "caller_supplied_argument"
     assert report["legal_release_chain_checkpoint_count"] == 3
     assert readiness_calls == [validation]
+
+
+def test_signed_policy_supplies_latest_head_and_emits_only_safe_policy_evidence(monkeypatch) -> None:
+    current = datetime(2026, 7, 16, tzinfo=UTC)
+    validation = SimpleNamespace(
+        legal_release_checkpoint_sha256="1" * 64,
+        legal_release_checkpoint_created_at=datetime(2026, 7, 15, tzinfo=UTC),
+        legal_release_chain_checkpoint_count=1,
+        legal_release_genesis_checkpoint_sha256="1" * 64,
+        legal_release_signing_key_fingerprint_sha256="2" * 64,
+        legal_release_chain_signers=(
+            SimpleNamespace(
+                checkpoint_sha256="1" * 64,
+                checkpoint_created_at=datetime(2026, 7, 15, tzinfo=UTC),
+                signing_key_fingerprint_sha256="2" * 64,
+            ),
+        ),
+        legal_pack_sha256="3" * 64,
+        legal_attestation_sha256="4" * 64,
+        legal_attestation_key_fingerprint_sha256="5" * 64,
+        legal_attestation_attested_at=datetime(2026, 7, 14, tzinfo=UTC),
+        dataset_signing_key_fingerprint_sha256="6" * 64,
+        dataset=SimpleNamespace(approval=SimpleNamespace(decided_at=datetime(2026, 7, 13, tzinfo=UTC))),
+        corpus_validation=SimpleNamespace(
+            signing_key_fingerprint_sha256="7" * 64,
+            manifest=SimpleNamespace(freshness=SimpleNamespace(scope_reviewed_at=datetime(2026, 7, 12, tzinfo=UTC))),
+        ),
+    )
+    profile = SimpleNamespace(
+        dataset_id="dataset-v1",
+        dataset_version="1.0.0",
+        dataset_sha256="8" * 64,
+        corpus_manifest_id="corpus-v1",
+        corpus_manifest_sha256="9" * 64,
+        case_count=20,
+        evidence_count=20,
+        release_blocker_counts={},
+    )
+    signed_policy = SimpleNamespace(
+        policy_sha256="a" * 64,
+        policy=SimpleNamespace(
+            policy_version=1,
+            approved_release=SimpleNamespace(legal_release_checkpoint_sha256="1" * 64),
+        ),
+    )
+    authorization = EvaluationTrustAuthorization(
+        policy_id="bank-policy-v1",
+        policy_version=1,
+        policy_sha256="a" * 64,
+        policy_signing_key_fingerprint_sha256="b" * 64,
+        policy_valid_until=datetime(2026, 8, 1, tzinfo=UTC),
+        approved_checkpoint_sha256="1" * 64,
+        authorized_owner_count=4,
+    )
+    load_calls = []
+
+    def load_dataset(*args, **kwargs):
+        load_calls.append(kwargs)
+        return validation
+
+    monkeypatch.setattr(release_preflight, "_trusted_now", lambda: current)
+    monkeypatch.setattr(release_preflight, "load_signed_evaluation_trust_policy", lambda *a, **k: signed_policy)
+    monkeypatch.setattr(release_preflight, "load_expert_evaluation_dataset", load_dataset)
+    monkeypatch.setattr(release_preflight, "profile_expert_evaluation_dataset", lambda value: profile)
+    monkeypatch.setattr(release_preflight, "require_expert_dataset_release_ready", lambda value: None)
+    monkeypatch.setattr(release_preflight, "authorize_evaluation_trust_chain", lambda *a, **k: authorization)
+    inputs = ReleasePreflightInputs(
+        dataset=Path("unused.yml"),
+        corpus_manifest=None,
+        corpus_root=None,
+        trusted_dataset_key=None,
+        trusted_corpus_key=None,
+        legal_pack=None,
+        legal_attestation=None,
+        trusted_legal_attestation_key=None,
+        legal_release_checkpoint=None,
+        legal_release_source_root=None,
+        trusted_legal_release_key=None,
+        predecessor_legal_release_checkpoint=None,
+        trusted_latest_legal_checkpoint_sha256=None,
+        bank_trust_policy=Path("policy.yml"),
+        bank_trust_policy_signature=Path("policy.sig"),
+        trusted_bank_policy_key=Path("root.pem"),
+        trust_mode="bank_policy",
+        trusted_current_bank_policy_sha256="a" * 64,
+        trusted_current_bank_policy_version=1,
+    )
+
+    report = run_release_preflight(inputs)
+
+    assert load_calls[0]["trusted_latest_legal_checkpoint_sha256"] == "1" * 64
+    assert load_calls[0]["now"] == current
+    assert report["status"] == "configured_policy_head_preflight_passed"
+    assert report["configured_root_policy_signature_verified"] is True
+    assert report["policy_approved_release_binding_verified"] is True
+    assert report["policy_current_head_pin_verified"] is True
+    assert report["bank_authorization_verified"] is False
+    assert report["model_scores_authorized"] is False
+    assert report["latest_checkpoint_anchor_provenance"] == "signed_evaluation_trust_policy"
+    assert report["trust_policy_id"] == "bank-policy-v1"
+    assert report["trust_policy_authorized_owner_count"] == 4
+    assert "owner_id" not in json.dumps(report)
+
+
+def test_bank_policy_mode_rejects_a_stale_but_signed_policy_head(monkeypatch) -> None:
+    monkeypatch.setattr(
+        release_preflight,
+        "load_signed_evaluation_trust_policy",
+        lambda *a, **k: SimpleNamespace(
+            policy_sha256="a" * 64,
+            policy=SimpleNamespace(
+                policy_version=1,
+                approved_release=SimpleNamespace(legal_release_checkpoint_sha256="1" * 64),
+            ),
+        ),
+    )
+    inputs = ReleasePreflightInputs(
+        dataset=Path("unused.yml"),
+        corpus_manifest=None,
+        corpus_root=None,
+        trusted_dataset_key=None,
+        trusted_corpus_key=None,
+        legal_pack=None,
+        legal_attestation=None,
+        trusted_legal_attestation_key=None,
+        legal_release_checkpoint=None,
+        legal_release_source_root=None,
+        trusted_legal_release_key=None,
+        predecessor_legal_release_checkpoint=None,
+        trusted_latest_legal_checkpoint_sha256=None,
+        bank_trust_policy=Path("policy.yml"),
+        bank_trust_policy_signature=Path("policy.sig"),
+        trusted_bank_policy_key=Path("root.pem"),
+        trust_mode="bank_policy",
+        trusted_current_bank_policy_sha256="b" * 64,
+        trusted_current_bank_policy_version=2,
+    )
+
+    with pytest.raises(release_preflight.EvaluationTrustPolicyError):
+        run_release_preflight(inputs)

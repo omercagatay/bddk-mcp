@@ -231,9 +231,18 @@ signed layers:
 4. a legal-release checkpoint over retained source bytes, acquisition records,
    page text/mappings, Citation excerpts, and signed predecessor checkpoints.
 
-The corpus, dataset, curator, and legal-release public keys must resolve to four
-different canonical Ed25519 fingerprints. Re-encoding one key as different PEM
-bytes does not create an independent signer.
+The corpus, dataset, curator, and legal-release public keys must resolve to
+different canonical Ed25519 fingerprints. Every historical legal-release
+signer must also remain distinct from the corpus, dataset, and curator signers.
+Re-encoding one key as different PEM bytes does not create an independent
+signer.
+
+### Development mode
+
+Development mode is the default and keeps the original operator-supplied trust
+boundary. The operator supplies the four artifact keys and the expected latest
+checkpoint hash directly. It is useful for fixtures and local consistency
+testing, but it is not bank-policy evidence:
 
 ```bash
 python -m benchmark.release_preflight \
@@ -248,16 +257,94 @@ python -m benchmark.release_preflight \
   --legal-release-checkpoint /APPROVED/LEGAL/latest-checkpoint.yml \
   --legal-release-source-root /APPROVED/LEGAL/retained \
   --trusted-legal-release-key /APPROVED/TRUST/legal-release.pem \
+  --trust-mode development \
   --trusted-latest-legal-checkpoint-sha256 REPLACE_WITH_APPROVED_SHA256
 ```
 
-A pass means only that the operator-supplied artifacts, keys, and latest-head
-argument form a cryptographically consistent chain. The report deliberately
-sets `bank_authorization_verified: false`, `model_scores_authorized: false`, and
-`latest_checkpoint_anchor_provenance: caller_supplied_argument`. There is no
-bank trust-policy registry, key validity/revocation handling, or legal-release
-key rotation; every predecessor currently has to verify under the same exact
-key material as the latest checkpoint.
+A development pass means only that those operator-supplied artifacts, keys, and
+latest-head argument form a cryptographically consistent chain. Current-policy
+SHA/version pins are forbidden in this mode. Supplying all three signed-policy
+inputs is allowed for policy fixture testing, but without bank-policy mode the
+preflight does not prove that the policy is the externally promoted current
+head.
+
+### Bank-policy mode
+
+Bank-policy mode adds a separately signed, closed-schema policy. The policy
+binds the exact SHA-256 values of the expert dataset, corpus manifest, legal
+Citation pack, legal-curator attestation, and latest legal-release checkpoint.
+It maps operational key fingerprints to four roles—`corpus_scope_approver`,
+`expert_dataset_owner`, `legal_curator`, and `legal_release_certifier`—with
+validity windows and opaque owner identities. Keys are globally unique across
+roles, one owner cannot control two separated roles, and the policy-signing
+authority cannot also own or use an operational signer key.
+
+Use the same artifact arguments as above, omit the manual
+`--trusted-latest-legal-checkpoint-sha256`, and add:
+
+```bash
+python -m benchmark.release_preflight \
+  --dataset /APPROVED/EVALUATION/expert-evaluation.yml \
+  --corpus-manifest /APPROVED/CORPUS/corpus_scope.yml \
+  --corpus-root /APPROVED/CORPUS \
+  --trusted-corpus-key /APPROVED/TRUST/corpus.pem \
+  --trusted-dataset-key /APPROVED/TRUST/dataset.pem \
+  --legal-pack /APPROVED/LEGAL/validated-citations.json \
+  --legal-attestation /APPROVED/LEGAL/legal-attestation.yml \
+  --trusted-legal-attestation-key /APPROVED/TRUST/curator.pem \
+  --legal-release-checkpoint /APPROVED/LEGAL/latest-checkpoint.yml \
+  --legal-release-source-root /APPROVED/LEGAL/retained \
+  --trusted-legal-release-key /APPROVED/TRUST/legal-release-current.pem \
+  --trusted-legal-release-predecessor-key /APPROVED/TRUST/legal-release-v1.pem \
+  --bank-trust-policy /APPROVED/POLICY/evaluation-trust-policy.yml \
+  --bank-trust-policy-signature /APPROVED/POLICY/evaluation-trust-policy.sig \
+  --trusted-bank-policy-key /APPROVED/TRUST/evaluation-policy-root.pem \
+  --trust-mode bank-policy \
+  --trusted-current-bank-policy-sha256 REPLACE_WITH_EXTERNALLY_PROMOTED_POLICY_SHA256 \
+  --trusted-current-bank-policy-version REPLACE_WITH_EXTERNALLY_PROMOTED_POLICY_VERSION
+```
+
+The policy supplies the approved latest checkpoint, so a simultaneous manual
+latest-head argument is rejected. Bank-policy mode also requires the exact
+current policy SHA-256 and version as separate deployment inputs and rejects a
+validly signed but different policy. Policy versions after v1 must declare the
+SHA-256 of the policy they supersede. The repository validates that field's
+shape; external promotion remains responsible for retaining and approving the
+policy history and for advancing the independently configured head pins.
+
+The legal-release verifier accepts one primary current key plus repeated
+predecessor keys. The latest checkpoint must use the primary key. A signed
+policy describes a single-root `replaces_key_id` graph and authorizes only
+forward movement through that graph; cycles, disconnected rotations, reversal
+to a predecessor, wrong-time use, and unlisted keys fail closed. A normally
+retired, non-revoked key can continue to verify a checkpoint created during its
+validity window. An effective key revocation invalidates its use, including in
+retained history, and an effective checkpoint revocation invalidates the chain.
+
+This is a repository implementation slice, not completion of the bank trust
+work. The bank must deliver the policy, detached signature, policy root,
+operational keyring, and current SHA/version pins through reviewed RBAC-separated
+mounts/configuration; promote them atomically; retain approval evidence; and
+prove compromise and stale-policy handling in the target environment. If that
+external pin is itself stale, a source checkout has no online authority from
+which to discover the newer policy.
+
+In both modes the report deliberately keeps `bank_authorization_verified: false`
+and `model_scores_authorized: false`. Even after the configured policy signature,
+exact release binding, and current-head pin pass, the source checkout cannot
+attest that the root and mounts are actually bank controlled or that the policy
+was promoted through bank RBAC. The preflight also does not execute the expert
+dataset.
+
+Report names are deliberately conservative. Plain development success is
+`cryptographic_preflight_passed`; signed-policy validation without a current
+head pin is `signed_policy_preflight_passed`; and bank-policy mode with the
+configured SHA/version pin is `configured_policy_head_preflight_passed`. The
+last status is supported by `configured_root_policy_signature_verified`,
+`policy_approved_release_binding_verified`, and
+`policy_current_head_pin_verified`; it is not named or treated as bank
+authorization. `configured_policy_input_provenance` remains
+`caller_or_deployment_supplied`.
 
 The verifier re-hashes retained evidence for every checkpoint, but it validates
 the exact Citation pack only for the current checkpoint. Historical pack bytes
@@ -267,8 +354,7 @@ numbers; the `legal_source_reviewer` role string does not prove reviewer identit
 or reproducibly prove that page text was derived from the raw PDF/source bytes.
 Those are bank governance and evidence-production gates.
 
-Finally, the preflight does not run the expert dataset against a model. The
-tracked dataset marks legal currentness `not_verified`, and currentness,
+The tracked dataset marks legal currentness `not_verified`, and currentness,
 version-comparison, and amendment-tracking score authorization remain
 unsupported. Do not combine a preflight pass with ordinary benchmark scores to
 claim a release-grade model result.

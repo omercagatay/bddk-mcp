@@ -18,9 +18,9 @@ The findings and severities below remain the reviewed-commit baseline. **Complet
 | Recovery and upgrade integrity | Partial repository workflows | A guarded populated-v2-to-current-schema rehearsal proves default refusal, reindex/readiness, actual-content fingerprints, and bounded PostgreSQL subprocess timeout/cleanup. Recovery evidence schema v2 covers 29 managed relations plus activation sequence, rejects all six application DSNs as recovery administration, and verifies six restored LOGIN profiles (**bddk_mcp/operations/recovery.py; tests/test_recovery_workflows.py; docs/RECOVERY_DRILLS.md**). This is a repository workflow/contract; retained bank PITR, backup custody, approved RPO/RTO, and bank restore acceptance remain unproved. |
 | OpenShift deployment boundary | Partial repository preflight | The non-root starter separates planes and lifecycle Jobs. The acceptance harness requires exact Kustomize v5.8.1 and the reviewed SHA-256 of the resolved executable, performs a real bounded offline build, and enforces exact resource, namespace, selector/label, NetworkPolicy, Secret/ConfigMap, workload-shape, command/port/volume, and restricted-security-context inventories. The reviewed `bank-bootstrap` overlay passes strict freshness/signature/key gates directly to bootstrap and keeps the read-only approved corpus PVC separate from the read-only corpus-trust Secret. The egress matrix requires narrow regulatory-source/proxy HTTPS for both runtimes—public includes live-source tools—and forbids that reach for lifecycle Jobs (**deploy/openshift-overlays/bank-bootstrap/**; **bddk_mcp/openshift_acceptance.py; tests/test_openshift_acceptance.py**). Its success state still leaves eight live external gates `not_run`; it is repository evidence, not bank acceptance. |
 | Supply-chain boundary | Partial repository lane | Pinned build/scanner inputs and reproducible Python artifacts are defined. Containers use Buildx `--provenance=false --load`; evidence then binds exact descriptor/manifest/config/loaded-image/Syft identities, emits unsigned repository SLSA, and verifies model-manifest/runtime/Dockerfile consistency. Complete-history secret scanning, fresh vulnerability data, and High/Critical blocking are fail closed; applied pending exceptions always leave promotion ineligible (**.github/workflows/supply-chain.yml; scripts/supply_chain_evidence.py; supply-chain/**). No artifact is signed or promoted, and no bank registry/admission/exception-approval control is proved. |
-| Evaluation integrity | Partial, deliberately non-release | The 20-case/eight-domain Turkish dataset is checksum/corpus-bound, but all cases remain draft and legal currentness/Citation mapping is unverified. Release validation now composes four signed layers: measured corpus, expert dataset, exact Citation pack/legal-curator attestation, and legal-release checkpoint over retained evidence/history. All four canonical Ed25519 signer fingerprints must differ; different PEM encodings of one key do not count as separation (**benchmark/expert_evaluation.py; benchmark/signing.py; tests/test_expert_evaluation.py**). The executable preflight is source-checkout-only and validates operator-supplied keys/artifacts/latest-head input, not bank authority; it explicitly leaves bank authorization and model scores false. No trust registry, key validity/revocation, legal-release key rotation, expert-dataset execution, or currentness/version/amendment scoring exists (**benchmark/release_preflight.py; benchmark/report.py**). |
+| Evaluation integrity | Partial, deliberately non-release | The 20-case/eight-domain Turkish dataset is checksum/corpus-bound, but all cases remain draft and legal currentness/Citation mapping is unverified. Release validation composes four signed layers: measured corpus, expert dataset, exact Citation pack/legal-curator attestation, and a legal-release checkpoint over retained evidence/history. The preflight now has explicit development and bank-policy modes. Bank-policy mode verifies a separately signed policy, binds the exact dataset/manifest/pack/attestation/checkpoint hashes, maps distinct canonical keys and owners to four separated roles, enforces validity and effective key/checkpoint revocations, supports policy-approved forward legal-release key rotation, and requires a separately configured current policy SHA/version pin (**benchmark/evaluation_trust_policy.py; benchmark/release_preflight.py; tests/test_evaluation_trust_policy.py; tests/test_release_preflight.py**). It still reports bank authorization and model scores false: the repository cannot attest bank ownership/RBAC custody of the root, policy, key mounts, or promoted pins, and it does not execute the expert dataset. Historical pack replay, authenticated page-review identity, currentness/version/amendment scoring, and target-environment stale-policy/compromise exercises remain open. |
 
-Current security maturity remains **3/5**. Cross-document ratings remain overall **3/5**, production readiness **2/5**, MCP **4/5**, retrieval **3/5**, testing/evaluation **3/5**, and documentation **4/5**. Production approval remains blocked by bank-applied identity/network/CA/egress controls, bank LOGIN/DBA and curator evidence, a bank-owned evaluation trust/key-lifecycle policy, repair and signing of the drifting corpus, a completed isolated restore, signed promotion, real source/page authenticity evidence, live-model injection evaluation, numeric SLO/RPO/RTO, and real cluster validation.
+Current security maturity remains **3/5**. Cross-document ratings remain overall **3/5**, production readiness **2/5**, MCP **4/5**, retrieval **3/5**, testing/evaluation **3/5**, and documentation **4/5**. Production approval remains blocked by bank-applied identity/network/CA/egress controls, bank LOGIN/DBA and curator evidence, issuance and RBAC-controlled deployment/promotion of a real bank evaluation policy and current head pins, repair and signing of the drifting corpus, a completed isolated restore, signed promotion, real source/page authenticity evidence, live-model injection evaluation, numeric SLO/RPO/RTO, and real cluster validation.
 
 ## Baseline security conclusion at the reviewed commit
 
@@ -582,8 +582,10 @@ No remote production release until all pass:
   and mutation/drift causes fail-closed unavailability rather than silent use;
 - citation reconstruction passes for the release corpus;
 - evaluation/model claims use a bank-owned trust policy with separated signer
-  roles, validity/revocation and approved-head evidence; a caller-supplied
-  preflight pass alone is never treated as bank authorization;
+  keys and owners, validity/revocation, exact artifact bindings, forward
+  legal-release rotation, and an independently promoted current policy
+  SHA/version pin; development-mode or source-checkout policy validation alone
+  is never treated as bank authorization;
 - package/image builds and scans pass;
 - backup restore and health/readiness drills pass.
 
@@ -596,12 +598,14 @@ No remote production release until all pass:
 - whether private documents or sensitive queries are already processed;
 - tenant/shared-service plans; use single-tenant and prohibit private-corpus ingestion until decided;
 - current locked dependency and built-image vulnerabilities on the bank-approved runner/feed, plus the bank's signing, promotion, admission, malware, and source-authenticity gates. The repository lane produces SBOMs and unsigned provenance and applies a fresh-vulnerability policy, but does not sign or promote;
-- bank-owned trust policy and approval identities for four separated evaluation
-  signers (corpus, expert dataset, legal curator, legal-release certifier), plus
-  fingerprint-to-role ownership, validity, rotation/revocation, compromise
-  response, and approved latest-checkpoint distribution. Current trust anchors
-  and head hash are operator supplied, and the tracked corpus/dataset are not
-  signed;
+- a bank-issued instance of the implemented trust-policy schema and approval
+  identities for four separated evaluation signers (corpus, expert dataset,
+  legal curator, legal-release certifier), plus external RBAC custody for the
+  policy root/keyring, atomic policy/pin promotion, stale-policy detection, and
+  compromise response. The repository can require exact policy SHA/version pins,
+  roles/owners, rotation/revocation and approved artifact hashes, but it cannot
+  prove that supplied mounts/pins are bank controlled or discover that an
+  externally supplied pin is stale; the tracked corpus/dataset are not signed;
 - whether real legal evidence will reproducibly derive page text/mappings from
   retained raw source bytes, who authenticates `legal_source_reviewer`, and how
   historical Citation packs will be retained/replayed across checkpoint history;

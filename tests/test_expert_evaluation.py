@@ -442,6 +442,8 @@ def _write_legal_release_checkpoint(
     citation: dict[str, Any],
     pack_path: Path,
     page_text_content: str | None = None,
+    rotate_predecessor_key: bool = False,
+    predecessor_key_outputs: list[Path] | None = None,
 ) -> tuple[Path, Path, str, Path, Path, Path, Path]:
     source_root = tmp_path / "retained-legal-source"
     source_root.mkdir()
@@ -508,6 +510,16 @@ def _write_legal_release_checkpoint(
     )
     trusted_key = tmp_path / "trusted-legal-release.pem"
     trusted_key.write_bytes(public_key)
+    predecessor_private_key = Ed25519PrivateKey.generate() if rotate_predecessor_key else private_key
+    predecessor_public_key = predecessor_private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    if rotate_predecessor_key:
+        predecessor_trusted_key = tmp_path / "trusted-legal-release-predecessor.pem"
+        predecessor_trusted_key.write_bytes(predecessor_public_key)
+        if predecessor_key_outputs is not None:
+            predecessor_key_outputs.append(predecessor_trusted_key)
     checkpoint_common = {
         "schema_version": 2,
         "signer_role": "legal_release_certifier",
@@ -533,15 +545,21 @@ def _write_legal_release_checkpoint(
     oldest_artifacts = copy.deepcopy(checkpoint_common["artifacts"])
     oldest_artifacts[0]["source_bytes"] = _sealed_file(oldest_source_path, source_root)
 
-    def seal_checkpoint(checkpoint: dict[str, Any], *, name: str) -> tuple[Path, str]:
+    def seal_checkpoint(
+        checkpoint: dict[str, Any],
+        *,
+        name: str,
+        signing_private_key: Ed25519PrivateKey = private_key,
+        signing_public_key: bytes = public_key,
+    ) -> tuple[Path, str]:
         signature_name = f"{name}.sig"
         checkpoint["integrity"] = {
             "checkpoint_sha256": "0" * 64,
             "signature_algorithm": "ed25519",
             "signature_reference": signature_name,
-            "signature_public_key_sha256": hashlib.sha256(public_key).hexdigest(),
+            "signature_public_key_sha256": hashlib.sha256(signing_public_key).hexdigest(),
         }
-        (tmp_path / signature_name).write_bytes(private_key.sign(canonical_checkpoint_payload(checkpoint)))
+        (tmp_path / signature_name).write_bytes(signing_private_key.sign(canonical_checkpoint_payload(checkpoint)))
         checkpoint["integrity"]["checkpoint_sha256"] = canonical_checkpoint_sha256(checkpoint)
         checkpoint_path = tmp_path / f"{name}.yml"
         checkpoint_path.write_text(yaml.safe_dump(checkpoint, sort_keys=False), encoding="utf-8")
@@ -557,6 +575,8 @@ def _write_legal_release_checkpoint(
             "predecessor_checkpoint_reference": None,
         },
         name="legal-release-oldest",
+        signing_private_key=predecessor_private_key,
+        signing_public_key=predecessor_public_key,
     )
     predecessor_path, predecessor_sha256 = seal_checkpoint(
         {
@@ -568,6 +588,8 @@ def _write_legal_release_checkpoint(
             "predecessor_checkpoint_reference": "legal-release-oldest.yml",
         },
         name="legal-release-predecessor",
+        signing_private_key=predecessor_private_key,
+        signing_public_key=predecessor_public_key,
     )
     checkpoint_path, checkpoint_sha256 = seal_checkpoint(
         {
@@ -747,6 +769,92 @@ def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_la
             legal_release_source_root=source_root,
             trusted_legal_release_signing_key=release_key,
             predecessor_legal_release_checkpoint_path=predecessor_path,
+            now=datetime(2026, 7, 16, tzinfo=UTC),
+        )
+
+
+def test_legal_release_chain_accepts_an_explicit_rotated_predecessor_key(tmp_path: Path) -> None:
+    raw = _raw_dataset()
+    citation = _verified_tracked_citation(raw)
+    raw["evidence_catalog"][0].update(
+        citation_v1_status="verified",
+        citation_v1_id=citation["citation_id"],
+        citation_v1=citation,
+    )
+    dataset_path = _write_sealed_dataset(tmp_path, raw)
+    pack_path, attestation_path, curator_key, _ = _write_signed_legal_pack(tmp_path, citation)
+    predecessor_keys: list[Path] = []
+    checkpoint_path, release_key, latest_hash, source_root, predecessor_path, _, _ = _write_legal_release_checkpoint(
+        tmp_path,
+        raw_dataset=raw,
+        citation=citation,
+        pack_path=pack_path,
+        rotate_predecessor_key=True,
+        predecessor_key_outputs=predecessor_keys,
+    )
+
+    with pytest.raises(ExpertEvaluationError, match="untrusted signing key"):
+        load_expert_evaluation_dataset(
+            dataset_path,
+            validated_legal_pack_path=pack_path,
+            legal_attestation_path=attestation_path,
+            trusted_legal_attestation_key=curator_key,
+            legal_release_checkpoint_path=checkpoint_path,
+            legal_release_source_root=source_root,
+            trusted_legal_release_signing_key=release_key,
+            predecessor_legal_release_checkpoint_path=predecessor_path,
+            trusted_latest_legal_checkpoint_sha256=latest_hash,
+            now=datetime(2026, 7, 16, tzinfo=UTC),
+        )
+
+    validation = load_expert_evaluation_dataset(
+        dataset_path,
+        validated_legal_pack_path=pack_path,
+        legal_attestation_path=attestation_path,
+        trusted_legal_attestation_key=curator_key,
+        legal_release_checkpoint_path=checkpoint_path,
+        legal_release_source_root=source_root,
+        trusted_legal_release_signing_key=release_key,
+        trusted_legal_release_predecessor_signing_keys=predecessor_keys,
+        predecessor_legal_release_checkpoint_path=predecessor_path,
+        trusted_latest_legal_checkpoint_sha256=latest_hash,
+        now=datetime(2026, 7, 16, tzinfo=UTC),
+    )
+
+    assert validation.legal_release_chain_checkpoint_count == 3
+    assert len(validation.legal_release_chain_signers) == 3
+    assert len({item.signing_key_fingerprint_sha256 for item in validation.legal_release_chain_signers}) == 2
+    assert validation.legal_release_chain_signers[-1].signing_key_fingerprint_sha256 == (
+        validation.legal_release_signing_key_fingerprint_sha256
+    )
+
+    with pytest.raises(ExpertEvaluationError, match="does not use the primary signing key"):
+        load_expert_evaluation_dataset(
+            dataset_path,
+            validated_legal_pack_path=pack_path,
+            legal_attestation_path=attestation_path,
+            trusted_legal_attestation_key=curator_key,
+            legal_release_checkpoint_path=checkpoint_path,
+            legal_release_source_root=source_root,
+            trusted_legal_release_signing_key=predecessor_keys[0],
+            trusted_legal_release_predecessor_signing_keys=[release_key],
+            predecessor_legal_release_checkpoint_path=predecessor_path,
+            trusted_latest_legal_checkpoint_sha256=latest_hash,
+            now=datetime(2026, 7, 16, tzinfo=UTC),
+        )
+
+    with pytest.raises(ExpertEvaluationError, match="duplicate signer"):
+        load_expert_evaluation_dataset(
+            dataset_path,
+            validated_legal_pack_path=pack_path,
+            legal_attestation_path=attestation_path,
+            trusted_legal_attestation_key=curator_key,
+            legal_release_checkpoint_path=checkpoint_path,
+            legal_release_source_root=source_root,
+            trusted_legal_release_signing_key=release_key,
+            trusted_legal_release_predecessor_signing_keys=[release_key],
+            predecessor_legal_release_checkpoint_path=predecessor_path,
+            trusted_latest_legal_checkpoint_sha256=latest_hash,
             now=datetime(2026, 7, 16, tzinfo=UTC),
         )
 

@@ -10,12 +10,20 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
+from benchmark.evaluation_trust_policy import (
+    EvaluationTrustAuthorization,
+    EvaluationTrustPolicyError,
+    authorize_evaluation_trust_chain,
+    load_signed_evaluation_trust_policy,
+)
 from benchmark.expert_evaluation import (
     EXPERT_EVALUATION_DRAFT_PATH,
     ExpertEvaluationError,
@@ -35,6 +43,22 @@ class _SafeArgumentParser(argparse.ArgumentParser):
         raise ReleasePreflightArgumentError("release preflight arguments are invalid")
 
 
+def _sha256_argument(value: str) -> str:
+    if re.fullmatch(r"[0-9a-f]{64}", value) is None:
+        raise argparse.ArgumentTypeError("invalid SHA-256 value")
+    return value
+
+
+def _positive_policy_version(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("invalid policy version") from exc
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("invalid policy version")
+    return parsed
+
+
 @dataclass(frozen=True, slots=True)
 class ReleasePreflightInputs:
     dataset: Path
@@ -50,6 +74,13 @@ class ReleasePreflightInputs:
     trusted_legal_release_key: Path | None
     predecessor_legal_release_checkpoint: Path | None
     trusted_latest_legal_checkpoint_sha256: str | None
+    bank_trust_policy: Path | None = None
+    bank_trust_policy_signature: Path | None = None
+    trusted_bank_policy_key: Path | None = None
+    trust_mode: Literal["development", "bank_policy"] = "development"
+    trusted_current_bank_policy_sha256: str | None = None
+    trusted_current_bank_policy_version: int | None = None
+    trusted_legal_release_predecessor_keys: tuple[Path, ...] = ()
 
 
 def _trusted_now() -> datetime:
@@ -72,6 +103,48 @@ def _canonical_sha256(value: dict) -> str:
 def run_release_preflight(inputs: ReleasePreflightInputs) -> dict:
     """Validate the complete gate and return a content-free evidence report."""
 
+    current = _trusted_now().astimezone(UTC)
+    if inputs.trust_mode not in {"development", "bank_policy"}:
+        raise EvaluationTrustPolicyError("evaluation trust mode is invalid")
+    policy_inputs = (
+        inputs.bank_trust_policy,
+        inputs.bank_trust_policy_signature,
+        inputs.trusted_bank_policy_key,
+    )
+    if any(value is not None for value in policy_inputs) and not all(value is not None for value in policy_inputs):
+        raise EvaluationTrustPolicyError("signed evaluation trust-policy inputs are incomplete")
+    policy_head_inputs = (
+        inputs.trusted_current_bank_policy_sha256,
+        inputs.trusted_current_bank_policy_version,
+    )
+    if inputs.trust_mode == "bank_policy":
+        if not all(value is not None for value in policy_inputs):
+            raise EvaluationTrustPolicyError("bank-policy mode requires a signed evaluation trust policy")
+        if not all(value is not None for value in policy_head_inputs):
+            raise EvaluationTrustPolicyError("bank-policy mode requires a pinned current policy head")
+    elif any(value is not None for value in policy_head_inputs):
+        raise EvaluationTrustPolicyError("current bank-policy pins are forbidden in development mode")
+
+    signed_policy = None
+    if all(value is not None for value in policy_inputs):
+        if inputs.trusted_latest_legal_checkpoint_sha256 is not None:
+            raise EvaluationTrustPolicyError("manual latest-head input is forbidden with a signed trust policy")
+        signed_policy = load_signed_evaluation_trust_policy(
+            inputs.bank_trust_policy,
+            inputs.bank_trust_policy_signature,
+            inputs.trusted_bank_policy_key,
+            current=current,
+        )
+        if inputs.trust_mode == "bank_policy" and (
+            signed_policy.policy_sha256 != inputs.trusted_current_bank_policy_sha256
+            or signed_policy.policy.policy_version != inputs.trusted_current_bank_policy_version
+        ):
+            raise EvaluationTrustPolicyError("signed evaluation trust policy is not the pinned current policy")
+    trusted_latest_checkpoint = (
+        signed_policy.policy.approved_release.legal_release_checkpoint_sha256
+        if signed_policy is not None
+        else inputs.trusted_latest_legal_checkpoint_sha256
+    )
     validation = load_expert_evaluation_dataset(
         inputs.dataset,
         corpus_manifest_path=inputs.corpus_manifest,
@@ -84,20 +157,90 @@ def run_release_preflight(inputs: ReleasePreflightInputs) -> dict:
         legal_release_checkpoint_path=inputs.legal_release_checkpoint,
         legal_release_source_root=inputs.legal_release_source_root,
         trusted_legal_release_signing_key=inputs.trusted_legal_release_key,
+        trusted_legal_release_predecessor_signing_keys=(inputs.trusted_legal_release_predecessor_keys),
         predecessor_legal_release_checkpoint_path=inputs.predecessor_legal_release_checkpoint,
-        trusted_latest_legal_checkpoint_sha256=inputs.trusted_latest_legal_checkpoint_sha256,
+        trusted_latest_legal_checkpoint_sha256=trusted_latest_checkpoint,
+        now=current,
     )
     profile = profile_expert_evaluation_dataset(validation)
     require_expert_dataset_release_ready(validation)
-    validated_at = _trusted_now().astimezone(UTC).isoformat()
+    policy_authorization: EvaluationTrustAuthorization | None = None
+    if signed_policy is not None:
+        dataset_authorized_at = validation.dataset.approval.decided_at
+        corpus_authorized_at = validation.corpus_validation.manifest.freshness.scope_reviewed_at
+        required_policy_values = (
+            validation.corpus_validation.signing_key_fingerprint_sha256,
+            validation.dataset_signing_key_fingerprint_sha256,
+            validation.legal_attestation_key_fingerprint_sha256,
+            validation.legal_attestation_attested_at,
+            validation.legal_release_signing_key_fingerprint_sha256,
+            validation.legal_release_checkpoint_created_at,
+            validation.legal_release_checkpoint_sha256,
+            validation.legal_pack_sha256,
+            validation.legal_attestation_sha256,
+            dataset_authorized_at,
+            validation.legal_release_chain_signers,
+        )
+        if any(value is None for value in required_policy_values):
+            raise EvaluationTrustPolicyError("release evidence lacks a policy authorization identity")
+        policy_authorization = authorize_evaluation_trust_chain(
+            signed_policy,
+            corpus_signer_fingerprint_sha256=validation.corpus_validation.signing_key_fingerprint_sha256,
+            corpus_authorized_at=corpus_authorized_at,
+            dataset_signer_fingerprint_sha256=validation.dataset_signing_key_fingerprint_sha256,
+            dataset_authorized_at=dataset_authorized_at,
+            legal_curator_fingerprint_sha256=validation.legal_attestation_key_fingerprint_sha256,
+            legal_curator_authorized_at=validation.legal_attestation_attested_at,
+            legal_release_signer_fingerprint_sha256=(validation.legal_release_signing_key_fingerprint_sha256),
+            legal_release_authorized_at=validation.legal_release_checkpoint_created_at,
+            legal_release_chain_signers=tuple(
+                (
+                    signer.signing_key_fingerprint_sha256,
+                    signer.checkpoint_created_at,
+                    signer.checkpoint_sha256,
+                )
+                for signer in validation.legal_release_chain_signers
+            ),
+            dataset_sha256=profile.dataset_sha256,
+            corpus_manifest_sha256=profile.corpus_manifest_sha256,
+            legal_pack_sha256=validation.legal_pack_sha256,
+            legal_attestation_sha256=validation.legal_attestation_sha256,
+            legal_release_checkpoint_sha256=validation.legal_release_checkpoint_sha256,
+            current=current,
+        )
+    validated_at = current.isoformat()
+    policy_verified = policy_authorization is not None
+    policy_head_pin_verified = policy_verified and inputs.trust_mode == "bank_policy"
     report = {
-        "schema_version": 1,
-        "status": "cryptographic_preflight_passed",
-        "scope": "operator_supplied_expert_evaluation_trust_chain",
+        "schema_version": 2,
+        "status": (
+            "configured_policy_head_preflight_passed"
+            if policy_head_pin_verified
+            else "signed_policy_preflight_passed"
+            if policy_verified
+            else "cryptographic_preflight_passed"
+        ),
+        "scope": (
+            "configured_root_signed_expert_evaluation_trust_chain"
+            if policy_verified
+            else "operator_supplied_expert_evaluation_trust_chain"
+        ),
         "bank_authorization_verified": False,
+        "reason_bank_authorization_not_verified": (
+            "bank_controlled_mount_and_promotion_not_attested_by_source_checkout"
+            if policy_head_pin_verified
+            else "configured_policy_root_ownership_not_attested"
+            if policy_verified
+            else "bank_signed_trust_policy_not_verified"
+        ),
+        "trust_mode": inputs.trust_mode,
+        "configured_root_policy_signature_verified": policy_verified,
+        "policy_approved_release_binding_verified": policy_verified,
+        "policy_current_head_pin_verified": policy_head_pin_verified,
+        "configured_policy_input_provenance": ("caller_or_deployment_supplied" if policy_verified else "not_supplied"),
         "model_scores_authorized": False,
         "reason_model_scores_not_authorized": "expert_dataset_execution_not_implemented",
-        "authorized_capabilities": [],
+        "authorized_capabilities": (["policy_bound_release_evidence_validation"] if policy_verified else []),
         "unsupported_capabilities": [
             "model_score_release_authorization",
             "currentness_scoring",
@@ -119,8 +262,25 @@ def run_release_preflight(inputs: ReleasePreflightInputs) -> dict:
         "legal_release_checkpoint_sha256": validation.legal_release_checkpoint_sha256,
         "legal_release_signing_key_fingerprint_sha256": validation.legal_release_signing_key_fingerprint_sha256,
         "legal_release_chain_checkpoint_count": validation.legal_release_chain_checkpoint_count,
+        "legal_release_chain_signer_fingerprints_sha256": sorted(
+            {signer.signing_key_fingerprint_sha256 for signer in validation.legal_release_chain_signers}
+        ),
         "legal_release_genesis_checkpoint_sha256": validation.legal_release_genesis_checkpoint_sha256,
-        "latest_checkpoint_anchor_provenance": "caller_supplied_argument",
+        "latest_checkpoint_anchor_provenance": (
+            "signed_evaluation_trust_policy" if policy_verified else "caller_supplied_argument"
+        ),
+        "trust_policy_id": policy_authorization.policy_id if policy_authorization else None,
+        "trust_policy_version": policy_authorization.policy_version if policy_authorization else None,
+        "trust_policy_sha256": policy_authorization.policy_sha256 if policy_authorization else None,
+        "trust_policy_signing_key_fingerprint_sha256": (
+            policy_authorization.policy_signing_key_fingerprint_sha256 if policy_authorization else None
+        ),
+        "trust_policy_valid_until": (
+            policy_authorization.policy_valid_until.isoformat() if policy_authorization else None
+        ),
+        "trust_policy_authorized_owner_count": (
+            policy_authorization.authorized_owner_count if policy_authorization else 0
+        ),
         "case_count": profile.case_count,
         "evidence_count": profile.evidence_count,
         "release_blocker_counts": profile.release_blocker_counts,
@@ -141,8 +301,15 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--legal-release-checkpoint", type=Path)
     parser.add_argument("--legal-release-source-root", type=Path)
     parser.add_argument("--trusted-legal-release-key", type=Path)
+    parser.add_argument("--trusted-legal-release-predecessor-key", type=Path, action="append", default=[])
     parser.add_argument("--predecessor-legal-release-checkpoint", type=Path)
     parser.add_argument("--trusted-latest-legal-checkpoint-sha256")
+    parser.add_argument("--bank-trust-policy", type=Path)
+    parser.add_argument("--bank-trust-policy-signature", type=Path)
+    parser.add_argument("--trusted-bank-policy-key", type=Path)
+    parser.add_argument("--trust-mode", choices=("development", "bank-policy"), default="development")
+    parser.add_argument("--trusted-current-bank-policy-sha256", type=_sha256_argument)
+    parser.add_argument("--trusted-current-bank-policy-version", type=_positive_policy_version)
     return parser
 
 
@@ -161,6 +328,13 @@ def _inputs(args: argparse.Namespace) -> ReleasePreflightInputs:
         trusted_legal_release_key=args.trusted_legal_release_key,
         predecessor_legal_release_checkpoint=args.predecessor_legal_release_checkpoint,
         trusted_latest_legal_checkpoint_sha256=args.trusted_latest_legal_checkpoint_sha256,
+        bank_trust_policy=args.bank_trust_policy,
+        bank_trust_policy_signature=args.bank_trust_policy_signature,
+        trusted_bank_policy_key=args.trusted_bank_policy_key,
+        trust_mode=args.trust_mode.replace("-", "_"),
+        trusted_current_bank_policy_sha256=args.trusted_current_bank_policy_sha256,
+        trusted_current_bank_policy_version=args.trusted_current_bank_policy_version,
+        trusted_legal_release_predecessor_keys=tuple(args.trusted_legal_release_predecessor_key),
     )
 
 
@@ -198,6 +372,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         }
         print(json.dumps(failure, sort_keys=True, separators=(",", ":")), file=sys.stderr)
         return 2
+    except EvaluationTrustPolicyError:
+        failure = {
+            "schema_version": 1,
+            "status": "release_preflight_failed",
+            "error_code": "EVALUATION_TRUST_POLICY_VALIDATION_FAILED",
+            "bank_authorization_verified": False,
+            "model_scores_authorized": False,
+        }
+        print(json.dumps(failure, sort_keys=True, separators=(",", ":")), file=sys.stderr)
+        return 4
     except Exception:
         # The preflight is often executed in CI or an operator job.  Never let
         # an unexpected filesystem/provider exception print paths, inputs, or
