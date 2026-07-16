@@ -157,12 +157,7 @@ def test_validation_cli_reports_hashes_but_never_claims_unapproved_targets(
     assert len(payload["contract_sha256"]) == 64
     assert len(payload["decision_payload_sha256"]) == 64
 
-    assert (
-        validate_operational_objectives.main(
-            [str(CONTRACT), "--require-production-approval"]
-        )
-        == 2
-    )
+    assert validate_operational_objectives.main([str(CONTRACT), "--require-production-approval"]) == 2
     failure = json.loads(capsys.readouterr().out)
     assert failure == {
         "error_code": "production_objectives_unapproved",

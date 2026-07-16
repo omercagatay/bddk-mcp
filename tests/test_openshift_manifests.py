@@ -210,8 +210,7 @@ def test_workload_service_accounts_are_an_exact_non_token_bearing_inventory():
 
 def test_workloads_meet_restricted_security_and_probe_baseline():
     workloads = [document for document in _runtime_documents() if document["kind"] == "Deployment"] + [
-        _documents(OPENSHIFT / "jobs" / name)[0]
-        for name in ("migrate.yaml", "bootstrap.yaml", "publish-release.yaml")
+        _documents(OPENSHIFT / "jobs" / name)[0] for name in ("migrate.yaml", "bootstrap.yaml", "publish-release.yaml")
     ]
     for workload in workloads:
         pod = workload["spec"]["template"]["spec"]
@@ -311,8 +310,7 @@ def test_lifecycle_jobs_use_distinct_database_secrets_and_service_account():
 
 def test_every_workload_uses_one_immutable_application_digest_placeholder():
     workloads = [document for document in _runtime_documents() if document["kind"] == "Deployment"] + [
-        _documents(OPENSHIFT / "jobs" / name)[0]
-        for name in ("migrate.yaml", "bootstrap.yaml", "publish-release.yaml")
+        _documents(OPENSHIFT / "jobs" / name)[0] for name in ("migrate.yaml", "bootstrap.yaml", "publish-release.yaml")
     ]
     images = {_container(workload)["image"] for workload in workloads}
     assert images == {"REPLACE_IMAGE_REGISTRY/bddk-mcp@sha256:REPLACE_64_HEX_IMAGE_DIGEST"}
@@ -331,8 +329,7 @@ def test_baseline_fails_closed_with_default_deny_egress():
 
 def test_no_baseline_workload_imports_a_whole_secret():
     workloads = [document for document in _runtime_documents() if document["kind"] == "Deployment"] + [
-        _documents(OPENSHIFT / "jobs" / name)[0]
-        for name in ("migrate.yaml", "bootstrap.yaml", "publish-release.yaml")
+        _documents(OPENSHIFT / "jobs" / name)[0] for name in ("migrate.yaml", "bootstrap.yaml", "publish-release.yaml")
     ]
     for workload in workloads:
         for source in _container(workload).get("envFrom", []):

@@ -57,9 +57,7 @@ _PG_TOOL_TIMEOUT_DEFAULT_SECONDS: Final[int] = 1800
 _PG_TOOL_TIMEOUT_MIN_SECONDS: Final[int] = 30
 _PG_TOOL_TIMEOUT_MAX_SECONDS: Final[int] = 21600
 _PG_TOOL_TERMINATION_GRACE_SECONDS: Final[int] = 10
-_ACTIVATION_SEQUENCE: Final[str] = (
-    "bddk_meta.corpus_release_activations_activation_sequence_seq"
-)
+_ACTIVATION_SEQUENCE: Final[str] = "bddk_meta.corpus_release_activations_activation_sequence_seq"
 _ACTIVATION_TABLE: Final[str] = "bddk_meta.corpus_release_activations"
 _ACTIVATION_COLUMN: Final[str] = "activation_sequence"
 _RUNTIME_DATABASE_URL_VARIABLES: Final[tuple[str, ...]] = (
