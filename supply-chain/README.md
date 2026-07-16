@@ -101,11 +101,13 @@ still `repository_policy_passed_unsigned_evidence` and is also not promotion
 eligible. The bank promotion control must reject either result until it has
 authenticated its own approval and signed the exact promoted digest.
 
-The current secret exceptions are exact fingerprints for two deliberately
+The current secret exceptions are five exact fingerprints: two detector false
+positives on typed Ed25519 private-key parameters, one password generated only
+at runtime for a disposable PostgreSQL test role, and two deliberately
 synthetic provider-token strings in the benchmark redaction unit test. They do
-not allowlist the file, rule, token pattern, current tree, or future commits;
-they expire on 2026-10-15 and remain pending bank release review. The owner
-field assigns follow-up responsibility; it does not record approval.
+not allowlist a file, rule, token pattern, current tree, or future commits; they
+expire on 2026-10-15 and remain pending bank release review. The owner field
+assigns follow-up responsibility; it does not record approval.
 
 ## What remains bank-owned
 
