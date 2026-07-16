@@ -326,10 +326,15 @@ async def test_activation_helper_sanitizes_database_connection_failures():
     assert "private" not in str(captured.value)
 
 
+@pytest.mark.parametrize("stale_at_commit", [False, True])
 @pytest.mark.asyncio
-async def test_staging_helper_uses_verifier_identity_and_checks_membership_inside_transaction(tmp_path):
+async def test_staging_helper_uses_verifier_identity_and_checks_membership_inside_transaction(
+    tmp_path,
+    stale_at_commit,
+):
     from types import SimpleNamespace
 
+    from bddk_mcp.corpus_manifest import CorpusManifestError
     from bddk_mcp.corpus_publication import CorpusReleaseRequestIdentity
 
     validation = SimpleNamespace(
@@ -373,6 +378,8 @@ async def test_staging_helper_uses_verifier_identity_and_checks_membership_insid
 
     def freshness(*_args, **_kwargs):
         events.append("freshness")
+        if stale_at_commit:
+            raise CorpusManifestError("corpus manifest is stale under its declared maximum age")
 
     with (
         patch("bddk_mcp.core.config.RELEASE_VERIFIER_REVISION_SHA256", "f" * 64),
@@ -405,7 +412,7 @@ async def test_staging_helper_uses_verifier_identity_and_checks_membership_insid
         patch("asyncpg.create_pool", new=AsyncMock(return_value=pool)) as create_pool,
     ):
         chunk_match.side_effect = lambda result, **_kwargs: result.update(chunk_artifact_match=True)
-        result = await cli._verify_and_stage_corpus_release(
+        operation = cli._verify_and_stage_corpus_release(
             "postgresql://requested",
             tmp_path,
             trusted_signing_key=tmp_path / "trusted.pem",
@@ -413,6 +420,12 @@ async def test_staging_helper_uses_verifier_identity_and_checks_membership_insid
             verifier_image_digest=None,
             valid_for_seconds=None,
         )
+        if stale_at_commit:
+            with pytest.raises(RuntimeError, match="stale under its declared maximum age"):
+                await operation
+            result = None
+        else:
+            result = await operation
 
     init = create_pool.await_args.kwargs["init"]
     assert init.func is connection_identity
@@ -422,7 +435,12 @@ async def test_staging_helper_uses_verifier_identity_and_checks_membership_insid
     assert stage.await_args.kwargs["signature_sha256"] == "4" * 64
     member.assert_awaited_once()
     assert events == ["transaction-enter", "stage", "membership", "freshness", "transaction-exit"]
-    assert result["corpus_release_request"] == request.safe_dict()
+    if stale_at_commit:
+        assert transaction.__aexit__.await_args.args[0] is RuntimeError
+    else:
+        assert transaction.__aexit__.await_args.args == (None, None, None)
+        assert result is not None
+        assert result["corpus_release_request"] == request.safe_dict()
 
 
 @pytest.mark.asyncio
