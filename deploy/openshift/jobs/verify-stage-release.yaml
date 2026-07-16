@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: bddk-mcp-publish-release-v5-0-1
+  name: bddk-mcp-verify-stage-release-v5-0-1
   labels:
     app.kubernetes.io/name: bddk-mcp
     app.kubernetes.io/component: lifecycle
@@ -15,29 +15,35 @@ spec:
         app.kubernetes.io/component: lifecycle
     spec:
       restartPolicy: Never
-      serviceAccountName: bddk-mcp-release-publisher
+      serviceAccountName: bddk-mcp-release-verifier
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: publish-release
+        - name: verify-stage-release
           image: REPLACE_IMAGE_REGISTRY/bddk-mcp@sha256:REPLACE_64_HEX_IMAGE_DIGEST
           imagePullPolicy: IfNotPresent
           args:
             - .venv/bin/bddk-mcp
-            - publish-corpus-release
+            - verify-and-stage-corpus-release
             - --seed-dir
             - /var/run/bddk-mcp/corpus
             - --trusted-signing-key
             - /var/run/secrets/bddk-mcp/corpus-trust/ed25519-public-key.pem
           env:
-            - name: BDDK_RELEASE_PUBLISHER_DATABASE_URL
+            - name: BDDK_RELEASE_VERIFIER_DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: bddk-mcp-release-publisher-db
-                  key: BDDK_RELEASE_PUBLISHER_DATABASE_URL
+                  name: bddk-mcp-release-verifier-db
+                  key: BDDK_RELEASE_VERIFIER_DATABASE_URL
+            - name: BDDK_RELEASE_VERIFIER_REVISION_SHA256
+              value: REPLACE_RELEASE_VERIFIER_REVISION_SHA256
+            - name: BDDK_RELEASE_VERIFIER_IMAGE_DIGEST
+              value: REPLACE_RELEASE_VERIFIER_IMAGE_DIGEST
+            - name: BDDK_RELEASE_VERIFICATION_VALIDITY_SECONDS
+              value: "900"
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

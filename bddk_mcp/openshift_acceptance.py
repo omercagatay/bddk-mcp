@@ -37,6 +37,7 @@ _DNS_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
 _VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$")
 _HEX_40_64 = re.compile(r"^(?:[a-f0-9]{40}|[a-f0-9]{64})$")
+_RELEASE_REQUEST_ID = re.compile(r"^corpus_release_request_sha256_[a-f0-9]{64}$")
 _PLACEHOLDER = re.compile(r"REPLACE_[A-Z0-9_]+")
 _REGULATORY_EGRESS_PURPOSES = frozenset({"regulatory_source", "enterprise_proxy"})
 _SAFE_ERROR_FIELDS = frozenset(
@@ -48,6 +49,7 @@ _SAFE_ERROR_FIELDS = frozenset(
         "previous_image",
         "kustomize_binary_sha256",
         "manifest_revision",
+        "release_request_id",
         "platform",
         "namespace",
         "public_route_host",
@@ -146,6 +148,7 @@ class ReleaseInput(_StrictModel):
     image: str
     previous_image: str
     manifest_revision: str
+    release_request_id: str
     kustomize_binary_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
     @field_validator("version")
@@ -166,6 +169,14 @@ class ReleaseInput(_StrictModel):
         normalized = value.strip().lower()
         if not _HEX_40_64.fullmatch(normalized):
             raise ValueError("manifest_revision must be a full Git or content digest")
+        return normalized
+
+    @field_validator("release_request_id")
+    @classmethod
+    def _valid_release_request_id(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not _RELEASE_REQUEST_ID.fullmatch(normalized):
+            raise ValueError("release_request_id must identify one staged corpus release request")
         return normalized
 
     @model_validator(mode="after")
@@ -505,9 +516,8 @@ _EXTERNAL_GATES: tuple[dict[str, str | bool], ...] = tuple(
         ("network-enforcement", "requires the target CNI, DNS, firewall, proxy, and negative-connectivity tests"),
         (
             "lifecycle-jobs",
-            "requires the approved corpus PVC, corpus-trust Secret, migrate, strict bootstrap, and separate "
-            "release-publication Jobs in an "
-            "isolated bank-like namespace",
+            "requires the approved corpus PVC, corpus-trust Secret, and ordered migrate, strict bootstrap, "
+            "verify/stage, and activation Jobs in an isolated bank-like namespace",
         ),
         ("backup-restore-rollback", "requires a target backup, restore, upgrade, and rollback drill"),
         ("client-model-matrix", "requires release-specific MCP clients, models, citations, load, and timeout tests"),
@@ -588,7 +598,12 @@ _RUNTIME_RESOURCES = (
     "public-route.yaml",
     "networkpolicies.yaml",
 )
-_LIFECYCLE_RESOURCES = ("jobs/migrate.yaml", "jobs/bootstrap.yaml", "jobs/publish-release.yaml")
+_LIFECYCLE_RESOURCES = (
+    "jobs/migrate.yaml",
+    "jobs/bootstrap.yaml",
+    "jobs/verify-stage-release.yaml",
+    "jobs/activate-release.yaml",
+)
 _BANK_BOOTSTRAP_OVERLAY = "openshift-overlays/bank-bootstrap"
 _BANK_BOOTSTRAP_PATCH = "bootstrap-job-patch.yaml"
 _BANK_BOOTSTRAP_RESOURCES = (
@@ -607,13 +622,19 @@ _BANK_BOOTSTRAP_ARGS = [
     "--trusted-signing-key",
     "/var/run/secrets/bddk-mcp/corpus-trust/ed25519-public-key.pem",
 ]
-_PUBLISH_RELEASE_ARGS = [
+_VERIFY_STAGE_RELEASE_ARGS = [
     ".venv/bin/bddk-mcp",
-    "publish-corpus-release",
+    "verify-and-stage-corpus-release",
     "--seed-dir",
     "/var/run/bddk-mcp/corpus",
     "--trusted-signing-key",
     "/var/run/secrets/bddk-mcp/corpus-trust/ed25519-public-key.pem",
+]
+_ACTIVATE_RELEASE_ARGS = [
+    ".venv/bin/bddk-mcp",
+    "activate-corpus-release",
+    "--request-id",
+    "$(BDDK_RELEASE_REQUEST_ID)",
 ]
 _BANK_CORPUS_MOUNT = {
     "name": "approved-corpus",
@@ -641,7 +662,14 @@ _BASE_RENDERED_RESOURCES = frozenset(
     {
         *(
             ("v1", "ServiceAccount", f"bddk-mcp-{component}")
-            for component in ("public", "operator", "lifecycle", "ingestion", "release-publisher")
+            for component in (
+                "public",
+                "operator",
+                "lifecycle",
+                "ingestion",
+                "release-verifier",
+                "release-publisher",
+            )
         ),
         ("v1", "ConfigMap", "bddk-mcp-service-ca"),
         ("v1", "ConfigMap", "bddk-mcp-public-config"),
@@ -711,7 +739,7 @@ def _validated_lifecycle_kustomization(openshift: Path) -> None:
     if kustomization != {
         "apiVersion": "kustomize.config.k8s.io/v1beta1",
         "kind": "Kustomization",
-        "resources": ["migrate.yaml", "bootstrap.yaml", "publish-release.yaml"],
+        "resources": ["migrate.yaml", "bootstrap.yaml", "verify-stage-release.yaml", "activate-release.yaml"],
     }:
         raise OpenShiftAcceptanceError(
             "invalid-kustomization", "lifecycle Kustomization must contain the exact reviewed Job inventory"
@@ -911,7 +939,8 @@ def _render_repository_documents(
         *_BASE_RENDERED_RESOURCES,
         ("batch/v1", "Job", f"bddk-mcp-migrate-v{job_suffix}"),
         ("batch/v1", "Job", f"bddk-mcp-bootstrap-v{job_suffix}"),
-        ("batch/v1", "Job", f"bddk-mcp-publish-release-v{job_suffix}"),
+        ("batch/v1", "Job", f"bddk-mcp-verify-stage-release-v{job_suffix}"),
+        ("batch/v1", "Job", f"bddk-mcp-activate-release-v{job_suffix}"),
         *(("networking.k8s.io/v1", "NetworkPolicy", policy_name) for policy_name in expected_egress_policies),
     }
     if set(resource_keys) != expected_resources:
@@ -920,7 +949,12 @@ def _render_repository_documents(
     runtime = [item for item in rendered if item.get("kind") != "Job"]
     if len(jobs) != len(_LIFECYCLE_RESOURCES):
         raise OpenShiftAcceptanceError("render-inventory", "rendered lifecycle Job inventory is incomplete")
-    job_rank = {"bddk-mcp-migrate": 0, "bddk-mcp-bootstrap": 1, "bddk-mcp-publish-release": 2}
+    job_rank = {
+        "bddk-mcp-migrate": 0,
+        "bddk-mcp-bootstrap": 1,
+        "bddk-mcp-verify-stage-release": 2,
+        "bddk-mcp-activate-release": 3,
+    }
     try:
         jobs.sort(
             key=lambda item: next(
@@ -1157,7 +1191,7 @@ def _check_identities(runtime: list[dict[str, Any]], jobs: list[dict[str, Any]],
         == {"name": "bddk-mcp-operator-db", "key": "BDDK_OPERATOR_DATABASE_URL"},
         "operator DB Secret mismatch",
     )
-    migrate, bootstrap, publisher = jobs
+    migrate, bootstrap, verifier, publisher = jobs
     _expect(
         _secret_ref(_container(migrate), "BDDK_SCHEMA_OWNER_DATABASE_URL")
         == {"name": "bddk-mcp-schema-owner-db", "key": "BDDK_SCHEMA_OWNER_DATABASE_URL"},
@@ -1167,6 +1201,14 @@ def _check_identities(runtime: list[dict[str, Any]], jobs: list[dict[str, Any]],
         _secret_ref(_container(bootstrap), "BDDK_INGESTION_DATABASE_URL")
         == {"name": "bddk-mcp-ingestion-db", "key": "BDDK_INGESTION_DATABASE_URL"},
         "ingestion DB Secret mismatch",
+    )
+    _expect(
+        _secret_ref(_container(verifier), "BDDK_RELEASE_VERIFIER_DATABASE_URL")
+        == {
+            "name": "bddk-mcp-release-verifier-db",
+            "key": "BDDK_RELEASE_VERIFIER_DATABASE_URL",
+        },
+        "release-verifier DB Secret mismatch",
     )
     _expect(
         _secret_ref(_container(publisher), "BDDK_RELEASE_PUBLISHER_DATABASE_URL")
@@ -1181,6 +1223,7 @@ def _check_identities(runtime: list[dict[str, Any]], jobs: list[dict[str, Any]],
         "bddk-mcp-operator-db",
         "bddk-mcp-schema-owner-db",
         "bddk-mcp-ingestion-db",
+        "bddk-mcp-release-verifier-db",
         "bddk-mcp-release-publisher-db",
     }
     for workload in (public, operator, *jobs):
@@ -1216,6 +1259,7 @@ def _check_identities(runtime: list[dict[str, Any]], jobs: list[dict[str, Any]],
         "bddk-mcp-operator-db": "BDDK_OPERATOR_DATABASE_URL",
         "bddk-mcp-schema-owner-db": "BDDK_SCHEMA_OWNER_DATABASE_URL",
         "bddk-mcp-ingestion-db": "BDDK_INGESTION_DATABASE_URL",
+        "bddk-mcp-release-verifier-db": "BDDK_RELEASE_VERIFIER_DATABASE_URL",
         "bddk-mcp-release-publisher-db": "BDDK_RELEASE_PUBLISHER_DATABASE_URL",
         "bddk-mcp-telemetry-db": "BDDK_TELEMETRY_DATABASE_URL",
     }
@@ -1430,7 +1474,7 @@ def _check_workloads(runtime: list[dict[str, Any]], jobs: list[dict[str, Any]], 
         )
         runtime_workload = workload.get("kind") == "Deployment"
         corpus_admission_job = workload.get("kind") == "Job" and workload["metadata"]["name"].startswith(
-            ("bddk-mcp-bootstrap", "bddk-mcp-publish-release")
+            ("bddk-mcp-bootstrap", "bddk-mcp-verify-stage-release")
         )
         expected_volume_names = (
             {"postgres-ca", "runtime-tmp"}
@@ -1526,8 +1570,15 @@ def _check_workloads(runtime: list[dict[str, Any]], jobs: list[dict[str, Any]], 
                 expected_env_names = {"BDDK_EXPECTED_DATABASE_NAME", "BDDK_SCHEMA_OWNER_DATABASE_URL"}
             elif job_name.startswith("bddk-mcp-bootstrap"):
                 expected_env_names = {"BDDK_INGESTION_DATABASE_URL"}
+            elif job_name.startswith("bddk-mcp-verify-stage-release"):
+                expected_env_names = {
+                    "BDDK_RELEASE_VERIFIER_DATABASE_URL",
+                    "BDDK_RELEASE_VERIFIER_REVISION_SHA256",
+                    "BDDK_RELEASE_VERIFIER_IMAGE_DIGEST",
+                    "BDDK_RELEASE_VERIFICATION_VALIDITY_SECONDS",
+                }
             else:
-                expected_env_names = {"BDDK_RELEASE_PUBLISHER_DATABASE_URL"}
+                expected_env_names = {"BDDK_RELEASE_PUBLISHER_DATABASE_URL", "BDDK_RELEASE_REQUEST_ID"}
             _expect("command" not in container and not container.get("ports"), "lifecycle execution surface mismatch")
         _expect(
             {item.get("name") for item in container.get("env", [])} == expected_env_names,
@@ -1548,7 +1599,8 @@ def _check_workloads(runtime: list[dict[str, Any]], jobs: list[dict[str, Any]], 
         == [
             f"bddk-mcp-migrate-v{config.release.version.replace('.', '-')}",
             f"bddk-mcp-bootstrap-v{config.release.version.replace('.', '-')}",
-            f"bddk-mcp-publish-release-v{config.release.version.replace('.', '-')}",
+            f"bddk-mcp-verify-stage-release-v{config.release.version.replace('.', '-')}",
+            f"bddk-mcp-activate-release-v{config.release.version.replace('.', '-')}",
         ],
         "lifecycle Job order or naming mismatch",
     )
@@ -1575,6 +1627,7 @@ def _check_workloads(runtime: list[dict[str, Any]], jobs: list[dict[str, Any]], 
         expected_service_account = (
             "bddk-mcp-lifecycle",
             "bddk-mcp-ingestion",
+            "bddk-mcp-release-verifier",
             "bddk-mcp-release-publisher",
         )[index]
         _expect(
@@ -1587,14 +1640,37 @@ def _check_workloads(runtime: list[dict[str, Any]], jobs: list[dict[str, Any]], 
         _container(jobs[1])["args"] == _BANK_BOOTSTRAP_ARGS,
         "bootstrap Job command mismatch",
     )
-    _expect(_container(jobs[2])["args"] == _PUBLISH_RELEASE_ARGS, "release publication Job command mismatch")
+    verifier_container = _container(jobs[2])
+    publisher_container = _container(jobs[3])
+    _expect(verifier_container["args"] == _VERIFY_STAGE_RELEASE_ARGS, "release verification Job command mismatch")
+    _expect(publisher_container["args"] == _ACTIVATE_RELEASE_ARGS, "release activation Job command mismatch")
+    verifier_env = {item["name"]: item.get("value") for item in verifier_container["env"] if "value" in item}
+    expected_revision_sha256 = (
+        config.release.manifest_revision
+        if len(config.release.manifest_revision) == 64
+        else hashlib.sha256(config.release.manifest_revision.encode("ascii")).hexdigest()
+    )
+    _expect(
+        verifier_env
+        == {
+            "BDDK_RELEASE_VERIFIER_REVISION_SHA256": expected_revision_sha256,
+            "BDDK_RELEASE_VERIFIER_IMAGE_DIGEST": config.release.image.rsplit("@", maxsplit=1)[1],
+            "BDDK_RELEASE_VERIFICATION_VALIDITY_SECONDS": "900",
+        },
+        "release verification provenance or validity mismatch",
+    )
+    publisher_env = {item["name"]: item.get("value") for item in publisher_container["env"] if "value" in item}
+    _expect(
+        publisher_env == {"BDDK_RELEASE_REQUEST_ID": config.release.release_request_id},
+        "release activation request mismatch",
+    )
     expected_db = next(item for item in _container(jobs[0])["env"] if item["name"] == "BDDK_EXPECTED_DATABASE_NAME")
     _expect(expected_db["value"] == config.platform.database_name, "migration target-database guard mismatch")
 
 
 def _check_bank_bootstrap(jobs: list[dict[str, Any]]) -> None:
-    _expect(len(jobs) == 3, "strict bank bootstrap requires the reviewed three-stage lifecycle Jobs")
-    bootstrap, publisher = jobs[1], jobs[2]
+    _expect(len(jobs) == 4, "strict bank promotion requires the reviewed four-stage lifecycle Jobs")
+    bootstrap, verifier, publisher = jobs[1], jobs[2], jobs[3]
     _expect(
         bootstrap.get("metadata", {}).get("name", "").startswith("bddk-mcp-bootstrap-v"),
         "strict bank bootstrap Job identity mismatch",
@@ -1613,21 +1689,67 @@ def _check_bank_bootstrap(jobs: list[dict[str, Any]]) -> None:
         and volumes.get("corpus-signing-key") == _BANK_TRUST_VOLUME,
         "approved corpus and signing trust must use separate reviewed volume sources",
     )
+    verifier_container = _container(verifier)
+    verifier_pod = verifier["spec"]["template"]["spec"]
+    verifier_mounts = {item.get("name"): item for item in verifier_container.get("volumeMounts", [])}
+    verifier_volumes = {item.get("name"): item for item in verifier_pod.get("volumes", [])}
+    _expect(verifier_container.get("args") == _VERIFY_STAGE_RELEASE_ARGS, "release verification arguments mismatch")
+    _expect(
+        verifier_pod.get("serviceAccountName") == "bddk-mcp-release-verifier",
+        "release verification service-account mismatch",
+    )
+    _expect(
+        verifier_mounts.get("approved-corpus") == _BANK_CORPUS_MOUNT
+        and verifier_mounts.get("corpus-signing-key") == _BANK_TRUST_MOUNT
+        and verifier_volumes.get("approved-corpus") == _BANK_CORPUS_VOLUME
+        and verifier_volumes.get("corpus-signing-key") == _BANK_TRUST_VOLUME,
+        "release verification trust mounts mismatch",
+    )
+    verifier_serialized = yaml.safe_dump(verifier, sort_keys=True)
+    _expect(
+        not any(
+            forbidden in verifier_serialized
+            for forbidden in (
+                "bddk-mcp-release-publisher-db",
+                "BDDK_RELEASE_PUBLISHER_DATABASE_URL",
+                "BDDK_RELEASE_REQUEST_ID",
+                "activate-corpus-release",
+            )
+        ),
+        "release verifier crosses the activation boundary",
+    )
+
     publisher_container = _container(publisher)
     publisher_pod = publisher["spec"]["template"]["spec"]
     publisher_mounts = {item.get("name"): item for item in publisher_container.get("volumeMounts", [])}
     publisher_volumes = {item.get("name"): item for item in publisher_pod.get("volumes", [])}
-    _expect(publisher_container.get("args") == _PUBLISH_RELEASE_ARGS, "release publication arguments mismatch")
+    _expect(publisher_container.get("args") == _ACTIVATE_RELEASE_ARGS, "release activation arguments mismatch")
     _expect(
         publisher_pod.get("serviceAccountName") == "bddk-mcp-release-publisher",
-        "release publication service-account mismatch",
+        "release activation service-account mismatch",
     )
     _expect(
-        publisher_mounts.get("approved-corpus") == _BANK_CORPUS_MOUNT
-        and publisher_mounts.get("corpus-signing-key") == _BANK_TRUST_MOUNT
-        and publisher_volumes.get("approved-corpus") == _BANK_CORPUS_VOLUME
-        and publisher_volumes.get("corpus-signing-key") == _BANK_TRUST_VOLUME,
-        "release publication trust mounts mismatch",
+        set(publisher_mounts) == {"postgres-ca", "runtime-tmp"}
+        and set(publisher_volumes) == {"postgres-ca", "runtime-tmp"},
+        "release activation Job must not receive corpus or trust volumes",
+    )
+    publisher_serialized = yaml.safe_dump(publisher, sort_keys=True)
+    _expect(
+        not any(
+            forbidden in publisher_serialized
+            for forbidden in (
+                "approved-corpus",
+                "corpus-signing-key",
+                "bddk-mcp-approved-corpus",
+                "bddk-mcp-corpus-trust",
+                "/var/run/bddk-mcp/corpus",
+                "/var/run/secrets/bddk-mcp/corpus-trust",
+                "bddk-mcp-release-verifier-db",
+                "BDDK_RELEASE_VERIFIER_DATABASE_URL",
+                "verify-and-stage-corpus-release",
+            )
+        ),
+        "release activation Job crosses the verifier or corpus boundary",
     )
 
 
@@ -1723,8 +1845,16 @@ def _run_check(identifier: str, function, *args) -> CheckResult:
 def run_openshift_preflight(config_path: Path, repository_root: Path) -> AcceptanceEvidence:
     """Validate offline deployment contracts and return sanitized evidence."""
     config, input_sha256 = load_acceptance_input(config_path)
+    verifier_revision_sha256 = (
+        config.release.manifest_revision
+        if len(config.release.manifest_revision) == 64
+        else hashlib.sha256(config.release.manifest_revision.encode("ascii")).hexdigest()
+    )
     substitutions = {
         _IMAGE_PLACEHOLDER: config.release.image,
+        "REPLACE_RELEASE_VERIFIER_REVISION_SHA256": verifier_revision_sha256,
+        "REPLACE_RELEASE_VERIFIER_IMAGE_DIGEST": config.release.image.rsplit("@", maxsplit=1)[1],
+        "REPLACE_RELEASE_REQUEST_ID": config.release.release_request_id,
         "REPLACE_PUBLIC_ROUTE_HOST": config.platform.public_route_host,
         "REPLACE_OPERATOR_SERVICE_HOST": config.platform.operator_service_host,
         "REPLACE_OPERATOR_CLIENT_ORIGIN": config.platform.operator_client_origin.removeprefix("https://"),

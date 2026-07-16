@@ -3,4 +3,5 @@ kind: Kustomization
 resources:
   - migrate.yaml
   - bootstrap.yaml
-  - publish-release.yaml
+  - verify-stage-release.yaml
+  - activate-release.yaml

@@ -128,6 +128,7 @@ def _config() -> dict:
             "image": CURRENT_IMAGE,
             "previous_image": PREVIOUS_IMAGE,
             "manifest_revision": "3" * 40,
+            "release_request_id": "corpus_release_request_sha256_" + "6" * 64,
             "kustomize_binary_sha256": KUSTOMIZE_BINARY_SHA256,
         },
         "platform": {
@@ -325,6 +326,104 @@ def test_checked_in_acceptance_templates_are_secret_free_fail_closed_shapes():
         if item["purpose"] in {"regulatory_source", "enterprise_proxy"}
     }
     assert source_components == {"public", "operator"}
+
+
+def test_checked_in_release_jobs_separate_verification_from_activation():
+    jobs_root = ROOT / "deploy" / "openshift" / "jobs"
+    kustomization = yaml.safe_load((jobs_root / "kustomization.yaml").read_text(encoding="utf-8"))
+    assert kustomization["resources"] == [
+        "migrate.yaml",
+        "bootstrap.yaml",
+        "verify-stage-release.yaml",
+        "activate-release.yaml",
+    ]
+
+    service_accounts = {
+        item["metadata"]["name"]
+        for item in yaml.safe_load_all((ROOT / "deploy" / "openshift" / "serviceaccounts.yaml").read_text())
+        if item
+    }
+    assert {"bddk-mcp-release-verifier", "bddk-mcp-release-publisher"} <= service_accounts
+
+    secrets = {
+        item["metadata"]["name"]: item
+        for item in yaml.safe_load_all((ROOT / "deploy" / "openshift" / "secrets.example.yaml").read_text())
+        if item
+    }
+    assert secrets["bddk-mcp-release-verifier-db"]["stringData"].keys() == {"BDDK_RELEASE_VERIFIER_DATABASE_URL"}
+    assert secrets["bddk-mcp-release-publisher-db"]["stringData"].keys() == {"BDDK_RELEASE_PUBLISHER_DATABASE_URL"}
+
+    verifier = yaml.safe_load((jobs_root / "verify-stage-release.yaml").read_text(encoding="utf-8"))
+    verifier_pod = verifier["spec"]["template"]["spec"]
+    verifier_container = verifier_pod["containers"][0]
+    assert verifier_pod["serviceAccountName"] == "bddk-mcp-release-verifier"
+    assert verifier_container["args"] == [
+        ".venv/bin/bddk-mcp",
+        "verify-and-stage-corpus-release",
+        "--seed-dir",
+        "/var/run/bddk-mcp/corpus",
+        "--trusted-signing-key",
+        "/var/run/secrets/bddk-mcp/corpus-trust/ed25519-public-key.pem",
+    ]
+    assert {item["name"] for item in verifier_container["env"]} == {
+        "BDDK_RELEASE_VERIFIER_DATABASE_URL",
+        "BDDK_RELEASE_VERIFIER_REVISION_SHA256",
+        "BDDK_RELEASE_VERIFIER_IMAGE_DIGEST",
+        "BDDK_RELEASE_VERIFICATION_VALIDITY_SECONDS",
+    }
+    assert {item["name"] for item in verifier_container["volumeMounts"]} == {
+        "postgres-ca",
+        "runtime-tmp",
+        "approved-corpus",
+        "corpus-signing-key",
+    }
+
+    activator = yaml.safe_load((jobs_root / "activate-release.yaml").read_text(encoding="utf-8"))
+    activator_pod = activator["spec"]["template"]["spec"]
+    activator_container = activator_pod["containers"][0]
+    assert activator_pod["serviceAccountName"] == "bddk-mcp-release-publisher"
+    assert activator_container["args"] == [
+        ".venv/bin/bddk-mcp",
+        "activate-corpus-release",
+        "--request-id",
+        "$(BDDK_RELEASE_REQUEST_ID)",
+    ]
+    assert {item["name"] for item in activator_container["env"]} == {
+        "BDDK_RELEASE_PUBLISHER_DATABASE_URL",
+        "BDDK_RELEASE_REQUEST_ID",
+    }
+    assert {item["name"] for item in activator_container["volumeMounts"]} == {"postgres-ca", "runtime-tmp"}
+    assert {item["name"] for item in activator_pod["volumes"]} == {"postgres-ca", "runtime-tmp"}
+    activator_text = yaml.safe_dump(activator)
+    for forbidden in (
+        "bddk-mcp-release-verifier-db",
+        "BDDK_RELEASE_VERIFIER_DATABASE_URL",
+        "bddk-mcp-approved-corpus",
+        "bddk-mcp-corpus-trust",
+        "approved-corpus",
+        "corpus-signing-key",
+    ):
+        assert forbidden not in activator_text
+
+
+@pytest.mark.parametrize(
+    "request_id",
+    [
+        "corpus_release_request_sha256_" + "g" * 64,
+        "corpus_release_request_sha256_" + "1" * 63,
+        "corpus_release_sha256_" + "1" * 64,
+        "REPLACE_STAGED_RELEASE_REQUEST_ID",
+    ],
+)
+def test_release_request_id_input_fails_closed(tmp_path: Path, request_id: str):
+    config = _config()
+    config["release"]["release_request_id"] = request_id
+    config_path = _write_inputs(tmp_path, config=config)
+
+    with pytest.raises(OpenShiftAcceptanceError) as caught:
+        load_acceptance_input(config_path)
+
+    assert caught.value.code in {"invalid-config", "unresolved-config-placeholder"}
 
 
 @pytest.mark.parametrize("component", ["public", "operator"])
@@ -525,6 +624,87 @@ def test_manifest_contract_tampering_is_attributed_to_a_named_check(
 
     assert evidence.status == "preflight_failed"
     assert _checks(evidence)[failed_check] == "fail"
+
+
+@pytest.mark.parametrize(
+    ("job_file", "forbidden_env", "forbidden_secret", "forbidden_key"),
+    [
+        (
+            "verify-stage-release.yaml",
+            "BDDK_RELEASE_PUBLISHER_DATABASE_URL",
+            "bddk-mcp-release-publisher-db",
+            "BDDK_RELEASE_PUBLISHER_DATABASE_URL",
+        ),
+        (
+            "activate-release.yaml",
+            "BDDK_RELEASE_VERIFIER_DATABASE_URL",
+            "bddk-mcp-release-verifier-db",
+            "BDDK_RELEASE_VERIFIER_DATABASE_URL",
+        ),
+    ],
+)
+@REQUIRES_KUSTOMIZE
+def test_release_jobs_cannot_cross_database_identity_boundaries(
+    tmp_path: Path,
+    job_file: str,
+    forbidden_env: str,
+    forbidden_secret: str,
+    forbidden_key: str,
+):
+    config_path = _write_inputs(tmp_path)
+    repository = _copy_repository_deployment(tmp_path)
+    target = repository / "deploy" / "openshift" / "jobs" / job_file
+    job = yaml.safe_load(target.read_text(encoding="utf-8"))
+    job["spec"]["template"]["spec"]["containers"][0]["env"].append(
+        {
+            "name": forbidden_env,
+            "valueFrom": {"secretKeyRef": {"name": forbidden_secret, "key": forbidden_key}},
+        }
+    )
+    target.write_text(yaml.safe_dump(job, sort_keys=False), encoding="utf-8")
+
+    evidence = run_openshift_preflight(config_path, repository)
+
+    assert evidence.status == "preflight_failed"
+    assert _checks(evidence)["database-identity-ca"] == "fail"
+    assert _checks(evidence)["workloads-lifecycle"] == "fail"
+    assert _checks(evidence)["bank-bootstrap-trust"] == "fail"
+
+
+@REQUIRES_KUSTOMIZE
+def test_activation_job_cannot_receive_corpus_or_trust_mounts(tmp_path: Path):
+    config_path = _write_inputs(tmp_path)
+    repository = _copy_repository_deployment(tmp_path)
+    target = repository / "deploy" / "openshift" / "jobs" / "activate-release.yaml"
+    job = yaml.safe_load(target.read_text(encoding="utf-8"))
+    pod = job["spec"]["template"]["spec"]
+    container = pod["containers"][0]
+    container["volumeMounts"].extend(
+        [
+            {"name": "approved-corpus", "mountPath": "/var/run/bddk-mcp/corpus", "readOnly": True},
+            {
+                "name": "corpus-signing-key",
+                "mountPath": "/var/run/secrets/bddk-mcp/corpus-trust",
+                "readOnly": True,
+            },
+        ]
+    )
+    pod["volumes"].extend(
+        [
+            {
+                "name": "approved-corpus",
+                "persistentVolumeClaim": {"claimName": "bddk-mcp-approved-corpus", "readOnly": True},
+            },
+            {"name": "corpus-signing-key", "secret": {"secretName": "bddk-mcp-corpus-trust"}},
+        ]
+    )
+    target.write_text(yaml.safe_dump(job, sort_keys=False), encoding="utf-8")
+
+    evidence = run_openshift_preflight(config_path, repository)
+
+    assert evidence.status == "preflight_failed"
+    assert _checks(evidence)["workloads-lifecycle"] == "fail"
+    assert _checks(evidence)["bank-bootstrap-trust"] == "fail"
 
 
 @REQUIRES_KUSTOMIZE
