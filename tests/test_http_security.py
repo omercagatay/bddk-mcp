@@ -202,6 +202,21 @@ async def test_oversized_post_returns_413_before_downstream_auth():
 
 
 @pytest.mark.asyncio
+async def test_unbounded_numeric_content_length_is_rejected_without_integer_conversion():
+    downstream = _RejectingApp()
+    app = HttpSecurityMiddleware(downstream, load_http_security_config({}))
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost:8000") as client:
+        response = await client.post(
+            "/mcp",
+            content=b"{}",
+            headers={"content-type": "application/json", "content-length": "9" * 5000},
+        )
+
+    assert response.status_code == 400
+    assert downstream.calls == 0
+
+
+@pytest.mark.asyncio
 async def test_streamed_post_without_content_length_is_still_size_limited():
     downstream = _RejectingApp()
     config = replace(load_http_security_config({}), max_body_bytes=4)
@@ -297,6 +312,75 @@ async def test_slow_streamed_body_times_out_and_releases_concurrency_admission()
     assert first.status_code == 408
     assert admitted_after_timeout.status_code == 401
     assert downstream.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_empty_request_event_does_not_satisfy_first_byte_deadline():
+    downstream = _RejectingApp()
+    config = replace(
+        load_http_security_config({}),
+        body_first_byte_timeout_seconds=0.01,
+        body_chunk_timeout_seconds=1.0,
+        body_total_timeout_seconds=1.0,
+    )
+    app = HttpSecurityMiddleware(downstream, config)
+    messages = 0
+    sent: list[dict[str, Any]] = []
+
+    async def receive():
+        nonlocal messages
+        messages += 1
+        if messages == 1:
+            return {"type": "http.request", "body": b"", "more_body": True}
+        await asyncio.sleep(1)
+        return {"type": "http.request", "body": b"{}", "more_body": False}
+
+    async def send(message):
+        sent.append(message)
+
+    await app(
+        {
+            "type": "http",
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": "/mcp",
+            "raw_path": b"/mcp",
+            "query_string": b"",
+            "root_path": "",
+            "headers": [(b"host", b"localhost:8000"), (b"content-type", b"application/json")],
+            "client": ("127.0.0.1", 12345),
+            "server": ("127.0.0.1", 8000),
+        },
+        receive,
+        send,
+    )
+
+    assert sent[0]["status"] == 408
+    assert downstream.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_continuous_body_drip_cannot_exceed_total_deadline():
+    downstream = _RejectingApp()
+    config = replace(
+        load_http_security_config({}),
+        body_first_byte_timeout_seconds=0.05,
+        body_chunk_timeout_seconds=0.05,
+        body_total_timeout_seconds=0.03,
+    )
+    app = HttpSecurityMiddleware(downstream, config)
+
+    async def chunks():
+        for _ in range(10):
+            yield b"x"
+            await asyncio.sleep(0.008)
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost:8000") as client:
+        response = await client.post("/mcp", content=chunks(), headers={"content-type": "application/json"})
+
+    assert response.status_code == 408
+    assert downstream.calls == 0
 
 
 @pytest.mark.asyncio

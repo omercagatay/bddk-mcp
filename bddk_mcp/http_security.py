@@ -61,6 +61,7 @@ _RATE_STATE_IDLE_SECONDS = 120.0
 _RATE_STATE_MIN_CLIENTS = 256
 _RATE_STATE_MAX_CLIENTS = 16_384
 _HEALTH_PATHS = frozenset({"/health/live", "/health/ready"})
+_MAX_CONTENT_LENGTH_DIGITS = 20
 
 
 class HttpSecurityConfigError(ValueError):
@@ -745,7 +746,7 @@ class HttpSecurityMiddleware:
                 content_length_text = content_lengths[0].decode("ascii")
             except UnicodeDecodeError:
                 content_length_text = ""
-            if not content_length_text.isdigit():
+            if not content_length_text.isdigit() or len(content_length_text) > _MAX_CONTENT_LENGTH_DIGITS:
                 await PlainTextResponse("Invalid Content-Length header", status_code=400)(scope, receive, send)
                 return
             if int(content_length_text) > self._max_body_bytes:
@@ -779,12 +780,13 @@ class HttpSecurityMiddleware:
                     return
                 if message["type"] != "http.request":
                     continue
-                first_request_message = False
                 chunk = message.get("body", b"")
                 if len(chunk) > self._max_body_bytes - len(body):
                     await PlainTextResponse("Request body too large", status_code=413)(scope, receive, send)
                     return
                 body.extend(chunk)
+                if chunk:
+                    first_request_message = False
                 if not message.get("more_body", False):
                     break
 
