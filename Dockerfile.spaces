@@ -1,4 +1,4 @@
-FROM python:3.12-slim@sha256:c3d81d25b3154142b0b42eb1e61300024426268edeb5b5a26dd7ddf64d9daf28
+FROM python:3.13.14-slim-trixie@sha256:6771159cd4fa5d9bba1258caf0b82e6b73458c694d178ad97c5e925c2d0e1a91
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ ENV UV_LINK_MODE=copy
 # bddk-mcp / bddk-seed console entry points are installed in the image.
 COPY pyproject.toml uv.lock README.md LICENSE ./
 COPY bddk_mcp/ ./bddk_mcp/
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev && rm -rf /root/.cache/uv
 
 # Bundle the same reviewed corpus as the standard image. Explicit migration,
 # post-migration grants, and ingestion-only bootstrap operations must complete
