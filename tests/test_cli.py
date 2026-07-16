@@ -371,6 +371,9 @@ async def test_staging_helper_uses_verifier_identity_and_checks_membership_insid
     async def membership(*_args, **_kwargs):
         events.append("membership")
 
+    def freshness(*_args, **_kwargs):
+        events.append("freshness")
+
     with (
         patch("bddk_mcp.core.config.RELEASE_VERIFIER_REVISION_SHA256", "f" * 64),
         patch("bddk_mcp.core.config.RELEASE_VERIFIER_IMAGE_DIGEST", "sha256:" + "1" * 64),
@@ -386,6 +389,10 @@ async def test_staging_helper_uses_verifier_identity_and_checks_membership_insid
         patch("bddk_mcp.ingest.seed._record_chunk_artifact_match") as chunk_match,
         patch("bddk_mcp.ingest.seed._regenerate_seed_embedding_vectors", new=AsyncMock(return_value=[])),
         patch("bddk_mcp.ingest.seed._assert_strict_seed_membership", new=AsyncMock(side_effect=membership)) as member,
+        patch(
+            "bddk_mcp.corpus_manifest.assert_corpus_manifest_freshness_current",
+            side_effect=freshness,
+        ),
         patch("bddk_mcp.store.vector_store.VectorStore", return_value=vector_store),
         patch(
             "bddk_mcp.corpus_publication.strict_verification_evidence_sha256",
@@ -414,7 +421,7 @@ async def test_staging_helper_uses_verifier_identity_and_checks_membership_insid
     stage.assert_awaited_once()
     assert stage.await_args.kwargs["signature_sha256"] == "4" * 64
     member.assert_awaited_once()
-    assert events == ["transaction-enter", "stage", "membership", "transaction-exit"]
+    assert events == ["transaction-enter", "stage", "membership", "freshness", "transaction-exit"]
     assert result["corpus_release_request"] == request.safe_dict()
 
 

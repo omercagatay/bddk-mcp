@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from bddk_mcp.corpus_manifest import (
     CORPUS_SCOPE_WARNING,
     CorpusManifestError,
+    assert_corpus_manifest_freshness_current,
     canonical_manifest_payload,
     canonical_manifest_sha256,
     load_and_validate_corpus_manifest,
@@ -303,6 +304,23 @@ def test_quantified_stale_manifest_fails_closed(tmp_path: Path):
             require_quantified_freshness=True,
             require_verified_signature=True,
             trusted_signing_key=_trusted_key_path(tmp_path),
+        )
+
+
+def test_time_dependent_freshness_can_be_rechecked_without_reopening_artifacts(tmp_path: Path):
+    manifest_path = _write_manifest(tmp_path, max_age_seconds=60, signature_status="verified")
+    validation = load_and_validate_corpus_manifest(
+        manifest_path,
+        now=datetime(2026, 1, 3, tzinfo=UTC) + timedelta(seconds=59),
+        require_quantified_freshness=True,
+        require_verified_signature=True,
+        trusted_signing_key=_trusted_key_path(tmp_path),
+    )
+
+    with pytest.raises(CorpusManifestError, match="stale"):
+        assert_corpus_manifest_freshness_current(
+            validation.manifest,
+            now=datetime(2026, 1, 3, tzinfo=UTC) + timedelta(seconds=61),
         )
 
 

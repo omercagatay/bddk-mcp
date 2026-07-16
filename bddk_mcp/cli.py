@@ -369,6 +369,7 @@ async def _verify_and_stage_corpus_release(
     import asyncpg
 
     from bddk_mcp.core import config
+    from bddk_mcp.corpus_manifest import CorpusManifestError, assert_corpus_manifest_freshness_current
     from bddk_mcp.corpus_publication import (
         CorpusPublicationError,
         stage_strict_corpus_release,
@@ -486,6 +487,10 @@ async def _verify_and_stage_corpus_release(
                         expected_sections=expected_sections,
                         retrieval_profile_sha256=vector_store.retrieval_profile_hash,
                     )
+                    try:
+                        assert_corpus_manifest_freshness_current(validation.manifest)
+                    except CorpusManifestError as exc:
+                        raise RuntimeError(str(exc)) from None
                 operation_committed = True
         except Exception:
             if not operation_committed:

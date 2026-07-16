@@ -345,6 +345,23 @@ def _verify_document_freshness(records: list[Any] | dict[str, Any], manifest: Co
                 raise CorpusManifestError("documents artifact exceeds the retrieval-publication SLO")
 
 
+def assert_corpus_manifest_freshness_current(
+    manifest: CorpusScopeManifest,
+    *,
+    now: datetime | None = None,
+) -> None:
+    """Recheck the time-dependent manifest boundary without reopening artifacts."""
+
+    current = now or datetime.now(UTC)
+    if current.tzinfo is None or current.utcoffset() is None:
+        raise CorpusManifestError("validation time must include a timezone")
+    if manifest.freshness.scope_reviewed_at > current or manifest.freshness.corpus_built_at > current:
+        raise CorpusManifestError("corpus manifest contains a future timestamp")
+    maximum_age = manifest.freshness.max_manifest_age_seconds
+    if maximum_age is not None and current - manifest.freshness.corpus_built_at > timedelta(seconds=maximum_age):
+        raise CorpusManifestError("corpus manifest is stale under its declared maximum age")
+
+
 def load_and_validate_corpus_manifest(
     manifest_path: Path,
     *,
@@ -399,10 +416,7 @@ def load_and_validate_corpus_manifest(
 
     warnings: list[str] = [CORPUS_SCOPE_WARNING]
     current = now or datetime.now(UTC)
-    if current.tzinfo is None or current.utcoffset() is None:
-        raise CorpusManifestError("validation time must include a timezone")
-    if manifest.freshness.scope_reviewed_at > current or manifest.freshness.corpus_built_at > current:
-        raise CorpusManifestError("corpus manifest contains a future timestamp")
+    assert_corpus_manifest_freshness_current(manifest, now=current)
 
     freshness_values = (
         manifest.freshness.source_detection_slo_seconds,
@@ -413,10 +427,6 @@ def load_and_validate_corpus_manifest(
         if require_quantified_freshness:
             raise CorpusManifestError("corpus freshness objectives are not quantified")
         warnings.append("Corpus freshness objectives are not yet quantified; 'immediate' is not a testable SLO.")
-    elif current - manifest.freshness.corpus_built_at > timedelta(
-        seconds=manifest.freshness.max_manifest_age_seconds or 0
-    ):
-        raise CorpusManifestError("corpus manifest is stale under its declared maximum age")
     if manifest.freshness.slo_evidence_status != "measured":
         if require_measured_freshness:
             raise CorpusManifestError("corpus freshness SLO compliance is not measured")
