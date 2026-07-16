@@ -68,6 +68,7 @@ _RUNTIME_DATABASE_URL_VARIABLES: Final[tuple[str, ...]] = (
     "BDDK_SCHEMA_OWNER_DATABASE_URL",
     "BDDK_INGESTION_DATABASE_URL",
     "BDDK_TELEMETRY_DATABASE_URL",
+    "BDDK_RELEASE_VERIFIER_DATABASE_URL",
     "BDDK_RELEASE_PUBLISHER_DATABASE_URL",
 )
 _DATABASE_LOCALE_SQL: Final[str] = """
@@ -323,6 +324,8 @@ _MANAGED_RELATIONS: Final[tuple[str, ...]] = (
     "bddk_meta.corpus_state_epoch",
     "bddk_meta.corpus_releases",
     "bddk_meta.corpus_release_activations",
+    "bddk_meta.corpus_release_requests",
+    "bddk_meta.corpus_release_request_activations",
     "bddk_meta.corpus_generations",
     "bddk_meta.active_corpus_release",
     _ACTIVATION_SEQUENCE,
@@ -395,6 +398,30 @@ _SAFE_FINGERPRINT_QUERIES: Final[tuple[tuple[str, str], ...]] = (
                actor_fingerprint_sha256, corpus_epoch
         FROM bddk_meta.corpus_release_activations
         ORDER BY activation_sequence
+        """,
+    ),
+    (
+        "corpus_release_requests",
+        """
+        SELECT request_id, release_id, manifest_id, manifest_sha256,
+               signature_sha256, signer_key_sha256,
+               verification_evidence_sha256, freshness_policy_result,
+               source_detection_slo_seconds, publication_slo_seconds,
+               max_manifest_age_seconds, retrieval_profile_sha256,
+               corpus_state_sha256, corpus_epoch, verifier_revision_sha256,
+               verifier_image_digest, valid_for_seconds, staged_at,
+               verification_expires_at, verifier_fingerprint_sha256
+        FROM bddk_meta.corpus_release_requests
+        ORDER BY request_id
+        """,
+    ),
+    (
+        "corpus_release_request_activations",
+        """
+        SELECT request_id, activation_sequence, release_id, bound_at,
+               publisher_fingerprint_sha256
+        FROM bddk_meta.corpus_release_request_activations
+        ORDER BY request_id
         """,
     ),
     (
@@ -1304,6 +1331,8 @@ async def _collect_snapshot_evidence_pinned(
             "corpus_state_epoch": "bddk_meta.corpus_state_epoch",
             "corpus_releases": "bddk_meta.corpus_releases",
             "corpus_release_activations": "bddk_meta.corpus_release_activations",
+            "corpus_release_requests": "bddk_meta.corpus_release_requests",
+            "corpus_release_request_activations": "bddk_meta.corpus_release_request_activations",
             "corpus_generations": "bddk_meta.corpus_generations",
             "active_corpus_release": "bddk_meta.active_corpus_release",
             "corpus_release_activation_sequence": _ACTIVATION_SEQUENCE,
@@ -1673,6 +1702,7 @@ async def _provision_verification_logins(
         "schema_owner": (("bddk_schema_owner",), "bddk_schema_owner"),
         "public": (("bddk_public_reader",), None),
         "ingestion": (("bddk_ingestion",), None),
+        "release_verifier": (("bddk_release_verifier",), None),
         "release_publisher": (("bddk_release_publisher",), None),
         "operator": (("bddk_public_reader", "bddk_ingestion", "bddk_operator_runtime"), None),
         "telemetry": (("bddk_telemetry_writer",), None),
@@ -1726,8 +1756,8 @@ async def _verify_restored_identities(
         for profile, (username, password, role) in login_specs.items():
             dsn = _database_dsn(admin_dsn, target_name, username=username, password=password, role=role)
             init = None
-            identity_profile = "release-publisher" if profile == "release_publisher" else profile
-            if identity_profile in {"public", "ingestion", "release-publisher", "operator"}:
+            identity_profile = profile.replace("_", "-")
+            if identity_profile in {"public", "ingestion", "release-verifier", "release-publisher", "operator"}:
                 init = partial(assert_database_connection_identity, profile=identity_profile)
             pool = await asyncpg.create_pool(dsn, min_size=1, max_size=2, timeout=10, init=init)
             pools.append(pool)
@@ -1736,6 +1766,7 @@ async def _verify_restored_identities(
         await assert_schema_owner_identity(by_profile["schema_owner"], target_name)
         for profile in ("public", "ingestion", "operator"):
             await assert_database_identity(by_profile[profile], profile)  # type: ignore[arg-type]
+        await assert_database_identity(by_profile["release_verifier"], "release-verifier")
         await assert_database_identity(by_profile["release_publisher"], "release-publisher")
         await assert_telemetry_writer_ready(by_profile["telemetry"])
         evidence = await collect_snapshot_evidence(

@@ -499,11 +499,13 @@ def test_recovery_evidence_covers_legal_version_relations_in_fk_safe_order() -> 
 
 
 def test_recovery_inventory_covers_release_epoch_views_and_identity_sequence() -> None:
-    assert len(recovery._MANAGED_RELATIONS) == 51
+    assert len(recovery._MANAGED_RELATIONS) == 53
     assert {
         "bddk_meta.corpus_state_epoch",
         "bddk_meta.corpus_releases",
         "bddk_meta.corpus_release_activations",
+        "bddk_meta.corpus_release_requests",
+        "bddk_meta.corpus_release_request_activations",
         "bddk_meta.active_corpus_release",
         "bddk_meta.corpus_release_activations_activation_sequence_seq",
     } <= set(recovery._MANAGED_RELATIONS)
@@ -512,9 +514,16 @@ def test_recovery_inventory_covers_release_epoch_views_and_identity_sequence() -
         "corpus_state_epoch",
         "corpus_releases",
         "corpus_release_activations",
+        "corpus_release_requests",
+        "corpus_release_request_activations",
         "active_corpus_release",
         "corpus_release_activation_sequence",
     } <= fingerprint_labels
+
+    queries = dict(recovery._SAFE_FINGERPRINT_QUERIES)
+    assert "verification_evidence_sha256" in queries["corpus_release_requests"]
+    assert "verifier_revision_sha256" in queries["corpus_release_requests"]
+    assert "publisher_fingerprint_sha256" in queries["corpus_release_request_activations"]
 
 
 def test_recovery_evidence_covers_retained_generations_in_dependency_order() -> None:
@@ -693,6 +702,17 @@ def test_database_locale_evidence_covers_pg17_provider_rules_and_versions() -> N
 
 
 async def _downgrade_to_v2(connection) -> None:
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.activate_staged_corpus_release(pg_catalog.text)")
+    await connection.execute(
+        "DROP FUNCTION IF EXISTS bddk_meta.stage_verified_corpus_release("
+        "pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.text, "
+        "pg_catalog.text, pg_catalog.int4, pg_catalog.int4, pg_catalog.int4, "
+        "pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.int4)"
+    )
+    await connection.execute(
+        "DROP TABLE IF EXISTS bddk_meta.corpus_release_request_activations, bddk_meta.corpus_release_requests CASCADE"
+    )
+    await connection.execute("DELETE FROM bddk_meta.schema_migrations WHERE version = 8")
     await connection.execute("DROP SCHEMA IF EXISTS bddk_retained CASCADE")
     await connection.execute("DROP VIEW IF EXISTS bddk_meta.corpus_release_retention_status")
     await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.inspect_retained_generation_storage(pg_catalog.text)")
