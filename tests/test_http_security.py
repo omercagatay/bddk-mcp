@@ -588,17 +588,25 @@ async def test_jwt_verifier_accepts_keycloak_style_token_without_nbf_or_resource
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "claims",
+    "invalid_claim",
     [
-        _claims(iss="https://wrong.example"),
-        _claims(aud="wrong-audience"),
-        _claims(exp=int(time.time()) - 60),
-        _claims(nbf=int(time.time()) + 60),
+        "issuer",
+        "audience",
+        "expired",
+        "not-yet-valid",
     ],
 )
-async def test_jwt_verifier_fails_closed_for_invalid_claims(jwt_material, claims):
+async def test_jwt_verifier_fails_closed_for_invalid_claims(jwt_material, invalid_claim):
     private_key, jwks = jwt_material
     verifier = JwtTokenVerifier(load_http_security_config(_remote_env()), jwks_client=_StaticJwksClient(jwks))
+    now = int(time.time())
+    overrides = {
+        "issuer": {"iss": "https://wrong.example"},
+        "audience": {"aud": "wrong-audience"},
+        "expired": {"exp": now - 60},
+        "not-yet-valid": {"nbf": now + 60},
+    }
+    claims = _claims(**overrides[invalid_claim])
 
     assert await verifier.verify_token(_encode(private_key, claims)) is None
 
