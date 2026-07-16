@@ -90,6 +90,9 @@ class HttpSecurityConfig:
     jwt_access_token_types: tuple[str, ...]
     jwt_max_token_length: int
     max_body_bytes: int
+    body_first_byte_timeout_seconds: float
+    body_chunk_timeout_seconds: float
+    body_total_timeout_seconds: float
     max_concurrency: int
     rate_limit_per_minute: int
 
@@ -116,6 +119,23 @@ def _parse_positive_int(
         raise HttpSecurityConfigError(f"{name} must be an integer") from exc
     if not 1 <= value <= maximum:
         raise HttpSecurityConfigError(f"{name} must be between 1 and {maximum}")
+    return value
+
+
+def _parse_positive_float(
+    env: Mapping[str, str],
+    name: str,
+    default: float,
+    *,
+    maximum: float,
+) -> float:
+    raw = env.get(name, str(default)).strip()
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise HttpSecurityConfigError(f"{name} must be a number") from exc
+    if not math.isfinite(value) or not 0 < value <= maximum:
+        raise HttpSecurityConfigError(f"{name} must be greater than zero and at most {maximum:g}")
     return value
 
 
@@ -418,6 +438,24 @@ def load_http_security_config(env: Mapping[str, str] | None = None) -> HttpSecur
         jwt_access_token_types=_parse_access_token_types(source.get("BDDK_JWT_ACCESS_TOKEN_TYPES")),
         jwt_max_token_length=_parse_positive_int(source, "BDDK_JWT_MAX_TOKEN_LENGTH", 16384, maximum=65536),
         max_body_bytes=_parse_positive_int(source, "BDDK_HTTP_MAX_BODY_BYTES", 1_048_576, maximum=16_777_216),
+        body_first_byte_timeout_seconds=_parse_positive_float(
+            source,
+            "BDDK_HTTP_BODY_FIRST_BYTE_TIMEOUT_SECONDS",
+            5.0,
+            maximum=120.0,
+        ),
+        body_chunk_timeout_seconds=_parse_positive_float(
+            source,
+            "BDDK_HTTP_BODY_CHUNK_TIMEOUT_SECONDS",
+            5.0,
+            maximum=120.0,
+        ),
+        body_total_timeout_seconds=_parse_positive_float(
+            source,
+            "BDDK_HTTP_BODY_TOTAL_TIMEOUT_SECONDS",
+            30.0,
+            maximum=300.0,
+        ),
         max_concurrency=_parse_positive_int(source, "BDDK_HTTP_MAX_CONCURRENCY", 32, maximum=1024),
         rate_limit_per_minute=_parse_positive_int(
             source,
@@ -586,6 +624,9 @@ class HttpSecurityMiddleware:
     ) -> None:
         self._app = app
         self._max_body_bytes = config.max_body_bytes
+        self._body_first_byte_timeout_seconds = config.body_first_byte_timeout_seconds
+        self._body_chunk_timeout_seconds = config.body_chunk_timeout_seconds
+        self._body_total_timeout_seconds = config.body_total_timeout_seconds
         self._transport = TransportSecurityMiddleware(config.transport_security_settings())
         self._clock = clock or time.monotonic
         self._rate_limit = config.rate_limit_per_minute
@@ -717,31 +758,44 @@ class HttpSecurityMiddleware:
         if not await self._try_admit(scope, receive, send):
             return
         try:
-            messages: list[Message] = []
-            total = 0
+            body = bytearray()
+            first_request_message = True
+            deadline = asyncio.get_running_loop().time() + self._body_total_timeout_seconds
             while True:
-                message = await receive()
-                messages.append(message)
+                remaining = deadline - asyncio.get_running_loop().time()
+                per_message_timeout = (
+                    self._body_first_byte_timeout_seconds if first_request_message else self._body_chunk_timeout_seconds
+                )
+                timeout = min(remaining, per_message_timeout)
+                if timeout <= 0:
+                    await PlainTextResponse("Request body timeout", status_code=408)(scope, receive, send)
+                    return
+                try:
+                    message = await asyncio.wait_for(receive(), timeout=timeout)
+                except TimeoutError:
+                    await PlainTextResponse("Request body timeout", status_code=408)(scope, receive, send)
+                    return
                 if message["type"] == "http.disconnect":
-                    break
+                    return
                 if message["type"] != "http.request":
                     continue
-                total += len(message.get("body", b""))
-                if total > self._max_body_bytes:
+                first_request_message = False
+                chunk = message.get("body", b"")
+                if len(chunk) > self._max_body_bytes - len(body):
                     await PlainTextResponse("Request body too large", status_code=413)(scope, receive, send)
                     return
+                body.extend(chunk)
                 if not message.get("more_body", False):
                     break
 
-            message_index = 0
+            body_replayed = False
 
             async def replay_receive() -> Message:
-                nonlocal message_index
-                if message_index < len(messages):
-                    message = messages[message_index]
-                    message_index += 1
-                    return message
-                return {"type": "http.request", "body": b"", "more_body": False}
+                nonlocal body_replayed
+                if body_replayed:
+                    return {"type": "http.request", "body": b"", "more_body": False}
+                body_replayed = True
+                return {"type": "http.request", "body": bytes(body), "more_body": False}
 
             await self._app(scope, replay_receive, send)
         finally:

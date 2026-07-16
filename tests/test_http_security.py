@@ -105,6 +105,9 @@ def test_remote_bind_accepts_complete_exact_policy():
         ("PORT", "0"),
         ("PORT", "65536"),
         ("BDDK_HTTP_MAX_BODY_BYTES", "0"),
+        ("BDDK_HTTP_BODY_FIRST_BYTE_TIMEOUT_SECONDS", "0"),
+        ("BDDK_HTTP_BODY_CHUNK_TIMEOUT_SECONDS", "nan"),
+        ("BDDK_HTTP_BODY_TOTAL_TIMEOUT_SECONDS", "301"),
         ("BDDK_HTTP_MAX_CONCURRENCY", "0"),
         ("BDDK_HTTP_RATE_LIMIT_PER_MINUTE", "100001"),
         ("BDDK_JWT_MAX_TOKEN_LENGTH", "65537"),
@@ -216,11 +219,58 @@ async def test_streamed_post_without_content_length_is_still_size_limited():
 
 
 @pytest.mark.asyncio
-async def test_slow_streamed_body_consumes_concurrency_admission():
+async def test_single_oversized_asgi_chunk_is_rejected_before_buffer_growth():
+    downstream = _RejectingApp()
+    config = replace(load_http_security_config({}), max_body_bytes=4)
+    app = HttpSecurityMiddleware(downstream, config)
+    oversized_chunk = b"12345"
+    messages = iter(
+        [
+            {"type": "http.request", "body": oversized_chunk, "more_body": False},
+        ]
+    )
+    sent: list[dict[str, Any]] = []
+
+    async def receive():
+        return next(messages)
+
+    async def send(message):
+        sent.append(message)
+
+    await app(
+        {
+            "type": "http",
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": "/mcp",
+            "raw_path": b"/mcp",
+            "query_string": b"",
+            "root_path": "",
+            "headers": [(b"host", b"localhost:8000"), (b"content-type", b"application/json")],
+            "client": ("127.0.0.1", 12345),
+            "server": ("127.0.0.1", 8000),
+        },
+        receive,
+        send,
+    )
+
+    assert sent[0]["status"] == 413
+    assert downstream.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_slow_streamed_body_times_out_and_releases_concurrency_admission():
     downstream = _RejectingApp()
     body_started = asyncio.Event()
     release_body = asyncio.Event()
-    config = replace(load_http_security_config({}), max_concurrency=1, rate_limit_per_minute=100)
+    config = replace(
+        load_http_security_config({}),
+        max_concurrency=1,
+        rate_limit_per_minute=100,
+        body_chunk_timeout_seconds=0.02,
+        body_total_timeout_seconds=0.05,
+    )
     app = HttpSecurityMiddleware(downstream, config, clock=lambda: 100.0)
 
     async def slow_body():
@@ -235,11 +285,17 @@ async def test_slow_streamed_body_consumes_concurrency_admission():
         )
         await asyncio.wait_for(body_started.wait(), timeout=1)
         rejected = await client.post("/mcp", content=b"{}", headers={"content-type": "application/json"})
-        release_body.set()
         first = await asyncio.wait_for(first_task, timeout=1)
+        admitted_after_timeout = await client.post(
+            "/mcp",
+            content=b"{}",
+            headers={"content-type": "application/json"},
+        )
+        release_body.set()
 
     assert rejected.status_code == 503
-    assert first.status_code == 401
+    assert first.status_code == 408
+    assert admitted_after_timeout.status_code == 401
     assert downstream.calls == 1
 
 
