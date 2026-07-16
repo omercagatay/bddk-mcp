@@ -160,9 +160,12 @@ jobs:
               --output "artifacts/python/${artifact_name}.provenance.json"
           done
 
-      - name: Build and load both container recipes with digest metadata
+      - name: Build, attest, and release each container recipe
         env:
           BUILDX_METADATA_WARNINGS: "true"
+          SOURCE_URI: https://github.com/${{ github.repository }}
+          BUILDER_ID: https://github.com/${{ github.repository }}/.github/workflows/supply-chain.yml
+          BUILD_TYPE: https://github.com/${{ github.repository }}/.github/workflows/supply-chain.yml#container-v1
         run: |
           mkdir -p artifacts/containers
           uv run python scripts/supply_chain_evidence.py verify-model-materials \
@@ -177,33 +180,29 @@ jobs:
             else
               dockerfile=Dockerfile.spaces
             fi
+            raw_sbom="$RUNNER_TEMP/${variant}.raw.cdx.json"
+            local_reference="bddk-mcp-${variant}:ci-${GITHUB_SHA}"
+            image_inspect="$RUNNER_TEMP/${variant}.image-inspect.json"
+
+            cleanup_image() {
+              if docker image inspect "$local_reference" >/dev/null 2>&1; then
+                docker image rm --force "$local_reference"
+              fi
+            }
+            trap cleanup_image EXIT
+
+            df -h /
+            docker system df
             docker buildx build \
               --builder bddk-supply-chain \
               --file "$dockerfile" \
-              --tag "bddk-mcp-${variant}:ci-${GITHUB_SHA}" \
+              --tag "$local_reference" \
               --platform linux/amd64 \
               --build-arg "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" \
               --provenance=false \
               --load \
               --metadata-file "artifacts/containers/${variant}.buildx.json" \
               .
-          done
-
-      - name: Generate container SBOMs and deterministic provenance envelopes
-        env:
-          SOURCE_URI: https://github.com/${{ github.repository }}
-          BUILDER_ID: https://github.com/${{ github.repository }}/.github/workflows/supply-chain.yml
-          BUILD_TYPE: https://github.com/${{ github.repository }}/.github/workflows/supply-chain.yml#container-v1
-        run: |
-          for variant in standard spaces; do
-            if [[ "$variant" == standard ]]; then
-              dockerfile=Dockerfile
-            else
-              dockerfile=Dockerfile.spaces
-            fi
-            raw_sbom="$RUNNER_TEMP/${variant}.raw.cdx.json"
-            local_reference="bddk-mcp-${variant}:ci-${GITHUB_SHA}"
-            image_inspect="$RUNNER_TEMP/${variant}.image-inspect.json"
             docker image inspect "$local_reference" > "$image_inspect"
             image_id="$(docker image inspect --format '{{.Id}}' "$local_reference")"
             test -n "$image_id"
@@ -228,6 +227,11 @@ jobs:
               --material embedding-runtime-config=bddk_mcp/core/config.py \
               --material embedding-model-manifest=supply-chain/model-assets.json \
               --external-material-manifest supply-chain/model-assets.json
+
+            cleanup_image
+            trap - EXIT
+            rm -f "$raw_sbom" "$image_inspect"
+            docker buildx prune --builder bddk-supply-chain --all --force
           done
 
       - name: Update the current vulnerability database

@@ -552,6 +552,16 @@ def test_workflow_is_isolated_immutable_pinned_and_does_not_claim_signing():
     assert "--provenance=false" in workflow_text
     assert "--load" in workflow_text
     assert "BUILDX_METADATA_PROVENANCE" not in workflow_text
+    container_steps = [
+        step.get("run", "")
+        for step in workflow["jobs"]["evidence"]["steps"]
+        if "docker buildx build" in step.get("run", "")
+    ]
+    assert len(container_steps) == 1
+    container_script = container_steps[0]
+    assert 'syft "docker:${image_id}"' in container_script
+    assert 'docker image rm --force "$local_reference"' in container_script
+    assert "docker buildx prune --builder bddk-supply-chain --all --force" in container_script
     assert "grype db update" in workflow_text
     assert "--config supply-chain/grype.yaml" in workflow_text
     assert "enforce-policy" in workflow_text
