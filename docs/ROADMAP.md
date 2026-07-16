@@ -36,7 +36,7 @@ The immediate P0 blocker is no longer “persist corpus identity”; that is imp
 | Horizon 0 | Runtime, packaging, profiles, lifecycle, logging, and canonical registry stabilized | Repair/review/re-sign the tracked artifacts; keep documentation generated/checked against 15/14/29 and schema v6. |
 | Horizon 1 | Official transports, strict contracts, remote admission, DB roles, release publisher, and repository OpenShift preflight implemented | Execute bank IdP/CA/Route/CNI/LOGIN and signed-image acceptance; prove multi-replica job recovery before scaling operator replicas. |
 | Horizon 2 | Hybrid retrieval, Citation v1, legal model pilot, atomic active release, and abstention-first status resolver implemented | Add immutable retained generations/rollback, one authoritative real family, page-derivation provenance, and measured Turkish retrieval acceptance. |
-| Horizon 3 | Live MCP Phase 2 and cryptographic expert-evidence preflight implemented | Add a bank-signed trust policy/key rotation, complete the expert dataset, implement expert-case execution, and run pinned client/model baselines. |
+| Horizon 3 | Live MCP Phase 2 plus schema-v2 signed-policy, reviewer, rotation, and cryptographic expert-evidence preflight implemented | Bank-issue/promote/exercise that policy and its root lifecycle, complete the expert dataset, implement expert-case execution, and run pinned client/model baselines. |
 | Horizon 4 | Structured instruments/versions/provisions/status assertions form a credible base | Add validated amendment/control/audit relationships only after real-family evidence demonstrates value; graph infrastructure remains exploratory. |
 
 ## Prior implementation overlay — 2026-07-15 (superseded where it conflicts)
@@ -538,7 +538,7 @@ actionable issues follow.
 
 | Issue | Suggested title | Description | Acceptance criteria | Priority / effort | Labels | Dependencies |
 |---|---|---|---|---|---|---|
-| N-01 | **Define and verify a bank-signed evaluation trust policy** | Replace free-form operator key paths/latest-head strings as the production authority with a separately mounted policy binding canonical key fingerprints to named roles, owners, validity, revocation, and approved checkpoint head. | A versioned signed policy schema and validator exist; production mode rejects absent/expired/revoked/wrong-role keys and an unapproved head; dev mode remains explicitly non-bank; sanitized tests cover rotation and compromise; no report says bank-authorized without policy verification. | P0 / L | `security`, `evaluation`, `trust-policy`, `p0` | Bank security/PKI and legal-review role decisions |
+| N-01 | **Bank-issue, promote, and exercise the evaluation trust policy** | Complete the bank-owned half of the implemented schema-v2 verifier: issue the root/policy, authorize four operational owners plus separate source reviewers, and independently promote the current head and deployment scope. | Bank RBAC separately mounts the root, keyring, policy, current SHA/version, and organization/environment/scope pins; approved reviewer owners/revocations exist; positive rotation plus stale-policy, wrong-scope, fork-revocation, compromised-key/reviewer, and atomic-promotion cases retain sanitized evidence; a bank-owned authorization action covers the privacy-safe preflight report. Repository output remains non-bank until that evidence is verified. | P0 / L | `security`, `evaluation`, `trust-policy`, `p0` | Bank security/PKI and legal-review role decisions |
 | N-02 | **Regenerate, review, and re-sign the tracked corpus artifacts** | Resolve the current 8,286-versus-9,675 chunk drift and complete the measured/signed corpus admission package. | Documents, sections, and chunks regenerate deterministically under the pinned profile; independent review records the intentional delta; manifest counts/hashes and per-document freshness evidence match; four-eyes approval and detached signature exist; strict publisher succeeds and records the exact active release. | P0 / L | `corpus`, `retrieval`, `signing`, `p0` | N-03; approved source inventory/reviewer |
 | N-03 | **Approve numeric operational objectives and retention windows** | Complete the existing eight-metric contract for the bank on-prem OpenShift target. | Project owner and bank operations approve every target/window, evidence source, alert, and retention period; validation becomes production-eligible; RPO/RTO and freshness are numeric; changes require a versioned approval. | P0 / S | `decision`, `operations`, `governance`, `p0` | Project owner; bank operations |
 | N-04 | **Execute and retain a two-cluster PostgreSQL 17 recovery drill** | Run the implemented recovery-v2 workflow against distinct source and target clusters. | All 29 relations, activation sequence, active release, fingerprints, row counts, six application-DSN exclusions, and six LOGIN profiles match; elapsed backup/restore/recovery evidence is sanitized and meets N-03; destructive and rollback cases are retained. | P0 / M | `database`, `recovery`, `testing`, `p0` | N-03; bank-like PG17 pair |
@@ -546,21 +546,24 @@ actionable issues follow.
 | N-06 | **Run the complete OpenShift lifecycle including release publication** | Execute migrate → grants → bootstrap/reindex → independent publisher → strict public/operator readiness in an isolated bank-like namespace. | Separate ServiceAccounts/Secrets/PVCs are used; missing/wrong trust material and drift fail before activation; publisher activates the reviewed release; runtime readiness requires it; target CNI egress/ingress negatives pass; evidence changes external gates only for the environment actually tested. | P0 / M | `openshift`, `corpus`, `bank-acceptance`, `p0` | N-02, N-05, N-08 |
 | N-07 | **Validate bank OAuth, Route, CA, and shared ingress behavior** | Prove the Streamable HTTP boundary through the real bank ingress and IdP. | Protected-resource discovery and 401 metadata work; approved access tokens succeed; wrong issuer/audience/type/scope and ID tokens fail; operator remains private/separately scoped; Route/CA rotation, body/concurrency/rate limits, and audit identity pass. | P0 / L | `mcp`, `oauth`, `security`, `bank-acceptance`, `p0` | Bank IdP, Route, CA, ingress policy |
 | N-08 | **Sign, admit, promote, and roll back one release image digest** | Complete the bank-owned half of the supply-chain lane. | Accepted SBOM/provenance bind the exact digest; bank signing and admission accept only that digest; unsigned/wrong-key/altered/vulnerable/pending-exception artifacts fail; promotion and rollback retain the same identity without secrets. | P0 / M | `supply-chain`, `release`, `security`, `p0` | Bank registry/signing/admission policy |
-| N-09 | **Curate one authoritative regulation family with reproducible pages** | Replace the synthetic legal pilot with a bounded amendment family and explicit source/reviewer evidence. | Authoritative bytes/acquisition records are retained; extraction tool/profile and page derivation are reproducible or explicitly human-attested; stable versions/provisions/amendments/effective states resolve or abstain; reviewer identities/approvals are policy-bound; Citations reconstruct. | P1 / L | `regulatory-model`, `citations`, `domain-review` | N-01; approved source/provenance policy |
+| N-09 | **Curate one authoritative regulation family with reproducible pages** | Replace the synthetic legal pilot with a bounded amendment family and explicit source/reviewer evidence. | Authoritative bytes/acquisition records are retained; extraction tool/profile and page derivation are reproducible or explicitly human-attested; stable versions/provisions/amendments/effective states resolve or abstain; PageMappingProof v2 owner assertions are policy-bound and the corresponding human review action is signed or explicitly attested; Citations reconstruct. | P1 / L | `regulatory-model`, `citations`, `domain-review` | N-01; approved source/provenance policy |
 | N-10 | **Complete the expert dataset and implement release-grade case execution** | Finish annotation/adjudication and execute the exact expert cases rather than promoting the exploratory Phase 1/2 sets. | All 20 cases have two independent annotations, adjudication, owner approval, verified Citation/currentness states, and four-layer signatures; an execution runner binds the active release and records signed evidence; one pinned client/model reports tool calls, retrieval, citations, abstention, latency, and failures; currentness/version scoring remains disabled unless N-09 supports it. | P1 / L | `evaluation`, `turkish`, `mcp`, `model-benchmark` | N-01, N-02, N-09; independent reviewers |
 
 Parallel work: N-01, N-03, N-05, N-07, N-08, and N-09 can start independently. N-02 needs approved objectives/source review; N-04 follows N-03; N-06 follows N-02/N-05/N-08; N-10 follows N-01/N-02/N-09.
 
 N-01 repository status (2026-07-16): **technical policy verification is
 implemented; bank authorization remains open**. The source-checkout preflight
-now has explicit development and `bank-policy` modes, exact signed release
-bindings, separated opaque owner IDs plus non-emitted labels, current-policy
-SHA/version pins, forward operational key rotation, revocation, and safe report
-fields. It intentionally keeps `bank_authorization_verified: false` and
-`model_scores_authorized: false`. N-01 closes only after bank-controlled
-root/pin distribution and promotion evidence exist; policy-root lifecycle and
-policy-bound page reviewers remain CUR-003/CUR-005 work rather than implied
-capabilities.
+now has explicit development and `bank-policy` modes, five policy-approved
+release identities under the documented canonical/raw hash contract, distinct
+declared opaque owner IDs plus non-emitted labels,
+current-policy SHA/version and organization/environment/scope pins, forward
+operational key rotation, revocation, PageMappingProof v2 reviewer
+authorization, and safe report fields. It intentionally keeps
+`bank_authorization_verified: false` and `model_scores_authorized: false`. N-01
+closes only after bank-controlled root/pin distribution, reviewer governance,
+promotion, and compromise evidence exist. Policy-root lifecycle remains
+CUR-003; authentication/attestation of the human review action and reproducible
+source-to-page derivation remain CUR-005.
 
 Suggested milestones: **v5.0.2 Governed Corpus** (N-01–N-04), **v5.1 Bank Integration Candidate** (N-05–N-08), **v5.2 Regulatory Evidence Pilot** (N-09–N-10), then a named-client/model compatibility release. Do not start Horizon 4 graph/platform work before the evidence pilot.
 
@@ -601,7 +604,8 @@ flowchart LR
 N-01, N-03, N-05, N-07, N-08, and the source-scoping part of N-09 can
 proceed in parallel. N-04 requires approved recovery objectives. N-06 requires
 the governed corpus, actual database identities, and admitted image. N-10 waits
-for the trust policy, governed corpus, and authoritative-family evidence.
+for a bank-issued/promoted policy, governed corpus, and authoritative-family
+evidence.
 
 ### N-series milestone structure
 

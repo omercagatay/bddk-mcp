@@ -179,7 +179,7 @@ separately verified, signed layers:
 1. this corpus manifest, detached-Ed25519 signed against a separately mounted
    trust anchor, with all three numeric objectives and
    `slo_evidence_status: measured` backed by the per-document event chain;
-2. the exact expert dataset, independently detached-Ed25519 signed and bound to
+2. the canonical expert-dataset payload, independently detached-Ed25519 signed and bound to
    this manifest and its artifact hashes; and
 3. an exact export of `public.regulatory_validated_section_citations`, plus a
    detached legal-curator attestation binding the pack hash and complete sorted
@@ -196,32 +196,52 @@ separate from the other three operational roles.
 
 The preflight has two explicit trust modes. Default `development` mode accepts
 operator-supplied operational keys and a separately supplied latest-checkpoint
-hash; it is a fixture/consistency boundary only. `bank-policy` mode instead
+hash; it is a fixture/consistency boundary only. Supplying a signed policy in
+development still does not pin its current head or independently compare its
+organization/environment/scope. `bank-policy` mode instead
 requires an exact detached-signed policy, trusted policy-root key, and separately
-configured current policy SHA-256/version pins. The policy supplies the latest
+configured current policy SHA-256/version plus
+organization/environment/deployment-scope pins. The policy supplies the latest
 checkpoint, so a manual head hash is rejected in that mode.
 
-The closed policy binds the exact expert-dataset, corpus-manifest, legal-pack,
-legal-attestation, and legal-release-checkpoint SHA-256 values. It maps keys and
-opaque owner identities to `corpus_scope_approver`, `expert_dataset_owner`,
+The closed schema-v2 policy binds the canonical expert-dataset,
+corpus-manifest, legal-pack, legal-attestation, and legal-release-checkpoint
+identities. It maps keys and opaque owner identities to
+`corpus_scope_approver`, `expert_dataset_owner`,
 `legal_curator`, and `legal_release_certifier`, with authorization windows. Keys
-are unique across roles, owners cannot cross separated roles, and the policy
-root cannot also be an operational signer or owner.
+are unique across roles, declared owner IDs cannot cross separated roles, and
+the policy issuer ID/key cannot also be declared as an operational signer or
+owner. Distinct strings do not prove separate human/team custody; bank
+governance must verify that. Hash and version meanings are defined in the
+[benchmark trust contract](../benchmark/README.md#hash-and-version-semantics).
+
+The policy also carries a separate, canonical legal-source reviewer registry.
+Every artifact review in every checkpoint must use `PageMappingProof` v2, bind
+the checkpoint/artifact pair to one opaque reviewer owner, occur between source
+capture and checkpoint creation, and fall inside that reviewer's authorization
+window. Reviewer owners are separate from the policy issuer and all four
+operational signer owners; effective reviewer revocation fails closed.
 
 Legal-release checkpoints now support forward key rotation. The latest
 checkpoint must verify with the primary current key; older checkpoints can use
 explicit predecessor keys. The signed policy connects those keys with
 `replaces_key_id` and rejects cycles, disconnected chains, backwards rotation,
-wrong-time use, effective key revocation, and effective checkpoint revocation.
+use outside the declared event-time window, effective key revocation, and
+effective checkpoint revocation.
 A retired, non-revoked key can verify only history created within its validity
-window. Every predecessor's retained files are still re-hashed, but historical
-legal-pack bytes are not retained and replayed against their historical Citation
-inventories.
+window as declared in the signed artifact. Policy validity/approval, corpus
+review, dataset decision, curator attestation, checkpoint creation, and page
+review times are all declared signed fields evaluated against the local process clock—not independent
+signature timestamps. Bank promotion or an external timestamp/receipt service
+must establish signing time if required. Every predecessor's retained files are
+still re-hashed, but historical legal-pack bytes are not retained and replayed
+against their historical Citation inventories.
 
 These remain cryptographic/policy-consistency controls, not bank authorization.
 The repository does not prove who owns the configured policy root or that the
-policy, operational keys, and current SHA/version pins arrived through bank
-RBAC and an approved atomic promotion. A signed policy that differs from the
+policy, operational keys, and current SHA/version/scope pins arrived through bank
+RBAC and an approved atomic promotion. Organization/environment/scope pins are
+also deployment inputs. A signed policy that differs from the
 configured current pins fails in bank-policy mode; if the external pins
 themselves are stale, the offline verifier cannot discover the newer policy.
 Bank deployment must mount these inputs separately, retain the promotion and
@@ -229,11 +249,17 @@ approval record, and exercise revocation/compromise handling. This implemented
 slice does not by itself complete the bank trust-policy issue.
 
 Page verification proves exact UTF-8 excerpt containment in the retained text
-for the attested pages. The `legal_source_reviewer` role field is signed data,
-not authenticated reviewer identity, and the verifier does not independently
-reproduce page text from the raw PDF/source bytes. The tracked manifest and
-20-case dataset do not satisfy these gates; all evidence is `not_verified` for
-legal currentness and currentness/version/amendment score authorization remains
-unsupported. `python -m benchmark.release_preflight` validates only this chain,
-from a source checkout, and explicitly reports both bank authorization and model
-score authorization as false; it does not execute the expert dataset.
+for the attested pages. Policy-free v1 evidence carries only the
+`legal_source_reviewer` role assertion. V2 binds each checkpoint/artifact review
+to a policy-authorized owner ID, but does not authenticate the human action,
+provide a reviewer signature, or independently reproduce page text from the raw
+PDF/source bytes. A `LegalReleaseCheckpoint` chain containing v1 page proofs
+cannot be mutated into v2. Adoption requires a new independent genesis whose
+every artifact contains a v2 proof; it cannot reference a v1-proof ancestor, so
+the prior chain remains archival without a verified continuity claim. The
+tracked manifest and 20-case dataset do not satisfy these gates; all
+evidence is `not_verified` for legal currentness and
+currentness/version/amendment score authorization remains unsupported.
+`python -m benchmark.release_preflight` validates only this chain, from a source
+checkout, and explicitly reports both bank authorization and model score
+authorization as false; it does not execute the expert dataset.

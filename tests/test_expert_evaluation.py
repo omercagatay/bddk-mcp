@@ -444,6 +444,8 @@ def _write_legal_release_checkpoint(
     page_text_content: str | None = None,
     rotate_predecessor_key: bool = False,
     predecessor_key_outputs: list[Path] | None = None,
+    page_mapping_schema_version: int = 1,
+    reviewer_owner_id: str | None = None,
 ) -> tuple[Path, Path, str, Path, Path, Path, Path]:
     source_root = tmp_path / "retained-legal-source"
     source_root.mkdir()
@@ -481,27 +483,27 @@ def _write_legal_release_checkpoint(
     excerpt_path = source_root / "citation-excerpt.txt"
     excerpt_path.write_text(excerpt, encoding="utf-8")
     page_proof_path = source_root / "page-proof.json"
-    _write_json(
-        page_proof_path,
-        {
-            "schema_version": 1,
-            "proof_method": "reviewed_source_page_mapping_v1",
-            "mapping_profile": "exact_utf8_excerpt_in_concatenated_page_text_v1",
-            "artifact_id": citation["artifact_id"],
-            "source_bytes_sha256": citation["artifact_sha256"],
-            "source_bytes": len(source_bytes),
-            "pages": [{"page_number": 1, "rendered_text": _sealed_file(page_text_path, source_root)}],
-            "citation_mappings": [
-                {
-                    "citation_id": citation["citation_id"],
-                    "page_numbers": [1],
-                    "rendered_excerpt": _sealed_file(excerpt_path, source_root),
-                }
-            ],
-            "reviewed_by_role": "legal_source_reviewer",
-            "reviewed_at": "2026-07-15T13:30:00Z",
-        },
-    )
+    page_proof = {
+        "schema_version": page_mapping_schema_version,
+        "proof_method": f"reviewed_source_page_mapping_v{page_mapping_schema_version}",
+        "mapping_profile": "exact_utf8_excerpt_in_concatenated_page_text_v1",
+        "artifact_id": citation["artifact_id"],
+        "source_bytes_sha256": citation["artifact_sha256"],
+        "source_bytes": len(source_bytes),
+        "pages": [{"page_number": 1, "rendered_text": _sealed_file(page_text_path, source_root)}],
+        "citation_mappings": [
+            {
+                "citation_id": citation["citation_id"],
+                "page_numbers": [1],
+                "rendered_excerpt": _sealed_file(excerpt_path, source_root),
+            }
+        ],
+        "reviewed_by_role": "legal_source_reviewer",
+        "reviewed_at": "2026-07-15T13:30:00Z",
+    }
+    if reviewer_owner_id is not None:
+        page_proof["reviewed_by_owner_id"] = reviewer_owner_id
+    _write_json(page_proof_path, page_proof)
 
     private_key = Ed25519PrivateKey.generate()
     public_key = private_key.public_key().public_bytes(
@@ -827,6 +829,12 @@ def test_legal_release_chain_accepts_an_explicit_rotated_predecessor_key(tmp_pat
     assert validation.legal_release_chain_signers[-1].signing_key_fingerprint_sha256 == (
         validation.legal_release_signing_key_fingerprint_sha256
     )
+    assert validation.legal_release_configured_key_fingerprints_sha256[0] == (
+        validation.legal_release_signing_key_fingerprint_sha256
+    )
+    assert set(validation.legal_release_configured_key_fingerprints_sha256) == {
+        item.signing_key_fingerprint_sha256 for item in validation.legal_release_chain_signers
+    }
 
     with pytest.raises(ExpertEvaluationError, match="does not use the primary signing key"):
         load_expert_evaluation_dataset(
@@ -857,6 +865,133 @@ def test_legal_release_chain_accepts_an_explicit_rotated_predecessor_key(tmp_pat
             trusted_latest_legal_checkpoint_sha256=latest_hash,
             now=datetime(2026, 7, 16, tzinfo=UTC),
         )
+
+
+def test_page_mapping_v2_retains_policy_authorizable_reviewer_history(tmp_path: Path) -> None:
+    raw = _raw_dataset()
+    citation = _verified_tracked_citation(raw)
+    raw["evidence_catalog"][0].update(
+        citation_v1_status="verified",
+        citation_v1_id=citation["citation_id"],
+        citation_v1=citation,
+    )
+    dataset_path = _write_sealed_dataset(tmp_path, raw)
+    pack_path, attestation_path, curator_key, _ = _write_signed_legal_pack(tmp_path, citation)
+    checkpoint_path, release_key, latest_hash, source_root, predecessor_path, _, _ = _write_legal_release_checkpoint(
+        tmp_path,
+        raw_dataset=raw,
+        citation=citation,
+        pack_path=pack_path,
+        page_mapping_schema_version=2,
+        reviewer_owner_id="page-reviewer",
+    )
+
+    validation = load_expert_evaluation_dataset(
+        dataset_path,
+        validated_legal_pack_path=pack_path,
+        legal_attestation_path=attestation_path,
+        trusted_legal_attestation_key=curator_key,
+        legal_release_checkpoint_path=checkpoint_path,
+        legal_release_source_root=source_root,
+        trusted_legal_release_signing_key=release_key,
+        predecessor_legal_release_checkpoint_path=predecessor_path,
+        trusted_latest_legal_checkpoint_sha256=latest_hash,
+        now=datetime(2026, 7, 16, tzinfo=UTC),
+    )
+
+    assert len(validation.legal_source_reviews) == 3
+    assert {review.proof_schema_version for review in validation.legal_source_reviews} == {2}
+    assert {review.reviewer_owner_id for review in validation.legal_source_reviews} == {"page-reviewer"}
+    assert tuple(review.checkpoint_sha256 for review in validation.legal_source_reviews) == tuple(
+        signer.checkpoint_sha256 for signer in validation.legal_release_chain_signers
+    )
+    assert {review.artifact_id for review in validation.legal_source_reviews} == {citation["artifact_id"]}
+
+
+def test_page_mapping_v2_requires_a_reviewer_owner_identity(tmp_path: Path) -> None:
+    raw = _raw_dataset()
+    citation = _verified_tracked_citation(raw)
+    raw["evidence_catalog"][0].update(
+        citation_v1_status="verified",
+        citation_v1_id=citation["citation_id"],
+        citation_v1=citation,
+    )
+    dataset_path = _write_sealed_dataset(tmp_path, raw)
+    pack_path, attestation_path, curator_key, _ = _write_signed_legal_pack(tmp_path, citation)
+    checkpoint_path, release_key, latest_hash, source_root, _, _, _ = _write_legal_release_checkpoint(
+        tmp_path,
+        raw_dataset=raw,
+        citation=citation,
+        pack_path=pack_path,
+        page_mapping_schema_version=2,
+    )
+
+    with pytest.raises(ExpertEvaluationError, match="retained legal source evidence schema validation failed"):
+        load_expert_evaluation_dataset(
+            dataset_path,
+            validated_legal_pack_path=pack_path,
+            legal_attestation_path=attestation_path,
+            trusted_legal_attestation_key=curator_key,
+            legal_release_checkpoint_path=checkpoint_path,
+            legal_release_source_root=source_root,
+            trusted_legal_release_signing_key=release_key,
+            trusted_latest_legal_checkpoint_sha256=latest_hash,
+            now=datetime(2026, 7, 16, tzinfo=UTC),
+        )
+
+
+def test_page_mapping_proof_versions_do_not_infer_reviewer_identity(tmp_path: Path) -> None:
+    raw = _raw_dataset()
+    citation = _verified_tracked_citation(raw)
+    pack_path, _, _, _ = _write_signed_legal_pack(tmp_path, citation)
+    _, _, _, source_root, _, _, _ = _write_legal_release_checkpoint(
+        tmp_path,
+        raw_dataset=raw,
+        citation=citation,
+        pack_path=pack_path,
+    )
+    base = json.loads((source_root / "page-proof.json").read_text())
+
+    invalid_proofs = []
+    v1_with_owner = copy.deepcopy(base)
+    v1_with_owner["reviewed_by_owner_id"] = "page-reviewer"
+    invalid_proofs.append(v1_with_owner)
+    v1_with_v2_method = copy.deepcopy(base)
+    v1_with_v2_method["proof_method"] = "reviewed_source_page_mapping_v2"
+    invalid_proofs.append(v1_with_v2_method)
+    v2_without_owner = copy.deepcopy(base)
+    v2_without_owner.update(schema_version=2, proof_method="reviewed_source_page_mapping_v2")
+    invalid_proofs.append(v2_without_owner)
+    v2_with_v1_method = copy.deepcopy(base)
+    v2_with_v1_method.update(schema_version=2, reviewed_by_owner_id="page-reviewer")
+    invalid_proofs.append(v2_with_v1_method)
+    v2_with_invalid_owner = copy.deepcopy(base)
+    v2_with_invalid_owner.update(
+        schema_version=2,
+        proof_method="reviewed_source_page_mapping_v2",
+        reviewed_by_owner_id="../reviewer",
+    )
+    invalid_proofs.append(v2_with_invalid_owner)
+    coercible_v1_schema = copy.deepcopy(base)
+    coercible_v1_schema["schema_version"] = True
+    invalid_proofs.append(coercible_v1_schema)
+    coercible_v2_schema = copy.deepcopy(base)
+    coercible_v2_schema.update(
+        schema_version=2.0,
+        proof_method="reviewed_source_page_mapping_v2",
+        reviewed_by_owner_id="page-reviewer",
+    )
+    invalid_proofs.append(coercible_v2_schema)
+    numeric_review_timestamp = copy.deepcopy(base)
+    numeric_review_timestamp["reviewed_at"] = 1_752_000_000
+    invalid_proofs.append(numeric_review_timestamp)
+    numeric_string_review_timestamp = copy.deepcopy(base)
+    numeric_string_review_timestamp["reviewed_at"] = "1752000000"
+    invalid_proofs.append(numeric_string_review_timestamp)
+
+    for proof in invalid_proofs:
+        with pytest.raises(ValueError):
+            legal_release_evidence.PageMappingProof.model_validate(proof)
 
 
 def test_legal_release_parses_the_exact_acquisition_bytes_that_were_hash_checked(

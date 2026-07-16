@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -107,6 +108,72 @@ def test_required_or_partial_trust_policy_fails_with_content_free_error(capsys) 
     assert "/private/bank/policy.yml" not in captured.err
 
 
+def test_policy_scope_pins_are_required_only_in_bank_policy_mode(capsys) -> None:
+    result = main(["--trusted-bank-organization-id", "bank-org"])
+    captured = capsys.readouterr()
+    assert result == 4
+    assert json.loads(captured.err)["error_code"] == "EVALUATION_TRUST_POLICY_VALIDATION_FAILED"
+
+    result = main(
+        [
+            "--trust-mode",
+            "bank-policy",
+            "--bank-trust-policy",
+            "missing-policy.yml",
+            "--bank-trust-policy-signature",
+            "missing-policy.sig",
+            "--trusted-bank-policy-key",
+            "missing-root.pem",
+            "--trusted-current-bank-policy-sha256",
+            "f" * 64,
+            "--trusted-current-bank-policy-version",
+            "1",
+        ]
+    )
+    captured = capsys.readouterr()
+    assert result == 4
+    assert json.loads(captured.err)["error_code"] == "EVALUATION_TRUST_POLICY_VALIDATION_FAILED"
+
+
+def test_programmatic_policy_pins_are_strictly_typed() -> None:
+    inputs = ReleasePreflightInputs(
+        dataset=Path("unused.yml"),
+        corpus_manifest=None,
+        corpus_root=None,
+        trusted_dataset_key=None,
+        trusted_corpus_key=None,
+        legal_pack=None,
+        legal_attestation=None,
+        trusted_legal_attestation_key=None,
+        legal_release_checkpoint=None,
+        legal_release_source_root=None,
+        trusted_legal_release_key=None,
+        predecessor_legal_release_checkpoint=None,
+        trusted_latest_legal_checkpoint_sha256=None,
+        bank_trust_policy=Path("missing-policy.yml"),
+        bank_trust_policy_signature=Path("missing-policy.sig"),
+        trusted_bank_policy_key=Path("missing-root.pem"),
+        trust_mode="bank_policy",
+        trusted_current_bank_policy_sha256="a" * 64,
+        trusted_current_bank_policy_version=1,
+        trusted_bank_organization_id="bank-org",
+        trusted_bank_environment_id="openshift-production",
+        trusted_bank_deployment_scope="bank_production",
+    )
+    invalid_overrides = (
+        {"trusted_current_bank_policy_sha256": "not-a-hash"},
+        {"trusted_current_bank_policy_version": True},
+        {"trusted_current_bank_policy_version": 1.0},
+        {"trusted_bank_organization_id": "../bank"},
+        {"trusted_bank_environment_id": "invalid environment"},
+        {"trusted_bank_deployment_scope": "bank-production"},
+    )
+
+    for override in invalid_overrides:
+        with pytest.raises(release_preflight.EvaluationTrustPolicyError):
+            run_release_preflight(replace(inputs, **override))
+
+
 def test_signed_policy_forbids_a_manual_latest_head(capsys) -> None:
     result = main(
         [
@@ -182,6 +249,9 @@ def test_success_report_records_trust_identities_and_unsigned_checksum(monkeypat
     assert report["bank_authorization_verified"] is False
     assert report["configured_root_policy_signature_verified"] is False
     assert report["policy_approved_release_binding_verified"] is False
+    assert report["policy_deployment_scope_pin_verified"] is False
+    assert report["policy_bound_legal_source_reviews_verified"] is False
+    assert report["policy_bound_legal_source_review_count"] == 0
     assert report["latest_checkpoint_anchor_provenance"] == "caller_supplied_argument"
     assert report["legal_release_chain_checkpoint_count"] == 3
     assert readiness_calls == [validation]
@@ -200,6 +270,16 @@ def test_signed_policy_supplies_latest_head_and_emits_only_safe_policy_evidence(
                 checkpoint_sha256="1" * 64,
                 checkpoint_created_at=datetime(2026, 7, 15, tzinfo=UTC),
                 signing_key_fingerprint_sha256="2" * 64,
+            ),
+        ),
+        legal_release_configured_key_fingerprints_sha256=("2" * 64,),
+        legal_source_reviews=(
+            SimpleNamespace(
+                checkpoint_sha256="1" * 64,
+                artifact_id="art_sha256_" + "a" * 64,
+                reviewer_owner_id="page-reviewer",
+                reviewed_at=datetime(2026, 7, 15, tzinfo=UTC),
+                proof_schema_version=2,
             ),
         ),
         legal_pack_sha256="3" * 64,
@@ -238,6 +318,8 @@ def test_signed_policy_supplies_latest_head_and_emits_only_safe_policy_evidence(
         policy_valid_until=datetime(2026, 8, 1, tzinfo=UTC),
         approved_checkpoint_sha256="1" * 64,
         authorized_owner_count=4,
+        authorized_reviewer_count=1,
+        policy_bound_legal_source_review_count=1,
     )
     load_calls = []
 
@@ -271,6 +353,9 @@ def test_signed_policy_supplies_latest_head_and_emits_only_safe_policy_evidence(
         trust_mode="bank_policy",
         trusted_current_bank_policy_sha256="a" * 64,
         trusted_current_bank_policy_version=1,
+        trusted_bank_organization_id="bank-org",
+        trusted_bank_environment_id="openshift-production",
+        trusted_bank_deployment_scope="bank_production",
     )
 
     report = run_release_preflight(inputs)
@@ -281,11 +366,15 @@ def test_signed_policy_supplies_latest_head_and_emits_only_safe_policy_evidence(
     assert report["configured_root_policy_signature_verified"] is True
     assert report["policy_approved_release_binding_verified"] is True
     assert report["policy_current_head_pin_verified"] is True
+    assert report["policy_deployment_scope_pin_verified"] is True
     assert report["bank_authorization_verified"] is False
     assert report["model_scores_authorized"] is False
     assert report["latest_checkpoint_anchor_provenance"] == "signed_evaluation_trust_policy"
     assert report["trust_policy_id"] == "bank-policy-v1"
     assert report["trust_policy_authorized_owner_count"] == 4
+    assert report["trust_policy_authorized_reviewer_count"] == 1
+    assert report["policy_bound_legal_source_reviews_verified"] is True
+    assert report["policy_bound_legal_source_review_count"] == 1
     assert "owner_id" not in json.dumps(report)
 
 
@@ -321,6 +410,9 @@ def test_bank_policy_mode_rejects_a_stale_but_signed_policy_head(monkeypatch) ->
         trust_mode="bank_policy",
         trusted_current_bank_policy_sha256="b" * 64,
         trusted_current_bank_policy_version=2,
+        trusted_bank_organization_id="bank-org",
+        trusted_bank_environment_id="openshift-production",
+        trusted_bank_deployment_scope="bank_production",
     )
 
     with pytest.raises(release_preflight.EvaluationTrustPolicyError):

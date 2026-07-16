@@ -5,8 +5,9 @@ does not, by itself, prove that the acquired source bytes, acquisition record,
 or source-page mapping were retained for an auditor.  This module verifies a
 separately signed, append-only checkpoint over those external artifacts.
 
-The caller must separately provide the bank-approved hash of the latest
-checkpoint.  A checkpoint cannot truthfully declare itself to be latest.
+The verifier must receive an independent latest-checkpoint anchor: an explicit
+hash in policy-free development or the approved head from a separately verified
+trust policy. A checkpoint cannot truthfully declare itself to be latest.
 """
 
 from __future__ import annotations
@@ -48,6 +49,7 @@ _SHA256_PATTERN = r"^[0-9a-f]{64}$"
 _ARTIFACT_ID_PATTERN = r"^art_sha256_[0-9a-f]{64}$"
 _BLOB_ID_PATTERN = r"^blob_sha256_[0-9a-f]{64}$"
 _CITATION_ID_PATTERN = r"^cite_sha256_[0-9a-f]{64}$"
+_OWNER_ID_PATTERN = r"^[a-z0-9][a-z0-9._:@/-]{2,127}$"
 
 
 class LegalReleaseEvidenceError(ValueError):
@@ -202,8 +204,8 @@ class CitationPageMapping(_StrictModel):
 
 
 class PageMappingProof(_StrictModel):
-    schema_version: Literal[1]
-    proof_method: Literal["reviewed_source_page_mapping_v1"]
+    schema_version: Literal[1, 2]
+    proof_method: Literal["reviewed_source_page_mapping_v1", "reviewed_source_page_mapping_v2"]
     mapping_profile: Literal["exact_utf8_excerpt_in_concatenated_page_text_v1"]
     artifact_id: str = Field(pattern=_ARTIFACT_ID_PATTERN)
     source_bytes_sha256: str = Field(pattern=_SHA256_PATTERN)
@@ -211,7 +213,27 @@ class PageMappingProof(_StrictModel):
     pages: tuple[SourcePage, ...] = Field(min_length=1, max_length=100_000)
     citation_mappings: tuple[CitationPageMapping, ...] = Field(min_length=1, max_length=10_000)
     reviewed_by_role: Literal["legal_source_reviewer"]
+    reviewed_by_owner_id: str | None = Field(default=None, pattern=_OWNER_ID_PATTERN)
     reviewed_at: datetime
+
+    @field_validator("schema_version", mode="before")
+    @classmethod
+    def _strict_schema_version(cls, value: object) -> object:
+        if type(value) is not int:
+            raise ValueError("page mapping schema version must be an integer")
+        return value
+
+    @field_validator("reviewed_at", mode="before")
+    @classmethod
+    def _reject_numeric_reviewed_at(cls, value: object) -> object:
+        if isinstance(value, (bool, int, float)):
+            raise ValueError("page mapping review timestamp must be ISO text or a datetime")
+        if isinstance(value, str) and re.fullmatch(
+            r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?",
+            value.strip(),
+        ):
+            raise ValueError("page mapping review timestamp must not be a numeric string")
+        return value
 
     @field_validator("reviewed_at")
     @classmethod
@@ -222,6 +244,14 @@ class PageMappingProof(_StrictModel):
 
     @model_validator(mode="after")
     def _canonical_and_closed_mapping(self) -> PageMappingProof:
+        if self.schema_version == 1 and (
+            self.proof_method != "reviewed_source_page_mapping_v1" or self.reviewed_by_owner_id is not None
+        ):
+            raise ValueError("page mapping v1 cannot claim a policy-bound reviewer")
+        if self.schema_version == 2 and (
+            self.proof_method != "reviewed_source_page_mapping_v2" or self.reviewed_by_owner_id is None
+        ):
+            raise ValueError("page mapping v2 requires a policy-bound reviewer owner")
         page_numbers = tuple(item.page_number for item in self.pages)
         if len(page_numbers) != len(set(page_numbers)) or page_numbers != tuple(sorted(page_numbers)):
             raise ValueError("source pages must be unique and canonically ordered")
@@ -249,6 +279,8 @@ class LegalReleaseEvidenceValidation:
     artifact_count: int
     citation_count: int
     chain_signers: tuple[LegalReleaseCheckpointSigner, ...]
+    configured_signing_key_fingerprints_sha256: tuple[str, ...]
+    source_reviews: tuple[LegalSourceReview, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -256,6 +288,15 @@ class LegalReleaseCheckpointSigner:
     checkpoint_sha256: str
     checkpoint_created_at: datetime
     signing_key_fingerprint_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class LegalSourceReview:
+    checkpoint_sha256: str
+    artifact_id: str
+    proof_schema_version: int
+    reviewer_owner_id: str | None
+    reviewed_at: datetime
 
 
 @dataclass(frozen=True, slots=True)
@@ -546,8 +587,8 @@ def _verify_checkpoint_retention(
         try:
             acquisition = AcquisitionRecord.model_validate(raw_acquisition)
             page_proof = PageMappingProof.model_validate(raw_page_proof)
-        except (ValueError, RecursionError) as exc:
-            raise LegalReleaseEvidenceError("retained legal source evidence schema validation failed") from exc
+        except (ValueError, RecursionError):
+            raise LegalReleaseEvidenceError("retained legal source evidence schema validation failed") from None
 
         if (
             acquisition.artifact_id != evidence.artifact_id
@@ -614,6 +655,22 @@ def _verify_checkpoint_retention(
     return retained
 
 
+def _source_reviews(
+    checkpoint: LegalReleaseCheckpoint,
+    retained: dict[str, _RetainedArtifact],
+) -> tuple[LegalSourceReview, ...]:
+    return tuple(
+        LegalSourceReview(
+            checkpoint_sha256=checkpoint.integrity.checkpoint_sha256,
+            artifact_id=artifact_id,
+            proof_schema_version=artifact.page_proof.schema_version,
+            reviewer_owner_id=artifact.page_proof.reviewed_by_owner_id,
+            reviewed_at=artifact.page_proof.reviewed_at,
+        )
+        for artifact_id, artifact in sorted(retained.items())
+    )
+
+
 def validate_legal_release_evidence(
     *,
     checkpoint_path: str | Path,
@@ -639,6 +696,9 @@ def validate_legal_release_evidence(
     trusted_keyring, primary_key_sha256 = _load_trusted_signing_keyring(
         (trusted_signing_key, *trusted_predecessor_signing_keys)
     )
+    configured_signing_key_fingerprints = tuple(
+        trusted_key.key_fingerprint_sha256 for trusted_key in trusted_keyring.values()
+    )
     checkpoint, _, key_sha256, key_fingerprint = _verify_checkpoint_signature(
         checkpoint_file,
         trusted_keyring,
@@ -663,6 +723,7 @@ def validate_legal_release_evidence(
     root = Path(source_root).resolve()
     retention_budget = _RetentionBudget()
     retained_by_artifact = _verify_checkpoint_retention(checkpoint, root=root, budget=retention_budget)
+    source_review_batches = [_source_reviews(checkpoint, retained_by_artifact)]
     supplied_predecessor = Path(predecessor_checkpoint_path).resolve() if predecessor_checkpoint_path else None
     chain_path = checkpoint_file
     chain_checkpoint = checkpoint
@@ -700,7 +761,8 @@ def validate_legal_release_evidence(
             raise LegalReleaseEvidenceError("legal release predecessor chain contains a cycle")
         if predecessor.created_at >= chain_checkpoint.created_at:
             raise LegalReleaseEvidenceError("legal release predecessor does not predate the checkpoint")
-        _verify_checkpoint_retention(predecessor, root=root, budget=retention_budget)
+        predecessor_retained = _verify_checkpoint_retention(predecessor, root=root, budget=retention_budget)
+        source_review_batches.append(_source_reviews(predecessor, predecessor_retained))
         seen_checkpoints.add(predecessor.integrity.checkpoint_sha256)
         chain_signers.append(
             LegalReleaseCheckpointSigner(
@@ -782,6 +844,8 @@ def validate_legal_release_evidence(
         artifact_count=len(evidence_by_artifact),
         citation_count=len(citation_by_id),
         chain_signers=tuple(reversed(chain_signers)),
+        configured_signing_key_fingerprints_sha256=configured_signing_key_fingerprints,
+        source_reviews=tuple(review for batch in reversed(source_review_batches) for review in batch),
     )
 
 
@@ -789,6 +853,7 @@ __all__ = (
     "LegalReleaseEvidenceError",
     "LegalReleaseEvidenceValidation",
     "LegalReleaseCheckpointSigner",
+    "LegalSourceReview",
     "canonical_checkpoint_payload",
     "canonical_checkpoint_sha256",
     "validate_legal_release_evidence",

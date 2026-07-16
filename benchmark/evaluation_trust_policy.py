@@ -3,12 +3,13 @@
 The evaluation artifacts prove cryptographic consistency.  This module adds a
 separate authority boundary: an exact policy file signed by a configured
 Ed25519 root intended for bank control binds operational signer fingerprints to
-roles and opaque owner identities, constrains their authorization windows,
-records revocations, and approves one legal-release checkpoint head. Runtime
-verification cannot by itself prove who controls that configured root.
+roles and opaque owner identities, authorizes separate legal-source reviewer
+owners, constrains validity/revocation, declares deployment scope, and approves
+one legal-release checkpoint head. Runtime verification cannot by itself prove
+who controls that configured root or who performed a declared review.
 
-No policy or owner data is copied into public evidence beyond bounded,
-privacy-safe identifiers and aggregate counts.
+Owner IDs and labels are not copied into public evidence. Only bounded policy
+identifiers, fingerprints, booleans, and aggregate counts are emitted.
 """
 
 from __future__ import annotations
@@ -22,12 +23,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, field_validator, model_validator
 
 from bddk_mcp.release_yaml import ReleaseYamlError, load_bounded_release_yaml
 from benchmark.signing import ed25519_public_key_fingerprint_sha256
@@ -37,6 +38,7 @@ _MAX_PUBLIC_KEY_BYTES = 16 * 1024
 _MAX_SIGNATURE_BYTES = 1_024
 _SHA256_PATTERN = r"^[0-9a-f]{64}$"
 _IDENTIFIER_PATTERN = r"^[a-z0-9][a-z0-9._:@/-]{2,127}$"
+_ARTIFACT_ID_PATTERN = r"^art_sha256_[0-9a-f]{64}$"
 
 EvaluationSignerRole = Literal[
     "corpus_scope_approver",
@@ -60,6 +62,24 @@ def _aware_utc(value: datetime) -> datetime:
     return value.astimezone(UTC)
 
 
+def _reject_numeric_timestamp(value: object) -> object:
+    if isinstance(value, (bool, int, float)):
+        raise ValueError("trust-policy timestamps must be ISO text or datetime values")
+    if isinstance(value, str) and re.fullmatch(
+        r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?",
+        value.strip(),
+    ):
+        raise ValueError("trust-policy timestamps must not be numeric strings")
+    return value
+
+
+_PolicyTimestamp = Annotated[
+    datetime,
+    BeforeValidator(_reject_numeric_timestamp),
+    AfterValidator(_aware_utc),
+]
+
+
 def _audit_label(value: str) -> str:
     if value != value.strip() or any(unicodedata.category(character).startswith("C") for character in value):
         raise ValueError("trust-policy labels must be trimmed printable text")
@@ -73,12 +93,10 @@ class AuthorizedSigner(_StrictModel):
     owner_id: str = Field(pattern=_IDENTIFIER_PATTERN)
     owner_label: str = Field(min_length=1, max_length=200)
     key_fingerprint_sha256: str = Field(pattern=_SHA256_PATTERN)
-    valid_from: datetime
-    valid_until: datetime
+    valid_from: _PolicyTimestamp
+    valid_until: _PolicyTimestamp
     replaces_key_id: str | None = Field(default=None, pattern=_IDENTIFIER_PATTERN)
 
-    _normalize_valid_from = field_validator("valid_from")(_aware_utc)
-    _normalize_valid_until = field_validator("valid_until")(_aware_utc)
     _validate_owner_label = field_validator("owner_label")(_audit_label)
 
     @model_validator(mode="after")
@@ -161,20 +179,38 @@ class EvaluationSignerRegistry(_StrictModel):
         )
 
 
-class KeyRevocation(_StrictModel):
-    key_fingerprint_sha256: str = Field(pattern=_SHA256_PATTERN)
-    revoked_at: datetime
+class AuthorizedLegalSourceReviewer(_StrictModel):
+    owner_id: str = Field(pattern=_IDENTIFIER_PATTERN)
+    owner_label: str = Field(min_length=1, max_length=200)
+    role: Literal["legal_source_reviewer"]
+    valid_from: _PolicyTimestamp
+    valid_until: _PolicyTimestamp
+
+    _validate_owner_label = field_validator("owner_label")(_audit_label)
+
+    @model_validator(mode="after")
+    def _ordered_window(self) -> AuthorizedLegalSourceReviewer:
+        if self.valid_from >= self.valid_until:
+            raise ValueError("legal source reviewer validity window is empty")
+        return self
+
+
+class ReviewerRevocation(_StrictModel):
+    owner_id: str = Field(pattern=_IDENTIFIER_PATTERN)
+    revoked_at: _PolicyTimestamp
     reason_code: str = Field(pattern=r"^[a-z][a-z0-9_]{2,63}$")
 
-    _normalize_revoked_at = field_validator("revoked_at")(_aware_utc)
+
+class KeyRevocation(_StrictModel):
+    key_fingerprint_sha256: str = Field(pattern=_SHA256_PATTERN)
+    revoked_at: _PolicyTimestamp
+    reason_code: str = Field(pattern=r"^[a-z][a-z0-9_]{2,63}$")
 
 
 class CheckpointRevocation(_StrictModel):
     checkpoint_sha256: str = Field(pattern=_SHA256_PATTERN)
-    revoked_at: datetime
+    revoked_at: _PolicyTimestamp
     reason_code: str = Field(pattern=r"^[a-z][a-z0-9_]{2,63}$")
-
-    _normalize_revoked_at = field_validator("revoked_at")(_aware_utc)
 
 
 class ApprovedRelease(_StrictModel):
@@ -183,19 +219,17 @@ class ApprovedRelease(_StrictModel):
     legal_pack_sha256: str = Field(pattern=_SHA256_PATTERN)
     legal_attestation_sha256: str = Field(pattern=_SHA256_PATTERN)
     legal_release_checkpoint_sha256: str = Field(pattern=_SHA256_PATTERN)
-    approved_at: datetime
+    approved_at: _PolicyTimestamp
     approval_record_id: str = Field(pattern=_IDENTIFIER_PATTERN)
-
-    _normalize_approved_at = field_validator("approved_at")(_aware_utc)
 
 
 class EvaluationTrustPolicy(_StrictModel):
     """Closed schema signed verbatim by the bank policy authority."""
 
-    schema_version: Literal[1]
+    schema_version: Literal[2]
     purpose: Literal["bddk_mcp_expert_evaluation_release"]
     policy_id: str = Field(pattern=_IDENTIFIER_PATTERN)
-    policy_version: int = Field(ge=1)
+    policy_version: int = Field(strict=True, ge=1)
     supersedes_policy_sha256: str | None = Field(default=None, pattern=_SHA256_PATTERN)
     organization_id: str = Field(pattern=_IDENTIFIER_PATTERN)
     environment_id: str = Field(pattern=_IDENTIFIER_PATTERN)
@@ -203,18 +237,24 @@ class EvaluationTrustPolicy(_StrictModel):
     issuer_label: str = Field(min_length=1, max_length=200)
     issuer_role: Literal["bank_trust_policy_authority"]
     deployment_scope: Literal["bank_production"]
-    issued_at: datetime
-    valid_from: datetime
-    valid_until: datetime
+    issued_at: _PolicyTimestamp
+    valid_from: _PolicyTimestamp
+    valid_until: _PolicyTimestamp
     approved_release: ApprovedRelease
     authorized_signers: EvaluationSignerRegistry
+    authorized_legal_source_reviewers: tuple[AuthorizedLegalSourceReviewer, ...] = Field(min_length=1, max_length=256)
     revoked_keys: tuple[KeyRevocation, ...] = Field(default=(), max_length=256)
+    revoked_legal_source_reviewers: tuple[ReviewerRevocation, ...] = Field(default=(), max_length=256)
     revoked_legal_release_checkpoints: tuple[CheckpointRevocation, ...] = Field(default=(), max_length=256)
 
-    _normalize_issued_at = field_validator("issued_at")(_aware_utc)
-    _normalize_valid_from = field_validator("valid_from")(_aware_utc)
-    _normalize_valid_until = field_validator("valid_until")(_aware_utc)
     _validate_issuer_label = field_validator("issuer_label")(_audit_label)
+
+    @field_validator("schema_version", mode="before")
+    @classmethod
+    def _strict_schema_version(cls, value: object) -> object:
+        if type(value) is not int:
+            raise ValueError("trust-policy schema version must be an integer")
+        return value
 
     @model_validator(mode="after")
     def _closed_timeline_and_revocations(self) -> EvaluationTrustPolicy:
@@ -235,6 +275,21 @@ class EvaluationTrustPolicy(_StrictModel):
             raise ValueError("trust-policy key revocation references an unknown signer")
         if self.issuer_id in {entry.owner_id for entry in self.authorized_signers.all_entries()}:
             raise ValueError("trust-policy authority must be separate from operational signer owners")
+        reviewer_order = tuple(item.owner_id for item in self.authorized_legal_source_reviewers)
+        if len(reviewer_order) != len(set(reviewer_order)) or reviewer_order != tuple(sorted(reviewer_order)):
+            raise ValueError("legal source reviewers must be unique and canonically ordered")
+        operational_owners = {entry.owner_id for entry in self.authorized_signers.all_entries()}
+        if self.issuer_id in reviewer_order or operational_owners & set(reviewer_order):
+            raise ValueError("legal source reviewers must be separate from policy and signer owners")
+        reviewer_revocation_order = tuple(
+            (item.owner_id, item.revoked_at, item.reason_code) for item in self.revoked_legal_source_reviewers
+        )
+        if (
+            len({item[0] for item in reviewer_revocation_order}) != len(reviewer_revocation_order)
+            or reviewer_revocation_order != tuple(sorted(reviewer_revocation_order))
+            or not {item[0] for item in reviewer_revocation_order} <= set(reviewer_order)
+        ):
+            raise ValueError("legal source reviewer revocations are invalid or non-canonical")
         checkpoint_order = tuple(
             (item.checkpoint_sha256, item.revoked_at, item.reason_code)
             for item in self.revoked_legal_release_checkpoints
@@ -264,6 +319,8 @@ class EvaluationTrustAuthorization:
     policy_valid_until: datetime
     approved_checkpoint_sha256: str
     authorized_owner_count: int
+    authorized_reviewer_count: int
+    policy_bound_legal_source_review_count: int
 
 
 def _bounded_regular_bytes(path: Path, *, label: str, maximum_bytes: int) -> bytes:
@@ -300,6 +357,9 @@ def load_signed_evaluation_trust_policy(
     trusted_policy_signing_key: str | Path,
     *,
     current: datetime,
+    expected_organization_id: str | None = None,
+    expected_environment_id: str | None = None,
+    expected_deployment_scope: str | None = None,
 ) -> SignedEvaluationTrustPolicy:
     """Verify an exact signed policy and its current global validity."""
 
@@ -330,8 +390,8 @@ def load_signed_evaluation_trust_policy(
         if not isinstance(raw, dict):
             raise ValueError("policy is not an object")
         policy = EvaluationTrustPolicy.model_validate(raw)
-    except (ReleaseYamlError, ValueError, RecursionError) as exc:
-        raise EvaluationTrustPolicyError("evaluation trust-policy schema validation failed") from exc
+    except (ReleaseYamlError, ValueError, RecursionError):
+        raise EvaluationTrustPolicyError("evaluation trust-policy schema validation failed") from None
 
     if policy.issued_at > now:
         raise EvaluationTrustPolicyError("evaluation trust policy is from the future")
@@ -339,6 +399,20 @@ def load_signed_evaluation_trust_policy(
         raise EvaluationTrustPolicyError("evaluation trust policy is not currently valid")
     if policy.approved_release.approved_at > now:
         raise EvaluationTrustPolicyError("evaluation trust-policy approval is from the future")
+    expected_scope = (
+        expected_organization_id,
+        expected_environment_id,
+        expected_deployment_scope,
+    )
+    if any(value is not None for value in expected_scope):
+        if not all(value is not None for value in expected_scope):
+            raise EvaluationTrustPolicyError("expected evaluation trust-policy scope is incomplete")
+        if expected_scope != (
+            policy.organization_id,
+            policy.environment_id,
+            policy.deployment_scope,
+        ):
+            raise EvaluationTrustPolicyError("evaluation trust policy is for a different deployment scope")
 
     root_fingerprint = ed25519_public_key_fingerprint_sha256(public_key)
     if any(entry.key_fingerprint_sha256 == root_fingerprint for entry in policy.authorized_signers.all_entries()):
@@ -410,6 +484,8 @@ def authorize_evaluation_trust_chain(
     legal_release_signer_fingerprint_sha256: str,
     legal_release_authorized_at: datetime,
     legal_release_chain_signers: Sequence[tuple[str, datetime, str]],
+    legal_release_configured_key_fingerprints_sha256: Sequence[str],
+    legal_source_reviews: Sequence[tuple[str, str, str | None, datetime, int]],
     dataset_sha256: str,
     corpus_manifest_sha256: str,
     legal_pack_sha256: str,
@@ -444,6 +520,7 @@ def authorize_evaluation_trust_chain(
         raise EvaluationTrustPolicyError("legal release signer history is empty")
     checkpoint_ids = tuple(item[2] for item in legal_release_chain_signers)
     checkpoint_times = tuple(_current_utc(item[1]) for item in legal_release_chain_signers)
+    checkpoint_time_by_id = dict(zip(checkpoint_ids, checkpoint_times, strict=True))
     if (
         len(checkpoint_ids) != len(set(checkpoint_ids))
         or checkpoint_times != tuple(sorted(checkpoint_times))
@@ -452,23 +529,12 @@ def authorize_evaluation_trust_chain(
         or checkpoint_ids[-1] != legal_release_checkpoint_sha256
     ):
         raise EvaluationTrustPolicyError("legal release signer history is inconsistent")
-    artifact_authorization_times = (
-        _current_utc(corpus_authorized_at),
-        _current_utc(dataset_authorized_at),
-        _current_utc(legal_curator_authorized_at),
-        *checkpoint_times,
-    )
-    if policy.approved_release.approved_at < max(artifact_authorization_times):
-        raise EvaluationTrustPolicyError("trust-policy approval predates its approved release evidence")
     for checkpoint_sha256 in checkpoint_ids:
         if re.fullmatch(_SHA256_PATTERN, checkpoint_sha256) is None:
             raise EvaluationTrustPolicyError("legal release signer history contains an invalid checkpoint")
         for revocation in policy.revoked_legal_release_checkpoints:
             if revocation.checkpoint_sha256 == checkpoint_sha256 and revocation.revoked_at <= now:
                 raise EvaluationTrustPolicyError("legal release checkpoint has been revoked")
-    if not {item.checkpoint_sha256 for item in policy.revoked_legal_release_checkpoints} <= set(checkpoint_ids):
-        raise EvaluationTrustPolicyError("trust-policy checkpoint revocation is outside the approved chain")
-
     role_inputs: tuple[tuple[EvaluationSignerRole, str, datetime], ...] = (
         ("corpus_scope_approver", corpus_signer_fingerprint_sha256, corpus_authorized_at),
         ("expert_dataset_owner", dataset_signer_fingerprint_sha256, dataset_authorized_at),
@@ -500,6 +566,65 @@ def authorize_evaluation_trust_chain(
     )
     _require_forward_key_rotation(historical_release_entries, policy.authorized_signers)
     owners.update(entry.owner_id for entry in historical_release_entries)
+    configured_key_fingerprints = tuple(legal_release_configured_key_fingerprints_sha256)
+    observed_release_key_fingerprints = {item[0] for item in legal_release_chain_signers}
+    effective_revoked_key_fingerprints = {
+        item.key_fingerprint_sha256 for item in policy.revoked_keys if item.revoked_at <= now
+    }
+    authorized_release_key_fingerprints = {
+        entry.key_fingerprint_sha256 for entry in policy.authorized_signers.legal_release_certifier
+    } - effective_revoked_key_fingerprints
+    if (
+        not configured_key_fingerprints
+        or len(configured_key_fingerprints) != len(set(configured_key_fingerprints))
+        or configured_key_fingerprints[0] != legal_release_signer_fingerprint_sha256
+        or not observed_release_key_fingerprints <= set(configured_key_fingerprints)
+        or not set(configured_key_fingerprints) <= authorized_release_key_fingerprints
+    ):
+        raise EvaluationTrustPolicyError("configured legal release keyring is not authorized by the policy")
+
+    if not legal_source_reviews:
+        raise EvaluationTrustPolicyError("legal source reviewer history is empty")
+    review_identities = tuple((review[0], review[1]) for review in legal_source_reviews)
+    if len(review_identities) != len(set(review_identities)):
+        raise EvaluationTrustPolicyError("legal source reviewer history contains a duplicate artifact review")
+    if {identity[0] for identity in review_identities} != set(checkpoint_ids):
+        raise EvaluationTrustPolicyError("legal source reviewer history differs from the checkpoint chain")
+    reviewer_owners: set[str] = set()
+    review_times: list[datetime] = []
+    reviewer_by_owner = {reviewer.owner_id: reviewer for reviewer in policy.authorized_legal_source_reviewers}
+    for checkpoint_sha256, artifact_id, owner_id, reviewed_at, proof_schema_version in legal_source_reviews:
+        if (
+            re.fullmatch(_SHA256_PATTERN, checkpoint_sha256) is None
+            or re.fullmatch(_ARTIFACT_ID_PATTERN, artifact_id) is None
+        ):
+            raise EvaluationTrustPolicyError("legal source reviewer history contains an invalid identity")
+        if type(proof_schema_version) is not int or proof_schema_version != 2 or owner_id is None:
+            raise EvaluationTrustPolicyError("policy authorization requires page-mapping proof v2")
+        review_time = _current_utc(reviewed_at)
+        checkpoint_time = checkpoint_time_by_id[checkpoint_sha256]
+        if review_time > checkpoint_time or checkpoint_time > now:
+            raise EvaluationTrustPolicyError("legal source review chronology is invalid")
+        reviewer = reviewer_by_owner.get(owner_id)
+        if reviewer is None or not reviewer.valid_from <= review_time < reviewer.valid_until:
+            raise EvaluationTrustPolicyError("legal source reviewer is not authorized for the review time")
+        if any(
+            revocation.owner_id == owner_id and revocation.revoked_at <= now
+            for revocation in policy.revoked_legal_source_reviewers
+        ):
+            raise EvaluationTrustPolicyError("legal source reviewer has been revoked")
+        reviewer_owners.add(owner_id)
+        review_times.append(review_time)
+
+    artifact_authorization_times = (
+        _current_utc(corpus_authorized_at),
+        _current_utc(dataset_authorized_at),
+        _current_utc(legal_curator_authorized_at),
+        *checkpoint_times,
+        *review_times,
+    )
+    if policy.approved_release.approved_at < max(artifact_authorization_times):
+        raise EvaluationTrustPolicyError("trust-policy approval predates its approved release evidence")
 
     return EvaluationTrustAuthorization(
         policy_id=policy.policy_id,
@@ -509,11 +634,14 @@ def authorize_evaluation_trust_chain(
         policy_valid_until=policy.valid_until,
         approved_checkpoint_sha256=policy.approved_release.legal_release_checkpoint_sha256,
         authorized_owner_count=len(owners),
+        authorized_reviewer_count=len(reviewer_owners),
+        policy_bound_legal_source_review_count=len(legal_source_reviews),
     )
 
 
 __all__ = (
     "ApprovedRelease",
+    "AuthorizedLegalSourceReviewer",
     "AuthorizedSigner",
     "CheckpointRevocation",
     "EvaluationSignerRegistry",
@@ -521,6 +649,7 @@ __all__ = (
     "EvaluationTrustPolicy",
     "EvaluationTrustPolicyError",
     "KeyRevocation",
+    "ReviewerRevocation",
     "SignedEvaluationTrustPolicy",
     "authorize_evaluation_trust_chain",
     "load_signed_evaluation_trust_policy",

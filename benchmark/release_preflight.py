@@ -59,6 +59,12 @@ def _positive_policy_version(value: str) -> int:
     return parsed
 
 
+def _policy_identifier(value: str) -> str:
+    if re.fullmatch(r"[a-z0-9][a-z0-9._:@/-]{2,127}", value) is None:
+        raise argparse.ArgumentTypeError("invalid policy scope identifier")
+    return value
+
+
 @dataclass(frozen=True, slots=True)
 class ReleasePreflightInputs:
     dataset: Path
@@ -81,6 +87,28 @@ class ReleasePreflightInputs:
     trusted_current_bank_policy_sha256: str | None = None
     trusted_current_bank_policy_version: int | None = None
     trusted_legal_release_predecessor_keys: tuple[Path, ...] = ()
+    trusted_bank_organization_id: str | None = None
+    trusted_bank_environment_id: str | None = None
+    trusted_bank_deployment_scope: str | None = None
+
+
+def _validate_programmatic_policy_pins(inputs: ReleasePreflightInputs) -> None:
+    if inputs.trusted_current_bank_policy_sha256 is not None and (
+        not isinstance(inputs.trusted_current_bank_policy_sha256, str)
+        or re.fullmatch(r"[0-9a-f]{64}", inputs.trusted_current_bank_policy_sha256) is None
+    ):
+        raise EvaluationTrustPolicyError("current bank-policy SHA-256 pin is invalid")
+    if inputs.trusted_current_bank_policy_version is not None and (
+        type(inputs.trusted_current_bank_policy_version) is not int or inputs.trusted_current_bank_policy_version < 1
+    ):
+        raise EvaluationTrustPolicyError("current bank-policy version pin is invalid")
+    for value in (inputs.trusted_bank_organization_id, inputs.trusted_bank_environment_id):
+        if value is not None and (
+            not isinstance(value, str) or re.fullmatch(r"[a-z0-9][a-z0-9._:@/-]{2,127}", value) is None
+        ):
+            raise EvaluationTrustPolicyError("bank-policy deployment identity pin is invalid")
+    if inputs.trusted_bank_deployment_scope is not None and inputs.trusted_bank_deployment_scope != "bank_production":
+        raise EvaluationTrustPolicyError("bank-policy deployment scope pin is invalid")
 
 
 def _trusted_now() -> datetime:
@@ -106,6 +134,7 @@ def run_release_preflight(inputs: ReleasePreflightInputs) -> dict:
     current = _trusted_now().astimezone(UTC)
     if inputs.trust_mode not in {"development", "bank_policy"}:
         raise EvaluationTrustPolicyError("evaluation trust mode is invalid")
+    _validate_programmatic_policy_pins(inputs)
     policy_inputs = (
         inputs.bank_trust_policy,
         inputs.bank_trust_policy_signature,
@@ -117,13 +146,20 @@ def run_release_preflight(inputs: ReleasePreflightInputs) -> dict:
         inputs.trusted_current_bank_policy_sha256,
         inputs.trusted_current_bank_policy_version,
     )
+    policy_scope_inputs = (
+        inputs.trusted_bank_organization_id,
+        inputs.trusted_bank_environment_id,
+        inputs.trusted_bank_deployment_scope,
+    )
     if inputs.trust_mode == "bank_policy":
         if not all(value is not None for value in policy_inputs):
             raise EvaluationTrustPolicyError("bank-policy mode requires a signed evaluation trust policy")
         if not all(value is not None for value in policy_head_inputs):
             raise EvaluationTrustPolicyError("bank-policy mode requires a pinned current policy head")
-    elif any(value is not None for value in policy_head_inputs):
-        raise EvaluationTrustPolicyError("current bank-policy pins are forbidden in development mode")
+        if not all(value is not None for value in policy_scope_inputs):
+            raise EvaluationTrustPolicyError("bank-policy mode requires a pinned deployment scope")
+    elif any(value is not None for value in (*policy_head_inputs, *policy_scope_inputs)):
+        raise EvaluationTrustPolicyError("bank-policy pins are forbidden in development mode")
 
     signed_policy = None
     if all(value is not None for value in policy_inputs):
@@ -134,6 +170,15 @@ def run_release_preflight(inputs: ReleasePreflightInputs) -> dict:
             inputs.bank_trust_policy_signature,
             inputs.trusted_bank_policy_key,
             current=current,
+            expected_organization_id=(
+                inputs.trusted_bank_organization_id if inputs.trust_mode == "bank_policy" else None
+            ),
+            expected_environment_id=(
+                inputs.trusted_bank_environment_id if inputs.trust_mode == "bank_policy" else None
+            ),
+            expected_deployment_scope=(
+                inputs.trusted_bank_deployment_scope if inputs.trust_mode == "bank_policy" else None
+            ),
         )
         if inputs.trust_mode == "bank_policy" and (
             signed_policy.policy_sha256 != inputs.trusted_current_bank_policy_sha256
@@ -180,6 +225,8 @@ def run_release_preflight(inputs: ReleasePreflightInputs) -> dict:
             validation.legal_attestation_sha256,
             dataset_authorized_at,
             validation.legal_release_chain_signers,
+            validation.legal_release_configured_key_fingerprints_sha256,
+            validation.legal_source_reviews,
         )
         if any(value is None for value in required_policy_values):
             raise EvaluationTrustPolicyError("release evidence lacks a policy authorization identity")
@@ -200,6 +247,19 @@ def run_release_preflight(inputs: ReleasePreflightInputs) -> dict:
                     signer.checkpoint_sha256,
                 )
                 for signer in validation.legal_release_chain_signers
+            ),
+            legal_release_configured_key_fingerprints_sha256=(
+                validation.legal_release_configured_key_fingerprints_sha256
+            ),
+            legal_source_reviews=tuple(
+                (
+                    review.checkpoint_sha256,
+                    review.artifact_id,
+                    review.reviewer_owner_id,
+                    review.reviewed_at,
+                    review.proof_schema_version,
+                )
+                for review in validation.legal_source_reviews
             ),
             dataset_sha256=profile.dataset_sha256,
             corpus_manifest_sha256=profile.corpus_manifest_sha256,
@@ -237,6 +297,7 @@ def run_release_preflight(inputs: ReleasePreflightInputs) -> dict:
         "configured_root_policy_signature_verified": policy_verified,
         "policy_approved_release_binding_verified": policy_verified,
         "policy_current_head_pin_verified": policy_head_pin_verified,
+        "policy_deployment_scope_pin_verified": policy_head_pin_verified,
         "configured_policy_input_provenance": ("caller_or_deployment_supplied" if policy_verified else "not_supplied"),
         "model_scores_authorized": False,
         "reason_model_scores_not_authorized": "expert_dataset_execution_not_implemented",
@@ -281,6 +342,13 @@ def run_release_preflight(inputs: ReleasePreflightInputs) -> dict:
         "trust_policy_authorized_owner_count": (
             policy_authorization.authorized_owner_count if policy_authorization else 0
         ),
+        "trust_policy_authorized_reviewer_count": (
+            policy_authorization.authorized_reviewer_count if policy_authorization else 0
+        ),
+        "policy_bound_legal_source_reviews_verified": policy_authorization is not None,
+        "policy_bound_legal_source_review_count": (
+            policy_authorization.policy_bound_legal_source_review_count if policy_authorization else 0
+        ),
         "case_count": profile.case_count,
         "evidence_count": profile.evidence_count,
         "release_blocker_counts": profile.release_blocker_counts,
@@ -310,6 +378,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--trust-mode", choices=("development", "bank-policy"), default="development")
     parser.add_argument("--trusted-current-bank-policy-sha256", type=_sha256_argument)
     parser.add_argument("--trusted-current-bank-policy-version", type=_positive_policy_version)
+    parser.add_argument("--trusted-bank-organization-id", type=_policy_identifier)
+    parser.add_argument("--trusted-bank-environment-id", type=_policy_identifier)
+    parser.add_argument("--trusted-bank-deployment-scope", choices=("bank-production",))
     return parser
 
 
@@ -334,6 +405,13 @@ def _inputs(args: argparse.Namespace) -> ReleasePreflightInputs:
         trust_mode=args.trust_mode.replace("-", "_"),
         trusted_current_bank_policy_sha256=args.trusted_current_bank_policy_sha256,
         trusted_current_bank_policy_version=args.trusted_current_bank_policy_version,
+        trusted_bank_organization_id=args.trusted_bank_organization_id,
+        trusted_bank_environment_id=args.trusted_bank_environment_id,
+        trusted_bank_deployment_scope=(
+            args.trusted_bank_deployment_scope.replace("-", "_")
+            if args.trusted_bank_deployment_scope is not None
+            else None
+        ),
         trusted_legal_release_predecessor_keys=tuple(args.trusted_legal_release_predecessor_key),
     )
 

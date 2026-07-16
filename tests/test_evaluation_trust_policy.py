@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import traceback
 from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
@@ -32,6 +33,7 @@ HASHES = {
     "attestation": "4" * 64,
     "checkpoint": "5" * 64,
 }
+ARTIFACT_ID = "art_sha256_" + "a" * 64
 
 
 def _public_pem(key: Ed25519PrivateKey) -> bytes:
@@ -72,9 +74,19 @@ def _entry(
     }
 
 
+def _reviewer(owner_id: str, *, owner_label: str | None = None) -> dict:
+    return {
+        "owner_id": owner_id,
+        "owner_label": owner_label or f"Display label for {owner_id}",
+        "role": "legal_source_reviewer",
+        "valid_from": "2025-01-01T00:00:00Z",
+        "valid_until": "2027-01-01T00:00:00Z",
+    }
+
+
 def _policy(keys: dict[str, Ed25519PrivateKey]) -> dict:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "purpose": "bddk_mcp_expert_evaluation_release",
         "policy_id": "bank-evaluation-policy",
         "policy_version": 1,
@@ -103,7 +115,11 @@ def _policy(keys: dict[str, Ed25519PrivateKey]) -> dict:
             "legal_curator": [_entry("curator-key-v1", "curator-owner", keys["curator"])],
             "legal_release_certifier": [_entry("release-key-v1", "release-owner", keys["release"])],
         },
+        "authorized_legal_source_reviewers": [
+            _reviewer("page-reviewer", owner_label="Legal source reviewer display label")
+        ],
         "revoked_keys": [],
+        "revoked_legal_source_reviewers": [],
         "revoked_legal_release_checkpoints": [],
     }
 
@@ -158,6 +174,29 @@ def _authorize(signed, keys: dict[str, Ed25519PrivateKey], **overrides):
             )
         ],
     )
+    arguments.setdefault(
+        "legal_source_reviews",
+        [
+            (
+                arguments["legal_release_checkpoint_sha256"],
+                ARTIFACT_ID,
+                "page-reviewer",
+                arguments["legal_release_authorized_at"],
+                2,
+            )
+        ],
+    )
+    arguments.setdefault(
+        "legal_release_configured_key_fingerprints_sha256",
+        tuple(
+            dict.fromkeys(
+                (
+                    arguments["legal_release_signer_fingerprint_sha256"],
+                    *(item[0] for item in arguments["legal_release_chain_signers"]),
+                )
+            )
+        ),
+    )
     return authorize_evaluation_trust_chain(signed, **arguments)
 
 
@@ -168,15 +207,40 @@ def test_signed_policy_authorizes_exact_release_without_exposing_owner_ids(tmp_p
 
     authorization = _authorize(signed, keys)
 
+    assert signed.policy.schema_version == 2
     assert authorization.policy_id == "bank-evaluation-policy"
     assert authorization.policy_version == 1
     assert authorization.authorized_owner_count == 4
+    assert authorization.authorized_reviewer_count == 1
+    assert authorization.policy_bound_legal_source_review_count == 1
     assert authorization.approved_checkpoint_sha256 == HASHES["checkpoint"]
     assert authorization.policy_sha256 == hashlib.sha256((tmp_path / "policy.yml").read_bytes()).hexdigest()
     assert authorization.policy_signing_key_fingerprint_sha256 == _fingerprint(keys["root"])
     assert "corpus-owner" not in repr(authorization)
     assert "dataset-owner" not in repr(authorization)
     assert "Display label" not in repr(authorization)
+
+
+def test_review_counts_distinguish_observed_owners_from_artifact_reviews(tmp_path: Path) -> None:
+    keys = _keys()
+    policy = _policy(keys)
+    policy["authorized_legal_source_reviewers"] = [
+        _reviewer("a-reviewer"),
+        _reviewer("page-reviewer"),
+    ]
+    signed = _load(tmp_path, policy, keys)
+
+    authorization = _authorize(
+        signed,
+        keys,
+        legal_source_reviews=[
+            (HASHES["checkpoint"], "art_sha256_" + "a" * 64, "a-reviewer", EVENT, 2),
+            (HASHES["checkpoint"], "art_sha256_" + "b" * 64, "page-reviewer", EVENT, 2),
+        ],
+    )
+
+    assert authorization.authorized_reviewer_count == 2
+    assert authorization.policy_bound_legal_source_review_count == 2
 
 
 @pytest.mark.parametrize(
@@ -255,6 +319,90 @@ def test_policy_rejects_ambiguous_yaml_and_symbolic_links(tmp_path: Path) -> Non
         load_signed_evaluation_trust_policy(link, signature, root, current=NOW)
 
 
+def test_policy_rejects_coercible_scalar_types(tmp_path: Path) -> None:
+    keys = _keys()
+    invalid_policies = []
+    for field, value in (
+        ("schema_version", 1),
+        ("schema_version", True),
+        ("schema_version", 2.0),
+        ("policy_version", True),
+        ("policy_version", 1.0),
+        ("policy_version", "1"),
+        ("issued_at", 1_752_000_000),
+        ("issued_at", "1752000000"),
+    ):
+        policy = _policy(keys)
+        policy[field] = value
+        invalid_policies.append(policy)
+    signer_timestamp = _policy(keys)
+    signer_timestamp["authorized_signers"]["corpus_scope_approver"][0]["valid_from"] = 1_752_000_000
+    invalid_policies.append(signer_timestamp)
+    reviewer_timestamp = _policy(keys)
+    reviewer_timestamp["authorized_legal_source_reviewers"][0]["valid_from"] = 1_752_000_000
+    invalid_policies.append(reviewer_timestamp)
+    reviewer_numeric_string = _policy(keys)
+    reviewer_numeric_string["authorized_legal_source_reviewers"][0]["valid_from"] = "1752000000"
+    invalid_policies.append(reviewer_numeric_string)
+    approval_timestamp = _policy(keys)
+    approval_timestamp["approved_release"]["approved_at"] = 1_752_000_000
+    invalid_policies.append(approval_timestamp)
+
+    for policy in invalid_policies:
+        with pytest.raises(EvaluationTrustPolicyError):
+            _load(tmp_path, policy, keys)
+
+
+def test_policy_schema_failure_traceback_does_not_leak_owner_registry(tmp_path: Path) -> None:
+    keys = _keys()
+    policy = _policy(keys)
+    policy["authorized_legal_source_reviewers"][0]["owner_label"] = "SENSITIVE REVIEWER LABEL "
+
+    with pytest.raises(EvaluationTrustPolicyError) as captured:
+        _load(tmp_path, policy, keys)
+
+    rendered = "".join(traceback.format_exception(captured.value))
+    assert captured.value.__cause__ is None
+    assert "SENSITIVE REVIEWER LABEL" not in rendered
+    assert "page-reviewer" not in rendered
+
+
+def test_policy_scope_must_match_independent_deployment_expectations(tmp_path: Path) -> None:
+    keys = _keys()
+    paths = _write_signed_policy(tmp_path, _policy(keys), keys["root"])
+    assert (
+        load_signed_evaluation_trust_policy(
+            *paths,
+            current=NOW,
+            expected_organization_id="bank-org",
+            expected_environment_id="openshift-production",
+            expected_deployment_scope="bank_production",
+        ).policy.environment_id
+        == "openshift-production"
+    )
+
+    for expected in (
+        {
+            "expected_organization_id": "other-bank",
+            "expected_environment_id": "openshift-production",
+            "expected_deployment_scope": "bank_production",
+        },
+        {
+            "expected_organization_id": "bank-org",
+            "expected_environment_id": "other-environment",
+            "expected_deployment_scope": "bank_production",
+        },
+        {
+            "expected_organization_id": "bank-org",
+            "expected_environment_id": "openshift-production",
+            "expected_deployment_scope": "development",
+        },
+        {"expected_organization_id": "bank-org"},
+    ):
+        with pytest.raises(EvaluationTrustPolicyError):
+            load_signed_evaluation_trust_policy(*paths, current=NOW, **expected)
+
+
 def test_policy_root_cannot_be_an_operational_signer(tmp_path: Path) -> None:
     keys = _keys()
     policy = _policy(keys)
@@ -280,6 +428,115 @@ def test_roles_require_distinct_keys_and_distinct_owner_authorities(tmp_path: Pa
     issuer_is_operator["issuer_id"] = "corpus-owner"
     with pytest.raises(EvaluationTrustPolicyError):
         _load(tmp_path, issuer_is_operator, keys)
+
+    reviewer_is_operator = _policy(keys)
+    reviewer_is_operator["authorized_legal_source_reviewers"][0]["owner_id"] = "corpus-owner"
+    with pytest.raises(EvaluationTrustPolicyError):
+        _load(tmp_path, reviewer_is_operator, keys)
+
+    reviewer_is_issuer = _policy(keys)
+    reviewer_is_issuer["authorized_legal_source_reviewers"][0]["owner_id"] = "bank-policy-authority"
+    with pytest.raises(EvaluationTrustPolicyError):
+        _load(tmp_path, reviewer_is_issuer, keys)
+
+
+def test_reviewer_registry_is_unique_canonical_and_label_safe(tmp_path: Path) -> None:
+    keys = _keys()
+    duplicate = _policy(keys)
+    duplicate["authorized_legal_source_reviewers"].append(deepcopy(duplicate["authorized_legal_source_reviewers"][0]))
+    with pytest.raises(EvaluationTrustPolicyError):
+        _load(tmp_path, duplicate, keys)
+
+    reversed_order = _policy(keys)
+    reversed_order["authorized_legal_source_reviewers"] = [
+        _reviewer("z-reviewer"),
+        _reviewer("a-reviewer"),
+    ]
+    with pytest.raises(EvaluationTrustPolicyError):
+        _load(tmp_path, reversed_order, keys)
+
+    invalid_label = _policy(keys)
+    invalid_label["authorized_legal_source_reviewers"][0]["owner_label"] = " reviewer"
+    with pytest.raises(EvaluationTrustPolicyError):
+        _load(tmp_path, invalid_label, keys)
+
+    canonical = _policy(keys)
+    canonical["authorized_legal_source_reviewers"] = [
+        _reviewer("a-reviewer"),
+        _reviewer("page-reviewer"),
+    ]
+    assert len(_load(tmp_path, canonical, keys).policy.authorized_legal_source_reviewers) == 2
+
+
+def test_reviewer_revocations_are_known_unique_canonical_and_effective(tmp_path: Path) -> None:
+    keys = _keys()
+    unknown = _policy(keys)
+    unknown["revoked_legal_source_reviewers"] = [
+        {
+            "owner_id": "unknown-reviewer",
+            "revoked_at": "2026-07-15T00:00:00Z",
+            "reason_code": "review_authority_withdrawn",
+        }
+    ]
+    with pytest.raises(EvaluationTrustPolicyError):
+        _load(tmp_path, unknown, keys)
+
+    duplicate = _policy(keys)
+    duplicate["revoked_legal_source_reviewers"] = [
+        {
+            "owner_id": "page-reviewer",
+            "revoked_at": "2026-07-14T00:00:00Z",
+            "reason_code": "review_authority_withdrawn",
+        },
+        {
+            "owner_id": "page-reviewer",
+            "revoked_at": "2026-07-15T00:00:00Z",
+            "reason_code": "identity_compromise",
+        },
+    ]
+    with pytest.raises(EvaluationTrustPolicyError):
+        _load(tmp_path, duplicate, keys)
+
+    noncanonical = _policy(keys)
+    noncanonical["authorized_legal_source_reviewers"] = [
+        _reviewer("a-reviewer"),
+        _reviewer("page-reviewer"),
+    ]
+    noncanonical["revoked_legal_source_reviewers"] = [
+        {
+            "owner_id": "page-reviewer",
+            "revoked_at": "2026-07-15T00:00:00Z",
+            "reason_code": "review_authority_withdrawn",
+        },
+        {
+            "owner_id": "a-reviewer",
+            "revoked_at": "2026-07-15T00:00:00Z",
+            "reason_code": "review_authority_withdrawn",
+        },
+    ]
+    with pytest.raises(EvaluationTrustPolicyError):
+        _load(tmp_path, noncanonical, keys)
+
+    future = _policy(keys)
+    future["revoked_legal_source_reviewers"] = [
+        {
+            "owner_id": "page-reviewer",
+            "revoked_at": "2026-07-16T12:00:01Z",
+            "reason_code": "review_authority_withdrawn",
+        }
+    ]
+    assert _authorize(_load(tmp_path, future, keys), keys).authorized_reviewer_count == 1
+
+    boundary = _policy(keys)
+    boundary["revoked_legal_source_reviewers"] = [
+        {
+            "owner_id": "page-reviewer",
+            "revoked_at": NOW.isoformat(),
+            "reason_code": "review_authority_withdrawn",
+        }
+    ]
+    with pytest.raises(EvaluationTrustPolicyError):
+        _authorize(_load(tmp_path, boundary, keys), keys)
 
 
 @pytest.mark.parametrize("label", [" ", " leading", "trailing ", "control\nlabel"])
@@ -363,8 +620,59 @@ def test_effective_key_and_checkpoint_revocation_fail_closed(tmp_path: Path) -> 
     with pytest.raises(EvaluationTrustPolicyError):
         _authorize(_load(tmp_path, checkpoint_policy, keys), keys)
 
+    predecessor_policy = _policy(keys)
+    predecessor_policy["revoked_legal_release_checkpoints"] = [
+        {
+            "checkpoint_sha256": "6" * 64,
+            "revoked_at": "2026-07-15T00:00:00Z",
+            "reason_code": "evidence_withdrawn",
+        }
+    ]
+    predecessor_time = datetime(2026, 7, 9, tzinfo=UTC)
+    with pytest.raises(EvaluationTrustPolicyError):
+        _authorize(
+            _load(tmp_path, predecessor_policy, keys),
+            keys,
+            legal_release_chain_signers=[
+                (_fingerprint(keys["release"]), predecessor_time, "6" * 64),
+                (_fingerprint(keys["release"]), EVENT, HASHES["checkpoint"]),
+            ],
+            legal_source_reviews=[
+                ("6" * 64, ARTIFACT_ID, "page-reviewer", predecessor_time, 2),
+                (HASHES["checkpoint"], ARTIFACT_ID, "page-reviewer", EVENT, 2),
+            ],
+        )
 
-def test_unknown_key_and_out_of_chain_checkpoint_revocations_fail_closed(tmp_path: Path) -> None:
+    future_policy = _policy(keys)
+    future_policy["revoked_keys"] = [
+        {
+            "key_fingerprint_sha256": _fingerprint(keys["dataset"]),
+            "revoked_at": "2026-07-16T12:00:01Z",
+            "reason_code": "key_compromise",
+        }
+    ]
+    future_policy["revoked_legal_release_checkpoints"] = [
+        {
+            "checkpoint_sha256": HASHES["checkpoint"],
+            "revoked_at": "2026-07-16T12:00:01Z",
+            "reason_code": "evidence_withdrawn",
+        }
+    ]
+    assert _authorize(_load(tmp_path, future_policy, keys), keys).authorized_owner_count == 4
+
+    boundary_policy = _policy(keys)
+    boundary_policy["revoked_legal_release_checkpoints"] = [
+        {
+            "checkpoint_sha256": HASHES["checkpoint"],
+            "revoked_at": NOW.isoformat(),
+            "reason_code": "evidence_withdrawn",
+        }
+    ]
+    with pytest.raises(EvaluationTrustPolicyError):
+        _authorize(_load(tmp_path, boundary_policy, keys), keys)
+
+
+def test_unknown_key_revocation_fails_but_out_of_chain_checkpoint_is_denylisted(tmp_path: Path) -> None:
     keys = _keys()
     unknown_key = _policy(keys)
     unknown_key["revoked_keys"] = [
@@ -385,8 +693,174 @@ def test_unknown_key_and_out_of_chain_checkpoint_revocations_fail_closed(tmp_pat
             "reason_code": "evidence_withdrawn",
         }
     ]
+    authorization = _authorize(_load(tmp_path, unrelated_checkpoint, keys), keys)
+    assert authorization.approved_checkpoint_sha256 == HASHES["checkpoint"]
+
+    revoked_head = deepcopy(unrelated_checkpoint)
+    revoked_head["approved_release"]["legal_release_checkpoint_sha256"] = "e" * 64
     with pytest.raises(EvaluationTrustPolicyError):
-        _authorize(_load(tmp_path, unrelated_checkpoint, keys), keys)
+        _authorize(
+            _load(tmp_path, revoked_head, keys),
+            keys,
+            legal_release_checkpoint_sha256="e" * 64,
+            legal_release_chain_signers=[(_fingerprint(keys["release"]), EVENT, "e" * 64)],
+            legal_source_reviews=[("e" * 64, ARTIFACT_ID, "page-reviewer", EVENT, 2)],
+        )
+
+
+def test_configured_legal_release_keyring_must_be_policy_authorized(tmp_path: Path) -> None:
+    keys = _keys()
+    signed = _load(tmp_path, _policy(keys), keys)
+
+    with pytest.raises(EvaluationTrustPolicyError):
+        _authorize(
+            signed,
+            keys,
+            legal_release_configured_key_fingerprints_sha256=[
+                _fingerprint(keys["release"]),
+                _fingerprint(keys["release_old"]),
+            ],
+        )
+
+    rotation_policy = _policy(keys)
+    rotation_policy["authorized_signers"]["legal_release_certifier"] = [
+        _entry("release-key-v1", "release-owner", keys["release_old"]),
+        _entry(
+            "release-key-v2",
+            "release-owner",
+            keys["release"],
+            replaces_key_id="release-key-v1",
+        ),
+    ]
+    with pytest.raises(EvaluationTrustPolicyError):
+        _authorize(
+            _load(tmp_path, rotation_policy, keys),
+            keys,
+            legal_release_configured_key_fingerprints_sha256=[_fingerprint(keys["release_old"])],
+        )
+    rotation_signed = _load(tmp_path, rotation_policy, keys)
+    configured_rotation = [
+        _fingerprint(keys["release"]),
+        _fingerprint(keys["release_old"]),
+    ]
+    assert (
+        _authorize(
+            rotation_signed,
+            keys,
+            legal_release_configured_key_fingerprints_sha256=configured_rotation,
+        ).authorized_owner_count
+        == 4
+    )
+    for invalid_keyring in (list(reversed(configured_rotation)), [configured_rotation[0]] * 2):
+        with pytest.raises(EvaluationTrustPolicyError):
+            _authorize(
+                rotation_signed,
+                keys,
+                legal_release_configured_key_fingerprints_sha256=invalid_keyring,
+            )
+
+    revoked_unused_key_policy = deepcopy(rotation_policy)
+    revoked_unused_key_policy["revoked_keys"] = [
+        {
+            "key_fingerprint_sha256": _fingerprint(keys["release_old"]),
+            "revoked_at": "2026-07-15T00:00:00Z",
+            "reason_code": "key_compromise",
+        }
+    ]
+    with pytest.raises(EvaluationTrustPolicyError):
+        _authorize(
+            _load(tmp_path, revoked_unused_key_policy, keys),
+            keys,
+            legal_release_configured_key_fingerprints_sha256=[
+                _fingerprint(keys["release"]),
+                _fingerprint(keys["release_old"]),
+            ],
+        )
+
+
+def test_page_reviewer_requires_v2_identity_window_and_non_revoked_owner(tmp_path: Path) -> None:
+    keys = _keys()
+    signed = _load(tmp_path, _policy(keys), keys)
+
+    for invalid_reviews in (
+        [],
+        [(HASHES["checkpoint"], ARTIFACT_ID, None, EVENT, 1)],
+        [(HASHES["checkpoint"], ARTIFACT_ID, "page-reviewer", EVENT, 1)],
+        [(HASHES["checkpoint"], ARTIFACT_ID, "page-reviewer", EVENT, 2.0)],
+        [(HASHES["checkpoint"], ARTIFACT_ID, "unknown-reviewer", EVENT, 2)],
+        [(HASHES["checkpoint"], "artifact-not-a-hash", "page-reviewer", EVENT, 2)],
+        [
+            (
+                HASHES["checkpoint"],
+                ARTIFACT_ID,
+                "page-reviewer",
+                datetime(2024, 1, 1, tzinfo=UTC),
+                2,
+            )
+        ],
+    ):
+        with pytest.raises(EvaluationTrustPolicyError):
+            _authorize(signed, keys, legal_source_reviews=invalid_reviews)
+
+    revoked = _policy(keys)
+    revoked["revoked_legal_source_reviewers"] = [
+        {
+            "owner_id": "page-reviewer",
+            "revoked_at": "2026-07-15T00:00:00Z",
+            "reason_code": "review_authority_withdrawn",
+        }
+    ]
+    with pytest.raises(EvaluationTrustPolicyError):
+        _authorize(_load(tmp_path, revoked, keys), keys)
+
+    boundary = _policy(keys)
+    boundary["authorized_legal_source_reviewers"][0]["valid_until"] = EVENT.isoformat()
+    with pytest.raises(EvaluationTrustPolicyError):
+        _authorize(_load(tmp_path, boundary, keys), keys)
+
+
+def test_reviewer_history_rejects_duplicates_unrelated_checkpoints_and_late_reviews(tmp_path: Path) -> None:
+    keys = _keys()
+    signed = _load(tmp_path, _policy(keys), keys)
+    valid = (HASHES["checkpoint"], ARTIFACT_ID, "page-reviewer", EVENT, 2)
+
+    for invalid_reviews in (
+        [valid, valid],
+        [("6" * 64, ARTIFACT_ID, "page-reviewer", EVENT, 2)],
+        [
+            (
+                HASHES["checkpoint"],
+                ARTIFACT_ID,
+                "page-reviewer",
+                datetime(2026, 7, 10, 13, tzinfo=UTC),
+                2,
+            )
+        ],
+    ):
+        with pytest.raises(EvaluationTrustPolicyError):
+            _authorize(signed, keys, legal_source_reviews=invalid_reviews)
+
+
+def test_v1_review_in_any_predecessor_blocks_policy_bound_chain(tmp_path: Path) -> None:
+    keys = _keys()
+    signed = _load(tmp_path, _policy(keys), keys)
+    predecessor_time = datetime(2026, 7, 9, tzinfo=UTC)
+    chain = [
+        (_fingerprint(keys["release"]), predecessor_time, "6" * 64),
+        (_fingerprint(keys["release"]), EVENT, HASHES["checkpoint"]),
+    ]
+    reviews = [
+        ("6" * 64, ARTIFACT_ID, None, predecessor_time, 1),
+        (HASHES["checkpoint"], ARTIFACT_ID, "page-reviewer", EVENT, 2),
+    ]
+
+    with pytest.raises(EvaluationTrustPolicyError):
+        _authorize(
+            signed,
+            keys,
+            legal_release_chain_signers=chain,
+            legal_source_reviews=reviews,
+        )
 
 
 def test_rotation_preserves_retired_history_but_rejects_compromised_key(tmp_path: Path) -> None:
@@ -431,6 +905,22 @@ def test_rotation_preserves_retired_history_but_rejects_compromised_key(tmp_path
                     _fingerprint(keys["release"]),
                     datetime(2026, 7, 12, tzinfo=UTC),
                     HASHES["checkpoint"],
+                ),
+            ],
+            legal_source_reviews=[
+                (
+                    "6" * 64,
+                    ARTIFACT_ID,
+                    "page-reviewer",
+                    datetime(2026, 7, 10, tzinfo=UTC),
+                    2,
+                ),
+                (
+                    HASHES["checkpoint"],
+                    ARTIFACT_ID,
+                    "page-reviewer",
+                    datetime(2026, 7, 12, tzinfo=UTC),
+                    2,
                 ),
             ],
         ).authorized_owner_count
@@ -486,6 +976,10 @@ def test_rotation_sequence_cannot_revert_from_new_key_to_its_predecessor(tmp_pat
                 (_fingerprint(keys["release"]), new_event, "6" * 64),
                 (_fingerprint(keys["release_old"]), old_event, HASHES["checkpoint"]),
             ],
+            legal_source_reviews=[
+                ("6" * 64, ARTIFACT_ID, "page-reviewer", new_event, 2),
+                (HASHES["checkpoint"], ARTIFACT_ID, "page-reviewer", old_event, 2),
+            ],
         )
 
 
@@ -519,6 +1013,16 @@ def test_real_signed_policy_report_does_not_leak_owner_or_issuer_labels(tmp_path
                 signing_key_fingerprint_sha256=_fingerprint(keys["release"]),
             ),
         ),
+        legal_release_configured_key_fingerprints_sha256=(_fingerprint(keys["release"]),),
+        legal_source_reviews=(
+            SimpleNamespace(
+                checkpoint_sha256=HASHES["checkpoint"],
+                artifact_id=ARTIFACT_ID,
+                reviewer_owner_id="page-reviewer",
+                reviewed_at=EVENT,
+                proof_schema_version=2,
+            ),
+        ),
         legal_pack_sha256=HASHES["pack"],
         legal_attestation_sha256=HASHES["attestation"],
         legal_attestation_key_fingerprint_sha256=_fingerprint(keys["curator"]),
@@ -545,33 +1049,52 @@ def test_real_signed_policy_report_does_not_leak_owner_or_issuer_labels(tmp_path
     monkeypatch.setattr(release_preflight, "profile_expert_evaluation_dataset", lambda value: profile)
     monkeypatch.setattr(release_preflight, "require_expert_dataset_release_ready", lambda value: None)
 
-    report = run_release_preflight(
-        ReleasePreflightInputs(
-            dataset=Path("unused.yml"),
-            corpus_manifest=None,
-            corpus_root=None,
-            trusted_dataset_key=None,
-            trusted_corpus_key=None,
-            legal_pack=None,
-            legal_attestation=None,
-            trusted_legal_attestation_key=None,
-            legal_release_checkpoint=None,
-            legal_release_source_root=None,
-            trusted_legal_release_key=None,
-            predecessor_legal_release_checkpoint=None,
-            trusted_latest_legal_checkpoint_sha256=None,
-            bank_trust_policy=policy_path,
-            bank_trust_policy_signature=signature_path,
-            trusted_bank_policy_key=root_path,
-            trust_mode="bank_policy",
-            trusted_current_bank_policy_sha256=policy_sha256,
-            trusted_current_bank_policy_version=1,
-        )
+    inputs = ReleasePreflightInputs(
+        dataset=Path("unused.yml"),
+        corpus_manifest=None,
+        corpus_root=None,
+        trusted_dataset_key=None,
+        trusted_corpus_key=None,
+        legal_pack=None,
+        legal_attestation=None,
+        trusted_legal_attestation_key=None,
+        legal_release_checkpoint=None,
+        legal_release_source_root=None,
+        trusted_legal_release_key=None,
+        predecessor_legal_release_checkpoint=None,
+        trusted_latest_legal_checkpoint_sha256=None,
+        bank_trust_policy=policy_path,
+        bank_trust_policy_signature=signature_path,
+        trusted_bank_policy_key=root_path,
+        trust_mode="bank_policy",
+        trusted_current_bank_policy_sha256=policy_sha256,
+        trusted_current_bank_policy_version=1,
+        trusted_bank_organization_id="bank-org",
+        trusted_bank_environment_id="openshift-production",
+        trusted_bank_deployment_scope="bank_production",
     )
+    report = run_release_preflight(inputs)
 
     serialized = json.dumps(report, sort_keys=True)
     assert report["configured_root_policy_signature_verified"] is True
     assert report["policy_current_head_pin_verified"] is True
+    assert report["policy_deployment_scope_pin_verified"] is True
+    assert report["trust_policy_authorized_reviewer_count"] == 1
+    assert report["policy_bound_legal_source_reviews_verified"] is True
+    assert report["policy_bound_legal_source_review_count"] == 1
     assert "Display label" not in serialized
     assert "Bank policy authority display label" not in serialized
+    assert "Legal source reviewer display label" not in serialized
     assert "corpus-owner" not in serialized
+
+    validation.legal_source_reviews = (
+        SimpleNamespace(
+            checkpoint_sha256=HASHES["checkpoint"],
+            artifact_id=ARTIFACT_ID,
+            reviewer_owner_id=None,
+            reviewed_at=EVENT,
+            proof_schema_version=1,
+        ),
+    )
+    with pytest.raises(EvaluationTrustPolicyError):
+        run_release_preflight(inputs)

@@ -46,19 +46,19 @@ This checkpoint describes the current working tree; the executed-check table abo
 | Tool contracts and protocol errors | Partial | The 15-public/29-operator registry (15 public plus 14 operator additions) owns strict generated arguments and risk annotations; stable privacy-safe errors are tested. Six retrieval tools validate structured evidence payloads (**tests/test_tool_registry.py; tests/test_public_input_contracts.py; tests/test_structured_retrieval_outputs.py**). The remaining tools do not yet share one structured result contract. |
 | PostgreSQL compatibility and lifecycle | Partial | PostgreSQL 17 is the explicit repository contract. The final disposable local run recorded exactly **143 passed, 4 skipped** in 633.42 seconds; the separate actual-LOGIN identity/ACL allow-and-deny lane passed both selected tests. Migrations run through v0006: v4's legal subset still attests exactly 69 constraints/21 indexes, v5 adds append-only corpus release/activation and epoch invalidation, and v6 adds the least-privilege abstention-first legal-status resolver (**bddk_mcp/migrations/runner.py; bddk_mcp/catalog_integrity.py; tests/test_migrations.py; tests/test_catalog_integrity.py; tests/test_corpus_publication.py; tests/test_legal_versions.py**). Bank LOGINs, production-size upgrade, failover, and DBA evidence remain external. |
 | Recovery workflows | Partial | Tests exercise the guarded populated-v2-to-current-schema rehearsal, default refusal, actual-content fingerprints, bounded subprocess cleanup, and recovery-evidence schema v2. That schema covers 29 managed relations plus activation sequence, rejects all six application DSNs as recovery administration, and verifies six restored LOGIN profiles (**bddk_mcp/operations/recovery.py; tests/test_recovery_workflows.py**). A retained bank-like `pg_dump`/`pg_restore` acceptance report, PITR, RPO/RTO, and bank recovery approval remain unproved. |
-| Citation v1 and legal-version pilot | Partial technical evidence | Citation tests cover canonical identity, separate `SourceBlob` content and `SourceArtifact` acquisition identities, frozen-whitespace exact normalized ranges, Unicode/CRLF/astral round trips, excerpt reconstruction, mismatch refusal, and omission for unvalidated/truncated/failed-quality cases. PostgreSQL exposes only validated authoritative non-fixture mappings whose hashes agree. The legal-release verifier additionally re-hashes retained source bytes, acquisition records, page mapping/text, exact excerpts, and every predecessor's retained files (**bddk_mcp/citations.py; benchmark/legal_release_evidence.py; tests/test_citations.py; tests/test_expert_evaluation.py; tests/test_legal_versions.py**). The only end-to-end family remains synthetic; a reviewer-role string is not authenticated bank identity, exact excerpt-in-page-text containment does not independently prove source/PDF-to-page-text derivation, and historical Citation packs are not retained/replayed for predecessor checkpoints. |
+| Citation v1 and legal-version pilot | Partial technical evidence | Citation tests cover canonical identity, separate `SourceBlob` content and `SourceArtifact` acquisition identities, frozen-whitespace exact normalized ranges, Unicode/CRLF/astral round trips, excerpt reconstruction, mismatch refusal, and omission for unvalidated/truncated/failed-quality cases. PostgreSQL exposes only validated authoritative non-fixture mappings whose hashes agree. The legal-release verifier additionally re-hashes retained source bytes, acquisition records, page mapping/text, exact excerpts, and every predecessor's retained files. `PageMappingProof` v2 binds each checkpoint/artifact review to an opaque owner in the signed policy's reviewer registry (**bddk_mcp/citations.py; benchmark/legal_release_evidence.py; benchmark/evaluation_trust_policy.py; tests/test_citations.py; tests/test_expert_evaluation.py; tests/test_legal_versions.py**). The only end-to-end family remains synthetic; policy binding does not authenticate the human review action or independently prove source/PDF-to-page-text derivation, and historical Citation packs are not retained/replayed for predecessor checkpoints. |
 | Untrusted-document rendering | Complete at current code boundary; live-model evaluation open | Tests cover the escaped untrusted-data envelope and delimiter spoofing across all six retrieval tools and the other source-backed public renderers; official MCP output checks keep malicious metadata and body text inside the data boundary (**bddk_mcp/tools/structured_outputs.py; tests/test_structured_retrieval_outputs.py**). No live host/model prompt-injection or tool-escalation benchmark has run. |
 | OpenShift repository preflight | Partial | The acceptance suite requires exactly Kustomize v5.8.1 and the configured SHA-256 of the resolved executable, executes a bounded offline render, and rejects drift in exact resources, namespace, selectors/labels, NetworkPolicies, Secret/ConfigMap keys, container shape/commands/ports/volumes, and restricted security contexts. It renders the reviewed `bank-bootstrap` overlay and checks the exact direct strict arguments, read-only approved-corpus PVC, separately mounted read-only corpus-trust Secret, and mutation failures. The registry contract identifies nine public open-world/live-outbound tools. Network tests require at least one approved `regulatory_source` or `enterprise_proxy` TCP/443 permission for each public and operator runtime, constrain every such permission to TCP/443, and reject every lifecycle purpose outside DNS/PostgreSQL. The mandatory focused acceptance/manifest/registry run passed **74 tests** with real checksum-pinned Kustomize v5.8.1. It still records eight live external gates as `not_run` (**deploy/openshift-overlays/bank-bootstrap/**; **bddk_mcp/openshift_acceptance.py; tests/test_openshift_acceptance.py; tests/test_openshift_manifests.py; tests/test_tool_registry.py**). This is repository preflight evidence, not a bank namespace, CNI, IdP, CA, registry, database, backup, or client/model test. |
 | Supply-chain lane | Partial | Focused tests cover pinned tool checksums, reproducible distributions, Buildx `--provenance=false --load` descriptor/manifest/config/loaded-image/Syft binding, deterministic SBOM and unsigned repository SLSA, model-manifest/runtime/Dockerfile consistency, complete-history secret policy, vulnerability-database freshness, High/Critical blocking, and explicit expiring exceptions. Pending applied exceptions always make promotion ineligible (**tests/test_supply_chain.py; .github/workflows/supply-chain.yml; scripts/supply_chain_evidence.py; supply-chain/**). The complete hosted linux/amd64 workflow, including both container builds, has not been executed in this review; no signing, admission, or promotion test exists. |
 | Corpus and expert dataset integrity | Partial, deliberately non-release | Strict import and the distinct publisher verify manifest-role bytes and policy, compare the complete regenerated chunk inventory, persist the active manifest/retrieval-profile/corpus-state identity, and invalidate it through a mutation epoch (**bddk_mcp/ingest/seed.py; bddk_mcp/corpus_publication.py; tests/test_seed.py; tests/test_corpus_publication.py**). The tracked 318-document manifest remains non-exhaustive, unsigned, unquantified, and unmeasured; its declared 8,286 chunks differ from the 9,675 produced by current-profile regeneration, so strict publication refuses it. The 20-case Turkish draft still has pending Citations, `legal_currentness: not_verified`, 40 annotations, 20 adjudications, and approvals. |
-| Evaluation release preflight | Partial, deliberately non-release | Release validation requires four separate signed layers—measured corpus, expert dataset, exact Citation pack/legal-curator attestation, and a legal-release checkpoint over retained evidence/history—and rejects signer reuse across separated roles. Development mode retains operator-supplied keys/latest head. Bank-policy mode verifies a separately signed policy, exact dataset/manifest/pack/attestation/checkpoint hashes, four distinct signer roles and owners, validity/effective revocations, forward legal-release rotation, and a separately supplied current policy SHA/version pin (**benchmark/evaluation_trust_policy.py; benchmark/legal_release_evidence.py; benchmark/release_preflight.py; tests/test_evaluation_trust_policy.py; tests/test_expert_evaluation.py; tests/test_release_preflight.py**). Both modes keep bank authorization and model-score authorization false. Bank RBAC mount custody/promotion, stale-pin authority, authenticated reviewer identity, historical pack replay, and model execution remain open. |
+| Evaluation release preflight | Partial, deliberately non-release | Release validation requires four separate signed layers—measured corpus, expert dataset, Citation pack/legal-curator attestation, and a legal-release checkpoint over retained evidence/history—and rejects signer reuse across separated roles. Policy-free development retains operator-supplied keys/latest head and can validate v1 page proofs. Any signed policy requires v2 proofs. Bank-policy mode verifies a separately signed schema-v2 policy, five release identities with documented canonical/raw semantics, four roles with distinct declared owner IDs, a separate reviewer registry, validity/effective revocations, forward legal-release rotation, reviewer/artifact/checkpoint/chronology binding, and separately supplied current policy SHA/version and organization/environment/scope pins (**benchmark/evaluation_trust_policy.py; benchmark/legal_release_evidence.py; benchmark/release_preflight.py; benchmark/README.md: Hash and version semantics; tests/test_evaluation_trust_policy.py; tests/test_expert_evaluation.py; tests/test_release_preflight.py**). Declared event windows are not trusted signature timestamps. Both modes keep bank authorization and model-score authorization false. Bank RBAC custody/promotion, actual human/team separation, stale-pin authority, human reviewer action/authentication, historical pack replay, and model execution remain open. |
 | Real MCP Phase 2 runner | Complete as a harness | Phase 2 uses official `ClientSession` transports for stdio and `/mcp`, paginates live discovery, reads `bddk://corpus/active-release`, requires its manifest ID/SHA to match the validated local manifest, executes actual `call_tool` on that same session, and rejects a release change on the final same-session read. It sanitizes audit artifacts and records schema/server/protocol/manifest/active-release/dataset identities (**benchmark/phase2_e2e.py; benchmark/audit.py; tests/test_benchmark_phase2.py**). No named model/client score or product recommendation follows from harness correctness. |
 | Ordinary benchmark reports | Exploratory only | `benchmark.run` always marks results `exploratory_not_release_evidence` and `model_scores_authorized: false`; console and diagnosis reports refuse deployment advice even if a result JSON is edited. These runners do not execute the expert dataset or invoke the release preflight (**benchmark/run.py; benchmark/report.py; tests/test_benchmark_audit.py**). |
 | Observability, load, and client/model operations | Open/Partial | Correlation IDs, privacy-safe request/error/latency metrics, readiness, and isolated telemetry have tests. Standard export/tracing, numeric SLOs, retention, load/resilience, full recovery, and a named Claude/Codex/GPT-OSS/LM Studio matrix remain unproved. |
 
-Final local validation on 2026-07-16 also passed **1,311** non-GPU,
-non-PostgreSQL tests with 34 capability-gated skips and 150 deselections in
-52.59 seconds. The PostgreSQL and role-contract results are reported separately
+Final local validation on 2026-07-16 also passed **1,355** non-GPU,
+non-PostgreSQL tests with 37 capability-gated skips and 147 deselections in
+52.70 seconds. The PostgreSQL and role-contract results are reported separately
 above so skipped capabilities are not hidden inside one inflated aggregate.
 `uv lock --check`, Ruff lint and format checks, distribution build/content
 verification, isolated wheel import/resource/CLI checks on Python 3.12.13 and
@@ -134,53 +134,81 @@ Ed25519 fingerprints prevent one signer from appearing independent merely by
 changing PEM encoding.
 
 The default `development` mode uses operator-supplied operational keys and a
-manual latest-checkpoint SHA-256. It forbids current bank-policy pins. This mode
-is appropriate for fixtures and cryptographic consistency checks, not bank
-authority.
+manual latest-checkpoint SHA-256. It forbids current policy and deployment-scope
+pins. If signed-policy inputs are supplied for fixtures, development mode still
+does not pin the current policy or compare organization/environment/scope with
+independent expectations. This mode is appropriate for cryptographic
+consistency checks, not bank authority.
 
 The `bank-policy` mode requires the policy bytes, detached Ed25519 signature,
 trusted policy-root key, and exact separately supplied current policy
-SHA-256/version. A validly signed but different policy is rejected as stale.
+SHA-256/version plus organization/environment/deployment scope. A validly signed
+but different or cross-environment policy is rejected.
 The policy supplies the approved latest checkpoint, so a simultaneous manual
-latest-head argument is forbidden. It binds five exact release identities—the
+latest-head argument is forbidden. It binds five release identities—the
 dataset, corpus manifest, legal pack, legal attestation, and legal-release
-checkpoint—and authorizes four distinct roles and owners:
+checkpoint—and authorizes four roles with distinct declared owner IDs:
 `corpus_scope_approver`, `expert_dataset_owner`, `legal_curator`, and
 `legal_release_certifier`. The root authority cannot be an operational owner or
-signer. The report exposes bounded policy identity/count evidence, not owner
-IDs or labels.
+signer by declared ID/key. Distinct owner strings do not prove different
+humans, teams, or custodians; bank governance must establish real separation.
+The report exposes bounded policy identity/count evidence, not owner IDs or
+labels. Canonical-versus-raw hash and version meanings are defined in the
+[benchmark trust contract](../benchmark/README.md#hash-and-version-semantics).
+
+Policy schema v2 also authorizes a separate, canonical reviewer registry.
+Every retained artifact in every checkpoint must use `PageMappingProof` v2 and
+seal one reviewer owner ID. Tests require exact checkpoint/artifact coverage,
+unique reviews, capture ≤ review ≤ checkpoint ≤ validation chronology,
+reviewer validity, effective revocation, and reviewer separation from the
+issuer and four operational signer owners. Policy-free development can still
+validate v1 proofs; any signed-policy authorization rejects them.
 
 Legal-release history can use one primary current key plus explicit predecessor
 keys. The latest checkpoint must use the primary key. Policy entries use
 `replaces_key_id`; tests reject disconnected/cyclic rotation, reversal to an old
-key, wrong-time use, duplicate canonical signers, effective key revocation, and
-effective checkpoint revocation. A retired but non-revoked key remains valid
-only for checkpoint time within its authorization window. Policy versions after
-v1 must name the superseded policy SHA-256, but the source-checkout verifier does
-not retrieve or prove the complete external policy-promotion history.
+key, use outside the declared event-time window, duplicate canonical signers,
+effective key revocation, and effective checkpoint revocation. A retired but
+non-revoked key remains valid
+only for checkpoint time within its declared authorization window. Policy
+validity/approval, corpus review, dataset decision, curator attestation,
+checkpoint creation, and page review times are all declared signed fields evaluated against the local process
+clock, not independent signature timestamps. Within schema v2, `policy_version`
+values after 1 must name the superseded exact policy-byte SHA-256, but the
+source-checkout verifier checks only that declaration's shape and does not
+retrieve or replay predecessor policy bytes/history. The loader accepts only
+policy schema v2, so a signed schema-v1 policy must be reissued.
 
 Both modes deliberately report `bank_authorization_verified: false` and
 `model_scores_authorized: false`. Even bank-policy mode cannot prove that the
-policy root, policy/key mounts, and current SHA/version pins came from bank RBAC
-or an approved promotion. If the externally configured pin is itself stale, the
+policy root, policy/key mounts, and current SHA/version/scope pins came from bank
+RBAC or an approved promotion. If the externally configured pin is itself stale, the
 offline source-checkout verifier has no independent current-policy service from
 which to discover that fact. This repository slice therefore does not close the
 bank governance issue.
 
 The bank-policy success label is intentionally
 `configured_policy_head_preflight_passed`, not a bank-authorization label. Its
-three relevant booleans are `configured_root_policy_signature_verified`,
+four relevant booleans are `configured_root_policy_signature_verified`,
 `policy_approved_release_binding_verified`, and
-`policy_current_head_pin_verified`; the input provenance remains
+`policy_current_head_pin_verified`; deployment-scope comparison is recorded by
+`policy_deployment_scope_pin_verified`. Aggregate reviewer counts/verification
+are emitted, but reviewer IDs and labels are not. The reviewer count is the
+number of distinct observed reviewer owner IDs, not registry entries; the review
+count is the number of checkpoint/artifact pairs. The input provenance remains
 `caller_or_deployment_supplied`.
 
 The checkpoint verifier re-hashes source, acquisition, page mapping/text, and
 excerpt files for the full predecessor chain. Only the current checkpoint's
 legal pack is loaded and compared object-for-object with the dataset; historical
 pack bytes/Citation inventories are not retained and replayed. Exact excerpt
-containment in retained mapped-page text is verified, but the signed
-`legal_source_reviewer` role is an attestation field rather than authenticated
-reviewer identity, and raw source/PDF-to-page-text derivation is not reproduced.
+containment in retained mapped-page text is verified. V1 supplies only a role
+assertion. V2 binds the checkpoint/artifact review to a policy-authorized owner,
+but does not authenticate the human action, provide a reviewer signature, or
+reproduce raw source/PDF-to-page-text derivation. Because checkpoint bytes are
+immutable, a chain containing v1 page proofs needs a new independent genesis in
+which every artifact contains v2; that genesis cannot reference the v1-proof
+ancestor, so the old chain remains archival without verified continuity.
 
 Most importantly, preflight does not execute the expert cases. The ordinary
 Phase 1/2/3 datasets and scores are separate and always exploratory. All tracked

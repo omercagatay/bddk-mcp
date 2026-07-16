@@ -41,6 +41,7 @@ from benchmark.legal_release_evidence import (
     LegalReleaseCheckpointSigner,
     LegalReleaseEvidenceError,
     LegalReleaseEvidenceValidation,
+    LegalSourceReview,
     validate_legal_release_evidence,
 )
 from benchmark.signing import ed25519_public_key_fingerprint_sha256
@@ -470,6 +471,8 @@ class ExpertEvaluationValidation:
     legal_release_chain_checkpoint_count: int | None
     legal_release_genesis_checkpoint_sha256: str | None
     legal_release_chain_signers: tuple[LegalReleaseCheckpointSigner, ...]
+    legal_release_configured_key_fingerprints_sha256: tuple[str, ...]
+    legal_source_reviews: tuple[LegalSourceReview, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -1059,6 +1062,12 @@ def load_expert_evaluation_dataset(
         legal_release_chain_signers=(
             legal_release_validation.chain_signers if legal_release_validation is not None else ()
         ),
+        legal_release_configured_key_fingerprints_sha256=(
+            legal_release_validation.configured_signing_key_fingerprints_sha256
+            if legal_release_validation is not None
+            else ()
+        ),
+        legal_source_reviews=(legal_release_validation.source_reviews if legal_release_validation is not None else ()),
     )
     if require_release_ready:
         require_expert_dataset_release_ready(result)
