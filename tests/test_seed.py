@@ -676,7 +676,7 @@ async def test_signed_corpus_bootstrap_uses_a_separate_trust_key(temp_seed_dir):
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo,
     )
-    trusted_key = temp_seed_dir / "trusted-corpus-key.pem"
+    trusted_key = temp_seed_dir.parent / f"{temp_seed_dir.name}-trusted-corpus-key.pem"
     trusted_key.write_bytes(public_key)
     raw["integrity"].update(
         signature_status="verified",

@@ -23,6 +23,10 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _trusted_key_path(corpus_root: Path) -> Path:
+    return corpus_root.parent / f"{corpus_root.name}-trusted-public-key.pem"
+
+
 def _write_manifest(
     root: Path,
     *,
@@ -106,7 +110,7 @@ def _write_manifest(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
         )
-        (root / "trusted-public-key.pem").write_bytes(public_key_bytes)
+        _trusted_key_path(root).write_bytes(public_key_bytes)
         raw["integrity"].update(
             signature_algorithm="ed25519",
             signature_reference="corpus_scope.sig",
@@ -239,7 +243,7 @@ def test_unquantified_freshness_and_unsigned_manifest_fail_when_required(tmp_pat
 
 def test_verified_signature_requires_the_separate_trust_anchor_and_rejects_tampering(tmp_path: Path):
     manifest = _write_manifest(tmp_path, signature_status="verified")
-    trusted_key = tmp_path / "trusted-public-key.pem"
+    trusted_key = _trusted_key_path(tmp_path)
 
     validation = load_and_validate_corpus_manifest(
         manifest,
@@ -247,6 +251,7 @@ def test_verified_signature_requires_the_separate_trust_anchor_and_rejects_tampe
         require_verified_signature=True,
     )
     assert validation.manifest.integrity.signature_algorithm == "ed25519"
+    assert validation.signature_sha256 == hashlib.sha256((tmp_path / "corpus_scope.sig").read_bytes()).hexdigest()
 
     with pytest.raises(CorpusManifestError, match="separately supplied trusted public key"):
         load_and_validate_corpus_manifest(manifest, require_verified_signature=True)
@@ -256,6 +261,33 @@ def test_verified_signature_requires_the_separate_trust_anchor_and_rejects_tampe
         load_and_validate_corpus_manifest(
             manifest,
             trusted_signing_key=trusted_key,
+            require_verified_signature=True,
+        )
+
+
+def test_verified_signature_rejects_a_trust_anchor_controlled_by_the_corpus_root(tmp_path: Path):
+    corpus_root = tmp_path / "corpus"
+    corpus_root.mkdir()
+    manifest = _write_manifest(corpus_root, signature_status="verified")
+    external_key = _trusted_key_path(corpus_root)
+    corpus_controlled_key = corpus_root / "trusted-public-key.pem"
+    corpus_controlled_key.write_bytes(external_key.read_bytes())
+
+    with pytest.raises(CorpusManifestError, match="outside the corpus root"):
+        load_and_validate_corpus_manifest(
+            manifest,
+            corpus_root=corpus_root,
+            trusted_signing_key=corpus_controlled_key,
+            require_verified_signature=True,
+        )
+
+    corpus_controlled_link = corpus_root / "trusted-public-key-link.pem"
+    corpus_controlled_link.symlink_to(external_key)
+    with pytest.raises(CorpusManifestError, match="outside the corpus root"):
+        load_and_validate_corpus_manifest(
+            manifest,
+            corpus_root=corpus_root,
+            trusted_signing_key=corpus_controlled_link,
             require_verified_signature=True,
         )
 
@@ -270,7 +302,7 @@ def test_quantified_stale_manifest_fails_closed(tmp_path: Path):
             now=now,
             require_quantified_freshness=True,
             require_verified_signature=True,
-            trusted_signing_key=tmp_path / "trusted-public-key.pem",
+            trusted_signing_key=_trusted_key_path(tmp_path),
         )
 
 

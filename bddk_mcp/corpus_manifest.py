@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import stat
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -179,6 +180,7 @@ class CorpusManifestValidation:
     manifest: CorpusScopeManifest
     manifest_sha256: str
     signing_key_fingerprint_sha256: str | None
+    signature_sha256: str | None
     warnings: tuple[str, ...]
 
 
@@ -215,15 +217,18 @@ def _file_sha256(path: Path) -> str:
 
 def _bounded_regular_file(path: Path, *, label: str, maximum_bytes: int) -> bytes:
     try:
-        metadata = path.stat()
+        with path.open("rb") as handle:
+            metadata = os.fstat(handle.fileno())
+            if not stat.S_ISREG(metadata.st_mode) or not 1 <= metadata.st_size <= maximum_bytes:
+                raise CorpusManifestError(f"corpus {label} is not a bounded regular file")
+            payload = handle.read(maximum_bytes + 1)
     except FileNotFoundError as exc:
         raise CorpusManifestError(f"corpus {label} is missing") from exc
-    if not stat.S_ISREG(metadata.st_mode) or not 1 <= metadata.st_size <= maximum_bytes:
-        raise CorpusManifestError(f"corpus {label} is not a bounded regular file")
-    try:
-        return path.read_bytes()
     except OSError as exc:
         raise CorpusManifestError(f"corpus {label} could not be read") from exc
+    if len(payload) != metadata.st_size or not 1 <= len(payload) <= maximum_bytes:
+        raise CorpusManifestError(f"corpus {label} changed while it was read")
+    return payload
 
 
 def _verify_manifest_signature(
@@ -232,14 +237,22 @@ def _verify_manifest_signature(
     *,
     corpus_root: Path,
     trusted_signing_key: Path | None,
-) -> str | None:
+) -> tuple[str | None, str | None]:
     integrity = manifest.integrity
     if integrity.signature_status != "verified":
-        return None
+        return None, None
     if trusted_signing_key is None:
         raise CorpusManifestError("verified corpus signature requires a separately supplied trusted public key")
 
+    supplied_key_path = Path(os.path.abspath(trusted_signing_key))
     key_path = trusted_signing_key.resolve()
+    if (
+        supplied_key_path == corpus_root
+        or supplied_key_path.is_relative_to(corpus_root)
+        or key_path == corpus_root
+        or key_path.is_relative_to(corpus_root)
+    ):
+        raise CorpusManifestError("trusted corpus signing key must be outside the corpus root")
     key_bytes = _bounded_regular_file(key_path, label="trusted signing key", maximum_bytes=_MAX_PUBLIC_KEY_BYTES)
     if hashlib.sha256(key_bytes).hexdigest() != integrity.signature_public_key_sha256:
         raise CorpusManifestError("trusted corpus signing-key hash differs from the manifest")
@@ -260,7 +273,7 @@ def _verify_manifest_signature(
         encoding=serialization.Encoding.Raw,
         format=serialization.PublicFormat.Raw,
     )
-    return hashlib.sha256(canonical_key).hexdigest()
+    return hashlib.sha256(canonical_key).hexdigest(), hashlib.sha256(signature).hexdigest()
 
 
 def _artifact_path(root: Path, relative_path: str) -> Path:
@@ -377,7 +390,7 @@ def load_and_validate_corpus_manifest(
         raise CorpusManifestError("corpus manifest canonicalization failed") from exc
     if manifest.integrity.manifest_sha256 != expected_checksum:
         raise CorpusManifestError("corpus manifest checksum mismatch")
-    signing_key_fingerprint = _verify_manifest_signature(
+    signing_key_fingerprint, signature_sha256 = _verify_manifest_signature(
         raw,
         manifest,
         corpus_root=root,
@@ -430,5 +443,6 @@ def load_and_validate_corpus_manifest(
         manifest=manifest,
         manifest_sha256=expected_checksum,
         signing_key_fingerprint_sha256=signing_key_fingerprint,
+        signature_sha256=signature_sha256,
         warnings=tuple(warnings),
     )

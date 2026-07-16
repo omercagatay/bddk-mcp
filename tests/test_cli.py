@@ -332,9 +332,9 @@ async def test_staging_helper_uses_verifier_identity_and_checks_membership_insid
 
     from bddk_mcp.corpus_publication import CorpusReleaseRequestIdentity
 
-    (tmp_path / "manifest.sig").write_bytes(b"detached-signature")
     validation = SimpleNamespace(
         manifest_sha256="b" * 64,
+        signature_sha256="4" * 64,
         warnings=(),
         manifest=SimpleNamespace(
             manifest_id="release-test-001",
@@ -412,6 +412,7 @@ async def test_staging_helper_uses_verifier_identity_and_checks_membership_insid
     assert init.keywords == {"profile": "release-verifier"}
     identity.assert_awaited_once_with(pool, "release-verifier")
     stage.assert_awaited_once()
+    assert stage.await_args.kwargs["signature_sha256"] == "4" * 64
     member.assert_awaited_once()
     assert events == ["transaction-enter", "stage", "membership", "transaction-exit"]
     assert result["corpus_release_request"] == request.safe_dict()

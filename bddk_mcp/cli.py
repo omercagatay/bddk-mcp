@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import hashlib
 import json
 import os
 import re
@@ -354,22 +353,6 @@ def _required_image_digest(value: str) -> str:
     return value
 
 
-def _detached_signature_sha256(seed_root: Path, signature_reference: str | None) -> str:
-    if not signature_reference:
-        raise RuntimeError("Verified corpus release staging requires a detached signature reference.")
-    path = (seed_root / signature_reference).resolve()
-    if not path.is_relative_to(seed_root):
-        raise RuntimeError("Verified corpus release staging signature path is invalid.")
-    try:
-        with path.open("rb") as handle:
-            payload = handle.read(1025)
-    except OSError:
-        raise RuntimeError("Verified corpus release staging signature could not be read.") from None
-    if not 1 <= len(payload) <= 1024:
-        raise RuntimeError("Verified corpus release staging signature is not a bounded file.")
-    return hashlib.sha256(payload).hexdigest()
-
-
 async def _verify_and_stage_corpus_release(
     dsn: str | None,
     seed_dir: Path | None,
@@ -440,10 +423,9 @@ async def _verify_and_stage_corpus_release(
     seed._validate_seed_documents(documents)
     seed._validate_strict_seed_artifact_shapes(documents, decision_cache)
     expected_sections = seed._expected_seed_sections(documents)
-    signature_sha256 = _detached_signature_sha256(
-        root,
-        validation.manifest.integrity.signature_reference,
-    )
+    signature_sha256 = validation.signature_sha256
+    if signature_sha256 is None:
+        raise RuntimeError("Strict corpus release staging requires verified detached-signature evidence.")
 
     try:
         pool = await asyncpg.create_pool(
