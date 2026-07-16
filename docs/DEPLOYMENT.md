@@ -411,7 +411,16 @@ For the target bank deployment:
    `unaccent` in `public`, and create distinct schema-owner, ingestion,
    release-publisher, public, operator, and optional telemetry LOGIN identities using the reviewed group
    roles. Apply both DBA SQL files with the independent target-database guard
-   and run migration with `BDDK_EXPECTED_DATABASE_NAME`.
+   and run migration with `BDDK_EXPECTED_DATABASE_NAME`. For a v5/v6 upgrade,
+   treat any pre-v7 release hash as historical: v7 canonicalizes retained-row
+   and current/retained state hashing with function-local `TimeZone=UTC`,
+   `DateStyle=ISO, YMD`, `IntervalStyle=postgres`, `bytea_output=hex`, and
+   `extra_float_digits=3`. The v7 migration refuses if the active release does
+   not match that canonical recomputation. Keep the old ledger row immutable;
+   on the unchanged pre-v7 schema (v5 or v6), use the exact publication-only
+   `publish-corpus-release` compatibility path to perform reviewed revalidation
+   and append/activate a new canonical publication, then retry v7 before
+   retention. Serving, retention, and every other workload remain v7-only.
 2. Replace the application image placeholder with the scanned immutable digest,
    create `bddk-mcp-postgres-ca` with key `ca.crt`, and keep every workload DSN
    at `sslmode=verify-full` with the mounted absolute CA path.
@@ -421,10 +430,20 @@ For the target bank deployment:
    `bddk-mcp-corpus-trust`. Use the reviewed `bank-bootstrap` overlay contract,
    which passes all strict freshness/signature flags and the separately mounted
    `--trusted-signing-key` directly to bootstrap. Preserve migration → grants →
-   bootstrap/reindex → independent release-publisher revalidation/activation
-   ordering; do not start lifecycle Jobs concurrently merely because the
+   bootstrap/reindex → independent release-publisher revalidation/activation →
+   approved one-shot `retain-corpus-generation` ordering when the release must
+   be an immutable recovery target; do not start lifecycle Jobs concurrently merely because the
    overlay renders them together. Retain both bootstrap and publisher's
-   path-free release evidence. The base `jobs/bootstrap.yaml` remains a
+   path-free release evidence plus the content-free retention receipt. The
+   retention command currently has no checked-in OpenShift Job and must use the
+   release-publisher identity; it is not an MCP operation and does not activate
+   or serve the retained generation. It uses transaction-local
+   `lock_timeout=30s` and `statement_timeout=30min`; a timeout is a rolled-back
+   operation, not partial success, and requires active-release revalidation
+   before retry. If a separately governed release has the
+   same exact corpus state and retrieval profile as an existing retained target,
+   the command creates a new per-release binding and reuses that physical
+   generation and seal. The base `jobs/bootstrap.yaml` remains a
    development/baseline Job and is not a production trust gate.
 4. Run public and operator profiles as separate workloads; inject `BDDK_DATABASE_URL` only into public and `BDDK_OPERATOR_DATABASE_URL` only into operator.
 5. Keep remote operator disabled unless a private operator Route, `bddk.operator` authorization, and explicit `BDDK_OPERATOR_REMOTE_ENABLED=true` have been approved.
@@ -437,7 +456,19 @@ For the target bank deployment:
 8. Validate the re-encrypt Route-to-pod handshake and operator Service TLS against the injected OpenShift service CA; retain the application's JWT checks and place shared request limits and audit events at the approved ingress boundary.
 9. Prove backup, point-in-time/selected restore, schema upgrade, legacy refusal
    or adoption where relevant, and rollback/cutover procedures in an isolated
-   environment.
+   environment. Recovery must cover all 51 managed v7 objects. Measure backup
+   growth on a target with the same database encoding,
+   collation/character-classification names, locale provider/locale, ICU rules,
+   and collation version as the source; recovery evidence records and requires
+   those values exactly and rejects stored/actual version drift. A mismatch is a fail-closed restore, not an
+   equivalent target. Use a controlled backup; the retention CLI's observed WAL
+   interval is cluster-wide and non-exclusive. Its baseline is attempted inside
+   a savepoint and its endpoint after commit; either failure leaves WAL
+   `not_measured` without undoing a durable seal. V7 retained targets are not
+   application rollback until H2-02B generation-bound serving/reactivation is
+   implemented. Size capacity against unique retained state/profile generations,
+   not governed-release binding count, and keep bank retention/capacity approval
+   as a release gate.
 10. Run release-specific MCP discovery, schema, authentication, tool-call,
    structured-output, timeout, and citation tests for every actual client/model
    combination used by the bank.

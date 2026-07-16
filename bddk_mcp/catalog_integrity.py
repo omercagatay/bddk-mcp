@@ -447,6 +447,303 @@ _EXPECTED_V4_CONSTRAINT_CATALOG_SHA256: Final[str] = "145336033f6236c27c925a4c23
 _EXPECTED_V4_INDEX_COUNT: Final[int] = 21
 _EXPECTED_V4_INDEX_CATALOG_SHA256: Final[str] = "7917cee6cca9a86c358cee10916c0b7fcccebfdaef9ad18bf2ffab5415896c04"
 
+_V7_META_RELATIONS: Final[tuple[str, ...]] = (
+    "corpus_generation_relation_inventory",
+    "corpus_generation_seals",
+    "corpus_generations",
+    "corpus_release_retention_status",
+    "corpus_retained_releases",
+)
+_V7_ROUTINES: Final[tuple[str, ...]] = (
+    "guard_retained_generation_member",
+    "inspect_retained_generation_storage",
+    "reject_retained_generation_mutation",
+    "retain_active_corpus_generation",
+    "retained_corpus_state_sha256",
+    "retained_row_sha256",
+)
+_V7_CATALOG_SQL = """
+WITH ledger_owner AS (
+    SELECT relation.relowner AS owner_oid
+    FROM pg_catalog.pg_class AS relation
+    WHERE relation.oid = 'bddk_meta.schema_migrations'::pg_catalog.regclass
+), selected_relations AS (
+    SELECT relation.oid,
+           namespace.nspname,
+           relation.relname,
+           relation.relkind,
+           relation.relpersistence,
+           relation.relrowsecurity,
+           relation.relforcerowsecurity,
+           relation.relowner = ledger_owner.owner_oid AS owner_matches,
+           COALESCE(relation.reloptions, ARRAY[]::pg_catalog.text[]) AS options
+    FROM pg_catalog.pg_class AS relation
+    JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+    CROSS JOIN ledger_owner
+    WHERE (namespace.nspname = 'bddk_retained')
+       OR (namespace.nspname = 'bddk_meta' AND relation.relname = ANY($1::pg_catalog.text[]))
+), catalog_items AS (
+    SELECT 'schema|bddk_retained|'
+           || (namespace.nspowner = ledger_owner.owner_oid)::pg_catalog.text AS item
+    FROM pg_catalog.pg_namespace AS namespace
+    CROSS JOIN ledger_owner
+    WHERE namespace.nspname = 'bddk_retained'
+    UNION ALL
+    SELECT 'relation|' || selected.nspname || '|' || selected.relname || '|'
+           || selected.relkind::pg_catalog.text || '|'
+           || selected.relpersistence::pg_catalog.text || '|'
+           || selected.relrowsecurity::pg_catalog.text || '|'
+           || selected.relforcerowsecurity::pg_catalog.text || '|'
+           || selected.owner_matches::pg_catalog.text || '|'
+           || pg_catalog.array_to_string(selected.options, ',')
+    FROM selected_relations AS selected
+    UNION ALL
+    SELECT 'column|' || selected.nspname || '|' || selected.relname || '|'
+           || attribute.attnum::pg_catalog.text || '|' || attribute.attname || '|'
+           || pg_catalog.format_type(attribute.atttypid, attribute.atttypmod) || '|'
+           || attribute.attnotnull::pg_catalog.text || '|'
+           || attribute.attidentity::pg_catalog.text || '|'
+           || attribute.attgenerated::pg_catalog.text || '|'
+           || attribute.attstorage::pg_catalog.text || '|'
+           || attribute.attcompression::pg_catalog.text || '|'
+           || attribute.attstattarget::pg_catalog.text || '|'
+           || COALESCE(
+                  collation_namespace.nspname || '.' || collation_record.collname,
+                  ''
+              ) || '|'
+           || COALESCE(
+                  pg_catalog.regexp_replace(
+                      pg_catalog.pg_get_expr(attribute_default.adbin, attribute_default.adrelid),
+                      '[[:space:]]+', ' ', 'g'
+                  ),
+                  ''
+              )
+    FROM selected_relations AS selected
+    JOIN pg_catalog.pg_attribute AS attribute ON attribute.attrelid = selected.oid
+    LEFT JOIN pg_catalog.pg_attrdef AS attribute_default
+      ON attribute_default.adrelid = attribute.attrelid
+     AND attribute_default.adnum = attribute.attnum
+    LEFT JOIN pg_catalog.pg_collation AS collation_record
+      ON collation_record.oid = attribute.attcollation
+     AND attribute.attcollation <> 0
+    LEFT JOIN pg_catalog.pg_namespace AS collation_namespace
+      ON collation_namespace.oid = collation_record.collnamespace
+    WHERE attribute.attnum > 0 AND NOT attribute.attisdropped
+    UNION ALL
+    SELECT 'constraint|' || selected.nspname || '|' || selected.relname || '|'
+           || constraint_record.conname || '|' || constraint_record.contype::pg_catalog.text || '|'
+           || constraint_record.convalidated::pg_catalog.text || '|'
+           || pg_catalog.regexp_replace(
+                  pg_catalog.pg_get_constraintdef(constraint_record.oid, false),
+                  '[[:space:]]+', ' ', 'g'
+              )
+    FROM selected_relations AS selected
+    JOIN pg_catalog.pg_constraint AS constraint_record ON constraint_record.conrelid = selected.oid
+    UNION ALL
+    SELECT 'constraint|bddk_meta|corpus_releases|'
+           || constraint_record.conname || '|' || constraint_record.contype::pg_catalog.text || '|'
+           || constraint_record.convalidated::pg_catalog.text || '|'
+           || pg_catalog.regexp_replace(
+                  pg_catalog.pg_get_constraintdef(constraint_record.oid, false),
+                  '[[:space:]]+', ' ', 'g'
+              )
+    FROM pg_catalog.pg_constraint AS constraint_record
+    WHERE constraint_record.conrelid = 'bddk_meta.corpus_releases'::pg_catalog.regclass
+      AND constraint_record.conname = 'corpus_releases_retention_identity_uq'
+    UNION ALL
+    SELECT 'constraint|bddk_meta|corpus_release_activations|'
+           || constraint_record.conname || '|' || constraint_record.contype::pg_catalog.text || '|'
+           || constraint_record.convalidated::pg_catalog.text || '|'
+           || pg_catalog.regexp_replace(
+                  pg_catalog.pg_get_constraintdef(constraint_record.oid, false),
+                  '[[:space:]]+', ' ', 'g'
+              )
+    FROM pg_catalog.pg_constraint AS constraint_record
+    WHERE constraint_record.conrelid =
+          'bddk_meta.corpus_release_activations'::pg_catalog.regclass
+      AND constraint_record.conname =
+          'corpus_release_activations_retention_identity_uq'
+    UNION ALL
+    SELECT 'index|' || selected.nspname || '|' || selected.relname || '|'
+           || index_relation.relname || '|'
+           || index_record.indisvalid::pg_catalog.text || '|'
+           || index_record.indisready::pg_catalog.text || '|'
+           || pg_catalog.regexp_replace(
+                  pg_catalog.pg_get_indexdef(index_relation.oid),
+                  '[[:space:]]+', ' ', 'g'
+              )
+    FROM selected_relations AS selected
+    JOIN pg_catalog.pg_index AS index_record ON index_record.indrelid = selected.oid
+    JOIN pg_catalog.pg_class AS index_relation ON index_relation.oid = index_record.indexrelid
+    UNION ALL
+    SELECT 'trigger|' || selected.nspname || '|' || selected.relname || '|'
+           || trigger_record.tgname || '|' || trigger_record.tgenabled::pg_catalog.text || '|'
+           || pg_catalog.regexp_replace(
+                  pg_catalog.pg_get_triggerdef(trigger_record.oid, false),
+                  '[[:space:]]+', ' ', 'g'
+              )
+    FROM selected_relations AS selected
+    JOIN pg_catalog.pg_trigger AS trigger_record ON trigger_record.tgrelid = selected.oid
+    WHERE NOT trigger_record.tgisinternal
+    UNION ALL
+    SELECT 'routine|bddk_meta|' || routine.proname || '|'
+           || pg_catalog.pg_get_function_identity_arguments(routine.oid) || '|'
+           || pg_catalog.array_to_string(
+                  COALESCE(routine.proargmodes, ARRAY[]::"char"[]), ','
+              ) || '|'
+           || pg_catalog.array_to_string(
+                  COALESCE(routine.proargnames, ARRAY[]::pg_catalog.text[]), ','
+              ) || '|'
+           || language.lanname || '|' || routine.provolatile::pg_catalog.text || '|'
+           || routine.proparallel::pg_catalog.text || '|'
+           || routine.prosecdef::pg_catalog.text || '|'
+           || routine.proleakproof::pg_catalog.text || '|'
+           || routine.proisstrict::pg_catalog.text || '|'
+           || routine.proretset::pg_catalog.text || '|'
+           || pg_catalog.pg_get_function_result(routine.oid) || '|'
+           || pg_catalog.array_to_string(COALESCE(routine.proconfig, ARRAY[]::pg_catalog.text[]), ',') || '|'
+           || pg_catalog.regexp_replace(routine.prosrc, '[[:space:]]+', ' ', 'g')
+    FROM pg_catalog.pg_proc AS routine
+    JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = routine.pronamespace
+    JOIN pg_catalog.pg_language AS language ON language.oid = routine.prolang
+    CROSS JOIN ledger_owner
+    WHERE namespace.nspname = 'bddk_meta'
+      AND routine.proname = ANY($2::pg_catalog.text[])
+      AND routine.proowner = ledger_owner.owner_oid
+    UNION ALL
+    SELECT 'view|bddk_meta|corpus_release_retention_status|'
+           || pg_catalog.regexp_replace(
+                  pg_catalog.pg_get_viewdef('bddk_meta.corpus_release_retention_status'::pg_catalog.regclass, false),
+                  '[[:space:]]+', ' ', 'g'
+              )
+)
+SELECT pg_catalog.count(*)::pg_catalog.int4 AS object_count,
+       pg_catalog.encode(
+           pg_catalog.sha256(
+               pg_catalog.convert_to(
+                   pg_catalog.string_agg(item, E'\\n' ORDER BY item),
+                   'UTF8'
+               )
+           ),
+           'hex'
+       ) AS catalog_sha256
+FROM catalog_items
+"""
+_EXPECTED_V7_CATALOG_OBJECT_COUNT: Final[int] = 510
+_EXPECTED_V7_CATALOG_SHA256: Final[str] = "b917551df79f89c749051211a4640481ed8a87f0ca3e3ec085522bdabbbf7f21"
+
+_V7_ACL_SQL = """
+WITH ledger_owner AS (
+    SELECT relation.relowner AS owner_oid
+    FROM pg_catalog.pg_class AS relation
+    WHERE relation.oid = 'bddk_meta.schema_migrations'::pg_catalog.regclass
+), selected_relations AS (
+    SELECT relation.oid, relation.relowner, relation.relacl,
+           namespace.nspname, relation.relname, relation.relkind
+    FROM pg_catalog.pg_class AS relation
+    JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+    WHERE namespace.nspname = 'bddk_retained'
+       OR (namespace.nspname = 'bddk_meta' AND relation.relname = ANY($1::pg_catalog.text[]))
+), acl_items AS (
+    SELECT 'schema'::pg_catalog.text AS object_kind,
+           namespace.nspname::pg_catalog.text AS object_identity,
+           CASE WHEN acl.grantee = 0 THEN 'PUBLIC'::pg_catalog.text
+                ELSE grantee.rolname::pg_catalog.text END AS grantee_name,
+           acl.privilege_type::pg_catalog.text AS privilege_type,
+           acl.is_grantable
+    FROM pg_catalog.pg_namespace AS namespace
+    CROSS JOIN LATERAL pg_catalog.aclexplode(
+        COALESCE(
+            namespace.nspacl,
+            pg_catalog.acldefault('n'::"char", namespace.nspowner)
+        )
+    ) AS acl
+    LEFT JOIN pg_catalog.pg_roles AS grantee ON grantee.oid = acl.grantee
+    WHERE namespace.nspname = 'bddk_retained'
+      AND acl.grantee <> namespace.nspowner
+    UNION ALL
+    SELECT 'relation'::pg_catalog.text,
+           selected.nspname || '.' || selected.relname,
+           CASE WHEN acl.grantee = 0 THEN 'PUBLIC'::pg_catalog.text
+                ELSE grantee.rolname::pg_catalog.text END,
+           acl.privilege_type::pg_catalog.text,
+           acl.is_grantable
+    FROM selected_relations AS selected
+    CROSS JOIN LATERAL pg_catalog.aclexplode(
+        COALESCE(
+            selected.relacl,
+            pg_catalog.acldefault(
+                CASE WHEN selected.relkind = 'S' THEN 's'::"char" ELSE 'r'::"char" END,
+                selected.relowner
+            )
+        )
+    ) AS acl
+    LEFT JOIN pg_catalog.pg_roles AS grantee ON grantee.oid = acl.grantee
+    WHERE acl.grantee <> selected.relowner
+    UNION ALL
+    SELECT 'column'::pg_catalog.text,
+           selected.nspname || '.' || selected.relname || '.' || attribute.attname,
+           CASE WHEN acl.grantee = 0 THEN 'PUBLIC'::pg_catalog.text
+                ELSE grantee.rolname::pg_catalog.text END,
+           acl.privilege_type::pg_catalog.text,
+           acl.is_grantable
+    FROM selected_relations AS selected
+    JOIN pg_catalog.pg_attribute AS attribute
+      ON attribute.attrelid = selected.oid
+     AND attribute.attnum > 0
+     AND NOT attribute.attisdropped
+    CROSS JOIN LATERAL pg_catalog.aclexplode(attribute.attacl) AS acl
+    LEFT JOIN pg_catalog.pg_roles AS grantee ON grantee.oid = acl.grantee
+    WHERE acl.grantee <> selected.relowner
+    UNION ALL
+    SELECT 'routine'::pg_catalog.text,
+           'bddk_meta.' || routine.proname || '('
+               || pg_catalog.pg_get_function_identity_arguments(routine.oid) || ')',
+           CASE WHEN acl.grantee = 0 THEN 'PUBLIC'::pg_catalog.text
+                ELSE grantee.rolname::pg_catalog.text END,
+           acl.privilege_type::pg_catalog.text,
+           acl.is_grantable
+    FROM pg_catalog.pg_proc AS routine
+    JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = routine.pronamespace
+    CROSS JOIN LATERAL pg_catalog.aclexplode(
+        COALESCE(
+            routine.proacl,
+            pg_catalog.acldefault('f'::"char", routine.proowner)
+        )
+    ) AS acl
+    LEFT JOIN pg_catalog.pg_roles AS grantee ON grantee.oid = acl.grantee
+    WHERE namespace.nspname = 'bddk_meta'
+      AND routine.proname = ANY($2::pg_catalog.text[])
+      AND acl.grantee <> routine.proowner
+)
+SELECT object_kind, object_identity, grantee_name, privilege_type, is_grantable
+FROM acl_items
+ORDER BY object_kind, object_identity, grantee_name, privilege_type, is_grantable
+"""
+_EXPECTED_V7_DEPLOYED_ACL: Final[tuple[tuple[str, str, str, str, bool], ...]] = (
+    (
+        "relation",
+        "bddk_meta.corpus_release_retention_status",
+        "bddk_release_publisher",
+        "SELECT",
+        False,
+    ),
+    (
+        "routine",
+        "bddk_meta.inspect_retained_generation_storage(requested_generation_id text)",
+        "bddk_release_publisher",
+        "EXECUTE",
+        False,
+    ),
+    (
+        "routine",
+        "bddk_meta.retain_active_corpus_generation(expected_release_id text)",
+        "bddk_release_publisher",
+        "EXECUTE",
+        False,
+    ),
+)
+
 
 def _normalize_sql(value: Any) -> str:
     text = re.sub(r"\s+", " ", str(value or "").strip().lower())
@@ -606,9 +903,20 @@ _CORPUS_RELEASE_CONSTRAINTS: Final[dict[tuple[str, str], tuple[str, str]]] = {
         "c",
         "CHECK ((corpus_state_sha256 ~ '^[0-9a-f]{64}$'))",
     ),
+    ("corpus_releases", "corpus_releases_retention_identity_uq"): (
+        "u",
+        "UNIQUE (release_id, corpus_state_sha256, retrieval_profile_sha256)",
+    ),
     ("corpus_release_activations", "corpus_release_activations_pkey"): (
         "p",
         "PRIMARY KEY (activation_sequence)",
+    ),
+    (
+        "corpus_release_activations",
+        "corpus_release_activations_retention_identity_uq",
+    ): (
+        "u",
+        "UNIQUE (activation_sequence, release_id)",
     ),
     ("corpus_release_activations", "corpus_release_activations_release_fk"): (
         "f",
@@ -675,6 +983,15 @@ _CORPUS_RELEASE_ROUTINES: Final[dict[str, tuple[str, str, str, bool, str]]] = {
         _v5_function_source("reject_corpus_release_mutation"),
     ),
 }
+
+_CANONICAL_FINGERPRINT_CONFIGURATION: Final[tuple[str, ...]] = (
+    "search_path=pg_catalog",
+    "TimeZone=UTC",
+    "DateStyle=ISO, YMD",
+    "IntervalStyle=postgres",
+    "bytea_output=hex",
+    "extra_float_digits=3",
+)
 
 _ACTIVE_CORPUS_RELEASE_DEPENDENCIES: Final[tuple[str, ...]] = (
     "bddk_meta.corpus_release_activations",
@@ -981,8 +1298,21 @@ def _catalog_char(value: Any) -> str:
     return str(value)
 
 
-async def inspect_catalog_integrity(pool: asyncpg.Pool) -> CatalogIntegrity:
-    """Verify critical constraints, triggers, indexes, and function bodies."""
+async def inspect_catalog_integrity(
+    pool: asyncpg.Pool,
+    *,
+    expected_schema_version: int = 7,
+) -> CatalogIntegrity:
+    """Verify critical constraints, triggers, indexes, and function bodies.
+
+    Schema v5/v6 remains a deliberately narrow compatibility target for the one
+    canonical-republication operation required when the v7 upgrade guard
+    rejects a historical, session-dependent corpus fingerprint.  Ordinary
+    serving and every other workload continue to require the latest schema.
+    """
+
+    if expected_schema_version not in {5, 6, 7}:
+        raise ValueError("catalog integrity supports only schema versions 5, 6, and 7")
 
     failures: list[str] = []
 
@@ -1145,9 +1475,14 @@ async def inspect_catalog_integrity(pool: asyncpg.Pool) -> CatalogIntegrity:
         )
         for row in release_constraint_rows
     }
+    release_constraints = {
+        key: value
+        for key, value in _CORPUS_RELEASE_CONSTRAINTS.items()
+        if expected_schema_version == 7 or not key[1].endswith("_retention_identity_uq")
+    }
     expected_release_constraints = {
         key: (constraint_type, True, _normalize_sql(definition))
-        for key, (constraint_type, definition) in _CORPUS_RELEASE_CONSTRAINTS.items()
+        for key, (constraint_type, definition) in release_constraints.items()
     }
     if actual_release_constraints != expected_release_constraints:
         failures.append("constraints:bddk_meta.corpus_release_exact")
@@ -1195,13 +1530,18 @@ async def inspect_catalog_integrity(pool: asyncpg.Pool) -> CatalogIntegrity:
     else:
         for identity, (language, volatility, parallel, security_definer, source) in _CORPUS_RELEASE_ROUTINES.items():
             actual = actual_release_routines[identity]
+            expected_configuration = (
+                _CANONICAL_FINGERPRINT_CONFIGURATION
+                if expected_schema_version == 7 and identity == "current_corpus_state_sha256(text)"
+                else ("search_path=pg_catalog",)
+            )
             expected_prefix = (
                 language,
                 volatility,
                 parallel,
                 security_definer,
                 False,
-                ("search_path=pg_catalog",),
+                expected_configuration,
                 _normalize_sql(source),
             )
             if actual[:7] != expected_prefix or not actual[7] or actual[7] != actual[8] or actual[9]:
@@ -1225,7 +1565,7 @@ async def inspect_catalog_integrity(pool: asyncpg.Pool) -> CatalogIntegrity:
         failures.append("view:bddk_meta.active_corpus_release")
 
     legal_status_routine = await pool.fetchrow(_LEGAL_STATUS_ROUTINE_SQL)
-    if not (
+    if expected_schema_version >= 6 and not (
         legal_status_routine is not None
         and str(_value(legal_status_routine, "function_identity")) == "resolve_regulation_status(text, date)"
         and str(_value(legal_status_routine, "language")) == "sql"
@@ -1245,5 +1585,35 @@ async def inspect_catalog_integrity(pool: asyncpg.Pool) -> CatalogIntegrity:
         and not bool(_value(legal_status_routine, "public_can_execute", True))
     ):
         failures.append("routine:bddk_meta.resolve_regulation_status(text, date)")
+
+    if expected_schema_version == 7:
+        v7_catalog = await pool.fetchrow(
+            _V7_CATALOG_SQL,
+            list(_V7_META_RELATIONS),
+            list(_V7_ROUTINES),
+        )
+        if (
+            int(_value(v7_catalog, "object_count", -1)) != _EXPECTED_V7_CATALOG_OBJECT_COUNT
+            or str(_value(v7_catalog, "catalog_sha256", "")) != _EXPECTED_V7_CATALOG_SHA256
+        ):
+            failures.append("catalog:bddk_retained.v7_exact")
+
+        v7_acl_rows = await pool.fetch(
+            _V7_ACL_SQL,
+            list(_V7_META_RELATIONS),
+            list(_V7_ROUTINES),
+        )
+        v7_acl = tuple(
+            (
+                str(_value(row, "object_kind", "")),
+                str(_value(row, "object_identity", "")),
+                str(_value(row, "grantee_name", "")),
+                str(_value(row, "privilege_type", "")),
+                bool(_value(row, "is_grantable", True)),
+            )
+            for row in v7_acl_rows
+        )
+        if v7_acl not in ((), _EXPECTED_V7_DEPLOYED_ACL):
+            failures.append("acl:bddk_retained.v7_exact")
 
     return CatalogIntegrity(tuple(sorted(failures)))

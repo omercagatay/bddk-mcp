@@ -264,3 +264,66 @@ async def test_replaced_v4_index_fails_exact_catalog_attestation(pg_pool) -> Non
             assert not readiness.ready
         finally:
             await transaction.rollback()
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "tamper_sql",
+    [
+        "ALTER TABLE bddk_retained.documents DISABLE TRIGGER guard_retained_generation_member",
+        "ALTER TABLE bddk_retained.decision_cache SET UNLOGGED",
+        "ALTER TABLE bddk_retained.documents ENABLE ROW LEVEL SECURITY",
+        "ALTER FUNCTION bddk_meta.guard_retained_generation_member() SECURITY INVOKER",
+        "ALTER FUNCTION bddk_meta.retain_active_corpus_generation(pg_catalog.text) STRICT",
+        "ALTER TABLE bddk_meta.corpus_generation_seals "
+        "DROP CONSTRAINT corpus_generation_seals_relation_count_check; "
+        "ALTER TABLE bddk_meta.corpus_generation_seals "
+        "ADD CONSTRAINT corpus_generation_seals_relation_count_check "
+        "CHECK (relation_count > 0)",
+    ],
+    ids=(
+        "disabled-member-trigger",
+        "unlogged-retained-table",
+        "enabled-row-security",
+        "weakened-guard-function",
+        "strict-retention-function",
+        "weakened-seal-constraint",
+    ),
+)
+async def test_v7_retention_catalog_tampering_fails_exact_attestation(pg_pool, tamper_sql: str) -> None:
+    async with pg_pool.acquire() as connection:
+        transaction = connection.transaction()
+        await transaction.start()
+        try:
+            await connection.execute(tamper_sql)
+
+            report = await inspect_catalog_integrity(connection)
+            readiness = await inspect_database_readiness(connection, require_corpus=False)
+
+            expected = "catalog:bddk_retained.v7_exact"
+            assert expected in report.failures
+            assert expected in readiness.catalog_issues
+            assert not readiness.ready
+        finally:
+            await transaction.rollback()
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_v7_column_level_grant_fails_exact_acl_attestation(pg_pool) -> None:
+    async with pg_pool.acquire() as connection:
+        transaction = connection.transaction()
+        await transaction.start()
+        try:
+            await connection.execute("GRANT SELECT (generation_id) ON bddk_retained.documents TO PUBLIC")
+
+            report = await inspect_catalog_integrity(connection)
+            readiness = await inspect_database_readiness(connection, require_corpus=False)
+
+            expected = "acl:bddk_retained.v7_exact"
+            assert expected in report.failures
+            assert expected in readiness.catalog_issues
+            assert not readiness.ready
+        finally:
+            await transaction.rollback()

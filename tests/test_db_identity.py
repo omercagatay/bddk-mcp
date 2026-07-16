@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import replace
-from types import MappingProxyType
+from types import MappingProxyType, SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import asyncpg
@@ -16,12 +16,13 @@ from bddk_mcp.db_identity import (
     DatabaseIdentityInspection,
     assert_database_connection_identity,
     assert_database_identity,
+    assert_release_publication_connection_identity,
     identity_contract_failures,
+    release_publication_identity_contract_failures,
 )
 
 
-def _valid_inspection(profile: str, *, login: str = "bank_workload_login") -> DatabaseIdentityInspection:
-    contract = db_identity._CONTRACTS[profile]
+def _contract_inspection(contract, *, login: str = "bank_workload_login") -> DatabaseIdentityInspection:
     return DatabaseIdentityInspection(
         current_user=login,
         session_user=login,
@@ -39,6 +40,10 @@ def _valid_inspection(profile: str, *, login: str = "bank_workload_login") -> Da
         sequences=contract.sequences,
         routines=contract.routines,
     )
+
+
+def _valid_inspection(profile: str, *, login: str = "bank_workload_login") -> DatabaseIdentityInspection:
+    return _contract_inspection(db_identity._CONTRACTS[profile], login=login)
 
 
 @pytest.mark.parametrize("profile", ["public", "ingestion", "release-publisher", "operator"])
@@ -78,6 +83,112 @@ def test_canonical_legal_version_workspace_is_inventoried_with_zero_runtime_righ
     assert db_identity._CONTRACTS["ingestion"].tables[view] == frozenset()
     assert db_identity._CONTRACTS["release-publisher"].tables[view] == frozenset()
     assert db_identity._CONTRACTS["operator"].tables[view] == frozenset({"SELECT"})
+
+
+def test_retained_generation_store_is_exactly_inventoried_and_runtime_denied() -> None:
+    retained_tables = {f"bddk_retained.{relation}" for relation in db_identity.RETAINED_CORPUS_RELATIONS}
+
+    assert len(retained_tables) == 17
+    assert db_identity._RETAINED_CORPUS_TABLES == retained_tables
+    for profile in ("public", "ingestion", "release-publisher", "operator"):
+        contract = db_identity._CONTRACTS[profile]
+        assert contract.schemas["bddk_retained"] == frozenset()
+        assert {table: contract.tables[table] for table in retained_tables} == {
+            table: frozenset() for table in retained_tables
+        }
+
+    retention_view = "bddk_meta.corpus_release_retention_status"
+    retain_routine = "bddk_meta.retain_active_corpus_generation(text)"
+    storage_routine = "bddk_meta.inspect_retained_generation_storage(text)"
+    for profile in ("public", "ingestion", "operator"):
+        contract = db_identity._CONTRACTS[profile]
+        assert contract.tables[retention_view] == frozenset()
+        assert contract.routines[retain_routine] == frozenset()
+        assert contract.routines[storage_routine] == frozenset()
+
+    publisher = db_identity._CONTRACTS["release-publisher"]
+    assert publisher.tables[retention_view] == frozenset({"SELECT"})
+    assert publisher.routines[retain_routine] == frozenset({"EXECUTE"})
+    assert publisher.routines[storage_routine] == frozenset({"EXECUTE"})
+    assert publisher.routines["bddk_meta.retained_corpus_state_sha256(text, text)"] == frozenset()
+    assert publisher.routines["bddk_meta.retained_row_sha256(anyelement, boolean)"] == frozenset()
+    assert publisher.routines["bddk_meta.guard_retained_generation_member()"] == frozenset()
+    assert publisher.routines["bddk_meta.reject_retained_generation_mutation()"] == frozenset()
+
+
+@pytest.mark.parametrize(
+    ("schema_version", "contract"),
+    (
+        (5, db_identity._V5_RELEASE_PUBLISHER_CONTRACT),
+        (6, db_identity._V6_RELEASE_PUBLISHER_CONTRACT),
+        (7, db_identity._CONTRACTS["release-publisher"]),
+    ),
+)
+def test_publication_only_identity_contracts_are_exact_by_schema_version(schema_version: int, contract) -> None:
+    inspection = _contract_inspection(contract)
+
+    assert (
+        release_publication_identity_contract_failures(
+            inspection,
+            schema_version=schema_version,
+        )
+        == ()
+    )
+    assert release_publication_identity_contract_failures(
+        inspection,
+        schema_version=4,
+    ) == ("unsupported_schema_version",)
+
+    if schema_version < 7:
+        assert "bddk_retained" not in contract.schemas
+        assert not db_identity._V7_ONLY_TABLES.intersection(contract.tables)
+        assert not db_identity._V7_ONLY_ROUTINES.intersection(contract.routines)
+    if schema_version == 5:
+        assert "bddk_meta.resolve_regulation_status(text, date)" not in contract.routines
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("schema_version", "contract"),
+    (
+        (5, db_identity._V5_RELEASE_PUBLISHER_CONTRACT),
+        (6, db_identity._V6_RELEASE_PUBLISHER_CONTRACT),
+        (7, db_identity._CONTRACTS["release-publisher"]),
+    ),
+)
+async def test_publication_connection_identity_selects_only_the_exact_compatible_contract(
+    monkeypatch,
+    schema_version: int,
+    contract,
+) -> None:
+    monkeypatch.setattr(
+        db_identity,
+        "inspect_migration_state",
+        AsyncMock(return_value=SimpleNamespace(current_version=schema_version)),
+    )
+    monkeypatch.setattr(
+        db_identity,
+        "inspect_database_connection_identity",
+        AsyncMock(return_value=_contract_inspection(contract)),
+    )
+
+    await assert_release_publication_connection_identity(SimpleNamespace())
+
+
+@pytest.mark.asyncio
+async def test_publication_connection_identity_rejects_other_schema_versions(monkeypatch) -> None:
+    inspection = AsyncMock()
+    monkeypatch.setattr(
+        db_identity,
+        "inspect_migration_state",
+        AsyncMock(return_value=SimpleNamespace(current_version=4)),
+    )
+    monkeypatch.setattr(db_identity, "inspect_database_connection_identity", inspection)
+
+    with pytest.raises(DatabaseIdentityError, match="supported schema version"):
+        await assert_release_publication_connection_identity(SimpleNamespace())
+
+    inspection.assert_not_awaited()
 
 
 @pytest.mark.parametrize(

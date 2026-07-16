@@ -162,13 +162,50 @@ labels, not the enforced release binding.
 9. With the distinct release-publisher identity, run
    `publish-corpus-release`; verify the persisted active identity and read it
    through `bddk://corpus/active-release` before permitting strict serving.
+10. If the active release must be retained as an immutable database recovery
+    target, run `bddk-mcp retain-corpus-generation --expected-release-id ...`
+    through that same publisher identity and retain its content-free receipt.
+    The command is administrative CLI only; it is not an MCP tool and does not
+    change the active release. A new governed release over an already retained
+    exact corpus state/retrieval profile receives its own binding to the existing
+    physical generation and seal; it does not create a duplicate copy. The CLI
+    bounds its transaction with `lock_timeout=30s` and
+    `statement_timeout=30min`; a timeout leaves no partial generation, seal, or
+    binding. Resolve contention and confirm the expected release is still active
+    before a reviewed retry.
+
+V7 fixes retained-row and both current/retained state hashing to function-local
+`TimeZone=UTC`, `DateStyle=ISO, YMD`, `IntervalStyle=postgres`,
+`bytea_output=hex`, and `extra_float_digits=3`. Historical release rows are
+not rewritten. Before installing v7, the migration recomputes any active v5/v6
+release under those canonical settings and refuses the upgrade if it differs.
+Preserve that historical evidence; on the unchanged pre-v7 schema (v5 or v6),
+independently review/revalidate the exact corpus and use the exact
+publication-only `publish-corpus-release` compatibility path to publish and
+activate a new release under the canonical settings. Then retry v7 and retain
+it. Serving, retention, and other workload admission remain v7-only. Never
+manufacture a binding or update the old release hash.
 
 Retain the prior manifest and artifacts under the bank's immutable release and
-retention controls. The repository now implements an atomic active identity and
-epoch invalidation, but the mutable serving tables are not retained as
-independently servable immutable generations and no tested rollback/reactivation
-workflow exists. An activation therefore must not be described as historical
-corpus recovery evidence.
+retention controls. Schema v7 can copy and seal the exact active v5 state across
+17 typed retained relations, but serving remains bound to the mutable v5
+tables and no tested activation/reactivation workflow exists. A sealed
+generation is therefore a rollback target, not product rollback or historical
+source-evidence recovery. Legacy v5 releases without a v7 binding remain
+`legacy_v5_unretained`.
+
+The retention receipt reports reconciled database storage and, when available,
+a non-exclusive observed cluster WAL interval; WAL remains `not_measured` if
+that best-effort observation is unavailable. The baseline LSN is attempted in a
+savepoint so a measurement-permission/catalog failure does not poison the
+retention transaction; the endpoint is best-effort after commit, and unrelated
+cluster activity can contribute. Backup growth remains `not_measured` until a
+controlled bank/DBA backup, and the bank must approve generation count and
+capacity. Count unique state/profile generations for physical storage, while
+retaining every governed release binding for traceability. Only fields already
+present in PostgreSQL are copied; absent external
+authoritative source files and historical legal-release packs are not acquired
+by v7 retention.
 
 ## Evaluation-release trust boundary
 

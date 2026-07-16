@@ -98,10 +98,28 @@ SQL error. Apply each file as one transaction, for example with
    content-addressed release and activation;
    it must inherit exactly `bddk_release_publisher` and no ingestion or runtime
    role.
-8. Start the public and operator workloads with their separate identities.
+8. For a release that must become an immutable recovery/rollback target, run
+   the one-shot administrative command through the same distinct release
+   publisher identity:
+
+   ```bash
+   bddk-mcp retain-corpus-generation \
+     --expected-release-id corpus_release_sha256_APPROVED_RELEASE_HASH
+   ```
+
+   `BDDK_RELEASE_PUBLISHER_DATABASE_URL` is required unless an explicitly
+   supplied `--db` passes the same transport and exact-identity checks. Run this
+   only after publication has made the expected release active. The CLI applies
+   transaction-local `lock_timeout=30s` and `statement_timeout=30min`; either
+   timeout rolls back the retention transaction, so resolve contention and
+   recheck the expected active release before a reviewed retry. The command is
+   deliberately absent from both MCP registries and does not activate,
+   reactivate, or serve retained rows. Retain its content-free JSON receipt and
+   storage evidence under the approved operational-evidence policy.
+9. Start the public and operator workloads with their separate identities.
    Reindexing and publication are mandatory when migration v0003 has made a
    pre-existing corpus fail closed until republished.
-9. Reapply and test `02_grants.sql` after every schema migration. A migration
+10. Reapply and test `02_grants.sql` after every schema migration. A migration
    that adds a relation must add an explicit grant here in the same release.
 
 The ordinary migration is the clean-install/default path and refuses managed
@@ -131,10 +149,10 @@ database-wide by design.
 
 | NOLOGIN group role | Exact purpose |
 |---|---|
-| `bddk_schema_owner` | Owns the `public`, `bddk_meta`, and `bddk_operator` schemas and managed objects; runs migrations through `SET ROLE` |
+| `bddk_schema_owner` | Owns the `public`, `bddk_meta`, `bddk_operator`, and `bddk_retained` schemas and managed objects; runs migrations through `SET ROLE` |
 | `bddk_public_reader` | Read-only access to the six public corpus relations, validated-citation and active-release views, migration ledger, and narrowly granted public functions |
 | `bddk_ingestion` | Corpus and sync-state `SELECT`/`INSERT`/`UPDATE`/`DELETE`, three corpus ID sequences, and read-only global migration ledger |
-| `bddk_release_publisher` | Revalidates the imported corpus and atomically persists its release and activation; cannot mutate corpus content or run application tools |
+| `bddk_release_publisher` | Revalidates the imported corpus, atomically persists its release/activation, and can invoke the narrow v7 retention/status facades; cannot mutate live corpus content, access retained tables directly, or run application tools |
 | `bddk_operator_runtime` | Job-ledger read/write/prune in `bddk_operator` and read-only global migration ledger |
 | `bddk_telemetry_writer` | Column-scoped `INSERT` on `tool_call_traces` and `USAGE` on its sequence; no trace reads or changes |
 
@@ -172,6 +190,74 @@ however, retain or reconstruct source-artifact bytes in a form that can be
 rehashed against the blob claim. Citation v1 is therefore a partial pilot for
 validated normalized text and acquisition identity, not proof of
 source-artifact authenticity.
+
+## Schema v7 retained-generation boundary
+
+Migration v0007 creates `bddk_retained` with 17 typed, generation-qualified
+mirror relations for the exact tables covered by the v5 corpus-state epoch. It
+also creates generation, per-relation inventory, seal, and retained-release
+binding records plus the security-barrier
+`bddk_meta.corpus_release_retention_status` view. Physical generation,
+governed release, content-derived seal, and activation sequence are distinct
+identities. Generation identity is derived from the exact corpus-state and
+retrieval-profile hashes, and one generation has one seal. Multiple governed
+releases over that same exact state/profile therefore have distinct per-release
+bindings to the shared generation and seal; release count is not physical-copy
+count. A pre-v7 release without a binding is reported as
+`legacy_v5_unretained`; it is never backfilled from a matching current hash.
+
+V7 canonicalizes `current_corpus_state_sha256`, retained-state hashing, and
+retained-row hashing with function-local `TimeZone=UTC`,
+`DateStyle=ISO, YMD`, `IntervalStyle=postgres`, `bytea_output=hex`, and
+`extra_float_digits=3`; caller session formatting cannot change those results.
+Migration does not rewrite historical v5 release hashes. Before changing the
+hash function, v7 recomputes any active v5/v6 release canonically and refuses
+the migration on mismatch. Do not edit the release ledger or synthesize a
+retention binding: on the unchanged pre-v7 schema (v5 or v6), independently
+review and revalidate the unchanged corpus, then use the exact
+publication-only `publish-corpus-release` compatibility path to append and
+activate a canonical release. Retry v7 before retention. Serving, retention,
+and every other workload remain v7-only.
+
+`bddk_meta.retain_active_corpus_generation(text)` acquires the schema-migration
+lock before the corpus-mutation lock, locks the live 17-relation state, copies
+typed rows in one transaction, reproduces the exact v5 state hash, and seals
+the result. For a new exact state/profile, any failure rolls back the
+generation, inventory, seal, and release binding together. When the physical
+generation already exists, the function adds only the new release binding; a
+binding failure leaves that shared sealed generation unchanged. Both paths
+leave the v5 active release unchanged. Sealed members and
+metadata reject update/delete/truncate. Catalog readiness attests the exact v7
+schema, constraints, indexes, triggers, routines, view, and ownership.
+
+All application profiles have no direct table privilege or schema usage on
+`bddk_retained`. The release publisher receives only `SELECT` on the retention
+status view and `EXECUTE` on the retention and storage-inspection facades. Do
+not add ad hoc grants, expose these operations through MCP, or treat the
+publisher role as a serving identity.
+
+The receipt's heap/auxiliary/TOAST/index totals are PostgreSQL catalog storage
+for the retained store and reconcile arithmetically. When available, the
+best-effort WAL value is only the cluster-wide interval observed around the
+command and is labelled `observed_cluster_interval_not_exclusive`; unrelated
+activity can contribute. Its pre-retention LSN baseline is attempted inside a
+savepoint in the durable transaction; failure rolls back only that measurement
+attempt and retention proceeds. The endpoint is best-effort after commit. If
+either observation is unavailable or invalid, WAL remains `not_measured` and
+the already committed retention is not misreported as failed.
+
+Backup growth remains `not_measured` until a controlled bank/DBA backup is
+performed. These figures do not select a retention count or authorize capacity.
+Capacity planning must count unique retained state/profile generations, not
+the governed release bindings that share them.
+
+V7 creates immutable database rollback targets, but it does not implement
+generation-bound serving, activation, reactivation, or rollback. It also
+retains only fields already in PostgreSQL. A stored `documents.pdf_blob` is
+copied, but missing external authoritative files/evidence packs are not
+acquired; `regulatory_source_blobs` remains a content-identity record. H2-02B
+and bank source/backup policy remain required before claiming product rollback
+or complete authoritative-source preservation.
 
 The SQL deliberately does **not** create a role named `bddk_operator`; that
 identifier is the operator schema and using it for both would make deployment

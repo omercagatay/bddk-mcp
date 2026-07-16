@@ -296,8 +296,7 @@ async def test_strict_release_checks_membership_after_publisher_locks_in_same_tr
         assert selected_connection is connection
         events.append("membership_checked")
 
-    readiness = SimpleNamespace(active_corpus_release=identity)
-    monkeypatch.setattr("bddk_mcp.db_lifecycle.assert_database_ready", AsyncMock(return_value=readiness))
+    monkeypatch.setattr(seed, "assert_release_publication_ready", AsyncMock(return_value=identity))
     monkeypatch.setattr(seed, "publish_strict_corpus_release", publish)
     monkeypatch.setattr(seed, "_assert_strict_seed_membership", assert_membership)
 
@@ -770,13 +769,15 @@ async def test_owned_release_publication_pool_requires_exact_publisher_identity(
     pool = MagicMock()
     pool.close = AsyncMock()
     identity = AsyncMock(side_effect=RuntimeError("publisher identity rejected"))
+    connection_identity = AsyncMock()
 
     with (
         patch.object(seed, "_manifest_seed_artifacts", return_value=(validation, artifacts)),
         patch.object(seed, "_load_manifest_bound_records", return_value=[]),
         patch("bddk_mcp.ingest.seed.assert_database_transport", side_effect=lambda value: value),
         patch("bddk_mcp.ingest.seed.asyncpg.create_pool", new=AsyncMock(return_value=pool)) as create_pool,
-        patch("bddk_mcp.ingest.seed.assert_database_identity", new=identity),
+        patch("bddk_mcp.ingest.seed.assert_release_publication_connection_identity", new=connection_identity),
+        patch("bddk_mcp.ingest.seed.assert_release_publication_identity", new=identity),
         pytest.raises(RuntimeError, match="publisher identity rejected"),
     ):
         await seed.publish_seed_release(
@@ -785,8 +786,8 @@ async def test_owned_release_publication_pool_requires_exact_publisher_identity(
         )
 
     create_pool.assert_awaited_once()
-    assert create_pool.await_args.kwargs["init"].keywords == {"profile": "release-publisher"}
-    identity.assert_awaited_once_with(pool, "release-publisher")
+    assert create_pool.await_args.kwargs["init"] is connection_identity
+    identity.assert_awaited_once_with(pool)
     pool.acquire.assert_not_called()
     pool.execute.assert_not_called()
     pool.close.assert_awaited_once_with()

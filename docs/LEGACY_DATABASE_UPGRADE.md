@@ -2,8 +2,22 @@
 
 This runbook covers one transition only: a database created by the final
 pre-ledger `bddk-mcp` initializers. Adoption verifies and records canonical
-v0001, then applies every pending migration through the current schema v6. It
+v0001, then applies every pending migration through the current schema v7. It
 is not a general schema-repair command.
+
+An already-ledgered v5/v6 database uses ordinary migration, not
+`--adopt-legacy`. V7 makes retained-row and v5/retained state hashing
+session-independent with function-local `TimeZone=UTC`,
+`DateStyle=ISO, YMD`, `IntervalStyle=postgres`, `bytea_output=hex`, and
+`extra_float_digits=3`. It deliberately does not rewrite an existing release
+hash. If a pre-v7 release was published under different session formatting,
+the v7 migration fails before replacing the hash function when the canonical
+current-state hash differs from the recorded hash. Preserve the old ledger
+evidence. On the unchanged pre-v7 schema (v5 or v6), independently review and
+revalidate the corpus and use the exact publication-only
+`publish-corpus-release` compatibility path to append and activate a canonical
+release. Then retry v7; do not update the old row or backfill a retention
+binding. Serving, retention, and every other workload remain v7-only.
 
 The ordinary command remains fail-closed:
 
@@ -80,7 +94,7 @@ each serial column, the runner reads the old sequence state and maximum ID,
 recreates the standard identity sequence, and advances it beyond both values.
 It does not update, delete, truncate, or overwrite any table row. A second,
 strict catalog verification must match canonical v0001 before the runner can
-record v0001 or apply every pending migration through v0006. Any error rolls back the normalizations,
+record v0001 or apply every pending migration through v0007. Any error rolls back the normalizations,
 ledger, audit evidence, and all pending migrations together.
 
 ## Change procedure

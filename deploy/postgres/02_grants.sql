@@ -21,13 +21,36 @@ $target_database$;
 -- LOGIN role.  Subsequent migrations must SET ROLE bddk_schema_owner.
 ALTER SCHEMA bddk_meta OWNER TO bddk_schema_owner;
 ALTER SCHEMA bddk_operator OWNER TO bddk_schema_owner;
+ALTER SCHEMA bddk_retained OWNER TO bddk_schema_owner;
 
 ALTER TABLE bddk_meta.schema_migrations OWNER TO bddk_schema_owner;
 ALTER TABLE bddk_meta.legacy_schema_adoptions OWNER TO bddk_schema_owner;
 ALTER TABLE bddk_meta.corpus_releases OWNER TO bddk_schema_owner;
 ALTER TABLE bddk_meta.corpus_release_activations OWNER TO bddk_schema_owner;
 ALTER TABLE bddk_meta.corpus_state_epoch OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_meta.corpus_generations OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_meta.corpus_generation_relation_inventory OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_meta.corpus_generation_seals OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_meta.corpus_retained_releases OWNER TO bddk_schema_owner;
 ALTER VIEW bddk_meta.active_corpus_release OWNER TO bddk_schema_owner;
+ALTER VIEW bddk_meta.corpus_release_retention_status OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_retained.decision_cache OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_retained.documents OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_retained.document_sections OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_retained.document_versions OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_retained.document_chunks OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_retained.document_retrieval_publications OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_retained.regulatory_instruments OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_retained.regulatory_family_imports OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_retained.regulatory_source_blobs OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_retained.regulatory_source_artifacts OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_retained.regulatory_evidence OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_retained.regulatory_legal_versions OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_retained.regulatory_legal_version_artifacts OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_retained.regulatory_legal_events OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_retained.regulatory_legal_status_assertions OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_retained.regulatory_provisions OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_retained.regulatory_legal_version_provisions OWNER TO bddk_schema_owner;
 ALTER TABLE public.decision_cache OWNER TO bddk_schema_owner;
 ALTER TABLE public.documents OWNER TO bddk_schema_owner;
 ALTER TABLE public.document_sections OWNER TO bddk_schema_owner;
@@ -81,6 +104,18 @@ ALTER FUNCTION bddk_meta.resolve_regulation_status(
     pg_catalog.text,
     pg_catalog.date
 ) OWNER TO bddk_schema_owner;
+ALTER FUNCTION bddk_meta.retained_corpus_state_sha256(
+    pg_catalog.text,
+    pg_catalog.text
+) OWNER TO bddk_schema_owner;
+ALTER FUNCTION bddk_meta.retained_row_sha256(anyelement, pg_catalog.bool)
+    OWNER TO bddk_schema_owner;
+ALTER FUNCTION bddk_meta.guard_retained_generation_member() OWNER TO bddk_schema_owner;
+ALTER FUNCTION bddk_meta.reject_retained_generation_mutation() OWNER TO bddk_schema_owner;
+ALTER FUNCTION bddk_meta.retain_active_corpus_generation(pg_catalog.text)
+    OWNER TO bddk_schema_owner;
+ALTER FUNCTION bddk_meta.inspect_retained_generation_storage(pg_catalog.text)
+    OWNER TO bddk_schema_owner;
 
 -- Revoke first so rerunning this file also removes privileges deleted from the
 -- reviewed matrix.  No runtime role receives CREATE on an application schema.
@@ -91,6 +126,9 @@ REVOKE ALL PRIVILEGES ON SCHEMA bddk_operator
     FROM bddk_public_reader, bddk_ingestion, bddk_release_publisher,
          bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON SCHEMA bddk_meta
+    FROM bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+         bddk_operator_runtime, bddk_telemetry_writer;
+REVOKE ALL PRIVILEGES ON SCHEMA bddk_retained
     FROM bddk_public_reader, bddk_ingestion, bddk_release_publisher,
          bddk_operator_runtime, bddk_telemetry_writer;
 
@@ -110,6 +148,12 @@ REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA bddk_meta
     FROM bddk_public_reader, bddk_ingestion, bddk_release_publisher,
          bddk_operator_runtime, bddk_telemetry_writer;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA bddk_meta
+    FROM bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+         bddk_operator_runtime, bddk_telemetry_writer;
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA bddk_retained
+    FROM bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+         bddk_operator_runtime, bddk_telemetry_writer;
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA bddk_retained
     FROM bddk_public_reader, bddk_ingestion, bddk_release_publisher,
          bddk_operator_runtime, bddk_telemetry_writer;
 
@@ -143,16 +187,24 @@ REVOKE ALL PRIVILEGES ON TABLE
     bddk_meta.corpus_releases,
     bddk_meta.corpus_release_activations,
     bddk_meta.corpus_state_epoch,
-    bddk_meta.active_corpus_release
+    bddk_meta.corpus_generations,
+    bddk_meta.corpus_generation_relation_inventory,
+    bddk_meta.corpus_generation_seals,
+    bddk_meta.corpus_retained_releases,
+    bddk_meta.active_corpus_release,
+    bddk_meta.corpus_release_retention_status
 FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
      bddk_operator_runtime, bddk_telemetry_writer;
 
 REVOKE ALL PRIVILEGES ON SCHEMA bddk_operator FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON SCHEMA bddk_meta FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON SCHEMA bddk_retained FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA bddk_operator FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA bddk_operator FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA bddk_meta FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA bddk_meta FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA bddk_retained FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA bddk_retained FROM PUBLIC;
 
 ALTER DEFAULT PRIVILEGES FOR ROLE bddk_schema_owner IN SCHEMA bddk_operator
     REVOKE ALL PRIVILEGES ON TABLES FROM PUBLIC;
@@ -165,6 +217,12 @@ ALTER DEFAULT PRIVILEGES FOR ROLE bddk_schema_owner IN SCHEMA bddk_meta
 ALTER DEFAULT PRIVILEGES FOR ROLE bddk_schema_owner IN SCHEMA bddk_meta
     REVOKE ALL PRIVILEGES ON SEQUENCES FROM PUBLIC;
 ALTER DEFAULT PRIVILEGES FOR ROLE bddk_schema_owner IN SCHEMA bddk_meta
+    REVOKE ALL PRIVILEGES ON FUNCTIONS FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE bddk_schema_owner IN SCHEMA bddk_retained
+    REVOKE ALL PRIVILEGES ON TABLES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE bddk_schema_owner IN SCHEMA bddk_retained
+    REVOKE ALL PRIVILEGES ON SEQUENCES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE bddk_schema_owner IN SCHEMA bddk_retained
     REVOKE ALL PRIVILEGES ON FUNCTIONS FROM PUBLIC;
 
 -- Revoke only application-owned functions, not vector/unaccent extension
@@ -205,6 +263,28 @@ REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.resolve_regulation_status(
     pg_catalog.date
 ) FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
        bddk_operator_runtime, bddk_telemetry_writer;
+REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.retained_corpus_state_sha256(
+    pg_catalog.text,
+    pg_catalog.text
+) FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+       bddk_operator_runtime, bddk_telemetry_writer;
+REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.retained_row_sha256(
+    anyelement,
+    pg_catalog.bool
+) FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+       bddk_operator_runtime, bddk_telemetry_writer;
+REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.guard_retained_generation_member()
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+     bddk_operator_runtime, bddk_telemetry_writer;
+REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.reject_retained_generation_mutation()
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+     bddk_operator_runtime, bddk_telemetry_writer;
+REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.retain_active_corpus_generation(pg_catalog.text)
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+     bddk_operator_runtime, bddk_telemetry_writer;
+REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.inspect_retained_generation_storage(pg_catalog.text)
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_publisher,
+     bddk_operator_runtime, bddk_telemetry_writer;
 
 -- Public MCP corpus: read-only, with no access to operational failure or trace
 -- tables.  document_versions is included because get_document_history is public.
@@ -273,7 +353,8 @@ GRANT SELECT ON TABLE
     public.regulatory_provisions,
     public.regulatory_legal_version_provisions,
     bddk_meta.schema_migrations,
-    bddk_meta.active_corpus_release
+    bddk_meta.active_corpus_release,
+    bddk_meta.corpus_release_retention_status
 TO bddk_release_publisher;
 GRANT EXECUTE ON FUNCTION bddk_meta.current_corpus_state_sha256(pg_catalog.text)
 TO bddk_release_publisher;
@@ -288,6 +369,10 @@ GRANT EXECUTE ON FUNCTION bddk_meta.publish_verified_corpus_release(
     pg_catalog.int4,
     pg_catalog.text
 ) TO bddk_release_publisher;
+GRANT EXECUTE ON FUNCTION bddk_meta.retain_active_corpus_generation(pg_catalog.text)
+TO bddk_release_publisher;
+GRANT EXECUTE ON FUNCTION bddk_meta.inspect_retained_generation_storage(pg_catalog.text)
+TO bddk_release_publisher;
 
 -- Operator lifecycle state is isolated in its own schema.  The runtime may
 -- update/prune jobs and can only read the global migration ledger.

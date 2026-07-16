@@ -2,14 +2,30 @@
 
 from __future__ import annotations
 
+import asyncio
+import os
+import secrets
 from contextlib import asynccontextmanager
 from dataclasses import replace
+from types import SimpleNamespace
 from unittest.mock import patch
+from urllib.parse import urlsplit, urlunsplit
 
 import asyncpg
 import pytest
 
-from bddk_mcp.corpus_coordination import CORPUS_MUTATION_ADVISORY_KEY
+from bddk_mcp import db_identity
+from bddk_mcp.catalog_integrity import inspect_catalog_integrity
+from bddk_mcp.corpus_coordination import (
+    CORPUS_MUTATION_ADVISORY_KEY,
+    SCHEMA_MIGRATION_ADVISORY_KEY,
+)
+from bddk_mcp.corpus_publication import assert_release_publication_ready, publish_strict_corpus_release
+from bddk_mcp.db_identity import (
+    assert_release_publication_connection_identity,
+    assert_release_publication_identity,
+)
+from bddk_mcp.db_lifecycle import inspect_database_readiness
 from bddk_mcp.migrations import (
     LATEST_SCHEMA_VERSION,
     MIGRATION_LOCK_TIMEOUT,
@@ -30,6 +46,18 @@ from bddk_mcp.migrations import (
 from bddk_mcp.migrations.v0005_corpus_release_publication import (
     CORPUS_EPOCH_TRACKED_TABLES,
     V0005_CORPUS_RELEASE_PUBLICATION,
+)
+from bddk_mcp.migrations.v0007_retained_corpus_generations import (
+    NONCANONICAL_FINGERPRINT_UPGRADE_SQLSTATE,
+    RETAINED_CORPUS_RELATIONS,
+    V0007_RETAINED_CORPUS_GENERATIONS,
+)
+from tests.test_corpus_publication import (
+    _PROFILE_SHA256,
+    _ensure_release_publisher_role,
+    _insert_canonical_legal_state,
+    _insert_ready_corpus,
+    _publish,
 )
 
 
@@ -72,6 +100,115 @@ def test_v5_epoch_and_set_based_chunk_invalidation_contract_is_complete() -> Non
     assert "activation.corpus_epoch = epoch.epoch" in active_view
     assert "current_corpus_state_sha256" not in active_view
     assert "corpus_retrieval_ready" not in active_view
+
+
+def test_v7_retains_exactly_the_v5_corpus_as_typed_generation_members() -> None:
+    statements = tuple(" ".join(statement.split()) for statement in V0007_RETAINED_CORPUS_GENERATIONS.statements)
+    retained_table_ddl = {
+        statement.split("CREATE TABLE bddk_retained.", 1)[1].split(" ", 1)[0]: statement
+        for statement in statements
+        if statement.startswith("CREATE TABLE bddk_retained.")
+    }
+
+    assert RETAINED_CORPUS_RELATIONS == CORPUS_EPOCH_TRACKED_TABLES
+    assert len(RETAINED_CORPUS_RELATIONS) == 17
+    assert set(retained_table_ddl) == set(RETAINED_CORPUS_RELATIONS)
+    for position, relation in enumerate(RETAINED_CORPUS_RELATIONS, start=1):
+        ddl = retained_table_ddl[relation]
+        assert "generation_id pg_catalog.text NOT NULL" in ddl
+        assert f"LIKE public.{relation} INCLUDING STORAGE INCLUDING COMPRESSION" in ddl
+        assert f"CONSTRAINT rt_{position:02d}_generation_fk FOREIGN KEY (generation_id)" in ddl
+        assert "REFERENCES bddk_meta.corpus_generations(generation_id)" in ddl
+        assert f"CONSTRAINT rt_{position:02d}_pkey PRIMARY KEY (generation_id," in ddl
+
+
+def test_v7_canonicalizes_state_and_member_hashes_across_session_gucs() -> None:
+    statements = tuple(" ".join(statement.split()) for statement in V0007_RETAINED_CORPUS_GENERATIONS.statements)
+    ddl = "\n".join(statements)
+    upgrade_guard = statements[0]
+    current_state = next(
+        statement
+        for statement in statements
+        if statement.startswith("CREATE OR REPLACE FUNCTION bddk_meta.current_corpus_state_sha256")
+    )
+    retained_state = next(
+        statement
+        for statement in statements
+        if statement.startswith("CREATE FUNCTION bddk_meta.retained_corpus_state_sha256")
+    )
+    row_hash = next(
+        statement for statement in statements if statement.startswith("CREATE FUNCTION bddk_meta.retained_row_sha256")
+    )
+
+    assert upgrade_guard.startswith("DO $canonical_fingerprint_upgrade_guard$")
+    corpus_lock = f"pg_advisory_xact_lock( {CORPUS_MUTATION_ADVISORY_KEY}::pg_catalog.int8 )"
+    assert corpus_lock in upgrade_guard
+    for setting in (
+        "set_config('TimeZone', 'UTC', true)",
+        "set_config('DateStyle', 'ISO, YMD', true)",
+        "set_config('IntervalStyle', 'postgres', true)",
+        "set_config('bytea_output', 'hex', true)",
+        "set_config('extra_float_digits', '3', true)",
+    ):
+        assert setting in upgrade_guard
+    assert f"USING ERRCODE = '{NONCANONICAL_FINGERPRINT_UPGRADE_SQLSTATE}'" in upgrade_guard
+    assert (
+        upgrade_guard.index(corpus_lock)
+        < upgrade_guard.index("set_config('TimeZone'")
+        < upgrade_guard.index("FROM bddk_meta.active_corpus_release")
+        < upgrade_guard.index("current_corpus_state_sha256")
+        < upgrade_guard.index("RAISE EXCEPTION")
+    )
+
+    for function in (current_state, retained_state, row_hash):
+        assert "SET TimeZone = 'UTC'" in function
+        assert "SET DateStyle = 'ISO, YMD'" in function
+        assert "SET IntervalStyle = 'postgres'" in function
+        assert "SET bytea_output = 'hex'" in function
+        assert "SET extra_float_digits = 3" in function
+    assert "bddk_meta.retained_row_sha256(member, true)" in ddl
+    assert "pg_catalog.to_jsonb(member) - 'generation_id'" in row_hash
+
+
+def test_v7_retention_lock_order_and_additive_serving_boundary_are_explicit() -> None:
+    statements = tuple(" ".join(statement.split()) for statement in V0007_RETAINED_CORPUS_GENERATIONS.statements)
+    ddl = "\n".join(statements)
+    retain = next(statement for statement in statements if "retain_active_corpus_generation" in statement)
+
+    schema_lock = f"pg_advisory_xact_lock( {SCHEMA_MIGRATION_ADVISORY_KEY}::pg_catalog.int8 )"
+    corpus_lock = f"pg_advisory_xact_lock( {CORPUS_MUTATION_ADVISORY_KEY}::pg_catalog.int8 )"
+    metadata_lock = "LOCK TABLE bddk_meta.corpus_release_activations, bddk_meta.corpus_generations"
+    source_lock = "LOCK TABLE " + ", ".join(f"public.{relation}" for relation in RETAINED_CORPUS_RELATIONS)
+
+    assert schema_lock in retain
+    assert corpus_lock in retain
+    assert metadata_lock in retain
+    assert source_lock in retain
+    assert (
+        retain.index(schema_lock) < retain.index(corpus_lock) < retain.index(metadata_lock) < retain.index(source_lock)
+    )
+
+    # V7 is retention-only: it reads the active release but cannot alter the
+    # v5 activation relation, serving view, or any live corpus member.
+    assert "CREATE VIEW bddk_meta.active_corpus_release" not in ddl
+    assert "CREATE OR REPLACE VIEW bddk_meta.active_corpus_release" not in ddl
+    assert "INSERT INTO bddk_meta.corpus_release_activations" not in retain
+    assert "UPDATE bddk_meta.corpus_release_activations" not in retain
+    assert "DELETE FROM bddk_meta.corpus_release_activations" not in retain
+    for relation in RETAINED_CORPUS_RELATIONS:
+        assert f"INSERT INTO public.{relation}" not in retain
+        assert f"UPDATE public.{relation}" not in retain
+        assert f"DELETE FROM public.{relation}" not in retain
+
+
+def test_v7_adds_no_retained_serving_or_vector_search_indexes() -> None:
+    statements = tuple(" ".join(statement.split()) for statement in V0007_RETAINED_CORPUS_GENERATIONS.statements)
+    retained_ddl = "\n".join(statement for statement in statements if "bddk_retained." in statement)
+
+    assert "CREATE INDEX" not in retained_ddl
+    assert " USING gin " not in f" {retained_ddl.lower()} "
+    assert " USING hnsw " not in f" {retained_ddl.lower()} "
+    assert " USING ivfflat " not in f" {retained_ddl.lower()} "
 
 
 def test_migrations_never_install_dba_managed_extensions_and_qualify_created_relations():
@@ -153,6 +290,7 @@ class _FakeMigrationConnection:
         self.history_exists = False
         self.history: list[dict[str, object]] = []
         self.executed: list[tuple[str, tuple[object, ...]]] = []
+        self.advisory_keys: list[object] = []
         self.transaction_record = _Transaction()
 
     def transaction(self):
@@ -162,6 +300,7 @@ class _FakeMigrationConnection:
         if "server_version_num" in query:
             return self.server_version_num
         if "pg_advisory_xact_lock" in query:
+            self.advisory_keys.append(args[0])
             return None
         if "to_regclass" in query:
             return "bddk_meta.schema_migrations" if self.history_exists else None
@@ -222,8 +361,125 @@ class _PinnedPool:
         yield self.connection
 
 
+def _sibling_database_dsn(base_dsn: str, database_name: str) -> str:
+    parsed = urlsplit(base_dsn)
+    if parsed.scheme not in {"postgres", "postgresql"} or not parsed.netloc:
+        raise AssertionError("PostgreSQL integration test DSN must be a URL")
+    return urlunsplit((parsed.scheme, parsed.netloc, f"/{database_name}", parsed.query, ""))
+
+
+def _advisory_lock_parts(key: int) -> tuple[int, int]:
+    unsigned = key % (1 << 64)
+    return unsigned >> 32, unsigned & 0xFFFFFFFF
+
+
+async def _provision_exact_v5_publisher_login(
+    connection: asyncpg.Connection,
+    *,
+    database_name: str,
+    login_name: str,
+    password: str,
+) -> None:
+    """Provision one disposable actual LOGIN matching the reviewed v5 contract."""
+
+    if not database_name.replace("_", "").isalnum() or not login_name.replace("_", "").isalnum():
+        raise AssertionError("disposable PostgreSQL identifiers must be alphanumeric")
+    await _ensure_release_publisher_role(connection)
+    await connection.execute(
+        "ALTER ROLE bddk_release_publisher "
+        "NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT"
+    )
+    quoted_password = await connection.fetchval(
+        "SELECT pg_catalog.quote_literal($1::pg_catalog.text)",
+        password,
+    )
+    await connection.execute(
+        f"CREATE ROLE {login_name} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE "
+        f"NOREPLICATION NOBYPASSRLS INHERIT PASSWORD {quoted_password}"
+    )
+    await connection.execute(f"GRANT bddk_release_publisher TO {login_name}")
+    await connection.execute(
+        f"REVOKE ALL PRIVILEGES ON DATABASE {database_name} FROM PUBLIC, bddk_release_publisher, {login_name}"
+    )
+    await connection.execute(f"GRANT CONNECT ON DATABASE {database_name} TO bddk_release_publisher")
+    for schema_name in ("public", "bddk_meta", "bddk_operator"):
+        await connection.execute(
+            f"REVOKE ALL PRIVILEGES ON SCHEMA {schema_name} FROM PUBLIC, bddk_release_publisher, {login_name}"
+        )
+    await connection.execute("GRANT USAGE ON SCHEMA public, bddk_meta TO bddk_release_publisher")
+    for schema_name in ("public", "bddk_meta", "bddk_operator"):
+        await connection.execute(
+            f"REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA {schema_name} "
+            f"FROM PUBLIC, bddk_release_publisher, {login_name}"
+        )
+        await connection.execute(
+            f"REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA {schema_name} "
+            f"FROM PUBLIC, bddk_release_publisher, {login_name}"
+        )
+        await connection.execute(
+            f"REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA {schema_name} "
+            f"FROM PUBLIC, bddk_release_publisher, {login_name}"
+        )
+
+    contract = db_identity._V5_RELEASE_PUBLISHER_CONTRACT
+    selected_tables = tuple(name for name, privileges in contract.tables.items() if privileges == {"SELECT"})
+    executable_routines = tuple(name for name, privileges in contract.routines.items() if privileges == {"EXECUTE"})
+    await connection.execute("GRANT SELECT ON TABLE " + ", ".join(selected_tables) + " TO bddk_release_publisher")
+    await connection.execute(
+        "GRANT EXECUTE ON FUNCTION " + ", ".join(executable_routines) + " TO bddk_release_publisher"
+    )
+
+
+async def _downgrade_current_schema_to_v6(connection) -> None:
+    """Remove only v7 inside a rollback-only PostgreSQL test transaction."""
+
+    await connection.execute("DROP SCHEMA IF EXISTS bddk_retained CASCADE")
+    await connection.execute("DROP VIEW IF EXISTS bddk_meta.corpus_release_retention_status")
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.inspect_retained_generation_storage(pg_catalog.text)")
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.retain_active_corpus_generation(pg_catalog.text)")
+    await connection.execute(
+        "DROP FUNCTION IF EXISTS bddk_meta.retained_corpus_state_sha256(pg_catalog.text, pg_catalog.text)"
+    )
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.retained_row_sha256(anyelement, pg_catalog.bool)")
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.guard_retained_generation_member() CASCADE")
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.reject_retained_generation_mutation() CASCADE")
+    await connection.execute(
+        "DROP TABLE IF EXISTS bddk_meta.corpus_retained_releases, "
+        "bddk_meta.corpus_generation_seals, "
+        "bddk_meta.corpus_generation_relation_inventory, "
+        "bddk_meta.corpus_generations CASCADE"
+    )
+    await connection.execute(
+        "ALTER TABLE bddk_meta.corpus_releases DROP CONSTRAINT IF EXISTS corpus_releases_retention_identity_uq"
+    )
+    await connection.execute(
+        "ALTER TABLE bddk_meta.corpus_release_activations "
+        "DROP CONSTRAINT IF EXISTS corpus_release_activations_retention_identity_uq"
+    )
+    await connection.execute("DELETE FROM bddk_meta.schema_migrations WHERE version = 7")
+
+    v5_state_function = next(
+        statement
+        for statement in V0005_CORPUS_RELEASE_PUBLICATION.statements
+        if "CREATE FUNCTION bddk_meta.current_corpus_state_sha256" in statement
+    )
+    await connection.execute(v5_state_function.replace("CREATE FUNCTION", "CREATE OR REPLACE FUNCTION", 1))
+
+
+async def _downgrade_current_schema_to_v5(connection) -> None:
+    """Remove only v7 and v6 for the guarded pre-v7 publication rehearsal."""
+
+    await _downgrade_current_schema_to_v6(connection)
+    await connection.execute(
+        "DROP FUNCTION IF EXISTS bddk_meta.resolve_regulation_status(pg_catalog.text, pg_catalog.date)"
+    )
+    await connection.execute("DELETE FROM bddk_meta.schema_migrations WHERE version = 6")
+
+
 async def _downgrade_current_schema_to_v2(connection) -> None:
-    """Remove unreleased v4/v3 artifacts inside a rollback-only test transaction."""
+    """Remove v7 through v3 inside a rollback-only test transaction."""
+
+    await _downgrade_current_schema_to_v6(connection)
 
     await connection.execute(
         "DROP FUNCTION IF EXISTS bddk_meta.resolve_regulation_status(pg_catalog.text, pg_catalog.date)"
@@ -293,6 +549,7 @@ async def test_migrate_serializes_sets_fixed_timeouts_and_records_every_checksum
     assert state.current
     assert statements[0] == f"SET LOCAL lock_timeout = '{MIGRATION_LOCK_TIMEOUT}'"
     assert statements[1] == f"SET LOCAL statement_timeout = '{MIGRATION_STATEMENT_TIMEOUT}'"
+    assert connection.advisory_keys == [SCHEMA_MIGRATION_ADVISORY_KEY]
     assert connection.history == _history_rows()
     assert connection.transaction_record.rolled_back is False
 
@@ -392,6 +649,34 @@ async def test_migration_lock_and_statement_timeouts_are_actionable_and_sanitize
 
 
 @pytest.mark.asyncio
+async def test_noncanonical_v5_fingerprint_guard_is_actionable_and_sanitized() -> None:
+    driver_error = asyncpg.PostgresError("private release and corpus identifiers")
+    driver_error.sqlstate = NONCANONICAL_FINGERPRINT_UPGRADE_SQLSTATE
+    connection = _FakeMigrationConnection(
+        fail_statement="DO $canonical_fingerprint_upgrade_guard$",
+        fail_exception=driver_error,
+    )
+    connection.history_exists = True
+    connection.history = _history_rows()[:6]
+
+    with pytest.raises(MigrationPrerequisiteError) as exc_info:
+        await migrate(_FakePool(connection))  # type: ignore[arg-type]
+
+    message = str(exc_info.value)
+    statements = [query for query, _args in connection.executed]
+    assert connection.transaction_record.rolled_back
+    assert connection.history == _history_rows()[:6]
+    assert "Migration 7 refused" in message
+    assert "pre-v7 schema (v5 or v6)" in message
+    assert "publish and activate a new release" in message
+    assert "docs/LEGACY_DATABASE_UPGRADE.md" in message
+    assert "Do not update or backfill the prior release row" in message
+    assert "private release" not in message
+    assert exc_info.value.__cause__ is None
+    assert not any("CREATE SCHEMA bddk_retained" in statement for statement in statements)
+
+
+@pytest.mark.asyncio
 async def test_migrate_is_idempotent_after_valid_history():
     connection = _FakeMigrationConnection()
     pool = _FakePool(connection)
@@ -470,6 +755,419 @@ async def test_global_migrations_run_idempotently_against_postgresql(pg_pool):
     assert await pg_pool.fetchval("SELECT pg_catalog.to_regclass('public.documents')") is not None
     assert await pg_pool.fetchval("SELECT pg_catalog.to_regclass('public.document_chunks')") is not None
     assert await pg_pool.fetchval("SELECT pg_catalog.to_regclass('bddk_operator.operator_jobs')") is not None
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_postgres_v7_refuses_noncanonical_v5_release_then_accepts_reviewed_republication(pg_pool) -> None:
+    connection = await pg_pool.acquire()
+    transaction = connection.transaction()
+    await transaction.start()
+    document_id = "v7-upgrade-guc-proof"
+    try:
+        await _downgrade_current_schema_to_v6(connection)
+        await _ensure_release_publisher_role(connection)
+        content_hash = await _insert_ready_corpus(connection, document_id)
+        await _insert_canonical_legal_state(
+            connection,
+            document_id=document_id,
+            content_hash=content_hash,
+        )
+        await connection.execute("SET LOCAL DateStyle = 'German'")
+        noncanonical_release = await _publish(
+            connection,
+            manifest_id="v7-upgrade-noncanonical",
+        )
+        assert (
+            await connection.fetchval(
+                "SELECT bddk_meta.current_corpus_state_sha256($1)",
+                _PROFILE_SHA256,
+            )
+            == noncanonical_release["corpus_state_sha256"]
+        )
+
+        with pytest.raises(MigrationPrerequisiteError) as exc_info:
+            await migrate(_PinnedPool(connection))  # type: ignore[arg-type]
+
+        message = str(exc_info.value)
+        assert "publish and activate a new release" in message
+        assert "docs/LEGACY_DATABASE_UPGRADE.md" in message
+        assert document_id not in message
+        assert str(noncanonical_release["release_id"]) not in message
+        assert exc_info.value.__cause__ is None
+        assert await connection.fetchval("SELECT max(version) FROM bddk_meta.schema_migrations") == 6
+        assert await connection.fetchval("SELECT pg_catalog.to_regnamespace('bddk_retained')") is None
+        assert await connection.fetchval("SELECT pg_catalog.to_regclass('bddk_meta.corpus_generations')") is None
+        assert (
+            await connection.fetchval(
+                "SELECT pg_catalog.to_regprocedure('bddk_meta.retained_row_sha256(anyelement,boolean)')"
+            )
+            is None
+        )
+        assert (
+            await connection.fetchval(
+                """
+                SELECT pg_catalog.count(*)
+                FROM pg_catalog.pg_constraint
+                WHERE conname = ANY($1::pg_catalog.text[])
+                """,
+                [
+                    "corpus_releases_retention_identity_uq",
+                    "corpus_release_activations_retention_identity_uq",
+                ],
+            )
+            == 0
+        )
+        assert await connection.fetchval(
+            """
+            SELECT proconfig
+            FROM pg_catalog.pg_proc
+            WHERE oid = 'bddk_meta.current_corpus_state_sha256(pg_catalog.text)'::pg_catalog.regprocedure
+            """
+        ) == ["search_path=pg_catalog"]
+
+        await connection.execute(
+            """
+            SELECT pg_catalog.set_config('TimeZone', 'Pacific/Auckland', true),
+                   pg_catalog.set_config('DateStyle', 'SQL, DMY', true),
+                   pg_catalog.set_config('IntervalStyle', 'postgres_verbose', true),
+                   pg_catalog.set_config('bytea_output', 'escape', true),
+                   pg_catalog.set_config('extra_float_digits', '0', true)
+            """
+        )
+        canonical_release = await publish_strict_corpus_release(
+            connection,
+            SimpleNamespace(
+                manifest_sha256="8" * 64,
+                manifest=SimpleNamespace(
+                    manifest_id="v7-upgrade-canonical",
+                    freshness=SimpleNamespace(
+                        source_detection_slo_seconds=60,
+                        publication_slo_seconds=120,
+                        max_manifest_age_seconds=3600,
+                        slo_evidence_status="measured",
+                    ),
+                    integrity=SimpleNamespace(
+                        signature_status="verified",
+                        signature_public_key_sha256="9" * 64,
+                    ),
+                ),
+            ),
+            retrieval_profile_sha256=_PROFILE_SHA256,
+            require_quantified_freshness=True,
+            require_measured_freshness=True,
+            require_verified_signature=True,
+        )
+        assert canonical_release.release_id != noncanonical_release["release_id"]
+        assert canonical_release.corpus_state_sha256 != noncanonical_release["corpus_state_sha256"]
+        assert await connection.fetchval("SELECT current_setting('DateStyle')") == "ISO, YMD"
+
+        migrated = await migrate(_PinnedPool(connection))  # type: ignore[arg-type]
+        catalog = await inspect_catalog_integrity(connection)
+        with patch("bddk_mcp.store.vector_store.retrieval_profile_hash", return_value=_PROFILE_SHA256):
+            readiness = await inspect_database_readiness(
+                connection,
+                require_corpus=True,
+                require_active_release=True,
+            )
+
+        assert migrated.current
+        assert await connection.fetchval("SELECT max(version) FROM bddk_meta.schema_migrations") == 7
+        assert catalog.valid
+        assert readiness.ready
+        assert readiness.active_corpus_release is not None
+        assert readiness.active_corpus_release.release_id == canonical_release.release_id
+    finally:
+        await transaction.rollback()
+        await pg_pool.release(connection)
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_actual_v5_publisher_login_can_use_supported_canonical_republication_path(pg_pool) -> None:
+    """Exercise the supported pre-v7 remediation boundary with a real LOGIN."""
+
+    base_dsn = os.environ.get(
+        "BDDK_TEST_DATABASE_URL",
+        "postgresql://bddk:bddk@localhost:5432/bddk_test",
+    )
+    suffix = f"{os.getpid()}_{secrets.token_hex(3)}"
+    database_name = f"bddk_v5_publication_{suffix}"
+    login_name = f"bddk_v5_publisher_{suffix}"
+    password = "V5publisher_" + secrets.token_hex(12)
+    isolated_dsn = _sibling_database_dsn(base_dsn, database_name)
+    isolated_pool: asyncpg.Pool | None = None
+    publisher_pool: asyncpg.Pool | None = None
+    database_created = False
+
+    admin = await asyncpg.connect(base_dsn)
+    try:
+        await admin.execute(f"CREATE DATABASE {database_name}")
+        database_created = True
+    finally:
+        await admin.close()
+
+    try:
+        isolated_pool = await asyncpg.create_pool(isolated_dsn, min_size=1, max_size=4)
+        await isolated_pool.execute("CREATE EXTENSION vector")
+        await isolated_pool.execute("CREATE EXTENSION unaccent")
+        assert (await migrate(isolated_pool)).current
+
+        async with isolated_pool.acquire() as owner:
+            await _downgrade_current_schema_to_v5(owner)
+            document_id = "v5-actual-login-canonical-publication"
+            content_hash = await _insert_ready_corpus(owner, document_id)
+            await _insert_canonical_legal_state(
+                owner,
+                document_id=document_id,
+                content_hash=content_hash,
+            )
+            await _provision_exact_v5_publisher_login(
+                owner,
+                database_name=database_name,
+                login_name=login_name,
+                password=password,
+            )
+
+        publisher_pool = await asyncpg.create_pool(
+            isolated_dsn,
+            user=login_name,
+            password=password,
+            min_size=1,
+            max_size=2,
+            init=assert_release_publication_connection_identity,
+        )
+        await assert_release_publication_identity(publisher_pool)
+        assert (
+            await assert_release_publication_ready(
+                publisher_pool,
+                retrieval_profile_sha256=_PROFILE_SHA256,
+                require_active_release=False,
+            )
+            is None
+        )
+        async with publisher_pool.acquire() as publisher, publisher.transaction():
+            await publisher.execute("SET LOCAL DateStyle = 'German'")
+            noncanonical_release = await _publish(
+                publisher,
+                manifest_id="v5-actual-login-noncanonical",
+            )
+
+        with pytest.raises(MigrationPrerequisiteError):
+            await migrate(isolated_pool)
+        assert await isolated_pool.fetchval("SELECT max(version) FROM bddk_meta.schema_migrations") == 5
+
+        await assert_release_publication_identity(publisher_pool)
+        assert (
+            await assert_release_publication_ready(
+                publisher_pool,
+                retrieval_profile_sha256=_PROFILE_SHA256,
+                require_active_release=False,
+            )
+        ) is not None
+
+        validation = SimpleNamespace(
+            manifest_sha256="8" * 64,
+            manifest=SimpleNamespace(
+                manifest_id="v5-actual-login-canonical",
+                freshness=SimpleNamespace(
+                    source_detection_slo_seconds=60,
+                    publication_slo_seconds=120,
+                    max_manifest_age_seconds=3600,
+                    slo_evidence_status="measured",
+                ),
+                integrity=SimpleNamespace(
+                    signature_status="verified",
+                    signature_public_key_sha256="9" * 64,
+                ),
+            ),
+        )
+        async with publisher_pool.acquire() as publisher, publisher.transaction():
+            await publisher.execute(
+                """
+                SELECT pg_catalog.set_config('TimeZone', 'Pacific/Auckland', true),
+                       pg_catalog.set_config('DateStyle', 'SQL, DMY', true),
+                       pg_catalog.set_config('IntervalStyle', 'postgres_verbose', true),
+                       pg_catalog.set_config('bytea_output', 'escape', true),
+                       pg_catalog.set_config('extra_float_digits', '0', true)
+                """
+            )
+            canonical_release = await publish_strict_corpus_release(
+                publisher,
+                validation,
+                retrieval_profile_sha256=_PROFILE_SHA256,
+                require_quantified_freshness=True,
+                require_measured_freshness=True,
+                require_verified_signature=True,
+            )
+
+        active = await assert_release_publication_ready(
+            publisher_pool,
+            retrieval_profile_sha256=_PROFILE_SHA256,
+            require_active_release=True,
+        )
+        assert active is not None
+        assert active.release_id == canonical_release.release_id
+        assert canonical_release.release_id != noncanonical_release["release_id"]
+        assert canonical_release.corpus_state_sha256 != noncanonical_release["corpus_state_sha256"]
+
+        await publisher_pool.close()
+        publisher_pool = None
+        assert (await migrate(isolated_pool)).current
+        assert await isolated_pool.fetchval("SELECT max(version) FROM bddk_meta.schema_migrations") == 7
+    finally:
+        if publisher_pool is not None:
+            await publisher_pool.close()
+        if isolated_pool is not None:
+            await isolated_pool.close()
+        admin = await asyncpg.connect(base_dsn)
+        try:
+            if database_created:
+                await admin.execute(f"DROP DATABASE {database_name} WITH (FORCE)")
+            await admin.execute(f"DROP ROLE IF EXISTS {login_name}")
+        finally:
+            await admin.close()
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_postgres_v7_guard_waits_for_inflight_v6_publisher_and_evaluates_its_release(pg_pool) -> None:
+    assert await pg_pool.fetchval("SELECT current_setting('server_version_num')::pg_catalog.int4") >= 170000
+    base_dsn = os.environ.get(
+        "BDDK_TEST_DATABASE_URL",
+        "postgresql://bddk:bddk@localhost:5432/bddk_test",
+    )
+    database_name = f"bddk_v7_guard_concurrency_{os.getpid()}"
+    isolated_dsn = _sibling_database_dsn(base_dsn, database_name)
+    isolated_pool: asyncpg.Pool | None = None
+    publisher: asyncpg.Connection | None = None
+    observer: asyncpg.Connection | None = None
+    publisher_transaction = None
+    migration_task: asyncio.Task[MigrationState] | None = None
+    database_created = False
+
+    admin = await asyncpg.connect(base_dsn)
+    try:
+        await admin.execute(f"CREATE DATABASE {database_name}")
+        database_created = True
+    finally:
+        await admin.close()
+
+    try:
+        isolated_pool = await asyncpg.create_pool(isolated_dsn, min_size=1, max_size=4)
+        await isolated_pool.execute("CREATE EXTENSION vector")
+        await isolated_pool.execute("CREATE EXTENSION unaccent")
+        assert (await migrate(isolated_pool)).current
+
+        async with isolated_pool.acquire() as setup:
+            await _downgrade_current_schema_to_v6(setup)
+            await _ensure_release_publisher_role(setup)
+            document_id = "v7-concurrent-publisher-proof"
+            content_hash = await _insert_ready_corpus(setup, document_id)
+            await _insert_canonical_legal_state(
+                setup,
+                document_id=document_id,
+                content_hash=content_hash,
+            )
+            assert await setup.fetchval("SELECT count(*) FROM bddk_meta.active_corpus_release") == 0
+
+        publisher = await isolated_pool.acquire()
+        observer = await isolated_pool.acquire()
+        publisher_transaction = publisher.transaction()
+        await publisher_transaction.start()
+        await publisher.execute("SET LOCAL DateStyle = 'German'")
+        await publisher.fetchval(
+            "SELECT pg_catalog.pg_advisory_xact_lock($1::pg_catalog.int8)",
+            CORPUS_MUTATION_ADVISORY_KEY,
+        )
+        publisher_pid = await publisher.fetchval("SELECT pg_catalog.pg_backend_pid()")
+
+        migration_task = asyncio.create_task(migrate(isolated_pool))
+        corpus_classid, corpus_objid = _advisory_lock_parts(CORPUS_MUTATION_ADVISORY_KEY)
+        schema_classid, schema_objid = _advisory_lock_parts(SCHEMA_MIGRATION_ADVISORY_KEY)
+        waiting_pid = None
+        deadline = asyncio.get_running_loop().time() + 2.0
+        while waiting_pid is None and asyncio.get_running_loop().time() < deadline:
+            waiting_pid = await observer.fetchval(
+                """
+                WITH waiting_corpus AS (
+                    SELECT lock_record.pid
+                    FROM pg_catalog.pg_locks AS lock_record
+                    WHERE lock_record.locktype = 'advisory'
+                      AND lock_record.classid = ($1::pg_catalog.int8)::pg_catalog.oid
+                      AND lock_record.objid = ($2::pg_catalog.int8)::pg_catalog.oid
+                      AND lock_record.objsubid = 1
+                      AND NOT lock_record.granted
+                ), held_schema AS (
+                    SELECT lock_record.pid
+                    FROM pg_catalog.pg_locks AS lock_record
+                    WHERE lock_record.locktype = 'advisory'
+                      AND lock_record.classid = ($3::pg_catalog.int8)::pg_catalog.oid
+                      AND lock_record.objid = ($4::pg_catalog.int8)::pg_catalog.oid
+                      AND lock_record.objsubid = 1
+                      AND lock_record.granted
+                )
+                SELECT waiting.pid
+                FROM waiting_corpus AS waiting
+                JOIN held_schema AS held USING (pid)
+                LIMIT 1
+                """,
+                corpus_classid,
+                corpus_objid,
+                schema_classid,
+                schema_objid,
+            )
+            if waiting_pid is None:
+                if migration_task.done():
+                    outcome = (await asyncio.gather(migration_task, return_exceptions=True))[0]
+                    pytest.fail(
+                        "v7 migration completed before waiting for the publisher corpus lock "
+                        f"({type(outcome).__name__})",
+                        pytrace=False,
+                    )
+                await asyncio.sleep(0.01)
+
+        assert waiting_pid is not None
+        assert waiting_pid != publisher_pid
+        assert not migration_task.done()
+        assert await observer.fetchval("SELECT count(*) FROM bddk_meta.active_corpus_release") == 0
+
+        published = await _publish(
+            publisher,
+            manifest_id="v7-concurrent-noncanonical",
+        )
+        await publisher_transaction.commit()
+        publisher_transaction = None
+
+        with pytest.raises(MigrationPrerequisiteError) as exc_info:
+            await asyncio.wait_for(migration_task, timeout=4.0)
+        migration_task = None
+
+        assert "pre-v7 schema (v5 or v6)" in str(exc_info.value)
+        assert await observer.fetchval("SELECT max(version) FROM bddk_meta.schema_migrations") == 6
+        assert await observer.fetchval("SELECT pg_catalog.to_regnamespace('bddk_retained')") is None
+        assert (
+            await observer.fetchval("SELECT release_id FROM bddk_meta.active_corpus_release") == published["release_id"]
+        )
+    finally:
+        if migration_task is not None:
+            if not migration_task.done():
+                migration_task.cancel()
+            await asyncio.gather(migration_task, return_exceptions=True)
+        if publisher_transaction is not None and publisher is not None and publisher.is_in_transaction():
+            await publisher_transaction.rollback()
+        if isolated_pool is not None:
+            if observer is not None:
+                await isolated_pool.release(observer)
+            if publisher is not None:
+                await isolated_pool.release(publisher)
+            await isolated_pool.close()
+        if database_created:
+            admin = await asyncpg.connect(base_dsn)
+            try:
+                await admin.execute(f"DROP DATABASE {database_name} WITH (FORCE)")
+            finally:
+                await admin.close()
 
 
 @pytest.mark.postgres
@@ -633,6 +1331,7 @@ async def test_postgres_v3_failure_after_disabling_section_fts_rolls_back_trigge
 @pytest.mark.asyncio
 async def test_postgres_refuses_unmanaged_schema_and_rolls_back_the_entire_invocation(pg_pool):
     await pg_pool.execute("DROP SCHEMA IF EXISTS bddk_operator CASCADE")
+    await pg_pool.execute("DROP SCHEMA IF EXISTS bddk_retained CASCADE")
     await pg_pool.execute("DROP SCHEMA IF EXISTS bddk_meta CASCADE")
     await pg_pool.execute(
         """

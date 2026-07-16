@@ -10,6 +10,7 @@ import pytest
 from bddk_mcp.catalog_integrity import (
     _ACTIVE_CORPUS_RELEASE_DEPENDENCIES,
     _ACTIVE_CORPUS_RELEASE_REQUIRED_DEFINITION,
+    _CANONICAL_FINGERPRINT_CONFIGURATION,
     _CITATION_VIEW_COLUMNS,
     _CITATION_VIEW_DEPENDENCIES,
     _CITATION_VIEW_REQUIRED_DEFINITION,
@@ -25,6 +26,8 @@ from bddk_mcp.catalog_integrity import (
     _EXPECTED_V4_CONSTRAINT_COUNT,
     _EXPECTED_V4_INDEX_CATALOG_SHA256,
     _EXPECTED_V4_INDEX_COUNT,
+    _EXPECTED_V7_CATALOG_OBJECT_COUNT,
+    _EXPECTED_V7_CATALOG_SHA256,
     _LEGAL_STATUS_RESULT_TYPE,
     _v6_legal_status_function_source,
 )
@@ -331,7 +334,11 @@ class ReadOnlyReadinessPool:
                         "proparallel": parallel,
                         "prosecdef": security_definer,
                         "proleakproof": False,
-                        "configuration": ["search_path=pg_catalog"],
+                        "configuration": (
+                            list(_CANONICAL_FINGERPRINT_CONFIGURATION)
+                            if identity == "current_corpus_state_sha256(text)"
+                            else ["search_path=pg_catalog"]
+                        ),
                         "source": source,
                         "owner_name": "bddk_schema_owner",
                         "ledger_owner_name": "bddk_schema_owner",
@@ -397,6 +404,11 @@ class ReadOnlyReadinessPool:
                 "object_count": _EXPECTED_V4_INDEX_COUNT,
                 "v4_index_catalog_sha256": _EXPECTED_V4_INDEX_CATALOG_SHA256,
             }
+        if "AS catalog_sha256" in query and "bddk_retained" in query:
+            return {
+                "object_count": _EXPECTED_V7_CATALOG_OBJECT_COUNT,
+                "catalog_sha256": _EXPECTED_V7_CATALOG_SHA256,
+            }
         if "pg_get_viewdef" in query:
             if "active_corpus_release" in query:
                 return {
@@ -432,7 +444,7 @@ async def test_readiness_accepts_current_schema_and_uses_only_selects():
 
     assert report == DatabaseReadiness()
     assert report.ready
-    assert len(pool.statements) == 21
+    assert len(pool.statements) == 23
     assert all(statement.upper().startswith(("SELECT", "WITH")) for statement in pool.statements)
 
 
@@ -443,7 +455,7 @@ async def test_schema_only_readiness_skips_all_corpus_queries():
     report = await inspect_database_readiness(pool, require_corpus=False)  # type: ignore[arg-type]
 
     assert report.ready
-    assert len(pool.statements) == 19
+    assert len(pool.statements) == 21
 
 
 @pytest.mark.asyncio

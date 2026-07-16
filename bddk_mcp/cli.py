@@ -4,11 +4,20 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import os
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
+from typing import Final
 
 from bddk_mcp import __version__
+
+_CURRENT_WAL_INSERT_LSN_SQL = "SELECT pg_catalog.pg_current_wal_insert_lsn()::pg_catalog.text"
+_OBSERVED_WAL_BYTES_SQL = "SELECT pg_catalog.pg_wal_lsn_diff($1::pg_catalog.pg_lsn, $2::pg_catalog.pg_lsn)"
+_SCHEMA_MIGRATION_LOCK_SQL = "SELECT pg_catalog.pg_advisory_xact_lock($1::pg_catalog.int8)"
+_CORPUS_RETENTION_LOCK_TIMEOUT: Final[str] = "30s"
+_CORPUS_RETENTION_STATEMENT_TIMEOUT: Final[str] = "30min"
 
 
 def _positive_port(value: str) -> int:
@@ -109,6 +118,20 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         required=True,
         help="Separately mounted PEM Ed25519 public key for the imported corpus manifest",
+    )
+
+    retain_generation = subparsers.add_parser(
+        "retain-corpus-generation",
+        help="Atomically retain and seal the expected active release using the release-publisher identity",
+    )
+    retain_generation.add_argument(
+        "--db",
+        help="PostgreSQL DSN; defaults to BDDK_RELEASE_PUBLISHER_DATABASE_URL",
+    )
+    retain_generation.add_argument(
+        "--expected-release-id",
+        required=True,
+        help="Exact corpus_release_sha256_... identity that must still be active",
     )
 
     verify_corpus = subparsers.add_parser(
@@ -249,6 +272,154 @@ async def _publish_corpus_release(
     )
 
 
+async def _retain_corpus_generation(
+    dsn: str | None,
+    *,
+    expected_release_id: str,
+) -> dict:
+    """Retain one active release through the dedicated administrative identity."""
+
+    from functools import partial
+
+    import asyncpg
+
+    from bddk_mcp.core.config import require_database_url
+    from bddk_mcp.corpus_coordination import SCHEMA_MIGRATION_ADVISORY_KEY
+    from bddk_mcp.corpus_generations import (
+        CorpusGenerationError,
+        collect_generation_storage_evidence,
+        retain_active_corpus_generation,
+    )
+    from bddk_mcp.db_identity import (
+        DatabaseIdentityError,
+        assert_database_connection_identity,
+        assert_database_identity,
+    )
+    from bddk_mcp.db_lifecycle import DatabaseLifecycleError, assert_database_ready
+    from bddk_mcp.db_transport import assert_database_transport
+
+    selected_dsn = assert_database_transport(dsn) if dsn else require_database_url("release-publisher")
+    operation_committed = False
+    acquire_cleanup_failed = False
+    try:
+        pool = await asyncpg.create_pool(
+            selected_dsn,
+            min_size=1,
+            max_size=1,
+            init=partial(assert_database_connection_identity, profile="release-publisher"),
+        )
+        try:
+            await assert_database_identity(pool, "release-publisher")
+            try:
+                async with pool.acquire() as connection:
+                    async with connection.transaction():
+                        await connection.execute(f"SET LOCAL lock_timeout = '{_CORPUS_RETENTION_LOCK_TIMEOUT}'")
+                        await connection.execute(
+                            f"SET LOCAL statement_timeout = '{_CORPUS_RETENTION_STATEMENT_TIMEOUT}'"
+                        )
+                        await connection.fetchval(
+                            _SCHEMA_MIGRATION_LOCK_SQL,
+                            SCHEMA_MIGRATION_ADVISORY_KEY,
+                        )
+                        # Retention binds the exact expected active release
+                        # inside the SQL routine.  This preflight deliberately
+                        # verifies only schema/catalog readiness so a locally
+                        # upgraded retrieval profile cannot reject an older,
+                        # already governed release before it can be retained.
+                        await assert_database_ready(
+                            pool=connection,  # type: ignore[arg-type]
+                            require_corpus=False,
+                        )
+                        before_lsn = None
+                        try:
+                            # This optional observation runs in a savepoint.
+                            # A permission or catalog error therefore rolls
+                            # back only the measurement attempt instead of
+                            # poisoning the durable retention transaction.
+                            async with connection.transaction():
+                                before_lsn = await connection.fetchval(_CURRENT_WAL_INSERT_LSN_SQL)
+                        except Exception:
+                            pass
+                        receipt = await retain_active_corpus_generation(
+                            connection,
+                            expected_release_id=expected_release_id,
+                        )
+                        storage = await collect_generation_storage_evidence(
+                            connection,
+                            generation_id=receipt.generation_id,
+                        )
+                        if (
+                            storage.generation_id != receipt.generation_id
+                            or storage.relation_count != receipt.relation_count
+                            or storage.row_count != receipt.row_count
+                        ):
+                            raise CorpusGenerationError("Retained corpus generation storage evidence is inconsistent.")
+                    operation_committed = True
+
+                    # Cost evidence is deliberately best-effort after the
+                    # durable seal. A missing/invalid observation must not
+                    # report the already committed operation as failed.
+                    if before_lsn is not None:
+                        try:
+                            after_lsn = await connection.fetchval(_CURRENT_WAL_INSERT_LSN_SQL)
+                            observed_wal_value = await connection.fetchval(
+                                _OBSERVED_WAL_BYTES_SQL,
+                                after_lsn,
+                                before_lsn,
+                            )
+                            observed_wal_bytes = int(observed_wal_value)
+                            if (
+                                isinstance(observed_wal_value, bool)
+                                or observed_wal_bytes < 0
+                                or observed_wal_value != observed_wal_bytes
+                            ):
+                                raise ValueError("invalid WAL observation")
+                            storage = replace(
+                                storage,
+                                observed_cluster_wal_bytes=observed_wal_bytes,
+                                wal_attribution="observed_cluster_interval_not_exclusive",
+                            )
+                        except Exception:
+                            pass
+            except Exception:
+                # Releasing an acquired pool connection happens after the
+                # transaction has committed. Preserve that durable success if
+                # only the pool context cleanup fails.
+                if not operation_committed:
+                    raise
+                acquire_cleanup_failed = True
+        finally:
+            if acquire_cleanup_failed:
+                # Pool.close() waits for every acquired connection. If the
+                # acquire context itself could not release this connection,
+                # terminate the one-shot CLI pool instead of hanging after a
+                # successful commit.
+                try:
+                    pool.terminate()
+                except Exception:
+                    pass
+            else:
+                try:
+                    await pool.close()
+                except Exception:
+                    if not operation_committed:
+                        raise
+    except CorpusGenerationError as exc:
+        raise RuntimeError(str(exc)) from None
+    except DatabaseIdentityError as exc:
+        raise RuntimeError(str(exc)) from None
+    except DatabaseLifecycleError as exc:
+        raise RuntimeError(str(exc)) from None
+    except Exception:
+        raise RuntimeError("Retained corpus generation operation failed.") from None
+
+    return {
+        "schema_version": 1,
+        "retained_generation": receipt.safe_dict(),
+        "storage_evidence": storage.safe_dict(),
+    }
+
+
 def _verify_corpus(
     seed_dir: Path | None,
     *,
@@ -364,6 +535,15 @@ def main(argv: Sequence[str] | None = None) -> None:
                 f"manifest_sha256={active_release['manifest_sha256']} "
                 f"profile_sha256={active_release['retrieval_profile_sha256']}"
             )
+            return
+        if args.command == "retain-corpus-generation":
+            result = asyncio.run(
+                _retain_corpus_generation(
+                    args.db,
+                    expected_release_id=args.expected_release_id,
+                )
+            )
+            print(json.dumps(result, sort_keys=True, separators=(",", ":")))
             return
         if args.command == "verify-corpus":
             result = _verify_corpus(

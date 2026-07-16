@@ -77,8 +77,28 @@ PUBLISHER_READ_RELATIONS = (
     | {
         "bddk_meta.schema_migrations",
         "bddk_meta.active_corpus_release",
+        "bddk_meta.corpus_release_retention_status",
     }
 )
+RETAINED_CORPUS_TABLES = {
+    "bddk_retained.decision_cache",
+    "bddk_retained.documents",
+    "bddk_retained.document_sections",
+    "bddk_retained.document_versions",
+    "bddk_retained.document_chunks",
+    "bddk_retained.document_retrieval_publications",
+    "bddk_retained.regulatory_instruments",
+    "bddk_retained.regulatory_family_imports",
+    "bddk_retained.regulatory_source_blobs",
+    "bddk_retained.regulatory_source_artifacts",
+    "bddk_retained.regulatory_evidence",
+    "bddk_retained.regulatory_legal_versions",
+    "bddk_retained.regulatory_legal_version_artifacts",
+    "bddk_retained.regulatory_legal_events",
+    "bddk_retained.regulatory_legal_status_assertions",
+    "bddk_retained.regulatory_provisions",
+    "bddk_retained.regulatory_legal_version_provisions",
+}
 
 
 def _normalized_sql(value: str) -> str:
@@ -152,6 +172,32 @@ def test_post_migration_schemas_and_ledger_are_hardened() -> None:
         assert f"grant select on table bddk_meta.schema_migrations to {role};" in normalized
     assert "grant usage on schema bddk_meta to bddk_release_publisher;" in normalized
     assert "bddk_meta.schema_migrations" in _grant_object_list(GRANTS_SQL, "select", "bddk_release_publisher")
+
+
+def test_retained_generation_assets_are_owner_only_except_publisher_facade() -> None:
+    normalized = _normalized_sql(GRANTS_SQL)
+
+    assert "alter schema bddk_retained owner to bddk_schema_owner;" in normalized
+    assert "revoke all privileges on schema bddk_retained from public;" in normalized
+    assert "revoke all privileges on all tables in schema bddk_retained from public;" in normalized
+    for object_kind in ("tables", "sequences", "functions"):
+        assert (
+            "alter default privileges for role bddk_schema_owner in schema bddk_retained "
+            f"revoke all privileges on {object_kind} from public;"
+        ) in normalized
+
+    for relation in RETAINED_CORPUS_TABLES:
+        assert f"alter table {relation} owner to bddk_schema_owner;" in normalized
+        assert not any(
+            re.search(rf"\b{re.escape(relation)}\b", statement)
+            for statement in normalized.split(";")
+            if statement.strip().startswith("grant ")
+        )
+
+    view = "bddk_meta.corpus_release_retention_status"
+    assert f"alter view {view} owner to bddk_schema_owner;" in normalized
+    assert f"{view} to bddk_release_publisher;" in normalized
+    assert "grant usage on schema bddk_retained" not in normalized
 
 
 def test_positive_runtime_grants_are_explicit_not_default_wildcards() -> None:
@@ -278,8 +324,21 @@ def test_application_function_ownership_and_execute_are_exact() -> None:
     assert f"grant execute on function {resolver} to bddk_ingestion;" not in normalized
     assert f"grant execute on function {resolver} to bddk_operator_runtime;" not in normalized
     assert "grant usage on schema bddk_meta to bddk_release_publisher;" in normalized
-    assert "bddk_meta.active_corpus_release to bddk_release_publisher;" in normalized
+    publisher_reads = _grant_object_list(GRANTS_SQL, "select", "bddk_release_publisher")
+    assert "bddk_meta.active_corpus_release" in publisher_reads
+    assert "bddk_meta.corpus_release_retention_status" in publisher_reads
     assert "alter table bddk_meta.corpus_state_epoch owner to bddk_schema_owner;" in normalized
+    retain = "bddk_meta.retain_active_corpus_generation(pg_catalog.text)"
+    storage = "bddk_meta.inspect_retained_generation_storage(pg_catalog.text)"
+    for function in (retain, storage):
+        assert f"alter function {function} owner to bddk_schema_owner;" in normalized
+        assert f"grant execute on function {function} to bddk_release_publisher;" in normalized
+        assert f"grant execute on function {function} to bddk_ingestion;" not in normalized
+        assert f"grant execute on function {function} to bddk_operator_runtime;" not in normalized
+    row_hash = "bddk_meta.retained_row_sha256(anyelement, pg_catalog.bool)"
+    assert f"alter function {row_hash} owner to bddk_schema_owner;" in normalized
+    assert "revoke all privileges on function bddk_meta.retained_row_sha256(" in normalized
+    assert f"grant execute on function {row_hash}" not in normalized
 
 
 def test_deployment_documentation_maps_separate_workload_identities() -> None:

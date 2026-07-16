@@ -44,8 +44,9 @@ This checkpoint describes the current working tree; the executed-check table abo
 |---|---|---|
 | Installed MCP transport E2E | Complete | The official client exercises the installed stdio subprocess through initialize/version/list/call/invalid-extra/recovery/shutdown and checks protocol-only stdout. Streamable HTTP tests cover initialize/list/call, the single `bddk://corpus/active-release` resource, health, Host/Origin, JWT/JWKS, scope, operator opt-in, RFC 9728 protected-resource metadata, the matching `resource_metadata` 401 challenge, and shutdown. No MCP prompts are registered (**bddk_mcp/resources.py; tests/test_mcp_stdio_e2e.py; tests/test_mcp_http_runtime.py**). Bank IdP registration and authorization-flow acceptance remain external. |
 | Tool contracts and protocol errors | Partial | The 15-public/29-operator registry (15 public plus 14 operator additions) owns strict generated arguments and risk annotations; stable privacy-safe errors are tested. Six retrieval tools validate structured evidence payloads (**tests/test_tool_registry.py; tests/test_public_input_contracts.py; tests/test_structured_retrieval_outputs.py**). The remaining tools do not yet share one structured result contract. |
-| PostgreSQL compatibility and lifecycle | Partial | PostgreSQL 17 is the explicit repository contract. The final disposable local run recorded exactly **143 passed, 4 skipped** in 633.42 seconds; the separate actual-LOGIN identity/ACL allow-and-deny lane passed both selected tests. Migrations run through v0006: v4's legal subset still attests exactly 69 constraints/21 indexes, v5 adds append-only corpus release/activation and epoch invalidation, and v6 adds the least-privilege abstention-first legal-status resolver (**bddk_mcp/migrations/runner.py; bddk_mcp/catalog_integrity.py; tests/test_migrations.py; tests/test_catalog_integrity.py; tests/test_corpus_publication.py; tests/test_legal_versions.py**). Bank LOGINs, production-size upgrade, failover, and DBA evidence remain external. |
-| Recovery workflows | Partial | Tests exercise the guarded populated-v2-to-current-schema rehearsal, default refusal, actual-content fingerprints, bounded subprocess cleanup, and recovery-evidence schema v2. That schema covers 29 managed relations plus activation sequence, rejects all six application DSNs as recovery administration, and verifies six restored LOGIN profiles (**bddk_mcp/operations/recovery.py; tests/test_recovery_workflows.py**). A retained bank-like `pg_dump`/`pg_restore` acceptance report, PITR, RPO/RTO, and bank recovery approval remain unproved. |
+| PostgreSQL compatibility and lifecycle | Partial | PostgreSQL 17 is the explicit repository contract. The final disposable H2-02A lane passed **177 PostgreSQL tests with 4 capability-gated skips**. Migrations now run through v0007: v4's legal subset still attests exactly 69 constraints/21 indexes, v5 adds append-only corpus release/activation and epoch invalidation, v6 adds the least-privilege abstention-first legal-status resolver, and v7 adds a separately attested retained-generation catalog. A real least-privilege v5 publisher LOGIN reproduced a noncanonical release, the v7 guard refused it without v7 DDL, the supported publication-only compatibility path appended a canonical release, and v7 then succeeded. A separate fresh-cluster role/actual-LOGIN matrix passed both tests (**bddk_mcp/migrations/runner.py; bddk_mcp/catalog_integrity.py; bddk_mcp/db_identity.py; tests/test_migrations.py; tests/test_postgres_role_assets.py**). Bank LOGINs, production-size upgrade, failover, and DBA evidence remain external. |
+| Retained-generation contracts | Repository mechanism covered; external acceptance partial | Focused unit/PG17 contracts exercise exact 17-relation typed retention, exact-v5 state-hash reproduction, and retained row/current-state/retained-state hash invariance under changed session `TimeZone`, `DateStyle`, `IntervalStyle`, `bytea_output`, and `extra_float_digits`. They prove two different-state/profile generations coexist, release-idempotent retry, and a differently governed release over the same exact state/profile shares the original physical generation and seal through a distinct binding. They also cover `legacy_v5_unretained`, mutation and truncate refusal, catalog tamper detection, role denial, sanitized errors, storage arithmetic, and absence from both MCP registries (**tests/test_migrations.py:104-126; tests/test_corpus_generations.py; tests/test_corpus_publication.py:580-850; tests/test_catalog_integrity.py; tests/test_cli.py:198-531; tests/test_postgres_role_assets.py**). Parameterized PostgreSQL injection fails each of the 17 member copies plus inventory, seal, and release binding and proves atomic rollback without changing the active release; a fresh current-schema PG17 execution passed all 20 cases on 2026-07-16. CLI tests enforce transaction-local `lock_timeout=30s` and `statement_timeout=30min`; WAL-baseline savepoint or post-commit observation failures degrade to `not_measured` without reversing durable success. Any WAL value remains only an observed non-exclusive cluster interval. Backup growth remains `not_measured`, and no bank capacity/retention approval exists. |
+| Recovery workflows | Partial | Tests exercise the guarded populated-v2-to-current-schema rehearsal, default refusal, actual-content fingerprints, bounded subprocess cleanup, and recovery-evidence schema v2. That schema inventories 51 managed objects, with 17 retained members, generation/inventory/seal/release-binding/status objects, and the activation sequence included in that count. It rejects all six application DSNs as recovery administration, verifies six restored LOGIN profiles, rejects orphan retained rows, and binds PostgreSQL 17 encoding, collation/ctype, locale provider/locale, ICU rules, and stored/actual collation versions source-to-restore (**bddk_mcp/operations/recovery.py; tests/test_recovery_workflows.py**). A retained bank-like `pg_dump`/`pg_restore` acceptance report, PITR, RPO/RTO, and bank recovery approval remain unproved. |
 | Citation v1 and legal-version pilot | Partial technical evidence | Citation tests cover canonical identity, separate `SourceBlob` content and `SourceArtifact` acquisition identities, frozen-whitespace exact normalized ranges, Unicode/CRLF/astral round trips, excerpt reconstruction, mismatch refusal, and omission for unvalidated/truncated/failed-quality cases. PostgreSQL exposes only validated authoritative non-fixture mappings whose hashes agree. The legal-release verifier additionally re-hashes retained source bytes, acquisition records, page mapping/text, exact excerpts, and every predecessor's retained files. `PageMappingProof` v2 binds each checkpoint/artifact review to an opaque owner in the signed policy's reviewer registry (**bddk_mcp/citations.py; benchmark/legal_release_evidence.py; benchmark/evaluation_trust_policy.py; tests/test_citations.py; tests/test_expert_evaluation.py; tests/test_legal_versions.py**). The only end-to-end family remains synthetic; policy binding does not authenticate the human review action or independently prove source/PDF-to-page-text derivation, and historical Citation packs are not retained/replayed for predecessor checkpoints. |
 | Untrusted-document rendering | Complete at current code boundary; live-model evaluation open | Tests cover the escaped untrusted-data envelope and delimiter spoofing across all six retrieval tools and the other source-backed public renderers; official MCP output checks keep malicious metadata and body text inside the data boundary (**bddk_mcp/tools/structured_outputs.py; tests/test_structured_retrieval_outputs.py**). No live host/model prompt-injection or tool-escalation benchmark has run. |
 | OpenShift repository preflight | Partial | The acceptance suite requires exactly Kustomize v5.8.1 and the configured SHA-256 of the resolved executable, executes a bounded offline render, and rejects drift in exact resources, namespace, selectors/labels, NetworkPolicies, Secret/ConfigMap keys, container shape/commands/ports/volumes, and restricted security contexts. It renders the reviewed `bank-bootstrap` overlay and checks the exact direct strict arguments, read-only approved-corpus PVC, separately mounted read-only corpus-trust Secret, and mutation failures. The registry contract identifies nine public open-world/live-outbound tools. Network tests require at least one approved `regulatory_source` or `enterprise_proxy` TCP/443 permission for each public and operator runtime, constrain every such permission to TCP/443, and reject every lifecycle purpose outside DNS/PostgreSQL. The mandatory focused acceptance/manifest/registry run passed **74 tests** with real checksum-pinned Kustomize v5.8.1. It still records eight live external gates as `not_run` (**deploy/openshift-overlays/bank-bootstrap/**; **bddk_mcp/openshift_acceptance.py; tests/test_openshift_acceptance.py; tests/test_openshift_manifests.py; tests/test_tool_registry.py**). This is repository preflight evidence, not a bank namespace, CNI, IdP, CA, registry, database, backup, or client/model test. |
@@ -56,7 +57,7 @@ This checkpoint describes the current working tree; the executed-check table abo
 | Ordinary benchmark reports | Exploratory only | `benchmark.run` always marks results `exploratory_not_release_evidence` and `model_scores_authorized: false`; console and diagnosis reports refuse deployment advice even if a result JSON is edited. These runners do not execute the expert dataset or invoke the release preflight (**benchmark/run.py; benchmark/report.py; tests/test_benchmark_audit.py**). |
 | Observability, load, and client/model operations | Open/Partial | Correlation IDs, privacy-safe request/error/latency metrics, readiness, and isolated telemetry have tests. Standard export/tracing, numeric SLOs, retention, load/resilience, full recovery, and a named Claude/Codex/GPT-OSS/LM Studio matrix remain unproved. |
 
-Final local validation on 2026-07-16 also passed **1,355** non-GPU,
+The pre-v7 local checkpoint on 2026-07-16 passed **1,355** non-GPU,
 non-PostgreSQL tests with 37 capability-gated skips and 147 deselections in
 52.70 seconds. The PostgreSQL and role-contract results are reported separately
 above so skipped capabilities are not hidden inside one inflated aggregate.
@@ -67,6 +68,22 @@ maturity remains **3/5** because these repository results do not supply expert,
 live-model, load, bank-platform, or PITR acceptance; the other calibrated
 ratings remain overall **3/5**, production readiness **2/5**, MCP **4/5**,
 retrieval **3/5**, security **3/5**, and documentation **4/5**.
+
+The frozen H2-02A branch was then revalidated separately on 2026-07-16:
+
+- **1,411 passed, 34 skipped, 184 deselected** in the complete non-PostgreSQL/non-GPU lane;
+- **177 passed, 4 skipped, 1,448 deselected** in the complete required PostgreSQL 17 lane;
+- **2 passed** in the separately provisioned PostgreSQL 17 role/actual-LOGIN and ACL-provenance lane;
+- **31 passed** in the full migration module, including the real v5 publisher-LOGIN canonical-remediation path and deterministic migration/publication lock race; and
+- Ruff lint/format, `git diff --check`, locked dependency verification, and distribution build were rerun on the frozen tree.
+
+These are disposable repository results, not bank backup, capacity, RPO/RTO,
+OpenShift, IdP, or approval evidence. GPU/OCR remained capability-gated.
+
+That aggregate predates the H2-02A changes and is retained only as a checkpoint;
+the v7 focused contracts above and the final branch-wide validation must be
+reported separately. No maturity rating is increased merely because the
+retention mechanism added tests.
 
 The optional GPU/OCR lane was also probed. Before the lane contract was fixed,
 CUDA detection alone started three integration cases in a base development
@@ -300,7 +317,7 @@ Property-based/fuzz candidates:
 
 Run against disposable pgvector PostgreSQL in a required CI job. Database absence must fail the job, not skip it.
 
-The current repository covers clean and idempotent migrations through v0006, strict legacy adoption, populated-v2 refusal/approved backfill to the current schema, transactional rollback injection, catalog attestation, durable job concurrency/leases, fail-closed retrieval publication, owner-only legal tables, active-release/epoch state, and role/identity/write-denial contracts. A guarded populated-v2-to-current rehearsal and logical-restore workflow are present. The list below is the full target; retained bank-like restore evidence, target-bank identities, low-downtime large-corpus migration, immutable retained corpus generations, and PITR remain residual work.
+The current repository covers clean and idempotent migrations through v0007, strict legacy adoption, populated-v2 refusal/approved backfill to the current schema, transactional rollback injection, catalog attestation, durable job concurrency/leases, fail-closed retrieval publication, owner-only legal tables, active-release/epoch state, typed immutable retention of 17 corpus relations, and role/identity/write-denial contracts. A guarded populated-v2-to-current rehearsal and logical-restore workflow now inventories 51 managed objects. The list below is the full target; retained bank-like restore evidence, target-bank identities, low-downtime large-corpus migration, generation-bound serving/authorized rollback, and PITR remain residual work.
 
 Test:
 
@@ -312,7 +329,8 @@ Test:
 - ingestion and publisher role grants/denials;
 - statement timeouts and cancellation;
 - document/version/provision constraints;
-- corpus staging, validation, atomic activation, and rollback;
+- corpus staging, validation, atomic activation, typed retention, and separately
+  authorized rollback/reactivation;
 - document/section/chunk/vector hash/generation consistency;
 - FTS and dense retrieval;
 - telemetry disabled/enabled privacy;
@@ -842,8 +860,10 @@ The original first two deliverables are complete: Phase 2 uses official MCP stdi
    calibration. Keep currentness/version/amendment scoring disabled until real
    authoritative fixtures support it.
 6. Execute the recovery-v2 workflow at representative bank-like scale and retain
-   accepted elapsed time, lock, database/WAL, 29-relation, activation-sequence,
-   LOGIN, fingerprint, and restore evidence before any bank upgrade.
+   accepted elapsed time, lock, database/WAL, 51-object, activation-sequence,
+   LOGIN, live/retained fingerprint, and restore evidence before any bank upgrade.
+   Measure generation backup growth with a controlled backup; do not infer it
+   from relation size or the non-exclusive retention-command WAL interval.
 7. Publish the first versioned baseline across the official client plus selected Claude, Codex/ChatGPT, LM Studio, and GPT-OSS host/model profiles; record skipped/unavailable profiles rather than imputing success.
 
 The roadmap maps these deliverables into reviewable issues: [ROADMAP.md](ROADMAP.md).

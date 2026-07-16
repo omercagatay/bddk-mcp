@@ -45,6 +45,7 @@ from bddk_mcp.migrations import (
     inspect_migration_state,
     migrate,
 )
+from bddk_mcp.migrations.v0007_retained_corpus_generations import RETAINED_CORPUS_RELATIONS
 from bddk_mcp.observability.telemetry import assert_telemetry_writer_ready
 
 DISPOSABLE_ACKNOWLEDGEMENT: Final[str] = "I_UNDERSTAND_THIS_MUTATES_ONLY_A_DISPOSABLE_RECOVERY_TARGET"
@@ -60,6 +61,7 @@ _PG_TOOL_TERMINATION_GRACE_SECONDS: Final[int] = 10
 _ACTIVATION_SEQUENCE: Final[str] = "bddk_meta.corpus_release_activations_activation_sequence_seq"
 _ACTIVATION_TABLE: Final[str] = "bddk_meta.corpus_release_activations"
 _ACTIVATION_COLUMN: Final[str] = "activation_sequence"
+_RETAINED_GENERATION_SCHEMA_MIGRATION_VERSION: Final[int] = 7
 _RUNTIME_DATABASE_URL_VARIABLES: Final[tuple[str, ...]] = (
     "BDDK_DATABASE_URL",
     "BDDK_OPERATOR_DATABASE_URL",
@@ -68,6 +70,252 @@ _RUNTIME_DATABASE_URL_VARIABLES: Final[tuple[str, ...]] = (
     "BDDK_TELEMETRY_DATABASE_URL",
     "BDDK_RELEASE_PUBLISHER_DATABASE_URL",
 )
+_DATABASE_LOCALE_SQL: Final[str] = """
+SELECT pg_catalog.pg_encoding_to_char(database_record.encoding) AS database_encoding,
+       database_record.datcollate AS database_collation,
+       database_record.datctype AS database_character_classification,
+       database_record.datlocprovider::pg_catalog.text AS database_locale_provider,
+       database_record.datlocale AS database_locale,
+       database_record.daticurules AS database_icu_rules,
+       database_record.datcollversion AS database_collation_version,
+       pg_catalog.pg_database_collation_actual_version(database_record.oid)
+           AS database_collation_actual_version
+FROM pg_catalog.pg_database AS database_record
+WHERE database_record.datname = current_database()
+"""
+_RETAINED_MEMBER_RELATIONS: Final[tuple[str, ...]] = tuple(
+    f"bddk_retained.{relation}" for relation in RETAINED_CORPUS_RELATIONS
+)
+
+
+def _retained_member_fingerprint_query(relation: str) -> str:
+    """Return a fixed-identifier query that emits only one digest per retained row."""
+
+    if relation not in RETAINED_CORPUS_RELATIONS:
+        raise ValueError("retained relation is not in the immutable migration inventory")
+    return f"""
+        SELECT bddk_meta.retained_row_sha256(member, false) AS row_sha256
+        FROM bddk_retained.{relation} AS member
+        ORDER BY row_sha256
+        """
+
+
+_RETAINED_MEMBER_FINGERPRINT_QUERIES: Final[tuple[tuple[str, str], ...]] = tuple(
+    (f"retained_{relation}", _retained_member_fingerprint_query(relation)) for relation in RETAINED_CORPUS_RELATIONS
+)
+_RETAINED_MEMBER_ORPHANS_SQL: Final[str] = "\nUNION ALL\n".join(
+    f"""
+    SELECT 1 AS orphaned
+    FROM bddk_retained.{relation} AS member
+    LEFT JOIN bddk_meta.corpus_generations AS generation
+      ON generation.generation_id = member.generation_id
+    WHERE generation.generation_id IS NULL
+    """
+    for relation in RETAINED_CORPUS_RELATIONS
+)
+
+
+def _retained_inventory_recomputation_select(position: int, relation: str) -> str:
+    """Recompute one v7 inventory member without returning retained content."""
+
+    if relation not in RETAINED_CORPUS_RELATIONS:
+        raise ValueError("retained relation is not in the immutable migration inventory")
+    return f"""
+        SELECT generation.generation_id,
+               {position}::pg_catalog.int4 AS relation_position,
+               '{relation}'::pg_catalog.text AS relation_name,
+               recomputed.row_count,
+               recomputed.relation_sha256
+        FROM bddk_meta.corpus_generations AS generation
+        CROSS JOIN LATERAL (
+            SELECT pg_catalog.count(*)::pg_catalog.int8 AS row_count,
+                   pg_catalog.encode(
+                       pg_catalog.sha256(
+                           pg_catalog.convert_to(
+                               COALESCE(
+                                   pg_catalog.string_agg(row_sha256, '' ORDER BY row_sha256),
+                                   ''
+                               ),
+                               'UTF8'
+                           )
+                       ),
+                       'hex'
+                   ) AS relation_sha256
+            FROM (
+                SELECT bddk_meta.retained_row_sha256(member, true) AS row_sha256
+                FROM bddk_retained.{relation} AS member
+                WHERE member.generation_id = generation.generation_id
+            ) AS retained_rows
+        ) AS recomputed
+        """
+
+
+_FRESH_RETAINED_INVENTORY_SQL: Final[str] = "\nUNION ALL\n".join(
+    _retained_inventory_recomputation_select(position, relation)
+    for position, relation in enumerate(RETAINED_CORPUS_RELATIONS, start=1)
+)
+_RETAINED_GENERATION_SEAL_VALIDATION_SQL: Final[str] = f"""
+WITH fresh_inventory AS MATERIALIZED (
+    {_FRESH_RETAINED_INVENTORY_SQL}
+),
+recomputed_generations AS MATERIALIZED (
+    SELECT generation.generation_id,
+           generation.source_activation_sequence,
+           generation.source_release_id,
+           generation.corpus_state_sha256,
+           generation.retrieval_profile_sha256,
+           pg_catalog.count(fresh.relation_name)::pg_catalog.int4
+               AS fresh_relation_count,
+           COALESCE(pg_catalog.sum(fresh.row_count), 0)::pg_catalog.int8
+               AS fresh_row_count,
+           pg_catalog.encode(
+               pg_catalog.sha256(
+                   bddk_meta.corpus_fingerprint_frame('1')
+                   || COALESCE(
+                          pg_catalog.string_agg(
+                              bddk_meta.corpus_fingerprint_frame(fresh.relation_name)
+                              || bddk_meta.corpus_fingerprint_frame(
+                                     fresh.row_count::pg_catalog.text
+                                 )
+                              || bddk_meta.corpus_fingerprint_frame(
+                                     fresh.relation_sha256
+                                 ),
+                              pg_catalog.decode('', 'hex')
+                              ORDER BY fresh.relation_position
+                          ),
+                          pg_catalog.decode('', 'hex')
+                      )
+               ),
+               'hex'
+           ) AS fresh_inventory_sha256
+    FROM bddk_meta.corpus_generations AS generation
+    JOIN fresh_inventory AS fresh
+      ON fresh.generation_id = generation.generation_id
+    GROUP BY generation.generation_id,
+             generation.source_activation_sequence,
+             generation.source_release_id,
+             generation.corpus_state_sha256,
+             generation.retrieval_profile_sha256
+),
+validation AS MATERIALIZED (
+    SELECT recomputed.*,
+           seal.seal_id,
+           seal.corpus_state_sha256 AS sealed_state_sha256,
+           seal.retrieval_profile_sha256 AS sealed_profile_sha256,
+           seal.inventory_sha256 AS sealed_inventory_sha256,
+           seal.relation_count AS sealed_relation_count,
+           seal.row_count AS sealed_row_count
+    FROM recomputed_generations AS recomputed
+    LEFT JOIN bddk_meta.corpus_generation_seals AS seal
+      ON seal.generation_id = recomputed.generation_id
+)
+SELECT NOT EXISTS (
+    SELECT 1
+    FROM validation
+    WHERE fresh_relation_count <> {len(RETAINED_CORPUS_RELATIONS)}
+       OR (
+            SELECT pg_catalog.count(*)
+            FROM bddk_meta.corpus_generation_relation_inventory AS inventory
+            WHERE inventory.generation_id = validation.generation_id
+          ) <> {len(RETAINED_CORPUS_RELATIONS)}
+       OR EXISTS (
+            SELECT 1
+            FROM fresh_inventory AS fresh
+            LEFT JOIN bddk_meta.corpus_generation_relation_inventory AS inventory
+              ON inventory.generation_id = fresh.generation_id
+             AND inventory.relation_name = fresh.relation_name
+            WHERE fresh.generation_id = validation.generation_id
+              AND (
+                    inventory.generation_id IS NULL
+                    OR inventory.row_count IS DISTINCT FROM fresh.row_count
+                    OR inventory.relation_sha256 IS DISTINCT FROM fresh.relation_sha256
+                  )
+          )
+       OR seal_id IS NULL
+       OR sealed_relation_count IS DISTINCT FROM {len(RETAINED_CORPUS_RELATIONS)}
+       OR sealed_row_count IS DISTINCT FROM fresh_row_count
+       OR sealed_state_sha256 IS DISTINCT FROM corpus_state_sha256
+       OR sealed_profile_sha256 IS DISTINCT FROM retrieval_profile_sha256
+       OR sealed_inventory_sha256 IS DISTINCT FROM fresh_inventory_sha256
+       OR bddk_meta.retained_corpus_state_sha256(
+              validation.generation_id,
+              validation.retrieval_profile_sha256
+          ) IS DISTINCT FROM sealed_state_sha256
+       OR validation.generation_id IS DISTINCT FROM (
+              'corpus_generation_sha256_'
+              || pg_catalog.encode(
+                     pg_catalog.sha256(
+                         bddk_meta.corpus_fingerprint_frame('1')
+                         || bddk_meta.corpus_fingerprint_frame(corpus_state_sha256)
+                         || bddk_meta.corpus_fingerprint_frame(retrieval_profile_sha256)
+                     ),
+                     'hex'
+                 )
+          )
+       OR seal_id IS DISTINCT FROM (
+              'corpus_generation_seal_sha256_'
+              || pg_catalog.encode(
+                     pg_catalog.sha256(
+                         bddk_meta.corpus_fingerprint_frame('1')
+                         || bddk_meta.corpus_fingerprint_frame(validation.generation_id)
+                         || bddk_meta.corpus_fingerprint_frame(corpus_state_sha256)
+                         || bddk_meta.corpus_fingerprint_frame(retrieval_profile_sha256)
+                         || bddk_meta.corpus_fingerprint_frame(fresh_inventory_sha256)
+                     ),
+                     'hex'
+                 )
+          )
+       OR NOT EXISTS (
+            SELECT 1
+            FROM bddk_meta.corpus_retained_releases AS binding
+            WHERE binding.release_id = validation.source_release_id
+              AND binding.seal_id = validation.seal_id
+              AND binding.generation_id = validation.generation_id
+              AND binding.corpus_state_sha256 = validation.corpus_state_sha256
+              AND binding.retrieval_profile_sha256 =
+                  validation.retrieval_profile_sha256
+          )
+)
+AND NOT EXISTS (
+    SELECT 1
+    FROM bddk_meta.corpus_generation_seals AS seal
+    LEFT JOIN bddk_meta.corpus_generations AS generation
+      ON generation.generation_id = seal.generation_id
+    WHERE generation.generation_id IS NULL
+)
+AND NOT EXISTS (
+    SELECT 1
+    FROM bddk_meta.corpus_generation_relation_inventory AS inventory
+    LEFT JOIN bddk_meta.corpus_generations AS generation
+      ON generation.generation_id = inventory.generation_id
+    WHERE generation.generation_id IS NULL
+)
+AND NOT EXISTS (
+    SELECT 1
+    FROM bddk_meta.corpus_retained_releases AS binding
+    LEFT JOIN bddk_meta.corpus_generations AS generation
+      ON generation.generation_id = binding.generation_id
+    LEFT JOIN bddk_meta.corpus_generation_seals AS seal
+      ON seal.seal_id = binding.seal_id
+     AND seal.generation_id = binding.generation_id
+     AND seal.corpus_state_sha256 = binding.corpus_state_sha256
+     AND seal.retrieval_profile_sha256 = binding.retrieval_profile_sha256
+    LEFT JOIN bddk_meta.corpus_releases AS release
+      ON release.release_id = binding.release_id
+     AND release.corpus_state_sha256 = binding.corpus_state_sha256
+     AND release.retrieval_profile_sha256 = binding.retrieval_profile_sha256
+    WHERE generation.generation_id IS NULL
+       OR seal.seal_id IS NULL
+       OR release.release_id IS NULL
+)
+AND NOT EXISTS (
+    SELECT 1
+    FROM (
+        {_RETAINED_MEMBER_ORPHANS_SQL}
+    ) AS orphaned_members
+)
+AS retained_generation_seals_valid
+"""
 
 _MANAGED_RELATIONS: Final[tuple[str, ...]] = (
     "bddk_meta.legacy_schema_adoptions",
@@ -75,6 +323,7 @@ _MANAGED_RELATIONS: Final[tuple[str, ...]] = (
     "bddk_meta.corpus_state_epoch",
     "bddk_meta.corpus_releases",
     "bddk_meta.corpus_release_activations",
+    "bddk_meta.corpus_generations",
     "bddk_meta.active_corpus_release",
     _ACTIVATION_SEQUENCE,
     "bddk_operator.operator_jobs",
@@ -101,6 +350,14 @@ _MANAGED_RELATIONS: Final[tuple[str, ...]] = (
     "public.regulatory_provisions",
     "public.regulatory_legal_version_provisions",
     "public.regulatory_validated_section_citations",
+    # Retained member relations follow their generation parent and preserve
+    # the v5 source-table dependency order.  Seals and release bindings follow
+    # the complete member inventory they attest.
+    *_RETAINED_MEMBER_RELATIONS,
+    "bddk_meta.corpus_generation_relation_inventory",
+    "bddk_meta.corpus_generation_seals",
+    "bddk_meta.corpus_retained_releases",
+    "bddk_meta.corpus_release_retention_status",
 )
 
 _SAFE_FINGERPRINT_QUERIES: Final[tuple[tuple[str, str], ...]] = (
@@ -489,6 +746,55 @@ _SAFE_FINGERPRINT_QUERIES: Final[tuple[tuple[str, str], ...]] = (
         ORDER BY document_section_id
         """,
     ),
+    (
+        "corpus_generations",
+        """
+        SELECT generation_id, generation_schema_version,
+               source_activation_sequence, source_release_id,
+               corpus_state_sha256, retrieval_profile_sha256,
+               staged_at, staged_by_fingerprint_sha256
+        FROM bddk_meta.corpus_generations
+        ORDER BY generation_id
+        """,
+    ),
+    *_RETAINED_MEMBER_FINGERPRINT_QUERIES,
+    (
+        "corpus_generation_relation_inventory",
+        """
+        SELECT generation_id, relation_name, row_count, relation_sha256
+        FROM bddk_meta.corpus_generation_relation_inventory
+        ORDER BY generation_id, relation_name
+        """,
+    ),
+    (
+        "corpus_generation_seals",
+        """
+        SELECT seal_id, generation_id, corpus_state_sha256,
+               retrieval_profile_sha256, inventory_sha256, relation_count,
+               row_count, sealed_at, sealed_by_fingerprint_sha256
+        FROM bddk_meta.corpus_generation_seals
+        ORDER BY seal_id
+        """,
+    ),
+    (
+        "corpus_retained_releases",
+        """
+        SELECT release_id, seal_id, generation_id, corpus_state_sha256,
+               retrieval_profile_sha256, retained_at,
+               retained_by_fingerprint_sha256
+        FROM bddk_meta.corpus_retained_releases
+        ORDER BY release_id
+        """,
+    ),
+    (
+        "corpus_release_retention_status",
+        """
+        SELECT release_id, retention_status, generation_id, seal_id,
+               corpus_state_sha256, retrieval_profile_sha256, retained_at
+        FROM bddk_meta.corpus_release_retention_status
+        ORDER BY release_id
+        """,
+    ),
 )
 
 _DATABASE_GUARD_SQL: Final[str] = """
@@ -556,6 +862,14 @@ class SnapshotEvidence:
 
     migration_version: int
     migration_checksum: str
+    database_encoding: str
+    database_collation: str
+    database_character_classification: str
+    database_locale_provider: str
+    database_locale: str | None
+    database_icu_rules: str | None
+    database_collation_version: str | None
+    database_collation_actual_version: str | None
     logical_fingerprint_sha256: str
     database_bytes: int
     wal_lsn: str
@@ -885,6 +1199,7 @@ async def _relation_evidence(pool: Any) -> dict[str, RelationEvidence]:
         row_count = int(await pool.fetchval(f"SELECT COUNT(*) FROM {relation}"))
         if relation in {
             "bddk_meta.active_corpus_release",
+            "bddk_meta.corpus_release_retention_status",
             "public.regulatory_validated_section_citations",
         }:
             heap_bytes = total_bytes = 0
@@ -961,6 +1276,17 @@ async def _collect_activation_sequence_evidence(pool: Any) -> IdentitySequenceEv
     )
 
 
+async def _assert_retained_generation_seals(pool: Any) -> None:
+    """Fail closed unless every v7 retained generation reproduces its seal."""
+
+    try:
+        valid = await pool.fetchval(_RETAINED_GENERATION_SEAL_VALIDATION_SQL)
+    except Exception:
+        raise RecoveryDrillError("retained_generation_seal_invalid") from None
+    if valid is not True:
+        raise RecoveryDrillError("retained_generation_seal_invalid")
+
+
 async def _collect_snapshot_evidence_pinned(
     pool: Any,
     connection: asyncpg.Connection,
@@ -970,12 +1296,15 @@ async def _collect_snapshot_evidence_pinned(
 ) -> SnapshotEvidence:
     migration = await inspect_migration_state(pool)
     relations = await _relation_evidence(pool)
+    if migration.current_version >= _RETAINED_GENERATION_SCHEMA_MIGRATION_VERSION:
+        await _assert_retained_generation_seals(pool)
     hasher = hashlib.sha256()
     for label, query in _SAFE_FINGERPRINT_QUERIES:
         relation_by_label = {
             "corpus_state_epoch": "bddk_meta.corpus_state_epoch",
             "corpus_releases": "bddk_meta.corpus_releases",
             "corpus_release_activations": "bddk_meta.corpus_release_activations",
+            "corpus_generations": "bddk_meta.corpus_generations",
             "active_corpus_release": "bddk_meta.active_corpus_release",
             "corpus_release_activation_sequence": _ACTIVATION_SEQUENCE,
             "publications": "public.document_retrieval_publications",
@@ -998,6 +1327,11 @@ async def _collect_snapshot_evidence_pinned(
             "regulatory_provisions": "public.regulatory_provisions",
             "regulatory_legal_version_provisions": "public.regulatory_legal_version_provisions",
             "regulatory_validated_section_citations": "public.regulatory_validated_section_citations",
+            **{f"retained_{relation}": f"bddk_retained.{relation}" for relation in RETAINED_CORPUS_RELATIONS},
+            "corpus_generation_relation_inventory": ("bddk_meta.corpus_generation_relation_inventory"),
+            "corpus_generation_seals": "bddk_meta.corpus_generation_seals",
+            "corpus_retained_releases": "bddk_meta.corpus_retained_releases",
+            "corpus_release_retention_status": "bddk_meta.corpus_release_retention_status",
         }
         relation = relation_by_label.get(label)
         if relation is not None and relation not in relations:
@@ -1031,9 +1365,40 @@ async def _collect_snapshot_evidence_pinned(
     active_release_id = active_release.release_id if active_release is not None else None
     if require_active_release and active_release_id is None:
         raise RecoveryDrillError("active_corpus_release_required")
+    database_locale = await pool.fetchrow(_DATABASE_LOCALE_SQL)
+    database_encoding = str(_row_value(database_locale, "database_encoding", ""))
+    database_collation = str(_row_value(database_locale, "database_collation", ""))
+    database_character_classification = str(_row_value(database_locale, "database_character_classification", ""))
+    database_locale_provider = str(_row_value(database_locale, "database_locale_provider", ""))
+    optional_locale_values = {
+        name: (None if _row_value(database_locale, name) is None else str(_row_value(database_locale, name)))
+        for name in (
+            "database_locale",
+            "database_icu_rules",
+            "database_collation_version",
+            "database_collation_actual_version",
+        )
+    }
+    if (
+        not database_encoding
+        or not database_collation
+        or not database_character_classification
+        or not database_locale_provider
+        or optional_locale_values["database_collation_version"]
+        != optional_locale_values["database_collation_actual_version"]
+    ):
+        raise RecoveryDrillError("database_locale_contract_invalid")
     return SnapshotEvidence(
         migration_version=migration.current_version,
         migration_checksum=checksum,
+        database_encoding=database_encoding,
+        database_collation=database_collation,
+        database_character_classification=database_character_classification,
+        database_locale_provider=database_locale_provider,
+        database_locale=optional_locale_values["database_locale"],
+        database_icu_rules=optional_locale_values["database_icu_rules"],
+        database_collation_version=optional_locale_values["database_collation_version"],
+        database_collation_actual_version=optional_locale_values["database_collation_actual_version"],
         logical_fingerprint_sha256=hasher.hexdigest(),
         database_bytes=int(await pool.fetchval("SELECT pg_catalog.pg_database_size(current_database())")),
         wal_lsn=str(await pool.fetchval("SELECT pg_catalog.pg_current_wal_lsn()::pg_catalog.text")),
@@ -1396,6 +1761,14 @@ def _same_logical_snapshot(source: SnapshotEvidence, restored: SnapshotEvidence)
     if (
         source.migration_version != restored.migration_version
         or source.migration_checksum != restored.migration_checksum
+        or source.database_encoding != restored.database_encoding
+        or source.database_collation != restored.database_collation
+        or source.database_character_classification != restored.database_character_classification
+        or source.database_locale_provider != restored.database_locale_provider
+        or source.database_locale != restored.database_locale
+        or source.database_icu_rules != restored.database_icu_rules
+        or source.database_collation_version != restored.database_collation_version
+        or source.database_collation_actual_version != restored.database_collation_actual_version
     ):
         return False
     if (

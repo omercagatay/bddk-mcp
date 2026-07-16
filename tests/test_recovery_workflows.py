@@ -12,6 +12,7 @@ import pytest
 
 from bddk_mcp.migrations import LATEST_SCHEMA_VERSION, MIGRATIONS
 from bddk_mcp.migrations.v0005_corpus_release_publication import CORPUS_EPOCH_TRACKED_TABLES
+from bddk_mcp.migrations.v0007_retained_corpus_generations import RETAINED_CORPUS_RELATIONS
 from bddk_mcp.operations import recovery
 from bddk_mcp.operations.recovery import (
     DISPOSABLE_ACKNOWLEDGEMENT,
@@ -68,6 +69,14 @@ def _snapshot(fingerprint: str = "a" * 64) -> SnapshotEvidence:
     return SnapshotEvidence(
         migration_version=3,
         migration_checksum="b" * 64,
+        database_encoding="UTF8",
+        database_collation="C",
+        database_character_classification="C",
+        database_locale_provider="c",
+        database_locale=None,
+        database_icu_rules=None,
+        database_collation_version="2.36",
+        database_collation_actual_version="2.36",
         logical_fingerprint_sha256=fingerprint,
         database_bytes=100,
         wal_lsn="0/10",
@@ -401,6 +410,14 @@ def test_report_schema_contains_no_target_name_secret_or_corpus_text() -> None:
         "catalog_failures",
         "catalog_valid",
         "database_bytes",
+        "database_character_classification",
+        "database_collation_actual_version",
+        "database_collation_version",
+        "database_collation",
+        "database_encoding",
+        "database_icu_rules",
+        "database_locale",
+        "database_locale_provider",
         "logical_fingerprint_sha256",
         "migration_checksum",
         "migration_version",
@@ -482,7 +499,7 @@ def test_recovery_evidence_covers_legal_version_relations_in_fk_safe_order() -> 
 
 
 def test_recovery_inventory_covers_release_epoch_views_and_identity_sequence() -> None:
-    assert len(recovery._MANAGED_RELATIONS) == 29
+    assert len(recovery._MANAGED_RELATIONS) == 51
     assert {
         "bddk_meta.corpus_state_epoch",
         "bddk_meta.corpus_releases",
@@ -498,6 +515,96 @@ def test_recovery_inventory_covers_release_epoch_views_and_identity_sequence() -
         "active_corpus_release",
         "corpus_release_activation_sequence",
     } <= fingerprint_labels
+
+
+def test_recovery_evidence_covers_retained_generations_in_dependency_order() -> None:
+    retained_members = tuple(f"bddk_retained.{relation}" for relation in RETAINED_CORPUS_RELATIONS)
+    retained_evidence = (
+        "bddk_meta.corpus_generations",
+        *retained_members,
+        "bddk_meta.corpus_generation_relation_inventory",
+        "bddk_meta.corpus_generation_seals",
+        "bddk_meta.corpus_retained_releases",
+        "bddk_meta.corpus_release_retention_status",
+    )
+    inventory_positions = tuple(recovery._MANAGED_RELATIONS.index(relation) for relation in retained_evidence)
+    queries = dict(recovery._SAFE_FINGERPRINT_QUERIES)
+    query_labels = tuple(label for label, _query in recovery._SAFE_FINGERPRINT_QUERIES)
+    fingerprint_order = (
+        "corpus_generations",
+        *(f"retained_{relation}" for relation in RETAINED_CORPUS_RELATIONS),
+        "corpus_generation_relation_inventory",
+        "corpus_generation_seals",
+        "corpus_retained_releases",
+        "corpus_release_retention_status",
+    )
+    fingerprint_positions = tuple(query_labels.index(label) for label in fingerprint_order)
+
+    assert inventory_positions == tuple(sorted(inventory_positions))
+    assert fingerprint_positions == tuple(sorted(fingerprint_positions))
+    assert len(retained_members) == 17
+    assert len(retained_members) == len(set(retained_members))
+    for relation in RETAINED_CORPUS_RELATIONS:
+        query = " ".join(queries[f"retained_{relation}"].split())
+        assert f"FROM bddk_retained.{relation} AS member" in query
+        assert "bddk_meta.retained_row_sha256(member, false)" in query
+        assert "AS row_sha256" in query
+        assert query.endswith("ORDER BY row_sha256")
+        assert "SELECT *" not in query.upper()
+
+    assert "FROM bddk_meta.corpus_generation_seals" in queries["corpus_generation_seals"]
+    assert "inventory_sha256" in queries["corpus_generation_seals"]
+    assert "FROM bddk_meta.corpus_retained_releases" in queries["corpus_retained_releases"]
+    assert "seal_id" in queries["corpus_retained_releases"]
+    assert "FROM bddk_meta.corpus_release_retention_status" in queries["corpus_release_retention_status"]
+
+
+def test_retained_generation_seal_gate_recomputes_the_exact_v7_inventory_contract() -> None:
+    query = " ".join(recovery._RETAINED_GENERATION_SEAL_VALIDATION_SQL.split())
+
+    assert query.count("FROM bddk_retained.") == 2 * len(RETAINED_CORPUS_RELATIONS)
+    for position, relation in enumerate(RETAINED_CORPUS_RELATIONS, start=1):
+        assert f"{position}::pg_catalog.int4 AS relation_position" in query
+        assert f"'{relation}'::pg_catalog.text AS relation_name" in query
+        assert f"FROM bddk_retained.{relation} AS member" in query
+        assert f"FROM bddk_retained.{relation} AS member LEFT JOIN bddk_meta.corpus_generations AS generation" in query
+    assert "bddk_meta.retained_row_sha256(member, true)" in query
+    assert "pg_catalog.string_agg(row_sha256, '' ORDER BY row_sha256)" in query
+    assert "ORDER BY fresh.relation_position" in query
+    assert "bddk_meta.corpus_fingerprint_frame('1')" in query
+    assert "bddk_meta.retained_corpus_state_sha256(" in query
+    assert "inventory.row_count IS DISTINCT FROM fresh.row_count" in query
+    assert "inventory.relation_sha256 IS DISTINCT FROM fresh.relation_sha256" in query
+    assert "sealed_inventory_sha256 IS DISTINCT FROM fresh_inventory_sha256" in query
+    assert "binding.release_id = validation.source_release_id" in query
+    assert "seal.generation_id = binding.generation_id" in query
+    assert "seal.corpus_state_sha256 = binding.corpus_state_sha256" in query
+    assert "release.release_id = binding.release_id" in query
+    assert "release.retrieval_profile_sha256 = binding.retrieval_profile_sha256" in query
+    assert "SELECT member.*" not in query
+
+
+@pytest.mark.asyncio
+async def test_retained_generation_seal_gate_is_boolean_and_sanitizes_failures() -> None:
+    class _Pool:
+        def __init__(self, result):
+            self.result = result
+
+        async def fetchval(self, query):
+            assert query == recovery._RETAINED_GENERATION_SEAL_VALIDATION_SQL
+            if isinstance(self.result, Exception):
+                raise self.result
+            return self.result
+
+    await recovery._assert_retained_generation_seals(_Pool(True))
+
+    for invalid in (False, None, 1, RuntimeError("private generation and document identifiers")):
+        with pytest.raises(RecoveryDrillError) as captured:
+            await recovery._assert_retained_generation_seals(_Pool(invalid))
+        assert captured.value.code == "retained_generation_seal_invalid"
+        assert str(captured.value) == "retained_generation_seal_invalid"
+        assert captured.value.__cause__ is None
+        assert "private" not in str(captured.value)
 
 
 @pytest.mark.asyncio
@@ -562,12 +669,58 @@ def test_logical_snapshot_requires_same_non_null_release_and_sequence_state() ->
         baseline,
         replace(baseline, activation_sequence=replace(_sequence(), last_value=8, next_candidate=9)),
     )
+    assert not recovery._same_logical_snapshot(
+        baseline,
+        replace(baseline, database_collation="tr_TR.UTF-8"),
+    )
+    assert not recovery._same_logical_snapshot(
+        baseline,
+        replace(baseline, database_locale_provider="i", database_locale="tr-TR"),
+    )
+
+
+def test_database_locale_evidence_covers_pg17_provider_rules_and_versions() -> None:
+    query = " ".join(recovery._DATABASE_LOCALE_SQL.split())
+
+    for field in (
+        "datlocprovider",
+        "datlocale",
+        "daticurules",
+        "datcollversion",
+        "pg_database_collation_actual_version",
+    ):
+        assert field in query
 
 
 async def _downgrade_to_v2(connection) -> None:
+    await connection.execute("DROP SCHEMA IF EXISTS bddk_retained CASCADE")
+    await connection.execute("DROP VIEW IF EXISTS bddk_meta.corpus_release_retention_status")
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.inspect_retained_generation_storage(pg_catalog.text)")
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.retain_active_corpus_generation(pg_catalog.text)")
+    await connection.execute(
+        "DROP FUNCTION IF EXISTS bddk_meta.retained_corpus_state_sha256(pg_catalog.text, pg_catalog.text)"
+    )
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.retained_row_sha256(anyelement, pg_catalog.bool)")
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.guard_retained_generation_member() CASCADE")
+    await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.reject_retained_generation_mutation() CASCADE")
+    await connection.execute(
+        "DROP TABLE IF EXISTS bddk_meta.corpus_retained_releases, "
+        "bddk_meta.corpus_generation_seals, "
+        "bddk_meta.corpus_generation_relation_inventory, "
+        "bddk_meta.corpus_generations CASCADE"
+    )
+    await connection.execute(
+        "ALTER TABLE bddk_meta.corpus_releases DROP CONSTRAINT IF EXISTS corpus_releases_retention_identity_uq"
+    )
+    await connection.execute(
+        "ALTER TABLE bddk_meta.corpus_release_activations "
+        "DROP CONSTRAINT IF EXISTS corpus_release_activations_retention_identity_uq"
+    )
+    await connection.execute("DELETE FROM bddk_meta.schema_migrations WHERE version = 7")
     await connection.execute(
         "DROP FUNCTION IF EXISTS bddk_meta.resolve_regulation_status(pg_catalog.text, pg_catalog.date)"
     )
+    await connection.execute("DELETE FROM bddk_meta.schema_migrations WHERE version = 6")
     await connection.execute("DROP VIEW IF EXISTS bddk_meta.active_corpus_release")
     for table_name in CORPUS_EPOCH_TRACKED_TABLES:
         await connection.execute(f"DROP TRIGGER IF EXISTS bump_corpus_state_epoch_on_change ON public.{table_name}")
@@ -732,6 +885,214 @@ async def test_live_populated_v2_rehearsal_proves_refusal_migration_publication_
             heap_bytes=0,
             total_bytes=0,
         )
+    finally:
+        await transaction.rollback()
+        await pg_pool.release(connection)
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_live_snapshot_executes_every_retained_generation_fingerprint(pg_pool) -> None:
+    evidence = await collect_snapshot_evidence(pg_pool, require_corpus=False)
+    retained_members = {f"bddk_retained.{relation}" for relation in RETAINED_CORPUS_RELATIONS}
+
+    assert retained_members <= set(evidence.relations)
+    assert {
+        "bddk_meta.corpus_generations",
+        "bddk_meta.corpus_generation_relation_inventory",
+        "bddk_meta.corpus_generation_seals",
+        "bddk_meta.corpus_retained_releases",
+        "bddk_meta.corpus_release_retention_status",
+    } <= set(evidence.relations)
+    assert len(evidence.logical_fingerprint_sha256) == 64
+    assert evidence.database_encoding
+    assert evidence.database_locale_provider in {"b", "c", "i"}
+    assert evidence.database_collation_version == evidence.database_collation_actual_version
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_live_snapshot_refuses_retained_member_inventory_seal_and_binding_tamper(pg_pool) -> None:
+    from bddk_mcp.corpus_generations import retain_active_corpus_generation
+    from tests.test_corpus_publication import (
+        _ensure_release_publisher_role,
+        _insert_canonical_legal_state,
+        _insert_ready_corpus,
+        _publish,
+    )
+
+    connection = await pg_pool.acquire()
+    transaction = connection.transaction()
+    await transaction.start()
+    document_id = "recovery-retained-seal-tamper"
+    try:
+        await _ensure_release_publisher_role(connection)
+        content_hash = await _insert_ready_corpus(connection, document_id)
+        await connection.execute(
+            """
+            INSERT INTO public.document_versions (
+                document_id, version, content_hash, markdown_content, synced_at
+            ) SELECT document_id, 1, content_hash, markdown_content, 1.0
+              FROM public.documents WHERE document_id = $1
+            """,
+            document_id,
+        )
+        await _insert_canonical_legal_state(
+            connection,
+            document_id=document_id,
+            content_hash=content_hash,
+        )
+        published = await _publish(connection, manifest_id="recovery-retained-seal-001")
+        receipt = await retain_active_corpus_generation(
+            connection,
+            expected_release_id=str(published["release_id"]),
+        )
+        await connection.execute(
+            """
+            SELECT pg_catalog.set_config('TimeZone', 'Europe/Istanbul', true),
+                   pg_catalog.set_config('DateStyle', 'German', true),
+                   pg_catalog.set_config('IntervalStyle', 'sql_standard', true),
+                   pg_catalog.set_config('bytea_output', 'escape', true),
+                   pg_catalog.set_config('extra_float_digits', '0', true)
+            """
+        )
+        baseline = await collect_snapshot_evidence(_PinnedPool(connection), require_corpus=False)
+        assert len(baseline.logical_fingerprint_sha256) == 64
+        await connection.execute(
+            """
+            SELECT pg_catalog.set_config('TimeZone', 'Pacific/Auckland', true),
+                   pg_catalog.set_config('DateStyle', 'SQL, DMY', true),
+                   pg_catalog.set_config('IntervalStyle', 'postgres_verbose', true),
+                   pg_catalog.set_config('bytea_output', 'hex', true),
+                   pg_catalog.set_config('extra_float_digits', '2', true)
+            """
+        )
+        differently_configured = await collect_snapshot_evidence(
+            _PinnedPool(connection),
+            require_corpus=False,
+        )
+        assert differently_configured.logical_fingerprint_sha256 == baseline.logical_fingerprint_sha256
+
+        tamper_cases = (
+            (
+                "bddk_retained.documents",
+                "guard_retained_generation_member",
+                "UPDATE bddk_retained.documents SET title = 'private retained tamper' WHERE generation_id = $1",
+            ),
+            (
+                "bddk_meta.corpus_generation_relation_inventory",
+                "guard_retained_generation_inventory",
+                "UPDATE bddk_meta.corpus_generation_relation_inventory "
+                "SET relation_sha256 = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' "
+                "WHERE generation_id = $1 AND relation_name = 'documents'",
+            ),
+            (
+                "bddk_meta.corpus_generation_seals",
+                "reject_corpus_generation_seals_update_delete",
+                "UPDATE bddk_meta.corpus_generation_seals "
+                "SET inventory_sha256 = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' "
+                "WHERE generation_id = $1",
+            ),
+            (
+                "bddk_meta.corpus_retained_releases",
+                "reject_corpus_retained_releases_update_delete",
+                "DELETE FROM bddk_meta.corpus_retained_releases WHERE generation_id = $1",
+            ),
+        )
+        for table, trigger, statement in tamper_cases:
+            savepoint = connection.transaction()
+            await savepoint.start()
+            try:
+                await connection.execute(f"ALTER TABLE {table} DISABLE TRIGGER {trigger}")
+                await connection.execute(statement, receipt.generation_id)
+                await connection.execute(f"ALTER TABLE {table} ENABLE TRIGGER {trigger}")
+
+                with pytest.raises(RecoveryDrillError) as captured:
+                    await collect_snapshot_evidence(_PinnedPool(connection), require_corpus=False)
+                assert captured.value.code == "retained_generation_seal_invalid"
+                assert captured.value.__cause__ is None
+                assert receipt.generation_id not in str(captured.value)
+                assert "private retained tamper" not in str(captured.value)
+            finally:
+                await savepoint.rollback()
+
+        # A privileged restore can temporarily bypass both the immutable
+        # member trigger and the generation FK. Orphan bytes must not sit
+        # outside every per-generation inventory and escape recovery checks.
+        savepoint = connection.transaction()
+        await savepoint.start()
+        try:
+            orphan_generation_id = "corpus_generation_sha256_" + "9" * 64
+            await connection.execute("ALTER TABLE bddk_retained.documents DISABLE TRIGGER ALL")
+            await connection.execute(
+                "INSERT INTO bddk_retained.documents "
+                "SELECT $1, source.* FROM public.documents AS source WHERE document_id = $2",
+                orphan_generation_id,
+                document_id,
+            )
+            await connection.execute("ALTER TABLE bddk_retained.documents ENABLE TRIGGER ALL")
+
+            with pytest.raises(RecoveryDrillError) as captured:
+                await collect_snapshot_evidence(_PinnedPool(connection), require_corpus=False)
+            assert captured.value.code == "retained_generation_seal_invalid"
+            assert captured.value.__cause__ is None
+            assert orphan_generation_id not in str(captured.value)
+        finally:
+            await savepoint.rollback()
+
+        # Prove the all-bindings gate checks the complete seal tuple, not just
+        # that each independently named generation and seal happens to exist.
+        savepoint = connection.transaction()
+        await savepoint.start()
+        try:
+            cross_release_id = "corpus_release_sha256_" + "e" * 64
+            cross_state = "f" * 64
+            cross_profile = "0" * 64
+            await connection.execute(
+                """
+                INSERT INTO bddk_meta.corpus_releases (
+                    release_id, manifest_id, manifest_sha256,
+                    signer_key_sha256, freshness_policy_result,
+                    source_detection_slo_seconds, publication_slo_seconds,
+                    max_manifest_age_seconds, retrieval_profile_sha256,
+                    corpus_state_sha256
+                ) VALUES (
+                    $1, 'cross-wired-release', $2, $3,
+                    'quantified_measured_signature_verified_pass',
+                    60, 120, 3600, $4, $5
+                )
+                """,
+                cross_release_id,
+                "1" * 64,
+                "2" * 64,
+                cross_profile,
+                cross_state,
+            )
+            await connection.execute("ALTER TABLE bddk_meta.corpus_retained_releases DISABLE TRIGGER ALL")
+            await connection.execute(
+                """
+                INSERT INTO bddk_meta.corpus_retained_releases (
+                    release_id, seal_id, generation_id,
+                    corpus_state_sha256, retrieval_profile_sha256,
+                    retained_by_fingerprint_sha256
+                ) VALUES ($1, $2, $3, $4, $5, $6)
+                """,
+                cross_release_id,
+                receipt.seal_id,
+                receipt.generation_id,
+                cross_state,
+                cross_profile,
+                "3" * 64,
+            )
+            await connection.execute("ALTER TABLE bddk_meta.corpus_retained_releases ENABLE TRIGGER ALL")
+
+            with pytest.raises(RecoveryDrillError) as captured:
+                await collect_snapshot_evidence(_PinnedPool(connection), require_corpus=False)
+            assert captured.value.code == "retained_generation_seal_invalid"
+            assert captured.value.__cause__ is None
+            assert cross_release_id not in str(captured.value)
+        finally:
+            await savepoint.rollback()
     finally:
         await transaction.rollback()
         await pg_pool.release(connection)

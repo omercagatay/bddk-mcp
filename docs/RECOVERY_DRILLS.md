@@ -113,12 +113,40 @@ zero storage bytes in the relation evidence because it is not materialized. A
 restore with omitted or changed legal-version state therefore fails the same
 equality gate as a changed retrieval corpus.
 
-Recovery evidence schema v2 currently inventories 29 managed relations,
-including v5 release state/view objects and the activation sequence. It rejects
+For schema v0007, the same recovery fingerprint additionally covers all 17
+typed `bddk_retained` member relations, ordered by a per-row SHA-256 digest,
+plus generation, relation-inventory, seal, retained-release binding, and
+retention-status state. Relation evidence and restore ordering therefore
+inventory **51 managed objects**. A restored generation must preserve the exact
+typed database rows and its generation/release/seal/activation relationships;
+one state/profile-derived generation has one seal, while multiple governed
+release bindings may legitimately reference that same pair. Restore comparison
+must preserve those many-to-one bindings rather than infer a physical copy per
+release.
+Catalog readiness and database-identity checks separately verify the v7
+triggers, routines, constraints, view, ownership, and ACL boundary. The report
+still emits hashes/counts/sizes rather than corpus text or principals.
+
+V7 retention preserves fields already stored in PostgreSQL, including a
+`documents.pdf_blob` when present. It does not make missing external
+authoritative source files part of the database backup, and
+`regulatory_source_blobs` still stores content identity rather than external
+artifact bytes. Recovery evidence must not be described as source-authenticity
+or off-database evidence-pack recovery.
+
+Recovery evidence schema v2 now inventories those 51 objects, including v5
+release state/view objects, v7 retained state, and the activation sequence. It rejects
 reuse of any of the six application DSNs for recovery administration and
 verifies six restored LOGIN profiles, including the independent release
 publisher. Active release identity, activation-sequence identity/ownership,
-row counts, and logical fingerprints must match exactly. This repository
+database encoding, collation/character-classification names, locale provider,
+provider locale, ICU rules, stored/actual collation versions, row counts, and
+logical fingerprints must match exactly. A stored/actual collation-version
+mismatch fails the snapshot before comparison. The versioned v5 fingerprint orders
+textual identities under the database default collation: function-local
+formatting settings make hashes session-independent, but do not make a
+cross-collation restore equivalent. A differently collated or encoded target
+therefore fails closed and must not be promoted. This repository
 contract does not substitute for retained bank PITR, backup-custody, or numeric
 RPO/RTO acceptance evidence.
 
@@ -139,4 +167,21 @@ populated-v2 migration path on disposable PostgreSQL 17. A full
 `pg_dump`→isolated-cluster→`pg_restore` run was not possible because compatible
 host client binaries and a second isolated cluster were unavailable. The
 workflow fails closed when either binary is absent. This is an explicit open
-acceptance gate, not a skipped success.
+acceptance gate, not a skipped success. That run predates schema v7 and is not
+evidence that the 51-object retained-generation restore path has executed.
+
+When available, the `retain-corpus-generation` CLI's WAL field is a cluster-wide
+observed interval around its transaction, not exact WAL attributable to one
+generation. The pre-retention LSN baseline is attempted inside a savepoint so
+its failure rolls back only the measurement attempt; the endpoint is
+best-effort after the durable transaction commits. If either observation is
+unavailable or invalid, WAL remains `not_measured` without converting a
+committed seal into a reported failure.
+Its backup-growth field remains `not_measured`; only a controlled backup before
+and after retention can supply that evidence. Neither metric authorizes a
+retention window or capacity allocation without the bank owner/DBA decision.
+
+Finally, a successfully restored sealed generation is a rollback *target*, not
+an application rollback. V7 does not route serving queries to retained tables
+or append activation/reactivation events. H2-02B must implement and test those
+semantics before an operator runbook can claim prior-generation rollback.

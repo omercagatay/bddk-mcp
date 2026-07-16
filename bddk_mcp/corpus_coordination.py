@@ -19,6 +19,11 @@ from typing import Any, Final
 # First signed int64 of SHA-256("bddk_mcp:execution:v1:corpus_mutation").
 CORPUS_MUTATION_ADVISORY_KEY: Final[int] = -6139789007653789941
 
+# First signed int64 of SHA-256("bddk_mcp:global_schema_migrations:v1").
+# Retained-generation operations acquire this key before the corpus mutation
+# key so a schema migration cannot overlap a typed snapshot.
+SCHEMA_MIGRATION_ADVISORY_KEY: Final[int] = -739681629954814976
+
 # First signed int64 of SHA-256("bddk_mcp:execution:v1:corpus_job_execution").
 CORPUS_JOB_EXECUTION_ADVISORY_KEY: Final[int] = -6417981786228610200
 
@@ -43,5 +48,6 @@ async def acquire_corpus_mutation_lock(connection: Any) -> None:
 __all__ = (
     "CORPUS_JOB_EXECUTION_ADVISORY_KEY",
     "CORPUS_MUTATION_ADVISORY_KEY",
+    "SCHEMA_MIGRATION_ADVISORY_KEY",
     "acquire_corpus_mutation_lock",
 )

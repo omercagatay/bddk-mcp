@@ -32,10 +32,16 @@ from bddk_mcp.corpus_manifest import (
     load_and_validate_corpus_manifest,
 )
 from bddk_mcp.corpus_publication import (
+    assert_release_publication_ready,
     is_strict_release_request,
     publish_strict_corpus_release,
 )
-from bddk_mcp.db_identity import assert_database_connection_identity, assert_database_identity
+from bddk_mcp.db_identity import (
+    assert_database_connection_identity,
+    assert_database_identity,
+    assert_release_publication_connection_identity,
+    assert_release_publication_identity,
+)
 from bddk_mcp.db_transport import assert_database_transport
 from bddk_mcp.store.bulk_write import (
     insert_document_chunk_rows,
@@ -217,11 +223,15 @@ async def _activate_strict_release(
     if validation is None:
         raise RuntimeError("Strict corpus release activation requires a verified manifest.")
 
-    from bddk_mcp.db_lifecycle import assert_database_ready
-
     # This pre-activation check validates the corpus itself without accepting
     # an older active identity as evidence for the replacement in progress.
-    await assert_database_ready(pool=pool, require_active_release=False)
+    # Unlike serving readiness, it deliberately supports exact schema v5/v6 for
+    # the one canonical-republication remediation required by the v7 guard.
+    await assert_release_publication_ready(
+        pool,
+        retrieval_profile_sha256=retrieval_profile_sha256,
+        require_active_release=False,
+    )
     try:
         async with pool.acquire() as connection, connection.transaction():
             identity = await publish_strict_corpus_release(
@@ -252,11 +262,12 @@ async def _activate_strict_release(
     except Exception:
         raise RuntimeError("Strict corpus release evidence could not be activated.") from None
 
-    post_activation = await assert_database_ready(pool=pool, require_active_release=True)
-    if (
-        post_activation.active_corpus_release is None
-        or post_activation.active_corpus_release.release_id != identity.release_id
-    ):
+    post_activation = await assert_release_publication_ready(
+        pool,
+        retrieval_profile_sha256=retrieval_profile_sha256,
+        require_active_release=True,
+    )
+    if post_activation is None or post_activation.release_id != identity.release_id:
         raise RuntimeError("Strict corpus release activation could not be verified.")
     return identity.safe_dict()
 
@@ -1248,14 +1259,14 @@ async def publish_seed_release(
             selected_dsn,
             min_size=1,
             max_size=3,
-            init=partial(assert_database_connection_identity, profile="release-publisher"),
+            init=assert_release_publication_connection_identity,
         )
     if pool is None:
         raise RuntimeError("Release-publisher database pool is unavailable.")
 
     try:
         if owns_pool:
-            await assert_database_identity(pool, "release-publisher")
+            await assert_release_publication_identity(pool)
         from bddk_mcp.store.vector_store import VectorStore
 
         vector_store = VectorStore(pool)

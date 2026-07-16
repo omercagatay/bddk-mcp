@@ -171,7 +171,7 @@ def test_required_review_documents_have_a_current_checkpoint():
     assert "15 public tools plus 14 operator additions" in architecture
     assert "bddk://corpus/active-release" in architecture
     assert "zero prompts" in architecture
-    assert "schema v6" in _read("docs/EXECUTIVE_SUMMARY.md")
+    assert "schema v7" in _read("docs/EXECUTIVE_SUMMARY.md")
 
 
 def test_current_lifecycle_docs_name_the_real_publisher_boundary():

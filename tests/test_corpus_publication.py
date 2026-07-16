@@ -7,15 +7,25 @@ import hashlib
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from unittest.mock import ANY, AsyncMock
 
 import asyncpg
 import pytest
 
+from bddk_mcp import corpus_publication
+from bddk_mcp.corpus_generations import (
+    CorpusGenerationError,
+    collect_generation_storage_evidence,
+    inspect_release_retention,
+    retain_active_corpus_generation,
+)
 from bddk_mcp.corpus_publication import (
     CorpusPublicationError,
+    assert_release_publication_ready,
     inspect_active_corpus_release,
     publish_strict_corpus_release,
 )
+from bddk_mcp.migrations.v0007_retained_corpus_generations import RETAINED_CORPUS_RELATIONS
 
 _PROFILE_SHA256 = "7" * 64
 _ZERO_VECTOR = "[" + ",".join("0" for _ in range(768)) + "]"
@@ -40,9 +50,11 @@ async def test_application_publication_contract_supplies_exact_sql_arguments() -
 
     class RecordingConnection:
         def __init__(self) -> None:
+            self.query: str | None = None
             self.arguments: tuple[object, ...] | None = None
 
-        async def fetchrow(self, _query: str, *arguments: object):
+        async def fetchrow(self, query: str, *arguments: object):
+            self.query = query
             self.arguments = arguments
             return returned_row
 
@@ -82,7 +94,92 @@ async def test_application_publication_contract_supplies_exact_sql_arguments() -
         3600,
         _PROFILE_SHA256,
     )
+    assert connection.query is not None
+    assert "WITH canonical_publication_inputs AS MATERIALIZED" in connection.query
+    for name, value in (
+        ("TimeZone", "UTC"),
+        ("DateStyle", "ISO, YMD"),
+        ("IntervalStyle", "postgres"),
+        ("bytea_output", "hex"),
+        ("extra_float_digits", "3"),
+    ):
+        assert f"pg_catalog.set_config('{name}', '{value}', true)" in connection.query
+    assert "CROSS JOIN LATERAL bddk_meta.publish_verified_corpus_release(" in connection.query
+    assert "inputs.retrieval_profile_sha256" in connection.query
     assert identity.completed_at == expected_completed_at
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("schema_version", (5, 6, 7))
+async def test_publication_readiness_is_exactly_versioned_without_weakening_serving(
+    monkeypatch,
+    schema_version: int,
+) -> None:
+    completed_at = datetime(2026, 1, 2, tzinfo=UTC)
+    active_row = {
+        "release_id": "corpus_release_sha256_" + "1" * 64,
+        "manifest_id": "release-test-001",
+        "manifest_sha256": "8" * 64,
+        "signer_key_sha256": "9" * 64,
+        "freshness_policy_result": "quantified_measured_signature_verified_pass",
+        "source_detection_slo_seconds": 60,
+        "publication_slo_seconds": 120,
+        "max_manifest_age_seconds": 3600,
+        "retrieval_profile_sha256": _PROFILE_SHA256,
+        "corpus_state_sha256": "2" * 64,
+        "completed_at": completed_at,
+    }
+
+    class Pool:
+        async def fetchval(self, query: str, profile: str):
+            assert query == corpus_publication._CORPUS_PUBLICATION_READY_SQL
+            assert profile == _PROFILE_SHA256
+            return True
+
+        async def fetchrow(self, query: str):
+            assert query == corpus_publication._ACTIVE_RELEASE_SQL
+            return active_row
+
+    inspect_catalog = AsyncMock(return_value=SimpleNamespace(valid=True))
+    monkeypatch.setattr(
+        corpus_publication,
+        "inspect_migration_state",
+        AsyncMock(return_value=SimpleNamespace(current_version=schema_version)),
+    )
+    monkeypatch.setattr(corpus_publication, "inspect_catalog_integrity", inspect_catalog)
+
+    active = await assert_release_publication_ready(
+        Pool(),
+        retrieval_profile_sha256=_PROFILE_SHA256,
+        require_active_release=True,
+    )
+
+    assert active is not None
+    assert active.release_id == active_row["release_id"]
+    inspect_catalog.assert_awaited_once_with(
+        ANY,
+        expected_schema_version=schema_version,
+    )
+
+
+@pytest.mark.asyncio
+async def test_publication_readiness_rejects_unreviewed_schema_versions(monkeypatch) -> None:
+    catalog = AsyncMock()
+    monkeypatch.setattr(
+        corpus_publication,
+        "inspect_migration_state",
+        AsyncMock(return_value=SimpleNamespace(current_version=4)),
+    )
+    monkeypatch.setattr(corpus_publication, "inspect_catalog_integrity", catalog)
+
+    with pytest.raises(CorpusPublicationError, match="version 5, 6, or 7"):
+        await assert_release_publication_ready(
+            SimpleNamespace(),
+            retrieval_profile_sha256=_PROFILE_SHA256,
+            require_active_release=False,
+        )
+
+    catalog.assert_not_awaited()
 
 
 def _sha256(value: str) -> str:
@@ -569,3 +666,528 @@ async def test_active_release_reader_sanitizes_database_failures() -> None:
 
     assert "private path" not in str(exc_info.value)
     assert "principal" not in str(exc_info.value)
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_active_release_is_atomically_retained_sealed_and_costed(pg_pool) -> None:
+    connection = await pg_pool.acquire()
+    transaction = connection.transaction()
+    await transaction.start()
+    document_id = "corpus-generation-complete"
+    try:
+        await _ensure_release_publisher_role(connection)
+        content_hash = await _insert_ready_corpus(connection, document_id)
+        await connection.execute(
+            """
+            INSERT INTO public.document_versions (
+                document_id, version, content_hash, markdown_content, synced_at
+            ) SELECT document_id, 1, content_hash, markdown_content, 1.0
+              FROM public.documents WHERE document_id = $1
+            """,
+            document_id,
+        )
+        await _insert_canonical_legal_state(
+            connection,
+            document_id=document_id,
+            content_hash=content_hash,
+        )
+        await connection.execute(
+            """
+            SELECT pg_catalog.set_config('TimeZone', 'Europe/Istanbul', true),
+                   pg_catalog.set_config('DateStyle', 'German', true),
+                   pg_catalog.set_config('IntervalStyle', 'sql_standard', true),
+                   pg_catalog.set_config('bytea_output', 'escape', true),
+                   pg_catalog.set_config('extra_float_digits', '0', true)
+            """
+        )
+        published = await _publish(connection, manifest_id="retained-release-001")
+        release_id = str(published["release_id"])
+        active_before = dict(await connection.fetchrow("SELECT * FROM bddk_meta.active_corpus_release"))
+
+        await connection.execute(
+            """
+            SELECT pg_catalog.set_config('TimeZone', 'America/New_York', true),
+                   pg_catalog.set_config('DateStyle', 'SQL, DMY', true),
+                   pg_catalog.set_config('IntervalStyle', 'iso_8601', true),
+                   pg_catalog.set_config('bytea_output', 'hex', true),
+                   pg_catalog.set_config('extra_float_digits', '1', true)
+            """
+        )
+
+        legacy = await inspect_release_retention(connection, release_id=release_id)
+        assert legacy is not None
+        assert legacy.retention_status == "legacy_v5_unretained"
+        assert legacy.generation_id is None
+
+        receipt = await retain_active_corpus_generation(connection, expected_release_id=release_id)
+        retained_hash_before = await connection.fetchval(
+            "SELECT bddk_meta.retained_row_sha256(member, false) "
+            "FROM bddk_retained.documents AS member WHERE generation_id = $1",
+            receipt.generation_id,
+        )
+        await connection.execute(
+            """
+            SELECT pg_catalog.set_config('TimeZone', 'Pacific/Auckland', true),
+                   pg_catalog.set_config('DateStyle', 'ISO, MDY', true),
+                   pg_catalog.set_config('IntervalStyle', 'postgres_verbose', true),
+                   pg_catalog.set_config('bytea_output', 'escape', true),
+                   pg_catalog.set_config('extra_float_digits', '2', true)
+            """
+        )
+        assert (
+            await connection.fetchval(
+                "SELECT bddk_meta.retained_row_sha256(member, false) "
+                "FROM bddk_retained.documents AS member WHERE generation_id = $1",
+                receipt.generation_id,
+            )
+            == retained_hash_before
+        )
+        repeated = await retain_active_corpus_generation(connection, expected_release_id=release_id)
+        assert repeated == receipt
+
+        # Idempotency still re-verifies the physical generation. A privileged
+        # restore/owner mutation must never turn an already-bound release into
+        # an apparently successful integrity receipt.
+        async with _rollback_savepoint(connection):
+            await connection.execute(
+                "ALTER TABLE bddk_retained.documents DISABLE TRIGGER guard_retained_generation_member"
+            )
+            await connection.execute(
+                "UPDATE bddk_retained.documents SET title = 'private retained tamper' WHERE generation_id = $1",
+                receipt.generation_id,
+            )
+            await connection.execute(
+                "ALTER TABLE bddk_retained.documents ENABLE TRIGGER guard_retained_generation_member"
+            )
+            with pytest.raises(CorpusGenerationError) as captured:
+                await retain_active_corpus_generation(
+                    connection,
+                    expected_release_id=release_id,
+                )
+            assert captured.value.__cause__ is None
+            assert "private retained tamper" not in str(captured.value)
+        assert (
+            await retain_active_corpus_generation(
+                connection,
+                expected_release_id=release_id,
+            )
+            == receipt
+        )
+
+        assert receipt.relation_count == len(RETAINED_CORPUS_RELATIONS) == 17
+        assert receipt.row_count == 17
+        assert receipt.corpus_state_sha256 == published["corpus_state_sha256"]
+        assert (
+            await connection.fetchval(
+                "SELECT bddk_meta.retained_corpus_state_sha256($1, $2)",
+                receipt.generation_id,
+                _PROFILE_SHA256,
+            )
+            == receipt.corpus_state_sha256
+        )
+        assert dict(await connection.fetchrow("SELECT * FROM bddk_meta.active_corpus_release")) == active_before
+        assert await connection.fetchval("SELECT count(*) FROM bddk_meta.corpus_generation_seals") == 1
+        assert await connection.fetchval("SELECT count(*) FROM bddk_meta.corpus_retained_releases") == 1
+        for relation in RETAINED_CORPUS_RELATIONS:
+            assert (
+                await connection.fetchval(
+                    f"SELECT count(*) FROM bddk_retained.{relation} WHERE generation_id = $1",
+                    receipt.generation_id,
+                )
+                == 1
+            )
+
+        retained = await inspect_release_retention(connection, release_id=release_id)
+        assert retained is not None
+        assert retained.retention_status == "retained"
+        assert retained.generation_id == receipt.generation_id
+        storage = await collect_generation_storage_evidence(
+            connection,
+            generation_id=receipt.generation_id,
+        )
+        assert storage.row_count == receipt.row_count
+        assert storage.generation_logical_bytes > 0
+        assert storage.retained_store_total_bytes == (
+            storage.retained_store_heap_main_bytes
+            + storage.retained_store_heap_auxiliary_bytes
+            + storage.retained_store_toast_bytes
+            + storage.retained_store_index_bytes
+        )
+
+        for relation in RETAINED_CORPUS_RELATIONS:
+            async with _rollback_savepoint(connection):
+                with pytest.raises(asyncpg.ObjectNotInPrerequisiteStateError):
+                    await connection.execute(
+                        f"DELETE FROM bddk_retained.{relation} WHERE generation_id = $1",
+                        receipt.generation_id,
+                    )
+
+        for statement, arguments in (
+            ("UPDATE bddk_retained.documents SET title = 'changed' WHERE generation_id = $1", (receipt.generation_id,)),
+            ("DELETE FROM bddk_retained.documents WHERE generation_id = $1", (receipt.generation_id,)),
+            (
+                "INSERT INTO bddk_retained.documents (generation_id, document_id, title) VALUES ($1, 'new', 'new')",
+                (receipt.generation_id,),
+            ),
+            ("TRUNCATE bddk_retained.documents CASCADE", ()),
+            (
+                "UPDATE bddk_meta.corpus_generation_seals SET row_count = row_count + 1 WHERE generation_id = $1",
+                (receipt.generation_id,),
+            ),
+            (
+                "DELETE FROM bddk_meta.corpus_retained_releases WHERE generation_id = $1",
+                (receipt.generation_id,),
+            ),
+            (
+                "UPDATE bddk_meta.corpus_generations SET generation_schema_version = 2 WHERE generation_id = $1",
+                (receipt.generation_id,),
+            ),
+            (
+                "UPDATE bddk_meta.corpus_generation_relation_inventory "
+                "SET row_count = row_count + 1 WHERE generation_id = $1",
+                (receipt.generation_id,),
+            ),
+            ("TRUNCATE bddk_meta.corpus_generation_relation_inventory CASCADE", ()),
+        ):
+            async with _rollback_savepoint(connection):
+                with pytest.raises(asyncpg.ObjectNotInPrerequisiteStateError):
+                    await connection.execute(statement, *arguments)
+
+        await connection.execute(
+            "UPDATE public.decision_cache SET cached_at = cached_at + 1 WHERE document_id = $1",
+            document_id,
+        )
+        replacement = await _publish(
+            connection,
+            manifest_id="retained-release-002",
+            manifest_sha256="b" * 64,
+        )
+        replacement_activation_sequence = await connection.fetchval(
+            "SELECT activation_sequence FROM bddk_meta.active_corpus_release"
+        )
+        second = await retain_active_corpus_generation(
+            connection,
+            expected_release_id=str(replacement["release_id"]),
+        )
+        assert second.generation_id != receipt.generation_id
+        assert second.corpus_state_sha256 != receipt.corpus_state_sha256
+        assert await connection.fetchval("SELECT count(*) FROM bddk_meta.corpus_generation_seals") == 2
+        assert (
+            await connection.fetchval(
+                "SELECT bddk_meta.retained_corpus_state_sha256($1, $2)",
+                receipt.generation_id,
+                _PROFILE_SHA256,
+            )
+            == receipt.corpus_state_sha256
+        )
+
+        # V5 may append a later activation for an already governed release
+        # when the mutable corpus returns to that exact state.  Retention is
+        # release-idempotent and must reuse the original physical generation,
+        # not attempt a conflicting second release binding.
+        await connection.execute(
+            "UPDATE public.decision_cache SET cached_at = cached_at - 1 WHERE document_id = $1",
+            document_id,
+        )
+        reactivated = await _publish(connection, manifest_id="retained-release-001")
+        assert reactivated["release_id"] == release_id
+        assert (
+            await connection.fetchval("SELECT activation_sequence FROM bddk_meta.active_corpus_release")
+            > replacement_activation_sequence
+        )
+        reused = await retain_active_corpus_generation(
+            connection,
+            expected_release_id=release_id,
+        )
+        assert reused == receipt
+        assert await connection.fetchval("SELECT count(*) FROM bddk_meta.corpus_generations") == 2
+        assert await connection.fetchval("SELECT count(*) FROM bddk_meta.corpus_generation_seals") == 2
+
+        resigned = await _publish(
+            connection,
+            manifest_id="retained-release-003",
+            manifest_sha256="c" * 64,
+        )
+        assert resigned["release_id"] not in {release_id, replacement["release_id"]}
+
+        # A newly governed release may share an existing physical generation
+        # only after the retained bytes and inventory are freshly verified.
+        # Simulate privileged restore/owner tampering, then prove the binding
+        # is refused and sanitized before rolling the tamper back.
+        async with _rollback_savepoint(connection):
+            await connection.execute(
+                "ALTER TABLE bddk_retained.documents DISABLE TRIGGER guard_retained_generation_member"
+            )
+            await connection.execute(
+                "UPDATE bddk_retained.documents SET title = 'private retained tamper' WHERE generation_id = $1",
+                receipt.generation_id,
+            )
+            await connection.execute(
+                "ALTER TABLE bddk_retained.documents ENABLE TRIGGER guard_retained_generation_member"
+            )
+            async with _rollback_savepoint(connection):
+                with pytest.raises(CorpusGenerationError) as captured:
+                    await retain_active_corpus_generation(
+                        connection,
+                        expected_release_id=str(resigned["release_id"]),
+                    )
+            assert captured.value.__cause__ is None
+            assert "private retained tamper" not in str(captured.value)
+            assert not await connection.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM bddk_meta.corpus_retained_releases WHERE release_id = $1)",
+                resigned["release_id"],
+            )
+
+        shared = await retain_active_corpus_generation(
+            connection,
+            expected_release_id=str(resigned["release_id"]),
+        )
+        assert shared.release_id == resigned["release_id"]
+        assert shared.generation_id == receipt.generation_id
+        assert shared.seal_id == receipt.seal_id
+        assert await connection.fetchval("SELECT count(*) FROM bddk_meta.corpus_generations") == 2
+        assert await connection.fetchval("SELECT count(*) FROM bddk_meta.corpus_generation_seals") == 2
+        assert await connection.fetchval("SELECT count(*) FROM bddk_meta.corpus_retained_releases") == 3
+    finally:
+        await transaction.rollback()
+        await pg_pool.release(connection)
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "failure_relation",
+    (
+        *(f"bddk_retained.{relation}" for relation in RETAINED_CORPUS_RELATIONS),
+        "bddk_meta.corpus_generation_relation_inventory",
+        "bddk_meta.corpus_generation_seals",
+        "bddk_meta.corpus_retained_releases",
+    ),
+)
+async def test_retention_failure_at_each_durable_stage_rolls_back_without_changing_active_release(
+    pg_pool,
+    failure_relation: str,
+) -> None:
+    connection = await pg_pool.acquire()
+    transaction = connection.transaction()
+    await transaction.start()
+    document_id = "corpus-generation-failure"
+    try:
+        await _ensure_release_publisher_role(connection)
+        content_hash = await _insert_ready_corpus(connection, document_id)
+        await connection.execute(
+            """
+            INSERT INTO public.document_versions (
+                document_id, version, content_hash, markdown_content, synced_at
+            ) SELECT document_id, 1, content_hash, markdown_content, 1.0
+              FROM public.documents WHERE document_id = $1
+            """,
+            document_id,
+        )
+        await _insert_canonical_legal_state(
+            connection,
+            document_id=document_id,
+            content_hash=content_hash,
+        )
+        published = await _publish(connection, manifest_id="retention-failure-001")
+        release_id = str(published["release_id"])
+        active_before = dict(await connection.fetchrow("SELECT * FROM bddk_meta.active_corpus_release"))
+        await connection.execute(
+            """
+            CREATE FUNCTION pg_temp.fail_generation_copy()
+            RETURNS trigger LANGUAGE plpgsql AS $function$
+            BEGIN
+                RAISE EXCEPTION 'private retained text' USING ERRCODE = '55000';
+            END
+            $function$
+            """
+        )
+        await connection.execute(
+            f"""
+            CREATE TRIGGER fail_generation_stage
+            BEFORE INSERT ON {failure_relation}
+            FOR EACH ROW EXECUTE FUNCTION pg_temp.fail_generation_copy()
+            """  # identifiers come only from the closed parameter list above
+        )
+
+        async with _rollback_savepoint(connection):
+            with pytest.raises(CorpusGenerationError) as captured:
+                await retain_active_corpus_generation(connection, expected_release_id=release_id)
+
+        assert captured.value.__cause__ is None
+        assert "private retained text" not in str(captured.value)
+        assert await connection.fetchval("SELECT count(*) FROM bddk_meta.corpus_generations") == 0
+        assert await connection.fetchval("SELECT count(*) FROM bddk_meta.corpus_generation_seals") == 0
+        assert await connection.fetchval("SELECT count(*) FROM bddk_meta.corpus_retained_releases") == 0
+        assert dict(await connection.fetchrow("SELECT * FROM bddk_meta.active_corpus_release")) == active_before
+    finally:
+        await transaction.rollback()
+        await pg_pool.release(connection)
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_concurrent_member_insert_cannot_append_after_generation_seal(pg_pool) -> None:
+    """Close the insert-before-seal/FK-wait race with a generation row lock."""
+
+    token = _sha256(f"retained-generation-race-{id(pg_pool)}-{datetime.now(tz=UTC).isoformat()}")
+    release_id = "corpus_release_sha256_" + token
+    generation_id = "corpus_generation_sha256_" + _sha256("generation-" + token)
+    seal_id = "corpus_generation_seal_sha256_" + _sha256("seal-" + token)
+    setup = await pg_pool.acquire()
+    writer = await pg_pool.acquire()
+    appender = await pg_pool.acquire()
+    writer_transaction = writer.transaction()
+    writer_started = False
+    append_task: asyncio.Task[str] | None = None
+    activation_sequence: int | None = None
+    try:
+        activation_sequence = int(
+            await setup.fetchval(
+                """
+                WITH release AS (
+                    INSERT INTO bddk_meta.corpus_releases (
+                        release_id, manifest_id, manifest_sha256,
+                        signer_key_sha256, freshness_policy_result,
+                        source_detection_slo_seconds, publication_slo_seconds,
+                        max_manifest_age_seconds, retrieval_profile_sha256,
+                        corpus_state_sha256
+                    ) VALUES (
+                        $1, $2, $3, $4,
+                        'quantified_measured_signature_verified_pass',
+                        60, 120, 3600, $5, $6
+                    ) RETURNING release_id
+                )
+                INSERT INTO bddk_meta.corpus_release_activations (
+                    release_id, corpus_epoch, actor_fingerprint_sha256
+                ) SELECT release_id, 0, $7 FROM release
+                RETURNING activation_sequence
+                """,
+                release_id,
+                "race-" + token[:24],
+                _sha256("manifest-" + token),
+                _sha256("signer-" + token),
+                _sha256("profile-" + token),
+                _sha256("state-" + token),
+                _sha256("actor-" + token),
+            )
+        )
+        await writer_transaction.start()
+        writer_started = True
+        await writer.execute(
+            """
+            INSERT INTO bddk_meta.corpus_generations (
+                generation_id, generation_schema_version,
+                source_activation_sequence, source_release_id,
+                corpus_state_sha256, retrieval_profile_sha256,
+                staged_by_fingerprint_sha256
+            )
+            SELECT $1, 1, activation_sequence, release_id,
+                   corpus_state_sha256, retrieval_profile_sha256, $2
+            FROM bddk_meta.corpus_release_activations AS activation
+            JOIN bddk_meta.corpus_releases AS release USING (release_id)
+            WHERE activation_sequence = $3
+            """,
+            generation_id,
+            _sha256("stager-" + token),
+            activation_sequence,
+        )
+
+        append_task = asyncio.create_task(
+            appender.execute(
+                "INSERT /* retained-generation-seal-race */ "
+                "INTO bddk_retained.documents (generation_id, document_id, title) "
+                "VALUES ($1, $2, 'race proof')",
+                generation_id,
+                "race-" + token[:32],
+            )
+        )
+        await asyncio.sleep(0.1)
+        await writer.execute(
+            """
+            INSERT INTO bddk_meta.corpus_generation_seals (
+                seal_id, generation_id, corpus_state_sha256,
+                retrieval_profile_sha256, inventory_sha256,
+                relation_count, row_count, sealed_by_fingerprint_sha256
+            )
+            SELECT $1, generation_id, corpus_state_sha256,
+                   retrieval_profile_sha256, $2, 17, 0, $3
+            FROM bddk_meta.corpus_generations
+            WHERE generation_id = $4
+            """,
+            seal_id,
+            _sha256("inventory-" + token),
+            _sha256("sealer-" + token),
+            generation_id,
+        )
+        await writer_transaction.commit()
+        writer_started = False
+
+        with pytest.raises(asyncpg.ObjectNotInPrerequisiteStateError):
+            await asyncio.wait_for(append_task, timeout=5)
+        assert not await setup.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM bddk_retained.documents WHERE generation_id = $1)",
+            generation_id,
+        )
+    finally:
+        if append_task is not None and not append_task.done():
+            append_task.cancel()
+            await asyncio.gather(append_task, return_exceptions=True)
+        if writer_started:
+            await writer_transaction.rollback()
+        if activation_sequence is not None:
+            cleanup = setup.transaction()
+            await cleanup.start()
+            try:
+                await setup.execute(
+                    "ALTER TABLE bddk_meta.corpus_generation_seals "
+                    "DISABLE TRIGGER reject_corpus_generation_seals_update_delete"
+                )
+                await setup.execute(
+                    "ALTER TABLE bddk_meta.corpus_generations DISABLE TRIGGER reject_corpus_generations_update_delete"
+                )
+                await setup.execute(
+                    "ALTER TABLE bddk_meta.corpus_release_activations "
+                    "DISABLE TRIGGER reject_corpus_release_activation_update_delete"
+                )
+                await setup.execute(
+                    "ALTER TABLE bddk_meta.corpus_releases DISABLE TRIGGER reject_corpus_release_update_delete"
+                )
+                await setup.execute(
+                    "DELETE FROM bddk_meta.corpus_generation_seals WHERE generation_id = $1",
+                    generation_id,
+                )
+                await setup.execute(
+                    "DELETE FROM bddk_meta.corpus_generations WHERE generation_id = $1",
+                    generation_id,
+                )
+                await setup.execute(
+                    "DELETE FROM bddk_meta.corpus_release_activations WHERE activation_sequence = $1",
+                    activation_sequence,
+                )
+                await setup.execute(
+                    "DELETE FROM bddk_meta.corpus_releases WHERE release_id = $1",
+                    release_id,
+                )
+                await setup.execute(
+                    "ALTER TABLE bddk_meta.corpus_releases ENABLE TRIGGER reject_corpus_release_update_delete"
+                )
+                await setup.execute(
+                    "ALTER TABLE bddk_meta.corpus_release_activations "
+                    "ENABLE TRIGGER reject_corpus_release_activation_update_delete"
+                )
+                await setup.execute(
+                    "ALTER TABLE bddk_meta.corpus_generations ENABLE TRIGGER reject_corpus_generations_update_delete"
+                )
+                await setup.execute(
+                    "ALTER TABLE bddk_meta.corpus_generation_seals "
+                    "ENABLE TRIGGER reject_corpus_generation_seals_update_delete"
+                )
+                await cleanup.commit()
+            except Exception:
+                await cleanup.rollback()
+                raise
+        await pg_pool.release(appender)
+        await pg_pool.release(writer)
+        await pg_pool.release(setup)

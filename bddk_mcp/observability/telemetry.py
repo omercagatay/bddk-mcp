@@ -88,7 +88,29 @@ WITH RECURSIVE target AS (
         ('bddk_meta', 'corpus_releases'),
         ('bddk_meta', 'corpus_release_activations'),
         ('bddk_meta', 'corpus_state_epoch'),
+        ('bddk_meta', 'corpus_generations'),
+        ('bddk_meta', 'corpus_generation_relation_inventory'),
+        ('bddk_meta', 'corpus_generation_seals'),
+        ('bddk_meta', 'corpus_retained_releases'),
         ('bddk_meta', 'active_corpus_release'),
+        ('bddk_meta', 'corpus_release_retention_status'),
+        ('bddk_retained', 'decision_cache'),
+        ('bddk_retained', 'documents'),
+        ('bddk_retained', 'document_sections'),
+        ('bddk_retained', 'document_versions'),
+        ('bddk_retained', 'document_chunks'),
+        ('bddk_retained', 'document_retrieval_publications'),
+        ('bddk_retained', 'regulatory_instruments'),
+        ('bddk_retained', 'regulatory_family_imports'),
+        ('bddk_retained', 'regulatory_source_blobs'),
+        ('bddk_retained', 'regulatory_source_artifacts'),
+        ('bddk_retained', 'regulatory_evidence'),
+        ('bddk_retained', 'regulatory_legal_versions'),
+        ('bddk_retained', 'regulatory_legal_version_artifacts'),
+        ('bddk_retained', 'regulatory_legal_events'),
+        ('bddk_retained', 'regulatory_legal_status_assertions'),
+        ('bddk_retained', 'regulatory_provisions'),
+        ('bddk_retained', 'regulatory_legal_version_provisions'),
         ('bddk_operator', 'operator_jobs')
 ), other_relations(relation_oid) AS (
     SELECT relation.oid
@@ -130,7 +152,12 @@ WITH RECURSIVE target AS (
             'publish_verified_corpus_release',
             'text, text, text, integer, integer, integer, text'
         ),
-        ('bddk_meta', 'resolve_regulation_status', 'text, date')
+        ('bddk_meta', 'resolve_regulation_status', 'text, date'),
+        ('bddk_meta', 'retained_corpus_state_sha256', 'text, text'),
+        ('bddk_meta', 'guard_retained_generation_member', ''),
+        ('bddk_meta', 'reject_retained_generation_mutation', ''),
+        ('bddk_meta', 'retain_active_corpus_generation', 'text'),
+        ('bddk_meta', 'inspect_retained_generation_storage', 'text')
 ), application_functions(function_oid) AS (
     SELECT routine.oid
     FROM requested_functions AS requested
@@ -164,6 +191,8 @@ SELECT relation_oid IS NOT NULL AS relation_exists,
            AND NOT has_schema_privilege(current_user, 'bddk_meta', 'CREATE')
            AND NOT has_schema_privilege(current_user, 'bddk_operator', 'USAGE')
            AND NOT has_schema_privilege(current_user, 'bddk_operator', 'CREATE')
+           AND NOT has_schema_privilege(current_user, 'bddk_retained', 'USAGE')
+           AND NOT has_schema_privilege(current_user, 'bddk_retained', 'CREATE')
            AS application_schemas_isolated,
        NOT EXISTS (
            SELECT 1

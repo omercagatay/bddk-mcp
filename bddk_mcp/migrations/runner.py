@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import hashlib
 import re
 from dataclasses import dataclass
 from typing import Any, Final
 
 import asyncpg
 
+from bddk_mcp.corpus_coordination import SCHEMA_MIGRATION_ADVISORY_KEY
 from bddk_mcp.db_compatibility import PostgreSQLCompatibilityError, assert_supported_postgresql
 from bddk_mcp.migrations.legacy import (
     LEGACY_SOURCE_KIND,
@@ -25,6 +25,10 @@ from bddk_mcp.migrations.v0003_retrieval_publication import V0003_RETRIEVAL_PUBL
 from bddk_mcp.migrations.v0004_canonical_legal_versions import V0004_CANONICAL_LEGAL_VERSIONS
 from bddk_mcp.migrations.v0005_corpus_release_publication import V0005_CORPUS_RELEASE_PUBLICATION
 from bddk_mcp.migrations.v0006_legal_status_resolver import V0006_LEGAL_STATUS_RESOLVER
+from bddk_mcp.migrations.v0007_retained_corpus_generations import (
+    NONCANONICAL_FINGERPRINT_UPGRADE_SQLSTATE,
+    V0007_RETAINED_CORPUS_GENERATIONS,
+)
 
 MIGRATIONS: Final[tuple[Migration, ...]] = (
     V0001_CORE,
@@ -33,6 +37,7 @@ MIGRATIONS: Final[tuple[Migration, ...]] = (
     V0004_CANONICAL_LEGAL_VERSIONS,
     V0005_CORPUS_RELEASE_PUBLICATION,
     V0006_LEGAL_STATUS_RESOLVER,
+    V0007_RETAINED_CORPUS_GENERATIONS,
 )
 LATEST_SCHEMA_VERSION: Final[int] = MIGRATIONS[-1].version
 MIGRATION_LOCK_TIMEOUT: Final[str] = "5s"
@@ -42,11 +47,7 @@ _MIGRATION_NAME_RE = re.compile(r"^[a-z][a-z0-9_]{0,95}$")
 _CHECKSUM_RE = re.compile(r"^[0-9a-f]{64}$")
 _REQUIRED_EXTENSIONS = frozenset({"unaccent", "vector"})
 _HISTORY_RELATION = "bddk_meta.schema_migrations"
-_HISTORY_LOCK_KEY = int.from_bytes(
-    hashlib.sha256(b"bddk_mcp:global_schema_migrations:v1").digest()[:8],
-    "big",
-    signed=True,
-)
+_HISTORY_LOCK_KEY = SCHEMA_MIGRATION_ADVISORY_KEY
 
 _EXTENSIONS_SQL = """
 SELECT extension.extname,
@@ -412,7 +413,20 @@ async def migrate(
             "was rolled back. Rehearse against a size-matched restore and review capacity before retrying; do not "
             "raise the timeout without measured evidence."
         ) from None
-    except (asyncpg.PostgresError, OSError, TypeError, ValueError):
+    except asyncpg.PostgresError as exc:
+        if exc.sqlstate == NONCANONICAL_FINGERPRINT_UPGRADE_SQLSTATE:
+            raise MigrationPrerequisiteError(
+                "Migration 7 refused the active corpus because its pre-v7 state fingerprint is not canonical. "
+                "While the database remains on its pre-v7 schema (v5 or v6), independently review and revalidate "
+                "the unchanged corpus, publish and activate a new release under the canonical session settings "
+                "documented in docs/LEGACY_DATABASE_UPGRADE.md, then retry. Do not update or backfill the prior "
+                "release row."
+            ) from None
+        raise MigrationError(
+            "Database migration failed and was rolled back. Verify schema-owner DDL permissions, an empty managed "
+            "schema for first installation, and the PostgreSQL vector/unaccent prerequisites."
+        ) from None
+    except (OSError, TypeError, ValueError):
         raise MigrationError(
             "Database migration failed and was rolled back. Verify schema-owner DDL permissions, an empty managed "
             "schema for first installation, and the PostgreSQL vector/unaccent prerequisites."

@@ -24,9 +24,9 @@ This register is authoritative over the historical commit-5684a34 findings retai
 | CUR-004 | Legal evidence | No authoritative non-fixture regulation family has validated versions, amendments, effective states, and Citations. | **bddk_mcp/regulatory/; tests/test_legal_versions.py** use a synthetic family. | Current/as-of answers cannot be relied upon for audit, compliance, or regulatory decisions outside the synthetic proof. | High | Curate one bounded real family with retained acquisition evidence, named reviewers, version/provision relations, and abstention tests. | L | CUR-002; source/provenance approval |
 | CUR-005 | Page/reviewer proof | `PageMappingProof` v2 plus signed-policy authorization now binds every checkpoint/artifact review to a declared, time-bounded, revocable reviewer owner ID. The checkpoint certifier—not the reviewer—signs the evidence, so the human review action and time are not independently authenticated; page text is still not independently derived from source bytes. | **benchmark/legal_release_evidence.py: PageMappingProof, LegalSourceReview, and retention verification; benchmark/evaluation_trust_policy.py: AuthorizedLegalSourceReviewer and authorize_evaluation_trust_chain; tests/test_evaluation_trust_policy.py; tests/test_expert_evaluation.py** | A policy-consistent but incorrectly rendered or falsely attributed review can still pass and create false citation precision. This blocks audit-grade use even though missing/outside-window/revoked reviewer assertions now fail closed. | High | Bank-issue and govern the reviewer registry; add a reviewer signature or approved action-attestation record; retain extraction tool/profile/version and deterministic page-render evidence, or explicitly approve a bounded human-attestation procedure. | L | CUR-002, CUR-004 |
 | CUR-006 | Historical releases | Ancestors rehash declared source/acquisition/page/excerpt artifacts, but historical legal packs/attestations are not replayed end to end. | **benchmark/legal_release_evidence.py: predecessor and retention verification** | The chain proves retained-file consistency, not full reproducibility of every historical legal release. | Medium | Version a retained historical-pack/attestation/key-policy bundle and replay it for each ancestor, or keep the narrower claim explicit. | M | CUR-002, CUR-003 |
-| CUR-007 | Corpus rollback | v5 provides append-only release/activation evidence, global epoch invalidation, and pre/post call rejection over mutable tables, but release rows contain hashes rather than retained members or bytes and reads are not generation-qualified. | **bddk_mcp/migrations/v0005_corpus_release_publication.py:52-98,895-1024,1029-1056; bddk_mcp/corpus_serving.py:29-35,104-160; bddk_mcp/ingest/seed.py:500-505,555-578,636-653** | An old release ID cannot reconstruct its document, section, vector, history, PDF, or legal state. Selecting it would reactivate current mutable bytes, not the reviewed prior generation; rollback therefore remains an operational restore rather than an atomic product feature. | Medium | Sequence H2-02A first: add typed immutable staging/seals and measured storage without changing serving. Then H2-02B: generation-bind every read/cache and append policy-authorized activation/reactivation events. Do not expose rollback before both pass. | L | CUR-001, CUR-002, CUR-008 |
+| CUR-007 | Corpus rollback | V7 now retains and seals the exact active v5 database state across 17 typed, generation-qualified relations, while keeping physical generation, governed release, seal, and activation identities separate. Reads and caches still target the mutable v5 serving tables, and there is no activation/reactivation path for a sealed generation. | **bddk_mcp/migrations/v0007_retained_corpus_generations.py:1-8,240-367,461-846; bddk_mcp/corpus_generations.py; bddk_mcp/cli.py:294-345; tests/test_corpus_publication.py** | A safe immutable target now exists for releases retained after v7, but clients cannot read it and operators cannot atomically reactivate it. Any v5 release without a v7 binding remains `legacy_v5_unretained`. Calling the target “rollback” would therefore create a false recovery guarantee. | Medium | Complete H2-02A backup/capacity acceptance, then implement H2-02B: generation-bind every read/cache and append separately policy-authorized activation/reactivation events. Never treat an old release ID alone as downgrade authorization. | L | CUR-001, CUR-002, CUR-008 |
 | CUR-008 | Operations | The eight-metric objective contract exists, but every target/window and overall approval are unset. | **docs/decisions/operational-objectives.v1.yml; bddk_mcp/operational_objectives.py** | Production readiness, alerts, freshness, RPO/RTO, and evidence retention have no testable pass/fail definition. | High | Obtain project-owner and bank-operations approval for every numeric target/window, source, alert, and retention rule. | S | Bank operations |
-| CUR-009 | Recovery | Recovery-v2 code covers 29 relations, activation sequence, six DSN exclusions, and six LOGIN profiles; no retained bank-accepted PITR/backup-custody report is present. | **bddk_mcp/operations/recovery.py; tests/test_recovery_workflows.py** | Repository tests cannot establish that bank backup topology meets recovery objectives during an incident. | High | Run two-cluster restore and bank PITR drills, retain sanitized evidence, and compare results with CUR-008. | M | CUR-008; bank DBA/storage |
+| CUR-009 | Recovery | Recovery-v2 code now inventories 51 managed objects; that count includes all 17 retained member relations, their v7 generation/inventory/seal/release-binding/status objects, and the activation sequence. It also enforces six DSN exclusions and verifies six LOGIN profiles; no retained bank-accepted PITR/backup-custody report is present. | **bddk_mcp/operations/recovery.py:72-142; tests/test_recovery_workflows.py:472-514; docs/RECOVERY_DRILLS.md** | Repository tests can detect omission/corruption of retained database generations, but cannot establish that bank backup topology or custody meets recovery objectives during an incident. | High | Run two-cluster restore and bank PITR drills including v7 retained generations and seals, retain sanitized evidence, and compare results with CUR-008. | M | CUR-008; bank DBA/storage |
 | CUR-010 | OpenShift | Separate lifecycle Jobs/identities and strict preflight exist, but live bank IdP/CA/Route/CNI/registry/database execution is absent. | **deploy/openshift/; deploy/openshift-overlays/; bddk_mcp/openshift_acceptance.py** | The intended on-prem deployment boundary is unproved; repository rendering cannot validate platform integrations or policy enforcement. | High | Execute the complete migrate→bootstrap→publisher→strict-runtime lifecycle plus negative network/auth/admission cases in an isolated bank namespace. | L | CUR-001, CUR-008, bank platform inputs |
 | CUR-011 | Evaluation execution | The expert dataset remains draft and no runner executes its exact adjudicated cases; preflight authorizes no model scores. | **benchmark/expert_evaluation_draft.yml; benchmark/release_preflight.py; benchmark/run.py** | Existing Phase 1/2 results are exploratory and cannot justify a model, client, or deployment choice. | Medium | Complete annotations/adjudication/approval and implement signed active-release-bound case execution before a pinned baseline. | L | CUR-001, CUR-002, CUR-004 |
 | CUR-012 | Client compatibility | Official SDK protocol tests exist, but named Claude, Codex, GPT-OSS, LM Studio, and version-specific host runs do not. | **tests/test_mcp_stdio_e2e.py; tests/test_mcp_http_runtime.py** | Host-specific schema/tool/transport behavior may fail despite SDK compliance. | Medium | Maintain a versioned compatibility matrix and run bounded positive/negative tool-calling suites per supported host. | M | CUR-011 |
@@ -39,13 +39,35 @@ High ratings above are limited to defects that block the intended bank/regulator
 
 ### CUR-007 closure boundary and storage evidence
 
-H2-02A is additive retained staging, not rollback: it separates physical
-generation, governed release, seal, and activation identities; captures typed
-generation-qualified members under the existing mutation lock; proves exact
-hash/count/retrieval/Citation integrity; rejects mutation after seal; and records
-privacy-safe heap/index/TOAST/WAL and backup-growth evidence. Existing v5
-releases must be labelled unretained rather than backfilled with evidence that
-does not exist. Serving and the active identity remain unchanged in this slice.
+H2-02A is now implemented as additive retained staging, not rollback. It
+separates physical generation, governed release, seal, and activation
+identities; captures 17 typed generation-qualified relations under the schema
+and corpus mutation locks; reproduces the exact v5 state hash; and rejects
+member, inventory, seal, and binding mutation after sealing. Existing v5
+releases are labelled `legacy_v5_unretained` rather than backfilled with
+evidence that does not exist. Serving and the active identity remain unchanged.
+The physical generation and its single seal are exact-state/profile-derived;
+multiple governed releases over that same pair retain separate release
+bindings to the shared physical target. Release count therefore must not be
+used as physical-generation count.
+
+The CLI emits privacy-safe, catalog-reconciled heap/main, auxiliary, TOAST,
+index, logical, and total sizes. When available, its best-effort WAL number
+covers the observed cluster interval around the transaction and is explicitly
+`observed_cluster_interval_not_exclusive`; it is not exact generation
+attribution; otherwise WAL remains `not_measured`. `backup_growth_status`
+remains `not_measured` until a controlled
+DBA/bank backup is run. Bank retention count and capacity authorization also
+remain open, so H2-02A acceptance is partial even though the repository
+mechanism exists. Capacity approval must measure unique physical generations;
+governance retention must still preserve every per-release binding.
+
+V7 retains the exact fields already present in PostgreSQL, including a stored
+`documents.pdf_blob` where one exists. It does not acquire or retain external
+authoritative source files beyond those database fields; in particular,
+`regulatory_source_blobs` remains a content-identity record rather than an
+external artifact-byte store. This slice must not be described as complete
+source authenticity or evidence-pack preservation.
 
 H2-02B closes the gap only when every document, section, vector, decision-cache,
 Citation, legal-status, and process-cache read is bound to one retained
@@ -63,7 +85,7 @@ regeneration (**docs/CORPUS_GOVERNANCE.md:96-98;
 bddk_mcp/migrations/v0001_core.py:189-212**). The resulting greater-than 51.6 MiB raw lower bound excludes
 sections, tuple/MVCC and TOAST overhead, duplicated text/`tsvector`, GIN/HNSW
 indexes, WAL, backups, and original source bytes. CUR-008 leaves the retention
-window unapproved, so generation count and capacity require H2-02A measurements
+window unapproved, so unique generation count and capacity require H2-02A measurements
 plus the approved N-03 objectives; this estimate is not a storage target.
 
 ## Prior implementation overlay — 2026-07-15 (superseded where it conflicts)
