@@ -19,3 +19,33 @@
     - "30 günden fazla gecikme"
     - "kredi derecesi"
     - "makroekonomik görünüm"
+
+# --- Multi-hop regulatory graph workloads (roadmap H4-07 decision set) ------
+# These three cases are the fixed benchmark for the graph-projection decision:
+# a separate graph DB is considered only if these measurably fail on PostgreSQL.
+
+- id: amendment_chain_tfrs9
+  multi_hop: true
+  query: "943 numaralı rehberin değişiklik geçmişi nedir, hangi sürüm yürürlükte?"
+  expected_documents: ["943"]
+  expected_terms:
+    - "sürüm"
+    - "yürürlük"
+
+- id: in_force_via_repeal_edge
+  multi_hop: true
+  query: "Karşılık Yönetmeliği Madde 9 halen yürürlükte mi, yürürlükten kaldıran bir düzenleme var mı?"
+  expected_documents: ["mevzuat_22599"]
+  expected_sections:
+    - type: "madde"
+      ref: "9"
+  expected_terms:
+    - "yürürlük"
+
+- id: reverse_citation_ilke5
+  multi_hop: true
+  query: "943 İlke 5'e hangi düzenlemeler atıf yapıyor?"
+  expected_documents: ["943"]
+  expected_sections:
+    - type: "ilke"
+      ref: "5"
