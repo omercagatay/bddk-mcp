@@ -5,8 +5,15 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING
 
+import asyncpg
+
 from bddk_mcp.observability.telemetry import elapsed_ms, record_tool_call_trace
-from bddk_mcp.regulatory.graph_queries import amendment_chain, cross_references
+from bddk_mcp.regulatory.graph_queries import (
+    _instrument_for_doc,
+    amendment_chain,
+    cross_references,
+)
+from bddk_mcp.store.legal_ref import turkish_casefold
 
 if TYPE_CHECKING:
     from bddk_mcp.core.deps import Dependencies
@@ -17,6 +24,27 @@ _NO_COVERAGE = (
     "araçları kullanılabilir durumda."
 )
 
+_NO_EDGES_MATCH_FILTERS = (
+    "Bu doküman düzenleyici graf kapsamında, ancak mevcut filtrelerle "
+    "(doğrulama durumu, yön, bölüm) eşleşen çapraz referans kenarı bulunamadı. "
+    "`include_unvalidated=true` ile makine çıkarımı kenarları dahil edebilir "
+    "veya filtreleri gevşetebilirsiniz."
+)
+
+
+def _normalize_section_arg(value: str | None) -> str | None:
+    """Match user section args to the stored normalized forms.
+
+    document_sections values are Python-lowercased by
+    section_index._normalize_ref; turkish_casefold is the existing shared
+    primitive that additionally lands Turkish dotted 'İ' on plain 'i'
+    ("İlke" → "ilke") and is a no-op on the already-normalized stored forms.
+    """
+    if value is None:
+        return None
+    normalized = turkish_casefold(value.strip())
+    return normalized or None
+
 
 def _validation_flag(edge: dict) -> str:
     if edge.get("validation_state") != "human_validated":
@@ -25,13 +53,18 @@ def _validation_flag(edge: dict) -> str:
 
 
 def _edge_line(edge: dict) -> str:
-    """Render a cross-reference edge (full relation row)."""
-    target = edge.get("target_external_ref") or edge.get("target_instrument_id") or "-"
-    return (
-        f"- `{edge['relation_type']}` → {target}"
-        f" (kanıt: {edge['evidence_id']}, güven: {edge.get('confidence', '-')})"
-        f"{_validation_flag(edge)}"
-    )
+    """Render a cross-reference edge (full relation row).
+
+    Outgoing edges point at their target; for incoming edges the acting
+    instrument is the *source*, so the arrow is flipped and the source shown —
+    otherwise "amends → 943" would read as if this document amends itself.
+    """
+    if edge.get("direction") == "incoming":
+        head = f"- `{edge['relation_type']}` ← kaynak: {edge.get('source_instrument_id') or '-'}"
+    else:
+        target = edge.get("target_external_ref") or edge.get("target_instrument_id") or "-"
+        head = f"- `{edge['relation_type']}` → {target}"
+    return f"{head} (kanıt: {edge['evidence_id']}, güven: {edge.get('confidence', '-')}){_validation_flag(edge)}"
 
 
 def _chain_edge_line(edge: dict) -> str:
@@ -47,23 +80,32 @@ def register(mcp, deps: Dependencies) -> None:
     """Register regulatory graph tools on the given MCP instance."""
 
     @mcp.tool()
-    async def get_amendment_chain(document_id: str) -> str:
+    async def get_amendment_chain(document_id: str, include_unvalidated: bool = False) -> str:
         """
         Bir düzenlemenin sürüm zincirini (değişiklik/yürürlük geçmişini) getirir.
 
         Bir dokümanın hangi sürümlerden geçtiğini, hangi olaylarla (yayım,
         yürürlük, yerine geçme) değiştiğini ve onu etkileyen düzenlemeleri
-        kanıt kayıtlarıyla birlikte listeler.
+        kanıt kayıtlarıyla birlikte listeler. Varsayılan olarak yalnızca insan
+        onaylı kenarlar döner; makine çıkarımı kenarlar `include_unvalidated=true`
+        ile açıkça işaretlenerek listelenir. Reddedilmiş kenarlar hiçbir zaman
+        gösterilmez.
 
         Args:
             document_id: Doküman ID, örn. `943` veya `mevzuat_22599`
+            include_unvalidated: İnsan onayı olmayan makine çıkarımı kenarları da göster
         """
         start = time.perf_counter()
-        args = {"document_id": document_id}
+        args = {"document_id": document_id, "include_unvalidated": include_unvalidated}
         pool = getattr(deps, "pool", None)
         if pool is None:
             return _NO_COVERAGE
-        chain = await amendment_chain(pool, doc_id=document_id)
+        try:
+            chain = await amendment_chain(pool, doc_id=document_id, include_unvalidated=include_unvalidated)
+        except asyncpg.exceptions.UndefinedTableError:
+            # Deployment where the regulatory schema was never applied:
+            # explicit no-coverage marker instead of an error dump (spec §6).
+            return _NO_COVERAGE
         if not chain:
             await record_tool_call_trace(
                 pool,
@@ -136,15 +178,24 @@ def register(mcp, deps: Dependencies) -> None:
         pool = getattr(deps, "pool", None)
         if pool is None:
             return _NO_COVERAGE
-        edges = await cross_references(
-            pool,
-            doc_id=document_id,
-            section_type=section_type,
-            section_ref=section_ref,
-            direction=direction,
-            include_unvalidated=include_unvalidated,
-        )
+        try:
+            edges = await cross_references(
+                pool,
+                doc_id=document_id,
+                section_type=_normalize_section_arg(section_type),
+                section_ref=_normalize_section_arg(section_ref),
+                direction=direction,
+                include_unvalidated=include_unvalidated,
+            )
+            # Distinguish "doc not in the graph at all" from "doc is mapped
+            # but the filters excluded every edge" before claiming no coverage.
+            is_mapped = bool(edges) or await _instrument_for_doc(pool, document_id) is not None
+        except asyncpg.exceptions.UndefinedTableError:
+            # Deployment where the regulatory schema was never applied:
+            # explicit no-coverage marker instead of an error dump (spec §6).
+            return _NO_COVERAGE
         if not edges:
+            status = "no_edges_matched_filters" if is_mapped else "no_coverage"
             await record_tool_call_trace(
                 pool,
                 tool_name="get_cross_references",
@@ -152,9 +203,9 @@ def register(mcp, deps: Dependencies) -> None:
                 latency_ms=elapsed_ms(start),
                 result_count=0,
                 doc_ids=[document_id],
-                relevance_stats={"status": "no_coverage"},
+                relevance_stats={"status": status},
             )
-            return _NO_COVERAGE
+            return _NO_EDGES_MATCH_FILTERS if is_mapped else _NO_COVERAGE
         grouped: dict[str, list[dict]] = {}
         for edge in edges:
             grouped.setdefault(edge["relation_type"], []).append(edge)

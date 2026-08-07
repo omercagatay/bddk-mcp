@@ -25,6 +25,7 @@ _HUMAN_OK = ValidationRecord(
     review_record_sha256="a" * 64,
 )
 _MACHINE_ONLY = dataclasses.replace(_HUMAN_OK, state=ValidationState.MACHINE_VALIDATED)
+_REJECTED = dataclasses.replace(_HUMAN_OK, state=ValidationState.REJECTED)
 
 
 async def _seed(pool):
@@ -54,6 +55,59 @@ async def _seed(pool):
     await import_relations(pool, [validated_edge, unvalidated_edge], imported_by="test-suite")
 
 
+async def _seed_contested_amends_edges(pool):
+    """Extra `amends` edges on top of _seed(): one machine-only, one human-rejected.
+
+    Kept additive and separate so the shared _seed() fixture (and the counts
+    other test modules pin) stays untouched.
+    """
+    machine_edge = RegulatoryRelation(
+        relation_type="amends",
+        source_instrument_id="inst-tfrs9",
+        source_provision_id=None,
+        target_instrument_id="inst-tfrs9",
+        target_provision_id=None,
+        target_external_ref=None,
+        evidence=_evidence("ev-edge-machine"),
+        extraction_method="regex:v1",
+        confidence=0.8,
+        validation=_MACHINE_ONLY,
+    )
+    rejected_edge = dataclasses.replace(
+        machine_edge,
+        evidence=_evidence("ev-edge-rejected"),
+        validation=_REJECTED,
+    )
+    await import_relations(pool, [machine_edge, rejected_edge], imported_by="test-suite")
+
+
+async def _seed_incoming_edge(pool):
+    """Second instrument amending inst-tfrs9: a real (non-self-loop) incoming edge."""
+    await pool.execute(
+        """
+        INSERT INTO regulatory_instruments
+            (instrument_id, jurisdiction, authority_code, identity_key,
+             canonical_title, instrument_type)
+        VALUES ('inst-other', 'TR', 'BDDK', 'rehber:999',
+                'TFRS 9 Değişiklik Rehberi', 'Rehber')
+        ON CONFLICT (instrument_id) DO NOTHING
+        """
+    )
+    edge = RegulatoryRelation(
+        relation_type="amends",
+        source_instrument_id="inst-other",
+        source_provision_id=None,
+        target_instrument_id="inst-tfrs9",
+        target_provision_id=None,
+        target_external_ref=None,
+        evidence=_evidence("ev-edge-incoming"),
+        extraction_method="manual",
+        confidence=1.0,
+        validation=_HUMAN_OK,
+    )
+    await import_relations(pool, [edge], imported_by="test-suite")
+
+
 async def test_amendment_chain_orders_versions(regulatory_pool):  # noqa: F811
     await _seed(regulatory_pool)
     chain = await amendment_chain(regulatory_pool, instrument_id="inst-tfrs9")
@@ -73,6 +127,27 @@ async def test_amendment_chain_unknown_instrument_is_empty(regulatory_pool):  # 
     assert await amendment_chain(regulatory_pool, instrument_id="inst-nope") == []
 
 
+async def test_amendment_chain_edges_validated_only_by_default(regulatory_pool):  # noqa: F811
+    await _seed(regulatory_pool)
+    await _seed_contested_amends_edges(regulatory_pool)
+    chain = await amendment_chain(regulatory_pool, instrument_id="inst-tfrs9")
+    edges = chain[0]["edges"]
+    assert edges, "default chain must keep the human-validated edge"
+    assert {e["validation_state"] for e in edges} == {"human_validated"}
+    assert {e["evidence_id"] for e in edges} == {"ev-edge-1"}
+
+
+async def test_amendment_chain_include_unvalidated_never_rejected(regulatory_pool):  # noqa: F811
+    await _seed(regulatory_pool)
+    await _seed_contested_amends_edges(regulatory_pool)
+    chain = await amendment_chain(regulatory_pool, instrument_id="inst-tfrs9", include_unvalidated=True)
+    edges = chain[0]["edges"]
+    evidence_ids = {e["evidence_id"] for e in edges}
+    assert "ev-edge-machine" in evidence_ids  # machine_validated included on opt-in
+    assert "ev-edge-rejected" not in evidence_ids  # rejected never rides along
+    assert "rejected" not in {e["validation_state"] for e in edges}
+
+
 async def test_cross_references_validated_only_by_default(regulatory_pool):  # noqa: F811
     await _seed(regulatory_pool)
     edges = await cross_references(regulatory_pool, doc_id="943", section_type=None, section_ref=None)
@@ -86,12 +161,27 @@ async def test_cross_references_validated_only_by_default(regulatory_pool):  # n
     assert cites["target_external_ref"] == "5411 sayılı Bankacılık Kanunu"
 
 
+async def test_cross_references_include_unvalidated_never_rejected(regulatory_pool):  # noqa: F811
+    await _seed(regulatory_pool)
+    await _seed_contested_amends_edges(regulatory_pool)
+    edges = await cross_references(
+        regulatory_pool, doc_id="943", section_type=None, section_ref=None, include_unvalidated=True
+    )
+    evidence_ids = {e["evidence_id"] for e in edges}
+    assert "ev-edge-machine" in evidence_ids
+    assert "ev-edge-rejected" not in evidence_ids
+    assert "rejected" not in {e["validation_state"] for e in edges}
+
+
 async def test_cross_references_direction_filter(regulatory_pool):  # noqa: F811
     await _seed(regulatory_pool)
+    await _seed_incoming_edge(regulatory_pool)
     incoming = await cross_references(
         regulatory_pool, doc_id="943", section_type=None, section_ref=None, direction="incoming"
     )
+    assert incoming, "direction filter must be asserted over non-empty results"
     assert all(e["direction"] == "incoming" for e in incoming)
+    assert {e["source_instrument_id"] for e in incoming} == {"inst-other"}
     with pytest.raises(ValueError):
         await cross_references(
             regulatory_pool, doc_id="943", section_type=None, section_ref=None, direction="sideways"

@@ -29,8 +29,14 @@ async def amendment_chain(
     *,
     instrument_id: str | None = None,
     doc_id: str | None = None,
+    include_unvalidated: bool = False,
 ) -> list[dict]:
-    """Version chain oldest→newest with events and cross-instrument edges."""
+    """Version chain oldest→newest with events and cross-instrument edges.
+
+    Chain edges are human-validated only by default (spec §2); with
+    include_unvalidated=True machine-inferred edges are included as well, but
+    human-rejected edges are never returned on either path.
+    """
     if instrument_id is None:
         if doc_id is None:
             raise ValueError("amendment_chain needs instrument_id or doc_id")
@@ -67,12 +73,16 @@ async def amendment_chain(
         """,
         version_ids,
     )
+    validation_filter = (
+        "validation_state <> 'rejected'" if include_unvalidated else "validation_state = 'human_validated'"
+    )
     edges = await pool.fetch(
-        """
+        f"""
         SELECT relation_type, source_instrument_id, evidence_id, validation_state
         FROM regulatory_relations
         WHERE target_instrument_id = $1
           AND relation_type IN ('amends', 'repeals', 'replaces')
+          AND {validation_filter}
         ORDER BY relation_id
         """,
         instrument_id,
@@ -127,6 +137,10 @@ async def _fetch_hop_edges(
         )
     if not include_unvalidated:
         conditions.append("r.validation_state = 'human_validated'")
+    else:
+        # Human-rejected edges never ride along, even when the caller opts
+        # into machine-inferred edges (spec §2).
+        conditions.append("r.validation_state <> 'rejected'")
     if types:
         params.append(types)
         conditions.append(f"r.relation_type = ANY(${len(params)}::text[])")

@@ -23,6 +23,8 @@ from bddk_mcp.core.config import (
 from bddk_mcp.core.deps import Dependencies
 from bddk_mcp.core.logging_config import configure_logging
 from bddk_mcp.ingest.client import BddkApiClient
+from bddk_mcp.regulatory.bridge import ensure_section_provision_map
+from bddk_mcp.regulatory.schema import apply_regulatory_schema
 from bddk_mcp.store.doc_store import DocumentStore
 from bddk_mcp.tools import admin, analytics, bulletin, documents, graph, search, sections, sync
 
@@ -93,6 +95,13 @@ async def create_deps() -> Dependencies:
 
     doc_store = DocumentStore(pool)
     await doc_store.initialize()
+
+    # Regulatory graph schema + section↔provision bridge view. Both are
+    # idempotent (CREATE ... IF NOT EXISTS) and must run after
+    # doc_store.initialize(): the materialized view joins document_sections.
+    await apply_regulatory_schema(pool)
+    await ensure_section_provision_map(pool)
+    logger.info("Regulatory schema and section-provision map ensured")
 
     client = BddkApiClient(pool=pool, doc_store=doc_store, http=http)
     await client.initialize()
