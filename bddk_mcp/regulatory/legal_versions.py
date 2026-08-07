@@ -124,6 +124,13 @@ class LegalStatusAssertion:
 
 @dataclass(frozen=True, slots=True)
 class Provision:
+    """Addressable unit of an instrument (madde, ilke, ek, ...).
+
+    Bundle producers MUST build ``canonical_path`` via
+    ``bddk_mcp.regulatory.bridge.canonical_provision_path`` so bundle import
+    and every section→provision SQL join share a single normalization.
+    """
+
     provision_id: str
     instrument_id: str
     kind: str

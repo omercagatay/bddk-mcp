@@ -107,6 +107,39 @@ async def doc_store(pg_pool):
     await pg_pool.release(conn)
 
 
+@pytest.fixture
+async def doc_store_factory():
+    """Build DocumentStore instances directly on a caller-supplied pool.
+
+    Unlike the ``doc_store`` fixture — whose rows live in an uncommitted,
+    rolled-back transaction on one connection — stores built here COMMIT
+    their writes, which is required when another connection (e.g. a
+    ``REFRESH MATERIALIZED VIEW``) must see the rows. Documents stored
+    through the returned stores are deleted again on teardown.
+    """
+    entries: list[tuple[DocumentStore, set[str]]] = []
+
+    async def factory(pool) -> DocumentStore:
+        store = DocumentStore(pool)
+        await store.initialize()
+        stored_ids: set[str] = set()
+        original_store_document = store.store_document
+
+        async def tracking_store_document(doc: StoredDocument) -> None:
+            stored_ids.add(doc.document_id)
+            await original_store_document(doc)
+
+        store.store_document = tracking_store_document  # type: ignore[method-assign]
+        entries.append((store, stored_ids))
+        return store
+
+    yield factory
+
+    for store, stored_ids in entries:
+        for doc_id in stored_ids:
+            await store.delete_document(doc_id)
+
+
 # -- Mock pool for tests that don't need real SQL ----------------------------
 
 
