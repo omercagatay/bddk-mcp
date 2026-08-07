@@ -119,6 +119,21 @@ def _overlaps(a: tuple[int, int], b: tuple[int, int]) -> bool:
     return a[0] < b[1] and b[0] < a[1]
 
 
+def _resolve_target_instrument(number: str, rows: Sequence[Any]) -> str | None:
+    """Digit-boundary match of a cited instrument number against identity keys.
+
+    Spec §4: never fuzzy — "541" must not resolve to ``kanun:5411`` (the number
+    must not be a substring of a longer digit run), and an ambiguous number
+    (matching more than one instrument) fails closed so the caller falls back
+    to ``target_external_ref``. Rows carry ``instrument_id`` and ``identity_key``.
+    """
+    boundary = re.compile(rf"(?<!\d){re.escape(number)}(?!\d)")
+    matched = {row["instrument_id"] for row in rows if boundary.search(row["identity_key"])}
+    if len(matched) == 1:
+        return next(iter(matched))
+    return None
+
+
 async def resolve_and_import(
     pool: Any,
     *,
@@ -130,9 +145,9 @@ async def resolve_and_import(
     """Resolve candidate targets against known instruments; import as edges.
 
     Source instrument is resolved from doc_id via the artifact chain. Targets
-    resolve by number-in-identity_key exact match only ("5411" in mention →
-    identity_key containing "5411"); everything else stays external.
-    Returns (resolved_count, external_count).
+    resolve by cited-number match against identity_key on digit boundaries
+    only, and only when exactly one instrument matches; everything else stays
+    external. Returns (resolved_count, external_count).
     """
     source = await pool.fetchrow(
         """
@@ -162,10 +177,13 @@ async def resolve_and_import(
         number_match = re.search(r"\b(\d{3,5})\b", candidate.target_mention)
         target_instrument_id = None
         if number_match:
-            target_instrument_id = await pool.fetchval(
-                "SELECT instrument_id FROM regulatory_instruments WHERE identity_key LIKE '%' || $1 || '%'",
-                number_match.group(1),
+            number = number_match.group(1)
+            rows = await pool.fetch(
+                "SELECT instrument_id, identity_key FROM regulatory_instruments"
+                " WHERE identity_key LIKE '%' || $1 || '%'",
+                number,
             )
+            target_instrument_id = _resolve_target_instrument(number, rows)
         external_ref = None if target_instrument_id else candidate.target_mention
         if target_instrument_id:
             resolved += 1

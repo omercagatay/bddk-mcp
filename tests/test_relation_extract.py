@@ -66,6 +66,25 @@ def test_suffixed_article_number():
     assert repeals and repeals[0].target_article == "26/A"
 
 
+def test_target_resolution_is_digit_bounded_and_fails_closed_on_ambiguity():
+    """Spec §4: never fuzzy. '541' must not hit 'kanun:5411'; ambiguity stays external."""
+    rows = [
+        {"instrument_id": "ins-5411", "identity_key": "kanun:5411"},
+        {"instrument_id": "ins-943", "identity_key": "rehber:943"},
+    ]
+    assert relation_extract._resolve_target_instrument("5411", rows) == "ins-5411"
+    assert relation_extract._resolve_target_instrument("943", rows) == "ins-943"
+    # Substring of a longer digit run: no digit-boundary match, no resolution.
+    assert relation_extract._resolve_target_instrument("541", rows) is None
+    assert relation_extract._resolve_target_instrument("41", rows) is None
+    # Two instruments share the number: fail closed, caller keeps external ref.
+    ambiguous = rows + [{"instrument_id": "ins-943-bis", "identity_key": "genelge:943"}]
+    assert relation_extract._resolve_target_instrument("943", ambiguous) is None
+    # Same instrument appearing twice is not ambiguity.
+    duplicated = rows + [{"instrument_id": "ins-943", "identity_key": "rehber:943"}]
+    assert relation_extract._resolve_target_instrument("943", duplicated) == "ins-943"
+
+
 @pytest.mark.asyncio
 async def test_batch_skips_failing_documents(monkeypatch):
     """One bad document must not abort the batch (spec §6). Pure orchestration test — no DB."""
