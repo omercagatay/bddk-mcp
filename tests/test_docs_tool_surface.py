@@ -13,9 +13,9 @@ def test_readme_distinguishes_public_and_admin_tool_counts():
     readme = _read("README.md")
 
     assert "BDDK_ADMIN_TOOLS=false" in readme
-    assert "16 read-only tools" in readme
+    assert "18 read-only tools" in readme
     assert "BDDK_ADMIN_TOOLS=true" in readme
-    assert "26 tools" in readme
+    assert "28 tools" in readme
     assert "Total possible MCP tools" in readme
 
 

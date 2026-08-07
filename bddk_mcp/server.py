@@ -24,7 +24,7 @@ from bddk_mcp.core.deps import Dependencies
 from bddk_mcp.core.logging_config import configure_logging
 from bddk_mcp.ingest.client import BddkApiClient
 from bddk_mcp.store.doc_store import DocumentStore
-from bddk_mcp.tools import admin, analytics, bulletin, documents, search, sections, sync
+from bddk_mcp.tools import admin, analytics, bulletin, documents, graph, search, sections, sync
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -125,6 +125,7 @@ def register_tools(deps: Dependencies) -> None:
     search.register(mcp, deps)
     documents.register(mcp, deps)
     sections.register(mcp, deps)
+    graph.register(mcp, deps)
     bulletin.register(mcp, deps)
     analytics.register(mcp, deps)
     if ADMIN_TOOLS:

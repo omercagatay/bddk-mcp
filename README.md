@@ -38,17 +38,18 @@ Temel kullanım alanları:
 
 ### Araç Yüzeyi
 
-Varsayılan public deployment `BDDK_ADMIN_TOOLS=false` ile 16 read-only araç expose eder.
+Varsayılan public deployment `BDDK_ADMIN_TOOLS=false` ile 18 read-only araç expose eder.
 
 | Modül | Araçlar |
 |---|---|
 | Arama | `search_bddk_regulations`, `search_document_store`, `search_bddk_institutions`, `search_bddk_announcements` |
 | Doküman | `get_bddk_document`, `get_document_history` |
 | Bölümler | `get_document_section`, `search_document_sections` |
+| Graf | `get_amendment_chain`, `get_cross_references` |
 | Bülten | `get_bddk_bulletin`, `get_bddk_bulletin_snapshot`, `get_bddk_monthly`, `bddk_cache_status` |
 | Analitik | `analyze_bulletin_trends`, `get_regulatory_digest`, `compare_bulletin_metrics`, `check_bddk_updates` |
 
-`BDDK_ADMIN_TOOLS=true` ile ek operatör araçları açılır. Admin/operator deployment toplam 26 tools olarak belgelenir: 16 public araç + 10 operatör aracı.
+`BDDK_ADMIN_TOOLS=true` ile ek operatör araçları açılır. Admin/operator deployment toplam 28 tools olarak belgelenir: 18 public araç + 10 operatör aracı.
 
 - `document_store_stats`
 - `refresh_bddk_cache`
@@ -61,7 +62,7 @@ Varsayılan public deployment `BDDK_ADMIN_TOOLS=false` ile 16 read-only araç ex
 - `backfill_status`
 - `document_quality_report`
 
-Geçerli runtime için toplam olası MCP araç sayısı 26 tools olarak belgelenir. Benchmark schema fixture sayısı runtime deployment sayısından farklı olabilir; benchmark koşuları kullandıkları exact tool listesini kaydetmelidir. Bkz. [benchmark/README.md](benchmark/README.md).
+Geçerli runtime için toplam olası MCP araç sayısı 28 tools olarak belgelenir. Benchmark schema fixture sayısı runtime deployment sayısından farklı olabilir; benchmark koşuları kullandıkları exact tool listesini kaydetmelidir. Bkz. [benchmark/README.md](benchmark/README.md).
 
 ### Hızlı Başlangıç
 
@@ -257,17 +258,18 @@ Common use cases:
 
 ### Tool Surface
 
-The default public deployment with `BDDK_ADMIN_TOOLS=false` exposes 16 read-only tools.
+The default public deployment with `BDDK_ADMIN_TOOLS=false` exposes 18 read-only tools.
 
 | Module | Tools |
 |---|---|
 | Search | `search_bddk_regulations`, `search_document_store`, `search_bddk_institutions`, `search_bddk_announcements` |
 | Documents | `get_bddk_document`, `get_document_history` |
 | Sections | `get_document_section`, `search_document_sections` |
+| Graph | `get_amendment_chain`, `get_cross_references` |
 | Bulletin | `get_bddk_bulletin`, `get_bddk_bulletin_snapshot`, `get_bddk_monthly`, `bddk_cache_status` |
 | Analytics | `analyze_bulletin_trends`, `get_regulatory_digest`, `compare_bulletin_metrics`, `check_bddk_updates` |
 
-With `BDDK_ADMIN_TOOLS=true`, operator tools are also exposed. The admin/operator deployment exposes 26 tools total: 16 public tools plus 10 operator tools.
+With `BDDK_ADMIN_TOOLS=true`, operator tools are also exposed. The admin/operator deployment exposes 28 tools total: 18 public tools plus 10 operator tools.
 
 - `document_store_stats`
 - `refresh_bddk_cache`
@@ -280,7 +282,7 @@ With `BDDK_ADMIN_TOOLS=true`, operator tools are also exposed. The admin/operato
 - `backfill_status`
 - `document_quality_report`
 
-Total possible MCP tools in the current runtime is 26. Benchmark schema fixture counts can differ from runtime deployment counts; benchmark runs should record the exact exposed tool list they used. See [benchmark/README.md](benchmark/README.md).
+Total possible MCP tools in the current runtime is 28. Benchmark schema fixture counts can differ from runtime deployment counts; benchmark runs should record the exact exposed tool list they used. See [benchmark/README.md](benchmark/README.md).
 
 ### Quick Start
 
