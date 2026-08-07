@@ -240,6 +240,7 @@ async def one_hop_section_refs(
         WHERE m1.doc_id = $1 AND m1.section_type = $2 AND m1.section_ref = $3
           AND NOT (m2.doc_id = m1.doc_id AND m2.section_type = m1.section_type
                    AND m2.section_ref = m1.section_ref)
+        ORDER BY m2.doc_id, m2.section_type, m2.section_ref, r.relation_type
         LIMIT $4
         """,
         doc_id,

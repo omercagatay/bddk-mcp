@@ -7,6 +7,7 @@ import time
 from typing import TYPE_CHECKING
 
 from bddk_mcp.observability.telemetry import elapsed_ms, record_tool_call_trace, unique_doc_ids
+from bddk_mcp.regulatory.graph_queries import one_hop_section_refs
 from bddk_mcp.store.legal_ref import parse_legal_refs
 
 if TYPE_CHECKING:
@@ -211,6 +212,7 @@ def register(mcp, deps: Dependencies) -> None:
         document_id: str | None = None,
         section_type: str | None = None,
         limit: int = 10,
+        expand_references: bool = False,
     ) -> str:
         """
         Search section-level content in stored BDDK documents.
@@ -223,13 +225,21 @@ def register(mcp, deps: Dependencies) -> None:
             document_id: Optional document ID filter
             section_type: Optional section type filter
             limit: Maximum number of section results
+            expand_references: Doğrulanmış çapraz referans kenarlarını 1 adım
+                takip ederek ilişkili bölüm etiketleri ekle (içerik dahil edilmez)
 
         Each FTS hit includes a `Match rank` (length-normalized ts_rank_cd):
         higher is better; ranks are comparable within one query's results and
         can be used to gate low-confidence retrieval.
         """
         start = time.perf_counter()
-        args = {"query": query, "document_id": document_id, "section_type": section_type, "limit": limit}
+        args = {
+            "query": query,
+            "document_id": document_id,
+            "section_type": section_type,
+            "limit": limit,
+            "expand_references": expand_references,
+        }
         refs = parse_legal_refs(query)
         inferred_doc_id = document_id or (refs.document_ids[0] if refs.document_ids else None)
         inferred_section_type = section_type or (refs.sections[0][0] if refs.sections else None)
@@ -300,6 +310,31 @@ def register(mcp, deps: Dependencies) -> None:
             if preview:
                 lines.append(f"  ...{preview}...")
             lines.append("")
+        if expand_references and deps.pool is not None:
+            expanded_blocks: list[str] = []
+            for hit in hits:
+                try:
+                    neighbors = await one_hop_section_refs(
+                        deps.pool,
+                        doc_id=hit.doc_id,
+                        section_type=hit.section_type,
+                        section_ref=hit.section_ref,
+                        limit=3,
+                    )
+                except Exception:  # noqa: BLE001 — expansion must never break search
+                    neighbors = []
+                if not neighbors:
+                    continue
+                block = [
+                    f"#### İlişkili bölümler (doğrulanmış kenarlar) — {hit.doc_id} {hit.section_type} {hit.section_ref}"
+                ]
+                block.extend(
+                    f"- {n['doc_id']} — {n['section_type']} {n['section_ref']} (kenar: {n['relation_type']})"
+                    for n in neighbors
+                )
+                expanded_blocks.append("\n".join(block))
+            if expanded_blocks:
+                lines.append("\n\n".join(expanded_blocks))
         await record_tool_call_trace(
             getattr(deps, "pool", None),
             tool_name="search_document_sections",
