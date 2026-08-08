@@ -23,7 +23,7 @@ Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızd
   refactor ile başladı; bu sürüm için de Git etiketi oluşturulmadı.
 - Mevcut geliştirme dalı paket metadata'sını `5.0.1` olarak taşır, ancak henüz
   yayımlanmış veya etiketlenmiş bir release değildir.
-- `v0001`–`v0008` adları Python paket sürümü değil, ileri yönlü PostgreSQL
+- `v0001`–`v0009` adları Python paket sürümü değil, ileri yönlü PostgreSQL
   migration sürümleridir. Bir uygulama release'i birden fazla migration
   içerebilir.
 
@@ -60,6 +60,30 @@ taahhüdü veya banka üretim kabulü değildir.
 - Public araçların yalnız seçilmiş corpus kapsamını temsil ettiği ve eksik
   sonucun “mevzuat yoktur” anlamına gelmediği kullanım sınırları dokümante
   edildi.
+
+### Eklendi — düzenleyici çapraz referans grafı
+
+- `regulatory_relations` tablosu eklendi (migration `v0009`): sekiz onaylı
+  ilişki türü (`amends`, `repeals`, `replaces`, `consolidates`, `implements`,
+  `cites`, `defines`, `exception_to`), türetilmiş `rel_sha256` kimliği, kanıt
+  referansı ve inceleme (validation) kolonları ile immutable-or-identical
+  yazım disiplini.
+- Serving profillerinin okuduğu üç güvenlik-bariyerli görünüm eklendi:
+  `regulatory_validated_relations`, `regulatory_validated_legal_versions`,
+  `regulatory_validated_legal_events`. Doğrulanmamış veya fixture-artifact'lı
+  satırlar hiçbir çalışma kimliğine sunulmaz.
+- Türkçe mevzuat metninden deterministik (regex tabanlı, LLM'siz) aday kenar
+  çıkarımı eklendi; belirsiz hedefler fuzzy eşleme yerine
+  `target_external_ref` olarak saklanır ve makine çıkarımı adaylar insan
+  incelemesine kadar `unvalidated` kalır.
+- İki yeni public MCP aracı eklendi: `get_amendment_chain` (doğrulanmış sürüm
+  zinciri ve gelen değişiklik kenarları) ve `get_cross_references`
+  (doğrulanmış çapraz referans komşuluğu). Public sözleşme 17 araca, operator
+  toplamı 31 araca çıktı.
+- `search_document_sections` aracına opsiyonel `expand_references` bayrağı
+  eklendi: doğrulanmış kenarlar bir adım takip edilip ilişkili bölüm
+  işaretçileri eklenir; içerik hiçbir zaman inline edilmez ve genişletme
+  hatası düz aramaya geri düşer.
 
 ### Eklendi — güvenlik ve yetki ayrımı
 
@@ -255,6 +279,7 @@ taahhüdü veya banka üretim kabulü değildir.
 | `v0006` | `validated_legal_status_resolver` | En dar yetkili, kanıt yetersizse abstain eden hukuki durum resolver'ı |
 | `v0007` | `retained_corpus_generations` | 17 corpus ilişkisinin typed, immutable ve sealed generation kopyası |
 | `v0008` | `staged_corpus_releases` | Ayrı verifier request'i, TTL/state/epoch bağı ve request-ID-only tek kullanımlık aktivasyon |
+| `v0009` | `regulatory_relation_edges` | Kanıt ve inceleme kaydı taşıyan typed çapraz referans kenarları ve yalnızca doğrulanmış satırları sunan üç güvenlik-bariyerli görünüm |
 
 ### Şema v8 — tamamlanan repository sınırı
 
