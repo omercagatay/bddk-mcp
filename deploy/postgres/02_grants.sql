@@ -198,11 +198,19 @@ REVOKE ALL PRIVILEGES ON TABLE
 FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
      bddk_operator_runtime, bddk_telemetry_writer;
 
-REVOKE ALL PRIVILEGES ON TABLE
-    public.regulatory_validated_section_citations,
-    public.regulatory_validated_relations,
-    public.regulatory_validated_legal_versions,
-    public.regulatory_validated_legal_events
+REVOKE ALL PRIVILEGES ON TABLE public.regulatory_validated_section_citations
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
+     bddk_operator_runtime, bddk_telemetry_writer;
+
+REVOKE ALL PRIVILEGES ON TABLE public.regulatory_validated_relations
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
+     bddk_operator_runtime, bddk_telemetry_writer;
+
+REVOKE ALL PRIVILEGES ON TABLE public.regulatory_validated_legal_versions
+FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
+     bddk_operator_runtime, bddk_telemetry_writer;
+
+REVOKE ALL PRIVILEGES ON TABLE public.regulatory_validated_legal_events
 FROM PUBLIC, bddk_public_reader, bddk_ingestion, bddk_release_verifier, bddk_release_publisher,
      bddk_operator_runtime, bddk_telemetry_writer;
 
@@ -449,6 +457,7 @@ GRANT SELECT ON TABLE
     public.regulatory_legal_status_assertions,
     public.regulatory_provisions,
     public.regulatory_legal_version_provisions,
+    public.regulatory_relations,
     bddk_meta.schema_migrations
 TO bddk_release_verifier;
 GRANT EXECUTE ON FUNCTION bddk_meta.stage_verified_corpus_release(

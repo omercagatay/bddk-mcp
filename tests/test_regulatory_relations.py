@@ -26,8 +26,6 @@ from bddk_mcp.regulatory.repository import (
 )
 from tests.test_legal_versions import _trusted_test_bundle
 
-pytestmark = pytest.mark.asyncio
-
 VALIDATED = ValidationRecord(
     state=ValidationState.VALIDATED,
     validated_by="reviewer@example.test",
@@ -121,6 +119,7 @@ def test_provision_target_requires_instrument_target():
         )
 
 
+@pytest.mark.asyncio
 async def test_import_and_idempotent_reimport(regulatory_pool):
     bundle = await seed_trusted_family(regulatory_pool)
     edge = external_relation(bundle)
@@ -130,6 +129,7 @@ async def test_import_and_idempotent_reimport(regulatory_pool):
     assert count == 1
 
 
+@pytest.mark.asyncio
 async def test_conflicting_reimport_aborts(regulatory_pool):
     bundle = await seed_trusted_family(regulatory_pool)
     edge = external_relation(bundle)
@@ -143,25 +143,26 @@ async def test_conflicting_reimport_aborts(regulatory_pool):
         await import_relations(regulatory_pool, [edge], imported_by="test-suite")
 
 
+@pytest.mark.asyncio
 async def test_invalid_importer_is_refused(regulatory_pool):
     bundle = await seed_trusted_family(regulatory_pool)
     with pytest.raises(LegalVersionPersistenceError):
         await import_relations(regulatory_pool, [external_relation(bundle)], imported_by="bad importer!")
 
 
+@pytest.mark.asyncio
 async def test_only_validated_edges_are_visible_in_the_view(regulatory_pool):
     bundle = await seed_trusted_family(regulatory_pool)
     unvalidated_edge = external_relation(bundle, statement="unreviewed claim")
     validated_edge = external_relation(bundle, statement="reviewed claim", validation=VALIDATED)
-    await import_relations(
-        regulatory_pool, [unvalidated_edge, validated_edge], imported_by="test-suite"
-    )
+    await import_relations(regulatory_pool, [unvalidated_edge, validated_edge], imported_by="test-suite")
     rows = await regulatory_pool.fetch(
         "SELECT relation_id FROM public.regulatory_validated_relations ORDER BY relation_id"
     )
     assert [row["relation_id"] for row in rows] == [validated_edge.relation_id]
 
 
+@pytest.mark.asyncio
 async def test_fixture_backed_edges_stay_out_of_the_view(regulatory_pool):
     bundle = await seed_trusted_family(regulatory_pool)
     edge = external_relation(bundle, validation=VALIDATED)

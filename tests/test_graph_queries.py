@@ -83,9 +83,7 @@ async def test_amendment_chain_lists_validated_incoming_edges_only(regulatory_po
         target_instrument_id=instrument_id,
         target_external_ref=None,
     )
-    await import_relations(
-        regulatory_pool, [validated_edge, unvalidated_edge], imported_by="test-suite"
-    )
+    await import_relations(regulatory_pool, [validated_edge, unvalidated_edge], imported_by="test-suite")
     chain = await amendment_chain(regulatory_pool, instrument_id=instrument_id)
     edges = chain[0]["edges"]
     assert [edge["relation_type"] for edge in edges] == ["amends"]
@@ -103,16 +101,10 @@ async def test_amendment_chain_requires_a_subject(regulatory_pool):
 
 async def test_cross_references_serves_validated_edges_only(regulatory_pool):
     bundle = await seed_family_for_doc(regulatory_pool)
-    validated_edge = external_relation(
-        bundle, statement="validated cite", validation=VALIDATED
-    )
+    validated_edge = external_relation(bundle, statement="validated cite", validation=VALIDATED)
     unvalidated_edge = external_relation(bundle, statement="machine cite")
-    await import_relations(
-        regulatory_pool, [validated_edge, unvalidated_edge], imported_by="test-suite"
-    )
-    edges = await cross_references(
-        regulatory_pool, doc_id="943", section_type=None, section_ref=None
-    )
+    await import_relations(regulatory_pool, [validated_edge, unvalidated_edge], imported_by="test-suite")
+    edges = await cross_references(regulatory_pool, doc_id="943", section_type=None, section_ref=None)
     assert len(edges) == 1
     assert edges[0]["evidence_id"] == validated_edge.evidence.evidence_id
     assert edges[0]["target_external_ref"] == "5411 sayılı Bankacılık Kanunu madde 93"
@@ -132,18 +124,11 @@ async def test_cross_references_direction_filter(regulatory_pool):
 
 async def test_cross_references_rejects_unknown_direction(regulatory_pool):
     with pytest.raises(ValueError):
-        await cross_references(
-            regulatory_pool, doc_id="943", section_type=None, section_ref=None, direction="sideways"
-        )
+        await cross_references(regulatory_pool, doc_id="943", section_type=None, section_ref=None, direction="sideways")
 
 
 async def test_cross_references_unmapped_doc_is_empty(regulatory_pool):
-    assert (
-        await cross_references(
-            regulatory_pool, doc_id="no-such-doc", section_type=None, section_ref=None
-        )
-        == []
-    )
+    assert await cross_references(regulatory_pool, doc_id="no-such-doc", section_type=None, section_ref=None) == []
 
 
 async def test_cross_references_unmapped_section_is_empty(regulatory_pool):
@@ -152,9 +137,7 @@ async def test_cross_references_unmapped_section_is_empty(regulatory_pool):
     await import_relations(regulatory_pool, [edge], imported_by="test-suite")
     # The section never resolves to a validated provision citation, so section
     # narrowing fails closed instead of falling back to document scope.
-    edges = await cross_references(
-        regulatory_pool, doc_id="943", section_type="madde", section_ref="9"
-    )
+    edges = await cross_references(regulatory_pool, doc_id="943", section_type="madde", section_ref="9")
     assert edges == []
 
 
@@ -162,7 +145,5 @@ async def test_one_hop_section_refs_without_citations_is_empty(regulatory_pool):
     bundle = await seed_family_for_doc(regulatory_pool)
     edge = external_relation(bundle, statement="validated cite", validation=VALIDATED)
     await import_relations(regulatory_pool, [edge], imported_by="test-suite")
-    neighbors = await one_hop_section_refs(
-        regulatory_pool, doc_id="943", section_type="ilke", section_ref="5"
-    )
+    neighbors = await one_hop_section_refs(regulatory_pool, doc_id="943", section_type="ilke", section_ref="5")
     assert neighbors == []

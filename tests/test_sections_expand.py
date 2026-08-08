@@ -78,9 +78,7 @@ async def test_flag_on_appends_labeled_pointers(section_deps, monkeypatch):
 
     monkeypatch.setattr(sections_module, "one_hop_section_refs", _neighbors)
     tools = _capture_tools(section_deps)
-    result = await tools["search_document_sections"](
-        query="943 İlke 5 model validasyonu", expand_references=True
-    )
+    result = await tools["search_document_sections"](query="943 İlke 5 model validasyonu", expand_references=True)
     assert "İlişkili bölümler (doğrulanmış kenarlar) — 943 ilke 5" in result.text
     assert "mevzuat_22599 — madde 9 (kenar: cites)" in result.text
     # Pointers only — related section content is never inlined.
@@ -93,9 +91,7 @@ async def test_expansion_failure_degrades_to_plain_search(section_deps, monkeypa
 
     monkeypatch.setattr(sections_module, "one_hop_section_refs", _boom)
     tools = _capture_tools(section_deps)
-    result = await tools["search_document_sections"](
-        query="943 İlke 5 model validasyonu", expand_references=True
-    )
+    result = await tools["search_document_sections"](query="943 İlke 5 model validasyonu", expand_references=True)
     assert "İlişkili bölümler" not in result.text
     assert "İlke 5" in result.text
 
@@ -106,7 +102,5 @@ async def test_expansion_with_no_neighbors_adds_nothing(section_deps, monkeypatc
 
     monkeypatch.setattr(sections_module, "one_hop_section_refs", _empty)
     tools = _capture_tools(section_deps)
-    expanded = await tools["search_document_sections"](
-        query="943 İlke 5 model validasyonu", expand_references=True
-    )
+    expanded = await tools["search_document_sections"](query="943 İlke 5 model validasyonu", expand_references=True)
     assert "İlişkili bölümler" not in expanded.text

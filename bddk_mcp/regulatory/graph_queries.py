@@ -164,9 +164,7 @@ async def _fetch_hop_edges(
     cleverness).
     """
     params: list[Any] = [frontier]
-    conditions = [
-        "(source_instrument_id = ANY($1::text[]) OR target_instrument_id = ANY($1::text[]))"
-    ]
+    conditions = ["(source_instrument_id = ANY($1::text[]) OR target_instrument_id = ANY($1::text[]))"]
     if provision_id is not None:
         params.append(provision_id)
         placeholder = f"${len(params)}"

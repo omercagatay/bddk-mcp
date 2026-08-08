@@ -10,9 +10,7 @@ from bddk_mcp.regulatory.relation_extract import (
     extract_relations_batch,
 )
 
-_AMEND = (
-    "MADDE 1 – 5411 sayılı Bankacılık Kanununun 93 üncü maddesi aşağıdaki şekilde değiştirilmiştir."
-)
+_AMEND = "MADDE 1 – 5411 sayılı Bankacılık Kanununun 93 üncü maddesi aşağıdaki şekilde değiştirilmiştir."
 _REPEAL = "MADDE 2 – Aynı Yönetmeliğin 12 nci maddesi yürürlükten kaldırılmıştır."
 _CITE = "Bu Yönetmelik, 5411 sayılı Bankacılık Kanununun 93 üncü maddesine dayanılarak hazırlanmıştır."
 _EXCEPTION = "Ancak 9 uncu madde hükümleri saklıdır."

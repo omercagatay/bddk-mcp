@@ -853,9 +853,20 @@ async def _provision_exact_v5_publisher_login(
     )
 
 
-async def _downgrade_current_schema_to_v7(connection) -> None:
-    """Remove only v8 inside a rollback-only PostgreSQL test transaction."""
+async def _downgrade_current_schema_to_v8(connection) -> None:
+    """Remove only v9 inside a rollback-only PostgreSQL test transaction."""
 
+    await connection.execute("DROP VIEW IF EXISTS public.regulatory_validated_relations")
+    await connection.execute("DROP VIEW IF EXISTS public.regulatory_validated_legal_versions")
+    await connection.execute("DROP VIEW IF EXISTS public.regulatory_validated_legal_events")
+    await connection.execute("DROP TABLE IF EXISTS public.regulatory_relations CASCADE")
+    await connection.execute("DELETE FROM bddk_meta.schema_migrations WHERE version = 9")
+
+
+async def _downgrade_current_schema_to_v7(connection) -> None:
+    """Remove v9 and v8 inside a rollback-only PostgreSQL test transaction."""
+
+    await _downgrade_current_schema_to_v8(connection)
     await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.activate_staged_corpus_release(pg_catalog.text)")
     await connection.execute(
         "DROP FUNCTION IF EXISTS bddk_meta.stage_verified_corpus_release("
@@ -1794,6 +1805,7 @@ async def test_postgres_refuses_unmanaged_schema_and_rolls_back_the_entire_invoc
     await pg_pool.execute(
         """
         DROP TABLE IF EXISTS
+            public.regulatory_relations,
             public.regulatory_legal_version_provisions,
             public.regulatory_legal_status_assertions,
             public.regulatory_legal_events,

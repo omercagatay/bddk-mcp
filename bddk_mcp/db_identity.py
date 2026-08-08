@@ -76,6 +76,7 @@ _REGULATORY_VERSION_TABLES = frozenset(
         "public.regulatory_legal_version_provisions",
         "public.regulatory_legal_versions",
         "public.regulatory_provisions",
+        "public.regulatory_relations",
         "public.regulatory_source_blobs",
         "public.regulatory_source_artifacts",
     }
