@@ -58,6 +58,8 @@ def test_local_corpus_gate_covers_the_reviewed_public_read_surface():
         "get_document_section",
         "search_document_sections",
         "resolve_regulation_status",
+        "get_amendment_chain",
+        "get_cross_references",
         "get_regulatory_digest",
     }
 
