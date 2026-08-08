@@ -21,9 +21,9 @@ uv sync --group benchmark
 
 | Profile | Count | Source | Notes |
 |---|---:|---|---|
-| `runtime-public` | 15 | `BDDK_TOOL_PROFILE=public` | Default public process and public database identity. |
-| `runtime-operator` | 29 | `BDDK_TOOL_PROFILE=operator` | Separate operator process and DSN; 15 public plus 14 operator tools. |
-| `benchmark-operator-contract` | 29 | `benchmark/tool_schemas.py` | OpenAI-compatible schemas exported from the same canonical operator registry used by the runtime. |
+| `runtime-public` | 17 | `BDDK_TOOL_PROFILE=public` | Default public process and public database identity. |
+| `runtime-operator` | 31 | `BDDK_TOOL_PROFILE=operator` | Separate operator process and DSN; 17 public plus 14 operator tools. |
+| `benchmark-operator-contract` | 31 | `benchmark/tool_schemas.py` | OpenAI-compatible schemas exported from the same canonical operator registry used by the runtime. |
 
 Both runtime profiles register exactly one MCP resource,
 `bddk://corpus/active-release`, and no MCP prompts. The resource returns only a
@@ -43,6 +43,8 @@ malformed resource as a protocol failure.
 - `get_document_section`
 - `search_document_sections`
 - `resolve_regulation_status`
+- `get_amendment_chain`
+- `get_cross_references`
 - `get_bddk_bulletin`
 - `get_bddk_bulletin_snapshot`
 - `get_bddk_monthly`

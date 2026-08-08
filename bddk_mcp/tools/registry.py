@@ -8,7 +8,7 @@ from mcp.types import ToolAnnotations
 from pydantic import ConfigDict
 
 from bddk_mcp.core.deps import Dependencies
-from bddk_mcp.tools import admin, analytics, bulletin, documents, legal_status, search, sections, sync
+from bddk_mcp.tools import admin, analytics, bulletin, documents, graph, legal_status, search, sections, sync
 
 
 class ToolProfile(StrEnum):
@@ -28,6 +28,8 @@ PUBLIC_TOOL_NAMES: tuple[str, ...] = (
     "get_document_section",
     "search_document_sections",
     "resolve_regulation_status",
+    "get_amendment_chain",
+    "get_cross_references",
     "get_bddk_bulletin",
     "get_bddk_bulletin_snapshot",
     "get_bddk_monthly",
@@ -49,6 +51,8 @@ LOCAL_CORPUS_PUBLIC_TOOL_NAMES: frozenset[str] = frozenset(
         "get_document_section",
         "search_document_sections",
         "resolve_regulation_status",
+        "get_amendment_chain",
+        "get_cross_references",
         "get_regulatory_digest",
     }
 )
@@ -112,6 +116,8 @@ TOOL_ANNOTATIONS: dict[str, ToolAnnotations] = {
     "get_document_section": _CLOSED_READ,
     "search_document_sections": _CLOSED_READ,
     "resolve_regulation_status": _CLOSED_READ,
+    "get_amendment_chain": _CLOSED_READ,
+    "get_cross_references": _CLOSED_READ,
     "document_store_stats": _CLOSED_READ,
     "bddk_cache_status": _CLOSED_READ,
     "document_health": _CLOSED_READ,
@@ -210,6 +216,7 @@ def register_tool_profile(server, deps: Dependencies, profile: ToolProfile) -> N
     documents.register(server, deps, include_operator=include_operator)
     sections.register(server, deps)
     legal_status.register(server, deps)
+    graph.register(server, deps)
     bulletin.register(server, deps, include_operator=include_operator)
     analytics.register(server, deps, include_operator=include_operator)
     if include_operator:

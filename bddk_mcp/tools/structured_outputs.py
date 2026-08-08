@@ -385,6 +385,64 @@ class RegulationStatusResponse(StrictOutputModel):
         return self
 
 
+class LegalEventItem(StrictOutputModel):
+    event_type: str = Field(description="Validated legal lifecycle event type.")
+    event_date: date | None = Field(default=None, description="Evidence-backed event date, when asserted.")
+    evidence_id: str = Field(description="Content-free evidence identity backing the event claim.")
+
+
+class AmendmentChainVersion(StrictOutputModel):
+    legal_version_id: str = Field(description="Validated legal-version identity.")
+    version_key: str = Field(description="Reviewer-assigned version key.")
+    predecessor_version_id: str | None = Field(
+        default=None,
+        description="Predecessor version; absent for chain roots and unvalidated predecessors.",
+    )
+    consolidation_state: Literal["unknown", "original", "amendment", "consolidated"] = Field(
+        description="Validated consolidation state of this version."
+    )
+    depth: int = Field(ge=0, description="Position from the oldest visible validated version.")
+    events: list[LegalEventItem] = Field(default_factory=list, description="Validated lifecycle events.")
+
+
+class RelationEdgeItem(StrictOutputModel):
+    relation_type: str = Field(description="Reviewed relation kind, e.g. amends or cites.")
+    direction: Literal["incoming", "outgoing"] = Field(description="Edge direction relative to the queried document.")
+    source_instrument_id: str = Field(description="Acting instrument of the relation claim.")
+    target_instrument_id: str | None = Field(default=None, description="In-corpus target instrument, if resolved.")
+    target_external_ref: str | None = Field(
+        default=None,
+        description="Verbatim external citation when the target is outside the corpus.",
+    )
+    evidence_id: str = Field(description="Content-free evidence identity backing the edge claim.")
+    confidence: float = Field(ge=0.0, le=1.0, description="Extraction confidence recorded with the claim.")
+    depth: int = Field(ge=1, description="Traversal hop at which the edge was reached.")
+
+
+class AmendmentChainResponse(RetrievalResponse):
+    document_id: str = Field(description="Document identifier supplied by the client.")
+    instrument_id: str | None = Field(
+        default=None,
+        description="Canonical instrument resolved from the document, when graph coverage exists.",
+    )
+    versions: list[AmendmentChainVersion] = Field(
+        default_factory=list,
+        description="Validated version chain oldest to newest.",
+    )
+    incoming_edges: list[RelationEdgeItem] = Field(
+        default_factory=list,
+        description="Validated amend/repeal/replace edges targeting this instrument.",
+    )
+
+
+class CrossReferencesResponse(RetrievalResponse):
+    document_id: str = Field(description="Document identifier supplied by the client.")
+    section_type: str | None = Field(default=None, description="Applied section-type narrowing.")
+    section_ref: str | None = Field(default=None, description="Applied section-reference narrowing.")
+    direction: Literal["both", "incoming", "outgoing"] = Field(description="Requested edge direction filter.")
+    edges: list[RelationEdgeItem] = Field(default_factory=list, description="Validated relation edges by hop.")
+
+
 # PEP 695 aliases remain opaque to MCP Python SDK 1.28.1's return-annotation
 # inspection.  These compatibility aliases intentionally use TypeAlias until
 # the SDK unwraps TypeAliasType for structured CallToolResult annotations.
@@ -395,6 +453,8 @@ DocumentHistoryToolResult: TypeAlias = Annotated[CallToolResult, DocumentHistory
 DocumentSectionToolResult: TypeAlias = Annotated[CallToolResult, DocumentSectionResponse]  # noqa: UP040
 SectionSearchToolResult: TypeAlias = Annotated[CallToolResult, SectionSearchResponse]  # noqa: UP040
 RegulationStatusToolResult: TypeAlias = Annotated[CallToolResult, RegulationStatusResponse]  # noqa: UP040
+AmendmentChainToolResult: TypeAlias = Annotated[CallToolResult, AmendmentChainResponse]  # noqa: UP040
+CrossReferencesToolResult: TypeAlias = Annotated[CallToolResult, CrossReferencesResponse]  # noqa: UP040
 
 
 class TextStructuredToolResult(CallToolResult):
