@@ -1,4 +1,10 @@
-"""Read-only traversal over legal versions and relation edges."""
+"""Read-only traversal over validated legal versions and relation edges.
+
+All queries go through the ``regulatory_validated_*`` views, which expose
+only reviewer-validated rows backed by non-fixture artifacts.  Serving
+workload LOGINs hold SELECT on those views and nothing on the base tables,
+so unvalidated or rejected claims are unreachable here by construction.
+"""
 
 from __future__ import annotations
 
@@ -9,15 +15,16 @@ MAX_XREF_DEPTH = 3
 
 _DIRECTIONS = ("both", "incoming", "outgoing")
 
+_CHAIN_EDGE_TYPES = ("amends", "repeals", "replaces")
+
 
 async def _instrument_for_doc(pool: Any, doc_id: str) -> str | None:
     return await pool.fetchval(
         """
-        SELECT lv.instrument_id
-        FROM regulatory_source_artifacts a
-        JOIN regulatory_legal_version_artifacts lva ON lva.artifact_id = a.artifact_id
-        JOIN regulatory_legal_versions lv ON lv.legal_version_id = lva.legal_version_id
-        WHERE a.repository_document_id = $1
+        SELECT instrument_id
+        FROM public.regulatory_validated_legal_versions
+        WHERE repository_document_id = $1
+        ORDER BY legal_version_id
         LIMIT 1
         """,
         doc_id,
@@ -29,13 +36,11 @@ async def amendment_chain(
     *,
     instrument_id: str | None = None,
     doc_id: str | None = None,
-    include_unvalidated: bool = False,
 ) -> list[dict]:
-    """Version chain oldest→newest with events and cross-instrument edges.
+    """Validated version chain oldest→newest with events and incoming edges.
 
-    Chain edges are human-validated only by default (spec §2); with
-    include_unvalidated=True machine-inferred edges are included as well, but
-    human-rejected edges are never returned on either path.
+    A predecessor that is itself unvalidated breaks the visible chain: its
+    successors are reported as chain roots rather than silently reattached.
     """
     if instrument_id is None:
         if doc_id is None:
@@ -43,49 +48,57 @@ async def amendment_chain(
         instrument_id = await _instrument_for_doc(pool, doc_id)
         if instrument_id is None:
             return []
-    rows = await pool.fetch(
-        f"""
-        WITH RECURSIVE chain AS (
-            SELECT lv.*, 0 AS depth
-            FROM regulatory_legal_versions lv
-            WHERE lv.instrument_id = $1 AND lv.predecessor_version_id IS NULL
-            UNION ALL
-            SELECT lv.*, chain.depth + 1
-            FROM regulatory_legal_versions lv
-            JOIN chain ON lv.predecessor_version_id = chain.legal_version_id
-            WHERE chain.depth < {MAX_CHAIN_DEPTH}
-        )
-        SELECT legal_version_id, version_key, predecessor_version_id,
-               consolidation_state, depth
-        FROM chain ORDER BY depth
+    version_rows = await pool.fetch(
+        """
+        SELECT DISTINCT legal_version_id, version_key, predecessor_version_id, consolidation_state
+        FROM public.regulatory_validated_legal_versions
+        WHERE instrument_id = $1
+        ORDER BY version_key, legal_version_id
         """,
         instrument_id,
     )
-    if not rows:
+    if not version_rows:
         return []
-    version_ids = [row["legal_version_id"] for row in rows]
+    by_id = {row["legal_version_id"]: row for row in version_rows}
+    successors: dict[str, list[str]] = {}
+    roots: list[str] = []
+    for row in version_rows:
+        predecessor = row["predecessor_version_id"]
+        if predecessor is not None and predecessor in by_id:
+            successors.setdefault(predecessor, []).append(row["legal_version_id"])
+        else:
+            roots.append(row["legal_version_id"])
+    ordered: list[tuple[str, int]] = []
+    seen: set[str] = set()
+    frontier = [(version_id, 0) for version_id in roots]
+    while frontier:
+        version_id, depth = frontier.pop(0)
+        if version_id in seen or depth > MAX_CHAIN_DEPTH:
+            continue
+        seen.add(version_id)
+        ordered.append((version_id, depth))
+        frontier.extend((successor, depth + 1) for successor in successors.get(version_id, []))
+
+    version_ids = [version_id for version_id, _ in ordered]
     events = await pool.fetch(
         """
         SELECT legal_version_id, event_type, event_date, evidence_id
-        FROM regulatory_legal_events
+        FROM public.regulatory_validated_legal_events
         WHERE legal_version_id = ANY($1::text[])
         ORDER BY event_date NULLS LAST, event_id
         """,
         version_ids,
     )
-    validation_filter = (
-        "validation_state <> 'rejected'" if include_unvalidated else "validation_state = 'human_validated'"
-    )
     edges = await pool.fetch(
-        f"""
-        SELECT relation_type, source_instrument_id, evidence_id, validation_state
-        FROM regulatory_relations
+        """
+        SELECT relation_type, source_instrument_id, evidence_id, confidence
+        FROM public.regulatory_validated_relations
         WHERE target_instrument_id = $1
-          AND relation_type IN ('amends', 'repeals', 'replaces')
-          AND {validation_filter}
+          AND relation_type = ANY($2::text[])
         ORDER BY relation_id
         """,
         instrument_id,
+        list(_CHAIN_EDGE_TYPES),
     )
     events_by_version: dict[str, list[dict]] = {}
     for event in events:
@@ -99,15 +112,42 @@ async def amendment_chain(
     edge_dicts = [dict(edge) for edge in edges]
     return [
         {
-            "legal_version_id": row["legal_version_id"],
-            "version_key": row["version_key"],
-            "predecessor_version_id": row["predecessor_version_id"],
-            "consolidation_state": row["consolidation_state"],
-            "events": events_by_version.get(row["legal_version_id"], []),
+            "legal_version_id": version_id,
+            "version_key": by_id[version_id]["version_key"],
+            "predecessor_version_id": by_id[version_id]["predecessor_version_id"],
+            "consolidation_state": by_id[version_id]["consolidation_state"],
+            "depth": depth,
+            "events": events_by_version.get(version_id, []),
             "edges": edge_dicts,
         }
-        for row in rows
+        for version_id, depth in ordered
     ]
+
+
+async def _provision_for_section(
+    pool: Any,
+    *,
+    doc_id: str,
+    section_type: str,
+    section_ref: str,
+) -> str | None:
+    """Resolve a stored section to its validated provision, if any."""
+    return await pool.fetchval(
+        """
+        SELECT citation.provision_id
+        FROM public.regulatory_validated_section_citations AS citation
+        JOIN public.document_sections AS section
+          ON section.id = citation.document_section_id
+        WHERE section.doc_id = $1
+          AND section.section_type = $2
+          AND section.section_ref = $3
+        ORDER BY citation.provision_id
+        LIMIT 1
+        """,
+        doc_id,
+        section_type,
+        section_ref,
+    )
 
 
 async def _fetch_hop_edges(
@@ -116,40 +156,33 @@ async def _fetch_hop_edges(
     frontier: list[str],
     provision_id: str | None,
     types: list[str] | None,
-    include_unvalidated: bool,
 ) -> list[Any]:
-    """One hop of the neighborhood: edges touching any frontier instrument.
+    """One hop of the neighborhood: validated edges touching any frontier instrument.
 
     The SQL is rebuilt from scratch per hop, so placeholder numbering is
     always derived from the params list built right here (clarity over
-    cleverness — see the Task 6 brief).
+    cleverness).
     """
     params: list[Any] = [frontier]
     conditions = [
-        "(r.source_instrument_id = ANY($1::text[]) OR r.target_instrument_id = ANY($1::text[]))"
+        "(source_instrument_id = ANY($1::text[]) OR target_instrument_id = ANY($1::text[]))"
     ]
     if provision_id is not None:
         params.append(provision_id)
         placeholder = f"${len(params)}"
         conditions.append(
-            f"(r.source_provision_id = {placeholder} OR r.target_provision_id = {placeholder}"
-            " OR (r.source_provision_id IS NULL AND r.target_provision_id IS NULL))"
+            f"(source_provision_id = {placeholder} OR target_provision_id = {placeholder}"
+            " OR (source_provision_id IS NULL AND target_provision_id IS NULL))"
         )
-    if not include_unvalidated:
-        conditions.append("r.validation_state = 'human_validated'")
-    else:
-        # Human-rejected edges never ride along, even when the caller opts
-        # into machine-inferred edges (spec §2).
-        conditions.append("r.validation_state <> 'rejected'")
     if types:
         params.append(types)
-        conditions.append(f"r.relation_type = ANY(${len(params)}::text[])")
+        conditions.append(f"relation_type = ANY(${len(params)}::text[])")
     query = f"""
-        SELECT r.relation_id, r.relation_type, r.source_instrument_id, r.target_instrument_id,
-               r.target_external_ref, r.evidence_id, r.confidence, r.validation_state
-        FROM regulatory_relations r
+        SELECT relation_id, relation_type, source_instrument_id, target_instrument_id,
+               target_external_ref, evidence_id, confidence
+        FROM public.regulatory_validated_relations
         WHERE {" AND ".join(conditions)}
-        ORDER BY r.relation_id
+        ORDER BY relation_id
         """
     return await pool.fetch(query, *params)
 
@@ -162,10 +195,9 @@ async def cross_references(
     section_ref: str | None,
     direction: str = "both",
     types: list[str] | None = None,
-    include_unvalidated: bool = False,
     depth: int = 1,
 ) -> list[dict]:
-    """Relation neighborhood of a document (optionally narrowed to one section)."""
+    """Validated relation neighborhood of a document (optionally one section)."""
     if direction not in _DIRECTIONS:
         raise ValueError(f"direction must be one of {_DIRECTIONS}")
     depth = max(1, min(depth, MAX_XREF_DEPTH))
@@ -175,15 +207,8 @@ async def cross_references(
 
     provision_id: str | None = None
     if section_type and section_ref:
-        provision_id = await pool.fetchval(
-            """
-            SELECT provision_id FROM regulatory_section_provision_map
-            WHERE doc_id = $1 AND section_type = $2 AND section_ref = $3
-            LIMIT 1
-            """,
-            doc_id,
-            section_type,
-            section_ref,
+        provision_id = await _provision_for_section(
+            pool, doc_id=doc_id, section_type=section_type, section_ref=section_ref
         )
         if provision_id is None:
             return []
@@ -201,7 +226,6 @@ async def cross_references(
             # Section narrowing only applies to the first hop.
             provision_id=provision_id if hop == 1 else None,
             types=types,
-            include_unvalidated=include_unvalidated,
         )
         visited |= frontier
         next_frontier: set[str] = set()
@@ -221,7 +245,6 @@ async def cross_references(
                     "target_external_ref": row["target_external_ref"],
                     "evidence_id": row["evidence_id"],
                     "confidence": row["confidence"],
-                    "validation_state": row["validation_state"],
                     "depth": hop,
                 }
             )
@@ -240,15 +263,20 @@ async def one_hop_section_refs(
     section_ref: str,
     limit: int = 3,
 ) -> list[dict]:
-    """Validated one-hop neighbors resolved back to concrete sections."""
+    """Validated one-hop neighbors resolved back to concrete stored sections."""
     rows = await pool.fetch(
         """
+        WITH section_provisions AS (
+            SELECT section.doc_id, section.section_type, section.section_ref, citation.provision_id
+            FROM public.regulatory_validated_section_citations AS citation
+            JOIN public.document_sections AS section
+              ON section.id = citation.document_section_id
+        )
         SELECT DISTINCT m2.doc_id, m2.section_type, m2.section_ref, r.relation_type
-        FROM regulatory_section_provision_map m1
-        JOIN regulatory_relations r
+        FROM section_provisions m1
+        JOIN public.regulatory_validated_relations r
           ON (r.source_provision_id = m1.provision_id OR r.target_provision_id = m1.provision_id)
-         AND r.validation_state = 'human_validated'
-        JOIN regulatory_section_provision_map m2
+        JOIN section_provisions m2
           ON m2.provision_id = CASE WHEN r.source_provision_id = m1.provision_id
                                     THEN r.target_provision_id ELSE r.source_provision_id END
         WHERE m1.doc_id = $1 AND m1.section_type = $2 AND m1.section_ref = $3

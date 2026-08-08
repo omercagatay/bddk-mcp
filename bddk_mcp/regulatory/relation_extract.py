@@ -16,11 +16,12 @@ from typing import Any
 
 from bddk_mcp.regulatory.legal_versions import (
     AuthorityLevel,
-    Evidence,
+    EvidenceReference,
     ValidationRecord,
     ValidationState,
+    evidence_id_for,
 )
-from bddk_mcp.regulatory.relations import RegulatoryRelation, import_relations
+from bddk_mcp.regulatory.relations import RegulatoryRelation, import_relations, make_relation
 
 EXTRACTION_METHOD = "regex:v1"
 
@@ -164,13 +165,9 @@ async def resolve_and_import(
         return (0, 0)
     source_instrument_id = source["instrument_id"]
 
-    unvalidated = ValidationRecord(
-        state=ValidationState.MACHINE_VALIDATED,
-        validated_by=None,
-        validated_at=None,
-        method=EXTRACTION_METHOD,
-        review_record_sha256=None,
-    )
+    # Machine extraction never counts as review: candidates land unvalidated
+    # and stay invisible to the serving views until a human verdict.
+    unvalidated = ValidationRecord(state=ValidationState.UNVALIDATED)
     relations: list[RegulatoryRelation] = []
     resolved = external = 0
     for candidate in candidates:
@@ -190,20 +187,25 @@ async def resolve_and_import(
         else:
             external += 1
         statement = f"{doc_id}:{candidate.span[0]}-{candidate.span[1]}:{candidate.target_mention}"
-        evidence = Evidence(
-            evidence_id="ev-" + hashlib.sha256(statement.encode("utf-8")).hexdigest()[:32],
+        statement_sha256 = hashlib.sha256(statement.encode("utf-8")).hexdigest()
+        locator = f"chars={candidate.span[0]}-{candidate.span[1]}"
+        evidence = EvidenceReference(
+            evidence_id=evidence_id_for(
+                artifact_id=artifact_id,
+                locator=locator,
+                statement_sha256=statement_sha256,
+                authority_level=AuthorityLevel.SECONDARY,
+            ),
             artifact_id=artifact_id,
-            locator=f"chars={candidate.span[0]}-{candidate.span[1]}",
-            statement_sha256=hashlib.sha256(statement.encode("utf-8")).hexdigest(),
-            authority_level=AuthorityLevel.REGULATOR_PUBLICATION,
+            locator=locator,
+            statement_sha256=statement_sha256,
+            authority_level=AuthorityLevel.SECONDARY,
         )
         relations.append(
-            RegulatoryRelation(
+            make_relation(
                 relation_type=candidate.relation_type,
                 source_instrument_id=source_instrument_id,
-                source_provision_id=None,
                 target_instrument_id=target_instrument_id,
-                target_provision_id=None,
                 target_external_ref=external_ref,
                 evidence=evidence,
                 extraction_method=EXTRACTION_METHOD,

@@ -162,6 +162,27 @@ async def doc_store(pg_pool):
 
 
 @pytest.fixture
+async def regulatory_pool(pg_pool):
+    """Session pool with all regulatory tables truncated for graph tests."""
+    for table in (
+        "regulatory_relations",
+        "regulatory_family_imports",
+        "regulatory_legal_version_provisions",
+        "regulatory_legal_status_assertions",
+        "regulatory_legal_events",
+        "regulatory_legal_version_artifacts",
+        "regulatory_provisions",
+        "regulatory_legal_versions",
+        "regulatory_evidence",
+        "regulatory_source_artifacts",
+        "regulatory_source_blobs",
+        "regulatory_instruments",
+    ):
+        await pg_pool.execute(f"TRUNCATE public.{table} CASCADE")
+    yield pg_pool
+
+
+@pytest.fixture
 async def doc_store_factory():
     """Build DocumentStore instances directly on a caller-supplied pool.
 

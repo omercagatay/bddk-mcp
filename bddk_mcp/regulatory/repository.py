@@ -137,6 +137,23 @@ _COLUMN_TYPES: dict[str, dict[str, str]] = {
         "validation_method": "pg_catalog.text",
         "review_record_sha256": "pg_catalog.text",
     },
+    "public.regulatory_relations": {
+        "relation_id": "pg_catalog.text",
+        "relation_type": "pg_catalog.text",
+        "source_instrument_id": "pg_catalog.text",
+        "source_provision_id": "pg_catalog.text",
+        "target_instrument_id": "pg_catalog.text",
+        "target_provision_id": "pg_catalog.text",
+        "target_external_ref": "pg_catalog.text",
+        "evidence_id": "pg_catalog.text",
+        "extraction_method": "pg_catalog.text",
+        "confidence": "pg_catalog.float4",
+        "validation_state": "pg_catalog.text",
+        "validated_by": "pg_catalog.text",
+        "validated_at": "pg_catalog.timestamptz",
+        "validation_method": "pg_catalog.text",
+        "review_record_sha256": "pg_catalog.text",
+    },
 }
 
 
