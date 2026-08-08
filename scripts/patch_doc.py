@@ -1,4 +1,4 @@
-"""Operator helper: atomically patch one document in DB + seed_data.
+"""Operator helper: source-first, crash-recoverable document correction.
 
 Intended for manual corrections (e.g. hand-inserted LaTeX where OCR couldn't
 recover image-based formulas). For one doc_id, this script:
@@ -8,12 +8,18 @@ recover image-based formulas). For one doc_id, this script:
   3. computes the new content hash and regenerates section-aware chunks via
      the same chunker used by vector_store.add_document and seed.py,
   4. on --dry-run, stops here and prints the planned delta,
-  5. otherwise calls DocumentStore.store_document + VectorStore.add_document,
-  6. surgically rewrites only the target doc's entries in seed_data/
+  5. atomically replaces each target seed JSON file, documents.json first,
+  6. updates the canonical DB row, then republishes its derived vector index.
+
+Filesystem and PostgreSQL commits cannot form one atomic transaction.  The
+ordering is deliberate: documents.json is the durable reviewed source; the
+database publication is fail-closed while its canonical row and chunks differ;
+and a crash can be recovered by rerunning this idempotent command.  chunks.json
+is a derived review artifact and is never trusted by bootstrap.
      documents.json and chunks.json.
 
 Run:
-    BDDK_DATABASE_URL=... uv run python scripts/patch_doc.py <doc_id> \\
+    BDDK_INGESTION_DATABASE_URL=... uv run python scripts/patch_doc.py <doc_id> \\
         --markdown <path> [--extraction-method <tag>] [--dry-run]
 
 See docs/superpowers/specs/2026-04-23-patch-doc-helper-design.md for rationale.
@@ -39,6 +45,8 @@ import asyncpg  # noqa: E402
 from patch_md import validate_latex  # noqa: E402
 
 from bddk_mcp.core.config import PAGE_SIZE, require_database_url  # noqa: E402
+from bddk_mcp.db_identity import assert_database_identity  # noqa: E402
+from bddk_mcp.db_lifecycle import assert_database_ready  # noqa: E402
 from bddk_mcp.ingest.seed import _strip_docs_dump_header  # noqa: E402
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument  # noqa: E402
 from bddk_mcp.store.vector_store import VectorStore, _chunk_document  # noqa: E402
@@ -98,9 +106,7 @@ async def patch_document(
                 "Fix the markdown or pass --skip-latex-check to proceed anyway."
             )
     new_hash = _content_hash(body)
-    tokenizer = (
-        vector_store._chunk_tokenizer() if callable(getattr(type(vector_store), "_chunk_tokenizer", None)) else None
-    )
+    tokenizer = vector_store._chunk_tokenizer()
     chunks = _chunk_document(doc_id, body, tokenizer=tokenizer)
     if not chunks:
         raise PatchError(f"chunk regeneration produced no chunks for {doc_id}")
@@ -119,37 +125,7 @@ async def patch_document(
     if dry_run:
         return result
 
-    # --- 3. DB update ----------------------------------------------------
-    # StoredDocument preserves existing metadata; only body, extraction_method,
-    # total_pages, and file_size change. content_hash is recomputed from
-    # markdown_content by store_document itself, as are downloaded_at /
-    # extracted_at. Both DB writes are idempotent on re-run — store_document
-    # via ON CONFLICT UPDATE, add_document via DELETE-then-INSERT — so a
-    # crash between them is recoverable by re-running the script.
-    stored = StoredDocument(
-        document_id=doc_id,
-        title=current_doc.title,
-        category=current_doc.category,
-        decision_date=current_doc.decision_date,
-        decision_number=current_doc.decision_number,
-        source_url=current_doc.source_url,
-        markdown_content=body,
-        extraction_method=extraction_method,
-        total_pages=total_pages,
-        file_size=len(body.encode("utf-8")),
-    )
-    await doc_store.store_document(stored)
-    await vector_store.add_document(
-        doc_id=doc_id,
-        title=current_doc.title,
-        content=body,
-        category=current_doc.category,
-        decision_date=current_doc.decision_date,
-        decision_number=current_doc.decision_number,
-        source_url=current_doc.source_url,
-    )
-
-    # --- 4. Seed surgery -------------------------------------------------
+    # --- 3. Reviewed-source update ---------------------------------------
     now = time.time()
 
     # documents.json — update target entry in place
@@ -200,11 +176,39 @@ async def patch_document(
     )
     chunks_tmp.replace(chunks_path)
 
+    # --- 4. Fail-closed DB publication ----------------------------------
+    # These two idempotent transactions cannot be combined with filesystem
+    # replacement.  If the process stops after the canonical row changes,
+    # retrieval publication is hidden by its content-hash contract until a
+    # rerun completes add_document.
+    stored = StoredDocument(
+        document_id=doc_id,
+        title=current_doc.title,
+        category=current_doc.category,
+        decision_date=current_doc.decision_date,
+        decision_number=current_doc.decision_number,
+        source_url=current_doc.source_url,
+        markdown_content=body,
+        extraction_method=extraction_method,
+        total_pages=total_pages,
+        file_size=len(body.encode("utf-8")),
+    )
+    await doc_store.store_document(stored)
+    await vector_store.add_document(
+        doc_id=doc_id,
+        title=current_doc.title,
+        content=body,
+        category=current_doc.category,
+        decision_date=current_doc.decision_date,
+        decision_number=current_doc.decision_number,
+        source_url=current_doc.source_url,
+    )
+
     return result
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Patch a BDDK document in DB + seed_data atomically.")
+    p = argparse.ArgumentParser(description="Patch reviewed seed source, then fail-closed DB publication.")
     p.add_argument("doc_id", help="Exact document_id (e.g. mevzuat_20029)")
     p.add_argument("--markdown", required=True, type=Path, help="Path to corrected markdown file")
     p.add_argument(
@@ -222,12 +226,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 
 
 async def _main_async(args: argparse.Namespace) -> int:
-    pool = await asyncpg.create_pool(require_database_url(), min_size=1, max_size=3)
+    pool = await asyncpg.create_pool(require_database_url("ingestion"), min_size=1, max_size=3)
     try:
+        await assert_database_ready(pool=pool, require_corpus=False)
+        await assert_database_identity(pool, "ingestion")
         doc_store = DocumentStore(pool)
-        await doc_store.initialize()
         vector_store = VectorStore(pool)
-        await vector_store.initialize()
 
         seed_dir = ROOT / "seed_data"
 

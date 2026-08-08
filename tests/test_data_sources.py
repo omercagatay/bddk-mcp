@@ -1,5 +1,6 @@
 """Tests for data_sources.py — institution, bulletin, and announcement parsers."""
 
+import json
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -136,24 +137,41 @@ def test_parse_tabpane_institutions_empty():
 @pytest.fixture(autouse=True)
 def _no_retry_backoff(monkeypatch):
     """Skip the exponential-backoff sleeps in request_with_retry so 5xx paths stay fast."""
-    monkeypatch.setattr("bddk_mcp.core.utils.asyncio.sleep", AsyncMock())
+    monkeypatch.setattr("bddk_mcp.core.outbound_http.asyncio.sleep", AsyncMock())
+    monkeypatch.setattr("bddk_mcp.ingest.data_sources.assert_public_https_resolution", AsyncMock())
+
+
+class _MockStreamContext:
+    def __init__(self, response_awaitable) -> None:
+        self._response_awaitable = response_awaitable
+        self._response = None
+
+    async def __aenter__(self):
+        self._response = await self._response_awaitable
+        return self._response
+
+    async def __aexit__(self, *_exc) -> None:
+        await self._response.aclose()
 
 
 @pytest.fixture
 def mock_http():
     """Create a mock httpx.AsyncClient."""
     client = AsyncMock(spec=httpx.AsyncClient)
+
+    def stream(method: str, url: str, **kwargs):
+        send = getattr(client, method.lower())
+        return _MockStreamContext(send(url, **kwargs))
+
+    client.stream = MagicMock(side_effect=stream)
     return client
 
 
-def _make_response(text: str, status_code: int = 200) -> MagicMock:
-    resp = MagicMock(spec=httpx.Response)
-    resp.text = text
-    resp.status_code = status_code
-    resp.raise_for_status = MagicMock()
-    if status_code >= 400:
-        resp.raise_for_status.side_effect = httpx.HTTPStatusError("Error", request=MagicMock(), response=resp)
-    return resp
+def _make_response(text: str = "", status_code: int = 200, *, json_data=None) -> httpx.Response:
+    request = httpx.Request("GET", "https://www.bddk.org.tr/test")
+    if json_data is not None:
+        return httpx.Response(status_code, content=json.dumps(json_data).encode(), request=request)
+    return httpx.Response(status_code, text=text, request=request)
 
 
 async def test_fetch_institutions_card_page(mock_http):
@@ -209,10 +227,7 @@ BULLETIN_API_RESPONSE = {
 
 async def test_fetch_weekly_bulletin(mock_http):
     page_resp = _make_response(BULLETIN_PAGE_HTML)
-    api_resp = MagicMock(spec=httpx.Response)
-    api_resp.status_code = 200
-    api_resp.raise_for_status = MagicMock()
-    api_resp.json = MagicMock(return_value=BULLETIN_API_RESPONSE)
+    api_resp = _make_response(json_data=BULLETIN_API_RESPONSE)
 
     mock_http.get = AsyncMock(return_value=page_resp)
     mock_http.post = AsyncMock(return_value=api_resp)

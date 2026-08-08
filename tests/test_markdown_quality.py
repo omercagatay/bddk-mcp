@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import pytest
+
 from bddk_mcp.quality.markdown_quality import (
+    QUALITY_FAILURES_PATH,
     assess_markdown_quality,
+    load_quality_failure_registry,
     sanitize_markdown_for_context,
     sanitize_markdown_for_storage,
 )
@@ -123,28 +127,51 @@ def test_quality_assessment_marks_known_hard_fail_signals():
     assert result.warning
 
 
-def test_quality_assessment_does_not_fail_cleaned_document_by_legacy_id():
-    result = assess_markdown_quality("MADDE 1 - Temiz mevzuat metni.", document_id="mevzuat_21192")
+def test_quality_assessment_treats_every_configured_failure_as_fail():
+    registry = load_quality_failure_registry(QUALITY_FAILURES_PATH)
+
+    assert len(registry) == 11
+    for document_id, failure in registry.items():
+        result = assess_markdown_quality("MADDE 1 - Temiz mevzuat metni.", document_id=document_id)
+
+        assert result.label == "fail"
+        assert "configured_quality_failure" in result.flags
+        assert failure.reason in result.warning
+
+
+def test_quality_assessment_keeps_unregistered_clean_document_clean():
+    result = assess_markdown_quality("MADDE 1 - Temiz mevzuat metni.", document_id="not_registered")
 
     assert result.label == "clean"
 
 
-def test_quality_assessment_does_not_fail_cleaned_legacy_ids():
-    for document_id in (
-        "903",
-        "905",
-        "907",
-        "1043",
-        "1045",
-        "1305",
-        "1313",
-        "1314",
-        "1334",
-        "mevzuat_16290",
-    ):
-        result = assess_markdown_quality("MADDE 1 - Temiz mevzuat metni.", document_id=document_id)
+def test_quality_failure_registry_fails_closed_when_missing(tmp_path):
+    missing = tmp_path / "PRIVATE_REGISTRY_PATH" / "missing.yml"
+    with pytest.raises(RuntimeError, match="Unable to load quality-failure registry") as raised:
+        load_quality_failure_registry(missing)
 
-        assert result.label == "clean"
+    assert str(missing) not in str(raised.value)
+
+
+def test_quality_failure_registry_validation_error_omits_document_identity(tmp_path):
+    private_document_id = "PRIVATE_DOCUMENT_91f8"
+    registry = tmp_path / "registry.yml"
+    registry.write_text(
+        "fail_documents:\n"
+        f"  - document_id: {private_document_id}\n"
+        "    reason: extraction_failure\n"
+        "    preferred_backfill: reviewed_source\n"
+        f"  - document_id: {private_document_id}\n"
+        "    reason: extraction_failure\n"
+        "    preferred_backfill: reviewed_source\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="duplicate entry at index 1") as raised:
+        load_quality_failure_registry(registry)
+
+    assert private_document_id not in str(raised.value)
+    assert str(registry) not in str(raised.value)
 
 
 def test_quality_assessment_marks_warning_for_formula_reference_without_formula():

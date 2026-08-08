@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bddk-mcp-public-config
+data:
+  MCP_TRANSPORT: streamable-http
+  MCP_HOST: 0.0.0.0
+  PORT: "8000"
+  BDDK_TOOL_PROFILE: public
+  BDDK_AUTO_SYNC: "false"
+  BDDK_ALLOW_INSECURE_DATABASE: "false"
+  BDDK_REQUIRE_ACTIVE_CORPUS_RELEASE: "true"
+  # Baseline workloads do not receive telemetry credentials. Apply the explicit
+  # telemetry overlay only after its data flow and retention have been approved.
+  BDDK_TELEMETRY_ENABLED: "false"
+  BDDK_HTTP_ALLOWED_HOSTS: REPLACE_PUBLIC_ROUTE_HOST
+  BDDK_HTTP_ALLOWED_ORIGINS: https://REPLACE_PUBLIC_ROUTE_HOST
+  BDDK_JWT_ISSUER: https://REPLACE_BANK_IDP_ISSUER
+  BDDK_JWT_RESOURCE: https://REPLACE_PUBLIC_ROUTE_HOST/mcp
+  BDDK_JWT_JWKS_URL: https://REPLACE_BANK_IDP_JWKS
+  BDDK_JWT_AUDIENCE: REPLACE_PUBLIC_AUDIENCE
+  BDDK_JWT_REQUIRED_SCOPES: bddk.read
+  BDDK_JWT_ALGORITHMS: RS256
+  # Add generic JWT only after approving a Keycloak compatibility profile with
+  # a dedicated MCP API audience; at+jwt is the fail-closed RFC 9068 default.
+  BDDK_JWT_ACCESS_TOKEN_TYPES: at+jwt
+  BDDK_HTTP_MAX_BODY_BYTES: "1048576"
+  BDDK_HTTP_MAX_CONCURRENCY: "32"
+  # OpenShift router traffic shares one ASGI peer identity; use ingress for
+  # principal/client limits and keep this only as a coarse runaway guard.
+  BDDK_HTTP_RATE_LIMIT_PER_MINUTE: "10000"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bddk-mcp-operator-config
+data:
+  MCP_TRANSPORT: streamable-http
+  MCP_HOST: 0.0.0.0
+  PORT: "8000"
+  BDDK_TOOL_PROFILE: operator
+  BDDK_AUTO_SYNC: "false"
+  BDDK_ALLOW_INSECURE_DATABASE: "false"
+  BDDK_REQUIRE_ACTIVE_CORPUS_RELEASE: "true"
+  BDDK_TELEMETRY_ENABLED: "false"
+  BDDK_OPERATOR_REMOTE_ENABLED: "true"
+  BDDK_HTTP_ALLOWED_HOSTS: REPLACE_OPERATOR_SERVICE_HOST
+  BDDK_HTTP_ALLOWED_ORIGINS: https://REPLACE_OPERATOR_CLIENT_ORIGIN
+  BDDK_JWT_ISSUER: https://REPLACE_BANK_IDP_ISSUER
+  BDDK_JWT_RESOURCE: https://REPLACE_OPERATOR_SERVICE_HOST/mcp
+  BDDK_JWT_JWKS_URL: https://REPLACE_BANK_IDP_JWKS
+  BDDK_JWT_AUDIENCE: REPLACE_OPERATOR_AUDIENCE
+  BDDK_JWT_REQUIRED_SCOPES: bddk.operator
+  BDDK_JWT_ALGORITHMS: RS256
+  # Keep generic JWT disabled unless the bank IdP profile and API audience have
+  # been reviewed for ID-token confusion.
+  BDDK_JWT_ACCESS_TOKEN_TYPES: at+jwt
+  BDDK_HTTP_MAX_BODY_BYTES: "1048576"
+  BDDK_HTTP_MAX_CONCURRENCY: "8"
+  BDDK_HTTP_RATE_LIMIT_PER_MINUTE: "30"
+  BDDK_OPERATOR_JOB_DRAIN_TIMEOUT: "30"
+  BDDK_OPERATOR_JOB_HISTORY: "1000"

@@ -1,8 +1,8 @@
-"""GPU-gated integration test for Chandra2 end-to-end.
+"""Explicitly provisioned GPU integration test for Chandra2 end-to-end.
 
-Skipped unless CUDA is available. Loads the chandra-ocr HF model in-process
-and runs a real mevzuat PDF through it. Runtime: ~2 minutes on first run
-(model download + inference).
+Loads a local chandra-ocr model in-process and runs a retained mevzuat fixture
+through it. The shared preflight forbids model downloads. Runtime depends on
+the provisioned accelerator and model cache.
 """
 
 from __future__ import annotations
@@ -11,24 +11,13 @@ from pathlib import Path
 
 import pytest
 
-
-def _cuda() -> bool:
-    try:
-        import torch
-
-        return torch.cuda.is_available()
-    except ImportError:
-        return False
-
-
 FIXTURE_PDF = Path(__file__).parent / "fixtures" / "mevzuat_42628_sample.pdf"
 
 
 @pytest.mark.gpu
-@pytest.mark.skipif(not _cuda(), reason="CUDA not available")
+@pytest.mark.usefixtures("provisioned_gpu_ocr_lane")
 def test_chandra_end_to_end_on_real_fixture():
-    if not FIXTURE_PDF.exists():
-        pytest.skip(f"fixture missing: {FIXTURE_PDF}")
+    assert FIXTURE_PDF.is_file(), f"retained fixture missing: {FIXTURE_PDF.name}"
 
     from bddk_mcp.ocr.chandra import ChandraBackend
 

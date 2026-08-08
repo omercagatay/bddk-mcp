@@ -1,0 +1,307 @@
+schema_version: 1
+decision_id: bank-production-operational-objectives-v1
+environment_class: bank_onprem_openshift_production
+purpose: >-
+  Define the measurements, evidence, ownership, alerts, and two-party approval
+  required before this service can claim bank production objectives. Numeric
+  targets and rolling windows intentionally remain unset pending bank approval.
+metrics:
+  - metric_id: service_availability
+    metric_role: primary
+    decision_use: Determine whether eligible MCP requests receive a valid terminal response.
+    definition: >-
+      Percentage of eligible MCP tool requests that complete with a contract-valid
+      success or bounded caller-caused error instead of a service-caused failure.
+    unit: percent
+    statistic: ratio
+    window: {kind: rolling_service_window, duration_seconds: null}
+    grain: eligible_mcp_tool_request
+    numerator: Eligible requests with a contract-valid terminal response in the window.
+    denominator: All eligible MCP tool requests admitted in the same service window.
+    exclusions: [Bank-approved maintenance windows recorded before they begin.]
+    source:
+      source_id: mcp_request_boundary_telemetry
+      definition: Request-boundary events correlated without request bodies or regulatory text.
+      required_fields: [occurred_at, request_id, tool_name, outcome_class]
+      verification_state: implemented_not_verified
+    owner:
+      accountable_role: project_owner
+      operational_role: bank_operations
+      evidence_producer_role: platform_observability
+    target: {approval_state: unapproved, comparator: greater_than_or_equal, value: null}
+    alert:
+      rule_id: ServiceAvailabilityBreach
+      breach_condition: Approved availability target is missed in the approved service window.
+      missing_data_condition: Expected request-boundary observations are absent from the approved source.
+      decision_action: Bank operations investigates and applies the approved availability runbook.
+      route_owner_role: bank_operations
+      route_reference: null
+      runbook: docs/DEPLOYMENT.md
+      implementation_state: not_implemented
+    guardrails: [Caller-caused validation failures remain separately classified and reviewable.]
+    caveats: [No bank-approved target or rolling-window duration exists in this repository.]
+
+  - metric_id: tool_latency
+    metric_role: guardrail
+    decision_use: Detect unacceptable response latency among successful MCP tool requests.
+    definition: >-
+      The p95 end-to-end duration of successful eligible MCP tool requests measured
+      at the authenticated request boundary.
+    unit: milliseconds
+    statistic: p95
+    window: {kind: rolling_service_window, duration_seconds: null}
+    grain: successful_mcp_tool_request
+    numerator: Ordered successful-request durations used to compute the p95 observation.
+    denominator: All successful eligible MCP tool requests in the same service window.
+    exclusions: [Bank-approved maintenance windows and rejected unauthenticated traffic.]
+    source:
+      source_id: mcp_request_boundary_telemetry
+      definition: Request-boundary timing events correlated without request bodies or regulatory text.
+      required_fields: [occurred_at, request_id, tool_name, outcome_class, duration_milliseconds]
+      verification_state: implemented_not_verified
+    owner:
+      accountable_role: project_owner
+      operational_role: bank_operations
+      evidence_producer_role: platform_observability
+    target: {approval_state: unapproved, comparator: less_than_or_equal, value: null}
+    alert:
+      rule_id: ToolLatencyBreach
+      breach_condition: Approved p95 latency target is exceeded in the approved service window.
+      missing_data_condition: Expected duration observations are absent from the approved telemetry source.
+      decision_action: Bank operations investigates capacity and dependency latency using the approved runbook.
+      route_owner_role: bank_operations
+      route_reference: null
+      runbook: docs/DEPLOYMENT.md
+      implementation_state: not_implemented
+    guardrails: [Latency reporting must retain tool and outcome dimensions without content fields.]
+    caveats: [No bank-sized load baseline or approved rolling-window duration exists yet.]
+
+  - metric_id: source_detection_lag
+    metric_role: driver
+    decision_use: Measure how quickly eligible authoritative source changes are detected.
+    definition: >-
+      Maximum elapsed seconds from an eligible authoritative publication timestamp
+      to the repository-controlled detection event within a corpus release.
+    unit: seconds
+    statistic: maximum
+    window: {kind: corpus_release, duration_seconds: null}
+    grain: eligible_authoritative_source_item
+    numerator: Maximum measured source publication to detection interval in seconds.
+    denominator: Every authoritative source item declared eligible for the corpus release.
+    exclusions: [Items explicitly excluded by a signed and approved corpus scope decision.]
+    source:
+      source_id: corpus_document_freshness_events
+      definition: Signed per-document authoritative publication, detection, and publication timestamps.
+      required_fields: [document_id_hash, authoritative_at, detected_at, evidence_sha256]
+      verification_state: implemented_not_verified
+    owner:
+      accountable_role: project_owner
+      operational_role: bank_operations
+      evidence_producer_role: regulatory_ingestion
+    target: {approval_state: unapproved, comparator: less_than_or_equal, value: null}
+    alert:
+      rule_id: SourceDetectionLagBreach
+      breach_condition: A release exceeds the approved maximum source-detection interval.
+      missing_data_condition: Any eligible source item lacks complete measured freshness evidence.
+      decision_action: Block release activation and investigate acquisition freshness through the runbook.
+      route_owner_role: bank_operations
+      route_reference: null
+      runbook: docs/CORPUS_GOVERNANCE.md
+      implementation_state: not_implemented
+    guardrails: [Missing timestamps fail release eligibility instead of being omitted from the metric.]
+    caveats: [Authoritative source eligibility and a bank-approved numeric threshold remain pending.]
+
+  - metric_id: retrieval_publication_lag
+    metric_role: primary
+    decision_use: Measure time from detection until a document is retrieval-ready and activated.
+    definition: >-
+      Maximum elapsed seconds from a detected eligible corpus document to its
+      verified retrieval-publication event within the activated release.
+    unit: seconds
+    statistic: maximum
+    window: {kind: corpus_release, duration_seconds: null}
+    grain: eligible_corpus_document
+    numerator: Maximum measured detection to retrieval-publication interval in seconds.
+    denominator: Every eligible corpus document declared in the signed release manifest.
+    exclusions: [Documents rejected by a signed and reviewed source-scope decision.]
+    source:
+      source_id: corpus_document_freshness_events
+      definition: Signed per-document detection and verified retrieval-publication timestamps.
+      required_fields: [document_id_hash, detected_at, published_at, publication_sha256]
+      verification_state: implemented_not_verified
+    owner:
+      accountable_role: project_owner
+      operational_role: bank_operations
+      evidence_producer_role: regulatory_ingestion
+    target: {approval_state: unapproved, comparator: less_than_or_equal, value: null}
+    alert:
+      rule_id: RetrievalPublicationLagBreach
+      breach_condition: A release exceeds the approved maximum retrieval-publication interval.
+      missing_data_condition: Any eligible document lacks a verified retrieval-publication event.
+      decision_action: Block release activation and investigate the ingestion and publication pipeline.
+      route_owner_role: bank_operations
+      route_reference: null
+      runbook: docs/CORPUS_GOVERNANCE.md
+      implementation_state: not_implemented
+    guardrails: [A failed replacement must not alter the currently active corpus identity.]
+    caveats: [No authoritative bank publication-lag target has been approved.]
+
+  - metric_id: maximum_corpus_age
+    metric_role: guardrail
+    decision_use: Prevent an active corpus from silently aging beyond approved policy.
+    definition: >-
+      Maximum elapsed seconds between the current observation time and the oldest
+      authoritative timestamp represented by the active verified corpus release.
+    unit: seconds
+    statistic: maximum
+    window: {kind: point_in_time, duration_seconds: null}
+    grain: active_corpus_release
+    numerator: Age in seconds of the oldest eligible authoritative item in the active release.
+    denominator: The single active verified corpus release at the observation instant.
+    exclusions: [No silent exclusions are permitted after a release has been activated.]
+    source:
+      source_id: active_corpus_release_identity
+      definition: Database-bound active release identity joined to its signed freshness evidence.
+      required_fields: [release_id, corpus_state_sha256, activated_at, oldest_authoritative_at]
+      verification_state: implemented_not_verified
+    owner:
+      accountable_role: project_owner
+      operational_role: bank_operations
+      evidence_producer_role: regulatory_ingestion
+    target: {approval_state: unapproved, comparator: less_than_or_equal, value: null}
+    alert:
+      rule_id: MaximumCorpusAgeBreach
+      breach_condition: The active release exceeds the approved maximum corpus age.
+      missing_data_condition: Active-release identity or signed freshness evidence cannot be resolved.
+      decision_action: Fail readiness according to policy and investigate the publication pipeline.
+      route_owner_role: bank_operations
+      route_reference: null
+      runbook: docs/CORPUS_GOVERNANCE.md
+      implementation_state: not_implemented
+    guardrails: [Corpus mutation invalidates the active release before age is evaluated.]
+    caveats: [The repository does not choose the bank maximum-age policy.]
+
+  - metric_id: recovery_point_objective
+    metric_role: guardrail
+    decision_use: Bound confirmed data loss during a tested database recovery event.
+    definition: >-
+      Maximum elapsed seconds between the last independently confirmed recoverable
+      point and the failure cut-off for a recovery event.
+    unit: seconds
+    statistic: maximum
+    window: {kind: recovery_event, duration_seconds: null}
+    grain: recovery_event
+    numerator: Measured seconds between the confirmed recovery point and event cut-off.
+    denominator: Each bank-declared recovery event or scheduled recovery drill.
+    exclusions: [No recovery event may be omitted after bank operations declares it in scope.]
+    source:
+      source_id: bank_recovery_point_catalog
+      definition: Bank backup and transaction-log catalog with independently verified restore points.
+      required_fields: [event_id_hash, failure_cutoff_at, recovery_point_at, evidence_sha256]
+      verification_state: not_implemented
+    owner:
+      accountable_role: project_owner
+      operational_role: bank_operations
+      evidence_producer_role: database_recovery
+    target: {approval_state: unapproved, comparator: less_than_or_equal, value: null}
+    alert:
+      rule_id: RecoveryPointBreach
+      breach_condition: Confirmed recovery-point loss exceeds the approved recovery objective.
+      missing_data_condition: A declared recovery event lacks an independently confirmed recovery point.
+      decision_action: Escalate through bank incident governance and preserve recovery evidence.
+      route_owner_role: bank_operations
+      route_reference: null
+      runbook: docs/RECOVERY_DRILLS.md
+      implementation_state: not_implemented
+    guardrails: [Restore integrity and active-release identity must pass before recovery is accepted.]
+    caveats: [The bank backup topology and numeric recovery-point target are unknown.]
+
+  - metric_id: recovery_time_objective
+    metric_role: primary
+    decision_use: Bound elapsed time to restore a verified service after a recovery event.
+    definition: >-
+      Maximum elapsed seconds from the bank-declared recovery start until the
+      restored service passes database, corpus, identity, and client readiness gates.
+    unit: seconds
+    statistic: maximum
+    window: {kind: recovery_event, duration_seconds: null}
+    grain: recovery_event
+    numerator: Measured seconds from declared recovery start to accepted readiness.
+    denominator: Each bank-declared recovery event or scheduled recovery drill.
+    exclusions: [No recovery event may stop timing before all acceptance gates pass.]
+    source:
+      source_id: recovery_drill_evidence
+      definition: Privacy-safe restore evidence bound to exact source and restored snapshots.
+      required_fields: [started_at_epoch, elapsed_ms, source_fingerprint, restored_fingerprint]
+      verification_state: implemented_not_verified
+    owner:
+      accountable_role: project_owner
+      operational_role: bank_operations
+      evidence_producer_role: database_recovery
+    target: {approval_state: unapproved, comparator: less_than_or_equal, value: null}
+    alert:
+      rule_id: RecoveryTimeBreach
+      breach_condition: Accepted service restoration exceeds the approved recovery-time objective.
+      missing_data_condition: Required restore, identity, corpus, or client acceptance evidence is absent.
+      decision_action: Escalate through bank incident governance and preserve drill evidence.
+      route_owner_role: bank_operations
+      route_reference: null
+      runbook: docs/RECOVERY_DRILLS.md
+      implementation_state: not_implemented
+    guardrails: [A reachable but unverified database does not stop the recovery timer.]
+    caveats: [A repository drill cannot establish the bank infrastructure recovery target.]
+
+  - metric_id: evidence_retention
+    metric_role: guardrail
+    decision_use: Ensure required production evidence remains reviewable for the approved period.
+    definition: >-
+      Minimum retained age in days across every required evidence class, measured
+      from creation until verified disposal or a continuing legal hold.
+    unit: days
+    statistic: minimum
+    window: {kind: point_in_time, duration_seconds: null}
+    grain: required_evidence_class
+    numerator: Minimum verified retained age in days for each required evidence class.
+    denominator: Every evidence class in the versioned retention inventory.
+    exclusions: [No required evidence class may be excluded without a superseding approved decision.]
+    source:
+      source_id: bank_evidence_retention_registry
+      definition: Bank-controlled immutable registry of evidence creation, hold, and disposal events.
+      required_fields: [evidence_class, created_at, disposition_state, record_sha256]
+      verification_state: not_implemented
+    owner:
+      accountable_role: project_owner
+      operational_role: bank_operations
+      evidence_producer_role: records_management
+    target: {approval_state: unapproved, comparator: greater_than_or_equal, value: null}
+    alert:
+      rule_id: EvidenceRetentionBreach
+      breach_condition: A required evidence class falls below the approved retention period.
+      missing_data_condition: A required evidence class has no current immutable registry record.
+      decision_action: Suspend disposal and route the gap to bank records management.
+      route_owner_role: bank_operations
+      route_reference: null
+      runbook: docs/SECURITY_REVIEW.md
+      implementation_state: not_implemented
+    guardrails: [Legal holds override ordinary disposal until explicitly released.]
+    caveats: [No bank records schedule or numeric retention period has been supplied.]
+
+evidence_retention_policy:
+  required_classes:
+    - service_objective_observations
+    - corpus_release_manifests_and_signatures
+    - source_acquisition_and_freshness_events
+    - recovery_and_restore_reports
+    - openshift_acceptance_reports
+    - supply_chain_attestations
+    - model_evaluation_reports
+    - objective_approval_records
+  registry_source_id: bank_evidence_retention_registry
+  owner_role: records_management
+  legal_hold_rule: Legal holds suspend disposal until bank records management records an approved release.
+  disposal_rule: Disposal requires an approved schedule, elapsed retention target, and immutable disposal evidence.
+  verification_state: not_implemented
+approval:
+  state: unapproved
+  change_record_id: null
+  approvals: []

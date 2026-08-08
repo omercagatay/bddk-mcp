@@ -108,7 +108,6 @@ class TestStaleCacheFallback:
         pool = doc_store._pool
         # Save stale cache to DB
         client = BddkApiClient(pool=pool)
-        await client.initialize()
         client._cache = [
             BddkDecisionSummary(title="Stale Decision", document_id="stale_999", content="stale", category="Rehber")
         ]
@@ -202,8 +201,7 @@ class TestUnmappedCategoryWarning:
         </div>
         """
         client = BddkApiClient(pool=MockPool())
-        client._http = AsyncMock(spec=httpx.AsyncClient)
-        client._http.get = AsyncMock(return_value=make_http_response(html))
+        client._fetch_with_retry = AsyncMock(return_value=make_http_response(html))
 
         import logging
 
@@ -219,8 +217,7 @@ class TestUnmappedCategoryWarning:
         from tests.conftest import BDDK_ACCORDION_HTML
 
         client = BddkApiClient(pool=MockPool())
-        client._http = AsyncMock(spec=httpx.AsyncClient)
-        client._http.get = AsyncMock(return_value=make_http_response(BDDK_ACCORDION_HTML))
+        client._fetch_with_retry = AsyncMock(return_value=make_http_response(BDDK_ACCORDION_HTML))
 
         import logging
 

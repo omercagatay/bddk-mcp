@@ -1,0 +1,20 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: bddk-mcp-public
+  annotations:
+    haproxy.router.openshift.io/timeout: 120s
+spec:
+  host: REPLACE_PUBLIC_ROUTE_HOST
+  to:
+    kind: Service
+    name: bddk-mcp-public
+    weight: 100
+  port:
+    targetPort: https
+  tls:
+    termination: reencrypt
+    insecureEdgeTerminationPolicy: Redirect
+    # The destination Service uses an OpenShift service-serving certificate;
+    # the router uses the cluster service CA when no custom destination CA is set.
+  wildcardPolicy: None

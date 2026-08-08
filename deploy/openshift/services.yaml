@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: bddk-mcp-public
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: bddk-mcp-public-tls
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: bddk-mcp
+    app.kubernetes.io/component: public
+  ports:
+    - name: https
+      port: 443
+      targetPort: https
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bddk-mcp-operator
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: bddk-mcp-operator-tls
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: bddk-mcp
+    app.kubernetes.io/component: operator
+  ports:
+    - name: https
+      port: 443
+      targetPort: https
+      protocol: TCP

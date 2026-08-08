@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "license_review_status": "pending_bank_review",
+  "materials": [
+    {
+      "name": "embedding-model",
+      "uri": "https://huggingface.co/intfloat/multilingual-e5-base",
+      "digest": {
+        "gitCommit": "d13f1b27baf31030b7fd040960d60d909913633f"
+      }
+    }
+  ]
+}

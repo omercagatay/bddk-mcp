@@ -3,12 +3,17 @@
 import json
 import logging
 import os
+import re
 import sys
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from contextvars import ContextVar
 
 # Context variable for request-level correlation IDs
 _correlation_id: ContextVar[str] = ContextVar("correlation_id", default="")
+_TOOL_CONTENT_LOG_ENV = "BDDK_TOOL_LOG_CONTENT"
+_TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 
 
 def get_correlation_id() -> str:
@@ -23,6 +28,25 @@ def get_correlation_id() -> str:
 def set_correlation_id(cid: str) -> None:
     """Set the correlation ID for the current context."""
     _correlation_id.set(cid)
+
+
+@contextmanager
+def correlation_scope(cid: str | None = None) -> Iterator[str]:
+    """Set one bounded correlation ID and restore the parent context afterward."""
+
+    selected = uuid.uuid4().hex[:12] if cid is None else cid
+    if not isinstance(selected, str) or re.fullmatch(r"[A-Za-z0-9._:-]{1,64}", selected) is None:
+        raise ValueError("correlation ID must be a 1-64 character safe identifier")
+    token = _correlation_id.set(selected)
+    try:
+        yield selected
+    finally:
+        _correlation_id.reset(token)
+
+
+def tool_content_logging_enabled() -> bool:
+    """Return whether sensitive MCP tool previews were explicitly enabled."""
+    return os.environ.get(_TOOL_CONTENT_LOG_ENV, "").strip().lower() in _TRUE_VALUES
 
 
 class JsonFormatter(logging.Formatter):
@@ -48,6 +72,8 @@ class JsonFormatter(logging.Formatter):
             "query",
             "result_count",
             "tool_name",
+            "tool_status",
+            "argument_count",
             "tool_args",
             "result_type",
             "result_size",
@@ -92,6 +118,12 @@ def configure_logging(json_output: bool | None = None) -> None:
     handler = logging.StreamHandler(sys.stderr)
     handler.setFormatter(JsonFormatter() if json_output else HumanFormatter())
     root.addHandler(handler)
+
+    if tool_content_logging_enabled():
+        root.warning(
+            "BDDK_TOOL_LOG_CONTENT is enabled; MCP logs may contain confidential "
+            "queries, document excerpts, and error details"
+        )
 
     # Reduce noise from third-party libraries
     for noisy in ("httpx", "httpcore", "chromadb", "sentence_transformers", "urllib3"):

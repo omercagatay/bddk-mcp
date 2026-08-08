@@ -1,1 +1,1 @@
-web: uv run python server.py
+web: uv run --frozen --no-dev bddk-mcp serve

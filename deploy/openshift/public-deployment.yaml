@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bddk-mcp-public
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: bddk-mcp
+      app.kubernetes.io/component: public
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: bddk-mcp
+        app.kubernetes.io/component: public
+    spec:
+      serviceAccountName: bddk-mcp-public
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 45
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: server
+          image: REPLACE_IMAGE_REGISTRY/bddk-mcp@sha256:REPLACE_64_HEX_IMAGE_DIGEST
+          imagePullPolicy: IfNotPresent
+          args: [".venv/bin/bddk-mcp", "serve", "--profile", "public"]
+          envFrom:
+            - configMapRef:
+                name: bddk-mcp-public-config
+          env:
+            - name: BDDK_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: bddk-mcp-public-db
+                  key: BDDK_DATABASE_URL
+            - name: BDDK_TLS_CERT_FILE
+              value: /var/run/secrets/bddk-mcp/tls/tls.crt
+            - name: BDDK_TLS_KEY_FILE
+              value: /var/run/secrets/bddk-mcp/tls/tls.key
+          ports:
+            - name: https
+              containerPort: 8000
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: https
+              scheme: HTTPS
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: https
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              cpu: "2"
+              memory: 6Gi
+          volumeMounts:
+            - name: postgres-ca
+              mountPath: /var/run/configmaps/bddk-mcp/postgres
+              readOnly: true
+            - name: service-tls
+              mountPath: /var/run/secrets/bddk-mcp/tls
+              readOnly: true
+            - name: runtime-tmp
+              mountPath: /tmp
+      volumes:
+        - name: postgres-ca
+          configMap:
+            name: bddk-mcp-postgres-ca
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: service-tls
+          secret:
+            secretName: bddk-mcp-public-tls
+            defaultMode: 0440
+        - name: runtime-tmp
+          emptyDir:
+            sizeLimit: 256Mi

@@ -7,19 +7,45 @@ versioning for BDDK decisions, regulations, and mevzuat.gov.tr documents.
 Requires: asyncpg, PostgreSQL 14+ with unaccent extension.
 """
 
+from __future__ import annotations
+
 import hashlib
 import logging
 import math
 import re
 import time
+from datetime import datetime
 
 import asyncpg
 from pydantic import BaseModel, Field
 
 from bddk_mcp.core.config import FTS_RANK_THRESHOLD, PAGE_SIZE
+from bddk_mcp.corpus_coordination import acquire_corpus_mutation_lock
+from bddk_mcp.regulatory.legal_versions import (
+    AuthorityLevel,
+    artifact_id_for,
+    blob_id_for,
+    evidence_id_for,
+    instrument_id_for,
+    legal_version_id_for,
+    provision_id_for,
+)
+from bddk_mcp.store.bulk_write import insert_document_metadata_rows, insert_document_section_rows
 from bddk_mcp.store.section_index import extract_document_sections
 
 logger = logging.getLogger(__name__)
+DOCUMENT_STORE_SEARCH_PROFILE_VERSION = "document-store-simple-fts-v2"
+_SAFE_SYNC_FAILURE_TOKEN_RE = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
+
+
+def _safe_sync_failure_fields(error: str, category: str) -> tuple[str, str]:
+    """Return bounded codes suitable for durable operational metadata."""
+
+    safe_category = category if _SAFE_SYNC_FAILURE_TOKEN_RE.fullmatch(category) else "unknown"
+    if _SAFE_SYNC_FAILURE_TOKEN_RE.fullmatch(error):
+        return error, safe_category
+    return f"sync_{safe_category}_failed", safe_category
+
 
 # -- Pydantic models ----------------------------------------------------------
 
@@ -66,6 +92,30 @@ class SearchHit(BaseModel):
     decision_date: str = ""
 
 
+class StoredSectionCitationMapping(BaseModel):
+    """Validated database mapping needed to construct Citation v1."""
+
+    instrument_id: str
+    instrument_jurisdiction: str
+    instrument_authority_code: str
+    instrument_identity_key: str
+    legal_version_id: str
+    legal_version_key: str
+    legal_validation_record_sha256: str
+    provision_validation_record_sha256: str
+    artifact_id: str
+    artifact_blob_id: str
+    artifact_sha256: str
+    source_url: str
+    artifact_retrieved_at: datetime
+    evidence_id: str
+    evidence_locator: str
+    evidence_statement_sha256: str
+    provision_id: str
+    provision_kind: str
+    provision_path: str
+
+
 class StoredDocumentSection(BaseModel):
     """A structural section persisted for a document."""
 
@@ -79,6 +129,9 @@ class StoredDocumentSection(BaseModel):
     content_hash: str
     page_start: int | None = None
     page_end: int | None = None
+    normalized_source_range: str = ""
+    source_content_hash: str = ""
+    citation_mapping: StoredSectionCitationMapping | None = None
     rank: float | None = None
     """FTS match rank (ts_rank_cd, length-normalized). Only set by search paths;
     comparable within one query's result set, not across queries."""
@@ -96,148 +149,83 @@ class StoreStats(BaseModel):
     documents_needing_refresh: int = 0
 
 
-# -- Schema -------------------------------------------------------------------
-
-_SCHEMA_SQL = """\
-CREATE EXTENSION IF NOT EXISTS unaccent;
-
--- Make unaccent() usable in immutable contexts (triggers, indexes)
-CREATE OR REPLACE FUNCTION immutable_unaccent(text)
-RETURNS text AS $$
-    SELECT unaccent($1);
-$$ LANGUAGE sql IMMUTABLE PARALLEL SAFE;
-
-CREATE TABLE IF NOT EXISTS documents (
-    document_id       TEXT PRIMARY KEY,
-    title             TEXT NOT NULL,
-    category          TEXT DEFAULT '',
-    decision_date     TEXT DEFAULT '',
-    decision_number   TEXT DEFAULT '',
-    source_url        TEXT DEFAULT '',
-    pdf_blob          BYTEA,
-    markdown_content  TEXT DEFAULT '',
-    content_hash      TEXT DEFAULT '',
-    downloaded_at     DOUBLE PRECISION,
-    extracted_at      DOUBLE PRECISION,
-    extraction_method TEXT DEFAULT 'markitdown',
-    total_pages       INTEGER DEFAULT 1,
-    file_size         INTEGER DEFAULT 0,
-    tsv               tsvector
-);
-
-CREATE INDEX IF NOT EXISTS idx_documents_category ON documents(category);
-CREATE INDEX IF NOT EXISTS idx_documents_date ON documents(decision_date);
-CREATE INDEX IF NOT EXISTS idx_documents_tsv ON documents USING GIN(tsv);
-
-CREATE TABLE IF NOT EXISTS document_sections (
-    id            SERIAL PRIMARY KEY,
-    doc_id        TEXT NOT NULL,
-    section_type  TEXT NOT NULL,
-    section_ref   TEXT NOT NULL,
-    heading       TEXT DEFAULT '',
-    start_char    INTEGER NOT NULL,
-    end_char      INTEGER NOT NULL,
-    content       TEXT NOT NULL,
-    content_hash  TEXT NOT NULL,
-    page_start    INTEGER,
-    page_end      INTEGER,
-    tsv           tsvector,
-    UNIQUE(doc_id, section_type, section_ref, content_hash)
-);
-
-CREATE INDEX IF NOT EXISTS idx_document_sections_doc_id ON document_sections(doc_id);
-CREATE INDEX IF NOT EXISTS idx_document_sections_ref ON document_sections(section_type, section_ref);
-CREATE INDEX IF NOT EXISTS idx_document_sections_tsv ON document_sections USING GIN(tsv);
-
--- Trigger to keep tsv column in sync
-CREATE OR REPLACE FUNCTION documents_tsv_trigger() RETURNS trigger AS $$
-BEGIN
-    NEW.tsv :=
-        to_tsvector('simple', immutable_unaccent(coalesce(NEW.title, '')))
-        || to_tsvector('simple', immutable_unaccent(coalesce(NEW.markdown_content, '')))
-        || to_tsvector('simple', immutable_unaccent(coalesce(NEW.category, '')));
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trg_documents_tsv ON documents;
-CREATE TRIGGER trg_documents_tsv
-    BEFORE INSERT OR UPDATE ON documents
-    FOR EACH ROW EXECUTE FUNCTION documents_tsv_trigger();
-
-CREATE OR REPLACE FUNCTION document_sections_tsv_trigger() RETURNS trigger AS $$
-BEGIN
-    NEW.tsv :=
-        to_tsvector('simple', immutable_unaccent(coalesce(NEW.heading, '')))
-        || to_tsvector('simple', immutable_unaccent(coalesce(NEW.content, '')));
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trg_document_sections_tsv ON document_sections;
-CREATE TRIGGER trg_document_sections_tsv
-    BEFORE INSERT OR UPDATE ON document_sections
-    FOR EACH ROW EXECUTE FUNCTION document_sections_tsv_trigger();
-
-CREATE TABLE IF NOT EXISTS document_versions (
-    id                SERIAL PRIMARY KEY,
-    document_id       TEXT NOT NULL,
-    version           INTEGER NOT NULL DEFAULT 1,
-    content_hash      TEXT NOT NULL,
-    markdown_content  TEXT DEFAULT '',
-    synced_at         DOUBLE PRECISION NOT NULL,
-    UNIQUE(document_id, version)
-);
-
-CREATE INDEX IF NOT EXISTS idx_versions_doc_id ON document_versions(document_id);
-
-CREATE TABLE IF NOT EXISTS tool_call_traces (
-    id             BIGSERIAL PRIMARY KEY,
-    created_at     TIMESTAMPTZ DEFAULT now(),
-    tool_name      TEXT NOT NULL,
-    args_hash      TEXT NOT NULL,
-    args_summary   JSONB,
-    latency_ms     INTEGER,
-    result_count   INTEGER,
-    doc_ids        TEXT[],
-    quality_labels JSONB,
-    relevance_stats JSONB,
-    model_id       TEXT,
-    session_id     TEXT
-);
-
-CREATE INDEX IF NOT EXISTS idx_tool_call_traces_created_at ON tool_call_traces(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_tool_call_traces_tool_name ON tool_call_traces(tool_name);
-CREATE INDEX IF NOT EXISTS idx_tool_call_traces_doc_ids ON tool_call_traces USING GIN(doc_ids);
-
-CREATE TABLE IF NOT EXISTS sync_metadata (
-    document_id       TEXT PRIMARY KEY,
-    etag              TEXT DEFAULT '',
-    last_modified     TEXT DEFAULT '',
-    last_sync_at      DOUBLE PRECISION,
-    sync_count        INTEGER DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS sync_failures (
-    document_id       TEXT PRIMARY KEY,
-    error             TEXT NOT NULL,
-    error_category    TEXT NOT NULL DEFAULT 'unknown',
-    source_url        TEXT DEFAULT '',
-    retryable         BOOLEAN DEFAULT true,
-    attempts          INTEGER DEFAULT 1,
-    first_failed_at   DOUBLE PRECISION,
-    last_failed_at    DOUBLE PRECISION
-);
-"""
-
-
 def _content_hash(content: str) -> str:
     """SHA-256 hash of document content for change detection."""
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
+def _citation_identities_match(row) -> bool:
+    """Recheck content-derived identities before exposing a trusted mapping."""
+
+    statement_sha256 = row["citation_evidence_statement_sha256"]
+    return (
+        row["citation_instrument_id"]
+        == instrument_id_for(
+            jurisdiction=row["citation_instrument_jurisdiction"],
+            authority_code=row["citation_instrument_authority_code"],
+            identity_key=row["citation_instrument_identity_key"],
+        )
+        and row["citation_legal_version_id"]
+        == legal_version_id_for(
+            instrument_id=row["citation_instrument_id"],
+            version_key=row["citation_legal_version_key"],
+            legal_text_sha256=row["source_content_hash"],
+        )
+        and row["citation_artifact_blob_id"] == blob_id_for(content_sha256=row["citation_artifact_sha256"])
+        and row["citation_artifact_id"]
+        == artifact_id_for(
+            blob_id=row["citation_artifact_blob_id"],
+            canonical_uri=row["citation_source_url"],
+            retrieved_at=row["citation_artifact_retrieved_at"],
+        )
+        and statement_sha256 == row["content_hash"]
+        and row["citation_evidence_id"]
+        == evidence_id_for(
+            artifact_id=row["citation_artifact_id"],
+            locator=row["citation_evidence_locator"],
+            statement_sha256=statement_sha256,
+            authority_level=AuthorityLevel.AUTHORITATIVE,
+        )
+        and row["citation_provision_id"]
+        == provision_id_for(
+            instrument_id=row["citation_instrument_id"],
+            kind=row["citation_provision_kind"],
+            canonical_path=row["citation_provision_path"],
+        )
+    )
+
+
 def _section_from_row(row) -> StoredDocumentSection:
     """Convert an asyncpg row into a StoredDocumentSection."""
+    keys = set(row.keys())
+    citation_mapping = None
+    if "citation_instrument_id" in keys and row["citation_instrument_id"] is not None:
+        try:
+            if not _citation_identities_match(row):
+                raise ValueError("citation identity mismatch")
+            citation_mapping = StoredSectionCitationMapping(
+                instrument_id=row["citation_instrument_id"],
+                instrument_jurisdiction=row["citation_instrument_jurisdiction"],
+                instrument_authority_code=row["citation_instrument_authority_code"],
+                instrument_identity_key=row["citation_instrument_identity_key"],
+                legal_version_id=row["citation_legal_version_id"],
+                legal_version_key=row["citation_legal_version_key"],
+                legal_validation_record_sha256=row["citation_legal_validation_record_sha256"],
+                provision_validation_record_sha256=row["citation_provision_validation_record_sha256"],
+                artifact_id=row["citation_artifact_id"],
+                artifact_blob_id=row["citation_artifact_blob_id"],
+                artifact_sha256=row["citation_artifact_sha256"],
+                source_url=row["citation_source_url"],
+                artifact_retrieved_at=row["citation_artifact_retrieved_at"],
+                evidence_id=row["citation_evidence_id"],
+                evidence_locator=row["citation_evidence_locator"],
+                evidence_statement_sha256=row["citation_evidence_statement_sha256"],
+                provision_id=row["citation_provision_id"],
+                provision_kind=row["citation_provision_kind"],
+                provision_path=row["citation_provision_path"],
+            )
+        except (KeyError, TypeError, ValueError):
+            logger.warning("Validated citation view returned a noncanonical identity; mapping omitted")
     return StoredDocumentSection(
         doc_id=row["doc_id"],
         section_type=row["section_type"],
@@ -249,7 +237,10 @@ def _section_from_row(row) -> StoredDocumentSection:
         content_hash=row["content_hash"] or "",
         page_start=row["page_start"],
         page_end=row["page_end"],
-        rank=row["rank"] if "rank" in row.keys() else None,
+        normalized_source_range=row["normalized_source_range"] if "normalized_source_range" in keys else "",
+        source_content_hash=row["source_content_hash"] if "source_content_hash" in keys else "",
+        citation_mapping=citation_mapping,
+        rank=row["rank"] if "rank" in keys else None,
     )
 
 
@@ -262,8 +253,8 @@ class DocumentStore:
 
     Usage::
 
+        # First run ``bddk-mcp migrate`` with schema-owner credentials.
         store = DocumentStore(pool)
-        await store.initialize()
         await store.store_document(doc)
         page = await store.get_document_page("1291", page=1)
         hits = await store.search_content("sermaye yeterliliği")
@@ -273,17 +264,25 @@ class DocumentStore:
         self._pool = pool
 
     async def initialize(self) -> None:
-        """Create schema if needed."""
-        async with self._pool.acquire() as conn:
-            await conn.execute(_SCHEMA_SQL)
-        logger.info("DocumentStore initialized (PostgreSQL)")
+        """Deprecated SELECT-only compatibility readiness check.
+
+        Schema creation is available only through ``bddk-mcp migrate``.
+        """
+        from bddk_mcp.db_lifecycle import assert_database_ready
+
+        await assert_database_ready(pool=self._pool, require_corpus=False)
 
     async def close(self) -> None:
         """No-op — pool lifecycle is managed externally."""
         logger.info("DocumentStore closed")
 
-    async def __aenter__(self) -> "DocumentStore":
-        await self.initialize()
+    async def __aenter__(self) -> DocumentStore:
+        # Context entry is a runtime path and must not acquire DDL privileges.
+        # Use the shared SELECT-only catalog check so a missing migration fails
+        # with an actionable error before callers attempt document DML.
+        from bddk_mcp.db_lifecycle import assert_database_ready
+
+        await assert_database_ready(pool=self._pool, require_corpus=False)
         return self
 
     async def __aexit__(self, *exc) -> None:
@@ -292,37 +291,46 @@ class DocumentStore:
     # -- CRUD -----------------------------------------------------------------
 
     async def store_document(self, doc: StoredDocument) -> None:
-        """Insert or replace a document in the store."""
+        """Atomically replace a document and its derived structural sections."""
         now = time.time()
         content_hash = _content_hash(doc.markdown_content) if doc.markdown_content else ""
         total_pages = max(1, math.ceil(len(doc.markdown_content) / PAGE_SIZE)) if doc.markdown_content else 1
+        sections = extract_document_sections(doc.document_id, doc.markdown_content) if doc.markdown_content else []
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                await acquire_corpus_mutation_lock(conn)
+                # Serialize every canonical/derived write for this document,
+                # including concurrent first inserts where no row exists yet.
+                await conn.fetchval(
+                    "SELECT pg_catalog.pg_advisory_xact_lock("
+                    "pg_catalog.hashtextextended($1::pg_catalog.text, 1095652431))",
+                    doc.document_id,
+                )
                 # Archive previous version if content changed
-                if content_hash and doc.markdown_content:
-                    existing = await conn.fetchrow(
-                        "SELECT content_hash, markdown_content FROM documents WHERE document_id = $1",
+                existing = await conn.fetchrow(
+                    "SELECT content_hash, markdown_content FROM public.documents WHERE document_id = $1 FOR UPDATE",
+                    doc.document_id,
+                )
+                if existing and existing["content_hash"] and existing["content_hash"] != content_hash:
+                    max_ver = await conn.fetchval(
+                        "SELECT COALESCE(MAX(version), 0) FROM public.document_versions WHERE document_id = $1",
                         doc.document_id,
                     )
-                    if existing and existing["content_hash"] and existing["content_hash"] != content_hash:
-                        max_ver = await conn.fetchval(
-                            "SELECT COALESCE(MAX(version), 0) FROM document_versions WHERE document_id = $1",
-                            doc.document_id,
-                        )
-                        await conn.execute(
-                            "INSERT INTO document_versions (document_id, version, content_hash, markdown_content, synced_at) "
-                            "VALUES ($1, $2, $3, $4, $5)",
-                            doc.document_id,
-                            max_ver + 1,
-                            existing["content_hash"],
-                            existing["markdown_content"],
-                            now,
-                        )
+                    await conn.execute(
+                        "INSERT INTO public.document_versions "
+                        "(document_id, version, content_hash, markdown_content, synced_at) "
+                        "VALUES ($1, $2, $3, $4, $5)",
+                        doc.document_id,
+                        max_ver + 1,
+                        existing["content_hash"],
+                        existing["markdown_content"],
+                        now,
+                    )
 
                 await conn.execute(
                     """
-                    INSERT INTO documents (
+                    INSERT INTO public.documents (
                         document_id, title, category, decision_date, decision_number,
                         source_url, pdf_blob, markdown_content, content_hash,
                         downloaded_at, extracted_at, extraction_method, total_pages, file_size
@@ -357,11 +365,18 @@ class DocumentStore:
                     total_pages,
                     doc.file_size or (len(doc.pdf_bytes) if doc.pdf_bytes else 0),
                 )
+                await self._replace_document_sections_on_connection(
+                    conn,
+                    doc.document_id,
+                    sections,
+                    source_content_hash=content_hash,
+                )
 
-        logger.debug("Stored document %s (%s)", doc.document_id, doc.title[:60])
-
-        sections = extract_document_sections(doc.document_id, doc.markdown_content) if doc.markdown_content else []
-        await self.replace_document_sections(doc.document_id, sections)
+        logger.debug(
+            "Stored document (content_chars=%d, sections=%d)",
+            len(doc.markdown_content),
+            len(sections),
+        )
 
     async def get_document(self, doc_id: str) -> StoredDocument | None:
         """Retrieve a full document by ID."""
@@ -442,57 +457,124 @@ class DocumentStore:
 
     async def delete_document(self, doc_id: str) -> bool:
         """Delete a document by ID. Returns True if deleted."""
-        await self.delete_document_sections(doc_id)
-        result = await self._pool.execute("DELETE FROM documents WHERE document_id = $1", doc_id)
-        return result == "DELETE 1"
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                await acquire_corpus_mutation_lock(conn)
+                await conn.fetchval(
+                    "SELECT pg_catalog.pg_advisory_xact_lock("
+                    "pg_catalog.hashtextextended($1::pg_catalog.text, 1095652431))",
+                    doc_id,
+                )
+                # Current canonical foreign keys cascade sections, chunks, and
+                # retrieval publication from this one parent mutation.  A
+                # pre-v3 schema is not a supported writable state.
+                result = await conn.execute("DELETE FROM public.documents WHERE document_id = $1", doc_id)
+                return result == "DELETE 1"
 
     # -- Sections -------------------------------------------------------------
 
-    async def replace_document_sections(self, doc_id: str, sections: list) -> int:
-        """Replace all indexed structural sections for a document."""
+    async def replace_document_sections(
+        self,
+        doc_id: str,
+        sections: list,
+        *,
+        source_content_hash: str,
+    ) -> int:
+        """Replace sections only when they were parsed from the current body."""
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                await conn.execute("DELETE FROM document_sections WHERE doc_id = $1", doc_id)
-                if not sections:
-                    return 0
-
-                args = [
-                    (
-                        getattr(section, "doc_id", doc_id),
-                        section.section_type,
-                        section.section_ref,
-                        section.heading,
-                        section.start_char,
-                        section.end_char,
-                        section.content,
-                        section.content_hash,
-                        section.page_start,
-                        section.page_end,
-                    )
-                    for section in sections
-                ]
-                await conn.executemany(
-                    """
-                    INSERT INTO document_sections (
-                        doc_id, section_type, section_ref, heading, start_char, end_char,
-                        content, content_hash, page_start, page_end
-                    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-                    ON CONFLICT(doc_id, section_type, section_ref, content_hash) DO UPDATE SET
-                        heading=EXCLUDED.heading,
-                        start_char=EXCLUDED.start_char,
-                        end_char=EXCLUDED.end_char,
-                        content=EXCLUDED.content,
-                        page_start=EXCLUDED.page_start,
-                        page_end=EXCLUDED.page_end
-                    """,
-                    args,
+                await acquire_corpus_mutation_lock(conn)
+                await conn.fetchval(
+                    "SELECT pg_catalog.pg_advisory_xact_lock("
+                    "pg_catalog.hashtextextended($1::pg_catalog.text, 1095652431))",
+                    doc_id,
                 )
-        return len(args)
+                stored_hash = await conn.fetchval(
+                    "SELECT content_hash FROM public.documents WHERE document_id = $1 FOR UPDATE",
+                    doc_id,
+                )
+                if stored_hash is None or stored_hash != source_content_hash:
+                    raise ValueError("sections were not published because the source document changed")
+                return await self._replace_document_sections_on_connection(
+                    conn,
+                    doc_id,
+                    sections,
+                    source_content_hash=source_content_hash,
+                )
+
+    @staticmethod
+    async def _replace_document_sections_on_connection(
+        conn,
+        doc_id: str,
+        sections: list,
+        *,
+        source_content_hash: str,
+    ) -> int:
+        """Replace derived sections using the caller's publication transaction."""
+
+        return await DocumentStore._replace_document_sections_many_on_connection(
+            conn,
+            {doc_id: sections},
+            source_content_hashes={doc_id: source_content_hash},
+        )
+
+    @staticmethod
+    async def _replace_document_sections_many_on_connection(
+        conn,
+        sections_by_document: dict[str, list],
+        *,
+        source_content_hashes: dict[str, str],
+    ) -> int:
+        """Replace sections for many documents with two bounded statements.
+
+        The caller owns the encompassing transaction and corpus mutation lock.
+        Documents with no parsed sections are included in the delete membership
+        so their stale derived rows are still removed.
+        """
+
+        document_ids = sorted(sections_by_document)
+        if set(document_ids) != set(source_content_hashes):
+            raise ValueError("section sources must exactly match replacement document membership")
+        if any(not doc_id or not isinstance(source_content_hashes[doc_id], str) for doc_id in document_ids):
+            raise ValueError("section replacement document identities and hashes must be valid strings")
+        rows: list[tuple] = []
+        for doc_id in document_ids:
+            sections = sections_by_document[doc_id]
+            if any(getattr(section, "doc_id", doc_id) != doc_id for section in sections):
+                raise ValueError("section document identity does not match the publication target")
+            rows.extend(
+                (
+                    doc_id,
+                    section.section_type,
+                    section.section_ref,
+                    section.heading,
+                    section.start_char,
+                    section.end_char,
+                    section.content,
+                    section.content_hash,
+                    section.page_start,
+                    section.page_end,
+                    source_content_hashes[doc_id],
+                )
+                for section in sections
+            )
+        if document_ids:
+            await conn.execute(
+                "DELETE FROM public.document_sections WHERE doc_id = ANY($1::pg_catalog.text[])",
+                document_ids,
+            )
+        return await insert_document_section_rows(conn, rows)
 
     async def delete_document_sections(self, doc_id: str) -> bool:
         """Delete all structural sections for a document."""
-        result = await self._pool.execute("DELETE FROM document_sections WHERE doc_id = $1", doc_id)
-        return result != "DELETE 0"
+        async with self._pool.acquire() as conn, conn.transaction():
+            await acquire_corpus_mutation_lock(conn)
+            await conn.fetchval(
+                "SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended($1::pg_catalog.text, 1095652431))",
+                doc_id,
+            )
+            result = await conn.execute("DELETE FROM public.document_sections WHERE doc_id = $1", doc_id)
+            return result != "DELETE 0"
 
     async def get_document_section(
         self,
@@ -501,8 +583,11 @@ class DocumentStore:
         section_type: str | None = None,
         section_ref: str | None = None,
         heading: str | None = None,
+        limit: int | None = None,
     ) -> list[StoredDocumentSection]:
         """Fetch structural sections by document ID and optional exact refs."""
+        if limit is not None and (isinstance(limit, bool) or not 1 <= limit <= 1_000):
+            raise ValueError("section limit must be between 1 and 1000")
         where = ["doc_id = $1"]
         params: list = [doc_id]
         if section_type:
@@ -515,13 +600,77 @@ class DocumentStore:
             params.append(f"%{heading}%")
             where.append(f"heading ILIKE ${len(params)}")
 
+        limit_clause = ""
+        if limit is not None:
+            params.append(limit)
+            limit_clause = f"LIMIT ${len(params)}"
+
+        where = [f"section.{condition}" for condition in where]
         rows = await self._pool.fetch(
             f"""
-            SELECT doc_id, section_type, section_ref, heading, start_char, end_char,
-                   content, content_hash, page_start, page_end
-            FROM document_sections
+            SELECT section.doc_id, section.section_type, section.section_ref, section.heading,
+                   section.start_char, section.end_char, section.content, section.content_hash,
+                   section.page_start, section.page_end,
+                   pg_catalog.substr(
+                       document.markdown_content,
+                       section.start_char + 1,
+                       section.end_char - section.start_char
+                   ) AS normalized_source_range,
+                   document.content_hash AS source_content_hash,
+                   citation.instrument_id AS citation_instrument_id,
+                   citation.instrument_jurisdiction AS citation_instrument_jurisdiction,
+                   citation.instrument_authority_code AS citation_instrument_authority_code,
+                   citation.instrument_identity_key AS citation_instrument_identity_key,
+                   citation.legal_version_id AS citation_legal_version_id,
+                   citation.legal_version_key AS citation_legal_version_key,
+                   citation.review_record_sha256 AS citation_legal_validation_record_sha256,
+                   citation.provision_review_record_sha256 AS citation_provision_validation_record_sha256,
+                   citation.artifact_id AS citation_artifact_id,
+                   citation.artifact_blob_id AS citation_artifact_blob_id,
+                   citation.artifact_sha256 AS citation_artifact_sha256,
+                   citation.source_url AS citation_source_url,
+                   citation.artifact_retrieved_at AS citation_artifact_retrieved_at,
+                   citation.evidence_id AS citation_evidence_id,
+                   citation.evidence_locator AS citation_evidence_locator,
+                   citation.evidence_statement_sha256 AS citation_evidence_statement_sha256,
+                   citation.provision_id AS citation_provision_id,
+                   citation.provision_kind AS citation_provision_kind,
+                   citation.provision_path AS citation_provision_path
+            FROM public.document_sections AS section
+            JOIN public.documents AS document
+              ON document.document_id = section.doc_id
+             AND document.content_hash = section.source_content_hash
+            LEFT JOIN LATERAL (
+                SELECT mapping.instrument_id,
+                       mapping.instrument_jurisdiction,
+                       mapping.instrument_authority_code,
+                       mapping.instrument_identity_key,
+                       mapping.legal_version_id,
+                       mapping.legal_version_key,
+                       mapping.review_record_sha256,
+                       mapping.provision_review_record_sha256,
+                       mapping.artifact_id,
+                       mapping.artifact_blob_id,
+                       mapping.artifact_sha256,
+                       mapping.source_url,
+                       mapping.artifact_retrieved_at,
+                       mapping.evidence_id,
+                       mapping.evidence_locator,
+                       mapping.evidence_statement_sha256,
+                       mapping.provision_id,
+                       mapping.provision_kind,
+                       mapping.provision_path
+                FROM public.regulatory_validated_section_citations AS mapping
+                WHERE mapping.document_section_id = section.id
+                  AND mapping.source_document_id = section.doc_id
+                  AND mapping.normalized_document_sha256 = document.content_hash
+                  AND mapping.normalized_section_sha256 = section.content_hash
+                  AND mapping.legal_text_sha256 = document.content_hash
+                  AND mapping.provision_text_sha256 = section.content_hash
+            ) AS citation ON true
             WHERE {" AND ".join(where)}
-            ORDER BY start_char
+            ORDER BY section.start_char
+            {limit_clause}
             """,
             *params,
         )
@@ -536,26 +685,87 @@ class DocumentStore:
         limit: int = 10,
     ) -> list[StoredDocumentSection]:
         """Full-text search over structural sections."""
-        where = ["tsv @@ plainto_tsquery('simple', immutable_unaccent($1))"]
+        where = ["section.tsv @@ pg_catalog.plainto_tsquery('simple', public.immutable_unaccent($1))"]
         params: list = [query]
         if document_id:
             params.append(document_id)
-            where.append(f"doc_id = ${len(params)}")
+            where.append(f"section.doc_id = ${len(params)}")
         if section_type:
             params.append(section_type)
-            where.append(f"section_type = ${len(params)}")
+            where.append(f"section.section_type = ${len(params)}")
         params.append(limit)
 
         rows = await self._pool.fetch(
             f"""
-            SELECT doc_id, section_type, section_ref, heading, start_char, end_char,
-                   content, content_hash, page_start, page_end,
+            SELECT section.doc_id, section.section_type, section.section_ref, section.heading,
+                   section.start_char, section.end_char, section.content, section.content_hash,
+                   section.page_start, section.page_end,
+                   pg_catalog.substr(
+                       document.markdown_content,
+                       section.start_char + 1,
+                       section.end_char - section.start_char
+                   ) AS normalized_source_range,
+                   document.content_hash AS source_content_hash,
+                   citation.instrument_id AS citation_instrument_id,
+                   citation.instrument_jurisdiction AS citation_instrument_jurisdiction,
+                   citation.instrument_authority_code AS citation_instrument_authority_code,
+                   citation.instrument_identity_key AS citation_instrument_identity_key,
+                   citation.legal_version_id AS citation_legal_version_id,
+                   citation.legal_version_key AS citation_legal_version_key,
+                   citation.review_record_sha256 AS citation_legal_validation_record_sha256,
+                   citation.provision_review_record_sha256 AS citation_provision_validation_record_sha256,
+                   citation.artifact_id AS citation_artifact_id,
+                   citation.artifact_blob_id AS citation_artifact_blob_id,
+                   citation.artifact_sha256 AS citation_artifact_sha256,
+                   citation.source_url AS citation_source_url,
+                   citation.artifact_retrieved_at AS citation_artifact_retrieved_at,
+                   citation.evidence_id AS citation_evidence_id,
+                   citation.evidence_locator AS citation_evidence_locator,
+                   citation.evidence_statement_sha256 AS citation_evidence_statement_sha256,
+                   citation.provision_id AS citation_provision_id,
+                   citation.provision_kind AS citation_provision_kind,
+                   citation.provision_path AS citation_provision_path,
                    -- normalization flag 1 divides by 1+log(length): without it,
                    -- jumbo boilerplate sections outrank on-point short maddeler
-                   ts_rank_cd(tsv, plainto_tsquery('simple', immutable_unaccent($1)), 1) AS rank
-            FROM document_sections
+                   pg_catalog.ts_rank_cd(
+                       section.tsv,
+                       pg_catalog.plainto_tsquery('simple', public.immutable_unaccent($1)),
+                       1
+                   ) AS rank
+            FROM public.document_sections AS section
+            JOIN public.documents AS document
+              ON document.document_id = section.doc_id
+             AND document.content_hash = section.source_content_hash
+            LEFT JOIN LATERAL (
+                SELECT mapping.instrument_id,
+                       mapping.instrument_jurisdiction,
+                       mapping.instrument_authority_code,
+                       mapping.instrument_identity_key,
+                       mapping.legal_version_id,
+                       mapping.legal_version_key,
+                       mapping.review_record_sha256,
+                       mapping.provision_review_record_sha256,
+                       mapping.artifact_id,
+                       mapping.artifact_blob_id,
+                       mapping.artifact_sha256,
+                       mapping.source_url,
+                       mapping.artifact_retrieved_at,
+                       mapping.evidence_id,
+                       mapping.evidence_locator,
+                       mapping.evidence_statement_sha256,
+                       mapping.provision_id,
+                       mapping.provision_kind,
+                       mapping.provision_path
+                FROM public.regulatory_validated_section_citations AS mapping
+                WHERE mapping.document_section_id = section.id
+                  AND mapping.source_document_id = section.doc_id
+                  AND mapping.normalized_document_sha256 = document.content_hash
+                  AND mapping.normalized_section_sha256 = section.content_hash
+                  AND mapping.legal_text_sha256 = document.content_hash
+                  AND mapping.provision_text_sha256 = section.content_hash
+            ) AS citation ON true
             WHERE {" AND ".join(where)}
-            ORDER BY rank DESC, start_char
+            ORDER BY rank DESC, section.start_char
             LIMIT ${len(params)}
             """,
             *params,
@@ -619,7 +829,7 @@ class DocumentStore:
             if (row["rank"] or 0.0) >= FTS_RANK_THRESHOLD
         ]
 
-        logger.info("FTS search '%s': %d hits", query, len(hits))
+        logger.info("FTS search completed: query_chars=%d hits=%d", len(query), len(hits))
         return hits
 
     # -- Utilities ------------------------------------------------------------
@@ -655,8 +865,9 @@ class DocumentStore:
         source_url: str = "",
         retryable: bool = True,
     ) -> None:
-        """Record or update a sync failure for a document."""
+        """Record a privacy-safe failure code without exception text or URLs."""
         now = time.time()
+        safe_error, safe_category = _safe_sync_failure_fields(error, category)
         await self._pool.execute(
             """
             INSERT INTO sync_failures (document_id, error, error_category, source_url, retryable, attempts, first_failed_at, last_failed_at)
@@ -664,14 +875,15 @@ class DocumentStore:
             ON CONFLICT(document_id) DO UPDATE SET
                 error = EXCLUDED.error,
                 error_category = EXCLUDED.error_category,
+                source_url = EXCLUDED.source_url,
                 retryable = EXCLUDED.retryable,
                 attempts = sync_failures.attempts + 1,
                 last_failed_at = EXCLUDED.last_failed_at
             """,
             doc_id,
-            error,
-            category,
-            source_url,
+            safe_error,
+            safe_category,
+            "",
             retryable,
             now,
         )
@@ -695,32 +907,42 @@ class DocumentStore:
         Only creates entries for documents not already in the store.
         Does NOT download content -- use doc_sync for that.
         """
-        imported = 0
-        async with self._pool.acquire() as conn:
-            async with conn.transaction():
-                for item in cache_items:
-                    doc_id = item.get("document_id", "")
-                    if not doc_id:
-                        continue
-                    existing = await conn.fetchval("SELECT 1 FROM documents WHERE document_id = $1", doc_id)
-                    if existing:
-                        continue
+        # Collapse duplicate cache entries deterministically before acquiring
+        # the global writer lock.  The last entry is the same behavior callers
+        # would observe from a later catalog refresh.
+        by_id: dict[str, dict] = {}
+        for item in cache_items:
+            doc_id = item.get("document_id", "")
+            if isinstance(doc_id, str) and doc_id:
+                by_id[doc_id] = item
+        if not by_id:
+            return 0
 
-                    await conn.execute(
-                        """
-                        INSERT INTO documents (document_id, title, category, decision_date,
-                            decision_number, source_url, downloaded_at)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7)
-                        """,
-                        doc_id,
-                        item.get("title", ""),
-                        item.get("category", ""),
-                        item.get("decision_date", ""),
-                        item.get("decision_number", ""),
-                        item.get("source_url", ""),
-                        time.time(),
-                    )
-                    imported += 1
+        async with self._pool.acquire() as conn, conn.transaction():
+            await acquire_corpus_mutation_lock(conn)
+            candidate_ids = sorted(by_id)
+            existing_rows = await conn.fetch(
+                "SELECT document_id FROM public.documents WHERE document_id = ANY($1::pg_catalog.text[])",
+                candidate_ids,
+            )
+            existing_ids = {str(row["document_id"]) for row in existing_rows}
+            now = time.time()
+            rows = [
+                (
+                    doc_id,
+                    by_id[doc_id].get("title", ""),
+                    by_id[doc_id].get("category", ""),
+                    by_id[doc_id].get("decision_date", ""),
+                    by_id[doc_id].get("decision_number", ""),
+                    by_id[doc_id].get("source_url", ""),
+                    now,
+                )
+                for doc_id in candidate_ids
+                if doc_id not in existing_ids
+            ]
+            # Empty input is a true no-op: no INSERT statement means no corpus
+            # epoch trigger fires on repeated imports.
+            imported = await insert_document_metadata_rows(conn, rows)
 
         logger.info("Imported %d items from cache", imported)
         return imported

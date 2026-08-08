@@ -1,5 +1,8 @@
 """Tests for analytics.py — trend analysis, digest, comparison, update detection."""
 
+from __future__ import annotations
+
+from collections.abc import Awaitable
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -9,15 +12,33 @@ from bddk_mcp.observability.analytics import analyze_trends, build_digest, check
 
 
 def _make_response(text: str = "", status_code: int = 200, json_data=None):
-    resp = MagicMock(spec=httpx.Response)
-    resp.text = text
-    resp.status_code = status_code
-    resp.raise_for_status = MagicMock()
     if json_data is not None:
-        resp.json = MagicMock(return_value=json_data)
-    if status_code >= 400:
-        resp.raise_for_status.side_effect = httpx.HTTPStatusError("Error", request=MagicMock(), response=resp)
-    return resp
+        return httpx.Response(
+            status_code,
+            json=json_data,
+            request=httpx.Request("POST", "https://www.bddk.org.tr/api"),
+        )
+    return httpx.Response(
+        status_code,
+        text=text,
+        request=httpx.Request("GET", "https://www.bddk.org.tr/test"),
+    )
+
+
+class _StreamContext:
+    """Adapt the tests' method mocks to the production streaming interface."""
+
+    def __init__(self, response: Awaitable[httpx.Response]) -> None:
+        self._response = response
+        self._entered: httpx.Response | None = None
+
+    async def __aenter__(self) -> httpx.Response:
+        self._entered = await self._response
+        return self._entered
+
+    async def __aexit__(self, *_exc: object) -> None:
+        if self._entered is not None:
+            await self._entered.aclose()
 
 
 BULLETIN_PAGE = """
@@ -53,8 +74,19 @@ BULLETIN_API = {
 
 
 @pytest.fixture
-def mock_http():
+def mock_http(monkeypatch):
+    import bddk_mcp.ingest.data_sources as data_sources
+
+    # DNS policy is covered independently; these parser/analytics tests must
+    # not depend on external name resolution.
+    monkeypatch.setattr(data_sources, "assert_public_https_resolution", AsyncMock(return_value=None))
     client = AsyncMock(spec=httpx.AsyncClient)
+
+    def stream(method: str, url: str, **kwargs):
+        caller = client.post if method.upper() == "POST" else client.get
+        return _StreamContext(caller(url, **kwargs))
+
+    client.stream = MagicMock(side_effect=stream)
     return client
 
 

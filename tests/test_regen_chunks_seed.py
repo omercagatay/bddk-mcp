@@ -22,7 +22,8 @@ def test_build_chunk_records_includes_section_metadata():
             "document_id": "mevzuat_22599",
             "title": "Karşılık Yönetmeliği",
             "markdown_content": "MADDE 9 - TFRS 9 karşılık\nBankalar karşılık ayırır.\n\nMADDE 10\nBaşka hüküm.",
-        }
+        },
+        tokenizer=WhitespaceTokenizer(),
     )
 
     assert records

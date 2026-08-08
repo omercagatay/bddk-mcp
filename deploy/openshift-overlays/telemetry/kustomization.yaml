@@ -1,0 +1,47 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../openshift
+patches:
+  - target:
+      kind: ConfigMap
+      name: bddk-mcp-public-config
+    patch: |-
+      - op: replace
+        path: /data/BDDK_TELEMETRY_ENABLED
+        value: "true"
+  - target:
+      kind: ConfigMap
+      name: bddk-mcp-operator-config
+    patch: |-
+      - op: replace
+        path: /data/BDDK_TELEMETRY_ENABLED
+        value: "true"
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: bddk-mcp-public
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: BDDK_TELEMETRY_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: bddk-mcp-telemetry-db
+              key: BDDK_TELEMETRY_DATABASE_URL
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: bddk-mcp-operator
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/env/-
+        value:
+          name: BDDK_TELEMETRY_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: bddk-mcp-telemetry-db
+              key: BDDK_TELEMETRY_DATABASE_URL

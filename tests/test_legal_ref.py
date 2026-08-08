@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bddk_mcp.store.legal_ref import parse_legal_refs, turkish_casefold
+from bddk_mcp.store.legal_ref import document_id_candidates, parse_legal_refs, turkish_casefold
 
 
 def test_parse_document_ids_numeric_and_prefixed():
@@ -10,6 +10,11 @@ def test_parse_document_ids_numeric_and_prefixed():
 
     assert "943" in refs.document_ids
     assert "mevzuat_22599" in refs.document_ids
+
+
+def test_document_id_candidates_resolve_numeric_and_prefixed_aliases():
+    assert document_id_candidates("22599") == ["22599", "mevzuat_22599", "bddk_22599"]
+    assert document_id_candidates("MEVZUAT_22599") == ["mevzuat_22599"]
 
 
 def test_parse_madde_references_variants():

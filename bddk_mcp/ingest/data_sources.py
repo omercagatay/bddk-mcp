@@ -7,26 +7,53 @@ import re
 import httpx
 from bs4 import BeautifulSoup
 
-from bddk_mcp.core.utils import request_with_retry
+from bddk_mcp.core.outbound_http import (
+    BDDK_HTTPS_HOSTS,
+    OutboundHttpPolicyError,
+    assert_public_https_resolution,
+    bounded_request_with_retry,
+)
 
 logger = logging.getLogger(__name__)
 
 _BDDK_BASE_URL = "https://www.bddk.org.tr"
+_MAX_BDDK_HTML_BYTES = 8 * 1024 * 1024
+_MAX_BDDK_API_BYTES = 8 * 1024 * 1024
 
 # Rate limiter: max 5 concurrent outbound requests to BDDK
 _request_semaphore = asyncio.Semaphore(5)
 
 
 async def _get(http: httpx.AsyncClient, url: str, **kwargs) -> httpx.Response:
-    """GET with rate limiting and exponential backoff retry."""
+    """Bounded GET inside the exact BDDK HTTPS boundary."""
     async with _request_semaphore:
-        return await request_with_retry(http, "GET", url, **kwargs)
+        return await bounded_request_with_retry(
+            http,
+            "GET",
+            url,
+            base_url=f"{_BDDK_BASE_URL}/",
+            allowed_hosts=BDDK_HTTPS_HOSTS,
+            boundary_name="BDDK",
+            max_bytes=_MAX_BDDK_HTML_BYTES,
+            resolve=assert_public_https_resolution,
+            **kwargs,
+        )
 
 
 async def _post(http: httpx.AsyncClient, url: str, **kwargs) -> httpx.Response:
-    """POST with rate limiting and exponential backoff retry."""
+    """Bounded POST inside the exact BDDK HTTPS boundary."""
     async with _request_semaphore:
-        return await request_with_retry(http, "POST", url, **kwargs)
+        return await bounded_request_with_retry(
+            http,
+            "POST",
+            url,
+            base_url=f"{_BDDK_BASE_URL}/",
+            allowed_hosts=BDDK_HTTPS_HOSTS,
+            boundary_name="BDDK",
+            max_bytes=_MAX_BDDK_API_BYTES,
+            resolve=assert_public_https_resolution,
+            **kwargs,
+        )
 
 
 def _format_number(val) -> str:
@@ -189,8 +216,12 @@ async def fetch_institutions(
 
             all_institutions.extend(items)
             logger.info("Parsed %d institutions from page %d (%s)", len(items), page_id, inst_type)
-        except (httpx.HTTPError, httpx.TransportError, ValueError, AttributeError) as e:
-            logger.error("Failed to fetch institutions page %d: %s", page_id, e)
+        except (httpx.HTTPError, httpx.TransportError, OutboundHttpPolicyError, ValueError, AttributeError) as exc:
+            logger.error(
+                "Failed to fetch institutions page %d",
+                page_id,
+                extra={"error_type": type(exc).__name__},
+            )
 
     return all_institutions
 
@@ -270,9 +301,9 @@ async def fetch_weekly_bulletin(
             "currency": currency,
             "metric_id": metric_id,
         }
-    except (httpx.HTTPError, httpx.TransportError, KeyError, ValueError) as e:
-        logger.error("Failed to fetch weekly bulletin: %s", e)
-        return {"error": str(e)}
+    except (httpx.HTTPError, httpx.TransportError, OutboundHttpPolicyError, KeyError, ValueError) as exc:
+        logger.error("Failed to fetch weekly bulletin", extra={"error_type": type(exc).__name__})
+        return {"error": "Approved BDDK upstream request failed."}
 
 
 async def fetch_bulletin_snapshot(
@@ -310,8 +341,8 @@ async def fetch_bulletin_snapshot(
                 }
             )
         return rows
-    except (httpx.HTTPError, httpx.TransportError, ValueError, AttributeError) as e:
-        logger.error("Failed to fetch bulletin snapshot: %s", e)
+    except (httpx.HTTPError, httpx.TransportError, OutboundHttpPolicyError, ValueError, AttributeError) as exc:
+        logger.error("Failed to fetch bulletin snapshot", extra={"error_type": type(exc).__name__})
         return []
 
 
@@ -369,8 +400,12 @@ async def fetch_announcements(
 
         logger.info("Parsed %d announcements from category %d", len(announcements), category_id)
         return announcements
-    except (httpx.HTTPError, httpx.TransportError, ValueError, AttributeError) as e:
-        logger.error("Failed to fetch announcements category %d: %s", category_id, e)
+    except (httpx.HTTPError, httpx.TransportError, OutboundHttpPolicyError, ValueError, AttributeError) as exc:
+        logger.error(
+            "Failed to fetch announcements category %d",
+            category_id,
+            extra={"error_type": type(exc).__name__},
+        )
         return []
 
 
@@ -453,6 +488,6 @@ async def fetch_monthly_bulletin(
             "period": f"{month}/{year}",
             "currency": currency,
         }
-    except (httpx.HTTPError, httpx.TransportError, KeyError, ValueError) as e:
-        logger.error("Failed to fetch monthly bulletin: %s", e)
-        return {"error": str(e)}
+    except (httpx.HTTPError, httpx.TransportError, OutboundHttpPolicyError, KeyError, ValueError) as exc:
+        logger.error("Failed to fetch monthly bulletin", extra={"error_type": type(exc).__name__})
+        return {"error": "Approved BDDK upstream request failed."}

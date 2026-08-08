@@ -12,6 +12,76 @@ def _json(value):
     return json.loads(value) if isinstance(value, str) else value
 
 
+def _exact_telemetry_privileges() -> dict[str, bool]:
+    return {
+        "relation_exists": True,
+        "sequence_exists": True,
+        "session_is_current": True,
+        "identity_hardened": True,
+        "membership_isolated": True,
+        "database_capabilities_isolated": True,
+        "schema_usage": True,
+        "application_schemas_isolated": True,
+        "other_relations_isolated": True,
+        "other_sequences_isolated": True,
+        "application_functions_isolated": True,
+        "can_insert_required_columns": True,
+        "can_insert_managed_columns": False,
+        "can_select": False,
+        "can_update": False,
+        "can_delete": False,
+        "can_truncate": False,
+        "sequence_usage": True,
+        "sequence_select": False,
+        "sequence_update": False,
+    }
+
+
+def test_telemetry_identity_inventory_includes_the_denied_legal_version_workspace() -> None:
+    from bddk_mcp.observability.telemetry import _TELEMETRY_PRIVILEGES_SQL
+
+    normalized_sql = " ".join(_TELEMETRY_PRIVILEGES_SQL.split())
+
+    for relation in (
+        "regulatory_instruments",
+        "regulatory_family_imports",
+        "regulatory_source_blobs",
+        "regulatory_source_artifacts",
+        "regulatory_evidence",
+        "regulatory_legal_versions",
+        "regulatory_legal_version_artifacts",
+        "regulatory_legal_events",
+        "regulatory_legal_status_assertions",
+        "regulatory_provisions",
+        "regulatory_legal_version_provisions",
+        "regulatory_validated_section_citations",
+    ):
+        assert f"('public', '{relation}')" in normalized_sql
+    for relation in (
+        "legacy_schema_adoptions",
+        "corpus_state_epoch",
+    ):
+        assert f"('bddk_meta', '{relation}')" in normalized_sql
+    for function_name in (
+        "corpus_fingerprint_frame",
+        "bump_corpus_state_epoch",
+        "current_corpus_state_sha256",
+        "corpus_retrieval_ready",
+        "reject_corpus_release_mutation",
+        "publish_verified_corpus_release",
+        "resolve_regulation_status",
+    ):
+        assert f"'bddk_meta', '{function_name}'" in normalized_sql
+    for function_name in (
+        "documents_tsv_trigger",
+        "document_sections_tsv_trigger",
+        "chunks_tsv_trigger",
+        "invalidate_retrieval_publication",
+    ):
+        assert f"'public', '{function_name}'" in normalized_sql
+    assert "to_regclass('bddk_meta" not in normalized_sql
+
+
 def test_summarize_args_redacts_query_text_by_default():
     from bddk_mcp.observability.telemetry import summarize_args
 
@@ -34,6 +104,16 @@ def test_summarize_args_can_store_text_when_explicitly_enabled():
     assert summary["query"]["chars"] == 18
 
 
+def test_summarize_args_redacts_unknown_short_strings_fail_closed():
+    from bddk_mcp.observability.telemetry import summarize_args
+
+    summary = summarize_args({"future_user_field": "short secret"})
+
+    assert summary["future_user_field"]["chars"] == 12
+    assert summary["future_user_field"]["sha256"]
+    assert "short secret" not in json.dumps(summary)
+
+
 @pytest.mark.asyncio
 async def test_record_tool_call_trace_is_disabled_by_default(monkeypatch):
     from bddk_mcp.observability import telemetry
@@ -51,6 +131,89 @@ async def test_record_tool_call_trace_is_disabled_by_default(monkeypatch):
 
     assert recorded is False
     pool.execute.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_telemetry_identity_accepts_exact_insert_only_privileges():
+    from bddk_mcp.observability.telemetry import assert_telemetry_writer_ready
+
+    pool = AsyncMock()
+    pool.fetchval.return_value = 170000
+    pool.fetchrow.return_value = _exact_telemetry_privileges()
+
+    await assert_telemetry_writer_ready(pool)
+
+    query = pool.fetchrow.await_args.args[0]
+    assert query.lstrip().startswith("WITH RECURSIVE target AS")
+    assert "('public', 'document_retrieval_publications')" in query
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "unexpected_privilege",
+    [
+        "can_select",
+        "can_update",
+        "can_delete",
+        "can_truncate",
+        "can_insert_managed_columns",
+        "sequence_select",
+        "sequence_update",
+    ],
+)
+async def test_telemetry_identity_rejects_excess_table_privilege(unexpected_privilege):
+    from bddk_mcp.observability.telemetry import TelemetryIdentityError, assert_telemetry_writer_ready
+
+    privileges = _exact_telemetry_privileges()
+    privileges[unexpected_privilege] = True
+    pool = AsyncMock()
+    pool.fetchval.return_value = 170000
+    pool.fetchrow.return_value = privileges
+
+    with pytest.raises(TelemetryIdentityError, match="INSERT-only"):
+        await assert_telemetry_writer_ready(pool)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "required_isolation",
+    [
+        "session_is_current",
+        "identity_hardened",
+        "membership_isolated",
+        "database_capabilities_isolated",
+        "application_schemas_isolated",
+        "other_relations_isolated",
+        "other_sequences_isolated",
+        "application_functions_isolated",
+    ],
+)
+async def test_telemetry_identity_rejects_broader_identity_capabilities(required_isolation):
+    from bddk_mcp.observability.telemetry import TelemetryIdentityError, assert_telemetry_writer_ready
+
+    privileges = _exact_telemetry_privileges()
+    privileges[required_isolation] = False
+    pool = AsyncMock()
+    pool.fetchval.return_value = 170000
+    pool.fetchrow.return_value = privileges
+
+    with pytest.raises(TelemetryIdentityError, match="INSERT-only"):
+        await assert_telemetry_writer_ready(pool)
+
+
+@pytest.mark.asyncio
+async def test_telemetry_identity_refuses_unsupported_postgresql_before_privilege_inspection():
+    from bddk_mcp.observability.telemetry import TelemetryIdentityError, assert_telemetry_writer_ready
+
+    pool = AsyncMock()
+    pool.fetchval.return_value = 160012
+
+    with pytest.raises(TelemetryIdentityError) as exc_info:
+        await assert_telemetry_writer_ready(pool)
+
+    assert "requires PostgreSQL 17" in str(exc_info.value)
+    assert "160012" not in str(exc_info.value)
+    pool.fetchrow.assert_not_awaited()
 
 
 @pytest.mark.asyncio

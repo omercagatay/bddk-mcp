@@ -1,14 +1,36 @@
 # BDDK MCP Benchmark Tool Surface
 
-This benchmark directory keeps tool-calling fixtures and result reporting separate from runtime deployment mode. Do not infer the production MCP tool count from the benchmark schema count alone.
+This benchmark directory keeps tool-calling cases and result reporting separate from runtime deployment mode. Its schemas come from the canonical operator registry, but a benchmark contract is not proof of a live server's configured profile.
+
+All reports produced by `python -m benchmark.run` are **exploratory only**. The
+runner records `classification: exploratory_not_release_evidence` and
+`model_scores_authorized: false`; its human reports explicitly say that the
+scores do not authorize deployment. The release preflight described below is a
+different command and does not execute a model.
+
+The production wheel and runtime image intentionally contain only `bddk_mcp`;
+run benchmarks from a source checkout. An OpenShift evaluation needs a separate,
+reviewed evaluation image or Job rather than the serving image. Install the
+optional provider-backed grader dependency with:
+
+```bash
+uv sync --group benchmark
+```
 
 ## Tool Profiles
 
 | Profile | Count | Source | Notes |
 |---|---:|---|---|
-| `runtime-public` | 16 | `server.py` with `BDDK_ADMIN_TOOLS=false` | Default read-only public deployment. |
-| `runtime-admin` | 26 | `server.py` with `BDDK_ADMIN_TOOLS=true` | Public tools plus document stats, sync, health, metrics, quality, and backfill operator tools. |
-| `benchmark-schema-fixture` | 23 | `benchmark/tool_schemas.py` | OpenAI-compatible function schemas used by the local benchmark harness. This fixture is intentionally explicit and may lag or differ from a runtime deployment profile. |
+| `runtime-public` | 15 | `BDDK_TOOL_PROFILE=public` | Default public process and public database identity. |
+| `runtime-operator` | 29 | `BDDK_TOOL_PROFILE=operator` | Separate operator process and DSN; 15 public plus 14 operator tools. |
+| `benchmark-operator-contract` | 29 | `benchmark/tool_schemas.py` | OpenAI-compatible schemas exported from the same canonical operator registry used by the runtime. |
+
+Both runtime profiles register exactly one MCP resource,
+`bddk://corpus/active-release`, and no MCP prompts. The resource returns only a
+path-free active release identity (`release_id`, manifest ID/hash, and retrieval
+profile hash), or `status: unavailable`; signing-key and full corpus-state
+evidence remain on operator-only surfaces. Phase 2 treats an unavailable or
+malformed resource as a protocol failure.
 
 ## Runtime Public Tools
 
@@ -20,40 +42,411 @@ This benchmark directory keeps tool-calling fixtures and result reporting separa
 - `get_document_history`
 - `get_document_section`
 - `search_document_sections`
+- `resolve_regulation_status`
 - `get_bddk_bulletin`
 - `get_bddk_bulletin_snapshot`
 - `get_bddk_monthly`
-- `bddk_cache_status`
 - `analyze_bulletin_trends`
 - `get_regulatory_digest`
 - `compare_bulletin_metrics`
+
+## Runtime Operator Additions
+
+With `BDDK_TOOL_PROFILE=operator` or `bddk-mcp serve --profile operator`, the runtime also exposes:
+
 - `check_bddk_updates`
-
-## Runtime Admin Additions
-
-When `BDDK_ADMIN_TOOLS=true`, the runtime also exposes:
-
 - `document_store_stats`
+- `bddk_cache_status`
 - `refresh_bddk_cache`
 - `sync_bddk_documents`
 - `trigger_startup_sync`
+- `get_operator_job`
+- `list_operator_jobs`
+- `cancel_operator_job`
 - `document_health`
 - `health_check`
 - `bddk_metrics`
 - `backfill_degraded_documents`
-- `backfill_status`
 - `document_quality_report`
+
+The operator runtime requires `BDDK_OPERATOR_DATABASE_URL`. Job records and
+leases are durable PostgreSQL state. The baseline intentionally runs one
+operator replica; multi-replica execution remains outside the validated
+deployment contract.
+
+## Destructive retrieval-score database guard
+
+`scripts/retrieval_score.py` deletes and recreates its synthetic document IDs.
+It therefore requires both a distinct `BDDK_TEST_DATABASE_URL` and a guard
+record provisioned only in the approved disposable database. Store only the
+SHA-256 digest, never the guard token itself:
+
+```sql
+CREATE TABLE bddk_meta.retrieval_benchmark_guard (
+    singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
+    guard_hash text NOT NULL CHECK (guard_hash ~ '^[0-9a-f]{64}$')
+);
+INSERT INTO bddk_meta.retrieval_benchmark_guard (singleton, guard_hash)
+VALUES (true, 'REPLACE_SHA256_OF_RANDOM_TEST_GUARD');
+```
+
+Set the original random value as `BDDK_TEST_DATABASE_GUARD` (at least 32
+characters). The script verifies the digest before its first write. This table
+must not exist in production or shared databases.
+
+## Phase 2 live MCP execution
+
+Phase 2 now uses the official MCP Python client for both supported transports.
+It runs `initialize`, discovers the complete live `tools/list` contract, reads
+the active release resource, and executes every tool with
+`ClientSession.call_tool`. It does not use a custom HTTP `/call-tool` route.
+
+Before the first model call, the harness validates the selected local corpus
+manifest and requires its manifest ID and SHA-256 to equal the active release
+reported through that same MCP session. After all cases it reads the resource
+again on the same session and rejects any release change. Configure the exact
+deployed declaration with `BDDK_CORPUS_MANIFEST_PATH`; when it is signed, set
+`BDDK_CORPUS_TRUSTED_SIGNING_KEY` to the separately mounted public key.
+
+The checked-in declaration cannot currently satisfy this gate: it is unsigned,
+unmeasured, non-exhaustive, declares 8,286 chunks, and a read-only regeneration
+under the current pinned profile produced 9,675. Strict publication rejects the
+drift until the chunk artifact is regenerated, independently reviewed, and
+re-signed.
+
+Streamable HTTP (the URL must include the MCP path):
+
+```bash
+python -m benchmark.run --phase 2 \
+  --model qwen3.5-9b \
+  --mcp-transport streamable-http \
+  --mcp-url http://127.0.0.1:8000/mcp
+```
+
+For an authenticated endpoint, place the bearer token in
+`BDDK_BENCHMARK_MCP_TOKEN`; it is sent as an Authorization header and is never
+written to benchmark results.
+
+stdio:
+
+```bash
+python -m benchmark.run --phase 2 \
+  --model qwen3.5-9b \
+  --mcp-transport stdio \
+  --mcp-command bddk-mcp \
+  --mcp-arg serve --mcp-arg=--profile --mcp-arg public \
+  --mcp-arg=--transport --mcp-arg stdio
+```
+
+The stdio child receives an exact runtime environment allowlist. LLM/provider
+API keys, `ANTHROPIC_API_KEY`, grader configuration, the HTTP benchmark bearer
+token, and unrelated parent-process variables are not inherited. Database
+identities needed by the selected MCP server profile remain child-runtime
+inputs and are never copied into result metadata. The harness also verifies
+that the installed MCP SDK's implicit stdio defaults remain a subset of this
+reviewed allowlist and fails closed if a future SDK broadens them.
+
+The full case set includes operator cases. A public live profile therefore
+marks those cases `LIVE_TOOL_UNAVAILABLE` and not comparable; it never pretends
+that the operator contract was exposed. Run a separately secured operator
+profile only when those cases are intentionally in scope.
+
+MCP initialization, discovery, transport, malformed model arguments, unknown
+tools, `isError=true`, and empty tool results fail closed. They are not passed
+back to the model as fabricated tool text. Model-grader absence or failure is
+also an explicit not-comparable state; it does not silently reuse the
+claim-support metric as a second model score.
+
+Retrieval completion is driven by the structured result `status`: `ok` and
+`partial` require at least one structured evidence reference, while
+`no_results`, `unavailable`, an unknown status, or a missing structured result
+cannot count as successful retrieval. Expected arguments are graded on the
+expected tool call, and multi-tool chains must occur in order (unrelated calls
+may appear between required steps). Expected document and section references
+must occur together on the same structured evidence item.
+
+The deterministic numeric metric is answer-claim support, not recall of every
+number present in tool output. Answers without numeric claims are marked
+`unscored`; they are never assigned a synthetic `1.0`.
+
+## Optional external model grader
+
+Anthropic grading is external network egress and is disabled even when an API
+key happens to exist in the parent environment. Enable it only for an approved
+run by setting both variables explicitly:
+
+```bash
+export BDDK_BENCHMARK_ALLOW_EXTERNAL_GRADER=true
+export ANTHROPIC_API_KEY='...'
+python -m benchmark.run --phase 2 --model qwen3.5-9b
+```
+
+Tool evidence and answers are redacted, bounded, encoded as JSON data, and
+placed inside collision-resistant delimiters before egress. Embedded source
+instructions remain untrusted data. If external egress is not approved, omit
+the opt-in: routing, arguments, retrieval status, ordered-chain, and structured
+source metrics still run, while model-grounding and audit-grade comparison are
+reported as unavailable.
 
 ## Benchmark Result Metadata
 
-Phase 2 result JSON records the exact tool surface used in each run:
+Phase 2 result JSON records the contract discovered from the live process:
 
-- `exposed_tool_list`
+- `live_tool_list`
+- `live_tool_schema_sha256`
 - `deployment_config.tool_count`
 - `deployment_config.max_tool_calls`
 - `model_id`
+- `mcp_transport`
+- `mcp_protocol_version`
 - `mcp_server_version`
+- validated local `corpus_manifest` identity and the same-session `active_corpus_release` identity
+- full redacted final answers and structured tool evidence, plus SHA-256 trace hashes
+- external grader model, status, and safe reason code
+- Git commit and dirty-state fingerprint
+- selected-case dataset hash and case IDs
+- declared corpus ID/hash, when supplied, and an observed evidence-reference hash
 
-When comparing benchmark runs, compare the recorded `exposed_tool_list` and `deployment_config.tool_count` first. A run against `benchmark-schema-fixture` is not directly comparable to a live `runtime-public` or `runtime-admin` run unless the exposed tools are the same.
+Compare `live_tool_schema_sha256`, server/protocol version, corpus release, model
+identifier, and grader status before comparing scores across runs. A public-only
+run is not directly comparable to an operator-profile run.
 
-For production-style benchmark debugging, set `BDDK_TELEMETRY_ENABLED=true` on the MCP server. Retrieval tools then persist privacy-safe rows in `tool_call_traces` with tool name, args hash/summary, latency, result counts, document IDs, quality labels, relevance stats, optional `BDDK_TELEMETRY_MODEL_ID`, and optional `BDDK_TELEMETRY_SESSION_ID`.
+`BDDK_BENCHMARK_CORPUS_ID` and `BDDK_BENCHMARK_CORPUS_SHA256` are optional
+operator labels only; they are not the trusted binding. The enforced binding is
+the validated `BDDK_CORPUS_MANIFEST_PATH` identity matched to
+`bddk://corpus/active-release` before and after calls. The harness also
+fingerprints document/section/content-hash references actually observed during
+the run. Result writing performs a final recursive credential redaction. Bearer
+tokens, API keys, passwords, DSNs, cookies, and credential-bearing URLs must not
+be persisted.
+
+## Expert-evaluation release preflight
+
+Run the preflight only from a source checkout. It validates four separately
+signed layers:
+
+1. the measured canonical corpus-manifest payload;
+2. the canonical expert-dataset payload;
+3. the exact validated Citation pack plus its legal-curator attestation; and
+4. a legal-release checkpoint over retained source bytes, acquisition records,
+   page text/mappings, Citation excerpts, and signed predecessor checkpoints.
+
+The corpus, dataset, curator, and legal-release public keys must resolve to
+different canonical Ed25519 fingerprints. Every historical legal-release
+signer must also remain distinct from the corpus, dataset, and curator signers.
+Re-encoding one key as different PEM bytes does not create an independent
+signer. Distinct keys do not prove separate human/team custody; that remains a
+bank governance check.
+
+### Development mode
+
+Development mode is the default and keeps the original operator-supplied trust
+boundary. The operator supplies the four artifact keys and the expected latest
+checkpoint hash directly. It is useful for fixtures and local consistency
+testing, but it is not bank-policy evidence:
+
+```bash
+python -m benchmark.release_preflight \
+  --dataset /APPROVED/EVALUATION/expert-evaluation.yml \
+  --corpus-manifest /APPROVED/CORPUS/corpus_scope.yml \
+  --corpus-root /APPROVED/CORPUS \
+  --trusted-corpus-key /APPROVED/TRUST/corpus.pem \
+  --trusted-dataset-key /APPROVED/TRUST/dataset.pem \
+  --legal-pack /APPROVED/LEGAL/validated-citations.json \
+  --legal-attestation /APPROVED/LEGAL/legal-attestation.yml \
+  --trusted-legal-attestation-key /APPROVED/TRUST/curator.pem \
+  --legal-release-checkpoint /APPROVED/LEGAL/latest-checkpoint.yml \
+  --legal-release-source-root /APPROVED/LEGAL/retained \
+  --trusted-legal-release-key /APPROVED/TRUST/legal-release.pem \
+  --trust-mode development \
+  --trusted-latest-legal-checkpoint-sha256 REPLACE_WITH_APPROVED_SHA256
+```
+
+A development pass means only that those operator-supplied artifacts, keys, and
+latest-head argument form a cryptographically consistent chain. Current-policy
+SHA/version and organization/environment/scope pins are forbidden in this mode.
+Supplying all three signed-policy inputs is allowed for policy fixture testing,
+but development mode neither pins the current policy head nor compares its
+organization, environment, or deployment scope with independent expectations.
+Policy-free development can validate legacy `PageMappingProof` v1 evidence. Any
+supplied signed policy requires v2 proofs for every retained artifact in every
+checkpoint while retaining a deliberately non-bank status.
+
+### Bank-policy mode
+
+Bank-policy mode adds a separately signed, closed-schema-v2 policy. The policy
+binds five release identities for the expert dataset, corpus
+manifest, legal Citation pack, legal-curator attestation, and latest
+legal-release checkpoint. It maps operational key fingerprints to four
+roles—`corpus_scope_approver`,
+`expert_dataset_owner`, `legal_curator`, and `legal_release_certifier`—with
+validity windows and opaque owner identities. Keys are globally unique across
+roles, the same declared owner ID cannot occupy two separated roles, and the
+policy issuer ID/key cannot also be declared as an operational owner/signer.
+The repository does not prove that distinct IDs correspond to different humans,
+teams, or key custodians; the bank must verify real separation.
+
+#### Hash and version semantics
+
+The policy fields are release identities, not five interchangeable raw-file
+hashes:
+
+| Identity | Bytes hashed |
+|---|---|
+| `dataset_sha256` | Canonical JSON expert-dataset payload after removing only its self-checksum value |
+| `corpus_manifest_sha256` | Canonical JSON corpus-manifest payload after removing only its self-checksum value |
+| `legal_pack_sha256` | Exact retained Citation-pack file bytes |
+| `legal_attestation_sha256` | Canonical JSON curator-attestation payload after removing only its self-checksum value |
+| `legal_release_checkpoint_sha256` | Canonical JSON validated-checkpoint payload after removing only its self-checksum value |
+| trust-policy SHA-256 and `supersedes_policy_sha256` | Exact signed YAML policy bytes; the latter is a declared predecessor hash whose shape is checked, but predecessor policy bytes/history are not replayed |
+| signer fingerprints | Canonical raw 32-byte Ed25519 public-key material, independent of PEM formatting |
+
+`EvaluationTrustPolicy.schema_version` is now exactly 2; a signed schema-v1
+policy must be reissued. `policy_version` is the revision counter inside schema
+v2. `PageMappingProof.schema_version` separately distinguishes legacy role-only
+v1 evidence from owner-bearing v2 evidence. `LegalReleaseCheckpoint` remains
+schema v2, Citation v1 is a separate citation contract, and key filenames such
+as `current` or `predecessor` are operational labels rather than schema
+versions.
+
+Schema v2 also contains a canonical `authorized_legal_source_reviewers`
+registry. Each `PageMappingProof` v2 seals an opaque reviewer owner ID for one
+checkpoint/artifact pair. The verifier requires every checkpoint artifact to
+have one unique v2 review, checks capture/review/checkpoint chronology, applies
+reviewer validity and effective revocation, and keeps reviewer owners separate
+from the policy issuer and all four operational signer owners by declared ID.
+
+Use the same artifact arguments as above, omit the manual
+`--trusted-latest-legal-checkpoint-sha256`, and add:
+
+```bash
+python -m benchmark.release_preflight \
+  --dataset /APPROVED/EVALUATION/expert-evaluation.yml \
+  --corpus-manifest /APPROVED/CORPUS/corpus_scope.yml \
+  --corpus-root /APPROVED/CORPUS \
+  --trusted-corpus-key /APPROVED/TRUST/corpus.pem \
+  --trusted-dataset-key /APPROVED/TRUST/dataset.pem \
+  --legal-pack /APPROVED/LEGAL/validated-citations.json \
+  --legal-attestation /APPROVED/LEGAL/legal-attestation.yml \
+  --trusted-legal-attestation-key /APPROVED/TRUST/curator.pem \
+  --legal-release-checkpoint /APPROVED/LEGAL/latest-checkpoint.yml \
+  --legal-release-source-root /APPROVED/LEGAL/retained \
+  --trusted-legal-release-key /APPROVED/TRUST/legal-release-current.pem \
+  --trusted-legal-release-predecessor-key /APPROVED/TRUST/legal-release-predecessor.pem \
+  --bank-trust-policy /APPROVED/POLICY/evaluation-trust-policy.yml \
+  --bank-trust-policy-signature /APPROVED/POLICY/evaluation-trust-policy.sig \
+  --trusted-bank-policy-key /APPROVED/TRUST/evaluation-policy-root.pem \
+  --trust-mode bank-policy \
+  --trusted-current-bank-policy-sha256 REPLACE_WITH_EXTERNALLY_PROMOTED_POLICY_SHA256 \
+  --trusted-current-bank-policy-version REPLACE_WITH_EXTERNALLY_PROMOTED_POLICY_VERSION \
+  --trusted-bank-organization-id REPLACE_WITH_BANK_ORGANIZATION_ID \
+  --trusted-bank-environment-id REPLACE_WITH_OPENSHIFT_ENVIRONMENT_ID \
+  --trusted-bank-deployment-scope bank-production
+```
+
+The CLI spelling `bank-production` is normalized to the policy YAML value
+`deployment_scope: bank_production`; do not copy the hyphenated CLI value into
+the signed YAML.
+
+The policy supplies the approved latest checkpoint, so a simultaneous manual
+latest-head argument is rejected. Bank-policy mode also requires the exact
+current policy SHA-256, version, organization, environment, and deployment scope
+as separate deployment inputs and rejects a validly signed but different or
+cross-environment policy. Within policy schema v2, `policy_version` values after
+1 must declare the SHA-256 of the policy they supersede. The repository
+validates that field's shape; external promotion remains responsible for
+retaining and approving the policy history and for advancing the independently
+configured head and scope pins.
+
+The legal-release verifier accepts one primary current key plus repeated
+predecessor keys. The latest checkpoint must use the primary key. A signed
+policy describes a single-root `replaces_key_id` graph and authorizes only
+forward movement through that graph; cycles, disconnected rotations, reversal
+to a predecessor, use outside the declared event-time window, and unlisted keys
+fail closed. A normally retired, non-revoked key can continue to verify a
+checkpoint created during its declared validity window. An effective key
+revocation invalidates its use, including in retained history, and an effective
+checkpoint revocation invalidates an observed chain. Revoked abandoned/forked
+checkpoint hashes may remain in the policy denylist without invalidating a
+clean replacement chain. Every configured predecessor key must be listed,
+non-revoked, and placed after the current primary key even when the current
+chain does not use it.
+
+All authorization comparisons use declared signed fields—policy
+issuance/validity/approval, corpus `scope_reviewed_at`, dataset `decided_at`,
+curator `attested_at`, checkpoint `created_at`, and page `reviewed_at`—plus the
+local process clock. None is an
+independent timestamp proving when its signature or review action occurred.
+Bank promotion must verify declared chronology and trusted clock evidence, or
+add an external timestamping/receipt mechanism if signing-time proof is
+required.
+
+A `LegalReleaseCheckpoint` chain whose artifacts seal `PageMappingProof` v1 is
+immutable and cannot be upgraded in place with v2 reviewer owners. Adopting
+signed-policy authorization requires a new independent checkpoint genesis in
+which every artifact seals a v2 page proof; it cannot reference a v1-proof
+ancestor. The old chain remains archival, with no cryptographically verified
+continuity claim to the new chain, until separately governed migration evidence
+is defined.
+
+This is a repository implementation slice, not completion of the bank trust
+work. The bank must deliver the policy, detached signature, policy root,
+operational keyring, and current SHA/version/scope pins through reviewed
+RBAC-separated mounts/configuration; configure the expected
+organization/environment/scope; approve the reviewer registry; promote them
+atomically; retain approval
+evidence; and prove compromise and stale-policy handling in the target
+environment. If that external pin is itself stale, a source checkout has no
+online authority from which to discover the newer policy.
+
+In both modes the report deliberately keeps `bank_authorization_verified: false`
+and `model_scores_authorized: false`. Even after the configured policy
+signature, canonical release binding, and current head/scope pins pass, the
+source checkout cannot attest that the root and mounts are actually bank
+controlled or that the policy was promoted through bank RBAC. The preflight
+also does not execute the expert dataset.
+
+Report names are deliberately conservative. Plain development success is
+`cryptographic_preflight_passed`; signed-policy validation without a current
+head pin is `signed_policy_preflight_passed`; and bank-policy mode with the
+configured SHA/version and deployment-scope pins is
+`configured_policy_head_preflight_passed`. The
+last status is supported by `configured_root_policy_signature_verified`,
+`policy_approved_release_binding_verified`, and
+`policy_current_head_pin_verified`, plus
+`policy_deployment_scope_pin_verified`; it is not named or treated as bank
+authorization. Privacy-safe reviewer evidence is limited to
+`trust_policy_authorized_reviewer_count`,
+`policy_bound_legal_source_reviews_verified`, and
+`policy_bound_legal_source_review_count`; reviewer IDs and labels are not
+emitted. The authorized-reviewer count is the number of distinct reviewer owner
+IDs observed in the validated chain, not the registry size; the review count is
+the number of checkpoint/artifact review pairs.
+`configured_policy_input_provenance` remains `caller_or_deployment_supplied`.
+
+The verifier re-hashes retained evidence for every checkpoint, but it validates
+the exact Citation pack only for the current checkpoint. Historical pack bytes
+are not retained and replayed against each predecessor. Page evidence proves
+that the exact excerpt occurs in the retained text for the attested page
+numbers; the `legal_source_reviewer` role string does not prove reviewer identity
+in v1. In v2, the signed checkpoint binds each artifact review to an opaque
+owner that the signed policy authorizes for that time; missing, outside-window,
+unknown, or effectively revoked reviewers fail closed. That declared window is
+not independent proof of action time. This authenticates a
+configured policy identity assertion, not the human review action or a reviewer
+signature, and it still does not reproducibly prove that page text was derived
+from the raw PDF/source bytes. Those remain bank governance and
+evidence-production gates.
+
+The tracked dataset marks legal currentness `not_verified`, and currentness,
+version-comparison, and amendment-tracking score authorization remain
+unsupported. Do not combine a preflight pass with ordinary benchmark scores to
+claim a release-grade model result.
+
+For production-style benchmark debugging, telemetry requires both
+`BDDK_TELEMETRY_ENABLED=true` and a distinct
+`BDDK_TELEMETRY_DATABASE_URL` backed by the INSERT-only telemetry role.
+Retrieval tools then persist privacy-safe rows in `tool_call_traces` with tool
+name, args hash/summary, latency, result counts, document IDs, quality labels,
+relevance stats, optional `BDDK_TELEMETRY_MODEL_ID`, and optional
+`BDDK_TELEMETRY_SESSION_ID`.

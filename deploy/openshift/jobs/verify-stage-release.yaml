@@ -1,0 +1,91 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bddk-mcp-verify-stage-release-v5-0-1
+  labels:
+    app.kubernetes.io/name: bddk-mcp
+    app.kubernetes.io/component: lifecycle
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: bddk-mcp
+        app.kubernetes.io/component: lifecycle
+    spec:
+      restartPolicy: Never
+      serviceAccountName: bddk-mcp-release-verifier
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: verify-stage-release
+          image: REPLACE_IMAGE_REGISTRY/bddk-mcp@sha256:REPLACE_64_HEX_IMAGE_DIGEST
+          imagePullPolicy: IfNotPresent
+          args:
+            - .venv/bin/bddk-mcp
+            - verify-and-stage-corpus-release
+            - --seed-dir
+            - /var/run/bddk-mcp/corpus
+            - --trusted-signing-key
+            - /var/run/secrets/bddk-mcp/corpus-trust/ed25519-public-key.pem
+          env:
+            - name: BDDK_RELEASE_VERIFIER_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: bddk-mcp-release-verifier-db
+                  key: BDDK_RELEASE_VERIFIER_DATABASE_URL
+            - name: BDDK_RELEASE_VERIFIER_REVISION_SHA256
+              value: REPLACE_RELEASE_VERIFIER_REVISION_SHA256
+            - name: BDDK_RELEASE_VERIFIER_IMAGE_DIGEST
+              value: REPLACE_RELEASE_VERIFIER_IMAGE_DIGEST
+            - name: BDDK_RELEASE_VERIFICATION_VALIDITY_SECONDS
+              value: "900"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: "1"
+              memory: 3Gi
+            limits:
+              cpu: "4"
+              memory: 8Gi
+          volumeMounts:
+            - name: postgres-ca
+              mountPath: /var/run/configmaps/bddk-mcp/postgres
+              readOnly: true
+            - name: runtime-tmp
+              mountPath: /tmp
+            - name: approved-corpus
+              mountPath: /var/run/bddk-mcp/corpus
+              readOnly: true
+            - name: corpus-signing-key
+              mountPath: /var/run/secrets/bddk-mcp/corpus-trust
+              readOnly: true
+      volumes:
+        - name: postgres-ca
+          configMap:
+            name: bddk-mcp-postgres-ca
+            items:
+              - key: ca.crt
+                path: ca.crt
+        - name: runtime-tmp
+          emptyDir:
+            sizeLimit: 1Gi
+        - name: approved-corpus
+          persistentVolumeClaim:
+            claimName: bddk-mcp-approved-corpus
+            readOnly: true
+        - name: corpus-signing-key
+          secret:
+            secretName: bddk-mcp-corpus-trust
+            defaultMode: 0440
+            items:
+              - key: ed25519-public-key.pem
+                path: ed25519-public-key.pem

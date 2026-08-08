@@ -1,0 +1,9 @@
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!LICENSE
+!bddk_mcp/
+!bddk_mcp/**
+!seed_data/
+!seed_data/**

@@ -1,0 +1,7 @@
+prune tests
+prune seed_data
+prune .github
+exclude .env
+exclude .env.*
+exclude docker-compose.yml
+global-exclude __pycache__ *.py[cod]

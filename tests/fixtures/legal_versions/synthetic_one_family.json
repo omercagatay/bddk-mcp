@@ -1,0 +1,316 @@
+{
+  "schema_version": 1,
+  "bundle_id": "family_sha256_2bf3cb15e248f925c58f1de831319051041e00aee5d6e9438b999fc283a2855d",
+  "bundle_sha256": "a91fb7a876c8bccacf9b356b44be97a7def96e181d80de814650387cf8edc9bf",
+  "fixture_only": true,
+  "instrument": {
+    "instrument_id": "inst_sha256_5a986fb3f67a507ae7d2583615f889213b4906aae65bd385248b0ad588becf30",
+    "jurisdiction": "ZZ",
+    "authority_code": "SYNTHETIC_TEST_AUTHORITY",
+    "identity_key": "canonical-version-pilot",
+    "canonical_title": "Synthetic Regulation Family — Not Legal Authority",
+    "instrument_type": "synthetic_test_instrument"
+  },
+  "artifacts": [
+    {
+      "artifact_id": "art_sha256_6b13bd9dd1ee972954d895653be675ac8e7c458393b52ec3a3c58e759e24b6c9",
+      "canonical_uri": "https://example.invalid/synthetic/legal-version-v2",
+      "source_authority": "SYNTHETIC_TEST_AUTHORITY",
+      "media_type": "application/pdf",
+      "retrieved_at": "2026-07-15T00:00:00Z",
+      "repository_document_id": null,
+      "fixture_only": true,
+      "blob_id": "blob_sha256_5a9e4088a21e35d32f9f628cb605c23d97e3e9f2ea3f150dc06f9a8f85bde135"
+    },
+    {
+      "artifact_id": "art_sha256_a93f27df4bad4401b824063a800c44dbb3f78365fd282b2c4035366f7bf691b7",
+      "canonical_uri": "https://example.invalid/synthetic/legal-version-v1",
+      "source_authority": "SYNTHETIC_TEST_AUTHORITY",
+      "media_type": "application/pdf",
+      "retrieved_at": "2026-07-15T00:00:00Z",
+      "repository_document_id": null,
+      "fixture_only": true,
+      "blob_id": "blob_sha256_4dc94980b48d8e1b6c9ee3f173090e15d44fbc0b3dff1d777ddb9ba8dacf0a19"
+    }
+  ],
+  "provisions": [
+    {
+      "provision_id": "prov_sha256_722b80eabf3d585b847c35ec6cc7dac782445c8b9950d6261a87bb0634b8a8f5",
+      "instrument_id": "inst_sha256_5a986fb3f67a507ae7d2583615f889213b4906aae65bd385248b0ad588becf30",
+      "kind": "article",
+      "canonical_path": "article/1"
+    }
+  ],
+  "versions": [
+    {
+      "legal_version_id": "ver_sha256_3a72d7b819d5eb9d3a033e76e9e0da57bec34a1c1439f16e20f468255be7fb65",
+      "instrument_id": "inst_sha256_5a986fb3f67a507ae7d2583615f889213b4906aae65bd385248b0ad588becf30",
+      "version_key": "synthetic-v1",
+      "legal_text_sha256": "333d786d333e6a5ba792c8175172555145f88b7ca2ab69cd848de81104a2a7b8",
+      "source_artifact_ids": [
+        "art_sha256_a93f27df4bad4401b824063a800c44dbb3f78365fd282b2c4035366f7bf691b7"
+      ],
+      "predecessor_version_id": null,
+      "consolidation_state": "original",
+      "validation": {
+        "state": "validated",
+        "validated_by": "synthetic-fixture-reviewer",
+        "validated_at": "2026-07-15T00:00:00Z",
+        "method": "synthetic fixture contract review; not a legal opinion",
+        "review_record_sha256": "d9d7bc5cc02ad2abf0c926f7131ed42e41a5596ec9b87d9cd83b070b497ff299"
+      },
+      "events": {
+        "publication": {
+          "event_id": "event_sha256_093e37132a5a3d7f45cef116480c568a47106f55a27bd6e85dfc677b83393b53",
+          "legal_version_id": "ver_sha256_3a72d7b819d5eb9d3a033e76e9e0da57bec34a1c1439f16e20f468255be7fb65",
+          "event_type": "publication",
+          "event_date": "2024-01-01",
+          "evidence": {
+            "evidence_id": "evid_sha256_371897686d546dce76222bb750825f6297c564df3e5f8067a45d4fa1857391d6",
+            "artifact_id": "art_sha256_a93f27df4bad4401b824063a800c44dbb3f78365fd282b2c4035366f7bf691b7",
+            "locator": "synthetic-metadata/publication",
+            "statement_sha256": "fd744775136d463c3659f0d94fbaae4bbf524a9435890adf938390270f3a6b43",
+            "authority_level": "authoritative"
+          },
+          "validation": {
+            "state": "validated",
+            "validated_by": "synthetic-fixture-reviewer",
+            "validated_at": "2026-07-15T00:00:00Z",
+            "method": "synthetic fixture contract review; not a legal opinion",
+            "review_record_sha256": "d9d7bc5cc02ad2abf0c926f7131ed42e41a5596ec9b87d9cd83b070b497ff299"
+          },
+          "target_legal_version_id": null
+        },
+        "effective": {
+          "event_id": "event_sha256_0e76863568fb9bf9e5061d75d1fb415bd4618a9d670865b4f8716f624a9eb619",
+          "legal_version_id": "ver_sha256_3a72d7b819d5eb9d3a033e76e9e0da57bec34a1c1439f16e20f468255be7fb65",
+          "event_type": "effective",
+          "event_date": "2024-02-01",
+          "evidence": {
+            "evidence_id": "evid_sha256_b8f2fc7dab184729cd2fe0041276a0fa96c53ec52f586496c13cd977bbf30cda",
+            "artifact_id": "art_sha256_a93f27df4bad4401b824063a800c44dbb3f78365fd282b2c4035366f7bf691b7",
+            "locator": "synthetic-metadata/effective",
+            "statement_sha256": "ca919391bc3e2a85a481d55d85028385654cdf218b03d6c781985f5d189a2bb8",
+            "authority_level": "authoritative"
+          },
+          "validation": {
+            "state": "validated",
+            "validated_by": "synthetic-fixture-reviewer",
+            "validated_at": "2026-07-15T00:00:00Z",
+            "method": "synthetic fixture contract review; not a legal opinion",
+            "review_record_sha256": "d9d7bc5cc02ad2abf0c926f7131ed42e41a5596ec9b87d9cd83b070b497ff299"
+          },
+          "target_legal_version_id": null
+        },
+        "expiry": null,
+        "repeal": null,
+        "supersession": {
+          "event_id": "event_sha256_25400bb77613853f47959c8fdfac8b8fa07a5f5abd2b5cf1fa83970d5071db62",
+          "legal_version_id": "ver_sha256_3a72d7b819d5eb9d3a033e76e9e0da57bec34a1c1439f16e20f468255be7fb65",
+          "event_type": "supersession",
+          "event_date": "2025-01-01",
+          "evidence": {
+            "evidence_id": "evid_sha256_0de676d4830b766a984804765395e2f2bbcafc6fbcda4ef03034b2386088603e",
+            "artifact_id": "art_sha256_a93f27df4bad4401b824063a800c44dbb3f78365fd282b2c4035366f7bf691b7",
+            "locator": "synthetic-metadata/supersession",
+            "statement_sha256": "f3f3d3d6f05543e2018aeb0b39aba35bf7cf92b06a7e23eacaf15d52b1aaa678",
+            "authority_level": "authoritative"
+          },
+          "validation": {
+            "state": "validated",
+            "validated_by": "synthetic-fixture-reviewer",
+            "validated_at": "2026-07-15T00:00:00Z",
+            "method": "synthetic fixture contract review; not a legal opinion",
+            "review_record_sha256": "d9d7bc5cc02ad2abf0c926f7131ed42e41a5596ec9b87d9cd83b070b497ff299"
+          },
+          "target_legal_version_id": "ver_sha256_bb96cbf44888fdf8f7573015f4506a021ae2aca808661b6c69671dd844c36909"
+        },
+        "consolidation": {
+          "event_id": "event_sha256_a1b12a8469e10ee5cdb786c2ff0565f381602753ccfb40f710288bc6fa04dd45",
+          "legal_version_id": "ver_sha256_3a72d7b819d5eb9d3a033e76e9e0da57bec34a1c1439f16e20f468255be7fb65",
+          "event_type": "consolidation",
+          "event_date": "2024-01-01",
+          "evidence": {
+            "evidence_id": "evid_sha256_5c0701cde95ee7f1245016c7c007b34974165ddf90bf05d84a8a58eb72bd8e62",
+            "artifact_id": "art_sha256_a93f27df4bad4401b824063a800c44dbb3f78365fd282b2c4035366f7bf691b7",
+            "locator": "synthetic-metadata/form",
+            "statement_sha256": "18d5713de578e6edc8c539621814965eaf32af1b2b03b432b7a669d0f17df581",
+            "authority_level": "authoritative"
+          },
+          "validation": {
+            "state": "validated",
+            "validated_by": "synthetic-fixture-reviewer",
+            "validated_at": "2026-07-15T00:00:00Z",
+            "method": "synthetic fixture contract review; not a legal opinion",
+            "review_record_sha256": "d9d7bc5cc02ad2abf0c926f7131ed42e41a5596ec9b87d9cd83b070b497ff299"
+          },
+          "target_legal_version_id": null
+        }
+      },
+      "status_assertions": [
+        {
+          "assertion_id": "status_sha256_2d7e400f72763e420e65f46bcf24ef378cd6705c9c49fd6bff3741cd512a08f1",
+          "legal_version_id": "ver_sha256_3a72d7b819d5eb9d3a033e76e9e0da57bec34a1c1439f16e20f468255be7fb65",
+          "status": "effective",
+          "valid_from": "2024-02-01",
+          "valid_through": "2024-12-31",
+          "evidence": {
+            "evidence_id": "evid_sha256_b0d8c0c83ab402453bd676ec7994c89314f896d08c6ae8e436fd264a77e22a2a",
+            "artifact_id": "art_sha256_a93f27df4bad4401b824063a800c44dbb3f78365fd282b2c4035366f7bf691b7",
+            "locator": "synthetic-status/2024",
+            "statement_sha256": "edf788380ddbc57514d58e2584dd5cbd48bee1685113e3a6b127bee5ab3d1784",
+            "authority_level": "authoritative"
+          },
+          "validation": {
+            "state": "validated",
+            "validated_by": "synthetic-fixture-reviewer",
+            "validated_at": "2026-07-15T00:00:00Z",
+            "method": "synthetic fixture contract review; not a legal opinion",
+            "review_record_sha256": "d9d7bc5cc02ad2abf0c926f7131ed42e41a5596ec9b87d9cd83b070b497ff299"
+          }
+        }
+      ],
+      "provisions": [
+        {
+          "provision_id": "prov_sha256_722b80eabf3d585b847c35ec6cc7dac782445c8b9950d6261a87bb0634b8a8f5",
+          "legal_version_id": "ver_sha256_3a72d7b819d5eb9d3a033e76e9e0da57bec34a1c1439f16e20f468255be7fb65",
+          "provision_text_sha256": "84eb90afc040262b0c872f4bb2016693f25dc5df3c0f828f9bd6203670471514",
+          "document_section_id": null,
+          "evidence": {
+            "evidence_id": "evid_sha256_86eb398b88dab377ac775104356581637336d05808f7c4de9b888cb4781ebfd7",
+            "artifact_id": "art_sha256_a93f27df4bad4401b824063a800c44dbb3f78365fd282b2c4035366f7bf691b7",
+            "locator": "normalized/article/1",
+            "statement_sha256": "84eb90afc040262b0c872f4bb2016693f25dc5df3c0f828f9bd6203670471514",
+            "authority_level": "authoritative"
+          },
+          "validation": {
+            "state": "validated",
+            "validated_by": "synthetic-fixture-reviewer",
+            "validated_at": "2026-07-15T00:00:00Z",
+            "method": "synthetic fixture contract review; not a legal opinion",
+            "review_record_sha256": "d9d7bc5cc02ad2abf0c926f7131ed42e41a5596ec9b87d9cd83b070b497ff299"
+          }
+        }
+      ]
+    },
+    {
+      "legal_version_id": "ver_sha256_bb96cbf44888fdf8f7573015f4506a021ae2aca808661b6c69671dd844c36909",
+      "instrument_id": "inst_sha256_5a986fb3f67a507ae7d2583615f889213b4906aae65bd385248b0ad588becf30",
+      "version_key": "synthetic-v2",
+      "legal_text_sha256": "1765d66c748ab3ff38fb8c7b0d2f3a69a03b71c5f5185b5118ffe65d6ddefba9",
+      "source_artifact_ids": [
+        "art_sha256_6b13bd9dd1ee972954d895653be675ac8e7c458393b52ec3a3c58e759e24b6c9"
+      ],
+      "predecessor_version_id": "ver_sha256_3a72d7b819d5eb9d3a033e76e9e0da57bec34a1c1439f16e20f468255be7fb65",
+      "consolidation_state": "amendment",
+      "validation": {
+        "state": "unvalidated",
+        "validated_by": null,
+        "validated_at": null,
+        "method": null,
+        "review_record_sha256": null
+      },
+      "events": {
+        "publication": {
+          "event_id": "event_sha256_341785e0276935cff5e14bc43fe65c6cfe155eb20190ed0beb0a4edbed1f5910",
+          "legal_version_id": "ver_sha256_bb96cbf44888fdf8f7573015f4506a021ae2aca808661b6c69671dd844c36909",
+          "event_type": "publication",
+          "event_date": "2025-01-01",
+          "evidence": {
+            "evidence_id": "evid_sha256_b4854630cdcefb2e59e50c64dad4596d55b257380290f9ecf912a22a054a662c",
+            "artifact_id": "art_sha256_6b13bd9dd1ee972954d895653be675ac8e7c458393b52ec3a3c58e759e24b6c9",
+            "locator": "synthetic-metadata/publication",
+            "statement_sha256": "6bd21d580ee2d5cf0fac5672a70b2def35b9a5ad0c6b5b71ad8da20df389409d",
+            "authority_level": "repository_fixture"
+          },
+          "validation": {
+            "state": "unvalidated",
+            "validated_by": null,
+            "validated_at": null,
+            "method": null,
+            "review_record_sha256": null
+          },
+          "target_legal_version_id": null
+        },
+        "effective": {
+          "event_id": "event_sha256_d67f362465f7cffdab98881fa0f7e6adcbdfb9b0ab033e3b0fcc01b49c6b4db0",
+          "legal_version_id": "ver_sha256_bb96cbf44888fdf8f7573015f4506a021ae2aca808661b6c69671dd844c36909",
+          "event_type": "effective",
+          "event_date": "2025-01-01",
+          "evidence": {
+            "evidence_id": "evid_sha256_3d7016e1806342cfb2cdcabb266a56ada9342b00cf530ae561577e174f11f2be",
+            "artifact_id": "art_sha256_6b13bd9dd1ee972954d895653be675ac8e7c458393b52ec3a3c58e759e24b6c9",
+            "locator": "synthetic-metadata/effective",
+            "statement_sha256": "ec537ca609e73be0aee385f254e3ac9a4587f3e606c6e21ed262573b625f9940",
+            "authority_level": "repository_fixture"
+          },
+          "validation": {
+            "state": "unvalidated",
+            "validated_by": null,
+            "validated_at": null,
+            "method": null,
+            "review_record_sha256": null
+          },
+          "target_legal_version_id": null
+        },
+        "expiry": null,
+        "repeal": null,
+        "supersession": null,
+        "consolidation": {
+          "event_id": "event_sha256_20138a6b63c68d1574dc1c374c4e3b133fe0519821a93de89db0dbf6144bd8f3",
+          "legal_version_id": "ver_sha256_bb96cbf44888fdf8f7573015f4506a021ae2aca808661b6c69671dd844c36909",
+          "event_type": "consolidation",
+          "event_date": "2025-01-01",
+          "evidence": {
+            "evidence_id": "evid_sha256_28a5dec9bf8405c74d50089af8034dc65e6b05be2b72b2e03ff83779ec89d004",
+            "artifact_id": "art_sha256_6b13bd9dd1ee972954d895653be675ac8e7c458393b52ec3a3c58e759e24b6c9",
+            "locator": "synthetic-metadata/form",
+            "statement_sha256": "d2f3ed970463a6649a774bd69276487a9485e4070780b65f6f02fb15a4d21d9d",
+            "authority_level": "repository_fixture"
+          },
+          "validation": {
+            "state": "unvalidated",
+            "validated_by": null,
+            "validated_at": null,
+            "method": null,
+            "review_record_sha256": null
+          },
+          "target_legal_version_id": null
+        }
+      },
+      "status_assertions": [],
+      "provisions": [
+        {
+          "provision_id": "prov_sha256_722b80eabf3d585b847c35ec6cc7dac782445c8b9950d6261a87bb0634b8a8f5",
+          "legal_version_id": "ver_sha256_bb96cbf44888fdf8f7573015f4506a021ae2aca808661b6c69671dd844c36909",
+          "provision_text_sha256": "619ae68c09d2ca4e1d28e9286c227baf7607c80888e2cea53c347b12fb4748b3",
+          "document_section_id": null,
+          "evidence": {
+            "evidence_id": "evid_sha256_f72808a045a7a574c1d485c78bd245c8cdc44d1a7bc6e4472d3c237c35b2033b",
+            "artifact_id": "art_sha256_6b13bd9dd1ee972954d895653be675ac8e7c458393b52ec3a3c58e759e24b6c9",
+            "locator": "normalized/article/1",
+            "statement_sha256": "619ae68c09d2ca4e1d28e9286c227baf7607c80888e2cea53c347b12fb4748b3",
+            "authority_level": "repository_fixture"
+          },
+          "validation": {
+            "state": "unvalidated",
+            "validated_by": null,
+            "validated_at": null,
+            "method": null,
+            "review_record_sha256": null
+          }
+        }
+      ]
+    }
+  ],
+  "blobs": [
+    {
+      "blob_id": "blob_sha256_4dc94980b48d8e1b6c9ee3f173090e15d44fbc0b3dff1d777ddb9ba8dacf0a19",
+      "content_sha256": "79db11d417c0a22d04405c67e1b32bc704af110992cedb7ca809256952a3b0f8"
+    },
+    {
+      "blob_id": "blob_sha256_5a9e4088a21e35d32f9f628cb605c23d97e3e9f2ea3f150dc06f9a8f85bde135",
+      "content_sha256": "c11c1595cb9b8e685a47e3da47c238abd5e17347c9749f9fbc64e6cbcc76d4f7"
+    }
+  ]
+}

@@ -3,6 +3,8 @@
 import json
 import logging
 
+import pytest
+
 from bddk_mcp.core.exceptions import (
     BddkError,
     BddkStorageError,
@@ -12,6 +14,7 @@ from bddk_mcp.core.logging_config import (
     HumanFormatter,
     JsonFormatter,
     configure_logging,
+    correlation_scope,
     get_correlation_id,
     set_correlation_id,
 )
@@ -46,6 +49,20 @@ class TestCorrelationId:
         set_correlation_id("test123")
         assert get_correlation_id() == "test123"
         set_correlation_id("")  # cleanup
+
+    def test_scope_is_unique_and_restores_parent(self):
+        set_correlation_id("parent")
+        with correlation_scope() as first:
+            assert get_correlation_id() == first
+            assert first != "parent"
+        assert get_correlation_id() == "parent"
+        set_correlation_id("")
+
+    @pytest.mark.parametrize("value", ["", "contains space", "line\nbreak", "x" * 65])
+    def test_scope_rejects_unsafe_explicit_ids(self, value):
+        with pytest.raises(ValueError, match="safe identifier"):
+            with correlation_scope(value):
+                pass
 
 
 class TestJsonFormatter:
@@ -95,23 +112,25 @@ class TestJsonFormatter:
         )
         record.operation = "mcp_tool_call"
         record.tool_name = "search_document_store"
-        record.tool_args = {"query": "teminat", "limit": 3}
+        record.tool_status = "success"
+        record.argument_count = 2
+        record.tool_args = {"query": {"value_type": "str", "char_count": 7}, "limit": 3}
         record.duration_ms = 12.4
         record.result_type = "str"
         record.result_size = 512
-        record.result_preview_chars = 200
-        record.result_preview = "Found 3 result(s)..."
 
         parsed = json.loads(formatter.format(record))
 
         assert parsed["operation"] == "mcp_tool_call"
         assert parsed["tool_name"] == "search_document_store"
-        assert parsed["tool_args"] == {"query": "teminat", "limit": 3}
+        assert parsed["tool_status"] == "success"
+        assert parsed["argument_count"] == 2
+        assert parsed["tool_args"] == {"query": {"value_type": "str", "char_count": 7}, "limit": 3}
         assert parsed["duration_ms"] == 12.4
         assert parsed["result_type"] == "str"
         assert parsed["result_size"] == 512
-        assert parsed["result_preview_chars"] == 200
-        assert parsed["result_preview"] == "Found 3 result(s)..."
+        assert "result_preview_chars" not in parsed
+        assert "result_preview" not in parsed
 
 
 class TestConfigureLogging:
@@ -127,4 +146,13 @@ class TestConfigureLogging:
         assert len(root.handlers) == 1
         assert isinstance(root.handlers[0].formatter, JsonFormatter)
         # Restore human for other tests
+        configure_logging(json_output=False)
+
+    def test_content_logging_opt_in_emits_confidentiality_warning(self, monkeypatch, capsys):
+        monkeypatch.setenv("BDDK_TOOL_LOG_CONTENT", "true")
+
+        configure_logging(json_output=False)
+
+        assert "may contain confidential queries" in capsys.readouterr().err
+        monkeypatch.delenv("BDDK_TOOL_LOG_CONTENT")
         configure_logging(json_output=False)

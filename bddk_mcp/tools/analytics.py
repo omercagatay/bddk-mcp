@@ -8,7 +8,18 @@ from typing import TYPE_CHECKING
 from bddk_mcp.core.config import ANNOUNCEMENT_CATEGORY_IDS, validate_column, validate_currency, validate_metric_id
 from bddk_mcp.ingest.data_sources import fetch_announcements
 from bddk_mcp.observability.analytics import analyze_trends, build_digest, check_updates, compare_metrics
+from bddk_mcp.tools.contract_types import (
+    BulletinColumn,
+    HistoryDays,
+    LookbackWeeks,
+    MetricId,
+    MetricIdList,
+    RegulatoryPeriod,
+    WeeklyCurrency,
+    parse_metric_ids,
+)
 from bddk_mcp.tools.errors import INVALID_INPUT, UPSTREAM_FETCH_FAILED, tool_error
+from bddk_mcp.tools.structured_outputs import frame_untrusted_source
 from bddk_mcp.tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
@@ -17,16 +28,16 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def register(mcp, deps: Dependencies) -> None:
-    """Register analytics tools on the given MCP instance."""
+def register(mcp, deps: Dependencies, *, include_operator: bool = False) -> None:
+    """Register public analytics and, when requested, stateful monitoring."""
 
     @mcp.tool()
     @logged_tool(logger)
     async def analyze_bulletin_trends(
-        metric_id: str = "1.0.1",
-        currency: str = "TRY",
-        column: str = "1",
-        lookback_weeks: int = 12,
+        metric_id: MetricId = "1.0.1",
+        currency: WeeklyCurrency = "TRY",
+        column: BulletinColumn = "1",
+        lookback_weeks: LookbackWeeks = 12,
     ) -> str:
         """
         Analyze trends in BDDK weekly bulletin data with week-over-week changes.
@@ -45,15 +56,15 @@ def register(mcp, deps: Dependencies) -> None:
             validate_metric_id(metric_id)
             validate_currency(currency, "weekly")
             validate_column(column)
-        except ValueError as e:
-            return tool_error(INVALID_INPUT, f"Validation error: {e}", retryable=False)
+        except ValueError:
+            return tool_error(INVALID_INPUT, "One or more trend parameters are invalid.", retryable=False)
 
         result = await analyze_trends(deps.http, metric_id, currency, column, lookback_weeks)
 
         if "error" in result:
             return tool_error(
                 UPSTREAM_FETCH_FAILED,
-                f"Error analyzing trends: {result['error']}",
+                "BDDK trend data could not be analyzed because the upstream request failed.",
                 retryable=True,
                 hint="BDDK upstream may be temporarily unavailable; retry later.",
             )
@@ -69,12 +80,12 @@ def register(mcp, deps: Dependencies) -> None:
         lines.append(f"  Dönem max: {result['max']:,.2f} ({result['max_date']})")
         lines.append(f"  Trend: {result['trend_direction']}")
         lines.append(f"  Veri noktası: {result['data_points']}")
-        return "\n".join(lines)
+        return frame_untrusted_source("\n".join(lines))
 
     @mcp.tool()
     @logged_tool(logger)
     async def get_regulatory_digest(
-        period: str = "month",
+        period: RegulatoryPeriod = "month",
     ) -> str:
         """
         Get a digest of recent BDDK regulatory changes.
@@ -86,7 +97,9 @@ def register(mcp, deps: Dependencies) -> None:
             period: Time period -- day (last 24 hours), week (7 days), month (30 days), quarter (90 days)
         """
         period_map = {"day": 1, "week": 7, "month": 30, "quarter": 90}
-        days = period_map.get(period, 30)
+        if period not in period_map:
+            return tool_error(INVALID_INPUT, "Unsupported digest period.", retryable=False)
+        days = period_map[period]
 
         await deps.client.ensure_cache()
 
@@ -117,15 +130,15 @@ def register(mcp, deps: Dependencies) -> None:
             for r in digest["bulletin_snapshot"]:
                 lines.append(f"  {r['name']}: TP={r['tp']}, YP={r['yp']}")
 
-        return "\n".join(lines)
+        return frame_untrusted_source("\n".join(lines))
 
     @mcp.tool()
     @logged_tool(logger)
     async def compare_bulletin_metrics(
-        metric_ids: str = "1.0.1,1.0.2",
-        currency: str = "TRY",
-        column: str = "1",
-        days: int = 90,
+        metric_ids: MetricIdList = "1.0.1,1.0.2",
+        currency: WeeklyCurrency = "TRY",
+        column: BulletinColumn = "1",
+        days: HistoryDays = 90,
     ) -> str:
         """
         Compare multiple BDDK bulletin metrics side-by-side.
@@ -138,17 +151,15 @@ def register(mcp, deps: Dependencies) -> None:
             column: 1=TP, 2=YP, 3=Toplam
             days: Days of history (default 90)
         """
-        ids = [m.strip() for m in metric_ids.split(",") if m.strip()]
-        if not ids:
-            return tool_error(INVALID_INPUT, "Please provide at least one metric ID.", retryable=False)
+        ids = parse_metric_ids(metric_ids)
 
         try:
             for mid in ids:
                 validate_metric_id(mid)
             validate_currency(currency, "weekly")
             validate_column(column)
-        except ValueError as e:
-            return tool_error(INVALID_INPUT, f"Validation error: {e}", retryable=False)
+        except ValueError:
+            return tool_error(INVALID_INPUT, "One or more comparison parameters are invalid.", retryable=False)
 
         result = await compare_metrics(deps.http, ids, currency, column, days)
 
@@ -164,7 +175,10 @@ def register(mcp, deps: Dependencies) -> None:
             else:
                 lines.append(f"{m['title'][:55]:<55} {m['current']:>15,.2f} {m['wow_pct']:>+11.2f}%")
 
-        return "\n".join(lines)
+        return frame_untrusted_source("\n".join(lines))
+
+    if not include_operator:
+        return
 
     @mcp.tool()
     @logged_tool(logger)
@@ -197,4 +211,4 @@ def register(mcp, deps: Dependencies) -> None:
             lines.append(f"  - {a['title']} ({date})")
             if a.get("url"):
                 lines.append(f"    {a['url']}")
-        return "\n".join(lines)
+        return frame_untrusted_source("\n".join(lines))

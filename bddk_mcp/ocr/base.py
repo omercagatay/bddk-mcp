@@ -95,8 +95,11 @@ def _run_markitdown(pdf_bytes: bytes) -> str | None:
         result = md.convert_stream(io.BytesIO(pdf_bytes), file_extension=".pdf")
         text = result.text_content.strip()
         return text if text else None
-    except (ValueError, OSError, UnicodeDecodeError) as e:
-        logger.warning("markitdown extraction failed: %s", e)
+    except (ValueError, OSError, UnicodeDecodeError) as exc:
+        logger.warning(
+            "Markitdown extraction failed",
+            extra={"error_type": type(exc).__name__},
+        )
         return None
 
 
@@ -140,12 +143,21 @@ def _run_pdftotext(pdf_bytes: bytes) -> str | None:
                 check=False,
             )
         if proc.returncode != 0:
-            logger.warning("pdftotext extraction failed: %s", proc.stderr.strip())
+            # Poppler can echo the input filename, document metadata, or
+            # malformed source fragments to stderr.  The exit status is enough
+            # for operational diagnosis without crossing that privacy boundary.
+            logger.warning(
+                "pdftotext extraction returned a non-zero status",
+                extra={"error_type": "PdftotextProcessError"},
+            )
             return None
         text = proc.stdout.strip()
         return text if text else None
-    except (OSError, subprocess.TimeoutExpired, UnicodeDecodeError) as e:
-        logger.warning("pdftotext extraction failed: %s", e)
+    except (OSError, subprocess.TimeoutExpired, UnicodeDecodeError) as exc:
+        logger.warning(
+            "pdftotext extraction failed",
+            extra={"error_type": type(exc).__name__},
+        )
         return None
 
 
@@ -207,7 +219,13 @@ class LightOCRBackend:
         source = self._model_path or self._model_name
         device = "cuda" if self._device_pref == "auto" and torch.cuda.is_available() else self._device_pref
 
-        logger.info("Loading LightOnOCR from %s onto %s", source, device)
+        model_source = "local" if self._model_path else "remote"
+        accelerator = "cuda" if str(device).lower().startswith("cuda") else "cpu"
+        logger.info(
+            "Loading LightOnOCR model (%s source, %s execution)",
+            model_source,
+            accelerator,
+        )
         processor = AutoProcessor.from_pretrained(source, trust_remote_code=True)
         model_obj = LightOnOcrForConditionalGeneration.from_pretrained(
             source,
@@ -267,8 +285,11 @@ class LightOCRBackend:
             if self._model is None:
                 self._model = self._load_model()
             return self._model.generate_markdown(pdf_bytes)
-        except Exception as e:
-            logger.warning("LightOCR extraction failed: %s", e)
+        except Exception as exc:
+            logger.warning(
+                "LightOCR extraction failed",
+                extra={"error_type": type(exc).__name__},
+            )
             return None
 
 
@@ -282,16 +303,25 @@ def run_extraction_chain(
     Returns ExtractionAttempt(backend="failed", error=...) if all fail.
     """
     errors: list[str] = []
-    for backend in backends:
+    for backend_index, backend in enumerate(backends, 1):
         if not backend.is_available():
-            logger.debug("backend=%s unavailable, skipping", backend.name)
+            logger.debug(
+                "OCR backend unavailable; skipping (position=%d/%d)",
+                backend_index,
+                len(backends),
+            )
             errors.append(f"{backend.name}: unavailable")
             continue
         try:
             result = backend.extract(pdf_bytes)
-        except Exception as e:
-            logger.warning("backend=%s raised: %s", backend.name, e)
-            errors.append(f"{backend.name}: {type(e).__name__}: {e}")
+        except Exception as exc:
+            logger.warning(
+                "OCR backend raised during extraction (position=%d/%d)",
+                backend_index,
+                len(backends),
+                extra={"error_type": type(exc).__name__},
+            )
+            errors.append(f"{backend.name}: {type(exc).__name__}: {exc}")
             continue
 
         if result is None:
@@ -302,7 +332,12 @@ def run_extraction_chain(
             errors.append(f"{backend.name}: {reason}")
             continue
 
-        logger.info("backend=%s succeeded, chars=%d", backend.name, len(result))
+        logger.info(
+            "OCR backend succeeded (position=%d/%d, chars=%d)",
+            backend_index,
+            len(backends),
+            len(result),
+        )
         return ExtractionAttempt(backend=backend.name, content=result)
 
     return ExtractionAttempt(

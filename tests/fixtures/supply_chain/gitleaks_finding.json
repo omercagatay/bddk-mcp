@@ -1,0 +1,9 @@
+[
+  {
+    "RuleID": "deliberate-test-rule",
+    "Fingerprint": "fixture-commit:fixture.txt:deliberate-test-rule:1",
+    "File": "fixture.txt",
+    "StartLine": 1,
+    "Secret": "REDACTED"
+  }
+]

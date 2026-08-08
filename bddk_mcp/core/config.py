@@ -4,8 +4,75 @@ All tunable constants in one place. Values can be overridden via environment
 variables (prefixed with BDDK_).
 """
 
+import math
 import os
+import re
 from pathlib import Path
+
+
+def _environment_bool(name: str, *, default: bool) -> bool:
+    """Parse one explicit boolean without silently treating typos as false."""
+
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes"}:
+        return True
+    if normalized in {"0", "false", "no"}:
+        return False
+    raise RuntimeError(f"{name} must be one of true, false, 1, 0, yes, or no.")
+
+
+def _environment_int(
+    name: str,
+    *,
+    default: int,
+    minimum: int,
+    maximum: int,
+) -> int:
+    """Parse a bounded integer and return a stable, value-free error."""
+
+    try:
+        value = int(os.environ.get(name, str(default)))
+    except (TypeError, ValueError):
+        raise RuntimeError(f"{name} must be an integer between {minimum} and {maximum}.") from None
+    if not minimum <= value <= maximum:
+        raise RuntimeError(f"{name} must be an integer between {minimum} and {maximum}.")
+    return value
+
+
+def _environment_float(
+    name: str,
+    *,
+    default: float,
+    minimum: float,
+    maximum: float,
+    minimum_inclusive: bool = True,
+) -> float:
+    """Parse a finite bounded float and return a stable, value-free error."""
+
+    try:
+        value = float(os.environ.get(name, str(default)))
+    except (TypeError, ValueError):
+        comparator = "between" if minimum_inclusive else "greater than"
+        raise RuntimeError(f"{name} must be finite and {comparator} the configured bounds.") from None
+    lower_bound_ok = value >= minimum if minimum_inclusive else value > minimum
+    if not math.isfinite(value) or not lower_bound_ok or value > maximum:
+        comparator = "between" if minimum_inclusive else "greater than"
+        raise RuntimeError(f"{name} must be finite and {comparator} the configured bounds.")
+    return value
+
+
+def _environment_choice(name: str, *, default: str, choices: frozenset[str]) -> str:
+    """Parse one lowercase closed-set value without reflecting its contents."""
+
+    value = os.environ.get(name, default).strip().lower()
+    if value not in choices:
+        allowed = ", ".join(sorted(choices))
+        raise RuntimeError(f"{name} must be one of: {allowed}.")
+    return value
+
 
 # -- Paths --------------------------------------------------------------------
 
@@ -13,29 +80,120 @@ BASE_DIR = Path(__file__).parent
 # -- PostgreSQL ---------------------------------------------------------------
 
 DATABASE_URL = os.environ.get("BDDK_DATABASE_URL", "")
+OPERATOR_DATABASE_URL = os.environ.get("BDDK_OPERATOR_DATABASE_URL", "")
+SCHEMA_OWNER_DATABASE_URL = os.environ.get("BDDK_SCHEMA_OWNER_DATABASE_URL", "")
+INGESTION_DATABASE_URL = os.environ.get("BDDK_INGESTION_DATABASE_URL", "")
+RELEASE_PUBLISHER_DATABASE_URL = os.environ.get("BDDK_RELEASE_PUBLISHER_DATABASE_URL", "")
+RELEASE_VERIFIER_DATABASE_URL = os.environ.get("BDDK_RELEASE_VERIFIER_DATABASE_URL", "")
+RELEASE_VERIFIER_REVISION_SHA256 = os.environ.get("BDDK_RELEASE_VERIFIER_REVISION_SHA256", "").strip()
+RELEASE_VERIFIER_IMAGE_DIGEST = os.environ.get("BDDK_RELEASE_VERIFIER_IMAGE_DIGEST", "").strip()
+RELEASE_VERIFICATION_VALIDITY_SECONDS = _environment_int(
+    "BDDK_RELEASE_VERIFICATION_VALIDITY_SECONDS",
+    default=900,
+    minimum=60,
+    maximum=3600,
+)
+EXPECTED_DATABASE_NAME = os.environ.get("BDDK_EXPECTED_DATABASE_NAME", "").strip()
+_DATABASE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$")
 
 
-def require_database_url() -> str:
-    """Return BDDK_DATABASE_URL or raise with a friendly remediation message.
+def require_expected_database_name() -> str:
+    """Return the independently configured lifecycle target database name."""
+
+    if not EXPECTED_DATABASE_NAME:
+        raise RuntimeError(
+            "BDDK_EXPECTED_DATABASE_NAME is required for database lifecycle operations. "
+            "Set it independently from the connection URL to guard against a wrong-database deployment."
+        )
+    if not _DATABASE_NAME_RE.fullmatch(EXPECTED_DATABASE_NAME):
+        raise RuntimeError(
+            "BDDK_EXPECTED_DATABASE_NAME must be 1-63 characters using only letters, digits, '.', '_' or '-'."
+        )
+    return EXPECTED_DATABASE_NAME
+
+
+def require_database_url(profile: str = "public") -> str:
+    """Return the database URL assigned to one process profile.
 
     Call this at the start of any entry point (server, seed CLI, doc_sync CLI)
-    that needs to open a pool, instead of passing DATABASE_URL directly to
-    asyncpg. An unset env var then fails loudly at the boundary with a
-    message the operator can act on, rather than surfacing later as an
-    opaque asyncpg error.
+    that needs to open a pool.  Public serving uses ``BDDK_DATABASE_URL``;
+    operator serving must use the separately provisioned
+    ``BDDK_OPERATOR_DATABASE_URL`` so enabling mutation tools cannot silently
+    reuse the public runtime identity.
     """
-    if not DATABASE_URL:
+    normalized = profile.strip().lower()
+    if normalized == "public":
+        variable = "BDDK_DATABASE_URL"
+        dsn = DATABASE_URL
+    elif normalized == "operator":
+        variable = "BDDK_OPERATOR_DATABASE_URL"
+        dsn = OPERATOR_DATABASE_URL
+    elif normalized == "schema-owner":
+        variable = "BDDK_SCHEMA_OWNER_DATABASE_URL"
+        dsn = SCHEMA_OWNER_DATABASE_URL
+    elif normalized == "ingestion":
+        variable = "BDDK_INGESTION_DATABASE_URL"
+        dsn = INGESTION_DATABASE_URL
+    elif normalized == "release-publisher":
+        variable = "BDDK_RELEASE_PUBLISHER_DATABASE_URL"
+        dsn = RELEASE_PUBLISHER_DATABASE_URL
+    elif normalized == "release-verifier":
+        variable = "BDDK_RELEASE_VERIFIER_DATABASE_URL"
+        dsn = RELEASE_VERIFIER_DATABASE_URL
+    else:
         raise RuntimeError(
-            "BDDK_DATABASE_URL is not set. Copy .env.example to .env and "
-            "set a PostgreSQL DSN, or run `docker-compose up` which sets "
-            "it automatically."
+            f"Unknown database profile {profile!r}; expected public, operator, schema-owner, ingestion, "
+            "release-verifier, or release-publisher"
         )
-    return DATABASE_URL
+
+    if not dsn:
+        raise RuntimeError(
+            f"{variable} is not set for the {normalized} process profile. "
+            "Provision a PostgreSQL DSN with the least-privileged role for "
+            "that profile before starting the server."
+        )
+    if normalized == "operator" and DATABASE_URL and dsn == DATABASE_URL:
+        raise RuntimeError(
+            "BDDK_OPERATOR_DATABASE_URL must not reuse BDDK_DATABASE_URL. "
+            "Provision a distinct least-privileged operator database identity."
+        )
+    if normalized in {"schema-owner", "ingestion", "release-verifier", "release-publisher"}:
+        other_identities = {
+            name: value
+            for name, value in {
+                "BDDK_DATABASE_URL": DATABASE_URL,
+                "BDDK_OPERATOR_DATABASE_URL": OPERATOR_DATABASE_URL,
+                "BDDK_SCHEMA_OWNER_DATABASE_URL": SCHEMA_OWNER_DATABASE_URL,
+                "BDDK_INGESTION_DATABASE_URL": INGESTION_DATABASE_URL,
+                "BDDK_RELEASE_VERIFIER_DATABASE_URL": RELEASE_VERIFIER_DATABASE_URL,
+                "BDDK_RELEASE_PUBLISHER_DATABASE_URL": RELEASE_PUBLISHER_DATABASE_URL,
+            }.items()
+            if value and name != variable
+        }
+        reused = next((name for name, value in other_identities.items() if value == dsn), None)
+        if reused is not None:
+            raise RuntimeError(
+                f"{variable} must not reuse {reused}. Provision a distinct database identity for each lifecycle plane."
+            )
+    from bddk_mcp.db_transport import assert_database_transport
+
+    return assert_database_transport(dsn)
 
 
 # asyncpg pool settings
-PG_POOL_MIN = int(os.environ.get("BDDK_PG_POOL_MIN", "2"))
-PG_POOL_MAX = int(os.environ.get("BDDK_PG_POOL_MAX", "10"))
+PG_POOL_MIN = _environment_int("BDDK_PG_POOL_MIN", default=2, minimum=1, maximum=100)
+PG_POOL_MAX = _environment_int("BDDK_PG_POOL_MAX", default=10, minimum=1, maximum=1000)
+if PG_POOL_MIN > PG_POOL_MAX:
+    raise RuntimeError("BDDK_PG_POOL_MIN must not exceed BDDK_PG_POOL_MAX.")
+
+
+# Local research can explicitly operate without a signed release identity.
+# Bank/OpenShift profiles set this true so serving readiness requires the
+# strict bootstrap activation recorded by migration v0005.
+REQUIRE_ACTIVE_CORPUS_RELEASE = _environment_bool(
+    "BDDK_REQUIRE_ACTIVE_CORPUS_RELEASE",
+    default=False,
+)
 
 # -- Embedding model (offline-first) -----------------------------------------
 
@@ -43,7 +201,11 @@ PG_POOL_MAX = int(os.environ.get("BDDK_PG_POOL_MAX", "10"))
 # from this local path instead of downloading from Hugging Face.
 EMBEDDING_MODEL_PATH = os.environ.get("BDDK_EMBEDDING_MODEL_PATH", "")
 EMBEDDING_MODEL_NAME = os.environ.get("BDDK_EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
-EMBEDDING_MODEL_REVISION = "d4210e50c0"  # v1.0.0 stable
+_DEFAULT_EMBEDDING_MODEL_REVISION = "d13f1b27baf31030b7fd040960d60d909913633f"
+EMBEDDING_MODEL_REVISION = os.environ.get(
+    "BDDK_EMBEDDING_MODEL_REVISION",
+    _DEFAULT_EMBEDDING_MODEL_REVISION if EMBEDDING_MODEL_NAME == "intfloat/multilingual-e5-base" else "",
+)
 
 # -- OCR extraction backends -------------------------------------------------
 
@@ -52,10 +214,19 @@ LIGHTOCR_MODEL_PATH = os.environ.get("BDDK_LIGHTOCR_MODEL_PATH", "")
 LIGHTOCR_MODEL_NAME = os.environ.get("BDDK_LIGHTOCR_MODEL", "lightonai/LightOnOCR-2-1B")
 
 # Device: auto | cuda | cpu
-LIGHTOCR_DEVICE = os.environ.get("BDDK_LIGHTOCR_DEVICE", "auto")
+LIGHTOCR_DEVICE = _environment_choice(
+    "BDDK_LIGHTOCR_DEVICE",
+    default="auto",
+    choices=frozenset({"auto", "cpu", "cuda"}),
+)
 
 # Minimum extracted character count to accept a backend's output
-OCR_MIN_CONTENT_LEN = int(os.environ.get("BDDK_OCR_MIN_CONTENT_LEN", "500"))
+OCR_MIN_CONTENT_LEN = _environment_int(
+    "BDDK_OCR_MIN_CONTENT_LEN",
+    default=500,
+    minimum=1,
+    maximum=10_000_000,
+)
 
 # -- Chandra2 (primary OCR, backfill-only, in-process HF) --------------------
 
@@ -63,84 +234,200 @@ CHANDRA_MODEL_NAME = os.environ.get("BDDK_CHANDRA_MODEL", "datalab-to/chandra-oc
 
 # -- pgvector -----------------------------------------------------------------
 
-# Embedding dimension for intfloat/multilingual-e5-base
-EMBEDDING_DIMENSION = int(os.environ.get("BDDK_EMBEDDING_DIM", "768"))
+# The immutable PostgreSQL migration stores public.vector(768), and the default
+# E5 model emits exactly 768 values. Reject a misleading override instead of
+# allowing ingestion to fail after an expensive embedding run.
+EMBEDDING_DIMENSION = 768
+_configured_embedding_dimension = os.environ.get("BDDK_EMBEDDING_DIM", str(EMBEDDING_DIMENSION))
+try:
+    if int(_configured_embedding_dimension) != EMBEDDING_DIMENSION:
+        raise RuntimeError("BDDK_EMBEDDING_DIM must be 768 for the current immutable database schema.")
+except ValueError:
+    raise RuntimeError(
+        "BDDK_EMBEDDING_DIM must be the integer 768 for the current immutable database schema."
+    ) from None
 
 # -- Document chunking -------------------------------------------------------
 
 # Page size for paginated markdown output (client, doc_store, vector_store)
-PAGE_SIZE = int(os.environ.get("BDDK_PAGE_SIZE", "5000"))
+PAGE_SIZE = _environment_int("BDDK_PAGE_SIZE", default=5000, minimum=1, maximum=1_000_000)
 
 # Embedding chunk size and overlap (vector_store only)
-EMBEDDING_CHUNK_SIZE = int(os.environ.get("BDDK_EMBEDDING_CHUNK_SIZE", "1000"))
-EMBEDDING_CHUNK_OVERLAP = int(os.environ.get("BDDK_EMBEDDING_CHUNK_OVERLAP", "200"))
-EMBEDDING_CHUNK_MODE = os.environ.get("BDDK_EMBEDDING_CHUNK_MODE", "token").lower()
-EMBEDDING_CHUNK_TARGET_TOKENS = int(os.environ.get("BDDK_EMBEDDING_CHUNK_TARGET_TOKENS", "400"))
-EMBEDDING_CHUNK_TOKEN_OVERLAP = int(os.environ.get("BDDK_EMBEDDING_CHUNK_TOKEN_OVERLAP", "40"))
+EMBEDDING_CHUNK_SIZE = _environment_int(
+    "BDDK_EMBEDDING_CHUNK_SIZE",
+    default=1000,
+    minimum=1,
+    maximum=1_000_000,
+)
+EMBEDDING_CHUNK_OVERLAP = _environment_int(
+    "BDDK_EMBEDDING_CHUNK_OVERLAP",
+    default=200,
+    minimum=0,
+    maximum=999_999,
+)
+EMBEDDING_CHUNK_MODE = _environment_choice(
+    "BDDK_EMBEDDING_CHUNK_MODE",
+    default="token",
+    choices=frozenset({"character", "token"}),
+)
+EMBEDDING_CHUNK_TARGET_TOKENS = _environment_int(
+    "BDDK_EMBEDDING_CHUNK_TARGET_TOKENS",
+    default=400,
+    minimum=1,
+    maximum=1_000_000,
+)
+EMBEDDING_CHUNK_TOKEN_OVERLAP = _environment_int(
+    "BDDK_EMBEDDING_CHUNK_TOKEN_OVERLAP",
+    default=40,
+    minimum=0,
+    maximum=999_999,
+)
+if EMBEDDING_CHUNK_OVERLAP >= EMBEDDING_CHUNK_SIZE:
+    raise RuntimeError("BDDK_EMBEDDING_CHUNK_OVERLAP must be smaller than BDDK_EMBEDDING_CHUNK_SIZE.")
+if EMBEDDING_CHUNK_TOKEN_OVERLAP >= EMBEDDING_CHUNK_TARGET_TOKENS:
+    raise RuntimeError("BDDK_EMBEDDING_CHUNK_TOKEN_OVERLAP must be smaller than BDDK_EMBEDDING_CHUNK_TARGET_TOKENS.")
 
 # -- Cache --------------------------------------------------------------------
 
 # Decision list cache TTL (seconds) -- how long before re-scraping BDDK pages
-CACHE_TTL_SECONDS = int(os.environ.get("BDDK_CACHE_TTL", "3600"))
+CACHE_TTL_SECONDS = _environment_int(
+    "BDDK_CACHE_TTL",
+    default=3600,
+    minimum=0,
+    maximum=31_536_000,
+)
 
 # Search result in-memory cache
-SEARCH_CACHE_TTL = int(os.environ.get("BDDK_SEARCH_CACHE_TTL", "300"))
-SEARCH_CACHE_MAX = int(os.environ.get("BDDK_SEARCH_CACHE_MAX", "200"))
+SEARCH_CACHE_TTL = _environment_int(
+    "BDDK_SEARCH_CACHE_TTL",
+    default=300,
+    minimum=0,
+    maximum=31_536_000,
+)
+SEARCH_CACHE_MAX = _environment_int(
+    "BDDK_SEARCH_CACHE_MAX",
+    default=200,
+    minimum=1,
+    maximum=100_000,
+)
 
 # When BDDK is unreachable, serve stale DB cache even if TTL expired
-STALE_CACHE_FALLBACK = os.environ.get("BDDK_STALE_CACHE_FALLBACK", "true").lower() in ("1", "true", "yes")
+STALE_CACHE_FALLBACK = _environment_bool("BDDK_STALE_CACHE_FALLBACK", default=True)
 
 # -- Relevance thresholds (anti-hallucination) --------------------------------
 
-SEMANTIC_RELEVANCE_THRESHOLD = float(os.environ.get("BDDK_SEMANTIC_THRESHOLD", "0.50"))
-FTS_RANK_THRESHOLD = float(os.environ.get("BDDK_FTS_THRESHOLD", "0.01"))
+SEMANTIC_RELEVANCE_THRESHOLD = _environment_float(
+    "BDDK_SEMANTIC_THRESHOLD",
+    default=0.50,
+    minimum=-1.0,
+    maximum=1.0,
+)
+FTS_RANK_THRESHOLD = _environment_float(
+    "BDDK_FTS_THRESHOLD",
+    default=0.01,
+    minimum=0.0,
+    maximum=1_000_000.0,
+)
 
 # -- Hybrid search (dense + sparse fusion) ------------------------------------
 
-HYBRID_SEARCH = os.environ.get("BDDK_HYBRID_SEARCH", "true").lower() in ("1", "true", "yes")
-HYBRID_RRF_K = int(os.environ.get("BDDK_RRF_K", "60"))
+HYBRID_SEARCH = _environment_bool("BDDK_HYBRID_SEARCH", default=True)
+HYBRID_RRF_K = _environment_int("BDDK_RRF_K", default=60, minimum=1, maximum=1_000_000)
 
 # -- Cross-encoder re-ranking -------------------------------------------------
 
-RERANKER_ENABLED = os.environ.get("BDDK_RERANKER", "false").lower() in ("1", "true", "yes")
+RERANKER_ENABLED = _environment_bool("BDDK_RERANKER", default=False)
 RERANKER_MODEL_NAME = os.environ.get("BDDK_RERANKER_MODEL", "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1")
 RERANKER_MODEL_PATH = os.environ.get("BDDK_RERANKER_MODEL_PATH", "")
-RERANKER_TOP_N = int(os.environ.get("BDDK_RERANKER_TOP_N", "20"))
+_DEFAULT_RERANKER_MODEL_REVISION = "1427fd652930e4ba29e8149678df786c240d8825"
+RERANKER_MODEL_REVISION = os.environ.get(
+    "BDDK_RERANKER_MODEL_REVISION",
+    _DEFAULT_RERANKER_MODEL_REVISION if RERANKER_MODEL_NAME == "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1" else "",
+)
+RERANKER_TOP_N = _environment_int("BDDK_RERANKER_TOP_N", default=20, minimum=1, maximum=10_000)
 
 # -- HTTP ---------------------------------------------------------------------
 
-REQUEST_TIMEOUT = float(os.environ.get("BDDK_REQUEST_TIMEOUT", "60.0"))
-HTTP_CONNECT_TIMEOUT = float(os.environ.get("BDDK_HTTP_CONNECT_TIMEOUT", "10.0"))
-HTTP_POOL_TIMEOUT = float(os.environ.get("BDDK_HTTP_POOL_TIMEOUT", "10.0"))
-MAX_RETRIES = int(os.environ.get("BDDK_MAX_RETRIES", "3"))
-
-# -- Tool exposure ------------------------------------------------------------
-
-# Expose operator/admin tools (health_check, bddk_metrics, sync_bddk_documents,
-# refresh_bddk_cache, backfill_*, document_health, document_quality_report,
-# document_store_stats, bddk_cache_status, trigger_startup_sync). End-user
-# deployments keep only the search / retrieval / bulletin / analytics surface.
-ADMIN_TOOLS = os.environ.get("BDDK_ADMIN_TOOLS", "false").lower() in ("1", "true", "yes")
+REQUEST_TIMEOUT = _environment_float(
+    "BDDK_REQUEST_TIMEOUT",
+    default=60.0,
+    minimum=0.0,
+    maximum=3600.0,
+    minimum_inclusive=False,
+)
+HTTP_CONNECT_TIMEOUT = _environment_float(
+    "BDDK_HTTP_CONNECT_TIMEOUT",
+    default=10.0,
+    minimum=0.0,
+    maximum=3600.0,
+    minimum_inclusive=False,
+)
+HTTP_POOL_TIMEOUT = _environment_float(
+    "BDDK_HTTP_POOL_TIMEOUT",
+    default=10.0,
+    minimum=0.0,
+    maximum=3600.0,
+    minimum_inclusive=False,
+)
+MAX_RETRIES = _environment_int("BDDK_MAX_RETRIES", default=3, minimum=1, maximum=20)
 
 # -- Optional telemetry -------------------------------------------------------
 
 # Disabled by default. When enabled, retrieval tools persist privacy-safe
 # call traces for production retrieval debugging and benchmark comparison.
-TELEMETRY_ENABLED = os.environ.get("BDDK_TELEMETRY_ENABLED", "false").lower() in ("1", "true", "yes")
-TELEMETRY_STORE_TEXT = os.environ.get("BDDK_TELEMETRY_STORE_TEXT", "false").lower() in ("1", "true", "yes")
+TELEMETRY_ENABLED = _environment_bool("BDDK_TELEMETRY_ENABLED", default=False)
+TELEMETRY_DATABASE_URL = os.environ.get("BDDK_TELEMETRY_DATABASE_URL", "")
+TELEMETRY_STORE_TEXT = _environment_bool("BDDK_TELEMETRY_STORE_TEXT", default=False)
 TELEMETRY_MODEL_ID = os.environ.get("BDDK_TELEMETRY_MODEL_ID", "")
 TELEMETRY_SESSION_ID = os.environ.get("BDDK_TELEMETRY_SESSION_ID", "")
 
+
+def require_telemetry_database_url() -> str:
+    """Return a dedicated telemetry-writer DSN when telemetry is enabled."""
+
+    if not TELEMETRY_ENABLED:
+        raise RuntimeError("Telemetry is disabled; no telemetry database identity should be opened")
+    if not TELEMETRY_DATABASE_URL:
+        raise RuntimeError(
+            "BDDK_TELEMETRY_DATABASE_URL is required when BDDK_TELEMETRY_ENABLED=true. "
+            "Provision a dedicated INSERT-only telemetry database identity."
+        )
+    if TELEMETRY_DATABASE_URL in {DATABASE_URL, OPERATOR_DATABASE_URL}:
+        raise RuntimeError(
+            "BDDK_TELEMETRY_DATABASE_URL must not reuse a public or operator database identity. "
+            "Provision a dedicated INSERT-only telemetry role."
+        )
+    from bddk_mcp.db_transport import assert_database_transport
+
+    return assert_database_transport(TELEMETRY_DATABASE_URL)
+
+
 # -- Sync ---------------------------------------------------------------------
 
-AUTO_SYNC = os.environ.get("BDDK_AUTO_SYNC", "false").lower() in ("1", "true", "yes")
-SYNC_CONCURRENCY = int(os.environ.get("BDDK_SYNC_CONCURRENCY", "5"))
+AUTO_SYNC = _environment_bool("BDDK_AUTO_SYNC", default=False)
+SYNC_CONCURRENCY = _environment_int("BDDK_SYNC_CONCURRENCY", default=5, minimum=1, maximum=100)
+OPERATOR_JOB_DRAIN_TIMEOUT = _environment_float(
+    "BDDK_OPERATOR_JOB_DRAIN_TIMEOUT",
+    default=30.0,
+    minimum=0.0,
+    maximum=3600.0,
+)
+OPERATOR_JOB_HISTORY = _environment_int(
+    "BDDK_OPERATOR_JOB_HISTORY",
+    default=1000,
+    minimum=1,
+    maximum=1_000_000,
+)
 
 # Prefer the iframe/HTML download path over PDF for mevzuat.gov.tr documents.
 # Values: "true" | "false" | "auto". "auto" flips to true when no GPU OCR
 # backend is available — markitdown-on-PDF produces no formulas / no tables,
 # so the rich HTML path is the better CPU-only choice.
-PREFER_HTML_FOR_MEVZUAT = os.environ.get("BDDK_PREFER_HTML_FOR_MEVZUAT", "auto").lower()
+PREFER_HTML_FOR_MEVZUAT = _environment_choice(
+    "BDDK_PREFER_HTML_FOR_MEVZUAT",
+    default="auto",
+    choices=frozenset({"auto", "false", "true"}),
+)
 
 # -- BDDK announcements -------------------------------------------------------
 

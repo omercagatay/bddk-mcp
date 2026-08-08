@@ -9,26 +9,56 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.11.14"
+
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         with:
-          version: "latest"
-      - run: uv sync --dev
+          version: ${{ env.UV_VERSION }}
+      - run: uv lock --check
+      - run: uv sync --frozen --dev
       - run: uv run ruff check .
       - run: uv run ruff format --check .
 
-  test:
+  unit-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: uv sync --frozen --dev --python ${{ matrix.python-version }}
+      - name: Run tests that do not require PostgreSQL
+        run: uv run pytest tests/ -m "not postgres and not gpu" --strict-markers -v --tb=short
+
+  postgres-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.12", "3.13"]
     services:
       postgres:
-        image: pgvector/pgvector:pg17
+        image: pgvector/pgvector:pg17@sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0
         env:
           POSTGRES_USER: bddk
           POSTGRES_PASSWORD: bddk
@@ -41,31 +71,132 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         with:
-          version: "latest"
+          version: ${{ env.UV_VERSION }}
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
       - name: Install dependencies
-        run: uv sync --dev --python ${{ matrix.python-version }}
-      - name: Run tests
+        run: uv sync --frozen --dev --python ${{ matrix.python-version }}
+      - name: Run required PostgreSQL tests
         env:
           BDDK_TEST_DATABASE_URL: postgresql://bddk:bddk@localhost:5432/bddk_test
-        run: uv run pytest tests/ -v --tb=short
+          BDDK_REQUIRE_TEST_DATABASE: "1"
+        run: uv run pytest tests/ -m "postgres and not gpu" --strict-markers -v --tb=short
 
-  smoke-test:
+  postgres-role-contract:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17@sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0
+        env:
+          POSTGRES_USER: bddk
+          POSTGRES_PASSWORD: bddk
+          POSTGRES_DB: bddk_role_contract
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         with:
-          version: "latest"
-      - name: Install dependencies
-        run: uv sync --frozen --no-dev
-      - name: Verify Python imports
-        run: uv run python -c "from bddk_mcp.tools import admin, analytics, bulletin, documents, search, sync; print('OK')"
-      - name: Verify Dockerfiles copy bddk_mcp package
+          version: ${{ env.UV_VERSION }}
+      - name: Install test dependencies
+        run: uv sync --frozen --dev --python 3.12
+      - name: Prove the live PostgreSQL allow and deny matrix
+        env:
+          BDDK_ROLE_TEST_DATABASE_URL: postgresql://bddk:bddk@localhost:5432/bddk_role_contract
+          BDDK_ALLOW_ROLE_PROVISIONING_TEST: "1"
+          BDDK_ALLOW_DISPOSABLE_IDENTITY_TEST: I_UNDERSTAND_THIS_MUTATES_A_DISPOSABLE_CLUSTER
+        run: >-
+          uv run pytest
+          tests/test_postgres_role_assets.py
+          -m postgres
+          --strict-markers -v --tb=short
+
+  package-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+      - name: Build wheel and source distribution
+        run: uv build
+      - name: Verify artifact contents
+        run: |
+          uv run --python ${{ matrix.python-version }} python scripts/verify_distribution.py dist
+      - name: Install the wheel outside the checkout
+        run: |
+          uv venv --python ${{ matrix.python-version }} /tmp/bddk-wheel-venv
+          uv pip install --no-deps --python /tmp/bddk-wheel-venv/bin/python dist/*.whl
+      - name: Verify installed package and CLI
+        working-directory: /tmp
+        run: |
+          /tmp/bddk-wheel-venv/bin/python -I -c "from importlib.resources import files; import bddk_mcp; assert files('bddk_mcp.quality').joinpath('quality_failures.yml').is_file(); print(bddk_mcp.__version__)"
+          /tmp/bddk-wheel-venv/bin/bddk-mcp --version
+          /tmp/bddk-wheel-venv/bin/bddk-mcp serve --help
+          /tmp/bddk-wheel-venv/bin/bddk-mcp migrate --help
+          /tmp/bddk-wheel-venv/bin/bddk-mcp bootstrap --help
+      - name: Verify container recipes use the packaged source tree
         run: |
           grep -q "COPY bddk_mcp/" Dockerfile
           grep -q "COPY bddk_mcp/" Dockerfile.spaces
+
+  container-static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: Install test dependencies
+        run: uv sync --frozen --dev --python 3.12
+      - name: Install checksum-verified Kustomize
+        env:
+          KUSTOMIZE_VERSION: v5.8.1
+          # Source: https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/v5.8.1/checksums.txt
+          KUSTOMIZE_SHA256: 029a7f0f4e1932c52a0476cf02a0fd855c0bb85694b82c338fc648dcb53a819d
+        run: |
+          archive="$RUNNER_TEMP/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
+          bin_dir="$RUNNER_TEMP/kustomize-bin"
+          curl --fail --location --silent --show-error \
+            "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" \
+            --output "$archive"
+          echo "${KUSTOMIZE_SHA256}  ${archive}" | sha256sum --check --strict -
+          mkdir -p "$bin_dir"
+          tar -xzf "$archive" -C "$bin_dir"
+          echo "$bin_dir" >> "$GITHUB_PATH"
+      - name: Require rendered OpenShift manifest validation
+        env:
+          BDDK_REQUIRE_KUSTOMIZE: "1"
+        run: >-
+          uv run pytest
+          tests/test_openshift_manifests.py
+          tests/test_openshift_acceptance.py
+          --strict-markers -v --tb=short
+      - name: Validate Compose interpolation and structure
+        env:
+          BDDK_JWT_ISSUER: https://idp.example.test
+          BDDK_JWT_RESOURCE: https://localhost:8000/mcp
+          BDDK_JWT_JWKS_URL: https://idp.example.test/jwks
+          BDDK_JWT_AUDIENCE: bddk-ci
+        run: docker compose config -q
+      - name: Check container recipes without executing build stages
+        run: |
+          docker build --check -f Dockerfile .
+          docker build --check -f Dockerfile.spaces .

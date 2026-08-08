@@ -10,6 +10,12 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
+# Bump whenever heading recognition, span construction, subsection handling,
+# truncation, or section-content hashing changes.  Persisted chunk metadata is
+# bound to this value by the vector retrieval profile.
+SECTION_PARSER_PROFILE_VERSION = "turkish-regulatory-sections-v2"
+SECTION_SEARCH_PROFILE_VERSION = "document-section-simple-fts-length-normalized-v2"
+
 # Hard upper bound for a single section's span. Legitimate maddeler are a few
 # thousand chars; spans beyond this are parser artifacts (typically trailing EK
 # annexes swallowed by the last matched heading) and poison section search.
@@ -59,11 +65,9 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
     matches = _find_section_starts(text)
     if not matches and len(text) > 1000:
         logger.warning(
-            "extract_document_sections: no section headings matched for %s (%d chars); "
-            "document will be invisible to section search. Head: %r",
-            doc_id,
+            "extract_document_sections: no section headings matched (%d chars); "
+            "document will be invisible to section search",
             len(text),
-            text[:80],
         )
     sections: list[DocumentSection] = []
     level1_capped_end: int | None = None
@@ -78,10 +82,7 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
         if end_char - start["start_char"] > MAX_SECTION_CHARS:
             truncated_from = end_char - start["start_char"]
             logger.warning(
-                "extract_document_sections: capping %s %s %s span %d-%d (%d chars) to %d",
-                doc_id,
-                start["section_type"],
-                start["section_ref"],
+                "extract_document_sections: capping oversized section span %d-%d (%d chars) to %d",
                 start["start_char"],
                 end_char,
                 truncated_from,

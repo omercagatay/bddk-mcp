@@ -1,51 +1,34 @@
-"""GPU integration tests for LightOnOCR on real BDDK documents.
+"""Explicitly provisioned GPU integration tests for LightOnOCR.
 
-Skipped in CI (no GPU). Run locally: pytest tests/test_integration_lightocr.py -m gpu
+Run only with the offline GPU/OCR preconditions documented in the test
+strategy. The retained fixture prevents this test from contacting a live
+regulatory source.
 """
+
+from pathlib import Path
 
 import pytest
 
 from bddk_mcp.ocr.base import LightOCRBackend
 
-pytestmark = pytest.mark.gpu
+pytestmark = [pytest.mark.gpu, pytest.mark.usefixtures("provisioned_gpu_ocr_lane")]
 
-
-def _cuda_available() -> bool:
-    try:
-        import torch
-
-        return torch.cuda.is_available()
-    except ImportError:
-        return False
+FIXTURE_PDF = Path(__file__).parent / "fixtures" / "mevzuat_42628_sample.pdf"
 
 
 @pytest.fixture(scope="module")
 def backend() -> LightOCRBackend:
-    if not _cuda_available():
-        pytest.skip("CUDA not available")
-    return LightOCRBackend()
+    backend = LightOCRBackend()
+    assert backend.is_available() is True
+    return backend
 
 
 @pytest.fixture(scope="module")
 def pdf_42628() -> bytes:
-    """Fetch mevzuat_42628 PDF once per test module.
-
-    Tries GeneratePdf first (preserves formulas), falls back to the
-    static /MevzuatMetin/yonetmelik/7.5.42628.pdf URL.
-    """
-    import httpx
-
-    ua = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
-    with httpx.Client(timeout=180.0, follow_redirects=True, headers={"User-Agent": ua}) as client:
-        client.get("https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=42628&MevzuatTur=7&MevzuatTertip=5")
-        resp = client.get(
-            "https://www.mevzuat.gov.tr/File/GeneratePdf?mevzuatNo=42628&mevzuatTur=Yonetmelik&mevzuatTertip=5"
-        )
-        if resp.status_code != 200 or resp.content[:5] != b"%PDF-":
-            resp = client.get("https://www.mevzuat.gov.tr/MevzuatMetin/yonetmelik/7.5.42628.pdf")
-    assert resp.status_code == 200, f"PDF fetch failed: {resp.status_code}"
-    assert resp.content[:5] == b"%PDF-", f"Not a PDF: {resp.content[:20]!r}"
-    return resp.content
+    assert FIXTURE_PDF.is_file(), f"retained fixture missing: {FIXTURE_PDF.name}"
+    pdf_bytes = FIXTURE_PDF.read_bytes()
+    assert pdf_bytes.startswith(b"%PDF-")
+    return pdf_bytes
 
 
 def test_42628_ek2_formulas_extracted(backend: LightOCRBackend, pdf_42628: bytes):

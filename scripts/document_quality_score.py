@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from bddk_mcp.core.config import require_database_url  # noqa: E402
+from bddk_mcp.db_transport import assert_database_transport  # noqa: E402
 from bddk_mcp.quality.markdown_quality import assess_markdown_quality  # noqa: E402
 from bddk_mcp.quality.quality_scan import (  # noqa: E402
     AnomalyCount,
@@ -62,7 +63,8 @@ def quality_score(report: QualityReport) -> dict:
 
 
 async def scan_db(dsn: str | None) -> QualityReport:
-    pool = await asyncpg.create_pool(dsn or require_database_url(), min_size=1, max_size=3)
+    selected_dsn = assert_database_transport(dsn) if dsn else require_database_url()
+    pool = await asyncpg.create_pool(selected_dsn, min_size=1, max_size=3)
     try:
         return await scan_quality(pool)
     finally:
