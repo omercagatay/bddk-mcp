@@ -45,3 +45,6 @@ docs/hibrit-arama-siralamasi.md
 learn/
 .codex
 .agents/
+
+# Editor workspace state (Obsidian vault config)
+docs/.obsidian/
