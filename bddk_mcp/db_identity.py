@@ -242,7 +242,8 @@ def _object_contract(
 
 def _build_contracts() -> Mapping[str, _IdentityContract]:
     read_tables = {
-        name: frozenset({"SELECT"}) for name in _CORPUS_TABLES | _REGULATORY_PUBLIC_VIEWS | _CORPUS_RELEASE_VIEWS
+        name: frozenset({"SELECT"})
+        for name in _CORPUS_TABLES | _REGULATORY_PUBLIC_VIEWS | _REGULATORY_RELATION_VIEWS | _CORPUS_RELEASE_VIEWS
     }
     read_tables["bddk_meta.schema_migrations"] = frozenset({"SELECT"})
 
@@ -260,7 +261,7 @@ def _build_contracts() -> Mapping[str, _IdentityContract]:
 
     operator_tables = dict(ingestion_tables)
     operator_tables["bddk_operator.operator_jobs"] = frozenset({"SELECT", "INSERT", "UPDATE", "DELETE"})
-    for name in _REGULATORY_PUBLIC_VIEWS:
+    for name in _REGULATORY_PUBLIC_VIEWS | _REGULATORY_RELATION_VIEWS:
         operator_tables[name] = frozenset({"SELECT"})
 
     public_schemas = MappingProxyType(
