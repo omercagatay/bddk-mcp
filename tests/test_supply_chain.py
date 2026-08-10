@@ -44,6 +44,20 @@ def _json(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _repo_policy_for_fixture_evaluation() -> dict:
+    """Repo policy with the real vulnerability-exception inventory stripped.
+
+    The repository's vulnerability exceptions are pinned to the container
+    scan targets and their Dockerfile material hashes, which synthetic
+    fixture evaluations do not provide. Enforcement mechanics are exercised
+    with fixture exceptions instead; the real inventory is schema-validated
+    by test_repository_policy_file_is_schema_valid.
+    """
+    policy = _json(SUPPLY_CHAIN / "policy.json")
+    policy["vulnerabilities"]["exceptions"] = []
+    return policy
+
+
 def _clean_grype_report(*, built: str = "2026-07-15T08:00:00Z") -> dict:
     return {
         "matches": [],
@@ -427,7 +441,7 @@ def test_cyclonedx_canonicalization_removes_timestamp_uuid_and_order_drift():
 
 
 def test_high_vulnerability_fixture_and_secret_fixture_fail_closed():
-    policy = _json(SUPPLY_CHAIN / "policy.json")
+    policy = _repo_policy_for_fixture_evaluation()
     vulnerable = _json(FIXTURES / "grype_high.json")
     result, violations = enforce_policy(
         policy,
@@ -465,7 +479,7 @@ def test_high_vulnerability_fixture_and_secret_fixture_fail_closed():
 
 
 def test_policy_accepts_clean_evidence_and_rejects_stale_or_malformed_database():
-    policy = _json(SUPPLY_CHAIN / "policy.json")
+    policy = _repo_policy_for_fixture_evaluation()
     result, violations = enforce_policy(
         policy,
         [("clean.grype.json", _clean_grype_report())],
@@ -584,8 +598,17 @@ def test_exceptions_are_exact_owned_reasoned_and_time_bounded():
         )
 
 
+def test_repository_policy_file_is_schema_valid():
+    """The real exception inventory must satisfy the fail-closed policy schema.
+
+    Evaluated at the current UTC time so an expired exception fails CI here
+    rather than first failing inside the evidence workflow.
+    """
+    evidence_tool._validate_policy(_json(SUPPLY_CHAIN / "policy.json"), datetime.now(tz=UTC))
+
+
 def test_vulnerability_exceptions_require_exact_material_and_match_identity():
-    policy = _json(SUPPLY_CHAIN / "policy.json")
+    policy = _repo_policy_for_fixture_evaluation()
     material_sha256 = "a" * 64
     policy["vulnerabilities"]["exceptions"] = [
         _vulnerability_exception(target="fixture.grype.json", material_sha256=material_sha256)
@@ -601,7 +624,7 @@ def test_vulnerability_exceptions_require_exact_material_and_match_identity():
         )
     with pytest.raises(EvidenceError, match="no matching Grype report"):
         enforce_policy(
-            _json(SUPPLY_CHAIN / "policy.json"),
+            _repo_policy_for_fixture_evaluation(),
             [("fixture.grype.json", _clean_grype_report())],
             [],
             evaluation_time=EVALUATION_TIME,
@@ -656,6 +679,8 @@ def test_policy_cli_separates_evidence_integrity_from_release_enforcement(tmp_pa
     material = tmp_path / "Dockerfile"
     material.write_text("FROM scratch\n", encoding="utf-8")
     vulnerable_report = FIXTURES / "grype_high.json"
+    policy_path = tmp_path / "policy.json"
+    policy_path.write_text(json.dumps(_repo_policy_for_fixture_evaluation(), indent=2) + "\n", encoding="utf-8")
 
     def run_policy(command: str, report: Path, secrets: Path, output: Path) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -664,7 +689,7 @@ def test_policy_cli_separates_evidence_integrity_from_release_enforcement(tmp_pa
                 str(ROOT / "scripts" / "supply_chain_evidence.py"),
                 command,
                 "--policy",
-                str(SUPPLY_CHAIN / "policy.json"),
+                str(policy_path),
                 "--grype-report",
                 str(report),
                 "--gitleaks-report",
