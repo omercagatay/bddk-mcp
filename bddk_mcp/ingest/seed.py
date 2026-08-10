@@ -583,6 +583,7 @@ async def _assert_strict_seed_membership(
               + (SELECT COUNT(*) FROM public.regulatory_legal_status_assertions)
               + (SELECT COUNT(*) FROM public.regulatory_provisions)
               + (SELECT COUNT(*) FROM public.regulatory_legal_version_provisions)
+              + (SELECT COUNT(*) FROM public.regulatory_relations)
             """
         )
         or 0

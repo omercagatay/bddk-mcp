@@ -10,12 +10,12 @@ The server exposes exactly one reviewed profile per process:
 
 | Profile | Selection | Database identity | MCP tools |
 |---|---|---|---:|
-| Public | `BDDK_TOOL_PROFILE=public` or `bddk-mcp serve --profile public` | `BDDK_DATABASE_URL` | 15 public tools |
-| Operator | `BDDK_TOOL_PROFILE=operator` or `bddk-mcp serve --profile operator` | `BDDK_OPERATOR_DATABASE_URL` | 15 public tools plus 14 operator tools, 29 tools total |
+| Public | `BDDK_TOOL_PROFILE=public` or `bddk-mcp serve --profile public` | `BDDK_DATABASE_URL` | 17 public tools |
+| Operator | `BDDK_TOOL_PROFILE=operator` or `bddk-mcp serve --profile operator` | `BDDK_OPERATOR_DATABASE_URL` | 17 public tools plus 14 operator tools, 31 tools total |
 
 The operator profile requires its own DSN and does not fall back to `BDDK_DATABASE_URL`. Run public and operator profiles as separate processes, database roles, service accounts, and network boundaries.
 
-### Public tools (15)
+### Public tools (17)
 
 - `search_bddk_regulations`
 - `search_document_store`
@@ -26,6 +26,8 @@ The operator profile requires its own DSN and does not fall back to `BDDK_DATABA
 - `get_document_section`
 - `search_document_sections`
 - `resolve_regulation_status`
+- `get_amendment_chain`
+- `get_cross_references`
 - `get_bddk_bulletin`
 - `get_bddk_bulletin_snapshot`
 - `get_bddk_monthly`

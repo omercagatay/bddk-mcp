@@ -759,7 +759,12 @@ async def _downgrade_to_v2(connection) -> None:
     await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.bump_corpus_state_epoch()")
     await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.reject_corpus_release_mutation()")
     await connection.execute("DROP VIEW IF EXISTS public.regulatory_validated_section_citations")
+    await connection.execute("DROP VIEW IF EXISTS public.regulatory_validated_relations")
+    await connection.execute("DROP VIEW IF EXISTS public.regulatory_validated_legal_versions")
+    await connection.execute("DROP VIEW IF EXISTS public.regulatory_validated_legal_events")
+    await connection.execute("DELETE FROM bddk_meta.schema_migrations WHERE version = 9")
     for table in (
+        "regulatory_relations",
         "regulatory_legal_version_provisions",
         "regulatory_legal_status_assertions",
         "regulatory_legal_events",

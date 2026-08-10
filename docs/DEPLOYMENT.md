@@ -8,10 +8,10 @@ The server selects exactly one reviewed tool profile per process.
 
 | Mode | Selection | Database identity | Current tool surface |
 |---|---|---|---:|
-| Public stdio | `bddk-mcp serve --profile public` (default) | `BDDK_DATABASE_URL` | 15 public tools |
-| Operator stdio | `bddk-mcp serve --profile operator` | `BDDK_OPERATOR_DATABASE_URL` | 15 public + 14 operator = 29 tools |
-| Public Streamable HTTP | Add `--transport streamable-http` | `BDDK_DATABASE_URL` | 15 public tools |
-| Operator Streamable HTTP | Operator profile plus explicit remote opt-in when non-loopback | `BDDK_OPERATOR_DATABASE_URL` | 29 total tools |
+| Public stdio | `bddk-mcp serve --profile public` (default) | `BDDK_DATABASE_URL` | 17 public tools |
+| Operator stdio | `bddk-mcp serve --profile operator` | `BDDK_OPERATOR_DATABASE_URL` | 17 public + 14 operator = 31 tools |
+| Public Streamable HTTP | Add `--transport streamable-http` | `BDDK_DATABASE_URL` | 17 public tools |
+| Operator Streamable HTTP | Operator profile plus explicit remote opt-in when non-loopback | `BDDK_OPERATOR_DATABASE_URL` | 31 total tools |
 
 `BDDK_TOOL_PROFILE=public|operator` is the environment equivalent of `--profile`. The operator profile is not an in-process switch on a public server: it must be a separate process and requires its own DSN. It never falls back to `BDDK_DATABASE_URL`.
 
@@ -341,7 +341,7 @@ contracts. Liveness deliberately does not contact dependencies.
 
 ## Durable Operator Jobs and Current Limitation
 
-The operator profile adds 14 tools to the 15 public tools. Mutating tools such as update checks, cache refresh, synchronization, startup synchronization, and executed backfill return an immediate job receipt. Use `get_operator_job`, `list_operator_jobs`, and `cancel_operator_job` to inspect or request cancellation.
+The operator profile adds 14 tools to the 17 public tools. Mutating tools such as update checks, cache refresh, synchronization, startup synchronization, and executed backfill return an immediate job receipt. Use `get_operator_job`, `list_operator_jobs`, and `cancel_operator_job` to inspect or request cancellation.
 
 The server uses `PostgresJobRepository` in the operator profile. The global v2
 migration creates `bddk_operator.operator_jobs`; the repository persists job

@@ -46,6 +46,27 @@
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
         "expires_on": "2026-10-15"
+      },
+      {
+        "fingerprint": "f155005c8a2bd272b1b8634d3ff054909dfa4301:tests/test_expert_evaluation.py:generic-api-key:554",
+        "reason": "False-positive match on an Ed25519 private-key typed parameter; the test generates the key at runtime and contains no credential literal. Re-attributed to the squash-merge commit of PR #115 (f155005); same finding, new fingerprint.",
+        "owner": "project-owner",
+        "approval_state": "pending_bank_release_review",
+        "expires_on": "2026-10-15"
+      },
+      {
+        "fingerprint": "f155005c8a2bd272b1b8634d3ff054909dfa4301:tests/test_expert_evaluation.py:generic-api-key:308",
+        "reason": "False-positive match on an optional Ed25519 private-key parameter; the test generates the key at runtime and contains no credential literal. Re-attributed to the squash-merge commit of PR #115 (f155005); same finding, new fingerprint.",
+        "owner": "project-owner",
+        "approval_state": "pending_bank_release_review",
+        "expires_on": "2026-10-15"
+      },
+      {
+        "fingerprint": "f155005c8a2bd272b1b8634d3ff054909dfa4301:tests/test_migrations.py:generic-api-key:1352",
+        "reason": "Ephemeral PostgreSQL test password generated at runtime for a disposable role and database that are removed during test cleanup. Re-attributed to the squash-merge commit of PR #115 (f155005); same finding, new fingerprint.",
+        "owner": "project-owner",
+        "approval_state": "pending_bank_release_review",
+        "expires_on": "2026-10-15"
       }
     ]
   }

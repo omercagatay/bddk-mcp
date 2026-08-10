@@ -484,6 +484,19 @@ HeadingFilter = Annotated[
     Field(min_length=1, max_length=MAX_HEADING_LENGTH, description="Optional non-empty heading substring."),
     BeforeValidator(_optional_heading),
 ]
+EdgeDirection = Annotated[
+    Literal["both", "incoming", "outgoing"],
+    Field(description="Relation edge direction relative to the queried document."),
+]
+ExpandReferences = Annotated[
+    bool,
+    Field(
+        description=(
+            "Follow validated cross-reference edges one hop and append related "
+            "section pointers; related content is never inlined."
+        )
+    ),
+]
 
 MetricId = Annotated[
     str,

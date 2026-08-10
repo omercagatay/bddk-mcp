@@ -30,6 +30,7 @@ from bddk_mcp.migrations.v0007_retained_corpus_generations import (
     V0007_RETAINED_CORPUS_GENERATIONS,
 )
 from bddk_mcp.migrations.v0008_staged_corpus_releases import V0008_STAGED_CORPUS_RELEASES
+from bddk_mcp.migrations.v0009_regulatory_relations import V0009_REGULATORY_RELATIONS
 
 MIGRATIONS: Final[tuple[Migration, ...]] = (
     V0001_CORE,
@@ -40,6 +41,7 @@ MIGRATIONS: Final[tuple[Migration, ...]] = (
     V0006_LEGAL_STATUS_RESOLVER,
     V0007_RETAINED_CORPUS_GENERATIONS,
     V0008_STAGED_CORPUS_RELEASES,
+    V0009_REGULATORY_RELATIONS,
 )
 LATEST_SCHEMA_VERSION: Final[int] = MIGRATIONS[-1].version
 MIGRATION_LOCK_TIMEOUT: Final[str] = "5s"

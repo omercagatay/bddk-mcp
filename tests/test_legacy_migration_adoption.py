@@ -45,9 +45,13 @@ async def _remove_managed_history(connection) -> None:
     # exact unmanaged v1 fixture.  Leaving any one of these relations behind
     # must make real legacy adoption fail closed as an unexpected catalog.
     await connection.execute("DROP VIEW IF EXISTS public.regulatory_validated_section_citations")
+    await connection.execute("DROP VIEW IF EXISTS public.regulatory_validated_relations")
+    await connection.execute("DROP VIEW IF EXISTS public.regulatory_validated_legal_versions")
+    await connection.execute("DROP VIEW IF EXISTS public.regulatory_validated_legal_events")
     await connection.execute(
         """
         DROP TABLE IF EXISTS
+            public.regulatory_relations,
             public.regulatory_legal_version_provisions,
             public.regulatory_provisions,
             public.regulatory_legal_status_assertions,

@@ -25,7 +25,7 @@ def _read(path: str) -> str:
 
 
 def test_readmes_distinguish_public_and_operator_tool_counts():
-    assert len(PUBLIC_TOOL_NAMES) == 15
+    assert len(PUBLIC_TOOL_NAMES) == 17
     assert len(OPERATOR_TOOL_NAMES) == 14
     assert {
         "get_operator_job",
@@ -38,8 +38,8 @@ def test_readmes_distinguish_public_and_operator_tool_counts():
         readme = _read(path)
         assert "BDDK_TOOL_PROFILE=public" in readme
         assert "BDDK_TOOL_PROFILE=operator" in readme
-        assert "15 public tools plus 14 operator tools" in readme
-        assert "29 tools total" in readme
+        assert "17 public tools plus 14 operator tools" in readme
+        assert "31 tools total" in readme
         assert "BDDK_OPERATOR_DATABASE_URL" in readme
         for tool_name in PUBLIC_TOOL_NAMES + OPERATOR_TOOL_NAMES:
             assert f"`{tool_name}`" in readme
@@ -53,9 +53,9 @@ def test_benchmark_docs_record_exposed_tool_profiles():
     assert "runtime-public" in benchmark_readme
     assert "runtime-operator" in benchmark_readme
     assert "benchmark-operator-contract" in benchmark_readme
-    assert "| `runtime-public` | 15 |" in benchmark_readme
-    assert "| `runtime-operator` | 29 |" in benchmark_readme
-    assert "| `benchmark-operator-contract` | 29 |" in benchmark_readme
+    assert "| `runtime-public` | 17 |" in benchmark_readme
+    assert "| `runtime-operator` | 31 |" in benchmark_readme
+    assert "| `benchmark-operator-contract` | 31 |" in benchmark_readme
     assert "live_tool_list" in benchmark_readme
     assert "live_tool_schema_sha256" in benchmark_readme
     assert "official MCP Python client" in benchmark_readme
@@ -94,8 +94,8 @@ def test_container_and_deployment_docs_use_packaged_entry_point():
     assert "OpenShift AI Starter" in deployment
     assert "deploy/openshift" in deployment
     assert "not bank acceptance or a production-ready platform configuration" in deployment
-    assert "15 public tools" in deployment
-    assert "29 total tools" in deployment
+    assert "17 public tools" in deployment
+    assert "31 total tools" in deployment
     assert "stateless JSON responses" in deployment
     assert "GET /health/live" in deployment
     assert "GET /health/ready" in deployment

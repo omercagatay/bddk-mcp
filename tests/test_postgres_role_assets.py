@@ -49,6 +49,9 @@ PUBLIC_CORPUS_TABLES = {
 PUBLIC_READ_RELATIONS = PUBLIC_CORPUS_TABLES | {
     "bddk_meta.active_corpus_release",
     "public.regulatory_validated_section_citations",
+    "public.regulatory_validated_relations",
+    "public.regulatory_validated_legal_versions",
+    "public.regulatory_validated_legal_events",
 }
 INGESTION_TABLES = PUBLIC_CORPUS_TABLES | {
     "public.sync_metadata",
@@ -69,6 +72,7 @@ REGULATORY_VERSION_TABLES = {
     "public.regulatory_legal_version_provisions",
     "public.regulatory_legal_versions",
     "public.regulatory_provisions",
+    "public.regulatory_relations",
     "public.regulatory_source_blobs",
     "public.regulatory_source_artifacts",
 }

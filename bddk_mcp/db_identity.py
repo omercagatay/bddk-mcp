@@ -76,12 +76,21 @@ _REGULATORY_VERSION_TABLES = frozenset(
         "public.regulatory_legal_version_provisions",
         "public.regulatory_legal_versions",
         "public.regulatory_provisions",
+        "public.regulatory_relations",
         "public.regulatory_source_blobs",
         "public.regulatory_source_artifacts",
     }
 )
 _REGULATORY_PUBLIC_VIEWS = frozenset({"public.regulatory_validated_section_citations"})
+_REGULATORY_RELATION_VIEWS = frozenset(
+    {
+        "public.regulatory_validated_relations",
+        "public.regulatory_validated_legal_versions",
+        "public.regulatory_validated_legal_events",
+    }
+)
 _CORPUS_RELEASE_VIEWS = frozenset({"bddk_meta.active_corpus_release"})
+_V9_ONLY_TABLES = frozenset({"public.regulatory_relations"}) | _REGULATORY_RELATION_VIEWS
 _CORPUS_RETENTION_VIEWS = frozenset({"bddk_meta.corpus_release_retention_status"})
 _RETAINED_CORPUS_TABLES = frozenset(f"bddk_retained.{relation}" for relation in RETAINED_CORPUS_RELATIONS)
 _ALL_TABLES = (
@@ -103,6 +112,7 @@ _ALL_TABLES = (
     }
     | _REGULATORY_VERSION_TABLES
     | _REGULATORY_PUBLIC_VIEWS
+    | _V9_ONLY_TABLES
     | _CORPUS_RELEASE_VIEWS
     | _CORPUS_RETENTION_VIEWS
     | _RETAINED_CORPUS_TABLES
@@ -181,7 +191,8 @@ _V7_ONLY_ROUTINES = frozenset(
         "bddk_meta.inspect_retained_generation_storage(text)",
     }
 )
-_V7_ALL_TABLES = _ALL_TABLES - _V8_ONLY_TABLES
+_V8_ALL_TABLES = _ALL_TABLES - _V9_ONLY_TABLES
+_V7_ALL_TABLES = _V8_ALL_TABLES - _V8_ONLY_TABLES
 _V7_ALL_ROUTINES = _ALL_ROUTINES - _V8_ONLY_ROUTINES
 _V6_ALL_TABLES = _V7_ALL_TABLES - _V7_ONLY_TABLES
 _V6_ALL_ROUTINES = _V7_ALL_ROUTINES - _V7_ONLY_ROUTINES
@@ -231,7 +242,8 @@ def _object_contract(
 
 def _build_contracts() -> Mapping[str, _IdentityContract]:
     read_tables = {
-        name: frozenset({"SELECT"}) for name in _CORPUS_TABLES | _REGULATORY_PUBLIC_VIEWS | _CORPUS_RELEASE_VIEWS
+        name: frozenset({"SELECT"})
+        for name in _CORPUS_TABLES | _REGULATORY_PUBLIC_VIEWS | _REGULATORY_RELATION_VIEWS | _CORPUS_RELEASE_VIEWS
     }
     read_tables["bddk_meta.schema_migrations"] = frozenset({"SELECT"})
 
@@ -249,7 +261,7 @@ def _build_contracts() -> Mapping[str, _IdentityContract]:
 
     operator_tables = dict(ingestion_tables)
     operator_tables["bddk_operator.operator_jobs"] = frozenset({"SELECT", "INSERT", "UPDATE", "DELETE"})
-    for name in _REGULATORY_PUBLIC_VIEWS:
+    for name in _REGULATORY_PUBLIC_VIEWS | _REGULATORY_RELATION_VIEWS:
         operator_tables[name] = frozenset({"SELECT"})
 
     public_schemas = MappingProxyType(

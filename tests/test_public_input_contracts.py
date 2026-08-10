@@ -9,7 +9,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.shared.memory import create_connected_server_and_client_session
 
 from bddk_mcp.core.deps import Dependencies
-from bddk_mcp.tools import analytics, bulletin, legal_status, search, sections
+from bddk_mcp.tools import analytics, bulletin, graph, legal_status, search, sections
 from bddk_mcp.tools.contract_types import MAX_METRIC_IDS, MAX_QUERY_LENGTH
 
 _PARAMETERS = {
@@ -18,8 +18,10 @@ _PARAMETERS = {
     "search_bddk_announcements": {"keywords", "category"},
     "search_document_store": {"query", "category", "limit"},
     "get_document_section": {"document_id", "section_type", "section_ref", "heading"},
-    "search_document_sections": {"query", "document_id", "section_type", "limit"},
+    "search_document_sections": {"query", "document_id", "section_type", "limit", "expand_references"},
     "resolve_regulation_status": {"instrument_id", "as_of"},
+    "get_amendment_chain": {"document_id"},
+    "get_cross_references": {"document_id", "section_type", "section_ref", "direction"},
     "get_bddk_bulletin": {"metric_id", "currency", "column", "date", "days"},
     "get_bddk_bulletin_snapshot": set(),
     "get_bddk_monthly": {"table_no", "year", "month", "currency", "party_code"},
@@ -45,6 +47,7 @@ def _server(*, include_operator: bool = False) -> tuple[FastMCP, Dependencies]:
     search.register(server, deps)
     sections.register(server, deps)
     legal_status.register(server, deps)
+    graph.register(server, deps)
     bulletin.register(server, deps, include_operator=include_operator)
     analytics.register(server, deps, include_operator=include_operator)
     return server, deps
