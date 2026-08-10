@@ -604,9 +604,7 @@ def test_repository_policy_file_is_schema_valid():
     Evaluated at the current UTC time so an expired exception fails CI here
     rather than first failing inside the evidence workflow.
     """
-    evidence_tool._validate_policy(
-        _json(SUPPLY_CHAIN / "policy.json"), datetime.now(tz=UTC)
-    )
+    evidence_tool._validate_policy(_json(SUPPLY_CHAIN / "policy.json"), datetime.now(tz=UTC))
 
 
 def test_vulnerability_exceptions_require_exact_material_and_match_identity():
@@ -682,9 +680,7 @@ def test_policy_cli_separates_evidence_integrity_from_release_enforcement(tmp_pa
     material.write_text("FROM scratch\n", encoding="utf-8")
     vulnerable_report = FIXTURES / "grype_high.json"
     policy_path = tmp_path / "policy.json"
-    policy_path.write_text(
-        json.dumps(_repo_policy_for_fixture_evaluation(), indent=2) + "\n", encoding="utf-8"
-    )
+    policy_path.write_text(json.dumps(_repo_policy_for_fixture_evaluation(), indent=2) + "\n", encoding="utf-8")
 
     def run_policy(command: str, report: Path, secrets: Path, output: Path) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
