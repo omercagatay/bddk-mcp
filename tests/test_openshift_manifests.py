@@ -655,7 +655,7 @@ def test_remote_profiles_are_fail_closed_and_scoped():
 def test_docker_images_have_non_root_defaults_and_versioned_build_inputs():
     for name in ("Dockerfile", "Dockerfile.spaces"):
         dockerfile = (ROOT / name).read_text(encoding="utf-8")
-        assert "ghcr.io/astral-sh/uv:0.11.14" in dockerfile
+        assert "ghcr.io/astral-sh/uv:0.12.3" in dockerfile
         assert "ghcr.io/astral-sh/uv:latest" not in dockerfile
         assert "revision='d13f1b27baf31030b7fd040960d60d909913633f'" in dockerfile
         assert "BDDK_EMBEDDING_MODEL_PATH=/app/embedding_model" in dockerfile
