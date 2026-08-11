@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bddk_mcp.store.section_index import extract_document_sections
+from bddk_mcp.store.section_index import _find_section_starts, extract_document_sections
 
 
 def test_extracts_madde_sections_with_offsets_and_content_hash():
@@ -163,3 +163,38 @@ def test_no_subsection_rows_beyond_capped_parent():
     fikra_starts = [s.start_char for s in sections if s.section_type == "fikra"]
     madde39 = next(s for s in sections if s.section_ref == "39")
     assert all(start < madde39.end_char for start in fikra_starts)
+
+
+def test_repeated_identical_article_yields_one_section():
+    """Consolidated tebliğ repeat an identical closing article per amendment.
+
+    ``document_sections_identity_uq`` declares a section's identity to be
+    (doc_id, section_type, section_ref, content_hash), so emitting a row per
+    occurrence produces rows the schema cannot store.  Keep the first.
+    """
+    article = "MADDE 2 – Bu Tebliğ 1/1/2021 tarihinde yürürlüğe girer.\n\n"
+    text = article * 3
+
+    # Precondition: the raw spans really do collide on the schema's key.
+    raw_starts = [s for s in _find_section_starts(text) if s.get("section_ref") == "2"]
+    assert len(raw_starts) == 3
+
+    sections = extract_document_sections("802", text)
+
+    madde2 = [s for s in sections if s.section_type == "madde" and s.section_ref == "2"]
+    assert len(madde2) == 1
+    assert madde2[0].start_char == min(s["start_char"] for s in raw_starts)
+
+    keys = [(s.section_type, s.section_ref, s.content_hash) for s in sections]
+    assert len(keys) == len(set(keys))
+
+
+def test_same_ref_with_different_content_keeps_both_sections():
+    """Only exact content duplicates collapse; genuinely distinct spans stay."""
+    text = "MADDE 2 – Birinci yürürlük hükmü.\n\nEK-1 Ayrım\n\nMADDE 2 – Farklı bir ikinci hüküm.\n"
+
+    sections = extract_document_sections("doc", text)
+
+    madde2 = [s for s in sections if s.section_type == "madde" and s.section_ref == "2"]
+    assert len(madde2) == 2
+    assert madde2[0].content_hash != madde2[1].content_hash

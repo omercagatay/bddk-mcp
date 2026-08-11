@@ -5,6 +5,12 @@ dockerfilePath = "Dockerfile"
 [deploy]
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
+# Publish the corpus under the retrieval-profile identity this container
+# actually computes (verified_local_tree over /app/embedding_model). A
+# locally-run bootstrap publishes under a different identity and the server
+# then refuses to start. No-op when the DB already matches the seed corpus.
+# Requires BDDK_INGESTION_DATABASE_URL on the service.
+preDeployCommand = "/app/.venv/bin/bddk-mcp bootstrap --reindex-existing"
 
 [[deploy.volumes]]
 mountPath = "/app/data"
