@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 # Bump whenever heading recognition, span construction, subsection handling,
 # truncation, or section-content hashing changes.  Persisted chunk metadata is
 # bound to this value by the vector retrieval profile.
-SECTION_PARSER_PROFILE_VERSION = "turkish-regulatory-sections-v2"
+SECTION_PARSER_PROFILE_VERSION = "turkish-regulatory-sections-v3"
 SECTION_SEARCH_PROFILE_VERSION = "document-section-simple-fts-length-normalized-v2"
 
 # Hard upper bound for a single section's span. Legitimate maddeler are a few
@@ -70,6 +70,12 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
             len(text),
         )
     sections: list[DocumentSection] = []
+    # document_sections_identity_uq declares a section's identity to be
+    # (doc_id, section_type, section_ref, content_hash), and chunks bind to
+    # sections through section_content_hash.  Consolidated tebliğ repeat an
+    # identical closing article once per amendment, so emitting a row per
+    # occurrence produces rows the schema cannot store.  Keep the first.
+    seen_identities: set[tuple[str, str, str]] = set()
     level1_capped_end: int | None = None
     for index, start in enumerate(matches):
         if start["level"] == 2 and level1_capped_end is not None and start["start_char"] >= level1_capped_end:
@@ -101,6 +107,17 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
                 f"\n\n[BÖLÜM KESİLDİ: içerik {truncated_from} karakterden "
                 f"{MAX_SECTION_CHARS} karaktere kısaltıldı — tam metin için get_bddk_document kullanın]"
             )
+        content_hash = _content_hash(content)
+        identity = (start["section_type"], start["section_ref"], content_hash)
+        if identity in seen_identities:
+            logger.info(
+                "extract_document_sections: dropping repeated %s %s at %d (identical to an earlier span)",
+                start["section_type"],
+                start["section_ref"],
+                start["start_char"],
+            )
+            continue
+        seen_identities.add(identity)
         sections.append(
             DocumentSection(
                 doc_id=doc_id,
@@ -110,7 +127,7 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
                 start_char=start["start_char"],
                 end_char=end_char,
                 content=content,
-                content_hash=_content_hash(content),
+                content_hash=content_hash,
             )
         )
     return sections
