@@ -96,6 +96,18 @@ def _remote_security(scopes: str = "bddk.read"):
     )
 
 
+def _unauthenticated_remote_security():
+    return load_http_security_config(
+        {
+            "MCP_HOST": "0.0.0.0",
+            "PORT": "8443",
+            "BDDK_HTTP_ALLOWED_HOSTS": "mcp.bank.example",
+            "BDDK_HTTP_ALLOWED_ORIGINS": "https://client.bank.example",
+            "BDDK_HTTP_ALLOW_UNAUTHENTICATED": "true",
+        }
+    )
+
+
 @pytest.mark.asyncio
 async def test_http_auth_scope_and_origin_statuses_are_fail_closed():
     from bddk_mcp.server import create_mcp
@@ -346,3 +358,29 @@ def test_remote_operator_profile_requires_explicit_private_enablement_and_scope(
     monkeypatch.setenv("BDDK_OPERATOR_REMOTE_ENABLED", "true")
     with pytest.raises(HttpSecurityConfigError, match="bddk.operator"):
         create_mcp(deps, profile=ToolProfile.OPERATOR, http_security=_remote_security("bddk.read"))
+
+
+def test_operator_profile_refuses_unauthenticated_remote_exposure(monkeypatch):
+    from bddk_mcp.http_security import HttpSecurityConfigError
+    from bddk_mcp.server import create_mcp
+
+    deps = Dependencies(pool=None, doc_store=MagicMock(), client=MagicMock(), http=None)
+
+    monkeypatch.delenv("BDDK_OPERATOR_REMOTE_ENABLED", raising=False)
+    with pytest.raises(HttpSecurityConfigError, match="never be exposed unauthenticated"):
+        create_mcp(deps, profile=ToolProfile.OPERATOR, http_security=_unauthenticated_remote_security())
+
+    # The two opt-ins must not compose: enabling remote operator exposure does not
+    # unlock unauthenticated operator exposure.
+    monkeypatch.setenv("BDDK_OPERATOR_REMOTE_ENABLED", "true")
+    with pytest.raises(HttpSecurityConfigError, match="never be exposed unauthenticated"):
+        create_mcp(deps, profile=ToolProfile.OPERATOR, http_security=_unauthenticated_remote_security())
+
+
+def test_public_profile_accepts_unauthenticated_remote_exposure():
+    from bddk_mcp.server import create_mcp
+
+    deps = Dependencies(pool=None, doc_store=MagicMock(), client=MagicMock(), http=None)
+    server = create_mcp(deps, profile=ToolProfile.PUBLIC, http_security=_unauthenticated_remote_security())
+
+    assert server.settings.auth is None

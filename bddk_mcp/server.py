@@ -162,6 +162,12 @@ def _validate_profile_http_policy(config: HttpSecurityConfig, profile: ToolProfi
         if required_scope not in config.jwt_required_scopes:
             raise HttpSecurityConfigError(f"The {profile.value} HTTP profile requires JWT scope {required_scope!r}")
 
+    if profile is ToolProfile.OPERATOR and config.allow_unauthenticated and not config.loopback_only:
+        raise HttpSecurityConfigError(
+            "Operator tools must never be exposed unauthenticated. "
+            "BDDK_HTTP_ALLOW_UNAUTHENTICATED is limited to the public read-only profile."
+        )
+
     if profile is ToolProfile.OPERATOR and not config.loopback_only:
         enabled = os.environ.get("BDDK_OPERATOR_REMOTE_ENABLED", "").strip().lower()
         if enabled not in {"1", "true", "yes"}:
