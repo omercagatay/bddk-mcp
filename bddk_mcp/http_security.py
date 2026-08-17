@@ -96,6 +96,7 @@ class HttpSecurityConfig:
     body_total_timeout_seconds: float
     max_concurrency: int
     rate_limit_per_minute: int
+    allow_unauthenticated: bool = False
 
     def transport_security_settings(self) -> TransportSecuritySettings:
         """Return a fresh SDK settings object for FastMCP integration."""
@@ -138,6 +139,18 @@ def _parse_positive_float(
     if not math.isfinite(value) or not 0 < value <= maximum:
         raise HttpSecurityConfigError(f"{name} must be greater than zero and at most {maximum:g}")
     return value
+
+
+def _parse_bool(env: Mapping[str, str], name: str) -> bool:
+    """Parse a strict opt-in boolean; anything unrecognised is a configuration error."""
+    raw = env.get(name, "").strip().lower()
+    if not raw:
+        return False
+    if raw in {"1", "true", "yes"}:
+        return True
+    if raw in {"0", "false", "no"}:
+        return False
+    raise HttpSecurityConfigError(f"{name} must be a boolean value")
 
 
 def _validate_port(raw: str, *, name: str) -> int:
@@ -406,17 +419,28 @@ def load_http_security_config(env: Mapping[str, str] | None = None) -> HttpSecur
         "BDDK_JWT_AUDIENCE",
     )
     auth_values = tuple(source.get(name, "").strip() for name in auth_names)
+    required_scopes = _parse_scopes(source.get("BDDK_JWT_REQUIRED_SCOPES"))
+    allow_unauthenticated = _parse_bool(source, "BDDK_HTTP_ALLOW_UNAUTHENTICATED")
+    if allow_unauthenticated:
+        # Scan by prefix rather than checking the four discovery values: settings
+        # such as BDDK_JWT_ALGORITHMS are not part of auth_values, and silently
+        # ignoring them would leave a half-migrated deployment looking healthy.
+        configured_jwt = sorted(name for name in source if name.startswith("BDDK_JWT_") and source[name].strip())
+        if configured_jwt:
+            raise HttpSecurityConfigError(
+                "BDDK_HTTP_ALLOW_UNAUTHENTICATED cannot be combined with any BDDK_JWT_* setting; "
+                f"remove {', '.join(configured_jwt)}"
+            )
     if any(auth_values) and not all(auth_values):
         raise HttpSecurityConfigError("JWT authentication settings must be configured as a complete set")
-    if not loopback_only and not all(auth_values):
+    if not loopback_only and not all(auth_values) and not allow_unauthenticated:
         raise HttpSecurityConfigError("Non-loopback HTTP requires issuer, resource, JWKS URL, and audience")
 
-    required_scopes = _parse_scopes(source.get("BDDK_JWT_REQUIRED_SCOPES"))
     if required_scopes and not all(auth_values):
         raise HttpSecurityConfigError("JWT scopes require complete issuer, resource, JWKS URL, and audience settings")
     if all(auth_values) and not required_scopes:
         raise HttpSecurityConfigError("JWT authentication requires at least one BDDK_JWT_REQUIRED_SCOPES value")
-    if not loopback_only and not required_scopes:
+    if not loopback_only and not required_scopes and not allow_unauthenticated:
         raise HttpSecurityConfigError("Non-loopback HTTP requires at least one JWT scope")
 
     issuer = _validate_https_url(auth_names[0], auth_values[0]) if auth_values[0] else None
@@ -464,6 +488,7 @@ def load_http_security_config(env: Mapping[str, str] | None = None) -> HttpSecur
             120,
             maximum=100_000,
         ),
+        allow_unauthenticated=allow_unauthenticated,
     )
 
 

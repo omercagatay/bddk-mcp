@@ -707,3 +707,81 @@ async def test_jwt_verifier_rejects_wrong_signature_disallowed_algorithm_and_ove
     assert await verifier.verify_token(wrong_signature) is None
     assert await verifier.verify_token(symmetric) is None
     assert await verifier.verify_token("x" * (config.jwt_max_token_length + 1)) is None
+
+
+def _unauthenticated_env() -> dict[str, str]:
+    return {
+        "MCP_HOST": "0.0.0.0",
+        "PORT": "8443",
+        "BDDK_HTTP_ALLOWED_HOSTS": "mcp.bank.example:8443",
+        "BDDK_HTTP_ALLOWED_ORIGINS": "https://audit.bank.example",
+        "BDDK_HTTP_ALLOW_UNAUTHENTICATED": "true",
+    }
+
+
+def test_remote_bind_without_opt_in_still_requires_authentication():
+    env = _unauthenticated_env()
+    del env["BDDK_HTTP_ALLOW_UNAUTHENTICATED"]
+    with pytest.raises(HttpSecurityConfigError, match="Non-loopback HTTP requires issuer"):
+        load_http_security_config(env)
+
+
+def test_remote_bind_with_explicit_opt_in_disables_authentication():
+    config = load_http_security_config(_unauthenticated_env())
+    assert config.allow_unauthenticated is True
+    assert config.jwt_issuer is None
+    assert config.jwt_audience is None
+    assert config.jwt_required_scopes == frozenset()
+    assert config.loopback_only is False
+
+
+def test_unauthenticated_opt_in_defaults_to_false():
+    config = load_http_security_config(_remote_env())
+    assert config.allow_unauthenticated is False
+
+
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        ("BDDK_JWT_ISSUER", "https://id.bank.example/realms/bddk"),
+        ("BDDK_JWT_RESOURCE", "https://mcp.bank.example/mcp"),
+        ("BDDK_JWT_JWKS_URL", "https://id.bank.example/realms/bddk/jwks"),
+        ("BDDK_JWT_AUDIENCE", "bddk-mcp"),
+        ("BDDK_JWT_REQUIRED_SCOPES", "bddk.read"),
+        # Not part of the four discovery values, so a naive check would miss it.
+        ("BDDK_JWT_ALGORITHMS", "RS256"),
+        ("BDDK_JWT_ACCESS_TOKEN_TYPES", "at+jwt"),
+    ],
+)
+def test_unauthenticated_opt_in_refuses_to_combine_with_jwt_settings(key, value):
+    env = _unauthenticated_env()
+    env[key] = value
+    with pytest.raises(HttpSecurityConfigError, match=f"remove {key}"):
+        load_http_security_config(env)
+
+
+def test_unauthenticated_opt_in_ignores_blank_jwt_settings():
+    env = _unauthenticated_env()
+    env["BDDK_JWT_ISSUER"] = "   "
+    assert load_http_security_config(env).allow_unauthenticated is True
+
+
+def test_unauthenticated_opt_in_rejects_a_non_boolean_value():
+    env = _unauthenticated_env()
+    env["BDDK_HTTP_ALLOW_UNAUTHENTICATED"] = "maybe"
+    with pytest.raises(HttpSecurityConfigError, match="must be a boolean"):
+        load_http_security_config(env)
+
+
+def test_unauthenticated_opt_in_still_requires_transport_allowlists():
+    env = _unauthenticated_env()
+    del env["BDDK_HTTP_ALLOWED_ORIGINS"]
+    with pytest.raises(HttpSecurityConfigError, match="explicit BDDK_HTTP_ALLOWED_HOSTS"):
+        load_http_security_config(env)
+
+
+def test_unauthenticated_opt_in_still_requires_https_origins():
+    env = _unauthenticated_env()
+    env["BDDK_HTTP_ALLOWED_ORIGINS"] = "http://audit.bank.example"
+    with pytest.raises(HttpSecurityConfigError, match="HTTPS allowed Origins"):
+        load_http_security_config(env)
