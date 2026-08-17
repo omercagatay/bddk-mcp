@@ -1,5 +1,8 @@
 # Architecture at the Reviewed Commit
 
+> [!NOTE]
+> This design document contains dated implementation checkpoints as well as durable architecture. For the current tool, schema, corpus, CI, release, and maturity facts, use [Current Repository Status](STATUS.md).
+
 This document describes the architecture implemented at commit **5684a34c10e6d90bc22d6ab2a6466944afb6bf81**. It is descriptive, not the target design.
 
 ## Implementation progress overlay — 2026-07-16

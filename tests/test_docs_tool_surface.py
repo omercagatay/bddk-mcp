@@ -166,12 +166,15 @@ def test_required_review_documents_have_a_current_checkpoint():
     for path in REVIEW_DOCUMENTS:
         content = _read(path)
         assert "2026-07-16" in content, path
+        assert "Current Repository Status" in content, path
 
-    architecture = _read("docs/ARCHITECTURE.md")
-    assert "15 public tools plus 14 operator additions" in architecture
-    assert "bddk://corpus/active-release" in architecture
-    assert "zero prompts" in architecture
-    assert "schema v7" in _read("docs/EXECUTIVE_SUMMARY.md")
+    status = _read("docs/STATUS.md")
+    assert "2026-08-18" in status
+    assert "17 tools" in status
+    assert "17 public tools plus 14 operator additions, 31 total" in status
+    assert "bddk://corpus/active-release" in status
+    assert "schema v10" in status
+    assert "9,675 chunks" in status
 
 
 def test_current_lifecycle_docs_name_the_real_publisher_boundary():

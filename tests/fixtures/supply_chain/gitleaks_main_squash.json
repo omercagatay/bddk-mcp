@@ -1,0 +1,26 @@
+[
+  {
+    "Fingerprint": "f155005c8a2bd272b1b8634d3ff054909dfa4301:tests/test_migrations.py:generic-api-key:1352"
+  },
+  {
+    "Fingerprint": "2fef57b33202befbeb301399cf5a7e41b4e8ea64:tests/test_expert_evaluation.py:generic-api-key:552"
+  },
+  {
+    "Fingerprint": "af275eb420ee6b36e7b59e46f69fe7a03419e8a5:tests/test_migrations.py:generic-api-key:897"
+  },
+  {
+    "Fingerprint": "f155005c8a2bd272b1b8634d3ff054909dfa4301:tests/test_expert_evaluation.py:generic-api-key:308"
+  },
+  {
+    "Fingerprint": "f155005c8a2bd272b1b8634d3ff054909dfa4301:tests/test_expert_evaluation.py:generic-api-key:554"
+  },
+  {
+    "Fingerprint": "670a5588c519ebf92708792df9da90cbe56fb136:tests/test_expert_evaluation.py:generic-api-key:302"
+  },
+  {
+    "Fingerprint": "b5f26bb30adab6b0483f5e5bf5bb819c574389b8:tests/test_benchmark_audit.py:aws-access-token:60"
+  },
+  {
+    "Fingerprint": "b5f26bb30adab6b0483f5e5bf5bb819c574389b8:tests/test_benchmark_audit.py:aws-access-token:66"
+  }
+]

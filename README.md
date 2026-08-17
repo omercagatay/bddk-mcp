@@ -2,7 +2,13 @@
 
 [Türkçe](#turkce) | [English](#english) | [English-only operational guide](README.en.md)
 
+[![CI](https://github.com/omercagatay/bddk-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/omercagatay/bddk-mcp/actions/workflows/ci.yml)
+[![Supply chain evidence](https://github.com/omercagatay/bddk-mcp/actions/workflows/supply-chain.yml/badge.svg)](https://github.com/omercagatay/bddk-mcp/actions/workflows/supply-chain.yml)
+
 BDDK MCP Server is an offline-first Model Context Protocol server for searching, retrieving, and analyzing Turkish banking regulation data from BDDK and mevzuat.gov.tr. It combines catalog search, document retrieval, section-level legal lookup, semantic search, bulletin analytics, document quality checks, and operator backfill workflows.
+
+> [!IMPORTANT]
+> This repository is an engineering beta, not legal advice or proof of production readiness. Start with the [current status](docs/STATUS.md) and [documentation index](docs/README.md), review the [deployment boundaries](docs/DEPLOYMENT.md), and use the [security policy](SECURITY.md) for private vulnerability reports. Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=81"]
+requires = ["setuptools>=83.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -47,7 +47,7 @@ benchmark = [
     "anthropic>=0.40",
 ]
 gpu = [
-    "torch>=2.0",
+    "torch>=2.13.0",
     "torchvision>=0.15",
     "chandra-ocr[hf]>=0.2",
 ]

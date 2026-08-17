@@ -1,5 +1,8 @@
 # BDDK MCP Repository Review
 
+> [!NOTE]
+> This document preserves a dated repository review and later implementation overlays. For the current tool, schema, corpus, CI, release, and maturity facts, use [Current Repository Status](STATUS.md).
+
 Review date: 2026-07-14
 Reviewed commit: **5684a34c10e6d90bc22d6ab2a6466944afb6bf81**
 Repository: https://github.com/omercagatay/bddk-mcp

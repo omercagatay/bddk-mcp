@@ -1,6 +1,6 @@
 # BDDK MCP Server — English Operational Guide
 
-[Bilingual project README](README.md) | [Deployment guide](docs/DEPLOYMENT.md) | [Benchmark guide](benchmark/README.md)
+[Bilingual project README](README.md) | [Current status](docs/STATUS.md) | [Documentation index](docs/README.md) | [Deployment guide](docs/DEPLOYMENT.md) | [Contributing](CONTRIBUTING.md) | [Security](SECURITY.md)
 
 BDDK MCP Server is an offline-first Model Context Protocol server for searching, retrieving, and analyzing Turkish banking regulation data from BDDK and mevzuat.gov.tr. This page summarizes the current runtime contract; the bilingual README contains the broader feature and development guide.
 

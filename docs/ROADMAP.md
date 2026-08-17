@@ -1,5 +1,8 @@
 # Actionable Development Roadmap
 
+> [!NOTE]
+> This roadmap preserves dated checkpoints and planned work. It is not the canonical source for current runtime counts or release state; use [Current Repository Status](STATUS.md) for those facts.
+
 ## Roadmap principles
 
 - Stabilize the current product before adding knowledge-platform features.

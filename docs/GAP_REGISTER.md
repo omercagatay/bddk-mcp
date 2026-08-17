@@ -1,5 +1,8 @@
 # Gap Register
 
+> [!NOTE]
+> Gap entries retain their dated evidence and closure language. Use [Current Repository Status](STATUS.md) for the concise current contract and treat external acceptance gaps as open until evidence says otherwise.
+
 Review basis: commit **5684a34c10e6d90bc22d6ab2a6466944afb6bf81**, reviewed 2026-07-14.
 
 Severity reflects the project's intended regulatory, audit, local, remote, and enterprise use. No Critical finding was confirmed. The absence of a confirmed active unauthenticated production deployment, irreversible production data loss, committed live secret, or proven incorrect regulatory decision keeps the most serious findings at High. This does not make High findings acceptable for production.
