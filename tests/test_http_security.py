@@ -785,3 +785,99 @@ def test_unauthenticated_opt_in_still_requires_https_origins():
     env["BDDK_HTTP_ALLOWED_ORIGINS"] = "http://audit.bank.example"
     with pytest.raises(HttpSecurityConfigError, match="HTTPS allowed Origins"):
         load_http_security_config(env)
+
+
+def _scope_with_forwarded(value: str | None, peer: str = "10.0.0.9") -> dict[str, Any]:
+    headers: list[tuple[bytes, bytes]] = []
+    if value is not None:
+        headers.append((b"x-forwarded-for", value.encode("latin-1")))
+    return {"type": "http", "client": (peer, 51000), "headers": headers}
+
+
+def test_rate_key_ignores_forwarded_header_by_default():
+    from bddk_mcp.http_security import _client_rate_key
+
+    scope = _scope_with_forwarded("203.0.113.7")
+    assert _client_rate_key(scope) == "10.0.0.9"
+    assert _client_rate_key(scope, 0) == "10.0.0.9"
+
+
+def test_rate_key_uses_the_trusted_hop_when_configured():
+    from bddk_mcp.http_security import _client_rate_key
+
+    scope = _scope_with_forwarded("203.0.113.7, 198.51.100.4")
+    assert _client_rate_key(scope, 1) == "198.51.100.4"
+    assert _client_rate_key(scope, 2) == "203.0.113.7"
+
+
+def test_rate_key_flattens_repeated_forwarded_headers():
+    from bddk_mcp.http_security import _client_rate_key
+
+    scope = {
+        "type": "http",
+        "client": ("10.0.0.9", 51000),
+        "headers": [
+            (b"x-forwarded-for", b"203.0.113.7"),
+            (b"x-forwarded-for", b"198.51.100.4"),
+        ],
+    }
+    assert _client_rate_key(scope, 1) == "198.51.100.4"
+
+
+@pytest.mark.parametrize(
+    "value,hops",
+    [
+        (None, 1),  # header absent entirely
+        ("", 1),  # header present but empty
+        ("not-an-ip", 1),  # trusted hop is not an address
+        ("  ,  ", 1),  # only separators
+        ("203.0.113.7", 2),  # fewer entries than trusted hops
+        ("203.0.113.7, not-an-ip", 1),
+    ],
+)
+def test_rate_key_falls_back_to_unknown_on_unusable_forwarded_values(value, hops):
+    from bddk_mcp.http_security import _client_rate_key
+
+    # Never fall back to the socket peer here: that would let a spoofed header
+    # silently merge distinct callers into the proxy's shared bucket.
+    assert _client_rate_key(_scope_with_forwarded(value), hops) == "unknown"
+
+
+def test_trusted_proxy_hops_defaults_to_zero_and_validates():
+    env = _remote_env()
+    assert load_http_security_config(env).trusted_proxy_hops == 0
+
+    env["BDDK_HTTP_TRUSTED_PROXY_HOPS"] = "1"
+    assert load_http_security_config(env).trusted_proxy_hops == 1
+
+    env["BDDK_HTTP_TRUSTED_PROXY_HOPS"] = "-1"
+    with pytest.raises(HttpSecurityConfigError, match="between 0 and"):
+        load_http_security_config(env)
+
+    env["BDDK_HTTP_TRUSTED_PROXY_HOPS"] = "banana"
+    with pytest.raises(HttpSecurityConfigError, match="must be an integer"):
+        load_http_security_config(env)
+
+
+async def _noop_app(scope, receive, send):
+    await send({"type": "http.response.start", "status": 200, "headers": []})
+    await send({"type": "http.response.body", "body": b""})
+
+
+def test_forwarded_clients_receive_independent_rate_windows():
+    env = _remote_env()
+    env["BDDK_HTTP_TRUSTED_PROXY_HOPS"] = "1"
+    env["BDDK_HTTP_RATE_LIMIT_PER_MINUTE"] = "1"
+    config = load_http_security_config(env)
+
+    # _rate_retry_after is synchronous, so this test needs no event loop.
+    middleware = HttpSecurityMiddleware(_noop_app, config)
+
+    first = middleware._rate_retry_after(_scope_with_forwarded("198.51.100.4"))
+    second = middleware._rate_retry_after(_scope_with_forwarded("198.51.100.5"))
+    third = middleware._rate_retry_after(_scope_with_forwarded("198.51.100.4"))
+
+    assert first is None
+    assert second is None
+    assert third is not None
+    assert middleware.tracked_rate_clients == 2

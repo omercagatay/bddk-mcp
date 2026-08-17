@@ -97,6 +97,7 @@ class HttpSecurityConfig:
     max_concurrency: int
     rate_limit_per_minute: int
     allow_unauthenticated: bool = False
+    trusted_proxy_hops: int = 0
 
     def transport_security_settings(self) -> TransportSecuritySettings:
         """Return a fresh SDK settings object for FastMCP integration."""
@@ -121,6 +122,23 @@ def _parse_positive_int(
         raise HttpSecurityConfigError(f"{name} must be an integer") from exc
     if not 1 <= value <= maximum:
         raise HttpSecurityConfigError(f"{name} must be between 1 and {maximum}")
+    return value
+
+
+def _parse_non_negative_int(
+    env: Mapping[str, str],
+    name: str,
+    default: int,
+    *,
+    maximum: int,
+) -> int:
+    raw = env.get(name, str(default)).strip()
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise HttpSecurityConfigError(f"{name} must be an integer") from exc
+    if not 0 <= value <= maximum:
+        raise HttpSecurityConfigError(f"{name} must be between 0 and {maximum}")
     return value
 
 
@@ -489,6 +507,7 @@ def load_http_security_config(env: Mapping[str, str] | None = None) -> HttpSecur
             maximum=100_000,
         ),
         allow_unauthenticated=allow_unauthenticated,
+        trusted_proxy_hops=_parse_non_negative_int(source, "BDDK_HTTP_TRUSTED_PROXY_HOPS", 0, maximum=8),
     )
 
 
@@ -592,14 +611,29 @@ def _header_values(scope: Scope, header_name: bytes) -> list[bytes]:
     return [value for name, value in scope.get("headers", []) if name.lower() == header_name]
 
 
-def _client_rate_key(scope: Scope) -> str:
-    """Return a coarse client key without trusting forwarding headers.
+def _client_rate_key(scope: Scope, trusted_proxy_hops: int = 0) -> str:
+    """Return a coarse client key, trusting forwarding headers only when configured.
 
-    ``scope["client"]`` is populated by the serving ASGI container.  Deployments
-    behind a trusted reverse proxy must restore the real peer address in that
-    server layer; this middleware deliberately ignores client-controlled
-    ``Forwarded`` and ``X-Forwarded-For`` headers.
+    At the default of zero hops the key is the ASGI socket peer and
+    client-controlled ``X-Forwarded-For`` values are ignored entirely, which is
+    correct for a directly exposed bind.  A deployment behind ``n`` trusted
+    reverse proxies sets ``BDDK_HTTP_TRUSTED_PROXY_HOPS=n``; the key is then the
+    ``n``-th entry from the right of the combined forwarded list, which is the
+    last hop the operator asserts is trustworthy.  Anything unusable degrades to
+    ``"unknown"`` rather than to a spoofable value.
     """
+    if trusted_proxy_hops > 0:
+        forwarded: list[str] = []
+        for raw in _header_values(scope, b"x-forwarded-for"):
+            forwarded.extend(part.strip() for part in raw.decode("latin-1").split(","))
+        forwarded = [entry for entry in forwarded if entry]
+        if len(forwarded) < trusted_proxy_hops:
+            return "unknown"
+        try:
+            return ipaddress.ip_address(forwarded[-trusted_proxy_hops]).compressed
+        except ValueError:
+            return "unknown"
+
     client = scope.get("client")
     if not isinstance(client, tuple) or not client or not isinstance(client[0], str):
         return "unknown"
@@ -656,6 +690,7 @@ class HttpSecurityMiddleware:
         self._transport = TransportSecurityMiddleware(config.transport_security_settings())
         self._clock = clock or time.monotonic
         self._rate_limit = config.rate_limit_per_minute
+        self._trusted_proxy_hops = config.trusted_proxy_hops
         self._rate_state_capacity = min(
             _RATE_STATE_MAX_CLIENTS,
             max(_RATE_STATE_MIN_CLIENTS, config.max_concurrency * 16),
@@ -672,7 +707,7 @@ class HttpSecurityMiddleware:
 
     def _rate_retry_after(self, scope: Scope) -> int | None:
         now = self._clock()
-        client_key = _client_rate_key(scope)
+        client_key = _client_rate_key(scope, self._trusted_proxy_hops)
         with self._rate_lock:
             while self._rate_windows:
                 oldest_key = next(iter(self._rate_windows))
