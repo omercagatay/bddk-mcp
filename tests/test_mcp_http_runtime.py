@@ -384,3 +384,38 @@ def test_public_profile_accepts_unauthenticated_remote_exposure():
     server = create_mcp(deps, profile=ToolProfile.PUBLIC, http_security=_unauthenticated_remote_security())
 
     assert server.settings.auth is None
+
+
+@pytest.mark.asyncio
+async def test_unauthenticated_public_server_advertises_no_oauth():
+    from bddk_mcp.server import create_mcp
+
+    security = _unauthenticated_remote_security()
+    assert security.jwt_issuer is None
+
+    deps = Dependencies(pool=None, doc_store=MagicMock(), client=MagicMock(), http=None)
+    server = create_mcp(deps, profile=ToolProfile.PUBLIC, http_security=security)
+    raw_app = server.streamable_http_app()
+    app = HttpSecurityMiddleware(raw_app, security)
+
+    transport = httpx.ASGITransport(app=app)
+    async with raw_app.router.lifespan_context(raw_app):
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="https://mcp.bank.example",
+            headers={"origin": "https://client.bank.example"},
+        ) as client:
+            protected_resource = await client.get("/.well-known/oauth-protected-resource/mcp")
+            authorization_server = await client.get("/.well-known/oauth-authorization-server")
+            unauthenticated = await client.post("/mcp", json={})
+            bad_origin = await client.post("/mcp", json={}, headers={"origin": "https://evil.example"})
+
+    # No OAuth is advertised, so no connector will start a flow against the
+    # decommissioned issuer.
+    assert protected_resource.status_code == 404
+    assert authorization_server.status_code == 404
+    assert "www-authenticate" not in unauthenticated.headers
+    assert unauthenticated.status_code != 401
+
+    # Transport checks still apply with authentication removed.
+    assert bad_origin.status_code == 403
