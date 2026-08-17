@@ -10,7 +10,7 @@ restartPolicyMaxRetries = 3
 # locally-run bootstrap publishes under a different identity and the server
 # then refuses to start. No-op when the DB already matches the seed corpus.
 # Requires BDDK_INGESTION_DATABASE_URL on the service.
-preDeployCommand = "/app/.venv/bin/bddk-mcp bootstrap --reindex-existing"
+preDeployCommand = "/app/.venv/bin/bddk-mcp bootstrap --reindex-existing --trusted-signing-key /app/trust/corpus-signing-public-key.pem"
 
 [[deploy.volumes]]
 mountPath = "/app/data"

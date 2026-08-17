@@ -15,9 +15,11 @@ from benchmark.evaluation_trust_policy import EvaluationTrustAuthorization
 from benchmark.expert_evaluation import ExpertEvaluationError
 from benchmark.release_preflight import ReleasePreflightInputs, main, run_release_preflight
 
+_TRACKED_CORPUS_TRUST_KEY = Path(__file__).parents[1] / "deploy" / "trust" / "corpus-signing-public-key.pem"
+
 
 def test_tracked_draft_fails_preflight_without_exposing_case_content(capsys) -> None:
-    result = main([])
+    result = main(["--trusted-corpus-key", str(_TRACKED_CORPUS_TRUST_KEY)])
 
     captured = capsys.readouterr()
     payload = json.loads(captured.err)

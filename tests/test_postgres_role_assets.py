@@ -84,8 +84,8 @@ PUBLISHER_READ_RELATIONS = {
 }
 STAGE_ROUTINE = (
     "bddk_meta.stage_verified_corpus_release( pg_catalog.text, pg_catalog.text, pg_catalog.text, "
-    "pg_catalog.text, pg_catalog.text, pg_catalog.int4, pg_catalog.int4, pg_catalog.int4, "
-    "pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.int4 )"
+    "pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.int4, pg_catalog.int4, "
+    "pg_catalog.int4, pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.int4 )"
 )
 RETAINED_CORPUS_TABLES = {
     "bddk_retained.decision_cache",

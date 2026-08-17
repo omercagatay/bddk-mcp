@@ -126,7 +126,12 @@ def _write_manifest(
 
 def test_tracked_corpus_manifest_matches_all_reviewed_seed_artifacts():
     root = Path(__file__).parents[1] / "seed_data"
-    validation = load_and_validate_corpus_manifest(root / "corpus_scope.yml", corpus_root=root)
+    trusted_key = Path(__file__).parents[1] / "deploy" / "trust" / "corpus-signing-public-key.pem"
+    validation = load_and_validate_corpus_manifest(
+        root / "corpus_scope.yml",
+        corpus_root=root,
+        trusted_signing_key=trusted_key,
+    )
 
     assert validation.manifest.schema_version == 1
     assert validation.manifest.exhaustive is False
@@ -136,9 +141,20 @@ def test_tracked_corpus_manifest_matches_all_reviewed_seed_artifacts():
         "chunks",
         "decision_cache",
     }
+    assert validation.manifest.integrity.signature_status == "verified"
+    assert validation.manifest.freshness.source_detection_slo_seconds == 604800
+    assert validation.manifest.freshness.slo_evidence_status == "not_measured"
     assert CORPUS_SCOPE_WARNING in validation.warnings
-    assert any("not yet quantified" in warning for warning in validation.warnings)
-    assert any("no digital signature" in warning for warning in validation.warnings)
+    assert not any("not yet quantified" in warning for warning in validation.warnings)
+    assert any("not measured against per-document events" in warning for warning in validation.warnings)
+    assert not any("no digital signature" in warning for warning in validation.warnings)
+
+
+def test_tracked_corpus_manifest_requires_the_project_trust_anchor():
+    root = Path(__file__).parents[1] / "seed_data"
+
+    with pytest.raises(CorpusManifestError, match="separately supplied trusted public key"):
+        load_and_validate_corpus_manifest(root / "corpus_scope.yml", corpus_root=root)
 
 
 def test_manifest_rejects_tampered_artifact_without_leaking_content(tmp_path: Path):

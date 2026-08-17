@@ -146,7 +146,7 @@ _ALL_ROUTINES = frozenset(
         "bddk_meta.corpus_retrieval_ready(text)",
         "bddk_meta.reject_corpus_release_mutation()",
         "bddk_meta.publish_verified_corpus_release(text, text, text, integer, integer, integer, text)",
-        "bddk_meta.stage_verified_corpus_release(text, text, text, text, text, integer, integer, integer, text, text, text, integer)",
+        "bddk_meta.stage_verified_corpus_release(text, text, text, text, text, text, integer, integer, integer, text, text, text, integer)",
         "bddk_meta.activate_staged_corpus_release(text)",
         "bddk_meta.resolve_regulation_status(text, date)",
         "bddk_meta.retained_corpus_state_sha256(text, text)",
@@ -165,7 +165,7 @@ _V8_ONLY_TABLES = frozenset(
 )
 _V8_ONLY_ROUTINES = frozenset(
     {
-        "bddk_meta.stage_verified_corpus_release(text, text, text, text, text, integer, integer, integer, text, text, text, integer)",
+        "bddk_meta.stage_verified_corpus_release(text, text, text, text, text, text, integer, integer, integer, text, text, text, integer)",
         "bddk_meta.activate_staged_corpus_release(text)",
     }
 )
@@ -309,7 +309,7 @@ def _build_contracts() -> Mapping[str, _IdentityContract]:
     verifier_routines = _object_contract(
         _ALL_ROUTINES,
         {
-            "bddk_meta.stage_verified_corpus_release(text, text, text, text, text, integer, integer, integer, text, text, text, integer)": frozenset(
+            "bddk_meta.stage_verified_corpus_release(text, text, text, text, text, text, integer, integer, integer, text, text, text, integer)": frozenset(
                 {"EXECUTE"}
             ),
         },

@@ -185,6 +185,15 @@ def build_parser() -> argparse.ArgumentParser:
         type=_verification_validity,
         help="Short request lifetime; defaults to BDDK_RELEASE_VERIFICATION_VALIDITY_SECONDS (900)",
     )
+    verify_and_stage.add_argument(
+        "--accept-unmeasured-freshness",
+        action="store_true",
+        help=(
+            "Permit staging a signed, quantified corpus whose freshness objectives are not measured "
+            "against per-document source events. The weaker level is recorded in the release identity; "
+            "it is never relabelled as measured."
+        ),
+    )
 
     activate_release = subparsers.add_parser(
         "activate-corpus-release",
@@ -361,6 +370,7 @@ async def _verify_and_stage_corpus_release(
     verifier_revision_sha256: str | None,
     verifier_image_digest: str | None,
     valid_for_seconds: int | None,
+    accept_unmeasured_freshness: bool = False,
 ) -> dict:
     """Verify signed artifacts against locked DB state and stage, but never activate."""
 
@@ -407,7 +417,7 @@ async def _verify_and_stage_corpus_release(
     validation, artifacts_by_role = seed._manifest_seed_artifacts(
         root,
         require_quantified_freshness=True,
-        require_measured_freshness=True,
+        require_measured_freshness=not accept_unmeasured_freshness,
         require_verified_signature=True,
         trusted_signing_key=trusted_signing_key,
     )
@@ -422,7 +432,11 @@ async def _verify_and_stage_corpus_release(
     reviewed_chunks = seed._load_manifest_bound_records(root, artifacts_by_role["chunks"])
     decision_cache = seed._load_manifest_bound_records(root, artifacts_by_role["decision_cache"])
     seed._validate_seed_documents(documents)
-    seed._validate_strict_seed_artifact_shapes(documents, decision_cache)
+    seed._validate_strict_seed_artifact_shapes(
+        documents,
+        decision_cache,
+        require_measured_freshness=not accept_unmeasured_freshness,
+    )
     expected_sections = seed._expected_seed_sections(documents)
     signature_sha256 = validation.signature_sha256
     if signature_sha256 is None:
@@ -476,6 +490,7 @@ async def _verify_and_stage_corpus_release(
                         verifier_revision_sha256=revision,
                         verifier_image_digest=image_digest,
                         valid_for_seconds=validity,
+                        require_measured_freshness=not accept_unmeasured_freshness,
                     )
                     # The stage routine holds the corpus mutation/table locks
                     # through this transaction. A mismatch rolls the request back.
@@ -856,6 +871,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                     verifier_revision_sha256=args.verifier_revision_sha256,
                     verifier_image_digest=args.verifier_image_digest,
                     valid_for_seconds=args.verification_valid_for_seconds,
+                    accept_unmeasured_freshness=args.accept_unmeasured_freshness,
                 )
             )
             print(json.dumps(result, sort_keys=True, separators=(",", ":")))

@@ -28,12 +28,15 @@ from bddk_mcp.catalog_integrity import (
     _EXPECTED_V4_INDEX_COUNT,
     _EXPECTED_V7_CATALOG_OBJECT_COUNT,
     _EXPECTED_V7_CATALOG_SHA256,
-    _EXPECTED_V8_DEPLOYED_ROUTINE_ACL,
+    _EXPECTED_V10_DEPLOYED_ROUTINE_ACL,
     _LEGAL_STATUS_RESULT_TYPE,
     _V8_CORPUS_RELEASE_CONSTRAINTS,
     _V8_CORPUS_RELEASE_RELATIONS,
     _V8_CORPUS_RELEASE_ROUTINES,
     _V8_CORPUS_RELEASE_TRIGGERS,
+    _V10_CORPUS_RELEASE_CONSTRAINTS,
+    _V10_CORPUS_RELEASE_ROUTINES,
+    _V10_STAGE_ROUTINE_IDENTITY,
     _v6_legal_status_function_source,
 )
 from bddk_mcp.core.exceptions import BddkStorageError
@@ -266,7 +269,11 @@ class ReadOnlyReadinessPool:
             ]
         if "pg_constraint" in query:
             if "namespace.nspname = 'bddk_meta'" in query:
-                release_constraints = {**_CORPUS_RELEASE_CONSTRAINTS, **_V8_CORPUS_RELEASE_CONSTRAINTS}
+                release_constraints = {
+                    **_CORPUS_RELEASE_CONSTRAINTS,
+                    **_V8_CORPUS_RELEASE_CONSTRAINTS,
+                    **_V10_CORPUS_RELEASE_CONSTRAINTS,
+                }
                 return [
                     {
                         "relname": table,
@@ -342,11 +349,21 @@ class ReadOnlyReadinessPool:
                         "is_grantable": is_grantable,
                     }
                     for object_identity, grantee_name, privilege_type, is_grantable in (
-                        _EXPECTED_V8_DEPLOYED_ROUTINE_ACL
+                        _EXPECTED_V10_DEPLOYED_ROUTINE_ACL
                     )
                 ]
             if "namespace.nspname = 'bddk_meta'" in query:
-                release_routines = {**_CORPUS_RELEASE_ROUTINES, **_V8_CORPUS_RELEASE_ROUTINES}
+                release_routines = {
+                    **_CORPUS_RELEASE_ROUTINES,
+                    **_V8_CORPUS_RELEASE_ROUTINES,
+                    **_V10_CORPUS_RELEASE_ROUTINES,
+                }
+                release_routines = {
+                    identity: value
+                    for identity, value in release_routines.items()
+                    if identity == _V10_STAGE_ROUTINE_IDENTITY
+                    or not identity.startswith("stage_verified_corpus_release(")
+                }
                 return [
                     {
                         "function_identity": identity,

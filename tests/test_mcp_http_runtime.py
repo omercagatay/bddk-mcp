@@ -22,6 +22,12 @@ from bddk_mcp.tools.registry import PUBLIC_TOOL_NAMES, ToolProfile
 from bddk_mcp.tools.structured_outputs import SOURCE_DATA_BEGIN, SOURCE_DATA_END
 
 
+def _healthy_vector_store() -> MagicMock:
+    vector_store = MagicMock()
+    vector_store.semantic_search_ready = True
+    return vector_store
+
+
 @pytest.mark.asyncio
 async def test_official_client_initializes_lists_and_calls_over_secured_local_http():
     from bddk_mcp.server import create_mcp
@@ -154,7 +160,13 @@ async def test_content_free_health_routes_support_orchestrator_host_headers():
     from bddk_mcp.server import create_mcp
 
     pool = MagicMock()
-    deps = Dependencies(pool=pool, doc_store=MagicMock(), client=MagicMock(), http=None)
+    deps = Dependencies(
+        pool=pool,
+        doc_store=MagicMock(),
+        client=MagicMock(),
+        http=None,
+        vector_store=_healthy_vector_store(),
+    )
     security = load_http_security_config({"MCP_HOST": "127.0.0.1", "PORT": "8123"})
     server = create_mcp(deps, http_security=security)
     raw_app = server.streamable_http_app()
@@ -273,7 +285,13 @@ async def test_strict_health_rechecks_active_release_and_exposes_only_opaque_id(
 
     release = _active_release()
     pool = MagicMock()
-    deps = Dependencies(pool=pool, doc_store=MagicMock(), client=MagicMock(), http=None)
+    deps = Dependencies(
+        pool=pool,
+        doc_store=MagicMock(),
+        client=MagicMock(),
+        http=None,
+        vector_store=_healthy_vector_store(),
+    )
     security = load_http_security_config({"MCP_HOST": "127.0.0.1", "PORT": "8123"})
     with patch.object(server_module, "REQUIRE_ACTIVE_CORPUS_RELEASE", True):
         server = server_module.create_mcp(deps, http_security=security)
@@ -322,7 +340,13 @@ async def test_readiness_fails_closed_when_periodic_identity_attestation_fails()
     from bddk_mcp.server import create_mcp
 
     pool = MagicMock()
-    deps = Dependencies(pool=pool, doc_store=MagicMock(), client=MagicMock(), http=None)
+    deps = Dependencies(
+        pool=pool,
+        doc_store=MagicMock(),
+        client=MagicMock(),
+        http=None,
+        vector_store=_healthy_vector_store(),
+    )
     security = load_http_security_config({"MCP_HOST": "127.0.0.1", "PORT": "8123"})
     server = create_mcp(deps, http_security=security)
     raw_app = server.streamable_http_app()
@@ -344,6 +368,69 @@ async def test_readiness_fails_closed_when_periodic_identity_attestation_fails()
     assert response.status_code == 503
     assert response.json() == {"status": "not_ready"}
     assert "private ACL detail" not in response.text
+
+
+@pytest.mark.asyncio
+async def test_public_readiness_fails_closed_when_semantic_search_is_unhealthy():
+    from bddk_mcp.server import create_mcp
+
+    pool = MagicMock()
+    vector_store = MagicMock()
+    vector_store.semantic_search_ready = False
+    deps = Dependencies(
+        pool=pool,
+        doc_store=MagicMock(),
+        client=MagicMock(),
+        http=None,
+        vector_store=vector_store,
+    )
+    security = load_http_security_config({"MCP_HOST": "127.0.0.1", "PORT": "8123"})
+    server = create_mcp(deps, profile=ToolProfile.PUBLIC, http_security=security)
+    raw_app = server.streamable_http_app()
+
+    async with raw_app.router.lifespan_context(raw_app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=raw_app),
+            base_url="http://127.0.0.1:8123",
+        ) as client:
+            response = await client.get("/health/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {"status": "not_ready"}
+
+
+@pytest.mark.asyncio
+async def test_operator_readiness_does_not_block_recovery_on_semantic_search():
+    from bddk_mcp.server import create_mcp
+
+    pool = MagicMock()
+    vector_store = MagicMock()
+    vector_store.semantic_search_ready = False
+    deps = Dependencies(
+        pool=pool,
+        doc_store=MagicMock(),
+        client=MagicMock(),
+        http=None,
+        vector_store=vector_store,
+    )
+    security = load_http_security_config({"MCP_HOST": "127.0.0.1", "PORT": "8123"})
+    server = create_mcp(deps, profile=ToolProfile.OPERATOR, http_security=security)
+    raw_app = server.streamable_http_app()
+
+    with (
+        patch("bddk_mcp.server.assert_database_ready", new=AsyncMock(return_value=DatabaseReadiness())),
+        patch("bddk_mcp.server.assert_database_identity", new=AsyncMock()),
+        patch("bddk_mcp.server.assert_operator_job_schema_ready", new=AsyncMock()),
+    ):
+        async with raw_app.router.lifespan_context(raw_app):
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=raw_app),
+                base_url="http://127.0.0.1:8123",
+            ) as client:
+                response = await client.get("/health/ready")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready"}
 
 
 def test_remote_operator_profile_requires_explicit_private_enablement_and_scope(monkeypatch):

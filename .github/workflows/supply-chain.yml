@@ -213,6 +213,15 @@ jobs:
             docker image inspect "$local_reference" > "$image_inspect"
             image_id="$(docker image inspect --format '{{.Id}}' "$local_reference")"
             test -n "$image_id"
+            for runtime_uid in 10001 12345; do
+              docker run --rm \
+                --read-only \
+                --tmpfs /tmp:rw,nosuid,nodev,size=512m \
+                --user "${runtime_uid}:0" \
+                --entrypoint /app/.venv/bin/python \
+                "$local_reference" \
+                -c "import asyncio; from bddk_mcp.store.vector_store import VectorStore; vectors = asyncio.run(VectorStore(None)._embed(['semantic readiness'], prefix='query')); assert len(vectors) == 1 and len(vectors[0]) == 768"
+            done
             syft "docker:${image_id}" --output "cyclonedx-json=${raw_sbom}"
             uv run python scripts/supply_chain_evidence.py container-evidence \
               --buildx-metadata "artifacts/containers/${variant}.buildx.json" \

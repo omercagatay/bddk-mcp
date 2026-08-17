@@ -28,6 +28,7 @@ from bddk_mcp.quality.markdown_quality import (
     assess_markdown_quality,
     quality_assessment_from_metadata,
 )
+from bddk_mcp.store.vector_store import SemanticSearchReadinessError, SemanticSearchUnavailableError
 from bddk_mcp.tools.contract_types import (
     ActiveOnly,
     AnnouncementCategory,
@@ -45,6 +46,7 @@ from bddk_mcp.tools.contract_types import (
     normalize_institution_type,
     validate_date_order,
 )
+from bddk_mcp.tools.errors import tool_error
 from bddk_mcp.tools.structured_outputs import (
     UNTRUSTED_SOURCE_WARNING,
     DocumentSearchItem,
@@ -458,16 +460,48 @@ Suggest the user try: different keywords or a different category (basın, mevzua
                 latency_ms=elapsed_ms(start),
                 result_count=0,
                 doc_ids=[],
-                relevance_stats={"status": "vector_store_initializing"},
+                relevance_stats={"status": "semantic_search_unavailable", "retryable": False},
             )
-            output = "Vector store is still initializing. Please try again in a few moments."
-            return structured_tool_result(
-                DocumentSearchResponse(
-                    status="unavailable",
-                    text=output,
-                    query=query,
-                    category=category,
-                )
+            return tool_error(
+                "SEMANTIC_SEARCH_UNAVAILABLE",
+                "Semantic document search is unavailable in this runtime.",
+                retryable=False,
+                hint="Use search_document_sections or get_document_section for corpus retrieval.",
+            )
+
+        try:
+            await deps.vector_store.assert_semantic_search_ready()
+        except SemanticSearchUnavailableError:
+            await record_tool_call_trace(
+                getattr(deps, "telemetry_pool", None),
+                tool_name="search_document_store",
+                args=args,
+                latency_ms=elapsed_ms(start),
+                result_count=0,
+                doc_ids=[],
+                relevance_stats={"status": "semantic_search_unavailable", "retryable": False},
+            )
+            return tool_error(
+                "SEMANTIC_SEARCH_UNAVAILABLE",
+                "Semantic document search failed its runtime model check.",
+                retryable=False,
+                hint="Use search_document_sections or get_document_section; an operator must repair this runtime.",
+            )
+        except SemanticSearchReadinessError:
+            await record_tool_call_trace(
+                getattr(deps, "telemetry_pool", None),
+                tool_name="search_document_store",
+                args=args,
+                latency_ms=elapsed_ms(start),
+                result_count=0,
+                doc_ids=[],
+                relevance_stats={"status": "semantic_search_not_ready", "retryable": True},
+            )
+            return tool_error(
+                "SEMANTIC_SEARCH_NOT_READY",
+                "Semantic document search could not complete its readiness check.",
+                retryable=True,
+                hint="Retry once, then use search_document_sections or get_document_section.",
             )
 
         cache_key = f"semantic:{query}:{category}:{limit}"
@@ -484,7 +518,24 @@ Suggest the user try: different keywords or a different category (basın, mevzua
             )
             return structured_tool_result(cached)
 
-        hits = await deps.vector_store.search(query, limit=limit, category=category)
+        try:
+            hits = await deps.vector_store.search(query, limit=limit, category=category)
+        except SemanticSearchUnavailableError:
+            await record_tool_call_trace(
+                getattr(deps, "telemetry_pool", None),
+                tool_name="search_document_store",
+                args=args,
+                latency_ms=elapsed_ms(start),
+                result_count=0,
+                doc_ids=[],
+                relevance_stats={"status": "semantic_search_unavailable", "retryable": False},
+            )
+            return tool_error(
+                "SEMANTIC_SEARCH_UNAVAILABLE",
+                "Semantic document search failed during query encoding.",
+                retryable=False,
+                hint="Use search_document_sections or get_document_section; an operator must repair this runtime.",
+            )
 
         if not hits:
             metrics.record_empty_search("search_document_store")

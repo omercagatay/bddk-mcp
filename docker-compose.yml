@@ -100,7 +100,14 @@ services:
     environment:
       BDDK_INGESTION_DATABASE_URL: postgresql://bddk_local_ingestion:local-only-ingestion@db:5432/bddk
       BDDK_ALLOW_INSECURE_DATABASE: "true"
-    command: [".venv/bin/bddk-mcp", "bootstrap", "--reindex-existing"]
+    command:
+      [
+        ".venv/bin/bddk-mcp",
+        "bootstrap",
+        "--reindex-existing",
+        "--trusted-signing-key",
+        "/app/trust/corpus-signing-public-key.pem",
+      ]
 
   bddk:
     image: bddk-mcp-local:dev

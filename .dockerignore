@@ -7,3 +7,6 @@
 !bddk_mcp/**
 !seed_data/
 !seed_data/**
+!deploy/
+!deploy/trust/
+!deploy/trust/corpus-signing-public-key.pem

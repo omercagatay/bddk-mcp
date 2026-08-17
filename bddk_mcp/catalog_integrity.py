@@ -21,6 +21,9 @@ from bddk_mcp.migrations.v0005_corpus_release_publication import (
 )
 from bddk_mcp.migrations.v0006_legal_status_resolver import V0006_LEGAL_STATUS_RESOLVER
 from bddk_mcp.migrations.v0008_staged_corpus_releases import V0008_STAGED_CORPUS_RELEASES
+from bddk_mcp.migrations.v0010_corpus_release_freshness_policy import (
+    V0010_CORPUS_RELEASE_FRESHNESS_POLICY,
+)
 from bddk_mcp.regulatory.text_profile import PROVISION_BOUNDARY_CODEPOINTS_V1
 
 _CORPUS_RELEASE_RELATIONS_SQL = """
@@ -847,6 +850,22 @@ def _v8_function_source(name: str) -> str:
     return match.group(1)
 
 
+def _v10_function_source(name: str) -> str:
+    """Extract the replaced freshness-policy function body from migration v0010."""
+
+    prefix = f"CREATE FUNCTION bddk_meta.{name}("
+    statement = next(
+        (item for item in V0010_CORPUS_RELEASE_FRESHNESS_POLICY.statements if item.strip().startswith(prefix)),
+        None,
+    )
+    if statement is None:
+        raise RuntimeError(f"migration v0010 is missing {name}")
+    match = re.search(r"\bAS \$function\$\s*(.*?)\s*\$function\$\s*$", statement, re.DOTALL)
+    if match is None:
+        raise RuntimeError(f"migration v0010 has an invalid {name} body")
+    return match.group(1)
+
+
 _CORPUS_RELEASE_RELATIONS: Final[dict[str, tuple[str, tuple[str, ...], tuple[str, ...]]]] = {
     "active_corpus_release": (
         "v",
@@ -1235,6 +1254,38 @@ _V8_CORPUS_RELEASE_ROUTINES: Final[dict[str, tuple[str, str, str, bool, str]]] =
     ),
 }
 
+_V10_POLICY_CONSTRAINT_DEFINITION: Final[str] = (
+    "CHECK ((freshness_policy_result = ANY (ARRAY["
+    "'quantified_measured_signature_verified_pass'::text, "
+    "'quantified_unmeasured_signature_verified_pass'::text])))"
+)
+
+_V10_CORPUS_RELEASE_CONSTRAINTS: Final[dict[tuple[str, str], tuple[str, str]]] = {
+    ("corpus_releases", "corpus_releases_policy_result_check"): (
+        "c",
+        _V10_POLICY_CONSTRAINT_DEFINITION,
+    ),
+    ("corpus_release_requests", "corpus_release_requests_policy_result_check"): (
+        "c",
+        _V10_POLICY_CONSTRAINT_DEFINITION,
+    ),
+}
+
+_V10_STAGE_ROUTINE_IDENTITY: Final[str] = (
+    "stage_verified_corpus_release(text, text, text, text, text, text, integer, integer, integer, "
+    "text, text, text, integer)"
+)
+
+_V10_CORPUS_RELEASE_ROUTINES: Final[dict[str, tuple[str, str, str, bool, str]]] = {
+    _V10_STAGE_ROUTINE_IDENTITY: (
+        "plpgsql",
+        "v",
+        "u",
+        True,
+        _v10_function_source("stage_verified_corpus_release"),
+    ),
+}
+
 _EXPECTED_V8_DEPLOYED_ROUTINE_ACL: Final[tuple[tuple[str, str, str, bool], ...]] = (
     (
         "activate_staged_corpus_release(requested_request_id text)",
@@ -1246,6 +1297,22 @@ _EXPECTED_V8_DEPLOYED_ROUTINE_ACL: Final[tuple[tuple[str, str, str, bool], ...]]
         "stage_verified_corpus_release(requested_manifest_id text, requested_manifest_sha256 text, "
         "requested_signature_sha256 text, requested_signer_key_sha256 text, "
         "requested_verification_evidence_sha256 text, requested_source_detection_slo_seconds integer, "
+        "requested_publication_slo_seconds integer, requested_max_manifest_age_seconds integer, "
+        "requested_retrieval_profile_sha256 text, requested_verifier_revision_sha256 text, "
+        "requested_verifier_image_digest text, requested_valid_for_seconds integer)",
+        "bddk_release_verifier",
+        "EXECUTE",
+        False,
+    ),
+)
+
+_EXPECTED_V10_DEPLOYED_ROUTINE_ACL: Final[tuple[tuple[str, str, str, bool], ...]] = (
+    _EXPECTED_V8_DEPLOYED_ROUTINE_ACL[0],
+    (
+        "stage_verified_corpus_release(requested_manifest_id text, requested_manifest_sha256 text, "
+        "requested_signature_sha256 text, requested_signer_key_sha256 text, "
+        "requested_verification_evidence_sha256 text, requested_freshness_policy_result text, "
+        "requested_source_detection_slo_seconds integer, "
         "requested_publication_slo_seconds integer, requested_max_manifest_age_seconds integer, "
         "requested_retrieval_profile_sha256 text, requested_verifier_revision_sha256 text, "
         "requested_verifier_image_digest text, requested_valid_for_seconds integer)",
@@ -1572,7 +1639,7 @@ def _catalog_char(value: Any) -> str:
 async def inspect_catalog_integrity(
     pool: asyncpg.Pool,
     *,
-    expected_schema_version: int = 8,
+    expected_schema_version: int = 10,
 ) -> CatalogIntegrity:
     """Verify critical constraints, triggers, indexes, and function bodies.
 
@@ -1584,8 +1651,8 @@ async def inspect_catalog_integrity(
     schema.
     """
 
-    if expected_schema_version not in {5, 6, 7, 8}:
-        raise ValueError("catalog integrity supports only schema versions 5, 6, 7, and 8")
+    if expected_schema_version not in {5, 6, 7, 8, 10}:
+        raise ValueError("catalog integrity supports only schema versions 5, 6, 7, 8, and 10")
 
     failures: list[str] = []
 
@@ -1761,6 +1828,8 @@ async def inspect_catalog_integrity(
     }
     if expected_schema_version >= 8:
         release_constraints.update(_V8_CORPUS_RELEASE_CONSTRAINTS)
+    if expected_schema_version >= 10:
+        release_constraints.update(_V10_CORPUS_RELEASE_CONSTRAINTS)
     expected_release_constraints = {
         key: (constraint_type, True, _normalize_sql(definition))
         for key, (constraint_type, definition) in release_constraints.items()
@@ -1793,6 +1862,14 @@ async def inspect_catalog_integrity(
     release_routines = dict(_CORPUS_RELEASE_ROUTINES)
     if expected_schema_version >= 8:
         release_routines.update(_V8_CORPUS_RELEASE_ROUTINES)
+    if expected_schema_version >= 10:
+        # v10 replaces the staged-release routine with its policy-aware signature.
+        release_routines.pop(
+            "stage_verified_corpus_release(text, text, text, text, text, integer, integer, integer, "
+            "text, text, text, integer)",
+            None,
+        )
+        release_routines.update(_V10_CORPUS_RELEASE_ROUTINES)
     release_routine_rows = await pool.fetch(
         _CORPUS_RELEASE_ROUTINES_SQL,
         sorted(identity.partition("(")[0] for identity in release_routines),
@@ -1922,7 +1999,10 @@ async def inspect_catalog_integrity(
             )
             for row in staged_acl_rows
         )
-        if staged_acl not in ((), _EXPECTED_V8_DEPLOYED_ROUTINE_ACL):
+        expected_staged_acl = (
+            _EXPECTED_V10_DEPLOYED_ROUTINE_ACL if expected_schema_version >= 10 else _EXPECTED_V8_DEPLOYED_ROUTINE_ACL
+        )
+        if staged_acl not in ((), expected_staged_acl):
             failures.append("acl:bddk_meta.staged_corpus_release_exact")
 
     return CatalogIntegrity(tuple(sorted(failures)))

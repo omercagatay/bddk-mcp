@@ -1,0 +1,40 @@
+services:
+  open-webui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bddk-open-webui:0.11.0-mcp-oauth-refresh.1
+    pull_policy: never
+    platform: linux/arm64
+    container_name: open-webui
+    network_mode: host
+    restart: always
+    stop_grace_period: 30s
+    environment:
+      HOST: 127.0.0.1
+      PORT: "3000"
+      WEBUI_URL: https://gx10-89da.tail7471f8.ts.net
+      WEBUI_SECRET_KEY_FILE: /app/backend/data/.webui_secret_key
+      WEBUI_SESSION_COOKIE_SAME_SITE: lax
+      WEBUI_SESSION_COOKIE_SECURE: "true"
+      WEBUI_AUTH_COOKIE_SAME_SITE: lax
+      WEBUI_AUTH_COOKIE_SECURE: "true"
+      OLLAMA_BASE_URL: http://127.0.0.1:11434
+      OPENAI_API_BASE_URL: http://127.0.0.1:8000/v1
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?invoke Compose through compose-current-key.sh}
+      UVICORN_WORKERS: "1"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl --silent --fail http://localhost:$${PORT:-8080}/health | jq -ne 'input.status == true' || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - open-webui-data:/app/backend/data
+
+volumes:
+  open-webui-data:
+    external: true
+    name: open-webui
