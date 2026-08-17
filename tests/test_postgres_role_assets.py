@@ -462,7 +462,7 @@ async def test_live_role_allow_and_deny_matrix_is_transactional() -> None:
         sensitive_facades = (
             "bddk_meta.publish_verified_corpus_release(text,text,text,integer,integer,integer,text)",
             "bddk_meta.stage_verified_corpus_release("
-            "text,text,text,text,text,integer,integer,integer,text,text,text,integer)",
+            "text,text,text,text,text,text,integer,integer,integer,text,text,text,integer)",
             "bddk_meta.activate_staged_corpus_release(text)",
         )
         for routine in sensitive_facades:
@@ -521,7 +521,7 @@ async def test_live_role_allow_and_deny_matrix_is_transactional() -> None:
         assert await connection.fetchval(
             "SELECT pg_catalog.has_function_privilege("
             "current_user, 'bddk_meta.stage_verified_corpus_release("
-            "text,text,text,text,text,integer,integer,integer,text,text,text,integer)', "
+            "text,text,text,text,text,text,integer,integer,integer,text,text,text,integer)', "
             "'EXECUTE')"
         )
         assert await connection.fetchval("SELECT count(*) FROM public.documents") == 1
@@ -546,7 +546,7 @@ async def test_live_role_allow_and_deny_matrix_is_transactional() -> None:
         assert not await connection.fetchval(
             "SELECT pg_catalog.has_function_privilege("
             "current_user, 'bddk_meta.stage_verified_corpus_release("
-            "text,text,text,text,text,integer,integer,integer,text,text,text,integer)', "
+            "text,text,text,text,text,text,integer,integer,integer,text,text,text,integer)', "
             "'EXECUTE')"
         )
         assert await connection.fetchval("SELECT count(*) FROM bddk_meta.active_corpus_release") == 0
