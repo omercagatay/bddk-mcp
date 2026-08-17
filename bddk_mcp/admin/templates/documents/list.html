@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Belgeler{% endblock %}
+{% block content %}
+<h1>Belgeler</h1>
+
+<form method="get" action="/documents">
+  <label>Kategori
+    <select name="category" onchange="this.form.submit()">
+      <option value="">Tumu</option>
+      {% for name, count in categories.items() %}
+        <option value="{{ name }}" {% if name == selected_category %}selected{% endif %}>{{ name }} ({{ count }})</option>
+      {% endfor %}
+    </select>
+  </label>
+</form>
+
+<table>
+  <thead>
+    <tr><th>Belge</th><th>Kategori</th><th>Sayfa</th></tr>
+  </thead>
+  <tbody>
+    {% for doc in page.items %}
+      <tr>
+        <td><a href="/documents/{{ doc.document_id }}">{{ doc.title }}</a>
+            <div class="muted">{{ doc.document_id }}</div></td>
+        <td>{{ doc.category }}</td>
+        <td>{{ doc.total_pages }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="3">Kayit bulunamadi.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<p>
+  {% if page.page > 1 %}
+    <a href="/documents?page={{ page.page - 1 }}{% if selected_category %}&category={{ selected_category }}{% endif %}">Onceki</a>
+  {% endif %}
+  <span class="muted">Sayfa {{ page.page }}</span>
+  {% if page.has_next %}
+    <a href="/documents?page={{ page.page + 1 }}{% if selected_category %}&category={{ selected_category }}{% endif %}">Sonraki</a>
+  {% endif %}
+</p>
+{% endblock %}
