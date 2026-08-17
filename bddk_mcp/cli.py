@@ -97,6 +97,10 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    admin_ui = subparsers.add_parser("admin-ui", help="Start the loopback administration console")
+    admin_ui.add_argument("--host", default=None, help="Override BDDK_ADMIN_HOST")
+    admin_ui.add_argument("--port", type=int, default=None, help="Override BDDK_ADMIN_PORT")
+
     bootstrap = subparsers.add_parser(
         "bootstrap",
         help="Import the reviewed seed into an already migrated schema and validate readiness",
@@ -271,6 +275,35 @@ def _run_serve(args: argparse.Namespace) -> None:
     from bddk_mcp.server import main as server_main
 
     server_main()
+
+
+def _run_admin_ui(args: argparse.Namespace) -> None:
+    import os
+
+    import uvicorn
+
+    from bddk_mcp.admin.runtime import build_app_from_env
+
+    env = dict(os.environ)
+    if args.host is not None:
+        env["BDDK_ADMIN_HOST"] = args.host
+    if args.port is not None:
+        env["BDDK_ADMIN_PORT"] = str(args.port)
+
+    async def _run_server() -> None:
+        # Build the app, run uvicorn, and close the pool on the same event
+        # loop: asyncpg connections are loop-bound, so asyncio.run(...) here
+        # and a separate uvicorn.run(...) after it would hand the pool to a
+        # loop that no longer exists.
+        app, shutdown = await build_app_from_env(env)
+        config = app.state.config
+        server = uvicorn.Server(uvicorn.Config(app, host=config.bind_host, port=config.port, log_level="info"))
+        try:
+            await server.serve()
+        finally:
+            await shutdown()
+
+    asyncio.run(_run_server())
 
 
 async def _migrate(
@@ -804,6 +837,9 @@ def main(argv: Sequence[str] | None = None) -> None:
         return
 
     try:
+        if args.command == "admin-ui":
+            _run_admin_ui(args)
+            return
         if args.command == "migrate":
             asyncio.run(
                 _migrate(
