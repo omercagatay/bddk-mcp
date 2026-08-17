@@ -56,3 +56,39 @@ def test_root_redirects_to_documents(client: TestClient) -> None:
 def test_invalid_page_number_does_not_error(client: TestClient) -> None:
     response = client.get("/documents?page=not-a-number")
     assert response.status_code == 200
+
+
+class FakeStoreWithDetail(FakeStore):
+    async def get_document(self, doc_id):
+        if doc_id != "mevzuat_1":
+            return None
+        return SimpleNamespace(
+            document_id="mevzuat_1",
+            title="Bankacilik Kanunu",
+            category="mevzuat",
+            decision_date="2005-10-19",
+            decision_number="5411",
+            source_url="https://example.invalid/5411",
+            markdown_content="# Madde 1\nAmac ve kapsam.",
+            extraction_method="markitdown",
+            total_pages=3,
+            file_size=1024,
+        )
+
+
+@pytest.fixture
+def detail_client() -> TestClient:
+    rows = [{"document_id": "mevzuat_1", "title": "Bankacilik Kanunu", "category": "mevzuat", "total_pages": 3}]
+    return TestClient(create_app(CONFIG, DocumentService(FakeStoreWithDetail(rows))))
+
+
+def test_detail_shows_metadata_and_content(detail_client: TestClient) -> None:
+    response = detail_client.get("/documents/mevzuat_1")
+    assert response.status_code == 200
+    assert "5411" in response.text
+    assert "Amac ve kapsam." in response.text
+
+
+def test_missing_document_returns_404(detail_client: TestClient) -> None:
+    response = detail_client.get("/documents/does-not-exist")
+    assert response.status_code == 404

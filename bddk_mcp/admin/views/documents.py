@@ -31,4 +31,17 @@ def register(routes: list, templates: Jinja2Templates, service: DocumentService)
             {"page": page, "categories": categories, "selected_category": category},
         )
 
+    async def document_detail(request: Request) -> Response:
+        document_id = request.path_params["document_id"]
+        doc = await service.get(document_id)
+        if doc is None:
+            return templates.TemplateResponse(
+                request,
+                "not_found.html",
+                {"document_id": document_id},
+                status_code=404,
+            )
+        return templates.TemplateResponse(request, "documents/detail.html", {"doc": doc})
+
     routes.append(Route("/documents", list_documents, methods=["GET"], name="documents"))
+    routes.append(Route("/documents/{document_id}", document_detail, methods=["GET"], name="document_detail"))
