@@ -14,6 +14,9 @@ RUN uv sync --frozen --no-dev && rm -rf /root/.cache/uv
 
 # Bundle pre-populated seed data (run `python seed.py export` locally first)
 COPY seed_data/ ./seed_data/
+# The corpus manifest is Ed25519-signed; the trust anchor must live outside the
+# corpus root, so bootstrap in this image passes /app/trust explicitly.
+COPY deploy/trust/corpus-signing-public-key.pem ./trust/corpus-signing-public-key.pem
 
 # Pre-download the embedding model at build time so runtime is fully offline.
 ENV HF_HOME=/app/model_cache
@@ -24,6 +27,7 @@ ENV HF_HOME=/tmp/huggingface
 ENV TRANSFORMERS_OFFLINE=1
 ENV HF_HUB_OFFLINE=1
 ENV HOME=/tmp
+ENV TORCHINDUCTOR_CACHE_DIR=/tmp/torchinductor
 
 # PostgreSQL connection is required and must be injected at runtime.
 ENV BDDK_DATABASE_URL=""

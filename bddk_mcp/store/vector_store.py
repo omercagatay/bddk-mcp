@@ -23,6 +23,7 @@ import os
 import re
 import stat
 import sys
+import threading
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
@@ -75,6 +76,14 @@ class VectorIndexConsistencyError(RuntimeError):
 
 class RetrievalProfileError(RuntimeError):
     """The persisted retrieval profile cannot be identified reproducibly."""
+
+
+class SemanticSearchReadinessError(RuntimeError):
+    """The serving runtime cannot execute the advertised semantic-search path."""
+
+
+class SemanticSearchUnavailableError(RuntimeError):
+    """The embedding runtime failed deterministically and requires operator action."""
 
 
 RETRIEVAL_PROFILE_SCHEMA_VERSION = 2
@@ -1058,6 +1067,23 @@ class VectorStore:
         self._chunk_tokenizer_fn = None
         self._rerank_fn = None
         self._verified_retrieval_profile_descriptor: dict | None = None
+        self._embedding_load_lock = threading.Lock()
+        self._semantic_search_ready = False
+        self._semantic_search_failure_type: str | None = None
+
+    @property
+    def semantic_search_ready(self) -> bool:
+        """Whether the complete read-only semantic-search path passed its startup probe."""
+
+        return self._semantic_search_ready and self._semantic_search_failure_type is None
+
+    def _raise_if_semantic_search_unavailable(self) -> None:
+        if self._semantic_search_failure_type is not None:
+            raise SemanticSearchUnavailableError("Semantic search is unavailable in this runtime.")
+
+    def _ensure_embeddings_threadsafe(self) -> None:
+        with self._embedding_load_lock:
+            self._ensure_embeddings()
 
     @property
     def retrieval_profile_hash(self) -> str:
@@ -1147,7 +1173,7 @@ class VectorStore:
         # fast AutoTokenizer for chunk boundaries. SentenceTransformer may
         # expose a slow or wrapper-specific tokenizer that does not implement
         # the descriptor's ``tokenizer_use_fast=True`` contract.
-        self._ensure_embeddings()
+        self._ensure_embeddings_threadsafe()
         profile_before = retrieval_profile_descriptor(self._embedding_model)
         if (
             self._verified_retrieval_profile_descriptor is not None
@@ -1201,22 +1227,32 @@ class VectorStore:
         """Generate embeddings in a thread to avoid blocking the event loop."""
         if prefix not in {_PASSAGE_PREFIX, _QUERY_PREFIX}:
             raise RetrievalProfileError("The embedding prefix is not part of the retrieval profile.")
-        self._ensure_embeddings()
+        self._raise_if_semantic_search_unavailable()
         prefixed = [f"{prefix}{_PREFIX_SEPARATOR}{text}" for text in texts]
         loop = asyncio.get_running_loop()
-        embeddings = await loop.run_in_executor(
-            None,
-            lambda: self._embed_fn.encode(
-                prefixed,
-                batch_size=_EMBEDDING_ENCODE_BATCH_SIZE,
-                show_progress_bar=False,
-                output_value="sentence_embedding",
-                precision="float32",
-                convert_to_numpy=True,
-                convert_to_tensor=False,
-                normalize_embeddings=True,
-            ),
-        )
+        try:
+            await loop.run_in_executor(None, self._ensure_embeddings_threadsafe)
+            embeddings = await loop.run_in_executor(
+                None,
+                lambda: self._embed_fn.encode(
+                    prefixed,
+                    batch_size=_EMBEDDING_ENCODE_BATCH_SIZE,
+                    show_progress_bar=False,
+                    output_value="sentence_embedding",
+                    precision="float32",
+                    convert_to_numpy=True,
+                    convert_to_tensor=False,
+                    normalize_embeddings=True,
+                ),
+            )
+        except Exception as error:
+            self._semantic_search_ready = False
+            self._semantic_search_failure_type = type(error).__name__
+            logger.exception(
+                "Semantic embedding path failed (error_type=%s)",
+                self._semantic_search_failure_type,
+            )
+            raise SemanticSearchUnavailableError("Semantic search is unavailable in this runtime.") from None
         return embeddings.tolist()
 
     # -- Add documents --------------------------------------------------------
@@ -1630,9 +1666,32 @@ class VectorStore:
         category: str | None = None,
     ) -> list[dict]:
         """Search documents. Uses hybrid search when enabled, else vector-only."""
+        self._raise_if_semantic_search_unavailable()
         if HYBRID_SEARCH:
             return await self._hybrid_search(query, limit, category)
         return await self._vector_search(query, limit, category)
+
+    async def assert_semantic_search_ready(self) -> None:
+        """Fail closed unless model loading, encoding, and database retrieval all work.
+
+        An empty result is healthy: this probe verifies the executable retrieval
+        path, not the relevance of a particular corpus snapshot.  The probe is
+        read-only and cached for the lifetime of this store.
+        """
+
+        if self._semantic_search_ready:
+            return
+        try:
+            await self.search("bankacılık düzenlemeleri", limit=1)
+        except SemanticSearchUnavailableError:
+            raise
+        except Exception as error:
+            logger.exception(
+                "Semantic search readiness probe failed (error_type=%s)",
+                type(error).__name__,
+            )
+            raise SemanticSearchReadinessError("Semantic search readiness probe failed.") from None
+        self._semantic_search_ready = True
 
     # -- Vector-only search (dense retrieval) ----------------------------------
 
@@ -1644,7 +1703,6 @@ class VectorStore:
         fetch_limit: int | None = None,
     ) -> list[dict]:
         """Cosine similarity search via pgvector HNSW index."""
-        self._ensure_embeddings()
         query_embedding = (await self._embed([query], prefix=_QUERY_PREFIX))[0]
         vec_str = "[" + ",".join(str(v) for v in query_embedding) + "]"
 

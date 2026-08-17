@@ -121,25 +121,49 @@ storage, never corpus or trust material. Repository rendering is still not
 evidence that the four Jobs ran in the required `migrate` → `bootstrap` →
 verify-and-stage → activate order in a bank namespace.
 
-The checked-in manifest intentionally fails those additional policy gates:
-the owner's “immediate” expectation has not been translated into numeric source
-detection, publication, and maximum-age objectives, and no bank-approved
-signature mechanism has been selected. Measured freshness additionally requires
-per-document authoritative publication, source-detection, download, extraction,
-and retrieval-publication timestamps whose observed lags satisfy those numeric
-objectives. A future `verified` declaration must
-carry a detached Ed25519 signature that validates against this separately
-provisioned trust anchor; a self-declared status is rejected. Do not weaken the flags to make a bank
-promotion pass; decide and record those controls first.
+The checked-in manifest (`bddk-job-corpus-2026-08-14`, reviewed 2026-08-14)
+declares owner-quantified objectives (7-day source detection, 14-day
+publication, 180-day maximum manifest age) and is Ed25519-signed; the detached
+signature `corpus_scope.sig` validates against the project trust anchor
+`deploy/trust/corpus-signing-public-key.pem`, whose private key is held outside
+Git by the selection owner. A bank deployment must still decide whether that
+project key or a bank-issued key is the promoted trust anchor. Measured
+freshness additionally requires per-document authoritative publication,
+source-detection, download, extraction, and retrieval-publication timestamps
+whose observed lags satisfy those numeric objectives. The corpus is a batch
+snapshot with no live monitoring pipeline, so `slo_evidence_status` remains
+honestly `not_measured`.
 
-It also has a confirmed derived-artifact drift: the tracked manifest declares
-318 documents and 8,286 chunk rows, while a read-only regeneration under the
-current pinned retrieval profile produced 9,675 rows. Strict import/publication
-compares the complete canonical chunk inventory and refuses this mismatch
-(**seed_data/corpus_scope.yml:31-40; bddk_mcp/ingest/seed.py:335-410,1262-1272**).
-The next governed bundle must regenerate the artifact, record and independently
-review the intentional delta, then update and re-sign the manifest; a checksum
-edit alone is not review evidence.
+Schema v10 makes that an explicitly governable state rather than an
+unpublishable one. The release ledger admits exactly
+`quantified_measured_signature_verified_pass` and
+`quantified_unmeasured_signature_verified_pass`; both require quantified
+objectives and a verified signature. The verifier derives the level from
+manifest evidence, so `--accept-unmeasured-freshness` permits the weaker level
+without ever relabelling an unmeasured corpus as measured, and the level is
+fingerprinted into the release and request identities so the two can never be
+substituted. An unmeasured corpus also declares exactly the storage fields:
+the per-document event columns are required only where freshness is genuinely
+measured, and either way the artifact field set is exact. Never fabricate event
+timestamps to reach the measured level; build the measurement pipeline
+instead.
+
+The previously confirmed derived-artifact drift is resolved: the manifest now
+declares the 9,675 chunk rows regenerated under the current pinned retrieval
+profile, and the owner reviewed the delta against the prior 8,286-row artifact
+(37 documents gained chunks from section-aware token chunking; 279 of the 281
+same-count documents were bit-identical). The review also surfaced a
+pre-existing defect carried by the previous artifact: `rg_32202_20230526_6`
+declared `total_pages: 2` while the production derivation in
+`bddk_mcp/store/doc_store.py` yields 3 for its content length, which made the
+imported corpus fail `corpus_retrieval_ready` and would have blocked every
+release. The stale value was corrected to the derived one and the manifest was
+re-signed. Strict import compares the complete canonical chunk inventory and
+passes
+(**seed_data/corpus_scope.yml; scripts/regen_chunks_seed.py**). Any future
+chunker or profile change reopens this review: regenerate, record and
+independently review the delta, then update and re-sign the manifest; a
+checksum edit alone is not review evidence.
 
 ## Bootstrap and benchmark behavior
 
@@ -245,7 +269,7 @@ a new release under the canonical settings. Then retry v7 and continue through
 v8. Never manufacture a binding, update the old release hash, or admit serving
 or retention during remediation.
 
-V8 is the current schema and ordinary workload admission is v8-only. Its
+V10 is the current schema and ordinary workload admission is v10-only. Its
 additive migration preserves existing v5/v7 release and retention evidence,
 creates append-only request/binding relations and two role-separated facades,
 and revokes every non-owner grant on the old direct-publication routine. Apply

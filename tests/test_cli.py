@@ -223,6 +223,7 @@ def test_stage_and_activation_commands_forward_separate_inputs(capsys):
         verifier_revision_sha256="a" * 64,
         verifier_image_digest="sha256:" + "b" * 64,
         valid_for_seconds=None,
+        accept_unmeasured_freshness=False,
     )
     run.call_args.args[0].close()
     assert request_id in capsys.readouterr().out
@@ -912,23 +913,47 @@ def test_port_must_be_in_tcp_range():
         parser.parse_args(["serve", "--port", "65536"])
 
 
+_TRACKED_TRUST_KEY = str(Path(__file__).parents[1] / "deploy" / "trust" / "corpus-signing-public-key.pem")
+
+
 def test_verify_corpus_checks_tracked_artifacts_and_reports_safe_identity(capsys):
-    cli.main(["verify-corpus"])
+    cli.main(["verify-corpus", "--trusted-signing-key", _TRACKED_TRUST_KEY])
 
     output = capsys.readouterr().out
-    assert "id=bddk-job-corpus-2026-07-15" in output
+    assert "id=bddk-job-corpus-2026-08-14" in output
     assert "artifacts=3 exhaustive=false" in output
     assert "WARNING: This corpus is a job-specific selection" in output
     assert "markdown_content" not in output
 
 
-def test_verify_corpus_production_requirements_fail_until_owner_policies_exist(capsys):
+def test_verify_corpus_production_requirements_reflect_owner_policies(capsys):
+    # The signed manifest cannot be validated at all without the trust anchor.
     with pytest.raises(SystemExit, match="2"):
-        cli.main(["verify-corpus", "--require-quantified-freshness"])
+        cli.main(["verify-corpus"])
 
-    assert "freshness objectives are not quantified" in capsys.readouterr().err
+    assert "separately supplied trusted public key" in capsys.readouterr().err
 
+    # Quantified objectives and the verified signature now pass.
+    cli.main(
+        [
+            "verify-corpus",
+            "--require-quantified-freshness",
+            "--require-verified-signature",
+            "--trusted-signing-key",
+            _TRACKED_TRUST_KEY,
+        ]
+    )
+    assert "id=bddk-job-corpus-2026-08-14" in capsys.readouterr().out
+
+    # Measured freshness remains the deliberately open gate.
     with pytest.raises(SystemExit, match="2"):
-        cli.main(["verify-corpus", "--require-measured-freshness"])
+        cli.main(
+            [
+                "verify-corpus",
+                "--require-measured-freshness",
+                "--trusted-signing-key",
+                _TRACKED_TRUST_KEY,
+            ]
+        )
 
     assert "SLO compliance is not measured" in capsys.readouterr().err

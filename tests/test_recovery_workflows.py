@@ -703,6 +703,15 @@ def test_database_locale_evidence_covers_pg17_provider_rules_and_versions() -> N
 
 async def _downgrade_to_v2(connection) -> None:
     await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.activate_staged_corpus_release(pg_catalog.text)")
+    # Both staged-release signatures: v8 created the 12-argument routine and v10
+    # replaced it with the policy-aware 13-argument one.
+    await connection.execute(
+        "DROP FUNCTION IF EXISTS bddk_meta.stage_verified_corpus_release("
+        "pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.text, "
+        "pg_catalog.text, pg_catalog.text, pg_catalog.int4, pg_catalog.int4, "
+        "pg_catalog.int4, pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.int4)"
+    )
+    await connection.execute("DELETE FROM bddk_meta.schema_migrations WHERE version = 10")
     await connection.execute(
         "DROP FUNCTION IF EXISTS bddk_meta.stage_verified_corpus_release("
         "pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.text, "

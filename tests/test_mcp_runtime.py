@@ -331,6 +331,7 @@ async def test_create_deps_uses_only_read_only_runtime_initialization():
     client = MagicMock()
     client.load_cache_read_only = AsyncMock(return_value=1)
     vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
     readiness = AsyncMock()
     identity_readiness = AsyncMock()
     create_pool = AsyncMock(return_value=pool)
@@ -358,6 +359,7 @@ async def test_create_deps_uses_only_read_only_runtime_initialization():
     )
     identity_readiness.assert_awaited_once_with(pool, "public")
     client.load_cache_read_only.assert_awaited_once_with()
+    vector_store.assert_semantic_search_ready.assert_awaited_once_with()
     client_type.assert_called_once_with(
         pool=pool,
         doc_store=doc_store,
@@ -367,6 +369,75 @@ async def test_create_deps_uses_only_read_only_runtime_initialization():
     assert deps.vector_store is vector_store
     assert deps.job_manager is None
     assert not hasattr(doc_store, "initialize") or doc_store.initialize.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_create_deps_rolls_back_when_semantic_search_is_not_ready():
+    """A broken advertised retrieval path must keep the service out of rotation."""
+    import bddk_mcp.server as server_module
+
+    http = MagicMock()
+    http.aclose = AsyncMock()
+    pool = MagicMock()
+    pool.close = AsyncMock()
+    doc_store = MagicMock()
+    client = MagicMock()
+    client.load_cache_read_only = AsyncMock(return_value=1)
+    client.close = AsyncMock()
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock(side_effect=RuntimeError("semantic path unavailable"))
+
+    with (
+        patch.object(server_module, "require_database_url", return_value="postgresql://test"),
+        patch.object(server_module.httpx, "AsyncClient", return_value=http),
+        patch.object(server_module.asyncpg, "create_pool", new=AsyncMock(return_value=pool)),
+        patch.object(server_module, "assert_database_ready", new=AsyncMock()),
+        patch.object(server_module, "assert_database_identity", new=AsyncMock()),
+        patch.object(server_module, "DocumentStore", return_value=doc_store),
+        patch.object(server_module, "BddkApiClient", return_value=client),
+        patch.object(server_module, "VectorStore", return_value=vector_store),
+        pytest.raises(RuntimeError, match="semantic path unavailable"),
+    ):
+        await server_module.create_deps()
+
+    client.close.assert_awaited_once_with()
+    http.aclose.assert_awaited_once_with()
+    pool.close.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+async def test_public_semantic_readiness_probe_has_a_bounded_startup_time():
+    import bddk_mcp.server as server_module
+
+    async def never_ready():
+        await asyncio.Event().wait()
+
+    http = MagicMock()
+    http.aclose = AsyncMock()
+    pool = MagicMock()
+    pool.close = AsyncMock()
+    client = MagicMock()
+    client.load_cache_read_only = AsyncMock(return_value=1)
+    client.close = AsyncMock()
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock(side_effect=never_ready)
+
+    with (
+        patch.object(server_module, "_SEMANTIC_SEARCH_STARTUP_TIMEOUT_SECONDS", 0.01),
+        patch.object(server_module, "require_database_url", return_value="postgresql://test"),
+        patch.object(server_module.httpx, "AsyncClient", return_value=http),
+        patch.object(server_module.asyncpg, "create_pool", new=AsyncMock(return_value=pool)),
+        patch.object(server_module, "assert_database_ready", new=AsyncMock()),
+        patch.object(server_module, "assert_database_identity", new=AsyncMock()),
+        patch.object(server_module, "BddkApiClient", return_value=client),
+        patch.object(server_module, "VectorStore", return_value=vector_store),
+        pytest.raises(TimeoutError),
+    ):
+        await server_module.create_deps(ToolProfile.PUBLIC)
+
+    client.close.assert_awaited_once_with()
+    http.aclose.assert_awaited_once_with()
+    pool.close.assert_awaited_once_with()
 
 
 @pytest.mark.asyncio
@@ -382,6 +453,8 @@ async def test_enabled_telemetry_uses_separate_verified_pool():
     client = MagicMock()
     client.close = AsyncMock()
     client.load_cache_read_only = AsyncMock(return_value=1)
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
     create_pool = AsyncMock(side_effect=[public_pool, telemetry_pool])
     verify_telemetry = AsyncMock()
 
@@ -400,6 +473,7 @@ async def test_enabled_telemetry_uses_separate_verified_pool():
         patch.object(server_module, "assert_database_identity", new=AsyncMock()),
         patch.object(server_module, "assert_telemetry_writer_ready", new=verify_telemetry),
         patch.object(server_module, "BddkApiClient", return_value=client),
+        patch.object(server_module, "VectorStore", return_value=vector_store),
     ):
         deps = await server_module.create_deps()
 
@@ -427,6 +501,8 @@ async def test_operator_runtime_gets_separate_dsn_and_job_manager():
     pool.get_max_size.return_value = 10
     client = MagicMock()
     client.load_cache_read_only = AsyncMock(return_value=1)
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
     repository = MagicMock()
     repository.list_unfinished = AsyncMock(return_value=[])
     repository.prune_terminal = AsyncMock(return_value=0)
@@ -445,6 +521,7 @@ async def test_operator_runtime_gets_separate_dsn_and_job_manager():
         patch.object(server_module, "assert_operator_job_schema_ready", new=operator_readiness),
         patch.object(server_module, "PostgresJobRepository", return_value=repository) as repository_type,
         patch.object(server_module, "BddkApiClient", return_value=client),
+        patch.object(server_module, "VectorStore", return_value=vector_store),
     ):
         deps = await server_module.create_deps(ToolProfile.OPERATOR)
 
@@ -458,6 +535,7 @@ async def test_operator_runtime_gets_separate_dsn_and_job_manager():
     operator_readiness.assert_awaited_once_with(pool)
     repository_type.assert_called_once_with(pool)
     repository.list_unfinished.assert_awaited_once_with()
+    vector_store.assert_semantic_search_ready.assert_not_awaited()
     assert isinstance(deps.job_manager, OperatorJobManager)
     await deps.job_manager.drain(timeout=0)
 

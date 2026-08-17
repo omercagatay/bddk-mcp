@@ -112,6 +112,7 @@ ALTER FUNCTION bddk_meta.stage_verified_corpus_release(
     pg_catalog.text,
     pg_catalog.text,
     pg_catalog.text,
+    pg_catalog.text,
     pg_catalog.int4,
     pg_catalog.int4,
     pg_catalog.int4,
@@ -311,9 +312,10 @@ BEGIN
             'pg_catalog.text)'::pg_catalog.regprocedure,
         'bddk_meta.stage_verified_corpus_release('
             'pg_catalog.text, pg_catalog.text, pg_catalog.text, '
-            'pg_catalog.text, pg_catalog.text, pg_catalog.int4, '
-            'pg_catalog.int4, pg_catalog.int4, pg_catalog.text, '
-            'pg_catalog.text, pg_catalog.text, pg_catalog.int4)'
+            'pg_catalog.text, pg_catalog.text, pg_catalog.text, '
+            'pg_catalog.int4, pg_catalog.int4, pg_catalog.int4, '
+            'pg_catalog.text, pg_catalog.text, pg_catalog.text, '
+            'pg_catalog.int4)'
             ::pg_catalog.regprocedure,
         'bddk_meta.activate_staged_corpus_release(pg_catalog.text)'
             ::pg_catalog.regprocedure
@@ -343,6 +345,7 @@ BEGIN
 END
 $reset_release_facades$;
 REVOKE ALL PRIVILEGES ON FUNCTION bddk_meta.stage_verified_corpus_release(
+    pg_catalog.text,
     pg_catalog.text,
     pg_catalog.text,
     pg_catalog.text,
@@ -461,6 +464,7 @@ GRANT SELECT ON TABLE
     bddk_meta.schema_migrations
 TO bddk_release_verifier;
 GRANT EXECUTE ON FUNCTION bddk_meta.stage_verified_corpus_release(
+    pg_catalog.text,
     pg_catalog.text,
     pg_catalog.text,
     pg_catalog.text,

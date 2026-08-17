@@ -58,6 +58,10 @@ from bddk_mcp.migrations.v0008_staged_corpus_releases import (
     RELEASE_REQUEST_ID_PREFIX,
     V0008_STAGED_CORPUS_RELEASES,
 )
+from bddk_mcp.migrations.v0010_corpus_release_freshness_policy import (
+    MEASURED_FRESHNESS_POLICY_RESULT,
+    UNMEASURED_FRESHNESS_POLICY_RESULT,
+)
 from tests.test_corpus_publication import (
     _PROFILE_SHA256,
     _ensure_release_publisher_role,
@@ -92,8 +96,8 @@ async def _ensure_v8_release_roles(connection: asyncpg.Connection) -> None:
     await connection.execute(
         "GRANT EXECUTE ON FUNCTION bddk_meta.stage_verified_corpus_release("
         "pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.text, "
-        "pg_catalog.int4, pg_catalog.int4, pg_catalog.int4, pg_catalog.text, pg_catalog.text, "
-        "pg_catalog.text, pg_catalog.int4) TO bddk_release_verifier"
+        "pg_catalog.text, pg_catalog.int4, pg_catalog.int4, pg_catalog.int4, pg_catalog.text, "
+        "pg_catalog.text, pg_catalog.text, pg_catalog.int4) TO bddk_release_verifier"
     )
     await connection.execute(
         "GRANT EXECUTE ON FUNCTION bddk_meta.activate_staged_corpus_release(pg_catalog.text) TO bddk_release_publisher"
@@ -122,12 +126,13 @@ async def _stage_v8_release(
     manifest_id: str = "staged-release-001",
     verification_evidence_sha256: str = "5" * 64,
     retrieval_profile_sha256: str = _PROFILE_SHA256,
+    freshness_policy_result: str = MEASURED_FRESHNESS_POLICY_RESULT,
 ):
     return await connection.fetchrow(
         """
         SELECT *
         FROM bddk_meta.stage_verified_corpus_release(
-            $1, $2, $3, $4, $5, 60, 120, 3600, $6, $7, $8, 900
+            $1, $2, $3, $4, $5, $6, 60, 120, 3600, $7, $8, $9, 900
         )
         """,
         manifest_id,
@@ -135,6 +140,7 @@ async def _stage_v8_release(
         "2" * 64,
         "3" * 64,
         verification_evidence_sha256,
+        freshness_policy_result,
         retrieval_profile_sha256,
         "6" * 64,
         "sha256:" + "7" * 64,
@@ -853,9 +859,31 @@ async def _provision_exact_v5_publisher_login(
     )
 
 
-async def _downgrade_current_schema_to_v8(connection) -> None:
-    """Remove only v9 inside a rollback-only PostgreSQL test transaction."""
+async def _downgrade_current_schema_to_v9(connection) -> None:
+    """Restore the measured-only v8 policy surface inside a test transaction."""
 
+    await connection.execute(
+        "DROP FUNCTION IF EXISTS bddk_meta.stage_verified_corpus_release("
+        "pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.text, pg_catalog.text, "
+        "pg_catalog.text, pg_catalog.int4, pg_catalog.int4, pg_catalog.int4, pg_catalog.text, "
+        "pg_catalog.text, pg_catalog.text, pg_catalog.int4)"
+    )
+    for statement in V0008_STAGED_CORPUS_RELEASES.statements:
+        if statement.strip().startswith("CREATE FUNCTION bddk_meta.stage_verified_corpus_release("):
+            await connection.execute(statement)
+    for relation in ("corpus_releases", "corpus_release_requests"):
+        await connection.execute(f"ALTER TABLE bddk_meta.{relation} DROP CONSTRAINT {relation}_policy_result_check")
+        await connection.execute(
+            f"ALTER TABLE bddk_meta.{relation} ADD CONSTRAINT {relation}_policy_result_check "
+            f"CHECK (freshness_policy_result = '{MEASURED_FRESHNESS_POLICY_RESULT}')"
+        )
+    await connection.execute("DELETE FROM bddk_meta.schema_migrations WHERE version = 10")
+
+
+async def _downgrade_current_schema_to_v8(connection) -> None:
+    """Remove v10 and v9 inside a rollback-only PostgreSQL test transaction."""
+
+    await _downgrade_current_schema_to_v9(connection)
     await connection.execute("DROP VIEW IF EXISTS public.regulatory_validated_relations")
     await connection.execute("DROP VIEW IF EXISTS public.regulatory_validated_legal_versions")
     await connection.execute("DROP VIEW IF EXISTS public.regulatory_validated_legal_events")
@@ -1856,3 +1884,120 @@ async def test_postgres_refuses_unmanaged_schema_and_rolls_back_the_entire_invoc
         finally:
             await connection.execute("RESET search_path")
             await pg_pool.release(connection)
+
+
+@pytest.mark.asyncio
+async def test_v10_activates_an_explicitly_unmeasured_release_under_its_own_identity(pg_pool) -> None:
+    connection = await pg_pool.acquire()
+    transaction = connection.transaction()
+    await transaction.start()
+    try:
+        await _ensure_v8_release_roles(connection)
+        content_hash = await _insert_ready_corpus(connection, "v10-unmeasured-release")
+        await _insert_canonical_legal_state(
+            connection,
+            document_id="v10-unmeasured-release",
+            content_hash=content_hash,
+        )
+
+        async with _session_authorization(connection, "bddk_release_verifier"):
+            unmeasured = await _stage_v8_release(
+                connection,
+                freshness_policy_result=UNMEASURED_FRESHNESS_POLICY_RESULT,
+            )
+        assert unmeasured is not None
+
+        async with _session_authorization(connection, "bddk_release_publisher"):
+            activated = await connection.fetchrow(
+                "SELECT * FROM bddk_meta.activate_staged_corpus_release($1)",
+                unmeasured["request_id"],
+            )
+        assert activated is not None
+        assert activated["freshness_policy_result"] == UNMEASURED_FRESHNESS_POLICY_RESULT
+        assert (
+            await connection.fetchval("SELECT freshness_policy_result FROM bddk_meta.active_corpus_release")
+            == UNMEASURED_FRESHNESS_POLICY_RESULT
+        )
+
+        # The policy level is fingerprinted into both identities, so the same
+        # corpus state cannot yield one release that is readable as either level.
+        async with _session_authorization(connection, "bddk_release_verifier"):
+            measured = await _stage_v8_release(
+                connection,
+                freshness_policy_result=MEASURED_FRESHNESS_POLICY_RESULT,
+            )
+        assert measured is not None
+        assert measured["release_id"] != unmeasured["release_id"]
+        assert measured["request_id"] != unmeasured["request_id"]
+    finally:
+        await transaction.rollback()
+        await pg_pool.release(connection)
+
+
+@pytest.mark.asyncio
+async def test_v10_refuses_a_freshness_policy_outside_the_closed_set(pg_pool) -> None:
+    connection = await pg_pool.acquire()
+    transaction = connection.transaction()
+    await transaction.start()
+    try:
+        await _ensure_v8_release_roles(connection)
+        content_hash = await _insert_ready_corpus(connection, "v10-policy-refusal")
+        await _insert_canonical_legal_state(
+            connection,
+            document_id="v10-policy-refusal",
+            content_hash=content_hash,
+        )
+
+        # Each refusal aborts its statement, so keep them in separate savepoints.
+        async with _session_authorization(connection, "bddk_release_verifier"):
+            savepoint = connection.transaction()
+            await savepoint.start()
+            with pytest.raises(asyncpg.PostgresError) as staging_error:
+                await _stage_v8_release(
+                    connection,
+                    freshness_policy_result="unquantified_unsigned_pass",
+                )
+            await savepoint.rollback()
+        assert staging_error.value.sqlstate == "22023"
+
+        savepoint = connection.transaction()
+        await savepoint.start()
+        with pytest.raises(asyncpg.PostgresError):
+            await connection.execute(
+                """
+                INSERT INTO bddk_meta.corpus_releases (
+                    release_id, manifest_id, manifest_sha256, signer_key_sha256,
+                    freshness_policy_result, source_detection_slo_seconds,
+                    publication_slo_seconds, max_manifest_age_seconds,
+                    retrieval_profile_sha256, corpus_state_sha256
+                ) VALUES (
+                    'corpus_release_sha256_' || repeat('a', 64), 'policy-refusal', repeat('b', 64),
+                    repeat('c', 64), 'unquantified_unsigned_pass', 60, 120, 3600,
+                    repeat('d', 64), repeat('e', 64)
+                )
+                """
+            )
+        await savepoint.rollback()
+    finally:
+        await transaction.rollback()
+        await pg_pool.release(connection)
+
+
+@pytest.mark.asyncio
+async def test_v10_removes_the_measured_only_staging_signature(pg_pool) -> None:
+    connection = await pg_pool.acquire()
+    try:
+        signatures = await connection.fetch(
+            """
+            SELECT pg_catalog.pg_get_function_identity_arguments(routine.oid) AS identity_arguments
+            FROM pg_catalog.pg_proc AS routine
+            JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = routine.pronamespace
+            WHERE namespace.nspname = 'bddk_meta'
+              AND routine.proname = 'stage_verified_corpus_release'
+            """
+        )
+        identities = {str(row["identity_arguments"]) for row in signatures}
+        assert len(identities) == 1
+        assert "requested_freshness_policy_result text" in identities.pop()
+    finally:
+        await pg_pool.release(connection)

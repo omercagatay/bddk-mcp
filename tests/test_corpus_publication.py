@@ -20,9 +20,12 @@ from bddk_mcp.corpus_generations import (
     retain_active_corpus_generation,
 )
 from bddk_mcp.corpus_publication import (
+    MEASURED_FRESHNESS_POLICY_RESULT,
+    UNMEASURED_FRESHNESS_POLICY_RESULT,
     CorpusPublicationError,
     activate_staged_corpus_release,
     assert_release_publication_ready,
+    freshness_policy_result_for,
     inspect_active_corpus_release,
     publish_strict_corpus_release,
     stage_strict_corpus_release,
@@ -174,6 +177,7 @@ async def test_staging_contract_supplies_exact_sql_arguments_without_activation(
         "4" * 64,
         "9" * 64,
         "5" * 64,
+        "quantified_measured_signature_verified_pass",
         60,
         120,
         3600,
@@ -1322,3 +1326,120 @@ async def test_concurrent_member_insert_cannot_append_after_generation_seal(pg_p
         await pg_pool.release(appender)
         await pg_pool.release(writer)
         await pg_pool.release(setup)
+
+
+def _unmeasured_validation() -> SimpleNamespace:
+    validation = _strict_validation()
+    validation.manifest.freshness.slo_evidence_status = "not_measured"
+    return validation
+
+
+def test_policy_result_is_derived_from_manifest_evidence_not_asserted() -> None:
+    assert freshness_policy_result_for(_strict_validation()) == MEASURED_FRESHNESS_POLICY_RESULT
+    assert freshness_policy_result_for(_unmeasured_validation()) == UNMEASURED_FRESHNESS_POLICY_RESULT
+
+
+def test_policy_derivation_still_requires_signature_and_quantified_objectives() -> None:
+    unsigned = _strict_validation()
+    unsigned.manifest.integrity.signature_status = "not_configured"
+    with pytest.raises(CorpusPublicationError, match="policy evidence is incomplete"):
+        freshness_policy_result_for(unsigned)
+
+    unquantified = _strict_validation()
+    unquantified.manifest.freshness.publication_slo_seconds = None
+    with pytest.raises(CorpusPublicationError, match="policy evidence is incomplete"):
+        freshness_policy_result_for(unquantified)
+
+
+@pytest.mark.asyncio
+async def test_unmeasured_staging_records_the_weaker_policy_only_when_accepted() -> None:
+    expires_at = datetime(2026, 1, 2, tzinfo=UTC)
+    returned_row = {
+        "request_id": "corpus_release_request_sha256_" + "a" * 64,
+        "release_id": "corpus_release_sha256_" + "b" * 64,
+        "corpus_state_sha256": "c" * 64,
+        "corpus_epoch": 3,
+        "staged_at": datetime(2026, 1, 1, tzinfo=UTC),
+        "verification_expires_at": expires_at,
+    }
+    connection = SimpleNamespace(fetchrow=AsyncMock(return_value=returned_row))
+    stage_kwargs = {
+        "signature_sha256": "4" * 64,
+        "verification_evidence_sha256": "5" * 64,
+        "retrieval_profile_sha256": _PROFILE_SHA256,
+        "verifier_revision_sha256": "6" * 64,
+        "verifier_image_digest": "sha256:" + "7" * 64,
+        "valid_for_seconds": 900,
+    }
+
+    # Default staging still refuses an unmeasured corpus.
+    with pytest.raises(CorpusPublicationError, match="policy evidence is incomplete"):
+        await stage_strict_corpus_release(connection, _unmeasured_validation(), **stage_kwargs)
+
+    await stage_strict_corpus_release(
+        connection,
+        _unmeasured_validation(),
+        **stage_kwargs,
+        require_measured_freshness=False,
+    )
+    _, *arguments = connection.fetchrow.await_args.args
+    assert arguments[5] == UNMEASURED_FRESHNESS_POLICY_RESULT
+
+
+@pytest.mark.asyncio
+async def test_accepting_unmeasured_freshness_never_relabels_a_measured_release() -> None:
+    returned_row = {
+        "request_id": "corpus_release_request_sha256_" + "a" * 64,
+        "release_id": "corpus_release_sha256_" + "b" * 64,
+        "corpus_state_sha256": "c" * 64,
+        "corpus_epoch": 3,
+        "staged_at": datetime(2026, 1, 1, tzinfo=UTC),
+        "verification_expires_at": datetime(2026, 1, 2, tzinfo=UTC),
+    }
+    connection = SimpleNamespace(fetchrow=AsyncMock(return_value=returned_row))
+
+    await stage_strict_corpus_release(
+        connection,
+        _strict_validation(),
+        signature_sha256="4" * 64,
+        verification_evidence_sha256="5" * 64,
+        retrieval_profile_sha256=_PROFILE_SHA256,
+        verifier_revision_sha256="6" * 64,
+        verifier_image_digest="sha256:" + "7" * 64,
+        valid_for_seconds=900,
+        require_measured_freshness=False,
+    )
+
+    _, *arguments = connection.fetchrow.await_args.args
+    assert arguments[5] == MEASURED_FRESHNESS_POLICY_RESULT
+
+
+def test_verification_evidence_binds_the_policy_level() -> None:
+    evidence_kwargs = {
+        "signature_sha256": "4" * 64,
+        "retrieval_profile_sha256": _PROFILE_SHA256,
+        "verifier_revision_sha256": "6" * 64,
+        "verifier_image_digest": "sha256:" + "7" * 64,
+        "verification_run_sha256": "e" * 64,
+    }
+    measured = strict_verification_evidence_sha256(_strict_validation(), **evidence_kwargs)
+    unmeasured = strict_verification_evidence_sha256(_unmeasured_validation(), **evidence_kwargs)
+
+    assert measured != unmeasured
+
+
+@pytest.mark.asyncio
+async def test_retired_v5_publication_refuses_an_unmeasured_release() -> None:
+    connection = SimpleNamespace(fetchrow=AsyncMock(return_value=None))
+
+    with pytest.raises(CorpusPublicationError, match="policy evidence is incomplete"):
+        await publish_strict_corpus_release(
+            connection,
+            _unmeasured_validation(),
+            retrieval_profile_sha256=_PROFILE_SHA256,
+            require_quantified_freshness=True,
+            require_measured_freshness=False,
+            require_verified_signature=True,
+        )
+
+    connection.fetchrow.assert_not_awaited()

@@ -659,6 +659,7 @@ def test_docker_images_have_non_root_defaults_and_versioned_build_inputs():
         assert "ghcr.io/astral-sh/uv:latest" not in dockerfile
         assert "revision='d13f1b27baf31030b7fd040960d60d909913633f'" in dockerfile
         assert "BDDK_EMBEDDING_MODEL_PATH=/app/embedding_model" in dockerfile
+        assert "TORCHINDUCTOR_CACHE_DIR=/tmp/torchinductor" in dockerfile
         assert "USER 10001:0" in dockerfile
 
     dockerignore = (ROOT / ".dockerignore").read_text(encoding="utf-8")

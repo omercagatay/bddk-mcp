@@ -22,6 +22,12 @@ from bddk_mcp.tools.registry import PUBLIC_TOOL_NAMES, ToolProfile
 from bddk_mcp.tools.structured_outputs import SOURCE_DATA_BEGIN, SOURCE_DATA_END
 
 
+def _healthy_vector_store() -> MagicMock:
+    vector_store = MagicMock()
+    vector_store.semantic_search_ready = True
+    return vector_store
+
+
 @pytest.mark.asyncio
 async def test_official_client_initializes_lists_and_calls_over_secured_local_http():
     from bddk_mcp.server import create_mcp
@@ -96,6 +102,18 @@ def _remote_security(scopes: str = "bddk.read"):
     )
 
 
+def _unauthenticated_remote_security():
+    return load_http_security_config(
+        {
+            "MCP_HOST": "0.0.0.0",
+            "PORT": "8443",
+            "BDDK_HTTP_ALLOWED_HOSTS": "mcp.bank.example",
+            "BDDK_HTTP_ALLOWED_ORIGINS": "https://client.bank.example",
+            "BDDK_HTTP_ALLOW_UNAUTHENTICATED": "true",
+        }
+    )
+
+
 @pytest.mark.asyncio
 async def test_http_auth_scope_and_origin_statuses_are_fail_closed():
     from bddk_mcp.server import create_mcp
@@ -142,7 +160,13 @@ async def test_content_free_health_routes_support_orchestrator_host_headers():
     from bddk_mcp.server import create_mcp
 
     pool = MagicMock()
-    deps = Dependencies(pool=pool, doc_store=MagicMock(), client=MagicMock(), http=None)
+    deps = Dependencies(
+        pool=pool,
+        doc_store=MagicMock(),
+        client=MagicMock(),
+        http=None,
+        vector_store=_healthy_vector_store(),
+    )
     security = load_http_security_config({"MCP_HOST": "127.0.0.1", "PORT": "8123"})
     server = create_mcp(deps, http_security=security)
     raw_app = server.streamable_http_app()
@@ -261,7 +285,13 @@ async def test_strict_health_rechecks_active_release_and_exposes_only_opaque_id(
 
     release = _active_release()
     pool = MagicMock()
-    deps = Dependencies(pool=pool, doc_store=MagicMock(), client=MagicMock(), http=None)
+    deps = Dependencies(
+        pool=pool,
+        doc_store=MagicMock(),
+        client=MagicMock(),
+        http=None,
+        vector_store=_healthy_vector_store(),
+    )
     security = load_http_security_config({"MCP_HOST": "127.0.0.1", "PORT": "8123"})
     with patch.object(server_module, "REQUIRE_ACTIVE_CORPUS_RELEASE", True):
         server = server_module.create_mcp(deps, http_security=security)
@@ -310,7 +340,13 @@ async def test_readiness_fails_closed_when_periodic_identity_attestation_fails()
     from bddk_mcp.server import create_mcp
 
     pool = MagicMock()
-    deps = Dependencies(pool=pool, doc_store=MagicMock(), client=MagicMock(), http=None)
+    deps = Dependencies(
+        pool=pool,
+        doc_store=MagicMock(),
+        client=MagicMock(),
+        http=None,
+        vector_store=_healthy_vector_store(),
+    )
     security = load_http_security_config({"MCP_HOST": "127.0.0.1", "PORT": "8123"})
     server = create_mcp(deps, http_security=security)
     raw_app = server.streamable_http_app()
@@ -334,6 +370,69 @@ async def test_readiness_fails_closed_when_periodic_identity_attestation_fails()
     assert "private ACL detail" not in response.text
 
 
+@pytest.mark.asyncio
+async def test_public_readiness_fails_closed_when_semantic_search_is_unhealthy():
+    from bddk_mcp.server import create_mcp
+
+    pool = MagicMock()
+    vector_store = MagicMock()
+    vector_store.semantic_search_ready = False
+    deps = Dependencies(
+        pool=pool,
+        doc_store=MagicMock(),
+        client=MagicMock(),
+        http=None,
+        vector_store=vector_store,
+    )
+    security = load_http_security_config({"MCP_HOST": "127.0.0.1", "PORT": "8123"})
+    server = create_mcp(deps, profile=ToolProfile.PUBLIC, http_security=security)
+    raw_app = server.streamable_http_app()
+
+    async with raw_app.router.lifespan_context(raw_app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=raw_app),
+            base_url="http://127.0.0.1:8123",
+        ) as client:
+            response = await client.get("/health/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {"status": "not_ready"}
+
+
+@pytest.mark.asyncio
+async def test_operator_readiness_does_not_block_recovery_on_semantic_search():
+    from bddk_mcp.server import create_mcp
+
+    pool = MagicMock()
+    vector_store = MagicMock()
+    vector_store.semantic_search_ready = False
+    deps = Dependencies(
+        pool=pool,
+        doc_store=MagicMock(),
+        client=MagicMock(),
+        http=None,
+        vector_store=vector_store,
+    )
+    security = load_http_security_config({"MCP_HOST": "127.0.0.1", "PORT": "8123"})
+    server = create_mcp(deps, profile=ToolProfile.OPERATOR, http_security=security)
+    raw_app = server.streamable_http_app()
+
+    with (
+        patch("bddk_mcp.server.assert_database_ready", new=AsyncMock(return_value=DatabaseReadiness())),
+        patch("bddk_mcp.server.assert_database_identity", new=AsyncMock()),
+        patch("bddk_mcp.server.assert_operator_job_schema_ready", new=AsyncMock()),
+    ):
+        async with raw_app.router.lifespan_context(raw_app):
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=raw_app),
+                base_url="http://127.0.0.1:8123",
+            ) as client:
+                response = await client.get("/health/ready")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready"}
+
+
 def test_remote_operator_profile_requires_explicit_private_enablement_and_scope(monkeypatch):
     from bddk_mcp.http_security import HttpSecurityConfigError
     from bddk_mcp.server import create_mcp
@@ -346,3 +445,64 @@ def test_remote_operator_profile_requires_explicit_private_enablement_and_scope(
     monkeypatch.setenv("BDDK_OPERATOR_REMOTE_ENABLED", "true")
     with pytest.raises(HttpSecurityConfigError, match="bddk.operator"):
         create_mcp(deps, profile=ToolProfile.OPERATOR, http_security=_remote_security("bddk.read"))
+
+
+def test_operator_profile_refuses_unauthenticated_remote_exposure(monkeypatch):
+    from bddk_mcp.http_security import HttpSecurityConfigError
+    from bddk_mcp.server import create_mcp
+
+    deps = Dependencies(pool=None, doc_store=MagicMock(), client=MagicMock(), http=None)
+
+    monkeypatch.delenv("BDDK_OPERATOR_REMOTE_ENABLED", raising=False)
+    with pytest.raises(HttpSecurityConfigError, match="never be exposed unauthenticated"):
+        create_mcp(deps, profile=ToolProfile.OPERATOR, http_security=_unauthenticated_remote_security())
+
+    # The two opt-ins must not compose: enabling remote operator exposure does not
+    # unlock unauthenticated operator exposure.
+    monkeypatch.setenv("BDDK_OPERATOR_REMOTE_ENABLED", "true")
+    with pytest.raises(HttpSecurityConfigError, match="never be exposed unauthenticated"):
+        create_mcp(deps, profile=ToolProfile.OPERATOR, http_security=_unauthenticated_remote_security())
+
+
+def test_public_profile_accepts_unauthenticated_remote_exposure():
+    from bddk_mcp.server import create_mcp
+
+    deps = Dependencies(pool=None, doc_store=MagicMock(), client=MagicMock(), http=None)
+    server = create_mcp(deps, profile=ToolProfile.PUBLIC, http_security=_unauthenticated_remote_security())
+
+    assert server.settings.auth is None
+
+
+@pytest.mark.asyncio
+async def test_unauthenticated_public_server_advertises_no_oauth():
+    from bddk_mcp.server import create_mcp
+
+    security = _unauthenticated_remote_security()
+    assert security.jwt_issuer is None
+
+    deps = Dependencies(pool=None, doc_store=MagicMock(), client=MagicMock(), http=None)
+    server = create_mcp(deps, profile=ToolProfile.PUBLIC, http_security=security)
+    raw_app = server.streamable_http_app()
+    app = HttpSecurityMiddleware(raw_app, security)
+
+    transport = httpx.ASGITransport(app=app)
+    async with raw_app.router.lifespan_context(raw_app):
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="https://mcp.bank.example",
+            headers={"origin": "https://client.bank.example"},
+        ) as client:
+            protected_resource = await client.get("/.well-known/oauth-protected-resource/mcp")
+            authorization_server = await client.get("/.well-known/oauth-authorization-server")
+            unauthenticated = await client.post("/mcp", json={})
+            bad_origin = await client.post("/mcp", json={}, headers={"origin": "https://evil.example"})
+
+    # No OAuth is advertised, so no connector will start a flow against the
+    # decommissioned issuer.
+    assert protected_resource.status_code == 404
+    assert authorization_server.status_code == 404
+    assert "www-authenticate" not in unauthenticated.headers
+    assert unauthenticated.status_code != 401
+
+    # Transport checks still apply with authentication removed.
+    assert bad_origin.status_code == 403

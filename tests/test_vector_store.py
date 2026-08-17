@@ -1,12 +1,20 @@
 """Tests for VectorStore (pgvector) — chunking, add, search, retrieval."""
 
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
-from bddk_mcp.store.vector_store import VectorIndexConsistencyError, VectorStore, _chunk_document, _chunk_text
+from bddk_mcp.store.vector_store import (
+    SemanticSearchReadinessError,
+    SemanticSearchUnavailableError,
+    VectorIndexConsistencyError,
+    VectorStore,
+    _chunk_document,
+    _chunk_text,
+)
 
 # VectorStore integration tests require both PostgreSQL and the embedding model.
 # They skip if either is unavailable.
@@ -418,6 +426,63 @@ class TestVectorStoreLifecycle:
         readiness.assert_awaited_once_with(pool=pool, require_corpus=False)
         pool.acquire.assert_not_called()
         pool.execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_semantic_readiness_probe_accepts_empty_results_and_is_cached(self):
+        store = VectorStore(MagicMock())
+        search = AsyncMock(return_value=[])
+
+        with patch.object(store, "search", new=search):
+            await store.assert_semantic_search_ready()
+            await store.assert_semantic_search_ready()
+
+        search.assert_awaited_once_with("bankacılık düzenlemeleri", limit=1)
+        assert store.semantic_search_ready is True
+
+    @pytest.mark.asyncio
+    async def test_semantic_readiness_probe_returns_stable_error(self):
+        store = VectorStore(MagicMock())
+        search = AsyncMock(side_effect=OSError("private runtime detail"))
+
+        with (
+            patch.object(store, "search", new=search),
+            pytest.raises(SemanticSearchReadinessError) as exc_info,
+        ):
+            await store.assert_semantic_search_ready()
+
+        assert str(exc_info.value) == "Semantic search readiness probe failed."
+        assert "private runtime detail" not in str(exc_info.value)
+        assert store.semantic_search_ready is False
+
+    @pytest.mark.asyncio
+    async def test_semantic_readiness_probe_propagates_cancellation(self):
+        store = VectorStore(MagicMock())
+        search = AsyncMock(side_effect=asyncio.CancelledError())
+
+        with patch.object(store, "search", new=search), pytest.raises(asyncio.CancelledError):
+            await store.assert_semantic_search_ready()
+
+        assert store.semantic_search_ready is False
+
+    @pytest.mark.asyncio
+    async def test_embedding_failure_opens_non_retryable_runtime_circuit(self):
+        store = VectorStore(MagicMock())
+        load = MagicMock(side_effect=OSError("private model detail"))
+
+        with (
+            patch.object(store, "_ensure_embeddings_threadsafe", new=load),
+            pytest.raises(SemanticSearchUnavailableError) as first_error,
+        ):
+            await store._embed(["test"], prefix="query")
+
+        with pytest.raises(SemanticSearchUnavailableError) as second_error:
+            await store._embed(["test"], prefix="query")
+
+        assert str(first_error.value) == "Semantic search is unavailable in this runtime."
+        assert str(second_error.value) == "Semantic search is unavailable in this runtime."
+        assert "private model detail" not in str(first_error.value)
+        assert load.call_count == 1
+        assert store.semantic_search_ready is False
 
     @pytest.fixture
     async def store(self, pg_pool, _check_model):

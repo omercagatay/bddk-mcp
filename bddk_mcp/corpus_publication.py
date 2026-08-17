@@ -12,12 +12,20 @@ from typing import Any
 from bddk_mcp.catalog_integrity import inspect_catalog_integrity
 from bddk_mcp.corpus_manifest import CorpusManifestValidation
 from bddk_mcp.migrations import inspect_migration_state
+from bddk_mcp.migrations.v0010_corpus_release_freshness_policy import (
+    ADMISSIBLE_FRESHNESS_POLICY_RESULTS as _ADMISSIBLE_POLICY_RESULTS,
+)
+from bddk_mcp.migrations.v0010_corpus_release_freshness_policy import (
+    MEASURED_FRESHNESS_POLICY_RESULT,
+    UNMEASURED_FRESHNESS_POLICY_RESULT,
+)
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _RELEASE_ID_RE = re.compile(r"^corpus_release_sha256_[0-9a-f]{64}$")
 _REQUEST_ID_RE = re.compile(r"^corpus_release_request_sha256_[0-9a-f]{64}$")
 _IMAGE_DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
-STRICT_FRESHNESS_POLICY_RESULT = "quantified_measured_signature_verified_pass"
+STRICT_FRESHNESS_POLICY_RESULT = MEASURED_FRESHNESS_POLICY_RESULT
+ADMISSIBLE_FRESHNESS_POLICY_RESULTS = frozenset(_ADMISSIBLE_POLICY_RESULTS)
 
 _ACTIVE_RELEASE_SQL = """
 SELECT release_id,
@@ -83,13 +91,14 @@ WITH canonical_staging_inputs AS MATERIALIZED (
            $3::pg_catalog.text AS signature_sha256,
            $4::pg_catalog.text AS signer_key_sha256,
            $5::pg_catalog.text AS verification_evidence_sha256,
-           $6::pg_catalog.int4 AS source_detection_slo_seconds,
-           $7::pg_catalog.int4 AS publication_slo_seconds,
-           $8::pg_catalog.int4 AS max_manifest_age_seconds,
-           $9::pg_catalog.text AS retrieval_profile_sha256,
-           $10::pg_catalog.text AS verifier_revision_sha256,
-           $11::pg_catalog.text AS verifier_image_digest,
-           $12::pg_catalog.int4 AS valid_for_seconds,
+           $6::pg_catalog.text AS freshness_policy_result,
+           $7::pg_catalog.int4 AS source_detection_slo_seconds,
+           $8::pg_catalog.int4 AS publication_slo_seconds,
+           $9::pg_catalog.int4 AS max_manifest_age_seconds,
+           $10::pg_catalog.text AS retrieval_profile_sha256,
+           $11::pg_catalog.text AS verifier_revision_sha256,
+           $12::pg_catalog.text AS verifier_image_digest,
+           $13::pg_catalog.int4 AS valid_for_seconds,
            pg_catalog.set_config('TimeZone', 'UTC', true) AS timezone_setting,
            pg_catalog.set_config('DateStyle', 'ISO, YMD', true) AS datestyle_setting,
            pg_catalog.set_config('IntervalStyle', 'postgres', true) AS intervalstyle_setting,
@@ -109,6 +118,7 @@ CROSS JOIN LATERAL bddk_meta.stage_verified_corpus_release(
     inputs.signature_sha256,
     inputs.signer_key_sha256,
     inputs.verification_evidence_sha256,
+    inputs.freshness_policy_result,
     inputs.source_detection_slo_seconds,
     inputs.publication_slo_seconds,
     inputs.max_manifest_age_seconds,
@@ -210,15 +220,41 @@ def is_strict_release_request(
     require_measured_freshness: bool,
     require_verified_signature: bool,
 ) -> bool:
-    """Return true only for the complete production-oriented policy gate."""
+    """Return true only for the complete production-oriented policy gate.
 
-    return all(
-        (
-            require_quantified_freshness,
-            require_measured_freshness,
-            require_verified_signature,
+    Measured freshness is the strongest admissible level but no longer the only
+    one: schema v10 also admits an explicitly recorded quantified-unmeasured
+    release.  Quantified objectives and a verified signature stay mandatory, so
+    a caller that waives either is never staging a governed release.
+    """
+
+    del require_measured_freshness
+    return require_quantified_freshness and require_verified_signature
+
+
+def freshness_policy_result_for(validation: CorpusManifestValidation) -> str:
+    """Derive the policy level the manifest actually proves.
+
+    The level is read from verified manifest evidence rather than asserted by a
+    caller, so an operator flag can permit the weaker state but never relabel an
+    unmeasured corpus as measured.
+    """
+
+    manifest = validation.manifest
+    if manifest.integrity.signature_status != "verified":
+        raise CorpusPublicationError("Verified corpus release policy evidence is incomplete.")
+    if any(
+        value is None or value <= 0
+        for value in (
+            manifest.freshness.source_detection_slo_seconds,
+            manifest.freshness.publication_slo_seconds,
+            manifest.freshness.max_manifest_age_seconds,
         )
-    )
+    ):
+        raise CorpusPublicationError("Verified corpus release policy evidence is incomplete.")
+    if manifest.freshness.slo_evidence_status == "measured":
+        return MEASURED_FRESHNESS_POLICY_RESULT
+    return UNMEASURED_FRESHNESS_POLICY_RESULT
 
 
 def _value(row: Any, key: str, default: Any = None) -> Any:
@@ -259,7 +295,7 @@ def _identity_from_row(row: Any) -> CorpusReleaseIdentity:
                 identity.corpus_state_sha256,
             )
         )
-        or identity.freshness_policy_result != STRICT_FRESHNESS_POLICY_RESULT
+        or identity.freshness_policy_result not in ADMISSIBLE_FRESHNESS_POLICY_RESULTS
         or min(
             identity.source_detection_slo_seconds,
             identity.publication_slo_seconds,
@@ -324,7 +360,7 @@ def _strict_publication_values(
     require_quantified_freshness: bool,
     require_measured_freshness: bool,
     require_verified_signature: bool,
-) -> tuple[str, str, str, int, int, int, str]:
+) -> tuple[str, str, str, str, int, int, int, str]:
     if not is_strict_release_request(
         require_quantified_freshness=require_quantified_freshness,
         require_measured_freshness=require_measured_freshness,
@@ -340,10 +376,11 @@ def _strict_publication_values(
         freshness.publication_slo_seconds,
         freshness.max_manifest_age_seconds,
     )
+    policy_result = freshness_policy_result_for(validation)
     if (
         manifest.integrity.signature_status != "verified"
         or signer_key_sha256 is None
-        or freshness.slo_evidence_status != "measured"
+        or (require_measured_freshness and policy_result != MEASURED_FRESHNESS_POLICY_RESULT)
         or any(value is None or value <= 0 for value in values)
         or not _SHA256_RE.fullmatch(retrieval_profile_sha256)
     ):
@@ -352,6 +389,7 @@ def _strict_publication_values(
         manifest.manifest_id,
         validation.manifest_sha256,
         signer_key_sha256,
+        policy_result,
         int(values[0]),
         int(values[1]),
         int(values[2]),
@@ -395,12 +433,13 @@ def strict_verification_evidence_sha256(
     ):
         raise CorpusPublicationError("Verified corpus release evidence is incomplete.")
     payload = {
-        "schema_version": 1,
-        "verification_profile": "strict_corpus_release_membership_v1",
+        "schema_version": 2,
+        "verification_profile": "strict_corpus_release_membership_v2",
         "manifest_id": manifest.manifest_id,
         "manifest_sha256": validation.manifest_sha256,
         "signature_sha256": signature_sha256,
         "signer_key_sha256": signer_key_sha256,
+        "freshness_policy_result": freshness_policy_result_for(validation),
         "retrieval_profile_sha256": retrieval_profile_sha256,
         "verifier_revision_sha256": verifier_revision_sha256,
         "verifier_image_digest": verifier_image_digest,
@@ -436,6 +475,7 @@ async def stage_strict_corpus_release(
     verifier_revision_sha256: str,
     verifier_image_digest: str,
     valid_for_seconds: int,
+    require_measured_freshness: bool = True,
 ) -> CorpusReleaseRequestIdentity:
     """Stage independent verification evidence without activating a release."""
 
@@ -443,7 +483,7 @@ async def stage_strict_corpus_release(
         validation,
         retrieval_profile_sha256=retrieval_profile_sha256,
         require_quantified_freshness=True,
-        require_measured_freshness=True,
+        require_measured_freshness=require_measured_freshness,
         require_verified_signature=True,
     )
     if (
@@ -467,6 +507,7 @@ async def stage_strict_corpus_release(
         base_values[4],
         base_values[5],
         base_values[6],
+        base_values[7],
         verifier_revision_sha256,
         verifier_image_digest,
         valid_for_seconds,
@@ -519,8 +560,12 @@ async def publish_strict_corpus_release(
         require_measured_freshness=require_measured_freshness,
         require_verified_signature=require_verified_signature,
     )
+    # The retired v5 routine hardcodes the measured policy literal, so it cannot
+    # express — and must never silently mislabel — a v10 unmeasured release.
+    if values[3] != MEASURED_FRESHNESS_POLICY_RESULT:
+        raise CorpusPublicationError("Verified corpus release policy evidence is incomplete.")
     try:
-        row = await connection.fetchrow(_PUBLISH_RELEASE_SQL, *values)
+        row = await connection.fetchrow(_PUBLISH_RELEASE_SQL, *values[:3], *values[4:])
     except Exception:
         raise CorpusPublicationError("Verified corpus release evidence could not be activated.") from None
     if row is None:
@@ -583,13 +628,17 @@ async def assert_release_publication_ready(
 
 
 __all__ = (
+    "ADMISSIBLE_FRESHNESS_POLICY_RESULTS",
     "CorpusPublicationError",
     "CorpusReleaseActivationReceipt",
     "CorpusReleaseIdentity",
     "CorpusReleaseRequestIdentity",
+    "MEASURED_FRESHNESS_POLICY_RESULT",
     "STRICT_FRESHNESS_POLICY_RESULT",
+    "UNMEASURED_FRESHNESS_POLICY_RESULT",
     "activate_staged_corpus_release",
     "assert_release_publication_ready",
+    "freshness_policy_result_for",
     "inspect_active_corpus_release",
     "is_strict_release_request",
     "publish_strict_corpus_release",

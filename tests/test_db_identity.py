@@ -123,8 +123,8 @@ def test_retained_generation_store_is_exactly_inventoried_and_runtime_denied() -
 
 def test_release_verifier_and_publisher_capabilities_are_mutually_separated() -> None:
     stage = (
-        "bddk_meta.stage_verified_corpus_release(text, text, text, text, text, integer, integer, integer, "
-        "text, text, text, integer)"
+        "bddk_meta.stage_verified_corpus_release(text, text, text, text, text, text, integer, integer, "
+        "integer, text, text, text, integer)"
     )
     activate = "bddk_meta.activate_staged_corpus_release(text)"
     legacy = "bddk_meta.publish_verified_corpus_release(text, text, text, integer, integer, integer, text)"

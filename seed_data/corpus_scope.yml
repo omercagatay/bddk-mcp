@@ -1,5 +1,5 @@
 schema_version: 1
-manifest_id: bddk-job-corpus-2026-07-15
+manifest_id: bddk-job-corpus-2026-08-14
 selection_owner: project_owner
 purpose: >-
   Reviewed job-specific corpus for Turkish banking-regulation research,
@@ -16,36 +16,37 @@ excluded_source_classes:
 known_gaps:
   - Legal publication, effective, amendment, repeal, supersession, and consolidation status is not authoritatively modeled
   - Page, table, image, annex, and formula fidelity is not uniformly audit-grade
-  - Corpus freshness expectation is immediate but has no numeric detection or publication SLO
+  - Freshness objectives are quantified but not measured against per-document source events; no live monitoring pipeline exists
   - Selection completeness has not been independently reconciled against an authoritative full-source inventory
 freshness:
   source_observed_start: "2026-04-08T16:50:25.439181Z"
   source_observed_end: "2026-04-21T16:04:00.957507Z"
   corpus_built_at: "2026-05-12T10:18:42.094284Z"
-  scope_reviewed_at: "2026-07-15T00:00:00+03:00"
-  business_expectation: immediate
-  source_detection_slo_seconds: null
-  publication_slo_seconds: null
-  max_manifest_age_seconds: null
+  scope_reviewed_at: "2026-08-14T00:00:00+03:00"
+  business_expectation: quarterly-reviewed batch corpus with quantified objectives
+  source_detection_slo_seconds: 604800
+  publication_slo_seconds: 1209600
+  max_manifest_age_seconds: 15552000
+  slo_evidence_status: not_measured
 artifacts:
   - role: documents
     path: documents.json
-    sha256: 5ee7fcb3ec8163d2f20d980466722986dcf105aaf305f8111e71e5325fbeb8d3
+    sha256: 4a469fc11bd9848d2acd540296d794126ab9c506dc68d929fb72f580ebe5dba6
     bytes: 8769689
     records: 318
   - role: chunks
     path: chunks.json
-    sha256: 1ce6c0b9be3f827a0249d9fef328a003bb07098873e56578098d0a09055b3307
-    bytes: 15454535
-    records: 8286
+    sha256: b3b07c5e17a09d3e5c17f97a1efed8e3141fdd20ada73b9acfaed01383c6f080
+    bytes: 16488940
+    records: 9675
   - role: decision_cache
     path: decision_cache.json
     sha256: 9e5677b1a2ffc9fe9d5ed122a90171c896e5f14ee83d958b724e1d2b8b8fd894
     bytes: 153040
     records: 318
 integrity:
-  manifest_sha256: fec47f53fc22d346fdcc165ecff6ffa80c61c84eb70a932097f1eeffe76528b1
-  signature_status: not_configured
-  signature_algorithm: null
-  signature_reference: null
-  signature_public_key_sha256: null
+  manifest_sha256: "8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42"
+  signature_status: verified
+  signature_algorithm: ed25519
+  signature_reference: corpus_scope.sig
+  signature_public_key_sha256: "e0215724fa0c59a8a33d35fedf6ebcda59b85aef31794f5eacc59bad6632e22d"

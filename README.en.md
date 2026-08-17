@@ -104,8 +104,10 @@ migrated schema; it never migrates.
 
 `verify-corpus` is an optional read-only preflight that opens no database
 connection. It does not transfer trust to a later import. A production
-promotion must pass both numeric-objective and per-document measurement gates,
-plus detached-signature verification, directly to `bootstrap`:
+promotion passes the numeric-objective and detached-signature gates directly to
+`bootstrap`, plus the per-document measurement gate wherever the corpus is
+actually monitored (schema v10 also admits an explicitly recorded
+quantified-unmeasured release for a batch-snapshot corpus):
 
 ```bash
 BDDK_INGESTION_DATABASE_URL='postgresql://INGESTION:SECRET@HOST:5432/DATABASE?sslmode=verify-full&sslrootcert=%2FAPPROVED%2Fpostgres-ca.crt' \
@@ -133,9 +135,11 @@ and a 60–3,600 second TTL; `activate-corpus-release` gives the
 fails closed after expiry, reuse, or corpus state/epoch/profile drift. The old
 `publish-corpus-release` alias is disabled.
 
-The tracked 318-document selection is deliberately non-exhaustive, unsigned,
-unquantified, and not measured; it is a reviewed development corpus, not a
-production-freshness claim.
+The tracked 318-document selection is deliberately non-exhaustive. It is
+Ed25519-signed and declares quantified freshness objectives, but its freshness
+is not measured against per-document source events, so it activates at the
+explicitly weaker `quantified_unmeasured_signature_verified_pass` level. It is a
+reviewed development corpus, not a production-freshness claim.
 
 Ordinary migration refuses a pre-ledger unmanaged schema. The explicit
 `bddk-mcp migrate --adopt-legacy` option accepts only the exact supported shape
@@ -210,8 +214,10 @@ v8, the verifier stages short-lived evidence and the publisher activates only
 its one-time request ID. These administrative CLIs are not MCP tools.
 Generation-bound serving and authorized rollback remain H2-02B. Backup
 growth is still `not_measured`, and bank retention/capacity approval remains
-open. The tracked 8,286-chunk artifact differs from the 9,675 rows regenerated
-by profile v2, so the tracked corpus currently fails strict publication.
+open. The tracked corpus is signed and declares the 9,675 chunks the current
+profile regenerates. Migration v0010 admits exactly two freshness policy levels,
+both requiring quantified objectives and a verified signature; the tracked
+corpus activates at the explicitly unmeasured level.
 
 Migration v0004 supplies the eleven-table canonical legal pilot; v0006 adds the
 public abstention-first legal-status resolver. The synthetic PostgreSQL proof
@@ -245,6 +251,18 @@ A non-loopback bind fails at startup unless all of the following are configured:
 - the profile scope: `bddk.read` for public or `bddk.operator` for operator;
 - `BDDK_OPERATOR_REMOTE_ENABLED=true` for a non-loopback operator process.
 
+`BDDK_HTTP_ALLOW_UNAUTHENTICATED` is a supported explicit opt-in for serving a
+non-loopback bind without bearer authentication. It is unset by default, and
+while it is unset the fail-closed requirements above are unchanged. When set,
+it cannot be combined with any configured `BDDK_JWT_`-prefixed setting —
+startup refuses and names the offending variables — and it is refused outright
+for a non-loopback operator profile regardless of
+`BDDK_OPERATOR_REMOTE_ENABLED`: operator tools stay authenticated or
+loopback-only by construction. An unauthenticated server advertises no OAuth
+discovery: there is no `WWW-Authenticate` challenge, and both the
+protected-resource and authorization-server well-known routes return 404.
+Host, Origin, body-size, concurrency, and rate limits still apply.
+
 `BDDK_TLS_CERT_FILE` and `BDDK_TLS_KEY_FILE` optionally enable HTTPS at the
 application socket. They are an inseparable PEM pair and are validated before
 the listener opens. The OpenShift starter supplies them with service-serving
@@ -255,7 +273,7 @@ Do not copy example identity-provider URLs from tests into a deployment. Obtain 
 
 Host, Origin, content type, and request-body size are checked before bearer authentication. Valid JWT access tokens are verified against JWKS, issuer, exact resource-server audience, approved JOSE type, required/optional time claims, algorithm, and scope authorization. Tokens need not carry a custom `resource` claim or `nbf`; when `nbf` is present it is validated. The fail-closed default accepts only RFC 9068 `at+jwt`; generic Keycloak-style `JWT` requires the explicit `BDDK_JWT_ACCESS_TOKEN_TYPES=at+jwt,JWT` compatibility opt-in and a dedicated API audience.
 
-`BDDK_HTTP_MAX_BODY_BYTES`, `BDDK_HTTP_MAX_CONCURRENCY`, and `BDDK_HTTP_RATE_LIMIT_PER_MINUTE` provide coarse protection inside each application process. Rate identity comes from the ASGI peer address; untrusted forwarding headers are not accepted by default. These controls are neither shared across replicas nor a global ingress limit. OpenShift deployments still need an approved end-to-end TLS topology, identity-aware ingress, shared request/rate policy, audit events, and NetworkPolicy controls.
+`BDDK_HTTP_MAX_BODY_BYTES`, `BDDK_HTTP_MAX_CONCURRENCY`, and `BDDK_HTTP_RATE_LIMIT_PER_MINUTE` provide coarse protection inside each application process. Rate identity comes from the ASGI peer address; untrusted forwarding headers are not accepted by default. `BDDK_HTTP_TRUSTED_PROXY_HOPS` (default `0`) controls that rate-limit client key: at `0` the limiter keys on the socket peer and ignores `X-Forwarded-For` entirely, which is correct for a directly exposed bind. Behind `n` operator-controlled reverse proxies, set the real hop count; the key is then the `n`-th entry from the right of the combined forwarded list, and anything unusable degrades to a shared `unknown` bucket rather than falling back to the socket peer, so a spoofed header cannot merge distinct callers. A wrong hop count makes the limiter either shared or spoofable, and when authentication is disabled through the explicit opt-in the rate limiter is the primary abuse control. These controls are neither shared across replicas nor a global ingress limit. OpenShift deployments still need an approved end-to-end TLS topology, identity-aware ingress, shared request/rate policy, audit events, and NetworkPolicy controls.
 
 Live regulatory fetch paths separately enforce exact BDDK/mevzuat HTTPS hosts,
 public-address DNS checks, destination revalidation on bounded redirects,

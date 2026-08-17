@@ -68,6 +68,7 @@ async def test_official_client_validates_structured_no_result_contracts():
     client = MagicMock()
     client.search_decisions = AsyncMock(return_value=BddkSearchResult())
     vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
     vector_store.search = AsyncMock(return_value=[])
     deps = Dependencies(
         pool=None,
@@ -206,6 +207,7 @@ async def test_all_six_retrieval_text_fallbacks_frame_source_metadata_and_escape
     )
     client.find_by_id.return_value = decision
     vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
     vector_store.search = AsyncMock(
         return_value=[
             {

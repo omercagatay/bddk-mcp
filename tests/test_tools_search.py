@@ -6,7 +6,9 @@ import time
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from mcp.server.fastmcp.exceptions import ToolError
 
+from bddk_mcp.store.vector_store import SemanticSearchUnavailableError
 from bddk_mcp.tools.search import _LRUCache, _search_cache
 
 # -- LRU cache unit tests ---------------------------------------------------
@@ -96,6 +98,7 @@ async def test_search_document_store_uses_match_wording_and_section_guidance():
 
     _search_cache._data.clear()
     vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
     vector_store.search = AsyncMock(
         return_value=[
             {
@@ -129,6 +132,7 @@ async def test_search_document_store_registry_overrides_stale_clean_index_metada
 
     _search_cache._data.clear()
     vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
     vector_store.search = AsyncMock(
         return_value=[
             {
@@ -153,6 +157,32 @@ async def test_search_document_store_registry_overrides_stale_clean_index_metada
     assert "Quality: fail" in out
     assert "configured_quality_failure" in out
     assert "listed in the configured quality-failure registry" in out
+
+
+@pytest.mark.asyncio
+async def test_search_document_store_returns_non_retryable_error_when_embedding_runtime_failed():
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock(
+        side_effect=SemanticSearchUnavailableError("private runtime detail")
+    )
+    vector_store.search = AsyncMock()
+    deps = Dependencies(pool=None, doc_store=None, client=None, http=None, vector_store=vector_store)
+    mcp = MagicMock()
+    register(mcp, deps)
+    search_document_store = _registered_tools(mcp)["search_document_store"]
+
+    with pytest.raises(ToolError) as exc_info:
+        await search_document_store("sermaye yeterliliği", limit=1)
+
+    message = str(exc_info.value)
+    assert message.startswith("[ERROR:SEMANTIC_SEARCH_UNAVAILABLE] retryable=false")
+    assert "private runtime detail" not in message
+    assert "search_document_sections" in message
+    vector_store.search.assert_not_awaited()
 
 
 # -- get_version_counts integration test (requires PostgreSQL) ---------------

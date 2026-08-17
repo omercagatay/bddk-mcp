@@ -101,6 +101,7 @@ _runtime_profile: ToolProfile | None = None
 
 _TRANSPORTS = frozenset({"stdio", "streamable-http"})
 _READINESS_ATTESTATION_TTL_SECONDS = 5.0
+_SEMANTIC_SEARCH_STARTUP_TIMEOUT_SECONDS = 45.0
 
 
 def _requires_active_release_for_readiness(profile: ToolProfile) -> bool:
@@ -161,6 +162,12 @@ def _validate_profile_http_policy(config: HttpSecurityConfig, profile: ToolProfi
         required_scope = "bddk.read" if profile is ToolProfile.PUBLIC else "bddk.operator"
         if required_scope not in config.jwt_required_scopes:
             raise HttpSecurityConfigError(f"The {profile.value} HTTP profile requires JWT scope {required_scope!r}")
+
+    if profile is ToolProfile.OPERATOR and config.allow_unauthenticated and not config.loopback_only:
+        raise HttpSecurityConfigError(
+            "Operator tools must never be exposed unauthenticated. "
+            "BDDK_HTTP_ALLOW_UNAUTHENTICATED is limited to the public read-only profile."
+        )
 
     if profile is ToolProfile.OPERATOR and not config.loopback_only:
         enabled = os.environ.get("BDDK_OPERATOR_REMOTE_ENABLED", "").strip().lower()
@@ -254,6 +261,9 @@ async def create_deps(profile: ToolProfile = ToolProfile.PUBLIC) -> Dependencies
         )
         await client.load_cache_read_only()
         vector_store = VectorStore(pool)
+        if profile is ToolProfile.PUBLIC:
+            async with asyncio.timeout(_SEMANTIC_SEARCH_STARTUP_TIMEOUT_SECONDS):
+                await vector_store.assert_semantic_search_ready()
 
         if profile is ToolProfile.OPERATOR:
             job_manager = OperatorJobManager(
@@ -374,7 +384,13 @@ def register_health_routes(
 
     @server.custom_route("/health/ready", methods=["GET"], include_in_schema=False)
     async def readiness(_request: Request) -> JSONResponse:
-        if deps.pool is None or deps.doc_store is None or deps.client is None:
+        if (
+            deps.pool is None
+            or deps.doc_store is None
+            or deps.client is None
+            or deps.vector_store is None
+            or (profile is ToolProfile.PUBLIC and deps.vector_store.semantic_search_ready is not True)
+        ):
             return JSONResponse({"status": "not_ready"}, status_code=503)
         database_readiness = await database_attestation()
         if database_readiness is None:

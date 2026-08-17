@@ -292,14 +292,26 @@ def _validate_seed_documents(docs: list[dict]) -> dict[str, str]:
     return doc_hashes
 
 
-def _validate_strict_seed_artifact_shapes(docs: list[dict], cache: list[dict]) -> None:
-    """Reject any signed field that bootstrap would default, coerce, or ignore."""
+def _validate_strict_seed_artifact_shapes(
+    docs: list[dict],
+    cache: list[dict],
+    *,
+    require_measured_freshness: bool = True,
+) -> None:
+    """Reject any signed field that bootstrap would default, coerce, or ignore.
 
+    The per-document source-event columns exist only where freshness is actually
+    measured, so an explicitly unmeasured corpus must declare exactly the storage
+    fields instead.  Either way the field set is exact: extra or missing columns
+    still fail closed.
+    """
+
+    expected_fields = _DOCUMENT_ARTIFACT_FIELDS if require_measured_freshness else _DOCUMENT_STORAGE_FIELDS
     document_ids: set[str] = set()
     for document in docs:
-        if set(document) != _DOCUMENT_ARTIFACT_FIELDS:
+        if set(document) != expected_fields:
             raise RuntimeError("Strict corpus document artifact schema does not match the bootstrap contract.")
-        string_fields = _DOCUMENT_ARTIFACT_FIELDS - {
+        string_fields = expected_fields - {
             "downloaded_at",
             "extracted_at",
             *_DOCUMENT_FRESHNESS_FIELDS,
@@ -311,7 +323,7 @@ def _validate_strict_seed_artifact_shapes(docs: list[dict], cache: list[dict]) -
         timestamps = (
             document["downloaded_at"],
             document["extracted_at"],
-            *(document[field] for field in sorted(_DOCUMENT_FRESHNESS_FIELDS)),
+            *(document[field] for field in sorted(_DOCUMENT_FRESHNESS_FIELDS & expected_fields)),
         )
         if any(
             value is not None
@@ -984,7 +996,11 @@ async def import_seed(
 
         seed_hashes = _validate_seed_documents(docs_data)
         if strict_release:
-            _validate_strict_seed_artifact_shapes(docs_data, cache_data)
+            _validate_strict_seed_artifact_shapes(
+                docs_data,
+                cache_data,
+                require_measured_freshness=require_measured_freshness,
+            )
         expected_sections = _expected_seed_sections(docs_data)
         seed_doc_ids = sorted(seed_hashes)
         seed_cache_ids = sorted(item["document_id"] for item in cache_data)
@@ -1378,13 +1394,19 @@ def main() -> None:
 
     imp = sub.add_parser("import", help="Import seed_data/ → DB")
     imp.add_argument("--force", action="store_true", help="Overwrite existing data")
+    imp.add_argument(
+        "--trusted-signing-key",
+        type=Path,
+        default=None,
+        help="Trusted Ed25519 public key (outside the corpus root) for a signed corpus manifest",
+    )
 
     args = parser.parse_args()
 
     if args.command == "export":
         asyncio.run(export_seed(args.db))
     elif args.command == "import":
-        result = asyncio.run(import_seed(args.db, force=args.force))
+        result = asyncio.run(import_seed(args.db, force=args.force, trusted_signing_key=args.trusted_signing_key))
         if result["skipped"]:
             print("Skipped — DB already has data (use --force to overwrite)")
         else:

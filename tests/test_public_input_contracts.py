@@ -33,6 +33,7 @@ _PARAMETERS = {
 
 def _server(*, include_operator: bool = False) -> tuple[FastMCP, Dependencies]:
     vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
     vector_store.search = AsyncMock(return_value=[])
     client = MagicMock()
     doc_store = MagicMock()
