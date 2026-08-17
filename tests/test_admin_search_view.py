@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 from starlette.testclient import TestClient
 
 from bddk_mcp.admin.app import create_app
 from bddk_mcp.admin.config import AdminConfig
 from bddk_mcp.admin.services.documents import DocumentService
+from bddk_mcp.store.doc_store import SearchHit, StoreStats
 
 CONFIG = AdminConfig(bind_host="127.0.0.1", port=8100, database_url="postgresql://x", loopback_only=True)
 
@@ -20,7 +19,7 @@ class SearchStore:
         return []
 
     async def stats(self):
-        return SimpleNamespace(categories={}, total_documents=0)
+        return StoreStats(categories={}, total_documents=0)
 
     async def search_content(self, query, limit=20, category=None):
         if self.error is not None:
@@ -29,7 +28,7 @@ class SearchStore:
 
 
 def test_search_renders_hits() -> None:
-    hit = SimpleNamespace(document_id="mevzuat_1", title="Bankacilik Kanunu", snippet="mevduat toplama")
+    hit = SearchHit(document_id="mevzuat_1", title="Bankacilik Kanunu", snippet="mevduat toplama")
     client = TestClient(create_app(CONFIG, DocumentService(SearchStore(hits=[hit]))))
 
     response = client.get("/search?q=mevduat")

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-from types import SimpleNamespace
 
 from bddk_mcp.admin.services.documents import DocumentService
+from bddk_mcp.store.doc_store import StoredDocument, StoreStats
 
 
 class FakeStore:
@@ -17,7 +17,7 @@ class FakeStore:
         return selected[offset : offset + limit]
 
     async def stats(self):
-        return SimpleNamespace(categories={"mevzuat": 2}, total_documents=len(self.rows))
+        return StoreStats(categories={"mevzuat": 2}, total_documents=len(self.rows))
 
 
 def _rows(count: int) -> list[dict]:
@@ -59,3 +59,43 @@ def test_page_numbers_below_one_are_clamped() -> None:
 def test_categories_come_from_store_stats() -> None:
     service = DocumentService(FakeStore(_rows(2)))
     assert asyncio.run(service.categories()) == {"mevzuat": 2}
+
+
+class FailingStore:
+    async def list_documents(self, category=None, limit=100, offset=0):
+        raise RuntimeError("connection to server was lost")
+
+    async def get_document(self, doc_id):
+        raise RuntimeError("connection to server was lost")
+
+
+def test_list_page_surfaces_store_failure_verbatim() -> None:
+    service = DocumentService(FailingStore())
+
+    page = asyncio.run(service.list_page(page=1))
+
+    assert page.items == []
+    assert page.has_next is False
+    assert page.error == "RuntimeError: connection to server was lost"
+
+
+def test_get_surfaces_store_failure_distinct_from_not_found() -> None:
+    service = DocumentService(FailingStore())
+
+    outcome = asyncio.run(service.get("mevzuat_1"))
+
+    assert outcome.error == "RuntimeError: connection to server was lost"
+    assert outcome.doc is None  # not a signal of "not found"; check .error first
+
+
+def test_get_returns_the_real_stored_document() -> None:
+    class StoreWithDoc:
+        async def get_document(self, doc_id):
+            return StoredDocument(document_id=doc_id, title="Bankacilik Kanunu")
+
+    service = DocumentService(StoreWithDoc())
+
+    outcome = asyncio.run(service.get("mevzuat_1"))
+
+    assert outcome.error is None
+    assert outcome.doc.title == "Bankacilik Kanunu"

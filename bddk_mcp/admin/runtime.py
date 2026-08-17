@@ -27,8 +27,14 @@ async def build_app_from_env(env: Mapping[str, str] | None = None) -> tuple[Star
         timeout=10,
         init=partial(assert_database_connection_identity, profile="public"),
     )
-    store = DocumentStore(pool)
-    await store.initialize()
+    try:
+        store = DocumentStore(pool)
+        await store.initialize()
+    except Exception:
+        # The pool was already opened; a stale or missing migration must not
+        # leak the connections it holds.
+        await pool.close()
+        raise
     app = create_app(config, DocumentService(store))
 
     async def shutdown() -> None:

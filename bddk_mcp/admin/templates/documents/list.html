@@ -14,6 +14,9 @@
   </label>
 </form>
 
+{% if page.error %}
+  <p class="error">Belgeler yuklenemedi: {{ page.error }}</p>
+{% else %}
 <table>
   <thead>
     <tr><th>Belge</th><th>Kategori</th><th>Sayfa</th></tr>
@@ -34,11 +37,12 @@
 
 <p>
   {% if page.page > 1 %}
-    <a href="/documents?page={{ page.page - 1 }}{% if selected_category %}&category={{ selected_category }}{% endif %}">Onceki</a>
+    <a href="/documents?page={{ page.page - 1 }}{% if selected_category %}&category={{ selected_category | urlencode }}{% endif %}">Onceki</a>
   {% endif %}
   <span class="muted">Sayfa {{ page.page }}</span>
   {% if page.has_next %}
-    <a href="/documents?page={{ page.page + 1 }}{% if selected_category %}&category={{ selected_category }}{% endif %}">Sonraki</a>
+    <a href="/documents?page={{ page.page + 1 }}{% if selected_category %}&category={{ selected_category | urlencode }}{% endif %}">Sonraki</a>
   {% endif %}
 </p>
+{% endif %}
 {% endblock %}

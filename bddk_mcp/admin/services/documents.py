@@ -16,6 +16,7 @@ class DocumentPage:
     page: int
     page_size: int
     has_next: bool
+    error: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +25,18 @@ class SearchOutcome:
 
     query: str
     hits: list[Any]
+    error: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentOutcome:
+    """A single document lookup, or the reason it could not be loaded.
+
+    Distinct from "not found": a store failure must never be rendered as a
+    missing document, so callers branch on `error` before `doc is None`.
+    """
+
+    doc: Any | None
     error: str | None = None
 
 
@@ -37,14 +50,23 @@ class DocumentService:
         page = max(1, page)
         page_size = max(1, min(page_size, MAX_PAGE_SIZE))
         offset = (page - 1) * page_size
-        # Fetch one extra row: cheaper than a COUNT(*) and enough to know
-        # whether a Next control should render.
-        rows = await self._store.list_documents(category=category, limit=page_size + 1, offset=offset)
+        try:
+            # Fetch one extra row: cheaper than a COUNT(*) and enough to know
+            # whether a Next control should render.
+            rows = await self._store.list_documents(category=category, limit=page_size + 1, offset=offset)
+        except Exception as exc:  # surfaced verbatim; never rendered as an empty list
+            return DocumentPage(
+                items=[], page=page, page_size=page_size, has_next=False, error=f"{type(exc).__name__}: {exc}"
+            )
         has_next = len(rows) > page_size
         return DocumentPage(items=list(rows[:page_size]), page=page, page_size=page_size, has_next=has_next)
 
-    async def get(self, doc_id: str) -> Any:
-        return await self._store.get_document(doc_id)
+    async def get(self, doc_id: str) -> DocumentOutcome:
+        try:
+            doc = await self._store.get_document(doc_id)
+        except Exception as exc:  # surfaced verbatim; never rendered as "not found"
+            return DocumentOutcome(doc=None, error=f"{type(exc).__name__}: {exc}")
+        return DocumentOutcome(doc=doc)
 
     async def search(self, query: str, limit: int = 20) -> SearchOutcome:
         query = query.strip()

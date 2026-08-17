@@ -1,18 +1,21 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 from starlette.testclient import TestClient
 
 from bddk_mcp.admin.app import create_app
 from bddk_mcp.admin.config import AdminConfig
 from bddk_mcp.admin.services.documents import DocumentService
+from bddk_mcp.store.doc_store import StoredDocument, StoreStats
 
 CONFIG = AdminConfig(bind_host="127.0.0.1", port=8100, database_url="postgresql://x", loopback_only=True)
 
 
 class FakeStore:
+    """Returns the same shapes the real DocumentStore does, so a field
+    rename in StoreStats/StoredDocument breaks these tests instead of
+    leaving the admin UI silently rendering blanks."""
+
     def __init__(self, rows):
         self.rows = rows
 
@@ -21,7 +24,7 @@ class FakeStore:
         return selected[offset : offset + limit]
 
     async def stats(self):
-        return SimpleNamespace(categories={"mevzuat": 2}, total_documents=len(self.rows))
+        return StoreStats(categories={"mevzuat": 2}, total_documents=len(self.rows))
 
 
 @pytest.fixture
@@ -62,7 +65,7 @@ class FakeStoreWithDetail(FakeStore):
     async def get_document(self, doc_id):
         if doc_id != "mevzuat_1":
             return None
-        return SimpleNamespace(
+        return StoredDocument(
             document_id="mevzuat_1",
             title="Bankacilik Kanunu",
             category="mevzuat",
@@ -92,3 +95,75 @@ def test_detail_shows_metadata_and_content(detail_client: TestClient) -> None:
 def test_missing_document_returns_404(detail_client: TestClient) -> None:
     response = detail_client.get("/documents/does-not-exist")
     assert response.status_code == 404
+
+
+class FailingListStore:
+    """Every read raises, the way a downed database or a stale migration
+    would fail every query on the pool."""
+
+    async def list_documents(self, category=None, limit=100, offset=0):
+        raise RuntimeError("connection to server was lost")
+
+    async def stats(self):
+        raise RuntimeError("connection to server was lost")
+
+    async def get_document(self, doc_id):
+        raise RuntimeError("connection to server was lost")
+
+
+@pytest.fixture
+def failing_client() -> TestClient:
+    return TestClient(create_app(CONFIG, DocumentService(FailingListStore())))
+
+
+def test_list_failure_is_shown_not_swallowed(failing_client: TestClient) -> None:
+    response = failing_client.get("/documents")
+
+    # A failed listing must never render as an empty document table.
+    assert response.status_code == 200
+    assert "connection to server was lost" in response.text
+    assert "Kayit bulunamadi" not in response.text
+
+
+def test_detail_failure_is_shown_not_swallowed_or_treated_as_missing(failing_client: TestClient) -> None:
+    response = failing_client.get("/documents/mevzuat_1")
+
+    # A failed lookup must be distinguishable from "document not found":
+    # it is neither a 404 nor a blank/"not found" page.
+    assert response.status_code == 200
+    assert "connection to server was lost" in response.text
+    assert "kayitli degil" not in response.text
+
+
+class PaginatedStore:
+    """51 rows so DocumentService.list_page's default page_size=50 leaves
+    exactly one row for a Next page, exercising has_next=True end to end."""
+
+    def __init__(self, count: int, category: str = "mevzuat & inceleme") -> None:
+        self.rows = [
+            {"document_id": f"doc-{i}", "title": f"Belge {i}", "category": category, "total_pages": 1}
+            for i in range(count)
+        ]
+
+    async def list_documents(self, category=None, limit=100, offset=0):
+        selected = [r for r in self.rows if category is None or r["category"] == category]
+        return selected[offset : offset + limit]
+
+    async def stats(self):
+        return StoreStats(categories={"mevzuat & inceleme": len(self.rows)}, total_documents=len(self.rows))
+
+
+def test_pagination_link_renders_and_encodes_category_ampersand() -> None:
+    store = PaginatedStore(51)
+    client = TestClient(create_app(CONFIG, DocumentService(store)))
+
+    response = client.get("/documents?category=mevzuat+%26+inceleme")
+
+    assert response.status_code == 200
+    assert "Sonraki" in response.text
+    # The category contains "&"; it must be percent-encoded inside the
+    # href query string, never emitted as a raw "&" that would start a
+    # new (bogus) query parameter, nor HTML-escaped to "&amp;" only.
+    assert "category=mevzuat%20%26%20inceleme" in response.text
+    assert 'category=mevzuat & inceleme"' not in response.text
+    assert "category=mevzuat &amp; inceleme" not in response.text

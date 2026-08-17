@@ -24,7 +24,9 @@ def register(routes: list, templates: Jinja2Templates, service: DocumentService)
     async def list_documents(request: Request) -> Response:
         category = request.query_params.get("category") or None
         page = await service.list_page(page=_int_param(request, "page", 1), category=category)
-        categories = await service.categories()
+        # Don't hit an already-failing store a second time for the filter
+        # dropdown; an empty category list is harmless once page.error says why.
+        categories = {} if page.error else await service.categories()
         return templates.TemplateResponse(
             request,
             "documents/list.html",
@@ -33,15 +35,21 @@ def register(routes: list, templates: Jinja2Templates, service: DocumentService)
 
     async def document_detail(request: Request) -> Response:
         document_id = request.path_params["document_id"]
-        doc = await service.get(document_id)
-        if doc is None:
+        outcome = await service.get(document_id)
+        if outcome.error:
+            return templates.TemplateResponse(
+                request,
+                "documents/error.html",
+                {"error": outcome.error, "document_id": document_id},
+            )
+        if outcome.doc is None:
             return templates.TemplateResponse(
                 request,
                 "not_found.html",
                 {"document_id": document_id},
                 status_code=404,
             )
-        return templates.TemplateResponse(request, "documents/detail.html", {"doc": doc})
+        return templates.TemplateResponse(request, "documents/detail.html", {"doc": outcome.doc})
 
     async def search(request: Request) -> Response:
         outcome = await service.search(request.query_params.get("q", ""))

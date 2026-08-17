@@ -83,3 +83,9 @@ include = ["bddk_mcp*"]
 
 [tool.setuptools.package-data]
 "bddk_mcp.quality" = ["*.yml"]
+"bddk_mcp.admin" = [
+    "templates/*.html",
+    "templates/**/*.html",
+    "static/*",
+    "static/**/*",
+]
