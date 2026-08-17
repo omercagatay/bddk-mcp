@@ -43,5 +43,10 @@ def register(routes: list, templates: Jinja2Templates, service: DocumentService)
             )
         return templates.TemplateResponse(request, "documents/detail.html", {"doc": doc})
 
+    async def search(request: Request) -> Response:
+        outcome = await service.search(request.query_params.get("q", ""))
+        return templates.TemplateResponse(request, "documents/search.html", {"outcome": outcome})
+
     routes.append(Route("/documents", list_documents, methods=["GET"], name="documents"))
     routes.append(Route("/documents/{document_id}", document_detail, methods=["GET"], name="document_detail"))
+    routes.append(Route("/search", search, methods=["GET"], name="search"))

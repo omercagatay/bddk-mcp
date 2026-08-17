@@ -18,6 +18,15 @@ class DocumentPage:
     has_next: bool
 
 
+@dataclass(frozen=True, slots=True)
+class SearchOutcome:
+    """Search results, or the reason there are none."""
+
+    query: str
+    hits: list[Any]
+    error: str | None = None
+
+
 class DocumentService:
     """Wraps DocumentStore so views never touch SQL or pagination arithmetic."""
 
@@ -37,11 +46,15 @@ class DocumentService:
     async def get(self, doc_id: str) -> Any:
         return await self._store.get_document(doc_id)
 
-    async def search(self, query: str, limit: int = 20) -> list[Any]:
+    async def search(self, query: str, limit: int = 20) -> SearchOutcome:
         query = query.strip()
         if not query:
-            return []
-        return list(await self._store.search_content(query, limit=limit))
+            return SearchOutcome(query="", hits=[])
+        try:
+            hits = list(await self._store.search_content(query, limit=limit))
+        except Exception as exc:  # surfaced verbatim; never rendered as "no results"
+            return SearchOutcome(query=query, hits=[], error=f"{type(exc).__name__}: {exc}")
+        return SearchOutcome(query=query, hits=hits)
 
     async def categories(self) -> dict[str, int]:
         stats = await self._store.stats()
