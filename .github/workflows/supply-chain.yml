@@ -36,7 +36,7 @@ jobs:
     timeout-minutes: 120
     steps:
       - name: Check out the complete history for secret scanning
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -326,7 +326,7 @@ jobs:
         run: test "$EVIDENCE_INTEGRITY_RESULT" = success
 
       - name: Check out the policy implementation for this commit
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
