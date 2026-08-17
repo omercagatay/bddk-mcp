@@ -1,5 +1,8 @@
 # Security Review
 
+> [!NOTE]
+> This document preserves a dated security review and implementation overlays. It does not replace the reporting policy in [`SECURITY.md`](../SECURITY.md) or the current repository facts in [Current Repository Status](STATUS.md).
+
 Review basis: commit **5684a34c10e6d90bc22d6ab2a6466944afb6bf81**, reviewed 2026-07-14.
 
 ## Implementation progress overlay — 2026-07-16

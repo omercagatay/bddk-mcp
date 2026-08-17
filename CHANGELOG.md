@@ -23,7 +23,7 @@ Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızd
   refactor ile başladı; bu sürüm için de Git etiketi oluşturulmadı.
 - Mevcut geliştirme dalı paket metadata'sını `5.0.1` olarak taşır, ancak henüz
   yayımlanmış veya etiketlenmiş bir release değildir.
-- `v0001`–`v0009` adları Python paket sürümü değil, ileri yönlü PostgreSQL
+- `v0001`–`v0010` adları Python paket sürümü değil, ileri yönlü PostgreSQL
   migration sürümleridir. Bir uygulama release'i birden fazla migration
   içerebilir.
 
@@ -35,10 +35,28 @@ Bu bölüm `main` üzerindeki `5684a34` tabanından başlayıp
 `83d31a4` dâhil olmak üzere kapsar. Buradaki maddeler yayımlanmış sürüm
 taahhüdü veya banka üretim kabulü değildir.
 
+### Eklendi — repository bakımı
+
+- GitHub issue formları, pull-request şablonu, CODEOWNERS, `SECURITY.md` ve
+  `CONTRIBUTING.md` eklendi.
+- Dokümantasyon için tek bir indeks, güncel repository durum sayfası ve mevcut
+  dizin yerleşimini açıklayan yapı rehberi eklendi; tarihsel incelemeler güncel
+  çalışma sözleşmesinden açıkça ayrıldı.
+- `seed_data`, evidence JSON, lock file ve binary fixture sunumu
+  `.gitattributes` ile sınıflandırıldı.
+- Repository kökü, doküman linkleri, issue-form YAML'ları, sürüm eşleşmesi ve
+  governance dosyalarını doğrulayan otomatik hygiene kontrolü CI'a eklendi.
+- Haftalık Python ve GitHub Actions güncellemelerini gruplayan Dependabot
+  politikası eklendi; merge sonrası branch silme repository ayarıyla branch
+  birikiminin tekrar oluşması önlendi.
+- Açık dependency uyarılarını gidermek için kilitli `setuptools` 84.0.0 ve
+  `torch` 2.13.0 sürümlerine yükseltildi; minimum build/GPU gereksinimleri bu
+  güvenli tabanlara çekildi.
+
 ### Eklendi — MCP ve uygulama yaşam döngüsü
 
-- Tek kaynaklı MCP araç kayıt sistemi eklendi. Güncel sözleşme 15 public araç
-  ve operator profilinde bunlara eklenen 14 araç olmak üzere toplam 29 aracı
+- Tek kaynaklı MCP araç kayıt sistemi eklendi. Güncel sözleşme 17 public araç
+  ve operator profilinde bunlara eklenen 14 araç olmak üzere toplam 31 aracı
   açıkça tanımlar.
 - Public ve operator çalışma profilleri ayrıldı; operator araçları public
   süreçte kaydedilmez.

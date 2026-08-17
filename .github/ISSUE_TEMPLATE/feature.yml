@@ -1,0 +1,46 @@
+name: Feature request
+description: Propose a focused capability or maintenance improvement.
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user or operator problem should be solved?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed outcome
+      description: Describe the desired behavior, not only an implementation.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Public MCP tools
+        - Operator workflows
+        - Retrieval or corpus quality
+        - Security or governance
+        - Deployment or operations
+        - Developer experience
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and tradeoffs
+      description: Note current workarounds, compatibility concerns, or simpler options.
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope acknowledgement
+      options:
+        - label: I understand that production regulatory reliance requires separate legal and deployment validation.
+          required: true
