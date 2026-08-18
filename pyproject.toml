@@ -25,6 +25,9 @@ dependencies = [
     "transformers>=4.50",
     "pdf2image>=1.17",
     "pillow>=10.0",
+    "starlette>=0.47",
+    "jinja2>=3.1",
+    "uvicorn>=0.34",
 ]
 
 [project.urls]
@@ -80,3 +83,9 @@ include = ["bddk_mcp*"]
 
 [tool.setuptools.package-data]
 "bddk_mcp.quality" = ["*.yml"]
+"bddk_mcp.admin" = [
+    "templates/*.html",
+    "templates/**/*.html",
+    "static/*",
+    "static/**/*",
+]

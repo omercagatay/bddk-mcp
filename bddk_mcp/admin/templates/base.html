@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}BDDK Admin{% endblock %}</title>
+    <script src="/static/htmx.min.js" defer></script>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font-family: system-ui, sans-serif; margin: 0; padding: 1.5rem; line-height: 1.5; }
+      nav a { margin-right: 1rem; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid #8883; }
+      .muted { opacity: 0.7; font-size: 0.9rem; }
+      .error { border: 1px solid #c33; padding: 0.75rem; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <nav><a href="/documents">Belgeler</a><a href="/search">Arama</a></nav>
+    <main>{% block content %}{% endblock %}</main>
+  </body>
+</html>

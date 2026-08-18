@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Bulunamadi{% endblock %}
+{% block content %}
+<h1>Belge bulunamadi</h1>
+<p class="error">Aranan belge kimligi kayitli degil: <code>{{ document_id }}</code></p>
+<p><a href="/documents">Belgelere don</a></p>
+{% endblock %}

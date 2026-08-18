@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Arama{% endblock %}
+{% block content %}
+<h1>Arama</h1>
+<form method="get" action="/search">
+  <input type="search" name="q" value="{{ outcome.query }}" placeholder="Arama terimi" autofocus />
+  <button type="submit">Ara</button>
+</form>
+
+{% if outcome.error %}
+  <p class="error">Arama basarisiz: {{ outcome.error }}</p>
+{% elif not outcome.query %}
+  <p class="muted">Arama terimi girin.</p>
+{% elif not outcome.hits %}
+  <p class="muted">Sonuc bulunamadi.</p>
+{% else %}
+  <ul>
+    {% for hit in outcome.hits %}
+      <li>
+        <a href="/documents/{{ hit.document_id }}">{{ hit.title }}</a>
+        <div class="muted">{{ hit.snippet }}</div>
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}
+{% endblock %}

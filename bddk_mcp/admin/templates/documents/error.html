@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Hata{% endblock %}
+{% block content %}
+<p><a href="/documents">&larr; Belgeler</a></p>
+<h1>Belge yuklenemedi</h1>
+<p class="error">Belge yuklenirken hata olustu ({{ document_id }}): {{ error }}</p>
+{% endblock %}

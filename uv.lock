@@ -118,6 +118,7 @@ dependencies = [
     { name = "beautifulsoup4" },
     { name = "defusedxml" },
     { name = "httpx" },
+    { name = "jinja2" },
     { name = "markitdown", extra = ["pdf"] },
     { name = "mcp", extra = ["cli"] },
     { name = "pdf2image" },
@@ -126,7 +127,9 @@ dependencies = [
     { name = "pyjwt", extra = ["crypto"] },
     { name = "pyyaml" },
     { name = "sentence-transformers" },
+    { name = "starlette" },
     { name = "transformers" },
+    { name = "uvicorn" },
     { name = "uvloop", marker = "sys_platform != 'win32'" },
 ]
 
@@ -153,6 +156,7 @@ requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.12" },
     { name = "defusedxml", specifier = ">=0.7.1,<1" },
     { name = "httpx", specifier = ">=0.27" },
+    { name = "jinja2", specifier = ">=3.1" },
     { name = "markitdown", extras = ["pdf"], specifier = ">=0.1" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.27,<2" },
     { name = "pdf2image", specifier = ">=1.17" },
@@ -161,7 +165,9 @@ requires-dist = [
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10,<3" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "sentence-transformers", specifier = ">=5.0" },
+    { name = "starlette", specifier = ">=0.47" },
     { name = "transformers", specifier = ">=4.50" },
+    { name = "uvicorn", specifier = ">=0.34" },
     { name = "uvloop", marker = "sys_platform != 'win32'", specifier = ">=0.22.1" },
 ]
 
