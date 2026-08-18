@@ -1,0 +1,63 @@
+name: Bug report
+description: Report a reproducible problem in the server, CLI, deployment assets, or MCP tools.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Remove credentials, tokens, database URLs, private documents, and customer data before submitting.
+        Security vulnerabilities belong in a private security advisory.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the observed behavior and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Provide the smallest command, MCP call, or test case that reproduces the problem.
+      placeholder: |
+        1. Configure ...
+        2. Run ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - MCP server or tool
+        - CLI or packaging
+        - Ingestion or document quality
+        - PostgreSQL or migration
+        - Deployment or container
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: "5.0.1 or git SHA"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include Python, PostgreSQL, operating system, transport, and deployment platform where relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs or output
+      description: Paste only the minimum output needed to diagnose the issue, with sensitive values removed.
+      render: shell

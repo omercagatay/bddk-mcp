@@ -1,5 +1,8 @@
 # Target Architecture for the Next Major Version
 
+> [!NOTE]
+> This document describes a desired end state and includes dated progress overlays; it is not a statement that every target is implemented. Current repository facts are in [Current Repository Status](STATUS.md).
+
 ## Design objective
 
 The next major version should turn the current prototype into a dependable regulatory retrieval service without introducing unnecessary infrastructure. The target is:

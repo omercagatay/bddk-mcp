@@ -1,5 +1,8 @@
 # Testing and Evaluation Strategy
 
+> [!NOTE]
+> Executed counts and implementation overlays in this document are dated evidence, not automatically current results. Current repository facts are in [Current Repository Status](STATUS.md); current test truth comes from the checks attached to the commit under review.
+
 ## Purpose
 
 The test strategy must answer four different questions:

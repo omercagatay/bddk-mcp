@@ -1,0 +1,32 @@
+name: Usage question
+description: Ask a focused setup, configuration, or MCP client question.
+title: "question: "
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Remove credentials, tokens, database URLs, private documents, and customer data before submitting.
+        Use a private security advisory for suspected vulnerabilities.
+  - type: textarea
+    id: goal
+    attributes:
+      label: What are you trying to do?
+      description: Describe the intended outcome and the client or deployment mode involved.
+    validations:
+      required: true
+  - type: textarea
+    id: attempted
+    attributes:
+      label: What have you tried?
+      description: Include the relevant sanitized configuration and commands.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Result
+      description: Include the exact safe error or behavior that remains unclear.
+    validations:
+      required: true

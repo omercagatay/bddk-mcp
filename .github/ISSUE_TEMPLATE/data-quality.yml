@@ -1,0 +1,56 @@
+name: Data quality issue
+description: Report extraction, OCR, citation, section, freshness, or legal-reference defects.
+title: "data: "
+labels:
+  - data-quality
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        This form tracks corpus defects, not confidential legal advice. Link the authoritative public source
+        whenever possible and do not upload restricted documents.
+  - type: input
+    id: document_id
+    attributes:
+      label: Document ID
+      placeholder: "mevzuat_22599 or bddk_943"
+    validations:
+      required: true
+  - type: input
+    id: corpus
+    attributes:
+      label: Corpus release or manifest
+      placeholder: "manifest ID and SHA-256, if available"
+  - type: dropdown
+    id: defect
+    attributes:
+      label: Defect type
+      options:
+        - Missing or stale document
+        - Incorrect text or encoding
+        - OCR or formula loss
+        - Incorrect section boundary
+        - Search or ranking problem
+        - Citation or legal-version problem
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed result
+      description: Include the exact tool/command and a short sanitized excerpt.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result and source evidence
+      description: Link the authoritative source and identify the relevant page, article, or publication date.
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional context
+      description: Add quality-scan output, proposed remediation, or related document IDs.

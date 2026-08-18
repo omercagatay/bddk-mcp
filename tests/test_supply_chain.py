@@ -478,6 +478,43 @@ def test_high_vulnerability_fixture_and_secret_fixture_fail_closed():
         )
 
 
+def test_main_squash_secret_history_is_exactly_governed():
+    policy = _repo_policy_for_fixture_evaluation()
+    report = _json(FIXTURES / "gitleaks_main_squash.json")
+    policy_fingerprints = {item["fingerprint"] for item in policy["secrets"]["exceptions"]}
+    report_fingerprints = {item["Fingerprint"] for item in report}
+    assert report_fingerprints == policy_fingerprints
+
+    result, violations = enforce_policy(
+        policy,
+        [("clean.grype.json", _clean_grype_report())],
+        report,
+        evaluation_time=EVALUATION_TIME,
+    )
+    assert result["passed"] is True
+    assert violations == []
+    assert result["secret_finding_count"] == 8
+    assert result["applied_pending_secret_exception_count"] == 8
+    assert result["unexcepted_secret_finding_count"] == 0
+    assert result["evidence_integrity_passed"] is True
+    assert result["external_approval_required"] is True
+    assert result["release_promotion_eligible"] is False
+
+    changed_identity = copy.deepcopy(report)
+    changed_identity[0]["Fingerprint"] = changed_identity[0]["Fingerprint"].replace("f155005", "0155005", 1)
+    result, violations = enforce_policy(
+        policy,
+        [("clean.grype.json", _clean_grype_report())],
+        changed_identity,
+        evaluation_time=EVALUATION_TIME,
+    )
+    assert result["passed"] is False
+    assert violations == ["unexcepted secret finding detected"]
+    assert result["applied_pending_secret_exception_count"] == 7
+    assert result["unexcepted_secret_finding_count"] == 1
+    assert result["evidence_integrity_passed"] is False
+
+
 def test_policy_accepts_clean_evidence_and_rejects_stale_or_malformed_database():
     policy = _repo_policy_for_fixture_evaluation()
     result, violations = enforce_policy(
