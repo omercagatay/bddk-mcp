@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 # Bump whenever heading recognition, span construction, subsection handling,
 # truncation, or section-content hashing changes.  Persisted chunk metadata is
 # bound to this value by the vector retrieval profile.
-SECTION_PARSER_PROFILE_VERSION = "turkish-regulatory-sections-v4"
+SECTION_PARSER_PROFILE_VERSION = "turkish-regulatory-sections-v5"
 SECTION_SEARCH_PROFILE_VERSION = "document-section-simple-fts-length-normalized-v2"
 
 # Hard upper bound for a single section's span. Legitimate maddeler are a few
@@ -46,6 +46,11 @@ _SUBSECTION_RE = re.compile(r"^\s*\((?P<ref>\d+|[A-Za-zÇĞİÖŞÜçğıöşü]
 # ("2.", "2.1.").  The trailing dot is required — footnotes ("3 Orta vadeli
 # fonlama...") and cross-references ("5 inci maddesinin...") have none.
 _NUMBERED_HEADING_RE = re.compile(r"^\s*(?:\*{2,3}\s*)?(?P<top>\d{1,3})(?P<sub>(?:\.\d{1,3})*)\.\s+(?P<title>\S.*)$")
+# A second family of Rehber numbers the same paragraphs with a dash ("1-  Bu
+# rehberin amacı...").  Sub-numbering is deliberately not accepted here: no
+# document in the corpus writes "2.1-", while "1.500- TL" style amounts would
+# match if it were allowed.
+_NUMBERED_DASH_HEADING_RE = re.compile(r"^\s*(?:\*{2,3}\s*)?(?P<top>\d{1,3})(?P<sub>)-\s+(?P<title>\S.*)$")
 # A top-level candidate must advance the sequence by at most this much: real
 # Rehber paragraphs run 1..N with at most a hole from a lost OCR line (950
 # skips "3."), while list items restarting at 1 inside a section fall behind
@@ -56,6 +61,16 @@ _NUMBERED_MAX_GAP = 2
 # guessed subset would attach wrong content to refs, so refuse the document.
 _NUMBERED_MIN_SECTIONS = 3
 _NUMBERED_MAX_SKIP_RATIO = 0.2
+# "N-" is how this corpus enumerates short lists as well as how a few Rehber
+# number their paragraphs, so it needs more evidence that the run really is the
+# document's backbone.  The measured split is wide: the genuine dash bodies run
+# 31-213 paragraphs, while every dash list (audit-firm names in 1138/803,
+# effective-date clauses in the Kurul Kararı) stops at 9.
+_NUMBERED_DASH_MIN_SECTIONS = 20
+_NUMBERED_STYLES = (
+    (_NUMBERED_HEADING_RE, _NUMBERED_MIN_SECTIONS),
+    (_NUMBERED_DASH_HEADING_RE, _NUMBERED_DASH_MIN_SECTIONS),
+)
 # The accepted run must also start near the top of the document.  A nested
 # sub-list or an annex template (946's "EK-2 STRES TESTİ RAPORU", 1167's
 # "101- (b)(ii)" bullets) is internally well-formed, so the sequence and skip
@@ -90,6 +105,18 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
     matches = _find_section_starts(text)
     if not matches:
         matches = _find_numbered_paragraph_starts(text)
+    else:
+        # A document can carry classic headings for its annexes only (1040's
+        # "Ek 1:" starts at 80%, 1041's at 90%), leaving a numbered body that
+        # the classic grammar cannot see.  Parse that body and keep both; the
+        # body run is bounded by the first classic heading so annex-internal
+        # numbering is never swept in.  No seed document pairs a numbered body
+        # with a classic "Paragraf N" heading, the one shape that could repeat
+        # a (type, ref) pair here, and content_hash keeps the identity key
+        # unique even then — so a repeat would read as ambiguous, not collide.
+        classic_start = min(start["start_char"] for start in matches)
+        if classic_start > len(text) * _NUMBERED_MAX_FIRST_OFFSET_RATIO:
+            matches = _find_numbered_paragraph_starts(text, region_end=classic_start) + matches
     if not matches and len(text) > 1000:
         logger.warning(
             "extract_document_sections: no section headings matched (%d chars); "
@@ -186,8 +213,35 @@ def _find_section_starts(text: str) -> list[dict]:
     return starts
 
 
-def _find_numbered_paragraph_starts(text: str) -> list[dict]:
-    """Parse sequentially numbered paragraphs when no classic heading matched.
+def _find_numbered_paragraph_starts(text: str, region_end: int | None = None) -> list[dict]:
+    """Parse a numbered paragraph body, choosing the dominant marker style.
+
+    ``region_end`` bounds the scan to the text before a classic heading, so an
+    annex's own numbering is never mistaken for the body's.  Both marker styles
+    are scanned and the run spanning the most text wins — not the one with the
+    most items.  A backbone runs the length of the document while an enumerated
+    list is local, so counting items lets a long definitions list displace a
+    shorter but genuine paragraph run and silently rebind every ref.
+    """
+    best: list[dict] = []
+    best_span = -1
+    for pattern, min_sections in _NUMBERED_STYLES:
+        candidate = _scan_numbered_style(text, pattern, min_sections, region_end)
+        if not candidate:
+            continue
+        span = candidate[-1]["start_char"] - candidate[0]["start_char"]
+        if span > best_span:
+            best, best_span = candidate, span
+    return best
+
+
+def _scan_numbered_style(
+    text: str,
+    pattern: re.Pattern[str],
+    min_sections: int,
+    region_end: int | None,
+) -> list[dict]:
+    """Accept one marker style's run, or return [] if the evidence is too weak.
 
     Accepts a bare "N." only while it advances the top-level sequence
     (previous < N <= previous + _NUMBERED_MAX_GAP) and a dotted "N.M." only
@@ -197,6 +251,7 @@ def _find_numbered_paragraph_starts(text: str) -> list[dict]:
     bare accepts after that parent (an embedded list can land exactly on
     previous + 1 and impersonate the next heading).
     """
+    limit = len(text) if region_end is None else region_end
     accepted: list[dict] = []
     # Bare accepts since the last dotted confirmation, still open to eviction.
     tentative: list[int] = []
@@ -204,8 +259,10 @@ def _find_numbered_paragraph_starts(text: str) -> list[dict]:
     current_top = 0
     char_pos = 0
     for line in text.splitlines(keepends=True):
-        match = _NUMBERED_HEADING_RE.match(line.strip())
+        match = pattern.match(line.strip())
         char_start, char_pos = char_pos, char_pos + len(line)
+        if char_start >= limit:
+            break
         if not match:
             continue
         top = int(match.group("top"))
@@ -239,9 +296,9 @@ def _find_numbered_paragraph_starts(text: str) -> list[dict]:
         else:
             skipped += 1
     total = len(accepted) + skipped
-    if len(accepted) < _NUMBERED_MIN_SECTIONS or skipped > total * _NUMBERED_MAX_SKIP_RATIO:
+    if len(accepted) < min_sections or skipped > total * _NUMBERED_MAX_SKIP_RATIO:
         return []
-    if accepted[0]["start_char"] > len(text) * _NUMBERED_MAX_FIRST_OFFSET_RATIO:
+    if accepted[0]["start_char"] > limit * _NUMBERED_MAX_FIRST_OFFSET_RATIO:
         return []
     return accepted
 

@@ -310,11 +310,11 @@ def test_numbered_fallback_refuses_ambiguous_restarting_numbering():
 
 
 def test_numbered_fallback_refuses_a_trailing_annex_list():
-    """Rehber 946/1167 corpus shape: the body's real paragraphs use a style this
-    grammar does not recognize, and the only well-formed numbering is a nested
-    list or annex template at the very end. Indexing it would bind low refs to
-    annex fragments, so the document must be refused entirely."""
-    body = "\n\n".join(f"{n}-  Bu Rehberin {n}. paragrafı. " + ("Metin " * 40) for n in range(1, 41))
+    """When the body's numbering uses a style this grammar does not recognize
+    (here "N)"), the only well-formed run is an annex template at the very end.
+    Indexing it would bind low refs to annex fragments, so the document must be
+    refused entirely rather than publish a guessed subset."""
+    body = "\n\n".join(f"{n})  Bu Rehberin {n}. paragrafı. " + ("Metin " * 40) for n in range(1, 41))
     annex = "\n\nEK-2 STRES TESTİ RAPORU\n\n1.  Özkaynak etkisi,\n2.  Tahmini süre,\n3.  Bağımlılıklar,\n"
 
     assert extract_document_sections("946", body + annex) == []
@@ -331,6 +331,120 @@ def test_numbered_fallback_accepts_a_late_but_in_range_start():
     sections = extract_document_sections("43", text)
 
     assert {s.section_ref for s in sections} == {str(n) for n in range(1, 8)}
+
+
+def _dash_body(count: int, *, start: int = 1) -> str:
+    return "".join(
+        f"{n}-  Bu Rehberin {n} numaralı paragrafı. " + ("Metin " * 20) + "\n\n" for n in range(start, start + count)
+    )
+
+
+def test_dash_form_paragraphs_index_when_no_classic_heading_matches():
+    """Rehber 946/1167 corpus shape: paragraphs numbered "1-  ..." not "1.  ..."."""
+    sections = extract_document_sections("946", _dash_body(25))
+
+    assert {s.section_type for s in sections} == {"paragraf"}
+    assert {s.section_ref for s in sections} == {str(n) for n in range(1, 26)}
+    first = next(s for s in sections if s.section_ref == "1")
+    assert first.heading.startswith("Bu Rehberin 1 numaralı paragrafı.")
+
+
+def test_dash_form_requires_more_evidence_than_dot_form():
+    """ "N-" is also how this corpus enumerates short lists (audit-firm names in
+    1138/803), so a run shorter than the dash minimum must be refused even
+    though the same length in dot form would be accepted."""
+    short_dash = _dash_body(8)
+    short_dot = "".join(f"{n}.  Gerçek bölüm {n} içeriği. " + ("Metin " * 20) + "\n\n" for n in range(1, 9))
+
+    assert extract_document_sections("1138", short_dash) == []
+    assert len(extract_document_sections("doc", short_dot)) == 8
+
+
+def test_short_dot_body_survives_a_long_leading_dash_list():
+    """The winning style is the one that spans the document, not the one with
+    the most items: a long leading definitions list must not displace a shorter
+    genuine paragraph body and silently rebind every ref."""
+    dash_list = "".join(f"{n}-  Kısaltma {n} açıklaması.\n\n" for n in range(1, 27))
+    dot_body = "".join(f"{n}.  Gerçek paragraf {n}. " + ("Metin " * 20) + "\n\n" for n in range(1, 26))
+
+    sections = extract_document_sections("903", dash_list + dot_body)
+
+    assert {s.section_ref for s in sections} == {str(n) for n in range(1, 26)}
+    assert all("Kısaltma" not in s.heading for s in sections)
+
+
+def test_dash_form_rejects_amounts_and_ranges():
+    """Sub-numbering is not accepted in dash form, so "1.500- TL" is not a heading."""
+    body = _dash_body(25)
+    noise = "1.500- TL tutarındaki tavan.\n\n2.750- TL tutarındaki taban.\n\n"
+
+    sections = extract_document_sections("doc", body + noise)
+
+    assert all("." not in s.section_ref for s in sections)
+    assert {s.section_ref for s in sections} == {str(n) for n in range(1, 26)}
+
+
+def test_dominant_marker_style_wins_over_embedded_other_style():
+    """A document numbers its paragraphs one way; the losing style is the
+    enumerated lists inside it."""
+    body = _dash_body(25)
+    embedded_dot_list = "1.  Birinci liste kalemi.\n2.  İkinci liste kalemi.\n3.  Üçüncü liste kalemi.\n\n"
+
+    sections = extract_document_sections("doc", body + embedded_dot_list)
+
+    assert len(sections) == 25
+    assert {s.section_type for s in sections} == {"paragraf"}
+
+
+def test_numbered_body_indexes_behind_a_late_annex_heading():
+    """Rehber 1040/945 corpus shape: the only classic headings are annexes near
+    the end, so the numbered body would otherwise stay invisible. Both must be
+    kept, and the body run must stop at the first classic heading."""
+    body = _dash_body(25)
+    # The annex numbering CONTINUES the body sequence, so the sequence gate
+    # cannot do the region bound's job: only region_end can exclude these.
+    annex = "Ek 1: Örnek Kriterler\n\n26-  Annex içindeki sahte paragraf.\n27-  İkinci sahte paragraf.\n"
+    text = body + annex
+
+    sections = extract_document_sections("1040", text)
+
+    paragraf = [s for s in sections if s.section_type == "paragraf"]
+    ek = [s for s in sections if s.section_type == "ek"]
+    assert len(paragraf) == 25
+    assert {s.section_ref for s in paragraf} == {str(n) for n in range(1, 26)}
+    assert [s.section_ref for s in ek] == ["1"]
+    # The body run stops at the annex; annex-internal numbering is not swept in.
+    assert all(s.start_char < text.index("Ek 1:") for s in paragraf)
+
+
+def test_early_classic_heading_does_not_trigger_numbered_body_merge():
+    """A document whose classic headings already cover it must be untouched.
+
+    The heading lands at ~18% of the text, so the merge region is non-empty and
+    holds the whole dash run: only the 40% gate suppresses the merge. Placing
+    the heading at char 0 would make the region empty and the test would pass
+    even with the gate removed.
+    """
+    text = _dash_body(25) + "MADDE 1 - Amaç\nHüküm metni. " + ("Dolgu " * 3000)
+
+    sections = extract_document_sections("doc", text)
+
+    assert all(s.section_type != "paragraf" for s in sections)
+    assert ("madde", "1") in {(s.section_type, s.section_ref) for s in sections}
+
+
+def test_restarting_numbering_in_the_body_region_is_refused():
+    """Rehber 1041/1230/934 corpus shape: the body renumbers from 1 per section,
+    so no subset can be trusted and only the classic annex headings survive."""
+    restarting = "".join(
+        f"{n}.  Bölüm içi madde {n}. " + ("Metin " * 20) + "\n\n" for _ in range(8) for n in range(1, 5)
+    )
+    text = restarting + "Ek 1: Ekler\n\nEk içeriği.\n"
+
+    sections = extract_document_sections("1041", text)
+
+    assert all(s.section_type != "paragraf" for s in sections)
+    assert ("ek", "1") in {(s.section_type, s.section_ref) for s in sections}
 
 
 def test_classic_headings_suppress_numbered_fallback():
