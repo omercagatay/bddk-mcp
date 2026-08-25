@@ -59,9 +59,7 @@ _SAFE_ERROR_FIELDS = frozenset(
         "jwt",
         "issuer",
         "jwks_url",
-        "public_audience",
         "operator_audience",
-        "public_required_scopes",
         "operator_required_scopes",
         "scope_claims",
         "algorithms",
@@ -228,11 +226,16 @@ class PlatformInput(_StrictModel):
 
 
 class JwtInput(_StrictModel):
+    """Operator bearer-token contract; the public profile is unauthenticated.
+
+    The public read-only runtime serves the department's LDAP-authenticated
+    Open WebUI frontend behind the bank network boundary, so only the operator
+    runtime carries JWT settings.
+    """
+
     issuer: str
     jwks_url: str
-    public_audience: str
     operator_audience: str
-    public_required_scopes: tuple[str, ...] = ("bddk.read",)
     operator_required_scopes: tuple[str, ...] = ("bddk.operator",)
     scope_claims: tuple[Literal["scope", "scp"], ...] = ("scope", "scp")
     algorithms: tuple[Literal["RS256"], ...] = ("RS256",)
@@ -243,7 +246,7 @@ class JwtInput(_StrictModel):
     def _valid_url(cls, value: str, info) -> str:
         return _validate_https(value, field=info.field_name)
 
-    @field_validator("public_audience", "operator_audience")
+    @field_validator("operator_audience")
     @classmethod
     def _valid_audience(cls, value: str, info) -> str:
         candidate = value.strip()
@@ -253,10 +256,6 @@ class JwtInput(_StrictModel):
 
     @model_validator(mode="after")
     def _exact_contract(self) -> JwtInput:
-        if self.public_audience == self.operator_audience:
-            raise ValueError("public and operator audiences must differ")
-        if self.public_required_scopes != ("bddk.read",):
-            raise ValueError("public_required_scopes must be exactly bddk.read")
         if self.operator_required_scopes != ("bddk.operator",):
             raise ValueError("operator_required_scopes must be exactly bddk.operator")
         if self.scope_claims != ("scope", "scp"):
@@ -418,7 +417,6 @@ class AcceptanceInput(_StrictModel):
         required_pairs = {
             ("public", "dns"),
             ("public", "postgresql"),
-            ("public", "idp_jwks"),
             ("operator", "dns"),
             ("operator", "postgresql"),
             ("operator", "idp_jwks"),
@@ -449,6 +447,8 @@ class AcceptanceInput(_StrictModel):
             item.component == "lifecycle" and item.purpose not in {"dns", "postgresql"} for item in self.required_egress
         ):
             raise ValueError("lifecycle egress is limited to DNS and PostgreSQL")
+        if any(item.component == "public" and item.purpose == "idp_jwks" for item in self.required_egress):
+            raise ValueError("the unauthenticated public profile must not receive IdP/JWKS egress")
         if not any(
             item.protocol == "UDP" and item.port == 53 and item.purpose == "dns" for item in self.required_egress
         ):
@@ -511,7 +511,11 @@ _EXTERNAL_GATES: tuple[dict[str, str | bool], ...] = tuple(
     for identifier, reason in (
         ("cluster-admission", "requires target SCC, image policy, quota, and admission controllers"),
         ("route-service-ca", "requires live re-encrypt, operator-service, rotation, and CA-rollover tests"),
-        ("idp-token-contract", "requires bank-issued access tokens and rejection cases"),
+        (
+            "idp-token-contract",
+            "requires bank-issued operator access tokens, rejection cases, and proof that the unauthenticated "
+            "public endpoint is reachable only from the approved network segment",
+        ),
         ("postgresql-identities", "requires bank TLS, extensions, LOGIN membership, ACL, failover, and capacity tests"),
         ("network-enforcement", "requires the target CNI, DNS, firewall, proxy, and negative-connectivity tests"),
         (
@@ -696,6 +700,15 @@ _COMMON_CONFIG_KEYS = {
     "BDDK_TELEMETRY_ENABLED",
     "BDDK_HTTP_ALLOWED_HOSTS",
     "BDDK_HTTP_ALLOWED_ORIGINS",
+    "BDDK_HTTP_MAX_BODY_BYTES",
+    "BDDK_HTTP_MAX_CONCURRENCY",
+    "BDDK_HTTP_RATE_LIMIT_PER_MINUTE",
+}
+# The public profile is deliberately unauthenticated behind the bank network
+# boundary; any BDDK_JWT_* key on it is a contract violation (the application
+# also refuses that combination at startup).
+_PUBLIC_CONFIG_KEYS = _COMMON_CONFIG_KEYS | {"BDDK_HTTP_ALLOW_UNAUTHENTICATED"}
+_OPERATOR_CONFIG_KEYS = _COMMON_CONFIG_KEYS | {
     "BDDK_JWT_ISSUER",
     "BDDK_JWT_RESOURCE",
     "BDDK_JWT_JWKS_URL",
@@ -703,12 +716,6 @@ _COMMON_CONFIG_KEYS = {
     "BDDK_JWT_REQUIRED_SCOPES",
     "BDDK_JWT_ALGORITHMS",
     "BDDK_JWT_ACCESS_TOKEN_TYPES",
-    "BDDK_HTTP_MAX_BODY_BYTES",
-    "BDDK_HTTP_MAX_CONCURRENCY",
-    "BDDK_HTTP_RATE_LIMIT_PER_MINUTE",
-}
-_PUBLIC_CONFIG_KEYS = _COMMON_CONFIG_KEYS
-_OPERATOR_CONFIG_KEYS = _COMMON_CONFIG_KEYS | {
     "BDDK_OPERATOR_REMOTE_ENABLED",
     "BDDK_OPERATOR_JOB_DRAIN_TIMEOUT",
     "BDDK_OPERATOR_JOB_HISTORY",
@@ -1130,10 +1137,6 @@ def _check_jwt(runtime: list[dict[str, Any]], config: AcceptanceInput) -> None:
         "BDDK_ALLOW_INSECURE_DATABASE": "false",
         "BDDK_REQUIRE_ACTIVE_CORPUS_RELEASE": "true",
         "BDDK_TELEMETRY_ENABLED": "false",
-        "BDDK_JWT_ISSUER": config.jwt.issuer,
-        "BDDK_JWT_JWKS_URL": config.jwt.jwks_url,
-        "BDDK_JWT_ALGORITHMS": "RS256",
-        "BDDK_JWT_ACCESS_TOKEN_TYPES": "at+jwt",
         "BDDK_HTTP_MAX_BODY_BYTES": "1048576",
     }
     _expect(
@@ -1143,9 +1146,7 @@ def _check_jwt(runtime: list[dict[str, Any]], config: AcceptanceInput) -> None:
             "BDDK_TOOL_PROFILE": "public",
             "BDDK_HTTP_ALLOWED_HOSTS": config.platform.public_route_host,
             "BDDK_HTTP_ALLOWED_ORIGINS": f"https://{config.platform.public_route_host}",
-            "BDDK_JWT_RESOURCE": f"https://{config.platform.public_route_host}/mcp",
-            "BDDK_JWT_AUDIENCE": config.jwt.public_audience,
-            "BDDK_JWT_REQUIRED_SCOPES": "bddk.read",
+            "BDDK_HTTP_ALLOW_UNAUTHENTICATED": "true",
             "BDDK_HTTP_MAX_CONCURRENCY": "32",
             "BDDK_HTTP_RATE_LIMIT_PER_MINUTE": "10000",
         },
@@ -1159,6 +1160,10 @@ def _check_jwt(runtime: list[dict[str, Any]], config: AcceptanceInput) -> None:
             "BDDK_OPERATOR_REMOTE_ENABLED": "true",
             "BDDK_HTTP_ALLOWED_HOSTS": config.platform.operator_service_host,
             "BDDK_HTTP_ALLOWED_ORIGINS": config.platform.operator_client_origin,
+            "BDDK_JWT_ISSUER": config.jwt.issuer,
+            "BDDK_JWT_JWKS_URL": config.jwt.jwks_url,
+            "BDDK_JWT_ALGORITHMS": "RS256",
+            "BDDK_JWT_ACCESS_TOKEN_TYPES": "at+jwt",
             "BDDK_JWT_RESOURCE": f"https://{config.platform.operator_service_host}/mcp",
             "BDDK_JWT_AUDIENCE": config.jwt.operator_audience,
             "BDDK_JWT_REQUIRED_SCOPES": "bddk.operator",
@@ -1860,7 +1865,6 @@ def run_openshift_preflight(config_path: Path, repository_root: Path) -> Accepta
         "REPLACE_OPERATOR_CLIENT_ORIGIN": config.platform.operator_client_origin.removeprefix("https://"),
         "REPLACE_BANK_IDP_ISSUER": config.jwt.issuer.removeprefix("https://"),
         "REPLACE_BANK_IDP_JWKS": config.jwt.jwks_url.removeprefix("https://"),
-        "REPLACE_PUBLIC_AUDIENCE": config.jwt.public_audience,
         "REPLACE_OPERATOR_AUDIENCE": config.jwt.operator_audience,
         "REPLACE_DATABASE_NAME": config.platform.database_name,
     }

@@ -36,10 +36,12 @@ migration Job and before bootstrap; it is not a Kubernetes Job in this starter.
    trust root under key `ca.crt`. This is distinct from the OpenShift service CA
    used for the MCP application sockets.
 5. Before creating a selected pod, apply the bank-specific exact egress
-   NetworkPolicies. Public and operator require DNS, PostgreSQL, IdP/JWKS, and
-   TCP 443 to the approved regulatory-source destination or enterprise proxy;
-   public access is required because institution, announcement, bulletin, and
-   update tools can call live BDDK services. Lifecycle Jobs require DNS and
+   NetworkPolicies. Public and operator require DNS, PostgreSQL, and TCP 443 to
+   the approved regulatory-source destination or enterprise proxy; public
+   access is required because institution, announcement, bulletin, and update
+   tools can call live BDDK services. Only the operator runtime additionally
+   requires IdP/JWKS egress — the public profile is unauthenticated and
+   verifies no tokens. Lifecycle Jobs require DNS and
    PostgreSQL only and must not receive regulatory-source/proxy egress. The
    checked-in base adds default deny but cannot supply bank addresses or peer
    selectors.
@@ -90,9 +92,13 @@ migration Job and before bootstrap; it is not a Kubernetes Job in this starter.
    `bddk-mcp-public-tls` and `bddk-mcp-operator-tls` and for both Deployments to
    become ready.
 12. Verify the public Route's re-encrypt handshake, the internal operator
-   Service's certificate chain, `/health/live`, `/health/ready`, JWT
+   Service's certificate chain, `/health/live`, `/health/ready`, operator JWT
    rejection/acceptance, public tool discovery, and denial of operator tools
-   through the public Route.
+   through the public Route. The public profile serves the department's
+   LDAP-authenticated Open WebUI frontend with
+   `BDDK_HTTP_ALLOW_UNAUTHENTICATED=true`, so also prove that the Route is
+   reachable only from the approved bank network segment; that network
+   boundary replaces per-request bearer authentication for read-only tools.
 
 Before activation or runtime apply, copy `acceptance.example.yaml` and
 `acceptance-egress.example.yaml` to a secret-free release workspace, resolve
@@ -232,10 +238,14 @@ The included NetworkPolicies restrict ingress and default-deny all egress for
 pods labeled `app.kubernetes.io/name=bddk-mcp`. No generic egress allowlist is
 safe to ship because bank addresses, namespace labels and proxy topology are
 environment-specific. The acceptance matrix requires DNS/PostgreSQL for every
-component, IdP/JWKS for both runtimes, and approved regulatory-source or proxy
-TCP 443 for both public and operator; it forbids giving that source reach to
-lifecycle Jobs. Without the bank-specific allow policies, connectivity and
-readiness failure are expected. Cluster ingress must also
+component, IdP/JWKS for the operator runtime only, and approved
+regulatory-source or proxy TCP 443 for both public and operator; it forbids
+giving that source reach to lifecycle Jobs and forbids IdP/JWKS egress on the
+unauthenticated public runtime. Without the bank-specific allow policies,
+connectivity and readiness failure are expected. Because the public profile
+carries no bearer authentication, ingress restriction is a security control,
+not only hygiene: keep the public Route reachable solely from the approved
+department/frontend segment. Cluster ingress must also
 provide global/client-aware rate limiting because the application limiter sees
 the router peer and is only a per-process guard.
 

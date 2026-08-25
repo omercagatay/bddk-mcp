@@ -36,7 +36,6 @@ Deployment-specific guides:
 
 - [PostgreSQL identities and grants](../deploy/postgres/README.md)
 - [OpenShift deployment](../deploy/openshift/README.md)
-- [Keycloak development realm](../deploy/keycloak/README.md)
 - [Open WebUI integration](../deploy/open-webui/README.md)
 
 ## Reviews, decisions, and evidence

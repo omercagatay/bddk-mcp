@@ -128,11 +128,10 @@ services:
       # Origin is required as an explicit allowlist even when a non-browser MCP
       # client omits the Origin header. Non-loopback deployments require HTTPS.
       BDDK_HTTP_ALLOWED_ORIGINS: ${BDDK_HTTP_ALLOWED_ORIGINS:-https://localhost:8000}
-      BDDK_JWT_ISSUER: ${BDDK_JWT_ISSUER:?set BDDK_JWT_ISSUER to an HTTPS issuer}
-      BDDK_JWT_RESOURCE: ${BDDK_JWT_RESOURCE:?set BDDK_JWT_RESOURCE to the protected HTTPS resource}
-      BDDK_JWT_JWKS_URL: ${BDDK_JWT_JWKS_URL:?set BDDK_JWT_JWKS_URL to an HTTPS JWKS endpoint}
-      BDDK_JWT_AUDIENCE: ${BDDK_JWT_AUDIENCE:?set BDDK_JWT_AUDIENCE}
-      BDDK_JWT_REQUIRED_SCOPES: ${BDDK_JWT_REQUIRED_SCOPES:-bddk.read}
+      # Mirrors the bank deployment: the public read-only profile serves the
+      # LDAP-authenticated frontend without bearer tokens; the host-loopback
+      # port publication is the local stand-in for the bank network boundary.
+      BDDK_HTTP_ALLOW_UNAUTHENTICATED: "true"
     ports:
       - "127.0.0.1:8000:8000"
 

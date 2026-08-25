@@ -27,7 +27,7 @@ The tool counts are derived from `bddk_mcp/tools/registry.py`; schema version is
 - Protected `main` with required lint, Python, PostgreSQL, packaging, container, and supply-chain checks.
 - Fail-closed remote HTTP configuration and separate database lifecycle roles.
 - Signed, governed offline corpus artifacts with staged verifier/publisher activation.
-- Structured deployment assets for local Compose, PostgreSQL, OpenShift, Keycloak, Open WebUI, Railway, and Hugging Face Spaces.
+- Structured deployment assets for local Compose, PostgreSQL, OpenShift, Open WebUI, Railway, and Hugging Face Spaces.
 - Broad automated coverage across runtime, migrations, retrieval, deployment, recovery, and supply-chain policy.
 
 ## What is not established
