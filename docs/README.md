@@ -44,6 +44,7 @@ These files are dated snapshots or records. Their findings do not override newer
 
 - [Repository review](REPOSITORY_REVIEW.md) — 2026 review plus implementation overlays.
 - [Security review](SECURITY_REVIEW.md) — threat review and residual-risk record.
+- [Bank migration security checklist](BANK_MIGRATION_SECURITY_CHECKLIST.md) — dated per-question assessment of the bank's 150-item pre-migration application-security questionnaire.
 - [`decisions/`](decisions/) — architecture decisions and versioned policy contracts.
 - [`evidence/`](evidence/) — retained local test and recovery evidence; not production acceptance.
 

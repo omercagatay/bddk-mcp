@@ -56,6 +56,15 @@ taahhüdü veya banka üretim kabulü değildir.
   sözleşmesi, kabul örnek girdileri ve testler buna göre güncellendi; public
   runtime için IdP/JWKS egress'i artık zorunlu değil, aksine yasak.
 
+### Eklendi — banka geçişi güvenlik kontrol listesi değerlendirmesi
+
+- Banka BT güvenlik ekibinin geçiş öncesi ilettiği 150 maddelik uygulama
+  güvenliği soru seti, depo kanıtlarına karşı madde madde değerlendirilip
+  `docs/BANK_MIGRATION_SECURITY_CHECKLIST.md` olarak eklendi. Doküman durum
+  dağılımını (✅ 67 · 🟡 48 · ❌ 12 · 🏦 17 · ➖ 6), madde bazlı kanıt
+  referanslarını ve geçiş öncesi öncelikli aksiyon listesini içerir; depo
+  kontrollerinin banka kabulü yerine geçmediği sınırını açıkça korur.
+
 ### Eklendi — repository bakımı
 
 - GitHub issue formları, pull-request şablonu, CODEOWNERS, `SECURITY.md` ve
