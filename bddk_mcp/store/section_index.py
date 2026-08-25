@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 # Bump whenever heading recognition, span construction, subsection handling,
 # truncation, or section-content hashing changes.  Persisted chunk metadata is
 # bound to this value by the vector retrieval profile.
-SECTION_PARSER_PROFILE_VERSION = "turkish-regulatory-sections-v3"
+SECTION_PARSER_PROFILE_VERSION = "turkish-regulatory-sections-v4"
 SECTION_SEARCH_PROFILE_VERSION = "document-section-simple-fts-length-normalized-v2"
 
 # Hard upper bound for a single section's span. Legitimate maddeler are a few
@@ -41,6 +41,31 @@ _HEADING_RE = re.compile(
 )
 _SUBSECTION_RE = re.compile(r"^\s*\((?P<ref>\d+|[A-Za-zÇĞİÖŞÜçğıöşü])\)\s+(?P<title>.*)$")
 
+# Fallback grammar for documents without MADDE/İlke-style headings: Rehber
+# number their paragraphs "1. ... 206." and Genelge use decimal outlines
+# ("2.", "2.1.").  The trailing dot is required — footnotes ("3 Orta vadeli
+# fonlama...") and cross-references ("5 inci maddesinin...") have none.
+_NUMBERED_HEADING_RE = re.compile(r"^\s*(?:\*{2,3}\s*)?(?P<top>\d{1,3})(?P<sub>(?:\.\d{1,3})*)\.\s+(?P<title>\S.*)$")
+# A top-level candidate must advance the sequence by at most this much: real
+# Rehber paragraphs run 1..N with at most a hole from a lost OCR line (950
+# skips "3."), while list items restarting at 1 inside a section fall behind
+# the sequence and are skipped.
+_NUMBERED_MAX_GAP = 2
+# A document whose candidates mostly violate the sequence numbers its lists
+# the same way as its headings (905 restarts numbering per BÖLÜM); indexing a
+# guessed subset would attach wrong content to refs, so refuse the document.
+_NUMBERED_MIN_SECTIONS = 3
+_NUMBERED_MAX_SKIP_RATIO = 0.2
+# The accepted run must also start near the top of the document.  A nested
+# sub-list or an annex template (946's "EK-2 STRES TESTİ RAPORU", 1167's
+# "101- (b)(ii)" bullets) is internally well-formed, so the sequence and skip
+# gates both pass, but it sits at the very end of a body whose real paragraphs
+# use a style this grammar does not recognize.  Indexing it would bind
+# "946 paragraf 4" to an annex fragment.  Measured over the seed corpus the
+# split is unambiguous: every genuine fallback document starts by 34%, the two
+# artifacts start at 93% and 97%.
+_NUMBERED_MAX_FIRST_OFFSET_RATIO = 0.4
+
 
 class DocumentSection(BaseModel):
     """A section extracted from a legal/regulatory Markdown document."""
@@ -63,6 +88,8 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
         return []
 
     matches = _find_section_starts(text)
+    if not matches:
+        matches = _find_numbered_paragraph_starts(text)
     if not matches and len(text) > 1000:
         logger.warning(
             "extract_document_sections: no section headings matched (%d chars); "
@@ -78,10 +105,18 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
     seen_identities: set[tuple[str, str, str]] = set()
     level1_capped_end: int | None = None
     for index, start in enumerate(matches):
-        if start["level"] == 2 and level1_capped_end is not None and start["start_char"] >= level1_capped_end:
+        if (
+            start["level"] == 2
+            and not start.get("sequence_validated")
+            and level1_capped_end is not None
+            and start["start_char"] >= level1_capped_end
+        ):
             # Subsection markers found beyond a capped parent span are annex
             # artifacts (tables/lists swallowed by the last heading), not real
             # fıkra/bent rows; indexing them collides with genuine refs.
+            # Numbered-outline children are exempt: they were accepted by the
+            # sequence check, and a top-level outline span routinely exceeds
+            # the cap while its dotted children remain genuine.
             continue
         end_char = _section_end_char(matches, index, len(text))
         truncated_from = None
@@ -149,6 +184,66 @@ def _find_section_starts(text: str) -> list[dict]:
                 starts.append({**subsection, "start_char": char_pos, "level": 2})
         char_pos += len(line)
     return starts
+
+
+def _find_numbered_paragraph_starts(text: str) -> list[dict]:
+    """Parse sequentially numbered paragraphs when no classic heading matched.
+
+    Accepts a bare "N." only while it advances the top-level sequence
+    (previous < N <= previous + _NUMBERED_MAX_GAP) and a dotted "N.M." only
+    under the current top-level N; everything else is a list item and is
+    skipped.  A dotted heading is authoritative — list items are never dotted
+    in this corpus — so one arriving under an earlier top-level evicts the
+    bare accepts after that parent (an embedded list can land exactly on
+    previous + 1 and impersonate the next heading).
+    """
+    accepted: list[dict] = []
+    # Bare accepts since the last dotted confirmation, still open to eviction.
+    tentative: list[int] = []
+    skipped = 0
+    current_top = 0
+    char_pos = 0
+    for line in text.splitlines(keepends=True):
+        match = _NUMBERED_HEADING_RE.match(line.strip())
+        char_start, char_pos = char_pos, char_pos + len(line)
+        if not match:
+            continue
+        top = int(match.group("top"))
+        sub = match.group("sub")
+        candidate = {
+            "section_type": "paragraf",
+            "section_ref": f"{top}{sub}",
+            "heading": match.group("title").strip(),
+            "start_char": char_start,
+            "level": 2 if sub else 1,
+            "sequence_validated": True,
+        }
+        if sub:
+            evicted = [i for i in tentative if int(accepted[i]["section_ref"]) > top]
+            if top == current_top:
+                accepted.append(candidate)
+                tentative = []
+            elif top < current_top and evicted:
+                for i in sorted(evicted, reverse=True):
+                    accepted.pop(i)
+                skipped += len(evicted)
+                current_top = top
+                accepted.append(candidate)
+                tentative = []
+            else:
+                skipped += 1
+        elif current_top < top <= current_top + _NUMBERED_MAX_GAP:
+            current_top = top
+            tentative.append(len(accepted))
+            accepted.append(candidate)
+        else:
+            skipped += 1
+    total = len(accepted) + skipped
+    if len(accepted) < _NUMBERED_MIN_SECTIONS or skipped > total * _NUMBERED_MAX_SKIP_RATIO:
+        return []
+    if accepted[0]["start_char"] > len(text) * _NUMBERED_MAX_FIRST_OFFSET_RATIO:
+        return []
+    return accepted
 
 
 def _section_end_char(matches: list[dict], index: int, text_len: int) -> int:

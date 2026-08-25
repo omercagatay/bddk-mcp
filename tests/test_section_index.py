@@ -198,3 +198,164 @@ def test_same_ref_with_different_content_keeps_both_sections():
     madde2 = [s for s in sections if s.section_type == "madde" and s.section_ref == "2"]
     assert len(madde2) == 2
     assert madde2[0].content_hash != madde2[1].content_hash
+
+
+def test_numbered_paragraphs_index_when_no_classic_heading_matches():
+    """Rehber corpus shape (954, 948): plain sequential numbered paragraphs."""
+    text = (
+        "1.  Bu Rehber likidite riskine ilişkindir.\n"
+        "2.  Yönetim kurulu sorumludur.\n"
+        "3.  Üst düzey yönetim uygular.\n"
+        "4.  Bilgi sistemleri desteği sağlanır.\n"
+    )
+
+    sections = extract_document_sections("954", text)
+
+    refs = {(s.section_type, s.section_ref) for s in sections}
+    assert refs == {("paragraf", "1"), ("paragraf", "2"), ("paragraf", "3"), ("paragraf", "4")}
+    p2 = next(s for s in sections if s.section_ref == "2")
+    assert p2.heading == "Yönetim kurulu sorumludur."
+    assert "3.  Üst düzey" not in p2.content
+
+
+def test_numbered_fallback_requires_minimum_sections():
+    text = "1.  Birinci husus uzun açıklama.\n2.  İkinci husus uzun açıklama.\n"
+
+    assert extract_document_sections("doc", text) == []
+
+
+def test_numbered_fallback_tolerates_a_lost_paragraph_number():
+    """Rehber 950 corpus shape: paragraph 3 was lost by extraction; 4..N must still index."""
+    text = "1.  Amaç hükmü.\n2.  Kapsam hükmü.\n4.  Tanımlar hükmü.\n5.  Sorumluluk hükmü.\n"
+
+    sections = extract_document_sections("950", text)
+
+    refs = {s.section_ref for s in sections}
+    assert refs == {"1", "2", "4", "5"}
+
+
+def test_numbered_fallback_does_not_match_footnotes_or_cross_references():
+    """Bare numbers without a trailing dot (footnotes, '5 inci maddesinin') never index."""
+    text = (
+        "1.  Amaç hükmü.\n"
+        "2.  Kapsam hükmü.\n"
+        "3 Orta vadeli fonlama rasyosu gibi.\n"
+        "3.  Tanımlar hükmü.\n"
+        "5  inci  maddesinin  dokuzuncu  fıkrası  uyarınca paylaşılabilir.\n"
+        "4.  Sorumluluk hükmü.\n"
+    )
+
+    sections = extract_document_sections("doc", text)
+
+    assert {s.section_ref for s in sections} == {"1", "2", "3", "4"}
+
+
+def test_numbered_fallback_skips_list_items_restarting_below_the_sequence():
+    headings = [f"{n}.  Gerçek bölüm başlığı numara {n}.\n" for n in range(1, 11)]
+    embedded = "1.  Kurumun uygun görüşü alınmış liste kalemi.\n2.  İkinci liste kalemi.\n"
+    text = "".join(headings[:6]) + embedded + "".join(headings[6:])
+
+    sections = extract_document_sections("doc", text)
+
+    assert {s.section_ref for s in sections} == {str(n) for n in range(1, 11)}
+    p6 = next(s for s in sections if s.section_ref == "6")
+    assert "liste kalemi" in p6.content
+
+
+def test_numbered_fallback_dotted_child_evicts_impersonating_list_item():
+    """Genelge 1135 corpus shape: an embedded list's '3.' lands exactly on the
+    next expected top-level number; the following authoritative '2.2.' child
+    must evict it so the real '3.' still indexes."""
+    text = (
+        "1.  Sır saklama yükümlülüğüne ilişkin açıklamalar.\n"
+        "1.1.  Banka çalışanlarına ait veriler.\n"
+        "2.  İstisna tutulan haller.\n"
+        "2.1.  Uyum riski kapsamındaki paylaşımlar.\n"
+        "1.  Kurumun uygun görüşü kaydıyla kredi kalemi.\n"
+        "2.  Kurumun uygun görüşü kaydıyla karşı taraf kalemi.\n"
+        "3.  Kurumun uygun görüşüne gerek olmayan kalem.\n"
+        "2.2.  Suç gelirlerinin aklanmasının önlenmesi.\n"
+        "2.3.  Yönetim kurulu onayı ile paylaşım.\n"
+        "3.  Genel ilkeler hakkında açıklamalar.\n"
+        "3.1.  Ölçülülük ilkesi.\n"
+        "3.2.  Amaçla sınırlılık ilkesi.\n"
+        "4.  Yürürlük açıklaması.\n"
+        "4.1.  Uygulama tarihi.\n"
+        "5.  Son hükümler.\n"
+    )
+
+    sections = extract_document_sections("1135", text)
+
+    refs = {s.section_ref for s in sections}
+    assert refs == {"1", "1.1", "2", "2.1", "2.2", "2.3", "3", "3.1", "3.2", "4", "4.1", "5"}
+    p3 = next(s for s in sections if s.section_ref == "3")
+    assert p3.heading == "Genel ilkeler hakkında açıklamalar."
+
+
+def test_numbered_fallback_refuses_ambiguous_restarting_numbering():
+    """Genelge 905 corpus shape: numbering restarts per BÖLÜM, so any indexed
+    subset would attach wrong content to refs; the document must stay out of
+    section search entirely."""
+    text = (
+        "1.  Muadil ülkeler açıklaması.\n"
+        "2.  Yönetmelik açıklaması.\n"
+        "1.  Gerçek kişiler prensibi.\n"
+        "2.  Tüzel kişiler prensibi.\n"
+        "1.  İdari kamu kurumları.\n"
+        "2.  Düzenleyici kurumlar.\n"
+        "3.  Sosyal kamu kurumları.\n"
+    )
+
+    assert extract_document_sections("905", text) == []
+
+
+def test_numbered_fallback_refuses_a_trailing_annex_list():
+    """Rehber 946/1167 corpus shape: the body's real paragraphs use a style this
+    grammar does not recognize, and the only well-formed numbering is a nested
+    list or annex template at the very end. Indexing it would bind low refs to
+    annex fragments, so the document must be refused entirely."""
+    body = "\n\n".join(f"{n}-  Bu Rehberin {n}. paragrafı. " + ("Metin " * 40) for n in range(1, 41))
+    annex = "\n\nEK-2 STRES TESTİ RAPORU\n\n1.  Özkaynak etkisi,\n2.  Tahmini süre,\n3.  Bağımlılıklar,\n"
+
+    assert extract_document_sections("946", body + annex) == []
+
+
+def test_numbered_fallback_accepts_a_late_but_in_range_start():
+    """Genuine documents can open with a preamble (doc 43 starts at 34%); only a
+    run starting past the guard ratio is treated as an annex artifact."""
+    preamble = "Giriş bölümü metni. " * 22
+    headings = "".join(f"{n}.  Gerçek bölüm {n} içeriği. " + ("Metin " * 20) + "\n" for n in range(1, 8))
+    text = preamble + "\n" + headings
+    assert 0.2 < len(preamble) / len(text) < 0.4  # a real preamble, still inside the guard
+
+    sections = extract_document_sections("43", text)
+
+    assert {s.section_ref for s in sections} == {str(n) for n in range(1, 8)}
+
+
+def test_classic_headings_suppress_numbered_fallback():
+    text = "MADDE 1 - Amaç\nHüküm.\n1.  Numaralı liste kalemi.\n2.  İkinci kalem.\n3.  Üçüncü kalem.\n4.  Dördüncü.\n"
+
+    sections = extract_document_sections("doc", text)
+
+    assert all(s.section_type != "paragraf" for s in sections)
+    assert ("madde", "1") in {(s.section_type, s.section_ref) for s in sections}
+
+
+def test_numbered_dotted_children_survive_a_capped_parent():
+    from bddk_mcp.store.section_index import MAX_SECTION_CHARS
+
+    filler = "dolgu metin satırı uzun içerik\n" * ((MAX_SECTION_CHARS // 30) + 50)
+    text = (
+        "1.  Giriş açıklaması.\n"
+        "1.1.  Alt açıklama.\n"
+        "2.  Uzun bölüm başlangıcı.\n" + filler + "2.1.  Kapasitenin ötesindeki gerçek alt bölüm.\n"
+        "3.  Sonraki bölüm.\n"
+    )
+
+    sections = extract_document_sections("doc", text)
+
+    refs = {s.section_ref for s in sections}
+    assert "2.1" in refs
+    p2 = next(s for s in sections if s.section_ref == "2")
+    assert p2.end_char - p2.start_char <= MAX_SECTION_CHARS

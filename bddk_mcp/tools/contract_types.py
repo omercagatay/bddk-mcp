@@ -32,7 +32,12 @@ DATE_PATTERN = r"^\d{2}\.\d{2}\.\d{4}$"
 METRIC_ID_PATTERN = r"^\d+\.\d+\.\d+$"
 METRIC_LIST_PATTERN = r"^\d+\.\d+\.\d+(?:\s*,\s*\d+\.\d+\.\d+)*$"
 DOCUMENT_ID_PATTERN = r"^[A-Za-z0-9_-]+$"
-SECTION_REF_PATTERN = r"^\d+[A-Za-zÇĞİÖŞÜçğıöşü]?$"
+SECTION_REF_PATTERN = r"^\d+(?:\.\d+)*[A-Za-zÇĞİÖŞÜçğıöşü]?$"
+# Dotted outline refs ("2.1", "3.15") come from the numbered-paragraph fallback
+# in section_index; the grammar there is \d{1,3}(?:\.\d{1,3})*, so a ref can
+# legitimately reach four components. Any ref a tool prints must be accepted
+# back as input to that same tool.
+SECTION_REF_MAX_LENGTH = 16
 INSTRUMENT_ID_PATTERN = r"^inst_sha256_[0-9a-f]{64}$"
 ISO_DATE_PATTERN = r"^\d{4}-\d{2}-\d{2}$"
 
@@ -194,9 +199,9 @@ def _section_ref(value: object) -> str | int | None:
         return None
     if type(value) is int:
         return _integer(value, name="section_ref", minimum=1, maximum=99_999)
-    normalized = _string(value, name="section_ref", maximum=8, allow_empty=False)
+    normalized = _string(value, name="section_ref", maximum=SECTION_REF_MAX_LENGTH, allow_empty=False)
     if re.fullmatch(SECTION_REF_PATTERN, normalized) is None:
-        _invalid("section_ref must be a positive number with at most one letter suffix.")
+        _invalid("section_ref must be a positive number or dotted outline, with at most one letter suffix.")
     return normalized.lower()
 
 
@@ -472,11 +477,15 @@ SectionType = Annotated[
 SectionRef = Annotated[
     Annotated[
         str,
-        Field(min_length=1, max_length=8, pattern=SECTION_REF_PATTERN),
+        Field(min_length=1, max_length=SECTION_REF_MAX_LENGTH, pattern=SECTION_REF_PATTERN),
     ]
     | Annotated[int, Field(ge=1, le=99_999)]
     | None,
-    Field(description="Optional positive section number, with at most one letter suffix."),
+    Field(
+        description=(
+            "Optional positive section number or dotted outline ref (e.g. 9, 2.1), with at most one letter suffix."
+        )
+    ),
     BeforeValidator(_section_ref),
 ]
 HeadingFilter = Annotated[
