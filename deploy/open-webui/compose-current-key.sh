@@ -28,7 +28,7 @@ esac
 # Prefer an explicitly exported key so an external secret manager or key rotation
 # can override retained container configuration.
 if test -z "$provider_key"; then
-  for source_container in open-webui open-webui-pre-mcp-oauth-refresh; do
+  for source_container in open-webui; do
     if ! docker container inspect "$source_container" >/dev/null 2>&1; then
       continue
     fi

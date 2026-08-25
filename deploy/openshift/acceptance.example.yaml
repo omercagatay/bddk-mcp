@@ -15,12 +15,13 @@ platform:
   operator_service_host: REPLACE_OPERATOR_SERVICE_HOST
   operator_client_origin: https://REPLACE_OPERATOR_CLIENT_ORIGIN
   database_name: REPLACE_DATABASE_NAME
+# Bearer authentication applies to the operator runtime only; the public
+# profile serves the LDAP-authenticated Open WebUI frontend unauthenticated
+# behind the bank network boundary.
 jwt:
   issuer: https://REPLACE_BANK_IDP_ISSUER
   jwks_url: https://REPLACE_BANK_IDP_JWKS
-  public_audience: REPLACE_PUBLIC_AUDIENCE
   operator_audience: REPLACE_OPERATOR_AUDIENCE
-  public_required_scopes: [bddk.read]
   operator_required_scopes: [bddk.operator]
   # These are the only claim names currently understood by the verifier.
   scope_claims: [scope, scp]
@@ -55,15 +56,6 @@ required_egress:
     peer: &postgres_peer
       ipBlock:
         cidr: REPLACE_POSTGRES_CIDR
-  - id: public-idp
-    policy: bddk-mcp-public-required-egress
-    component: public
-    purpose: idp_jwks
-    protocol: TCP
-    port: 443
-    peer: &idp_peer
-      ipBlock:
-        cidr: REPLACE_IDP_OR_PROXY_CIDR
   - id: public-regulatory-source
     policy: bddk-mcp-public-required-egress
     component: public
@@ -95,7 +87,9 @@ required_egress:
     purpose: idp_jwks
     protocol: TCP
     port: 443
-    peer: *idp_peer
+    peer:
+      ipBlock:
+        cidr: REPLACE_IDP_OR_PROXY_CIDR
   - id: operator-regulatory-source
     policy: bddk-mcp-operator-required-egress
     component: operator

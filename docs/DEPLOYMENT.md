@@ -328,7 +328,7 @@ The issuer, resource, JWKS, audience, token type, and scope values are deploymen
 
 Host, Origin, content type, duplicate headers, and request-body size are validated before bearer authentication. JWT verification then bounds token length and checks the asymmetric signature, key ID/algorithm, access-token type, issuer, exact resource-server audience, expiry, optional not-before time, and subject. A custom token `resource` claim is neither required nor trusted. Missing or invalid authentication returns 401; a cryptographically valid token without the profile's required scope returns 403.
 
-`BDDK_HTTP_ALLOW_UNAUTHENTICATED` is a supported explicit opt-in that serves a non-loopback bind without bearer authentication. It is unset by default; while it is unset, every requirement in the table above applies unchanged. When set:
+`BDDK_HTTP_ALLOW_UNAUTHENTICATED` is a supported explicit opt-in that serves a non-loopback bind without bearer authentication. It is the configuration the bank-server deployment uses for the public read-only profile: the department's roughly 25 users authenticate to the Open WebUI frontend with their Microsoft (Active Directory) accounts over LDAP, and the frontend reaches the MCP endpoint directly inside the approved bank network segment, so no per-request bearer token (previously issued by Keycloak) is involved. Network isolation then carries the access control. The opt-in is unset by default; while it is unset, every requirement in the table above applies unchanged. When set:
 
 - it cannot be combined with any configured `BDDK_JWT_`-prefixed setting — startup refuses and names the offending variables;
 - it is refused outright for a non-loopback operator profile, regardless of `BDDK_OPERATOR_REMOTE_ENABLED`: operator tools stay authenticated or loopback-only by construction;
@@ -618,13 +618,14 @@ For the target bank deployment:
    development/baseline Job and is not a production trust gate.
 4. Run public and operator profiles as separate workloads; inject `BDDK_DATABASE_URL` only into public and `BDDK_OPERATOR_DATABASE_URL` only into operator.
 5. Keep remote operator disabled unless a private operator Route, `bddk.operator` authorization, and explicit `BDDK_OPERATOR_REMOTE_ENABLED=true` have been approved.
-6. Add bank-specific least-privilege egress for DNS, PostgreSQL, IdP/JWKS,
-   and TCP 443 to the approved BDDK/Mevzuat source or enterprise proxy before
-   starting either public or operator runtime; retain the checked-in default
+6. Add bank-specific least-privilege egress for DNS, PostgreSQL, and TCP 443
+   to the approved BDDK/Mevzuat source or enterprise proxy before starting
+   either public or operator runtime, plus IdP/JWKS egress for the operator
+   runtime only; retain the checked-in default
    deny. Keep lifecycle Jobs limited to DNS/PostgreSQL, without regulatory-source
    or proxy reach.
 7. Review and adapt the starter, then validate the exact `/health/live` and `/health/ready` probes in a disposable bank-like namespace.
-8. Validate the re-encrypt Route-to-pod handshake and operator Service TLS against the injected OpenShift service CA; retain the application's JWT checks and place shared request limits and audit events at the approved ingress boundary.
+8. Validate the re-encrypt Route-to-pod handshake and operator Service TLS against the injected OpenShift service CA; retain the operator profile's JWT checks, prove the unauthenticated public Route is reachable only from the approved department/frontend network segment, and place shared request limits and audit events at the approved ingress boundary.
 9. Prove backup, point-in-time/selected restore, schema upgrade, legacy refusal
    or adoption where relevant, and rollback/cutover procedures in an isolated
    environment. The retained

@@ -15,15 +15,11 @@ data:
   BDDK_TELEMETRY_ENABLED: "false"
   BDDK_HTTP_ALLOWED_HOSTS: REPLACE_PUBLIC_ROUTE_HOST
   BDDK_HTTP_ALLOWED_ORIGINS: https://REPLACE_PUBLIC_ROUTE_HOST
-  BDDK_JWT_ISSUER: https://REPLACE_BANK_IDP_ISSUER
-  BDDK_JWT_RESOURCE: https://REPLACE_PUBLIC_ROUTE_HOST/mcp
-  BDDK_JWT_JWKS_URL: https://REPLACE_BANK_IDP_JWKS
-  BDDK_JWT_AUDIENCE: REPLACE_PUBLIC_AUDIENCE
-  BDDK_JWT_REQUIRED_SCOPES: bddk.read
-  BDDK_JWT_ALGORITHMS: RS256
-  # Add generic JWT only after approving a Keycloak compatibility profile with
-  # a dedicated MCP API audience; at+jwt is the fail-closed RFC 9068 default.
-  BDDK_JWT_ACCESS_TOKEN_TYPES: at+jwt
+  # The public read-only profile serves the department's LDAP-authenticated
+  # Open WebUI frontend without bearer tokens. Network isolation is the access
+  # control: keep the Route/ingress reachable only from the approved bank
+  # segment. The application refuses this opt-in for the operator profile.
+  BDDK_HTTP_ALLOW_UNAUTHENTICATED: "true"
   BDDK_HTTP_MAX_BODY_BYTES: "1048576"
   BDDK_HTTP_MAX_CONCURRENCY: "32"
   # OpenShift router traffic shares one ASGI peer identity; use ingress for

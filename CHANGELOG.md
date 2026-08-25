@@ -35,6 +35,27 @@ Bu bölüm `main` üzerindeki `5684a34` tabanından başlayıp
 `83d31a4` dâhil olmak üzere kapsar. Buradaki maddeler yayımlanmış sürüm
 taahhüdü veya banka üretim kabulü değildir.
 
+### Değiştirildi — banka sunucusu migrasyonu ve Keycloak'ın kaldırılması
+
+- MCP sunucusu banka sunucularına taşınırken kullanıcıya dönük Keycloak/OAuth
+  katmanı kaldırıldı: departman kullanıcıları (yaklaşık 25 kişi) Open WebUI
+  önyüzüne Microsoft (Active Directory) hesaplarıyla LDAP üzerinden giriş
+  yapar; önyüz MCP public profiline banka ağı içinde doğrudan,
+  `BDDK_HTTP_ALLOW_UNAUTHENTICATED=true` ile bearer token olmadan bağlanır.
+  Erişim denetimi ağ izolasyonuna (Route/ingress erişim kısıtları, exact
+  Host/Origin allowlist'leri ve NetworkPolicy'ler) devredildi.
+- `deploy/keycloak/` (realm, rebuild ve probe araçları) silindi.
+- `deploy/open-webui/` sadeleştirildi: MCP OAuth token-refresh yaması, yamalı
+  imaj build'i ve ilgili testler kaldırıldı; compose artık digest ile
+  sabitlenmiş upstream imajı LDAP yapılandırması ve kapalı self-signup ile
+  çalıştırır.
+- OpenShift starter'ında public ConfigMap'ten tüm `BDDK_JWT_*` anahtarları
+  kaldırılıp `BDDK_HTTP_ALLOW_UNAUTHENTICATED: "true"` eklendi; JWT sözleşmesi
+  yalnız operator profilinde kaldı (uygulama, operator profilinin loopback
+  dışı kimlik doğrulamasız çalışmasını zaten reddeder). Offline preflight
+  sözleşmesi, kabul örnek girdileri ve testler buna göre güncellendi; public
+  runtime için IdP/JWKS egress'i artık zorunlu değil, aksine yasak.
+
 ### Eklendi — repository bakımı
 
 - GitHub issue formları, pull-request şablonu, CODEOWNERS, `SECURITY.md` ve

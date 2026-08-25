@@ -72,8 +72,9 @@ def _requirements() -> list[dict]:
                 _requirement(f"{component}-postgresql", policy, component, "postgresql", "TCP", 5432, POSTGRES_PEER),
             ]
         )
-        if component != "lifecycle":
+        if component == "operator":
             result.append(_requirement(f"{component}-idp", policy, component, "idp_jwks", "TCP", 443, IDP_PEER))
+        if component != "lifecycle":
             result.append(
                 _requirement(
                     f"{component}-regulatory-source",
@@ -141,9 +142,7 @@ def _config() -> dict:
         "jwt": {
             "issuer": "https://id.acceptance.bank.example/realms/bddk",
             "jwks_url": "https://id.acceptance.bank.example/realms/bddk/protocol/certs",
-            "public_audience": "bddk-mcp-public",
             "operator_audience": "bddk-mcp-operator",
-            "public_required_scopes": ["bddk.read"],
             "operator_required_scopes": ["bddk.operator"],
             "scope_claims": ["scope", "scp"],
             "algorithms": ["RS256"],
@@ -523,8 +522,14 @@ def test_network_overlay_extra_rule_fails_closed(tmp_path: Path):
         ),
         (
             "deploy/openshift/configmaps.yaml",
-            "BDDK_JWT_REQUIRED_SCOPES: bddk.read",
             "BDDK_JWT_REQUIRED_SCOPES: bddk.operator",
+            "BDDK_JWT_REQUIRED_SCOPES: bddk.read",
+            "jwt-claim-contract",
+        ),
+        (
+            "deploy/openshift/configmaps.yaml",
+            'BDDK_HTTP_ALLOW_UNAUTHENTICATED: "true"',
+            'BDDK_HTTP_ALLOW_UNAUTHENTICATED: "true"\n  BDDK_JWT_ISSUER: https://REPLACE_BANK_IDP_ISSUER',
             "jwt-claim-contract",
         ),
         (
