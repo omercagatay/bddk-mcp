@@ -1,32 +1,48 @@
 services:
   open-webui:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: bddk-open-webui:0.11.0-mcp-oauth-refresh.1
-    pull_policy: never
-    platform: linux/arm64
+    # Plain upstream Open WebUI 0.11.0, pinned by digest. The earlier
+    # single-host deployment built a patched image because the MCP connection
+    # authenticated through Keycloak OAuth; the bank deployment connects to the
+    # MCP server directly on the bank network, so no local build or patch exists.
+    image: ghcr.io/open-webui/open-webui@sha256:6a773e5c3a246b65cbe74ce942b294292c0e5f81c138f703d111bc162f7d7c3d
     container_name: open-webui
-    network_mode: host
     restart: always
     stop_grace_period: 30s
+    ports:
+      # Terminate user TLS at the bank-approved reverse proxy / load balancer
+      # and forward to this loopback-only bind; do not publish it directly.
+      - "127.0.0.1:3000:8080"
     environment:
-      HOST: 127.0.0.1
-      PORT: "3000"
-      WEBUI_URL: https://gx10-89da.tail7471f8.ts.net
+      WEBUI_URL: https://REPLACE_BANK_WEBUI_HOST
       WEBUI_SECRET_KEY_FILE: /app/backend/data/.webui_secret_key
       WEBUI_SESSION_COOKIE_SAME_SITE: lax
       WEBUI_SESSION_COOKIE_SECURE: "true"
       WEBUI_AUTH_COOKIE_SAME_SITE: lax
       WEBUI_AUTH_COOKIE_SECURE: "true"
-      OLLAMA_BASE_URL: http://127.0.0.1:11434
-      OPENAI_API_BASE_URL: http://127.0.0.1:8000/v1
+      # Department users sign in with their Microsoft (Active Directory)
+      # accounts over LDAP; local self-signup stays disabled.
+      ENABLE_LDAP: "true"
+      ENABLE_SIGNUP: "false"
+      DEFAULT_USER_ROLE: user
+      LDAP_SERVER_LABEL: REPLACE_BANK_AD_LABEL
+      LDAP_SERVER_HOST: REPLACE_BANK_AD_HOST
+      LDAP_SERVER_PORT: "636"
+      LDAP_USE_TLS: "true"
+      LDAP_VALIDATE_CERT: "true"
+      # Place the bank AD trust root in the data volume before first start.
+      LDAP_CA_CERT_FILE: /app/backend/data/ldap-ca.crt
+      LDAP_APP_DN: REPLACE_BANK_LDAP_BIND_DN
+      LDAP_APP_PASSWORD: ${LDAP_APP_PASSWORD:?export the read-only LDAP service-account password}
+      LDAP_SEARCH_BASE: REPLACE_BANK_LDAP_SEARCH_BASE
+      LDAP_ATTRIBUTE_FOR_USERNAME: sAMAccountName
+      LDAP_ATTRIBUTE_FOR_MAIL: mail
+      OPENAI_API_BASE_URL: https://REPLACE_BANK_MODEL_GATEWAY/v1
       OPENAI_API_KEY: ${OPENAI_API_KEY:?invoke Compose through compose-current-key.sh}
       UVICORN_WORKERS: "1"
     healthcheck:
       test:
         - CMD-SHELL
-        - curl --silent --fail http://localhost:$${PORT:-8080}/health | jq -ne 'input.status == true' || exit 1
+        - curl --silent --fail http://localhost:8080/health | jq -ne 'input.status == true' || exit 1
       interval: 30s
       timeout: 10s
       retries: 3

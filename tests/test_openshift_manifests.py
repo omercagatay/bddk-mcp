@@ -634,9 +634,20 @@ def test_remote_profiles_are_fail_closed_and_scoped():
     }
     public = config_maps["bddk-mcp-public-config"]
     operator = config_maps["bddk-mcp-operator-config"]
-    assert public["BDDK_JWT_REQUIRED_SCOPES"] == "bddk.read"
+    # The public read-only profile serves the LDAP-authenticated frontend
+    # unauthenticated behind the bank network boundary; the application refuses
+    # BDDK_HTTP_ALLOW_UNAUTHENTICATED combined with any BDDK_JWT_* setting and
+    # refuses it entirely for the operator profile.
+    assert public["BDDK_HTTP_ALLOW_UNAUTHENTICATED"] == "true"
+    assert not any(key.startswith("BDDK_JWT_") for key in public)
+    assert "BDDK_HTTP_ALLOW_UNAUTHENTICATED" not in operator
     assert operator["BDDK_JWT_REQUIRED_SCOPES"] == "bddk.operator"
     assert operator["BDDK_OPERATOR_REMOTE_ENABLED"] == "true"
+    assert operator["BDDK_JWT_ISSUER"].startswith("https://")
+    assert operator["BDDK_JWT_JWKS_URL"].startswith("https://")
+    assert operator["BDDK_JWT_RESOURCE"].startswith("https://")
+    assert operator["BDDK_JWT_AUDIENCE"].startswith("REPLACE_")
+    assert operator["BDDK_JWT_ACCESS_TOKEN_TYPES"] == "at+jwt"
     assert public["BDDK_TELEMETRY_ENABLED"] == "false"
     assert operator["BDDK_TELEMETRY_ENABLED"] == "false"
     for config in (public, operator):
@@ -645,11 +656,6 @@ def test_remote_profiles_are_fail_closed_and_scoped():
         assert config["MCP_HOST"] == "0.0.0.0"
         assert config["BDDK_HTTP_ALLOWED_HOSTS"]
         assert config["BDDK_HTTP_ALLOWED_ORIGINS"].startswith("https://")
-        assert config["BDDK_JWT_ISSUER"].startswith("https://")
-        assert config["BDDK_JWT_JWKS_URL"].startswith("https://")
-        assert config["BDDK_JWT_RESOURCE"].startswith("https://")
-        assert config["BDDK_JWT_AUDIENCE"].startswith("REPLACE_")
-        assert config["BDDK_JWT_ACCESS_TOKEN_TYPES"] == "at+jwt"
 
 
 def test_docker_images_have_non_root_defaults_and_versioned_build_inputs():
