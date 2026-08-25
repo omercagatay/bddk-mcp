@@ -245,6 +245,24 @@ async def test_get_document_section_accepts_integer_section_ref():
 
 
 @pytest.mark.asyncio
+async def test_get_document_section_accepts_dotted_outline_section_ref():
+    """The numbered-paragraph fallback emits dotted refs ("2.1") and the tool
+    prints them in its own disambiguation listing, so they must be accepted
+    back as input to the same tool."""
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[_section("1135", "paragraf", "2.1", "Açıklama metni.")])
+    deps = Dependencies(pool=None, doc_store=doc_store, client=None, http=None)
+
+    tool = _capture_tool(deps, "get_document_section")
+    out = await tool("1135", section_type="paragraf", section_ref="2.1")
+
+    assert "Section: paragraf 2.1" in out
+    doc_store.get_document_section.assert_awaited_once_with(
+        "1135", section_type="paragraf", section_ref="2.1", heading=None, limit=11
+    )
+
+
+@pytest.mark.asyncio
 async def test_get_document_section_resolves_bare_mevzuat_alias():
     doc_store = MagicMock()
     doc_store.get_document_section = AsyncMock(
