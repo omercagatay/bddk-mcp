@@ -1,7 +1,7 @@
 # Architecture at the Reviewed Commit
 
 > [!NOTE]
-> This design document contains dated implementation checkpoints as well as durable architecture. For the current tool, schema, corpus, CI, release, and maturity facts, use [Current Repository Status](STATUS.md).
+> This design document contains dated implementation checkpoints as well as durable architecture. For the current tool, schema, corpus, CI, release, and maturity facts, use [Current Repository Status](STATUS.md). Known-stale figures below include the tool counts (15 public/29 total at the checkpoint; currently 17/31), the schema ledger end (v8 at the checkpoint; currently v10), and non-loopback HTTP policy (the checkpoint predates the `BDDK_HTTP_ALLOW_UNAUTHENTICATED` public opt-in).
 
 This document describes the architecture implemented at commit **5684a34c10e6d90bc22d6ab2a6466944afb6bf81**. It is descriptive, not the target design.
 

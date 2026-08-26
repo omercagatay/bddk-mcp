@@ -42,6 +42,7 @@ Do not place implementation modules, generated reports, scratch files, one-off p
 | `bddk_mcp/store/` | Document, section, vector, reference, and bulk-write storage. |
 | `bddk_mcp/ingest/` | Source discovery, extraction, synchronization, seed import/export, and backfill. |
 | `bddk_mcp/ocr/` | OCR interfaces and optional GPU implementation. |
+| `bddk_mcp/admin/` | Loopback-only read-only operator console (`bddk-mcp admin-ui`); refuses non-loopback binds and is not part of any deployment manifest. |
 | `bddk_mcp/regulatory/` | Canonical legal versions, relations, graph queries, and curation repositories. |
 | `bddk_mcp/jobs/` | Durable operator job models, repository, and runner. |
 | `bddk_mcp/migrations/` | Append-only schema ledger and migration implementations. |

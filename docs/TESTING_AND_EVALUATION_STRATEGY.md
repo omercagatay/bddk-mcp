@@ -1,7 +1,7 @@
 # Testing and Evaluation Strategy
 
 > [!NOTE]
-> Executed counts and implementation overlays in this document are dated evidence, not automatically current results. Current repository facts are in [Current Repository Status](STATUS.md); current test truth comes from the checks attached to the commit under review.
+> Executed counts and implementation overlays in this document are dated evidence, not automatically current results. Current repository facts are in [Current Repository Status](STATUS.md); current test truth comes from the checks attached to the commit under review. Known-stale figures below include the tool counts (15/29 at the overlay date; currently 17/31) and the manifest state (the corpus has been signed and regenerated since).
 
 ## Purpose
 
