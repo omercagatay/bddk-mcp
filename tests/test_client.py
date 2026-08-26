@@ -541,3 +541,9 @@ class TestScopeFilter:
     def test_exclusion_constants_populated(self):
         assert "Faizsiz Bankacılık" in _EXCLUDED_CATEGORIES
         assert any("6361" in s for s in _EXCLUDED_TITLE_SUBSTRINGS)
+
+
+def test_client_defaults_to_no_live_population():
+    """The airlock must be the default: live population is an explicit opt-in."""
+    client = BddkApiClient(pool=MockPool())
+    assert client._allow_live_population is False

@@ -346,6 +346,47 @@ RERANKER_MODEL_REVISION = os.environ.get(
 )
 RERANKER_TOP_N = _environment_int("BDDK_RERANKER_TOP_N", default=20, minimum=1, maximum=10_000)
 
+
+def validate_model_asset_policy(
+    *,
+    embedding_model_path: str | None = None,
+    reranker_enabled: bool | None = None,
+    reranker_model_path: str | None = None,
+    hub_offline: bool | None = None,
+) -> None:
+    """Fail at startup, not inside a tool call, when model assets cannot load.
+
+    The delivered container runs with HF_HUB_OFFLINE=1 and pre-baked model
+    directories. Without this check, a missing local model path surfaces as a
+    Hugging Face download failure at first search time; a misconfigured
+    reranker flag does the same. Keyword overrides exist for tests only.
+    """
+    embedding_path = EMBEDDING_MODEL_PATH if embedding_model_path is None else embedding_model_path
+    reranker_on = RERANKER_ENABLED if reranker_enabled is None else reranker_enabled
+    reranker_path = RERANKER_MODEL_PATH if reranker_model_path is None else reranker_model_path
+    offline = (
+        (os.environ.get("HF_HUB_OFFLINE") == "1" or os.environ.get("TRANSFORMERS_OFFLINE") == "1")
+        if hub_offline is None
+        else hub_offline
+    )
+
+    if embedding_path and not Path(embedding_path).is_dir():
+        raise RuntimeError("BDDK_EMBEDDING_MODEL_PATH does not point to an existing model directory.")
+    if reranker_path and not Path(reranker_path).is_dir():
+        raise RuntimeError("BDDK_RERANKER_MODEL_PATH does not point to an existing model directory.")
+    if offline and not embedding_path:
+        raise RuntimeError(
+            "Offline model mode (HF_HUB_OFFLINE/TRANSFORMERS_OFFLINE) requires BDDK_EMBEDDING_MODEL_PATH; "
+            "the embedding model cannot be downloaded at serving runtime."
+        )
+    if reranker_on and not reranker_path:
+        raise RuntimeError(
+            "BDDK_RERANKER=true requires BDDK_RERANKER_MODEL_PATH: the reranker model is not baked into "
+            "the delivered image and cannot be downloaded at serving runtime. Provide a local model "
+            "directory or disable the reranker."
+        )
+
+
 # -- HTTP ---------------------------------------------------------------------
 
 REQUEST_TIMEOUT = _environment_float(
