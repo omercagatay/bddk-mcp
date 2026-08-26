@@ -1,11 +1,15 @@
 # BDDK MCP Server
 
-MCP server for Turkish banking regulatory intelligence (BDDK) — search decisions, regulations, bulletins, and statistical data. PostgreSQL + pgvector backend, offline-first embeddings, airlocked serving: retrieval tools answer only from the locally published corpus release; live BDDK/mevzuat access is confined to bulletin/announcement tools and ingest/operator paths.
+MCP server for Turkish banking regulatory intelligence (BDDK) — search decisions, regulations, bulletins, and statistical data. PostgreSQL + pgvector backend, offline-first embeddings, airlocked serving: retrieval tools answer only from the locally published corpus release; live BDDK/mevzuat access is confined to the bulletin, announcement, and institution-directory tools (plus the live announcement/bulletin half of `get_regulatory_digest`) and ingest/operator paths. All live access goes through the exact-host HTTPS allowlist in `core/outbound_http.py` (bddk.org.tr / mevzuat.gov.tr only).
 
 ## Commands
 
 ```bash
-docker compose up -d db                    # Start PostgreSQL + pgvector locally
+# docker compose parses the operator service's required variables even for
+# db-only startup; export placeholders once per shell (never real IdP values):
+export BDDK_JWT_JWKS_URL=https://placeholder.invalid/jwks BDDK_JWT_ISSUER=https://placeholder.invalid
+docker compose up -d bddk-test-db          # PostgreSQL + pgvector + the bddk_test pytest fixture
+docker compose up -d db                    # DB only (postgres-marked tests then skip; prefer bddk-test-db)
 uv sync --dev                              # Install runtime + dev dependencies
 uv sync --group gpu                        # Add CUDA torch + chandra-ocr (for doc_sync OCR path)
 uv run python server.py                    # Run MCP server (root shim; needs db up + BDDK_DATABASE_URL)
@@ -13,8 +17,8 @@ uv run bddk-mcp serve                      # Same, via the packaged CLI (also: m
 uv run bddk-mcp migrate                    # Create/upgrade the PostgreSQL schema (versioned migrations)
 uv run python seed.py import               # Seed DB from seed_data/ (shim for bddk-seed)
 uv run python seed.py export               # Export DB to seed_data/
-uv run pytest tests/ -v --tb=short         # Run tests (gpu marker skipped by default)
 uv run pytest tests/ -m "not postgres and not gpu" -v  # DB-less unit run (matches CI unit job)
+BDDK_REQUIRE_TEST_DATABASE=1 uv run pytest tests/ -m "postgres and not gpu" -v  # DB-backed run (matches CI; fails loudly, never skips, if the DB is absent)
 uv run pytest tests/test_client.py -v      # Run single test file
 uv run ruff check .                        # Lint
 uv run ruff format .                       # Format
