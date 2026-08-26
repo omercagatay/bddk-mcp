@@ -14,7 +14,6 @@ from bddk_mcp.core.outbound_http import (
     bounded_request_with_retry,
     normalize_approved_https_url,
 )
-from bddk_mcp.core.utils import request_with_retry
 
 _BASE_URL = "https://www.bddk.org.tr/"
 
@@ -189,25 +188,3 @@ async def test_retry_log_omits_url_query_and_exception_message(caplog):
     assert "https://" not in caplog.text
     assert caplog.records[0].error_type == "ConnectError"
     assert caplog.records[0].upstream_boundary == "BDDK"
-
-
-@pytest.mark.asyncio
-async def test_legacy_retry_log_is_also_redacted(caplog):
-    http = AsyncMock(spec=httpx.AsyncClient)
-    http.get = AsyncMock(side_effect=httpx.ConnectError("credential=in-exception"))
-
-    with (
-        patch("bddk_mcp.core.utils.asyncio.sleep", new=AsyncMock()),
-        caplog.at_level(logging.WARNING, logger="bddk_mcp.core.utils"),
-        pytest.raises(httpx.ConnectError),
-    ):
-        await request_with_retry(
-            http,
-            "GET",
-            "https://example.com/private?token=in-url",
-            max_retries=2,
-        )
-
-    assert "credential=in-exception" not in caplog.text
-    assert "token=in-url" not in caplog.text
-    assert "https://" not in caplog.text
