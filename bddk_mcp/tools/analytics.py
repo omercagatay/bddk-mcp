@@ -6,6 +6,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from bddk_mcp.core.config import ANNOUNCEMENT_CATEGORY_IDS, validate_column, validate_currency, validate_metric_id
+from bddk_mcp.core.exceptions import BddkUpstreamError
 from bddk_mcp.ingest.data_sources import fetch_announcements
 from bddk_mcp.observability.analytics import analyze_trends, build_digest, check_updates, compare_metrics
 from bddk_mcp.tools.contract_types import (
@@ -119,13 +120,18 @@ def register(mcp, deps: Dependencies, *, include_operator: bool = False) -> None
                 lines.append(f"  - {d['title']} ({d.get('decision_date', '')}) [{d.get('category', '')}]")
             lines.append("")
 
-        if digest["announcements"]:
+        if not digest.get("announcements_available", True):
+            lines.append("**Duyurular:** veri alınamadı (BDDK üst kaynağına erişilemedi); duyuru bilgisi bu özette eksiktir.")
+            lines.append("")
+        elif digest["announcements"]:
             lines.append(f"**Duyurular ({len(digest['announcements'])}):**")
             for a in digest["announcements"][:10]:
                 lines.append(f"  - {a['title']} ({a.get('date', '')})")
             lines.append("")
 
-        if digest["bulletin_snapshot"]:
+        if not digest.get("bulletin_snapshot_available", True):
+            lines.append("**Bülten Özet:** veri alınamadı (BDDK üst kaynağına erişilemedi).")
+        elif digest["bulletin_snapshot"]:
             lines.append("**Bülten Özet (ilk 5 metrik):**")
             for r in digest["bulletin_snapshot"]:
                 lines.append(f"  {r['name']}: TP={r['tp']}, YP={r['yp']}")
@@ -191,12 +197,34 @@ def register(mcp, deps: Dependencies, *, include_operator: bool = False) -> None
         """
         known_urls = deps.client.known_announcements
         if not known_urls:
-            for cat_id in ANNOUNCEMENT_CATEGORY_IDS:
-                known_urls.update(a["url"] for a in await fetch_announcements(deps.http, cat_id) if a.get("url"))
+            baseline: set[str] = set()
+            try:
+                for cat_id in ANNOUNCEMENT_CATEGORY_IDS:
+                    baseline.update(a["url"] for a in await fetch_announcements(deps.http, cat_id) if a.get("url"))
+            except BddkUpstreamError:
+                # Never store a partial baseline: it would report every missed
+                # announcement as "new" on the next call.
+                return tool_error(
+                    UPSTREAM_FETCH_FAILED,
+                    "BDDK announcements could not be fetched, so no update baseline was created. "
+                    "This is NOT evidence that there are no announcements.",
+                    retryable=True,
+                    hint="Retry later. In restricted networks, verify egress to www.bddk.org.tr is permitted.",
+                )
+            known_urls.update(baseline)
             deps.client.known_announcements = known_urls
             return f"Baseline oluşturuldu: {len(known_urls)} duyuru biliniyor. Bir sonraki çağrıda yeni duyurular tespit edilecek."
 
-        result = await check_updates(deps.http, deps.client.get_cache_items(), known_urls)
+        try:
+            result = await check_updates(deps.http, deps.client.get_cache_items(), known_urls)
+        except BddkUpstreamError:
+            return tool_error(
+                UPSTREAM_FETCH_FAILED,
+                "BDDK announcements could not be fetched; update status is unknown. "
+                "This is NOT evidence that there are no new announcements.",
+                retryable=True,
+                hint="Retry later. In restricted networks, verify egress to www.bddk.org.tr is permitted.",
+            )
 
         for a in result.get("new_announcements", []):
             if a.get("url"):

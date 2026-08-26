@@ -7,6 +7,7 @@ import re
 import httpx
 from bs4 import BeautifulSoup
 
+from bddk_mcp.core.exceptions import BddkUpstreamError
 from bddk_mcp.core.outbound_http import (
     BDDK_HTTPS_HOSTS,
     OutboundHttpPolicyError,
@@ -203,6 +204,8 @@ async def fetch_institutions(
         if not pages:
             pages = _INSTITUTION_PAGES
 
+    failed_pages: list[int] = []
+    unreachable = False
     for page_id, inst_type in pages.items():
         try:
             url = f"{_BDDK_BASE_URL}/Kurulus/Liste/{page_id}"
@@ -216,12 +219,37 @@ async def fetch_institutions(
 
             all_institutions.extend(items)
             logger.info("Parsed %d institutions from page %d (%s)", len(items), page_id, inst_type)
-        except (httpx.HTTPError, httpx.TransportError, OutboundHttpPolicyError, ValueError, AttributeError) as exc:
+        except (httpx.TransportError, OutboundHttpPolicyError) as exc:
+            # Connect-class failure: the remaining pages share the same host, so
+            # retrying them would only repeat the same slow failure serially.
+            failed_pages.append(page_id)
+            unreachable = True
+            logger.error(
+                "Failed to fetch institutions page %d; upstream unreachable, aborting remaining pages",
+                page_id,
+                extra={"error_type": type(exc).__name__},
+            )
+            break
+        except (httpx.HTTPError, ValueError, AttributeError) as exc:
+            failed_pages.append(page_id)
             logger.error(
                 "Failed to fetch institutions page %d",
                 page_id,
                 extra={"error_type": type(exc).__name__},
             )
+
+    if failed_pages and not all_institutions:
+        # An empty result caused by fetch failure must never masquerade as
+        # "no such institutions exist"; surface a retryable upstream error.
+        reason = "upstream unreachable" if unreachable else f"{len(failed_pages)} of {len(pages)} pages failed"
+        raise BddkUpstreamError(f"BDDK institution directory could not be fetched ({reason}).")
+
+    if failed_pages:
+        logger.warning(
+            "Institution directory fetched partially: %d of %d pages failed",
+            len(failed_pages),
+            len(pages),
+        )
 
     return all_institutions
 
@@ -320,7 +348,10 @@ async def fetch_bulletin_snapshot(
 
         table = soup.find("table", id="Tablo")
         if not table:
-            return []
+            raise BddkUpstreamError(
+                "BDDK weekly bulletin page did not contain the expected data table; "
+                "the upstream layout may have changed."
+            )
 
         rows: list[dict] = []
         for tr in table.find_all("tr"):
@@ -343,7 +374,9 @@ async def fetch_bulletin_snapshot(
         return rows
     except (httpx.HTTPError, httpx.TransportError, OutboundHttpPolicyError, ValueError, AttributeError) as exc:
         logger.error("Failed to fetch bulletin snapshot", extra={"error_type": type(exc).__name__})
-        return []
+        raise BddkUpstreamError(
+            "BDDK weekly bulletin snapshot could not be fetched (upstream or network unavailable)."
+        ) from exc
 
 
 # -- Announcements -------------------------------------------------------
@@ -406,7 +439,9 @@ async def fetch_announcements(
             category_id,
             extra={"error_type": type(exc).__name__},
         )
-        return []
+        raise BddkUpstreamError(
+            f"BDDK announcements ({category_name}) could not be fetched (upstream or network unavailable)."
+        ) from exc
 
 
 # -- Monthly Bulletin Data -------------------------------------------------

@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
+from bddk_mcp.core.exceptions import BddkUpstreamError
 from bddk_mcp.observability.analytics import analyze_trends, build_digest, check_updates, compare_metrics
 
 
@@ -262,7 +263,8 @@ async def test_check_updates_nothing_new(mock_http):
     assert result["new_announcements_count"] == 0
 
 
-async def test_check_updates_error_handling(mock_http):
+async def test_check_updates_error_propagates_upstream_failure(mock_http):
+    """A failed fetch must surface as an upstream error, not zero new announcements."""
     mock_http.get = AsyncMock(return_value=_make_response("", status_code=500))
-    result = await check_updates(mock_http, [], known_announcement_ids=set())
-    assert result["new_announcements_count"] == 0
+    with pytest.raises(BddkUpstreamError):
+        await check_updates(mock_http, [], known_announcement_ids=set())
