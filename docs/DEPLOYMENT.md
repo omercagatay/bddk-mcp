@@ -528,7 +528,10 @@ publisher-activation Jobs. Every workload
 uses a fail-closed image-digest placeholder, the image uses a digest-pinned `uv`
 source, the embedding-model revision is pinned, and the default non-root UID is
 compatible with OpenShift's arbitrary-UID model. Version labels are excluded
-from immutable selectors. The offline preflight executes exact standalone
+from immutable selectors. The offline preflight is run as
+`uv run python scripts/openshift_acceptance.py` (see
+[`deploy/openshift/README.md`](../deploy/openshift/README.md) for its inputs
+and the pre-deployment trap checklist); it executes exact standalone
 Kustomize v5.8.1 and binds the actual executable SHA-256 to the reviewed release
 input. It requires exact rendered-object, selector/label/namespace,
 NetworkPolicy, Secret/ConfigMap-key, command/port, volume/mount, pod-container,
@@ -659,10 +662,16 @@ OpenShift rotates service-serving certificates by updating the generated Secret.
 
 ## Railway and Spaces
 
-`railway.toml` builds the standard Dockerfile. Railway must inject a
-`verify-full` PostgreSQL DSN with an available CA path and the complete
-non-loopback HTTP policy. The `/app/data` volume does not back up an external
-PostgreSQL database.
+Railway and Hugging Face Spaces are development/preview profiles. They are not
+part of the reviewed bank deployment path and must not be used for bank data
+or bank-facing service.
+
+`railway.toml` builds the standard Dockerfile, declares a `/health/ready`
+healthcheck, and documents the required service variables inline. Railway must
+inject a `verify-full` PostgreSQL DSN with an available CA path and the
+complete non-loopback HTTP policy (`BDDK_HTTP_ALLOWED_HOSTS`,
+`BDDK_HTTP_ALLOWED_ORIGINS`, and either the full `BDDK_JWT_*` set or the
+explicit unauthenticated opt-in); without them the server refuses startup.
 
 There is no separate Spaces image. Preview hosts that need port `7860` should
 set `PORT` on the standard image. The database must be bootstrapped separately.
