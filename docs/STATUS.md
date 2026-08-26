@@ -1,6 +1,6 @@
 # Current Repository Status
 
-Verified on **2026-08-18** against commit `3a931892a96b4454faf2a48cef6a30c9898829d9` (`main`) before the repository-hygiene change set.
+Verified on **2026-08-26** on the `bank-delivery-fixes` change set (base `df5bf34`); re-stamp this line with the merge commit when the set lands on `main`. The previous verification was 2026-08-18 against `3a93189`.
 
 This is the concise source for current repository facts. The longer architecture, review, roadmap, and testing documents preserve dated analysis and may intentionally describe older checkpoints.
 
@@ -14,9 +14,9 @@ This is the concise source for current repository facts. The longer architecture
 | MCP operator profile | 17 public tools plus 14 operator additions, 31 total. |
 | MCP resources/prompts | One resource (`bddk://corpus/active-release`); zero prompts. |
 | Database | PostgreSQL 17; append-only migration ledger through schema v10. |
-| Corpus | 318 documents and 9,675 chunks in signed manifest `bddk-job-corpus-2026-08-14`. Freshness objectives are quantified; per-document live freshness remains unmeasured. |
+| Corpus | Drift open (gap register CUR-018): the signed `bddk-job-corpus-2026-08-14` manifest (318 documents / 9,675 chunks) predates the v5 section-parser profile, which regenerates 10,483 chunks. A v5 regeneration and updated manifest (`bddk-job-corpus-2026-08-26`, `signature_status: not_configured`) are staged pending owner review and Ed25519 signature via `scripts/sign_corpus_manifest.py`. Freshness objectives remain quantified and unmeasured. |
 | Runtime profiles | Separate public and operator processes, scopes, and database identities. |
-| CI | `CI` and `Supply chain evidence` passed on the verified `main` commit. |
+| CI | `CI` and `Supply chain evidence` passed on the `main` base commit `df5bf34`; the change set was verified locally (lint, hygiene, full unit suite, PostgreSQL suite) and must pass both workflows on merge. The 26 corpus-bound contract tests fail by design until the staged CUR-018 manifest is signed. |
 | Maturity | Engineering beta. Repository controls do not establish legal advice, bank acceptance, or production readiness. |
 
 The tool counts are derived from `bddk_mcp/tools/registry.py`; schema version is derived from `bddk_mcp/migrations/runner.py`; corpus identity and counts are derived from `seed_data/corpus_scope.yml`. Contract tests pin these facts.
@@ -28,11 +28,13 @@ The tool counts are derived from `bddk_mcp/tools/registry.py`; schema version is
 - Fail-closed remote HTTP configuration and separate database lifecycle roles.
 - Signed, governed offline corpus artifacts with staged verifier/publisher activation.
 - Structured deployment assets for local Compose, PostgreSQL, OpenShift, and Open WebUI; Railway remains a development/preview profile outside the bank path.
+- A loopback-only, read-only operator console (`bddk-mcp admin-ui`, `bddk_mcp/admin/`) that refuses non-loopback binds and ships in no deployment manifest.
 - Broad automated coverage across runtime, migrations, retrieval, deployment, recovery, and supply-chain policy.
 
 ## What is not established
 
 - A tagged or published 5.0.1 release.
+- An owner-signed corpus manifest for the current v5 retrieval profile (gap register CUR-018; regeneration staged, signature pending).
 - Legal advice or authoritative proof of which rule applies to a real case.
 - Measured live freshness for every corpus document.
 - Bank-owned identity, CA, network, database, backup/PITR, image-signing, promotion, and operational acceptance.
