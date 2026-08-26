@@ -120,9 +120,11 @@ previously used, wrong-epoch, changed-state, or non-ready request before
 appending the v0005-compatible release and activation plus the v0008 request
 binding. The legacy `publish-corpus-release` CLI is deliberately disabled; it
 is not a fallback for failed staging. Any later corpus mutation advances the
-corpus epoch and invalidates the active view. The current manifest (`bddk-job-corpus-2026-08-14`) is Ed25519-signed,
-quantified, and consistent with the 9,675 chunks the current profile
-regenerates.
+corpus epoch and invalidates the active view. The tracked manifest is mid-re-signing: `bddk-job-corpus-2026-08-14` was
+Ed25519-signed and quantified, but the v5 section parser regenerates 10,483
+chunks rather than 9,675, so the staged `bddk-job-corpus-2026-08-26` manifest
+is `signature_status: not_configured` until the owner reviews the delta and
+signs it (gap register CUR-018). Strict publication fails closed until then.
 
 Schema v10 admits exactly two `freshness_policy_result` values:
 `quantified_measured_signature_verified_pass` and the explicitly weaker
@@ -529,7 +531,9 @@ uses a fail-closed image-digest placeholder, the image uses a digest-pinned `uv`
 source, the embedding-model revision is pinned, and the default non-root UID is
 compatible with OpenShift's arbitrary-UID model. Version labels are excluded
 from immutable selectors. The offline preflight is run as
-`uv run python scripts/openshift_acceptance.py` (see
+`uv run python scripts/openshift_acceptance.py --config <acceptance.yaml>`
+(the `--config` argument is required; start from
+`deploy/openshift/acceptance.example.yaml` — see
 [`deploy/openshift/README.md`](../deploy/openshift/README.md) for its inputs
 and the pre-deployment trap checklist); it executes exact standalone
 Kustomize v5.8.1 and binds the actual executable SHA-256 to the reviewed release

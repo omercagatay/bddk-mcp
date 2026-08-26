@@ -198,9 +198,7 @@ async def test_fetch_institutions_total_failure_raises_upstream_error(mock_http)
 async def test_fetch_institutions_partial_failure_returns_partial_results(mock_http):
     """One good page plus failing pages still returns the fetched institutions."""
     # Page 77 (card layout) succeeds; every later page returns 500.
-    mock_http.get = AsyncMock(
-        side_effect=[_make_response(CARD_HTML)] + [_make_response("", status_code=500)] * 20
-    )
+    mock_http.get = AsyncMock(side_effect=[_make_response(CARD_HTML)] + [_make_response("", status_code=500)] * 20)
     result = await fetch_institutions(mock_http)
     assert len(result) > 0
 

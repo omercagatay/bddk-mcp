@@ -214,8 +214,7 @@ v8, the verifier stages short-lived evidence and the publisher activates only
 its one-time request ID. These administrative CLIs are not MCP tools.
 Generation-bound serving and authorized rollback remain H2-02B. Backup
 growth is still `not_measured`, and bank retention/capacity approval remains
-open. The tracked corpus is signed and declares the 9,675 chunks the current
-profile regenerates. Migration v0010 admits exactly two freshness policy levels,
+open. The tracked corpus manifest is being re-signed: the v5 section parser regenerates 10,483 chunks, so the previously signed 9,675-chunk artifact is superseded and the staged manifest is unsigned pending owner review (gap register CUR-018). Migration v0010 admits exactly two freshness policy levels,
 both requiring quantified objectives and a verified signature; the tracked
 corpus activates at the explicitly unmeasured level.
 

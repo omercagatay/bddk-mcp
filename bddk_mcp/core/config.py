@@ -364,11 +364,16 @@ def validate_model_asset_policy(
     embedding_path = EMBEDDING_MODEL_PATH if embedding_model_path is None else embedding_model_path
     reranker_on = RERANKER_ENABLED if reranker_enabled is None else reranker_enabled
     reranker_path = RERANKER_MODEL_PATH if reranker_model_path is None else reranker_model_path
-    offline = (
-        (os.environ.get("HF_HUB_OFFLINE") == "1" or os.environ.get("TRANSFORMERS_OFFLINE") == "1")
-        if hub_offline is None
-        else hub_offline
-    )
+    if hub_offline is None:
+        # Hugging Face treats several spellings as true; mirror that rather than
+        # matching only "1", or an offline image would slip past this gate.
+        truthy = {"1", "true", "yes", "on"}
+        offline = any(
+            (os.environ.get(name) or "").strip().lower() in truthy
+            for name in ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE")
+        )
+    else:
+        offline = hub_offline
 
     if embedding_path and not Path(embedding_path).is_dir():
         raise RuntimeError("BDDK_EMBEDDING_MODEL_PATH does not point to an existing model directory.")

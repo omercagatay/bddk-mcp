@@ -1,6 +1,6 @@
 # BDDK MCP Server
 
-MCP server for Turkish banking regulatory intelligence (BDDK) — search decisions, regulations, bulletins, and statistical data. PostgreSQL + pgvector backend, offline-first embeddings, airlocked serving: retrieval tools answer only from the locally published corpus release; live BDDK/mevzuat access is confined to the bulletin, announcement, and institution-directory tools (plus the live announcement/bulletin half of `get_regulatory_digest`) and ingest/operator paths. All live access goes through the exact-host HTTPS allowlist in `core/outbound_http.py` (bddk.org.tr / mevzuat.gov.tr only).
+MCP server for Turkish banking regulatory intelligence (BDDK) — search decisions, regulations, bulletins, and statistical data. PostgreSQL + pgvector backend, offline-first embeddings, airlocked serving: retrieval tools answer only from the locally published corpus release; live BDDK/mevzuat access is confined to the bulletin, announcement, and institution-directory tools (plus the live announcement/bulletin half of `get_regulatory_digest`) and ingest/operator paths. All live access is confined to the exact-host HTTPS allowlist (bddk.org.tr / mevzuat.gov.tr only), enforced by `core/outbound_http.py` and, for document streaming, the equivalent bounded path in `ingest/doc_sync.py`.
 
 ## Commands
 

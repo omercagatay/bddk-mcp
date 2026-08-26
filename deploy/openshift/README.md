@@ -40,7 +40,9 @@ an outage if it is discovered during the change window instead of planned for:
    [`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md).
 
 Run the repository preflight before and after resolving these:
-`uv run python scripts/openshift_acceptance.py` (details under "Acceptance
+`uv run python scripts/openshift_acceptance.py --config <acceptance.yaml>`
+(details, including how to build that config from
+`acceptance.example.yaml`, under "Acceptance
 harness" below).
 
 Release order:

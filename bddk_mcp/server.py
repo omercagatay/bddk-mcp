@@ -29,8 +29,8 @@ from bddk_mcp.core.config import (
     REQUIRE_ACTIVE_CORPUS_RELEASE,
     TELEMETRY_ENABLED,
     require_database_url,
-    validate_model_asset_policy,
     require_telemetry_database_url,
+    validate_model_asset_policy,
 )
 from bddk_mcp.core.deps import Dependencies
 from bddk_mcp.core.logging_config import configure_logging

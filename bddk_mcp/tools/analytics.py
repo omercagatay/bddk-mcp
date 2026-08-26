@@ -121,7 +121,9 @@ def register(mcp, deps: Dependencies, *, include_operator: bool = False) -> None
             lines.append("")
 
         if not digest.get("announcements_available", True):
-            lines.append("**Duyurular:** veri alınamadı (BDDK üst kaynağına erişilemedi); duyuru bilgisi bu özette eksiktir.")
+            lines.append(
+                "**Duyurular:** veri alınamadı (BDDK üst kaynağına erişilemedi); duyuru bilgisi bu özette eksiktir."
+            )
             lines.append("")
         elif digest["announcements"]:
             lines.append(f"**Duyurular ({len(digest['announcements'])}):**")

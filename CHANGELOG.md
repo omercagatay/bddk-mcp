@@ -77,7 +77,9 @@ taahhüdü veya banka üretim kabulü değildir.
   kaydetmez. Erişilemeyen upstream'de seri sayfa/kategori döngüleri hızlı
   başarısız olur.
 - Egress allowlist'ini atlayan kullanılmayan `core/utils.py` HTTP yardımcıları
-  silindi; tek HTTP yolu `core/outbound_http.py` sınırıdır.
+  silindi; geriye kalan tüm giden istekler ya `core/outbound_http.py` sınırından
+  ya da `ingest/doc_sync.py` içindeki eşdeğer sınırlı akış yolundan geçer
+  (exact-host allowlist, redirect yeniden doğrulama, boyut sınırları).
 - Model varlıkları startup'ta doğrulanır: `HF_HUB_OFFLINE` altında
   `BDDK_EMBEDDING_MODEL_PATH` zorunludur ve `BDDK_RERANKER=true` yerel model
   yolu olmadan başlatmayı reddeder (ilk aramada indirme hatası yerine).

@@ -13,10 +13,10 @@ from collections import OrderedDict
 from typing import TYPE_CHECKING
 
 from bddk_mcp.core.config import ANNOUNCEMENT_CATEGORY_IDS, SEARCH_CACHE_MAX, SEARCH_CACHE_TTL
-from bddk_mcp.core.exceptions import BddkUpstreamError
+from bddk_mcp.core.exceptions import BddkUpstreamError, BddkUpstreamUnreachableError
 from bddk_mcp.core.models import BddkSearchRequest
 from bddk_mcp.ingest.client import _turkish_lower
-from bddk_mcp.ingest.data_sources import fetch_announcements, fetch_institutions
+from bddk_mcp.ingest.data_sources import fetch_announcements, fetch_institutions_with_status
 from bddk_mcp.observability.metrics import metrics
 from bddk_mcp.observability.telemetry import (
     elapsed_ms,
@@ -351,7 +351,7 @@ Try: (1) call search_document_store with the same query for full-text semantic s
         """
         institution_type = normalize_institution_type(institution_type)
         try:
-            institutions = await fetch_institutions(deps.http, institution_type)
+            directory = await fetch_institutions_with_status(deps.http, institution_type)
         except BddkUpstreamError:
             return tool_error(
                 UPSTREAM_FETCH_FAILED,
@@ -360,6 +360,16 @@ Try: (1) call search_document_store with the same query for full-text semantic s
                 retryable=True,
                 hint="Retry later. In restricted networks, verify egress to www.bddk.org.tr is permitted.",
             )
+
+        institutions = directory.institutions
+        # A truncated directory must never be presented as the complete one.
+        partial_warning = (
+            f"\nWARNING: {directory.failed_pages} of {directory.attempted_pages} directory pages could not be "
+            "fetched; this listing is incomplete and absence here is not evidence that an institution is "
+            "unlicensed or does not exist."
+            if directory.partial
+            else ""
+        )
 
         if active_only:
             institutions = [i for i in institutions if i["status"] == "Aktif"]
@@ -372,15 +382,20 @@ Try: (1) call search_document_store with the same query for full-text semantic s
 
         if not institutions:
             metrics.record_empty_search("search_bddk_institutions")
-            return """NO RESULTS: No institutions found matching these criteria.
+            return (
+                """NO RESULTS: No institutions found matching these criteria.
 DO NOT guess institution names, license statuses, or other details.
 Suggest the user try: broader keywords or removing the type/active filter."""
+                + partial_warning
+            )
 
         lines = [f"Found {len(institutions)} institution(s):\n"]
         for i in institutions:
             status = f" ({i['status']})" if i["status"] != "Aktif" else ""
             website = f" — {i['website']}" if i["website"] else ""
             lines.append(f"**{i['name']}**{status} [{i['type']}]{website}")
+        if partial_warning:
+            lines.append(partial_warning.strip())
         return frame_untrusted_source("\n".join(lines))
 
     @mcp.tool()
@@ -416,13 +431,16 @@ Suggest the user try: broader keywords or removing the type/active filter."""
             try:
                 announcements.extend(await fetch_announcements(deps.http, cat_id))
                 fetched_any = True
+            except BddkUpstreamUnreachableError:
+                # The host itself is unreachable; the remaining categories live
+                # on that same host and would fail just as slowly, so abort
+                # rather than repeating a multi-second timeout per category.
+                failed_categories.extend(cat_ids[cat_ids.index(cat_id) :])
+                break
             except BddkUpstreamError:
+                # A single category failed (HTTP status or layout); the others
+                # are still worth attempting.
                 failed_categories.append(cat_id)
-                if not fetched_any:
-                    # The first category is already unreachable; the remaining
-                    # categories share the same host and would fail just as
-                    # slowly, so fail fast instead of retrying serially.
-                    break
 
         if failed_categories and not fetched_any:
             return tool_error(

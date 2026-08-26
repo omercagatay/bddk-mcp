@@ -547,3 +547,4 @@ async def test_official_client_full_round_trip_on_unauthenticated_remote_public_
     assert initialized.serverInfo.name == "BDDK"
     assert {tool.name for tool in listed.tools} == set(PUBLIC_TOOL_NAMES)
     assert result.content, "tools/call must return content without any bearer token"
+    assert not result.isError, "the delivered unauthenticated profile must serve tool calls, not error them"

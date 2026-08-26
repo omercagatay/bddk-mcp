@@ -188,3 +188,68 @@ async def test_retry_log_omits_url_query_and_exception_message(caplog):
     assert "https://" not in caplog.text
     assert caplog.records[0].error_type == "ConnectError"
     assert caplog.records[0].upstream_boundary == "BDDK"
+
+
+# -- Retry-decision matrix ----------------------------------------------------
+# 4xx client errors are the caller's fault and must not be retried; 5xx and 429
+# are transient and must be. This is the boundary's own policy
+# (outbound_http.py: bounded_request_with_retry).
+
+
+async def _request_with_retries(http: httpx.AsyncClient, *, max_retries: int) -> httpx.Response:
+    return await bounded_request_with_retry(
+        http,
+        "GET",
+        f"{_BASE_URL}probe",
+        base_url=_BASE_URL,
+        allowed_hosts=BDDK_HTTPS_HOSTS,
+        boundary_name="BDDK",
+        max_bytes=1024,
+        max_retries=max_retries,
+        resolve=_allow_test_resolution,
+    )
+
+
+def _counting_transport(*status_codes: int) -> tuple[httpx.MockTransport, list[int]]:
+    """Return a transport replaying the given statuses, and its attempt log."""
+    attempts: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        index = min(len(attempts), len(status_codes) - 1)
+        status = status_codes[index]
+        attempts.append(status)
+        return httpx.Response(status, text="", request=request)
+
+    return httpx.MockTransport(handler), attempts
+
+
+@pytest.mark.asyncio
+async def test_client_error_is_not_retried():
+    transport, attempts = _counting_transport(404)
+    async with httpx.AsyncClient(transport=transport) as http:
+        with pytest.raises(httpx.HTTPStatusError):
+            await _request_with_retries(http, max_retries=3)
+    assert len(attempts) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status_code", [500, 502, 429])
+async def test_server_error_and_rate_limit_are_retried(status_code):
+    transport, attempts = _counting_transport(status_code)
+    async with httpx.AsyncClient(transport=transport) as http:
+        with (
+            patch("bddk_mcp.core.outbound_http.asyncio.sleep", new=AsyncMock()),
+            pytest.raises(httpx.HTTPStatusError),
+        ):
+            await _request_with_retries(http, max_retries=3)
+    assert len(attempts) == 3
+
+
+@pytest.mark.asyncio
+async def test_transient_server_error_then_success_returns_the_response():
+    transport, attempts = _counting_transport(500, 200)
+    async with httpx.AsyncClient(transport=transport) as http:
+        with patch("bddk_mcp.core.outbound_http.asyncio.sleep", new=AsyncMock()):
+            response = await _request_with_retries(http, max_retries=3)
+    assert response.status_code == 200
+    assert attempts == [500, 200]

@@ -21,7 +21,9 @@ class TestSearchThenRetrieveFlow:
     @pytest.mark.asyncio
     async def test_search_then_get_document(self, doc_store):
         """Search for decisions, pick one, retrieve its markdown."""
-        client = BddkApiClient(pool=doc_store._pool, doc_store=doc_store)
+        # This flow exercises the ingest-side live catalog population, which is
+        # an explicit opt-in: serving defaults to the airlocked read-only path.
+        client = BddkApiClient(pool=doc_store._pool, doc_store=doc_store, allow_live_population=True)
         client._fetch_with_retry = AsyncMock(return_value=make_http_response(BDDK_ACCORDION_HTML))
 
         # Populate cache directly (bypass DB cache)

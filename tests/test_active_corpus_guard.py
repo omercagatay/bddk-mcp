@@ -13,6 +13,7 @@ from mcp.shared.memory import create_connected_server_and_client_session
 from bddk_mcp.core.deps import Dependencies
 from bddk_mcp.core.exceptions import BddkStorageError
 from bddk_mcp.corpus_publication import CorpusPublicationError, CorpusReleaseIdentity
+from bddk_mcp.ingest.data_sources import InstitutionDirectory
 from bddk_mcp.jobs import OperatorJobManager
 from bddk_mcp.tools.registry import LOCAL_CORPUS_PUBLIC_TOOL_NAMES, ToolProfile
 from bddk_mcp.tools.search import _search_cache
@@ -412,16 +413,20 @@ async def test_strict_mode_leaves_open_world_and_operator_recovery_calls_usable(
     with (
         patch("bddk_mcp.corpus_serving.inspect_active_corpus_release", new=inspect),
         patch(
-            "bddk_mcp.tools.search.fetch_institutions",
+            "bddk_mcp.tools.search.fetch_institutions_with_status",
             new=AsyncMock(
-                return_value=[
-                    {
-                        "name": "Örnek Banka",
-                        "type": "Banka",
-                        "status": "Aktif",
-                        "website": "",
-                    }
-                ]
+                return_value=InstitutionDirectory(
+                    institutions=[
+                        {
+                            "name": "Örnek Banka",
+                            "type": "Banka",
+                            "status": "Aktif",
+                            "website": "",
+                        }
+                    ],
+                    failed_pages=0,
+                    attempted_pages=5,
+                )
             ),
         ),
     ):

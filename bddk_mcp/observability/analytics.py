@@ -162,9 +162,12 @@ async def build_digest(
         try:
             anns = await fetch_announcements(http, cat_id)
         except BddkUpstreamError:
-            # Upstream is unreachable; the digest must say so instead of
-            # silently reporting zero announcements.
+            # Upstream failed; the digest must say so instead of silently
+            # reporting zero announcements. Discard whatever earlier categories
+            # returned: a partial set reported alongside an unavailable flag
+            # would still be read as a complete count.
             announcements_available = False
+            all_announcements = []
             break
         for a in anns:
             date_str = a.get("date", "")
