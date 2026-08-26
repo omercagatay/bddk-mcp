@@ -28,7 +28,7 @@ The root is reserved for project entry points and tools that conventionally live
 | `pyproject.toml`, `uv.lock`, `MANIFEST.in` | Python metadata, dependency lock, and distribution policy. |
 | `server.py`, `seed.py` | Compatibility shims; implementation belongs under `bddk_mcp/`. |
 | `Dockerfile`, `docker-compose.yml` | Container builds and the disposable local lifecycle. |
-| `railway.toml`, `Procfile` | Hosted deployment entry points. |
+| `railway.toml` | Railway development/preview deployment manifest (not the bank path). |
 | `.env.example`, `.mcp.json` | Sanitized local configuration examples. |
 
 Do not place implementation modules, generated reports, scratch files, one-off plans, or environment-specific secrets in the repository root.

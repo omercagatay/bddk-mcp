@@ -46,7 +46,6 @@ ALLOWED_TOP_LEVEL = {
     "Dockerfile",
     "LICENSE",
     "MANIFEST.in",
-    "Procfile",
     "README.en.md",
     "README.md",
     "SECURITY.md",
