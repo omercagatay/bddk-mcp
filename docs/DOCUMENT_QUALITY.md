@@ -63,7 +63,7 @@ When a page is not `clean`, `get_bddk_document` includes concise metadata in the
 
 Formula-unaware extraction methods also receive an extraction warning so the assistant tells users when equations or images may be missing.
 
-Search results and section retrieval can surface quality metadata so agents can decide whether a snippet is appropriate evidence. Warning or fail labels do not block retrieval by themselves; the server sanitizes and warns unless unsafe inline blobs would leak into context.
+Search results and section retrieval can surface quality metadata so agents can decide whether a snippet is appropriate evidence. Vector and FTS hits label quality from the **full stored document**, not only the matching chunk, so a clean snippet cannot hide document-level formula or extraction failures. Warning or fail labels do not block retrieval by themselves; the server sanitizes and warns unless unsafe inline blobs would leak into context.
 
 ## Scan Commands
 

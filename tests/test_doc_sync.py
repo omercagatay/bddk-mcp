@@ -676,6 +676,15 @@ class TestSanitizeForStorage:
         assert "_" * 40 not in out
         assert "A BC" in out
 
+    def test_strips_cid_and_data_uri_without_other_sentinels(self):
+        from bddk_mcp.ingest.doc_sync import _sanitize_for_storage
+
+        out = _sanitize_for_storage("MADDE 1 cid:image001.png@01D12345 ![](data:image/png;base64,AAA=)")
+
+        assert "cid:" not in out
+        assert "data:image/" not in out
+        assert "MADDE 1" in out
+
 
 class TestFetchWithRetry:
     @pytest.mark.asyncio

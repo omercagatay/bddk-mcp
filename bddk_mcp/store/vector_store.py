@@ -1026,6 +1026,27 @@ def _quality_metadata(text: str, doc_id: str) -> dict:
     return {"quality_label": quality.label, "quality_flags": quality.flags}
 
 
+async def _document_quality_by_ids(pool, doc_ids: list[str]) -> dict[str, dict]:
+    """Assess quality from full stored documents, not the matching chunk."""
+    unique_ids = list(dict.fromkeys(doc_ids))
+    if not unique_ids:
+        return {}
+    rows = await pool.fetch(
+        """
+        SELECT document.document_id, document.markdown_content
+        FROM public.documents AS document
+        WHERE document.document_id = ANY($1::pg_catalog.text[])
+        """,
+        unique_ids,
+    )
+    quality_by_id = {
+        row["document_id"]: _quality_metadata(row["markdown_content"] or "", row["document_id"]) for row in rows
+    }
+    for doc_id in unique_ids:
+        quality_by_id.setdefault(doc_id, _quality_metadata("", doc_id))
+    return quality_by_id
+
+
 def _section_metadata_from_row(row) -> dict:
     return {
         "section_type": row["section_type"] or "",
@@ -1753,8 +1774,11 @@ class VectorStore:
                     "fts_rank": 0.0,
                     "match_type": "vector",
                     **_section_metadata_from_row(row),
-                    **_quality_metadata(row["chunk_text"] or "", did),
                 }
+
+        quality_by_id = await _document_quality_by_ids(self._pool, list(seen))
+        for did, hit in seen.items():
+            hit.update(quality_by_id[did])
 
         hits = sorted(seen.values(), key=lambda x: x["distance"])
         return hits[:limit]
@@ -1788,8 +1812,11 @@ class VectorStore:
                     "semantic_relevance": 0.0,
                     "match_type": "fts",
                     **_section_metadata_from_row(row),
-                    **_quality_metadata(row["chunk_text"] or "", did),
                 }
+
+        quality_by_id = await _document_quality_by_ids(self._pool, list(seen))
+        for did, hit in seen.items():
+            hit.update(quality_by_id[did])
 
         return sorted(seen.values(), key=lambda x: x["fts_rank"], reverse=True)
 

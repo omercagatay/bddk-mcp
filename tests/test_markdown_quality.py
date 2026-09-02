@@ -8,6 +8,7 @@ from bddk_mcp.quality.markdown_quality import (
     QUALITY_FAILURES_PATH,
     assess_markdown_quality,
     load_quality_failure_registry,
+    prepare_markdown_for_storage,
     sanitize_markdown_for_context,
     sanitize_markdown_for_storage,
 )
@@ -82,6 +83,23 @@ def test_context_sanitizer_removes_unsafe_embedded_blobs_and_raw_html():
         assert tag not in out.lower()
     assert "[removed embedded image/formula artifact]" in out
     assert "Madde 9" in out
+
+
+def test_prepare_markdown_for_storage_keeps_clean_text_identity():
+    clean = "Madde 1 — Bankaların risk yönetimi."
+    assert prepare_markdown_for_storage(clean) is clean
+
+
+def test_prepare_markdown_for_storage_strips_cid_and_data_uri_without_other_sentinels():
+    raw = (
+        "MADDE 1 cid:image001.png@01D12345 metin.\n![](data:image/x-wmf;base64,AQAJAAADcgIAAAIAHAAAAAAABQAAAA==) devam."
+    )
+    out = prepare_markdown_for_storage(raw)
+
+    assert "cid:" not in out
+    assert "data:image/" not in out
+    assert "MADDE 1" in out
+    assert "devam." in out
 
 
 def test_storage_sanitizer_removes_cid_image_references():
