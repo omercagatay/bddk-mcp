@@ -51,7 +51,7 @@ from bddk_mcp.core.config import (
 )
 from bddk_mcp.core.utils import MEVZUAT_TUR_MAP
 from bddk_mcp.ocr.base import OCRBackend, get_default_backends, run_extraction_chain
-from bddk_mcp.quality.markdown_quality import sanitize_markdown_for_storage
+from bddk_mcp.quality.markdown_quality import prepare_markdown_for_storage
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
 
 if TYPE_CHECKING:
@@ -472,38 +472,11 @@ def _classify_bddk_document_response(response: _BoundedHttpResponse) -> str:
 def _sanitize_for_storage(text: str) -> str:
     """Strip storage-unsafe bytes and uniformly-observed extraction artifacts.
 
-    Every extraction path flows through here on the way to the document store,
-    so this is the one place all three fixes live:
-
-    - NUL (0x00): PG rejects it inside `text` columns, aborting the INSERT.
-      OCR backends occasionally emit one from malformed PDFs.
-
-    - Form-feed (0x0C, SYSTEMIC-3): PDF page-break byte left in markitdown
-      output. Visual noise, no semantic value.
-
-    - Đ → İ (U+0110 → U+0130, SYSTEMIC-1): markitdown's PDF path mis-decodes
-      Turkish capital İ as Đ on BDDK legacy PDFs with fonts that lack a
-      ToUnicode CMap. A blanket swap is unambiguous because Đ is Croatian /
-      Vietnamese and never appears in Turkish regulatory text — verified by
-      auditing every non-ASCII character in the stored corpus.
-
-    Fast path: return the input unchanged (same identity) when none of the
-    sentinels are present, so clean output doesn't allocate.
+    Every extraction path flows through here on the way to the document store.
+    DocumentStore.store_document applies the same prepare, so writers cannot
+    skip CID / data-URI stripping by avoiding this helper.
     """
-    if not text:
-        return text
-    if (
-        "\x00" not in text
-        and "\x0c" not in text
-        and "Đ" not in text
-        and "\u00a0" not in text
-        and "\u200b" not in text
-        and "****" not in text
-        and "__________" not in text
-    ):
-        return text
-    repaired = text.replace("\x00", "").replace("\x0c", "").replace("Đ", "İ")
-    return sanitize_markdown_for_storage(repaired)
+    return prepare_markdown_for_storage(text)
 
 
 def _extract_html_to_markdown(html: str) -> str:
@@ -988,7 +961,7 @@ class DocumentSyncer:
                 await self._vector_store.add_document(
                     doc_id=doc_id,
                     title=title or doc_id,
-                    content=markdown,
+                    content=doc.markdown_content,
                     category=category,
                     decision_date=decision_date,
                     decision_number=decision_number,

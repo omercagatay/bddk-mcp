@@ -70,6 +70,24 @@ async def test_store_and_retrieve(store, sample_doc):
     assert "sermaye yeterliliği" in doc.markdown_content.lower()
 
 
+async def test_store_document_sanitizes_cid_and_data_uri(store):
+    await store.store_document(
+        StoredDocument(
+            document_id="1291",
+            title="Kirli çıkarım",
+            markdown_content=(
+                "MADDE 1 cid:image001.png@01D12345 hukuki metin.\n"
+                "![](data:image/x-wmf;base64,AQAJAAADcgIAAAIAHAAAAAAABQAAAA==) devam."
+            ),
+        )
+    )
+    doc = await store.get_document("1291")
+    assert doc is not None
+    assert "cid:" not in doc.markdown_content
+    assert "data:image/" not in doc.markdown_content
+    assert "hukuki metin" in doc.markdown_content
+
+
 async def test_get_nonexistent(store):
     doc = await store.get_document("nonexistent")
     assert doc is None

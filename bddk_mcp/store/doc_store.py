@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 
 from bddk_mcp.core.config import FTS_RANK_THRESHOLD, PAGE_SIZE
 from bddk_mcp.corpus_coordination import acquire_corpus_mutation_lock
+from bddk_mcp.quality.markdown_quality import prepare_markdown_for_storage
 from bddk_mcp.regulatory.legal_versions import (
     AuthorityLevel,
     artifact_id_for,
@@ -293,6 +294,8 @@ class DocumentStore:
     async def store_document(self, doc: StoredDocument) -> None:
         """Atomically replace a document and its derived structural sections."""
         now = time.time()
+        if doc.markdown_content:
+            doc.markdown_content = prepare_markdown_for_storage(doc.markdown_content)
         content_hash = _content_hash(doc.markdown_content) if doc.markdown_content else ""
         total_pages = max(1, math.ceil(len(doc.markdown_content) / PAGE_SIZE)) if doc.markdown_content else 1
         sections = extract_document_sections(doc.document_id, doc.markdown_content) if doc.markdown_content else []

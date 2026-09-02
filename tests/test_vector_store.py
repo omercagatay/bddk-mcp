@@ -14,6 +14,8 @@ from bddk_mcp.store.vector_store import (
     VectorStore,
     _chunk_document,
     _chunk_text,
+    _document_quality_by_ids,
+    _quality_metadata,
 )
 
 # VectorStore integration tests require both PostgreSQL and the embedding model.
@@ -35,6 +37,7 @@ _VECTOR_TEST_IDS = {
     "test_1",
     "test_doc1",
     "test_long",
+    "quality_formula",
 }
 
 
@@ -48,19 +51,18 @@ async def _store_and_index(
     category: str = "",
     decision_date: str = "",
 ) -> int:
-    await DocumentStore(pool).store_document(
-        StoredDocument(
-            document_id=doc_id,
-            title=title,
-            markdown_content=content,
-            category=category,
-            decision_date=decision_date,
-        )
+    stored = StoredDocument(
+        document_id=doc_id,
+        title=title,
+        markdown_content=content,
+        category=category,
+        decision_date=decision_date,
     )
+    await DocumentStore(pool).store_document(stored)
     return await vector_store.add_document(
         doc_id=doc_id,
         title=title,
-        content=content,
+        content=stored.markdown_content,
         category=category,
         decision_date=decision_date,
     )
@@ -81,6 +83,38 @@ class WhitespaceTokenizer:
 
 def _token_count(text: str) -> int:
     return len(text.split())
+
+
+class TestQualityMetadata:
+    def test_quality_metadata_uses_full_document_not_matching_chunk(self):
+        matching_chunk = "Bankaların kredi işlemlerine ilişkin genel kurallar ve prosedürler."
+        full_document = matching_chunk + "\n\nBu metinde aşağıdaki formül kullanılır."
+
+        chunk_quality = _quality_metadata(matching_chunk, "quality_formula")
+        document_quality = _quality_metadata(full_document, "quality_formula")
+
+        assert chunk_quality["quality_label"] == "clean"
+        assert document_quality["quality_label"] == "warning"
+        assert "formula_ref_without_latex_or_image" in document_quality["quality_flags"]
+
+    @pytest.mark.asyncio
+    async def test_document_quality_by_ids_reads_full_stored_markdown(self, pg_pool):
+        matching_chunk = "Bankaların kredi işlemlerine ilişkin genel kurallar ve prosedürler."
+        await DocumentStore(pg_pool).store_document(
+            StoredDocument(
+                document_id="quality_formula",
+                title="Formül uyarısı belgesi",
+                markdown_content=matching_chunk + "\n\nBu metinde aşağıdaki formül kullanılır.",
+            )
+        )
+        try:
+            quality_by_id = await _document_quality_by_ids(pg_pool, ["quality_formula"])
+            quality = quality_by_id["quality_formula"]
+            assert quality["quality_label"] == "warning"
+            assert "formula_ref_without_latex_or_image" in quality["quality_flags"]
+            assert _quality_metadata(matching_chunk, "quality_formula")["quality_label"] == "clean"
+        finally:
+            await _clean_vector_test_documents(pg_pool)
 
 
 class TestChunkText:
@@ -747,3 +781,20 @@ class TestVectorStoreSearch:
         for h in hits:
             assert "relevance" in h
             assert 0 <= h["relevance"] <= 1
+
+    @pytest.mark.asyncio
+    async def test_search_quality_uses_full_document_markdown(self, populated_store, pg_pool):
+        matching_chunk = "Bankaların kredi işlemlerine ilişkin genel kurallar ve prosedürler. "
+        await _store_and_index(
+            populated_store,
+            pg_pool,
+            doc_id="quality_formula",
+            title="Formül uyarısı belgesi",
+            content=matching_chunk * 80 + "\n\nBu metinde aşağıdaki formül kullanılır.",
+            category="Genelge",
+        )
+        hits = await populated_store.search("kredi işlemleri", limit=10)
+        quality_hit = next(hit for hit in hits if hit["doc_id"] == "quality_formula")
+        assert quality_hit["quality_label"] == "warning"
+        assert "formula_ref_without_latex_or_image" in quality_hit["quality_flags"]
+        assert "aşağıdaki formül" not in quality_hit["snippet"]
