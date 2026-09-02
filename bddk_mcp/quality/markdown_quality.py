@@ -189,6 +189,38 @@ class QualityAssessment(BaseModel):
     warning: str = ""
 
 
+_STORAGE_PREPARE_MARKERS = (
+    "\x00",
+    "\x0c",
+    "Đ",
+    "\u00a0",
+    "\u200b",
+    "\u200c",
+    "\u200d",
+    "\ufeff",
+    "****",
+    "__________",
+    "----------",
+    "cid:",
+    "CID:",
+    "data:image",
+    "HakkındaYönetmeliğ",
+    "ilişkinYönetmelik",
+    "ConsistencyAssessment",
+    "StandartYaklaşım",
+)
+
+
+def prepare_markdown_for_storage(text: str) -> str:
+    """Apply ingest repairs plus storage sanitization, or return clean text unchanged."""
+    if not text:
+        return text
+    if not any(marker in text for marker in _STORAGE_PREPARE_MARKERS):
+        return text
+    repaired = text.replace("\x00", "").replace("\x0c", "").replace("Đ", "İ")
+    return sanitize_markdown_for_storage(repaired)
+
+
 def sanitize_markdown_for_storage(text: str) -> str:
     """Normalize storage-safe extraction artifacts while preserving legal text."""
     if not text:
