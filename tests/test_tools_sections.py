@@ -418,8 +418,30 @@ async def test_section_search_centres_a_bounded_excerpt_on_the_query():
     assert result.structuredContent["status"] == "partial"
     assert len(item["content"]) <= 2_000
     assert "eşsizhedef" in item["content"]
+    assert "eşsizhedef" in result.text
     assert item["content_truncated"] is True
     assert item["excerpt_start_char"] > 10
+
+
+@pytest.mark.asyncio
+async def test_search_visible_text_includes_a_limit_past_the_old_220_char_preview():
+    content = (
+        "MADDE 4- (1) Bankacılık hesaplarından kaynaklanan faiz oranı riski standart rasyosu, "
+        "ekonomik değer değişimi risk tutarının ana sermayeye bölünmesi suretiyle hesaplanır. "
+        "(2) Konsolide ve konsolide olmayan bankacılık hesaplarından kaynaklanan faiz oranı riski "
+        "standart rasyosu %15’i aşamaz. "
+        "(3) Katılma hesabı kaynaklı olanlar Kurulca belirlenecek oranda dikkate alınır."
+    )
+    assert len(" ".join(content.split())) > 220
+    section = _section("mevzuat_42628", "madde", "4", content)
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[])
+    doc_store.search_document_sections = AsyncMock(return_value=[section])
+    deps = Dependencies(pool=None, doc_store=doc_store, client=None, http=None)
+
+    out = await _capture_tool(deps, "search_document_sections")("faiz oranı riski aşamaz", limit=1)
+
+    assert "%15" in out
 
 
 @pytest.mark.asyncio

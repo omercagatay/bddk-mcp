@@ -262,6 +262,25 @@ async def test_search_document_sections(store):
     assert hits[0].section_ref == "9"
 
 
+async def test_search_document_sections_skips_nested_fikra_unless_requested(store):
+    text = "MADDE 9 - TFRS 9 karşılık\n(1) Bankalar karşılık ayırır.\n\nMADDE 10\nBaşka hüküm."
+    await store.store_document(StoredDocument(document_id="mevzuat_22599", title="Test", markdown_content=text))
+    await store.replace_document_sections(
+        "mevzuat_22599",
+        extract_document_sections("mevzuat_22599", text),
+        source_content_hash=hashlib.sha256(text.encode()).hexdigest(),
+    )
+
+    hits = await store.search_document_sections("karşılık ayırır", document_id="mevzuat_22599")
+    assert hits
+    assert all(hit.section_type != "fikra" for hit in hits)
+
+    fikra_hits = await store.search_document_sections(
+        "karşılık ayırır", document_id="mevzuat_22599", section_type="fikra"
+    )
+    assert any(hit.section_type == "fikra" for hit in fikra_hits)
+
+
 async def test_upsert(store, sample_doc):
     await store.store_document(sample_doc)
     updated = sample_doc.model_copy(update={"title": "Güncellenmiş Başlık"})

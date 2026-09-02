@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 # Bump whenever heading recognition, span construction, subsection handling,
 # truncation, or section-content hashing changes.  Persisted chunk metadata is
 # bound to this value by the vector retrieval profile.
-SECTION_PARSER_PROFILE_VERSION = "turkish-regulatory-sections-v5"
-SECTION_SEARCH_PROFILE_VERSION = "document-section-simple-fts-length-normalized-v2"
+SECTION_PARSER_PROFILE_VERSION = "turkish-regulatory-sections-v6"
+SECTION_SEARCH_PROFILE_VERSION = "document-section-simple-fts-length-normalized-v3"
 
 # Hard upper bound for a single section's span. Legitimate maddeler are a few
 # thousand chars; spans beyond this are parser artifacts (typically trailing EK
@@ -145,7 +145,7 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
             # sequence check, and a top-level outline span routinely exceeds
             # the cap while its dotted children remain genuine.
             continue
-        end_char = _section_end_char(matches, index, len(text))
+        end_char = _trim_trailing_heading_leak(text, start["start_char"], _section_end_char(matches, index, len(text)))
         truncated_from = None
         if end_char - start["start_char"] > MAX_SECTION_CHARS:
             truncated_from = end_char - start["start_char"]
@@ -309,6 +309,38 @@ def _section_end_char(matches: list[dict], index: int, text_len: int) -> int:
         if later["level"] <= current_level:
             return later["start_char"]
     return text_len
+
+
+# Next-article titles and PDF wrap debris sit after the last sentence and before
+# the following MADDE heading, so they would otherwise be stored as this section.
+_LEAKED_TITLE_MAX_WORDS = 12
+_LEAKED_FRAGMENT_MAX_WORDS = 3
+_SENTENCE_END_RE = re.compile(r"[.!?…]$")
+
+
+def _is_leaked_trailing_line(line: str) -> bool:
+    if line.startswith("(") or _SENTENCE_END_RE.search(line):
+        return False
+    words = line.split()
+    if not words or not any(ch.isalpha() for ch in line):
+        return True
+    if len(words) <= _LEAKED_FRAGMENT_MAX_WORDS:
+        return True
+    return len(words) <= _LEAKED_TITLE_MAX_WORDS and words[0][:1].isupper()
+
+
+def _trim_trailing_heading_leak(text: str, start_char: int, end_char: int) -> int:
+    lines = text[start_char:end_char].splitlines(keepends=True)
+    last_keep = len(lines)
+    while last_keep > 0:
+        stripped = lines[last_keep - 1].strip()
+        if not stripped or _is_leaked_trailing_line(stripped):
+            last_keep -= 1
+            continue
+        break
+    if last_keep <= 0 or last_keep == len(lines):
+        return end_char
+    return start_char + sum(len(line) for line in lines[:last_keep])
 
 
 def _parse_major_heading(line: str) -> dict | None:

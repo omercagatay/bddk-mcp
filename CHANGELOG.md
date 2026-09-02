@@ -29,6 +29,18 @@ Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızd
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Düzeltildi — section search kesikleri ve sızan madde başlıkları
+
+- `search_document_sections` artık 220 karakterlik baştan kesik önizleme yerine
+  sorguya hizalı 2000 karakterlik alıntıyı metin olarak döndürür; limit rakamları
+  (`%15` vb.) kesilmez.
+- Filtresiz section araması iç içe `fikra`/`bent` satırlarını atlar; tam madde
+  metni öne çıkar. `section_type=fikra` hâlâ çalışır.
+- Section parser `turkish-regulatory-sections-v6`: sonraki maddenin kısa başlığı
+  ve PDF satır artıkları önceki maddenin gövdesinden budanır. Mevcut
+  `document_sections` satırları için `scripts/reindex_document_sections.py --execute`
+  gerekir (`bootstrap --reindex-existing` vektörde zaten olan belgeleri atlar).
+
 Bu bölüm `main` üzerindeki `5684a34` tabanından başlayıp
 `codex/roadmap-v5.0.1` dalında commitlenmiş çalışmaları, 16 Temmuz 2026 tarihli
 şema-v8 kod doğrulama noktası `7cd6242` ve operasyon/recovery belge noktası

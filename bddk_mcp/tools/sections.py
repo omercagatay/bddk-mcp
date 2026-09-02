@@ -361,7 +361,10 @@ def _format_section(
 
 
 def _section_preview(section: StoredDocumentSection, *, length: int = 220) -> str:
-    return " ".join(section.content.split())[:length]
+    text = " ".join(section.content.split())
+    if len(text) <= length:
+        return text
+    return text[:length].rsplit(" ", 1)[0]
 
 
 def _section_key(section: StoredDocumentSection) -> tuple[str, str, str, str]:
@@ -713,9 +716,11 @@ def register(mcp, deps: Dependencies) -> None:
                 # relevance gate in the server instructions (store search).
                 lines.append(f"  Match rank: {hit.rank:.4f} (relative, FTS)")
             lines.extend(_quality_lines(_section_quality(hit), prefix="  "))
-            preview = _section_preview(hit)
-            if preview:
-                lines.append(f"  ...{preview}...")
+            excerpt, truncated, _, _ = _section_excerpt(hit, max_chars=_MAX_SEARCH_EXCERPT_CHARS, query=query)
+            if excerpt:
+                lines.append(excerpt)
+                if truncated:
+                    lines.append("  [excerpt truncated — call get_document_section for the full section]")
             lines.append("")
         if expand_references and deps.pool is not None:
             expanded_blocks: list[str] = []
