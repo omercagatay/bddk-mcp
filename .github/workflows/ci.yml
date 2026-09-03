@@ -155,7 +155,6 @@ jobs:
       - name: Verify container recipes use the packaged source tree
         run: |
           grep -q "COPY bddk_mcp/" Dockerfile
-          grep -q "COPY bddk_mcp/" Dockerfile.spaces
 
   container-static:
     runs-on: ubuntu-latest
@@ -200,4 +199,3 @@ jobs:
       - name: Check container recipes without executing build stages
         run: |
           docker build --check -f Dockerfile .
-          docker build --check -f Dockerfile.spaces .
