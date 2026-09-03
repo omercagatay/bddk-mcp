@@ -611,7 +611,7 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
 
         low_count = sum(1 for h in hits if h.get("relevance", 0) < 0.50)
         if low_count > 0:
-            metrics.record_weak_match_hit()
+            metrics.record_low_confidence_hit()
             lines.append(
                 f"\nWARNING: {low_count} result(s) are weak matches. They may not be directly relevant. Verify before citing."
             )

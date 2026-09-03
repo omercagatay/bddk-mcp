@@ -68,6 +68,8 @@ for line in proc.stdout.splitlines():
         continue
     did, tp = line.split("|", 1)
     doc_pages.append((did, int(tp)))
+if "--first-page-only" in sys.argv:
+    doc_pages = [(did, 1) for did, _ in doc_pages]
 total_calls = sum(tp for _, tp in doc_pages)
 print(f"Docs: {len(doc_pages)}   total pages: {total_calls}")
 

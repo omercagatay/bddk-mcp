@@ -11,7 +11,6 @@ import pytest
 
 from bddk_mcp.jobs import (
     IdempotencyConflictError,
-    InMemoryJobRepository,
     JobExecutionError,
     JobKind,
     JobManagerDrainingError,
@@ -23,6 +22,7 @@ from bddk_mcp.jobs import (
     fingerprint_arguments,
 )
 from bddk_mcp.jobs.models import digest_idempotency_key
+from tests.in_memory_job_repository import InMemoryJobRepository
 
 
 async def _wait_for_state(

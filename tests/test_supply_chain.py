@@ -299,11 +299,11 @@ def test_embedding_model_manifest_matches_runtime_and_container_recipes(tmp_path
     result = validate_embedding_model_materials(
         SUPPLY_CHAIN / "model-assets.json",
         ROOT / "bddk_mcp" / "core" / "config.py",
-        [ROOT / "Dockerfile", ROOT / "Dockerfile.spaces"],
+        [ROOT / "Dockerfile"],
     )
     assert result["model_name"] == "intfloat/multilingual-e5-base"
     assert result["revision"] == "d13f1b27baf31030b7fd040960d60d909913633f"
-    assert [record["path"] for record in result["container_recipes"]] == ["Dockerfile", "Dockerfile.spaces"]
+    assert [record["path"] for record in result["container_recipes"]] == ["Dockerfile"]
 
     changed = tmp_path / "Dockerfile"
     changed.write_text(
@@ -844,7 +844,8 @@ def test_workflow_is_isolated_immutable_pinned_and_does_not_claim_signing():
     action_refs = re.findall(r"^\s*uses:\s*[^@\s]+@([^\s#]+)", workflow_text, flags=re.MULTILINE)
     assert action_refs
     assert all(re.fullmatch(r"[0-9a-f]{40}", reference) for reference in action_refs)
-    assert "Dockerfile" in workflow_text and "Dockerfile.spaces" in workflow_text
+    assert "Dockerfile" in workflow_text
+    assert "Dockerfile.spaces" not in workflow_text
     assert "--provenance=false" in workflow_text
     assert "--load" in workflow_text
     assert "BUILDX_METADATA_PROVENANCE" not in workflow_text
@@ -861,7 +862,7 @@ def test_workflow_is_isolated_immutable_pinned_and_does_not_claim_signing():
     assert "evaluate-policy" in workflow_text
     assert "enforce-policy" in workflow_text
     assert workflow_text.count("--target-material standard.grype.json=Dockerfile") == 2
-    assert workflow_text.count("--target-material spaces.grype.json=Dockerfile.spaces") == 2
+    assert "spaces.grype.json" not in workflow_text
     assert "actions/download-artifact@" in workflow_text
     assert "cmp artifacts/policy.json supply-chain/policy.json" in workflow_text
     assert "external_approval_required" in workflow_text

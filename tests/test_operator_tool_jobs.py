@@ -13,8 +13,9 @@ from mcp.shared.memory import create_connected_server_and_client_session
 
 from bddk_mcp.core.deps import Dependencies
 from bddk_mcp.ingest.backfill import BackfillCandidate, BackfillOutcome, BackfillReport
-from bddk_mcp.jobs import InMemoryJobRepository, JobOutcome, JobState, OperatorJobManager
+from bddk_mcp.jobs import JobOutcome, JobState, OperatorJobManager
 from bddk_mcp.tools import admin, sync
+from tests.in_memory_job_repository import InMemoryJobRepository
 
 
 def _deps(*, client=None, pool=None, doc_store=None, with_manager: bool = True) -> Dependencies:

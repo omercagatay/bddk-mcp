@@ -337,7 +337,6 @@ async def test_create_deps_uses_only_read_only_runtime_initialization():
     create_pool = AsyncMock(return_value=pool)
 
     with (
-        patch.object(server_module, "AUTO_SYNC", False),
         patch.object(server_module, "require_database_url", return_value="postgresql://test"),
         patch.object(server_module.httpx, "AsyncClient", return_value=http),
         patch.object(server_module.asyncpg, "create_pool", new=create_pool),
@@ -459,7 +458,6 @@ async def test_enabled_telemetry_uses_separate_verified_pool():
     verify_telemetry = AsyncMock()
 
     with (
-        patch.object(server_module, "AUTO_SYNC", False),
         patch.object(server_module, "TELEMETRY_ENABLED", True),
         patch.object(server_module, "require_database_url", return_value="postgresql://public-reader"),
         patch.object(
@@ -511,7 +509,6 @@ async def test_operator_runtime_gets_separate_dsn_and_job_manager():
     identity_readiness = AsyncMock()
 
     with (
-        patch.object(server_module, "AUTO_SYNC", False),
         patch.object(server_module, "require_database_url", return_value="postgresql://operator") as require_dsn,
         patch.object(server_module.httpx, "AsyncClient", return_value=http),
         patch.object(server_module.asyncpg, "create_pool", new=AsyncMock(return_value=pool)),
@@ -569,7 +566,7 @@ async def test_create_deps_rejects_legacy_auto_sync_before_opening_resources():
     import bddk_mcp.server as server_module
 
     with (
-        patch.object(server_module, "AUTO_SYNC", True),
+        patch.dict("os.environ", {"BDDK_AUTO_SYNC": "true"}, clear=False),
         patch.object(server_module.httpx, "AsyncClient") as http_type,
         pytest.raises(RuntimeError, match="not allowed in serving mode"),
     ):

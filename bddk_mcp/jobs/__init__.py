@@ -1,9 +1,4 @@
-"""Durable-ready operator job primitives.
-
-The package deliberately has no dependency on MCP tools or the server
-lifecycle.  Tool and deployment adapters can therefore share the same job
-contracts while choosing an in-memory or PostgreSQL-backed repository.
-"""
+"""Durable operator job primitives. Production persistence is PostgreSQL."""
 
 from bddk_mcp.jobs.manager import (
     IdempotencyConflictError,
@@ -33,12 +28,11 @@ from bddk_mcp.jobs.postgres import (
     assert_operator_job_schema_ready,
     inspect_operator_job_schema,
 )
-from bddk_mcp.jobs.repository import InMemoryJobRepository, JobExecutionLease, JobRepository
+from bddk_mcp.jobs.repository import JobExecutionLease, JobRepository
 
 __all__ = (
     "DrainReport",
     "IdempotencyConflictError",
-    "InMemoryJobRepository",
     "JobContext",
     "JobExecutionError",
     "JobExecutionLease",

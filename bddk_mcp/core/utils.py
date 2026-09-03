@@ -1,6 +1,6 @@
 """Shared utilities for BDDK MCP Server.
 
-Common constants and helper functions used across client.py and doc_sync.py.
+Shared HTTP retry helpers.
 """
 
 import asyncio
@@ -12,18 +12,6 @@ import httpx
 from bddk_mcp.core.config import MAX_RETRIES
 
 logger = logging.getLogger(__name__)
-
-
-# mevzuat.gov.tr MevzuatTur to path segment mapping
-MEVZUAT_TUR_MAP: dict[str, str] = {
-    "1": "kanun",
-    "2": "kanunhukmundekararname",
-    "4": "cumhurbaskanligikararnamesi",
-    "5": "tuzuk",
-    "7": "yonetmelik",
-    "9": "teblig",
-    "11": "cumhurbaskanligikararnamesi",
-}
 
 
 async def request_with_retry(

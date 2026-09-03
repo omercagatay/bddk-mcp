@@ -526,4 +526,4 @@ The alternate Dockerfile is not self-contained: it omits seed data and assumes a
 - replica-local user-visible state;
 - unconnected metrics and unsafe default text logging.
 
-The target architecture and an incremental migration path are defined in [TARGET_ARCHITECTURE.md](TARGET_ARCHITECTURE.md).
+Current repository facts are in [STATUS.md](STATUS.md).

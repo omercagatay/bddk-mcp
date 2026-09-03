@@ -29,6 +29,13 @@ Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızd
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Kaldırıldı — kullanılmayan ağırlık
+
+- `uvloop` ve doğrudan `pillow` bağımlılıkları; Hugging Face Spaces Dockerfile'ı;
+  tarihli `TARGET_ARCHITECTURE` / `REPOSITORY_REVIEW` / `EXECUTIVE_SUMMARY`
+  örtüleri; üretim paketinden `InMemoryJobRepository`; `BddkVectorStoreError`.
+- `BDDK_AUTO_SYNC` artık yapılandırma sabiti değil; `true` serving'de hâlâ reddedilir.
+
 ### Düzeltildi — section search kesikleri ve sızan madde başlıkları
 
 - `search_document_sections` artık 220 karakterlik baştan kesik önizleme yerine
