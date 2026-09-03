@@ -696,6 +696,10 @@ class DocumentStore:
         if section_type:
             params.append(section_type)
             where.append(f"section.section_type = ${len(params)}")
+        else:
+            # Nested fıkra/bent rows duplicate a parent madde; PDF wraps turn
+            # them into fragments that outrank the article that holds the limit.
+            where.append("section.section_type NOT IN ('fikra', 'bent')")
         params.append(limit)
 
         rows = await self._pool.fetch(

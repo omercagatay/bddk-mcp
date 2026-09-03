@@ -473,3 +473,42 @@ def test_numbered_dotted_children_survive_a_capped_parent():
     assert "2.1" in refs
     p2 = next(s for s in sections if s.section_ref == "2")
     assert p2.end_char - p2.start_char <= MAX_SECTION_CHARS
+
+
+def test_trailing_next_article_title_is_not_stored_on_the_previous_madde():
+    text = (
+        "Madde 69 - İyileştirici önlemler\n"
+        "(1) Tedbirlerin alınmasını ister.\n\n"
+        "Kısıtlayıcı önlemler\n\n"
+        "Madde 70 - Kısıtlayıcı\n"
+        "(1) Kredi kullandırımını yasaklar.\n"
+    )
+
+    sections = extract_document_sections("mevzuat_5411", text)
+
+    madde69 = next(s for s in sections if s.section_type == "madde" and s.section_ref == "69")
+    assert "Tedbirlerin alınmasını ister." in madde69.content
+    assert "Kısıtlayıcı önlemler" not in madde69.content
+    assert "Madde 70" not in madde69.content
+
+
+def test_pdf_wrap_debris_after_last_fikra_is_trimmed():
+    text = (
+        "MADDE 4- (1) Rasyo, ekonomik değer değişimi risk tutarının ana sermayeye "
+        "bölünmesi suretiyle hesaplanır.\n\n"
+        "(2) Konsolide ve konsolide olmayan rasyo %15’i aşamaz.\n\n"
+        "(3) Katılma hesabı kaynaklı olanlar Kurulca belirlenecek oranda dikkate alınır.\n\n"
+        "faiz  oranı\n\n"
+        "standart\n\n"
+        "riski\n\n"
+        "Standart yaklaşım uyarınca ekonomik değer değişimi hesaplamasına ilişkin genel hükümler\n\n"
+        "MADDE 5- (1) Faize duyarlı pozisyonlar dikkate alınır.\n"
+    )
+
+    sections = extract_document_sections("mevzuat_42628", text)
+
+    madde4 = next(s for s in sections if s.section_type == "madde" and s.section_ref == "4")
+    assert "%15" in madde4.content
+    assert "dikkate alınır." in madde4.content
+    assert "Standart yaklaşım" not in madde4.content
+    assert "riski" not in madde4.content.split("alınır.")[-1]
