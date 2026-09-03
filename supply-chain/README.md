@@ -17,11 +17,11 @@ For every pull request, `main` push, release tag, or manual run, the workflow:
 4. builds the wheel and sdist twice with the source commit time as
    `SOURCE_DATE_EPOCH`, canonicalizes setuptools' generated sdist tar/gzip
    metadata, and rejects any byte or filename difference;
-5. builds and locally loads both `Dockerfile` and `Dockerfile.spaces`, recording
+5. builds and locally loads `Dockerfile`, recording
    Buildx's exact manifest digest, config digest, descriptor, image name, and
-   target platform metadata; before either build, a closed consistency check
+   target platform metadata; before the build, a closed consistency check
    requires the declared embedding-model repository and Git commit to match
-   both recipes and the runtime default configuration;
+   the recipe and the runtime default configuration;
 6. inspects each loaded image by immutable config ID, requires that ID in the
    raw Syft SBOM, verifies the Buildx descriptor against its manifest digest,
    and emits a CycloneDX JSON SBOM plus unsigned in-toto/SLSA v1 envelope;
@@ -62,9 +62,8 @@ requires its complete file set, sizes, and SHA-256 values to match the embedded
 manifest exactly, and re-evaluates it with `enforce-policy`. Unlike the
 pull-request gate, it fails on every unexcepted
 High/Critical vulnerability as well as every secret or evidence-integrity
-violation. The two container reports are bound to the SHA-256 of their exact
-recipe material: `standard.grype.json` to `Dockerfile` and
-`spaces.grype.json` to `Dockerfile.spaces`.
+violation. The container report is bound to the SHA-256 of its exact recipe material:
+`standard.grype.json` to `Dockerfile`.
 
 The repository release job also fails whenever the result says
 `external_approval_required=true`. It has no bank signing identity and no

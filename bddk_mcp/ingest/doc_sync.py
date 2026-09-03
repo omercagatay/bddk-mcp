@@ -49,7 +49,7 @@ from bddk_mcp.core.config import (
     PREFER_HTML_FOR_MEVZUAT,
     REQUEST_TIMEOUT,
 )
-from bddk_mcp.core.utils import MEVZUAT_TUR_MAP
+from bddk_mcp.ingest.client import MEVZUAT_TUR_MAP
 from bddk_mcp.ocr.base import OCRBackend, get_default_backends, run_extraction_chain
 from bddk_mcp.quality.markdown_quality import prepare_markdown_for_storage
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument

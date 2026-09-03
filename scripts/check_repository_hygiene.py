@@ -44,7 +44,6 @@ ALLOWED_TOP_LEVEL = {
     "CLAUDE.md",
     "CONTRIBUTING.md",
     "Dockerfile",
-    "Dockerfile.spaces",
     "LICENSE",
     "MANIFEST.in",
     "Procfile",

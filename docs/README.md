@@ -14,9 +14,7 @@ This index is the canonical map of BDDK MCP documentation. Documents are grouped
 
 ## Architecture and direction
 
-- [Executive summary](EXECUTIVE_SUMMARY.md) — dated maturity assessment and implementation overlays.
 - [Architecture](ARCHITECTURE.md) — component design and dated implementation checkpoints.
-- [Target architecture](TARGET_ARCHITECTURE.md) — desired end state and acceptance invariants.
 - [Roadmap](ROADMAP.md) — planned work, historical checkpoints, and sequencing.
 - [Gap register](GAP_REGISTER.md) — dated open risks, missing evidence, and ownership boundaries.
 
@@ -42,7 +40,6 @@ Deployment-specific guides:
 
 These files are dated snapshots or records. Their findings do not override newer code or the current guidance above.
 
-- [Repository review](REPOSITORY_REVIEW.md) — 2026 review plus implementation overlays.
 - [Security review](SECURITY_REVIEW.md) — threat review and residual-risk record.
 - [`decisions/`](decisions/) — architecture decisions and versioned policy contracts.
 - [`evidence/`](evidence/) — retained local test and recovery evidence; not production acceptance.

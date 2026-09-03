@@ -11,7 +11,3 @@ class BddkUpstreamError(BddkError):
 
 class BddkStorageError(BddkError):
     """Error during PostgreSQL storage operations."""
-
-
-class BddkVectorStoreError(BddkStorageError):
-    """Error specific to pgvector operations."""

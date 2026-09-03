@@ -404,7 +404,6 @@ def require_telemetry_database_url() -> str:
 
 # -- Sync ---------------------------------------------------------------------
 
-AUTO_SYNC = _environment_bool("BDDK_AUTO_SYNC", default=False)
 SYNC_CONCURRENCY = _environment_int("BDDK_SYNC_CONCURRENCY", default=5, minimum=1, maximum=100)
 OPERATOR_JOB_DRAIN_TIMEOUT = _environment_float(
     "BDDK_OPERATOR_JOB_DRAIN_TIMEOUT",

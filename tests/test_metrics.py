@@ -3,10 +3,10 @@ from concurrent.futures import ThreadPoolExecutor
 from bddk_mcp.observability.metrics import Metrics
 
 
-def test_record_weak_match_hit_preserves_existing_summary_key():
+def test_record_low_confidence_hit_preserves_existing_summary_key():
     metrics = Metrics()
 
-    metrics.record_weak_match_hit()
+    metrics.record_low_confidence_hit()
 
     assert metrics.summary()["low_confidence_hits"] == 1
 

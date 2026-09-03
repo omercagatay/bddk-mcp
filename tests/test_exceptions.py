@@ -5,11 +5,7 @@ import logging
 
 import pytest
 
-from bddk_mcp.core.exceptions import (
-    BddkError,
-    BddkStorageError,
-    BddkVectorStoreError,
-)
+from bddk_mcp.core.exceptions import BddkError, BddkStorageError
 from bddk_mcp.core.logging_config import (
     HumanFormatter,
     JsonFormatter,
@@ -27,10 +23,6 @@ class TestExceptionHierarchy:
 
     def test_storage_error_is_bddk_error(self):
         assert issubclass(BddkStorageError, BddkError)
-
-    def test_vector_store_error_is_storage_error(self):
-        assert issubclass(BddkVectorStoreError, BddkStorageError)
-        assert issubclass(BddkVectorStoreError, BddkError)
 
     def test_catch_specific_as_base(self):
         try:

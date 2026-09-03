@@ -35,12 +35,21 @@ from bddk_mcp.core.outbound_http import (
     assert_public_https_resolution,
     bounded_request_with_retry,
 )
-from bddk_mcp.core.utils import MEVZUAT_TUR_MAP
 from bddk_mcp.corpus_coordination import acquire_corpus_mutation_lock
 from bddk_mcp.store.bulk_write import upsert_decision_cache_rows
 from bddk_mcp.store.doc_store import DocumentStore
 
 logger = logging.getLogger(__name__)
+
+MEVZUAT_TUR_MAP: dict[str, str] = {
+    "1": "kanun",
+    "2": "kanunhukmundekararname",
+    "4": "cumhurbaskanligikararnamesi",
+    "5": "tuzuk",
+    "7": "yonetmelik",
+    "9": "teblig",
+    "11": "cumhurbaskanligikararnamesi",
+}
 
 _DOCUMENT_URL_TEMPLATE = "https://www.bddk.org.tr/Mevzuat/DokumanGetir/{document_id}"
 _BDDK_BASE_URL = "https://www.bddk.org.tr"

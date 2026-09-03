@@ -27,7 +27,7 @@ The root is reserved for project entry points and tools that conventionally live
 | `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md`, `LICENSE` | Repository governance and release history. |
 | `pyproject.toml`, `uv.lock`, `MANIFEST.in` | Python metadata, dependency lock, and distribution policy. |
 | `server.py`, `seed.py` | Compatibility shims; implementation belongs under `bddk_mcp/`. |
-| `Dockerfile`, `Dockerfile.spaces`, `docker-compose.yml` | Container builds and the disposable local lifecycle. |
+| `Dockerfile`, `docker-compose.yml` | Container builds and the disposable local lifecycle. |
 | `railway.toml`, `Procfile` | Hosted deployment entry points. |
 | `.env.example`, `.mcp.json` | Sanitized local configuration examples. |
 

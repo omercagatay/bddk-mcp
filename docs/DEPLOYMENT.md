@@ -664,10 +664,10 @@ OpenShift rotates service-serving certificates by updating the generated Secret.
 non-loopback HTTP policy. The `/app/data` volume does not back up an external
 PostgreSQL database.
 
-`Dockerfile.spaces` uses port `7860` and includes the reviewed seed corpus, but
-the database must be bootstrapped separately. It requires the same secure
-database transport, non-loopback HTTP and JWT policies. Neither target supplies
-bank-specific identity or global ingress controls by itself.
+There is no separate Spaces image. Preview hosts that need port `7860` should
+set `PORT` on the standard image. The database must be bootstrapped separately.
+Neither Railway nor a preview host supplies bank-specific identity or global
+ingress controls by itself.
 
 ## Secrets and Logs
 

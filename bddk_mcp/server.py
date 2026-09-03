@@ -19,7 +19,6 @@ from starlette.responses import JSONResponse
 
 from bddk_mcp import __version__
 from bddk_mcp.core.config import (
-    AUTO_SYNC,
     HTTP_CONNECT_TIMEOUT,
     HTTP_POOL_TIMEOUT,
     OPERATOR_JOB_DRAIN_TIMEOUT,
@@ -180,10 +179,10 @@ def _validate_profile_http_policy(config: HttpSecurityConfig, profile: ToolProfi
 
 async def create_deps(profile: ToolProfile = ToolProfile.PUBLIC) -> Dependencies:
     """Create serving dependencies without schema, seed, or index writes."""
-    if AUTO_SYNC:
+    if os.environ.get("BDDK_AUTO_SYNC", "false").strip().lower() in {"1", "true", "yes"}:
         raise RuntimeError(
             "BDDK_AUTO_SYNC is not allowed in serving mode. Use an explicit operator workflow, "
-            "then start `bddk-mcp serve` with BDDK_AUTO_SYNC=false."
+            "then start `bddk-mcp serve`."
         )
     if OPERATOR_JOB_HISTORY < 1:
         raise RuntimeError("BDDK_OPERATOR_JOB_HISTORY must be a positive integer")
@@ -699,20 +698,12 @@ def main() -> None:
     # The importable `mcp` objects must not mutate a host application's root
     # logger. Packaged process entry points own logging configuration instead.
     configure_logging()
-    try:
-        import uvloop
-
-        uvloop.install()
-        logger.info("uvloop installed")
-    except ImportError:
-        pass
 
     _transport = _runtime_transport()
     profile = configured_tool_profile()
     selected_mcp = mcp if profile is ToolProfile.PUBLIC else operator_mcp
     logger.info("Transport: %s", _transport)
     logger.info("Tool profile: %s", profile.value)
-    logger.info("Automatic startup synchronization enabled: %s", AUTO_SYNC)
     logger.info("Database configuration is validated during profile startup")
 
     if _transport == "streamable-http":

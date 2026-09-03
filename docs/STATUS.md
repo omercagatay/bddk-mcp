@@ -27,7 +27,7 @@ The tool counts are derived from `bddk_mcp/tools/registry.py`; schema version is
 - Protected `main` with required lint, Python, PostgreSQL, packaging, container, and supply-chain checks.
 - Fail-closed remote HTTP configuration and separate database lifecycle roles.
 - Signed, governed offline corpus artifacts with staged verifier/publisher activation.
-- Structured deployment assets for local Compose, PostgreSQL, OpenShift, Open WebUI, Railway, and Hugging Face Spaces.
+- Structured deployment assets for local Compose, PostgreSQL, OpenShift, and Open WebUI; Railway remains a development/preview profile outside the bank path.
 - Broad automated coverage across runtime, migrations, retrieval, deployment, recovery, and supply-chain policy.
 
 ## What is not established
@@ -39,7 +39,7 @@ The tool counts are derived from `bddk_mcp/tools/registry.py`; schema version is
 - Named client/model certification, approved expert judgments, or audit-grade product scores.
 - Generation-bound serving and an authorized retained-generation rollback workflow.
 
-See the [gap register](GAP_REGISTER.md), [target architecture](TARGET_ARCHITECTURE.md), and [deployment guide](DEPLOYMENT.md) for the detailed boundaries.
+See the [gap register](GAP_REGISTER.md), [architecture](ARCHITECTURE.md), and [deployment guide](DEPLOYMENT.md) for the detailed boundaries.
 
 ## Maintenance policy
 

@@ -46,10 +46,6 @@ class Metrics:
         with self._lock:
             self._low_confidence_hits += 1
 
-    def record_weak_match_hit(self) -> None:
-        with self._lock:
-            self._low_confidence_hits += 1
-
     def summary(self) -> dict:
         """Return a summary of all metrics."""
         with self._lock:

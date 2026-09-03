@@ -13,9 +13,10 @@ from mcp.shared.memory import create_connected_server_and_client_session
 from bddk_mcp.core.deps import Dependencies
 from bddk_mcp.core.exceptions import BddkStorageError
 from bddk_mcp.corpus_publication import CorpusPublicationError, CorpusReleaseIdentity
-from bddk_mcp.jobs import InMemoryJobRepository, OperatorJobManager
+from bddk_mcp.jobs import OperatorJobManager
 from bddk_mcp.tools.registry import LOCAL_CORPUS_PUBLIC_TOOL_NAMES, ToolProfile
 from bddk_mcp.tools.search import _search_cache
+from tests.in_memory_job_repository import InMemoryJobRepository
 
 
 def _release(fill: str) -> CorpusReleaseIdentity:

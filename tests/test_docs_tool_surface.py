@@ -9,10 +9,7 @@ from bddk_mcp.tools.registry import OPERATOR_TOOL_NAMES, PUBLIC_TOOL_NAMES
 ROOT = Path(__file__).resolve().parents[1]
 
 REVIEW_DOCUMENTS = (
-    "docs/EXECUTIVE_SUMMARY.md",
-    "docs/REPOSITORY_REVIEW.md",
     "docs/ARCHITECTURE.md",
-    "docs/TARGET_ARCHITECTURE.md",
     "docs/ROADMAP.md",
     "docs/GAP_REGISTER.md",
     "docs/TESTING_AND_EVALUATION_STRATEGY.md",
@@ -85,7 +82,7 @@ def test_project_mcp_config_is_portable_and_uses_packaged_entry_point():
 
 
 def test_container_and_deployment_docs_use_packaged_entry_point():
-    for path in ("Dockerfile", "Dockerfile.spaces", "Procfile"):
+    for path in ("Dockerfile", "Procfile"):
         content = _read(path)
         assert "bddk-mcp" in content
         assert "python server.py" not in content

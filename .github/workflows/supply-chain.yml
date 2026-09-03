@@ -179,14 +179,9 @@ jobs:
             --manifest supply-chain/model-assets.json \
             --runtime-config bddk_mcp/core/config.py \
             --dockerfile Dockerfile \
-            --dockerfile Dockerfile.spaces \
             --output artifacts/model-material-consistency.json
-          for variant in standard spaces; do
-            if [[ "$variant" == standard ]]; then
-              dockerfile=Dockerfile
-            else
-              dockerfile=Dockerfile.spaces
-            fi
+          for variant in standard; do
+            dockerfile=Dockerfile
             raw_sbom="$RUNNER_TEMP/${variant}.raw.cdx.json"
             local_reference="bddk-mcp-${variant}:ci-${GITHUB_SHA}"
             image_inspect="$RUNNER_TEMP/${variant}.image-inspect.json"
@@ -275,7 +270,6 @@ jobs:
             --gitleaks-report artifacts/secrets/gitleaks.json \
             --evaluation-time "$evaluation_time" \
             --target-material standard.grype.json=Dockerfile \
-            --target-material spaces.grype.json=Dockerfile.spaces \
             --output artifacts/integrity-policy-result.json
 
       - name: Record tool versions and hash the complete evidence set
@@ -370,7 +364,6 @@ jobs:
             --gitleaks-report artifacts/secrets/gitleaks.json \
             --evaluation-time "$evaluation_time" \
             --target-material standard.grype.json=Dockerfile \
-            --target-material spaces.grype.json=Dockerfile.spaces \
             --output artifacts/release-policy-result.json
 
       - name: Reject pending external approvals
