@@ -63,6 +63,10 @@ _SECTION_TRUNCATION_WARNING = (
     "One or more section bodies were returned as bounded excerpts. Use an exact document/section reference "
     "or paginated full-document retrieval before relying on omitted text."
 )
+_GOVDE_WARNING = (
+    "One or more hits are govde remainder (unparsed body/footnote text), not madde/ilke/paragraf identities. "
+    "Do not cite them as a legal provision."
+)
 _CITATION_UNAVAILABLE_NO_MAPPING = (
     "[citation_v1_unavailable_no_validated_mapping] Citation v1 was not emitted: this section has no "
     "validated authoritative, non-fixture legal-version occurrence mapping."
@@ -323,6 +327,8 @@ def _section_warnings(
     warnings = [UNTRUSTED_SOURCE_WARNING, *quality_warnings] if sections else quality_warnings
     if content_truncated:
         warnings.append(_SECTION_TRUNCATION_WARNING)
+    if any(section.section_type == "govde" for section in sections):
+        warnings.append(_GOVDE_WARNING)
     return warnings
 
 
@@ -708,6 +714,8 @@ def register(mcp, deps: Dependencies) -> None:
             lines.append(f"**{hit.doc_id} — {hit.section_type} {hit.section_ref}{heading}**")
             lines.append(f"  Document ID: {hit.doc_id}")
             lines.append(f"  Section: {hit.section_type} {hit.section_ref}")
+            if hit.section_type == "govde":
+                lines.append("  Note: govde remainder — not a legal provision identity")
             lines.append(
                 f"  Normalized Markdown code-point range: [{hit.start_char}, {hit.end_char}); not source PDF pages"
             )

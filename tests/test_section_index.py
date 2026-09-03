@@ -109,8 +109,10 @@ def test_zero_sections_warning_logged(caplog):
     with caplog.at_level(logging.WARNING, logger="bddk_mcp.store.section_index"):
         result = extract_document_sections(document_sentinel, (sentinel + " uzun ama yapısız metin. ") * 100)
 
-    assert result == []
+    assert result
+    assert {s.section_type for s in result} == {"govde"}
     assert any("no section headings matched" in r.message for r in caplog.records)
+    assert any("govde" in r.message for r in caplog.records)
     assert sentinel not in caplog.text
     assert document_sentinel not in caplog.text
 
@@ -294,8 +296,7 @@ def test_numbered_fallback_dotted_child_evicts_impersonating_list_item():
 
 def test_numbered_fallback_refuses_ambiguous_restarting_numbering():
     """Genelge 905 corpus shape: numbering restarts per BÖLÜM, so any indexed
-    subset would attach wrong content to refs; the document must stay out of
-    section search entirely."""
+    subset would attach wrong content to paragraf refs; remainder is govde."""
     text = (
         "1.  Muadil ülkeler açıklaması.\n"
         "2.  Yönetmelik açıklaması.\n"
@@ -306,7 +307,10 @@ def test_numbered_fallback_refuses_ambiguous_restarting_numbering():
         "3.  Sosyal kamu kurumları.\n"
     )
 
-    assert extract_document_sections("905", text) == []
+    sections = extract_document_sections("905", text)
+    assert not any(s.section_type == "paragraf" for s in sections)
+    assert {s.section_type for s in sections} == {"govde"}
+    assert any("Muadil ülkeler" in s.content for s in sections)
 
 
 def test_numbered_fallback_refuses_a_trailing_annex_list():
@@ -317,7 +321,10 @@ def test_numbered_fallback_refuses_a_trailing_annex_list():
     body = "\n\n".join(f"{n})  Bu Rehberin {n}. paragrafı. " + ("Metin " * 40) for n in range(1, 41))
     annex = "\n\nEK-2 STRES TESTİ RAPORU\n\n1.  Özkaynak etkisi,\n2.  Tahmini süre,\n3.  Bağımlılıklar,\n"
 
-    assert extract_document_sections("946", body + annex) == []
+    sections = extract_document_sections("946", body + annex)
+    assert not any(s.section_type == "paragraf" for s in sections)
+    assert {s.section_type for s in sections} == {"govde"}
+    assert any("STRES TESTİ" in s.content or "paragrafı" in s.content for s in sections)
 
 
 def test_numbered_fallback_accepts_a_late_but_in_range_start():
@@ -356,7 +363,9 @@ def test_dash_form_requires_more_evidence_than_dot_form():
     short_dash = _dash_body(8)
     short_dot = "".join(f"{n}.  Gerçek bölüm {n} içeriği. " + ("Metin " * 20) + "\n\n" for n in range(1, 9))
 
-    assert extract_document_sections("1138", short_dash) == []
+    dash_sections = extract_document_sections("1138", short_dash)
+    assert not any(s.section_type == "paragraf" for s in dash_sections)
+    assert {s.section_type for s in dash_sections} == {"govde"}
     assert len(extract_document_sections("doc", short_dot)) == 8
 
 
@@ -512,3 +521,46 @@ def test_pdf_wrap_debris_after_last_fikra_is_trimmed():
     assert "dikkate alınır." in madde4.content
     assert "Standart yaklaşım" not in madde4.content
     assert "riski" not in madde4.content.split("alınır.")[-1]
+
+
+def test_unstructured_body_is_indexed_as_govde_not_paragraf():
+    text = (
+        "Kurul tarafından 16.11.2006 tarih ve 2026 sayılı Karar ile belirlenen hedef oran. "
+        "8 Söz konusu tutar Banka’nın RAV tutarının aynı 2026 sayılı Karar ile belirlenir. "
+    ) * 40
+
+    sections = extract_document_sections("951", text)
+
+    assert sections
+    assert {s.section_type for s in sections} == {"govde"}
+    assert any("2026 sayılı" in s.content for s in sections)
+    assert all(s.section_ref.isdigit() for s in sections)
+
+
+def test_numbered_refusal_still_keeps_footnote_text_in_govde():
+    text = (
+        "1.  Birinci husus uzun açıklama.\n"
+        "2.  İkinci husus uzun açıklama.\n"
+        "8 Söz konusu tutar Kurul tarafından 16.11.2006 tarih ve 2026 sayılı Karar ile belirlenir.\n" * 3
+    )
+
+    sections = extract_document_sections("951", text)
+
+    assert not any(s.section_type == "paragraf" for s in sections)
+    assert {s.section_type for s in sections} == {"govde"}
+    assert any("2026 sayılı" in s.content for s in sections)
+
+
+def test_capped_span_remainder_is_govde():
+    from bddk_mcp.store.section_index import MAX_SECTION_CHARS
+
+    filler = "EK TABLO satırı içerik 2026 sayılı " * 2000
+    text = "Madde 39 - Yürürlük\nHüküm.\n" + filler
+
+    sections = extract_document_sections("doc", text)
+
+    madde39 = next(s for s in sections if s.section_type == "madde" and s.section_ref == "39")
+    assert madde39.end_char - madde39.start_char <= MAX_SECTION_CHARS
+    govde = [s for s in sections if s.section_type == "govde"]
+    assert govde
+    assert any("2026 sayılı" in s.content for s in govde)
