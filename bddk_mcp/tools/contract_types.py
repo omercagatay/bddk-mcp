@@ -65,7 +65,7 @@ INSTITUTION_TYPES = (
     "Finansman Şirketi",
     "Varlık Yönetim Şirketi",
 )
-SECTION_TYPES = ("madde", "gecici_madde", "ilke", "paragraf", "ek", "fikra", "bent")
+SECTION_TYPES = ("madde", "gecici_madde", "ilke", "paragraf", "ek", "fikra", "bent", "govde")
 PARTY_CODES = ("10001", "10002", "10003", "10004", "20001", "20002", "20003")
 
 
@@ -184,7 +184,12 @@ def _optional_document_id(value: object) -> str | None:
 
 
 def _section_type(value: object) -> str:
-    aliases = {"geçici madde": "gecici_madde", "geçici_madde": "gecici_madde", "fıkra": "fikra"}
+    aliases = {
+        "geçici madde": "gecici_madde",
+        "geçici_madde": "gecici_madde",
+        "fıkra": "fikra",
+        "gövde": "govde",
+    }
     return _enum(value, name="section_type", values=SECTION_TYPES, aliases=aliases)
 
 
@@ -470,7 +475,7 @@ AsOfDate = Annotated[
     BeforeValidator(_iso_date),
 ]
 SectionType = Annotated[
-    Literal["madde", "gecici_madde", "ilke", "paragraf", "ek", "fikra", "bent"] | None,
+    Literal["madde", "gecici_madde", "ilke", "paragraf", "ek", "fikra", "bent", "govde"] | None,
     Field(description="Optional canonical structural type stored by the section index."),
     BeforeValidator(_optional_section_type),
 ]

@@ -13,13 +13,19 @@ logger = logging.getLogger(__name__)
 # Bump whenever heading recognition, span construction, subsection handling,
 # truncation, or section-content hashing changes.  Persisted chunk metadata is
 # bound to this value by the vector retrieval profile.
-SECTION_PARSER_PROFILE_VERSION = "turkish-regulatory-sections-v6"
+SECTION_PARSER_PROFILE_VERSION = "turkish-regulatory-sections-v7"
 SECTION_SEARCH_PROFILE_VERSION = "document-section-simple-fts-length-normalized-v3"
 
 # Hard upper bound for a single section's span. Legitimate maddeler are a few
 # thousand chars; spans beyond this are parser artifacts (typically trailing EK
 # annexes swallowed by the last matched heading) and poison section search.
 MAX_SECTION_CHARS = 20_000
+# Uncovered remainder (preamble, refused numbered bodies, footnotes, text
+# past a capped span) is indexed as this type so section FTS can see it
+# without inventing madde/paragraf identities.
+GOVDE_SECTION_TYPE = "govde"
+GOVDE_HEADING = "yapısal başlık yok — gövde/dipnot kalanı"
+_MIN_GOVDE_CHARS = 80
 
 # Dash class includes \x96/\x97: Windows-1252 en/em dashes that survive in
 # documents extracted from cp1252 source HTML (e.g. mevzuat.gov.tr), where
@@ -120,7 +126,7 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
     if not matches and len(text) > 1000:
         logger.warning(
             "extract_document_sections: no section headings matched (%d chars); "
-            "document will be invisible to section search",
+            "indexing uncovered text as govde windows",
             len(text),
         )
     sections: list[DocumentSection] = []
@@ -192,7 +198,70 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
                 content_hash=content_hash,
             )
         )
+    sections.extend(_remainder_govde_sections(doc_id, text, sections, seen_identities))
     return sections
+
+
+def _remainder_govde_sections(
+    doc_id: str,
+    text: str,
+    sections: list[DocumentSection],
+    seen_identities: set[tuple[str, str, str]],
+) -> list[DocumentSection]:
+    """Index uncovered spans as govde windows. Refs are window numbers, not print numbers."""
+    remainder: list[DocumentSection] = []
+    ref = 0
+    for start_char, end_char in _uncovered_spans(len(text), sections):
+        cursor = start_char
+        while cursor < end_char:
+            window_end = min(end_char, cursor + MAX_SECTION_CHARS)
+            content = text[cursor:window_end].strip()
+            if len(content) < _MIN_GOVDE_CHARS:
+                cursor = window_end
+                continue
+            ref += 1
+            content_hash = _content_hash(content)
+            identity = (GOVDE_SECTION_TYPE, str(ref), content_hash)
+            if identity in seen_identities:
+                cursor = window_end
+                continue
+            seen_identities.add(identity)
+            remainder.append(
+                DocumentSection(
+                    doc_id=doc_id,
+                    section_type=GOVDE_SECTION_TYPE,
+                    section_ref=str(ref),
+                    heading=GOVDE_HEADING,
+                    start_char=cursor,
+                    end_char=window_end,
+                    content=content,
+                    content_hash=content_hash,
+                )
+            )
+            cursor = window_end
+    return remainder
+
+
+def _uncovered_spans(text_len: int, sections: list[DocumentSection]) -> list[tuple[int, int]]:
+    if text_len <= 0:
+        return []
+    if not sections:
+        return [(0, text_len)]
+    merged: list[tuple[int, int]] = []
+    for start, end in sorted((section.start_char, section.end_char) for section in sections):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    gaps: list[tuple[int, int]] = []
+    cursor = 0
+    for start, end in merged:
+        if cursor < start:
+            gaps.append((cursor, start))
+        cursor = max(cursor, end)
+    if cursor < text_len:
+        gaps.append((cursor, text_len))
+    return gaps
 
 
 def _find_section_starts(text: str) -> list[dict]:

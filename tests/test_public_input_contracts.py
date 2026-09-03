@@ -102,6 +102,7 @@ async def test_tools_list_describes_every_public_parameter_and_important_bounds(
     section = schemas["get_document_section"]["properties"]
     assert section["document_id"]["pattern"] == r"^[A-Za-z0-9_-]+$"
     assert "gecici_madde" in _nonnull(section["section_type"])["enum"]
+    assert "govde" in _nonnull(section["section_type"])["enum"]
     assert any(item.get("pattern") for item in section["section_ref"]["anyOf"])
 
     legal_status_schema = schemas["resolve_regulation_status"]["properties"]
