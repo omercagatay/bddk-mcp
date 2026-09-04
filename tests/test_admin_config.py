@@ -42,3 +42,48 @@ def test_plaintext_dsn_is_rejected_without_insecure_opt_in(monkeypatch: pytest.M
     monkeypatch.delenv("BDDK_ALLOW_INSECURE_DATABASE", raising=False)
     with pytest.raises(AdminConfigError, match="sslmode=verify-full"):
         AdminConfig.from_env({"BDDK_DATABASE_URL": "postgresql://u:p@localhost:5432/bddk"})
+
+
+def _remote_env(**extra: str) -> dict[str, str]:
+    env = {
+        "BDDK_DATABASE_URL": "postgresql://u:p@localhost:5432/bddk",
+        "BDDK_ADMIN_HOST": "0.0.0.0",
+        "BDDK_ADMIN_PORT": "8443",
+        "BDDK_ADMIN_REMOTE_ENABLED": "true",
+        "BDDK_HTTP_ALLOWED_HOSTS": "admin.bank.example:8443",
+        "BDDK_HTTP_ALLOWED_ORIGINS": "https://admin.bank.example",
+        "BDDK_JWT_ISSUER": "https://id.bank.example/realms/bddk",
+        "BDDK_JWT_RESOURCE": "https://mcp.bank.example/mcp",
+        "BDDK_JWT_JWKS_URL": "https://id.bank.example/realms/bddk/jwks",
+        "BDDK_JWT_AUDIENCE": "bddk-mcp",
+        "BDDK_JWT_REQUIRED_SCOPES": "bddk.operator",
+    }
+    env.update(extra)
+    return env
+
+
+def test_remote_without_opt_in_fails_closed() -> None:
+    with pytest.raises(AdminConfigError, match="BDDK_ADMIN_REMOTE_ENABLED"):
+        AdminConfig.from_env(_remote_env(BDDK_ADMIN_REMOTE_ENABLED=""))
+
+
+def test_remote_unauthenticated_opt_in_is_refused() -> None:
+    with pytest.raises(AdminConfigError, match="cannot run unauthenticated"):
+        AdminConfig.from_env(_remote_env(BDDK_HTTP_ALLOW_UNAUTHENTICATED="true"))
+
+
+def test_remote_requires_operator_scope() -> None:
+    with pytest.raises(AdminConfigError, match="bddk.operator"):
+        AdminConfig.from_env(_remote_env(BDDK_JWT_REQUIRED_SCOPES="bddk.read"))
+
+
+def test_remote_with_opt_in_and_jwt_is_accepted() -> None:
+    config = AdminConfig.from_env(_remote_env())
+    assert config.loopback_only is False
+    assert config.http_security is not None
+    assert "bddk.operator" in config.http_security.jwt_required_scopes
+
+
+def test_port_falls_back_to_platform_port() -> None:
+    config = AdminConfig.from_env({"BDDK_DATABASE_URL": "postgresql://u:p@localhost:5432/bddk", "PORT": "9001"})
+    assert config.port == 9001

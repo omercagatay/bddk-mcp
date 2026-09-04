@@ -295,8 +295,7 @@ def _run_admin_ui(args: argparse.Namespace) -> None:
         # loop: asyncpg connections are loop-bound, so asyncio.run(...) here
         # and a separate uvicorn.run(...) after it would hand the pool to a
         # loop that no longer exists.
-        app, shutdown = await build_app_from_env(env)
-        config = app.state.config
+        app, config, shutdown = await build_app_from_env(env)
         server = uvicorn.Server(uvicorn.Config(app, host=config.bind_host, port=config.port, log_level="info"))
         try:
             await server.serve()

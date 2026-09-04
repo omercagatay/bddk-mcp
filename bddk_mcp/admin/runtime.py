@@ -6,17 +6,20 @@ from collections.abc import Awaitable, Callable, Mapping
 from functools import partial
 
 import asyncpg
-from starlette.applications import Starlette
+from starlette.types import ASGIApp
 
 from bddk_mcp.admin.app import create_app
 from bddk_mcp.admin.config import AdminConfig
 from bddk_mcp.admin.services.documents import DocumentService
 from bddk_mcp.admin.services.governance import GovernanceService, resolve_governance_paths
 from bddk_mcp.db_identity import assert_database_connection_identity
+from bddk_mcp.http_security import JwtTokenVerifier
 from bddk_mcp.store.doc_store import DocumentStore
 
 
-async def build_app_from_env(env: Mapping[str, str] | None = None) -> tuple[Starlette, Callable[[], Awaitable[None]]]:
+async def build_app_from_env(
+    env: Mapping[str, str] | None = None,
+) -> tuple[ASGIApp, AdminConfig, Callable[[], Awaitable[None]]]:
     """Resolve configuration, open a least-privilege pool, and build the app."""
 
     config = AdminConfig.from_env(env)
@@ -38,9 +41,10 @@ async def build_app_from_env(env: Mapping[str, str] | None = None) -> tuple[Star
         raise
     seed_dir, trusted_signing_key = resolve_governance_paths(env)
     governance = GovernanceService(pool, seed_dir=seed_dir, trusted_signing_key=trusted_signing_key)
-    app = create_app(config, DocumentService(store), governance)
+    verifier = None if config.http_security is None else JwtTokenVerifier(config.http_security)
+    app = create_app(config, DocumentService(store), governance, token_verifier=verifier)
 
     async def shutdown() -> None:
         await pool.close()
 
-    return app, shutdown
+    return app, config, shutdown

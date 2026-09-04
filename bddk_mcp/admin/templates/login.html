@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Giris{% endblock %}
+{% block content %}
+<h1>Yonetim girisi</h1>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<form method="post" action="/login">
+  <label>Erisim anahtari
+    <input type="password" name="token" autocomplete="off" autofocus />
+  </label>
+  <button type="submit">Gir</button>
+</form>
+{% endblock %}

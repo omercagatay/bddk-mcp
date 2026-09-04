@@ -28,6 +28,7 @@ EXPECTED_ADMIN_FILES = {
     "bddk_mcp/admin/templates/documents/detail.html",
     "bddk_mcp/admin/templates/documents/search.html",
     "bddk_mcp/admin/templates/governance/status.html",
+    "bddk_mcp/admin/templates/login.html",
 }
 
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from bddk_mcp.admin.services.documents import DocumentService
+from bddk_mcp.admin.services.documents import STORE_FAILURE, DocumentService
 from bddk_mcp.store.doc_store import StoredDocument, StoreStats
 
 
@@ -76,7 +76,7 @@ def test_list_page_surfaces_store_failure_verbatim() -> None:
 
     assert page.items == []
     assert page.has_next is False
-    assert page.error == "RuntimeError: connection to server was lost"
+    assert page.error == STORE_FAILURE
 
 
 def test_get_surfaces_store_failure_distinct_from_not_found() -> None:
@@ -84,7 +84,7 @@ def test_get_surfaces_store_failure_distinct_from_not_found() -> None:
 
     outcome = asyncio.run(service.get("mevzuat_1"))
 
-    assert outcome.error == "RuntimeError: connection to server was lost"
+    assert outcome.error == STORE_FAILURE
     assert outcome.doc is None  # not a signal of "not found"; check .error first
 
 

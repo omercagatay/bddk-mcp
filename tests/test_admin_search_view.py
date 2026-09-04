@@ -4,7 +4,7 @@ from starlette.testclient import TestClient
 
 from bddk_mcp.admin.app import create_app
 from bddk_mcp.admin.config import AdminConfig
-from bddk_mcp.admin.services.documents import DocumentService
+from bddk_mcp.admin.services.documents import STORE_FAILURE, DocumentService
 from bddk_mcp.store.doc_store import SearchHit, StoreStats
 
 CONFIG = AdminConfig(bind_host="127.0.0.1", port=8100, database_url="postgresql://x", loopback_only=True)
@@ -63,7 +63,8 @@ def test_search_failure_is_shown_not_swallowed() -> None:
 
     # A failed search must never render as "no results".
     assert response.status_code == 200
-    assert "SEMANTIC_SEARCH_UNAVAILABLE" in response.text
+    assert STORE_FAILURE in response.text
+    assert "SEMANTIC_SEARCH_UNAVAILABLE" not in response.text
     assert "Sonuc bulunamadi" not in response.text
 
 
