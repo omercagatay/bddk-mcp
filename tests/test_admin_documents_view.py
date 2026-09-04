@@ -5,7 +5,7 @@ from starlette.testclient import TestClient
 
 from bddk_mcp.admin.app import create_app
 from bddk_mcp.admin.config import AdminConfig
-from bddk_mcp.admin.services.documents import DocumentService
+from bddk_mcp.admin.services.documents import STORE_FAILURE, DocumentService
 from bddk_mcp.store.doc_store import StoredDocument, StoreStats
 
 CONFIG = AdminConfig(bind_host="127.0.0.1", port=8100, database_url="postgresql://x", loopback_only=True)
@@ -141,7 +141,8 @@ def test_list_failure_is_shown_not_swallowed(failing_client: TestClient) -> None
 
     # A failed listing must never render as an empty document table.
     assert response.status_code == 200
-    assert "connection to server was lost" in response.text
+    assert STORE_FAILURE in response.text
+    assert "connection to server was lost" not in response.text
     assert "Kayit bulunamadi" not in response.text
 
 
@@ -151,7 +152,8 @@ def test_detail_failure_is_shown_not_swallowed_or_treated_as_missing(failing_cli
     # A failed lookup must be distinguishable from "document not found":
     # it is neither a 404 nor a blank/"not found" page.
     assert response.status_code == 200
-    assert "connection to server was lost" in response.text
+    assert STORE_FAILURE in response.text
+    assert "connection to server was lost" not in response.text
     assert "kayitli degil" not in response.text
 
 

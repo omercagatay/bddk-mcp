@@ -7,9 +7,15 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from bddk_mcp.db_transport import DatabaseTransportError, assert_database_transport
-from bddk_mcp.http_security import is_loopback_host
+from bddk_mcp.http_security import (
+    HttpSecurityConfig,
+    HttpSecurityConfigError,
+    is_loopback_host,
+    load_http_security_config,
+)
 
 DEFAULT_ADMIN_PORT = 8100
+_REMOTE_OPT_IN = frozenset({"1", "true", "yes"})
 
 
 class AdminConfigError(RuntimeError):
@@ -24,6 +30,7 @@ class AdminConfig:
     port: int
     database_url: str
     loopback_only: bool
+    http_security: HttpSecurityConfig | None = None
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> AdminConfig:
@@ -40,7 +47,7 @@ class AdminConfig:
         bind_host = (source.get("BDDK_ADMIN_HOST") or "127.0.0.1").strip()
         loopback_only = is_loopback_host(bind_host)
 
-        raw_port = (source.get("BDDK_ADMIN_PORT") or "").strip()
+        raw_port = (source.get("BDDK_ADMIN_PORT") or source.get("PORT") or "").strip()
         try:
             port = int(raw_port) if raw_port else DEFAULT_ADMIN_PORT
         except ValueError:
@@ -48,13 +55,35 @@ class AdminConfig:
         if not 1 <= port <= 65535:
             raise AdminConfigError("BDDK_ADMIN_PORT must be between 1 and 65535.")
 
-        if not loopback_only:
-            # Administration can sign a corpus, so it is authenticated or
-            # loopback-only by construction. Remote exposure arrives with the
-            # deployment slice, never as an accidental default.
-            raise AdminConfigError(
-                "The admin console must be authenticated or loopback-only; "
-                "a non-loopback bind is not supported in this release."
-            )
+        http_security = None if loopback_only else _remote_http_security(source, bind_host=bind_host, port=port)
+        return cls(
+            bind_host=bind_host,
+            port=port,
+            database_url=database_url,
+            loopback_only=loopback_only,
+            http_security=http_security,
+        )
 
-        return cls(bind_host=bind_host, port=port, database_url=database_url, loopback_only=loopback_only)
+
+def _flag(source: Mapping[str, str], name: str) -> bool:
+    return source.get(name, "").strip().lower() in _REMOTE_OPT_IN
+
+
+def _remote_http_security(source: Mapping[str, str], *, bind_host: str, port: int) -> HttpSecurityConfig:
+    if not _flag(source, "BDDK_ADMIN_REMOTE_ENABLED"):
+        raise AdminConfigError(
+            "The admin console must be authenticated or loopback-only; "
+            "a non-loopback bind requires BDDK_ADMIN_REMOTE_ENABLED=true."
+        )
+    if _flag(source, "BDDK_HTTP_ALLOW_UNAUTHENTICATED"):
+        raise AdminConfigError("The admin console cannot run unauthenticated on a non-loopback bind.")
+    overlay = dict(source)
+    overlay["MCP_HOST"] = bind_host
+    overlay["PORT"] = str(port)
+    try:
+        http_security = load_http_security_config(overlay)
+    except HttpSecurityConfigError as exc:
+        raise AdminConfigError(str(exc)) from exc
+    if "bddk.operator" not in http_security.jwt_required_scopes:
+        raise AdminConfigError("Remote admin HTTP requires JWT scope 'bddk.operator'.")
+    return http_security

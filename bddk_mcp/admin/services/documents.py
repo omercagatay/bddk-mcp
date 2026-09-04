@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 MAX_PAGE_SIZE = 200
+STORE_FAILURE = "Veri katmani kullanilamiyor."
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,18 +55,16 @@ class DocumentService:
             # Fetch one extra row: cheaper than a COUNT(*) and enough to know
             # whether a Next control should render.
             rows = await self._store.list_documents(category=category, limit=page_size + 1, offset=offset)
-        except Exception as exc:  # surfaced verbatim; never rendered as an empty list
-            return DocumentPage(
-                items=[], page=page, page_size=page_size, has_next=False, error=f"{type(exc).__name__}: {exc}"
-            )
+        except Exception:  # never rendered as an empty list or as the exception text
+            return DocumentPage(items=[], page=page, page_size=page_size, has_next=False, error=STORE_FAILURE)
         has_next = len(rows) > page_size
         return DocumentPage(items=list(rows[:page_size]), page=page, page_size=page_size, has_next=has_next)
 
     async def get(self, doc_id: str) -> DocumentOutcome:
         try:
             doc = await self._store.get_document(doc_id)
-        except Exception as exc:  # surfaced verbatim; never rendered as "not found"
-            return DocumentOutcome(doc=None, error=f"{type(exc).__name__}: {exc}")
+        except Exception:  # never rendered as "not found" or as the exception text
+            return DocumentOutcome(doc=None, error=STORE_FAILURE)
         return DocumentOutcome(doc=doc)
 
     async def search(self, query: str, limit: int = 20) -> SearchOutcome:
@@ -74,8 +73,8 @@ class DocumentService:
             return SearchOutcome(query="", hits=[])
         try:
             hits = list(await self._store.search_content(query, limit=limit))
-        except Exception as exc:  # surfaced verbatim; never rendered as "no results"
-            return SearchOutcome(query=query, hits=[], error=f"{type(exc).__name__}: {exc}")
+        except Exception:  # never rendered as "no results" or as the exception text
+            return SearchOutcome(query=query, hits=[], error=STORE_FAILURE)
         return SearchOutcome(query=query, hits=hits)
 
     async def categories(self) -> dict[str, int]:

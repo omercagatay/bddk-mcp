@@ -29,6 +29,14 @@ Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızd
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Eklendi — uzaktan yönetim konsolu (JWT)
+
+- `bddk-mcp admin-ui` loopback dışı bind'i `BDDK_ADMIN_REMOTE_ENABLED=true` ve
+  tam JWT (`bddk.operator` scope, Host/Origin allowlist) ile kabul eder.
+  Tarayıcı `/login` üzerinden HttpOnly çerez koyar; `Authorization: Bearer`
+  de geçerlidir. Kimlik doğrulamasız uzak bind ve `BDDK_HTTP_ALLOW_UNAUTHENTICATED`
+  reddedilir. Mağaza hataları artık istisna metnini yüzeye çıkarmaz.
+
 ### Kaldırıldı — kullanılmayan ağırlık
 
 - `uvloop` ve doğrudan `pillow` bağımlılıkları; Hugging Face Spaces Dockerfile'ı;
