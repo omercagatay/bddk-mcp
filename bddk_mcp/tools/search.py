@@ -13,9 +13,10 @@ from collections import OrderedDict
 from typing import TYPE_CHECKING
 
 from bddk_mcp.core.config import ANNOUNCEMENT_CATEGORY_IDS, SEARCH_CACHE_MAX, SEARCH_CACHE_TTL
+from bddk_mcp.core.exceptions import BddkUpstreamError, BddkUpstreamUnreachableError
 from bddk_mcp.core.models import BddkSearchRequest
 from bddk_mcp.ingest.client import _turkish_lower
-from bddk_mcp.ingest.data_sources import fetch_announcements, fetch_institutions
+from bddk_mcp.ingest.data_sources import fetch_announcements, fetch_institutions_with_status
 from bddk_mcp.observability.metrics import metrics
 from bddk_mcp.observability.telemetry import (
     elapsed_ms,
@@ -46,7 +47,7 @@ from bddk_mcp.tools.contract_types import (
     normalize_institution_type,
     validate_date_order,
 )
-from bddk_mcp.tools.errors import tool_error
+from bddk_mcp.tools.errors import UPSTREAM_FETCH_FAILED, tool_error
 from bddk_mcp.tools.structured_outputs import (
     UNTRUSTED_SOURCE_WARNING,
     DocumentSearchItem,
@@ -349,7 +350,26 @@ Try: (1) call search_document_store with the same query for full-text semantic s
             active_only: If true (default), only show active institutions
         """
         institution_type = normalize_institution_type(institution_type)
-        institutions = await fetch_institutions(deps.http, institution_type)
+        try:
+            directory = await fetch_institutions_with_status(deps.http, institution_type)
+        except BddkUpstreamError:
+            return tool_error(
+                UPSTREAM_FETCH_FAILED,
+                "The BDDK institution directory could not be fetched (upstream or network unavailable). "
+                "This is NOT evidence that an institution does not exist.",
+                retryable=True,
+                hint="Retry later. In restricted networks, verify egress to www.bddk.org.tr is permitted.",
+            )
+
+        institutions = directory.institutions
+        # A truncated directory must never be presented as the complete one.
+        partial_warning = (
+            f"\nWARNING: {directory.failed_pages} of {directory.attempted_pages} directory pages could not be "
+            "fetched; this listing is incomplete and absence here is not evidence that an institution is "
+            "unlicensed or does not exist."
+            if directory.partial
+            else ""
+        )
 
         if active_only:
             institutions = [i for i in institutions if i["status"] == "Aktif"]
@@ -362,15 +382,20 @@ Try: (1) call search_document_store with the same query for full-text semantic s
 
         if not institutions:
             metrics.record_empty_search("search_bddk_institutions")
-            return """NO RESULTS: No institutions found matching these criteria.
+            return (
+                """NO RESULTS: No institutions found matching these criteria.
 DO NOT guess institution names, license statuses, or other details.
 Suggest the user try: broader keywords or removing the type/active filter."""
+                + partial_warning
+            )
 
         lines = [f"Found {len(institutions)} institution(s):\n"]
         for i in institutions:
             status = f" ({i['status']})" if i["status"] != "Aktif" else ""
             website = f" — {i['website']}" if i["website"] else ""
             lines.append(f"**{i['name']}**{status} [{i['type']}]{website}")
+        if partial_warning:
+            lines.append(partial_warning.strip())
         return frame_untrusted_source("\n".join(lines))
 
     @mcp.tool()
@@ -400,8 +425,38 @@ Suggest the user try: broader keywords or removing the type/active filter."""
         cat_ids = category_ids[category]
 
         announcements: list[dict] = []
+        failed_categories: list[int] = []
+        fetched_any = False
         for cat_id in cat_ids:
-            announcements.extend(await fetch_announcements(deps.http, cat_id))
+            try:
+                announcements.extend(await fetch_announcements(deps.http, cat_id))
+                fetched_any = True
+            except BddkUpstreamUnreachableError:
+                # The host itself is unreachable; the remaining categories live
+                # on that same host and would fail just as slowly, so abort
+                # rather than repeating a multi-second timeout per category.
+                failed_categories.extend(cat_ids[cat_ids.index(cat_id) :])
+                break
+            except BddkUpstreamError:
+                # A single category failed (HTTP status or layout); the others
+                # are still worth attempting.
+                failed_categories.append(cat_id)
+
+        if failed_categories and not fetched_any:
+            return tool_error(
+                UPSTREAM_FETCH_FAILED,
+                "BDDK announcements could not be fetched (upstream or network unavailable). "
+                "This is NOT evidence that no announcements exist.",
+                retryable=True,
+                hint="Retry later. In restricted networks, verify egress to www.bddk.org.tr is permitted.",
+            )
+
+        partial_warning = ""
+        if failed_categories:
+            partial_warning = (
+                f"\nWARNING: {len(failed_categories)} of {len(cat_ids)} announcement categories "
+                "could not be fetched; results may be incomplete."
+            )
 
         if keywords:
             kw = _turkish_lower(keywords)
@@ -409,9 +464,12 @@ Suggest the user try: broader keywords or removing the type/active filter."""
 
         if not announcements:
             metrics.record_empty_search("search_bddk_announcements")
-            return """NO RESULTS: No BDDK announcements found matching these criteria.
+            return (
+                """NO RESULTS: No BDDK announcements found matching these criteria.
 DO NOT fabricate announcements or press releases.
 Suggest the user try: different keywords or a different category (basın, mevzuat, insan kaynakları, veri, kuruluş, or tümü for all)."""
+                + partial_warning
+            )
 
         lines = [f"Found {len(announcements)} announcement(s):\n"]
         for a in announcements[:20]:
@@ -420,6 +478,8 @@ Suggest the user try: different keywords or a different category (basın, mevzua
             if a.get("url"):
                 lines.append(f"  URL: {a['url']}")
             lines.append("")
+        if partial_warning:
+            lines.append(partial_warning.strip())
         return frame_untrusted_source("\n".join(lines))
 
     @mcp.tool()

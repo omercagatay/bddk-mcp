@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
+from bddk_mcp.core.exceptions import BddkUpstreamError
 from bddk_mcp.observability.analytics import analyze_trends, build_digest, check_updates, compare_metrics
 
 
@@ -262,7 +263,33 @@ async def test_check_updates_nothing_new(mock_http):
     assert result["new_announcements_count"] == 0
 
 
-async def test_check_updates_error_handling(mock_http):
+async def test_check_updates_error_propagates_upstream_failure(mock_http):
+    """A failed fetch must surface as an upstream error, not zero new announcements."""
     mock_http.get = AsyncMock(return_value=_make_response("", status_code=500))
-    result = await check_updates(mock_http, [], known_announcement_ids=set())
-    assert result["new_announcements_count"] == 0
+    with pytest.raises(BddkUpstreamError):
+        await check_updates(mock_http, [], known_announcement_ids=set())
+
+
+async def test_build_digest_marks_announcements_unavailable_and_drops_partial_rows(mock_http, monkeypatch):
+    """A failed announcement sweep must not leave a partial set behind a False flag."""
+    calls: list[int] = []
+
+    async def flaky_fetch(_http, category_id: int):
+        calls.append(category_id)
+        if len(calls) == 1:
+            return [{"title": "Erken duyuru", "date": "01.08.2026", "url": "https://example.invalid/a"}]
+        raise BddkUpstreamError("upstream down")
+
+    monkeypatch.setattr("bddk_mcp.observability.analytics.fetch_announcements", flaky_fetch)
+    monkeypatch.setattr(
+        "bddk_mcp.observability.analytics.fetch_bulletin_snapshot",
+        AsyncMock(side_effect=BddkUpstreamError("upstream down")),
+    )
+
+    digest = await build_digest(mock_http, [], 30)
+
+    assert digest["announcements_available"] is False
+    assert digest["bulletin_snapshot_available"] is False
+    assert digest["announcements"] == []
+    assert digest["total_announcements"] == 0
+    assert "alınamadı" in digest["narrative"]

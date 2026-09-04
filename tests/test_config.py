@@ -295,3 +295,103 @@ class TestChandraConfig:
 
         importlib.reload(config)
         assert config.CHANDRA_MODEL_NAME == "custom/model"
+
+
+# -- Model asset startup policy ----------------------------------------------
+
+
+def test_model_asset_policy_accepts_online_defaults(tmp_path):
+    from bddk_mcp.core.config import validate_model_asset_policy
+
+    validate_model_asset_policy(
+        embedding_model_path="",
+        reranker_enabled=False,
+        reranker_model_path="",
+        hub_offline=False,
+    )
+
+
+def test_model_asset_policy_rejects_offline_without_embedding_path():
+    from bddk_mcp.core.config import validate_model_asset_policy
+
+    with pytest.raises(RuntimeError, match="BDDK_EMBEDDING_MODEL_PATH"):
+        validate_model_asset_policy(
+            embedding_model_path="",
+            reranker_enabled=False,
+            reranker_model_path="",
+            hub_offline=True,
+        )
+
+
+def test_model_asset_policy_rejects_missing_embedding_directory(tmp_path):
+    from bddk_mcp.core.config import validate_model_asset_policy
+
+    with pytest.raises(RuntimeError, match="existing model directory"):
+        validate_model_asset_policy(
+            embedding_model_path=str(tmp_path / "missing"),
+            reranker_enabled=False,
+            reranker_model_path="",
+            hub_offline=False,
+        )
+
+
+def test_model_asset_policy_rejects_reranker_without_local_path(tmp_path):
+    """BDDK_RERANKER=true must fail at startup, not at first search."""
+    from bddk_mcp.core.config import validate_model_asset_policy
+
+    model_dir = tmp_path / "embedding"
+    model_dir.mkdir()
+    with pytest.raises(RuntimeError, match="BDDK_RERANKER_MODEL_PATH"):
+        validate_model_asset_policy(
+            embedding_model_path=str(model_dir),
+            reranker_enabled=True,
+            reranker_model_path="",
+            hub_offline=True,
+        )
+
+
+def test_model_asset_policy_accepts_fully_local_offline_setup(tmp_path):
+    from bddk_mcp.core.config import validate_model_asset_policy
+
+    embedding_dir = tmp_path / "embedding"
+    reranker_dir = tmp_path / "reranker"
+    embedding_dir.mkdir()
+    reranker_dir.mkdir()
+    validate_model_asset_policy(
+        embedding_model_path=str(embedding_dir),
+        reranker_enabled=True,
+        reranker_model_path=str(reranker_dir),
+        hub_offline=True,
+    )
+
+
+def test_model_asset_policy_reads_hf_offline_env_spellings(tmp_path, monkeypatch):
+    """HF accepts several truthy spellings; the gate must not match only "1"."""
+    from bddk_mcp.core.config import validate_model_asset_policy
+
+    for value in ("1", "true", "TRUE", "yes", "on"):
+        monkeypatch.setenv("HF_HUB_OFFLINE", value)
+        with pytest.raises(RuntimeError, match="BDDK_EMBEDDING_MODEL_PATH"):
+            validate_model_asset_policy(
+                embedding_model_path="",
+                reranker_enabled=False,
+                reranker_model_path="",
+            )
+
+    monkeypatch.setenv("HF_HUB_OFFLINE", "0")
+    monkeypatch.delenv("TRANSFORMERS_OFFLINE", raising=False)
+    validate_model_asset_policy(
+        embedding_model_path="",
+        reranker_enabled=False,
+        reranker_model_path="",
+    )
+
+
+def test_model_asset_policy_runs_in_the_serving_lifespan():
+    """The gate must be wired into startup, not merely importable."""
+    import inspect
+
+    from bddk_mcp import server
+
+    source = inspect.getsource(server)
+    assert "validate_model_asset_policy()" in source

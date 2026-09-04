@@ -13,6 +13,7 @@ from mcp.shared.memory import create_connected_server_and_client_session
 from bddk_mcp.core.deps import Dependencies
 from bddk_mcp.core.exceptions import BddkStorageError
 from bddk_mcp.corpus_publication import CorpusPublicationError, CorpusReleaseIdentity
+from bddk_mcp.ingest.data_sources import InstitutionDirectory
 from bddk_mcp.jobs import OperatorJobManager
 from bddk_mcp.tools.registry import LOCAL_CORPUS_PUBLIC_TOOL_NAMES, ToolProfile
 from bddk_mcp.tools.search import _search_cache
@@ -133,7 +134,7 @@ async def test_release_replacement_reloads_exact_catalog_and_clears_search_cache
 
     assert result
     assert deps.served_corpus_release_id == new.release_id
-    deps.client.load_cache_read_only.assert_awaited_once_with()
+    deps.client.load_cache_read_only.assert_awaited_once_with(require_nonempty=False)
     deps.doc_store.get_document_history.assert_awaited_once_with("943")
     assert _search_cache.get("old-query") is None
     assert inspect.await_count == 3  # pre-check, reload confirmation, post-check
@@ -205,7 +206,7 @@ async def test_concurrent_calls_cannot_return_old_epoch_after_replacement():
     assert body_calls == 2
     assert deps.served_corpus_release_id == new.release_id
     assert _search_cache.get("old-body-query") is None
-    deps.client.load_cache_read_only.assert_awaited_once_with()
+    deps.client.load_cache_read_only.assert_awaited_once_with(require_nonempty=False)
 
 
 @pytest.mark.asyncio
@@ -296,7 +297,7 @@ async def test_epoch_switch_waits_until_every_prior_reader_has_drained():
     assert new_result
     assert body_calls == 3
     assert deps.served_corpus_release_id == new.release_id
-    deps.client.load_cache_read_only.assert_awaited_once_with()
+    deps.client.load_cache_read_only.assert_awaited_once_with(require_nonempty=False)
 
 
 @pytest.mark.asyncio
@@ -412,16 +413,20 @@ async def test_strict_mode_leaves_open_world_and_operator_recovery_calls_usable(
     with (
         patch("bddk_mcp.corpus_serving.inspect_active_corpus_release", new=inspect),
         patch(
-            "bddk_mcp.tools.search.fetch_institutions",
+            "bddk_mcp.tools.search.fetch_institutions_with_status",
             new=AsyncMock(
-                return_value=[
-                    {
-                        "name": "Örnek Banka",
-                        "type": "Banka",
-                        "status": "Aktif",
-                        "website": "",
-                    }
-                ]
+                return_value=InstitutionDirectory(
+                    institutions=[
+                        {
+                            "name": "Örnek Banka",
+                            "type": "Banka",
+                            "status": "Aktif",
+                            "website": "",
+                        }
+                    ],
+                    failed_pages=0,
+                    attempted_pages=5,
+                )
             ),
         ),
     ):

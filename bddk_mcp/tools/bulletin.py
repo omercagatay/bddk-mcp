@@ -13,6 +13,7 @@ from bddk_mcp.core.config import (
     validate_table_no,
     validate_year,
 )
+from bddk_mcp.core.exceptions import BddkUpstreamError
 from bddk_mcp.ingest.data_sources import fetch_bulletin_snapshot, fetch_monthly_bulletin, fetch_weekly_bulletin
 from bddk_mcp.tools.contract_types import (
     BulletinColumn,
@@ -102,7 +103,16 @@ def register(
         Returns a table of all banking sector metrics (loans, deposits, etc.)
         with their latest TP (TL) and YP (foreign currency) values.
         """
-        rows = await fetch_bulletin_snapshot(deps.http)
+        try:
+            rows = await fetch_bulletin_snapshot(deps.http)
+        except BddkUpstreamError:
+            return tool_error(
+                UPSTREAM_FETCH_FAILED,
+                "The BDDK weekly bulletin snapshot could not be retrieved. "
+                "This is NOT evidence that no bulletin data exists.",
+                retryable=True,
+                hint="BDDK upstream may be temporarily unavailable; retry later.",
+            )
 
         if not rows:
             return "No bulletin data available."

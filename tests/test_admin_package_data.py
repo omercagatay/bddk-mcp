@@ -27,7 +27,7 @@ EXPECTED_ADMIN_FILES = {
     "bddk_mcp/admin/templates/documents/list.html",
     "bddk_mcp/admin/templates/documents/detail.html",
     "bddk_mcp/admin/templates/documents/search.html",
-    "bddk_mcp/admin/static/htmx.min.js",
+    "bddk_mcp/admin/templates/governance/status.html",
 }
 
 
@@ -72,4 +72,3 @@ def test_python_source_only_check_is_not_sufficient_evidence() -> None:
 
     package_root = Path(admin_app.__file__).resolve().parent
     assert (package_root / "templates" / "documents" / "list.html").exists()
-    assert (package_root / "static" / "htmx.min.js").exists()

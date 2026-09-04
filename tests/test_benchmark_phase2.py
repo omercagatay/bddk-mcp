@@ -299,7 +299,7 @@ def test_dataset_and_corpus_identities_are_stable_and_evidence_based(monkeypatch
 def test_benchmark_manifest_identity_is_verified_and_path_free():
     identity = _validated_corpus_manifest_identity()
 
-    assert identity["manifest_id"] == "bddk-job-corpus-2026-08-14"
+    assert identity["manifest_id"] == "bddk-job-corpus-2026-08-26"
     assert identity["exhaustive"] is False
     assert len(identity["manifest_sha256"]) == 64
     assert len(identity["artifact_set_sha256"]) == 64
@@ -373,7 +373,7 @@ async def test_phase2_result_retains_auditable_trace_and_separates_retrieval_com
     assert result["run_metadata"]["git"]["dirty"] is True
     assert result["run_metadata"]["dataset_identity"]["case_ids"] == ["live-1"]
     assert result["run_metadata"]["corpus_identity"]["observed_reference_count"] == 1
-    assert result["run_metadata"]["corpus_manifest"]["manifest_id"] == "bddk-job-corpus-2026-08-14"
+    assert result["run_metadata"]["corpus_manifest"]["manifest_id"] == "bddk-job-corpus-2026-08-26"
     assert result["run_metadata"]["active_corpus_release"]["release_id"].startswith("corpus_release_sha256_")
     session.read_resource.assert_awaited()
     assert session.read_resource.await_count == 2

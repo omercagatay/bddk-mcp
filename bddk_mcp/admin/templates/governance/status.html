@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}İmza Durumu — BDDK Admin{% endblock %}
+{% block content %}
+<style>
+  .pill { display: inline-block; padding: 0.1rem 0.6rem; border-radius: 999px; font-size: 0.85rem; border: 1px solid; }
+  .pill-ok { color: #1a7f37; border-color: #1a7f37; }
+  .pill-warn { color: #9a6700; border-color: #9a6700; }
+  .pill-err { color: #c33; border-color: #c33; }
+  .kv th { width: 16rem; font-weight: 600; vertical-align: top; }
+  .kv code { word-break: break-all; }
+  section { margin-bottom: 2rem; }
+</style>
+
+<h1>Corpus İmza Durumu</h1>
+<p class="muted">
+  Salt okunur görünüm — bu konsol imza üretemez, corpus'u değiştiremez.
+  İmzalama yalnızca sahibin makinesinde <code>scripts/sign_corpus_manifest.py</code> ile yapılır.
+</p>
+
+<section>
+  <h2>
+    Hazırlanan corpus (seed)
+    {% if status.staged.verdict == "verified" %}
+      <span class="pill pill-ok">İmza doğrulandı</span>
+    {% elif status.staged.verdict == "unsigned" %}
+      <span class="pill pill-warn">İmzasız</span>
+    {% elif status.staged.verdict == "key_missing" %}
+      <span class="pill pill-warn">Doğrulama anahtarı yapılandırılmamış</span>
+    {% else %}
+      <span class="pill pill-err">Doğrulama başarısız</span>
+    {% endif %}
+  </h2>
+  {% if status.staged.error %}
+    <p class="error">{{ status.staged.error }}</p>
+  {% endif %}
+  <table class="kv">
+    {% if status.staged.manifest_id %}
+      <tr><th>Manifest</th><td><code>{{ status.staged.manifest_id }}</code></td></tr>
+    {% endif %}
+    {% if status.staged.manifest_sha256 %}
+      <tr><th>Manifest SHA-256</th><td><code>{{ status.staged.manifest_sha256 }}</code></td></tr>
+    {% endif %}
+    <tr><th>Beyan edilen imza durumu</th><td>{{ status.staged.declared_signature_status or "okunamadı" }}</td></tr>
+    {% if status.staged.signing_key_fingerprint_sha256 %}
+      <tr><th>İmza anahtarı parmak izi</th><td><code>{{ status.staged.signing_key_fingerprint_sha256 }}</code></td></tr>
+    {% endif %}
+    <tr><th>Seed dizini</th><td><code>{{ status.staged.seed_dir }}</code></td></tr>
+    <tr>
+      <th>Güvenilen doğrulama anahtarı</th>
+      <td>{% if status.staged.trusted_key %}<code>{{ status.staged.trusted_key }}</code>{% else %}<span class="muted">yapılandırılmadı (BDDK_TRUSTED_SIGNING_KEY)</span>{% endif %}</td>
+    </tr>
+  </table>
+  {% if status.staged.warnings %}
+    <ul class="muted">
+      {% for warning in status.staged.warnings %}<li>{{ warning }}</li>{% endfor %}
+    </ul>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Aktif release (veritabanı)</h2>
+  {% if status.active.error %}
+    <p class="error">{{ status.active.error }}</p>
+  {% elif status.active.release is none %}
+    <p class="muted">Aktif corpus release yok.</p>
+  {% else %}
+    <table class="kv">
+      <tr><th>Manifest</th><td><code>{{ status.active.release.manifest_id }}</code></td></tr>
+      <tr><th>Manifest SHA-256</th><td><code>{{ status.active.release.manifest_sha256 }}</code></td></tr>
+      <tr><th>İmza anahtarı SHA-256</th><td><code>{{ status.active.release.signer_key_sha256 }}</code></td></tr>
+      <tr><th>Politika sonucu</th><td><code>{{ status.active.release.freshness_policy_result }}</code></td></tr>
+      <tr><th>Aktivasyon zamanı</th><td>{{ status.active.release.completed_at.isoformat() }}</td></tr>
+    </table>
+  {% endif %}
+</section>
+{% endblock %}

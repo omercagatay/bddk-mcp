@@ -6,6 +6,7 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from bddk_mcp.db_transport import DatabaseTransportError, assert_database_transport
 from bddk_mcp.http_security import is_loopback_host
 
 DEFAULT_ADMIN_PORT = 8100
@@ -31,6 +32,10 @@ class AdminConfig:
         database_url = (source.get("BDDK_DATABASE_URL") or "").strip()
         if not database_url:
             raise AdminConfigError("BDDK_DATABASE_URL must be set to run the admin console.")
+        try:
+            database_url = assert_database_transport(database_url)
+        except DatabaseTransportError as exc:
+            raise AdminConfigError(str(exc)) from None
 
         bind_host = (source.get("BDDK_ADMIN_HOST") or "127.0.0.1").strip()
         loopback_only = is_loopback_host(bind_host)

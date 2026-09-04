@@ -120,7 +120,6 @@ dependencies = [
     { name = "jinja2" },
     { name = "markitdown", extra = ["pdf"] },
     { name = "mcp", extra = ["cli"] },
-    { name = "pdf2image" },
     { name = "pydantic" },
     { name = "pyjwt", extra = ["crypto"] },
     { name = "pyyaml" },
@@ -143,6 +142,7 @@ dev = [
 ]
 gpu = [
     { name = "chandra-ocr", extra = ["hf"] },
+    { name = "pdf2image" },
     { name = "torch" },
     { name = "torchvision" },
 ]
@@ -156,7 +156,6 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.1" },
     { name = "markitdown", extras = ["pdf"], specifier = ">=0.1" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.27,<2" },
-    { name = "pdf2image", specifier = ">=1.17" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10,<3" },
     { name = "pyyaml", specifier = ">=6.0" },
@@ -177,6 +176,7 @@ dev = [
 ]
 gpu = [
     { name = "chandra-ocr", extras = ["hf"], specifier = ">=0.2" },
+    { name = "pdf2image", specifier = ">=1.17" },
     { name = "torch", specifier = ">=2.13.0" },
     { name = "torchvision", specifier = ">=0.15" },
 ]

@@ -200,3 +200,149 @@ async def test_get_version_counts_no_args(doc_store):
     """Empty list should short-circuit and return {} without a DB query."""
     result = await doc_store.get_version_counts([])
     assert result == {}
+
+
+# -- Upstream failure surfacing ----------------------------------------------
+# Blocked egress must surface as a retryable tool error, never as "no results".
+
+
+@pytest.mark.asyncio
+async def test_search_institutions_upstream_failure_is_tool_error():
+    from unittest.mock import patch
+
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.core.exceptions import BddkUpstreamError
+    from bddk_mcp.tools.search import register
+
+    mcp = MagicMock()
+    deps = Dependencies(pool=None, doc_store=None, client=None, http=MagicMock())
+    register(mcp, deps)
+    tool = _registered_tools(mcp)["search_bddk_institutions"]
+
+    with (
+        patch(
+            "bddk_mcp.tools.search.fetch_institutions_with_status",
+            new=AsyncMock(side_effect=BddkUpstreamError("unreachable")),
+        ),
+        pytest.raises(ToolError) as excinfo,
+    ):
+        await tool()
+
+    message = str(excinfo.value)
+    assert "[ERROR:UPSTREAM_FETCH_FAILED]" in message
+    assert "retryable=true" in message
+    assert "NOT evidence" in message
+
+
+@pytest.mark.asyncio
+async def test_search_announcements_total_upstream_failure_is_tool_error():
+    from unittest.mock import patch
+
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.core.exceptions import BddkUpstreamError
+    from bddk_mcp.tools.search import register
+
+    mcp = MagicMock()
+    deps = Dependencies(pool=None, doc_store=None, client=None, http=MagicMock())
+    register(mcp, deps)
+    tool = _registered_tools(mcp)["search_bddk_announcements"]
+
+    fetch = AsyncMock(side_effect=BddkUpstreamError("category failed"))
+    with (
+        patch("bddk_mcp.tools.search.fetch_announcements", new=fetch),
+        pytest.raises(ToolError) as excinfo,
+    ):
+        await tool(category="tümü")
+
+    message = str(excinfo.value)
+    assert "[ERROR:UPSTREAM_FETCH_FAILED]" in message
+    assert "retryable=true" in message
+    # A per-category failure is not a host failure: every category is still
+    # attempted, because the others may well succeed.
+    assert fetch.await_count == 5
+
+
+@pytest.mark.asyncio
+async def test_search_announcements_unreachable_host_aborts_remaining_categories():
+    """A blocked host must not be retried once per category (serial timeouts)."""
+    from unittest.mock import patch
+
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.core.exceptions import BddkUpstreamUnreachableError
+    from bddk_mcp.tools.search import register
+
+    mcp = MagicMock()
+    deps = Dependencies(pool=None, doc_store=None, client=None, http=MagicMock())
+    register(mcp, deps)
+    tool = _registered_tools(mcp)["search_bddk_announcements"]
+
+    fetch = AsyncMock(side_effect=BddkUpstreamUnreachableError("blocked egress"))
+    with (
+        patch("bddk_mcp.tools.search.fetch_announcements", new=fetch),
+        pytest.raises(ToolError) as excinfo,
+    ):
+        await tool(category="tümü")
+
+    assert "[ERROR:UPSTREAM_FETCH_FAILED]" in str(excinfo.value)
+    assert fetch.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_search_announcements_partial_failure_appends_warning():
+    from unittest.mock import patch
+
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.core.exceptions import BddkUpstreamError
+    from bddk_mcp.tools.search import register
+
+    mcp = MagicMock()
+    deps = Dependencies(pool=None, doc_store=None, client=None, http=MagicMock())
+    register(mcp, deps)
+    tool = _registered_tools(mcp)["search_bddk_announcements"]
+
+    fetch = AsyncMock(
+        side_effect=[
+            [{"title": "Basın duyurusu örneği", "date": "01.08.2026", "url": ""}],
+            BddkUpstreamError("unreachable"),
+            BddkUpstreamError("unreachable"),
+            BddkUpstreamError("unreachable"),
+            BddkUpstreamError("unreachable"),
+        ]
+    )
+    with patch("bddk_mcp.tools.search.fetch_announcements", new=fetch):
+        result = await tool(category="tümü")
+
+    assert "Basın duyurusu örneği" in result
+    assert "WARNING" in result
+    assert "incomplete" in result
+
+
+@pytest.mark.asyncio
+async def test_search_institutions_partial_directory_is_marked_incomplete():
+    """A truncated directory must never be presented as the complete one."""
+    from unittest.mock import patch
+
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.ingest.data_sources import InstitutionDirectory
+    from bddk_mcp.tools.search import register
+
+    mcp = MagicMock()
+    deps = Dependencies(pool=None, doc_store=None, client=None, http=MagicMock())
+    register(mcp, deps)
+    tool = _registered_tools(mcp)["search_bddk_institutions"]
+
+    directory = InstitutionDirectory(
+        institutions=[{"name": "Örnek Banka", "type": "Banka", "status": "Aktif", "website": ""}],
+        failed_pages=2,
+        attempted_pages=5,
+    )
+    with patch(
+        "bddk_mcp.tools.search.fetch_institutions_with_status",
+        new=AsyncMock(return_value=directory),
+    ):
+        result = await tool()
+
+    assert "Örnek Banka" in result
+    assert "WARNING" in result
+    assert "incomplete" in result
+    assert "2 of 5" in result

@@ -122,3 +122,93 @@ async def test_regulatory_digest_rejects_unknown_period():
 
     with pytest.raises(ToolError, match="INVALID_INPUT"):
         await get_regulatory_digest(period="unknown")
+
+
+# -- Upstream failure surfacing ----------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_check_updates_baseline_upstream_failure_is_tool_error_and_stores_nothing():
+    """A failed baseline fetch must not create an empty (false) baseline."""
+    from mcp.server.fastmcp.exceptions import ToolError
+
+    from bddk_mcp.core.exceptions import BddkUpstreamError
+
+    mcp = MagicMock()
+    client = MagicMock()
+    client.known_announcements = set()
+    deps = Dependencies(pool=None, doc_store=None, client=client, http=MagicMock())
+    register(mcp, deps, include_operator=True)
+    monitor = _registered_tools(mcp)["check_bddk_updates"]
+
+    with (
+        patch(
+            "bddk_mcp.tools.analytics.fetch_announcements",
+            new=AsyncMock(side_effect=BddkUpstreamError("unreachable")),
+        ),
+        pytest.raises(ToolError) as excinfo,
+    ):
+        await monitor()
+
+    message = str(excinfo.value)
+    assert "[ERROR:UPSTREAM_FETCH_FAILED]" in message
+    assert "retryable=true" in message
+    assert client.known_announcements == set()
+
+
+@pytest.mark.asyncio
+async def test_regulatory_digest_marks_unavailable_upstream_sections():
+    """The digest must say announcement/bulletin data was unavailable, not omit it."""
+    mcp = MagicMock()
+    deps = Dependencies(pool=None, doc_store=None, client=MagicMock(), http=MagicMock())
+    deps.client.ensure_cache = AsyncMock()
+    deps.client.get_cache_items = MagicMock(return_value=[])
+    register(mcp, deps)
+    get_regulatory_digest = _registered_tools(mcp)["get_regulatory_digest"]
+
+    with patch(
+        "bddk_mcp.tools.analytics.build_digest",
+        new=AsyncMock(
+            return_value={
+                "narrative": "Duyuru verileri alınamadı.",
+                "decisions_by_category": {},
+                "new_decisions": [],
+                "announcements": [],
+                "announcements_available": False,
+                "bulletin_snapshot": [],
+                "bulletin_snapshot_available": False,
+            }
+        ),
+    ):
+        out = await get_regulatory_digest(period="week")
+
+    assert "Duyurular:" in out
+    assert "veri alınamadı" in out
+    assert "Bülten Özet:" in out
+
+
+@pytest.mark.asyncio
+async def test_check_updates_post_baseline_upstream_failure_is_tool_error():
+    """With a baseline present, an upstream failure must not read as 'no news'."""
+    from bddk_mcp.core.exceptions import BddkUpstreamError
+
+    mcp = MagicMock()
+    client = MagicMock()
+    client.known_announcements = {"https://example.invalid/known"}
+    client.get_cache_items.return_value = []
+    deps = Dependencies(pool=None, doc_store=None, client=client, http=MagicMock())
+    register(mcp, deps, include_operator=True)
+    monitor = _registered_tools(mcp)["check_bddk_updates"]
+
+    with (
+        patch(
+            "bddk_mcp.tools.analytics.check_updates",
+            new=AsyncMock(side_effect=BddkUpstreamError("upstream down")),
+        ),
+        pytest.raises(ToolError) as excinfo,
+    ):
+        await monitor()
+
+    message = str(excinfo.value)
+    assert "[ERROR:UPSTREAM_FETCH_FAILED]" in message
+    assert "NOT evidence" in message

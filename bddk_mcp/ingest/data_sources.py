@@ -3,10 +3,12 @@
 import asyncio
 import logging
 import re
+from dataclasses import dataclass
 
 import httpx
 from bs4 import BeautifulSoup
 
+from bddk_mcp.core.exceptions import BddkUpstreamError, BddkUpstreamUnreachableError
 from bddk_mcp.core.outbound_http import (
     BDDK_HTTPS_HOSTS,
     OutboundHttpPolicyError,
@@ -15,6 +17,25 @@ from bddk_mcp.core.outbound_http import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class InstitutionDirectory:
+    """Directory rows plus how much of the directory was actually retrieved.
+
+    A truncated directory rendered without its status reads as a complete one,
+    which is the same false-completeness failure as reporting a blocked fetch
+    as "no results".
+    """
+
+    institutions: list[dict]
+    failed_pages: int
+    attempted_pages: int
+
+    @property
+    def partial(self) -> bool:
+        return self.failed_pages > 0
+
 
 _BDDK_BASE_URL = "https://www.bddk.org.tr"
 _MAX_BDDK_HTML_BYTES = 8 * 1024 * 1024
@@ -191,6 +212,19 @@ async def fetch_institutions(
     http: httpx.AsyncClient,
     institution_type: str | None = None,
 ) -> list[dict]:
+    """Fetch the institution directory, discarding partial-fetch status.
+
+    Prefer :func:`fetch_institutions_with_status` where the caller renders the
+    result to a user: a silently truncated directory reads as a complete one.
+    """
+
+    return (await fetch_institutions_with_status(http, institution_type)).institutions
+
+
+async def fetch_institutions_with_status(
+    http: httpx.AsyncClient,
+    institution_type: str | None = None,
+) -> InstitutionDirectory:
     """Fetch institution directory from BDDK.
 
     Returns list of dicts with: name, website, type, subcategory, status, digital.
@@ -203,6 +237,8 @@ async def fetch_institutions(
         if not pages:
             pages = _INSTITUTION_PAGES
 
+    failed_pages: list[int] = []
+    unreachable = False
     for page_id, inst_type in pages.items():
         try:
             url = f"{_BDDK_BASE_URL}/Kurulus/Liste/{page_id}"
@@ -216,14 +252,48 @@ async def fetch_institutions(
 
             all_institutions.extend(items)
             logger.info("Parsed %d institutions from page %d (%s)", len(items), page_id, inst_type)
-        except (httpx.HTTPError, httpx.TransportError, OutboundHttpPolicyError, ValueError, AttributeError) as exc:
+        except (httpx.TransportError, OutboundHttpPolicyError) as exc:
+            # Connect-class failure: the remaining pages share the same host, so
+            # retrying them would only repeat the same slow failure serially.
+            failed_pages.append(page_id)
+            unreachable = True
+            logger.error(
+                "Failed to fetch institutions page %d; upstream unreachable, aborting remaining pages",
+                page_id,
+                extra={"error_type": type(exc).__name__},
+            )
+            break
+        except (httpx.HTTPError, ValueError, AttributeError) as exc:
+            failed_pages.append(page_id)
             logger.error(
                 "Failed to fetch institutions page %d",
                 page_id,
                 extra={"error_type": type(exc).__name__},
             )
 
-    return all_institutions
+    if failed_pages and not all_institutions:
+        # An empty result caused by fetch failure must never masquerade as
+        # "no such institutions exist"; surface a retryable upstream error.
+        if unreachable:
+            raise BddkUpstreamUnreachableError(
+                "BDDK institution directory could not be fetched (upstream unreachable)."
+            )
+        raise BddkUpstreamError(
+            f"BDDK institution directory could not be fetched ({len(failed_pages)} of {len(pages)} pages failed)."
+        )
+
+    if failed_pages:
+        logger.warning(
+            "Institution directory fetched partially: %d of %d pages failed",
+            len(failed_pages),
+            len(pages),
+        )
+
+    return InstitutionDirectory(
+        institutions=all_institutions,
+        failed_pages=len(failed_pages),
+        attempted_pages=len(pages),
+    )
 
 
 # -- Weekly Bulletin Data -------------------------------------------------
@@ -320,7 +390,10 @@ async def fetch_bulletin_snapshot(
 
         table = soup.find("table", id="Tablo")
         if not table:
-            return []
+            raise BddkUpstreamError(
+                "BDDK weekly bulletin page did not contain the expected data table; "
+                "the upstream layout may have changed."
+            )
 
         rows: list[dict] = []
         for tr in table.find_all("tr"):
@@ -341,9 +414,18 @@ async def fetch_bulletin_snapshot(
                 }
             )
         return rows
-    except (httpx.HTTPError, httpx.TransportError, OutboundHttpPolicyError, ValueError, AttributeError) as exc:
+    except (httpx.TransportError, OutboundHttpPolicyError) as exc:
+        logger.error(
+            "Failed to fetch bulletin snapshot; upstream unreachable", extra={"error_type": type(exc).__name__}
+        )
+        raise BddkUpstreamUnreachableError(
+            "BDDK weekly bulletin snapshot could not be fetched (upstream unreachable)."
+        ) from exc
+    except (httpx.HTTPError, ValueError, AttributeError) as exc:
         logger.error("Failed to fetch bulletin snapshot", extra={"error_type": type(exc).__name__})
-        return []
+        raise BddkUpstreamError(
+            "BDDK weekly bulletin snapshot could not be fetched (upstream request failed)."
+        ) from exc
 
 
 # -- Announcements -------------------------------------------------------
@@ -400,13 +482,24 @@ async def fetch_announcements(
 
         logger.info("Parsed %d announcements from category %d", len(announcements), category_id)
         return announcements
-    except (httpx.HTTPError, httpx.TransportError, OutboundHttpPolicyError, ValueError, AttributeError) as exc:
+    except (httpx.TransportError, OutboundHttpPolicyError) as exc:
+        logger.error(
+            "Failed to fetch announcements category %d; upstream unreachable",
+            category_id,
+            extra={"error_type": type(exc).__name__},
+        )
+        raise BddkUpstreamUnreachableError(
+            f"BDDK announcements ({category_name}) could not be fetched (upstream unreachable)."
+        ) from exc
+    except (httpx.HTTPError, ValueError, AttributeError) as exc:
         logger.error(
             "Failed to fetch announcements category %d",
             category_id,
             extra={"error_type": type(exc).__name__},
         )
-        return []
+        raise BddkUpstreamError(
+            f"BDDK announcements ({category_name}) could not be fetched (upstream request failed)."
+        ) from exc
 
 
 # -- Monthly Bulletin Data -------------------------------------------------

@@ -2,7 +2,7 @@
 
 This runbook covers one transition only: a database created by the final
 pre-ledger `bddk-mcp` initializers. Adoption verifies and records canonical
-v0001, then applies every pending migration through the current schema v8. It
+v0001, then applies every pending migration through the current schema v10. It
 is not a general schema-repair command.
 
 An already-ledgered v5/v6/v7 database uses ordinary migration, not

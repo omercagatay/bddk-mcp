@@ -87,7 +87,7 @@ class ActiveCorpusGuard:
         if client is None:
             raise self._safe_unavailable(RuntimeError("client_unavailable")) from None
         try:
-            await client.load_cache_read_only()
+            await client.load_cache_read_only(require_nonempty=False)
             confirmed_release_id = await self._active_release_id()
         except asyncio.CancelledError:
             self._invalidate_process_epoch()

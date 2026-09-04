@@ -88,3 +88,18 @@ def test_local_login_fixture_is_explicitly_non_production_and_least_privileged()
     assert "GRANT bddk_release_publisher TO bddk_local_release_publisher" in sql
     assert "GRANT bddk_public_reader TO bddk_local_public" in sql
     assert "GRANT bddk_telemetry_writer TO bddk_local_telemetry" in sql
+
+
+def test_compose_provisions_ci_equivalent_test_database():
+    """bddk-test-db must mirror the CI postgres fixture so local runs execute."""
+    services = _compose()["services"]
+    service = services["bddk-test-db"]
+    assert _dependency(service) == "bddk-local-identities"
+    command = service["command"][0]
+    assert "--file=/sql/02_test_database.sql" in command
+    assert "--dbname=bddk_test" in command
+    assert "--file=/sql/03_test_extensions.sql" in command
+    # CREATE DATABASE cannot run inside a transaction: the provisioning file
+    # must not be applied with --single-transaction.
+    provisioning = command.split("&&")[0]
+    assert "--single-transaction" not in provisioning

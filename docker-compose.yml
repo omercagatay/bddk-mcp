@@ -58,6 +58,29 @@ services:
       - --single-transaction
       - --file=/sql/01_identities.sql
 
+  # Provision the disposable pytest fixture (`bddk` role + `bddk_test`
+  # database) that mirrors the CI postgres service container, so local
+  # `postgres`-marked test runs execute instead of silently skipping.
+  # Start it with: docker compose up -d bddk-test-db
+  bddk-test-db:
+    image: pgvector/pgvector:pg17@sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0
+    depends_on:
+      bddk-local-identities:
+        condition: service_completed_successfully
+    environment:
+      PGPASSWORD: local-only-admin
+    volumes:
+      - ./deploy/postgres/local-dev/02_test_database.sql:/sql/02_test_database.sql:ro
+      - ./deploy/postgres/local-dev/03_test_extensions.sql:/sql/03_test_extensions.sql:ro
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        psql --host=db --username=bddk_local_admin --dbname=bddk
+        --set=ON_ERROR_STOP=1 --file=/sql/02_test_database.sql
+        && psql --host=db --username=bddk_local_admin --dbname=bddk_test
+        --set=ON_ERROR_STOP=1 --single-transaction
+        --file=/sql/03_test_extensions.sql
+
   bddk-migrate:
     image: bddk-mcp-local:dev
     build: .

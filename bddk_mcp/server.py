@@ -30,6 +30,7 @@ from bddk_mcp.core.config import (
     TELEMETRY_ENABLED,
     require_database_url,
     require_telemetry_database_url,
+    validate_model_asset_policy,
 )
 from bddk_mcp.core.deps import Dependencies
 from bddk_mcp.core.logging_config import configure_logging
@@ -259,6 +260,7 @@ async def create_deps(profile: ToolProfile = ToolProfile.PUBLIC) -> Dependencies
             allow_live_population=False,
         )
         await client.load_cache_read_only()
+        validate_model_asset_policy()
         vector_store = VectorStore(pool)
         if profile is ToolProfile.PUBLIC:
             async with asyncio.timeout(_SEMANTIC_SEARCH_STARTUP_TIMEOUT_SECONDS):

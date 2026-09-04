@@ -5,6 +5,7 @@ from datetime import datetime
 import httpx
 
 from bddk_mcp.core.config import ANNOUNCEMENT_CATEGORY_IDS
+from bddk_mcp.core.exceptions import BddkUpstreamError
 from bddk_mcp.ingest.data_sources import (
     fetch_announcements,
     fetch_bulletin_snapshot,
@@ -156,8 +157,18 @@ async def build_digest(
 
     # -- Recent announcements (all 5 categories) --
     all_announcements: list[dict] = []
+    announcements_available = True
     for cat_id in ANNOUNCEMENT_CATEGORY_IDS:
-        anns = await fetch_announcements(http, cat_id)
+        try:
+            anns = await fetch_announcements(http, cat_id)
+        except BddkUpstreamError:
+            # Upstream failed; the digest must say so instead of silently
+            # reporting zero announcements. Discard whatever earlier categories
+            # returned: a partial set reported alongside an unavailable flag
+            # would still be read as a complete count.
+            announcements_available = False
+            all_announcements = []
+            break
         for a in anns:
             date_str = a.get("date", "")
             if not date_str:
@@ -170,13 +181,24 @@ async def build_digest(
                 continue
 
     # -- Bulletin snapshot --
-    snapshot = await fetch_bulletin_snapshot(http)
+    bulletin_snapshot_available = True
+    try:
+        snapshot = await fetch_bulletin_snapshot(http)
+    except BddkUpstreamError:
+        snapshot = []
+        bulletin_snapshot_available = False
 
     # -- Build narrative --
     narrative_parts = []
-    narrative_parts.append(
-        f"Son {period_days} günde {len(recent_decisions)} yeni karar ve {len(all_announcements)} duyuru yayımlandı."
-    )
+    if announcements_available:
+        narrative_parts.append(
+            f"Son {period_days} günde {len(recent_decisions)} yeni karar ve {len(all_announcements)} duyuru yayımlandı."
+        )
+    else:
+        narrative_parts.append(
+            f"Son {period_days} günde {len(recent_decisions)} yeni karar yayımlandı. "
+            "Duyuru verileri alınamadı (BDDK üst kaynağına erişilemedi); duyuru sayıları bu özette eksiktir."
+        )
 
     if by_category:
         top_cats = sorted(by_category.items(), key=lambda x: -len(x[1]))[:3]
@@ -189,7 +211,9 @@ async def build_digest(
         "new_decisions": recent_decisions[:20],
         "decisions_by_category": {k: len(v) for k, v in by_category.items()},
         "announcements": all_announcements[:20],
+        "announcements_available": announcements_available,
         "bulletin_snapshot": snapshot[:5] if snapshot else [],
+        "bulletin_snapshot_available": bulletin_snapshot_available,
         "narrative": " ".join(narrative_parts),
         "total_decisions": len(recent_decisions),
         "total_announcements": len(all_announcements),

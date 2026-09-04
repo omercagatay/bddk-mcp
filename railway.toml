@@ -2,15 +2,26 @@
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
+# Railway is a development/preview profile, not the reviewed bank deployment
+# path (that is deploy/openshift/). The container binds 0.0.0.0, so the
+# fail-closed HTTP policy refuses startup until the service supplies the
+# complete non-loopback policy as variables:
+#   BDDK_DATABASE_URL              verify-full PostgreSQL DSN (public reader)
+#   BDDK_INGESTION_DATABASE_URL    verify-full DSN for the preDeploy bootstrap
+#   BDDK_HTTP_ALLOWED_HOSTS        exact public hostname of the Railway domain
+#   BDDK_HTTP_ALLOWED_ORIGINS      exact HTTPS origins allowed to call /mcp
+#   and either the full BDDK_JWT_* set or BDDK_HTTP_ALLOW_UNAUTHENTICATED=true
+#     (unauthenticated exposure on a public Railway URL serves the corpus to
+#     the whole Internet; prefer JWT or a private network).
+
 [deploy]
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
+healthcheckPath = "/health/ready"
+healthcheckTimeout = 300
 # Publish the corpus under the retrieval-profile identity this container
 # actually computes (verified_local_tree over /app/embedding_model). A
 # locally-run bootstrap publishes under a different identity and the server
 # then refuses to start. No-op when the DB already matches the seed corpus.
 # Requires BDDK_INGESTION_DATABASE_URL on the service.
-preDeployCommand = "/app/.venv/bin/bddk-mcp bootstrap --reindex-existing --trusted-signing-key /app/trust/corpus-signing-public-key.pem"
-
-[[deploy.volumes]]
-mountPath = "/app/data"
+preDeployCommand = "/app/.venv/bin/bddk-mcp bootstrap --reindex-existing --require-verified-signature --trusted-signing-key /app/trust/corpus-signing-public-key.pem"

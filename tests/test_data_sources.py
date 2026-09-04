@@ -7,6 +7,7 @@ import httpx
 import pytest
 from bs4 import BeautifulSoup
 
+from bddk_mcp.core.exceptions import BddkUpstreamError
 from bddk_mcp.ingest.data_sources import (
     _parse_card_institutions,
     _parse_tabpane_institutions,
@@ -187,10 +188,31 @@ async def test_fetch_institutions_type_filter(mock_http):
     assert len(result) == 3
 
 
-async def test_fetch_institutions_error_handling(mock_http):
+async def test_fetch_institutions_total_failure_raises_upstream_error(mock_http):
+    """A fully failed directory fetch must never look like an empty directory."""
     mock_http.get = AsyncMock(return_value=_make_response("", status_code=500))
+    with pytest.raises(BddkUpstreamError):
+        await fetch_institutions(mock_http)
+
+
+async def test_fetch_institutions_partial_failure_returns_partial_results(mock_http):
+    """One good page plus failing pages still returns the fetched institutions."""
+    # Page 77 (card layout) succeeds; every later page returns 500.
+    mock_http.get = AsyncMock(side_effect=[_make_response(CARD_HTML)] + [_make_response("", status_code=500)] * 20)
     result = await fetch_institutions(mock_http)
-    assert result == []
+    assert len(result) > 0
+
+
+async def test_fetch_institutions_unreachable_fails_fast(mock_http):
+    """A connect-class failure aborts the remaining serial page fetches.
+
+    The retry layer may attempt one page a few times, but the loop must not
+    move on to the other directory pages once the host is unreachable.
+    """
+    mock_http.get = AsyncMock(side_effect=httpx.ConnectError("blocked egress"))
+    with pytest.raises(BddkUpstreamError):
+        await fetch_institutions(mock_http)
+    assert mock_http.get.await_count <= 3  # one page's retries, not pages x retries
 
 
 # -- Bulletin tests --
@@ -264,10 +286,17 @@ async def test_fetch_bulletin_snapshot(mock_http):
     assert result[1]["metric_id"] == "1.0.2"
 
 
-async def test_fetch_bulletin_snapshot_no_table(mock_http):
+async def test_fetch_bulletin_snapshot_no_table_raises_upstream_error(mock_http):
+    """A page without the bulletin table is an extraction failure, not empty data."""
     mock_http.get = AsyncMock(return_value=_make_response("<html></html>"))
-    result = await fetch_bulletin_snapshot(mock_http)
-    assert result == []
+    with pytest.raises(BddkUpstreamError):
+        await fetch_bulletin_snapshot(mock_http)
+
+
+async def test_fetch_bulletin_snapshot_transport_error_raises_upstream_error(mock_http):
+    mock_http.get = AsyncMock(return_value=_make_response("", status_code=500))
+    with pytest.raises(BddkUpstreamError):
+        await fetch_bulletin_snapshot(mock_http)
 
 
 # -- Announcement tests --
@@ -310,7 +339,8 @@ async def test_fetch_announcements_empty(mock_http):
     assert result == []
 
 
-async def test_fetch_announcements_error(mock_http):
+async def test_fetch_announcements_error_raises_upstream_error(mock_http):
+    """A failed announcements fetch must never look like zero announcements."""
     mock_http.get = AsyncMock(return_value=_make_response("", status_code=500))
-    result = await fetch_announcements(mock_http, category_id=39)
-    assert result == []
+    with pytest.raises(BddkUpstreamError):
+        await fetch_announcements(mock_http, category_id=39)
