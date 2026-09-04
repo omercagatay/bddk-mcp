@@ -699,7 +699,9 @@ class DocumentStore:
         else:
             # Nested fıkra/bent rows duplicate a parent madde; PDF wraps turn
             # them into fragments that outrank the article that holds the limit.
-            where.append("section.section_type NOT IN ('fikra', 'bent')")
+            # govde remainder is unparsed leftover (headings, footnotes), not a
+            # provision identity — same opt-in as fıkra/bent via section_type.
+            where.append("section.section_type NOT IN ('fikra', 'bent', 'govde')")
         params.append(limit)
 
         rows = await self._pool.fetch(

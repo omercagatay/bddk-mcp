@@ -556,6 +556,7 @@ def retrieval_profile_descriptor(embedding_model: str | None = None) -> dict:
                 "rank_function": "ts_rank_cd",
                 "rank_normalization": 1,
                 "tie_break": "section_start_char_ascending",
+                "default_excluded_section_types": ["fikra", "bent", "govde"],
             },
             "fusion": {
                 "algorithm": "reciprocal_rank_fusion",

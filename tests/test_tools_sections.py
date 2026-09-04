@@ -497,3 +497,46 @@ async def test_search_document_sections_uses_loose_fallback_when_strict_misses()
         "section_type": None,
         "limit": 5,
     }
+
+
+@pytest.mark.asyncio
+async def test_loose_fallback_ranks_operative_madde_ahead_of_govde_gecici_and_ipc():
+    query = "likidite yeterlilik oranı asgari oran yaptırım idari para cezası"
+    lyo = _section(
+        "mevzuat_10749",
+        "madde",
+        "13",
+        "MADDE 13 - Asgari likidite yeterlilik oranı yüzde yüzden az olamaz.",
+    ).model_copy(update={"content_hash": "lyo13", "start_char": 9000, "heading": "Asgari likidite yeterliliği oranı"})
+    gecici = _section(
+        "mevzuat_10749",
+        "gecici_madde",
+        "1",
+        "GEÇİCİ MADDE 1 - likidite yeterlilik oranı yüzde beşten az olamaz.",
+    ).model_copy(update={"content_hash": "g1", "start_char": 100})
+    ipc = _section(
+        "mevzuat_5464",
+        "madde",
+        "35",
+        "MADDE 35 - idari para cezası. aykırılık tutarının yüzde biri oranına kadar.",
+    ).model_copy(update={"content_hash": "ipc35", "start_char": 10})
+    glue = {"idari", "para", "oran", "oranı", "asgari", "yaptırım", "cezası", "yüzde"}
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[])
+
+    async def search_side_effect(search_query, *, document_id=None, section_type=None, limit=10):
+        if search_query == query:
+            return []
+        if search_query in glue:
+            raise AssertionError(f"glue term {search_query!r} must not be issued as standalone FTS")
+        if search_query in {"likidite", "yeterlilik"}:
+            return [gecici, ipc, lyo]
+        return []
+
+    doc_store.search_document_sections = AsyncMock(side_effect=search_side_effect)
+    deps = Dependencies(pool=None, doc_store=doc_store, client=None, http=None)
+
+    out = await _capture_tool(deps, "search_document_sections")(query, limit=4)
+
+    assert out.index("mevzuat_10749 — madde 13") < out.index("gecici_madde 1")
+    assert out.index("mevzuat_10749 — madde 13") < out.index("mevzuat_5464 — madde 35")

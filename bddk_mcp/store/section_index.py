@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 # truncation, or section-content hashing changes.  Persisted chunk metadata is
 # bound to this value by the vector retrieval profile.
 SECTION_PARSER_PROFILE_VERSION = "turkish-regulatory-sections-v7"
-SECTION_SEARCH_PROFILE_VERSION = "document-section-simple-fts-length-normalized-v3"
+SECTION_SEARCH_PROFILE_VERSION = "document-section-simple-fts-length-normalized-v4"
 
 # Hard upper bound for a single section's span. Legitimate maddeler are a few
 # thousand chars; spans beyond this are parser artifacts (typically trailing EK

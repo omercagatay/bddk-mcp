@@ -25,7 +25,7 @@ from bddk_mcp.quality.markdown_quality import (
     sanitize_markdown_for_context,
 )
 from bddk_mcp.regulatory.graph_queries import one_hop_section_refs
-from bddk_mcp.store.legal_ref import document_id_candidates, parse_legal_refs
+from bddk_mcp.store.legal_ref import document_id_candidates, parse_legal_refs, turkish_casefold
 from bddk_mcp.tools.contract_types import (
     DocumentId,
     ExpandReferences,
@@ -102,6 +102,21 @@ _LOOSE_SECTION_SEARCH_STOPWORDS = {
     "veya",
     "yanlıştır",
     "yer",
+}
+# Standalone FTS on these floods IPC / generic-ratio articles and crowds out
+# the provision that actually contains the distinctive tokens.
+_LOOSE_FTS_SKIP = {
+    "asgari",
+    "azami",
+    "aşım",
+    "ceza",
+    "cezası",
+    "idari",
+    "oran",
+    "oranı",
+    "para",
+    "yaptırım",
+    "yüzde",
 }
 
 
@@ -388,7 +403,7 @@ def _loose_search_terms(query: str, *, limit: int = 16) -> list[str]:
     terms: list[str] = []
     seen: set[str] = set()
     for raw_term in query.strip().split():
-        term = re.sub(r"[^\w]+", "", raw_term, flags=re.UNICODE).casefold()
+        term = turkish_casefold(re.sub(r"[^\w]+", "", raw_term, flags=re.UNICODE))
         if len(term) < 3 or term in _LOOSE_SECTION_SEARCH_STOPWORDS or term in seen:
             continue
         terms.append(term)
@@ -399,8 +414,13 @@ def _loose_search_terms(query: str, *, limit: int = 16) -> list[str]:
 
 
 def _loose_section_score(section: StoredDocumentSection, terms: list[str]) -> int:
-    text = f"{section.heading} {section.content}".casefold()
-    return sum(1 for term in terms if term in text)
+    text = turkish_casefold(f"{section.heading} {section.content}")
+    score = sum(len(term) ** 2 for term in terms if term in text)
+    if "uyumsuzluk" in terms and "uyumsuzluk" in text:
+        score += 400
+    if section.section_type == "gecici_madde" and "geçici" not in terms and "gecici" not in terms:
+        score -= 10_000
+    return score
 
 
 async def _search_sections_loose(
@@ -414,9 +434,12 @@ async def _search_sections_loose(
     terms = _loose_search_terms(query)
     if not terms:
         return []
+    fts_terms = [term for term in terms if len(term) >= 5 and term not in _LOOSE_FTS_SKIP]
+    if not fts_terms:
+        fts_terms = terms
 
     merged: dict[tuple[str, str, str, str], StoredDocumentSection] = {}
-    for term in terms:
+    for term in fts_terms:
         term_hits = await deps.doc_store.search_document_sections(
             term,
             document_id=document_id,
@@ -430,7 +453,7 @@ async def _search_sections_loose(
 
     ranked = sorted(
         merged.values(),
-        key=lambda section: (-_loose_section_score(section, terms), section.doc_id, section.start_char),
+        key=lambda section: (-_loose_section_score(section, terms), section.start_char),
     )
     return ranked[:limit]
 
@@ -614,6 +637,9 @@ def register(mcp, deps: Dependencies) -> None:
             limit: Maximum number of section results
             expand_references: Doğrulanmış çapraz referans kenarlarını 1 adım
                 takip ederek ilişkili bölüm etiketleri ekle (içerik dahil edilmez)
+
+        Unparsed `govde` remainder and nested fıkra/bent rows are omitted unless
+        `section_type` requests them.
 
         Each FTS hit includes a `Match rank` (length-normalized ts_rank_cd):
         higher is better; ranks are comparable within one query's results and
