@@ -299,6 +299,27 @@ async def test_search_document_sections_skips_nested_fikra_unless_requested(stor
     assert any(hit.section_type == "fikra" for hit in fikra_hits)
 
 
+async def test_search_document_sections_skips_govde_unless_requested(store):
+    preamble = "Önsöz likidite yeterlilik kalanı. " * 8
+    text = preamble + "\n\nMADDE 13 - Asgari likidite yeterlilik oranı yüzde yüzden az olamaz.\n"
+    await store.store_document(StoredDocument(document_id="mevzuat_10749", title="Test", markdown_content=text))
+    await store.replace_document_sections(
+        "mevzuat_10749",
+        extract_document_sections("mevzuat_10749", text),
+        source_content_hash=hashlib.sha256(text.encode()).hexdigest(),
+    )
+
+    hits = await store.search_document_sections("likidite yeterlilik", document_id="mevzuat_10749")
+    assert hits
+    assert all(hit.section_type != "govde" for hit in hits)
+    assert any(hit.section_type == "madde" and hit.section_ref == "13" for hit in hits)
+
+    govde_hits = await store.search_document_sections(
+        "likidite yeterlilik", document_id="mevzuat_10749", section_type="govde"
+    )
+    assert any(hit.section_type == "govde" for hit in govde_hits)
+
+
 async def test_upsert(store, sample_doc):
     await store.store_document(sample_doc)
     updated = sample_doc.model_copy(update={"title": "Güncellenmiş Başlık"})
