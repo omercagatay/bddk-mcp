@@ -48,3 +48,7 @@ learn/
 
 # Editor workspace state (Obsidian vault config)
 docs/.obsidian/
+
+# Local knowledge-graph tool output
+graphify-out/
+**/graphify-out/

@@ -4,11 +4,18 @@ from __future__ import annotations
 
 import pytest
 
-from bddk_mcp.catalog_integrity import inspect_catalog_integrity
+from bddk_mcp.catalog_integrity import _normalize_routine_source, _normalize_sql, inspect_catalog_integrity
 from bddk_mcp.db_lifecycle import inspect_database_readiness
 from bddk_mcp.migrations.v0004_canonical_legal_versions import V0004_CANONICAL_LEGAL_VERSIONS
 from bddk_mcp.migrations.v0005_corpus_release_publication import CORPUS_EPOCH_TRACKED_TABLES
 from bddk_mcp.regulatory.text_profile import PROVISION_BOUNDARY_CODEPOINTS_V1
+
+
+def test_routine_source_normalization_preserves_literal_case() -> None:
+    attested = "SELECT validation_state = 'validated'"
+    tampered = "SELECT validation_state = 'VALIDATED'"
+    assert _normalize_sql(attested) == _normalize_sql(tampered)
+    assert _normalize_routine_source(attested) != _normalize_routine_source(tampered)
 
 
 def test_citation_view_source_ddl_schema_qualifies_the_retained_text_hash_gates() -> None:

@@ -34,6 +34,7 @@ from bddk_mcp.corpus_manifest import (  # noqa: E402
     CorpusScopeManifest,
     canonical_manifest_payload,
     canonical_manifest_sha256,
+    load_and_validate_corpus_manifest,
 )
 
 _PLACEHOLDER_SHA = "0" * 64
@@ -136,6 +137,12 @@ def sign_manifest(
     signature_path.write_bytes(signature)
 
     trusted_public.verify(signature_path.read_bytes(), canonical_manifest_payload(raw))
+    load_and_validate_corpus_manifest(
+        manifest_path,
+        corpus_root=manifest_path.parent,
+        require_verified_signature=True,
+        trusted_signing_key=trusted_public_key_path,
+    )
     return manifest_sha
 
 

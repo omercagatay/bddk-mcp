@@ -82,10 +82,9 @@ def test_project_mcp_config_is_portable_and_uses_packaged_entry_point():
 
 
 def test_container_and_deployment_docs_use_packaged_entry_point():
-    for path in ("Dockerfile",):
-        content = _read(path)
-        assert "bddk-mcp" in content
-        assert "python server.py" not in content
+    content = _read("Dockerfile")
+    assert "bddk-mcp" in content
+    assert "python server.py" not in content
 
     deployment = _read("docs/DEPLOYMENT.md")
     assert "OpenShift AI Starter" in deployment

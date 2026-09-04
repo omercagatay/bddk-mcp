@@ -66,7 +66,7 @@ ALLOWED_TOP_LEVEL = {
     "uv.lock",
 }
 
-JUNK_PARTS = {"__pycache__", ".pytest_cache", ".ruff_cache", ".venv", "node_modules"}
+JUNK_PARTS = {"__pycache__", ".pytest_cache", ".ruff_cache", ".venv", "node_modules", "graphify-out"}
 JUNK_NAMES = {".DS_Store", ".env"}
 MARKDOWN_LINK = re.compile(r"!?\[[^\]]*\]\(([^)\n]+)\)")
 VERSION_ASSIGNMENT = re.compile(r'^__version__\s*=\s*["\']([^"\']+)["\']', re.MULTILINE)
@@ -79,11 +79,19 @@ def _repository_files() -> list[str]:
         check=True,
         capture_output=True,
     )
-    return [item.decode("utf-8") for item in result.stdout.split(b"\0") if item]
+    names = [item.decode("utf-8") for item in result.stdout.split(b"\0") if item]
+    return [name for name in names if (ROOT / name).exists()]
 
 
 def _markdown_files(tracked: list[str]) -> list[Path]:
-    return [ROOT / path for path in tracked if path.endswith(".md")]
+    files: list[Path] = []
+    for path in tracked:
+        if not path.endswith(".md"):
+            continue
+        candidate = ROOT / path
+        if candidate.is_file():
+            files.append(candidate)
+    return files
 
 
 def _relative_link_target(markdown: Path, raw_target: str) -> Path | None:

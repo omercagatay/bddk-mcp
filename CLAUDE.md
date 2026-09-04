@@ -42,7 +42,7 @@ Two-layer pattern: modules under `bddk_mcp/tools/` are thin MCP wrappers over en
   - `observability/` — `analytics.py` (trend/comparison engine), `telemetry.py`, `metrics.py`
 - **Corpus governance** (top-level `bddk_mcp/` modules): `corpus_manifest.py`, `corpus_generations.py`, `corpus_publication.py`, `corpus_serving.py` (fail-closed release-epoch guard around local-corpus reads), `catalog_integrity.py`, `citations.py` (versioned, reconstructable citations), `resources.py` (MCP resources)
 - **Platform**: `migrations/` (versioned schema modules + `runner.py`), `jobs/` (Postgres-backed operator job manager), `admin/` (loopback Starlette admin console), `operations/recovery.py`, `db_identity.py` / `db_lifecycle.py` / `db_transport.py` / `db_compatibility.py`, `http_security.py`, `transport_tls.py`
-- **Infrastructure** (`bddk_mcp/core/`): `deps.py` (DI container `Dependencies`), `config.py` (all config via `BDDK_*` env vars), `models.py`, `exceptions.py`, `logging_config.py`, `outbound_http.py`, `utils.py`
+- **Infrastructure** (`bddk_mcp/core/`): `deps.py` (DI container `Dependencies`), `config.py` (all config via `BDDK_*` env vars), `models.py`, `exceptions.py`, `logging_config.py`, `outbound_http.py`
 
 ## Conventions
 

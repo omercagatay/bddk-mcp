@@ -11,7 +11,7 @@ The current diagram and table in this overlay describe the 2026-07-16 worktree. 
 
 | Status | Architectural delta | Evidence and remaining boundary |
 |---|---|---|
-| Complete | MCP and process profiles | The packaged CLI selects one registry per process. Public uses only `BDDK_DATABASE_URL`; operator requires its own DSN, authorization scope and remote opt-in. The registry contains 15 public tools plus 14 operator additions—29 total—with strict input schemas and risk annotations. Both profiles register the one path-free `bddk://corpus/active-release` resource and zero prompts. Evidence: **bddk_mcp/tools/registry.py:21-71,172-176; bddk_mcp/resources.py:17-75; bddk_mcp/server.py:668-670; tests/test_mcp_http_runtime.py:35-57**. |
+| Complete | MCP and process profiles | The packaged CLI selects one registry per process. Public uses only `BDDK_DATABASE_URL`; operator requires its own DSN, authorization scope and remote opt-in. The registry contains 17 public tools plus 14 operator additions—31 total—with strict input schemas and risk annotations. Both profiles register the one path-free `bddk://corpus/active-release` resource and zero prompts. Evidence: **bddk_mcp/tools/registry.py:21-71,172-176; bddk_mcp/resources.py:17-75; bddk_mcp/server.py:668-670; tests/test_mcp_http_runtime.py:35-57**. |
 | Complete | Transport and request boundary | Stdio and stateless JSON Streamable HTTP use the official SDK. Non-loopback HTTP requires Host/Origin allowlists, asymmetric JWT/JWKS verification, profile scope, bounded body/token/concurrency/rate admission, and optional validated server TLS. Body reads now have independent first-byte, inter-chunk, and total deadlines, so a slow unauthenticated sender cannot hold an admission slot indefinitely; deadline expiry returns 408. The composed HTTP application exposes RFC 9728 protected-resource metadata at `/.well-known/oauth-protected-resource/mcp`, and its 401 challenge supplies the same URL through `resource_metadata`. Evidence: **bddk_mcp/http_security.py:93-95,439-458,627-629,763-778; tests/test_http_security.py; tests/test_mcp_stdio_e2e.py; tests/test_mcp_http_runtime.py**. The focused HTTP security lane passed 61 tests. Bank IdP registration, ingress-wide admission, and end-to-end authorization-flow acceptance remain external. |
 | Complete | Explicit lifecycle and PostgreSQL authorization | `serve` is read-only with respect to schema/corpus lifecycle. The checksum ledger ends at v8: v4 supplies eleven owner-controlled legal-curation tables and the validated-citation view, v5 supplies corpus release/activation/epoch state, v6 supplies the security-definer legal-status resolver, v7 supplies isolated retained-generation storage, and v8 supplies staged release requests plus one-time activation bindings. Legal-table mutation remains owner-only; v8 gives the release verifier the exact read-only access needed for publication evidence. Exact target/TLS/ACL/catalog/connection identities are checked for schema-owner, ingestion, release-verifier, release-publisher, public, operator and telemetry profiles. The verifier may inspect corpus/legal-version state and stage a bounded request but cannot activate or retain; the publisher activates only by request ID and cannot stage or directly publish a claimed verified release. The v4 legal subset remains attested at 69 constraints and 21 indexes; v7 and v8 have separate exact catalog/ACL contracts. Evidence: **bddk_mcp/migrations/v0008_staged_corpus_releases.py; bddk_mcp/migrations/runner.py; bddk_mcp/db_identity.py; bddk_mcp/catalog_integrity.py; deploy/postgres/**. Focused evidence includes 59 PostgreSQL migration/catalog tests, 118 application/role tests, and two actual-LOGIN tests. Bank issuance and RBAC separation of the seven credentials, HBA, and DBA execution remain external. |
 | Complete | Durable single-replica operator control plane and writer coordination | `PostgresJobRepository` persists privacy-safe job state. A session-scoped job-admission lease and a distinct transaction-scoped corpus-mutation lock are separate protocols; every sanctioned writer plus v8 staging and activation use the transaction key. Evidence: **bddk_mcp/corpus_coordination.py:1-40; bddk_mcp/migrations/v0008_staged_corpus_releases.py:209,439; bddk_mcp/jobs/postgres.py; bddk_mcp/jobs/manager.py; tests/test_bulk_write.py:118-231**. Runners remain in the operator process; multi-replica dispatch/failover is unsupported. |
@@ -105,7 +105,7 @@ flowchart TB
 
     subgraph Runtime[One BDDK MCP process]
         MCP[FastMCP]
-        Public[15 public tools]
+        Public[17 public tools]
         Admin[11 optional operator tools]
         Deps[Global Dependencies]
         MCP --> Public
@@ -485,7 +485,7 @@ The manifest supplies a build/deploy command and restart policy. It has no appli
 
 ### Hugging Face Spaces
 
-The alternate Dockerfile is not self-contained: it omits seed data and assumes a db hostname. AUTO_SYNC cannot bootstrap an empty decision cache because startup sync skips that state.
+There is no separate Spaces image. Preview hosts that need port `7860` should set `PORT` on the standard Dockerfile. The database must be bootstrapped separately.
 
 ## External dependency map
 

@@ -424,9 +424,9 @@ and multi-replica acceptance tests pass in the target bank environment.
 
 ## Docker and Container Contract
 
-Both Dockerfiles install and run the packaged `bddk-mcp` entry point. Their base
-and `uv` images are digest-pinned. The standard and Spaces images explicitly
-copy `seed_data/` and download `intfloat/multilingual-e5-base` at full commit
+The Dockerfile installs and runs the packaged `bddk-mcp` entry point. Its base
+and `uv` images are digest-pinned. The image explicitly
+copies `seed_data/` and downloads `intfloat/multilingual-e5-base` at full commit
 `d13f1b27baf31030b7fd040960d60d909913633f`, then save it at
 `/app/embedding_model` for offline runtime loading.
 
@@ -464,7 +464,7 @@ loaded local image identity, and Syft SBOM before producing canonical evidence.
 It separately creates an **unsigned** repository SLSA provenance envelope; that
 envelope is not Buildx or bank-signed attestation. The lane also requires the
 model manifest's immutable Git commit to agree with runtime configuration and
-both Dockerfiles.
+the Dockerfile.
 
 The workflow has two deliberately different repository decisions. The
 always-run `evidence-integrity` job builds and scans everything, verifies
@@ -478,7 +478,7 @@ produce that job. For a `v*` push, the checked-out tag commit must be in
 requires the same run's integrity job to
 succeed, downloads the artifact bound to that run ID and attempt, and exactly
 re-hashes that run's complete evidence manifest before it binds
-the standard and Spaces scan reports to their respective Dockerfile SHA-256,
+the image scan report to the Dockerfile SHA-256,
 and then fails on any unexcepted High/Critical finding. It also fails whenever
 an applied pending vulnerability or secret exception reports
 `external_approval_required=true`.

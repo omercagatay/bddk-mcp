@@ -121,7 +121,7 @@ storage, never corpus or trust material. Repository rendering is still not
 evidence that the four Jobs ran in the required `migrate` → `bootstrap` →
 verify-and-stage → activate order in a bank namespace.
 
-The checked-in manifest (`bddk-job-corpus-2026-08-14`, reviewed 2026-08-14)
+The checked-in manifest (`bddk-job-corpus-2026-08-26`, reviewed 2026-08-26)
 declares owner-quantified objectives (7-day source detection, 14-day
 publication, 180-day maximum manifest age) and is Ed25519-signed; the detached
 signature `corpus_scope.sig` validates against the project trust anchor

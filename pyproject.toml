@@ -22,7 +22,6 @@ dependencies = [
     "asyncpg>=0.30",
     "sentence-transformers>=5.0",
     "transformers>=4.50",
-    "pillow>=10.0",
     "starlette>=0.47",
     "jinja2>=3.1",
     "uvicorn>=0.34",

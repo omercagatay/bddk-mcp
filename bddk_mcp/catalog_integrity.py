@@ -386,7 +386,6 @@ SELECT relation.relkind,
                  ON dependency_namespace.oid = dependency_relation.relnamespace
                WHERE rewrite.ev_class = relation.oid
                  AND dependency_relation.oid <> relation.oid
-                 AND dependency_namespace.nspname = 'public'
                ORDER BY dependency_namespace.nspname || '.' || dependency_relation.relname
            ),
            ARRAY[]::pg_catalog.text[]
@@ -790,6 +789,13 @@ _EXPECTED_V7_DEPLOYED_ACL: Final[tuple[tuple[str, str, str, str, bool], ...]] = 
 
 def _normalize_sql(value: Any) -> str:
     text = re.sub(r"\s+", " ", str(value or "").strip().lower())
+    return text.replace("public.", "").replace("::text", "")
+
+
+def _normalize_routine_source(value: Any) -> str:
+    """Collapse whitespace in function bodies without folding literal case."""
+
+    text = re.sub(r"\s+", " ", str(value or "").strip())
     return text.replace("public.", "").replace("::text", "")
 
 
@@ -1731,7 +1737,7 @@ async def inspect_catalog_integrity(
             bool(_value(row, "prosecdef", True)),
             bool(_value(row, "proleakproof", True)),
             tuple(str(item) for item in (_value(row, "configuration", ()) or ())),
-            _normalize_sql(_value(row, "source")),
+            _normalize_routine_source(_value(row, "source")),
         )
         for row in routine_rows
     }
@@ -1743,7 +1749,7 @@ async def inspect_catalog_integrity(
             False,
             False,
             ("search_path=pg_catalog, public",),
-            _normalize_sql(source),
+            _normalize_routine_source(source),
         ):
             failures.append(f"routine:public.{identity}")
 
@@ -1882,7 +1888,7 @@ async def inspect_catalog_integrity(
             bool(_value(row, "prosecdef", False)),
             bool(_value(row, "proleakproof", True)),
             tuple(str(item) for item in (_value(row, "configuration", ()) or ())),
-            _normalize_sql(_value(row, "source")),
+            _normalize_routine_source(_value(row, "source")),
             str(_value(row, "owner_name", "")),
             str(_value(row, "ledger_owner_name", "")),
             bool(_value(row, "public_can_execute", True)),
@@ -1906,7 +1912,7 @@ async def inspect_catalog_integrity(
                 security_definer,
                 False,
                 expected_configuration,
-                _normalize_sql(source),
+                _normalize_routine_source(source),
             )
             if actual[:7] != expected_prefix or not actual[7] or actual[7] != actual[8] or actual[9]:
                 failures.append(f"routine:bddk_meta.{identity}")
@@ -1942,7 +1948,8 @@ async def inspect_catalog_integrity(
         and _normalize_sql(_value(legal_status_routine, "result_type")) == _normalize_sql(_LEGAL_STATUS_RESULT_TYPE)
         and tuple(str(item) for item in (_value(legal_status_routine, "configuration", ()) or ()))
         == ("search_path=pg_catalog",)
-        and _normalize_sql(_value(legal_status_routine, "source")) == _normalize_sql(_v6_legal_status_function_source())
+        and _normalize_routine_source(_value(legal_status_routine, "source"))
+        == _normalize_routine_source(_v6_legal_status_function_source())
         and bool(str(_value(legal_status_routine, "owner_name", "")))
         and str(_value(legal_status_routine, "owner_name"))
         == str(_value(legal_status_routine, "ledger_owner_name", ""))

@@ -5,6 +5,11 @@ import pytest
 from bddk_mcp.admin.config import AdminConfig, AdminConfigError
 
 
+@pytest.fixture(autouse=True)
+def _allow_insecure_database(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BDDK_ALLOW_INSECURE_DATABASE", "true")
+
+
 def test_defaults_to_loopback() -> None:
     config = AdminConfig.from_env({"BDDK_DATABASE_URL": "postgresql://u:p@localhost:5432/bddk"})
     assert config.bind_host == "127.0.0.1"
@@ -31,3 +36,9 @@ def test_error_never_leaks_the_database_url() -> None:
     with pytest.raises(AdminConfigError) as excinfo:
         AdminConfig.from_env(env)
     assert "sup3rsecret" not in str(excinfo.value)
+
+
+def test_plaintext_dsn_is_rejected_without_insecure_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("BDDK_ALLOW_INSECURE_DATABASE", raising=False)
+    with pytest.raises(AdminConfigError, match="sslmode=verify-full"):
+        AdminConfig.from_env({"BDDK_DATABASE_URL": "postgresql://u:p@localhost:5432/bddk"})

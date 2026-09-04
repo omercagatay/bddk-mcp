@@ -1,5 +1,5 @@
 schema_version: 1
-manifest_id: bddk-job-corpus-2026-08-14
+manifest_id: bddk-job-corpus-2026-08-26
 selection_owner: project_owner
 purpose: >-
   Reviewed job-specific corpus for Turkish banking-regulation research,
@@ -22,7 +22,7 @@ freshness:
   source_observed_start: "2026-04-08T16:50:25.439181Z"
   source_observed_end: "2026-04-21T16:04:00.957507Z"
   corpus_built_at: "2026-05-12T10:18:42.094284Z"
-  scope_reviewed_at: "2026-08-14T00:00:00+03:00"
+  scope_reviewed_at: "2026-08-27T00:00:00+00:00"
   business_expectation: quarterly-reviewed batch corpus with quantified objectives
   source_detection_slo_seconds: 604800
   publication_slo_seconds: 1209600
@@ -36,16 +36,16 @@ artifacts:
     records: 318
   - role: chunks
     path: chunks.json
-    sha256: b3b07c5e17a09d3e5c17f97a1efed8e3141fdd20ada73b9acfaed01383c6f080
-    bytes: 16488940
-    records: 9675
+    sha256: ca7a6823c8729b144e6ae51d5563e932be9a8e097b0b09866501f62f937ceb4e
+    bytes: 17024862
+    records: 10483
   - role: decision_cache
     path: decision_cache.json
     sha256: 9e5677b1a2ffc9fe9d5ed122a90171c896e5f14ee83d958b724e1d2b8b8fd894
     bytes: 153040
     records: 318
 integrity:
-  manifest_sha256: "8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42"
+  manifest_sha256: "203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1"
   signature_status: verified
   signature_algorithm: ed25519
   signature_reference: corpus_scope.sig
