@@ -161,7 +161,7 @@ WITH RECURSIVE target AS (
         (
             'bddk_meta',
             'stage_verified_corpus_release',
-            'text, text, text, text, text, integer, integer, integer, text, text, text, integer'
+            'text, text, text, text, text, text, integer, integer, integer, text, text, text, integer'
         ),
         ('bddk_meta', 'activate_staged_corpus_release', 'text'),
         ('bddk_meta', 'resolve_regulation_status', 'text, date'),
