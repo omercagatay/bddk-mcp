@@ -286,7 +286,7 @@ class BddkApiClient:
         request_timeout: float = REQUEST_TIMEOUT,
         doc_store: DocumentStore | None = None,
         http: httpx.AsyncClient | None = None,
-        allow_live_population: bool = True,
+        allow_live_population: bool = False,
     ) -> None:
         self._pool = pool
         self._owns_http = http is None

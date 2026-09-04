@@ -4,7 +4,6 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% block title %}BDDK Admin{% endblock %}</title>
-    <script src="/static/htmx.min.js" defer></script>
     <style>
       :root { color-scheme: light dark; }
       body { font-family: system-ui, sans-serif; margin: 0; padding: 1.5rem; line-height: 1.5; }
@@ -16,7 +15,7 @@
     </style>
   </head>
   <body>
-    <nav><a href="/documents">Belgeler</a><a href="/search">Arama</a></nav>
+    <nav><a href="/documents">Belgeler</a><a href="/search">Arama</a><a href="/governance">İmza Durumu</a></nav>
     <main>{% block content %}{% endblock %}</main>
   </body>
 </html>

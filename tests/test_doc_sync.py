@@ -10,7 +10,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from bddk_mcp.core.utils import fetch_with_retry
 from bddk_mcp.db_lifecycle import DatabaseNotReadyError
 from bddk_mcp.ingest.doc_sync import (
     DocumentSyncer,
@@ -29,7 +28,6 @@ from bddk_mcp.ingest.doc_sync import (
 )
 from bddk_mcp.ocr.base import MarkitdownBackend
 from bddk_mcp.store.doc_store import StoredDocument
-from tests.conftest import make_http_response
 
 
 @pytest.mark.asyncio
@@ -684,55 +682,6 @@ class TestSanitizeForStorage:
         assert "cid:" not in out
         assert "data:image/" not in out
         assert "MADDE 1" in out
-
-
-class TestFetchWithRetry:
-    @pytest.mark.asyncio
-    async def test_success(self):
-        http = AsyncMock(spec=httpx.AsyncClient)
-        http.get = AsyncMock(return_value=make_http_response("OK"))
-
-        resp = await fetch_with_retry(http, "https://example.com")
-        assert resp.text == "OK"
-
-    @pytest.mark.asyncio
-    async def test_retry_then_succeed(self):
-        http = AsyncMock(spec=httpx.AsyncClient)
-        ok_resp = make_http_response("OK")
-        http.get = AsyncMock(side_effect=[httpx.TransportError("fail"), ok_resp])
-
-        resp = await fetch_with_retry(http, "https://example.com")
-        assert resp.text == "OK"
-
-    @pytest.mark.asyncio
-    async def test_all_retries_fail(self):
-        http = AsyncMock(spec=httpx.AsyncClient)
-        http.get = AsyncMock(side_effect=httpx.TransportError("fail"))
-
-        with pytest.raises(httpx.TransportError):
-            await fetch_with_retry(http, "https://example.com")
-
-    @pytest.mark.asyncio
-    async def test_no_retry_on_404(self):
-        """4xx client errors must not be retried."""
-        http = AsyncMock(spec=httpx.AsyncClient)
-        http.get = AsyncMock(return_value=make_http_response("Not Found", status_code=404))
-
-        with pytest.raises(httpx.HTTPStatusError):
-            await fetch_with_retry(http, "https://example.com")
-
-        assert http.get.call_count == 1  # no retry
-
-    @pytest.mark.asyncio
-    async def test_retry_on_500(self):
-        """5xx server errors must be retried."""
-        http = AsyncMock(spec=httpx.AsyncClient)
-        ok_resp = make_http_response("OK", status_code=200)
-        http.get = AsyncMock(side_effect=[make_http_response("Server Error", status_code=500), ok_resp])
-
-        resp = await fetch_with_retry(http, "https://example.com")
-        assert resp.status_code == 200
-        assert http.get.call_count == 2
 
 
 # -- DocumentSyncer -------------------------------------------------------

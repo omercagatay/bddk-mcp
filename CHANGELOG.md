@@ -54,6 +54,56 @@ Bu bölüm `main` üzerindeki `5684a34` tabanından başlayıp
 `83d31a4` dâhil olmak üzere kapsar. Buradaki maddeler yayımlanmış sürüm
 taahhüdü veya banka üretim kabulü değildir.
 
+### Eklendi — section parser v5 ve loopback yönetim konsolu (2026-08)
+
+- Section parser `turkish-regulatory-sections-v5`'e yükseltildi (#135, #136):
+  tire ile numaralanmış paragraflar (`paragraf` section tipi) ve geç annex
+  başlıkları arkasındaki gövdeler artık indekslenir; numaralı-paragraf Rehber
+  ve Genelge belgeleri bölüm bazında erişilebilir. Parser sürümü retrieval
+  profile kimliğinin parçası olduğundan bu değişiklik imzalı corpus'un
+  yeniden üretilip yeniden imzalanmasını gerektirir (gap register CUR-018).
+- Salt-okunur, yalnız loopback'e bağlanan operatör konsolu eklendi
+  (`bddk-mcp admin-ui`, `bddk_mcp/admin/`; #125). Loopback dışı bind
+  konfigürasyon hatası olarak reddedilir; konsol hiçbir deployment
+  manifest'inin parçası değildir.
+
+### Düzeltildi — banka teslimat denetimi bulguları (2026-08-26)
+
+- Kurum dizini, duyuru ve haftalık bülten snapshot araçları ağ/upstream
+  hatasını artık boş sonuç ("NO RESULTS") olarak sunmuyor; toplam başarısızlık
+  `[ERROR:UPSTREAM_FETCH_FAILED] retryable=true` olarak yüzeye çıkar, kısmi
+  başarısızlık uyarı satırı ekler, `get_regulatory_digest` erişilemeyen
+  bölümleri açıkça işaretler ve `check_bddk_updates` boş (yanlış) baseline
+  kaydetmez. Erişilemeyen upstream'de seri sayfa/kategori döngüleri hızlı
+  başarısız olur.
+- Egress allowlist'ini atlayan kullanılmayan `core/utils.py` HTTP yardımcıları
+  silindi; geriye kalan tüm giden istekler ya `core/outbound_http.py` sınırından
+  ya da `ingest/doc_sync.py` içindeki eşdeğer sınırlı akış yolundan geçer
+  (exact-host allowlist, redirect yeniden doğrulama, boyut sınırları).
+- Model varlıkları startup'ta doğrulanır: `HF_HUB_OFFLINE` altında
+  `BDDK_EMBEDDING_MODEL_PATH` zorunludur ve `BDDK_RERANKER=true` yerel model
+  yolu olmadan başlatmayı reddeder (ilk aramada indirme hatası yerine).
+  `BddkApiClient` artık varsayılan olarak canlı cache doldurmayı reddeder
+  (`allow_live_population=False`).
+- `pdf2image` yalnız GPU OCR yolunda kullanıldığından `gpu` bağımlılık
+  grubuna taşındı; serving imajı poppler gerektiren bağımlılık taşımaz.
+- `railway.toml` onarıldı (gerekli HTTP-policy değişkenleri belgelendi,
+  `/health/ready` healthcheck ve `--require-verified-signature` eklendi,
+  kullanılmayan volume kaldırıldı) ve ölü `Procfile` silindi; Railway/Spaces
+  banka yolu dışında geliştirme/önizleme profilleri olarak işaretlendi.
+- `deploy/openshift/README.md` şema anlatımı v8'den güncel v10'a düzeltildi ve
+  runbook'un başına fail-closed tuzak listesi eklendi: varsayılan sıfır-egress
+  render'ı, canlı araçlar için banka proxy'sinde hostname bazlı
+  bddk.org.tr/mevzuat.gov.tr whitelist gerekliliği ve bank-bootstrap
+  overlay'inin measured-freshness kapısı.
+- Compose'a CI eşleniği `bddk_test` fixture'ını kuran `bddk-test-db` servisi
+  eklendi (lokal `postgres` işaretli testler sessizce skip olmuyor) ve
+  teslim edilen kimlik doğrulamasız uzak public profili uçtan uca çağıran
+  resmi-istemci testi eklendi.
+- Corpus manifest'ini sonuçlandırıp imzalayan sahip yardımcı script'i eklendi
+  (`scripts/sign_corpus_manifest.py`): yanlış anahtar ve artifact drift'inde
+  imzalamayı reddeder, imzayı yazmadan önce yeniden doğrular.
+
 ### Değiştirildi — banka sunucusu migrasyonu ve Keycloak'ın kaldırılması
 
 - MCP sunucusu banka sunucularına taşınırken kullanıcıya dönük Keycloak/OAuth
@@ -338,8 +388,9 @@ taahhüdü veya banka üretim kabulü değildir.
 | `v0007` | `retained_corpus_generations` | 17 corpus ilişkisinin typed, immutable ve sealed generation kopyası |
 | `v0008` | `staged_corpus_releases` | Ayrı verifier request'i, TTL/state/epoch bağı ve request-ID-only tek kullanımlık aktivasyon |
 | `v0009` | `regulatory_relation_edges` | Kanıt ve inceleme kaydı taşıyan typed çapraz referans kenarları ve yalnızca doğrulanmış satırları sunan üç güvenlik-bariyerli görünüm |
+| `v0010` | `corpus_release_freshness_policy` | Kapalı iki değerli freshness politika seti (`quantified_measured/unmeasured_signature_verified_pass`) ve politika-farkındalıklı staging imzası |
 
-### Şema v8 — tamamlanan repository sınırı
+### Şema v8 — tamamlanan repository sınırı (tarihsel not; güncel ledger v10'da biter)
 
 `v0008_staged_corpus_releases.py`, uygulama komutları, exact rol/ACL
 sözleşmeleri, OpenShift ayrımı ve recovery envanteri commitlendi. Migration;

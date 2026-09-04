@@ -36,6 +36,7 @@ def test_build_app_closes_pool_when_store_initialize_fails(monkeypatch: pytest.M
 
     monkeypatch.setattr("bddk_mcp.admin.runtime.asyncpg.create_pool", fake_create_pool)
     monkeypatch.setattr("bddk_mcp.admin.runtime.DocumentStore.initialize", failing_initialize)
+    monkeypatch.setenv("BDDK_ALLOW_INSECURE_DATABASE", "true")
 
     env = {"BDDK_DATABASE_URL": "postgresql://x", "BDDK_ADMIN_HOST": "127.0.0.1"}
 

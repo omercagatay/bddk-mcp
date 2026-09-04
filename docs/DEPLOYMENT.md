@@ -120,9 +120,11 @@ previously used, wrong-epoch, changed-state, or non-ready request before
 appending the v0005-compatible release and activation plus the v0008 request
 binding. The legacy `publish-corpus-release` CLI is deliberately disabled; it
 is not a fallback for failed staging. Any later corpus mutation advances the
-corpus epoch and invalidates the active view. The current manifest (`bddk-job-corpus-2026-08-14`) is Ed25519-signed,
-quantified, and consistent with the 9,675 chunks the current profile
-regenerates.
+corpus epoch and invalidates the active view. The tracked manifest is mid-re-signing: `bddk-job-corpus-2026-08-14` was
+Ed25519-signed and quantified, but the v5 section parser regenerates 10,483
+chunks rather than 9,675, so the staged `bddk-job-corpus-2026-08-26` manifest
+is `signature_status: not_configured` until the owner reviews the delta and
+signs it (gap register CUR-018). Strict publication fails closed until then.
 
 Schema v10 admits exactly two `freshness_policy_result` values:
 `quantified_measured_signature_verified_pass` and the explicitly weaker
@@ -422,9 +424,9 @@ and multi-replica acceptance tests pass in the target bank environment.
 
 ## Docker and Container Contract
 
-Both Dockerfiles install and run the packaged `bddk-mcp` entry point. Their base
-and `uv` images are digest-pinned. The standard and Spaces images explicitly
-copy `seed_data/` and download `intfloat/multilingual-e5-base` at full commit
+The Dockerfile installs and runs the packaged `bddk-mcp` entry point. Its base
+and `uv` images are digest-pinned. The image explicitly
+copies `seed_data/` and downloads `intfloat/multilingual-e5-base` at full commit
 `d13f1b27baf31030b7fd040960d60d909913633f`, then save it at
 `/app/embedding_model` for offline runtime loading.
 
@@ -462,7 +464,7 @@ loaded local image identity, and Syft SBOM before producing canonical evidence.
 It separately creates an **unsigned** repository SLSA provenance envelope; that
 envelope is not Buildx or bank-signed attestation. The lane also requires the
 model manifest's immutable Git commit to agree with runtime configuration and
-both Dockerfiles.
+the Dockerfile.
 
 The workflow has two deliberately different repository decisions. The
 always-run `evidence-integrity` job builds and scans everything, verifies
@@ -476,7 +478,7 @@ produce that job. For a `v*` push, the checked-out tag commit must be in
 requires the same run's integrity job to
 succeed, downloads the artifact bound to that run ID and attempt, and exactly
 re-hashes that run's complete evidence manifest before it binds
-the standard and Spaces scan reports to their respective Dockerfile SHA-256,
+the image scan report to the Dockerfile SHA-256,
 and then fails on any unexcepted High/Critical finding. It also fails whenever
 an applied pending vulnerability or secret exception reports
 `external_approval_required=true`.
@@ -528,7 +530,12 @@ publisher-activation Jobs. Every workload
 uses a fail-closed image-digest placeholder, the image uses a digest-pinned `uv`
 source, the embedding-model revision is pinned, and the default non-root UID is
 compatible with OpenShift's arbitrary-UID model. Version labels are excluded
-from immutable selectors. The offline preflight executes exact standalone
+from immutable selectors. The offline preflight is run as
+`uv run python scripts/openshift_acceptance.py --config <acceptance.yaml>`
+(the `--config` argument is required; start from
+`deploy/openshift/acceptance.example.yaml` — see
+[`deploy/openshift/README.md`](../deploy/openshift/README.md) for its inputs
+and the pre-deployment trap checklist); it executes exact standalone
 Kustomize v5.8.1 and binds the actual executable SHA-256 to the reviewed release
 input. It requires exact rendered-object, selector/label/namespace,
 NetworkPolicy, Secret/ConfigMap-key, command/port, volume/mount, pod-container,
@@ -659,10 +666,16 @@ OpenShift rotates service-serving certificates by updating the generated Secret.
 
 ## Railway and Spaces
 
-`railway.toml` builds the standard Dockerfile. Railway must inject a
-`verify-full` PostgreSQL DSN with an available CA path and the complete
-non-loopback HTTP policy. The `/app/data` volume does not back up an external
-PostgreSQL database.
+Railway and Hugging Face Spaces are development/preview profiles. They are not
+part of the reviewed bank deployment path and must not be used for bank data
+or bank-facing service.
+
+`railway.toml` builds the standard Dockerfile, declares a `/health/ready`
+healthcheck, and documents the required service variables inline. Railway must
+inject a `verify-full` PostgreSQL DSN with an available CA path and the
+complete non-loopback HTTP policy (`BDDK_HTTP_ALLOWED_HOSTS`,
+`BDDK_HTTP_ALLOWED_ORIGINS`, and either the full `BDDK_JWT_*` set or the
+explicit unauthenticated opt-in); without them the server refuses startup.
 
 There is no separate Spaces image. Preview hosts that need port `7860` should
 set `PORT` on the standard image. The database must be bootstrapped separately.

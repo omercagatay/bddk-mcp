@@ -11,6 +11,7 @@ from starlette.applications import Starlette
 from bddk_mcp.admin.app import create_app
 from bddk_mcp.admin.config import AdminConfig
 from bddk_mcp.admin.services.documents import DocumentService
+from bddk_mcp.admin.services.governance import GovernanceService, resolve_governance_paths
 from bddk_mcp.db_identity import assert_database_connection_identity
 from bddk_mcp.store.doc_store import DocumentStore
 
@@ -35,7 +36,9 @@ async def build_app_from_env(env: Mapping[str, str] | None = None) -> tuple[Star
         # leak the connections it holds.
         await pool.close()
         raise
-    app = create_app(config, DocumentService(store))
+    seed_dir, trusted_signing_key = resolve_governance_paths(env)
+    governance = GovernanceService(pool, seed_dir=seed_dir, trusted_signing_key=trusted_signing_key)
+    app = create_app(config, DocumentService(store), governance)
 
     async def shutdown() -> None:
         await pool.close()

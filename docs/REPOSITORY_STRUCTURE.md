@@ -28,7 +28,7 @@ The root is reserved for project entry points and tools that conventionally live
 | `pyproject.toml`, `uv.lock`, `MANIFEST.in` | Python metadata, dependency lock, and distribution policy. |
 | `server.py`, `seed.py` | Compatibility shims; implementation belongs under `bddk_mcp/`. |
 | `Dockerfile`, `docker-compose.yml` | Container builds and the disposable local lifecycle. |
-| `railway.toml`, `Procfile` | Hosted deployment entry points. |
+| `railway.toml` | Railway development/preview deployment manifest (not the bank path). |
 | `.env.example`, `.mcp.json` | Sanitized local configuration examples. |
 
 Do not place implementation modules, generated reports, scratch files, one-off plans, or environment-specific secrets in the repository root.
@@ -42,6 +42,7 @@ Do not place implementation modules, generated reports, scratch files, one-off p
 | `bddk_mcp/store/` | Document, section, vector, reference, and bulk-write storage. |
 | `bddk_mcp/ingest/` | Source discovery, extraction, synchronization, seed import/export, and backfill. |
 | `bddk_mcp/ocr/` | OCR interfaces and optional GPU implementation. |
+| `bddk_mcp/admin/` | Loopback-only read-only operator console (`bddk-mcp admin-ui`); refuses non-loopback binds and is not part of any deployment manifest. |
 | `bddk_mcp/regulatory/` | Canonical legal versions, relations, graph queries, and curation repositories. |
 | `bddk_mcp/jobs/` | Durable operator job models, repository, and runner. |
 | `bddk_mcp/migrations/` | Append-only schema ledger and migration implementations. |

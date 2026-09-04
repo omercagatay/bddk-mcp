@@ -15,6 +15,20 @@ Effort scale:
 - L: two to six weeks
 - XL: more than six weeks
 
+## Register update — 2026-08-26
+
+This dated overlay is authoritative over the 2026-07-16 register below where
+they conflict. It records one new finding and one evidence correction from the
+2026-08-25 bank-delivery audit; it does not rewrite historical rows.
+
+| ID | Area | Finding | Repository Evidence | Risk or Impact | Severity | Recommended Action | Effort | Dependencies |
+|---|---|---|---|---|---|---|---|---|
+| CUR-018 | Corpus release | The section parser moved from `turkish-regulatory-sections-v3` to `v5` (#135/#136) after the 2026-08-14 corpus was signed, and the parser version is part of the retrieval-profile identity. The signed 9,675-chunk artifact therefore no longer matches what the current profile regenerates: a v5 regeneration yields 10,483 chunks — 18 of 318 documents change (all growth from the new `paragraf` recognition; 1,282 chunks gain that section type), the other 300 documents are bit-identical. Strict verification fails closed on the drift, so no governed release can be published from the tracked artifact. Remediation is staged: `seed_data/chunks.json` is regenerated under v5 and `seed_data/corpus_scope.yml` is updated (manifest `bddk-job-corpus-2026-08-26`, `signature_status: not_configured`) pending the owner's independent delta review and Ed25519 signature via `scripts/sign_corpus_manifest.py`. | **bddk_mcp/store/section_index.py:16; store/vector_store.py (retrieval_profile_descriptor); seed_data/corpus_scope.yml; scripts/regen_chunks_seed.py; scripts/sign_corpus_manifest.py**; v3-vs-v5 regeneration delta measured 2026-08-26 and retained at **docs/evidence/corpus-v5-regeneration-delta-2026-08-26.md** (the owner's review input). | Until re-signed, the repository cannot produce a governed corpus release; doc sentences describing "the 9,675 chunks the current profile regenerates" are stale. The fail-closed gates prevent a wrong release, so the risk is delivery schedule, not correctness. | High | Owner reviews the staged delta, signs with the project key, updates the 9,675 references to the signed 10,483 state, and re-runs `verify-corpus` plus the release pipeline. | XS | Owner signing key |
+
+Evidence correction — OPS-004 (Spaces/Railway): the Spaces image recipe was
+removed. The remaining genuine residual is the Railway preview profile
+(**docs/DEPLOYMENT.md: Railway and Spaces**).
+
 ## Current gap register — 2026-07-16
 
 This register is authoritative over the historical commit-5684a34 findings retained below. No Critical issue is confirmed: fail-closed gates currently prevent the known corpus/evaluation defects from becoming valid production releases.

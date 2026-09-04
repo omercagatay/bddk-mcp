@@ -121,7 +121,7 @@ storage, never corpus or trust material. Repository rendering is still not
 evidence that the four Jobs ran in the required `migrate` → `bootstrap` →
 verify-and-stage → activate order in a bank namespace.
 
-The checked-in manifest (`bddk-job-corpus-2026-08-14`, reviewed 2026-08-14)
+The checked-in manifest (`bddk-job-corpus-2026-08-26`, reviewed 2026-08-26)
 declares owner-quantified objectives (7-day source detection, 14-day
 publication, 180-day maximum manifest age) and is Ed25519-signed; the detached
 signature `corpus_scope.sig` validates against the project trust anchor
@@ -148,9 +148,9 @@ measured, and either way the artifact field set is exact. Never fabricate event
 timestamps to reach the measured level; build the measurement pipeline
 instead.
 
-The previously confirmed derived-artifact drift is resolved: the manifest now
-declares the 9,675 chunk rows regenerated under the current pinned retrieval
-profile, and the owner reviewed the delta against the prior 8,286-row artifact
+The previously confirmed derived-artifact drift is resolved: the manifest declared the 9,675 chunk rows regenerated under the then-pinned retrieval
+profile (superseded 2026-08-26 by the v5 parser, which regenerates 10,483 rows; see gap
+register CUR-018), and the owner reviewed the delta against the prior 8,286-row artifact
 (37 documents gained chunks from section-aware token chunking; 279 of the 281
 same-count documents were bit-identical). The review also surfaced a
 pre-existing defect carried by the previous artifact: `rg_32202_20230526_6`

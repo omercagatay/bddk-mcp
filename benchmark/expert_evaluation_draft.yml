@@ -1,6 +1,6 @@
 schema_version: 1
 dataset_id: bddk-expert-pilot-tr
-dataset_version: 0.1.0-draft.1
+dataset_version: 0.1.0-draft.2
 language: tr
 intended_grain: one adjudicated query case
 intended_use: >-
@@ -9,11 +9,11 @@ intended_use: >-
   after independent expert annotation, adjudication, and owner approval.
 created_at: "2026-07-15T00:00:00+03:00"
 corpus:
-  manifest_id: bddk-job-corpus-2026-08-14
-  manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+  manifest_id: bddk-job-corpus-2026-08-26
+  manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
   corpus_built_at: "2026-05-12T10:18:42.094284Z"
   documents_sha256: 4a469fc11bd9848d2acd540296d794126ab9c506dc68d929fb72f580ebe5dba6
-  chunks_sha256: b3b07c5e17a09d3e5c17f97a1efed8e3141fdd20ada73b9acfaed01383c6f080
+  chunks_sha256: ca7a6823c8729b144e6ae51d5563e932be9a8e097b0b09866501f62f937ceb4e
 
 evidence_catalog:
   - evidence_id: ev-tfrs9-ilke-1
@@ -27,7 +27,7 @@ evidence_catalog:
     section_content_sha256: dfc1bcf727cdff98715597a90a26613bdf96789afcca611de7b494a1db15add6
     citation_label: BDDK Belge 943, İlke 1
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
   - evidence_id: ev-tfrs9-ilke-3
     document_id: "943"
@@ -40,7 +40,7 @@ evidence_catalog:
     section_content_sha256: ad9da962ca13c987780ef8ab877473c6ef916313f99c94d524303d466ee0e5c9
     citation_label: BDDK Belge 943, İlke 3
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
   - evidence_id: ev-tfrs9-ilke-5
     document_id: "943"
@@ -53,7 +53,7 @@ evidence_catalog:
     section_content_sha256: 00829e9552d460d4630d462d03d953a1bc8f814fa43bcea5f0aeb1a2b8a608f0
     citation_label: BDDK Belge 943, İlke 5
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
   - evidence_id: ev-tfrs9-ilke-6
     document_id: "943"
@@ -66,7 +66,7 @@ evidence_catalog:
     section_content_sha256: d6a057b5e501592c9a28e983930aac34a281e9badb5fd75cce0483d6d3f58e2d
     citation_label: BDDK Belge 943, İlke 6
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
 
   - evidence_id: ev-karsilik-madde-4
@@ -80,7 +80,7 @@ evidence_catalog:
     section_content_sha256: 8ba58858b9c7204f8123d5ad3c9299af9dc95bf2de64be23d3d5ae5d1a736d40
     citation_label: Karşılık Yönetmeliği, Madde 4
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
   - evidence_id: ev-karsilik-madde-9
     document_id: mevzuat_22599
@@ -93,7 +93,7 @@ evidence_catalog:
     section_content_sha256: 7854c436329acdd527a4f347a285c4c504f80f52367a97b2ed09db82d351ea82
     citation_label: Karşılık Yönetmeliği, Madde 9
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
   - evidence_id: ev-karsilik-madde-10
     document_id: mevzuat_22599
@@ -106,7 +106,7 @@ evidence_catalog:
     section_content_sha256: 108852d2953b574e8a3a9710631d91cba3b3830c7c80a4b1fabe5549654955c5
     citation_label: Karşılık Yönetmeliği, Madde 10
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
 
   - evidence_id: ev-sermaye-madde-4
@@ -120,7 +120,7 @@ evidence_catalog:
     section_content_sha256: 1f80931ef5fe36bb4fe4d842ea57ddabe455062e502595da210858a5c1ebcf8a
     citation_label: Sermaye Yeterliliği Yönetmeliği, Madde 4
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
   - evidence_id: ev-sermaye-madde-9
     document_id: mevzuat_21192
@@ -133,7 +133,7 @@ evidence_catalog:
     section_content_sha256: f42cf2912ccabfe662a02da1e5dc3eb95b5642974a3dd61c88b43fd8c0e41cbb
     citation_label: Sermaye Yeterliliği Yönetmeliği, Madde 9
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
   - evidence_id: ev-sermaye-madde-25
     document_id: mevzuat_21192
@@ -146,7 +146,7 @@ evidence_catalog:
     section_content_sha256: efa71bb76b33003bbbfb546b8703a3c725fae9c949244fd5fc10b894c9c573be
     citation_label: Sermaye Yeterliliği Yönetmeliği, Madde 25
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
 
   - evidence_id: ev-irb-madde-4
@@ -160,7 +160,7 @@ evidence_catalog:
     section_content_sha256: 6c7d4ac805167e3c873f9664fd72326bb2107b12a28cdaa8cbef8016aafc66d3
     citation_label: İDD Tebliği, Madde 4
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
   - evidence_id: ev-irb-madde-5
     document_id: mevzuat_21194
@@ -173,7 +173,7 @@ evidence_catalog:
     section_content_sha256: ddfc2dd3b6bdcfd01f2718958ed701b3af39a5cbfa90d26a45ae9969f766c24b
     citation_label: İDD Tebliği, Madde 5
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
   - evidence_id: ev-irb-madde-9
     document_id: mevzuat_21194
@@ -186,7 +186,7 @@ evidence_catalog:
     section_content_sha256: b6cf5199b483406a4a2d470d666a4b91d21e7c55c010d73d3e066adaaaf7f0a1
     citation_label: İDD Tebliği, Madde 9
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
 
   - evidence_id: ev-isedes-document
@@ -197,7 +197,7 @@ evidence_catalog:
     granularity: document
     citation_label: İç Sistemler ve İSEDES Yönetmeliği, corpus snapshot
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
   - evidence_id: ev-likidite-guide-document
     document_id: "954"
@@ -207,7 +207,7 @@ evidence_catalog:
     granularity: document
     citation_label: BDDK Belge 954, corpus snapshot
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
   - evidence_id: ev-lko-document
     document_id: mevzuat_19498
@@ -217,7 +217,7 @@ evidence_catalog:
     granularity: document
     citation_label: Likidite Karşılama Oranı Yönetmeliği, corpus snapshot
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
 
   - evidence_id: ev-bhfor-ilke-3
@@ -231,7 +231,7 @@ evidence_catalog:
     section_content_sha256: fc29fb048bc896880d295b144b05dc917da77d6763b03d3572710cf20ae96917
     citation_label: BDDK Belge 1291, İlke 3
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
   - evidence_id: ev-bhfor-ilke-4
     document_id: "1291"
@@ -244,7 +244,7 @@ evidence_catalog:
     section_content_sha256: 16fef6cb28fa17f2bb0ccf17c5e7d778c94aa71d5015d0088e7f184d52b6fad3
     citation_label: BDDK Belge 1291, İlke 4
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
   - evidence_id: ev-bhfor-ilke-5
     document_id: "1291"
@@ -257,7 +257,7 @@ evidence_catalog:
     section_content_sha256: 720d38e00c6630b0df6b92c10774a2ac6c9f29901b2e86ec8c0edb841e4c1f79
     citation_label: BDDK Belge 1291, İlke 5
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
   - evidence_id: ev-bhfor-standart-madde-4
     document_id: mevzuat_42628
@@ -270,7 +270,7 @@ evidence_catalog:
     section_content_sha256: e6c6e0dfad89de99b252c58f223c06916c2c7a2f149b7c48951eeb27b3e152cc
     citation_label: BHFOR Standart Yaklaşım Yönetmeliği, Madde 4
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
   - evidence_id: ev-bhfor-standart-madde-10
     document_id: mevzuat_42628
@@ -283,7 +283,7 @@ evidence_catalog:
     section_content_sha256: b69f28505030dd8d8ca9ce8c04524feb68214f1ad4d6f07b236c634426799b2f
     citation_label: BHFOR Standart Yaklaşım Yönetmeliği, Madde 10
     citation_v1_status: pending_legal_mapping
-    corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+    corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
     legal_currentness: not_verified
 
 cases:
@@ -475,7 +475,7 @@ cases:
     answerability: abstain
     no_answer:
       reason_code: legal_currentness_not_modeled
-      basis_corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+      basis_corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
       required_follow_up: Güncellik ve yürürlük durumu yetkili BDDK ve Resmî Gazete kaynaklarından doğrulanmalıdır.
     annotations:
       - {annotation_id: ann-tfrs9-current-legal, annotator_role: legal_reviewer, independent: true, status: pending}
@@ -489,7 +489,7 @@ cases:
     answerability: abstain
     no_answer:
       reason_code: corpus_freshness_not_guaranteed
-      basis_corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+      basis_corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
       required_follow_up: Corpus gözlem tarihinden sonraki değişiklikler yetkili kaynak envanteriyle yeniden taranmalıdır.
     annotations:
       - {annotation_id: ann-capital-latest-legal, annotator_role: legal_reviewer, independent: true, status: pending}
@@ -503,7 +503,7 @@ cases:
     answerability: abstain
     no_answer:
       reason_code: version_history_not_modeled
-      basis_corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+      basis_corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
       required_follow_up: Yetkili kaynaktan tarihli sürümler alınmalı, değişiklik ilişkileri uzman tarafından doğrulanmalıdır.
     annotations:
       - {annotation_id: ann-isedes-version-legal, annotator_role: legal_reviewer, independent: true, status: pending}
@@ -517,7 +517,7 @@ cases:
     answerability: abstain
     no_answer:
       reason_code: legal_currentness_not_modeled
-      basis_corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+      basis_corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
       required_follow_up: Güncel eşik, geçiş hükmü ve Kurul kararları yetkili kaynaklardan tarih itibarıyla doğrulanmalıdır.
     annotations:
       - {annotation_id: ann-lcr-threshold-legal, annotator_role: legal_reviewer, independent: true, status: pending}
@@ -531,7 +531,7 @@ cases:
     answerability: abstain
     no_answer:
       reason_code: corpus_not_exhaustive
-      basis_corpus_manifest_sha256: 8e1899349ae7a2e016fc3b8f22a8beee5cbfd7e1cbf25bd9d03b9147b1e51b42
+      basis_corpus_manifest_sha256: 203530b4c079e92ef6dfebb5b3bc6b6ffb6ebe5b4fe10f0abef203da24a97cb1
       required_follow_up: Değişiklik, yürürlük ve etki analizi yetkili mevzuat zinciri ile uzman incelemesine bağlanmalıdır.
     annotations:
       - {annotation_id: ann-bhfor-latest-legal, annotator_role: legal_reviewer, independent: true, status: pending}
@@ -549,4 +549,4 @@ approval:
   state: draft
   owner_role: dataset_owner
 integrity:
-  dataset_sha256: "ae917373e805c48f318d798d37b0a18f16d2acdc11206868aaa4e0bf1bf52277"
+  dataset_sha256: "960e7109dd50915f52659fe8d18b130ca9aab9a7cff6bffa1a12d0919d1c90ef"

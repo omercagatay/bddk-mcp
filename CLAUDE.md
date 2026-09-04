@@ -1,11 +1,15 @@
 # BDDK MCP Server
 
-MCP server for Turkish banking regulatory intelligence (BDDK) — search decisions, regulations, bulletins, and statistical data. PostgreSQL + pgvector backend, offline-first embeddings, airlocked serving: retrieval tools answer only from the locally published corpus release; live BDDK/mevzuat access is confined to bulletin/announcement tools and ingest/operator paths.
+MCP server for Turkish banking regulatory intelligence (BDDK) — search decisions, regulations, bulletins, and statistical data. PostgreSQL + pgvector backend, offline-first embeddings, airlocked serving: retrieval tools answer only from the locally published corpus release; live BDDK/mevzuat access is confined to the bulletin, announcement, and institution-directory tools (plus the live announcement/bulletin half of `get_regulatory_digest`) and ingest/operator paths. All live access is confined to the exact-host HTTPS allowlist (bddk.org.tr / mevzuat.gov.tr only), enforced by `core/outbound_http.py` and, for document streaming, the equivalent bounded path in `ingest/doc_sync.py`.
 
 ## Commands
 
 ```bash
-docker compose up -d db                    # Start PostgreSQL + pgvector locally
+# docker compose parses the operator service's required variables even for
+# db-only startup; export placeholders once per shell (never real IdP values):
+export BDDK_JWT_JWKS_URL=https://placeholder.invalid/jwks BDDK_JWT_ISSUER=https://placeholder.invalid
+docker compose up -d bddk-test-db          # PostgreSQL + pgvector + the bddk_test pytest fixture
+docker compose up -d db                    # DB only (postgres-marked tests then skip; prefer bddk-test-db)
 uv sync --dev                              # Install runtime + dev dependencies
 uv sync --group gpu                        # Add CUDA torch + chandra-ocr (for doc_sync OCR path)
 uv run python server.py                    # Run MCP server (root shim; needs db up + BDDK_DATABASE_URL)
@@ -13,8 +17,8 @@ uv run bddk-mcp serve                      # Same, via the packaged CLI (also: m
 uv run bddk-mcp migrate                    # Create/upgrade the PostgreSQL schema (versioned migrations)
 uv run python seed.py import               # Seed DB from seed_data/ (shim for bddk-seed)
 uv run python seed.py export               # Export DB to seed_data/
-uv run pytest tests/ -v --tb=short         # Run tests (gpu marker skipped by default)
 uv run pytest tests/ -m "not postgres and not gpu" -v  # DB-less unit run (matches CI unit job)
+BDDK_REQUIRE_TEST_DATABASE=1 uv run pytest tests/ -m "postgres and not gpu" -v  # DB-backed run (matches CI; fails loudly, never skips, if the DB is absent)
 uv run pytest tests/test_client.py -v      # Run single test file
 uv run ruff check .                        # Lint
 uv run ruff format .                       # Format
@@ -38,7 +42,7 @@ Two-layer pattern: modules under `bddk_mcp/tools/` are thin MCP wrappers over en
   - `observability/` — `analytics.py` (trend/comparison engine), `telemetry.py`, `metrics.py`
 - **Corpus governance** (top-level `bddk_mcp/` modules): `corpus_manifest.py`, `corpus_generations.py`, `corpus_publication.py`, `corpus_serving.py` (fail-closed release-epoch guard around local-corpus reads), `catalog_integrity.py`, `citations.py` (versioned, reconstructable citations), `resources.py` (MCP resources)
 - **Platform**: `migrations/` (versioned schema modules + `runner.py`), `jobs/` (Postgres-backed operator job manager), `admin/` (loopback Starlette admin console), `operations/recovery.py`, `db_identity.py` / `db_lifecycle.py` / `db_transport.py` / `db_compatibility.py`, `http_security.py`, `transport_tls.py`
-- **Infrastructure** (`bddk_mcp/core/`): `deps.py` (DI container `Dependencies`), `config.py` (all config via `BDDK_*` env vars), `models.py`, `exceptions.py`, `logging_config.py`, `outbound_http.py`, `utils.py`
+- **Infrastructure** (`bddk_mcp/core/`): `deps.py` (DI container `Dependencies`), `config.py` (all config via `BDDK_*` env vars), `models.py`, `exceptions.py`, `logging_config.py`, `outbound_http.py`
 
 ## Conventions
 

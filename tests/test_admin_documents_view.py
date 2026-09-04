@@ -11,6 +11,17 @@ from bddk_mcp.store.doc_store import StoredDocument, StoreStats
 CONFIG = AdminConfig(bind_host="127.0.0.1", port=8100, database_url="postgresql://x", loopback_only=True)
 
 
+class StubGovernanceService:
+    """The signature panel has its own tests; these only need create_app's
+    required collaborator to exist, and fail loudly if it is ever consulted."""
+
+    async def status(self):
+        raise AssertionError("governance status must not be fetched by document-view tests")
+
+
+GOVERNANCE = StubGovernanceService()
+
+
 class FakeStore:
     """Returns the same shapes the real DocumentStore does, so a field
     rename in StoreStats/StoredDocument breaks these tests instead of
@@ -33,7 +44,10 @@ def client() -> TestClient:
         {"document_id": "mevzuat_1", "title": "Bankacilik Kanunu", "category": "mevzuat", "total_pages": 3},
         {"document_id": "karar_2", "title": "Kurul Karari", "category": "karar", "total_pages": 1},
     ]
-    return TestClient(create_app(CONFIG, DocumentService(FakeStore(rows))))
+    return TestClient(
+        create_app(CONFIG, DocumentService(FakeStore(rows)), GOVERNANCE),
+        base_url="http://127.0.0.1",
+    )
 
 
 def test_document_list_renders_every_document(client: TestClient) -> None:
@@ -82,7 +96,10 @@ class FakeStoreWithDetail(FakeStore):
 @pytest.fixture
 def detail_client() -> TestClient:
     rows = [{"document_id": "mevzuat_1", "title": "Bankacilik Kanunu", "category": "mevzuat", "total_pages": 3}]
-    return TestClient(create_app(CONFIG, DocumentService(FakeStoreWithDetail(rows))))
+    return TestClient(
+        create_app(CONFIG, DocumentService(FakeStoreWithDetail(rows)), GOVERNANCE),
+        base_url="http://127.0.0.1",
+    )
 
 
 def test_detail_shows_metadata_and_content(detail_client: TestClient) -> None:
@@ -113,7 +130,10 @@ class FailingListStore:
 
 @pytest.fixture
 def failing_client() -> TestClient:
-    return TestClient(create_app(CONFIG, DocumentService(FailingListStore())))
+    return TestClient(
+        create_app(CONFIG, DocumentService(FailingListStore()), GOVERNANCE),
+        base_url="http://127.0.0.1",
+    )
 
 
 def test_list_failure_is_shown_not_swallowed(failing_client: TestClient) -> None:
@@ -155,7 +175,10 @@ class PaginatedStore:
 
 def test_pagination_link_renders_and_encodes_category_ampersand() -> None:
     store = PaginatedStore(51)
-    client = TestClient(create_app(CONFIG, DocumentService(store)))
+    client = TestClient(
+        create_app(CONFIG, DocumentService(store), GOVERNANCE),
+        base_url="http://127.0.0.1",
+    )
 
     response = client.get("/documents?category=mevzuat+%26+inceleme")
 
@@ -167,3 +190,12 @@ def test_pagination_link_renders_and_encodes_category_ampersand() -> None:
     assert "category=mevzuat%20%26%20inceleme" in response.text
     assert 'category=mevzuat & inceleme"' not in response.text
     assert "category=mevzuat &amp; inceleme" not in response.text
+
+
+def test_foreign_host_header_is_rejected() -> None:
+    client = TestClient(
+        create_app(CONFIG, DocumentService(FakeStore([])), GOVERNANCE),
+        base_url="http://127.0.0.1",
+    )
+    response = client.get("/documents", headers={"host": "evil.example"})
+    assert response.status_code == 400

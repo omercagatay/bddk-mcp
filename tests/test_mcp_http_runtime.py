@@ -506,3 +506,45 @@ async def test_unauthenticated_public_server_advertises_no_oauth():
 
     # Transport checks still apply with authentication removed.
     assert bad_origin.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_official_client_full_round_trip_on_unauthenticated_remote_public_profile():
+    """Exercise the delivered bank configuration end to end.
+
+    The bank topology serves the PUBLIC profile non-loopback with the explicit
+    unauthenticated opt-in and exact Host/Origin allowlists; access control is
+    the network boundary. This test drives initialize -> tools/list ->
+    tools/call through the official client against exactly that composition,
+    so the shipped configuration's happy path is exercised, not inferred.
+    """
+    from bddk_mcp.server import create_mcp
+
+    security = _unauthenticated_remote_security()
+    doc_store = MagicMock()
+    doc_store.get_document_history = AsyncMock(return_value=[])
+    deps = Dependencies(pool=None, doc_store=doc_store, client=MagicMock(), http=None)
+    server = create_mcp(deps, profile=ToolProfile.PUBLIC, http_security=security)
+    raw_app = server.streamable_http_app()
+    app = HttpSecurityMiddleware(raw_app, security)
+
+    transport = httpx.ASGITransport(app=app)
+    async with raw_app.router.lifespan_context(raw_app):
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="https://mcp.bank.example",
+            headers={"origin": "https://client.bank.example"},
+        ) as client:
+            async with streamable_http_client(
+                "https://mcp.bank.example/mcp",
+                http_client=client,
+            ) as (read_stream, write_stream, _session_id):
+                async with ClientSession(read_stream, write_stream) as session:
+                    initialized = await session.initialize()
+                    listed = await session.list_tools()
+                    result = await session.call_tool("get_document_history", {"document_id": "943"})
+
+    assert initialized.serverInfo.name == "BDDK"
+    assert {tool.name for tool in listed.tools} == set(PUBLIC_TOOL_NAMES)
+    assert result.content, "tools/call must return content without any bearer token"
+    assert not result.isError, "the delivered unauthenticated profile must serve tool calls, not error them"

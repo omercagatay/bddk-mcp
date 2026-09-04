@@ -22,7 +22,6 @@ dependencies = [
     "asyncpg>=0.30",
     "sentence-transformers>=5.0",
     "transformers>=4.50",
-    "pdf2image>=1.17",
     "starlette>=0.47",
     "jinja2>=3.1",
     "uvicorn>=0.34",
@@ -51,6 +50,10 @@ gpu = [
     "torch>=2.13.0",
     "torchvision>=0.15",
     "chandra-ocr[hf]>=0.2",
+    # pdf2image wraps the poppler-utils system binary; it is used only by the
+    # GPU OCR page-render path and must not ship in the serving image, which
+    # does not install poppler.
+    "pdf2image>=1.17",
 ]
 
 [tool.pytest.ini_options]

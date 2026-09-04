@@ -9,6 +9,42 @@ workload and lifecycle Job uses the fail-closed image reference
 `REPLACE_IMAGE_REGISTRY/bddk-mcp@sha256:REPLACE_64_HEX_IMAGE_DIGEST`; replace it
 with the exact digest of the scanned release image, never a tag.
 
+## Known fail-closed traps — resolve these before the deployment window
+
+Both behaviors below are deliberate fail-closed design, but each one reads as
+an outage if it is discovered during the change window instead of planned for:
+
+1. **The shipped render has zero egress, including DNS and PostgreSQL.**
+   `kustomization.yaml` applies the default-deny NetworkPolicies but does not
+   include `acceptance-egress.example.yaml` (it contains `REPLACE_*`
+   placeholders only). Applied as-is, no pod can reach its own database and
+   readiness never passes. Author the bank egress policies from that example
+   first (release-order step 5).
+2. **Live-tool egress must be whitelisted by hostname at the bank proxy.**
+   The application pins an exact-host HTTPS allowlist —
+   `bddk.org.tr`, `www.bddk.org.tr`, `mevzuat.gov.tr`, `www.mevzuat.gov.tr`,
+   port 443 only — in `bddk_mcp/core/outbound_http.py`. Kubernetes
+   NetworkPolicy cannot express DNS names, so the exact-host enforcement and
+   the corresponding firewall/proxy whitelist for those four hosts are the
+   bank network team's deliverable. Without it, the institution, announcement,
+   bulletin, and update tools return retryable `UPSTREAM_FETCH_FAILED` errors
+   (local-corpus retrieval tools are unaffected).
+3. **The strict bank-bootstrap overlay fails against the tracked corpus as
+   shipped.** `deploy/openshift-overlays/bank-bootstrap` passes
+   `--require-measured-freshness`, while the tracked corpus manifest declares
+   `slo_evidence_status: not_measured`. Bootstrap therefore refuses the corpus
+   unless the bank either supplies a measured corpus or approves the
+   documented deviation (drop `--require-measured-freshness` from the
+   bootstrap patch and add `--accept-unmeasured-freshness` to the verifier
+   Job) as an explicit, recorded exception. See "Freshness policy" in
+   [`docs/DEPLOYMENT.md`](../../docs/DEPLOYMENT.md).
+
+Run the repository preflight before and after resolving these:
+`uv run python scripts/openshift_acceptance.py --config <acceptance.yaml>`
+(details, including how to build that config from
+`acceptance.example.yaml`, under "Acceptance
+harness" below).
+
 Release order:
 
 The checked-in lifecycle inventory is exactly four Jobs, and production must
@@ -170,21 +206,26 @@ that flag for the v0003 migration. The standard bootstrap Job subsequently
 runs `--reindex-existing` so validated retrieval publications exist before
 serving.
 
-The current ledger ends at schema v8. An ordinary stopped-workload v7 → v8
-migration preserves existing releases and retained-generation evidence, adds
-the append-only request/binding relations and role-separated facades, and
-revokes non-owner execution of the v5 direct-publication routine. Reapply
-`02_grants.sql` before any verifier, publisher, or runtime starts. Current
-workload identity/catalog admission is v8-only; a v7 database is an upgrade
-source, not a compatible runtime target.
+The current ledger ends at schema v10: v8 adds the append-only
+request/binding relations and role-separated facades and revokes non-owner
+execution of the v5 direct-publication routine, v9 adds the regulatory
+cross-reference edge graph, and v10 widens the release freshness policy to
+the closed two-value set and replaces the v8 staging routine with its
+policy-aware signature. An ordinary stopped-workload migration through v10
+preserves existing releases and retained-generation evidence. Reapply
+`02_grants.sql` after the v10 migration — the new staging signature must
+receive the reviewed verifier grant — and before any verifier, publisher, or
+runtime starts. Current workload identity/catalog admission requires v10; a
+database left at v7, v8, or v9 is an upgrade source, not a compatible runtime
+target.
 
 If the earlier v7 canonical-hash guard refuses an active v5/v6 release, keep the
 pre-v7 database unchanged and follow the separately approved exact-schema
-publication remediation before retrying v7 and then v8. The current
+publication remediation before retrying v7 and the later migrations. The current
 `publish-corpus-release` CLI is disabled even though exact v5/v6/v7 compatibility
 checks remain in code for reviewed migration remediation. Do not re-grant the
-direct routine on v8, update historical release rows, synthesize retention
-bindings, or run serving/retention during remediation.
+direct routine on v8 or later, update historical release rows, synthesize
+retention bindings, or run serving/retention during remediation.
 
 The migration Job receives `BDDK_SCHEMA_OWNER_DATABASE_URL` and the independent
 `BDDK_EXPECTED_DATABASE_NAME`; the bootstrap Job receives only
