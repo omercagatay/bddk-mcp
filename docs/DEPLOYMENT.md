@@ -677,6 +677,37 @@ complete non-loopback HTTP policy (`BDDK_HTTP_ALLOWED_HOSTS`,
 `BDDK_HTTP_ALLOWED_ORIGINS`, and either the full `BDDK_JWT_*` set or the
 explicit unauthenticated opt-in); without them the server refuses startup.
 
+For the existing admin preview service, set its **Railway Config File** to
+`/deploy/railway/admin.toml`, keeping the repository root as its source root. This
+uses the same Dockerfile with the direct start command
+`/app/.venv/bin/bddk-mcp admin-ui --host 0.0.0.0` and clears any pre-deploy
+bootstrap command. Keep the MCP service on `/railway.toml`. Railway supports
+[per-service start commands](https://docs.railway.com/deployments/start-command);
+no Docker process selector is needed.
+
+Set these variables on the admin service:
+
+- `BDDK_DATABASE_URL`: the `verify-full` public-reader DSN, with its CA file
+  available in the container. Prepare the schema and corpus separately; the
+  admin service needs no ingestion or schema-owner credentials.
+- `BDDK_ADMIN_REMOTE_ENABLED=true`.
+- `BDDK_HTTP_ALLOWED_HOSTS` and `BDDK_HTTP_ALLOWED_ORIGINS`: the admin
+  service's exact hostname and HTTPS origin.
+- `BDDK_JWT_ISSUER`, `BDDK_JWT_RESOURCE`, `BDDK_JWT_JWKS_URL`,
+  `BDDK_JWT_AUDIENCE`, and `BDDK_JWT_REQUIRED_SCOPES=bddk.operator`:
+  values matching the operator token issuer and resource policy.
+
+Leave `BDDK_ADMIN_PORT` unset so the console uses Railway's `PORT`, and
+leave `BDDK_HTTP_ALLOW_UNAUTHENTICATED` unset. `/health/ready` is available
+without a token; browser pages require operator authentication.
+
+This TOML recipe applies to existing Config as Code services. Railway's
+[Config as Code migration notice](https://docs.railway.com/config-as-code)
+requires new services to use dashboard settings or Infrastructure as Code,
+and retires legacy configs on 2026-12-01. For a new admin service, use the
+same Dockerfile, start command, healthcheck, and variables above, with no
+pre-deploy command.
+
 There is no separate Spaces image. Preview hosts that need port `7860` should
 set `PORT` on the standard image. The database must be bootstrapped separately.
 Neither Railway nor a preview host supplies bank-specific identity or global

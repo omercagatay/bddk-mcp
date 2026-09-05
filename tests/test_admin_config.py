@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import shlex
+import tomllib
+from pathlib import Path
+
 import pytest
 
 from bddk_mcp.admin.config import AdminConfig, AdminConfigError
+from bddk_mcp.cli import build_parser
 
 
 @pytest.fixture(autouse=True)
@@ -87,3 +92,27 @@ def test_remote_with_opt_in_and_jwt_is_accepted() -> None:
 def test_port_falls_back_to_platform_port() -> None:
     config = AdminConfig.from_env({"BDDK_DATABASE_URL": "postgresql://u:p@localhost:5432/bddk", "PORT": "9001"})
     assert config.port == 9001
+
+
+def test_railway_admin_starts_with_platform_port_and_no_bootstrap() -> None:
+    root = Path(__file__).resolve().parents[1]
+    admin = tomllib.loads((root / "deploy/railway/admin.toml").read_text())
+    mcp = tomllib.loads((root / "railway.toml").read_text())
+    assert admin["build"]["builder"] == "DOCKERFILE"
+    assert admin["build"]["dockerfilePath"] == mcp["build"]["dockerfilePath"]
+    assert admin["deploy"]["preDeployCommand"] == []
+    assert admin["deploy"]["healthcheckPath"] == "/health/ready"
+    assert "bootstrap" in mcp["deploy"]["preDeployCommand"]
+    assert "startCommand" not in mcp["deploy"]
+
+    executable, *argv = shlex.split(admin["deploy"]["startCommand"])
+    assert executable == "/app/.venv/bin/bddk-mcp"
+    args = build_parser().parse_args(argv)
+    assert args.command == "admin-ui"
+    assert args.port is None
+    env = _remote_env(BDDK_ADMIN_HOST=args.host, BDDK_ADMIN_PORT="", PORT="9001")
+    config = AdminConfig.from_env(env)
+    assert config.bind_host == "0.0.0.0"
+    assert config.port == 9001
+    assert config.loopback_only is False
+    assert config.http_security is not None
