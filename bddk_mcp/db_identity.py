@@ -23,7 +23,7 @@ import asyncpg
 
 from bddk_mcp.db_compatibility import PostgreSQLCompatibilityError, assert_supported_postgresql
 from bddk_mcp.migrations import inspect_migration_state
-from bddk_mcp.migrations.v0007_retained_corpus_generations import RETAINED_CORPUS_RELATIONS
+from bddk_mcp.migrations.v0011_graph_corpus_state import RETAINED_CORPUS_RELATIONS
 
 DatabaseIdentityProfile = Literal["public", "operator", "ingestion", "release-verifier", "release-publisher"]
 
@@ -191,7 +191,7 @@ _V7_ONLY_ROUTINES = frozenset(
         "bddk_meta.inspect_retained_generation_storage(text)",
     }
 )
-_V8_ALL_TABLES = _ALL_TABLES - _V9_ONLY_TABLES
+_V8_ALL_TABLES = _ALL_TABLES - _V9_ONLY_TABLES - {"bddk_retained.regulatory_relations"}
 _V7_ALL_TABLES = _V8_ALL_TABLES - _V8_ONLY_TABLES
 _V7_ALL_ROUTINES = _ALL_ROUTINES - _V8_ONLY_ROUTINES
 _V6_ALL_TABLES = _V7_ALL_TABLES - _V7_ONLY_TABLES

@@ -15,6 +15,7 @@ from typing import Any, Final
 
 import asyncpg
 
+from bddk_mcp.migrations.model import Migration
 from bddk_mcp.migrations.v0005_corpus_release_publication import (
     CORPUS_EPOCH_TRACKED_TABLES,
     V0005_CORPUS_RELEASE_PUBLICATION,
@@ -24,6 +25,7 @@ from bddk_mcp.migrations.v0008_staged_corpus_releases import V0008_STAGED_CORPUS
 from bddk_mcp.migrations.v0010_corpus_release_freshness_policy import (
     V0010_CORPUS_RELEASE_FRESHNESS_POLICY,
 )
+from bddk_mcp.migrations.v0011_graph_corpus_state import V0011_GRAPH_CORPUS_STATE
 from bddk_mcp.regulatory.text_profile import PROVISION_BOUNDARY_CODEPOINTS_V1
 
 _CORPUS_RELEASE_RELATIONS_SQL = """
@@ -672,6 +674,8 @@ SELECT pg_catalog.count(*)::pg_catalog.int4 AS object_count,
 FROM catalog_items
 """
 _EXPECTED_V7_CATALOG_OBJECT_COUNT: Final[int] = 510
+_EXPECTED_V11_CATALOG_OBJECT_COUNT: Final[int] = 540
+_EXPECTED_V11_CATALOG_SHA256: Final[str] = "67452b09a28f26135bd47eaedfb6ce30c6cf5166f9922c19c7f3874fced05468"
 _EXPECTED_V7_CATALOG_SHA256: Final[str] = "b917551df79f89c749051211a4640481ed8a87f0ca3e3ec085522bdabbbf7f21"
 
 _V7_ACL_SQL = """
@@ -856,19 +860,12 @@ def _v8_function_source(name: str) -> str:
     return match.group(1)
 
 
-def _v10_function_source(name: str) -> str:
-    """Extract the replaced freshness-policy function body from migration v0010."""
-
-    prefix = f"CREATE FUNCTION bddk_meta.{name}("
-    statement = next(
-        (item for item in V0010_CORPUS_RELEASE_FRESHNESS_POLICY.statements if item.strip().startswith(prefix)),
-        None,
-    )
-    if statement is None:
-        raise RuntimeError(f"migration v0010 is missing {name}")
+def _migration_function_source(migration: Migration, name: str) -> str:
+    prefixes = (f"CREATE FUNCTION bddk_meta.{name}(", f"CREATE OR REPLACE FUNCTION bddk_meta.{name}(")
+    statement = next(item for item in migration.statements if item.strip().startswith(prefixes))
     match = re.search(r"\bAS \$function\$\s*(.*?)\s*\$function\$\s*$", statement, re.DOTALL)
     if match is None:
-        raise RuntimeError(f"migration v0010 has an invalid {name} body")
+        raise RuntimeError(f"migration {migration.version} has an invalid {name} body")
     return match.group(1)
 
 
@@ -1288,7 +1285,7 @@ _V10_CORPUS_RELEASE_ROUTINES: Final[dict[str, tuple[str, str, str, bool, str]]] 
         "v",
         "u",
         True,
-        _v10_function_source("stage_verified_corpus_release"),
+        _migration_function_source(V0010_CORPUS_RELEASE_FRESHNESS_POLICY, "stage_verified_corpus_release"),
     ),
 }
 
@@ -1645,7 +1642,7 @@ def _catalog_char(value: Any) -> str:
 async def inspect_catalog_integrity(
     pool: asyncpg.Pool,
     *,
-    expected_schema_version: int = 10,
+    expected_schema_version: int = 11,
 ) -> CatalogIntegrity:
     """Verify critical constraints, triggers, indexes, and function bodies.
 
@@ -1657,8 +1654,8 @@ async def inspect_catalog_integrity(
     schema.
     """
 
-    if expected_schema_version not in {5, 6, 7, 8, 10}:
-        raise ValueError("catalog integrity supports only schema versions 5, 6, 7, 8, and 10")
+    if expected_schema_version not in {5, 6, 7, 8, 10, 11}:
+        raise ValueError("catalog integrity supports only schema versions 5, 6, 7, 8, 10, and 11")
 
     failures: list[str] = []
 
@@ -1678,9 +1675,17 @@ async def inspect_catalog_integrity(
         if actual_constraints.get(key) != (constraint_type, True, _normalize_sql(definition)):
             failures.append(f"constraint:{key[0]}.{key[1]}")
 
+    expected_triggers = dict(_EXPECTED_TRIGGERS)
+    if expected_schema_version >= 11:
+        expected_triggers[("public.regulatory_relations", "bump_corpus_state_epoch_on_change")] = (
+            "bump_corpus_state_epoch()",
+            60,
+            None,
+            None,
+        )
     trigger_rows = await pool.fetch(
         _TRIGGERS_SQL,
-        sorted({table.partition(".")[2] for table, _name in _EXPECTED_TRIGGERS}),
+        sorted({table.partition(".")[2] for table, _name in expected_triggers}),
     )
     actual_triggers = {
         (str(_value(row, "table_name")), str(_value(row, "tgname"))): (
@@ -1692,9 +1697,9 @@ async def inspect_catalog_integrity(
         )
         for row in trigger_rows
     }
-    if set(actual_triggers) != set(_EXPECTED_TRIGGERS):
+    if set(actual_triggers) != set(expected_triggers):
         failures.append("triggers:public.exact")
-    for key, (function_identity, trigger_type, old_table, new_table) in _EXPECTED_TRIGGERS.items():
+    for key, (function_identity, trigger_type, old_table, new_table) in expected_triggers.items():
         if actual_triggers.get(key) != (function_identity, trigger_type, "O", old_table, new_table):
             failures.append(f"trigger:{key[0]}.{key[1]}")
 
@@ -1876,6 +1881,18 @@ async def inspect_catalog_integrity(
             None,
         )
         release_routines.update(_V10_CORPUS_RELEASE_ROUTINES)
+    if expected_schema_version >= 11:
+        for identity, definition in release_routines.items():
+            name = identity.partition("(")[0]
+            if name in {
+                "current_corpus_state_sha256",
+                "stage_verified_corpus_release",
+                "activate_staged_corpus_release",
+            }:
+                release_routines[identity] = (
+                    *definition[:-1],
+                    _migration_function_source(V0011_GRAPH_CORPUS_STATE, name),
+                )
     release_routine_rows = await pool.fetch(
         _CORPUS_RELEASE_ROUTINES_SQL,
         sorted(identity.partition("(")[0] for identity in release_routines),
@@ -1963,9 +1980,14 @@ async def inspect_catalog_integrity(
             list(_V7_META_RELATIONS),
             list(_V7_ROUTINES),
         )
+        expected_count, expected_hash = (
+            (_EXPECTED_V11_CATALOG_OBJECT_COUNT, _EXPECTED_V11_CATALOG_SHA256)
+            if expected_schema_version >= 11
+            else (_EXPECTED_V7_CATALOG_OBJECT_COUNT, _EXPECTED_V7_CATALOG_SHA256)
+        )
         if (
-            int(_value(v7_catalog, "object_count", -1)) != _EXPECTED_V7_CATALOG_OBJECT_COUNT
-            or str(_value(v7_catalog, "catalog_sha256", "")) != _EXPECTED_V7_CATALOG_SHA256
+            int(_value(v7_catalog, "object_count", -1)) != expected_count
+            or str(_value(v7_catalog, "catalog_sha256", "")) != expected_hash
         ):
             failures.append("catalog:bddk_retained.v7_exact")
 

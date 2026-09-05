@@ -93,7 +93,7 @@ def test_canonical_legal_version_workspace_is_inventoried_with_zero_runtime_righ
 def test_retained_generation_store_is_exactly_inventoried_and_runtime_denied() -> None:
     retained_tables = {f"bddk_retained.{relation}" for relation in db_identity.RETAINED_CORPUS_RELATIONS}
 
-    assert len(retained_tables) == 17
+    assert len(retained_tables) == 18
     assert db_identity._RETAINED_CORPUS_TABLES == retained_tables
     for profile in ("public", "ingestion", "release-verifier", "release-publisher", "operator"):
         contract = db_identity._CONTRACTS[profile]

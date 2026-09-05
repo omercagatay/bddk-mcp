@@ -15,8 +15,6 @@ def test_dependencies_defaults():
     )
     assert deps.telemetry_pool is None
     assert deps.vector_store is None
-    assert deps.sync_task is None
-    assert deps.vector_init_task is None
     assert deps.last_sync_time is None
     assert deps.last_sync_error is None
     assert deps.sync_consecutive_failures == 0

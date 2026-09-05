@@ -12,7 +12,7 @@ import pytest
 
 from bddk_mcp.migrations import LATEST_SCHEMA_VERSION, MIGRATIONS
 from bddk_mcp.migrations.v0005_corpus_release_publication import CORPUS_EPOCH_TRACKED_TABLES
-from bddk_mcp.migrations.v0007_retained_corpus_generations import RETAINED_CORPUS_RELATIONS
+from bddk_mcp.migrations.v0011_graph_corpus_state import RETAINED_CORPUS_RELATIONS
 from bddk_mcp.operations import recovery
 from bddk_mcp.operations.recovery import (
     DISPOSABLE_ACKNOWLEDGEMENT,
@@ -484,6 +484,10 @@ def test_recovery_evidence_covers_legal_version_relations_in_fk_safe_order() -> 
         "public.regulatory_provisions",
         "public.regulatory_legal_version_provisions",
         "public.regulatory_validated_section_citations",
+        "public.regulatory_relations",
+        "public.regulatory_validated_relations",
+        "public.regulatory_validated_legal_versions",
+        "public.regulatory_validated_legal_events",
     )
     inventory_positions = tuple(recovery._MANAGED_RELATIONS.index(relation) for relation in expected)
     fingerprint_labels = {label for label, _query in recovery._SAFE_FINGERPRINT_QUERIES}
@@ -499,7 +503,7 @@ def test_recovery_evidence_covers_legal_version_relations_in_fk_safe_order() -> 
 
 
 def test_recovery_inventory_covers_release_epoch_views_and_identity_sequence() -> None:
-    assert len(recovery._MANAGED_RELATIONS) == 53
+    assert len(recovery._MANAGED_RELATIONS) == 58
     assert {
         "bddk_meta.corpus_state_epoch",
         "bddk_meta.corpus_releases",
@@ -551,7 +555,7 @@ def test_recovery_evidence_covers_retained_generations_in_dependency_order() -> 
 
     assert inventory_positions == tuple(sorted(inventory_positions))
     assert fingerprint_positions == tuple(sorted(fingerprint_positions))
-    assert len(retained_members) == 17
+    assert len(retained_members) == 18
     assert len(retained_members) == len(set(retained_members))
     for relation in RETAINED_CORPUS_RELATIONS:
         query = " ".join(queries[f"retained_{relation}"].split())
@@ -702,6 +706,9 @@ def test_database_locale_evidence_covers_pg17_provider_rules_and_versions() -> N
 
 
 async def _downgrade_to_v2(connection) -> None:
+    from tests.test_migrations import _downgrade_current_schema_to_v8
+
+    await _downgrade_current_schema_to_v8(connection)
     await connection.execute("DROP FUNCTION IF EXISTS bddk_meta.activate_staged_corpus_release(pg_catalog.text)")
     # Both staged-release signatures: v8 created the 12-argument routine and v10
     # replaced it with the policy-aware 13-argument one.

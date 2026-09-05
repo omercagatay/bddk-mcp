@@ -208,11 +208,8 @@ def canonical_manifest_sha256(raw_manifest: dict[str, Any]) -> str:
 
 
 def _file_sha256(path: Path) -> str:
-    digest = hashlib.sha256()
     with path.open("rb") as handle:
-        while block := handle.read(1024 * 1024):
-            digest.update(block)
-    return digest.hexdigest()
+        return hashlib.file_digest(handle, "sha256").hexdigest()
 
 
 def _bounded_regular_file(path: Path, *, label: str, maximum_bytes: int) -> bytes:

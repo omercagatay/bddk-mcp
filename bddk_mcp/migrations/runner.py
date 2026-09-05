@@ -34,6 +34,7 @@ from bddk_mcp.migrations.v0009_regulatory_relations import V0009_REGULATORY_RELA
 from bddk_mcp.migrations.v0010_corpus_release_freshness_policy import (
     V0010_CORPUS_RELEASE_FRESHNESS_POLICY,
 )
+from bddk_mcp.migrations.v0011_graph_corpus_state import V0011_GRAPH_CORPUS_STATE
 
 MIGRATIONS: Final[tuple[Migration, ...]] = (
     V0001_CORE,
@@ -46,6 +47,7 @@ MIGRATIONS: Final[tuple[Migration, ...]] = (
     V0008_STAGED_CORPUS_RELEASES,
     V0009_REGULATORY_RELATIONS,
     V0010_CORPUS_RELEASE_FRESHNESS_POLICY,
+    V0011_GRAPH_CORPUS_STATE,
 )
 LATEST_SCHEMA_VERSION: Final[int] = MIGRATIONS[-1].version
 MIGRATION_LOCK_TIMEOUT: Final[str] = "5s"

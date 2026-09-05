@@ -293,3 +293,31 @@ async def test_build_digest_marks_announcements_unavailable_and_drops_partial_ro
     assert digest["announcements"] == []
     assert digest["total_announcements"] == 0
     assert "alınamadı" in digest["narrative"]
+
+
+@pytest.mark.parametrize(
+    "values, dates",
+    [
+        ([100, None], ["01.01.2026", "08.01.2026"]),
+        ([100, "missing"], ["01.01.2026", "08.01.2026"]),
+        ([100, True], ["01.01.2026", "08.01.2026"]),
+        ([100, "NaN"], ["01.01.2026", "08.01.2026"]),
+        ([100, "inf"], ["01.01.2026", "08.01.2026"]),
+        ([100, 90], ["01.01.2026"]),
+        ([], []),
+        ([100], ["01.01.2026"]),
+    ],
+)
+async def test_invalid_observations_never_become_trends_or_comparisons(mock_http, values, dates):
+    _setup_bulletin_mock(mock_http, {"Baslik": "Test", "XEkseni": dates, "YEkseni": values})
+    assert "error" in await analyze_trends(mock_http)
+    result = await compare_metrics(mock_http, ["1.0.1"])
+    assert "error" in result["metrics"][0]
+    assert "current" not in result["metrics"][0]
+
+
+async def test_numeric_strings_and_zero_remain_valid_observations(mock_http):
+    _setup_bulletin_mock(mock_http, {"XEkseni": ["01.01.2026", "08.01.2026"], "YEkseni": ["100", 0]})
+    result = await analyze_trends(mock_http)
+    assert result["current"] == 0
+    assert result["wow_pct"] == -100

@@ -31,7 +31,7 @@ from bddk_mcp.corpus_publication import (
     stage_strict_corpus_release,
     strict_verification_evidence_sha256,
 )
-from bddk_mcp.migrations.v0007_retained_corpus_generations import RETAINED_CORPUS_RELATIONS
+from bddk_mcp.migrations.v0011_graph_corpus_state import RETAINED_CORPUS_RELATIONS
 
 _PROFILE_SHA256 = "7" * 64
 _ZERO_VECTOR = "[" + ",".join("0" for _ in range(768)) + "]"
@@ -559,6 +559,23 @@ async def _insert_canonical_legal_state(
     )
 
 
+async def _insert_relation(connection) -> None:
+    await connection.execute(
+        """
+        INSERT INTO public.regulatory_relations (
+            relation_id, relation_type, source_instrument_id, target_external_ref,
+            evidence_id, extraction_method, confidence, validation_state,
+            validated_by, validated_at, validation_method, review_record_sha256
+        ) VALUES ($1, 'cites', $2, 'Synthetic legal reference', $3, 'manual', 0.9,
+                  'validated', 'reviewer', '2026-01-02T00:00:00Z', 'four-eyes', $4)
+        """,
+        "rel_sha256_" + "c" * 64,
+        "inst_sha256_" + "1" * 64,
+        "evid_sha256_" + "5" * 64,
+        "a" * 64,
+    )
+
+
 async def _publish(
     connection: asyncpg.Connection,
     *,
@@ -827,6 +844,7 @@ async def test_active_release_is_atomically_retained_sealed_and_costed(pg_pool) 
             document_id=document_id,
             content_hash=content_hash,
         )
+        await _insert_relation(connection)
         await connection.execute(
             """
             SELECT pg_catalog.set_config('TimeZone', 'Europe/Istanbul', true),
@@ -910,8 +928,8 @@ async def test_active_release_is_atomically_retained_sealed_and_costed(pg_pool) 
             == receipt
         )
 
-        assert receipt.relation_count == len(RETAINED_CORPUS_RELATIONS) == 17
-        assert receipt.row_count == 17
+        assert receipt.relation_count == len(RETAINED_CORPUS_RELATIONS) == 18
+        assert receipt.row_count == 18
         assert receipt.corpus_state_sha256 == published["corpus_state_sha256"]
         assert (
             await connection.fetchval(
@@ -1125,6 +1143,7 @@ async def test_retention_failure_at_each_durable_stage_rolls_back_without_changi
             document_id=document_id,
             content_hash=content_hash,
         )
+        await _insert_relation(connection)
         published = await _publish(connection, manifest_id="retention-failure-001")
         release_id = str(published["release_id"])
         active_before = dict(await connection.fetchrow("SELECT * FROM bddk_meta.active_corpus_release"))

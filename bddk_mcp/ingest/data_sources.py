@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import math
 import re
 from dataclasses import dataclass
 
@@ -363,15 +364,30 @@ async def fetch_weekly_bulletin(
             },
         )
         data = response.json()
+        if not isinstance(data, dict):
+            raise ValueError("Invalid bulletin response")
+        dates, values = data.get("XEkseni"), data.get("YEkseni")
+        if (
+            not isinstance(dates, list)
+            or not isinstance(values, list)
+            or not values
+            or len(dates) != len(values)
+            or any(not isinstance(date, str) or not date.strip() for date in dates)
+            or any(isinstance(value, bool) or not isinstance(value, (int, float, str)) for value in values)
+        ):
+            raise ValueError("Missing or misaligned bulletin observations")
+        values = [float(value) for value in values]
+        if not all(math.isfinite(value) for value in values):
+            raise ValueError("Non-finite bulletin observations")
 
         return {
             "title": data.get("Baslik", ""),
-            "dates": data.get("XEkseni", []),
-            "values": data.get("YEkseni", []),
+            "dates": dates,
+            "values": values,
             "currency": currency,
             "metric_id": metric_id,
         }
-    except (httpx.HTTPError, httpx.TransportError, OutboundHttpPolicyError, KeyError, ValueError) as exc:
+    except (httpx.HTTPError, httpx.TransportError, OutboundHttpPolicyError, KeyError, ValueError, OverflowError) as exc:
         logger.error("Failed to fetch weekly bulletin", extra={"error_type": type(exc).__name__})
         return {"error": "Approved BDDK upstream request failed."}
 

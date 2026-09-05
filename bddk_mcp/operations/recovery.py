@@ -45,7 +45,7 @@ from bddk_mcp.migrations import (
     inspect_migration_state,
     migrate,
 )
-from bddk_mcp.migrations.v0007_retained_corpus_generations import RETAINED_CORPUS_RELATIONS
+from bddk_mcp.migrations.v0011_graph_corpus_state import RETAINED_CORPUS_RELATIONS
 from bddk_mcp.observability.telemetry import assert_telemetry_writer_ready
 
 DISPOSABLE_ACKNOWLEDGEMENT: Final[str] = "I_UNDERSTAND_THIS_MUTATES_ONLY_A_DISPOSABLE_RECOVERY_TARGET"
@@ -148,6 +148,7 @@ def _retained_inventory_recomputation_select(position: int, relation: str) -> st
                 WHERE member.generation_id = generation.generation_id
             ) AS retained_rows
         ) AS recomputed
+        WHERE {position} <= 17 OR generation.generation_schema_version = 2
         """
 
 
@@ -161,6 +162,7 @@ WITH fresh_inventory AS MATERIALIZED (
 ),
 recomputed_generations AS MATERIALIZED (
     SELECT generation.generation_id,
+           CASE generation.generation_schema_version WHEN 1 THEN 17 ELSE 18 END AS expected_relation_count,
            generation.source_activation_sequence,
            generation.source_release_id,
            generation.corpus_state_sha256,
@@ -213,12 +215,12 @@ validation AS MATERIALIZED (
 SELECT NOT EXISTS (
     SELECT 1
     FROM validation
-    WHERE fresh_relation_count <> {len(RETAINED_CORPUS_RELATIONS)}
+    WHERE fresh_relation_count <> expected_relation_count
        OR (
             SELECT pg_catalog.count(*)
             FROM bddk_meta.corpus_generation_relation_inventory AS inventory
             WHERE inventory.generation_id = validation.generation_id
-          ) <> {len(RETAINED_CORPUS_RELATIONS)}
+          ) <> expected_relation_count
        OR EXISTS (
             SELECT 1
             FROM fresh_inventory AS fresh
@@ -233,7 +235,7 @@ SELECT NOT EXISTS (
                   )
           )
        OR seal_id IS NULL
-       OR sealed_relation_count IS DISTINCT FROM {len(RETAINED_CORPUS_RELATIONS)}
+       OR sealed_relation_count IS DISTINCT FROM expected_relation_count
        OR sealed_row_count IS DISTINCT FROM fresh_row_count
        OR sealed_state_sha256 IS DISTINCT FROM corpus_state_sha256
        OR sealed_profile_sha256 IS DISTINCT FROM retrieval_profile_sha256
@@ -318,6 +320,13 @@ AND NOT EXISTS (
 AS retained_generation_seals_valid
 """
 
+_GRAPH_RELATIONS: Final[tuple[str, ...]] = (
+    "regulatory_relations",
+    "regulatory_validated_relations",
+    "regulatory_validated_legal_versions",
+    "regulatory_validated_legal_events",
+)
+
 _MANAGED_RELATIONS: Final[tuple[str, ...]] = (
     "bddk_meta.legacy_schema_adoptions",
     "bddk_meta.schema_migrations",
@@ -353,6 +362,7 @@ _MANAGED_RELATIONS: Final[tuple[str, ...]] = (
     "public.regulatory_provisions",
     "public.regulatory_legal_version_provisions",
     "public.regulatory_validated_section_citations",
+    *(f"public.{relation}" for relation in _GRAPH_RELATIONS),
     # Retained member relations follow their generation parent and preserve
     # the v5 source-table dependency order.  Seals and release bindings follow
     # the complete member inventory they attest.
@@ -783,6 +793,14 @@ _SAFE_FINGERPRINT_QUERIES: Final[tuple[tuple[str, str], ...]] = (
         FROM bddk_meta.corpus_generations
         ORDER BY generation_id
         """,
+    ),
+    *(
+        (
+            relation,
+            f"SELECT bddk_meta.retained_row_sha256(member, false) AS row_sha256 "
+            f"FROM public.{relation} AS member ORDER BY row_sha256",
+        )
+        for relation in _GRAPH_RELATIONS
     ),
     *_RETAINED_MEMBER_FINGERPRINT_QUERIES,
     (
@@ -1356,6 +1374,7 @@ async def _collect_snapshot_evidence_pinned(
             "regulatory_provisions": "public.regulatory_provisions",
             "regulatory_legal_version_provisions": "public.regulatory_legal_version_provisions",
             "regulatory_validated_section_citations": "public.regulatory_validated_section_citations",
+            **{relation: f"public.{relation}" for relation in _GRAPH_RELATIONS},
             **{f"retained_{relation}": f"bddk_retained.{relation}" for relation in RETAINED_CORPUS_RELATIONS},
             "corpus_generation_relation_inventory": ("bddk_meta.corpus_generation_relation_inventory"),
             "corpus_generation_seals": "bddk_meta.corpus_generation_seals",

@@ -26,9 +26,9 @@ from bddk_mcp.catalog_integrity import (
     _EXPECTED_V4_CONSTRAINT_COUNT,
     _EXPECTED_V4_INDEX_CATALOG_SHA256,
     _EXPECTED_V4_INDEX_COUNT,
-    _EXPECTED_V7_CATALOG_OBJECT_COUNT,
-    _EXPECTED_V7_CATALOG_SHA256,
     _EXPECTED_V10_DEPLOYED_ROUTINE_ACL,
+    _EXPECTED_V11_CATALOG_OBJECT_COUNT,
+    _EXPECTED_V11_CATALOG_SHA256,
     _LEGAL_STATUS_RESULT_TYPE,
     _V8_CORPUS_RELEASE_CONSTRAINTS,
     _V8_CORPUS_RELEASE_RELATIONS,
@@ -37,6 +37,7 @@ from bddk_mcp.catalog_integrity import (
     _V10_CORPUS_RELEASE_CONSTRAINTS,
     _V10_CORPUS_RELEASE_ROUTINES,
     _V10_STAGE_ROUTINE_IDENTITY,
+    _migration_function_source,
     _v6_legal_status_function_source,
 )
 from bddk_mcp.core.exceptions import BddkStorageError
@@ -53,6 +54,7 @@ from bddk_mcp.db_lifecycle import (
 )
 from bddk_mcp.ingest.client import BddkApiClient
 from bddk_mcp.migrations import MIGRATIONS, LegacyAdoptionError, MigrationScaleError
+from bddk_mcp.migrations.v0011_graph_corpus_state import V0011_GRAPH_CORPUS_STATE
 
 
 def _ready_corpus(**overrides) -> dict[str, bool]:
@@ -322,7 +324,15 @@ class ReadOnlyReadinessPool:
                     trigger_type,
                     old_table,
                     new_table,
-                ) in _EXPECTED_TRIGGERS.items()
+                ) in {
+                    **_EXPECTED_TRIGGERS,
+                    ("public.regulatory_relations", "bump_corpus_state_epoch_on_change"): (
+                        "bump_corpus_state_epoch()",
+                        60,
+                        None,
+                        None,
+                    ),
+                }.items()
             ]
         if "pg_index" in query:
             return [
@@ -364,6 +374,17 @@ class ReadOnlyReadinessPool:
                     if identity == _V10_STAGE_ROUTINE_IDENTITY
                     or not identity.startswith("stage_verified_corpus_release(")
                 }
+                for identity, definition in release_routines.items():
+                    name = identity.partition("(")[0]
+                    if name in {
+                        "current_corpus_state_sha256",
+                        "stage_verified_corpus_release",
+                        "activate_staged_corpus_release",
+                    }:
+                        release_routines[identity] = (
+                            *definition[:-1],
+                            _migration_function_source(V0011_GRAPH_CORPUS_STATE, name),
+                        )
                 return [
                     {
                         "function_identity": identity,
@@ -444,8 +465,8 @@ class ReadOnlyReadinessPool:
             }
         if "AS catalog_sha256" in query and "bddk_retained" in query:
             return {
-                "object_count": _EXPECTED_V7_CATALOG_OBJECT_COUNT,
-                "catalog_sha256": _EXPECTED_V7_CATALOG_SHA256,
+                "object_count": _EXPECTED_V11_CATALOG_OBJECT_COUNT,
+                "catalog_sha256": _EXPECTED_V11_CATALOG_SHA256,
             }
         if "pg_get_viewdef" in query:
             if "active_corpus_release" in query:

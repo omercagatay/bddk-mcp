@@ -859,8 +859,53 @@ async def _provision_exact_v5_publisher_login(
     )
 
 
+async def _downgrade_current_schema_to_v10(connection) -> None:
+    """Restore the exact pre-graph-retention catalog in a rollback-only test."""
+    from bddk_mcp.migrations import v0007_retained_corpus_generations as v7
+    from bddk_mcp.migrations.v0010_corpus_release_freshness_policy import V0010_CORPUS_RELEASE_FRESHNESS_POLICY
+
+    await connection.execute("DROP TRIGGER bump_corpus_state_epoch_on_change ON public.regulatory_relations")
+    await connection.execute("DROP TABLE bddk_retained.regulatory_relations")
+    for table, constraint, check in (
+        ("corpus_generations", "corpus_generations_schema_check", "generation_schema_version = 1"),
+        ("corpus_generation_seals", "corpus_generation_seals_relation_count_check", "relation_count = 17"),
+        (
+            "corpus_generation_relation_inventory",
+            "corpus_generation_relation_inventory_name_check",
+            f"relation_name IN ({v7._RELATION_CHECK})",
+        ),
+    ):
+        await connection.execute(
+            f"ALTER TABLE bddk_meta.{table} DROP CONSTRAINT {constraint}, ADD CONSTRAINT {constraint} CHECK ({check})"
+        )
+    for migration, names in (
+        (
+            V0007_RETAINED_CORPUS_GENERATIONS,
+            {
+                "current_corpus_state_sha256",
+                "retained_corpus_state_sha256",
+                "retain_active_corpus_generation",
+                "inspect_retained_generation_storage",
+            },
+        ),
+        (V0008_STAGED_CORPUS_RELEASES, {"activate_staged_corpus_release"}),
+        (V0010_CORPUS_RELEASE_FRESHNESS_POLICY, {"stage_verified_corpus_release"}),
+    ):
+        for statement in migration.statements:
+            if any(
+                statement.strip().startswith(
+                    (f"CREATE FUNCTION bddk_meta.{name}(", f"CREATE OR REPLACE FUNCTION bddk_meta.{name}(")
+                )
+                for name in names
+            ):
+                await connection.execute(statement.replace("CREATE FUNCTION", "CREATE OR REPLACE FUNCTION", 1))
+    await connection.execute("DELETE FROM bddk_meta.schema_migrations WHERE version = 11")
+
+
 async def _downgrade_current_schema_to_v9(connection) -> None:
     """Restore the measured-only v8 policy surface inside a test transaction."""
+
+    await _downgrade_current_schema_to_v10(connection)
 
     await connection.execute(
         "DROP FUNCTION IF EXISTS bddk_meta.stage_verified_corpus_release("
@@ -1368,9 +1413,9 @@ async def test_postgres_v7_refuses_noncanonical_v5_release_then_accepts_reviewed
             await connection.fetchval("SELECT max(version) FROM bddk_meta.schema_migrations") == LATEST_SCHEMA_VERSION
         )
         assert catalog.valid
-        assert readiness.ready
-        assert readiness.active_corpus_release is not None
-        assert readiness.active_corpus_release.release_id == canonical_release.release_id
+        # V11 introduces graph-aware fingerprints and expires earlier activations.
+        assert readiness.corpus_issues == ("no verified corpus release is active",)
+        assert readiness.active_corpus_release is None
     finally:
         await transaction.rollback()
         await pg_pool.release(connection)

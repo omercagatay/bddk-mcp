@@ -7,7 +7,7 @@ import pytest
 from bddk_mcp.catalog_integrity import _normalize_routine_source, _normalize_sql, inspect_catalog_integrity
 from bddk_mcp.db_lifecycle import inspect_database_readiness
 from bddk_mcp.migrations.v0004_canonical_legal_versions import V0004_CANONICAL_LEGAL_VERSIONS
-from bddk_mcp.migrations.v0005_corpus_release_publication import CORPUS_EPOCH_TRACKED_TABLES
+from bddk_mcp.migrations.v0011_graph_corpus_state import CORPUS_EPOCH_TRACKED_TABLES
 from bddk_mcp.regulatory.text_profile import PROVISION_BOUNDARY_CODEPOINTS_V1
 
 

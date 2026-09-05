@@ -20,11 +20,9 @@ import argparse
 import asyncio
 import html
 import io
-import ipaddress
 import json
 import logging
 import re
-import socket
 import stat
 import time
 import zipfile
@@ -32,8 +30,9 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from functools import partial
 from typing import TYPE_CHECKING
-from urllib.parse import parse_qs, urljoin, urlparse, urlsplit, urlunsplit
+from urllib.parse import parse_qs, urlparse
 
+import anyio
 import httpx
 from bs4 import BeautifulSoup
 from defusedxml import ElementTree
@@ -48,6 +47,13 @@ from bddk_mcp.core.config import (
     OCR_MIN_CONTENT_LEN,
     PREFER_HTML_FOR_MEVZUAT,
     REQUEST_TIMEOUT,
+)
+from bddk_mcp.core.outbound_http import (
+    BDDK_HTTPS_HOSTS,
+    MEVZUAT_HTTPS_HOSTS,
+    OutboundHttpPolicyError,
+    assert_public_https_resolution,
+    normalize_approved_https_url,
 )
 from bddk_mcp.ingest.client import MEVZUAT_TUR_MAP
 from bddk_mcp.ocr.base import OCRBackend, get_default_backends, run_extraction_chain
@@ -66,8 +72,6 @@ _BDDK_DOC_URL = "https://www.bddk.org.tr/Mevzuat/DokumanGetir/{document_id}"
 # Untrusted upstream HTML may contain iframe and annex links.  These limits are
 # deliberately code-owned safety invariants: a deployment setting must not be
 # able to turn an accidental archive or response into unbounded memory/CPU use.
-_MEVZUAT_HTTPS_HOSTS = frozenset({"mevzuat.gov.tr", "www.mevzuat.gov.tr"})
-_BDDK_HTTPS_HOSTS = frozenset({"bddk.org.tr", "www.bddk.org.tr"})
 _MAX_UPSTREAM_REDIRECTS = 3
 _MAX_IFRAME_BYTES = 8 * 1024 * 1024
 _MAX_MAIN_PAGE_BYTES = 8 * 1024 * 1024
@@ -129,36 +133,12 @@ def _normalize_approved_https_url(
     allowed_hosts: frozenset[str],
     boundary_name: str,
 ) -> str:
-    """Return one canonical URL inside an exact-host HTTPS boundary.
-
-    ``urljoin`` handles ordinary relative iframe links.  Scheme-relative URLs,
-    embedded credentials, non-default ports, and lookalike hostnames are then
-    rejected by the same exact policy as absolute URLs.
-    """
-
-    if not isinstance(candidate, str) or not candidate.strip():
-        raise UnsafeUpstreamResourceError("Upstream URL is missing or invalid.")
-    if any(ord(character) < 0x20 for character in candidate) or "\\" in candidate:
-        raise UnsafeUpstreamResourceError("Upstream URL is missing or invalid.")
-
-    joined = urljoin(base_url, candidate.strip())
-    parsed = urlsplit(joined)
-    host = (parsed.hostname or "").rstrip(".").lower()
     try:
-        port = parsed.port
-    except ValueError:
-        raise UnsafeUpstreamResourceError("Upstream URL is missing or invalid.") from None
-    if (
-        parsed.scheme.lower() != "https"
-        or host not in allowed_hosts
-        or parsed.username is not None
-        or parsed.password is not None
-        or port not in {None, 443}
-    ):
-        raise UnsafeUpstreamResourceError(f"Upstream URL is outside the approved {boundary_name} HTTPS boundary.")
-
-    netloc = host if port is None else f"{host}:{port}"
-    return urlunsplit(("https", netloc, parsed.path or "/", parsed.query, ""))
+        return normalize_approved_https_url(
+            candidate, base_url=base_url, allowed_hosts=allowed_hosts, boundary_name=boundary_name
+        )
+    except OutboundHttpPolicyError as error:
+        raise UnsafeUpstreamResourceError(str(error)) from None
 
 
 def _normalize_mevzuat_url(candidate: str, *, base_url: str = "https://www.mevzuat.gov.tr/") -> str:
@@ -167,7 +147,7 @@ def _normalize_mevzuat_url(candidate: str, *, base_url: str = "https://www.mevzu
     return _normalize_approved_https_url(
         candidate,
         base_url=base_url,
-        allowed_hosts=_MEVZUAT_HTTPS_HOSTS,
+        allowed_hosts=MEVZUAT_HTTPS_HOSTS,
         boundary_name="mevzuat",
     )
 
@@ -178,7 +158,7 @@ def _normalize_bddk_url(candidate: str, *, base_url: str = "https://www.bddk.org
     return _normalize_approved_https_url(
         candidate,
         base_url=base_url,
-        allowed_hosts=_BDDK_HTTPS_HOSTS,
+        allowed_hosts=BDDK_HTTPS_HOSTS,
         boundary_name="BDDK",
     )
 
@@ -642,6 +622,8 @@ class DocumentSyncer:
         prefer_html_for_mevzuat: bool | None = None,
     ) -> None:
         self._store = store
+        # ponytail: serialize this syncer's OCR model; use a worker pool if throughput requires it.
+        self._extraction_lock = asyncio.Lock()
         self._ocr_backends = ocr_backends if ocr_backends is not None else get_default_backends()
         self._progress_callback = progress_callback
         self._vector_store = vector_store
@@ -679,25 +661,10 @@ class DocumentSyncer:
         await self.close()
 
     async def _assert_public_resolution(self, url: str) -> None:
-        """Fail closed when an approved hostname resolves to a non-public IP.
-
-        Exact HTTPS host validation remains the primary application boundary;
-        this DNS check adds defense in depth.  Production also needs an
-        OpenShift egress policy because name resolution and connection are not
-        an atomic operation at the Python HTTP-client layer.
-        """
-
-        host = urlsplit(url).hostname
-        if host is None:
-            raise UnsafeUpstreamResourceError("Approved upstream hostname could not be resolved.")
         try:
-            answers = await asyncio.to_thread(socket.getaddrinfo, host, 443, type=socket.SOCK_STREAM)
-            addresses = {item[4][0].split("%", 1)[0] for item in answers}
-            parsed_addresses = {ipaddress.ip_address(address) for address in addresses}
-        except (OSError, ValueError):
-            raise UnsafeUpstreamResourceError("Approved upstream hostname could not be resolved.") from None
-        if not parsed_addresses or any(not address.is_global for address in parsed_addresses):
-            raise UnsafeUpstreamResourceError("Approved upstream hostname resolved outside the public network.")
+            await assert_public_https_resolution(url)
+        except OutboundHttpPolicyError as error:
+            raise UnsafeUpstreamResourceError(str(error)) from None
 
     async def _assert_public_mevzuat_resolution(self, url: str) -> None:
         """Compatibility seam for testing and mevzuat-specific policy."""
@@ -922,7 +889,20 @@ class DocumentSyncer:
             )
 
         # Extract markdown
-        markdown, extraction_method = self._extract(content, ext)
+        async with self._extraction_lock:
+            worker = asyncio.create_task(asyncio.to_thread(self._extract, content, ext))
+            cancellation = None
+            # A cancelled operator job must keep its lease until OCR actually stops.
+            with anyio.CancelScope(shield=True):
+                while not worker.done():
+                    try:
+                        await asyncio.shield(worker)
+                    except asyncio.CancelledError as error:
+                        cancellation = error
+                if cancellation is not None:
+                    worker.result()
+                    raise cancellation
+                markdown, extraction_method = worker.result()
         markdown = _sanitize_for_storage(markdown or "")
         if not markdown:
             error_msg = f"Extraction failed (method={extraction_method})"

@@ -64,11 +64,8 @@ def _write_json(path: Path, value: Any) -> None:
 def _sha256(path: Path) -> str:
     if not path.is_file() or path.is_symlink():
         raise EvidenceError(f"subject is not a regular file: {path}")
-    digest = hashlib.sha256()
     with path.open("rb") as source:
-        for chunk in iter(lambda: source.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+        return hashlib.file_digest(source, "sha256").hexdigest()
 
 
 def _require_sha256(value: str, label: str) -> str:
