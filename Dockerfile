@@ -51,6 +51,4 @@ USER 10001:0
 
 EXPOSE 8000
 
-# Railway (and similar) set BDDK_PROCESS=admin-ui on the admin service.
-# Default remains public MCP serve.
-CMD ["sh", "-c", "exec .venv/bin/bddk-mcp \"${BDDK_PROCESS:-serve}\""]
+CMD [".venv/bin/bddk-mcp", "serve"]
