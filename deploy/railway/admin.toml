@@ -1,0 +1,14 @@
+# For the existing admin preview service: select /deploy/railway/admin.toml as its
+# Railway Config File. See docs/DEPLOYMENT.md for required service variables.
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "/app/.venv/bin/bddk-mcp admin-ui --host 0.0.0.0"
+# The admin console uses a public-reader DSN; never bootstrap on its behalf.
+preDeployCommand = []
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+healthcheckPath = "/health/ready"
+healthcheckTimeout = 300
