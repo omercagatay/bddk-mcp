@@ -881,3 +881,18 @@ def test_forwarded_clients_receive_independent_rate_windows():
     assert second is None
     assert third is not None
     assert middleware.tracked_rate_clients == 2
+
+
+@pytest.mark.asyncio
+async def test_admin_requires_all_configured_scopes_on_a_valid_signed_token(jwt_material):
+    from bddk_mcp.admin.auth import verify_admin_token
+
+    private_key, jwks = jwt_material
+    config = load_http_security_config({**_remote_env(), "BDDK_JWT_REQUIRED_SCOPES": "bddk.operator bddk.audit"})
+    verifier = JwtTokenVerifier(config, jwks_client=_StaticJwksClient(jwks))
+    for scopes in ("bddk.read", "bddk.operator", ""):
+        token = _encode(private_key, _claims(scope=scopes))
+        assert await verifier.verify_token(token) is not None
+        assert not await verify_admin_token(verifier, token, config.jwt_required_scopes)
+    token = _encode(private_key, _claims(scp=["bddk.operator", "bddk.audit"], scope=""))
+    assert await verify_admin_token(verifier, token, config.jwt_required_scopes)

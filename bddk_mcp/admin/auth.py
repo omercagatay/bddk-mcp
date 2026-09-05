@@ -11,6 +11,11 @@ from bddk_mcp.http_security import HttpSecurityConfig, JwtTokenVerifier
 COOKIE_NAME = "bddk_admin"
 
 
+async def verify_admin_token(verifier: JwtTokenVerifier, token: str, required_scopes: frozenset[str]) -> bool:
+    access = await verifier.verify_token(token) if token else None
+    return access is not None and required_scopes.issubset(access.scopes)
+
+
 def token_from_request(request: Request) -> str:
     """Return the presented bearer or cookie token, or an empty string."""
     authorization = request.headers.get("authorization", "")
@@ -28,6 +33,7 @@ class AdminAuthMiddleware:
         self._allowed_hosts = frozenset(config.allowed_hosts)
         self._allowed_origins = frozenset(config.allowed_origins)
         self._verifier = verifier
+        self._required_scopes = config.jwt_required_scopes
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -49,7 +55,7 @@ class AdminAuthMiddleware:
             await self._app(scope, receive, send)
             return
         token = token_from_request(request)
-        if token and await self._verifier.verify_token(token) is not None:
+        if await verify_admin_token(self._verifier, token, self._required_scopes):
             await self._app(scope, receive, send)
             return
         await _reject(request)(scope, receive, send)

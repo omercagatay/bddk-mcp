@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -42,15 +43,32 @@ def create_app(
     async def live(_request: Request) -> Response:
         return PlainTextResponse("ok")
 
+    async def ready(_request: Request) -> Response:
+        try:
+            async with asyncio.timeout(5):
+                page = await document_service.list_page(page_size=1)
+            if page.error is None:
+                return PlainTextResponse("ok")
+        except Exception:
+            pass
+        return PlainTextResponse("unavailable", status_code=503)
+
     routes: list = [
         Route("/", root, methods=["GET"]),
         Route("/health/live", live, methods=["GET"]),
-        Route("/health/ready", live, methods=["GET"]),
+        Route("/health/ready", ready, methods=["GET"]),
     ]
     documents_view.register(routes, templates, document_service)
     governance_view.register(routes, templates, governance_service)
     if token_verifier is not None:
-        session_view.register(routes, templates, token_verifier, secure_cookie=not config.loopback_only)
+        assert config.http_security is not None
+        session_view.register(
+            routes,
+            templates,
+            token_verifier,
+            required_scopes=config.http_security.jwt_required_scopes,
+            secure_cookie=not config.loopback_only,
+        )
 
     middleware = []
     if config.loopback_only:

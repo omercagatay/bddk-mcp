@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
+import bddk_mcp.ingest.doc_sync as doc_sync_module
 from bddk_mcp.db_lifecycle import DatabaseNotReadyError
 from bddk_mcp.ingest.doc_sync import (
     DocumentSyncer,
@@ -185,8 +186,6 @@ async def test_bounded_mevzuat_fetch_revalidates_redirect_target():
 
 @pytest.mark.asyncio
 async def test_bounded_mevzuat_fetch_rejects_private_dns_before_request(monkeypatch):
-    import bddk_mcp.ingest.doc_sync as doc_sync_module
-
     requested = False
 
     def handler(_request: httpx.Request) -> httpx.Response:
@@ -195,7 +194,7 @@ async def test_bounded_mevzuat_fetch_rejects_private_dns_before_request(monkeypa
         return httpx.Response(200, content=b"should not be reached")
 
     monkeypatch.setattr(
-        doc_sync_module.socket,
+        socket,
         "getaddrinfo",
         lambda *_args, **_kwargs: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 443))],
     )
@@ -973,8 +972,6 @@ def _build_minimal_docx(*, document_xml: str) -> bytes:
 
 
 def test_annex_archive_rejects_excess_member_count(monkeypatch):
-    import bddk_mcp.ingest.doc_sync as doc_sync_module
-
     monkeypatch.setattr(doc_sync_module, "_MAX_ARCHIVE_MEMBERS", 1)
     archive = io.BytesIO()
     with zipfile.ZipFile(archive, "w") as zf:
@@ -986,8 +983,6 @@ def test_annex_archive_rejects_excess_member_count(monkeypatch):
 
 
 def test_annex_archive_rejects_oversized_member_metadata(monkeypatch):
-    import bddk_mcp.ingest.doc_sync as doc_sync_module
-
     monkeypatch.setattr(doc_sync_module, "_MAX_ARCHIVE_MEMBER_BYTES", 32)
     archive = io.BytesIO()
     with zipfile.ZipFile(archive, "w") as zf:
@@ -998,8 +993,6 @@ def test_annex_archive_rejects_oversized_member_metadata(monkeypatch):
 
 
 def test_annex_archive_rejects_excessive_expansion_ratio(monkeypatch):
-    import bddk_mcp.ingest.doc_sync as doc_sync_module
-
     monkeypatch.setattr(doc_sync_module, "_MAX_ARCHIVE_EXPANSION_RATIO", 2)
     archive = io.BytesIO()
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
@@ -1010,8 +1003,6 @@ def test_annex_archive_rejects_excessive_expansion_ratio(monkeypatch):
 
 
 def test_docx_rejects_oversized_document_xml(monkeypatch):
-    import bddk_mcp.ingest.doc_sync as doc_sync_module
-
     monkeypatch.setattr(doc_sync_module, "_MAX_DOCX_XML_BYTES", 32)
     xml = (
         '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
@@ -1052,8 +1043,6 @@ def test_office_archive_rejects_entity_expansion_before_markitdown():
 
 
 def test_office_archive_rejects_expansion_ratio_before_markitdown(monkeypatch):
-    import bddk_mcp.ingest.doc_sync as doc_sync_module
-
     monkeypatch.setattr(doc_sync_module, "_MAX_ARCHIVE_EXPANSION_RATIO", 2)
     xml = (
         '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
@@ -1069,8 +1058,6 @@ def test_office_archive_rejects_expansion_ratio_before_markitdown(monkeypatch):
 
 
 def test_office_archive_rejects_excess_member_count_before_markitdown(monkeypatch):
-    import bddk_mcp.ingest.doc_sync as doc_sync_module
-
     monkeypatch.setattr(doc_sync_module, "_MAX_DOCX_MEMBERS", 1)
     xml = '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>'
     archive = io.BytesIO()
@@ -1190,3 +1177,46 @@ async def test_force_reextract_failure_preserves_old_content(doc_store):
     stored = await doc_store.get_document("42628")
     assert stored is not None
     assert stored.markdown_content == "ORIGINAL CONTENT"
+
+
+@pytest.mark.asyncio
+async def test_extraction_yields_serializes_and_finishes_before_cancellation(monkeypatch):
+    import asyncio
+    import threading
+
+    store = AsyncMock()
+    started = asyncio.Event()
+    release = threading.Event()
+    loop = asyncio.get_running_loop()
+    calls = []
+
+    def extract(content, ext):
+        assert threading.current_thread() is not threading.main_thread()
+        calls.append(content)
+        loop.call_soon_threadsafe(started.set)
+        assert release.wait(3), "event loop failed to release extraction worker"
+        return "Extracted document content", "test"
+
+    async with DocumentSyncer(store, http=MagicMock(), ocr_backends=[]) as syncer:
+        monkeypatch.setattr(syncer, "_download_bddk", AsyncMock(return_value=(b"pdf", "download", ".pdf")))
+        monkeypatch.setattr(syncer, "_extract", extract)
+        first = asyncio.create_task(syncer.sync_document("1", force=True))
+        second = None
+        try:
+            await asyncio.wait_for(started.wait(), 1)
+            second = asyncio.create_task(syncer.sync_document("2", force=True))
+            for _ in range(2):
+                first.cancel()
+                await asyncio.sleep(0.01)
+                assert not first.done()
+                assert len(calls) == 1
+            store.store_document.assert_not_awaited()
+        finally:
+            release.set()
+            with pytest.raises(asyncio.CancelledError):
+                await first
+            if second is not None:
+                assert (await second).success
+        assert len(calls) == 2
+        store.store_document.assert_awaited_once()
+        assert store.store_document.await_args.args[0].document_id == "2"

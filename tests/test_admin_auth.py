@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 from starlette.testclient import TestClient
 
@@ -29,7 +31,9 @@ class _Governance:
 
 class _Verifier:
     async def verify_token(self, token: str):
-        return object() if token == "good" else None
+        if token == "bad":
+            return None
+        return SimpleNamespace(scopes={"good": ["bddk.operator"], "reader": ["bddk.read"], "empty": []}[token])
 
 
 def _remote_config() -> AdminConfig:
@@ -107,3 +111,44 @@ def test_health_is_open() -> None:
     response = _client().get("/health/live")
     assert response.status_code == 200
     assert response.text == "ok"
+
+
+@pytest.mark.parametrize("token", ["reader", "empty"])
+def test_admin_rejects_under_scoped_bearer_cookie_and_login(token):
+    client = _client()
+    assert client.get("/documents", headers={**HOST, "authorization": f"Bearer {token}"}).status_code == 401
+    client.cookies.set("bddk_admin", token)
+    assert client.get("/documents", headers=HOST).status_code == 401
+    client.cookies.clear()
+    response = client.post("/login", headers=HOST, data={"token": token}, follow_redirects=False)
+    assert response.status_code == 401
+    assert not client.cookies.get("bddk_admin")
+
+
+def test_readiness_tracks_store_availability_without_auth(monkeypatch):
+    client = _client()
+    assert client.get("/health/ready").status_code == 200
+
+    async def unavailable(*args, **kwargs):
+        raise ConnectionError("private database details")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(_Store, "list_documents", unavailable)
+        response = client.get("/health/ready")
+        assert response.status_code == 503
+        assert response.text == "unavailable"
+        assert client.get("/health/live").status_code == 200
+    assert client.get("/health/ready").status_code == 200
+
+
+def test_readiness_bounds_a_stalled_query(monkeypatch):
+    import asyncio
+
+    timeout = asyncio.timeout
+    monkeypatch.setattr("bddk_mcp.admin.app.asyncio.timeout", lambda seconds: timeout(0.01))
+
+    async def stalled(*args, **kwargs):
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(_Store, "list_documents", stalled)
+    assert _client().get("/health/ready").status_code == 503

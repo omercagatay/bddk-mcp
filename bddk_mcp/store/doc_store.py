@@ -1062,39 +1062,3 @@ class DocumentStore:
                 latest = time.strftime("%Y-%m-%d %H:%M", time.localtime(row["latest"]))
             result[row["document_id"]] = (row["cnt"], latest)
         return result
-
-    # -- Incremental Sync Metadata --------------------------------------------
-
-    async def get_sync_metadata(self, doc_id: str) -> dict | None:
-        """Get sync metadata for incremental sync."""
-        row = await self._pool.fetchrow(
-            "SELECT etag, last_modified, last_sync_at, sync_count FROM sync_metadata WHERE document_id = $1",
-            doc_id,
-        )
-        if not row:
-            return None
-        return {
-            "etag": row["etag"],
-            "last_modified": row["last_modified"],
-            "last_sync_at": row["last_sync_at"],
-            "sync_count": row["sync_count"],
-        }
-
-    async def update_sync_metadata(self, doc_id: str, etag: str = "", last_modified: str = "") -> None:
-        """Update sync metadata after a successful sync."""
-        now = time.time()
-        await self._pool.execute(
-            """
-            INSERT INTO sync_metadata (document_id, etag, last_modified, last_sync_at, sync_count)
-            VALUES ($1, $2, $3, $4, 1)
-            ON CONFLICT(document_id) DO UPDATE SET
-                etag=EXCLUDED.etag,
-                last_modified=EXCLUDED.last_modified,
-                last_sync_at=EXCLUDED.last_sync_at,
-                sync_count=sync_metadata.sync_count + 1
-            """,
-            doc_id,
-            etag,
-            last_modified,
-            now,
-        )

@@ -124,6 +124,9 @@ async def _bounded_request_once(
         async with http.stream(current_method, current_url, **current_kwargs) as streamed:
             status_code = streamed.status_code
             headers = dict(streamed.headers)
+            # Buffered bodies are already decoded (or deliberately discarded).
+            headers.pop("content-encoding", None)
+            headers.pop("content-length", None)
 
             if status_code in _REDIRECT_STATUS_CODES:
                 location = streamed.headers.get("location", "")

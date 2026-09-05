@@ -44,13 +44,7 @@ async def analyze_trends(
     if len(values) < 2:
         return {"error": "Not enough data points for trend analysis."}
 
-    # Parse numeric values (they may come as strings or floats)
-    parsed = []
-    for v in values:
-        try:
-            parsed.append(float(v) if not isinstance(v, (int, float)) else v)
-        except (ValueError, TypeError):
-            parsed.append(0.0)
+    parsed = values
 
     current = parsed[-1]
     previous = parsed[-2]
@@ -250,14 +244,12 @@ async def compare_metrics(
         values = data.get("values", [])
         dates = data.get("dates", [])
 
-        if len(values) >= 2:
-            current = float(values[-1]) if not isinstance(values[-1], (int, float)) else values[-1]
-            previous = float(values[-2]) if not isinstance(values[-2], (int, float)) else values[-2]
-            wow_pct = ((current - previous) / previous * 100) if previous else 0
-        else:
-            current = float(values[-1]) if values else 0
-            previous = 0
-            wow_pct = 0
+        if len(values) < 2:
+            results.append({"metric_id": mid, "error": "Not enough data points for metric comparison."})
+            continue
+        current = values[-1]
+        previous = values[-2]
+        wow_pct = ((current - previous) / previous * 100) if previous else 0
 
         results.append(
             {

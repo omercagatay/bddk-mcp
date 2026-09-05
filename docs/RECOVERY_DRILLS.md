@@ -130,7 +130,11 @@ still emits hashes/counts/sizes rather than corpus text or principals.
 For schema v0008, recovery additionally inventories
 `bddk_meta.corpus_release_requests` and
 `bddk_meta.corpus_release_request_activations`. The current restore ordering and
-fingerprint contract therefore cover **53 managed objects**. Identity recovery
+fingerprint contract at v8 covered **53 managed objects**. Schema v11 adds
+`bddk_retained.regulatory_relations`; recovery also inventories the live relation
+table and the three graph views, bringing the current inventory to **58**.
+Recovery verifies both legacy 17-relation generation seals and new 18-relation
+seals without rewriting historical evidence. Identity recovery
 also adds the independent `release_verifier` profile, so the current matrix has
 **seven** application LOGIN profiles. Readiness verifies that the verifier can
 stage but cannot activate/retain, while the publisher can activate a one-time

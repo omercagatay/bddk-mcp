@@ -107,11 +107,4 @@ def _span_overlaps(span: tuple[int, int], excluded_spans: list[tuple[int, int]])
 
 
 def _unique[T](items: list[T] | tuple[T, ...] | object) -> list[T]:
-    seen: set[T] = set()
-    out: list[T] = []
-    for item in items:
-        if item in seen:
-            continue
-        seen.add(item)
-        out.append(item)
-    return out
+    return list(dict.fromkeys(items))

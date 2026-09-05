@@ -269,8 +269,19 @@ a new release under the canonical settings. Then retry v7 and continue through
 v8. Never manufacture a binding, update the old release hash, or admit serving
 or retention during remediation.
 
-V10 is the current schema and ordinary workload admission is v10-only. Its
-additive migration preserves existing v5/v7 release and retention evidence,
+V11 is the current schema and ordinary workload admission is v11-only.
+Migration `v0011_graph_corpus_state` adds `regulatory_relations` to the mutation
+epoch, release fingerprint, verifier/activation locks, and typed retention.
+It invalidates every earlier activation and staged request, including an empty
+graph: after migrating and applying `deploy/postgres/02_grants.sql`, verify and
+stage the corpus again, then activate the new request before resuming strict
+serving. The seed artifact format is unchanged.
+
+New retained generations use schema 2 with 18 relations. Existing schema-1
+seals remain immutable, reproduce their original fingerprints, and retain their
+17-relation inventories; they provide no historical graph evidence.
+
+The v8 additive migration preserves existing v5/v7 release and retention evidence,
 creates append-only request/binding relations and two role-separated facades,
 and revokes every non-owner grant on the old direct-publication routine. Apply
 `deploy/postgres/02_grants.sql` after migration. The code retains exact

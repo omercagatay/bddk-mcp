@@ -1,5 +1,6 @@
 """Adversarial tests for approved outbound HTTP boundaries."""
 
+import gzip
 import logging
 import socket
 from unittest.mock import AsyncMock, patch
@@ -253,3 +254,19 @@ async def test_transient_server_error_then_success_returns_the_response():
             response = await _request_with_retries(http, max_retries=3)
     assert response.status_code == 200
     assert attempts == [500, 200]
+
+
+@pytest.mark.asyncio
+async def test_compressed_response_is_decoded_once_and_bounded():
+    body = b"<html>" + b"x" * 2048 + b"</html>"
+
+    def handler(request):
+        return httpx.Response(200, content=gzip.compress(body), headers={"content-encoding": "gzip"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        response = await _request(http, _BASE_URL, max_bytes=len(body))
+        assert response.content == body
+        assert "content-encoding" not in response.headers
+        assert int(response.headers["content-length"]) == len(body)
+        with pytest.raises(OutboundHttpPolicyError, match="download limit"):
+            await _request(http, _BASE_URL, max_bytes=1024)

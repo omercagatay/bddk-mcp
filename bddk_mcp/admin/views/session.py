@@ -9,18 +9,20 @@ from starlette.responses import RedirectResponse, Response
 from starlette.routing import Route
 from starlette.templating import Jinja2Templates
 
-from bddk_mcp.admin.auth import COOKIE_NAME
+from bddk_mcp.admin.auth import COOKIE_NAME, verify_admin_token
 
 _MAX_COOKIE_TOKEN_CHARS = 3500
 
 
-def register(routes: list, templates: Jinja2Templates, verifier: Any, *, secure_cookie: bool) -> None:
+def register(
+    routes: list, templates: Jinja2Templates, verifier: Any, *, required_scopes: frozenset[str], secure_cookie: bool
+) -> None:
     async def login(request: Request) -> Response:
         if request.method == "GET":
             return templates.TemplateResponse(request, "login.html", {"error": None})
         form = await request.form()
         token = str(form.get("token") or "").strip()
-        if not token or await verifier.verify_token(token) is None:
+        if not await verify_admin_token(verifier, token, required_scopes):
             return templates.TemplateResponse(
                 request, "login.html", {"error": "Gecersiz erisim anahtari."}, status_code=401
             )

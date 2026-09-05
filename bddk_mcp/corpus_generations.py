@@ -210,7 +210,7 @@ def _receipt(row: Any) -> CorpusGenerationReceipt:
             )
         )
         or receipt.source_activation_sequence < 1
-        or receipt.relation_count != 17
+        or receipt.relation_count not in {17, 18}
         or receipt.row_count < 0
         or receipt.generation_id
         != _generation_id(
@@ -263,7 +263,7 @@ def _storage(
     )
     if (
         _GENERATION_ID_RE.fullmatch(evidence.generation_id) is None
-        or evidence.relation_count != 17
+        or evidence.relation_count not in {17, 18}
         or min(evidence.row_count, evidence.generation_logical_bytes, *components) < 0
         or sum(components) != evidence.retained_store_total_bytes
     ):

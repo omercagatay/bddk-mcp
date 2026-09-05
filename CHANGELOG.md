@@ -23,11 +23,35 @@ Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızd
   refactor ile başladı; bu sürüm için de Git etiketi oluşturulmadı.
 - Mevcut geliştirme dalı paket metadata'sını `5.0.1` olarak taşır, ancak henüz
   yayımlanmış veya etiketlenmiş bir release değildir.
-- `v0001`–`v0010` adları Python paket sürümü değil, ileri yönlü PostgreSQL
+- `v0001`–`v0011` adları Python paket sürümü değil, ileri yönlü PostgreSQL
   migration sürümleridir. Bir uygulama release'i birden fazla migration
   içerebilir.
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
+
+### Düzeltildi — yetkilendirme, corpus bütünlüğü ve veri işleme
+
+- Uzak yönetim konsolu bearer token ve oturum girişinde yapılandırılmış tüm
+  JWT scope'larını zorunlu tutar. `/health/ready` veritabanına erişilemiyorsa
+  veya kontrol zaman aşımına uğrarsa `503` döndürür.
+- Şema v11, ilişki grafını corpus epoch'una, release fingerprint'ine, yayın
+  kilitlerine, typed retention'a ve recovery envanterine ekler. Migration ve
+  `deploy/postgres/02_grants.sql` sonrasında corpus yeniden doğrulanıp stage
+  edilmeli ve yeni istek aktive edilmelidir; önceki aktivasyonlar ve bekleyen
+  istekler geçersizleşir. Yeni retained generation'lar 18 ilişki içerir;
+  eski 17 ilişkili mühürler korunur. Seed artifact biçimi değişmez.
+- Gzip HTTP yanıtlarının ikinci kez açılması önlendi; açılmış içerik için
+  boyut sınırı korunur. OCR event loop dışında, syncer başına tek işçiyle
+  çalışır; iptal edilen iş, işçi tamamlanmadan lease'i bırakmaz.
+- Haftalık bülten trend ve karşılaştırmalarında eksik veya geçersiz gözlemler
+  sıfıra çevrilmez; yetersiz seri hata olarak bildirilir.
+
+### Sadeleştirildi — kullanılmayan kod ve istemci tekrarları
+
+- Kullanılmayan task/backfill alanları ve sync metadata metotları kaldırıldı.
+  MCP kontrol script'leri mevcut resmi SDK'yı, indirme kontrolleri ortak HTTP
+  doğrulamasını, dosya hash'leri ve sıralı tekilleştirme standart kütüphaneyi
+  kullanır; yeni bağımlılık eklenmedi.
 
 ### Eklendi — uzaktan yönetim konsolu (JWT)
 

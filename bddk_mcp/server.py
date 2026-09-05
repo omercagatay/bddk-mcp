@@ -440,20 +440,6 @@ async def teardown_deps(deps: Dependencies) -> None:
         except BaseException as error:
             record_failure("job_manager", error)
 
-    for task_attr in ("vector_init_task", "sync_task", "backfill_task"):
-        task = getattr(deps, task_attr)
-        if task:
-            if not task.done():
-                task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError as error:
-                # Cancellation is the expected result of stopping a background task.
-                current_task = asyncio.current_task()
-                if not task.cancelled() or (current_task is not None and current_task.cancelling()):
-                    record_failure(task_attr, error)
-            except BaseException as error:
-                record_failure(task_attr, error)
     if deps.client:
         try:
             await deps.client.close()

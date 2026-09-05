@@ -51,6 +51,7 @@ ALTER TABLE bddk_retained.regulatory_legal_versions OWNER TO bddk_schema_owner;
 ALTER TABLE bddk_retained.regulatory_legal_version_artifacts OWNER TO bddk_schema_owner;
 ALTER TABLE bddk_retained.regulatory_legal_events OWNER TO bddk_schema_owner;
 ALTER TABLE bddk_retained.regulatory_legal_status_assertions OWNER TO bddk_schema_owner;
+ALTER TABLE bddk_retained.regulatory_relations OWNER TO bddk_schema_owner;
 ALTER TABLE bddk_retained.regulatory_provisions OWNER TO bddk_schema_owner;
 ALTER TABLE bddk_retained.regulatory_legal_version_provisions OWNER TO bddk_schema_owner;
 ALTER TABLE public.decision_cache OWNER TO bddk_schema_owner;
