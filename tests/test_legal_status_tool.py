@@ -12,7 +12,16 @@ import pytest
 from mcp.shared.memory import create_connected_server_and_client_session
 
 from bddk_mcp.core.deps import Dependencies
-from bddk_mcp.regulatory.legal_versions import LegalVersionBundle, canonical_bundle_sha256
+from bddk_mcp.regulatory.legal_versions import (
+    LegalVersionBundle,
+    artifact_id_for,
+    blob_id_for,
+    canonical_bundle_sha256,
+    evidence_id_for,
+    event_id_for,
+    legal_version_id_for,
+    status_assertion_id_for,
+)
 from bddk_mcp.regulatory.repository import import_legal_version_bundle
 from bddk_mcp.regulatory.status_repository import RegulationStatusRepositoryError, resolve_regulation_status
 from bddk_mcp.server import create_mcp
@@ -20,24 +29,46 @@ from bddk_mcp.tools.structured_outputs import UNTRUSTED_SOURCE_WARNING
 
 FIXTURE = Path(__file__).parent / "fixtures" / "legal_versions" / "synthetic_one_family.json"
 INSTRUMENT_ID = "inst_sha256_" + "1" * 64
+VERSION_ID = legal_version_id_for(instrument_id=INSTRUMENT_ID, version_key="reviewed-v1", legal_text_sha256="5" * 64)
 
 
-def _claim(role: str, marker: str) -> dict[str, object]:
+def _claim(role: str, marker: str, *, version_id: str = VERSION_ID) -> dict[str, object]:
     event = role != "status"
+    blob_id = blob_id_for(content_sha256=marker * 64)
+    retrieved_at = datetime(2024, 1, 1, tzinfo=UTC)
+    source_url = f"https://authority.invalid/{role}"
+    artifact_id = artifact_id_for(blob_id=blob_id, canonical_uri=source_url, retrieved_at=retrieved_at)
+    evidence_id = evidence_id_for(
+        artifact_id=artifact_id,
+        locator=f"metadata/{role}",
+        statement_sha256=marker * 64,
+        authority_level="authoritative",
+    )
+    claim_id = (
+        event_id_for(legal_version_id=version_id, event_type=role, event_date=date(2024, 1, 1), evidence_id=evidence_id)
+        if event
+        else status_assertion_id_for(
+            legal_version_id=version_id,
+            status="effective",
+            valid_from=date(2024, 1, 1),
+            valid_through=date(2024, 12, 31),
+            evidence_id=evidence_id,
+        )
+    )
     return {
         "role": role,
-        "claim_id": ("event_sha256_" if event else "status_sha256_") + marker * 64,
+        "claim_id": claim_id,
         **({"claim_date": "2024-01-01"} if event else {"valid_from": "2024-01-01", "valid_through": "2024-12-31"}),
-        "evidence_id": "evid_sha256_" + marker * 64,
+        "evidence_id": evidence_id,
         "evidence_locator": f"metadata/{role}",
         "evidence_statement_sha256": marker * 64,
         "claim_review_record_sha256": marker * 64,
-        "artifact_id": "art_sha256_" + marker * 64,
-        "artifact_blob_id": "blob_sha256_" + marker * 64,
+        "artifact_id": artifact_id,
+        "artifact_blob_id": blob_id,
         "artifact_sha256": marker * 64,
-        "source_url": f"https://authority.invalid/{role}",
+        "source_url": source_url,
         "source_authority": "TEST_AUTHORITY",
-        "artifact_retrieved_at": datetime(2024, 1, 1, tzinfo=UTC).isoformat(),
+        "artifact_retrieved_at": retrieved_at.isoformat(),
     }
 
 
@@ -47,7 +78,7 @@ def _resolved_row() -> dict[str, object]:
         "reason": "resolved",
         "instrument_id": INSTRUMENT_ID,
         "as_of": date(2024, 6, 30),
-        "legal_version_id": "ver_sha256_" + "4" * 64,
+        "legal_version_id": VERSION_ID,
         "version_key": "reviewed-v1",
         "legal_text_sha256": "5" * 64,
         "version_review_record_sha256": "6" * 64,
@@ -119,6 +150,56 @@ async def test_repository_rejects_zero_or_multiple_resolver_rows() -> None:
                 instrument_id=INSTRUMENT_ID,
                 as_of=date(2024, 6, 30),
             )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("instrument_id", "inst_sha256_" + "2" * 64), ("as_of", date(2025, 1, 1))],
+)
+async def test_repository_rejects_a_resolution_for_another_instrument_or_date(field, value):
+    row = {**_resolved_row(), field: value}
+    with pytest.raises(RegulationStatusRepositoryError, match="requested instrument and date"):
+        await resolve_regulation_status(_FakePool(row), instrument_id=INSTRUMENT_ID, as_of=date(2024, 6, 30))
+
+
+@pytest.mark.asyncio
+async def test_repository_rejects_status_evidence_outside_requested_date():
+    row = _resolved_row()
+    evidence = json.loads(row["evidence_json"])
+    evidence[-1]["valid_through"] = "2024-05-31"
+    row["evidence_json"] = json.dumps(evidence)
+    with pytest.raises(RegulationStatusRepositoryError, match="requested date"):
+        await resolve_regulation_status(_FakePool(row), instrument_id=INSTRUMENT_ID, as_of=date(2024, 6, 30))
+
+
+@pytest.mark.asyncio
+async def test_repository_rejects_inconsistent_version_identity():
+    row = {**_resolved_row(), "version_key": "different-version"}
+    with pytest.raises(RegulationStatusRepositoryError, match="identity"):
+        await resolve_regulation_status(_FakePool(row), instrument_id=INSTRUMENT_ID, as_of=date(2024, 6, 30))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"artifact_sha256": "f" * 64},
+        {"artifact_blob_id": "blob_sha256_" + "f" * 64},
+        {"artifact_id": "art_sha256_" + "f" * 64},
+        {"evidence_id": "evid_sha256_" + "f" * 64},
+        {"source_url": "https://authority.invalid/unrelated"},
+        {"claim_id": "status_sha256_" + "f" * 64},
+        {"claim_id": "event_sha256_" + "f" * 64},
+    ],
+)
+async def test_repository_rejects_inconsistent_evidence_identity(change):
+    row = _resolved_row()
+    evidence = json.loads(row["evidence_json"])
+    evidence[0].update(change)
+    row["evidence_json"] = json.dumps(evidence)
+    with pytest.raises(RegulationStatusRepositoryError, match="identity"):
+        await resolve_regulation_status(_FakePool(row), instrument_id=INSTRUMENT_ID, as_of=date(2024, 6, 30))
 
 
 @pytest.mark.asyncio

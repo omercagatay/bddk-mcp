@@ -10,7 +10,15 @@ from typing import Any, Protocol
 import asyncpg
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from bddk_mcp.regulatory.legal_versions import ResolutionReason
+from bddk_mcp.regulatory.legal_versions import (
+    ResolutionReason,
+    artifact_id_for,
+    blob_id_for,
+    evidence_id_for,
+    event_id_for,
+    legal_version_id_for,
+    status_assertion_id_for,
+)
 from bddk_mcp.tools.structured_outputs import LegalClaimEvidence, ResolvedLegalVersion
 
 _RESOLVE_STATUS_SQL = """
@@ -55,7 +63,7 @@ class RegulationStatusRecord(BaseModel):
             if self.reason is not ResolutionReason.RESOLVED or self.legal_version is None or len(self.evidence) < 3:
                 raise ValueError("resolved status lacks complete evidence")
             roles = {item.role for item in self.evidence}
-            if not {"publication", "effective", "status"}.issubset(roles):
+            if len(roles) != len(self.evidence) or not {"publication", "effective", "status"}.issubset(roles):
                 raise ValueError("resolved status lacks a required evidence role")
         elif self.reason is ResolutionReason.RESOLVED or self.legal_version is not None or self.evidence:
             raise ValueError("abstention contains legal claims")
@@ -139,7 +147,7 @@ async def resolve_regulation_status(
                 raise RegulationStatusRepositoryError("Legal-status abstention returned claim metadata.")
 
     try:
-        return RegulationStatusRecord.model_validate(
+        record = RegulationStatusRecord.model_validate(
             {
                 **raw,
                 "legal_version": legal_version,
@@ -148,3 +156,59 @@ async def resolve_regulation_status(
         )
     except (ValidationError, TypeError, ValueError):
         raise RegulationStatusRepositoryError("Legal-status resolver returned an invalid record.") from None
+    if record.instrument_id != instrument_id or record.as_of != as_of:
+        raise RegulationStatusRepositoryError("Legal status does not match the requested instrument and date.")
+    if any(
+        (item.role == "status" and not item.valid_from <= as_of <= item.valid_through)
+        or (item.claim_date is not None and item.claim_date > as_of)
+        for item in record.evidence
+    ):
+        raise RegulationStatusRepositoryError("Legal evidence does not cover the requested date.")
+    version = record.legal_version
+    if version is not None and version.legal_version_id != legal_version_id_for(
+        instrument_id=instrument_id,
+        version_key=version.version_key,
+        legal_text_sha256=version.legal_text_sha256,
+    ):
+        raise RegulationStatusRepositoryError("Legal-version identity is inconsistent.")
+    for item in record.evidence:
+        if (
+            item.artifact_blob_id != blob_id_for(content_sha256=item.artifact_sha256)
+            or item.artifact_id
+            != artifact_id_for(
+                blob_id=item.artifact_blob_id,
+                canonical_uri=item.source_url,
+                retrieved_at=item.artifact_retrieved_at,
+            )
+            or item.evidence_id
+            != evidence_id_for(
+                artifact_id=item.artifact_id,
+                locator=item.evidence_locator,
+                statement_sha256=item.evidence_statement_sha256,
+                authority_level="authoritative",
+            )
+            or not item.claim_id.startswith("status_sha256_" if item.role == "status" else "event_sha256_")
+        ):
+            raise RegulationStatusRepositoryError("Legal-evidence identity is inconsistent.")
+        # Required applicability claims have all identity components in this
+        # projection. Optional relationship targets remain database-validated.
+        if item.role == "status":
+            expected_claim = status_assertion_id_for(
+                legal_version_id=version.legal_version_id,
+                status="effective",
+                valid_from=item.valid_from,
+                valid_through=item.valid_through,
+                evidence_id=item.evidence_id,
+            )
+        elif item.role in {"publication", "effective"}:
+            expected_claim = event_id_for(
+                legal_version_id=version.legal_version_id,
+                event_type=item.role,
+                event_date=item.claim_date,
+                evidence_id=item.evidence_id,
+            )
+        else:
+            continue
+        if item.claim_id != expected_claim:
+            raise RegulationStatusRepositoryError("Legal-claim identity is inconsistent.")
+    return record
