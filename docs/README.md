@@ -41,6 +41,8 @@ Deployment-specific guides:
 These files are dated snapshots or records. Their findings do not override newer code or the current guidance above.
 
 - [Security review](SECURITY_REVIEW.md) — threat review and residual-risk record.
+- [Credit-loss retrieval review](CREDIT_LOSS_RETRIEVAL_REVIEW.md) — retrieval regressions and historical release gaps.
+- [Legal-answer readiness](LEGAL_ANSWER_READINESS.md) — runtime evidence checks, exploratory grading, and verification limits.
 - [`decisions/`](decisions/) — architecture decisions and versioned policy contracts.
 - [`evidence/`](evidence/) — retained local test and recovery evidence; not production acceptance.
 

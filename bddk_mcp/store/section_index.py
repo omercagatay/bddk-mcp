@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 # Bump whenever heading recognition, span construction, subsection handling,
 # truncation, or section-content hashing changes.  Persisted chunk metadata is
 # bound to this value by the vector retrieval profile.
-SECTION_PARSER_PROFILE_VERSION = "turkish-regulatory-sections-v7"
-SECTION_SEARCH_PROFILE_VERSION = "document-section-simple-fts-length-normalized-v4"
+SECTION_PARSER_PROFILE_VERSION = "turkish-regulatory-sections-v8"
+SECTION_SEARCH_PROFILE_VERSION = "document-section-simple-fts-length-normalized-v6"
 
 # Hard upper bound for a single section's span. Legitimate maddeler are a few
 # thousand chars; spans beyond this are parser artifacts (typically trailing EK
@@ -87,6 +87,12 @@ _NUMBERED_STYLES = (
 # artifacts start at 93% and 97%.
 _NUMBERED_MAX_FIRST_OFFSET_RATIO = 0.4
 
+# Rehber can interleave principles and a globally numbered paragraph body.
+# Decimal outlines / KISIM headings close a principle but are not themselves
+# numbered legal paragraphs. Keep them as span boundaries, not citation IDs.
+_GUIDELINE_PARAGRAPH_RE = re.compile(r"^\s*(?:\*{2,3}\s*)?(?P<ref>\d{1,3})\.\s+(?P<title>\S.*)$")
+_GUIDELINE_DIVIDER_RE = re.compile(r"^(?:[A-ZÇĞİÖŞÜ]+\s+(?:KISIM|BÖLÜM)|\d+(?:\.\d+)+\.?\s+[A-ZÇĞİÖŞÜ].*)$")
+
 
 class DocumentSection(BaseModel):
     """A section extracted from a legal/regulatory Markdown document."""
@@ -111,6 +117,8 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
     matches = _find_section_starts(text)
     if not matches:
         matches = _find_numbered_paragraph_starts(text)
+    elif {s["section_type"] for s in matches if s["level"] == 1} == {"ilke"}:
+        matches = _merge_guideline_paragraphs(text, matches)
     else:
         # A document can carry classic headings for its annexes only (1040's
         # "Ek 1:" starts at 80%, 1041's at 90%), leaving a numbered body that
@@ -138,6 +146,8 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
     seen_identities: set[tuple[str, str, str]] = set()
     level1_capped_end: int | None = None
     for index, start in enumerate(matches):
+        if start.get("boundary_only"):
+            continue
         if (
             start["level"] == 2
             and not start.get("sequence_validated")
@@ -280,6 +290,46 @@ def _find_section_starts(text: str) -> list[dict]:
                 starts.append({**subsection, "start_char": char_pos, "level": 2})
         char_pos += len(line)
     return starts
+
+
+def _merge_guideline_paragraphs(text: str, starts: list[dict]) -> list[dict]:
+    """Accept a unique, near-contiguous paragraph inventory, never restarting lists.
+
+    A long run is required before interpreting bare numbers inside principles.
+    Physical order is retained (943's extracted 88/87 are transposed); uniqueness
+    and the sorted sequence validate identities without moving or rewriting text.
+    """
+    paragraphs: list[dict] = []
+    boundaries: list[dict] = []
+    char_pos = 0
+    for line in text.splitlines(keepends=True):
+        stripped = line.strip()
+        match = _GUIDELINE_PARAGRAPH_RE.match(stripped)
+        if match:
+            paragraphs.append(
+                {
+                    "section_type": "paragraf",
+                    "section_ref": match.group("ref"),
+                    "heading": match.group("title").strip(),
+                    "start_char": char_pos,
+                    "level": 2,
+                    "sequence_validated": True,
+                }
+            )
+        elif _GUIDELINE_DIVIDER_RE.match(stripped):
+            boundaries.append({"start_char": char_pos, "level": 1, "boundary_only": True})
+        char_pos += len(line)
+    refs = sorted(int(p["section_ref"]) for p in paragraphs)
+    if (
+        len(refs) < _NUMBERED_DASH_MIN_SECTIONS
+        or refs[0] > _NUMBERED_MAX_GAP
+        or any(not 0 < right - left <= _NUMBERED_MAX_GAP for left, right in zip(refs, refs[1:], strict=False))
+        or paragraphs[0]["start_char"] > len(text) * _NUMBERED_MAX_FIRST_OFFSET_RATIO
+    ):
+        return sorted(starts + boundaries, key=lambda s: s["start_char"])
+    # Fıkra/bent markers are children of the numbered paragraph, not its peers.
+    starts = [{**s, "level": 3} if s["level"] == 2 else s for s in starts]
+    return sorted(starts + paragraphs + boundaries, key=lambda s: s["start_char"])
 
 
 def _find_numbered_paragraph_starts(text: str, region_end: int | None = None) -> list[dict]:

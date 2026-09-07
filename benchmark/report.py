@@ -98,6 +98,20 @@ def console_report(all_results: dict) -> str:
                 f"{_format_percent(rc):>10} {_format_percent(sc):>10} {_format_percent(ag):>10} {er:>10}"
             )
 
+        legal_results = {
+            name: result for name, result in all_results["phase2"].items() if result.get("legal_answer_cases")
+        }
+        if legal_results:
+            lines.append("\nLegal answers — exploratory, not human-calibrated; unreviewed cases are not successes.")
+            lines.append(f"{'Model':<30} {'Reviewed':>10} {'Support':>10} {'Coverage':>10} {'Abstention':>10}")
+            for name, result in legal_results.items():
+                reviewed = f"{result.get('legal_answer_reviewed_cases', 0)}/{result['legal_answer_cases']}"
+                lines.append(
+                    f"{name:<30} {reviewed:>10} {_format_percent(result.get('avg_legal_claim_support')):>10} "
+                    f"{_format_percent(result.get('avg_legal_completeness')):>10} "
+                    f"{_format_percent(result.get('legal_abstention_accuracy')):>10}"
+                )
+
     # Threshold legend
     lines.append(
         f"\n* Below threshold (tool>{PHASE1_THRESHOLDS['tool_selection']:.0%}, "
@@ -167,6 +181,22 @@ def diagnosis_report(all_results: dict) -> str:
                 failures.append(f"Audit-grade success: {audit_grade:.1%}")
                 recommendations.append(
                     "Inspect Phase 2 details for search-only traces, missing document fetches, or weak citations"
+                )
+
+            if p2.get("legal_answer_cases"):
+                reviewed = p2.get("legal_answer_reviewed_cases", 0)
+                if reviewed < p2["legal_answer_cases"]:
+                    failures.append(f"Legal answers: {reviewed}/{p2['legal_answer_cases']} reviewed")
+                for key, label in (
+                    ("avg_legal_claim_support", "Legal claim support"),
+                    ("avg_legal_completeness", "Legal completeness"),
+                    ("legal_abstention_accuracy", "Legal abstention"),
+                ):
+                    value = p2.get(key)
+                    if value is not None and value < 1.0:
+                        failures.append(f"{label}: {value:.1%}")
+                recommendations.append(
+                    "Inspect per-claim links, missing rubric points and abstention; calibrate with humans"
                 )
 
         if not failures:

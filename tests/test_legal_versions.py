@@ -1061,6 +1061,11 @@ async def test_official_mcp_session_emits_reconstructable_citation_from_real_val
                 TO bddk_v4_mcp_integration_reader
                 """
             )
+            await connection.execute("GRANT USAGE ON SCHEMA bddk_meta TO bddk_v4_mcp_integration_reader")
+            await connection.execute(
+                "GRANT EXECUTE ON FUNCTION bddk_meta.resolve_regulation_status(text, date) "
+                "TO bddk_v4_mcp_integration_reader"
+            )
             await connection.execute("SET LOCAL ROLE bddk_v4_mcp_integration_reader")
             assert not await connection.fetchval(
                 "SELECT has_table_privilege(current_user, 'public.regulatory_source_blobs', 'SELECT')"
@@ -1078,12 +1083,38 @@ async def test_official_mcp_session_emits_reconstructable_citation_from_real_val
             async with create_connected_server_and_client_session(create_mcp(deps)) as session:
                 result = await session.call_tool(
                     "get_document_section",
-                    {"document_id": document_id, "section_ref": "1"},
+                    {
+                        "document_id": document_id,
+                        "section_ref": "1",
+                        "quotation": section_content,
+                        "as_of": "2024-06-30",
+                    },
+                )
+                undated_version = await session.call_tool(
+                    "get_document_section",
+                    {
+                        "document_id": document_id,
+                        "section_ref": "1",
+                        "quotation": section_content,
+                        "as_of": "2025-06-30",
+                    },
                 )
 
             assert result.isError is False
             assert result.structuredContent is not None
             assert result.structuredContent["status"] == "ok"
+            assessment = result.structuredContent["answer_assessment"]
+            assert assessment["basis"] == "dated_version"
+            assert assessment["quotation_status"] == "verified"
+            assert assessment["scope_and_entailment"] == "not_assessed"
+            assert assessment["gaps"] == []
+            assert {item["role"] for item in assessment["legal_evidence"]} >= {"publication", "effective", "status"}
+            assert not undated_version.isError
+            assert undated_version.structuredContent["status"] == "partial"
+            abstained = undated_version.structuredContent["answer_assessment"]
+            assert abstained["basis"] == "validated_citation"
+            assert abstained["quotation_status"] == "verified"
+            assert "legal_status_unresolved" in abstained["gaps"]
             citation_payload = result.structuredContent["evidence"][0]["citation"]
             citation = CitationV1.model_validate(citation_payload)
             assert citation.source_document_id == document_id

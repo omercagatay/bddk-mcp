@@ -11,15 +11,24 @@ from dataclasses import dataclass
 from typing import Literal
 
 from benchmark.audit import sanitize_for_audit
+from benchmark.legal_answer_review import (
+    LEGAL_GRADER_SYSTEM_PROMPT,
+    LegalAnswerReview,
+    LegalAnswerRubric,
+    evaluate_legal_review,
+    legal_evidence_pack,
+)
 
 logger = logging.getLogger(__name__)
 
-ModelGraderStatus = Literal["scored", "unavailable", "failed"]
+ModelGraderStatus = Literal["scored", "unscored", "unavailable", "failed"]
 ModelGraderReason = Literal[
     "external_egress_not_opted_in",
     "credentials_missing",
     "provider_failure",
     "invalid_provider_response",
+    "grading_input_too_large",
+    "no_factual_claims",
 ]
 ClaimSupportStatus = Literal["scored", "unscored"]
 ClaimSupportReason = Literal["empty_answer", "no_numeric_claims"]
@@ -38,6 +47,7 @@ class ModelGrade:
     status: ModelGraderStatus
     model: str
     reason: ModelGraderReason | None = None
+    answer_review: dict | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,7 +148,7 @@ def external_grader_opted_in() -> bool:
     return os.environ.get(EXTERNAL_GRADER_OPT_IN_ENV, "").strip().lower() in _TRUE_VALUES
 
 
-def build_grader_payload(tool_evidence: str, answer: str) -> str:
+def build_grader_payload(tool_evidence: str, answer: str, *, rubric: LegalAnswerRubric | None = None) -> str:
     """Build a bounded, redacted, collision-resistant JSON data envelope."""
 
     safe_evidence = str(sanitize_for_audit(tool_evidence))
@@ -153,6 +163,9 @@ def build_grader_payload(tool_evidence: str, answer: str) -> str:
         "assistant_answer_sha256": hashlib.sha256(safe_answer.encode("utf-8")).hexdigest(),
         "assistant_answer_truncated": len(safe_answer) > _MAX_GRADER_ANSWER_CHARS,
     }
+    if rubric is not None:
+        payload["legal_answer_rubric_untrusted"] = sanitize_for_audit(rubric.model_dump(mode="json"))
+        payload["review_schema"] = LegalAnswerReview.model_json_schema()
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     digest = hashlib.sha256(encoded.encode("utf-8")).hexdigest()
     boundary = f"BDDK_UNTRUSTED_GRADING_DATA_{digest[:24]}"
@@ -163,7 +176,7 @@ def build_grader_payload(tool_evidence: str, answer: str) -> str:
     return f"BEGIN_{boundary}\n{encoded}\nEND_{boundary}"
 
 
-async def model_grader(tool_evidence: str, answer: str) -> ModelGrade:
+async def model_grader(tool_evidence: str, answer: str, *, rubric: LegalAnswerRubric | None = None) -> ModelGrade:
     """Use Anthropic only after explicit egress opt-in; otherwise abstain."""
 
     grader_model = os.environ.get("BDDK_GRADER_MODEL", "claude-opus-4-6")
@@ -190,12 +203,23 @@ async def model_grader(tool_evidence: str, answer: str) -> ModelGrade:
     try:
         import anthropic
 
+        evidence_pack = None
+        if rubric is not None:
+            evidence_pack = legal_evidence_pack(str(sanitize_for_audit(tool_evidence)))
+            tool_evidence = json.dumps(evidence_pack, ensure_ascii=False)
+            answer = str(sanitize_for_audit(answer))
+            if (
+                len(tool_evidence) > _MAX_GRADER_EVIDENCE_CHARS
+                or len(answer) > _MAX_GRADER_ANSWER_CHARS
+                or len(rubric.model_dump_json()) > 8000
+            ):
+                return ModelGrade(None, "unavailable", grader_model, "grading_input_too_large")
         client = anthropic.AsyncAnthropic(api_key=api_key)
         response = await client.messages.create(
             model=grader_model,
-            max_tokens=10,
-            system=GRADER_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": build_grader_payload(tool_evidence, answer)}],
+            max_tokens=6000 if rubric is not None else 10,
+            system=LEGAL_GRADER_SYSTEM_PROMPT if rubric is not None else GRADER_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": build_grader_payload(tool_evidence, answer, rubric=rubric)}],
         )
 
         try:
@@ -206,6 +230,19 @@ async def model_grader(tool_evidence: str, answer: str) -> ModelGrade:
                 status="failed",
                 model=grader_model,
                 reason="invalid_provider_response",
+            )
+        if rubric is not None:
+            try:
+                review = evaluate_legal_review(text, answer, evidence_pack, rubric)
+            except (ValueError, TypeError, KeyError):
+                return ModelGrade(None, "failed", grader_model, "invalid_provider_response")
+            score = review["claim_support_score"]
+            return ModelGrade(
+                score,
+                "scored" if score is not None else "unscored",
+                grader_model,
+                "no_factual_claims" if score is None else None,
+                answer_review=review,
             )
         match = re.fullmatch(r"(?:0(?:\.\d+)?|1(?:\.0+)?)", text)
         if match is None:

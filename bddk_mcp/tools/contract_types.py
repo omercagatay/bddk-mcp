@@ -474,6 +474,21 @@ AsOfDate = Annotated[
     ),
     BeforeValidator(_iso_date),
 ]
+OptionalAsOfDate = Annotated[
+    AsOfDate | None,
+    Field(description="Optional inclusive legal-status date in ISO YYYY-MM-DD format; currentness is never inferred."),
+]
+OptionalQuotation = Annotated[
+    str | None,
+    Field(
+        min_length=1,
+        max_length=2000,
+        description="Proposed source quotation; only whitespace is normalized for matching.",
+    ),
+    BeforeValidator(
+        lambda value: None if value is None else _string(value, name="quotation", maximum=2000, allow_empty=False)
+    ),
+]
 SectionType = Annotated[
     Literal["madde", "gecici_madde", "ilke", "paragraf", "ek", "fikra", "bent", "govde"] | None,
     Field(description="Optional canonical structural type stored by the section index."),

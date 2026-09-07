@@ -20,9 +20,19 @@ import yaml
 from pydantic import BaseModel, Field
 
 QUALITY_FAILURES_PATH = Path(__file__).with_name("quality_failures.yml")
-QUALITY_ASSESSMENT_POLICY_VERSION = "markdown-quality-assessment-v2"
+QUALITY_ASSESSMENT_POLICY_VERSION = "markdown-quality-assessment-v3"
 QUALITY_FAILURE_REGISTRY_FORMAT_VERSION = 1
 _CONFIGURED_QUALITY_FAILURE_FLAG = "configured_quality_failure"
+FORMULA_EXTRACTION_WARNING = (
+    "Bu belgedeki matematiksel formüller ve bazı görseller çıkartılamamış olabilir. "
+    "Metin 'aşağıdaki formül', 'aşağıda yer alan formül' gibi bir ifadeye atıfta bulunuyorsa, "
+    "formülü hafızadan veya standart literatürden yeniden kurma — kullanıcıyı kaynak PDF'e yönlendir."
+)
+
+
+def is_formula_aware(method: str) -> bool:
+    """Recognize existing formula-preserving backends, including combined method names."""
+    return any(token in (method or "").lower() for token in ("lightocr", "chandra2", "pp_structure", "manual_latex"))
 
 
 @dataclass(frozen=True, slots=True)

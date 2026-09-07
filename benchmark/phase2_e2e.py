@@ -44,11 +44,13 @@ from benchmark.graders import (
     model_grader,
     numeric_claim_support_grader,
 )
+from benchmark.legal_answer_cases import LEGAL_ANSWER_CASES
+from benchmark.legal_answer_review import LegalAnswerRubric
 from benchmark.scoring import audit_grade_metrics
 from benchmark.test_cases import TEST_CASES, TestCase
 
 logger = logging.getLogger(__name__)
-PHASE2_CASES = [*TEST_CASES, *gold_cases_as_test_cases()]
+PHASE2_CASES = [*TEST_CASES, *gold_cases_as_test_cases(), *LEGAL_ANSWER_CASES]
 
 SYSTEM_PROMPT = (
     "Sen bir Türk bankacılık düzenleme uzmanısın. BDDK mevzuatı ve verileri hakkında "
@@ -208,6 +210,11 @@ class LiveMcpContract:
     server_name: str
     server_version: str
     protocol_version: str
+    instructions: str = ""
+
+    @property
+    def system_prompt(self) -> str:
+        return f"{SYSTEM_PROMPT}\n\n{self.instructions}" if self.instructions else SYSTEM_PROMPT
 
     @property
     def names(self) -> frozenset[str]:
@@ -358,11 +365,15 @@ async def _read_active_corpus_release(session: ClientSession) -> ActiveCorpusRel
 
 def _live_contract(initialized: Any, tools: tuple[Tool, ...]) -> LiveMcpContract:
     server_info = getattr(initialized, "serverInfo", None)
+    instructions = getattr(initialized, "instructions", None) or ""
+    if not isinstance(instructions, str) or len(instructions) > 32_000:
+        raise BenchmarkProtocolError("invalid or oversized MCP server instructions")
     return LiveMcpContract(
         tools=tools,
         server_name=str(getattr(server_info, "name", "unknown")),
         server_version=str(getattr(server_info, "version", "unknown")),
         protocol_version=str(getattr(initialized, "protocolVersion", "unknown")),
+        instructions=instructions,
     )
 
 
@@ -435,7 +446,7 @@ async def _run_agent_loop(
     """Run one bounded model/tool loop against an initialized MCP session."""
 
     messages: list[dict[str, Any]] = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": contract.system_prompt},
         {"role": "user", "content": question},
     ]
     tool_result_records: list[dict[str, Any]] = []
@@ -572,26 +583,47 @@ async def run_phase2(
                     answer = trace["final_answer"]
                     claim_grade = numeric_claim_support_grader(combined_tool_results, answer)
                     failure_code = trace.get("failure_code")
+                    answer_review = None
                     if failure_code:
                         model_score = None
                         model_status = "not_run"
                         model_reason = "agent_loop_failed"
                         grader_model = _configured_grader_model()
                     else:
-                        model_grade = await model_grader(combined_tool_results, answer)
+                        rubric = (
+                            LegalAnswerRubric(
+                                question=case.question,
+                                required_points=case.required_answer_points,
+                                expected_abstention=case.expected_abstention,
+                                as_of=case.answer_as_of,
+                            )
+                            if case.required_answer_points
+                            else None
+                        )
+                        model_grade = await model_grader(combined_tool_results, answer, rubric=rubric)
+                        answer_review = model_grade.answer_review
                         model_score = model_grade.score
                         model_status = model_grade.status
                         model_reason = model_grade.reason
                         grader_model = model_grade.model
                     grader_comparable = model_status == "scored" and failure_code is None
+                    # Numeric overlap cannot distinguish a negated threshold from an asserted duty.
+                    # Keep it diagnostic when a claim-level legal review is available.
                     audit_metrics = audit_grade_metrics(
                         case,
                         trace,
-                        claim_grade.score,
+                        answer_review["claim_support_score"] if answer_review is not None else claim_grade.score,
                         model_score,
                     )
                     if not grader_comparable:
                         audit_metrics["grounded_answer_success"] = False
+                        audit_metrics["audit_grade_success"] = False
+                    if case.required_answer_points and (
+                        answer_review is None
+                        or answer_review["claim_support_score"] != 1.0
+                        or answer_review["completeness_score"] != 1.0
+                        or answer_review["abstention_correct"] is False
+                    ):
                         audit_metrics["audit_grade_success"] = False
                     artifacts = _audit_artifacts(trace)
                     results.append(
@@ -613,6 +645,13 @@ async def run_phase2(
                             "numeric_claim_count": claim_grade.answer_claim_count,
                             "supported_numeric_claim_count": claim_grade.supported_claim_count,
                             "unsupported_numeric_claims": list(claim_grade.unsupported_claims),
+                            "legal_answer_review_requested": bool(case.required_answer_points),
+                            "legal_answer_review": answer_review,
+                            "legal_claim_support_score": answer_review["claim_support_score"]
+                            if answer_review
+                            else None,
+                            "legal_completeness_score": answer_review["completeness_score"] if answer_review else None,
+                            "legal_abstention_correct": answer_review["abstention_correct"] if answer_review else None,
                             "model_grounding_score": model_score,
                             "model_grader_status": model_status,
                             "model_grader_reason": model_reason,
@@ -644,6 +683,7 @@ async def run_phase2(
                             "retrieval_comparable": True,
                             "error": _safe_error_code(error),
                             "error_type": type(error).__name__,
+                            "legal_answer_review_requested": bool(case.required_answer_points),
                             "numeric_claim_support_score": None,
                             "numeric_claim_support_status": "not_run",
                             "model_grounding_score": None,
@@ -686,6 +726,7 @@ def _not_comparable_result(case: TestCase, missing_tools: list[str]) -> dict[str
         "retrieval_comparable": False,
         "error": "LIVE_TOOL_UNAVAILABLE",
         "missing_live_tools": missing_tools,
+        "legal_answer_review_requested": bool(case.required_answer_points),
         "numeric_claim_support_score": None,
         "numeric_claim_support_status": "not_run",
         "model_grounding_score": None,
@@ -730,6 +771,11 @@ def _aggregate_results(
         "numeric_claim_support_scored_cases": len(numeric_scored),
         "avg_numeric_claim_support": _optional_mean(numeric_scored, "numeric_claim_support_score"),
         "avg_model_grounding": _optional_mean(comparable, "model_grounding_score"),
+        "legal_answer_cases": sum(bool(r.get("legal_answer_review_requested")) for r in results),
+        "legal_answer_reviewed_cases": sum(r.get("legal_answer_review") is not None for r in results),
+        "avg_legal_claim_support": _optional_mean(results, "legal_claim_support_score"),
+        "avg_legal_completeness": _optional_mean(results, "legal_completeness_score"),
+        "legal_abstention_accuracy": _applicable_rate(results, "legal_abstention_correct"),
         "chain_success_rate": (
             sum(1 for result in multi if result.get("chain_complete")) / len(multi) if multi else 0.0
         ),
@@ -799,6 +845,7 @@ def _run_metadata(
         "mcp_endpoint": _safe_endpoint_url(endpoint.url) if endpoint.transport == "streamable-http" else "stdio",
         "live_tool_list": tool_names,
         "live_tool_schema_sha256": contract.schema_hash,
+        "effective_system_prompt_sha256": hashlib.sha256(contract.system_prompt.encode("utf-8")).hexdigest(),
         "deployment_config": {
             "llm_base_url": _safe_endpoint_url(LLM_BASE_URL),
             "max_tool_calls": MAX_TOOL_CALLS,
@@ -956,6 +1003,9 @@ def _dataset_identity(cases: Sequence[TestCase]) -> dict[str, Any]:
             "expected_documents": case.expected_documents,
             "expected_sections": case.expected_sections,
             "expected_terms": case.expected_terms,
+            "required_answer_points": case.required_answer_points,
+            "expected_abstention": case.expected_abstention,
+            "answer_as_of": case.answer_as_of,
         }
         for case in cases
     ]

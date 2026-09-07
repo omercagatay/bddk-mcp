@@ -8,6 +8,7 @@ import json
 import os
 import sys
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -132,8 +133,11 @@ async def test_agent_loop_executes_official_session_call_and_returns_answer(monk
     session = AsyncMock()
     session.call_tool.return_value = CallToolResult(content=[TextContent(type="text", text="Document ID: 943\nİlke 5")])
 
-    trace = await _run_agent_loop(llm, session, "model", "soru", _contract())
+    contract = replace(_contract(), instructions="Check quotations, dates and unsupported claims.")
+    trace = await _run_agent_loop(llm, session, "model", "soru", contract)
 
+    assert llm.post.await_args_list[0].kwargs["json"]["messages"][0]["content"] == contract.system_prompt
+    assert contract.instructions in contract.system_prompt
     assert trace["final_answer"] == "943 numaralı kaynak."
     assert trace["tool_calls"] == [{"name": "search_document_store", "args": {"query": "sermaye yeterliliği"}}]
     assert trace["tool_results"][0]["tool_name"] == "search_document_store"
@@ -371,6 +375,7 @@ async def test_phase2_result_retains_auditable_trace_and_separates_retrieval_com
     assert detail["model_grader_model"] == "grader-test"
     assert result["retrieval_comparable_cases"] == 1
     assert result["run_metadata"]["git"]["dirty"] is True
+    assert len(result["run_metadata"]["effective_system_prompt_sha256"]) == 64
     assert result["run_metadata"]["dataset_identity"]["case_ids"] == ["live-1"]
     assert result["run_metadata"]["corpus_identity"]["observed_reference_count"] == 1
     assert result["run_metadata"]["corpus_manifest"]["manifest_id"] == "bddk-job-corpus-2026-08-26"
@@ -550,3 +555,73 @@ async def test_benchmark_stdio_endpoint_uses_real_initialize_and_tools_list(monk
             assert contract.server_name == "BDDK"
             assert contract.names == frozenset(PUBLIC_TOOL_NAMES)
             assert len(contract.schema_hash) == 64
+            assert "quotation" in contract.instructions
+            assert "scope" in contract.instructions
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("review_state", ["complete", "partial", "unavailable"])
+async def test_phase2_legal_coverage_and_abstention_are_reported_without_promoting_grounding(monkeypatch, review_state):
+    from benchmark import phase2_e2e
+    from benchmark.legal_answer_cases import LEGAL_ANSWER_CASES
+    from benchmark.report import console_report, diagnosis_report
+    from tests.test_legal_answer_review import ANSWER, _evaluate, _review, _trace
+
+    case = replace(LEGAL_ANSWER_CASES[0], required_answer_points=["Alıntı", "Kaynak"])
+    review_available = review_state != "unavailable"
+    complete = review_state == "complete"
+    review = _review()
+    if not complete:
+        review["points"][1].update(coverage="missing", answer_quote=None)
+    answer = ANSWER
+    if complete:
+        answer += " Bu paragrafta %5, %10, 7 yıllık pencere veya 365 günlük test sıklığı belirtilmiyor."
+        review["claims"][0]["claim"] = answer
+        for point in review["points"]:
+            point["answer_quote"] = answer
+    reviewed = _evaluate(review, answer=answer) if review_available else None
+    contract = replace(_contract(), tools=(Tool(name="get_document_section", inputSchema={"type": "object"}),))
+    trace = {
+        "tool_calls": [{"name": "get_document_section", "args": case.expected_params}],
+        "tool_results": _trace(),
+        "final_answer": answer,
+        "steps": 1,
+    }
+    session = AsyncMock()
+    session.read_resource.return_value = _active_release_resource()
+
+    @asynccontextmanager
+    async def fake_session(_endpoint):
+        yield session, contract
+
+    monkeypatch.setattr(phase2_e2e, "open_mcp_session", fake_session)
+    monkeypatch.setattr(phase2_e2e, "_run_agent_loop", AsyncMock(return_value=trace))
+    grader = AsyncMock(
+        return_value=ModelGrade(
+            1.0 if review_available else None,
+            "scored" if review_available else "unavailable",
+            "test-model",
+            None if review_available else "external_egress_not_opted_in",
+            answer_review=reviewed,
+        )
+    )
+    monkeypatch.setattr(phase2_e2e, "model_grader", grader)
+    result = await run_phase2("development-test", cases=[case])
+    assert grader.await_args.kwargs["rubric"].question == case.question
+    assert grader.await_args.kwargs["rubric"].required_points == case.required_answer_points
+    assert result["legal_answer_cases"] == 1
+    assert result["legal_answer_reviewed_cases"] == int(review_available)
+    assert result["avg_legal_claim_support"] == (1.0 if review_available else None)
+    assert result["avg_legal_completeness"] == (1.0 if complete else 0.5 if review_available else None)
+    assert result["legal_abstention_accuracy"] == (1.0 if review_available else None)
+    if complete:
+        assert result["details"][0]["numeric_claim_support_score"] < 0.6  # Negated values are not invented duties.
+    assert result["details"][0]["audit_grade_success"] is complete
+    assert result["details"][0]["retrieval_source_correctness_score"] == 1.0
+    assert result["details"][0]["legal_answer_review"] == reviewed
+    report = console_report({"phase2": {"development-test": result}})
+    assert "not human-calibrated" in report and "Coverage" in report
+    assert ("1/1" if review_available else "0/1") in report
+    diagnosis = diagnosis_report({"phase2": {"development-test": result}})
+    assert ("EXPLORATORY PASS" in diagnosis) is complete
+    assert "EVIDENCE STATUS: EXPLORATORY ONLY" in diagnosis

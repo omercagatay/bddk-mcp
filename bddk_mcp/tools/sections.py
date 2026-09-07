@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import math
 import re
 import time
+from datetime import date
 from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
@@ -20,17 +22,22 @@ from bddk_mcp.citations import (
 )
 from bddk_mcp.observability.telemetry import elapsed_ms, record_tool_call_trace, unique_doc_ids
 from bddk_mcp.quality.markdown_quality import (
+    FORMULA_EXTRACTION_WARNING,
     QualityAssessment,
     assess_markdown_quality,
+    is_formula_aware,
     sanitize_markdown_for_context,
 )
+from bddk_mcp.regulatory.answer_readiness import assess_section_answer
 from bddk_mcp.regulatory.graph_queries import one_hop_section_refs
 from bddk_mcp.store.legal_ref import document_id_candidates, parse_legal_refs, turkish_casefold
 from bddk_mcp.tools.contract_types import (
     DocumentId,
     ExpandReferences,
     HeadingFilter,
+    OptionalAsOfDate,
     OptionalDocumentId,
+    OptionalQuotation,
     SectionQuery,
     SectionRef,
     SectionResultLimit,
@@ -62,6 +69,15 @@ _MAX_DISAMBIGUATION_RESULTS = 10
 _SECTION_TRUNCATION_WARNING = (
     "One or more section bodies were returned as bounded excerpts. Use an exact document/section reference "
     "or paginated full-document retrieval before relying on omitted text."
+)
+_EXACT_REFERENCE_MISSING_WARNING = (
+    "The requested exact provision was not found. Returned lexical matches are other sections, "
+    "not evidence for that requested provision. Check the reference or retrieve the full document."
+)
+_LEGAL_APPLICABILITY_WARNING = (
+    "Text retrieval and Citation v1 do not establish current legal applicability. Check the instrument's scope "
+    "and resolve_regulation_status for the required as-of date; if validated status evidence is absent, abstain "
+    "from a current-law conclusion. Keep TFRS 9/BKZ, problem-loan resolution, and IRB/IDD requirements distinct."
 )
 _GOVDE_WARNING = (
     "One or more hits are govde remainder (unparsed body/footnote text), not madde/ilke/paragraf identities. "
@@ -121,12 +137,27 @@ _LOOSE_FTS_SKIP = {
 
 
 def _section_quality(section: StoredDocumentSection) -> QualityAssessment:
-    return assess_markdown_quality(section.content, document_id=section.doc_id)
+    local = assess_markdown_quality(section.content, document_id=section.doc_id)
+    document = section.document_quality
+    severity = {"clean": 0, "warning": 1, "unknown": 2, "fail": 3}
+    quality = local
+    if document is not None:
+        worst = max((document, local), key=lambda item: severity[item.label])
+        quality = worst.model_copy(update={"flags": list(dict.fromkeys([*document.flags, *local.flags]))})
+    if section.document_extraction_method and not is_formula_aware(section.document_extraction_method):
+        quality = quality.model_copy(
+            update={
+                "label": "warning" if quality.label == "clean" else quality.label,
+                "flags": [*quality.flags, "formula_unaware_extraction"],
+                "warning": " ".join(filter(None, (quality.warning, FORMULA_EXTRACTION_WARNING))),
+            }
+        )
+    return quality
 
 
 def _quality_lines(quality: QualityAssessment, *, prefix: str) -> list[str]:
     """Return consistent user-visible quality metadata for a non-clean section."""
-    if quality.label not in {"warning", "fail"}:
+    if quality.label not in {"warning", "fail", "unknown"}:
         return []
     flags = ", ".join(quality.flags) if quality.flags else "none"
     lines = [f"{prefix}Quality: {quality.label}", f"{prefix}Quality flags: {flags}"]
@@ -166,12 +197,17 @@ def _section_excerpt(
     else:
         match_offset = 0
         if query:
-            folded = raw_content.casefold()
-            candidates = [query.casefold(), *(_loose_search_terms(query))]
-            offsets = [folded.find(candidate) for candidate in candidates if candidate]
-            found_offsets = [offset for offset in offsets if offset >= 0]
-            if found_offsets:
-                match_offset = min(found_offsets)
+            # Search the original string so Turkish İ / Unicode case changes
+            # cannot shift normalized code-point offsets. Prefer the complete
+            # phrase (including PDF line wraps) over its earliest generic word.
+            phrase = re.search(r"\s+".join(re.escape(word) for word in query.split()), raw_content, re.IGNORECASE)
+            if phrase:
+                match_offset = phrase.start()
+            else:
+                matches = [
+                    re.search(re.escape(term), raw_content, re.IGNORECASE) for term in _loose_search_terms(query)
+                ]
+                match_offset = min((match.start() for match in matches if match), default=0)
         local_start = max(0, min(match_offset - max_chars // 4, len(raw_content) - max_chars))
         local_end = min(len(raw_content), local_start + max_chars)
 
@@ -181,11 +217,13 @@ def _section_excerpt(
     while len(excerpt) > max_chars and local_end > local_start:
         local_end -= min(local_end - local_start, len(excerpt) - max_chars)
         excerpt = sanitize_markdown_for_context(raw_content[local_start:local_end])
+    source_range = section.normalized_source_range
+    leading_space = len(source_range) - len(source_range.lstrip()) if source_range.strip() == raw_content else 0
     return (
         excerpt,
-        local_start > 0 or local_end < len(raw_content),
-        section.start_char + local_start,
-        section.start_char + local_end,
+        local_start > 0 or local_end < len(raw_content) or "[BÖLÜM KESİLDİ:" in raw_content,
+        section.start_char + leading_space + local_start,
+        min(section.end_char, section.start_char + leading_space + local_end),
     )
 
 
@@ -226,7 +264,10 @@ def _section_evidence(
 ) -> EvidenceReference:
     return EvidenceReference(
         document_id=section.doc_id,
-        source_url=citation.source_url if citation else None,
+        title=section.document_title or None,
+        source_url=citation.source_url if citation else section.document_source_url or None,
+        category=section.document_category or None,
+        extraction_method=section.document_extraction_method or None,
         retrieval_source="section_index",
         page_start=section.page_start,
         page_end=section.page_end,
@@ -339,7 +380,9 @@ def _section_warnings(
     quality_warnings = list(
         dict.fromkeys(quality.warning for section in sections if (quality := _section_quality(section)).warning)
     )
-    warnings = [UNTRUSTED_SOURCE_WARNING, *quality_warnings] if sections else quality_warnings
+    warnings = (
+        [UNTRUSTED_SOURCE_WARNING, _LEGAL_APPLICABILITY_WARNING, *quality_warnings] if sections else quality_warnings
+    )
     if content_truncated:
         warnings.append(_SECTION_TRUNCATION_WARNING)
     if any(section.section_type == "govde" for section in sections):
@@ -361,6 +404,12 @@ def _format_section(
         f"- Section: {section.section_type} {section.section_ref}",
         (f"- Normalized Markdown code-point range: [{section.start_char}, {section.end_char}); not source PDF pages"),
     ]
+    if section.document_title:
+        lines.append(f"- Document title: {section.document_title}")
+    if section.document_source_url:
+        lines.append(f"- Catalog source (not a validated citation): {section.document_source_url}")
+    if section.document_extraction_method:
+        lines.append(f"- Extraction method: {section.document_extraction_method}")
     if section.page_start is not None:
         page_end = section.page_end if section.page_end is not None else section.page_start
         lines.append(f"- Normalized page window: {section.page_start}-{page_end} (not verified source PDF pages)")
@@ -399,11 +448,16 @@ def _normalize_optional(value: str | int | None) -> str | None:
     return value.lower() if value else None
 
 
+def _loose_search_text(text: str) -> str:
+    # Search-only acronym equivalence; never rewrite returned source evidence.
+    return re.sub(r"\blgd\b", "thk", turkish_casefold(text))
+
+
 def _loose_search_terms(query: str, *, limit: int = 16) -> list[str]:
     terms: list[str] = []
     seen: set[str] = set()
-    for raw_term in query.strip().split():
-        term = turkish_casefold(re.sub(r"[^\w]+", "", raw_term, flags=re.UNICODE))
+    for raw_term in re.findall(r"\w+", query, flags=re.UNICODE):
+        term = _loose_search_text(raw_term)
         if len(term) < 3 or term in _LOOSE_SECTION_SEARCH_STOPWORDS or term in seen:
             continue
         terms.append(term)
@@ -413,11 +467,14 @@ def _loose_search_terms(query: str, *, limit: int = 16) -> list[str]:
     return terms
 
 
-def _loose_section_score(section: StoredDocumentSection, terms: list[str]) -> int:
-    text = turkish_casefold(f"{section.heading} {section.content}")
-    score = sum(len(term) ** 2 for term in terms if term in text)
+def _loose_section_score(section: StoredDocumentSection, terms: list[str], weights: dict[str, float]) -> float:
+    text = _loose_search_text(f"{section.heading} {section.content}")
+    score = sum(weights[term] for term in terms if term in text)
     if "uyumsuzluk" in terms and "uyumsuzluk" in text:
         score += 400
+    # Penalize large cross-topic spans without rewarding tiny fragments:
+    # short clauses (up to 100 words) compete on coverage, not brevity.
+    score /= 1 + math.log(max(1, len(text.split()) / 100))
     if section.section_type == "gecici_madde" and "geçici" not in terms and "gecici" not in terms:
         score -= 10_000
     return score
@@ -434,26 +491,40 @@ async def _search_sections_loose(
     terms = _loose_search_terms(query)
     if not terms:
         return []
-    fts_terms = [term for term in terms if len(term) >= 5 and term not in _LOOSE_FTS_SKIP]
+    fts_terms = [term for term in terms if (len(term) >= 5 or term == "thk") and term not in _LOOSE_FTS_SKIP]
     if not fts_terms:
         fts_terms = terms
+    if "thk" in fts_terms:
+        fts_terms = [*fts_terms, "lgd"]
 
     merged: dict[tuple[str, str, str, str], StoredDocumentSection] = {}
+    # Retrieve a wider pool before cross-term ranking, rather than letting
+    # single-word top-k lists discard the multi-concept match permanently.
+    candidate_limit = min(100, max(40, limit * 4))
     for term in fts_terms:
         term_hits = await deps.doc_store.search_document_sections(
             term,
             document_id=document_id,
             section_type=section_type,
-            limit=limit,
+            limit=candidate_limit,
         )
         for section in term_hits:
             # Per-term ranks come from different tsqueries and are not
             # comparable; surfacing them would mislead rank-gating clients.
             merged[_section_key(section)] = section.model_copy(update={"rank": None})
 
+    texts = [_loose_search_text(f"{s.heading} {s.content}") for s in merged.values()]
+    # Rarity already captures specificity. Squared character length favored
+    # long title words over short substantive terms such as test, veri and THK.
+    weights = {
+        term: 1 + math.log((1 + len(texts)) / (1 + sum(term in text for text in texts)))
+        if term not in _LOOSE_FTS_SKIP
+        else 1.0
+        for term in terms
+    }
     ranked = sorted(
         merged.values(),
-        key=lambda section: (-_loose_section_score(section, terms), section.start_char),
+        key=lambda section: (-_loose_section_score(section, terms, weights), section.start_char, _section_key(section)),
     )
     return ranked[:limit]
 
@@ -468,6 +539,8 @@ def register(mcp, deps: Dependencies) -> None:
         section_type: SectionType = None,
         section_ref: SectionRef = None,
         heading: HeadingFilter = None,
+        as_of: OptionalAsOfDate = None,
+        quotation: OptionalQuotation = None,
     ) -> DocumentSectionToolResult:
         """
         Retrieve exact structural sections from a stored BDDK document.
@@ -480,6 +553,13 @@ def register(mcp, deps: Dependencies) -> None:
             section_type: Optional exact section type, e.g. madde, ilke, paragraf, ek
             section_ref: Optional exact section reference, e.g. 9 or 5
             heading: Optional heading substring filter
+            as_of: Optional ISO date; resolve the cited version's status for this date.
+            quotation: Optional proposed quotation; verify it in the exact provision,
+                tolerating whitespace only. A match does not validate a paraphrase or duty.
+
+        Supplying as_of or quotation returns answer_assessment with explicit evidence
+        gaps. Scope and semantic entailment still require review; never infer them
+        from a quotation match or from effective status alone.
         """
         start = time.perf_counter()
         args = {
@@ -487,6 +567,8 @@ def register(mcp, deps: Dependencies) -> None:
             "section_type": section_type,
             "section_ref": section_ref,
             "heading": heading,
+            "as_of": as_of,
+            "quotation": quotation,
         }
         sections = []
         for candidate in document_id_candidates(document_id):
@@ -499,6 +581,42 @@ def register(mcp, deps: Dependencies) -> None:
             )
             if sections:
                 break
+        section_item = None
+        citation = citation_warning = quality = None
+        if len(sections) == 1:
+            quality = _section_quality(sections[0])
+            section_item = _section_item(sections[0], max_chars=_MAX_EXACT_SECTION_CHARS)
+            citation, citation_warning = _build_exact_section_citation(
+                sections[0], section_item=section_item, quality=quality
+            )
+        assessment = None
+        assessment_text = ""
+        if as_of is not None or quotation is not None:
+            assessment = await assess_section_answer(
+                deps.pool,
+                sections,
+                item=section_item,
+                citation=citation,
+                as_of=date.fromisoformat(as_of) if as_of else None,
+                quotation=quotation,
+            )
+            assessment_text = (
+                f"\n\nAnswer evidence checks: {assessment.basis}\n"
+                f"Quotation: {assessment.quotation_status}\n"
+                f"As of: {assessment.as_of or 'not supplied'}\n"
+                f"Legal status: {assessment.status_reason or 'not checked'}\n"
+                f"Resolved version: {assessment.resolved_legal_version_id or 'not established'}\n"
+                f"Evidence gaps: {', '.join(assessment.gaps) or 'none in the requested mechanical checks'}\n"
+                "Scope and semantic entailment are NOT assessed. A matching quotation does not prove "
+                "a broader claim, obligation, frequency, threshold, or applicability to a particular bank."
+            )
+            for evidence in assessment.legal_evidence:
+                assessment_text += (
+                    f"\nDated {evidence.role} evidence: {evidence.claim_id}; {evidence.source_url}; "
+                    f"date={evidence.claim_date or 'status interval'}; "
+                    f"valid_from={evidence.valid_from}; valid_through={evidence.valid_through}"
+                )
+        assessment_incomplete = bool(assessment and assessment.gaps)
         if not sections:
             query = " ".join(
                 str(part) for part in (document_id, section_type or "", section_ref or "", heading or "") if part
@@ -519,7 +637,8 @@ def register(mcp, deps: Dependencies) -> None:
             return structured_tool_result(
                 DocumentSectionResponse(
                     status="no_results",
-                    text=output,
+                    text=output + assessment_text,
+                    answer_assessment=assessment,
                     requested_document_id=document_id,
                     section_type=_normalize_optional(section_type),
                     section_ref=_normalize_optional(section_ref),
@@ -528,13 +647,7 @@ def register(mcp, deps: Dependencies) -> None:
             )
 
         if len(sections) == 1:
-            quality = _section_quality(sections[0])
-            section_item = _section_item(sections[0], max_chars=_MAX_EXACT_SECTION_CHARS)
-            citation, citation_warning = _build_exact_section_citation(
-                sections[0],
-                section_item=section_item,
-                quality=quality,
-            )
+            assert section_item is not None and quality is not None
             await record_tool_call_trace(
                 getattr(deps, "telemetry_pool", None),
                 tool_name="get_document_section",
@@ -548,8 +661,9 @@ def register(mcp, deps: Dependencies) -> None:
             section = sections[0]
             return structured_tool_result(
                 DocumentSectionResponse(
-                    status="partial" if section_item.content_truncated else "ok",
-                    text=_format_section(section, quality=quality, citation=citation),
+                    status="partial" if section_item.content_truncated or assessment_incomplete else "ok",
+                    text=_format_section(section, quality=quality, citation=citation) + assessment_text,
+                    answer_assessment=assessment,
                     evidence=[_section_evidence(section, citation=citation)],
                     warnings=[
                         *_section_warnings(
@@ -600,8 +714,9 @@ def register(mcp, deps: Dependencies) -> None:
         )
         return structured_tool_result(
             DocumentSectionResponse(
-                status="partial" if result_content_truncated else "ok",
-                text="\n".join(lines),
+                status="partial" if result_content_truncated or assessment_incomplete else "ok",
+                text="\n".join(lines) + assessment_text,
+                answer_assessment=assessment,
                 evidence=[_section_evidence(section) for section in result_sections],
                 warnings=_section_warnings(
                     result_sections,
@@ -739,6 +854,10 @@ def register(mcp, deps: Dependencies) -> None:
             heading = f" — {hit.heading}" if hit.heading else ""
             lines.append(f"**{hit.doc_id} — {hit.section_type} {hit.section_ref}{heading}**")
             lines.append(f"  Document ID: {hit.doc_id}")
+            if hit.document_title:
+                lines.append(f"  Document title: {hit.document_title}")
+            if hit.document_source_url:
+                lines.append(f"  Catalog source (not a validated citation): {hit.document_source_url}")
             lines.append(f"  Section: {hit.section_type} {hit.section_ref}")
             if hit.section_type == "govde":
                 lines.append("  Note: govde remainder — not a legal provision identity")
@@ -795,10 +914,22 @@ def register(mcp, deps: Dependencies) -> None:
         result_content_truncated = any(item.content_truncated for item in result_items)
         return structured_tool_result(
             SectionSearchResponse(
-                status="partial" if result_content_truncated else "ok",
+                status="partial" if result_content_truncated or (exact_ref_detected and not exact_hits) else "ok",
                 text="\n".join(lines),
                 evidence=[_section_evidence(hit) for hit in hits],
-                warnings=_section_warnings(hits, content_truncated=result_content_truncated),
+                warnings=[
+                    *_section_warnings(hits, content_truncated=result_content_truncated),
+                    *([_EXACT_REFERENCE_MISSING_WARNING] if exact_ref_detected and not exact_hits else []),
+                    *(
+                        [
+                            "Loose token fallback was used: results may match only part of the query. "
+                            "Search each substantive issue separately and verify exact provisions; "
+                            "this ranking is not a legal-confidence score."
+                        ]
+                        if loose_fallback_used
+                        else []
+                    ),
+                ],
                 query=query,
                 document_id=inferred_doc_id,
                 section_type=_normalize_optional(inferred_section_type),

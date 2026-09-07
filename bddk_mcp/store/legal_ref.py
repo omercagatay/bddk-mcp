@@ -10,6 +10,7 @@ _DOCUMENT_ID_RE = re.compile(r"\b(?:mevzuat_|bddk_)?\d{2,8}\b", re.IGNORECASE)
 _MADDE_PREFIX_RE = re.compile(r"\b(?:madde|m)\.?\s*(\d+[A-Za-zÇĞİÖŞÜçğıöşü]?)\b", re.IGNORECASE)
 _MADDE_SUFFIX_RE = re.compile(r"\b(\d+[A-Za-zÇĞİÖŞÜçğıöşü]?)\.\s*madde\b", re.IGNORECASE)
 _ILKE_RE = re.compile(r"\b(?:ilke|ılke)\s*(\d+[A-Za-zÇĞİÖŞÜçğıöşü]?)\b", re.IGNORECASE)
+_PARAGRAPH_RE = re.compile(r"\bparagraf\s*(\d+(?:\.\d+)*)\b", re.IGNORECASE)
 _DECISION_RE = re.compile(r"\b(\d{3,6})\s+sayılı\s+kurul\s+kararı\b", re.IGNORECASE)
 _DATE_RE = re.compile(r"\b\d{2}\.\d{2}\.\d{4}\b|\b\d{4}/\d+\b")
 
@@ -76,6 +77,7 @@ def _parse_sections(query: str, folded: str) -> list[tuple[str, str]]:
     sections.extend(("madde", match.group(1)) for match in _MADDE_PREFIX_RE.finditer(query))
     sections.extend(("madde", match.group(1)) for match in _MADDE_SUFFIX_RE.finditer(query))
     sections.extend(("ilke", match.group(1)) for match in _ILKE_RE.finditer(folded))
+    sections.extend(("paragraf", match.group(1)) for match in _PARAGRAPH_RE.finditer(folded))
     return _unique(sections)
 
 
@@ -98,6 +100,8 @@ def _normalize_doc_id(document_id: str) -> str:
 def _excluded_document_id_spans(query: str, folded: str) -> list[tuple[int, int]]:
     spans = [match.span() for match in _DATE_RE.finditer(query)]
     spans.extend(match.span(1) for match in _DECISION_RE.finditer(folded))
+    for pattern in (_MADDE_PREFIX_RE, _MADDE_SUFFIX_RE, _ILKE_RE, _PARAGRAPH_RE):
+        spans.extend(match.span(1) for match in pattern.finditer(folded))
     return spans
 
 

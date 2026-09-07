@@ -27,6 +27,9 @@ class TestCase:
     expected_documents: list[str] = field(default_factory=list)
     expected_sections: list[dict] = field(default_factory=list)
     expected_terms: list[str] = field(default_factory=list)
+    required_answer_points: list[str] = field(default_factory=list)
+    expected_abstention: bool | None = None
+    answer_as_of: str | None = None
 
 
 TEST_CASES: list[TestCase] = [

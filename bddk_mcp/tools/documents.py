@@ -10,7 +10,11 @@ from pydantic import Field
 
 from bddk_mcp.core.exceptions import BddkStorageError
 from bddk_mcp.observability.telemetry import elapsed_ms, record_tool_call_trace
+from bddk_mcp.quality.markdown_quality import (
+    FORMULA_EXTRACTION_WARNING as _DEGRADED_WARNING,
+)
 from bddk_mcp.quality.markdown_quality import assess_markdown_quality, sanitize_markdown_for_context
+from bddk_mcp.quality.markdown_quality import is_formula_aware as _is_formula_aware
 from bddk_mcp.store.legal_ref import document_id_candidates
 from bddk_mcp.tools.errors import INVALID_INPUT, NOT_FOUND, tool_error
 from bddk_mcp.tools.structured_outputs import (
@@ -31,18 +35,6 @@ if TYPE_CHECKING:
     from bddk_mcp.core.deps import Dependencies
 
 logger = logging.getLogger(__name__)
-
-# Backend names whose output preserves mathematical formulas and inline images.
-# Combined method strings (e.g. "mevzuat_pdf+lightocr", "html_parser+manual_latex")
-# are matched by substring. "manual_latex" is the marker for documents that were
-# hand-corrected to embed LaTeX where OCR failed.
-_FORMULA_AWARE_TOKENS = ("lightocr", "chandra2", "pp_structure", "manual_latex")
-
-_DEGRADED_WARNING = (
-    "Bu belgedeki matematiksel formüller ve bazı görseller çıkartılamamış olabilir. "
-    "Metin 'aşağıdaki formül', 'aşağıda yer alan formül' gibi bir ifadeye atıfta bulunuyorsa, "
-    "formülü hafızadan veya standart literatürden yeniden kurma — kullanıcıyı kaynak PDF'e yönlendir."
-)
 
 _LARGE_DOCUMENT_PAGE_THRESHOLD = 20
 _MAX_PAGES_PER_RESPONSE = 5
@@ -66,14 +58,6 @@ _LARGE_DOCUMENT_WARNING_TEMPLATE = (
     "Hedefli retrieval için önce search_document_sections veya get_document_section kullan; "
     "yalnızca gerekli sayfalar için get_bddk_document içinde page_number ve max_pages parametrelerini kullan."
 )
-
-
-def _is_formula_aware(method: str) -> bool:
-    """True when the extraction method used a formula-preserving OCR backend."""
-    if not method:
-        return False
-    lower = method.lower()
-    return any(token in lower for token in _FORMULA_AWARE_TOKENS)
 
 
 def register(

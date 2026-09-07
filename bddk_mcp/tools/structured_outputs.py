@@ -221,12 +221,35 @@ class SectionItem(StrictOutputModel):
     quality: QualityMetadata = Field(description="Quality assessment inherited from the document and content.")
 
 
+class SectionAnswerAssessment(StrictOutputModel):
+    """Evidence checks, never automatic approval of a legal interpretation."""
+
+    basis: Literal["insufficient", "local_text", "validated_citation", "dated_version"]
+    as_of: date | None = None
+    quotation_status: Literal["not_requested", "verified", "not_found", "unavailable"]
+    citation_available: bool = False
+    status_reason: ResolutionReason | None = None
+    resolved_legal_version_id: str | None = None
+    legal_evidence: list[LegalClaimEvidence] = Field(
+        default_factory=list,
+        description="Dated status evidence for resolved_legal_version_id, not necessarily the cited version.",
+    )
+    gaps: list[str] = Field(default_factory=list)
+    scope_and_entailment: Literal["not_assessed"] = Field(
+        default="not_assessed",
+        description="Quote matching and version status do not prove a paraphrase, duty, or applicability to a bank.",
+    )
+
+
 class DocumentSectionResponse(RetrievalResponse):
     requested_document_id: str = Field(description="Document identifier supplied by the client.")
     section_type: str | None = Field(default=None, description="Applied exact section-type filter.")
     section_ref: str | None = Field(default=None, description="Applied exact section-reference filter.")
     heading: str | None = Field(default=None, description="Applied heading filter.")
     results: list[SectionItem] = Field(default_factory=list, description="Exact or disambiguation matches.")
+    answer_assessment: SectionAnswerAssessment | None = Field(
+        default=None, description="Opt-in quotation and dated-version checks; not a legal-answer confidence score."
+    )
 
 
 class SectionSearchResponse(RetrievalResponse):
@@ -509,7 +532,17 @@ def structured_tool_result[ResponseT: RetrievalResponse](response: ResponseT) ->
     # bodies can all originate upstream.  Framing the complete renderer here
     # prevents a future tool formatter from accidentally elevating one of
     # those fields.  Trusted notices remain outside the envelope.
-    text = f"{frame_untrusted_source(response.text)}\n\nCorpus scope notice: {CORPUS_SCOPE_WARNING}"
+    # Text-only clients must see the same readiness blockers as structured
+    # clients. Keep potentially source-derived warnings inside the data frame.
+    extra_warnings = [
+        warning
+        for warning in warnings
+        if warning not in {UNTRUSTED_SOURCE_WARNING, CORPUS_SCOPE_WARNING} and warning not in response.text
+    ]
+    source_text = response.text
+    if extra_warnings:
+        source_text += "\n\nRetrieval warnings:\n" + "\n".join(f"- {warning}" for warning in extra_warnings)
+    text = f"{frame_untrusted_source(source_text)}\n\nCorpus scope notice: {CORPUS_SCOPE_WARNING}"
     rendered = response.model_copy(update={"warnings": warnings, "text": text})
     return TextStructuredToolResult(
         content=[TextContent(type="text", text=rendered.text)],
