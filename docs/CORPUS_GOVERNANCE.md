@@ -16,7 +16,8 @@ This proves that the declaration and local files agree. It does **not** prove:
   consolidation status;
 - authority of a normalized Markdown extraction;
 - freshness against an authoritative source at query time; or
-- authorship, because the current self-checksum is not a digital signature.
+- official source authorship: the owner's signature authenticates the corpus
+  declaration, not the legal authority of the extracted text.
 
 Every structured regulatory retrieval response and its text fallback therefore
 carry the same concise scope warning. The warning is part of the contract, not
@@ -121,7 +122,7 @@ storage, never corpus or trust material. Repository rendering is still not
 evidence that the four Jobs ran in the required `migrate` → `bootstrap` →
 verify-and-stage → activate order in a bank namespace.
 
-The checked-in manifest (`bddk-job-corpus-2026-08-26`, reviewed 2026-08-26)
+The checked-in manifest (`bddk-job-corpus-2026-09-07`, reviewed 2026-09-07)
 declares owner-quantified objectives (7-day source detection, 14-day
 publication, 180-day maximum manifest age) and is Ed25519-signed; the detached
 signature `corpus_scope.sig` validates against the project trust anchor
@@ -148,22 +149,21 @@ measured, and either way the artifact field set is exact. Never fabricate event
 timestamps to reach the measured level; build the measurement pipeline
 instead.
 
-The previously confirmed derived-artifact drift is resolved: the manifest declared the 9,675 chunk rows regenerated under the then-pinned retrieval
-profile (superseded 2026-08-26 by the v5 parser, which regenerates 10,483 rows; see gap
-register CUR-018), and the owner reviewed the delta against the prior 8,286-row artifact
-(37 documents gained chunks from section-aware token chunking; 279 of the 281
-same-count documents were bit-identical). The review also surfaced a
-pre-existing defect carried by the previous artifact: `rg_32202_20230526_6`
-declared `total_pages: 2` while the production derivation in
-`bddk_mcp/store/doc_store.py` yields 3 for its content length, which made the
-imported corpus fail `corpus_retrieval_ready` and would have blocked every
-release. The stale value was corrected to the derived one and the manifest was
-re-signed. Strict import compares the complete canonical chunk inventory and
-passes
-(**seed_data/corpus_scope.yml; scripts/regen_chunks_seed.py**). Any future
-chunker or profile change reopens this review: regenerate, record and
-independently review the delta, then update and re-sign the manifest; a
-checksum edit alone is not review evidence.
+The 2026-09-07 refresh regenerates **13,240 chunks from the same 318 documents**
+under section parser v8, section search v6, and quality policy v3. The previous
+signed v5 artifact contained 10,483 chunks; all 318 inventories change because
+v7's remainder indexing and trailing-heading trimming were also not yet in the
+signed artifact. The incremental v7-to-v8 parser delta affects only six documents.
+Independent automated technical review reproduced the exact candidate bytes and
+verified complete source-character coverage; owner-delegated signing does not
+claim independent human source validation. Source observation and canonical
+corpus-build timestamps remain unchanged. See the
+[refresh evidence](evidence/corpus-v8-release-2026-09-07.md) for exceptions,
+verification receipts, deployment state, and retained legal/freshness gaps.
+
+Any future chunker or profile change reopens this review: regenerate, record and
+independently review the delta, then update and re-sign the manifest; a checksum
+edit alone is not review evidence. Bootstrap still does not activate a release.
 
 ## Bootstrap and benchmark behavior
 
