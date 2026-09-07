@@ -105,9 +105,39 @@ PostgreSQL tests passed, 5 skipped**; the separate ranking guard passed **3 test
 covering ten hit@1 queries and eight mechanical ranking cases. Ruff, formatting,
 lock consistency, and diff checks passed. GPU tests were excluded.
 
-**Execution checkpoint:** production staging, activation, strict-serving
-configuration, and final live verification are not yet complete. No active-release
-readiness is claimed at this checkpoint.
+Production verification regenerated **all 13,240 embeddings** independently and
+passed the exact document/cache/section/chunk/vector membership checks under the
+matching profile. The separate publisher activated the request before its expiry:
+
+| Release evidence | Value |
+|---|---|
+| Release ID | `corpus_release_sha256_68aa41e7962240c46b358c397f0ebb67543b823a2c006eaa3be4fcf1cea5bb2f` |
+| Request ID | `corpus_release_request_sha256_6c8c6c7b41357cdcf0ff3b874299fba3767e43674eb5b00a557f08b61b56947f` |
+| Staged / expiry (UTC) | 2026-09-07 11:06:18 / 11:21:18 |
+| Activation (UTC) | 2026-09-07 11:07:00; sequence 1 |
+| Corpus epoch | 1137 |
+| Freshness policy | `quantified_unmeasured_signature_verified_pass` |
+
+The [content-free database export](corpus-v8-activation-2026-09-07.json) retains the
+complete staged request, activation binding, verification nonce, and provenance.
+The canonical verification receipt was independently reconstructed and matched;
+verifier and publisher actor fingerprints differ. The live MCP resource returned
+this exact active release after activation. The full
+[per-document delta](corpus-v8-delta-2026-09-07.json) is retained separately.
+
+`BDDK_REQUIRE_ACTIVE_CORPUS_RELEASE=true` was set and read back on the public
+Railway service for its next deployment, without adding verifier or publisher
+credentials. Activation must be followed by post-merge deployment, effective
+strict-serving, and live quotation checks. Use the post-merge operational receipt
+on [PR #152](https://github.com/omercagatay/bddk-mcp/pull/152) for those checks;
+an activation receipt alone does not prove a later deployment.
+
+The first PR CI run exposed obsolete documentation assertions for the 2026-08-18
+checkpoint, schema v10, and 9,675 chunks after `STATUS.md` was refreshed. The
+assertions now pin the actual 2026-09-07/v11/13,240 checkpoint; controls were not
+removed. The historical checkpoint remains documented. Protected checks must
+pass on the corrected head before merge; repository auto-merge is disabled and
+was not enabled or bypassed.
 
 ## Deployment contract
 

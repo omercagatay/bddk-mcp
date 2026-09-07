@@ -3,6 +3,7 @@
 Repository baseline verified on **2026-08-26**. Corpus, schema, and test facts below
 were refreshed on **2026-09-07**, based on PR #151 (`fe8d72b`); see the
 [corpus refresh evidence](evidence/corpus-v8-release-2026-09-07.md) for execution state.
+The earlier checkpoint was **2026-08-18** (`3a93189`).
 
 This is the concise source for current repository facts. The longer architecture, review, roadmap, and testing documents preserve dated analysis and may intentionally describe older checkpoints.
 
