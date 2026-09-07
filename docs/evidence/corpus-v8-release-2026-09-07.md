@@ -139,6 +139,17 @@ removed. The historical checkpoint remains documented. Protected checks must
 pass on the corrected head before merge; repository auto-merge is disabled and
 was not enabled or bypassed.
 
+The subsequent evidence-integrity check flagged the activation export's
+`signer_key_sha256`. It equals SHA-256 of the already-public project PEM, not a
+credential. An exact commit/path/rule/line exception is retained in
+`supply-chain/policy.json`, with `pending_bank_release_review` and expiry; the
+regression checks that public-key binding and the exact exception inventory.
+No directory-wide ignore, scanner suppression, or authenticated bank approval was
+added. Re-evaluation of the captured evidence passes integrity with zero
+unexcepted secret findings; **65 unexcepted vulnerability findings remain** and
+`release_promotion_eligible` remains false. This corpus repair is not security
+clearance or bank-image promotion.
+
 ## Deployment contract
 
 `railway.toml` now requires quantified freshness and verified signatures in

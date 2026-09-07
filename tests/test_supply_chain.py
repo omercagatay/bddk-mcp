@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import io
 import json
 import re
@@ -42,6 +43,18 @@ EVALUATION_TIME = datetime(2026, 7, 15, 12, tzinfo=UTC)
 
 def _json(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_activation_receipt_secret_exception_is_only_a_public_key_fingerprint() -> None:
+    receipt = _json(ROOT / "docs/evidence/corpus-v8-activation-2026-09-07.json")
+    public_key = ROOT / "deploy/trust/corpus-signing-public-key.pem"
+    assert receipt["staged_request"]["signer_key_sha256"] == hashlib.sha256(public_key.read_bytes()).hexdigest()
+    fingerprint = (
+        "13ff4f0bb3ca70a24b12856cae5900fe1eef3578:docs/evidence/corpus-v8-activation-2026-09-07.json:generic-api-key:31"
+    )
+    exceptions = _json(SUPPLY_CHAIN / "policy.json")["secrets"]["exceptions"]
+    exception = next(item for item in exceptions if item["fingerprint"] == fingerprint)
+    assert exception["approval_state"] == "pending_bank_release_review"
 
 
 def _repo_policy_for_fixture_evaluation() -> dict:
@@ -493,8 +506,8 @@ def test_main_squash_secret_history_is_exactly_governed():
     )
     assert result["passed"] is True
     assert violations == []
-    assert result["secret_finding_count"] == 8
-    assert result["applied_pending_secret_exception_count"] == 8
+    assert result["secret_finding_count"] == 9
+    assert result["applied_pending_secret_exception_count"] == 9
     assert result["unexcepted_secret_finding_count"] == 0
     assert result["evidence_integrity_passed"] is True
     assert result["external_approval_required"] is True
@@ -510,7 +523,7 @@ def test_main_squash_secret_history_is_exactly_governed():
     )
     assert result["passed"] is False
     assert violations == ["unexcepted secret finding detected"]
-    assert result["applied_pending_secret_exception_count"] == 7
+    assert result["applied_pending_secret_exception_count"] == 8
     assert result["unexcepted_secret_finding_count"] == 1
     assert result["evidence_integrity_passed"] is False
 
