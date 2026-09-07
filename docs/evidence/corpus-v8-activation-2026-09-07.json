@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "staging_receipt": {
+    "chunk_artifact_match": true,
+    "chunks": 13240,
+    "corpus_manifest_id": "bddk-job-corpus-2026-09-07",
+    "corpus_manifest_sha256": "94fc2737cc673a811a36b23eb7f149b4bb7d1835e54ad4a49ee574fd6cb7fdee",
+    "corpus_release_request": {
+      "corpus_epoch": 1137,
+      "corpus_state_sha256": "55be205c0c0b03712477ec626bb030bac3cb59c83260f1b2ef76bb213f5386cd",
+      "release_id": "corpus_release_sha256_68aa41e7962240c46b358c397f0ebb67543b823a2c006eaa3be4fcf1cea5bb2f",
+      "request_id": "corpus_release_request_sha256_6c8c6c7b41357cdcf0ff3b874299fba3767e43674eb5b00a557f08b61b56947f",
+      "staged_at": "2026-09-07T11:06:18.671406+00:00",
+      "verification_expires_at": "2026-09-07T11:21:18.671406+00:00"
+    },
+    "corpus_scope_warnings": [
+      "This corpus is a job-specific selection, not exhaustive BDDK coverage. Freshness and legal applicability must be verified against authoritative sources.",
+      "Corpus freshness objectives, if declared, are not measured against per-document events."
+    ],
+    "documents": 318,
+    "schema_version": 1,
+    "verification_evidence_sha256": "de7168ae6a10eeee79d78ad5343e66c5c841711b4e544fee4bc02cf7ca59eec6",
+    "verification_run_sha256": "e4dabdae265529e78c79a8f2286f3719de867298752ea7cbe3742a055853c987"
+  },
+  "staged_request": {
+    "request_id": "corpus_release_request_sha256_6c8c6c7b41357cdcf0ff3b874299fba3767e43674eb5b00a557f08b61b56947f",
+    "release_id": "corpus_release_sha256_68aa41e7962240c46b358c397f0ebb67543b823a2c006eaa3be4fcf1cea5bb2f",
+    "manifest_id": "bddk-job-corpus-2026-09-07",
+    "manifest_sha256": "94fc2737cc673a811a36b23eb7f149b4bb7d1835e54ad4a49ee574fd6cb7fdee",
+    "signature_sha256": "3e9a6f425851a700f3f21a4a53b76b676fa86658cc3e1bdbf71f219d0f09591a",
+    "signer_key_sha256": "e0215724fa0c59a8a33d35fedf6ebcda59b85aef31794f5eacc59bad6632e22d",
+    "verification_evidence_sha256": "de7168ae6a10eeee79d78ad5343e66c5c841711b4e544fee4bc02cf7ca59eec6",
+    "freshness_policy_result": "quantified_unmeasured_signature_verified_pass",
+    "source_detection_slo_seconds": 604800,
+    "publication_slo_seconds": 1209600,
+    "max_manifest_age_seconds": 15552000,
+    "retrieval_profile_sha256": "bc5acd279fbb521ff5eb45650e7382cdc9b090becd338c20cf7e3fb56d1020e8",
+    "corpus_state_sha256": "55be205c0c0b03712477ec626bb030bac3cb59c83260f1b2ef76bb213f5386cd",
+    "corpus_epoch": 1137,
+    "verifier_revision_sha256": "dbcf53e16132031ac889f2b885c088c02ca9d264ef9a60299cff813aaecad6a8",
+    "verifier_image_digest": "sha256:aff763394c9067356f5b6e1031e6f7d36a4c596a164d142508e13d36e3ca64e2",
+    "valid_for_seconds": 900,
+    "staged_at": "2026-09-07 11:06:18.671406+00:00",
+    "verification_expires_at": "2026-09-07 11:21:18.671406+00:00",
+    "verifier_fingerprint_sha256": "0399f161a34b3cadbfe3af9404507b7c1bb28079fa13af4d8992f094511e1850"
+  },
+  "activation": {
+    "request_id": "corpus_release_request_sha256_6c8c6c7b41357cdcf0ff3b874299fba3767e43674eb5b00a557f08b61b56947f",
+    "activation_sequence": 1,
+    "release_id": "corpus_release_sha256_68aa41e7962240c46b358c397f0ebb67543b823a2c006eaa3be4fcf1cea5bb2f",
+    "bound_at": "2026-09-07 11:07:00.638288+00:00",
+    "publisher_fingerprint_sha256": "518345b6d0b02ce09d30e4677037d51d1a9a9bc0153aaa041df6ac015d0eaeb9"
+  },
+  "publisher_image_digest": "sha256:26b86ada0142d1d6da89e8a2b5846e56423bff61a1d1af268b999e8a2fa96958",
+  "receipt_reconstructed": true,
+  "same_release_active_at_export": true
+}

@@ -19,9 +19,10 @@ restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
 healthcheckPath = "/health/ready"
 healthcheckTimeout = 300
-# Publish the corpus under the retrieval-profile identity this container
-# actually computes (verified_local_tree over /app/embedding_model). A
-# locally-run bootstrap publishes under a different identity and the server
-# then refuses to start. No-op when the DB already matches the seed corpus.
-# Requires BDDK_INGESTION_DATABASE_URL on the service.
-preDeployCommand = "/app/.venv/bin/bddk-mcp bootstrap --reindex-existing --require-verified-signature --trusted-signing-key /app/trust/corpus-signing-public-key.pem"
+# Validate signed artifacts against this container's exact retrieval profile.
+# This snapshot has quantified, explicitly unmeasured freshness objectives.
+# Bootstrap does not publish: use separate verifier/publisher identities for
+# governed activation, then set BDDK_REQUIRE_ACTIVE_CORPUS_RELEASE=true on
+# the public service. Every corpus/profile change requires fresh verification.
+# No-op when the DB matches; requires BDDK_INGESTION_DATABASE_URL.
+preDeployCommand = "/app/.venv/bin/bddk-mcp bootstrap --reindex-existing --require-quantified-freshness --require-verified-signature --trusted-signing-key /app/trust/corpus-signing-public-key.pem"

@@ -22,5 +22,8 @@
   },
   {
     "Fingerprint": "b5f26bb30adab6b0483f5e5bf5bb819c574389b8:tests/test_benchmark_audit.py:aws-access-token:66"
+  },
+  {
+    "Fingerprint": "13ff4f0bb3ca70a24b12856cae5900fe1eef3578:docs/evidence/corpus-v8-activation-2026-09-07.json:generic-api-key:31"
   }
 ]

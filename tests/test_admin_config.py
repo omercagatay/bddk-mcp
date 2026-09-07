@@ -103,6 +103,9 @@ def test_railway_admin_starts_with_platform_port_and_no_bootstrap() -> None:
     assert admin["deploy"]["preDeployCommand"] == []
     assert admin["deploy"]["healthcheckPath"] == "/health/ready"
     assert "bootstrap" in mcp["deploy"]["preDeployCommand"]
+    _, *bootstrap_argv = shlex.split(mcp["deploy"]["preDeployCommand"])
+    bootstrap_args = build_parser().parse_args(bootstrap_argv)
+    assert bootstrap_args.require_quantified_freshness and bootstrap_args.require_verified_signature
     assert "startCommand" not in mcp["deploy"]
 
     executable, *argv = shlex.split(admin["deploy"]["startCommand"])

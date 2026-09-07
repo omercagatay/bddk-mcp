@@ -165,12 +165,12 @@ def test_required_review_documents_have_a_current_checkpoint():
         assert "Current Repository Status" in content, path
 
     status = _read("docs/STATUS.md")
-    assert "2026-08-18" in status
+    assert "2026-09-07" in status
     assert "17 tools" in status
     assert "17 public tools plus 14 operator additions, 31 total" in status
     assert "bddk://corpus/active-release" in status
-    assert "schema v10" in status
-    assert "9,675 chunks" in status
+    assert "schema v11" in status
+    assert "13,240 regenerated chunks" in status
 
 
 def test_current_lifecycle_docs_name_the_real_publisher_boundary():

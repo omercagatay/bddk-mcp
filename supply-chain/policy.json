@@ -44,6 +44,13 @@
     "block_all": true,
     "exceptions": [
       {
+        "fingerprint": "13ff4f0bb3ca70a24b12856cae5900fe1eef3578:docs/evidence/corpus-v8-activation-2026-09-07.json:generic-api-key:31",
+        "reason": "False positive on signer_key_sha256 in the governed activation receipt: exactly SHA-256 of the already-public deploy/trust/corpus-signing-public-key.pem, not a private key, credential, or capability. Its binding is covered by a repository regression test.",
+        "owner": "project-owner",
+        "approval_state": "pending_bank_release_review",
+        "expires_on": "2026-10-15"
+      },
+      {
         "fingerprint": "2fef57b33202befbeb301399cf5a7e41b4e8ea64:tests/test_expert_evaluation.py:generic-api-key:552",
         "reason": "False-positive match on an Ed25519 private-key typed parameter; the test generates the key at runtime and contains no credential literal.",
         "owner": "project-owner",

@@ -1,0 +1,159 @@
+# Corpus v8 refresh — 2026-09-07
+
+## Scope and authority
+
+Owner-delegated technical refresh following PR #151 (`fe8d72b`). This approves
+an existing, non-exhaustive stored snapshot for the governed release workflow;
+it is **not independent human source validation, legal-currentness certification,
+expert-dataset approval, or bank acceptance**. Freshness remains `not_measured`.
+Canonical document and decision-cache bytes, source observation/build timestamps,
+and the project trust anchor are unchanged. No authoritative acquisitions, legal
+mappings, or measured freshness events were invented.
+
+## Artifact identities
+
+| Item | Value |
+|---|---|
+| Manifest | `bddk-job-corpus-2026-09-07` |
+| Canonical manifest SHA-256 | `94fc2737cc673a811a36b23eb7f149b4bb7d1835e54ad4a49ee574fd6cb7fdee` |
+| Documents | 318; `4a469fc11bd9848d2acd540296d794126ab9c506dc68d929fb72f580ebe5dba6` |
+| Chunks | 13,240; 19,157,379 bytes; `949dcaa12b8377beb7bca364f8aa614ddbdd2b984be4082948a3bb62b68456d9` |
+| Decision cache | 318; `9e5677b1a2ffc9fe9d5ed122a90171c896e5f14ee83d958b724e1d2b8b8fd894` |
+| Retrieval profile | `bc5acd279fbb521ff5eb45650e7382cdc9b090becd338c20cf7e3fb56d1020e8` |
+
+The existing Ed25519 key, held outside Git, signed the declaration after technical
+review. Verification used the unchanged, separately supplied project trust anchor.
+A first preparation attempt incorrectly advanced `corpus_built_at` to chunk
+regeneration time; the verifier rejected it because the documents artifact fixes
+that timestamp. The correction preserves the original canonical build time,
+2026-05-12, rather than relabelling old source text as newly acquired.
+
+## Independent technical review
+
+Automated read-only reviewer `403e8fdd-a0b2-4a4` independently regenerated all
+13,240 chunks, matching every field and serialized byte. It checked unique,
+contiguous inventories, canonical source spans/hashes, and coverage of every
+non-whitespace source character. Its regression selection passed **68 tests,
+8 deselected**. This reviewer did not access production or verify embeddings.
+The parent separately compared all production chunk fields, section identities,
+and document hashes in a read-only repeatable-read transaction: exact match.
+
+Historical reproduction with the same tokenizer/chunker explains the delta:
+
+| Parser | Chunks | Difference |
+|---|---:|---|
+| v5 (`99e13ec`) | 10,483 | Exactly reproduces previous signed artifact |
+| v7 (`c4e6314`) | 12,925 | All 318 inventories differ from v5 |
+| v8 (`fe8d72b`) | 13,240 | Only 1282, 1291, 934, 935, 943, 947 differ from v7 |
+
+Retained limitations: **18 capped sections** keep explicit truncation notices;
+**2,608 govde chunks** use generated window identities, not printed provisions;
+**2,012 chunks** have no section identity. Existing formula and extraction-quality
+warnings remain. Whole-source coverage does not prove any one section is complete
+or semantically faithful.
+
+## Draft evaluation bindings
+
+The unapproved pilot moves to `0.1.0-draft.3`: corpus identities and checksum are
+refreshed, including the five abstention-case corpus bindings. Eleven existing
+draft section hashes change because trailing-heading trimming shortened their
+spans (mevzuat_22599 articles 4/9/10; mevzuat_21192 articles 4/9/25;
+mevzuat_21194 articles 4/5/9; mevzuat_42628 articles 4/10). All new hashes reproduce
+from canonical source slices. Some removed tails include pre-existing disordered
+extraction fragments, retained elsewhere in the complete chunk inventory; this
+is **not** a legal validation of those sections.
+
+Queries, proposed answers, evidence document/ref identities, legal-currentness
+flags, pending mappings, annotations, adjudications, and owner approvals remain
+unchanged. All 20 cases remain draft; all 40 annotations and 20 adjudications remain
+pending. No dataset or legal-curator signature was supplied. Test-only evidence
+clocks moved beyond the new corpus review while preserving temporal ordering;
+**45 expert-evaluation/preflight tests pass**, including fail-closed release gates.
+
+## Verification and activation
+
+The initial production state had no active release. Old signed artifacts were
+validly signed but the official staging CLI, in the matching runtime image,
+refused their exact chunk/profile mismatch before staging any request.
+
+Verification runtime built from a clean `git archive fe8d72b`:
+
+- Source archive SHA-256:
+  `dbcf53e16132031ac889f2b885c088c02ca9d264ef9a60299cff813aaecad6a8`.
+- Immutable local verifier image ID:
+  `sha256:aff763394c9067356f5b6e1031e6f7d36a4c596a164d142508e13d36e3ca64e2`.
+- Isolated publisher image ID:
+  `sha256:26b86ada0142d1d6da89e8a2b5846e56423bff61a1d1af268b999e8a2fa96958`.
+
+These are actual local Docker image identities, not claimed registry manifests.
+The verifier computes the production retrieval profile without overrides. The
+publisher image contains no corpus, trust anchor, or embedding model. Separate
+restricted verifier/publisher LOGINs passed application role/catalog checks;
+each process receives only its own DSN. Connections to production use verify-full
+TLS. This is technical role separation, not evidence of independent bank custody.
+
+The production bootstrap engine passed against a newly created disposable,
+loopback-only clone of the PostgreSQL test database: **318 documents, 8,389
+sections, 13,240 chunks and 13,240 freshly computed embeddings**. Both strict
+quantified-freshness and signature flags were enabled. A second invocation
+proved no-op behavior (318 current publications, zero writes/reindex publications).
+The harness supplied the fixture pool directly; production LOGIN checks are
+separately exercised by the verifier/publisher and PostgreSQL contract tests.
+
+Fresh regression checks: **1,731 DB-less tests passed, 38 skipped**; **222
+PostgreSQL tests passed, 5 skipped**; the separate ranking guard passed **3 tests**
+covering ten hit@1 queries and eight mechanical ranking cases. Ruff, formatting,
+lock consistency, and diff checks passed. GPU tests were excluded.
+
+Production verification regenerated **all 13,240 embeddings** independently and
+passed the exact document/cache/section/chunk/vector membership checks under the
+matching profile. The separate publisher activated the request before its expiry:
+
+| Release evidence | Value |
+|---|---|
+| Release ID | `corpus_release_sha256_68aa41e7962240c46b358c397f0ebb67543b823a2c006eaa3be4fcf1cea5bb2f` |
+| Request ID | `corpus_release_request_sha256_6c8c6c7b41357cdcf0ff3b874299fba3767e43674eb5b00a557f08b61b56947f` |
+| Staged / expiry (UTC) | 2026-09-07 11:06:18 / 11:21:18 |
+| Activation (UTC) | 2026-09-07 11:07:00; sequence 1 |
+| Corpus epoch | 1137 |
+| Freshness policy | `quantified_unmeasured_signature_verified_pass` |
+
+The [content-free database export](corpus-v8-activation-2026-09-07.json) retains the
+complete staged request, activation binding, verification nonce, and provenance.
+The canonical verification receipt was independently reconstructed and matched;
+verifier and publisher actor fingerprints differ. The live MCP resource returned
+this exact active release after activation. The full
+[per-document delta](corpus-v8-delta-2026-09-07.json) is retained separately.
+
+`BDDK_REQUIRE_ACTIVE_CORPUS_RELEASE=true` was set and read back on the public
+Railway service for its next deployment, without adding verifier or publisher
+credentials. Activation must be followed by post-merge deployment, effective
+strict-serving, and live quotation checks. Use the post-merge operational receipt
+on [PR #152](https://github.com/omercagatay/bddk-mcp/pull/152) for those checks;
+an activation receipt alone does not prove a later deployment.
+
+The first PR CI run exposed obsolete documentation assertions for the 2026-08-18
+checkpoint, schema v10, and 9,675 chunks after `STATUS.md` was refreshed. The
+assertions now pin the actual 2026-09-07/v11/13,240 checkpoint; controls were not
+removed. The historical checkpoint remains documented. Protected checks must
+pass on the corrected head before merge; repository auto-merge is disabled and
+was not enabled or bypassed.
+
+The subsequent evidence-integrity check flagged the activation export's
+`signer_key_sha256`. It equals SHA-256 of the already-public project PEM, not a
+credential. An exact commit/path/rule/line exception is retained in
+`supply-chain/policy.json`, with `pending_bank_release_review` and expiry; the
+regression checks that public-key binding and the exact exception inventory.
+No directory-wide ignore, scanner suppression, or authenticated bank approval was
+added. Re-evaluation of the captured evidence passes integrity with zero
+unexcepted secret findings; **65 unexcepted vulnerability findings remain** and
+`release_promotion_eligible` remains false. This corpus repair is not security
+clearance or bank-image promotion.
+
+## Deployment contract
+
+`railway.toml` now requires quantified freshness and verified signatures in
+bootstrap, ensuring exact chunk/profile matching rather than warning-only import.
+It explicitly describes bootstrap as non-publishing. The contract regression
+failed before the change; all **11 admin-configuration tests** passed afterward.
+Strict serving must be enabled only after successful governed activation.
