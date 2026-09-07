@@ -25,6 +25,7 @@ The quality engine reports one document-level label plus flags:
 - `clean`: no material extraction signal detected. The document can be used normally, subject to ordinary legal-source caution.
 - `warning`: usable text with extraction caveats such as control characters, formula references without visible formulas, moderate duplication, or layout artifacts.
 - `fail`: severe extraction risk such as raw HTML/data URI leakage, many `cid:` markers, replacement characters, very long blob-like lines, or repeated corrupted blocks.
+- `unknown`: quality metadata is unavailable or unresolved. A locally clean section must not erase an explicitly unknown document-level assessment.
 
 Labels are deterministic signals, not legal conclusions. A `clean` document is not a legal validation; a `fail` document means the extracted Markdown should not be treated as audit-grade evidence without source review.
 
@@ -61,7 +62,7 @@ When a page is not `clean`, `get_bddk_document` includes concise metadata in the
 - `Quality flags: ...`
 - A visible quality warning before the document text
 
-Formula-unaware extraction methods also receive an extraction warning so the assistant tells users when equations or images may be missing.
+Formula-unaware extraction methods also receive an extraction warning so the assistant tells users when equations or images may be missing. Whole-document and section tools share this policy; section results expose `formula_unaware_extraction` without invalidating an otherwise exact text quotation. The retrieval quality-policy identity is `markdown-quality-assessment-v3`.
 
 Search results and section retrieval can surface quality metadata so agents can decide whether a snippet is appropriate evidence. Vector and FTS hits label quality from the **full stored document**, not only the matching chunk, so a clean snippet cannot hide document-level formula or extraction failures. Warning or fail labels do not block retrieval by themselves; the server sanitizes and warns unless unsafe inline blobs would leak into context.
 

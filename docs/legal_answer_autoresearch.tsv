@@ -1,0 +1,4 @@
+iteration	commit	unsafe_status_acceptances	cases	direction	status	guard	description
+0	c4e6314+working-tree	8	8	lower	baseline	not_measured	Fixed malformed version/acquisition/evidence/claim identity cases; baseline XML /tmp/bddk-identity-baseline.xml
+1	b1a2f97	0	8	lower	discard	fail	57 status/version tests passed but Ruff import ordering failed; reverted by 4acec13
+2	e7b1f90	0	8	lower	keep	pass	Same checks; 57 status/version tests including PostgreSQL and Ruff passed; no legal accuracy/certification inference

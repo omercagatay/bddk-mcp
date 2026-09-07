@@ -564,3 +564,21 @@ def test_capped_span_remainder_is_govde():
     govde = [s for s in sections if s.section_type == "govde"]
     assert govde
     assert any("2026 sayılı" in s.content for s in govde)
+
+
+def test_guideline_paragraph_inventory_refuses_restarting_numbering():
+    text = "İlke 1 - Başlık\n" + "".join(f"{n}. Açıklama metni.\n" for n in range(1, 25))
+    text += "İlke 2 - İkinci başlık\n1. Yeniden başlayan numara.\n2. Bir başka kalem.\n"
+    sections = extract_document_sections("doc", text)
+    assert not any(s.section_type == "paragraf" for s in sections)
+
+
+def test_guideline_paragraph_inventory_preserves_adjacent_transposition_and_bents():
+    numbers = list(range(1, 25))
+    numbers[20:22] = [22, 21]
+    text = "İlke 1 - Başlık\n" + "".join(f"{n}. Açıklama metni.\n(a) Alt bent metni.\n" for n in numbers)
+    sections = extract_document_sections("doc", text)
+    paragraphs = [s for s in sections if s.section_type == "paragraf"]
+    assert [int(s.section_ref) for s in paragraphs] == numbers
+    assert all("(a) Alt bent metni." in s.content for s in paragraphs)
+    assert all(text[s.start_char : s.end_char].strip() == s.content for s in paragraphs)

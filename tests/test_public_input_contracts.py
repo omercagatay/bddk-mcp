@@ -17,7 +17,7 @@ _PARAMETERS = {
     "search_bddk_institutions": {"keywords", "institution_type", "active_only"},
     "search_bddk_announcements": {"keywords", "category"},
     "search_document_store": {"query", "category", "limit"},
-    "get_document_section": {"document_id", "section_type", "section_ref", "heading"},
+    "get_document_section": {"document_id", "section_type", "section_ref", "heading", "as_of", "quotation"},
     "search_document_sections": {"query", "document_id", "section_type", "limit", "expand_references"},
     "resolve_regulation_status": {"instrument_id", "as_of"},
     "get_amendment_chain": {"document_id"},
@@ -104,6 +104,9 @@ async def test_tools_list_describes_every_public_parameter_and_important_bounds(
     assert "gecici_madde" in _nonnull(section["section_type"])["enum"]
     assert "govde" in _nonnull(section["section_type"])["enum"]
     assert any(item.get("pattern") for item in section["section_ref"]["anyOf"])
+    assert _nonnull(section["as_of"])["format"] == "date"
+    assert _nonnull(section["as_of"])["pattern"] == r"^\d{4}-\d{2}-\d{2}$"
+    assert _nonnull(section["quotation"])["maxLength"] == 2000
 
     legal_status_schema = schemas["resolve_regulation_status"]["properties"]
     assert legal_status_schema["instrument_id"]["pattern"] == r"^inst_sha256_[0-9a-f]{64}$"

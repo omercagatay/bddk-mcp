@@ -23,6 +23,15 @@ def test_parse_madde_references_variants():
     assert ("madde", "9") in refs.sections
     assert ("madde", "76") in refs.sections
     assert ("madde", "12") in refs.sections
+    assert refs.document_ids == []
+
+
+def test_paragraph_reference_numbers_do_not_become_document_filters():
+    refs = parse_legal_refs("943 paragraf 43; paragraf 76")
+    assert refs.document_ids == ["943"]
+    assert refs.sections == [("paragraf", "43"), ("paragraf", "76")]
+    assert parse_legal_refs("paragraf 134").document_ids == []
+    assert parse_legal_refs("1135 paragraf 2.1").sections == [("paragraf", "2.1")]
 
 
 def test_parse_ilke_references_with_turkish_case():

@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 
 from bddk_mcp.core.config import FTS_RANK_THRESHOLD, PAGE_SIZE
 from bddk_mcp.corpus_coordination import acquire_corpus_mutation_lock
-from bddk_mcp.quality.markdown_quality import prepare_markdown_for_storage
+from bddk_mcp.quality.markdown_quality import QualityAssessment, assess_markdown_quality, prepare_markdown_for_storage
 from bddk_mcp.regulatory.legal_versions import (
     AuthorityLevel,
     artifact_id_for,
@@ -133,6 +133,11 @@ class StoredDocumentSection(BaseModel):
     normalized_source_range: str = ""
     source_content_hash: str = ""
     citation_mapping: StoredSectionCitationMapping | None = None
+    document_title: str = ""
+    document_source_url: str = ""
+    document_category: str = ""
+    document_extraction_method: str = ""
+    document_quality: QualityAssessment | None = None
     rank: float | None = None
     """FTS match rank (ts_rank_cd, length-normalized). Only set by search paths;
     comparable within one query's result set, not across queries."""
@@ -241,6 +246,17 @@ def _section_from_row(row) -> StoredDocumentSection:
         normalized_source_range=row["normalized_source_range"] if "normalized_source_range" in keys else "",
         source_content_hash=row["source_content_hash"] if "source_content_hash" in keys else "",
         citation_mapping=citation_mapping,
+        document_title=row["document_title"] or "" if "document_title" in keys else "",
+        document_source_url=row["document_source_url"] or "" if "document_source_url" in keys else "",
+        document_category=row["document_category"] or "" if "document_category" in keys else "",
+        document_extraction_method=row["document_extraction_method"] or ""
+        if "document_extraction_method" in keys
+        else "",
+        document_quality=(
+            assess_markdown_quality(row["document_content"] or "", document_id=row["doc_id"])
+            if "document_content" in keys
+            else None
+        ),
         rank=row["rank"] if "rank" in keys else None,
     )
 
@@ -638,7 +654,12 @@ class DocumentStore:
                    citation.evidence_statement_sha256 AS citation_evidence_statement_sha256,
                    citation.provision_id AS citation_provision_id,
                    citation.provision_kind AS citation_provision_kind,
-                   citation.provision_path AS citation_provision_path
+                   citation.provision_path AS citation_provision_path,
+                   document.title AS document_title,
+                   document.source_url AS document_source_url,
+                   document.category AS document_category,
+                   document.extraction_method AS document_extraction_method,
+                   document.markdown_content AS document_content
             FROM public.document_sections AS section
             JOIN public.documents AS document
               ON document.document_id = section.doc_id
@@ -734,6 +755,11 @@ class DocumentStore:
                    citation.provision_id AS citation_provision_id,
                    citation.provision_kind AS citation_provision_kind,
                    citation.provision_path AS citation_provision_path,
+                   document.title AS document_title,
+                   document.source_url AS document_source_url,
+                   document.category AS document_category,
+                   document.extraction_method AS document_extraction_method,
+                   document.markdown_content AS document_content,
                    -- normalization flag 1 divides by 1+log(length): without it,
                    -- jumbo boilerplate sections outrank on-point short maddeler
                    pg_catalog.ts_rank_cd(

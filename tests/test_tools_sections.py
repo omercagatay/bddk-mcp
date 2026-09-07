@@ -540,3 +540,104 @@ async def test_loose_fallback_ranks_operative_madde_ahead_of_govde_gecici_and_ip
 
     assert out.index("mevzuat_10749 — madde 13") < out.index("gecici_madde 1")
     assert out.index("mevzuat_10749 — madde 13") < out.index("mevzuat_5464 — madde 35")
+
+
+@pytest.mark.asyncio
+async def test_document_quality_failure_prevents_clean_section_citation():
+    from bddk_mcp.quality.markdown_quality import QualityAssessment
+
+    section = _citable_section().model_copy(
+        update={
+            "document_quality": QualityAssessment(
+                document_id="citation-contract",
+                label="fail",
+                flags=["cid_marker"],
+                warning="Full document is corrupted.",
+            ),
+        }
+    )
+    store = MagicMock()
+    store.get_document_section = AsyncMock(return_value=[section])
+    deps = Dependencies(pool=None, doc_store=store, client=None, http=None)
+    result = await _capture_tool(deps, "get_document_section")(section.doc_id, section_type="madde", section_ref="5")
+    assert "citation" not in result.structuredContent["evidence"][0]
+    assert result.structuredContent["results"][0]["quality"]["label"] == "fail"
+    assert "citation_v1_unavailable_quality_failure" in result.text
+    assert "Full document is corrupted" in result.text
+
+
+def test_excerpt_offsets_survive_turkish_capitals_and_leading_whitespace():
+    from bddk_mcp.tools.sections import _section_excerpt
+
+    content = "İ" * 4000 + "BKZ genel açıklama. " * 100 + "BKZ model\nvalidasyonu" + " son." * 800
+    source_range = " \n  " + content + "\n"
+    section = _section(content=content).model_copy(
+        update={
+            "end_char": 10 + len(source_range),
+            "normalized_source_range": source_range,
+        }
+    )
+    excerpt, truncated, start, end = _section_excerpt(section, max_chars=2000, query="BKZ model validasyonu")
+    assert truncated
+    assert "BKZ model\nvalidasyonu" in excerpt
+    from bddk_mcp.quality.markdown_quality import sanitize_markdown_for_context
+
+    assert sanitize_markdown_for_context(source_range[start - 10 : end - 10]) == excerpt
+
+
+@pytest.mark.asyncio
+async def test_parser_capped_section_is_partial_even_below_tool_excerpt_limit():
+    content = "İlke 5 - Metin.\n[BÖLÜM KESİLDİ: içerik kısaltıldı — tam metin için get_bddk_document kullanın]"
+    store = MagicMock()
+    store.get_document_section = AsyncMock(return_value=[_section(content=content)])
+    deps = Dependencies(pool=None, doc_store=store, client=None, http=None)
+    result = await _capture_tool(deps, "get_document_section")("943", section_type="ilke", section_ref="5")
+    assert result.structuredContent["status"] == "partial"
+    assert result.structuredContent["results"][0]["content_truncated"]
+    assert "bounded excerpts" in result.text
+
+
+def test_loose_terms_preserve_word_boundaries_and_deduplicate_acronyms():
+    from bddk_mcp.tools.sections import _loose_search_terms, _loose_search_text
+
+    assert _loose_search_terms("LGD/THK geriye-dönük test") == ["thk", "geriye", "dönük", "test"]
+    assert _loose_search_text("LGD THK ILGDX") == "thk thk ılgdx"
+
+
+@pytest.mark.asyncio
+async def test_loose_acronym_expansion_searches_both_forms_without_rewriting_evidence():
+    query = "LGD geriye-dönük test"
+    sections = [
+        _section("english", "paragraf", "1", "LGD geriye dönük test yapılır."),
+        _section("turkish", "paragraf", "1", "THK geriye dönük test yapılır."),
+    ]
+    store = MagicMock()
+    store.get_document_section = AsyncMock(return_value=[])
+
+    async def search(value, **kwargs):
+        return [sections[0]] if value == "lgd" else [sections[1]] if value == "thk" else []
+
+    store.search_document_sections = AsyncMock(side_effect=search)
+    deps = Dependencies(pool=None, doc_store=store, client=None, http=None)
+    result = await _capture_tool(deps, "search_document_sections")(query)
+    contents = {item["document_id"]: item["content"] for item in result.structuredContent["results"]}
+    assert contents == {section.doc_id: section.content for section in sections}
+    assert list(contents) == ["english", "turkish"]  # Stable ties, not per-term retrieval order.
+    assert all("rank" not in item for item in result.structuredContent["results"])
+    assert {"lgd", "thk"} <= {call.args[0] for call in store.search_document_sections.await_args_list}
+    assert result.structuredContent["loose_fallback_used"]
+    assert "not a legal-confidence score" in result.text
+
+
+@pytest.mark.asyncio
+async def test_missing_exact_reference_does_not_present_lexical_matches_as_complete():
+    store = MagicMock()
+    store.get_document_section = AsyncMock(return_value=[])
+    store.search_document_sections = AsyncMock(return_value=[_section("943", "paragraf", "43")])
+    deps = Dependencies(pool=None, doc_store=store, client=None, http=None)
+    result = await _capture_tool(deps, "search_document_sections")("943 paragraf 999 validasyon")
+    assert result.structuredContent["status"] == "partial"
+    assert result.structuredContent["section_ref"] == "999"
+    assert result.structuredContent["results"][0]["section_ref"] == "43"
+    assert "requested exact provision was not found" in result.text
+    assert any("requested exact provision was not found" in w for w in result.structuredContent["warnings"])
