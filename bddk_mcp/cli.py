@@ -136,6 +136,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Separately mounted PEM Ed25519 public key for the imported corpus manifest",
     )
 
+    legal_import = subparsers.add_parser(
+        "import-legal-evidence",
+        help="Import manifest-bound legal evidence with the restricted schema-owner identity; never activate it",
+    )
+    legal_import.add_argument("--db", help="PostgreSQL DSN; defaults to BDDK_SCHEMA_OWNER_DATABASE_URL")
+    legal_import.add_argument("--seed-dir", type=Path, help="Reviewed signed corpus directory")
+    legal_import.add_argument("--trusted-signing-key", type=Path, required=True, help="External Ed25519 trust anchor")
+    legal_import.add_argument(
+        "--accept-unmeasured-freshness",
+        action="store_true",
+        help="Explicitly permit quantified but unmeasured freshness; never relabel it as measured",
+    )
+
     publish_release = subparsers.add_parser(
         "publish-corpus-release",
         help="Deprecated fail-closed alias; use independent verification staging and activation commands",
@@ -366,6 +379,74 @@ async def _bootstrap(
     return result
 
 
+async def _import_legal_evidence(
+    dsn: str | None,
+    seed_dir: Path | None,
+    *,
+    trusted_signing_key: Path,
+    accept_unmeasured_freshness: bool = False,
+) -> dict:
+    """Owner-only preparation, distinct from independent verifier/publisher admission."""
+    from functools import partial
+
+    import asyncpg
+
+    from bddk_mcp.core.config import require_database_url, require_expected_database_name
+    from bddk_mcp.corpus_manifest import CorpusManifestError, assert_corpus_manifest_freshness_current
+    from bddk_mcp.db_lifecycle import assert_database_ready, assert_schema_owner_identity
+    from bddk_mcp.db_transport import assert_database_transport
+    from bddk_mcp.ingest import seed
+    from bddk_mcp.regulatory.corpus_evidence import import_legal_evidence, load_legal_evidence
+
+    target = require_expected_database_name()
+    selected_dsn = assert_database_transport(dsn) if dsn else require_database_url("schema-owner")
+    root = (seed_dir or Path(os.environ.get("BDDK_SEED_DIR") or seed.SEED_DIR)).resolve()
+    validation, _artifacts = seed._manifest_seed_artifacts(
+        root,
+        require_quantified_freshness=True,
+        require_measured_freshness=not accept_unmeasured_freshness,
+        require_verified_signature=True,
+        trusted_signing_key=trusted_signing_key,
+    )
+    if validation is None:
+        raise RuntimeError("Legal evidence import requires a signed corpus manifest.")
+    package = load_legal_evidence(root, validation)
+    if package is None:
+        raise RuntimeError("The signed corpus does not declare a legal evidence artifact.")
+    pool = None
+    try:
+        pool = await asyncpg.create_pool(
+            selected_dsn,
+            min_size=1,
+            max_size=1,
+            init=partial(assert_schema_owner_identity, expected_database=target),
+        )
+        await assert_schema_owner_identity(pool, target)
+        await assert_database_ready(pool=pool, require_corpus=False)
+        async with pool.acquire() as connection, connection.transaction():
+            checksums = await import_legal_evidence(connection, package)
+            try:
+                assert_corpus_manifest_freshness_current(validation.manifest)
+            except CorpusManifestError as exc:
+                raise RuntimeError(str(exc)) from None
+        return {
+            "manifest_sha256": validation.manifest_sha256,
+            "legal_families": len(package.bundles),
+            "section_bindings": len(package.bindings),
+            "resolved_bundle_sha256": checksums,
+            "release_publication_required": True,
+        }
+    except RuntimeError:
+        raise
+    except Exception:
+        raise RuntimeError(
+            "Signed legal evidence import could not be confirmed; inspect the target before retrying."
+        ) from None
+    finally:
+        if pool is not None:
+            await pool.close()
+
+
 async def _publish_corpus_release(
     dsn: str | None,
     seed_dir: Path | None,
@@ -424,6 +505,7 @@ async def _verify_and_stage_corpus_release(
     )
     from bddk_mcp.db_transport import assert_database_transport
     from bddk_mcp.ingest import seed
+    from bddk_mcp.regulatory.corpus_evidence import load_legal_evidence
     from bddk_mcp.store.vector_store import VectorStore
 
     selected_dsn = assert_database_transport(dsn) if dsn else config.require_database_url("release-verifier")
@@ -470,6 +552,7 @@ async def _verify_and_stage_corpus_release(
         require_measured_freshness=not accept_unmeasured_freshness,
     )
     expected_sections = seed._expected_seed_sections(documents)
+    legal_evidence = load_legal_evidence(root, validation) if "legal_evidence" in artifacts_by_role else None
     signature_sha256 = validation.signature_sha256
     if signature_sha256 is None:
         raise RuntimeError("Strict corpus release staging requires verified detached-signature evidence.")
@@ -534,6 +617,7 @@ async def _verify_and_stage_corpus_release(
                         expected_embeddings=expected_embeddings,
                         expected_sections=expected_sections,
                         retrieval_profile_sha256=vector_store.retrieval_profile_hash,
+                        expected_legal_evidence=legal_evidence,
                     )
                     try:
                         assert_corpus_manifest_freshness_current(validation.manifest)
@@ -887,6 +971,17 @@ def main(argv: Sequence[str] | None = None) -> None:
                     f"manifest_sha256={active_release['manifest_sha256']} "
                     f"profile_sha256={active_release['retrieval_profile_sha256']}"
                 )
+            return
+        if args.command == "import-legal-evidence":
+            result = asyncio.run(
+                _import_legal_evidence(
+                    args.db,
+                    args.seed_dir,
+                    trusted_signing_key=args.trusted_signing_key,
+                    accept_unmeasured_freshness=args.accept_unmeasured_freshness,
+                )
+            )
+            print(json.dumps(result, sort_keys=True))
             return
         if args.command == "publish-corpus-release":
             asyncio.run(

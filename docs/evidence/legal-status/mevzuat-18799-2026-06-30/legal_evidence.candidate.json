@@ -1,0 +1,336 @@
+{
+  "schema_version": 1,
+  "bundles": [
+    {
+      "schema_version": 1,
+      "bundle_id": "family_sha256_eb61e39b38b75dd3522cf08a4e0cb3247ad286750fd79c29ed7d499790744cee",
+      "bundle_sha256": "712fec25af01e959c2fc5a2d88e48076ccef177adf2fd04fb2b152811e74bcd6",
+      "fixture_only": false,
+      "instrument": {
+        "instrument_id": "inst_sha256_175e2d11d4ca6d78085ae4b3e0c030077186ac7437580bb17c26921ee58e5d09",
+        "jurisdiction": "TR",
+        "authority_code": "BDDK",
+        "identity_key": "RG/2013-09-05/28756/mevzuat-18799",
+        "canonical_title": "Bankaların Özkaynaklarına İlişkin Yönetmelik",
+        "instrument_type": "regulation"
+      },
+      "blobs": [
+        {
+          "blob_id": "blob_sha256_0289786c5fa4e11be5eea7cc1fa78f8e97af705e3350aac644a46fe0452f0eaf",
+          "content_sha256": "18c8e180fca26fc049fd98868553a0606d5d6904c54d748755628d7fc398f84f"
+        },
+        {
+          "blob_id": "blob_sha256_1b38e1fe60c5829cecd84ab587ab3d72905d3afd2681c35ed68aa1f61ce38eda",
+          "content_sha256": "ba520d634863ef741f8218fb7c2abe57618a555dc652930c3d0b8336c796fead"
+        },
+        {
+          "blob_id": "blob_sha256_2c464f0e62533df5e7a6304adb037bbadab15718263066bb6bf5c89b45a48180",
+          "content_sha256": "c639bba0a7b07bd5c15dc64656b789bc287a5ec602d00265f1f91b2971915b42"
+        },
+        {
+          "blob_id": "blob_sha256_449f98ee5e9f6b4919d52d90e6522128a3f8f691e083d82486bd62516f859aa2",
+          "content_sha256": "7483bd888aa5be39593bd94df6cf919bdc741935657e348daf888c787ed28a93"
+        },
+        {
+          "blob_id": "blob_sha256_4b2e421c8658c4bbb4e7dd7757bbdc9aac84d45b175b8d7cd2c00fef3dfd3bb3",
+          "content_sha256": "a28e93c02c367c4133ada47403e035a15b8ef431fd7869ad901c065409bb23bd"
+        },
+        {
+          "blob_id": "blob_sha256_5e2a027620cf5e70bf0901d51accd55e6fc88f787a45e14912a83e0094f19e2d",
+          "content_sha256": "64361379e9f3f38c961e96933c200702ba8694c5551eebd0c1f5017a3a34d153"
+        },
+        {
+          "blob_id": "blob_sha256_6bc2c7776c73ebc00acc05a574870d3fd8c21bb021e1e94d9b5820f00fe2209d",
+          "content_sha256": "df868f86fdc02523c1d259466cd3e98073155f85f2d8ca86e0e18c7c4e8d53a0"
+        },
+        {
+          "blob_id": "blob_sha256_6e82d9081412e3a0bac50cca3ad1f437d407242a684721044957dcbbf51e2d06",
+          "content_sha256": "a97c911ed4c4ce0c5f90c083e590a051c6527ec256db5a1744c774b5852004b7"
+        },
+        {
+          "blob_id": "blob_sha256_898bceea3d583c20191c6446081ded63edda4349ba6bfcb575bc1e661b67432c",
+          "content_sha256": "fb27aacf6f1aad720abc62494512ea3dc081293642385e98ddaab02bacbd715f"
+        },
+        {
+          "blob_id": "blob_sha256_a31d7ac874f9df4b8a2ec8ce307fd556b6e78c480773216210019b9700d182a3",
+          "content_sha256": "7ff17ae4d24f5ec5f7eda05b19b309476ae5ab662e8b74aeb9944ed9249d2ede"
+        },
+        {
+          "blob_id": "blob_sha256_a9fb3378dbcf64ec3b4ed8aa9452b0151d7d79fb5365b60fe6c4290ee36185bb",
+          "content_sha256": "c7c61760568eec3d388af8b4481868d2b6871c9603122399b7bd4ce2b40f15cc"
+        },
+        {
+          "blob_id": "blob_sha256_bbbb854af8e43ab85e403b22f5c431694a07ba6c6413acc62df0dd5657d4f465",
+          "content_sha256": "40ad3e5308d31d04139c8390eb41b811c503a5d731b90e8973422002e4c4d547"
+        }
+      ],
+      "artifacts": [
+        {
+          "artifact_id": "art_sha256_23304d52b14df9fb537365708c7e5947b62086f3997ca00ed14f84ace799cbd3",
+          "blob_id": "blob_sha256_bbbb854af8e43ab85e403b22f5c431694a07ba6c6413acc62df0dd5657d4f465",
+          "canonical_uri": "https://www.resmigazete.gov.tr/eskiler/2017/07/20170711-5.htm",
+          "source_authority": "Resmî Gazete",
+          "media_type": "text/html",
+          "retrieved_at": "2026-09-21T19:36:15.661894Z",
+          "repository_document_id": null,
+          "fixture_only": false
+        },
+        {
+          "artifact_id": "art_sha256_3d0c0ce9188e753226a679fba5be4ce0001eb6f36af2b07f652f0cadb99679ba",
+          "blob_id": "blob_sha256_6e82d9081412e3a0bac50cca3ad1f437d407242a684721044957dcbbf51e2d06",
+          "canonical_uri": "https://www.resmigazete.gov.tr/eskiler/2015/10/20151023-8.htm",
+          "source_authority": "Resmî Gazete",
+          "media_type": "text/html",
+          "retrieved_at": "2026-09-21T19:34:24.902589Z",
+          "repository_document_id": null,
+          "fixture_only": false
+        },
+        {
+          "artifact_id": "art_sha256_3e1de8438107e071d3c1ba87910dd4e25865d90a50986d8b6bff7ad6e38bd4d5",
+          "blob_id": "blob_sha256_a31d7ac874f9df4b8a2ec8ce307fd556b6e78c480773216210019b9700d182a3",
+          "canonical_uri": "https://www.resmigazete.gov.tr/eskiler/2019/12/20191224-12.htm",
+          "source_authority": "Resmî Gazete",
+          "media_type": "text/html",
+          "retrieved_at": "2026-09-21T19:36:15.784988Z",
+          "repository_document_id": null,
+          "fixture_only": false
+        },
+        {
+          "artifact_id": "art_sha256_5011bc1f95b7e70ae33ff5ce248d9eaa6e03d2a5a076fdfa12693b8b4f5bcbf0",
+          "blob_id": "blob_sha256_1b38e1fe60c5829cecd84ab587ab3d72905d3afd2681c35ed68aa1f61ce38eda",
+          "canonical_uri": "https://www.resmigazete.gov.tr/eskiler/2013/09/20130905-10.htm",
+          "source_authority": "Resmî Gazete",
+          "media_type": "text/html",
+          "retrieved_at": "2026-09-21T19:33:37.424096Z",
+          "repository_document_id": null,
+          "fixture_only": false
+        },
+        {
+          "artifact_id": "art_sha256_538390348bd599a8f2754d038c44cd2ca3169e674e7d3486dec198b6cbab7aa0",
+          "blob_id": "blob_sha256_898bceea3d583c20191c6446081ded63edda4349ba6bfcb575bc1e661b67432c",
+          "canonical_uri": "https://www.mevzuat.gov.tr/anasayfa/MevzuatFihristDetayIframe?MevzuatTur=7&MevzuatNo=18799&MevzuatTertip=5",
+          "source_authority": "Mevzuat Bilgi Sistemi",
+          "media_type": "text/html",
+          "retrieved_at": "2026-09-21T19:34:24.902439Z",
+          "repository_document_id": "mevzuat_18799",
+          "fixture_only": false
+        },
+        {
+          "artifact_id": "art_sha256_768b759bef962b458e4deb94857c9d27dd45130399e87f50e57c050d437faab8",
+          "blob_id": "blob_sha256_5e2a027620cf5e70bf0901d51accd55e6fc88f787a45e14912a83e0094f19e2d",
+          "canonical_uri": "https://www.resmigazete.gov.tr/eskiler/2021/12/20211224-6.htm",
+          "source_authority": "Resmî Gazete",
+          "media_type": "text/html",
+          "retrieved_at": "2026-09-21T19:36:15.785631Z",
+          "repository_document_id": null,
+          "fixture_only": false
+        },
+        {
+          "artifact_id": "art_sha256_7755a7600025415a0993bbedeed74b7528fbe48a0d94dcdc34957f79db59b1d3",
+          "blob_id": "blob_sha256_449f98ee5e9f6b4919d52d90e6522128a3f8f691e083d82486bd62516f859aa2",
+          "canonical_uri": "https://www.resmigazete.gov.tr/eskiler/2016/06/20160622-2.htm",
+          "source_authority": "Resmî Gazete",
+          "media_type": "text/html",
+          "retrieved_at": "2026-09-21T19:36:15.661437Z",
+          "repository_document_id": null,
+          "fixture_only": false
+        },
+        {
+          "artifact_id": "art_sha256_ad35eda04177f2900adbd18ce70d42122877ce940d5edf7c45c5af4d9e2a87a6",
+          "blob_id": "blob_sha256_6bc2c7776c73ebc00acc05a574870d3fd8c21bb021e1e94d9b5820f00fe2209d",
+          "canonical_uri": "https://www.resmigazete.gov.tr/eskiler/2016/01/20160120-3.htm",
+          "source_authority": "Resmî Gazete",
+          "media_type": "text/html",
+          "retrieved_at": "2026-09-21T19:34:25.030506Z",
+          "repository_document_id": null,
+          "fixture_only": false
+        },
+        {
+          "artifact_id": "art_sha256_b3ceba19aaaea0f760d22ebe2cea2d8f8da7cffb03f39980c4cef27973c66a78",
+          "blob_id": "blob_sha256_2c464f0e62533df5e7a6304adb037bbadab15718263066bb6bf5c89b45a48180",
+          "canonical_uri": "https://www.mevzuat.gov.tr/File/GeneratePdf?mevzuatNo=18799&mevzuatTur=KurumVeKurulusYonetmeligi&mevzuatTertip=5",
+          "source_authority": "Mevzuat Bilgi Sistemi",
+          "media_type": "application/pdf",
+          "retrieved_at": "2026-09-21T19:34:24.902272Z",
+          "repository_document_id": null,
+          "fixture_only": false
+        },
+        {
+          "artifact_id": "art_sha256_b6dfacb5e097f17a185d1e539ff9247fc4d5b3b22f8261998858ecf04ed64086",
+          "blob_id": "blob_sha256_0289786c5fa4e11be5eea7cc1fa78f8e97af705e3350aac644a46fe0452f0eaf",
+          "canonical_uri": "https://www.resmigazete.gov.tr/eskiler/2018/03/20180314-3.htm",
+          "source_authority": "Resmî Gazete",
+          "media_type": "text/html",
+          "retrieved_at": "2026-09-21T19:36:15.662482Z",
+          "repository_document_id": null,
+          "fixture_only": false
+        },
+        {
+          "artifact_id": "art_sha256_f3500910d22aa22f7867a6e79874236ed259e43e7e67dca6010eff735cf3213a",
+          "blob_id": "blob_sha256_4b2e421c8658c4bbb4e7dd7757bbdc9aac84d45b175b8d7cd2c00fef3dfd3bb3",
+          "canonical_uri": "https://www.mevzuat.gov.tr/MevzuatMetin/yonetmelik/7.5.18799.doc",
+          "source_authority": "Mevzuat Bilgi Sistemi",
+          "media_type": "application/msword",
+          "retrieved_at": "2026-09-21T19:34:24.901982Z",
+          "repository_document_id": null,
+          "fixture_only": false
+        },
+        {
+          "artifact_id": "art_sha256_f6aaa9bcb038c9b6257c931ae12f873668faa1a7aa5302c7cb115c5ed1454753",
+          "blob_id": "blob_sha256_a9fb3378dbcf64ec3b4ed8aa9452b0151d7d79fb5365b60fe6c4290ee36185bb",
+          "canonical_uri": "https://www.resmigazete.gov.tr/eskiler/2014/09/20140906-1.htm",
+          "source_authority": "Resmî Gazete",
+          "media_type": "text/html",
+          "retrieved_at": "2026-09-21T19:36:15.660825Z",
+          "repository_document_id": null,
+          "fixture_only": false
+        }
+      ],
+      "provisions": [
+        {
+          "provision_id": "prov_sha256_ee3576c61e9c10ece648d3c4e4595e7e07bcb557f521ea53a216badf02134f40",
+          "instrument_id": "inst_sha256_175e2d11d4ca6d78085ae4b3e0c030077186ac7437580bb17c26921ee58e5d09",
+          "kind": "madde",
+          "canonical_path": "madde/9"
+        }
+      ],
+      "versions": [
+        {
+          "legal_version_id": "ver_sha256_f4a91d7278be227333352910897ddcde215102bcd868571aea4e5aa0dcdd2673",
+          "instrument_id": "inst_sha256_175e2d11d4ca6d78085ae4b3e0c030077186ac7437580bb17c26921ee58e5d09",
+          "version_key": "2018-amended-text-retained-after-2021-cancellation",
+          "legal_text_sha256": "0fd2f517e679914f0842174a731a5a9e18f7d1339d1a5f7d459a0b00ff1471e0",
+          "source_artifact_ids": [
+            "art_sha256_23304d52b14df9fb537365708c7e5947b62086f3997ca00ed14f84ace799cbd3",
+            "art_sha256_3d0c0ce9188e753226a679fba5be4ce0001eb6f36af2b07f652f0cadb99679ba",
+            "art_sha256_3e1de8438107e071d3c1ba87910dd4e25865d90a50986d8b6bff7ad6e38bd4d5",
+            "art_sha256_5011bc1f95b7e70ae33ff5ce248d9eaa6e03d2a5a076fdfa12693b8b4f5bcbf0",
+            "art_sha256_538390348bd599a8f2754d038c44cd2ca3169e674e7d3486dec198b6cbab7aa0",
+            "art_sha256_768b759bef962b458e4deb94857c9d27dd45130399e87f50e57c050d437faab8",
+            "art_sha256_7755a7600025415a0993bbedeed74b7528fbe48a0d94dcdc34957f79db59b1d3",
+            "art_sha256_ad35eda04177f2900adbd18ce70d42122877ce940d5edf7c45c5af4d9e2a87a6",
+            "art_sha256_b3ceba19aaaea0f760d22ebe2cea2d8f8da7cffb03f39980c4cef27973c66a78",
+            "art_sha256_b6dfacb5e097f17a185d1e539ff9247fc4d5b3b22f8261998858ecf04ed64086",
+            "art_sha256_f3500910d22aa22f7867a6e79874236ed259e43e7e67dca6010eff735cf3213a",
+            "art_sha256_f6aaa9bcb038c9b6257c931ae12f873668faa1a7aa5302c7cb115c5ed1454753"
+          ],
+          "predecessor_version_id": null,
+          "consolidation_state": "unknown",
+          "validation": {
+            "state": "in_review",
+            "validated_by": null,
+            "validated_at": null,
+            "method": null,
+            "review_record_sha256": null
+          },
+          "events": {
+            "publication": {
+              "event_id": "event_sha256_0fcecc55fe79d68392fa2c17b24bff11c8d94a46b06aaab3c792510daadd36c8",
+              "legal_version_id": "ver_sha256_f4a91d7278be227333352910897ddcde215102bcd868571aea4e5aa0dcdd2673",
+              "event_type": "publication",
+              "event_date": "2018-03-14",
+              "evidence": {
+                "evidence_id": "evid_sha256_f11fa9b4e3c48ffd43f9b7649ccd2365518de8caad928b6e8aa2fcca11fd936a",
+                "artifact_id": "art_sha256_b6dfacb5e097f17a185d1e539ff9247fc4d5b3b22f8261998858ecf04ed64086",
+                "locator": "RG 30360 header: proposed publication event for the normalized amended snapshot, not the original regulation.",
+                "statement_sha256": "7c1b29e071dc8f002e9d577d8bcb87c7e2a224177efeca0e0a05c39da1cb3c5a",
+                "authority_level": "authoritative"
+              },
+              "validation": {
+                "state": "in_review",
+                "validated_by": null,
+                "validated_at": null,
+                "method": null,
+                "review_record_sha256": null
+              },
+              "target_legal_version_id": null
+            },
+            "effective": {
+              "event_id": "event_sha256_14e637eb8f729be7e9e7540fc6b15ec4a424a16c07ed749ef8808ca4da0640cc",
+              "legal_version_id": "ver_sha256_f4a91d7278be227333352910897ddcde215102bcd868571aea4e5aa0dcdd2673",
+              "event_type": "effective",
+              "event_date": "2018-01-01",
+              "evidence": {
+                "evidence_id": "evid_sha256_779cb26f552d36b34af646f252e898446576a9df15b63b1cced0b50c8d06b4f4",
+                "artifact_id": "art_sha256_b6dfacb5e097f17a185d1e539ff9247fc4d5b3b22f8261998858ecf04ed64086",
+                "locator": "2018 amendment article 4(b), read together with the 2019 postponement and 2021 repeal of the separately delayed article 2.",
+                "statement_sha256": "b0e69600151791346a8ad27f5dfe57f3b98aebc958ba1a4c81d331c0b87cab06",
+                "authority_level": "authoritative"
+              },
+              "validation": {
+                "state": "in_review",
+                "validated_by": null,
+                "validated_at": null,
+                "method": null,
+                "review_record_sha256": null
+              },
+              "target_legal_version_id": null
+            },
+            "expiry": null,
+            "repeal": null,
+            "supersession": null,
+            "consolidation": null
+          },
+          "status_assertions": [
+            {
+              "assertion_id": "status_sha256_73c78470286c2b11c7ea168dd2be3b0c54f31135b53d6c5a44d951c5fb62dc1b",
+              "legal_version_id": "ver_sha256_f4a91d7278be227333352910897ddcde215102bcd868571aea4e5aa0dcdd2673",
+              "status": "effective",
+              "valid_from": "2026-06-30",
+              "valid_through": "2026-06-30",
+              "evidence": {
+                "evidence_id": "evid_sha256_e16028168e05df6ca8ddbff2c252f8bbafa12e485ec7a2bf1713b1e8d988887e",
+                "artifact_id": "art_sha256_538390348bd599a8f2754d038c44cd2ca3169e674e7d3486dec198b6cbab7aa0",
+                "locator": "Review candidate: complete official consolidation and all retained amendment/commencement sources; historical status is a proposed reviewed inference, NOT a verbatim dated-status sentence in this source.",
+                "statement_sha256": "34ec05950ed0be821123a5fdda2d9c3ce77c982df8eb0fafb0af84d9faef7f81",
+                "authority_level": "authoritative"
+              },
+              "validation": {
+                "state": "in_review",
+                "validated_by": null,
+                "validated_at": null,
+                "method": null,
+                "review_record_sha256": null
+              }
+            }
+          ],
+          "provisions": [
+            {
+              "provision_id": "prov_sha256_ee3576c61e9c10ece648d3c4e4595e7e07bcb557f521ea53a216badf02134f40",
+              "legal_version_id": "ver_sha256_f4a91d7278be227333352910897ddcde215102bcd868571aea4e5aa0dcdd2673",
+              "provision_text_sha256": "b2c7abc7d81ee118be05c67e0717c9b44088be888f7acf4b5304cea5ab67d317",
+              "document_section_id": null,
+              "evidence": {
+                "evidence_id": "evid_sha256_450ccb4afba5a221dabcb9b8951b6984d8ad06947fb700f0dbe91430c4866d7f",
+                "artifact_id": "art_sha256_538390348bd599a8f2754d038c44cd2ca3169e674e7d3486dec198b6cbab7aa0",
+                "locator": "MADDE 9; mapped stored normalized text; see whole-document comparison for explicit encoding/layout differences.",
+                "statement_sha256": "b2c7abc7d81ee118be05c67e0717c9b44088be888f7acf4b5304cea5ab67d317",
+                "authority_level": "authoritative"
+              },
+              "validation": {
+                "state": "in_review",
+                "validated_by": null,
+                "validated_at": null,
+                "method": null,
+                "review_record_sha256": null
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "bindings": [
+    {
+      "legal_version_id": "ver_sha256_f4a91d7278be227333352910897ddcde215102bcd868571aea4e5aa0dcdd2673",
+      "provision_id": "prov_sha256_ee3576c61e9c10ece648d3c4e4595e7e07bcb557f521ea53a216badf02134f40",
+      "document_id": "mevzuat_18799",
+      "document_sha256": "0fd2f517e679914f0842174a731a5a9e18f7d1339d1a5f7d459a0b00ff1471e0",
+      "section_type": "madde",
+      "section_ref": "9",
+      "start_char": 18833,
+      "end_char": 29809,
+      "content_sha256": "b2c7abc7d81ee118be05c67e0717c9b44088be888f7acf4b5304cea5ab67d317"
+    }
+  ]
+}
