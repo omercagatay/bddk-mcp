@@ -13,8 +13,8 @@ from bddk_mcp.observability.telemetry import elapsed_ms, record_tool_call_trace
 from bddk_mcp.quality.markdown_quality import (
     FORMULA_EXTRACTION_WARNING as _DEGRADED_WARNING,
 )
-from bddk_mcp.quality.markdown_quality import assess_markdown_quality, sanitize_markdown_for_context
 from bddk_mcp.quality.markdown_quality import is_formula_aware as _is_formula_aware
+from bddk_mcp.quality.markdown_quality import quality_assessment_from_metadata, sanitize_markdown_for_context
 from bddk_mcp.store.legal_ref import document_id_candidates
 from bddk_mcp.tools.errors import INVALID_INPUT, NOT_FOUND, tool_error
 from bddk_mcp.tools.structured_outputs import (
@@ -195,19 +195,15 @@ def register(
             except (RuntimeError, BddkStorageError) as exc:
                 logger.debug("Extraction method lookup failed", extra={"error_type": type(exc).__name__})
 
-        if len(page_contents) > 1:
-            raw_content = "\n\n---\n\n".join(
-                f"### Page {page}/{total_pages}\n\n{page_content}" for page, page_content in page_contents
-            )
-        else:
-            raw_content = page_contents[0][1]
-
+        # Page cuts can split tables/formulas, or hide a failure elsewhere in the body.
+        try:
+            quality = await deps.doc_store.get_document_quality(resolved_id)
+        except (RuntimeError, BddkStorageError) as exc:
+            logger.warning("Document quality lookup failed", extra={"error_type": type(exc).__name__})
+            quality = None
+        if quality is None:
+            quality = quality_assessment_from_metadata(resolved_id, "unknown", ["document_quality_unavailable"])
         formula_aware = _is_formula_aware(extraction_method)
-        quality = assess_markdown_quality(raw_content, document_id=resolved_id)
-        if formula_aware and quality.flags == ["formula_ref_without_latex_or_image"]:
-            quality.label = "clean"
-            quality.flags = []
-            quality.warning = ""
         sanitized_pages = [
             DocumentPageContent(
                 page_number=page,

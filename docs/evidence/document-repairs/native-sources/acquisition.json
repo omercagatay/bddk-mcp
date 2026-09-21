@@ -1,0 +1,65 @@
+{
+  "reviewed_at": "2026-09-21T06:35:58.323437+00:00",
+  "libreoffice_version": "LibreOffice 24.2.7.2 420(Build:2)",
+  "sources": {
+    "16290.doc": {
+      "retained_path": "docs/evidence/document-repairs/native-sources/16290.doc.gz",
+      "sha256": "b7609b7119e1404251c199f4cc2da7962bd325d8211674f2414f714fedc6e528",
+      "bytes": 4756368
+    },
+    "21192.doc": {
+      "retained_path": "docs/evidence/document-repairs/native-sources/21192.doc.gz",
+      "sha256": "3db9393c7f8cd91e0439452231cec746650acc43efe0db48e26d5ac5aac324b7",
+      "bytes": 382464
+    },
+    "21192-annex-nested.zip": {
+      "retained_path": "docs/evidence/document-repairs/native-sources/21192-annex-nested.zip.gz",
+      "sha256": "9db730d08e498aaeffd52ee867da69390070521393b58e7f1362114d9a6e9af0",
+      "bytes": 381743
+    },
+    "html/21192.html": {
+      "retained_path": "docs/evidence/document-repairs/native-sources/html-21192.html.gz",
+      "sha256": "32d00cf9d3add617d9d3aed6c474440710af8cf67046b6e8546e77069a4d3197",
+      "bytes": 305536
+    },
+    "html/EK-1.html": {
+      "retained_path": "docs/evidence/document-repairs/native-sources/html-EK-1.html.gz",
+      "sha256": "fc52cddb7861b4da1d1ed44d634f12104da912890bd840b662e285e7d4b97196",
+      "bytes": 173280
+    },
+    "html/EK-2.html": {
+      "retained_path": "docs/evidence/document-repairs/native-sources/html-EK-2.html.gz",
+      "sha256": "aa5b27237b4e3bf54032f749b8f283371b98f4b56c2962ad10ec4c6e8c82015a",
+      "bytes": 416202
+    },
+    "html/EK-3.html": {
+      "retained_path": "docs/evidence/document-repairs/native-sources/html-EK-3.html.gz",
+      "sha256": "81303353c800134c65850f4d391ff6e4ed9cd0d830301daec6ef3e337225b800",
+      "bytes": 35901
+    },
+    "html/EK-4.html": {
+      "retained_path": "docs/evidence/document-repairs/native-sources/html-EK-4.html.gz",
+      "sha256": "fa4f4b627df0b5a25855ae2097a6f19920efce1dfcb092a34b0934c3c559b6c2",
+      "bytes": 73052
+    },
+    "converted/21192.docx": {
+      "retained_path": "docs/evidence/document-repairs/native-sources/converted-21192.docx.gz",
+      "sha256": "d469ab5e39edc82e32af544b3973e5995aeb46d29b5daa390547c79faca07709",
+      "bytes": 55321
+    },
+    "converted/EK-1.docx": {
+      "retained_path": "docs/evidence/document-repairs/native-sources/converted-EK-1.docx.gz",
+      "sha256": "729704d7b67e7a7fc63a081268a47ae52307656b906993482c1c713ee8623c3a",
+      "bytes": 34109
+    },
+    "converted/EK-3.docx": {
+      "retained_path": "docs/evidence/document-repairs/native-sources/converted-EK-3.docx.gz",
+      "sha256": "07595e87143932dada7a37e604235b0303b093694a691795738cf08e23af425a",
+      "bytes": 12384
+    }
+  },
+  "annex_archive_sha256": "9db730d08e498aaeffd52ee867da69390070521393b58e7f1362114d9a6e9af0",
+  "network": "Exact-host HTTPS allowlist and verified TLS; nested ZIP succeeded, root ZIP URL returned HTML and was rejected as an archive.",
+  "source_raw_bytes_retained": true,
+  "review_authority": "assistant technical review; no independent human/legal approval asserted"
+}

@@ -1,0 +1,95 @@
+{
+  "document_id": "1038",
+  "status": "source_reviewed_candidate_awaiting_owner_approval",
+  "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1038",
+  "original_markdown_sha256": "60b55111d88aa858be649cfc67b7ca4341d23e80a04777a0b26e1353535df2f4",
+  "candidate_markdown_sha256": "dc4c474f9dd116e78b4d714b03db45e63d96c7874143a2b1dec6fe5e71f119e8",
+  "glyph_repairs": 13,
+  "glyph_map": {
+    "U+F0B7": "•",
+    "U+F0A7": "▪"
+  },
+  "source_anomalies_preserved": [
+    "U+F0B7 bullet, U+F0A7 square, U+F0BE em-dash list, U+F0D8 arrowhead from source PDFs 954/934/787/1191."
+  ],
+  "replacements": [
+    {
+      "start": 554,
+      "end": 555,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 654,
+      "end": 655,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 734,
+      "end": 735,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 955,
+      "end": 956,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 1547,
+      "end": 1548,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 1701,
+      "end": 1702,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 1908,
+      "end": 1909,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 2107,
+      "end": 2108,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 2688,
+      "end": 2689,
+      "old": "",
+      "new": "▪"
+    },
+    {
+      "start": 2829,
+      "end": 2830,
+      "old": "",
+      "new": "▪"
+    },
+    {
+      "start": 2990,
+      "end": 2991,
+      "old": "",
+      "new": "▪"
+    },
+    {
+      "start": 3142,
+      "end": 3143,
+      "old": "",
+      "new": "▪"
+    },
+    {
+      "start": 3319,
+      "end": 3320,
+      "old": "",
+      "new": "▪"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "status": "draft_binding_refresh_not_expert_approval",
+  "old_dataset_version": "0.1.0-draft.3",
+  "new_dataset_version": "0.1.0-draft.4",
+  "section_hash_changes": [
+    {
+      "evidence_id": "ev-sermaye-madde-4",
+      "old": "32865634628b699f8415a439c26ff8fd23690e5a348dab8b1bdf311e3988711c",
+      "new": "565372ddcd8fe38a8a9bcbc6da43d130951a0fb22ac51f16f3da549cdcea9529"
+    },
+    {
+      "evidence_id": "ev-sermaye-madde-9",
+      "old": "45213cb4ff0dbfffefe2df088059d760ebd3e3d849cec829d35c97b8a20e286e",
+      "new": "3feb001ea79914a1ef6db68a066b8983f03a235aa3b9ab398d7b96bad627c91c"
+    },
+    {
+      "evidence_id": "ev-sermaye-madde-25",
+      "old": "a6265a479c82523618f71acd8c72176f1d4bc1c6d01c612bc19c8e431e6d5620",
+      "new": "ff8144089dfb210127b69aa057fd9755b8b1ab7c245a694db2fedcc03b8ee418"
+    }
+  ],
+  "all_cases_remain_draft": true,
+  "annotations_and_adjudications_unchanged": true
+}

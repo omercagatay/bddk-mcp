@@ -1,0 +1,137 @@
+{
+  "document_id": "806",
+  "status": "source_reviewed_candidate_awaiting_owner_approval",
+  "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/806",
+  "original_markdown_sha256": "137d7712bca61ed4673538a7a1b4132762c06a38cbd227bf5da54e7ddf5b9480",
+  "candidate_markdown_sha256": "ca8a7e0a31dc7bf8c8dff128616d83b5f196202b19d3732a81138962e60eeb62",
+  "glyph_repairs": 20,
+  "glyph_map": {
+    "U+F0B7": "•",
+    "U+F0BE": "—"
+  },
+  "source_anomalies_preserved": [
+    "U+F0B7 bullet, U+F0A7 square, U+F0BE em-dash list, U+F0D8 arrowhead from source PDFs 954/934/787/1191."
+  ],
+  "replacements": [
+    {
+      "start": 881,
+      "end": 882,
+      "old": "",
+      "new": "—"
+    },
+    {
+      "start": 1457,
+      "end": 1458,
+      "old": "",
+      "new": "—"
+    },
+    {
+      "start": 1857,
+      "end": 1858,
+      "old": "",
+      "new": "—"
+    },
+    {
+      "start": 2267,
+      "end": 2268,
+      "old": "",
+      "new": "—"
+    },
+    {
+      "start": 2913,
+      "end": 2914,
+      "old": "",
+      "new": "—"
+    },
+    {
+      "start": 3592,
+      "end": 3593,
+      "old": "",
+      "new": "—"
+    },
+    {
+      "start": 4254,
+      "end": 4255,
+      "old": "",
+      "new": "—"
+    },
+    {
+      "start": 5116,
+      "end": 5117,
+      "old": "",
+      "new": "—"
+    },
+    {
+      "start": 5387,
+      "end": 5388,
+      "old": "",
+      "new": "—"
+    },
+    {
+      "start": 5747,
+      "end": 5748,
+      "old": "",
+      "new": "—"
+    },
+    {
+      "start": 6150,
+      "end": 6151,
+      "old": "",
+      "new": "—"
+    },
+    {
+      "start": 6224,
+      "end": 6225,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 6568,
+      "end": 6569,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 6981,
+      "end": 6982,
+      "old": "",
+      "new": "—"
+    },
+    {
+      "start": 7617,
+      "end": 7618,
+      "old": "",
+      "new": "—"
+    },
+    {
+      "start": 7969,
+      "end": 7970,
+      "old": "",
+      "new": "—"
+    },
+    {
+      "start": 8035,
+      "end": 8036,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 8680,
+      "end": 8681,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 9185,
+      "end": 9186,
+      "old": "",
+      "new": "—"
+    },
+    {
+      "start": 9620,
+      "end": 9621,
+      "old": "",
+      "new": "—"
+    }
+  ]
+}

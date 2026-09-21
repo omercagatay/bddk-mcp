@@ -17,6 +17,7 @@ from bddk_mcp.corpus_manifest import CorpusManifestError
 from scripts.sign_corpus_manifest import sign_manifest
 
 ROOT = Path(__file__).parents[1]
+REVIEWED_AT = yaml.safe_load((ROOT / "seed_data/corpus_scope.yml").read_text())["freshness"]["scope_reviewed_at"]
 
 
 def _write_key_pair(directory: Path) -> tuple[Path, Path]:
@@ -85,7 +86,7 @@ def test_sign_manifest_produces_loader_verifiable_signature(tmp_path):
         manifest_path=manifest_path,
         private_key_path=private_path,
         trusted_public_key_path=public_path,
-        reviewed_at="2026-08-26T00:00:00+00:00",
+        reviewed_at=REVIEWED_AT,
     )
 
     from bddk_mcp.corpus_manifest import load_and_validate_corpus_manifest
@@ -96,7 +97,27 @@ def test_sign_manifest_produces_loader_verifiable_signature(tmp_path):
         trusted_signing_key=public_path,
     )
     assert validation.manifest.integrity.signature_status == "verified"
-    assert validation.manifest.freshness.scope_reviewed_at == datetime.fromisoformat("2026-08-26T00:00:00+00:00")
+    assert validation.manifest.freshness.scope_reviewed_at == datetime.fromisoformat(REVIEWED_AT)
+
+
+def test_default_signing_time_does_not_predate_same_day_build(tmp_path, monkeypatch):
+    corpus = _stage_corpus(tmp_path)
+    private_path, public_path = _write_key_pair(tmp_path)
+    current = datetime.fromisoformat(REVIEWED_AT)
+
+    class ReviewClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return current
+
+    monkeypatch.setattr("scripts.sign_corpus_manifest.datetime", ReviewClock)
+    sign_manifest(
+        manifest_path=corpus / "corpus_scope.yml",
+        private_key_path=private_path,
+        trusted_public_key_path=public_path,
+    )
+    raw = yaml.safe_load((corpus / "corpus_scope.yml").read_text())
+    assert datetime.fromisoformat(raw["freshness"]["scope_reviewed_at"]) == current
 
 
 def test_sign_manifest_refuses_wrong_private_key(tmp_path):
@@ -145,12 +166,12 @@ def test_sign_manifest_is_idempotent_over_verified_manifests(tmp_path):
         manifest_path=manifest_path,
         private_key_path=private_path,
         trusted_public_key_path=public_path,
-        reviewed_at="2026-08-26T00:00:00+00:00",
+        reviewed_at=REVIEWED_AT,
     )
     second = sign_manifest(
         manifest_path=manifest_path,
         private_key_path=private_path,
         trusted_public_key_path=public_path,
-        reviewed_at="2026-08-26T00:00:00+00:00",
+        reviewed_at=REVIEWED_AT,
     )
     assert first == second

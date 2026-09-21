@@ -1,0 +1,17 @@
+{
+  "document_id": "mevzuat_16290",
+  "status": "source_reviewed_candidate_awaiting_owner_approval",
+  "source_url": "https://www.mevzuat.gov.tr/MevzuatMetin/yonetmelik/9.5.16290.pdf",
+  "source_pdf_sha256": "c41ab368b95d7a9113e7991f4c5a8f7081457fa4031e16fc8ab7f9b572ab7b26",
+  "source_page_count": 77,
+  "original_markdown_sha256": "e8ba0c3b4cc983ddef4b2570a6bed91c0204544aaf83a16661bf9ab4dcf49e79",
+  "candidate_markdown_sha256": "f2715e00f64545c811a4ff35cb74b909b032b4f32da26c46f8e73af2a07daf41",
+  "table_count": 152,
+  "source_anomalies_preserved": [
+    "Disclosure templates keep blank amount cells; empty is not a fabricated zero.",
+    "Merged header cells are approximate pdfplumber grids, not redrawn.",
+    "Printed amendment tags such as Değişik:RG-30/4/2026-33239 remain.",
+    "Three remaining duplicate paragraphs are source section titles/labels."
+  ],
+  "next_step": "Owner approval, provenance review and governed publication remain outstanding."
+}

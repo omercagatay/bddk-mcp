@@ -427,6 +427,15 @@ class DocumentStore:
             return None
         return bytes(row["pdf_blob"])
 
+    async def get_document_quality(self, document_id: str) -> QualityAssessment | None:
+        """Assess the canonical body, never a page fragment or cached PDF blob."""
+        content = await self._pool.fetchval(
+            "SELECT markdown_content FROM public.documents WHERE document_id = $1", document_id
+        )
+        if content is None:
+            return None
+        return assess_markdown_quality(content, document_id=document_id)
+
     async def get_extraction_method(self, document_id: str) -> str | None:
         """Return the extraction_method recorded for a document, or None if absent."""
         row = await self._pool.fetchrow(

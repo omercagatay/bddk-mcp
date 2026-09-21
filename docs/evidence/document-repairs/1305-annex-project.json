@@ -1,0 +1,2259 @@
+{
+  "document_id": "1305",
+  "status": "partial_annex_source_review_not_release_ready",
+  "source_pdf_sha256": "44928bdde6309ad48559c18960e45638c50fae30b25c56675edf0796da6de065",
+  "source_pages": [
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53
+  ],
+  "input_markdown_sha256": "76499e0e88a372c7ed5aa59e0fdc00ffe351a2830dc3f51719d367071e05d2a3",
+  "output_markdown_sha256": "51e70d715b0201e4426060543aad0246ba114d3d965cae17c5d9dabeb77867df",
+  "extraction_receipt_sha256": "1f2d735f3ab4fb57c14a8fcbef82b4a5c1ec50139236f116bb07239c0afa32d2",
+  "review_notes": [
+    "All eight rendered pages visually compared with the coordinate-extracted cells. Preserve the rating map and all four classification columns.",
+    "Remove only repeated, identical running table headers; keep all data cells. Join page continuations 47, 48 and 53 to their preceding row. Page 50's leading 'karşılık hesapları.' completes page 49's activity-risk cell.",
+    "Page 49 lacks a bottom horizontal border; closing at the printed vertical endpoints retains the otherwise dropped activity-risk row. Three unruled criteria above it are split at reviewed text boundaries.",
+    "Column-by-column equality after removing whitespace verifies that joins/splits never delete, add or move content between rating categories. Listed intra-word whitespace joins are source-reviewed, not a global cleanup.",
+    "Other classification tables and complete-document source reconciliation still pending. No registry or publication changes."
+  ],
+  "source_tables": [
+    {
+      "page": 46,
+      "table": 0,
+      "bbox": [
+        71.30400499999999,
+        221.300005,
+        524.02001,
+        293.690005
+      ],
+      "rows": [
+        [
+          "1. Kategori\n(Güçlü)",
+          "2. Kategori\n(İyi)",
+          "3. Kategori\n(Yeterli)",
+          "4. Kategori\n(Zayıf)"
+        ],
+        [
+          "BBB- veya daha\nyüksek",
+          "BB+ veya BB",
+          "BB- veya B+",
+          "B veya C-"
+        ]
+      ],
+      "cells": [
+        [
+          71.30400499999999,
+          221.300005,
+          184.471995,
+          257.32998999999995
+        ],
+        [
+          71.30400499999999,
+          257.32998999999995,
+          184.471995,
+          293.690005
+        ],
+        [
+          184.471995,
+          221.300005,
+          297.649995,
+          257.32998999999995
+        ],
+        [
+          184.471995,
+          257.32998999999995,
+          297.649995,
+          293.690005
+        ],
+        [
+          297.649995,
+          221.300005,
+          410.83001,
+          257.32998999999995
+        ],
+        [
+          297.649995,
+          257.32998999999995,
+          410.83001,
+          293.690005
+        ],
+        [
+          410.83001,
+          221.300005,
+          524.02001,
+          257.32998999999995
+        ],
+        [
+          410.83001,
+          257.32998999999995,
+          524.02001,
+          293.690005
+        ]
+      ]
+    },
+    {
+      "page": 46,
+      "table": 1,
+      "bbox": [
+        71.30400499999999,
+        348.04999,
+        524.02001,
+        767.15999
+      ],
+      "rows": [
+        [
+          "",
+          "1. Kategori\n(Güçlü)",
+          "2. Kategori\n(İyi)",
+          "3. Kategori\n(Yeterli)",
+          "4. Kategori\n(Zayıf)"
+        ],
+        [
+          "1. Finansal\nGüç",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "Piyasa koşulları",
+          "Az sayıda\nrakip ya da\nkonum,\nmaliyet veya\nteknoloji\nkonularında\nönemli ve\nsüreklilik arz\neden avantaj.\nGüçlü ve artan\ntalep.",
+          "Az sayıda rakip\nya da\nortalamadan\ndaha iyi konum,\nmaliyet veya\nteknoloji\n(değişme\nihtimali bulunsa\ndahi). Güçlü ve\nsürekli talep.",
+          "Projenin\nkonum,\nmaliyet veya\nteknoloji\navantajı yok.\nTalep yeterli\nve sürekli.",
+          "Proje; konum,\nmaliyet veya\nteknoloji\naçılarından\nortalamanın\naltında. Azalan\nve zayıf talep."
+        ],
+        [
+          "Finansal oranlar\n(örneğin; Borç\nServis Oranı,\nKredi Ömrü\nKarşılama\nOranı, Proje\nÖmrü Karşılama\nOranı ve Borç-\nSermaye Oranı)",
+          "Proje risk\ndüzeyi\naçısından\ngüçlü finansal\noranlar,\nprojeye ilişkin\nçok güçlü\nekonomik tah\nminler.",
+          "Proje risk düzeyi\naçısından güçlü\nile kabul\nedilebilir\narasındaki\nfinansal oranlar.\nProjeye ilişkin\ngüçlü ekonomik\ntahminler.",
+          "Proje risk\ndüzeyi\naçısından\nortalama\nfinansal\noranlar.",
+          "Proje risk düzeyi\naçısından\nolumsuz finansal\noranlar."
+        ],
+        [
+          "Stres analizi",
+          "Proje,\nsüreklilik arz\neden ve çok\nstresli\nekonomik",
+          "Proje, stresli\nekonomik veya\nsektörel koşullar\naltında finansal\nyükümlülüklerin",
+          "Proje, bir\nekonomik\ndöngüde\nmeydana\ngelebilecek",
+          "Mevcut koşullar\nyakın zamanda\ndüzelmediği\ntakdirde, projenin"
+        ]
+      ],
+      "cells": [
+        [
+          71.30400499999999,
+          348.04999,
+          164.78000500000002,
+          376.60999
+        ],
+        [
+          71.30400499999999,
+          376.60999,
+          164.78000500000002,
+          405.29000499999995
+        ],
+        [
+          71.30400499999999,
+          405.29000499999995,
+          164.78000500000002,
+          558.06999
+        ],
+        [
+          71.30400499999999,
+          558.06999,
+          164.78000500000002,
+          697.05999
+        ],
+        [
+          71.30400499999999,
+          697.05999,
+          164.78000500000002,
+          767.15999
+        ],
+        [
+          164.78000500000002,
+          348.04999,
+          247.969995,
+          376.60999
+        ],
+        [
+          164.78000500000002,
+          376.60999,
+          247.969995,
+          405.29000499999995
+        ],
+        [
+          164.78000500000002,
+          405.29000499999995,
+          247.969995,
+          558.06999
+        ],
+        [
+          164.78000500000002,
+          558.06999,
+          247.969995,
+          697.05999
+        ],
+        [
+          164.78000500000002,
+          697.05999,
+          247.969995,
+          767.15999
+        ],
+        [
+          247.969995,
+          348.04999,
+          341.589995,
+          376.60999
+        ],
+        [
+          247.969995,
+          376.60999,
+          341.589995,
+          405.29000499999995
+        ],
+        [
+          247.969995,
+          405.29000499999995,
+          341.589995,
+          558.06999
+        ],
+        [
+          247.969995,
+          558.06999,
+          341.589995,
+          697.05999
+        ],
+        [
+          247.969995,
+          697.05999,
+          341.589995,
+          767.15999
+        ],
+        [
+          341.589995,
+          348.04999,
+          427.62999499999995,
+          376.60999
+        ],
+        [
+          341.589995,
+          376.60999,
+          427.62999499999995,
+          405.29000499999995
+        ],
+        [
+          341.589995,
+          405.29000499999995,
+          427.62999499999995,
+          558.06999
+        ],
+        [
+          341.589995,
+          558.06999,
+          427.62999499999995,
+          697.05999
+        ],
+        [
+          341.589995,
+          697.05999,
+          427.62999499999995,
+          767.15999
+        ],
+        [
+          427.62999499999995,
+          348.04999,
+          524.02001,
+          376.60999
+        ],
+        [
+          427.62999499999995,
+          376.60999,
+          524.02001,
+          405.29000499999995
+        ],
+        [
+          427.62999499999995,
+          405.29000499999995,
+          524.02001,
+          558.06999
+        ],
+        [
+          427.62999499999995,
+          558.06999,
+          524.02001,
+          697.05999
+        ],
+        [
+          427.62999499999995,
+          697.05999,
+          524.02001,
+          767.15999
+        ]
+      ]
+    },
+    {
+      "page": 47,
+      "table": 0,
+      "bbox": [
+        71.30400499999999,
+        71.27999999999997,
+        524.02001,
+        770.3999899999999
+      ],
+      "rows": [
+        [
+          "",
+          "1. Kategori\n(Güçlü)",
+          "2. Kategori\n(İyi)",
+          "3. Kategori\n(Yeterli)",
+          "4. Kategori\n(Zayıf)"
+        ],
+        [
+          "",
+          "veya sektörel\nkoşullar\naltında\nfinansal\nyükümlülükler\nini yerine\ngetirebilir.",
+          "i yerine\ngetirebilir.\nProjenin sadece\nçok stresli\nekonomik\nkoşullar altında\ntemerrüde\ndüşme ihtimali\nvardır.",
+          "olağan streslere\nkarşı\ndayanıksızdır\nve normal bir\nekonomik\ngerileme\ndöneminde\ntemerrüde\ndüşebilir.",
+          "temerrüde düşme\nihtimali vardır."
+        ],
+        [
+          "Finansal Yapı",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "Proje\nsüresine kıyasla\nkredinin\nsüresi",
+          "Projenin\nfaydalı ömrü,\nkredinin\nvadesinden\nçok daha\nuzundur.",
+          "Projenin faydalı\nömrü, kredinin\nvadesinden\nuzundur.",
+          "Projenin\nfaydalı ömrü,\nkredinin\nvadesinden\nuzundur.",
+          "Projenin faydalı\nömrü, kredinin\nvadesinden uzun\nolmayabilir."
+        ],
+        [
+          "İtfa planı",
+          "İtfa planına\ngöre geri\nödenen borç.",
+          "İtfa planına göre\ngeri ödenen\nborç.",
+          "Sınırlı sayıda\ntoplu geri\nödeme\nyapılarak itfa\nplanına göre\ngeri ödenen\nborç.",
+          "Toplu geri ödeme\nveya yüksek\nsayıda toplu geri\nödeme yapılarak\nitfa planına göre\ngeri ödenen borç."
+        ],
+        [
+          "2. Politik ve\nHukuki\nOrtam",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "Proje tipi ve risk\nazaltım\nunsurlarına göre\ntransfer riskini\nde içeren politik\nrisk",
+          "Çok düşük\npolitik risk;\ngerekirse\ngüçlü risk\nazaltıcı\nenstrümanlar.",
+          "Düşük politik\nrisk; gerekirse\nyeterli düzeyde\nrisk azaltıcı\nenstrümanlar.",
+          "Orta düzeyde\npolitik risk;\norta düzeyde\nrisk azaltıcı\nenstrümanlar.",
+          "Yüksek düzeyde\npolitik risk; risk\nazaltıcı\nenstrüman yok\nveya zayıf."
+        ],
+        [
+          "Mücbir\nsebeplerden\nkaynaklanan risk\n(savaş, iç\nkarışıklık, vb.)",
+          "Düşük risk.",
+          "Kabul edilebilir\nrisk.",
+          "Standart\nkoruma.",
+          "Tam olarak\nazaltılmamış\nönemli riskler."
+        ],
+        [
+          "Uzun vadede\ndevlet desteği ve\nprojenin ülke\niçin önemi",
+          "Proje, ülke\niçin stratejik\nöneme sahip\n(tercihen\nihracata\nyönelik proje).\nDevlet desteği\ngüçlü.",
+          "Proje, ülke için\nönemli sayılıyor.\nDevlet desteği\niyi düzeyde.",
+          "Proje, stratejik\nöneme sahip\nolmayabilir,\nfakat ülkeye\nkesin olarak\nfaydası vardır.\nDevlet\ndesteğinin\nvarlığı belirsiz.",
+          "Proje, ülke için\nönemli değil.\nDevlet desteği\nyok veya zayıf."
+        ],
+        [
+          "Hukuki ve\ndüzenleyici",
+          "Uzun vadede\nolumlu ve",
+          "Orta vadede\nolumlu ve",
+          "Mevzuat\ndeğişiklikleri,",
+          "Cari veya\ngelecek hukuki"
+        ]
+      ],
+      "cells": [
+        [
+          71.30400499999999,
+          71.27999999999997,
+          164.78000500000002,
+          99.97999499999992
+        ],
+        [
+          71.30400499999999,
+          99.97999499999992,
+          164.78000500000002,
+          224.17999499999996
+        ],
+        [
+          71.30400499999999,
+          224.17999499999996,
+          164.78000500000002,
+          238.94000499999999
+        ],
+        [
+          71.30400499999999,
+          238.94000499999999,
+          164.78000500000002,
+          322.73000499999995
+        ],
+        [
+          71.30400499999999,
+          322.73000499999995,
+          164.78000500000002,
+          420.42999
+        ],
+        [
+          71.30400499999999,
+          420.42999,
+          164.78000500000002,
+          462.790005
+        ],
+        [
+          71.30400499999999,
+          462.790005,
+          164.78000500000002,
+          546.5500199999999
+        ],
+        [
+          71.30400499999999,
+          546.5500199999999,
+          164.78000500000002,
+          616.54002
+        ],
+        [
+          71.30400499999999,
+          616.54002,
+          164.78000500000002,
+          741.83999
+        ],
+        [
+          71.30400499999999,
+          741.83999,
+          164.78000500000002,
+          770.3999899999999
+        ],
+        [
+          164.78000500000002,
+          71.27999999999997,
+          247.969995,
+          99.97999499999992
+        ],
+        [
+          164.78000500000002,
+          99.97999499999992,
+          247.969995,
+          224.17999499999996
+        ],
+        [
+          164.78000500000002,
+          224.17999499999996,
+          247.969995,
+          238.94000499999999
+        ],
+        [
+          164.78000500000002,
+          238.94000499999999,
+          247.969995,
+          322.73000499999995
+        ],
+        [
+          164.78000500000002,
+          322.73000499999995,
+          247.969995,
+          420.42999
+        ],
+        [
+          164.78000500000002,
+          420.42999,
+          247.969995,
+          462.790005
+        ],
+        [
+          164.78000500000002,
+          462.790005,
+          247.969995,
+          546.5500199999999
+        ],
+        [
+          164.78000500000002,
+          546.5500199999999,
+          247.969995,
+          616.54002
+        ],
+        [
+          164.78000500000002,
+          616.54002,
+          247.969995,
+          741.83999
+        ],
+        [
+          164.78000500000002,
+          741.83999,
+          247.969995,
+          770.3999899999999
+        ],
+        [
+          247.969995,
+          71.27999999999997,
+          341.589995,
+          99.97999499999992
+        ],
+        [
+          247.969995,
+          99.97999499999992,
+          341.589995,
+          224.17999499999996
+        ],
+        [
+          247.969995,
+          224.17999499999996,
+          341.589995,
+          238.94000499999999
+        ],
+        [
+          247.969995,
+          238.94000499999999,
+          341.589995,
+          322.73000499999995
+        ],
+        [
+          247.969995,
+          322.73000499999995,
+          341.589995,
+          420.42999
+        ],
+        [
+          247.969995,
+          420.42999,
+          341.589995,
+          462.790005
+        ],
+        [
+          247.969995,
+          462.790005,
+          341.589995,
+          546.5500199999999
+        ],
+        [
+          247.969995,
+          546.5500199999999,
+          341.589995,
+          616.54002
+        ],
+        [
+          247.969995,
+          616.54002,
+          341.589995,
+          741.83999
+        ],
+        [
+          247.969995,
+          741.83999,
+          341.589995,
+          770.3999899999999
+        ],
+        [
+          341.589995,
+          71.27999999999997,
+          427.62999499999995,
+          99.97999499999992
+        ],
+        [
+          341.589995,
+          99.97999499999992,
+          427.62999499999995,
+          224.17999499999996
+        ],
+        [
+          341.589995,
+          224.17999499999996,
+          427.62999499999995,
+          238.94000499999999
+        ],
+        [
+          341.589995,
+          238.94000499999999,
+          427.62999499999995,
+          322.73000499999995
+        ],
+        [
+          341.589995,
+          322.73000499999995,
+          427.62999499999995,
+          420.42999
+        ],
+        [
+          341.589995,
+          420.42999,
+          427.62999499999995,
+          462.790005
+        ],
+        [
+          341.589995,
+          462.790005,
+          427.62999499999995,
+          546.5500199999999
+        ],
+        [
+          341.589995,
+          546.5500199999999,
+          427.62999499999995,
+          616.54002
+        ],
+        [
+          341.589995,
+          616.54002,
+          427.62999499999995,
+          741.83999
+        ],
+        [
+          341.589995,
+          741.83999,
+          427.62999499999995,
+          770.3999899999999
+        ],
+        [
+          427.62999499999995,
+          71.27999999999997,
+          524.02001,
+          99.97999499999992
+        ],
+        [
+          427.62999499999995,
+          99.97999499999992,
+          524.02001,
+          224.17999499999996
+        ],
+        [
+          427.62999499999995,
+          224.17999499999996,
+          524.02001,
+          238.94000499999999
+        ],
+        [
+          427.62999499999995,
+          238.94000499999999,
+          524.02001,
+          322.73000499999995
+        ],
+        [
+          427.62999499999995,
+          322.73000499999995,
+          524.02001,
+          420.42999
+        ],
+        [
+          427.62999499999995,
+          420.42999,
+          524.02001,
+          462.790005
+        ],
+        [
+          427.62999499999995,
+          462.790005,
+          524.02001,
+          546.5500199999999
+        ],
+        [
+          427.62999499999995,
+          546.5500199999999,
+          524.02001,
+          616.54002
+        ],
+        [
+          427.62999499999995,
+          616.54002,
+          524.02001,
+          741.83999
+        ],
+        [
+          427.62999499999995,
+          741.83999,
+          524.02001,
+          770.3999899999999
+        ]
+      ]
+    },
+    {
+      "page": 48,
+      "table": 0,
+      "bbox": [
+        71.30400499999999,
+        71.27999999999997,
+        524.02001,
+        739.7800199999999
+      ],
+      "rows": [
+        [
+          "",
+          "1. Kategori\n(Güçlü)",
+          "2. Kategori\n(İyi)",
+          "3. Kategori\n(Yeterli)",
+          "4. Kategori\n(Zayıf)"
+        ],
+        [
+          "ortamın istikrarı\n(Yasal\ndeğişiklikler\nriski)",
+          "istikrarlı\nhukuki ortam.",
+          "istikrarlı hukuki\nortam.",
+          "kabul edilebilir\ndüzeyde bir\nkesinlikte\ntahmin\nedilebilir.",
+          "değişiklikler\nprojeyi olumsuz\netkileyebilir."
+        ],
+        [
+          "Ulusal hukuka\ngöre gereken\nbütün izinlerin\nve\nonayların alınm\nası.",
+          "Güçlü.",
+          "Yeterli.",
+          "Kabul\nedilebilir.",
+          "Zayıf."
+        ],
+        [
+          "Sözleşme,\nteminat ve\ngarantilerin\nuygulanabilirliği",
+          "Sözleşme,\nteminat ve\ngarantiler\nuygulanabilir.",
+          "Sözleşme,\nteminat ve\ngarantiler\nuygulanabilir.",
+          "Temel nitelikte\nolmayan belli\nsorunlar\nmevcut olsa\nbile, sözleşme,\nteminat ve\ngarantiler\nuygulanabilir\nsayılmaktadır.",
+          "Sözleşme,\nteminat ve\ngarantilerin\nuygulanabilirliği\nile ilgili\nçözümlenmemiş\ntemel nitelikte\nsorunlar vardır."
+        ],
+        [
+          "3. İşlem\nÖzellikleri",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "Tasarım ve\nTeknoloji Riski",
+          "Tamamen test\nedilmiş\nteknoloji ve\ntasarım.",
+          "Tamamen test\nedilmiş\nteknoloji ve\ntasarım.",
+          "Test edilmiş\nteknoloji ve\ntasarım;\nbaşlangıçta\nmevcut olan\nsorunlar güçlü\nbir tamamlama\npaketiyle\nazaltılmıştır.",
+          "Test edilmemiş\nteknoloji ve\ntasarım;\nteknolojik\nsorunlar\nmevcuttur\nve/veya karmaşık\nbir tasarım\nvardır."
+        ],
+        [
+          "İnşaat Riski\nRuhsat ve\nYerleşim",
+          "Gerekli bütün\nizinler\nalınmıştır.",
+          "Bazı izinler\nhenüz\nalınmamıştır,\nfakat alınma\nihtimali çok\nyüksektir.",
+          "Bazı izinler\nhenüz\nalınmamıştır\nfakat izin\nsüreci iyi\ntanımlanmış ve\nrutin bir işlem\nolarak\ndeğerlendirilm\nektedir.",
+          "Temel izinler\nhenüz alınmamış\nve rutin bir işlem\nolarak\ndeğerlendirilmem\nektedir. İzinler\niçin önemli\nşartların yerine\ngetirilmesi\nistenebilir."
+        ]
+      ],
+      "cells": [
+        [
+          71.30400499999999,
+          71.27999999999997,
+          164.78000500000002,
+          99.97999499999992
+        ],
+        [
+          71.30400499999999,
+          99.97999499999992,
+          164.78000500000002,
+          182.77999499999999
+        ],
+        [
+          71.30400499999999,
+          182.77999499999999,
+          164.78000500000002,
+          280.37000499999994
+        ],
+        [
+          71.30400499999999,
+          280.37000499999994,
+          164.78000500000002,
+          405.53000499999996
+        ],
+        [
+          71.30400499999999,
+          405.53000499999996,
+          164.78000500000002,
+          434.10999000000004
+        ],
+        [
+          71.30400499999999,
+          434.10999000000004,
+          164.78000500000002,
+          573.18999
+        ],
+        [
+          71.30400499999999,
+          573.18999,
+          164.78000500000002,
+          739.7800199999999
+        ],
+        [
+          164.78000500000002,
+          71.27999999999997,
+          247.969995,
+          99.97999499999992
+        ],
+        [
+          164.78000500000002,
+          99.97999499999992,
+          247.969995,
+          182.77999499999999
+        ],
+        [
+          164.78000500000002,
+          182.77999499999999,
+          247.969995,
+          280.37000499999994
+        ],
+        [
+          164.78000500000002,
+          280.37000499999994,
+          247.969995,
+          405.53000499999996
+        ],
+        [
+          164.78000500000002,
+          405.53000499999996,
+          247.969995,
+          434.10999000000004
+        ],
+        [
+          164.78000500000002,
+          434.10999000000004,
+          247.969995,
+          573.18999
+        ],
+        [
+          164.78000500000002,
+          573.18999,
+          247.969995,
+          739.7800199999999
+        ],
+        [
+          247.969995,
+          71.27999999999997,
+          341.58999500000004,
+          99.97999499999992
+        ],
+        [
+          247.969995,
+          99.97999499999992,
+          341.58999500000004,
+          182.77999499999999
+        ],
+        [
+          247.969995,
+          182.77999499999999,
+          341.58999500000004,
+          280.37000499999994
+        ],
+        [
+          247.969995,
+          280.37000499999994,
+          341.58999500000004,
+          405.53000499999996
+        ],
+        [
+          247.969995,
+          405.53000499999996,
+          341.58999500000004,
+          434.10999000000004
+        ],
+        [
+          247.969995,
+          434.10999000000004,
+          341.58999500000004,
+          573.18999
+        ],
+        [
+          247.969995,
+          573.18999,
+          341.58999500000004,
+          739.7800199999999
+        ],
+        [
+          341.58999500000004,
+          71.27999999999997,
+          427.629995,
+          99.97999499999992
+        ],
+        [
+          341.58999500000004,
+          99.97999499999992,
+          427.629995,
+          182.77999499999999
+        ],
+        [
+          341.58999500000004,
+          182.77999499999999,
+          427.629995,
+          280.37000499999994
+        ],
+        [
+          341.58999500000004,
+          280.37000499999994,
+          427.629995,
+          405.53000499999996
+        ],
+        [
+          341.58999500000004,
+          405.53000499999996,
+          427.629995,
+          434.10999000000004
+        ],
+        [
+          341.58999500000004,
+          434.10999000000004,
+          427.629995,
+          573.18999
+        ],
+        [
+          341.58999500000004,
+          573.18999,
+          427.629995,
+          739.7800199999999
+        ],
+        [
+          427.629995,
+          71.27999999999997,
+          524.02001,
+          99.97999499999992
+        ],
+        [
+          427.629995,
+          99.97999499999992,
+          524.02001,
+          182.77999499999999
+        ],
+        [
+          427.629995,
+          182.77999499999999,
+          524.02001,
+          280.37000499999994
+        ],
+        [
+          427.629995,
+          280.37000499999994,
+          524.02001,
+          405.53000499999996
+        ],
+        [
+          427.629995,
+          405.53000499999996,
+          524.02001,
+          434.10999000000004
+        ],
+        [
+          427.629995,
+          434.10999000000004,
+          524.02001,
+          573.18999
+        ],
+        [
+          427.629995,
+          573.18999,
+          524.02001,
+          739.7800199999999
+        ]
+      ]
+    },
+    {
+      "page": 49,
+      "table": 0,
+      "bbox": [
+        71.304005,
+        71.27999999999997,
+        524.02001,
+        750.12
+      ],
+      "rows": [
+        [
+          "",
+          "1. Kategori\n(Güçlü)",
+          "2. Kategori\n(İyi)",
+          "3. Kategori\n(Yeterli)",
+          "4. Kategori\n(Zayıf)"
+        ],
+        [
+          "İnşaat\nSözleşmesin\nin Tipi\nİş bitirme\ngarantileri\nMüteahhidin\nbenzer\nprojelerdeki\ndeneyimi\nve finansal\ngücü",
+          "Sabit fiyatlı ve\nbitirme tarihi\nkesin olan\nanahtar teslimi\nmühendislik,\ntedarik ve\ninşaat\nsözleşmesi.\nFinansal gücü\nçok iyi olan\nsponsorlardan\nalınan (i)\nfinansal destek\nve/veya (ii)\ngüçlü iş\nbitirme\ngarantisiyle\ndesteklenen\nçok yüksek\ntutarlı zarar\ntazminat\ntaahhüdü.\nGüçlü.",
+          "Sabit fiyatlı ve\nbitirme tarihi\nkesin olan\nanahtar teslimi\nmühendislik,\ntedarik ve inşaat\nsözleşmesi.\nFinansal gücü iyi\nolan\nsponsorlardan\nalınan (i)\nfinansal destek\nve/veya (ii) iş\nbitirme\ngarantisiyle\ndesteklenen\nyüksek tutarlı\nzarar tazminat\ntaahhüdü.\nİyi.",
+          "Bir veya birden\nfazla\nmüteahhitle\nimzalanmış,\nsabit fiyatlı ve\nbitirme tarihi\nkesin olan\nanahtar teslimi\ninşaat\nsözleşmesi.\nFinansal gücü\niyi olan\nsponsorlardan\nalınan (i)\nfinansal destek\nve/veya (ii) iş\nbitirme\ngarantisiyle\ndesteklenen\nyeterli düzeyde\nbir zarar\ntazminat\ntaahhüdü.\nYeterli.",
+          "Sabit fiyatlı\nanahtar teslimi\nsözleşmede yok\nveya kısmi olarak\nvar ve/veya\nbirden fazla\nmüteahhitle\nsorunlar var.\nYetersiz düzeyde\nzarar tazminat\ntaahhüdü olması\nya da finansal\ndestek olmaması\nveya iş bitirme\ngarantileri zayıf\nolması.\nZayıf."
+        ],
+        [
+          "Faaliyet Riski\nİşletme ve\nbakım\nsözleşmeleri\nnin\nkapsamı\nve\nniteliği",
+          "Tercihen\nsözleşme\nyükümlülükler\ninin yerine\ngetirilmesini\nteşvik eden\ngüçlü ve uzun\nsüreli bir\nsözleşme\nve/veya işlet\nme ve bakım\niçin ayrılan",
+          "Uzun süreli bir\nsözleşme\nve/veya bakım\niçin ayrılan\nkarşılık\nhesapları.",
+          "Sınırlı bir\nsözleşme veya\nbakım için\nayrılan karşılık\nhesapları.",
+          "Sözleşme\nbulunmaması\nsebebiyle risk\nazaltıcı\nenstrümanların\netkisini aşan\nyüksek işletme\nmaliyeti riski."
+        ]
+      ],
+      "cells": [
+        [
+          71.304005,
+          71.27999999999997,
+          164.78000500000002,
+          99.97999499999992
+        ],
+        [
+          71.304005,
+          99.97999499999992,
+          164.78000500000002,
+          556.3899899999999
+        ],
+        [
+          71.304005,
+          556.3899899999999,
+          164.78000500000002,
+          750.12
+        ],
+        [
+          164.78000500000002,
+          71.27999999999997,
+          247.969995,
+          99.97999499999992
+        ],
+        [
+          164.78000500000002,
+          99.97999499999992,
+          247.969995,
+          556.3899899999999
+        ],
+        [
+          164.78000500000002,
+          556.3899899999999,
+          247.969995,
+          750.12
+        ],
+        [
+          247.969995,
+          71.27999999999997,
+          341.58999500000004,
+          99.97999499999992
+        ],
+        [
+          247.969995,
+          99.97999499999992,
+          341.58999500000004,
+          556.3899899999999
+        ],
+        [
+          247.969995,
+          556.3899899999999,
+          341.58999500000004,
+          750.12
+        ],
+        [
+          341.58999500000004,
+          71.27999999999997,
+          427.629995,
+          99.97999499999992
+        ],
+        [
+          341.58999500000004,
+          99.97999499999992,
+          427.629995,
+          556.3899899999999
+        ],
+        [
+          341.58999500000004,
+          556.3899899999999,
+          427.629995,
+          750.12
+        ],
+        [
+          427.629995,
+          71.27999999999997,
+          524.02001,
+          99.97999499999992
+        ],
+        [
+          427.629995,
+          99.97999499999992,
+          524.02001,
+          556.3899899999999
+        ],
+        [
+          427.629995,
+          556.3899899999999,
+          524.02001,
+          750.12
+        ]
+      ]
+    },
+    {
+      "page": 50,
+      "table": 0,
+      "bbox": [
+        71.30400499999999,
+        71.27999999999997,
+        524.02001,
+        724.05999
+      ],
+      "rows": [
+        [
+          "",
+          "1. Kategori\n(Güçlü)",
+          "2. Kategori\n(İyi)",
+          "3. Kategori\n(Yeterli)",
+          "4. Kategori\n(Zayıf)"
+        ],
+        [
+          "İşletmecinin\nuzmanlığı,\ndeneyimi ve\nfinansal\ngücü",
+          "karşılık\nhesapları.\nÇok güçlü\nveya\nsponsorlardan\nteknik yardım\ntaahhüdü\nalınması.",
+          "Güçlü.",
+          "Kabul\nedilebilir.",
+          "Sınırlı/zayıf ya\nda yerel\notoritelere\nbağımlı yerel\nişletmeci."
+        ],
+        [
+          "Satış Riski\n(a) Al ya da\nöde\nsözleşmesi\nveya sabit\nfiyatlı satış\nsözleşmesi\nvarlığı\nhalinde",
+          "Alıcının kredi\ndeğerliliği çok\niyi, güçlü iptal\nhükümleri,\nsözleşmenin\nsüresinin\nborcun\nvadesinden\nyeterince uzun\nolması.",
+          "Alıcının kredi\ndeğerliliği iyi,\ngüçlü iptal\nhükümleri, sözl\neşmenin\nsüresinin borcun\nvadesinden uzun\nolması.",
+          "Alıcının\nfinansal gücü\nkabul edilebilir\ndüzeyde,\nnormal iptal\nhükümleri,\nsözleşmenin\nsüresi ile\nborcun\nvadesinin\nuyumlu olması.",
+          "Alıcının finansal\ngücü zayıf, zayıf\niptal hükümleri,\nsözleşmenin\nsüresinin borcun\nvadesinden kısa\nolması."
+        ],
+        [
+          "(b) Al ya da\nöde\nsözleşmesi\nveya sabit\nfiyatlı satış\nsözleşmesi\nbulunmamas\nı halinde",
+          "Proje, dünya\npiyasasında\ngeniş bir\nalanda satılan\nönemli\nhizmetler veya\nmal\nüretmektedir;\ntarihsel piyasa\nbüyüme\noranlarından\ndaha düşük\nbüyüme\noranları\ngerçekleşse\ndahi bu\nürünler\nöngörülen\nfiyatlardan\nkolaylıkla\nsatılabilir.",
+          "Proje, bölgesel\npazarda geniş bir\nalanda satılan\nönemli hizmetler\nveya mal\nüretmektedir; bu\npiyasa tarihsel\nbüyüme oranları\ngerçekleştiğinde\nbu ürünler\nöngörülen\nfiyatlardan\nsatılabilir.",
+          "Proje ürünleri\nsınırlı bir\npazarda\nsatılmaktadır\nve sadece\nöngörülen\nfiyatlardan\ndaha düşük\nfiyatlarla\nsatılabilir.",
+          "Proje ürünleri\nsadece bir veya\nbir kaç alıcı\ntarafından talep\nedilmektedir\nveya genellikle\norganize bir\npiyasada\nsatılmamaktadır."
+        ],
+        [
+          "Tedarik Riski",
+          "",
+          "",
+          "",
+          ""
+        ]
+      ],
+      "cells": [
+        [
+          71.30400499999999,
+          71.27999999999997,
+          164.78000500000002,
+          99.97999499999992
+        ],
+        [
+          71.30400499999999,
+          99.97999499999992,
+          164.78000500000002,
+          224.17999499999996
+        ],
+        [
+          71.30400499999999,
+          224.17999499999996,
+          164.78000500000002,
+          390.76998999999995
+        ],
+        [
+          71.30400499999999,
+          390.76998999999995,
+          164.78000500000002,
+          709.17999
+        ],
+        [
+          71.30400499999999,
+          709.17999,
+          164.78000500000002,
+          724.05999
+        ],
+        [
+          164.78000500000002,
+          71.27999999999997,
+          247.969995,
+          99.97999499999992
+        ],
+        [
+          164.78000500000002,
+          99.97999499999992,
+          247.969995,
+          224.17999499999996
+        ],
+        [
+          164.78000500000002,
+          224.17999499999996,
+          247.969995,
+          390.76998999999995
+        ],
+        [
+          164.78000500000002,
+          390.76998999999995,
+          247.969995,
+          709.17999
+        ],
+        [
+          164.78000500000002,
+          709.17999,
+          247.969995,
+          724.05999
+        ],
+        [
+          247.969995,
+          71.27999999999997,
+          341.589995,
+          99.97999499999992
+        ],
+        [
+          247.969995,
+          99.97999499999992,
+          341.589995,
+          224.17999499999996
+        ],
+        [
+          247.969995,
+          224.17999499999996,
+          341.589995,
+          390.76998999999995
+        ],
+        [
+          247.969995,
+          390.76998999999995,
+          341.589995,
+          709.17999
+        ],
+        [
+          247.969995,
+          709.17999,
+          341.589995,
+          724.05999
+        ],
+        [
+          341.589995,
+          71.27999999999997,
+          427.62999499999995,
+          99.97999499999992
+        ],
+        [
+          341.589995,
+          99.97999499999992,
+          427.62999499999995,
+          224.17999499999996
+        ],
+        [
+          341.589995,
+          224.17999499999996,
+          427.62999499999995,
+          390.76998999999995
+        ],
+        [
+          341.589995,
+          390.76998999999995,
+          427.62999499999995,
+          709.17999
+        ],
+        [
+          341.589995,
+          709.17999,
+          427.62999499999995,
+          724.05999
+        ],
+        [
+          427.62999499999995,
+          71.27999999999997,
+          524.02001,
+          99.97999499999992
+        ],
+        [
+          427.62999499999995,
+          99.97999499999992,
+          524.02001,
+          224.17999499999996
+        ],
+        [
+          427.62999499999995,
+          224.17999499999996,
+          524.02001,
+          390.76998999999995
+        ],
+        [
+          427.62999499999995,
+          390.76998999999995,
+          524.02001,
+          709.17999
+        ],
+        [
+          427.62999499999995,
+          709.17999,
+          524.02001,
+          724.05999
+        ]
+      ]
+    },
+    {
+      "page": 51,
+      "table": 0,
+      "bbox": [
+        71.30400499999999,
+        71.27999999999997,
+        524.02001,
+        753.5999899999999
+      ],
+      "rows": [
+        [
+          "",
+          "1. Kategori\n(Güçlü)",
+          "2. Kategori\n(İyi)",
+          "3. Kategori\n(Yeterli)",
+          "4. Kategori\n(Zayıf)"
+        ],
+        [
+          "Proje\ngirdilerinin fiyat,\nhacim ve\nnakliye\nriskleri;\ntedarikçinin\ndeneyimi ve\nfinansal\ngücü",
+          "Çok iyi\nfinansal gücü\nbulunan bir\ntedarikçiyle\nuzun süreli bir\ntedarik\nsözleşmesi\nvar.\nTedarikçinin\ngeçmiş\ndeneyimi\nmükemmel.",
+          "Finansal gücü iyi\nolan bir\ntedarikçiyle\nuzun süreli bir\ntedarik\nsözleşmesi var.\nTedarikçinin\ngeçmiş deneyimi\niyi.",
+          "Finansal gücü\niyi olan bir\ntedarikçiyle\nuzun süreli bir\ntedarik\nsözleşmesi var;\nbelirli bir\ndereceye kadar\nfiyat/hacim/na\nkliye riski söz\nkonusu\nolabilir.\nTedarikçinin\ngeçmiş\ndeneyimi\nyeterli.",
+          "Kısa vadeli bir\ntedarik sözleşme\nsi ya da finansal\ngücü zayıf olan\nbir tedarikçiyle\nuzun süreli bir\ntedarik\nsözleşmesi var;\nbelirli bir\ndereceye kadar\nfiyat/hacim/nakli\nye riski söz\nkonusudur.\nTedarikçi\ndeneyimsiz veya\ngeçmiş deneyimi\nzayıf."
+        ],
+        [
+          "Rezerv\nriskleri (örne\nğin,\nbir doğal\nkaynak\ngeliştirme\nprojesi)",
+          "Projenin ömrü\nboyunca\ngereksinimleri\nnin oldukça\nüzerinde,\nbağımsız\ndenetime tabi\ntutulmuş,\nkanıtlanmış ve\niyi\ngeliştirilmiş\nrezervler.",
+          "Projenin ömrü\nboyunca\ngereksinimlerini\nn üzerinde,\nbağımsız\ndenetime tabi\ntutulmuş,\nkanıtlanmış ve\niyi geliştirilmiş\nrezervler.",
+          "Kanıtlanmış\nrezervler\nborcun vadesi\nboyunca\nprojenin talep\nve ihtiyaçlarını\nkarşılayabilir.",
+          "Proje, belirli bir\nölçüye kadar\npotansiyel ve\ngeliştirilmemiş\nrezervlere\ndayanmaktadır."
+        ],
+        [
+          "4. Sponsoru\nn Gücü",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "Sponsorun dene\nyimi, finansal\ngücü ve\nülke/sektör\ndeneyimi",
+          "Geçmiş\ndeneyimi\nmükemmel ve\nyüksek\nfinansal gücü\nbulunan güçlü\nbir sponsor.",
+          "Geçmiş\ndeneyimi iyi ve\niyi finansal gücü\nbulunan iyi bir\nsponsor.",
+          "Geçmiş\ndeneyimi\nyeterli ve iyi\nfinansal gücü\nbulunan yeterli\nseviyede bir\nsponsor.",
+          "Deneyimsiz veya\ngeçmiş deneyimi\nyetersiz olan ve/\nveya finansal\ndurumu zayıf\nolan zayıf bir\nsponsor."
+        ],
+        [
+          "Sermaye veya\nmülkiyet hükmü\nile gerekmesi\ndurumunda ilave\nnakit yatırma\nistekliliği ile\nkanıtlanan\nsponsor desteği",
+          "Güçlü. Proje,\nsponsor için\nson derece\nstratejik (temel\nfaaliyet alanı –\nuzun vadeli\nstrateji).",
+          "İyi. Proje,\nsponsor için\nstratejik (temel\nfaaliyet alanı –\nuzun vadeli\nstrateji).",
+          "Kabul\nedilebilir.\nProje, sponsor\niçin önemli\n(temel faaliyet\nalanı).",
+          "Sınırlı. Proje,\nsponsorun uzun\nvadeli stratejisi\nveya temel\nfaaliyet alanı\naçısından önemli\ndeğil."
+        ]
+      ],
+      "cells": [
+        [
+          71.30400499999999,
+          71.27999999999997,
+          164.78000500000002,
+          99.97999499999992
+        ],
+        [
+          71.30400499999999,
+          99.97999499999992,
+          164.78000500000002,
+          335.5700049999999
+        ],
+        [
+          71.30400499999999,
+          335.5700049999999,
+          164.78000500000002,
+          515.94999
+        ],
+        [
+          71.30400499999999,
+          515.94999,
+          164.78000500000002,
+          544.50999
+        ],
+        [
+          71.30400499999999,
+          544.50999,
+          164.78000500000002,
+          642.22002
+        ],
+        [
+          71.30400499999999,
+          642.22002,
+          164.78000500000002,
+          753.5999899999999
+        ],
+        [
+          164.78000500000002,
+          71.27999999999997,
+          247.969995,
+          99.97999499999992
+        ],
+        [
+          164.78000500000002,
+          99.97999499999992,
+          247.969995,
+          335.5700049999999
+        ],
+        [
+          164.78000500000002,
+          335.5700049999999,
+          247.969995,
+          515.94999
+        ],
+        [
+          164.78000500000002,
+          515.94999,
+          247.969995,
+          544.50999
+        ],
+        [
+          164.78000500000002,
+          544.50999,
+          247.969995,
+          642.22002
+        ],
+        [
+          164.78000500000002,
+          642.22002,
+          247.969995,
+          753.5999899999999
+        ],
+        [
+          247.969995,
+          71.27999999999997,
+          341.589995,
+          99.97999499999992
+        ],
+        [
+          247.969995,
+          99.97999499999992,
+          341.589995,
+          335.5700049999999
+        ],
+        [
+          247.969995,
+          335.5700049999999,
+          341.589995,
+          515.94999
+        ],
+        [
+          247.969995,
+          515.94999,
+          341.589995,
+          544.50999
+        ],
+        [
+          247.969995,
+          544.50999,
+          341.589995,
+          642.22002
+        ],
+        [
+          247.969995,
+          642.22002,
+          341.589995,
+          753.5999899999999
+        ],
+        [
+          341.589995,
+          71.27999999999997,
+          427.62999499999995,
+          99.97999499999992
+        ],
+        [
+          341.589995,
+          99.97999499999992,
+          427.62999499999995,
+          335.5700049999999
+        ],
+        [
+          341.589995,
+          335.5700049999999,
+          427.62999499999995,
+          515.94999
+        ],
+        [
+          341.589995,
+          515.94999,
+          427.62999499999995,
+          544.50999
+        ],
+        [
+          341.589995,
+          544.50999,
+          427.62999499999995,
+          642.22002
+        ],
+        [
+          341.589995,
+          642.22002,
+          427.62999499999995,
+          753.5999899999999
+        ],
+        [
+          427.62999499999995,
+          71.27999999999997,
+          524.02001,
+          99.97999499999992
+        ],
+        [
+          427.62999499999995,
+          99.97999499999992,
+          524.02001,
+          335.5700049999999
+        ],
+        [
+          427.62999499999995,
+          335.5700049999999,
+          524.02001,
+          515.94999
+        ],
+        [
+          427.62999499999995,
+          515.94999,
+          524.02001,
+          544.50999
+        ],
+        [
+          427.62999499999995,
+          544.50999,
+          524.02001,
+          642.22002
+        ],
+        [
+          427.62999499999995,
+          642.22002,
+          524.02001,
+          753.5999899999999
+        ]
+      ]
+    },
+    {
+      "page": 52,
+      "table": 0,
+      "bbox": [
+        71.30400499999999,
+        71.27999999999997,
+        524.02001,
+        768.4799899999999
+      ],
+      "rows": [
+        [
+          "",
+          "1. Kategori\n(Güçlü)",
+          "2. Kategori\n(İyi)",
+          "3. Kategori\n(Yeterli)",
+          "4. Kategori\n(Zayıf)"
+        ],
+        [
+          "5. Alınan\nTeminatlar",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "Sözleşme ve\nhesapların\ntemliki",
+          "Tam kapsamlı.",
+          "Kapsamlı.",
+          "Kabul\nedilebilir.",
+          "Zayıf."
+        ],
+        [
+          "Varlıkların\nkalitesi, değeri\nve likiditesi\ndikkate alınarak\nvarlıkların\nteminat olarak\nalınması",
+          "Projeyi\nyürütmek için\ngereken tüm\nproje\nvarlıkları,\nsözleşmeler,\nizin ve\nhesaplar\nüzerinde\nusulünce tesis\nedilmiş birinci\nderece teminat\nhakkı.",
+          "Projeyi\nyürütmek için\ngereken tüm\nproje varlıkları,\nsözleşmeler, izin\nve hesaplar\nüzerinde\nusulünce tesis\nedilmiş teminat\nhakkı.",
+          "Projeyi\nyürütmek için\ngereken tüm\nproje varlıkları,\nsözleşmeler,\nizin ve\nhesaplar\nüzerinde kabul\nedilebilir temi\nnat hakkı.",
+          "Çok az teminat\nveya garanti;\nzayıf teminat\nhükümleri."
+        ],
+        [
+          "Kredi verenin\nnakit akışı\nüzerindeki\nkontrolü (örn.\notomatik ödeme\nve bağımsız\nbloke hesaplar)",
+          "Güçlü.",
+          "Yeterli.",
+          "Kabul\nedilebilir.",
+          "Zayıf."
+        ],
+        [
+          "Teminat\nhükümlerinin\ngücü (zorunlu\nerken geri\nödemeler,\nödeme\nertelemeleri,\nbirikmiş\nödemeler,\ntemettü\nkısıtlamaları)",
+          "Bu tip projeler\niçin teminat\nhükümlerinin\ngüçlü olması.\nProje için\nilave kredi\ntalep\nedilmeyebilir.",
+          "Bu tip projeler\niçin teminat\nhükümlerinin\nyeterli düzeyde\nolması. Proje\niçin son derece\nsınırlı ilave kredi\ntalep edilebilir.",
+          "Bu tip projeler\niçin teminat\nhükümlerinin\nkabul edilebilir\ndüzeyde\nolması. Proje\niçin sınırlı\nilave kredi\ntalep edilebilir.",
+          "Bu tip projeler\niçin teminat\nhükümlerinin\nyetersiz olması.\nProje için sınırsız\nilave kredi talep\nedilebilir."
+        ],
+        [
+          "Karşılık fonları\n(borç ödemeleri,\nişletme ve\nbakım, yenileme\nve ikame,\nbeklenmedik\nolaylar ve\nbenzeri)",
+          "Ortalamadan\ndaha uzun bir\nkapsama\nsüresi. Bütün\nkarşılık\nfonları, nakit\nolarak ya da\nyüksek\nderecelendirm\ne notu bulunan\nbir bankadan\nalınmış",
+          "Ortalama\nkapsama süresi.\nBütün karşılık\nfonları, tam\nfonlanmış\ndurumda.",
+          "Ortalama\nkapsama\nsüresi. Bütün\nkarşılık fonları,\ntam fonlanmış\ndurumda.",
+          "Ortalamadan\ndaha kısa bir\nkapsama süresi.\nKarşılık fonları,\nişletme nakit\nakışlarıyla\nfonlanmış\ndurumda."
+        ]
+      ],
+      "cells": [
+        [
+          71.30400499999999,
+          71.27999999999997,
+          164.78000500000002,
+          99.97999499999992
+        ],
+        [
+          71.30400499999999,
+          99.97999499999992,
+          164.78000500000002,
+          128.53999499999998
+        ],
+        [
+          71.30400499999999,
+          128.53999499999998,
+          164.78000500000002,
+          170.899995
+        ],
+        [
+          71.30400499999999,
+          170.899995,
+          164.78000500000002,
+          351.410005
+        ],
+        [
+          71.30400499999999,
+          351.410005,
+          164.78000500000002,
+          448.9899899999999
+        ],
+        [
+          71.30400499999999,
+          448.9899899999999,
+          164.78000500000002,
+          601.7800199999999
+        ],
+        [
+          71.30400499999999,
+          601.7800199999999,
+          164.78000500000002,
+          768.4799899999999
+        ],
+        [
+          164.78000500000002,
+          71.27999999999997,
+          247.969995,
+          99.97999499999992
+        ],
+        [
+          164.78000500000002,
+          99.97999499999992,
+          247.969995,
+          128.53999499999998
+        ],
+        [
+          164.78000500000002,
+          128.53999499999998,
+          247.969995,
+          170.899995
+        ],
+        [
+          164.78000500000002,
+          170.899995,
+          247.969995,
+          351.410005
+        ],
+        [
+          164.78000500000002,
+          351.410005,
+          247.969995,
+          448.9899899999999
+        ],
+        [
+          164.78000500000002,
+          448.9899899999999,
+          247.969995,
+          601.7800199999999
+        ],
+        [
+          164.78000500000002,
+          601.7800199999999,
+          247.969995,
+          768.4799899999999
+        ],
+        [
+          247.969995,
+          71.27999999999997,
+          341.589995,
+          99.97999499999992
+        ],
+        [
+          247.969995,
+          99.97999499999992,
+          341.589995,
+          128.53999499999998
+        ],
+        [
+          247.969995,
+          128.53999499999998,
+          341.589995,
+          170.899995
+        ],
+        [
+          247.969995,
+          170.899995,
+          341.589995,
+          351.410005
+        ],
+        [
+          247.969995,
+          351.410005,
+          341.589995,
+          448.9899899999999
+        ],
+        [
+          247.969995,
+          448.9899899999999,
+          341.589995,
+          601.7800199999999
+        ],
+        [
+          247.969995,
+          601.7800199999999,
+          341.589995,
+          768.4799899999999
+        ],
+        [
+          341.589995,
+          71.27999999999997,
+          427.62999499999995,
+          99.97999499999992
+        ],
+        [
+          341.589995,
+          99.97999499999992,
+          427.62999499999995,
+          128.53999499999998
+        ],
+        [
+          341.589995,
+          128.53999499999998,
+          427.62999499999995,
+          170.899995
+        ],
+        [
+          341.589995,
+          170.899995,
+          427.62999499999995,
+          351.410005
+        ],
+        [
+          341.589995,
+          351.410005,
+          427.62999499999995,
+          448.9899899999999
+        ],
+        [
+          341.589995,
+          448.9899899999999,
+          427.62999499999995,
+          601.7800199999999
+        ],
+        [
+          341.589995,
+          601.7800199999999,
+          427.62999499999995,
+          768.4799899999999
+        ],
+        [
+          427.62999499999995,
+          71.27999999999997,
+          524.02001,
+          99.97999499999992
+        ],
+        [
+          427.62999499999995,
+          99.97999499999992,
+          524.02001,
+          128.53999499999998
+        ],
+        [
+          427.62999499999995,
+          128.53999499999998,
+          524.02001,
+          170.899995
+        ],
+        [
+          427.62999499999995,
+          170.899995,
+          524.02001,
+          351.410005
+        ],
+        [
+          427.62999499999995,
+          351.410005,
+          524.02001,
+          448.9899899999999
+        ],
+        [
+          427.62999499999995,
+          448.9899899999999,
+          524.02001,
+          601.7800199999999
+        ],
+        [
+          427.62999499999995,
+          601.7800199999999,
+          524.02001,
+          768.4799899999999
+        ]
+      ]
+    },
+    {
+      "page": 53,
+      "table": 0,
+      "bbox": [
+        71.30400499999999,
+        71.27999999999997,
+        524.02001,
+        168.97999499999992
+      ],
+      "rows": [
+        [
+          "",
+          "1. Kategori\n(Güçlü)",
+          "2. Kategori\n(İyi)",
+          "3. Kategori\n(Yeterli)",
+          "4. Kategori\n(Zayıf)"
+        ],
+        [
+          "",
+          "akreditiflerle/t\neminat\nmektuplarıyla\ntam fonlanmış\ndurumda.",
+          "",
+          "",
+          ""
+        ]
+      ],
+      "cells": [
+        [
+          71.30400499999999,
+          71.27999999999997,
+          164.78000500000002,
+          99.97999499999992
+        ],
+        [
+          71.30400499999999,
+          99.97999499999992,
+          164.78000500000002,
+          168.97999499999992
+        ],
+        [
+          164.78000500000002,
+          71.27999999999997,
+          247.969995,
+          99.97999499999992
+        ],
+        [
+          164.78000500000002,
+          99.97999499999992,
+          247.969995,
+          168.97999499999992
+        ],
+        [
+          247.969995,
+          71.27999999999997,
+          341.58999500000004,
+          99.97999499999992
+        ],
+        [
+          247.969995,
+          99.97999499999992,
+          341.58999500000004,
+          168.97999499999992
+        ],
+        [
+          341.58999500000004,
+          71.27999999999997,
+          427.629995,
+          99.97999499999992
+        ],
+        [
+          341.58999500000004,
+          99.97999499999992,
+          427.629995,
+          168.97999499999992
+        ],
+        [
+          427.629995,
+          71.27999999999997,
+          524.02001,
+          99.97999499999992
+        ],
+        [
+          427.629995,
+          99.97999499999992,
+          524.02001,
+          168.97999499999992
+        ]
+      ]
+    }
+  ],
+  "project_column_nonwhitespace_sha256": [
+    "127411da180d05e3f31dc0c1fb2352011ae6544af08c3b57ded67f985b00f3bd",
+    "4dde391c2a3c02fe1f107d0faef6fb4e52ff13a301a056531799e4640cb9187f",
+    "1a1df77eb164e42535f0a0d9b2dd8e3c084f1f1630c67ee6e5991ad12b05d234",
+    "2e5f78cd76bffc7b726591a46a5d05f07005b5cbcdb4f5a6b666db115b51d5a9",
+    "f79034c86c18090378e32b19c894de47d3b26f7ed12cc36a1e4b287fbb442dfe"
+  ],
+  "whitespace_joins": [
+    {
+      "old": "değerlendirilmem ektedir",
+      "new": "değerlendirilmemektedir",
+      "count": 1
+    },
+    {
+      "old": "akreditiflerle/t eminat",
+      "new": "akreditiflerle/teminat",
+      "count": 1
+    },
+    {
+      "old": "değerlendirilm ektedir",
+      "new": "değerlendirilmektedir",
+      "count": 1
+    },
+    {
+      "old": "fiyat/hacim/na kliye",
+      "new": "fiyat/hacim/nakliye",
+      "count": 1
+    },
+    {
+      "old": "fiyat/hacim/nakli ye",
+      "new": "fiyat/hacim/nakliye",
+      "count": 1
+    },
+    {
+      "old": "yükümlülükler inin",
+      "new": "yükümlülüklerinin",
+      "count": 1
+    },
+    {
+      "old": "gereksinimleri nin",
+      "new": "gereksinimlerinin",
+      "count": 1
+    },
+    {
+      "old": "gereksinimlerini n",
+      "new": "gereksinimlerinin",
+      "count": 1
+    },
+    {
+      "old": "yükümlülükler ini",
+      "new": "yükümlülüklerini",
+      "count": 1
+    },
+    {
+      "old": "yükümlülüklerin i",
+      "new": "yükümlülüklerini",
+      "count": 1
+    },
+    {
+      "old": "sözleşmeleri nin",
+      "new": "sözleşmelerinin",
+      "count": 1
+    },
+    {
+      "old": "derecelendirm e",
+      "new": "derecelendirme",
+      "count": 1
+    },
+    {
+      "old": "bulunmamas ı",
+      "new": "bulunmaması",
+      "count": 1
+    },
+    {
+      "old": "sözleşme si",
+      "new": "sözleşmesi",
+      "count": 1
+    },
+    {
+      "old": "tah minler",
+      "new": "tahminler",
+      "count": 1
+    },
+    {
+      "old": "Sponsoru n",
+      "new": "Sponsorun",
+      "count": 1
+    },
+    {
+      "old": "alınm ası",
+      "new": "alınması",
+      "count": 1
+    },
+    {
+      "old": "dene yimi",
+      "new": "deneyimi",
+      "count": 1
+    },
+    {
+      "old": "işlet me",
+      "new": "işletme",
+      "count": 1
+    },
+    {
+      "old": "örne ğin",
+      "new": "örneğin",
+      "count": 1
+    },
+    {
+      "old": "ve/ veya",
+      "new": "ve/veya",
+      "count": 1
+    },
+    {
+      "old": "temi nat",
+      "new": "teminat",
+      "count": 1
+    }
+  ],
+  "project_rows": [
+    [
+      "1. Finansal Güç",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Piyasa koşulları",
+      "Az sayıda rakip ya da konum, maliyet veya teknoloji konularında önemli ve süreklilik arz eden avantaj. Güçlü ve artan talep.",
+      "Az sayıda rakip ya da ortalamadan daha iyi konum, maliyet veya teknoloji (değişme ihtimali bulunsa dahi). Güçlü ve sürekli talep.",
+      "Projenin konum, maliyet veya teknoloji avantajı yok. Talep yeterli ve sürekli.",
+      "Proje; konum, maliyet veya teknoloji açılarından ortalamanın altında. Azalan ve zayıf talep."
+    ],
+    [
+      "Finansal oranlar (örneğin; Borç Servis Oranı, Kredi Ömrü Karşılama Oranı, Proje Ömrü Karşılama Oranı ve Borç- Sermaye Oranı)",
+      "Proje risk düzeyi açısından güçlü finansal oranlar, projeye ilişkin çok güçlü ekonomik tahminler.",
+      "Proje risk düzeyi açısından güçlü ile kabul edilebilir arasındaki finansal oranlar. Projeye ilişkin güçlü ekonomik tahminler.",
+      "Proje risk düzeyi açısından ortalama finansal oranlar.",
+      "Proje risk düzeyi açısından olumsuz finansal oranlar."
+    ],
+    [
+      "Stres analizi",
+      "Proje, süreklilik arz eden ve çok stresli ekonomik veya sektörel koşullar altında finansal yükümlülüklerini yerine getirebilir.",
+      "Proje, stresli ekonomik veya sektörel koşullar altında finansal yükümlülüklerini yerine getirebilir. Projenin sadece çok stresli ekonomik koşullar altında temerrüde düşme ihtimali vardır.",
+      "Proje, bir ekonomik döngüde meydana gelebilecek olağan streslere karşı dayanıksızdır ve normal bir ekonomik gerileme döneminde temerrüde düşebilir.",
+      "Mevcut koşullar yakın zamanda düzelmediği takdirde, projenin temerrüde düşme ihtimali vardır."
+    ],
+    [
+      "Finansal Yapı",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Proje süresine kıyasla kredinin süresi",
+      "Projenin faydalı ömrü, kredinin vadesinden çok daha uzundur.",
+      "Projenin faydalı ömrü, kredinin vadesinden uzundur.",
+      "Projenin faydalı ömrü, kredinin vadesinden uzundur.",
+      "Projenin faydalı ömrü, kredinin vadesinden uzun olmayabilir."
+    ],
+    [
+      "İtfa planı",
+      "İtfa planına göre geri ödenen borç.",
+      "İtfa planına göre geri ödenen borç.",
+      "Sınırlı sayıda toplu geri ödeme yapılarak itfa planına göre geri ödenen borç.",
+      "Toplu geri ödeme veya yüksek sayıda toplu geri ödeme yapılarak itfa planına göre geri ödenen borç."
+    ],
+    [
+      "2. Politik ve Hukuki Ortam",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Proje tipi ve risk azaltım unsurlarına göre transfer riskini de içeren politik risk",
+      "Çok düşük politik risk; gerekirse güçlü risk azaltıcı enstrümanlar.",
+      "Düşük politik risk; gerekirse yeterli düzeyde risk azaltıcı enstrümanlar.",
+      "Orta düzeyde politik risk; orta düzeyde risk azaltıcı enstrümanlar.",
+      "Yüksek düzeyde politik risk; risk azaltıcı enstrüman yok veya zayıf."
+    ],
+    [
+      "Mücbir sebeplerden kaynaklanan risk (savaş, iç karışıklık, vb.)",
+      "Düşük risk.",
+      "Kabul edilebilir risk.",
+      "Standart koruma.",
+      "Tam olarak azaltılmamış önemli riskler."
+    ],
+    [
+      "Uzun vadede devlet desteği ve projenin ülke için önemi",
+      "Proje, ülke için stratejik öneme sahip (tercihen ihracata yönelik proje). Devlet desteği güçlü.",
+      "Proje, ülke için önemli sayılıyor. Devlet desteği iyi düzeyde.",
+      "Proje, stratejik öneme sahip olmayabilir, fakat ülkeye kesin olarak faydası vardır. Devlet desteğinin varlığı belirsiz.",
+      "Proje, ülke için önemli değil. Devlet desteği yok veya zayıf."
+    ],
+    [
+      "Hukuki ve düzenleyici ortamın istikrarı (Yasal değişiklikler riski)",
+      "Uzun vadede olumlu ve istikrarlı hukuki ortam.",
+      "Orta vadede olumlu ve istikrarlı hukuki ortam.",
+      "Mevzuat değişiklikleri, kabul edilebilir düzeyde bir kesinlikte tahmin edilebilir.",
+      "Cari veya gelecek hukuki değişiklikler projeyi olumsuz etkileyebilir."
+    ],
+    [
+      "Ulusal hukuka göre gereken bütün izinlerin ve onayların alınması.",
+      "Güçlü.",
+      "Yeterli.",
+      "Kabul edilebilir.",
+      "Zayıf."
+    ],
+    [
+      "Sözleşme, teminat ve garantilerin uygulanabilirliği",
+      "Sözleşme, teminat ve garantiler uygulanabilir.",
+      "Sözleşme, teminat ve garantiler uygulanabilir.",
+      "Temel nitelikte olmayan belli sorunlar mevcut olsa bile, sözleşme, teminat ve garantiler uygulanabilir sayılmaktadır.",
+      "Sözleşme, teminat ve garantilerin uygulanabilirliği ile ilgili çözümlenmemiş temel nitelikte sorunlar vardır."
+    ],
+    [
+      "3. İşlem Özellikleri",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Tasarım ve Teknoloji Riski",
+      "Tamamen test edilmiş teknoloji ve tasarım.",
+      "Tamamen test edilmiş teknoloji ve tasarım.",
+      "Test edilmiş teknoloji ve tasarım; başlangıçta mevcut olan sorunlar güçlü bir tamamlama paketiyle azaltılmıştır.",
+      "Test edilmemiş teknoloji ve tasarım; teknolojik sorunlar mevcuttur ve/veya karmaşık bir tasarım vardır."
+    ],
+    [
+      "İnşaat Riski Ruhsat ve Yerleşim",
+      "Gerekli bütün izinler alınmıştır.",
+      "Bazı izinler henüz alınmamıştır, fakat alınma ihtimali çok yüksektir.",
+      "Bazı izinler henüz alınmamıştır fakat izin süreci iyi tanımlanmış ve rutin bir işlem olarak değerlendirilmektedir.",
+      "Temel izinler henüz alınmamış ve rutin bir işlem olarak değerlendirilmemektedir. İzinler için önemli şartların yerine getirilmesi istenebilir."
+    ],
+    [
+      "İnşaat Sözleşmesinin Tipi",
+      "Sabit fiyatlı ve bitirme tarihi kesin olan anahtar teslimi mühendislik, tedarik ve inşaat sözleşmesi.",
+      "Sabit fiyatlı ve bitirme tarihi kesin olan anahtar teslimi mühendislik, tedarik ve inşaat sözleşmesi.",
+      "Bir veya birden fazla müteahhitle imzalanmış, sabit fiyatlı ve bitirme tarihi kesin olan anahtar teslimi inşaat sözleşmesi.",
+      "Sabit fiyatlı anahtar teslimi sözleşmede yok veya kısmi olarak var ve/veya birden fazla müteahhitle sorunlar var."
+    ],
+    [
+      "İş bitirme garantileri",
+      "Finansal gücü çok iyi olan sponsorlardan alınan (i) finansal destek ve/veya (ii) güçlü iş bitirme garantisiyle desteklenen çok yüksek tutarlı zarar tazminat taahhüdü.",
+      "Finansal gücü iyi olan sponsorlardan alınan (i) finansal destek ve/veya (ii) iş bitirme garantisiyle desteklenen yüksek tutarlı zarar tazminat taahhüdü.",
+      "Finansal gücü iyi olan sponsorlardan alınan (i) finansal destek ve/veya (ii) iş bitirme garantisiyle desteklenen yeterli düzeyde bir zarar tazminat taahhüdü.",
+      "Yetersiz düzeyde zarar tazminat taahhüdü olması ya da finansal destek olmaması veya iş bitirme garantileri zayıf olması."
+    ],
+    [
+      "Müteahhidin benzer projelerdeki deneyimi ve finansal gücü",
+      "Güçlü.",
+      "İyi.",
+      "Yeterli.",
+      "Zayıf."
+    ],
+    [
+      "Faaliyet Riski İşletme ve bakım sözleşmelerinin kapsamı ve niteliği",
+      "Tercihen sözleşme yükümlülüklerinin yerine getirilmesini teşvik eden güçlü ve uzun süreli bir sözleşme ve/veya işletme ve bakım için ayrılan karşılık hesapları.",
+      "Uzun süreli bir sözleşme ve/veya bakım için ayrılan karşılık hesapları.",
+      "Sınırlı bir sözleşme veya bakım için ayrılan karşılık hesapları.",
+      "Sözleşme bulunmaması sebebiyle risk azaltıcı enstrümanların etkisini aşan yüksek işletme maliyeti riski."
+    ],
+    [
+      "İşletmecinin uzmanlığı, deneyimi ve finansal gücü",
+      "Çok güçlü veya sponsorlardan teknik yardım taahhüdü alınması.",
+      "Güçlü.",
+      "Kabul edilebilir.",
+      "Sınırlı/zayıf ya da yerel otoritelere bağımlı yerel işletmeci."
+    ],
+    [
+      "Satış Riski (a) Al ya da öde sözleşmesi veya sabit fiyatlı satış sözleşmesi varlığı halinde",
+      "Alıcının kredi değerliliği çok iyi, güçlü iptal hükümleri, sözleşmenin süresinin borcun vadesinden yeterince uzun olması.",
+      "Alıcının kredi değerliliği iyi, güçlü iptal hükümleri, sözl eşmenin süresinin borcun vadesinden uzun olması.",
+      "Alıcının finansal gücü kabul edilebilir düzeyde, normal iptal hükümleri, sözleşmenin süresi ile borcun vadesinin uyumlu olması.",
+      "Alıcının finansal gücü zayıf, zayıf iptal hükümleri, sözleşmenin süresinin borcun vadesinden kısa olması."
+    ],
+    [
+      "(b) Al ya da öde sözleşmesi veya sabit fiyatlı satış sözleşmesi bulunmaması halinde",
+      "Proje, dünya piyasasında geniş bir alanda satılan önemli hizmetler veya mal üretmektedir; tarihsel piyasa büyüme oranlarından daha düşük büyüme oranları gerçekleşse dahi bu ürünler öngörülen fiyatlardan kolaylıkla satılabilir.",
+      "Proje, bölgesel pazarda geniş bir alanda satılan önemli hizmetler veya mal üretmektedir; bu piyasa tarihsel büyüme oranları gerçekleştiğinde bu ürünler öngörülen fiyatlardan satılabilir.",
+      "Proje ürünleri sınırlı bir pazarda satılmaktadır ve sadece öngörülen fiyatlardan daha düşük fiyatlarla satılabilir.",
+      "Proje ürünleri sadece bir veya bir kaç alıcı tarafından talep edilmektedir veya genellikle organize bir piyasada satılmamaktadır."
+    ],
+    [
+      "Tedarik Riski",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Proje girdilerinin fiyat, hacim ve nakliye riskleri; tedarikçinin deneyimi ve finansal gücü",
+      "Çok iyi finansal gücü bulunan bir tedarikçiyle uzun süreli bir tedarik sözleşmesi var. Tedarikçinin geçmiş deneyimi mükemmel.",
+      "Finansal gücü iyi olan bir tedarikçiyle uzun süreli bir tedarik sözleşmesi var. Tedarikçinin geçmiş deneyimi iyi.",
+      "Finansal gücü iyi olan bir tedarikçiyle uzun süreli bir tedarik sözleşmesi var; belirli bir dereceye kadar fiyat/hacim/nakliye riski söz konusu olabilir. Tedarikçinin geçmiş deneyimi yeterli.",
+      "Kısa vadeli bir tedarik sözleşmesi ya da finansal gücü zayıf olan bir tedarikçiyle uzun süreli bir tedarik sözleşmesi var; belirli bir dereceye kadar fiyat/hacim/nakliye riski söz konusudur. Tedarikçi deneyimsiz veya geçmiş deneyimi zayıf."
+    ],
+    [
+      "Rezerv riskleri (örneğin, bir doğal kaynak geliştirme projesi)",
+      "Projenin ömrü boyunca gereksinimlerinin oldukça üzerinde, bağımsız denetime tabi tutulmuş, kanıtlanmış ve iyi geliştirilmiş rezervler.",
+      "Projenin ömrü boyunca gereksinimlerinin üzerinde, bağımsız denetime tabi tutulmuş, kanıtlanmış ve iyi geliştirilmiş rezervler.",
+      "Kanıtlanmış rezervler borcun vadesi boyunca projenin talep ve ihtiyaçlarını karşılayabilir.",
+      "Proje, belirli bir ölçüye kadar potansiyel ve geliştirilmemiş rezervlere dayanmaktadır."
+    ],
+    [
+      "4. Sponsorun Gücü",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Sponsorun deneyimi, finansal gücü ve ülke/sektör deneyimi",
+      "Geçmiş deneyimi mükemmel ve yüksek finansal gücü bulunan güçlü bir sponsor.",
+      "Geçmiş deneyimi iyi ve iyi finansal gücü bulunan iyi bir sponsor.",
+      "Geçmiş deneyimi yeterli ve iyi finansal gücü bulunan yeterli seviyede bir sponsor.",
+      "Deneyimsiz veya geçmiş deneyimi yetersiz olan ve/veya finansal durumu zayıf olan zayıf bir sponsor."
+    ],
+    [
+      "Sermaye veya mülkiyet hükmü ile gerekmesi durumunda ilave nakit yatırma istekliliği ile kanıtlanan sponsor desteği",
+      "Güçlü. Proje, sponsor için son derece stratejik (temel faaliyet alanı – uzun vadeli strateji).",
+      "İyi. Proje, sponsor için stratejik (temel faaliyet alanı – uzun vadeli strateji).",
+      "Kabul edilebilir. Proje, sponsor için önemli (temel faaliyet alanı).",
+      "Sınırlı. Proje, sponsorun uzun vadeli stratejisi veya temel faaliyet alanı açısından önemli değil."
+    ],
+    [
+      "5. Alınan Teminatlar",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "Sözleşme ve hesapların temliki",
+      "Tam kapsamlı.",
+      "Kapsamlı.",
+      "Kabul edilebilir.",
+      "Zayıf."
+    ],
+    [
+      "Varlıkların kalitesi, değeri ve likiditesi dikkate alınarak varlıkların teminat olarak alınması",
+      "Projeyi yürütmek için gereken tüm proje varlıkları, sözleşmeler, izin ve hesaplar üzerinde usulünce tesis edilmiş birinci derece teminat hakkı.",
+      "Projeyi yürütmek için gereken tüm proje varlıkları, sözleşmeler, izin ve hesaplar üzerinde usulünce tesis edilmiş teminat hakkı.",
+      "Projeyi yürütmek için gereken tüm proje varlıkları, sözleşmeler, izin ve hesaplar üzerinde kabul edilebilir teminat hakkı.",
+      "Çok az teminat veya garanti; zayıf teminat hükümleri."
+    ],
+    [
+      "Kredi verenin nakit akışı üzerindeki kontrolü (örn. otomatik ödeme ve bağımsız bloke hesaplar)",
+      "Güçlü.",
+      "Yeterli.",
+      "Kabul edilebilir.",
+      "Zayıf."
+    ],
+    [
+      "Teminat hükümlerinin gücü (zorunlu erken geri ödemeler, ödeme ertelemeleri, birikmiş ödemeler, temettü kısıtlamaları)",
+      "Bu tip projeler için teminat hükümlerinin güçlü olması. Proje için ilave kredi talep edilmeyebilir.",
+      "Bu tip projeler için teminat hükümlerinin yeterli düzeyde olması. Proje için son derece sınırlı ilave kredi talep edilebilir.",
+      "Bu tip projeler için teminat hükümlerinin kabul edilebilir düzeyde olması. Proje için sınırlı ilave kredi talep edilebilir.",
+      "Bu tip projeler için teminat hükümlerinin yetersiz olması. Proje için sınırsız ilave kredi talep edilebilir."
+    ],
+    [
+      "Karşılık fonları (borç ödemeleri, işletme ve bakım, yenileme ve ikame, beklenmedik olaylar ve benzeri)",
+      "Ortalamadan daha uzun bir kapsama süresi. Bütün karşılık fonları, nakit olarak ya da yüksek derecelendirme notu bulunan bir bankadan alınmış akreditiflerle/teminat mektuplarıyla tam fonlanmış durumda.",
+      "Ortalama kapsama süresi. Bütün karşılık fonları, tam fonlanmış durumda.",
+      "Ortalama kapsama süresi. Bütün karşılık fonları, tam fonlanmış durumda.",
+      "Ortalamadan daha kısa bir kapsama süresi. Karşılık fonları, işletme nakit akışlarıyla fonlanmış durumda."
+    ]
+  ],
+  "replacements": [
+    {
+      "start": 148356,
+      "end": 161323,
+      "old": "Tablo 1\n\n1. Kategori\n(Güçlü)\n\n2. Kategori\n(İyi)\n\n3. Kategori\n(Yeterli)\n\n4. Kategori\n(Zayıf)\n\nBBB- veya daha\nyüksek\n\nBB+ veya BB\n\nBB- veya B+\n\nB veya C-\n\n Tablo 2 – Proje Finansmanı Kredilerine İlişkin Derecelendirme Düzeyleri\n\n1. Kategori\n(Güçlü)\n\n2. Kategori\n(İyi)\n\n3. Kategori\n(Yeterli)\n\n4. Kategori\n(Zayıf)\n\n1.       Finansal\n\nGüç\n\nPiyasa koşulları\n\nFinansal oranlar\n(örneğin; Borç\nServis Oranı,\nKredi Ömrü\nKarşılama\nOranı, Proje\nÖmrü Karşılama\nOranı ve Borç-\nSermaye Oranı)\n\nStres analizi\n\nAz sayıda\nrakip  ya da\nkonum,\nmaliyet veya\nteknoloji\nkonularında\nönemli ve\nsüreklilik arz\neden avantaj.\nGüçlü ve artan\ntalep.\nProje risk\ndüzeyi\naçısından\ngüçlü finansal\noranlar,\nprojeye ilişkin\nçok güçlü\nekonomik  tah\nminler.\n\nAz  sayıda  rakip\nda\nya\nortalamadan\ndaha  iyi  konum,\nmaliyet\nveya\nteknoloji\n(değişme\nihtimali  bulunsa\ndahi).  Güçlü  ve\nsürekli talep.\n\nProje risk düzeyi\naçısından  güçlü\nile kabul\nedilebilir\narasındaki\nfinansal oranlar.\nProjeye ilişkin\ngüçlü ekonomik\ntahminler.\n\nProjenin\nkonum,\nmaliyet veya\nteknoloji\navantajı yok.\nTalep yeterli\nve sürekli.\n\nProje; konum,\nmaliyet veya\nteknoloji\naçılarından\nortalamanın\naltında. Azalan\nve zayıf talep.\n\nProje risk\ndüzeyi\naçısından\nortalama\nfinansal\noranlar.\n\nProje risk düzeyi\naçısından\nolumsuz finansal\noranlar.\n\nProje,\nsüreklilik arz\neden ve çok\nstresli\nekonomik\n\nProje, stresli\nekonomik veya\nsektörel koşullar\naltında finansal\nyükümlülüklerin\n\nProje, bir\nekonomik\ndöngüde\nmeydana\ngelebilecek\n\nMevcut koşullar\nyakın zamanda\ndüzelmediği\ntakdirde, projenin\n\n1. Kategori\n(Güçlü)\nveya sektörel\nkoşullar\naltında\nfinansal\nyükümlülükler\nini yerine\ngetirebilir.\n\nProjenin\nfaydalı ömrü,\nkredinin\nvadesinden\nçok daha\nuzundur.\nİtfa planına\ngöre geri\nödenen borç.\n\n2. Kategori\n(İyi)\n\ni yerine\ngetirebilir.\nProjenin sadece\nçok stresli\nekonomik\nkoşullar altında\ntemerrüde\ndüşme ihtimali\nvardır.\n\nProjenin faydalı\nömrü, kredinin\nvadesinden\nuzundur.\n\nİtfa planına göre\ngeri ödenen\nborç.\n\n3. Kategori\n(Yeterli)\nolağan streslere\nkarşı\ndayanıksızdır\nve normal bir\nekonomik\ngerileme\ndöneminde\ntemerrüde\ndüşebilir.\n\nProjenin\nfaydalı ömrü,\nkredinin\nvadesinden\nuzundur.\n\nSınırlı sayıda\ntoplu geri\nödeme\nyapılarak itfa\nplanına göre\ngeri ödenen\nborç.\n\n4. Kategori\n(Zayıf)\ntemerrüde düşme\nihtimali vardır.\n\nProjenin faydalı\nömrü, kredinin\nvadesinden uzun\nolmayabilir.\n\nToplu geri ödeme\nveya yüksek\nsayıda toplu geri\nödeme yapılarak\nitfa planına göre\ngeri ödenen borç.\n\nÇok düşük\npolitik risk;\ngerekirse\ngüçlü risk\nazaltıcı\nenstrümanlar.\nDüşük risk.\n\nProje, ülke\niçin stratejik\nöneme sahip\n(tercihen\nihracata\nyönelik proje).\nDevlet desteği\ngüçlü.\n\nDüşük politik\nrisk; gerekirse\nyeterli düzeyde\nrisk azaltıcı\nenstrümanlar.\n\nOrta düzeyde\npolitik risk;\norta düzeyde\nrisk azaltıcı\nenstrümanlar.\n\nYüksek düzeyde\npolitik risk; risk\nazaltıcı\nenstrüman yok\nveya zayıf.\n\nKabul edilebilir\nrisk.\n\nStandart\nkoruma.\n\nTam olarak\nazaltılmamış\nönemli riskler.\n\nProje, ülke için\nönemli değil.\nDevlet desteği\nyok veya zayıf.\n\nCari veya\ngelecek hukuki\n\nProje, stratejik\nöneme sahip\nolmayabilir,\nfakat ülkeye\nkesin olarak\nfaydası vardır.\nDevlet\ndesteğinin\nvarlığı belirsiz.\nMevzuat\ndeğişiklikleri,\n\nProje, ülke için\nönemli sayılıyor.\nDevlet desteği\niyi düzeyde.\n\nFinansal Yapı\n       Proje\nsüresine kıyasla\n       kredinin\nsüresi\n\n       İtfa planı\n\n2.       Politik ve\nHukuki\nOrtam\nProje tipi ve risk\nazaltım\nunsurlarına göre\ntransfer riskini\nde içeren politik\nrisk\nMücbir\nsebeplerden\nkaynaklanan risk\n(savaş, iç\nkarışıklık, vb.)\nUzun vadede\ndevlet desteği ve\nprojenin ülke\niçin önemi\n\nHukuki ve\ndüzenleyici\n\nUzun vadede\nolumlu ve\n\nOrta vadede\nolumlu ve\n\n1. Kategori\n(Güçlü)\n\nistikrarlı\nhukuki ortam.\n\n2. Kategori\n(İyi)\nistikrarlı hukuki\nortam.\n\n3. Kategori\n(Yeterli)\nkabul edilebilir\ndüzeyde bir\nkesinlikte\ntahmin\nedilebilir.\n\n4. Kategori\n(Zayıf)\ndeğişiklikler\nprojeyi olumsuz\netkileyebilir.\n\nGüçlü.\n\nYeterli.\n\nKabul\nedilebilir.\n\nZayıf.\n\nortamın istikrarı\n(Yasal\ndeğişiklikler\nriski)\n\nUlusal hukuka\ngöre gereken\nbütün izinlerin\nve\nonayların  alınm\nası.\n\nSözleşme,\nteminat ve\ngarantilerin\nuygulanabilirliği\n\nSözleşme,\nteminat ve\ngarantiler\nuygulanabilir.\n\nSözleşme,\nteminat ve\ngarantiler\nuygulanabilir.\n\n3.       İşlem\n\nÖzellikleri\n\nTasarım ve\nTeknoloji Riski\n\nTamamen test\nedilmiş\n teknoloji ve\ntasarım.\n\nTamamen test\nedilmiş\n teknoloji ve\ntasarım.\n\nİnşaat Riski\n      Ruhsat ve\nYerleşim\n\nGerekli bütün\nizinler\nalınmıştır.\n\nBazı izinler\nhenüz\nalınmamıştır,\nfakat alınma\nihtimali çok\nyüksektir.\n\nTemel nitelikte\nolmayan belli\nsorunlar\nmevcut olsa\nbile, sözleşme,\nteminat ve\ngarantiler\nuygulanabilir\nsayılmaktadır.\n\nSözleşme,\nteminat ve\ngarantilerin\nuygulanabilirliği\nile ilgili\nçözümlenmemiş\ntemel nitelikte\nsorunlar vardır.\n\nTest edilmiş\nteknoloji ve\ntasarım;\nbaşlangıçta\nmevcut olan\nsorunlar güçlü\nbir tamamlama\npaketiyle\nazaltılmıştır.\n\nTest edilmemiş\nteknoloji ve\ntasarım;\nteknolojik\nsorunlar\nmevcuttur\nve/veya karmaşık\nbir tasarım\nvardır.\n\nBazı izinler\nhenüz\nalınmamıştır\nfakat izin\nsüreci iyi\ntanımlanmış ve\nrutin bir işlem\nolarak\ndeğerlendirilm\nektedir.\n\nTemel izinler\nhenüz alınmamış\nve rutin bir işlem\nolarak\ndeğerlendirilmem\nektedir. İzinler\niçin önemli\nşartların yerine\ngetirilmesi\nistenebilir.\n\n İnşaat\nSözleşmesin\nin Tipi\n\n1. Kategori\n(Güçlü)\nSabit fiyatlı ve\nbitirme tarihi\nkesin olan\nanahtar teslimi\nmühendislik,\ntedarik ve\ninşaat\nsözleşmesi.\n\n2. Kategori\n(İyi)\n\nSabit fiyatlı ve\nbitirme tarihi\nkesin olan\nanahtar teslimi\nmühendislik,\ntedarik ve inşaat\nsözleşmesi.\n\nFinansal gücü\nçok iyi olan\nsponsorlardan\nalınan (i)\nfinansal destek\nve/veya (ii)\ngüçlü iş\nbitirme\ngarantisiyle\ndesteklenen\nçok yüksek\ntutarlı zarar\ntazminat\ntaahhüdü.\n\nFinansal gücü iyi\nolan\nsponsorlardan\nalınan (i)\nfinansal destek\nve/veya (ii) iş\nbitirme\ngarantisiyle\ndesteklenen\nyüksek tutarlı\nzarar tazminat\ntaahhüdü.\n\n4. Kategori\n(Zayıf)\nSabit fiyatlı\nanahtar teslimi\nsözleşmede yok\nveya kısmi olarak\nvar ve/veya\nbirden fazla\nmüteahhitle\nsorunlar var.\n\nYetersiz düzeyde\nzarar tazminat\ntaahhüdü olması\nya da finansal\ndestek olmaması\nveya iş bitirme\ngarantileri zayıf\nolması.\n\n3. Kategori\n(Yeterli)\nBir veya birden\nfazla\nmüteahhitle\nimzalanmış,\nsabit fiyatlı ve\nbitirme tarihi\nkesin olan\nanahtar teslimi\ninşaat\nsözleşmesi.\n\nFinansal gücü\niyi olan\nsponsorlardan\nalınan (i)\nfinansal destek\nve/veya (ii) iş\nbitirme\ngarantisiyle\ndesteklenen\nyeterli düzeyde\nbir zarar\ntazminat\ntaahhüdü.\n\nGüçlü.\n\nİyi.\n\nYeterli.\n\nZayıf.\n\nUzun süreli bir\nsözleşme\nve/veya bakım\niçin ayrılan\nkarşılık\nhesapları.\n\nSınırlı bir\nsözleşme veya\nbakım için\nayrılan karşılık\nhesapları.\n\nTercihen\nsözleşme\nyükümlülükler\ninin yerine\ngetirilmesini\nteşvik eden\ngüçlü ve uzun\nsüreli bir\nsözleşme\nve/veya   işlet\nme ve bakım\niçin ayrılan\n\nrisk\n\nSözleşme\nbulunmaması\nsebebiyle\nazaltıcı\nenstrümanların\netkisini\nyüksek\nmaliyeti riski.\n\naşan\nişletme\n\n        İş bitirme\ngarantileri\n\n       Müteahhidin\nbenzer\n       projelerdeki\ndeneyimi\n       ve finansal\ngücü\n\nFaaliyet Riski\n      İşletme ve\nbakım\n      sözleşmeleri\nnin\n      kapsamı\n      ve\nniteliği\n\n2. Kategori\n(İyi)\n\n3. Kategori\n(Yeterli)\n\n4. Kategori\n(Zayıf)\n\nGüçlü.\n\nKabul\nedilebilir.\n\nAlıcının\nfinansal gücü\nkabul edilebilir\ndüzeyde,\nnormal iptal\nhükümleri,\nsözleşmenin\nsüresi ile\nborcun\nvadesinin\nuyumlu olması.\nProje ürünleri\nsınırlı bir\npazarda\nsatılmaktadır\nve sadece\nöngörülen\nfiyatlardan\ndaha düşük\nfiyatlarla\nsatılabilir.\n\nAlıcının kredi\ndeğerliliği iyi,\ngüçlü iptal\nhükümleri,  sözl\neşmenin\nsüresinin borcun\nvadesinden uzun\nolması.\n\nProje, bölgesel\npazarda geniş bir\nalanda satılan\nönemli hizmetler\nveya mal\nüretmektedir; bu\npiyasa tarihsel\nbüyüme oranları\ngerçekleştiğinde\nbu ürünler\nöngörülen\nfiyatlardan\nsatılabilir.\n\nSınırlı/zayıf ya\nda yerel\notoritelere\nbağımlı yerel\nişletmeci.\n\nAlıcının finansal\ngücü zayıf,  zayıf\niptal hükümleri,\nsözleşmenin\nsüresinin borcun\nvadesinden kısa\nolması.\n\nProje ürünleri\nsadece bir veya\nbir kaç alıcı\ntarafından talep\nedilmektedir\nveya genellikle\norganize bir\npiyasada\nsatılmamaktadır.\n\n1. Kategori\n(Güçlü)\n\nkarşılık\nhesapları.\nÇok güçlü\nveya\nsponsorlardan\nteknik yardım\ntaahhüdü\nalınması.\n\nAlıcının kredi\ndeğerliliği çok\niyi, güçlü iptal\nhükümleri,\nsözleşmenin\nsüresinin\nborcun\nvadesinden\nyeterince uzun\nolması.\n\nProje, dünya\npiyasasında\ngeniş bir\nalanda satılan\nönemli\nhizmetler veya\nmal\nüretmektedir;\ntarihsel piyasa\nbüyüme\noranlarından\ndaha düşük\nbüyüme\noranları\ngerçekleşse\ndahi bu\nürünler\nöngörülen\nfiyatlardan\nkolaylıkla\nsatılabilir.\n\n      İşletmecinin\nuzmanlığı,\n      deneyimi ve\nfinansal\n      gücü\n\nSatış Riski\n\n(a) Al ya da\nöde\nsözleşmesi\nveya sabit\nfiyatlı satış\nsözleşmesi\nvarlığı\nhalinde\n\n(b) Al ya da\nöde\nsözleşmesi\nveya sabit\nfiyatlı satış\nsözleşmesi\nbulunmamas\nı halinde\n\nTedarik Riski\n\n     Proje\ngirdilerinin fiyat,\n     hacim ve\nnakliye\n     riskleri;\ntedarikçinin\n     deneyimi ve\nfinansal\n     gücü\n\n2. Kategori\n(İyi)\nFinansal gücü iyi\nolan bir\ntedarikçiyle\nuzun süreli bir\ntedarik\nsözleşmesi var.\nTedarikçinin\ngeçmiş deneyimi\niyi.\n\n1. Kategori\n(Güçlü)\n\nÇok iyi\nfinansal gücü\nbulunan bir\ntedarikçiyle\nuzun süreli bir\ntedarik\nsözleşmesi\nvar.\nTedarikçinin\ngeçmiş\ndeneyimi\nmükemmel.\n\n3. Kategori\n(Yeterli)\nFinansal gücü\niyi olan bir\ntedarikçiyle\nuzun süreli bir\ntedarik\nsözleşmesi var;\nbelirli bir\ndereceye kadar\nfiyat/hacim/na\nkliye riski söz\nkonusu\nolabilir.\nTedarikçinin\ngeçmiş\ndeneyimi\nyeterli.\n\nKanıtlanmış\nrezervler\nborcun vadesi\nboyunca\nprojenin talep\nve ihtiyaçlarını\nkarşılayabilir.\n\n4. Kategori\n(Zayıf)\n\nKısa vadeli bir\ntedarik  sözleşme\nsi ya da finansal\ngücü zayıf olan\nbir tedarikçiyle\nuzun süreli bir\ntedarik\nsözleşmesi var;\nbelirli bir\ndereceye kadar\nfiyat/hacim/nakli\nye riski söz\nkonusudur.\nTedarikçi\ndeneyimsiz veya\ngeçmiş deneyimi\nzayıf.\n\nProje, belirli bir\nölçüye kadar\npotansiyel ve\ngeliştirilmemiş\nrezervlere\ndayanmaktadır.\n\nProjenin ömrü\nboyunca\ngereksinimlerini\nn üzerinde,\nbağımsız\ndenetime tabi\ntutulmuş,\nkanıtlanmış ve\niyi geliştirilmiş\nrezervler.\n\n Rezerv\nriskleri   (örne\nğin,\n      bir doğal\nkaynak\n      geliştirme\nprojesi)\n\n4.       Sponsoru\nn Gücü\nSponsorun  dene\nyimi, finansal\ngücü ve\nülke/sektör\ndeneyimi\n\nSermaye veya\nmülkiyet hükmü\nile gerekmesi\ndurumunda ilave\nnakit yatırma\nistekliliği ile\nkanıtlanan\nsponsor desteği\n\nProjenin ömrü\nboyunca\ngereksinimleri\nnin oldukça\nüzerinde,\nbağımsız\ndenetime tabi\ntutulmuş,\nkanıtlanmış ve\niyi\ngeliştirilmiş\nrezervler.\n\nGeçmiş\ndeneyimi\nmükemmel ve\nyüksek\nfinansal gücü\nbulunan güçlü\nbir sponsor.\nGüçlü. Proje,\nsponsor için\nson derece\nstratejik (temel\nfaaliyet alanı –\nuzun vadeli\nstrateji).\n\nGeçmiş\ndeneyimi iyi ve\niyi finansal gücü\nbulunan iyi bir\nsponsor.\n\nİyi. Proje,\nsponsor için\nstratejik (temel\nfaaliyet alanı –\nuzun vadeli\nstrateji).\n\nGeçmiş\ndeneyimi\nyeterli ve iyi\nfinansal gücü\nbulunan yeterli\nseviyede bir\nsponsor.\nKabul\nedilebilir.\nProje, sponsor\niçin önemli\n(temel faaliyet\nalanı).\n\nDeneyimsiz veya\ngeçmiş deneyimi\nyetersiz olan ve/\nveya finansal\ndurumu zayıf\nolan zayıf bir\nsponsor.\nSınırlı. Proje,\nsponsorun uzun\nvadeli stratejisi\nveya temel\nfaaliyet alanı\naçısından önemli\ndeğil.\n\n5.       Alınan\n\nTeminatlar\n\nSözleşme ve\nhesapların\ntemliki\nVarlıkların\nkalitesi, değeri\nve likiditesi\ndikkate alınarak\nvarlıkların\nteminat olarak\nalınması\n\nKredi verenin\nnakit akışı\nüzerindeki\nkontrolü (örn.\notomatik ödeme\nve bağımsız\nbloke hesaplar)\nTeminat\nhükümlerinin\ngücü (zorunlu\nerken geri\nödemeler,\nödeme\nertelemeleri,\nbirikmiş\nödemeler,\ntemettü\nkısıtlamaları)\nKarşılık fonları\n(borç ödemeleri,\nişletme ve\nbakım, yenileme\nve ikame,\nbeklenmedik\nolaylar ve\nbenzeri)\n\n1. Kategori\n(Güçlü)\n\n2. Kategori\n(İyi)\n\n3. Kategori\n(Yeterli)\n\n4. Kategori\n(Zayıf)\n\nTam kapsamlı.\n\nKapsamlı.\n\nKabul\nedilebilir.\n\nZayıf.\n\nProjeyi\nyürütmek için\ngereken tüm\nproje\nvarlıkları,\nsözleşmeler,\nizin ve\nhesaplar\nüzerinde\nusulünce tesis\nedilmiş birinci\nderece teminat\nhakkı.\nGüçlü.\n\nÇok az teminat\nveya garanti;\nzayıf teminat\nhükümleri.\n\nProjeyi\nyürütmek için\ngereken tüm\nproje varlıkları,\nsözleşmeler, izin\nve hesaplar\nüzerinde\nusulünce tesis\nedilmiş teminat\nhakkı.\n\nProjeyi\nyürütmek için\ngereken tüm\nproje varlıkları,\nsözleşmeler,\nizin ve\nhesaplar\nüzerinde kabul\nedilebilir  temi\nnat hakkı.\n\nYeterli.\n\nKabul\nedilebilir.\n\nZayıf.\n\nBu tip projeler\niçin teminat\nhükümlerinin\ngüçlü olması.\nProje için\nilave kredi\ntalep\nedilmeyebilir.\n\nBu tip projeler\niçin teminat\nhükümlerinin\nyeterli düzeyde\nolması. Proje\niçin son derece\nsınırlı ilave kredi\ntalep edilebilir.\n\nBu tip projeler\niçin teminat\nhükümlerinin\nkabul edilebilir\ndüzeyde\nolması. Proje\niçin sınırlı\nilave kredi\ntalep edilebilir.\n\nBu tip projeler\niçin teminat\nhükümlerinin\nyetersiz olması.\nProje için sınırsız\nilave kredi talep\nedilebilir.\n\nOrtalama\nkapsama süresi.\nBütün karşılık\nfonları, tam\nfonlanmış\ndurumda.\n\nOrtalama\nkapsama\nsüresi. Bütün\nkarşılık fonları,\ntam fonlanmış\ndurumda.\n\nOrtalamadan\ndaha kısa bir\nkapsama süresi.\nKarşılık fonları,\nişletme nakit\nakışlarıyla\nfonlanmış\ndurumda.\n\nOrtalamadan\ndaha uzun bir\nkapsama\nsüresi. Bütün\nkarşılık\nfonları, nakit\nolarak ya da\nyüksek\nderecelendirm\ne notu bulunan\nbir bankadan\nalınmış\n\n2. Kategori\n(İyi)\n\n3. Kategori\n(Yeterli)\n\n4. Kategori\n(Zayıf)\n\n1. Kategori\n(Güçlü)\nakreditiflerle/t\neminat\nmektuplarıyla\ntam fonlanmış\ndurumda.\n\n",
+      "new": "Tablo 1\n\n| 1. Kategori (Güçlü) | 2. Kategori (İyi) | 3. Kategori (Yeterli) | 4. Kategori (Zayıf) |\n| --- | --- | --- | --- |\n| BBB- veya daha yüksek | BB+ veya BB | BB- veya B+ | B veya C- |\n\nTablo 2 – Proje Finansmanı Kredilerine İlişkin Derecelendirme Düzeyleri\n\n|  | 1. Kategori (Güçlü) | 2. Kategori (İyi) | 3. Kategori (Yeterli) | 4. Kategori (Zayıf) |\n| --- | --- | --- | --- | --- |\n| 1. Finansal Güç |  |  |  |  |\n| Piyasa koşulları | Az sayıda rakip ya da konum, maliyet veya teknoloji konularında önemli ve süreklilik arz eden avantaj. Güçlü ve artan talep. | Az sayıda rakip ya da ortalamadan daha iyi konum, maliyet veya teknoloji (değişme ihtimali bulunsa dahi). Güçlü ve sürekli talep. | Projenin konum, maliyet veya teknoloji avantajı yok. Talep yeterli ve sürekli. | Proje; konum, maliyet veya teknoloji açılarından ortalamanın altında. Azalan ve zayıf talep. |\n| Finansal oranlar (örneğin; Borç Servis Oranı, Kredi Ömrü Karşılama Oranı, Proje Ömrü Karşılama Oranı ve Borç- Sermaye Oranı) | Proje risk düzeyi açısından güçlü finansal oranlar, projeye ilişkin çok güçlü ekonomik tahminler. | Proje risk düzeyi açısından güçlü ile kabul edilebilir arasındaki finansal oranlar. Projeye ilişkin güçlü ekonomik tahminler. | Proje risk düzeyi açısından ortalama finansal oranlar. | Proje risk düzeyi açısından olumsuz finansal oranlar. |\n| Stres analizi | Proje, süreklilik arz eden ve çok stresli ekonomik veya sektörel koşullar altında finansal yükümlülüklerini yerine getirebilir. | Proje, stresli ekonomik veya sektörel koşullar altında finansal yükümlülüklerini yerine getirebilir. Projenin sadece çok stresli ekonomik koşullar altında temerrüde düşme ihtimali vardır. | Proje, bir ekonomik döngüde meydana gelebilecek olağan streslere karşı dayanıksızdır ve normal bir ekonomik gerileme döneminde temerrüde düşebilir. | Mevcut koşullar yakın zamanda düzelmediği takdirde, projenin temerrüde düşme ihtimali vardır. |\n| Finansal Yapı |  |  |  |  |\n| Proje süresine kıyasla kredinin süresi | Projenin faydalı ömrü, kredinin vadesinden çok daha uzundur. | Projenin faydalı ömrü, kredinin vadesinden uzundur. | Projenin faydalı ömrü, kredinin vadesinden uzundur. | Projenin faydalı ömrü, kredinin vadesinden uzun olmayabilir. |\n| İtfa planı | İtfa planına göre geri ödenen borç. | İtfa planına göre geri ödenen borç. | Sınırlı sayıda toplu geri ödeme yapılarak itfa planına göre geri ödenen borç. | Toplu geri ödeme veya yüksek sayıda toplu geri ödeme yapılarak itfa planına göre geri ödenen borç. |\n| 2. Politik ve Hukuki Ortam |  |  |  |  |\n| Proje tipi ve risk azaltım unsurlarına göre transfer riskini de içeren politik risk | Çok düşük politik risk; gerekirse güçlü risk azaltıcı enstrümanlar. | Düşük politik risk; gerekirse yeterli düzeyde risk azaltıcı enstrümanlar. | Orta düzeyde politik risk; orta düzeyde risk azaltıcı enstrümanlar. | Yüksek düzeyde politik risk; risk azaltıcı enstrüman yok veya zayıf. |\n| Mücbir sebeplerden kaynaklanan risk (savaş, iç karışıklık, vb.) | Düşük risk. | Kabul edilebilir risk. | Standart koruma. | Tam olarak azaltılmamış önemli riskler. |\n| Uzun vadede devlet desteği ve projenin ülke için önemi | Proje, ülke için stratejik öneme sahip (tercihen ihracata yönelik proje). Devlet desteği güçlü. | Proje, ülke için önemli sayılıyor. Devlet desteği iyi düzeyde. | Proje, stratejik öneme sahip olmayabilir, fakat ülkeye kesin olarak faydası vardır. Devlet desteğinin varlığı belirsiz. | Proje, ülke için önemli değil. Devlet desteği yok veya zayıf. |\n| Hukuki ve düzenleyici ortamın istikrarı (Yasal değişiklikler riski) | Uzun vadede olumlu ve istikrarlı hukuki ortam. | Orta vadede olumlu ve istikrarlı hukuki ortam. | Mevzuat değişiklikleri, kabul edilebilir düzeyde bir kesinlikte tahmin edilebilir. | Cari veya gelecek hukuki değişiklikler projeyi olumsuz etkileyebilir. |\n| Ulusal hukuka göre gereken bütün izinlerin ve onayların alınması. | Güçlü. | Yeterli. | Kabul edilebilir. | Zayıf. |\n| Sözleşme, teminat ve garantilerin uygulanabilirliği | Sözleşme, teminat ve garantiler uygulanabilir. | Sözleşme, teminat ve garantiler uygulanabilir. | Temel nitelikte olmayan belli sorunlar mevcut olsa bile, sözleşme, teminat ve garantiler uygulanabilir sayılmaktadır. | Sözleşme, teminat ve garantilerin uygulanabilirliği ile ilgili çözümlenmemiş temel nitelikte sorunlar vardır. |\n| 3. İşlem Özellikleri |  |  |  |  |\n| Tasarım ve Teknoloji Riski | Tamamen test edilmiş teknoloji ve tasarım. | Tamamen test edilmiş teknoloji ve tasarım. | Test edilmiş teknoloji ve tasarım; başlangıçta mevcut olan sorunlar güçlü bir tamamlama paketiyle azaltılmıştır. | Test edilmemiş teknoloji ve tasarım; teknolojik sorunlar mevcuttur ve/veya karmaşık bir tasarım vardır. |\n| İnşaat Riski Ruhsat ve Yerleşim | Gerekli bütün izinler alınmıştır. | Bazı izinler henüz alınmamıştır, fakat alınma ihtimali çok yüksektir. | Bazı izinler henüz alınmamıştır fakat izin süreci iyi tanımlanmış ve rutin bir işlem olarak değerlendirilmektedir. | Temel izinler henüz alınmamış ve rutin bir işlem olarak değerlendirilmemektedir. İzinler için önemli şartların yerine getirilmesi istenebilir. |\n| İnşaat Sözleşmesinin Tipi | Sabit fiyatlı ve bitirme tarihi kesin olan anahtar teslimi mühendislik, tedarik ve inşaat sözleşmesi. | Sabit fiyatlı ve bitirme tarihi kesin olan anahtar teslimi mühendislik, tedarik ve inşaat sözleşmesi. | Bir veya birden fazla müteahhitle imzalanmış, sabit fiyatlı ve bitirme tarihi kesin olan anahtar teslimi inşaat sözleşmesi. | Sabit fiyatlı anahtar teslimi sözleşmede yok veya kısmi olarak var ve/veya birden fazla müteahhitle sorunlar var. |\n| İş bitirme garantileri | Finansal gücü çok iyi olan sponsorlardan alınan (i) finansal destek ve/veya (ii) güçlü iş bitirme garantisiyle desteklenen çok yüksek tutarlı zarar tazminat taahhüdü. | Finansal gücü iyi olan sponsorlardan alınan (i) finansal destek ve/veya (ii) iş bitirme garantisiyle desteklenen yüksek tutarlı zarar tazminat taahhüdü. | Finansal gücü iyi olan sponsorlardan alınan (i) finansal destek ve/veya (ii) iş bitirme garantisiyle desteklenen yeterli düzeyde bir zarar tazminat taahhüdü. | Yetersiz düzeyde zarar tazminat taahhüdü olması ya da finansal destek olmaması veya iş bitirme garantileri zayıf olması. |\n| Müteahhidin benzer projelerdeki deneyimi ve finansal gücü | Güçlü. | İyi. | Yeterli. | Zayıf. |\n| Faaliyet Riski İşletme ve bakım sözleşmelerinin kapsamı ve niteliği | Tercihen sözleşme yükümlülüklerinin yerine getirilmesini teşvik eden güçlü ve uzun süreli bir sözleşme ve/veya işletme ve bakım için ayrılan karşılık hesapları. | Uzun süreli bir sözleşme ve/veya bakım için ayrılan karşılık hesapları. | Sınırlı bir sözleşme veya bakım için ayrılan karşılık hesapları. | Sözleşme bulunmaması sebebiyle risk azaltıcı enstrümanların etkisini aşan yüksek işletme maliyeti riski. |\n| İşletmecinin uzmanlığı, deneyimi ve finansal gücü | Çok güçlü veya sponsorlardan teknik yardım taahhüdü alınması. | Güçlü. | Kabul edilebilir. | Sınırlı/zayıf ya da yerel otoritelere bağımlı yerel işletmeci. |\n| Satış Riski (a) Al ya da öde sözleşmesi veya sabit fiyatlı satış sözleşmesi varlığı halinde | Alıcının kredi değerliliği çok iyi, güçlü iptal hükümleri, sözleşmenin süresinin borcun vadesinden yeterince uzun olması. | Alıcının kredi değerliliği iyi, güçlü iptal hükümleri, sözl eşmenin süresinin borcun vadesinden uzun olması. | Alıcının finansal gücü kabul edilebilir düzeyde, normal iptal hükümleri, sözleşmenin süresi ile borcun vadesinin uyumlu olması. | Alıcının finansal gücü zayıf, zayıf iptal hükümleri, sözleşmenin süresinin borcun vadesinden kısa olması. |\n| (b) Al ya da öde sözleşmesi veya sabit fiyatlı satış sözleşmesi bulunmaması halinde | Proje, dünya piyasasında geniş bir alanda satılan önemli hizmetler veya mal üretmektedir; tarihsel piyasa büyüme oranlarından daha düşük büyüme oranları gerçekleşse dahi bu ürünler öngörülen fiyatlardan kolaylıkla satılabilir. | Proje, bölgesel pazarda geniş bir alanda satılan önemli hizmetler veya mal üretmektedir; bu piyasa tarihsel büyüme oranları gerçekleştiğinde bu ürünler öngörülen fiyatlardan satılabilir. | Proje ürünleri sınırlı bir pazarda satılmaktadır ve sadece öngörülen fiyatlardan daha düşük fiyatlarla satılabilir. | Proje ürünleri sadece bir veya bir kaç alıcı tarafından talep edilmektedir veya genellikle organize bir piyasada satılmamaktadır. |\n| Tedarik Riski |  |  |  |  |\n| Proje girdilerinin fiyat, hacim ve nakliye riskleri; tedarikçinin deneyimi ve finansal gücü | Çok iyi finansal gücü bulunan bir tedarikçiyle uzun süreli bir tedarik sözleşmesi var. Tedarikçinin geçmiş deneyimi mükemmel. | Finansal gücü iyi olan bir tedarikçiyle uzun süreli bir tedarik sözleşmesi var. Tedarikçinin geçmiş deneyimi iyi. | Finansal gücü iyi olan bir tedarikçiyle uzun süreli bir tedarik sözleşmesi var; belirli bir dereceye kadar fiyat/hacim/nakliye riski söz konusu olabilir. Tedarikçinin geçmiş deneyimi yeterli. | Kısa vadeli bir tedarik sözleşmesi ya da finansal gücü zayıf olan bir tedarikçiyle uzun süreli bir tedarik sözleşmesi var; belirli bir dereceye kadar fiyat/hacim/nakliye riski söz konusudur. Tedarikçi deneyimsiz veya geçmiş deneyimi zayıf. |\n| Rezerv riskleri (örneğin, bir doğal kaynak geliştirme projesi) | Projenin ömrü boyunca gereksinimlerinin oldukça üzerinde, bağımsız denetime tabi tutulmuş, kanıtlanmış ve iyi geliştirilmiş rezervler. | Projenin ömrü boyunca gereksinimlerinin üzerinde, bağımsız denetime tabi tutulmuş, kanıtlanmış ve iyi geliştirilmiş rezervler. | Kanıtlanmış rezervler borcun vadesi boyunca projenin talep ve ihtiyaçlarını karşılayabilir. | Proje, belirli bir ölçüye kadar potansiyel ve geliştirilmemiş rezervlere dayanmaktadır. |\n| 4. Sponsorun Gücü |  |  |  |  |\n| Sponsorun deneyimi, finansal gücü ve ülke/sektör deneyimi | Geçmiş deneyimi mükemmel ve yüksek finansal gücü bulunan güçlü bir sponsor. | Geçmiş deneyimi iyi ve iyi finansal gücü bulunan iyi bir sponsor. | Geçmiş deneyimi yeterli ve iyi finansal gücü bulunan yeterli seviyede bir sponsor. | Deneyimsiz veya geçmiş deneyimi yetersiz olan ve/veya finansal durumu zayıf olan zayıf bir sponsor. |\n| Sermaye veya mülkiyet hükmü ile gerekmesi durumunda ilave nakit yatırma istekliliği ile kanıtlanan sponsor desteği | Güçlü. Proje, sponsor için son derece stratejik (temel faaliyet alanı – uzun vadeli strateji). | İyi. Proje, sponsor için stratejik (temel faaliyet alanı – uzun vadeli strateji). | Kabul edilebilir. Proje, sponsor için önemli (temel faaliyet alanı). | Sınırlı. Proje, sponsorun uzun vadeli stratejisi veya temel faaliyet alanı açısından önemli değil. |\n| 5. Alınan Teminatlar |  |  |  |  |\n| Sözleşme ve hesapların temliki | Tam kapsamlı. | Kapsamlı. | Kabul edilebilir. | Zayıf. |\n| Varlıkların kalitesi, değeri ve likiditesi dikkate alınarak varlıkların teminat olarak alınması | Projeyi yürütmek için gereken tüm proje varlıkları, sözleşmeler, izin ve hesaplar üzerinde usulünce tesis edilmiş birinci derece teminat hakkı. | Projeyi yürütmek için gereken tüm proje varlıkları, sözleşmeler, izin ve hesaplar üzerinde usulünce tesis edilmiş teminat hakkı. | Projeyi yürütmek için gereken tüm proje varlıkları, sözleşmeler, izin ve hesaplar üzerinde kabul edilebilir teminat hakkı. | Çok az teminat veya garanti; zayıf teminat hükümleri. |\n| Kredi verenin nakit akışı üzerindeki kontrolü (örn. otomatik ödeme ve bağımsız bloke hesaplar) | Güçlü. | Yeterli. | Kabul edilebilir. | Zayıf. |\n| Teminat hükümlerinin gücü (zorunlu erken geri ödemeler, ödeme ertelemeleri, birikmiş ödemeler, temettü kısıtlamaları) | Bu tip projeler için teminat hükümlerinin güçlü olması. Proje için ilave kredi talep edilmeyebilir. | Bu tip projeler için teminat hükümlerinin yeterli düzeyde olması. Proje için son derece sınırlı ilave kredi talep edilebilir. | Bu tip projeler için teminat hükümlerinin kabul edilebilir düzeyde olması. Proje için sınırlı ilave kredi talep edilebilir. | Bu tip projeler için teminat hükümlerinin yetersiz olması. Proje için sınırsız ilave kredi talep edilebilir. |\n| Karşılık fonları (borç ödemeleri, işletme ve bakım, yenileme ve ikame, beklenmedik olaylar ve benzeri) | Ortalamadan daha uzun bir kapsama süresi. Bütün karşılık fonları, nakit olarak ya da yüksek derecelendirme notu bulunan bir bankadan alınmış akreditiflerle/teminat mektuplarıyla tam fonlanmış durumda. | Ortalama kapsama süresi. Bütün karşılık fonları, tam fonlanmış durumda. | Ortalama kapsama süresi. Bütün karşılık fonları, tam fonlanmış durumda. | Ortalamadan daha kısa bir kapsama süresi. Karşılık fonları, işletme nakit akışlarıyla fonlanmış durumda. |\n\n"
+    }
+  ]
+}

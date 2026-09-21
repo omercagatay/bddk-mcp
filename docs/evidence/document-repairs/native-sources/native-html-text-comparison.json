@@ -1,0 +1,37 @@
+[
+  {
+    "part": "21192",
+    "ordered_native_and_html_body_tokens_equal": true,
+    "body_tokens": 16544,
+    "html_tokens": 16544,
+    "separate_footer_page_marker": null
+  },
+  {
+    "part": "EK-1",
+    "ordered_native_and_html_body_tokens_equal": true,
+    "body_tokens": 5442,
+    "html_tokens": 5442,
+    "separate_footer_page_marker": "16"
+  },
+  {
+    "part": "EK-2",
+    "ordered_native_and_html_body_tokens_equal": true,
+    "body_tokens": 15706,
+    "html_tokens": 15706,
+    "separate_footer_page_marker": null
+  },
+  {
+    "part": "EK-3",
+    "ordered_native_and_html_body_tokens_equal": true,
+    "body_tokens": 1897,
+    "html_tokens": 1897,
+    "separate_footer_page_marker": "6"
+  },
+  {
+    "part": "EK-4",
+    "ordered_native_and_html_body_tokens_equal": true,
+    "body_tokens": 4073,
+    "html_tokens": 4073,
+    "separate_footer_page_marker": null
+  }
+]

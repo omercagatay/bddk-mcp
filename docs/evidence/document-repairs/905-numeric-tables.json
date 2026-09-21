@@ -1,0 +1,119 @@
+{
+  "document_id": "905",
+  "status": "partial_numerical_repair_not_release_ready",
+  "source_pages": [
+    7,
+    24,
+    31,
+    32,
+    33,
+    34,
+    35
+  ],
+  "input_markdown_sha256": "1369b4b30a3e72207ec3a317cb5feaec0037117c8903b75ba647294a5f0cadc3",
+  "output_markdown_sha256": "cfc6b3b539433400a0e7b38f38f60a7adde732690376fb83edb0e715d9dce4f2",
+  "review_notes": [
+    "Four numerical tables reconstructed; adjacent page-35 grids joined by their printed rows. No printed values recalculated.",
+    "Footnote markers 1-3, 6-15 are superscripts, not extra decimal digits. Font-size inspection across all 42 source pages identifies 16 body superscript references (including the repeated 7). Four are restored in table cells; the other twelve are restored without changing surrounding prose. Footnote 10 and printed footer 31 moved after the cross-page table; their text is unchanged.",
+    "Preserve printed 40.000.000 row value 31.111.111,11 and total 411.827.746,45, even though arithmetic is inconsistent.",
+    "All placeholder ellipses are preserved. Other pages still require review; registry and signed corpus unchanged."
+  ],
+  "replacements": [
+    {
+      "start": 11562,
+      "end": 11573,
+      "old": "alacaklar1,",
+      "new": "alacaklar¹,"
+    },
+    {
+      "start": 11673,
+      "end": 11684,
+      "old": "alacaklar2”",
+      "new": "alacaklar²”"
+    },
+    {
+      "start": 12052,
+      "end": 12060,
+      "old": "gereği3\n",
+      "new": "gereği³\n"
+    },
+    {
+      "start": 51411,
+      "end": 51425,
+      "old": "sağlayan6  bir",
+      "new": "sağlayan⁶  bir"
+    },
+    {
+      "start": 51500,
+      "end": 51520,
+      "old": "sınıflarından7 uygun",
+      "new": "sınıflarından⁷ uygun"
+    },
+    {
+      "start": 65287,
+      "end": 65293,
+      "old": "%3508 ",
+      "new": "%350⁸ "
+    },
+    {
+      "start": 65721,
+      "end": 65729,
+      "old": "%1.2509 ",
+      "new": "%1.250⁹ "
+    },
+    {
+      "start": 68860,
+      "end": 69044,
+      "old": " Menkul Kıymetleştirmeye Konu Pozisyon Tutarı\n\n185.000.000 TL\n\nUygulanacak Ağırlıklı Ortalama Risk Ağırlığı10\n\n0,75\n\nMenkul Kıymetleştirme Öncesi Risk Ağırlıklı Tutar\n\n138.750.000 TL\n\n",
+      "new": "| | |\n| --- | --- |\n| Menkul Kıymetleştirmeye Konu Pozisyon Tutarı | 185.000.000 TL |\n| Uygulanacak Ağırlıklı Ortalama Risk Ağırlığı¹⁰ | 0,75 |\n| Menkul Kıymetleştirme Öncesi Risk Ağırlıklı Tutar | 138.750.000 TL |\n\n"
+    },
+    {
+      "start": 69191,
+      "end": 70304,
+      "old": "Nominal\nVDMK\n\nYoğunlaşma\n\nVarlıklara,\nYönetmelik\n\nDerecelendi\nrilmemiş\n\nDerecelendirilmemiş\nRisk\nPozisyonun\n\n10 Menkul kıymetleştirilecek alacakların tamamının “Perakende Alacaklar” risk sınıfında olduğu kabul edilmiştir.\nBu  sebeple  uygulanacak  risk  ağırlığı  %75  olarak  belirlenmektedir.  Menkul  kıymetleştirilecek  alacakların  farklı\nrisk ağırlıklarına tekabül eden alacaklardan oluşması durumunda ise Tebliğin 18’inci maddesinin ikinci fıkrasında\nbelirtildiği şekilde ağırlıklı ortalama risk ağırlığı hesaplanmalıdır. Konuya ilişkin örnek, Ek: E 4.3 numaralı başlıkta\nverilmiştir.\n\n31\n\nTutarı\n\nOranı\n\nAğırlıklı Tutarı\n\nHükümleri  Uyarınca\nUygulanacak  Ağırlıklı\nOrtalama\nRisk\nAğırlığı\n\nPozisyon\nRisk\nAğırlığı\n\n(12,50’den\nbüyük\nolamaz)\n\n50.000.000\n\n40.000.000\n\n35.000.000\n\n25.000.000\n\n20.000.000\n\n1,00\n\n1,37\n\n1,95\n\n3,08\n\n5,29\n\n10.000.000\n\n12,33\n\n0,75\n\n0,75\n\n0,75\n\n0,75\n\n0,75\n\n0,75\n\n5.000.000\n\n37\n\n0,75\n\n0,75\n\n1,03\n\n1,46\n\n2,31\n\n3,96\n\n9,25\n\n12,50\n(37*0,75>1\n2,50)\n\n37.500.000,00\n\n31.111.111,11\n\n51.118.421,05\n\n57.812.500,00\n\n79.285.714,29\n\n92.500.000,00\n\n62.500.000\n\n185.000.000\n\nToplam=\n\n411.827.746,45\n\n",
+      "new": "| Nominal VDMK Tutarı | Yoğunlaşma Oranı | Varlıklara, Yönetmelik Hükümleri Uyarınca Uygulanacak Ağırlıklı Ortalama Risk Ağırlığı | Derecelendirilmemiş Pozisyon Risk Ağırlığı (12,50’den büyük olamaz) | Derecelendirilmemiş Pozisyonun Risk Ağırlıklı Tutarı |\n| --- | --- | --- | --- | --- |\n| 50.000.000 | 1,00 | 0,75 | 0,75 | 37.500.000,00 |\n| 40.000.000 | 1,37 | 0,75 | 1,03 | 31.111.111,11 |\n| 35.000.000 | **1,95** | **0,75** | **1,46** | **51.118.421,05** |\n| 25.000.000 | 3,08 | 0,75 | 2,31 | 57.812.500,00 |\n| 20.000.000 | 5,29 | 0,75 | 3,96 | 79.285.714,29 |\n| 10.000.000 | 12,33 | 0,75 | 9,25 | 92.500.000,00 |\n| 5.000.000 | **37** | 0,75 | **12,50 (37*0,75>12,50)** | **62.500.000** |\n| **185.000.000** | | | Toplam= | **411.827.746,45** |\n\n10 Menkul kıymetleştirilecek alacakların tamamının “Perakende Alacaklar” risk sınıfında olduğu kabul edilmiştir.\nBu  sebeple  uygulanacak  risk  ağırlığı  %75  olarak  belirlenmektedir.  Menkul  kıymetleştirilecek  alacakların  farklı\nrisk ağırlıklarına tekabül eden alacaklardan oluşması durumunda ise Tebliğin 18’inci maddesinin ikinci fıkrasında\nbelirtildiği şekilde ağırlıklı ortalama risk ağırlığı hesaplanmalıdır. Konuya ilişkin örnek, Ek: E 4.3 numaralı başlıkta\nverilmiştir.\n\n\n31\n\n"
+    },
+    {
+      "start": 70487,
+      "end": 70508,
+      "old": "bulunan 1,9511 değeri",
+      "new": "bulunan 1,95¹¹ değeri"
+    },
+    {
+      "start": 70562,
+      "end": 70583,
+      "old": "risk  ağırlığı12  %75",
+      "new": "risk  ağırlığı¹²  %75"
+    },
+    {
+      "start": 70660,
+      "end": 70681,
+      "old": "bulunan 1,4613 değeri",
+      "new": "bulunan 1,46¹³ değeri"
+    },
+    {
+      "start": 70736,
+      "end": 70766,
+      "old": "bulunan 51.118.421,0514 değeri",
+      "new": "bulunan 51.118.421,05¹⁴ değeri"
+    },
+    {
+      "start": 72329,
+      "end": 72345,
+      "old": "kabul edilsin.15",
+      "new": "kabul edilsin.¹⁵"
+    },
+    {
+      "start": 72347,
+      "end": 72759,
+      "old": "Nominal\nVDMK\nTutarı\n\nYoğunlaşma\nOranı\n\nVarlıklara,\nHükümleri\nUygulanacak\nOrtalama Risk Ağırlığı\n\nYönetmelik\nUyarınca\nAğırlıklı\n\nDerecelendirilme\nmiş\nRisk Ağırlığı\n\nPozisyon\n\nDerecelen\ndirilmemiş\nPozisyon\nRisk\nTutarı\n\n50.000.000\n\n40.000.000\n\n35.000.000\n\n25.000.000\n\n20.000.000\n\n10.000.000\n\n5.000.000\n\n185.000.000\n\n1,00\n\n1,37\n\n1,95\n\n3,08\n\n…\n\n…\n\n…\n\nA\n\nB\n\nC\n\nD\n\nE\n\nF\n\nG\n\n…\n\n…\n\n…\n\n…\n\n…\n\n…\n\n…\n\n…\n\n…\n\n…\n\n…\n\n…\n\n…\n\n…\n\n…\n\n",
+      "new": "| Nominal VDMK Tutarı | Yoğunlaşma Oranı | Varlıklara, Yönetmelik Hükümleri Uyarınca Uygulanacak Ağırlıklı Ortalama Risk Ağırlığı | Derecelendirilmemiş Pozisyon Risk Ağırlığı | Derecelendirilmemiş Pozisyon Risk Tutarı |\n| --- | --- | --- | --- | --- |\n| 50.000.000 | 1,00 | A | … | … |\n| 40.000.000 | 1,37 | B | … | … |\n| 35.000.000 | 1,95 | C | … | … |\n| 25.000.000 | 3,08 | D | … | … |\n| 20.000.000 | … | E | … | … |\n| 10.000.000 | … | F | … | … |\n| 5.000.000 | … | G | … | … |\n| **185.000.000** | | | | … |\n\n"
+    },
+    {
+      "start": 73234,
+      "end": 73557,
+      "old": "Dilimin\nNominal\nTutarı\n\nDilimi\noluşturan alacak\ntutarları\n\nDilimi  oluşturan  alacak\ntutarlarının\ntekabül\nettiği risk ağırlıkları\n\nHesaplanan\nrisk\nağırlıklı\ntutar\n\n50.000.000\n\n40.000.000\n\n%0\n\n  40.000.000*%0=\n\n0\n\n8.000.000\n\n2.000.000\n\n%20\n\n  8.000.000*%20=\n\n1.600.000\n\n%50\n\n  2.000.000*%50=\n\n1.000.000\n\nTOPLAM:\n\n2.600.000\n\n",
+      "new": "| Dilimin Nominal Tutarı | Dilimi oluşturan alacak tutarları | Dilimi oluşturan alacak tutarlarının tekabül ettiği risk ağırlıkları | | Hesaplanan risk ağırlıklı tutar |\n| --- | --- | --- | --- | --- |\n| **50.000.000** | 40.000.000 | %0 | 40.000.000*%0= | 0 |\n| | 8.000.000 | %20 | 8.000.000*%20= | 1.600.000 |\n| | 2.000.000 | %50 | 2.000.000*%50= | 1.000.000 |\n| | | TOPLAM: | | **2.600.000** |\n\n"
+    }
+  ]
+}

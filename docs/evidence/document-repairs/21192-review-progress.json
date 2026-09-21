@@ -1,0 +1,19 @@
+{
+  "document_id": "mevzuat_21192",
+  "status": "source_reviewed_candidate_awaiting_owner_approval",
+  "source_url": "https://www.mevzuat.gov.tr/MevzuatMetin/yonetmelik/7.5.21192.pdf",
+  "source_pdf_sha256": "095963e9342543cbacc35f3acf8eae1b1ece70636dae440ab79c5a9f7af8c03a",
+  "main_pdf_page_count": 36,
+  "stored_total_pages": 70,
+  "original_markdown_sha256": "d38a07ede28c8e9cc5c99ec29fff1717c76421473aec60a4959d124e14315a75",
+  "candidate_markdown_sha256": "e33060a4a9b87b56a035a270d07ec4a3a775e346473dc830d1a6cac7d5393f38",
+  "display_formulas": 2,
+  "annex_zip_url": "https://www.mevzuat.gov.tr/MevzuatMetin/yonetmelik/7.5.21192-ek.zip",
+  "annex_zip_fetch": "timeout_no_bytes",
+  "source_anomalies_preserved": [
+    "Formulas are framed from stored annex-merged EK-2 text; the 36-page main PDF does not contain them.",
+    "Identifiers Dj, Dj1, Eklentij(DK), DOVFj(DK) are kept as stored, not rewritten as subscripts.",
+    "Long annex list lines and repeated annex headings are retained."
+  ],
+  "next_step": "Owner approval and annex-zip re-fetch when mevzuat.gov.tr is reachable; main PDF still cannot replace the annex-merged document."
+}

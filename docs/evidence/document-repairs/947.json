@@ -1,0 +1,385 @@
+{
+  "document_id": "947",
+  "status": "source_reviewed_candidate_awaiting_owner_approval",
+  "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/947",
+  "original_markdown_sha256": "f023b303bfd013ef5eb091177fae21fa26ae25da260613658acf1f32db82d7a7",
+  "candidate_markdown_sha256": "6b206d9f00a0c3b5fadf1b63c62e0a62c36e0884c8cc3a36a1dc77be295bce64",
+  "f0b7_bullet_repairs": 62,
+  "source_anomalies_preserved": [
+    "U+F0B7 is the Word private-use bullet; only that glyph is replaced with •."
+  ],
+  "replacements": [
+    {
+      "start": 1109,
+      "end": 1110,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 1149,
+      "end": 1150,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 1203,
+      "end": 1204,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 21662,
+      "end": 21663,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 21746,
+      "end": 21747,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 21828,
+      "end": 21829,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 21902,
+      "end": 21903,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 21993,
+      "end": 21994,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 22100,
+      "end": 22101,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 22242,
+      "end": 22243,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 22439,
+      "end": 22440,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 22510,
+      "end": 22511,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 22584,
+      "end": 22585,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 22655,
+      "end": 22656,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 22731,
+      "end": 22732,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 22770,
+      "end": 22771,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 22906,
+      "end": 22907,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 22972,
+      "end": 22973,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 23126,
+      "end": 23127,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 23236,
+      "end": 23237,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 26136,
+      "end": 26137,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 26199,
+      "end": 26200,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 26323,
+      "end": 26324,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 26419,
+      "end": 26420,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 26574,
+      "end": 26575,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 26774,
+      "end": 26775,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 26833,
+      "end": 26834,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 26835,
+      "end": 26836,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 26854,
+      "end": 26855,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 26968,
+      "end": 26969,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 29849,
+      "end": 29850,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 29912,
+      "end": 29913,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 30027,
+      "end": 30028,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 30140,
+      "end": 30141,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 30307,
+      "end": 30308,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 51796,
+      "end": 51797,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 51822,
+      "end": 51823,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 51961,
+      "end": 51962,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 52063,
+      "end": 52064,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 52292,
+      "end": 52293,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 52438,
+      "end": 52439,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 52471,
+      "end": 52472,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 52613,
+      "end": 52614,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 52615,
+      "end": 52616,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 53097,
+      "end": 53098,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 53199,
+      "end": 53200,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 53257,
+      "end": 53258,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 53304,
+      "end": 53305,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 53306,
+      "end": 53307,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 54663,
+      "end": 54664,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 54868,
+      "end": 54869,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 65265,
+      "end": 65266,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 65463,
+      "end": 65464,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 65466,
+      "end": 65467,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 65979,
+      "end": 65980,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 66101,
+      "end": 66102,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 66660,
+      "end": 66661,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 67019,
+      "end": 67020,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 67227,
+      "end": 67228,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 67251,
+      "end": 67252,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 67272,
+      "end": 67273,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 67301,
+      "end": 67302,
+      "old": "",
+      "new": "•"
+    }
+  ]
+}

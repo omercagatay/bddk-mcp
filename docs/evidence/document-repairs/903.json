@@ -1,0 +1,101 @@
+{
+  "document_id": "903",
+  "status": "source_reviewed_candidate_awaiting_owner_approval",
+  "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/903",
+  "source_pdf_sha256": "42a35ee66926db24bf0ff14caf8170a9cc5eb38dde3e074e982c2e13f349e0b1",
+  "source_pages_visually_reviewed": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "formula_pages": [
+    3,
+    4,
+    5,
+    6
+  ],
+  "original_markdown_sha256": "7bf197ef3657d74e4dcff825c9017824327dbd588a86b588eb7895f0ae4ccdf9",
+  "candidate_markdown_sha256": "fa35a5db5e3026f950f5ba36d1a888edf0ad47434f6f297daae60069dc623f48",
+  "display_formulas": 11,
+  "replacements": [
+    {
+      "start": 6108,
+      "end": 6213,
+      "old": "                      GKETT  1 min İpotekTutarıi ; KTOi  GKDi \n                                    n",
+      "new": "$$\nGKETT = \\sum_{1}^{n} \\min\\{\\text{İpotekTutarı}_{i}; KTO_{i} \\times GKD_{i}\\}\n$$"
+    },
+    {
+      "start": 7155,
+      "end": 7198,
+      "old": "       GKETT  min50TL;%75  100TL  50TL",
+      "new": "$$\nGKETT = \\min\\{50\\,TL; \\%75 \\times 100\\,TL\\} = 50\\,TL\n$$"
+    },
+    {
+      "start": 8512,
+      "end": 8589,
+      "old": "        GKETT  1 min İpotekTutarıi ; KTOi  GKDi \n                      2",
+      "new": "$$\nGKETT = \\sum_{1}^{2} \\min\\{\\text{İpotekTutarı}_{i}; KTO_{i} \\times GKD_{i}\\}\n$$"
+    },
+    {
+      "start": 8591,
+      "end": 8652,
+      "old": "        GKETT  min0;%75 100TL min60;%50  50TL   25TL",
+      "new": "$$\nGKETT = \\min\\{0; \\%75 \\times 100\\,TL\\} + \\min\\{60; \\%50 \\times 50\\,TL\\} = 25\\,TL\n$$"
+    },
+    {
+      "start": 9952,
+      "end": 10029,
+      "old": "        GKETT  1 min İpotekTutarıi ; KTOi  GKDi \n                      2",
+      "new": "$$\nGKETT = \\sum_{1}^{2} \\min\\{\\text{İpotekTutarı}_{i}; KTO_{i} \\times GKD_{i}\\}\n$$"
+    },
+    {
+      "start": 10031,
+      "end": 10112,
+      "old": "        GKETT  min0;%75 100 min0;%50  0TL  min40TL;%50 x  10TL  5TL",
+      "new": "$$\nGKETT = \\min\\{0; \\%75 \\times 100\\} + \\min\\{0; \\%50 \\times 0\\,TL\\} + \\min\\{40\\,TL; \\%50 \\mathbin{x} -10\\,TL\\} = -5\\,TL\n$$"
+    },
+    {
+      "start": 11134,
+      "end": 11283,
+      "old": "min %50  GKD1;%60  İTKD1; İpotekTutarı1 2 min %34  GKDi ;%40  İTKDi ; İpotekTutarıi \n                                                     n",
+      "new": "$$\n\\min\\{\\%50 \\times GKD_{1}; \\%60 \\times \\text{İTKD}_{1}; \\text{İpotekTutarı}_{1}\\}\n+ \\sum_{2}^{n} \\min\\{\\%34 \\times GKD_{i}; \\%40 \\times \\text{İTKD}_{i}; \\text{İpotekTutarı}_{i}\\}\n$$"
+    },
+    {
+      "start": 11748,
+      "end": 11807,
+      "old": "        GKETT  min %50  GKD1;%60  İTKD1; İpotekTutarı1",
+      "new": "$$\nGKETT = \\min\\{\\%50 \\times GKD_{1}; \\%60 \\times \\text{İTKD}_{1}; \\text{İpotekTutarı}_{1}\\}\n$$"
+    },
+    {
+      "start": 11932,
+      "end": 11986,
+      "old": "        GKETT  min%50 100TL;%60  85TL;50TL  50TL",
+      "new": "$$\nGKETT = \\min\\{\\%50 \\times 100\\,TL; \\%60 \\times 85\\,TL; 50\\,TL\\} = 50\\,TL\n$$"
+    },
+    {
+      "start": 13255,
+      "end": 13338,
+      "old": "GKETT  min%50  0TL;%60  0TL;0TL  min%34  50TL;%40  %85TLx50TL;60TL  17TL",
+      "new": "$$\nGKETT = \\min\\{\\%50 \\times 0\\,TL; \\%60 \\times 0\\,TL; 0\\,TL\\}\n+ \\min\\{\\%34 \\times 50\\,TL; \\%40 \\times \\%85\\,TL \\mathbin{x} 50\\,TL; 60\\,TL\\} = 17\\,TL\n$$"
+    },
+    {
+      "start": 14450,
+      "end": 14534,
+      "old": "GKETT  min0;0;0  min0;0;0  min%34  10TL;%40  %85TLx  10TL;40TL  3,5TL",
+      "new": "$$\nGKETT = \\min\\{0;0;0\\} + \\min\\{0;0;0\\}\n+ \\min\\{\\%34 \\times -10\\,TL; \\%40 \\times \\%85\\,TL \\mathbin{x} -10\\,TL; 40\\,TL\\} = -3{,}5\\,TL\n$$"
+    }
+  ],
+  "source_anomalies_preserved": [
+    "PDF page 5 retains upper summation bound 2 in the third-bank example.",
+    "PDF page 6 retains the displayed -3,5 TL result; no arithmetic correction.",
+    "PDF page 6 retains ikinci derece in the third-bank prose.",
+    "PDF pages 5-6 retain the printed TL units, percentage placement, and x operator."
+  ],
+  "publication": "No canonical seed, extraction-method metadata, registry, or database edits."
+}

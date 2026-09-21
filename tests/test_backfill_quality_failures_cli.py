@@ -13,9 +13,11 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from backfill_quality_failures import execute_quality_backfill, load_fail_documents, main  # noqa: E402
 
+HISTORICAL_REGISTRY = ROOT / "docs/evidence/document-repairs/historical-quality-failures.yml"
+
 
 def test_load_fail_documents_from_quality_failures_yml():
-    candidates = load_fail_documents(ROOT / "bddk_mcp" / "quality" / "quality_failures.yml")
+    candidates = load_fail_documents(HISTORICAL_REGISTRY)
     doc_ids = {candidate.document_id for candidate in candidates}
 
     assert {
@@ -47,7 +49,7 @@ def test_load_fail_documents_from_quality_findings_csv(tmp_path):
 
 
 def test_backfill_quality_failures_dry_run_lists_known_failures(capsys):
-    code = main(["--dry-run", "--config", str(ROOT / "bddk_mcp" / "quality" / "quality_failures.yml")])
+    code = main(["--dry-run", "--config", str(HISTORICAL_REGISTRY)])
     out = capsys.readouterr().out
 
     assert code == 0
@@ -62,7 +64,7 @@ def test_backfill_quality_failures_doc_id_filters_one_candidate(capsys):
         [
             "--dry-run",
             "--config",
-            str(ROOT / "bddk_mcp" / "quality" / "quality_failures.yml"),
+            str(HISTORICAL_REGISTRY),
             "--doc-id",
             "mevzuat_21192",
         ]

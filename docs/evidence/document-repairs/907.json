@@ -1,0 +1,352 @@
+{
+  "document_id": "907",
+  "status": "source_reviewed_candidate_awaiting_owner_approval",
+  "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/907",
+  "source_pdf_sha256": "3c8e587ab275bc97de5e17b276a20e2b1abd5332fcb116e2a498833aaa4a330c",
+  "source_pages_visually_reviewed": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "original_markdown_sha256": "63e1294975613fffa11ff55cd5e9c2052426df9703f44e08eb86a04336dccbc1",
+  "candidate_markdown_sha256": "bfd0f367ff3aeaad5c3d9f593ebc45672b1dec9ea7d8228293cb25d13bfc2679",
+  "dotted_i_repairs": 21,
+  "xml_code_blocks": 3,
+  "source_anomalies_preserved": [
+    "Page 5 spells <deger> lowercase; pages 6 and 8 spell <Deger> uppercase.",
+    "Page 8 uniqueKalem selects Kalem and uses @Tur; no schema semantics changed.",
+    "Literal dot placeholders in sample XML and repeated running footers remain."
+  ],
+  "replacements": [
+    {
+      "start": 2214,
+      "end": 2215,
+      "old": "Đ",
+      "new": "İ"
+    },
+    {
+      "start": 2568,
+      "end": 2571,
+      "old": "() ",
+      "new": "-"
+    },
+    {
+      "start": 2579,
+      "end": 2582,
+      "old": "() ",
+      "new": "-"
+    },
+    {
+      "start": 2587,
+      "end": 2590,
+      "old": "() ",
+      "new": "-"
+    },
+    {
+      "start": 2693,
+      "end": 2694,
+      "old": "Đ",
+      "new": "İ"
+    },
+    {
+      "start": 3418,
+      "end": 3421,
+      "old": "() ",
+      "new": "-"
+    },
+    {
+      "start": 3438,
+      "end": 3441,
+      "old": "() ",
+      "new": "-"
+    },
+    {
+      "start": 3458,
+      "end": 3463,
+      "old": "()\n\nĐ",
+      "new": "- İ"
+    },
+    {
+      "start": 3519,
+      "end": 3520,
+      "old": "Đ",
+      "new": "İ"
+    },
+    {
+      "start": 4051,
+      "end": 4052,
+      "old": "Đ",
+      "new": "İ"
+    },
+    {
+      "start": 4146,
+      "end": 4147,
+      "old": "Đ",
+      "new": "İ"
+    },
+    {
+      "start": 5250,
+      "end": 5251,
+      "old": "Đ",
+      "new": "İ"
+    },
+    {
+      "start": 5291,
+      "end": 5292,
+      "old": " ",
+      "new": ""
+    },
+    {
+      "start": 5301,
+      "end": 5301,
+      "old": "",
+      "new": "azami tutar ve oranlar açıklanmalı ve"
+    },
+    {
+      "start": 5307,
+      "end": 5307,
+      "old": "",
+      "new": " oranların açıklandığı"
+    },
+    {
+      "start": 5397,
+      "end": 5465,
+      "old": "\n\ntutar  ve  oranlar  açıklanmalı  ve  azami  oranların  açıklandığı",
+      "new": ""
+    },
+    {
+      "start": 5962,
+      "end": 5963,
+      "old": "\n",
+      "new": " tarihinden "
+    },
+    {
+      "start": 6496,
+      "end": 6508,
+      "old": "tarihinden\n\n",
+      "new": ""
+    },
+    {
+      "start": 6543,
+      "end": 6544,
+      "old": "Đ",
+      "new": "İ"
+    },
+    {
+      "start": 6546,
+      "end": 6547,
+      "old": "Đ",
+      "new": "İ"
+    },
+    {
+      "start": 6751,
+      "end": 6752,
+      "old": "Đ",
+      "new": "İ"
+    },
+    {
+      "start": 7386,
+      "end": 7387,
+      "old": "Đ",
+      "new": "İ"
+    },
+    {
+      "start": 8104,
+      "end": 8105,
+      "old": "Đ",
+      "new": "İ"
+    },
+    {
+      "start": 8584,
+      "end": 8585,
+      "old": "Đ",
+      "new": "İ"
+    },
+    {
+      "start": 8725,
+      "end": 8726,
+      "old": "Đ",
+      "new": "İ"
+    },
+    {
+      "start": 8955,
+      "end": 8955,
+      "old": "",
+      "new": "`"
+    },
+    {
+      "start": 8965,
+      "end": 8965,
+      "old": "",
+      "new": "`"
+    },
+    {
+      "start": 8967,
+      "end": 8967,
+      "old": "",
+      "new": "`"
+    },
+    {
+      "start": 8978,
+      "end": 8978,
+      "old": "",
+      "new": "`"
+    },
+    {
+      "start": 9053,
+      "end": 9053,
+      "old": "",
+      "new": "`"
+    },
+    {
+      "start": 9060,
+      "end": 9060,
+      "old": "",
+      "new": "`"
+    },
+    {
+      "start": 9064,
+      "end": 9064,
+      "old": "",
+      "new": "`"
+    },
+    {
+      "start": 9072,
+      "end": 9072,
+      "old": "",
+      "new": "`"
+    },
+    {
+      "start": 9126,
+      "end": 9126,
+      "old": "",
+      "new": "`"
+    },
+    {
+      "start": 9144,
+      "end": 9144,
+      "old": "",
+      "new": "`"
+    },
+    {
+      "start": 9146,
+      "end": 9146,
+      "old": "",
+      "new": "`"
+    },
+    {
+      "start": 9165,
+      "end": 9165,
+      "old": "",
+      "new": "`"
+    },
+    {
+      "start": 9344,
+      "end": 9345,
+      "old": "Đ",
+      "new": "İ"
+    },
+    {
+      "start": 9550,
+      "end": 9550,
+      "old": "",
+      "new": "`"
+    },
+    {
+      "start": 9557,
+      "end": 9557,
+      "old": "",
+      "new": "`"
+    },
+    {
+      "start": 9566,
+      "end": 9566,
+      "old": "",
+      "new": "`"
+    },
+    {
+      "start": 9574,
+      "end": 9574,
+      "old": "",
+      "new": "`"
+    },
+    {
+      "start": 10975,
+      "end": 10976,
+      "old": "Đ",
+      "new": "İ"
+    },
+    {
+      "start": 11028,
+      "end": 11028,
+      "old": "",
+      "new": "\n```xml"
+    },
+    {
+      "start": 12962,
+      "end": 12962,
+      "old": "",
+      "new": "```\n"
+    },
+    {
+      "start": 13058,
+      "end": 13059,
+      "old": "Đ",
+      "new": "İ"
+    },
+    {
+      "start": 13091,
+      "end": 13091,
+      "old": "",
+      "new": "\n```xml"
+    },
+    {
+      "start": 13600,
+      "end": 13601,
+      "old": "Đ",
+      "new": "İ"
+    },
+    {
+      "start": 13980,
+      "end": 13981,
+      "old": "Đ",
+      "new": "İ"
+    },
+    {
+      "start": 14147,
+      "end": 14147,
+      "old": "",
+      "new": "```\n"
+    },
+    {
+      "start": 14243,
+      "end": 14244,
+      "old": "Đ",
+      "new": "İ"
+    },
+    {
+      "start": 14290,
+      "end": 14290,
+      "old": "",
+      "new": "\n```xml"
+    },
+    {
+      "start": 16457,
+      "end": 16457,
+      "old": "",
+      "new": "```\n"
+    },
+    {
+      "start": 16553,
+      "end": 16554,
+      "old": "Đ",
+      "new": "İ"
+    }
+  ],
+  "publication": "No canonical seed, extraction-method metadata, registry, or database edits."
+}

@@ -1,0 +1,15 @@
+{
+  "document_id": "rg_32202_20230526_6",
+  "status": "source_reviewed_candidate_awaiting_owner_approval",
+  "source_url": "https://www.resmigazete.gov.tr/eskiler/2023/05/20230526-6.htm",
+  "original_markdown_sha256": "5d2dac6902956920da8e9c9f1ed18f585b693adc4ca3266a435ec4e147b8e898",
+  "candidate_markdown_sha256": "41e3f2252e3f0bc12312d640fec39b265c3dd98c407654a105471e686e83e4fa",
+  "replacements": [
+    {
+      "start": 146,
+      "end": 206,
+      "old": "Resmi Gazete Tarihi: 26.05.2023 | Resmi Gazete Sayısı: 32202",
+      "new": "Resmi Gazete Tarihi: 26.05.2023 — Resmi Gazete Sayısı: 32202"
+    }
+  ]
+}

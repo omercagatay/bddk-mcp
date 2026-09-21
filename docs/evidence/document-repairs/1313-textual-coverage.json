@@ -1,0 +1,1674 @@
+{
+  "document_id": "1313",
+  "status": "token_differences_accounted_for",
+  "source_pdf_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+  "baseline_markdown_sha256": "75616163e6fffb4ddbebaf4b3c33a2f3cf7c1a4578a75966436012dc7d00bae6",
+  "review_progress_sha256": "d361e2bc5077019ec12cc6acf1094e942edb46f5b64fede09fe5815e7fbcb9ce",
+  "source_pages": 54,
+  "source_token_count": 28179,
+  "baseline_token_count": 28345,
+  "unresolved_differences": [],
+  "differences": [
+    {
+      "type": "insert",
+      "baseline_start": 11678,
+      "baseline_end": 11681,
+      "source_tokens": "",
+      "baseline_tokens": "ile",
+      "reviewed_patch_indices": [
+        0
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 11766,
+      "baseline_end": 11766,
+      "source_tokens": "ile",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        0
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 14451,
+      "baseline_end": 14451,
+      "source_tokens": "ilişkin o ülkedeki",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        1
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 14526,
+      "baseline_end": 14546,
+      "source_tokens": "",
+      "baseline_tokens": "ilişkin o ülkedeki",
+      "reviewed_patch_indices": [
+        1
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 15696,
+      "baseline_end": 15696,
+      "source_tokens": "( 1 ) Ortak kayıp paylaşım havuzlarının garanti",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        2
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 15827,
+      "baseline_end": 15877,
+      "source_tokens": "",
+      "baseline_tokens": "( 1 ) Ortak kayıp paylaşım havuzlarının garanti",
+      "reviewed_patch_indices": [
+        2
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 26741,
+      "baseline_end": 26746,
+      "source_tokens": "",
+      "baseline_tokens": "İçsel",
+      "reviewed_patch_indices": [
+        3
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 26762,
+      "baseline_end": 26762,
+      "source_tokens": "İlişkin Tebliğde veya Temel Kredi Riskine Esas Tutarın İçsel",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        3
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 27180,
+      "baseline_end": 27241,
+      "source_tokens": "",
+      "baseline_tokens": "İlişkin Tebliğde veya Temel Kredi Riskine Esas Tutarın",
+      "reviewed_patch_indices": [
+        3
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 40611,
+      "baseline_end": 40617,
+      "source_tokens": "\u0001",
+      "baseline_tokens": "( ) ( ) ( )",
+      "reviewed_patch_indices": [
+        7
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 40623,
+      "baseline_end": 40633,
+      "source_tokens": "\u0007 \b \u0007",
+      "baseline_tokens": "( ) ( ) ( ) ( ) ( )",
+      "reviewed_patch_indices": [
+        7
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 40639,
+      "baseline_end": 40667,
+      "source_tokens": "\u000e \u000f \u0010 \u0011 \u0012 \u0013 \u0014 \u0015 \u0016 \u0017",
+      "baseline_tokens": "( ) ( ) ( ) ( ) ( ) ( ) ( ) ( ) ( ) ( ) ( ) ( ) ( )",
+      "reviewed_patch_indices": [
+        7
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 41524,
+      "baseline_end": 41526,
+      "source_tokens": "",
+      "baseline_tokens": "( )",
+      "reviewed_patch_indices": [
+        8
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 41570,
+      "baseline_end": 41572,
+      "source_tokens": "\u000f",
+      "baseline_tokens": "( )",
+      "reviewed_patch_indices": [
+        8
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 41613,
+      "baseline_end": 41615,
+      "source_tokens": "\u0015",
+      "baseline_tokens": "( )",
+      "reviewed_patch_indices": [
+        8
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 41617,
+      "baseline_end": 41619,
+      "source_tokens": "\u0012",
+      "baseline_tokens": "( )",
+      "reviewed_patch_indices": [
+        8
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 41630,
+      "baseline_end": 41631,
+      "source_tokens": "",
+      "baseline_tokens": "A",
+      "reviewed_patch_indices": [
+        8
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 41635,
+      "baseline_end": 41635,
+      "source_tokens": "A",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        8
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 42558,
+      "baseline_end": 42586,
+      "source_tokens": "\u000e \u000f \u0010 \u0011 \u0012 \u0013 \u0014 \u0015 \u0016 \u0017",
+      "baseline_tokens": "( ) ( ) ( ) ( ) ( ) ( ) ( ) ( ) ( ) ( ) ( ) ( ) ( )",
+      "reviewed_patch_indices": [
+        9
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 42592,
+      "baseline_end": 42613,
+      "source_tokens": "\u000e \u000f \u0010 \u0011 \u0016 \u0016",
+      "baseline_tokens": "( ) ( ) ( ) ( ) ( ) ( ) ( ) ( ) ( )",
+      "reviewed_patch_indices": [
+        9
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 45942,
+      "baseline_end": 45942,
+      "source_tokens": "potansiyel kredi risk",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        10
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 46007,
+      "baseline_end": 46029,
+      "source_tokens": "",
+      "baseline_tokens": "risk potansiyel kredi",
+      "reviewed_patch_indices": [
+        10
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 48672,
+      "baseline_end": 48672,
+      "source_tokens": "Vi BAi BIi",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        11
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 48736,
+      "baseline_end": 48736,
+      "source_tokens": "10 yıl 0 10 yıl",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        11
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 48791,
+      "baseline_end": 48791,
+      "source_tokens": "15 yıl 5 yıl 15 yıl",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        11
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 48867,
+      "baseline_end": 48867,
+      "source_tokens": "1 yıl 6 ay 1 yıl",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        11
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 48999,
+      "baseline_end": 48999,
+      "source_tokens": "6 ay 6 ay 5 , 5 yıl",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        11
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 49136,
+      "baseline_end": 49136,
+      "source_tokens": "5 , 5 yıl 6 ay 5 , 5 yıl",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        11
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 49214,
+      "baseline_end": 49214,
+      "source_tokens": "10 yıl 1 yıl 10 yıl",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        11
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 49270,
+      "baseline_end": 49270,
+      "source_tokens": "5 yıl 0 5 yıl",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        11
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 49342,
+      "baseline_end": 49365,
+      "source_tokens": "",
+      "baseline_tokens": "Vi BAi 10 yıl 15 yıl",
+      "reviewed_patch_indices": [
+        11
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 49374,
+      "baseline_end": 49420,
+      "source_tokens": "",
+      "baseline_tokens": "6 ay 0 5 yıl 6 ay 6 ay BIi 10 yıl 15 yıl",
+      "reviewed_patch_indices": [
+        11
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 49424,
+      "baseline_end": 49510,
+      "source_tokens": "",
+      "baseline_tokens": "yıl 5 , 5 yıl 5 , 5 yıl 6 ay 5 , 5 yıl 10 yıl 1 yıl 10 yıl 5 yıl 1 yıl 0 1 yıl 5",
+      "reviewed_patch_indices": [
+        11
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 49562,
+      "baseline_end": 49562,
+      "source_tokens": "1 yıl 1 yıl 1 . 25 yıl",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        11
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 49623,
+      "baseline_end": 49623,
+      "source_tokens": "2 yıl 2 yıl 22 yıl",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        11
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 49714,
+      "baseline_end": 49719,
+      "source_tokens": "",
+      "baseline_tokens": "1 yıl",
+      "reviewed_patch_indices": [
+        11
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 49729,
+      "baseline_end": 49765,
+      "source_tokens": "",
+      "baseline_tokens": "yıl 1 yıl 2 yıl 2 yıl 1 . 25 yıl 22",
+      "reviewed_patch_indices": [
+        11
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 50203,
+      "baseline_end": 50208,
+      "source_tokens": "BAi",
+      "baseline_tokens": "BA i",
+      "reviewed_patch_indices": [
+        12
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 50221,
+      "baseline_end": 50226,
+      "source_tokens": "BIi",
+      "baseline_tokens": "BI i",
+      "reviewed_patch_indices": [
+        12
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 52647,
+      "baseline_end": 52649,
+      "source_tokens": "",
+      "baseline_tokens": "+ 1",
+      "reviewed_patch_indices": [
+        13
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 52719,
+      "baseline_end": 52719,
+      "source_tokens": "+ 1",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        13
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 52723,
+      "baseline_end": 52736,
+      "source_tokens": "",
+      "baseline_tokens": "Alım opsiyonu",
+      "reviewed_patch_indices": [
+        13
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 52752,
+      "baseline_end": 52752,
+      "source_tokens": "Satılmış Alım opsiyonu",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        13
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 52779,
+      "baseline_end": 52781,
+      "source_tokens": "σ 2",
+      "baseline_tokens": "σ2",
+      "reviewed_patch_indices": [
+        13
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 52807,
+      "baseline_end": 52815,
+      "source_tokens": "",
+      "baseline_tokens": "Satılmış",
+      "reviewed_patch_indices": [
+        13
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 52843,
+      "baseline_end": 52845,
+      "source_tokens": "σ 2",
+      "baseline_tokens": "σ2",
+      "reviewed_patch_indices": [
+        13
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 52916,
+      "baseline_end": 52923,
+      "source_tokens": "σ",
+      "baseline_tokens": "σ2 * 1 /",
+      "reviewed_patch_indices": [
+        13
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 52924,
+      "baseline_end": 52925,
+      "source_tokens": "*",
+      "baseline_tokens": "]",
+      "reviewed_patch_indices": [
+        13
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 52943,
+      "baseline_end": 52943,
+      "source_tokens": "1 / 2 ]",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        13
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 52972,
+      "baseline_end": 52979,
+      "source_tokens": "σ",
+      "baseline_tokens": "σ2 * 1 /",
+      "reviewed_patch_indices": [
+        13
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 52980,
+      "baseline_end": 52981,
+      "source_tokens": "*",
+      "baseline_tokens": "]",
+      "reviewed_patch_indices": [
+        13
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 52999,
+      "baseline_end": 53042,
+      "source_tokens": "1 / 2 ]",
+      "baseline_tokens": "Teminatlandırılmış borç yükümlülüğü dilimi",
+      "reviewed_patch_indices": [
+        13
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 53072,
+      "baseline_end": 53072,
+      "source_tokens": "Satılmış / Korumada kısa Teminatlandırılmış borç yükümlülüğü dilimi",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        13
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 53116,
+      "baseline_end": 53138,
+      "source_tokens": "",
+      "baseline_tokens": "Satılmış / Korumada kısa",
+      "reviewed_patch_indices": [
+        13
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 54918,
+      "baseline_end": 54918,
+      "source_tokens": "takas opsiyonları için başlangıç",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        15
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 55060,
+      "baseline_end": 55095,
+      "source_tokens": "",
+      "baseline_tokens": "takas opsiyonları için başlangıç",
+      "reviewed_patch_indices": [
+        15
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 64476,
+      "baseline_end": 64797,
+      "source_tokens": "",
+      "baseline_tokens": "% 0 , 5 Faiz oranı ( tüm döviz kurları için ) Döviz kuru Kredi , Tek varlık Kredi , Endeks Hisse senedi , Tek varlık Hisse Endeks Emtia senedi , AAA AA A BBB BB B CCC Yatırım yapılabilir Spekülatif % 4 % 0 , 38 % 0 , 38 % 0 , 42 % 0 , 54 % 1 , 06 % 1 , 6 % 6 % 0 , 38 % 1 , 06 % 32 % 20 % 40 Elektrik Petrol / Gaz % 18 Metal / Maden % 18",
+      "reviewed_patch_indices": [
+        18
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 64892,
+      "baseline_end": 64892,
+      "source_tokens": "Faiz oranı ( tüm döviz kurları için ) % 0 , 5 % 50 Döviz kuru % 4 % 15 Kredi , Tek varlık AAA % 0 , 38",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        18
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 64900,
+      "baseline_end": 64902,
+      "source_tokens": "100 AA % 0 , 38",
+      "baseline_tokens": "50",
+      "reviewed_patch_indices": [
+        18
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 64910,
+      "baseline_end": 64912,
+      "source_tokens": "100 A % 0 , 42",
+      "baseline_tokens": "50",
+      "reviewed_patch_indices": [
+        18
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 64920,
+      "baseline_end": 64922,
+      "source_tokens": "100 BBB % 0 , 54",
+      "baseline_tokens": "50",
+      "reviewed_patch_indices": [
+        18
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 64930,
+      "baseline_end": 64930,
+      "source_tokens": "100 BB % 1 , 06 %",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        18
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 64933,
+      "baseline_end": 64933,
+      "source_tokens": "% 100 B % 1 , 6 % 50 % 100 CCC % 6 % 50 % 100 Kredi , Endeks Yatırım yapılabilir % 0 , 38",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        18
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 64944,
+      "baseline_end": 64944,
+      "source_tokens": "Spekülatif % 1 , 06 % 80 % 80 Hisse senedi , Tek varlık % 32",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        18
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 64950,
+      "baseline_end": 64950,
+      "source_tokens": "120 Hisse senedi , Endeks % 20 %",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        18
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 64954,
+      "baseline_end": 64954,
+      "source_tokens": "% 75 Emtia Elektrik",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        18
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 64966,
+      "baseline_end": 65042,
+      "source_tokens": "",
+      "baseline_tokens": "40 % 15 % 100 % 100 % 100 % 100 % 100 % 100 % 100 % 80 % 80 % 120 % 75 %",
+      "reviewed_patch_indices": [
+        18
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 65047,
+      "baseline_end": 65056,
+      "source_tokens": "Petrol / Gaz",
+      "baseline_tokens": "% 70 % 70",
+      "reviewed_patch_indices": [
+        18
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 65063,
+      "baseline_end": 65063,
+      "source_tokens": "% 40 % 70 Metal / Maden % 18 % 40 % 70",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        18
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 65069,
+      "baseline_end": 65069,
+      "source_tokens": "% 18 % 40 % 70",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        18
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 65093,
+      "baseline_end": 65103,
+      "source_tokens": "",
+      "baseline_tokens": "% 40 % 70",
+      "reviewed_patch_indices": [
+        18
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 68487,
+      "baseline_end": 68488,
+      "source_tokens": "",
+      "baseline_tokens": "j",
+      "reviewed_patch_indices": [
+        23
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 68523,
+      "baseline_end": 68523,
+      "source_tokens": "j",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        23
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 71055,
+      "baseline_end": 71056,
+      "source_tokens": "",
+      "baseline_tokens": "j",
+      "reviewed_patch_indices": [
+        26
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 71091,
+      "baseline_end": 71091,
+      "source_tokens": "j",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        26
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 86006,
+      "baseline_end": 86010,
+      "source_tokens": "\u0007",
+      "baseline_tokens": "( ) ( )",
+      "reviewed_patch_indices": [
+        37
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 86016,
+      "baseline_end": 86023,
+      "source_tokens": "",
+      "baseline_tokens": "MN ∈ FG",
+      "reviewed_patch_indices": [
+        37
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 86026,
+      "baseline_end": 86030,
+      "source_tokens": "\u0007",
+      "baseline_tokens": "( ) ( )",
+      "reviewed_patch_indices": [
+        37
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 86034,
+      "baseline_end": 86036,
+      "source_tokens": "\u0001",
+      "baseline_tokens": "( )",
+      "reviewed_patch_indices": [
+        37
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 86049,
+      "baseline_end": 86053,
+      "source_tokens": "\u0007",
+      "baseline_tokens": "( ) ( )",
+      "reviewed_patch_indices": [
+        37
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 86055,
+      "baseline_end": 86061,
+      "source_tokens": "KLFG",
+      "baseline_tokens": "K ( ) LFG",
+      "reviewed_patch_indices": [
+        37
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 86068,
+      "baseline_end": 86068,
+      "source_tokens": "MN ∈ FG",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        37
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 86078,
+      "baseline_end": 86082,
+      "source_tokens": "\u0007",
+      "baseline_tokens": "( ) ( )",
+      "reviewed_patch_indices": [
+        37
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 86088,
+      "baseline_end": 86095,
+      "source_tokens": "",
+      "baseline_tokens": "MN ∈ FG",
+      "reviewed_patch_indices": [
+        37
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 86098,
+      "baseline_end": 86102,
+      "source_tokens": "\u0011",
+      "baseline_tokens": "( ) ( )",
+      "reviewed_patch_indices": [
+        37
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 86105,
+      "baseline_end": 86107,
+      "source_tokens": "\u0001",
+      "baseline_tokens": "( )",
+      "reviewed_patch_indices": [
+        37
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 86120,
+      "baseline_end": 86120,
+      "source_tokens": "\u0011",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        37
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 86121,
+      "baseline_end": 86131,
+      "source_tokens": "KLFG",
+      "baseline_tokens": ") ( ) ( K ( ) LFG",
+      "reviewed_patch_indices": [
+        37
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 86138,
+      "baseline_end": 86138,
+      "source_tokens": "MN ∈ FG",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        37
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 86495,
+      "baseline_end": 86495,
+      "source_tokens": "NG",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        38
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 86501,
+      "baseline_end": 86503,
+      "source_tokens": "",
+      "baseline_tokens": "NG",
+      "reviewed_patch_indices": [
+        38
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 89422,
+      "baseline_end": 89422,
+      "source_tokens": "hesaplamak",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        39
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 89497,
+      "baseline_end": 89507,
+      "source_tokens": "",
+      "baseline_tokens": "hesaplamak",
+      "reviewed_patch_indices": [
+        39
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 94298,
+      "baseline_end": 94298,
+      "source_tokens": "k",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        41
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 94304,
+      "baseline_end": 94306,
+      "source_tokens": "t",
+      "baseline_tokens": "kt",
+      "reviewed_patch_indices": [
+        41
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 94323,
+      "baseline_end": 94338,
+      "source_tokens": "",
+      "baseline_tokens": "EBRT BRT ; t",
+      "reviewed_patch_indices": [
+        41
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 94343,
+      "baseline_end": 94351,
+      "source_tokens": "",
+      "baseline_tokens": "1 - ) t",
+      "reviewed_patch_indices": [
+        41
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 94356,
+      "baseline_end": 94356,
+      "source_tokens": "EBRT t BRT t ; − 1 )",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        41
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 94405,
+      "baseline_end": 94405,
+      "source_tokens": "0",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        42
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 94414,
+      "baseline_end": 94415,
+      "source_tokens": "",
+      "baseline_tokens": "0",
+      "reviewed_patch_indices": [
+        42
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 94879,
+      "baseline_end": 94883,
+      "source_tokens": "= ∆ 1",
+      "baseline_tokens": "EBRT",
+      "reviewed_patch_indices": [
+        43
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 94888,
+      "baseline_end": 94889,
+      "source_tokens": "",
+      "baseline_tokens": "t",
+      "reviewed_patch_indices": [
+        43
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 94900,
+      "baseline_end": 94900,
+      "source_tokens": "EBRT t",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        43
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 94903,
+      "baseline_end": 94907,
+      "source_tokens": "",
+      "baseline_tokens": "= 1",
+      "reviewed_patch_indices": [
+        43
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 96953,
+      "baseline_end": 96954,
+      "source_tokens": "",
+      "baseline_tokens": "D",
+      "reviewed_patch_indices": [
+        45
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 98783,
+      "baseline_end": 98783,
+      "source_tokens": "S = H \u0011 ∑",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 98784,
+      "baseline_end": 98784,
+      "source_tokens": "UVW × ∆ \u0010 W × YZ6",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 98785,
+      "baseline_end": 98785,
+      "source_tokens": "\u0012",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 98791,
+      "baseline_end": 98793,
+      "source_tokens": "\u0015",
+      "baseline_tokens": "( )",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 98799,
+      "baseline_end": 98799,
+      "source_tokens": "+",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 98802,
+      "baseline_end": 98807,
+      "source_tokens": "",
+      "baseline_tokens": "S = H",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 98808,
+      "baseline_end": 98835,
+      "source_tokens": "UVW",
+      "baseline_tokens": ") ( ) ( ) Formülde ; ( ( ) UV ( ) W",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 98839,
+      "baseline_end": 98841,
+      "source_tokens": "\u0010",
+      "baseline_tokens": "( )",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 98852,
+      "baseline_end": 98854,
+      "source_tokens": "\u0016",
+      "baseline_tokens": "( )",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 98857,
+      "baseline_end": 98859,
+      "source_tokens": "\u0012",
+      "baseline_tokens": "( )",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 98865,
+      "baseline_end": 98870,
+      "source_tokens": "\u0015",
+      "baseline_tokens": "( ) +",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 98875,
+      "baseline_end": 98880,
+      "source_tokens": "UVW",
+      "baseline_tokens": "UV ( ) W",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 98884,
+      "baseline_end": 98886,
+      "source_tokens": "\u0010",
+      "baseline_tokens": "( )",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 98896,
+      "baseline_end": 98898,
+      "source_tokens": "\u0012",
+      "baseline_tokens": "( )",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 98904,
+      "baseline_end": 98906,
+      "source_tokens": "\u0015",
+      "baseline_tokens": "( )",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 98912,
+      "baseline_end": 98937,
+      "source_tokens": "",
+      "baseline_tokens": "∑ ( ( ) UV ( ) W × ∆ ( ) W × YZ6 )",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 98953,
+      "baseline_end": 98953,
+      "source_tokens": "Formülde ; \u0010 6",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 98983,
+      "baseline_end": 98983,
+      "source_tokens": "YZ6",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 99039,
+      "baseline_end": 99039,
+      "source_tokens": "UVW",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 99094,
+      "baseline_end": 99094,
+      "source_tokens": "UVW",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 99160,
+      "baseline_end": 99181,
+      "source_tokens": "",
+      "baseline_tokens": "( ) 6 YZ6 UV ( ) W ( ) UV ( ) W",
+      "reviewed_patch_indices": [
+        46
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 151975,
+      "baseline_end": 151975,
+      "source_tokens": "i )",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        48
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 151987,
+      "baseline_end": 151987,
+      "source_tokens": "ii )",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        48
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 152013,
+      "baseline_end": 152019,
+      "source_tokens": "",
+      "baseline_tokens": "i ) ii )",
+      "reviewed_patch_indices": [
+        48
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 166353,
+      "baseline_end": 166353,
+      "source_tokens": "RTi",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        50
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 166429,
+      "baseline_end": 166429,
+      "source_tokens": "RA",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        50
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 166469,
+      "baseline_end": 166475,
+      "source_tokens": "",
+      "baseline_tokens": "RTi RA",
+      "reviewed_patch_indices": [
+        50
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 170262,
+      "baseline_end": 170265,
+      "source_tokens": "",
+      "baseline_tokens": "TFi",
+      "reviewed_patch_indices": [
+        52
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 170331,
+      "baseline_end": 170331,
+      "source_tokens": "TFi",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        52
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 171661,
+      "baseline_end": 171661,
+      "source_tokens": "TFi",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        54
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 171740,
+      "baseline_end": 171743,
+      "source_tokens": "",
+      "baseline_tokens": "TFi",
+      "reviewed_patch_indices": [
+        54
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 172573,
+      "baseline_end": 172605,
+      "source_tokens": "",
+      "baseline_tokens": "tutar hesaplarken kredi riski",
+      "reviewed_patch_indices": [
+        55
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 172662,
+      "baseline_end": 172662,
+      "source_tokens": "tutar hesaplarken kredi riski",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        55
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 172896,
+      "baseline_end": 172898,
+      "source_tokens": "",
+      "baseline_tokens": "( )",
+      "reviewed_patch_indices": [
+        56
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 172905,
+      "baseline_end": 172907,
+      "source_tokens": "",
+      "baseline_tokens": "( )",
+      "reviewed_patch_indices": [
+        56
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 172912,
+      "baseline_end": 172914,
+      "source_tokens": "",
+      "baseline_tokens": "( )",
+      "reviewed_patch_indices": [
+        56
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 172918,
+      "baseline_end": 172918,
+      "source_tokens": "\u0012",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        56
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 183092,
+      "baseline_end": 183092,
+      "source_tokens": "Teminat kesinti oranı",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        57
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 183125,
+      "baseline_end": 183135,
+      "source_tokens": "",
+      "baseline_tokens": "ihraççılar",
+      "reviewed_patch_indices": [
+        57
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 183148,
+      "baseline_end": 183148,
+      "source_tokens": "ihraççılar",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        57
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 183183,
+      "baseline_end": 183204,
+      "source_tokens": "",
+      "baseline_tokens": "Teminat kesinti oranı",
+      "reviewed_patch_indices": [
+        57
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 183261,
+      "baseline_end": 183261,
+      "source_tokens": "% 0 , 5 % 1",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        57
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 183304,
+      "baseline_end": 183304,
+      "source_tokens": "% 1 , 5 % 4",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        57
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 183344,
+      "baseline_end": 183344,
+      "source_tokens": "% 3 % 6",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        57
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 183349,
+      "baseline_end": 183349,
+      "source_tokens": "yıllık borçlanma",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        57
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 183359,
+      "baseline_end": 183359,
+      "source_tokens": "% 4 % 7",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        57
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 183386,
+      "baseline_end": 183386,
+      "source_tokens": "% 6",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        57
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 183426,
+      "baseline_end": 183467,
+      "source_tokens": "",
+      "baseline_tokens": "borçlanma yıllık % 0 , 5 % 1 , 5 % 3 % 4 % 6",
+      "reviewed_patch_indices": [
+        57
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 183473,
+      "baseline_end": 183487,
+      "source_tokens": "",
+      "baseline_tokens": "% 1 % 4 % 6 % 7",
+      "reviewed_patch_indices": [
+        57
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 185766,
+      "baseline_end": 185776,
+      "source_tokens": "\u0010 \u0011",
+      "baseline_tokens": "( ) ( ) ( ) ( ) ( )",
+      "reviewed_patch_indices": [
+        61
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 185778,
+      "baseline_end": 185782,
+      "source_tokens": "\u0014 \u0013",
+      "baseline_tokens": "( ) ( )",
+      "reviewed_patch_indices": [
+        61
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 185783,
+      "baseline_end": 185785,
+      "source_tokens": "\u0012",
+      "baseline_tokens": "( )",
+      "reviewed_patch_indices": [
+        61
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 185792,
+      "baseline_end": 185865,
+      "source_tokens": "⎣",
+      "baseline_tokens": "− 1 r ∑ q ( ) r 1 + Zrs r ∑ ( ) r p ( ) ∑ q ( ) ( ) 1 + Z ( ) s ( ) ∑ ( ) ( ) p ⎡",
+      "reviewed_patch_indices": [
+        61
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 185878,
+      "baseline_end": 185882,
+      "source_tokens": "⎡ p ∑ q r 1 + Zr r s ∑ r r",
+      "baseline_tokens": "⎣ ⎤",
+      "reviewed_patch_indices": [
+        61
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 185885,
+      "baseline_end": 185885,
+      "source_tokens": "p ∑ q \u0012 1 + Z \u0012 \u0012 s ∑ \u0012 \u0012 t ⎦",
+      "baseline_tokens": "",
+      "reviewed_patch_indices": [
+        61
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 185897,
+      "baseline_end": 185901,
+      "source_tokens": "⎤ − 1",
+      "baseline_tokens": "⎦ t",
+      "reviewed_patch_indices": [
+        61
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 186435,
+      "baseline_end": 186445,
+      "source_tokens": "\u0010 \u0011",
+      "baseline_tokens": "( ) ( ) ( ) ( ) ( )",
+      "reviewed_patch_indices": [
+        62
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 186447,
+      "baseline_end": 186451,
+      "source_tokens": "\u0014 \u0013",
+      "baseline_tokens": "( ) ( )",
+      "reviewed_patch_indices": [
+        62
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 186452,
+      "baseline_end": 186454,
+      "source_tokens": "\u0012",
+      "baseline_tokens": "( )",
+      "reviewed_patch_indices": [
+        62
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 186463,
+      "baseline_end": 186470,
+      "source_tokens": "\u0012 \u0012 ∑ r",
+      "baseline_tokens": "( ) ( ) ( )",
+      "reviewed_patch_indices": [
+        62
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 186477,
+      "baseline_end": 186482,
+      "source_tokens": "",
+      "baseline_tokens": "∑ ( ) r",
+      "reviewed_patch_indices": [
+        62
+      ]
+    }
+  ],
+  "scope": "Whitespace-normalized source/baseline token alignment with U+FFFE normalized to visible hyphen. Every nonmatching span must be covered by a separately source-reviewed patch; displaced sum_j bounds are explicitly associated with that equation. This is textual coverage, not an independent publication approval or proof of visual equation correctness."
+}

@@ -1,8 +1,9 @@
 # Current Repository Status
 
-Repository baseline verified on **2026-08-26**. Corpus, schema, and test facts below
-were refreshed on **2026-09-07**, based on PR #151 (`fe8d72b`); see the
-[corpus refresh evidence](evidence/corpus-v8-release-2026-09-07.md) for execution state.
+Repository baseline verified on **2026-08-26**. Corpus and quality-policy facts below
+were refreshed on **2026-09-21**, following the merged v8 refresh (PR #152).
+See the [repair release evidence](evidence/document-repairs/local-release-v6.json)
+for signed artifacts, fresh local staging, and real MCP verification.
 The earlier checkpoint was **2026-08-18** (`3a93189`).
 
 This is the concise source for current repository facts. The longer architecture, review, roadmap, and testing documents preserve dated analysis and may intentionally describe older checkpoints.
@@ -17,9 +18,9 @@ This is the concise source for current repository facts. The longer architecture
 | MCP operator profile | 17 public tools plus 14 operator additions, 31 total. |
 | MCP resources/prompts | One resource (`bddk://corpus/active-release`); zero prompts. |
 | Database | PostgreSQL 17 contract coverage; append-only migration ledger through schema v11. |
-| Corpus | `bddk-job-corpus-2026-09-07`: 318 unchanged canonical documents / 13,240 regenerated chunks, technically reviewed and owner-delegated Ed25519-signed for parser v8. Freshness remains quantified and unmeasured. Signing does not establish legal currentness; activation/deployment receipts are tracked in the refresh evidence. |
+| Corpus | `bddk-job-corpus-quality-repairs-local-v6-2026-09-21`: 318 documents (50 source repairs), 13,544 chunks, quality policy v5; Ed25519-signed and verified/activated in fresh local staging. All 11 historical extraction failures are retired with the signed corpus. Freshness remains quantified and unmeasured; 310 formula-unaware provenance warnings remain. No production deployment or independent legal approval is claimed. See `docs/evidence/document-repairs/local-release-v6.json`. |
 | Runtime profiles | Separate public and operator processes, scopes, and database identities. |
-| CI | PR #151 passed all ten required checks. The signed v8 refresh locally passes 1,731 DB-less tests and 222 PostgreSQL tests; skips are not passes. Its own protected PR checks remain required before merge. |
+| CI | The quality-repair PR is validated independently of unrelated admin-editor changes. Local unit/integration results and required GitHub checks are recorded in the PR; skips are not passes. Protected checks remain required before merge. |
 | Maturity | Engineering beta. Repository controls do not establish legal advice, bank acceptance, or production readiness. |
 
 The tool counts are derived from `bddk_mcp/tools/registry.py`; schema version is derived from `bddk_mcp/migrations/runner.py`; corpus identity and counts are derived from `seed_data/corpus_scope.yml`. Contract tests pin these facts.
