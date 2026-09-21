@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import gzip
 import hashlib
 import io
 import json
@@ -55,6 +56,54 @@ def test_activation_receipt_secret_exception_is_only_a_public_key_fingerprint() 
     exceptions = _json(SUPPLY_CHAIN / "policy.json")["secrets"]["exceptions"]
     exception = next(item for item in exceptions if item["fingerprint"] == fingerprint)
     assert exception["approval_state"] == "pending_bank_release_review"
+
+
+def test_document_repair_secret_exceptions_are_recomputed_public_hashes() -> None:
+    repairs = ROOT / "docs/evidence/document-repairs"
+    coverage = _json(repairs / "905-textual-coverage.json")
+    progress = _json(repairs / "905-review-progress.json")
+    baseline_docs = json.loads(gzip.decompress((repairs / "signed-baseline-documents.json.gz").read_bytes()))
+    baseline = next(d["markdown_content"] for d in baseline_docs if d["document_id"] == "905")
+    baseline = baseline.translate(str.maketrans({p["old"]: p["new"] for p in progress["character_repairs"]}))
+    assert hashlib.sha256(baseline.encode()).hexdigest() == coverage["baseline_encoding_only_sha256"]
+    source_pages = json.loads(gzip.decompress((FIXTURES / "905-source-page-transcripts.json.gz").read_bytes()))
+    assert len(source_pages) == len(coverage["pages"]) == 42
+    expected = {"source_tokens_sha256": set(), "baseline_tokens_sha256": set()}
+    for source, page in zip(source_pages, coverage["pages"], strict=True):
+        tokens = re.findall(r"\w+|[^\w\s]", baseline[page["baseline_start"] : page["baseline_end"]])
+        hashes = {
+            "source_tokens_sha256": hashlib.sha256(source.encode()).hexdigest(),
+            "baseline_tokens_sha256": hashlib.sha256("\n".join(tokens).encode()).hexdigest(),
+        }
+        assert len(source.splitlines()) == page["source_token_count"]
+        assert len(tokens) == page["baseline_token_count"]
+        for field, digest in hashes.items():
+            assert page[field] == digest
+            expected[field].add(digest)
+    expected["signer_key_sha256"] = {
+        hashlib.sha256((ROOT / "deploy/trust/corpus-signing-public-key.pem").read_bytes()).hexdigest()
+    }
+    report = _json(FIXTURES / "gitleaks_document_repair_hashes.json")
+    assert len(report) == 90
+    field_counts = {field: 0 for field in expected}
+    for finding in report:
+        assert finding["Commit"] == "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355"
+        assert finding["RuleID"] == "generic-api-key"
+        assert finding["Fingerprint"] == (
+            f"{finding['Commit']}:{finding['File']}:{finding['RuleID']}:{finding['StartLine']}"
+        )
+        assert finding["File"] in {
+            "docs/evidence/document-repairs/905-textual-coverage.json",
+            "docs/evidence/document-repairs/local-release-v5.json",
+            "docs/evidence/document-repairs/local-release-v6.json",
+        }
+        line = (ROOT / finding["File"]).read_text().splitlines()[finding["StartLine"] - 1]
+        match = re.fullmatch(r'\s*"([a-z_0-9]+)": "([0-9a-f]{64})",?', line)
+        assert match is not None
+        field, digest = match.groups()
+        assert digest in expected[field]
+        field_counts[field] += 1
+    assert field_counts == {"source_tokens_sha256": 42, "baseline_tokens_sha256": 42, "signer_key_sha256": 6}
 
 
 def _repo_policy_for_fixture_evaluation() -> dict:
@@ -491,9 +540,11 @@ def test_high_vulnerability_fixture_and_secret_fixture_fail_closed():
         )
 
 
-def test_main_squash_secret_history_is_exactly_governed():
+@pytest.mark.parametrize("changed_index", [0, -1])
+def test_main_squash_and_repair_secret_history_is_exactly_governed(changed_index):
     policy = _repo_policy_for_fixture_evaluation()
-    report = _json(FIXTURES / "gitleaks_main_squash.json")
+    report = _json(FIXTURES / "gitleaks_main_squash.json") + _json(FIXTURES / "gitleaks_document_repair_hashes.json")
+    assert len(report) == 99
     policy_fingerprints = {item["fingerprint"] for item in policy["secrets"]["exceptions"]}
     report_fingerprints = {item["Fingerprint"] for item in report}
     assert report_fingerprints == policy_fingerprints
@@ -506,15 +557,16 @@ def test_main_squash_secret_history_is_exactly_governed():
     )
     assert result["passed"] is True
     assert violations == []
-    assert result["secret_finding_count"] == 9
-    assert result["applied_pending_secret_exception_count"] == 9
+    assert result["secret_finding_count"] == 99
+    assert result["applied_pending_secret_exception_count"] == 99
     assert result["unexcepted_secret_finding_count"] == 0
     assert result["evidence_integrity_passed"] is True
     assert result["external_approval_required"] is True
     assert result["release_promotion_eligible"] is False
 
     changed_identity = copy.deepcopy(report)
-    changed_identity[0]["Fingerprint"] = changed_identity[0]["Fingerprint"].replace("f155005", "0155005", 1)
+    fingerprint = changed_identity[changed_index]["Fingerprint"]
+    changed_identity[changed_index]["Fingerprint"] = "0" + fingerprint[1:]
     result, violations = enforce_policy(
         policy,
         [("clean.grype.json", _clean_grype_report())],
@@ -523,7 +575,7 @@ def test_main_squash_secret_history_is_exactly_governed():
     )
     assert result["passed"] is False
     assert violations == ["unexcepted secret finding detected"]
-    assert result["applied_pending_secret_exception_count"] == 8
+    assert result["applied_pending_secret_exception_count"] == 98
     assert result["unexcepted_secret_finding_count"] == 1
     assert result["evidence_integrity_passed"] is False
 
