@@ -1,0 +1,61 @@
+{
+  "document_id": "1171",
+  "status": "source_reviewed_candidate_awaiting_owner_approval",
+  "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1171",
+  "original_markdown_sha256": "ec98e2cc9a385373c08ddf7fd60ed164a7c54498138199a548d48b5465cbaba5",
+  "candidate_markdown_sha256": "96d637cfb856aaf72ed04d162186ed3017d6aa84df17e360a9c3ad39e9a554f0",
+  "f0b7_bullet_repairs": 8,
+  "source_anomalies_preserved": [
+    "U+F0B7 is the Word private-use bullet; only that glyph is replaced with •."
+  ],
+  "replacements": [
+    {
+      "start": 38972,
+      "end": 38973,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 39451,
+      "end": 39452,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 40348,
+      "end": 40349,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 40637,
+      "end": 40638,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 41615,
+      "end": 41616,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 42062,
+      "end": 42063,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 42750,
+      "end": 42751,
+      "old": "",
+      "new": "•"
+    },
+    {
+      "start": 43545,
+      "end": 43546,
+      "old": "",
+      "new": "•"
+    }
+  ]
+}

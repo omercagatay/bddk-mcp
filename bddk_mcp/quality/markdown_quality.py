@@ -20,7 +20,7 @@ import yaml
 from pydantic import BaseModel, Field
 
 QUALITY_FAILURES_PATH = Path(__file__).with_name("quality_failures.yml")
-QUALITY_ASSESSMENT_POLICY_VERSION = "markdown-quality-assessment-v3"
+QUALITY_ASSESSMENT_POLICY_VERSION = "markdown-quality-assessment-v5"
 QUALITY_FAILURE_REGISTRY_FORMAT_VERSION = 1
 _CONFIGURED_QUALITY_FAILURE_FLAG = "configured_quality_failure"
 FORMULA_EXTRACTION_WARNING = (
@@ -166,6 +166,21 @@ _OCR_DOUBLED_UPPERCASE_WORD_RE = re.compile(r"\b([A-ZÇĞİÖŞÜ])\1([A-ZÇĞİ
 _CAMELCASE_TRANSITION_RE = re.compile(r"[a-zçğıöşü][A-ZÇĞİÖŞÜ]")
 _KNOWN_MIXED_CASE_TERMS = {
     "HashCalc",
+    # Literal formula/XML identifiers verified in document-repairs/903.json and 907.json.
+    "GuncellemeTarihi",
+    "IslemGrubu",
+    "KalemAdi",
+    "MasrafAdi",
+    "TuketiciVerileri",
+    "İpotekTutarı",
+    "maxOccurs",
+    "complexType",
+    "dateTime",
+    "uniqueKalem",
+    "uniqueIslem",
+    "uniqueIslemGrubu",
+    "simpleType",
+    "maxLength",
 }
 _MIXED_CASE_UNIT_RE = re.compile(r"^\d+(?:kW|MW|GW|kWh|MWh|GWh)$")
 _FORMULA_REF_RE = re.compile(
@@ -398,7 +413,9 @@ def _count_camelcase_concat(text: str) -> int:
 def _is_camelcase_false_positive(text: str, match: re.Match[str]) -> bool:
     start, end = _token_bounds(text, match.start(), match.end())
     token = text[start:end]
-    if token in _KNOWN_MIXED_CASE_TERMS:
+    if token in _KNOWN_MIXED_CASE_TERMS or token in {"İpotekTutarı1", "İpotekTutarı2", "İpotekTutarı3"}:
+        return True
+    if token == "ggTss" and text[max(0, start - 8) : end + 6] == "yyyy-aa-ggTss:dd:ss":
         return True
     if _MIXED_CASE_UNIT_RE.fullmatch(token):
         return True

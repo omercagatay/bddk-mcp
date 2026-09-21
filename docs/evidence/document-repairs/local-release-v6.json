@@ -1,0 +1,198 @@
+{
+  "status": "signed_verified_activated_and_mcp_checked",
+  "scope": "Local-only execution evidence; no production deployment or independent human/legal approval claimed.",
+  "baseline_release_evidence": "local-release-v5.json",
+  "fresh_staging_database": "bddk_repairs_v6",
+  "previous_database_preserved": true,
+  "version_rows_deleted": 0,
+  "quality_policy": "markdown-quality-assessment-v5",
+  "registry_failure_count": 0,
+  "native_repairs": [
+    "mevzuat_16290-native.json",
+    "mevzuat_21192-native.json"
+  ],
+  "source_review": "Exact native cells/spans and ordered native Word text; embedded DOCX equations restored with explicit source transcriptions, no memory-based formulas.",
+  "corpus_manifest_sha256": "e41c174503e6954f2706797540e24767edd995447bc4636aa59a7f34b83ef417",
+  "signature_sha256": "141981fd671fce35e58e5df0c68775097476d281ee89e12027be7c72e52bb5ba",
+  "artifacts": [
+    {
+      "file": "chunks.json",
+      "sha256": "b569040a797baeff426f72b7745bee2c78e2681417a446c0dd52f26c9af09dcd",
+      "bytes": 19339994
+    },
+    {
+      "file": "corpus_scope.sig",
+      "sha256": "141981fd671fce35e58e5df0c68775097476d281ee89e12027be7c72e52bb5ba",
+      "bytes": 64
+    },
+    {
+      "file": "corpus_scope.yml",
+      "sha256": "dd6739323000decc79750b2ea8887c728b6eb3c273ccdb906c645a5ffa7e8c1d",
+      "bytes": 2673
+    },
+    {
+      "file": "decision_cache.json",
+      "sha256": "9e5677b1a2ffc9fe9d5ed122a90171c896e5f14ee83d958b724e1d2b8b8fd894",
+      "bytes": 153040
+    },
+    {
+      "file": "documents.json",
+      "sha256": "b7e3e7b4c1462f1415c2745336451bdee4b1e5562806913569ac35961a7d7926",
+      "bytes": 8709608
+    }
+  ],
+  "runtime_image": "sha256:fc438a86ec5739d75e603ae95c40f859ebd10fadd34e9981ebb09613f9531329",
+  "runtime_base_image": "sha256:33384fc45ac7496c488b6273fdeade0f61189495daaad7499a383d8f57c1f887",
+  "runtime_context_sha256": "998758b9459c16c4921f31a390117bdb820828c7fe5c4b9c9fcb6d7bd44a1856",
+  "runtime_context_definition": {
+    "Dockerfile": "FROM bddk-quality-repairs:local-v5\nCOPY --chown=10001:0 quality_failures.yml /app/bddk_mcp/quality/quality_failures.yml\n",
+    "quality_failures.yml": "fail_documents: []\n"
+  },
+  "verifier_receipt": {
+    "chunk_artifact_match": true,
+    "chunks": 13544,
+    "corpus_manifest_id": "bddk-job-corpus-quality-repairs-local-v6-2026-09-21",
+    "corpus_manifest_sha256": "e41c174503e6954f2706797540e24767edd995447bc4636aa59a7f34b83ef417",
+    "corpus_release_request": {
+      "corpus_epoch": 15,
+      "corpus_state_sha256": "9c54755f94fb801df8ed4d3090bc2af5896012678076f407e28bd9060bc17835",
+      "release_id": "corpus_release_sha256_c02076f48038ba9db61db833a759659364372419443ae96a6fbec1134f0ff6b5",
+      "request_id": "corpus_release_request_sha256_14e1d8af1e4d076e823642f4d4fec7f7248d02860082eaf223467038b32292a4",
+      "staged_at": "2026-09-21T06:53:36.748316+00:00",
+      "verification_expires_at": "2026-09-21T07:08:36.748316+00:00"
+    },
+    "corpus_scope_warnings": [
+      "This corpus is a job-specific selection, not exhaustive BDDK coverage. Freshness and legal applicability must be verified against authoritative sources.",
+      "Corpus freshness objectives, if declared, are not measured against per-document events."
+    ],
+    "documents": 318,
+    "schema_version": 1,
+    "verification_evidence_sha256": "418572018fc9d78fe85b04eaf97e7b2ddaefb8329e0abf81ad34f2d5d75e65a8",
+    "verification_run_sha256": "6c47c795025e6ea041658582d19ff9475b5fed21b237b31a67932ea80a748e4e"
+  },
+  "database_ledger": {
+    "active": {
+      "release_id": "corpus_release_sha256_c02076f48038ba9db61db833a759659364372419443ae96a6fbec1134f0ff6b5",
+      "manifest_id": "bddk-job-corpus-quality-repairs-local-v6-2026-09-21",
+      "manifest_sha256": "e41c174503e6954f2706797540e24767edd995447bc4636aa59a7f34b83ef417",
+      "signer_key_sha256": "e0215724fa0c59a8a33d35fedf6ebcda59b85aef31794f5eacc59bad6632e22d",
+      "freshness_policy_result": "quantified_unmeasured_signature_verified_pass",
+      "source_detection_slo_seconds": 604800,
+      "publication_slo_seconds": 1209600,
+      "max_manifest_age_seconds": 15552000,
+      "retrieval_profile_sha256": "a92ee861dbe0fd4fab3e4da2f69dae4e1430c460e3e22290c7a5fb0c9ecd99e2",
+      "corpus_state_sha256": "9c54755f94fb801df8ed4d3090bc2af5896012678076f407e28bd9060bc17835",
+      "created_at": "2026-09-21T06:53:42.968024+00:00",
+      "activation_sequence": 1,
+      "completed_at": "2026-09-21T06:53:42.968024+00:00",
+      "actor_fingerprint_sha256": "633dc652a67d53b147e141264f1a718c965390e47ee46879dbe28e4be1b33198",
+      "corpus_epoch": 15
+    },
+    "request": {
+      "request_id": "corpus_release_request_sha256_14e1d8af1e4d076e823642f4d4fec7f7248d02860082eaf223467038b32292a4",
+      "release_id": "corpus_release_sha256_c02076f48038ba9db61db833a759659364372419443ae96a6fbec1134f0ff6b5",
+      "manifest_id": "bddk-job-corpus-quality-repairs-local-v6-2026-09-21",
+      "manifest_sha256": "e41c174503e6954f2706797540e24767edd995447bc4636aa59a7f34b83ef417",
+      "signature_sha256": "141981fd671fce35e58e5df0c68775097476d281ee89e12027be7c72e52bb5ba",
+      "signer_key_sha256": "e0215724fa0c59a8a33d35fedf6ebcda59b85aef31794f5eacc59bad6632e22d",
+      "verification_evidence_sha256": "418572018fc9d78fe85b04eaf97e7b2ddaefb8329e0abf81ad34f2d5d75e65a8",
+      "freshness_policy_result": "quantified_unmeasured_signature_verified_pass",
+      "source_detection_slo_seconds": 604800,
+      "publication_slo_seconds": 1209600,
+      "max_manifest_age_seconds": 15552000,
+      "retrieval_profile_sha256": "a92ee861dbe0fd4fab3e4da2f69dae4e1430c460e3e22290c7a5fb0c9ecd99e2",
+      "corpus_state_sha256": "9c54755f94fb801df8ed4d3090bc2af5896012678076f407e28bd9060bc17835",
+      "corpus_epoch": 15,
+      "verifier_revision_sha256": "998758b9459c16c4921f31a390117bdb820828c7fe5c4b9c9fcb6d7bd44a1856",
+      "verifier_image_digest": "sha256:fc438a86ec5739d75e603ae95c40f859ebd10fadd34e9981ebb09613f9531329",
+      "valid_for_seconds": 900,
+      "staged_at": "2026-09-21T06:53:36.748316+00:00",
+      "verification_expires_at": "2026-09-21T07:08:36.748316+00:00",
+      "verifier_fingerprint_sha256": "558c8a8b76c0b3fdf45c28fb272fb9adcfda459fb6c9e252edc393cac0993bba"
+    },
+    "release": {
+      "release_id": "corpus_release_sha256_c02076f48038ba9db61db833a759659364372419443ae96a6fbec1134f0ff6b5",
+      "manifest_id": "bddk-job-corpus-quality-repairs-local-v6-2026-09-21",
+      "manifest_sha256": "e41c174503e6954f2706797540e24767edd995447bc4636aa59a7f34b83ef417",
+      "signer_key_sha256": "e0215724fa0c59a8a33d35fedf6ebcda59b85aef31794f5eacc59bad6632e22d",
+      "freshness_policy_result": "quantified_unmeasured_signature_verified_pass",
+      "source_detection_slo_seconds": 604800,
+      "publication_slo_seconds": 1209600,
+      "max_manifest_age_seconds": 15552000,
+      "retrieval_profile_sha256": "a92ee861dbe0fd4fab3e4da2f69dae4e1430c460e3e22290c7a5fb0c9ecd99e2",
+      "corpus_state_sha256": "9c54755f94fb801df8ed4d3090bc2af5896012678076f407e28bd9060bc17835",
+      "created_at": "2026-09-21T06:53:42.968024+00:00"
+    },
+    "activation": {
+      "activation_sequence": 1,
+      "release_id": "corpus_release_sha256_c02076f48038ba9db61db833a759659364372419443ae96a6fbec1134f0ff6b5",
+      "corpus_epoch": 15,
+      "completed_at": "2026-09-21T06:53:42.968024+00:00",
+      "actor_fingerprint_sha256": "633dc652a67d53b147e141264f1a718c965390e47ee46879dbe28e4be1b33198"
+    },
+    "request_binding": {
+      "request_id": "corpus_release_request_sha256_14e1d8af1e4d076e823642f4d4fec7f7248d02860082eaf223467038b32292a4",
+      "activation_sequence": 1,
+      "release_id": "corpus_release_sha256_c02076f48038ba9db61db833a759659364372419443ae96a6fbec1134f0ff6b5",
+      "bound_at": "2026-09-21T06:53:42.968024+00:00",
+      "publisher_fingerprint_sha256": "633dc652a67d53b147e141264f1a718c965390e47ee46879dbe28e4be1b33198"
+    },
+    "documents": 318,
+    "sections": 8357,
+    "chunks": 13544,
+    "version_rows": 0
+  },
+  "mcp": {
+    "tool_count": 17,
+    "documents_checked": 318,
+    "second_page_checks": 6,
+    "labels": {
+      "clean": 318
+    },
+    "fail_documents": [],
+    "formula_unaware_warnings": 310,
+    "report_sha256": "a0255e098e1f818e4847e0b700fd529ed3f4dd7cf782a25edd42409780a416b6",
+    "active_release_stable": true,
+    "repaired_document_results": {
+      "mevzuat_16290": {
+        "quality": {
+          "label": "clean",
+          "flags": [
+            "excessive_pipe_density",
+            "long_lines_gt_1000",
+            "long_words_ge35",
+            "extreme_words_ge55",
+            "duplicate_paragraphs"
+          ]
+        },
+        "extraction_method": "html_parser+native_table_review",
+        "formula_loss_warning": true,
+        "page_flags_match_canonical_body": true,
+        "content_sha256": "bf97a1ac209e20f4d47b6c95472b5136bb018da69fb0f2fd34258e3709e5f555"
+      },
+      "mevzuat_21192": {
+        "quality": {
+          "label": "clean",
+          "flags": [
+            "long_lines_gt_1000",
+            "long_words_ge35",
+            "extreme_words_ge55",
+            "duplicate_paragraphs"
+          ]
+        },
+        "extraction_method": "native_office+manual_latex",
+        "formula_loss_warning": false,
+        "page_flags_match_canonical_body": true,
+        "content_sha256": "c6a2732b8f89e829b35c1297a13f3171e7ea3079e48a95c7d95ca809dd2cbca6"
+      }
+    }
+  },
+  "tests": {
+    "passed": 1844,
+    "skipped": 31,
+    "deselected": 230,
+    "command": ".venv/bin/python -m pytest tests/ -m 'not postgres and not gpu' -q",
+    "log_sha256": "b2a34b28dfbfe23516f4ab7a7abb255d8b750dbd8a327b83ce0f04a2338423d5"
+  },
+  "remaining": "Formula-unaware provenance warnings and legitimate source/layout flags remain; 0 fail and 0 warning quality labels does not establish legal applicability or source freshness."
+}

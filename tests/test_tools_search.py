@@ -126,7 +126,7 @@ async def test_search_document_store_uses_match_wording_and_section_guidance():
 
 
 @pytest.mark.asyncio
-async def test_search_document_store_registry_overrides_stale_clean_index_metadata():
+async def test_search_document_store_registry_overrides_stale_clean_index_metadata(historical_quality_registry):
     from bddk_mcp.core.deps import Dependencies
     from bddk_mcp.tools.search import register
 

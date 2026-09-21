@@ -1,0 +1,176 @@
+{
+  "scope": "local-only; production and checked-in signed seed/registry unchanged",
+  "status": "signed_verified_staged_activated_and_mcp_checked_with_remaining_warnings",
+  "source_review_authority": "assistant technical review under user task; not independent human/legal approval",
+  "corpus_directory": "quality_reports/repair-audit/seed-local-v5",
+  "artifacts": [
+    {
+      "path": "quality_reports/repair-audit/seed-local-v5/chunks.json",
+      "sha256": "bc6c20245c083abc889027d29f1daf76d16cc7f6f607c46f9c1ba51aa078bb2d",
+      "bytes": 19361976
+    },
+    {
+      "path": "quality_reports/repair-audit/seed-local-v5/corpus_scope.sig",
+      "sha256": "5e252fdbf8c9926e783bcf7f864706e03038ae5d10a7b2cdb1f42f5a0b807445",
+      "bytes": 64
+    },
+    {
+      "path": "quality_reports/repair-audit/seed-local-v5/corpus_scope.yml",
+      "sha256": "bf6cf89a4806a1e4e3f18acaa9beabcf7e8783652a9b01fcf77a724760e9b681",
+      "bytes": 2673
+    },
+    {
+      "path": "quality_reports/repair-audit/seed-local-v5/decision_cache.json",
+      "sha256": "9e5677b1a2ffc9fe9d5ed122a90171c896e5f14ee83d958b724e1d2b8b8fd894",
+      "bytes": 153040
+    },
+    {
+      "path": "quality_reports/repair-audit/seed-local-v5/documents.json",
+      "sha256": "74de4bc712395847f36a5b7cf1aa59f83879c4494c47712ab62c70d10d87fa4d",
+      "bytes": 8714407
+    }
+  ],
+  "runtime_image": "sha256:33384fc45ac7496c488b6273fdeade0f61189495daaad7499a383d8f57c1f887",
+  "runtime_base_image": "sha256:aff763394c9067356f5b6e1031e6f7d36a4c596a164d142508e13d36e3ca64e2",
+  "runtime_source_provenance": "SHA256 of deterministic Docker build-context tar (includes base reference, exact reviewed overrides); not a Git revision",
+  "runtime_context_sha256": "31c87a2ad368b9fd0fa11d9434dc1ed53442f72157b95a10bace4b66b095d027",
+  "runtime_files_sha256": {
+    "Dockerfile": "585bca0a941cc7ef55aead0803a3e374b3562d1959ff864fe76a947bc6a70552",
+    "markdown_quality.py": "c9bad8ec292e1efe5ee82536eccb55f40af0bda199d7642229da45afb595ee30",
+    "quality_failures.yml": "29aaef2ec44fee2c9ff64b83339c53a4c7a25f5437c0719332fbdfd0592ce69b",
+    "documents.py": "d434b296b81171b53b2dd15b89de875a7588c2456ef268fb844fd00bff401926",
+    "doc_store.py": "167df9683c6d3664593c6c8d3415d1e4f695817750f0bd16ead97df6abb04cee"
+  },
+  "quality_policy": "markdown-quality-assessment-v5",
+  "verifier_receipt": {
+    "chunk_artifact_match": true,
+    "chunks": 13565,
+    "corpus_manifest_id": "bddk-job-corpus-quality-repairs-local-v5-2026-09-21",
+    "corpus_manifest_sha256": "07566b1b6bf0cd5725fbf33e19e25e130fb3ec959a55438f94162aa560bfe01f",
+    "corpus_release_request": {
+      "corpus_epoch": 115,
+      "corpus_state_sha256": "7656a0d66255917c171971c74f4b756236e8dda613152d740b8c953493c2458f",
+      "release_id": "corpus_release_sha256_117d271e66d80fef89dde5bdfa9c65da393e02e919995445fd27b25f32a7105e",
+      "request_id": "corpus_release_request_sha256_2872068204cba6fc52e7da78ec8c6f561a2c1e3020b3c5d2d00613aa23258da2",
+      "staged_at": "2026-09-21T01:20:48.881518+00:00",
+      "verification_expires_at": "2026-09-21T01:35:48.881518+00:00"
+    },
+    "corpus_scope_warnings": [
+      "This corpus is a job-specific selection, not exhaustive BDDK coverage. Freshness and legal applicability must be verified against authoritative sources.",
+      "Corpus freshness objectives, if declared, are not measured against per-document events."
+    ],
+    "documents": 318,
+    "schema_version": 1,
+    "verification_evidence_sha256": "c08aa647cccdd64d655b5c40d7b3d468a6590ade305ee07be96535325f7a57b8",
+    "verification_run_sha256": "dfedb3edb6b2d80769e0e21893331036e03ff81e631c0267a279f39c9d2643f0"
+  },
+  "database_ledger": {
+    "active": {
+      "release_id": "corpus_release_sha256_117d271e66d80fef89dde5bdfa9c65da393e02e919995445fd27b25f32a7105e",
+      "manifest_id": "bddk-job-corpus-quality-repairs-local-v5-2026-09-21",
+      "manifest_sha256": "07566b1b6bf0cd5725fbf33e19e25e130fb3ec959a55438f94162aa560bfe01f",
+      "signer_key_sha256": "e0215724fa0c59a8a33d35fedf6ebcda59b85aef31794f5eacc59bad6632e22d",
+      "freshness_policy_result": "quantified_unmeasured_signature_verified_pass",
+      "source_detection_slo_seconds": 604800,
+      "publication_slo_seconds": 1209600,
+      "max_manifest_age_seconds": 15552000,
+      "retrieval_profile_sha256": "a8717206d8a2849a2591ea2cadb393dd8cd4611962763b9faa7e0b5aa633800c",
+      "corpus_state_sha256": "7656a0d66255917c171971c74f4b756236e8dda613152d740b8c953493c2458f",
+      "created_at": "2026-09-21T01:20:55.203958+00:00",
+      "activation_sequence": 5,
+      "completed_at": "2026-09-21T01:20:55.203958+00:00",
+      "actor_fingerprint_sha256": "633dc652a67d53b147e141264f1a718c965390e47ee46879dbe28e4be1b33198",
+      "corpus_epoch": 115
+    },
+    "request": {
+      "request_id": "corpus_release_request_sha256_2872068204cba6fc52e7da78ec8c6f561a2c1e3020b3c5d2d00613aa23258da2",
+      "release_id": "corpus_release_sha256_117d271e66d80fef89dde5bdfa9c65da393e02e919995445fd27b25f32a7105e",
+      "manifest_id": "bddk-job-corpus-quality-repairs-local-v5-2026-09-21",
+      "manifest_sha256": "07566b1b6bf0cd5725fbf33e19e25e130fb3ec959a55438f94162aa560bfe01f",
+      "signature_sha256": "5e252fdbf8c9926e783bcf7f864706e03038ae5d10a7b2cdb1f42f5a0b807445",
+      "signer_key_sha256": "e0215724fa0c59a8a33d35fedf6ebcda59b85aef31794f5eacc59bad6632e22d",
+      "verification_evidence_sha256": "c08aa647cccdd64d655b5c40d7b3d468a6590ade305ee07be96535325f7a57b8",
+      "freshness_policy_result": "quantified_unmeasured_signature_verified_pass",
+      "source_detection_slo_seconds": 604800,
+      "publication_slo_seconds": 1209600,
+      "max_manifest_age_seconds": 15552000,
+      "retrieval_profile_sha256": "a8717206d8a2849a2591ea2cadb393dd8cd4611962763b9faa7e0b5aa633800c",
+      "corpus_state_sha256": "7656a0d66255917c171971c74f4b756236e8dda613152d740b8c953493c2458f",
+      "corpus_epoch": 115,
+      "verifier_revision_sha256": "31c87a2ad368b9fd0fa11d9434dc1ed53442f72157b95a10bace4b66b095d027",
+      "verifier_image_digest": "sha256:33384fc45ac7496c488b6273fdeade0f61189495daaad7499a383d8f57c1f887",
+      "valid_for_seconds": 900,
+      "staged_at": "2026-09-21T01:20:48.881518+00:00",
+      "verification_expires_at": "2026-09-21T01:35:48.881518+00:00",
+      "verifier_fingerprint_sha256": "558c8a8b76c0b3fdf45c28fb272fb9adcfda459fb6c9e252edc393cac0993bba"
+    },
+    "release": {
+      "release_id": "corpus_release_sha256_117d271e66d80fef89dde5bdfa9c65da393e02e919995445fd27b25f32a7105e",
+      "manifest_id": "bddk-job-corpus-quality-repairs-local-v5-2026-09-21",
+      "manifest_sha256": "07566b1b6bf0cd5725fbf33e19e25e130fb3ec959a55438f94162aa560bfe01f",
+      "signer_key_sha256": "e0215724fa0c59a8a33d35fedf6ebcda59b85aef31794f5eacc59bad6632e22d",
+      "freshness_policy_result": "quantified_unmeasured_signature_verified_pass",
+      "source_detection_slo_seconds": 604800,
+      "publication_slo_seconds": 1209600,
+      "max_manifest_age_seconds": 15552000,
+      "retrieval_profile_sha256": "a8717206d8a2849a2591ea2cadb393dd8cd4611962763b9faa7e0b5aa633800c",
+      "corpus_state_sha256": "7656a0d66255917c171971c74f4b756236e8dda613152d740b8c953493c2458f",
+      "created_at": "2026-09-21T01:20:55.203958+00:00"
+    },
+    "activation": {
+      "activation_sequence": 5,
+      "release_id": "corpus_release_sha256_117d271e66d80fef89dde5bdfa9c65da393e02e919995445fd27b25f32a7105e",
+      "corpus_epoch": 115,
+      "completed_at": "2026-09-21T01:20:55.203958+00:00",
+      "actor_fingerprint_sha256": "633dc652a67d53b147e141264f1a718c965390e47ee46879dbe28e4be1b33198"
+    },
+    "request_binding": {
+      "request_id": "corpus_release_request_sha256_2872068204cba6fc52e7da78ec8c6f561a2c1e3020b3c5d2d00613aa23258da2",
+      "activation_sequence": 5,
+      "release_id": "corpus_release_sha256_117d271e66d80fef89dde5bdfa9c65da393e02e919995445fd27b25f32a7105e",
+      "bound_at": "2026-09-21T01:20:55.203958+00:00",
+      "publisher_fingerprint_sha256": "633dc652a67d53b147e141264f1a718c965390e47ee46879dbe28e4be1b33198"
+    },
+    "version_rows": 0
+  },
+  "mcp": {
+    "report_path": "quality_reports/repair-audit/mcp-local-v5.json",
+    "report_sha256": "1ab4982597ae787df104dd69cae4b7012c4a805af72752165cdf626ebec88696",
+    "documents_checked": 318,
+    "second_page_checks": 4,
+    "tools": 17,
+    "labels": {
+      "clean": 316,
+      "fail": 2
+    },
+    "formula_unaware_warnings": 311,
+    "documents_with_flags": 125,
+    "active_release_stable": true
+  },
+  "tests": {
+    "command": ".venv/bin/python -m pytest tests/ -m 'not postgres and not gpu' -q",
+    "passed": 1842,
+    "skipped": 31,
+    "deselected": 230,
+    "log_sha256": "1089d1fef3475937bce4956e95beef54d970b6d18a80ad69d3c385f699da7552",
+    "lsp": "unavailable configured commands; venv Ruff lint and format checks used"
+  },
+  "history_incident": {
+    "prior_assistant_deleted_version_rows": 50,
+    "deletion_was_not_a_valid_staging_remediation": true,
+    "canonical_old_text_and_hashes_preserved_in": "quality_reports/repair-audit/prior-signed-corpus",
+    "baseline_documents_sha256": "4a469fc11bd9848d2acd540296d794126ab9c506dc68d929fb72f580ebe5dba6",
+    "original_deleted_version_ids_and_synced_at_recovered": false,
+    "reconciliation_backup": "quality_reports/repair-audit/local-db-before-reconciliation.dump",
+    "reconciliation_backup_sha256": "99baef49b609c3e7b10143b7892891084b9de49ca4b4ff9313a0c01858b6a176",
+    "this_continuation_deleted_no_versions": true,
+    "future_content_change_requires_fresh_staging_database": true
+  },
+  "remaining": [
+    "mevzuat_21192: annex unavailable; retained configured failure",
+    "mevzuat_16290: approximate merged headers/partial table review; retained configured failure",
+    "311 formula-unaware warnings retained rather than inventing review provenance",
+    "125 documents have flags including legitimate source repeats, long tokens/lines and dense tables; no blanket deletion",
+    "production promotion and checked-in seed/registry update not performed"
+  ]
+}

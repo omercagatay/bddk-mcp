@@ -1,0 +1,3951 @@
+{
+  "document_id": "1305",
+  "status": "annex_source_reviewed_full_document_audit_pending",
+  "source_pdf_sha256": "44928bdde6309ad48559c18960e45638c50fae30b25c56675edf0796da6de065",
+  "input_markdown_sha256": "51e70d715b0201e4426060543aad0246ba114d3d965cae17c5d9dabeb77867df",
+  "output_markdown_sha256": "d47fd29961b56dd24ba1993864c11b5fe26f35cee1948376cc354c8ca914819b",
+  "extraction_receipt_sha256": "1f2d735f3ab4fb57c14a8fcbef82b4a5c1ec50139236f116bb07239c0afa32d2",
+  "pages_visually_reviewed": [
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67
+  ],
+  "review_notes": [
+    "All fourteen rendered pages inspected. Page 56's otherwise dropped open-bottom design/maintenance row is restored before joining its continuation on page 57.",
+    "Only explicitly reviewed cross-page row continuations are merged. All category columns preserve their complete non-whitespace character sequence; repeated substantive criteria remain, including the operator-capability criterion repeated in the asset-finance table.",
+    "Identical running table headers are removed; reviewed word-wrap joins do not change letters, punctuation or values. No blanket deduplication or spelling correction.",
+    "Full-document textual reconciliation and owner approval/publication remain outstanding; no registry, provenance or signed corpus changes."
+  ],
+  "groups": [
+    {
+      "title": "Tablo 3 – Gelir Getiren Gayrimenkul ve Volatilitesi Yüksek Ticari Gayrimenkul Kredilerine İlişkin Derecelendirme Düzeyleri",
+      "pages": [
+        54,
+        55,
+        56,
+        57,
+        58,
+        59
+      ],
+      "continuation_pages": [
+        56,
+        57,
+        58,
+        59
+      ],
+      "source_tables": [
+        {
+          "page": 54,
+          "table": 0,
+          "bbox": [
+            71.30400499999999,
+            126.49999999999989,
+            524.02001,
+            751.67999
+          ],
+          "rows": [
+            [
+              "",
+              "1. Kategori\n(Güçlü)",
+              "2. Kategori\n(İyi)",
+              "3. Kategori\n(Yeterli)",
+              "4. Kategori\n(Zayıf)"
+            ],
+            [
+              "Finansal Güç",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "Piyasa koşulları",
+              "Proje tipi ve\nkonumu için arz\ntalep mevcut\ndurumda\ndengededir.\nPiyasaya\nsunulacak olan\nrakip\ngayrimenkulleri\nn sayısı, tahmin\nedilen talep\ndüzeyine eşit\nveya daha\ndüşüktür.",
+              "Proje tipi ve\nkonumu için arz\ntalep mevcut\ndurumda\ndengededir.\nPiyasaya\nsunulacak olan\nrakip\ngayrimenkulleri\nn sayısı, tahmin\nedilen talep\ndüzeyine kabaca\neşittir.",
+              "Piyasa koşulları\nkabaca\ndengededir.\nRakip\ngayrimenkuller\npiyasaya\nsunulma,\ndiğerleri\nplanlama\nsafhasındadır.\nProjenin tasarım\nve özellikleri,\nyeni projelere\nkıyasla modern\nolmayabilir.",
+              "Piyasa koşulları\nzayıftır.\nKoşulların ne\nzaman\niyileşeceği ve\ndengeye\ngeleceği\nbelirsizdir.\nProje, kira\nsüresinin\nsonunda\nkiracılarını\nkaybediyor.\nYeni kira\nkoşulları, sona\neren kiralara\nkıyasla daha\nolumsuzdur."
+            ],
+            [
+              "Finansal oranlar\nve kredinin\nteminata oranı",
+              "Gayrimenkulün\nborç servis\noranı\nyüksektir(Borç\nservis oranı\ninşaat\nsafhasındaki\ngayrimenkuller\niçin\nhesaplanmamalı\ndır.) ve kredinin\nteminata oranı\nilgili\ngayrimenkul\ntipine göre\ndüşüktür. İkincil\npiyasanın\nbulunduğu\ndurumlarda,\nişlem piyasa\nstandartlarında\nyapılmıştır.",
+              "Borç servis\noranı (Borç\nservis oranı\ninşaat\nsafhasındaki\ngayrimenkuller\niçin\nhesaplanmamalı\ndır.) ve kredinin\nteminata oranı\nyeterlidir.\nİkincil\npiyasanın\nbulunduğu\ndurumlarda,\nişlem piyasa\nstandartlarında\nyapılmıştır.",
+              "Gayrimenkulün\nborç servis\noranı (Borç\nservis oranı\ninşaat\nsafhasındaki\ngayrimenkuller\niçin\nhesaplanmamalı\ndır.)\nbozulmuştur ve\ngayrimenkulün\ndeğeri\ndüşmüştür\ndolayısıyla\nkredinin\nteminata oranı\nyükselmiştir.",
+              "Gayrimenkulün\nborç servis\noranı (Borç\nservis oranı\ninşaat\nsafhasındaki\ngayrimenkuller\niçin\nhesaplanmamalı\ndır.) önemli\ndüzeyde\nbozulmuştur ve\nkredinin\nteminata oranı\nyeni kredilere\nilişkin sözleşme\nşartlarının\noldukça\nüzerindedir."
+            ]
+          ],
+          "cells": [
+            [
+              71.30400499999999,
+              126.49999999999989,
+              160.939995,
+              155.17999499999996
+            ],
+            [
+              71.30400499999999,
+              155.17999499999996,
+              160.939995,
+              169.94000499999999
+            ],
+            [
+              71.30400499999999,
+              169.94000499999999,
+              160.939995,
+              433.15000499999996
+            ],
+            [
+              71.30400499999999,
+              433.15000499999996,
+              160.939995,
+              751.67999
+            ],
+            [
+              160.939995,
+              126.49999999999989,
+              251.689995,
+              155.17999499999996
+            ],
+            [
+              160.939995,
+              155.17999499999996,
+              251.689995,
+              169.94000499999999
+            ],
+            [
+              160.939995,
+              169.94000499999999,
+              251.689995,
+              433.15000499999996
+            ],
+            [
+              160.939995,
+              433.15000499999996,
+              251.689995,
+              751.67999
+            ],
+            [
+              251.689995,
+              126.49999999999989,
+              342.43001,
+              155.17999499999996
+            ],
+            [
+              251.689995,
+              155.17999499999996,
+              342.43001,
+              169.94000499999999
+            ],
+            [
+              251.689995,
+              169.94000499999999,
+              342.43001,
+              433.15000499999996
+            ],
+            [
+              251.689995,
+              433.15000499999996,
+              342.43001,
+              751.67999
+            ],
+            [
+              342.43001,
+              126.49999999999989,
+              433.27001,
+              155.17999499999996
+            ],
+            [
+              342.43001,
+              155.17999499999996,
+              433.27001,
+              169.94000499999999
+            ],
+            [
+              342.43001,
+              169.94000499999999,
+              433.27001,
+              433.15000499999996
+            ],
+            [
+              342.43001,
+              433.15000499999996,
+              433.27001,
+              751.67999
+            ],
+            [
+              433.27001,
+              126.49999999999989,
+              524.02001,
+              155.17999499999996
+            ],
+            [
+              433.27001,
+              155.17999499999996,
+              524.02001,
+              169.94000499999999
+            ],
+            [
+              433.27001,
+              169.94000499999999,
+              524.02001,
+              433.15000499999996
+            ],
+            [
+              433.27001,
+              433.15000499999996,
+              524.02001,
+              751.67999
+            ]
+          ]
+        },
+        {
+          "page": 55,
+          "table": 0,
+          "bbox": [
+            71.30400499999999,
+            71.27999999999997,
+            524.02001,
+            765.4799899999999
+          ],
+          "rows": [
+            [
+              "",
+              "1. Kategori\n(Güçlü)",
+              "2. Kategori\n(İyi)",
+              "3. Kategori\n(Yeterli)",
+              "4. Kategori\n(Zayıf)"
+            ],
+            [
+              "Stres analizi",
+              "Gayrimenkulün\nmevcut\nkaynakları,\ntaahhüt ve\nyükümlülük\nyapısı, çok\nstresli\nekonomik stres\ndöneminde\n(örneğin, faiz\noranları,\nekonomik\nbüyüme) dahi\nfinansal\nyükümlülükleri\nni karşılamasına\nimkan verecek\nniteliktedir.",
+              "Gayrimenkul,\nsüreklilik arz\neden bir\nekonomik stres\ndöneminde\n(örneğin faiz\noranları,\nekonomik\nbüyüme)\nfinansal\nyükümlülükleri\nni yerine\ngetirebilir.\nGayrimenkule\nilişkin kredi\nsadece çok\nstresli ekonomik\nkoşullar altında\ntemerrüde\ndüşebilir.",
+              "Bir ekonomik\ngerileme\ndöneminde,\ngayrimenkulün\ngelirinde bir\nazalma olabilir,\nbu sebeple\ngayrimenkule\nilişkin sermaye\nharcamaları\nfonlama\nkabiliyeti\nsınırlanabilir ve\nkredinin\ntemerrüt riski\nönemli oranda\nartabilir.",
+              "Gayrimenkulün\nfinansal durumu\nbozuktur ve\nyakın gelecekte\nkoşullarda\niyileşme\nolmadığı\ntakdirde,\nkredinin\ntemerrüde\ndüşme ihtimali\nvardır."
+            ],
+            [
+              "Nakit akışının\nöngörülebilirliği\n(a)\nTamamlanmı\nş\ngayrimenkul\nve\ngayrimenkul\ne ilişkin\nistikrarlı\ngelir",
+              "Kira\nsözleşmeleri\nuzun sürelidir\nve sona erme\ntarihleri zamana\nyayılmıştır.\nKiracıların kredi\ndeğerliliği\nyüksektir.\nKiracı devir hızı\ndüşüktür.\nGayrimenkulün\nkiralanmama\noranı düşüktür.\nMasraf ve\ngiderler (bakım,\nsigorta,\ngüvenlik ve\nemlak vergileri)\nöngörülebilir\nniteliktedir.",
+              "Kira\nsözleşmelerinin\nçoğu uzun\nsürelidir,\nkiracıların kredi\ndeğerlilikleri\nçeşitlilik arz\netmektedir.\nKiracı devir hızı\nnormal\nseviyededir.\nGayrimenkulün\nkiralanmama\noranı düşüktür.\nMasraf ve\ngiderleri\nöngörülebilir\nniteliktedir.",
+              "Kira\nsözleşmelerinin\nçoğu orta\nsürelidir,\nkiracıların kredi\ndeğerlilikleri\nçeşitlilik arz\netmektedir.\nKiracı devir hızı\nnormalin\nüzerindedir.\nGayrimenkulün\nkiralanmama\noranı orta\nseviyededir.\nMasraf ve\ngiderleri\nnispeten\nöngörülebilir\nniteliktedir,\nfakat gelire\nbağlı olarak\ndeğişmektedir.",
+              "Kira\nsözleşmelerinin\nsüreleri ve\nkiracıların kredi\ndeğerlilikleri\nçeşitlilik arz\netmektedir.\nKiracı devir hızı\nyüksektir.\nGayrimenkulün\nkiralanmama\noranı yüksektir.\nGayrimenkulün,\nyeni kiracılar\niçin\nhazırlanması\nönemli miktarda\nmasraf\ngerektirmektedi\nr."
+            ],
+            [
+              "(b)Tamamla\nnmış fakat\ngayrimenkul",
+              "Kiralama\nfaaliyetleri\nprojeksiyonları",
+              "Kiralama\nfaaliyetleri\nprojeksiyonları",
+              "Kiralama\nfaaliyetleri\nçoğunlukla",
+              "Mevcut piyasa\nkiraları\nbeklentileri"
+            ]
+          ],
+          "cells": [
+            [
+              71.30400499999999,
+              71.27999999999997,
+              160.939995,
+              99.97999499999992
+            ],
+            [
+              71.30400499999999,
+              99.97999499999992,
+              160.939995,
+              376.97000499999996
+            ],
+            [
+              71.30400499999999,
+              376.97000499999996,
+              160.939995,
+              722.9800200000001
+            ],
+            [
+              71.30400499999999,
+              722.9800200000001,
+              160.939995,
+              765.4799899999999
+            ],
+            [
+              160.939995,
+              71.27999999999997,
+              251.689995,
+              99.97999499999992
+            ],
+            [
+              160.939995,
+              99.97999499999992,
+              251.689995,
+              376.97000499999996
+            ],
+            [
+              160.939995,
+              376.97000499999996,
+              251.689995,
+              722.9800200000001
+            ],
+            [
+              160.939995,
+              722.9800200000001,
+              251.689995,
+              765.4799899999999
+            ],
+            [
+              251.689995,
+              71.27999999999997,
+              342.43001,
+              99.97999499999992
+            ],
+            [
+              251.689995,
+              99.97999499999992,
+              342.43001,
+              376.97000499999996
+            ],
+            [
+              251.689995,
+              376.97000499999996,
+              342.43001,
+              722.9800200000001
+            ],
+            [
+              251.689995,
+              722.9800200000001,
+              342.43001,
+              765.4799899999999
+            ],
+            [
+              342.43001,
+              71.27999999999997,
+              433.27001,
+              99.97999499999992
+            ],
+            [
+              342.43001,
+              99.97999499999992,
+              433.27001,
+              376.97000499999996
+            ],
+            [
+              342.43001,
+              376.97000499999996,
+              433.27001,
+              722.9800200000001
+            ],
+            [
+              342.43001,
+              722.9800200000001,
+              433.27001,
+              765.4799899999999
+            ],
+            [
+              433.27001,
+              71.27999999999997,
+              524.02001,
+              99.97999499999992
+            ],
+            [
+              433.27001,
+              99.97999499999992,
+              524.02001,
+              376.97000499999996
+            ],
+            [
+              433.27001,
+              376.97000499999996,
+              524.02001,
+              722.9800200000001
+            ],
+            [
+              433.27001,
+              722.9800200000001,
+              524.02001,
+              765.4799899999999
+            ]
+          ]
+        },
+        {
+          "page": 56,
+          "table": 0,
+          "bbox": [
+            71.304005,
+            71.27999999999997,
+            524.02001,
+            765.9599999999999
+          ],
+          "rows": [
+            [
+              "",
+              "1. Kategori\n(Güçlü)",
+              "2. Kategori\n(İyi)",
+              "3. Kategori\n(Yeterli)",
+              "4. Kategori\n(Zayıf)"
+            ],
+            [
+              "e ilişkin\nistikrarsız\ngelir",
+              "karşılayabilecek\nveya daha\nyüksek\nseviyededir.\nProje yakın\ngelecekte\nistikrarlı gelir\nelde etmeye\nbaşlayacaktır.",
+              "karşılayabilecek\nveya daha\nyüksek\nseviyededir.\nProje yakın\ngelecekte\nistikrarlı gelir\nelde etmeye\nbaşlayacaktır",
+              "projeksiyonlara\nuygundur,\nbununla birlikte,\nprojenin belli\nbir süre\nistikrarlı gelir\nelde etmesi\nmümkün\ngörülmemektedi\nr.",
+              "karşılamamakta\ndır. Hedeflenen\nkiralama\noranına\nulaşılmasına\nrağmen, düşük\ngelir\ndüzeyinden\ndolayı nakit\nakışı sınırlıdır."
+            ],
+            [
+              "(c) İnşaat\nhalindeki\ngayrimenkul",
+              "Gayrimenkulün\ntamamı kredi\nvadesi boyunca,\nönceden kiraya\nverilmiş ya da\nyatırım\nyapılabilirlik\ndüzeyinde bir\nkiracıya ya da\nbir alıcıya\nönceden\nsatılmış veya\nbanka, yatırım\nyapılabilirlik\ndüzeyinde bir\nfinansal\nkuruluştan\nfinansman\ntemini için\nbağlayıcı bir\ntaahhüt almıştır.",
+              "Gayrimenkulün\ntamamı önceden\nkiraya verilmiş\nya da kredi\ndeğerliliği\nyüksek bir\nkiracıya ya da\nbir alıcıya\nönceden\nsatılmış ya da\nbanka kredi\ndeğerliliği\nyüksek bir\nfinansal\nkuruluştan\ndaimi\nfinansman için\nbağlayıcı bir\ntaahhüt almıştır.",
+              "Kiralama\nfaaliyetleri\nprojeksiyonlara\nuygundur fakat\nbina önceden\nkiralanmamış ve\nilave bir\nfinansman\nbulma olanağı\nsöz konusu\nolmayabilir.\nBanka\ndaimi kredi\nveren olabilir.",
+              "Maliyetin\nöngörülenden\nyüksek olması,\npiyasa\nkoşullarının\nbozulması, kira\nsözleşmeleri\niptalleri veya\nbaşka faktörler\nsebebiyle\ngayrimenkulün\ndurumu\nbozulmaktadır.\nBanka ya da\ndaimi\nfinansmanı\ntemin eden\ndiğer finansal\nkuruluş ile bir\nihtilâf olabilir."
+            ],
+            [
+              "Varlık\nÖzellikleri",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "Konum",
+              "Gayrimenkul,\nkiracıların\nistediği\nhizmetler için\nuygun ve çok\ncazip bir\nkonumdadır.",
+              "Gayrimenkul,\nkiracıların\nistediği\nhizmetler için\nuygun ve cazip\nbir konumdadır.",
+              "Gayrimenkulün\nkonumu\nherhangi bir\nrekabet avantajı\nyaratmamaktadı\nr.",
+              "Gayrimenkulün\nkonumu, yapısı,\ntasarımı ve\nbakımı,\ngayrimenkulü\nolumsuz\netkilemektedir."
+            ],
+            [
+              "Tasarımı ve\nbakımlılığı",
+              "Gayrimenkul\ntasarımı, yapısı\nve bakımlı\nolması\ndolayısıyla\ntercih\nedilmektedir.\nYeni binalarla",
+              "Gayrimenkul\ntasarımı, yapısı\nve bakımlı\nolması\ndolayısıyla iyi\ndurumdadır.\nGayrimenkulün\ntasarımı ve",
+              "Gayrimenkul\nyapısı, tasarımı\nve bakımlı\nolması\nyönünden\nyeterli\ndüzeydedir.",
+              "Gayrimenkulün\nyapısı, tasarımı\nve bakımlı\nolması\nhususlarında\nzayıflıkları\nmevcuttur."
+            ]
+          ],
+          "cells": [
+            [
+              71.304005,
+              71.27999999999997,
+              160.939995,
+              99.97999499999992
+            ],
+            [
+              71.304005,
+              99.97999499999992,
+              160.939995,
+              237.97999499999992
+            ],
+            [
+              71.304005,
+              237.97999499999992,
+              160.939995,
+              528.78999
+            ],
+            [
+              71.304005,
+              528.78999,
+              160.939995,
+              557.3499899999999
+            ],
+            [
+              71.304005,
+              557.3499899999999,
+              160.939995,
+              654.93999
+            ],
+            [
+              71.304005,
+              654.93999,
+              160.939995,
+              765.9599999999999
+            ],
+            [
+              160.939995,
+              71.27999999999997,
+              251.68999500000004,
+              99.97999499999992
+            ],
+            [
+              160.939995,
+              99.97999499999992,
+              251.68999500000004,
+              237.97999499999992
+            ],
+            [
+              160.939995,
+              237.97999499999992,
+              251.68999500000004,
+              528.78999
+            ],
+            [
+              160.939995,
+              528.78999,
+              251.68999500000004,
+              557.3499899999999
+            ],
+            [
+              160.939995,
+              557.3499899999999,
+              251.68999500000004,
+              654.93999
+            ],
+            [
+              160.939995,
+              654.93999,
+              251.68999500000004,
+              765.9599999999999
+            ],
+            [
+              251.68999500000004,
+              71.27999999999997,
+              342.43001,
+              99.97999499999992
+            ],
+            [
+              251.68999500000004,
+              99.97999499999992,
+              342.43001,
+              237.97999499999992
+            ],
+            [
+              251.68999500000004,
+              237.97999499999992,
+              342.43001,
+              528.78999
+            ],
+            [
+              251.68999500000004,
+              528.78999,
+              342.43001,
+              557.3499899999999
+            ],
+            [
+              251.68999500000004,
+              557.3499899999999,
+              342.43001,
+              654.93999
+            ],
+            [
+              251.68999500000004,
+              654.93999,
+              342.43001,
+              765.9599999999999
+            ],
+            [
+              342.43001,
+              71.27999999999997,
+              433.27001,
+              99.97999499999992
+            ],
+            [
+              342.43001,
+              99.97999499999992,
+              433.27001,
+              237.97999499999992
+            ],
+            [
+              342.43001,
+              237.97999499999992,
+              433.27001,
+              528.78999
+            ],
+            [
+              342.43001,
+              528.78999,
+              433.27001,
+              557.3499899999999
+            ],
+            [
+              342.43001,
+              557.3499899999999,
+              433.27001,
+              654.93999
+            ],
+            [
+              342.43001,
+              654.93999,
+              433.27001,
+              765.9599999999999
+            ],
+            [
+              433.27001,
+              71.27999999999997,
+              524.02001,
+              99.97999499999992
+            ],
+            [
+              433.27001,
+              99.97999499999992,
+              524.02001,
+              237.97999499999992
+            ],
+            [
+              433.27001,
+              237.97999499999992,
+              524.02001,
+              528.78999
+            ],
+            [
+              433.27001,
+              528.78999,
+              524.02001,
+              557.3499899999999
+            ],
+            [
+              433.27001,
+              557.3499899999999,
+              524.02001,
+              654.93999
+            ],
+            [
+              433.27001,
+              654.93999,
+              524.02001,
+              765.9599999999999
+            ]
+          ]
+        },
+        {
+          "page": 57,
+          "table": 0,
+          "bbox": [
+            71.304005,
+            71.27999999999997,
+            524.02001,
+            765.4799899999999
+          ],
+          "rows": [
+            [
+              "",
+              "1. Kategori\n(Güçlü)",
+              "2. Kategori\n(İyi)",
+              "3. Kategori\n(Yeterli)",
+              "4. Kategori\n(Zayıf)"
+            ],
+            [
+              "",
+              "yüksek rekabet\ngücüne sahiptir.",
+              "özellikleri yeni\nbinalarla\nrekabet\nedebilecek\nseviyededir.",
+              "",
+              ""
+            ],
+            [
+              "İnşaat halindeki\ngayrimenkul",
+              "İnşaat bütçesi\nihtiyatlıdır ve\nteknik sorunlar\nsınırlıdır.\nMüteahhitler\nyüksek\ndonanımlıdır.",
+              "İnşaat bütçesi\nihtiyatlıdır ve\nteknik sorunlar\nsınırlıdır.\nMüteahhitler\nyüksek\ndonanımlıdır.",
+              "İnşaat bütçesi\nyeterli\ndüzeydedir ve\nmüteahhitler\nortalama seviye\nde donanımlıdır.",
+              "Proje bütçesi\naşılmaktadır\nveya teknik\nsorunlar göz\nönünde\nbulundurulduğu\nnda proje\ngerçekçi\ndeğildir.\nMüteahhitler\ndüşük\ndonanımlıdır."
+            ],
+            [
+              "Sponsorun/Pro\njeyi geliştiren\nfirmanın gücü",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "Finansal\nkapasitesi ve\nprojeyi\ndestekleme\nistekliliği",
+              "Sponsor/projeyi\ngeliştiren firma\ngayrimenkulün\ninşasına ya da\nsatın alınmasına\nçok yüksek\nmiktarda nakdi\nkatkıda\nbulunmuştur.\nSponsorun\n/projeyi\ngeliştiren\nfirmanın önemli\nmiktarda\nkaynağı, sınırlı\ndüzeyde\ndoğrudan ya da\nşarta bağlı\nyükümlülükleri\nmevcuttur.\nSponsor/projeyi\ngeliştiren firma\ncoğrafi olarak\nve gayrimenkul\ntiplerine göre\nçeşitlendirilmiş",
+              "Sponsor/projeyi\ngeliştiren firma\ngayrimenkulün\ninşasına ya da\nsatın alınmasına\nyüksek miktarda\nnakdi katkıda\nbulunmuştur.\nSponsor/projeyi\ngeliştiren\nfirmanın\nfinansal\ndurumu,\nprojenin nakit\nakışlarında\nsıkıntı yaşandığı\nbir durumda\ngayrimenkulü\ndesteklemeye\nolanak\nsağlayacak\nseviyededir.\nSponsor/projeyi\ngeliştiren firma\nfarklı coğrafi\nbölgelerde bulu",
+              "Sponsor/projeyi\ngeliştiren\nfirmanın katkısı\nönemsiz\ndüzeyde ya da\nnakdi değildir.\nSponsor/projeyi\ngeliştiren firma\nfinansal\nkaynaklar\naçısından\nortalama ile\nortalama altı\narasında bir\nseviyededir.",
+              "Sponsor/projeyi\ngeliştiren firma\nprojeyi\ndesteklemek\niçin yeterli\nkapasiteye ya da\nbu konuda\nistekliliğe sahip\ndeğildir."
+            ]
+          ],
+          "cells": [
+            [
+              71.304005,
+              71.27999999999997,
+              160.939995,
+              99.97999499999992
+            ],
+            [
+              71.304005,
+              99.97999499999992,
+              160.939995,
+              168.97999499999992
+            ],
+            [
+              71.304005,
+              168.97999499999992,
+              160.939995,
+              363.16999
+            ],
+            [
+              71.304005,
+              363.16999,
+              160.939995,
+              405.53000499999996
+            ],
+            [
+              71.304005,
+              405.53000499999996,
+              160.939995,
+              765.4799899999999
+            ],
+            [
+              160.939995,
+              71.27999999999997,
+              251.68999500000004,
+              99.97999499999992
+            ],
+            [
+              160.939995,
+              99.97999499999992,
+              251.68999500000004,
+              168.97999499999992
+            ],
+            [
+              160.939995,
+              168.97999499999992,
+              251.68999500000004,
+              363.16999
+            ],
+            [
+              160.939995,
+              363.16999,
+              251.68999500000004,
+              405.53000499999996
+            ],
+            [
+              160.939995,
+              405.53000499999996,
+              251.68999500000004,
+              765.4799899999999
+            ],
+            [
+              251.68999500000004,
+              71.27999999999997,
+              342.43001,
+              99.97999499999992
+            ],
+            [
+              251.68999500000004,
+              99.97999499999992,
+              342.43001,
+              168.97999499999992
+            ],
+            [
+              251.68999500000004,
+              168.97999499999992,
+              342.43001,
+              363.16999
+            ],
+            [
+              251.68999500000004,
+              363.16999,
+              342.43001,
+              405.53000499999996
+            ],
+            [
+              251.68999500000004,
+              405.53000499999996,
+              342.43001,
+              765.4799899999999
+            ],
+            [
+              342.43001,
+              71.27999999999997,
+              433.27001,
+              99.97999499999992
+            ],
+            [
+              342.43001,
+              99.97999499999992,
+              433.27001,
+              168.97999499999992
+            ],
+            [
+              342.43001,
+              168.97999499999992,
+              433.27001,
+              363.16999
+            ],
+            [
+              342.43001,
+              363.16999,
+              433.27001,
+              405.53000499999996
+            ],
+            [
+              342.43001,
+              405.53000499999996,
+              433.27001,
+              765.4799899999999
+            ],
+            [
+              433.27001,
+              71.27999999999997,
+              524.02001,
+              99.97999499999992
+            ],
+            [
+              433.27001,
+              99.97999499999992,
+              524.02001,
+              168.97999499999992
+            ],
+            [
+              433.27001,
+              168.97999499999992,
+              524.02001,
+              363.16999
+            ],
+            [
+              433.27001,
+              363.16999,
+              524.02001,
+              405.53000499999996
+            ],
+            [
+              433.27001,
+              405.53000499999996,
+              524.02001,
+              765.4799899999999
+            ]
+          ]
+        },
+        {
+          "page": 58,
+          "table": 0,
+          "bbox": [
+            71.30400499999999,
+            71.27999999999997,
+            524.02001,
+            753.5999899999999
+          ],
+          "rows": [
+            [
+              "",
+              "1. Kategori\n(Güçlü)",
+              "2. Kategori\n(İyi)",
+              "3. Kategori\n(Yeterli)",
+              "4. Kategori\n(Zayıf)"
+            ],
+            [
+              "",
+              "gayrimenkullere\nsahiptir.",
+              "nan\ngayrimenkullere\nsahiptir.",
+              "",
+              ""
+            ],
+            [
+              "İtibar ve benzer\ngayrimenkul\nprojelerine\nilişkin\ndeneyimleri",
+              "Deneyimli\nyönetim ve\nyüksek kalitede\nsponsorluk.\nSağlam bir\nitibar ve benzer\ngayrimenkul\nprojelerine\nilişkin uzun\nsüreli başarılı\ndeneyim.",
+              "Uygun yönetim\nve sponsorluk\nkalitesi. Benzer\ngayrimenkul\nprojelerine\nilişkin başarılı\ndeneyim.",
+              "Ortalama\ndüzeyde\nyönetim ve\nsponsorluk\nkalitesi. Benzer\ngayrimenkul\nprojelerine\nilişkin deneyim\nciddi sorunlar\nolduğuna işaret\netmemektedir.",
+              "Etkisiz yönetim\nve standardın\naltında\nsponsorluk\nkalitesi.\nYönetim ve\nsponsor\nsorunları,\ngeçmişte\ngayrimenkulleri\nn yönetiminde\nzorluklara yol\naçmıştır."
+            ],
+            [
+              "Diğer\ngayrimenkul\npiyasası\naktörleri ile\nilişkiler",
+              "Önde gelen\ndiğer\ngayrimenkul\npiyasası\naktörleri\n(kiralama\nkuruluşları gibi)\nile güçlü\nilişkiler.",
+              "Önde gelen\ndiğer\ngayrimenkul\npiyasası\naktörleri\n(kiralama\nkuruluşları gibi)\nile ispatlanmış\nilişkiler.",
+              "Diğer\ngayrimenkul\npiyasası\naktörleri\n(kiralama\nkuruluşları gibi)\nile yeterli\nilişkiler.",
+              "Diğer\ngayrimenkul\npiyasası\naktörleri\n(kiralama\nkuruluşları gibi)\nile zayıf\nilişkiler."
+            ],
+            [
+              "Alınan\nTeminatlar",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "İpoteğin niteliği",
+              "Usulünce tesis\nedilmiş birinci\ndereceden\nipotek.",
+              "Usulünce tesis\nedilmiş birinci\ndereceden\nipotek.",
+              "Usulünce tesis\nedilmiş birinci\ndereceden ipote\nk.",
+              "Kredi verenin\nipoteği nakde\nçevirme\nkabiliyeti\nsınırlıdır."
+            ],
+            [
+              "Kiraların\ntemliki (Uzun\nsüreli kiraya\nverilen projeler)",
+              "Banka bir\ntemlik elde\netmiştir.\nKiraların\ndoğrudan\nbankaya\nödenmesi için\nkiracılara\ntebligat\ngönderilmesini\nsağlayacak\nkiracılara ait\ngüncel bilgi ve\nbelgeler",
+              "Banka bir\ntemlik elde\netmiştir.\nKiraların\ndoğrudan\nbankaya\nödenmesi için\nkiracılara\ntebligat\ngönderilmesini\nsağlayacak\nkiracılara ait\ngüncel bilgi ve\nbelgeler",
+              "Banka bir\ntemlik elde\netmiştir.\nKiraların\ndoğrudan\nbankaya\nödenmesi için\nkiracılara\ntebligat\ngönderilmesini\nsağlayacak\nkiracılara ait\ngüncel bilgi ve\nbelgeler",
+              "Banka temlik\nelde etmemiştir\nya da kiracılara\ntebligat\ngöndermek için\ngereken bilgi ve\nbelgeler\nbankada\nbulunmamaktad\nır."
+            ]
+          ],
+          "cells": [
+            [
+              71.30400499999999,
+              71.27999999999997,
+              160.939995,
+              99.97999499999992
+            ],
+            [
+              71.30400499999999,
+              99.97999499999992,
+              160.939995,
+              141.38000500000004
+            ],
+            [
+              71.30400499999999,
+              141.38000500000004,
+              160.939995,
+              335.5700049999999
+            ],
+            [
+              71.30400499999999,
+              335.5700049999999,
+              160.939995,
+              460.750005
+            ],
+            [
+              71.30400499999999,
+              460.750005,
+              160.939995,
+              489.310005
+            ],
+            [
+              71.30400499999999,
+              489.310005,
+              160.939995,
+              559.3899899999999
+            ],
+            [
+              71.30400499999999,
+              559.3899899999999,
+              160.939995,
+              753.5999899999999
+            ],
+            [
+              160.939995,
+              71.27999999999997,
+              251.689995,
+              99.97999499999992
+            ],
+            [
+              160.939995,
+              99.97999499999992,
+              251.689995,
+              141.38000500000004
+            ],
+            [
+              160.939995,
+              141.38000500000004,
+              251.689995,
+              335.5700049999999
+            ],
+            [
+              160.939995,
+              335.5700049999999,
+              251.689995,
+              460.750005
+            ],
+            [
+              160.939995,
+              460.750005,
+              251.689995,
+              489.310005
+            ],
+            [
+              160.939995,
+              489.310005,
+              251.689995,
+              559.3899899999999
+            ],
+            [
+              160.939995,
+              559.3899899999999,
+              251.689995,
+              753.5999899999999
+            ],
+            [
+              251.689995,
+              71.27999999999997,
+              342.43001,
+              99.97999499999992
+            ],
+            [
+              251.689995,
+              99.97999499999992,
+              342.43001,
+              141.38000500000004
+            ],
+            [
+              251.689995,
+              141.38000500000004,
+              342.43001,
+              335.5700049999999
+            ],
+            [
+              251.689995,
+              335.5700049999999,
+              342.43001,
+              460.750005
+            ],
+            [
+              251.689995,
+              460.750005,
+              342.43001,
+              489.310005
+            ],
+            [
+              251.689995,
+              489.310005,
+              342.43001,
+              559.3899899999999
+            ],
+            [
+              251.689995,
+              559.3899899999999,
+              342.43001,
+              753.5999899999999
+            ],
+            [
+              342.43001,
+              71.27999999999997,
+              433.27001,
+              99.97999499999992
+            ],
+            [
+              342.43001,
+              99.97999499999992,
+              433.27001,
+              141.38000500000004
+            ],
+            [
+              342.43001,
+              141.38000500000004,
+              433.27001,
+              335.5700049999999
+            ],
+            [
+              342.43001,
+              335.5700049999999,
+              433.27001,
+              460.750005
+            ],
+            [
+              342.43001,
+              460.750005,
+              433.27001,
+              489.310005
+            ],
+            [
+              342.43001,
+              489.310005,
+              433.27001,
+              559.3899899999999
+            ],
+            [
+              342.43001,
+              559.3899899999999,
+              433.27001,
+              753.5999899999999
+            ],
+            [
+              433.27001,
+              71.27999999999997,
+              524.02001,
+              99.97999499999992
+            ],
+            [
+              433.27001,
+              99.97999499999992,
+              524.02001,
+              141.38000500000004
+            ],
+            [
+              433.27001,
+              141.38000500000004,
+              524.02001,
+              335.5700049999999
+            ],
+            [
+              433.27001,
+              335.5700049999999,
+              524.02001,
+              460.750005
+            ],
+            [
+              433.27001,
+              460.750005,
+              524.02001,
+              489.310005
+            ],
+            [
+              433.27001,
+              489.310005,
+              524.02001,
+              559.3899899999999
+            ],
+            [
+              433.27001,
+              559.3899899999999,
+              524.02001,
+              753.5999899999999
+            ]
+          ]
+        },
+        {
+          "page": 59,
+          "table": 0,
+          "bbox": [
+            71.304005,
+            71.27999999999997,
+            524.02001,
+            169.94000499999999
+          ],
+          "rows": [
+            [
+              "",
+              "1. Kategori\n(Güçlü)",
+              "2. Kategori\n(İyi)",
+              "3. Kategori\n(Yeterli)",
+              "4. Kategori\n(Zayıf)"
+            ],
+            [
+              "",
+              "bankada\nbulunmaktadır.",
+              "bankada\nbulunmaktadır.",
+              "bankada\nbulunmaktadır.",
+              ""
+            ],
+            [
+              "Sigorta\nkapsamının\nyeterliliği",
+              "Uygun.",
+              "Uygun.",
+              "Uygun.",
+              "Standartların\naltında."
+            ]
+          ],
+          "cells": [
+            [
+              71.304005,
+              71.27999999999997,
+              160.939995,
+              99.97999499999992
+            ],
+            [
+              71.304005,
+              99.97999499999992,
+              160.939995,
+              127.58000499999999
+            ],
+            [
+              71.304005,
+              127.58000499999999,
+              160.939995,
+              169.94000499999999
+            ],
+            [
+              160.939995,
+              71.27999999999997,
+              251.68999500000004,
+              99.97999499999992
+            ],
+            [
+              160.939995,
+              99.97999499999992,
+              251.68999500000004,
+              127.58000499999999
+            ],
+            [
+              160.939995,
+              127.58000499999999,
+              251.68999500000004,
+              169.94000499999999
+            ],
+            [
+              251.68999500000004,
+              71.27999999999997,
+              342.43001,
+              99.97999499999992
+            ],
+            [
+              251.68999500000004,
+              99.97999499999992,
+              342.43001,
+              127.58000499999999
+            ],
+            [
+              251.68999500000004,
+              127.58000499999999,
+              342.43001,
+              169.94000499999999
+            ],
+            [
+              342.43001,
+              71.27999999999997,
+              433.27001,
+              99.97999499999992
+            ],
+            [
+              342.43001,
+              99.97999499999992,
+              433.27001,
+              127.58000499999999
+            ],
+            [
+              342.43001,
+              127.58000499999999,
+              433.27001,
+              169.94000499999999
+            ],
+            [
+              433.27001,
+              71.27999999999997,
+              524.02001,
+              99.97999499999992
+            ],
+            [
+              433.27001,
+              99.97999499999992,
+              524.02001,
+              127.58000499999999
+            ],
+            [
+              433.27001,
+              127.58000499999999,
+              524.02001,
+              169.94000499999999
+            ]
+          ]
+        }
+      ],
+      "rows": [
+        [
+          "Finansal Güç",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "Piyasa koşulları",
+          "Proje tipi ve konumu için arz talep mevcut durumda dengededir. Piyasaya sunulacak olan rakip gayrimenkullerin sayısı, tahmin edilen talep düzeyine eşit veya daha düşüktür.",
+          "Proje tipi ve konumu için arz talep mevcut durumda dengededir. Piyasaya sunulacak olan rakip gayrimenkullerin sayısı, tahmin edilen talep düzeyine kabaca eşittir.",
+          "Piyasa koşulları kabaca dengededir. Rakip gayrimenkuller piyasaya sunulma, diğerleri planlama safhasındadır. Projenin tasarım ve özellikleri, yeni projelere kıyasla modern olmayabilir.",
+          "Piyasa koşulları zayıftır. Koşulların ne zaman iyileşeceği ve dengeye geleceği belirsizdir. Proje, kira süresinin sonunda kiracılarını kaybediyor. Yeni kira koşulları, sona eren kiralara kıyasla daha olumsuzdur."
+        ],
+        [
+          "Finansal oranlar ve kredinin teminata oranı",
+          "Gayrimenkulün borç servis oranı yüksektir(Borç servis oranı inşaat safhasındaki gayrimenkuller için hesaplanmamalıdır.) ve kredinin teminata oranı ilgili gayrimenkul tipine göre düşüktür. İkincil piyasanın bulunduğu durumlarda, işlem piyasa standartlarında yapılmıştır.",
+          "Borç servis oranı (Borç servis oranı inşaat safhasındaki gayrimenkuller için hesaplanmamalıdır.) ve kredinin teminata oranı yeterlidir. İkincil piyasanın bulunduğu durumlarda, işlem piyasa standartlarında yapılmıştır.",
+          "Gayrimenkulün borç servis oranı (Borç servis oranı inşaat safhasındaki gayrimenkuller için hesaplanmamalıdır.) bozulmuştur ve gayrimenkulün değeri düşmüştür dolayısıyla kredinin teminata oranı yükselmiştir.",
+          "Gayrimenkulün borç servis oranı (Borç servis oranı inşaat safhasındaki gayrimenkuller için hesaplanmamalıdır.) önemli düzeyde bozulmuştur ve kredinin teminata oranı yeni kredilere ilişkin sözleşme şartlarının oldukça üzerindedir."
+        ],
+        [
+          "Stres analizi",
+          "Gayrimenkulün mevcut kaynakları, taahhüt ve yükümlülük yapısı, çok stresli ekonomik stres döneminde (örneğin, faiz oranları, ekonomik büyüme) dahi finansal yükümlülüklerini karşılamasına imkan verecek niteliktedir.",
+          "Gayrimenkul, süreklilik arz eden bir ekonomik stres döneminde (örneğin faiz oranları, ekonomik büyüme) finansal yükümlülüklerini yerine getirebilir. Gayrimenkule ilişkin kredi sadece çok stresli ekonomik koşullar altında temerrüde düşebilir.",
+          "Bir ekonomik gerileme döneminde, gayrimenkulün gelirinde bir azalma olabilir, bu sebeple gayrimenkule ilişkin sermaye harcamaları fonlama kabiliyeti sınırlanabilir ve kredinin temerrüt riski önemli oranda artabilir.",
+          "Gayrimenkulün finansal durumu bozuktur ve yakın gelecekte koşullarda iyileşme olmadığı takdirde, kredinin temerrüde düşme ihtimali vardır."
+        ],
+        [
+          "Nakit akışının öngörülebilirliği (a) Tamamlanmış gayrimenkul ve gayrimenkule ilişkin istikrarlı gelir",
+          "Kira sözleşmeleri uzun sürelidir ve sona erme tarihleri zamana yayılmıştır. Kiracıların kredi değerliliği yüksektir. Kiracı devir hızı düşüktür. Gayrimenkulün kiralanmama oranı düşüktür. Masraf ve giderler (bakım, sigorta, güvenlik ve emlak vergileri) öngörülebilir niteliktedir.",
+          "Kira sözleşmelerinin çoğu uzun sürelidir, kiracıların kredi değerlilikleri çeşitlilik arz etmektedir. Kiracı devir hızı normal seviyededir. Gayrimenkulün kiralanmama oranı düşüktür. Masraf ve giderleri öngörülebilir niteliktedir.",
+          "Kira sözleşmelerinin çoğu orta sürelidir, kiracıların kredi değerlilikleri çeşitlilik arz etmektedir. Kiracı devir hızı normalin üzerindedir. Gayrimenkulün kiralanmama oranı orta seviyededir. Masraf ve giderleri nispeten öngörülebilir niteliktedir, fakat gelire bağlı olarak değişmektedir.",
+          "Kira sözleşmelerinin süreleri ve kiracıların kredi değerlilikleri çeşitlilik arz etmektedir. Kiracı devir hızı yüksektir. Gayrimenkulün kiralanmama oranı yüksektir. Gayrimenkulün, yeni kiracılar için hazırlanması önemli miktarda masraf gerektirmektedi r."
+        ],
+        [
+          "(b)Tamamlanmış fakat gayrimenkule ilişkin istikrarsız gelir",
+          "Kiralama faaliyetleri projeksiyonları karşılayabilecek veya daha yüksek seviyededir. Proje yakın gelecekte istikrarlı gelir elde etmeye başlayacaktır.",
+          "Kiralama faaliyetleri projeksiyonları karşılayabilecek veya daha yüksek seviyededir. Proje yakın gelecekte istikrarlı gelir elde etmeye başlayacaktır",
+          "Kiralama faaliyetleri çoğunlukla projeksiyonlara uygundur, bununla birlikte, projenin belli bir süre istikrarlı gelir elde etmesi mümkün görülmemektedir.",
+          "Mevcut piyasa kiraları beklentileri karşılamamaktadır. Hedeflenen kiralama oranına ulaşılmasına rağmen, düşük gelir düzeyinden dolayı nakit akışı sınırlıdır."
+        ],
+        [
+          "(c) İnşaat halindeki gayrimenkul",
+          "Gayrimenkulün tamamı kredi vadesi boyunca, önceden kiraya verilmiş ya da yatırım yapılabilirlik düzeyinde bir kiracıya ya da bir alıcıya önceden satılmış veya banka, yatırım yapılabilirlik düzeyinde bir finansal kuruluştan finansman temini için bağlayıcı bir taahhüt almıştır.",
+          "Gayrimenkulün tamamı önceden kiraya verilmiş ya da kredi değerliliği yüksek bir kiracıya ya da bir alıcıya önceden satılmış ya da banka kredi değerliliği yüksek bir finansal kuruluştan daimi finansman için bağlayıcı bir taahhüt almıştır.",
+          "Kiralama faaliyetleri projeksiyonlara uygundur fakat bina önceden kiralanmamış ve ilave bir finansman bulma olanağı söz konusu olmayabilir. Banka daimi kredi veren olabilir.",
+          "Maliyetin öngörülenden yüksek olması, piyasa koşullarının bozulması, kira sözleşmeleri iptalleri veya başka faktörler sebebiyle gayrimenkulün durumu bozulmaktadır. Banka ya da daimi finansmanı temin eden diğer finansal kuruluş ile bir ihtilâf olabilir."
+        ],
+        [
+          "Varlık Özellikleri",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "Konum",
+          "Gayrimenkul, kiracıların istediği hizmetler için uygun ve çok cazip bir konumdadır.",
+          "Gayrimenkul, kiracıların istediği hizmetler için uygun ve cazip bir konumdadır.",
+          "Gayrimenkulün konumu herhangi bir rekabet avantajı yaratmamaktadır.",
+          "Gayrimenkulün konumu, yapısı, tasarımı ve bakımı, gayrimenkulü olumsuz etkilemektedir."
+        ],
+        [
+          "Tasarımı ve bakımlılığı",
+          "Gayrimenkul tasarımı, yapısı ve bakımlı olması dolayısıyla tercih edilmektedir. Yeni binalarla yüksek rekabet gücüne sahiptir.",
+          "Gayrimenkul tasarımı, yapısı ve bakımlı olması dolayısıyla iyi durumdadır. Gayrimenkulün tasarımı ve özellikleri yeni binalarla rekabet edebilecek seviyededir.",
+          "Gayrimenkul yapısı, tasarımı ve bakımlı olması yönünden yeterli düzeydedir.",
+          "Gayrimenkulün yapısı, tasarımı ve bakımlı olması hususlarında zayıflıkları mevcuttur."
+        ],
+        [
+          "İnşaat halindeki gayrimenkul",
+          "İnşaat bütçesi ihtiyatlıdır ve teknik sorunlar sınırlıdır. Müteahhitler yüksek donanımlıdır.",
+          "İnşaat bütçesi ihtiyatlıdır ve teknik sorunlar sınırlıdır. Müteahhitler yüksek donanımlıdır.",
+          "İnşaat bütçesi yeterli düzeydedir ve müteahhitler ortalama seviye de donanımlıdır.",
+          "Proje bütçesi aşılmaktadır veya teknik sorunlar göz önünde bulundurulduğu nda proje gerçekçi değildir. Müteahhitler düşük donanımlıdır."
+        ],
+        [
+          "Sponsorun/Projeyi geliştiren firmanın gücü",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "Finansal kapasitesi ve projeyi destekleme istekliliği",
+          "Sponsor/projeyi geliştiren firma gayrimenkulün inşasına ya da satın alınmasına çok yüksek miktarda nakdi katkıda bulunmuştur. Sponsorun /projeyi geliştiren firmanın önemli miktarda kaynağı, sınırlı düzeyde doğrudan ya da şarta bağlı yükümlülükleri mevcuttur. Sponsor/projeyi geliştiren firma coğrafi olarak ve gayrimenkul tiplerine göre çeşitlendirilmiş gayrimenkullere sahiptir.",
+          "Sponsor/projeyi geliştiren firma gayrimenkulün inşasına ya da satın alınmasına yüksek miktarda nakdi katkıda bulunmuştur. Sponsor/projeyi geliştiren firmanın finansal durumu, projenin nakit akışlarında sıkıntı yaşandığı bir durumda gayrimenkulü desteklemeye olanak sağlayacak seviyededir. Sponsor/projeyi geliştiren firma farklı coğrafi bölgelerde bulunan gayrimenkullere sahiptir.",
+          "Sponsor/projeyi geliştiren firmanın katkısı önemsiz düzeyde ya da nakdi değildir. Sponsor/projeyi geliştiren firma finansal kaynaklar açısından ortalama ile ortalama altı arasında bir seviyededir.",
+          "Sponsor/projeyi geliştiren firma projeyi desteklemek için yeterli kapasiteye ya da bu konuda istekliliğe sahip değildir."
+        ],
+        [
+          "İtibar ve benzer gayrimenkul projelerine ilişkin deneyimleri",
+          "Deneyimli yönetim ve yüksek kalitede sponsorluk. Sağlam bir itibar ve benzer gayrimenkul projelerine ilişkin uzun süreli başarılı deneyim.",
+          "Uygun yönetim ve sponsorluk kalitesi. Benzer gayrimenkul projelerine ilişkin başarılı deneyim.",
+          "Ortalama düzeyde yönetim ve sponsorluk kalitesi. Benzer gayrimenkul projelerine ilişkin deneyim ciddi sorunlar olduğuna işaret etmemektedir.",
+          "Etkisiz yönetim ve standardın altında sponsorluk kalitesi. Yönetim ve sponsor sorunları, geçmişte gayrimenkullerin yönetiminde zorluklara yol açmıştır."
+        ],
+        [
+          "Diğer gayrimenkul piyasası aktörleri ile ilişkiler",
+          "Önde gelen diğer gayrimenkul piyasası aktörleri (kiralama kuruluşları gibi) ile güçlü ilişkiler.",
+          "Önde gelen diğer gayrimenkul piyasası aktörleri (kiralama kuruluşları gibi) ile ispatlanmış ilişkiler.",
+          "Diğer gayrimenkul piyasası aktörleri (kiralama kuruluşları gibi) ile yeterli ilişkiler.",
+          "Diğer gayrimenkul piyasası aktörleri (kiralama kuruluşları gibi) ile zayıf ilişkiler."
+        ],
+        [
+          "Alınan Teminatlar",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "İpoteğin niteliği",
+          "Usulünce tesis edilmiş birinci dereceden ipotek.",
+          "Usulünce tesis edilmiş birinci dereceden ipotek.",
+          "Usulünce tesis edilmiş birinci dereceden ipotek.",
+          "Kredi verenin ipoteği nakde çevirme kabiliyeti sınırlıdır."
+        ],
+        [
+          "Kiraların temliki (Uzun süreli kiraya verilen projeler)",
+          "Banka bir temlik elde etmiştir. Kiraların doğrudan bankaya ödenmesi için kiracılara tebligat gönderilmesini sağlayacak kiracılara ait güncel bilgi ve belgeler bankada bulunmaktadır.",
+          "Banka bir temlik elde etmiştir. Kiraların doğrudan bankaya ödenmesi için kiracılara tebligat gönderilmesini sağlayacak kiracılara ait güncel bilgi ve belgeler bankada bulunmaktadır.",
+          "Banka bir temlik elde etmiştir. Kiraların doğrudan bankaya ödenmesi için kiracılara tebligat gönderilmesini sağlayacak kiracılara ait güncel bilgi ve belgeler bankada bulunmaktadır.",
+          "Banka temlik elde etmemiştir ya da kiracılara tebligat göndermek için gereken bilgi ve belgeler bankada bulunmamaktadır."
+        ],
+        [
+          "Sigorta kapsamının yeterliliği",
+          "Uygun.",
+          "Uygun.",
+          "Uygun.",
+          "Standartların altında."
+        ]
+      ],
+      "whitespace_joins": [
+        {
+          "old": "gayrimenkul e ilişkin",
+          "new": "gayrimenkule ilişkin",
+          "count": 2
+        },
+        {
+          "old": "hesaplanmamalı dır",
+          "new": "hesaplanmamalıdır",
+          "count": 4
+        },
+        {
+          "old": "karşılamamakta dır",
+          "new": "karşılamamaktadır",
+          "count": 1
+        },
+        {
+          "old": "Sponsorun/Pro jeyi",
+          "new": "Sponsorun/Projeyi",
+          "count": 1
+        },
+        {
+          "old": "gayrimenkulleri n",
+          "new": "gayrimenkullerin",
+          "count": 3
+        },
+        {
+          "old": "yükümlülükleri ni",
+          "new": "yükümlülüklerini",
+          "count": 2
+        },
+        {
+          "old": "görülmemektedi r",
+          "new": "görülmemektedir",
+          "count": 1
+        },
+        {
+          "old": "yaratmamaktadı r",
+          "new": "yaratmamaktadır",
+          "count": 1
+        },
+        {
+          "old": "bulunmamaktad ır",
+          "new": "bulunmamaktadır",
+          "count": 1
+        },
+        {
+          "old": "Tamamlanmı ş",
+          "new": "Tamamlanmış",
+          "count": 1
+        },
+        {
+          "old": "Tamamla nmış",
+          "new": "Tamamlanmış",
+          "count": 1
+        },
+        {
+          "old": "bulu nan",
+          "new": "bulunan",
+          "count": 1
+        },
+        {
+          "old": "ipote k.",
+          "new": "ipotek.",
+          "count": 1
+        }
+      ],
+      "column_nonwhitespace_sha256": [
+        "519815a55295a8426983d32583ea90095d7c95ed15e1d760626177822da70326",
+        "a5397130c686d5337257265ea278ae0bc8e609cb6f5f89b096ebea83c22e0f58",
+        "af004fef34e017f28cfac20dd1a45e83d7ead44e70ee643463fe47cb36b90acd",
+        "6240ce6cc616bcdd52dd7e8b4c5395d8b9852e174733b7e40c2cb61a922bdd5d",
+        "c87f81a47b8c575c703fe2581c0921ccae5c019ec4a2ad1369f153374cb2b098"
+      ]
+    },
+    {
+      "title": "Tablo 4 – Maddi Duran Varlık Finansman Kredilerine İlişkin Derecelendirme Düzeyleri",
+      "pages": [
+        60,
+        61,
+        62,
+        63,
+        64
+      ],
+      "continuation_pages": [
+        61,
+        62,
+        63,
+        64
+      ],
+      "source_tables": [
+        {
+          "page": 60,
+          "table": 0,
+          "bbox": [
+            71.304005,
+            98.89999999999998,
+            524.02001,
+            767.3999899999999
+          ],
+          "rows": [
+            [
+              "",
+              "1. Kategori\n(Güçlü)",
+              "2. Kategori\n(İyi)",
+              "3. Kategori\n(Yeterli)",
+              "4. Kategori\n(Zayıf)"
+            ],
+            [
+              "Finansal Güç",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "Piyasa Koşulları",
+              "Talep güçlüdür\nve artmaktadır,\npiyasaya giriş\ngüçtür,\nteknolojideki\nve ekonomik\ngörünümdeki\ndeğişikliklere\nkarşı duyarlılık\ndüşüktür.",
+              "Talep güçlü ve\nsüreklidir,\npiyasaya girişte\nbazı engeller\nmevcuttur,\nteknolojideki ve\nekonomik\ngörünümdeki\ndeğişikliklere\nkarşı bir miktar\nduyarlılık vardır.",
+              "Talep yeterli\nve süreklidir,\npiyasaya giriş\nengelleri\nsınırlıdır,\nteknolojideki\nve ekonomik\ngörünümdeki\ndeğişikliklere\nkarşı önemli\ndüzeyde\nduyarlılık\nvardır.",
+              "Talep zayıftır\nve azalmakta,\nteknolojideki\nve ekonomik\ngörünümdeki\ndeğişikliklere\nkarşı duyarlıdı\nr, yüksek\nderecede\nbelirsiz bir\nortam\nmevcuttur."
+            ],
+            [
+              "Finansal oranlar\n(borç servis oranı\nve kredinin\nteminata oranı)",
+              "Varlık türüne\ngöre güçlü\nfinansal\noranlar,\nprojeye ilişkin\nçok sağlam\nekonomik\nvarsayımlar.",
+              "Varlık türüne\ngöre güçlü/kabul\nedilebilir\nfinansal oranlar,\nprojeye ilişkin\nsağlam\nekonomik\nvarsayımlar.",
+              "Varlık türü\niçin standart\nfinansal\noranlar.",
+              "Varlık türüne\ngöre olumsuz\nfinansal\noranlar."
+            ],
+            [
+              "Stres analizi",
+              "İstikrarlı uzun\ndönemli\ngelirler ile bir\nekonomik\ndöngüdeki\nşiddetli stres\nkoşullarına\ndayanabilecek\nkapasiteye\nsahip\nolunması.",
+              "Tatmin edici\nkısa vadeli\ngelirlere sahip\nolunması.\nKredinin bir\nkısım finansal\nolumsuzluklara\ndayanıklı\nolması ve\nsadece şiddetli\nekonomik\nkoşullarda\ntemerrüt etme\nolasılığının\nbulunması.",
+              "Belirsiz kısa\nvadeli gelirlere\nsahip\nolunması.\nNakit\nakışlarının bir\nekonomik\ndöngüde\nmeydana\ngelebilecek\nstreslere karşı\nkırılgan\nolması. Kredi\nnin, normal bir\nekonomik\ngerileme\ndöneminde\ntemerrüt etme\nolasılığının\nbulunması.",
+              "Gelirlerin\ngüçlü\nbelirsizliklere\ntabi olması.\nKoşullarda\niyileşme\nolmazsa,\nnormal\nekonomik\ndurumlarda\nbile kredinin\ntemerrüt etme\nolasılığının\nbulunması."
+            ],
+            [
+              "Piyasa likiditesi",
+              "Piyasa dünya\nçapında\nyapılanmıştır\nve varlıklar",
+              "Piyasa dünya\nçapında ya da\nbölgesel olarak\nyapılanmıştır ve",
+              "Piyasa\nbölgeseldir ve\nkısa vadede\nsınırlı",
+              "Yerel ve/veya\nsığ bir piyasa\nvardır. Düşük\nlikidite vardır"
+            ]
+          ],
+          "cells": [
+            [
+              71.304005,
+              98.89999999999998,
+              176.18000500000002,
+              127.58000499999999
+            ],
+            [
+              71.304005,
+              127.58000499999999,
+              176.18000500000002,
+              142.33999499999993
+            ],
+            [
+              71.304005,
+              142.33999499999993,
+              176.18000500000002,
+              322.73000499999995
+            ],
+            [
+              71.304005,
+              322.73000499999995,
+              176.18000500000002,
+              434.10999000000004
+            ],
+            [
+              71.304005,
+              434.10999000000004,
+              176.18000500000002,
+              711.22002
+            ],
+            [
+              71.304005,
+              711.22002,
+              176.18000500000002,
+              767.3999899999999
+            ],
+            [
+              176.18000500000002,
+              98.89999999999998,
+              260.45001,
+              127.58000499999999
+            ],
+            [
+              176.18000500000002,
+              127.58000499999999,
+              260.45001,
+              142.33999499999993
+            ],
+            [
+              176.18000500000002,
+              142.33999499999993,
+              260.45001,
+              322.73000499999995
+            ],
+            [
+              176.18000500000002,
+              322.73000499999995,
+              260.45001,
+              434.10999000000004
+            ],
+            [
+              176.18000500000002,
+              434.10999000000004,
+              260.45001,
+              711.22002
+            ],
+            [
+              176.18000500000002,
+              711.22002,
+              260.45001,
+              767.3999899999999
+            ],
+            [
+              260.45001,
+              98.89999999999998,
+              353.469995,
+              127.58000499999999
+            ],
+            [
+              260.45001,
+              127.58000499999999,
+              353.469995,
+              142.33999499999993
+            ],
+            [
+              260.45001,
+              142.33999499999993,
+              353.469995,
+              322.73000499999995
+            ],
+            [
+              260.45001,
+              322.73000499999995,
+              353.469995,
+              434.10999000000004
+            ],
+            [
+              260.45001,
+              434.10999000000004,
+              353.469995,
+              711.22002
+            ],
+            [
+              260.45001,
+              711.22002,
+              353.469995,
+              767.3999899999999
+            ],
+            [
+              353.469995,
+              98.89999999999998,
+              437.73999499999996,
+              127.58000499999999
+            ],
+            [
+              353.469995,
+              127.58000499999999,
+              437.73999499999996,
+              142.33999499999993
+            ],
+            [
+              353.469995,
+              142.33999499999993,
+              437.73999499999996,
+              322.73000499999995
+            ],
+            [
+              353.469995,
+              322.73000499999995,
+              437.73999499999996,
+              434.10999000000004
+            ],
+            [
+              353.469995,
+              434.10999000000004,
+              437.73999499999996,
+              711.22002
+            ],
+            [
+              353.469995,
+              711.22002,
+              437.73999499999996,
+              767.3999899999999
+            ],
+            [
+              437.73999499999996,
+              98.89999999999998,
+              524.02001,
+              127.58000499999999
+            ],
+            [
+              437.73999499999996,
+              127.58000499999999,
+              524.02001,
+              142.33999499999993
+            ],
+            [
+              437.73999499999996,
+              142.33999499999993,
+              524.02001,
+              322.73000499999995
+            ],
+            [
+              437.73999499999996,
+              322.73000499999995,
+              524.02001,
+              434.10999000000004
+            ],
+            [
+              437.73999499999996,
+              434.10999000000004,
+              524.02001,
+              711.22002
+            ],
+            [
+              437.73999499999996,
+              711.22002,
+              524.02001,
+              767.3999899999999
+            ]
+          ]
+        },
+        {
+          "page": 61,
+          "table": 0,
+          "bbox": [
+            71.304005,
+            71.27999999999997,
+            524.02001,
+            755.64002
+          ],
+          "rows": [
+            [
+              "",
+              "1. Kategori\n(Güçlü)",
+              "2. Kategori\n(İyi)",
+              "3. Kategori\n(Yeterli)",
+              "4. Kategori\n(Zayıf)"
+            ],
+            [
+              "",
+              "son derece\nlikittir.",
+              "varlıklar\nnispeten likittir.",
+              "beklentiler\nvardır, bu\nsebeple\nlikiditesi\ndüşüktür.",
+              "veya likidite\nyoktur\n(özellikle niş\npiyasalarda)."
+            ],
+            [
+              "Politik ve Hukuki\nOrtam",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "Transfer riskini de\niçeren politik risk",
+              "Çok düşük\npolitik risk;\ngerekirse\ngüçlü risk\nazaltıcı\nenstrümanlar.",
+              "Düşük politik\nrisk; gerekirse\nyeterli düzeyde\nrisk azaltıcı\nenstrümanlar.",
+              "Orta düzeyde\npolitik risk;\norta düzeyde\nrisk azaltıcı\nenstrümanlar.",
+              "Yüksek; risk\nazaltıcı\nenstrüman yok\nveya zayıf."
+            ],
+            [
+              "Yasal risk ve\nmevzuat riski",
+              "Mevzuat;\nsözleşmelerin\nuygulanması\nve ilgili varlığa\nel konulmasını\nkolaylaştırmak\ntadır.",
+              "Mevzuat;\nsözleşmelerin\nuygulanması ve\nilgili varlığa el\nkonulmasını\nkolaylaştırmakta\ndır.",
+              "El koyma\nsüreci uzun\nve/veya zor\nolsa da\nmevzuat,\nsözleşmelerin\nuygulanması\nve ilgili varlığa\nel konulmasını\ngenelde\nkolaylaştırmak\ntadır.",
+              "Zayıf ve\nistikrarsız\nhukuki ve\ndüzenleyici\nortam.\nMevzuat;\nsözleşmelerin\nuygulanması\nve ilgili varlığa\nel konulmasını\nimkansız hale\ngetirebilir ya\nda süresini\nuzatabilir."
+            ],
+            [
+              "İşlem Özellikleri",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "Varlığın ekonomik\nömrüne kıyasla\nkredi süresi",
+              "Tam geri\nödeme profili/\nasgari düzeyde\nbalon ödeme.\nÖdemesiz\ngeçen süre\nyok.",
+              "Görece fazla\nbalon ödeme\nfakat hala tatmin\nedici düzeyde.",
+              "Ödemesiz süre\nolması\nmuhtemel\nönemli\nmiktarda balon\nödeme.",
+              "Cezalı geri\nödeme veya\nyüksek\nmiktarda balon\nödeme."
+            ],
+            [
+              "Faaliyet riski",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "İzinler/Lisanslama",
+              "Bütün izinler\nalınmış; varlık,\nmevcut ve\nöngörülebilir\ngüvenlik\ndüzenlemeleri\nni\nkarşılamaktadı\nr.",
+              "Bütün izinler\nalınmış veya\nalınma\naşamasında;\nvarlık mevcut ve\nöngörülebilir\ngüvenlik\ndüzenlemelerini\nkarşılamaktadır.",
+              "İzinlerin çoğu\nalınmış veya\nalınma\naşamasında;\ntamamlanmam\nış izinler rutin\nsüreçlere tabi,\nvarlık mevcut\ngüvenlik\ndüzenlemeleri\nni",
+              "Gerekli tüm\nizinlerin\nalınmasında\nproblemler\nmevcut,\nplanlanan yapı\nve/veya\nişlemlerin bir\nkısmının revize\nedilmesi\ngerekli olabilir."
+            ]
+          ],
+          "cells": [
+            [
+              71.304005,
+              71.27999999999997,
+              176.180005,
+              99.97999499999992
+            ],
+            [
+              71.304005,
+              99.97999499999992,
+              176.180005,
+              168.97999499999992
+            ],
+            [
+              71.304005,
+              168.97999499999992,
+              176.180005,
+              197.53999499999998
+            ],
+            [
+              71.304005,
+              197.53999499999998,
+              176.180005,
+              281.32998999999995
+            ],
+            [
+              71.304005,
+              281.32998999999995,
+              176.180005,
+              475.5100049999999
+            ],
+            [
+              71.304005,
+              475.5100049999999,
+              176.180005,
+              490.3900049999999
+            ],
+            [
+              71.304005,
+              490.3900049999999,
+              176.180005,
+              587.9800199999999
+            ],
+            [
+              71.304005,
+              587.9800199999999,
+              176.180005,
+              602.73999
+            ],
+            [
+              71.304005,
+              602.73999,
+              176.180005,
+              755.64002
+            ],
+            [
+              176.180005,
+              71.27999999999997,
+              260.45001,
+              99.97999499999992
+            ],
+            [
+              176.180005,
+              99.97999499999992,
+              260.45001,
+              168.97999499999992
+            ],
+            [
+              176.180005,
+              168.97999499999992,
+              260.45001,
+              197.53999499999998
+            ],
+            [
+              176.180005,
+              197.53999499999998,
+              260.45001,
+              281.32998999999995
+            ],
+            [
+              176.180005,
+              281.32998999999995,
+              260.45001,
+              475.5100049999999
+            ],
+            [
+              176.180005,
+              475.5100049999999,
+              260.45001,
+              490.3900049999999
+            ],
+            [
+              176.180005,
+              490.3900049999999,
+              260.45001,
+              587.9800199999999
+            ],
+            [
+              176.180005,
+              587.9800199999999,
+              260.45001,
+              602.73999
+            ],
+            [
+              176.180005,
+              602.73999,
+              260.45001,
+              755.64002
+            ],
+            [
+              260.45001,
+              71.27999999999997,
+              353.46999500000004,
+              99.97999499999992
+            ],
+            [
+              260.45001,
+              99.97999499999992,
+              353.46999500000004,
+              168.97999499999992
+            ],
+            [
+              260.45001,
+              168.97999499999992,
+              353.46999500000004,
+              197.53999499999998
+            ],
+            [
+              260.45001,
+              197.53999499999998,
+              353.46999500000004,
+              281.32998999999995
+            ],
+            [
+              260.45001,
+              281.32998999999995,
+              353.46999500000004,
+              475.5100049999999
+            ],
+            [
+              260.45001,
+              475.5100049999999,
+              353.46999500000004,
+              490.3900049999999
+            ],
+            [
+              260.45001,
+              490.3900049999999,
+              353.46999500000004,
+              587.9800199999999
+            ],
+            [
+              260.45001,
+              587.9800199999999,
+              353.46999500000004,
+              602.73999
+            ],
+            [
+              260.45001,
+              602.73999,
+              353.46999500000004,
+              755.64002
+            ],
+            [
+              353.46999500000004,
+              71.27999999999997,
+              437.739995,
+              99.97999499999992
+            ],
+            [
+              353.46999500000004,
+              99.97999499999992,
+              437.739995,
+              168.97999499999992
+            ],
+            [
+              353.46999500000004,
+              168.97999499999992,
+              437.739995,
+              197.53999499999998
+            ],
+            [
+              353.46999500000004,
+              197.53999499999998,
+              437.739995,
+              281.32998999999995
+            ],
+            [
+              353.46999500000004,
+              281.32998999999995,
+              437.739995,
+              475.5100049999999
+            ],
+            [
+              353.46999500000004,
+              475.5100049999999,
+              437.739995,
+              490.3900049999999
+            ],
+            [
+              353.46999500000004,
+              490.3900049999999,
+              437.739995,
+              587.9800199999999
+            ],
+            [
+              353.46999500000004,
+              587.9800199999999,
+              437.739995,
+              602.73999
+            ],
+            [
+              353.46999500000004,
+              602.73999,
+              437.739995,
+              755.64002
+            ],
+            [
+              437.739995,
+              71.27999999999997,
+              524.02001,
+              99.97999499999992
+            ],
+            [
+              437.739995,
+              99.97999499999992,
+              524.02001,
+              168.97999499999992
+            ],
+            [
+              437.739995,
+              168.97999499999992,
+              524.02001,
+              197.53999499999998
+            ],
+            [
+              437.739995,
+              197.53999499999998,
+              524.02001,
+              281.32998999999995
+            ],
+            [
+              437.739995,
+              281.32998999999995,
+              524.02001,
+              475.5100049999999
+            ],
+            [
+              437.739995,
+              475.5100049999999,
+              524.02001,
+              490.3900049999999
+            ],
+            [
+              437.739995,
+              490.3900049999999,
+              524.02001,
+              587.9800199999999
+            ],
+            [
+              437.739995,
+              587.9800199999999,
+              524.02001,
+              602.73999
+            ],
+            [
+              437.739995,
+              602.73999,
+              524.02001,
+              755.64002
+            ]
+          ]
+        },
+        {
+          "page": 62,
+          "table": 0,
+          "bbox": [
+            71.30400499999999,
+            71.27999999999997,
+            524.02001,
+            768.4799899999999
+          ],
+          "rows": [
+            [
+              "",
+              "1. Kategori\n(Güçlü)",
+              "2. Kategori\n(İyi)",
+              "3. Kategori\n(Yeterli)",
+              "4. Kategori\n(Zayıf)"
+            ],
+            [
+              "",
+              "",
+              "",
+              "karşılamaktadı\nr.",
+              ""
+            ],
+            [
+              "İşletme ve\nbakım sözleşme\nlerinin kapsamı ve\nniteliği",
+              "Tercihen\nsözleşme\nyükümlülükler\ninin yerine\ngetirilmesini\nteşvik eden\ngüçlü ve uzun\nsüreli bir\nsözleşme\nve/veya gerekl\niyse işletme ve\nbakım için\nayrılan karşılık\nhesapları.",
+              "Uzun süreli bir\nsözleşme\nve/veya\ngerekliyse\nişletme ve bakım\niçin ayrılan\nkarşılık\nhesapları.",
+              "Sınırlı bir\nsözleşme veya\ngerekliyse\nişletme ve\nbakım için\nayrılan karşılık\nhesapları.",
+              "Sözleşme\nbulunmaması\nsebebiyle risk\nazaltıcı\nenstrümanların\netkisini aşan\nyüksek işletme\nmaliyeti riski."
+            ],
+            [
+              "İşletmecinin\nfinansal gücü,\nvarlık türünü\nyönetmede\ndeneyimleri ve kira\nsüresi bittiğinde\nvarlığı tekrar\npazarlayabilme\nkabiliyeti",
+              "Geçmiş\ndeneyimi\nmükemmel ve\nvarlığı güçlü\nbir şekilde\ntekrar\npazarlayabilme\nkabiliyeti.",
+              "Geçmiş\ndeneyimi ve\nvarlığı tekrar\npazarlayabilme\nkabiliyeti iyi.",
+              "Geçmiş\ndeneyimi zayıf\nya da az sayıda\nve varlığı\ntekrar\npazarlayabilme\nkabiliyeti\nbelirsiz.",
+              "Deneyimsiz ya\nda geçmiş\ndeneyimi\nbilinmiyor ve\nvarlığı tekrar\npazarlayabilme\nkabiliyeti yok."
+            ],
+            [
+              "Varlık özellikleri",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "Aynı piyasadaki\ndiğer varlıklara\nkıyasla yapısı,\nboyutu, tasarımı ve\nbakımı (örneğin;\nbir uçak için yaş ve\nboyutu)",
+              "Tasarım ve\nbakım\nyönünden\ngüçlü\navantajları var.\nLikit bir\npiyasada işlem\ngörebilecek\nstandart bir\nyapıya sahip.",
+              "Tasarım ve\nbakım yönünden\nortalamanın üze\nrinde. Sınırlı\nsayıda birkaç\nistisnası olmakla\nbirlikte likit bir\npiyasada işlem\ngörebilecek\nstandart yapıya\nsahip.",
+              "Ortalama\ntasarım ve\nbakım. Varlık,\nkendine özgü\nyapısı\nsebebiyle dar\nbir piyasada\nişlem\ngörebilecek\nyapıya sahip.",
+              "Tasarım ve\nbakım\nyönünden\nortalamanın alt\nında. Varlık\nekonomik\nömrünü\ntamamlamak\nüzeredir.\nYapısı çok özel\nve piyasası çok\ndar."
+            ],
+            [
+              "Tekrar satış değeri",
+              "Cari tekrar\nsatış değeri\nborç tutarının\nçok\nüstündedir.",
+              "Cari tekrar satış\ndeğeri borç\ntutarının\nyeterince\nüstündedir.",
+              "Cari tekrar\nsatış değeri\nborç tutarının\nbiraz\nüstündedir.",
+              "Cari tekrar\nsatış değeri\nborç tutarının\naltındadır."
+            ],
+            [
+              "Varlık değerinin ve\nlikiditesinin\nekonomik",
+              "Varlık değeri\nve likiditesi\nekonomik",
+              "Varlık değeri ve\nlikiditesi\nekonomik",
+              "Varlık değeri\nve likiditesi\nekonomik",
+              "Varlık değeri\nve likiditesi\nekonomik"
+            ]
+          ],
+          "cells": [
+            [
+              71.30400499999999,
+              71.27999999999997,
+              176.180005,
+              99.97999499999992
+            ],
+            [
+              71.30400499999999,
+              99.97999499999992,
+              176.180005,
+              127.58000499999999
+            ],
+            [
+              71.30400499999999,
+              127.58000499999999,
+              176.180005,
+              321.76999
+            ],
+            [
+              71.30400499999999,
+              321.76999,
+              176.180005,
+              446.950005
+            ],
+            [
+              71.30400499999999,
+              446.950005,
+              176.180005,
+              461.70998999999995
+            ],
+            [
+              71.30400499999999,
+              461.70998999999995,
+              176.180005,
+              642.22002
+            ],
+            [
+              71.30400499999999,
+              642.22002,
+              176.180005,
+              725.9800200000001
+            ],
+            [
+              71.30400499999999,
+              725.9800200000001,
+              176.180005,
+              768.4799899999999
+            ],
+            [
+              176.180005,
+              71.27999999999997,
+              260.45001,
+              99.97999499999992
+            ],
+            [
+              176.180005,
+              99.97999499999992,
+              260.45001,
+              127.58000499999999
+            ],
+            [
+              176.180005,
+              127.58000499999999,
+              260.45001,
+              321.76999
+            ],
+            [
+              176.180005,
+              321.76999,
+              260.45001,
+              446.950005
+            ],
+            [
+              176.180005,
+              446.950005,
+              260.45001,
+              461.70998999999995
+            ],
+            [
+              176.180005,
+              461.70998999999995,
+              260.45001,
+              642.22002
+            ],
+            [
+              176.180005,
+              642.22002,
+              260.45001,
+              725.9800200000001
+            ],
+            [
+              176.180005,
+              725.9800200000001,
+              260.45001,
+              768.4799899999999
+            ],
+            [
+              260.45001,
+              71.27999999999997,
+              353.46999500000004,
+              99.97999499999992
+            ],
+            [
+              260.45001,
+              99.97999499999992,
+              353.46999500000004,
+              127.58000499999999
+            ],
+            [
+              260.45001,
+              127.58000499999999,
+              353.46999500000004,
+              321.76999
+            ],
+            [
+              260.45001,
+              321.76999,
+              353.46999500000004,
+              446.950005
+            ],
+            [
+              260.45001,
+              446.950005,
+              353.46999500000004,
+              461.70998999999995
+            ],
+            [
+              260.45001,
+              461.70998999999995,
+              353.46999500000004,
+              642.22002
+            ],
+            [
+              260.45001,
+              642.22002,
+              353.46999500000004,
+              725.9800200000001
+            ],
+            [
+              260.45001,
+              725.9800200000001,
+              353.46999500000004,
+              768.4799899999999
+            ],
+            [
+              353.46999500000004,
+              71.27999999999997,
+              437.739995,
+              99.97999499999992
+            ],
+            [
+              353.46999500000004,
+              99.97999499999992,
+              437.739995,
+              127.58000499999999
+            ],
+            [
+              353.46999500000004,
+              127.58000499999999,
+              437.739995,
+              321.76999
+            ],
+            [
+              353.46999500000004,
+              321.76999,
+              437.739995,
+              446.950005
+            ],
+            [
+              353.46999500000004,
+              446.950005,
+              437.739995,
+              461.70998999999995
+            ],
+            [
+              353.46999500000004,
+              461.70998999999995,
+              437.739995,
+              642.22002
+            ],
+            [
+              353.46999500000004,
+              642.22002,
+              437.739995,
+              725.9800200000001
+            ],
+            [
+              353.46999500000004,
+              725.9800200000001,
+              437.739995,
+              768.4799899999999
+            ],
+            [
+              437.739995,
+              71.27999999999997,
+              524.02001,
+              99.97999499999992
+            ],
+            [
+              437.739995,
+              99.97999499999992,
+              524.02001,
+              127.58000499999999
+            ],
+            [
+              437.739995,
+              127.58000499999999,
+              524.02001,
+              321.76999
+            ],
+            [
+              437.739995,
+              321.76999,
+              524.02001,
+              446.950005
+            ],
+            [
+              437.739995,
+              446.950005,
+              524.02001,
+              461.70998999999995
+            ],
+            [
+              437.739995,
+              461.70998999999995,
+              524.02001,
+              642.22002
+            ],
+            [
+              437.739995,
+              642.22002,
+              524.02001,
+              725.9800200000001
+            ],
+            [
+              437.739995,
+              725.9800200000001,
+              524.02001,
+              768.4799899999999
+            ]
+          ]
+        },
+        {
+          "page": 63,
+          "table": 0,
+          "bbox": [
+            71.30400499999999,
+            71.27999999999997,
+            524.02001,
+            768.4799899999999
+          ],
+          "rows": [
+            [
+              "",
+              "1. Kategori\n(Güçlü)",
+              "2. Kategori\n(İyi)",
+              "3. Kategori\n(Yeterli)",
+              "4. Kategori\n(Zayıf)"
+            ],
+            [
+              "döngülere karşı\nduyarlılığı",
+              "döngülere\ngörece duyarlı\ndeğildir.",
+              "döngülere\nduyarlıdır.",
+              "döngülere\noldukça\nduyarlıdır.",
+              "döngülere\nyüksek\nderecede\nduyarlıdır."
+            ],
+            [
+              "Sponsorun gücü",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "İşletmecinin\nfinansal gücü,\nvarlık türünü\nyönetmede\ndeneyimi ve kira\nsüresi bittiğinde\nvarlığı tekrar\npazarlayabilme\nkabiliyeti",
+              "Geçmiş\ndeneyimi\nmükemmel ve\nvarlığı güçlü\nbir şekilde\ntekrar\npazarlayabilme\nkabiliyeti.",
+              "Geçmiş\ndeneyimi ve\nvarlığı tekrar\npazarlayabilme\nkabiliyeti iyi.",
+              "Geçmiş\ndeneyimi zayıf\nve varlığı\ntekrar\npazarlayabilme\nkabiliyeti\nbelirsiz.",
+              "Deneyimsiz ya\nda geçmiş\ndeneyimi\nbilinmiyor ve\nvarlığı tekrar\npazarlayabilme\nkabiliyeti yok."
+            ],
+            [
+              "Sponsorların\ndeneyimleri ve\nfinansal gücü",
+              "Geçmiş\ndeneyimi\nmükemmel ve\nyüksek\nfinansal güce\nsahip\nsponsorlar.",
+              "Geçmiş\ndeneyimi ve\nfinansal gücü iyi\nolan sponsorlar.",
+              "Geçmiş\ndeneyimi\nyeterli ve iyi\nfinansal güce\nsahip\nsponsorlar.",
+              "Deneyimsiz ya\nda geçmiş\ndeneyimi\nşüpheli olan\nve/veya\nfinansal\nzayıflıklara\nsahip\nsponsorlar."
+            ],
+            [
+              "Alınan\nTeminatlar",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "Varlık kontrolü",
+              "Yasal\ndokümantasyo\nn, bankaya\nvarlık üzerinde\nya da varlığa\nsahip şirket\nüzerinde etkin\nkontrol olanağı\nsağlamaktadır.\n(Örneğin;\nusulünce tesis\nedilmiş birinci\nderece teminat\nhakkı veya bu\ntarz teminatı\niçeren\nkiralama\nyapısı)",
+              "Yasal\ndokümantasyon,\nbankaya varlık\nüzerinde ya da\nvarlığa sahip\nşirket üzerinde\netkin kontrol\nolanağı\nsağlamaktadır.\n(Örneğin;\nusulünce tesis\nedilmiş teminat\nhakkı veya bu\ntarz teminatı\niçeren kiralama\nyapısı)",
+              "Yasal\ndokümantasyo\nn, bankaya\nvarlık üzerinde\nya da varlığa\nsahip şirket\nüzerinde etkin\nkontrol olanağı\nsağlamaktadır.\n(Örneğin;\nusulünce tesis\nedilmiş\nteminat hakkı\nveya bu tarz\nteminatı içeren\nkiralama\nyapısı)",
+              "Sözleşmeler,\nbankaya çok az\nteminat\nsağlamaktadır\nve varlığın\nkontrolünün\nkaybedilmesine\nneden\nolabilecek\nhükümler\niçermektedir."
+            ],
+            [
+              "Varlığın konum ve\ndurumunun\nizlenmesi",
+              "Banka,\nvarlığın\ndurumunu ve",
+              "Banka varlığın\ndurumunu ve\nkonumunu",
+              "Banka varlığın\ndurumunu ve\nkonumunu",
+              "Bankanın\nvarlığın\ndurumunu ve"
+            ]
+          ],
+          "cells": [
+            [
+              71.30400499999999,
+              71.27999999999997,
+              176.180005,
+              99.97999499999992
+            ],
+            [
+              71.30400499999999,
+              99.97999499999992,
+              176.180005,
+              155.17999499999996
+            ],
+            [
+              71.30400499999999,
+              155.17999499999996,
+              176.180005,
+              169.94000499999999
+            ],
+            [
+              71.30400499999999,
+              169.94000499999999,
+              176.180005,
+              308.930005
+            ],
+            [
+              71.30400499999999,
+              308.930005,
+              176.180005,
+              447.910005
+            ],
+            [
+              71.30400499999999,
+              447.910005,
+              176.180005,
+              476.5900049999999
+            ],
+            [
+              71.30400499999999,
+              476.5900049999999,
+              176.180005,
+              725.9800200000001
+            ],
+            [
+              71.30400499999999,
+              725.9800200000001,
+              176.180005,
+              768.4799899999999
+            ],
+            [
+              176.180005,
+              71.27999999999997,
+              260.45001,
+              99.97999499999992
+            ],
+            [
+              176.180005,
+              99.97999499999992,
+              260.45001,
+              155.17999499999996
+            ],
+            [
+              176.180005,
+              155.17999499999996,
+              260.45001,
+              169.94000499999999
+            ],
+            [
+              176.180005,
+              169.94000499999999,
+              260.45001,
+              308.930005
+            ],
+            [
+              176.180005,
+              308.930005,
+              260.45001,
+              447.910005
+            ],
+            [
+              176.180005,
+              447.910005,
+              260.45001,
+              476.5900049999999
+            ],
+            [
+              176.180005,
+              476.5900049999999,
+              260.45001,
+              725.9800200000001
+            ],
+            [
+              176.180005,
+              725.9800200000001,
+              260.45001,
+              768.4799899999999
+            ],
+            [
+              260.45001,
+              71.27999999999997,
+              353.46999500000004,
+              99.97999499999992
+            ],
+            [
+              260.45001,
+              99.97999499999992,
+              353.46999500000004,
+              155.17999499999996
+            ],
+            [
+              260.45001,
+              155.17999499999996,
+              353.46999500000004,
+              169.94000499999999
+            ],
+            [
+              260.45001,
+              169.94000499999999,
+              353.46999500000004,
+              308.930005
+            ],
+            [
+              260.45001,
+              308.930005,
+              353.46999500000004,
+              447.910005
+            ],
+            [
+              260.45001,
+              447.910005,
+              353.46999500000004,
+              476.5900049999999
+            ],
+            [
+              260.45001,
+              476.5900049999999,
+              353.46999500000004,
+              725.9800200000001
+            ],
+            [
+              260.45001,
+              725.9800200000001,
+              353.46999500000004,
+              768.4799899999999
+            ],
+            [
+              353.46999500000004,
+              71.27999999999997,
+              437.739995,
+              99.97999499999992
+            ],
+            [
+              353.46999500000004,
+              99.97999499999992,
+              437.739995,
+              155.17999499999996
+            ],
+            [
+              353.46999500000004,
+              155.17999499999996,
+              437.739995,
+              169.94000499999999
+            ],
+            [
+              353.46999500000004,
+              169.94000499999999,
+              437.739995,
+              308.930005
+            ],
+            [
+              353.46999500000004,
+              308.930005,
+              437.739995,
+              447.910005
+            ],
+            [
+              353.46999500000004,
+              447.910005,
+              437.739995,
+              476.5900049999999
+            ],
+            [
+              353.46999500000004,
+              476.5900049999999,
+              437.739995,
+              725.9800200000001
+            ],
+            [
+              353.46999500000004,
+              725.9800200000001,
+              437.739995,
+              768.4799899999999
+            ],
+            [
+              437.739995,
+              71.27999999999997,
+              524.02001,
+              99.97999499999992
+            ],
+            [
+              437.739995,
+              99.97999499999992,
+              524.02001,
+              155.17999499999996
+            ],
+            [
+              437.739995,
+              155.17999499999996,
+              524.02001,
+              169.94000499999999
+            ],
+            [
+              437.739995,
+              169.94000499999999,
+              524.02001,
+              308.930005
+            ],
+            [
+              437.739995,
+              308.930005,
+              524.02001,
+              447.910005
+            ],
+            [
+              437.739995,
+              447.910005,
+              524.02001,
+              476.5900049999999
+            ],
+            [
+              437.739995,
+              476.5900049999999,
+              524.02001,
+              725.9800200000001
+            ],
+            [
+              437.739995,
+              725.9800200000001,
+              524.02001,
+              768.4799899999999
+            ]
+          ]
+        },
+        {
+          "page": 64,
+          "table": 0,
+          "bbox": [
+            71.304005,
+            71.27999999999997,
+            524.02001,
+            376.97000499999996
+          ],
+          "rows": [
+            [
+              "",
+              "1. Kategori\n(Güçlü)",
+              "2. Kategori\n(İyi)",
+              "3. Kategori\n(Yeterli)",
+              "4. Kategori\n(Zayıf)"
+            ],
+            [
+              "hususunda bankaya\nait haklar ve\naraçlar",
+              "konumunu her\nzaman ve her\nyerde\nizleyebilir\n(düzenli\nraporlar,\ndenetim\nolanağı).",
+              "neredeyse\nher zaman ve\nher yerde\nizleyebilir.",
+              "neredeyse\nher zaman ve\nher yerde\nizleyebilir.",
+              "konumunu\nizleyebilmesi\nsınırlıdır."
+            ],
+            [
+              "Zararlara karşı\nsigorta",
+              "Yüksek\nkalitedeki\nsigorta\nşirketlerine\nyaptırılmış ek\nzarar teminatı\niçeren güçlü\nsigorta\nkapsamı.",
+              "İyi kalitedeki\nsigorta\nşirketlerine\nyaptırılmış\nyeterli düzeyde\nsigorta kapsamı\n(Ek zarar\nteminatı\niçermeyen).",
+              "Kabul\nedilebilir\nkalitedeki\nsigorta\nşirketlerine\nyaptırılmış,\nkabul edilebilir\ndüzeyde\nsigorta\nkapsamı (Ek\nzarar teminatı\niçermeyen).",
+              "Düşük kalitede\nsigorta\nşirketlerine\nyaptırılmış ya\nda zayıf\nsigorta\nkapsamı (Ek\nzarar teminatı\niçermeyen)."
+            ]
+          ],
+          "cells": [
+            [
+              71.304005,
+              71.27999999999997,
+              176.18000500000002,
+              99.97999499999992
+            ],
+            [
+              71.304005,
+              99.97999499999992,
+              176.18000500000002,
+              210.38000500000004
+            ],
+            [
+              71.304005,
+              210.38000500000004,
+              176.18000500000002,
+              376.97000499999996
+            ],
+            [
+              176.18000500000002,
+              71.27999999999997,
+              260.45001,
+              99.97999499999992
+            ],
+            [
+              176.18000500000002,
+              99.97999499999992,
+              260.45001,
+              210.38000500000004
+            ],
+            [
+              176.18000500000002,
+              210.38000500000004,
+              260.45001,
+              376.97000499999996
+            ],
+            [
+              260.45001,
+              71.27999999999997,
+              353.469995,
+              99.97999499999992
+            ],
+            [
+              260.45001,
+              99.97999499999992,
+              353.469995,
+              210.38000500000004
+            ],
+            [
+              260.45001,
+              210.38000500000004,
+              353.469995,
+              376.97000499999996
+            ],
+            [
+              353.469995,
+              71.27999999999997,
+              437.73999499999996,
+              99.97999499999992
+            ],
+            [
+              353.469995,
+              99.97999499999992,
+              437.73999499999996,
+              210.38000500000004
+            ],
+            [
+              353.469995,
+              210.38000500000004,
+              437.73999499999996,
+              376.97000499999996
+            ],
+            [
+              437.73999499999996,
+              71.27999999999997,
+              524.02001,
+              99.97999499999992
+            ],
+            [
+              437.73999499999996,
+              99.97999499999992,
+              524.02001,
+              210.38000500000004
+            ],
+            [
+              437.73999499999996,
+              210.38000500000004,
+              524.02001,
+              376.97000499999996
+            ]
+          ]
+        }
+      ],
+      "rows": [
+        [
+          "Finansal Güç",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "Piyasa Koşulları",
+          "Talep güçlüdür ve artmaktadır, piyasaya giriş güçtür, teknolojideki ve ekonomik görünümdeki değişikliklere karşı duyarlılık düşüktür.",
+          "Talep güçlü ve süreklidir, piyasaya girişte bazı engeller mevcuttur, teknolojideki ve ekonomik görünümdeki değişikliklere karşı bir miktar duyarlılık vardır.",
+          "Talep yeterli ve süreklidir, piyasaya giriş engelleri sınırlıdır, teknolojideki ve ekonomik görünümdeki değişikliklere karşı önemli düzeyde duyarlılık vardır.",
+          "Talep zayıftır ve azalmakta, teknolojideki ve ekonomik görünümdeki değişikliklere karşı duyarlıdı r, yüksek derecede belirsiz bir ortam mevcuttur."
+        ],
+        [
+          "Finansal oranlar (borç servis oranı ve kredinin teminata oranı)",
+          "Varlık türüne göre güçlü finansal oranlar, projeye ilişkin çok sağlam ekonomik varsayımlar.",
+          "Varlık türüne göre güçlü/kabul edilebilir finansal oranlar, projeye ilişkin sağlam ekonomik varsayımlar.",
+          "Varlık türü için standart finansal oranlar.",
+          "Varlık türüne göre olumsuz finansal oranlar."
+        ],
+        [
+          "Stres analizi",
+          "İstikrarlı uzun dönemli gelirler ile bir ekonomik döngüdeki şiddetli stres koşullarına dayanabilecek kapasiteye sahip olunması.",
+          "Tatmin edici kısa vadeli gelirlere sahip olunması. Kredinin bir kısım finansal olumsuzluklara dayanıklı olması ve sadece şiddetli ekonomik koşullarda temerrüt etme olasılığının bulunması.",
+          "Belirsiz kısa vadeli gelirlere sahip olunması. Nakit akışlarının bir ekonomik döngüde meydana gelebilecek streslere karşı kırılgan olması. Kredinin, normal bir ekonomik gerileme döneminde temerrüt etme olasılığının bulunması.",
+          "Gelirlerin güçlü belirsizliklere tabi olması. Koşullarda iyileşme olmazsa, normal ekonomik durumlarda bile kredinin temerrüt etme olasılığının bulunması."
+        ],
+        [
+          "Piyasa likiditesi",
+          "Piyasa dünya çapında yapılanmıştır ve varlıklar son derece likittir.",
+          "Piyasa dünya çapında ya da bölgesel olarak yapılanmıştır ve varlıklar nispeten likittir.",
+          "Piyasa bölgeseldir ve kısa vadede sınırlı beklentiler vardır, bu sebeple likiditesi düşüktür.",
+          "Yerel ve/veya sığ bir piyasa vardır. Düşük likidite vardır veya likidite yoktur (özellikle niş piyasalarda)."
+        ],
+        [
+          "Politik ve Hukuki Ortam",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "Transfer riskini de içeren politik risk",
+          "Çok düşük politik risk; gerekirse güçlü risk azaltıcı enstrümanlar.",
+          "Düşük politik risk; gerekirse yeterli düzeyde risk azaltıcı enstrümanlar.",
+          "Orta düzeyde politik risk; orta düzeyde risk azaltıcı enstrümanlar.",
+          "Yüksek; risk azaltıcı enstrüman yok veya zayıf."
+        ],
+        [
+          "Yasal risk ve mevzuat riski",
+          "Mevzuat; sözleşmelerin uygulanması ve ilgili varlığa el konulmasını kolaylaştırmaktadır.",
+          "Mevzuat; sözleşmelerin uygulanması ve ilgili varlığa el konulmasını kolaylaştırmaktadır.",
+          "El koyma süreci uzun ve/veya zor olsa da mevzuat, sözleşmelerin uygulanması ve ilgili varlığa el konulmasını genelde kolaylaştırmaktadır.",
+          "Zayıf ve istikrarsız hukuki ve düzenleyici ortam. Mevzuat; sözleşmelerin uygulanması ve ilgili varlığa el konulmasını imkansız hale getirebilir ya da süresini uzatabilir."
+        ],
+        [
+          "İşlem Özellikleri",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "Varlığın ekonomik ömrüne kıyasla kredi süresi",
+          "Tam geri ödeme profili/ asgari düzeyde balon ödeme. Ödemesiz geçen süre yok.",
+          "Görece fazla balon ödeme fakat hala tatmin edici düzeyde.",
+          "Ödemesiz süre olması muhtemel önemli miktarda balon ödeme.",
+          "Cezalı geri ödeme veya yüksek miktarda balon ödeme."
+        ],
+        [
+          "Faaliyet riski",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "İzinler/Lisanslama",
+          "Bütün izinler alınmış; varlık, mevcut ve öngörülebilir güvenlik düzenlemelerini karşılamaktadır.",
+          "Bütün izinler alınmış veya alınma aşamasında; varlık mevcut ve öngörülebilir güvenlik düzenlemelerini karşılamaktadır.",
+          "İzinlerin çoğu alınmış veya alınma aşamasında; tamamlanmamış izinler rutin süreçlere tabi, varlık mevcut güvenlik düzenlemelerini karşılamaktadır.",
+          "Gerekli tüm izinlerin alınmasında problemler mevcut, planlanan yapı ve/veya işlemlerin bir kısmının revize edilmesi gerekli olabilir."
+        ],
+        [
+          "İşletme ve bakım sözleşmelerinin kapsamı ve niteliği",
+          "Tercihen sözleşme yükümlülüklerinin yerine getirilmesini teşvik eden güçlü ve uzun süreli bir sözleşme ve/veya gerekliyse işletme ve bakım için ayrılan karşılık hesapları.",
+          "Uzun süreli bir sözleşme ve/veya gerekliyse işletme ve bakım için ayrılan karşılık hesapları.",
+          "Sınırlı bir sözleşme veya gerekliyse işletme ve bakım için ayrılan karşılık hesapları.",
+          "Sözleşme bulunmaması sebebiyle risk azaltıcı enstrümanların etkisini aşan yüksek işletme maliyeti riski."
+        ],
+        [
+          "İşletmecinin finansal gücü, varlık türünü yönetmede deneyimleri ve kira süresi bittiğinde varlığı tekrar pazarlayabilme kabiliyeti",
+          "Geçmiş deneyimi mükemmel ve varlığı güçlü bir şekilde tekrar pazarlayabilme kabiliyeti.",
+          "Geçmiş deneyimi ve varlığı tekrar pazarlayabilme kabiliyeti iyi.",
+          "Geçmiş deneyimi zayıf ya da az sayıda ve varlığı tekrar pazarlayabilme kabiliyeti belirsiz.",
+          "Deneyimsiz ya da geçmiş deneyimi bilinmiyor ve varlığı tekrar pazarlayabilme kabiliyeti yok."
+        ],
+        [
+          "Varlık özellikleri",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "Aynı piyasadaki diğer varlıklara kıyasla yapısı, boyutu, tasarımı ve bakımı (örneğin; bir uçak için yaş ve boyutu)",
+          "Tasarım ve bakım yönünden güçlü avantajları var. Likit bir piyasada işlem görebilecek standart bir yapıya sahip.",
+          "Tasarım ve bakım yönünden ortalamanın üzerinde. Sınırlı sayıda birkaç istisnası olmakla birlikte likit bir piyasada işlem görebilecek standart yapıya sahip.",
+          "Ortalama tasarım ve bakım. Varlık, kendine özgü yapısı sebebiyle dar bir piyasada işlem görebilecek yapıya sahip.",
+          "Tasarım ve bakım yönünden ortalamanın altında. Varlık ekonomik ömrünü tamamlamak üzeredir. Yapısı çok özel ve piyasası çok dar."
+        ],
+        [
+          "Tekrar satış değeri",
+          "Cari tekrar satış değeri borç tutarının çok üstündedir.",
+          "Cari tekrar satış değeri borç tutarının yeterince üstündedir.",
+          "Cari tekrar satış değeri borç tutarının biraz üstündedir.",
+          "Cari tekrar satış değeri borç tutarının altındadır."
+        ],
+        [
+          "Varlık değerinin ve likiditesinin ekonomik döngülere karşı duyarlılığı",
+          "Varlık değeri ve likiditesi ekonomik döngülere görece duyarlı değildir.",
+          "Varlık değeri ve likiditesi ekonomik döngülere duyarlıdır.",
+          "Varlık değeri ve likiditesi ekonomik döngülere oldukça duyarlıdır.",
+          "Varlık değeri ve likiditesi ekonomik döngülere yüksek derecede duyarlıdır."
+        ],
+        [
+          "Sponsorun gücü",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "İşletmecinin finansal gücü, varlık türünü yönetmede deneyimi ve kira süresi bittiğinde varlığı tekrar pazarlayabilme kabiliyeti",
+          "Geçmiş deneyimi mükemmel ve varlığı güçlü bir şekilde tekrar pazarlayabilme kabiliyeti.",
+          "Geçmiş deneyimi ve varlığı tekrar pazarlayabilme kabiliyeti iyi.",
+          "Geçmiş deneyimi zayıf ve varlığı tekrar pazarlayabilme kabiliyeti belirsiz.",
+          "Deneyimsiz ya da geçmiş deneyimi bilinmiyor ve varlığı tekrar pazarlayabilme kabiliyeti yok."
+        ],
+        [
+          "Sponsorların deneyimleri ve finansal gücü",
+          "Geçmiş deneyimi mükemmel ve yüksek finansal güce sahip sponsorlar.",
+          "Geçmiş deneyimi ve finansal gücü iyi olan sponsorlar.",
+          "Geçmiş deneyimi yeterli ve iyi finansal güce sahip sponsorlar.",
+          "Deneyimsiz ya da geçmiş deneyimi şüpheli olan ve/veya finansal zayıflıklara sahip sponsorlar."
+        ],
+        [
+          "Alınan Teminatlar",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "Varlık kontrolü",
+          "Yasal dokümantasyon, bankaya varlık üzerinde ya da varlığa sahip şirket üzerinde etkin kontrol olanağı sağlamaktadır. (Örneğin; usulünce tesis edilmiş birinci derece teminat hakkı veya bu tarz teminatı içeren kiralama yapısı)",
+          "Yasal dokümantasyon, bankaya varlık üzerinde ya da varlığa sahip şirket üzerinde etkin kontrol olanağı sağlamaktadır. (Örneğin; usulünce tesis edilmiş teminat hakkı veya bu tarz teminatı içeren kiralama yapısı)",
+          "Yasal dokümantasyon, bankaya varlık üzerinde ya da varlığa sahip şirket üzerinde etkin kontrol olanağı sağlamaktadır. (Örneğin; usulünce tesis edilmiş teminat hakkı veya bu tarz teminatı içeren kiralama yapısı)",
+          "Sözleşmeler, bankaya çok az teminat sağlamaktadır ve varlığın kontrolünün kaybedilmesine neden olabilecek hükümler içermektedir."
+        ],
+        [
+          "Varlığın konum ve durumunun izlenmesi hususunda bankaya ait haklar ve araçlar",
+          "Banka, varlığın durumunu ve konumunu her zaman ve her yerde izleyebilir (düzenli raporlar, denetim olanağı).",
+          "Banka varlığın durumunu ve konumunu neredeyse her zaman ve her yerde izleyebilir.",
+          "Banka varlığın durumunu ve konumunu neredeyse her zaman ve her yerde izleyebilir.",
+          "Bankanın varlığın durumunu ve konumunu izleyebilmesi sınırlıdır."
+        ],
+        [
+          "Zararlara karşı sigorta",
+          "Yüksek kalitedeki sigorta şirketlerine yaptırılmış ek zarar teminatı içeren güçlü sigorta kapsamı.",
+          "İyi kalitedeki sigorta şirketlerine yaptırılmış yeterli düzeyde sigorta kapsamı (Ek zarar teminatı içermeyen).",
+          "Kabul edilebilir kalitedeki sigorta şirketlerine yaptırılmış, kabul edilebilir düzeyde sigorta kapsamı (Ek zarar teminatı içermeyen).",
+          "Düşük kalitede sigorta şirketlerine yaptırılmış ya da zayıf sigorta kapsamı (Ek zarar teminatı içermeyen)."
+        ]
+      ],
+      "whitespace_joins": [
+        {
+          "old": "kolaylaştırmak tadır",
+          "new": "kolaylaştırmaktadır",
+          "count": 2
+        },
+        {
+          "old": "kolaylaştırmakta dır",
+          "new": "kolaylaştırmaktadır",
+          "count": 1
+        },
+        {
+          "old": "yükümlülükler inin",
+          "new": "yükümlülüklerinin",
+          "count": 1
+        },
+        {
+          "old": "düzenlemeleri ni",
+          "new": "düzenlemelerini",
+          "count": 2
+        },
+        {
+          "old": "karşılamaktadı r",
+          "new": "karşılamaktadır",
+          "count": 2
+        },
+        {
+          "old": "sözleşme lerinin",
+          "new": "sözleşmelerinin",
+          "count": 1
+        },
+        {
+          "old": "tamamlanmam ış",
+          "new": "tamamlanmamış",
+          "count": 1
+        },
+        {
+          "old": "dokümantasyo n",
+          "new": "dokümantasyon",
+          "count": 2
+        },
+        {
+          "old": "gerekl iyse",
+          "new": "gerekliyse",
+          "count": 1
+        },
+        {
+          "old": "Kredi nin",
+          "new": "Kredinin",
+          "count": 1
+        },
+        {
+          "old": "üze rinde",
+          "new": "üzerinde",
+          "count": 1
+        },
+        {
+          "old": "alt ında",
+          "new": "altında",
+          "count": 1
+        }
+      ],
+      "column_nonwhitespace_sha256": [
+        "7ae458ada9afbaae1d01cdf35344049378e007d5f7147734e0c542abcd7914c0",
+        "befc9d095f1c43267257ff3d9831340e171d73b4c325416ec8ed3d900bfbbae9",
+        "02daeddc0b07432e8d689c509de8c2059c8a5f714b5c2bb5ecd64f3a50b3f65e",
+        "9a21efddf79c4d900877574026ede578f23fa53c7ce896fc7c1e8e32099a8049",
+        "f2613e583c6898eadbe5bf953ee553c6c968cae2a2be4dabef29c46d0f4faa0a"
+      ]
+    },
+    {
+      "title": "Tablo 5- Emtia Finansmanı Kredilerine İlişkin Derecelendirme Düzeyleri",
+      "pages": [
+        65,
+        66,
+        67
+      ],
+      "continuation_pages": [
+        67
+      ],
+      "source_tables": [
+        {
+          "page": 65,
+          "table": 0,
+          "bbox": [
+            71.304005,
+            98.89999999999998,
+            524.02001,
+            742.79999
+          ],
+          "rows": [
+            [
+              "",
+              "1. Kategori\n(Güçlü)",
+              "2. Kategori\n(İyi)",
+              "3. Kategori\n(Yeterli)",
+              "4. Kategori\n(Zayıf)"
+            ],
+            [
+              "Finansal\nGüç",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "Teminatın\nkrediden\nyüksek\nolma\ndüzeyi",
+              "Güçlü.",
+              "İyi.",
+              "Yeterli.",
+              "Zayıf."
+            ],
+            [
+              "Politik ve\nHukuki\nOrtam",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "Ülke\nRiski",
+              "Ülke riski\nyok.",
+              "Sınırlı\ndüzeyde\nülke riski\nvar.",
+              "Ülke riski var.",
+              "Yüksek ülke riski var."
+            ],
+            [
+              "Ülke\nrisklerinin\nazaltılmas\nı",
+              "Çok güçlü\nrisk\nazaltımı:\n-Güçlü\nsınırötesi\nmekanizmal\narı\n-Stratejik\nemtia\n-Birinci\nsınıf alıcı",
+              "Güçlü risk\nazaltımı:\n-Yeterli\nsınır ötesi\nmekanizmal\narı\n-Stratejik\nemtia\n-Güçlü alıcı",
+              "Kabul edilebilir risk\nazaltımı:\n-Tatmin edici sınır ötesi\nmekanizmaları\n-Daha az stratejik emtia\n-Kabul edilebilir alıcı",
+              "Sadece kısmi risk\nazaltımı:\n-Sınır ötesi\nmekanizmaları yok\n-Stratejik olmayan\nemtia\n-Zayıf alıcı"
+            ],
+            [
+              "Varlık\nözellikler\ni",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "Likidite\nve zarara\nkarşı\nduyarlılık",
+              "Emtia kote\nedilmiştir ve\nfutures veya\ntezgah üstü\nenstrümanla\nrla riskten\nkorunma\nsağlanabilir.\nEmtia\nzarara karşı\nduyarlı\ndeğildir.",
+              "Emtia kote\nedilmiştir ve\ntezgah üstü\nenstrümanla\nrla riskten\nkorunma\nsağlanabilir.\nEmtia\nzarara karşı\nduyarlı\ndeğildir.",
+              "Emtia kote edilmemiştir\nfakat likittir. Riskten\nkorunma konusunda\nbelirsizlik vardır. Emtia\nzarara karşı duyarlı\ndeğildir.",
+              "Emtia kote\nedilmemiştir.\nPiyasanın büyüklüğü\nve derinliği nedeniyle\nlikiditesi sınırlıdır.\nUygun riskten\nkorunma araçları\nyoktur. Emtia zarara\nkarşı duyarlıdır."
+            ],
+            [
+              "Sponsoru\nn gücü",
+              "",
+              "",
+              "",
+              ""
+            ]
+          ],
+          "cells": [
+            [
+              71.304005,
+              98.89999999999998,
+              132.499995,
+              127.58000499999999
+            ],
+            [
+              71.304005,
+              127.58000499999999,
+              132.499995,
+              156.139995
+            ],
+            [
+              71.304005,
+              156.139995,
+              132.499995,
+              226.10000499999995
+            ],
+            [
+              71.304005,
+              226.10000499999995,
+              132.499995,
+              268.6099899999999
+            ],
+            [
+              71.304005,
+              268.6099899999999,
+              132.499995,
+              324.76999
+            ],
+            [
+              71.304005,
+              324.76999,
+              132.499995,
+              491.35000499999995
+            ],
+            [
+              71.304005,
+              491.35000499999995,
+              132.499995,
+              533.70999
+            ],
+            [
+              71.304005,
+              533.70999,
+              132.499995,
+              714.22002
+            ],
+            [
+              71.304005,
+              714.22002,
+              132.499995,
+              742.79999
+            ],
+            [
+              132.499995,
+              98.89999999999998,
+              203.80999500000001,
+              127.58000499999999
+            ],
+            [
+              132.499995,
+              127.58000499999999,
+              203.80999500000001,
+              156.139995
+            ],
+            [
+              132.499995,
+              156.139995,
+              203.80999500000001,
+              226.10000499999995
+            ],
+            [
+              132.499995,
+              226.10000499999995,
+              203.80999500000001,
+              268.6099899999999
+            ],
+            [
+              132.499995,
+              268.6099899999999,
+              203.80999500000001,
+              324.76999
+            ],
+            [
+              132.499995,
+              324.76999,
+              203.80999500000001,
+              491.35000499999995
+            ],
+            [
+              132.499995,
+              491.35000499999995,
+              203.80999500000001,
+              533.70999
+            ],
+            [
+              132.499995,
+              533.70999,
+              203.80999500000001,
+              714.22002
+            ],
+            [
+              132.499995,
+              714.22002,
+              203.80999500000001,
+              742.79999
+            ],
+            [
+              203.80999500000001,
+              98.89999999999998,
+              275.08999500000004,
+              127.58000499999999
+            ],
+            [
+              203.80999500000001,
+              127.58000499999999,
+              275.08999500000004,
+              156.139995
+            ],
+            [
+              203.80999500000001,
+              156.139995,
+              275.08999500000004,
+              226.10000499999995
+            ],
+            [
+              203.80999500000001,
+              226.10000499999995,
+              275.08999500000004,
+              268.6099899999999
+            ],
+            [
+              203.80999500000001,
+              268.6099899999999,
+              275.08999500000004,
+              324.76999
+            ],
+            [
+              203.80999500000001,
+              324.76999,
+              275.08999500000004,
+              491.35000499999995
+            ],
+            [
+              203.80999500000001,
+              491.35000499999995,
+              275.08999500000004,
+              533.70999
+            ],
+            [
+              203.80999500000001,
+              533.70999,
+              275.08999500000004,
+              714.22002
+            ],
+            [
+              203.80999500000001,
+              714.22002,
+              275.08999500000004,
+              742.79999
+            ],
+            [
+              275.08999500000004,
+              98.89999999999998,
+              404.349995,
+              127.58000499999999
+            ],
+            [
+              275.08999500000004,
+              127.58000499999999,
+              404.349995,
+              156.139995
+            ],
+            [
+              275.08999500000004,
+              156.139995,
+              404.349995,
+              226.10000499999995
+            ],
+            [
+              275.08999500000004,
+              226.10000499999995,
+              404.349995,
+              268.6099899999999
+            ],
+            [
+              275.08999500000004,
+              268.6099899999999,
+              404.349995,
+              324.76999
+            ],
+            [
+              275.08999500000004,
+              324.76999,
+              404.349995,
+              491.35000499999995
+            ],
+            [
+              275.08999500000004,
+              491.35000499999995,
+              404.349995,
+              533.70999
+            ],
+            [
+              275.08999500000004,
+              533.70999,
+              404.349995,
+              714.22002
+            ],
+            [
+              275.08999500000004,
+              714.22002,
+              404.349995,
+              742.79999
+            ],
+            [
+              404.349995,
+              98.89999999999998,
+              524.02001,
+              127.58000499999999
+            ],
+            [
+              404.349995,
+              127.58000499999999,
+              524.02001,
+              156.139995
+            ],
+            [
+              404.349995,
+              156.139995,
+              524.02001,
+              226.10000499999995
+            ],
+            [
+              404.349995,
+              226.10000499999995,
+              524.02001,
+              268.6099899999999
+            ],
+            [
+              404.349995,
+              268.6099899999999,
+              524.02001,
+              324.76999
+            ],
+            [
+              404.349995,
+              324.76999,
+              524.02001,
+              491.35000499999995
+            ],
+            [
+              404.349995,
+              491.35000499999995,
+              524.02001,
+              533.70999
+            ],
+            [
+              404.349995,
+              533.70999,
+              524.02001,
+              714.22002
+            ],
+            [
+              404.349995,
+              714.22002,
+              524.02001,
+              742.79999
+            ]
+          ]
+        },
+        {
+          "page": 66,
+          "table": 0,
+          "bbox": [
+            71.30400499999999,
+            71.27999999999997,
+            524.02001,
+            754.67999
+          ],
+          "rows": [
+            [
+              "",
+              "1. Kategori\n(Güçlü)",
+              "2. Kategori\n(İyi)",
+              "3. Kategori\n(Yeterli)",
+              "4. Kategori\n(Zayıf)"
+            ],
+            [
+              "İşletmecin\nin finansal\ngücü",
+              "Alım satım\nfaaliyetleri\nve riskler\nbakımından\nçok güçlü.",
+              "Güçlü",
+              "Yeterli",
+              "Zayıf"
+            ],
+            [
+              "Lojistik\nsürecini\nyönetme\nkabiliyeti\ndahil\ndeneyim",
+              "İşlem\ntipinde\nyüksek\ndeneyime\nsahiptir.\nİşletme\nbaşarısı ve\nmaliyet\nverimliliğin\nde güçlü\ndeneyimi\nvardır.",
+              "İşlem\ntipinde\nyeterli\ndeneyime\nsahiptir.\nİşletme\nbaşarısı ve\nmaliyet\nverimliliğin\nde\nortalamanın\nüzerinde\ndeneyimi\nvardır.",
+              "İşlem tipinde sınırlı\ndeneyime sahiptir.\nİşletme başarısı ve\nmaliyet verimliliğinde\nortalama deneyimi\nvardır.",
+              "Sınırlı ya da belirsiz\ndeneyimi vardır.\nMaliyet ve karları\ndeğişkendir."
+            ],
+            [
+              "Ticari\nkontroller\nve riskten\nkorunma\npolitikalar\nı",
+              "Karşı taraf\nseçimi,\nriskten\nkorunma ve\nizleme\nkonularında\ngüçlü\nstandartlar.",
+              "Karşı taraf\nseçimi,\nriskten\nkorunma ve\nizleme\nkonularında\nyeterli\nstandartlar.",
+              "Geçmiş işlemlerde çok\nküçük problemle\nkarşılaşılmış ya da hiç\nproblem yaşanmamış.",
+              "Geçmiş işlemlerinde\nönemli derecede\nkayıplar yaşanmıştır."
+            ],
+            [
+              "Finansal\nbilgilerin\nkamuya\naçıklama\nkalitesi",
+              "Çok iyi.",
+              "İyi.",
+              "Yeterli.",
+              "Finansal bilgilerin\nkamuya\naçıklanmasında bazı\nbelirsizlikler\nbulunmaktadır ya da\nyetersizdir."
+            ],
+            [
+              "Alınan\nTeminatl\nar",
+              "",
+              "",
+              "",
+              ""
+            ],
+            [
+              "Varlık\nkontrolü",
+              "Birinci\nderece\nteminat\nhakkı,\ngerektiğinde\nbankaya\nvarlık\nüzerinde\nyasal\nkontrol\nhakkı",
+              "Birinci\nderece\nteminat\nhakkı,\ngerektiğinde\nbankaya\nvarlık\nüzerinde\nyasal\nkontrol\nhakkı",
+              "Banka tarafından\nvarlıkların kontrol\nedilmesinde kesinti\nvardır. Bu kesinti alım\nsatım süreci bilgisiyle\nveya duruma göre\nüçüncü taraf\ntaahhüdüyle azaltılmakt\nadır.",
+              "Sözleşme, varlık\nüzerindeki kontrolün\nkaybedilmesine yol\naçacak riskleri\nbarındırmaktadır. Tah\nsilat riskli olabilir."
+            ]
+          ],
+          "cells": [
+            [
+              71.30400499999999,
+              71.27999999999997,
+              132.499995,
+              99.97999499999992
+            ],
+            [
+              71.30400499999999,
+              99.97999499999992,
+              132.499995,
+              169.94000499999999
+            ],
+            [
+              71.30400499999999,
+              169.94000499999999,
+              132.499995,
+              364.1300049999999
+            ],
+            [
+              71.30400499999999,
+              364.1300049999999,
+              132.499995,
+              475.5100049999999
+            ],
+            [
+              71.30400499999999,
+              475.5100049999999,
+              132.499995,
+              559.3899899999999
+            ],
+            [
+              71.30400499999999,
+              559.3899899999999,
+              132.499995,
+              601.7800199999999
+            ],
+            [
+              71.30400499999999,
+              601.7800199999999,
+              132.499995,
+              754.67999
+            ],
+            [
+              132.499995,
+              71.27999999999997,
+              203.80999500000001,
+              99.97999499999992
+            ],
+            [
+              132.499995,
+              99.97999499999992,
+              203.80999500000001,
+              169.94000499999999
+            ],
+            [
+              132.499995,
+              169.94000499999999,
+              203.80999500000001,
+              364.1300049999999
+            ],
+            [
+              132.499995,
+              364.1300049999999,
+              203.80999500000001,
+              475.5100049999999
+            ],
+            [
+              132.499995,
+              475.5100049999999,
+              203.80999500000001,
+              559.3899899999999
+            ],
+            [
+              132.499995,
+              559.3899899999999,
+              203.80999500000001,
+              601.7800199999999
+            ],
+            [
+              132.499995,
+              601.7800199999999,
+              203.80999500000001,
+              754.67999
+            ],
+            [
+              203.80999500000001,
+              71.27999999999997,
+              275.089995,
+              99.97999499999992
+            ],
+            [
+              203.80999500000001,
+              99.97999499999992,
+              275.089995,
+              169.94000499999999
+            ],
+            [
+              203.80999500000001,
+              169.94000499999999,
+              275.089995,
+              364.1300049999999
+            ],
+            [
+              203.80999500000001,
+              364.1300049999999,
+              275.089995,
+              475.5100049999999
+            ],
+            [
+              203.80999500000001,
+              475.5100049999999,
+              275.089995,
+              559.3899899999999
+            ],
+            [
+              203.80999500000001,
+              559.3899899999999,
+              275.089995,
+              601.7800199999999
+            ],
+            [
+              203.80999500000001,
+              601.7800199999999,
+              275.089995,
+              754.67999
+            ],
+            [
+              275.089995,
+              71.27999999999997,
+              404.34999500000004,
+              99.97999499999992
+            ],
+            [
+              275.089995,
+              99.97999499999992,
+              404.34999500000004,
+              169.94000499999999
+            ],
+            [
+              275.089995,
+              169.94000499999999,
+              404.34999500000004,
+              364.1300049999999
+            ],
+            [
+              275.089995,
+              364.1300049999999,
+              404.34999500000004,
+              475.5100049999999
+            ],
+            [
+              275.089995,
+              475.5100049999999,
+              404.34999500000004,
+              559.3899899999999
+            ],
+            [
+              275.089995,
+              559.3899899999999,
+              404.34999500000004,
+              601.7800199999999
+            ],
+            [
+              275.089995,
+              601.7800199999999,
+              404.34999500000004,
+              754.67999
+            ],
+            [
+              404.34999500000004,
+              71.27999999999997,
+              524.02001,
+              99.97999499999992
+            ],
+            [
+              404.34999500000004,
+              99.97999499999992,
+              524.02001,
+              169.94000499999999
+            ],
+            [
+              404.34999500000004,
+              169.94000499999999,
+              524.02001,
+              364.1300049999999
+            ],
+            [
+              404.34999500000004,
+              364.1300049999999,
+              524.02001,
+              475.5100049999999
+            ],
+            [
+              404.34999500000004,
+              475.5100049999999,
+              524.02001,
+              559.3899899999999
+            ],
+            [
+              404.34999500000004,
+              559.3899899999999,
+              524.02001,
+              601.7800199999999
+            ],
+            [
+              404.34999500000004,
+              601.7800199999999,
+              524.02001,
+              754.67999
+            ]
+          ]
+        },
+        {
+          "page": 67,
+          "table": 0,
+          "bbox": [
+            71.304005,
+            71.27999999999997,
+            524.02001,
+            321.76999
+          ],
+          "rows": [
+            [
+              "",
+              "1. Kategori\n(Güçlü)",
+              "2. Kategori\n(İyi)",
+              "3. Kategori\n(Yeterli)",
+              "4. Kategori\n(Zayıf)"
+            ],
+            [
+              "",
+              "sağlamaktad\nır.",
+              "sağlamaktad\nır.",
+              "",
+              ""
+            ],
+            [
+              "Zararlara\nkarşı\nsigorta",
+              "Yüksek\nkalitedeki\nsigorta\nşirketlerine\nyaptırılmış\nek zarar\nteminatı\niçeren güçlü\nsigorta\nkapsamı.",
+              "İyi\nkalitedeki\nsigorta\nşirketlerine\nyaptırılmış\nyeterli\ndüzeyde\nsigorta\nkapsamı (Ek\nzarar\nteminatı\niçermeyen).",
+              "Kabul edilebilir\nkalitedeki sigorta\nşirketlerine yaptırılmış,\nkabul edilebilir düzeyde\nsigorta kapsamı (Ek\nzarar teminatı\niçermeyen).",
+              "Düşük kalitede sigorta\nşirketlerine\nyaptırılmış ya\nda zayıf sigorta\nkapsamı (Ek zarar\nteminatı içermeyen)."
+            ]
+          ],
+          "cells": [
+            [
+              71.304005,
+              71.27999999999997,
+              132.499995,
+              99.97999499999992
+            ],
+            [
+              71.304005,
+              99.97999499999992,
+              132.499995,
+              155.17999499999996
+            ],
+            [
+              71.304005,
+              155.17999499999996,
+              132.499995,
+              321.76999
+            ],
+            [
+              132.499995,
+              71.27999999999997,
+              203.809995,
+              99.97999499999992
+            ],
+            [
+              132.499995,
+              99.97999499999992,
+              203.809995,
+              155.17999499999996
+            ],
+            [
+              132.499995,
+              155.17999499999996,
+              203.809995,
+              321.76999
+            ],
+            [
+              203.809995,
+              71.27999999999997,
+              275.089995,
+              99.97999499999992
+            ],
+            [
+              203.809995,
+              99.97999499999992,
+              275.089995,
+              155.17999499999996
+            ],
+            [
+              203.809995,
+              155.17999499999996,
+              275.089995,
+              321.76999
+            ],
+            [
+              275.089995,
+              71.27999999999997,
+              404.34999500000004,
+              99.97999499999992
+            ],
+            [
+              275.089995,
+              99.97999499999992,
+              404.34999500000004,
+              155.17999499999996
+            ],
+            [
+              275.089995,
+              155.17999499999996,
+              404.34999500000004,
+              321.76999
+            ],
+            [
+              404.34999500000004,
+              71.27999999999997,
+              524.02001,
+              99.97999499999992
+            ],
+            [
+              404.34999500000004,
+              99.97999499999992,
+              524.02001,
+              155.17999499999996
+            ],
+            [
+              404.34999500000004,
+              155.17999499999996,
+              524.02001,
+              321.76999
+            ]
+          ]
+        }
+      ],
+      "rows": [
+        [
+          "Finansal Güç",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "Teminatın krediden yüksek olma düzeyi",
+          "Güçlü.",
+          "İyi.",
+          "Yeterli.",
+          "Zayıf."
+        ],
+        [
+          "Politik ve Hukuki Ortam",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "Ülke Riski",
+          "Ülke riski yok.",
+          "Sınırlı düzeyde ülke riski var.",
+          "Ülke riski var.",
+          "Yüksek ülke riski var."
+        ],
+        [
+          "Ülke risklerinin azaltılması",
+          "Çok güçlü risk azaltımı: -Güçlü sınırötesi mekanizmaları -Stratejik emtia -Birinci sınıf alıcı",
+          "Güçlü risk azaltımı: -Yeterli sınır ötesi mekanizmaları -Stratejik emtia -Güçlü alıcı",
+          "Kabul edilebilir risk azaltımı: -Tatmin edici sınır ötesi mekanizmaları -Daha az stratejik emtia -Kabul edilebilir alıcı",
+          "Sadece kısmi risk azaltımı: -Sınır ötesi mekanizmaları yok -Stratejik olmayan emtia -Zayıf alıcı"
+        ],
+        [
+          "Varlık özellikleri",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "Likidite ve zarara karşı duyarlılık",
+          "Emtia kote edilmiştir ve futures veya tezgah üstü enstrümanlarla riskten korunma sağlanabilir. Emtia zarara karşı duyarlı değildir.",
+          "Emtia kote edilmiştir ve tezgah üstü enstrümanlarla riskten korunma sağlanabilir. Emtia zarara karşı duyarlı değildir.",
+          "Emtia kote edilmemiştir fakat likittir. Riskten korunma konusunda belirsizlik vardır. Emtia zarara karşı duyarlı değildir.",
+          "Emtia kote edilmemiştir. Piyasanın büyüklüğü ve derinliği nedeniyle likiditesi sınırlıdır. Uygun riskten korunma araçları yoktur. Emtia zarara karşı duyarlıdır."
+        ],
+        [
+          "Sponsorun gücü",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "İşletmecinin finansal gücü",
+          "Alım satım faaliyetleri ve riskler bakımından çok güçlü.",
+          "Güçlü",
+          "Yeterli",
+          "Zayıf"
+        ],
+        [
+          "Lojistik sürecini yönetme kabiliyeti dahil deneyim",
+          "İşlem tipinde yüksek deneyime sahiptir. İşletme başarısı ve maliyet verimliliğinde güçlü deneyimi vardır.",
+          "İşlem tipinde yeterli deneyime sahiptir. İşletme başarısı ve maliyet verimliliğinde ortalamanın üzerinde deneyimi vardır.",
+          "İşlem tipinde sınırlı deneyime sahiptir. İşletme başarısı ve maliyet verimliliğinde ortalama deneyimi vardır.",
+          "Sınırlı ya da belirsiz deneyimi vardır. Maliyet ve karları değişkendir."
+        ],
+        [
+          "Ticari kontroller ve riskten korunma politikaları",
+          "Karşı taraf seçimi, riskten korunma ve izleme konularında güçlü standartlar.",
+          "Karşı taraf seçimi, riskten korunma ve izleme konularında yeterli standartlar.",
+          "Geçmiş işlemlerde çok küçük problemle karşılaşılmış ya da hiç problem yaşanmamış.",
+          "Geçmiş işlemlerinde önemli derecede kayıplar yaşanmıştır."
+        ],
+        [
+          "Finansal bilgilerin kamuya açıklama kalitesi",
+          "Çok iyi.",
+          "İyi.",
+          "Yeterli.",
+          "Finansal bilgilerin kamuya açıklanmasında bazı belirsizlikler bulunmaktadır ya da yetersizdir."
+        ],
+        [
+          "Alınan Teminatlar",
+          "",
+          "",
+          "",
+          ""
+        ],
+        [
+          "Varlık kontrolü",
+          "Birinci derece teminat hakkı, gerektiğinde bankaya varlık üzerinde yasal kontrol hakkı sağlamaktadır.",
+          "Birinci derece teminat hakkı, gerektiğinde bankaya varlık üzerinde yasal kontrol hakkı sağlamaktadır.",
+          "Banka tarafından varlıkların kontrol edilmesinde kesinti vardır. Bu kesinti alım satım süreci bilgisiyle veya duruma göre üçüncü taraf taahhüdüyle azaltılmaktadır.",
+          "Sözleşme, varlık üzerindeki kontrolün kaybedilmesine yol açacak riskleri barındırmaktadır. Tahsilat riskli olabilir."
+        ],
+        [
+          "Zararlara karşı sigorta",
+          "Yüksek kalitedeki sigorta şirketlerine yaptırılmış ek zarar teminatı içeren güçlü sigorta kapsamı.",
+          "İyi kalitedeki sigorta şirketlerine yaptırılmış yeterli düzeyde sigorta kapsamı (Ek zarar teminatı içermeyen).",
+          "Kabul edilebilir kalitedeki sigorta şirketlerine yaptırılmış, kabul edilebilir düzeyde sigorta kapsamı (Ek zarar teminatı içermeyen).",
+          "Düşük kalitede sigorta şirketlerine yaptırılmış ya da zayıf sigorta kapsamı (Ek zarar teminatı içermeyen)."
+        ]
+      ],
+      "whitespace_joins": [
+        {
+          "old": "azaltılmakt adır",
+          "new": "azaltılmaktadır",
+          "count": 1
+        },
+        {
+          "old": "enstrümanla rla",
+          "new": "enstrümanlarla",
+          "count": 2
+        },
+        {
+          "old": "verimliliğin de",
+          "new": "verimliliğinde",
+          "count": 2
+        },
+        {
+          "old": "mekanizmal arı",
+          "new": "mekanizmaları",
+          "count": 2
+        },
+        {
+          "old": "sağlamaktad ır",
+          "new": "sağlamaktadır",
+          "count": 2
+        },
+        {
+          "old": "İşletmecin in",
+          "new": "İşletmecinin",
+          "count": 1
+        },
+        {
+          "old": "politikalar ı",
+          "new": "politikaları",
+          "count": 1
+        },
+        {
+          "old": "azaltılmas ı",
+          "new": "azaltılması",
+          "count": 1
+        },
+        {
+          "old": "özellikler i",
+          "new": "özellikleri",
+          "count": 1
+        },
+        {
+          "old": "Teminatl ar",
+          "new": "Teminatlar",
+          "count": 1
+        },
+        {
+          "old": "Sponsoru n",
+          "new": "Sponsorun",
+          "count": 1
+        },
+        {
+          "old": "Tah silat",
+          "new": "Tahsilat",
+          "count": 1
+        }
+      ],
+      "column_nonwhitespace_sha256": [
+        "825aa191a47860f9c2417887b79bf79d205391a7ce1ecc34c7aabce27f6a2bfe",
+        "3c12bed8cccd4178360db82f97dbcbd2da03375835db852d9cd5b5a5230b1cde",
+        "67e6383bdefb945ff3e2a00ef61391ccb1ad4afd3938e7d38bc08266aca8ced5",
+        "5c1b2d63d13ba951e8968db448d929f38751ab509323aefc2db375a161941733",
+        "4540329662a0660c355b9e91234e379048a6881f03b5ef1f7bf62ba30ecde526"
+      ]
+    }
+  ],
+  "replacements": [
+    {
+      "start": 160924,
+      "end": 184257,
+      "old": "Tablo 3 – Gelir Getiren Gayrimenkul ve Volatilitesi Yüksek Ticari Gayrimenkul\nKredilerine İlişkin Derecelendirme Düzeyleri\n\n1. Kategori\n(Güçlü)\n\n2. Kategori\n(İyi)\n\n3. Kategori\n(Yeterli)\n\n4. Kategori\n(Zayıf)\n\nFinansal Güç\nPiyasa koşulları  Proje tipi ve\n\nFinansal oranlar\nve kredinin\nteminata oranı\n\nkonumu için arz\ntalep mevcut\ndurumda\ndengededir.\nPiyasaya\nsunulacak olan\nrakip\ngayrimenkulleri\nn sayısı, tahmin\nedilen talep\ndüzeyine eşit\nveya daha\ndüşüktür.\n\nGayrimenkulün\nborç servis\noranı\nyüksektir(Borç\nservis oranı\ninşaat\nsafhasındaki\ngayrimenkuller\niçin\nhesaplanmamalı\ndır.) ve kredinin\nteminata oranı\nilgili\ngayrimenkul\ntipine göre\ndüşüktür. İkincil\npiyasanın\nbulunduğu\ndurumlarda,\nişlem piyasa\nstandartlarında\nyapılmıştır.\n\nProje tipi ve\nkonumu için arz\ntalep mevcut\ndurumda\ndengededir.\nPiyasaya\nsunulacak olan\nrakip\ngayrimenkulleri\nn sayısı, tahmin\nedilen talep\ndüzeyine kabaca\neşittir.\n\nPiyasa koşulları\nkabaca\ndengededir.\nRakip\ngayrimenkuller\npiyasaya\nsunulma,\ndiğerleri\nplanlama\nsafhasındadır.\nProjenin tasarım\nve özellikleri,\nyeni projelere\nkıyasla modern\nolmayabilir.\n\nBorç servis\noranı (Borç\nservis oranı\ninşaat\nsafhasındaki\ngayrimenkuller\niçin\nhesaplanmamalı\ndır.) ve kredinin\nteminata oranı\nyeterlidir.\nİkincil\npiyasanın\nbulunduğu\ndurumlarda,\nişlem piyasa\nstandartlarında\nyapılmıştır.\n\nGayrimenkulün\nborç servis\noranı (Borç\nservis oranı\ninşaat\nsafhasındaki\ngayrimenkuller\niçin\nhesaplanmamalı\ndır.)\nbozulmuştur ve\ngayrimenkulün\ndeğeri\ndüşmüştür\ndolayısıyla\nkredinin\nteminata oranı\nyükselmiştir.\n\nPiyasa koşulları\nzayıftır.\nKoşulların ne\nzaman\niyileşeceği ve\ndengeye\ngeleceği\nbelirsizdir.\nProje, kira\nsüresinin\nsonunda\nkiracılarını\nkaybediyor.\nYeni kira\nkoşulları, sona\neren kiralara\nkıyasla daha\nolumsuzdur.\n\nGayrimenkulün\nborç servis\noranı (Borç\nservis oranı\ninşaat\nsafhasındaki\ngayrimenkuller\niçin\nhesaplanmamalı\ndır.)  önemli\ndüzeyde\nbozulmuştur ve\nkredinin\nteminata oranı\nyeni kredilere\nilişkin sözleşme\nşartlarının\noldukça\nüzerindedir.\n\nStres analizi\n\nNakit akışının\nöngörülebilirliği\n\n(a)\nTamamlanmı\nş\ngayrimenkul\nve\ngayrimenkul\ne ilişkin\nistikrarlı\ngelir\n\n2. Kategori\n(İyi)\n\nGayrimenkul,\nsüreklilik arz\neden bir\nekonomik  stres\ndöneminde\n(örneğin faiz\noranları,\nekonomik\nbüyüme)\nfinansal\nyükümlülükleri\nni yerine\ngetirebilir.\nGayrimenkule\nilişkin kredi\nsadece çok\nstresli ekonomik\nkoşullar altında\ntemerrüde\ndüşebilir.\n\nKira\nsözleşmelerinin\nçoğu uzun\nsürelidir,\nkiracıların kredi\ndeğerlilikleri\nçeşitlilik arz\netmektedir.\nKiracı devir hızı\nnormal\nseviyededir.\nGayrimenkulün\nkiralanmama\noranı düşüktür.\nMasraf ve\ngiderleri\nöngörülebilir\nniteliktedir.\n\n1. Kategori\n(Güçlü)\nGayrimenkulün\nmevcut\nkaynakları,\ntaahhüt ve\nyükümlülük\nyapısı, çok\nstresli\nekonomik  stres\ndöneminde\n(örneğin, faiz\noranları,\nekonomik\nbüyüme) dahi\nfinansal\nyükümlülükleri\nni karşılamasına\nimkan verecek\nniteliktedir.\n\nKira\nsözleşmeleri\nuzun sürelidir\nve sona erme\ntarihleri zamana\nyayılmıştır.\nKiracıların kredi\ndeğerliliği\nyüksektir.\nKiracı devir hızı\ndüşüktür.\nGayrimenkulün\nkiralanmama\noranı düşüktür.\nMasraf ve\ngiderler (bakım,\nsigorta,\ngüvenlik ve\nemlak vergileri)\nöngörülebilir\nniteliktedir.\n\n(b)Tamamla\nnmış fakat\ngayrimenkul\n\nKiralama\nfaaliyetleri\nprojeksiyonları\n\nKiralama\nfaaliyetleri\nprojeksiyonları\n\n4. Kategori\n(Zayıf)\nGayrimenkulün\nfinansal durumu\nbozuktur ve\nyakın gelecekte\nkoşullarda\niyileşme\nolmadığı\ntakdirde,\nkredinin\ntemerrüde\ndüşme ihtimali\nvardır.\n\n3. Kategori\n(Yeterli)\nBir ekonomik\ngerileme\ndöneminde,\ngayrimenkulün\ngelirinde bir\nazalma olabilir,\nbu sebeple\ngayrimenkule\nilişkin sermaye\nharcamaları\nfonlama\nkabiliyeti\nsınırlanabilir ve\nkredinin\ntemerrüt riski\nönemli oranda\nartabilir.\n\nKira\nsözleşmelerinin\nçoğu orta\nsürelidir,\nkiracıların kredi\ndeğerlilikleri\nçeşitlilik arz\netmektedir.\nKiracı devir hızı\nnormalin\nüzerindedir.\nGayrimenkulün\nkiralanmama\noranı orta\nseviyededir.\nMasraf ve\ngiderleri\nnispeten\nöngörülebilir\nniteliktedir,\nfakat gelire\nbağlı olarak\ndeğişmektedir.\nKiralama\nfaaliyetleri\nçoğunlukla\n\nKira\nsözleşmelerinin\nsüreleri ve\nkiracıların kredi\ndeğerlilikleri\nçeşitlilik arz\netmektedir.\nKiracı devir hızı\nyüksektir.\nGayrimenkulün\nkiralanmama\noranı yüksektir.\nGayrimenkulün,\nyeni kiracılar\niçin\nhazırlanması\nönemli miktarda\nmasraf\ngerektirmektedi\nr.\n\nMevcut piyasa\nkiraları\nbeklentileri\n\ne ilişkin\nistikrarsız\ngelir\n\n(c) İnşaat\nhalindeki\ngayrimenkul\n\nVarlık\nÖzellikleri\nKonum\n\nTasarımı ve\nbakımlılığı\n\n1. Kategori\n(Güçlü)\nkarşılayabilecek\nveya daha\nyüksek\nseviyededir.\nProje yakın\ngelecekte\nistikrarlı gelir\nelde etmeye\nbaşlayacaktır.\n\n2. Kategori\n(İyi)\nkarşılayabilecek\nveya daha\nyüksek\nseviyededir.\nProje yakın\ngelecekte\nistikrarlı gelir\nelde etmeye\nbaşlayacaktır\n\nGayrimenkulün\ntamamı kredi\nvadesi boyunca,\nönceden kiraya\nverilmiş ya da\nyatırım\nyapılabilirlik\ndüzeyinde bir\nkiracıya ya da\nbir alıcıya\nönceden\nsatılmış veya\nbanka, yatırım\nyapılabilirlik\ndüzeyinde bir\nfinansal\nkuruluştan\nfinansman\ntemini için\nbağlayıcı bir\ntaahhüt almıştır.\n\nGayrimenkulün\ntamamı önceden\nkiraya verilmiş\nya da kredi\ndeğerliliği\nyüksek bir\nkiracıya ya da\nbir alıcıya\nönceden\nsatılmış ya da\nbanka kredi\ndeğerliliği\nyüksek bir\nfinansal\nkuruluştan\ndaimi\nfinansman için\nbağlayıcı bir\ntaahhüt almıştır.\n\n3. Kategori\n(Yeterli)\nprojeksiyonlara\nuygundur,\nbununla birlikte,\nprojenin belli\nbir süre\nistikrarlı gelir\nelde etmesi\nmümkün\ngörülmemektedi\nr.\nKiralama\nfaaliyetleri\nprojeksiyonlara\nuygundur fakat\nbina önceden\nkiralanmamış ve\nilave bir\nfinansman\nbulma olanağı\nsöz konusu\nolmayabilir.\nBanka\ndaimi  kredi\nveren olabilir.\n\n4. Kategori\n(Zayıf)\nkarşılamamakta\ndır. Hedeflenen\nkiralama\noranına\nulaşılmasına\nrağmen, düşük\ngelir\ndüzeyinden\ndolayı nakit\nakışı sınırlıdır.\nMaliyetin\nöngörülenden\nyüksek olması,\npiyasa\nkoşullarının\nbozulması, kira\nsözleşmeleri\niptalleri veya\nbaşka faktörler\nsebebiyle\ngayrimenkulün\ndurumu\nbozulmaktadır.\nBanka ya da\ndaimi\nfinansmanı\ntemin eden\ndiğer finansal\nkuruluş ile bir\nihtilâf olabilir.\n\nGayrimenkul,\nkiracıların\nistediği\nhizmetler için\nuygun ve çok\ncazip bir\nkonumdadır.\nGayrimenkul\ntasarımı, yapısı\nve bakımlı\nolması\ndolayısıyla\ntercih\nedilmektedir.\nYeni binalarla\n\nGayrimenkul,\nkiracıların\nistediği\nhizmetler için\nuygun ve cazip\nbir konumdadır.\n\nGayrimenkulün\nkonumu\nherhangi bir\nrekabet avantajı\nyaratmamaktadı\nr.\n\nGayrimenkul\ntasarımı, yapısı\nve bakımlı\nolması\ndolayısıyla iyi\ndurumdadır.\nGayrimenkulün\ntasarımı ve\n\nGayrimenkul\nyapısı, tasarımı\nve bakımlı\nolması\nyönünden\nyeterli\ndüzeydedir.\n\nGayrimenkulün\nkonumu, yapısı,\ntasarımı ve\nbakımı,\ngayrimenkulü\nolumsuz\netkilemektedir.\nGayrimenkulün\nyapısı, tasarımı\nve bakımlı\nolması\nhususlarında\nzayıflıkları\nmevcuttur.\n\nİnşaat halindeki\ngayrimenkul\n\nSponsorun/Pro\njeyi geliştiren\nfirmanın gücü\nFinansal\nkapasitesi ve\nprojeyi\ndestekleme\nistekliliği\n\n3. Kategori\n(Yeterli)\n\n4. Kategori\n(Zayıf)\n\nProje bütçesi\naşılmaktadır\nveya teknik\nsorunlar göz\nönünde\nbulundurulduğu\nnda proje\ngerçekçi\ndeğildir.\nMüteahhitler\ndüşük\ndonanımlıdır.\n\nSponsor/projeyi\ngeliştiren firma\nprojeyi\ndesteklemek\niçin yeterli\nkapasiteye ya da\nbu konuda\nistekliliğe sahip\ndeğildir.\n\nİnşaat bütçesi\nyeterli\ndüzeydedir ve\nmüteahhitler\nortalama  seviye\nde donanımlıdır.\n\nSponsor/projeyi\ngeliştiren\nfirmanın katkısı\nönemsiz\ndüzeyde ya da\nnakdi değildir.\nSponsor/projeyi\ngeliştiren firma\nfinansal\nkaynaklar\naçısından\nortalama ile\nortalama altı\narasında bir\nseviyededir.\n\n1. Kategori\n(Güçlü)\nyüksek rekabet\ngücüne sahiptir.\n\nİnşaat bütçesi\nihtiyatlıdır ve\nteknik sorunlar\nsınırlıdır.\nMüteahhitler\nyüksek\ndonanımlıdır.\n\n2. Kategori\n(İyi)\nözellikleri yeni\nbinalarla\nrekabet\nedebilecek\nseviyededir.\n\nİnşaat bütçesi\nihtiyatlıdır ve\nteknik sorunlar\nsınırlıdır.\nMüteahhitler\nyüksek\ndonanımlıdır.\n\nSponsor/projeyi\ngeliştiren firma\ngayrimenkulün\ninşasına ya da\nsatın alınmasına\nçok yüksek\nmiktarda nakdi\nkatkıda\nbulunmuştur.\nSponsorun\n/projeyi\ngeliştiren\nfirmanın önemli\nmiktarda\nkaynağı, sınırlı\ndüzeyde\ndoğrudan ya da\nşarta bağlı\nyükümlülükleri\nmevcuttur.\nSponsor/projeyi\ngeliştiren firma\ncoğrafi olarak\nve gayrimenkul\ntiplerine göre\nçeşitlendirilmiş\n\nSponsor/projeyi\ngeliştiren firma\ngayrimenkulün\ninşasına ya da\nsatın alınmasına\nyüksek miktarda\nnakdi katkıda\nbulunmuştur.\nSponsor/projeyi\ngeliştiren\nfirmanın\nfinansal\ndurumu,\nprojenin nakit\nakışlarında\nsıkıntı yaşandığı\nbir durumda\ngayrimenkulü\ndesteklemeye\nolanak\nsağlayacak\nseviyededir.\nSponsor/projeyi\ngeliştiren firma\nfarklı coğrafi\nbölgelerde  bulu\n\nİtibar ve benzer\ngayrimenkul\nprojelerine\nilişkin\ndeneyimleri\n\nDiğer\ngayrimenkul\npiyasası\naktörleri ile\nilişkiler\n\nAlınan\nTeminatlar\nİpoteğin niteliği\n\nKiraların\ntemliki (Uzun\nsüreli kiraya\nverilen projeler)\n\n2. Kategori\n(İyi)\n\nnan\ngayrimenkullere\nsahiptir.\nUygun yönetim\nve sponsorluk\nkalitesi. Benzer\ngayrimenkul\nprojelerine\nilişkin başarılı\ndeneyim.\n\n1. Kategori\n(Güçlü)\ngayrimenkullere\nsahiptir.\n\nDeneyimli\nyönetim ve\nyüksek kalitede\nsponsorluk.\nSağlam bir\nitibar ve benzer\ngayrimenkul\nprojelerine\nilişkin uzun\nsüreli başarılı\ndeneyim.\n\n3. Kategori\n(Yeterli)\n\n4. Kategori\n(Zayıf)\n\nOrtalama\ndüzeyde\nyönetim ve\nsponsorluk\nkalitesi. Benzer\ngayrimenkul\nprojelerine\nilişkin deneyim\nciddi sorunlar\nolduğuna işaret\netmemektedir.\n\nEtkisiz yönetim\nve standardın\naltında\nsponsorluk\nkalitesi.\nYönetim ve\nsponsor\nsorunları,\ngeçmişte\ngayrimenkulleri\nn yönetiminde\nzorluklara yol\naçmıştır.\n\nÖnde gelen\ndiğer\ngayrimenkul\npiyasası\naktörleri\n(kiralama\nkuruluşları gibi)\nile güçlü\nilişkiler.\n\nÖnde gelen\ndiğer\ngayrimenkul\npiyasası\naktörleri\n(kiralama\nkuruluşları gibi)\nile ispatlanmış\nilişkiler.\n\nDiğer\ngayrimenkul\npiyasası\naktörleri\n(kiralama\nkuruluşları gibi)\nile yeterli\nilişkiler.\n\nDiğer\ngayrimenkul\npiyasası\naktörleri\n(kiralama\nkuruluşları gibi)\nile zayıf\nilişkiler.\n\nUsulünce tesis\nedilmiş birinci\ndereceden\nipotek.\n\nUsulünce tesis\nedilmiş birinci\ndereceden\nipotek.\n\nUsulünce tesis\nedilmiş birinci\ndereceden  ipote\nk.\n\nBanka bir\ntemlik elde\netmiştir.\nKiraların\ndoğrudan\nbankaya\nödenmesi için\nkiracılara\ntebligat\ngönderilmesini\nsağlayacak\nkiracılara ait\ngüncel bilgi ve\nbelgeler\n\nBanka bir\ntemlik elde\netmiştir.\nKiraların\ndoğrudan\nbankaya\nödenmesi için\nkiracılara\ntebligat\ngönderilmesini\nsağlayacak\nkiracılara ait\ngüncel bilgi ve\nbelgeler\n\nBanka bir\ntemlik elde\netmiştir.\nKiraların\ndoğrudan\nbankaya\nödenmesi için\nkiracılara\ntebligat\ngönderilmesini\nsağlayacak\nkiracılara ait\ngüncel bilgi ve\nbelgeler\n\nKredi verenin\nipoteği nakde\nçevirme\nkabiliyeti\nsınırlıdır.\nBanka  temlik\nelde etmemiştir\nya da kiracılara\ntebligat\ngöndermek için\ngereken bilgi ve\nbelgeler\nbankada\nbulunmamaktad\nır.\n\n1. Kategori\n(Güçlü)\n\nbankada\nbulunmaktadır.\nUygun.\n\n2. Kategori\n(İyi)\n\nbankada\nbulunmaktadır.\nUygun.\n\n3. Kategori\n(Yeterli)\n\nbankada\nbulunmaktadır.\nUygun.\n\n4. Kategori\n(Zayıf)\n\nStandartların\naltında.\n\nSigorta\nkapsamının\nyeterliliği\n\nTablo 4 – Maddi Duran Varlık Finansman Kredilerine İlişkin Derecelendirme Düzeyleri\n\n1. Kategori\n(Güçlü)\n\n2. Kategori\n(İyi)\n\n3. Kategori\n(Yeterli)\n\n4. Kategori\n(Zayıf)\n\nFinansal Güç\nPiyasa Koşulları\n\nFinansal oranlar\n(borç servis oranı\nve kredinin\nteminata oranı)\n\nStres analizi\n\nTalep güçlüdür\nve artmaktadır,\npiyasaya giriş\ngüçtür,\nteknolojideki\nve ekonomik\ngörünümdeki\ndeğişikliklere\nkarşı duyarlılık\ndüşüktür.\n\nTalep güçlü ve\nsüreklidir,\npiyasaya girişte\nbazı engeller\nmevcuttur,\nteknolojideki ve\nekonomik\ngörünümdeki\ndeğişikliklere\nkarşı bir miktar\nduyarlılık vardır.\n\nVarlık türüne\ngöre güçlü\nfinansal\noranlar,\nprojeye ilişkin\nçok sağlam\nekonomik\nvarsayımlar.\nİstikrarlı uzun\ndönemli\ngelirler ile bir\nekonomik\ndöngüdeki\nşiddetli stres\nkoşullarına\ndayanabilecek\nkapasiteye\nsahip\nolunması.\n\nVarlık türüne\ngöre güçlü/kabul\nedilebilir\nfinansal oranlar,\nprojeye ilişkin\nsağlam\nekonomik\nvarsayımlar.\nTatmin edici\nkısa vadeli\ngelirlere sahip\nolunması.\nKredinin bir\nkısım finansal\nolumsuzluklara\ndayanıklı\nolması  ve\nsadece şiddetli\nekonomik\nkoşullarda\ntemerrüt etme\nolasılığının\nbulunması.\n\nPiyasa likiditesi\n\nPiyasa dünya\nçapında\nyapılanmıştır\nve varlıklar\n\nPiyasa dünya\nçapında ya da\nbölgesel olarak\nyapılanmıştır ve\n\nTalep yeterli\nve süreklidir,\npiyasaya giriş\nengelleri\nsınırlıdır,\nteknolojideki\nve ekonomik\ngörünümdeki\ndeğişikliklere\nkarşı  önemli\ndüzeyde\nduyarlılık\nvardır.\nVarlık türü\niçin standart\nfinansal\noranlar.\n\nTalep zayıftır\nve azalmakta,\nteknolojideki\nve ekonomik\ngörünümdeki\ndeğişikliklere\nkarşı  duyarlıdı\nr, yüksek\nderecede\nbelirsiz bir\nortam\nmevcuttur.\n\nVarlık türüne\ngöre olumsuz\nfinansal\noranlar.\n\nBelirsiz kısa\nvadeli gelirlere\nsahip\nolunması.\nNakit\nakışlarının bir\nekonomik\ndöngüde\nmeydana\ngelebilecek\nstreslere karşı\nkırılgan\nolması.  Kredi\nnin, normal bir\nekonomik\ngerileme\ndöneminde\ntemerrüt etme\nolasılığının\nbulunması.\nPiyasa\nbölgeseldir ve\nkısa vadede\nsınırlı\n\nGelirlerin\ngüçlü\nbelirsizliklere\ntabi olması.\nKoşullarda\niyileşme\nolmazsa,\nnormal\nekonomik\ndurumlarda\nbile kredinin\ntemerrüt etme\nolasılığının\nbulunması.\n\nYerel ve/veya\nsığ bir piyasa\nvardır. Düşük\nlikidite vardır\n\n1. Kategori\n(Güçlü)\nson derece\nlikittir.\n\n2. Kategori\n(İyi)\n\nvarlıklar\nnispeten likittir.\n\n3. Kategori\n(Yeterli)\n\nbeklentiler\nvardır, bu\nsebeple\nlikiditesi\ndüşüktür.\n\n4. Kategori\n(Zayıf)\nveya likidite\nyoktur\n(özellikle niş\npiyasalarda).\n\nDüşük politik\nrisk; gerekirse\nyeterli düzeyde\nrisk azaltıcı\nenstrümanlar.\n\nOrta düzeyde\npolitik risk;\norta düzeyde\nrisk azaltıcı\nenstrümanlar.\n\nYüksek; risk\nazaltıcı\nenstrüman yok\nveya zayıf.\n\nPolitik ve Hukuki\nOrtam\nTransfer riskini de\niçeren politik risk\n\nYasal risk ve\nmevzuat riski\n\nÇok düşük\npolitik risk;\ngerekirse\ngüçlü risk\nazaltıcı\nenstrümanlar.\nMevzuat;\nsözleşmelerin\nuygulanması\nve ilgili varlığa\nel konulmasını\nkolaylaştırmak\ntadır.\n\nMevzuat;\nsözleşmelerin\nuygulanması ve\nilgili varlığa el\nkonulmasını\nkolaylaştırmakta\ndır.\n\nEl koyma\nsüreci uzun\nve/veya zor\nolsa da\nmevzuat,\nsözleşmelerin\nuygulanması\nve ilgili varlığa\nel konulmasını\ngenelde\nkolaylaştırmak\ntadır.\n\nZayıf ve\nistikrarsız\nhukuki ve\ndüzenleyici\nortam.\nMevzuat;\nsözleşmelerin\nuygulanması\nve ilgili varlığa\nel konulmasını\nimkansız hale\ngetirebilir ya\nda süresini\nuzatabilir.\n\nCezalı geri\nödeme veya\nyüksek\nmiktarda balon\nödeme.\n\nİşlem Özellikleri\nVarlığın ekonomik\nömrüne kıyasla\nkredi süresi\n\nTam geri\nödeme profili/\nasgari düzeyde\nbalon ödeme.\nÖdemesiz\ngeçen süre\nyok.\n\nGörece fazla\nbalon  ödeme\nfakat hala tatmin\nedici düzeyde.\n\nÖdemesiz süre\nolması\nmuhtemel\nönemli\nmiktarda balon\nödeme.\n\nFaaliyet riski\nİzinler/Lisanslama  Bütün izinler\n\nalınmış; varlık,\nmevcut ve\nöngörülebilir\ngüvenlik\ndüzenlemeleri\nni\nkarşılamaktadı\nr.\n\nBütün izinler\nalınmış veya\nalınma\naşamasında;\nvarlık mevcut ve\nöngörülebilir\ngüvenlik\ndüzenlemelerini\nkarşılamaktadır.\n\nİzinlerin çoğu\nalınmış veya\nalınma\naşamasında;\ntamamlanmam\nış izinler rutin\nsüreçlere tabi,\nvarlık mevcut\ngüvenlik\ndüzenlemeleri\nni\n\nGerekli tüm\nizinlerin\nalınmasında\nproblemler\nmevcut,\nplanlanan yapı\nve/veya\nişlemlerin bir\nkısmının revize\nedilmesi\ngerekli olabilir.\n\n1. Kategori\n(Güçlü)\n\n2. Kategori\n(İyi)\n\n3. Kategori\n(Yeterli)\nkarşılamaktadı\nr.\nSınırlı bir\nsözleşme veya\ngerekliyse\nişletme ve\nbakım için\nayrılan karşılık\nhesapları.\n\n4. Kategori\n(Zayıf)\n\nSözleşme\nbulunmaması\nsebebiyle risk\nazaltıcı\nenstrümanların\netkisini aşan\nyüksek işletme\nmaliyeti riski.\n\nUzun süreli bir\nsözleşme\nve/veya\ngerekliyse\nişletme ve bakım\niçin ayrılan\nkarşılık\nhesapları.\n\nTercihen\nsözleşme\nyükümlülükler\ninin yerine\ngetirilmesini\nteşvik eden\ngüçlü ve uzun\nsüreli bir\nsözleşme\nve/veya  gerekl\niyse işletme ve\nbakım için\nayrılan karşılık\nhesapları.\nGeçmiş\ndeneyimi\nmükemmel ve\nvarlığı güçlü\nbir şekilde\ntekrar\npazarlayabilme\nkabiliyeti.\n\nİşletme ve\nbakım      sözleşme\nlerinin kapsamı  ve\nniteliği\n\nİşletmecinin\nfinansal gücü,\nvarlık türünü\nyönetmede\ndeneyimleri ve kira\nsüresi bittiğinde\nvarlığı tekrar\npazarlayabilme\nkabiliyeti\nVarlık özellikleri\nAynı piyasadaki\ndiğer varlıklara\nkıyasla yapısı,\nboyutu, tasarımı ve\nbakımı (örneğin;\nbir uçak için yaş ve\nboyutu)\n\nGeçmiş\ndeneyimi ve\nvarlığı tekrar\npazarlayabilme\nkabiliyeti iyi.\n\nGeçmiş\ndeneyimi zayıf\nya da az sayıda\nve varlığı\ntekrar\npazarlayabilme\nkabiliyeti\nbelirsiz.\n\nDeneyimsiz ya\nda geçmiş\ndeneyimi\nbilinmiyor ve\nvarlığı tekrar\npazarlayabilme\nkabiliyeti yok.\n\nTasarım ve\nbakım\nyönünden\ngüçlü\navantajları var.\nLikit bir\npiyasada işlem\ngörebilecek\nstandart bir\nyapıya sahip.\n\nTasarım ve\nbakım yönünden\nortalamanın  üze\nrinde. Sınırlı\nsayıda birkaç\nistisnası olmakla\nbirlikte likit bir\npiyasada işlem\ngörebilecek\nstandart yapıya\nsahip.\n\nOrtalama\ntasarım ve\nbakım. Varlık,\nkendine özgü\nyapısı\nsebebiyle dar\nbir piyasada\nişlem\ngörebilecek\nyapıya sahip.\n\nTasarım ve\nbakım\nyönünden\nortalamanın  alt\nında. Varlık\nekonomik\nömrünü\ntamamlamak\nüzeredir.\nYapısı çok özel\nve piyasası çok\ndar.\n\nCari tekrar\nsatış değeri\nborç tutarının\naltındadır.\n\nTekrar satış değeri  Cari tekrar\nsatış değeri\nborç tutarının\nçok\nüstündedir.\n\nCari tekrar satış\ndeğeri borç\ntutarının\nyeterince\nüstündedir.\n\nCari tekrar\nsatış değeri\nborç tutarının\nbiraz\nüstündedir.\n\nVarlık değerinin ve\nlikiditesinin\nekonomik\n\nVarlık değeri\nve likiditesi\nekonomik\n\nVarlık değeri ve\nlikiditesi\nekonomik\n\nVarlık değeri\nve likiditesi\nekonomik\n\nVarlık değeri\nve likiditesi\nekonomik\n\ndöngülere karşı\nduyarlılığı\n\nSponsorun gücü\nİşletmecinin\nfinansal gücü,\nvarlık türünü\nyönetmede\ndeneyimi ve kira\nsüresi bittiğinde\nvarlığı tekrar\npazarlayabilme\nkabiliyeti\n\nSponsorların\ndeneyimleri ve\nfinansal gücü\n\nAlınan\nTeminatlar\nVarlık kontrolü\n\nVarlığın konum ve\ndurumunun\nizlenmesi\n\nGeçmiş\ndeneyimi\nmükemmel ve\nvarlığı güçlü\nbir şekilde\ntekrar\npazarlayabilme\nkabiliyeti.\n\nGeçmiş\ndeneyimi\nmükemmel ve\nyüksek\nfinansal güce\nsahip\nsponsorlar.\n\nYasal\ndokümantasyo\nn, bankaya\nvarlık üzerinde\nya da varlığa\nsahip şirket\nüzerinde etkin\nkontrol olanağı\nsağlamaktadır.\n(Örneğin;\nusulünce tesis\nedilmiş birinci\nderece teminat\nhakkı veya bu\ntarz teminatı\niçeren\nkiralama\nyapısı)\nBanka,\nvarlığın\ndurumunu ve\n\n1. Kategori\n(Güçlü)\n\ndöngülere\ngörece duyarlı\ndeğildir.\n\n2. Kategori\n(İyi)\ndöngülere\nduyarlıdır.\n\nGeçmiş\ndeneyimi ve\nvarlığı tekrar\npazarlayabilme\nkabiliyeti iyi.\n\n3. Kategori\n(Yeterli)\n\n4. Kategori\n(Zayıf)\n\ndöngülere\noldukça\nduyarlıdır.\n\ndöngülere\nyüksek\nderecede\nduyarlıdır.\n\nGeçmiş\ndeneyimi zayıf\nve varlığı\ntekrar\npazarlayabilme\nkabiliyeti\nbelirsiz.\n\nDeneyimsiz ya\nda geçmiş\ndeneyimi\nbilinmiyor ve\nvarlığı tekrar\npazarlayabilme\nkabiliyeti yok.\n\nDeneyimsiz ya\nda geçmiş\ndeneyimi\nşüpheli olan\nve/veya\nfinansal\nzayıflıklara\nsahip\nsponsorlar.\n\nSözleşmeler,\nbankaya çok az\nteminat\nsağlamaktadır\nve varlığın\nkontrolünün\nkaybedilmesine\nneden\nolabilecek\nhükümler\niçermektedir.\n\nGeçmiş\ndeneyimi ve\nfinansal gücü iyi\nolan sponsorlar.\n\nGeçmiş\ndeneyimi\nyeterli ve iyi\nfinansal güce\nsahip\nsponsorlar.\n\nYasal\ndokümantasyon,\nbankaya varlık\nüzerinde ya da\nvarlığa sahip\nşirket üzerinde\netkin kontrol\nolanağı\nsağlamaktadır.\n(Örneğin;\nusulünce tesis\nedilmiş teminat\nhakkı veya bu\ntarz teminatı\niçeren kiralama\nyapısı)\n\nYasal\ndokümantasyo\nn, bankaya\nvarlık üzerinde\nya da varlığa\nsahip şirket\nüzerinde etkin\nkontrol olanağı\nsağlamaktadır.\n(Örneğin;\nusulünce tesis\nedilmiş\nteminat hakkı\nveya bu tarz\nteminatı içeren\nkiralama\nyapısı)\n\nBanka varlığın\ndurumunu ve\nkonumunu\n\nBanka varlığın\ndurumunu ve\nkonumunu\n\nBankanın\nvarlığın\ndurumunu ve\n\nhususunda bankaya\nait haklar ve\naraçlar\n\nZararlara karşı\nsigorta\n\n1. Kategori\n(Güçlü)\nkonumunu her\nzaman ve her\nyerde\nizleyebilir\n(düzenli\nraporlar,\ndenetim\nolanağı).\nYüksek\nkalitedeki\nsigorta\nşirketlerine\nyaptırılmış ek\nzarar teminatı\niçeren güçlü\nsigorta\nkapsamı.\n\n2. Kategori\n(İyi)\nneredeyse\nher  zaman ve\nher yerde\nizleyebilir.\n\n3. Kategori\n(Yeterli)\n\nneredeyse\nher  zaman ve\nher yerde\nizleyebilir.\n\n4. Kategori\n(Zayıf)\nkonumunu\nizleyebilmesi\nsınırlıdır.\n\nİyi kalitedeki\nsigorta\nşirketlerine\nyaptırılmış\nyeterli düzeyde\nsigorta kapsamı\n(Ek zarar\nteminatı\niçermeyen).\n\nDüşük kalitede\nsigorta\nşirketlerine\nyaptırılmış ya\nda  zayıf\nsigorta\nkapsamı (Ek\nzarar teminatı\niçermeyen).\n\nKabul\nedilebilir\nkalitedeki\nsigorta\nşirketlerine\nyaptırılmış,\nkabul edilebilir\ndüzeyde\nsigorta\nkapsamı (Ek\nzarar teminatı\niçermeyen).\n\nTablo 5- Emtia Finansmanı Kredilerine İlişkin Derecelendirme Düzeyleri\n\n1. Kategori\n(Güçlü)\n\n2. Kategori\n(İyi)\n\n3. Kategori\n(Yeterli)\n\n4. Kategori\n(Zayıf)\n\nFinansal\nGüç\nTeminatın\nkrediden\nyüksek\nolma\ndüzeyi\nPolitik ve\nHukuki\nOrtam\nÜlke\nRiski\n\nÜlke\nrisklerinin\nazaltılmas\nı\n\nVarlık\nözellikler\ni\nLikidite\nve zarara\nkarşı\nduyarlılık\n\nSponsoru\nn gücü\n\nGüçlü.\n\nİyi.\n\nYeterli.\n\nZayıf.\n\nSınırlı\ndüzeyde\nülke riski\nvar.\nGüçlü risk\nazaltımı:\n-Yeterli\nsınır ötesi\nmekanizmal\narı\n-Stratejik\nemtia\n-Güçlü alıcı\n\nÜlke riski\nyok.\n\nÇok güçlü\nrisk\nazaltımı:\n-Güçlü\nsınırötesi\nmekanizmal\narı\n-Stratejik\nemtia\n-Birinci\nsınıf alıcı\n\nEmtia kote\nedilmiştir ve\nfutures veya\ntezgah üstü\nenstrümanla\nrla riskten\nkorunma\nsağlanabilir.\nEmtia\nzarara karşı\nduyarlı\ndeğildir.\n\nEmtia kote\nedilmiştir ve\ntezgah üstü\nenstrümanla\nrla riskten\nkorunma\nsağlanabilir.\nEmtia\nzarara karşı\nduyarlı\ndeğildir.\n\nÜlke riski var.\n\nYüksek ülke riski var.\n\nKabul edilebilir risk\nazaltımı:\n-Tatmin edici sınır ötesi\nmekanizmaları\n-Daha az stratejik emtia\n-Kabul edilebilir alıcı\n\nSadece kısmi risk\nazaltımı:\n-Sınır ötesi\nmekanizmaları yok\n-Stratejik olmayan\nemtia\n-Zayıf alıcı\n\nEmtia kote edilmemiştir\nfakat likittir. Riskten\nkorunma konusunda\nbelirsizlik vardır. Emtia\nzarara karşı duyarlı\ndeğildir.\n\nEmtia kote\nedilmemiştir.\nPiyasanın büyüklüğü\nve derinliği nedeniyle\nlikiditesi sınırlıdır.\nUygun riskten\nkorunma araçları\nyoktur. Emtia zarara\nkarşı duyarlıdır.\n\n2. Kategori\n(İyi)\nGüçlü\n\n3. Kategori\n(Yeterli)\n\n4. Kategori\n(Zayıf)\n\nYeterli\n\nZayıf\n\n1. Kategori\n(Güçlü)\nAlım satım\nfaaliyetleri\nve riskler\nbakımından\nçok güçlü.\nİşlem\ntipinde\nyüksek\ndeneyime\nsahiptir.\nİşletme\nbaşarısı ve\nmaliyet\nverimliliğin\nde güçlü\ndeneyimi\nvardır.\n\nKarşı taraf\nseçimi,\nriskten\nkorunma ve\nizleme\nkonularında\ngüçlü\nstandartlar.\nÇok iyi.\n\nİşlem\ntipinde\nyeterli\ndeneyime\nsahiptir.\nİşletme\nbaşarısı ve\nmaliyet\nverimliliğin\nde\nortalamanın\nüzerinde\ndeneyimi\nvardır.\nKarşı taraf\nseçimi,\nriskten\nkorunma ve\nizleme\nkonularında\nyeterli\nstandartlar.\nİyi.\n\nİşletmecin\nin finansal\ngücü\n\nLojistik\nsürecini\nyönetme\nkabiliyeti\ndahil\ndeneyim\n\nTicari\nkontroller\nve riskten\nkorunma\npolitikalar\nı\n\nFinansal\nbilgilerin\nkamuya\naçıklama\nkalitesi\n\nAlınan\nTeminatl\nar\nVarlık\nkontrolü\n\nİşlem tipinde sınırlı\ndeneyime sahiptir.\nİşletme başarısı ve\nmaliyet verimliliğinde\nortalama deneyimi\nvardır.\n\nSınırlı ya da belirsiz\ndeneyimi vardır.\nMaliyet ve karları\ndeğişkendir.\n\nGeçmiş işlemlerde çok\nküçük problemle\nkarşılaşılmış ya da hiç\nproblem yaşanmamış.\n\nGeçmiş işlemlerinde\nönemli derecede\nkayıplar yaşanmıştır.\n\nYeterli.\n\nFinansal bilgilerin\nkamuya\naçıklanmasında bazı\nbelirsizlikler\nbulunmaktadır ya da\nyetersizdir.\n\nSözleşme, varlık\nüzerindeki kontrolün\nkaybedilmesine yol\naçacak riskleri\nbarındırmaktadır.  Tah\nsilat riskli olabilir.\n\nBirinci\nderece\nteminat\nhakkı,\ngerektiğinde\nbankaya\nvarlık\nüzerinde\nyasal\nkontrol\nhakkı\n\nBirinci\nderece\nteminat\nhakkı,\ngerektiğinde\nbankaya\nvarlık\nüzerinde\nyasal\nkontrol\nhakkı\n\nBanka tarafından\nvarlıkların kontrol\nedilmesinde kesinti\nvardır. Bu kesinti alım\nsatım süreci bilgisiyle\nveya duruma göre\nüçüncü taraf\ntaahhüdüyle  azaltılmakt\nadır.\n\n3. Kategori\n(Yeterli)\n\n4. Kategori\n(Zayıf)\n\nKabul edilebilir\nkalitedeki sigorta\nşirketlerine yaptırılmış,\nkabul edilebilir düzeyde\nsigorta kapsamı (Ek\nzarar teminatı\niçermeyen).\n\nDüşük kalitede sigorta\nşirketlerine\nyaptırılmış ya\nda  zayıf sigorta\nkapsamı (Ek zarar\nteminatı içermeyen).\n\nZararlara\nkarşı\nsigorta\n\n1. Kategori\n(Güçlü)\nsağlamaktad\nır.\n\n2. Kategori\n(İyi)\nsağlamaktad\nır.\n\nYüksek\nkalitedeki\nsigorta\nşirketlerine\nyaptırılmış\nek zarar\nteminatı\niçeren güçlü\nsigorta\nkapsamı.\n\nİyi\nkalitedeki\nsigorta\nşirketlerine\nyaptırılmış\nyeterli\ndüzeyde\nsigorta\nkapsamı (Ek\nzarar\nteminatı\niçermeyen).\n\n",
+      "new": "Tablo 3 – Gelir Getiren Gayrimenkul ve Volatilitesi Yüksek Ticari Gayrimenkul Kredilerine İlişkin Derecelendirme Düzeyleri\n\n|  | 1. Kategori (Güçlü) | 2. Kategori (İyi) | 3. Kategori (Yeterli) | 4. Kategori (Zayıf) |\n| --- | --- | --- | --- | --- |\n| Finansal Güç |  |  |  |  |\n| Piyasa koşulları | Proje tipi ve konumu için arz talep mevcut durumda dengededir. Piyasaya sunulacak olan rakip gayrimenkullerin sayısı, tahmin edilen talep düzeyine eşit veya daha düşüktür. | Proje tipi ve konumu için arz talep mevcut durumda dengededir. Piyasaya sunulacak olan rakip gayrimenkullerin sayısı, tahmin edilen talep düzeyine kabaca eşittir. | Piyasa koşulları kabaca dengededir. Rakip gayrimenkuller piyasaya sunulma, diğerleri planlama safhasındadır. Projenin tasarım ve özellikleri, yeni projelere kıyasla modern olmayabilir. | Piyasa koşulları zayıftır. Koşulların ne zaman iyileşeceği ve dengeye geleceği belirsizdir. Proje, kira süresinin sonunda kiracılarını kaybediyor. Yeni kira koşulları, sona eren kiralara kıyasla daha olumsuzdur. |\n| Finansal oranlar ve kredinin teminata oranı | Gayrimenkulün borç servis oranı yüksektir(Borç servis oranı inşaat safhasındaki gayrimenkuller için hesaplanmamalıdır.) ve kredinin teminata oranı ilgili gayrimenkul tipine göre düşüktür. İkincil piyasanın bulunduğu durumlarda, işlem piyasa standartlarında yapılmıştır. | Borç servis oranı (Borç servis oranı inşaat safhasındaki gayrimenkuller için hesaplanmamalıdır.) ve kredinin teminata oranı yeterlidir. İkincil piyasanın bulunduğu durumlarda, işlem piyasa standartlarında yapılmıştır. | Gayrimenkulün borç servis oranı (Borç servis oranı inşaat safhasındaki gayrimenkuller için hesaplanmamalıdır.) bozulmuştur ve gayrimenkulün değeri düşmüştür dolayısıyla kredinin teminata oranı yükselmiştir. | Gayrimenkulün borç servis oranı (Borç servis oranı inşaat safhasındaki gayrimenkuller için hesaplanmamalıdır.) önemli düzeyde bozulmuştur ve kredinin teminata oranı yeni kredilere ilişkin sözleşme şartlarının oldukça üzerindedir. |\n| Stres analizi | Gayrimenkulün mevcut kaynakları, taahhüt ve yükümlülük yapısı, çok stresli ekonomik stres döneminde (örneğin, faiz oranları, ekonomik büyüme) dahi finansal yükümlülüklerini karşılamasına imkan verecek niteliktedir. | Gayrimenkul, süreklilik arz eden bir ekonomik stres döneminde (örneğin faiz oranları, ekonomik büyüme) finansal yükümlülüklerini yerine getirebilir. Gayrimenkule ilişkin kredi sadece çok stresli ekonomik koşullar altında temerrüde düşebilir. | Bir ekonomik gerileme döneminde, gayrimenkulün gelirinde bir azalma olabilir, bu sebeple gayrimenkule ilişkin sermaye harcamaları fonlama kabiliyeti sınırlanabilir ve kredinin temerrüt riski önemli oranda artabilir. | Gayrimenkulün finansal durumu bozuktur ve yakın gelecekte koşullarda iyileşme olmadığı takdirde, kredinin temerrüde düşme ihtimali vardır. |\n| Nakit akışının öngörülebilirliği (a) Tamamlanmış gayrimenkul ve gayrimenkule ilişkin istikrarlı gelir | Kira sözleşmeleri uzun sürelidir ve sona erme tarihleri zamana yayılmıştır. Kiracıların kredi değerliliği yüksektir. Kiracı devir hızı düşüktür. Gayrimenkulün kiralanmama oranı düşüktür. Masraf ve giderler (bakım, sigorta, güvenlik ve emlak vergileri) öngörülebilir niteliktedir. | Kira sözleşmelerinin çoğu uzun sürelidir, kiracıların kredi değerlilikleri çeşitlilik arz etmektedir. Kiracı devir hızı normal seviyededir. Gayrimenkulün kiralanmama oranı düşüktür. Masraf ve giderleri öngörülebilir niteliktedir. | Kira sözleşmelerinin çoğu orta sürelidir, kiracıların kredi değerlilikleri çeşitlilik arz etmektedir. Kiracı devir hızı normalin üzerindedir. Gayrimenkulün kiralanmama oranı orta seviyededir. Masraf ve giderleri nispeten öngörülebilir niteliktedir, fakat gelire bağlı olarak değişmektedir. | Kira sözleşmelerinin süreleri ve kiracıların kredi değerlilikleri çeşitlilik arz etmektedir. Kiracı devir hızı yüksektir. Gayrimenkulün kiralanmama oranı yüksektir. Gayrimenkulün, yeni kiracılar için hazırlanması önemli miktarda masraf gerektirmektedi r. |\n| (b)Tamamlanmış fakat gayrimenkule ilişkin istikrarsız gelir | Kiralama faaliyetleri projeksiyonları karşılayabilecek veya daha yüksek seviyededir. Proje yakın gelecekte istikrarlı gelir elde etmeye başlayacaktır. | Kiralama faaliyetleri projeksiyonları karşılayabilecek veya daha yüksek seviyededir. Proje yakın gelecekte istikrarlı gelir elde etmeye başlayacaktır | Kiralama faaliyetleri çoğunlukla projeksiyonlara uygundur, bununla birlikte, projenin belli bir süre istikrarlı gelir elde etmesi mümkün görülmemektedir. | Mevcut piyasa kiraları beklentileri karşılamamaktadır. Hedeflenen kiralama oranına ulaşılmasına rağmen, düşük gelir düzeyinden dolayı nakit akışı sınırlıdır. |\n| (c) İnşaat halindeki gayrimenkul | Gayrimenkulün tamamı kredi vadesi boyunca, önceden kiraya verilmiş ya da yatırım yapılabilirlik düzeyinde bir kiracıya ya da bir alıcıya önceden satılmış veya banka, yatırım yapılabilirlik düzeyinde bir finansal kuruluştan finansman temini için bağlayıcı bir taahhüt almıştır. | Gayrimenkulün tamamı önceden kiraya verilmiş ya da kredi değerliliği yüksek bir kiracıya ya da bir alıcıya önceden satılmış ya da banka kredi değerliliği yüksek bir finansal kuruluştan daimi finansman için bağlayıcı bir taahhüt almıştır. | Kiralama faaliyetleri projeksiyonlara uygundur fakat bina önceden kiralanmamış ve ilave bir finansman bulma olanağı söz konusu olmayabilir. Banka daimi kredi veren olabilir. | Maliyetin öngörülenden yüksek olması, piyasa koşullarının bozulması, kira sözleşmeleri iptalleri veya başka faktörler sebebiyle gayrimenkulün durumu bozulmaktadır. Banka ya da daimi finansmanı temin eden diğer finansal kuruluş ile bir ihtilâf olabilir. |\n| Varlık Özellikleri |  |  |  |  |\n| Konum | Gayrimenkul, kiracıların istediği hizmetler için uygun ve çok cazip bir konumdadır. | Gayrimenkul, kiracıların istediği hizmetler için uygun ve cazip bir konumdadır. | Gayrimenkulün konumu herhangi bir rekabet avantajı yaratmamaktadır. | Gayrimenkulün konumu, yapısı, tasarımı ve bakımı, gayrimenkulü olumsuz etkilemektedir. |\n| Tasarımı ve bakımlılığı | Gayrimenkul tasarımı, yapısı ve bakımlı olması dolayısıyla tercih edilmektedir. Yeni binalarla yüksek rekabet gücüne sahiptir. | Gayrimenkul tasarımı, yapısı ve bakımlı olması dolayısıyla iyi durumdadır. Gayrimenkulün tasarımı ve özellikleri yeni binalarla rekabet edebilecek seviyededir. | Gayrimenkul yapısı, tasarımı ve bakımlı olması yönünden yeterli düzeydedir. | Gayrimenkulün yapısı, tasarımı ve bakımlı olması hususlarında zayıflıkları mevcuttur. |\n| İnşaat halindeki gayrimenkul | İnşaat bütçesi ihtiyatlıdır ve teknik sorunlar sınırlıdır. Müteahhitler yüksek donanımlıdır. | İnşaat bütçesi ihtiyatlıdır ve teknik sorunlar sınırlıdır. Müteahhitler yüksek donanımlıdır. | İnşaat bütçesi yeterli düzeydedir ve müteahhitler ortalama seviye de donanımlıdır. | Proje bütçesi aşılmaktadır veya teknik sorunlar göz önünde bulundurulduğu nda proje gerçekçi değildir. Müteahhitler düşük donanımlıdır. |\n| Sponsorun/Projeyi geliştiren firmanın gücü |  |  |  |  |\n| Finansal kapasitesi ve projeyi destekleme istekliliği | Sponsor/projeyi geliştiren firma gayrimenkulün inşasına ya da satın alınmasına çok yüksek miktarda nakdi katkıda bulunmuştur. Sponsorun /projeyi geliştiren firmanın önemli miktarda kaynağı, sınırlı düzeyde doğrudan ya da şarta bağlı yükümlülükleri mevcuttur. Sponsor/projeyi geliştiren firma coğrafi olarak ve gayrimenkul tiplerine göre çeşitlendirilmiş gayrimenkullere sahiptir. | Sponsor/projeyi geliştiren firma gayrimenkulün inşasına ya da satın alınmasına yüksek miktarda nakdi katkıda bulunmuştur. Sponsor/projeyi geliştiren firmanın finansal durumu, projenin nakit akışlarında sıkıntı yaşandığı bir durumda gayrimenkulü desteklemeye olanak sağlayacak seviyededir. Sponsor/projeyi geliştiren firma farklı coğrafi bölgelerde bulunan gayrimenkullere sahiptir. | Sponsor/projeyi geliştiren firmanın katkısı önemsiz düzeyde ya da nakdi değildir. Sponsor/projeyi geliştiren firma finansal kaynaklar açısından ortalama ile ortalama altı arasında bir seviyededir. | Sponsor/projeyi geliştiren firma projeyi desteklemek için yeterli kapasiteye ya da bu konuda istekliliğe sahip değildir. |\n| İtibar ve benzer gayrimenkul projelerine ilişkin deneyimleri | Deneyimli yönetim ve yüksek kalitede sponsorluk. Sağlam bir itibar ve benzer gayrimenkul projelerine ilişkin uzun süreli başarılı deneyim. | Uygun yönetim ve sponsorluk kalitesi. Benzer gayrimenkul projelerine ilişkin başarılı deneyim. | Ortalama düzeyde yönetim ve sponsorluk kalitesi. Benzer gayrimenkul projelerine ilişkin deneyim ciddi sorunlar olduğuna işaret etmemektedir. | Etkisiz yönetim ve standardın altında sponsorluk kalitesi. Yönetim ve sponsor sorunları, geçmişte gayrimenkullerin yönetiminde zorluklara yol açmıştır. |\n| Diğer gayrimenkul piyasası aktörleri ile ilişkiler | Önde gelen diğer gayrimenkul piyasası aktörleri (kiralama kuruluşları gibi) ile güçlü ilişkiler. | Önde gelen diğer gayrimenkul piyasası aktörleri (kiralama kuruluşları gibi) ile ispatlanmış ilişkiler. | Diğer gayrimenkul piyasası aktörleri (kiralama kuruluşları gibi) ile yeterli ilişkiler. | Diğer gayrimenkul piyasası aktörleri (kiralama kuruluşları gibi) ile zayıf ilişkiler. |\n| Alınan Teminatlar |  |  |  |  |\n| İpoteğin niteliği | Usulünce tesis edilmiş birinci dereceden ipotek. | Usulünce tesis edilmiş birinci dereceden ipotek. | Usulünce tesis edilmiş birinci dereceden ipotek. | Kredi verenin ipoteği nakde çevirme kabiliyeti sınırlıdır. |\n| Kiraların temliki (Uzun süreli kiraya verilen projeler) | Banka bir temlik elde etmiştir. Kiraların doğrudan bankaya ödenmesi için kiracılara tebligat gönderilmesini sağlayacak kiracılara ait güncel bilgi ve belgeler bankada bulunmaktadır. | Banka bir temlik elde etmiştir. Kiraların doğrudan bankaya ödenmesi için kiracılara tebligat gönderilmesini sağlayacak kiracılara ait güncel bilgi ve belgeler bankada bulunmaktadır. | Banka bir temlik elde etmiştir. Kiraların doğrudan bankaya ödenmesi için kiracılara tebligat gönderilmesini sağlayacak kiracılara ait güncel bilgi ve belgeler bankada bulunmaktadır. | Banka temlik elde etmemiştir ya da kiracılara tebligat göndermek için gereken bilgi ve belgeler bankada bulunmamaktadır. |\n| Sigorta kapsamının yeterliliği | Uygun. | Uygun. | Uygun. | Standartların altında. |\n\nTablo 4 – Maddi Duran Varlık Finansman Kredilerine İlişkin Derecelendirme Düzeyleri\n\n|  | 1. Kategori (Güçlü) | 2. Kategori (İyi) | 3. Kategori (Yeterli) | 4. Kategori (Zayıf) |\n| --- | --- | --- | --- | --- |\n| Finansal Güç |  |  |  |  |\n| Piyasa Koşulları | Talep güçlüdür ve artmaktadır, piyasaya giriş güçtür, teknolojideki ve ekonomik görünümdeki değişikliklere karşı duyarlılık düşüktür. | Talep güçlü ve süreklidir, piyasaya girişte bazı engeller mevcuttur, teknolojideki ve ekonomik görünümdeki değişikliklere karşı bir miktar duyarlılık vardır. | Talep yeterli ve süreklidir, piyasaya giriş engelleri sınırlıdır, teknolojideki ve ekonomik görünümdeki değişikliklere karşı önemli düzeyde duyarlılık vardır. | Talep zayıftır ve azalmakta, teknolojideki ve ekonomik görünümdeki değişikliklere karşı duyarlıdı r, yüksek derecede belirsiz bir ortam mevcuttur. |\n| Finansal oranlar (borç servis oranı ve kredinin teminata oranı) | Varlık türüne göre güçlü finansal oranlar, projeye ilişkin çok sağlam ekonomik varsayımlar. | Varlık türüne göre güçlü/kabul edilebilir finansal oranlar, projeye ilişkin sağlam ekonomik varsayımlar. | Varlık türü için standart finansal oranlar. | Varlık türüne göre olumsuz finansal oranlar. |\n| Stres analizi | İstikrarlı uzun dönemli gelirler ile bir ekonomik döngüdeki şiddetli stres koşullarına dayanabilecek kapasiteye sahip olunması. | Tatmin edici kısa vadeli gelirlere sahip olunması. Kredinin bir kısım finansal olumsuzluklara dayanıklı olması ve sadece şiddetli ekonomik koşullarda temerrüt etme olasılığının bulunması. | Belirsiz kısa vadeli gelirlere sahip olunması. Nakit akışlarının bir ekonomik döngüde meydana gelebilecek streslere karşı kırılgan olması. Kredinin, normal bir ekonomik gerileme döneminde temerrüt etme olasılığının bulunması. | Gelirlerin güçlü belirsizliklere tabi olması. Koşullarda iyileşme olmazsa, normal ekonomik durumlarda bile kredinin temerrüt etme olasılığının bulunması. |\n| Piyasa likiditesi | Piyasa dünya çapında yapılanmıştır ve varlıklar son derece likittir. | Piyasa dünya çapında ya da bölgesel olarak yapılanmıştır ve varlıklar nispeten likittir. | Piyasa bölgeseldir ve kısa vadede sınırlı beklentiler vardır, bu sebeple likiditesi düşüktür. | Yerel ve/veya sığ bir piyasa vardır. Düşük likidite vardır veya likidite yoktur (özellikle niş piyasalarda). |\n| Politik ve Hukuki Ortam |  |  |  |  |\n| Transfer riskini de içeren politik risk | Çok düşük politik risk; gerekirse güçlü risk azaltıcı enstrümanlar. | Düşük politik risk; gerekirse yeterli düzeyde risk azaltıcı enstrümanlar. | Orta düzeyde politik risk; orta düzeyde risk azaltıcı enstrümanlar. | Yüksek; risk azaltıcı enstrüman yok veya zayıf. |\n| Yasal risk ve mevzuat riski | Mevzuat; sözleşmelerin uygulanması ve ilgili varlığa el konulmasını kolaylaştırmaktadır. | Mevzuat; sözleşmelerin uygulanması ve ilgili varlığa el konulmasını kolaylaştırmaktadır. | El koyma süreci uzun ve/veya zor olsa da mevzuat, sözleşmelerin uygulanması ve ilgili varlığa el konulmasını genelde kolaylaştırmaktadır. | Zayıf ve istikrarsız hukuki ve düzenleyici ortam. Mevzuat; sözleşmelerin uygulanması ve ilgili varlığa el konulmasını imkansız hale getirebilir ya da süresini uzatabilir. |\n| İşlem Özellikleri |  |  |  |  |\n| Varlığın ekonomik ömrüne kıyasla kredi süresi | Tam geri ödeme profili/ asgari düzeyde balon ödeme. Ödemesiz geçen süre yok. | Görece fazla balon ödeme fakat hala tatmin edici düzeyde. | Ödemesiz süre olması muhtemel önemli miktarda balon ödeme. | Cezalı geri ödeme veya yüksek miktarda balon ödeme. |\n| Faaliyet riski |  |  |  |  |\n| İzinler/Lisanslama | Bütün izinler alınmış; varlık, mevcut ve öngörülebilir güvenlik düzenlemelerini karşılamaktadır. | Bütün izinler alınmış veya alınma aşamasında; varlık mevcut ve öngörülebilir güvenlik düzenlemelerini karşılamaktadır. | İzinlerin çoğu alınmış veya alınma aşamasında; tamamlanmamış izinler rutin süreçlere tabi, varlık mevcut güvenlik düzenlemelerini karşılamaktadır. | Gerekli tüm izinlerin alınmasında problemler mevcut, planlanan yapı ve/veya işlemlerin bir kısmının revize edilmesi gerekli olabilir. |\n| İşletme ve bakım sözleşmelerinin kapsamı ve niteliği | Tercihen sözleşme yükümlülüklerinin yerine getirilmesini teşvik eden güçlü ve uzun süreli bir sözleşme ve/veya gerekliyse işletme ve bakım için ayrılan karşılık hesapları. | Uzun süreli bir sözleşme ve/veya gerekliyse işletme ve bakım için ayrılan karşılık hesapları. | Sınırlı bir sözleşme veya gerekliyse işletme ve bakım için ayrılan karşılık hesapları. | Sözleşme bulunmaması sebebiyle risk azaltıcı enstrümanların etkisini aşan yüksek işletme maliyeti riski. |\n| İşletmecinin finansal gücü, varlık türünü yönetmede deneyimleri ve kira süresi bittiğinde varlığı tekrar pazarlayabilme kabiliyeti | Geçmiş deneyimi mükemmel ve varlığı güçlü bir şekilde tekrar pazarlayabilme kabiliyeti. | Geçmiş deneyimi ve varlığı tekrar pazarlayabilme kabiliyeti iyi. | Geçmiş deneyimi zayıf ya da az sayıda ve varlığı tekrar pazarlayabilme kabiliyeti belirsiz. | Deneyimsiz ya da geçmiş deneyimi bilinmiyor ve varlığı tekrar pazarlayabilme kabiliyeti yok. |\n| Varlık özellikleri |  |  |  |  |\n| Aynı piyasadaki diğer varlıklara kıyasla yapısı, boyutu, tasarımı ve bakımı (örneğin; bir uçak için yaş ve boyutu) | Tasarım ve bakım yönünden güçlü avantajları var. Likit bir piyasada işlem görebilecek standart bir yapıya sahip. | Tasarım ve bakım yönünden ortalamanın üzerinde. Sınırlı sayıda birkaç istisnası olmakla birlikte likit bir piyasada işlem görebilecek standart yapıya sahip. | Ortalama tasarım ve bakım. Varlık, kendine özgü yapısı sebebiyle dar bir piyasada işlem görebilecek yapıya sahip. | Tasarım ve bakım yönünden ortalamanın altında. Varlık ekonomik ömrünü tamamlamak üzeredir. Yapısı çok özel ve piyasası çok dar. |\n| Tekrar satış değeri | Cari tekrar satış değeri borç tutarının çok üstündedir. | Cari tekrar satış değeri borç tutarının yeterince üstündedir. | Cari tekrar satış değeri borç tutarının biraz üstündedir. | Cari tekrar satış değeri borç tutarının altındadır. |\n| Varlık değerinin ve likiditesinin ekonomik döngülere karşı duyarlılığı | Varlık değeri ve likiditesi ekonomik döngülere görece duyarlı değildir. | Varlık değeri ve likiditesi ekonomik döngülere duyarlıdır. | Varlık değeri ve likiditesi ekonomik döngülere oldukça duyarlıdır. | Varlık değeri ve likiditesi ekonomik döngülere yüksek derecede duyarlıdır. |\n| Sponsorun gücü |  |  |  |  |\n| İşletmecinin finansal gücü, varlık türünü yönetmede deneyimi ve kira süresi bittiğinde varlığı tekrar pazarlayabilme kabiliyeti | Geçmiş deneyimi mükemmel ve varlığı güçlü bir şekilde tekrar pazarlayabilme kabiliyeti. | Geçmiş deneyimi ve varlığı tekrar pazarlayabilme kabiliyeti iyi. | Geçmiş deneyimi zayıf ve varlığı tekrar pazarlayabilme kabiliyeti belirsiz. | Deneyimsiz ya da geçmiş deneyimi bilinmiyor ve varlığı tekrar pazarlayabilme kabiliyeti yok. |\n| Sponsorların deneyimleri ve finansal gücü | Geçmiş deneyimi mükemmel ve yüksek finansal güce sahip sponsorlar. | Geçmiş deneyimi ve finansal gücü iyi olan sponsorlar. | Geçmiş deneyimi yeterli ve iyi finansal güce sahip sponsorlar. | Deneyimsiz ya da geçmiş deneyimi şüpheli olan ve/veya finansal zayıflıklara sahip sponsorlar. |\n| Alınan Teminatlar |  |  |  |  |\n| Varlık kontrolü | Yasal dokümantasyon, bankaya varlık üzerinde ya da varlığa sahip şirket üzerinde etkin kontrol olanağı sağlamaktadır. (Örneğin; usulünce tesis edilmiş birinci derece teminat hakkı veya bu tarz teminatı içeren kiralama yapısı) | Yasal dokümantasyon, bankaya varlık üzerinde ya da varlığa sahip şirket üzerinde etkin kontrol olanağı sağlamaktadır. (Örneğin; usulünce tesis edilmiş teminat hakkı veya bu tarz teminatı içeren kiralama yapısı) | Yasal dokümantasyon, bankaya varlık üzerinde ya da varlığa sahip şirket üzerinde etkin kontrol olanağı sağlamaktadır. (Örneğin; usulünce tesis edilmiş teminat hakkı veya bu tarz teminatı içeren kiralama yapısı) | Sözleşmeler, bankaya çok az teminat sağlamaktadır ve varlığın kontrolünün kaybedilmesine neden olabilecek hükümler içermektedir. |\n| Varlığın konum ve durumunun izlenmesi hususunda bankaya ait haklar ve araçlar | Banka, varlığın durumunu ve konumunu her zaman ve her yerde izleyebilir (düzenli raporlar, denetim olanağı). | Banka varlığın durumunu ve konumunu neredeyse her zaman ve her yerde izleyebilir. | Banka varlığın durumunu ve konumunu neredeyse her zaman ve her yerde izleyebilir. | Bankanın varlığın durumunu ve konumunu izleyebilmesi sınırlıdır. |\n| Zararlara karşı sigorta | Yüksek kalitedeki sigorta şirketlerine yaptırılmış ek zarar teminatı içeren güçlü sigorta kapsamı. | İyi kalitedeki sigorta şirketlerine yaptırılmış yeterli düzeyde sigorta kapsamı (Ek zarar teminatı içermeyen). | Kabul edilebilir kalitedeki sigorta şirketlerine yaptırılmış, kabul edilebilir düzeyde sigorta kapsamı (Ek zarar teminatı içermeyen). | Düşük kalitede sigorta şirketlerine yaptırılmış ya da zayıf sigorta kapsamı (Ek zarar teminatı içermeyen). |\n\nTablo 5- Emtia Finansmanı Kredilerine İlişkin Derecelendirme Düzeyleri\n\n|  | 1. Kategori (Güçlü) | 2. Kategori (İyi) | 3. Kategori (Yeterli) | 4. Kategori (Zayıf) |\n| --- | --- | --- | --- | --- |\n| Finansal Güç |  |  |  |  |\n| Teminatın krediden yüksek olma düzeyi | Güçlü. | İyi. | Yeterli. | Zayıf. |\n| Politik ve Hukuki Ortam |  |  |  |  |\n| Ülke Riski | Ülke riski yok. | Sınırlı düzeyde ülke riski var. | Ülke riski var. | Yüksek ülke riski var. |\n| Ülke risklerinin azaltılması | Çok güçlü risk azaltımı: -Güçlü sınırötesi mekanizmaları -Stratejik emtia -Birinci sınıf alıcı | Güçlü risk azaltımı: -Yeterli sınır ötesi mekanizmaları -Stratejik emtia -Güçlü alıcı | Kabul edilebilir risk azaltımı: -Tatmin edici sınır ötesi mekanizmaları -Daha az stratejik emtia -Kabul edilebilir alıcı | Sadece kısmi risk azaltımı: -Sınır ötesi mekanizmaları yok -Stratejik olmayan emtia -Zayıf alıcı |\n| Varlık özellikleri |  |  |  |  |\n| Likidite ve zarara karşı duyarlılık | Emtia kote edilmiştir ve futures veya tezgah üstü enstrümanlarla riskten korunma sağlanabilir. Emtia zarara karşı duyarlı değildir. | Emtia kote edilmiştir ve tezgah üstü enstrümanlarla riskten korunma sağlanabilir. Emtia zarara karşı duyarlı değildir. | Emtia kote edilmemiştir fakat likittir. Riskten korunma konusunda belirsizlik vardır. Emtia zarara karşı duyarlı değildir. | Emtia kote edilmemiştir. Piyasanın büyüklüğü ve derinliği nedeniyle likiditesi sınırlıdır. Uygun riskten korunma araçları yoktur. Emtia zarara karşı duyarlıdır. |\n| Sponsorun gücü |  |  |  |  |\n| İşletmecinin finansal gücü | Alım satım faaliyetleri ve riskler bakımından çok güçlü. | Güçlü | Yeterli | Zayıf |\n| Lojistik sürecini yönetme kabiliyeti dahil deneyim | İşlem tipinde yüksek deneyime sahiptir. İşletme başarısı ve maliyet verimliliğinde güçlü deneyimi vardır. | İşlem tipinde yeterli deneyime sahiptir. İşletme başarısı ve maliyet verimliliğinde ortalamanın üzerinde deneyimi vardır. | İşlem tipinde sınırlı deneyime sahiptir. İşletme başarısı ve maliyet verimliliğinde ortalama deneyimi vardır. | Sınırlı ya da belirsiz deneyimi vardır. Maliyet ve karları değişkendir. |\n| Ticari kontroller ve riskten korunma politikaları | Karşı taraf seçimi, riskten korunma ve izleme konularında güçlü standartlar. | Karşı taraf seçimi, riskten korunma ve izleme konularında yeterli standartlar. | Geçmiş işlemlerde çok küçük problemle karşılaşılmış ya da hiç problem yaşanmamış. | Geçmiş işlemlerinde önemli derecede kayıplar yaşanmıştır. |\n| Finansal bilgilerin kamuya açıklama kalitesi | Çok iyi. | İyi. | Yeterli. | Finansal bilgilerin kamuya açıklanmasında bazı belirsizlikler bulunmaktadır ya da yetersizdir. |\n| Alınan Teminatlar |  |  |  |  |\n| Varlık kontrolü | Birinci derece teminat hakkı, gerektiğinde bankaya varlık üzerinde yasal kontrol hakkı sağlamaktadır. | Birinci derece teminat hakkı, gerektiğinde bankaya varlık üzerinde yasal kontrol hakkı sağlamaktadır. | Banka tarafından varlıkların kontrol edilmesinde kesinti vardır. Bu kesinti alım satım süreci bilgisiyle veya duruma göre üçüncü taraf taahhüdüyle azaltılmaktadır. | Sözleşme, varlık üzerindeki kontrolün kaybedilmesine yol açacak riskleri barındırmaktadır. Tahsilat riskli olabilir. |\n| Zararlara karşı sigorta | Yüksek kalitedeki sigorta şirketlerine yaptırılmış ek zarar teminatı içeren güçlü sigorta kapsamı. | İyi kalitedeki sigorta şirketlerine yaptırılmış yeterli düzeyde sigorta kapsamı (Ek zarar teminatı içermeyen). | Kabul edilebilir kalitedeki sigorta şirketlerine yaptırılmış, kabul edilebilir düzeyde sigorta kapsamı (Ek zarar teminatı içermeyen). | Düşük kalitede sigorta şirketlerine yaptırılmış ya da zayıf sigorta kapsamı (Ek zarar teminatı içermeyen). |\n\n"
+    }
+  ]
+}

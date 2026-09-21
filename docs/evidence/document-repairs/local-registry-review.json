@@ -1,0 +1,92 @@
+{
+  "scope": "local-only technical repair release; not independent human/legal approval",
+  "retired_entries": [
+    {
+      "document_id": "1043",
+      "candidate_markdown_sha256": "6febb9c22ea279b4787a3d5877003fc3fdab78d1a2611f130866f119ca7fca41",
+      "evidence_path": "docs/evidence/document-repairs/1043.json",
+      "evidence_sha256": "e2327be8c2a2fa488b5f4f341f1fc5e0885cc4254cf035804b1db2eb8eebaecc"
+    },
+    {
+      "document_id": "1045",
+      "candidate_markdown_sha256": "c462f574dc6a5fee5133ce9536c921f55ab9fb15ced75554ea9f840f95a3d542",
+      "evidence_path": "docs/evidence/document-repairs/1045.json",
+      "evidence_sha256": "ec52d562083684966737150f865f51cdc0dacda3346042e27bf6a1fa75477578"
+    },
+    {
+      "document_id": "1305",
+      "candidate_markdown_sha256": "d47fd29961b56dd24ba1993864c11b5fe26f35cee1948376cc354c8ca914819b",
+      "evidence_path": "docs/evidence/document-repairs/1305.json",
+      "evidence_sha256": "b140fe81418b00cdc42057c0e17287b429bb5e31bfd6d80b08ee8a117c31dc5a"
+    },
+    {
+      "document_id": "1313",
+      "candidate_markdown_sha256": "a4118eca762d0e2be949176faa4657fa9a5318d44e27ebc87bc83960a99bcb9f",
+      "evidence_path": "docs/evidence/document-repairs/1313.json",
+      "evidence_sha256": "d361e2bc5077019ec12cc6acf1094e942edb46f5b64fede09fe5815e7fbcb9ce"
+    },
+    {
+      "document_id": "1314",
+      "candidate_markdown_sha256": "ce26cdb208a100a6219165274ec74e96a389ec07d3a7d7d3e4046cb603645353",
+      "evidence_path": "docs/evidence/document-repairs/1314.json",
+      "evidence_sha256": "b6cf6cdaac9f88b27dc7f09cf6725b28a98f6581772c3a11e0a61140b2419216"
+    },
+    {
+      "document_id": "1334",
+      "candidate_markdown_sha256": "5cab96d2f76080637304fec7aa1c64756efbce26e5ddc6db65b3fb17a996430c",
+      "evidence_path": "docs/evidence/document-repairs/1334.json",
+      "evidence_sha256": "1028218a3ad0b82009dc8401b1faa32a4dd0f0bf9a33bbabff4ae55629d7c7c1"
+    },
+    {
+      "document_id": "903",
+      "candidate_markdown_sha256": "fa35a5db5e3026f950f5ba36d1a888edf0ad47434f6f297daae60069dc623f48",
+      "evidence_path": "docs/evidence/document-repairs/903.json",
+      "evidence_sha256": "c0ec0071d30918b01da836f40fb4b7ab6935c2312bae975eebd9068d9d49aa40"
+    },
+    {
+      "document_id": "905",
+      "candidate_markdown_sha256": "cfc6b3b539433400a0e7b38f38f60a7adde732690376fb83edb0e715d9dce4f2",
+      "evidence_path": "docs/evidence/document-repairs/905.json",
+      "evidence_sha256": "c49bc9b5ab499a895583777253b93ef5a16cea6d71ce4cbc59b3a6d6d6ad6f26"
+    },
+    {
+      "document_id": "907",
+      "candidate_markdown_sha256": "bfd0f367ff3aeaad5c3d9f593ebc45672b1dec9ea7d8228293cb25d13bfc2679",
+      "evidence_path": "docs/evidence/document-repairs/907.json",
+      "evidence_sha256": "d4c2b17ab4a0c7eca47fd8f683cc5c31ab1821949671c0d067b2658d8b1c3620"
+    }
+  ],
+  "retained_entries": {
+    "mevzuat_21192": "Annex ZIP unavailable; two formulas only framed from stored text.",
+    "mevzuat_16290": "Representative table review; merged headers approximate and not all cells source-reconciled."
+  },
+  "canonical_seed_and_registry_untouched": true,
+  "extraction_method_corrections": [
+    {
+      "document_id": "903",
+      "old": "pdftotext_degraded",
+      "new": "pdftotext_degraded+manual_latex"
+    },
+    {
+      "document_id": "1314",
+      "old": "markitdown",
+      "new": "markitdown+manual_latex"
+    },
+    {
+      "document_id": "1313",
+      "old": "markitdown",
+      "new": "markitdown+manual_latex"
+    },
+    {
+      "document_id": "1305",
+      "old": "markitdown",
+      "new": "markitdown+manual_latex"
+    },
+    {
+      "document_id": "1296",
+      "old": "markitdown",
+      "new": "markitdown+manual_latex"
+    }
+  ],
+  "extraction_method_scope": "Only five source-reviewed formula repairs receive +manual_latex; original method and original acquisition timestamps are retained. No formula-awareness claim for other repairs."
+}

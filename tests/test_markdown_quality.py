@@ -5,7 +5,6 @@ from __future__ import annotations
 import pytest
 
 from bddk_mcp.quality.markdown_quality import (
-    QUALITY_FAILURES_PATH,
     assess_markdown_quality,
     load_quality_failure_registry,
     prepare_markdown_for_storage,
@@ -145,8 +144,8 @@ def test_quality_assessment_marks_known_hard_fail_signals():
     assert result.warning
 
 
-def test_quality_assessment_treats_every_configured_failure_as_fail():
-    registry = load_quality_failure_registry(QUALITY_FAILURES_PATH)
+def test_quality_assessment_treats_every_configured_failure_as_fail(historical_quality_registry):
+    registry = historical_quality_registry
 
     assert len(registry) == 11
     for document_id, failure in registry.items():
@@ -318,3 +317,33 @@ def test_quality_assessment_ignores_camelcase_inside_xml_tags():
 
     assert result.counts["camelcase_concat"] == 0
     assert result.label == "clean"
+
+
+def test_quality_assessment_ignores_reviewed_literal_source_identifiers():
+    result = assess_markdown_quality(
+        "İpotekTutarı1=0 ve GuncellemeTarihi alanına yyyy-aa-ggTss:dd:ss yazılır.\n"
+        '```xml\n<xsd:complexType><xsd:element name="IslemGrubu"/></xsd:complexType>\n```\n'
+        "$$\\min\\{\\text{İpotekTutarı}_{i}\\}$$",
+        document_id="x",
+    )
+
+    assert result.counts["camelcase_concat"] == 0
+    assert result.label == "clean"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "```xml\nHakkındaYönetmeliğin\n```",
+        "```\nHakkındaYönetmeliğin",
+        "$$ HakkındaYönetmeliğin $$",
+        "$$ HakkındaYönetmeliğin",
+        r"\text{HakkındaYönetmeliğin}",
+        "abTcd ggTss",  # Only the exact source datetime template is exempt.
+        "GuncellemeTarihiHakkında",  # Not a whole-token source identifier.
+    ],
+)
+def test_source_identifier_exceptions_do_not_hide_concatenated_prose(text):
+    result = assess_markdown_quality(text)
+    assert result.counts["camelcase_concat"] > 0
+    assert result.label == "warning"

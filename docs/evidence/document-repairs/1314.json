@@ -1,0 +1,2181 @@
+{
+  "document_id": "1314",
+  "status": "source_reviewed_candidate_awaiting_owner_approval",
+  "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1314",
+  "source_pdf_sha256": "1902053aaebf6d2f1ed4d941f645b3e94b95abfc873018631277052cb0a46f57",
+  "original_markdown_sha256": "f7f8a2cb58e2899f8f3101f81c1fd6e1b95bf95cdd4a8c2c191f58be174c9251",
+  "candidate_markdown_sha256": "ce26cdb208a100a6219165274ec74e96a389ec07d3a7d7d3e4046cb603645353",
+  "source_pages_visually_reviewed": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26
+  ],
+  "display_formulas": 20,
+  "article_count": 37,
+  "table_count": 14,
+  "review_scope": "Assistant visual review of all pages, lexical comparison against PDF text and signed baseline; not independent legal approval.",
+  "preserved_source_inconsistencies": [
+    "Page 5: alpha in the definition but Latin a in the printed denominator.",
+    "Page 13: lowercase s_b and s_c in K_x despite uppercase S in the definitions.",
+    "Page 14: uppercase S in the KDA_S definition but lowercase s in its formula.",
+    "Printed wording ihtiyarlarına, dışından and değişiklerle is retained.",
+    "Draft placeholders ** and **/**/2026 remain; no enacted-status claim.",
+    "Table 4 and Table 14 group labels are preserved even where inconsistent."
+  ],
+  "remaining_release_work": "Owner approval; source-page metadata review (stored 16 versus current PDF 26); versioned corpus rebuild, signing and independent publication. Registry remains unchanged.",
+  "replacements": [
+    {
+      "start": 0,
+      "end": 120,
+      "old": "Bankacılık Düzenleme ve Denetleme Kurumundan:\nGörüşlerinizi duzenleme@bddk.org.tr adresine e-posta ile iletebilirsiniz.\n",
+      "new": "Bankacılık Düzenleme ve Denetleme Kurumundan:  \nGörüşlerinizi [duzenleme@bddk.org.tr](mailto:duzenleme@bddk.org.tr) adresine e-posta ile iletebilirsiniz.\n"
+    },
+    {
+      "start": 121,
+      "end": 169,
+      "old": "KREDİ DEĞERLEME AYARLAMASI RİSKİNE ESAS TUTARIN\n",
+      "new": "## **KREDİ DEĞERLEME AYARLAMASI RİSKİNE ESAS TUTARIN HESAPLANMASINA İLİŞKİN TEBLİĞ TASLAĞI**\n"
+    },
+    {
+      "start": 170,
+      "end": 208,
+      "old": "HESAPLANMASINA İLİŞKİN TEBLİĞ TASLAĞI\n",
+      "new": "### **BİRİNCİ KISIM Başlangıç Hükümleri ve Genel Esaslar**\n"
+    },
+    {
+      "start": 209,
+      "end": 260,
+      "old": "BİRİNCİ KISIM\nBaşlangıç Hükümleri ve Genel Esaslar\n",
+      "new": "#### **BİRİNCİ BÖLÜM Başlangıç Hükümleri**\n"
+    },
+    {
+      "start": 261,
+      "end": 295,
+      "old": "BİRİNCİ BÖLÜM\nBaşlangıç Hükümleri\n",
+      "new": "##### **Amaç ve kapsam**\n"
+    },
+    {
+      "start": 296,
+      "end": 404,
+      "old": "Amaç ve kapsam\nMADDE  1  -  (1)  Bu  Tebliğin  amacı,  kredi  değerleme  ayarlaması  riskine  esas  tutarın\n",
+      "new": "**MADDE 1 -** (1) Bu Tebliğin amacı, kredi değerleme ayarlaması riskine esas tutarın hesaplanmasına ilişkin usul ve esasları düzenlemektir.\n"
+    },
+    {
+      "start": 405,
+      "end": 460,
+      "old": "hesaplanmasına ilişkin usul ve esasları düzenlemektir.\n",
+      "new": "##### **Dayanak**\n"
+    },
+    {
+      "start": 461,
+      "end": 803,
+      "old": "Dayanak\nMADDE 2 - (1) Bu Tebliğ, 19/10/2005 tarihli ve 5411 sayılı Bankacılık Kanununun 43,\n45 ve 93 üncü maddeleri ile ** tarihli ve ** sayılı Resmî Gazete’de yayımlanan Bankaların\nSermaye  Yeterliliğinin  Ölçülmesine  ve  Değerlendirilmesine  İlişkin  Yönetmeliğin  8  inci\nmaddesinin ikinci fıkrası hükümlerine dayanılarak hazırlanmıştır.\n",
+      "new": "**MADDE 2 -** (1) Bu Tebliğ, 19/10/2005 tarihli ve 5411 sayılı Bankacılık Kanununun 43, 45 ve 93 üncü maddeleri ile \\*\\* tarihli ve \\*\\* sayılı Resmî Gazete’de yayımlanan Bankaların Sermaye Yeterliliğinin Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmeliğin 8 inci maddesinin ikinci fıkrası hükümlerine dayanılarak hazırlanmıştır.\n"
+    },
+    {
+      "start": 804,
+      "end": 1023,
+      "old": "Tanımlar\nMADDE 3 - (1) Bu Tebliğde yer alan;\na) Banka: 5411 sayılı Bankacılık Kanununun 3 üncü maddesinde tanımlanan bankaları,\nb) Bağımsız teminat: Değer değişimine bağlı teminatlar dışında kalan karşı taraftan alınan\n",
+      "new": "##### **Tanımlar**\n"
+    },
+    {
+      "start": 1024,
+      "end": 1034,
+      "old": "teminatı,\n",
+      "new": "**MADDE 3 -** (1) Bu Tebliğde yer alan;\n"
+    },
+    {
+      "start": 1035,
+      "end": 1128,
+      "old": "c)  Endeks  riskten  korunma  araçları:  Riskten  korunma  aracında  referans  varlığın  bir\n",
+      "new": "- a) Banka: 5411 sayılı Bankacılık Kanununun 3 üncü maddesinde tanımlanan bankaları,\n- b) Bağımsız teminat: Değer değişimine bağlı teminatlar dışında kalan karşı taraftan alınan teminatı,\n- c) Endeks riskten korunma araçları: Riskten korunma aracında referans varlığın bir endeks olmasını,\n- ç) İlişkili kuruluş: Bir kuruluş ile diğer bir kuruluş arasında ana ortaklık – bağlı ortaklık veya aynı ana ortağın bağlı ortaklıkları şeklinde ilişki olması durumunu,\n- d) Kanun: 19/10/2005 tarihli ve 5411 sayılı Bankacılık Kanununu,\n- e) KDA masası: KDA pozisyonlarını yönetmek, fiyatlamak ve bu pozisyonlardan kaynaklanan KDA riskini azaltmak için oluşturulmuş özel birimi,\n- f) KDA riski: Türev işlemlerin ve menkul kıymet finansman işlemlerinin değerini belirleyen piyasa risk faktörleri ile karşı taraf kredi faiz farklarındaki değişimler sonucunda oluşan KDA değerindeki değişikliklerden kaynaklanan maruz kalınabilecek olası zararı,\n- g) Kredi değerleme ayarlaması (KDA): Bir karşı tarafla gerçekleştirilen türev ve menkul kıymet finansmanı işlemlerinde, bunların karşı tarafın temerrüdünden ari piyasa değerlerine ulaşmak için yapılan ve muhasebesel KDA'dan farklı olarak muhasebesel KDA'da yer alan en iyi uygulamaları yansıtan kısıtlamalardan sadece birkaçının dikkate alındığı ve bankanın kendi temerrüdünün dikkate alınmadığı değer ayarlamasını,\n- ğ) Kurul: Bankacılık Düzenleme ve Denetleme Kurulunu,\n- h) Kurum: Bankacılık Düzenleme ve Denetleme Kurumunu,\n- ı) Menkul kıymet finansman işlemleri: Yönetmeliğin 3 üncü maddesinde aynı ad altında tanımlanan işlemleri,\n- i) Muhasebesel KDA: Gerçeğe uygun değer ölçümüne ilişkin muhasebe ve finansal raporlama standardı kapsamındaki kredi değer ayarlamalarını,\n"
+    },
+    {
+      "start": 1129,
+      "end": 1146,
+      "old": "endeks olmasını,\n",
+      "new": "j) Netleştirme grubu: Karşı taraf kredi riskine esas tutarın hesaplanmasına ilişkin usul ve esaslar çerçevesinde aynı ad altında tanımlanan grubu,\n"
+    },
+    {
+      "start": 1147,
+      "end": 1241,
+      "old": "ç) İlişkili kuruluş: Bir kuruluş ile diğer bir kuruluş arasında ana ortaklık – bağlı ortaklık\n",
+      "new": "k) Nitelikli merkezi karşı taraf: Karşı taraf kredi riskine esas tutarın hesaplanmasına ilişkin usul ve esaslarda bu ad altında yapılan tanımı,\n"
+    },
+    {
+      "start": 1242,
+      "end": 1466,
+      "old": "veya aynı ana ortağın bağlı ortaklıkları şeklinde ilişki olması durumunu,\nd) Kanun: 19/10/2005 tarihli ve 5411 sayılı Bankacılık Kanununu,\ne)  KDA  masası:  KDA  pozisyonlarını  yönetmek,  fiyatlamak  ve  bu  pozisyonlardan\n",
+      "new": "l) Referansa dayalı araç: Aracın referans borçlusunun karşı taraf dışında başka bir kuruluş olduğu araçları,\n"
+    },
+    {
+      "start": 1467,
+      "end": 1531,
+      "old": "kaynaklanan KDA riskini azaltmak için oluşturulmuş özel birimi,\n",
+      "new": "m) Riskin marj süresi: Karşı taraf kredi riskine esas tutarın hesaplanması ilişkin usul ve esaslar çerçevesinde aynı ad altında tanımlanan süreyi,\n"
+    },
+    {
+      "start": 1532,
+      "end": 1815,
+      "old": "f)  KDA  riski:  Türev  işlemlerin  ve  menkul  kıymet  finansman  işlemlerinin  değerini\nbelirleyen  piyasa  risk  faktörleri  ile  karşı  taraf  kredi  faiz  farklarındaki  değişimler  sonucunda\noluşan KDA değerindeki değişikliklerden kaynaklanan maruz kalınabilecek olası zararı,\n",
+      "new": "n) Tek isimli araçlar: Aracın borçlusunun, dayanağa/referansa bağlı araçlarda ise dayanak/referans varlık borçlusunun tek bir kişi olduğu araçları,\n"
+    },
+    {
+      "start": 1816,
+      "end": 2241,
+      "old": "g) Kredi değerleme ayarlaması (KDA): Bir karşı tarafla gerçekleştirilen türev ve menkul\nkıymet  finansmanı  işlemlerinde,  bunların  karşı  tarafın  temerrüdünden  ari  piyasa  değerlerine\nulaşmak için yapılan ve muhasebesel KDA’dan farklı olarak muhasebesel KDA’da yer alan en\niyi uygulamaları yansıtan kısıtlamalardan sadece birkaçının dikkate alındığı ve bankanın kendi\ntemerrüdünün dikkate alınmadığı değer ayarlamasını,\n",
+      "new": "o) Tek isimli riskten korunma aracı: Temerrüt riski nedeniyle koruması sağlanan temerrüt ihtimali bulunan tarafın tek bir kişi olduğu koruma araçlarını,\n"
+    },
+    {
+      "start": 2242,
+      "end": 2435,
+      "old": "ğ) Kurul: Bankacılık Düzenleme ve Denetleme Kurulunu,\nh) Kurum: Bankacılık Düzenleme ve Denetleme Kurumunu,\nı) Menkul kıymet finansman işlemleri: Yönetmeliğin 3 üncü maddesinde aynı ad altında\n",
+      "new": "ö) Temerrüt halinde kayıp: Temel kredi riskine esas tutarın içsel derecelendirmeye dayalı yaklaşımlar ile hesaplanmasına ilişkin usul ve esaslar çerçevesinde bu ad altında yapılan tanımı,\n"
+    },
+    {
+      "start": 2436,
+      "end": 2458,
+      "old": "tanımlanan işlemleri,\n",
+      "new": "p) Temerrüt olasılığı: Temel kredi riskine esas tutarın içsel derecelendirmeye dayalı yaklaşımlar ile hesaplanmasına ilişkin usul ve esaslar çerçevesinde bu ad altında tanımlanan olasılığı,\n"
+    },
+    {
+      "start": 2459,
+      "end": 2547,
+      "old": "i)  Muhasebesel  KDA:  Gerçeğe  uygun  değer  ölçümüne  ilişkin  muhasebe  ve  finansal\n",
+      "new": "r) Toplam KDA: KDA riskine esas tutarın standart yaklaşım yöntemiyle hesaplanmasında bulunan KDA'ların toplamını,\n"
+    },
+    {
+      "start": 2548,
+      "end": 2609,
+      "old": "raporlama standardı kapsamındaki kredi değer ayarlamalarını,\n",
+      "new": "s) Yönetmelik: Bankaların Sermaye Yeterliliğinin Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmeliği,\n"
+    },
+    {
+      "start": 2610,
+      "end": 4101,
+      "old": "j) Netleştirme grubu: Karşı taraf kredi riskine esas tutarın hesaplanmasına ilişkin usul ve\n\nesaslar çerçevesinde aynı ad altında tanımlanan grubu,\n\nk)  Nitelikli  merkezi  karşı  taraf:  Karşı  taraf  kredi  riskine  esas  tutarın  hesaplanmasına\n\nilişkin usul ve esaslarda bu ad altında yapılan tanımı,\n\nl) Referansa dayalı araç: Aracın referans borçlusunun karşı taraf dışında başka bir kuruluş\n\nolduğu araçları,\n\nm) Riskin marj süresi: Karşı taraf kredi riskine esas tutarın hesaplanması ilişkin usul ve\n\nesaslar çerçevesinde aynı ad altında tanımlanan süreyi,\n\nn)  Tek  isimli  araçlar:  Aracın  borçlusunun,  dayanağa/referansa  bağlı  araçlarda  ise\n\ndayanak/referans varlık borçlusunun tek bir kişi olduğu araçları,\n\no) Tek isimli riskten korunma aracı: Temerrüt riski nedeniyle koruması sağlanan temerrüt\n\nihtimali bulunan tarafın tek bir kişi olduğu koruma araçlarını,\n\nö) Temerrüt halinde kayıp: Temel kredi riskine esas tutarın içsel derecelendirmeye dayalı\nyaklaşımlar ile hesaplanmasına ilişkin usul ve esaslar çerçevesinde bu ad altında yapılan tanımı,\np)  Temerrüt  olasılığı:  Temel  kredi  riskine  esas  tutarın  içsel  derecelendirmeye  dayalı\nyaklaşımlar ile hesaplanmasına ilişkin usul ve esaslar çerçevesinde bu ad altında tanımlanan\nolasılığı,\n\nr) Toplam KDA: KDA riskine esas tutarın standart yaklaşım yöntemiyle hesaplanmasında\n\nbulunan KDA’ların toplamını,\n\ns) Yönetmelik: Bankaların Sermaye Yeterliliğinin Ölçülmesine ve Değerlendirilmesine\n\nİlişkin Yönetmeliği,\n",
+      "new": ""
+    },
+    {
+      "start": 4114,
+      "end": 4173,
+      "old": "İKİNCİ BÖLÜM\nKDA Riskine Esas Tutara İlişkin Genel Esaslar\n",
+      "new": "## **İKİNCİ BÖLÜM**\n"
+    },
+    {
+      "start": 4174,
+      "end": 4785,
+      "old": "KDA riskine esas tutarın kapsamı ve hesaplama yöntemleri\nMADDE 4 – (1) KDA riskine esas tutar; karşı taraf kredi riski eşleniği yaklaşımı, standart\nyaklaşım  ve  temel  yaklaşım  olmak  üzere  üç  yöntemle  ölçülebilir.  KDA  riskine  esas  tutar,\nilişkin  sermaye\nkullanılan  ölçüm  yöntemi  çerçevesinde  hesaplanacak  KDA  riskine\nyükümlülüğü tutarının 12,5 ile çarpımı suretiyle bulunacak değere eşittir. Birden fazla yöntemin\nkullanıldığı durumlarda, 12,5 katsayısı her bir ölçüm yöntemi kapsamında hesaplanan sermaye\nyükümlülüğü tutarlarının toplamına uygulanmak suretiyle KDA riskine esas tutar bulunur.\n",
+      "new": "### **KDA Riskine Esas Tutara İlişkin Genel Esaslar**\n"
+    },
+    {
+      "start": 4786,
+      "end": 5414,
+      "old": "(2)  KDA  portföyü  bağımsız  bir  portföy  teşkil  eder  ve  KDA  riskine  ilişkin  sermaye\nyükümlülüğü  bu  portföy  üzerinden  hesaplanır.  KDA  portföyü,  KDA’ya  tabi  işlemler  ile  bu\nişlemler için dikkate alınabilir riskten korunma araçlarından oluşur. KDA portföyünde yer alan\nKDA’ya tabi işlemlerin kapsamına kredi riskine ilişkin risk ağırlıklı tutarları azaltmak amacıyla\nkullanılan  kredi  türevleri  hariç  olmak  üzere  izlendiği  hesaba  bakılmaksızın  tüm  tezgâh  üstü\ntürev araçlar ile muhasebeleştirmeye ilişkin kurallar uyarınca gerçeğe uygun değeri ile ölçülen\nmenkul kıymet finansmanı işlemleri dahildir.\n",
+      "new": "#### **KDA riskine esas tutarın kapsamı ve hesaplama yöntemleri**\n"
+    },
+    {
+      "start": 5415,
+      "end": 5628,
+      "old": "(3)  Menkul  kıymet  finansman  işlemlerinden  kaynaklanan  KDA  riski  tutarının  önemli\ndüzeyde olmadığının Kuruma kanıtlaması durumunda, Kurum’dan alınacak onayla bu işlemler\nhesaplamalara dahil edilmeyebilir.\n",
+      "new": "**MADDE 4** – (1) KDA riskine esas tutar; karşı taraf kredi riski eşleniği yaklaşımı, standart yaklaşım ve temel yaklaşım olmak üzere üç yöntemle ölçülebilir. KDA riskine esas tutar, kullanılan ölçüm yöntemi çerçevesinde hesaplanacak KDA riskine ilişkin sermaye yükümlülüğü tutarının 12,5 ile çarpımı suretiyle bulunacak değere eşittir. Birden fazla yöntemin kullanıldığı durumlarda, 12,5 katsayısı her bir ölçüm yöntemi kapsamında hesaplanan sermaye yükümlülüğü tutarlarının toplamına uygulanmak suretiyle KDA riskine esas tutar bulunur.\n"
+    },
+    {
+      "start": 5629,
+      "end": 5948,
+      "old": "(4) Doğrudan nitelikli merkezi karşı taraflarla yapılan türev işlemler ile Karşı Taraf Kredi\nRiskine  Esas  Tutarın  Hesaplanmasına  İlişkin  Tebliğin  57  inci  maddesinin  birinci  ilâ  üçüncü\nfıkralarında  belirtilen  şartları  sağlayan  türev  işlemler  için  KDA  riskine  ilişkin  sermaye\nyükümlülüğü uygulanmaz.\n",
+      "new": "(2) KDA portföyü bağımsız bir portföy teşkil eder ve KDA riskine ilişkin sermaye yükümlülüğü bu portföy üzerinden hesaplanır. KDA portföyü, KDA'ya tabi işlemler ile bu işlemler için dikkate alınabilir riskten korunma araçlarından oluşur. KDA portföyünde yer alan KDA'ya tabi işlemlerin kapsamına kredi riskine ilişkin risk ağırlıklı tutarları azaltmak amacıyla kullanılan kredi türevleri hariç olmak üzere izlendiği hesaba bakılmaksızın tüm tezgâh üstü türev araçlar ile muhasebeleştirmeye ilişkin kurallar uyarınca gerçeğe uygun değeri ile ölçülen menkul kıymet finansmanı işlemleri dahildir.\n"
+    },
+    {
+      "start": 5949,
+      "end": 6137,
+      "old": "(5)  KDA  riskine  esas  tutarı  standart  yaklaşım  veya  temel  yaklaşım  ile  hesaplayan\nbankalardan karşı taraf kredi riskine esas tutarı içsel derecelendirmeye dayalı yaklaşımlar ile\n",
+      "new": "(3) Menkul kıymet finansman işlemlerinden kaynaklanan KDA riski tutarının önemli düzeyde olmadığının Kuruma kanıtlaması durumunda, Kurum’dan alınacak onayla bu işlemler hesaplamalara dahil edilmeyebilir.\n"
+    },
+    {
+      "start": 6138,
+      "end": 6279,
+      "old": "hesaplayan bankalar, KDA riskine esas tutar hesaplamasında tüm netleştirme grupları için vade\nayarlama faktörünü 1 (bir) ile sınırlayabilir.\n",
+      "new": "(4) Doğrudan nitelikli merkezi karşı taraflarla yapılan türev işlemler ile Karşı Taraf Kredi Riskine Esas Tutarın Hesaplanmasına İlişkin Tebliğin 57 inci maddesinin birinci ilâ üçüncü fıkralarında belirtilen şartları sağlayan türev işlemler için KDA riskine ilişkin sermaye yükümlülüğü uygulanmaz.\n"
+    },
+    {
+      "start": 6280,
+      "end": 6489,
+      "old": "(6) KDA riskine esas tutar hesaplamalarında yer alan kredi kalitesine dayalı uygulamalar\nbakımından  aşağıdaki  kapsamda  kredi  kalitesi  biri  “YYD”  diğeri  “YRD  veya  DNB”  olmak\nüzere iki gruba ayrılır:\n",
+      "new": "(5) KDA riskine esas tutarı standart yaklaşım veya temel yaklaşım ile hesaplayan bankalardan karşı taraf kredi riskine esas tutarı içsel derecelendirmeye dayalı yaklaşımlar ile hesaplayan bankalar, KDA riskine esas tutar hesaplamasında tüm netleştirme grupları için vade ayarlama faktörünü 1 (bir) ile sınırlayabilir.\n"
+    },
+    {
+      "start": 6490,
+      "end": 6735,
+      "old": "a) Yatırım Yapılabilir Derecelendirme Notunu Haiz Olanlar (YYD): Temel kredi riskine\nesas tutarın hesaplanmasına ilişkin usul ve esaslar bakımından kredi kalitesi kademesi 1 ila 3’e\ntekabül eden kredi derecelendirme notlarına sahip olunmasıdır.\n",
+      "new": "(6) KDA riskine esas tutar hesaplamalarında yer alan kredi kalitesine dayalı uygulamalar bakımından aşağıdaki kapsamda kredi kalitesi biri “YYD” diğeri “YRD veya DNB” olmak üzere iki gruba ayrılır:\n"
+    },
+    {
+      "start": 6736,
+      "end": 7011,
+      "old": "b)  Yüksek  Getiri  (Yüksek  Risk)  Derecelendirme  Notuna  Haiz  Olanlar  (YRD):  Temel\nkredi  riskine  esas  tutarın  hesaplanmasına  ilişkin  usul  ve  esaslar  bakımından  kredi  kalitesi\nkademesi 4 ila 6’ya tekabül eden kredi derecelendirme notlarına sahip olunmasıdır.\n",
+      "new": "a) Yatırım Yapılabilir Derecelendirme Notunu Haiz Olanlar (YYD): Temel kredi riskine esas tutarın hesaplanmasına ilişkin usul ve esaslar bakımından kredi kalitesi kademesi 1 ila 3’e tekabül eden kredi derecelendirme notlarına sahip olunmasıdır.\n"
+    },
+    {
+      "start": 7012,
+      "end": 7093,
+      "old": "c) Derecelendirme Notu Bulunmayanlar (DNB): Kredi derecelendirme notu bulunmayan\n",
+      "new": "b) Yüksek Getiri (Yüksek Risk) Derecelendirme Notuna Haiz Olanlar (YRD): Temel kredi riskine esas tutarın hesaplanmasına ilişkin usul ve esaslar bakımından kredi kalitesi kademesi 4 ila 6’ya tekabül eden kredi derecelendirme notlarına sahip olunmasıdır.\n"
+    },
+    {
+      "start": 7094,
+      "end": 7185,
+      "old": "veya notu bulunmakla birlikte bu notu ilgili ülke mevzuatı uyarınca tanınmayanları kapsar.\n",
+      "new": "c) Derecelendirme Notu Bulunmayanlar (DNB): Kredi derecelendirme notu bulunmayan veya notu bulunmakla birlikte bu notu ilgili ülke mevzuatı uyarınca tanınmayanları kapsar.\n"
+    },
+    {
+      "start": 7186,
+      "end": 7590,
+      "old": "KDA riskinden korunma araçlarına ilişkin genel esaslar\nMADDE 5 – (1) KDA riski için riskten korunma araçları dışsal veya içsel olabilir. Dışsal\nriskten korunma araçları banka dışından temin edilen araçlar aracılığıyla sağlanan korumaları\niçerir. İçsel riskten korunma araçları ise bankanın elinde bulunan Yönetmeliğin Ek-1’ine uygun\niçsel KDA risk transferleriyle korumaya konu edilen araçlardan oluşur.\n",
+      "new": "### **KDA riskinden korunma araçlarına ilişkin genel esaslar**\n"
+    },
+    {
+      "start": 7591,
+      "end": 8131,
+      "old": "(2)  KDA  riskine  tabi  işlemler  kapsamına  giren  işlem  veya  araçlardan  olması  halinde,\ndikkate alınabilir riskten korunma aracı niteliğini haiz olsa dahi, tüm dışsal riskten korunma\naraçları KDA riski doğurur ve bu korumayı sağlayan karşı tarafa dayalı  olarak KDA riskine\nilişkin sermaye yükümlülüğüne tabi tutulur. KDA riskine ilişkin sermaye yükümlülüğüne tabi\ntutulma durumu, riskten korunma araçlarından dikkate alınabilir niteliği haiz olanların koruma\nsağladığı tarafın KDA hesaplamasına dahil edilmesine engel teşkil etmez.\n",
+      "new": "**MADDE 5 – (1)** KDA riski için riskten korunma araçları dışsal veya içsel olabilir. Dışsal riskten korunma araçları banka dışından temin edilen araçlar aracılığıyla sağlanan korumaları içerir. İçsel riskten korunma araçları ise bankanın elinde bulunan Yönetmeliğin Ek-1’ine uygun içsel KDA risk transferleriyle korumaya konu edilen araçlardan oluşur.\n"
+    },
+    {
+      "start": 8132,
+      "end": 8231,
+      "old": "(3)  KDA  riski  için  dikkate  alınabilir  tüm  dışsal  riskten  korunma  araçları  temel  piyasa\n",
+      "new": "(2) KDA riskine tabi işlemler kapsamına giren işlem veya araçlardan olması halinde, dikkate alınabilir riskten korunma aracı niteliğini haiz olsa dahi, tüm dışsal riskten korunma araçları KDA riski doğurur ve bu korumayı sağlayan karşı tarafa dayalı olarak KDA riskine ilişkin sermaye yükümlülüğüne tabi tutulur. KDA riskine ilişkin sermaye yükümlülüğüne tabi tutulma durumu, riskten korunma araçlarından dikkate alınabilir niteliği haiz olanların koruma sağladığı tarafın KDA hesaplamasına dahil edilmesine engel teşkil etmez.\n"
+    },
+    {
+      "start": 8232,
+      "end": 8285,
+      "old": "riskine esas tutar hesaplamalarında dikkate alınmaz.\n",
+      "new": "(3) KDA riski için dikkate alınabilir tüm dışsal riskten korunma araçları temel piyasa riskine esas tutar hesaplamalarında dikkate alınmaz.\n"
+    },
+    {
+      "start": 8286,
+      "end": 8504,
+      "old": "(4) KDA riski hesaplamasında dikkate alınabilir olmayan dışsal riskten korunma araçları,\nalım  satım  hesabı  araçları  olarak  değerlendirilir  ve  temel  piyasa  riskine  esas  tutar\nhesaplamalarında dikkate alınır.\n",
+      "new": "(4) KDA riski hesaplamasında dikkate alınabilir olmayan dışsal riskten korunma araçları, alım satım hesabı araçları olarak değerlendirilir ve temel piyasa riskine esas tutar hesaplamalarında dikkate alınır.\n"
+    },
+    {
+      "start": 8505,
+      "end": 8739,
+      "old": "(5) İçsel riskten korunma aracı, biri KDA masasında ve diğeri zıt pozisyon şeklinde alım\nsatım masasında olmak üzere birbiriyle tam olarak mahsuplaşan alım satım hesaplarında yer\nalan iki pozisyondan oluşur. Bu mahsuplaşma işleminde:\n",
+      "new": "(5) İçsel riskten korunma aracı, biri KDA masasında ve diğeri zıt pozisyon şeklinde alım satım masasında olmak üzere birbiriyle tam olarak mahsuplaşan alım satım hesaplarında yer alan iki pozisyondan oluşur. Bu mahsuplaşma işleminde:\n"
+    },
+    {
+      "start": 8740,
+      "end": 9055,
+      "old": "a)  İçsel  riskten  korunma  aracının  dikkate  alınabilir  nitelikte  olmaması  halinde  KDA\nmasasındaki  pozisyon  KDA  portföyüne  dahil  edilmez  ve  bu  haliyle  her  iki  pozisyonun  da\nbirbirleriyle tam örtüşen ters yönlü pozisyonlar olması nedeniyle de alım satım hesabı üzerinde\nherhangi bir etkisi olmaz.\n",
+      "new": "a) İçsel riskten korunma aracının dikkate alınabilir nitelikte olmaması halinde KDA masasındaki pozisyon KDA portföyüne dahil edilmez ve bu haliyle her iki pozisyonun da birbirleriyle tam örtüşen ters yönlü pozisyonlar olması nedeniyle de alım satım hesabı üzerinde herhangi bir etkisi olmaz.\n"
+    },
+    {
+      "start": 9056,
+      "end": 9488,
+      "old": "b)  İçsel  riskten  korunma  aracının  dikkate  alınabilir  nitelikte  olması  halinde,  KDA\nmasasının pozisyonu alım satım hesaplarından çıkarılarak KDA portföyüne dahil edilir ve bu\nsuretle  KDA  riskine  ilişkin  sermaye  yükümlülüğü  hesaplamasına  konu  edilir.  Alım  satım\nmasasının  pozisyonu  ise  alım  satım  hesaplarının bir  parçası  olarak  temel  piyasa  riskine  esas\ntutar hesaplamasına konu edilmeye devam edilir.\n",
+      "new": "b) İçsel riskten korunma aracının dikkate alınabilir nitelikte olması halinde, KDA masasının pozisyonu alım satım hesaplarından çıkarılarak KDA portföyüne dahil edilir ve bu suretle KDA riskine ilişkin sermaye yükümlülüğü hesaplamasına konu edilir. Alım satım masasının pozisyonu ise alım satım hesaplarının bir parçası olarak temel piyasa riskine esas tutar hesaplamasına konu edilmeye devam edilir.\n"
+    },
+    {
+      "start": 9489,
+      "end": 10002,
+      "old": "(6)  İçsel  riskten  korunma  aracı,  temel  piyasa  riskine  esas  tutarın  standart  yaklaşım\nyöntemi kapsamında hesaplamasına göre eğrilik riski, temerrüt riski veya artık risk kapsamında\nsermaye  yükümlülüğüne  tabi  bir  aracı  içeriyorsa,  bu  aracın  dikkate  alınabilmesi  için  KDA\nmasasının içsel karşı tarafı olan alım satım masasının, KDA masasında ve alım satım masasında\nbirbiriyle tam olarak örtüşen ve mahsuplaşan pozisyonlar oluşturan bu işlemi dışsal bir karşı\ntarafla gerçekleştirmesi şarttır.\n",
+      "new": "(6) İçsel riskten korunma aracı, temel piyasa riskine esas tutarın standart yaklaşım yöntemi kapsamında hesaplamasına göre eğrilik riski, temerrüt riski veya artık risk kapsamında sermaye yükümlülüğüne tabi bir aracı içeriyorsa, bu aracın dikkate alınabilmesi için KDA masasının içsel karşı tarafı olan alım satım masasının, KDA masasında ve alım satım masasında birbiriyle tam olarak örtüşen ve mahsuplaşan pozisyonlar oluşturan bu işlemi dışsal bir karşı tarafla gerçekleştirmesi şarttır.\n"
+    },
+    {
+      "start": 10003,
+      "end": 10076,
+      "old": "Standart yaklaşım yönteminde dikkate alınabilir riskten korunma araçları\n",
+      "new": "### **Standart yaklaşım yönteminde dikkate alınabilir riskten korunma araçları**\n"
+    },
+    {
+      "start": 10077,
+      "end": 10329,
+      "old": "MADDE 6 – (1) KDA riskini azaltma ve yönetme amacıyla kullanılan işlemler sadece\nbir  bütün  şeklinde  riskten  korunma  araçları  olarak  dikkate  alınabilir.  Bu  işlemler  dikkate\nalınabilir korunma aracı mahiyetinde birden fazla parçaya ayrılamaz.\n",
+      "new": "**MADDE 6** – (1) KDA riskini azaltma ve yönetme amacıyla kullanılan işlemler sadece bir bütün şeklinde riskten korunma araçları olarak dikkate alınabilir. Bu işlemler dikkate alınabilir korunma aracı mahiyetinde birden fazla parçaya ayrılamaz.\n"
+    },
+    {
+      "start": 10330,
+      "end": 10562,
+      "old": "(2) Dikkate alınabilir riskten korunma araçları kapsamına, karşı taraf kredi faiz farkının\ndeğişkenliğine  karşı  koruma  sağlayan  araçlar  ile  KDA  risk  tutarının  değişkenliğine  karşı\nkoruma sağlayan araçlar dahil edilebilir.\n",
+      "new": "(2) Dikkate alınabilir riskten korunma araçları kapsamına, karşı taraf kredi faiz farkının değişkenliğine karşı koruma sağlayan araçlar ile KDA risk tutarının değişkenliğine karşı koruma sağlayan araçlar dahil edilebilir.\n"
+    },
+    {
+      "start": 10563,
+      "end": 10860,
+      "old": "(3)  İkinci  fıkra  uyarınca  dikkate  alınabilir  riskten  korunma  araçlarından,  temel  piyasa\nriskine esas tutarın içsel model yaklaşımı ile hesaplanmasına ilişkin usul ve esaslar uyarınca bu\nyaklaşıma konu edilemeyecek araçlar KDA riskine karşı riskten korunma aracı olarak dikkate\nalınamaz.\n",
+      "new": "(3) İkinci fıkra uyarınca dikkate alınabilir riskten korunma araçlarından, temel piyasa riskine esas tutarın içsel model yaklaşımı ile hesaplanmasına ilişkin usul ve esaslar uyarınca bu yaklaşıma konu edilemeyecek araçlar KDA riskine karşı riskten korunma aracı olarak dikkate alınamaz.\n"
+    },
+    {
+      "start": 10861,
+      "end": 11161,
+      "old": "Temel yaklaşım yönteminde dikkate alınabilir riskten korunma araçları\nMADDE  7  –  (1)  Temel  yaklaşım  yönteminin  karşı  taraf  kredi  faiz  farkı  riskinden\nkorunma  araçlarının  etkisini  dikkate  alan  tam  hesaplama  yönteminde,  bir  aracın  riskten\nkorunma aracı kapsamında olabilmesi için;\n",
+      "new": "### **Temel yaklaşım yönteminde dikkate alınabilir riskten korunma araçları**\n"
+    },
+    {
+      "start": 11162,
+      "end": 11250,
+      "old": "a) Karşı taraf kredi faiz farkından kaynaklı KDA riskini azaltmak amacıyla kullanılması\n",
+      "new": "**MADDE 7** – (1) Temel yaklaşım yönteminin karşı taraf kredi faiz farkı riskinden korunma araçlarının etkisini dikkate alan tam hesaplama yönteminde, bir aracın riskten korunma aracı kapsamında olabilmesi için;\n"
+    },
+    {
+      "start": 11251,
+      "end": 11267,
+      "old": "ve yönetilmesi,\n",
+      "new": "a) Karşı taraf kredi faiz farkından kaynaklı KDA riskini azaltmak amacıyla kullanılması ve yönetilmesi,\n"
+    },
+    {
+      "start": 11268,
+      "end": 11610,
+      "old": "b) Tek isimli, tek isimli koşullu veya endeks kredi temerrüt swabı olması,\nşarttır.\n(2) Tek isimli ve tek isimli koşullu kredi temerrüt swaplarından; doğrudan karşı tarafa,\nkarşı taraf ile ilişkili kuruluşa veya karşı taraf ile aynı sektör ve coğrafi bölgeye ait bir kuruluşa\nreferansta bulunmayanlar riskten korunma aracı kapsamına alınmaz.\n",
+      "new": "b) Tek isimli, tek isimli koşullu veya endeks kredi temerrüt swabı olması, şarttır.\n"
+    },
+    {
+      "start": 11611,
+      "end": 11685,
+      "old": "İKİNCİ KISIM\nKarşı Taraf Kredi Riski Eşleniği Yaklaşımı ve Temel Yaklaşım\n",
+      "new": "(2) Tek isimli ve tek isimli koşullu kredi temerrüt swaplarından; doğrudan karşı tarafa, karşı taraf ile ilişkili kuruluşa veya karşı taraf ile aynı sektör ve coğrafi bölgeye ait bir kuruluşa referansta bulunmayanlar riskten korunma aracı kapsamına alınmaz.\n"
+    },
+    {
+      "start": 11686,
+      "end": 11700,
+      "old": "BİRİNCİ BÖLÜM\n",
+      "new": "## **İKİNCİ KISIM**\n"
+    },
+    {
+      "start": 11701,
+      "end": 11752,
+      "old": "Karşı Taraf Kredi Riski Eşleniği Yaklaşımı Yöntemi\n",
+      "new": "### **Karşı Taraf Kredi Riski Eşleniği Yaklaşımı ve Temel Yaklaşım**\n"
+    },
+    {
+      "start": 11753,
+      "end": 11832,
+      "old": "Yöntemin  kullanım  esasları  ve  bu  yöntemde  KDA  riskine  ilişkin  sermaye\n",
+      "new": "#### **BİRİNCİ BÖLÜM**\n"
+    },
+    {
+      "start": 11833,
+      "end": 11845,
+      "old": "yükümlülüğü\n",
+      "new": "##### **Karşı Taraf Kredi Riski Eşleniği Yaklaşımı Yöntemi**\n"
+    },
+    {
+      "start": 11846,
+      "end": 12476,
+      "old": "MADDE  8-(1)  Takası  merkezi  karşı  taraf  aracılığıyla  gerçekleştirilmeyen  türevlerin\ntoplam  nominal  tutarı  100  Milyar  Avro  muadili  Türk  Lirasının  altında  olan  bankalar  bu\nişlemlere  yönelik  KDA  riskine  esas  tutarı  standart  yaklaşım  yöntemi  veya  temel  yaklaşım\nyöntemi yerine karşı taraf kredi riski eşleniği yaklaşımı yöntemine göre hesaplayabilir. Bunun\ntercih edilmesi durumda bu işlemler için karşı taraf kredi riskine esas tutarın yüzde sekizi bu\nişlemlere  yönelik  KDA  riskine  ilişkin  sermaye  yükümlülüğü  tutarı  olarak  kabul  edilir.  Bu\nyöntemde riskten korunma araçları dikkate alınmaz.\n",
+      "new": "**Yöntemin kullanım esasları ve bu yöntemde KDA riskine ilişkin sermaye yükümlülüğü**\n"
+    },
+    {
+      "start": 12477,
+      "end": 12677,
+      "old": "(2) Kurum, bankanın türev pozisyonlarından kaynaklanan KDA riskinin bankanın genel\nriskine  önemli  ölçüde  etkisi  olduğuna  kanaat  getirmesi  halinde  bu  yöntemin  kullanılmasını\nsonlandırabilir.\n",
+      "new": "**MADDE 8**-(1) Takası merkezi karşı taraf aracılığıyla gerçekleştirilmeyen türevlerin toplam nominal tutarı 100 Milyar Avro muadili Türk Lirasının altında olan bankalar bu işlemlere yönelik KDA riskine esas tutarı standart yaklaşım yöntemi veya temel yaklaşım yöntemi yerine karşı taraf kredi riski eşleniği yaklaşımı yöntemine göre hesaplayabilir. Bunun tercih edilmesi durumda bu işlemler için karşı taraf kredi riskine esas tutarın yüzde sekizi bu işlemlere yönelik KDA riskine ilişkin sermaye yükümlülüğü tutarı olarak kabul edilir. Bu yöntemde riskten korunma araçları dikkate alınmaz.\n"
+    },
+    {
+      "start": 12678,
+      "end": 12714,
+      "old": "İKİNCİ BÖLÜM\nTemel Yaklaşım Yöntemi\n",
+      "new": "(2) Kurum, bankanın türev pozisyonlarından kaynaklanan KDA riskinin bankanın genel riskine önemli ölçüde etkisi olduğuna kanaat getirmesi halinde bu yöntemin kullanılmasını sonlandırabilir.\n"
+    },
+    {
+      "start": 12715,
+      "end": 12791,
+      "old": "Temel yaklaşım yönteminde KDA riskine ilişkin sermaye yükümlülüğü hesaplama\n",
+      "new": "#### **İKİNCİ BÖLÜM**\n"
+    },
+    {
+      "start": 12792,
+      "end": 12803,
+      "old": "yöntemleri\n",
+      "new": "##### **Temel Yaklaşım Yöntemi**\n"
+    },
+    {
+      "start": 12804,
+      "end": 13077,
+      "old": "MADDE 9 – (1) Temel yaklaşım yönteminde bir veya daha fazla karşı tarafla yapılan\nişlemlerden oluşan bir KDA portföyü için KDA riskine ilişkin sermaye yükümlülüğü; dikkate\nalınabilir  niteliği  haiz  bir  veya  daha  fazla  riskten  korunma  aracının  sermaye  yükümlülüğü\n",
+      "new": "**Temel yaklaşım yönteminde KDA riskine ilişkin sermaye yükümlülüğü hesaplama yöntemleri**\n"
+    },
+    {
+      "start": 13078,
+      "end": 13355,
+      "old": "hesaplamasında  kullanılabildiği  tam  hesaplama  yöntemi  veya  dikkate  alınabilir  niteliği  haiz\nolsa  da  riskten  korunma  araçlarının  sermaye  yükümlülüğü  hesaplamasına  dahil  edilmediği\nindirgenmiş hesaplama yöntemi ile ölçülür. Bu iki yöntem birlikte kullanılamaz.\n",
+      "new": "**MADDE 9** – (1) Temel yaklaşım yönteminde bir veya daha fazla karşı tarafla yapılan işlemlerden oluşan bir KDA portföyü için KDA riskine ilişkin sermaye yükümlülüğü; dikkate alınabilir niteliği haiz bir veya daha fazla riskten korunma aracının sermaye yükümlülüğü hesaplamasında kullanılabildiği tam hesaplama yöntemi veya dikkate alınabilir niteliği haiz olsa da riskten korunma araçlarının sermaye yükümlülüğü hesaplamasına dahil edilmediği indirgenmiş hesaplama yöntemi ile ölçülür. Bu iki yöntem birlikte kullanılamaz.\n"
+    },
+    {
+      "start": 13356,
+      "end": 13468,
+      "old": "İndirgenmiş hesaplama yöntemi\nMADDE 10- (1) İndirgenmiş hesaplama yönteminde, tüm karşı taraflardan kaynaklanan\n",
+      "new": "### İndirgenmiş hesaplama yöntemi\n"
+    },
+    {
+      "start": 13469,
+      "end": 13510,
+      "old": "KDA riskine ilişkin sermaye yükümlülüğü;\n",
+      "new": "**MADDE 10-** (1) İndirgenmiş hesaplama yönteminde, tüm karşı taraflardan kaynaklanan KDA riskine ilişkin sermaye yükümlülüğü;\n"
+    },
+    {
+      "start": 13511,
+      "end": 13593,
+      "old": "a)  KDAind:  Tüm  karşı  taraflardan  kaynaklanan  KDA  riskine  ilişkin  sermaye\n",
+      "new": "a)  $KDA^{ind}$ : Tüm karşı taraflardan kaynaklanan KDA riskine ilişkin sermaye yükümlülüğünü,\n"
+    },
+    {
+      "start": 13594,
+      "end": 13609,
+      "old": "yükümlülüğünü,\n",
+      "new": "b)  $IS_{KDA}$ : 0,65 değerindeki iskonto oranını,\n"
+    },
+    {
+      "start": 13610,
+      "end": 13743,
+      "old": "b) ISKDA: 0,65 değerindeki iskonto oranını,\nc) KDAc: “c” karşı tarafı bazında ve bu karşı tarafla yapılmış olan netleştirme grupları\n",
+      "new": "c)  $KDA_c$ : “c” karşı tarafı bazında ve bu karşı tarafla yapılmış olan netleştirme grupları dikkate alınarak hesaplanan KDA riskine ilişkin sermaye yükümlülüğünü,\n"
+    },
+    {
+      "start": 13744,
+      "end": 13867,
+      "old": "dikkate alınarak hesaplanan KDA riskine ilişkin sermaye yükümlülüğünü,\n\nç) ρ: 0,5 değerinde olan korelasyon parametresini,\n",
+      "new": "ç)  $\\rho$ : 0,5 değerinde olan korelasyon parametresini,\n"
+    },
+    {
+      "start": 13929,
+      "end": 13936,
+      "old": "()()()\n",
+      "new": "$$KDA^{ind} = IS_{KDA} \\cdot \\sqrt{\\left(\\rho \\cdot \\sum_c KDA_c\\right)^2 + (1 - \\rho^2) \\cdot \\sum_c KDA_c^2}$$\n"
+    },
+    {
+      "start": 13937,
+      "end": 13944,
+      "old": "()()()\n",
+      "new": "(2) “c” karşı tarafı bazında ve bu karşı tarafla yapılmış olan netleştirme grupları dikkate alınarak hesaplanan  $KDA_c$ ;\n"
+    },
+    {
+      "start": 13945,
+      "end": 13981,
+      "old": "= ()()()()() ∙ ()()() ∙ () ()()()()\n",
+      "new": "a)  $\\alpha$ : Değeri 1,4 olan katsayıyı,\n"
+    },
+    {
+      "start": 13982,
+      "end": 13985,
+      "old": "()\n",
+      "new": "b)  $RA_c$ : Karşı tarafın kredi faiz farklarının volatilitesini yansıtmak üzere karşı taraf “c”ye uygulanacak risk ağırlığını,\n"
+    },
+    {
+      "start": 13986,
+      "end": 13989,
+      "old": "()\n",
+      "new": "c)  $NS$ : Karşı tarafla yapılmış olan netleştirme gruplarından birini gösteren indeksi,\n"
+    },
+    {
+      "start": 13990,
+      "end": 14000,
+      "old": "+ (1 − ()\n",
+      "new": "ç)  $c$ : Karşı tarafı belirten indeksi,\n"
+    },
+    {
+      "start": 14001,
+      "end": 14004,
+      "old": "()\n",
+      "new": "d)  $M_{NS}$ : Karşı taraf “c” ile yapılmış olan NS indeksinin işaret ettiği netleştirme grubunun efektif vadesini,\n"
+    },
+    {
+      "start": 14005,
+      "end": 14024,
+      "old": "()\n) ∙ () ()()()()\n",
+      "new": "e)  $RT_{NS}$ : Karşı taraf kredi riskine esas tutarın hesaplanmasına ilişkin usul ve esaslara uygun olarak bulunacak karşı taraf “c” ile yapılmış olan NS indeksinin işaret ettiği netleştirme grubunun karşı taraf kredi risk tutarını,\n"
+    },
+    {
+      "start": 14025,
+      "end": 14921,
+      "old": "()\n\n()\n\n(2) “c” karşı tarafı bazında ve bu karşı tarafla yapılmış olan netleştirme grupları dikkate\n\nalınarak hesaplanan KDAc ;\n\na) α: Değeri 1,4 olan katsayıyı,\nb) RAc: Karşı tarafın kredi faiz farklarının volatilitesini yansıtmak üzere karşı taraf “c”ye\n\nuygulanacak risk ağırlığını,\n\n: Karşı taraf “c” ile yapılmış olan NS indeksinin işaret ettiği netleştirme grubunun\n\nc) NS: Karşı tarafla yapılmış olan netleştirme gruplarından birini gösteren indeksi,\nç) c: Karşı tarafı belirten indeksi,\nd)\nefektif vadesini,\ne)\n\n:  Karşı  taraf  kredi  riskine  esas  tutarın  hesaplanmasına  ilişkin  usul  ve  esaslara\nuygun olarak bulunacak karşı taraf “c” ile yapılmış olan NS indeksinin işaret ettiği netleştirme\ngrubunun karşı taraf kredi risk tutarını,\n\n()()()()\n\n()()()\n\nf)\n\n: Karşı taraf “c” ile yapılmış olan NS indeksinin işaret ettiği netleştirme grubuna\n\nilişkin iskonto faktörünü,\n\n()()()()\n",
+      "new": "f)  $IS_{NS}$ : Karşı taraf “c” ile yapılmış olan NS indeksinin işaret ettiği netleştirme grubuna ilişkin iskonto faktörünü,\n"
+    },
+    {
+      "start": 14980,
+      "end": 15047,
+      "old": "()()()() =\n\n1\n()\n\n∙ ()()() ∙ () ()()()\n()()\n\n∙ ()()()() ∙ ()()()()\n",
+      "new": "$$KDA_c = \\frac{1}{a} \\cdot RA_c \\cdot \\sum_{NS} M_{NS} \\cdot RT_{NS} \\cdot IS_{NS}$$\n"
+    },
+    {
+      "start": 15088,
+      "end": 15628,
+      "old": "a)  Efektif  vade  olarak,  karşı  taraf  kredi  riskine  esas  tutarı  içsel  model  yöntemi  ile\nhesaplayan bankalar, bu yönteme göre bulunacak efektif vadeyi; içsel model yöntemi kullanım\nizni  olmayan  bankalar  ise,  etkin  vadeye  ilişkin  olarak  kredi  riskine  esas  tutarın  içsel\nderecelendirmeye  dayalı  yaklaşımlar  ile  ölçülmesine  ilişkin  usul  ve  esaslarda  belirtilen\nyöntemlerle bulunacak efektif vadeyi kullanır. Efektif vadeye ilişkin bu hesaplamalarda 5 yıllık\nvade üst sınırı dikkate alınmaz.\nb)  İskonto  faktörü\n",
+      "new": ""
+    },
+    {
+      "start": 15629,
+      "end": 15850,
+      "old": ",  karşı  taraf  kredi  riskine  esas  tutarı  içsel  model  yöntemi  ile\nhesaplayan  bankalar  için  1  (bir)  olarak  dikkate  alınır;  içsel  model  yöntemi  kullanmayan\nbankalar için ise aşağıdaki şekilde hesaplanır:\n",
+      "new": "a) Efektif vade olarak, karşı taraf kredi riskine esas tutarı içsel model yöntemi ile hesaplayan bankalar, bu yönteme göre bulunacak efektif vadeyi; içsel model yöntemi kullanım izni olmayan bankalar ise, etkin vadeye ilişkin olarak kredi riskine esas tutarın içsel derecelendirmeye dayalı yaklaşımlar ile ölçülmesine ilişkin usul ve esaslarda belirtilen yöntemlerle bulunacak efektif vadeyi kullanır. Efektif vadeye ilişkin bu hesaplamalarda 5 yıllık vade üst sınırı dikkate alınmaz.\n"
+    },
+    {
+      "start": 15851,
+      "end": 15860,
+      "old": "()()()()\n",
+      "new": "b) İskonto faktörü  $IS_{NS}$ , karşı taraf kredi riskine esas tutarı içsel model yöntemi ile hesaplayan bankalar için 1 (bir) olarak dikkate alınır; içsel model yöntemi kullanmayan bankalar için ise aşağıdaki şekilde hesaplanır:\n"
+    },
+    {
+      "start": 15861,
+      "end": 15871,
+      "old": "!\",\"$∙%&'\n",
+      "new": "$$IS_{NS} = \\frac{1 - e^{-0,05 \\cdot M_{NS}}}{0,05 \\cdot M_{NS}}$$\n"
+    },
+    {
+      "start": 15872,
+      "end": 15876,
+      "old": "1 −\n",
+      "new": "c) Karşı tarafın kredi faiz farklarının volatilitesini yansıtmak üzere karşı tarafa uygulanacak risk ağırlıkları sektör ve kredi kalitesine dayalı olarak aşağıdaki tabloya göre belirlenir.\n"
+    },
+    {
+      "start": 15877,
+      "end": 15888,
+      "old": "()()()() =\n",
+      "new": "**Tablo 1: Risk Ağırlıkları**\n"
+    },
+    {
+      "start": 15889,
+      "end": 16113,
+      "old": "0,05 ∙ ()()()\nc)  Karşı  tarafın  kredi  faiz  farklarının  volatilitesini  yansıtmak  üzere  karşı  tarafa\nuygulanacak  risk  ağırlıkları  sektör  ve  kredi  kalitesine  dayalı  olarak  aşağıdaki  tabloya  göre\nbelirlenir.\n",
+      "new": "| Karşı tarafın yer aldığı sektör | Karşı tarafın kredi kalitesi grubu: YYD | Karşı tarafın kredi kalitesi grubu: YRD veya DNB |\n| --- | --- | --- |\n| Merkezi yönetimler, merkez bankaları, çok taraflı kalkınma bankaları ile uluslararası kuruluşlar | %0,5 | %2,0 |\n| Yerel ve bölgesel yönetimler, devlet destekli finansal olmayan kuruluşlar, eğitim kuruluşları ve kamu kuruluşları | %1,0 | %4,0 |\n| Devlet destekli bankalar ve finansal kuruluşlar | %5,0 | %12,0 |\n| Temel malzemeler, enerji, sanayi ürünleri, tarım, imalat, madencilik ve taş ocakçılığı | %3,0 | %7,0 |\n| Tüketim malları ve hizmetleri, ulaştırma ve depolama, idari ve destek hizmet faaliyetleri | %3,0 | %8,5 |\n| Teknoloji, telekomünikasyon | %2,0 | %5,5 |\n| Sağlık hizmeti, kamu hizmetleri, mesleki ve teknik faaliyetler | %1,5 | %5,0 |\n| Diğer sektör | %5,0 | %12,0 |\n"
+    },
+    {
+      "start": 16114,
+      "end": 16140,
+      "old": "Tablo 1: Risk Ağırlıkları\n",
+      "new": "### Tam hesaplama yöntemi\n"
+    },
+    {
+      "start": 16141,
+      "end": 16173,
+      "old": "Karşı tarafın yer aldığı sektör\n",
+      "new": "**MADDE 11-** (1) Tam hesaplama yönteminde, tüm karşı taraflar için KDA riskine ilişkin sermaye yükümlülüğü;\n"
+    },
+    {
+      "start": 16174,
+      "end": 16213,
+      "old": "Karşı tarafın kredi kalitesi grubu\nYYD\n",
+      "new": "a)  $KDA^{tam}$ : Tam hesaplama yöntemine göre tüm karşı taraflar için KDA riskine ilişkin sermaye yükümlülüğünü,\n"
+    },
+    {
+      "start": 16214,
+      "end": 16227,
+      "old": "YRD veya DNB\n",
+      "new": "b)  $KDA^{ind}$ : İndirgenmiş hesaplama yöntemine göre tüm karşı taraflar için bulunan, KDA riskine ilişkin sermaye yükümlülüğünü,\n"
+    },
+    {
+      "start": 16228,
+      "end": 16245,
+      "old": "Risk Ağırlıkları\n",
+      "new": "c)  $\\beta$ : Korunma etkisini gösteren 0,25 katsayısını, ifade etmek üzere aşağıdaki formül yoluyla hesaplanır:\n"
+    },
+    {
+      "start": 16246,
+      "end": 16786,
+      "old": "Merkezi yönetimler, merkez bankaları, çok taraflı\nkalkınma bankaları ile uluslararası kuruluşlar\nYerel ve bölgesel yönetimler, devlet destekli\nfinansal olmayan kuruluşlar, eğitim kuruluşları\nve kamu kuruluşları\nDevlet destekli bankalar ve finansal kuruluşlar\nTemel malzemeler, enerji, sanayi ürünleri, tarım,\nimalat, madencilik ve taş ocakçılığı\nTüketim malları ve hizmetleri, ulaştırma ve\ndepolama, idari ve destek hizmet faaliyetleri\nTeknoloji, telekomünikasyon\nSağlık hizmeti, kamu hizmetleri, mesleki ve\nteknik faaliyetler\nDiğer sektör\n",
+      "new": "$$KDA^{tam} = \\beta * KDA^{ind} + (1 - \\beta) * KDA^{koruma}$$\n"
+    },
+    {
+      "start": 16787,
+      "end": 16792,
+      "old": "%0,5\n",
+      "new": "(2)  $KDA^{tam}$  hesaplamasında yer alan  $KDA^{koruma}$  değeri;\n"
+    },
+    {
+      "start": 16793,
+      "end": 16798,
+      "old": "%1,0\n",
+      "new": "a)  $KDA_c$ : “c” karşı tarafı bazında ve bu karşı tarafla yapılmış olan netleştirme grupları dikkate alınarak hesaplanan KDA riskine ilişkin sermaye yükümlülüğünü,\n"
+    },
+    {
+      "start": 16799,
+      "end": 16809,
+      "old": "%5,0\n%3,0\n",
+      "new": "b)  $SNH_c$ : Kredi faiz farkı riskine ilişkin kullanılan tek isimli riskten korunma araçlarının karşı taraf “c”nin KDA riskinde yol açtığı azalma tutarını,\n"
+    },
+    {
+      "start": 16810,
+      "end": 16815,
+      "old": "%3,0\n",
+      "new": "c)  $IH$ : Kullanılan endeks riskten korunma araçlarının tüm karşı tarafların KDA riskinde yol açtığı azalma tutarını,\n"
+    },
+    {
+      "start": 16816,
+      "end": 16826,
+      "old": "%2,0\n%1,5\n",
+      "new": "ç)  $HMA_c$ : Bir finansal araçtan kaynaklı bir riskten korunmak için doğrudan aynı finansal aracı kullanmak yerine dolaylı riskten korunma araçlarının kullanıldığı durumlarda, dolaylı riskten korunma araçlarının karşı tarafın kredi faiz farkındaki hareketlere karşı tam olarak koruma sağlama kabiliyeti bulunmadığından, bunların sermaye yükümlülüğünü azaltıcı etkisini sınırlamak için oluşturulmuş riskten korunma uyumsuzluğunu nitelendiren tutarı,\n"
+    },
+    {
+      "start": 16827,
+      "end": 19346,
+      "old": "%5,0\n\n%2,0\n\n%4,0\n\n%12,0\n%7,0\n\n%8,5\n\n%5,5\n%5,0\n\n%12,0\n\nTam hesaplama yöntemi\nMADDE 11- (1) Tam hesaplama yönteminde, tüm karşı taraflar için KDA riskine ilişkin\n\nsermaye yükümlülüğü;\n\na) KDAtam: Tam hesaplama yöntemine göre tüm karşı taraflar için KDA riskine ilişkin\n\nsermaye yükümlülüğünü,\n\nb) KDAind: İndirgenmiş hesaplama yöntemine göre tüm karşı taraflar için bulunan, KDA\n\nriskine ilişkin sermaye yükümlülüğünü,\n\nc) β: Korunma etkisini gösteren 0,25 katsayısını,\nifade etmek üzere aşağıdaki formül yoluyla hesaplanır:\n\n*+,\n\n()()()\n\n/012,+\n\n()()()\n\n= - ∗ ()()()\n\n+ (1 − -) ∗ ()()()\n\n(2) KDAtam hesaplamasında yer alan KDAkoruma değeri;\na) KDAc: “c” karşı tarafı bazında ve bu karşı tarafla yapılmış olan netleştirme grupları\n\ndikkate alınarak hesaplanan KDA riskine ilişkin sermaye yükümlülüğünü,\n\nb) SNHc: Kredi faiz farkı riskine ilişkin kullanılan tek isimli riskten korunma araçlarının\n\nkarşı taraf “c”nin KDA riskinde yol açtığı azalma tutarını,\n\nc) IH: Kullanılan endeks riskten korunma araçlarının tüm karşı tarafların KDA riskinde\n\nyol açtığı azalma tutarını,\n\nç) HMAc: Bir finansal araçtan kaynaklı bir riskten korunmak için doğrudan aynı finansal\naracı  kullanmak  yerine  dolaylı  riskten  korunma  araçlarının  kullanıldığı  durumlarda,  dolaylı\nriskten  korunma  araçlarının  karşı  tarafın  kredi  faiz  farkındaki  hareketlere  karşı  tam  olarak\n\nkoruma sağlama kabiliyeti bulunmadığından, bunların sermaye yükümlülüğünü azaltıcı etkisini\nsınırlamak için oluşturulmuş riskten korunma uyumsuzluğunu nitelendiren tutarı,\n\nd) ρ: 0,5 değerinde olan korelasyon parametresini,\ne) ISKDA: 0,65 değerinde olan iskonto oranını,\nifade etmek üzere aşağıdaki formülle hesaplanır:\n\n Formülü\n\n6789:;\n\n345\n\n()\n\n/012,+\n\n()()()\n\n= ()()()()() ∙ ()<() ∙ ()(()()()() − ()=>()) − ()>\n\n()\n\n?\n\n+ (1 − ()\n\n()\n\n) ∙ ()(()()()() − ()=>())\n\n()\n\n()\n\n+ () >()()()\n\n()\n\n(3) KDAkoruma formülünde yer alan SNHc değeri;\na) h: Belirli bir karşı taraf için dikkate alınan tüm tek isimli riskten korunma aracını,\nb)  rhc:  Karşı  taraf  “c”nin  kredi  faiz  farkı  ile  karşı  taraf  “c”  için  kullanılan  riskten\nkorunma aracı “h”nin kredi faiz farkı arasındaki aşağıdaki tabloya göre belirlenen korelasyon\nfaktörünü,\nc)\nç)\nd)\ne)\n\n: Riskten korunma aracı “h”nin kalan vadesini,\n: Riskten korunma aracı “h”nin nominal değerini,\n: Riskten korunma aracı “h” için uygulanacak iskonto faktörünü,\n: Riskten korunma aracı “h”nin 10 uncu maddenin üçüncü fıkrasının (c) bendinde\n\n()()\n\n()()\n\nyer alan tablo uyarınca belirlenen risk ağırlığını,\n",
+      "new": "- d)  $\\rho$ : 0,5 değerinde olan korelasyon parametresini,\n- e)  $IS_{KDA}$ : 0,65 değerinde olan iskonto oranını,\n"
+    },
+    {
+      "start": 19397,
+      "end": 19421,
+      "old": "()@\n()()\nA@\n()()@\n()()@\n",
+      "new": "**$KDA^{koruma}$ Formülü**\n"
+    },
+    {
+      "start": 19422,
+      "end": 19490,
+      "old": "Tek İsimli Riskten Korunma Araçlarının Riski Azaltım Etkisi Formülü\n",
+      "new": "$$KDA^{koruma} = IS_{KDA} \\cdot \\sqrt{\\left[ \\rho \\cdot \\sum_c (KDA_c - SNH_c) - IH \\right]^2 + (1 - \\rho^2) \\cdot \\sum_c (KDA_c - SNH_c)^2 + \\sum_c HMA_c}$$\n"
+    },
+    {
+      "start": 19491,
+      "end": 19523,
+      "old": "()=>() = () B@() ∙ ()()@ ∙\n@∈()\n",
+      "new": "(3)  $KDA^{koruma}$  formülünde yer alan  $SNH_c$  değeri;\n"
+    },
+    {
+      "start": 19524,
+      "end": 19529,
+      "old": "()()\n",
+      "new": "a)  $h$ : Belirli bir karşı taraf için dikkate alınan tüm tek isimli riskten korunma aracını,  \nb)  $r_{hc}$ : Karşı taraf “c”nin kredi faiz farkı ile karşı taraf “c” için kullanılan riskten korunma aracı “h”nin kredi faiz farkı arasındaki aşağıdaki tabloya göre belirlenen korelasyon faktörünü,\n"
+    },
+    {
+      "start": 19530,
+      "end": 19534,
+      "old": "()@\n",
+      "new": "- c)  $M_h^{SN}$ : Riskten korunma aracı “h”nin kalan vadesini,\n- ç)  $B_h^{SN}$ : Riskten korunma aracı “h”nin nominal değerini,\n- d)  $IS_h^{SN}$ : Riskten korunma aracı “h” için uygulanacak iskonto faktörünü,\n- e)  $RA_h$ : Riskten korunma aracı “h”nin 10 uncu maddenin üçüncü fıkrasının (c) bendinde yer alan tablo uyarınca belirlenen risk ağırlığını,\n"
+    },
+    {
+      "start": 19535,
+      "end": 19540,
+      "old": "()()\n",
+      "new": "ifade etmek üzere aşağıdaki formülle hesaplanır:\n"
+    },
+    {
+      "start": 19541,
+      "end": 19546,
+      "old": "∙ A@\n",
+      "new": "#### Tek İsimli Riskten Korunma Araçlarının Riski Azaltım Etkisi Formülü\n"
+    },
+    {
+      "start": 19547,
+      "end": 19552,
+      "old": "()()\n",
+      "new": "$$SNH_c = \\sum_{h \\in c} r_{hc} \\cdot RA_h \\cdot M_h^{SN} \\cdot B_h^{SN} \\cdot IS_h^{SN}$$\n"
+    },
+    {
+      "start": 19553,
+      "end": 19561,
+      "old": "∙ ()()@\n",
+      "new": "**Tablo 2:  $r_{hc}$  Korelasyon Faktörü**\n"
+    },
+    {
+      "start": 19562,
+      "end": 19651,
+      "old": "Tablo 2: rhc Korelasyon Faktörü\nKarşı taraf “c”nin tek isimli riskten korunma aracı “h”;\n",
+      "new": "| Karşı taraf “c”nin tek isimli riskten korunma aracı “h”; | $r_{hc}$’nin değeri |\n| --- | --- |\n| Karşı taraf “c”ye doğrudan referansta bulunuyor ise | %100 |\n| Karşı taraf “c” ile ilişkili kuruluş ise | %80 |\n| Karşı taraf “c” ile aynı sektörde ve coğrafi bölgede bulunuyor ise | %50 |\n"
+    },
+    {
+      "start": 19652,
+      "end": 19812,
+      "old": "Karşı taraf “c”ye doğrudan referansta bulunuyor ise\nKarşı taraf “c” ile ilişkili kuruluş ise\nKarşı taraf “c” ile aynı sektörde ve coğrafi bölgede bulunuyor ise\n",
+      "new": "(4)  $KDA^{koruma}$  hesaplamasında yer alan  $IH$  değeri;\n"
+    },
+    {
+      "start": 19813,
+      "end": 19841,
+      "old": "rhc’nin değeri\n%100\n%80\n%50\n",
+      "new": "- a)  $i$ : Tüm karşı taraflar için dikkate alınan endeks riskten korunma aracını,\n- b)  $M_i^{ind}$ : Endeks riskten korunma aracının vadesini,\n- c)  $B_i^{ind}$ : Endeks riskten korunma aracının nominal değerini,\n- ç)  $IS_i^{ind}$ : Endeks riskten korunma aracı için uygulanacak iskonto faktörünü,\n- d)  $RA_i^{ind}$ : Endeks riskten korunma aracının risk ağırlığını,\n"
+    },
+    {
+      "start": 19842,
+      "end": 19988,
+      "old": "()()()\n\n(4) KDAkoruma hesaplamasında yer alan IH değeri;\na) i: Tüm karşı taraflar için dikkate alınan endeks riskten korunma aracını,\nb)\nc)\nç)\nd)\n",
+      "new": ""
+    },
+    {
+      "start": 20037,
+      "end": 20251,
+      "old": ": Endeks riskten korunma aracının vadesini,\n: Endeks riskten korunma aracının nominal değerini,\n: Endeks riskten korunma aracı için uygulanacak iskonto faktörünü,\n: Endeks riskten korunma aracının risk ağırlığını,\n",
+      "new": "$$IH = \\sum_i RA_i^{ind} \\cdot M_i^{ind} \\cdot B_i^{ind} \\cdot IS_i^{ind}$$\n"
+    },
+    {
+      "start": 20252,
+      "end": 20259,
+      "old": "()()()\n",
+      "new": "(5) Dördüncü fıkradaki formülde yer alan  $RA_i^{ind}$ , tüm endeks bileşenlerinin sektör ve kredi kalitesi grubu kombinasyonuna dayalı olarak;\n"
+    },
+    {
+      "start": 20260,
+      "end": 20267,
+      "old": "()()()\n",
+      "new": "a) Tüm endeks bileşenlerinin aynı sektöre ve aynı kredi kalitesi grubuna ait olduğu durumda, 10 uncu maddenin üçüncü fıkrasının (c) bendinde yer alan tabloya göre belirlenen risk ağırlığı, 0,7 ile çarpılmak suretiyle,\n"
+    },
+    {
+      "start": 20268,
+      "end": 20275,
+      "old": "()()()\n",
+      "new": "b) Tüm endeks bileşenlerinin aynı sektöre veya aynı kredi kalitesi grubuna ait olmadığı durumda ise, 10 uncu maddenin üçüncü fıkrasının (c) bendinde yer alan tabloya göre belirlenen tüm endeks bileşenlerinin risk ağırlıklarının ağırlıklı ortalamasının 0,7 ile çarpılması suretiyle, hesaplanır.\n"
+    },
+    {
+      "start": 20276,
+      "end": 20299,
+      "old": "()()\nA()\n()()()\n()()()\n",
+      "new": "(6)  $KDA^{koruma}$  formülünde yer alan  $HMA_c$  değeri ve üçüncü fıkrada ve  $HMA_c$  değeri formülünde geçen  $IS_h^{SN}$  iskonto faktörü ile dördüncü fıkrada geçen  $IS_i^{ind}$  iskonto faktörü aşağıdaki şekilde hesaplanır:\n"
+    },
+    {
+      "start": 20300,
+      "end": 20307,
+      "old": "()()()\n",
+      "new": "$$HMA_c = \\sum_{h \\in c} (1 - r_{hc}^2) \\cdot (RA_h \\cdot M_h^{SN} \\cdot B_h^{SN} \\cdot IS_h^{SN})^2$$\n$$IS_h^{SN} = \\frac{(1 - e^{-0,05 \\cdot M_h^{SN}})}{0,05 \\cdot M_h^{SN}}$$\n$$IS_i^{ind} = \\frac{(1 - e^{-0,05 \\cdot M_i^{ind}})}{0,05 \\cdot M_i^{ind}}$$\n"
+    },
+    {
+      "start": 20308,
+      "end": 20327,
+      "old": "()> = () ()()()\n()\n",
+      "new": "## ÜÇÜNCÜ KISIM\n"
+    },
+    {
+      "start": 20328,
+      "end": 20335,
+      "old": "()()()\n",
+      "new": "### Standart Yaklaşım Yöntemi\n"
+    },
+    {
+      "start": 20336,
+      "end": 20341,
+      "old": "()()\n",
+      "new": "## BİRİNCİ BÖLÜM\n"
+    },
+    {
+      "start": 20342,
+      "end": 20344,
+      "old": "∙\n",
+      "new": "### Standart Yaklaşım Yönteminin Kullanımına İlişkin Esaslar ve Sermaye Yükümlülüğünün Hesaplanması\n"
+    },
+    {
+      "start": 20345,
+      "end": 20352,
+      "old": "()()()\n",
+      "new": "#### Standart yaklaşım yönteminin kullanımına ilişkin esaslar\n"
+    },
+    {
+      "start": 20353,
+      "end": 20359,
+      "old": "∙ A()\n",
+      "new": "**MADDE 12** – (1) KDA riskine esas tutarın standart yaklaşım yöntemi ile hesaplanması için Kurumdan izin alınması şarttır. Bu iznin verilmesinde aşağıdaki şartlara uygunluk aranır:\n"
+    },
+    {
+      "start": 20360,
+      "end": 20367,
+      "old": "()()()\n",
+      "new": "a) Bankanın KDA riskinin yönetimine ilişkin usul ve esaslar çerçevesinde bu riski doğuran işlemlerin yönetilmesinden ve gerekmesi halinde KDA riskine karşı koruma sağlanmasından sorumlu masa veya birim gibi bir yapı kurmuş olması.\n"
+    },
+    {
+      "start": 20368,
+      "end": 20377,
+      "old": "∙ ()()()\n",
+      "new": "b) Bankanın karşı taraf bazında, KDA risk tutarını modelleyebilme ve KDA ile bu kısmın Üçüncü Bölümünde belirtilen piyasa risk faktörlerine olan duyarlılıkları asgari aylık sıklıkta hesaplayabilme kabiliyetine sahip olması.\n"
+    },
+    {
+      "start": 20378,
+      "end": 20419,
+      "old": "(5) Dördüncü fıkradaki formülde yer alan\n",
+      "new": "c) Bankanın, belirlenmiş standart hesaplama ve raporlama tarihlerine ilave olarak, Kurumun talep etmesi halinde KDA riskine esas tutarı hesaplayabilme kabiliyetine sahip olması.\n"
+    },
+    {
+      "start": 20420,
+      "end": 20458,
+      "old": ", tüm endeks bileşenlerinin sektör ve\n",
+      "new": "(2) Standart yaklaşım yöntemi kullanan bankalar, netleştirme gruplarından kendi ihtiyarlarına bağlı olarak seçecekleri bazılarını bu yöntemin dışında tutabilir. Standart yaklaşım yöntemi dışında tutulan işlemler için KDA riskine esas tutar temel yaklaşım yöntemi ile hesaplanır. Standart yaklaşım kullanan bankalar istemeleri halinde bir netleştirme grubunu standart yaklaşım yöntemine tabi olacaklar ve temel yaklaşım yöntemine tabi olacaklar şeklinde iki sentetik gruba ayırabilir. Bu uygulamadan yararlanılabilmesi için aşağıda yer alan kriterlerden en az birinin varlığı şarttır:\n"
+    },
+    {
+      "start": 20459,
+      "end": 20510,
+      "old": "kredi kalitesi grubu kombinasyonuna dayalı olarak;\n",
+      "new": "a) Sentetik netleştirme gruplarının muhasebesel KDA hesaplamasında kullanılan netleştirme grubu uygulamasıyla uyumlu bir şekilde oluşturulması,\n"
+    },
+    {
+      "start": 20511,
+      "end": 20518,
+      "old": "()()()\n",
+      "new": "b) Standart yaklaşım yönteminin kullanılmasına ilişkin Kurum tarafından verilen iznin sınırlı olması ve bu yaklaşımın dışarıda tutulmak istenen netleştirme grubundaki tüm işlemleri kapsamaması.\n"
+    },
+    {
+      "start": 20519,
+      "end": 20526,
+      "old": "()()()\n",
+      "new": "(3) İkinci fıkra çerçevesinde netleştirme gruplarından bazılarını tamamen veya kısmen standart yaklaşım yöntemi dışında tutan bankalar, bu uygulamayı tutarlı bir şekilde sürekli olarak yapmak ve bunu sağlayacak uygulamaları yazılı hale getirmek zorundadır.\n"
+    },
+    {
+      "start": 20527,
+      "end": 20757,
+      "old": "a)  Tüm  endeks  bileşenlerinin  aynı  sektöre  ve  aynı  kredi  kalitesi  grubuna  ait  olduğu\ndurumda, 10 uncu maddenin üçüncü fıkrasının (c) bendinde yer alan tabloya göre belirlenen\nrisk ağırlığı, 0,7 ile çarpılmak suretiyle,\n",
+      "new": "### **KDA hesaplamalarında niceliksel standartlar**\n"
+    },
+    {
+      "start": 20758,
+      "end": 21040,
+      "old": "b) Tüm endeks bileşenlerinin aynı sektöre veya aynı kredi kalitesi grubuna ait olmadığı\ndurumda ise, 10 uncu maddenin üçüncü fıkrasının (c) bendinde yer alan tabloya göre belirlenen\ntüm endeks bileşenlerinin risk ağırlıklarının ağırlıklı ortalamasının 0,7 ile çarpılması suretiyle,\n",
+      "new": "**MADDE 13** – (1) Banka KDA riski kapsamına giren araç veya işlemi bulunan her bir karşı taraf için standart yaklaşım yöntemi kapsamında KDA hesaplar. KDA riskine esas tutarın standart yaklaşımla ölçülmesinde KDA hesaplamalarının aşağıdaki niceliksel standartlar çerçevesinde gerçekleştirilmesi zorunludur:\n"
+    },
+    {
+      "start": 21041,
+      "end": 24642,
+      "old": "  değeri  ve  üçüncü  fıkrada  ve\n\n  değeri\n  iskonto  faktörü\n\n>()()()\n\nhesaplanır.\n(6)  KDAkoruma formülünde yer  alan\n\nformülünde  geçen\naşağıdaki şekilde hesaplanır:\n\n()()\n\n()()@\n\n  iskonto  faktörü  ile  dördüncü  fıkrada  geçen\n>()()()\n\n()()()\n\n()()()\n\n()\n>()()() = ()(1 − B@()\n@∈()\n\n)\n\n()()\n\n∙ (()()@ ∙ ()@\n\n()()\n\n∙ A@\n\n()()\n\n∙ ()()@\n\n()\n\n)\n\n()()\n\n()()@\n\n=\n\n()()()\n\n()()()\n\n=\n\nD1 −\n\n'&\n\n!\",\"$∙%E\n\nF\n\n()()\n\n0,05 ∙ ()@\n\nGHI\n\n!\",\"$∙%G\n\nD1 −\n\nF\n\n()()()\n\n0,05 ∙ ()()\n\nÜÇÜNCÜ KISIM\nStandart Yaklaşım Yöntemi\n\nBİRİNCİ BÖLÜM\nStandart Yaklaşım Yönteminin Kullanımına İlişkin Esaslar ve Sermaye\nYükümlülüğünün Hesaplanması\n\nStandart yaklaşım yönteminin kullanımına ilişkin esaslar\nMADDE 12 – (1) KDA riskine esas tutarın standart yaklaşım yöntemi ile hesaplanması\niçin Kurumdan izin alınması şarttır. Bu iznin verilmesinde aşağıdaki şartlara uygunluk aranır:\na)  Bankanın  KDA  riskinin  yönetimine  ilişkin  usul  ve  esaslar  çerçevesinde  bu  riski\ndoğuran  işlemlerin  yönetilmesinden  ve  gerekmesi  halinde  KDA  riskine  karşı  koruma\nsağlanmasından sorumlu masa veya birim gibi bir yapı kurmuş olması.\n\nb) Bankanın karşı taraf bazında, KDA risk tutarını modelleyebilme ve KDA ile bu kısmın\nÜçüncü Bölümünde belirtilen piyasa risk faktörlerine olan duyarlılıkları  asgari aylık sıklıkta\nhesaplayabilme kabiliyetine sahip olması.\n\nc)  Bankanın,  belirlenmiş  standart  hesaplama  ve  raporlama  tarihlerine  ilave  olarak,\nKurumun  talep  etmesi  halinde  KDA  riskine  esas  tutarı  hesaplayabilme  kabiliyetine  sahip\nolması.\n\n(2)  Standart  yaklaşım  yöntemi  kullanan  bankalar,  netleştirme  gruplarından  kendi\nihtiyarlarına bağlı olarak seçecekleri bazılarını bu yöntemin dışında tutabilir. Standart yaklaşım\nyöntemi  dışında  tutulan  işlemler  için  KDA  riskine  esas  tutar  temel  yaklaşım  yöntemi  ile\nhesaplanır.  Standart  yaklaşım  kullanan  bankalar  istemeleri  halinde  bir  netleştirme  grubunu\nstandart yaklaşım yöntemine tabi olacaklar ve temel yaklaşım yöntemine tabi olacaklar şeklinde\niki  sentetik  gruba  ayırabilir.  Bu  uygulamadan  yararlanılabilmesi  için  aşağıda  yer  alan\nkriterlerden en az birinin varlığı şarttır:\n\na)  Sentetik  netleştirme  gruplarının  muhasebesel  KDA  hesaplamasında  kullanılan\n\nnetleştirme grubu uygulamasıyla uyumlu bir şekilde oluşturulması,\n\nb) Standart yaklaşım yönteminin kullanılmasına ilişkin Kurum tarafından verilen iznin\nsınırlı olması ve bu yaklaşımın dışarıda tutulmak istenen netleştirme grubundaki tüm işlemleri\nkapsamaması.\n\n(3)  İkinci  fıkra  çerçevesinde  netleştirme  gruplarından  bazılarını  tamamen veya  kısmen\nstandart  yaklaşım  yöntemi  dışında  tutan  bankalar,  bu  uygulamayı  tutarlı  bir  şekilde  sürekli\nolarak yapmak ve bunu sağlayacak uygulamaları yazılı hale getirmek zorundadır.\n\nKDA hesaplamalarında niceliksel standartlar\nMADDE 13 – (1) Banka KDA riski kapsamına giren araç veya işlemi bulunan her bir\nkarşı taraf için standart yaklaşım yöntemi kapsamında KDA hesaplar. KDA riskine esas tutarın\nstandart  yaklaşımla  ölçülmesinde  KDA  hesaplamalarının  aşağıdaki  niceliksel  standartlar\nçerçevesinde gerçekleştirilmesi zorunludur:\n\na) KDA bankanın kendisinin temerrüt riskinden  ari olduğu varsayımıyla, KDA riskine\ntabi  işlemlerden  kaynaklı  karşı  tarafın  temerrüdü  nedeniyle  bankanın  gelecekte  maruz\nkalabileceği  beklenen  zararlar  olarak  hesaplanır.  Bu  hesaplama  sonucu  çıkan  negatif  KDA,\nsermaye  yükümlülüğü  hesaplamalarında  mutlak  değeri  üzerinden  dikkate  alınır.  Toplam\nKDA'nın bir risk faktörüne karşı ağırlıklandırılmış duyarlılığı pozitif olarak dikkate alınır.\n",
+      "new": "a) KDA bankanın kendisinin temerrüt riskinden ari olduğu varsayımıyla, KDA riskine tabi işlemlerden kaynaklı karşı tarafın temerrüdü nedeniyle bankanın gelecekte maruz kalabileceği beklenen zararlar olarak hesaplanır. Bu hesaplama sonucu çıkan negatif KDA, sermaye yükümlülüğü hesaplamalarında mutlak değeri üzerinden dikkate alınır. Toplam KDA'nın bir risk faktörüne karşı ağırlıklandırılmış duyarlılığı pozitif olarak dikkate alınır.\n"
+    },
+    {
+      "start": 24705,
+      "end": 24989,
+      "old": "1)  Finansal  piyasalardaki  kredi  temerrüt  swabı  primleri  gibi  mevcut  fiyatlardan  yola\nçıkarak ve tahmine dayalı olarak bir borçlunun belirli bir zaman dilimi içinde yükümlülüklerini\nyerine getirememe ihtimalinin türetildiği piyasaya dayalı temerrüt olasılığının vade yapısı,\n",
+      "new": ""
+    },
+    {
+      "start": 24990,
+      "end": 25198,
+      "old": "2)  Piyasada  işlem  gören  şirket  tahvilleri,  kredi  temerrüt  swapları  gibi  kredi  riskini\nyansıtan araçların fiyatlarının analizinden hareketle bulunan piyasaya dayalı beklenen temerrüt\nhalinde kayıp,\n",
+      "new": "1) Finansal piyasalardaki kredi temerrüt swabı primleri gibi mevcut fiyatlardan yola çıkarak ve tahmine dayalı olarak bir borçlunun belirli bir zaman dilimi içinde yükümlülüklerini yerine getirememe ihtimalinin türetildiği piyasaya dayalı temerrüt olasılığının vade yapısı,\n\n2) Piyasada işlem gören şirket tahvilleri, kredi temerrüt swapları gibi kredi riskini yansıtan araçların fiyatlarının analizinden hareketle bulunan piyasaya dayalı beklenen temerrüt halinde kayıp,\n"
+    },
+    {
+      "start": 25269,
+      "end": 25577,
+      "old": "c) Piyasaya dayalı temerrüt olasılığının vade yapısı, piyasalarda gözlemlenen kredi faiz\nfarklarından tahmin edilir. Kredisi aktif olarak işlem görmeyen, likit olmayan karşı tarafların\npiyasaya  dayalı  temerrüt  olasılığı  aşağıdaki  esaslara  göre  temsili  kredi  faiz  farkları\ntahminlerinden türetilir:\n",
+      "new": ""
+    },
+    {
+      "start": 25578,
+      "end": 25863,
+      "old": "1) Likit olmayan karşı tarafların kredi faiz farkı eğrileri; asgari olarak kredi kalitesi, sektör\nve bölge değişkenlerine göre ayrıştırma yapan bir algoritma aracılığıyla bu karşı tarafların likit\nemsal karşı tarafların piyasalarında gözlemlenen kredi faiz farklarından tahmin edilir.\n",
+      "new": "c) Piyasaya dayalı temerrüt olasılığının vade yapısı, piyasalarda gözlemlenen kredi faiz farklarından tahmin edilir. Kredisi aktif olarak işlem görmeyen, likit olmayan karşı tarafların piyasaya dayalı temerrüt olasılığı aşağıdaki esaslara göre temsili kredi faiz farkları tahminlerinden türetilir:\n"
+    },
+    {
+      "start": 25864,
+      "end": 26249,
+      "old": "2) Belirli durumlarda, yerel bir yönetimin kredi faiz farkının ait olduğu merkezi yönetimin\nkredi faiz farkına ilave bir primin eklenerek eşlenmesi gibi, likit olmayan bir karşı taraf tek bir\nlikit referans borçluya eşlenebilir. Likit olmayan bir karşı tarafın tek bir likit referans borçluya\neşlendiği tüm durumlar, eşlemede esas alınan gerekçeleriyle birlikte kayıt altında tutulur.\n",
+      "new": "1) Likit olmayan karşı tarafların kredi faiz farkı eğrileri; asgari olarak kredi kalitesi, sektör ve bölge değişkenlerine göre ayrıştırma yapan bir algoritma aracılığıyla bu karşı tarafların likit emsal karşı tarafların piyasalarında gözlemlenen kredi faiz farklarından tahmin edilir.\n"
+    },
+    {
+      "start": 26250,
+      "end": 26665,
+      "old": "3) Emsal bir karşı tarafın kredi faiz farklarının mevcut olmadığı durumda, likit olmayan\nbir  karşı  taraf  için  temsili  faiz  farkının  belirlenmesinde  daha  temel  bir  kredi  riski  analizi\nkullanılabilir.  Bu  tür  bir  değerlendirmede  tarihsel  temerrüt  olasılıkları  kullanıldığında,  kredi\nfaiz  farkı  tahmininde  bu  temerrüt  olasılıklarının  yanında  kredi  piyasalarındaki  veriler  de\nkullanılır.\n",
+      "new": "2) Belirli durumlarda, yerel bir yönetimin kredi faiz farkının ait olduğu merkezi yönetimin kredi faiz farkına ilave bir primin eklenerek eşlenmesi gibi, likit olmayan bir karşı taraf tek bir likit referans borçluya eşlenebilir. Likit olmayan bir karşı tarafın tek bir likit referans borçluya eşlendiği tüm durumlar, eşlemede esas alınan gerekçeleriyle birlikte kayıt altında tutulur.\n"
+    },
+    {
+      "start": 26666,
+      "end": 27238,
+      "old": "ç)  KDA’ya  tabi  işlemlerden  kaynaklanan  alacaklara  ilişkin  öncelik  hakkının,  öncelikli\nalacak hakkı olan teminatsız tahvillerin öncelik hakkından farklı olduğu kanıtlanmadığı sürece;\npiyasaya  dayalı  beklenen  temerrüt  halinde  kayıp  değeri  olarak,  kredi  faiz  farklarından  cari\npiyasa fiyatının ima ettiği temerrüt olasılığı olan risk-nötr (riskten bağımsız) temerrüt olasılığını\nhesaplamak için kullanılan beklenen temerrüt halinde kayıp değeri dikkate alınır. Karşı taraftan\nalınan teminat karşı taraftan olan riskin alacak hakkı önceliğini değiştirmez.\n",
+      "new": "3) Emsal bir karşı tarafın kredi faiz farklarının mevcut olmadığı durumda, likit olmayan bir karşı taraf için temsili faiz farkının belirlenmesinde daha temel bir kredi riski analizi kullanılabilir. Bu tür bir değerlendirmede tarihsel temerrüt olasılıkları kullanıldığında, kredi faiz farkı tahmininde bu temerrüt olasılıklarının yanında kredi piyasalarındaki veriler de kullanılır.\n"
+    },
+    {
+      "start": 27239,
+      "end": 27534,
+      "old": "d)  İskonto  edilmiş  gelecekteki  risk  tutarının  simüle  edilmiş  yolları,  gelecekteki  risk\ntutarının simüle edilmiş yolları boyunca oluşan fiyatlar ve yol üzerindeki risksiz faiz oranları\nkullanılarak  bu  fiyatların  hesaplama  tarihine  iskonto  edilmesiyle  bulunur.  Gelecekteki  risk\n",
+      "new": "ç) KDA'ya tabi işlemlerden kaynaklanan alacaklara ilişkin öncelik hakkının, öncelikli alacak hakkı olan teminatsız tahvillerin öncelik hakkından farklı olduğu kanıtlanmadığı sürece; piyasaya dayalı beklenen temerrüt halinde kayıp değeri olarak, kredi faiz farklarından cari piyasa fiyatının ima ettiği temerrüt olasılığı olan risk-nötr (riskten bağımsız) temerrüt olasılığını hesaplamak için kullanılan beklenen temerrüt halinde kayıp değeri dikkate alınır. Karşı taraftan alınan teminat karşı taraftan olan riskin alacak hakkı önceliğini değiştirmez.\n"
+    },
+    {
+      "start": 27535,
+      "end": 28024,
+      "old": "tutarının simüle edilmiş yolları ise karşı tarafla yapılan tüm türev işlemlerin vadelerine kadar\nolan  dönem  içerisinde  oluşturulacak  zaman  noktaları  kümesi  kapsamında  her  bir  zaman\nnoktasındaki fiyatları temsil eder. Her bir zaman noktasındaki fiyat o zaman noktasındaki faiz\noranları,  döviz  kurları,  emtia  fiyatları,  hisse  senedi  fiyatları,  volatilite  gibi  ilgili  piyasa  risk\nfaktörlerinin olası farklı gelişimlerini temsil eden senaryo uygulamak suretiyle bulunur.\n",
+      "new": "d) İskonto edilmiş gelecekteki risk tutarının simüle edilmiş yolları, gelecekteki risk tutarının simüle edilmiş yolları boyunca oluşan fiyatlar ve yol üzerindeki risksiz faiz oranları kullanılarak bu fiyatların hesaplama tarihine iskonto edilmesiyle bulunur. Gelecekteki risk tutarının simüle edilmiş yolları ise karşı tarafla yapılan tüm türev işlemlerin vadelerine kadar olan dönem içerisinde oluşturulacak zaman noktaları kümesi kapsamında her bir zaman noktasındaki fiyatları temsil eder. Her bir zaman noktasındaki fiyat o zaman noktasındaki faiz oranları, döviz kurları, emtia fiyatları, hisse senedi fiyatları, volatilite gibi ilgili piyasa risk faktörlerinin olası farklı gelişimlerini temsil eden senaryo uygulamak suretiyle bulunur.\n"
+    },
+    {
+      "start": 28025,
+      "end": 28277,
+      "old": "e)  Karşı  tarafla  yapılan  işlemler  için  önemli  olan  tüm  piyasa  risk  faktörleri,  en  uzun\nişlemin vadesine kadar uzanan uygun bir gelecekteki zaman noktaları kümesinde tanımlanan\nuygun sayıda yol için stokastik süreçler olarak simüle edilir.\n",
+      "new": "e) Karşı tarafla yapılan işlemler için önemli olan tüm piyasa risk faktörleri, en uzun işlemin vadesine kadar uzanan uygun bir gelecekteki zaman noktaları kümesinde tanımlanan uygun sayıda yol için stokastik süreçler olarak simüle edilir.\n"
+    },
+    {
+      "start": 28278,
+      "end": 28369,
+      "old": "f) Risk tutarı ile karşı tarafın kredi kalitesi arasında önemli düzeyde bağımlılık bulunan\n",
+      "new": "f) Risk tutarı ile karşı tarafın kredi kalitesi arasında önemli düzeyde bağımlılık bulunan işlemler açısından bu bağımlılık dikkate alınır.\n"
+    },
+    {
+      "start": 28370,
+      "end": 28419,
+      "old": "işlemler açısından bu bağımlılık dikkate alınır.\n",
+      "new": "g) Marjlı işlemlerde karşı taraflardan alınan teminatın risk azaltıcı unsur olarak dikkate alınabilmesi için;\n"
+    },
+    {
+      "start": 28420,
+      "end": 28511,
+      "old": "g) Marjlı işlemlerde karşı taraflardan alınan teminatın risk azaltıcı unsur olarak dikkate\n",
+      "new": "1) Karşı taraf kredi riskine esas tutarı içsel model yaklaşımı ile hesaplayan bankalarda marjlı işlemlere ilişkin teminat yönetimine yönelik aranan şartların sağlanması,\n"
+    },
+    {
+      "start": 28512,
+      "end": 28970,
+      "old": "alınabilmesi için;\n\n1) Karşı taraf kredi riskine esas tutarı içsel model yaklaşımı ile hesaplayan bankalarda\n\nmarjlı işlemlere ilişkin teminat yönetimine yönelik aranan şartların sağlanması,\n\n2) Teminatlandırılmış işlemlerde kullanılan tüm belgelerin tüm taraflar için bağlayıcı ve\nilgili tüm ülkelerde yasal olarak uygulanabilir olması, teminatın bağlayıcılığının ve yasal olarak\nuygulanabilirliğinin ve devamlılığının yeterli incelemelerle teyit edilmesi,\n",
+      "new": "2) Teminatlandırılmış işlemlerde kullanılan tüm belgelerin tüm taraflar için bağlayıcı ve ilgili tüm ülkelerde yasal olarak uygulanabilir olması, teminatın bağlayıcılığının ve yasal olarak uygulanabilirliğinin devamlılığının yeterli incelemelerle teyit edilmesi,\n"
+    },
+    {
+      "start": 28980,
+      "end": 30148,
+      "old": "ğ) Marjlı işlemlerdeki karşı taraflar için, iskonto edilmiş gelecekteki risk tutarının simüle\nedilmiş  yolları,  her  risk  tutarı  yolu  boyunca  risk  azaltıcı  olarak  dikkate  alınan  marja  dayalı\nteminatların etkilerini kapsar. Marj sözleşmesinin niteliği (tek taraflı veya iki taraflı olması),\nteminat tamamlama çağrılarının sıklığı, teminat türü, eşikler, bağımsız teminat tutarı, başlangıç\nteminat tutarı ve asgari transfer tutarları gibi tüm ilgili sözleşmesel özellikler risk tutarı modeli\ntarafından uygun şekilde dikkate alınır. Risk tutarı modeli riskin marj süresi çerçevesinde karşı\ntarafın o andan hemen önceki belirli bir süre içinde herhangi bir teminatı göndermeyeceği veya\niade  etmeyeceği  varsayımına  dayandığından,  belirli  bir  ana  ilişkin  risk  tutarı  ölçümünde\nteminatlardan  bu  varsayıma  uygun  olmayanlar  dikkate  alınmaz.  Riskin  marj  süresi  menkul\nkıymet finansman işlemleri ve takası müşteri tarafından gerçekleştirilen işlemler için yeniden\nmarj süresi+4 iş gününden, teminatın günlük veya gün içi takas edildiği marj sözleşmeleri için\n5 iş gününden, diğer tüm işlemler için ise yeniden marj süresi+9 iş gününden az olamaz.\n",
+      "new": ""
+    },
+    {
+      "start": 30149,
+      "end": 30580,
+      "old": "(2) İskonto edilmiş gelecekteki risk tutarının simüle edilmiş yolları, KDA hesaplamasına\nözgü  gerekli  ayarlamaların  yapılmış  olduğu,  bankanın  muhasebesel  KDA  hesaplamalarında\nkullandığı risk tutarı modelleri aracılığıyla elde edilir. KDA hesaplaması için kullanılan riskin\nmarj süresi haricindeki model kalibrasyon süreci ve piyasa ve işlem verileri, muhasebesel KDA\nhesaplaması için kullanılanlarla aynı olmak zorundadır.\n",
+      "new": "ğ) Marjlı işlemlerdeki karşı taraflar için, iskonto edilmiş gelecekteki risk tutarının simüle edilmiş yolları, her risk tutarı yolu boyunca risk azaltıcı olarak dikkate alınan marja dayalı teminatların etkilerini kapsar. Marj sözleşmesinin niteliği (tek taraflı veya iki taraflı olması), teminat tamamlama çağrılarının sıklığı, teminat türü, eşikler, bağımsız teminat tutarı, başlangıç teminat tutarı ve asgari transfer tutarları gibi tüm ilgili sözleşmesel özellikler risk tutarı modeli tarafından uygun şekilde dikkate alınır. Risk tutarı modeli riskin marj süresi çerçevesinde karşı tarafın o andan hemen önceki belirli bir süre içinde herhangi bir teminatı göndermeyeceği veya iade etmeyeceği varsayımına dayandığından, belirli bir ana ilişkin risk tutarı ölçümünde teminatlardan bu varsayıma uygun olmayanlar dikkate alınmaz. Riskin marj süresi menkul kıymet finansman işlemleri ve takası müşteri tarafından gerçekleştirilen işlemler için yeniden marj süresi+4 iş gününden, teminatın günlük veya gün içi takas edildiği marj sözleşmeleri için 5 iş gününden, diğer tüm işlemler için ise yeniden marj süresi+9 iş gününden az olamaz.\n"
+    },
+    {
+      "start": 30581,
+      "end": 30677,
+      "old": "(3)  Risk  tutarı  modellerinin  dayandığı  piyasa  riski  faktör  yollarının  oluşturulmasında\n",
+      "new": "(2) İskonto edilmiş gelecekteki risk tutarının simüle edilmiş yolları, KDA hesaplamasına özgü gerekli ayarlamaların yapılmış olduğu, bankanın muhasebesel KDA hesaplamalarında kullandığı risk tutarı modelleri aracılığıyla elde edilir. KDA hesaplaması için kullanılan riskin marj süresi haricindeki model kalibrasyon süreci ve piyasa ve işlem verileri, muhasebesel KDA hesaplaması için kullanılanlarla aynı olmak zorundadır.\n"
+    },
+    {
+      "start": 30678,
+      "end": 30718,
+      "old": "aşağıdaki şartların sağlanması gerekir:\n",
+      "new": "(3) Risk tutarı modellerinin dayandığı piyasa riski faktör yollarının oluşturulmasında aşağıdaki şartların sağlanması gerekir:\n"
+    },
+    {
+      "start": 30719,
+      "end": 30813,
+      "old": "a) Risk faktörlerindeki sapmaların risk-nötr bir olasılık ölçüsüyle tutarlı olması gerekir ve\n",
+      "new": "a) Risk faktörlerindeki sapmaların risk-nötr bir olasılık ölçüsüyle tutarlı olması gerekir ve ilgili sapmaların tarihsel kalibrasyonu yapılamaz.\n"
+    },
+    {
+      "start": 30814,
+      "end": 30865,
+      "old": "ilgili sapmaların tarihsel kalibrasyonu yapılamaz.\n",
+      "new": "b) Belirli bir piyasada yeterli veri mevcut olduğunda, piyasa risk faktörlerinin volatiliteleri ve korelasyonları bu piyasa verilerine göre kalibre edilir. Yeterli verinin mevcut olmadığı durumda, tarihsel kalibrasyon yapılabilir.\n"
+    },
+    {
+      "start": 30866,
+      "end": 31107,
+      "old": "b)  Belirli  bir  piyasada  yeterli  veri  mevcut  olduğunda,  piyasa  risk  faktörlerinin\nvolatiliteleri ve korelasyonları bu piyasa verilerine göre kalibre edilir. Yeterli verinin mevcut\nolmadığı durumda, tarihsel kalibrasyon yapılabilir.\n",
+      "new": "c) Modellenmiş risk faktörlerinin dağılımı, uygun olduğu durumlarda aşırı basıklık durumlarının (leptokurtozis) varlığı da dahil olmak üzere risk tutarlarının dağılımının normal olmayan bir dağılım olma ihtimalini dikkate alır.\n"
+    },
+    {
+      "start": 31108,
+      "end": 31345,
+      "old": "c)  Modellenmiş  risk  faktörlerinin  dağılımı,  uygun  olduğu  durumlarda  aşırı  basıklık\ndurumlarının (leptokurtozis) varlığı da dahil olmak üzere risk tutarlarının dağılımının normal\nolmayan bir dağılım olma ihtimalini dikkate alır.\n",
+      "new": "(4) KDA hesaplamalarında kullanılan netleştirme muhasebesel KDA hesaplamalarında kullanılan netleştirme ile aynıdır. Netleştirme belirsizliği modellenebilmelidir.\n"
+    },
+    {
+      "start": 31346,
+      "end": 31428,
+      "old": "(4) KDA hesaplamalarında kullanılan netleştirme muhasebesel  KDA hesaplamalarında\n",
+      "new": "## **KDA hesaplamalarında niteliksel standartlar**\n"
+    },
+    {
+      "start": 31429,
+      "end": 31511,
+      "old": "kullanılan netleştirme ile aynıdır. Netleştirme belirsizliği modellenebilmelidir.\n",
+      "new": "**MADDE 14** – (1) Standart yaklaşım yöntemi kapsamında KDA riskine ilişkin sermaye yükümlülüğü hesaplayan bir bankanın aşağıdaki niteliksel standartları sağlaması şarttır:\n"
+    },
+    {
+      "start": 31512,
+      "end": 31556,
+      "old": "KDA hesaplamalarında niteliksel standartlar\n",
+      "new": "a) KDA riskine ilişkin sermaye yükümlülüğü hesaplamasında kullanılan risk tutarı modellerinin, KDA riskinin tanımlanmasını, ölçülmesini, yönetilmesini, onaylanmasını ve içsel olarak raporlanmasını içeren bankanın KDA risk yönetim sisteminin bir parçası olması gerekir. Bankanın KDA ve piyasa risk faktörlerine olan KDA duyarlılıklarının hesaplanmasında kullanılan risk tutarı modellerini kullanma konusunda güvenilir bir geçmişe sahip olması şarttır.\n"
+    },
+    {
+      "start": 31557,
+      "end": 31637,
+      "old": "MADDE 14 – (1) Standart yaklaşım yöntemi kapsamında KDA riskine ilişkin sermaye\n",
+      "new": "b) Üst düzey yönetimin, risk kontrol sürecine etkin bir şekilde katılması ve KDA risk kontrolünü, önemli kaynakların ayrılması gereken faaliyetin temel bir yönü olarak dikkate alması gerekir.\n"
+    },
+    {
+      "start": 31638,
+      "end": 31727,
+      "old": "yükümlülüğü hesaplayan bir bankanın aşağıdaki niteliksel standartları sağlaması şarttır:\n",
+      "new": "c) Muhasebesel KDA hesaplamalarında kullanılan risk tutarı hesaplama sisteminin işleyişine ilişkin yazılı hale getirilmiş iç politikalar, kontroller ve prosedürler setiyle uyumu sağlayacak bir sürecin bulunması gerekir.\n"
+    },
+    {
+      "start": 31728,
+      "end": 32411,
+      "old": "a)  KDA  riskine  ilişkin  sermaye  yükümlülüğü  hesaplamasında  kullanılan  risk  tutarı\nmodellerinin, KDA riskinin tanımlanmasını, ölçülmesini, yönetilmesini, onaylanmasını ve içsel\nolarak raporlanmasını içeren bankanın KDA risk yönetim sisteminin bir parçası olması gerekir.\nBankanın  KDA  ve  piyasa  risk  faktörlerine  olan  KDA  duyarlılıklarının  hesaplanmasında\nkullanılan risk tutarı modellerini kullanma konusunda güvenilir bir geçmişe sahip olması şarttır.\nb)  Üst  düzey  yönetimin,  risk kontrol  sürecine  etkin  bir  şekilde  katılması  ve  KDA  risk\nkontrolünü,  önemli  kaynakların  ayrılması  gereken  faaliyetin  temel  bir  yönü  olarak  dikkate\nalması gerekir.\n",
+      "new": "ç) Risk tutarı modellerinin başlangıç ve düzenli validasyon faaliyetleri risk yönetim birimi tarafından yerine getirilir. Risk yönetim birimlerinde bu validasyonları yerine getirebilecek yeterli sayıda personel istihdam edilmek zorundadır.\n"
+    },
+    {
+      "start": 32412,
+      "end": 32651,
+      "old": "c)  Muhasebesel  KDA  hesaplamalarında  kullanılan  risk  tutarı  hesaplama  sisteminin\nişleyişine  ilişkin  yazılı  hale  getirilmiş  iç  politikalar,  kontroller  ve  prosedürler  setiyle  uyumu\nsağlayacak bir sürecin bulunması gerekir.\n",
+      "new": "d) Risk tutarı modellerinin başlangıç ve düzenli validasyon süreci, üçüncü bir tarafın modellerin nasıl çalıştığını, kısıtlarını ve temel varsayımlarını anlamasını ve model validasyonunda kullanılan analizlerin yeniden oluşturulmasını sağlayacak detayda yazılı hale getirilir. Bu dokümanda, düzenli validasyonun gerçekleştirileceği asgari sıklık ve ayrıca piyasa davranışında ani bir değişiklik gibi ilave bir validasyonun gerçekleştirileceği diğer koşullar belirtilir. Validasyonun veri akışları ve portföyler açısından nasıl gerçekleştirildiği, hangi analizlerin kullanıldığı ve temsili karşı taraf portföyünün nasıl oluşturulduğu açıklanır.\n"
+    },
+    {
+      "start": 32652,
+      "end": 32911,
+      "old": "ç)  Risk  tutarı  modellerinin  başlangıç  ve  düzenli  validasyon  faaliyetleri  risk  yönetim\nbirimi  tarafından  yerine  getirilir.  Risk  yönetim  birimlerinde  bu  validasyonları  yerine\ngetirebilecek yeterli sayıda personel istihdam edilmek zorundadır.\n",
+      "new": "e) Başlangıç ve düzenli model validasyon sürecinin bir parçası olarak, piyasa risk faktörleri için belirli bir simüle edilmiş yol altında risk tutarını hesaplamak için kullanılan fiyatlama modelleri, geniş bir yelpazedeki farklı piyasa durumları için uygun bağımsız kıyaslama ölçütlerine göre test edilir. Opsiyonlara ilişkin fiyatlama modellerinde, opsiyon değerinin piyasa risk faktörleri açısından doğrusal olmaması hususu dikkate alınır.\n"
+    },
+    {
+      "start": 32912,
+      "end": 33595,
+      "old": "d)  Risk  tutarı  modellerinin  başlangıç  ve  düzenli  validasyon  süreci,  üçüncü  bir  tarafın\nmodellerin  nasıl  çalıştığını,  kısıtlarını  ve  temel  varsayımlarını  anlamasını  ve  model\nvalidasyonunda kullanılan analizlerin yeniden oluşturulmasını sağlayacak detayda yazılı hale\ngetirilir. Bu dokümanda, düzenli validasyonun gerçekleştirileceği asgari sıklık ve ayrıca piyasa\ndavranışında  ani  bir  değişiklik  gibi  ilave  bir  validasyonun  gerçekleştirileceği  diğer  koşullar\nbelirtilir.  Validasyonun  veri  akışları  ve  portföyler  açısından  nasıl  gerçekleştirildiği,  hangi\nanalizlerin kullanıldığı ve temsili karşı taraf portföyünün nasıl oluşturulduğu açıklanır.\n",
+      "new": "f) KDA risk yönetim süreci, bankanın iç denetim birimi tarafından düzenli olarak gözden geçirilir. Bu gözden geçirme, hem KDA masasının hem de KDA'ya ilişkin rolleri üzerinden risk yönetim biriminin faaliyetlerini kapsar.\n"
+    },
+    {
+      "start": 33596,
+      "end": 34080,
+      "old": "e)  Başlangıç  ve  düzenli  model  validasyon  sürecinin  bir  parçası  olarak,  piyasa  risk\nfaktörleri  için  belirli  bir  simüle  edilmiş  yol  altında  risk  tutarını  hesaplamak  için  kullanılan\nfiyatlama  modelleri,  geniş  bir  yelpazedeki  farklı  piyasa  durumları  için  uygun  bağımsız\nkıyaslama  ölçütlerine  göre  test  edilir.  Opsiyonlara  ilişkin  fiyatlama  modellerinde,  opsiyon\ndeğerinin piyasa risk faktörleri açısından doğrusal olmaması hususu dikkate alınır.\n",
+      "new": "g) Risk tutarı modellerinin ve bu modellerin girdilerinin değerlendirilmesine ilişkin kriterler tanımlanır. Risk tutarı modellerinin performansını değerlendirme sürecini ve modelin performansının kabul edilemez seviyede olduğu durumda bu performansı kabul edilebilir seviyeye getirme sürecini açıklayan yazılı bir politikanın oluşturulması gerekir.\n"
+    },
+    {
+      "start": 34081,
+      "end": 34303,
+      "old": "f) KDA risk yönetim süreci, bankanın iç denetim birimi tarafından düzenli olarak gözden\ngeçirilir. Bu gözden geçirme, hem KDA masasının hem de KDA’ya ilişkin rolleri üzerinden\nrisk yönetim biriminin faaliyetlerini kapsar.\n",
+      "new": "ğ) Risk tutarı modelleri, risk tutarlarını netleştirme grubu düzeyinde toplulaştırmak için işleme özgü bilgileri dikkate alır. İşlemlerin uygun netleştirme grubuna atandığı teyit edilir.\n"
+    },
+    {
+      "start": 34304,
+      "end": 34671,
+      "old": "g)  Risk  tutarı  modellerinin  ve  bu  modellerin  girdilerinin  değerlendirilmesine  ilişkin\nkriterler tanımlanır. Risk tutarı modellerinin performansını değerlendirme sürecini ve modelin\nperformansının  kabul  edilemez  seviyede  olduğu  durumda  bu  performansı  kabul  edilebilir\nseviyeye getirme sürecini açıklayan yazılı bir politikanın oluşturulması gerekir.\n",
+      "new": "h) Risk tutarı modelleri işlem şartlarını ve özelliklerini zamanında, eksiksiz ve ihtiyatlı bir şekilde dikkate alır. İşlemlerin şartları ve özellikleri, periyodik denetime tabi güvenli bir veri tabanında saklanır. İç denetim birimi bu periyodik denetimler kapsamında işlem şartları ve özelliklerine ilişkin verilerin risk tutarı modeline aktarılması sürecini de inceler ve sonuçlarına denetim raporunda yer verir. İşlem şartlarının ve özelliklerinin risk tutarı sistemine doğru veya ihtiyatlı bir şekilde yansıtıldığını sürekli olarak teyit etmek için iç model ile kaynak veri sistemleri arasında yazılı olarak oluşturulmuş mutabakat süreçleri bulunur.\n"
+    },
+    {
+      "start": 34672,
+      "end": 34763,
+      "old": "ğ) Risk tutarı modelleri, risk tutarlarını netleştirme grubu düzeyinde toplulaştırmak için\n",
+      "new": "ı) Risk tutarı modellerinde kullanılan güncel ve geçmiş piyasa verilerinin, iş birimlerinden bağımsız olarak edinilmesi ve muhasebe verileriyle uyumlu olması gerekir. Bu veriler zamanında ve eksiksiz bir şekilde risk tutarı modellerine aktarılır ve periyodik denetime tabi güvenli bir veri tabanında saklanır. Hatalı ve/veya anormal veri gözlemlerini ayıklamak ve işlemek için iyi gelişmiş bir veri bütünlüğü sürecinin bulunması gerekir. Risk tutarı modelinin temsili piyasa verilerine dayandığı durumlarda, uygun temsili piyasa verilerini tespit etmek için içsel politikalar oluşturulur ve temsili piyasa verilerinin olumsuz piyasa koşulları altında asıl riskin ihtiyatlı bir şekilde temsil ettiğini sürekli olarak sağladığını ampirik düzeyde gösterir.\n"
+    },
+    {
+      "start": 34764,
+      "end": 34860,
+      "old": "işleme özgü bilgileri dikkate alır. İşlemlerin uygun netleştirme grubuna atandığı teyit edilir.\n",
+      "new": "### Standart yaklaşım yönteminde KDA riskine ilişkin sermaye yükümlülüğünün hesaplanması\n"
+    },
+    {
+      "start": 34861,
+      "end": 35537,
+      "old": "h) Risk tutarı modelleri işlem şartlarını ve özelliklerini zamanında, eksiksiz ve ihtiyatlı\nbir  şekilde  dikkate  alır. İşlemlerin  şartları ve  özellikleri,  periyodik  denetime  tabi  güvenli bir\nveri tabanında saklanır. İç denetim birimi bu periyodik denetimler kapsamında işlem şartları ve\nözelliklerine ilişkin verilerin risk tutarı modeline aktarılması sürecini de inceler ve sonuçlarına\ndenetim raporunda yer verir. İşlem şartlarının ve özelliklerinin risk tutarı sistemine doğru veya\nihtiyatlı  bir  şekilde  yansıtıldığını  sürekli  olarak  teyit  etmek  için  iç  model  ile  kaynak  veri\nsistemleri arasında yazılı olarak oluşturulmuş mutabakat süreçleri bulunur.\n",
+      "new": "**MADDE 15** – (1) Standart yaklaşım yönteminde KDA riskine ilişkin sermaye yükümlülüğü, genel delta risk sermaye yükümlülüğü ile genel vega risk sermaye yükümlülüğü toplamından oluşur.\n"
+    },
+    {
+      "start": 35538,
+      "end": 36117,
+      "old": "ı) Risk tutarı modellerinde kullanılan güncel ve geçmiş piyasa verilerinin, iş birimlerinden\nbağımsız  olarak  edinilmesi  ve  muhasebe  verileriyle  uyumlu  olması  gerekir.  Bu  veriler\nzamanında ve eksiksiz bir şekilde risk tutarı modellerine aktarılır ve periyodik denetime tabi\ngüvenli  bir  veri  tabanında  saklanır.  Hatalı  ve/veya  anormal  veri  gözlemlerini  ayıklamak  ve\nişlemek için iyi gelişmiş bir veri bütünlüğü sürecinin bulunması gerekir. Risk tutarı modelinin\ntemsili piyasa verilerine dayandığı durumlarda, uygun temsili piyasa verilerini tespit etmek için\n",
+      "new": "(2) Genel delta risk sermaye yükümlülüğü; faiz oranı riski, karşı taraf kredi faiz farkı riski, referans kredi faiz farkı riski, hisse senedi riski, emtia riski, kur riski sınıflarından her biri için ayrı ayrı hesaplanacak olan delta risk sermaye yükümlülüklerinin toplanılması suretiyle bulunur. Genel vega risk sermaye yükümlülüğü ise; faiz oranı riski, referans kredi faiz farkı riski, hisse senedi riski, emtia riski, kur riski sınıflarından her biri için ayrı ayrı hesaplanacak olan vega risk sermaye yükümlülüklerinin toplanılması suretiyle elde edilir. Risk sınıfı bazında delta ve vega risk sermaye yükümlülükleri aynı formül ile ayrı ayrı olarak hesaplanır. Bu sermaye yükümlülüklerinin hesaplanmasında aşağıdaki aşamalar izlenir.\n"
+    },
+    {
+      "start": 36118,
+      "end": 36314,
+      "old": "içsel politikalar oluşturulur ve temsili piyasa verilerinin olumsuz piyasa koşulları altında asıl\nriskin ihtiyatlı bir şekilde temsil ettiğini sürekli olarak sağladığını ampirik düzeyde gösterir.\n",
+      "new": "a) Birinci aşamada toplam KDA'nın ve KDA portföyündeki tüm dikkate alınan riskten korunma araçlarının piyasa değerinin her bir risk faktörüne olan delta/vega risk duyarlılığı ilgili risk faktörüne uygulanabilir risk ağırlığı ile çarpılmak suretiyle toplam KDA'nın ve tüm dikkate alınan riskten korunma araçlarının piyasa değerinin her bir risk faktörüne ilişkin ağırlıklandırılmış duyarlılıkları;\n"
+    },
+    {
+      "start": 36315,
+      "end": 36394,
+      "old": "Standart  yaklaşım  yönteminde  KDA  riskine  ilişkin  sermaye  yükümlülüğünün\n",
+      "new": "1)  $WS_k^{KDA}$ : Toplam KDA'nın “k” risk faktörüne ilişkin ağırlıklandırılmış duyarlılıklarını,\n2)  $WS_k^{korumalar}$ : Tüm dikkate alınan riskten korunma araçlarının piyasa değerinin “k” risk faktörüne ilişkin ağırlıklandırılmış duyarlılıklarını,\n3)  $k$ : Risk faktörünü belirten indeksi,\n4)  $RW_k$ : “k” risk faktörüne uygulanabilir risk ağırlığını,\n5)  $s_k^{KDA}$ : toplam KDA'nın “k” risk faktörüne olan delta ve vega risk duyarlılığını,\n6)  $s_k^{korumalar}$ : KDA portföyündeki tüm dikkate alınan riskten korunma araçlarının piyasa değerinin “k” risk faktörüne olan delta ve vega risk duyarlılığını,\n"
+    },
+    {
+      "start": 36395,
+      "end": 38382,
+      "old": "hesaplanması\n\nMADDE  15  –  (1)  Standart  yaklaşım  yönteminde  KDA  riskine  ilişkin  sermaye\nyükümlülüğü, genel delta risk sermaye yükümlülüğü ile genel vega risk sermaye yükümlülüğü\ntoplamından oluşur.\n\n(2)  Genel  delta  risk  sermaye  yükümlülüğü;  faiz  oranı  riski,  karşı  taraf  kredi  faiz  farkı\nriski, referans kredi faiz farkı riski, hisse senedi riski, emtia riski, kur riski sınıflarından her biri\niçin  ayrı  ayrı  hesaplanacak  olan  delta  risk  sermaye  yükümlülüklerinin  toplanılması suretiyle\nbulunur. Genel vega risk sermaye yükümlülüğü ise; faiz oranı riski, referans kredi faiz farkı\nriski, hisse senedi riski, emtia riski, kur riski sınıflarından her biri için ayrı ayrı hesaplanacak\nolan vega risk sermaye yükümlülüklerinin toplanılması suretiyle elde edilir. Risk sınıfı bazında\ndelta  ve  vega  risk  sermaye  yükümlülükleri  aynı  formül  ile  ayrı  ayrı  olarak  hesaplanır.  Bu\nsermaye yükümlülüklerinin hesaplanmasında aşağıdaki aşamalar izlenir.\n\na) Birinci aşamada toplam KDA'nın ve KDA portföyündeki tüm dikkate alınan riskten\nkorunma araçlarının piyasa değerinin her bir risk faktörüne olan delta/vega risk duyarlılığı ilgili\nrisk faktörüne uygulanabilir risk ağırlığı ile çarpılmak suretiyle toplam KDA'nın ve tüm dikkate\nalınan  riskten  korunma  araçlarının  piyasa  değerinin  her  bir  risk  faktörüne\nilişkin\nağırlıklandırılmış duyarlılıkları;\n\n1)\n2)\n\n: Toplam KDA'nın “k” risk faktörüne ilişkin ağırlıklandırılmış duyarlılıklarını,\n: Tüm dikkate alınan riskten korunma araçlarının piyasa değerinin “k”\n\n()()()\n\nrisk faktörüne ilişkin ağırlıklandırılmış duyarlılıklarını,\n\n/012,+K+1\n\n3) k: Risk faktörünü belirten indeksi,\n4) RWk: “k” risk faktörüne uygulanabilir risk ağırlığını,\n5)\n6)\n\n: toplam KDA'nın “k” risk faktörüne olan delta ve vega risk duyarlılığını,\n\n: KDA portföyündeki tüm dikkate alınan riskten korunma araçlarının piyasa\n\nJ()/\nJ()/\n\n()()()\nL/\n/012,+K+1\nL/\n\ndeğerinin “k” risk faktörüne olan delta ve vega risk duyarlılığını,\n",
+      "new": ""
+    },
+    {
+      "start": 38443,
+      "end": 38475,
+      "old": "Ağırlıklı Duyarlılık Formülleri\n",
+      "new": "#### Ağırlıklı Duyarlılık Formülleri\n"
+    },
+    {
+      "start": 38476,
+      "end": 38483,
+      "old": "()()()\n",
+      "new": "$$WS_k^{KDA} = RW_k * s_k^{KDA}$$\n"
+    },
+    {
+      "start": 38484,
+      "end": 38491,
+      "old": "()()()\n",
+      "new": "$$WS_k^{korumalar} = RW_k * s_k^{korumalar}$$\n"
+    },
+    {
+      "start": 38492,
+      "end": 38497,
+      "old": "J()/\n",
+      "new": "b) İkinci aşamada KDA portföyünün her bir risk faktörü “k” bazında net ağırlıklı duyarlılıkları “ $WS_k$ ”, toplam KDA'nın “k” risk faktörüne ilişkin ağırlıklandırılmış duyarlılıklarından tüm dikkate alınan riskten korunma araçlarının piyasa değerinin “k” risk faktörüne ilişkin ağırlıklandırılmış duyarlılıkların çıkarılması suretiyle aşağıdaki gibi hesaplanır:\n"
+    },
+    {
+      "start": 38498,
+      "end": 38513,
+      "old": "J()/\n/012,+K+1\n",
+      "new": "#### Net Ağırlıklı Duyarlılıklar Formülü\n"
+    },
+    {
+      "start": 38514,
+      "end": 39023,
+      "old": "= ()J/ ∗ L/\n= ()J/ ∗ L/\nb)  İkinci  aşamada  KDA  portföyünün  her  bir  risk  faktörü  “k”  bazında  net  ağırlıklı\nilişkin  ağırlıklandırılmış\nduyarlıkları  “\nduyarlılıklarından  tüm  dikkate  alınan  riskten  korunma  araçlarının  piyasa  değerinin  “k”  risk\nfaktörüne  ilişkin  ağırlıklandırılmış  duyarlılıkların  çıkarılması  suretiyle  aşağıdaki  gibi\nhesaplanır:\n\ntoplam  KDA'nın  “k”\n\nfaktörüne\n\n/012,+K+1\n\nJ()/\"\n\nrisk\n\n,\n\nNet Ağırlıklı Duyarlılıklar Formülü\n\nJ()/ = J()/\n\n− J()/\n\n()()()\n\n/012,+K+1\n",
+      "new": "$$WS_k = WS_k^{KDA} - WS_k^{korumalar}$$\n"
+    },
+    {
+      "start": 39108,
+      "end": 39378,
+      "old": "1) b: risk faktör grubunu gösteren indeksi,\n2) Kb: “b” risk faktörü grubuna ilişkin sermaye yükümlülüğünü,\n3) k: “b” risk faktörü grubuna ait risk faktörlerinden herhangi birini,\n4) l: “b” risk faktörü grubuna ait risk faktörlerinden “k” dışından kalan herhangi birini,\n",
+      "new": ""
+    },
+    {
+      "start": 39379,
+      "end": 39470,
+      "old": "5) ρkl: Aynı risk faktörü grubunda yer alan birbirinden farklı iki risk faktörü arasındaki\n",
+      "new": "1)  $b$ : risk faktör grubunu gösteren indeksi,\n2)  $K_b$ : “b” risk faktörü grubuna ilişkin sermaye yükümlülüğünü,\n3)  $k$ : “b” risk faktörü grubuna ait risk faktörlerinden herhangi birini,\n4)  $l$ : “b” risk faktörü grubuna ait risk faktörlerinden “k” dışından kalan herhangi birini,\n"
+    },
+    {
+      "start": 39471,
+      "end": 39499,
+      "old": "korelasyon parametrelerini,\n",
+      "new": "5)  $\\rho_{kl}$ : Aynı risk faktörü grubunda yer alan birbirinden farklı iki risk faktörü arasındaki korelasyon parametrelerini,\n"
+    },
+    {
+      "start": 39500,
+      "end": 39640,
+      "old": "6) R: Değeri 0,01’e eşit olan riskten korunma aracının dikkate alınmama parametresini,\nifade etmek üzere aşağıdaki formüle göre hesaplanır:\n",
+      "new": "6) R: Değeri 0,01'e eşit olan riskten korunma aracının dikkate alınmama parametresini, ifade etmek üzere aşağıdaki formüle göre hesaplanır:\n"
+    },
+    {
+      "start": 39641,
+      "end": 39680,
+      "old": "Risk Faktörü Grubu Sermaye Yükümlülüğü\n",
+      "new": "### Risk Faktörü Grubu Sermaye Yükümlülüğü\n"
+    },
+    {
+      "start": 39681,
+      "end": 39703,
+      "old": "()\n()N = O() J()/\n/∈N\n",
+      "new": "$$K_b = \\sqrt{\\sum_{k \\in b} WS_k^2 + \\sum_{k \\in b} \\sum_{l \\in b, k \\neq l} \\rho_{kl} WS_k WS_l + R * \\sum_{k \\in b} (WS_k^{korumalar})^2}$$\n"
+    },
+    {
+      "start": 39704,
+      "end": 39921,
+      "old": "+ () () ()/KJ()/J()K + () ∗ ()PJ()/\n\n/∈N\n\nK∈N,/RK\n\n/∈N\n\n/012,+K+1\n\n()\nQ\n\n(ç) Dördüncü aşamada risk faktörü grubunda yer alan risk faktörlerine ilişkin net ağırlıklı\n\nduyarlılıkların risk faktör grubu bazında toplamı;\n",
+      "new": "(ç) Dördüncü aşamada risk faktörü grubunda yer alan risk faktörlerine ilişkin net ağırlıklı duyarlılıkların risk faktör grubu bazında toplamı;\n"
+    },
+    {
+      "start": 39992,
+      "end": 40094,
+      "old": "b)  c:  “b”  faktör  grubunun  yer  aldığı  risk  sınıfı  içindeki  faktör  gruplarından  “b”  faktör\n",
+      "new": ""
+    },
+    {
+      "start": 40095,
+      "end": 40133,
+      "old": "grubu dışında kalan herhangi birini ,\n",
+      "new": "b) c: \"b\" faktör grubunun yer aldığı risk sınıfı içindeki faktör gruplarından \"b\" faktör grubu dışında kalan herhangi birini ,\n"
+    },
+    {
+      "start": 40134,
+      "end": 40233,
+      "old": "c)  Sb:  “b”  risk  faktörü  grubunda  yer  alan  “k”  risk  faktörlerine  ilişkin  net  ağırlıklı\n",
+      "new": "c)  $S_b$ : \"b\" risk faktörü grubunda yer alan \"k\" risk faktörlerine ilişkin net ağırlıklı duyarlılıkların toplamını,\n"
+    },
+    {
+      "start": 40234,
+      "end": 40261,
+      "old": "duyarlılıkların toplamını,\n",
+      "new": "ç)  $S_c$ : \"c\" risk faktörü grubunda yer alan \"k\" risk faktörlerine ilişkin net ağırlıklı duyarlılıkların toplamını,\n"
+    },
+    {
+      "start": 40262,
+      "end": 40361,
+      "old": "ç)  Sc:  “c”  risk  faktörü  grubunda  yer  alan  “k”  risk  faktörlerine  ilişkin  net  ağırlıklı\n",
+      "new": "d)  $K_b$ : \"b\" risk faktörü grubu sermaye yükümlülüğünü,\n"
+    },
+    {
+      "start": 40362,
+      "end": 40389,
+      "old": "duyarlılıkların toplamını,\n",
+      "new": "e)  $K_c$ : \"c\" risk faktörü grubu sermaye yükümlülüğünü, ifade etmek üzere aşağıdaki formül aracılığıyla bulunur:\n"
+    },
+    {
+      "start": 40390,
+      "end": 40553,
+      "old": "d) Kb: “b” risk faktörü grubu sermaye yükümlülüğünü,\ne) Kc: “c” risk faktörü grubu sermaye yükümlülüğünü,\nifade etmek üzere aşağıdaki formül aracılığıyla bulunur:\n",
+      "new": "### Net Ağırlıklı Duyarlılıklar Toplamı Formülleri\n"
+    },
+    {
+      "start": 40554,
+      "end": 40601,
+      "old": "Net Ağırlıklı Duyarlılıklar Toplamı Formülleri\n",
+      "new": "$$S_b = \\max \\left\\{ -K_b; \\min \\left( \\sum_{k \\in b} WS_k; K_b \\right) \\right\\}$$\n"
+    },
+    {
+      "start": 40602,
+      "end": 40765,
+      "old": "()N = T()U V−()N; min (() J()/\n\n/ЄN\n\n()() = T()U V−()(); min (() J()/\n\n/Є()\n\n; ()N)\\\n\n; ()())\\\n\n: “x” risk sınıfına özgü delta/vega risk sermaye yükümlülüklerini,\n",
+      "new": "$$S_c = \\max \\left\\{ -K_c; \\min \\left( \\sum_{k \\in c} WS_k; K_c \\right) \\right\\}$$\n"
+    },
+    {
+      "start": 40844,
+      "end": 40844,
+      "old": "",
+      "new": "\n"
+    },
+    {
+      "start": 40882,
+      "end": 41063,
+      "old": "2)\n3)\n4) b: “x” risk sınıfında yer alan risk faktör gruplarından herhangi birini\n5)  c:  “x”  risk  sınıfında  yer  alan  ancak  “b”  ile  aynı  olmayan  risk  faktör  gruplarından\n",
+      "new": ""
+    },
+    {
+      "start": 41064,
+      "end": 41105,
+      "old": ": Değeri 1'e eşit olan çarpan faktörünü,\n",
+      "new": "2)  $K_x$ : \"x\" risk sınıfına özgü delta/vega risk sermaye yükümlülüklerini,\n"
+    },
+    {
+      "start": 41106,
+      "end": 41118,
+      "old": "()]\nT()()()\n",
+      "new": "3)  $m_{KDA}$ : Değeri 1'e eşit olan çarpan faktörünü,\n"
+    },
+    {
+      "start": 41119,
+      "end": 41135,
+      "old": "herhangi birini\n",
+      "new": "4) b: \"x\" risk sınıfında yer alan risk faktör gruplarından herhangi birini\n"
+    },
+    {
+      "start": 41136,
+      "end": 41233,
+      "old": "6)  γbc:  “b”  ve  “c”  risk  faktörü  gruplarına  ilişkin  ağırlıklı  duyarlılıklar  arasındaki\n",
+      "new": "5) c: \"x\" risk sınıfında yer alan ancak \"b\" ile aynı olmayan risk faktör gruplarından herhangi birini\n"
+    },
+    {
+      "start": 41234,
+      "end": 41260,
+      "old": "korelasyon parametresini,\n",
+      "new": "6)  $\\gamma_{bc}$ : \"b\" ve \"c\" risk faktörü gruplarına ilişkin ağırlıklı duyarlılıklar arasındaki korelasyon parametresini,\n"
+    },
+    {
+      "start": 41317,
+      "end": 41380,
+      "old": "Risk Sınıfına Özgü Delta/Vega Risk Sermaye Yükümlülüğü Formülü\n",
+      "new": "### Risk Sınıfına Özgü Delta/Vega Risk Sermaye Yükümlülüğü Formülü\n"
+    },
+    {
+      "start": 41381,
+      "end": 41435,
+      "old": "()\n()] = T()()() ∗ O() ()N\n\n+ () () ^N()LNL()\nNR()\n\nN\n",
+      "new": "$$K_x = m_{KDA} * \\sqrt{\\sum_b K_b^2 + \\sum_b \\sum_{b \\neq c} \\gamma_{bc} s_b s_c}$$\n"
+    },
+    {
+      "start": 41523,
+      "end": 41523,
+      "old": "",
+      "new": "\n"
+    },
+    {
+      "start": 41538,
+      "end": 41538,
+      "old": "",
+      "new": "\n"
+    },
+    {
+      "start": 41552,
+      "end": 41555,
+      "old": "3)\n",
+      "new": ""
+    },
+    {
+      "start": 41556,
+      "end": 41615,
+      "old": ": “x” risk sınıfına özgü delta risk sermaye yükümlülüğünü,\n",
+      "new": "3)  $K_x^d$ : \"x\" risk sınıfına özgü delta risk sermaye yükümlülüğünü,\n"
+    },
+    {
+      "start": 41616,
+      "end": 41618,
+      "old": "N\n",
+      "new": "4)  $K_x^v$ : \"x\" risk sınıfına özgü vega risk sermaye yükümlülüğünü,  \n 5)  $KDA_S$ : KDA riskine ilişkin sermaye yükümlülüğünü,  \n ifade etmek üzere aşağıdaki formül aracılığıyla bulunur:\n"
+    },
+    {
+      "start": 41619,
+      "end": 41626,
+      "old": "()\n()]\n",
+      "new": "$$KDA_s = \\sum_x K_x^d + \\sum_x K_x^v$$\n"
+    },
+    {
+      "start": 41627,
+      "end": 41685,
+      "old": ": “x” risk sınıfına özgü vega risk sermaye yükümlülüğünü,\n",
+      "new": "(3) Bankanın KDA risk tutarı modelinin KDA riskine ilişkin sermaye yükümlülüğünün uygun şekilde ölçülmesini engelleyen eksiklikler göstermesi durumunda Kurul risk sınıfına özgü delta/vega risk sermaye yükümlülüğü formülünde yer alan  $m_{KDA}$  değerini artırmaya yetkilidir.\n"
+    },
+    {
+      "start": 41686,
+      "end": 41794,
+      "old": "4)\n: KDA riskine ilişkin sermaye yükümlülüğünü,\n5)\nifade etmek üzere aşağıdaki formül aracılığıyla bulunur:\n",
+      "new": "(4) Her bir risk sınıfı için, ağırlıklı duyarlılık formüllerinde geçen  $s_k^{KDA}$  ve  $s_k^{korumalar}$  değerleri, Yönetmeliğin Ek-2'sinde yer alan ihtiyatlı değerlemeye ilişkin ilke ve esaslar da dikkate alınarak, bu kısmın Üçüncü Bölümündeki usul ve esaslar çerçevesinde hesaplanır. Bir finansal aracın değerinin çeşitli risk faktörlerine bağlı olduğu durumda, duyarlılık her bir risk faktörü için ayrı ayrı belirlenir. Toplam KDA'ların vega risk duyarlılıklarının hesaplanmasında, risk faktörlerini simüle etmek için KDA risk tutarı modelinde kullanılan volatilitelere ilişkin duyarlılıklar ile portföydeki opsiyon işlemlerinin fiyatlandırılmasında kullanılan volatilitelere ilişkin duyarlılıklar bu hesaplamaya dahil edilir.\n"
+    },
+    {
+      "start": 41795,
+      "end": 41809,
+      "old": "_\n()]\n()()()`\n",
+      "new": "(5) Dikkate alınan riskten korunma aracının bir endeks olması durumunda, endeksin değerinin bağlı olduğu tüm risk faktörlerine olan duyarlılıkları hesaplanır. Endeksin ilgili risk faktörüne olan duyarlılığı, bu risk faktöründeki değişimin, değeri bu risk faktöründeki değişimden etkilenen tüm endeks bileşenlerine uygulanması ve endeksin değişen değerinin yeniden hesaplanması suretiyle bulunur.\n"
+    },
+    {
+      "start": 41810,
+      "end": 44343,
+      "old": "()\n()()()` = () ()]\n\n]\n\n_\n+ () ()]\n]\n\n(3) Bankanın KDA risk tutarı modelinin KDA riskine ilişkin sermaye yükümlülüğünün\nuygun  şekilde  ölçülmesini  engelleyen  eksiklikler  göstermesi  durumunda  Kurul  risk  sınıfına\nözgü  delta/vega  risk  sermaye  yükümlülüğü  formülünde  yer  alan  mKDA  değerini  artırmaya\nyetkilidir.\n\n(4) Her bir risk sınıfı için, ağırlıklı duyarlılık formüllerinde geçen\n\n ve\n\n/012,+K+1\ndeğerleri,  Yönetmeliğin  Ek-2’sinde  yer  alan  ihtiyatlı  değerlemeye  ilişkin  ilke  ve  esaslar  da\nL/\ndikkate alınarak, bu kısmın Üçüncü Bölümündeki usul ve esaslar çerçevesinde hesaplanır. Bir\nfinansal aracın değerinin çeşitli risk faktörlerine bağlı olduğu durumda, duyarlılık her bir risk\nfaktörü için ayrı ayrı belirlenir. Toplam KDA'ların vega risk duyarlılıklarının hesaplanmasında,\nrisk faktörlerini simüle etmek için KDA risk tutarı modelinde kullanılan volatilitelere ilişkin\nduyarlılıklar ile portföydeki opsiyon işlemlerinin fiyatlandırılmasında kullanılan volatilitelere\nilişkin duyarlılıklar bu hesaplamaya dahil edilir.\n\n()()()\nL/\n\n(5)  Dikkate  alınan  riskten  korunma  aracının  bir  endeks  olması  durumunda,  endeksin\ndeğerinin bağlı olduğu tüm risk faktörlerine olan duyarlılıkları hesaplanır. Endeksin ilgili risk\nfaktörüne  olan  duyarlılığı,  bu  risk  faktöründeki  değişimin,  değeri  bu  risk  faktöründeki\ndeğişimden  etkilenen  tüm  endeks  bileşenlerine  uygulanması  ve  endeksin  değişen  değerinin\nyeniden hesaplanması suretiyle bulunur.\n\n(6) Karşı taraf kredi faiz farkı riski, referans kredi faiz farkı riski ve hisse senedi riski\nsınıfları  için  nitelikli  endekslere  karşılık  gelen  ilave  risk  faktörleri  uygulamaya  konulabilir.\nEndeks  dışı  risk  faktörlerine  olan  duyarlılıklara  ilave  olarak,  KDA  ve  dikkate  alınabilecek\nriskten  korunma  araçlarının  nitelikli  endeks  risk  faktörlerine  olan  duyarlılıkları  hesaplanır.\nNitelikli endeks risk faktörüne yönelik delta ve vega risk duyarlılıkları referans nitelikli endekse\nyönelik  tek  bir  duyarlılık  olarak  hesaplanır.  Nitelikli  endeksin  bileşenlerinin  %75'i,  aynı\nsektörle  eşlendiğinde,  nitelikli  endeksin  kalanı  da  aynı  sektör  ile  eşlenir  ve  o  risk  faktörü\ngrubunda tek bir varlığa dayalı duyarlılık olarak  dikkate alınır. Diğer durumlarda, duyarlılık\nilgili  endeks  risk  faktörü  grubu  ile  eşlenir.  KDA  riskine  esas  tutarın  hesaplanmasında  delta\nriskleri açısından aşağıdaki şartları taşıyan endeksler, vega riskleri açısından ise tüm endeksler\nnitelikli kabul edilir:\n",
+      "new": "(6) Karşı taraf kredi faiz farkı riski, referans kredi faiz farkı riski ve hisse senedi riski sınıfları için nitelikli endekslere karşılık gelen ilave risk faktörleri uygulamaya konulabilir. Endeks dışı risk faktörlerine olan duyarlılıklara ilave olarak, KDA ve dikkate alınabilecek riskten korunma araçlarının nitelikli endeks risk faktörlerine olan duyarlılıkları hesaplanır. Nitelikli endeks risk faktörüne yönelik delta ve vega risk duyarlılıkları referans nitelikli endekse yönelik tek bir duyarlılık olarak hesaplanır. Nitelikli endeksin bileşenlerinin %75'i, aynı sektörle eşlendiğinde, nitelikli endeksin kalanı da aynı sektör ile eşlenir ve o risk faktörü grubunda tek bir varlığa dayalı duyarlılık olarak dikkate alınır. Diğer durumlarda, duyarlılık ilgili endeks risk faktörü grubu ile eşlenir. KDA riskine esas tutarın hesaplanmasında delta riskleri açısından aşağıdaki şartları taşıyan endeksler, vega riskleri açısından ise tüm endeksler nitelikli kabul edilir:\n"
+    },
+    {
+      "start": 44477,
+      "end": 44860,
+      "old": "c)  Endekste  yer  alan  hiçbir  bileşen  endeksin  yüzde  25'inden  fazlasına  tekabül\netmemelidir,\nç)  Büyüklük  sırasına  göre  endekste  ilk  yüzde  10’da  yer  alan  bileşenlerin  değerlerinin\ntoplamı, endeksin yüzde 60'ından azına tekabül etmelidir,\nd)  Endeksi  oluşturan  tüm  hisselerin  toplam  piyasa  değeri  en  az  40 milyar  ABD  doları\nmuadili Türk Lirası olmalıdır.\n",
+      "new": "c) Endekste yer alan hiçbir bileşen endeksin yüzde 25'inden fazlasına tekabül etmemelidir,\nç) Büyüklük sırasına göre endekste ilk yüzde 10'da yer alan bileşenlerin değerlerinin toplamı, endeksin yüzde 60'ından azına tekabül etmelidir,\nd) Endeksi oluşturan tüm hisselerin toplam piyasa değeri en az 40 milyar ABD doları muadili Türk Lirası olmalıdır.\n"
+    },
+    {
+      "start": 44861,
+      "end": 44931,
+      "old": "Standart Yaklaşım Yönteminde Risk Faktörü Grupları ve Risk Faktörleri\n",
+      "new": "## İKİNCİ BÖLÜM\n"
+    },
+    {
+      "start": 44932,
+      "end": 44945,
+      "old": "İKİNCİ BÖLÜM\n",
+      "new": "### Standart Yaklaşım Yönteminde Risk Faktörü Grupları ve Risk Faktörleri\n"
+    },
+    {
+      "start": 44946,
+      "end": 45095,
+      "old": "Faiz oranı risk faktörü grupları ve risk faktörleri\nMADDE  16  –  (1)  Faiz  oranı  delta  riskinde,  her  para  birimi  bir  risk  faktörü  grubunu\n",
+      "new": "#### Faiz oranı risk faktörü grupları ve risk faktörleri\n"
+    },
+    {
+      "start": 45096,
+      "end": 45107,
+      "old": "oluşturur.\n",
+      "new": "**MADDE 16** – (1) Faiz oranı delta riskinde, her para birimi bir risk faktörü grubunu oluşturur.\n"
+    },
+    {
+      "start": 45108,
+      "end": 45527,
+      "old": "(2)  Para  birimlerinin  bankanın  raporlama  para  birimi,  ABD  doları,  avro,  İsveç  kronu,\nAvustralya  doları,  Kanada  doları,  İngiliz  sterlini,  Japon  yeni  olması  durumunda,  bu  para\nbirimlerine dayalı risk faktörleri gruplarından her biri birincil risk faktörü grupları, diğer para\nbirimlerine  dayalı  risk  faktörleri  gruplarından  her  biri  ise  ikincil risk  faktörü  grupları  olarak\nadlandırılır.\n",
+      "new": "(2) Para birimlerinin bankanın raporlama para birimi, ABD doları, avro, İsveç kronu, Avustralya doları, Kanada doları, İngiliz sterlini, Japon yeni olması durumunda, bu para birimlerine dayalı risk faktörleri gruplarından her biri birincil risk faktörü grupları, diğer para birimlerine dayalı risk faktörleri gruplarından her biri ise ikincil risk faktörü grupları olarak adlandırılır.\n"
+    },
+    {
+      "start": 45528,
+      "end": 46175,
+      "old": "(3) KDA  portföyündeki  faiz  oranına  duyarlı  araçlara  uygulanacak  faiz  oranı  delta  risk\nfaktörleri, birincil risk faktörleri açısından ilgili para birimine ilişkin enflasyon oranları ile ilgili\npara birimine ilişkin 1 yıl, 2 yıl, 5 yıl, 10 yıl ve 30 yıl şeklindeki vade noktaları risksiz faiz\noranları  iken  ikincil  risk  faktörü  grupları  açısından  ise  ilgili  para  birimine  ilişkin  enflasyon\noranları  ile  ilgili  para  birimine  ilişkin  vade  noktalarına  bağlı  olmaksızın  tüm  risksiz  getiri\neğrisidir. Risksiz getiri eğrisinin risk faktörü olarak değerlendirilmesinde sadece bu  eğrideki\nparalel kaymalar dikkate alınır.\n",
+      "new": "(3) KDA portföyündeki faiz oranına duyarlı araçlara uygulanacak faiz oranı delta risk faktörleri, birincil risk faktörleri açısından ilgili para birimine ilişkin enflasyon oranları ile ilgili para birimine ilişkin 1 yıl, 2 yıl, 5 yıl, 10 yıl ve 30 yıl şeklindeki vade noktaları risksiz faiz oranları iken ikincil risk faktörü grupları açısından ise ilgili para birimine ilişkin enflasyon oranları ile ilgili para birimine ilişkin vade noktalarına bağlı olmaksızın tüm risksiz getiri eğrisidir. Risksiz getiri eğrisinin risk faktörü olarak değerlendirilmesinde sadece bu eğrideki paralel kaymalar dikkate alınır.\n"
+    },
+    {
+      "start": 46176,
+      "end": 46496,
+      "old": "(4)  Faiz  oranı  vega  riskinde,  her  para  birimi  bir  risk  faktörü  grubunu  oluşturur.  KDA\nportföyündeki faiz oranına duyarlı araçlara uygulanacak faiz oranı vega  risk faktörleri, ilgili\npara  birimine  ilişkin  enflasyon  oranı  volatilitesi  ile  ilgili  para  birimine  ilişkin  faiz  oranı\nvolatilitesidir.\n",
+      "new": "(4) Faiz oranı vega riskinde, her para birimi bir risk faktörü grubunu oluşturur. KDA portföyündeki faiz oranına duyarlı araçlara uygulanacak faiz oranı vega risk faktörleri, ilgili para birimine ilişkin enflasyon oranı volatilitesi ile ilgili para birimine ilişkin faiz oranı volatilitesidir.\n"
+    },
+    {
+      "start": 46497,
+      "end": 46943,
+      "old": "(5) Vade noktasının belirlenmesinde faiz oranına duyarlı aracın kalan vadesi esas alınır.\nKalan  vadenin  herhangi  bir  vade  noktasıyla  tam  olarak  eşleşmemesi  halinde  doğrusal\ninterpolasyon  yöntemiyle  iki  vade  noktasına  eşleştirme  yapılır  veya  bankanın  risk  yönetimi\nbirimi tarafından piyasa risklerinin veya kâr/zararın üst yönetime raporlanması için kullanılan\nfiyatlandırma fonksiyonlarıyla en tutarlı olan yöntem kullanılır.\n",
+      "new": "(5) Vade noktasının belirlenmesinde faiz oranına duyarlı aracın kalan vadesi esas alınır. Kalan vadenin herhangi bir vade noktasıyla tam olarak eşleşmemesi halinde doğrusal interpolasyon yöntemiyle iki vade noktasına eşleştirme yapılır veya bankanın risk yönetimi birimi tarafından piyasa risklerinin veya kâr/zararın üst yönetime raporlanması için kullanılan fiyatlandırma fonksiyonlarıyla en tutarlı olan yöntem kullanılır.\n"
+    },
+    {
+      "start": 46944,
+      "end": 47076,
+      "old": "Kur riski faktör grupları ve risk faktörleri\nMADDE 17 – (1) Kur delta riskinde ve kur vega riskinde raporlama para birimi hariç her\n",
+      "new": "### **Kur riski faktör grupları ve risk faktörleri**\n"
+    },
+    {
+      "start": 47077,
+      "end": 47130,
+      "old": "bir para birimi bir risk faktör grubunu teşkil eder.\n",
+      "new": "**MADDE 17** – (1) Kur delta riskinde ve kur vega riskinde raporlama para birimi hariç her bir para birimi bir risk faktör grubunu teşkil eder.\n"
+    },
+    {
+      "start": 47131,
+      "end": 47489,
+      "old": "(2) KDA portföyündeki spot döviz kuru oranlarına duyarlı finansal araçlara uygulanacak\nkur  delta  risk  faktörleri  bakımından,  finansal  aracın  para  birimi  ile  raporlama  para  birimi\narasındaki spot döviz kurlarından her biri ayrı bir risk faktörüdür ve bu kurlar finansal aracın\npara biriminin raporlama para birimi cinsinden cari piyasa değeridir.\n",
+      "new": "(2) KDA portföyündeki spot döviz kuru oranlarına duyarlı finansal araçlara uygulanacak kur delta risk faktörleri bakımından, finansal aracın para birimi ile raporlama para birimi arasındaki spot döviz kurlarından her biri ayrı bir risk faktörüdür ve bu kurlar finansal aracın para biriminin raporlama para birimi cinsinden cari piyasa değeridir.\n"
+    },
+    {
+      "start": 47490,
+      "end": 47716,
+      "old": "(3) KDA portföyündeki kur volatilitesine duyarlı finansal araçlara uygulanacak kur vega\nrisk faktörleri bakımından, raporlama para birimi hariç her bir para birimindeki spot döviz kuru\nvolatiliteleri ayrı bir risk faktörüdür.\n",
+      "new": "(3) KDA portföyündeki kur volatilitesine duyarlı finansal araçlara uygulanacak kur vega risk faktörleri bakımından, raporlama para birimi hariç her bir para birimindeki spot döviz kuru volatiliteleri ayrı bir risk faktörüdür.\n"
+    },
+    {
+      "start": 47717,
+      "end": 47821,
+      "old": "(4)  Kur  delta  ve  vega  risk  faktörleri  açısından  bir  para  biriminin  yurt  içi  ve  yurt  dışı\n",
+      "new": "(4) Kur delta ve vega risk faktörleri açısından bir para biriminin yurt içi ve yurt dışı varyantları arasında ayrım yapılmaz.\n"
+    },
+    {
+      "start": 47822,
+      "end": 47859,
+      "old": "varyantları arasında ayrım yapılmaz.\n",
+      "new": "(5) Raporlama para birimi dışında iki para birimi arasındaki kurun referans olarak alındığı işlemlerde, kur delta ve vega risk faktörleri açısından bu iki para biriminin her biri ile raporlama para birimi arasındaki spot döviz kuru ayrı bir risk faktörüdür.\n"
+    },
+    {
+      "start": 47860,
+      "end": 48118,
+      "old": "(5) Raporlama para birimi dışında iki para birimi arasındaki kurun referans olarak alındığı\nişlemlerde, kur delta ve vega risk faktörleri açısından bu iki para biriminin her biri ile raporlama\npara birimi arasındaki spot döviz kuru ayrı bir risk faktörüdür.\n",
+      "new": "### **Karşı taraf kredi faiz farkı risk faktör grupları ve risk faktörleri**\n"
+    },
+    {
+      "start": 48119,
+      "end": 48275,
+      "old": "Karşı taraf kredi faiz farkı risk faktör grupları ve risk faktörleri\nMADDE 18 – (1) Karşı taraf kredi faiz  farkı risk faktör grupları, araçların bulunduğu\n",
+      "new": "**MADDE 18** – (1) Karşı taraf kredi faiz farkı risk faktör grupları, araçların bulunduğu sektöre göre aşağıda yer alan tabloda numara sırası verilmiş gruplardan oluşur.\n"
+    },
+    {
+      "start": 48276,
+      "end": 48356,
+      "old": "sektöre göre aşağıda yer alan tabloda numara sırası verilmiş gruplardan oluşur.\n",
+      "new": "**Tablo 3: Karşı taraf kredi faiz farkı risk faktör grupları**\n"
+    },
+    {
+      "start": 48357,
+      "end": 48416,
+      "old": "Tablo 3: Karşı taraf kredi faiz farkı risk faktör grupları\n",
+      "new": "| Risk Faktör Grubu numarası | Sektör |\n| --- | --- |\n| 1 | a) Merkezi yönetimler, merkez bankaları ve çok taraflı kalkınma bankaları ile uluslararası kuruluşlar<br/>b) Yerel ve bölgesel yönetimler, devlet destekli finansal olmayan kuruluşlar, eğitim kuruluşları ve kamu yönetimi kuruluşları |\n| 2 | Finansal kuruluşlar |\n| 3 | Hammadde, enerji, sanayi ürünleri, tarım, imalat, madencilik ve taş ocakçılığı |\n| 4 | Tüketim malları ve hizmetleri, ulaştırma ve depolama, idari ve destek hizmet faaliyetleri |\n| 5 | Teknoloji, telekomünikasyon |\n| 6 | Sağlık hizmeti, mesleki ve teknik faaliyetler, elektrik, su, doğalgaz dağıtımı gibi kamuya sunulan hizmetler |\n| 7 | Diğer sektörler |\n| 8 | Nitelikli endeksler |\n"
+    },
+    {
+      "start": 48417,
+      "end": 48444,
+      "old": "Risk Faktör\nGrubu numarası\n",
+      "new": "(2) Nitelikli endeks kapsamına giren araçlar birinci fıkradaki tabloda yer alan 1 ilâ 7 numaralı risk faktörü gruplarına atanamaz.\n"
+    },
+    {
+      "start": 48445,
+      "end": 48447,
+      "old": "1\n",
+      "new": "(3) 8 numaralı risk faktörü grubunun kullanımı tercihe bağlıdır. Tercihe bağlı bu uygulamada, yalnızca nitelikli endeks kapsamında bulunan araçlar bu risk faktörü grubuna atanabilir; borçlusu tek kişi olan ve niteliksiz endeks korumalarının tümü duyarlılık hesaplamalarında ilgisine göre 1 ilâ 7 numaralı risk faktörü gruplarından birine atanır. 1 ilâ 7 numaralı risk faktör gruplarına atanmış bir endekse atıfta bulunan herhangi bir araç için, korumanın endeks bileşenlerinin her birine dayalı duyarlılık hesaplaması gerektiren içerik yöntemi kullanılır.\n"
+    },
+    {
+      "start": 48448,
+      "end": 48455,
+      "old": "Sektör\n",
+      "new": "(4) KDA portföyündeki karşı taraf kredi faiz farkına duyarlı finansal araçlar için geçerli karşı taraf kredi faiz farkı delta risk faktörleri; 0,5 yıl, 1 yıl, 3 yıl, 5 yıl ve 10 yıl şeklindeki vade noktaları bazında münferit karşı tarafların ve tercihe bağlı uygulamanın kullanılıyor olması halinde nitelikli endekslerin kredi faiz farklarıdır.\n"
+    },
+    {
+      "start": 48456,
+      "end": 48521,
+      "old": "a)  Merkezi yönetimler, merkez bankaları ve çok taraflı kalkınma\n",
+      "new": "(5) Vade noktasının belirlenmesinde karşı taraf kredi faiz farkına duyarlı aracın kalan vadesi esas alınır. Kalan vadenin herhangi bir vade noktasıyla tam olarak eşleşmemesi halinde doğrusal interpolasyon yöntemiyle iki vade noktasına eşleştirme yapılır veya bankanın risk yönetimi birimi tarafından piyasa risklerinin veya kâr/zararın üst yönetime raporlanması için kullanılan fiyatlandırma fonksiyonlarıyla en tutarlı olan yöntem kullanılır.\n"
+    },
+    {
+      "start": 48522,
+      "end": 48560,
+      "old": "bankaları ile uluslararası kuruluşlar\n",
+      "new": "(6) Karşı taraf kredi faiz farkı risk sınıfı için vega riskine ilişkin sermaye yükümlülüğü hesaplanmaz.\n"
+    },
+    {
+      "start": 48561,
+      "end": 48689,
+      "old": "b)   Yerel ve bölgesel yönetimler, devlet destekli finansal olmayan\nkuruluşlar, eğitim kuruluşları ve kamu yönetimi kuruluşları\n",
+      "new": "### Referans kredi faiz farkı risk faktör grupları ve risk faktörleri\n"
+    },
+    {
+      "start": 48690,
+      "end": 48694,
+      "old": "2\n3\n",
+      "new": "**MADDE 19** – (1) KDA portföyündeki referans kredi faiz farkı risk faktör grupları, referansa dayalı aracın referans borçlusunun kredi kalitesine ve bulunduğu sektöre göre aşağıda yer alan tabloda numara sırası verilmiş gruplardan oluşur.\n"
+    },
+    {
+      "start": 48695,
+      "end": 48697,
+      "old": "4\n",
+      "new": "**Tablo 4: Referans kredi faiz farkı risk faktör grupları**\n"
+    },
+    {
+      "start": 48698,
+      "end": 48702,
+      "old": "5\n6\n",
+      "new": "| Risk Faktör Grubu numarası | Kredi kalitesi grubu | Sektör |\n| --- | --- | --- |\n| 1 | YYD | Merkezi yönetimler, merkez bankaları ve çok taraflı kalkınma bankaları ile uluslararası kuruluşlar |\n| 2 | YYD | Yerel ve bölgesel yönetimler, devlet destekli finansal olmayan kuruluşlar, eğitim kuruluşları ve kamu yönetimi kuruluşları |\n| 3 | YYD | Finansal kuruluşlar |\n| 4 | YYD | Hammadde, enerji, sanayi ürünleri, tarım, imalat, madencilik ve taş ocakçılığı |\n| 5 | YYD | Tüketim malları ve hizmetleri, ulaştırma ve depolama, idari ve destek hizmet faaliyetleri |\n| 6 | YYD | Teknoloji, telekomünikasyon |\n| 7 | YYD | Sağlık hizmeti, mesleki ve teknik faaliyetler, elektrik, su, doğalgaz dağıtımı gibi kamuya sunulan hizmetler |\n| 8 | YRD veya DNB | Merkezi yönetimler, merkez bankaları ve çok taraflı kalkınma bankaları ile uluslararası kuruluşlar |\n| 9 | YRD veya DNB | Bölgesel yönetimler veya yerel yönetimler ve kamu kuruluşları |\n| 10 | YRD veya DNB | Yerel ve bölgesel yönetimler, devlet destekli finansal olmayan kuruluşlar, eğitim kuruluşları ve kamu yönetimi kuruluşları |\n| 11 | YRD veya DNB | Finansal kuruluşlar |\n| 12 | YRD veya DNB | Hammadde, enerji, sanayi ürünleri, tarım, imalat, madencilik ve taş ocakçılığı |\n| 13 | YRD veya DNB | Tüketim malları ve hizmetleri, ulaştırma ve depolama, idari ve destek hizmet faaliyetleri |\n| 14 | YRD veya DNB | Teknoloji, telekomünikasyon |\n| 15 | Kredi kalitesinden bağımsız | Diğer sektörler |\n| 16 | YYD | Nitelikli endeksler |\n| 17 | YRD | Nitelikli endeksler |\n"
+    },
+    {
+      "start": 48703,
+      "end": 48707,
+      "old": "7\n8\n",
+      "new": "(2) Referans kredi faiz farkı risk faktörüne duyarlı finansal araçlara uygulanan referans kredi spread delta risk faktörleri bakımından, her bir risk faktör grubu içindeki referansa dayalı tüm araçlar için tüm referans borçluların tüm vade noktalarındaki kredi faiz farkları bir bütün olarak ayrı bir delta risk faktörü oluşturur.\n"
+    },
+    {
+      "start": 48708,
+      "end": 49034,
+      "old": "Finansal kuruluşlar\nHammadde, enerji, sanayi ürünleri, tarım, imalat, madencilik ve taş\nocakçılığı\nTüketim malları ve hizmetleri, ulaştırma ve depolama, idari ve destek\nhizmet faaliyetleri\nTeknoloji, telekomünikasyon\nSağlık hizmeti, mesleki ve teknik faaliyetler, elektrik, su, doğalgaz\ndağıtımı gibi kamuya sunulan hizmetler\n",
+      "new": "(3) KDA portföyündeki referans kredi faiz farkı volatilitesine duyarlı finansal araçlara uygulanabilen referans kredi faiz farkı vega risk faktörleri bakımından, her bir risk faktör grubu içindeki referansa dayalı tüm araçlar için tüm referans borçluların tüm vade noktalarındaki kredi faiz farklarının volatiliteleri bir bütün olarak ayrı bir vega risk faktörü oluşturur.\n"
+    },
+    {
+      "start": 49035,
+      "end": 49071,
+      "old": "Diğer sektörler\nNitelikli endeksler\n",
+      "new": "(4) Vade noktaları, karşı taraf kredi faiz farkı risk faktörleri için kullanılan vade noktalarından oluşur ve bir aracın vade noktası da yine karşı taraf kredi faiz farkı risk faktörüne ilişkin vade noktasına yönelik esaslar dahilinde bulunur.\n"
+    },
+    {
+      "start": 49072,
+      "end": 49173,
+      "old": "(2)  Nitelikli  endeks  kapsamına  giren  araçlar  birinci  fıkradaki  tabloda  yer  alan  1  ilâ  7\n",
+      "new": "### Hisse senedi risk faktör grupları ve risk faktörleri\n"
+    },
+    {
+      "start": 49174,
+      "end": 49217,
+      "old": "numaralı risk faktörü gruplarına atanamaz.\n",
+      "new": "**MADDE 20** – (1) Hisse senedi risk faktör grupları, ihraççısının faaliyette bulunduğu sektör ve ekonomiler ile ihraççının sermaye piyasalarında işlem gördüğü piyasa değerinin büyüklüğüne göre aşağıda yer alan tabloda numara sırası verilmiş gruplardan oluşur.\n"
+    },
+    {
+      "start": 49218,
+      "end": 49826,
+      "old": "(3)  8  numaralı  risk  faktörü  grubunun  kullanımı  tercihe  bağlıdır.  Tercihe  bağlı  bu\nuygulamada,  yalnızca  nitelikli  endeks  kapsamında  bulunan  araçlar  bu  risk  faktörü  grubuna\natanabilir;  borçlusu  tek  kişi  olan  ve  niteliksiz  endeks  korumalarının  tümü  duyarlılık\nhesaplamalarında ilgisine göre 1 ilâ 7 numaralı risk faktörü gruplarından birine atanır. 1 ilâ 7\nnumaralı  risk  faktör  gruplarına  atanmış  bir  endekse  atıfta  bulunan  herhangi  bir  araç  için,\nkorumanın  endeks  bileşenlerinin  her  birine  dayalı  duyarlılık  hesaplaması  gerektiren  içerik\nyöntemi kullanılır.\n",
+      "new": "**Tablo 5: Hisse senedi risk faktör grupları**\n"
+    },
+    {
+      "start": 49827,
+      "end": 50182,
+      "old": "(4) KDA portföyündeki karşı taraf kredi faiz farkına duyarlı finansal araçlar için geçerli\nkarşı taraf kredi faiz farkı delta risk faktörleri; 0,5 yıl, 1 yıl, 3 yıl, 5 yıl ve 10 yıl şeklindeki vade\nnoktaları  bazında  münferit  karşı  tarafların  ve  tercihe  bağlı  uygulamanın  kullanılıyor  olması\nhalinde nitelikli endekslerin kredi faiz farklarıdır.\n",
+      "new": "| Risk faktör grubu numarası | Piyasa değeri | Ekonomi | Sektör |\n| --- | --- | --- | --- |\n| 1 | Büyük | Gelişmekte olan ekonomiler | Tüketim malları ve hizmetleri, ulaştırma ve depolama, idari ve destek hizmet faaliyetleri, sağlık hizmetleri, kamu hizmetleri |\n| 2 | Büyük | Gelişmekte olan ekonomiler | Telekomünikasyon, sanayi ürünleri |\n| 3 | Büyük | Gelişmekte olan ekonomiler | Temel malzemeler, enerji, tarım, imalat, madencilik ve taş ocağı |\n| 4 | Büyük | Gelişmekte olan ekonomiler | Devlet destekli finansal kuruluşlar, gayrimenkul faaliyetleri, teknoloji |\n| 5 | Büyük | Gelişmiş ekonomiler | Tüketim malları ve hizmetleri, ulaştırma ve depolama, idari ve destek hizmet faaliyetleri, sağlık hizmetleri, kamu hizmetleri |\n| 6 | Büyük | Gelişmiş ekonomiler | Telekomünikasyon, sanayi ürünleri |\n| 7 | Büyük | Gelişmiş ekonomiler | Temel malzemeler, enerji, tarım, imalat, madencilik ve taş ocağı |\n| 8 | Büyük | Gelişmiş ekonomiler | Devlet destekli finansal kuruluşlar, gayrimenkul faaliyetleri, teknoloji |\n| 9 | Küçük | Gelişmekte olan ekonomiler | 1, 2, 3 ve 4 numaralı risk faktör gruplarında açıklanan tüm sektörler |\n| 10 | Küçük | Gelişmiş ekonomiler | 5, 6, 7 ve 8 numaralı risk faktör gruplarında açıklanan tüm sektörler |\n| 11 | | | Diğer sektör |\n| 12 | Büyük | Gelişmiş ekonomiler | Nitelikli endeksler |\n| 13 | Diğer | | Nitelikli endeksler |\n"
+    },
+    {
+      "start": 50183,
+      "end": 50648,
+      "old": "(5)  Vade  noktasının  belirlenmesinde  karşı  taraf  kredi  faiz  farkına  duyarlı  aracın  kalan\nvadesi esas alınır. Kalan vadenin herhangi bir vade noktasıyla tam olarak eşleşmemesi halinde\ndoğrusal  interpolasyon  yöntemiyle  iki  vade  noktasına  eşleştirme  yapılır  veya  bankanın  risk\nyönetimi birimi tarafından piyasa risklerinin veya kâr/zararın üst yönetime raporlanması için\nkullanılan fiyatlandırma fonksiyonlarıyla en tutarlı olan yöntem kullanılır.\n",
+      "new": "(2) Birinci fıkrada yer alan tabloda belirtilen “büyük” piyasa değeri, 2 Milyar ABD Doları muadili Türk Lirası tutara eşit veya bu tutarın üzerindeki piyasa değerini, “küçük” piyasa değeri ise söz konusu tutarın altındaki piyasa değerini ifade eder. Bu kıstasta şirketin piyasa değeri olarak şirketin küresel ölçekte hisselerinin tedavülde bulunduğu tüm borsalardaki piyasa değerlerinin toplamı alınır. Şirketin bir grup şirketinin ana ortağı olması durumu da dahil, kıstasa esas piyasa değer hesaplamasında hiçbir koşulda ilgili diğer kuruluşların piyasa değerleri ayrıca hesaplamaya eklenmez.\n"
+    },
+    {
+      "start": 50649,
+      "end": 50740,
+      "old": "(6) Karşı taraf kredi faiz farkı risk sınıfı için vega riskine ilişkin sermaye yükümlülüğü\n",
+      "new": "(3) Birinci fıkrada yer alan tabloda belirtilen gelişmiş ekonomiler kapsamına; ABD, Kanada, İngiltere, Japonya, Avustralya, Yeni Zelanda, Singapur, Hong Kong Özel İdari Bölgesi, Avro Bölgesi, Meksika, Norveç, İsveç, Danimarka ve İsviçre ekonomileri dahildir.\n"
+    },
+    {
+      "start": 50741,
+      "end": 50754,
+      "old": "hesaplanmaz.\n",
+      "new": "(4) Sektörlere risk tutarlarının atanmasında, piyasada yaygın olarak kullanılan endüstriyel bazlı sektör sınıflandırması dikkate alınır. Her bir ihraççı birinci fıkrada yer alan tablodaki risk faktör gruplarından birine ve aynı endüstride yer alan tüm ihraççılar aynı sektöre atanır. Belirtilen şekilde bir sektöre atanamayan herhangi bir ihraççıdan olan risk tutarları, 11 numaralı risk faktör grubuna (Diğer sektör) konulur. Çok uluslu veya çok sektörlü hisse senedi ihraççılarının belirli bir risk faktör grubuna atanması, ihraççısının faaliyet gösterdiği en önemli bölge ve sektör esas alınarak yapılır.\n"
+    },
+    {
+      "start": 50755,
+      "end": 51069,
+      "old": "Referans kredi faiz farkı risk faktör grupları ve risk faktörleri\nMADDE  19  –  (1)  KDA  portföyündeki  referans  kredi  faiz  farkı  risk  faktör  grupları,\nreferansa dayalı aracın referans borçlusunun kredi kalitesine ve bulunduğu sektöre göre aşağıda\nyer alan tabloda numara sırası verilmiş gruplardan oluşur.\n",
+      "new": "(5) KDA portföyündeki hisse senedi spot fiyatlarına duyarlı finansal araçlara uygulanacak hisse senedi delta risk faktörleri bakımından, her bir risk faktörü grubu bazında grupta yer alan tüm hisse senetlerinin spot fiyatları bir bütün olarak ayrı bir delta risk faktörü oluşturur.\n"
+    },
+    {
+      "start": 51070,
+      "end": 51126,
+      "old": "Tablo 4: Referans kredi faiz farkı risk faktör grupları\n",
+      "new": "(6) KDA portföyündeki hisse senetlerinin volatilitesine duyarlı finansal araçlara uygulanacak hisse senedi vega risk faktörleri bakımından, her bir risk faktörü grubu bazında grupta yer alan tüm hisse senetlerinin spot fiyatlarının volatiliteleri bir bütün olarak ayrı bir vega risk faktörü teşkil eder.\n"
+    },
+    {
+      "start": 51127,
+      "end": 51156,
+      "old": "Risk\nFaktör\nGrubu\nnumarası\n1\n",
+      "new": "### **Emtia risk faktör grupları ve risk faktörleri**\n"
+    },
+    {
+      "start": 51157,
+      "end": 51159,
+      "old": "2\n",
+      "new": "**MADDE 21** – (1) Emtia risk faktör grupları, ürün gruplarına göre aşağıda yer alan tabloda numara sırası verilmiş gruplardan oluşur.\n"
+    },
+    {
+      "start": 51160,
+      "end": 51162,
+      "old": "3\n",
+      "new": "**Tablo 6: Emtia risk faktör grupları**\n"
+    },
+    {
+      "start": 51163,
+      "end": 51184,
+      "old": "Kredi kalitesi\ngrubu\n",
+      "new": "| **Risk faktör grubu numarası** | **Ürün grubu adı** | **Örnekler** |\n|---|---|---|\n| 1 | Enerji — katı yanıcılar | Kömür, odun kömürü, odun peletleri, nükleer yakıt |\n| 2 | Enerji — sıvı yanıcılar | Ham petrol, biyoyakıtlar, petrokimyasallar, rafine yakıtlar |\n| 3 | Enerji — elektrik ve karbon ticareti | Elektrik, karbon emisyonu ticareti |\n| 4 | Navlun | Kuru yük rotası, sıvı yük/gaz nakliye rotası |\n| 5 | Kıymetli olmayan metaller | Temel metal, çelik hammaddeleri; küçük metaller |\n| 6 | Gaz halindeki yanıcılar | Doğal gaz, sıvılaştırılmış doğal gaz |\n| 7 | Altın dahil değerli metaller | Altın, gümüş, platin, paladyum |\n| 8 | Tahıllar ve yağlı tohumlar | Mısır, buğday, soya fasulyesi, yulaf, palmiye yağı, kanola, arpa, kırmızı fasulye, hindistan cevizi yağı, zeytinyağı, fıstık yağı, ayçiçeği yağı, pirinç |\n| 9 | Hayvancılık ve süt ürünleri | Sığır, kümes hayvanları, kuzu, balık, karides, yumurta ve süt gibi günlük ürünler |\n| 10 | Tarımsal emtialar | Kakao, kahve, çay, narenciye ve portakal suyu, patates, şeker, pamuk, yün, kereste, kauçuk |\n| 11 | Diğer emtialar | Endüstriyel mineraller, nadir toprak elementleri, düz cam |\n"
+    },
+    {
+      "start": 51185,
+      "end": 51192,
+      "old": "Sektör\n",
+      "new": "(2) Bir emtia risk faktör grubundaki tüm emtiaların spot fiyatları bir bütün olarak, bir risk faktörü oluşturur ve emtia delta risk faktörleri de her bir risk grubu bazındaki bu risk faktörlerinden teşekkül eder.\n"
+    },
+    {
+      "start": 51193,
+      "end": 51197,
+      "old": "YYD\n",
+      "new": "(3) KDA portföyündeki emtiaların volatilitesine duyarlı finansal araçlara uygulanacak emtia vega risk faktörleri, birinci fıkrada belirtilen aynı emtia risk faktör grubuna eşlenen tüm emtiaların volatiliteleridir.\n"
+    },
+    {
+      "start": 51198,
+      "end": 51297,
+      "old": "Merkezi yönetimler, merkez bankaları ve çok taraflı\nkalkınma bankaları ile uluslararası kuruluşlar\n",
+      "new": "## **ÜÇÜNCÜ BÖLÜM**\n"
+    },
+    {
+      "start": 51298,
+      "end": 51441,
+      "old": "Yerel ve bölgesel yönetimler, devlet destekli finansal\nolmayan kuruluşlar, eğitim kuruluşları ve kamu yönetimi\nkuruluşları\nFinansal kuruluşlar\n",
+      "new": "### **Standart Yaklaşım Yönteminde Duyarlılıklar**\n"
+    },
+    {
+      "start": 51442,
+      "end": 51444,
+      "old": "4\n",
+      "new": "#### **Delta risk faktörü duyarlılıkları**\n"
+    },
+    {
+      "start": 51445,
+      "end": 51447,
+      "old": "5\n",
+      "new": "**MADDE 22** – (1) Delta risk faktörü duyarlılıkları, toplam KDA'nın delta risk faktörlerine olan duyarlılıkları ile KDA korumalarının delta risk faktörlerine olan duyarlılıklarından oluşur. Toplam KDA'nın delta risk faktörlerine olan duyarlılıkları, ilgili delta risk faktöründe yaşanacak küçük bir değişikliğin toplam KDA'da yaratacağı değişim tutarının bu delta risk faktöründe dikkate alınan değişiklik miktarına oranı suretiyle hesaplanır. KDA korumalarının delta risk faktörü duyarlılıkları ise toplam KDA'ya ilişkin delta risk faktörü duyarlılığı hesaplamasında kullanılan yöntemle, toplam KDA yerine KDA koruma değeri kullanılmak suretiyle bulunur.\n"
+    },
+    {
+      "start": 51448,
+      "end": 51452,
+      "old": "6\n7\n",
+      "new": "(2) Delta risk faktörü duyarlılıkları hesaplamasında delta risk faktöründe kullanılacak değişiklikler ve miktarları aşağıdaki şekildedir:\n"
+    },
+    {
+      "start": 51453,
+      "end": 51455,
+      "old": "8\n",
+      "new": "a) Faiz oranı delta risk faktörlerine ilişkin duyarlılıklarda; birincil risk faktör grupları bakımından risksiz faiz oranı ve enflasyon oranı için 1 baz puanlık (mutlak terimlerle 0,0001) değişiklik, ikincil risk faktör grupları bakımından risksiz getiri eğrisi için 1 baz puanlık (mutlak terimlerle 0,0001) paralel kayma ve enflasyon oranı için ise 1 baz puanlık (mutlak terimlerle 0,0001) değişiklik kullanılır. Değişiklik miktarı olarak mutlak değerle 0,0001 esas alınır.\n"
+    },
+    {
+      "start": 51456,
+      "end": 51458,
+      "old": "9\n",
+      "new": "b) Kur delta risk faktörlerine ilişkin duyarlılıklarda, spot döviz kurunun cari değerinde yüzde birlik (%1) oransal değişiklik kullanılır. Değişiklik miktarı olarak mutlak değerle 0,01 esas alınır. Raporlama para birimi dışında iki para birimi arasındaki kurun referans olarak alındığı işlemlerde, kur delta risk faktörü duyarlılığı referans para birimlerinin raporlama para birimi cinsinden spot döviz kurları esas alınarak her bir referans para birimi için ayrı ayrı hesaplanır.\n"
+    },
+    {
+      "start": 51459,
+      "end": 51462,
+      "old": "10\n",
+      "new": "c) Karşı taraf kredi faiz farkı delta risk faktörlerine ilişkin duyarlılıklarda, ilgili karşı taraf kredi faiz farkı risk faktöründe 1 baz puanlık (mutlak değerlerle 0,0001) değişiklik kullanılır. Değişiklik miktarı olarak mutlak değerle 0,0001 esas alınır.\n"
+    },
+    {
+      "start": 51463,
+      "end": 51469,
+      "old": "11\n12\n",
+      "new": "ç) Referans kredi faiz farkı delta risk faktörlerine ilişkin duyarlılıklarda, bir risk faktör grubu içindeki referansa dayalı tüm araçlar için tüm referans borçluların tüm vade noktalarındaki kredi faiz farklarında eşanlı 1 baz puanlık (mutlak değerlerle 0,0001) değişiklik kullanılır. Değişiklik miktarı olarak mutlak değerle 0,0001 esas alınır.\n"
+    },
+    {
+      "start": 51470,
+      "end": 51473,
+      "old": "13\n",
+      "new": "d) Hisse senedi delta risk faktörlerine olan duyarlılıkta, ilgili risk faktörü kapsamında yer alan tüm referans borçluların tüm hisse senetlerinin spot fiyatlarında eşanlı yüzde birlik (%1) oransal değişiklik kullanılır. Değişiklik miktarı olarak mutlak değerle 0,01 esas alınır.\n"
+    },
+    {
+      "start": 51474,
+      "end": 51480,
+      "old": "14\n15\n",
+      "new": "e) Emtia delta risk faktörlerine olan duyarlılıkta, ilgili risk faktörü kapsamında yer alan tüm emtiaların spot fiyatlarında eşanlı yüzde birlik (%1) oransal değişiklik kullanılır. Değişiklik miktarı olarak mutlak değerle 0,01 esas alınır.\n"
+    },
+    {
+      "start": 51481,
+      "end": 51487,
+      "old": "16\n17\n",
+      "new": "### **Vega risk duyarlılıkları**\n"
+    },
+    {
+      "start": 51488,
+      "end": 51794,
+      "old": "Hammadde, enerji, sanayi ürünleri, tarım, imalat,\nmadencilik ve taş ocakçılığı\nTüketim malları ve hizmetleri, ulaştırma ve depolama,\nidari ve destek hizmet faaliyetleri\nTeknoloji, telekomünikasyon\nSağlık hizmeti, mesleki ve teknik faaliyetler, elektrik, su,\ndoğalgaz dağıtımı gibi kamuya sunulan hizmetler\n",
+      "new": "**MADDE 23** – (1) Vega risk faktörü duyarlılıkları, toplam KDA'nın vega risk faktörlerine olan duyarlılıkları ile KDA korumalarının vega risk faktörlerine olan duyarlılıklarından oluşur. Toplam KDA'nın vega risk faktörlerine olan duyarlılıkları, ilgili vega risk faktöründe eşanlı yaşanacak yüzde birlik (%1) oransal değişikliğin toplam KDA'da yaratacağı değişim tutarının mutlak değerle 0,01'e oranı suretiyle hesaplanır. KDA korumalarının vega risk faktörü duyarlılıkları ise toplam KDA'ya ilişkin vega risk faktörü duyarlılığı hesaplamasında kullanılan yöntemle, toplam KDA yerine KDA koruma değeri kullanılmak suretiyle bulunur.\n"
+    },
+    {
+      "start": 51795,
+      "end": 51861,
+      "old": "YRD veya DNB  Merkezi yönetimler, merkez bankaları ve çok taraflı\n",
+      "new": "(2) Vega risk faktörlerine olan duyarlılıkların hesaplanmasında, bir risk faktörünün içeriğinde ilgili olduğu risk kapsamında birden fazla fiyat volatilitesinin bulunması halinde, bu risk faktörüne ilişkin vega duyarlılığı, vega risk faktörünün içerdiği ilgili risk bağlantılı fiyat volatilitelerinin tümünde eşanlı değişiklik uygulamak suretiyle tespit edilir.\n"
+    },
+    {
+      "start": 51862,
+      "end": 52327,
+      "old": "kalkınma bankaları ile uluslararası kuruluşlar\nBölgesel yönetimler veya yerel yönetimler ve kamu\nkuruluşları\nYerel ve bölgesel yönetimler, devlet destekli finansal\nolmayan kuruluşlar, eğitim kuruluşları ve kamu yönetimi\nkuruluşları\nFinansal kuruluşlar\nHammadde, enerji, sanayi ürünleri, tarım, imalat,\nmadencilik ve taş ocakçılığı\nTüketim malları ve hizmetleri, ulaştırma ve depolama,\nidari ve destek hizmet faaliyetleri\nTeknoloji, telekomünikasyon\nDiğer sektörler\n",
+      "new": "(3) Raporlama para birimi dışında iki para birimi arasındaki kurun referans olarak alındığı işlemlerde, kur vega risk faktörü duyarlılığı, referans para birimlerinin raporlama para birimi cinsinden spot döviz kuru volatiliteleri esas alınarak her bir referans para birimi için ayrı ayrı hesaplanır.\n"
+    },
+    {
+      "start": 52328,
+      "end": 52368,
+      "old": "Nitelikli endeksler\nNitelikli endeksler\n",
+      "new": "(4) Vega risk faktörü duyarlılıkları; faiz oranı risk faktörleri, kur riski faktörleri, referans kredi faiz farkı risk faktörleri, hisse senedi riski faktörleri ve emtia riski faktörleri için hesaplanırken; karşı taraf kredi faiz farkı risk faktörleri için hesaplanmaz.\n"
+    },
+    {
+      "start": 52369,
+      "end": 52405,
+      "old": "Kredi kalitesinden\nbağımsız\nYYD\nYRD\n",
+      "new": "## DÖRDÜNCÜ BÖLÜM\n"
+    },
+    {
+      "start": 52406,
+      "end": 52737,
+      "old": "(2) Referans kredi faiz farkı risk faktörüne duyarlı finansal araçlara uygulanan referans\nkredi spread delta risk faktörleri bakımından, her bir risk faktör grubu içindeki referansa dayalı\ntüm araçlar için tüm referans borçluların tüm vade noktalarındaki kredi faiz farkları bir bütün\nolarak ayrı bir delta risk faktörü oluşturur.\n",
+      "new": "### Standart Yaklaşım Yönteminde Risk Ağırlıkları\n"
+    },
+    {
+      "start": 52738,
+      "end": 53120,
+      "old": "(3)  KDA  portföyündeki  referans  kredi  faiz farkı  volatilitesine  duyarlı  finansal  araçlara\nuygulanabilen referans kredi faiz farkı vega risk faktörleri bakımından, her bir risk faktör grubu\niçindeki referansa dayalı tüm araçlar için tüm referans borçluların tüm vade noktalarındaki kredi\nfaiz farklarının volatiliteleri bir bütün olarak ayrı bir vega risk faktörü oluşturur.\n",
+      "new": "#### Faiz oranı risk faktörüne ilişkin risk ağırlıkları\n"
+    },
+    {
+      "start": 53121,
+      "end": 53377,
+      "old": "(4)  Vade  noktaları,  karşı  taraf  kredi  faiz  farkı  risk  faktörleri  için  kullanılan  vade\nnoktalarından oluşur ve bir aracın vade noktası da yine karşı taraf kredi faiz farkı risk faktörüne\nilişkin vade noktasına yönelik esaslar dahilinde bulunur.\n",
+      "new": "**MADDE 24** – (1) Birincil risk faktör gruplarına ait para birimleri bakımından risksiz faiz oranı risk faktörüne ilişkin delta duyarlılıklarına aşağıdaki tabloda vade noktası bazında verilen risk ağırlıkları, enflasyon oranı risk faktörüne ilişkin delta duyarlılıklarına ise %1,11 risk ağırlığı uygulanır.\n"
+    },
+    {
+      "start": 53378,
+      "end": 53709,
+      "old": "Hisse senedi risk faktör grupları ve risk faktörleri\nMADDE  20  –  (1)  Hisse  senedi  risk  faktör  grupları,  ihraççısının  faaliyette  bulunduğu\nsektör  ve  ekonomiler  ile  ihraççının  sermaye  piyasalarında  işlem  gördüğü  piyasa  değerinin\nbüyüklüğüne göre aşağıda yer alan tabloda numara sırası verilmiş gruplardan oluşur.\n",
+      "new": "**Tablo 7: Faiz oranı risk faktörüne ilişkin risk ağırlıkları**\n"
+    },
+    {
+      "start": 53710,
+      "end": 53753,
+      "old": "Tablo 5: Hisse senedi risk faktör grupları\n",
+      "new": "| Vade noktası | 1 yıl | 2 yıl | 5 yıl | 10 yıl | 30 yıl |\n| --- | --- | --- | --- | --- | --- |\n| Risk ağırlığı | %1,11 | %0,93 | %0,74 | %0,74 | %0,74 |\n"
+    },
+    {
+      "start": 53754,
+      "end": 53768,
+      "old": "Piyasa\ndeğeri\n",
+      "new": "(2) İkincil risk faktör gruplarına ait para birimleri bakımından risksiz faiz oranı ve enflasyon oranı risk faktörlerine ilişkin delta duyarlılıklarına uygulanacak risk ağırlığı %1,58’dir.\n"
+    },
+    {
+      "start": 53769,
+      "end": 53777,
+      "old": "Ekonomi\n",
+      "new": "(3) Tüm para birimleri için risksiz faiz oranı ve enflasyon oranı volatiliteleri risk faktörlerine ilişkin vega duyarlılıklarına %100 risk ağırlığı uygulanır.\n"
+    },
+    {
+      "start": 53778,
+      "end": 53805,
+      "old": "Risk\nfaktör\ngrubu\nnumarası\n",
+      "new": "#### Kur riski faktörüne ilişkin risk ağırlıkları\n"
+    },
+    {
+      "start": 53806,
+      "end": 53813,
+      "old": "Sektör\n",
+      "new": "**MADDE 25** – (1) Raporlama para birimi ile başka bir para birimi arasındaki döviz kuru risk faktörüne ilişkin tüm delta duyarlılıkları için %11, kur riski faktörüne ilişkin tüm vega duyarlılıklarına ise %100 risk ağırlığı uygulanır.\n"
+    },
+    {
+      "start": 53814,
+      "end": 53816,
+      "old": "1\n",
+      "new": "#### Karşı taraf kredi faiz farkları riski faktörüne ilişkin risk ağırlıkları\n"
+    },
+    {
+      "start": 53817,
+      "end": 53821,
+      "old": "2\n3\n",
+      "new": "**MADDE 26** – (1) Karşı taraf kredi faiz farkları risk faktörlerine ilişkin delta duyarlılıklarına aşağıdaki tabloda risk faktör grupları ve kredi kalitesi grubu bazında verilen risk ağırlıkları uygulanır. Her bir risk faktör grubu için verilen risk ağırlıkları tüm vade noktaları için aynı olacak şekilde uygulanır.\n"
+    },
+    {
+      "start": 53822,
+      "end": 53824,
+      "old": "4\n",
+      "new": "**Tablo 8: Karşı taraf kredi faiz farkları riski faktörüne ilişkin risk ağırlıkları**\n"
+    },
+    {
+      "start": 53825,
+      "end": 53827,
+      "old": "5\n",
+      "new": "| Risk faktör grubu | Kredi kalitesi grubu | 1 a) | 1 b) | 2 | 3 | 4 | 5 | 6 | 7 | 8 |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n| | YYD | %0,5 | %1 | %5 | %3 | %3 | %2 | %1,5 | %5 | %1,5 |\n| | YRD veya DNB | %2 | %4 | %12 | %7 | %8,5 | %5,5 | %5 | %12 | %5 |\n"
+    },
+    {
+      "start": 53828,
+      "end": 53832,
+      "old": "6\n7\n",
+      "new": "#### Referans kredi faiz farkı riski faktörüne ilişkin risk ağırlıkları\n"
+    },
+    {
+      "start": 53833,
+      "end": 53835,
+      "old": "8\n",
+      "new": "**MADDE 27** – (1) Referans kredi faiz farkı risk faktörlerine ilişkin delta duyarlılıklarına aşağıdaki tabloda risk faktör grupları bazında verilen risk ağırlıkları uygulanır. Her bir risk faktör grubu için verilen risk ağırlıkları tüm vade noktaları için aynı olacak şekilde uygulanır.\n"
+    },
+    {
+      "start": 53836,
+      "end": 53838,
+      "old": "9\n",
+      "new": "**Tablo 9: Referans kredi faiz farkı riski faktörüne ilişkin risk ağırlıkları**\n"
+    },
+    {
+      "start": 53839,
+      "end": 53842,
+      "old": "10\n",
+      "new": "| Risk faktör grubu | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n| Risk ağırlığı | %0,5 | %1 | %5 | %3 | %3 | %2 | %1,5 | %2 | %4 |\n| Risk faktör grubu | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | |\n| Risk ağırlığı | %12 | %7 | %8,5 | %5,5 | %5 | %12 | %1,5 | %5 | |\n"
+    },
+    {
+      "start": 53843,
+      "end": 53849,
+      "old": "11\n12\n",
+      "new": "(2) Referans kredi faiz farkına ilişkin vega riski duyarlılıklarına uygulanacak risk ağırlığı %100’dür.\n"
+    },
+    {
+      "start": 53850,
+      "end": 53884,
+      "old": "Büyük  Gelişmekte\nolan\nekonomiler\n",
+      "new": "### Hisse senedi riski faktörüne ilişkin risk ağırlıkları\n"
+    },
+    {
+      "start": 53885,
+      "end": 53905,
+      "old": "Gelişmiş\nekonomiler\n",
+      "new": "**MADDE 28** – (1) Hisse senedi risk faktörlerine ilişkin delta duyarlılıklarına aşağıdaki tabloda risk faktör grupları bazında verilen risk ağırlıkları uygulanır.\n"
+    },
+    {
+      "start": 53906,
+      "end": 53960,
+      "old": "Küçük  Gelişmekte\nolan\nekonomiler\nGelişmiş\nekonomiler\n",
+      "new": "**Tablo 10: Hisse senedi riski faktörüne ilişkin risk ağırlıkları**\n"
+    },
+    {
+      "start": 53961,
+      "end": 53990,
+      "old": "Diğer sektör\nBüyük  Gelişmiş\n",
+      "new": "| Risk faktör grubu | 1 | 2 | 3 | 4 | 5 | 6 | 7 |\n|---|---|---|---|---|---|---|---|\n| Risk ağırlığı | %55 | %60 | %45 | %55 | %30 | %35 | %40 |\n| Risk faktör grubu | 8 | 9 | 10 | 11 | 12 | 13 |  |\n| Risk ağırlığı | %50 | %70 | %50 | %70 | %15 | %25 |  |\n"
+    },
+    {
+      "start": 53991,
+      "end": 54002,
+      "old": "ekonomiler\n",
+      "new": "(2) Hisse senedi vega riski duyarlılıklarına uygulanacak risk ağırlığı, 1 ilâ 8 numaralı risk faktörü grupları ve 12 numaralı risk faktör grubu için %78, bunlar dışında kalan diğer risk faktör grupları için ise %100'dür.\n"
+    },
+    {
+      "start": 54003,
+      "end": 54669,
+      "old": "Tüketim malları ve hizmetleri, ulaştırma ve depolama,\nidari ve destek hizmet faaliyetleri, sağlık hizmetleri,\nkamu hizmetleri\nTelekomünikasyon, sanayi ürünleri\nTemel malzemeler, enerji, tarım, imalat, madencilik ve\ntaş ocağı\nDevlet destekli finansal kuruluşlar, gayrimenkul\nfaaliyetleri, teknoloji\nTüketim malları ve hizmetleri, ulaştırma ve depolama,\nidari ve destek hizmet faaliyetleri, sağlık hizmetleri,\nkamu hizmetleri\nTelekomünikasyon, sanayi ürünleri\nTemel malzemeler, enerji, tarım, imalat, madencilik ve\ntaş ocağı\nDevlet destekli finansal kuruluşlar, gayrimenkul\nfaaliyetleri, teknoloji\n1, 2, 3 ve 4 numaralı risk faktör gruplarında açıklanan\ntüm sektörler\n",
+      "new": "### Emtia riski faktörüne ilişkin risk ağırlıkları\n"
+    },
+    {
+      "start": 54670,
+      "end": 54740,
+      "old": "5, 6, 7 ve 8 numaralı risk faktör gruplarında açıklanan\ntüm sektörler\n",
+      "new": "**MADDE 29** – (1) Emtia risk faktörlerine ilişkin delta duyarlılıklarına aşağıdaki tabloda risk faktör grupları bazında verilen risk ağırlıkları uygulanır.\n"
+    },
+    {
+      "start": 54741,
+      "end": 54761,
+      "old": "Nitelikli endeksler\n",
+      "new": "**Tablo 11: Emtia riski faktörüne ilişkin risk ağırlıkları**\n"
+    },
+    {
+      "start": 54762,
+      "end": 54765,
+      "old": "13\n",
+      "new": "| Risk faktör grubu | 1 | 2 | 3 | 4 | 5 | 6 | 7 |\n|---|---|---|---|---|---|---|---|\n| Risk ağırlığı | %30 | %35 | %60 | %80 | %40 | %45 | %20 |\n| Risk faktör grubu | 8 | 9 | 10 | 11 |  |  |  |\n| Risk ağırlığı | %35 | %25 | %35 | %50 |  |  |  |\n"
+    },
+    {
+      "start": 54766,
+      "end": 54772,
+      "old": "Diğer\n",
+      "new": "(2) Emtia vega riski duyarlılıklarına uygulanacak risk ağırlığı %100'dür.\n"
+    },
+    {
+      "start": 54773,
+      "end": 54793,
+      "old": "Nitelikli endeksler\n",
+      "new": "## BEŞİNCİ BÖLÜM Standart Yaklaşım Yönteminde Korelasyonlar\n"
+    },
+    {
+      "start": 54794,
+      "end": 55420,
+      "old": "(2) Birinci fıkrada yer alan tabloda belirtilen “büyük” piyasa değeri, 2 Milyar ABD Doları\nmuadili Türk Lirası tutara eşit veya bu tutarın üzerindeki piyasa değerini, “küçük” piyasa değeri\nise söz konusu tutarın altındaki piyasa değerini ifade eder. Bu kıstasta şirketin piyasa değeri\nolarak  şirketin  küresel  ölçekte  hisselerinin  tedavülde  bulunduğu  tüm  borsalardaki  piyasa\ndeğerlerinin  toplamı  alınır.  Şirketin  bir  grup  şirketinin  ana  ortağı  olması  durumu  da  dahil,\nkıstasa  esas  piyasa  değer  hesaplamasında  hiçbir  koşulda  ilgili  diğer  kuruluşların  piyasa\ndeğerleri ayrıca hesaplamaya eklenmez.\n",
+      "new": "### Faiz oranı riskine ilişkin korelasyonlar\n"
+    },
+    {
+      "start": 55421,
+      "end": 55700,
+      "old": "(3)  Birinci  fıkrada  yer  alan  tabloda  belirtilen  gelişmiş  ekonomiler  kapsamına;  ABD,\nKanada,  İngiltere,  Japonya,  Avustralya,  Yeni  Zelanda,  Singapur,  Hong  Kong  Özel  İdari\nBölgesi, Avro Bölgesi, Meksika, Norveç, İsveç, Danimarka ve İsviçre ekonomileri dahildir.\n",
+      "new": "**MADDE 30** – (1) Delta risklerine ilişkin olarak; birincil risk faktör gruplarına ait para birimleri için risk faktörü grubunun sermaye yükümlülüğünün hesaplanmasında aynı risk faktörü grubunda yer alan risk faktörleri arası korelasyon parametreleri olarak aşağıdaki tabloda yer alan değerler uygulanır:\n"
+    },
+    {
+      "start": 55701,
+      "end": 56333,
+      "old": "(4) Sektörlere risk tutarlarının atanmasında, piyasada yaygın olarak kullanılan endüstriyel\nbazlı sektör sınıflandırması dikkate alınır. Her bir ihraççı birinci fıkrada yer alan tablodaki risk\nfaktör  gruplarından  birine  ve  aynı  endüstride  yer  alan  tüm  ihraççılar  aynı  sektöre  atanır.\nBelirtilen şekilde bir sektöre atanamayan herhangi bir ihraççıdan olan risk tutarları, 11 numaralı\nrisk  faktör  grubuna  (Diğer  sektör)  konulur.  Çok  uluslu  veya  çok  sektörlü  hisse  senedi\nihraççılarının belirli bir risk faktör grubuna atanması, ihraççısının faaliyet gösterdiği en önemli\nbölge ve sektör esas alınarak yapılır.\n",
+      "new": "**Tablo 12: Faiz oranı riskine ilişkin korelasyonlar**\n"
+    },
+    {
+      "start": 56334,
+      "end": 56616,
+      "old": "(5) KDA portföyündeki hisse senedi spot fiyatlarına duyarlı finansal araçlara uygulanacak\nhisse senedi delta risk faktörleri bakımından, her bir risk faktörü grubu bazında grupta yer alan\ntüm hisse senetlerinin spot fiyatları bir bütün olarak ayrı bir delta risk faktörü oluşturur.\n",
+      "new": "| Risk faktör grubu | 1 yıl | 2 yıl | 5 yıl | 10 yıl | 30 yıl |\n|---|---|---|---|---|---|\n| 1 yıl | %100 | %91 | %72 | %55 | %31 |\n| 2 yıl |  | %100 | %87 | %72 | %45 |\n| 5 yıl |  |  | %100 | %91 | %68 |\n| 10 yıl |  |  |  | %100 | %83 |\n| 30 yıl |  |  |  |  | %100 |\n"
+    },
+    {
+      "start": 56617,
+      "end": 56800,
+      "old": "(6)  KDA  portföyündeki  hisse  senetlerinin  volatilitesine  duyarlı  finansal  araçlara\nuygulanacak hisse senedi vega risk faktörleri bakımından, her bir risk faktörü grubu bazında\n",
+      "new": "(2) Delta risklerine ilişkin olarak; birincil risk faktör gruplarına ait para birimleri bakımından, risksiz faiz oranı ile enflasyon oranı arasındaki risk faktörü grubu içi risk faktörleri arası korelasyon parametresi %40 olarak uygulanır.\n"
+    },
+    {
+      "start": 56801,
+      "end": 56942,
+      "old": "grupta  yer  alan tüm  hisse  senetlerinin  spot  fiyatlarının  volatiliteleri  bir  bütün  olarak  ayrı  bir\nvega risk faktörü teşkil eder.\n",
+      "new": "(3) Delta risklerine ilişkin olarak; ikincil risk faktör gruplarına ait para birimleri bakımından, enflasyon oranı ve risksiz getiri eğrisi arasındaki risk faktörü grubu içi risk faktörleri arası korelasyon parametresi %40 olarak esas alınır.\n"
+    },
+    {
+      "start": 56943,
+      "end": 57078,
+      "old": "Emtia risk faktör grupları ve risk faktörleri\nMADDE 21 – (1) Emtia risk faktör grupları, ürün gruplarına göre aşağıda yer alan tabloda\n",
+      "new": "(4) Vega riskine ilişkin olarak; risksiz faiz oranının volatilitesi ile enflasyon oranının volatilitesi arasındaki risk faktörü grubu içi risk faktörleri arası korelasyon parametresi %40 olarak uygulanır.\n"
+    },
+    {
+      "start": 57079,
+      "end": 57121,
+      "old": "numara sırası verilmiş gruplardan oluşur.\n",
+      "new": "(5) Faiz oranına ilişkin delta ve vega riskleri için sermaye yükümlülüğünün hesaplanmasında risk faktör grupları arası korelasyon parametresi %50 olarak dikkate alınır.\n"
+    },
+    {
+      "start": 57122,
+      "end": 57187,
+      "old": "Tablo 6: Emtia risk faktör grupları\nRisk faktör\ngrubu\nnumarası\n1\n",
+      "new": "### **Kur riskine ilişkin korelasyonlar**\n"
+    },
+    {
+      "start": 57188,
+      "end": 57212,
+      "old": "Enerji — katı yanıcılar\n",
+      "new": "**MADDE 31** – (1) Döviz kuruna ilişkin delta ve vega riskleri için sermaye yükümlülüğünün hesaplanmasında risk faktör grupları arasındaki korelasyon parametresi %60 olarak uygulanır.\n"
+    },
+    {
+      "start": 57213,
+      "end": 57228,
+      "old": "Ürün grubu adı\n",
+      "new": "### **Karşı taraf kredi faiz farkı riskine ilişkin korelasyonlar**\n"
+    },
+    {
+      "start": 57229,
+      "end": 57231,
+      "old": "2\n",
+      "new": "**MADDE 32** – (1) Delta risklerine ilişkin olarak; 1 ilâ 7 numaralı risk faktör grupları için, aynı risk faktör grubunda yer alan “k” ve “l” risk faktörlerinin net ağırlıklı duyarlılıkları  $WS_k$  ve  $WS_l$  arasındaki korelasyon parametresi “ $\\rho_{kl}$ ”;\n"
+    },
+    {
+      "start": 57232,
+      "end": 57234,
+      "old": "3\n",
+      "new": "a)  $\\rho_{kl}^{(vade)}$ : Aynı risk faktör grubunda yer alan “k” ve “l” risk faktörlerindeki iki aracın vade noktalarının aynı olması durumunda %100, diğer durumlarda %90 olarak uygulanacak olan korelasyon parametresini,\n"
+    },
+    {
+      "start": 57235,
+      "end": 57239,
+      "old": "4\n5\n",
+      "new": "b)  $\\rho_{kl}^{(isim)}$ : Aynı risk faktör grubunda yer alan “k” ve “l” risk faktörlerindeki iki aracın borçlusunun aynı olması durumunda %100, farklı ancak ilişkili kuruluş olması durumunda %90, diğer durumlarda %50 olarak uygulanacak olan korelasyon parametresini,\n"
+    },
+    {
+      "start": 57240,
+      "end": 69956,
+      "old": "6\n7\n8\n\n9\n\n10\n\nEnerji — sıvı yanıcılar\n\nEnerji — elektrik ve karbon\nticareti\nNavlun\nKıymetli olmayan metaller\n\nGaz halindeki yanıcılar\nAltın dahil değerli metaller\nTahıllar ve yağlı tohumlar\n\nHayvancılık ve süt ürünleri\n\nTarımsal emtialar\n\n11\n\nDiğer emtialar\n\nÖrnekler\n\nKömür, odun kömürü, odun peletleri,\nnükleer yakıt\nHam petrol, biyoyakıtlar, petrokimyasallar,\nrafine yakıtlar\nElektrik, karbon emisyonu ticareti\n\nKuru yük rotası, sıvı yük/gaz nakliye rotası\nTemel metal, çelik hammaddeleri; küçük\nmetaller\nDoğal gaz, sıvılaştırılmış doğal gaz\nAltın, gümüş, platin, paladyum\nMısır, buğday, soya fasulyesi, yulaf,\npalmiye yağı, kanola, arpa, kırmızı fasulye,\nhindistan cevizi yağı, zeytinyağı, fıstık\nyağı, ayçiçeği yağı, pirinç\nSığır, kümes hayvanları, kuzu, balık,\nkarides, yumurta ve süt gibi günlük ürünler\nKakao, kahve, çay, narenciye ve portakal\nsuyu, patates, şeker, pamuk, yün, kereste,\nkauçuk\nEndüstriyel mineraller, nadir toprak\nelementleri, düz cam\n\n(2) Bir emtia risk faktör grubundaki tüm emtiaların spot fiyatları bir bütün olarak, bir risk\nfaktörü  oluşturur  ve  emtia  delta  risk  faktörleri  de  her  bir  risk  grubu  bazındaki  bu  risk\nfaktörlerinden teşekkül eder.\n\n(3)  KDA  portföyündeki  emtiaların  volatilitesine  duyarlı  finansal  araçlara  uygulanacak\nemtia vega risk faktörleri, birinci fıkrada belirtilen aynı emtia risk faktör grubuna eşlenen tüm\nemtiaların volatiliteleridir.\n\nÜÇÜNCÜ BÖLÜM\n\nStandart Yaklaşım Yönteminde Duyarlılıklar\n\nDelta risk faktörü duyarlılıkları\nMADDE 22 – (1) Delta risk faktörü duyarlılıkları, toplam KDA’nın delta risk faktörlerine\nolan duyarlılıkları ile KDA korumalarının delta risk faktörlerine olan duyarlılıklarından oluşur.\nToplam  KDA’nın  delta  risk  faktörlerine  olan  duyarlılıkları,  ilgili  delta  risk  faktöründe\nyaşanacak  küçük  bir  değişikliğin  toplam  KDA’da  yaratacağı  değişim  tutarının  bu  delta  risk\nfaktöründe dikkate alınan değişiklik miktarına oranı suretiyle hesaplanır. KDA korumalarının\n\ndelta  risk  faktörü  duyarlılıkları  ise  toplam  KDA’ya  ilişkin  delta  risk  faktörü  duyarlılığı\nhesaplamasında  kullanılan  yöntemle,  toplam  KDA  yerine  KDA  koruma  değeri  kullanılmak\nsuretiyle bulunur.\n\n(2)  Delta  risk  faktörü  duyarlılıkları  hesaplamasında  delta  risk  faktöründe  kullanılacak\n\ndeğişiklikler ve miktarları aşağıdaki şekildedir:\n\na)  Faiz  oranı  delta  risk  faktörlerine  ilişkin  duyarlılıklarda;  birincil  risk  faktör  grupları\nbakımından risksiz faiz oranı ve enflasyon oranı için 1 baz puanlık (mutlak terimlerle 0,0001)\ndeğişiklik, ikincil risk faktör grupları bakımından risksiz getiri eğrisi için 1 baz puanlık (mutlak\nterimlerle 0,0001) paralel kayma ve enflasyon oranı için ise 1 baz puanlık (mutlak terimlerle\n0,0001) değişiklik kullanılır. Değişiklik miktarı olarak mutlak değerle 0,0001 esas alınır.\n\nb) Kur delta risk faktörlerine ilişkin duyarlılıklarda, spot döviz kurunun cari değerinde\nyüzde birlik (%1) oransal değişiklik kullanılır. Değişiklik miktarı olarak mutlak değerle 0,01\nesas  alınır.  Raporlama  para  birimi  dışında  iki  para  birimi  arasındaki  kurun  referans  olarak\nalındığı işlemlerde, kur delta risk faktörü duyarlılığı referans para birimlerinin raporlama para\nbirimi  cinsinden  spot  döviz  kurları  esas  alınarak  her  bir  referans  para  birimi  için  ayrı  ayrı\nhesaplanır.\n\nc) Karşı taraf kredi faiz farkı delta risk faktörlerine ilişkin duyarlılıklarda, ilgili karşı taraf\nkredi faiz farkı risk faktöründe 1 baz puanlık (mutlak değerlerle 0,0001) değişiklik kullanılır.\nDeğişiklik miktarı olarak mutlak değerle 0,0001 esas alınır.\n\nç) Referans kredi faiz farkı delta risk faktörlerine ilişkin duyarlılıklarda, bir risk faktör\ngrubu  içindeki  referansa  dayalı  tüm  araçlar  için  tüm  referans  borçluların  tüm  vade\nnoktalarındaki kredi faiz farklarında eşanlı 1 baz puanlık (mutlak değerlerle 0,0001) değişiklik\nkullanılır. Değişiklik miktarı olarak mutlak değerle 0,0001 esas alınır.\n\nd) Hisse senedi delta risk faktörlerine olan duyarlılıkta, ilgili risk faktörü kapsamında yer\nalan tüm referans borçluların tüm hisse senetlerinin spot fiyatlarında eşanlı yüzde birlik (%1)\noransal değişiklik kullanılır. Değişiklik miktarı olarak mutlak değerle 0,01 esas alınır.\n\ne) Emtia delta risk faktörlerine olan duyarlılıkta, ilgili risk faktörü kapsamında yer alan\ntüm emtiaların spot fiyatlarında eşanlı yüzde birlik (%1) oransal değişiklik kullanılır. Değişiklik\nmiktarı olarak mutlak değerle 0,01 esas alınır.\n\nVega risk duyarlılıkları\nMADDE 23 – (1) Vega risk faktörü duyarlılıkları, toplam KDA’nın vega risk faktörlerine\nolan duyarlılıkları ile KDA korumalarının vega risk faktörlerine olan duyarlılıklarından oluşur.\nToplam KDA’nın vega  risk faktörlerine olan duyarlılıkları, ilgili vega risk faktöründe eşanlı\nyaşanacak yüzde birlik (%1) oransal değişikliğin toplam KDA’da yaratacağı değişim tutarının\nmutlak  değerle  0,01’e  oranı  suretiyle  hesaplanır.  KDA  korumalarının  vega  risk  faktörü\nduyarlılıkları ise toplam KDA’ya ilişkin vega risk faktörü duyarlılığı hesaplamasında kullanılan\nyöntemle, toplam KDA yerine KDA koruma değeri kullanılmak suretiyle bulunur.\n\n(2)  Vega  risk  faktörlerine  olan  duyarlılıkların  hesaplanmasında,  bir  risk  faktörünün\niçeriğinde ilgili olduğu risk kapsamında birden fazla fiyat volatilitesinin bulunması halinde, bu\nrisk faktörüne ilişkin vega duyarlılığı, vega risk faktörünün içerdiği ilgili risk bağlantılı fiyat\nvolatilitelerinin tümünde eşanlı değişiklik uygulamak suretiyle tespit edilir.\n\n(3) Raporlama para birimi dışında iki para birimi arasındaki kurun referans olarak alındığı\nişlemlerde, kur vega risk faktörü duyarlılığı, referans para birimlerinin raporlama para birimi\ncinsinden spot döviz kuru volatiliteleri esas alınarak her bir referans para birimi için ayrı ayrı\nhesaplanır.\n\n(4) Vega risk faktörü duyarlılıkları; faiz oranı risk faktörleri, kur riski faktörleri, referans\nkredi  faiz  farkı  risk  faktörleri,  hisse  senedi  riski  faktörleri  ve  emtia  riski  faktörleri  için\nhesaplanırken; karşı taraf kredi faiz farkı risk faktörleri için hesaplanmaz.\n\nDÖRDÜNCÜ BÖLÜM\n\nStandart Yaklaşım Yönteminde Risk Ağırlıkları\n\nFaiz oranı risk faktörüne ilişkin risk ağırlıkları\nMADDE 24 – (1) Birincil risk faktör gruplarına ait para birimleri bakımından risksiz faiz\noranı risk faktörüne ilişkin delta duyarlılıklarına aşağıdaki tabloda vade noktası bazında verilen\nrisk  ağırlıkları,  enflasyon  oranı  risk  faktörüne  ilişkin  delta  duyarlılıklarına  ise  %1,11  risk\nağırlığı uygulanır.\n\nTablo 7: Faiz oranı risk faktörüne ilişkin risk ağırlıkları\nVade noktası\nRisk ağırlığı\n\n2 yıl\n%0,93\n\n5 yıl\n%0,74\n\n1 yıl\n%1,11\n\n10 yıl\n%0,74\n\n30 yıl\n%0,74\n\n(2)  İkincil  risk  faktör  gruplarına  ait  para  birimleri  bakımından  risksiz  faiz  oranı  ve\nenflasyon  oranı  risk  faktörlerine  ilişkin  delta  duyarlılıklarına  uygulanacak  risk  ağırlığı\n%1,58’dir.\n\n(3)  Tüm  para  birimleri  için  risksiz  faiz  oranı  ve  enflasyon  oranı  volatiliteleri  risk\n\nfaktörlerine ilişkin vega duyarlılıklarına %100 risk ağırlığı uygulanır.\n\nKur riski faktörüne ilişkin risk ağırlıkları\nMADDE 25 – (1) Raporlama para birimi ile başka bir para birimi arasındaki döviz kuru\nrisk  faktörüne  ilişkin  tüm  delta  duyarlılıkları  için  %11,  kur  riski  faktörüne  ilişkin  tüm  vega\nduyarlılıklarına ise %100 risk ağırlığı uygulanır.\n\nKarşı taraf kredi faiz farkları riski faktörüne ilişkin risk ağırlıkları\nMADDE  26  –  (1)  Karşı  taraf  kredi  faiz  farkları  risk  faktörlerine  ilişkin  delta\nduyarlılıklarına aşağıdaki tabloda risk faktör grupları ve kredi kalitesi grubu bazında verilen\nrisk ağırlıkları uygulanır. Her bir risk faktör grubu için verilen risk ağırlıkları tüm vade noktaları\niçin aynı olacak şekilde uygulanır.\n\nTablo 8: Karşı taraf kredi faiz farkları riski faktörüne ilişkin risk ağırlıkları\nRisk faktör grubu\nKredi\nkalitesi\ngrubu\n\n1 a)  1 b)\n4\n%0,5  %1  %5  %3  %3  %2  %1,5  %5  %1,5\n%2  %4  %12  %7  %8,5  %5,5  %5  %12  %5\n\nYYD\nYRD veya DNB\n\n5\n\n7\n\n6\n\n2\n\n3\n\n8\n\nReferans kredi faiz farkı riski faktörüne ilişkin risk ağırlıkları\nMADDE 27 – (1) Referans kredi faiz farkı risk faktörlerine ilişkin delta duyarlılıklarına\naşağıdaki  tabloda  risk  faktör  grupları  bazında  verilen  risk  ağırlıkları  uygulanır.  Her  bir  risk\nfaktör grubu için verilen risk ağırlıkları tüm vade noktaları için aynı olacak şekilde uygulanır.\n\nTablo 9: Referans kredi faiz farkı riski faktörüne ilişkin risk ağırlıkları\nRisk faktör grubu  1\nRisk ağırlığı\nRisk faktör grubu  10\nRisk ağırlığı\n\n3\n%0,5  %1  %5  %3  %3\n14\n12\n%12  %7  %8,5  %5,5  %5\n\n7\n6\n%1,5  %2\n%2\n15\n17\n16\n%12  %1,5  %5\n\n13\n\n11\n\n8\n\n4\n\n5\n\n2\n\n9\n%4\n\n(2) Referans kredi faiz farkına ilişkin vega riski duyarlılıklarına uygulanacak risk ağırlığı\n\n%100’dür.\n\nHisse senedi riski faktörüne ilişkin risk ağırlıkları\nMADDE 28 – (1) Hisse senedi risk faktörlerine ilişkin delta duyarlılıklarına aşağıdaki\n\ntabloda risk faktör grupları bazında verilen risk ağırlıkları uygulanır.\n\n1\n\n2\n\nfaktör\n\nTablo 10: Hisse senedi riski faktörüne ilişkin risk ağırlıkları\nRisk\ngrubu\nRisk ağırlığı\nRisk\ngrubu\nRisk ağırlığı\n\n%55\n11\n\n%60\n9\n\n%45\n10\n\n%55\n8\n\nfaktör\n\n%70\n\n%70\n\n%50\n\n%50\n\n3\n\n4\n\n5\n\n6\n\n7\n\n%30\n12\n\n%35\n13\n\n%40\n\n%15\n\n%25\n\n(2) Hisse senedi vega riski duyarlılıklarına uygulanacak risk ağırlığı, 1 ilâ 8 numaralı risk\nfaktörü grupları ve 12 numaralı risk faktör grubu için %78, bunlar dışında kalan diğer risk faktör\ngrupları için ise %100’dür.\n\nEmtia riski faktörüne ilişkin risk ağırlıkları\nMADDE 29 – (1) Emtia risk faktörlerine ilişkin delta duyarlılıklarına aşağıdaki tabloda\n\nrisk faktör grupları bazında verilen risk ağırlıkları uygulanır.\n\n1\n\n2\n\nfaktör\n\nTablo 11: Emtia riski faktörüne ilişkin risk ağırlıkları\nRisk\ngrubu\nRisk ağırlığı\nRisk\ngrubu\nRisk ağırlığı\n\n%60\n10\n\n%35\n9\n\n%30\n8\n\nfaktör\n\n%35\n\n%25\n\n%35\n\n4\n\n3\n\n%80\n11\n\n%50\n\n5\n\n6\n\n7\n\n%40\n\n%45\n\n%20\n\n(2) Emtia vega riski duyarlılıklarına uygulanacak risk ağırlığı %100’dür.\n\nBEŞİNCİ BÖLÜM\n\nStandart Yaklaşım Yönteminde Korelasyonlar\n\nFaiz oranı riskine ilişkin korelasyonlar\nMADDE 30 – (1) Delta risklerine ilişkin olarak; birincil risk faktör gruplarına ait para\nbirimleri  için  risk  faktörü  grubunun  sermaye  yükümlülüğünün  hesaplanmasında  aynı  risk\nfaktörü grubunda yer alan risk faktörleri arası korelasyon parametreleri olarak aşağıdaki tabloda\nyer alan değerler uygulanır:\n\nTablo 12: Faiz oranı riskine ilişkin korelasyonlar\n2 yıl\n%91\n%100\n\n1 yıl\n%100\n\nRisk faktör grubu\n1 yıl\n2 yıl\n5 yıl\n10 yıl\n30 yıl\n\n5 yıl\n%72\n%87\n%100\n\n10 yıl\n%55\n%72\n%91\n%100\n\n30 yıl\n%31\n%45\n%68\n%83\n%100\n\n(2)  Delta  risklerine  ilişkin  olarak;  birincil  risk  faktör  gruplarına  ait  para  birimleri\nbakımından, risksiz faiz oranı ile enflasyon oranı arasındaki risk faktörü grubu içi risk faktörleri\narası korelasyon parametresi %40 olarak uygulanır.\n\n(3)  Delta  risklerine  ilişkin  olarak;  ikincil  risk  faktör  gruplarına  ait  para  birimleri\nbakımından,  enflasyon  oranı  ve  risksiz  getiri  eğrisi  arasındaki  risk  faktörü  grubu  içi  risk\nfaktörleri arası korelasyon parametresi %40 olarak esas alınır.\n\n(4)  Vega  riskine  ilişkin  olarak;  risksiz  faiz  oranının  volatilitesi  ile  enflasyon  oranının\nvolatilitesi arasındaki risk faktörü grubu içi risk  faktörleri  arası korelasyon parametresi %40\nolarak uygulanır.\n\n(5)  Faiz  oranına  ilişkin  delta  ve  vega  riskleri  için  sermaye  yükümlülüğünün\n\nhesaplanmasında risk faktör grupları arası korelasyon parametresi %50 olarak dikkate alınır.\n\nKur riskine ilişkin korelasyonlar\nMADDE  31  –  (1)  Döviz  kuruna  ilişkin  delta  ve  vega  riskleri  için  sermaye\nyükümlülüğünün hesaplanmasında risk faktör grupları arasındaki korelasyon parametresi %60\nolarak uygulanır.\n\nKarşı taraf kredi faiz farkı riskine ilişkin korelasyonlar\nMADDE 32 – (1) Delta risklerine ilişkin olarak; 1 ilâ 7 numaralı risk faktör grupları için,\naynı risk faktör grubunda yer alan “k” ve “l” risk faktörlerinin net ağırlıklı duyarlılıkları WSk\nve WSl arasındaki korelasyon parametresi “ρkl”;\n\na)\n\n: Aynı risk faktör grubunda yer alan “k” ve “l” risk faktörlerindeki iki aracın\nvade  noktalarının  aynı  olması  durumunda  %100,  diğer  durumlarda  %90  olarak  uygulanacak\nolan korelasyon parametresini,\n\n(_+()a)\n\n()/K\n\nb)\n\n: Aynı risk faktör grubunda yer alan “k” ve “l” risk faktörlerindeki iki aracın\nborçlusunun  aynı  olması  durumunda  %100,  farklı  ancak  ilişkili  kuruluş  olması  durumunda\n%90, diğer durumlarda %50 olarak uygulanacak olan korelasyon parametresini,\n\n(()`(),)\n\n()/K\n\nc)\n\n: Aynı risk faktör grubunda yer alan “k” ve “l” risk faktörlerindeki iki aracın\naynı  kredi  kalitesi  grubunda  yer  alması  durumunda  %100,  diğer  durumlarda  %80  olarak\nuygulanacak olan korelasyon parametresini,\n\n(/+K()*a)\n\n()/K\n",
+      "new": "c)  $\\rho_{kl}^{(kalite)}$ : Aynı risk faktör grubunda yer alan “k” ve “l” risk faktörlerindeki iki aracın aynı kredi kalitesi grubunda yer alması durumunda %100, diğer durumlarda %80 olarak uygulanacak olan korelasyon parametresini,\n"
+    },
+    {
+      "start": 70009,
+      "end": 70070,
+      "old": "Korelasyon Parametresi Formülü (Risk Faktör Grubu: 1-7 için)\n",
+      "new": "### **Korelasyon Parametresi Formülü (Risk Faktör Grubu: 1-7 için)**\n"
+    },
+    {
+      "start": 70071,
+      "end": 70079,
+      "old": "(_+()a)\n",
+      "new": "$$\\rho_{kl} = \\rho_{kl}^{(vade)} * \\rho_{kl}^{(isim)} * \\rho_{kl}^{(kalite)}$$\n"
+    },
+    {
+      "start": 70080,
+      "end": 70089,
+      "old": "(()`(),)\n",
+      "new": "(2) Delta risklerine ilişkin olarak; 8 numaralı risk faktör grubu için, aynı risk faktör grubunda yer alan “k” ve “l” risk faktörlerinin  $WS_k$  ve  $WS_l$  net ağırlıklı duyarlılıkları arasındaki korelasyon parametresi “ $\\rho_{kl}$ ” ise;\n"
+    },
+    {
+      "start": 70090,
+      "end": 70100,
+      "old": "(/+K()*a)\n",
+      "new": "a)  $\\rho_{kl}^{(vade)}$ : Aynı risk faktör grubunda yer alan “k” ve “l” risk faktörlerindeki iki aracın vade noktalarının aynı olması durumunda %100, diğer durumlarda %90 olarak uygulanacak olan korelasyon parametresini,\n"
+    },
+    {
+      "start": 70101,
+      "end": 70327,
+      "old": "(2)  Delta  risklerine  ilişkin  olarak;  8  numaralı  risk  faktör  grubu  için,  aynı  risk  faktör\ngrubunda yer alan “k” ve “l” risk faktörlerinin WSk ve WSl net ağırlıklı duyarlılıkları arasındaki\nkorelasyon parametresi “\n",
+      "new": "b)  $\\rho_{kl}^{(isim)}$ : Aynı risk faktör grubunda yer alan “k” ve “l” risk faktörlerindeki iki aracın referansta bulunduğu endekslerin ve bu endekslerin serilerinin aynı olması durumunda %100, endekslerin aynı fakat bu endekslerin serilerinin farklı olması durumunda %90, diğer durumlarda %80 olarak uygulanacak olan korelasyon parametresini,\n"
+    },
+    {
+      "start": 70328,
+      "end": 71220,
+      "old": "”ise;\n\n()/K = ()/K\n\n∗ ()/K\n\n∗ ()/K\n\na)\n\n: Aynı risk faktör grubunda yer alan “k” ve “l” risk faktörlerindeki iki aracın\nvade  noktalarının  aynı  olması  durumunda  %100,  diğer  durumlarda  %90  olarak  uygulanacak\nolan korelasyon parametresini,\n\n(_+()a)\n\n()/K\n\n()/K\n\nb)\n\n(()`(),)\n\n: Aynı risk faktör grubunda yer alan “k” ve “l” risk faktörlerindeki iki aracın\nreferansta bulunduğu endekslerin ve bu endekslerin serilerinin aynı olması durumunda %100,\nendekslerin  aynı  fakat  bu  endekslerin  serilerinin  farklı  olması  durumunda  %90,  diğer\ndurumlarda %80 olarak uygulanacak olan korelasyon parametresini,\n\n()/K\n\nc)\n\n: Aynı risk faktör grubunda yer alan “k” ve “l” risk faktörlerindeki iki aracın\nreferansta bulunduğu nitelikli endekslerin aynı kredi kalitesi grubunda yer alması durumunda\n%100, diğer durumlarda %80 olarak uygulanacak olan korelasyon parametresini,\n\n(/+K()*a)\n\n()/K\n",
+      "new": "c)  $\\rho_{kl}^{(kalite)}$ : Aynı risk faktör grubunda yer alan “k” ve “l” risk faktörlerindeki iki aracın referansta bulunduğu nitelikli endekslerin aynı kredi kalitesi grubunda yer alması durumunda %100, diğer durumlarda %80 olarak uygulanacak olan korelasyon parametresini,\n"
+    },
+    {
+      "start": 71273,
+      "end": 71326,
+      "old": "Korelasyon Parametresi Formülü (Risk Faktör Grubu 8)\n",
+      "new": "### Korelasyon Parametresi Formülü (Risk Faktör Grubu 8)\n"
+    },
+    {
+      "start": 71327,
+      "end": 71335,
+      "old": "(_+()a)\n",
+      "new": "$$\\rho_{kl} = \\rho_{kl}^{(vade)} * \\rho_{kl}^{(isim)} * \\rho_{kl}^{(kalite)}$$\n"
+    },
+    {
+      "start": 71336,
+      "end": 71345,
+      "old": "(()`(),)\n",
+      "new": "(3) Delta risklerine ilişkin olarak; karşı taraf kredi faiz farkı için risk faktör grupları arası korelasyon parametreleri aşağıdaki tabloda verilen değerlerdir:\n"
+    },
+    {
+      "start": 71346,
+      "end": 71356,
+      "old": "(/+K()*a)\n",
+      "new": "**Tablo 13: Karşı taraf kredi faiz farkı risk faktör grupları arası korelasyon parametreleri**\n"
+    },
+    {
+      "start": 71357,
+      "end": 71455,
+      "old": "(3) Delta risklerine ilişkin olarak; karşı taraf kredi faiz farkı için risk faktör grupları arası\n",
+      "new": "| Risk faktör grubu | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |\n|---|---|---|---|---|---|---|---|---|\n| 1 | %100 | %10 | %20 | %25 | %20 | %15 | %0 | %45 |\n| 2 |  | %100 | %5 | %15 | %20 | %5 | %0 | %45 |\n| 3 |  |  | %100 | %20 | %25 | %5 | %0 | %45 |\n| 4 |  |  |  | %100 | %25 | %5 | %0 | %45 |\n| 5 |  |  |  |  | %100 | %5 | %0 | %45 |\n| 6 |  |  |  |  |  | %100 | %0 | %45 |\n| 7 |  |  |  |  |  |  | %100 | %0 |\n| 8 |  |  |  |  |  |  |  | %100 |\n"
+    },
+    {
+      "start": 71456,
+      "end": 71468,
+      "old": "()/K = ()/K\n",
+      "new": "### Referans kredi faiz farkı riskine ilişkin korelasyonlar\n"
+    },
+    {
+      "start": 71469,
+      "end": 71476,
+      "old": "∗ ()/K\n",
+      "new": "**MADDE 33** – (1) Referans kredi faiz farkına ilişkin delta ve vega riskleri için risk faktör grupları arasındaki korelasyon parametreleri olarak aşağıdaki tabloda yer alan değerler kullanılır:\n"
+    },
+    {
+      "start": 71477,
+      "end": 71484,
+      "old": "∗ ()/K\n",
+      "new": "**Tablo 14: Referans kredi faiz farkına ilişkin risk faktör grupları arasındaki korelasyon parametreleri**\n"
+    },
+    {
+      "start": 71485,
+      "end": 71549,
+      "old": "korelasyon parametreleri aşağıdaki tabloda verilen değerlerdir:\n",
+      "new": "| Risk faktör grupları | 1/8 | 2/9 | 3/10 | 4/11 | 5/12 | 6/13 | 7/14 | 15 | 16 | 17 |\n|---|---|---|---|---|---|---|---|---|---|---|\n| 1/8 | %100 | %75 | %10 | %20 | %25 | %20 | %15 | 0 % | %45 | %45 |\n| 2/9 |  | %100 | %5 | %15 | %20 | %15 | %10 | 0 % | %45 | %45 |\n| 3/10 |  |  | %100 | %5 | %15 | %20 | %5 | 0 % | %45 | %45 |\n| 4/11 |  |  |  | %100 | %20 | %25 | %5 | 0 % | %45 | %45 |\n| 5/12 |  |  |  |  | %100 | %25 | %5 | 0 % | %45 | %45 |\n| 6/13 |  |  |  |  |  | %100 | %5 | 0 % | %45 | %45 |\n| 7/14 |  |  |  |  |  |  | %100 | 0 % | %45 | %45 |\n| 15 |  |  |  |  |  |  |  | %100 | 0 % | 0 % |\n| 16 |  |  |  |  |  |  |  |  | %100 | %75 |\n| 17 |  |  |  |  |  |  |  |  |  | %100 |\n"
+    },
+    {
+      "start": 71550,
+      "end": 71641,
+      "old": "Tablo 13: Karşı taraf kredi faiz farkı risk faktör grupları arası korelasyon parametreleri\n",
+      "new": "(2) 1 ilâ 14 numaralı risk faktör grupları içerisinde yer alan ve farklı kredi kalitesi grubuna ait risk faktör grupları arasındaki korelasyon parametreleri birinci fıkrada yer alan tablodaki değerlerin %50'si olarak dikkate alınır.\n"
+    },
+    {
+      "start": 71642,
+      "end": 71649,
+      "old": "1\n%100\n",
+      "new": "### Hisse senedi riskine ilişkin korelasyonlar\n"
+    },
+    {
+      "start": 71650,
+      "end": 71684,
+      "old": "Risk faktör grubu\n1\n2\n3\n4\n5\n6\n7\n8\n",
+      "new": "**MADDE 34** – (1) Hisse senedi delta ve vega riski için;\n"
+    },
+    {
+      "start": 71685,
+      "end": 72954,
+      "old": "8\n\n3\n\n7\n\n4\n\n2\n\n6\n\n5\n%10  %20  %25  %20  %15  %0  %45\n%100  %5  %15  %20  %5  %0  %45\n%100  %20  %25  %5  %0  %45\n%100  %25  %5  %0  %45\n%100  %5  %0  %45\n%100  %0  %45\n%100  %0\n\n%100\n\nReferans kredi faiz farkı riskine ilişkin korelasyonlar\nMADDE 33 – (1) Referans kredi faiz farkına ilişkin delta ve vega riskleri için risk faktör\ngrupları  arasındaki  korelasyon  parametreleri  olarak  aşağıdaki  tabloda  yer  alan  değerler\nkullanılır:\n\nTablo 14: Referans kredi faiz farkına ilişkin risk faktör grupları arasındaki korelasyon\nparametreleri\n1/8\n\n4/11\n\n7/14\n\n6/13\n\n5/12\n\n3/10\n\n2/9\n\n15\n\n16\n\n17\n\nRisk\nfaktör\ngrupları\n\n%100  %5\n\n%100  %5\n\n1/8  %100  %75  %10  %20  %25  %20  %15\n2/9\n%15  %20  %15  %10\n3/10\n4 /11\n5/12\n6/13\n7/14\n15\n16\n17\n\n%15  %20  %5\n%100  %20  %25  %5\n%100  %25  %5\n%100  %5\n\n0 %  %45  %45\n0 %  %45  %45\n0 %  %45  %45\n0 %  %45  %45\n0 %  %45  %45\n0 %  %45  %45\n%100  0 %  %45  %45\n0 %\n%100  0 %\n%100  %75\n\n%100\n\n(2) 1 ilâ 14 numaralı risk faktör grupları içerisinde yer alan ve farklı kredi kalitesi grubuna\nait  risk faktör  grupları  arasındaki  korelasyon  parametreleri  birinci  fıkrada  yer  alan  tablodaki\ndeğerlerin %50’si olarak dikkate alınır.\n\nHisse senedi riskine ilişkin korelasyonlar\nMADDE 34 – (1) Hisse senedi delta ve vega riski için;\n",
+      "new": ""
+    },
+    {
+      "start": 73028,
+      "end": 73329,
+      "old": "b) 12 ve 13 numaralı risk faktör grupları arasındaki korelasyona %75,\nc)  12  veya  13  numaralı  risk  faktör  grupları  ile  1  ilâ  10  numaralı  risk  faktör  grupları\n\narasındaki korelasyona %45,\n\nç) 11 numaralı risk faktör grubunun diğer risk faktör gruplarıyla arasındaki korelasyona\n\n%0,\n\n%0,\n",
+      "new": "- b) 12 ve 13 numaralı risk faktör grupları arasındaki korelasyona %75,\n- c) 12 veya 13 numaralı risk faktör grupları ile 1 ilâ 10 numaralı risk faktör grupları arasındaki korelasyona %45,\n- ç) 11 numaralı risk faktör grubunun diğer risk faktör gruplarıyla arasındaki korelasyona %0,\n"
+    },
+    {
+      "start": 73365,
+      "end": 73620,
+      "old": "Emtia riskine ilişkin korelasyonlar\nMADDE 35 – (1) Emtia delta riski ve emtia vega riski için;\na) 1 ilâ 10 numaralı risk faktör grupları arasındaki korelasyonlara %20,\nb) 11 numaralı risk faktör grubu ile diğer risk faktör grupları arasındaki korelasyona\n",
+      "new": "#### **Emtia riskine ilişkin korelasyonlar**\n\n**MADDE 35** – (1) Emtia delta riski ve emtia vega riski için;\n\n- a) 1 ilâ 10 numaralı risk faktör grupları arasındaki korelasyonlara %20,\n- b) 11 numaralı risk faktör grubu ile diğer risk faktör grupları arasındaki korelasyona %0,\n"
+    },
+    {
+      "start": 73656,
+      "end": 73695,
+      "old": "DÖRDÜNCÜ KISIM\nÇeşitli ve Son Hükümler\n",
+      "new": "### **DÖRDÜNCÜ KISIM Çeşitli ve Son Hükümler**\n"
+    },
+    {
+      "start": 73696,
+      "end": 73767,
+      "old": "Yürürlük\nMADDE 36- (1) Bu Tebliğ **/**/2026 tarihinde yürürlüğe girer.\n",
+      "new": "#### **Yürürlük**\n"
+    },
+    {
+      "start": 73768,
+      "end": 73853,
+      "old": "Yürütme\nMADDE 37- (1) Bu Tebliğ hükümlerini Bankacılık Düzenleme ve Denetleme Kurumu\n",
+      "new": "**MADDE 36-** (1) Bu Tebliğ \\*\\*/\\*\\*/2026 tarihinde yürürlüğe girer.\n"
+    },
+    {
+      "start": 73854,
+      "end": 73871,
+      "old": "Başkanı yürütür.\n",
+      "new": "#### **Yürütme**\n"
+    },
+    {
+      "start": 73872,
+      "end": 73886,
+      "old": "GENEL GEREKÇE\n",
+      "new": "**MADDE 37-** (1) Bu Tebliğ hükümlerini Bankacılık Düzenleme ve Denetleme Kurumu Başkanı yürütür.\n"
+    },
+    {
+      "start": 73887,
+      "end": 74622,
+      "old": "Bilindiği üzere; 5411 sayılı Bankacılık Kanunu’nun 88 inci maddesinde, düzenlemek\nve denetlemekle görevli olduğu sektör veya alanla ilgili uluslararası ilke ve standartlarla uyumlu\nikincil düzenlemelerin yapılması ve kararların alınması Bankacılık Düzenleme ve Denetleme\nKurulu’nun görevleri arasında sayılmaktadır. Bu kapsamda, bankacılık alanında politikaların\ngeliştirilmesi ve uygulamada daha iyi bir koordinasyonun sağlanması amacıyla üye ülkelerin\nbankacılık  otoriteleri  arasında  iş  birliğini  sağlayacak  bir  platform  olarak  oluşturulan  Basel\nBankacılık  Denetim  Komitesinin  (Basel  Komite)  üyesi  olarak  Kurumumuz,  bankacılık\nmevzuatını uluslararası en iyi uygulamaları takip ederek gerektiğinde güncellemektedir.\n",
+      "new": "## GENEL GEREKÇE\n"
+    },
+    {
+      "start": 74623,
+      "end": 75298,
+      "old": "Öte  yandan,  Basel  Komite  Aralık  2017  tarihinde  “Basel  III:  Finalising  Post  Crisis\nReforms”  dokümanını  yayımlamıştır.  Bahse  konu  dokümanda  yer  alan  standartlar,  Basel  III\nuzlaşısını  tamamlayıcı  mahiyette  olup,  nihai  Basel  III  uzlaşısı  ya  da  Basel  IV  olarak\nadlandırılmaktadır.  Basel  IV  ile  Basel  Komite  temelde,  benzer  risk  yapılarına  sahip  olan  ve\ngelişmiş  modeller  kullanan  bankaların  farklı  sermaye  yükümlülüklerinin  önüne  geçmek\nsuretiyle  bankaların maruz  kalmış  oldukları riskin  daha  doğru  ölçülmesini  teminen bankalar\ntarafından kullanılan standart ve içsel yöntemleri birbirine yaklaştırmayı hedeflemektedir.\n",
+      "new": "Bilindiği üzere; 5411 sayılı Bankacılık Kanunu'nun 88 inci maddesinde, düzenlemek ve denetlemekle görevli olduğu sektör veya alanla ilgili uluslararası ilke ve standartlarla uyumlu ikincil düzenlemelerin yapılması ve kararların alınması Bankacılık Düzenleme ve Denetleme Kurulu'nun görevleri arasında sayılmaktadır. Bu kapsamda, bankacılık alanında politikaların geliştirilmesi ve uygulamada daha iyi bir koordinasyonun sağlanması amacıyla üye ülkelerin bankacılık otoriteleri arasında iş birliğini sağlayacak bir platform olarak oluşturulan Basel Bankacılık Denetim Komitesinin (Basel Komite) üyesi olarak Kurumumuz, bankacılık mevzuatını uluslararası en iyi uygulamaları takip ederek gerektiğinde güncellemektedir.\n"
+    },
+    {
+      "start": 75299,
+      "end": 75878,
+      "old": "Basel  Bankacılık  Denetim  Komitesi,  bir  bankanın  karşı  tarafının  kredi  riskinde\nyaşanabilecek kötüleşmeden dolayı maruz kalabileceği olası değer düşüşlerini yakalamak için\nminimum  bir  sermaye  gereksinimi  bulundurmasını  gerektiren  Basel  III  sermaye  uzlaşısı\nkapsamındaki  Kredi  Değerleme  Ayarlaması  (KDA)  Riskine  ilişkin  standartlarda,  KDA’da\npiyasa  risk  faktörlerindeki  günlük  değişimlerden  kaynaklanan  olası  zararların  ve  buna  karşı\nsağlanan  korumaların  da  dikkate  alınabilmesi  amacıyla  değişikliğe  gitmiştir.  Yapılan  bu\ndeğişiklerle;\n",
+      "new": "Öte yandan, Basel Komite Aralık 2017 tarihinde “Basel III: Finalising Post Crisis Reforms” dokümanını yayımlamıştır. Bahse konu dokümanda yer alan standartlar, Basel III uzlaşısını tamamlayıcı mahiyette olup, nihai Basel III uzlaşısı ya da Basel IV olarak adlandırılmaktadır. Basel IV ile Basel Komite temelde, benzer risk yapılarına sahip olan ve gelişmiş modeller kullanan bankaların farklı sermaye yükümlülüklerinin önüne geçmek suretiyle bankaların maruz kalmış oldukları riskin daha doğru ölçülmesini teminen bankalar tarafından kullanılan standart ve içsel yöntemleri birbirine yaklaştırmayı hedeflemektedir.\n"
+    },
+    {
+      "start": 75879,
+      "end": 75972,
+      "old": "1.  KDA  riskinin  ve  KDA  riskine  karşı  sağlanan  korumaların  (hedgelerin)  tüm  önemli\n",
+      "new": "Basel Bankacılık Denetim Komitesi, bir bankanın karşı tarafının kredi riskinde yaşanabilecek kötüleşmeden dolayı maruz kalabileceği olası değer düşüşlerini yakalamak için minimum bir sermaye gereksinimi bulundurmasını gerektiren Basel III sermaye uzlaşısı kapsamındaki Kredi Değerleme Ayarlaması (KDA) Riskine ilişkin standartlarda, KDA'da piyasa risk faktörlerindeki günlük değişimlerden kaynaklanan olası zararların ve buna karşı sağlanan korumaların da dikkate alınabilmesi amacıyla değişikliğe gitmiştir. Yapılan bu değişiklerle;\n"
+    },
+    {
+      "start": 75973,
+      "end": 76045,
+      "old": "unsurlarının Basel sermaye standardında ele alınmasının temin edilmesi,\n",
+      "new": "1. KDA riskinin ve KDA riskine karşı sağlanan korumaların (hedgelerin) tüm önemli unsurlarının Basel sermaye standardında ele alınmasının temin edilmesi,\n2. Sermaye standardını, farklı muhasebe düzenlemelerinde kullanılan KDA'nın gerçeğe uygun değer (fair value) ölçümüyle uyumlu hale getirilmesi,\n3. Piyasa riskiyle tutarlılığın sağlanması\n"
+    },
+    {
+      "start": 76046,
+      "end": 76137,
+      "old": "2.  Sermaye  standardını,  farklı  muhasebe  düzenlemelerinde  kullanılan  KDA’nın gerçeğe\n",
+      "new": "amaçlanmıştır. Bu değişikliklerde maruz kalınan KDA riskinin boyutu ve banka ölçeği de dikkate alınarak farklı ölçüm yöntemlerine de imkân tanınmıştır.\n"
+    },
+    {
+      "start": 76138,
+      "end": 76606,
+      "old": "uygun değer (fair value) ölçümüyle uyumlu hale getirilmesi,\n\n3.  Piyasa riskiyle tutarlılığın sağlanması\n\namaçlanmıştır.  Bu  değişikliklerde  maruz  kalınan  KDA  riskinin  boyutu  ve  banka  ölçeği  de\ndikkate alınarak farklı ölçüm yöntemlerine de imkân tanınmıştır.\n\n“Basel III: Finalising Post Crisis Reforms” kapsamında yukarıda belirtilen gerekçelerle\ngüncellenmiş olan söz konusu Basel standardına uyumun sağlanması amacıyla bu düzenleme\ntaslağı hazırlanmıştır.",
+      "new": "“Basel III: Finalising Post Crisis Reforms” kapsamında yukarıda belirtilen gerekçelerle güncellenmiş olan söz konusu Basel standardına uyumun sağlanması amacıyla bu düzenleme taslağı hazırlanmıştır.\n"
+    }
+  ]
+}

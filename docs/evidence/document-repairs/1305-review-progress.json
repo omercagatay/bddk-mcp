@@ -1,0 +1,453 @@
+{
+  "document_id": "1305",
+  "status": "partial_source_review_not_release_ready",
+  "source_pdf_sha256": "44928bdde6309ad48559c18960e45638c50fae30b25c56675edf0796da6de065",
+  "source_page_count": 68,
+  "original_markdown_sha256": "63434a736c8e998878349a2712b4f13a26c6768537647b3a6b206d9e6655d39c",
+  "partial_markdown_sha256": "76499e0e88a372c7ed5aa59e0fdc00ffe351a2830dc3f51719d367071e05d2a3",
+  "formula_pages_reviewed": [
+    10,
+    11,
+    13,
+    18,
+    19,
+    22
+  ],
+  "restored_image_formulas": 11,
+  "display_formulas": 17,
+  "tables": 5,
+  "table_pages_reviewed": [
+    12,
+    16,
+    18,
+    19,
+    24
+  ],
+  "reading_order_repairs": 10,
+  "reading_order_pages_reviewed": [
+    3,
+    4,
+    20,
+    21,
+    27,
+    32,
+    37,
+    43,
+    44,
+    68
+  ],
+  "additional_annex_review": "1305-annex-project.json",
+  "review_notes": [
+    "All eleven embedded equation images on physical pages 10, 11, 13 and 22 were absent from the stored Markdown. Restore them and frame the two existing risk-weight equations as LaTeX. Four further display equations and five risk-weight, expected-loss and collateral tables are source-reviewed. Characters outside the explicit replacement spans remain unchanged.",
+    "Rendered crops confirm TO (letter O), maturity V and coefficient b. OCR wrongly proposed T0, T and delta in several places; those proposals were rejected. OCR prose is not adopted.",
+    "Keep corporate versus retail maturity-factor differences, corporate correlation 0.24 versus high-volatility 0.30 and retail 0.03/0.16 with decay 35. Constants are source transcriptions, not calculations certified by the assistant.",
+    "Page 18 prints THK_S in its introductory prose but THK_T in its equation and later definition. That source discrepancy is preserved. The two collateral tables keep all risk rates and legal references.",
+    "Ten prose spans are restored to source reading order, each with exact token-multiset equality before and after. Source wording and apparent source errors remain unchanged.",
+    "Remaining plain-text equations, tables, repeated passages and full-document coverage require source review. No registry, metadata, seed, signature or active release changes."
+  ],
+  "ocr_receipts": [
+    {
+      "source_sha256": "44928bdde6309ad48559c18960e45638c50fae30b25c56675edf0796da6de065",
+      "page": 10,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "867921629ca858e8688b28477ca85b687eb358cf2207b0019070957807d554e3",
+      "token_count": 1504,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "44928bdde6309ad48559c18960e45638c50fae30b25c56675edf0796da6de065",
+      "page": 11,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "f80039dce264186fd03582f10dd0a3dd359e76c9fe297708545a357a416c7958",
+      "token_count": 1504,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "44928bdde6309ad48559c18960e45638c50fae30b25c56675edf0796da6de065",
+      "page": 12,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "14a65f254485ec857e688a5a727c442d7f1d27e3b335af25f9f571a6d5650b00",
+      "token_count": 1504,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "44928bdde6309ad48559c18960e45638c50fae30b25c56675edf0796da6de065",
+      "page": 13,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "44b039c3ff58215418f277b152963d7dc11f3bf9341d3c23c41bd9e7fa3aacb0",
+      "token_count": 1504,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "44928bdde6309ad48559c18960e45638c50fae30b25c56675edf0796da6de065",
+      "page": 15,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "1fc770cd4ebede7f62907f4f55b5a126f001954b60a2da7f40c9207943352844",
+      "token_count": 1562,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "44928bdde6309ad48559c18960e45638c50fae30b25c56675edf0796da6de065",
+      "page": 16,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "ecc45fdb7feb87b6b9aefd2c34ceeabbf57e317f2198f119787868f03bffa524",
+      "token_count": 1562,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "44928bdde6309ad48559c18960e45638c50fae30b25c56675edf0796da6de065",
+      "page": 18,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "e68f30fad5b37340bad815339fc9efa41e5173ac79fffeaf387a0b1fa0781b78",
+      "token_count": 1562,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "44928bdde6309ad48559c18960e45638c50fae30b25c56675edf0796da6de065",
+      "page": 19,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "c66cc0ab327e7b8bf354edaa0b6605b280fdb21c2bcfd1d906b72fdc713e7c46",
+      "token_count": 1562,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "44928bdde6309ad48559c18960e45638c50fae30b25c56675edf0796da6de065",
+      "page": 20,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "a3d8fc0a2738c1ff662cc52c33969bc1efbdb7e0197671ff4b74c036c9dc047d",
+      "token_count": 1271,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "44928bdde6309ad48559c18960e45638c50fae30b25c56675edf0796da6de065",
+      "page": 22,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "f53f4be6a0df29cd89cb5ed3307f4129068c940bb0642d61ddb5dade5674a7a9",
+      "token_count": 1271,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    }
+  ],
+  "replacements": [
+    {
+      "start": 8873,
+      "end": 9069,
+      "old": "d)  Bankanın,  derecelendirme  sistemlerini  ve  bunların  tasarımına  ilişkin  mantıksal\nsistemlerinin  validasyonunu\n\ngerekçeleri  yazılı  hale  getirmesi  ve  derecelendirme\ngerçekleştirmesi.\n\n",
+      "new": "d) Bankanın, derecelendirme sistemlerini ve bunların tasarımına ilişkin mantıksal gerekçeleri yazılı hale\ngetirmesi ve derecelendirme sistemlerinin validasyonunu gerçekleştirmesi.\n\n",
+      "source_pages": [
+        3
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 10115,
+      "end": 10628,
+      "old": "(4) Derecelendirme sistemlerinin, Kuruma yapılacak resmî izin başvurusundan önce risk\nyönetimi  amacıyla  asgari  3  yıldır  kullanılıyor  olması  ve  bu  süre  zarfında  Ek-2’de  belirtilen\nasgari koşullara büyük ölçüde uyumlu olması şarttır. Uyumluluğun ispatlanabilmesi için içsel\nilişkin  bilgilerin  kullanıldığını  gösteren  belgeler  denetime  hazır\nderecelendirmelere\nbulundurulur. Derecelendirme sistemlerinde zaman içerisinde yapılan iyileştirmeler asgari 3 yıl\nkullanım şartına uyumsuzluk oluşturmaz.\n\n",
+      "new": "(4) Derecelendirme sistemlerinin, Kuruma yapılacak resmî izin başvurusundan önce risk yönetimi amacıyla asgari\n3 yıldır kullanılıyor olması ve bu süre zarfında Ek-2’de belirtilen asgari koşullara büyük ölçüde uyumlu\nolması şarttır. Uyumluluğun ispatlanabilmesi için içsel derecelendirmelere ilişkin bilgilerin kullanıldığını\ngösteren belgeler denetime hazır bulundurulur. Derecelendirme sistemlerinde zaman içerisinde yapılan\niyileştirmeler asgari 3 yıl kullanım şartına uyumsuzluk oluşturmaz.\n\n",
+      "source_pages": [
+        4
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 31265,
+      "end": 31320,
+      "old": "Risk Ağırlıklı Tutar = Risk Ağırlığı (RA) x Risk Tutarı",
+      "new": "$$\n\\text{Risk Ağırlıklı Tutar} = \\text{Risk Ağırlığı (RA)}\\ \\text{x}\\ \\text{Risk Tutarı}\n$$",
+      "source_pages": [
+        10
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 31618,
+      "end": 31618,
+      "old": "",
+      "new": "\n\n$$\n\\mathrm{RA} = \\max\\{0;\\ 12{,}5\\times(\\mathrm{THK}-\\mathrm{BK}_{\\mathrm{ET}})\\}\n$$",
+      "source_pages": [
+        10
+      ],
+      "kind": "restored_image_formula"
+    },
+    {
+      "start": 31814,
+      "end": 31814,
+      "old": "",
+      "new": "\n\n$$\n\\mathrm{RA} = \\left[\\mathrm{THK}\\times N\\left(\\frac{G(\\mathrm{TO})}{\\sqrt{1-R}}+\\sqrt{\\frac{R}{1-R}}\\times G(0{,}999)\\right)-\\mathrm{THK}\\times\\mathrm{TO}\\right]\\times\\frac{(1+(V-2{,}5)\\times b)}{(1-1{,}5\\times b)}\\times12{,}5\n$$",
+      "source_pages": [
+        10
+      ],
+      "kind": "restored_image_formula"
+    },
+    {
+      "start": 32311,
+      "end": 32311,
+      "old": "",
+      "new": "\n\n$$\nR = 0{,}12\\times\\frac{(1-e^{(-50\\times\\mathrm{TO})})}{(1-e^{-50})}+0{,}24\\times\\left[1-\\frac{(1-e^{(-50\\times\\mathrm{TO})})}{(1-e^{-50})}\\right]\n$$",
+      "source_pages": [
+        11
+      ],
+      "kind": "restored_image_formula"
+    },
+    {
+      "start": 32367,
+      "end": 32367,
+      "old": "",
+      "new": "\n\n$$\nb=(0{,}11852-0{,}05478\\times\\ln(\\mathrm{TO}))^2\n$$",
+      "source_pages": [
+        11
+      ],
+      "kind": "restored_image_formula"
+    },
+    {
+      "start": 32369,
+      "end": 32369,
+      "old": "",
+      "new": "$$\n\\frac{(1+(V-2{,}5)\\times b)}{(1-1{,}5\\times b)}\n$$\n\n",
+      "source_pages": [
+        11
+      ],
+      "kind": "restored_image_formula"
+    },
+    {
+      "start": 33159,
+      "end": 33159,
+      "old": "",
+      "new": "$$\nR=0{,}12\\times\\frac{(1-e^{(-50\\times\\mathrm{TO})})}{(1-e^{-50})}+0{,}24\\times\\left[1-\\frac{(1-e^{(-50\\times\\mathrm{TO})})}{(1-e^{-50})}\\right]-0{,}04\\times\\left(1-\\frac{(\\min\\{\\max\\{(C/10),S\\};C\\}-(C/10))}{9C/10}\\right)\n$$\n\n",
+      "source_pages": [
+        11
+      ],
+      "kind": "restored_image_formula"
+    },
+    {
+      "start": 33984,
+      "end": 33984,
+      "old": "",
+      "new": "$$\nR=0{,}12\\times\\frac{(1-e^{(-50\\times\\mathrm{TO})})}{(1-e^{-50})}+0{,}30\\times\\left[1-\\frac{(1-e^{(-50\\times\\mathrm{TO})})}{(1-e^{-50})}\\right]\n$$\n\n",
+      "source_pages": [
+        11
+      ],
+      "kind": "restored_image_formula"
+    },
+    {
+      "start": 34364,
+      "end": 34716,
+      "old": "Tablo 1\n\n1.Kategori\n(Güçlü)\n\n2.Kategori\n(İyi)\n\n3.Kategori\n(Yeterli)\n\n4.Kategori\n(Zayıf)\n\n5.Kategori\n(Temerrüt)\n\nKalan\nEfektif\nVade\n(Yıl)\n<2,5\n\nVolatilitesi\nYüksek Ticari\nGayrimenkul\nFinansmanı\nKredileri\n\nDiğer İhtisas\nKredileri\n\n%70\n\n%95\n\n%140\n\n%250\n\n≥2,5\n\n%95\n\n%120\n\n%140\n\n%250\n\n<2,5\n\n≥2,5\n\n%50\n\n%70\n\n%70\n\n%90\n\n%115\n\n%115\n\n%250\n\n%250\n\n%0\n\n%0\n\n%0\n\n%0\n\n",
+      "new": "Tablo 1\n\n| | Kalan Efektif Vade (Yıl) | 1.Kategori (Güçlü) | 2.Kategori (İyi) | 3.Kategori (Yeterli) | 4.Kategori (Zayıf) | 5.Kategori (Temerrüt) |\n| --- | --- | --- | --- | --- | --- | --- |\n| Volatilitesi Yüksek Ticari Gayrimenkul Finansmanı Kredileri | <2,5 | %70 | %95 | %140 | %250 | %0 |\n| Volatilitesi Yüksek Ticari Gayrimenkul Finansmanı Kredileri | ≥2,5 | %95 | %120 | %140 | %250 | %0 |\n| Diğer İhtisas Kredileri | <2,5 | %50 | %70 | %115 | %250 | %0 |\n| Diğer İhtisas Kredileri | ≥2,5 | %70 | %90 | %115 | %250 | %0 |\n\n",
+      "source_pages": [
+        12
+      ],
+      "kind": "table"
+    },
+    {
+      "start": 38142,
+      "end": 38197,
+      "old": "Risk Ağırlıklı Tutar = Risk Ağırlığı (RA) x Risk Tutarı",
+      "new": "$$\n\\text{Risk Ağırlıklı Tutar} = \\text{Risk Ağırlığı (RA)}\\ \\text{x}\\ \\text{Risk Tutarı}\n$$",
+      "source_pages": [
+        13
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 38227,
+      "end": 38227,
+      "old": "",
+      "new": "\n\n$$\n\\mathrm{RA} = \\max\\{0;\\ 12{,}5\\times(\\mathrm{THK}-\\mathrm{BK}_{\\mathrm{ET}})\\}\n$$",
+      "source_pages": [
+        13
+      ],
+      "kind": "restored_image_formula"
+    },
+    {
+      "start": 38363,
+      "end": 38363,
+      "old": "",
+      "new": "\n\n$$\n\\mathrm{RA} = \\left[\\mathrm{THK}\\times N\\left(\\frac{G(\\mathrm{TO})}{\\sqrt{1-R}}+\\sqrt{\\frac{R}{1-R}}\\times G(0{,}999)\\right)-\\mathrm{THK}\\times\\mathrm{TO}\\right]\\times12{,}5\n$$",
+      "source_pages": [
+        13
+      ],
+      "kind": "restored_image_formula"
+    },
+    {
+      "start": 38780,
+      "end": 38780,
+      "old": "",
+      "new": "\n\n$$\nR=0{,}03\\times\\frac{(1-e^{(-35\\times\\mathrm{TO})})}{(1-e^{-35})}+0{,}16\\times\\left[1-\\frac{(1-e^{(-35\\times\\mathrm{TO})})}{(1-e^{-35})}\\right]\n$$",
+      "source_pages": [
+        13
+      ],
+      "kind": "restored_image_formula"
+    },
+    {
+      "start": 47113,
+      "end": 47431,
+      "old": "Tablo 2\n\nKalan\nEfektif\nVade\n(Yıl)\n\n1.Kategori\n(Güçlü)\n\n2.Kategori\n(İyi)\n\n3.Kategori\n(Yeterli)\n\n4.Kategori\n(Zayıf)\n\n5.Kategori\n(Temerrüt)\n\n-\n\n%0,4\n\n%0,4\n\n%2,8\n\n%8\n\n%50\n\n<2,5\n\n≥2,5\n\n%0\n\n%0,4\n\n%0,4\n\n%0,8\n\n%2,8\n\n%2,8\n\n%8\n\n%8\n\n%50\n\n%50\n\nVolatilitesi\nYüksek Ticari\nGayrimenkul\nFinansmanı\nKredileri\n\nDiğer İhtisas\nKredileri\n\n",
+      "new": "Tablo 2\n\n| | Kalan Efektif Vade (Yıl) | 1.Kategori (Güçlü) | 2.Kategori (İyi) | 3.Kategori (Yeterli) | 4.Kategori (Zayıf) | 5.Kategori (Temerrüt) |\n| --- | --- | --- | --- | --- | --- | --- |\n| Volatilitesi Yüksek Ticari Gayrimenkul Finansmanı Kredileri | - | %0,4 | %0,4 | %2,8 | %8 | %50 |\n| Diğer İhtisas Kredileri | <2,5 | %0 | %0,4 | %2,8 | %8 | %50 |\n| Diğer İhtisas Kredileri | ≥2,5 | %0,4 | %0,8 | %2,8 | %8 | %50 |\n\n",
+      "source_pages": [
+        16
+      ],
+      "kind": "table"
+    },
+    {
+      "start": 52422,
+      "end": 52508,
+      "old": "𝑇𝐻𝐾∗ = 𝑇𝐻𝐾𝑈 ∙\n\n𝐾𝑈\n𝐾 ∙ (1 + 𝐻𝐾)\n\n+ 𝑇𝐻𝐾𝑇 ∙\n\n𝑇𝑉𝐴\n𝐾 ∙ (1 + 𝐻𝐾)\n\n𝐾𝑈 =  𝐾 ∙ (1 + 𝐻𝐾) – 𝑇𝑉𝐴\n\n",
+      "new": "$$\n\\mathrm{THK}^{*}=\\mathrm{THK}_U\\cdot\\frac{K_U}{K\\cdot(1+H_K)}+\\mathrm{THK}_T\\cdot\\frac{T_{VA}}{K\\cdot(1+H_K)}\n$$\n\n$$\nK_U=K\\cdot(1+H_K)-T_{VA}\n$$\n\n",
+      "source_pages": [
+        18
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 53898,
+      "end": 54227,
+      "old": "Teminat türü\nFinansal teminat\n\nTHKT\n%0\n\nVolatilite ayarlaması (HT)\nAzaltım\nRiski\nKredi\nTekniklerine  İlişkin  Tebliğin\n40\nıncı  maddesi  uyarınca\nyapılması gerekmektedir.\n\nTicari  veya\n\nfinansal\nkaynaklanan\n\nişlemlerden\nfinansal alacaklar\n\n%20\n\n%40\n\nİkamet\ngayrimenkul\n\namaçlı/ticari\n\nDiğer fiziksel teminat\n\n%20\n\n%25\n\n%40\n\n%40\n\n",
+      "new": "| Teminat türü | $\\mathrm{THK}_T$ | Volatilite ayarlaması ($H_T$) |\n| --- | --- | --- |\n| Finansal teminat | %0 | Kredi Riski Azaltım Tekniklerine İlişkin Tebliğin 40 ıncı maddesi uyarınca yapılması gerekmektedir. |\n| Ticari veya finansal işlemlerden kaynaklanan finansal alacaklar | %20 | %40 |\n| İkamet amaçlı/ticari gayrimenkul | %20 | %40 |\n| Diğer fiziksel teminat | %25 | %40 |\n\n",
+      "source_pages": [
+        18,
+        19
+      ],
+      "kind": "table"
+    },
+    {
+      "start": 54859,
+      "end": 54962,
+      "old": "aşağıdaki THK formülü kullanılır:\n\n𝑇𝐻𝐾∗ = 𝑇𝐻𝐾𝑈 ∙\n\n𝐾𝑈\n𝐾 ∙ (1 + 𝐻𝐾)\n\n+ ∑ 𝑇𝐻𝐾𝑇𝑖\n\n∙\n\n𝑖\n\n𝑇𝑉𝐴𝑖\n𝐾 ∙ (1 + 𝐻𝐾)\n\n",
+      "new": "aşağıdaki THK formülü kullanılır:\n\n$$\n\\mathrm{THK}^{*}=\\mathrm{THK}_U\\cdot\\frac{K_U}{K\\cdot(1+H_K)}+\\sum_i\\mathrm{THK}_{Ti}\\cdot\\frac{T_{VAi}}{K\\cdot(1+H_K)}\n$$\n\n",
+      "source_pages": [
+        19
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 56080,
+      "end": 56338,
+      "old": "Kurumsal alacaklar için THK parametresi tabanı\nTeminatsız\n%25\n\nTeminatlı\nFinansal teminatlar: %0\nfinansal\nTicari  veya\n\nişlemlerden\n\nkaynaklanan finansal alacaklar: %10\n\nİkamet amaçlı veya ticari gayrimenkul\n\nipotekleri: %10\n\nDiğer fiziksel teminatlar: %15\n\n",
+      "new": "Kurumsal alacaklar için THK parametresi tabanı\n\n| Teminatsız | Teminatlı |\n| --- | --- |\n| %25 | Finansal teminatlar: %0<br/>Ticari veya finansal işlemlerden kaynaklanan finansal alacaklar: %10<br/>İkamet amaçlı veya ticari gayrimenkul ipotekleri: %10<br/>Diğer fiziksel teminatlar: %15 |\n\n",
+      "source_pages": [
+        19
+      ],
+      "kind": "table"
+    },
+    {
+      "start": 56530,
+      "end": 56658,
+      "old": "tabanının ağırlıklı ortalaması olarak hesaplanır.\n𝐾𝑈\n𝐾 ∙ (1 + 𝐻𝐾)\n\n𝑇𝑉𝐴\n𝐾 ∙ (1 + 𝐻𝐾)\n\n𝑇𝐻𝐾 𝑡𝑎𝑏𝑎𝑛𝚤 = 𝑇𝐻𝐾𝑈 𝑡𝑎𝑏𝑎𝑛 ∙\n\n+ 𝑇𝐻𝐾𝑇 𝑡𝑎𝑏𝑎𝑛 ∙\n\n",
+      "new": "tabanının ağırlıklı ortalaması olarak hesaplanır.\n\n$$\n\\mathrm{THK}\\text{ tabanı}=\\mathrm{THK}_{U\\text{ taban}}\\cdot\\frac{K_U}{K\\cdot(1+H_K)}+\\mathrm{THK}_{T\\text{ taban}}\\cdot\\frac{T_{VA}}{K\\cdot(1+H_K)}\n$$\n\n",
+      "source_pages": [
+        19
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 59964,
+      "end": 60161,
+      "old": "(a) Alacağın teminatlı kısmına ilişkin risk ağırlığı, garantörün türüne uygun risk ağırlığı\nile  garantörün  borçlu  derecesine  uygun  TO  değerinin  kullanılmasıyla\n\nfonksiyonu\nhesaplanacaktır.\n\n",
+      "new": "(a) Alacağın teminatlı kısmına ilişkin risk ağırlığı, garantörün türüne uygun risk ağırlığı fonksiyonu ile\ngarantörün borçlu derecesine uygun TO değerinin kullanılmasıyla hesaplanacaktır.\n\n",
+      "source_pages": [
+        20
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 62519,
+      "end": 63655,
+      "old": "25.  İçsel  THK  tahminine  göre  hesaplama  yapan  bir  banka,  garanti  veya  kredi  türevi\nkorumalarının  etkisini  yirmi  ilâ  yirmi  üçüncü  fıkralarda  açıklanan  temel  İDD  yaklaşımı\nkapsamındaki  uygulamayı  kullanarak  veya  alacağa  ilişkin  yapmış  olduğu  içsel  THK\ntahmininde bir düzeltme yaparak yansıtabilir. Bu seçenek kapsamında, dikkate alınacak garanti\ntürüne  ilişkin  Ek-2’nin  kırk  sekizinci  fıkrasında  belirtilen  asgari  şartların  sağlanması\nilişkin  herhangi  bir  sınırlama\ngerekmekle  birlikte,  uygun  garantörlerin  kapsamına\nbulunmamaktadır.  Kredi  türevlerine  ilişkin  Ek-2’nin  ellinci  fıkrasında  yer  alan  şartların\nsağlanması gerekmektedir. Bir bankanın içsel THK tahminlerini kullanma iznine sahip olduğu\nalacaklar için, banka yalnızca birinci temerrüt kredi türevlerinin risk azaltıcı etkilerini dikkate\nalabilir.  Dayanak  alacağın  yeniden  yapılandırılması  kredi  türevlerinin  koruma  kapsamında\nolmadığında,  Kredi  Riski  Azaltım  Tekniklerine  İlişkin  Tebliğin  46  ncı  maddesinin  birinci\nfıkrasında açıklanan standart yaklaşıma ilişkin kısmi dikkate alma hükümleri uygulanır.\n\n",
+      "new": "25. İçsel THK tahminine göre hesaplama yapan bir banka, garanti veya kredi türevi korumalarının etkisini yirmi\nilâ yirmi üçüncü fıkralarda açıklanan temel İDD yaklaşımı kapsamındaki uygulamayı kullanarak veya alacağa\nilişkin yapmış olduğu içsel THK tahmininde bir düzeltme yaparak yansıtabilir. Bu seçenek kapsamında, dikkate\nalınacak garanti türüne ilişkin Ek-2’nin kırk sekizinci fıkrasında belirtilen asgari şartların sağlanması\ngerekmekle birlikte, uygun garantörlerin kapsamına ilişkin herhangi bir sınırlama bulunmamaktadır. Kredi\ntürevlerine ilişkin Ek-2’nin ellinci fıkrasında yer alan şartların sağlanması gerekmektedir. Bir bankanın\niçsel THK tahminlerini kullanma iznine sahip olduğu alacaklar için, banka yalnızca birinci temerrüt kredi\ntürevlerinin risk azaltıcı etkilerini dikkate alabilir. Dayanak alacağın yeniden yapılandırılması kredi\ntürevlerinin koruma kapsamında olmadığında, Kredi Riski Azaltım Tekniklerine İlişkin Tebliğin 46 ncı\nmaddesinin birinci fıkrasında açıklanan standart yaklaşıma ilişkin kısmi dikkate alma hükümleri uygulanır.\n\n",
+      "source_pages": [
+        21
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 65946,
+      "end": 65946,
+      "old": "",
+      "new": "$$\nV=\\frac{\\sum_t t\\times\\mathrm{NA}_t}{\\sum_t\\mathrm{NA}_t}\n$$\n\n",
+      "source_pages": [
+        22
+      ],
+      "kind": "restored_image_formula"
+    },
+    {
+      "start": 72066,
+      "end": 72446,
+      "old": "Alt Risk Sınıfı\n\nİkamet  Amaçlı  Gayrimenkul\nİpoteği ile Teminatlandırılmış\nAlacaklar\n\nNitelikli  Rotatif  Perakende\nAlacaklar\nDiğer Perakende Alacaklar\n\nTeminatsız\n-\n\nTeminatlı\n%5\n\n%50\n\n%30\n\n-\n\nfinansal\n\nFinansal teminatlar: %0\nTicari  veya  finansal  işlemlerden\nkaynaklanan\nalacaklar:\n%10\nİkamet\namaçlı\ngayrimenkul ipotekleri: %10\nDiğer fiziksel teminatlar: %15\n\nticari\n\nveya\n\n",
+      "new": "| Alt Risk Sınıfı | Teminatsız | Teminatlı |\n| --- | --- | --- |\n| İkamet Amaçlı Gayrimenkul İpoteği ile Teminatlandırılmış Alacaklar | - | %5 |\n| Nitelikli Rotatif Perakende Alacaklar | %50 | - |\n| Diğer Perakende Alacaklar | %30 | Finansal teminatlar: %0<br/>Ticari veya finansal işlemlerden kaynaklanan finansal alacaklar: %10<br/>İkamet amaçlı veya ticari gayrimenkul ipotekleri: %10<br/>Diğer fiziksel teminatlar: %15 |\n\n",
+      "source_pages": [
+        24
+      ],
+      "kind": "table"
+    },
+    {
+      "start": 79332,
+      "end": 79569,
+      "old": "4.  Kurumsal  alacaklar,  bankalardan  veya  aracı  kurumlardan  alacaklar,  merkezi\niçin  kullanılan  derecelendirme\n\nyönetimlerden  veya  merkez  bankalarından  alacaklar\nsistemlerinin aşağıda belirtilen özellikleri taşıması gerekir:\n\n",
+      "new": "4. Kurumsal alacaklar, bankalardan veya aracı kurumlardan alacaklar, merkezi yönetimlerden veya merkez\nbankalarından alacaklar için kullanılan derecelendirme sistemlerinin aşağıda belirtilen özellikleri taşıması\ngerekir:\n\n",
+      "source_pages": [
+        27
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 98785,
+      "end": 99037,
+      "old": "e)  Garantilerin  veya  kredi  türevlerinin  kredi  riski  azaltım  etkilerini  THK  aracılığıyla\ntürevinin  etkilerinin\n\niçin,  garantinin  veya  kredi\n\nbelirleyen  ve  yansıtan  bankalar\ndeğerlendirilmesinden önceki ve sonraki THK hakkında veriler.\n\n",
+      "new": "e) Garantilerin veya kredi türevlerinin kredi riski azaltım etkilerini THK aracılığıyla belirleyen ve yansıtan\nbankalar için, garantinin veya kredi türevinin etkilerinin değerlendirilmesinden önceki ve sonraki THK\nhakkında veriler.\n\n",
+      "source_pages": [
+        32
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 114300,
+      "end": 114694,
+      "old": "eşleştirmeye temel oluşturan hususlar yazılı hale getirilir.\ntemerrüt\n\ntahmin  modellerinin  kullanılması  halinde,  belirli  bir\nderecelendirme  notuna  sahip  borçluların  TO  tahminlerinin  basit  aritmetik  ortalaması  ilgili\nderecenin TO tahmini olarak kullanılabilir. Kullanılan temerrüt tahmin modellerinin on beşinci\nfıkrada belirtilen nitelikleri taşıması şarttır.\n\nf)  İstatistiksel\n\n",
+      "new": "eşleştirmeye temel oluşturan hususlar yazılı hale getirilir. f) İstatistiksel temerrüt tahmin modellerinin\nkullanılması halinde, belirli bir derecelendirme notuna sahip borçluların TO tahminlerinin basit aritmetik\nortalaması ilgili derecenin TO tahmini olarak kullanılabilir. Kullanılan temerrüt tahmin modellerinin on\nbeşinci fıkrada belirtilen nitelikleri taşıması şarttır.\n\n",
+      "source_pages": [
+        37
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 138364,
+      "end": 138649,
+      "old": "ile  müşterinin\nb)  Alacağı  devreden\ndeğerlendirmesi arasındaki; alacağı devreden tarafın veya aracının değerlendirmesi ile alacağı\ndevreden  tarafın  veya  aracının  yerinde  denetimi  arasındaki  görev  ayrımının  açıklığa\nkavuşturulması.\n\ntarafın  veya  aracının  değerlendirmesi\n\n",
+      "new": "b) Alacağı devreden tarafın veya aracının değerlendirmesi ile müşterinin değerlendirmesi arasındaki; alacağı\ndevreden tarafın veya aracının değerlendirmesi ile alacağı devreden tarafın veya aracının yerinde denetimi\narasındaki görev ayrımının açıklığa kavuşturulması.\n\n",
+      "source_pages": [
+        43
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 140622,
+      "end": 141311,
+      "old": "sorgulanmasını\n\nd)  Bankaların,  gerçekleşen  TO’larda,  THK’larda,  KDO’larda  ve  BK’nin  kullanıldığı\ndurumlarda  toplam  kayıpta,  beklentilere  göre  gerçekleşen  sapmaların,  ilgili  tahminlerin\ngeçerliliğinin\ndurumların\ndeğerlendirilmesine yönelik içsel standartlara sahip olunması gerekir. Söz konusu standartların,\nekonomik  döngüleri  ve  gerçekleşmiş  temerrütlere  ilişkin  gözlemlenen  benzer  sistematik\ndeğişkenliği dikkate alması gerekir. Gerçekleşen değerlerin beklenen değerlerden daha büyük\nolmaya  devam  ettiği  hallerde,  tahminler  gerçekleşen  temerrüt  ve  kayıp  verilerini  yansıtacak\nşekilde yukarı yönlü revize edilir.\n\ngerektirecek\n\nderecede\n\nönemli\n\nolduğu\n\n",
+      "new": "d) Bankaların, gerçekleşen TO’larda, THK’larda, KDO’larda ve BK’nin kullanıldığı durumlarda toplam kayıpta,\nbeklentilere göre gerçekleşen sapmaların, ilgili tahminlerin geçerliliğinin sorgulanmasını gerektirecek\nderecede önemli olduğu durumların değerlendirilmesine yönelik içsel standartlara sahip olunması gerekir. Söz\nkonusu standartların, ekonomik döngüleri ve gerçekleşmiş temerrütlere ilişkin gözlemlenen benzer sistematik\ndeğişkenliği dikkate alması gerekir. Gerçekleşen değerlerin beklenen değerlerden daha büyük olmaya devam\nettiği hallerde, tahminler gerçekleşen temerrüt ve kayıp verilerini yansıtacak şekilde yukarı yönlü revize\nedilir.\n\n",
+      "source_pages": [
+        44
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 184574,
+      "end": 184980,
+      "old": "Basel  Komite  tarafından  kabul  edilen  güncellenmeler\nkapsamında  temel  kredi  riskine  esas  tutarın  ölçülmesinde  kullanılan  içsel  derecelendirmeye\ndayalı  yaklaşımlarda  yapılan  değişikliklerle;  içsel  derecelendirmeye  dayalı  yaklaşımların\nkullanıldığı\nsınırlandırılması,  hesaplamalarda  kullanılan\nsınıflarının  kapsamı\nparametrelerin risk hassasiyetinin artırılması hedeflenmektedir.\n\nrisk",
+      "new": "Basel Komite tarafından kabul edilen güncellenmeler kapsamında temel kredi riskine esas tutarın ölçülmesinde\nkullanılan içsel derecelendirmeye dayalı yaklaşımlarda yapılan değişikliklerle; içsel derecelendirmeye dayalı\nyaklaşımların kullanıldığı risk sınıflarının kapsamı sınırlandırılması, hesaplamalarda kullanılan\nparametrelerin risk hassasiyetinin artırılması hedeflenmektedir.\n\n",
+      "source_pages": [
+        68
+      ],
+      "kind": "reading_order"
+    }
+  ]
+}

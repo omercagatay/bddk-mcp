@@ -1,0 +1,632 @@
+[
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:20",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 20
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:21",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 21
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:34",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 34
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:35",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 35
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:48",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 48
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:49",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 49
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:63",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 63
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:64",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 64
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:78",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 78
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:79",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 79
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:92",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 92
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:93",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 93
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:107",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 107
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:108",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 108
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:122",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 122
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:123",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 123
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:136",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 136
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:137",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 137
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:151",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 151
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:152",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 152
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:165",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 165
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:166",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 166
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:179",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 179
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:180",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 180
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:193",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 193
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:194",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 194
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:208",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 208
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:209",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 209
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:222",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 222
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:223",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 223
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:236",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 236
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:237",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 237
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:250",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 250
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:251",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 251
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:264",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 264
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:265",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 265
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:279",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 279
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:280",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 280
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:294",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 294
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:295",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 295
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:309",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 309
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:310",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 310
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:324",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 324
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:325",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 325
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:339",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 339
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:340",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 340
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:354",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 354
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:355",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 355
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:369",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 369
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:370",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 370
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:383",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 383
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:384",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 384
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:398",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 398
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:399",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 399
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:412",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 412
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:413",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 413
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:427",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 427
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:428",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 428
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:442",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 442
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:443",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 443
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:457",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 457
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:458",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 458
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:472",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 472
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:473",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 473
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:487",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 487
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:488",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 488
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:502",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 502
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:503",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 503
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:517",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 517
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:518",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 518
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:532",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 532
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:533",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 533
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:546",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 546
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:547",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 547
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:560",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 560
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:561",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 561
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:574",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 574
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:575",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 575
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:588",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 588
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:589",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 589
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:602",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 602
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:603",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 603
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:616",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 616
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:617",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/905-textual-coverage.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 617
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/local-release-v5.json:generic-api-key:72",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/local-release-v5.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 72
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/local-release-v5.json:generic-api-key:91",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/local-release-v5.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 91
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/local-release-v5.json:generic-api-key:111",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/local-release-v5.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 111
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/local-release-v6.json:generic-api-key:78",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/local-release-v6.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 78
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/local-release-v6.json:generic-api-key:97",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/local-release-v6.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 97
+  },
+  {
+    "Fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/local-release-v6.json:generic-api-key:117",
+    "Commit": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355",
+    "File": "docs/evidence/document-repairs/local-release-v6.json",
+    "RuleID": "generic-api-key",
+    "StartLine": 117
+  }
+]

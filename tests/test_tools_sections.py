@@ -214,7 +214,7 @@ async def test_inconsistent_validated_mapping_fails_closed_without_a_citation():
 
 
 @pytest.mark.asyncio
-async def test_get_document_section_surfaces_configured_failure_before_content():
+async def test_get_document_section_surfaces_configured_failure_before_content(historical_quality_registry):
     section = _section("903", "madde", "1", "MADDE 1 - Temiz görünen mevzuat metni.")
     doc_store = MagicMock()
     doc_store.get_document_section = AsyncMock(return_value=[section])
@@ -351,7 +351,7 @@ async def test_search_document_sections_outputs_ranked_sections():
 
 
 @pytest.mark.asyncio
-async def test_search_document_sections_surfaces_configured_failure():
+async def test_search_document_sections_surfaces_configured_failure(historical_quality_registry):
     doc_store = MagicMock()
     doc_store.get_document_section = AsyncMock(return_value=[])
     doc_store.search_document_sections = AsyncMock(

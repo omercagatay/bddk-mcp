@@ -8,7 +8,8 @@ import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 
 from bddk_mcp.core.deps import Dependencies
-from bddk_mcp.store.doc_store import DocumentPage
+from bddk_mcp.quality.markdown_quality import assess_markdown_quality
+from bddk_mcp.store.doc_store import DocumentPage, DocumentStore
 from bddk_mcp.tools.documents import _is_formula_aware, register
 
 
@@ -51,6 +52,7 @@ def _capture_get_bddk_document(deps: Dependencies):
 
 
 def _make_deps(*, doc_store, client=None, vector_store=None) -> Dependencies:
+    doc_store.get_document_quality = AsyncMock(side_effect=lambda doc_id: assess_markdown_quality("", doc_id))
     deps = Dependencies(pool=None, doc_store=doc_store, client=client or MagicMock(), http=None)
     deps.vector_store = vector_store
     if client is None:
@@ -332,6 +334,9 @@ async def test_get_bddk_document_sanitizes_context_output_and_warns_for_fail():
     doc_store.get_document_page = AsyncMock(return_value=page)
     doc_store.get_extraction_method = AsyncMock(return_value="markitdown")
     deps = _make_deps(doc_store=doc_store)
+    doc_store.get_document_quality = AsyncMock(
+        return_value=assess_markdown_quality(page.markdown_content, page.document_id)
+    )
 
     tool = _capture_get_bddk_document(deps)
     out = await tool("mevzuat_21192", 1)
@@ -349,7 +354,7 @@ async def test_get_bddk_document_sanitizes_context_output_and_warns_for_fail():
 
 
 @pytest.mark.asyncio
-async def test_get_bddk_document_surfaces_configured_failure_for_clean_page_content():
+async def test_get_bddk_document_surfaces_configured_failure_for_clean_page_content(historical_quality_registry):
     """Registry membership must remain visible even when a retrieved page looks clean."""
     page = DocumentPage(
         document_id="903",
@@ -424,3 +429,57 @@ async def test_multi_page_gap_is_surfaced_as_warning():
     assert "Sayfa 2 local store'dan alınamadı" in out
     # Still a successful (partial) response, not an error
     assert "[ERROR" not in out
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("via_vector", [False, True])
+@pytest.mark.parametrize(
+    "body,page,expected_label,expected_flags",
+    [
+        ("| A | B |\n| --- | --- |\n| x | y |", "| A | B", "clean", []),
+        ("Temiz sayfa.\n\nSonraki sayfa: \ufffd", "Temiz sayfa.", "fail", ["replacement_char"]),
+        (
+            "Temiz sayfa.\n\naşağıdaki formül kullanılır.",
+            "Temiz sayfa.",
+            "warning",
+            ["formula_ref_without_latex_or_image"],
+        ),
+        (None, "Temiz sayfa.", "unknown", ["document_quality_unavailable"]),
+    ],
+)
+async def test_document_quality_uses_canonical_body_on_both_page_paths(
+    via_vector, body, page, expected_label, expected_flags
+):
+    pool = MagicMock()
+    pool.fetchval = AsyncMock(return_value=body)
+    store = MagicMock()
+    store.get_document_page = AsyncMock(
+        return_value=DocumentPage(document_id="x", title="x", markdown_content=page, extraction_method="manual_latex")
+    )
+    store.get_extraction_method = AsyncMock(return_value="manual_latex")
+    vector = MagicMock() if via_vector else None
+    if vector:
+        vector.get_document_page = AsyncMock(return_value={"content": page, "page_number": 1, "total_pages": 1})
+    deps = _make_deps(doc_store=store, vector_store=vector)
+    store.get_document_quality = DocumentStore(pool).get_document_quality
+    result = await _capture_get_bddk_document(deps)("x")
+    quality = result.structuredContent["quality"]
+    assert quality["label"] == expected_label
+    assert quality["flags"] == expected_flags
+    assert result.structuredContent["evidence"][0]["quality"] == quality
+    pool.fetchval.assert_awaited_once_with("SELECT markdown_content FROM public.documents WHERE document_id = $1", "x")
+
+
+@pytest.mark.asyncio
+async def test_document_quality_lookup_failure_cannot_claim_clean():
+    from bddk_mcp.core.exceptions import BddkStorageError
+
+    store = MagicMock()
+    store.get_document_page = AsyncMock(
+        return_value=DocumentPage(document_id="x", title="x", markdown_content="Temiz sayfa.")
+    )
+    deps = _make_deps(doc_store=store)
+    store.get_document_quality = AsyncMock(side_effect=BddkStorageError("unavailable"))
+    result = await _capture_get_bddk_document(deps)("x")
+    assert result.structuredContent["quality"]["label"] == "unknown"
+    assert "document_quality_unavailable" in result.structuredContent["quality"]["flags"]

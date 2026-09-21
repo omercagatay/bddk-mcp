@@ -1,0 +1,39 @@
+{
+  "document_id": "1312",
+  "status": "source_reviewed_candidate_awaiting_owner_approval",
+  "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1312",
+  "source_pdf_sha256": "6683abb409964bdcf259446cc8a8cf4443a39fe5d1e0b87f2854e557f180fa5b",
+  "source_pages_visually_reviewed": [
+    16,
+    18,
+    20,
+    21
+  ],
+  "original_markdown_sha256": "f41c0bff7dedf8cc6b92c196b2e421b95163e9ca069831bae0cbfd593a903b7a",
+  "candidate_markdown_sha256": "f78b7d2c32695e7468eeb52cc491effb3f5bc774e8a4308d5112076c85a8a9df",
+  "display_formulas": 3,
+  "source_anomalies_preserved": [
+    "Printed maksimum and decimal comma 0,4 are kept.",
+    "Page 18 K* = maksimum{0, [(ΣK – ΣT) + (RMD)]} was already intact and is unchanged."
+  ],
+  "replacements": [
+    {
+      "start": 58082,
+      "end": 58218,
+      "old": "K*=maksimum\n\n∑ (()()()()()())\n()\n\n()()\n\n()0; ∑ ()()\n\n() − ∑ ()()() + 0,4 |∑ ()()()()()()\n\n()()\n\n| + 0,6\n\n∑\n\n()()\n\n()()()|()()()|\n\n√()\n\n+",
+      "new": "$$\nK^{*}=\\mathrm{maksimum}\\{0;\\ \\sum_{i} K_{i} - \\sum_{j} T_{j} + 0{,}4\\,\\lvert\\sum_{MK} K_{MK} H_{MK}\\rvert + 0{,}6\\,\\frac{\\sum_{MK} K_{MK}\\lvert H_{MK}\\rvert}{\\sqrt{N}} + \\sum_{FX}(K_{FX} H_{FX})\\}\n$$"
+    },
+    {
+      "start": 70405,
+      "end": 70424,
+      "old": "H =\n\n∑ a()H()\n\n()\n\n",
+      "new": "$$\nH = \\sum_{i} a_{i} H_{i}\n$$"
+    },
+    {
+      "start": 72805,
+      "end": 72837,
+      "old": "() = () !\"\n\n#$ + (()() − 1)\n10\n\n",
+      "new": "$$\nH = H_{10} \\sqrt{\\dfrac{N_{R} + (T_{M} - 1)}{10}}\n$$\n\n"
+    }
+  ]
+}

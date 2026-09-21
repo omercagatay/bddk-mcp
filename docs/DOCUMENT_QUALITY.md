@@ -34,7 +34,16 @@ Labels are deterministic signals, not legal conclusions. A `clean` document is n
 The authoritative tracked fail list is packaged with the runtime at
 `bddk_mcp/quality/quality_failures.yml`. Registry membership overrides content heuristics: a
 listed document remains `fail` in search and retrieval results until it is repaired,
-rescanned, reviewed, and then removed from this file:
+rescanned, reviewed, and then removed from this file.
+
+No documents are currently registered as extraction failures. All 11 historical
+failures were source-repaired and are included with the signed corpus in this
+change. Real local MCP verification found 318 clean labels, with the release
+receipt in [local-release-v6.json](evidence/document-repairs/local-release-v6.json).
+This is not production deployment evidence or independent legal approval.
+Formula-unaware provenance warnings and legitimate source/layout flags remain.
+
+The retired entries below are retained as review history, not active failures:
 
 | Document ID | Reason | Preferred backfill |
 |---|---|---|
@@ -62,7 +71,7 @@ When a page is not `clean`, `get_bddk_document` includes concise metadata in the
 - `Quality flags: ...`
 - A visible quality warning before the document text
 
-Formula-unaware extraction methods also receive an extraction warning so the assistant tells users when equations or images may be missing. Whole-document and section tools share this policy; section results expose `formula_unaware_extraction` without invalidating an otherwise exact text quotation. The retrieval quality-policy identity is `markdown-quality-assessment-v3`.
+Formula-unaware extraction methods also receive an extraction warning so the assistant tells users when equations or images may be missing. Whole-document and section tools share this policy; section results expose `formula_unaware_extraction` without invalidating an otherwise exact text quotation. The retrieval quality-policy identity is `markdown-quality-assessment-v5`. It recognizes the reviewed formula/XML identifiers in documents 903 and 907 without exempting arbitrary code, math or text after unmatched delimiters. Document retrieval assesses the full canonical body, not a page fragment: page-cut tables cannot create false failures, and a clean page cannot hide failures elsewhere. An unavailable full-document assessment stays `unknown`; a formula-aware method cannot erase a missing-formula signal. This policy change requires reindexing and governed release verification; it does not remove registry entries or formula-unaware extraction warnings.
 
 Search results and section retrieval can surface quality metadata so agents can decide whether a snippet is appropriate evidence. Vector and FTS hits label quality from the **full stored document**, not only the matching chunk, so a clean snippet cannot hide document-level formula or extraction failures. Warning or fail labels do not block retrieval by themselves; the server sanitizes and warns unless unsafe inline blobs would leak into context.
 

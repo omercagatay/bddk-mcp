@@ -14,6 +14,18 @@ import pytest
 from bddk_mcp.core.models import BddkDecisionSummary
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
 
+
+@pytest.fixture
+def historical_quality_registry(monkeypatch):
+    """Exercise fail-closed registry behavior without reflagging repaired seed documents."""
+    from bddk_mcp.quality import markdown_quality
+
+    path = Path(__file__).resolve().parents[1] / "docs/evidence/document-repairs/historical-quality-failures.yml"
+    registry = markdown_quality.load_quality_failure_registry(path)
+    monkeypatch.setattr(markdown_quality, "_QUALITY_FAILURES", registry)
+    return registry
+
+
 # -- PostgreSQL test database -------------------------------------------------
 
 _TEST_DSN = os.environ.get("BDDK_TEST_DATABASE_URL", "postgresql://bddk:bddk@localhost:5432/bddk_test")

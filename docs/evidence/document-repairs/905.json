@@ -1,0 +1,970 @@
+{
+  "document_id": "905",
+  "status": "source_reviewed_candidate_awaiting_owner_approval",
+  "source_pdf_sha256": "2a168df63aca7d8a29c17938b99834b6a85ac39dbcd1b39033da95d01c623ab4",
+  "original_markdown_sha256": "337bb13ef0a8f34fefe6af4063c291f0ad8fb8d342294f40c44cdf5cebdbc67a",
+  "candidate_markdown_sha256": "cfc6b3b539433400a0e7b38f38f60a7adde732690376fb83edb0e715d9dce4f2",
+  "source_page_count": 42,
+  "source_pages_individually_inspected": [
+    1,
+    2,
+    6,
+    7,
+    20,
+    21,
+    22,
+    24,
+    26,
+    31,
+    32,
+    33,
+    34,
+    35,
+    37
+  ],
+  "source_pages_layout_contact_sheet_reviewed": [
+    3,
+    4,
+    5,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    23,
+    25,
+    27,
+    28,
+    29,
+    30,
+    36,
+    38,
+    39,
+    40,
+    41,
+    42
+  ],
+  "textual_coverage_evidence": "905-textual-coverage.json",
+  "review_scope": "All 42 pages textually reconciled; 35 non-table pages match the source token-for-token after reviewed normalization. Seven table-bearing pages manually compared at individual-page resolution. Remaining layouts inspected in contact sheets; this is not a claim of line-by-line visual review of all prose.",
+  "review_notes": [
+    "Restore 202 encoding glyphs, a cross-page bank table (two grids), four numerical tables and all 16 body superscript references, including the repeated 7.",
+    "Preserve printed numeric inconsistencies, all example placeholders, footnote text, historical institution names and original footer numbers.",
+    "Residual heuristic flags concern wide tables, long arithmetic expressions/URL and repeated source text. Do not remove these source passages to satisfy a scanner.",
+    "Assistant source review only: owner approval, extraction provenance review and governed publication still required. No signature, registry, seed or active release changed."
+  ],
+  "replacements": [
+    {
+      "start": 41,
+      "end": 70,
+      "old": "(Düzenleme Daire BaĢkanlığı)\n",
+      "new": "(Düzenleme Daire Başkanlığı)\n"
+    },
+    {
+      "start": 897,
+      "end": 918,
+      "old": "Mukim ÖZTEKĠN\nBaĢkan\n",
+      "new": "Mukim ÖZTEKİN\nBaşkan\n"
+    },
+    {
+      "start": 919,
+      "end": 1047,
+      "old": "BANKALARIN SERMAYE YETERLĠLĠĞĠNĠN\nDEĞERLENDĠRĠLMESĠNE VE ÖLÇÜLMESĠNE ĠLĠġKĠN\nYÖNETMELĠK VE TEBLĠĞLERĠ HAKKINDA 1 SAYILI GENELGE\n",
+      "new": "BANKALARIN SERMAYE YETERLİLİĞİNİN\nDEĞERLENDİRİLMESİNE VE ÖLÇÜLMESİNE İLİŞKİN\nYÖNETMELİK VE TEBLİĞLERİ HAKKINDA 1 SAYILI GENELGE\n"
+    },
+    {
+      "start": 1048,
+      "end": 1073,
+      "old": "BĠRĠNCĠ BÖLÜM\nYÖNETMELĠK\n",
+      "new": "BİRİNCİ BÖLÜM\nYÖNETMELİK\n"
+    },
+    {
+      "start": 2043,
+      "end": 2096,
+      "old": "2.  Yönetmeliğin 6 ncı Maddesine ĠliĢkin Açıklamalar\n",
+      "new": "2.  Yönetmeliğin 6 ncı Maddesine İlişkin Açıklamalar\n"
+    },
+    {
+      "start": 4905,
+      "end": 4924,
+      "old": "1) Gerçek KiĢiler:\n",
+      "new": "1) Gerçek Kişiler:\n"
+    },
+    {
+      "start": 5041,
+      "end": 5059,
+      "old": "2) Tüzel KiĢiler:\n",
+      "new": "2) Tüzel Kişiler:\n"
+    },
+    {
+      "start": 5060,
+      "end": 5084,
+      "old": "A.  Kamu Tüzel KiĢileri\n",
+      "new": "A.  Kamu Tüzel Kişileri\n"
+    },
+    {
+      "start": 9530,
+      "end": 9561,
+      "old": "B.  Özel Hukuk Tüzel KiĢileri:\n",
+      "new": "B.  Özel Hukuk Tüzel Kişileri:\n"
+    },
+    {
+      "start": 9831,
+      "end": 9907,
+      "old": "3) Tüzel KiĢiliği Olmayan KuruluĢ veya Organizasyonlara ĠliĢkin Prensipler:\n",
+      "new": "3) Tüzel Kişiliği Olmayan Kuruluş veya Organizasyonlara İlişkin Prensipler:\n"
+    },
+    {
+      "start": 11516,
+      "end": 11574,
+      "old": "(2) Mahalli İdareler: (b) Yerel yönetimlerden alacaklar1,\n",
+      "new": "(2) Mahalli İdareler: (b) Yerel yönetimlerden alacaklar¹,\n"
+    },
+    {
+      "start": 11655,
+      "end": 11739,
+      "old": "kuruluşlarından)  alacaklar2”  içinde  yer  almalıdır.  Bununla  birlikte  yukarıda\n",
+      "new": "kuruluşlarından)  alacaklar²”  içinde  yer  almalıdır.  Bununla  birlikte  yukarıda\n"
+    },
+    {
+      "start": 11982,
+      "end": 12060,
+      "old": "faaliyet gösteren diğer kamu kuruluşları Yönetmelik’te yer alan tanım gereği3\n",
+      "new": "faaliyet gösteren diğer kamu kuruluşları Yönetmelik’te yer alan tanım gereği³\n"
+    },
+    {
+      "start": 14130,
+      "end": 14173,
+      "old": "1.  Menkul KıymetleĢtirme Pozisyonu Tanımı\n",
+      "new": "1.  Menkul Kıymetleştirme Pozisyonu Tanımı\n"
+    },
+    {
+      "start": 15964,
+      "end": 16038,
+      "old": "3.  Ürün ve  Hizmetlerin Yönetmelikteki Alacak Türleri ile EĢleĢtirilmesi\n",
+      "new": "3.  Ürün ve  Hizmetlerin Yönetmelikteki Alacak Türleri ile Eşleştirilmesi\n"
+    },
+    {
+      "start": 17024,
+      "end": 17096,
+      "old": "4.  Bankalar ve Aracı Kurumlardan ġarta Bağlı Olan ve Olmayan Alacaklar\n",
+      "new": "4.  Bankalar ve Aracı Kurumlardan Şarta Bağlı Olan ve Olmayan Alacaklar\n"
+    },
+    {
+      "start": 17312,
+      "end": 17380,
+      "old": "5.   ġarta Bağlı Olan ve Olmayan Perakende Alacakların Belirlenmesi\n",
+      "new": "5.   Şarta Bağlı Olan ve Olmayan Perakende Alacakların Belirlenmesi\n"
+    },
+    {
+      "start": 23110,
+      "end": 23146,
+      "old": "ii) Bürt Tahsili GecikmiĢ Alacaklar\n",
+      "new": "ii) Bürt Tahsili Gecikmiş Alacaklar\n"
+    },
+    {
+      "start": 26544,
+      "end": 26631,
+      "old": "Dahil  Edilme  ġartları  hükme  bağlanmıştır.  Ek-3’ün  Dördüncü  Bölümünde  yer  alan\n",
+      "new": "Dahil  Edilme  Şartları  hükme  bağlanmıştır.  Ek-3’ün  Dördüncü  Bölümünde  yer  alan\n"
+    },
+    {
+      "start": 28372,
+      "end": 28407,
+      "old": "7.2. Sermayeden Ġndirilen Değerler\n",
+      "new": "7.2. Sermayeden İndirilen Değerler\n"
+    },
+    {
+      "start": 29493,
+      "end": 29536,
+      "old": "7.3. Risk Ağırlığı BelirlenmemiĢ Alacaklar\n",
+      "new": "7.3. Risk Ağırlığı Belirlenmemiş Alacaklar\n"
+    },
+    {
+      "start": 31177,
+      "end": 31244,
+      "old": "8.  Genel Piyasa Riski ve Spesifik Risk Hesaplamasında NetleĢtirme\n",
+      "new": "8.  Genel Piyasa Riski ve Spesifik Risk Hesaplamasında Netleştirme\n"
+    },
+    {
+      "start": 33561,
+      "end": 33646,
+      "old": "rakamının bulunmasında “Alım Satım Hariç Diğer Aktiflerin SatıĢından Elde Edilen Kar\n",
+      "new": "rakamının bulunmasında “Alım Satım Hariç Diğer Aktiflerin Satışından Elde Edilen Kar\n"
+    },
+    {
+      "start": 33651,
+      "end": 33743,
+      "old": "Zarar”  kalemi  ile  “Bankalardan  Alınan  Destek  Hizmetleri  KarĢılığı  Yapılan  Faaliyet\n",
+      "new": "Zarar”  kalemi  ile  “Bankalardan  Alınan  Destek  Hizmetleri  Karşılığı  Yapılan  Faaliyet\n"
+    },
+    {
+      "start": 33806,
+      "end": 33885,
+      "old": "9.1. Alım Satım Hariç Diğer Aktiflerin SatıĢından Elde Edilen Kar Zarar Kalemi\n",
+      "new": "9.1. Alım Satım Hariç Diğer Aktiflerin Satışından Elde Edilen Kar Zarar Kalemi\n"
+    },
+    {
+      "start": 34570,
+      "end": 34649,
+      "old": "9.2. Bankalardan Alınan Destek Hizmetleri KarĢılığı Yapılan Faaliyet Giderleri\n",
+      "new": "9.2. Bankalardan Alınan Destek Hizmetleri Karşılığı Yapılan Faaliyet Giderleri\n"
+    },
+    {
+      "start": 34999,
+      "end": 35028,
+      "old": "ĠKĠNCĠ BÖLÜM\nYÖNETMELĠK EK-1\n",
+      "new": "İKİNCİ BÖLÜM\nYÖNETMELİK EK-1\n"
+    },
+    {
+      "start": 35069,
+      "end": 35121,
+      "old": "1.1. Yetkilendirme, Tayin ve EĢleĢtirme Gerekliliği\n",
+      "new": "1.1. Yetkilendirme, Tayin ve Eşleştirme Gerekliliği\n"
+    },
+    {
+      "start": 35628,
+      "end": 35668,
+      "old": "1.2. Yetkili Derecelendirme KuruluĢları\n",
+      "new": "1.2. Yetkili Derecelendirme Kuruluşları\n"
+    },
+    {
+      "start": 36201,
+      "end": 36261,
+      "old": "1.3. KarĢı Tarafı Yurt DıĢında YerleĢik KiĢi Olan Alacaklar\n",
+      "new": "1.3. Karşı Tarafı Yurt Dışında Yerleşik Kişi Olan Alacaklar\n"
+    },
+    {
+      "start": 37011,
+      "end": 37030,
+      "old": "2.  Repo ĠĢlemleri\n",
+      "new": "2.  Repo İşlemleri\n"
+    },
+    {
+      "start": 38826,
+      "end": 38898,
+      "old": "3.1. Ġhracat Kredi KuruluĢlarının Kredi Derecelendirmelerinin Kullanımı\n",
+      "new": "3.1. İhracat Kredi Kuruluşlarının Kredi Derecelendirmelerinin Kullanımı\n"
+    },
+    {
+      "start": 39416,
+      "end": 39491,
+      "old": "4.1. Merkezi Yönetimler Ġle Aynı Risk Ağırlığına Tâbi Tutulacak Olan Yerel\n",
+      "new": "4.1. Merkezi Yönetimler İle Aynı Risk Ağırlığına Tâbi Tutulacak Olan Yerel\n"
+    },
+    {
+      "start": 40614,
+      "end": 40679,
+      "old": "4.2. Ġdari Birimlerden ve Ticari Olmayan GiriĢimlerden Alacaklar\n",
+      "new": "4.2. İdari Birimlerden ve Ticari Olmayan Girişimlerden Alacaklar\n"
+    },
+    {
+      "start": 40775,
+      "end": 40864,
+      "old": "kaydıyla, kamu kuruluĢlarından alacaklara %100 risk ağırlığı uygulanacağı, bankaların bu\n",
+      "new": "kaydıyla, kamu kuruluşlarından alacaklara %100 risk ağırlığı uygulanacağı, bankaların bu\n"
+    },
+    {
+      "start": 42360,
+      "end": 42379,
+      "old": "Uzun Vadeli Alacak\n",
+      "new": "| | | Uzun Vadeli Alacak / TL Cinsinden | Uzun Vadeli Alacak / Yabancı Para Cinsinden | Kısa Vadeli Alacak / TL Cinsinden | Kısa Vadeli Alacak / Yabancı Para Cinsinden |\n| --- | --- | --- | --- | --- | --- |\n| Türkiye’de bulunan bankalar | Derecelendirme notu varsa⁴ | Uluslararası Türk Parası notu dikkate alınır. (Fıkra 27)<br/>İlgili Kurul Kararınca tümü üçüncü kredi kalitesi kademesine eşleştirildiğinden ***%50 risk ağırlığı uygulanır.*** | Uluslararası Yabancı Para notu dikkate alınır. (Fıkra 27)<br/>İlgili Kurul Kararınca tümü üçüncü kredi kalitesi kademesine eşleştirildiğinden ***%50 risk ağırlığı uygulanır.*** | Fıkra 35 ve Fıkra 36 hükümleri uygulanır.<br/>İlgili Kurul Kararınca tümü üçüncü kredi kalitesi kademesine eşleştirildiğinden ***%20 risk ağırlığı uygulanır.*** | Uluslararası Yabancı Para notu dikkate alınır. (Fıkra 29)<br/>İlgili Kurul Kararınca tümü üçüncü kredi kalitesi kademesine eşleştirildiğinden ***%20 risk ağırlığı uygulanır.*** |\n| Türkiye’de bulunan bankalar | Derecelendirme notu yoksa | (Fıkra 28, Fıkra 26 ve Fıkra 4)<br/>Fıkra 4 uyarınca Türkiye Hazinesi’nden olan TL cinsinden alacaklara %0 risk ağırlığı uygulandığı için ***%50 risk ağırlığı uygulanır.*** | (1 ilâ 7 nci Fıkralar, Fıkra 28 ve Fıkra 26)<br/>(İkinci Bölüm 1 ila 7 nci fıkralar uyarınca, varsa, bankanın tayin ettiği KDK’lar da dikkate alınarak) Bankanın Birinci Bölüm 1 ila 7 nci fıkralar uyarınca Türkiye Hazinesi’nden olan YP alacaklara uyguladığı risk ağırlığı ile (Fıkra 28 uyarınca) %50 den büyük olanı uygulanır. | (Fıkra 35, Fıkra 36, Fıkra 4 ve Fıkra 26)<br/>Fıkra 4 uyarınca Türkiye Hazinesi’nden olan TL cinsinden alacaklara %0 risk ağırlığı uygulandığı için ***%20 risk ağırlığı uygulanır.*** | (1 ilâ 7 nci Fıkralar, Fıkra 30 ve Fıkra 26)<br/>(İkinci Bölüm 1 ila 7 nci fıkralar uyarınca, varsa, bankanın tayin ettiği KDK’lar da dikkate alınarak) Bankanın Birinci Bölüm 1 ila 7 nci fıkralar uyarınca Türkiye Hazinesi’nden olan YP alacaklara uyguladığı risk ağırlığı ile (Fıkra 30 uyarınca) %20 den büyük olanı uygulanır. |\n"
+    },
+    {
+      "start": 42380,
+      "end": 42399,
+      "old": "Kısa Vadeli Alacak\n",
+      "new": "| | | | Uzun Vadeli Alacak / Yerel Para Cinsinden | Uzun Vadeli Alacak / Yabancı Para Cinsinden | Kısa Vadeli Alacak / Yerel Para Cinsinden | Kısa Vadeli Alacak / Yabancı Para Cinsinden |\n| --- | --- | --- | --- | --- | --- | --- |\n| Yurtdışında Bulunan Bankalar | Yerel para biriminden alacaklara düşük (avantajlı) (örneğin %0) risk ağırlığı uygulayan ülkelerdekiler | Derecelendirme notu varsa⁵ | Uluslararası Yerel Para notu dikkate alınır. (Fıkra 27) | Uluslararası Yabancı Para notu dikkate alınır. (Fıkra 27) | Fıkra 35 ve Fıkra 36 hükümleri uygulanır. | Uluslararası Yabancı Para notu dikkate alınır. (Fıkra 29) |\n| Yurtdışında Bulunan Bankalar | Yerel para biriminden alacaklara düşük (avantajlı) (örneğin %0) risk ağırlığı uygulayan ülkelerdekiler | Derecelendirme notu yoksa | Söz konusu düşük (avantajlı) risk ağırlığından düşük olmayacak şekilde ***asgari %50 risk ağırlığı uygulanır.*** (Fıkra 28 ve Fıkra 26) | (1 ilâ 7 nci Fıkralar, Fıkra 28 ve Fıkra 26) | Söz konusu düşük (avantajlı) risk ağırlığından düşük olmayacak şekilde ***asgari %20 risk ağırlığı uygulanır.*** (Fıkra 35 ve Fıkra 36) | (1 ilâ 7 nci Fıkralar, Fıkra 30 ve Fıkra 26) |\n| Yurtdışında Bulunan Bankalar | Kendi para biriminden alacaklara düşük (avantajlı) risk ağırlığı uygulamayan ülkeler | Derecelendirme notu varsa⁷ | Uluslararası Yerel Para notu dikkate alınır. (Fıkra 27) | Uluslararası Yabancı Para notu dikkate alınır. (Fıkra 27) | Uluslararası Yerel Para notu dikkate alınır. (Fıkra 29) | Uluslararası Yabancı Para notu dikkate alınır. (Fıkra 29) |\n"
+    },
+    {
+      "start": 42400,
+      "end": 43826,
+      "old": "TL Cinsinden  Yabancı Para\n\nCinsinden\n\nTL Cinsinden\n\nUluslararası\nTürk Parası\nnotu dikkate\nalınır.\n\nUluslararası\nYabancı Para\nnotu dikkate\nalınır.\n\n(Fıkra 27)\n\n(Fıkra 27)\n\nFıkra 35 ve\nFıkra 36\nhükümleri\nuygulanır.\n\nYabancı\nPara\nCinsinden\n\nUluslararası\nYabancı Para\nnotu dikkate\nalınır.\n\n(Fıkra 29)\n\nİlgili Kurul Kararınca tümü\nüçüncü kredi kalitesi\nkademesine eşleştirildiğinden\n%50 risk ağırlığı uygulanır.\n\nİlgili Kurul Kararınca tümü\nüçüncü kredi kalitesi\nkademesine eşleştirildiğinden\n%20 risk ağırlığı uygulanır.\n\n(Fıkra 28,\nFıkra 26 ve\nFıkra 4)\n\n(1 ilâ 7 nci\nFıkralar, Fıkra\n28 ve Fıkra\n26)\n\n(Fıkra 35, Fıkra\n36, Fıkra 4 ve\nFıkra 26)\n\n(1 ilâ 7 nci\nFıkralar, Fıkra\n30 ve Fıkra\n26)\n\nFıkra 4\nuyarınca\nTürkiye\nHazinesi’nden\nolan TL\ncinsinden\n\n(İkinci Bölüm\n1 ila 7 nci\nfıkralar\nuyarınca,\nvarsa,\nbankanın tayin\n\nFıkra 4\nuyarınca\nTürkiye\nHazinesi’nden\nolan TL\ncinsinden\n\n(İkinci Bölüm\n1 ila 7 nci\nfıkralar\nuyarınca,\nvarsa,\nbankanın\n\nDerecelendirme notu\nvarsa4\n\nTürkiye\n’de\nbulunan\nbankalar\n\nDerecelendirme notu\nyoksa\n\n4  12/7/2012  tarih  ve  4834  sayılı  Kurul  Kararı  uyarınca,  Türkiye’de  bulunan  bankalar  ve  aracı  kurumlar  için\nsadece  Kurulca  yetkilendirilmiş  derecelendirme  kuruluşları  tarafından  verilen  derecelendirme  notları  dikkate\nalınabilmektedir.  Uluslararası  derecelendirme  kuruluşlarının  Türkiye’de  bulunan  bankalar  ve  aracı  kurumlara\nverdikleri derecelendirme notları dikkate alınmaz.\n",
+      "new": "⁴ 12/7/2012 tarih ve 4834 sayılı Kurul Kararı uyarınca, Türkiye’de bulunan bankalar ve aracı kurumlar için sadece Kurulca yetkilendirilmiş derecelendirme kuruluşları tarafından verilen derecelendirme notları dikkate alınabilmektedir. Uluslararası derecelendirme kuruluşlarının Türkiye’de bulunan bankalar ve aracı kurumlara verdikleri derecelendirme notları dikkate alınmaz.\n"
+    },
+    {
+      "start": 43831,
+      "end": 45824,
+      "old": "alacaklara %0\nrisk ağırlığı\nuygulandığı\niçin %20 risk\nağırlığı\nuygulanır.\n\nalacaklara %0\nrisk ağırlığı\nuygulandığı\niçin %50 risk\nağırlığı\nuygulanır.\n\nettiği KDK’lar\nda dikkate\nalınarak)\nBankanın\nBirinci Bölüm\n1 ila 7 nci\nfıkralar\nuyarınca\nTürkiye\nHazinesi’nden\nolan YP\nalacaklara\nuyguladığı\nrisk ağırlığı ile\n(Fıkra 28\nuyarınca) %50\nden büyük\nolanı\nuygulanır.\n\nYerel Para\nCinsinden\n\nYabancı Para\nCinsinden\n\nYerel Para\nCinsinden\n\nDerecelendi\nrme notu\nvarsa5\n\nUluslararası\nYerel Para\nnotu dikkate\nalınır.\n\nUluslararası\nYabancı Para\nnotu dikkate\nalınır.\n\n(Fıkra 27)\n\n(Fıkra 27)\n\nFıkra 35 ve\nFıkra 36\nhükümleri\nuygulanır.\n\nDerecelendi\nrme notu\nyoksa\n\nSöz konusu\ndüşük\n(avantajlı)\nrisk\nağırlığından\ndüşük\nolmayacak\nşekilde asgari\n%50 risk\nağırlığı\nuygulanır.\n\n(Fıkra 28 ve\nFıkra 26)\n\n(1 ilâ 7 nci\nFıkralar, Fıkra\n28 ve Fıkra\n26)\n\nSöz konusu\ndüşük\n(avantajlı) risk\nağırlığından\ndüşük\nolmayacak\nşekilde asgari\n%20 risk\nağırlığı\nuygulanır.\n\n(Fıkra 35 ve\nFıkra 36)\n\nYerel\npara\nbirimind\nen\nalacaklar\na düşük\n(avantajlı\n)\n(örneğin\n%0) risk\nağırlığı\nuygulaya\nn\nülkelerde\nkiler\n\nYurtdışı\nnda\nBulunan\nBankala\nr\n\ntayin ettiği\nKDK’lar da\ndikkate\nalınarak)\nBankanın\nBirinci Bölüm\n1 ila 7 nci\nfıkralar\nuyarınca\nTürkiye\nHazinesi’nden\nolan YP\nalacaklara\nuyguladığı\nrisk ağırlığı\nile (Fıkra 30\nuyarınca)\n%20 den\nbüyük olanı\nuygulanır.\n\nYabancı\nPara\nCinsinden\n\nUluslararası\nYabancı Para\nnotu dikkate\nalınır.\n\n(Fıkra 29)\n\n(1 ilâ 7 nci\nFıkralar, Fıkra\n30 ve Fıkra\n26)\n\nKendi\npara\nbirimind\nen\n\nDerecelendi\nrme notu\nvarsa7\n\nUluslararası\nYerel Para\nnotu dikkate\nalınır.\n\nUluslararası\nYabancı Para\nnotu dikkate\nalınır.\n\nUluslararası\nYerel Para notu\ndikkate alınır.\n\nUluslararası\nYabancı Para\nnotu dikkate\nalınır.\n\n5  12/7/2012  tarih  ve  4834  sayılı  Kurul  Kararı  uyarınca  yurtdışında  bulunan  bankalar  ve  aracı  kurumlar  için\nKurulca yetkilendirilmiş Türkiye’de yerleşik derecelendirme kuruluşları ile Fitch, Moody's, S&P, JCR Japonya ve\nDBRS tarafından verilen derecelendirme notları dikkate alınabilmektedir.\n",
+      "new": "⁵ 12/7/2012 tarih ve 4834 sayılı Kurul Kararı uyarınca yurtdışında bulunan bankalar ve aracı kurumlar için Kurulca yetkilendirilmiş Türkiye’de yerleşik derecelendirme kuruluşları ile Fitch, Moody's, S&P, JCR Japonya ve DBRS tarafından verilen derecelendirme notları dikkate alınabilmektedir.\n"
+    },
+    {
+      "start": 45828,
+      "end": 45944,
+      "old": "\n(Fıkra 27)\n\n(Fıkra 27)\n\n(Fıkra 29)\n\n(Fıkra 29)\n\nalacaklar\na düşük\n(avantajlı\n)  risk\nağırlığı\nuygulam\nayan\nülkeler\n",
+      "new": ""
+    },
+    {
+      "start": 47570,
+      "end": 47646,
+      "old": "5.3. DerecelendirilmemiĢ Bankalar ve Aracı Kurumlardan Alacaklara Uygulanan\n",
+      "new": "5.3. Derecelendirilmemiş Bankalar ve Aracı Kurumlardan Alacaklara Uygulanan\n"
+    },
+    {
+      "start": 49056,
+      "end": 49112,
+      "old": "6.  Gayrimenkul Ġpoteğiyle TeminatlandırılmıĢ Alacaklar\n",
+      "new": "6.  Gayrimenkul İpoteğiyle Teminatlandırılmış Alacaklar\n"
+    },
+    {
+      "start": 49113,
+      "end": 49168,
+      "old": "6.1. Ġpotek Tesisi Gerekliliği-Projeli Konut Kredileri\n",
+      "new": "6.1. İpotek Tesisi Gerekliliği-Projeli Konut Kredileri\n"
+    },
+    {
+      "start": 50678,
+      "end": 50870,
+      "old": "tarafın)  perakende  alacaklara  ilişkin  koşulları  sağlayan6  bir  müşteri  olması  durumunda  söz\nkonusu alacak “Perakende Alacaklar” risk sınıflarından7 uygun olanında %75 risk ağırlığına\n",
+      "new": "tarafın)  perakende  alacaklara  ilişkin  koşulları  sağlayan⁶  bir  müşteri  olması  durumunda  söz\nkonusu alacak “Perakende Alacaklar” risk sınıflarından⁷ uygun olanında %75 risk ağırlığına\n"
+    },
+    {
+      "start": 53277,
+      "end": 53361,
+      "old": "10. Ġkinci Bölüm- KDK'ların Kredi Derecelendirmelerinin Risk Ağırlıklarının Tespiti\n",
+      "new": "10. İkinci Bölüm- KDK'ların Kredi Derecelendirmelerinin Risk Ağırlıklarının Tespiti\n"
+    },
+    {
+      "start": 53362,
+      "end": 53380,
+      "old": "Ġçin Kullanılması\n",
+      "new": "İçin Kullanılması\n"
+    },
+    {
+      "start": 53945,
+      "end": 54033,
+      "old": "KREDĠ RĠSKĠ AZALTIM TEKNĠKLERĠNE ĠLĠġKĠN TEBLĠĞ\nUYGULAMASINDA DĠKKATE ALINACAK HUSUSLAR\n",
+      "new": "KREDİ RİSKİ AZALTIM TEKNİKLERİNE İLİŞKİN TEBLİĞ\nUYGULAMASINDA DİKKATE ALINACAK HUSUSLAR\n"
+    },
+    {
+      "start": 56725,
+      "end": 56803,
+      "old": "2.  Gayrimenkullerin Teminat Olarak Dikkate Alınmasına ĠliĢkin Asgari ġartlar\n",
+      "new": "2.  Gayrimenkullerin Teminat Olarak Dikkate Alınmasına İlişkin Asgari Şartlar\n"
+    },
+    {
+      "start": 59716,
+      "end": 59825,
+      "old": "MENKUL KIYMETLEġTĠRMEYE ĠLĠġKĠN RĠSK AĞIRLIKLI TUTARLARIN\nHESAPLANMASI HAKKINDA TEBLĠĞ UYGULAMASINDA DĠKKATE\n",
+      "new": "MENKUL KIYMETLEŞTİRMEYE İLİŞKİN RİSK AĞIRLIKLI TUTARLARIN\nHESAPLANMASI HAKKINDA TEBLİĞ UYGULAMASINDA DİKKATE\n"
+    },
+    {
+      "start": 59844,
+      "end": 59906,
+      "old": "1.  Ara (Mezzanine) Menkul KıymetleĢtirme Pozisyonları Tanımı\n",
+      "new": "1.  Ara (Mezzanine) Menkul Kıymetleştirme Pozisyonları Tanımı\n"
+    },
+    {
+      "start": 61353,
+      "end": 61426,
+      "old": "3.  Menkul KıymetleĢtirme Kurucusu ve Sponsor Bankalara ĠliĢkin Uygulama\n",
+      "new": "3.  Menkul Kıymetleştirme Kurucusu ve Sponsor Bankalara İlişkin Uygulama\n"
+    },
+    {
+      "start": 61427,
+      "end": 61445,
+      "old": "3.1. Ġlgili Hüküm\n",
+      "new": "3.1. İlgili Hüküm\n"
+    },
+    {
+      "start": 61988,
+      "end": 62021,
+      "old": "Fıkra  derecelendirilmiĢ  menkul\n",
+      "new": "Fıkra  derecelendirilmiş  menkul\n"
+    },
+    {
+      "start": 64432,
+      "end": 64469,
+      "old": "  Kredi  kalitesi  kademesinin  4’e\n",
+      "new": "•  Kredi  kalitesi  kademesinin  4’e\n"
+    },
+    {
+      "start": 64607,
+      "end": 64696,
+      "old": "%3508  = 350.000 TL olarak bulunacaktır. Bu risk ağırlıklı tutar, kredi kartı alacakları\n",
+      "new": "%350⁸  = 350.000 TL olarak bulunacaktır. Bu risk ağırlıklı tutar, kredi kartı alacakları\n"
+    },
+    {
+      "start": 64861,
+      "end": 64950,
+      "old": "  Kredi  kalitesi  kademesinin  5’e  tekabül  etmesi  durumunda  ise,  bankanın  elinde\n",
+      "new": "•  Kredi  kalitesi  kademesinin  5’e  tekabül  etmesi  durumunda  ise,  bankanın  elinde\n"
+    },
+    {
+      "start": 65041,
+      "end": 65134,
+      "old": "%1.2509    =  1.250.000  TL  olarak  bulunacaktır.  Ancak,  1.250.000  TL’nin,  kredi  kartı\n",
+      "new": "%1.250⁹    =  1.250.000  TL  olarak  bulunacaktır.  Ancak,  1.250.000  TL’nin,  kredi  kartı\n"
+    },
+    {
+      "start": 65385,
+      "end": 65439,
+      "old": "4.  DerecelendirilmemiĢ Pozisyonlara ĠliĢkin Uygulama\n",
+      "new": "4.  Derecelendirilmemiş Pozisyonlara İlişkin Uygulama\n"
+    },
+    {
+      "start": 65440,
+      "end": 65458,
+      "old": "4.1. Ġlgili Hüküm\n",
+      "new": "4.1. İlgili Hüküm\n"
+    },
+    {
+      "start": 66599,
+      "end": 66688,
+      "old": "nci madde hükümleri saklı kalmak kaydıyla, derecelendirilmemiĢ bir menkul kıymetleştirme\n",
+      "new": "nci madde hükümleri saklı kalmak kaydıyla, derecelendirilmemiş bir menkul kıymetleştirme\n"
+    },
+    {
+      "start": 67975,
+      "end": 68013,
+      "old": "4.2. YoğunlaĢma Oranının Hesaplanması\n",
+      "new": "4.2. Yoğunlaşma Oranının Hesaplanması\n"
+    },
+    {
+      "start": 68180,
+      "end": 68363,
+      "old": " Menkul Kıymetleştirmeye Konu Pozisyon Tutarı\n\n185.000.000 TL\n\nUygulanacak Ağırlıklı Ortalama Risk Ağırlığı10\n\n0,75\n\nMenkul Kıymetleştirme Öncesi Risk Ağırlıklı Tutar\n\n138.750.000 TL\n",
+      "new": "| | |\n| --- | --- |\n| Menkul Kıymetleştirmeye Konu Pozisyon Tutarı | 185.000.000 TL |\n| Uygulanacak Ağırlıklı Ortalama Risk Ağırlığı¹⁰ | 0,75 |\n| Menkul Kıymetleştirme Öncesi Risk Ağırlıklı Tutar | 138.750.000 TL |\n"
+    },
+    {
+      "start": 68511,
+      "end": 68619,
+      "old": "Nominal\nVDMK\n\nYoğunlaşma\n\nVarlıklara,\nYönetmelik\n\nDerecelendi\nrilmemiş\n\nDerecelendirilmemiş\nRisk\nPozisyonun\n",
+      "new": "| Nominal VDMK Tutarı | Yoğunlaşma Oranı | Varlıklara, Yönetmelik Hükümleri Uyarınca Uygulanacak Ağırlıklı Ortalama Risk Ağırlığı | Derecelendirilmemiş Pozisyon Risk Ağırlığı (12,50’den büyük olamaz) | Derecelendirilmemiş Pozisyonun Risk Ağırlıklı Tutarı |\n| --- | --- | --- | --- | --- |\n| 50.000.000 | 1,00 | 0,75 | 0,75 | 37.500.000,00 |\n| 40.000.000 | 1,37 | 0,75 | 1,03 | 31.111.111,11 |\n| 35.000.000 | **1,95** | **0,75** | **1,46** | **51.118.421,05** |\n| 25.000.000 | 3,08 | 0,75 | 2,31 | 57.812.500,00 |\n| 20.000.000 | 5,29 | 0,75 | 3,96 | 79.285.714,29 |\n| 10.000.000 | 12,33 | 0,75 | 9,25 | 92.500.000,00 |\n| 5.000.000 | **37** | 0,75 | **12,50 (37*0,75>12,50)** | **62.500.000** |\n| **185.000.000** | | | Toplam= | **411.827.746,45** |\n"
+    },
+    {
+      "start": 69104,
+      "end": 69104,
+      "old": "",
+      "new": "\n"
+    },
+    {
+      "start": 69107,
+      "end": 69623,
+      "old": "\nTutarı\n\nOranı\n\nAğırlıklı Tutarı\n\nHükümleri  Uyarınca\nUygulanacak  Ağırlıklı\nOrtalama\nRisk\nAğırlığı\n\nPozisyon\nRisk\nAğırlığı\n\n(12,50’den\nbüyük\nolamaz)\n\n50.000.000\n\n40.000.000\n\n35.000.000\n\n25.000.000\n\n20.000.000\n\n1,00\n\n1,37\n\n1,95\n\n3,08\n\n5,29\n\n10.000.000\n\n12,33\n\n0,75\n\n0,75\n\n0,75\n\n0,75\n\n0,75\n\n0,75\n\n5.000.000\n\n37\n\n0,75\n\n0,75\n\n1,03\n\n1,46\n\n2,31\n\n3,96\n\n9,25\n\n12,50\n(37*0,75>1\n2,50)\n\n37.500.000,00\n\n31.111.111,11\n\n51.118.421,05\n\n57.812.500,00\n\n79.285.714,29\n\n92.500.000,00\n\n62.500.000\n\n185.000.000\n\nToplam=\n\n411.827.746,45\n",
+      "new": ""
+    },
+    {
+      "start": 69807,
+      "end": 69844,
+      "old": "bulunan 1,9511 değeri ikinci sütuna,\n",
+      "new": "bulunan 1,95¹¹ değeri ikinci sütuna,\n"
+    },
+    {
+      "start": 69845,
+      "end": 69940,
+      "old": "  Perakende  alacaklara  uygulanan  risk  ağırlığı12  %75  olduğu  için  0,75  değeri  üçüncü\n",
+      "new": "•  Perakende  alacaklara  uygulanan  risk  ağırlığı¹²  %75  olduğu  için  0,75  değeri  üçüncü\n"
+    },
+    {
+      "start": 69950,
+      "end": 70019,
+      "old": "  1.95*0.75 işlemi sonucunda bulunan 1,4613 değeri dördüncü sütuna,\n",
+      "new": "•  1.95*0.75 işlemi sonucunda bulunan 1,46¹³ değeri dördüncü sütuna,\n"
+    },
+    {
+      "start": 70020,
+      "end": 70102,
+      "old": "  35.000.000*1,46 işlemi sonucunda bulunan 51.118.421,0514 değeri beşinci sütuna\n",
+      "new": "•  35.000.000*1,46 işlemi sonucunda bulunan 51.118.421,05¹⁴ değeri beşinci sütuna\n"
+    },
+    {
+      "start": 71615,
+      "end": 71666,
+      "old": "şekilde 7 farklı dilime ayrıldığı kabul edilsin.15\n",
+      "new": "şekilde 7 farklı dilime ayrıldığı kabul edilsin.¹⁵\n"
+    },
+    {
+      "start": 71667,
+      "end": 72078,
+      "old": "Nominal\nVDMK\nTutarı\n\nYoğunlaşma\nOranı\n\nVarlıklara,\nHükümleri\nUygulanacak\nOrtalama Risk Ağırlığı\n\nYönetmelik\nUyarınca\nAğırlıklı\n\nDerecelendirilme\nmiş\nRisk Ağırlığı\n\nPozisyon\n\nDerecelen\ndirilmemiş\nPozisyon\nRisk\nTutarı\n\n50.000.000\n\n40.000.000\n\n35.000.000\n\n25.000.000\n\n20.000.000\n\n10.000.000\n\n5.000.000\n\n185.000.000\n\n1,00\n\n1,37\n\n1,95\n\n3,08\n\n…\n\n…\n\n…\n\nA\n\nB\n\nC\n\nD\n\nE\n\nF\n\nG\n\n…\n\n…\n\n…\n\n…\n\n…\n\n…\n\n…\n\n…\n\n…\n\n…\n\n…\n\n…\n\n…\n\n…\n\n…\n",
+      "new": "| Nominal VDMK Tutarı | Yoğunlaşma Oranı | Varlıklara, Yönetmelik Hükümleri Uyarınca Uygulanacak Ağırlıklı Ortalama Risk Ağırlığı | Derecelendirilmemiş Pozisyon Risk Ağırlığı | Derecelendirilmemiş Pozisyon Risk Tutarı |\n| --- | --- | --- | --- | --- |\n| 50.000.000 | 1,00 | A | … | … |\n| 40.000.000 | 1,37 | B | … | … |\n| 35.000.000 | 1,95 | C | … | … |\n| 25.000.000 | 3,08 | D | … | … |\n| 20.000.000 | … | E | … | … |\n| 10.000.000 | … | F | … | … |\n| 5.000.000 | … | G | … | … |\n| **185.000.000** | | | | … |\n"
+    },
+    {
+      "start": 72554,
+      "end": 72876,
+      "old": "Dilimin\nNominal\nTutarı\n\nDilimi\noluşturan alacak\ntutarları\n\nDilimi  oluşturan  alacak\ntutarlarının\ntekabül\nettiği risk ağırlıkları\n\nHesaplanan\nrisk\nağırlıklı\ntutar\n\n50.000.000\n\n40.000.000\n\n%0\n\n  40.000.000*%0=\n\n0\n\n8.000.000\n\n2.000.000\n\n%20\n\n  8.000.000*%20=\n\n1.600.000\n\n%50\n\n  2.000.000*%50=\n\n1.000.000\n\nTOPLAM:\n\n2.600.000\n",
+      "new": "| Dilimin Nominal Tutarı | Dilimi oluşturan alacak tutarları | Dilimi oluşturan alacak tutarlarının tekabül ettiği risk ağırlıkları | | Hesaplanan risk ağırlıklı tutar |\n| --- | --- | --- | --- | --- |\n| **50.000.000** | 40.000.000 | %0 | 40.000.000*%0= | 0 |\n| | 8.000.000 | %20 | 8.000.000*%20= | 1.600.000 |\n| | 2.000.000 | %50 | 2.000.000*%50= | 1.000.000 |\n| | | TOPLAM: | | **2.600.000** |\n"
+    },
+    {
+      "start": 73507,
+      "end": 73565,
+      "old": "4.4. DerecelendirilmiĢ Daha Öncelikli Bir Dilimin Varlığı\n",
+      "new": "4.4. Derecelendirilmiş Daha Öncelikli Bir Dilimin Varlığı\n"
+    },
+    {
+      "start": 75062,
+      "end": 75156,
+      "old": "MERKEZĠ YÖNETĠMLER, KAMU KURULUġLARI VE ĠDARĠ VE TĠCARĠ\nBĠRĠMLER SINIFLARINA ĠLĠġKĠN ÖRNEKLER\n",
+      "new": "MERKEZİ YÖNETİMLER, KAMU KURULUŞLARI VE İDARİ VE TİCARİ\nBİRİMLER SINIFLARINA İLİŞKİN ÖRNEKLER\n"
+    },
+    {
+      "start": 75384,
+      "end": 75416,
+      "old": "  Türkiye Büyük Millet Meclisi\n",
+      "new": "•  Türkiye Büyük Millet Meclisi\n"
+    },
+    {
+      "start": 75417,
+      "end": 75437,
+      "old": "  Cumhurbaşkanlığı\n",
+      "new": "•  Cumhurbaşkanlığı\n"
+    },
+    {
+      "start": 75438,
+      "end": 75526,
+      "old": "  Başbakanlık  (Türk Silahlı Kuvvetleri: Genelkurmay Başkanlığı, Kuvvet komutanlıkları\n",
+      "new": "•  Başbakanlık  (Türk Silahlı Kuvvetleri: Genelkurmay Başkanlığı, Kuvvet komutanlıkları\n"
+    },
+    {
+      "start": 75570,
+      "end": 75591,
+      "old": "  Anayasa Mahkemesi\n",
+      "new": "•  Anayasa Mahkemesi\n"
+    },
+    {
+      "start": 75592,
+      "end": 75604,
+      "old": "  Yargıtay\n",
+      "new": "•  Yargıtay\n"
+    },
+    {
+      "start": 75605,
+      "end": 75617,
+      "old": "  Danıştay\n",
+      "new": "•  Danıştay\n"
+    },
+    {
+      "start": 75618,
+      "end": 75656,
+      "old": "  Hâkimler ve Savcılar Yüksek Kurulu\n",
+      "new": "•  Hâkimler ve Savcılar Yüksek Kurulu\n"
+    },
+    {
+      "start": 75657,
+      "end": 75669,
+      "old": "  Sayıştay\n",
+      "new": "•  Sayıştay\n"
+    },
+    {
+      "start": 75670,
+      "end": 75690,
+      "old": "  Adalet Bakanlığı\n",
+      "new": "•  Adalet Bakanlığı\n"
+    },
+    {
+      "start": 75691,
+      "end": 75718,
+      "old": "  Millî Savunma Bakanlığı\n",
+      "new": "•  Millî Savunma Bakanlığı\n"
+    },
+    {
+      "start": 75719,
+      "end": 75741,
+      "old": "  İçişleri Bakanlığı\n",
+      "new": "•  İçişleri Bakanlığı\n"
+    },
+    {
+      "start": 75742,
+      "end": 75765,
+      "old": "  Dışişleri Bakanlığı\n",
+      "new": "•  Dışişleri Bakanlığı\n"
+    },
+    {
+      "start": 75766,
+      "end": 75786,
+      "old": "  Maliye Bakanlığı\n",
+      "new": "•  Maliye Bakanlığı\n"
+    },
+    {
+      "start": 75787,
+      "end": 75813,
+      "old": "  Millî Eğitim Bakanlığı\n",
+      "new": "•  Millî Eğitim Bakanlığı\n"
+    },
+    {
+      "start": 75814,
+      "end": 75834,
+      "old": "  Sağlık Bakanlığı\n",
+      "new": "•  Sağlık Bakanlığı\n"
+    },
+    {
+      "start": 75835,
+      "end": 75884,
+      "old": "  Ulaştırma, Denizcilik ve Haberleşme Bakanlığı\n",
+      "new": "•  Ulaştırma, Denizcilik ve Haberleşme Bakanlığı\n"
+    },
+    {
+      "start": 75885,
+      "end": 75925,
+      "old": "  Çalışma ve Sosyal Güvenlik Bakanlığı\n",
+      "new": "•  Çalışma ve Sosyal Güvenlik Bakanlığı\n"
+    },
+    {
+      "start": 75926,
+      "end": 75965,
+      "old": "  Enerji ve Tabiî Kaynaklar Bakanlığı\n",
+      "new": "•  Enerji ve Tabiî Kaynaklar Bakanlığı\n"
+    },
+    {
+      "start": 75966,
+      "end": 75996,
+      "old": "  Kültür ve Turizm Bakanlığı\n",
+      "new": "•  Kültür ve Turizm Bakanlığı\n"
+    },
+    {
+      "start": 76001,
+      "end": 76041,
+      "old": "  Aile ve Sosyal Politikalar Bakanlığı\n",
+      "new": "•  Aile ve Sosyal Politikalar Bakanlığı\n"
+    },
+    {
+      "start": 76042,
+      "end": 76070,
+      "old": "  Avrupa Birliği Bakanlığı\n",
+      "new": "•  Avrupa Birliği Bakanlığı\n"
+    },
+    {
+      "start": 76071,
+      "end": 76111,
+      "old": "  Bilim, Sanayi ve Teknoloji Bakanlığı\n",
+      "new": "•  Bilim, Sanayi ve Teknoloji Bakanlığı\n"
+    },
+    {
+      "start": 76112,
+      "end": 76145,
+      "old": "  Çevre ve Şehircilik Bakanlığı\n",
+      "new": "•  Çevre ve Şehircilik Bakanlığı\n"
+    },
+    {
+      "start": 76146,
+      "end": 76167,
+      "old": "  Ekonomi Bakanlığı\n",
+      "new": "•  Ekonomi Bakanlığı\n"
+    },
+    {
+      "start": 76168,
+      "end": 76197,
+      "old": "  Gençlik ve Spor Bakanlığı\n",
+      "new": "•  Gençlik ve Spor Bakanlığı\n"
+    },
+    {
+      "start": 76198,
+      "end": 76238,
+      "old": "  Gıda, Tarım ve Hayvancılık Bakanlığı\n",
+      "new": "•  Gıda, Tarım ve Hayvancılık Bakanlığı\n"
+    },
+    {
+      "start": 76239,
+      "end": 76270,
+      "old": "  Gümrük ve Ticaret Bakanlığı\n",
+      "new": "•  Gümrük ve Ticaret Bakanlığı\n"
+    },
+    {
+      "start": 76271,
+      "end": 76293,
+      "old": "  Kalkınma Bakanlığı\n",
+      "new": "•  Kalkınma Bakanlığı\n"
+    },
+    {
+      "start": 76294,
+      "end": 76326,
+      "old": "  Orman ve Su İşleri Bakanlığı\n",
+      "new": "•  Orman ve Su İşleri Bakanlığı\n"
+    },
+    {
+      "start": 76327,
+      "end": 76371,
+      "old": "  Millî Güvenlik Kurulu Genel Sekreterliği\n",
+      "new": "•  Millî Güvenlik Kurulu Genel Sekreterliği\n"
+    },
+    {
+      "start": 76372,
+      "end": 76415,
+      "old": "  Millî İstihbarat Teşkilatı Müsteşarlığı\n",
+      "new": "•  Millî İstihbarat Teşkilatı Müsteşarlığı\n"
+    },
+    {
+      "start": 76416,
+      "end": 76446,
+      "old": "  Jandarma Genel Komutanlığı\n",
+      "new": "•  Jandarma Genel Komutanlığı\n"
+    },
+    {
+      "start": 76447,
+      "end": 76477,
+      "old": "  Sahil Güvenlik Komutanlığı\n",
+      "new": "•  Sahil Güvenlik Komutanlığı\n"
+    },
+    {
+      "start": 76478,
+      "end": 76505,
+      "old": "  Emniyet Genel Müdürlüğü\n",
+      "new": "•  Emniyet Genel Müdürlüğü\n"
+    },
+    {
+      "start": 76506,
+      "end": 76535,
+      "old": "  Diyanet İşleri Başkanlığı\n",
+      "new": "•  Diyanet İşleri Başkanlığı\n"
+    },
+    {
+      "start": 76536,
+      "end": 76559,
+      "old": "  Hazine Müsteşarlığı\n",
+      "new": "•  Hazine Müsteşarlığı\n"
+    },
+    {
+      "start": 76560,
+      "end": 76601,
+      "old": "  Kamu Düzeni ve Güvenliği Müsteşarlığı\n",
+      "new": "•  Kamu Düzeni ve Güvenliği Müsteşarlığı\n"
+    },
+    {
+      "start": 76602,
+      "end": 76632,
+      "old": "  Devlet Personel Başkanlığı\n",
+      "new": "•  Devlet Personel Başkanlığı\n"
+    },
+    {
+      "start": 76633,
+      "end": 76662,
+      "old": "  Türkiye İstatistik Kurumu\n",
+      "new": "•  Türkiye İstatistik Kurumu\n"
+    },
+    {
+      "start": 76663,
+      "end": 76705,
+      "old": "  Afet ve Acil Durum Yönetimi Başkanlığı\n",
+      "new": "•  Afet ve Acil Durum Yönetimi Başkanlığı\n"
+    },
+    {
+      "start": 76706,
+      "end": 76734,
+      "old": "  Gelir İdaresi Başkanlığı\n",
+      "new": "•  Gelir İdaresi Başkanlığı\n"
+    },
+    {
+      "start": 76735,
+      "end": 76771,
+      "old": "  Tapu ve Kadastro Genel Müdürlüğü\n",
+      "new": "•  Tapu ve Kadastro Genel Müdürlüğü\n"
+    },
+    {
+      "start": 76772,
+      "end": 76803,
+      "old": "  Meteoroloji Genel Müdürlüğü\n",
+      "new": "•  Meteoroloji Genel Müdürlüğü\n"
+    },
+    {
+      "start": 76804,
+      "end": 76850,
+      "old": "  Basın-Yayın ve Enformasyon Genel Müdürlüğü\n",
+      "new": "•  Basın-Yayın ve Enformasyon Genel Müdürlüğü\n"
+    },
+    {
+      "start": 76855,
+      "end": 76886,
+      "old": "  Türkiye Halk Sağlığı Kurumu\n",
+      "new": "•  Türkiye Halk Sağlığı Kurumu\n"
+    },
+    {
+      "start": 76887,
+      "end": 76922,
+      "old": "  Türkiye Kamu Hastaneleri Kurumu\n",
+      "new": "•  Türkiye Kamu Hastaneleri Kurumu\n"
+    },
+    {
+      "start": 77138,
+      "end": 77215,
+      "old": "  Yükseköğretim Kurulu, ÖSYM, Üniversiteler ve Yüksek Teknoloji Enstitüleri\n",
+      "new": "•  Yükseköğretim Kurulu, ÖSYM, Üniversiteler ve Yüksek Teknoloji Enstitüleri\n"
+    },
+    {
+      "start": 77216,
+      "end": 77247,
+      "old": "  Özel Bütçeli Diğer İdareler\n",
+      "new": "•  Özel Bütçeli Diğer İdareler\n"
+    },
+    {
+      "start": 78949,
+      "end": 78983,
+      "old": "  Radyo ve Televizyon Üst Kurulu\n",
+      "new": "•  Radyo ve Televizyon Üst Kurulu\n"
+    },
+    {
+      "start": 78984,
+      "end": 79026,
+      "old": "  Bilgi Teknolojileri ve İletişim Kurumu\n",
+      "new": "•  Bilgi Teknolojileri ve İletişim Kurumu\n"
+    },
+    {
+      "start": 79027,
+      "end": 79054,
+      "old": "  Sermaye Piyasası Kurulu\n",
+      "new": "•  Sermaye Piyasası Kurulu\n"
+    },
+    {
+      "start": 79055,
+      "end": 79099,
+      "old": "  Bankacılık Düzenleme ve Denetleme Kurumu\n",
+      "new": "•  Bankacılık Düzenleme ve Denetleme Kurumu\n"
+    },
+    {
+      "start": 79104,
+      "end": 79140,
+      "old": "  Enerji Piyasası Düzenleme Kurumu\n",
+      "new": "•  Enerji Piyasası Düzenleme Kurumu\n"
+    },
+    {
+      "start": 79141,
+      "end": 79162,
+      "old": "  Kamu İhale Kurumu\n",
+      "new": "•  Kamu İhale Kurumu\n"
+    },
+    {
+      "start": 79163,
+      "end": 79181,
+      "old": "  Rekabet Kurumu\n",
+      "new": "•  Rekabet Kurumu\n"
+    },
+    {
+      "start": 79182,
+      "end": 79226,
+      "old": "  Tütün ve Alkol Piyasası Düzenleme Kurumu\n",
+      "new": "•  Tütün ve Alkol Piyasası Düzenleme Kurumu\n"
+    },
+    {
+      "start": 79227,
+      "end": 79285,
+      "old": "  Kamu Gözetimi, Muhasebe ve Denetim Standartları Kurumu\n",
+      "new": "•  Kamu Gözetimi, Muhasebe ve Denetim Standartları Kurumu\n"
+    },
+    {
+      "start": 79500,
+      "end": 79526,
+      "old": "  Sosyal Güvenlik Kurumu\n",
+      "new": "•  Sosyal Güvenlik Kurumu\n"
+    },
+    {
+      "start": 79527,
+      "end": 79564,
+      "old": "  Türkiye İş Kurumu Genel Müdürlüğü\n",
+      "new": "•  Türkiye İş Kurumu Genel Müdürlüğü\n"
+    },
+    {
+      "start": 79749,
+      "end": 79787,
+      "old": "  Türkiye Odalar ve Borsalar Birliği\n",
+      "new": "•  Türkiye Odalar ve Borsalar Birliği\n"
+    },
+    {
+      "start": 79788,
+      "end": 79836,
+      "old": "  Türkiye Esnaf ve Sanatkârları Konfederasyonu\n",
+      "new": "•  Türkiye Esnaf ve Sanatkârları Konfederasyonu\n"
+    },
+    {
+      "start": 79837,
+      "end": 79871,
+      "old": "  Türkiye Ziraat Odaları Birliği\n",
+      "new": "•  Türkiye Ziraat Odaları Birliği\n"
+    },
+    {
+      "start": 79872,
+      "end": 79914,
+      "old": "  Türk Mühendis ve Mimar Odaları Birliği\n",
+      "new": "•  Türk Mühendis ve Mimar Odaları Birliği\n"
+    },
+    {
+      "start": 79915,
+      "end": 79941,
+      "old": "  Türk Tabipleri Birliği\n",
+      "new": "•  Türk Tabipleri Birliği\n"
+    },
+    {
+      "start": 79942,
+      "end": 79972,
+      "old": "  Türk Diş Hekimleri Birliği\n",
+      "new": "•  Türk Diş Hekimleri Birliği\n"
+    },
+    {
+      "start": 79973,
+      "end": 80009,
+      "old": "  Türk Veteriner Hekimleri Birliği\n",
+      "new": "•  Türk Veteriner Hekimleri Birliği\n"
+    },
+    {
+      "start": 80010,
+      "end": 80037,
+      "old": "  Türk Eczacıları Birliği\n",
+      "new": "•  Türk Eczacıları Birliği\n"
+    },
+    {
+      "start": 80038,
+      "end": 80065,
+      "old": "  Türkiye Barolar Birliği\n",
+      "new": "•  Türkiye Barolar Birliği\n"
+    },
+    {
+      "start": 80066,
+      "end": 80156,
+      "old": "  Türkiye  Serbest  Muhasebeci  Mali  Müşavirler  ve  Yeminli  Mali  Müşavirler  Odaları\n",
+      "new": "•  Türkiye  Serbest  Muhasebeci  Mali  Müşavirler  ve  Yeminli  Mali  Müşavirler  Odaları\n"
+    },
+    {
+      "start": 80166,
+      "end": 80194,
+      "old": "  Türkiye Noterler Birliği\n",
+      "new": "•  Türkiye Noterler Birliği\n"
+    },
+    {
+      "start": 80195,
+      "end": 80223,
+      "old": "  Türkiye Bankalar Birliği\n",
+      "new": "•  Türkiye Bankalar Birliği\n"
+    },
+    {
+      "start": 80224,
+      "end": 80261,
+      "old": "  Türkiye Katılım Bankaları Birliği\n",
+      "new": "•  Türkiye Katılım Bankaları Birliği\n"
+    },
+    {
+      "start": 80266,
+      "end": 80320,
+      "old": "  Türkiye Sermaye Piyasası Aracı Kuruluşları Birliği\n",
+      "new": "•  Türkiye Sermaye Piyasası Aracı Kuruluşları Birliği\n"
+    },
+    {
+      "start": 80321,
+      "end": 80372,
+      "old": "  Türkiye Sigorta ve Reasürans Şirketleri Birliği\n",
+      "new": "•  Türkiye Sigorta ve Reasürans Şirketleri Birliği\n"
+    },
+    {
+      "start": 80373,
+      "end": 80411,
+      "old": "  Türkiye Seyahat Acentaları Birliği\n",
+      "new": "•  Türkiye Seyahat Acentaları Birliği\n"
+    },
+    {
+      "start": 80412,
+      "end": 80451,
+      "old": "  Türkiye Değerleme Uzmanları Birliği\n",
+      "new": "•  Türkiye Değerleme Uzmanları Birliği\n"
+    },
+    {
+      "start": 80452,
+      "end": 80482,
+      "old": "  Türkiye Tohumcular Birliği\n",
+      "new": "•  Türkiye Tohumcular Birliği\n"
+    }
+  ]
+}

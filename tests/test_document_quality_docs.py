@@ -41,7 +41,6 @@ def test_document_quality_page_lists_tracked_fail_documents():
     page = _read("docs/DOCUMENT_QUALITY.md")
     candidates = load_fail_documents(ROOT / "bddk_mcp" / "quality" / "quality_failures.yml")
 
-    assert len(candidates) == 11
-    for candidate in candidates:
-        assert candidate.document_id in page
-        assert candidate.reason in page
+    assert candidates == []
+    assert "No documents are currently registered as extraction failures" in page
+    assert "local-release-v6.json" in page

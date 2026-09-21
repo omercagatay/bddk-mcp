@@ -144,15 +144,20 @@ still `repository_policy_passed_unsigned_evidence` and is also not promotion
 eligible. The bank promotion control must reject either result until it has
 authenticated its own approval and signed the exact promoted digest.
 
-The current secret exceptions are eight exact fingerprints: four detector
-false positives on typed Ed25519 private-key parameters, two findings for a
-password generated only at runtime for disposable PostgreSQL test roles, and
-two deliberately synthetic provider-token strings in the benchmark redaction
-unit test. Three entries bind the exact `main` squash commit that reintroduced
-already-reviewed benign patterns under new commit-and-line fingerprints.
-They do not allowlist a file, rule, token pattern, current tree, or future
-commits; they expire on 2026-10-15 and remain pending bank release review. The
-owner field assigns follow-up responsibility; it does not record approval.
+The current secret exceptions are 99 exact fingerprints: eight historical
+findings on runtime-generated test keys/passwords and synthetic redaction
+fixtures, seven public verification-key fingerprints, and 84 public document
+page-token checksums. The 90 document-repair findings bind the exact `fa5f28c`
+commit and line identities reported by run `35575513111`. Regression tests
+recompute all 84 checksums from retained public source transcripts and baseline
+slices, and all six new key fingerprints from the public trust-anchor PEM.
+Changing either a historical or new finding's commit identity still blocks it.
+
+These records do not allowlist a file, rule, token pattern, current tree, or
+future commits. They expire on 2026-10-15 and remain pending bank release review.
+The owner field assigns follow-up responsibility; it does not record approval.
+The repair does not change vulnerability exceptions or the release gate: the
+same scan's unresolved High/Critical findings remain release-blocking.
 
 ## What remains bank-owned
 

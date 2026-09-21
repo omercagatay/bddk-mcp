@@ -1,0 +1,15 @@
+{
+  "document_id": "mevzuat_20029",
+  "status": "source_reviewed_candidate_awaiting_owner_approval",
+  "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=9.5.20029&MevzuatIliski=0&sourceXmlSearch=kredi riski azaltım",
+  "original_markdown_sha256": "d26594473553d7cea95762f772cdfbd3379baa358c1238aa5cbb39402f0a963a",
+  "candidate_markdown_sha256": "7180f6125779820f571a1a77429f64845fa2bf587b4359cef1aaeee4d0f665aa",
+  "replacements": [
+    {
+      "start": 60241,
+      "end": 60352,
+      "old": "$$K^* = \\max\\{0,\\ [(\\Sigma K - \\Sigma T) + \\Sigma(|K_{MK}| \\times H_{MK}) + \\Sigma(|K_{FX}| \\times H_{FX})]\\}$$",
+      "new": "$$K^* = \\max\\{0,\\ [(\\Sigma K - \\Sigma T) + \\Sigma(\\lvert K_{MK}\\rvert \\times H_{MK}) + \\Sigma(\\lvert K_{FX}\\rvert \\times H_{FX})]\\}$$"
+    }
+  ]
+}

@@ -116,7 +116,7 @@ def sign_manifest(
     public_key_sha256 = hashlib.sha256(public_key_bytes).hexdigest()
 
     text = manifest_path.read_text(encoding="utf-8")
-    stamp = reviewed_at or datetime.now(UTC).strftime("%Y-%m-%dT00:00:00+00:00")
+    stamp = reviewed_at or datetime.now(UTC).isoformat()
     text = _replace_scope_reviewed_at(text, stamp)
     # Write the verified-shape integrity block with a placeholder checksum,
     # compute the canonical checksum over that exact declaration, then fill it.
@@ -158,7 +158,7 @@ def main() -> int:
     parser.add_argument(
         "--reviewed-at",
         default=None,
-        help='ISO-8601 review stamp for freshness.scope_reviewed_at (default: today, UTC, "T00:00:00+00:00")',
+        help="ISO-8601 review stamp for freshness.scope_reviewed_at (default: current UTC time)",
     )
     args = parser.parse_args()
 

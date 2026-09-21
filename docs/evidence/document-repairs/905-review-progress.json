@@ -1,0 +1,84 @@
+{
+  "document_id": "905",
+  "status": "source_reviewed_candidate_awaiting_owner_approval",
+  "source_pdf_sha256": "2a168df63aca7d8a29c17938b99834b6a85ac39dbcd1b39033da95d01c623ab4",
+  "original_markdown_sha256": "337bb13ef0a8f34fefe6af4063c291f0ad8fb8d342294f40c44cdf5cebdbc67a",
+  "partial_markdown_sha256": "de1b9a0f5444ce808eb7664da7ccefa8a8323d6d91edfb3a8245712eea4c41f1",
+  "source_page_count": 42,
+  "pages_inspected": [
+    1,
+    2,
+    6,
+    7,
+    20,
+    21,
+    22,
+    24,
+    26,
+    31,
+    32,
+    33,
+    34,
+    35,
+    37
+  ],
+  "character_repairs": [
+    {
+      "old": "Ģ",
+      "new": "ş",
+      "count": 43
+    },
+    {
+      "old": "Ġ",
+      "new": "İ",
+      "count": 67
+    },
+    {
+      "old": "ġ",
+      "new": "Ş",
+      "count": 10
+    },
+    {
+      "old": "",
+      "new": "•",
+      "count": 82
+    }
+  ],
+  "scope": "Encoding-only hash and character repairs describe stage one; separate patches cover tables and superscripts. All 42 pages textually reconciled. All table-bearing pages individually compared; remaining 27 layouts inspected in contact sheets, not line-by-line visual prose review.",
+  "next_step": "Owner approval, extraction-provenance review and governed publication. No corpus, provenance or registry changes have been applied.",
+  "finding": "All 82 private-use characters are U+F0B7 bullets. The damaged bank table and four numerical tables have separate source-reviewed patches; glued superscript references are repaired. Source numerical inconsistencies remain.",
+  "bank_table_patch": "905-bank-table.json",
+  "numeric_table_patch": "905-numeric-tables.json",
+  "textual_coverage": "905-textual-coverage.json",
+  "combined_candidate_sha256": "cfc6b3b539433400a0e7b38f38f60a7adde732690376fb83edb0e715d9dce4f2",
+  "layout_contact_sheet_pages": [
+    3,
+    4,
+    5,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    23,
+    25,
+    27,
+    28,
+    29,
+    30,
+    36,
+    38,
+    39,
+    40,
+    41,
+    42
+  ],
+  "assembled_evidence": "905.json"
+}

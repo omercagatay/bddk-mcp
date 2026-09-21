@@ -1,0 +1,27 @@
+{
+  "document_id": "1296",
+  "status": "source_reviewed_candidate_awaiting_owner_approval",
+  "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1296",
+  "source_pdf_sha256": "512d6a6d93ff93bdf84c565a15cd9f137b9f1944c82933678b2e5f1981659dc2",
+  "source_pages_visually_reviewed": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "original_markdown_sha256": "0e7a0c2e35e6dbc3fc91f10941b4811ebcc7b478e8f887f1b7d95097c0a22647",
+  "candidate_markdown_sha256": "b5b86ca7e6a26c590ade017eb407500f7e4c79dfeabd676cf39d5e27f4162a80",
+  "shock_tables": 4,
+  "source_anomalies_preserved": [
+    "Printed overline R subscripts paralel/kısa/uzun and Para Birimi p are kept.",
+    "Negative-shock floor of %0 on page 4 is unchanged."
+  ],
+  "replacements": [
+    {
+      "start": 5415,
+      "end": 6182,
+      "old": "Tablo 1: TL Faiz Oranı Şokları\n\nTL\n\n±()()()()()()()()()\n±()()()()()()\n±()()()()()()\n\nTablo 2: ABD Doları Faiz Oranı Şokları\n\nABD Doları\n\n±()()()()()()()()()\n\n                                  ±()()()()()()\n                                   ±()()()()()()\n\nFaiz Oranı Şok Oranı\n\n400 baz puan\n500 baz puan\n300 baz puan\n\n Faiz Oranı Şok Oranı\n\n200 baz puan\n300 baz puan\n225 baz puan\n\nTablo 3: Avro Faiz Oranı Şokları\n\nAvro\n±()()()()()()()()()\n±()()()()()()\n±()()()()()()\n\nFaiz Oranı Şok Oranı\n\n225 baz puan\n350 baz puan\n200 baz puan\n\nTablo  4:  Diğer  Para  Birimleri  veya  Faizle  İlişkilendirilen  Emtialara  İlişkin  Faiz  Oranı\nŞokları\n\nPara Birimi p\n\n±()()()()()()()()()\n±()()()()()()\n±()()()()()()\n\nFaiz Oranı Şok Oranı\n\n200 baz puan\n300 baz puan\n225 baz puan\n\n  ",
+      "new": "Tablo 1: TL Faiz Oranı Şokları\n\n| TL | Faiz Oranı Şok Oranı |\n| --- | --- |\n| $\\pm \\bar{R}_{paralel}$ | 400 baz puan |\n| $\\pm \\bar{R}_{kısa}$ | 500 baz puan |\n| $\\pm \\bar{R}_{uzun}$ | 300 baz puan |\n\nTablo 2: ABD Doları Faiz Oranı Şokları\n\n| ABD Doları | Faiz Oranı Şok Oranı |\n| --- | --- |\n| $\\pm \\bar{R}_{paralel}$ | 200 baz puan |\n| $\\pm \\bar{R}_{kısa}$ | 300 baz puan |\n| $\\pm \\bar{R}_{uzun}$ | 225 baz puan |\n\nTablo 3: Avro Faiz Oranı Şokları\n\n| Avro | Faiz Oranı Şok Oranı |\n| --- | --- |\n| $\\pm \\bar{R}_{paralel}$ | 225 baz puan |\n| $\\pm \\bar{R}_{kısa}$ | 350 baz puan |\n| $\\pm \\bar{R}_{uzun}$ | 200 baz puan |\n\nTablo 4: Diğer Para Birimleri veya Faizle İlişkilendirilen Emtialara İlişkin Faiz Oranı Şokları\n\n| Para Birimi p | Faiz Oranı Şok Oranı |\n| --- | --- |\n| $\\pm \\bar{R}_{paralel}$ | 200 baz puan |\n| $\\pm \\bar{R}_{kısa}$ | 300 baz puan |\n| $\\pm \\bar{R}_{uzun}$ | 225 baz puan |\n\n"
+    }
+  ]
+}

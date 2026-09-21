@@ -1,5 +1,5 @@
 schema_version: 1
-manifest_id: bddk-job-corpus-2026-09-07
+manifest_id: bddk-job-corpus-quality-repairs-local-v6-2026-09-21
 selection_owner: project_owner
 purpose: >-
   Owner-delegated technical refresh of the existing job-specific corpus for
@@ -22,9 +22,9 @@ known_gaps:
   - Selection completeness has not been independently reconciled against an authoritative full-source inventory
 freshness:
   source_observed_start: "2026-04-08T16:50:25.439181Z"
-  source_observed_end: "2026-04-21T16:04:00.957507Z"
-  corpus_built_at: "2026-05-12T10:18:42.094284Z"
-  scope_reviewed_at: "2026-09-07T09:32:11Z"
+  source_observed_end: "2026-09-21T06:15:07.405867Z"
+  corpus_built_at: "2026-09-21T06:31:11.556390Z"
+  scope_reviewed_at: "2026-09-21T06:42:13+00:00"
   business_expectation: quarterly-reviewed batch corpus with quantified objectives
   source_detection_slo_seconds: 604800
   publication_slo_seconds: 1209600
@@ -33,21 +33,21 @@ freshness:
 artifacts:
   - role: documents
     path: documents.json
-    sha256: 4a469fc11bd9848d2acd540296d794126ab9c506dc68d929fb72f580ebe5dba6
-    bytes: 8769689
+    sha256: b7e3e7b4c1462f1415c2745336451bdee4b1e5562806913569ac35961a7d7926
+    bytes: 8709608
     records: 318
   - role: chunks
     path: chunks.json
-    sha256: 949dcaa12b8377beb7bca364f8aa614ddbdd2b984be4082948a3bb62b68456d9
-    bytes: 19157379
-    records: 13240
+    sha256: b569040a797baeff426f72b7745bee2c78e2681417a446c0dd52f26c9af09dcd
+    bytes: 19339994
+    records: 13544
   - role: decision_cache
     path: decision_cache.json
     sha256: 9e5677b1a2ffc9fe9d5ed122a90171c896e5f14ee83d958b724e1d2b8b8fd894
     bytes: 153040
     records: 318
 integrity:
-  manifest_sha256: "94fc2737cc673a811a36b23eb7f149b4bb7d1835e54ad4a49ee574fd6cb7fdee"
+  manifest_sha256: "e41c174503e6954f2706797540e24767edd995447bc4636aa59a7f34b83ef417"
   signature_status: verified
   signature_algorithm: ed25519
   signature_reference: corpus_scope.sig

@@ -1,0 +1,3097 @@
+{
+  "document_id": "1305",
+  "status": "token_differences_accounted_for",
+  "source_pdf_sha256": "44928bdde6309ad48559c18960e45638c50fae30b25c56675edf0796da6de065",
+  "source_pages": 68,
+  "baseline_markdown_sha256": "63434a736c8e998878349a2712b4f13a26c6768537647b3a6b206d9e6655d39c",
+  "review_evidence_sha256": {
+    "1305-review-progress.json": "e511b2481a676b0037544f502a8c2fc5ba7b2d25b65c9bba1cf7dc46c9260844",
+    "1305-annex-project.json": "532135d56e10c81dae81d386dcce9f2f9aa5596c06e2f067ea86e738937c860c",
+    "1305-annex-remaining.json": "dcac92e5be5d27d404c509d3f0d7cece4bd31a3a42aef7c99b5e1fbbcdc03ec8"
+  },
+  "embedded_image_count": 11,
+  "source_token_count": 25991,
+  "baseline_token_count": 25991,
+  "reviewed_regions": [
+    {
+      "start": 8873,
+      "end": 9069,
+      "evidence": "1305-review-progress.json",
+      "index": 0
+    },
+    {
+      "start": 10115,
+      "end": 10628,
+      "evidence": "1305-review-progress.json",
+      "index": 1
+    },
+    {
+      "start": 31265,
+      "end": 31320,
+      "evidence": "1305-review-progress.json",
+      "index": 2
+    },
+    {
+      "start": 31618,
+      "end": 31618,
+      "evidence": "1305-review-progress.json",
+      "index": 3
+    },
+    {
+      "start": 31814,
+      "end": 31814,
+      "evidence": "1305-review-progress.json",
+      "index": 4
+    },
+    {
+      "start": 32311,
+      "end": 32311,
+      "evidence": "1305-review-progress.json",
+      "index": 5
+    },
+    {
+      "start": 32367,
+      "end": 32367,
+      "evidence": "1305-review-progress.json",
+      "index": 6
+    },
+    {
+      "start": 32369,
+      "end": 32369,
+      "evidence": "1305-review-progress.json",
+      "index": 7
+    },
+    {
+      "start": 33159,
+      "end": 33159,
+      "evidence": "1305-review-progress.json",
+      "index": 8
+    },
+    {
+      "start": 33984,
+      "end": 33984,
+      "evidence": "1305-review-progress.json",
+      "index": 9
+    },
+    {
+      "start": 34364,
+      "end": 34716,
+      "evidence": "1305-review-progress.json",
+      "index": 10
+    },
+    {
+      "start": 38142,
+      "end": 38197,
+      "evidence": "1305-review-progress.json",
+      "index": 11
+    },
+    {
+      "start": 38227,
+      "end": 38227,
+      "evidence": "1305-review-progress.json",
+      "index": 12
+    },
+    {
+      "start": 38363,
+      "end": 38363,
+      "evidence": "1305-review-progress.json",
+      "index": 13
+    },
+    {
+      "start": 38780,
+      "end": 38780,
+      "evidence": "1305-review-progress.json",
+      "index": 14
+    },
+    {
+      "start": 47113,
+      "end": 47431,
+      "evidence": "1305-review-progress.json",
+      "index": 15
+    },
+    {
+      "start": 52422,
+      "end": 52508,
+      "evidence": "1305-review-progress.json",
+      "index": 16
+    },
+    {
+      "start": 53898,
+      "end": 54227,
+      "evidence": "1305-review-progress.json",
+      "index": 17
+    },
+    {
+      "start": 54859,
+      "end": 54962,
+      "evidence": "1305-review-progress.json",
+      "index": 18
+    },
+    {
+      "start": 56080,
+      "end": 56338,
+      "evidence": "1305-review-progress.json",
+      "index": 19
+    },
+    {
+      "start": 56530,
+      "end": 56658,
+      "evidence": "1305-review-progress.json",
+      "index": 20
+    },
+    {
+      "start": 59964,
+      "end": 60161,
+      "evidence": "1305-review-progress.json",
+      "index": 21
+    },
+    {
+      "start": 62519,
+      "end": 63655,
+      "evidence": "1305-review-progress.json",
+      "index": 22
+    },
+    {
+      "start": 65946,
+      "end": 65946,
+      "evidence": "1305-review-progress.json",
+      "index": 23
+    },
+    {
+      "start": 72066,
+      "end": 72446,
+      "evidence": "1305-review-progress.json",
+      "index": 24
+    },
+    {
+      "start": 79332,
+      "end": 79569,
+      "evidence": "1305-review-progress.json",
+      "index": 25
+    },
+    {
+      "start": 98785,
+      "end": 99037,
+      "evidence": "1305-review-progress.json",
+      "index": 26
+    },
+    {
+      "start": 114300,
+      "end": 114694,
+      "evidence": "1305-review-progress.json",
+      "index": 27
+    },
+    {
+      "start": 138364,
+      "end": 138649,
+      "evidence": "1305-review-progress.json",
+      "index": 28
+    },
+    {
+      "start": 140622,
+      "end": 141311,
+      "evidence": "1305-review-progress.json",
+      "index": 29
+    },
+    {
+      "start": 184574,
+      "end": 184980,
+      "evidence": "1305-review-progress.json",
+      "index": 30
+    },
+    {
+      "start": 146443,
+      "end": 182743,
+      "evidence": [
+        "1305-annex-project.json",
+        "1305-annex-remaining.json"
+      ]
+    }
+  ],
+  "unresolved_differences": [],
+  "differences": [
+    {
+      "type": "insert",
+      "baseline_start": 8963,
+      "baseline_end": 8991,
+      "source": "",
+      "baseline": "sistemlerinin validasyonunu",
+      "source_context": ", derecelendirme sistemlerini ve bunların tasarımına ilişkin mantıksal",
+      "reviewed_regions": [
+        0
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 9050,
+      "baseline_end": 9050,
+      "source": "sistemlerinin validasyonunu",
+      "baseline": "",
+      "source_context": "ilişkin mantıksal gerekçeleri yazılı hale getirmesi ve derecelendirme",
+      "reviewed_regions": [
+        0
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 10399,
+      "baseline_end": 10399,
+      "source": "derecelendirmelere",
+      "baseline": "",
+      "source_context": "uyumlu olması şarttır . Uyumluluğun ispatlanabilmesi için içsel",
+      "reviewed_regions": [
+        1
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 10472,
+      "baseline_end": 10490,
+      "source": "",
+      "baseline": "derecelendirmelere",
+      "source_context": "derecelendirmelere ilişkin bilgilerin kullanıldığını gösteren belgeler denetime hazır",
+      "reviewed_regions": [
+        1
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 34373,
+      "baseline_end": 34373,
+      "source": "Kalan Efektif Vade ( Yıl )",
+      "baseline": "",
+      "source_context": "kategori ile eşleştirilmesi suretiyle bulunur . Tablo 1",
+      "reviewed_regions": [
+        10
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 34476,
+      "baseline_end": 34505,
+      "source": "",
+      "baseline": "Kalan Efektif Vade ( Yıl ) < 2 , 5",
+      "source_context": "Zayıf ) 5 . Kategori ( Temerrüt )",
+      "reviewed_regions": [
+        10
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 34568,
+      "baseline_end": 34591,
+      "source": "< 2 , 5",
+      "baseline": "Diğer İhtisas Kredileri",
+      "source_context": "Temerrüt ) Volatilitesi Yüksek Ticari Gayrimenkul Finansmanı Kredileri",
+      "reviewed_regions": [
+        10
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 34615,
+      "baseline_end": 34615,
+      "source": "% 0",
+      "baseline": "",
+      "source_context": "% 70 % 95 % 140 % 250",
+      "reviewed_regions": [
+        10
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 34644,
+      "baseline_end": 34644,
+      "source": "% 0 Diğer İhtisas Kredileri",
+      "baseline": "",
+      "source_context": "% 95 % 120 % 140 % 250",
+      "reviewed_regions": [
+        10
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 34645,
+      "baseline_end": 34651,
+      "source": "",
+      "baseline": "2 , 5 ≥",
+      "source_context": "% 250 % 0 Diğer İhtisas Kredileri <",
+      "reviewed_regions": [
+        10
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 34667,
+      "baseline_end": 34667,
+      "source": "115 % 250 % 0 ≥ 2 , 5 %",
+      "baseline": "",
+      "source_context": "2 , 5 % 50 % 70 %",
+      "reviewed_regions": [
+        10
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 34683,
+      "baseline_end": 34689,
+      "source": "",
+      "baseline": "115 %",
+      "source_context": "5 % 70 % 90 % 115 %",
+      "reviewed_regions": [
+        10
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 34694,
+      "baseline_end": 34710,
+      "source": "",
+      "baseline": "% 250 % 0 % 0 % 0",
+      "source_context": "% 70 % 90 % 115 % 250",
+      "reviewed_regions": [
+        10
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 47251,
+      "baseline_end": 47251,
+      "source": "Volatilitesi Yüksek Ticari Gayrimenkul Finansmanı Kredileri",
+      "baseline": "",
+      "source_context": "Zayıf ) 5 . Kategori ( Temerrüt )",
+      "reviewed_regions": [
+        15
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 47281,
+      "baseline_end": 47281,
+      "source": "Diğer İhtisas Kredileri",
+      "baseline": "",
+      "source_context": "% 2 , 8 % 8 % 50",
+      "reviewed_regions": [
+        15
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 47282,
+      "baseline_end": 47288,
+      "source": "",
+      "baseline": "2 , 5 ≥",
+      "source_context": "% 8 % 50 Diğer İhtisas Kredileri <",
+      "reviewed_regions": [
+        15
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 47303,
+      "baseline_end": 47303,
+      "source": "% 2 , 8 % 8 % 50 ≥ 2 , 5",
+      "baseline": "",
+      "source_context": ", 5 % 0 % 0 , 4",
+      "reviewed_regions": [
+        15
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 47322,
+      "baseline_end": 47332,
+      "source": "",
+      "baseline": "2 , 8 % 8 %",
+      "source_context": "0 , 8 % 2 , 8 %",
+      "reviewed_regions": [
+        15
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 47340,
+      "baseline_end": 47429,
+      "source": "",
+      "baseline": "% 50 Volatilitesi Yüksek Ticari Gayrimenkul Finansmanı Kredileri Diğer İhtisas Kredileri",
+      "source_context": "% 2 , 8 % 8 % 50",
+      "reviewed_regions": [
+        15
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 53911,
+      "baseline_end": 53927,
+      "source": "",
+      "baseline": "Finansal teminat",
+      "source_context": "türüne göre verilen değerler kullanılacaktır . Teminat türü",
+      "reviewed_regions": [
+        17
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 53934,
+      "baseline_end": 53936,
+      "source": "",
+      "baseline": "% 0",
+      "source_context": "göre verilen değerler kullanılacaktır . Teminat türü THKT",
+      "reviewed_regions": [
+        17
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 53965,
+      "baseline_end": 53978,
+      "source": "Finansal teminat % 0",
+      "baseline": "Azaltım Riski",
+      "source_context": "Teminat türü THKT Volatilite ayarlaması ( HT )",
+      "reviewed_regions": [
+        17
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 53985,
+      "baseline_end": 53985,
+      "source": "Riski Azaltım",
+      "baseline": "",
+      "source_context": "( HT ) Finansal teminat % 0 Kredi",
+      "reviewed_regions": [
+        17
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 54093,
+      "baseline_end": 54104,
+      "source": "",
+      "baseline": "kaynaklanan",
+      "source_context": "maddesi uyarınca yapılması gerekmektedir . Ticari veya finansal",
+      "reviewed_regions": [
+        17
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 54118,
+      "baseline_end": 54118,
+      "source": "kaynaklanan",
+      "baseline": "",
+      "source_context": "uyarınca yapılması gerekmektedir . Ticari veya finansal işlemlerden",
+      "reviewed_regions": [
+        17
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 54155,
+      "baseline_end": 54166,
+      "source": "",
+      "baseline": "gayrimenkul",
+      "source_context": "kaynaklanan finansal alacaklar % 20 % 40 İkamet",
+      "reviewed_regions": [
+        17
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 54183,
+      "baseline_end": 54183,
+      "source": "gayrimenkul % 20 % 40",
+      "baseline": "",
+      "source_context": "% 20 % 40 İkamet amaçlı / ticari",
+      "reviewed_regions": [
+        17
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 54208,
+      "baseline_end": 54213,
+      "source": "",
+      "baseline": "20 %",
+      "source_context": "% 20 % 40 Diğer fiziksel teminat %",
+      "reviewed_regions": [
+        17
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 54217,
+      "baseline_end": 54220,
+      "source": "",
+      "baseline": "% 40",
+      "source_context": "20 % 40 Diğer fiziksel teminat % 25",
+      "reviewed_regions": [
+        17
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 54937,
+      "baseline_end": 54938,
+      "source": "",
+      "baseline": "∙",
+      "source_context": "( 1 + 𝐻𝐾 ) + ∑ 𝑇𝐻𝐾𝑇𝑖",
+      "reviewed_regions": [
+        18
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 54943,
+      "baseline_end": 54943,
+      "source": "∙",
+      "baseline": "",
+      "source_context": "1 + 𝐻𝐾 ) + ∑ 𝑇𝐻𝐾𝑇𝑖 𝑖",
+      "reviewed_regions": [
+        18
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 56138,
+      "baseline_end": 56138,
+      "source": "Teminatlı",
+      "baseline": "",
+      "source_context": ". Kurumsal alacaklar için THK parametresi tabanı Teminatsız",
+      "reviewed_regions": [
+        19
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 56143,
+      "baseline_end": 56152,
+      "source": "",
+      "baseline": "Teminatlı",
+      "source_context": "için THK parametresi tabanı Teminatsız Teminatlı % 25",
+      "reviewed_regions": [
+        19
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 56177,
+      "baseline_end": 56185,
+      "source": "",
+      "baseline": "finansal",
+      "source_context": "Teminatlı % 25 Finansal teminatlar : % 0",
+      "reviewed_regions": [
+        19
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 56200,
+      "baseline_end": 56200,
+      "source": "finansal",
+      "baseline": "",
+      "source_context": "25 Finansal teminatlar : % 0 Ticari veya",
+      "reviewed_regions": [
+        19
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 56580,
+      "baseline_end": 56580,
+      "source": "𝑇𝐻𝐾 𝑡𝑎𝑏𝑎𝑛𝚤 = 𝑇𝐻𝐾𝑈 𝑡𝑎𝑏𝑎𝑛 ∙",
+      "baseline": "",
+      "source_context": "teminatlı THK tabanının ağırlıklı ortalaması olarak hesaplanır .",
+      "reviewed_regions": [
+        20
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 56597,
+      "baseline_end": 56597,
+      "source": "+ 𝑇𝐻𝐾𝑇 𝑡𝑎𝑏𝑎𝑛 ∙",
+      "baseline": "",
+      "source_context": "𝐾𝑈 𝐾 ∙ ( 1 + 𝐻𝐾 )",
+      "reviewed_regions": [
+        20
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 56615,
+      "baseline_end": 56656,
+      "source": "",
+      "baseline": "𝑇𝐻𝐾 𝑡𝑎𝑏𝑎𝑛𝚤 = 𝑇𝐻𝐾𝑈 𝑡𝑎𝑏𝑎𝑛 ∙ + 𝑇𝐻𝐾𝑇 𝑡𝑎𝑏𝑎𝑛 ∙",
+      "source_context": "𝑇𝑉𝐴 𝐾 ∙ ( 1 + 𝐻𝐾 )",
+      "reviewed_regions": [
+        20
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 60056,
+      "baseline_end": 60056,
+      "source": "fonksiyonu",
+      "baseline": "",
+      "source_context": "risk ağırlığı , garantörün türüne uygun risk ağırlığı",
+      "reviewed_regions": [
+        21
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 60132,
+      "baseline_end": 60142,
+      "source": "",
+      "baseline": "fonksiyonu",
+      "source_context": "ile garantörün borçlu derecesine uygun TO değerinin kullanılmasıyla",
+      "reviewed_regions": [
+        21
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 62991,
+      "baseline_end": 63024,
+      "source": "",
+      "baseline": "ilişkin herhangi bir sınırlama",
+      "source_context": "nin kırk sekizinci fıkrasında belirtilen asgari şartların sağlanması",
+      "reviewed_regions": [
+        22
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 63080,
+      "baseline_end": 63080,
+      "source": "ilişkin herhangi bir sınırlama",
+      "baseline": "",
+      "source_context": "şartların sağlanması gerekmekle birlikte , uygun garantörlerin kapsamına",
+      "reviewed_regions": [
+        22
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 72083,
+      "baseline_end": 72083,
+      "source": "Teminatsız Teminatlı",
+      "baseline": "",
+      "source_context": "alan taban değerleri uygulanmaz . Alt Risk Sınıfı",
+      "reviewed_regions": [
+        24
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 72153,
+      "baseline_end": 72153,
+      "source": "- % 5",
+      "baseline": "",
+      "source_context": "Teminatlı İkamet Amaçlı Gayrimenkul İpoteği ile Teminatlandırılmış Alacaklar",
+      "reviewed_regions": [
+        24
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 72193,
+      "baseline_end": 72193,
+      "source": "% 50 -",
+      "baseline": "",
+      "source_context": "Alacaklar - % 5 Nitelikli Rotatif Perakende Alacaklar",
+      "reviewed_regions": [
+        24
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 72220,
+      "baseline_end": 72251,
+      "source": "",
+      "baseline": "Teminatsız - Teminatlı % 5 % 50",
+      "source_context": "Perakende Alacaklar % 50 - Diğer Perakende Alacaklar",
+      "reviewed_regions": [
+        24
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 72258,
+      "baseline_end": 72269,
+      "source": "",
+      "baseline": "- finansal",
+      "source_context": "% 50 - Diğer Perakende Alacaklar % 30",
+      "reviewed_regions": [
+        24
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 72343,
+      "baseline_end": 72343,
+      "source": "finansal",
+      "baseline": "",
+      "source_context": ": % 0 Ticari veya finansal işlemlerden kaynaklanan",
+      "reviewed_regions": [
+        24
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 72372,
+      "baseline_end": 72372,
+      "source": "veya ticari",
+      "baseline": "",
+      "source_context": "kaynaklanan finansal alacaklar : % 10 İkamet amaçlı",
+      "reviewed_regions": [
+        24
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 72432,
+      "baseline_end": 72444,
+      "source": "",
+      "baseline": "ticari veya",
+      "source_context": "% 10 Diğer fiziksel teminatlar : % 15",
+      "reviewed_regions": [
+        24
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 79417,
+      "baseline_end": 79449,
+      "source": "",
+      "baseline": "için kullanılan derecelendirme",
+      "source_context": ", bankalardan veya aracı kurumlardan alacaklar , merkezi",
+      "reviewed_regions": [
+        25
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 79505,
+      "baseline_end": 79505,
+      "source": "için kullanılan derecelendirme",
+      "baseline": "",
+      "source_context": "alacaklar , merkezi yönetimlerden veya merkez bankalarından alacaklar",
+      "reviewed_regions": [
+        25
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 98883,
+      "baseline_end": 98905,
+      "source": "belirleyen ve yansıtan bankalar",
+      "baseline": "türevinin etkilerinin",
+      "source_context": "kredi türevlerinin kredi riski azaltım etkilerini THK aracılığıyla",
+      "reviewed_regions": [
+        26
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 98939,
+      "baseline_end": 98973,
+      "source": "türevinin etkilerinin",
+      "baseline": "belirleyen ve yansıtan bankalar",
+      "source_context": "ve yansıtan bankalar için , garantinin veya kredi",
+      "reviewed_regions": [
+        26
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 114361,
+      "baseline_end": 114361,
+      "source": "f ) İstatistiksel",
+      "baseline": "",
+      "source_context": "eşleştirmeye temel oluşturan hususlar yazılı hale getirilir .",
+      "reviewed_regions": [
+        27
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 114675,
+      "baseline_end": 114692,
+      "source": "",
+      "baseline": "f ) İstatistiksel",
+      "source_context": "on beşinci fıkrada belirtilen nitelikleri taşıması şarttır .",
+      "reviewed_regions": [
+        27
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 138364,
+      "baseline_end": 138379,
+      "source": "",
+      "baseline": "ile müşterinin",
+      "source_context": "programının tüm önemli aşamalarına ilişkin düzenli denetimler .",
+      "reviewed_regions": [
+        28
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 138402,
+      "baseline_end": 138402,
+      "source": "tarafın veya aracının değerlendirmesi ile müşterinin",
+      "baseline": "",
+      "source_context": "ilişkin düzenli denetimler . b ) Alacağı devreden",
+      "reviewed_regions": [
+        28
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 138607,
+      "baseline_end": 138647,
+      "source": "",
+      "baseline": "tarafın veya aracının değerlendirmesi",
+      "source_context": "yerinde denetimi arasındaki görev ayrımının açıklığa kavuşturulması .",
+      "reviewed_regions": [
+        28
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 140622,
+      "baseline_end": 140636,
+      "source": "",
+      "baseline": "sorgulanmasını",
+      "source_context": "de dâhil olmak üzere yazılı hale getirilir .",
+      "reviewed_regions": [
+        29
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 140838,
+      "baseline_end": 140838,
+      "source": "sorgulanmasını gerektirecek derecede önemli olduğu",
+      "baseline": "",
+      "source_context": "beklentilere göre gerçekleşen sapmaların , ilgili tahminlerin geçerliliğinin",
+      "reviewed_regions": [
+        29
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 141271,
+      "baseline_end": 141309,
+      "source": "",
+      "baseline": "gerektirecek derecede önemli olduğu",
+      "source_context": "verilerini yansıtacak şekilde yukarı yönlü revize edilir .",
+      "reviewed_regions": [
+        29
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 146796,
+      "baseline_end": 146935,
+      "source": "",
+      "baseline": "Finansal oranlar ( örneğin ; Borç Servis Oranı , Kredi Ömrü Karşılama Oranı , Proje Ömrü Karşılama Oranı ve Borç - Sermaye Oranı ) Stres analizi",
+      "source_context": "Zayıf ) 1 . Finansal Güç Piyasa koşulları",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 147063,
+      "baseline_end": 147162,
+      "source": "",
+      "baseline": "Proje risk düzeyi açısından güçlü finansal oranlar , projeye ilişkin çok güçlü ekonomik tah minler .",
+      "source_context": "eden avantaj . Güçlü ve artan talep .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 147182,
+      "baseline_end": 147184,
+      "source": "",
+      "baseline": "da",
+      "source_context": "Güçlü ve artan talep . Az sayıda rakip",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 147188,
+      "baseline_end": 147188,
+      "source": "da",
+      "baseline": "",
+      "source_context": "ve artan talep . Az sayıda rakip ya",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 147299,
+      "baseline_end": 147427,
+      "source": "",
+      "baseline": ". Proje risk düzeyi açısından güçlü ile kabul edilebilir arasındaki finansal oranlar . Projeye ilişkin güçlü ekonomik tahminler",
+      "source_context": "bulunsa dahi ) . Güçlü ve sürekli talep",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 147604,
+      "baseline_end": 147604,
+      "source": "Finansal oranlar ( örneğin ; Borç Servis Oranı , Kredi Ömrü Karşılama Oranı , Proje Ömrü Karşılama Oranı ve Borç - Sermaye Oranı ) Proje risk düzeyi açısından güçlü finansal oranlar , projeye ilişkin çok güçlü ekonomik tah minler . Proje risk düzeyi açısından güçlü ile kabul edilebilir arasındaki finansal oranlar . Projeye ilişkin güçlü ekonomik tahminler .",
+      "baseline": "",
+      "source_context": "ortalamanın altında . Azalan ve zayıf talep .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 147715,
+      "baseline_end": 147715,
+      "source": "Stres analizi",
+      "baseline": "",
+      "source_context": "Proje risk düzeyi açısından olumsuz finansal oranlar .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 147979,
+      "baseline_end": 147979,
+      "source": "2 . Kategori ( İyi ) 3 . Kategori ( Yeterli ) 4 . Kategori ( Zayıf )",
+      "baseline": "",
+      "source_context": ", projenin 1 . Kategori ( Güçlü )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 148058,
+      "baseline_end": 148173,
+      "source": "",
+      "baseline": "Projenin faydalı ömrü , kredinin vadesinden çok daha uzundur . İtfa planına göre geri ödenen borç . 2 . Kategori ( İyi )",
+      "source_context": "koşullar altında finansal yükümlülükler ini yerine getirebilir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 148285,
+      "baseline_end": 148396,
+      "source": "",
+      "baseline": "Projenin faydalı ömrü , kredinin vadesinden uzundur . İtfa planına göre geri ödenen borç . 3 . Kategori ( Yeterli )",
+      "source_context": "ekonomik koşullar altında temerrüde düşme ihtimali vardır .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 148498,
+      "baseline_end": 148498,
+      "source": "temerrüde düşme ihtimali vardır . Finansal Yapı Proje süresine kıyasla kredinin süresi Projenin faydalı ömrü , kredinin vadesinden çok daha uzundur .",
+      "baseline": "",
+      "source_context": "normal bir ekonomik gerileme döneminde temerrüde düşebilir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 148548,
+      "baseline_end": 148548,
+      "source": ". Projenin faydalı ömrü , kredinin vadesinden uzundur . Projenin faydalı ömrü , kredinin vadesinden uzun olmayabilir . İtfa planı İtfa planına göre geri ödenen borç . İtfa planına göre geri ödenen borç",
+      "baseline": "",
+      "source_context": ". Projenin faydalı ömrü , kredinin vadesinden uzundur",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 148627,
+      "baseline_end": 148743,
+      "source": "",
+      "baseline": ". 4 . Kategori ( Zayıf ) temerrüde düşme ihtimali vardır . Projenin faydalı ömrü , kredinin vadesinden uzun olmayabilir",
+      "source_context": "ödeme yapılarak itfa planına göre geri ödenen borç",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 148846,
+      "baseline_end": 148846,
+      "source": "2 . Politik ve Hukuki Ortam Proje tipi ve risk azaltım unsurlarına göre transfer riskini de içeren politik risk",
+      "baseline": "",
+      "source_context": "yapılarak itfa planına göre geri ödenen borç .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 148912,
+      "baseline_end": 149021,
+      "source": "",
+      "baseline": ". Düşük risk . Proje , ülke için stratejik öneme sahip ( tercihen ihracata yönelik proje ) . Devlet desteği güçlü",
+      "source_context": "politik risk ; gerekirse güçlü risk azaltıcı enstrümanlar",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 149238,
+      "baseline_end": 149238,
+      "source": "Mücbir sebeplerden kaynaklanan risk ( savaş , iç karışıklık , vb . ) Düşük risk .",
+      "baseline": "",
+      "source_context": "; risk azaltıcı enstrüman yok veya zayıf .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 149321,
+      "baseline_end": 149321,
+      "source": "Uzun vadede devlet desteği ve projenin ülke için önemi Proje , ülke için stratejik öneme sahip ( tercihen ihracata yönelik proje ) . Devlet desteği güçlü .",
+      "baseline": "",
+      "source_context": "koruma . Tam olarak azaltılmamış önemli riskler .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 149345,
+      "baseline_end": 149350,
+      "source": "sayılıyor",
+      "baseline": "değil",
+      "source_context": "desteği güçlü . Proje , ülke için önemli",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 149367,
+      "baseline_end": 149381,
+      "source": "iyi düzeyde",
+      "baseline": "yok veya zayıf",
+      "source_context": ", ülke için önemli sayılıyor . Devlet desteği",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 149384,
+      "baseline_end": 149408,
+      "source": "",
+      "baseline": "Cari veya gelecek hukuki",
+      "source_context": "önemli sayılıyor . Devlet desteği iyi düzeyde .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 149530,
+      "baseline_end": 149553,
+      "source": "",
+      "baseline": "Mevzuat değişiklikleri ,",
+      "source_context": "faydası vardır . Devlet desteğinin varlığı belirsiz .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 149579,
+      "baseline_end": 149588,
+      "source": "değil",
+      "baseline": "sayılıyor",
+      "source_context": "varlığı belirsiz . Proje , ülke için önemli",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 149605,
+      "baseline_end": 149616,
+      "source": "yok veya zayıf",
+      "baseline": "iyi düzeyde",
+      "source_context": ", ülke için önemli değil . Devlet desteği",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 149619,
+      "baseline_end": 149941,
+      "source": "",
+      "baseline": "Finansal Yapı Proje süresine kıyasla kredinin süresi İtfa planı 2 . Politik ve Hukuki Ortam Proje tipi ve risk azaltım unsurlarına göre transfer riskini de içeren politik risk Mücbir sebeplerden kaynaklanan risk ( savaş , iç karışıklık , vb . ) Uzun vadede devlet desteği ve projenin ülke için önemi",
+      "source_context": "değil . Devlet desteği yok veya zayıf .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 150012,
+      "baseline_end": 150012,
+      "source": "Mevzuat değişiklikleri , Cari veya gelecek hukuki",
+      "baseline": "",
+      "source_context": "Uzun vadede olumlu ve Orta vadede olumlu ve",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 150033,
+      "baseline_end": 150057,
+      "source": "",
+      "baseline": "istikrarlı hukuki ortam .",
+      "source_context": "gelecek hukuki 1 . Kategori ( Güçlü )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 150077,
+      "baseline_end": 150101,
+      "source": "",
+      "baseline": "istikrarlı hukuki ortam .",
+      "source_context": "Güçlü ) 2 . Kategori ( İyi )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 150125,
+      "baseline_end": 150125,
+      "source": "4 . Kategori ( Zayıf ) ortamın istikrarı ( Yasal değişiklikler riski ) istikrarlı hukuki ortam . istikrarlı hukuki ortam .",
+      "baseline": "",
+      "source_context": "İyi ) 3 . Kategori ( Yeterli )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 150185,
+      "baseline_end": 150204,
+      "source": "",
+      "baseline": "4 . Kategori ( Zayıf )",
+      "source_context": "kabul edilebilir düzeyde bir kesinlikte tahmin edilebilir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 150251,
+      "baseline_end": 150341,
+      "source": "",
+      "baseline": "Güçlü . Yeterli . Kabul edilebilir . Zayıf . ortamın istikrarı ( Yasal değişiklikler riski )",
+      "source_context": "tahmin edilebilir . değişiklikler projeyi olumsuz etkileyebilir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 150409,
+      "baseline_end": 150409,
+      "source": ". Güçlü . Yeterli . Kabul edilebilir . Zayıf",
+      "baseline": "",
+      "source_context": "göre gereken bütün izinlerin ve onayların alınm ası",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 150558,
+      "baseline_end": 150850,
+      "source": "",
+      "baseline": ". 3 . İşlem Özellikleri Tasarım ve Teknoloji Riski Tamamen test edilmiş teknoloji ve tasarım . Tamamen test edilmiş teknoloji ve tasarım . İnşaat Riski Ruhsat ve Yerleşim Gerekli bütün izinler alınmıştır . Bazı izinler henüz alınmamıştır , fakat alınma ihtimali çok yüksektir",
+      "source_context": "uygulanabilir . Sözleşme , teminat ve garantiler uygulanabilir",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 151080,
+      "baseline_end": 151080,
+      "source": ". 3 . İşlem Özellikleri Tasarım ve Teknoloji Riski Tamamen test edilmiş teknoloji ve tasarım . Tamamen test edilmiş teknoloji ve tasarım",
+      "baseline": "",
+      "source_context": "uygulanabilirliği ile ilgili çözümlenmemiş temel nitelikte sorunlar vardır",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 151299,
+      "baseline_end": 151299,
+      "source": ". İnşaat Riski Ruhsat ve Yerleşim Gerekli bütün izinler alınmıştır . Bazı izinler henüz alınmamıştır , fakat alınma ihtimali çok yüksektir",
+      "baseline": "",
+      "source_context": "mevcuttur ve / veya karmaşık bir tasarım vardır",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 151565,
+      "baseline_end": 151591,
+      "source": "",
+      "baseline": "İnşaat Sözleşmesin in Tipi",
+      "source_context": "İzinler için önemli şartların yerine getirilmesi istenebilir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 151613,
+      "baseline_end": 151613,
+      "source": "2 . Kategori ( İyi ) 3 . Kategori ( Yeterli ) 4 . Kategori ( Zayıf ) İnşaat Sözleşmesin in Tipi",
+      "baseline": "",
+      "source_context": "istenebilir . 1 . Kategori ( Güçlü )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 151716,
+      "baseline_end": 151733,
+      "source": "",
+      "baseline": "2 . Kategori ( İyi )",
+      "source_context": "teslimi mühendislik , tedarik ve inşaat sözleşmesi .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 151838,
+      "baseline_end": 151838,
+      "source": "Bir veya birden fazla müteahhitle imzalanmış , sabit fiyatlı ve bitirme tarihi kesin olan anahtar teslimi inşaat sözleşmesi . Sabit fiyatlı anahtar teslimi sözleşmede yok veya kısmi olarak var ve / veya birden fazla müteahhitle sorunlar var . İş bitirme garantileri",
+      "baseline": "",
+      "source_context": "teslimi mühendislik , tedarik ve inşaat sözleşmesi .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 152160,
+      "baseline_end": 152562,
+      "source": "",
+      "baseline": "4 . Kategori ( Zayıf ) Sabit fiyatlı anahtar teslimi sözleşmede yok veya kısmi olarak var ve / veya birden fazla müteahhitle sorunlar var . Yetersiz düzeyde zarar tazminat taahhüdü olması ya da finansal destek olmaması veya iş bitirme garantileri zayıf olması . 3 . Kategori ( Yeterli ) Bir veya birden fazla müteahhitle imzalanmış , sabit fiyatlı ve bitirme tarihi kesin olan anahtar teslimi inşaat sözleşmesi .",
+      "source_context": "garantisiyle desteklenen yüksek tutarlı zarar tazminat taahhüdü .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 152723,
+      "baseline_end": 152723,
+      "source": "Yetersiz düzeyde zarar tazminat taahhüdü olması ya da finansal destek olmaması veya iş bitirme garantileri zayıf olması . Müteahhidin benzer projelerdeki deneyimi ve finansal gücü",
+      "baseline": "",
+      "source_context": "desteklenen yeterli düzeyde bir zarar tazminat taahhüdü .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 152755,
+      "baseline_end": 152779,
+      "source": "Faaliyet Riski İşletme",
+      "baseline": "Uzun süreli bir sözleşme",
+      "source_context": "Güçlü . İyi . Yeterli . Zayıf .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 152782,
+      "baseline_end": 152787,
+      "source": "",
+      "baseline": "/ veya",
+      "source_context": "Yeterli . Zayıf . Faaliyet Riski İşletme ve",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 152794,
+      "baseline_end": 152892,
+      "source": "sözleşmeleri nin kapsamı ve niteliği",
+      "baseline": "için ayrılan karşılık hesapları . Sınırlı bir sözleşme veya bakım için ayrılan karşılık hesapları .",
+      "source_context": ". Zayıf . Faaliyet Riski İşletme ve bakım",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 153040,
+      "baseline_end": 153044,
+      "source": "Uzun süreli bir sözleşme ve / veya bakım için ayrılan karşılık hesapları . Sınırlı bir sözleşme veya bakım için ayrılan karşılık hesapları .",
+      "baseline": "risk",
+      "source_context": "/ veya işlet me ve bakım için ayrılan",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 153077,
+      "baseline_end": 153077,
+      "source": "risk",
+      "baseline": "",
+      "source_context": "için ayrılan karşılık hesapları . Sözleşme bulunmaması sebebiyle",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 153110,
+      "baseline_end": 153110,
+      "source": "aşan",
+      "baseline": "",
+      "source_context": ". Sözleşme bulunmaması sebebiyle risk azaltıcı enstrümanların etkisini",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 153117,
+      "baseline_end": 153117,
+      "source": "işletme",
+      "baseline": "",
+      "source_context": "bulunmaması sebebiyle risk azaltıcı enstrümanların etkisini aşan yüksek",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 153134,
+      "baseline_end": 153352,
+      "source": "1 . Kategori ( Güçlü )",
+      "baseline": "aşan işletme İş bitirme garantileri Müteahhidin benzer projelerdeki deneyimi ve finansal gücü Faaliyet Riski İşletme ve bakım sözleşmeleri nin kapsamı ve niteliği",
+      "source_context": "enstrümanların etkisini aşan yüksek işletme maliyeti riski .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 153417,
+      "baseline_end": 153417,
+      "source": "karşılık hesapları . İşletmecinin uzmanlığı , deneyimi ve finansal gücü Çok güçlü veya sponsorlardan teknik yardım taahhüdü alınması .",
+      "baseline": "",
+      "source_context": "Yeterli ) 4 . Kategori ( Zayıf )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 153441,
+      "baseline_end": 153441,
+      "source": ". Sınırlı / zayıf ya da yerel otoritelere bağımlı yerel işletmeci . Satış Riski ( a ) Al ya da öde sözleşmesi veya sabit fiyatlı satış sözleşmesi varlığı halinde Alıcının kredi değerliliği çok iyi , güçlü iptal hükümleri , sözleşmenin süresinin borcun vadesinden yeterince uzun olması . Alıcının kredi değerliliği iyi , güçlü iptal hükümleri , sözl eşmenin süresinin borcun vadesinden uzun olması",
+      "baseline": "",
+      "source_context": "yardım taahhüdü alınması . Güçlü . Kabul edilebilir",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 153572,
+      "baseline_end": 154050,
+      "source": "",
+      "baseline": "Proje ürünleri sınırlı bir pazarda satılmaktadır ve sadece öngörülen fiyatlardan daha düşük fiyatlarla satılabilir . Alıcının kredi değerliliği iyi , güçlü iptal hükümleri , sözl eşmenin süresinin borcun vadesinden uzun olması . Proje , bölgesel pazarda geniş bir alanda satılan önemli hizmetler veya mal üretmektedir ; bu piyasa tarihsel büyüme oranları gerçekleştiğinde bu ürünler öngörülen fiyatlardan satılabilir . Sınırlı / zayıf ya da yerel otoritelere bağımlı yerel işletmeci .",
+      "source_context": "sözleşmenin süresi ile borcun vadesinin uyumlu olması .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 154160,
+      "baseline_end": 154302,
+      "source": "",
+      "baseline": "Proje ürünleri sadece bir veya bir kaç alıcı tarafından talep edilmektedir veya genellikle organize bir piyasada satılmamaktadır . 1 . Kategori",
+      "source_context": ", sözleşmenin süresinin borcun vadesinden kısa olması .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 154304,
+      "baseline_end": 154309,
+      "source": "b",
+      "baseline": "Güçlü",
+      "source_context": "sözleşmenin süresinin borcun vadesinden kısa olması . (",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 154312,
+      "baseline_end": 154341,
+      "source": "Al ya da öde sözleşmesi",
+      "baseline": "karşılık hesapları . Çok güçlü",
+      "source_context": "borcun vadesinden kısa olması . ( b )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 154347,
+      "baseline_end": 154516,
+      "source": "sabit fiyatlı satış sözleşmesi bulunmamas ı halinde",
+      "baseline": "sponsorlardan teknik yardım taahhüdü alınması . Alıcının kredi değerliliği çok iyi , güçlü iptal hükümleri , sözleşmenin süresinin borcun vadesinden yeterince uzun olması .",
+      "source_context": "b ) Al ya da öde sözleşmesi veya",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 154752,
+      "baseline_end": 154774,
+      "source": "Proje",
+      "baseline": "İşletmecinin uzmanlığı",
+      "source_context": "dahi bu ürünler öngörülen fiyatlardan kolaylıkla satılabilir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 154782,
+      "baseline_end": 154855,
+      "source": "bölgesel pazarda geniş bir alanda satılan önemli hizmetler",
+      "baseline": "deneyimi ve finansal gücü Satış Riski ( a ) Al ya da öde sözleşmesi",
+      "source_context": "ürünler öngörülen fiyatlardan kolaylıkla satılabilir . Proje ,",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 154861,
+      "baseline_end": 154936,
+      "source": "mal üretmektedir ; bu piyasa tarihsel büyüme oranları gerçekleştiğinde bu ürünler öngörülen fiyatlardan satılabilir . Proje ürünleri sınırlı bir pazarda satılmaktadır ve sadece öngörülen fiyatlardan daha düşük fiyatlarla satılabilir . Proje ürünleri sadece bir",
+      "baseline": "sabit fiyatlı satış sözleşmesi varlığı halinde ( b ) Al ya da öde sözleşmesi",
+      "source_context": "pazarda geniş bir alanda satılan önemli hizmetler veya",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 154942,
+      "baseline_end": 154993,
+      "source": "bir kaç alıcı tarafından talep edilmektedir veya genellikle organize bir piyasada satılmamaktadır .",
+      "baseline": "sabit fiyatlı satış sözleşmesi bulunmamas ı halinde",
+      "source_context": "fiyatlarla satılabilir . Proje ürünleri sadece bir veya",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 155015,
+      "baseline_end": 155015,
+      "source": "1 . Kategori ( Güçlü ) 2 . Kategori ( İyi ) 3 . Kategori ( Yeterli ) 4 . Kategori ( Zayıf )",
+      "baseline": "",
+      "source_context": "genellikle organize bir piyasada satılmamaktadır . Tedarik Riski",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 155128,
+      "baseline_end": 155280,
+      "source": "",
+      "baseline": "2 . Kategori ( İyi ) Finansal gücü iyi olan bir tedarikçiyle uzun süreli bir tedarik sözleşmesi var . Tedarikçinin geçmiş deneyimi iyi . 1 . Kategori ( Güçlü )",
+      "source_context": "nakliye riskleri ; tedarikçinin deneyimi ve finansal gücü",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 155409,
+      "baseline_end": 155410,
+      "source": "Finansal gücü iyi olan bir tedarikçiyle uzun süreli bir tedarik sözleşmesi var",
+      "baseline": "3",
+      "source_context": "sözleşmesi var . Tedarikçinin geçmiş deneyimi mükemmel .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 155412,
+      "baseline_end": 155430,
+      "source": "Tedarikçinin geçmiş deneyimi iyi .",
+      "baseline": "Kategori ( Yeterli )",
+      "source_context": "tedarikçiyle uzun süreli bir tedarik sözleşmesi var .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 155625,
+      "baseline_end": 155737,
+      "source": "",
+      "baseline": "Kanıtlanmış rezervler borcun vadesi boyunca projenin talep ve ihtiyaçlarını karşılayabilir . 4 . Kategori ( Zayıf )",
+      "source_context": "konusu olabilir . Tedarikçinin geçmiş deneyimi yeterli .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 155983,
+      "baseline_end": 156199,
+      "source": "",
+      "baseline": "Proje , belirli bir ölçüye kadar potansiyel ve geliştirilmemiş rezervlere dayanmaktadır . Projenin ömrü boyunca gereksinimlerini n üzerinde , bağımsız denetime tabi tutulmuş , kanıtlanmış ve iyi geliştirilmiş rezervler .",
+      "source_context": ". Tedarikçi deneyimsiz veya geçmiş deneyimi zayıf .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 156281,
+      "baseline_end": 156481,
+      "source": "",
+      "baseline": "4 . Sponsoru n Gücü Sponsorun dene yimi , finansal gücü ve ülke / sektör deneyimi Sermaye veya mülkiyet hükmü ile gerekmesi durumunda ilave nakit yatırma istekliliği ile kanıtlanan sponsor desteği",
+      "source_context": "ğin , bir doğal kaynak geliştirme projesi )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 156620,
+      "baseline_end": 156620,
+      "source": "Projenin ömrü boyunca gereksinimlerini n üzerinde , bağımsız denetime tabi tutulmuş , kanıtlanmış ve iyi geliştirilmiş rezervler . Kanıtlanmış rezervler borcun vadesi boyunca projenin talep ve ihtiyaçlarını karşılayabilir . Proje , belirli bir ölçüye kadar potansiyel ve geliştirilmemiş rezervlere dayanmaktadır . 4 . Sponsoru n Gücü Sponsorun dene yimi , finansal gücü ve ülke / sektör deneyimi",
+      "baseline": "",
+      "source_context": "tutulmuş , kanıtlanmış ve iyi geliştirilmiş rezervler .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 156696,
+      "baseline_end": 156696,
+      "source": "Geçmiş deneyimi iyi ve iyi finansal gücü bulunan iyi bir sponsor . Geçmiş deneyimi yeterli ve iyi finansal gücü bulunan yeterli seviyede bir sponsor . Deneyimsiz veya geçmiş deneyimi yetersiz olan ve / veya finansal durumu zayıf olan zayıf bir sponsor . Sermaye veya mülkiyet hükmü ile gerekmesi durumunda ilave nakit yatırma istekliliği ile kanıtlanan sponsor desteği",
+      "baseline": "",
+      "source_context": "yüksek finansal gücü bulunan güçlü bir sponsor .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 156792,
+      "baseline_end": 156857,
+      "source": "",
+      "baseline": "Geçmiş deneyimi iyi ve iyi finansal gücü bulunan iyi bir sponsor .",
+      "source_context": "faaliyet alanı – uzun vadeli strateji ) .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 156942,
+      "baseline_end": 157024,
+      "source": "",
+      "baseline": "Geçmiş deneyimi yeterli ve iyi finansal gücü bulunan yeterli seviyede bir sponsor .",
+      "source_context": "faaliyet alanı – uzun vadeli strateji ) .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 157092,
+      "baseline_end": 157194,
+      "source": "",
+      "baseline": ". Deneyimsiz veya geçmiş deneyimi yetersiz olan ve / veya finansal durumu zayıf olan zayıf bir sponsor",
+      "source_context": "sponsor için önemli ( temel faaliyet alanı )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 157296,
+      "baseline_end": 157768,
+      "source": "",
+      "baseline": "5 . Alınan Teminatlar Sözleşme ve hesapların temliki Varlıkların kalitesi , değeri ve likiditesi dikkate alınarak varlıkların teminat olarak alınması Kredi verenin nakit akışı üzerindeki kontrolü ( örn . otomatik ödeme ve bağımsız bloke hesaplar ) Teminat hükümlerinin gücü ( zorunlu erken geri ödemeler , ödeme ertelemeleri , birikmiş ödemeler , temettü kısıtlamaları ) Karşılık fonları ( borç ödemeleri , işletme ve bakım , yenileme ve ikame , beklenmedik olaylar ve benzeri )",
+      "source_context": "veya temel faaliyet alanı açısından önemli değil .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 157854,
+      "baseline_end": 157854,
+      "source": "5 . Alınan Teminatlar Sözleşme ve hesapların temliki",
+      "baseline": "",
+      "source_context": "Yeterli ) 4 . Kategori ( Zayıf )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 157907,
+      "baseline_end": 157907,
+      "source": "Varlıkların kalitesi , değeri ve likiditesi dikkate alınarak varlıkların teminat olarak alınması",
+      "baseline": "",
+      "source_context": ". Kapsamlı . Kabul edilebilir . Zayıf .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 158049,
+      "baseline_end": 158111,
+      "source": "",
+      "baseline": ". Güçlü . Çok az teminat veya garanti ; zayıf teminat hükümleri",
+      "source_context": "üzerinde usulünce tesis edilmiş birinci derece teminat hakkı",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 158370,
+      "baseline_end": 158370,
+      "source": "Çok az teminat veya garanti ; zayıf teminat hükümleri . Kredi verenin nakit akışı üzerindeki kontrolü ( örn . otomatik ödeme ve bağımsız bloke hesaplar ) Güçlü .",
+      "baseline": "",
+      "source_context": "hesaplar üzerinde kabul edilebilir temi nat hakkı .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 158407,
+      "baseline_end": 158407,
+      "source": "Teminat hükümlerinin gücü ( zorunlu erken geri ödemeler , ödeme ertelemeleri , birikmiş ödemeler , temettü kısıtlamaları )",
+      "baseline": "",
+      "source_context": ". Yeterli . Kabul edilebilir . Zayıf .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 158870,
+      "baseline_end": 158870,
+      "source": "Karşılık fonları ( borç ödemeleri , işletme ve bakım , yenileme ve ikame , beklenmedik olaylar ve benzeri ) Ortalamadan daha uzun bir kapsama süresi . Bütün karşılık fonları , nakit olarak ya da yüksek derecelendirm e notu bulunan bir bankadan alınmış",
+      "baseline": "",
+      "source_context": "Proje için sınırsız ilave kredi talep edilebilir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 159122,
+      "baseline_end": 159162,
+      "source": "1",
+      "baseline": "Ortalamadan daha uzun bir kapsama süresi",
+      "source_context": "fonları , işletme nakit akışlarıyla fonlanmış durumda .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 159164,
+      "baseline_end": 159263,
+      "source": "Kategori ( Güçlü )",
+      "baseline": "Bütün karşılık fonları , nakit olarak ya da yüksek derecelendirm e notu bulunan bir bankadan alınmış",
+      "source_context": "işletme nakit akışlarıyla fonlanmış durumda . 1 .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 159325,
+      "baseline_end": 159346,
+      "source": "",
+      "baseline": ") 1 . Kategori ( Güçlü",
+      "source_context": "( Yeterli ) 4 . Kategori ( Zayıf",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 159664,
+      "baseline_end": 159707,
+      "source": "",
+      "baseline": "Finansal oranlar ve kredinin teminata oranı",
+      "source_context": ") Finansal Güç Piyasa koşulları Proje tipi ve",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 159866,
+      "baseline_end": 160138,
+      "source": "",
+      "baseline": ". Gayrimenkulün borç servis oranı yüksektir ( Borç servis oranı inşaat safhasındaki gayrimenkuller için hesaplanmamalı dır . ) ve kredinin teminata oranı ilgili gayrimenkul tipine göre düşüktür . İkincil piyasanın bulunduğu durumlarda , işlem piyasa standartlarında yapılmıştır",
+      "source_context": "tahmin edilen talep düzeyine eşit veya daha düşüktür",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 160489,
+      "baseline_end": 160489,
+      "source": ". Piyasa koşulları zayıftır . Koşulların ne zaman iyileşeceği ve dengeye geleceği belirsizdir . Proje , kira süresinin sonunda kiracılarını kaybediyor . Yeni kira koşulları , sona eren kiralara kıyasla daha olumsuzdur . Finansal oranlar ve kredinin teminata oranı Gayrimenkulün borç servis oranı yüksektir ( Borç servis oranı inşaat safhasındaki gayrimenkuller için hesaplanmamalı dır . ) ve kredinin teminata oranı ilgili gayrimenkul tipine göre düşüktür . İkincil piyasanın bulunduğu durumlarda , işlem piyasa standartlarında yapılmıştır",
+      "baseline": "",
+      "source_context": "ve özellikleri , yeni projelere kıyasla modern olmayabilir",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 160921,
+      "baseline_end": 161132,
+      "source": "",
+      "baseline": "Piyasa koşulları zayıftır . Koşulların ne zaman iyileşeceği ve dengeye geleceği belirsizdir . Proje , kira süresinin sonunda kiracılarını kaybediyor . Yeni kira koşulları , sona eren kiralara kıyasla daha olumsuzdur .",
+      "source_context": "değeri düşmüştür dolayısıyla kredinin teminata oranı yükselmiştir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 161367,
+      "baseline_end": 161414,
+      "source": "1 . Kategori",
+      "baseline": "Stres analizi Nakit akışının öngörülebilirliği",
+      "source_context": "yeni kredilere ilişkin sözleşme şartlarının oldukça üzerindedir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 161417,
+      "baseline_end": 161418,
+      "source": "Güçlü",
+      "baseline": "a",
+      "source_context": "şartlarının oldukça üzerindedir . 1 . Kategori (",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 161420,
+      "baseline_end": 161486,
+      "source": "",
+      "baseline": "Tamamlanmı ş gayrimenkul ve gayrimenkul e ilişkin istikrarlı gelir",
+      "source_context": "üzerindedir . 1 . Kategori ( Güçlü )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 161507,
+      "baseline_end": 161507,
+      "source": "3 . Kategori ( Yeterli ) 4 . Kategori ( Zayıf ) Stres analizi Gayrimenkulün mevcut kaynakları , taahhüt ve yükümlülük yapısı , çok stresli ekonomik stres döneminde ( örneğin , faiz oranları , ekonomik büyüme ) dahi finansal yükümlülükleri ni karşılamasına imkan verecek niteliktedir .",
+      "baseline": "",
+      "source_context": "Güçlü ) 2 . Kategori ( İyi )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 161752,
+      "baseline_end": 161792,
+      "source": "Bir ekonomik gerileme döneminde",
+      "baseline": "Kira sözleşmelerinin çoğu uzun sürelidir",
+      "source_context": "çok stresli ekonomik koşullar altında temerrüde düşebilir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 161794,
+      "baseline_end": 161890,
+      "source": "gayrimenkulün gelirinde bir azalma olabilir , bu sebeple gayrimenkule ilişkin sermaye harcamaları fonlama kabiliyeti sınırlanabilir ve kredinin temerrüt riski önemli oranda artabilir",
+      "baseline": "kiracıların kredi değerlilikleri çeşitlilik arz etmektedir . Kiracı devir hızı normal seviyededir",
+      "source_context": "temerrüde düşebilir . Bir ekonomik gerileme döneminde ,",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 161906,
+      "baseline_end": 162150,
+      "source": "",
+      "baseline": "kiralanmama oranı düşüktür . Masraf ve giderleri öngörülebilir niteliktedir . 1 . Kategori ( Güçlü ) Gayrimenkulün mevcut kaynakları , taahhüt ve yükümlülük yapısı , çok stresli ekonomik stres döneminde ( örneğin , faiz oranları , ekonomik büyüme ) dahi",
+      "source_context": "kredinin temerrüt riski önemli oranda artabilir . Gayrimenkulün",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 162160,
+      "baseline_end": 162218,
+      "source": "durumu bozuktur ve yakın gelecekte koşullarda iyileşme olmadığı takdirde , kredinin temerrüde düşme ihtimali vardır",
+      "baseline": "yükümlülükleri ni karşılamasına imkan verecek niteliktedir",
+      "source_context": "temerrüt riski önemli oranda artabilir . Gayrimenkulün finansal",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 162221,
+      "baseline_end": 162221,
+      "source": "Nakit akışının öngörülebilirliği ( a ) Tamamlanmı ş gayrimenkul ve gayrimenkul e ilişkin istikrarlı gelir",
+      "baseline": "",
+      "source_context": "takdirde , kredinin temerrüde düşme ihtimali vardır .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 162502,
+      "baseline_end": 162730,
+      "source": "Kira sözleşmelerinin çoğu uzun sürelidir",
+      "baseline": "( b ) Tamamla nmış fakat gayrimenkul Kiralama faaliyetleri projeksiyonları Kiralama faaliyetleri projeksiyonları 4 . Kategori ( Zayıf ) Gayrimenkulün finansal durumu bozuktur ve yakın gelecekte koşullarda iyileşme olmadığı takdirde",
+      "source_context": "güvenlik ve emlak vergileri ) öngörülebilir niteliktedir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 162732,
+      "baseline_end": 162772,
+      "source": "kiracıların kredi değerlilikleri çeşitlilik arz etmektedir",
+      "baseline": "kredinin temerrüde düşme ihtimali vardır",
+      "source_context": "niteliktedir . Kira sözleşmelerinin çoğu uzun sürelidir ,",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 162775,
+      "baseline_end": 162776,
+      "source": "Kiracı devir hızı normal seviyededir",
+      "baseline": "3",
+      "source_context": ", kiracıların kredi değerlilikleri çeşitlilik arz etmektedir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 162778,
+      "baseline_end": 162960,
+      "source": "Gayrimenkulün kiralanmama oranı düşüktür . Masraf",
+      "baseline": "Kategori ( Yeterli ) Bir ekonomik gerileme döneminde , gayrimenkulün gelirinde bir azalma olabilir , bu sebeple gayrimenkule ilişkin sermaye harcamaları fonlama kabiliyeti sınırlanabilir",
+      "source_context": "etmektedir . Kiracı devir hızı normal seviyededir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 162964,
+      "baseline_end": 163011,
+      "source": "giderleri öngörülebilir niteliktedir",
+      "baseline": "kredinin temerrüt riski önemli oranda artabilir",
+      "source_context": ". Gayrimenkulün kiralanmama oranı düşüktür . Masraf ve",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 163304,
+      "baseline_end": 163336,
+      "source": "",
+      "baseline": "Kiralama faaliyetleri çoğunlukla",
+      "source_context": "niteliktedir , fakat gelire bağlı olarak değişmektedir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 163594,
+      "baseline_end": 163594,
+      "source": "( b ) Tamamla nmış fakat gayrimenkul Kiralama faaliyetleri projeksiyonları Kiralama faaliyetleri projeksiyonları Kiralama faaliyetleri çoğunlukla",
+      "baseline": "",
+      "source_context": "için hazırlanması önemli miktarda masraf gerektirmektedi r .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 163631,
+      "baseline_end": 163743,
+      "source": "",
+      "baseline": "e ilişkin istikrarsız gelir ( c ) İnşaat halindeki gayrimenkul Varlık Özellikleri Konum Tasarımı ve bakımlılığı",
+      "source_context": "projeksiyonları Kiralama faaliyetleri çoğunlukla Mevcut piyasa kiraları beklentileri",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 163765,
+      "baseline_end": 163765,
+      "source": "2 . Kategori ( İyi ) 3 . Kategori ( Yeterli ) 4 . Kategori ( Zayıf ) e ilişkin istikrarsız gelir",
+      "baseline": "",
+      "source_context": "kiraları beklentileri 1 . Kategori ( Güçlü )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 163879,
+      "baseline_end": 163896,
+      "source": "",
+      "baseline": "2 . Kategori ( İyi )",
+      "source_context": "yakın gelecekte istikrarlı gelir elde etmeye başlayacaktır .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 164010,
+      "baseline_end": 164010,
+      "source": "projeksiyonlara uygundur , bununla birlikte , projenin belli bir süre istikrarlı gelir elde etmesi mümkün görülmemektedi r . karşılamamakta dır . Hedeflenen kiralama oranına ulaşılmasına rağmen , düşük gelir düzeyinden dolayı nakit akışı sınırlıdır . ( c ) İnşaat halindeki gayrimenkul",
+      "baseline": "",
+      "source_context": "Proje yakın gelecekte istikrarlı gelir elde etmeye başlayacaktır",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 164527,
+      "baseline_end": 164670,
+      "source": "",
+      "baseline": "3 . Kategori ( Yeterli ) projeksiyonlara uygundur , bununla birlikte , projenin belli bir süre istikrarlı gelir elde etmesi mümkün görülmemektedi r .",
+      "source_context": "daimi finansman için bağlayıcı bir taahhüt almıştır .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 164844,
+      "baseline_end": 164988,
+      "source": "",
+      "baseline": ". 4 . Kategori ( Zayıf ) karşılamamakta dır . Hedeflenen kiralama oranına ulaşılmasına rağmen , düşük gelir düzeyinden dolayı nakit akışı sınırlıdır",
+      "source_context": "konusu olmayabilir . Banka daimi kredi veren olabilir",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 165244,
+      "baseline_end": 165244,
+      "source": "Varlık Özellikleri Konum",
+      "baseline": "",
+      "source_context": "diğer finansal kuruluş ile bir ihtilâf olabilir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 165328,
+      "baseline_end": 165422,
+      "source": "",
+      "baseline": "Gayrimenkul tasarımı , yapısı ve bakımlı olması dolayısıyla tercih edilmektedir . Yeni binalarla",
+      "source_context": "için uygun ve çok cazip bir konumdadır .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 165575,
+      "baseline_end": 165575,
+      "source": "Gayrimenkulün konumu , yapısı , tasarımı ve bakımı , gayrimenkulü olumsuz etkilemektedir . Tasarımı ve bakımlılığı Gayrimenkul tasarımı , yapısı ve bakımlı olması dolayısıyla tercih edilmektedir . Yeni binalarla",
+      "baseline": "",
+      "source_context": "konumu herhangi bir rekabet avantajı yaratmamaktadı r .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 165768,
+      "baseline_end": 165854,
+      "source": "",
+      "baseline": "konumu , yapısı , tasarımı ve bakımı , gayrimenkulü olumsuz etkilemektedir . Gayrimenkulün",
+      "source_context": "ve bakımlı olması yönünden yeterli düzeydedir . Gayrimenkulün",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 165928,
+      "baseline_end": 166055,
+      "source": "1 . Kategori ( Güçlü ) 2 . Kategori ( İyi )",
+      "baseline": "İnşaat halindeki gayrimenkul Sponsorun / Pro jeyi geliştiren firmanın gücü Finansal kapasitesi ve projeyi destekleme istekliliği",
+      "source_context": "tasarımı ve bakımlı olması hususlarında zayıflıkları mevcuttur .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 166101,
+      "baseline_end": 166101,
+      "source": "yüksek rekabet gücüne sahiptir . özellikleri yeni binalarla rekabet edebilecek seviyededir . İnşaat halindeki gayrimenkul İnşaat bütçesi ihtiyatlıdır ve teknik sorunlar sınırlıdır . Müteahhitler yüksek donanımlıdır . İnşaat bütçesi ihtiyatlıdır ve teknik sorunlar sınırlıdır . Müteahhitler yüksek donanımlıdır . İnşaat bütçesi yeterli düzeydedir ve müteahhitler ortalama seviye de donanımlıdır .",
+      "baseline": "",
+      "source_context": "Yeterli ) 4 . Kategori ( Zayıf )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 166238,
+      "baseline_end": 166245,
+      "source": "Sponsorun",
+      "baseline": "Sponsor",
+      "source_context": "proje gerçekçi değildir . Müteahhitler düşük donanımlıdır .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 166246,
+      "baseline_end": 166460,
+      "source": "Pro jeyi",
+      "baseline": "projeyi geliştiren firma projeyi desteklemek için yeterli kapasiteye ya da bu konuda istekliliğe sahip değildir . İnşaat bütçesi yeterli düzeydedir ve müteahhitler ortalama seviye de donanımlıdır . Sponsor / projeyi",
+      "source_context": "değildir . Müteahhitler düşük donanımlıdır . Sponsorun /",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 166481,
+      "baseline_end": 166723,
+      "source": "gücü Finansal kapasitesi",
+      "baseline": "katkısı önemsiz düzeyde ya da nakdi değildir . Sponsor / projeyi geliştiren firma finansal kaynaklar açısından ortalama ile ortalama altı arasında bir seviyededir . 1 . Kategori ( Güçlü ) yüksek rekabet gücüne sahiptir . İnşaat bütçesi ihtiyatlıdır",
+      "source_context": "donanımlıdır . Sponsorun / Pro jeyi geliştiren firmanın",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 166727,
+      "baseline_end": 166960,
+      "source": "projeyi destekleme istekliliği",
+      "baseline": "teknik sorunlar sınırlıdır . Müteahhitler yüksek donanımlıdır . 2 . Kategori ( İyi ) özellikleri yeni binalarla rekabet edebilecek seviyededir . İnşaat bütçesi ihtiyatlıdır ve teknik sorunlar sınırlıdır . Müteahhitler yüksek donanımlıdır .",
+      "source_context": "Pro jeyi geliştiren firmanın gücü Finansal kapasitesi ve",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 167672,
+      "baseline_end": 167881,
+      "source": "Sponsor / projeyi geliştiren firmanın katkısı önemsiz düzeyde ya da nakdi değildir",
+      "baseline": "İtibar ve benzer gayrimenkul projelerine ilişkin deneyimleri Diğer gayrimenkul piyasası aktörleri ile ilişkiler Alınan Teminatlar İpoteğin niteliği Kiraların temliki ( Uzun süreli kiraya verilen projeler ) 2",
+      "source_context": "/ projeyi geliştiren firma farklı coğrafi bölgelerde bulu",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 167883,
+      "baseline_end": 167927,
+      "source": "Sponsor / projeyi geliştiren firma finansal kaynaklar açısından ortalama ile ortalama altı arasında bir seviyededir",
+      "baseline": "Kategori ( İyi ) nan gayrimenkullere sahiptir",
+      "source_context": "katkısı önemsiz düzeyde ya da nakdi değildir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 167929,
+      "baseline_end": 168022,
+      "source": "Sponsor / projeyi geliştiren firma projeyi desteklemek için yeterli kapasiteye ya da bu konuda istekliliğe sahip değildir",
+      "baseline": "Uygun yönetim ve sponsorluk kalitesi . Benzer gayrimenkul projelerine ilişkin başarılı deneyim",
+      "source_context": "ortalama ile ortalama altı arasında bir seviyededir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 168045,
+      "baseline_end": 168045,
+      "source": "2 . Kategori ( İyi ) 3 . Kategori ( Yeterli ) 4 . Kategori ( Zayıf )",
+      "baseline": "",
+      "source_context": "değildir . 1 . Kategori ( Güçlü )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 168072,
+      "baseline_end": 168072,
+      "source": "nan gayrimenkullere sahiptir . İtibar ve benzer gayrimenkul projelerine ilişkin deneyimleri",
+      "baseline": "",
+      "source_context": ". Kategori ( Zayıf ) gayrimenkullere sahiptir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 168212,
+      "baseline_end": 168213,
+      "source": "Uygun yönetim ve sponsorluk kalitesi",
+      "baseline": "3",
+      "source_context": "gayrimenkul projelerine ilişkin uzun süreli başarılı deneyim .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 168215,
+      "baseline_end": 168236,
+      "source": "Benzer gayrimenkul projelerine ilişkin başarılı deneyim",
+      "baseline": "Kategori ( Yeterli ) 4",
+      "source_context": "deneyim . Uygun yönetim ve sponsorluk kalitesi .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 168238,
+      "baseline_end": 168254,
+      "source": "",
+      "baseline": "Kategori ( Zayıf )",
+      "source_context": ". Benzer gayrimenkul projelerine ilişkin başarılı deneyim .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 168552,
+      "baseline_end": 168552,
+      "source": "Diğer gayrimenkul piyasası aktörleri ile ilişkiler",
+      "baseline": "",
+      "source_context": "geçmişte gayrimenkulleri n yönetiminde zorluklara yol açmıştır .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 168930,
+      "baseline_end": 168930,
+      "source": "Alınan Teminatlar İpoteğin niteliği",
+      "baseline": "",
+      "source_context": "kiralama kuruluşları gibi ) ile zayıf ilişkiler .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 169082,
+      "baseline_end": 169082,
+      "source": "Kredi verenin ipoteği nakde çevirme kabiliyeti sınırlıdır . Kiraların temliki ( Uzun süreli kiraya verilen projeler )",
+      "baseline": "",
+      "source_context": "Usulünce tesis edilmiş birinci dereceden ipote k .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 169562,
+      "baseline_end": 169620,
+      "source": "",
+      "baseline": "Kredi verenin ipoteği nakde çevirme kabiliyeti sınırlıdır .",
+      "source_context": "gönderilmesini sağlayacak kiracılara ait güncel bilgi ve belgeler",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 169766,
+      "baseline_end": 169795,
+      "source": "",
+      "baseline": "bankada bulunmaktadır . Uygun .",
+      "source_context": "ır . 1 . Kategori ( Güçlü )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 169816,
+      "baseline_end": 169845,
+      "source": "",
+      "baseline": "bankada bulunmaktadır . Uygun .",
+      "source_context": "Güçlü ) 2 . Kategori ( İyi )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 169870,
+      "baseline_end": 169899,
+      "source": "",
+      "baseline": "bankada bulunmaktadır . Uygun .",
+      "source_context": "İyi ) 3 . Kategori ( Yeterli )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 169922,
+      "baseline_end": 169943,
+      "source": "bankada bulunmaktadır . bankada bulunmaktadır . bankada bulunmaktadır",
+      "baseline": "Standartların altında",
+      "source_context": "Yeterli ) 4 . Kategori ( Zayıf )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 169978,
+      "baseline_end": 169978,
+      "source": "Uygun . Uygun . Uygun . Standartların altında .",
+      "baseline": "",
+      "source_context": "bulunmaktadır . bankada bulunmaktadır . Sigorta kapsamının yeterliliği",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 170178,
+      "baseline_end": 170256,
+      "source": "",
+      "baseline": "Finansal oranlar ( borç servis oranı ve kredinin teminata oranı ) Stres analizi",
+      "source_context": "Kategori ( Zayıf ) Finansal Güç Piyasa Koşulları",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 170552,
+      "baseline_end": 170552,
+      "source": "Talep yeterli ve süreklidir , piyasaya giriş engelleri sınırlıdır , teknolojideki ve ekonomik görünümdeki değişikliklere karşı önemli düzeyde duyarlılık vardır . Talep zayıftır ve azalmakta , teknolojideki ve ekonomik görünümdeki değişikliklere karşı duyarlıdı r , yüksek derecede belirsiz bir ortam mevcuttur . Finansal oranlar ( borç servis oranı ve kredinin teminata oranı )",
+      "baseline": "",
+      "source_context": "görünümdeki değişikliklere karşı bir miktar duyarlılık vardır .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 170642,
+      "baseline_end": 170770,
+      "source": "",
+      "baseline": ". İstikrarlı uzun dönemli gelirler ile bir ekonomik döngüdeki şiddetli stres koşullarına dayanabilecek kapasiteye sahip olunması",
+      "source_context": "oranlar , projeye ilişkin çok sağlam ekonomik varsayımlar",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 170876,
+      "baseline_end": 170876,
+      "source": ". Varlık türü için standart finansal oranlar . Varlık türüne göre olumsuz finansal oranlar . Stres analizi İstikrarlı uzun dönemli gelirler ile bir ekonomik döngüdeki şiddetli stres koşullarına dayanabilecek kapasiteye sahip olunması",
+      "baseline": "",
+      "source_context": "finansal oranlar , projeye ilişkin sağlam ekonomik varsayımlar",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 171065,
+      "baseline_end": 171594,
+      "source": "",
+      "baseline": ". Piyasa likiditesi Piyasa dünya çapında yapılanmıştır ve varlıklar Piyasa dünya çapında ya da bölgesel olarak yapılanmıştır ve Talep yeterli ve süreklidir , piyasaya giriş engelleri sınırlıdır , teknolojideki ve ekonomik görünümdeki değişikliklere karşı önemli düzeyde duyarlılık vardır . Varlık türü için standart finansal oranlar . Talep zayıftır ve azalmakta , teknolojideki ve ekonomik görünümdeki değişikliklere karşı duyarlıdı r , yüksek derecede belirsiz bir ortam mevcuttur . Varlık türüne göre olumsuz finansal oranlar",
+      "source_context": "sadece şiddetli ekonomik koşullarda temerrüt etme olasılığının bulunması",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 171825,
+      "baseline_end": 171866,
+      "source": "",
+      "baseline": "Piyasa bölgeseldir ve kısa vadede sınırlı",
+      "source_context": "ekonomik gerileme döneminde temerrüt etme olasılığının bulunması .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 172023,
+      "baseline_end": 172023,
+      "source": "Piyasa likiditesi Piyasa dünya çapında yapılanmıştır ve varlıklar Piyasa dünya çapında ya da bölgesel olarak yapılanmıştır ve Piyasa bölgeseldir ve kısa vadede sınırlı",
+      "baseline": "",
+      "source_context": "durumlarda bile kredinin temerrüt etme olasılığının bulunması .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 172103,
+      "baseline_end": 172123,
+      "source": "",
+      "baseline": "son derece likittir .",
+      "source_context": "likidite vardır 1 . Kategori ( Güçlü )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 172144,
+      "baseline_end": 172172,
+      "source": "",
+      "baseline": "varlıklar nispeten likittir .",
+      "source_context": "Güçlü ) 2 . Kategori ( İyi )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 172197,
+      "baseline_end": 172197,
+      "source": "4 . Kategori ( Zayıf ) son derece likittir . varlıklar nispeten likittir .",
+      "baseline": "",
+      "source_context": "İyi ) 3 . Kategori ( Yeterli )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 172250,
+      "baseline_end": 172269,
+      "source": "",
+      "baseline": "4 . Kategori ( Zayıf )",
+      "source_context": "beklentiler vardır , bu sebeple likiditesi düşüktür .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 172318,
+      "baseline_end": 172318,
+      "source": ". Politik ve Hukuki Ortam Transfer riskini de içeren politik risk Çok düşük politik risk ; gerekirse güçlü risk azaltıcı enstrümanlar",
+      "baseline": "",
+      "source_context": "veya likidite yoktur ( özellikle niş piyasalarda )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 172514,
+      "baseline_end": 172577,
+      "source": "",
+      "baseline": "Politik ve Hukuki Ortam Transfer riskini de içeren politik risk",
+      "source_context": "; risk azaltıcı enstrüman yok veya zayıf .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 172608,
+      "baseline_end": 172675,
+      "source": "",
+      "baseline": "Çok düşük politik risk ; gerekirse güçlü risk azaltıcı enstrümanlar .",
+      "source_context": "veya zayıf . Yasal risk ve mevzuat riski",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 173170,
+      "baseline_end": 173221,
+      "source": "",
+      "baseline": "Cezalı geri ödeme veya yüksek miktarda balon ödeme .",
+      "source_context": "imkansız hale getirebilir ya da süresini uzatabilir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 173463,
+      "baseline_end": 173463,
+      "source": "miktarda balon ödeme . Cezalı geri ödeme veya yüksek",
+      "baseline": "",
+      "source_context": "edici düzeyde . Ödemesiz süre olması muhtemel önemli",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 174072,
+      "baseline_end": 174176,
+      "source": "",
+      "baseline": "karşılamaktadı r . Sınırlı bir sözleşme veya gerekliyse işletme ve bakım için ayrılan karşılık hesapları .",
+      "source_context": "İyi ) 3 . Kategori ( Yeterli )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 174199,
+      "baseline_end": 174302,
+      "source": "karşılamaktadı r",
+      "baseline": "Sözleşme bulunmaması sebebiyle risk azaltıcı enstrümanların etkisini aşan yüksek işletme maliyeti riski",
+      "source_context": "Yeterli ) 4 . Kategori ( Zayıf )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 174305,
+      "baseline_end": 174356,
+      "source": "İşletme",
+      "baseline": "Uzun süreli bir sözleşme ve / veya gerekliyse işletme",
+      "source_context": ". Kategori ( Zayıf ) karşılamaktadı r .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 174366,
+      "baseline_end": 174398,
+      "source": "sözleşme lerinin kapsamı ve niteliği",
+      "baseline": "için ayrılan karşılık hesapları .",
+      "source_context": "Zayıf ) karşılamaktadı r . İşletme ve bakım",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 174575,
+      "baseline_end": 174616,
+      "source": "Uzun süreli",
+      "baseline": "Geçmiş deneyimi mükemmel ve varlığı güçlü",
+      "source_context": "işletme ve bakım için ayrılan karşılık hesapları .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 174621,
+      "baseline_end": 174671,
+      "source": "sözleşme ve / veya gerekliyse işletme",
+      "baseline": "şekilde tekrar pazarlayabilme kabiliyeti . İşletme",
+      "source_context": "için ayrılan karşılık hesapları . Uzun süreli bir",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 174686,
+      "baseline_end": 174686,
+      "source": "için ayrılan karşılık hesapları . Sınırlı bir",
+      "baseline": "",
+      "source_context": "sözleşme ve / veya gerekliyse işletme ve bakım",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 174695,
+      "baseline_end": 174710,
+      "source": "veya gerekliyse işletme",
+      "baseline": "lerinin kapsamı",
+      "source_context": "için ayrılan karşılık hesapları . Sınırlı bir sözleşme",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 174715,
+      "baseline_end": 174723,
+      "source": "bakım için ayrılan karşılık hesapları . Sözleşme bulunmaması sebebiyle risk azaltıcı enstrümanların etkisini aşan yüksek işletme maliyeti riski .",
+      "baseline": "niteliği",
+      "source_context": ". Sınırlı bir sözleşme veya gerekliyse işletme ve",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 174856,
+      "baseline_end": 174940,
+      "source": "Geçmiş deneyimi mükemmel",
+      "baseline": "Varlık özellikleri Aynı piyasadaki diğer varlıklara kıyasla yapısı , boyutu , tasarımı",
+      "source_context": "ve kira süresi bittiğinde varlığı tekrar pazarlayabilme kabiliyeti",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 174944,
+      "baseline_end": 174960,
+      "source": "varlığı güçlü",
+      "baseline": "bakımı ( örneğin ;",
+      "source_context": "varlığı tekrar pazarlayabilme kabiliyeti Geçmiş deneyimi mükemmel ve",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 174965,
+      "baseline_end": 174989,
+      "source": "şekilde tekrar pazarlayabilme kabiliyeti .",
+      "baseline": "uçak için yaş ve boyutu )",
+      "source_context": "kabiliyeti Geçmiş deneyimi mükemmel ve varlığı güçlü bir",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 175244,
+      "baseline_end": 175244,
+      "source": "Varlık özellikleri Aynı piyasadaki diğer varlıklara kıyasla yapısı , boyutu , tasarımı ve bakımı ( örneğin ; bir uçak için yaş ve boyutu )",
+      "baseline": "",
+      "source_context": "bilinmiyor ve varlığı tekrar pazarlayabilme kabiliyeti yok .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 175764,
+      "baseline_end": 175815,
+      "source": "",
+      "baseline": "Cari tekrar satış değeri borç tutarının altındadır .",
+      "source_context": "Yapısı çok özel ve piyasası çok dar .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 176017,
+      "baseline_end": 176017,
+      "source": "Cari tekrar satış değeri borç tutarının altındadır .",
+      "baseline": "",
+      "source_context": "tekrar satış değeri borç tutarının biraz üstündedir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 176213,
+      "baseline_end": 176213,
+      "source": "1 . Kategori ( Güçlü ) 2 . Kategori ( İyi ) 3 . Kategori ( Yeterli ) 4 . Kategori ( Zayıf )",
+      "baseline": "",
+      "source_context": "ve likiditesi ekonomik Varlık değeri ve likiditesi ekonomik",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 176242,
+      "baseline_end": 176242,
+      "source": "döngülere görece duyarlı değildir . döngülere duyarlıdır . döngülere oldukça duyarlıdır . döngülere yüksek derecede duyarlıdır .",
+      "baseline": "",
+      "source_context": ". Kategori ( Zayıf ) döngülere karşı duyarlılığı",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 176386,
+      "baseline_end": 176501,
+      "source": "",
+      "baseline": "Sponsorların deneyimleri ve finansal gücü Alınan Teminatlar Varlık kontrolü Varlığın konum ve durumunun izlenmesi",
+      "source_context": "ve kira süresi bittiğinde varlığı tekrar pazarlayabilme kabiliyeti",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 176608,
+      "baseline_end": 176608,
+      "source": "ve varlığı tekrar pazarlayabilme kabiliyeti iyi . Geçmiş deneyimi zayıf ve varlığı tekrar pazarlayabilme kabiliyeti belirsiz . Deneyimsiz ya da geçmiş deneyimi bilinmiyor ve varlığı tekrar pazarlayabilme kabiliyeti yok . Sponsorların deneyimleri ve finansal gücü Geçmiş deneyimi",
+      "baseline": "",
+      "source_context": "bir şekilde tekrar pazarlayabilme kabiliyeti . Geçmiş deneyimi",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 176660,
+      "baseline_end": 176660,
+      "source": "Geçmiş deneyimi ve finansal gücü iyi olan sponsorlar . Geçmiş deneyimi yeterli ve iyi finansal güce sahip sponsorlar . Deneyimsiz ya da geçmiş deneyimi şüpheli olan ve / veya finansal zayıflıklara sahip sponsorlar . Alınan Teminatlar Varlık kontrolü",
+      "baseline": "",
+      "source_context": "mükemmel ve yüksek finansal güce sahip sponsorlar .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 176887,
+      "baseline_end": 177707,
+      "source": "",
+      "baseline": "Banka , varlığın durumunu ve 1 . Kategori ( Güçlü ) döngülere görece duyarlı değildir . 2 . Kategori ( İyi ) döngülere duyarlıdır . Geçmiş deneyimi ve varlığı tekrar pazarlayabilme kabiliyeti iyi . 3 . Kategori ( Yeterli ) 4 . Kategori ( Zayıf ) döngülere oldukça duyarlıdır . döngülere yüksek derecede duyarlıdır . Geçmiş deneyimi zayıf ve varlığı tekrar pazarlayabilme kabiliyeti belirsiz . Deneyimsiz ya da geçmiş deneyimi bilinmiyor ve varlığı tekrar pazarlayabilme kabiliyeti yok . Deneyimsiz ya da geçmiş deneyimi şüpheli olan ve / veya finansal zayıflıklara sahip sponsorlar . Sözleşmeler , bankaya çok az teminat sağlamaktadır ve varlığın kontrolünün kaybedilmesine neden olabilecek hükümler içermektedir . Geçmiş deneyimi ve finansal gücü iyi olan sponsorlar . Geçmiş deneyimi yeterli ve iyi finansal güce sahip sponsorlar .",
+      "source_context": "veya bu tarz teminatı içeren kiralama yapısı )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 178134,
+      "baseline_end": 178134,
+      "source": "Sözleşmeler , bankaya çok az teminat sağlamaktadır ve varlığın kontrolünün kaybedilmesine neden olabilecek hükümler içermektedir . Varlığın konum ve durumunun izlenmesi Banka , varlığın durumunu ve",
+      "baseline": "",
+      "source_context": "veya bu tarz teminatı içeren kiralama yapısı )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 178239,
+      "baseline_end": 178303,
+      "source": "",
+      "baseline": "hususunda bankaya ait haklar ve araçlar Zararlara karşı sigorta",
+      "source_context": "varlığın durumunu ve konumunu Bankanın varlığın durumunu ve",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 178325,
+      "baseline_end": 178325,
+      "source": "2 . Kategori ( İyi ) 3 . Kategori ( Yeterli ) 4 . Kategori ( Zayıf ) hususunda bankaya ait haklar ve araçlar",
+      "baseline": "",
+      "source_context": "durumunu ve 1 . Kategori ( Güçlü )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 178406,
+      "baseline_end": 178406,
+      "source": "neredeyse her zaman ve her yerde izleyebilir . neredeyse her zaman ve her yerde izleyebilir . konumunu izleyebilmesi sınırlıdır . Zararlara karşı sigorta",
+      "baseline": "",
+      "source_context": "( düzenli raporlar , denetim olanağı ) .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 178506,
+      "baseline_end": 178697,
+      "source": "",
+      "baseline": "2 . Kategori ( İyi ) neredeyse her zaman ve her yerde izleyebilir . 3 . Kategori ( Yeterli ) neredeyse her zaman ve her yerde izleyebilir . 4 . Kategori ( Zayıf ) konumunu izleyebilmesi sınırlıdır .",
+      "source_context": "ek zarar teminatı içeren güçlü sigorta kapsamı .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 178763,
+      "baseline_end": 178871,
+      "source": "",
+      "baseline": "sigorta kapsamı ( Ek zarar teminatı içermeyen ) . Düşük kalitede sigorta şirketlerine yaptırılmış ya da zayıf",
+      "source_context": ". İyi kalitedeki sigorta şirketlerine yaptırılmış yeterli düzeyde",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 179007,
+      "baseline_end": 179007,
+      "source": "sigorta kapsamı ( Ek zarar teminatı içermeyen ) . Düşük kalitede sigorta şirketlerine yaptırılmış ya da zayıf",
+      "baseline": "",
+      "source_context": "kalitedeki sigorta şirketlerine yaptırılmış , kabul edilebilir düzeyde",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 179262,
+      "baseline_end": 179401,
+      "source": "",
+      "baseline": "Politik ve Hukuki Ortam Ülke Riski Ülke risklerinin azaltılmas ı Varlık özellikler i Likidite ve zarara karşı duyarlılık Sponsoru n gücü",
+      "source_context": ") Finansal Güç Teminatın krediden yüksek olma düzeyi",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 179435,
+      "baseline_end": 179435,
+      "source": "Politik ve Hukuki Ortam Ülke Riski Ülke riski yok .",
+      "baseline": "",
+      "source_context": "Güçlü . İyi . Yeterli . Zayıf .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 179467,
+      "baseline_end": 179553,
+      "source": "",
+      "baseline": "Güçlü risk azaltımı : - Yeterli sınır ötesi mekanizmal arı - Stratejik emtia - Güçlü alıcı",
+      "source_context": "yok . Sınırlı düzeyde ülke riski var .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 179566,
+      "baseline_end": 179569,
+      "source": "var",
+      "baseline": "yok",
+      "source_context": "Sınırlı düzeyde ülke riski var . Ülke riski",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 179572,
+      "baseline_end": 179572,
+      "source": "Yüksek ülke riski var . Ülke risklerinin azaltılmas ı",
+      "baseline": "",
+      "source_context": "ülke riski var . Ülke riski var .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 179669,
+      "baseline_end": 179669,
+      "source": "Güçlü risk azaltımı : - Yeterli sınır ötesi mekanizmal arı - Stratejik emtia - Güçlü alıcı Kabul edilebilir risk azaltımı : - Tatmin edici sınır ötesi mekanizmaları - Daha az stratejik emtia - Kabul edilebilir alıcı Sadece kısmi risk azaltımı : - Sınır ötesi mekanizmaları yok - Stratejik olmayan emtia - Zayıf alıcı Varlık özellikler i Likidite ve zarara karşı duyarlılık",
+      "baseline": "",
+      "source_context": "arı - Stratejik emtia - Birinci sınıf alıcı",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 179924,
+      "baseline_end": 180183,
+      "source": "",
+      "baseline": "Ülke riski var . Yüksek ülke riski var . Kabul edilebilir risk azaltımı : - Tatmin edici sınır ötesi mekanizmaları - Daha az stratejik emtia - Kabul edilebilir alıcı Sadece kısmi risk azaltımı : - Sınır ötesi mekanizmaları yok - Stratejik olmayan emtia - Zayıf alıcı",
+      "source_context": "sağlanabilir . Emtia zarara karşı duyarlı değildir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 180471,
+      "baseline_end": 180471,
+      "source": "Sponsoru n gücü 1 . Kategori ( Güçlü )",
+      "baseline": "",
+      "source_context": "araçları yoktur . Emtia zarara karşı duyarlıdır .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 180489,
+      "baseline_end": 180494,
+      "source": "",
+      "baseline": "Güçlü",
+      "source_context": "Güçlü ) 2 . Kategori ( İyi )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 180540,
+      "baseline_end": 180575,
+      "source": "İşletmecin in finansal gücü",
+      "baseline": "Yeterli Zayıf 1 . Kategori ( Güçlü )",
+      "source_context": "Yeterli ) 4 . Kategori ( Zayıf )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 180633,
+      "baseline_end": 180633,
+      "source": "Güçlü Yeterli Zayıf Lojistik sürecini yönetme kabiliyeti dahil deneyim",
+      "baseline": "",
+      "source_context": "satım faaliyetleri ve riskler bakımından çok güçlü .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 180738,
+      "baseline_end": 180825,
+      "source": "",
+      "baseline": ". Karşı taraf seçimi , riskten korunma ve izleme konularında güçlü standartlar . Çok iyi",
+      "source_context": "başarısı ve maliyet verimliliğin de güçlü deneyimi vardır",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 180951,
+      "baseline_end": 181249,
+      "source": "",
+      "baseline": "Karşı taraf seçimi , riskten korunma ve izleme konularında yeterli standartlar . İyi . İşletmecin in finansal gücü Lojistik sürecini yönetme kabiliyeti dahil deneyim Ticari kontroller ve riskten korunma politikalar ı Finansal bilgilerin kamuya açıklama kalitesi Alınan Teminatl ar Varlık kontrolü",
+      "source_context": "maliyet verimliliğin de ortalamanın üzerinde deneyimi vardır .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 181435,
+      "baseline_end": 181435,
+      "source": "Ticari kontroller ve riskten korunma politikalar ı Karşı taraf seçimi , riskten korunma ve izleme konularında güçlü standartlar . Karşı taraf seçimi , riskten korunma ve izleme konularında yeterli standartlar .",
+      "baseline": "",
+      "source_context": "deneyimi vardır . Maliyet ve karları değişkendir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 181577,
+      "baseline_end": 181577,
+      "source": "Finansal bilgilerin kamuya açıklama kalitesi Çok iyi . İyi .",
+      "baseline": "",
+      "source_context": ". Geçmiş işlemlerinde önemli derecede kayıplar yaşanmıştır .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "replace",
+      "baseline_start": 181683,
+      "baseline_end": 181801,
+      "source": "Alınan Teminatl ar Varlık kontrolü",
+      "baseline": "Sözleşme , varlık üzerindeki kontrolün kaybedilmesine yol açacak riskleri barındırmaktadır . Tah silat riskli olabilir .",
+      "source_context": "açıklanmasında bazı belirsizlikler bulunmaktadır ya da yetersizdir .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 182146,
+      "baseline_end": 182146,
+      "source": "Sözleşme , varlık üzerindeki kontrolün kaybedilmesine yol açacak riskleri barındırmaktadır . Tah silat riskli olabilir . 1 . Kategori ( Güçlü ) 2 . Kategori ( İyi )",
+      "baseline": "",
+      "source_context": "duruma göre üçüncü taraf taahhüdüyle azaltılmakt adır .",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 182190,
+      "baseline_end": 182190,
+      "source": "sağlamaktad ır . sağlamaktad ır . Zararlara karşı sigorta Yüksek kalitedeki sigorta şirketlerine yaptırılmış ek zarar teminatı içeren güçlü sigorta kapsamı . İyi kalitedeki sigorta şirketlerine yaptırılmış yeterli düzeyde sigorta kapsamı ( Ek zarar teminatı içermeyen ) .",
+      "baseline": "",
+      "source_context": "Yeterli ) 4 . Kategori ( Zayıf )",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 182386,
+      "baseline_end": 182694,
+      "source": "",
+      "baseline": "sigorta kapsamı ( Ek zarar teminatı içermeyen ) . Zararlara karşı sigorta 1 . Kategori ( Güçlü ) sağlamaktad ır . 2 . Kategori ( İyi ) sağlamaktad ır . Yüksek kalitedeki sigorta şirketlerine yaptırılmış ek zarar teminatı içeren güçlü sigorta kapsamı . İyi kalitedeki sigorta şirketlerine yaptırılmış yeterli düzeyde",
+      "source_context": "Düşük kalitede sigorta şirketlerine yaptırılmış ya da zayıf",
+      "reviewed_regions": [
+        31
+      ]
+    },
+    {
+      "type": "delete",
+      "baseline_start": 184841,
+      "baseline_end": 184841,
+      "source": "risk sınıflarının kapsamı",
+      "baseline": "",
+      "source_context": "yapılan değişikliklerle ; içsel derecelendirmeye dayalı yaklaşımların kullanıldığı",
+      "reviewed_regions": [
+        30
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 184888,
+      "baseline_end": 184909,
+      "source": "",
+      "baseline": "sınıflarının kapsamı",
+      "source_context": "kullanıldığı risk sınıflarının kapsamı sınırlandırılması , hesaplamalarda kullanılan",
+      "reviewed_regions": [
+        30
+      ]
+    },
+    {
+      "type": "insert",
+      "baseline_start": 184976,
+      "baseline_end": 184980,
+      "source": "",
+      "baseline": "risk",
+      "source_context": "hesaplamalarda kullanılan parametrelerin risk hassasiyetinin artırılması hedeflenmektedir .",
+      "reviewed_regions": [
+        30
+      ]
+    }
+  ],
+  "scope": "Whitespace-normalized source/baseline token alignment with U+FFFE normalized to hyphen. Missing image formulas are not detectable in this text-only comparison and require their separate image evidence. This audit is not independent publication approval."
+}

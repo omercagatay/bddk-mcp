@@ -1,0 +1,258 @@
+{
+  "document_id": "1131",
+  "status": "source_reviewed_candidate_awaiting_owner_approval",
+  "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1131",
+  "original_markdown_sha256": "fb53c31189776560a35b5c0a6ad265e55b383daa95823be0d554618bae9f93ef",
+  "candidate_markdown_sha256": "e2ac460745e3355c07eda57c0c3440e80a943b6592b079546c527bda371a50d0",
+  "glyph_repairs": 40,
+  "glyph_map": {
+    "U+F0A7": "▪",
+    "U+F0D8": "➢",
+    "U+F0E0": "→"
+  },
+  "source_anomalies_preserved": [
+    "U+F0B7 bullet, U+F0A7 square, U+F0BE em-dash list, U+F0D8 arrowhead from source PDFs 954/934/787/1191."
+  ],
+  "replacements": [
+    {
+      "start": 1008,
+      "end": 1009,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 1176,
+      "end": 1177,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 1616,
+      "end": 1617,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 1650,
+      "end": 1651,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 1682,
+      "end": 1683,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 1902,
+      "end": 1903,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 2033,
+      "end": 2034,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 2105,
+      "end": 2106,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 2841,
+      "end": 2842,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 3254,
+      "end": 3255,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 3533,
+      "end": 3534,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 4342,
+      "end": 4343,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 4442,
+      "end": 4443,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 5439,
+      "end": 5440,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 5593,
+      "end": 5594,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 5968,
+      "end": 5969,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 6013,
+      "end": 6014,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 6233,
+      "end": 6234,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 6723,
+      "end": 6724,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 6800,
+      "end": 6801,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 6987,
+      "end": 6988,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 7530,
+      "end": 7531,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 8320,
+      "end": 8321,
+      "old": "",
+      "new": "➢"
+    },
+    {
+      "start": 8531,
+      "end": 8532,
+      "old": "",
+      "new": "➢"
+    },
+    {
+      "start": 9934,
+      "end": 9935,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 10118,
+      "end": 10119,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 11271,
+      "end": 11272,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 11364,
+      "end": 11365,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 11438,
+      "end": 11439,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 11740,
+      "end": 11741,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 11835,
+      "end": 11836,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 12767,
+      "end": 12768,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 12935,
+      "end": 12936,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 13019,
+      "end": 13020,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 13588,
+      "end": 13589,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 13647,
+      "end": 13648,
+      "old": "",
+      "new": "→"
+    },
+    {
+      "start": 14749,
+      "end": 14750,
+      "old": "",
+      "new": "▪"
+    },
+    {
+      "start": 14864,
+      "end": 14865,
+      "old": "",
+      "new": "▪"
+    },
+    {
+      "start": 15130,
+      "end": 15131,
+      "old": "",
+      "new": "▪"
+    },
+    {
+      "start": 15393,
+      "end": 15394,
+      "old": "",
+      "new": "▪"
+    }
+  ]
+}

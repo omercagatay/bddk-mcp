@@ -122,7 +122,7 @@ storage, never corpus or trust material. Repository rendering is still not
 evidence that the four Jobs ran in the required `migrate` → `bootstrap` →
 verify-and-stage → activate order in a bank namespace.
 
-The checked-in manifest (`bddk-job-corpus-2026-09-07`, reviewed 2026-09-07)
+The checked-in manifest (`bddk-job-corpus-quality-repairs-local-v6-2026-09-21`, reviewed 2026-09-21)
 declares owner-quantified objectives (7-day source detection, 14-day
 publication, 180-day maximum manifest age) and is Ed25519-signed; the detached
 signature `corpus_scope.sig` validates against the project trust anchor
@@ -149,7 +149,7 @@ measured, and either way the artifact field set is exact. Never fabricate event
 timestamps to reach the measured level; build the measurement pipeline
 instead.
 
-The 2026-09-07 refresh regenerates **13,240 chunks from the same 318 documents**
+The historical 2026-09-07 refresh regenerated **13,240 chunks from the same 318 documents**
 under section parser v8, section search v6, and quality policy v3. The previous
 signed v5 artifact contained 10,483 chunks; all 318 inventories change because
 v7's remainder indexing and trailing-heading trimming were also not yet in the
@@ -160,6 +160,17 @@ claim independent human source validation. Source observation and canonical
 corpus-build timestamps remain unchanged. See the
 [refresh evidence](evidence/corpus-v8-release-2026-09-07.md) for exceptions,
 verification receipts, deployment state, and retained legal/freshness gaps.
+
+The 2026-09-21 quality repair includes 50 changed documents, **13,544 chunks**,
+and quality policy v5. The two native-source rebuilds have genuine new acquisition
+and extraction timestamps; older documents retain their original timestamps.
+All 11 historical extraction failures are retired only with this signed corpus.
+Local verification regenerated every embedding, checked exact membership in a
+fresh staging database, and activated through the separate publisher role.
+The [repair receipt](evidence/document-repairs/local-release-v6.json) records
+318 real MCP document checks. Its `local-v6` identity labels this reviewed
+snapshot, not a production deployment or independent legal approval. Existing
+formula-unaware provenance, source-scope and freshness cautions remain.
 
 Any future chunker or profile change reopens this review: regenerate, record and
 independently review the delta, then update and re-sign the manifest; a checksum

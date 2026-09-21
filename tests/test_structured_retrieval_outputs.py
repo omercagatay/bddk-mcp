@@ -10,6 +10,7 @@ from mcp.shared.memory import create_connected_server_and_client_session
 from bddk_mcp.core.deps import Dependencies
 from bddk_mcp.core.models import BddkDecisionSummary, BddkSearchResult
 from bddk_mcp.corpus_manifest import CORPUS_SCOPE_WARNING
+from bddk_mcp.quality.markdown_quality import assess_markdown_quality
 from bddk_mcp.store.doc_store import DocumentPage, StoredDocumentSection
 from bddk_mcp.tools.structured_outputs import SOURCE_DATA_BEGIN, SOURCE_DATA_END, UNTRUSTED_SOURCE_WARNING
 
@@ -121,6 +122,7 @@ async def test_malicious_looking_document_text_remains_bounded_data_not_result_m
             extraction_method="manual_latex",
         )
     )
+    doc_store.get_document_quality = AsyncMock(return_value=assess_markdown_quality(malicious_source, "mevzuat_5411"))
     client = MagicMock()
     client.find_by_id.return_value = None
     deps = Dependencies(pool=None, doc_store=doc_store, client=client, http=None)
@@ -181,6 +183,9 @@ async def test_all_six_retrieval_text_fallbacks_frame_source_metadata_and_escape
     )
     doc_store = MagicMock()
     doc_store.get_version_counts = AsyncMock(return_value={})
+    doc_store.get_document_quality = AsyncMock(
+        return_value=assess_markdown_quality(malicious_metadata, "metadata-injection")
+    )
     doc_store.get_document_page = AsyncMock(
         return_value=DocumentPage(
             document_id="metadata-injection",

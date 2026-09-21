@@ -1,0 +1,1025 @@
+{
+  "document_id": "1313",
+  "status": "source_reviewed_candidate_awaiting_owner_approval",
+  "source_pdf_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+  "original_markdown_sha256": "75616163e6fffb4ddbebaf4b3c33a2f3cf7c1a4578a75966436012dc7d00bae6",
+  "partial_markdown_sha256": "a4118eca762d0e2be949176faa4657fa9a5318d44e27ebc87bc83960a99bcb9f",
+  "candidate_markdown_sha256": "a4118eca762d0e2be949176faa4657fa9a5318d44e27ebc87bc83960a99bcb9f",
+  "pages_textually_compared": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54
+  ],
+  "pages_individually_reviewed": [
+    9,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    28,
+    29,
+    30,
+    46,
+    47,
+    48,
+    51,
+    52,
+    53
+  ],
+  "pages_layout_contact_sheet_reviewed": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    10,
+    17,
+    27,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    49,
+    50,
+    54
+  ],
+  "coverage_evidence": "1313-textual-coverage.json",
+  "source_page_count": 54,
+  "formula_table_pages_reviewed": [
+    4,
+    5,
+    8,
+    9,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    28,
+    29,
+    30,
+    42,
+    46,
+    47,
+    48,
+    51,
+    52,
+    53
+  ],
+  "display_formulas": 44,
+  "tables": 4,
+  "reading_order_repairs": 12,
+  "review_notes": [
+    "Display equations, inline expressions and tables transcribed from rendered source pages; exact counts and page lists are recorded above. Text outside these exact spans is unchanged. All 54 pages were textually compared, with individually rendered formula/table review and remaining layouts inspected in contact sheets. Not a claim of line-by-line visual prose review or independent legal approval.",
+    "Table 2 retains the printed slash/multiplication sequence and unmatched ordinary parentheses, not a silently corrected Black-Scholes fraction. Sigma squared has no i subscript in the source numerator.",
+    "The source PDF encodes its printed CDF symbol as Cyrillic U+0444 (ф), including its definition. Preserve it rather than silently replacing it with Greek phi.",
+    "Table 1 preserves printed 1.25 and 5,5 punctuation. OCR is only a draft: its prose and mathematical normalization were not automatically accepted.",
+    "The page-28 private-use summation is restored with its printed min(1 year; maturity) upper bound and delta-t weights. The RV summation indices split onto page 24 are joined to the page-23 equation.",
+    "Table 3 retains blank correlation cells for interest-rate and FX classes; blank is not a fabricated zero. Page 21 retains D_j in the FX equation despite i-indexed operands.",
+    "High-resolution source crops confirm upper-case K and J in the commodity T term, lower-case k in D_k, and a printed euro sign rather than set-membership on page 26. These source inconsistencies are retained, not silently repaired as mathematics.",
+    "The page-29 BRT definition omits its article number in print; preserve the omission. Page 46 prints baseline SMKT and RTi, unlike subsequent subscripted notation; preserve that too. Table 4's merged final-row percentages are repeated across the two covered columns.",
+    "Twelve prose/definition spans are restored to PDF reading order with exact token-multiset equality before/after. A stray standalone D absent from the printed page-28 paragraph is removed. The separate full-source audit accounts for every differing token span.",
+    "No registry, extraction provenance, signed seed or active release changes."
+  ],
+  "ocr_receipts": [
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 9,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "4a1ea6f2a20269d4b652b580a4d879adefc17f2885edd6431d32b424d2a88a17",
+      "token_count": 1615,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 11,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "5dec706a1daddd935f1dc384fe397ec6d9c207d834217bc013b1a3610454daad",
+      "token_count": 1615,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 12,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "68a3d82fae9d4b8f92ce487a168ad1e8b680fde16ce52cfd01ad8e66cbc66b01",
+      "token_count": 1615,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 13,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "0fd85ae5853ddbd7b50c9a453e3e4bfda7bb1b3372bb7543d1ea97394fb8c074",
+      "token_count": 1615,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 15,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "e6343ca6581a255110209a1b01d0eaf8843b64dbf857d288387c0e6704810587",
+      "token_count": 1807,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 16,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "cf8cdd60d91282aad7e1a9d2eef350d554ab727ef6a3dc42ab8fd3abd611badc",
+      "token_count": 1807,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 18,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "e6c81a6575312ee5dc1956dcf3158c6550d5b08cf27ca74c15bdadaa0bcb4f5a",
+      "token_count": 1807,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 19,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "868388c79fa182e558b802b3e536adf223bd8e837fd8af6d410de36dae5b9c4c",
+      "token_count": 1807,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 20,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "54f44ddba0fff0717d184cdf9b463a129d1da904390ed623a90fbec56aeb0f29",
+      "token_count": 1743,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 21,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "9577bece63545404a28c7b2ce1693293db55d55b045968ca653f60c5e9f272ad",
+      "token_count": 1743,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 22,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "d0efab927463f96ec2ef9f6c81b6535e3023b80bcbec99dc3dde952fd44763fd",
+      "token_count": 1743,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 23,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "82a807846dada5db1b6fc831c38f1f129e325521872ad2d6682489248bf2fefd",
+      "token_count": 1743,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 24,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "99e1fca15ba438078e0f5c50d3d64669807bebb2649f0aa3e09c1bea99c44535",
+      "token_count": 1529,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 25,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "b250ed9e92c80361b33bfd4258408bb59a8a4f805727ebb96a2204fbe8a92a4d",
+      "token_count": 1529,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 26,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "59f0d94a5e439483551621e2ada57465dddad1d450ce0186731ccbd3a45aa795",
+      "token_count": 1529,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 28,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "bcb8fca9a6bef37b299dd9bb2ce81bbba0979bf70c93e883a9ef56fc87008547",
+      "token_count": 1529,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 29,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "0ca8d536e6cbce95180b3d3311cabd30ca146e0d76310d348988a0b5a0c984c8",
+      "token_count": 1711,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 30,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "6fb0f7d87e5e5adffc5c9d61ecbacf5d8ab5b808add5fee3e3b9efdd832dd4a9",
+      "token_count": 1711,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 46,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "fce59e596f6734fa1fcce3f9c186635f2b85caf1bc8f315f36fe969341fd608a",
+      "token_count": 1711,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 47,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "50a36e27c00ec3f10af4106ca012034c14544ed891ad7664187c912284d58546",
+      "token_count": 1711,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 48,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "3487479b80f0033cfe7f25bd4120cc777cd5a7f6752a8fbca12466743a33d143",
+      "token_count": 1624,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 51,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "2cb0fda3ac1b48e01709ae422b3158cf754b5a47628e0ca2d360b4fa38930885",
+      "token_count": 1624,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 52,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "cd349149ced3cd7c4e1206fffb607900ea72cbdd5b0f0729a261956920fa7613",
+      "token_count": 1624,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    },
+    {
+      "source_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+      "page": 53,
+      "model_revision": "af93b47dba1b47b6640c86ccf487ed2260ab9a09",
+      "markdown_sha256": "8b51daf94d3338d6e224d559adf4598d203f36331241b0ebeb7fd3ebe0d24a95",
+      "token_count": 1624,
+      "error": false,
+      "review_status": "unreviewed_ocr_candidate"
+    }
+  ],
+  "replacements": [
+    {
+      "start": 11583,
+      "end": 11853,
+      "old": "ll)  Temerrüt  halinde  kayıp  (THK):  **  tarih  ve  **  sayılı  Resmî  Gazete’de  yayımlanan\nile\n\nTemel  Kredi  Riskine  Esas  Tutarın  İçsel  Derecelendirmeye  Dayalı  Yaklaşımlar\nHesaplanmasına İlişkin Tebliğin 3 üncü maddesinde tanımlanana temerrüt halinde kaybı,\n\n",
+      "new": "ll) Temerrüt halinde kayıp (THK): ** tarih ve ** sayılı Resmî Gazete’de yayımlanan Temel Kredi Riskine Esas\nTutarın İçsel Derecelendirmeye Dayalı Yaklaşımlar ile Hesaplanmasına İlişkin Tebliğin 3 üncü maddesinde\ntanımlanana temerrüt halinde kaybı,\n\n",
+      "source_pages": [
+        4
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 14237,
+      "end": 14548,
+      "old": "(2)  NMKT’ye  ilişkin  usul  ve  esasları  belirleyen  Sermaye  Piyasası  Kurulu  muadili  bir\ndüzenleyici  otoritenin  bulunmaması  durumunda,  bu  kuruluşun  NMKT  olarak  değerlendirilip\ndeğerlendirilmeyeceğine\nilgili  bankacılık  denetim  otoritesinin\ndeğerlendirmesi dikkate alınır.\n\nilişkin  o  ülkedeki\n\n",
+      "new": "(2) NMKT’ye ilişkin usul ve esasları belirleyen Sermaye Piyasası Kurulu muadili bir düzenleyici otoritenin\nbulunmaması durumunda, bu kuruluşun NMKT olarak değerlendirilip değerlendirilmeyeceğine ilişkin o ülkedeki\nilgili bankacılık denetim otoritesinin değerlendirmesi dikkate alınır.\n\n",
+      "source_pages": [
+        4
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 15685,
+      "end": 15879,
+      "old": "MADDE  8-\n\nfonu  olarak\ndeğerlendirilmesinde, söz konusu havuzların MKT’ler tarafından yapılmış tanımlarından çok,\nözü ve içeriği önemlidir.\n\n(1)  Ortak  kayıp  paylaşım  havuzlarının  garanti\n\n",
+      "new": "MADDE 8- (1) Ortak kayıp paylaşım havuzlarının garanti fonu olarak değerlendirilmesinde, söz konusu havuzların\nMKT’ler tarafından yapılmış tanımlarından çok, özü ve içeriği önemlidir.\n\n",
+      "source_pages": [
+        5
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 26063,
+      "end": 27243,
+      "old": "MADDE 15- (1) 11 inci maddenin birinci fıkrasındaki işlemlere ilişkin riske esas tutar,\ndördüncü  fıkra  hükümleri  saklı  kalmak  kaydıyla,  merkezi  karşı  taraflardan  kaynaklanmayan\nriskler için risk tutarının ilgisine göre ** tarihli ve ** sayılı Resmî Gazete’de yayımlanan Temel\nKredi Riskine Esas Tutarın Standart Yaklaşım İle Hesaplanmasına İlişkin Tebliğde veya  Temel\nKredi  Riskine  Esas  Tutarın  İçsel  Derecelendirmeye  Dayalı  Yaklaşımlar  İle  Hesaplanmasına\nİlişkin Tebliğde belirtilen risk ağırlıkları ile merkezi karşı taraflardan kaynaklanan ticari riskler\niçin  risk  tutarının  ilgisine  göre  Temel  Kredi  Riskine  Esas  Tutarın  Standart  Yaklaşım  ile\nİçsel\nHesaplanmasına\nDerecelendirmeye  Dayalı  Yaklaşımlar  ile  Hesaplanmasına  İlişkin  Tebliğde  belirtilen  risk\nağırlıkları ya da bu Tebliğde %2 veya %4 olarak belirtilen risk ağırlıkları ile çarpılması suretiyle\nbulunur.  Merkezi karşı taraflardan kaynaklanan işlemlere ilişkin olarak garanti fonu katkı tutarı\niçin riske esas tutar, 59 uncu madde ile 60 ıncı maddenin ikinci fıkrasında belirtilen hükümler\nçerçevesinde hesaplanır.\n\nİlişkin  Tebliğde  veya  Temel  Kredi  Riskine  Esas  Tutarın\n\n",
+      "new": "MADDE 15- (1) 11 inci maddenin birinci fıkrasındaki işlemlere ilişkin riske esas tutar, dördüncü fıkra\nhükümleri saklı kalmak kaydıyla, merkezi karşı taraflardan kaynaklanmayan riskler için risk tutarının ilgisine\ngöre ** tarihli ve ** sayılı Resmî Gazete’de yayımlanan Temel Kredi Riskine Esas Tutarın Standart Yaklaşım İle\nHesaplanmasına İlişkin Tebliğde veya Temel Kredi Riskine Esas Tutarın İçsel Derecelendirmeye Dayalı\nYaklaşımlar İle Hesaplanmasına İlişkin Tebliğde belirtilen risk ağırlıkları ile merkezi karşı taraflardan\nkaynaklanan ticari riskler için risk tutarının ilgisine göre Temel Kredi Riskine Esas Tutarın Standart\nYaklaşım ile Hesaplanmasına İlişkin Tebliğde veya Temel Kredi Riskine Esas Tutarın İçsel Derecelendirmeye\nDayalı Yaklaşımlar ile Hesaplanmasına İlişkin Tebliğde belirtilen risk ağırlıkları ya da bu Tebliğde %2 veya\n%4 olarak belirtilen risk ağırlıkları ile çarpılması suretiyle bulunur. Merkezi karşı taraflardan kaynaklanan\nişlemlere ilişkin olarak garanti fonu katkı tutarı için riske esas tutar, 59 uncu madde ile 60 ıncı maddenin\nikinci fıkrasında belirtilen hükümler çerçevesinde hesaplanır.\n\n",
+      "source_pages": [
+        8
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 28890,
+      "end": 28918,
+      "old": "Risk Tutarı = α * (YM + PKT)",
+      "new": "$$\n\\text{Risk Tutarı} = \\alpha * (\\mathrm{YM} + \\mathrm{PKT})\n$$",
+      "source_pages": [
+        9
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 35718,
+      "end": 35746,
+      "old": "YM = maksimum (CPD – CTD, 0)",
+      "new": "$$\n\\mathrm{YM} = \\operatorname{maksimum}(\\mathrm{CPD} - \\mathrm{CTD}, 0)\n$$",
+      "source_pages": [
+        11
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 39072,
+      "end": 39114,
+      "old": "YM = maks (CPD – CTD*, ET + ATT – NBTT, 0)",
+      "new": "$$\n\\mathrm{YM} = \\operatorname{maks}(\\mathrm{CPD} - \\mathrm{CTD}^{*}, \\mathrm{ET} + \\mathrm{ATT} - \\mathrm{NBTT}, 0)\n$$",
+      "source_pages": [
+        12
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 40611,
+      "end": 40669,
+      "old": "()()()  =  Ç()()()()()  ×   ()()()()()()()\n\n()()()()()()\n\n",
+      "new": "$$\n\\mathrm{PKT} = \\text{Çarpan} \\times \\text{Eklenti}^{toplam}\n$$\n\n",
+      "source_pages": [
+        12
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 41508,
+      "end": 41638,
+      "old": "Çarpan  =  min  ()1;  Taban Çarpan  +   (1 −  Taban Çarpan) × ()\n\n'\n\n(()*+(,*)\n\n-. × (/+ ,0102 Ç03402)×56()78()9\n\n:;<=>?\n\nA\n@\n\nB\n\n",
+      "new": "$$\n\\text{Çarpan} = \\min \\left\\{1;\\ \\text{Taban Çarpan} + (1 - \\text{Taban Çarpan}) \\times e^{\\left(\\frac{(\\mathrm{CPD}-\\mathrm{CTD})}{(2 \\times (1-\\text{Taban Çarpan}) \\times \\text{Eklenti}^{toplam})}\\right)}\\right\\}\n$$\n\n",
+      "source_pages": [
+        12
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 42558,
+      "end": 42615,
+      "old": "()()()()()()\n\n()()()()()()()\n\n= C ()()()()()()()\n()\n\n()\n\n",
+      "new": "$$\n\\text{Eklenti}^{toplam} = \\sum_a \\text{Eklenti}^{a}\n$$\n\n",
+      "source_pages": [
+        13
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 45754,
+      "end": 46077,
+      "old": "e) Her bir varlık sınıfı içinde yer alan işlemler riskten korunma gruplarına ayrılır. Riskten\nkorunma gruplarının oluşturulmasının amacı; aynı netleştirme grubu içinde yer alan işlemleri,\ntutarı  hesaplamasında  uzun  ve  kısa  pozisyonları  birbiriyle\nrisk\npotansiyel  kredi\nmahsuplaştıracak şekilde gruplara ayırmaktır.\n\n",
+      "new": "e) Her bir varlık sınıfı içinde yer alan işlemler riskten korunma gruplarına ayrılır. Riskten korunma\ngruplarının oluşturulmasının amacı; aynı netleştirme grubu içinde yer alan işlemleri, potansiyel kredi risk\ntutarı hesaplamasında uzun ve kısa pozisyonları birbiriyle mahsuplaştıracak şekilde gruplara ayırmaktır.\n\n",
+      "source_pages": [
+        13
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 48616,
+      "end": 49779,
+      "old": "Tablo 1: Vi, BAi ve BIi Hesaplama Örnekleri\nTürev İşlem\n10  yıl  vadeli  faiz  oranı  swabı  veya  kredi\ntemerrüt swabı\n5 yıl içinde başlayacak 10 yıl vadeli faiz oranı\nswabı\n6 ay içinde başlayacak ve 12 ay içinde bitecek\nvadeli döviz kuru sözleşmesi\n5  yıl  vadeli  faiz  oranı  swabına  dayalı  6  ay\niçinde  opsiyonun  kullanılabileceği  nakit\nödemeye dayalı Avrupa tipi swaption\n5  yıl  vadeli  faiz  oranı  swabına  dayalı  6  ay\niçinde  opsiyonun  kullanılabileceği  teslimatlı\nödemeye dayalı Avrupa tipi swaption\nHer  yıl  için  opsiyonun  kullanılabileceği  10\nyıllık Bermuda tipi swaption\n5 yıl vadeli 6 ay ödemeli faiz oranı tabanı veya\ntavanı\nEn geç uygulama opsiyonu 1 yıl sonra olan 5\nyıl vadeli tahvil opsiyonu\n\nVi\n\nBAi\n\n10 yıl\n\n15 yıl\n\n1 yıl\n\n6 ay\n\n0\n\n5 yıl\n\n6 ay\n\n6 ay\n\nBIi\n10 yıl\n\n15 yıl\n\n1 yıl\n\n5,5 yıl\n\n5,5 yıl\n\n6 ay\n\n5,5 yıl\n\n10 yıl\n\n1 yıl\n\n10 yıl\n\n5 yıl\n\n1 yıl\n\n0\n\n1 yıl\n\n5 yıl\n\n5 yıl\n\n1 yıl vadeli 3 aylık Eurodollar future\n20  yıllık  hazine  tahviline  dayalı  2  yıl  vadeli\nfuture\n20  yıllık  hazine  tahviline  dayalı  2  yıl  vadeli\nfuture’a dayalı 6 ay vadeli opsiyon\n\n1 yıl\n2 yıl\n\n2 yıl\n\n1 yıl\n2 yıl\n\n2 yıl\n\n1.25 yıl\n22 yıl\n\n22 yıl\n\n",
+      "new": "Tablo 1: $V_i$, $BA_i$ ve $BI_i$ Hesaplama Örnekleri\n\n| Türev İşlem | $V_i$ | $BA_i$ | $BI_i$ |\n| --- | --- | --- | --- |\n| 10 yıl vadeli faiz oranı swabı veya kredi temerrüt swabı | 10 yıl | 0 | 10 yıl |\n| 5 yıl içinde başlayacak 10 yıl vadeli faiz oranı swabı | 15 yıl | 5 yıl | 15 yıl |\n| 6 ay içinde başlayacak ve 12 ay içinde bitecek vadeli döviz kuru sözleşmesi | 1 yıl | 6 ay | 1 yıl |\n| 5 yıl vadeli faiz oranı swabına dayalı 6 ay içinde opsiyonun kullanılabileceği nakit ödemeye dayalı Avrupa tipi swaption | 6 ay | 6 ay | 5,5 yıl |\n| 5 yıl vadeli faiz oranı swabına dayalı 6 ay içinde opsiyonun kullanılabileceği teslimatlı ödemeye dayalı Avrupa tipi swaption | 5,5 yıl | 6 ay | 5,5 yıl |\n| Her yıl için opsiyonun kullanılabileceği 10 yıllık Bermuda tipi swaption | 10 yıl | 1 yıl | 10 yıl |\n| 5 yıl vadeli 6 ay ödemeli faiz oranı tabanı veya tavanı | 5 yıl | 0 | 5 yıl |\n| En geç uygulama opsiyonu 1 yıl sonra olan 5 yıl vadeli tahvil opsiyonu | 1 yıl | 1 yıl | 5 yıl |\n| 1 yıl vadeli 3 aylık Eurodollar future | 1 yıl | 1 yıl | 1.25 yıl |\n| 20 yıllık hazine tahviline dayalı 2 yıl vadeli future | 2 yıl | 2 yıl | 22 yıl |\n| 20 yıllık hazine tahviline dayalı 2 yıl vadeli future’a dayalı 6 ay vadeli opsiyon | 2 yıl | 2 yıl | 22 yıl |\n\n",
+      "source_pages": [
+        14,
+        15
+      ],
+      "kind": "table"
+    },
+    {
+      "start": 50185,
+      "end": 50234,
+      "old": "DODi = (e -0.05 * BA\n\ni – e -0.05 * BI\n\ni) / 0,05",
+      "new": "$$\n\\mathrm{DOD}_i = (e^{-0.05 * \\mathrm{BA}_i} - e^{-0.05 * \\mathrm{BI}_i}) / 0{,}05\n$$",
+      "source_pages": [
+        15
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 52505,
+      "end": 53184,
+      "old": "Tablo 2: Denetim otoritesi delta ayarlaması parametreleri\n\nTürev İşlem\n\nAna risk faktöründe\nuzun pozisyon\n\nAna risk faktöründe\nkısa pozisyon\n\n+1\n\nOpsiyon veya\nteminatlandırılmış\nborç yükümlülüğü\ndilimi olmayanlar\n\n-1\n\nAlım opsiyonu\n\nSatın alınmış\n+ф [((ln (PFi/UFi) + 0,5 * σ2 *\nVOi) / σi * VOi\n\n1/2]\n\nSatılmış\n-ф [((ln (PFi/UFi) + 0,5 * σ2 * VOi)\n/ σi * VOi\n\n1/2]\n\nSatım opsiyonu\n\n-ф [- ((ln (PFi/UFi) + 0,5 * σ2 *\n1/2]\nVOi) / σi * VOi\n\n+ф [- ((ln (PFi/UFi) + 0,5 * σ2 *\n1/2]\nVOi) / σi * VOi\n\nTeminatlandırılmış\nborç  yükümlülüğü\ndilimi\n\nSatın alınmış/Korumada uzun\n+ [15 / ((1 + 14 * BNi) * (1+ 14\n* ANi) )]\n\nSatılmış/Korumada kısa\n- [15 / ((1 + 14 * BNi)  * (1+ 14 *\nANi) )]\n\n",
+      "new": "Tablo 2: Denetim otoritesi delta ayarlaması parametreleri\n\n| Türev İşlem | Ana risk faktöründe uzun pozisyon | Ana risk faktöründe kısa pozisyon |\n| --- | --- | --- |\n| Opsiyon veya teminatlandırılmış borç yükümlülüğü dilimi olmayanlar | +1 | -1 |\n| | Satın alınmış | Satılmış |\n| Alım opsiyonu | $+\\text{ф} [((\\ln (\\mathrm{PF}_i/\\mathrm{UF}_i) + 0{,}5 * \\sigma^2 * \\mathrm{VO}_i) / \\sigma_i * \\mathrm{VO}_i^{1/2}]$ | $-\\text{ф} [((\\ln (\\mathrm{PF}_i/\\mathrm{UF}_i) + 0{,}5 * \\sigma^2 * \\mathrm{VO}_i) / \\sigma_i * \\mathrm{VO}_i^{1/2}]$ |\n| Satım opsiyonu | $-\\text{ф} [- ((\\ln (\\mathrm{PF}_i/\\mathrm{UF}_i) + 0{,}5 * \\sigma^2 * \\mathrm{VO}_i) / \\sigma_i * \\mathrm{VO}_i^{1/2}]$ | $+\\text{ф} [- ((\\ln (\\mathrm{PF}_i/\\mathrm{UF}_i) + 0{,}5 * \\sigma^2 * \\mathrm{VO}_i) / \\sigma_i * \\mathrm{VO}_i^{1/2}]$ |\n| | Satın alınmış/Korumada uzun | Satılmış/Korumada kısa |\n| Teminatlandırılmış borç yükümlülüğü dilimi | $+ [15 / ((1 + 14 * \\mathrm{BN}_i) * (1 + 14 * \\mathrm{AN}_i))]$ | $- [15 / ((1 + 14 * \\mathrm{BN}_i) * (1 + 14 * \\mathrm{AN}_i))]$ |\n\n",
+      "source_pages": [
+        15,
+        16
+      ],
+      "kind": "table"
+    },
+    {
+      "start": 54325,
+      "end": 54341,
+      "old": "D =   δ * d * VF",
+      "new": "$$\nD = \\delta * d * \\mathrm{VF}\n$$",
+      "source_pages": [
+        16
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 54904,
+      "end": 55097,
+      "old": "(b)  Bermuda\n\ntarihi  (BAi),  seçimlik  hakkın\nkullanılabileceği en erken tarih; bitiş tarihi (BIi) ise dayanak varlığın takasının yapıldığı son\ntarihtir.\n\ntakas  opsiyonları\n\niçin  başlangıç\n\n",
+      "new": "(b) Bermuda takas opsiyonları için başlangıç tarihi (BAi), seçimlik hakkın kullanılabileceği en erken tarih;\nbitiş tarihi (BIi) ise dayanak varlığın takasının yapıldığı son tarihtir.\n\n",
+      "source_pages": [
+        17
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 60129,
+      "end": 60173,
+      "old": "VFi\n\nmarjsız = [min (Vi;1 yıl) / (1 yıl)]0,5",
+      "new": "$$\n\\mathrm{VF}_i^{\\text{marjsız}} = [\\min(V_i; 1\\text{ yıl}) / (1\\text{ yıl})]^{0{,}5}\n$$",
+      "source_pages": [
+        18
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 60549,
+      "end": 60583,
+      "old": "VFi\n\nmarjlı = 1.5 * (RMS/1 yıl)0.5",
+      "new": "$$\n\\mathrm{VF}_i^{\\text{marjlı}} = 1.5 * (\\mathrm{RMS}/1\\text{ yıl})^{0.5}\n$$",
+      "source_pages": [
+        18
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 64359,
+      "end": 65110,
+      "old": "Tablo 3: Denetim Otoritesi Parametreleri\nVarlık Sınıfı\n\nAlt Sınıf\n\nDenetim  Otoritesi\nVolatilite\nParametresi\n(DOVPi)\n% 0,5\n\nFaiz oranı (tüm\ndöviz kurları için)\nDöviz kuru\nKredi, Tek varlık\n\nKredi, Endeks\n\nHisse  senedi,  Tek\nvarlık\nHisse\nEndeks\nEmtia\n\nsenedi,\n\nAAA\nAA\nA\nBBB\nBB\nB\nCCC\nYatırım\nyapılabilir\nSpekülatif\n\n% 4\n% 0,38\n% 0,38\n% 0,42\n% 0,54\n% 1,06\n% 1,6\n% 6\n% 0,38\n\n% 1,06\n% 32\n\n% 20\n\n% 40\nElektrik\nPetrol/Gaz\n% 18\nMetal/Maden  % 18\n\nDenetim\nOtoritesi\nKorelasyon\nParametresi (ρi)\n\nOpsiyonun\nDenetim\nOtoritesi\nVolatilitesi (σi)\n% 50\n\n% 50\n% 50\n% 50\n% 50\n% 50\n% 50\n% 50\n% 80\n\n% 80\n%50\n\n%80\n\n% 40\n% 40\n% 40\n\n% 15\n% 100\n% 100\n% 100\n% 100\n% 100\n% 100\n% 100\n% 80\n\n% 80\n% 120\n\n% 75\n\n% 150\n% 70\n% 70\n\n% 18\nTarım\nDiğer emtia  % 18\n\n% 40\n% 40\n\n% 70\n% 70\n\n",
+      "new": "Tablo 3: Denetim Otoritesi Parametreleri\n\n| Varlık Sınıfı | Alt Sınıf | Denetim Otoritesi Volatilite Parametresi ($\\mathrm{DOVP}_i$) | Denetim Otoritesi Korelasyon Parametresi ($\\rho_i$) | Opsiyonun Denetim Otoritesi Volatilitesi ($\\sigma_i$) |\n| --- | --- | --- | --- | --- |\n| Faiz oranı (tüm döviz kurları için) | | % 0,5 | | % 50 |\n| Döviz kuru | | % 4 | | % 15 |\n| Kredi, Tek varlık | AAA | % 0,38 | % 50 | % 100 |\n| | AA | % 0,38 | % 50 | % 100 |\n| | A | % 0,42 | % 50 | % 100 |\n| | BBB | % 0,54 | % 50 | % 100 |\n| | BB | % 1,06 | % 50 | % 100 |\n| | B | % 1,6 | % 50 | % 100 |\n| | CCC | % 6 | % 50 | % 100 |\n| Kredi, Endeks | Yatırım yapılabilir | % 0,38 | % 80 | % 80 |\n| | Spekülatif | % 1,06 | % 80 | % 80 |\n| Hisse senedi, Tek varlık | | % 32 | %50 | % 120 |\n| Hisse senedi, Endeks | | % 20 | %80 | % 75 |\n| Emtia | Elektrik | % 40 | % 40 | % 150 |\n| | Petrol/Gaz | % 18 | % 40 | % 70 |\n| | Metal/Maden | % 18 | % 40 | % 70 |\n| | Tarım | % 18 | % 40 | % 70 |\n| | Diğer emtia | % 18 | % 40 | % 70 |\n\n",
+      "source_pages": [
+        19,
+        20
+      ],
+      "kind": "table"
+    },
+    {
+      "start": 66217,
+      "end": 66249,
+      "old": "Di\n\n(FO) =   δi * di\n\n(FO) * VFi",
+      "new": "$$\nD_i^{(\\mathrm{FO})} = \\delta_i * d_i^{(\\mathrm{FO})} * \\mathrm{VF}_i\n$$",
+      "source_pages": [
+        20
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 67649,
+      "end": 67736,
+      "old": "Dj = [(Dj1)2 +(Dj2)2 + (Dj3)2 + 1.4 * Dj1 * Dj2 + 1.4 * Dj2 * Dj3 + 0.6 * Dj1 * Dj3]0,5",
+      "new": "$$\nD_j = [(D_{j1})^2 + (D_{j2})^2 + (D_{j3})^2 + 1.4 * D_{j1} * D_{j2} + 1.4 * D_{j2} * D_{j3} + 0.6 * D_{j1} * D_{j3}]^{0{,}5}\n$$",
+      "source_pages": [
+        20
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 67808,
+      "end": 67840,
+      "old": "Dj = | Dj1 | + | Dj2 | + | Dj3 |",
+      "new": "$$\nD_j = \\lvert D_{j1}\\rvert + \\lvert D_{j2}\\rvert + \\lvert D_{j3}\\rvert\n$$",
+      "source_pages": [
+        20
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 68132,
+      "end": 68169,
+      "old": "Eklentij\n\n(FO) = Dj(FO) * DOVPj\n\n(FO)",
+      "new": "$$\n\\text{Eklenti}_j^{(\\mathrm{FO})} = D_j^{(\\mathrm{FO})} * \\mathrm{DOVP}_j^{(\\mathrm{FO})}\n$$",
+      "source_pages": [
+        20
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 68403,
+      "end": 68521,
+      "old": "                                                                                    j\n\nEklenti (FO) = ∑ Eklentij\n\n(FO)",
+      "new": "$$\n\\text{Eklenti}^{(\\mathrm{FO})} = \\sum_j \\text{Eklenti}_j^{(\\mathrm{FO})}\n$$",
+      "source_pages": [
+        21
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 69300,
+      "end": 69332,
+      "old": "Dj\n\n(DK) =   δi * di\n\n(DK) * VFi",
+      "new": "$$\nD_j^{(\\mathrm{DK})} = \\delta_i * d_i^{(\\mathrm{DK})} * \\mathrm{VF}_i\n$$",
+      "source_pages": [
+        21
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 70596,
+      "end": 70637,
+      "old": "Eklentij\n\n(DK) = | Dj(DK) | * DOVPj\n\n(DK)",
+      "new": "$$\n\\text{Eklenti}_j^{(\\mathrm{DK})} = \\lvert D_j^{(\\mathrm{DK})}\\rvert * \\mathrm{DOVP}_j^{(\\mathrm{DK})}\n$$",
+      "source_pages": [
+        21
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 70990,
+      "end": 71089,
+      "old": "                                                                 j\n\nEklenti (DK) = ∑ Eklentij\n\n(DK)",
+      "new": "$$\n\\text{Eklenti}^{(\\mathrm{DK})} = \\sum_j \\text{Eklenti}_j^{(\\mathrm{DK})}\n$$",
+      "source_pages": [
+        21
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 71721,
+      "end": 71751,
+      "old": "Di\n\n(K) =   δi * di\n\n(K) * VFi",
+      "new": "$$\nD_i^{(K)} = \\delta_i * d_i^{(K)} * \\mathrm{VF}_i\n$$",
+      "source_pages": [
+        22
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 73174,
+      "end": 73213,
+      "old": "EklentiRV\n\n(K) = DRV\n\n(K) * DOVPRV\n\n(K)",
+      "new": "$$\n\\text{Eklenti}_{\\mathrm{RV}}^{(K)} = D_{\\mathrm{RV}}^{(K)} * \\mathrm{DOVP}_{\\mathrm{RV}}^{(K)}\n$$",
+      "source_pages": [
+        22
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 74411,
+      "end": 74583,
+      "old": "Eklenti(K) = [(∑ρRV\n\n(K) * EklentiRV\n\n(K))2 + ∑ (1-( ρRV\n\n(K))2) * (EklentiRV\n\n(K))2]0.5\n\n                                      RV                                      RV\n\n",
+      "new": "$$\n\\text{Eklenti}^{(K)} = [(\\sum_{\\mathrm{RV}} \\rho_{\\mathrm{RV}}^{(K)} * \\text{Eklenti}_{\\mathrm{RV}}^{(K)})^2 + \\sum_{\\mathrm{RV}} (1-(\\rho_{\\mathrm{RV}}^{(K)})^2) * (\\text{Eklenti}_{\\mathrm{RV}}^{(K)})^2]^{0.5}\n$$\n\n",
+      "source_pages": [
+        22
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 76814,
+      "end": 76845,
+      "old": "Di\n\n(HS) =  δi * di\n\n(HS) * VFi",
+      "new": "$$\nD_i^{(\\mathrm{HS})} = \\delta_i * d_i^{(\\mathrm{HS})} * \\mathrm{VF}_i\n$$",
+      "source_pages": [
+        23
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 78249,
+      "end": 78292,
+      "old": "EklentiRV\n\n(HS) = DRV\n\n(HS)  * DOVPRV\n\n(HS)",
+      "new": "$$\n\\text{Eklenti}_{\\mathrm{RV}}^{(\\mathrm{HS})} = D_{\\mathrm{RV}}^{(\\mathrm{HS})} * \\mathrm{DOVP}_{\\mathrm{RV}}^{(\\mathrm{HS})}\n$$",
+      "source_pages": [
+        23
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 78814,
+      "end": 79012,
+      "old": "Eklenti(HS) = [(∑ρRV\n\n(HS) * EklentiRV\n\n(HS))2 + ∑ (1-( ρRV\n\n(HS))2) * (EklentiRV\n\n(HS))2]0.5\n\n                                   RV                                                              RV\n\n",
+      "new": "$$\n\\text{Eklenti}^{(\\mathrm{HS})} = [(\\sum_{\\mathrm{RV}} \\rho_{\\mathrm{RV}}^{(\\mathrm{HS})} * \\text{Eklenti}_{\\mathrm{RV}}^{(\\mathrm{HS})})^2 + \\sum_{\\mathrm{RV}} (1-(\\rho_{\\mathrm{RV}}^{(\\mathrm{HS})})^2) * (\\text{Eklenti}_{\\mathrm{RV}}^{(\\mathrm{HS})})^2]^{0.5}\n$$\n\n",
+      "source_pages": [
+        23,
+        24
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 80909,
+      "end": 80937,
+      "old": "Di\n\n(E) = δi * di\n\n(E) * VFi",
+      "new": "$$\nD_i^{(E)} = \\delta_i * d_i^{(E)} * \\mathrm{VF}_i\n$$",
+      "source_pages": [
+        24
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 82036,
+      "end": 82081,
+      "old": "Eklenti TK\n\nJ (E) = Dk\n\n(E) * DOVP TK\n\nJ\n\n(E)",
+      "new": "$$\n\\text{Eklenti}\\ T_K^{J\\,(E)} = D_k^{(E)} * \\mathrm{DOVP}\\ T_K^{J\\,(E)}\n$$",
+      "source_pages": [
+        24
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 82862,
+      "end": 83125,
+      "old": "Eklenti RKGj\n\n (E) = [(ρj\n\n(E) * ∑Eklenti TK\n\nJ (E))2 + (1-( ρj\n\n(E))2) * ∑ (Eklenti TK\n\nJ (E))2]0.5\n\n                                                                               k                                                                              k\n\n",
+      "new": "$$\n\\text{Eklenti}_{\\mathrm{RKG}j}^{(E)} = [(\\rho_j^{(E)} * \\sum_k \\text{Eklenti}\\ T_K^{J\\,(E)})^2 + (1-(\\rho_j^{(E)})^2) * \\sum_k (\\text{Eklenti}\\ T_K^{J\\,(E)})^2]^{0.5}\n$$\n\n",
+      "source_pages": [
+        25
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 83362,
+      "end": 83491,
+      "old": "Eklenti(E) = ∑ Eklenti RKGj\n\n (E)\n\n                                                                                            j\n",
+      "new": "$$\n\\text{Eklenti}^{(E)} = \\sum_j \\text{Eklenti}_{\\mathrm{RKG}j}^{(E)}\n$$\n\n",
+      "source_pages": [
+        25
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 85995,
+      "end": 86144,
+      "old": "DEFG   =  H()()I {C\n\nMN ∈ FG\n\nH()()I (K()LMN;  0) –  H()()I(K()LFG;  0)\n\n; 0}\n\n+  H()()I {C\n\nMN ∈ FG\n\nH()() (K()LMN;  0) –  H()()(K()LFG;  0)\n\n; 0}\n\n",
+      "new": "$$\n\\begin{aligned}\\mathrm{YM}_{\\mathrm{MS}} ={} &\\operatorname{maks}\\{\\sum_{\\mathrm{NG}\\in\\mathrm{MS}} \\operatorname{maks}(\\mathrm{CPD}_{\\mathrm{NG}};0) - \\operatorname{maks}(\\mathrm{CTD}_{\\mathrm{MS}};0);0\\} \\\\ &+ \\operatorname{maks}\\{\\sum_{\\mathrm{NG}\\in\\mathrm{MS}} \\min(\\mathrm{CPD}_{\\mathrm{NG}};0) - \\min(\\mathrm{CTD}_{\\mathrm{MS}};0);0\\}\\end{aligned}\n$$\n\n",
+      "source_pages": [
+        25
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 86471,
+      "end": 86503,
+      "old": "PKTMS = ∑ PKTmarjsız\nNG € MS\n\nNG",
+      "new": "$$\n\\mathrm{PKT}_{\\mathrm{MS}} = \\sum_{\\mathrm{NG}\\ \\text{€}\\ \\mathrm{MS}} \\mathrm{PKT}_{\\mathrm{NG}}^{\\text{marjsız}}\n$$",
+      "source_pages": [
+        26
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 89228,
+      "end": 89856,
+      "old": "(2)  Bankalar,  tezgâhüstü  türev  işlemleri  ve  menkul  kıymet  finansman  işlemleri  için\nkullandıkları  yöntemden  bağımsız  olarak,  takas  süresi  uzun  işlemlere  yönelik  risk  tutarını\niçin  İMY  ve  SYY-KTKR’den  herhangi  birini  kullanabilir.  Kredi  riski\nhesaplamak\nhesaplanmasında  İDD  yaklaşımları  kullanmak  için  izin  alan  bankalar  da  takas  süresi  uzun\nişlemlere ilişkin olarak, bu işlemlerin önemlilik düzeyine bakılmaksızın, İDD yaklaşımlardaki\nrisk  ağırlıkları  yerine  kredi  riski  hesaplamasında  kullanılan  standart  yaklaşımdaki  risk\nağırlıklarını kalıcı olarak kullanmayı tercih edebilir.\n\n",
+      "new": "(2) Bankalar, tezgâhüstü türev işlemleri ve menkul kıymet finansman işlemleri için kullandıkları yöntemden\nbağımsız olarak, takas süresi uzun işlemlere yönelik risk tutarını hesaplamak için İMY ve SYY-KTKR’den\nherhangi birini kullanabilir. Kredi riski hesaplanmasında İDD yaklaşımları kullanmak için izin alan bankalar\nda takas süresi uzun işlemlere ilişkin olarak, bu işlemlerin önemlilik düzeyine bakılmaksızın, İDD\nyaklaşımlardaki risk ağırlıkları yerine kredi riski hesaplamasında kullanılan standart yaklaşımdaki risk\nağırlıklarını kalıcı olarak kullanmayı tercih edebilir.\n\n",
+      "source_pages": [
+        26
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 93891,
+      "end": 93914,
+      "old": "Risk tutarı = α x EBPRT",
+      "new": "$$\n\\text{Risk tutarı} = \\alpha\\ \\text{x}\\ \\mathrm{EBPRT}\n$$",
+      "source_pages": [
+        28
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 94298,
+      "end": 94356,
+      "old": "EBRT\n\nkt\n\n = maksimum (\n\nEBRT\n\nBRT\n\n;\n\nt\n\nk\n\n1-\n\n)\n\nt\n\nk\n\n",
+      "new": "$$\n\\mathrm{EBRT}_{t_k} = \\operatorname{maksimum}(\\mathrm{EBRT}_{t_{k-1}}; \\mathrm{BRT}_{t_k})\n$$\n\n",
+      "source_pages": [
+        28
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 94369,
+      "end": 94445,
+      "old": "cari tarih t0 olarak gösterilir ve\n\nEBRT\n\nt\n\n0\n\n cari risk tutarına eşittir.",
+      "new": "cari tarih $t_0$ olarak gösterilir ve $\\mathrm{EBRT}_{t_0}$ cari risk tutarına eşittir.",
+      "source_pages": [
+        28
+      ],
+      "kind": "inline_formula"
+    },
+    {
+      "start": 94841,
+      "end": 94909,
+      "old": "min(1 yıl;vade)\n\nEBPRT         =   \n\nEBRT\n\n*\n\nt\n\nk\n\nt\n\nk\n\nk\n\n=\n\n1\n\n",
+      "new": "$$\n\\mathrm{EBPRT} = \\sum_{k=1}^{\\min(1\\text{ yıl};\\text{vade})} \\mathrm{EBRT}_{t_k} * \\Delta t_k\n$$\n\n",
+      "source_pages": [
+        28
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 94922,
+      "end": 94949,
+      "old": "∆tk = tk – tk-1 ağırlıkları",
+      "new": "$\\Delta t_k = t_k - t_{k-1}$ ağırlıkları",
+      "source_pages": [
+        28
+      ],
+      "kind": "inline_formula"
+    },
+    {
+      "start": 96951,
+      "end": 96956,
+      "old": "\n\nD\n\n",
+      "new": "\n\n",
+      "source_pages": [
+        28
+      ],
+      "kind": "extraction_artifact"
+    },
+    {
+      "start": 98783,
+      "end": 99239,
+      "old": "()[\\/ ]^()\n6_/\n\n∑\n\nS = H()() ()\n\nFormülde;\n\n(()UV()W × ∆()W × YZ6)\n\n`()a7\n()[b/ ]^()\n\n+ ∑\n\n(UV()W × ∆()W × YZ6)\n\n()[\\/ ]^()\n6_/\n\n∑\n\n(()UV()W × ∆()W × YZ6)\n\n; 5B\n\n        :  k gelecek zamanını,\n\n      :  tk gelecek zaman için risksiz iskonto faktörünü,\n\n   :  üncü maddesinde tanımlanan beklenen risk tutarını,\n : 3 üncü maddesinde tanımlanan   efektif beklenen risk tutarını,\n\n()6\nYZ6\nUV()W\n()UV()W\n\n            ∆tk       : tk – tk-1 farkını\n\nifade eder.\n\n",
+      "new": "$$\nV = \\min\\left\\{\\frac{\\sum_{k=1}^{t_k\\leq 1\\text{ yıl}}(\\mathrm{EBRT}_k\\times\\Delta t_k\\times df_k)+\\sum_{t_k>1\\text{ yıl}}^{\\text{vade}}(\\mathrm{BRT}_k\\times\\Delta t_k\\times df_k)}{\\sum_{k=1}^{t_k\\leq 1\\text{ yıl}}(\\mathrm{EBRT}_k\\times\\Delta t_k\\times df_k)};5\\right\\}\n$$\n\nFormülde;\n$t_k$ : k gelecek zamanını,\n$df_k$ : $t_k$ gelecek zaman için risksiz iskonto faktörünü,\n$\\mathrm{BRT}_k$ : üncü maddesinde tanımlanan beklenen risk tutarını,\n$\\mathrm{EBRT}_k$ : 3 üncü maddesinde tanımlanan efektif beklenen risk tutarını,\n$\\Delta t_k$ : $t_k - t_{k-1}$ farkını\n\nifade eder.\n\n",
+      "source_pages": [
+        29
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 103113,
+      "end": 103137,
+      "old": "Riskin marj süresi=F+N-1",
+      "new": "$$\n\\text{Riskin marj süresi} = F+N-1\n$$",
+      "source_pages": [
+        30
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 151762,
+      "end": 152037,
+      "old": "c) MKT’nin işlemler için değişim teminatı tuttuğu ve üye kuruluşa ait teminatın MKT’nin\nyükümlülüklerini yerine getirememe riskine karşı korunmadığı durumlarda, riskin marj süresi\n10 iş gününden az olmamak üzere;\n1 yıl ya da\nİşlemin kalan vadesinden\n\ni)\nii)\nküçük olanıdır.\n\n",
+      "new": "c) MKT’nin işlemler için değişim teminatı tuttuğu ve üye kuruluşa ait teminatın MKT’nin yükümlülüklerini\nyerine getirememe riskine karşı korunmadığı durumlarda, riskin marj süresi 10 iş gününden az olmamak üzere; i)\n1 yıl ya da ii) İşlemin kalan vadesinden küçük olanıdır.\n\n",
+      "source_pages": [
+        42
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 166176,
+      "end": 166197,
+      "old": "SMKT =∑ RTi * RA * %8",
+      "new": "$$\n\\mathrm{SMKT} = \\sum \\mathrm{RTi} * \\mathrm{RA} * \\%8\n$$",
+      "source_pages": [
+        46
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 166220,
+      "end": 166488,
+      "old": "SMKT\n\n:  MKT’nin  tüm  üye  kuruluşlara  ve  bunların  müşterilerine  olan  riskinden\n\nkaynaklanan hipotetik sermaye yükümlülüğünü,\n\n: MKT’nin üye kuruluş (i) ve bu üye kuruluşun müşterilerinden olan riskini,\n: % 20’den az olmayan risk ağırlığını,\n\nRTi\nRA\nifade eder.\n",
+      "new": "SMKT : MKT’nin tüm üye kuruluşlara ve bunların müşterilerine olan riskinden kaynaklanan hipotetik sermaye\nyükümlülüğünü, RTi : MKT’nin üye kuruluş (i) ve bu üye kuruluşun müşterilerinden olan riskini, RA : % 20’den\naz olmayan risk ağırlığını, ifade eder.\n\n",
+      "source_pages": [
+        46
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 169947,
+      "end": 169983,
+      "old": "RTi = Maks (RAÖRTi – BTi – TFi  ; 0)",
+      "new": "$$\n\\mathrm{RT}_i = \\operatorname{Maks}(\\text{RAÖRT}_i - \\mathrm{BT}_i - \\mathrm{TF}_i;0)\n$$",
+      "source_pages": [
+        47
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 170006,
+      "end": 170629,
+      "old": "RAÖRTi:  Üye  kuruluş  i’nin  MKT’ye  gönderdiği  teminatların  Kredi  Riski  Azaltım\nTekniklerine İlişkin Tebliğ’de belirtilen usul ve esaslar çerçevesinde riski azaltıcı etkisi dikkate\nalınmadan hesaplanan MKT’nin üye kuruluştan olan risk tutarını,\n\nBTi\nTFi\n\n: Üye kuruluş i tarafından MKT’ye verilen başlangıç teminatını,\n:  Üye  kuruluşların  temerrüde  düşmesi  durumunda  MKT’nin  olası  zararlarını\nkarşılamak  amacıyla  üye  kuruluşun  başlangıç  teminatıyla  beraber  veya  bu  teminatın  hemen\nsonrasında kullanılacak olan üye kuruluş i’nin MKT’ye vermiş olduğu fonlanmış garanti fonu\nkatkı tutarını\n\nifade eder.\n",
+      "new": "RAÖRTi: Üye kuruluş i’nin MKT’ye gönderdiği teminatların Kredi Riski Azaltım Tekniklerine İlişkin Tebliğ’de\nbelirtilen usul ve esaslar çerçevesinde riski azaltıcı etkisi dikkate alınmadan hesaplanan MKT’nin üye\nkuruluştan olan risk tutarını, BTi : Üye kuruluş i tarafından MKT’ye verilen başlangıç teminatını, TFi : Üye\nkuruluşların temerrüde düşmesi durumunda MKT’nin olası zararlarını karşılamak amacıyla üye kuruluşun başlangıç\nteminatıyla beraber veya bu teminatın hemen sonrasında kullanılacak olan üye kuruluş i’nin MKT’ye vermiş\nolduğu fonlanmış garanti fonu katkı tutarını ifade eder.\n\n",
+      "source_pages": [
+        47
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 171132,
+      "end": 171189,
+      "old": "Si = maks {SMKT * (TFi / (TFMKT + TFÜK)) ; TFi * %8 * %2}",
+      "new": "$$\nS_i = \\operatorname{maks}\\{S_{\\mathrm{MKT}} * (\\mathrm{TF}_i / (\\mathrm{TF}_{\\mathrm{MKT}} + \\mathrm{TF}_{\\text{ÜK}}));\\mathrm{TF}_i * \\%8 * \\%2\\}\n$$",
+      "source_pages": [
+        47
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 171392,
+      "end": 171872,
+      "old": "TFMKT   : Olası zararları karşılamak için üye kuruluşlarca garanti fonuna konulan katkı\ntutarlarının  kullanımından  sonra  veya  bu  tutarlarla  beraber  kullanılacak  olan  ana  sermaye,\ngeçmiş yıllar karları gibi MKT tarafından tahsis edilecek fonlanmış sermayeyi,\n\n: Üye kuruluş i’nin MKT’ye vermiş olduğu fonlanmış garanti fonu katkı tutarını\nTFi\nifade eder. Üye kuruluş banka, bu formüle göre hesaplanan sermaye yükümlülüğünü 12,5\n\nile çarparak riske esas tutarı hesaplar.\n\n",
+      "new": "TFMKT : Olası zararları karşılamak için üye kuruluşlarca garanti fonuna konulan katkı tutarlarının\nkullanımından sonra veya bu tutarlarla beraber kullanılacak olan ana sermaye, geçmiş yıllar karları gibi MKT\ntarafından tahsis edilecek fonlanmış sermayeyi, TFi : Üye kuruluş i’nin MKT’ye vermiş olduğu fonlanmış garanti\nfonu katkı tutarını ifade eder. Üye kuruluş banka, bu formüle göre hesaplanan sermaye yükümlülüğünü 12,5 ile\nçarparak riske esas tutarı hesaplar.\n\n",
+      "source_pages": [
+        48
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 172487,
+      "end": 172740,
+      "old": "MADDE 60- (1) Nitelikli olmayan MKT’lere ilişkin ticari riskler için risk tutarı SYY-\ntutar  hesaplarken  kredi  riski\n\nKTKR  çerçevesinde  hesaplandıktan  sonra  riske  esas\nhesaplamasında standart yaklaşım çerçevesindeki risk ağırlıkları kullanılır.\n\n",
+      "new": "MADDE 60- (1) Nitelikli olmayan MKT’lere ilişkin ticari riskler için risk tutarı SYY-KTKR çerçevesinde\nhesaplandıktan sonra riske esas tutar hesaplarken kredi riski hesaplamasında standart yaklaşım çerçevesindeki\nrisk ağırlıkları kullanılır.\n\n",
+      "source_pages": [
+        48
+      ],
+      "kind": "reading_order"
+    },
+    {
+      "start": 172896,
+      "end": 172935,
+      "old": "()\nd9 = (()e9 + ()e9\n\n) ∙ %1250  ∙ %8\n\n",
+      "new": "$$\nS_i = (\\mathrm{TF}_i + \\mathrm{TF}_i^t)\\cdot\\%1250\\cdot\\%8\n$$\n\n",
+      "source_pages": [
+        48
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 183053,
+      "end": 183489,
+      "old": "Tablo 4: Asgari Teminat Kesinti Oranı\n\nTeminatın kalan vadesi\n\nKurumsal\nihraççılar\n\nve\n\ndiğer\n\nMenkul  kıymetleştirilmiş\nürünler\n\nTeminat kesinti oranı\n\n≤ 1 yıllık borç senetleri ve\ndeğişken faizli tahviller\n>  1  yıl,  ≤  5  yıl  borçlanma\nsenetleri\n> 5 yıl, ≤ 10 yıl borç menkul\nkıymetler\n>\n10\nsenetleri\nAna endeks hisse senetleri\nTebliğ kapsamına giren\ndiğer varlıklar\n\nborçlanma\n\nyıllık\n\n%0,5\n\n%1,5\n\n%3\n\n%4\n\n%6\n%10\n\n%1\n\n%4\n\n%6\n\n%7\n\n",
+      "new": "Tablo 4: Asgari Teminat Kesinti Oranı\n\n| Teminatın kalan vadesi | Teminat kesinti oranı / Kurumsal ve diğer ihraççılar | Teminat kesinti oranı / Menkul kıymetleştirilmiş ürünler |\n| --- | --- | --- |\n| ≤ 1 yıllık borç senetleri ve değişken faizli tahviller | %0,5 | %1 |\n| > 1 yıl, ≤ 5 yıl borçlanma senetleri | %1,5 | %4 |\n| > 5 yıl, ≤ 10 yıl borç menkul kıymetler | %3 | %6 |\n| > 10 yıllık borçlanma senetleri | %4 | %7 |\n| Ana endeks hisse senetleri | %6 | %6 |\n| Tebliğ kapsamına giren diğer varlıklar | %10 | %10 |\n\n",
+      "source_pages": [
+        51
+      ],
+      "kind": "table"
+    },
+    {
+      "start": 183793,
+      "end": 183807,
+      "old": "H = (T – K) /K",
+      "new": "$$\nH = (T-K)/K\n$$",
+      "source_pages": [
+        51
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 184311,
+      "end": 184330,
+      "old": "Etkin H = (TB/TA)-1",
+      "new": "$$\n\\text{Etkin }H = (T_B/T_A)-1\n$$",
+      "source_pages": [
+        52
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 184669,
+      "end": 184696,
+      "old": "Etkin f = (1+fB)/(1+fA) – 1",
+      "new": "$$\n\\text{Etkin }f = (1+f_B)/(1+f_A)-1\n$$",
+      "source_pages": [
+        52
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 185766,
+      "end": 185903,
+      "old": "()()()()() Z()()j()kö] =\n\n− 1\n\nr\n∑ q\n\n()r\n1 + Zrs\nr\n∑ ()r\n\np\n\n()\n∑ q\n\n()()\n1 + Z()s\n()\n∑ ()()\n\np\n\n⎡\n⎢\n⎢\n⎢\n⎢\n⎢\n⎢\n⎣\n\n⎤\nt\n⎥\n⎥\n⎥\n⎥\n⎥\n⎥\n⎦\n\nt\n\n",
+      "new": "$$\n\\text{Etkin }f_{\\text{portföy}} = \\left[\\frac{\\left(\\frac{\\sum_s\\left(\\frac{K_s}{1+f_s}\\right)}{\\sum_s K_s}\\right)}{\\left(\\frac{\\sum_t\\left(\\frac{T_t}{1+f_t}\\right)}{\\sum_t T_t}\\right)}\\right]-1\n$$\n\n",
+      "source_pages": [
+        52
+      ],
+      "kind": "display_formula"
+    },
+    {
+      "start": 186435,
+      "end": 186484,
+      "old": "()()()()() x()()j()kö] =\n\n∑ ()()\n()\nr − 1\n∑ ()r\n\n",
+      "new": "$$\n\\text{Etkin }H_{\\text{portföy}} = \\frac{\\sum_t T_t}{\\sum_s K_s}-1\n$$\n\n",
+      "source_pages": [
+        53
+      ],
+      "kind": "display_formula"
+    }
+  ]
+}

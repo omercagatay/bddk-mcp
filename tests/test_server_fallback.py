@@ -39,6 +39,7 @@ class TestGetBddkDocumentAirlock:
         mock_vs.get_document_page = AsyncMock(side_effect=Exception('relation "document_chunks" does not exist'))
 
         mock_doc_store = MagicMock()
+        mock_doc_store.get_document_quality = AsyncMock(return_value=None)
         mock_doc_store.get_document_page = AsyncMock(
             return_value=DocumentPage(
                 document_id="956",
@@ -83,6 +84,7 @@ class TestGetBddkDocumentAirlock:
         deps.doc_store = MagicMock()
         deps.doc_store.get_document_page = AsyncMock()
         deps.doc_store.get_extraction_method = AsyncMock(return_value="lightocr")
+        deps.doc_store.get_document_quality = AsyncMock(return_value=None)
 
         result = await _register_and_get_tool(deps)("956")
 

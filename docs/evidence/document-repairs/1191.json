@@ -1,0 +1,28 @@
+{
+  "document_id": "1191",
+  "status": "source_reviewed_candidate_awaiting_owner_approval",
+  "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1191",
+  "original_markdown_sha256": "35be4daba4ff9770802b37c0d0629b521f4fd55141995fc3259583b64ea64aac",
+  "candidate_markdown_sha256": "d3b42217382afb22970d7cd2ef5206f288f0d23fb06c70228d2bedb61c1e5869",
+  "glyph_repairs": 2,
+  "glyph_map": {
+    "U+F0D8": "➢"
+  },
+  "source_anomalies_preserved": [
+    "U+F0B7 bullet, U+F0A7 square, U+F0BE em-dash list, U+F0D8 arrowhead from source PDFs 954/934/787/1191."
+  ],
+  "replacements": [
+    {
+      "start": 1088,
+      "end": 1089,
+      "old": "",
+      "new": "➢"
+    },
+    {
+      "start": 1642,
+      "end": 1643,
+      "old": "",
+      "new": "➢"
+    }
+  ]
+}
