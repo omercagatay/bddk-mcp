@@ -328,10 +328,13 @@ async def test_activation_helper_sanitizes_database_connection_failures():
 
 
 @pytest.mark.parametrize("stale_at_commit", [False, True])
+@pytest.mark.parametrize("include_legal", [False, True])
 @pytest.mark.asyncio
 async def test_staging_helper_uses_verifier_identity_and_checks_membership_inside_transaction(
     tmp_path,
     stale_at_commit,
+    include_legal,
+    monkeypatch,
 ):
     from types import SimpleNamespace
 
@@ -348,6 +351,11 @@ async def test_staging_helper_uses_verifier_identity_and_checks_membership_insid
         ),
     )
     artifacts = {name: SimpleNamespace(role=name) for name in ("documents", "chunks", "decision_cache")}
+    legal_package = SimpleNamespace(bundles=()) if include_legal else None
+    legal_loader = MagicMock(return_value=legal_package)
+    monkeypatch.setattr("bddk_mcp.regulatory.corpus_evidence.load_legal_evidence", legal_loader)
+    if include_legal:
+        artifacts["legal_evidence"] = SimpleNamespace(role="legal_evidence")
     request = CorpusReleaseRequestIdentity(
         request_id="corpus_release_request_sha256_" + "a" * 64,
         release_id="corpus_release_sha256_" + "c" * 64,
@@ -435,6 +443,11 @@ async def test_staging_helper_uses_verifier_identity_and_checks_membership_insid
     stage.assert_awaited_once()
     assert stage.await_args.kwargs["signature_sha256"] == "4" * 64
     member.assert_awaited_once()
+    assert member.await_args.kwargs.get("expected_legal_evidence") is legal_package
+    if include_legal:
+        legal_loader.assert_called_once_with(tmp_path.resolve(), validation)
+    else:
+        legal_loader.assert_not_called()
     assert events == ["transaction-enter", "stage", "membership", "freshness", "transaction-exit"]
     if stale_at_commit:
         assert transaction.__aexit__.await_args.args[0] is RuntimeError

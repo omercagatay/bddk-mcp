@@ -677,6 +677,20 @@ complete non-loopback HTTP policy (`BDDK_HTTP_ALLOWED_HOSTS`,
 `BDDK_HTTP_ALLOWED_ORIGINS`, and either the full `BDDK_JWT_*` set or the
 explicit unauthenticated opt-in); without them the server refuses startup.
 
+For an ephemeral preview process without a CA-file mount, set
+`BDDK_DATABASE_CA_PEM` to the approved **public CA certificate**, obtained through
+an authenticated operator channel. Point each applicable DSN at
+`sslmode=verify-full&sslrootcert=%2Ftmp%2Fbddk-db-ca.pem`. The shared transport
+boundary validates the bounded PEM and atomically prepares that one file with
+mode `0600` before opening a connection. This covers pre-deploy bootstrap,
+serving, admin and owner/verifier/publisher CLI processes; no shell wrapper or
+persistent application volume is required. Existing mounted CA paths are not
+changed. Malformed certificates, private-key material and oversize input fail
+closed, without replacing a previously prepared CA. Hostname verification and
+the distinct database-role contracts remain mandatory. Configure a new CA and
+redeploy before certificate rotation/expiry; this is not automatic trust discovery.
+Bank deployments should continue using their approved separately mounted CA.
+
 For the existing admin preview service, set its **Railway Config File** to
 `/deploy/railway/admin.toml`, keeping the repository root as its source root. This
 uses the same Dockerfile with the direct start command

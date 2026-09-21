@@ -1,0 +1,25 @@
+{
+  "state": "awaiting_actual_human_review",
+  "not_an_approval": true,
+  "requested_as_of": "2026-06-30",
+  "candidate_package_sha256": "d29d65ed4e09a08e08b49c50195cbabfd51775ededcbbcbc23bacc50f03e0684",
+  "instrument_id": "inst_sha256_175e2d11d4ca6d78085ae4b3e0c030077186ac7437580bb17c26921ee58e5d09",
+  "legal_version_id": "ver_sha256_f4a91d7278be227333352910897ddcde215102bcd868571aea4e5aa0dcdd2673",
+  "questions": [
+    "Does the declared complete normalized snapshot and its article 9 correctly map to the retained authoritative source bytes, considering the explicitly listed encoding/layout differences?",
+    "Are the proposed publication (2018-03-14) and effective (2018-01-01) events correct for this snapshot, distinguished from the original instrument (2013 publication / 2014 commencement)? Correct rather than approve any inappropriate version event.",
+    "Does the retained primary-source amendment/transition chain support an authoritative effective-status assertion for precisely 2026-06-30? If evidence is insufficient, leave it in_review rather than inferring validity from a missing repeal."
+  ],
+  "exclusions": [
+    "No status outside 2026-06-30",
+    "No bank-specific applicability, J25 accounting classification, offset eligibility or arithmetic conclusion",
+    "No claim of independent bank acceptance or legal certification"
+  ],
+  "required_if_approved": [
+    "Actual reviewer identity",
+    "Actual UTC review time",
+    "Review method and the exact approved/corrected subject identities",
+    "A retained review record whose bytes are included in the signed corpus"
+  ],
+  "signature_or_publication_performed": false
+}

@@ -604,7 +604,7 @@ async def test_live_role_allow_and_deny_matrix_is_transactional() -> None:
     not (_ROLE_TEST_DSN and _RUN_DISPOSABLE_LOGIN_TEST),
     reason="requires explicit approval for a dedicated disposable PostgreSQL cluster",
 )
-async def test_live_actual_login_identity_and_acl_provenance_contracts() -> None:
+async def test_live_actual_login_identity_and_acl_provenance_contracts(tmp_path, monkeypatch) -> None:
     """Provision real LOGINs on a disposable cluster and test pool admission.
 
     This test intentionally leaves cluster-global roles behind and is therefore
@@ -783,6 +783,18 @@ async def test_live_actual_login_identity_and_acl_provenance_contracts() -> None
                 f"REVOKE SELECT ON public.document_retrieval_publications FROM {login_roles['telemetry']}"
             )
         await assert_telemetry_writer_ready(telemetry_pool)
+
+        from urllib.parse import quote, urlencode
+
+        from tests.legal_publication_support import exercise_signed_legal_publication
+
+        dsns = {
+            profile: f"postgresql://{name}:{quote(passwords[profile], safe='')}@{parsed.hostname}:"
+            f"{parsed.port or 5432}/{database_name}"
+            for profile, name in login_roles.items()
+        }
+        dsns["schema"] += "?" + urlencode({"options": "-c role=bddk_schema_owner"})
+        await exercise_signed_legal_publication(admin, dsns, tmp_path, monkeypatch)
     finally:
         for pool in reversed(pools):
             await pool.close()

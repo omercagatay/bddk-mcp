@@ -457,6 +457,93 @@ def _member_manifest(bundle: LegalVersionBundle) -> str:
     return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
+def project_bundle_rows(bundle: LegalVersionBundle, *, imported_by: str) -> dict[str, list[dict[str, Any]]]:
+    """Project immutable signed facts independently of the SQL import implementation.
+
+    Volatile database timestamps are not artifact facts. All schema-owned content,
+    validation provenance and import membership are; no extra relations are implied.
+    A new corpus uses fresh staging rather than silently deleting historic imports.
+    """
+    rows: dict[str, list[dict[str, Any]]] = {table: [] for table in _COLUMN_TYPES}
+    rows["public.regulatory_instruments"] = [bundle.instrument.model_dump()]
+    rows["public.regulatory_source_blobs"] = [blob.model_dump() for blob in bundle.blobs]
+    rows["public.regulatory_source_artifacts"] = [artifact.model_dump() for artifact in bundle.artifacts]
+    rows["public.regulatory_evidence"] = [evidence.model_dump() for evidence in _evidence(bundle)]
+    rows["public.regulatory_provisions"] = [
+        {
+            "provision_id": provision.provision_id,
+            "instrument_id": provision.instrument_id,
+            "provision_kind": provision.kind,
+            "canonical_path": provision.canonical_path,
+        }
+        for provision in bundle.provisions
+    ]
+    for version in bundle.versions:
+        rows["public.regulatory_legal_versions"].append(
+            {
+                "legal_version_id": version.legal_version_id,
+                "instrument_id": version.instrument_id,
+                "version_key": version.version_key,
+                "legal_text_sha256": version.legal_text_sha256,
+                "predecessor_version_id": version.predecessor_version_id,
+                "consolidation_state": version.consolidation_state.value,
+                **_validation_values(version.validation),
+            }
+        )
+        rows["public.regulatory_legal_version_artifacts"].extend(
+            {"legal_version_id": version.legal_version_id, "artifact_id": artifact_id, "source_role": "legal_text"}
+            for artifact_id in version.source_artifact_ids
+        )
+        rows["public.regulatory_legal_events"].extend(
+            {
+                "event_id": event.event_id,
+                "legal_version_id": version.legal_version_id,
+                "event_type": event.event_type.value,
+                "event_date": event.event_date,
+                "evidence_id": event.evidence.evidence_id,
+                "target_legal_version_id": event.target_legal_version_id,
+                **_validation_values(event.validation),
+            }
+            for event in _events(version)
+        )
+        rows["public.regulatory_legal_status_assertions"].extend(
+            {
+                "assertion_id": assertion.assertion_id,
+                "legal_version_id": version.legal_version_id,
+                "legal_status": assertion.status.value,
+                "valid_from": assertion.valid_from,
+                "valid_through": assertion.valid_through,
+                "evidence_id": assertion.evidence.evidence_id,
+                **_validation_values(assertion.validation),
+            }
+            for assertion in version.status_assertions
+        )
+        rows["public.regulatory_legal_version_provisions"].extend(
+            {
+                "legal_version_id": version.legal_version_id,
+                "provision_id": occurrence.provision_id,
+                "provision_text_sha256": occurrence.provision_text_sha256,
+                "document_section_id": occurrence.document_section_id,
+                "evidence_id": occurrence.evidence.evidence_id,
+                **_validation_values(occurrence.validation),
+            }
+            for occurrence in version.provisions
+        )
+    rows["public.regulatory_family_imports"] = [
+        {
+            "bundle_id": bundle.bundle_id,
+            "bundle_sha256": bundle.bundle_sha256,
+            "instrument_id": bundle.instrument.instrument_id,
+            "schema_version": bundle.schema_version,
+            "fixture_only": bundle.fixture_only,
+            "imported_by": imported_by,
+            "predecessor_bundle_sha256": None,
+            "member_manifest": _member_manifest(bundle),
+        }
+    ]
+    return rows
+
+
 async def _assert_section_mapping(connection: Any, occurrence: Any) -> None:
     if occurrence.document_section_id is None:
         return
@@ -763,21 +850,7 @@ async def _persist_version_claims(connection: Any, bundle: LegalVersionBundle) -
 # public entry point follows
 
 
-async def import_legal_version_bundle(
-    pool: _Pool,
-    bundle: LegalVersionBundle,
-    *,
-    imported_by: str,
-    allow_fixture: bool = False,
-) -> LegalVersionImportResult:
-    """Atomically import one immutable family bundle under an advisory lock.
-
-    Fixture data is rejected by default. The allow_fixture switch exists only
-    for disposable validation environments and does not affect resolver
-    guards. Conflicting stable identities abort the transaction rather than
-    overwriting a reviewed legal claim.
-    """
-
+def _assert_bundle_importable(bundle: LegalVersionBundle, *, imported_by: str, allow_fixture: bool) -> None:
     if not _IMPORTER_RE.fullmatch(imported_by):
         raise LegalVersionPersistenceError("imported_by is invalid; import refused.")
     has_fixture_artifact = any(artifact.fixture_only for artifact in bundle.artifacts)
@@ -786,8 +859,43 @@ async def import_legal_version_bundle(
     if canonical_bundle_sha256(bundle) != bundle.bundle_sha256:
         raise LegalVersionPersistenceError("Legal-version bundle checksum does not match; import refused.")
 
+
+async def import_legal_version_bundle(
+    pool: _Pool,
+    bundle: LegalVersionBundle,
+    *,
+    imported_by: str,
+    allow_fixture: bool = False,
+) -> LegalVersionImportResult:
+    """Atomically import one family; fixtures remain opt-in for disposable tests only."""
+    _assert_bundle_importable(bundle, imported_by=imported_by, allow_fixture=allow_fixture)
     try:
-        async with pool.acquire() as connection, connection.transaction():
+        async with pool.acquire() as connection:
+            return await import_legal_version_bundle_on_connection(
+                connection, bundle, imported_by=imported_by, allow_fixture=allow_fixture
+            )
+    except (asyncpg.PostgresError, OSError, TypeError, ValueError):
+        raise LegalVersionPersistenceError(
+            "Legal-version persistence failed and was rolled back; inspect database readiness and role grants."
+        ) from None
+
+
+async def import_legal_version_bundle_on_connection(
+    connection: Any,
+    bundle: LegalVersionBundle,
+    *,
+    imported_by: str,
+    allow_fixture: bool = False,
+) -> LegalVersionImportResult:
+    """Keep the same guarded import inside a caller's atomic multi-family transaction.
+
+    asyncpg uses a savepoint when a transaction is already open. The caller can
+    therefore roll back the whole signed package without weakening single-family
+    immutability, review transitions, clock checks or corpus locking.
+    """
+    _assert_bundle_importable(bundle, imported_by=imported_by, allow_fixture=allow_fixture)
+    try:
+        async with connection.transaction():
             await connection.execute(f"SET LOCAL lock_timeout = '{_LOCK_TIMEOUT}'")
             await connection.execute(f"SET LOCAL statement_timeout = '{_STATEMENT_TIMEOUT}'")
             database_now = await connection.fetchval("SELECT CURRENT_TIMESTAMP")

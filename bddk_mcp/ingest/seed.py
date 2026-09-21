@@ -43,6 +43,7 @@ from bddk_mcp.db_identity import (
     assert_release_publication_identity,
 )
 from bddk_mcp.db_transport import assert_database_transport
+from bddk_mcp.regulatory.corpus_evidence import LegalEvidencePackage, assert_legal_evidence_membership
 from bddk_mcp.store.bulk_write import (
     insert_document_chunk_rows,
     insert_document_version_rows,
@@ -54,7 +55,7 @@ from bddk_mcp.store.section_index import DocumentSection, extract_document_secti
 logger = logging.getLogger(__name__)
 
 SEED_DIR = Path(__file__).resolve().parents[2] / "seed_data"
-_RESERVED_SEED_ARTIFACTS = frozenset({"documents.json", "chunks.json", "decision_cache.json"})
+_RESERVED_SEED_ARTIFACTS = frozenset({"documents.json", "chunks.json", "decision_cache.json", "legal_evidence.json"})
 _CHUNK_ARTIFACT_FIELDS = frozenset(
     {
         "doc_id",
@@ -519,6 +520,7 @@ async def _assert_strict_seed_membership(
     expected_embeddings: list[list[float]],
     expected_sections: dict[str, list[DocumentSection]],
     retrieval_profile_sha256: str,
+    expected_legal_evidence: LegalEvidencePackage | None = None,
 ) -> None:
     """Require the release database to be exactly derived from signed seed rows.
 
@@ -600,6 +602,12 @@ async def _assert_strict_seed_membership(
         )
         or 0
     )
+
+    if expected_legal_evidence is not None:
+        await assert_legal_evidence_membership(connection, expected_legal_evidence)
+        # Exact signed membership above replaces the legacy empty-legal-state gate.
+        # Neither counts alone nor the presence of any signed file is sufficient.
+        unrepresented_legal_rows = 0
 
     canonical_documents = sorted(
         ({field: item[field] for field in sorted(_DOCUMENT_STORAGE_FIELDS)} for item in expected_documents),
