@@ -334,6 +334,30 @@ quality/retrieval tests, review the artifact delta, then follow the complete
 owner corpus-manifest signing → bootstrap → independent verify-and-stage →
 separate activate sequence below. Editorial signing never replaces any step.
 
+## Admin upload admission
+
+Upload and correction run in `bddk-mcp admin-ui`: the operator uploads one
+`.pdf`/`.docx` on `/uploads/new`, corrects the extraction on
+`/uploads/{id}/edit`, and marks it ready on `/uploads/{id}/admit`. Marking it
+ready only writes one admission request; the request shows `waiting`,
+`published`, or `error`. Uploads are stored next to the drafts SQLite file, so
+the admin service must set `BDDK_ADMIN_DRAFT_DB`. Nothing on these pages writes
+`public.documents`, chunks, or embeddings.
+
+`bddk-mcp admit-next-upload` must run in a **separate process** with the
+release credentials: `BDDK_RELEASE_VERIFIER_DATABASE_URL`,
+`BDDK_RELEASE_PUBLISHER_DATABASE_URL`, `BDDK_ADMISSION_SIGNING_KEY`, and
+`BDDK_ADMISSION_SIGNING_PUBLIC_KEY` (the job-held Ed25519 pair; the private key
+is an owner-only `0600` file outside the corpus and the draft storage). The
+admin service must not have any of these variables — the admin console only
+records the request and can never publish. The command processes exactly one
+oldest `waiting` request per run: it builds the staging corpus, signs it, runs
+verify-and-stage with the verifier identity and activates with the publisher
+identity, and marks `published` only after activation succeeds. A gate failure
+marks that request `error`; the previous release stays active and the draft
+remains for another attempt. See
+[Admin upload admission](ADMIN_UPLOAD_ADMISSION.md).
+
 ## Reviewed update procedure
 
 1. Acquire and normalize sources through the bounded ingestion path.

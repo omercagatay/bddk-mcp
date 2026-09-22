@@ -22,17 +22,25 @@ One request admits one document. A second document needs its own request.
 
 ## Admission job
 
-The admin console only inserts the request. A separate operator job, using the existing `OperatorJob` lifecycle and the `corpus_mutation` lock, performs the rest:
+The admin console only inserts the request. A separate operator process,
+`bddk-mcp admit-next-upload`, processes exactly one oldest `waiting` request
+per run:
 
 1. Read the saved corrected text. Do not read the file again.
-2. Build a new corpus declaration that contains the current corpus plus this document. Sign it with the existing corpus signing key held by the job. The admin password does not sign the corpus.
+2. Build a staging corpus that contains the current corpus plus this document, and sign its declaration with the job-held Ed25519 key (`BDDK_ADMISSION_SIGNING_KEY`, verified against `BDDK_ADMISSION_SIGNING_PUBLIC_KEY`). The admin password does not sign the corpus.
 3. Chunk and embed that text under the current retrieval profile.
-4. Run the existing verify-and-stage gate, then the existing activate gate, with separate verifier and publisher identities.
-5. Mark the request published only after activation succeeds.
+4. Run the existing verify-and-stage gate with the verifier identity (`BDDK_RELEASE_VERIFIER_DATABASE_URL`), then the existing activate gate with the publisher identity (`BDDK_RELEASE_PUBLISHER_DATABASE_URL`).
+5. Mark the request `published` only after activation succeeds.
 
-Failure at any gate leaves the previous release active. The draft remains. The request state is error. MCP keeps serving the old release.
+Failure at any gate leaves the previous release active. The draft remains. The request state is `error`. MCP keeps serving the old release. The command never touches the next waiting request in the same run.
 
 A successful admission creates a new corpus release for the whole corpus. The previous release is not deleted. MCP uses the new release only after activation.
+
+## Operator setup
+
+Upload and correction run in `bddk-mcp admin-ui`. Set `BDDK_ADMIN_DRAFT_DB` on the admin service: uploaded files live next to the drafts SQLite file, outside the corpus seed directory.
+
+`bddk-mcp admit-next-upload` must run in a different process with `BDDK_RELEASE_VERIFIER_DATABASE_URL`, `BDDK_RELEASE_PUBLISHER_DATABASE_URL`, `BDDK_ADMISSION_SIGNING_KEY`, and `BDDK_ADMISSION_SIGNING_PUBLIC_KEY`. The admin service must not have any of these variables. The command processes one oldest waiting request per run, so run it again for each admitted document.
 
 ## Security
 
