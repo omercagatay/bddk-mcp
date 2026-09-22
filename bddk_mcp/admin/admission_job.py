@@ -28,8 +28,8 @@ def admit_next(store: UploadStore, publisher: Callable[[str], Any]) -> str:
     if waiting is None:
         return "idle"
     request_id, upload_id = waiting
-    text = store.corrected_text(upload_id)
     try:
+        text = store.corrected_text(upload_id)
         publisher(text)
     except Exception:
         store.mark(request_id, "error")

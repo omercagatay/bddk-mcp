@@ -121,3 +121,23 @@ def test_cli_admit_next_upload_requires_a_draft_database(monkeypatch):
 
     with pytest.raises(RuntimeError, match="BDDK_ADMIN_DRAFT_DB"):
         _run_admit_next_upload(args)
+
+
+def test_lost_correction_marks_the_request_error_and_keeps_the_queue_draining(tmp_path):
+    """A waiting request whose admissible text vanished must not block later ones."""
+
+    import sqlite3
+    from contextlib import closing
+
+    from bddk_mcp.admin.admission_job import admit_next
+
+    store = UploadStore(tmp_path / "drafts.sqlite")
+    upload_id = store.save("a.pdf", b"%PDF-1.4\n")
+    store.save_correction(upload_id, "kayip metin")
+    request_id = store.admit(upload_id)
+    with closing(sqlite3.connect(store.draft_db)) as db, db:
+        db.execute("DELETE FROM upload_drafts WHERE upload_id = ?", (upload_id,))
+
+    assert admit_next(store, lambda text: None) == "error"
+    assert store.request_state(request_id) == "error"
+    assert admit_next(store, lambda text: None) == "idle"
