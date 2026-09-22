@@ -825,6 +825,9 @@ def _verify_corpus(
 
 
 def main(argv: Sequence[str] | None = None) -> None:
+    from bddk_mcp.db_transport import materialize_postgres_ca_from_env
+
+    materialize_postgres_ca_from_env()
     parser = build_parser()
     args = parser.parse_args(argv)
 
