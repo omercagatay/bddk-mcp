@@ -40,6 +40,7 @@ ALLOWED_TOP_LEVEL = {
     ".github",
     ".gitignore",
     ".mcp.json",
+    "AGENTS.md",
     "CHANGELOG.md",
     "CLAUDE.md",
     "CONTRIBUTING.md",

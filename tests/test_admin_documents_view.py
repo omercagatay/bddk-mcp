@@ -76,6 +76,10 @@ def test_invalid_page_number_does_not_error(client: TestClient) -> None:
 
 
 class FakeStoreWithDetail(FakeStore):
+    def __init__(self, rows):
+        super().__init__(rows)
+        self.saved = None
+
     async def get_document(self, doc_id):
         if doc_id != "mevzuat_1":
             return None
@@ -92,6 +96,9 @@ class FakeStoreWithDetail(FakeStore):
             file_size=1024,
         )
 
+    async def store_document(self, doc):
+        self.saved = doc
+
 
 @pytest.fixture
 def detail_client() -> TestClient:
@@ -107,6 +114,33 @@ def test_detail_shows_metadata_and_content(detail_client: TestClient) -> None:
     assert response.status_code == 200
     assert "5411" in response.text
     assert "Amac ve kapsam." in response.text
+    assert "Duzenle" in response.text
+
+
+def test_edit_form_renders_document(detail_client: TestClient) -> None:
+    response = detail_client.get("/documents/mevzuat_1/edit")
+    assert response.status_code == 200
+    assert "Belgeyi duzenle" in response.text
+    assert "Manual edits are unverified" in response.text
+    assert 'name="extraction_method"' not in response.text
+
+
+def test_edit_form_rejects_unprotected_post() -> None:
+    rows = [{"document_id": "mevzuat_1", "title": "Bankacilik Kanunu", "category": "mevzuat", "total_pages": 3}]
+    store = FakeStoreWithDetail(rows)
+    client = TestClient(
+        create_app(CONFIG, DocumentService(store), GOVERNANCE),
+        base_url="http://127.0.0.1",
+    )
+
+    response = client.post(
+        "/documents/mevzuat_1/edit",
+        data={"title": "Yeni", "markdown_content": "# Yeni", "category": "mevzuat"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 403
+    assert store.saved is None
 
 
 def test_missing_document_returns_404(detail_client: TestClient) -> None:

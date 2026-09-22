@@ -16,6 +16,10 @@ BDDK MCP Server is an offline-first Model Context Protocol server for searching,
 
 ## Türkçe
 
+**Belge düzenleme ve imzalama:** `uv run bddk-mcp admin-ui` yayımlanmamış
+SQLite taslaklarını kaydeder ve yapılandırılmış editoryal Ed25519 anahtarıyla
+imzalar; public corpus değişmez. [Kurulum, kullanım ve yayın devri](docs/CORPUS_GOVERNANCE.md#admin-editorial-drafts-and-document-signatures).
+
 ### Ne İşe Yarar?
 
 Bu proje, BDDK karar ve düzenlemeleri için güvenli ve izlenebilir bir MCP sunucusu oluşturmayı hedefler. Amaç, modelin kendi bilgisinden cevap üretmesi yerine yerel veri deposundaki BDDK kaynaklarına dayanmasıdır. Mevcut üretim güvenliği sınırları için [deployment belgesine](docs/DEPLOYMENT.md) bakın.

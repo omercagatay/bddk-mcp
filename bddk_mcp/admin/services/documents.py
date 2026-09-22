@@ -1,9 +1,12 @@
-"""Read-only document queries for the admin console."""
+"""Document queries and edits for the admin console."""
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from typing import Any
+
+from bddk_mcp.admin.drafts import DraftConflict, DraftStore, EditForm, RevisionForm, fingerprint
 
 MAX_PAGE_SIZE = 200
 STORE_FAILURE = "Veri katmani kullanilamiyor."
@@ -39,13 +42,25 @@ class DocumentOutcome:
 
     doc: Any | None
     error: str | None = None
+    draft: dict | None = None
+    base_fingerprint: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class SaveOutcome:
+    """Document save result."""
+
+    doc: Any | None = None
+    error: str | None = None
+    status: int = 200
 
 
 class DocumentService:
     """Wraps DocumentStore so views never touch SQL or pagination arithmetic."""
 
-    def __init__(self, store: Any) -> None:
+    def __init__(self, store: Any, drafts: DraftStore | None = None) -> None:
         self._store = store
+        self.drafts = drafts
 
     async def list_page(self, page: int = 1, page_size: int = 50, category: str | None = None) -> DocumentPage:
         page = max(1, page)
@@ -63,9 +78,36 @@ class DocumentService:
     async def get(self, doc_id: str) -> DocumentOutcome:
         try:
             doc = await self._store.get_document(doc_id)
+            if doc is None:
+                return DocumentOutcome(doc=None)
+            base = fingerprint(doc)
+            draft = await asyncio.to_thread(self.drafts.get, doc_id) if self.drafts else None
+            if draft:
+                doc = doc.model_copy(update=draft["payload"]["edited"])
+            return DocumentOutcome(doc=doc, draft=draft, base_fingerprint=base)
         except Exception:  # never rendered as "not found" or as the exception text
             return DocumentOutcome(doc=None, error=STORE_FAILURE)
-        return DocumentOutcome(doc=doc)
+
+    async def save(self, doc_id: str, fields: dict[str, str], *, sign: bool = False) -> SaveOutcome:
+        # Validate before reading canonical data; never accept provenance fields from a form.
+        try:
+            form = (RevisionForm if sign else EditForm).model_validate(fields)
+        except ValueError:
+            return SaveOutcome(error="Invalid or oversized document fields.", status=422)
+        if self.drafts is None:
+            return SaveOutcome(error="Draft editing disabled: configure BDDK_ADMIN_DRAFT_DB.", status=503)
+        try:
+            doc = await self._store.get_document(doc_id)
+            if doc is None:
+                return SaveOutcome(status=404)
+            await asyncio.to_thread(self.drafts.change, doc, form, sign=sign)
+            return SaveOutcome(doc=doc)
+        except DraftConflict as exc:
+            return SaveOutcome(error=str(exc), status=409)
+        except ValueError:
+            return SaveOutcome(error="Signing unavailable; configure matching editorial keys.", status=503)
+        except Exception:
+            return SaveOutcome(error=STORE_FAILURE, status=503)
 
     async def search(self, query: str, limit: int = 20) -> SearchOutcome:
         query = query.strip()

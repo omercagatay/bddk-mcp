@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 
 from bddk_mcp.db_transport import DatabaseTransportError, assert_database_transport
 from bddk_mcp.http_security import (
@@ -31,6 +32,9 @@ class AdminConfig:
     database_url: str
     loopback_only: bool
     http_security: HttpSecurityConfig | None = None
+    draft_db: Path | None = None
+    signing_key: Path | None = None
+    signing_public_key: Path | None = None
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> AdminConfig:
@@ -56,12 +60,37 @@ class AdminConfig:
             raise AdminConfigError("BDDK_ADMIN_PORT must be between 1 and 65535.")
 
         http_security = None if loopback_only else _remote_http_security(source, bind_host=bind_host, port=port)
+        from bddk_mcp.admin.services.governance import resolve_governance_paths
+
+        seed_dir, _ = resolve_governance_paths(source)
+        paths = []
+        for name in ("BDDK_ADMIN_DRAFT_DB", "BDDK_ADMIN_SIGNING_KEY", "BDDK_ADMIN_SIGNING_PUBLIC_KEY"):
+            raw = source.get(name, "").strip()
+            path = Path(raw).absolute() if raw else None
+            if path and (path.is_relative_to(seed_dir) or path.resolve().is_relative_to(seed_dir.resolve())):
+                raise AdminConfigError("Admin draft storage and signing keys must be outside the corpus directory.")
+            paths.append(path)
+        draft_db, signing_key, signing_public_key = paths
+        if bool(signing_key) != bool(signing_public_key) or (signing_key and not draft_db):
+            raise AdminConfigError("Admin signing requires a draft database and both separately configured keys.")
+        if draft_db and signing_key:
+            # Keep keys outside the entire sidecar storage directory, not just the .sqlite file.
+            if any(
+                p.is_relative_to(draft_db.parent) or p.resolve().is_relative_to(draft_db.resolve().parent)
+                for p in (signing_key, signing_public_key)
+            ):
+                raise AdminConfigError("Admin signing keys must be outside the draft storage directory.")
+            if signing_key.resolve() == signing_public_key.resolve():
+                raise AdminConfigError("Admin private and trusted public keys must be separate files.")
         return cls(
             bind_host=bind_host,
             port=port,
             database_url=database_url,
             loopback_only=loopback_only,
             http_security=http_security,
+            draft_db=draft_db,
+            signing_key=signing_key,
+            signing_public_key=signing_public_key,
         )
 
 

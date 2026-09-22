@@ -604,7 +604,7 @@ async def test_live_role_allow_and_deny_matrix_is_transactional() -> None:
     not (_ROLE_TEST_DSN and _RUN_DISPOSABLE_LOGIN_TEST),
     reason="requires explicit approval for a dedicated disposable PostgreSQL cluster",
 )
-async def test_live_actual_login_identity_and_acl_provenance_contracts() -> None:
+async def test_live_actual_login_identity_and_acl_provenance_contracts(tmp_path, monkeypatch) -> None:
     """Provision real LOGINs on a disposable cluster and test pool admission.
 
     This test intentionally leaves cluster-global roles behind and is therefore
@@ -758,6 +758,16 @@ async def test_live_actual_login_identity_and_acl_provenance_contracts() -> None
                 await assert_database_identity(elevated_pool, profile)  # type: ignore[arg-type]
 
         public_pool = workload_pools["public"]
+        from urllib.parse import quote
+
+        from tests.admin_draft_runtime_check import check_public_admin_drafts
+
+        monkeypatch.setenv("BDDK_ALLOW_INSECURE_DATABASE", "true")
+        public_dsn = (
+            f"postgresql://{login_roles['public']}:{quote(passwords['public'], safe='')}@"
+            f"{parsed.hostname}:{parsed.port or 5432}/{database_name}"
+        )
+        await check_public_admin_drafts(admin, public_dsn, tmp_path)
         await admin.execute(f"GRANT SELECT ON public.documents TO {login_roles['public']}")
         try:
             with pytest.raises(DatabaseIdentityError):

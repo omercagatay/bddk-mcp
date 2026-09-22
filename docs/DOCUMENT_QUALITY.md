@@ -132,6 +132,16 @@ Outputs:
 - `quality_findings.json`
 - `suspicious_snippets.md`
 
+## Admin manual edits
+
+Admin edits are isolated, unpublished SQLite drafts, explicitly `unverified`.
+The extraction method is read-only original provenance, never a form assertion
+of `manual_latex` or formula-aware quality. An editorial Ed25519 signature binds
+the saved draft but does not certify extraction accuracy, remove fail-list
+membership, update vectors, or publish a corpus release. Source-review the
+repair before changing quality provenance or the failure registry. See the
+[configuration and publication handoff](CORPUS_GOVERNANCE.md#admin-editorial-drafts-and-document-signatures).
+
 ## Backfill Process
 
 Dry-run the tracked fail list:

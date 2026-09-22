@@ -1,15 +1,29 @@
 {% extends "base.html" %}
 {% block title %}{{ doc.title }}{% endblock %}
 {% block content %}
-<p><a href="/documents">&larr; Belgeler</a></p>
+<p><a href="/documents">&larr; Belgeler</a> · <a href="/documents/{{ doc.document_id }}/edit">Duzenle</a></p>
 <h1>{{ doc.title }}</h1>
+{% if draft %}
+<p><strong>Unpublished editorial draft — revision {{ revision }}.</strong> Manual edit: unverified.
+{% if draft.signature %}Editorial signature present.{% else %}Unsigned.{% endif %}</p>
+{% if stale_base %}<p class="error">Canonical base changed. Download and reconcile offline.</p>{% endif %}
+<p><a href="{{ request.url_for('document_download', document_id=doc.document_id) }}">Download draft JSON + signature verification material</a></p>
+<form method="post" action="{{ request.url_for('document_sign', document_id=doc.document_id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="revision" value="{{ revision }}">
+  <input type="hidden" name="base_fingerprint" value="{{ base_fingerprint }}">
+  <button type="submit" {% if not signing_enabled or stale_base %}disabled{% endif %}>Sign saved draft — Imzala</button>
+</form>
+{% endif %}
+{% if not signing_enabled %}<p class="muted">Document signing disabled: configure editorial signing keys.</p>{% endif %}
+<p class="muted">Editorial signatures are not regulator signatures or corpus release signatures. No automatic publication.</p>
 <table>
   <tr><th>Belge kimligi</th><td>{{ doc.document_id }}</td></tr>
   <tr><th>Kategori</th><td>{{ doc.category }}</td></tr>
   <tr><th>Karar tarihi</th><td>{{ doc.decision_date }}</td></tr>
   <tr><th>Karar numarasi</th><td>{{ doc.decision_number }}</td></tr>
   <tr><th>Kaynak</th><td><a href="{{ doc.source_url }}" rel="noreferrer">{{ doc.source_url }}</a></td></tr>
-  <tr><th>Cikarim yontemi</th><td>{{ doc.extraction_method }}</td></tr>
+  <tr><th>Original cikarim yontemi (edit unverified)</th><td>{{ doc.extraction_method }}</td></tr>
   <tr><th>Sayfa sayisi</th><td>{{ doc.total_pages }}</td></tr>
 </table>
 <h2>Icerik</h2>
