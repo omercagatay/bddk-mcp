@@ -11,7 +11,6 @@ from pathlib import Path
 import pytest
 
 from bddk_mcp.core.deps import Dependencies
-from bddk_mcp.quality.markdown_quality import sanitize_markdown_for_context
 from bddk_mcp.store.doc_store import StoredDocument
 from bddk_mcp.store.section_index import extract_document_sections
 from tests.test_tools_sections import _capture_tool
@@ -115,7 +114,7 @@ async def test_credit_loss_queries_against_full_seed(doc_store):
         source = document.markdown_content[item["start_char"] : item["end_char"]].strip()
         assert item["section_type"] == "paragraf" and item["section_ref"] == ref
         assert item["content_hash"] == hashlib.sha256(source.encode()).hexdigest()
-        assert item["content"] == sanitize_markdown_for_context(source)
+        assert item["content"] == source  # verbatim: exact stored characters, no sanitization
         assert not item["content_truncated"]
         evidence = result.structuredContent["evidence"][0]
         assert evidence["untrusted_source"] is True

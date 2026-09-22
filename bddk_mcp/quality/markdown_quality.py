@@ -1,8 +1,11 @@
 """Markdown sanitization and quality assessment helpers.
 
 The storage sanitizer is conservative: it removes extraction noise that has no
-legal meaning while keeping Markdown structure intact. The context sanitizer is
-stricter because its output is sent to LLMs and MCP clients.
+legal meaning while keeping Markdown structure intact. ``sanitize_markdown_for_context``
+remains available for callers that explicitly want a sanitized rendering, but
+document and section MCP tools do NOT use it: they serve exact stored characters
+and refuse unsafe content instead of rewriting it. ``unsafe_verbatim_reason``
+reports when verbatim serving would leak an unsafe extraction artifact.
 """
 
 from __future__ import annotations
