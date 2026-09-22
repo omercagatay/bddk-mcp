@@ -22,6 +22,7 @@ This index is the canonical map of BDDK MCP documentation. Documents are grouped
 
 - [Deployment](DEPLOYMENT.md) — local, container, HTTP, PostgreSQL, and OpenShift operation.
 - [Corpus governance](CORPUS_GOVERNANCE.md) — manifest, signature, freshness, publication, and rollback boundaries; [admin draft editing/signing configuration](CORPUS_GOVERNANCE.md#admin-editorial-drafts-and-document-signatures).
+- [Admin upload admission](ADMIN_UPLOAD_ADMISSION.md) — upload PDF or DOCX, correct the extraction, then admit it through a separate corpus release.
 - [Document quality](DOCUMENT_QUALITY.md) — extraction and retrieval quality controls.
 - [Document catalog](DOCUMENTS.md) — generated corpus reference.
 - [Testing and evaluation](TESTING_AND_EVALUATION_STRATEGY.md) — test lanes, benchmarks, and evidence limits.
