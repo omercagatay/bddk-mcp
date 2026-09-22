@@ -321,3 +321,27 @@ Expected: PASS
 git add docs/CORPUS_GOVERNANCE.md docs/ADMIN_UPLOAD_ADMISSION.md
 git commit -m "docs: describe the admin upload admission boundary"
 ```
+
+### Task 5b: Wire the real release gates
+
+**Files:**
+- Modify: `bddk_mcp/admin/admission_job.py`
+- Modify: `bddk_mcp/cli.py` (remove the refuse-once-wired guard only after wiring exists)
+- Test: `tests/test_admin_admission_job.py`
+
+**Interfaces:**
+- Consumes: `UploadStore` (upload id, corrected text, file path), existing `verify-and-stage-corpus-release` and `activate-corpus-release` paths in `bddk_mcp/cli.py`, the existing seed export machinery (`bddk_mcp/ingest/seed.py`), and `scripts/sign_corpus_manifest.py` signing behavior.
+- Produces: a wired publisher callable that performs the full governed admission for one corrected text and returns the activated request id. `admit_next` marks `published` only after activation succeeds.
+
+Rulings that bind this task:
+
+- The publisher callable performs, in order: (1) copy the current corpus seed directory (`BDDK_SEED_DIR` or checkout `seed_data`) into a temp staging directory outside the corpus and the draft directory; (2) append one document record with `document_id = "admin_upload_" + sha256(corrected_text)[:12]`, title from the filename stem bounded to 500 chars, `category = "editorial"`, and copy the exact field set of an existing record so the declared field set stays exact; (3) recompute the documents/chunks artifacts with the existing seed functions, recompute manifest checksums, and sign with the job-held Ed25519 private key at `BDDK_ADMISSION_SIGNING_KEY` (0600 PEM, outside corpus and draft dirs) whose trusted public key is `BDDK_ADMISSION_SIGNING_PUBLIC_KEY`; (4) run verify-and-stage with the verifier DSN and `accept-unmeasured-freshness`, then activate with the publisher DSN using the returned request id; (5) return the request id.
+- Do not fabricate regulator dates or numbers: if any validation rejects empty `decision_date`/`decision_number`, report BLOCKED with the exact validation error.
+- The admin app must never import this wiring: add a test asserting `bddk_mcp/admin/app.py` and `bddk_mcp/admin/uploads.py` do not import `admission_job`.
+- Tests use injected fake gate callables; no test talks to PostgreSQL.
+
+- [ ] **Step 1: Write failing tests** (wired publisher builds staging corpus and calls the gates in order; gate failure marks exactly one request error; admin modules do not import the wiring)
+- [ ] **Step 2: Run to verify they fail**
+- [ ] **Step 3: Implement the wiring** reusing existing seed/manifest/verify/activate functions
+- [ ] **Step 4: Run to verify they pass; then run the full admission/upload/view set**
+- [ ] **Step 5: Commit**
