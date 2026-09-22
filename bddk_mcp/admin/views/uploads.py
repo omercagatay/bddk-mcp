@@ -16,6 +16,7 @@ from bddk_mcp.admin.csrf import FormSecurity
 from bddk_mcp.admin.uploads import UploadStore
 
 _REJECTION_TEXT = {"unsupported_type": "Sadece PDF veya DOCX yuklenebilir."}
+_FORM_ERROR = "Dosya okunamadi veya cok buyuk."
 _NOT_CORRECTED = "Bu belge henuz duzeltilmis metin icermiyor."
 _ALREADY_WAITING = "Bu belge icin bekleyen bir istek var."
 
@@ -43,7 +44,10 @@ def register(routes: list, templates: Jinja2Templates, store: UploadStore) -> No
         try:
             form = await security.read_multipart(request)
         except HTTPException as exc:
-            return render(request, "uploads/new.html", {"error": exc.detail}, status_code=exc.status_code)
+            # Starlette surfaces malformed/oversized multipart bodies as 400
+            # with an English detail; the operator page stays Turkish.
+            message = _FORM_ERROR if exc.status_code == 400 else exc.detail
+            return render(request, "uploads/new.html", {"error": message}, status_code=exc.status_code)
         file = form.get("file")
         if not isinstance(file, UploadFile):
             return render(request, "uploads/new.html", {"error": "Dosya secilmedi."}, status_code=422)
@@ -114,10 +118,14 @@ def register(routes: list, templates: Jinja2Templates, store: UploadStore) -> No
         try:
             await security.read(request)
         except HTTPException as exc:
+            # A rejected form must still render the live request state, so a
+            # waiting request never re-offers the admit button.
+            request_id = await asyncio.to_thread(store.latest_request, upload_id)
+            state = await asyncio.to_thread(store.request_state, request_id) if request_id else None
             return render(
                 request,
                 "uploads/admit.html",
-                {"upload_id": upload_id, "state": None, "error": exc.detail},
+                {"upload_id": upload_id, "state": state, "error": exc.detail},
                 status_code=exc.status_code,
             )
         try:

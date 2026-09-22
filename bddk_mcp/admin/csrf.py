@@ -105,7 +105,9 @@ class FormSecurity:
             raise HTTPException(413, "Form too large")
         try:
             async with asyncio.timeout(10):
-                form = await request.form()
+                # Starlette's default part cap is 1 MiB; corpus extractors
+                # accept far larger files, so the cap rises to MAX_BODY here.
+                form = await request.form(max_files=1, max_fields=2, max_part_size=MAX_BODY)
         except TimeoutError:
             raise HTTPException(408, "Form read timeout") from None
         self._require_valid_token(request, str(form.get("csrf_token", "")))

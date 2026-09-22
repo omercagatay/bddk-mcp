@@ -164,6 +164,59 @@ def test_upload_requires_same_origin_and_token(tmp_path, monkeypatch):
     assert bad_token.status_code == 403
 
 
+def test_large_pdf_upload_succeeds_end_to_end(tmp_path, monkeypatch):
+    # Starlette's default multipart part cap is 1 MiB; the corpus extractors
+    # accept up to 64 MiB, so the CSRF reader must raise that cap to MAX_BODY.
+    store = UploadStore(tmp_path / "drafts.sqlite")
+    monkeypatch.setattr(store, "_extract_bytes", lambda *_: "ilk metin")
+    client = http_client(upload_app(store))
+    big_pdf = b"%PDF-1.4\n" + b"%" * (1_100_000 - 8)
+
+    response = upload_pdf(client, name="buyuk.pdf", data=big_pdf)
+
+    assert response.status_code == 303, response.text
+    upload_id = Path(response.headers["location"]).parts[-2]
+    # The uploaded bytes were stored and extracted; correction comes later.
+    assert store.extract(upload_id) == "ilk metin"
+
+
+def test_admit_csrf_failure_keeps_the_current_state(tmp_path, monkeypatch):
+    store = UploadStore(tmp_path / "drafts.sqlite")
+    monkeypatch.setattr(store, "_extract_bytes", lambda *_: "ilk metin")
+    client = http_client(upload_app(store))
+    upload_id = corrected_upload(client, store, monkeypatch)
+    admitted = client.post(
+        f"/uploads/{upload_id}/admit",
+        data={"csrf_token": csrf_token(client.get(f"/uploads/{upload_id}/admit"))},
+        headers=ORIGIN,
+    )
+    assert admitted.status_code == 303
+
+    rejected = client.post(
+        f"/uploads/{upload_id}/admit",
+        data={"csrf_token": "bogus"},
+        headers=ORIGIN,
+    )
+
+    assert rejected.status_code == 403
+    assert "Durum: waiting" in rejected.text
+    assert "Hazir, corpus'a al" not in rejected.text
+
+
+def test_upload_bytes_stay_outside_the_corpus_and_view_imports_no_publication_code(tmp_path):
+    draft_db = tmp_path / "drafts.sqlite"
+    store = UploadStore(draft_db)
+    upload_id = store.save("note.pdf", b"%PDF-1.4\n")
+
+    assert store.path_for(upload_id).is_relative_to(draft_db.parent)
+
+    from bddk_mcp.admin.views import uploads as uploads_view
+
+    source = Path(uploads_view.__file__).read_text(encoding="utf-8")
+    for forbidden in ("corpus_publication", "corpus_manifest", "activate", "ingest", "seed"):
+        assert forbidden not in source, forbidden
+
+
 def test_upload_pages_absent_without_store():
     client = http_client(create_app(CONFIG, DocumentService(FakeStore()), StubGovernance()))
 
