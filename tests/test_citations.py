@@ -18,7 +18,6 @@ from bddk_mcp.citations import (
     section_retrieval_profile_sha256,
     verify_normalized_range_citation,
 )
-from bddk_mcp.quality.markdown_quality import sanitize_markdown_for_context
 from bddk_mcp.regulatory.legal_versions import (
     AuthorityLevel,
     artifact_id_for,
@@ -42,7 +41,7 @@ def _fixture(
     prefix = "Sentetik test belgesi\n\n"
     normalized_document = prefix + source_range + suffix
     provision_text = source_range.strip()
-    rendered_excerpt = sanitize_markdown_for_context(provision_text)
+    rendered_excerpt = provision_text
     start = len(prefix)
     end = start + len(source_range)
 
@@ -232,7 +231,7 @@ def test_citation_identity_is_stable_across_request_time_but_profile_is_pinned()
     citation, _, _, _ = _fixture()
     later = citation.model_copy(update={"generated_at": citation.generated_at + timedelta(minutes=10)})
     assert citation_id_for(later) == citation.citation_id
-    assert section_retrieval_profile_sha256() == "58b3dafba8b690e12386ef39a7f7f79b11002a1e39fb677097f828a1d019cbf6"
+    assert section_retrieval_profile_sha256() == "8ad85dd0195b656bcf43ccf1dfd587b8fb42e8669612bfd7d98018c76cf2c0aa"
 
     payload = citation.model_dump(mode="json")
     payload["retrieval_profile_sha256"] = "f" * 64

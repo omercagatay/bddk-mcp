@@ -17,7 +17,6 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from bddk_mcp.quality.markdown_quality import sanitize_markdown_for_context
 from bddk_mcp.regulatory.legal_versions import (
     AuthorityLevel,
     artifact_id_for,
@@ -40,15 +39,16 @@ _PROVISION_ID_PATTERN = r"^prov_sha256_[0-9a-f]{64}$"
 
 _SECTION_RETRIEVAL_PROFILE = {
     "profile": "bddk-mcp-exact-section-citation",
-    "profile_version": 1,
+    "profile_version": 2,
     "coordinate_system": "unicode_codepoint_offsets_in_normalized_markdown_v1",
     "offset_unit": "python_unicode_code_points",
     "unicode_normalization": "none_preserve_stored_form",
     "line_endings": "preserve_normalized_document_storage",
     "storage_transform": "sanitize_markdown_for_storage_v1",
     "provision_transform": "strip_explicit_unicode_whitespace_v1",
-    "render_transform": "sanitize_markdown_for_context_v1",
-    "render_max_line_length": 1000,
+    # The rendered excerpt is the exact stored provision characters. No context
+    # sanitizer, line wrapping, case folding or punctuation repair is applied.
+    "render_transform": "exact_stored_range_v2",
 }
 # Explicitly pin the code points accepted at provision boundaries.  This is
 # Python's historical whitespace set for the supported runtimes, expressed as
@@ -128,7 +128,7 @@ class TrustedCitationContext(_StrictFrozenModel):
     excerpt_sha256: str = Field(pattern=_SHA256_PATTERN)
     excerpt_length: int = Field(ge=1, le=30_000)
     provision_transform: Literal["strip_explicit_unicode_whitespace_v1"] = "strip_explicit_unicode_whitespace_v1"
-    render_transform: Literal["sanitize_markdown_for_context_v1"] = "sanitize_markdown_for_context_v1"
+    render_transform: Literal["exact_stored_range_v2"] = "exact_stored_range_v2"
     retrieval_profile_sha256: str = Field(pattern=_SHA256_PATTERN)
     quality: CitationQuality
 
@@ -189,7 +189,7 @@ class TrustedCitationContext(_StrictFrozenModel):
 class CitationV1(TrustedCitationContext):
     """A content-addressed citation to one validated provision occurrence."""
 
-    schema_version: Literal["1.0"] = "1.0"
+    schema_version: Literal["2.0"] = "2.0"
     citation_id: str = Field(pattern=_CITATION_ID_PATTERN)
     generated_at: datetime
 
@@ -292,7 +292,7 @@ def build_normalized_range_citation(
     expected_provision = _strip_provision_boundaries_v1(normalized_source_range)
     if provision_text != expected_provision:
         raise ValueError("stored provision cannot be reconstructed from its normalized range")
-    expected_excerpt = sanitize_markdown_for_context(expected_provision)
+    expected_excerpt = expected_provision
     if rendered_excerpt != expected_excerpt:
         raise ValueError("returned excerpt cannot be reconstructed from the normalized range")
     if trusted.locator.end_char - trusted.locator.start_char != len(normalized_source_range):
@@ -308,7 +308,7 @@ def build_normalized_range_citation(
         raise ValueError("trusted citation context differs from reconstructed evidence")
 
     data: dict[str, object] = trusted.model_dump(mode="json")
-    data.update({"schema_version": "1.0", "generated_at": generated_at or datetime.now(UTC)})
+    data.update({"schema_version": "2.0", "generated_at": generated_at or datetime.now(UTC)})
     data["citation_id"] = citation_id_for(data)
     return CitationV1.model_validate(data)
 
@@ -321,7 +321,7 @@ def render_normalized_range_excerpt(citation: CitationV1, normalized_document: s
     if end > len(normalized_document):
         raise ValueError("normalized citation range is outside the document")
     source_range = normalized_document[start:end]
-    return sanitize_markdown_for_context(_strip_provision_boundaries_v1(source_range))
+    return _strip_provision_boundaries_v1(source_range)
 
 
 def verify_normalized_range_citation(
@@ -354,7 +354,7 @@ def verify_normalized_range_citation(
         provision_text = _strip_provision_boundaries_v1(source_range)
         if _sha256_text(provision_text) != citation.provision_text_sha256:
             failures.append("provision_text_sha256_mismatch")
-        if sanitize_markdown_for_context(provision_text) != rendered_excerpt:
+        if provision_text != rendered_excerpt:
             failures.append("excerpt_reconstruction_mismatch")
 
     if len(rendered_excerpt) != citation.excerpt_length:

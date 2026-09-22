@@ -44,7 +44,7 @@ async def test_six_regulatory_retrieval_tools_publish_closed_versioned_output_sc
         assert schema is not None, name
         assert schema["type"] == "object", name
         assert schema["additionalProperties"] is False, name
-        assert schema["properties"]["schema_version"]["const"] == "1.0", name
+        assert schema["properties"]["schema_version"]["const"] == "2.0", name
         assert {"status", "text", "evidence", "warnings"} <= schema["properties"].keys(), name
 
     evidence_schema = tools["get_bddk_document"].outputSchema["$defs"]["EvidenceReference"]
@@ -92,7 +92,7 @@ async def test_official_client_validates_structured_no_result_contracts():
     for name, result in results.items():
         assert result.isError is False, name
         assert result.structuredContent is not None, name
-        assert result.structuredContent["schema_version"] == "1.0", name
+        assert result.structuredContent["schema_version"] == "2.0", name
         assert result.structuredContent["status"] == "no_results", name
         assert result.structuredContent["evidence"] == [], name
         assert CORPUS_SCOPE_WARNING in result.structuredContent["warnings"], name
@@ -133,7 +133,7 @@ async def test_malicious_looking_document_text_remains_bounded_data_not_result_m
 
     assert result.isError is False
     assert result.structuredContent is not None
-    assert result.structuredContent["schema_version"] == "1.0"
+    assert result.structuredContent["schema_version"] == "2.0"
     assert result.structuredContent["status"] == "ok"
     assert "error" not in result.structuredContent
     assert result.structuredContent["pages"] == [{"page_number": 1, "content": malicious_source}]

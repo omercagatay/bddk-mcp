@@ -34,12 +34,26 @@ The `answer_assessment` evidence states are:
 | `validated_citation` | Reconstructable, independently mapped source occurrence; not yet verified as the effective cited version on the requested date. |
 | `dated_version` | The canonical status resolver selected the citation's instrument, legal version, normalized text hash and validation-review record for the requested date. |
 
-Quotation matching tolerates whitespace only—not case, accents, punctuation,
-negation, numbers or semantic changes. The date is supplied by the task, never
-inferred from today, a catalog date, download time or a quotation match. Source
-ranges, hashes and sanitized content must agree. Document-level failures and
-explicitly unknown quality cannot be hidden by a clean excerpt. Formula-unaware
-extraction receives the existing warning in both section and whole-document tools.
+Quotation matching performs **no normalization at all**: the supplied characters
+must occur exactly once as a contiguous slice of the returned stored section text.
+Case, accents, punctuation, numbering, abbreviations, negation and whitespace
+changes all fail. A match is reported as `exact_reference_match` in
+`answer_assessment.quotation_status`, with `quotation_check` carrying the reference
+and quotation SHA-256 digests, exact character coordinates, whether the whole unit
+or only an excerpt matched, and `normalization: none`. Repeated text is reported
+`ambiguous`, never resolved to an invented location. Missing or hash-mismatched
+references are `unavailable`, not verified.
+
+An exact-reference match proves the characters occur in the returned stored text.
+It does **not** prove the stored extraction equals the official HTML/PDF/image
+(`original_source_fidelity: not_established`) or that the rule applies on a date.
+The date is supplied by the task, never inferred from today, a catalog date,
+download time or a quotation match. Source ranges and hashes must agree; returned
+excerpts must be exact stored characters, never a sanitized or summarized rendering.
+Stored section-truncation notices are metadata: they are removed from text and
+reported as truncation instead. Document-level failures and explicitly unknown
+quality cannot be hidden by a clean excerpt. Formula-unaware extraction receives
+the existing warning in both section and whole-document tools.
 
 The shared status repository also checks the requested instrument/date, evidence
 intervals, canonical version identity, acquisition/blob/evidence identities, and the

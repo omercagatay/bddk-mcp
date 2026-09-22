@@ -1,8 +1,11 @@
 """Markdown sanitization and quality assessment helpers.
 
 The storage sanitizer is conservative: it removes extraction noise that has no
-legal meaning while keeping Markdown structure intact. The context sanitizer is
-stricter because its output is sent to LLMs and MCP clients.
+legal meaning while keeping Markdown structure intact. ``sanitize_markdown_for_context``
+remains available for callers that explicitly want a sanitized rendering, but
+document and section MCP tools do NOT use it: they serve exact stored characters
+and refuse unsafe content instead of rewriting it. ``unsafe_verbatim_reason``
+reports when verbatim serving would leak an unsafe extraction artifact.
 """
 
 from __future__ import annotations
@@ -279,6 +282,26 @@ def sanitize_markdown_for_context(text: str, max_line_length: int = 1000) -> str
     out = _CONTROL_CHAR_RE.sub("", out)
     out = _BLANK_LINES_RE.sub("\n\n", out)
     return _wrap_long_lines(out, max_line_length=max_line_length)
+
+
+def unsafe_verbatim_reason(text: str) -> str | None:
+    """Return a reason when returning ``text`` unchanged would leak unsafe extraction blobs.
+
+    Verbatim serving and the context sanitizer are mutually exclusive: this helper
+    lets callers refuse a document instead of silently rewriting its characters.
+    Ordinary legal Markdown (long lines, accents, punctuation) is never a reason.
+    """
+    if not text:
+        return None
+    if _DATA_URI_RE.search(text) or _MARKDOWN_DATA_IMAGE_RE.search(text):
+        return "embedded_data_uri"
+    if _CID_RE.search(text):
+        return "cid_marker"
+    if _DANGEROUS_TAG_RE.search(text):
+        return "raw_html_tag"
+    if _CONTROL_CHAR_RE.search(text):
+        return "control_char"
+    return None
 
 
 def assess_markdown_quality(text: str, document_id: str = "") -> QualityAssessment:

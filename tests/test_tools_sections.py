@@ -169,7 +169,7 @@ async def test_exact_validated_section_emits_same_citation_in_structured_and_tex
     )
 
     citation = result.structuredContent["evidence"][0]["citation"]
-    assert citation["schema_version"] == "1.0"
+    assert citation["schema_version"] == "2.0"
     assert citation["citation_id"] in result.text
     assert citation["normalized_document_sha256"] in result.text
     assert citation["provision_text_sha256"] in result.text
@@ -580,9 +580,8 @@ def test_excerpt_offsets_survive_turkish_capitals_and_leading_whitespace():
     excerpt, truncated, start, end = _section_excerpt(section, max_chars=2000, query="BKZ model validasyonu")
     assert truncated
     assert "BKZ model\nvalidasyonu" in excerpt
-    from bddk_mcp.quality.markdown_quality import sanitize_markdown_for_context
-
-    assert sanitize_markdown_for_context(source_range[start - 10 : end - 10]) == excerpt
+    # Verbatim contract: the excerpt must be the exact stored characters, not a sanitized rendering.
+    assert source_range[start - 10 : end - 10] == excerpt
 
 
 @pytest.mark.asyncio

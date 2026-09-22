@@ -26,11 +26,12 @@ from bddk_mcp.quality.markdown_quality import (
     QualityAssessment,
     assess_markdown_quality,
     is_formula_aware,
-    sanitize_markdown_for_context,
+    unsafe_verbatim_reason,
 )
 from bddk_mcp.regulatory.answer_readiness import assess_section_answer
 from bddk_mcp.regulatory.graph_queries import one_hop_section_refs
 from bddk_mcp.store.legal_ref import document_id_candidates, parse_legal_refs, turkish_casefold
+from bddk_mcp.store.section_index import split_section_truncation_notice
 from bddk_mcp.tools.contract_types import (
     DocumentId,
     ExpandReferences,
@@ -43,6 +44,7 @@ from bddk_mcp.tools.contract_types import (
     SectionResultLimit,
     SectionType,
 )
+from bddk_mcp.tools.errors import tool_error
 from bddk_mcp.tools.structured_outputs import (
     UNTRUSTED_SOURCE_WARNING,
     DocumentSectionResponse,
@@ -190,7 +192,8 @@ def _section_excerpt(
 ) -> tuple[str, bool, int, int]:
     """Return a bounded excerpt and absolute offsets into normalized content."""
 
-    raw_content = section.content or ""
+    # Stored truncation notices are storage metadata, never legal characters.
+    raw_content, truncation_notice = split_section_truncation_notice(section.content or "")
     if len(raw_content) <= max_chars:
         local_start = 0
         local_end = len(raw_content)
@@ -211,17 +214,23 @@ def _section_excerpt(
         local_start = max(0, min(match_offset - max_chars // 4, len(raw_content) - max_chars))
         local_end = min(len(raw_content), local_start + max_chars)
 
-    excerpt = sanitize_markdown_for_context(raw_content[local_start:local_end])
-    # Context sanitization can add line wraps. Keep the serialized MCP field
-    # within the advertised bound as well as the raw source slice.
-    while len(excerpt) > max_chars and local_end > local_start:
-        local_end -= min(local_end - local_start, len(excerpt) - max_chars)
-        excerpt = sanitize_markdown_for_context(raw_content[local_start:local_end])
+    # Verbatim contract: the excerpt is an exact stored substring, never a
+    # sanitized/summarized rendering of it.
+    excerpt = raw_content[local_start:local_end]
+    unsafe_reason = unsafe_verbatim_reason(excerpt)
+    if unsafe_reason is not None:
+        tool_error(
+            "VERBATIM_UNAVAILABLE",
+            f"Section {section.doc_id}/{section.section_type} {section.section_ref} cannot be returned verbatim: "
+            f"its stored text contains an unsafe extraction artifact ({unsafe_reason}). This server does not "
+            "rewrite or summarize section text; repair and re-publish the source instead.",
+            retryable=False,
+        )
     source_range = section.normalized_source_range
     leading_space = len(source_range) - len(source_range.lstrip()) if source_range.strip() == raw_content else 0
     return (
         excerpt,
-        local_start > 0 or local_end < len(raw_content) or "[BÖLÜM KESİLDİ:" in raw_content,
+        local_start > 0 or local_end < len(raw_content) or truncation_notice is not None,
         section.start_char + leading_space + local_start,
         min(section.end_char, section.start_char + leading_space + local_end),
     )
@@ -555,7 +564,8 @@ def register(mcp, deps: Dependencies) -> None:
             heading: Optional heading substring filter
             as_of: Optional ISO date; resolve the cited version's status for this date.
             quotation: Optional proposed quotation; verify it in the exact provision,
-                tolerating whitespace only. A match does not validate a paraphrase or duty.
+                preserving every character, including whitespace. An exact stored-reference
+                match does not establish original-source fidelity, a paraphrase or a duty.
 
         Supplying as_of or quotation returns answer_assessment with explicit evidence
         gaps. Scope and semantic entailment still require review; never infer them
@@ -602,7 +612,8 @@ def register(mcp, deps: Dependencies) -> None:
             )
             assessment_text = (
                 f"\n\nAnswer evidence checks: {assessment.basis}\n"
-                f"Quotation: {assessment.quotation_status}\n"
+                f"Quotation in stored reference (no normalization): {assessment.quotation_status}\n"
+                "Original-source fidelity is NOT established by this character comparison.\n"
                 f"As of: {assessment.as_of or 'not supplied'}\n"
                 f"Legal status: {assessment.status_reason or 'not checked'}\n"
                 f"Resolved version: {assessment.resolved_legal_version_id or 'not established'}\n"

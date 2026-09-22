@@ -22,7 +22,6 @@ from bddk_mcp.citations import (
     section_retrieval_profile_sha256,
 )
 from bddk_mcp.corpus_manifest import CorpusArtifact
-from bddk_mcp.quality.markdown_quality import sanitize_markdown_for_context
 from bddk_mcp.regulatory.legal_versions import (
     AuthorityLevel,
     artifact_id_for,
@@ -114,7 +113,7 @@ def _verified_tracked_citation(raw: dict[str, Any]) -> dict[str, Any]:
     normalized_range = normalized_document[start:end]
     provision_text = normalized_range.strip()
     assert hashlib.sha256(provision_text.encode()).hexdigest() == evidence["section_content_sha256"]
-    rendered_excerpt = sanitize_markdown_for_context(provision_text)
+    rendered_excerpt = provision_text  # verbatim: Citation v2 exact_stored_range_v2
     instrument_identity = "expert-evaluation-test-943"
     version_identity = "expert-evaluation-test-v1"
 
@@ -486,7 +485,7 @@ def _write_legal_release_checkpoint(
 
     start = citation["locator"]["start_char"]
     end = citation["locator"]["end_char"]
-    excerpt = sanitize_markdown_for_context(document["markdown_content"][start:end].strip())
+    excerpt = document["markdown_content"][start:end].strip()  # verbatim Citation v2 excerpt
     assert hashlib.sha256(excerpt.encode()).hexdigest() == citation["excerpt_sha256"]
     page_text_path = source_root / "page-1.txt"
     page_text_path.write_text(page_text_content or document["markdown_content"], encoding="utf-8")

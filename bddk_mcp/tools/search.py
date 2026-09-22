@@ -68,6 +68,15 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_CATALOG_SUMMARY_WARNING = (
+    "Catalog summary/excerpt is BDDK catalog metadata, not extracted document text. It is neither a "
+    "verbatim provision nor a basis for a quotation; retrieve the exact document or section instead."
+)
+_SNIPPET_TRUNCATION_WARNING = (
+    "Search snippets are exact leading excerpts of one stored chunk and may be truncated; they are "
+    "discovery leads, not the complete provision text."
+)
+
 
 class _LRUCache:
     """In-memory LRU cache with TTL.
@@ -267,7 +276,7 @@ Try: (1) call search_document_store with the same query for full-text semantic s
         lines = [f"Found {result.total_results} result(s) (page {result.page}):\n"]
         items: list[RegulationCatalogItem] = []
         evidence: list[EvidenceReference] = []
-        warnings: list[str] = [UNTRUSTED_SOURCE_WARNING]
+        warnings: list[str] = [UNTRUSTED_SOURCE_WARNING, _CATALOG_SUMMARY_WARNING]
         for d in result.decisions:
             date_info = f" ({d.decision_date} - {d.decision_number})" if d.decision_date else ""
             cat_info = f" [{d.category}]" if d.category else ""
@@ -278,7 +287,7 @@ Try: (1) call search_document_store with the same query for full-text semantic s
                 lines.append(f"  Versions: {ver_count} (latest: {ver_latest})")
             quality = assess_markdown_quality("", document_id=d.document_id)
             lines.extend(_quality_result_lines(quality))
-            lines.append(f"  {d.content}\n")
+            lines.append(f"  Catalog summary/excerpt (NOT document text; never quote as the provision): {d.content}\n")
             quality_metadata = _quality_metadata(quality)
             if quality.warning:
                 warnings.append(quality.warning)
@@ -624,7 +633,7 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
         hit_quality: dict[str, QualityAssessment] = {}
         items: list[DocumentSearchItem] = []
         evidence: list[EvidenceReference] = []
-        warnings: list[str] = [UNTRUSTED_SOURCE_WARNING]
+        warnings: list[str] = [UNTRUSTED_SOURCE_WARNING, _SNIPPET_TRUNCATION_WARNING]
         for h in hits:
             date_info = f" ({h['decision_date']})" if h.get("decision_date") else ""
             cat_info = f" [{h['category']}]" if h.get("category") else ""

@@ -88,6 +88,14 @@ def _string(value: object, *, name: str, maximum: int, allow_empty: bool) -> str
     return normalized
 
 
+def _quotation(value: object) -> str:
+    if not isinstance(value, str) or not value.strip():
+        _invalid("quotation must be a nonempty string.")
+    if len(value) > 2000:
+        _invalid("quotation exceeds the maximum allowed length.")
+    return value
+
+
 def _integer(value: object, *, name: str, minimum: int, maximum: int) -> int:
     if type(value) is not int:
         _invalid(f"{name} must be an integer.")
@@ -483,11 +491,9 @@ OptionalQuotation = Annotated[
     Field(
         min_length=1,
         max_length=2000,
-        description="Proposed source quotation; only whitespace is normalized for matching.",
+        description="Proposed quotation, preserved exactly including whitespace; no normalization is permitted.",
     ),
-    BeforeValidator(
-        lambda value: None if value is None else _string(value, name="quotation", maximum=2000, allow_empty=False)
-    ),
+    BeforeValidator(lambda value: None if value is None else _quotation(value)),
 ]
 SectionType = Annotated[
     Literal["madde", "gecici_madde", "ilke", "paragraf", "ek", "fikra", "bent", "govde"] | None,
