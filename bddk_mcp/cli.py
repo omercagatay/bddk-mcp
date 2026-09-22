@@ -843,8 +843,8 @@ def _run_admit_next_upload(args: argparse.Namespace) -> None:
     raw_draft_db = str(getattr(args, "draft_db", None) or os.environ.get("BDDK_ADMIN_DRAFT_DB", "")).strip()
     if not raw_draft_db:
         raise RuntimeError("BDDK_ADMIN_DRAFT_DB must name the admin draft database, or pass --draft-db.")
-    publisher = publisher_from_env()
     store = UploadStore(Path(raw_draft_db))
+    publisher = publisher_from_env(store=store)
     state = admit_next(store, publisher)
     if state == "error":
         raise RuntimeError("The admission request was marked error; the previous release stays active.")

@@ -24,6 +24,7 @@ class UploadStore:
                 "CREATE TABLE IF NOT EXISTS admission_requests ("
                 "request_id TEXT PRIMARY KEY, upload_id TEXT NOT NULL, state TEXT NOT NULL, created_at TEXT NOT NULL)"
             )
+            db.execute("CREATE TABLE IF NOT EXISTS uploads (upload_id TEXT PRIMARY KEY, filename TEXT NOT NULL)")
 
     def reject_reason(self, filename: str, data: bytes) -> str | None:
         suffix = Path(filename).suffix.lower()
@@ -39,7 +40,18 @@ class UploadStore:
         target = self.root / f"{upload_id}{Path(filename).suffix.lower()}"
         target.write_bytes(data)
         os.chmod(target, 0o600)
+        with closing(self._connect()) as db, db:
+            db.execute("INSERT OR REPLACE INTO uploads (upload_id, filename) VALUES (?, ?)", (upload_id, filename))
         return upload_id
+
+    def filename_for(self, upload_id: str) -> str:
+        """Return the operator-supplied original filename for one upload."""
+
+        with closing(self._connect()) as db:
+            row = db.execute("SELECT filename FROM uploads WHERE upload_id = ?", (upload_id,)).fetchone()
+        if row is None:
+            raise FileNotFoundError(upload_id)
+        return row["filename"]
 
     def path_for(self, upload_id: str) -> Path:
         matches = list(self.root.glob(f"{upload_id}.*"))
