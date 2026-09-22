@@ -99,3 +99,37 @@ def test_get_returns_the_real_stored_document() -> None:
 
     assert outcome.error is None
     assert outcome.doc.title == "Bankacilik Kanunu"
+
+
+def test_save_without_draft_config_does_not_write_corpus() -> None:
+    class StoreWithSave:
+        def __init__(self) -> None:
+            self.saved = None
+
+        async def get_document(self, doc_id):
+            return StoredDocument(document_id=doc_id, title="Old", markdown_content="old", pdf_bytes=b"pdf")
+
+        async def store_document(self, doc):
+            self.saved = doc
+
+    store = StoreWithSave()
+    service = DocumentService(store)
+
+    outcome = asyncio.run(
+        service.save(
+            "mevzuat_1",
+            {
+                "title": "New",
+                "markdown_content": "new",
+                "category": "",
+                "decision_date": "",
+                "decision_number": "",
+                "source_url": "https://bddk.org.tr/1",
+                "revision": "0",
+                "base_fingerprint": "a" * 64,
+            },
+        )
+    )
+
+    assert outcome.status == 503
+    assert store.saved is None

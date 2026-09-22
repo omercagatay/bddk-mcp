@@ -664,6 +664,18 @@ configuration shape; they are not compatibility certification.
 
 OpenShift rotates service-serving certificates by updating the generated Secret. Uvicorn does not hot-reload that material, so the bank must use an approved restart/reloader mechanism and prove both routine rotation and CA rollover in a disposable namespace before promotion.
 
+## Admin draft editing and document signing
+
+Admin PostgreSQL access remains public-reader only. Configure a separately
+mounted private SQLite sidecar (`BDDK_ADMIN_DRAFT_DB`) for persistent editorial
+edits, and optionally `BDDK_ADMIN_SIGNING_KEY` plus independently trusted
+`BDDK_ADMIN_SIGNING_PUBLIC_KEY` for the UI's **Sign saved draft** action.
+Mount keys outside both corpus and sidecar storage; never give the admin
+release-publisher or ingestion credentials. Default editing/signing is disabled.
+Use one admin process with durable local storage; drafts are not public data,
+not seed exports and not deployable releases. See the
+[full configuration, CSRF/proxy requirements, verification and publication handoff](CORPUS_GOVERNANCE.md#admin-editorial-drafts-and-document-signatures).
+
 ## Railway and Spaces
 
 Railway and Hugging Face Spaces are development/preview profiles. They are not

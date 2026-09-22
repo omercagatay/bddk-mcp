@@ -224,6 +224,116 @@ declaration, set `BDDK_CORPUS_TRUSTED_SIGNING_KEY` to the separately mounted PEM
 public key. `BDDK_BENCHMARK_CORPUS_ID` and `BDDK_BENCHMARK_CORPUS_SHA256` remain
 labels, not the enforced release binding.
 
+## Admin editorial drafts and document signatures
+
+The admin console (`uv run bddk-mcp admin-ui`) can edit **unpublished editorial
+drafts**, never the public PostgreSQL corpus. It retains the public-reader
+LOGIN and does not need ingestion, schema-owner, verifier, or publisher grants.
+Only admin detail/edit pages overlay drafts; list/search, public retrieval,
+chunks, vectors, release state and corpus epoch remain unchanged.
+
+Editing is disabled until `BDDK_ADMIN_DRAFT_DB` names a persistent SQLite file.
+Create its private parent directory beforehand; place it outside `BDDK_SEED_DIR`
+(the approved corpus directory, or the checkout seed directory by default).
+Use a private, backed-up local filesystem volume, not an ephemeral container
+layer or network-shared SQLite volume. The file is created owner-only (0600);
+an existing more-permissive file is rejected. SQLite transactions serialize
+concurrent saves with a five-second lock timeout. No PostgreSQL migration or
+public-role grant expansion is involved.
+
+Optional **document signing** configuration (all paths are server-side):
+
+```bash
+BDDK_DATABASE_URL='postgresql://PUBLIC_READER:SECRET@HOST:5432/DATABASE?sslmode=verify-full&sslrootcert=%2FAPPROVED%2Fpostgres-ca.crt' \
+BDDK_SEED_DIR=/APPROVED/CORPUS \
+BDDK_ADMIN_DRAFT_DB=/PRIVATE/EDITORIAL/drafts.sqlite \
+BDDK_ADMIN_SIGNING_KEY=/PRIVATE/EDITORIAL-KEYS/ed25519-private.pem \
+BDDK_ADMIN_SIGNING_PUBLIC_KEY=/APPROVED/EDITORIAL-TRUST/ed25519-public.pem \
+  uv run bddk-mcp admin-ui
+```
+
+Provision an editorial Ed25519 PKCS8 PEM private key under separate operator
+custody (0600), and independently configure its trusted SubjectPublicKeyInfo PEM
+public key. Both files must be outside the corpus and the entire draft-storage
+directory. The server checks their correspondence at startup and refuses unsafe,
+oversized, non-Ed25519 or mismatched keys; keys are never accepted from forms or
+printed. Use a distinct editorial key, not the corpus owner's release key.
+Omit both signing variables to retain editing/download with signing clearly
+disabled. Supplying only one key fails startup. Key rotation requires a restart;
+retain independently trusted historical public keys for previously downloaded
+artifacts. Embedded public keys are verification material, **not trust anchors**.
+
+Loopback uses host checking; remote access additionally requires the existing
+operator JWT policy (`bddk.operator` and every configured required scope), exact
+allowed Host and HTTPS Origin, and `BDDK_ADMIN_REMOTE_ENABLED=true` (see
+[deployment](DEPLOYMENT.md)). Both loopback and remote edit/sign POSTs require
+an exact same-origin `Origin` header **and** a one-hour, document/browser/operator-
+identity-bound CSRF token. Missing/foreign/null origins, absent tokens and cross-
+site requests are rejected, including bearer clients. Forms are URL-encoded,
+bounded to 12,100,000 wire bytes and a ten-second read deadline. Proxies must
+preserve the approved external host/scheme using only trusted proxy forwarding;
+an origin mismatch must be fixed in proxy configuration, not bypassed. Restart
+invalidates existing form tokens; reload forms. Draft persistence is independent
+of tokens. Use one admin process/replica: tokens are process-local (multiple
+workers require sticky routing or a separately designed shared token secret).
+
+User workflow:
+
+1. Open a document, choose **Duzenle**, edit and **Taslagi kaydet**. Title is
+   limited to 500 characters, content to 1,000,000 nonblank characters; category,
+   decision date and number are bounded to 100/32/100 characters. Source URL
+   must be absolute HTTPS on the exact BDDK/mevzuat hosts (including reviewed
+   `www` aliases), default port only, without credentials. Unknown, duplicate or
+   provenance fields are rejected. `extraction_method` cannot be edited; original
+   extraction metadata is retained and every manual edit is explicitly unverified.
+2. The form binds the original admin-visible canonical content/metadata and PDF
+   digest plus an optimistic draft revision. A stale revision/base returns 409
+   without overwriting anything. After concurrent editing, reload and reapply
+   deliberately. If canonical data changed, download and reconcile offline;
+   there is no automatic rebase or force-save button. Base comparison is a
+   point-in-time read, not a lock on future corpus publications; operator review
+   must recheck the base before applying the artifact.
+3. On the detail page choose **Sign saved draft — Imzala**. It signs exactly the
+   saved revision, all edited fields, original snapshot, base fingerprint and
+   unverified/unpublished markers using Ed25519. Unsaved text is never signed.
+   Every subsequent save increments revision and removes the stored signature,
+   including a save with identical text. A stale sign cannot sign a newer edit.
+4. Download `editorial-draft.json` (also available unsigned). Its `payload` and
+   `signature` are canonical JSON; signature is over UTF-8 bytes of
+   `json.dumps(payload, ensure_ascii=False, sort_keys=True,
+   separators=(",", ":"), allow_nan=False)`. The signature object carries
+   `algorithm`, `signature_base64`, `public_key_pem` and the SHA-256 fingerprint
+   of raw Ed25519 public bytes. Verify with the **independently trusted** key:
+
+   ```python
+   import base64, json
+   from pathlib import Path
+   from cryptography.hazmat.primitives.serialization import load_pem_public_key
+
+   artifact = json.loads(Path("editorial-draft.json").read_text())
+   trusted = load_pem_public_key(Path("approved-editorial-public.pem").read_bytes())
+   payload = json.dumps(
+       artifact["payload"], ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+   ).encode("utf-8")
+   trusted.verify(base64.b64decode(artifact["signature"]["signature_base64"], validate=True), payload)
+   ```
+
+These are **editorial artifacts, not deployable releases, regulator signatures,
+source validation, or corpus-manifest signatures**. There is no auto-activation,
+seed export of drafts, or UI publication endpoint. The SQLite file retains the
+latest draft only, not an append-only audit history; download each reviewed
+revision into operator-controlled retention before further editing. Loss of a
+sidecar backup loses drafts but cannot alter the published corpus.
+
+Publication handoff: independently verify the downloaded signature and expected
+revision/base; review edited text against authoritative sources (especially
+formulas) and preserve review evidence. Apply only approved changes through the
+isolated ingestion/build workflow with original metadata preserved and genuine
+extraction/review provenance. Regenerate sections, chunks and embeddings, run
+quality/retrieval tests, review the artifact delta, then follow the complete
+owner corpus-manifest signing → bootstrap → independent verify-and-stage →
+separate activate sequence below. Editorial signing never replaces any step.
+
 ## Reviewed update procedure
 
 1. Acquire and normalize sources through the bounded ingestion path.

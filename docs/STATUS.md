@@ -32,7 +32,7 @@ The tool counts are derived from `bddk_mcp/tools/registry.py`; schema version is
 - Fail-closed remote HTTP configuration and separate database lifecycle roles.
 - Signed, governed offline corpus artifacts with staged verifier/publisher activation.
 - Structured deployment assets for local Compose, PostgreSQL, OpenShift, and Open WebUI; Railway remains a development/preview profile outside the bank path.
-- A loopback-only, read-only operator console (`bddk-mcp admin-ui`, `bddk_mcp/admin/`) that refuses non-loopback binds and ships in no deployment manifest.
+- An admin console (`bddk-mcp admin-ui`, `bddk_mcp/admin/`) with public-reader PostgreSQL access, optional persistent SQLite editorial drafts and optional server-held Ed25519 document signing. Remote binds require operator JWT authentication. Drafts never mutate/publish the corpus; see [configuration and handoff](CORPUS_GOVERNANCE.md#admin-editorial-drafts-and-document-signatures).
 - Broad automated coverage across runtime, migrations, retrieval, deployment, recovery, and supply-chain policy.
 
 ## What is not established
