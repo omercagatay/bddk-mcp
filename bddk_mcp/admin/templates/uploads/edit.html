@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Duzeltme{% endblock %}
+{% block content %}
+<h1>Metni duzelt</h1>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<form method="post" action="/uploads/{{ upload_id }}/edit">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+  <textarea name="text" rows="24">{{ text }}</textarea>
+  <button type="submit">Kaydet</button>
+</form>
+<p><a href="/uploads/{{ upload_id }}/admit">Corpus'a al sayfasina git</a></p>
+{% endblock %}

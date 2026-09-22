@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Corpus'a al{% endblock %}
+{% block content %}
+<h1>Corpus'a al</h1>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% if state %}
+<p>Durum: {{ state }}</p>
+{% endif %}
+{% if state == "waiting" or state == "published" %}
+<p class="muted">Yayin islemi ayri bir surecte calisir. Durum degistiginde bu sayfayi yenileyin.</p>
+{% else %}
+<form method="post" action="/uploads/{{ upload_id }}/admit">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
+  <button type="submit">Hazir, corpus'a al</button>
+</form>
+<p class="muted">Bu istek tek bir belgeyi yayin kapisina gonderir. Onaylanmadan aramada gorunmez.</p>
+{% endif %}
+{% endblock %}

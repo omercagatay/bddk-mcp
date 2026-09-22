@@ -140,6 +140,15 @@ class UploadStore:
             raise FileNotFoundError(request_id)
         return row["state"]
 
+    def latest_request(self, upload_id: str) -> str | None:
+        """Return the newest admission request id for one upload, if any."""
+        with closing(self._connect()) as db:
+            row = db.execute(
+                "SELECT request_id FROM admission_requests WHERE upload_id = ? ORDER BY created_at DESC LIMIT 1",
+                (upload_id,),
+            ).fetchone()
+        return None if row is None else row["request_id"]
+
     def mark(self, request_id: str, state: str) -> None:
         if state not in {"published", "error"}:
             raise ValueError("invalid_state")

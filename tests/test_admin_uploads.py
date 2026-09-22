@@ -85,3 +85,14 @@ def test_concurrent_admits_cannot_both_create_waiting_rows(tmp_path):
             (upload_id,),
         ).fetchone()[0]
     assert waiting == 1
+
+
+def test_latest_request_returns_the_newest_request(tmp_path):
+    store = UploadStore(tmp_path / "drafts.sqlite")
+    upload_id = store.save("note.pdf", b"%PDF-1.4\n")
+    assert store.latest_request(upload_id) is None
+    store.save_correction(upload_id, "metin")
+    first = store.admit(upload_id)
+    store.mark(first, "error")
+    second = store.admit(upload_id)
+    assert store.latest_request(upload_id) == second
