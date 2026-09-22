@@ -37,3 +37,15 @@ def test_correction_rejects_null_byte(tmp_path):
     upload_id = store.save("note.pdf", b"%PDF-1.4\n")
     with pytest.raises(ValueError, match="null"):
         store.save_correction(upload_id, "satir\x00devam")
+
+
+def test_admit_is_one_waiting_request_and_rejects_a_second(tmp_path):
+    store = UploadStore(tmp_path / "drafts.sqlite")
+    upload_id = store.save("note.pdf", b"%PDF-1.4\n")
+    with pytest.raises(ValueError, match="not_corrected"):
+        store.admit(upload_id)
+    store.save_correction(upload_id, "yayinlanacak metin")
+    request_id = store.admit(upload_id)
+    assert store.request_state(request_id) == "waiting"
+    with pytest.raises(ValueError, match="already_waiting"):
+        store.admit(upload_id)

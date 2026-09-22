@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import sqlite3
 from contextlib import closing
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -18,6 +19,10 @@ class UploadStore:
             db.execute(
                 "CREATE TABLE IF NOT EXISTS upload_drafts ("
                 "upload_id TEXT PRIMARY KEY, extracted_text TEXT, corrected_text TEXT, corrected INTEGER NOT NULL)"
+            )
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS admission_requests ("
+                "request_id TEXT PRIMARY KEY, upload_id TEXT NOT NULL, state TEXT NOT NULL, created_at TEXT NOT NULL)"
             )
 
     def reject_reason(self, filename: str, data: bytes) -> str | None:
@@ -104,3 +109,38 @@ class UploadStore:
         if row is None or not row["corrected"] or not row["corrected_text"]:
             raise FileNotFoundError(upload_id)
         return row["corrected_text"]
+
+    def admit(self, upload_id: str) -> str:
+        # Only an explicit operator correction is admissible.
+        try:
+            self.corrected_text(upload_id)
+        except FileNotFoundError:
+            raise ValueError("not_corrected") from None
+        request_id = f"corpus_admission_{uuid4().hex}"
+        with closing(self._connect()) as db, db:
+            waiting = db.execute(
+                "SELECT request_id FROM admission_requests WHERE upload_id = ? AND state = 'waiting'",
+                (upload_id,),
+            ).fetchone()
+            if waiting is not None:
+                raise ValueError("already_waiting")
+            db.execute(
+                "INSERT INTO admission_requests (request_id, upload_id, state, created_at) VALUES (?, ?, 'waiting', ?)",
+                (request_id, upload_id, datetime.now(UTC).isoformat()),
+            )
+        return request_id
+
+    def request_state(self, request_id: str) -> str:
+        with closing(self._connect()) as db:
+            row = db.execute("SELECT state FROM admission_requests WHERE request_id = ?", (request_id,)).fetchone()
+        if row is None:
+            raise FileNotFoundError(request_id)
+        return row["state"]
+
+    def mark(self, request_id: str, state: str) -> None:
+        if state not in {"published", "error"}:
+            raise ValueError("invalid_state")
+        with closing(self._connect()) as db, db:
+            cursor = db.execute("UPDATE admission_requests SET state = ? WHERE request_id = ?", (state, request_id))
+        if cursor.rowcount != 1:
+            raise FileNotFoundError(request_id)
