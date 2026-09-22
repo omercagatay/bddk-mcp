@@ -19,8 +19,17 @@ def test_saved_correction_survives_repeat_extraction(tmp_path, monkeypatch):
     assert store.extract(upload_id) == "ilk metin"
     store.save_correction(upload_id, "duzeltilmis metin")
     monkeypatch.setattr(store, "_extract_bytes", lambda *_: "yeniden okunan")
-    store.extract(upload_id)
+    assert store.extract(upload_id) == "duzeltilmis metin"
     assert store.corrected_text(upload_id) == "duzeltilmis metin"
+
+
+def test_corrected_text_never_returns_the_raw_extraction(tmp_path, monkeypatch):
+    store = UploadStore(tmp_path / "drafts.sqlite")
+    upload_id = store.save("note.pdf", b"%PDF-1.4\n")
+    monkeypatch.setattr(store, "_extract_bytes", lambda *_: "ilk metin")
+    store.extract(upload_id)
+    with pytest.raises(FileNotFoundError):
+        store.corrected_text(upload_id)
 
 
 def test_correction_rejects_null_byte(tmp_path):

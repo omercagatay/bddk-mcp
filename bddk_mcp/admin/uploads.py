@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 from uuid import uuid4
 
@@ -13,7 +14,7 @@ class UploadStore:
         self.draft_db = draft_db
         self.root = draft_db.parent / "uploads"
         self.root.mkdir(mode=0o700, exist_ok=True)
-        with self._connect() as db:
+        with closing(self._connect()) as db, db:
             db.execute(
                 "CREATE TABLE IF NOT EXISTS upload_drafts ("
                 "upload_id TEXT PRIMARY KEY, extracted_text TEXT, corrected_text TEXT, corrected INTEGER NOT NULL)"
@@ -58,21 +59,23 @@ class UploadStore:
         return result.content
 
     def extract(self, upload_id: str) -> str:
-        path = self.path_for(upload_id)
-        text = self._extract_bytes(path.read_bytes(), path.suffix.lower())
-        with self._connect() as db:
+        with closing(self._connect()) as db, db:
             row = db.execute(
-                "SELECT corrected, corrected_text, extracted_text FROM upload_drafts WHERE upload_id = ?",
+                "SELECT corrected, corrected_text FROM upload_drafts WHERE upload_id = ?",
                 (upload_id,),
             ).fetchone()
+            # A saved correction wins before any re-extraction is attempted.
             if row is not None and row["corrected"]:
                 return row["corrected_text"]
+        path = self.path_for(upload_id)
+        text = self._extract_bytes(path.read_bytes(), path.suffix.lower())
+        with closing(self._connect()) as db, db:
             db.execute(
                 "INSERT INTO upload_drafts (upload_id, extracted_text, corrected_text, corrected) "
-                "VALUES (?, ?, ?, 0) "
+                "VALUES (?, ?, NULL, 0) "
                 "ON CONFLICT(upload_id) DO UPDATE SET extracted_text = excluded.extracted_text "
                 "WHERE corrected = 0",
-                (upload_id, text, text),
+                (upload_id, text),
             )
         return text
 
@@ -82,20 +85,22 @@ class UploadStore:
         if not text.strip():
             raise ValueError("empty")
         self.path_for(upload_id)
-        with self._connect() as db:
+        with closing(self._connect()) as db, db:
             db.execute(
                 "INSERT INTO upload_drafts (upload_id, extracted_text, corrected_text, corrected) "
-                "VALUES (?, ?, ?, 1) "
+                "VALUES (?, NULL, ?, 1) "
                 "ON CONFLICT(upload_id) DO UPDATE SET corrected_text = excluded.corrected_text, corrected = 1",
-                (upload_id, text, text),
+                (upload_id, text),
             )
 
     def corrected_text(self, upload_id: str) -> str:
-        with self._connect() as db:
+        with closing(self._connect()) as db, db:
             row = db.execute(
-                "SELECT corrected_text FROM upload_drafts WHERE upload_id = ?",
+                "SELECT corrected, corrected_text FROM upload_drafts WHERE upload_id = ?",
                 (upload_id,),
             ).fetchone()
-        if row is None or not row["corrected_text"]:
+        # The admitted text is only ever an explicit operator correction;
+        # a raw extraction is never returned from here.
+        if row is None or not row["corrected"] or not row["corrected_text"]:
             raise FileNotFoundError(upload_id)
         return row["corrected_text"]
