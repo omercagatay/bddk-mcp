@@ -140,6 +140,16 @@ class UploadStore:
             raise FileNotFoundError(request_id)
         return row["state"]
 
+    def oldest_waiting_request(self) -> tuple[str, str] | None:
+        """Return the (request_id, upload_id) of the oldest waiting request, if any."""
+
+        with closing(self._connect()) as db:
+            row = db.execute(
+                "SELECT request_id, upload_id FROM admission_requests WHERE state = 'waiting' "
+                "ORDER BY created_at ASC LIMIT 1"
+            ).fetchone()
+        return None if row is None else (row["request_id"], row["upload_id"])
+
     def latest_request(self, upload_id: str) -> str | None:
         """Return the newest admission request id for one upload, if any."""
         with closing(self._connect()) as db:
