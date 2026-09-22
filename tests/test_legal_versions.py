@@ -1105,7 +1105,7 @@ async def test_official_mcp_session_emits_reconstructable_citation_from_real_val
             assert result.structuredContent["status"] == "ok"
             assessment = result.structuredContent["answer_assessment"]
             assert assessment["basis"] == "dated_version"
-            assert assessment["quotation_status"] == "verified"
+            assert assessment["quotation_status"] == "exact_reference_match"
             assert assessment["scope_and_entailment"] == "not_assessed"
             assert assessment["gaps"] == []
             assert {item["role"] for item in assessment["legal_evidence"]} >= {"publication", "effective", "status"}
@@ -1113,7 +1113,7 @@ async def test_official_mcp_session_emits_reconstructable_citation_from_real_val
             assert undated_version.structuredContent["status"] == "partial"
             abstained = undated_version.structuredContent["answer_assessment"]
             assert abstained["basis"] == "validated_citation"
-            assert abstained["quotation_status"] == "verified"
+            assert abstained["quotation_status"] == "exact_reference_match"
             assert "legal_status_unresolved" in abstained["gaps"]
             citation_payload = result.structuredContent["evidence"][0]["citation"]
             citation = CitationV1.model_validate(citation_payload)

@@ -320,8 +320,8 @@ async def test_pgvector_path_still_looks_up_extraction_method():
 
 
 @pytest.mark.asyncio
-async def test_get_bddk_document_sanitizes_context_output_and_warns_for_fail():
-    """Unsafe extraction blobs must never leak through public document retrieval."""
+async def test_get_bddk_document_refuses_rather_than_rewriting_unsafe_verbatim_text():
+    """Unsafe extraction blobs must never leak, and document text is never rewritten/sanitized."""
     page = DocumentPage(
         document_id="mevzuat_21192",
         title="Risk Yönetimi",
@@ -339,18 +339,16 @@ async def test_get_bddk_document_sanitizes_context_output_and_warns_for_fail():
     )
 
     tool = _capture_get_bddk_document(deps)
-    out = await tool("mevzuat_21192", 1)
+    with pytest.raises(ToolError) as exc_info:
+        await tool("mevzuat_21192", 1)
+    out = str(exc_info.value)
 
-    assert "data:image/" not in out
-    assert "base64" not in out
-    assert "<img" not in out.lower()
-    assert "<div" not in out.lower()
-    assert "cid:" not in out
-    assert "Quality: fail" in out
-    assert "Quality flags:" in out
-    assert "severe extraction artifacts" in out
-    assert "[removed embedded image/formula artifact]" in out
-    assert "Madde 1" in out
+    assert out.splitlines()[0] == "[ERROR:VERBATIM_UNAVAILABLE] retryable=false"
+    assert "cannot be returned verbatim" in out
+    assert "does not rewrite" in out
+    # The unsafe artifact and the rewritable document text must not leak at all.
+    for leaked in ("data:image/", "base64", "<img", "<div", "cid:12", "Madde 1"):
+        assert leaked not in out
 
 
 @pytest.mark.asyncio

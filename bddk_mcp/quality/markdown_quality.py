@@ -281,6 +281,26 @@ def sanitize_markdown_for_context(text: str, max_line_length: int = 1000) -> str
     return _wrap_long_lines(out, max_line_length=max_line_length)
 
 
+def unsafe_verbatim_reason(text: str) -> str | None:
+    """Return a reason when returning ``text`` unchanged would leak unsafe extraction blobs.
+
+    Verbatim serving and the context sanitizer are mutually exclusive: this helper
+    lets callers refuse a document instead of silently rewriting its characters.
+    Ordinary legal Markdown (long lines, accents, punctuation) is never a reason.
+    """
+    if not text:
+        return None
+    if _DATA_URI_RE.search(text) or _MARKDOWN_DATA_IMAGE_RE.search(text):
+        return "embedded_data_uri"
+    if _CID_RE.search(text):
+        return "cid_marker"
+    if _DANGEROUS_TAG_RE.search(text):
+        return "raw_html_tag"
+    if _CONTROL_CHAR_RE.search(text):
+        return "control_char"
+    return None
+
+
 def assess_markdown_quality(text: str, document_id: str = "") -> QualityAssessment:
     """Return deterministic quality flags and a clean/warning/fail label."""
     counts = _count_signals(text)

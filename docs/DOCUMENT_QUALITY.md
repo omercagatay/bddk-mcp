@@ -27,6 +27,29 @@ The quality engine reports one document-level label plus flags:
 - `fail`: severe extraction risk such as raw HTML/data URI leakage, many `cid:` markers, replacement characters, very long blob-like lines, or repeated corrupted blocks.
 - `unknown`: quality metadata is unavailable or unresolved. A locally clean section must not erase an explicitly unknown document-level assessment.
 
+## Verbatim serving contract
+
+Document and section tools return **exact stored characters**. There is no
+summarization, paraphrase, line wrapping, whitespace normalization, case folding,
+or punctuation repair on the way out. If returning a document unchanged would
+leak an unsafe extraction artifact (embedded `data:` URI, `cid:` marker, raw HTML
+tag or control character), the tool **refuses** with `VERBATIM_UNAVAILABLE` instead
+of silently rewriting the text; repair and re-publish the source. All 318 reviewed
+seed documents are servable verbatim and are covered by
+`tests/test_verbatim_documents.py`, which also proves the production token chunker
+emits exact slices and that PostgreSQL round-trips every page exactly.
+
+A capped parser span stores a system truncation notice. The notice is storage
+metadata, never legal text: serving strips it and reports truncation
+(`content_truncated`). Catalog search results carry BDDK catalog summary/excerpt
+metadata, which is labeled as such and must never be quoted as provision text;
+document-store snippets are exact leading excerpts of one chunk and may be
+truncated.
+
+Returned structured responses report `schema_version` `2.0`; the stricter
+verbatim/exact-quotation semantics are part of that version, and Citation v2 uses
+the `exact_stored_range_v2` render transform.
+
 Labels are deterministic signals, not legal conclusions. A `clean` document is not a legal validation; a `fail` document means the extracted Markdown should not be treated as audit-grade evidence without source review.
 
 ## Known Fail List

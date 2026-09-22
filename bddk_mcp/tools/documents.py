@@ -14,7 +14,7 @@ from bddk_mcp.quality.markdown_quality import (
     FORMULA_EXTRACTION_WARNING as _DEGRADED_WARNING,
 )
 from bddk_mcp.quality.markdown_quality import is_formula_aware as _is_formula_aware
-from bddk_mcp.quality.markdown_quality import quality_assessment_from_metadata, sanitize_markdown_for_context
+from bddk_mcp.quality.markdown_quality import quality_assessment_from_metadata, unsafe_verbatim_reason
 from bddk_mcp.store.legal_ref import document_id_candidates
 from bddk_mcp.tools.errors import INVALID_INPUT, NOT_FOUND, tool_error
 from bddk_mcp.tools.structured_outputs import (
@@ -204,12 +204,33 @@ def register(
         if quality is None:
             quality = quality_assessment_from_metadata(resolved_id, "unknown", ["document_quality_unavailable"])
         formula_aware = _is_formula_aware(extraction_method)
-        sanitized_pages = [
-            DocumentPageContent(
-                page_number=page,
-                content=sanitize_markdown_for_context(page_content),
+        # Verbatim contract: returned document text is the exact stored characters.
+        # If returning them unchanged would leak an unsafe extraction blob, refuse
+        # the document instead of silently rewriting (sanitizing) its text.
+        unsafe_reason = next(
+            (reason for _page, page_content in page_contents if (reason := unsafe_verbatim_reason(page_content))),
+            None,
+        )
+        if unsafe_reason is not None:
+            await record_tool_call_trace(
+                getattr(deps, "telemetry_pool", None),
+                tool_name="get_bddk_document",
+                args=args,
+                latency_ms=elapsed_ms(start),
+                result_count=0,
+                doc_ids=[resolved_id],
+                relevance_stats={"status": "verbatim_refused", "reason": unsafe_reason},
             )
-            for page, page_content in page_contents
+            return tool_error(
+                "VERBATIM_UNAVAILABLE",
+                f"Document {resolved_id} cannot be returned verbatim: its stored text contains an unsafe "
+                f"extraction artifact ({unsafe_reason}). This server does not rewrite, sanitize, or summarize "
+                "document text; repair and re-publish the source instead.",
+                retryable=False,
+                hint="Use the source document (source_url) or repair/re-extract the document and publish a new corpus release.",
+            )
+        sanitized_pages = [
+            DocumentPageContent(page_number=page, content=page_content) for page, page_content in page_contents
         ]
         if len(sanitized_pages) > 1:
             content = "\n\n---\n\n".join(
@@ -262,7 +283,10 @@ def register(
             f"- Decision Date: {meta_date or 'N/A'}\n- Decision Number: {meta_number or 'N/A'}\n"
             f"- Category: {meta_category or 'N/A'}\n- Source: {source_url or 'N/A'}\n"
             f"- Page: {page_display}\n- Extraction: {method_display}\n{quality_lines}---\n"
-            "Use ONLY the text below. Do not add information not present in this document.\n\n"
+            "The text below is the exact stored document content; no sanitization, wrapping, paraphrase or "
+            "summary has been applied. Quote it verbatim, character for character, and do not add information "
+            "not present in this document. Verbatim equality with the stored extraction does not by itself prove "
+            "equality with the official source; use source_url to verify.\n\n"
             f"{large_document_warning_block}{page_gap_warning_block}"
             f"{quality_warning_block}{degraded_warning_block}"
         )

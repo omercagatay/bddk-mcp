@@ -63,7 +63,9 @@ async def test_quote_and_date_are_bound_to_the_actual_cited_version():
     citation = result.structuredContent["evidence"][0]["citation"]
     assert result.structuredContent["status"] == "ok"
     assert check["basis"] == "dated_version"
-    assert check["quotation_status"] == "verified"
+    assert check["quotation_status"] == "exact_reference_match"
+    assert check["quotation_check"]["normalization"] == "none"
+    assert check["quotation_check"]["original_source_fidelity"] == "not_established"
     assert check["citation_available"]
     assert check["resolved_legal_version_id"] == citation["legal_version_id"]
     assert check["scope_and_entailment"] == "not_assessed"
@@ -98,12 +100,13 @@ async def test_unsupported_duties_numbers_scope_and_instructions_are_not_verifie
 
 
 @pytest.mark.asyncio
-async def test_quote_matching_tolerates_only_whitespace_and_never_infers_a_date():
+async def test_quote_matching_rejects_changed_whitespace_and_never_infers_a_date():
     deps = _deps()
     result = await _check(deps, quotation="Banka  bağımsız\nvalidasyon yapar.")
     check = result.structuredContent["answer_assessment"]
-    assert check["quotation_status"] == "verified"
-    assert check["basis"] == "validated_citation"
+    assert check["quotation_status"] == "not_found"
+    assert check["quotation_check"]["status"] == "mismatch"
+    assert check["basis"] == "insufficient"
     assert "as_of_required" in check["gaps"]
     assert "as_of" not in check
     assert deps.pool.calls == []
@@ -117,7 +120,7 @@ async def test_reading_source_text_does_not_create_a_validated_citation_or_statu
     ]
     result = await _check(deps, quotation="Banka bağımsız validasyon yapar.", as_of="2024-06-30")
     check = result.structuredContent["answer_assessment"]
-    assert check["basis"] == "local_text" and check["quotation_status"] == "verified"
+    assert check["basis"] == "local_text" and check["quotation_status"] == "exact_reference_match"
     assert not check["citation_available"]
     assert "validated_citation_unavailable" in check["gaps"]
     assert "legal_status_not_checked_without_citation" in check["gaps"]
@@ -186,7 +189,7 @@ async def test_unknown_document_quality_is_not_overridden_by_a_clean_section():
 async def test_formula_unaware_section_warns_without_discarding_a_valid_text_quote():
     section = _citable_section().model_copy(update={"document_extraction_method": "pdfplumber"})
     result = await _check(_deps(section), as_of="2024-06-30", quotation="Banka bağımsız validasyon yapar.")
-    assert result.structuredContent["answer_assessment"]["quotation_status"] == "verified"
+    assert result.structuredContent["answer_assessment"]["quotation_status"] == "exact_reference_match"
     assert result.structuredContent["answer_assessment"]["basis"] == "dated_version"
     assert "formula_unaware_extraction" in result.structuredContent["results"][0]["quality"]["flags"]
     assert "formülü hafızadan" in result.text
@@ -199,7 +202,7 @@ async def test_status_backend_failure_keeps_the_quote_but_not_a_current_law_conc
     deps.pool.fetch = AsyncMock(side_effect=OSError("private connection detail"))
     result = await _check(deps, as_of="2024-06-30", quotation="Banka bağımsız validasyon yapar.")
     check = result.structuredContent["answer_assessment"]
-    assert check["quotation_status"] == "verified" and check["basis"] == "validated_citation"
+    assert check["quotation_status"] == "exact_reference_match" and check["basis"] == "validated_citation"
     assert "legal_status_unavailable" in check["gaps"]
     assert "private connection detail" not in result.text
 
@@ -273,48 +276,43 @@ async def test_existing_callers_do_not_get_new_assessment_fields_or_status_queri
 
 @pytest.mark.postgres
 @pytest.mark.asyncio
-async def test_real_corpus_quotations_stay_local_text_and_fabricated_duties_fail(doc_store):
+async def test_real_corpus_quotations_must_be_exact_and_fabricated_duties_fail(doc_store):
+    """Real corpus: only character-exact stored text verifies; inventions and rewrites do not."""
+    from bddk_mcp.store.section_index import extract_document_sections
+
     seed = Path(__file__).resolve().parents[1] / "seed_data" / "documents.json"
-    for document in json.loads(seed.read_text()):
-        if document["document_id"] in {"1040", "943", "935"}:
-            await doc_store.store_document(StoredDocument(**document))
+    documents = {d["document_id"]: d for d in json.loads(seed.read_text())}
+    for document_id in ("1040", "943", "935"):
+        await doc_store.store_document(StoredDocument(**documents[document_id]))
     deps = Dependencies(pool=None, doc_store=doc_store, client=None, http=None)
     tool = _capture_tool(deps, "get_document_section")
-    cases = [
-        (
-            "1040",
-            "134",
-            "Bankalar, tahmin edilen zarar karşılıkları ile gerçekleşen zararları "
-            "geriye dönük testler uygulayarak test etmelidir.",
-        ),
-        ("943", "43", "Model validasyonu asgari olarak aşağıdaki unsurları içermelidir:"),
-        (
-            "935",
-            "30",
-            "Geriye dönük test, tahmini değerler ile gerçekleşen değerler arasındaki olası farklılığın "
-            "kabul edilebilir düzeylerinin belirlenmesi amacıyla istatistiksel yöntemler kullanarak yapılabilir.",
-        ),
-    ]
-    async with create_connected_server_and_client_session(create_mcp(deps)) as session:
-        for doc_id, ref, quotation in cases:
-            result = await session.call_tool(
-                "get_document_section",
-                {
-                    "document_id": doc_id,
-                    "section_type": "paragraf",
-                    "section_ref": ref,
-                    "quotation": quotation,
-                    "as_of": "2024-06-30",
-                },
-            )
-            assert not result.isError
-            assessment = result.structuredContent["answer_assessment"]
-            assert assessment["quotation_status"] == "verified", (doc_id, assessment)
-            assert assessment["basis"] == "local_text"
-            assert "validated_citation_unavailable" in assessment["gaps"]
-            assert assessment["scope_and_entailment"] == "not_assessed"
-            assert result.structuredContent["status"] == "partial"
-            for invented in ("Bankalar her yıl test yapmalıdır.", "En az 5 yıllık veri ve yüzde 10 eşik zorunludur."):
-                bad = await tool(doc_id, section_type="paragraf", section_ref=ref, quotation=invented)
-                assert bad.structuredContent["answer_assessment"]["basis"] == "insufficient"
-                assert bad.structuredContent["answer_assessment"]["quotation_status"] == "not_found"
+
+    for doc_id, ref in (("1040", "134"), ("943", "43"), ("935", "30")):
+        content = documents[doc_id]["markdown_content"]
+        section = next(
+            s
+            for s in extract_document_sections(doc_id, content)
+            if s.section_type == "paragraf" and s.section_ref == ref
+        )
+        quotation = section.content.strip()[:120]
+        assert quotation.strip()
+        result = await tool(doc_id, section_type="paragraf", section_ref=ref, quotation=quotation)
+        assessment = result.structuredContent["answer_assessment"]
+        assert assessment["quotation_status"] == "exact_reference_match", (doc_id, assessment)
+        assert assessment["quotation_check"]["normalization"] == "none"
+        assert assessment["quotation_check"]["original_source_fidelity"] == "not_established"
+        assert assessment["basis"] == "local_text"
+        assert "validated_citation_unavailable" in assessment["gaps"]
+        assert assessment["scope_and_entailment"] == "not_assessed"
+        assert result.structuredContent["status"] == "partial"
+
+        # Reflowing the same words (a whitespace-only change) must never verify.
+        squeezed = " ".join(quotation.split())
+        if squeezed != quotation:
+            rewritten = await tool(doc_id, section_type="paragraf", section_ref=ref, quotation=squeezed)
+            assert rewritten.structuredContent["answer_assessment"]["quotation_status"] == "not_found"
+
+        for invented in ("Bankalar her yıl test yapmalıdır.", "En az 5 yıllık veri ve yüzde 10 eşik zorunludur."):
+            bad = await tool(doc_id, section_type="paragraf", section_ref=ref, quotation=invented)
+            assert bad.structuredContent["answer_assessment"]["basis"] == "insufficient"
+            assert bad.structuredContent["answer_assessment"]["quotation_status"] == "not_found"

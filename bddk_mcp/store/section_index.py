@@ -20,6 +20,23 @@ SECTION_SEARCH_PROFILE_VERSION = "document-section-simple-fts-length-normalized-
 # thousand chars; spans beyond this are parser artifacts (typically trailing EK
 # annexes swallowed by the last matched heading) and poison section search.
 MAX_SECTION_CHARS = 20_000
+# The stored section content of a capped span carries a system truncation notice.
+# The notice is storage metadata, never part of the legal text: verbatim serving
+# strips it and reports truncation separately.
+TRUNCATION_NOTICE_PREFIX = "[BÖLÜM KESİLDİ:"
+_TRUNCATION_NOTICE_RE = re.compile(r"\s*\[BÖLÜM KESİLDİ:[^\]]*\]\s*$")
+
+
+def split_section_truncation_notice(content: str) -> tuple[str, str | None]:
+    """Split stored section content into exact legal characters and any notice."""
+    if not content:
+        return content or "", None
+    match = _TRUNCATION_NOTICE_RE.search(content)
+    if match is None:
+        return content, None
+    return content[: match.start()], content[match.start() :].strip()
+
+
 # Uncovered remainder (preamble, refused numbered bodies, footnotes, text
 # past a capped span) is indexed as this type so section FTS can see it
 # without inventing madde/paragraf identities.
@@ -182,7 +199,7 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
             # The marker travels inside the stored content so every consumer
             # (get_document_section, search previews) sees the truncation.
             content += (
-                f"\n\n[BÖLÜM KESİLDİ: içerik {truncated_from} karakterden "
+                f"\n\n{TRUNCATION_NOTICE_PREFIX} içerik {truncated_from} karakterden "
                 f"{MAX_SECTION_CHARS} karaktere kısaltıldı — tam metin için get_bddk_document kullanın]"
             )
         content_hash = _content_hash(content)
