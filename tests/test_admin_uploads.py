@@ -49,3 +49,39 @@ def test_admit_is_one_waiting_request_and_rejects_a_second(tmp_path):
     assert store.request_state(request_id) == "waiting"
     with pytest.raises(ValueError, match="already_waiting"):
         store.admit(upload_id)
+
+
+def test_concurrent_admits_cannot_both_create_waiting_rows(tmp_path):
+    """Two overlapping admits in one process yield exactly one waiting row."""
+    import sqlite3
+    import threading
+
+    store = UploadStore(tmp_path / "drafts.sqlite")
+    upload_id = store.save("note.pdf", b"%PDF-1.4\n")
+    store.save_correction(upload_id, "yayinlanacak metin")
+
+    barrier = threading.Barrier(2)
+    request_ids: list[str] = []
+    rejected: list[str] = []
+
+    def admit():
+        barrier.wait()
+        try:
+            request_ids.append(store.admit(upload_id))
+        except ValueError as exc:
+            rejected.append(str(exc))
+
+    threads = [threading.Thread(target=admit) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert len(request_ids) == 1
+    assert rejected == ["already_waiting"]
+    with sqlite3.connect(store.draft_db) as db:
+        waiting = db.execute(
+            "SELECT COUNT(*) FROM admission_requests WHERE upload_id = ? AND state = 'waiting'",
+            (upload_id,),
+        ).fetchone()[0]
+    assert waiting == 1

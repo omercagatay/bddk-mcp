@@ -49,7 +49,7 @@ class UploadStore:
 
     def _connect(self) -> sqlite3.Connection:
         self.draft_db.parent.mkdir(parents=True, exist_ok=True)
-        db = sqlite3.connect(self.draft_db)
+        db = sqlite3.connect(self.draft_db, timeout=5)
         db.row_factory = sqlite3.Row
         return db
 
@@ -117,7 +117,10 @@ class UploadStore:
         except FileNotFoundError:
             raise ValueError("not_corrected") from None
         request_id = f"corpus_admission_{uuid4().hex}"
+        # BEGIN IMMEDIATE takes the write lock before the waiting-state SELECT,
+        # so the check-then-insert is serialized exactly like DraftStore.change.
         with closing(self._connect()) as db, db:
+            db.execute("BEGIN IMMEDIATE")
             waiting = db.execute(
                 "SELECT request_id FROM admission_requests WHERE upload_id = ? AND state = 'waiting'",
                 (upload_id,),
