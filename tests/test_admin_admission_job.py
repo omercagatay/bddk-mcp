@@ -76,6 +76,50 @@ def test_admit_next_publishes_one_request_per_call(tmp_path):
     assert store.request_state(second_request) == "waiting"
 
 
+def test_admit_next_refuses_an_unwired_publisher_without_marking(tmp_path):
+    """An unwired publisher refuses; that refusal is never a request error."""
+
+    from bddk_mcp.admin.admission_job import admit_next
+
+    store, first_request, second_request = _store_with_two_waiting_uploads(tmp_path)
+
+    def unwired_publish(_text):
+        raise NotImplementedError("gates not wired")
+
+    with pytest.raises(NotImplementedError, match="gates not wired"):
+        admit_next(store, unwired_publish)
+    assert store.request_state(first_request) == "waiting"
+    assert store.request_state(second_request) == "waiting"
+
+
+def test_publisher_from_env_with_credentials_fails_loudly_while_gates_are_unwired(monkeypatch):
+    """The refusal happens at construction, before any admission request is marked."""
+
+    from bddk_mcp.admin.admission_job import publisher_from_env
+
+    monkeypatch.setenv("BDDK_RELEASE_VERIFIER_DATABASE_URL", "postgresql://verifier@example/db")
+    monkeypatch.setenv("BDDK_RELEASE_PUBLISHER_DATABASE_URL", "postgresql://publisher@example/db")
+
+    with pytest.raises(NotImplementedError, match="not wired"):
+        publisher_from_env()
+
+
+def test_cli_admit_next_upload_refuses_before_marking_when_gates_are_unwired(tmp_path, monkeypatch):
+    """A configured admit-next-upload run refuses before touching any request state."""
+
+    from bddk_mcp.admin.admission_job import admit_next  # noqa: F401  (store helper import clarity)
+    from bddk_mcp.cli import _run_admit_next_upload
+
+    store, first_request, _second_request = _store_with_two_waiting_uploads(tmp_path)
+    monkeypatch.setenv("BDDK_RELEASE_VERIFIER_DATABASE_URL", "postgresql://verifier@example/db")
+    monkeypatch.setenv("BDDK_RELEASE_PUBLISHER_DATABASE_URL", "postgresql://publisher@example/db")
+    args = argparse.Namespace(draft_db=tmp_path / "drafts.sqlite")
+
+    with pytest.raises(NotImplementedError, match="not wired"):
+        _run_admit_next_upload(args)
+    assert store.request_state(first_request) == "waiting"
+
+
 def test_publisher_from_env_requires_both_release_credentials(monkeypatch):
     from bddk_mcp.admin.admission_job import publisher_from_env
 

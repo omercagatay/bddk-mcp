@@ -31,6 +31,10 @@ def admit_next(store: UploadStore, publisher: Callable[[str], Any]) -> str:
     try:
         text = store.corrected_text(upload_id)
         publisher(text)
+    except NotImplementedError:
+        # An unwired publisher refuses admission before any gate ran; a refusal
+        # is never a request error, so no state is recorded at all.
+        raise
     except Exception:
         store.mark(request_id, "error")
         return "error"
@@ -46,11 +50,7 @@ def publisher_from_env(env: Mapping[str, str] | None = None) -> Callable[[str], 
     publisher = source.get("BDDK_RELEASE_PUBLISHER_DATABASE_URL", "").strip()
     if not verifier or not publisher:
         raise RuntimeError(_MISSING_RELEASE_CREDENTIALS)
-
-    def publish(_text: str) -> None:
-        # The verify-and-stage/activate pipeline is owned by the release gates;
-        # wiring it for uploaded documents is deliberately out of scope here so
-        # the command fails loudly instead of pretending to publish.
-        raise NotImplementedError("admission publication through the release gates is not wired yet")
-
-    return publish
+    # The verify-and-stage/activate wiring for uploaded documents is a separate
+    # follow-up task. Refuse here, before admit_next runs, so an unwired command
+    # can never mark an admission request as failed.
+    raise NotImplementedError("admission publication through the release gates is not wired yet")
