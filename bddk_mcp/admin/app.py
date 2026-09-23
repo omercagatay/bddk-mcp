@@ -15,8 +15,10 @@ from starlette.routing import Route
 from starlette.templating import Jinja2Templates
 from starlette.types import ASGIApp
 
+from bddk_mcp.admin import password_auth
 from bddk_mcp.admin.auth import AdminAuthMiddleware
 from bddk_mcp.admin.config import AdminConfig
+from bddk_mcp.admin.password_auth import PasswordAuthMiddleware, PasswordSessions
 from bddk_mcp.admin.services.documents import DocumentService
 from bddk_mcp.admin.services.governance import GovernanceService
 from bddk_mcp.admin.views import documents as documents_view
@@ -60,6 +62,7 @@ def create_app(
     ]
     documents_view.register(routes, templates, document_service)
     governance_view.register(routes, templates, governance_service)
+    password_sessions = PasswordSessions(config.password) if config.password else None
     if token_verifier is not None:
         assert config.http_security is not None
         session_view.register(
@@ -69,6 +72,8 @@ def create_app(
             required_scopes=config.http_security.jwt_required_scopes,
             secure_cookie=not config.loopback_only,
         )
+    elif password_sessions is not None:
+        password_auth.register(routes, templates, password_sessions, secure_cookie=not config.loopback_only)
 
     middleware = []
     if config.loopback_only:
@@ -82,4 +87,6 @@ def create_app(
     app.state.config = config
     if token_verifier is not None and config.http_security is not None:
         return AdminAuthMiddleware(app, config.http_security, token_verifier)
+    if password_sessions is not None:
+        return PasswordAuthMiddleware(app, config, password_sessions)
     return app
