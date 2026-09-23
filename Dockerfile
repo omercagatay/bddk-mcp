@@ -47,10 +47,11 @@ ENV PORT=8000
 # ownership plus group-equals-owner permissions supports either case without
 # granting a writable application root at runtime.
 RUN chgrp -R 0 /app && chmod -R g=u /app
-# Persistent-volume mount path (admin editorial drafts). Pre-create it with
-# group-write ownership so a fresh attached volume inherits it on first mount;
-# the process runs as 10001:0 and drafts.py refuses anything less private than
-# 0600 for the SQLite file itself.
+# Persistent-volume mount path (admin editorial drafts). Railway mounts volumes
+# root-owned regardless of image ownership, so the admin preview service runs
+# with RAILWAY_RUN_UID=0 (Railway's documented remedy for non-root images);
+# OpenShift keeps the non-root USER below. The process creates the 0600 SQLite
+# file itself (drafts.py refuses anything less private).
 RUN mkdir -p /data && chgrp 0 /data && chmod g+rwX /data
 USER 10001:0
 
