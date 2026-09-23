@@ -47,6 +47,11 @@ ENV PORT=8000
 # ownership plus group-equals-owner permissions supports either case without
 # granting a writable application root at runtime.
 RUN chgrp -R 0 /app && chmod -R g=u /app
+# Persistent-volume mount path (admin editorial drafts). Pre-create it with
+# group-write ownership so a fresh attached volume inherits it on first mount;
+# the process runs as 10001:0 and drafts.py refuses anything less private than
+# 0600 for the SQLite file itself.
+RUN mkdir -p /data && chgrp 0 /data && chmod g+rwX /data
 USER 10001:0
 
 EXPOSE 8000
