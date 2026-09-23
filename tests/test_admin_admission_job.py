@@ -750,3 +750,11 @@ async def test_staging_corpus_membership_passes_through_real_gates(pg_pool, tmp_
                 )
     finally:
         shutil.rmtree(staging, ignore_errors=True)
+        # import_seed(force=True) COMMITs the staging corpus into the shared
+        # test database; later modules (corpus_publication) verify the
+        # corpus-state fingerprint, so every corpus table the import wrote
+        # must be cleaned here, not just the staging directory.
+        await pg_pool.execute("TRUNCATE public.documents CASCADE")
+        await pg_pool.execute("TRUNCATE public.decision_cache CASCADE")
+        await pg_pool.execute("DELETE FROM public.sync_metadata")
+        await pg_pool.execute("DELETE FROM public.tool_call_traces")
