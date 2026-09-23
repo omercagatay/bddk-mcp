@@ -131,7 +131,11 @@
           {% endif %}
           <a href="/governance" {% if path.startswith('/governance') %}class="active"{% endif %}>İmza Durumu</a>
           <span class="flex-gap"></span>
-          <form method="post" action="/logout"><button class="btn" type="submit">Çıkış</button></form>
+          {# The governance page is guarded read-only (no forms anywhere); the
+             logout POST therefore renders on every other page only. #}
+          {% if not path.startswith('/governance') %}
+            <form method="post" action="/logout"><button class="btn" type="submit">Çıkış</button></form>
+          {% endif %}
         </nav>
       </aside>
       <main class="main">{% block content %}{% endblock %}</main>
