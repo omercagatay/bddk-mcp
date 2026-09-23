@@ -28,6 +28,11 @@ _MISSING_RELEASE_CREDENTIALS = (
     "for the admission job; run it outside the admin service with the separate "
     "release-verifier and release-publisher identities."
 )
+_MISSING_INGESTION_CREDENTIAL = (
+    "BDDK_INGESTION_DATABASE_URL must be set for the admission job: the signed staging corpus "
+    "must be imported into the serving database with the ingestion identity before "
+    "verify-and-stage can assert exact membership."
+)
 _MISSING_SIGNING_KEYS = (
     "BDDK_ADMISSION_SIGNING_KEY and BDDK_ADMISSION_SIGNING_PUBLIC_KEY must both be set for the "
     "admission job: an owner-custody Ed25519 private key (0600 PEM, outside the corpus and the "
@@ -41,6 +46,10 @@ _ARTIFACT_FILES = (
 )
 
 
+class AdmissionRefusal(RuntimeError):
+    """The job refuses before any gate or state change (missing prerequisite)."""
+
+
 def admit_next(store: UploadStore, publisher: Callable[[str, str], Any]) -> str:
     """Process the oldest waiting admission request; never touch the next one."""
 
@@ -51,13 +60,19 @@ def admit_next(store: UploadStore, publisher: Callable[[str, str], Any]) -> str:
     try:
         text = store.corrected_text(upload_id)
         publisher(text, upload_id)
-    except NotImplementedError:
-        # An unwired publisher refuses admission before any gate ran; a refusal
-        # is never a request error, so no state is recorded at all.
+    except (NotImplementedError, AdmissionRefusal):
+        # An unwired publisher or a missing prerequisite refuses admission
+        # before any gate ran; a refusal is never a request error, so no
+        # state is recorded at all.
         raise
     except Exception:
         store.mark(request_id, "error")
         return "error"
+    # Retry edge: if this mark fails after activation succeeded, the request
+    # stays `waiting` while the release IS already active. A re-run would
+    # rebuild the same document_id, refuse it as already imported, and mark
+    # the request error. Operator recovery: mark the request published
+    # manually in the draft store; the corpus needs no re-run.
     store.mark(request_id, "published")
     return "published"
 
@@ -157,6 +172,10 @@ def build_staging_corpus(
 
     manifest = yaml.safe_load((staging / "corpus_scope.yml").read_text(encoding="utf-8"))
     manifest["manifest_id"] = f"bddk-job-corpus-admission-{content_hash[:12]}"
+    manifest["purpose"] = (
+        str(manifest.get("purpose", "")).rstrip()
+        + f" Editorial admission appends operator-corrected upload {document_id}."
+    ).strip()
     observed_end = manifest["freshness"]["source_observed_end"]
     if isinstance(observed_end, str):
         observed_end = datetime.fromisoformat(observed_end.replace("Z", "+00:00"))
@@ -283,6 +302,32 @@ def _default_activate(*, dsn: str, request_id: str, **_ignored: Any) -> dict:
     return asyncio.run(cli._activate_corpus_release(dsn, request_id=request_id))
 
 
+def _default_bootstrap(*, dsn: str, seed_dir: Path, trusted_signing_key: Path, **_ignored: Any) -> dict:
+    """Import the staging corpus with the ingestion identity.
+
+    This is the plain predeploy bootstrap path (reindex-existing equivalent,
+    quantified + verified-signature, explicitly unmeasured freshness). Like
+    every bootstrap it repoints the seed module's directory for the duration
+    of the one-shot job process. verify-and-stage then asserts exact database
+    membership against the same signed artifacts.
+    """
+
+    from bddk_mcp import cli
+
+    return asyncio.run(
+        cli._bootstrap(
+            dsn,
+            seed_dir,
+            False,
+            reindex_existing=True,
+            require_quantified_freshness=True,
+            require_measured_freshness=False,
+            require_verified_signature=True,
+            trusted_signing_key=trusted_signing_key,
+        )
+    )
+
+
 def run_admission(
     text: str,
     upload_id: str,
@@ -291,19 +336,28 @@ def run_admission(
     seed_root: Path,
     signing_key: Path,
     trusted_public_key: Path,
+    ingestion_dsn: str,
     verifier_dsn: str,
     publisher_dsn: str,
+    bootstrap: Callable[..., dict] | None = None,
     verify_stage: Callable[..., dict] | None = None,
     activate: Callable[..., dict] | None = None,
     chunk_generator: Callable[[list[dict]], list[dict]] | None = None,
     now: datetime | None = None,
 ) -> str:
-    """Build, sign, verify-and-stage, and activate one corrected upload.
+    """Build, sign, import, verify-and-stage, and activate one corrected upload.
 
-    Returns the activated corpus release request id. Any failure leaves the
-    previous release active; the caller records the request error.
+    The governed sequence is owner signing, then the bootstrap/import of the
+    staging corpus into the serving database with the ingestion identity,
+    then verify-and-stage with the verifier identity, then activation with
+    the publisher identity. Returns the activated corpus release request id.
+    Any failure leaves the previous release active; the caller records the
+    request error.
     """
 
+    if not ingestion_dsn or not ingestion_dsn.strip():
+        raise AdmissionRefusal(_MISSING_INGESTION_CREDENTIAL)
+    run_bootstrap = bootstrap or _default_bootstrap
     stage = verify_stage or _default_verify_stage
     run_activate = activate or _default_activate
     staging, _document_id = build_staging_corpus(
@@ -316,6 +370,12 @@ def run_admission(
     )
     try:
         sign_staging_manifest(staging, signing_key=signing_key, trusted_public_key=trusted_public_key, reviewed_at=now)
+        run_bootstrap(
+            dsn=ingestion_dsn,
+            seed_dir=staging,
+            trusted_signing_key=trusted_public_key,
+            accept_unmeasured_freshness=True,
+        )
         staged = stage(
             dsn=verifier_dsn,
             seed_dir=staging,
@@ -351,6 +411,9 @@ def publisher_from_env(
     publisher = source.get("BDDK_RELEASE_PUBLISHER_DATABASE_URL", "").strip()
     if not verifier or not publisher:
         raise RuntimeError(_MISSING_RELEASE_CREDENTIALS)
+    ingestion = source.get("BDDK_INGESTION_DATABASE_URL", "").strip()
+    if not ingestion:
+        raise RuntimeError(_MISSING_INGESTION_CREDENTIAL)
     signing_key_raw = source.get("BDDK_ADMISSION_SIGNING_KEY", "").strip()
     trusted_public_raw = source.get("BDDK_ADMISSION_SIGNING_PUBLIC_KEY", "").strip()
     if not signing_key_raw or not trusted_public_raw:
@@ -385,6 +448,7 @@ def publisher_from_env(
             seed_root=seed_root,
             signing_key=signing_key,
             trusted_public_key=trusted_public_key,
+            ingestion_dsn=ingestion,
             verifier_dsn=verifier,
             publisher_dsn=publisher,
         )

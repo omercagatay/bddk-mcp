@@ -29,8 +29,9 @@ per run:
 1. Read the saved corrected text. Do not read the file again.
 2. Build a staging corpus that contains the current corpus plus this document, and sign its declaration with the job-held Ed25519 key (`BDDK_ADMISSION_SIGNING_KEY`, verified against `BDDK_ADMISSION_SIGNING_PUBLIC_KEY`). The admin password does not sign the corpus.
 3. Chunk and embed that text under the current retrieval profile.
-4. Run the existing verify-and-stage gate with the verifier identity (`BDDK_RELEASE_VERIFIER_DATABASE_URL`), then the existing activate gate with the publisher identity (`BDDK_RELEASE_PUBLISHER_DATABASE_URL`).
-5. Mark the request `published` only after activation succeeds.
+4. Import the signed staging corpus into the serving database with the ingestion identity (`BDDK_INGESTION_DATABASE_URL`) — the existing bootstrap path. Exact membership cannot hold until this import ran; without it verify-and-stage refuses.
+5. Run the existing verify-and-stage gate with the verifier identity (`BDDK_RELEASE_VERIFIER_DATABASE_URL`, plus the required `BDDK_RELEASE_VERIFIER_REVISION_SHA256` and `BDDK_RELEASE_VERIFIER_IMAGE_DIGEST`), then the existing activate gate with the publisher identity (`BDDK_RELEASE_PUBLISHER_DATABASE_URL`).
+6. Mark the request `published` only after activation succeeds.
 
 Failure at any gate leaves the previous release active. The draft remains. The request state is `error`. MCP keeps serving the old release. The command never touches the next waiting request in the same run.
 
@@ -40,7 +41,7 @@ A successful admission creates a new corpus release for the whole corpus. The pr
 
 Upload and correction run in `bddk-mcp admin-ui`. Set `BDDK_ADMIN_DRAFT_DB` on the admin service: uploaded files live next to the drafts SQLite file, outside the corpus seed directory.
 
-`bddk-mcp admit-next-upload` must run in a different process with `BDDK_RELEASE_VERIFIER_DATABASE_URL`, `BDDK_RELEASE_PUBLISHER_DATABASE_URL`, `BDDK_ADMISSION_SIGNING_KEY`, and `BDDK_ADMISSION_SIGNING_PUBLIC_KEY`. The admin service must not have any of these variables. The command processes one oldest waiting request per run, so run it again for each admitted document.
+`bddk-mcp admit-next-upload` must run in a different process with `BDDK_INGESTION_DATABASE_URL`, `BDDK_RELEASE_VERIFIER_DATABASE_URL`, `BDDK_RELEASE_PUBLISHER_DATABASE_URL`, `BDDK_RELEASE_VERIFIER_REVISION_SHA256`, `BDDK_RELEASE_VERIFIER_IMAGE_DIGEST`, `BDDK_ADMISSION_SIGNING_KEY`, and `BDDK_ADMISSION_SIGNING_PUBLIC_KEY`. The command refuses before touching any request state when one of them is missing. The admin allowlist is exactly the inverse: the admin service holds only the public-reader `BDDK_DATABASE_URL` plus `BDDK_ADMIN_DRAFT_DB`, and must not hold any job variable — ingestion, verifier, or publisher DSNs, or the admission signing keys. The command processes one oldest waiting request per run, so run it again for each admitted document.
 
 ## Security
 

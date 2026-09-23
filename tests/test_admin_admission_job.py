@@ -3,11 +3,35 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import shutil
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 from bddk_mcp.admin.uploads import UploadStore
+
+_UTC_NOW = datetime(2026, 9, 23, 12, 0, 0, tzinfo=UTC)
+
+
+def _write_private_pem(private_key, directory: Path) -> Path:
+    from cryptography.hazmat.primitives import serialization
+
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / "admission-private.pem"
+    path.write_bytes(
+        private_key.private_bytes(
+            serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
+        )
+    )
+    path.chmod(0o600)
+    return path
+
+
+def _upload_id_for(corrected: str) -> str:
+    """The staging builder hashes the corrected text, so mirror its identity."""
+
+    return "admin_upload_" + hashlib.sha256(corrected.encode()).hexdigest()[:12]
 
 
 def _store_with_two_waiting_uploads(tmp_path: Path) -> tuple[UploadStore, str, str, str, str]:
@@ -95,7 +119,26 @@ def test_admit_next_refuses_an_unwired_publisher_without_marking(tmp_path):
 
 
 def test_publisher_from_env_requires_admission_signing_keys(monkeypatch):
-    """Both release credentials without the job-held signing key refuse at construction."""
+    """All three credentials without the job-held signing key refuse at construction."""
+
+    from bddk_mcp.admin.admission_job import publisher_from_env
+
+    with pytest.raises(RuntimeError) as exc_info:
+        publisher_from_env(
+            {
+                "BDDK_RELEASE_VERIFIER_DATABASE_URL": "postgresql://verifier@example/db",
+                "BDDK_RELEASE_PUBLISHER_DATABASE_URL": "postgresql://publisher@example/db",
+                "BDDK_INGESTION_DATABASE_URL": "postgresql://ingestor@example/db",
+            }
+        )
+
+    message = str(exc_info.value)
+    assert "BDDK_ADMISSION_SIGNING_KEY" in message
+    assert "BDDK_ADMISSION_SIGNING_PUBLIC_KEY" in message
+
+
+def test_publisher_from_env_requires_the_ingestion_identity(monkeypatch):
+    """Verifier and publisher without the ingestion identity refuse at construction."""
 
     from bddk_mcp.admin.admission_job import publisher_from_env
 
@@ -107,9 +150,7 @@ def test_publisher_from_env_requires_admission_signing_keys(monkeypatch):
             }
         )
 
-    message = str(exc_info.value)
-    assert "BDDK_ADMISSION_SIGNING_KEY" in message
-    assert "BDDK_ADMISSION_SIGNING_PUBLIC_KEY" in message
+    assert "BDDK_INGESTION_DATABASE_URL" in str(exc_info.value)
 
 
 def test_cli_admit_next_upload_refuses_before_marking_when_signing_keys_are_missing(tmp_path, monkeypatch):
@@ -120,6 +161,7 @@ def test_cli_admit_next_upload_refuses_before_marking_when_signing_keys_are_miss
     store, first_request, _second_request, _first_upload, _second_upload = _store_with_two_waiting_uploads(tmp_path)
     monkeypatch.setenv("BDDK_RELEASE_VERIFIER_DATABASE_URL", "postgresql://verifier@example/db")
     monkeypatch.setenv("BDDK_RELEASE_PUBLISHER_DATABASE_URL", "postgresql://publisher@example/db")
+    monkeypatch.setenv("BDDK_INGESTION_DATABASE_URL", "postgresql://ingestor@example/db")
     monkeypatch.delenv("BDDK_ADMISSION_SIGNING_KEY", raising=False)
     monkeypatch.delenv("BDDK_ADMISSION_SIGNING_PUBLIC_KEY", raising=False)
     args = argparse.Namespace(draft_db=tmp_path / "drafts.sqlite")
@@ -134,6 +176,7 @@ def test_publisher_from_env_requires_both_release_credentials(monkeypatch):
 
     monkeypatch.delenv("BDDK_RELEASE_VERIFIER_DATABASE_URL", raising=False)
     monkeypatch.delenv("BDDK_RELEASE_PUBLISHER_DATABASE_URL", raising=False)
+    monkeypatch.setenv("BDDK_INGESTION_DATABASE_URL", "postgresql://ingestor@example/db")
 
     with pytest.raises(RuntimeError) as exc_info:
         publisher_from_env({})
@@ -201,6 +244,7 @@ def test_lost_correction_marks_the_request_error_and_keeps_the_queue_draining(tm
 _REQUEST_ID = "corpus_release_request_sha256_" + "a" * 64
 _VERIFIER_DSN = "postgresql://verifier@example/db?sslmode=verify-full&sslrootcert=%2Fca.pem"
 _PUBLISHER_DSN = "postgresql://publisher@example/db?sslmode=verify-full&sslrootcert=%2Fca.pem"
+_INGESTION_DSN = "postgresql://ingestor@example/db?sslmode=verify-full&sslrootcert=%2Fca.pem"
 
 
 def _write_keypair(directory: Path) -> tuple[Path, Path]:
@@ -326,6 +370,10 @@ def test_wired_publisher_builds_staging_corpus_and_calls_gates_in_order(tmp_path
     order: list[str] = []
     captured: dict = {}
 
+    def fake_bootstrap(**kwargs):
+        order.append("import")
+        captured["bootstrap_kwargs"] = kwargs
+
     def fake_verify_stage(**kwargs):
         order.append("verify")
         staging = kwargs["seed_dir"]
@@ -350,15 +398,19 @@ def test_wired_publisher_builds_staging_corpus_and_calls_gates_in_order(tmp_path
         seed_root=seed_root,
         signing_key=private_path,
         trusted_public_key=public_path,
+        ingestion_dsn=_INGESTION_DSN,
         verifier_dsn=_VERIFIER_DSN,
         publisher_dsn=_PUBLISHER_DSN,
+        bootstrap=fake_bootstrap,
         verify_stage=fake_verify_stage,
         activate=fake_activate,
         chunk_generator=_fake_chunk_generator,
     )
 
     assert returned == _REQUEST_ID
-    assert order == ["verify", "activate"]
+    assert order == ["import", "verify", "activate"]
+    assert captured["bootstrap_kwargs"]["dsn"] == _INGESTION_DSN
+    assert captured["bootstrap_kwargs"]["seed_dir"] == captured["kwargs"]["seed_dir"]
 
     documents = captured["documents"]
     assert len(documents) == 2
@@ -392,6 +444,8 @@ def test_wired_publisher_builds_staging_corpus_and_calls_gates_in_order(tmp_path
 
     manifest = captured["manifest"]
     assert manifest["manifest_id"].startswith("bddk-job-corpus-admission-")
+    assert new_document["document_id"] in manifest["purpose"]
+    assert "Editorial admission" in manifest["purpose"]
     artifact_records = {entry["role"]: entry["records"] for entry in manifest["artifacts"]}
     assert artifact_records == {"documents": 2, "chunks": 2, "decision_cache": 2}
     assert captured["signature_exists"] is True
@@ -432,8 +486,10 @@ def test_wired_publisher_gate_failure_marks_exactly_one_request_error(tmp_path):
         seed_root=seed_root,
         signing_key=private_path,
         trusted_public_key=public_path,
+        ingestion_dsn=_INGESTION_DSN,
         verifier_dsn=_VERIFIER_DSN,
         publisher_dsn=_PUBLISHER_DSN,
+        bootstrap=lambda **_kwargs: None,
         verify_stage=failing_verify_stage,
         activate=fake_activate,
         chunk_generator=_fake_chunk_generator,
@@ -475,13 +531,52 @@ def test_wired_publisher_refuses_a_mismatched_key_pair_before_any_gate(tmp_path)
             seed_root=seed_root,
             signing_key=other_private_path,
             trusted_public_key=trusted_public_path,
+            ingestion_dsn=_INGESTION_DSN,
             verifier_dsn=_VERIFIER_DSN,
             publisher_dsn=_PUBLISHER_DSN,
+            bootstrap=lambda **_kwargs: None,
             verify_stage=fake_verify_stage,
             activate=fake_activate,
             chunk_generator=_fake_chunk_generator,
         )
     assert gate_calls == []
+
+
+def test_run_admission_refuses_a_missing_ingestion_identity_without_gates(tmp_path):
+    """Missing ingestion DSN refuses before staging, gates, or state change."""
+
+    from bddk_mcp.admin.admission_job import run_admission
+
+    seed_root = tmp_path / "corpus"
+    _write_fixture_seed(seed_root)
+    keys_dir = tmp_path / "keys"
+    private_path, public_path = _write_keypair(keys_dir)
+    (tmp_path / "drafts").mkdir()
+    store = UploadStore(tmp_path / "drafts" / "drafts.sqlite")
+    upload_id = store.save("rapor.pdf", b"%PDF-1.4\n")
+    store.save_correction(upload_id, "metin")
+    request_id = store.admit(upload_id)
+
+    gate_calls: list[str] = []
+
+    with pytest.raises(RuntimeError, match="BDDK_INGESTION_DATABASE_URL"):
+        run_admission(
+            "metin",
+            upload_id,
+            upload_store=store,
+            seed_root=seed_root,
+            signing_key=private_path,
+            trusted_public_key=public_path,
+            ingestion_dsn="",
+            verifier_dsn=_VERIFIER_DSN,
+            publisher_dsn=_PUBLISHER_DSN,
+            bootstrap=lambda **_kwargs: gate_calls.append("import"),
+            verify_stage=lambda **_kwargs: gate_calls.append("verify"),
+            activate=lambda **_kwargs: gate_calls.append("activate"),
+            chunk_generator=_fake_chunk_generator,
+        )
+    assert gate_calls == []
+    assert store.request_state(request_id) == "waiting"
 
 
 def test_admin_modules_do_not_import_admission_job():
@@ -505,6 +600,7 @@ def test_publisher_from_env_rejects_a_signing_key_inside_the_corpus(tmp_path, mo
 
     monkeypatch.setenv("BDDK_RELEASE_VERIFIER_DATABASE_URL", _VERIFIER_DSN)
     monkeypatch.setenv("BDDK_RELEASE_PUBLISHER_DATABASE_URL", _PUBLISHER_DSN)
+    monkeypatch.setenv("BDDK_INGESTION_DATABASE_URL", _INGESTION_DSN)
     monkeypatch.setenv("BDDK_SEED_DIR", str(seed_root))
     monkeypatch.setenv("BDDK_ADMISSION_SIGNING_KEY", str(private_path))
     monkeypatch.setenv("BDDK_ADMISSION_SIGNING_PUBLIC_KEY", str(public_path))
@@ -525,9 +621,120 @@ def test_publisher_from_env_builds_a_wired_publisher(tmp_path, monkeypatch):
 
     monkeypatch.setenv("BDDK_RELEASE_VERIFIER_DATABASE_URL", _VERIFIER_DSN)
     monkeypatch.setenv("BDDK_RELEASE_PUBLISHER_DATABASE_URL", _PUBLISHER_DSN)
+    monkeypatch.setenv("BDDK_INGESTION_DATABASE_URL", _INGESTION_DSN)
     monkeypatch.setenv("BDDK_SEED_DIR", str(seed_root))
     monkeypatch.setenv("BDDK_ADMISSION_SIGNING_KEY", str(private_path))
     monkeypatch.setenv("BDDK_ADMISSION_SIGNING_PUBLIC_KEY", str(public_path))
 
     publisher = publisher_from_env(store=store)
     assert callable(publisher)
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_staging_corpus_membership_passes_through_real_gates(pg_pool, tmp_path, monkeypatch):
+    """End-to-end membership proof: import the signed staging corpus with the
+    real ingestion path into the disposable test database, then drive the real
+    verify-and-stage membership assertion over the same signed artifacts.
+    """
+
+    import yaml
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    from bddk_mcp.admin.admission_job import build_staging_corpus, sign_staging_manifest
+    from bddk_mcp.ingest import seed as seed_module
+    from bddk_mcp.store.vector_store import VectorStore
+
+    # The membership gate regenerates every embedding with the real model, so a
+    # broken embedding stack must skip this proof instead of failing on an
+    # unrelated environment problem (e.g. a mismatched torchvision wheel).
+    pytest.importorskip(
+        "sentence_transformers",
+        reason="membership proof regenerates real embeddings; skipped only when the local "
+        "embedding stack is broken (e.g. the aarch64 torchvision/torch ABI mismatch), "
+        "never because the database is unavailable",
+    )
+
+    seed_root = tmp_path / "seed"
+    _write_fixture_seed(seed_root)
+    private_key = Ed25519PrivateKey.generate()
+    public_key_pem = private_key.public_key().public_bytes(
+        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    trusted_key = tmp_path / "admission-trusted-public.pem"
+    trusted_key.write_bytes(public_key_pem)
+
+    corrected = "MADDE 1 - Operator corrected integration text."
+    private_path = _write_private_pem(private_key, tmp_path / "keys")
+    staging, _document_id = build_staging_corpus(
+        seed_root,
+        seed_root / "unused.pdf",
+        "rapor.pdf",
+        corrected,
+        now=_UTC_NOW,
+    )
+    sign_staging_manifest(
+        staging,
+        signing_key=private_path,
+        trusted_public_key=trusted_key,
+        reviewed_at=_UTC_NOW,
+    )
+    try:
+        manifest = yaml.safe_load((staging / "corpus_scope.yml").read_text(encoding="utf-8"))
+        assert manifest["integrity"]["signature_status"] == "verified"
+        staged_documents = json.loads((staging / "documents.json").read_text(encoding="utf-8"))
+        assert len(staged_documents) == 2
+        assert _upload_id_for(corrected) in {doc["document_id"] for doc in staged_documents}
+
+        # Real ingestion path: the same bootstrap import the admission job runs.
+        monkeypatch.setattr(seed_module, "SEED_DIR", staging)
+        await seed_module.import_seed(
+            pool=pg_pool,
+            force=True,
+            require_quantified_freshness=True,
+            require_measured_freshness=False,
+            require_verified_signature=True,
+            trusted_signing_key=trusted_key,
+        )
+
+        # Exactly what _verify_and_stage_corpus_release expects before staging.
+        validation, artifacts_by_role = seed_module._manifest_seed_artifacts(
+            staging,
+            require_quantified_freshness=True,
+            require_measured_freshness=False,
+            require_verified_signature=True,
+            trusted_signing_key=trusted_key,
+        )
+        documents = seed_module._load_manifest_bound_records(staging, artifacts_by_role["documents"])
+        decision_cache = seed_module._load_manifest_bound_records(staging, artifacts_by_role["decision_cache"])
+        vector_store = VectorStore(pg_pool)
+        generated_chunks, _grouped = seed_module._generate_seed_chunks(vector_store, documents)
+        expected_embeddings = await seed_module._regenerate_seed_embedding_vectors(vector_store, generated_chunks)
+        expected_sections = seed_module._expected_seed_sections(documents)
+
+        async with pg_pool.acquire() as connection:
+            await seed_module._assert_strict_seed_membership(
+                connection,
+                expected_documents=documents,
+                expected_cache=decision_cache,
+                expected_chunks=generated_chunks,
+                expected_embeddings=expected_embeddings,
+                expected_sections=expected_sections,
+                retrieval_profile_sha256=vector_store.retrieval_profile_hash,
+            )
+
+            # Negative control: a missing chunk must make the real gate refuse.
+            await connection.execute("DELETE FROM public.document_chunks WHERE doc_id = $1", _upload_id_for(corrected))
+            with pytest.raises(RuntimeError, match="not exactly represented"):
+                await seed_module._assert_strict_seed_membership(
+                    connection,
+                    expected_documents=documents,
+                    expected_cache=decision_cache,
+                    expected_chunks=generated_chunks,
+                    expected_embeddings=expected_embeddings,
+                    expected_sections=expected_sections,
+                    retrieval_profile_sha256=vector_store.retrieval_profile_hash,
+                )
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
