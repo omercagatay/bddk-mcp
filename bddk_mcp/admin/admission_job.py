@@ -183,7 +183,11 @@ def build_staging_corpus(
         observed_end = observed_end.replace(tzinfo=UTC)
     if observed_end > observed_at:
         raise RuntimeError("The corpus declares a future source observation end.")
-    manifest["freshness"]["source_observed_end"] = observed_at.isoformat()
+    upload_downloaded_at = datetime.fromtimestamp(upload_stat.st_mtime, tz=UTC)
+    # The freshness boundary pins to the artifact: the declared observation end
+    # must equal the newest downloaded_at in the documents artifact, which for an
+    # editorial upload is the instant the file landed on disk.
+    manifest["freshness"]["source_observed_end"] = max(observed_end, upload_downloaded_at).isoformat()
     manifest["freshness"]["corpus_built_at"] = observed_at.isoformat()
     manifest["artifacts"] = [
         {
@@ -276,6 +280,9 @@ def sign_staging_manifest(
         require_measured_freshness=False,
         require_verified_signature=True,
         trusted_signing_key=trusted_public_key,
+        # Recheck the time boundary against the same clock that stamped the
+        # declaration: a one-shot job validates at its own review time.
+        now=reviewed_at or _utcnow(),
     )
     return manifest_sha
 

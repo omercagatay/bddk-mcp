@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 from datetime import UTC, datetime
 from pathlib import Path
@@ -11,7 +12,7 @@ import pytest
 
 from bddk_mcp.admin.uploads import UploadStore
 
-_UTC_NOW = datetime(2026, 9, 23, 12, 0, 0, tzinfo=UTC)
+_UTC_NOW = datetime(2026, 9, 22, 12, 0, 0, tzinfo=UTC)  # pinned to the past so real-clock validators accept it
 
 
 def _write_private_pem(private_key, directory: Path) -> Path:
@@ -667,9 +668,18 @@ async def test_staging_corpus_membership_passes_through_real_gates(pg_pool, tmp_
 
     corrected = "MADDE 1 - Operator corrected integration text."
     private_path = _write_private_pem(private_key, tmp_path / "keys")
+    # build_staging_corpus stats the upload path: create a real file or the
+    # integration proof dies before any gate (reviewer finding, final fix).
+    upload_file = seed_root / "unused.pdf"
+    upload_file.write_bytes(b"%PDF-1.4\n")
+    # The staging build pins the freshness boundary to the file's arrival
+    # instant; pin mtime to the fabricated observation time so the real
+    # validator sees a self-consistent, non-future declaration.
+    _upload_instant = _UTC_NOW.timestamp()
+    os.utime(upload_file, (_upload_instant, _upload_instant))
     staging, _document_id = build_staging_corpus(
         seed_root,
-        seed_root / "unused.pdf",
+        upload_file,
         "rapor.pdf",
         corrected,
         now=_UTC_NOW,
