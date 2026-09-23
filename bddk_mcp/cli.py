@@ -227,6 +227,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Exact corpus_release_sha256_... identity that must still be active",
     )
 
+    admit_next_upload = subparsers.add_parser(
+        "admit-next-upload",
+        help="Admit the oldest waiting admin upload through the separate release gates",
+    )
+    admit_next_upload.add_argument(
+        "--draft-db",
+        type=Path,
+        help="Admin draft SQLite path; defaults to BDDK_ADMIN_DRAFT_DB",
+    )
+
     verify_corpus = subparsers.add_parser(
         "verify-corpus",
         help="Verify the reviewed corpus manifest and every declared seed artifact without database access",
@@ -824,6 +834,26 @@ def _verify_corpus(
     }
 
 
+def _run_admit_next_upload(args: argparse.Namespace) -> None:
+    """Process one waiting upload request; never part of the admin service."""
+
+    from bddk_mcp.admin.admission_job import admit_next, publisher_from_env
+    from bddk_mcp.admin.uploads import UploadStore
+
+    raw_draft_db = str(getattr(args, "draft_db", None) or os.environ.get("BDDK_ADMIN_DRAFT_DB", "")).strip()
+    if not raw_draft_db:
+        raise RuntimeError("BDDK_ADMIN_DRAFT_DB must name the admin draft database, or pass --draft-db.")
+    store = UploadStore(Path(raw_draft_db))
+    publisher = publisher_from_env(store=store)
+    state = admit_next(store, publisher)
+    if state == "error":
+        raise RuntimeError("The admission request was marked error; the previous release stays active.")
+    if state == "idle":
+        print("No waiting admission requests.")
+        return
+    print("Admission request published: the new release is active.")
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     from bddk_mcp.db_transport import materialize_postgres_ca_from_env
 
@@ -937,6 +967,9 @@ def main(argv: Sequence[str] | None = None) -> None:
                 )
             )
             print(json.dumps(result, sort_keys=True, separators=(",", ":")))
+            return
+        if args.command == "admit-next-upload":
+            _run_admit_next_upload(args)
             return
         if args.command == "verify-corpus":
             result = _verify_corpus(
