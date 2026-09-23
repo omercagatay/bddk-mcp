@@ -354,12 +354,11 @@ def run_admission(
 ) -> str:
     """Build, sign, import, verify-and-stage, and activate one corrected upload.
 
-    The governed sequence is owner signing, then the bootstrap/import of the
-    staging corpus into the serving database with the ingestion identity,
-    then verify-and-stage with the verifier identity, then activation with
     the publisher identity. Returns the activated corpus release request id.
-    Any failure leaves the previous release active; the caller records the
-    request error.
+    Any failure leaves the previous release active in the ledger; the caller
+    records the request error. Availability: the import step bumps the corpus
+    epoch, so governed serving is unavailable from import start until
+    activation succeeds and must be recovered by a successful re-run.
     """
 
     if not ingestion_dsn or not ingestion_dsn.strip():

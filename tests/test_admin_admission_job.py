@@ -5,14 +5,16 @@ import hashlib
 import json
 import os
 import shutil
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
 from bddk_mcp.admin.uploads import UploadStore
 
-_UTC_NOW = datetime(2026, 9, 22, 12, 0, 0, tzinfo=UTC)  # pinned to the past so real-clock validators accept it
+_UTC_NOW = datetime.now(UTC) - timedelta(
+    hours=1
+)  # recent past: real-clock validators accept it, max-manifest-age window is safe
 
 
 def _write_private_pem(private_key, directory: Path) -> Path:

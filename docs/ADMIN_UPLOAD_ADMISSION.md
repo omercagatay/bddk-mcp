@@ -33,7 +33,7 @@ per run:
 5. Run the existing verify-and-stage gate with the verifier identity (`BDDK_RELEASE_VERIFIER_DATABASE_URL`, plus the required `BDDK_RELEASE_VERIFIER_REVISION_SHA256` and `BDDK_RELEASE_VERIFIER_IMAGE_DIGEST`), then the existing activate gate with the publisher identity (`BDDK_RELEASE_PUBLISHER_DATABASE_URL`).
 6. Mark the request `published` only after activation succeeds.
 
-Failure at any gate leaves the previous release active. The draft remains. The request state is `error`. MCP keeps serving the old release. The command never touches the next waiting request in the same run.
+Failure at any gate leaves the previous release active in the ledger, the draft remains, and the request state is `error`. Availability note: the admission's import step writes corpus tables, which bumps the corpus state epoch; under the governed serving profile (`BDDK_REQUIRE_ACTIVE_CORPUS_RELEASE=true`) local-corpus retrieval is therefore unavailable from the import start until activation succeeds and fails closed if activation never completes. A failed gate is recovered by re-running `bddk-mcp admit-next-upload` for that request; until that succeeds retrieval stays unavailable. The command never touches the next waiting request in the same run.
 
 A successful admission creates a new corpus release for the whole corpus. The previous release is not deleted. MCP uses the new release only after activation.
 
