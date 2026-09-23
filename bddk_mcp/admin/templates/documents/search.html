@@ -2,9 +2,11 @@
 {% block title %}Arama{% endblock %}
 {% block content %}
 <h1>Arama</h1>
-<form method="get" action="/search">
-  <input type="search" name="q" value="{{ outcome.query }}" placeholder="Arama terimi" autofocus />
-  <button type="submit">Ara</button>
+<form method="get" action="/search" class="toolbar">
+  <label style="flex:1;">
+    <input type="search" name="q" value="{{ outcome.query }}" placeholder="Arama terimi" autofocus />
+  </label>
+  <button class="btn btn-primary" type="submit">Ara</button>
 </form>
 
 {% if outcome.error %}
@@ -14,13 +16,11 @@
 {% elif not outcome.hits %}
   <p class="muted">Sonuc bulunamadi.</p>
 {% else %}
-  <ul>
-    {% for hit in outcome.hits %}
-      <li>
-        <a href="/documents/{{ hit.document_id }}">{{ hit.title }}</a>
-        <div class="muted">{{ hit.snippet }}</div>
-      </li>
-    {% endfor %}
-  </ul>
+  {% for hit in outcome.hits %}
+    <div class="card">
+      <a href="/documents/{{ hit.document_id }}" style="text-decoration:none; font-weight:600;">{{ hit.title }}</a>
+      <div class="muted" style="font-size:.9rem; margin-top:.3rem;">{{ hit.snippet }}</div>
+    </div>
+  {% endfor %}
 {% endif %}
 {% endblock %}
