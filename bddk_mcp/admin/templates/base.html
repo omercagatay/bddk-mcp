@@ -5,19 +5,140 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% block title %}BDDK Admin{% endblock %}</title>
     <style>
-      :root { color-scheme: light dark; }
-      body { font-family: system-ui, sans-serif; margin: 0; padding: 1.5rem; line-height: 1.5; }
-      nav a { margin-right: 1rem; }
-      table { border-collapse: collapse; width: 100%; }
-      th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid #8883; }
-      .muted { opacity: 0.7; font-size: 0.9rem; }
-      .error { border: 1px solid #c33; padding: 0.75rem; border-radius: 4px; }
-      input, textarea { box-sizing: border-box; width: 100%; max-width: 80rem; padding: 0.45rem; font: inherit; }
+      :root {
+        color-scheme: light dark;
+        --bg: #f5f6f8; --surface: #ffffff; --surface-2: #eef0f4;
+        --text: #17181c; --muted: #6b7078; --border: #d9dce2;
+        --accent: #2f5fe0; --accent-contrast: #ffffff; --accent-soft: #e9eefb;
+        --ok: #1a7f37; --warn: #9a6700; --err: #c53232;
+        --radius: 10px; --radius-sm: 8px;
+        --shadow: 0 1px 2px rgba(16, 18, 24, .05), 0 10px 28px rgba(16, 18, 24, .06);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f1115; --surface: #16181d; --surface-2: #1d2129;
+          --text: #e7e9ee; --muted: #99a0ab; --border: #2a2f3a;
+          --accent: #7298ff; --accent-soft: #1b2a40;
+          --ok: #3fb950; --warn: #d29922; --err: #f85149;
+          --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 10px 28px rgba(0, 0, 0, .35);
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; }
+      body {
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg); color: var(--text); line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+      .layout { display: flex; min-height: 100vh; }
+      .sidebar {
+        width: 220px; flex-shrink: 0; padding: 1.25rem .9rem;
+        background: var(--surface); border-right: 1px solid var(--border);
+        position: sticky; top: 0; height: 100vh;
+        display: flex; flex-direction: column; gap: .2rem;
+      }
+      .brand { padding: .2rem .55rem 1rem; }
+      .brand strong { font-size: 1.02rem; letter-spacing: .01em; display: block; }
+      .brand small { color: var(--muted); font-size: .74rem; font-weight: 400; }
+      nav { display: flex; flex-direction: column; gap: .15rem; }
+      nav a {
+        display: block; padding: .48rem .7rem; border-radius: var(--radius-sm);
+        color: var(--text); text-decoration: none; font-weight: 500; font-size: .95rem;
+      }
+      nav a:hover { background: var(--surface-2); }
+      nav a.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+      nav .flex-gap { flex: 1; }
+      .main { flex: 1; min-width: 0; padding: 2rem 2.2rem 3rem; max-width: 62rem; }
+      h1 { font-size: 1.35rem; font-weight: 650; margin: 0 0 1.1rem; letter-spacing: -.01em; }
+      h2 { font-size: 1.08rem; font-weight: 600; margin: 1.4rem 0 .7rem; }
+      p { margin: .5rem 0; }
+      a { color: var(--accent); }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .88em; word-break: break-all; }
+      .card {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 1.1rem 1.25rem;
+        box-shadow: var(--shadow); margin-bottom: 1.1rem;
+      }
+      .card h1, .card h2 { margin-top: 0; }
+      table { border-collapse: collapse; width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 1rem; }
+      th, td { text-align: left; padding: .58rem .85rem; border-bottom: 1px solid var(--border); }
+      thead th { background: var(--surface-2); font-size: .74rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+      tbody tr:last-child td { border-bottom: none; }
+      tbody tr:hover { background: var(--surface-2); }
+      .kv th { width: 15rem; font-weight: 600; vertical-align: top; }
+      .badge {
+        display: inline-block; padding: .08rem .62rem; border-radius: 999px;
+        font-size: .78rem; font-weight: 600; border: 1px solid; white-space: nowrap;
+      }
+      .badge-waiting { color: var(--warn); border-color: var(--warn); }
+      .badge-published { color: var(--ok); border-color: var(--ok); }
+      .badge-error { color: var(--err); border-color: var(--err); }
+      .btn {
+        display: inline-block; padding: .52rem 1.15rem; border-radius: var(--radius-sm);
+        border: 1px solid var(--border); background: var(--surface); color: var(--text);
+        font: inherit; font-size: .95rem; font-weight: 600; cursor: pointer; text-decoration: none;
+      }
+      .btn:hover { background: var(--surface-2); }
+      .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+      .btn-primary:hover { background: var(--accent); filter: brightness(1.07); }
+      .btn[disabled] { opacity: .45; cursor: not-allowed; }
+      input, textarea, select {
+        box-sizing: border-box; width: 100%; max-width: 46rem;
+        padding: .5rem .68rem; font: inherit; color: var(--text);
+        background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      }
+      input:focus-visible, textarea:focus-visible, select:focus-visible, .btn:focus-visible {
+        outline: 2px solid var(--accent); outline-offset: 1px;
+      }
       textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      label { display: block; margin-bottom: .85rem; font-weight: 500; font-size: .93rem; }
+      .muted { color: var(--muted); }
+      .error {
+        border: 1px solid var(--err); border-left: 4px solid var(--err);
+        padding: .7rem .9rem; border-radius: var(--radius-sm); margin-bottom: 1rem;
+      }
+      .field-note { font-size: .84rem; color: var(--muted); font-weight: 400; }
+      .row-actions { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+      .toolbar { display: flex; gap: .6rem; align-items: end; flex-wrap: wrap; margin-bottom: 1rem; }
+      .toolbar label { margin-bottom: 0; min-width: 14rem; }
+      .pager { display: flex; gap: .8rem; align-items: center; margin: .4rem 0 1.2rem; }
+      .dropzone {
+        display: block; border: 2px dashed var(--border); border-radius: var(--radius);
+        padding: 2rem 1.25rem; text-align: center; cursor: pointer; background: var(--surface);
+      }
+      .dropzone:hover, .dropzone:focus-within { border-color: var(--accent); background: var(--accent-soft); }
+      .dropzone input[type="file"] { max-width: 100%; border: none; background: none; }
+      @media (max-width: 780px) {
+        .layout { flex-direction: column; }
+        .sidebar { width: 100%; height: auto; position: static; flex-direction: row; align-items: center; border-right: none; border-bottom: 1px solid var(--border); }
+        .brand { padding: .2rem .55rem; }
+        .brand small { display: none; }
+        nav { flex-direction: row; flex-wrap: wrap; }
+        .main { padding: 1.1rem 1rem; }
+      }
     </style>
   </head>
   <body>
-    <nav><a href="/documents">Belgeler</a><a href="/search">Arama</a><a href="/governance">İmza Durumu</a></nav>
-    <main>{% block content %}{% endblock %}</main>
+    {% set path = request.url.path %}
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">BDDK Admin<small>Teftiş Kurulu konsolu</small></div>
+        <nav>
+          <a href="/documents" {% if path.startswith('/documents') %}class="active"{% endif %}>Belgeler</a>
+          <a href="/search" {% if path.startswith('/search') %}class="active"{% endif %}>Arama</a>
+          {% if request.app.state.config.draft_db %}
+            <a href="/uploads/new" {% if path.startswith('/uploads') %}class="active"{% endif %}>Yükle</a>
+          {% endif %}
+          <a href="/governance" {% if path.startswith('/governance') %}class="active"{% endif %}>İmza Durumu</a>
+          <span class="flex-gap"></span>
+          {# The governance page is guarded read-only (no forms anywhere); the
+             logout POST therefore renders on every other page only. #}
+          {% if not path.startswith('/governance') %}
+            <form method="post" action="/logout"><button class="btn" type="submit">Çıkış</button></form>
+          {% endif %}
+        </nav>
+      </aside>
+      <main class="main">{% block content %}{% endblock %}</main>
+    </div>
   </body>
 </html>

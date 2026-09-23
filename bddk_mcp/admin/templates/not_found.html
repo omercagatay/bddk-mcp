@@ -2,6 +2,8 @@
 {% block title %}Bulunamadi{% endblock %}
 {% block content %}
 <h1>Belge bulunamadi</h1>
-<p class="error">Aranan belge kimligi kayitli degil: <code>{{ document_id }}</code></p>
-<p><a href="/documents">Belgelere don</a></p>
+<div class="card">
+  <p class="error" style="margin:0;">Aranan belge kimligi kayitli degil: <code>{{ document_id }}</code></p>
+</div>
+<p><a class="btn" href="/documents">Belgelere don</a></p>
 {% endblock %}

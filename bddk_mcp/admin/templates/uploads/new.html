@@ -1,14 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Yukleme{% endblock %}
 {% block content %}
-<h1>Belge yukle</h1>
+<h1>Belge yükle</h1>
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 <form method="post" action="/uploads" enctype="multipart/form-data">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-  <label>Dosya (PDF veya DOCX)
+  <label class="dropzone">
     <input type="file" name="file" accept=".pdf,.docx" required />
+    <div style="margin-top:.6rem;"><strong>PDF veya DOCX seçin</strong></div>
+    <div class="muted">PDF, DOCX</div>
   </label>
-  <button type="submit">Yukle</button>
+  <div class="row-actions" style="margin-top: .4rem;">
+    <button class="btn btn-primary" type="submit">Yukle</button>
+  </div>
 </form>
 <p class="muted">Yuklenen belge corpus'a girmez. Once metni gorup duzeltirsin.</p>
 {% endblock %}

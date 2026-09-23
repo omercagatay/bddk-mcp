@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Belgeyi duzenle — {{ doc.title }}{% endblock %}
 {% block content %}
-<p><a href="{{ request.url_for('document_detail', document_id=doc.document_id) }}">&larr; Belgeye don</a></p>
+<p style="margin-bottom:.6rem;"><a href="{{ request.url_for('document_detail', document_id=doc.document_id) }}">&larr; Belgeye don</a></p>
 <h1>Belgeyi duzenle</h1>
-<p>Unpublished editorial draft — yayinlanmamis taslak. Manual edits are unverified; public corpus is unchanged.</p>
+<p>Unpublished editorial draft — yayinlanmamis taslak. <strong>Manual edits are unverified</strong>; public corpus is unchanged.</p>
 {% if stale_base %}<p class="error">Canonical base changed. Download and reconcile offline before further edits.</p>{% endif %}
 {% if not editing_enabled %}<p class="error">Editing disabled: configure BDDK_ADMIN_DRAFT_DB.</p>{% endif %}
 <form method="post" action="{{ request.url_for('document_save', document_id=doc.document_id) }}">
@@ -11,11 +11,17 @@
   <input type="hidden" name="revision" value="{{ revision }}">
   <input type="hidden" name="base_fingerprint" value="{{ base_fingerprint }}">
   {% for name, label, maximum in [('title', 'Baslik', 500), ('category', 'Kategori', 100), ('decision_date', 'Karar tarihi', 32), ('decision_number', 'Karar numarasi', 100), ('source_url', 'Kaynak HTTPS URL', 2048)] %}
-  <p><label>{{ label }}<br><input name="{{ name }}" value="{{ doc[name] }}" maxlength="{{ maximum }}" {% if name in ['title', 'source_url'] %}required{% endif %}></label></p>
+  <label>{{ label }}<br>
+    <input name="{{ name }}" value="{{ doc[name] }}" maxlength="{{ maximum }}" {% if name in ['title', 'source_url'] %}required{% endif %}>
+  </label>
   {% endfor %}
-  <p>Original extraction method (not an assertion about this edit): {{ doc.extraction_method }}</p>
-  <p><label>Icerik<br><textarea name="markdown_content" rows="28" maxlength="1000000" required>{{ doc.markdown_content }}</textarea></label></p>
-  <button type="submit" {% if not editing_enabled or stale_base %}disabled{% endif %}>Taslagi kaydet</button>
+  <p class="field-note">Original extraction method (not an assertion about this edit): {{ doc.extraction_method }}</p>
+  <label>Icerik<br>
+    <textarea name="markdown_content" rows="28" maxlength="1000000" required>{{ doc.markdown_content }}</textarea>
+  </label>
+  <div class="row-actions">
+    <button class="btn btn-primary" type="submit" {% if not editing_enabled or stale_base %}disabled{% endif %}>Taslagi kaydet</button>
+  </div>
 </form>
-<p>Save first, then sign the exact saved revision on the document detail page. Signing does not publish anything.</p>
+<p class="muted">Save first, then sign the exact saved revision on the document detail page. Signing does not publish anything.</p>
 {% endblock %}

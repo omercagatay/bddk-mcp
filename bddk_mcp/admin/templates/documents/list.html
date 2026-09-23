@@ -3,7 +3,7 @@
 {% block content %}
 <h1>Belgeler</h1>
 
-<form method="get" action="/documents">
+<form method="get" action="/documents" class="toolbar">
   <label>Kategori
     <select name="category" onchange="this.form.submit()">
       <option value="">Tumu</option>
@@ -17,15 +17,16 @@
 {% if page.error %}
   <p class="error">Belgeler yuklenemedi: {{ page.error }}</p>
 {% else %}
-<table>
+<div class="card" style="padding:0; overflow:hidden;">
+<table style="border:none; margin:0;">
   <thead>
     <tr><th>Belge</th><th>Kategori</th><th>Sayfa</th></tr>
   </thead>
   <tbody>
     {% for doc in page.items %}
       <tr>
-        <td><a href="/documents/{{ doc.document_id }}">{{ doc.title }}</a>
-            <div class="muted">{{ doc.document_id }}</div></td>
+        <td><a href="/documents/{{ doc.document_id }}" style="text-decoration:none; font-weight:600;">{{ doc.title }}</a>
+            <div class="muted" style="font-size:.8rem;">{{ doc.document_id }}</div></td>
         <td>{{ doc.category }}</td>
         <td>{{ doc.total_pages }}</td>
       </tr>
@@ -34,14 +35,15 @@
     {% endfor %}
   </tbody>
 </table>
+</div>
 
-<p>
+<div class="pager">
   {% if page.page > 1 %}
-    <a href="/documents?page={{ page.page - 1 }}{% if selected_category %}&category={{ selected_category | urlencode }}{% endif %}">Onceki</a>
+    <a class="btn" href="/documents?page={{ page.page - 1 }}{% if selected_category %}&category={{ selected_category | urlencode }}{% endif %}">Onceki</a>
   {% endif %}
   <span class="muted">Sayfa {{ page.page }}</span>
   {% if page.has_next %}
-    <a href="/documents?page={{ page.page + 1 }}{% if selected_category %}&category={{ selected_category | urlencode }}{% endif %}">Sonraki</a>
+    <a class="btn" href="/documents?page={{ page.page + 1 }}{% if selected_category %}&category={{ selected_category | urlencode }}{% endif %}">Sonraki</a>
   {% endif %}
 </p>
 {% endif %}

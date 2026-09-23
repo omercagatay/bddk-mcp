@@ -4,14 +4,21 @@
 <h1>Corpus'a al</h1>
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 {% if state %}
-<p>Durum: {{ state }}</p>
+<p style="font-size:1rem;">
+  Durum: {{ state }}
+  {% if state == "waiting" %}<span class="badge badge-waiting">bekliyor</span>
+  {% elif state == "published" %}<span class="badge badge-published">yayında</span>
+  {% elif state == "error" %}<span class="badge badge-error">hata</span>{% endif %}
+</p>
 {% endif %}
 {% if state == "waiting" or state == "published" %}
 <p class="muted">Yayin islemi ayri bir surecte calisir. Durum degistiginde bu sayfayi yenileyin.</p>
 {% else %}
 <form method="post" action="/uploads/{{ upload_id }}/admit">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
-  <button type="submit">Hazir, corpus'a al</button>
+  <div class="row-actions">
+    <button class="btn btn-primary" type="submit">Hazir, corpus'a al</button>
+  </div>
 </form>
 <p class="muted">Bu istek tek bir belgeyi yayin kapisina gonderir. Onaylanmadan aramada gorunmez.</p>
 {% endif %}

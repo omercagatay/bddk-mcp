@@ -1,24 +1,33 @@
 {% extends "base.html" %}
 {% block title %}{{ doc.title }}{% endblock %}
 {% block content %}
-<p><a href="/documents">&larr; Belgeler</a> · <a href="/documents/{{ doc.document_id }}/edit">Duzenle</a></p>
+<p class="row-actions" style="margin-bottom:.6rem;">
+  <a href="/documents">&larr; Belgeler</a>
+  <a class="btn" href="/documents/{{ doc.document_id }}/edit">Duzenle</a>
+</p>
 <h1>{{ doc.title }}</h1>
+
 {% if draft %}
-<p><strong>Unpublished editorial draft — revision {{ revision }}.</strong> Manual edit: unverified.
-{% if draft.signature %}Editorial signature present.{% else %}Unsigned.{% endif %}</p>
-{% if stale_base %}<p class="error">Canonical base changed. Download and reconcile offline.</p>{% endif %}
-<p><a href="{{ request.url_for('document_download', document_id=doc.document_id) }}">Download draft JSON + signature verification material</a></p>
-<form method="post" action="{{ request.url_for('document_sign', document_id=doc.document_id) }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-  <input type="hidden" name="revision" value="{{ revision }}">
-  <input type="hidden" name="base_fingerprint" value="{{ base_fingerprint }}">
-  <button type="submit" {% if not signing_enabled or stale_base %}disabled{% endif %}>Sign saved draft — Imzala</button>
-</form>
+<div class="card">
+  <p style="margin-top:0;"><strong>Unpublished editorial draft — revision {{ revision }}.</strong> Manual edit: unverified.
+  {% if draft.signature %}<span class="badge badge-published">Editorial signature present</span>{% else %}<span class="badge badge-waiting">Unsigned</span>{% endif %}</p>
+  {% if stale_base %}<p class="error">Canonical base changed. Download and reconcile offline.</p>{% endif %}
+  <p class="row-actions">
+    <a class="btn" href="{{ request.url_for('document_download', document_id=doc.document_id) }}">Download draft JSON + signature verification material</a>
+  </p>
+  <form method="post" action="{{ request.url_for('document_sign', document_id=doc.document_id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="revision" value="{{ revision }}">
+    <input type="hidden" name="base_fingerprint" value="{{ base_fingerprint }}">
+    <button class="btn btn-primary" type="submit" {% if not signing_enabled or stale_base %}disabled{% endif %}>Sign saved draft — Imzala</button>
+  </form>
+</div>
 {% endif %}
 {% if not signing_enabled %}<p class="muted">Document signing disabled: configure editorial signing keys.</p>{% endif %}
 <p class="muted">Editorial signatures are not regulator signatures or corpus release signatures. No automatic publication.</p>
-<table>
-  <tr><th>Belge kimligi</th><td>{{ doc.document_id }}</td></tr>
+
+<table class="kv">
+  <tr><th>Belge kimligi</th><td><code>{{ doc.document_id }}</code></td></tr>
   <tr><th>Kategori</th><td>{{ doc.category }}</td></tr>
   <tr><th>Karar tarihi</th><td>{{ doc.decision_date }}</td></tr>
   <tr><th>Karar numarasi</th><td>{{ doc.decision_number }}</td></tr>
@@ -27,5 +36,5 @@
   <tr><th>Sayfa sayisi</th><td>{{ doc.total_pages }}</td></tr>
 </table>
 <h2>Icerik</h2>
-<pre>{{ doc.markdown_content }}</pre>
+<div class="card"><pre style="white-space:pre-wrap; margin:0; font-size:.85rem;">{{ doc.markdown_content }}</pre></div>
 {% endblock %}
