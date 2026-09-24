@@ -38,6 +38,7 @@ ALLOWED_TOP_LEVEL = {
     ".env.example",
     ".gitattributes",
     ".github",
+    ".gitlab-ci.yml",
     ".gitignore",
     ".mcp.json",
     "AGENTS.md",

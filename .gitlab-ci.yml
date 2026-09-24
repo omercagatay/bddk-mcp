@@ -1,0 +1,142 @@
+# RHEL 9 shell runner. No image build and no OpenShift.
+# ponytail: postgres jobs skip without podman or a local disposable URL.
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
+
+variables:
+  UV_VERSION: "0.11.14"
+  UV_INSTALL_DIR: $CI_PROJECT_DIR/.uv
+  UV_CACHE_DIR: $CI_PROJECT_DIR/.uv-cache
+  PGVECTOR_IMAGE: pgvector/pgvector:pg17@sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0
+
+default:
+  interruptible: true
+  timeout: 30m
+  before_script:
+    - python3 -c "import pathlib,urllib.request; p=pathlib.Path('install-uv.sh'); urllib.request.urlretrieve('https://astral.sh/uv/${UV_VERSION}/install.sh', p); p.chmod(0o755)"
+    - sh ./install-uv.sh
+
+lint:
+  variables:
+    PYTHON_VERSION: "3.12"
+  script:
+    - export PATH="$UV_INSTALL_DIR:$PATH"
+    - uv python install "$PYTHON_VERSION"
+    - uv lock --check
+    - uv sync --frozen --dev --python "$PYTHON_VERSION"
+    - uv run ruff check .
+    - uv run ruff format --check .
+    - uv run python scripts/check_repository_hygiene.py
+
+unit-test:
+  parallel:
+    matrix:
+      - PYTHON_VERSION: ["3.12", "3.13"]
+  script:
+    - export PATH="$UV_INSTALL_DIR:$PATH"
+    - uv python install "$PYTHON_VERSION"
+    - uv sync --frozen --dev --python "$PYTHON_VERSION"
+    - uv run pytest tests/ -m "not postgres and not gpu" --strict-markers -v --tb=short
+
+package-test:
+  parallel:
+    matrix:
+      - PYTHON_VERSION: ["3.12", "3.13"]
+  script:
+    - |
+      set -eu
+      export PATH="$UV_INSTALL_DIR:$PATH"
+      uv python install "$PYTHON_VERSION"
+      uv sync --frozen --dev --python "$PYTHON_VERSION"
+      uv build
+      uv run --python "$PYTHON_VERSION" python scripts/verify_distribution.py dist
+      venv="/tmp/bddk-wheel-venv-$CI_JOB_ID"
+      uv venv --python "$PYTHON_VERSION" "$venv"
+      uv pip install --no-deps --python "$venv/bin/python" dist/*.whl
+      (
+        cd /tmp
+        "$venv/bin/python" -I -c "from importlib.resources import files; import bddk_mcp; assert files('bddk_mcp.quality').joinpath('quality_failures.yml').is_file(); print(bddk_mcp.__version__)"
+        "$venv/bin/bddk-mcp" --version
+        "$venv/bin/bddk-mcp" serve --help
+        "$venv/bin/bddk-mcp" migrate --help
+        "$venv/bin/bddk-mcp" bootstrap --help
+      )
+      grep -q "COPY bddk_mcp/" Dockerfile
+
+.postgres:
+  script:
+    - export PATH="$UV_INSTALL_DIR:$PATH"
+    - uv python install "$PYTHON_VERSION"
+    - uv sync --frozen --dev --python "$PYTHON_VERSION"
+    - |
+      set -eu
+      url="${DATABASE_URL:-}"
+      if [ -z "$url" ] && command -v podman >/dev/null 2>&1; then
+        name="bddk-ci-pg-${CI_JOB_ID}"
+        podman rm -f "$name" >/dev/null 2>&1 || true
+        podman run -d --name "$name" \
+          -e POSTGRES_USER=bddk \
+          -e POSTGRES_PASSWORD=bddk \
+          -e POSTGRES_DB="$POSTGRES_DB" \
+          -p 127.0.0.1::5432 \
+          "$PGVECTOR_IMAGE"
+        port=$(podman port "$name" 5432/tcp | sed 's/.*://')
+        url="postgresql://bddk:bddk@127.0.0.1:${port}/${POSTGRES_DB}"
+        ready=0
+        i=0
+        while [ "$i" -lt 30 ]; do
+          if python3 -c "import socket,sys; socket.create_connection(('127.0.0.1', int(sys.argv[1])), 2).close()" "$port"; then
+            ready=1
+            break
+          fi
+          i=$((i + 1))
+          sleep 2
+        done
+        [ "$ready" -eq 1 ]
+      fi
+      if [ -z "$url" ]; then
+        echo "postgres tests skipped: no podman and no local disposable database"
+        exit 0
+      fi
+      case "$url" in
+        *127.0.0.1*|*@localhost[:/]*) ;;
+        *) echo "refusing non-local database"; exit 1 ;;
+      esac
+      export "$DATABASE_URL_NAME=$url"
+      if [ "$EXTRA_EXPORT" = "1" ]; then
+        export BDDK_ALLOW_ROLE_PROVISIONING_TEST=1
+        export BDDK_ALLOW_DISPOSABLE_IDENTITY_TEST=I_UNDERSTAND_THIS_MUTATES_A_DISPOSABLE_CLUSTER
+      fi
+      uv run pytest "$PYTEST_TARGET" -m "$PYTEST_MARK" --strict-markers -v --tb=short
+  after_script:
+    - command -v podman >/dev/null 2>&1 && podman rm -f "bddk-ci-pg-${CI_JOB_ID}" || true
+
+postgres-test:
+  extends: .postgres
+  parallel:
+    matrix:
+      - PYTHON_VERSION: ["3.12", "3.13"]
+  variables:
+    POSTGRES_DB: bddk_test
+    DATABASE_URL_NAME: BDDK_TEST_DATABASE_URL
+    DATABASE_URL: $BDDK_TEST_DATABASE_URL
+    PYTEST_TARGET: tests/
+    PYTEST_MARK: postgres and not gpu
+    EXTRA_EXPORT: "0"
+    BDDK_REQUIRE_TEST_DATABASE: "1"
+
+postgres-role-contract:
+  extends: .postgres
+  variables:
+    PYTHON_VERSION: "3.12"
+    POSTGRES_DB: bddk_role_contract
+    DATABASE_URL_NAME: BDDK_ROLE_TEST_DATABASE_URL
+    DATABASE_URL: $BDDK_ROLE_TEST_DATABASE_URL
+    PYTEST_TARGET: tests/test_postgres_role_assets.py
+    PYTEST_MARK: postgres
+    EXTRA_EXPORT: "1"
+    BDDK_ALLOW_ROLE_PROVISIONING_TEST: "1"
+    BDDK_ALLOW_DISPOSABLE_IDENTITY_TEST: I_UNDERSTAND_THIS_MUTATES_A_DISPOSABLE_CLUSTER

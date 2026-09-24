@@ -404,6 +404,18 @@ def test_ci_requires_disposable_real_login_and_acl_contracts() -> None:
     assert "-m postgres" in CI_WORKFLOW
 
 
+def test_gitlab_ci_role_contract_is_local_and_not_openshift() -> None:
+    gitlab_ci = (ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
+    assert "postgres-role-contract:" in gitlab_ci
+    assert 'BDDK_ALLOW_ROLE_PROVISIONING_TEST: "1"' in gitlab_ci
+    assert "I_UNDERSTAND_THIS_MUTATES_A_DISPOSABLE_CLUSTER" in gitlab_ci
+    assert "tests/test_postgres_role_assets.py" in gitlab_ci
+    assert "refusing non-local database" in gitlab_ci
+    assert "kustomize" not in gitlab_ci
+    assert "docker build" not in gitlab_ci
+    assert "railway" not in gitlab_ci.lower()
+
+
 _ROLE_TEST_DSN = os.environ.get("BDDK_ROLE_TEST_DATABASE_URL", "")
 _RUN_ROLE_TEST = os.environ.get("BDDK_ALLOW_ROLE_PROVISIONING_TEST", "").lower() in {"1", "true", "yes"}
 _RUN_DISPOSABLE_LOGIN_TEST = os.environ.get("BDDK_ALLOW_DISPOSABLE_IDENTITY_TEST", "") == (
