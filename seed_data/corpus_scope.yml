@@ -24,7 +24,7 @@ freshness:
   source_observed_start: "2026-04-08T16:50:25.439181Z"
   source_observed_end: "2026-09-21T06:15:07.405867Z"
   corpus_built_at: "2026-09-21T06:31:11.556390Z"
-  scope_reviewed_at: "2026-09-21T06:42:13+00:00"
+  scope_reviewed_at: "2026-09-23T18:59:49.975994+00:00"
   business_expectation: quarterly-reviewed batch corpus with quantified objectives
   source_detection_slo_seconds: 604800
   publication_slo_seconds: 1209600
@@ -33,21 +33,21 @@ freshness:
 artifacts:
   - role: documents
     path: documents.json
-    sha256: b7e3e7b4c1462f1415c2745336451bdee4b1e5562806913569ac35961a7d7926
-    bytes: 8709608
+    sha256: 84afbdc06533d1d420f068dd0eac43f7989465a5ae13f5db00c6d17106dae1e3
+    bytes: 8704551
     records: 318
   - role: chunks
     path: chunks.json
-    sha256: b569040a797baeff426f72b7745bee2c78e2681417a446c0dd52f26c9af09dcd
-    bytes: 19339994
-    records: 13544
+    sha256: 2d026c6aa71f8832c003d11c7c1b253122e9c6b904ccba0912eb80365dfc8fb7
+    bytes: 19326795
+    records: 13532
   - role: decision_cache
     path: decision_cache.json
     sha256: 9e5677b1a2ffc9fe9d5ed122a90171c896e5f14ee83d958b724e1d2b8b8fd894
     bytes: 153040
     records: 318
 integrity:
-  manifest_sha256: "e41c174503e6954f2706797540e24767edd995447bc4636aa59a7f34b83ef417"
+  manifest_sha256: "3370689133ff6854fe44b1d8212079decf2b7d5846359e6af4c2324bc2293428"
   signature_status: verified
   signature_algorithm: ed25519
   signature_reference: corpus_scope.sig

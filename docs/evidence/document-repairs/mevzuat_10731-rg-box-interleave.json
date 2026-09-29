@@ -1,0 +1,32 @@
+{
+ "document_id": "mevzuat_10731",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "repair_class": "rg_box_interleave_structural_repair",
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.10731&MevzuatIliski=0&sourceXmlSearch=yabancı para",
+ "original_markdown_sha256": "b6824cf8fc906853f81fb9c3878aa9cfa5728d6ae6db6069562581a26aedf9a8",
+ "candidate_markdown_sha256": "69ea7e27988e054befa91d98b10de46f4ac8901bc80dc5e776d81ddfb7a83fe1",
+ "extraction_method_after": "markitdown_degraded+structural_repair",
+ "source_verification": [
+  "https://www.resmigazete.gov.tr/eskiler/2022/12/20221210-25.htm (RG 10/12/2022-32039; metin aynen alomaliye.com/2022/12/10/yabanci-para-net-genel-pozisyon-ozkaynak-standart-orani/ uzerinden dogrulandi)",
+  "https://www.mevzuat.gov.tr/File/GeneratePdf?mevzuatNo=18990&mevzuatTertip=5&mevzuatTur=KurumVeKurulusYonetmeligi (ayni ibare kalibi)"
+ ],
+ "replacements": [
+  {
+   "old": "5/9/2013 tarihli ve 28756 sayılı Resmî\ngöre\nBankaların Özkaynaklarına İlişkin\n\nYönetmeliğe\n\nyayımlanan\n\nGazete’de\nhesaplanan konsolide özkaynağı,",
+   "new": "5/9/2013 tarihli ve 28756 sayılı Resmî\nGazete’de yayımlanan Bankaların Özkaynaklarına İlişkin Yönetmeliğe göre hesaplanan konsolide özkaynağı,",
+   "start": 2308,
+   "end": 2453
+  },
+  {
+   "old": "i)  Özkaynak:  Bankaların\nYönetmeliğe göre hesaplanan özkaynağı,\n\n(Değişik\n\nibare:RG-10/12/2022-32039)(1)  Özkaynaklarına İlişkin\n",
+   "new": "i)  Özkaynak:  Bankaların  (Değişik  ibare:RG-10/12/2022-32039)(1)  Özkaynaklarına İlişkin\nYönetmeliğe göre hesaplanan özkaynağı,\n",
+   "start": 2995,
+   "end": 3125
+  }
+ ],
+ "derived_artifacts": {
+  "chunks_regenerated_with": "scripts/regen_chunks_seed.py (vector_store._chunk_document; BDDK_EMBEDDING_MODEL_PATH=quality_reports/repair-audit/embedding_model)",
+  "manifest_declaration_updated": "seed_data/corpus_scope.yml artifacts sha256/bytes for documents.json and chunks.json",
+  "signature_pending": "Owner must re-sign via scripts/sign_corpus_manifest.py --private-key (key held outside Git by selection owner)."
+ }
+}

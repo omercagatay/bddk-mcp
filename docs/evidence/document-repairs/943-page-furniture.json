@@ -1,0 +1,15 @@
+{
+ "document_id": "943",
+ "status": "applied_to_local_seed_signature_pending",
+ "repair_class": "page_furniture_reading_order",
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/943",
+ "source_pdf_sha256": "28ca83020bffb0d533ec4cd51c547fc9afeec1cda34238732dad15398fff67fc",
+ "source_pdf_pages": 21,
+ "original_markdown_sha256": "3dff93f2768b86e35b9ccaa897a70f8fe682279b41ef56ecf81d8438f908c8cc",
+ "candidate_markdown_sha256": "6936b7a5971f5210b7eb10ff628d8f5505219a9476ef41f1c735bc119cc4f0ec",
+ "extraction_method_after": "markitdown+structural_repair",
+ "removed": "21 running headers and printed page numbers 1-21",
+ "preserved": "All other tokens, including both footnotes",
+ "publication": "Local seed and chunk artifact hashes updated. Corpus signature is stale until the owner re-signs. Railway was not changed.",
+ "chunks_regenerated_with": "scripts/regen_chunks_seed.py"
+}

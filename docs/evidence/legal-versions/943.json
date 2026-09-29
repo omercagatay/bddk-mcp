@@ -1,0 +1,2951 @@
+{
+ "schema_version": 1,
+ "bundle_id": "family_sha256_22fa34c3de4b8dad1950456ec468d3fec680c565ecd0eae35c0da85c6e838cfb",
+ "bundle_sha256": "986aea1f714d81885e71b7a9de05ed9bad0632dee8d7db7a48fb3df91a7bc6da",
+ "fixture_only": false,
+ "instrument": {
+  "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+  "jurisdiction": "TR",
+  "authority_code": "BDDK",
+  "identity_key": "943",
+  "canonical_title": "TFRS 9 Uyarınca Beklenen Kredi Zararı Karşılığı Hesaplamasına İlişkin Rehber",
+  "instrument_type": "rehber"
+ },
+ "blobs": [
+  {
+   "blob_id": "blob_sha256_4e2b47026ff3fe102380c10f4edefe9ec7c1f5198e5397e32405b7684e5e8818",
+   "content_sha256": "28ca83020bffb0d533ec4cd51c547fc9afeec1cda34238732dad15398fff67fc"
+  }
+ ],
+ "artifacts": [
+  {
+   "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+   "blob_id": "blob_sha256_4e2b47026ff3fe102380c10f4edefe9ec7c1f5198e5397e32405b7684e5e8818",
+   "canonical_uri": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/943",
+   "source_authority": "BDDK",
+   "media_type": "application/pdf",
+   "retrieved_at": "2026-09-23T18:40:00Z",
+   "repository_document_id": "943",
+   "fixture_only": false
+  }
+ ],
+ "provisions": [
+  {
+   "provision_id": "prov_sha256_01fcbbe385380e997a398a805804999dc6580e97926d0a49c50769262d786e0a",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/22"
+  },
+  {
+   "provision_id": "prov_sha256_02cc91a98b4c78d1d558efdc3b2f28fd03d474a9c9baa1a0b663f92a3fe81b7a",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/38"
+  },
+  {
+   "provision_id": "prov_sha256_04a9d235d773123188bb2afa048aabb1f2f0b43437e05ef00d2b32c9dc128312",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/23"
+  },
+  {
+   "provision_id": "prov_sha256_050154fc9d0a7ce4acf665aed67d6ed3d32bcbc6e3ac735fc5e3493896173f80",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/11"
+  },
+  {
+   "provision_id": "prov_sha256_066fffe21be6d1ec19f6d20298f37973892026d7059ae9cb85a2c13a41e0e55e",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/94"
+  },
+  {
+   "provision_id": "prov_sha256_097cc659e62fe2e02c7389285317fbf02029c6e14d262ad737816e31286107dd",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/66"
+  },
+  {
+   "provision_id": "prov_sha256_0a2d28261c0de7f30ce1e47daa6428b1b1f7721f40630f54031158dfce7f7e6f",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/33"
+  },
+  {
+   "provision_id": "prov_sha256_0a51fe533f9c526b34b04a603574154940189a7430d8de939971c72f4c0d10aa",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "ilke",
+   "canonical_path": "ilke/1"
+  },
+  {
+   "provision_id": "prov_sha256_0a9ea388d17866a19030fa674e348a5259a93234e5af1e0099c775c8dc4de5e2",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/95"
+  },
+  {
+   "provision_id": "prov_sha256_0c03416c60258647b9ec29015d4616c90ffa75a447d07d6998cc01a469b853ac",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/5"
+  },
+  {
+   "provision_id": "prov_sha256_0e159d35bfa10bbdf8f02f4be69d8c66677494abff7ad2cffce7257c95c83e11",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/54"
+  },
+  {
+   "provision_id": "prov_sha256_12d585cd00b10e703649e264419de651df795978a9a2ad39de98225c92ebf56b",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/48"
+  },
+  {
+   "provision_id": "prov_sha256_1616c1f1b7bd7a99adf980dd47804bd36ac368cc4cee4b4e5c7e2bcd4e66aa30",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/61"
+  },
+  {
+   "provision_id": "prov_sha256_1834f72527560212cd7f3479dae31dccbd5907b1ae40c2e67a62211b818556b5",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/100"
+  },
+  {
+   "provision_id": "prov_sha256_1b9bdd5323304ff49d3f52c4d697150654d0338af211719c87eb7ba6e7d250ba",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/10"
+  },
+  {
+   "provision_id": "prov_sha256_1fa91844614022af2f0793d43c7d93745fe5f17da7bb7d8464d5035ca7277dbc",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/27"
+  },
+  {
+   "provision_id": "prov_sha256_224967052ab9e9093fbb5f76e6b1b580d7aec6939f627448f443f2584ea16d80",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "ilke",
+   "canonical_path": "ilke/3"
+  },
+  {
+   "provision_id": "prov_sha256_260554093309c60cb7d9bdf458c275fa209e567fe60e178741f2745bf181e288",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/76"
+  },
+  {
+   "provision_id": "prov_sha256_278fa2ce17fa76f9f1923fcb043f6cb62741f6d35ad3a36dbca32b9f73fac68a",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/69"
+  },
+  {
+   "provision_id": "prov_sha256_2b3073fe36409e09a9ceca8338490d0eec06dadfdc733fca87fc6de2ff49f134",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/91"
+  },
+  {
+   "provision_id": "prov_sha256_2bb3fdd0062085645fa2419ea5954ec83a55694ab9752293aa9fd134902064bb",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/56"
+  },
+  {
+   "provision_id": "prov_sha256_30e5ef85665ade81bfe4a942442c10ac219119216646ec4eeaf1dea98eec17af",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/20"
+  },
+  {
+   "provision_id": "prov_sha256_30fc8052fa4afb8c67888dee3bca8af1c78b6a96835ce5e6daa5174209f96fda",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/1"
+  },
+  {
+   "provision_id": "prov_sha256_32f366f0bf6b72d56006ecaaec2add1b388a428f64bb7ee7cd3354d9b8f99cf5",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/75"
+  },
+  {
+   "provision_id": "prov_sha256_35330027619c311801a8198c6d32cac2267598cbbd13dc4c95206a5b63edfb06",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/7"
+  },
+  {
+   "provision_id": "prov_sha256_36873cd4d74f740536d51ca52de1ca65e0fab4328d574715c99fd921cadc72f2",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/21"
+  },
+  {
+   "provision_id": "prov_sha256_37b0b9c3ffcabb0c671631cc84956f2ce93dc7c8953cc702bb2ac4c133609cd1",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/99"
+  },
+  {
+   "provision_id": "prov_sha256_3936a09139d512259910c677cff092e8adbe75dd65b6d7943909877bf5510d8c",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/88"
+  },
+  {
+   "provision_id": "prov_sha256_3c17e067da49b2865438204f863c939e2d94a77ac442cae2b2db44536bb8d2a9",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/29"
+  },
+  {
+   "provision_id": "prov_sha256_3c42cc85e903635a40b79c61ec191c74ce16eef230c7e997770ad64ebbe35ef5",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/92"
+  },
+  {
+   "provision_id": "prov_sha256_433e51f31d8bd1c64cdb81484c07c04743344fc5f1bfdefb1c86f403b9fb9016",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/50"
+  },
+  {
+   "provision_id": "prov_sha256_449e0b580f83493d00dd6b7e6e7621dbf6d3187e18f4768ab98cb70215a411ac",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/42"
+  },
+  {
+   "provision_id": "prov_sha256_44f7245fcf5cf54db4b77ba89e7d96574552b2522cef223d61a062679946c311",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/51"
+  },
+  {
+   "provision_id": "prov_sha256_4601e49d401e60dab5bd9c0be3fb2867f166c1ff739ac647db7e2eb17e2e90bd",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/40"
+  },
+  {
+   "provision_id": "prov_sha256_4758798004855f701d974224779aba1743245cb5823c6a6a710e5c77b8bede6e",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/2"
+  },
+  {
+   "provision_id": "prov_sha256_4960935017edec795c4910f2f725eda2f5559a4f42582f29948981ce4fedc95a",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/79"
+  },
+  {
+   "provision_id": "prov_sha256_4998b88c8239202239427eba1c59bc4393f28fe1481297dea15cb9039623e383",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/37"
+  },
+  {
+   "provision_id": "prov_sha256_504bc289488e3f16f96771bfc404bbe8f77b0ee1da2f66efcb35235d4908e30e",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/68"
+  },
+  {
+   "provision_id": "prov_sha256_561fa22793e79f9d4d943681230e91b327d8d1174731035ce1a1d7a0efe1cb6b",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/15"
+  },
+  {
+   "provision_id": "prov_sha256_5b93b1338ad33d70270b66ed861d7880463460aa2d1f11f03eadf3b8121a2cfc",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/17"
+  },
+  {
+   "provision_id": "prov_sha256_5d0f5ced86927f99c546e15b5abd28624027229e60506d93a64d4968cee48572",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/85"
+  },
+  {
+   "provision_id": "prov_sha256_5ecde30235d72c3293b2539d0aca3cff15ccf2e4df80a41654764822a204d90d",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/34"
+  },
+  {
+   "provision_id": "prov_sha256_6790b7d93729b2efbb607bfd5d9b6043e819598cc234f252b74f4db8673e056c",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/25"
+  },
+  {
+   "provision_id": "prov_sha256_6d26fc4eab5e9cfe66538da4055f02c7caa1609d8d19fe47c3f2ed2df66f2077",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/60"
+  },
+  {
+   "provision_id": "prov_sha256_6e53d6cfe0b22ae3eac059fe52c72af03e3bba5582abce0404ebddbc45828c03",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/84"
+  },
+  {
+   "provision_id": "prov_sha256_6f09385cad35fa49ae05a375a0e3e7e8c38aa43103a0d6fe77b75fc8ac88c68d",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/77"
+  },
+  {
+   "provision_id": "prov_sha256_706a986c42da4dc46234e75ca92955375ac44c07b173cf90890a4cd4a448906f",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/72"
+  },
+  {
+   "provision_id": "prov_sha256_72693de6c0fec579387a60bfa67abe61238221c62284be3020adf73cc8d639a6",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/74"
+  },
+  {
+   "provision_id": "prov_sha256_74ddafe0c3b7efa7d031760f198e433e0e75774d0382fb0628f79e226b948623",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/53"
+  },
+  {
+   "provision_id": "prov_sha256_761ca9b8f5310b726cc49094bc18ba3f2a8bde68aa2e53687e88e7ad8477c7b5",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/73"
+  },
+  {
+   "provision_id": "prov_sha256_783e7da2560356f2008c515123a9af217c82ca77d2c58ed33c4952fddc948818",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/4"
+  },
+  {
+   "provision_id": "prov_sha256_7d3244ddf09f9fbe96cde1c48515adbc847a486dd6f010262073e0f245ceeb8c",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/47"
+  },
+  {
+   "provision_id": "prov_sha256_85c10ea9f02c7c9f6e2fd3e6c07e4c9c45bf3503abb3eb8d7a9f5267d679d5fc",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/32"
+  },
+  {
+   "provision_id": "prov_sha256_8694c92a80e2507b83e7e2dfb05169f405827120e0b856205de967496b3d6ad9",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/102"
+  },
+  {
+   "provision_id": "prov_sha256_904ea0a8f00fd22777d227e6b2e3a15f6e7cbd3259f5530107327928ac976178",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/26"
+  },
+  {
+   "provision_id": "prov_sha256_92cad6d28ce369d205cbbd6281b3bf98e8ffc9839735ebb8d0fe62da89a097d9",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/65"
+  },
+  {
+   "provision_id": "prov_sha256_946c2220fb07543bf04068c5bf44ef806a64c487e89e3eef92b636895c496745",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/24"
+  },
+  {
+   "provision_id": "prov_sha256_966eae9a63aa9f6b9aee32c7f59724ea41924aee7cb34499bfe417d9864dd5c1",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/43"
+  },
+  {
+   "provision_id": "prov_sha256_977a3c1952463b99aa38ee5be194b4299e7d4af6e014a55660cd734d1e5549bf",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/12"
+  },
+  {
+   "provision_id": "prov_sha256_99f6dd005dd0c92444351a504e2969ee24a5ee50edeab3b52ffdbdc2fdd100c7",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/9"
+  },
+  {
+   "provision_id": "prov_sha256_9a87ad9a2a044459e31801ed404a1c85237d05f8b97838f879d1e2595d4b990c",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/57"
+  },
+  {
+   "provision_id": "prov_sha256_9c8e4c234850433f60dd618887f4161725127c0efcf639b78bc111c897939f3e",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/44"
+  },
+  {
+   "provision_id": "prov_sha256_9cc4ff248475634cec81a155d50b7af554f231ae85c26d94c3a9bc3b498c0f9c",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/28"
+  },
+  {
+   "provision_id": "prov_sha256_9dfd54510954637cdc40a35fccfd20985489256310cf6ebd43fbcae0db6171fb",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/103"
+  },
+  {
+   "provision_id": "prov_sha256_a082083fb371c37709b4b6779b08a2691d9733efab6d70a154658a6692f6d2b8",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/35"
+  },
+  {
+   "provision_id": "prov_sha256_a2cd24df12c8edc33155f78ee5b9e1ee91ede3758ba0cb0200fe77a61b316d7d",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/71"
+  },
+  {
+   "provision_id": "prov_sha256_a466dcf93f6f1248908fbbb64ce64286c6a62fee86535281839c7dcca37c0243",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/98"
+  },
+  {
+   "provision_id": "prov_sha256_a5f505cfa29c0151571685e23344e1b86440445bfac4f8ef485ec709b7bf90ab",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/31"
+  },
+  {
+   "provision_id": "prov_sha256_ae99b28019fe509fc61e6ed0667d42d9dadc0b463702fb71933f4056e8de456b",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "ilke",
+   "canonical_path": "ilke/4"
+  },
+  {
+   "provision_id": "prov_sha256_b2ec4a71ca03cb285da90f4b8d5072747f34968195556c417a1995103d8bde0a",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/52"
+  },
+  {
+   "provision_id": "prov_sha256_b6a706a80d7d05fc7dfa6e66b63a10f18ae992feffc679bdb2847c8e8f84edab",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/6"
+  },
+  {
+   "provision_id": "prov_sha256_b762370feeb7ca8c386bb9d75b77afef424dd90e3dbbd879143cc6f98265137e",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "ilke",
+   "canonical_path": "ilke/6"
+  },
+  {
+   "provision_id": "prov_sha256_b7eaffcee0cab711d9bbf3c81b10a12e092c13164e339039797ed9ffa0a73c1f",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/49"
+  },
+  {
+   "provision_id": "prov_sha256_b8177ec86816430b72cccd19afc83379099daa1df447cc2825ead43bcac689d8",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/78"
+  },
+  {
+   "provision_id": "prov_sha256_b91789589fcbe563992e0d7e4be45a6c7cd7b4482659d3d1dc5fedba13cab5ef",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/3"
+  },
+  {
+   "provision_id": "prov_sha256_b97fe820e9ed7b881befd9d380e7e53f4a226cd7d091ac85fa1733467ef84ecc",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/70"
+  },
+  {
+   "provision_id": "prov_sha256_ba291ac9562e65f78954d2a31b7b699d5ba35fb6acf45d73b1110d519fabe93f",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/18"
+  },
+  {
+   "provision_id": "prov_sha256_ba7bbd9774a15e2c8e3288e5466e905bb030bb371d053494a52012cbf1eb7486",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/36"
+  },
+  {
+   "provision_id": "prov_sha256_bad7456f9cf25963778ff6269fe11b779c81f3c63aa741e0afcb69a07d08d50d",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/19"
+  },
+  {
+   "provision_id": "prov_sha256_bdf8fd1b4ce1a9e4e88ff3281e65a21430ec01491d62fb511e2d8c7cd849740a",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "ilke",
+   "canonical_path": "ilke/7"
+  },
+  {
+   "provision_id": "prov_sha256_c1ad32510cfb58bd309490d9e7370292ef5dfc8f8a63118363de1975095d0859",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/30"
+  },
+  {
+   "provision_id": "prov_sha256_c77af4f37c3e4ca97b6e9d3b73245414a9068f7dfdd1bfe5c0dd4799e8f1540b",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/41"
+  },
+  {
+   "provision_id": "prov_sha256_cfa670e3af9641527e5487bd454de6795680ee264cd6aacc075139c9617fa877",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/64"
+  },
+  {
+   "provision_id": "prov_sha256_d3aac10b52bb80beb4bda3f7ba2774c86eb779969774d2737c377690501741ed",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/62"
+  },
+  {
+   "provision_id": "prov_sha256_d7fa7a5551fab6f466fb669a057855fb12d29b7ec76191ed9fda078f330ac93c",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/8"
+  },
+  {
+   "provision_id": "prov_sha256_d8558deed7fba6b0c41fb86faaaaffd9d6ac50022ca593926ac03def66d65fde",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/87"
+  },
+  {
+   "provision_id": "prov_sha256_dbdae236568fa2af770371ccdc048ab0c4e1a36b72e21b2cbfcdfef5c42d6c48",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/101"
+  },
+  {
+   "provision_id": "prov_sha256_dd871f2c09fd0151890dd29f5f04aceafdcc7bd08b7d1fb65326afc71c650e57",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "ilke",
+   "canonical_path": "ilke/5"
+  },
+  {
+   "provision_id": "prov_sha256_df15cea0cf181c33560fb6102a8050ce7eb265e286178a7410884266e5cbd6c3",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/93"
+  },
+  {
+   "provision_id": "prov_sha256_df65a8d629500fa160348a99a84e48bb43756546082314cc4490b588fd481cf9",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/16"
+  },
+  {
+   "provision_id": "prov_sha256_e0b39d2e5a5fac8f48be774edaf4584f1a95a44866b8c6112b78561ea3c09dbe",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/90"
+  },
+  {
+   "provision_id": "prov_sha256_e0fedf1b08c2599d7a8e9aadd68aabe83d89e0a14e0f2c87c3b96d5d43c10822",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/104"
+  },
+  {
+   "provision_id": "prov_sha256_e22ca3d98e88196de11f2c6993f8cca56e973aa2690ee4fe48e751111c7a82b8",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/13"
+  },
+  {
+   "provision_id": "prov_sha256_e43d397006c3d2a7636e63e9e31bbe6b6e42db532a31562f8e42061f9365d53e",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/46"
+  },
+  {
+   "provision_id": "prov_sha256_e5f2b1b1d6f2058c7aa92c1fffb17cc29300faa103c9f7e7a793df098f17b47d",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/86"
+  },
+  {
+   "provision_id": "prov_sha256_e62217f643a1fe3459a576277ea842c55950ad1d88aab9839d54ddf3e1b1fb69",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/81"
+  },
+  {
+   "provision_id": "prov_sha256_e6f1aecfd1fff62cc4eef11cf95a1bb7a8901358999a92def69b3a4d46a525e7",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/63"
+  },
+  {
+   "provision_id": "prov_sha256_edb03cbba8ee5c8d45674307302c6a7f4974b9c1d15267e7cad8c9fc0b82d059",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "ilke",
+   "canonical_path": "ilke/2"
+  },
+  {
+   "provision_id": "prov_sha256_ef4d6e8f167026882fbc2d39f27a05460ab9102219744b9c5d2ea4219a3edd6b",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/82"
+  },
+  {
+   "provision_id": "prov_sha256_f21b1e71f489746878e650afed485f4d13155c81a0b631e14f06e6e38cc28bbc",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/83"
+  },
+  {
+   "provision_id": "prov_sha256_f4cad33b90e952720705351fd9cdf24288ade552b0cf6d74ea2d1643641c2e63",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/45"
+  },
+  {
+   "provision_id": "prov_sha256_f4fb42761a59e37e7c486868a279d1f9c82cfd17d9269d56be02d9a96c9b360d",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/67"
+  },
+  {
+   "provision_id": "prov_sha256_f70b4bd1bc558bdc7b770f1dd235def9444fe7491c3eaec3da52601377b7381d",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/39"
+  },
+  {
+   "provision_id": "prov_sha256_f939a83e49b74a6bbc46740a3e509a7c7341a80966e6e889706d17e75032d128",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/96"
+  },
+  {
+   "provision_id": "prov_sha256_f99270733462bfb8114adb285f69a822f57882e324344ccf1c78275d00139226",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/89"
+  },
+  {
+   "provision_id": "prov_sha256_f9f09de06826e9e0d6d339720b56b74f9460228942420bf9530f5da5b741df69",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/58"
+  },
+  {
+   "provision_id": "prov_sha256_fbb4c3b220ee7e586a383162ac3f549392265d9aee32249fc5f324551882c017",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/97"
+  },
+  {
+   "provision_id": "prov_sha256_fc5a5c2290fb0c142c9d2f59215d39d53f08c9700ed8c6a4b3d1cdfd247a446e",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/59"
+  },
+  {
+   "provision_id": "prov_sha256_fdb3c953daf7d51367466d18ce3eeeef0fb6b3851b1fa4541fadf70e2482c30d",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/14"
+  },
+  {
+   "provision_id": "prov_sha256_fecbe4d35c5ddf28ba1b08e35af7d32d9b52b4a4ce09b59b9ca335accd2fc1b3",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/80"
+  },
+  {
+   "provision_id": "prov_sha256_ffcbf23d4a323b2afbd84b616355cd34cb5b05cf354899900e1b30a2fa26182d",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "kind": "paragraf",
+   "canonical_path": "paragraf/55"
+  }
+ ],
+ "versions": [
+  {
+   "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+   "instrument_id": "inst_sha256_853eda310cb8edf4163979b25fd0f6b0efe883a8b3fe9227428875fc0446d846",
+   "version_key": "28ca83020bffb0d533ec4cd51c547fc9afeec1cda34238732dad15398fff67fc",
+   "legal_text_sha256": "6936b7a5971f5210b7eb10ff628d8f5505219a9476ef41f1c735bc119cc4f0ec",
+   "source_artifact_ids": [
+    "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e"
+   ],
+   "predecessor_version_id": null,
+   "consolidation_state": "unknown",
+   "validation": {
+    "state": "validated",
+    "validated_by": "project_owner",
+    "validated_at": "2026-09-23T18:59:49Z",
+    "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+    "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+   },
+   "events": {
+    "publication": null,
+    "effective": null,
+    "expiry": null,
+    "repeal": null,
+    "supersession": null,
+    "consolidation": null
+   },
+   "status_assertions": [],
+   "provisions": [
+    {
+     "provision_id": "prov_sha256_01fcbbe385380e997a398a805804999dc6580e97926d0a49c50769262d786e0a",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "6371adf6c8b6f4efc853f97a9f770d615b930ffe083641c8002119e810e539b7",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_51f454c5de5676f0e60814d36438eee2f7a7c83340e7dcd15094037c8a2384ce",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/22",
+      "statement_sha256": "6371adf6c8b6f4efc853f97a9f770d615b930ffe083641c8002119e810e539b7",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_02cc91a98b4c78d1d558efdc3b2f28fd03d474a9c9baa1a0b663f92a3fe81b7a",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "a36f268f7fb9b670e0f84c625c585024bfc6f15914782203611d002771721ed8",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_1026adbec19d1aa9bd53d4d81bcf2a4fc3ab280ce6430b426dc3d986bd457541",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/38",
+      "statement_sha256": "a36f268f7fb9b670e0f84c625c585024bfc6f15914782203611d002771721ed8",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_04a9d235d773123188bb2afa048aabb1f2f0b43437e05ef00d2b32c9dc128312",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "02c255df5a0fc1cd95b2afb8b620110a117a0c6f2badd1b1303f72eaf71966a9",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_1f54504e97188fbedc9d27174cd7d39e37bbec6fbe5239d857f49ec4e021a21f",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/23",
+      "statement_sha256": "02c255df5a0fc1cd95b2afb8b620110a117a0c6f2badd1b1303f72eaf71966a9",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_050154fc9d0a7ce4acf665aed67d6ed3d32bcbc6e3ac735fc5e3493896173f80",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "bda86daa2e66308579b6f9fcd1704e4a73dd50930e4912ef19a90476b4631969",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_350636c5ed84887ac83f32920d041c9d47965be4791221836afb2b5c33f270f6",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/11",
+      "statement_sha256": "bda86daa2e66308579b6f9fcd1704e4a73dd50930e4912ef19a90476b4631969",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_066fffe21be6d1ec19f6d20298f37973892026d7059ae9cb85a2c13a41e0e55e",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "8a15e7ed2b8a2a6bc34384926db903378ea07cc2dc9b3dce443ef885ad1818f1",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_08ee60622f5b77af26f7e47c8934794e5d23cbdf8479cc50eb28e6007ecc7cd6",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/94",
+      "statement_sha256": "8a15e7ed2b8a2a6bc34384926db903378ea07cc2dc9b3dce443ef885ad1818f1",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_097cc659e62fe2e02c7389285317fbf02029c6e14d262ad737816e31286107dd",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "a8a4e4183a861eb4649525538c3dcc60b374a9a3c6cde1fba9d5754a892feb04",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_eca50d24279db4007faa21b057072a60eb42ccc89d972fb6058670d8b139ac26",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/66",
+      "statement_sha256": "a8a4e4183a861eb4649525538c3dcc60b374a9a3c6cde1fba9d5754a892feb04",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_0a2d28261c0de7f30ce1e47daa6428b1b1f7721f40630f54031158dfce7f7e6f",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "23d39283d4e04f6b4fb547c3e5e42b76b6085c6efb8530ef78eba2ed3bc0c047",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_eae94154d3ec6c0032be6f244614740524ee5b13bbe99500a620e0faa1b2711e",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/33",
+      "statement_sha256": "23d39283d4e04f6b4fb547c3e5e42b76b6085c6efb8530ef78eba2ed3bc0c047",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_0a51fe533f9c526b34b04a603574154940189a7430d8de939971c72f4c0d10aa",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "771051fbdb048dde6596c68a66338081c6babe159c61e6db2f24fd028810bec8",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_3fe0a28d076d00c47fd1196f575fb3234ad651eb9807e6f5ee4f1391efbce4d8",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/ilke/1",
+      "statement_sha256": "771051fbdb048dde6596c68a66338081c6babe159c61e6db2f24fd028810bec8",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_0a9ea388d17866a19030fa674e348a5259a93234e5af1e0099c775c8dc4de5e2",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "96a6e76a6c8e9a3a147af9e33196e11a2b1d913c559739194ec8890a0cb9f095",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_ad148bba472d1c20f022644b298106c62ec99a2427536fcb0dc5ae213015c12b",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/95",
+      "statement_sha256": "96a6e76a6c8e9a3a147af9e33196e11a2b1d913c559739194ec8890a0cb9f095",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_0c03416c60258647b9ec29015d4616c90ffa75a447d07d6998cc01a469b853ac",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "eee907de0650fd1b43d1c1e1fca9fb6504303b5b8ba979b6553427b9e3c56844",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_9f81390d662c5a86e8fd09661cf9fc32396d4638c924dc94c0ae786b7b7ad496",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/5",
+      "statement_sha256": "eee907de0650fd1b43d1c1e1fca9fb6504303b5b8ba979b6553427b9e3c56844",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_0e159d35bfa10bbdf8f02f4be69d8c66677494abff7ad2cffce7257c95c83e11",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "bff374700928177951d781c476ce06349f5cbee754065aacb04f0ba9feb0baf0",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_4187a8e98f3b3db4b0ff8017b8bcf008474d578c24c12224c149902e82f3d1e4",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/54",
+      "statement_sha256": "bff374700928177951d781c476ce06349f5cbee754065aacb04f0ba9feb0baf0",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_12d585cd00b10e703649e264419de651df795978a9a2ad39de98225c92ebf56b",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "adb859f9b8989c663a224b7e32c1adfaaafc6d5cb45b0636baddae4f0d36249b",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_1ad905180f6e388e54aa698f4c9e78634b820ca902d54ce8dc704ba37b90dca1",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/48",
+      "statement_sha256": "adb859f9b8989c663a224b7e32c1adfaaafc6d5cb45b0636baddae4f0d36249b",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_1616c1f1b7bd7a99adf980dd47804bd36ac368cc4cee4b4e5c7e2bcd4e66aa30",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "3f3f921c0b935efebfb24d079c9993fe61490974207d75a160fa628c615a6fc1",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_95427d79a7d0ad2e83bfd651543f20d038a0070905699873ef32a4b55e71edea",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/61",
+      "statement_sha256": "3f3f921c0b935efebfb24d079c9993fe61490974207d75a160fa628c615a6fc1",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_1834f72527560212cd7f3479dae31dccbd5907b1ae40c2e67a62211b818556b5",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "9484991ac660cc2f32595eb25c68043df0a5aa3e96479b8a9120c6b2f60d55c0",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_04d63497c5fa5359bd64182b8e0715c34c5dc3f09fbe188cff43696edf417c27",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/100",
+      "statement_sha256": "9484991ac660cc2f32595eb25c68043df0a5aa3e96479b8a9120c6b2f60d55c0",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_1b9bdd5323304ff49d3f52c4d697150654d0338af211719c87eb7ba6e7d250ba",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "de51c8d88b0210d95cc3454c5cfeb05b398dd8d433b80ef92ef892ac0cf8061e",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_92c9336a68b4d321cbcb1eacfe8ccc3ef6220ba897d848cf31bcedd305788939",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/10",
+      "statement_sha256": "de51c8d88b0210d95cc3454c5cfeb05b398dd8d433b80ef92ef892ac0cf8061e",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_1fa91844614022af2f0793d43c7d93745fe5f17da7bb7d8464d5035ca7277dbc",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "6b18b818324c6b488de6d148faad4c3717d55af2f04ab9aa808f8c044bc8b1aa",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_f8d9a88b4c9fde31d8e49aeb30d2e0a95b08b51a950c92c4532b8b226b65573c",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/27",
+      "statement_sha256": "6b18b818324c6b488de6d148faad4c3717d55af2f04ab9aa808f8c044bc8b1aa",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_224967052ab9e9093fbb5f76e6b1b580d7aec6939f627448f443f2584ea16d80",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "67c0f000b1f13f016a0a621e8a36b5e32a87a06851fdc3dc871758298a7ab560",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_5fab385ae1ab83afe118816fb5db555eb50ca9e44959f6db86c8e230a2a8ea53",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/ilke/3",
+      "statement_sha256": "67c0f000b1f13f016a0a621e8a36b5e32a87a06851fdc3dc871758298a7ab560",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_260554093309c60cb7d9bdf458c275fa209e567fe60e178741f2745bf181e288",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "84e00ece582cbcd543a1b57abc924a753ed155561d9f9eb40c7150693e4c4af3",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_73236780dee92f2d8290f34adf8276668d0c3f10470e95a6b0698a6ea3c31d51",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/76",
+      "statement_sha256": "84e00ece582cbcd543a1b57abc924a753ed155561d9f9eb40c7150693e4c4af3",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_278fa2ce17fa76f9f1923fcb043f6cb62741f6d35ad3a36dbca32b9f73fac68a",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "80c059f4902e8ba4f5a4e02f8167532e671ca78e62e5640cb7853641eabe6b93",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_7eb50bb7b2793ba9a608a8d344584ead3b0b5b1d6795172faa34aa00a601af55",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/69",
+      "statement_sha256": "80c059f4902e8ba4f5a4e02f8167532e671ca78e62e5640cb7853641eabe6b93",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_2b3073fe36409e09a9ceca8338490d0eec06dadfdc733fca87fc6de2ff49f134",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "abd95346b32a0d7c2dcfe2d5daab5e4b07603e5cae617e48f74c1706b17ec22e",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_ad93e28771ea2e7da89837f8691591753d085fa2e9ec552a3c2753eff712aeaa",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/91",
+      "statement_sha256": "abd95346b32a0d7c2dcfe2d5daab5e4b07603e5cae617e48f74c1706b17ec22e",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_2bb3fdd0062085645fa2419ea5954ec83a55694ab9752293aa9fd134902064bb",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "5f4db1e87ae245f8bb9d8018ed7fe9e7ae76a71e4c683ecf78e85705f0bb0284",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_fbfd1b8fcd928b554daad502862ebdca9467396d38dbfc3ae49c65072f14a343",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/56",
+      "statement_sha256": "5f4db1e87ae245f8bb9d8018ed7fe9e7ae76a71e4c683ecf78e85705f0bb0284",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_30e5ef85665ade81bfe4a942442c10ac219119216646ec4eeaf1dea98eec17af",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "49536ac103f7f204da9247b904e56437f2167fc024efd771019ec0143d697773",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_ad27deff49873f43a38fd0c82be44dbdb038f0cbfa28686d7dd92d0957ec41e3",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/20",
+      "statement_sha256": "49536ac103f7f204da9247b904e56437f2167fc024efd771019ec0143d697773",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_30fc8052fa4afb8c67888dee3bca8af1c78b6a96835ce5e6daa5174209f96fda",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "914c09476138b7a4ee600abd67852544090b0606c97fa0f5953b55f59fa38404",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_a3a8ad5aa296d7b4d6498deb7df57bcf218ab67ffd26398b98d9856c707086da",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/1",
+      "statement_sha256": "914c09476138b7a4ee600abd67852544090b0606c97fa0f5953b55f59fa38404",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_32f366f0bf6b72d56006ecaaec2add1b388a428f64bb7ee7cd3354d9b8f99cf5",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "ab36470e69c880b5f62114b597aab47da496268baee5bb4d2ab1e06ee22a45f7",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_6b828226eaefcda5963d27f40923d97cd3c69ba8bbf22ca6bdab653beaca5e06",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/75",
+      "statement_sha256": "ab36470e69c880b5f62114b597aab47da496268baee5bb4d2ab1e06ee22a45f7",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_35330027619c311801a8198c6d32cac2267598cbbd13dc4c95206a5b63edfb06",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "2af55d0af450cb6ee338e54aa06ce27754c7ed861e935b5c32c6b88d3fefeea4",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_0f327e8aca59e29a2a6475c5b3013988a1cdca891b2f3fbdaf68145c12f86296",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/7",
+      "statement_sha256": "2af55d0af450cb6ee338e54aa06ce27754c7ed861e935b5c32c6b88d3fefeea4",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_36873cd4d74f740536d51ca52de1ca65e0fab4328d574715c99fd921cadc72f2",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "f96532189f9595f1ea2b605a1613f2c8a1576a43a79661611448cb9e181e4593",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_73b43679c3f1af6e8cced8d4e50c9bac91f69a3327516d25edd12cfecebcdf2c",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/21",
+      "statement_sha256": "f96532189f9595f1ea2b605a1613f2c8a1576a43a79661611448cb9e181e4593",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_37b0b9c3ffcabb0c671631cc84956f2ce93dc7c8953cc702bb2ac4c133609cd1",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "6545687c4e6f734d342e3c85746ed55831139272c6668fd51c411e5ec611d949",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_34eac9c80588824080aa0408c85388d9fabff89979db295909a3a95378cf376d",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/99",
+      "statement_sha256": "6545687c4e6f734d342e3c85746ed55831139272c6668fd51c411e5ec611d949",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_3936a09139d512259910c677cff092e8adbe75dd65b6d7943909877bf5510d8c",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "4ab0e91f9b2fd1af2a79f1cbf58efa79377e886a65260868470449e827a2fadc",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_0a92874850c9fec713bc323c841df766c7dfb9d0a6dbc4df05271a4415d00c49",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/88",
+      "statement_sha256": "4ab0e91f9b2fd1af2a79f1cbf58efa79377e886a65260868470449e827a2fadc",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_3c17e067da49b2865438204f863c939e2d94a77ac442cae2b2db44536bb8d2a9",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "f361865075d28fb5877d2dc35afdf67e1922d55b75e4462a3bf08c915307f044",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_5ec7f2bb8ad78e0332eead796390187ecaf677bd6a358eb1124cee5cc3d468ff",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/29",
+      "statement_sha256": "f361865075d28fb5877d2dc35afdf67e1922d55b75e4462a3bf08c915307f044",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_3c42cc85e903635a40b79c61ec191c74ce16eef230c7e997770ad64ebbe35ef5",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "2336d6e6e7355e8b685f9aeb8ca526787ae26dd19c15fdb2e9e8f779d9048dc2",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_17bc223035555e0a054776333acfa40c4f58f2979bc775d710d7b30db5e90a26",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/92",
+      "statement_sha256": "2336d6e6e7355e8b685f9aeb8ca526787ae26dd19c15fdb2e9e8f779d9048dc2",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_433e51f31d8bd1c64cdb81484c07c04743344fc5f1bfdefb1c86f403b9fb9016",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "790f352caf05fe49dfd78f3b5fcec6dcc6fff04f0f7b10abb7c7ab926eb625da",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_2e353d65870b51a7805610e6f2adf0f9df1e61041541010fa8001dedf57e1192",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/50",
+      "statement_sha256": "790f352caf05fe49dfd78f3b5fcec6dcc6fff04f0f7b10abb7c7ab926eb625da",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_449e0b580f83493d00dd6b7e6e7621dbf6d3187e18f4768ab98cb70215a411ac",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "9b0cb7da6ca79eaa5261ca2b552babc949745fa58c1a9f85da738ec0e0a8b493",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_b3ebbc8099e6d5ea0fba6904d56916dddf7b395ef9b1c531dc30923cfec2dd88",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/42",
+      "statement_sha256": "9b0cb7da6ca79eaa5261ca2b552babc949745fa58c1a9f85da738ec0e0a8b493",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_44f7245fcf5cf54db4b77ba89e7d96574552b2522cef223d61a062679946c311",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "c063258dcb00add5c2fd79579155178fc0f725feb9de6eb2d5bb016a9014cb79",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_12025dcf6639c68eb806145acf4932b94d0a6b1b8a599ffa6b87ef9eb78498e3",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/51",
+      "statement_sha256": "c063258dcb00add5c2fd79579155178fc0f725feb9de6eb2d5bb016a9014cb79",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_4601e49d401e60dab5bd9c0be3fb2867f166c1ff739ac647db7e2eb17e2e90bd",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "3fa628628f860f49186c461ae6aa19c339298415cd5ab29c88002bf6f17c3f74",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_9f6b9f127b932d613682e33c441ff809933b0ba8e9d2bbe9ef65e4c9dbfd90f9",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/40",
+      "statement_sha256": "3fa628628f860f49186c461ae6aa19c339298415cd5ab29c88002bf6f17c3f74",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_4758798004855f701d974224779aba1743245cb5823c6a6a710e5c77b8bede6e",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "b751f523b564e021087c68b02baf46bd1bad0fd57466d4ee4ce16a1a5f372c41",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_96aedaa86723af8217b31ab1f5089872da507d15c397ce3fec4e7d3c308fb41e",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/2",
+      "statement_sha256": "b751f523b564e021087c68b02baf46bd1bad0fd57466d4ee4ce16a1a5f372c41",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_4960935017edec795c4910f2f725eda2f5559a4f42582f29948981ce4fedc95a",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "131dac049f015c12d6ab50fc8a080cf5979d03765aba8e33f5778272a766c00c",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_18df938cf1597cdcf291e6f8d9a8a3308f1a70d638db094f0e006dfc6dce7ea3",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/79",
+      "statement_sha256": "131dac049f015c12d6ab50fc8a080cf5979d03765aba8e33f5778272a766c00c",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_4998b88c8239202239427eba1c59bc4393f28fe1481297dea15cb9039623e383",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "1f7c4aa36e7b7008e498d22e4438a6713df9429ca480e8e81ee68bf4bf317241",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_395703a7f962e3cb4be64b1c895164873c844f44509e5ff689f0909ed9f13d69",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/37",
+      "statement_sha256": "1f7c4aa36e7b7008e498d22e4438a6713df9429ca480e8e81ee68bf4bf317241",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_504bc289488e3f16f96771bfc404bbe8f77b0ee1da2f66efcb35235d4908e30e",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "ce5f091d9cf3429cca2f6838bdcc2bb9669220734e7aae25ce4e4e0f7eb965f1",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_d6162a8cf0976da1247bebf74d6ab5ed359a06a756ab154ce082d44ed8ca9abd",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/68",
+      "statement_sha256": "ce5f091d9cf3429cca2f6838bdcc2bb9669220734e7aae25ce4e4e0f7eb965f1",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_561fa22793e79f9d4d943681230e91b327d8d1174731035ce1a1d7a0efe1cb6b",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "e63b392fcfe6e0436ca7c3544f305eceead46ad0007fde5402c3f29c73e2d6df",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_fac163f939e7b885816d7d347fbe9164035daa1916afc3790b9c67181c59fddf",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/15",
+      "statement_sha256": "e63b392fcfe6e0436ca7c3544f305eceead46ad0007fde5402c3f29c73e2d6df",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_5b93b1338ad33d70270b66ed861d7880463460aa2d1f11f03eadf3b8121a2cfc",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "fd9e37be86c9470d8ca0968f64035f5b18deb7a657e671198053b24d2e2f826b",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_3e6a2eb363db6534bea641e53510adb22a67d4c37330f20fea18189c1e935123",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/17",
+      "statement_sha256": "fd9e37be86c9470d8ca0968f64035f5b18deb7a657e671198053b24d2e2f826b",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_5d0f5ced86927f99c546e15b5abd28624027229e60506d93a64d4968cee48572",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "1344ef1473e7bc44ddff2067570f5640d192514d8a947318b4000fda2ad32083",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_1e55b535b54b1c5ab325ceced5782ad76093582f6fc10054b69572a7f70e7390",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/85",
+      "statement_sha256": "1344ef1473e7bc44ddff2067570f5640d192514d8a947318b4000fda2ad32083",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_5ecde30235d72c3293b2539d0aca3cff15ccf2e4df80a41654764822a204d90d",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "a725dc8b15ee3bbab74cc8a3b9bd779b8f7d4c09293e043429bce581743e7470",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_499080bdabb43603fdac7368debf430b462ebc07af318e529ab00580e7e42fd2",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/34",
+      "statement_sha256": "a725dc8b15ee3bbab74cc8a3b9bd779b8f7d4c09293e043429bce581743e7470",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_6790b7d93729b2efbb607bfd5d9b6043e819598cc234f252b74f4db8673e056c",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "65bfd3a69c5625b4e2933541b06726a43c5bee43027c455f6375c61f6da56a9d",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_046b290fa96222d2c0564a3b0eb170d461206883210fe71b1a35796f2892a698",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/25",
+      "statement_sha256": "65bfd3a69c5625b4e2933541b06726a43c5bee43027c455f6375c61f6da56a9d",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_6d26fc4eab5e9cfe66538da4055f02c7caa1609d8d19fe47c3f2ed2df66f2077",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "87cfcbab90fd9b50b0703bc5c915da1b6412250e6074c9f40a1bb576ca27558f",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_1c6a9efc6c188957bc553f6d1b1fd87fe0d7b29392d4eb0d9b0d8c589de45452",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/60",
+      "statement_sha256": "87cfcbab90fd9b50b0703bc5c915da1b6412250e6074c9f40a1bb576ca27558f",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_6e53d6cfe0b22ae3eac059fe52c72af03e3bba5582abce0404ebddbc45828c03",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "5201c003b4155e2fc57b2d97344ec5ee17e70b4b42727b5282c2d09d26b5f3a2",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_9d6a555b82837f9d03749cce01d086928caaa9b0a3a6d3aa96b52d985645fa79",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/84",
+      "statement_sha256": "5201c003b4155e2fc57b2d97344ec5ee17e70b4b42727b5282c2d09d26b5f3a2",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_6f09385cad35fa49ae05a375a0e3e7e8c38aa43103a0d6fe77b75fc8ac88c68d",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "155b1c126a01318068a1eb6420bd1a12a6300ac807e129945d25079c6823da3b",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_0ebf797d7f525969ed80f48687ab13811dba594566d7cec3ef2d0a245d46dc28",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/77",
+      "statement_sha256": "155b1c126a01318068a1eb6420bd1a12a6300ac807e129945d25079c6823da3b",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_706a986c42da4dc46234e75ca92955375ac44c07b173cf90890a4cd4a448906f",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "70c963bbf781f2e6e0d64823aae1e44f4fef1665de837cf78d542f879d39fccb",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_bf7eff7bfd8cc8ff06666315e156668af48c0505eef270e1ea8eacac4ad92204",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/72",
+      "statement_sha256": "70c963bbf781f2e6e0d64823aae1e44f4fef1665de837cf78d542f879d39fccb",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_72693de6c0fec579387a60bfa67abe61238221c62284be3020adf73cc8d639a6",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "928bbcb9bfcb1cc5a18b3c114bdc4f62e030c36a5c678aa846e06e784621f29a",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_1a63e64fa9805fbae2533b98fac39af36486a83969c329bbddff428668407262",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/74",
+      "statement_sha256": "928bbcb9bfcb1cc5a18b3c114bdc4f62e030c36a5c678aa846e06e784621f29a",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_74ddafe0c3b7efa7d031760f198e433e0e75774d0382fb0628f79e226b948623",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "92b0bce6d480cba4699fc558288744cf0ca9dacde48d5191aa02378092ccc03c",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_3e2226acbfd7d57b092ab1d4a87eb4867e4faa84e85ab4f350866618d5e08e04",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/53",
+      "statement_sha256": "92b0bce6d480cba4699fc558288744cf0ca9dacde48d5191aa02378092ccc03c",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_761ca9b8f5310b726cc49094bc18ba3f2a8bde68aa2e53687e88e7ad8477c7b5",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "c33cc8c880c8cb03c4ff0b55571c4e4fb7da81fb000ce9cdeab7ff8883f55810",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_301a529a73f292a731b9d88a72c72209f0d74c9292db609c03e4a923e11b610b",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/73",
+      "statement_sha256": "c33cc8c880c8cb03c4ff0b55571c4e4fb7da81fb000ce9cdeab7ff8883f55810",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_783e7da2560356f2008c515123a9af217c82ca77d2c58ed33c4952fddc948818",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "144e42ea61c3172652719f52b3d4e61e2d4cb5a11fdd6ffc1337c4118f7151cb",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_4409166d195658daf813dc2587595c98e7dc08a77bcd538d90cae479ab8a876a",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/4",
+      "statement_sha256": "144e42ea61c3172652719f52b3d4e61e2d4cb5a11fdd6ffc1337c4118f7151cb",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_7d3244ddf09f9fbe96cde1c48515adbc847a486dd6f010262073e0f245ceeb8c",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "b019155fe4a8c8bcac3062b7725d2d2d24d18f41290472ab83265074c41b9f04",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_7d01f7e38bcbdb968b5343ce42e054225b372ce366d6d97d395a874814300d79",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/47",
+      "statement_sha256": "b019155fe4a8c8bcac3062b7725d2d2d24d18f41290472ab83265074c41b9f04",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_85c10ea9f02c7c9f6e2fd3e6c07e4c9c45bf3503abb3eb8d7a9f5267d679d5fc",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "825f5c102e720165371cc0f2675fe7a88de9863dbfe6bd41204491af4cde3386",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_1e0f977a080c9c7a52a9e40534f7fd9cd966b1e9576c98b332ffae649206d2bc",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/32",
+      "statement_sha256": "825f5c102e720165371cc0f2675fe7a88de9863dbfe6bd41204491af4cde3386",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_8694c92a80e2507b83e7e2dfb05169f405827120e0b856205de967496b3d6ad9",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "ba7b9304787dcb3028210415b1405eca1f38d9117ba2e85e267ed6115a2df842",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_59db0fafd0b8ec4765e84dd19c1ec260dc174d68e0f2dcc72aa03e272ff3410f",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/102",
+      "statement_sha256": "ba7b9304787dcb3028210415b1405eca1f38d9117ba2e85e267ed6115a2df842",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_904ea0a8f00fd22777d227e6b2e3a15f6e7cbd3259f5530107327928ac976178",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "bd74fe253fc40fc544d6f6505abaa163d29aa352a5f859313d1cae62e5cfadae",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_d408ecbc5f9ded126cc4752fcbec2433ee4a18684fbca5cd31e6404aea01d216",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/26",
+      "statement_sha256": "bd74fe253fc40fc544d6f6505abaa163d29aa352a5f859313d1cae62e5cfadae",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_92cad6d28ce369d205cbbd6281b3bf98e8ffc9839735ebb8d0fe62da89a097d9",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "c1fd843f463216df5be8bce8de01503902a94db678c8d1d6db561156d462303f",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_ce1262d3373fba7df3c5e7825e0c158748fa7fbc59d519301c0af0cf3aa6cfba",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/65",
+      "statement_sha256": "c1fd843f463216df5be8bce8de01503902a94db678c8d1d6db561156d462303f",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_946c2220fb07543bf04068c5bf44ef806a64c487e89e3eef92b636895c496745",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "8d27f4d4ebff803e407c686ed94078c4c06d9316ba86052b59c9eff193b0c47d",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_e58c3b0aede9b1e12a3c6232614730fe78ea84e9f465bb5579243ccb3c3df353",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/24",
+      "statement_sha256": "8d27f4d4ebff803e407c686ed94078c4c06d9316ba86052b59c9eff193b0c47d",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_966eae9a63aa9f6b9aee32c7f59724ea41924aee7cb34499bfe417d9864dd5c1",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "036e2c73d77fe975e83855fbbbf619bc599fc25d13279cafdf76e7e996a5505c",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_c65cc9f7207f379dfd65e5aaf48997f223daf8bc65bfd94b589e4f902453f0ef",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/43",
+      "statement_sha256": "036e2c73d77fe975e83855fbbbf619bc599fc25d13279cafdf76e7e996a5505c",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_977a3c1952463b99aa38ee5be194b4299e7d4af6e014a55660cd734d1e5549bf",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "63067542c6eede28f5cc6662a15a8c0ac02394336a05c2d7ebecb8c544633a7d",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_421e9fd6d4598a32ff6f613830b9c657694917c12fc7e48c211d1d2f659bdd8c",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/12",
+      "statement_sha256": "63067542c6eede28f5cc6662a15a8c0ac02394336a05c2d7ebecb8c544633a7d",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_99f6dd005dd0c92444351a504e2969ee24a5ee50edeab3b52ffdbdc2fdd100c7",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "d953b376165df4d06ce5422b503a39629feda967770788e3a78fc2405acf23c0",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_95cf81465353eededfb47d6375932308f9faf9f19f22c15574969dbc1274491e",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/9",
+      "statement_sha256": "d953b376165df4d06ce5422b503a39629feda967770788e3a78fc2405acf23c0",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_9a87ad9a2a044459e31801ed404a1c85237d05f8b97838f879d1e2595d4b990c",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "ceddb1f08c1610e3c50dca300819496136c8a1d5432a688e6733e349397b1efc",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_b256f7c0d3237da212be4e38b64445d0a178863e1f2f7d1832a5b18d04048e8e",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/57",
+      "statement_sha256": "ceddb1f08c1610e3c50dca300819496136c8a1d5432a688e6733e349397b1efc",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_9c8e4c234850433f60dd618887f4161725127c0efcf639b78bc111c897939f3e",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "1c181c0f6cc5a19062619131b46b2899704d17a2831e09935977e752b528949f",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_ce6706b833941fdd13c7a603ab80109425b131c1e7b7bd4dfabd9986d4ec9496",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/44",
+      "statement_sha256": "1c181c0f6cc5a19062619131b46b2899704d17a2831e09935977e752b528949f",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_9cc4ff248475634cec81a155d50b7af554f231ae85c26d94c3a9bc3b498c0f9c",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "68aa87f077ff8893de1ae1c8f71a6060270b785419d34e19f55289b618774824",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_0474cb6f69b804922c889bac9b17253d344192dbff126bba29c7184aae8dbdc2",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/28",
+      "statement_sha256": "68aa87f077ff8893de1ae1c8f71a6060270b785419d34e19f55289b618774824",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_9dfd54510954637cdc40a35fccfd20985489256310cf6ebd43fbcae0db6171fb",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "4134be069d25ca3d5414ca6c9e71f7c74a7b8ced6c8b619c83e0c4c4ce616a92",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_d79377d498a963409111b23253f9bb54b3af01413608c68be7b723f7b22c263c",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/103",
+      "statement_sha256": "4134be069d25ca3d5414ca6c9e71f7c74a7b8ced6c8b619c83e0c4c4ce616a92",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_a082083fb371c37709b4b6779b08a2691d9733efab6d70a154658a6692f6d2b8",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "2bf81294d8a4ce30e0b9905a3f3432d57e55e14fd560d3c0f7b05c65ca5bef24",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_e9e1c973ff6170c753b2ae1f62113bc46c7ed388028f65ee36e59a7dea843542",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/35",
+      "statement_sha256": "2bf81294d8a4ce30e0b9905a3f3432d57e55e14fd560d3c0f7b05c65ca5bef24",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_a2cd24df12c8edc33155f78ee5b9e1ee91ede3758ba0cb0200fe77a61b316d7d",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "e76d3baa533bb4a6df4c15a2e3c6799f07438dcdf058641b178aa99fca7e2a7b",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_e5e1fc81db1b81d83f7179eaaa4b189c24aebca8e22392bd7842cf36c15786bd",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/71",
+      "statement_sha256": "e76d3baa533bb4a6df4c15a2e3c6799f07438dcdf058641b178aa99fca7e2a7b",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_a466dcf93f6f1248908fbbb64ce64286c6a62fee86535281839c7dcca37c0243",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "6ae603dc8da16eca633cf24087c522f0289abd935b0d705178571ece56e25033",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_65966a0fac9e12dd998eb55c248c8ea7304d59482998650243bb20df4bef04d6",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/98",
+      "statement_sha256": "6ae603dc8da16eca633cf24087c522f0289abd935b0d705178571ece56e25033",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_a5f505cfa29c0151571685e23344e1b86440445bfac4f8ef485ec709b7bf90ab",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "89aca3589f2291ebba15d470b4936a4b337c784117c4df3991cf811b2e16c819",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_c85c6c0c354db8ac317c7189437dba2e1c4f518496cce818cd00b8c24376db60",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/31",
+      "statement_sha256": "89aca3589f2291ebba15d470b4936a4b337c784117c4df3991cf811b2e16c819",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_ae99b28019fe509fc61e6ed0667d42d9dadc0b463702fb71933f4056e8de456b",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "fe192fc939430c5cbfd867e43f5f8c947f4009a31ed079b2104e4649bc29f107",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_aad33e7865d339c911fc538cb12859a9154c923578ddeaf9972d8fc1cf6d5ab5",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/ilke/4",
+      "statement_sha256": "fe192fc939430c5cbfd867e43f5f8c947f4009a31ed079b2104e4649bc29f107",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_b2ec4a71ca03cb285da90f4b8d5072747f34968195556c417a1995103d8bde0a",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "33186647d9c577340176f596180450278d6cc75c981924b6990d9d80c95c45f8",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_9dc769be85e8b92898aeebe30c709a8701d63e508c915a243dfba65b1da8beb4",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/52",
+      "statement_sha256": "33186647d9c577340176f596180450278d6cc75c981924b6990d9d80c95c45f8",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_b6a706a80d7d05fc7dfa6e66b63a10f18ae992feffc679bdb2847c8e8f84edab",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "cab9c63642eb4a9fc7184e06a89ad725da5ab2af9a64f554b04c326d36c6716c",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_d082cf5080795e8b3a5273390416e84304a2ca975bfd42c2ba3fa3e9bd143f01",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/6",
+      "statement_sha256": "cab9c63642eb4a9fc7184e06a89ad725da5ab2af9a64f554b04c326d36c6716c",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_b762370feeb7ca8c386bb9d75b77afef424dd90e3dbbd879143cc6f98265137e",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "dbde5c18208deb62f560e3d1d1637adb72797e02d27fbf9aad87e77ca3b7714b",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_df6c2e8420c4635dc9be6f8bde81f3b00f302f1d242d9483505a93cae45d6010",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/ilke/6",
+      "statement_sha256": "dbde5c18208deb62f560e3d1d1637adb72797e02d27fbf9aad87e77ca3b7714b",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_b7eaffcee0cab711d9bbf3c81b10a12e092c13164e339039797ed9ffa0a73c1f",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "6e8183fd8bc9c2d1b61db2ab8f3ff586882d8b20663844f161a5e77418180e07",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_eb7133b3924f32dc6e4b7c06a3cc1473bca6755474054abeeffcc12fc47fbdd8",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/49",
+      "statement_sha256": "6e8183fd8bc9c2d1b61db2ab8f3ff586882d8b20663844f161a5e77418180e07",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_b8177ec86816430b72cccd19afc83379099daa1df447cc2825ead43bcac689d8",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "e52285f278f87603c6d75d54863bd12bd0a580ce9e734b899fff9997e9f84402",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_d1bd892b0296903b50b7b419be1a08f674d929f284fa9fa1943f4445baa4d461",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/78",
+      "statement_sha256": "e52285f278f87603c6d75d54863bd12bd0a580ce9e734b899fff9997e9f84402",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_b91789589fcbe563992e0d7e4be45a6c7cd7b4482659d3d1dc5fedba13cab5ef",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "439a719088d796bfe8e267a61ab8ff6538ace9664e05ae4986364d0f9d0b696a",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_8a75271dcfd9a9dff951a9e37c7014759fcf29c286d9e867e37868f49bba3b94",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/3",
+      "statement_sha256": "439a719088d796bfe8e267a61ab8ff6538ace9664e05ae4986364d0f9d0b696a",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_b97fe820e9ed7b881befd9d380e7e53f4a226cd7d091ac85fa1733467ef84ecc",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "9f49c91dfa8ca37e1a307eb4439b6bbd1bc31d87a25a78e9209ebc970e8415fb",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_c071b12a29c06189b1b8ffe7504a33de0b9f31f4b8cbb6645a73074c34095fa8",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/70",
+      "statement_sha256": "9f49c91dfa8ca37e1a307eb4439b6bbd1bc31d87a25a78e9209ebc970e8415fb",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_ba291ac9562e65f78954d2a31b7b699d5ba35fb6acf45d73b1110d519fabe93f",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "1fbc6ce4de9d7fe259e9c50371e22a73353cf49ed9bd5be7d66f0e662ca7d2d6",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_348eb0f52819287ceaecf4a2477adf3a0f90587736bc48dc9f54ca97f02a9cb6",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/18",
+      "statement_sha256": "1fbc6ce4de9d7fe259e9c50371e22a73353cf49ed9bd5be7d66f0e662ca7d2d6",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_ba7bbd9774a15e2c8e3288e5466e905bb030bb371d053494a52012cbf1eb7486",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "8d813978b6f19d566a4b662885ffd396fa2688b139c6465e7071d593ff3d8e73",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_62a7e1cd7ea5b4d9818eb1df90c3569034cddf0e20b02baae6cd191f93a65bf1",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/36",
+      "statement_sha256": "8d813978b6f19d566a4b662885ffd396fa2688b139c6465e7071d593ff3d8e73",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_bad7456f9cf25963778ff6269fe11b779c81f3c63aa741e0afcb69a07d08d50d",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "fa4d410703748b2087b91b9453baa68123f7aba40a7fc46b1cec9e3a6bf84f73",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_9b550aba1c74c2a1e714e0ff1ed04a3c266129120cfc0e60aea702ac701ce81f",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/19",
+      "statement_sha256": "fa4d410703748b2087b91b9453baa68123f7aba40a7fc46b1cec9e3a6bf84f73",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_bdf8fd1b4ce1a9e4e88ff3281e65a21430ec01491d62fb511e2d8c7cd849740a",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "ce224198702f9172ba41dbcbf99c2dc4462a1c11846f45f3bda5225ef8a2f968",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_d6178ab3b6383fde9092dc993df9104084a11771c7f7ab28ef5d9b417b7ff7c7",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/ilke/7",
+      "statement_sha256": "ce224198702f9172ba41dbcbf99c2dc4462a1c11846f45f3bda5225ef8a2f968",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_c1ad32510cfb58bd309490d9e7370292ef5dfc8f8a63118363de1975095d0859",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "e300cf2b14df5df0163fc23284781a4c47a20ba3e06bfb3f9edca80e874f30d4",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_3cb6c6e2efb6cf4428b1d0ae57e0f66e919483848fad3fe7115c69047527f860",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/30",
+      "statement_sha256": "e300cf2b14df5df0163fc23284781a4c47a20ba3e06bfb3f9edca80e874f30d4",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_c77af4f37c3e4ca97b6e9d3b73245414a9068f7dfdd1bfe5c0dd4799e8f1540b",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "31eb3521a5710323dd469acaaccc7b8904d9a5ec54380acad416912f76e37a81",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_3c979f21f8fd33e1c2d23b605ef32e0129fdf670e7675f9bfc306b9d1dde2437",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/41",
+      "statement_sha256": "31eb3521a5710323dd469acaaccc7b8904d9a5ec54380acad416912f76e37a81",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_cfa670e3af9641527e5487bd454de6795680ee264cd6aacc075139c9617fa877",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "9fba22f1da3fedf0f3a1ba2e617593388fbae5f30a1695853498d0d0744c271e",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_4f72db7a01d7e3d0d82da306499987132cafe79f508bb5d37784fbe0306b2325",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/64",
+      "statement_sha256": "9fba22f1da3fedf0f3a1ba2e617593388fbae5f30a1695853498d0d0744c271e",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_d3aac10b52bb80beb4bda3f7ba2774c86eb779969774d2737c377690501741ed",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "a4dce9c6efb3415e50fc04b180f216b6e92b6f956c17f128f5bbcd10a373c310",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_4681e2c146a2a251398e8f9ce1b90c208b44b31a35f5eef56dcfb8d2e5d501a5",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/62",
+      "statement_sha256": "a4dce9c6efb3415e50fc04b180f216b6e92b6f956c17f128f5bbcd10a373c310",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_d7fa7a5551fab6f466fb669a057855fb12d29b7ec76191ed9fda078f330ac93c",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "4445729f720eff80387bc9f6827d48cd86c16d7d57dd727950ecf2db5eed821e",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_5e466186e3acf923a9b2e003fd05bdd58dd34f25f9423720dffb89d2b8fa0e55",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/8",
+      "statement_sha256": "4445729f720eff80387bc9f6827d48cd86c16d7d57dd727950ecf2db5eed821e",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_d8558deed7fba6b0c41fb86faaaaffd9d6ac50022ca593926ac03def66d65fde",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "134de4abc72dc1dc0d497b34310f2f1dfef4e0caf0afd79aef8c1694e5a156e0",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_2deea3136988e7f72c917eee076d69859cc35ac7faa2ca4e5a92ecf8838826ad",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/87",
+      "statement_sha256": "134de4abc72dc1dc0d497b34310f2f1dfef4e0caf0afd79aef8c1694e5a156e0",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_dbdae236568fa2af770371ccdc048ab0c4e1a36b72e21b2cbfcdfef5c42d6c48",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "4771859577577186ebcc38876f810aef07bdf555965bb4e0818ceabd71ac6d51",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_95917da626ab5e4609e682cb844de46e01a4f58f2df455ce55b742915f745fc4",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/101",
+      "statement_sha256": "4771859577577186ebcc38876f810aef07bdf555965bb4e0818ceabd71ac6d51",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_dd871f2c09fd0151890dd29f5f04aceafdcc7bd08b7d1fb65326afc71c650e57",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "c5e37e33bcdc86a2406a64a15d20020f9340a1619fa85ad2350c372128a570c8",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_fa73260c78a45f36f387f551053c8aa0c9732baee2e8f212b2097d38f1778709",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/ilke/5",
+      "statement_sha256": "c5e37e33bcdc86a2406a64a15d20020f9340a1619fa85ad2350c372128a570c8",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_df15cea0cf181c33560fb6102a8050ce7eb265e286178a7410884266e5cbd6c3",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "a95992ad70a4d43ae561a666fbd60bea38ba2f23d93b047421a0170d066d9245",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_6049bda64a3b49500ce65041bc4cde38fb7188f5ae4a12b1421d31ef184e02a2",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/93",
+      "statement_sha256": "a95992ad70a4d43ae561a666fbd60bea38ba2f23d93b047421a0170d066d9245",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_df65a8d629500fa160348a99a84e48bb43756546082314cc4490b588fd481cf9",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "aa7210020aea3b526b890166fd5e20e3f5bce38fa46952f31e5f8aeaef7218dc",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_c986022e50be0b7b61e10d79168cd279a3078699c829608955c682dfa788906d",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/16",
+      "statement_sha256": "aa7210020aea3b526b890166fd5e20e3f5bce38fa46952f31e5f8aeaef7218dc",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_e0b39d2e5a5fac8f48be774edaf4584f1a95a44866b8c6112b78561ea3c09dbe",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "c4f1e68c54131f55e65b51dd20f36c7beef2eea43550c625c4cab1e3f9aee69a",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_2dca233d8b5cf2b3570e26ea01d8b74b8356852f3d341d011f4c2f2946d2518d",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/90",
+      "statement_sha256": "c4f1e68c54131f55e65b51dd20f36c7beef2eea43550c625c4cab1e3f9aee69a",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_e0fedf1b08c2599d7a8e9aadd68aabe83d89e0a14e0f2c87c3b96d5d43c10822",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "74090d67138e9f854e56ce5aeea0d9f4e6b7e4cf86d3db48514029d4a8be60e8",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_705be8823fac98a8c4b65963ae9cfcf0ee34e52683aa051588a868ce07cb7a61",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/104",
+      "statement_sha256": "74090d67138e9f854e56ce5aeea0d9f4e6b7e4cf86d3db48514029d4a8be60e8",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_e22ca3d98e88196de11f2c6993f8cca56e973aa2690ee4fe48e751111c7a82b8",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "9fdcc20b06b6005f04f0bcd215e8fca4538719aa14efefda7481654ff5f3203c",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_15b468322ae321cbd0e8cdd193c20ba0a5582e85b680798f74683b6969484695",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/13",
+      "statement_sha256": "9fdcc20b06b6005f04f0bcd215e8fca4538719aa14efefda7481654ff5f3203c",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_e43d397006c3d2a7636e63e9e31bbe6b6e42db532a31562f8e42061f9365d53e",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "7eb36b661ae8d00b651219e5b2fb534a85408df3b55b9fe2e866092fd813143b",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_14b4256afef9593c5077f2488d36f6cb06930c1be15d5e4f8efa6c894b3b5e5c",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/46",
+      "statement_sha256": "7eb36b661ae8d00b651219e5b2fb534a85408df3b55b9fe2e866092fd813143b",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_e5f2b1b1d6f2058c7aa92c1fffb17cc29300faa103c9f7e7a793df098f17b47d",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "40597aad9294a9f0ae082a1060306040bcf97db6ad515cedcf7fb2d6cbd7ce55",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_3850b906c3b741e6e2d57938da3a1faadce80bb7fe6cebc981d7b77ff730c451",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/86",
+      "statement_sha256": "40597aad9294a9f0ae082a1060306040bcf97db6ad515cedcf7fb2d6cbd7ce55",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_e62217f643a1fe3459a576277ea842c55950ad1d88aab9839d54ddf3e1b1fb69",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "434d8ca4b1637625fe970cfb24830c0fd2c16b5a32ac406af6aed3ae46d710ce",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_4c240308adb035e1d6785ca28336ad0f1836b76933d2283bf81ea187e2804956",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/81",
+      "statement_sha256": "434d8ca4b1637625fe970cfb24830c0fd2c16b5a32ac406af6aed3ae46d710ce",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_e6f1aecfd1fff62cc4eef11cf95a1bb7a8901358999a92def69b3a4d46a525e7",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "1cc9930d7f57f2be92a8906f7914745a63daeeafa82dd368d0b1501f5cb47712",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_bb98b4e0ddeeadfd95cbe12566d966e5808b7cbe24ca410142d46140e6a05836",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/63",
+      "statement_sha256": "1cc9930d7f57f2be92a8906f7914745a63daeeafa82dd368d0b1501f5cb47712",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_edb03cbba8ee5c8d45674307302c6a7f4974b9c1d15267e7cad8c9fc0b82d059",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "acf1e6fec8b6e3c2d6ce9b5f92b05dc4375431444ed041b1a70511f0d43d3b49",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_d29510bcecd4bb167991e9131e0b6434aa92c0ea9e4990eb4ba87087b07b5f94",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/ilke/2",
+      "statement_sha256": "acf1e6fec8b6e3c2d6ce9b5f92b05dc4375431444ed041b1a70511f0d43d3b49",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_ef4d6e8f167026882fbc2d39f27a05460ab9102219744b9c5d2ea4219a3edd6b",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "59d9a8f7ca27b7d01875b0acb7e3452a3db6828ecd2e86ffba0d9a9f8d1d3384",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_46562fdd5460ad6a734bb152ad19806bf1aa6f62bddccd76c874eb3ced99138c",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/82",
+      "statement_sha256": "59d9a8f7ca27b7d01875b0acb7e3452a3db6828ecd2e86ffba0d9a9f8d1d3384",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_f21b1e71f489746878e650afed485f4d13155c81a0b631e14f06e6e38cc28bbc",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "3a9eb34c3eebd22895c822754d400f27580e7f443ca6cb76aef49566b3c4408c",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_1cf9715514d8018aef956f88f1c92547b2e0f1390a19d95312b72cec702719cf",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/83",
+      "statement_sha256": "3a9eb34c3eebd22895c822754d400f27580e7f443ca6cb76aef49566b3c4408c",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_f4cad33b90e952720705351fd9cdf24288ade552b0cf6d74ea2d1643641c2e63",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "b4d91de20d944b0a8916b2f5b5ecc83641006ece99eb1fbc7415f4beda099c61",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_0d0be26d435d673cec4f68d782f496608e46f9400a2fb6b43464aa3fbe4b0a40",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/45",
+      "statement_sha256": "b4d91de20d944b0a8916b2f5b5ecc83641006ece99eb1fbc7415f4beda099c61",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_f4fb42761a59e37e7c486868a279d1f9c82cfd17d9269d56be02d9a96c9b360d",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "55dbf66b4854d1475a8ba7d992ca5692ce878f590467407b3fbcceac3d58b8ef",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_9d75b406cb26a0883971a3f7e6420851c826a09f6468b7a9bc933225da3978ad",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/67",
+      "statement_sha256": "55dbf66b4854d1475a8ba7d992ca5692ce878f590467407b3fbcceac3d58b8ef",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_f70b4bd1bc558bdc7b770f1dd235def9444fe7491c3eaec3da52601377b7381d",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "2a750b23f0eb95b6c65bd51804fe6afe183b67d9c60c0d1a42b9fb16e5ddd535",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_ec04e6996d6169773d975e965f5a18e086be21baa53a3923e48d419e7211e739",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/39",
+      "statement_sha256": "2a750b23f0eb95b6c65bd51804fe6afe183b67d9c60c0d1a42b9fb16e5ddd535",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_f939a83e49b74a6bbc46740a3e509a7c7341a80966e6e889706d17e75032d128",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "3626731639bdadf924ba33389eff108cefa39a96f0dc5de1eb5b732cea49206c",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_8faf5c571ba6ffa9a4ddab984217bfd3abfbec39be959a5f8611f3bc526da29e",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/96",
+      "statement_sha256": "3626731639bdadf924ba33389eff108cefa39a96f0dc5de1eb5b732cea49206c",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_f99270733462bfb8114adb285f69a822f57882e324344ccf1c78275d00139226",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "b1e01af68cd282f956a8f5c2ddc8aab25c417a2b3168dbdf408b7a2f0a9fa631",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_77d3ab886a377dfdae87769e611f7dd3db7494d3465ca8d648b0db6697b7ab4f",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/89",
+      "statement_sha256": "b1e01af68cd282f956a8f5c2ddc8aab25c417a2b3168dbdf408b7a2f0a9fa631",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_f9f09de06826e9e0d6d339720b56b74f9460228942420bf9530f5da5b741df69",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "b45f5f7c93328f7ff27f9f210eb0986173576542405e0e82aa96979bbddb4670",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_a1556dab85ffc37e16a6b48bdb19ff5315e071f248175ea209431132ad4adce9",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/58",
+      "statement_sha256": "b45f5f7c93328f7ff27f9f210eb0986173576542405e0e82aa96979bbddb4670",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_fbb4c3b220ee7e586a383162ac3f549392265d9aee32249fc5f324551882c017",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "fec4ccec0ac025a97c30a2dc1ac57aa49a55b1a65b81ee766a446e20c631b771",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_26ae8b1d497b270398eae7c4a06feb3c0e8f06bda4e664d888c031eca23b8cde",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/97",
+      "statement_sha256": "fec4ccec0ac025a97c30a2dc1ac57aa49a55b1a65b81ee766a446e20c631b771",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_fc5a5c2290fb0c142c9d2f59215d39d53f08c9700ed8c6a4b3d1cdfd247a446e",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "219f7eaa1450b931a07f8b56fa3a09a416047bf472bbe95e7308dcf64a3f0463",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_20739eefae3e7795aa8524f3eb92e9070ebf8a3e27841b8272cd8434921cf1c2",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/59",
+      "statement_sha256": "219f7eaa1450b931a07f8b56fa3a09a416047bf472bbe95e7308dcf64a3f0463",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_fdb3c953daf7d51367466d18ce3eeeef0fb6b3851b1fa4541fadf70e2482c30d",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "5a685d741a2155db865cc2da5977f4ec7bee6ba1f17a4a3b6cc29e302647b3d4",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_49d286bcff68e35e0c3c7dcd10efe99587b456e1916e8b18c1d51d896cd0975f",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/14",
+      "statement_sha256": "5a685d741a2155db865cc2da5977f4ec7bee6ba1f17a4a3b6cc29e302647b3d4",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_fecbe4d35c5ddf28ba1b08e35af7d32d9b52b4a4ce09b59b9ca335accd2fc1b3",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "56517e6ce2423f11938b4b93abdc10c15f20c5a5bfd68cf025b5acf7f5848431",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_06f232efc897b36e860e403adad38aa11f2f52ed1279dff9ec0f73efd88992e1",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/80",
+      "statement_sha256": "56517e6ce2423f11938b4b93abdc10c15f20c5a5bfd68cf025b5acf7f5848431",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    },
+    {
+     "provision_id": "prov_sha256_ffcbf23d4a323b2afbd84b616355cd34cb5b05cf354899900e1b30a2fa26182d",
+     "legal_version_id": "ver_sha256_f75d4fdce818dedd38d486f3c58133af370e40869db8c39acbd30c49617d7c24",
+     "provision_text_sha256": "4917326039257fb9e10d7df9a5dafbecdbe0192f6ac43db0c861d3bcf9609518",
+     "document_section_id": null,
+     "evidence": {
+      "evidence_id": "evid_sha256_f85cd3cf3d4a4d8a606c550114e28b3b268c5e85998154dea959d0fcdefdf491",
+      "artifact_id": "art_sha256_0608ad6f728ecf7e5e37d90ef96a3b910205bb4ea69604ec487f57339b52277e",
+      "locator": "normalized/paragraf/55",
+      "statement_sha256": "4917326039257fb9e10d7df9a5dafbecdbe0192f6ac43db0c861d3bcf9609518",
+      "authority_level": "authoritative"
+     },
+     "validation": {
+      "state": "validated",
+      "validated_by": "project_owner",
+      "validated_at": "2026-09-23T18:59:49Z",
+      "method": "Owner accepted the repaired Markdown as the normalized text of official PDF 943. Only running headers and printed page numbers were removed. No publication, effective, or applicability date is claimed.",
+      "review_record_sha256": "6155e67585347ffbfef8ac3adf0298ea1e52b342ad9664e9f6ccbff7ab9c890f"
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,27 @@
+{
+ "document_id": "mevzuat_10746",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "repair_class": "rg_box_interleave_structural_repair",
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.10746&MevzuatIliski=0&sourceXmlSearch=izne tabi",
+ "original_markdown_sha256": "9bf3581826793316bb86a7a591c86f3bb219646817329be5e0fcb412b0107a3a",
+ "candidate_markdown_sha256": "f39e53cb1fbe79dd4ad5d319170fc5d8d74333ccff60042789ada2a16f2aab0a",
+ "extraction_method_after": "markitdown_degraded+structural_repair",
+ "source_verification": [
+  "https://mevzuat.gov.tr/anasayfa/MevzuatFihristDetayIframe?MevzuatNo=10746&MevzuatTertip=5&MevzuatTur=7",
+  "https://www.resmigazete.gov.tr/eskiler/2019/02/20190213-2.htm",
+  "https://www.lexpera.com.tr/mevzuat/yonetmelikler/bankalarin-izne-tabi-islemleri-ile-dolayli-pay-sahipligine-iliskin-yonetmelik"
+ ],
+ "replacements": [
+  {
+   "old": "İlişkin  Yönetmeliğin  19  uncu  maddesi\nİşlemlerine\nGazete’de  yayımlanan  Bankaların  Kredi\n",
+   "new": "Gazete’de  yayımlanan  Bankaların  Kredi  İşlemlerine  İlişkin  Yönetmeliğin  19  uncu  maddesi\n",
+   "start": 20671,
+   "end": 20765
+  }
+ ],
+ "derived_artifacts": {
+  "chunks_regenerated_with": "scripts/regen_chunks_seed.py (vector_store._chunk_document; BDDK_EMBEDDING_MODEL_PATH=quality_reports/repair-audit/embedding_model)",
+  "manifest_declaration_updated": "seed_data/corpus_scope.yml artifacts sha256/bytes for documents.json and chunks.json",
+  "signature_pending": "Owner must re-sign via scripts/sign_corpus_manifest.py --private-key (key held outside Git by selection owner)."
+ }
+}
