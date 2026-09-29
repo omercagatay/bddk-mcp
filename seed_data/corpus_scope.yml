@@ -1,30 +1,34 @@
 schema_version: 1
-manifest_id: bddk-job-corpus-quality-repairs-local-v6-2026-09-21
+manifest_id: bddk-job-corpus-kgk-tms12-local-v7-2026-09-29
 selection_owner: project_owner
 purpose: >-
-  Owner-delegated technical refresh of the existing job-specific corpus for
-  Turkish banking-regulation research, compliance, internal-audit, retrieval,
-  and model/tool-calling evaluation. Canonical source text is unchanged;
-  this refresh is not new source acquisition or independent human legal validation.
+  Job-specific corpus for Turkish banking-regulation research, compliance,
+  internal-audit, retrieval, and model/tool-calling evaluation. This release
+  adds one owner-selected KGK accounting standard, TMS 12 Gelir Vergileri,
+  acquired once as a public PDF outside the live ingestion allowlist; other
+  canonical source text is unchanged. It is not independent human legal validation.
   This selection is intentionally narrower than the complete BDDK corpus.
 exhaustive: false
 included_source_classes:
   - Selected public BDDK regulations, communiques, circulars, guides, decisions, and drafts
   - Selected public Turkish banking-law texts linked from official regulatory sources
+  - Selected public KGK Turkish Accounting Standards relevant to bank financial reporting
 excluded_source_classes:
   - Exhaustive historical BDDK and Official Gazette coverage
   - Bank-internal policies, controls, workpapers, findings, and supervisory correspondence
   - Unselected case law, secondary commentary, and non-banking legislation
+  - The complete KGK TMS/TFRS standard set and its basis-for-conclusions material
 known_gaps:
+  - KGK standards are indexed as body windows, not numbered paragraphs, and their legal currentness is not modeled
   - Legal publication, effective, amendment, repeal, supersession, and consolidation status is not authoritatively modeled
   - Page, table, image, annex, and formula fidelity is not uniformly audit-grade
   - Freshness objectives are quantified but not measured against per-document source events; no live monitoring pipeline exists
   - Selection completeness has not been independently reconciled against an authoritative full-source inventory
 freshness:
   source_observed_start: "2026-04-08T16:50:25.439181Z"
-  source_observed_end: "2026-09-21T06:15:07.405867Z"
-  corpus_built_at: "2026-09-21T06:31:11.556390Z"
-  scope_reviewed_at: "2026-09-23T18:59:49.975994+00:00"
+  source_observed_end: "2026-09-29T13:56:02Z"
+  corpus_built_at: "2026-09-29T15:45:38.433080Z"
+  scope_reviewed_at: "2026-09-29T16:46:11.444040+00:00"
   business_expectation: quarterly-reviewed batch corpus with quantified objectives
   source_detection_slo_seconds: 604800
   publication_slo_seconds: 1209600
@@ -33,21 +37,21 @@ freshness:
 artifacts:
   - role: documents
     path: documents.json
-    sha256: 84afbdc06533d1d420f068dd0eac43f7989465a5ae13f5db00c6d17106dae1e3
-    bytes: 8704551
-    records: 318
+    sha256: ce9e439a08329f45fcf5a1abf950909bdfa367563bbbbe36e42ac1a3447f0120
+    bytes: 8821722
+    records: 319
   - role: chunks
     path: chunks.json
-    sha256: 2d026c6aa71f8832c003d11c7c1b253122e9c6b904ccba0912eb80365dfc8fb7
-    bytes: 19326795
-    records: 13532
+    sha256: 4bd8817428e92030b7c2d7b7a71fea7901c7eab28d1e982c27759c5e28724e82
+    bytes: 19507122
+    records: 13601
   - role: decision_cache
     path: decision_cache.json
-    sha256: 9e5677b1a2ffc9fe9d5ed122a90171c896e5f14ee83d958b724e1d2b8b8fd894
-    bytes: 153040
-    records: 318
+    sha256: 05cad5feb3557d9900b4d49640ef3b0bfc2320141c3060bb7f26516a3a0973f2
+    bytes: 153379
+    records: 319
 integrity:
-  manifest_sha256: "3370689133ff6854fe44b1d8212079decf2b7d5846359e6af4c2324bc2293428"
+  manifest_sha256: "6c7a9a22fd34f7b019ab537ba32ff6b42ad38ccad2e7d3d5879f09b39b17e539"
   signature_status: verified
   signature_algorithm: ed25519
   signature_reference: corpus_scope.sig

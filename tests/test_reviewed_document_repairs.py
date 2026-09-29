@@ -60,7 +60,7 @@ def test_signed_repair_corpus_matches_all_reviewed_candidates(monkeypatch):
     assert registry == {}
     monkeypatch.setattr(markdown_quality, "_QUALITY_FAILURES", registry)
     current = json.loads((ROOT / "seed_data/documents.json").read_text())
-    assert len(current) == 318
+    assert len(current) == 319
     repaired = 0
     for doc in current:
         did = doc["document_id"]

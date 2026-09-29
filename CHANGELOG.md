@@ -29,6 +29,13 @@ Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızd
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Eklendi — KGK TMS 12
+
+- Corpus'a KGK'nın "TMS 12 Gelir Vergileri" standardı (`kgk_tms_12`) eklendi. Kaynak, KGK'nın 2026 Mavi Kitap PDF'idir; bir kez elle indirildi ve `scripts/add_kgk_tms_12.py` ile SHA-256 kontrolüyle çıkarıldı. kgk.gov.tr canlı erişim izin listesine eklenmedi.
+- Yeni kategori: `Muhasebe Standardı`. Arama araçlarında bu kategoriyle filtrelenebilir.
+- Standart paragraf numaralarıyla değil metin pencereleriyle dizinlenir; "paragraf 24'ü getir" biçimli bölüm çağrısı henüz yoktur. Yürürlük durumu modellenmez.
+- Corpus kapsam beyanı KGK kaynak sınıfını içerecek şekilde güncellendi ve yeniden imzalandı.
+
 ### Değiştirildi — giriş sayfaları
 
 - `README.md` ve `README.en.md` genel banka kullanıcısı için baştan yazıldı. Aynı iskelet; biri Türkçe, biri İngilizce. Operatör prosedürü `docs/DEPLOYMENT.md` içinde kalır.
