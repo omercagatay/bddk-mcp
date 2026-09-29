@@ -186,14 +186,25 @@ async def test_unknown_document_quality_is_not_overridden_by_a_clean_section():
 
 
 @pytest.mark.asyncio
-async def test_formula_unaware_section_warns_without_discarding_a_valid_text_quote():
+async def test_formula_unaware_method_without_a_formula_reference_does_not_warn():
     section = _citable_section().model_copy(update={"document_extraction_method": "pdfplumber"})
     result = await _check(_deps(section), as_of="2024-06-30", quotation="Banka bağımsız validasyon yapar.")
-    assert result.structuredContent["answer_assessment"]["quotation_status"] == "exact_reference_match"
-    assert result.structuredContent["answer_assessment"]["basis"] == "dated_version"
+    flags = result.structuredContent["results"][0]["quality"]["flags"]
+    assert "formula_unaware_extraction" not in flags
+    assert "formülü hafızadan" not in result.text
+
+
+@pytest.mark.asyncio
+async def test_formula_reference_still_warns_on_a_formula_unaware_extraction():
+    section = _citable_section().model_copy(
+        update={
+            "document_extraction_method": "pdfplumber",
+            "content": "Tutar aşağıdaki formül ile hesaplanır.",
+        }
+    )
+    result = await _check(_deps(section))
     assert "formula_unaware_extraction" in result.structuredContent["results"][0]["quality"]["flags"]
     assert "formülü hafızadan" in result.text
-    assert any("formülü hafızadan" in warning for warning in result.structuredContent["warnings"])
 
 
 @pytest.mark.asyncio

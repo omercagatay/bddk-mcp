@@ -315,8 +315,9 @@ async def test_pgvector_path_still_looks_up_extraction_method():
     out = await tool("mevzuat_20029", 1)
 
     doc_store.get_extraction_method.assert_awaited_once_with("mevzuat_20029")
-    assert "- Extraction: markitdown (formula-unaware" in out
-    assert "⚠" in out
+    assert "- Extraction: markitdown" in out
+    assert "formula-unaware" not in out
+    assert "formülü hafızadan" not in out
 
 
 @pytest.mark.asyncio

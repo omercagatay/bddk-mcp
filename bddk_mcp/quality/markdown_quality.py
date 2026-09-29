@@ -38,6 +38,11 @@ def is_formula_aware(method: str) -> bool:
     return any(token in (method or "").lower() for token in ("lightocr", "chandra2", "pp_structure", "manual_latex"))
 
 
+def mentions_formula(text: str) -> bool:
+    """True when the text points at a formula, not merely when extraction was formula-unaware."""
+    return bool(_FORMULA_REF_RE.search(text or ""))
+
+
 @dataclass(frozen=True, slots=True)
 class QualityFailure:
     """An operator-reviewed document failure from the canonical registry."""

@@ -26,6 +26,7 @@ from bddk_mcp.quality.markdown_quality import (
     QualityAssessment,
     assess_markdown_quality,
     is_formula_aware,
+    mentions_formula,
     unsafe_verbatim_reason,
 )
 from bddk_mcp.regulatory.answer_readiness import assess_section_answer
@@ -146,7 +147,11 @@ def _section_quality(section: StoredDocumentSection) -> QualityAssessment:
     if document is not None:
         worst = max((document, local), key=lambda item: severity[item.label])
         quality = worst.model_copy(update={"flags": list(dict.fromkeys([*document.flags, *local.flags]))})
-    if section.document_extraction_method and not is_formula_aware(section.document_extraction_method):
+    if (
+        section.document_extraction_method
+        and not is_formula_aware(section.document_extraction_method)
+        and mentions_formula(section.content)
+    ):
         quality = quality.model_copy(
             update={
                 "label": "warning" if quality.label == "clean" else quality.label,
