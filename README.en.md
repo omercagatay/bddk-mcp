@@ -1,310 +1,124 @@
-# BDDK MCP Server — English Operational Guide
+# BDDK MCP Server
 
-[Bilingual project README](README.md) | [Current status](docs/STATUS.md) | [Documentation index](docs/README.md) | [Deployment guide](docs/DEPLOYMENT.md) | [Contributing](CONTRIBUTING.md) | [Security](SECURITY.md)
+[Türkçe](README.md) | [Current status](docs/STATUS.md) | [Documentation index](docs/README.md) | [Security](SECURITY.md)
 
-BDDK MCP Server is an offline-first Model Context Protocol server for searching, retrieving, and analyzing Turkish banking regulation data from BDDK and mevzuat.gov.tr. This page summarizes the current runtime contract; the bilingual README contains the broader feature and development guide.
+[![CI](https://github.com/omercagatay/bddk-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/omercagatay/bddk-mcp/actions/workflows/ci.yml)
+[![Supply chain evidence](https://github.com/omercagatay/bddk-mcp/actions/workflows/supply-chain.yml/badge.svg)](https://github.com/omercagatay/bddk-mcp/actions/workflows/supply-chain.yml)
 
-## Process Profiles and Tool Surface
+This is an MCP server so a bank assistant can answer questions about BDDK decisions, regulations, and bulletins from published sources, not from the model's memory.
 
-The server exposes exactly one reviewed profile per process:
+> [!IMPORTANT]
+> This repository is an engineering beta. It is not legal advice, not a ruling on which article applies to a case, and not bank production acceptance. Counts and limits live in the [current status](docs/STATUS.md). Report vulnerabilities privately under the [security policy](SECURITY.md). Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md).
 
-| Profile | Selection | Database identity | MCP tools |
-|---|---|---|---:|
-| Public | `BDDK_TOOL_PROFILE=public` or `bddk-mcp serve --profile public` | `BDDK_DATABASE_URL` | 17 public tools |
-| Operator | `BDDK_TOOL_PROFILE=operator` or `bddk-mcp serve --profile operator` | `BDDK_OPERATOR_DATABASE_URL` | 17 public tools plus 14 operator tools, 31 tools total |
+## What it is for
 
-The operator profile requires its own DSN and does not fall back to `BDDK_DATABASE_URL`. Run public and operator profiles as separate processes, database roles, service accounts, and network boundaries.
+It is for inspection, compliance, internal audit, and the technical team that connects an assistant. It is not a public consumer app.
 
-### Public tools (17)
+An assistant can ask it to:
 
-- `search_bddk_regulations`
-- `search_document_store`
-- `search_bddk_institutions`
-- `search_bddk_announcements`
-- `get_bddk_document`
-- `get_document_history`
-- `get_document_section`
-- `search_document_sections`
-- `resolve_regulation_status`
-- `get_amendment_chain`
-- `get_cross_references`
-- `get_bddk_bulletin`
-- `get_bddk_bulletin_snapshot`
-- `get_bddk_monthly`
-- `analyze_bulletin_trends`
-- `get_regulatory_digest`
-- `compare_bulletin_metrics`
+- Find a decision or regulation record
+- Search published text and open an article, principle, or annex
+- Show the recorded amendment chain and cross-references
+- Ask for the recorded currency signal
+- Read a bulletin figure, an announcement, or a short-period digest
 
-### Operator additions (14)
+The answer must follow the tool output. The tool does not invent a decision number, date, or conclusion. The model should not either.
 
-- `check_bddk_updates`
-- `document_store_stats`
-- `bddk_cache_status`
-- `refresh_bddk_cache`
-- `sync_bddk_documents`
-- `trigger_startup_sync`
-- `get_operator_job`
-- `list_operator_jobs`
-- `cancel_operator_job`
-- `document_health`
-- `health_check`
-- `bddk_metrics`
-- `backfill_degraded_documents`
-- `document_quality_report`
+## What it does not decide
 
-Mutating operator tools return a job receipt immediately. Records, hashed
-idempotency keys, numeric progress, and bounded result metrics are durable in
-PostgreSQL table `bddk_operator.operator_jobs`. A session-scoped job-admission
-lease prevents concurrent runner ownership across processes; a distinct
-transaction-scoped corpus-mutation lock serializes sanctioned writer
-transactions and the release publisher. Runner tasks still execute inside
-the operator process: abandoned `running` work is marked `interrupted` only
-after recovery obtains the lease, while `queued` work is never guessed stale
-and must be resumed with the same idempotency key or cancelled explicitly. The
-OpenShift starter remains one `Recreate` replica until multi-replica and
-failover behavior is bank-accepted; this is not a general workflow queue.
+- It does not give a legal opinion or pick the article that applies to a case. The currency tool abstains when it is not sure.
+- A signature, a technical check, or a green test is not legal approval or bank acceptance.
+- Freshness of every document against the live source is not measured. The corpus is not the whole of BDDK.
+- SPK texts are not in this release.
+- Some documents still carry formula or OCR warnings. A warning means the text is not clean. Details: [docs/DOCUMENT_QUALITY.md](docs/DOCUMENT_QUALITY.md).
+- An admin-console draft does not publish text into the corpus. See the [draft and signature boundary](docs/CORPUS_GOVERNANCE.md#admin-editorial-drafts-and-document-signatures).
 
-## Local Start
+Regulation and decision text comes from the locally published copy. Institution, announcement, and bulletin tools, including the announcement and bulletin half of the digest, can call BDDK live.
 
-For disposable loopback development, let Compose run role/extension setup,
-schema-owner migration, DBA grants, and ingestion bootstrap as separate stages,
-then start the default public stdio profile:
+## Two doors
 
-```bash
-export BDDK_JWT_ISSUER=https://idp.invalid
-export BDDK_JWT_RESOURCE=https://localhost:8000/mcp
-export BDDK_JWT_JWKS_URL=https://idp.invalid/jwks
-export BDDK_JWT_AUDIENCE=bddk-mcp-local
-docker compose up --build -d bddk-bootstrap
-docker compose wait bddk-bootstrap
-export BDDK_DATABASE_URL=postgresql://bddk_local_public:local-only-public@localhost:5432/bddk
-uv run --frozen bddk-mcp serve --profile public
+One process does not open both the reading door and the operator door.
+
+| Door | Selection | Database | Tools |
+|---|---|---|---|
+| Reading | `BDDK_TOOL_PROFILE=public` | `BDDK_DATABASE_URL` | 17 tools |
+| Operator | `BDDK_TOOL_PROFILE=operator` | `BDDK_OPERATOR_DATABASE_URL` | 17 reading tools plus 14 operator tools |
+
+The operator door does not fall back to the public database. A write does not finish inline; it returns a job receipt. Watch it with `get_operator_job`, `list_operator_jobs`, and `cancel_operator_job`. This is not a bank-accepted workflow queue.
+
+Bank setup, identity separation, and publication order stay in the [deployment guide](docs/DEPLOYMENT.md). This page does not repeat that procedure.
+
+## Tools
+
+Reading tools:
+
+- `search_bddk_regulations`: searches titles and catalog metadata. It does not open article text.
+- `search_document_store`: searches inside published text.
+- `search_bddk_institutions`: searches institutions and may call BDDK live.
+- `search_bddk_announcements`: searches announcements and may call BDDK live.
+- `get_bddk_document`: returns a stored document page. If extraction left an unsafe artifact, it refuses instead of silently rewriting the text.
+- `get_document_history`: shows the stored document history.
+- `get_document_section`: asks for an article, principle, paragraph, or annex.
+- `search_document_sections`: searches section headings.
+- `resolve_regulation_status`: asks for the recorded currency signal. It is not a legal opinion.
+- `get_amendment_chain`: shows the amendment chain.
+- `get_cross_references`: shows cross-references between documents.
+- `get_bddk_bulletin`: weekly bulletin; may call live.
+- `get_bddk_bulletin_snapshot`: one dated bulletin view; may call live.
+- `get_bddk_monthly`: monthly bulletin; may call live.
+- `analyze_bulletin_trends`: reads the direction of a bulletin series; may call live.
+- `get_regulatory_digest`: recent decisions, announcements, and bulletin summary. The announcement and bulletin half may be live.
+- `compare_bulletin_metrics`: compares bulletin figures across two periods; may call live.
+
+Operator-only additions:
+
+- `check_bddk_updates`: looks for new decisions or announcements.
+- `document_store_stats`: reads store counts.
+- `bddk_cache_status`: reads catalog-cache status.
+- `refresh_bddk_cache`: refreshes the catalog cache.
+- `sync_bddk_documents`: starts a document download job.
+- `trigger_startup_sync`: starts the startup sync.
+- `get_operator_job`: reads one job.
+- `list_operator_jobs`: lists jobs.
+- `cancel_operator_job`: cancels one job.
+- `document_health`: reads document health.
+- `health_check`: reads server and publication-gate health.
+- `bddk_metrics`: reads counters.
+- `backfill_degraded_documents`: reprocesses a degraded extraction.
+- `document_quality_report`: reads the quality report.
+
+## Connecting an assistant
+
+The technical team makes the connection. The checked-in [`.mcp.json`](.mcp.json) is a portable local stdio example. Supply `BDDK_DATABASE_URL` from the platform secret store. Fixed local passwords are not the bank path.
+
+<a id="codex-configuration"></a>
+
+### Codex
+
+For Codex, add this to `~/.codex/config.toml` or `.codex/config.toml` inside a trusted checkout, and set `cwd` to that checkout:
+
+```toml
+[mcp_servers.bddk]
+command = "uv"
+args = ["run", "--frozen", "bddk-mcp"]
+cwd = "/absolute/path/to/bddk-mcp"
+env_vars = ["BDDK_DATABASE_URL"]
+startup_timeout_sec = 30
+tool_timeout_sec = 60
 ```
 
-Start a local operator process only with a separately provisioned operator role:
+This sketch is local stdio only. Bank HTTP, identity, and network limits are in the [deployment guide](docs/DEPLOYMENT.md).
 
-```bash
-export BDDK_OPERATOR_DATABASE_URL=postgresql://bddk_local_operator:local-only-operator@localhost:5432/bddk
-uv run --frozen bddk-mcp serve --profile operator
-```
+## Short record for the technical team
 
-The reserved `.invalid` JWT values only allow Compose to parse an unused HTTP
-service definition; the lifecycle target starts no HTTP server, and those
-values are not valid server configuration. The fixed local passwords are
-public test fixtures, not production credential recommendations. Put real DSNs
-in the platform secret store.
+The package version is 5.0.1. There is no GitHub release tag for that version.
 
-For a bank database, a DBA must first install `vector` and `unaccent` in
-`public`, apply `deploy/postgres/01_roles.sql`, and provision distinct LOGIN
-identities. Run `bddk-mcp migrate` only with the schema-owner connection that
-executes `SET ROLE bddk_schema_owner`, apply `deploy/postgres/02_grants.sql` as
-DBA, and only then run `bddk-mcp bootstrap` with the exact ingestion identity.
-`bootstrap` imports corpus data, sections, and embeddings into an already
-migrated schema; it never migrates.
+The canonical operator registry contains 17 public tools plus 14 operator tools, 31 tools total.
 
-`verify-corpus` is an optional read-only preflight that opens no database
-connection. It does not transfer trust to a later import. A production
-promotion passes the numeric-objective and detached-signature gates directly to
-`bootstrap`, plus the per-document measurement gate wherever the corpus is
-actually monitored (schema v10 also admits an explicitly recorded
-quantified-unmeasured release for a batch-snapshot corpus):
+Reading: `BDDK_TOOL_PROFILE=public`. Operator: `BDDK_TOOL_PROFILE=operator` and a separate `BDDK_OPERATOR_DATABASE_URL`. Example: `uv run --frozen bddk-mcp serve --profile public`. Requires Python 3.12 or 3.13, `uv`, PostgreSQL 17, `pgvector`, and `unaccent`.
 
-```bash
-BDDK_INGESTION_DATABASE_URL='postgresql://INGESTION:SECRET@HOST:5432/DATABASE?sslmode=verify-full&sslrootcert=%2FAPPROVED%2Fpostgres-ca.crt' \
-  uv run --frozen bddk-mcp bootstrap \
-  --seed-dir /APPROVED/CORPUS \
-  --reindex-existing \
-  --require-quantified-freshness \
-  --require-measured-freshness \
-  --require-verified-signature \
-  --trusted-signing-key /APPROVED/TRUST/corpus-signing-public-key.pem
-```
+Publication order is `migrate`, then `bootstrap`, then `verify-and-stage-corpus-release`, then `activate-corpus-release`. The old `publish-corpus-release` command is disabled. It is not a fallback for a failed publication. Detail and the bank path: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Corpus boundary: [docs/CORPUS_GOVERNANCE.md](docs/CORPUS_GOVERNANCE.md).
 
-Before opening a database pool, bootstrap validates the exact
-`corpus_scope.yml` and reads document/cache input only from manifest-declared
-paths with the declared byte length and hash. It rejects a present but
-undeclared `documents.json`, `chunks.json`, or `decision_cache.json`. The trust
-key must be delivered through a mount/Secret separate from the corpus. On
-completion, bootstrap emits the path-free manifest ID and SHA-256 as operator
-evidence and reports that release publication is required; it does not persist
-a candidate. Release admission is a two-credential flow:
-`verify-and-stage-corpus-release` uses the distinct `bddk_release_verifier`
-identity, externally mounted trust key, pinned verifier revision/image digest,
-and a 60–3,600 second TTL; `activate-corpus-release` gives the
-`bddk_release_publisher` only the resulting opaque request ID. Activation
-fails closed after expiry, reuse, or corpus state/epoch/profile drift. The old
-`publish-corpus-release` alias is disabled.
+## License
 
-The tracked 318-document selection is deliberately non-exhaustive. It is
-Ed25519-signed and declares quantified freshness objectives, but its freshness
-is not measured against per-document source events, so it activates at the
-explicitly weaker `quantified_unmeasured_signature_verified_pass` level. It is a
-reviewed development corpus, not a production-freshness claim.
-
-Ordinary migration refuses a pre-ledger unmanaged schema. The explicit
-`bddk-mcp migrate --adopt-legacy` option accepts only the exact supported shape
-after a proven backup and the
-[`docs/LEGACY_DATABASE_UPGRADE.md`](docs/LEGACY_DATABASE_UPGRADE.md) procedure;
-it is not a clean-install or general repair flag.
-
-A populated version-2 database also refuses migration 3 by default because its
-retrieval-publication backfill takes blocking locks and validates large foreign
-keys. Use `--allow-retrieval-publication-backfill` only during a reviewed
-maintenance window after stopping workloads, proving a restorable backup, and
-rehearsing against a size-matched restore. `BDDK_EXPECTED_DATABASE_NAME` and
-the independent DBA-script target setting must match the active database.
-Outside the isolated local Compose profile, every PostgreSQL DSN must use
-`sslmode=verify-full` and an absolute `sslrootcert` path.
-
-The required automated PostgreSQL and role-contract lanes currently prove
-PostgreSQL 17 only. Treat other major versions as unsupported until the
-compatibility matrix is explicitly expanded and the bank-selected version
-passes the full contract.
-
-## Database and Retrieval Identity
-
-The required NOLOGIN memberships are exact: public gets only
-`bddk_public_reader`; ingestion gets only `bddk_ingestion`; release verification
-gets only `bddk_release_verifier`; activation/retention gets only
-`bddk_release_publisher`; operator gets
-`bddk_public_reader`, `bddk_ingestion`, and `bddk_operator_runtime`; optional
-telemetry gets only `bddk_telemetry_writer`. Public, ingestion, and operator
-startup verify the actual PostgreSQL session, memberships, and effective
-object privileges on every physical pool connection. They also reject
-privileges sourced from `PUBLIC` or direct LOGIN ACLs instead of the reviewed
-group roles. Telemetry separately verifies column-scoped INSERT-only
-access and refuses trace reads/changes or broader membership. Differently
-spelled DSNs do not bypass these checks.
-
-The default embedding model is pinned to full commit
-`d13f1b27baf31030b7fd040960d60d909913633f`; the container saves it locally for
-offline runtime use. The immutable database schema is `public.vector(768)` and
-rejects every other configured dimension. The optional built-in reranker is
-pinned to `1427fd652930e4ba29e8149678df786c240d8825`. Changing the model,
-tokenizer, prefixes, or chunk settings requires controlled full re-embedding
-and retrieval regression testing.
-
-Retrieval requires a publication record matching the document content hash and
-active retrieval-profile hash. Chunk mutation invalidates that record, and
-ingestion republishes only after chunk/embedding integrity checks pass. Run the
-required bootstrap or controlled reindex after a schema/model-profile upgrade;
-unpublished or stale chunks fail closed instead of entering results.
-
-Migration v0005 persists independently revalidated corpus releases and atomic
-activations. Mutations advance an epoch that invalidates the active view, and
-strict local-corpus calls verify one release before and after execution. This
-is the active-identity boundary. Migration v0007 additionally lets the distinct
-release-publisher identity run
-`bddk-mcp retain-corpus-generation --expected-release-id ...` to copy and seal
-the exact active state across 17 typed retained relations. The physical
-generation and seal are derived from the corpus state and retrieval profile:
-separately governed releases over that
-same exact state/profile receive distinct release bindings to the same retained
-generation and seal, rather than duplicate storage. V7 makes retained-row and
-both current/retained state hashing independent of session formatting by fixing
-function-local `TimeZone=UTC`, `DateStyle=ISO, YMD`,
-`IntervalStyle=postgres`, `bytea_output=hex`, and `extra_float_digits=3`.
-A release published before v7 under different settings makes the v7 migration
-fail closed before the hash function changes. The current binary disables the
-old direct-publication CLI. An unchanged v5/v6 database that hits this exact
-guard therefore requires the separately approved, digest-pinned pre-v8
-remediation described in the legacy-upgrade runbook, or the blue-green
-data-only path; never manufacture a historical release row or binding. After
-v8, the verifier stages short-lived evidence and the publisher activates only
-its one-time request ID. These administrative CLIs are not MCP tools.
-Generation-bound serving and authorized rollback remain H2-02B. Backup
-growth is still `not_measured`, and bank retention/capacity approval remains
-open. The tracked corpus manifest is being re-signed: the v5 section parser regenerates 10,483 chunks, so the previously signed 9,675-chunk artifact is superseded and the staged manifest is unsigned pending owner review (gap register CUR-018). Migration v0010 admits exactly two freshness policy levels,
-both requiring quantified objectives and a verified signature; the tracked
-corpus activates at the explicitly unmeasured level.
-
-Migration v0004 supplies the eleven-table canonical legal pilot; v0006 adds the
-public abstention-first legal-status resolver. The synthetic PostgreSQL proof
-does not establish a real regulation family's currentness.
-
-The expert set is non-release. Its gate requires four signed layers: measured
-corpus, expert dataset, exact-Citation legal-curator attestation, and a retained
-source/acquisition/page/excerpt legal-release checkpoint. Canonical signer
-fingerprints must be distinct. Current preflight uses operator-supplied anchors
-and therefore authorizes neither bank use nor model scores; key rotation, named
-reviewer policy, adjudication, and expert-case execution remain open.
-
-## Streamable HTTP Contract
-
-The HTTP transport is selected with `MCP_TRANSPORT=streamable-http`. It serves MCP at `/mcp` using stateless JSON responses. Loopback is the default bind.
-
-Only two fixed, content-free HTTP probe routes bypass MCP authentication and Host/Origin admission so an orchestrator can use a pod-IP Host header:
-
-- `GET /health/live` returns process liveness.
-- `GET /health/ready` periodically re-attests migrations, critical catalog objects, corpus readiness, workload ACLs, and optional operator/telemetry storage; it returns 503 on drift or unavailability.
-
-Both unauthenticated probe routes remain subject to the process rate and
-concurrency admission limits.
-
-A non-loopback bind fails at startup unless all of the following are configured:
-
-- exact `BDDK_HTTP_ALLOWED_HOSTS` values, without wildcards;
-- exact HTTPS `BDDK_HTTP_ALLOWED_ORIGINS` values, without wildcards;
-- complete `BDDK_JWT_ISSUER`, `BDDK_JWT_RESOURCE`, `BDDK_JWT_JWKS_URL`, and `BDDK_JWT_AUDIENCE` settings;
-- asymmetric `BDDK_JWT_ALGORITHMS`, approved `BDDK_JWT_ACCESS_TOKEN_TYPES`, and at least one `BDDK_JWT_REQUIRED_SCOPES` value;
-- the profile scope: `bddk.read` for public or `bddk.operator` for operator;
-- `BDDK_OPERATOR_REMOTE_ENABLED=true` for a non-loopback operator process.
-
-`BDDK_HTTP_ALLOW_UNAUTHENTICATED` is a supported explicit opt-in for serving a
-non-loopback bind without bearer authentication. It is unset by default, and
-while it is unset the fail-closed requirements above are unchanged. When set,
-it cannot be combined with any configured `BDDK_JWT_`-prefixed setting —
-startup refuses and names the offending variables — and it is refused outright
-for a non-loopback operator profile regardless of
-`BDDK_OPERATOR_REMOTE_ENABLED`: operator tools stay authenticated or
-loopback-only by construction. An unauthenticated server advertises no OAuth
-discovery: there is no `WWW-Authenticate` challenge, and both the
-protected-resource and authorization-server well-known routes return 404.
-Host, Origin, body-size, concurrency, and rate limits still apply.
-
-`BDDK_TLS_CERT_FILE` and `BDDK_TLS_KEY_FILE` optionally enable HTTPS at the
-application socket. They are an inseparable PEM pair and are validated before
-the listener opens. The OpenShift starter supplies them with service-serving
-certificates and uses a re-encrypt Route; certificate rotation currently
-requires a controlled pod restart.
-
-Do not copy example identity-provider URLs from tests into a deployment. Obtain issuer, resource, JWKS, audience, token-type, and scope values from the bank-approved identity design. The composed remote application publishes RFC 9728 metadata at `/.well-known/oauth-protected-resource/mcp`, and its 401 challenge identifies that URL through `resource_metadata`. Tokens are bound to the API through the exact configured audience. This is application-level MCP authorization discovery, not bank IdP client registration or end-to-end flow acceptance. Use a dedicated resource-server audience rather than an interactive client's ID-token audience.
-
-Host, Origin, content type, and request-body size are checked before bearer authentication. Valid JWT access tokens are verified against JWKS, issuer, exact resource-server audience, approved JOSE type, required/optional time claims, algorithm, and scope authorization. Tokens need not carry a custom `resource` claim or `nbf`; when `nbf` is present it is validated. The fail-closed default accepts only RFC 9068 `at+jwt`; generic Keycloak-style `JWT` requires the explicit `BDDK_JWT_ACCESS_TOKEN_TYPES=at+jwt,JWT` compatibility opt-in and a dedicated API audience.
-
-`BDDK_HTTP_MAX_BODY_BYTES`, `BDDK_HTTP_MAX_CONCURRENCY`, and `BDDK_HTTP_RATE_LIMIT_PER_MINUTE` provide coarse protection inside each application process. Rate identity comes from the ASGI peer address; untrusted forwarding headers are not accepted by default. `BDDK_HTTP_TRUSTED_PROXY_HOPS` (default `0`) controls that rate-limit client key: at `0` the limiter keys on the socket peer and ignores `X-Forwarded-For` entirely, which is correct for a directly exposed bind. Behind `n` operator-controlled reverse proxies, set the real hop count; the key is then the `n`-th entry from the right of the combined forwarded list, and anything unusable degrades to a shared `unknown` bucket rather than falling back to the socket peer, so a spoofed header cannot merge distinct callers. A wrong hop count makes the limiter either shared or spoofable, and when authentication is disabled through the explicit opt-in the rate limiter is the primary abuse control. These controls are neither shared across replicas nor a global ingress limit. OpenShift deployments still need an approved end-to-end TLS topology, identity-aware ingress, shared request/rate policy, audit events, and NetworkPolicy controls.
-
-Live regulatory fetch paths separately enforce exact BDDK/mevzuat HTTPS hosts,
-public-address DNS checks, destination revalidation on bounded redirects,
-streamed response limits by artifact class, and retry logs without raw URLs,
-queries, or exception messages. DNS validation and socket connection are not
-atomic, so the target OpenShift environment must enforce matching egress with
-NetworkPolicy and/or an approved proxy/firewall. Public institution,
-announcement, bulletin, and update tools can call live BDDK sources; therefore
-both public and operator runtimes require narrowly approved regulatory-source
-or proxy TCP 443 egress. Lifecycle Jobs require DNS/PostgreSQL only and must not
-receive that source egress.
-
-The runtime wheel/sdist exclude `seed_data`, tests, benchmark code, and
-deployment assets. The provided container explicitly includes the reviewed
-seed corpus; a wheel deployment must mount an approved corpus and pass
-`--seed-dir` or `BDDK_SEED_DIR` to `bootstrap`.
-
-The repository has not yet been accepted on the bank's OpenShift AI cluster,
-proven through the bank backup/restore process, or certified across a
-release-specific Claude, Codex, GPT, LM Studio, GPT-OSS, and local-model client
-matrix. The included client configurations and OpenShift manifests are starter
-evidence, not certification.
-
-Repository preflight binds the exact checksum-verified Kustomize v5.8.1 binary
-and strict rendered/security inventories. It renders the exact
-`deploy/openshift-overlays/bank-bootstrap` contract, including direct strict
-bootstrap flags, a read-only approved-corpus PVC, and a separate read-only
-corpus-trust Secret, but deliberately leaves actual bank provisioning and all
-eight live gates unrun. Supply-chain evidence builds with Buildx `--provenance=false --load`,
-binds descriptor/manifest/config/loaded-image/Syft identities, and emits an
-unsigned repository SLSA envelope. Pending exceptions never make a result
-promotion eligible; signing, admission, and registry promotion remain bank
-controls.
-
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) before enabling any remote profile.
+Source code is under the [MIT License](LICENSE). That license does not grant extra rights over BDDK, Official Gazette, or other third-party texts. Boundary: [licensing and provenance](docs/LICENSING_AND_PROVENANCE.md).

@@ -23,7 +23,7 @@ The root is reserved for project entry points and tools that conventionally live
 
 | Path | Purpose |
 |---|---|
-| `README.md`, `README.en.md` | Project landing page and English operational guide. |
+| `README.md`, `README.en.md` | Turkish and English landing pages for bank users. Operator procedure stays in `docs/`. |
 | `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md`, `LICENSE` | Repository governance and release history. |
 | `pyproject.toml`, `uv.lock`, `MANIFEST.in` | Python metadata, dependency lock, and distribution policy. |
 | `server.py`, `seed.py` | Compatibility shims; implementation belongs under `bddk_mcp/`. |

@@ -29,6 +29,12 @@ Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızd
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Değiştirildi — giriş sayfaları
+
+- `README.md` ve `README.en.md` genel banka kullanıcısı için baştan yazıldı. Aynı iskelet; biri Türkçe, biri İngilizce. Operatör prosedürü `docs/DEPLOYMENT.md` içinde kalır.
+- `docs/DEPLOYMENT.md` içindeki Ağustos 2026 yeniden imzalama notu kaldırıldı. Güncel corpus kimliği `docs/STATUS.md` dosyasına bırakıldı.
+- Belge indeksi ve depo yapısı, İngilizce dosyayı artık ayrı işletme kılavuzu diye tanıtmaz.
+
 ### Düzeltildi — yetkilendirme, corpus bütünlüğü ve veri işleme
 
 - Uzak yönetim konsolu bearer token ve oturum girişinde yapılandırılmış tüm
