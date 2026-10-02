@@ -197,7 +197,7 @@ def test_tracked_pilot_is_complete_but_explicitly_draft() -> None:
     assert len(dataset.cases) == 20
     assert len({case.case_id for case in dataset.cases}) == 20
     assert len({case.domain for case in dataset.cases}) >= 5
-    assert dataset.dataset_version.endswith("-draft.7")
+    assert dataset.dataset_version.endswith("-draft.8")
     assert dataset.approval.state == "draft"
     assert all(case.approval.state == "draft" for case in dataset.cases)
     assert all(len(case.annotations) >= 2 for case in dataset.cases)
@@ -316,13 +316,13 @@ def _write_signed_legal_pack(
     *,
     private_key: Ed25519PrivateKey | None = None,
     trusted_key_bytes: bytes | None = None,
-    attested_at: str = "2026-10-02T13:00:00Z",
+    attested_at: str = "2026-10-02T20:17:00Z",
 ) -> tuple[Path, Path, Path, str]:
     pack = {
         "schema_version": 1,
         "export_id": "legal-pack-test-v1",
         "source_relation": "public.regulatory_validated_section_citations",
-        "exported_at": "2026-10-02T12:30:00Z",
+        "exported_at": "2026-10-02T20:16:00Z",
         "citations": [citation],
     }
     pack_path = tmp_path / "validated-legal-pack.yml"
@@ -474,7 +474,7 @@ def _write_legal_release_checkpoint(
             "blob_id": citation["artifact_blob_id"],
             "canonical_uri": citation["source_url"],
             "retrieved_at": citation["artifact_retrieved_at"],
-            "captured_at": "2026-10-02T12:15:00Z",
+            "captured_at": "2026-10-02T20:15:00Z",
             "source_authority": "BDDK",
             "media_type": "text/markdown",
             "response_status": 200,
@@ -508,7 +508,7 @@ def _write_legal_release_checkpoint(
             }
         ],
         "reviewed_by_role": "legal_source_reviewer",
-        "reviewed_at": "2026-10-02T13:30:00Z",
+        "reviewed_at": "2026-10-02T20:18:00Z",
     }
     if reviewer_owner_id is not None:
         page_proof["reviewed_by_owner_id"] = reviewer_owner_id
@@ -581,7 +581,7 @@ def _write_legal_release_checkpoint(
             **checkpoint_common,
             "artifacts": oldest_artifacts,
             "checkpoint_id": "legal-release-test-oldest",
-            "created_at": "2026-10-02T13:35:00Z",
+            "created_at": "2026-10-02T20:19:00Z",
             "predecessor_checkpoint_sha256": None,
             "predecessor_checkpoint_reference": None,
         },
@@ -594,7 +594,7 @@ def _write_legal_release_checkpoint(
             **checkpoint_common,
             "artifacts": predecessor_artifacts,
             "checkpoint_id": "legal-release-test-predecessor",
-            "created_at": "2026-10-02T13:45:00Z",
+            "created_at": "2026-10-02T20:20:00Z",
             "predecessor_checkpoint_sha256": oldest_sha256,
             "predecessor_checkpoint_reference": "legal-release-oldest.yml",
         },
@@ -606,7 +606,7 @@ def _write_legal_release_checkpoint(
         {
             **checkpoint_common,
             "checkpoint_id": "legal-release-test-v1",
-            "created_at": "2026-10-02T14:00:00Z",
+            "created_at": "2026-10-02T20:21:00Z",
             "predecessor_checkpoint_sha256": predecessor_sha256,
             "predecessor_checkpoint_reference": "legal-release-predecessor.yml",
         },
@@ -1155,7 +1155,7 @@ def test_legal_release_checkpoint_must_follow_curator_attestation(tmp_path: Path
     pack_path, attestation_path, curator_key, _ = _write_signed_legal_pack(
         tmp_path,
         citation,
-        attested_at="2026-10-02T14:30:00Z",
+        attested_at="2026-10-02T20:22:00Z",
     )
     checkpoint_path, release_key, _, source_root, _, _, _ = _write_legal_release_checkpoint(
         tmp_path,
@@ -1197,10 +1197,10 @@ def test_legal_release_checkpoint_must_follow_corpus_scope_approval(tmp_path: Pa
             trusted_signing_key=release_key,
             source_root=source_root,
             legal_pack_sha256=hashlib.sha256(pack_path.read_bytes()).hexdigest(),
-            legal_pack_exported_at=datetime(2026, 10, 2, 12, 30, tzinfo=UTC),
-            legal_pack_attested_at=datetime(2026, 10, 2, 13, 0, tzinfo=UTC),
+            legal_pack_exported_at=datetime(2026, 10, 2, 20, 16, tzinfo=UTC),
+            legal_pack_attested_at=datetime(2026, 10, 2, 20, 17, tzinfo=UTC),
             corpus_manifest_sha256=raw["corpus"]["manifest_sha256"],
-            corpus_approved_at=datetime(2026, 10, 2, 14, 30, tzinfo=UTC),
+            corpus_approved_at=datetime(2026, 10, 2, 20, 22, tzinfo=UTC),
             citations=[CitationV1.model_validate(citation)],
             now=datetime(2026, 10, 3, tzinfo=UTC),
         )
