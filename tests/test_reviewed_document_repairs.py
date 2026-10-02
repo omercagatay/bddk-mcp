@@ -74,7 +74,24 @@ def test_signed_repair_corpus_matches_all_reviewed_candidates(monkeypatch):
             repaired += 1
         assert hashlib.sha256(doc["markdown_content"].encode()).hexdigest() == doc["content_hash"]
         assert assess_markdown_quality(doc["markdown_content"], did).label == "clean"
-    assert repaired == 57
+    assert repaired == 70
+
+
+def test_rg_box_receipts_are_carried_by_the_seed():
+    """The 6404413 RG-box receipts were never applied on their own; the PDF rebuilds must carry them."""
+    current = {
+        d["document_id"]: d["markdown_content"] for d in json.loads((ROOT / "seed_data/documents.json").read_text())
+    }
+
+    def norm(text):
+        return re.sub(r"\s+", " ", text.replace("$^{", "").replace("}$", "")).strip()
+
+    receipts = sorted((ROOT / "docs/evidence/document-repairs").glob("*-rg-box-interleave.json"))
+    assert len(receipts) == 3
+    for path in receipts:
+        receipt = json.loads(path.read_text())
+        for replacement in receipt["replacements"]:
+            assert norm(replacement["new"]) in norm(current[receipt["document_id"]]), path.name
 
 
 def test_document_903_source_reviewed_candidate():

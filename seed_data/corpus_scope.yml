@@ -1,15 +1,17 @@
 schema_version: 1
-manifest_id: bddk-job-corpus-kgk-tms12-pdf-rebuilds-local-v8-2026-10-02
+manifest_id: bddk-job-corpus-kgk-tms12-pdf-rebuilds-local-v10-2026-10-02
 selection_owner: project_owner
 purpose: >-
   Job-specific corpus for Turkish banking-regulation research, compliance,
   internal-audit, retrieval, and model/tool-calling evaluation. This release
   adds one owner-selected KGK accounting standard, TMS 12 Gelir Vergileri,
   acquired once as a public PDF outside the live ingestion allowlist, and rebuilds
-  seven mevzuat.gov.tr regulations whose extraction scrambled justified lines
-  (mevzuat_22599, 16071, 39171, 40203, 40519, 20645, 10522) from their official
-  PDFs; other canonical source text is unchanged. It is not independent human
-  legal validation.
+  twenty mevzuat.gov.tr texts whose extraction scrambled justified lines or table
+  cells or dropped image formulas from their official PDFs: regulations
+  mevzuat_22599, 16071, 39171, 40203, 40519, 20645, 10522, 38416, 10731, 42359,
+  38568, 23228, 11203, 10746, 38797 and 42628, communiqué mevzuat_11201, and laws
+  mevzuat_5411, 6362 and 5464; other canonical source text is unchanged. It is not
+  independent human legal validation.
   This selection is intentionally narrower than the complete BDDK corpus.
 exhaustive: false
 included_source_classes:
@@ -31,7 +33,7 @@ freshness:
   source_observed_start: "2026-04-08T16:50:25.439181Z"
   source_observed_end: "2026-09-29T13:56:02Z"
   corpus_built_at: "2026-09-29T15:45:38.433080Z"
-  scope_reviewed_at: "2026-10-02T12:01:10.534973+00:00"
+  scope_reviewed_at: "2026-10-02T19:40:35.162198+00:00"
   business_expectation: quarterly-reviewed batch corpus with quantified objectives
   source_detection_slo_seconds: 604800
   publication_slo_seconds: 1209600
@@ -40,21 +42,21 @@ freshness:
 artifacts:
   - role: documents
     path: documents.json
-    sha256: 78a6d64a8ba59cbb28cc0026b7722cab991418f39d0e43bb266fb64ae26bf8a5
-    bytes: 8806331
+    sha256: 51dd56baceca45d34d119bc8c74342fb8dfa8f5efe2152eaae7393ba02c5bce4
+    bytes: 8775654
     records: 319
   - role: chunks
     path: chunks.json
-    sha256: 244ffe24119a5f1c5ccc2f0afd20bd07d42e6e92f528e05327c768766b5cc934
-    bytes: 19475820
-    records: 13582
+    sha256: b39b63306564e348d9f6c39ce5b2c91263cf1148c553378001d0ed268372cce9
+    bytes: 19426698
+    records: 13558
   - role: decision_cache
     path: decision_cache.json
     sha256: 05cad5feb3557d9900b4d49640ef3b0bfc2320141c3060bb7f26516a3a0973f2
     bytes: 153379
     records: 319
 integrity:
-  manifest_sha256: "bc5ad01ad1f2d7e4e29edce50361786cd46c734062d1370752f8c4147a9abb10"
+  manifest_sha256: "db4def3bc160c80b5caac0d66c486935b1596691f8fd6dd6afd6e4688ff047af"
   signature_status: verified
   signature_algorithm: ed25519
   signature_reference: corpus_scope.sig

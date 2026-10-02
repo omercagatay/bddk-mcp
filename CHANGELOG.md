@@ -29,6 +29,15 @@ Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızd
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Düzeltildi — resmî PDF'ten yeniden kurulan yirmi mevzuat metni
+
+- Metin çıkarımı (markitdown) iki yana yaslı satırlardaki kelimelerin sırasını bozmuş, tablo hücrelerini dağıtmış ve resim olarak basılmış formülleri düşürmüştü. Yirmi mevzuat.gov.tr metni resmî PDF'lerinden baştan kuruldu ve her sayfası PDF ile gözle karşılaştırıldı: on altı yönetmelik (`mevzuat_22599`, `16071`, `39171`, `40203`, `40519`, `20645`, `10522`, `38416`, `10731`, `42359`, `38568`, `23228`, `11203`, `10746`, `38797`, `42628`), bir tebliğ (`mevzuat_11201`) ve üç kanun (Bankacılık Kanunu `mevzuat_5411`, Sermaye Piyasası Kanunu `6362`, Banka Kartları ve Kredi Kartları Kanunu `5464`). Örnek: Karşılık Yönetmeliği Madde 6/5'in ortası kayıptı.
+- Araç: `scripts/rebuild_mevzuat_from_pdf.py`. Tablolar ve formüller dışındaki metin PDF metin katmanıyla harfi harfine aynıdır; her tablo, yerini aldığı PDF satırlarının kelimeleriyle denetlenir. Her belgenin değişen bölümleri `docs/evidence/document-repairs/mevzuat_<id>.json` içinde listelenir; resmî metindeki yazım tuhaflıkları düzeltilmeden korunur ve aynı yerde kayıtlıdır.
+- BHFOR Yönetmeliği'nin (`mevzuat_42628`) 34 formül resmi gözle okunarak LaTeX'e çevrildi (`native-sources/mevzuat_42628-formulas.json`). Bu bir asistan okumasıdır; resimlerin metin katmanı olmadığından makineyle doğrulanamaz.
+- Kanunlar ve tebliğ için mevzuat.gov.tr sabit PDF sunmuyor; kaynak, her istekte yeniden üretilen güncel konsolide metin PDF'idir. İncelenen kopyalar `native-sources/<n>-generated.pdf.gz` olarak saklandı.
+- Bölüm dizini artık madde numarasından hemen sonra gelen dipnot işaretini tanıyor (`MADDE 7$^{(1)}$ –`); bu maddeler dizinden düşmüyor.
+- Corpus kapsam beyanı yeni bir kimlikle (`…-pdf-rebuilds-local-v10-2026-10-02`) güncellendi. Yayına alınmadı (staging/aktivasyon yok). Bu bir teknik doğrulamadır, hukuki onay değildir.
+
 ### Eklendi — KGK TMS 12
 
 - Corpus'a KGK'nın "TMS 12 Gelir Vergileri" standardı (`kgk_tms_12`) eklendi. Kaynak, KGK'nın 2026 Mavi Kitap PDF'idir; bir kez elle indirildi ve `scripts/add_kgk_tms_12.py` ile SHA-256 kontrolüyle çıkarıldı. kgk.gov.tr canlı erişim izin listesine eklenmedi.

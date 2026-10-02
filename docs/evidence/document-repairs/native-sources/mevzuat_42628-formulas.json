@@ -1,0 +1,466 @@
+{
+ "source": "https://www.mevzuat.gov.tr/MevzuatMetin/yonetmelik/7.5.42628.pdf",
+ "method": "Each image cropped from a 400 dpi render of its page and read visually; bbox in PDF points from the page top (pdfplumber), sha256 of the pdfimages -png output. Source notation kept: multiplication as printed (∗ as \\ast, · as \\cdot, a baseline dot as '.'), decimals as printed (0.65), Turkish words in \\text{}. Fonts (bold, upright or italic) are not carried. A display formula joins its image parts with the text-layer words on the same line.",
+ "images": [
+  {
+   "id": "F1",
+   "page": 3,
+   "bbox": [
+    232.7,
+    653.9,
+    265.7,
+    671.9
+   ],
+   "pixels": "44x24",
+   "sha256": "0ae3333b28c9d5daa0ced189bda278bba448452ea6200b963e8474493e99d828",
+   "latex": "KEO^{kp}_{0,p}"
+  },
+  {
+   "id": "F2",
+   "page": 3,
+   "bbox": [
+    244.4,
+    685.3,
+    277.4,
+    704.0
+   ],
+   "pixels": "44x25",
+   "sha256": "6aa4ebbd4f80467a18b12754177661edb2ddccf9d0dc4552d569f2f5221374af",
+   "latex": "KEO^{kp}_{i,p}"
+  },
+  {
+   "id": "F3",
+   "page": 3,
+   "bbox": [
+    321.6,
+    685.5,
+    375.6,
+    703.5
+   ],
+   "pixels": "72x24",
+   "sha256": "2d1a710cc2487b51e7bbfdb225956a4b9cb73b3f10f73694404ded20123ca1b3",
+   "latex": "s_i \\ast KEO^{kp}_{0,p}"
+  },
+  {
+   "id": "F4",
+   "page": 4,
+   "bbox": [
+    202.8,
+    209.1,
+    359.5,
+    227.9
+   ],
+   "pixels": "209x25",
+   "sha256": "8c77fae21bce754ff049faf63433b662b8fbea183337fb10519c66cdc81c26b0",
+   "latex": "NA^{kp}_{i,p}(t) = NA^{pl}_{i,p}(t) + KEO^{kp}_{i,p}(t)"
+  },
+  {
+   "id": "F5",
+   "page": 4,
+   "bbox": [
+    362.1,
+    209.1,
+    420.6,
+    227.9
+   ],
+   "pixels": "78x25",
+   "sha256": "40f4a09b03ce464d99d9dfb66ab42cf9cd644ca2c6da432ee93bc3c63f0b9050",
+   "latex": "\\cdot B^{kp}_{i,p}(t - 1)"
+  },
+  {
+   "id": "F6",
+   "page": 4,
+   "bbox": [
+    129.3,
+    227.9,
+    168.3,
+    246.6
+   ],
+   "pixels": "52x25",
+   "sha256": "591a585524c4b1d1017cd991b1b51dcf41b6a9338552dcfefce9c9af754a289d",
+   "latex": "NA^{pl}_{i,p}(t)"
+  },
+  {
+   "id": "F7",
+   "page": 4,
+   "bbox": [
+    486.4,
+    230.0,
+    496.1,
+    243.6
+   ],
+   "pixels": "13x18",
+   "sha256": "fdc893316ad97dbad4e3cf5638a4d1bf9309061a1b1d3d7649a66edc8908e1ed",
+   "latex": "pl"
+  },
+  {
+   "id": "F8",
+   "page": 4,
+   "bbox": [
+    115.9,
+    246.6,
+    166.9,
+    265.3
+   ],
+   "pixels": "68x25",
+   "sha256": "f6bde509581bbaf8a5d5c7362d973875f65179ce935dbfb2b7a64f1ca7b2eb0e",
+   "latex": "B^{kp}_{i,p}(t - 1)"
+  },
+  {
+   "id": "F9",
+   "page": 4,
+   "bbox": [
+    70.8,
+    345.8,
+    106.1,
+    362.4
+   ],
+   "pixels": "47x22",
+   "sha256": "b42ca22c596fcf4fc03f140caf55df5961176504cb706515701414014fb19954",
+   "latex": "EKO^{mp}_{0,p}"
+  },
+  {
+   "id": "F10",
+   "page": 4,
+   "bbox": [
+    243.5,
+    389.3,
+    278.8,
+    406.5
+   ],
+   "pixels": "47x23",
+   "sha256": "78ddd3140030d18e0e7b19e60cec4862d4ea986c2081c14461318ac19fad73a8",
+   "latex": "EKO^{mp}_{i,p}"
+  },
+  {
+   "id": "F11",
+   "page": 4,
+   "bbox": [
+    320.4,
+    389.5,
+    376.7,
+    406.1
+   ],
+   "pixels": "75x22",
+   "sha256": "01aa9433aee03b29317c91fe6a7ce967a5fa4f9e7fb70b7bfcf65839b1436223",
+   "latex": "s_i \\ast EKO^{mp}_{0,p}"
+  },
+  {
+   "id": "F12",
+   "page": 4,
+   "bbox": [
+    219.7,
+    618.1,
+    358.4,
+    635.4
+   ],
+   "pixels": "185x23",
+   "sha256": "da40e0e5e9b833a74d60e29174feeb0e0b8383c0fd7f2390d815552be40bb0e6",
+   "latex": "NA^{mp}_{i,p}(t = \\text{gecelik}) = VM^{mp}_{0,p}"
+  },
+  {
+   "id": "F13",
+   "page": 4,
+   "bbox": [
+    360.9,
+    618.1,
+    403.7,
+    635.4
+   ],
+   "pixels": "57x23",
+   "sha256": "232da751c1a78c1ac40da1b36144b9839eb307839dc0ec6f3d05b15c65bcfc7c",
+   "latex": "\\cdot EKO^{mp}_{i,p}"
+  },
+  {
+   "id": "F14",
+   "page": 4,
+   "bbox": [
+    133.8,
+    635.4,
+    226.1,
+    652.7
+   ],
+   "pixels": "123x23",
+   "sha256": "508c875930d3fa05e303d81c0f93ea186d98b37bc6eb267af77b09a0ed600796",
+   "latex": "NA^{mp}_{i,p}(t = \\text{gecelik})"
+  },
+  {
+   "id": "F15",
+   "page": 4,
+   "bbox": [
+    207.3,
+    652.5,
+    236.7,
+    669.1
+   ],
+   "pixels": "39x22",
+   "sha256": "42c7e1decde30f2bf1b0d8a46b7fd48e1da4d7cb9a466eb09a4fc5494ed93830",
+   "latex": "VM^{mp}_{0,p}"
+  },
+  {
+   "id": "F16",
+   "page": 5,
+   "bbox": [
+    320.9,
+    84.5,
+    352.4,
+    100.2
+   ],
+   "pixels": "42x21",
+   "sha256": "ab3c75cca6418aaf7145aa8cff31b8fc8282d26af8475f84fa8f4c940f53fbe9",
+   "latex": "\\Delta OD^{so}_{i,p}"
+  },
+  {
+   "id": "F17",
+   "page": 5,
+   "bbox": [
+    428.9,
+    181.1,
+    460.4,
+    196.8
+   ],
+   "pixels": "42x21",
+   "sha256": "74acd2d10b82d9949e5a521ba3c607df4d24756a5db46903e38f8bb8ac3f0c3c",
+   "latex": "\\Delta OD^{ao}_{i,p}"
+  },
+  {
+   "id": "F18",
+   "page": 5,
+   "bbox": [
+    257.1,
+    237.3,
+    392.1,
+    253.1
+   ],
+   "pixels": "180x21",
+   "sha256": "fc2e4bf4a312124e2736cee474a050fcaf1af05ccf44178e246e5dd7497faea1",
+   "latex": "\\sum_{so=1}^{n} \\Delta OD^{so}_{i,p} - \\sum_{ao=1}^{m} \\Delta OD^{ao}_{i,p}"
+  },
+  {
+   "id": "F19",
+   "page": 5,
+   "bbox": [
+    335.5,
+    481.2,
+    343.1,
+    494.7
+   ],
+   "pixels": "10x18",
+   "sha256": "6875178f9e911aa763f5c8f51186a6d3819bfbb41628015866ddfc8326387ed7",
+   "latex": "\\ast"
+  },
+  {
+   "id": "F20",
+   "page": 5,
+   "bbox": [
+    332.1,
+    575.3,
+    342.7,
+    588.8
+   ],
+   "pixels": "14x18",
+   "sha256": "376f36b0d264bc3ccdfca6c2ac34f8ae80180e9c9a00538512e6a4c68d3b003a",
+   "latex": "\\ast"
+  },
+  {
+   "id": "F21",
+   "page": 5,
+   "bbox": [
+    164.5,
+    588.8,
+    166.8,
+    602.4
+   ],
+   "pixels": "3x18",
+   "sha256": "d6feeb8aa405c641939504d62fddb488c6a83520cb57e729f666a46d35e5dfaa",
+   "latex": "",
+   "note": "blank 3x18 px spacer between the two closing parentheses of (F_{i,p}(t_o) ); nothing to transcribe"
+  },
+  {
+   "id": "F22",
+   "page": 5,
+   "bbox": [
+    223.7,
+    683.0,
+    371.4,
+    698.8
+   ],
+   "pixels": "197x21",
+   "sha256": "b8673c51fb20ab2649488109e14a47c6996d3756916212cd3eeda5ddae1062ba",
+   "latex": "ED_{i,p} = \\sum_{t=1}^{19} NA_{i,p}(t) \\cdot \\text{İO}_{i,p}(t_o)"
+  },
+  {
+   "id": "F23",
+   "page": 5,
+   "bbox": [
+    182.2,
+    725.6,
+    428.1,
+    741.3
+   ],
+   "pixels": "328x21",
+   "sha256": "ac939ffea0db92114921d599252b6b682f527e36b2d1318e193de590493c3ef5",
+   "latex": "\\sum_{t=1}^{19} NA_{0,p}(t) \\cdot \\text{İO}_{0,p}(t_o) - \\sum_{t=1}^{19} NA_{i,p}(t) \\cdot \\text{İO}_{i,p}(t_o) +"
+  },
+  {
+   "id": "F24",
+   "page": 5,
+   "bbox": [
+    156.1,
+    754.8,
+    184.7,
+    769.8
+   ],
+   "pixels": "38x20",
+   "sha256": "311e8587c017b3de51693448da84b1e3b8111b849b83e235a579071608dc3c81",
+   "latex": "NA_{0,p}"
+  },
+  {
+   "id": "F25",
+   "page": 6,
+   "bbox": [
+    219.5,
+    70.9,
+    260.8,
+    85.9
+   ],
+   "pixels": "55x20",
+   "sha256": "973022461b8d1490bd001a3303b7e12e90684402333ce164ce5944d1c8769ba1",
+   "latex": "\\text{İO}_{0,p}(t_o)"
+  },
+  {
+   "id": "F26",
+   "page": 6,
+   "bbox": [
+    85.0,
+    112.7,
+    328.7,
+    145.7
+   ],
+   "pixels": "325x44",
+   "sha256": "de845eb3bd124e5654e6ab9b895d68a9d6d8a2867c577af482b42a0138bdda58",
+   "latex": "\\text{EDD risk tutarı} = \\max_{i \\in \\{1,2,\\ldots,6\\}} \\{\\max(0; \\sum_{p:EDD_{i,p}} EDD_{i,p}))\\}"
+  },
+  {
+   "id": "F27",
+   "page": 8,
+   "bbox": [
+    70.8,
+    165.2,
+    205.8,
+    180.2
+   ],
+   "pixels": "180x20",
+   "sha256": "bed50a8883686ae9393836af6db6d7dd85fcf3c5c412b9d0c0f532ab84e8e91a",
+   "latex": "\\Delta R_{\\text{paralel},p}(t_o) = \\pm \\bar{R}_{\\text{paralel},p}"
+  },
+  {
+   "id": "F28",
+   "page": 8,
+   "bbox": [
+    395.4,
+    193.5,
+    485.4,
+    216.1
+   ],
+   "pixels": "120x30",
+   "sha256": "bbd63b622641ff58c470f3df6aaffd51b2268a9cbc9725a0db4f0297f5ce11d9",
+   "latex": "S_{\\text{kısa}}(t_o) = \\left(e^{\\frac{-t_o}{x}}\\right)"
+  },
+  {
+   "id": "F29",
+   "page": 8,
+   "bbox": [
+    181.3,
+    243.0,
+    413.8,
+    264.0
+   ],
+   "pixels": "310x28",
+   "sha256": "57e999cca1847ff9790966d32eb22d85975c1e853730ece10d638d91250ecee2",
+   "latex": "\\Delta R_{\\text{kısa},p}(t_o) = \\pm \\bar{R}_{\\text{kısa},p} . S_{\\text{kısa}}(t_o) = \\pm \\bar{R}_{\\text{kısa},p} . e^{\\frac{-t_o}{x}}"
+  },
+  {
+   "id": "F30",
+   "page": 8,
+   "bbox": [
+    215.2,
+    277.3,
+    334.4,
+    290.9
+   ],
+   "pixels": "159x18",
+   "sha256": "b8e1be5572085b77baf5316b0243984b370a29360fcd6e0361388bc0711908af",
+   "latex": "S_{\\text{uzun}}(t_o) = 1 - S_{\\text{kısa}}(t_o)"
+  },
+  {
+   "id": "F31",
+   "page": 8,
+   "bbox": [
+    266.3,
+    290.9,
+    307.6,
+    304.4
+   ],
+   "pixels": "55x18",
+   "sha256": "d95dc0dc04490fac37c4ec516c3fa42049810d91091bfd19f6af7290453d7128",
+   "latex": "S_{\\text{kısa}}(t_o)"
+  },
+  {
+   "id": "F32",
+   "page": 8,
+   "bbox": [
+    70.8,
+    304.3,
+    345.9,
+    329.9
+   ],
+   "pixels": "367x34",
+   "sha256": "a3434ea34cb01ebd7af853cbd42b8e989f365fab1606bb43ccdd418c11fa4da9",
+   "latex": "\\Delta R_{\\text{uzun},p}(t_o) = \\pm \\bar{R}_{\\text{uzun},p} . S_{\\text{uzun}}(t_o) = \\pm \\bar{R}_{\\text{uzun},p} . \\left(1 - e^{\\frac{-t_o}{x}}\\right)"
+  },
+  {
+   "id": "F33",
+   "page": 8,
+   "bbox": [
+    70.8,
+    356.7,
+    371.5,
+    373.3
+   ],
+   "pixels": "401x22",
+   "sha256": "51fdbe34803919753f109280b4ea5338fa5a3967f68024239efaf517195fd93b",
+   "latex": "\\Delta R_{\\text{artan eğim},p}(t_o) = -0.65 . \\lvert \\Delta R_{\\text{kısa},p}(t_o) \\rvert + 0.9 . \\lvert \\Delta R_{\\text{uzun},p}(t_o) \\rvert"
+  },
+  {
+   "id": "F34",
+   "page": 8,
+   "bbox": [
+    70.8,
+    373.2,
+    360.9,
+    389.7
+   ],
+   "pixels": "387x22",
+   "sha256": "5688f804ba2190c3fb255765b9b4d1947f3374ad7dab8bb4111cdaa7d08a4caf",
+   "latex": "\\Delta R_{\\text{azalan eğim},p}(t_o) = 0.8 . \\lvert \\Delta R_{\\text{kısa},p}(t_o) \\rvert - 0.6 . \\lvert \\Delta R_{\\text{uzun},p}(t_o) \\rvert"
+  }
+ ],
+ "displays": {
+  "keo": "KEO^{kp}_{i,p} = \\min(1, s_i \\ast KEO^{kp}_{0,p})",
+  "na_kp": "NA^{kp}_{i,p}(t) = NA^{pl}_{i,p}(t) + KEO^{kp}_{i,p}(t) \\cdot B^{kp}_{i,p}(t - 1)",
+  "eko": "EKO^{mp}_{i,p} = \\min(1, s_i \\ast EKO^{mp}_{0,p})",
+  "na_mp": "NA^{mp}_{i,p}(t = \\text{gecelik}) = VM^{mp}_{0,p} \\cdot EKO^{mp}_{i,p}",
+  "or": "OR_{i,p} = \\sum_{so=1}^{n} \\Delta OD^{so}_{i,p} - \\sum_{ao=1}^{m} \\Delta OD^{ao}_{i,p}",
+  "io_0": "\\text{İO}_{0,p}(t_o) = \\exp(-F_{0,p}(t_o) \\ast t_o)",
+  "io_i": "\\text{İO}_{i,p}(t_o) = \\exp(-F_{i,p}(t_o) \\ast t_o)",
+  "ed": "ED_{i,p} = \\sum_{t=1}^{19} NA_{i,p}(t) \\cdot \\text{İO}_{i,p}(t_o)",
+  "edd": "EDD_{i,p} = \\sum_{t=1}^{19} NA_{0,p}(t) \\cdot \\text{İO}_{0,p}(t_o) - \\sum_{t=1}^{19} NA_{i,p}(t) \\cdot \\text{İO}_{i,p}(t_o) + OR_{i,p}",
+  "edd_risk": "\\text{EDD risk tutarı} = \\max_{i \\in \\{1,2,\\ldots,6\\}} \\{\\max(0; \\sum_{p:EDD_{i,p}} EDD_{i,p}))\\}",
+  "r_paralel": "\\Delta R_{\\text{paralel},p}(t_o) = \\pm \\bar{R}_{\\text{paralel},p}",
+  "r_kisa": "\\Delta R_{\\text{kısa},p}(t_o) = \\pm \\bar{R}_{\\text{kısa},p} . S_{\\text{kısa}}(t_o) = \\pm \\bar{R}_{\\text{kısa},p} . e^{\\frac{-t_o}{x}}",
+  "r_uzun": "\\Delta R_{\\text{uzun},p}(t_o) = \\pm \\bar{R}_{\\text{uzun},p} . S_{\\text{uzun}}(t_o) = \\pm \\bar{R}_{\\text{uzun},p} . \\left(1 - e^{\\frac{-t_o}{x}}\\right)",
+  "r_artan": "\\Delta R_{\\text{artan eğim},p}(t_o) = -0.65 . \\lvert \\Delta R_{\\text{kısa},p}(t_o) \\rvert + 0.9 . \\lvert \\Delta R_{\\text{uzun},p}(t_o) \\rvert",
+  "r_azalan": "\\Delta R_{\\text{azalan eğim},p}(t_o) = 0.8 . \\lvert \\Delta R_{\\text{kısa},p}(t_o) \\rvert - 0.6 . \\lvert \\Delta R_{\\text{uzun},p}(t_o) \\rvert"
+ }
+}
