@@ -1447,20 +1447,6 @@
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
         "expires_on": "2026-10-15"
-      },
-      {
-        "fingerprint": "64044131909d59f73c246b8e5adfc0432228cdd8:docs/evidence/legal-versions/943.json:generic-api-key:704",
-        "reason": "False positive: a SHA-256 content digest (legal version_key / legal_text_sha256) of BDDK guide 943 in the repaired legal-version evidence and its regression test, not a credential.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "fingerprint": "64044131909d59f73c246b8e5adfc0432228cdd8:tests/test_943_citation_bundle.py:generic-api-key:17",
-        "reason": "False positive: a SHA-256 content digest (legal version_key / legal_text_sha256) of BDDK guide 943 in the repaired legal-version evidence and its regression test, not a credential.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
       }
     ]
   }
