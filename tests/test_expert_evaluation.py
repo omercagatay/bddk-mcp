@@ -197,7 +197,7 @@ def test_tracked_pilot_is_complete_but_explicitly_draft() -> None:
     assert len(dataset.cases) == 20
     assert len({case.case_id for case in dataset.cases}) == 20
     assert len({case.domain for case in dataset.cases}) >= 5
-    assert dataset.dataset_version.endswith("-draft.6")
+    assert dataset.dataset_version.endswith("-draft.7")
     assert dataset.approval.state == "draft"
     assert all(case.approval.state == "draft" for case in dataset.cases)
     assert all(len(case.annotations) >= 2 for case in dataset.cases)
