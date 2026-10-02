@@ -29,6 +29,11 @@ Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızd
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Değiştirildi — lisans
+
+- Lisans MIT'den [PolyForm Noncommercial 1.0.0](LICENSE)'a değiştirildi (SPDX `PolyForm-Noncommercial-1.0.0`; `pyproject.toml` ve NLI veri seti üst verisi güncellendi). Bankalar, finansal kuruluşlar ve diğer şirketler dahil her türlü ticari kullanım, telif hakkı sahibinden ayrı yazılı lisans alınmadan yasaktır. README'ye ticari lisans iletişim satırı eklendi. GitHub deposu 2 Ekim 2026'da private yapıldı.
+- `aa62301` commit'i ve öncesi sürümler MIT kapsamında yayımlanmıştır; bu izin yalnızca o sürümler için geçerliliğini korur. Hukuki inceleme henüz yapılmadı (`docs/LICENSING_AND_PROVENANCE.md`, GAP LIC-001).
+
 ### Düzeltildi — resmî PDF'ten yeniden kurulan yirmi mevzuat metni
 
 - Metin çıkarımı (markitdown) iki yana yaslı satırlardaki kelimelerin sırasını bozmuş, tablo hücrelerini dağıtmış ve resim olarak basılmış formülleri düşürmüştü. Yirmi mevzuat.gov.tr metni resmî PDF'lerinden baştan kuruldu ve her sayfası PDF ile gözle karşılaştırıldı: on altı yönetmelik (`mevzuat_22599`, `16071`, `39171`, `40203`, `40519`, `20645`, `10522`, `38416`, `10731`, `42359`, `38568`, `23228`, `11203`, `10746`, `38797`, `42628`), bir tebliğ (`mevzuat_11201`) ve üç kanun (Bankacılık Kanunu `mevzuat_5411`, Sermaye Piyasası Kanunu `6362`, Banka Kartları ve Kredi Kartları Kanunu `5464`). Örnek: Karşılık Yönetmeliği Madde 6/5'in ortası kayıptı.

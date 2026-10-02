@@ -121,4 +121,8 @@ Yayın sırası `migrate`, sonra `bootstrap`, sonra `verify-and-stage-corpus-rel
 
 ## Lisans
 
-Kaynak kod [MIT Lisansı](LICENSE) altındadır. Bu lisans, BDDK, Resmi Gazete ve diğer üçüncü taraf metinler üzerinde ek hak vermez. Sınır: [lisans ve kaynak](docs/LICENSING_AND_PROVENANCE.md).
+`aa62301` commit'inden (2 Ekim 2026) sonraki sürümler [PolyForm Noncommercial 1.0.0](LICENSE) lisansıyla dağıtılır. Kişisel, araştırma, eğitim ve ticari olmayan kuruluş kullanımı serbesttir. **Bankalar, finansal kuruluşlar, danışmanlık firmaları ve diğer şirketlerin iş amaçlı kullanımı dahil her türlü ticari kullanım**, telif hakkı sahibinden ayrı ve yazılı lisans alınmadan yasaktır. Kesin koşullar [LICENSE](LICENSE) dosyasındadır.
+
+**Ticari lisans:** [GitHub üzerinden](https://github.com/omercagatay) benimle iletişime geçin.
+
+`aa62301` commit'i dahil önceki sürümler MIT Lisansı ile yayımlanmıştır; bu izin yalnızca o sürümler için geçerlidir. BDDK, Resmî Gazete ve diğer üçüncü taraf metinlerin kendi kaynak ve yeniden kullanım koşulları olabilir; kod lisansı bu metinler üzerinde ek hak vermez. Sınır: [lisans ve kaynak](docs/LICENSING_AND_PROVENANCE.md).

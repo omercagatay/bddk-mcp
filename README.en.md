@@ -121,4 +121,8 @@ Publication order is `migrate`, then `bootstrap`, then `verify-and-stage-corpus-
 
 ## License
 
-Source code is under the [MIT License](LICENSE). That license does not grant extra rights over BDDK, Official Gazette, or other third-party texts. Boundary: [licensing and provenance](docs/LICENSING_AND_PROVENANCE.md).
+Versions after commit `aa62301` (2 October 2026) are distributed under the [PolyForm Noncommercial License 1.0.0](LICENSE). Personal, research, educational, and noncommercial-organization use is permitted. **Any commercial use — including use by banks, financial institutions, consultancies, or other companies in the course of their business — is not permitted** without a separate written license from the copyright holder. The exact terms are in [LICENSE](LICENSE).
+
+**Commercial licensing:** contact me [via GitHub](https://github.com/omercagatay).
+
+Versions up to and including commit `aa62301` were published under the MIT License; that grant remains valid for those earlier copies only. Regulatory-source documents and other third-party data may have separate provenance or reuse conditions; the code license grants no extra rights over them. See [Licensing and Provenance](docs/LICENSING_AND_PROVENANCE.md).
