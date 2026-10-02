@@ -170,7 +170,7 @@ def test_required_review_documents_have_a_current_checkpoint():
     assert "17 public tools plus 14 operator additions, 31 total" in status
     assert "bddk://corpus/active-release" in status
     assert "schema v11" in status
-    assert "13,601 chunks" in status
+    assert "13,582 chunks" in status
 
 
 def test_current_lifecycle_docs_name_the_real_publisher_boundary():

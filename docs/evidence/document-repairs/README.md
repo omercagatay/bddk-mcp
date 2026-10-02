@@ -375,6 +375,22 @@ Page 18’s $K^{*}=\mathrm{maksimum}\{0, [(\Sigma K - \Sigma T) + (RMD)]\}$ was 
 intact. Printed `maksimum` and `0,4` are kept. Patch: [`1312.json`](1312.json).
 Not fail-listed; scanner `malformed_table_rows` 3→0. Unpublished.
 
+## Seven mevzuat.gov.tr regulations rebuilt from their official PDFs
+
+markitdown split widely spaced justified lines and pushed their words out of order in
+`mevzuat_22599` (Karşılık Yönetmeliği: Madde 6/5 had lost `donuk alacakların sınıf
+değişikliğine` to the end of the fıkra, plus nine other spans), `mevzuat_16071`, `39171`,
+`40203`, `40519`, `20645` and `10522`. `mevzuat_22599` Madde 15/1(a)'s collateral-ratio
+table is an image on page 10 with no text layer and was missing. Each document is rebuilt
+from the PDF the stored text came from (same byte size as the stored download): physical
+lines from word coordinates, paragraphs from indentation, footnote markers as `$^{(n)}$`,
+tables and forms as reviewed Markdown blocks whose words must equal the PDF lines they
+replace. All 84 pages were compared visually; the image table was transcribed visually.
+Outside blocks, the non-whitespace text equals the PDF text layer. Printed anomalies (for
+example Madde 6/5's missing period) are kept. Script: `scripts/rebuild_mevzuat_from_pdf.py`.
+Patches, with every changed span against the stored text: `mevzuat_<id>.json`.
+Unsigned until the owner signs the v8 manifest.
+
 ## Historical publication handoff (unsigned at preparation)
 
 Fifty source-reviewed candidates are applied only to a local copy at

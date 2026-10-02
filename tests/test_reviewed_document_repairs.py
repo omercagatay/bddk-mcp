@@ -74,7 +74,7 @@ def test_signed_repair_corpus_matches_all_reviewed_candidates(monkeypatch):
             repaired += 1
         assert hashlib.sha256(doc["markdown_content"].encode()).hexdigest() == doc["content_hash"]
         assert assess_markdown_quality(doc["markdown_content"], did).label == "clean"
-    assert repaired == 50
+    assert repaired == 57
 
 
 def test_document_903_source_reviewed_candidate():

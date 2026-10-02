@@ -40,6 +40,17 @@ def test_guideline_paragraphs_and_principle_boundaries_on_real_seed():
     assert "Uzman görüşü kullanımı" in ilke6.content
 
 
+def test_karsilik_regulation_rebuild_on_real_seed():
+    docs = {d["document_id"]: d for d in json.loads(SEED.read_text())}
+    sections = extract_document_sections("mevzuat_22599", docs["mevzuat_22599"]["markdown_content"])
+    madde = {s.section_ref: s.content for s in sections if s.section_type == "madde"}
+    assert (
+        "(5) (Ek:RG-6/7/2021-31533) Bankalar, donuk alacakların sınıf değişikliğine ilişkin kriterlerini "
+        "yazılı hale getirerek denetime hazır bulundurur"
+    ) in madde["6"]
+    assert "| Beşinci Grup Teminatlar | Yüzde yirmi (%20) |" in madde["15"]
+
+
 @pytest.mark.asyncio
 async def test_credit_loss_queries_against_full_seed(doc_store):
     for doc in json.loads(SEED.read_text()):
