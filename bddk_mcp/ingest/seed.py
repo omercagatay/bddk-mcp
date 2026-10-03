@@ -770,8 +770,16 @@ async def _section_index_matches(
     expected_sections: dict[str, list[DocumentSection]],
 ) -> bool:
     """Return whether seeded documents have the exact expected section index."""
+    return not await _section_index_mismatches(conn, expected_sections)
+
+
+async def _section_index_mismatches(
+    conn,
+    expected_sections: dict[str, list[DocumentSection]],
+) -> set[str]:
+    """Return the seeded document IDs whose stored section index differs from the expected one."""
     if not expected_sections:
-        return True
+        return set()
     rows = await conn.fetch(
         """
         SELECT doc_id, section_type, section_ref, content_hash,
@@ -804,7 +812,7 @@ async def _section_index_matches(
         for doc_id, sections in expected_sections.items()
         for section in sections
     }
-    return actual == expected
+    return {key[0] for key in actual ^ expected}
 
 
 def _strip_docs_dump_header(text: str) -> str:
@@ -1164,10 +1172,18 @@ async def import_seed(
                     for document in docs_data
                 ],
             )
+            # Rewrite sections only where they can differ: rewriting unchanged
+            # documents would delete section rows that validated legal-version
+            # provisions still cite (regulatory_legal_version_provisions_section_fk).
+            section_doc_ids = (
+                set(changed)
+                | (set(seed_doc_ids) - set(locked_documents))
+                | await _section_index_mismatches(conn, expected_sections)
+            )
             indexed_sections = await store._replace_document_sections_many_on_connection(
                 conn,
-                {doc_id: expected_sections[doc_id] for doc_id in seed_doc_ids},
-                source_content_hashes=seed_hashes,
+                {doc_id: expected_sections[doc_id] for doc_id in sorted(section_doc_ids)},
+                source_content_hashes={doc_id: seed_hashes[doc_id] for doc_id in section_doc_ids},
             )
 
             if seed_doc_ids:
