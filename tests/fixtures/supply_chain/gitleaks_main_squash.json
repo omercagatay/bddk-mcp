@@ -25,5 +25,11 @@
   },
   {
     "Fingerprint": "13ff4f0bb3ca70a24b12856cae5900fe1eef3578:docs/evidence/corpus-v8-activation-2026-09-07.json:generic-api-key:31"
+  },
+  {
+    "Fingerprint": "64044131909d59f73c246b8e5adfc0432228cdd8:docs/evidence/legal-versions/943.json:generic-api-key:704"
+  },
+  {
+    "Fingerprint": "64044131909d59f73c246b8e5adfc0432228cdd8:tests/test_943_citation_bundle.py:generic-api-key:17"
   }
 ]

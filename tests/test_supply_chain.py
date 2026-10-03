@@ -544,7 +544,7 @@ def test_high_vulnerability_fixture_and_secret_fixture_fail_closed():
 def test_main_squash_and_repair_secret_history_is_exactly_governed(changed_index):
     policy = _repo_policy_for_fixture_evaluation()
     report = _json(FIXTURES / "gitleaks_main_squash.json") + _json(FIXTURES / "gitleaks_document_repair_hashes.json")
-    assert len(report) == 99
+    assert len(report) == 101
     policy_fingerprints = {item["fingerprint"] for item in policy["secrets"]["exceptions"]}
     report_fingerprints = {item["Fingerprint"] for item in report}
     assert report_fingerprints == policy_fingerprints
@@ -557,8 +557,8 @@ def test_main_squash_and_repair_secret_history_is_exactly_governed(changed_index
     )
     assert result["passed"] is True
     assert violations == []
-    assert result["secret_finding_count"] == 99
-    assert result["applied_pending_secret_exception_count"] == 99
+    assert result["secret_finding_count"] == 101
+    assert result["applied_pending_secret_exception_count"] == 101
     assert result["unexcepted_secret_finding_count"] == 0
     assert result["evidence_integrity_passed"] is True
     assert result["external_approval_required"] is True
@@ -575,7 +575,7 @@ def test_main_squash_and_repair_secret_history_is_exactly_governed(changed_index
     )
     assert result["passed"] is False
     assert violations == ["unexcepted secret finding detected"]
-    assert result["applied_pending_secret_exception_count"] == 98
+    assert result["applied_pending_secret_exception_count"] == 100
     assert result["unexcepted_secret_finding_count"] == 1
     assert result["evidence_integrity_passed"] is False
 
