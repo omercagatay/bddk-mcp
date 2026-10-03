@@ -57,6 +57,7 @@ REGULATION_CATEGORIES = (
     "BDDK Düzenlemesi",
     "Düzenleme Taslağı",
     "Mülga Düzenleme",
+    "Muhasebe Standardı",
 )
 INSTITUTION_TYPES = (
     "Banka",
@@ -249,6 +250,7 @@ def _regulation_category(value: object) -> str:
         "bddk duzenlemesi": "BDDK Düzenlemesi",
         "duzenleme taslagi": "Düzenleme Taslağı",
         "mulga duzenleme": "Mülga Düzenleme",
+        "muhasebe standardi": "Muhasebe Standardı",
     }
     return _enum(value, name="category", values=REGULATION_CATEGORIES, aliases=aliases)
 
@@ -384,6 +386,7 @@ RegulationCategory = Annotated[
         "BDDK Düzenlemesi",
         "Düzenleme Taslağı",
         "Mülga Düzenleme",
+        "Muhasebe Standardı",
     ],
     Field(description="Exact BDDK regulation category; matching is case-insensitive."),
     BeforeValidator(_regulation_category),

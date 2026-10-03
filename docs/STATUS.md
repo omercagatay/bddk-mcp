@@ -1,7 +1,7 @@
 # Current Repository Status
 
-Repository baseline verified on **2026-08-26**. Corpus and quality-policy facts below
-were refreshed on **2026-09-21**, following the merged v8 refresh (PR #152).
+Repository baseline verified on **2026-08-26**. Corpus facts below were refreshed on
+**2026-09-29** (KGK TMS 12 addition); quality-policy facts on **2026-09-21**, following the merged v8 refresh (PR #152).
 See the [repair release evidence](evidence/document-repairs/local-release-v6.json)
 for signed artifacts, fresh local staging, and real MCP verification.
 The earlier checkpoint was **2026-08-18** (`3a93189`).
@@ -18,7 +18,7 @@ This is the concise source for current repository facts. The longer architecture
 | MCP operator profile | 17 public tools plus 14 operator additions, 31 total. |
 | MCP resources/prompts | One resource (`bddk://corpus/active-release`); zero prompts. |
 | Database | PostgreSQL 17 contract coverage; append-only migration ledger through schema v11. |
-| Corpus | `bddk-job-corpus-quality-repairs-local-v6-2026-09-21`: 318 documents (50 source repairs), 13,544 chunks, quality policy v5; Ed25519-signed and verified/activated in fresh local staging. All 11 historical extraction failures are retired with the signed corpus. Freshness remains quantified and unmeasured; 310 formula-unaware provenance warnings remain. No production deployment or independent legal approval is claimed. See `docs/evidence/document-repairs/local-release-v6.json`. |
+| Corpus | `bddk-job-corpus-kgk-tms12-pdf-rebuilds-local-v10-2026-10-02`: 319 documents, 13,558 chunks, quality policy v5; Ed25519-signed by the owner, not yet staged or activated. It supersedes the signed but unactivated v8 manifest (and an owner-signed, uncommitted v9 that lacked two of these repairs). Twenty mevzuat.gov.tr texts are rebuilt from their official PDFs (`scripts/rebuild_mevzuat_from_pdf.py`): sixteen regulations whose extraction scrambled justified lines (`mevzuat_22599`, `16071`, `39171`, `40203`, `40519`, `20645`, `10522`, `38416`, `10731`, `42359`, `38568`, `23228`, `11203`, `10746`, `38797`, `42628`), the communiqué `mevzuat_11201`, and the Bankacılık Kanunu, Sermaye Piyasası Kanunu and Banka Kartları ve Kredi Kartları Kanunu (`mevzuat_5411`, `6362`, `5464`); the communiqué and the laws come from mevzuat.gov.tr's generated PDF of the current consolidated text, and `mevzuat_42628`'s 34 image formulas are transcribed into LaTeX. It adds one KGK accounting standard, TMS 12 Gelir Vergileri (`kgk_tms_12`, category `Muhasebe Standardı`), from a manually downloaded public PDF (`scripts/add_kgk_tms_12.py`); kgk.gov.tr stays off the outbound allowlist, and the standard is indexed as body windows, not numbered paragraphs. The previous v6 release (318 documents, 50 source repairs) was verified/activated in fresh local staging and retired all 11 historical extraction failures; see `docs/evidence/document-repairs/local-release-v6.json`. Freshness remains quantified and unmeasured; 310 documents carry formula-unaware extraction provenance. No production deployment or independent legal approval is claimed. |
 | Runtime profiles | Separate public and operator processes, scopes, and database identities. |
 | CI | The quality-repair PR is validated independently of unrelated admin-editor changes. Local unit/integration results and required GitHub checks are recorded in the PR; skips are not passes. Protected checks remain required before merge. |
 | Maturity | Engineering beta. Repository controls do not establish legal advice, bank acceptance, or production readiness. |

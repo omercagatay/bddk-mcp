@@ -4,8 +4,8 @@ This index is the canonical map of BDDK MCP documentation. Documents are grouped
 
 ## Start here
 
-- [Project overview and Turkish quick start](../README.md)
-- [English operational guide](../README.en.md)
+- [Turkish overview for bank users](../README.md)
+- [English overview for bank users](../README.en.md)
 - [Current repository status](STATUS.md)
 - [Repository structure](REPOSITORY_STRUCTURE.md)
 - [Contributing](../CONTRIBUTING.md)

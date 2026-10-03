@@ -204,7 +204,7 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
                 Sermaye Yeterliliği, Faizsiz Bankacılık, Tekdüzen Hesap Planı,
                 Kurul Kararı, Kanun, Banka Kartları,
                 Finansal Kiralama ve Faktoring, BDDK Düzenlemesi,
-                Düzenleme Taslağı, Mülga Düzenleme
+                Düzenleme Taslağı, Mülga Düzenleme, Muhasebe Standardı
             date_from: Optional start date filter (DD.MM.YYYY)
             date_to: Optional end date filter (DD.MM.YYYY)
         """

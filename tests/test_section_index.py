@@ -53,6 +53,17 @@ def test_extracts_gecici_madde_and_ek_headings():
     assert ("ek", "2") in refs
 
 
+def test_heading_with_marker_after_the_number():
+    text = (
+        "MADDE 7$^{(1)}$ – (Değişik:RG-14/10/2012-28441)\nHüküm.\n\nGeçici Madde 32$^{[71]}$ – (Ek:17/7/2019)\nHüküm."
+    )
+
+    refs = {(s.section_type, s.section_ref) for s in extract_document_sections("doc", text)}
+
+    assert ("madde", "7") in refs
+    assert ("gecici_madde", "32") in refs
+
+
 def test_no_sections_for_plain_text():
     assert extract_document_sections("doc", "Sadece normal paragraf.") == []
 

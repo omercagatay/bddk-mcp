@@ -1,30 +1,39 @@
 schema_version: 1
-manifest_id: bddk-job-corpus-quality-repairs-local-v6-2026-09-21
+manifest_id: bddk-job-corpus-kgk-tms12-pdf-rebuilds-local-v10-2026-10-02
 selection_owner: project_owner
 purpose: >-
-  Owner-delegated technical refresh of the existing job-specific corpus for
-  Turkish banking-regulation research, compliance, internal-audit, retrieval,
-  and model/tool-calling evaluation. Canonical source text is unchanged;
-  this refresh is not new source acquisition or independent human legal validation.
+  Job-specific corpus for Turkish banking-regulation research, compliance,
+  internal-audit, retrieval, and model/tool-calling evaluation. This release
+  adds one owner-selected KGK accounting standard, TMS 12 Gelir Vergileri,
+  acquired once as a public PDF outside the live ingestion allowlist, and rebuilds
+  twenty mevzuat.gov.tr texts whose extraction scrambled justified lines or table
+  cells or dropped image formulas from their official PDFs: regulations
+  mevzuat_22599, 16071, 39171, 40203, 40519, 20645, 10522, 38416, 10731, 42359,
+  38568, 23228, 11203, 10746, 38797 and 42628, communiqué mevzuat_11201, and laws
+  mevzuat_5411, 6362 and 5464; other canonical source text is unchanged. It is not
+  independent human legal validation.
   This selection is intentionally narrower than the complete BDDK corpus.
 exhaustive: false
 included_source_classes:
   - Selected public BDDK regulations, communiques, circulars, guides, decisions, and drafts
   - Selected public Turkish banking-law texts linked from official regulatory sources
+  - Selected public KGK Turkish Accounting Standards relevant to bank financial reporting
 excluded_source_classes:
   - Exhaustive historical BDDK and Official Gazette coverage
   - Bank-internal policies, controls, workpapers, findings, and supervisory correspondence
   - Unselected case law, secondary commentary, and non-banking legislation
+  - The complete KGK TMS/TFRS standard set and its basis-for-conclusions material
 known_gaps:
+  - KGK standards are indexed as body windows, not numbered paragraphs, and their legal currentness is not modeled
   - Legal publication, effective, amendment, repeal, supersession, and consolidation status is not authoritatively modeled
   - Page, table, image, annex, and formula fidelity is not uniformly audit-grade
   - Freshness objectives are quantified but not measured against per-document source events; no live monitoring pipeline exists
   - Selection completeness has not been independently reconciled against an authoritative full-source inventory
 freshness:
   source_observed_start: "2026-04-08T16:50:25.439181Z"
-  source_observed_end: "2026-09-21T06:15:07.405867Z"
-  corpus_built_at: "2026-09-21T06:31:11.556390Z"
-  scope_reviewed_at: "2026-09-21T06:42:13+00:00"
+  source_observed_end: "2026-09-29T13:56:02Z"
+  corpus_built_at: "2026-09-29T15:45:38.433080Z"
+  scope_reviewed_at: "2026-10-02T19:40:35.162198+00:00"
   business_expectation: quarterly-reviewed batch corpus with quantified objectives
   source_detection_slo_seconds: 604800
   publication_slo_seconds: 1209600
@@ -33,21 +42,21 @@ freshness:
 artifacts:
   - role: documents
     path: documents.json
-    sha256: b7e3e7b4c1462f1415c2745336451bdee4b1e5562806913569ac35961a7d7926
-    bytes: 8709608
-    records: 318
+    sha256: 51dd56baceca45d34d119bc8c74342fb8dfa8f5efe2152eaae7393ba02c5bce4
+    bytes: 8775654
+    records: 319
   - role: chunks
     path: chunks.json
-    sha256: b569040a797baeff426f72b7745bee2c78e2681417a446c0dd52f26c9af09dcd
-    bytes: 19339994
-    records: 13544
+    sha256: b39b63306564e348d9f6c39ce5b2c91263cf1148c553378001d0ed268372cce9
+    bytes: 19426698
+    records: 13558
   - role: decision_cache
     path: decision_cache.json
-    sha256: 9e5677b1a2ffc9fe9d5ed122a90171c896e5f14ee83d958b724e1d2b8b8fd894
-    bytes: 153040
-    records: 318
+    sha256: 05cad5feb3557d9900b4d49640ef3b0bfc2320141c3060bb7f26516a3a0973f2
+    bytes: 153379
+    records: 319
 integrity:
-  manifest_sha256: "e41c174503e6954f2706797540e24767edd995447bc4636aa59a7f34b83ef417"
+  manifest_sha256: "db4def3bc160c80b5caac0d66c486935b1596691f8fd6dd6afd6e4688ff047af"
   signature_status: verified
   signature_algorithm: ed25519
   signature_reference: corpus_scope.sig

@@ -14,6 +14,7 @@ from bddk_mcp.quality.markdown_quality import (
     FORMULA_EXTRACTION_WARNING as _DEGRADED_WARNING,
 )
 from bddk_mcp.quality.markdown_quality import is_formula_aware as _is_formula_aware
+from bddk_mcp.quality.markdown_quality import mentions_formula as _mentions_formula
 from bddk_mcp.quality.markdown_quality import quality_assessment_from_metadata, unsafe_verbatim_reason
 from bddk_mcp.store.legal_ref import document_id_candidates
 from bddk_mcp.tools.errors import INVALID_INPUT, NOT_FOUND, tool_error
@@ -239,7 +240,8 @@ def register(
         else:
             content = sanitized_pages[0].content
 
-        degraded = bool(extraction_method) and not formula_aware
+        returned_text = "\n".join(page_content for _page, page_content in page_contents)
+        degraded = bool(extraction_method) and not formula_aware and _mentions_formula(returned_text)
         method_display = extraction_method or "unknown"
         if degraded:
             method_display = f"{method_display} (formula-unaware — equations/images may be missing)"

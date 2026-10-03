@@ -120,11 +120,7 @@ previously used, wrong-epoch, changed-state, or non-ready request before
 appending the v0005-compatible release and activation plus the v0008 request
 binding. The legacy `publish-corpus-release` CLI is deliberately disabled; it
 is not a fallback for failed staging. Any later corpus mutation advances the
-corpus epoch and invalidates the active view. The tracked manifest is mid-re-signing: `bddk-job-corpus-2026-08-14` was
-Ed25519-signed and quantified, but the v5 section parser regenerates 10,483
-chunks rather than 9,675, so the staged `bddk-job-corpus-2026-08-26` manifest
-is `signature_status: not_configured` until the owner reviews the delta and
-signs it (gap register CUR-018). Strict publication fails closed until then.
+corpus epoch and invalidates the active view. Current corpus identity, counts, and limits are in [Current Repository Status](STATUS.md). The August 2026 note that a staged manifest was still unsigned is retired; CUR-018 closed that snapshot drift, and STATUS records the later signed quality-repair checkpoint as quantified and explicitly unmeasured. That checkpoint is not legal approval or bank production acceptance. Changing seed files does not itself publish a release. Strict publication still fails closed until `verify-and-stage-corpus-release` and `activate-corpus-release` pass for the exact artifacts.
 
 Schema v10 admits exactly two `freshness_policy_result` values:
 `quantified_measured_signature_verified_pass` and the explicitly weaker

@@ -375,6 +375,57 @@ Page 18’s $K^{*}=\mathrm{maksimum}\{0, [(\Sigma K - \Sigma T) + (RMD)]\}$ was 
 intact. Printed `maksimum` and `0,4` are kept. Patch: [`1312.json`](1312.json).
 Not fail-listed; scanner `malformed_table_rows` 3→0. Unpublished.
 
+## Seven mevzuat.gov.tr regulations rebuilt from their official PDFs
+
+markitdown split widely spaced justified lines and pushed their words out of order in
+`mevzuat_22599` (Karşılık Yönetmeliği: Madde 6/5 had lost `donuk alacakların sınıf
+değişikliğine` to the end of the fıkra, plus nine other spans), `mevzuat_16071`, `39171`,
+`40203`, `40519`, `20645` and `10522`. `mevzuat_22599` Madde 15/1(a)'s collateral-ratio
+table is an image on page 10 with no text layer and was missing. Each document is rebuilt
+from the PDF the stored text came from (same byte size as the stored download): physical
+lines from word coordinates, paragraphs from indentation, footnote markers as `$^{(n)}$`,
+tables and forms as reviewed Markdown blocks whose words must equal the PDF lines they
+replace. All 84 pages were compared visually; the image table was transcribed visually.
+Outside blocks, the non-whitespace text equals the PDF text layer. Printed anomalies (for
+example Madde 6/5's missing period) are kept. Script: `scripts/rebuild_mevzuat_from_pdf.py`.
+Patches, with every changed span against the stored text: `mevzuat_<id>.json`.
+Signed in the v8 manifest.
+
+## Thirteen more mevzuat.gov.tr texts rebuilt from their official PDFs
+
+A scan of the remaining `markitdown_degraded` documents found the same scrambling in
+regulations `mevzuat_38416`, `10731`, `42359`, `38568`, `23228`, `11203`, `10746` and
+`38797`, in the Bankacılık Kanunu (`mevzuat_5411`) and the Sermaye Piyasası Kanunu
+(`mevzuat_6362`), and in `mevzuat_42628` (BHFOR Yönetmeliği), whose 34 formulas are
+images that the stored text had dropped. In the communiqué `mevzuat_11201` and the Banka
+Kartları ve Kredi Kartları Kanunu (`mevzuat_5464`) only the table cells were scrambled.
+All thirteen are rebuilt with the same script and checks; all 196 pages were compared
+visually.
+
+- The three laws and the communiqué have no static PDF on mevzuat.gov.tr. Their source is
+  `File/GeneratePdf`, which is regenerated on every request, so it is not
+  byte-reproducible: the reviewed copies are kept as
+  `native-sources/<n>-generated.pdf.gz` (5411, 6362, 5464, 11201), and each one's
+  word count matches the stored text (same consolidated version). Their cadre,
+  amendment and identification tables are in `native-sources/mevzuat_<id>-tables.json`. The table
+  header GeneratePdf repeats on continuation pages is drawn over the first rows;
+  it is page furniture and is dropped.
+- `mevzuat_42628`'s formulas were read from 400 dpi crops and written as LaTeX
+  (`native-sources/mevzuat_42628-formulas.json`: page, position, pixel size, image
+  SHA-256 and LaTeX for each). Inline formulas are `$...$`; a display line becomes
+  one `$$...$$` block with its text-layer words. Subscripts set in the text layer
+  are `$_{0,p}$`. The source's own notation is kept. This is an assistant's visual
+  reading; the images have no text layer to check it against. Extraction method:
+  `manual_pdf+manual_latex`.
+- `bddk_mcp/store/section_index.py` now accepts a marker right after an article
+  number (`MADDE 7$^{(1)}$ –`, `Geçici Madde 32$^{[71]}$ –`), so those articles
+  keep their sections.
+- The `*-rg-box-interleave.json` receipts for 10731, 10746 and 42359 were never
+  applied on their own; the rebuilds carry them
+  (`test_rg_box_receipts_are_carried_by_the_seed`).
+
+Printed anomalies are listed in each receipt and kept. Signed in the v10 manifest.
+
 ## Historical publication handoff (unsigned at preparation)
 
 Fifty source-reviewed candidates are applied only to a local copy at

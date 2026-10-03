@@ -253,6 +253,8 @@ The live phase does not use the server's MCP route and can treat transport error
 
 The existing license grants the commercial rights the product objective seeks to restrict. This is a direct strategic/legal conflict that code changes cannot solve retroactively.
 
+2026-10-02: the owner moved versions after commit `aa62301` to the PolyForm Noncommercial License 1.0.0 and made the GitHub repository private; commercial use now needs a separate written license. Versions already published under MIT keep their MIT grant, and counsel review of the change is still pending, so the finding stays open.
+
 ### OPS-005
 
 OpenShift AI is now the confirmed bank deployment target, no external endpoint protection is currently confirmed, and the repository contains no target-platform security or operational contract. Carrying the current all-interface, unauthenticated, broad-DB-role defaults into the bank environment would create a direct deployment risk, so this is High rather than a generic documentation enhancement.

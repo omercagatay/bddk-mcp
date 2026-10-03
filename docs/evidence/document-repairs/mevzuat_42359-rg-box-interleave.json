@@ -1,0 +1,26 @@
+{
+ "document_id": "mevzuat_42359",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "repair_class": "rg_box_interleave_structural_repair",
+ "source_url": "https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=42359&MevzuatTur=7&MevzuatTertip=5",
+ "original_markdown_sha256": "c21c18d9b0ee0ff1dacb4bd8c031d7ea4faa592eede300f43c3a9f26a402308e",
+ "candidate_markdown_sha256": "55fe6c19387d675cd821024567e9b26bb5c80bcba01b5dddba5c731cae9f8cbc",
+ "extraction_method_after": "markitdown_degraded+structural_repair",
+ "source_verification": [
+  "https://www.resmigazete.gov.tr/eskiler/2025/04/20250409-3.htm",
+  "https://www.lexpera.com.tr/mevzuat/yonetmelikler/kalkinma-ve-yatirim-bankalarinin-kredi-musterilerinden-ortakliklarindan-ve-ortaklarindan-1"
+ ],
+ "replacements": [
+  {
+   "old": "g) Nitelikli pay: Kanunun 3 üncü maddesinde tanımlanan nitelikli payı,\nve\nğ) Özkaynak: 5/9/2013 tarihli\n\n28756\n\nsayılı\nbelirlenen\n\nResmî\nusul\n\nGazete’de\nesaslar\n\nve\n\nyayımlanan\nçerçevesinde\n\nBankaların Özkaynaklarına İlişkin\nhesaplanan özkaynağı,\nifade eder.\n",
+   "new": "g) Nitelikli pay: Kanunun 3 üncü maddesinde tanımlanan nitelikli payı,\nğ) Özkaynak: 5/9/2013 tarihli ve 28756 sayılı Resmî Gazete’de yayımlanan Bankaların Özkaynaklarına İlişkin Yönetmelikte belirlenen usul ve esaslar çerçevesinde hesaplanan özkaynağı,\nifade eder.\n",
+   "start": 2593,
+   "end": 2852
+  }
+ ],
+ "derived_artifacts": {
+  "chunks_regenerated_with": "scripts/regen_chunks_seed.py (vector_store._chunk_document; BDDK_EMBEDDING_MODEL_PATH=quality_reports/repair-audit/embedding_model)",
+  "manifest_declaration_updated": "seed_data/corpus_scope.yml artifacts sha256/bytes for documents.json and chunks.json",
+  "signature_pending": "Owner must re-sign via scripts/sign_corpus_manifest.py --private-key (key held outside Git by selection owner)."
+ }
+}

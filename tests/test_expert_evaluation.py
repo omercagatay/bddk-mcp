@@ -197,7 +197,7 @@ def test_tracked_pilot_is_complete_but_explicitly_draft() -> None:
     assert len(dataset.cases) == 20
     assert len({case.case_id for case in dataset.cases}) == 20
     assert len({case.domain for case in dataset.cases}) >= 5
-    assert dataset.dataset_version.endswith("-draft.4")
+    assert dataset.dataset_version.endswith("-draft.8")
     assert dataset.approval.state == "draft"
     assert all(case.approval.state == "draft" for case in dataset.cases)
     assert all(len(case.annotations) >= 2 for case in dataset.cases)
@@ -316,13 +316,13 @@ def _write_signed_legal_pack(
     *,
     private_key: Ed25519PrivateKey | None = None,
     trusted_key_bytes: bytes | None = None,
-    attested_at: str = "2026-09-22T13:00:00Z",
+    attested_at: str = "2026-10-02T20:17:00Z",
 ) -> tuple[Path, Path, Path, str]:
     pack = {
         "schema_version": 1,
         "export_id": "legal-pack-test-v1",
         "source_relation": "public.regulatory_validated_section_citations",
-        "exported_at": "2026-09-22T12:30:00Z",
+        "exported_at": "2026-10-02T20:16:00Z",
         "citations": [citation],
     }
     pack_path = tmp_path / "validated-legal-pack.yml"
@@ -373,7 +373,7 @@ def test_separately_signed_legal_pack_attests_the_exact_citation_inventory(tmp_p
         validated_legal_pack_path=pack_path,
         legal_attestation_path=attestation_path,
         trusted_legal_attestation_key=trusted_key,
-        now=datetime(2026, 9, 23, tzinfo=UTC),
+        now=datetime(2026, 10, 3, tzinfo=UTC),
     )
 
     assert validation.legal_attestation_verified is True
@@ -420,7 +420,7 @@ def test_same_ed25519_key_with_different_pem_bytes_is_not_a_separate_signer(tmp_
         validated_legal_pack_path=pack_path,
         legal_attestation_path=attestation_path,
         trusted_legal_attestation_key=curator_key,
-        now=datetime(2026, 9, 23, tzinfo=UTC),
+        now=datetime(2026, 10, 3, tzinfo=UTC),
     )
 
     assert validation.dataset_signing_key_fingerprint_sha256
@@ -474,7 +474,7 @@ def _write_legal_release_checkpoint(
             "blob_id": citation["artifact_blob_id"],
             "canonical_uri": citation["source_url"],
             "retrieved_at": citation["artifact_retrieved_at"],
-            "captured_at": "2026-09-22T12:15:00Z",
+            "captured_at": "2026-10-02T20:15:00Z",
             "source_authority": "BDDK",
             "media_type": "text/markdown",
             "response_status": 200,
@@ -508,7 +508,7 @@ def _write_legal_release_checkpoint(
             }
         ],
         "reviewed_by_role": "legal_source_reviewer",
-        "reviewed_at": "2026-09-22T13:30:00Z",
+        "reviewed_at": "2026-10-02T20:18:00Z",
     }
     if reviewer_owner_id is not None:
         page_proof["reviewed_by_owner_id"] = reviewer_owner_id
@@ -581,7 +581,7 @@ def _write_legal_release_checkpoint(
             **checkpoint_common,
             "artifacts": oldest_artifacts,
             "checkpoint_id": "legal-release-test-oldest",
-            "created_at": "2026-09-22T13:35:00Z",
+            "created_at": "2026-10-02T20:19:00Z",
             "predecessor_checkpoint_sha256": None,
             "predecessor_checkpoint_reference": None,
         },
@@ -594,7 +594,7 @@ def _write_legal_release_checkpoint(
             **checkpoint_common,
             "artifacts": predecessor_artifacts,
             "checkpoint_id": "legal-release-test-predecessor",
-            "created_at": "2026-09-22T13:45:00Z",
+            "created_at": "2026-10-02T20:20:00Z",
             "predecessor_checkpoint_sha256": oldest_sha256,
             "predecessor_checkpoint_reference": "legal-release-oldest.yml",
         },
@@ -606,7 +606,7 @@ def _write_legal_release_checkpoint(
         {
             **checkpoint_common,
             "checkpoint_id": "legal-release-test-v1",
-            "created_at": "2026-09-22T14:00:00Z",
+            "created_at": "2026-10-02T20:21:00Z",
             "predecessor_checkpoint_sha256": predecessor_sha256,
             "predecessor_checkpoint_reference": "legal-release-predecessor.yml",
         },
@@ -655,7 +655,7 @@ def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_la
         trusted_legal_release_signing_key=release_key,
         predecessor_legal_release_checkpoint_path=predecessor_path,
         trusted_latest_legal_checkpoint_sha256=latest_hash,
-        now=datetime(2026, 9, 23, tzinfo=UTC),
+        now=datetime(2026, 10, 3, tzinfo=UTC),
     )
 
     assert validation.legal_release_evidence_verified is True
@@ -676,7 +676,7 @@ def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_la
             trusted_legal_release_signing_key=release_key,
             predecessor_legal_release_checkpoint_path=predecessor_path,
             trusted_latest_legal_checkpoint_sha256="f" * 64,
-            now=datetime(2026, 9, 23, tzinfo=UTC),
+            now=datetime(2026, 10, 3, tzinfo=UTC),
         )
 
     without_external_latest = load_expert_evaluation_dataset(
@@ -688,7 +688,7 @@ def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_la
         legal_release_source_root=source_root,
         trusted_legal_release_signing_key=release_key,
         predecessor_legal_release_checkpoint_path=predecessor_path,
-        now=datetime(2026, 9, 23, tzinfo=UTC),
+        now=datetime(2026, 10, 3, tzinfo=UTC),
     )
     assert without_external_latest.legal_release_evidence_verified is True
     assert without_external_latest.legal_release_latest_checkpoint_verified is False
@@ -705,7 +705,7 @@ def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_la
             legal_release_source_root=source_root,
             trusted_legal_release_signing_key=release_key,
             predecessor_legal_release_checkpoint_path=unrelated_predecessor,
-            now=datetime(2026, 9, 23, tzinfo=UTC),
+            now=datetime(2026, 10, 3, tzinfo=UTC),
         )
 
     predecessor_bytes = predecessor_path.read_bytes()
@@ -719,7 +719,7 @@ def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_la
             legal_release_checkpoint_path=checkpoint_path,
             legal_release_source_root=source_root,
             trusted_legal_release_signing_key=release_key,
-            now=datetime(2026, 9, 23, tzinfo=UTC),
+            now=datetime(2026, 10, 3, tzinfo=UTC),
         )
     predecessor_path.write_bytes(predecessor_bytes)
 
@@ -734,7 +734,7 @@ def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_la
             legal_release_checkpoint_path=checkpoint_path,
             legal_release_source_root=source_root,
             trusted_legal_release_signing_key=release_key,
-            now=datetime(2026, 9, 23, tzinfo=UTC),
+            now=datetime(2026, 10, 3, tzinfo=UTC),
         )
     oldest_path.write_bytes(oldest_bytes)
 
@@ -749,7 +749,7 @@ def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_la
             legal_release_checkpoint_path=checkpoint_path,
             legal_release_source_root=source_root,
             trusted_legal_release_signing_key=release_key,
-            now=datetime(2026, 9, 23, tzinfo=UTC),
+            now=datetime(2026, 10, 3, tzinfo=UTC),
         )
     oldest_source.write_bytes(oldest_source_bytes)
 
@@ -765,7 +765,7 @@ def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_la
             legal_release_checkpoint_path=checkpoint_path,
             legal_release_source_root=source_root,
             trusted_legal_release_signing_key=release_key,
-            now=datetime(2026, 9, 23, tzinfo=UTC),
+            now=datetime(2026, 10, 3, tzinfo=UTC),
         )
     historical_source.write_bytes(historical_bytes)
 
@@ -780,7 +780,7 @@ def test_legal_release_checkpoint_binds_source_acquisition_pages_and_external_la
             legal_release_source_root=source_root,
             trusted_legal_release_signing_key=release_key,
             predecessor_legal_release_checkpoint_path=predecessor_path,
-            now=datetime(2026, 9, 23, tzinfo=UTC),
+            now=datetime(2026, 10, 3, tzinfo=UTC),
         )
 
 
@@ -815,7 +815,7 @@ def test_legal_release_chain_accepts_an_explicit_rotated_predecessor_key(tmp_pat
             trusted_legal_release_signing_key=release_key,
             predecessor_legal_release_checkpoint_path=predecessor_path,
             trusted_latest_legal_checkpoint_sha256=latest_hash,
-            now=datetime(2026, 9, 23, tzinfo=UTC),
+            now=datetime(2026, 10, 3, tzinfo=UTC),
         )
 
     validation = load_expert_evaluation_dataset(
@@ -829,7 +829,7 @@ def test_legal_release_chain_accepts_an_explicit_rotated_predecessor_key(tmp_pat
         trusted_legal_release_predecessor_signing_keys=predecessor_keys,
         predecessor_legal_release_checkpoint_path=predecessor_path,
         trusted_latest_legal_checkpoint_sha256=latest_hash,
-        now=datetime(2026, 9, 23, tzinfo=UTC),
+        now=datetime(2026, 10, 3, tzinfo=UTC),
     )
 
     assert validation.legal_release_chain_checkpoint_count == 3
@@ -857,7 +857,7 @@ def test_legal_release_chain_accepts_an_explicit_rotated_predecessor_key(tmp_pat
             trusted_legal_release_predecessor_signing_keys=[release_key],
             predecessor_legal_release_checkpoint_path=predecessor_path,
             trusted_latest_legal_checkpoint_sha256=latest_hash,
-            now=datetime(2026, 9, 23, tzinfo=UTC),
+            now=datetime(2026, 10, 3, tzinfo=UTC),
         )
 
     with pytest.raises(ExpertEvaluationError, match="duplicate signer"):
@@ -872,7 +872,7 @@ def test_legal_release_chain_accepts_an_explicit_rotated_predecessor_key(tmp_pat
             trusted_legal_release_predecessor_signing_keys=[release_key],
             predecessor_legal_release_checkpoint_path=predecessor_path,
             trusted_latest_legal_checkpoint_sha256=latest_hash,
-            now=datetime(2026, 9, 23, tzinfo=UTC),
+            now=datetime(2026, 10, 3, tzinfo=UTC),
         )
 
 
@@ -905,7 +905,7 @@ def test_page_mapping_v2_retains_policy_authorizable_reviewer_history(tmp_path: 
         trusted_legal_release_signing_key=release_key,
         predecessor_legal_release_checkpoint_path=predecessor_path,
         trusted_latest_legal_checkpoint_sha256=latest_hash,
-        now=datetime(2026, 9, 23, tzinfo=UTC),
+        now=datetime(2026, 10, 3, tzinfo=UTC),
     )
 
     assert len(validation.legal_source_reviews) == 3
@@ -945,7 +945,7 @@ def test_page_mapping_v2_requires_a_reviewer_owner_identity(tmp_path: Path) -> N
             legal_release_source_root=source_root,
             trusted_legal_release_signing_key=release_key,
             trusted_latest_legal_checkpoint_sha256=latest_hash,
-            now=datetime(2026, 9, 23, tzinfo=UTC),
+            now=datetime(2026, 10, 3, tzinfo=UTC),
         )
 
 
@@ -1048,7 +1048,7 @@ def test_legal_release_parses_the_exact_acquisition_bytes_that_were_hash_checked
         legal_release_source_root=source_root,
         trusted_legal_release_signing_key=release_key,
         trusted_latest_legal_checkpoint_sha256=latest_hash,
-        now=datetime(2026, 9, 23, tzinfo=UTC),
+        now=datetime(2026, 10, 3, tzinfo=UTC),
     )
 
     assert validation.legal_release_evidence_verified is True
@@ -1090,7 +1090,7 @@ def test_legal_release_rejects_an_excerpt_absent_from_its_signed_page_mapping(tm
             legal_release_checkpoint_path=checkpoint_path,
             legal_release_source_root=source_root,
             trusted_legal_release_signing_key=release_key,
-            now=datetime(2026, 9, 23, tzinfo=UTC),
+            now=datetime(2026, 10, 3, tzinfo=UTC),
         )
 
 
@@ -1155,7 +1155,7 @@ def test_legal_release_checkpoint_must_follow_curator_attestation(tmp_path: Path
     pack_path, attestation_path, curator_key, _ = _write_signed_legal_pack(
         tmp_path,
         citation,
-        attested_at="2026-09-22T14:30:00Z",
+        attested_at="2026-10-02T20:22:00Z",
     )
     checkpoint_path, release_key, _, source_root, _, _, _ = _write_legal_release_checkpoint(
         tmp_path,
@@ -1173,7 +1173,7 @@ def test_legal_release_checkpoint_must_follow_curator_attestation(tmp_path: Path
             legal_release_checkpoint_path=checkpoint_path,
             legal_release_source_root=source_root,
             trusted_legal_release_signing_key=release_key,
-            now=datetime(2026, 9, 23, tzinfo=UTC),
+            now=datetime(2026, 10, 3, tzinfo=UTC),
         )
 
 
@@ -1197,12 +1197,12 @@ def test_legal_release_checkpoint_must_follow_corpus_scope_approval(tmp_path: Pa
             trusted_signing_key=release_key,
             source_root=source_root,
             legal_pack_sha256=hashlib.sha256(pack_path.read_bytes()).hexdigest(),
-            legal_pack_exported_at=datetime(2026, 9, 22, 12, 30, tzinfo=UTC),
-            legal_pack_attested_at=datetime(2026, 9, 22, 13, 0, tzinfo=UTC),
+            legal_pack_exported_at=datetime(2026, 10, 2, 20, 16, tzinfo=UTC),
+            legal_pack_attested_at=datetime(2026, 10, 2, 20, 17, tzinfo=UTC),
             corpus_manifest_sha256=raw["corpus"]["manifest_sha256"],
-            corpus_approved_at=datetime(2026, 9, 22, 14, 30, tzinfo=UTC),
+            corpus_approved_at=datetime(2026, 10, 2, 20, 22, tzinfo=UTC),
             citations=[CitationV1.model_validate(citation)],
-            now=datetime(2026, 9, 23, tzinfo=UTC),
+            now=datetime(2026, 10, 3, tzinfo=UTC),
         )
 
 
@@ -1265,7 +1265,7 @@ def test_future_annotation_timestamp_fails_dataset_integrity(tmp_path: Path) -> 
     path = _write_sealed_dataset(tmp_path, raw)
 
     with pytest.raises(ExpertEvaluationError, match="annotation timestamp is outside"):
-        load_expert_evaluation_dataset(path, now=datetime.fromisoformat("2026-09-23T00:00:00+03:00"))
+        load_expert_evaluation_dataset(path, now=datetime.fromisoformat("2026-10-03T00:00:00+03:00"))
 
 
 def test_verified_dataset_signature_requires_a_separate_trust_anchor(tmp_path: Path) -> None:

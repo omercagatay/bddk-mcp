@@ -39,7 +39,7 @@ def exact_probe(document: dict) -> str:
 
 
 def test_seed_corpus_snapshot_is_complete_and_self_consistent():
-    assert len(SEED_DOCUMENTS) == 318
+    assert len(SEED_DOCUMENTS) == 319
     ids = [d["document_id"] for d in SEED_DOCUMENTS]
     assert len(set(ids)) == len(ids)
     for document in SEED_DOCUMENTS:

@@ -7,7 +7,7 @@ name = "bddk-mcp"
 version = "5.0.1"
 description = "MCP server for BDDK regulatory intelligence — search, analytics, and monitoring (PostgreSQL + pgvector)"
 readme = "README.md"
-license = "MIT"
+license = "PolyForm-Noncommercial-1.0.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.12,<3.14"
 dependencies = [

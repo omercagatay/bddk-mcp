@@ -57,6 +57,8 @@ _HEADING_RE = re.compile(
     r"|(?P<ilke>ilke)\s+(?P<ilke_ref>\d+[A-Za-zÇĞİÖŞÜçğıöşü]?)"
     r"|(?P<paragraf>paragraf)\s+(?P<paragraf_ref>\d+[A-Za-zÇĞİÖŞÜçğıöşü]?)"
     r"|(?P<ek>ek)[-\s]*(?P<ek_ref>\d+[A-Za-zÇĞİÖŞÜçğıöşü]?))"
+    # A footnote/endnote marker printed right after the number ("MADDE 7$^{(1)}$ –").
+    r"(?:\$\^\{[^}]*\}\$)*"
     r"(?:\s*\*{1,3})?"
     r"\s*(?:[-:–—\x96\x97]\s*(?P<title>.*?))?"
     r"\s*\*{0,3}\s*$",

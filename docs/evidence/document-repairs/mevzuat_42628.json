@@ -1,0 +1,470 @@
+{
+ "document_id": "mevzuat_42628",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "repair_class": "full_rebuild_from_official_pdf",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "source_url": "https://mevzuat.gov.tr/mevzuat?MevzuatNo=42628&MevzuatTur=7&MevzuatTertip=5",
+ "source_pdf_url": "https://www.mevzuat.gov.tr/MevzuatMetin/yonetmelik/7.5.42628.pdf",
+ "source_pdf_kind": "static",
+ "source_pdf_sha256": "bfed75fef1a4e0d085a53fd36c4076201e3a5686b477aed5dcc03446a631533a",
+ "source_pdf_bytes": 295909,
+ "source_pdf_pages": 8,
+ "source_pdf_matches_stored_file_size": true,
+ "pages_visually_compared": "1-8",
+ "rebuilt_with": "scripts/rebuild_mevzuat_from_pdf.py",
+ "text_layer_check": "Outside reviewed blocks the non-whitespace character stream equals pdftotext -bbox-layout; each block's words equal the PDF lines it replaces",
+ "image_only_content": [],
+ "image_formulas": 34,
+ "image_formula_transcriptions": "native-sources/mevzuat_42628-formulas.json",
+ "image_formula_check": "Each PDF image is matched by page and bbox and placed once: inline as $...$ or inside a display $$...$$ block whose text-layer words are declared. The LaTeX is a visual reading of each image; images have no text layer to compare it with.",
+ "original_markdown_sha256": "1753bd25e591fa54270ee9ba4af95ec0d975e62a8459cc95f008870ec81e21b3",
+ "candidate_markdown_sha256": "0fb97901a6385d77566ff14281eddd0cc1c12a2523f0b4de0575cead97527e3b",
+ "extraction_method_after": "manual_pdf+manual_latex",
+ "layout_not_carried": [
+  "bold headings and table borders",
+  "formula fonts (bold, upright or italic letters); the formulas' symbols and notation are carried",
+  "footnote rules of 10 or more underscores are written with 7: their length is layout, and >=10 trips the long_underscore_run heuristic for fill-in blanks (same as the 16290 rebuild)"
+ ],
+ "source_anomalies_preserved": [
+  "Madde 7/4(b) and 7/5(b) print the scenario multiplier as 's' with the subscript 'i;' (the semicolon is set inside the subscript); kept as printed",
+  "Madde 9/1(c) sets a blank 3x18 px image between the two closing parentheses of '(F_{i,p}(t_o) )'",
+  "Madde 9/1(e) prints one closing parenthesis more than it opens ('EDD_{i,p}))}') and the summation index as 'p:EDD_{i,p}'; kept as printed",
+  "EK-1 prints the first vade orta noktası of the 1-month bucket as '(0,041 7 yıl)'; kept as printed",
+  "EK-2 writes decimals with a point (-0.65, 0.9, 0.8, 0.6) and 1(a) writes '(to)' without a subscript; kept as printed"
+ ],
+ "changed_spans_vs_stored_text": [
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "faiz oranı riski standart"
+  },
+  {
+   "op": "delete",
+   "stored": "faiz oranı standart riski",
+   "rebuilt": ""
+  },
+  {
+   "op": "replace",
+   "stored": "EK- 1’de",
+   "rebuilt": "EK-1’de"
+  },
+  {
+   "op": "delete",
+   "stored": "Gerçek kişi ve perakende müşteri / Hareketli Gerçek kişi ve perakende müşteri/ Hareketli olmayan Diğer kişi",
+   "rebuilt": ""
+  },
+  {
+   "op": "delete",
+   "stored": "90",
+   "rebuilt": ""
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "Gerçek kişi ve perakende müşteri / Hareketli 90"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "Gerçek kişi ve perakende müşteri/ Hareketli olmayan"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "4,5 Diğer kişi"
+  },
+  {
+   "op": "delete",
+   "stored": "4,5",
+   "rebuilt": ""
+  },
+  {
+   "op": "replace",
+   "stored": ")",
+   "rebuilt": "$KEO^{kp}_{0,p)"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "$$ KEO^{kp}_{i,p}"
+  },
+  {
+   "op": "replace",
+   "stored": "min (1,",
+   "rebuilt": "\\min(1, s_i \\ast KEO^{kp}_{0,p}) $$"
+  },
+  {
+   "op": "replace",
+   "stored": "si;",
+   "rebuilt": "s$_{i;"
+  },
+  {
+   "op": "delete",
+   "stored": ")",
+   "rebuilt": ""
+  },
+  {
+   "op": "delete",
+   "stored": "1 2 3 4 5 6",
+   "rebuilt": ""
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "s$_{i (Senaryo çarpanı) 1"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "0,8 2"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "1,2 3"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "0,8 4"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "1,2 5"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "0,8 6"
+  },
+  {
+   "op": "delete",
+   "stored": "si (Senaryo çarpanı) 0,8 1,2 0,8 1,2 0,8",
+   "rebuilt": ""
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "$$ NA^{kp}_{i,p}(t) = NA^{pl}_{i,p}(t) + KEO^{kp}_{i,p}(t) \\cdot B^{kp}_{i,p}(t - 1) $$"
+  },
+  {
+   "op": "replace",
+   "stored": ",",
+   "rebuilt": "$NA^{pl}_{i,p}(t)$,"
+  },
+  {
+   "op": "replace",
+   "stored": ")",
+   "rebuilt": "$pl$)"
+  },
+  {
+   "op": "replace",
+   "stored": "oranı şoku senaryolarını ifade eder. ,",
+   "rebuilt": "$B^{kp}_{i,p}(t - 1)$,"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "oranı şoku senaryolarını ifade eder."
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "$EKO^{mp}_{0,p"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "$$ EKO^{mp}_{i,p}"
+  },
+  {
+   "op": "replace",
+   "stored": "min(1,",
+   "rebuilt": "\\min(1, s_i \\ast EKO^{mp}_{0,p}) $$"
+  },
+  {
+   "op": "replace",
+   "stored": "si;",
+   "rebuilt": "s$_{i;"
+  },
+  {
+   "op": "delete",
+   "stored": ")",
+   "rebuilt": ""
+  },
+  {
+   "op": "delete",
+   "stored": "1 2 3 4 5 6",
+   "rebuilt": ""
+  },
+  {
+   "op": "replace",
+   "stored": "si",
+   "rebuilt": "s$_{i"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "1"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "1,2 2"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "0,8 3"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "0,8 4"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "1,2 5"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "1,2 6"
+  },
+  {
+   "op": "delete",
+   "stored": "1,2 0,8 0,8 1,2 1,2",
+   "rebuilt": ""
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "$$ NA^{mp}_{i,p}(t = \\text{gecelik}) = VM^{mp}_{0,p} \\cdot EKO^{mp}_{i,p} $$"
+  },
+  {
+   "op": "replace",
+   "stored": ",",
+   "rebuilt": "$NA^{mp}_{i,p}(t = \\text{gecelik})$,"
+  },
+  {
+   "op": "replace",
+   "stored": "6’ya kadar faiz oranı şoku senaryolarını ifade eder. ,",
+   "rebuilt": "$VM^{mp}_{0,p,"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "6’ya kadar faiz oranı şoku senaryolarını ifade eder."
+  },
+  {
+   "op": "delete",
+   "stored": ", (a) bendi uyarınca bulunan değerden",
+   "rebuilt": ""
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "$\\Delta OD^{so}_{i,p, (a) bendi uyarınca bulunan değerden"
+  },
+  {
+   "op": "replace",
+   "stored": ",",
+   "rebuilt": "$\\Delta OD^{ao}_{i,p,"
+  },
+  {
+   "op": "replace",
+   "stored": "(ORi,p)",
+   "rebuilt": "(OR$_{i,p)"
+  },
+  {
+   "op": "replace",
+   "stored": "ORi,p=",
+   "rebuilt": "$$ OR_{i,p} = \\sum_{so=1}^{n} \\Delta OD^{so}_{i,p} - \\sum_{ao=1}^{m} \\Delta OD^{ao}_{i,p} $$"
+  },
+  {
+   "op": "replace",
+   "stored": "(NAi,p(t))",
+   "rebuilt": "(NA$_{i,p(t))"
+  },
+  {
+   "op": "replace",
+   "stored": "(to)",
+   "rebuilt": "(t$_{o)"
+  },
+  {
+   "op": "replace",
+   "stored": "(İO0,p(to))",
+   "rebuilt": "(İO$_{0,p(t$_{o))"
+  },
+  {
+   "op": "replace",
+   "stored": "İO0,p(to)",
+   "rebuilt": "$$ \\text{İO}_{0,p}(t_o)"
+  },
+  {
+   "op": "replace",
+   "stored": "exp(-F0,p(to) to)",
+   "rebuilt": "\\exp(-F_{0,p}(t_o) \\ast t_o) $$"
+  },
+  {
+   "op": "replace",
+   "stored": "(F0,p(to))",
+   "rebuilt": "(F$_{0,p(t$_{o))"
+  },
+  {
+   "op": "replace",
+   "stored": "(to)",
+   "rebuilt": "(t$_{o)"
+  },
+  {
+   "op": "replace",
+   "stored": "(İOi,p(to))",
+   "rebuilt": "(İO$_{i,p(t$_{o))"
+  },
+  {
+   "op": "replace",
+   "stored": "İOi,p(to)",
+   "rebuilt": "$$ \\text{İO}_{i,p}(t_o)"
+  },
+  {
+   "op": "replace",
+   "stored": "exp(-Fi,p(to) to)",
+   "rebuilt": "\\exp(-F_{i,p}(t_o) \\ast t_o) $$"
+  },
+  {
+   "op": "replace",
+   "stored": "(Fi,p(to) )",
+   "rebuilt": "(F$_{i,p(t$_{o))"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "$$ ED_{i,p} = \\sum_{t=1}^{19} NA_{i,p}(t) \\cdot \\text{İO}_{i,p}(t_o) $$"
+  },
+  {
+   "op": "replace",
+   "stored": "EDDi,p",
+   "rebuilt": "$$ EDD_{i,p}"
+  },
+  {
+   "op": "replace",
+   "stored": "ORi,p",
+   "rebuilt": "\\sum_{t=1}^{19} NA_{0,p}(t) \\cdot \\text{İO}_{0,p}(t_o) - \\sum_{t=1}^{19} NA_{i,p}(t) \\cdot \\text{İO}_{i,p}(t_o) + OR_{i,p} $$"
+  },
+  {
+   "op": "replace",
+   "stored": "ORi,p",
+   "rebuilt": "OR$_{i,p"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "için eklenti tutarı, $NA_{0,p"
+  },
+  {
+   "op": "delete",
+   "stored": "için eklenti tutarı,",
+   "rebuilt": ""
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "$\\text{İO}_{0,p}(t_o)$ para birimi veya faizle ilişkilendirilen emtia bazında cari"
+  },
+  {
+   "op": "replace",
+   "stored": "para birimi veya faizle ilişkilendirilen emtia bazında cari",
+   "rebuilt": "$$ \\text{EDD risk tutarı} = \\max_{i \\in \\{1,2,\\ldots,6\\}} \\{\\max(0; \\sum_{p:EDD_{i,p}} EDD_{i,p}))\\} $$"
+  },
+  {
+   "op": "replace",
+   "stored": "(to,",
+   "rebuilt": "(t$_{o,"
+  },
+  {
+   "op": "delete",
+   "stored": "Vade Orta Vade Uzun",
+   "rebuilt": ""
+  },
+  {
+   "op": "delete",
+   "stored": "yıl) 2 yıl < t ≤ 3 yıl (2,5 yıl) 7 yıl < t ≤ 8 yıl (7,5",
+   "rebuilt": ""
+  },
+  {
+   "op": "delete",
+   "stored": "3 yıl < t ≤ 4 yıl (3,5 yıl) 8 yıl < t ≤ 9 yıl (8,5 yıl)",
+   "rebuilt": ""
+  },
+  {
+   "op": "delete",
+   "stored": "yıl) 4 yıl < t ≤ 5 yıl (4,5 yıl) 9 yıl < t ≤ 10 yıl (9,5",
+   "rebuilt": ""
+  },
+  {
+   "op": "delete",
+   "stored": "5 yıl < t ≤ 6 yıl (5,5 yıl) 10 yıl < t ≤ 15 yıl (12,5 yıl)",
+   "rebuilt": ""
+  },
+  {
+   "op": "delete",
+   "stored": "yıl) 6 yıl < t ≤ 7 yıl (6,5 yıl) 15 yıl < t ≤ 20 yıl (17,5",
+   "rebuilt": ""
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "yıl) Orta Vade 2 yıl < t ≤ 3 yıl (2,5 yıl) 3 yıl < t ≤ 4 yıl (3,5 yıl) 4 yıl < t ≤ 5 yıl (4,5 yıl) 5 yıl < t ≤ 6 yıl (5,5 yıl) 6 yıl < t ≤ 7 yıl (6,5 yıl) Uzun Vade 7 yıl < t ≤ 8 yıl (7,5 yıl) 8 yıl < t ≤ 9 yıl (8,5 yıl) 9 yıl < t ≤ 10 yıl (9,5 yıl) 10 yıl < t ≤ 15 yıl (12,5 yıl) 15 yıl < t ≤ 20 yıl (17,5"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "$$ \\Delta R_{\\text{paralel},p}(t_o) = \\pm \\bar{R}_{\\text{paralel},p} $$"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "$S_{\\text{kısa}}(t_o) = \\left(e^{\\frac{-t_o}{x}}\\right)$"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "$$ \\Delta R_{\\text{kısa},p}(t_o) = \\pm \\bar{R}_{\\text{kısa},p} . S_{\\text{kısa}}(t_o) = \\pm \\bar{R}_{\\text{kısa},p} . e^{\\frac{-t_o}{x}} $$"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "senaryoları belirlenir. Bu şoklar, $S_{\\text{uzun}}(t_o) = 1 - S_{\\text{kısa}}(t_o)$"
+  },
+  {
+   "op": "delete",
+   "stored": "senaryoları belirlenir. Bu şoklar,",
+   "rebuilt": ""
+  },
+  {
+   "op": "replace",
+   "stored": ",",
+   "rebuilt": "$S_{\\text{kısa}}(t_o)$,"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "$$ \\Delta R_{\\text{uzun},p}(t_o) = \\pm \\bar{R}_{\\text{uzun},p} . S_{\\text{uzun}}(t_o) = \\pm \\bar{R}_{\\text{uzun},p} . \\left(1 - e^{\\frac{-t_o}{x}}\\right) $$"
+  },
+  {
+   "op": "insert",
+   "stored": "",
+   "rebuilt": "$$ \\Delta R_{\\text{artan eğim},p}(t_o) = -0.65 . \\lvert \\Delta R_{\\text{kısa},p}(t_o) \\rvert + 0.9 . \\lvert \\Delta R_{\\text{uzun},p}(t_o) \\rvert $$ $$ \\Delta R_{\\text{azalan eğim},p}(t_o) = 0.8 . \\lvert \\Delta R_{\\text{kısa},p}(t_o) \\rvert - 0.6 . \\lvert \\Delta R_{\\text{uzun},p}(t_o) \\rvert $$"
+  }
+ ],
+ "replacements": [
+  {
+   "start": 0,
+   "end": 22557,
+   "old": "BANKACILIK HESAPLARINDAN KAYNAKLANAN FAİZ ORANI RİSKİNİN STANDART YAKLAŞIMLA\nÖLÇÜLMESİNE VE DEĞERLENDİRİLMESİNE İLİŞKİN YÖNETMELİK\n\nBİRİNCİ BÖLÜM\nBaşlangıç Hükümleri\n\nAmaç ve kapsam\nMADDE 1- (1) Bu Yönetmeliğin amacı ve kapsamı; bankacılık hesaplarında yer alan bilanço içi\nve  bilanço  dışı  pozisyonlardan  kaynaklanan  faiz  oranı  riskinin  standart  yaklaşımla  ölçülmesine  ve\ndeğerlendirilmesine ilişkin usul ve esasları düzenlemektir.\n\nDayanak\nMADDE 2- (1) Bu Yönetmelik, 19/10/2005 tarihli ve 5411 sayılı Bankacılık Kanununun 43 üncü,\n\n45 inci ve 93 üncü maddelerine dayanılarak hazırlanmıştır.\n\nTanımlar\nMADDE 3- (1) Bu Yönetmelikte geçen;\na)  Alım  satım  hesapları:  23/10/2015  tarihli  ve  29511  sayılı  Resmî  Gazete’de  yayımlanan\nBankaların  Sermaye  Yeterliliğinin  Ölçülmesine  ve  Değerlendirilmesine  İlişkin  Yönetmeliğin  3  üncü\nmaddesinde tanımlanan alım satım hesaplarını,\n\nb)  Ana  sermaye:  5/9/2013  tarihli  ve  28756  sayılı  Resmî  Gazete’de  yayımlanan  Bankaların\nÖzkaynaklarına  İlişkin  Yönetmelikte  belirlenen  usul  ve  esaslar  çerçevesinde  hesaplanacak  ana\nsermayeyi,\n\nc) Banka: Kanunun 3 üncü maddesinde tanımlanan bankaları,\nç)  Bankacılık  hesapları:  Bankaların  Sermaye  Yeterliliğinin  Ölçülmesine  ve  Değerlendirilmesine\n\nİlişkin Yönetmeliğin 3 üncü maddesinde tanımlanan bankacılık hesaplarını,\n\nd) Çekirdek sermaye: Bankaların Özkaynaklarına İlişkin Yönetmelikte belirlenen usul ve esaslar\n\nçerçevesinde hesaplanacak çekirdek sermayeyi,\n\ne)  Donuk  alacak:  22/6/2016  tarihli  ve  29750  sayılı  Resmî  Gazete’de  yayımlanan  Kredilerin\nSınıflandırılması  ve  Bunlar  İçin  Ayrılacak  Karşılıklara  İlişkin  Usul  ve  Esaslar  Hakkında  Yönetmeliğin  5\ninci maddesinde belirtilen alacakları,\n\nf) Kanun: 19/10/2005 tarihli ve 5411 sayılı Bankacılık Kanununu,\ng) Katılma hesabı: Kanunun 3 üncü maddesinde tanımlanan katılma hesabını,\nğ) Kurul: Bankacılık Düzenleme ve Denetleme Kurulunu,\nh) Kurum: Bankacılık Düzenleme ve Denetleme Kurumunu,\nı) Net pozisyon tutarı: Vade dilimleri itibarıyla faize duyarlı bankacılık hesaplarındaki aktifler ile\n\nyükümlülükler arasındaki farkı,\n\ni)  Opsiyonalite:  Opsiyonlarda  ya  da  gömülü  olarak  bilanço  içi  ve  bilanço  dışı  varlık  ve\nyükümlülüklerin  içinde bulunan,  bankanın nakit akışlarının zamanlamasını ve düzeyini değiştirebilen\nseçimlik hakkı,\n\nj)  Otomatik  faiz  oranı  opsiyonalitesi:  Davranışsal  unsurlar  içermeyip  rasyonel  beklentinin\n\nsağlanması halinde kullanılması beklenen, faiz oranına ilişkin olan opsiyonaliteyi,\n\nk)  Perakende  müşteri:  21/3/2014  tarihli  ve  28948  sayılı  Resmî  Gazete’de  yayımlanan\nBankaların  Likidite  Karşılama  Oranı  Hesaplamasına  İlişkin  Yönetmeliğin  14  üncü  maddesinin  birinci\nfıkrasında belirtilen müşterileri,\n\nifade eder.\n(2) Katılım esaslarına uygun faaliyette bulunan bankalar için; bu Yönetmelikte geçen mevduat\nibaresi  katılım  fonunu,  vadesiz  mevduat  ibaresi  özel  cari  hesabı,  vadeli  mevduat  ibaresi  katılma\nhesabını, faiz ibaresi kâr payını ifade eder.\n\nİKİNCİ BÖLÜM\nBankacılık Hesaplarından Kaynaklanan Faiz Oranı Riski Standart\nRasyosunun Hesaplanması\n\nBankacılık hesaplarından kaynaklanan faiz oranı riski standart rasyosu\nMADDE 4- (1) Bankacılık hesaplarından kaynaklanan faiz oranı riski standart rasyosu, ekonomik\n\ndeğer değişimi risk tutarının ana sermayeye bölünmesi suretiyle hesaplanır.\n\n(2)  Konsolide  ve  konsolide  olmayan bankacılık  hesaplarından  kaynaklanan  faiz  oranı  riski\n\nstandart rasyosu %15’i aşamaz.\n\n(3)  Bankacılık  hesaplarından  kaynaklanan\n\nrasyosunun\nhesaplanmasında,  bankacılık  hesaplarında  yer  alan  pozisyonlardan  katılma  hesabı  kaynaklı  olanlar\nKurulca belirlenecek oranda dikkate alınır.\n\nfaiz  oranı\n\nstandart\n\nriski\n\nStandart yaklaşım uyarınca ekonomik değer değişimi hesaplamasına ilişkin genel hükümler\nMADDE 5- (1) Ekonomik değer değişimi hesaplamasında, faize duyarlı aşağıdaki pozisyonlardan\n\nkaynaklanan gelecekteki tüm nakit akışları dikkate alınır:\n\na)  Çekirdek  sermayeden  indirilen  varlıklar,  maddi  duran  varlıklar,  maddi  olmayan  duran\n\nvarlıklar ve hisse senedi yatırımları dışında kalan bankacılık hesaplarında izlenen tüm aktif kalemler.\n\nb) Çekirdek sermaye dışında kalan tüm pasif kalemler.\nc) Bilanço dışı kalemler.\n(2) Ekonomik değer değişimi hesaplamasında aşağıdaki aşamalar izlenir:\na)  Ekonomik  değer  değişimi,  birinci  fıkranın  (a)  bendi  uyarınca  hesaplanan  toplam  aktif  veya\nbirinci  fıkranın  (b)  bendi  uyarınca  hesaplanan  toplam  pasif  içerisindeki  payı  %5  veya  üzerinde  olan\npara birimleri ve faizle ilişkilendirilen emtialar bazında, 6 farklı faiz oranı şoku senaryosu için ayrı ayrı\nhesaplanır. Bu hesaplama her raporlama döneminde yapılır.\n\nb)  Birinci  fıkradaki  pozisyonlar  6  ncı  madde  uyarınca  standartlaştırılmaya  tam  uyumlu,  7  nci\nmadde uyarınca standartlaştırılmaya uyumlu olmayan ve 8 inci madde uyarınca standartlaştırılmaya\naz uyumlu olmak üzere üç sınıfa ayrılır.\n\nc) Faize duyarlı bilanço içi ve bilanço dışı varlık ve yükümlülüklerin yeniden fiyatlanan tüm nakit\nakışları,  para  birimi  veya  faizle  ilişkilendirilen  emtia  bazında  standartlaştırılmaya  uyumlu  olduğu\nölçüde  ilgili  vade  dilimlerine  yerleştirilir.  Bu  yerleştirme  yapılırken  faiz  oranlarına  ilişkin  marjlar  da\nnakit akışı hesaplamasına dâhil edilir.\n\nç)  Gömülü  olan  ve  olmayan  otomatik  faiz  oranı  opsiyonalitesi  içeren  araçların  değerlerindeki\ndeğişiklikler  8  inci  madde  uyarınca  hesaplanan  eklenti  tutar  uygulanarak  ekonomik  değer  değişimi\nhesaplamasında dikkate alınır.\n\nStandartlaştırılmaya tam uyumlu pozisyonlara ilişkin süreç\nMADDE 6- (1) Standartlaştırılmaya tam uyumlu pozisyonlar şunlardır:\na)  Sabit  faizli  pozisyonlar:  Sözleşmede  belirtilen  vadeye  kadar  nakit  akışı  tutarları  belirlenmiş\n\nolan pozisyonlardır.\n\nb) Değişken faizli pozisyonlar: İlk yeniden fiyatlama tarihinden sonraki nakit akışı tutarları kesin\nolarak  bilinemeyen  pozisyonlardır.  Değişken faizli  pozisyonların  faizinin  yeniden  belirlendiği  gelecek\ndönemdeki ilk tarihte yeniden fiyatlandığı kabul edilir.\n\nc)  Gömülü  otomatik  faiz  oranı  opsiyonalitesi  bulunan  araçlardan  kaynaklanan  pozisyonlar:\nGömülü otomatik  faiz oranı opsiyonalitesi  içeren  sabit ya da değişken faizli  araçlardan kaynaklanan\npozisyonlardır.  Bu  pozisyonlarda,  yeniden  fiyatlanan  nakit  akışlarının  vade  dilimi  belirlenirken  ilgili\nopsiyonalite ayrıştırılır ve bu madde kapsamında dikkate alınmaz. Dikkate alınmayan bu opsiyonalite\nstandartlaştırılmaya az uyumlu pozisyon olarak dikkate alınır.\n\n(2) Standartlaştırılmaya tam uyumlu pozisyonlara ilişkin yeniden fiyatlanan nakit akışları;\na) Sabit faizli ise sözleşmedeki vade baz alınarak,\nb)  Değişken  faizli  ise  yeniden  fiyatlanmayan kısımları  hariç  olmak  üzere  nakit  akışları  gelecek\ndöneme ilişkin ilk yeniden fiyatlama tarihi baz alınarak, nakit akışlarının yeniden fiyatlanmayan kısmı\nise sözleşmedeki vadeleri baz alınarak,\n\nEK-1’de yer alan tablodaki ilgili vade dilimlerine yerleştirilir.\n(3) Donuk alacaklar, Kredilerin Sınıflandırılması ve Bunlar İçin Ayrılacak Karşılıklara İlişkin Usul\nve Esaslar Hakkında Yönetmelik uyarınca özel karşılıklar düşüldükten sonraki net tutarları üzerinden\ntahmini tahsilât oranları ve tahsilât süreleri göz önüne alınarak 6 aydan kısa olmamak üzere EK-1’de\nyer alan tabloda ilgili vade dilimlerine yerleştirilir.\n\nStandartlaştırılmaya uyumlu olmayan pozisyonlara ilişkin süreç\nMADDE  7-  (1)  Standartlaştırılmaya  uyumlu  olmayan  pozisyonlar,  vadesiz  mevduat  ile  gerçek\nkişi ve perakende müşterilere ait erken kapanma riski bulunan vadeli mevduatı ve erken ödenme riski\nbulunan sabit faizli kredileri içerir.\n\n(2)  Vadesiz  mevduat,  EK-1’de  yer  alan  tablodaki  vade  dilimlerine  aşağıda  açıklandığı  şekilde\n\nyerleştirilir:\n\na)  Vadesiz  mevduat,  (c)  bendinde  yer  alan  tablo  dikkate  alınarak  gerçek  kişi  ve  perakende\nmüşteri/hareketli,  gerçek  kişi  ve  perakende  müşteri/hareketli  olmayan  ve  diğer  kişi  olarak  ilgili\nmevduat sınıflarına ayrıştırılır. Perakende müşteri mevduatının faiz riski yapısının gerçek kişi müşteri\nmevduatının faiz riski yapısı ile uyumlu olmadığı durumda bu perakende müşteri mevduatı, diğer kişi\nmevduatı kapsamında  dikkate  alınır.  Gerçek  kişi  ve  perakende müşteri  mevduatından,  ilgili  hesapta\ndüzenli nakit akışı olanlar veya ilgili hesaba faiz işletilmeyenler hareketli mevduat olarak, bu koşullara\nuymayanlar ise hareketli olmayan mevduat olarak dikkate alınır.\n\nb) 10 yıllık tarihsel veri kullanılarak her bir vadesiz mevduat sınıfı için çekirdek mevduat oranı\nhesaplanır. 10 yıllık tarihsel verinin bulunmaması halinde banka, sahip olduğu tüm veriyi içsel olarak\nbelirlediği  bir  ihtiyatlılık  marjı  çerçevesinde  kullanır.  Çekilme  olasılığı  düşük  olan  mevduatın  faiz\noranındaki  önemli  değişimler  altında  dahi  yeniden  fiyatlama  olasılığı  düşük  olan  kısmı  çekirdek\nmevduat olarak, kalan kısmı ise çekirdek olmayan mevduat olarak sınıflandırılır.\n\n c)  Her bir sınıftaki çekirdek  vadesiz mevduata ilişkin nakit akışları; aşağıdaki tabloda yer alan\nçekirdek vadesiz mevduat oranı üst sınırı ve ağırlıklı ortalama vade üst sınırını aşmayacak şekilde EK-\n1’de yer alan tablodaki vade dilimlerine içsel olarak makul bir yöntemle yerleştirilir. Çekirdek olmayan\nvadesiz mevduat ise EK-1’de yer alan tablodaki gecelik vade dilimine yerleştirilir.\n\nMevduat sınıfları bazında çekirdek mevduat oranı ve vadesine ilişkin üst sınırlar\n\nGerçek  kişi  ve  perakende\nmüşteri / Hareketli\nGerçek  kişi  ve  perakende\nmüşteri/ Hareketli olmayan\nDiğer kişi\n\nÇekirdek mevduat oranı üst sınırı\n\n(%)\n90\n\nÇekirdek  mevduat  ağırlıklı  ortalama\nvade üst sınırı (Yıl)\n5\n\n70\n\n50\n\n4,5\n\n4\n\n(3)  Gerçek  kişi  ve  perakende  müşterilere  ait  erken  kapanma  riski  bulunan vadeli mevduat ve\nerken ödenme riski bulunan sabit faizli kredilerdeki opsiyonalite iki aşamalı bir yaklaşım kullanılarak\ndikkate  alınır.  Birinci  aşamada,  faiz  oranlarının  cari  vade  yapısı  göz  önüne  alınarak  sabit  faizli\nkredilerin erken ödenme oranları ve vadeli mevduatın erken kapanma oranları içsel olarak hesaplanır.\nBanka  tarafından  bu  oranların  içsel  olarak  hesaplanamaması  halinde  Kurum  tarafından  belirlenen\noranlar kullanılabilir. İkinci aşamada, bu oranlar ilgisine göre dördüncü fıkranın (b) bendinde yer alan\ntablo  veya  beşinci  fıkranın  (b)  bendinde  yer  alan  tabloda  belirtilen  ilgili  faiz  oranı  şoku  senaryoları\ndikkate alınarak tablolarda belirtilen çarpanlar ile çarpılır.\n\n(4)  Erken  ödemelerin  ekonomik  maliyetinin  müşteriye  yansıtılmadığı  veya  sınırlı  yansıtıldığı\n\nsabit faizli kredilerin yeniden fiyatlanan nakit akışları, aşağıdaki şekilde revize edilir:\n\n a) Faiz oranlarının cari vade yapısı dikkate alınarak para birimi veya faizle ilişkilendirilen emtia\nbazında  (p)  benzer erken ödeme  riskine  sahip  her  bir  kredi  portföyü  (kp)  için  referans  değeri teşkil\nedecek koşullu erken ödeme oranı (\n\n) içsel olarak belirlenir.\n\nb) Faiz oranı senaryoları bazında koşullu erken ödeme oranı aşağıdaki formülle hesaplanır:\n = min (1,\nBu formülde si; aşağıdaki tabloda yer alan i, 1’den 6’ya kadar olan her bir faiz oranı şoku senaryosu\niçin erken ödeme oranı çarpanını, i=0 ise cari durumu ifade eder.\n\n)\n\nFaiz oranı şoku senaryoları altında koşullu erken ödeme oranı çarpanları\n\nSenaryo (i)\n1\n2\n3\n4\n5\n6\n\nFaiz oranı şoku senaryoları\nParalel Yukarı\nParalel Aşağı\nArtan Eğim\nAzalan Eğim\nKısa Vadeler Yukarı\nKısa Vadeler Aşağı\n\nsi (Senaryo çarpanı)\n0,8\n1,2\n0,8\n1,2\n0,8\n1,2\n\nc)  Nihai  olarak  sabit  faizli  kredilerin  erken  ödenmesi  ihtimali  aşağıdaki  şekilde  ilgili  nakit\n\nakışlarına yansıtılır:\n\nBu formülde\n\n, t vade diliminde ilgili portföy ve faiz ile anapara tutarına ilişkin planlı (\n\n) nakit\n\nakışlarını;\noranı şoku senaryolarını ifade eder.\n\n, t-1 vade dilimindeki ilgili portföye ilişkin bakiye tutarını; i, 1’den 6’ya kadar faiz\n\n(5) Vadeden önce kapanması halinde mudinin alacağı faiz gelirinden/kâr payından daha yüksek\nbir  kayba  uğramayacağı  erken  kapanma  riski  bulunan  vadeli  mevduatın  yeniden  fiyatlanan  nakit\nakışları, aşağıdaki şekilde revize edilir.\n\na) Para birimi veya faizle ilişkilendirilen emtia bazında (p) benzer erken kapanma riskine sahip\nher  bir  mevduat  portföyü  (mp)  için  referans  değeri  teşkil  edecek  koşullu  erken  kapanma  oranı\n  içsel olarak  belirlenir. Erken kapanması beklenen vadeli mevduat,  EK-1’de  yer alan tabloda\n\nyer alan gecelik vade dilimine (t=gecelik) yerleştirilir.\n\nb) Faiz oranı senaryoları bazında koşullu erken kapanma oranı aşağıdaki formülle hesaplanır:\n\n = min(1,\nBu formülde si; aşağıdaki tabloda yer alan i, 1’den 6’ya kadar olan her bir faiz oranı şoku senaryosu\niçin erken kapanma oranı çarpanını, i=0 ise cari durumu ifade eder.\n\n)\n\nFaiz oranı şok senaryoları altında erken kapanma oranı çarpanları\n\nSenaryo\n(i)\n1\n2\n3\n4\n5\n6\n\nFaiz oranı şoku senaryoları\n\nsi (senaryo çarpanı)\n\nParalel Yukarı\nParalel Aşağı\nArtan Eğim\nAzalan Eğim\nKısa Vadeli Yukarı\nKısa Vadeli Aşağı\n\n1,2\n0,8\n0,8\n1,2\n1,2\n0,8\n\nc) Nihai olarak vadeli mevduatın erken kapanması ihtimali aşağıdaki şekilde ilgili nakit akışlarına\n\nyansıtılır:\n\nBu formülde;\n\n, gecelik vade diliminde ilgili portföy ve faiz oranı şoku senaryosu\n\nsonucu oluşan nakit akışlarını,\n6’ya kadar faiz oranı şoku senaryolarını ifade eder.\n\n, cari durumdaki ilgili portföy ve vadeli mevduat tutarını, i, 1’den\n\nStandartlaştırılmaya Az Uyumlu Pozisyonlara İlişkin Süreç\nMADDE 8- (1) Gömülü olmayan otomatik faiz oranı opsiyonalitesi içeren araçlar, bankanın aktif\nveya pasifinden ayrıştırılmış gömülü otomatik faiz oranı opsiyonalitesi içeren araçlar ve gerçek kişi ve\nperakende müşteri olmayan diğer kişi müşterilere ait erken kapanma riski bulunan vadeli mevduat ve\nerken ödenme riski bulunan sabit faizli krediler için eklenti tutar bu madde uyarınca hesaplanır.\n\n (2) Para birimi veya faizle ilişkilendirilen emtia bazında, faiz oranı şoku senaryoları için satılan\n, (a) bendi uyarınca bulunan değerden\n\nfaiz oranı opsiyonalitesi içeren araçların değer değişimi\n(b) bendi uyarınca bulunan değerin çıkarılması suretiyle hesaplanır:\n\na)  Para  birimi  veya  faizle  ilişkilendirilen  emtia  bazında,  faiz  oranı  şoku  senaryoları  için\noluşturulan  verim  eğrisi  ve  dayanak  varlığın  ima  edilen  oynaklığındaki  %25’lik  artış  dikkate  alınarak\nopsiyonaliteyi elinde bulunduran için hesaplanan aracın tahmini değeri.\n\nb)  Para  birimi  veya  faizle  ilişkilendirilen  emtia  bazında  değerleme  tarihindeki  verim  eğrisi\n\ndikkate alınarak opsiyonaliteyi elinde bulunduran için hesaplanan aracın cari değeri.\n(3) Alınan faiz oranı opsiyonalitesi içeren araçların değerindeki değişim,\n\n, ikinci fıkrada\n\nbelirtilen yöntem çerçevesinde hesaplanır.\n\n(4) Para birimi veya faizle ilişkilendirilen emtia bazında, faiz oranı şoku senaryoları bazında faiz\n\noranı opsiyonalite riski için eklenti tutar (ORi,p) aşağıdaki şekilde hesaplanır:\nORi,p=\n\nBu  formülde  n;  para  birimi  veya  faizle  ilişkilendirilen  emtia  bazında  satılan  opsiyonalite  içeren  araç\nsayısını, m; para birimi veya faizle ilişkilendirilen emtia bazında alınan opsiyonalite içeren araç sayısını\nifade eder.\n\n(5)  Gerçek  kişi  ve  perakende  müşteri  olmayan  diğer  kişi  müşterilere  ait  erken  kapanma  riski\nbulunan  vadeli  mevduatlar  ve  erken  ödenme  riski  bulunan  sabit  faizli  krediler,  Kurum  tarafından\nbelirlenecek  erken  ödenme  ve  erken  kapanma  oranları  kullanılmak  suretiyle  standartlaştırılmaya\nuyumlu  olmayan  pozisyonlar  arasında  sınıflandırılabilir  ve  bunlara  ilişkin  hesaplama  7  nci  madde\nçerçevesinde gerçekleştirilebilir.\n\nEkonomik değer değişimi risk tutarının hesaplanması\nMADDE  9-  (1)  Faiz  oranı  şoku  senaryoları  dikkate  alınarak  banka  için  en  büyük  zararı\noluşturacak  ekonomik  değer  değişimi  risk  tutarı,  5  inci  maddenin  ikinci  fıkrası  çerçevesinde\nbelirlenecek para birimleri veya faizle ilişkilendirilen emtialar bazında aşağıdaki şekilde hesaplanır:\n\na)  Her  bir  senaryo  altında  yeniden  fiyatlama  tarihine  göre  EK-1’de  yer  alan  tablodaki  vade\ndilimlerine  (t)  yerleştirilen  nakit  akışları  sadece  bir  uzun  veya  kısa  pozisyon  kalacak  şekilde\nnetleştirilerek, netleştirilmiş yeniden fiyatlanan nakit akışları (NAi,p(t))  oluşturulur.\n\nb)  EK-1’deki  tabloda  yer  alan  vade  orta  noktaları  (to)  kullanılarak  para  birimi  veya  faizle\n\nilişkilendirilen emtia bazında, cari durumdaki iskonto oranı (İO0,p(to)) aşağıdaki formülle hesaplanır:\nİO0,p(to) = exp(-F0,p(to)\n\nto)\n\nBu  formülde,  (F0,p(to))  vade  orta  noktaları  ve  para  birimi  veya  faizle  ilişkilendirilen  emtia  bazında\nhesaplanan  cari  faiz  oranını  ifade  eder.  Nakit  akışları,  Kurumca  belirlenecek  risksiz  verim  eğrileri\nkullanılarak iskonto edilmelidir.\n\nc)  EK-1’deki  tabloda  yer  alan  vade  orta  noktaları  (to)  kullanılarak  para  birimi  veya  faizle\nilişkilendirilen  emtia  bazında,  faiz  oranı  şoku  senaryoları  için  iskonto  oranı  (İOi,p(to))    aşağıdaki\nformülle hesaplanır:\n\nİOi,p(to) = exp(-Fi,p(to)\n\nto)\n\nBu  formülde;  (Fi,p(to) )  Kurumca  belirlenecek  pozitif  veya  negatif  faiz  oranı  şoklarını  dikkate  alarak,\nvade  orta  noktaları  ve  para  birimi  veya  faizle  ilişkilendirilen  emtia  bazında  EK-2’de  yer  alan  usul ve\nesaslar  uyarınca  hesaplanan  faiz  oranlarını  ifade  eder.  Senaryoların  uygulanmasında  Kurumca\nbelirlenecek risksiz verim eğrileri kullanılır.\n\nç)  Para  birimi  veya  faizle  ilişkilendirilen  emtia  bazında,  faiz  oranı  şoku  senaryoları  altında\nekonomik  değeri  (ED)  hesaplamak  için  (c)  bendinde  belirtilen  iskonto  oranı  ile  vade  dilimi  bazında\nağırlıklandırılmış risk ağırlıklı net pozisyonlar çarpılarak toplanır:\n\nd)  Para  birimi  veya  faizle  ilişkilendirilen  emtia  bazında,  faiz  oranı  şoku  senaryoları  için\n\nekonomik değer değişimi aşağıdaki şekilde bulunur:\n\nEDDi,p =\n\n ORi,p\n\nBu formülde; ORi,p 8 inci maddenin dördüncü fıkrası uyarınca hesaplanan faiz oranı opsiyonalite riski\n  para  birimi  veya  faizle  ilişkilendirilen  emtia  bazında  cari  netleştirilmiş\niçin  eklenti  tutarı,\n\nyeniden  fiyatlanan  nakit  akışını,\ndurumdaki iskonto oranını ve EDD ekonomik değer değişimini ifade eder.\ne) Ekonomik değer değişimi risk tutarı, aşağıdaki şekilde hesaplanır:\n\n    para  birimi  veya  faizle  ilişkilendirilen  emtia  bazında  cari\n\nÜÇÜNCÜ BÖLÜM\n\nBankacılık Hesaplarından Kaynaklanan Faiz Oranı Riski Standart Rasyosuna İlişkin\n\nRaporlama ve Oransal Sınırlara Uyumsuzluk\n\nBankacılık hesaplarından kaynaklanan faiz oranı riski standart rasyosuna ilişkin raporlama\nMADDE  10-  (1)  Özkaynak  hesaplama  dönemleri  itibarıyla  hesaplanan  konsolide  ve  konsolide\nolmayan  bankacılık  hesaplarından  kaynaklanan  faiz  oranı  riski  standart  rasyosu  Kurumca  elektronik\nraporlamalara ilişkin belirlenen usul ve esaslar dahilinde Kuruma gönderilir.\n\nOransal sınırlara uyumsuzluk\nMADDE  11-  (1)  4  üncü  maddenin  ikinci  fıkrasında  belirtilen  azami  oranlarda  aşım  oluşması\ndurumunda  aşağıdaki  bentlerde  belirtilen  şartlardan  herhangi  birinin  varlığı  halinde  oluşan  son\ndönem  aşım  tutarı  aynı  döneme  ilişkin  sermaye  yeterliliği  standart  oranının  hesaplamasında\nözkaynaktan indirilir:\n\na) Son iki dönem arka arkaya azami oranda aşım bulunması.\nb) Son 12 aylık dönem içerisinde son dönem aşım dahil üç defa azami oranın aşılması.\n(2)  Asgari  oranların  sağlanamaması  halinde,  bu  durumun  nedenleri,  söz  konusu  durumun\ngiderilmesine ilişkin alınması planlanan önlemler ile birlikte 10 uncu maddenin birinci fıkrası uyarınca\nbelirlenen süre içinde Kuruma bildirilir.\n\n(3) Bu madde hükümlerinin uygulanmasında konsolide ve konsolide olmayan oransal sınırlarda\n\ngerçekleşen uyumsuzluklar ayrı ayrı değerlendirilir.\n\nDÖRDÜNCÜ BÖLÜM\nÇeşitli ve Son Hükümler\n\nYürürlükten kaldırılan yönetmelik\nMADDE  12- (1)  23/8/2011  tarihli  ve  28034  sayılı  Resmî  Gazete’de  yayımlanan  Bankacılık\nHesaplarından  Kaynaklanan  Faiz  Oranı  Riskinin  Standart  Şok  Yöntemiyle  Ölçülmesine  ve\nDeğerlendirilmesine İlişkin Yönetmelik yürürlükten kaldırılmıştır.\n\n(2) Mevzuatta, birinci fıkra ile yürürlükten kaldırılan Bankacılık Hesaplarından Kaynaklanan Faiz\nOranı  Riskinin  Standart  Şok  Yöntemiyle  Ölçülmesine  ve  Değerlendirilmesine  İlişkin  Yönetmeliğe\nyapılan atıflar bu Yönetmeliğe yapılmış sayılır.\n\nKonsolide esasa göre uygulamaya ilişkin intibak\nGEÇİCİ  MADDE  1- (1)  Bu  Yönetmeliğin  konsolide  esasa  göre  uygulanması  1/4/2026  tarihinde\n\nbaşlar.\n\nYürürlük\nMADDE 13- (1) Bu Yönetmelik 1/10/2025 tarihinde yürürlüğe girer.\nYürütme\nMADDE  14- (1)  Bu  Yönetmelik  hükümlerini  Bankacılık  Düzenleme  ve  Denetleme  Kurumu\n\nBaşkanı yürütür.\n\nEK-1\n\nNakit akışlarının yerleştirileceği vade dilimleri (t) ve vade orta noktaları (to, yıl)\n\nKısa\nVade\n\nOrta\nVade\n\nUzun\nVade\n\nt =\nGecelik\n(0,0028\nyıl)\n2 yıl < t\n≤ 3 yıl\n(2,5 yıl)\n7 yıl < t\n≤ 8 yıl\n(7,5 yıl)\n\nGecelik <\nt ≤ 1 Ay\n(0,041 7\nyıl)\n3 yıl < t\n≤ 4 yıl\n(3,5 yıl)\n8 yıl < t\n≤ 9 yıl\n(8,5 yıl)\n\n1 ay < t\n≤ 3 ay\n(0,1667\nyıl)\n4 yıl < t\n≤ 5 yıl\n(4,5 yıl)\n9 yıl < t\n≤ 10 yıl\n(9,5 yıl)\n\n3 ay < t\n≤ 6 ay\n(0,375\nyıl)\n5 yıl < t\n≤ 6 yıl\n(5,5 yıl)\n10 yıl < t\n≤ 15 yıl\n(12,5 yıl)\n\n6 ay < t\n≤ 9 ay\n(0,625\nyıl)\n6 yıl < t\n≤ 7 yıl\n(6,5 yıl)\n15 yıl < t\n≤ 20 yıl\n(17,5 yıl)\n\n9 ay < t\n≤ 1 yıl\n(0,875\nyıl)\n\n1 yıl < t\n≤ 1,5 yıl\n(1,25 yıl)\n\n1,5 yıl < t\n≤ 2 yıl\n(1,75 yıl)\n\nt > 20 yıl\n(25 yıl)\n\nEK-2\n\nFaiz Oranı Şok Senaryolarının Belirlenmesi\n1. Her para birimi için altı faiz oranı şok senaryosu aşağıda yer alan formüller kullanılarak belirlenir:\na) Para birimi (p) bazında paralel yukarı ve aşağı şok senaryoları, tüm vade dilimleri için aynı düzeyde\nsabit bir artış ve azalış olacak şekilde belirlenir. Bu formülde (to), vade orta noktalarını ifade eder.\n\n b) Para birimi bazında kısa vadeli aşağı ve yukarı şok senaryoları, en kısa vade dilimi için aşağı veya\n\nyukarı en yüksek düzeyde şok uygulanacak şekilde belirlenir. Bu şoklar,\n\n formülü\n\naracılığıyla, en uzun vade dilimine doğru sıfıra yakınsayacak şekilde belirlenir. Bu formülde x=4 olarak\ndikkate alınır.\n\n c)  Artan  ve  azalan  eğim  senaryolarında  kullanılmak  üzere  para  birimi  bazında  uzun  vade  şok\n  formülü aracılığıyla, en kısa vade dilimine\nsenaryoları belirlenir. Bu şoklar,\ndoğru sıfıra yakınsayacak şekilde belirlenir.\n\n, (b) bendi uyarınca hesaplanır.\n\nç)  Para  birimi  bazında  artan  eğim  ve  azalan  eğim  senaryoları,  uzun  ve  kısa  faiz  oranı  şokları\nuygulanarak aşağıdaki formüller kullanılarak belirlenir.",
+   "new": "BANKACILIK HESAPLARINDAN KAYNAKLANAN FAİZ ORANI RİSKİNİN STANDART YAKLAŞIMLA ÖLÇÜLMESİNE VE DEĞERLENDİRİLMESİNE İLİŞKİN YÖNETMELİK\n\nBİRİNCİ BÖLÜM\n\nBaşlangıç Hükümleri\n\nAmaç ve kapsam\n\nMADDE 1- (1) Bu Yönetmeliğin amacı ve kapsamı; bankacılık hesaplarında yer alan bilanço içi ve bilanço dışı pozisyonlardan kaynaklanan faiz oranı riskinin standart yaklaşımla ölçülmesine ve değerlendirilmesine ilişkin usul ve esasları düzenlemektir.\n\nDayanak\n\nMADDE 2- (1) Bu Yönetmelik, 19/10/2005 tarihli ve 5411 sayılı Bankacılık Kanununun 43 üncü, 45 inci ve 93 üncü maddelerine dayanılarak hazırlanmıştır.\n\nTanımlar\n\nMADDE 3- (1) Bu Yönetmelikte geçen;\n\na) Alım satım hesapları: 23/10/2015 tarihli ve 29511 sayılı Resmî Gazete’de yayımlanan Bankaların Sermaye Yeterliliğinin Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmeliğin 3 üncü maddesinde tanımlanan alım satım hesaplarını,\n\nb) Ana sermaye: 5/9/2013 tarihli ve 28756 sayılı Resmî Gazete’de yayımlanan Bankaların Özkaynaklarına İlişkin Yönetmelikte belirlenen usul ve esaslar çerçevesinde hesaplanacak ana sermayeyi,\n\nc) Banka: Kanunun 3 üncü maddesinde tanımlanan bankaları,\n\nç) Bankacılık hesapları: Bankaların Sermaye Yeterliliğinin Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmeliğin 3 üncü maddesinde tanımlanan bankacılık hesaplarını,\n\nd) Çekirdek sermaye: Bankaların Özkaynaklarına İlişkin Yönetmelikte belirlenen usul ve esaslar çerçevesinde hesaplanacak çekirdek sermayeyi,\n\ne) Donuk alacak: 22/6/2016 tarihli ve 29750 sayılı Resmî Gazete’de yayımlanan Kredilerin Sınıflandırılması ve Bunlar İçin Ayrılacak Karşılıklara İlişkin Usul ve Esaslar Hakkında Yönetmeliğin 5 inci maddesinde belirtilen alacakları,\n\nf) Kanun: 19/10/2005 tarihli ve 5411 sayılı Bankacılık Kanununu,\n\ng) Katılma hesabı: Kanunun 3 üncü maddesinde tanımlanan katılma hesabını,\n\nğ) Kurul: Bankacılık Düzenleme ve Denetleme Kurulunu,\n\nh) Kurum: Bankacılık Düzenleme ve Denetleme Kurumunu,\n\nı) Net pozisyon tutarı: Vade dilimleri itibarıyla faize duyarlı bankacılık hesaplarındaki aktifler ile yükümlülükler arasındaki farkı,\n\ni) Opsiyonalite: Opsiyonlarda ya da gömülü olarak bilanço içi ve bilanço dışı varlık ve yükümlülüklerin içinde bulunan, bankanın nakit akışlarının zamanlamasını ve düzeyini değiştirebilen seçimlik hakkı,\n\nj) Otomatik faiz oranı opsiyonalitesi: Davranışsal unsurlar içermeyip rasyonel beklentinin sağlanması halinde kullanılması beklenen, faiz oranına ilişkin olan opsiyonaliteyi,\n\nk) Perakende müşteri: 21/3/2014 tarihli ve 28948 sayılı Resmî Gazete’de yayımlanan Bankaların Likidite Karşılama Oranı Hesaplamasına İlişkin Yönetmeliğin 14 üncü maddesinin birinci fıkrasında belirtilen müşterileri,\n\nifade eder.\n\n(2) Katılım esaslarına uygun faaliyette bulunan bankalar için; bu Yönetmelikte geçen mevduat ibaresi katılım fonunu, vadesiz mevduat ibaresi özel cari hesabı, vadeli mevduat ibaresi katılma hesabını, faiz ibaresi kâr payını ifade eder.\n\nİKİNCİ BÖLÜM\n\nBankacılık Hesaplarından Kaynaklanan Faiz Oranı Riski Standart Rasyosunun Hesaplanması\n\nBankacılık hesaplarından kaynaklanan faiz oranı riski standart rasyosu\n\nMADDE 4- (1) Bankacılık hesaplarından kaynaklanan faiz oranı riski standart rasyosu, ekonomik değer değişimi risk tutarının ana sermayeye bölünmesi suretiyle hesaplanır.\n\n(2) Konsolide ve konsolide olmayan bankacılık hesaplarından kaynaklanan faiz oranı riski standart rasyosu %15’i aşamaz.\n\n(3) Bankacılık hesaplarından kaynaklanan faiz oranı riski standart rasyosunun hesaplanmasında, bankacılık hesaplarında yer alan pozisyonlardan katılma hesabı kaynaklı olanlar Kurulca belirlenecek oranda dikkate alınır.\n\nStandart yaklaşım uyarınca ekonomik değer değişimi hesaplamasına ilişkin genel hükümler\n\nMADDE 5- (1) Ekonomik değer değişimi hesaplamasında, faize duyarlı aşağıdaki pozisyonlardan kaynaklanan gelecekteki tüm nakit akışları dikkate alınır:\n\na) Çekirdek sermayeden indirilen varlıklar, maddi duran varlıklar, maddi olmayan duran varlıklar ve hisse senedi yatırımları dışında kalan bankacılık hesaplarında izlenen tüm aktif kalemler.\n\nb) Çekirdek sermaye dışında kalan tüm pasif kalemler.\n\nc) Bilanço dışı kalemler.\n\n(2) Ekonomik değer değişimi hesaplamasında aşağıdaki aşamalar izlenir:\n\na) Ekonomik değer değişimi, birinci fıkranın (a) bendi uyarınca hesaplanan toplam aktif veya birinci fıkranın (b) bendi uyarınca hesaplanan toplam pasif içerisindeki payı %5 veya üzerinde olan para birimleri ve faizle ilişkilendirilen emtialar bazında, 6 farklı faiz oranı şoku senaryosu için ayrı ayrı hesaplanır. Bu hesaplama her raporlama döneminde yapılır.\n\nb) Birinci fıkradaki pozisyonlar 6 ncı madde uyarınca standartlaştırılmaya tam uyumlu, 7 nci madde uyarınca standartlaştırılmaya uyumlu olmayan ve 8 inci madde uyarınca standartlaştırılmaya az uyumlu olmak üzere üç sınıfa ayrılır.\n\nc) Faize duyarlı bilanço içi ve bilanço dışı varlık ve yükümlülüklerin yeniden fiyatlanan tüm nakit akışları, para birimi veya faizle ilişkilendirilen emtia bazında standartlaştırılmaya uyumlu olduğu ölçüde ilgili vade dilimlerine yerleştirilir. Bu yerleştirme yapılırken faiz oranlarına ilişkin marjlar da nakit akışı hesaplamasına dâhil edilir.\n\nç) Gömülü olan ve olmayan otomatik faiz oranı opsiyonalitesi içeren araçların değerlerindeki değişiklikler 8 inci madde uyarınca hesaplanan eklenti tutar uygulanarak ekonomik değer değişimi hesaplamasında dikkate alınır.\n\nStandartlaştırılmaya tam uyumlu pozisyonlara ilişkin süreç\n\nMADDE 6- (1) Standartlaştırılmaya tam uyumlu pozisyonlar şunlardır:\n\na) Sabit faizli pozisyonlar: Sözleşmede belirtilen vadeye kadar nakit akışı tutarları belirlenmiş olan pozisyonlardır.\n\nb) Değişken faizli pozisyonlar: İlk yeniden fiyatlama tarihinden sonraki nakit akışı tutarları kesin olarak bilinemeyen pozisyonlardır. Değişken faizli pozisyonların faizinin yeniden belirlendiği gelecek dönemdeki ilk tarihte yeniden fiyatlandığı kabul edilir.\n\nc) Gömülü otomatik faiz oranı opsiyonalitesi bulunan araçlardan kaynaklanan pozisyonlar: Gömülü otomatik faiz oranı opsiyonalitesi içeren sabit ya da değişken faizli araçlardan kaynaklanan pozisyonlardır. Bu pozisyonlarda, yeniden fiyatlanan nakit akışlarının vade dilimi belirlenirken ilgili opsiyonalite ayrıştırılır ve bu madde kapsamında dikkate alınmaz. Dikkate alınmayan bu opsiyonalite standartlaştırılmaya az uyumlu pozisyon olarak dikkate alınır.\n\n(2) Standartlaştırılmaya tam uyumlu pozisyonlara ilişkin yeniden fiyatlanan nakit akışları;\n\na) Sabit faizli ise sözleşmedeki vade baz alınarak,\n\nb) Değişken faizli ise yeniden fiyatlanmayan kısımları hariç olmak üzere nakit akışları gelecek döneme ilişkin ilk yeniden fiyatlama tarihi baz alınarak, nakit akışlarının yeniden fiyatlanmayan kısmı ise sözleşmedeki vadeleri baz alınarak,\n\nEK-1’de yer alan tablodaki ilgili vade dilimlerine yerleştirilir.\n\n(3) Donuk alacaklar, Kredilerin Sınıflandırılması ve Bunlar İçin Ayrılacak Karşılıklara İlişkin Usul ve Esaslar Hakkında Yönetmelik uyarınca özel karşılıklar düşüldükten sonraki net tutarları üzerinden tahmini tahsilât oranları ve tahsilât süreleri göz önüne alınarak 6 aydan kısa olmamak üzere EK-1’de yer alan tabloda ilgili vade dilimlerine yerleştirilir.\n\nStandartlaştırılmaya uyumlu olmayan pozisyonlara ilişkin süreç\n\nMADDE 7- (1) Standartlaştırılmaya uyumlu olmayan pozisyonlar, vadesiz mevduat ile gerçek kişi ve perakende müşterilere ait erken kapanma riski bulunan vadeli mevduatı ve erken ödenme riski bulunan sabit faizli kredileri içerir.\n\n(2) Vadesiz mevduat, EK-1’de yer alan tablodaki vade dilimlerine aşağıda açıklandığı şekilde yerleştirilir:\n\na) Vadesiz mevduat, (c) bendinde yer alan tablo dikkate alınarak gerçek kişi ve perakende müşteri/hareketli, gerçek kişi ve perakende müşteri/hareketli olmayan ve diğer kişi olarak ilgili mevduat sınıflarına ayrıştırılır. Perakende müşteri mevduatının faiz riski yapısının gerçek kişi müşteri mevduatının faiz riski yapısı ile uyumlu olmadığı durumda bu perakende müşteri mevduatı, diğer kişi mevduatı kapsamında dikkate alınır. Gerçek kişi ve perakende müşteri mevduatından, ilgili hesapta düzenli nakit akışı olanlar veya ilgili hesaba faiz işletilmeyenler hareketli mevduat olarak, bu koşullara uymayanlar ise hareketli olmayan mevduat olarak dikkate alınır.\n\nb) 10 yıllık tarihsel veri kullanılarak her bir vadesiz mevduat sınıfı için çekirdek mevduat oranı hesaplanır. 10 yıllık tarihsel verinin bulunmaması halinde banka, sahip olduğu tüm veriyi içsel olarak belirlediği bir ihtiyatlılık marjı çerçevesinde kullanır. Çekilme olasılığı düşük olan mevduatın faiz oranındaki önemli değişimler altında dahi yeniden fiyatlama olasılığı düşük olan kısmı çekirdek mevduat olarak, kalan kısmı ise çekirdek olmayan mevduat olarak sınıflandırılır.\n\nc) Her bir sınıftaki çekirdek vadesiz mevduata ilişkin nakit akışları; aşağıdaki tabloda yer alan çekirdek vadesiz mevduat oranı üst sınırı ve ağırlıklı ortalama vade üst sınırını aşmayacak şekilde EK-1’de yer alan tablodaki vade dilimlerine içsel olarak makul bir yöntemle yerleştirilir. Çekirdek olmayan vadesiz mevduat ise EK-1’de yer alan tablodaki gecelik vade dilimine yerleştirilir.\n\n| Mevduat sınıfları bazında çekirdek mevduat oranı ve vadesine ilişkin üst sınırlar |  |  |\n|---|---|---|\n|  | Çekirdek mevduat oranı üst sınırı (%) | Çekirdek mevduat ağırlıklı ortalama vade üst sınırı (Yıl) |\n| Gerçek kişi ve perakende müşteri / Hareketli | 90 | 5 |\n| Gerçek kişi ve perakende müşteri/ Hareketli olmayan | 70 | 4,5 |\n| Diğer kişi | 50 | 4 |\n\n(3) Gerçek kişi ve perakende müşterilere ait erken kapanma riski bulunan vadeli mevduat ve erken ödenme riski bulunan sabit faizli kredilerdeki opsiyonalite iki aşamalı bir yaklaşım kullanılarak dikkate alınır. Birinci aşamada, faiz oranlarının cari vade yapısı göz önüne alınarak sabit faizli kredilerin erken ödenme oranları ve vadeli mevduatın erken kapanma oranları içsel olarak hesaplanır. Banka tarafından bu oranların içsel olarak hesaplanamaması halinde Kurum tarafından belirlenen oranlar kullanılabilir. İkinci aşamada, bu oranlar ilgisine göre dördüncü fıkranın (b) bendinde yer alan tablo veya beşinci fıkranın (b) bendinde yer alan tabloda belirtilen ilgili faiz oranı şoku senaryoları dikkate alınarak tablolarda belirtilen çarpanlar ile çarpılır.\n\n(4) Erken ödemelerin ekonomik maliyetinin müşteriye yansıtılmadığı veya sınırlı yansıtıldığı sabit faizli kredilerin yeniden fiyatlanan nakit akışları, aşağıdaki şekilde revize edilir:\n\na) Faiz oranlarının cari vade yapısı dikkate alınarak para birimi veya faizle ilişkilendirilen emtia bazında (p) benzer erken ödeme riskine sahip her bir kredi portföyü (kp) için referans değeri teşkil edecek koşullu erken ödeme oranı ( $KEO^{kp}_{0,p}$) içsel olarak belirlenir.\n\nb) Faiz oranı senaryoları bazında koşullu erken ödeme oranı aşağıdaki formülle hesaplanır:\n\n$$\nKEO^{kp}_{i,p} = \\min(1, s_i \\ast KEO^{kp}_{0,p})\n$$\n\nBu formülde s$_{i;}$ aşağıdaki tabloda yer alan i, 1’den 6’ya kadar olan her bir faiz oranı şoku senaryosu için erken ödeme oranı çarpanını, i=0 ise cari durumu ifade eder.\n\n| Faiz oranı şoku senaryoları altında koşullu erken ödeme oranı çarpanları |  |  |\n|---|---|---|\n| Senaryo (i) | Faiz oranı şoku senaryoları | s$_{i}$ (Senaryo çarpanı) |\n| 1 | Paralel Yukarı | 0,8 |\n| 2 | Paralel Aşağı | 1,2 |\n| 3 | Artan Eğim | 0,8 |\n| 4 | Azalan Eğim | 1,2 |\n| 5 | Kısa Vadeler Yukarı | 0,8 |\n| 6 | Kısa Vadeler Aşağı | 1,2 |\n\nc) Nihai olarak sabit faizli kredilerin erken ödenmesi ihtimali aşağıdaki şekilde ilgili nakit akışlarına yansıtılır:\n\n$$\nNA^{kp}_{i,p}(t) = NA^{pl}_{i,p}(t) + KEO^{kp}_{i,p}(t) \\cdot B^{kp}_{i,p}(t - 1)\n$$\n\nBu formülde $NA^{pl}_{i,p}(t)$, t vade diliminde ilgili portföy ve faiz ile anapara tutarına ilişkin planlı ( $pl$) nakit akışlarını; $B^{kp}_{i,p}(t - 1)$, t-1 vade dilimindeki ilgili portföye ilişkin bakiye tutarını; i, 1’den 6’ya kadar faiz oranı şoku senaryolarını ifade eder.\n\n(5) Vadeden önce kapanması halinde mudinin alacağı faiz gelirinden/kâr payından daha yüksek bir kayba uğramayacağı erken kapanma riski bulunan vadeli mevduatın yeniden fiyatlanan nakit akışları, aşağıdaki şekilde revize edilir.\n\na) Para birimi veya faizle ilişkilendirilen emtia bazında (p) benzer erken kapanma riskine sahip her bir mevduat portföyü (mp) için referans değeri teşkil edecek koşullu erken kapanma oranı $EKO^{mp}_{0,p}$ içsel olarak belirlenir. Erken kapanması beklenen vadeli mevduat, EK-1’de yer alan tabloda yer alan gecelik vade dilimine (t=gecelik) yerleştirilir.\n\nb) Faiz oranı senaryoları bazında koşullu erken kapanma oranı aşağıdaki formülle hesaplanır:\n\n$$\nEKO^{mp}_{i,p} = \\min(1, s_i \\ast EKO^{mp}_{0,p})\n$$\n\nBu formülde s$_{i;}$ aşağıdaki tabloda yer alan i, 1’den 6’ya kadar olan her bir faiz oranı şoku senaryosu için erken kapanma oranı çarpanını, i=0 ise cari durumu ifade eder.\n\n| Faiz oranı şok senaryoları altında erken kapanma oranı çarpanları |  |  |\n|---|---|---|\n| Senaryo (i) | Faiz oranı şoku senaryoları | s$_{i}$ (senaryo çarpanı) |\n| 1 | Paralel Yukarı | 1,2 |\n| 2 | Paralel Aşağı | 0,8 |\n| 3 | Artan Eğim | 0,8 |\n| 4 | Azalan Eğim | 1,2 |\n| 5 | Kısa Vadeli Yukarı | 1,2 |\n| 6 | Kısa Vadeli Aşağı | 0,8 |\n\nc) Nihai olarak vadeli mevduatın erken kapanması ihtimali aşağıdaki şekilde ilgili nakit akışlarına yansıtılır:\n\n$$\nNA^{mp}_{i,p}(t = \\text{gecelik}) = VM^{mp}_{0,p} \\cdot EKO^{mp}_{i,p}\n$$\n\nBu formülde; $NA^{mp}_{i,p}(t = \\text{gecelik})$, gecelik vade diliminde ilgili portföy ve faiz oranı şoku senaryosu sonucu oluşan nakit akışlarını, $VM^{mp}_{0,p}$, cari durumdaki ilgili portföy ve vadeli mevduat tutarını, i, 1’den 6’ya kadar faiz oranı şoku senaryolarını ifade eder.\n\nStandartlaştırılmaya Az Uyumlu Pozisyonlara İlişkin Süreç\n\nMADDE 8- (1) Gömülü olmayan otomatik faiz oranı opsiyonalitesi içeren araçlar, bankanın aktif veya pasifinden ayrıştırılmış gömülü otomatik faiz oranı opsiyonalitesi içeren araçlar ve gerçek kişi ve perakende müşteri olmayan diğer kişi müşterilere ait erken kapanma riski bulunan vadeli mevduat ve erken ödenme riski bulunan sabit faizli krediler için eklenti tutar bu madde uyarınca hesaplanır.\n\n(2) Para birimi veya faizle ilişkilendirilen emtia bazında, faiz oranı şoku senaryoları için satılan faiz oranı opsiyonalitesi içeren araçların değer değişimi $\\Delta OD^{so}_{i,p}$, (a) bendi uyarınca bulunan değerden (b) bendi uyarınca bulunan değerin çıkarılması suretiyle hesaplanır:\n\na) Para birimi veya faizle ilişkilendirilen emtia bazında, faiz oranı şoku senaryoları için oluşturulan verim eğrisi ve dayanak varlığın ima edilen oynaklığındaki %25’lik artış dikkate alınarak opsiyonaliteyi elinde bulunduran için hesaplanan aracın tahmini değeri.\n\nb) Para birimi veya faizle ilişkilendirilen emtia bazında değerleme tarihindeki verim eğrisi dikkate alınarak opsiyonaliteyi elinde bulunduran için hesaplanan aracın cari değeri.\n\n(3) Alınan faiz oranı opsiyonalitesi içeren araçların değerindeki değişim, $\\Delta OD^{ao}_{i,p}$, ikinci fıkrada belirtilen yöntem çerçevesinde hesaplanır.\n\n(4) Para birimi veya faizle ilişkilendirilen emtia bazında, faiz oranı şoku senaryoları bazında faiz oranı opsiyonalite riski için eklenti tutar (OR$_{i,p}$) aşağıdaki şekilde hesaplanır:\n\n$$\nOR_{i,p} = \\sum_{so=1}^{n} \\Delta OD^{so}_{i,p} - \\sum_{ao=1}^{m} \\Delta OD^{ao}_{i,p}\n$$\n\nBu formülde n; para birimi veya faizle ilişkilendirilen emtia bazında satılan opsiyonalite içeren araç sayısını, m; para birimi veya faizle ilişkilendirilen emtia bazında alınan opsiyonalite içeren araç sayısını ifade eder.\n\n(5) Gerçek kişi ve perakende müşteri olmayan diğer kişi müşterilere ait erken kapanma riski bulunan vadeli mevduatlar ve erken ödenme riski bulunan sabit faizli krediler, Kurum tarafından belirlenecek erken ödenme ve erken kapanma oranları kullanılmak suretiyle standartlaştırılmaya uyumlu olmayan pozisyonlar arasında sınıflandırılabilir ve bunlara ilişkin hesaplama 7 nci madde çerçevesinde gerçekleştirilebilir.\n\nEkonomik değer değişimi risk tutarının hesaplanması\n\nMADDE 9- (1) Faiz oranı şoku senaryoları dikkate alınarak banka için en büyük zararı oluşturacak ekonomik değer değişimi risk tutarı, 5 inci maddenin ikinci fıkrası çerçevesinde belirlenecek para birimleri veya faizle ilişkilendirilen emtialar bazında aşağıdaki şekilde hesaplanır:\n\na) Her bir senaryo altında yeniden fiyatlama tarihine göre EK-1’de yer alan tablodaki vade dilimlerine (t) yerleştirilen nakit akışları sadece bir uzun veya kısa pozisyon kalacak şekilde netleştirilerek, netleştirilmiş yeniden fiyatlanan nakit akışları (NA$_{i,p}$(t)) oluşturulur.\n\nb) EK-1’deki tabloda yer alan vade orta noktaları (t$_{o}$) kullanılarak para birimi veya faizle ilişkilendirilen emtia bazında, cari durumdaki iskonto oranı (İO$_{0,p}$(t$_{o}$)) aşağıdaki formülle hesaplanır:\n\n$$\n\\text{İO}_{0,p}(t_o) = \\exp(-F_{0,p}(t_o) \\ast t_o)\n$$\n\nBu formülde, (F$_{0,p}$(t$_{o}$)) vade orta noktaları ve para birimi veya faizle ilişkilendirilen emtia bazında hesaplanan cari faiz oranını ifade eder. Nakit akışları, Kurumca belirlenecek risksiz verim eğrileri kullanılarak iskonto edilmelidir.\n\nc) EK-1’deki tabloda yer alan vade orta noktaları (t$_{o}$) kullanılarak para birimi veya faizle ilişkilendirilen emtia bazında, faiz oranı şoku senaryoları için iskonto oranı (İO$_{i,p}$(t$_{o}$)) aşağıdaki formülle hesaplanır:\n\n$$\n\\text{İO}_{i,p}(t_o) = \\exp(-F_{i,p}(t_o) \\ast t_o)\n$$\n\nBu formülde; (F$_{i,p}$(t$_{o}$)) Kurumca belirlenecek pozitif veya negatif faiz oranı şoklarını dikkate alarak, vade orta noktaları ve para birimi veya faizle ilişkilendirilen emtia bazında EK-2’de yer alan usul ve esaslar uyarınca hesaplanan faiz oranlarını ifade eder. Senaryoların uygulanmasında Kurumca belirlenecek risksiz verim eğrileri kullanılır.\n\nç) Para birimi veya faizle ilişkilendirilen emtia bazında, faiz oranı şoku senaryoları altında ekonomik değeri (ED) hesaplamak için (c) bendinde belirtilen iskonto oranı ile vade dilimi bazında ağırlıklandırılmış risk ağırlıklı net pozisyonlar çarpılarak toplanır:\n\n$$\nED_{i,p} = \\sum_{t=1}^{19} NA_{i,p}(t) \\cdot \\text{İO}_{i,p}(t_o)\n$$\n\nd) Para birimi veya faizle ilişkilendirilen emtia bazında, faiz oranı şoku senaryoları için ekonomik değer değişimi aşağıdaki şekilde bulunur:\n\n$$\nEDD_{i,p} = \\sum_{t=1}^{19} NA_{0,p}(t) \\cdot \\text{İO}_{0,p}(t_o) - \\sum_{t=1}^{19} NA_{i,p}(t) \\cdot \\text{İO}_{i,p}(t_o) + OR_{i,p}\n$$\n\nBu formülde; OR$_{i,p}$ 8 inci maddenin dördüncü fıkrası uyarınca hesaplanan faiz oranı opsiyonalite riski için eklenti tutarı, $NA_{0,p}$ para birimi veya faizle ilişkilendirilen emtia bazında cari netleştirilmiş yeniden fiyatlanan nakit akışını, $\\text{İO}_{0,p}(t_o)$ para birimi veya faizle ilişkilendirilen emtia bazında cari durumdaki iskonto oranını ve EDD ekonomik değer değişimini ifade eder.\n\ne) Ekonomik değer değişimi risk tutarı, aşağıdaki şekilde hesaplanır:\n\n$$\n\\text{EDD risk tutarı} = \\max_{i \\in \\{1,2,\\ldots,6\\}} \\{\\max(0; \\sum_{p:EDD_{i,p}} EDD_{i,p}))\\}\n$$\n\nÜÇÜNCÜ BÖLÜM\n\nBankacılık Hesaplarından Kaynaklanan Faiz Oranı Riski Standart Rasyosuna İlişkin Raporlama ve Oransal Sınırlara Uyumsuzluk\n\nBankacılık hesaplarından kaynaklanan faiz oranı riski standart rasyosuna ilişkin raporlama\n\nMADDE 10- (1) Özkaynak hesaplama dönemleri itibarıyla hesaplanan konsolide ve konsolide olmayan bankacılık hesaplarından kaynaklanan faiz oranı riski standart rasyosu Kurumca elektronik raporlamalara ilişkin belirlenen usul ve esaslar dahilinde Kuruma gönderilir.\n\nOransal sınırlara uyumsuzluk\n\nMADDE 11- (1) 4 üncü maddenin ikinci fıkrasında belirtilen azami oranlarda aşım oluşması durumunda aşağıdaki bentlerde belirtilen şartlardan herhangi birinin varlığı halinde oluşan son dönem aşım tutarı aynı döneme ilişkin sermaye yeterliliği standart oranının hesaplamasında özkaynaktan indirilir:\n\na) Son iki dönem arka arkaya azami oranda aşım bulunması.\n\nb) Son 12 aylık dönem içerisinde son dönem aşım dahil üç defa azami oranın aşılması.\n\n(2) Asgari oranların sağlanamaması halinde, bu durumun nedenleri, söz konusu durumun giderilmesine ilişkin alınması planlanan önlemler ile birlikte 10 uncu maddenin birinci fıkrası uyarınca belirlenen süre içinde Kuruma bildirilir.\n\n(3) Bu madde hükümlerinin uygulanmasında konsolide ve konsolide olmayan oransal sınırlarda gerçekleşen uyumsuzluklar ayrı ayrı değerlendirilir.\n\nDÖRDÜNCÜ BÖLÜM\n\nÇeşitli ve Son Hükümler\n\nYürürlükten kaldırılan yönetmelik\n\nMADDE 12- (1) 23/8/2011 tarihli ve 28034 sayılı Resmî Gazete’de yayımlanan Bankacılık Hesaplarından Kaynaklanan Faiz Oranı Riskinin Standart Şok Yöntemiyle Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmelik yürürlükten kaldırılmıştır.\n\n(2) Mevzuatta, birinci fıkra ile yürürlükten kaldırılan Bankacılık Hesaplarından Kaynaklanan Faiz Oranı Riskinin Standart Şok Yöntemiyle Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmeliğe yapılan atıflar bu Yönetmeliğe yapılmış sayılır.\n\nKonsolide esasa göre uygulamaya ilişkin intibak\n\nGEÇİCİ MADDE 1- (1) Bu Yönetmeliğin konsolide esasa göre uygulanması 1/4/2026 tarihinde başlar.\n\nYürürlük\n\nMADDE 13- (1) Bu Yönetmelik 1/10/2025 tarihinde yürürlüğe girer.\n\nYürütme\n\nMADDE 14- (1) Bu Yönetmelik hükümlerini Bankacılık Düzenleme ve Denetleme Kurumu Başkanı yürütür.\n\nEK-1\n\n| Nakit akışlarının yerleştirileceği vade dilimleri (t) ve vade orta noktaları (t$_{o}$, yıl) |  |  |  |  |  |  |  |  |\n|---|---|---|---|---|---|---|---|---|\n| Kısa Vade | t = Gecelik (0,0028 yıl) | Gecelik < t ≤ 1 Ay (0,041 7 yıl) | 1 ay < t ≤ 3 ay (0,1667 yıl) | 3 ay < t ≤ 6 ay (0,375 yıl) | 6 ay < t ≤ 9 ay (0,625 yıl) | 9 ay < t ≤ 1 yıl (0,875 yıl) | 1 yıl < t ≤ 1,5 yıl (1,25 yıl) | 1,5 yıl < t ≤ 2 yıl (1,75 yıl) |\n| Orta Vade | 2 yıl < t ≤ 3 yıl (2,5 yıl) | 3 yıl < t ≤ 4 yıl (3,5 yıl) | 4 yıl < t ≤ 5 yıl (4,5 yıl) | 5 yıl < t ≤ 6 yıl (5,5 yıl) | 6 yıl < t ≤ 7 yıl (6,5 yıl) |  |  |  |\n| Uzun Vade | 7 yıl < t ≤ 8 yıl (7,5 yıl) | 8 yıl < t ≤ 9 yıl (8,5 yıl) | 9 yıl < t ≤ 10 yıl (9,5 yıl) | 10 yıl < t ≤ 15 yıl (12,5 yıl) | 15 yıl < t ≤ 20 yıl (17,5 yıl) | t > 20 yıl (25 yıl) |  |  |\n\nEK-2\n\nFaiz Oranı Şok Senaryolarının Belirlenmesi\n\n1. Her para birimi için altı faiz oranı şok senaryosu aşağıda yer alan formüller kullanılarak belirlenir:\n\na) Para birimi (p) bazında paralel yukarı ve aşağı şok senaryoları, tüm vade dilimleri için aynı düzeyde sabit bir artış ve azalış olacak şekilde belirlenir. Bu formülde (to), vade orta noktalarını ifade eder.\n\n$$\n\\Delta R_{\\text{paralel},p}(t_o) = \\pm \\bar{R}_{\\text{paralel},p}\n$$\n\nb) Para birimi bazında kısa vadeli aşağı ve yukarı şok senaryoları, en kısa vade dilimi için aşağı veya yukarı en yüksek düzeyde şok uygulanacak şekilde belirlenir. Bu şoklar, $S_{\\text{kısa}}(t_o) = \\left(e^{\\frac{-t_o}{x}}\\right)$ formülü aracılığıyla, en uzun vade dilimine doğru sıfıra yakınsayacak şekilde belirlenir. Bu formülde x=4 olarak dikkate alınır.\n\n$$\n\\Delta R_{\\text{kısa},p}(t_o) = \\pm \\bar{R}_{\\text{kısa},p} . S_{\\text{kısa}}(t_o) = \\pm \\bar{R}_{\\text{kısa},p} . e^{\\frac{-t_o}{x}}\n$$\n\nc) Artan ve azalan eğim senaryolarında kullanılmak üzere para birimi bazında uzun vade şok senaryoları belirlenir. Bu şoklar, $S_{\\text{uzun}}(t_o) = 1 - S_{\\text{kısa}}(t_o)$ formülü aracılığıyla, en kısa vade dilimine doğru sıfıra yakınsayacak şekilde belirlenir. $S_{\\text{kısa}}(t_o)$, (b) bendi uyarınca hesaplanır.\n\n$$\n\\Delta R_{\\text{uzun},p}(t_o) = \\pm \\bar{R}_{\\text{uzun},p} . S_{\\text{uzun}}(t_o) = \\pm \\bar{R}_{\\text{uzun},p} . \\left(1 - e^{\\frac{-t_o}{x}}\\right)\n$$\n\nç) Para birimi bazında artan eğim ve azalan eğim senaryoları, uzun ve kısa faiz oranı şokları uygulanarak aşağıdaki formüller kullanılarak belirlenir.\n\n$$\n\\Delta R_{\\text{artan eğim},p}(t_o) = -0.65 . \\lvert \\Delta R_{\\text{kısa},p}(t_o) \\rvert + 0.9 . \\lvert \\Delta R_{\\text{uzun},p}(t_o) \\rvert\n$$\n\n$$\n\\Delta R_{\\text{azalan eğim},p}(t_o) = 0.8 . \\lvert \\Delta R_{\\text{kısa},p}(t_o) \\rvert - 0.6 . \\lvert \\Delta R_{\\text{uzun},p}(t_o) \\rvert\n$$\n"
+  }
+ ]
+}
