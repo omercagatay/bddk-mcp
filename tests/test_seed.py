@@ -1123,6 +1123,56 @@ async def test_import_restores_missing_section_index(clean_pool, temp_seed_dir):
 
 
 @pytest.mark.asyncio
+async def test_forced_import_keeps_cited_sections_of_unchanged_documents(clean_pool, temp_seed_dir):
+    """A forced import must not rewrite sections that legal-version provisions still cite."""
+    docs = [
+        {
+            "document_id": "943",
+            "title": "Cited",
+            "markdown_content": "MADDE 1 - Kapsam\nBankalar uygular.\n",
+            "content_hash": "cited_hash",
+        },
+        {
+            "document_id": "mevzuat_22599",
+            "title": "Changed",
+            "markdown_content": "MADDE 9 - Karşılıklar\nİlk metin.\n",
+            "content_hash": "old_hash",
+        },
+    ]
+
+    def chunks_for(items):
+        return [
+            {
+                "doc_id": d["document_id"],
+                "chunk_index": 0,
+                "chunk_text": d["markdown_content"],
+                "content_hash": d["content_hash"],
+            }
+            for d in items
+        ]
+
+    _write_seed_files(temp_seed_dir, docs=docs, chunks=chunks_for(docs))
+    await seed.import_seed(pool=clean_pool, force=True)
+    cited_id = await clean_pool.fetchval("SELECT id FROM document_sections WHERE doc_id = '943'")
+    # Stand-in for regulatory_legal_version_provisions_section_fk.
+    await clean_pool.execute("CREATE TABLE section_citation_probe (section_id bigint REFERENCES document_sections(id))")
+    try:
+        await clean_pool.execute("INSERT INTO section_citation_probe VALUES ($1)", cited_id)
+        docs[1] = {**docs[1], "markdown_content": "MADDE 9 - Karşılıklar\nYeni metin.\n", "content_hash": "new_hash"}
+        _write_seed_files(temp_seed_dir, docs=docs, chunks=chunks_for(docs))
+
+        forced = await seed.import_seed(pool=clean_pool, force=True)
+
+        assert forced["sections"] == 1
+        assert await clean_pool.fetchval("SELECT id FROM document_sections WHERE doc_id = '943'") == cited_id
+        assert "Yeni metin" in await clean_pool.fetchval(
+            "SELECT content FROM document_sections WHERE doc_id = 'mevzuat_22599'"
+        )
+    finally:
+        await clean_pool.execute("DROP TABLE section_citation_probe")
+
+
+@pytest.mark.asyncio
 async def test_reindex_existing_is_complete_profile_aware_and_resumable(clean_pool):
     from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
     from bddk_mcp.store.vector_store import VectorStore
