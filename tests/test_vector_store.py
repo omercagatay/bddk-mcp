@@ -255,6 +255,30 @@ class TestModelReproducibility:
             )
         ]
 
+    def test_embedding_model_is_loaded_once_per_process(self):
+        calls: list[str] = []
+
+        class FakeSentenceTransformer:
+            def __init__(self, model_ref: str, **kwargs):
+                calls.append(model_ref)
+
+            def get_sentence_embedding_dimension(self):
+                return 768
+
+        fake_module = SimpleNamespace(SentenceTransformer=FakeSentenceTransformer)
+        with (
+            patch.dict("sys.modules", {"sentence_transformers": fake_module}),
+            patch("bddk_mcp.store.vector_store.EMBEDDING_MODEL_PATH", ""),
+            patch("bddk_mcp.store.vector_store.EMBEDDING_MODEL_REVISION", "a" * 40),
+        ):
+            first = VectorStore(MagicMock(), embedding_model="reviewed/model")
+            second = VectorStore(MagicMock(), embedding_model="reviewed/model")
+            first._ensure_embeddings()
+            second._ensure_embeddings()
+
+        assert calls == ["reviewed/model"]
+        assert first._embed_fn is second._embed_fn
+
     def test_remote_custom_embedding_model_requires_revision(self):
         with (
             patch("bddk_mcp.store.vector_store.EMBEDDING_MODEL_PATH", ""),

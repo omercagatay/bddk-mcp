@@ -162,6 +162,27 @@ def test_quality_assessment_keeps_unregistered_clean_document_clean():
     assert result.label == "clean"
 
 
+def test_quality_assessment_memo_is_keyed_by_text_document_and_registry(historical_quality_registry, monkeypatch):
+    from bddk_mcp.quality import markdown_quality
+
+    memo = markdown_quality._assess_markdown_quality_cached
+    memo.cache_clear()
+    text = "MADDE 1 - Temiz mevzuat metni."
+
+    first = assess_markdown_quality(text, document_id="not_registered")
+    second = assess_markdown_quality(text, document_id="not_registered")
+
+    assert memo.cache_info().hits == 1
+    assert first == second
+    assert first is not second and first.flags is not second.flags
+
+    registered_id = next(iter(historical_quality_registry))
+    assert assess_markdown_quality(text, document_id=registered_id).label == "fail"
+    # A changed registry must never be served a stale memo entry.
+    monkeypatch.setattr(markdown_quality, "_QUALITY_FAILURES", {})
+    assert assess_markdown_quality(text, document_id=registered_id).label == "clean"
+
+
 def test_quality_failure_registry_fails_closed_when_missing(tmp_path):
     missing = tmp_path / "PRIVATE_REGISTRY_PATH" / "missing.yml"
     with pytest.raises(RuntimeError, match="Unable to load quality-failure registry") as raised:

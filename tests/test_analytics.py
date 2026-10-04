@@ -81,6 +81,8 @@ def mock_http(monkeypatch):
     # DNS policy is covered independently; these parser/analytics tests must
     # not depend on external name resolution.
     monkeypatch.setattr(data_sources, "assert_public_https_resolution", AsyncMock(return_value=None))
+    # Error-path tests exercise the retry loop; skip its real exponential backoff sleeps.
+    monkeypatch.setattr("bddk_mcp.core.outbound_http.asyncio.sleep", AsyncMock())
     client = AsyncMock(spec=httpx.AsyncClient)
 
     def stream(method: str, url: str, **kwargs):

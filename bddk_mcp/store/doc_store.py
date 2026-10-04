@@ -21,7 +21,13 @@ from pydantic import BaseModel, Field
 
 from bddk_mcp.core.config import FTS_RANK_THRESHOLD, PAGE_SIZE
 from bddk_mcp.corpus_coordination import acquire_corpus_mutation_lock
-from bddk_mcp.quality.markdown_quality import QualityAssessment, assess_markdown_quality, prepare_markdown_for_storage
+from bddk_mcp.quality.markdown_quality import (
+    QualityAssessment,
+    QualityFailure,
+    assess_markdown_quality,
+    get_configured_quality_failure,
+    prepare_markdown_for_storage,
+)
 from bddk_mcp.regulatory.legal_versions import (
     AuthorityLevel,
     artifact_id_for,
@@ -37,6 +43,7 @@ from bddk_mcp.store.section_index import extract_document_sections
 logger = logging.getLogger(__name__)
 DOCUMENT_STORE_SEARCH_PROFILE_VERSION = "document-store-simple-fts-v2"
 _SAFE_SYNC_FAILURE_TOKEN_RE = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
+_DOCUMENT_QUALITY_CACHE_LIMIT = 4096
 
 
 def _safe_sync_failure_fields(error: str, category: str) -> tuple[str, str]:
@@ -201,9 +208,11 @@ def _citation_identities_match(row) -> bool:
     )
 
 
-def _section_from_row(row) -> StoredDocumentSection:
+def _section_from_row(row, document_quality: QualityAssessment | None = None) -> StoredDocumentSection:
     """Convert an asyncpg row into a StoredDocumentSection."""
     keys = set(row.keys())
+    if document_quality is None and "document_content" in keys:
+        document_quality = assess_markdown_quality(row["document_content"] or "", document_id=row["doc_id"])
     citation_mapping = None
     if "citation_instrument_id" in keys and row["citation_instrument_id"] is not None:
         try:
@@ -252,11 +261,7 @@ def _section_from_row(row) -> StoredDocumentSection:
         document_extraction_method=row["document_extraction_method"] or ""
         if "document_extraction_method" in keys
         else "",
-        document_quality=(
-            assess_markdown_quality(row["document_content"] or "", document_id=row["doc_id"])
-            if "document_content" in keys
-            else None
-        ),
+        document_quality=document_quality,
         rank=row["rank"] if "rank" in keys else None,
     )
 
@@ -279,6 +284,7 @@ class DocumentStore:
 
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
+        self._document_quality_cache: dict[tuple[str, str, QualityFailure | None], QualityAssessment] = {}
 
     async def initialize(self) -> None:
         """Deprecated SELECT-only compatibility readiness check.
@@ -604,6 +610,51 @@ class DocumentStore:
             result = await conn.execute("DELETE FROM public.document_sections WHERE doc_id = $1", doc_id)
             return result != "DELETE 0"
 
+    async def _document_quality_by_doc(self, rows: list[asyncpg.Record]) -> dict[str, QualityAssessment]:
+        """Assess each distinct document once per content hash, not once per section row.
+
+        Section rows used to ship the whole ``markdown_content`` so the row
+        mapper could assess document quality: a 100-row hit list for a law
+        transferred the same 500 KB body 100 times. The assessment depends only
+        on the body (identified by its content hash), the document id and its
+        registry entry, so it is cached on that key and the body is fetched
+        only for cache misses.
+        """
+        keys = {
+            row["doc_id"]: (row["doc_id"], row["source_content_hash"], get_configured_quality_failure(row["doc_id"]))
+            for row in rows
+        }
+        missing = sorted(doc_id for doc_id, key in keys.items() if key not in self._document_quality_cache)
+        if missing:
+            if len(self._document_quality_cache) >= _DOCUMENT_QUALITY_CACHE_LIMIT:
+                self._document_quality_cache.clear()
+            bodies = await self._pool.fetch(
+                "SELECT document_id, content_hash, markdown_content FROM public.documents "
+                "WHERE document_id = ANY($1::pg_catalog.text[])",
+                missing,
+            )
+            for body in bodies:
+                doc_id = body["document_id"]
+                key = (doc_id, body["content_hash"], get_configured_quality_failure(doc_id))
+                self._document_quality_cache[key] = assess_markdown_quality(
+                    body["markdown_content"] or "", document_id=doc_id
+                )
+        return {
+            doc_id: self._document_quality_cache[key]
+            for doc_id, key in keys.items()
+            if key in self._document_quality_cache
+        }
+
+    async def _sections_from_rows(self, rows: list[asyncpg.Record]) -> list[StoredDocumentSection]:
+        quality_by_doc = await self._document_quality_by_doc(rows) if rows else {}
+        sections = []
+        for row in rows:
+            quality = quality_by_doc.get(row["doc_id"])
+            sections.append(
+                _section_from_row(row, document_quality=None if quality is None else quality.model_copy(deep=True))
+            )
+        return sections
+
     async def get_document_section(
         self,
         doc_id: str,
@@ -667,8 +718,7 @@ class DocumentStore:
                    document.title AS document_title,
                    document.source_url AS document_source_url,
                    document.category AS document_category,
-                   document.extraction_method AS document_extraction_method,
-                   document.markdown_content AS document_content
+                   document.extraction_method AS document_extraction_method
             FROM public.document_sections AS section
             JOIN public.documents AS document
               ON document.document_id = section.doc_id
@@ -707,7 +757,7 @@ class DocumentStore:
             """,
             *params,
         )
-        return [_section_from_row(row) for row in rows]
+        return await self._sections_from_rows(rows)
 
     async def search_document_sections(
         self,
@@ -716,8 +766,14 @@ class DocumentStore:
         document_id: str | None = None,
         section_type: str | None = None,
         limit: int = 10,
+        include_source_range: bool = True,
     ) -> list[StoredDocumentSection]:
-        """Full-text search over structural sections."""
+        """Full-text search over structural sections.
+
+        ``include_source_range=False`` skips the ``substr`` over the document
+        body (a full detoast of the stored text per row); candidate retrieval
+        uses it and hydrates only the final hits via ``hydrate_source_ranges``.
+        """
         where = ["section.tsv @@ pg_catalog.plainto_tsquery('simple', public.immutable_unaccent($1))"]
         params: list = [query]
         if document_id:
@@ -733,17 +789,19 @@ class DocumentStore:
             # provision identity — same opt-in as fıkra/bent via section_type.
             where.append("section.section_type NOT IN ('fikra', 'bent', 'govde')")
         params.append(limit)
+        source_range_column = (
+            "pg_catalog.substr(document.markdown_content, section.start_char + 1, "
+            "section.end_char - section.start_char) AS normalized_source_range,"
+            if include_source_range
+            else ""
+        )
 
         rows = await self._pool.fetch(
             f"""
             SELECT section.doc_id, section.section_type, section.section_ref, section.heading,
                    section.start_char, section.end_char, section.content, section.content_hash,
                    section.page_start, section.page_end,
-                   pg_catalog.substr(
-                       document.markdown_content,
-                       section.start_char + 1,
-                       section.end_char - section.start_char
-                   ) AS normalized_source_range,
+                   {source_range_column}
                    document.content_hash AS source_content_hash,
                    citation.instrument_id AS citation_instrument_id,
                    citation.instrument_jurisdiction AS citation_instrument_jurisdiction,
@@ -768,7 +826,6 @@ class DocumentStore:
                    document.source_url AS document_source_url,
                    document.category AS document_category,
                    document.extraction_method AS document_extraction_method,
-                   document.markdown_content AS document_content,
                    -- normalization flag 1 divides by 1+log(length): without it,
                    -- jumbo boilerplate sections outrank on-point short maddeler
                    pg_catalog.ts_rank_cd(
@@ -814,7 +871,45 @@ class DocumentStore:
             """,
             *params,
         )
-        return [_section_from_row(row) for row in rows]
+        return await self._sections_from_rows(rows)
+
+    async def hydrate_source_ranges(self, sections: list[StoredDocumentSection]) -> list[StoredDocumentSection]:
+        """Fill ``normalized_source_range`` for sections retrieved without it.
+
+        One query keyed by the exact (document, body hash, offsets) of each
+        section, so a loose search hydrates its ten final hits instead of
+        detoasting the document body for every one of its hundreds of candidates.
+        """
+        pending = [index for index, section in enumerate(sections) if not section.normalized_source_range]
+        if not pending:
+            return sections
+        rows = await self._pool.fetch(
+            """
+            SELECT key.ordinality,
+                   pg_catalog.substr(
+                       document.markdown_content, key.start_char + 1, key.end_char - key.start_char
+                   ) AS normalized_source_range
+            FROM ROWS FROM (
+                     pg_catalog.unnest($1::pg_catalog.text[]),
+                     pg_catalog.unnest($2::pg_catalog.int4[]),
+                     pg_catalog.unnest($3::pg_catalog.int4[]),
+                     pg_catalog.unnest($4::pg_catalog.text[])
+                 ) WITH ORDINALITY AS key(doc_id, start_char, end_char, source_content_hash, ordinality)
+            JOIN public.documents AS document
+              ON document.document_id = key.doc_id
+             AND document.content_hash = key.source_content_hash
+            """,
+            [sections[index].doc_id for index in pending],
+            [sections[index].start_char for index in pending],
+            [sections[index].end_char for index in pending],
+            [sections[index].source_content_hash for index in pending],
+        )
+        ranges = {int(row["ordinality"]) - 1: row["normalized_source_range"] or "" for row in rows}
+        hydrated = list(sections)
+        for position, index in enumerate(pending):
+            if position in ranges:
+                hydrated[index] = sections[index].model_copy(update={"normalized_source_range": ranges[position]})
+        return hydrated
 
     # -- Search ---------------------------------------------------------------
 

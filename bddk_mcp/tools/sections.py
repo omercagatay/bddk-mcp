@@ -521,6 +521,7 @@ async def _search_sections_loose(
             document_id=document_id,
             section_type=section_type,
             limit=candidate_limit,
+            include_source_range=False,
         )
         for section in term_hits:
             # Per-term ranks come from different tsqueries and are not
@@ -540,7 +541,9 @@ async def _search_sections_loose(
         merged.values(),
         key=lambda section: (-_loose_section_score(section, terms, weights), section.start_char, _section_key(section)),
     )
-    return ranked[:limit]
+    top = ranked[:limit]
+    # Only the hits that leave this function need their verbatim source range.
+    return await deps.doc_store.hydrate_source_ranges(top) if top else []
 
 
 def register(mcp, deps: Dependencies) -> None:

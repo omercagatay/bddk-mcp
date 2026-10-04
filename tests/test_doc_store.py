@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from bddk_mcp.quality.markdown_quality import assess_markdown_quality
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument, StoredDocumentSection
 from bddk_mcp.store.section_index import extract_document_sections
 
@@ -278,6 +279,21 @@ async def test_search_document_sections(store):
     assert hits[0].doc_id == "mevzuat_22599"
     assert hits[0].section_type == "madde"
     assert hits[0].section_ref == "9"
+    # Document-level quality comes from the whole body, assessed once per content hash.
+    expected_quality = assess_markdown_quality(text, document_id="mevzuat_22599")
+    assert hits[0].document_quality == expected_quality
+    assert ("mevzuat_22599", hashlib.sha256(text.encode()).hexdigest(), None) in store._document_quality_cache
+    again = await store.search_document_sections("TFRS 9 karşılık", document_id="mevzuat_22599")
+    assert again[0].document_quality == expected_quality
+    assert again[0].document_quality is not hits[0].document_quality
+    # Candidate retrieval skips the body substring; hydration restores the exact range.
+    candidates = await store.search_document_sections(
+        "TFRS 9 karşılık", document_id="mevzuat_22599", include_source_range=False
+    )
+    assert candidates[0].normalized_source_range == ""
+    hydrated = await store.hydrate_source_ranges(candidates)
+    assert hits[0].normalized_source_range != ""
+    assert hydrated[0].normalized_source_range == hits[0].normalized_source_range
 
 
 async def test_search_document_sections_skips_nested_fikra_unless_requested(store):
