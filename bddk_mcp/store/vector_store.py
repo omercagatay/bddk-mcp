@@ -143,6 +143,13 @@ class _LocalAssetFile:
     stat_identity: tuple[int, int, int, int, int]
 
 
+# Loaded embedding models shared by every VectorStore in this process, keyed by
+# (loader class, model reference, load kwargs). Bounded only to keep test doubles
+# from accumulating; production holds one entry.
+_LOADED_EMBEDDING_MODELS: dict[tuple[object, str, tuple[tuple[str, object], ...]], object] = {}
+_LOADED_EMBEDDING_MODELS_LOCK = threading.Lock()
+_LOADED_EMBEDDING_MODELS_LIMIT = 4
+
 _LOCAL_MODEL_IDENTITY_CACHE: dict[
     str,
     tuple[tuple[tuple[str, int, int, int, int, int], ...], dict[str, int | str]],
@@ -1167,15 +1174,24 @@ class VectorStore:
             model_kwargs["revision"] = EMBEDDING_MODEL_REVISION
             model_source = "remote"
 
-        logger.info("Loading embedding model (%s source)", model_source)
-
-        try:
-            loaded_model = SentenceTransformer(model_ref, device="cuda", **model_kwargs)
-            logger.info("Loaded embedding model (GPU execution, %s source)", model_source)
-        except (RuntimeError, ValueError, AssertionError):
-            # CPU-only torch raises AssertionError on CUDA probe, not RuntimeError.
-            loaded_model = SentenceTransformer(model_ref, device="cpu", **model_kwargs)
-            logger.info("Loaded embedding model (CPU execution, %s source)", model_source)
+        # One process loads a given model once: every VectorStore instance used
+        # to re-read the ~1.1 GB weights (15-30 s per instance on CI runners).
+        # The loader class is part of the key so test doubles never share an entry.
+        cache_key = (SentenceTransformer, model_ref, tuple(sorted(model_kwargs.items())))
+        with _LOADED_EMBEDDING_MODELS_LOCK:
+            loaded_model = _LOADED_EMBEDDING_MODELS.get(cache_key)
+            if loaded_model is None:
+                logger.info("Loading embedding model (%s source)", model_source)
+                try:
+                    loaded_model = SentenceTransformer(model_ref, device="cuda", **model_kwargs)
+                    logger.info("Loaded embedding model (GPU execution, %s source)", model_source)
+                except (RuntimeError, ValueError, AssertionError):
+                    # CPU-only torch raises AssertionError on CUDA probe, not RuntimeError.
+                    loaded_model = SentenceTransformer(model_ref, device="cpu", **model_kwargs)
+                    logger.info("Loaded embedding model (CPU execution, %s source)", model_source)
+                if len(_LOADED_EMBEDDING_MODELS) >= _LOADED_EMBEDDING_MODELS_LIMIT:
+                    _LOADED_EMBEDDING_MODELS.clear()
+                _LOADED_EMBEDDING_MODELS[cache_key] = loaded_model
         dimension = loaded_model.get_sentence_embedding_dimension()
         if dimension != EMBEDDING_DIMENSION:
             raise RuntimeError(

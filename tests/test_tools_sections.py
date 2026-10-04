@@ -476,7 +476,7 @@ async def test_search_document_sections_uses_loose_fallback_when_strict_misses()
     doc_store = MagicMock()
     doc_store.get_document_section = AsyncMock(return_value=[])
 
-    async def search_side_effect(search_query, *, document_id=None, section_type=None, limit=10):
+    async def search_side_effect(search_query, *, document_id=None, section_type=None, limit=10, **_kwargs):
         if search_query == query:
             return []
         if search_query in {"denetim", "teknikleri", "tetkik", "gözlem"}:
@@ -484,6 +484,7 @@ async def test_search_document_sections_uses_loose_fallback_when_strict_misses()
         return []
 
     doc_store.search_document_sections = AsyncMock(side_effect=search_side_effect)
+    doc_store.hydrate_source_ranges = AsyncMock(side_effect=lambda sections: sections)
     deps = Dependencies(pool=None, doc_store=doc_store, client=None, http=None)
 
     tool = _capture_tool(deps, "search_document_sections")
@@ -524,7 +525,7 @@ async def test_loose_fallback_ranks_operative_madde_ahead_of_govde_gecici_and_ip
     doc_store = MagicMock()
     doc_store.get_document_section = AsyncMock(return_value=[])
 
-    async def search_side_effect(search_query, *, document_id=None, section_type=None, limit=10):
+    async def search_side_effect(search_query, *, document_id=None, section_type=None, limit=10, **_kwargs):
         if search_query == query:
             return []
         if search_query in glue:
@@ -534,6 +535,7 @@ async def test_loose_fallback_ranks_operative_madde_ahead_of_govde_gecici_and_ip
         return []
 
     doc_store.search_document_sections = AsyncMock(side_effect=search_side_effect)
+    doc_store.hydrate_source_ranges = AsyncMock(side_effect=lambda sections: sections)
     deps = Dependencies(pool=None, doc_store=doc_store, client=None, http=None)
 
     out = await _capture_tool(deps, "search_document_sections")(query, limit=4)
@@ -617,6 +619,7 @@ async def test_loose_acronym_expansion_searches_both_forms_without_rewriting_evi
         return [sections[0]] if value == "lgd" else [sections[1]] if value == "thk" else []
 
     store.search_document_sections = AsyncMock(side_effect=search)
+    store.hydrate_source_ranges = AsyncMock(side_effect=lambda sections: sections)
     deps = Dependencies(pool=None, doc_store=store, client=None, http=None)
     result = await _capture_tool(deps, "search_document_sections")(query)
     contents = {item["document_id"]: item["content"] for item in result.structuredContent["results"]}

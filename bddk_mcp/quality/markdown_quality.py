@@ -10,6 +10,7 @@ reports when verbatim serving would leak an unsafe extraction artifact.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import re
@@ -310,10 +311,29 @@ def unsafe_verbatim_reason(text: str) -> str | None:
 
 
 def assess_markdown_quality(text: str, document_id: str = "") -> QualityAssessment:
-    """Return deterministic quality flags and a clean/warning/fail label."""
+    """Return deterministic quality flags and a clean/warning/fail label.
+
+    The assessment is a pure function of the text, the document identity and
+    the registry entry for that document, so repeated calls for the same
+    stored document (every search hit, every section row, every page) are
+    served from a bounded in-process memo instead of re-running the signal
+    regexes over the full document body.
+    """
+    configured_failure = get_configured_quality_failure(document_id)
+    cached = _assess_markdown_quality_cached(text, document_id, configured_failure)
+    return cached.model_copy(deep=True)
+
+
+# ponytail: lru_cache keeps the assessed texts as keys (whole corpus ~8 MB);
+# key by content digest if memory ever matters more than this one-liner.
+@functools.lru_cache(maxsize=2048)
+def _assess_markdown_quality_cached(
+    text: str,
+    document_id: str,
+    configured_failure: QualityFailure | None,
+) -> QualityAssessment:
     counts = _count_signals(text)
     flags = [name for name, count in counts.items() if count > 0]
-    configured_failure = get_configured_quality_failure(document_id)
     if configured_failure is not None:
         flags.append(_CONFIGURED_QUALITY_FAILURE_FLAG)
 

@@ -29,6 +29,20 @@ Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızd
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Değiştirildi — arama gecikmesi, test süresi ve imaj boyutu
+
+- Belge kalite değerlendirmesi (`assess_markdown_quality`) metin, belge kimliği ve kayıt defteri
+  girdisine göre bellekte önbelleğe alınır; hibrit aramanın yerel medyan gecikmesi 389 ms'den
+  yaklaşık 50 ms'ye indi. Bölüm sorguları belgenin tam gövdesini satır başına taşımaz; gevşek
+  bölüm araması kaynak aralığını yalnızca son isabetler için getirir. Sonuçlar ve retrieval
+  profil hash'i değişmez.
+- Gömme modeli süreç başına bir kez yüklenir; Postgres test süiti yerelde 10,5 dakikadan
+  2 dakikaya indi, CI'da aynı etki beklenir.
+- Dockerfile sahiplik ve izin ayarlarını dosyaları oluşturan katmanların içinde uygular; ayrı
+  `chgrp/chmod` katmanı tüm ağacı kopyalayarak imajı ikiye katlıyordu (14,2 GB → 7,23 GB,
+  izin eşliği doğrulandı). `supply-chain/policy.json` içindeki Dockerfile hash'i buna göre
+  güncellendi.
+
 ### Değiştirildi — lisans
 
 - Lisans MIT'den [PolyForm Noncommercial 1.0.0](LICENSE)'a değiştirildi (SPDX `PolyForm-Noncommercial-1.0.0`; `pyproject.toml` ve NLI veri seti üst verisi güncellendi). Bankalar, finansal kuruluşlar ve diğer şirketler dahil her türlü ticari kullanım, telif hakkı sahibinden ayrı yazılı lisans alınmadan yasaktır. README'ye ticari lisans iletişim satırı eklendi. GitHub deposu 2 Ekim 2026'da private yapıldı.
