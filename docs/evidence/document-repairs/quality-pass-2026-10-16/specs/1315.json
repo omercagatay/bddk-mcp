@@ -1,0 +1,9 @@
+{
+ "tables": [
+  {
+   "start": "Vadeden Sonraki İş Günü Sayısı",
+   "end": "(3) 4 üncü maddenin birinci",
+   "md": "| Vadeden Sonraki İş Günü Sayısı | Sermaye Yükümlüğü Oranı (% ) |\n|---|---|\n| 5 ile 15 gün arası | 8 |\n| 16 ile 30 gün arası | 50 |\n| 31 ile 45 gün arası | 75 |\n| 46 ve daha fazla gün | 100 |"
+  }
+ ]
+}

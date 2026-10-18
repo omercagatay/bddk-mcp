@@ -1,0 +1,17 @@
+{
+ "document_id": "mevzuat_10732",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "local_edit",
+ "input_markdown_sha256": "df856ba73738955356de56ae9648a51c18fe3bfc36ee97f87bfdc6229c0463db",
+ "output_markdown_sha256": "5b5970d776a169329508a47b23664e4a3ddd3303f1d521bd73e40571865e8398",
+ "extraction_method_before": "html_parser",
+ "extraction_method_after": "html_parser",
+ "change_classes": [
+  "U+0092 (cp1254 right quote) -> ’ ×8",
+  "U+0096 (cp1254 en dash) -> – ×21",
+  "flattened closing Resmî Gazete list written as the reviewed table layout"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.10732&MevzuatIliski=0&sourceXmlSearch=finansal holding"
+}

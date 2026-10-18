@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from bddk_mcp.store.legal_ref import document_id_candidates, parse_legal_refs, turkish_casefold
+from bddk_mcp.store.legal_ref import (
+    canonical_section_ref,
+    document_id_candidates,
+    parse_legal_refs,
+    turkish_casefold,
+)
 
 
 def test_parse_document_ids_numeric_and_prefixed():
@@ -69,3 +74,27 @@ def test_turkish_casefold_handles_dotted_and_dotless_i():
     assert turkish_casefold("İLKE I ı i") == "ilke ı ı i"
     refs = parse_legal_refs("ilke 5")
     assert ("ilke", "5") in refs.sections
+
+
+def test_inserted_articles_parse_to_the_stored_ref_and_bare_articles_stay_bare():
+    for query in ("mevzuat_5411 madde 66/A", "mevzuat_5411 madde 66A", "mevzuat_5411 Madde 66/a'ya göre"):
+        refs = parse_legal_refs(query)
+        assert refs.document_ids == ["mevzuat_5411"]
+        assert refs.sections == [("madde", "66/a")]
+    assert parse_legal_refs("m. 13/Ç").sections == [("madde", "13/ç")]
+    assert parse_legal_refs("66/A. madde") == parse_legal_refs("madde 66/A")
+    assert parse_legal_refs("mevzuat_5411 madde 66").sections == [("madde", "66")]
+    assert parse_legal_refs("madde 4/1-a").sections == [("madde", "4")]
+    assert parse_legal_refs("madde 5 a) bendi").sections == [("madde", "5")]
+
+
+def test_gecici_and_ek_madde_map_to_their_own_section_types():
+    assert parse_legal_refs("mevzuat_10749 GEÇİCİ MADDE 1").sections == [("gecici_madde", "1")]
+    assert parse_legal_refs("gecici madde 2").sections == [("gecici_madde", "2")]
+    assert parse_legal_refs("5411 sayılı Kanun ek madde 1").sections == [("ek_madde", "1")]
+    assert parse_legal_refs("EK-1 madde 5").sections == [("madde", "5")]
+
+
+def test_canonical_section_ref_is_the_stored_form():
+    cases = {"66/A": "66/a", "66A": "66/a", " 13/Ç ": "13/ç", "a": "a", "Ç": "ç", "I": "i", "İ": "i", "2.1": "2.1"}
+    assert {value: canonical_section_ref(value) for value in cases} == cases

@@ -1,0 +1,75 @@
+{
+ "document_id": "mevzuat_10735",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "89c62c3b13547fe66eab24c76747d9b8541cf0b2036b2bb9e1e40d4a4f8fc86f",
+ "output_markdown_sha256": "13792511957d4917edf4b60be76b4510ddefaf703030aca3ec550368cb2fc9fc",
+ "extraction_method_before": "markitdown",
+ "extraction_method_after": "pdftotext_layout",
+ "change_classes": [
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "stored word order differed from the PDF; rebuilt order matches the PDF content stream (pdftotext -raw)",
+  "1 table block(s) written as Markdown tables, reviewed against the page image",
+  "2 reviewed spot replacement(s) in the rebuilt text: '(1)\\n1/11/2012 tarihli' -> '(1) 1/11/2012 tarihli'; '(2)\\nBu değişiklik yayımlandığı' -> '(2) Bu değişiklik yayımlandığı'",
+  "4 word boundaries taken from the stored text where the official PDF text layer glued words (e.g. 'MADDE 1 –(1)')"
+ ],
+ "pages_visually_reviewed": [
+  6
+ ],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.10735&MevzuatIliski=0&sourceXmlSearch=mevduat ve katılım",
+ "section_changes": {
+  "lost": [],
+  "gained": [
+   "fikra 1",
+   "fikra 1",
+   "fikra 1",
+   "fikra 10",
+   "fikra 2",
+   "fikra 2",
+   "fikra 2",
+   "fikra 3",
+   "fikra 3",
+   "fikra 4",
+   "fikra 4",
+   "fikra 5",
+   "fikra 6",
+   "fikra 7",
+   "fikra 8",
+   "fikra 9",
+   "madde 4",
+   "madde 6"
+  ],
+  "note": "gained fıkras that the stored text had run into one paragraph; the footnote bodies '(1)', '(2)' also parse as fıkra 1 and 2"
+ },
+ "source_pdf_sha256": "93c77bfced2ab7408ccfc666294b3d0f28137e8ba21c3c6bd81e2d9ff83b97fb",
+ "source_pdf_bytes": 627603,
+ "source_pdf_matches_stored_file_size": false,
+ "source_pdf_note": "static mevzuat.gov.tr MevzuatMetin PDF of the current consolidated text; the stored text came from the mevzuat HTML page, so the stored file size describes that page",
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "fail",
+  "reasons": [
+   "stored has LaTeX/table markup",
+   "rebuilt-only tokens ['_______']",
+   "stored-only non-page tokens ['10735', '20ek', '5', '7', 'doc']",
+   "punctuation differs {'*': 266, '(': 1, ')': 1, '.': 3, '\\\\': 7, '[': 1, ']': 1, '%': 1}",
+   "section list differs",
+   "ruled tables on pages [5, 6]"
+  ],
+  "paragraph_break_spots": 0
+ },
+ "gate_resolution": [
+  "punctuation difference = table/LaTeX markup written differently and dropped page-furniture lines",
+  "section list change listed in section_changes",
+  "token, table and formula differences resolved by the reviewed specs/ and manual steps above, checked against the viewed page images"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

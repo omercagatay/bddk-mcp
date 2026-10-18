@@ -24,7 +24,7 @@ import yaml
 from pydantic import BaseModel, Field
 
 QUALITY_FAILURES_PATH = Path(__file__).with_name("quality_failures.yml")
-QUALITY_ASSESSMENT_POLICY_VERSION = "markdown-quality-assessment-v5"
+QUALITY_ASSESSMENT_POLICY_VERSION = "markdown-quality-assessment-v7"
 QUALITY_FAILURE_REGISTRY_FORMAT_VERSION = 1
 _CONFIGURED_QUALITY_FAILURE_FLAG = "configured_quality_failure"
 FORMULA_EXTRACTION_WARNING = (
@@ -41,7 +41,7 @@ def is_formula_aware(method: str) -> bool:
 
 def mentions_formula(text: str) -> bool:
     """True when the text points at a formula, not merely when extraction was formula-unaware."""
-    return bool(_FORMULA_REF_RE.search(text or ""))
+    return bool(_FORMULA_REF_RE.search(_without_external_formula_refs(text or "")))
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,6 +198,34 @@ _FORMULA_REF_RE = re.compile(
     r"|form[üu]l(?:[üu]|ler)?\s+(?:ile|uyarınca|vasıtasıyla|aracılığıyla|kullanılarak)",
     re.IGNORECASE,
 )
+# Literal references to the formulas of another instrument, verified in
+# document-repairs/quality-pass-2026-10-16/1296.json: the formulas live in that instrument, not in this text.
+_REVIEWED_EXTERNAL_FORMULA_REFS = ("Yönetmelik EK-2’de yer alan formüllerde",)
+# Literal references, per document, to a formula stated in another article, paragraph or
+# annex of the same text, verified in document-repairs/quality-pass-2026-10-16/
+# policy/internal-formula-references.json: the formula is present, only outside the referring section.
+_REVIEWED_INTERNAL_FORMULA_REFS: dict[str, tuple[str, ...]] = {
+    "1312": ("40 ıncı maddenin birinci fıkrasında yer alan formüle",),
+    "1313": (
+        "Black-Scholes formülü\nkullanılarak",
+        "opsiyon formülü\nkullanılarak",
+        "ikinci fıkrada yer alan formüle",
+        "dördüncü fıkrada yer alan formüle",
+    ),
+    "mevzuat_19498": ("Ek-3’te yer alan formül",),
+    "mevzuat_20029": (
+        "44 üncü maddenin üçüncü fıkrasında yer alan formül",
+        "40 ıncı maddenin birinci fıkrasında yer alan formüle",
+    ),
+}
+
+
+def _without_external_formula_refs(text: str, document_id: str = "") -> str:
+    for phrase in (*_REVIEWED_EXTERNAL_FORMULA_REFS, *_REVIEWED_INTERNAL_FORMULA_REFS.get(document_id, ())):
+        text = text.replace(phrase, "")
+    return text
+
+
 _LATEX_OR_IMAGE_RE = re.compile(r"\$\$|!\[[^\]]*]\([^)]*\)|<img\b|data:image/", re.IGNORECASE)
 _INLINE_FORMULA_RE = re.compile(
     r"(?im)"
@@ -332,7 +360,7 @@ def _assess_markdown_quality_cached(
     document_id: str,
     configured_failure: QualityFailure | None,
 ) -> QualityAssessment:
-    counts = _count_signals(text)
+    counts = _count_signals(text, document_id)
     flags = [name for name, count in counts.items() if count > 0]
     if configured_failure is not None:
         flags.append(_CONFIGURED_QUALITY_FAILURE_FLAG)
@@ -364,7 +392,7 @@ def _assess_markdown_quality_cached(
     )
 
 
-def _count_signals(text: str) -> dict[str, int]:
+def _count_signals(text: str, document_id: str = "") -> dict[str, int]:
     cid_count = len(_CID_RE.findall(text))
     data_uris = _DATA_URI_RE.findall(text)
     long_lines = [len(line) for line in text.splitlines()]
@@ -395,7 +423,7 @@ def _count_signals(text: str) -> dict[str, int]:
         "replacement_char": text.count("\ufffd"),
         "long_underscore_run": len(re.findall(r"_{10,}", text)),
         "camelcase_concat": _count_camelcase_concat(text),
-        "formula_ref_without_latex_or_image": int(_has_formula_ref_without_extractable_formula(text)),
+        "formula_ref_without_latex_or_image": int(_has_formula_ref_without_extractable_formula(text, document_id)),
     }
 
 
@@ -521,7 +549,8 @@ def _count_repeated_para_blocks(text: str) -> int:
     return repeated
 
 
-def _has_formula_ref_without_extractable_formula(text: str) -> bool:
+def _has_formula_ref_without_extractable_formula(text: str, document_id: str = "") -> bool:
+    text = _without_external_formula_refs(text, document_id)
     if not _FORMULA_REF_RE.search(text):
         return False
     if _LATEX_OR_IMAGE_RE.search(text):

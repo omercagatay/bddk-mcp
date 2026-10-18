@@ -1,0 +1,21 @@
+{
+ "tables": [
+  {
+   "start": "Krediler + ( Menkul",
+   "end": "* Her ay sonu itibariyle",
+   "md": "$$\n\\text{Aktif Rasyosu (AR)}^{*} = \\frac{\\text{Krediler} + (\\text{Menkul Kıymetler} \\times 0{,}75) + (\\text{TCMB Swap} \\times 0{,}5)}{\\text{TL Mevduat} + (\\text{YP Mevduat} \\times 1{,}75^{**})}\n$$"
+  }
+ ],
+ "replace": [
+  [
+   "\n\n* Her ay sonu",
+   "\n\n$^{*}$ Her ay sonu",
+   1
+  ],
+  [
+   "\n\n** YP Mevduat",
+   "\n\n$^{**}$ YP Mevduat",
+   1
+  ]
+ ]
+}

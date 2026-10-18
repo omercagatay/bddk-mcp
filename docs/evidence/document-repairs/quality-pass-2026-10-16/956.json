@@ -1,0 +1,37 @@
+{
+ "document_id": "956",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "67a9f1edd1cd2d3a828d74cdbeca01ddfd508d245ef077a15f5f21b5416a22e8",
+ "output_markdown_sha256": "c06f678832245369dbf53cc5703ce1d3174586e35eb42f27b75043366c01ab6c",
+ "extraction_method_before": "markitdown",
+ "extraction_method_after": "pdftotext_layout",
+ "change_classes": [
+  "scrambled word order: 4 windows restored from PDF order (pdftotext -layout, confirmed by -raw content-stream order)",
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "stored word order differed from the PDF; rebuilt order matches the PDF content stream (pdftotext -raw)"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/956",
+ "source_pdf_sha256": "350fa4e538826cea4d2ba9f33bc089fc5895411b008e079b68ac90320b2b4a1d",
+ "source_pdf_bytes": 293484,
+ "source_pdf_matches_stored_file_size": true,
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "pass",
+  "reasons": [],
+  "paragraph_break_spots": 0
+ },
+ "gate_resolution": [
+  "relay output word tokens equal the stored text except dropped page furniture"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

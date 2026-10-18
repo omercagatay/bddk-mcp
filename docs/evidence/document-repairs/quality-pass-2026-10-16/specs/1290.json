@@ -1,0 +1,9 @@
+{
+ "tables": [
+  {
+   "start": "Sermaye Tabanı Uygulamasına Esas",
+   "end": "YEDİNCİ BÖLÜM",
+   "md": "| Sermaye Tabanı Uygulamasına Esas İçsel ve İçsel Olmayan Yaklaşımlar | Sermaye Tabanı Uygulamasına Esas İçsel ve İçsel Olmayan Yaklaşımlar | Sermaye Tabanı Uygulamasına Esas İçsel ve İçsel Olmayan Yaklaşımlar |\n|---|---|---|\n|  | İçsel Yaklaşımlar | İçsel Olmayan Yaklaşımlar |\n| Temel kredi riskine esas tutar | İçsel derecelendirmeye dayalı yaklaşım | Standart Yaklaşım |\n| Karşı taraf kredi riskine esas tutar | 1) İçsel model yöntemi<br/>2) Riske maruz değer modeli yaklaşımı | 1) Standart yaklaşım<br/>2) Kapsamlı finansal teminat yöntemi |\n| Menkul kıymetleştirme riskine esas tutar ile alım satım hesaplarında yer alan menkul kıymetleştirme pozisyonlarına ilişkin temerrüt riski hesaplamaları | 1) İçsel değerlendirme yaklaşımı<br/>2) İçsel derecelendirmeye dayalı yaklaşım | 1) Dışsal derecelendirmeye dayalı yaklaşım<br/>2) Standart yaklaşım<br/>3) %1250 risk ağırlığı uygulaması |\n| Temel piyasa riskine esas tutar | İçsel model yaklaşımı | Standart yaklaşım |"
+  }
+ ]
+}

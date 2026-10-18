@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import re
 import shutil
+import subprocess
 from copy import deepcopy
 from pathlib import Path
 
@@ -12,6 +15,7 @@ import pytest
 import yaml
 
 from bddk_mcp.openshift_acceptance import (
+    _KUSTOMIZE_VERSION,
     OpenShiftAcceptanceError,
     load_acceptance_input,
     run_openshift_preflight,
@@ -21,9 +25,24 @@ from bddk_mcp.tools.registry import PUBLIC_TOOL_NAMES, TOOL_ANNOTATIONS
 from scripts import openshift_acceptance as acceptance_cli
 
 ROOT = Path(__file__).parents[1]
+
+
+def _pinned_kustomize_on_path() -> bool:
+    executable = shutil.which("kustomize")
+    if executable is None:
+        return False
+    try:
+        result = subprocess.run([executable, "version"], check=False, capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return re.findall(r"v\d+\.\d+\.\d+", result.stdout) == [_KUSTOMIZE_VERSION]
+
+
+# Hosted runners may ship a different Kustomize on PATH; only the pinned renderer
+# can pass the preflight. The required CI lane (BDDK_REQUIRE_KUSTOMIZE=1) never skips.
 REQUIRES_KUSTOMIZE = pytest.mark.skipif(
-    shutil.which("kustomize") is None,
-    reason="the real pinned Kustomize renderer is unavailable; the required CI lane installs it",
+    os.getenv("BDDK_REQUIRE_KUSTOMIZE") != "1" and not _pinned_kustomize_on_path(),
+    reason=f"the pinned Kustomize {_KUSTOMIZE_VERSION} renderer is unavailable; the required CI lane installs it",
 )
 KUSTOMIZE_BINARY_SHA256 = (
     hashlib.sha256(Path(shutil.which("kustomize") or __file__).resolve().read_bytes()).hexdigest()

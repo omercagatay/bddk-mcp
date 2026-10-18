@@ -1,0 +1,16 @@
+{
+ "tables": [
+  {
+   "start": "1.EL KONUT ALIMINDA",
+   "end": "18/4/2007 tarihli",
+   "md": "| 1.EL KONUT ALIMINDA KULLANDIRILABİLECEK AZAMİ KREDİ TUTARI | 1.EL KONUT ALIMINDA KULLANDIRILABİLECEK AZAMİ KREDİ TUTARI | 1.EL KONUT ALIMINDA KULLANDIRILABİLECEK AZAMİ KREDİ TUTARI | 1.EL KONUT ALIMINDA KULLANDIRILABİLECEK AZAMİ KREDİ TUTARI |\n|---|---|---|---|\n| KONUT DEĞERİ | Enerji Sınıfı$^{1}$ | Enerji Sınıfı$^{1}$ | Enerji Sınıfı$^{1}$ |\n| KONUT DEĞERİ | A | B | DİĞER |\n| DEĞER <= 5 MİLYON TL | DEĞER x 90% | DEĞER x 85% | DEĞER x 80% |\n| 5 MİLYON TL < DEĞER <= 10 MİLYON TL | DEĞER x 80% | DEĞER x 75% | DEĞER x 70% |\n| 10 MİLYON TL < DEĞER <= 20 MİLYON TL | DEĞER x 70% | DEĞER x 65% | DEĞER x 60% |\n| 20 MİLYON TL < DEĞER | DEĞER x 60% | DEĞER x 55% | DEĞER x 50% |\n\n| 2. EL KONUT ALIMINDA VE KONUT TEMİNATLI KREDİLERDE KULLANDIRILABİLECEK AZAMİ KREDİ TUTARI | 2. EL KONUT ALIMINDA VE KONUT TEMİNATLI KREDİLERDE KULLANDIRILABİLECEK AZAMİ KREDİ TUTARI | 2. EL KONUT ALIMINDA VE KONUT TEMİNATLI KREDİLERDE KULLANDIRILABİLECEK AZAMİ KREDİ TUTARI | 2. EL KONUT ALIMINDA VE KONUT TEMİNATLI KREDİLERDE KULLANDIRILABİLECEK AZAMİ KREDİ TUTARI |\n|---|---|---|---|\n| KONUT DEĞERİ | Enerji Sınıfı | Enerji Sınıfı | Enerji Sınıfı |\n| KONUT DEĞERİ | A | B | DİĞER |\n| DEĞER <= 1 MİLYON TL | DEĞER x 90% | DEĞER x 90% | DEĞER x 90% |\n| 1 MİLYON TL < DEĞER <= 2 MİLYON TL | DEĞER x 70% | DEĞER x 65% | DEĞER x 60% |\n| 2 MİLYON TL < DEĞER <= 5 MİLYON TL | DEĞER x 60% | DEĞER x 55% | DEĞER x 50% |\n| 5 MİLYON TL < DEĞER <= 10 MİLYON TL | Azami 3 MİLYON TL | Azami 2,75 MİLYON TL | Azami 2,5 MİLYON TL |\n| 10 MİLYON TL < DEĞER | DEĞER x 0% | DEĞER x 0% | DEĞER x 0% |\n\n_______"
+  }
+ ],
+ "replace": [
+  [
+   "\n\n18/4/2007 tarihli",
+   "\n\n$^{1}$ 18/4/2007 tarihli",
+   1
+  ]
+ ]
+}

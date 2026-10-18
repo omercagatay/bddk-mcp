@@ -1,5 +1,21 @@
 # Source-reviewed document repairs
 
+## Quality pass 2026-10-16 (working tree)
+
+[`quality-pass-2026-10-16/`](quality-pass-2026-10-16/) holds one receipt per
+changed document (297): input/output Markdown SHA-256, extraction method before
+and after, change classes, pages compared visually, and the source PDF hash.
+`baseline-documents.json.gz` is the pre-pass document set the receipts bind to;
+`tools/` and `specs/` rebuild every repair from it (`relay.py` is proven
+output-identical to the working version on all 267 source PDFs). Receipts are
+assistant technical review awaiting owner approval, not legal validation. The
+v11 manifest that carries these documents was owner-signed again on 2026-10-18 (sha `99997032…`) after section parser v10
+regenerated its chunks; it is not committed, staged or activated. Quality policy v6
+(owner-approved) adds one reviewed literal reference to another regulation's
+formulas (document 1296); quality policy v7 (owner-approved) adds ten reviewed references to a formula
+elsewhere in the same text (`quality-pass-2026-10-16/policy/internal-formula-references.json`). All 319 documents
+are engine-clean under it, and one capped section (`mevzuat_21192` EK-4) is the only section with a formula note. `currency/check-2026-10-16.json` records the currency check of the same day: every mevzuat document against today's official PDF, and 192 days of Resmî Gazete indexes for amending acts (none outstanding).
+
 ## Current local status (2026-09-21)
 
 The 50 repairs, including the final native-source rebuilds of `mevzuat_16290`

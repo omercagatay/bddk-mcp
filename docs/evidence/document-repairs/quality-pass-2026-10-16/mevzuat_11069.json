@@ -1,0 +1,16 @@
+{
+ "document_id": "mevzuat_11069",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "glyph_repair",
+ "input_markdown_sha256": "e313ee092eb8087c396c4300a60bc97029c72452d16948bedc2f2f8138064450",
+ "output_markdown_sha256": "3c3426f74632cab6040111e2c0f88d80788c52e3810ea604e4ef51037ea802ce",
+ "extraction_method_before": "html_parser",
+ "extraction_method_after": "html_parser",
+ "change_classes": [
+  "U+0092 (cp1254 right quote) -> ’ ×1",
+  "U+0096 (cp1254 en dash) -> – ×12"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.11069&MevzuatIliski=0&sourceXmlSearch=denetleme kurumu personelinin"
+}

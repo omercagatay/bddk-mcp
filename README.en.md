@@ -58,7 +58,7 @@ Reading tools:
 - `search_bddk_announcements`: searches announcements and may call BDDK live.
 - `get_bddk_document`: returns a stored document page. If extraction left an unsafe artifact, it refuses instead of silently rewriting the text.
 - `get_document_history`: shows the stored document history.
-- `get_document_section`: asks for an article, principle, paragraph, or annex.
+- `get_document_section`: asks for an article (including inserted articles such as 66/A), a temporary or additional article, a principle, paragraph, annex, or lettered item (bent).
 - `search_document_sections`: searches section headings.
 - `resolve_regulation_status`: asks for the recorded currency signal. It is not a legal opinion.
 - `get_amendment_chain`: shows the amendment chain.

@@ -1,0 +1,19 @@
+{
+ "document_id": "mevzuat_34360",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "local_edit",
+ "input_markdown_sha256": "731aaf98dbccf661f26b455bf0e0d1505848eb254faba1991b630157ac5f3fac",
+ "output_markdown_sha256": "4406b9b47078a7535e3fc1779265f3beeaa3d2757119c33834ff1a96d372ff8c",
+ "extraction_method_before": "html_parser",
+ "extraction_method_after": "html_parser",
+ "change_classes": [
+  "U+0092 (cp1254 right quote) -> ’ ×16",
+  "U+0093 (cp1254 left double quote) -> “ ×4",
+  "U+0094 (cp1254 right double quote) -> ” ×4",
+  "U+0096 (cp1254 en dash) -> – ×47",
+  "flattened closing Resmî Gazete list written as the reviewed table layout"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=34360&MevzuatTur=7&MevzuatTertip=5"
+}

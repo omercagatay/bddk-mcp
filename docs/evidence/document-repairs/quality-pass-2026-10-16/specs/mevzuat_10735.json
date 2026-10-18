@@ -1,0 +1,21 @@
+{
+ "tables": [
+  {
+   "start": "Yönetmeliğin Yayımlandığı Resmî Gazete’nin",
+   "end": "Yönetmeliğin ekini görmek",
+   "md": "|  | Yönetmeliğin Yayımlandığı Resmî Gazete’nin | Yönetmeliğin Yayımlandığı Resmî Gazete’nin |\n|---|---|---|\n|  | Tarihi | Sayısı |\n|  | 1/11/2006 | 26333 |\n|  | Yönetmelikte Değişiklik Yapan Yönetmeliklerin Yayımlandığı Resmî Gazetelerin | Yönetmelikte Değişiklik Yapan Yönetmeliklerin Yayımlandığı Resmî Gazetelerin |\n|  | Tarihi | Sayısı |\n| 1. | 28/5/2011 | 27947 |\n| 2. | 1/11/2012 | 28454 |\n| 3. | 18/10/2018 | 30569 |\n| 4. | 8/11/2022 | 32007 |\n| 5. | 23/1/2024 | 32438 |"
+  }
+ ],
+ "replace": [
+  [
+   "\n\n(1)\n1/11/2012 tarihli",
+   "\n\n(1) 1/11/2012 tarihli",
+   1
+  ],
+  [
+   "\n\n(2)\nBu değişiklik yayımlandığı",
+   "\n\n(2) Bu değişiklik yayımlandığı",
+   1
+  ]
+ ]
+}

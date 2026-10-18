@@ -1,0 +1,381 @@
+{
+ "checked_on": "2026-10-16",
+ "scope": "currency of the corpus text, not legal applicability",
+ "mevzuat_documents": {
+  "method": "word and number multisets of the corpus text vs today's mevzuat.gov.tr generated PDF of the consolidated text (static MevzuatMetin PDF for 3.5.*); differences in the other side's whitespace-free letter stream are text-layer glue, not content (tools/curcheck.py, curcheck2.py, curnums.py)",
+  "documents": {
+   "mevzuat_10494": {
+    "todays_pdf_sha256": "fbebc200c5d7cc2038edb5e6421ad92ca745f7e391a71694facc99b59f8318ac",
+    "todays_pdf_bytes": 39394,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_10522": {
+    "todays_pdf_sha256": "af5ca78420d3723fe9ed9ae43a5815ce21f809cd9340b65218d3f076b1c62907",
+    "todays_pdf_bytes": 60616,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_10731": {
+    "todays_pdf_sha256": "b099e9deaf33f2200c607387dd44216a8604aa9de5dde326f69eea9e040f60f3",
+    "todays_pdf_bytes": 53114,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_10732": {
+    "todays_pdf_sha256": "10a0dbe3eb88aaf35969185e3854f96d5f8811154b45de14a0d121e8d4e5c3e9",
+    "todays_pdf_bytes": 62729,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_10733": {
+    "todays_pdf_sha256": "a11c528f5defae8ea9dde3e6fa8187f5d73b657c2a09c86f16b9fac0f4627508",
+    "todays_pdf_bytes": 33901,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_10735": {
+    "todays_pdf_sha256": "aba63339753fa6208e3bf14e2f9667411f4e98e7a6957bc494453b1c82eaa2ad",
+    "todays_pdf_bytes": 65749,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_10736": {
+    "todays_pdf_sha256": "3c22ef4b43917ff37dee88c62cdc7e8c3653a4b9222d6cd51f05697dc975d62c",
+    "todays_pdf_bytes": 55422,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_10737": {
+    "todays_pdf_sha256": "f3f7e4612ec99d488767e1924f0599bd62b59e44ec84b9fc9dff11c82a9a1e20",
+    "todays_pdf_bytes": 65581,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_10739": {
+    "todays_pdf_sha256": "48791d022a881a9340ddaf02eddc980652b0a0728e0c66eaf06e74fc6f747a56",
+    "todays_pdf_bytes": 44145,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_10742": {
+    "todays_pdf_sha256": "9b53cd574256ce2fd13137956078728b1658d1adaf06ba69750df75b62c80a94",
+    "todays_pdf_bytes": 60673,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_10746": {
+    "todays_pdf_sha256": "d4fe15773682cc6526c4878056f2a8b091730d07bed399b1b6e02f4c6043e2de",
+    "todays_pdf_bytes": 94262,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_10747": {
+    "todays_pdf_sha256": "a94838747e2e48dadc7c764e933586dba51d02f8ed7140d8cb6f69b4ec112124",
+    "todays_pdf_bytes": 59458,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_10749": {
+    "todays_pdf_sha256": "6b93ab3af27a0e8e2fc7403bad77ee92fa342357e8a3a7043c38a56bbfff5c73",
+    "todays_pdf_bytes": 60645,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_10750": {
+    "todays_pdf_sha256": "186555a8293b47b840a9185a98672ede59a1b690446b98fc619b6d5e0c946fd2",
+    "todays_pdf_bytes": 54316,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_10770": {
+    "todays_pdf_sha256": "5f206d2efb665bc1a1d52c23d30bd5603e76cb0a6cfb876b9ba2b3c82e23bf0e",
+    "todays_pdf_bytes": 51006,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_11069": {
+    "todays_pdf_sha256": "d2d2b77de3c38625c92b3e9cad00b4fa109178a0f1f5515bec4297911d86629a",
+    "todays_pdf_bytes": 38268,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_11085": {
+    "todays_pdf_sha256": "38bbd50cfc55ed7d5c18aca2ad284b75576eca40025746a1cee8f77af78c77cd",
+    "todays_pdf_bytes": 83551,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_11201": {
+    "todays_pdf_sha256": "4cfa571d3da372b6f6cbb079b52db768bb12aecfcf508996f6103223ac477f97",
+    "todays_pdf_bytes": 44451,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_11203": {
+    "todays_pdf_sha256": "8158dd227046de3d6cf244f3c46c5489aae5e2d93bbc32945023f4c898c896ab",
+    "todays_pdf_bytes": 103556,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_12060": {
+    "todays_pdf_sha256": "0d1da9b823ce9d33894555005ddd1b9dc94b8105c4a3f3855856a9b7cab9bc56",
+    "todays_pdf_bytes": 30524,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_15323": {
+    "todays_pdf_sha256": "6e1af1f694108c51899672bf31924c4a18446a33e89271df2ad089093fae164a",
+    "todays_pdf_bytes": 51343,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_15481": {
+    "todays_pdf_sha256": "1eee688ac138e14c8d8d9fe9143c607cb941b0f2bed6f32938777fda39846b65",
+    "todays_pdf_bytes": 51370,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_16071": {
+    "todays_pdf_sha256": "9feb05572d25ff741da6c96a14f9737a6f37f966258d5fe768e332ba2181501e",
+    "todays_pdf_bytes": 157365,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_16290": {
+    "todays_pdf_sha256": "419fd4b3bbb0c7f2cb72fc37ab617df658da9ca3cdd44b92f4b845d5569aa38e",
+    "todays_pdf_bytes": 360491,
+    "result": "footnote markers written as $^{c}$/$^{ç}$ (glued in the PDF text layer); merged table header cells repeat their amendment marker per column"
+   },
+   "mevzuat_16291": {
+    "todays_pdf_sha256": "afc8196c22f893fb3ef09259d200b6fd6ae62def1ddaf45cc673892f82aa0044",
+    "todays_pdf_bytes": 38447,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_16292": {
+    "todays_pdf_sha256": "b781793ff464e99980b58681b6ab18719172f0998924e97cf0b58cf91eb98814",
+    "todays_pdf_bytes": 58710,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_18799": {
+    "todays_pdf_sha256": "4a0c81a89ac2b5253e197871847516c7c2fc61318b643a03309008628b67096e",
+    "todays_pdf_bytes": 94348,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_18990": {
+    "todays_pdf_sha256": "5cd85b13bd8b6f50b9bd229dc7f609c6bf6e10afeb5a5fd1896717315f7f8a3c",
+    "todays_pdf_bytes": 43675,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_18991": {
+    "todays_pdf_sha256": "4cada3206ba4c97d83a9aed3d93c48d3f7d044072c37bceec648afb588b7520e",
+    "todays_pdf_bytes": 36305,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_19498": {
+    "todays_pdf_sha256": "0a69def4df631ec92b7a877d5cd8e005b684a6398a2af14e3c151999cfad6083",
+    "todays_pdf_bytes": 99892,
+    "result": "corpus carries the official EK-3 annex (docx); the generated PDF holds the main text only"
+   },
+   "mevzuat_19864": {
+    "todays_pdf_sha256": "966fc0df22d87d90b1e09f3505b4710639f11d8c189e5432f9bb65a749fec3cc",
+    "todays_pdf_bytes": 193774,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_20029": {
+    "todays_pdf_sha256": "c6dca6ca685edb2852e21162749aea91ce84c23318cfdd41d5abf1836b8b4439",
+    "todays_pdf_bytes": 190232,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_20031": {
+    "todays_pdf_sha256": "0d92ab102b199f377ccd3fda556d9419ef49a89d75ec34e9efcea35192a1eaa9",
+    "todays_pdf_bytes": 63319,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_20145885": {
+    "todays_pdf_sha256": "0ef03b5ab9e093a02f71ef00fa041cf366f339c09bcefe1dcb09d0c57c25413d",
+    "todays_pdf_bytes": 333094,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_20645": {
+    "todays_pdf_sha256": "198202eba5201f217602aec1d9747fc13c8f5badec118919a2d3873652f17244",
+    "todays_pdf_bytes": 67330,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_21192": {
+    "todays_pdf_sha256": "51cf6489f90f251355b59026d9146a82625168237a60e82dc2f74d446e886f65",
+    "todays_pdf_bytes": 196817,
+    "result": "corpus carries the main text and four annexes from the native Word sources; the generated PDF holds the main text only"
+   },
+   "mevzuat_21193": {
+    "todays_pdf_sha256": "e63b1121209b76fb0c7dd4ee60febd1107f8ca45bf22a5896a340822a435351a",
+    "todays_pdf_bytes": 258639,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_21194": {
+    "todays_pdf_sha256": "666f894688cb01b802192556a070c2641877342dbecccffb4ce3844d61935407",
+    "todays_pdf_bytes": 265625,
+    "result": "Ek-1 fıkra 5 legend and KOBİ formula taken from the amending RG 30360 (the consolidated text kept the 2016 legend); TO_kt written as LaTeX"
+   },
+   "mevzuat_21195": {
+    "todays_pdf_sha256": "a1f55b430355cea65b1df44b2581f2a205167f66ea19e1dc129d54704e7ce0fc",
+    "todays_pdf_bytes": 92395,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_21196": {
+    "todays_pdf_sha256": "9a21b4bcc4380766b0eca2dd23e6f824cdad46f94af7e6be6062101d0c0e9d3d",
+    "todays_pdf_bytes": 96472,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_21278": {
+    "todays_pdf_sha256": "fc08bc4e4ecb85c7e51e651536153395e2e5ddebe02ebd86860c85aebd4f0a98",
+    "todays_pdf_bytes": 62195,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_21425": {
+    "todays_pdf_sha256": "8a981605e29bd36a61f52315dcf8f411368de91e0d351d9a4516fa4cdb7fb854",
+    "todays_pdf_bytes": 42930,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_22598": {
+    "todays_pdf_sha256": "9af5affb7c847eb18907a5811c77018ed59db3d108b6efd76cbf4e9be502b375",
+    "todays_pdf_bytes": 46930,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_22599": {
+    "todays_pdf_sha256": "75289e3390acc5ca43599487de22486ccb624e3b44b2cbe23002580054b226d5",
+    "todays_pdf_bytes": 99241,
+    "result": "the generated PDF leaves the Madde 15 teminat table blank; the corpus table comes from the static official PDF (v10 rebuild)"
+   },
+   "mevzuat_23228": {
+    "todays_pdf_sha256": "5134bcaf989170de10ca4f2543d53144c1a213cf8361a5ac50e7b0387d4e8676",
+    "todays_pdf_bytes": 100758,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_24654": {
+    "todays_pdf_sha256": "415d9e392fd6d13e96cd06ecd6f732bc593e32b72c695d38477291ab3000882e",
+    "todays_pdf_bytes": 40628,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_24788": {
+    "todays_pdf_sha256": "06eb546597d8fe74f825da278905dacbbf389a4b92e10ac98766bbe02590548d",
+    "todays_pdf_bytes": 35050,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_34006": {
+    "todays_pdf_sha256": "0b3f61688984f9975090b58bd6188a0a1936eaf1e7c44d1206aca36d48637a39",
+    "todays_pdf_bytes": 30980,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_34360": {
+    "todays_pdf_sha256": "336cfc7b82b8ea703ce43d8e3987e315ef8eae2e3f74f1d9dbdde72f1f3ed051",
+    "todays_pdf_bytes": 173654,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_34495": {
+    "todays_pdf_sha256": "43a27ca514f6eae8d2132c25a078c7e9c544bcc874ccbef93dc8bc4481db1de4",
+    "todays_pdf_bytes": 30107,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_34535": {
+    "todays_pdf_sha256": "399b3949b2f1cf79466daafde4a53b1d69f10a26c98aa050ec6e725479f411df",
+    "todays_pdf_bytes": 44366,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_38416": {
+    "todays_pdf_sha256": "44ab7a6d8dc3a903661a3c242abf612ddfeb2795654d8af6a68376606eddeed9",
+    "todays_pdf_bytes": 62502,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_38568": {
+    "todays_pdf_sha256": "2edc9755bf6d93147ade7667c428f3dd20e0eb8fc3f543e4ea2efb560d462c01",
+    "todays_pdf_bytes": 71291,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_38797": {
+    "todays_pdf_sha256": "fafec81d7973a063dd8bea2e1cfdc7b8fb208ccc8c4d23404e3751035dbbcad3",
+    "todays_pdf_bytes": 114684,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_38859": {
+    "todays_pdf_sha256": "76ddcc8003d50dd4e600b280c969f29c76e8662b017f07cb5308c61cec23d413",
+    "todays_pdf_bytes": 33708,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_38873": {
+    "todays_pdf_sha256": "2af5b1bc127e1a766f5528bd63d9a7c4bee362f233daf74fd20ec92b7f5b6c75",
+    "todays_pdf_bytes": 46071,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_39158": {
+    "todays_pdf_sha256": "c180ead1eddc4f4d76732520281ed8e3b27f792437da74430a0750e581cab8a2",
+    "todays_pdf_bytes": 67719,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_39171": {
+    "todays_pdf_sha256": "f11f608157cec8de257474ade1404ef27bf45e71f3b3095937e0c0f1aec10de1",
+    "todays_pdf_bytes": 58502,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_39257": {
+    "todays_pdf_sha256": "0485d013429915f3e63b03b25ca1a54afdcc9c5789973d270bc628b9d3bbbad6",
+    "todays_pdf_bytes": 122152,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_39442": {
+    "todays_pdf_sha256": "ec0ff2e36a29da1828508d3c6d337c9b7b887c901a31a5396106626a5d6ee232",
+    "todays_pdf_bytes": 46116,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_40203": {
+    "todays_pdf_sha256": "fc2937bd643b85fba04cd1a52760274677047786dd89197ce5a2f326d406d89c",
+    "todays_pdf_bytes": 65119,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_40519": {
+    "todays_pdf_sha256": "9376cdce85211aa6fba484937009536c664a6c146b0b11e719b07d09fafb0667",
+    "todays_pdf_bytes": 73565,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_40520": {
+    "todays_pdf_sha256": "fe4b40b6eea0c49e1f151e954075f647637d8eafbbfc1192c4037d683cf44e18",
+    "todays_pdf_bytes": 63246,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_42359": {
+    "todays_pdf_sha256": "e8ca3c725ece5ca4b108834b3e6ebd0b61812551fe2473ab9f503357bab78e7f",
+    "todays_pdf_bytes": 35214,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_42363": {
+    "todays_pdf_sha256": "aa6350c7ed61b9835677843056db97c4c9e8bf62d19f93d4c9f6012bf0813973",
+    "todays_pdf_bytes": 38731,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_42628": {
+    "todays_pdf_sha256": "c8bbe8c7fb81b1a32b4ff2d4ae45ac1663ce4b207012e57c340894072c84ae4f",
+    "todays_pdf_bytes": 57621,
+    "result": "formula images' text-layer fragments; the corpus carries the transcribed LaTeX"
+   },
+   "mevzuat_5411": {
+    "todays_pdf_sha256": "3d1c6c6c44d59e0f6c3e9e0bde2038de26dfaf159daa4242118953a8271c0d97",
+    "todays_pdf_bytes": 470732,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_5464": {
+    "todays_pdf_sha256": "afb84e3abede789f70027534739aea97c0016ffe33e51993ba33574da1633765",
+    "todays_pdf_bytes": 106447,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   },
+   "mevzuat_6362": {
+    "todays_pdf_sha256": "a719bff93bc4ac1710dc3c42baca26790e53ce7ad045d0a980ad1e5eb23f1675",
+    "todays_pdf_bytes": 443926,
+    "result": "same words and numbers (text-layer glue, footnote markers and page numbers aside)"
+   }
+  }
+ },
+ "resmi_gazete_scan": {
+  "method": "every RG daily index and mükerrer issue from 2026-04-08 (earliest corpus download) to 2026-10-16, titles matched against every mevzuat document title (tools/rgfetch.sh, rgscan.py)",
+  "days": 192,
+  "mukerrer_issues": 4,
+  "amending_acts_found": [
+   {
+    "date": "2026-04-30",
+    "rg": "33239",
+    "title": "Bankalarca Kamuya Açıklanacak Finansal Tablolar ile Bunlara İlişkin Açıklama ve Dipnotlar Hakkında Tebliğde Değişiklik Yapılmasına Dair Tebliğ",
+    "document": "mevzuat_16290",
+    "status": "already applied in the corpus text (60 '33239' amendment markers)"
+   }
+  ],
+  "name_matches_rejected": [
+   "2026-09-04 Ödeme ve Elektronik Para Kuruluşlarının Bilgi Sistemleri … Tebliğde Değişiklik (TCMB instrument, not mevzuat_34360)",
+   "2026-09-03 Aracı Kurumlar, Portföy Yönetim Şirketleri ve Kripto Varlık Hizmet Sağlayıcılar … Uzaktan Kimlik Tespiti (SPK instrument, not mevzuat_38568)"
+  ],
+  "bddk_board_decisions_in_rg": [
+   "11470 (11/06/2026, Dost Katılım Bankası kuruluş izni)",
+   "11548 (06/08/2026, BLG Varlık Yönetim faaliyet izni iptali)",
+   "11572 (18/09/2026, Bank Mellat İstanbul şubesi faaliyet izni kaldırılması)"
+  ],
+  "bddk_board_decisions_note": "institution-specific decisions; they amend no corpus document"
+ },
+ "bddk_documents": "247 of 248 BDDK PDFs downloaded on 2026-10-16 have the stored byte size; the one that differed (1296) was brought to the current PDF",
+ "rg_32202_20230526_6": "a Resmî Gazete issue item; published issues do not change",
+ "kgk_tms_12": "kgk.gov.tr is outside the outbound allowlist; the corpus carries the owner-pinned 2026 set (Mavi Kitap) text. A later KGK text in ~/Downloads (SHA-256 b28d6adc…) adds the consequential amendments of TFRS 18 (published May 2025), which apply when TFRS 18 is applied; not substituted (owner selection)"
+}

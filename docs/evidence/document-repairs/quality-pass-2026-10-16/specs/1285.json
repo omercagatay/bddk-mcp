@@ -1,0 +1,151 @@
+{
+ "tables": [
+  {
+   "start": "A01.11.12, A01.11.14, A01.12.14, A01.13.17, A01.13.18, A01.13.19,",
+   "end": "Çok Yıllık Bitkiler",
+   "md": "| NACE Kodları | A01.11.12, A01.11.14, A01.12.14, A01.13.17, A01.13.18, A01.13.19, A01.13.20, A01.13.21, A01.13.22, A01.13.23, A01.16.02, A01.19.90, A01.28.01, A01.30.03 |\n|---|---|"
+  },
+  {
+   "start": "A01.21.05, A01.22.05, A01.23.02, A01.24.04, A01.25.08, A01.25.09,",
+   "end": "Hayvansal Üretim",
+   "md": "| NACE Kodları | A01.21.05, A01.22.05, A01.23.02, A01.24.04, A01.25.08, A01.25.09, A01.26.02 |\n|---|---|"
+  },
+  {
+   "start": "A01.41.31, A01.42.09, A01.45.01, A01.47.01, A01.47.03, A01.49.01,",
+   "end": "Yukarıda sayılan NACE kodlarında faaliyet gösteren işletmelere veya “Çiftçi Kayıt Sistemi”ne",
+   "md": "| NACE Kodları | A01.41.31, A01.42.09, A01.45.01, A01.47.01, A01.47.03, A01.49.01, A01.50.06, A03.11.01, A03.21.01 |\n|---|---|"
+  },
+  {
+   "start": "D35.11, D35.12, D35.13, D35.21, D35.22, D35.30, F42.21, F42.22,",
+   "end": "a) Yukarıda sayılan NACE kodlarında yer alan;",
+   "md": "| NACE Kodları | D35.11, D35.12, D35.13, D35.21, D35.22, D35.30, F42.21, F42.22, F43.21, F43.22, H49.50 |\n|---|---|"
+  },
+  {
+   "start": "F41.20.01, H50.10.12, H50.10.14, H50.10.15, H50.10.16, H50.10.90,",
+   "end": "Yukarıda sayılan NACE kodlarında faaliyet gösteren ve",
+   "md": "| NACE Kodları | F41.20.01, H50.10.12, H50.10.14, H50.10.15, H50.10.16, H50.10.90, H50.30.08, H50.30.09, H51.10.02, I55.10.02, I55.10.05, I55.10.06, I55.20.01, I55.20.03, I55.20.04, I55.30.36, I55.90.01, I55.90.02, I55.90.03, L68.32.02, N79.11.01, N79.12.02, N79.90.01, N79.90.02, N79.90.90, R91.03.02 |\n|---|---|"
+  },
+  {
+   "start": "C16.23, C22, C23.11, C23.20, C23.31, C23.32, C23.43, C23.61, C25,",
+   "end": "Herhangi bir eşik olmaksızın, yukarıda sayılan NACE kodlarında yer alan ve",
+   "md": "| NACE Kodları | C16.23, C22, C23.11, C23.20, C23.31, C23.32, C23.43, C23.61, C25, C26, C27, C28, C29.1, C30.1, C30.2, C30.9, C33.15, C33.17 |\n|---|---|"
+  },
+  {
+   "start": "NACE Kodları C24.42, C24.53",
+   "end": "Yukarıda sayılan NACE kodlarında yer alan ve",
+   "md": "| NACE Kodları | C24.42, C24.53 |\n|---|---|"
+  },
+  {
+   "start": "NACE Kodu C20.11",
+   "end": "Yukarıda sayılan NACE kodunda yer alan ve yalnızca “yeşil hidrojen”9 üretim faaliyetlerine",
+   "md": "| NACE Kodu | C20.11 |\n|---|---|"
+  },
+  {
+   "start": "NACE Kodları C20.13, C20.14, C20.15",
+   "end": "Yukarıda sayılan NACE kodlarında yer alan ve",
+   "md": "| NACE Kodları | C20.13, C20.14, C20.15 |\n|---|---|"
+  },
+  {
+   "start": "NACE Kodu C20.16",
+   "end": "Yukarıda sayılan NACE kodunda yer alan ve “birincil formlardaki plastik” üretimi için;",
+   "md": "| NACE Kodu | C20.16 |\n|---|---|"
+  },
+  {
+   "start": "NACE Kodu C23.51",
+   "end": "Yukarıda sayılan NACE kodunda yer alan ve",
+   "md": "| NACE Kodu | C23.51 |\n|---|---|"
+  },
+  {
+   "start": "NACE Kodları C24.10, C24.20, C24.31, C24.32, C24.33, C24.34, C24.51, C24.52",
+   "end": "Yukarıda sayılan NACE kodlarında yer alan ve ilgisine göre;",
+   "md": "| NACE Kodları | C24.10, C24.20, C24.31, C24.32, C24.33, C24.34, C24.51, C24.52 |\n|---|---|"
+  },
+  {
+   "start": "NACE Kodları H49.31, H49.39, H49.41, H53.10, H53.20, N77.11, N77.12",
+   "end": "Yukarıda sayılan NACE kodlarında yer alan ve fosil yakıt taşınmaması koşulu ile;",
+   "md": "| NACE Kodları | H49.31, H49.39, H49.41, H53.10, H53.20, N77.11, N77.12 |\n|---|---|"
+  },
+  {
+   "start": "NACE Kodları H49.10, H49.20, N77.39",
+   "end": "Yukarıda sayılan NACE kodlarında yer alan ve fosil yakıt taşınmaması koşulu ile; kat edilen",
+   "md": "| NACE Kodları | H49.10, H49.20, N77.39 |\n|---|---|"
+  },
+  {
+   "start": "NACE Kodları F42.11, F42.12, F42.13, F43.21, H52.21, M71.11, M71.12, M71.20",
+   "end": "Yukarıda sayılan NACE kodlarında yer alan ve projeye yönelik “ÇED olumlu” ya da “ÇED",
+   "md": "| NACE Kodları | F42.11, F42.12, F42.13, F43.21, H52.21, M71.11, M71.12, M71.20 |\n|---|---|"
+  },
+  {
+   "start": "NACE Kodları H49.32, H49.39, N77.11",
+   "end": "Yukarıda sayılan NACE kodlarında yer alan;",
+   "md": "| NACE Kodları | H49.32, H49.39, N77.11 |\n|---|---|"
+  },
+  {
+   "start": "NACE Kodları F42.12, F42.13, F43.21, M71.1, M71.20",
+   "end": "Yukarıda sayılan NACE kodlarında yer alan demiryolu altyapı projeleri için bankaların",
+   "md": "| NACE Kodları | F42.12, F42.13, F43.21, M71.1, M71.20 |\n|---|---|"
+  },
+  {
+   "start": "NACE Kodları H50.10, H50.2, H50.30, H50.4, H52.22, N77.21, N77.34",
+   "end": "Yukarıda sayılan NACE kodlarında yer alan;",
+   "md": "| NACE Kodları | H50.10, H50.2, H50.30, H50.4, H52.22, N77.21, N77.34 |\n|---|---|"
+  },
+  {
+   "start": "NACE Kodları F42.91, M71.1, M71.20",
+   "end": "Yukarıda sayılan NACE kodlarında yer alan ve;",
+   "md": "| NACE Kodları | F42.91, M71.1, M71.20 |\n|---|---|"
+  },
+  {
+   "start": "NACE Kodları H51.1, H51.2, H52.23",
+   "end": "Deniz taşımacılığı için sıfır emisyonlu ulaşım teknolojisi geliştirilmesi halinde, 2030 yılına kadar da yalnızca sıfır",
+   "md": "| NACE Kodları | H51.1, H51.2, H52.23 |\n|---|---|"
+  },
+  {
+   "start": "NACE Kodları F41.20, F42.99",
+   "end": "Yukarıda sayılan NACE kodlarında yer alan ve fosil yakıt taşıma ve depolama hizmetleri",
+   "md": "| NACE Kodları | F41.20, F42.99 |\n|---|---|"
+  },
+  {
+   "start": "NACE Kodları F41.1, F41.2, L68",
+   "end": "Yukarıda sayılan NACE kodlarında yer alan;",
+   "md": "| NACE Kodları | F41.1, F41.2, L68 |\n|---|---|"
+  },
+  {
+   "start": "NACE Kodları F41, F43",
+   "end": "Yukarıda sayılan NACE kodlarında yer alan ve enerji verimliliğinde en az %30 oranında",
+   "md": "| NACE Kodları | F41, F43 |\n|---|---|"
+  },
+  {
+   "start": "NACE Kodları C16, C17, C22, C23, C25, C27, C28, F42, F43, M71",
+   "end": "Yukarıda sayılan NACE kodlarında yer alan ve;",
+   "md": "| NACE Kodları | C16, C17, C22, C23, C25, C27, C28, F42, F43, M71 |\n|---|---|"
+  },
+  {
+   "start": "NACE Kodları C16, C17, C22, C23, C25, C27, C28, F42, F43, M71",
+   "end": "Yukarıda sayılan NACE kodlarında yer alan ve fosil yakıtların çıkarılması, depolanması veya",
+   "md": "| NACE Kodları | C16, C17, C22, C23, C25, C27, C28, F42, F43, M71 |\n|---|---|"
+  },
+  {
+   "start": "NACE Kodları C16, C17, C22, C23, C25, C27, C28, F42, F43, M71",
+   "end": "Yukarıda sayılan NACE kodlarında yer alan ve “1. Tüketici Finansmanına Yönelik Varlıklar”",
+   "md": "| NACE Kodları | C16, C17, C22, C23, C25, C27, C28, F42, F43, M71 |\n|---|---|"
+  },
+  {
+   "start": "Sıcaklık ile ilgili Rüzgâr ile ilgili",
+   "end": "14",
+   "md": "|  | Sıcaklık ile ilgili | Rüzgâr ile ilgili | Su ile ilgili | Toprak ile ilgili |\n|---|---|---|---|---|\n| Kronik | Değişen sıcaklık (hava, tatlı su, deniz suyu) | Değişen rüzgâr modelleri | Değişen yağış modelleri ve türleri (yağmur, dolu, kar/buz) | Kıyı erozyonu |\n| Kronik | Isı stresi |  | Yağış veya hidrolojik değişkenlik | Toprak bozulması |\n| Kronik | Sıcaklık değişkenliği |  | Okyanus asitlenmesi | Toprak erozyonu |\n| Kronik | Donmuş toprak erimesi |  | Tuzlu su karışması | Toprak akması |\n| Kronik |  |  | Deniz seviyesi yükselmesi |  |\n| Kronik |  |  | Su stresi |  |\n| Akut | Sıcak dalgası | Hortum, kasırga, tayfun | Kuraklık | Çığ |\n| Akut | Soğuk dalgası/ don | Fırtına (kar fırtınası, toz ve kum fırtınaları dâhil) | Şiddetli yağış (yağmur, dolu, kar/buz) | Toprak kayması |\n| Akut | Orman yangını | Kasırga | Taşkın (kıyı, akarsu, yağmur suyu, yer altı suyu) | Çökme |\n| Akut |  |  | Buzul gölü taşması |  |"
+  },
+  {
+   "start": "Değişen sıcaklık Değişen rüzgâr",
+   "end": "e) İşletmelerin ve diğer ekonomik birimlerin, mevcut",
+   "md": ""
+  }
+ ],
+ "replace": [
+  [
+   " m2 ",
+   " m² ",
+   3
+  ]
+ ]
+}

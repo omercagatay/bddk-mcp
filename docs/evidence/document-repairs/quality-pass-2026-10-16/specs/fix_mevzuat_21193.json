@@ -1,0 +1,186 @@
+[
+ {
+  "page": 1,
+  "top": 730.0,
+  "replace": [
+   [
+    "ana özelliklerini her",
+    "ana özelliklerini her yıl açıklar."
+   ]
+  ]
+ },
+ {
+  "page": 2,
+  "top": 0,
+  "replace": [
+   [
+    "| yıl açık la | r. | a | b | c |",
+    "|  |  | a | b | c |"
+   ]
+  ]
+ },
+ {
+  "page": 3,
+  "top": 156.3,
+  "replace": [
+   [
+    "| Kalemlerin TMS uyarınca değerlenmiş tutarı |  |  |  |  |",
+    "| Kalemlerin TMS uyarınca değerlenmiş tutarı | Kalemlerin TMS uyarınca değerlenmiş tutarı | Kalemlerin TMS uyarınca değerlenmiş tutarı | Kalemlerin TMS uyarınca değerlenmiş tutarı | Kalemlerin TMS uyarınca değerlenmiş tutarı |"
+   ]
+  ]
+ },
+ {
+  "merge_from": [
+   4,
+   0
+  ],
+  "into": [
+   3,
+   640.0
+  ]
+ },
+ {
+  "merge_from": [
+   6,
+   0
+  ],
+  "into": [
+   5,
+   669.1
+  ]
+ },
+ {
+  "merge_from": [
+   7,
+   0
+  ],
+  "into": [
+   6,
+   265.5
+  ],
+  "continues": true
+ },
+ {
+  "page": 9,
+  "top": 83.4,
+  "tables": [
+   "| Kategori | Kalan Vade | Bilanço içi tutar | Bilanço dışı tutar | Risk ağırlığı | Risk tutarı | Risk tutarı | Risk tutarı | Risk tutarı | Risk tutarı | RATRAT tutarı | Beklenen kayıplar |\n|---|---|---|---|---|---|---|---|---|---|---|---|\n| Kategori | Kalan Vade | Bilanço içi tutar | Bilanço dışı tutar | Risk ağırlığı | Proje finansmanı | Varlık finansmanı | Emtia finansmanı | Gelir getirici gayrimenkul | Toplam | RATRAT tutarı | Beklenen kayıplar |\n| Güçlü | <2,5 yıl |  |  | %70$^{1}$ |  |  |  |  |  |  |  |\n|  | ≥2,5 yıl |  |  | %95$^{1}$ |  |  |  |  |  |  |  |\n| İyi | <2,5 yıl |  |  | %95$^{1}$ |  |  |  |  |  |  |  |\n|  | ≥2,5 yıl |  |  | %120$^{1}$ |  |  |  |  |  |  |  |\n| Yeterli |  |  |  | %140$^{1}$ |  |  |  |  |  |  |  |\n| Zayıf |  |  |  | %250 |  |  |  |  |  |  |  |\n| Temerrüt |  |  |  | - |  |  |  |  |  |  |  |\n| Toplam |  |  |  |  |  |  |  |  |  |  |  |",
+   "| Yasal kategori | Kalan Vade | Bilanço içi tutar | Bilanço dışı tutar | Risk ağırlığı | Risk tutarı | RAT tutarı | Beklenen kayıplar |\n|---|---|---|---|---|---|---|---|\n| Güçlü | <2,5 yıl |  |  | (Değişik ibare:RG-20/1/2016-29599)(1) %70 |  |  |  |\n|  | ≥2,5 yıl |  |  | (Değişik ibare:RG-20/1/2016-29599)(1) %95 |  |  |  |\n| İyi | <2,5 yıl |  |  | (Değişik ibare:RG-20/1/2016-29599)(1) %95 |  |  |  |\n|  | ≥2,5 yıl |  |  | (Değişik ibare:RG-20/1/2016-29599)(1) %90 |  |  |  |\n| Yeterli |  |  |  | (Değişik ibare:RG-20/1/2016-29599)(1) %120 |  |  |  |\n| Zayıf |  |  |  | (Değişik ibare:RG-20/1/2016-29599)(1) %140 |  |  |  |\n| Temerrüt |  |  |  | - |  |  |  |\n| Toplam |  |  |  |  |  |  |  |",
+   "| Kategoriler | Bilanço içi tutar | Bilanço dışı tutar | Risk ağırlığı | Risk tutarı | RAT tutarı |\n|---|---|---|---|---|---|\n| Borsada işlem gören hisse senedi yatırımları |  |  | %300 |  |  |\n| Diğer tüm hisse senedi yatırımları |  |  | %400 |  |  |\n| Toplam |  |  |  |  |  |"
+  ]
+ },
+ {
+  "page": 9,
+  "top": 743.9,
+  "replace": [
+   [
+    "\n|  |  |  |  |  |  |  |  |",
+    "\n| 5 | Menkul kıymet finansman işlemleri için riske maruz değer |  |  |  |  |  |  |\n| 6 | Toplam |  |  |  |  |  |  |"
+   ]
+  ]
+ },
+ {
+  "page": 10,
+  "top": 22.2,
+  "replace": [
+   [
+    "|  |  |\n|---|---|\n| 56 | MToepnlakmul kıymet finansman işlemleri için riske maruz değer |\n\n",
+    ""
+   ]
+  ]
+ },
+ {
+  "page": 11,
+  "top": 162.7,
+  "replace": [
+   [
+    "|  | Serbest olmayan | Serbest | Serbest olmayan | Serbest |  | Verilen teminatlar |",
+    "|  | Serbest olmayan | Serbest | Serbest olmayan | Serbest | Alınan teminatlar | Verilen teminatlar |"
+   ]
+  ]
+ },
+ {
+  "page": 12,
+  "top": 621.4,
+  "md": "Amaç: Bankanın bankacılık hesaplarındaki menkul kıymetleştirme pozisyonlarını sunmak.\n\nKapsam: Bankacılık hesaplarında menkul kıymetleştirme pozisyonu bulunan tüm bankalar için zorunludur.\n\nİçerik: (Net) Yasal konsolidasyona göre hazırlanan finansal tablolarda yer alan TMS uyarınca değerlenmiş tutar. Bu şablon, riskin transfer edildiğinin kabul edilmesine ilişkin gerekli koşulları sağlamayan menkul kıymetleştirmeye konu varlıkları da içermektedir.\n\nSıklık: 6 ay.\n\nFormat: Esnek. Banka, faaliyetlerini yansıtmak için daha uygun olması durumunda, özellikle alt kırılımları veya sıralamasını değiştirebilir (örneğin, riskin transfer edilmesinin kabul edilmesine ilişkin şartları sağlayıp sağlamadığına göre). Kurucu veya sponsor olunan faaliyetler beraber sunulabilir.\n\nİlave açıklama: Bankalar, şablona ek olarak raporlama dönemine ilişkin önemli değişiklikleri belirtir ve bunların nedenlerini açıklar.\n\n|  |  | a | b | c | e | f | g | i | j | k |\n|---|---|---|---|---|---|---|---|---|---|---|\n|  |  | Bankanın kurucusu olduğu | Bankanın kurucusu olduğu | Bankanın kurucusu olduğu | Bankanın sponsor olduğu | Bankanın sponsor olduğu | Bankanın sponsor olduğu | Bankanın yatırımcı olduğu | Bankanın yatırımcı olduğu | Bankanın yatırımcı olduğu |\n|  |  | Geleneksel | Sentetik | Alt toplam | Geleneksel | Sentetik | Alt toplam | Geleneksel | Sentetik | Alt toplam |\n| 1 | Perakende (toplam) |  |  |  |  |  |  |  |  |  |\n| 2 | Konut ipoteği |  |  |  |  |  |  |  |  |  |\n| 3 | Kredi kartı |  |  |  |  |  |  |  |  |  |\n| 4 | Diğer perakende alacaklar |  |  |  |  |  |  |  |  |  |\n| 5 | Yeniden menkul kıymetleştirme |  |  |  |  |  |  |  |  |  |\n| 6 | Kurumsal (toplam) |  |  |  |  |  |  |  |  |  |\n| 7 | Kurumsal krediler |  |  |  |  |  |  |  |  |  |\n| 8 | Ticari ipotek |  |  |  |  |  |  |  |  |  |\n| 9 | Kiralama ve devralınan alacaklar |  |  |  |  |  |  |  |  |  |\n| 10 | Diğer kurumsal |  |  |  |  |  |  |  |  |  |\n| 11 | Yeniden menkul kıymetleştirme |  |  |  |  |  |  |  |  |  |"
+ },
+ {
+  "page": 13,
+  "top": 0,
+  "md": "Tanımlar:\n\n(i) “Bankanın kurucusu olduğu” durum, önemli ve etkin risk transferinin yokluğu nedeniyle menkul kıymetleştirme şartlarını sağlayamasa dahi menkul kıymetleştirme pozisyonu olarak bankanın elinde kalan pozisyonlardır.\n\n(ii) “Bankanın sponsor olduğu” durum bankanın program genelinde kredi kalitesi iyileştirmeleri, likidite ve diğer imkanlar sağladığı finansman bonosu programlarını içeren menkul kıymetleştirme pozisyonlarıdır. Bankanın hem kurucu hem sponsor olduğu durumlarda, mükerrer hesaplama yapılmaz. Bu durumlarda, “Bankanın kurucusu olduğu” ve “Bankanın sponsor olduğu” sütunlar birleştirilip “Bankanın kurucusu/sponsor olduğu” sütunu kullanılabilir.\n\n(iii) “Bankanın yatırımcı olduğu” menkul kıymetleştirme pozisyonları, üçüncü taraflardan satın alınan yatırım pozisyonlarını ifade etmektedir.\n\nSentetik işlemler: Eğer banka koruma satın aldıysa, “Bankanın kurucusu olduğu” sütunları altına net alacak tutarlarını raporlar (diğer bir ifadeyle koruma sağlanmayan tutar). Eğer banka koruma sattıysa, kredi koruması tutarı “yatırımcı” sütununda raporlanır.\n\nYeniden menkul kıymetleştirme: Tüm yeniden menkul kıymetleştirme ile ilgili menkul kıymetleştirme pozisyonları; sadece menkul kıymetleştirme pozisyonlarını içeren önceki satırlarda (dayanak risk sınıflarına göre) değil, “yeniden menkul kıymetleştirme” satırında yer alır."
+ },
+ {
+  "page": 13,
+  "top": 107.0,
+  "md": "Amaç: Bankanın alım satım hesaplarındaki menkul kıymetleştirme pozisyonlarını sunmak.\n\nKapsam: Alım satım hesaplarında menkul kıymetleştirme pozisyonu bulunan tüm bankalar için zorunludur. Bu şablon, riskin transfer edildiğinin kabul edilmesine ilişkin gerekli koşulları sağlamayan menkul kıymetleştirme pozisyonlarını da içermektedir.\n\nİçerik: (Net) Yasal konsolidasyona göre hazırlanan finansal tablolarda yer alan TMS uyarınca değerlenmiş tutar.\n\nSıklık: 6 ay.\n\nFormat: Esnek. Banka, faaliyetlerini yansıtmak için daha uygun olması durumunda, özellikle alt kırılımları veya sıralamasını değiştirebilir (örneğin, riskin transfer edilmesinin kabul edilmesine ilişkin şartları sağlayıp sağlamadığına göre). Kurucu veya sponsor olunan faaliyetler beraber sunulabilir.\n\nİlave açıklama: Bankalar, şablona ek olarak raporlama dönemine ilişkin önemli değişiklikleri belirtir ve bunların nedenlerini açıklar.\n\n|  |  | a | b | c | e | f | g | i | j | k |\n|---|---|---|---|---|---|---|---|---|---|---|\n|  |  | Bankanın kurucusu olduğu | Bankanın kurucusu olduğu | Bankanın kurucusu olduğu | Bankanın sponsor olduğu | Bankanın sponsor olduğu | Bankanın sponsor olduğu | Bankanın yatırımcı olduğu | Bankanın yatırımcı olduğu | Bankanın yatırımcı olduğu |\n|  |  | Geleneksel | Sentetik | Alt toplam | Geleneksel | Sentetik | Alt toplam | Geleneksel | Sentetik | Alt toplam |\n| 1 | Perakende (toplam) |  |  |  |  |  |  |  |  |  |\n| 2 | Konut ipoteği |  |  |  |  |  |  |  |  |  |\n| 3 | Kredi kartı |  |  |  |  |  |  |  |  |  |\n| 4 | Diğer perakende alacaklar |  |  |  |  |  |  |  |  |  |\n| 5 | Yeniden menkul kıymetleştirme |  |  |  |  |  |  |  |  |  |\n| 6 | Kurumsal (toplam) |  |  |  |  |  |  |  |  |  |\n| 7 | Kurumsal krediler |  |  |  |  |  |  |  |  |  |\n| 8 | Ticari ipotek |  |  |  |  |  |  |  |  |  |\n| 9 | Kiralama ve devralınan alacaklar |  |  |  |  |  |  |  |  |  |\n| 10 | Diğer kurumsal |  |  |  |  |  |  |  |  |  |\n| 11 | Yeniden menkul kıymetleştirme |  |  |  |  |  |  |  |  |  |\n\nTanımlar:\n\n(i) “Bankanın kurucusu olduğu” durum, önemli ve etkin risk transferinin yokluğu nedeniyle menkul kıymetleştirme şartlarını sağlayamasa dahi menkul kıymetleştirme pozisyonu olarak bankanın elinde kalan pozisyonlardır.\n\n(ii) “Bankanın sponsor olduğu” durum bankanın program genelinde kredi kalitesi iyileştirmeleri, likidite ve diğer imkanlar sağladığı finansman bonosu programlarını içeren menkul kıymetleştirme pozisyonlarıdır. Bankanın hem kurucu hem sponsor olduğu durumlarda, mükerrer hesaplama yapılmaz. Bu durumlarda, “Bankanın kurucusu olduğu” ve “Bankanın sponsor olduğu” sütunlar birleştirilip “Bankanın kurucusu/sponsor olduğu” sütunu kullanılabilir.\n\n(iii) “Bankanın yatırımcı olduğu” menkul kıymetleştirme pozisyonları, üçüncü taraflardan satın alınan yatırım pozisyonlarını ifade etmektedir.\n\nSentetik işlemler: Eğer banka koruma satın aldıysa, “Bankanın kurucusu olduğu” sütunları altına net alacak tutarlarını raporlar (diğer bir ifadeyle koruma sağlanmayan tutar). Eğer banka koruma sattıysa, kredi koruması tutarı “yatırımcı” sütununda raporlanır.\n\nYeniden menkul kıymetleştirme: Tüm yeniden menkul kıymetleştirme ile ilgili menkul kıymetleştirme pozisyonları; sadece menkul kıymetleştirme pozisyonlarını içeren önceki satırlarda (dayanak risk sınıflarına göre) değil, “yeniden menkul kıymetleştirme” satırında yer alır."
+ },
+ {
+  "page": 13,
+  "top": 389.1,
+  "md": "Amaç: Bankacılık hesaplarında yer alan ve bankanın menkul kıymetleştirme kurucusu veya sponsoru olduğu menkul kıymetleştirme pozisyonlarını ve ilgili sermaye yükümlülüğüni sunmak.\n\nKapsam: Bankanın menkul kıymetleştirme kurucusu veya sponsoru olduğu menkul kıymetleştirme pozisyonu bulunan tüm bankalar için şablon zorunludur.\n\nİçerik: Pozisyon tutarları, risk ağırlıklı tutarlar ve sermaye yükümlülüğü. Bu şablon, sadece riskin transfer edildiğinin kabul edilmesine ilişkin gerekli koşulları sağlayan menkul kıymetleştirmeleri içermektedir.\n\nSıklık: 6 ay.\n\nFormat: Sabit.\n\nİlave açıklama: Bankalar, şablona ek olarak raporlama dönemine ilişkin önemli değişiklikleri belirtir ve bunların nedenlerini açıklar.\n\n|  |  | a | b | c | d | e |\n|---|---|---|---|---|---|---|\n|  |  | Pozisyon Tutarları (RA aralıklarına göre) | Pozisyon Tutarları (RA aralıklarına göre) | Pozisyon Tutarları (RA aralıklarına göre) | Pozisyon Tutarları (RA aralıklarına göre) | Pozisyon Tutarları (RA aralıklarına göre) |\n|  |  | ≤%20 RA | >% 20 ile %50 RA | >%50 ile %100 RA | >%100 ile <%1250 RA | %1250 RA |\n| 1 | TOPLAM ALACAKLAR |  |  |  |  |  |\n| 2 | Geleneksel Menkul Kıymetleştirme |  |  |  |  |  |\n| 3 | Menkul Kıymetleştirme |  |  |  |  |  |\n| 4 | Perakende |  |  |  |  |  |\n| 5 | Kurumsal |  |  |  |  |  |\n| 6 | Yeniden Menkul Kıymetleştirme |  |  |  |  |  |\n| 7 | Kıdemli |  |  |  |  |  |\n| 8 | Kıdemli olmayan |  |  |  |  |  |\n| 9 | Sentetik Menkul Kıymetleştirme |  |  |  |  |  |\n| 10 | Menkul Kıymetleştirme |  |  |  |  |  |\n| 11 | Perakende |  |  |  |  |  |\n| 12 | Kurumsal |  |  |  |  |  |\n| 13 | Yeniden Menkul Kıymetleştirme |  |  |  |  |  |\n| 14 | Kıdemli |  |  |  |  |  |\n| 15 | Kıdemli olmayan |  |  |  |  |  |\n\nTanımlar\n\n(a) ile (e) arasındaki sütunlar, yasal risk ağırlıklarına bağlı olarak tanımlanmıştır."
+ },
+ {
+  "page": 13,
+  "top": 633.1,
+  "md": "Amaç: Bankacılık hesaplarında yer alan ve bankanın menkul kıymetleştirme yatırımcısı olduğu menkul kıymetleştirme pozisyonlarını ve ilgili sermaye yükümlülüğünü sunmak.\n\nKapsam: Bankanın yatırımcı olduğu menkul kıymetleştirme pozisyonu bulunan tüm bankalar için zorunludur.\n\nİçerik: Pozisyon tutarları, risk ağırlıklı tutarlar ve sermaye yükümlülüğü. Bu şablon, sadece riskin transfer edildiğinin kabul edilmesine ilişkin gerekli koşulları sağlayan menkul kıymetleştirmeleri içermektedir.\n\nSıklık: 6 ay.\n\nFormat: Sabit.\n\nİlave açıklama: Bankalar, şablona ek olarak raporlama dönemine ilişkin önemli değişiklikleri belirtir ve bunların nedenlerini açıklar.\n\n|  |  | a | b | c | d | e |\n|---|---|---|---|---|---|---|\n|  |  | Pozisyon Tutarları (RA aralıklarına göre) | Pozisyon Tutarları (RA aralıklarına göre) | Pozisyon Tutarları (RA aralıklarına göre) | Pozisyon Tutarları (RA aralıklarına göre) | Pozisyon Tutarları (RA aralıklarına göre) |\n|  |  | ≤%20 RA | >% 20 ile %50 RA | >%50 ile %100 RA | >%100 ile <%1250 RA | %1250 RA |\n| 1 | TOPLAM ALACAKLAR |  |  |  |  |  |\n| 2 | Geleneksel Menkul Kıymetleştirme |  |  |  |  |  |\n| 3 | Menkul Kıymetleştirme |  |  |  |  |  |\n| 4 | Perakende |  |  |  |  |  |\n| 5 | Kurumsal |  |  |  |  |  |\n| 6 | Yeniden Menkul Kıymetleştirme |  |  |  |  |  |\n| 7 | Kıdemli |  |  |  |  |  |\n| 8 | Kıdemli olmayan |  |  |  |  |  |\n| 9 | Sentetik Menkul Kıymetleştirme |  |  |  |  |  |\n| 10 | Menkul Kıymetleştirme |  |  |  |  |  |\n| 11 | Perakende |  |  |  |  |  |\n| 12 | Kurumsal |  |  |  |  |  |\n| 13 | Yeniden Menkul Kıymetleştirme |  |  |  |  |  |\n| 14 | Kıdemli |  |  |  |  |  |\n| 15 | Kıdemli olmayan |  |  |  |  |  |"
+ },
+ {
+  "page": 14,
+  "top": 0,
+  "md": "Tanımlar\n\n(a) ile (e) arasındaki sütunlar, yasal risk ağırlıklarına bağlı olarak tanımlanmıştır."
+ },
+ {
+  "page": 14,
+  "top": 714.0,
+  "md": "Amaç: Standart yaklaşım altında piyasa riski için sermaye yükümlülüğü bileşenlerinin gösterilmesi.\n\nKapsam: Şablon, piyasa riski için standart yaklaşım kullanan bankalar için zorunludur. Piyasa riski tutarlarının önemli bir kısmını standart yaklaşım dışındaki yöntemlerle hesaplayan bankalar için standart yaklaşım altındaki alacaklar ve RAT önemsiz sayılabilir. Böyle durumlarda bankalar standart yaklaşım altında işlem gören riskler için olan şablonu açıklamayabilirler. Bu durumda bankanın ilgili açıklamanın kullanıcılar için neden anlamlı bir bilgi olmadığını açıklaması gerekmektedir. Açıklama, bu riskleri ve bu risklerle ilgili portföyleri ve toplam RAT’ları içerir.\n\nİçerik: Risk ağırlıklı tutarlar.\n\nSıklık: 6 ay.\n\nFormat: Sabit.\n\nİlave açıklama: Bankalar, şablona ek olarak raporlama dönemine ilişkin önemli değişiklikleri belirtir ve bunların nedenlerini açıklar.\n\n|  |  | a |\n|---|---|---|\n|  |  | RAT |\n|  | Dolaysız (peşin) ürünler |  |\n| 1 | Faiz oranı riski (genel ve spesifik) |  |\n| 2 | Hisse senedi riski (genel ve spesifik) |  |\n| 3 | Kur riski |  |\n| 4 | Emtia riski |  |\n|  | Opsiyonlar |  |\n| 5 | Basitleştirilmiş yaklaşım |  |\n| 6 | Delta-plus metodu |  |\n| 7 | Senaryo yaklaşımı |  |\n| 8 | Menkul kıymetleştirme |  |\n| 9 | Toplam |  |"
+ },
+ {
+  "page": 15,
+  "top": 0,
+  "md": "Dolaysız (peşin) ürünler: opsiyonlu olmayan ürünlerdeki pozisyonları ifade etmektedir.\n\nRAT: Dokümandaki tutarlılığı sağlamak açısından sermaye yükümlülüğü yerine RAT açıklanır, bankalar piyasa riski RAT’ını sermaye yükümlülüğünü 12.5 ile çarparak bulabilirler."
+ },
+ {
+  "page": 15,
+  "top": 462.9,
+  "md": "Amaç: Kurum tarafından uygulanacak olan ilave sermaye yükümlülüğü uygulanmadan önce, konsolide düzeyde yasal sermayenin hesaplanmasında kullanılan farklı türdeki modellerden çıkan değerlerin (maksimum, minimum, ortalama ve raporlama dönemi bitiş süresi) gösterilmesi.\n\nKapsam: Şablon, piyasa riski tutarları için içsel model kullanan tüm bankalar için zorunludur.\n\nİçerik: Yasal konsolidasyon sonrası gerçekleştirilen sermaye hesaplamalarındaki içsel modellerin sonuçları.\n\nSıklık: 6 ay.\n\nFormat: Sabit.\n\nİlave açıklama: Bankalar, şablona ek olarak raporlama dönemine ilişkin önemli değişiklikleri belirtir ve bunların nedenlerini açıklar.\n\n|  |  | a |\n|---|---|---|\n|  | RmD (10 gün, %99 Güven Aralığı) |  |\n| 1 | Maksimum değer |  |\n| 2 | Ortalama değer |  |\n| 3 | Minimum değer |  |\n| 4 | Dönem sonu |  |\n|  | Stres RmD (10 gün, %99 Güven Aralığı) |  |\n| 5 | Maksimum değer |  |\n| 6 | Ortalama değer |  |\n| 7 | Minimum değer |  |\n| 8 | Dönem sonu |  |\n|  | İlave Risk Sermaye yükümlülüğü (%99.9 Güven Aralığı ) |  |\n| 9 | Maksimum değer |  |\n| 10 | Ortalama değer |  |\n| 11 | Minimum değer |  |\n| 12 | Dönem sonu |  |\n|  | Kapsamlı Risk Sermaye yükümlülüğü (%99.9 Güven Aralığı ) |  |\n| 13 | Maksimum değer |  |\n| 14 | Ortalama değer |  |\n| 15 | Minimum değer |  |\n| 16 | Dönem sonu |  |\n| 17 | Taban (Standart yaklaşım metodu) |  |\n\nRmD, sermaye yükümlülüğü hesaplamasında kullanılan yasal RmD’ye karşılık gelir. Raporlanan bu tutar ulusal insiyatif olan ilave sermaye yükümlülüğünü içermez.\n\nStres RmD, sermaye yükümlülüğü hesaplamasında kullanılan yasal stres RmD’ye karşılık gelir. Raporlanan bu tutar Kurul’un kararına bağlı olan ilave sermaye yükümlülüğünü (çarpan olarak) içermez.\n\nİlave risk, sermaye yükümlülüğü hesaplamasında kullanılan ilave riske karşılık gelir. Raporlanan bu tutar Kurulun kararına bağlı olan ilave sermaye yükümlülüğünü (çarpan olarak) içermez.\n\nKapsamlı Risk sermaye yükümlülüğü; 13, 14, 15 ve 16. satırlar taban konulmamış sayılardır; 17. satır raporlama sonundaki taban hesaplamasını göstermektedir.\n\nTaban: Standart ölçüm metoduna göre spesifik risk için %8 olan sermaye yükümlülüğü."
+ },
+ {
+  "page": 17,
+  "top": 716.9,
+  "md": "EK 1- Tablolar ve şablonların formatları ve raporlanma sıklığı\n\n|  | Tablolar ve şablonlar | Sabit format | Esnek format | 3 ay | 6 ay | 1 yıl |\n|---|---|---|---|---|---|---|\n| İkinci Bölüm - Risk Yönetimi ve Risk Ağırlıklı Tutarlara İlişkin Genel Açıklamalar | GBA - Bankanın risk yönetimi yaklaşımı |  | ✓ |  |  | ✓ |\n| İkinci Bölüm - Risk Yönetimi ve Risk Ağırlıklı Tutarlara İlişkin Genel Açıklamalar | GB1- Risk ağırlıklı tutarlara genel bakış | ✓ |  | ✓ |  |  |\n| Üçüncü Bölüm - Finansal Tablolar ile Risk Tutarları Arasındaki Bağlantılar | B1 - Muhasebesel konsolidasyon ve yasal konsolidasyon kapsamı arasındaki farklar ve eşleştirme |  | ✓ |  |  | ✓ |\n| Üçüncü Bölüm - Finansal Tablolar ile Risk Tutarları Arasındaki Bağlantılar | B2 - Risk tutarları ile finansal tablolardaki TMS uyarınca değerlenmiş tutarlar arasındaki farkların ana kaynakları |  | ✓ |  |  | ✓ |\n| Üçüncü Bölüm - Finansal Tablolar ile Risk Tutarları Arasındaki Bağlantılar | BA - TMS uyarınca değerlenmiş tutarlar ile risk tutarları arasındaki farklara ilişkin açıklamalar |  | ✓ |  |  | ✓ |\n| Dördüncü Bölüm - Kredi Riski Açıklamaları | KRA - Kredi riskiyle ilgili genel niteliksel bilgiler |  | ✓ |  |  | ✓ |\n| Dördüncü Bölüm - Kredi Riski Açıklamaları | KR1 - Varlıkların kredi kalitesi | ✓ |  |  | ✓ |  |\n| Dördüncü Bölüm - Kredi Riski Açıklamaları | KR2 - Temerrüde düşmüş alacaklar ve borçlanma araçları stoğundaki değişimler | ✓ |  |  | ✓ |  |\n| Dördüncü Bölüm - Kredi Riski Açıklamaları | KRB - Varlıkların kredi kalitesi ile ilgili ilave açıklamalar |  | ✓ |  |  | ✓ |\n| Dördüncü Bölüm - Kredi Riski Açıklamaları | KRC - Kredi riski azaltım teknikleri ile ilgili kamuya açıklanacak niteliksel gereksinimler |  | ✓ |  |  | ✓ |\n| Dördüncü Bölüm - Kredi Riski Açıklamaları | KR3 - Kredi riski azaltım teknikleri - Genel bakış | ✓ |  |  | ✓ |  |\n| Dördüncü Bölüm - Kredi Riski Açıklamaları | KRD - Bankaların kredi riskini standart yaklaşım ile hesaplarken kullandığı derecelendirme notlarıyla ilgili yapılacak nitel açıklamalar |  | ✓ |  |  | ✓ |\n| Dördüncü Bölüm - Kredi Riski Açıklamaları | KR4 - Standart yaklaşım - Maruz kalınan kredi riski ve kredi riski azaltım etkileri | ✓ |  |  | ✓ |  |\n| Dördüncü Bölüm - Kredi Riski Açıklamaları | KR5 - Standart yaklaşım - Risk sınıflarına ve risk ağırlıklarına göre alacaklar | ✓ |  |  | ✓ |  |\n| Dördüncü Bölüm - Kredi Riski Açıklamaları | KRE - IDD modellerine ilişkin kamuya açıklanacak niteliksel bilgiler |  | ✓ |  |  | ✓ |\n| Dördüncü Bölüm - Kredi Riski Açıklamaları | KR6 - IDD- Portföy ve TO aralığı bazında kredi riski tutarları | ✓ |  |  | ✓ |  |\n| Dördüncü Bölüm - Kredi Riski Açıklamaları | KR7 - IDD - KRA tekniği olarak kullanılan kredi türevlerinin RAV üzerindeki etkisi | ✓ |  |  | ✓ |  |\n| Dördüncü Bölüm - Kredi Riski Açıklamaları | KR8 - IDD yaklaşımı altıdaki RAV’ın değişim tablosu | ✓ |  | ✓ |  |  |\n| Dördüncü Bölüm - Kredi Riski Açıklamaları | KR9 - IDD - Her bir risk sınıfındaki temerrüt olasılıklarının geriye dönük testi |  | ✓ |  |  | ✓ |\n| Dördüncü Bölüm - Kredi Riski Açıklamaları | KR10 - IDD (İhtisas kredileri ve basit risk ağırlığı yaklaşımına tabi hisse senedi yatırımları) |  | ✓ |  | ✓ |  |\n| Beşinci Bölüm - Karşı Taraf Kredi Riski Açıklamaları | KKRA - KKR’ye ilişkin nitel açıklamalar |  | ✓ |  |  | ✓ |\n| Beşinci Bölüm - Karşı Taraf Kredi Riski Açıklamaları | KKR1 - KKR’nin ölçüm yöntemlerine göre değerlendirilmesi | ✓ |  |  | ✓ |  |\n| Beşinci Bölüm - Karşı Taraf Kredi Riski Açıklamaları | KKR2 - KDA için sermaye yükümlülüğü | ✓ |  |  | ✓ |  |\n| Beşinci Bölüm - Karşı Taraf Kredi Riski Açıklamaları | KKR3 - Standart yaklaşım- Risk sınıfları ve risk ağırlıklarına göre KKR | ✓ |  |  | ✓ |  |\n| Beşinci Bölüm - Karşı Taraf Kredi Riski Açıklamaları | KKR4 - Risk sınıfı ve TO bazında KKR (İDD) | ✓ |  |  | ✓ |  |\n| Beşinci Bölüm - Karşı Taraf Kredi Riski Açıklamaları | KKR5 - KKR için kullanılan teminatlar |  | ✓ |  | ✓ |  |\n| Beşinci Bölüm - Karşı Taraf Kredi Riski Açıklamaları | KKR6 - Kredi türevleri |  | ✓ |  | ✓ |  |\n| Beşinci Bölüm - Karşı Taraf Kredi Riski Açıklamaları | KKR7 - İçsel Model Yöntemi kapsamında KKR’ye ilişkin RAV değişimleri | ✓ |  | ✓ |  |  |\n| Beşinci Bölüm - Karşı Taraf Kredi Riski Açıklamaları | KKR8 - MKT’a olan riskler | ✓ |  |  | ✓ |  |\n| Altıncı Bölüm - Menkul Kıymetleştirme Açıklamaları | MKA - Menkul kıymetleştirme pozisyonlarına ilişkin nitel açıklamalar |  | ✓ |  |  | ✓ |\n| Altıncı Bölüm - Menkul Kıymetleştirme Açıklamaları | MK1 - Bankacılık hesaplarındaki menkul kıymetleştirme pozisyonları |  | ✓ |  | ✓ |  |\n| Altıncı Bölüm - Menkul Kıymetleştirme Açıklamaları | MK2 - Alım satım hesaplarındaki menkul kıymetleştirme pozisyonları |  | ✓ |  | ✓ |  |\n| Altıncı Bölüm - Menkul Kıymetleştirme Açıklamaları | MK3 - Bankacılık hesaplarındaki menkul kıymetleştirme pozisyonları ve bunlara ilişkin sermaye yükümlülüğü - Bankanın kurucu veya sponsor olduğu | ✓ |  |  | ✓ |  |\n| Altıncı Bölüm - Menkul Kıymetleştirme Açıklamaları | MK4 - Bankacılık hesaplarındaki menkul kıymetleştirme pozisyonları ve bunlara ilişkin sermaye yükümlülüğü - Bankanın yatırımcı olduğu | ✓ |  |  | ✓ |  |\n| Yedinci Bölüm - Piyasa Riski Açıklamaları | PRA - Piyasa riskiyle ilgili kamuya açıklanacak niteliksel bilgiler |  | ✓ |  |  | ✓ |\n| Yedinci Bölüm - Piyasa Riski Açıklamaları | PRB - İçsel model yaklaşımı kullanan bankalar için kamuya açıklanacak nicel bilgiler |  | ✓ |  |  | ✓ |\n| Yedinci Bölüm - Piyasa Riski Açıklamaları | PR1 - Standart yaklaşım | ✓ |  |  | ✓ |  |\n| Yedinci Bölüm - Piyasa Riski Açıklamaları | PR2 - İçsel model yaklaşımına göre piyasa riski RAV değişim tablosu | ✓ |  | ✓ |  |  |\n| Yedinci Bölüm - Piyasa Riski Açıklamaları | PR3 - Alım satım hesabı için içsel model yaklaşımı | ✓ |  |  | ✓ |  |\n| Yedinci Bölüm - Piyasa Riski Açıklamaları | PR4 - RmD tahminlerinin kar/zarar ile karşılaştırılması |  | ✓ |  | ✓ |  |\n|  |  | 20 | 20 | 4 | 22 | 14 |"
+ },
+ {
+  "page": 18,
+  "top": 4.5,
+  "md": ""
+ },
+ {
+  "page": 17,
+  "top": 632.1,
+  "md": "|  | Tebliğin Yayımlandığı Resmî Gazete'nin | Tebliğin Yayımlandığı Resmî Gazete'nin |\n|---|---|---|\n|  | Tarihi | Sayısı |\n|  | 23/10/2015 | 29511 |\n|  | Tebliğde Değişiklik Yapan Tebliğin Yayımlandığı Resmî Gazete’nin | Tebliğde Değişiklik Yapan Tebliğin Yayımlandığı Resmî Gazete’nin |\n|  | Tarihi | Sayısı |\n| 1. | 20/1/2016 | 29599 |\n| 2. | 21/9/2021 | 31605 |\n| 3. | 31/1/2026 | 33154 |"
+ },
+ {
+  "page": 16,
+  "top": 677.8,
+  "replace": [
+   [
+    "duyarlılığöı lçmek",
+    "duyarlılığı ölçmek"
+   ]
+  ]
+ },
+ {
+  "page": 17,
+  "top": 0,
+  "replace": [
+   [
+    "hesaplanmasındkau llanılan",
+    "hesaplanmasında kullanılan"
+   ],
+   [
+    "üzerindöen emli",
+    "üzerinde önemli"
+   ]
+  ]
+ }
+]

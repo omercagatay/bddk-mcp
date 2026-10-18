@@ -1,0 +1,20 @@
+{
+ "document_id": "mevzuat_19864",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "local_edit",
+ "input_markdown_sha256": "941cb3d7afd3b42de348e13630aa0a6ecd8f40034a59f6d5c4c0c264388c0a6c",
+ "output_markdown_sha256": "40633bf0569abc5ee27b151f30215713a1741d2f828a3961bb206ab77c9cd794",
+ "extraction_method_before": "html_parser",
+ "extraction_method_after": "html_parser",
+ "change_classes": [
+  "U+0092 (cp1254 right quote) -> ’ ×59",
+  "U+0096 (cp1254 en dash) -> – ×68",
+  "flattened closing Resmî Gazete list written as the reviewed table layout",
+  "flattened tables (one cell per paragraph) written as Markdown tables, reviewed against the page image"
+ ],
+ "pages_visually_reviewed": [
+  16
+ ],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.19864&MevzuatIliski=0&sourceXmlSearch=iç sistemleri"
+}

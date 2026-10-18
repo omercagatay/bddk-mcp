@@ -1,0 +1,45 @@
+{
+ "document_id": "1240",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "8f432eb49ecb5620bad4e98cd80e69317c3c73df364c800ab97c3d6c8b479b84",
+ "output_markdown_sha256": "bb45f65e913cb801b97a94c567a13756c8b04572fd3b133289f9c99710c3c25e",
+ "extraction_method_before": "markitdown",
+ "extraction_method_after": "manual_pdf+manual_latex",
+ "change_classes": [
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "3 table block(s) written as Markdown tables, reviewed against the page image",
+  "2 display formula(s) as LaTeX, reviewed against the page image"
+ ],
+ "pages_visually_reviewed": "1-17 (all)",
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1240",
+ "section_changes": {
+  "lost": [
+   "fikra 1",
+   "fikra 10",
+   "fikra 11",
+   "fikra 2",
+   "fikra 3",
+   "fikra 4",
+   "fikra 5",
+   "fikra 6",
+   "fikra 7",
+   "fikra 8",
+   "fikra 9"
+  ],
+  "gained": [],
+  "note": "EK-1 notes (1)-(11) sit inside the EK-1 table as printed, so they are no longer separate paragraphs"
+ },
+ "source_pdf_sha256": "41e39d4026f5757f88c81a52604e425fa9f66f93b0afafa5beeaddd3c705eec4",
+ "source_pdf_bytes": 332369,
+ "source_pdf_matches_stored_file_size": true,
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

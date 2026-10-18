@@ -1,0 +1,15 @@
+{
+ "document_id": "mevzuat_21192",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "local_edit",
+ "input_markdown_sha256": "c6a2732b8f89e829b35c1297a13f3171e7ea3079e48a95c7d95ca809dd2cbca6",
+ "output_markdown_sha256": "cfd6e00c6b00c6d664ae38b5fc7e5a4bee372359424460fad1623d54e532326b",
+ "extraction_method_before": "native_office+manual_latex",
+ "extraction_method_after": "native_office+manual_latex",
+ "change_classes": [
+  "whitespace only: justified-text runs of spaces collapsed and paragraph indentation removed (4+ leading spaces rendered paragraphs as code blocks); non-whitespace characters unchanged (wsclean.py)"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.21192&MevzuatIliski=0&sourceXmlSearch=sermaye yeterliliği"
+}

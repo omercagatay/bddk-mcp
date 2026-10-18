@@ -1,0 +1,69 @@
+{
+ "replace": [
+  [
+   "Ġ",
+   "İ",
+   67
+  ],
+  [
+   "ġ",
+   "Ş",
+   10
+  ],
+  [
+   "Ģ",
+   "ş",
+   43
+  ]
+ ],
+ "regions": [
+  {
+   "page": 20,
+   "top": 338,
+   "bottom": 699,
+   "md": "| | | Uzun Vadeli Alacak / TL Cinsinden | Uzun Vadeli Alacak / Yabancı Para Cinsinden | Kısa Vadeli Alacak / TL Cinsinden | Kısa Vadeli Alacak / Yabancı Para Cinsinden |\n| --- | --- | --- | --- | --- | --- |\n| Türkiye’de bulunan bankalar | Derecelendirme notu varsa⁴ | Uluslararası Türk Parası notu dikkate alınır. (Fıkra 27)<br/>İlgili Kurul Kararınca tümü üçüncü kredi kalitesi kademesine eşleştirildiğinden ***%50 risk ağırlığı uygulanır.*** | Uluslararası Yabancı Para notu dikkate alınır. (Fıkra 27)<br/>İlgili Kurul Kararınca tümü üçüncü kredi kalitesi kademesine eşleştirildiğinden ***%50 risk ağırlığı uygulanır.*** | Fıkra 35 ve Fıkra 36 hükümleri uygulanır.<br/>İlgili Kurul Kararınca tümü üçüncü kredi kalitesi kademesine eşleştirildiğinden ***%20 risk ağırlığı uygulanır.*** | Uluslararası Yabancı Para notu dikkate alınır. (Fıkra 29)<br/>İlgili Kurul Kararınca tümü üçüncü kredi kalitesi kademesine eşleştirildiğinden ***%20 risk ağırlığı uygulanır.*** |\n| Türkiye’de bulunan bankalar | Derecelendirme notu yoksa | (Fıkra 28, Fıkra 26 ve Fıkra 4)<br/>Fıkra 4 uyarınca Türkiye Hazinesi’nden olan TL cinsinden alacaklara %0 risk ağırlığı uygulandığı için ***%50 risk ağırlığı uygulanır.*** | (1 ilâ 7 nci Fıkralar, Fıkra 28 ve Fıkra 26)<br/>(İkinci Bölüm 1 ila 7 nci fıkralar uyarınca, varsa, bankanın tayin ettiği KDK’lar da dikkate alınarak) Bankanın Birinci Bölüm 1 ila 7 nci fıkralar uyarınca Türkiye Hazinesi’nden olan YP alacaklara uyguladığı risk ağırlığı ile (Fıkra 28 uyarınca) %50 den büyük olanı uygulanır. | (Fıkra 35, Fıkra 36, Fıkra 4 ve Fıkra 26)<br/>Fıkra 4 uyarınca Türkiye Hazinesi’nden olan TL cinsinden alacaklara %0 risk ağırlığı uygulandığı için ***%20 risk ağırlığı uygulanır.*** | (1 ilâ 7 nci Fıkralar, Fıkra 30 ve Fıkra 26)<br/>(İkinci Bölüm 1 ila 7 nci fıkralar uyarınca, varsa, bankanın tayin ettiği KDK’lar da dikkate alınarak) Bankanın Birinci Bölüm 1 ila 7 nci fıkralar uyarınca Türkiye Hazinesi’nden olan YP alacaklara uyguladığı risk ağırlığı ile (Fıkra 30 uyarınca) %20 den büyük olanı uygulanır. |"
+  },
+  {
+   "page": 21,
+   "top": 71,
+   "bottom": 718,
+   "md": "| | | | Uzun Vadeli Alacak / Yerel Para Cinsinden | Uzun Vadeli Alacak / Yabancı Para Cinsinden | Kısa Vadeli Alacak / Yerel Para Cinsinden | Kısa Vadeli Alacak / Yabancı Para Cinsinden |\n| --- | --- | --- | --- | --- | --- | --- |\n| Yurtdışında Bulunan Bankalar | Yerel para biriminden alacaklara düşük (avantajlı) (örneğin %0) risk ağırlığı uygulayan ülkelerdekiler | Derecelendirme notu varsa⁵ | Uluslararası Yerel Para notu dikkate alınır. (Fıkra 27) | Uluslararası Yabancı Para notu dikkate alınır. (Fıkra 27) | Fıkra 35 ve Fıkra 36 hükümleri uygulanır. | Uluslararası Yabancı Para notu dikkate alınır. (Fıkra 29) |\n| Yurtdışında Bulunan Bankalar | Yerel para biriminden alacaklara düşük (avantajlı) (örneğin %0) risk ağırlığı uygulayan ülkelerdekiler | Derecelendirme notu yoksa | Söz konusu düşük (avantajlı) risk ağırlığından düşük olmayacak şekilde ***asgari %50 risk ağırlığı uygulanır.*** (Fıkra 28 ve Fıkra 26) | (1 ilâ 7 nci Fıkralar, Fıkra 28 ve Fıkra 26) | Söz konusu düşük (avantajlı) risk ağırlığından düşük olmayacak şekilde ***asgari %20 risk ağırlığı uygulanır.*** (Fıkra 35 ve Fıkra 36) | (1 ilâ 7 nci Fıkralar, Fıkra 30 ve Fıkra 26) |\n| Yurtdışında Bulunan Bankalar | Kendi para biriminden alacaklara düşük (avantajlı) risk ağırlığı uygulamayan ülkeler | Derecelendirme notu varsa⁷ | Uluslararası Yerel Para notu dikkate alınır. (Fıkra 27) | Uluslararası Yabancı Para notu dikkate alınır. (Fıkra 27) | Uluslararası Yerel Para notu dikkate alınır. (Fıkra 29) | Uluslararası Yabancı Para notu dikkate alınır. (Fıkra 29) |"
+  },
+  {
+   "page": 22,
+   "top": 71,
+   "bottom": 181,
+   "md": ""
+  },
+  {
+   "page": 32,
+   "top": 497,
+   "bottom": 575,
+   "md": "| | |\n| --- | --- |\n| Menkul Kıymetleştirmeye Konu Pozisyon Tutarı | 185.000.000 TL |\n| Uygulanacak Ağırlıklı Ortalama Risk Ağırlığı¹⁰ | 0,75 |\n| Menkul Kıymetleştirme Öncesi Risk Ağırlıklı Tutar | 138.750.000 TL |"
+  },
+  {
+   "page": 32,
+   "top": 662,
+   "bottom": 692,
+   "md": "| Nominal VDMK Tutarı | Yoğunlaşma Oranı | Varlıklara, Yönetmelik Hükümleri Uyarınca Uygulanacak Ağırlıklı Ortalama Risk Ağırlığı | Derecelendirilmemiş Pozisyon Risk Ağırlığı (12,50’den büyük olamaz) | Derecelendirilmemiş Pozisyonun Risk Ağırlıklı Tutarı |\n| --- | --- | --- | --- | --- |\n| 50.000.000 | 1,00 | 0,75 | 0,75 | 37.500.000,00 |\n| 40.000.000 | 1,37 | 0,75 | 1,03 | 31.111.111,11 |\n| 35.000.000 | **1,95** | **0,75** | **1,46** | **51.118.421,05** |\n| 25.000.000 | 3,08 | 0,75 | 2,31 | 57.812.500,00 |\n| 20.000.000 | 5,29 | 0,75 | 3,96 | 79.285.714,29 |\n| 10.000.000 | 12,33 | 0,75 | 9,25 | 92.500.000,00 |\n| 5.000.000 | **37** | 0,75 | **12,50 (37*0,75>12,50)** | **62.500.000** |\n| **185.000.000** | | | Toplam= | **411.827.746,45** |"
+  },
+  {
+   "page": 33,
+   "top": 71,
+   "bottom": 399,
+   "md": ""
+  },
+  {
+   "page": 34,
+   "top": 366,
+   "bottom": 650,
+   "md": "| Nominal VDMK Tutarı | Yoğunlaşma Oranı | Varlıklara, Yönetmelik Hükümleri Uyarınca Uygulanacak Ağırlıklı Ortalama Risk Ağırlığı | Derecelendirilmemiş Pozisyon Risk Ağırlığı | Derecelendirilmemiş Pozisyon Risk Tutarı |\n| --- | --- | --- | --- | --- |\n| 50.000.000 | 1,00 | A | … | … |\n| 40.000.000 | 1,37 | B | … | … |\n| 35.000.000 | 1,95 | C | … | … |\n| 25.000.000 | 3,08 | D | … | … |\n| 20.000.000 | … | E | … | … |\n| 10.000.000 | … | F | … | … |\n| 5.000.000 | … | G | … | … |\n| **185.000.000** | | | | … |"
+  },
+  {
+   "page": 35,
+   "top": 124,
+   "bottom": 292,
+   "md": "| Dilimin Nominal Tutarı | Dilimi oluşturan alacak tutarları | Dilimi oluşturan alacak tutarlarının tekabül ettiği risk ağırlıkları | | Hesaplanan risk ağırlıklı tutar |\n| --- | --- | --- | --- | --- |\n| **50.000.000** | 40.000.000 | %0 | 40.000.000*%0= | 0 |\n| | 8.000.000 | %20 | 8.000.000*%20= | 1.600.000 |\n| | 2.000.000 | %50 | 2.000.000*%50= | 1.000.000 |\n| | | TOPLAM: | | **2.600.000** |"
+  }
+ ]
+}

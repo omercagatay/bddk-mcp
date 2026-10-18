@@ -1,0 +1,14 @@
+{
+ "tables": [
+  {
+   "start": "Kredi kalitesi 1",
+   "end": "*: Sadece kısa",
+   "md": "| Kredi kalitesi kademesi | 1 | 2 | 3 | 4* | 5 ve aşağısı |\n|---|---|---|---|---|---|\n| Menkul kıymetleştirme pozisyonu | %20 | %50 | %100 | %350 | %1250 |\n| Yeniden menkul kıymetleştirme pozisyonu | %40 | %100 | %225 | %650 | %1250 |"
+  },
+  {
+   "start": "3 aylık ortalama ilave",
+   "end": "c) (b) bendinde yer alan",
+   "md": "| 3 aylık ortalama ilave gelir seviyesi | Kontrollü erken itfa hükmü içeren menkul kıymetleştirmeler için Krediye Dönüştürme Oranı (%) | Kontrollü olmayan erken itfa hükmü içeren menkul kıymetleştirmeler için Krediye Dönüştürme Oranı (%) |\n|---|---|---|\n| A seviyesinin üzeri | 0 | 0 |\n| A seviyesi | 1 | 5 |\n| B seviyesi | 2 | 15 |\n| C seviyesi | 10 | 50 |\n| D seviyesi | 20 | 100 |\n| E seviyesi | 40 | 100 |"
+  }
+ ]
+}

@@ -1,0 +1,69 @@
+{
+ "document_id": "mevzuat_21425",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "c12b1a3a39e1db33753c3797ff747a8b67b033ead8602f2b828e17085ce71aa6",
+ "output_markdown_sha256": "3d6606a3a0e9305a51bce639dacb439cb8372ca9b7f30631403b0eb62e68f28b",
+ "extraction_method_before": "markitdown",
+ "extraction_method_after": "pdftotext_layout",
+ "change_classes": [
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "stored word order differed from the PDF; rebuilt order matches the PDF content stream (pdftotext -raw)",
+  "2 table block(s) written as Markdown tables, reviewed against the page image"
+ ],
+ "pages_visually_reviewed": [
+  3,
+  4
+ ],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.21425&MevzuatIliski=0&sourceXmlSearch=sistemik",
+ "section_changes": {
+  "lost": [],
+  "gained": [
+   "fikra 2",
+   "fikra 2",
+   "fikra 2",
+   "fikra 3",
+   "fikra 3",
+   "fikra 3",
+   "fikra 4",
+   "fikra 4",
+   "fikra 5",
+   "fikra 5",
+   "madde 10",
+   "madde 11",
+   "madde 12"
+  ],
+  "note": "gained MADDE 10, 11 and 12, missing from the stored extraction, and fıkras the stored text had run into one paragraph"
+ },
+ "source_pdf_sha256": "1754b8ddf3fa3be74db630357d7bddf4e7d7f459de6f4c5b2f91b67f9d0d8202",
+ "source_pdf_bytes": 157292,
+ "source_pdf_matches_stored_file_size": false,
+ "source_pdf_note": "static mevzuat.gov.tr MevzuatMetin PDF of the current consolidated text; the stored text came from the mevzuat HTML page, so the stored file size describes that page",
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "fail",
+  "reasons": [
+   "stored has LaTeX/table markup",
+   "rebuilt-only tokens ['1', '1', '1', '1', '1', '10', '11', '12', '2014', '2016', '2019', '3', '31', '4', '8', 'ait', 'alınarak', 'aralık', 'aynı', 'ayına']",
+   "stored-only non-page tokens ['21425', '5', '7', 'doc', 'ek', 'grup', 'oran']",
+   "punctuation differs {'*': 124, '\\\\': 1, '[': 1, ']': 1, ',': 7, '–': 3, '(': 3, ')': 3, '.': 2, '/': 4, '%': 1}",
+   "section list differs",
+   "ruled tables on pages [3, 4]"
+  ],
+  "paragraph_break_spots": 0
+ },
+ "gate_resolution": [
+  "punctuation difference = table/LaTeX markup written differently and dropped page-furniture lines",
+  "section list change listed in section_changes",
+  "token, table and formula differences resolved by the reviewed specs/ and manual steps above, checked against the viewed page images"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

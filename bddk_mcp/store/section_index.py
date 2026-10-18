@@ -8,12 +8,14 @@ import re
 
 from pydantic import BaseModel
 
+from bddk_mcp.store.legal_ref import canonical_section_ref
+
 logger = logging.getLogger(__name__)
 
 # Bump whenever heading recognition, span construction, subsection handling,
 # truncation, or section-content hashing changes.  Persisted chunk metadata is
 # bound to this value by the vector retrieval profile.
-SECTION_PARSER_PROFILE_VERSION = "turkish-regulatory-sections-v8"
+SECTION_PARSER_PROFILE_VERSION = "turkish-regulatory-sections-v10"
 SECTION_SEARCH_PROFILE_VERSION = "document-section-simple-fts-length-normalized-v6"
 
 # Hard upper bound for a single section's span. Legitimate maddeler are a few
@@ -49,22 +51,65 @@ _MIN_GOVDE_CHARS = 80
 # every heading reads "MADDE 1 \x96 (1) ...". Bold markers require 2-3
 # asterisks ("**MADDE 1** – ..."): a single "* " is a markdown bullet, and
 # amendment lists ("* Madde 5 – ... değiştirilmiştir.") must not index as
-# headings.
+# headings.  A Markdown heading marker ("## EK-1") and the printed en/em dash
+# between EK and its number ("EK–1") are accepted too; without them the last
+# article runs on over the annexes until the span cap.
+#
+# An article inserted by amendment keeps its printed letter ("Madde 66/A –" is
+# madde "66/a", never madde 66), and "EK MADDE 1" is its own series (ek_madde),
+# as GEÇİCİ MADDE is.  Printed variants: "MADDE 1. –" (1230; the dot counts only
+# before a dash, so the "İlke 6." lines of numbered-paragraph Rehber stay
+# prose), "GEÇİÇİ MADDE" (19864), "GEÇİCİMADDE" (10735) and "MADDE 16 (1) Her
+# ..." with no dash before its first fıkra (1313).
+_ARTICLE_REF = r"\d+(?:/?[A-Za-zÇĞİÖŞÜçğıöşü])?"
 _HEADING_RE = re.compile(
-    r"^(?P<prefix>\s*(?:\*{2,3}\s*)?)"
-    r"(?:(?P<gecici>geçici\s+madde)\s+(?P<gecici_ref>\d+[A-Za-zÇĞİÖŞÜçğıöşü]?)"
-    r"|(?P<madde>madde)\s+(?P<madde_ref>\d+[A-Za-zÇĞİÖŞÜçğıöşü]?)"
+    r"^(?P<prefix>\s*(?:#{1,6}\s+)?(?:\*{2,3}\s*)?)"
+    rf"(?:(?P<gecici>geçi[cç]i\s*madde)\s+(?P<gecici_ref>{_ARTICLE_REF})"
+    rf"|(?P<ek_madde>ek\s+madde)\s+(?P<ek_madde_ref>{_ARTICLE_REF})"
+    rf"|(?P<madde>madde)\s+(?P<madde_ref>{_ARTICLE_REF})"
     r"|(?P<ilke>ilke)\s+(?P<ilke_ref>\d+[A-Za-zÇĞİÖŞÜçğıöşü]?)"
     r"|(?P<paragraf>paragraf)\s+(?P<paragraf_ref>\d+[A-Za-zÇĞİÖŞÜçğıöşü]?)"
-    r"|(?P<ek>ek)[-\s]*(?P<ek_ref>\d+[A-Za-zÇĞİÖŞÜçğıöşü]?))"
+    r"|(?P<ek>ek)[-\s–—\x96\x97]*(?P<ek_ref>\d+[A-Za-zÇĞİÖŞÜçğıöşü]?))"
+    r"(?:\.(?=\s*[-–—\x96\x97]))?"
     # A footnote/endnote marker printed right after the number ("MADDE 7$^{(1)}$ –").
     r"(?:\$\^\{[^}]*\}\$)*"
     r"(?:\s*\*{1,3})?"
-    r"\s*(?:[-:–—\x96\x97]\s*(?P<title>.*?))?"
+    r"\s*(?:(?:[-:–—\x96\x97]\s*|(?=\(1\)\s+(?-i:[A-ZÇĞİÖŞÜ])))(?P<title>.*?))?"
     r"\s*\*{0,3}\s*$",
     re.IGNORECASE,
 )
 _SUBSECTION_RE = re.compile(r"^\s*\((?P<ref>\d+|[A-Za-zÇĞİÖŞÜçğıöşü])\)\s+(?P<title>.*)$")
+# A text line that stops mid-sentence: the next line continues it, even when that
+# line opens with a "(N)"/"(x)" marker.
+_WRAPPED_LINE_RE = re.compile(r"[^.:;)\]*\s]\s*$")
+_SENTENCE_BOUNDARY_RE = re.compile(r"[a-zçğıöşü]\.\s+[A-ZÇĞİÖŞÜ]")
+# A marker that opens a reference or a table legend rather than an item:
+# "(a) ile (e) arasındaki", "(c) – (e)", "(c) bentleri", "(2) numaralı fıkra", "(g) sütunu".
+# Lowercase only: a fıkra may open with a capitalised "Bentler …".
+_SUBSECTION_REFERENCE_RE = re.compile(
+    r"^\((?:\d+|[a-zçğıöşü])\)\s*(?:(?:ile|ilâ|ila|ve|veya|[-–])\s*\(|(?:bent|bend|fıkra|numaralı|alt\s+bent|sütun))"
+)
+# A draft's "GENEL GEREKÇE" (rationale) closes its last article or annex; the
+# rationale is not provision text and stays searchable as govde.
+_RATIONALE_RE = re.compile(r"^\**\s*GENEL\s+GEREKÇE\s*\**$")
+# "(i)" followed by "(ii)" opens a roman-numeral sub-list inside a fıkra or bent, not bent ı/i.
+_ROMAN_SUBITEM_RE = re.compile(r"^\s*\(ii\)\s", re.IGNORECASE)
+# "MADDE 146 ila 149 – (… yerine işlenmiştir.)" (6362) names no single article:
+# it closes the previous madde, and its note stays searchable as govde.
+_ARTICLE_RANGE_RE = re.compile(r"^\s*madde\s+\d+\s+ila\s+\d+\s*[-–—\x96\x97]", re.IGNORECASE)
+# A law's attached lists ("(1) SAYILI LİSTE" in 6362, "(I) SAYILI CETVEL" in 5411)
+# close its last article; they are not fıkra/bent rows and stay searchable as govde.
+_ANNEX_LIST_RE = re.compile(
+    r"^\s*\((?:\d+|[IVXLC]+)\)\s+SAYILI\s+(?:LİSTE|CETVEL)\s*$|^\s*\((?:\d+|[ivxlc]+)\)\s+sayılı\s+(?:liste|cetvel)\s*$",
+    re.IGNORECASE,
+)
+# 947 prints most principles and both annexes with a dot ("İlke 1.", "EK 1.")
+# but two principles with a colon ("İlke 4:").  The dot form counts only once a
+# classic ilke heading proves the document is principle-structured, and only
+# before a capitalised title ("Ek 2. bölümünde" stays prose).  Elsewhere (945,
+# 946, 948, 950, 954-956, 1311) these lines sit inside a numbered paragraph body
+# that only the numbered fallback indexes; parsing them there deletes it.
+_DOT_HEADING_RE = re.compile(r"^\s*(?:(?P<ilke>(?i:ilke))|(?i:ek))\s+(?P<ref>\d+)\.\s+(?P<title>[A-ZÇĞİÖŞÜ].*)$")
 
 # Fallback grammar for documents without MADDE/İlke-style headings: Rehber
 # number their paragraphs "1. ... 206." and Genelge use decimal outlines
@@ -134,6 +179,8 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
         return []
 
     matches = _find_section_starts(text)
+    if any(start["section_type"] == "ilke" for start in matches):
+        matches = _find_section_starts(text, dot_headings=True)
     if not matches:
         matches = _find_numbered_paragraph_starts(text)
     elif {s["section_type"] for s in matches if s["level"] == 1} == {"ilke"}:
@@ -180,7 +227,12 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
             # sequence check, and a top-level outline span routinely exceeds
             # the cap while its dotted children remain genuine.
             continue
-        end_char = _trim_trailing_heading_leak(text, start["start_char"], _section_end_char(matches, index, len(text)))
+        end_char = _trim_trailing_heading_leak(
+            text,
+            start["start_char"],
+            _section_end_char(matches, index, len(text)),
+            annex=start["section_type"] == "ek",
+        )
         truncated_from = None
         if end_char - start["start_char"] > MAX_SECTION_CHARS:
             truncated_from = end_char - start["start_char"]
@@ -293,22 +345,81 @@ def _uncovered_spans(text_len: int, sections: list[DocumentSection]) -> list[tup
     return gaps
 
 
-def _find_section_starts(text: str) -> list[dict]:
+def _find_section_starts(text: str, *, dot_headings: bool = False) -> list[dict]:
     starts: list[dict] = []
     char_pos = 0
     current_major: str | None = None
-    for line in text.splitlines(keepends=True):
+    previous = ""
+    lines = text.splitlines(keepends=True)
+    for index, line in enumerate(lines):
         stripped = line.strip()
-        major = _parse_major_heading(stripped)
+        major = _parse_major_heading(stripped, dot_headings=dot_headings)
         if major is not None:
-            current_major = major["section_type"]
+            current_major = None if major.get("boundary_only") else major["section_type"]
             starts.append({**major, "start_char": char_pos, "level": 1})
         elif current_major is not None:
             subsection = _parse_subsection(stripped)
-            if subsection is not None:
+            # A wrapped cross-reference ("… 7 nci maddenin\n(2) numaralı fıkrası") or a sentence
+            # opening with one ("(a) ile (e) arasındaki") is prose, not a fıkra or bent.
+            wrapped = _WRAPPED_LINE_RE.search(previous) is not None
+            if (
+                subsection is not None
+                and not wrapped
+                and not _SUBSECTION_REFERENCE_RE.match(stripped)
+                and not (subsection["section_ref"] == "i" and _opens_roman_sublist(lines, index, dot_headings))
+            ):
                 starts.append({**subsection, "start_char": char_pos, "level": 2})
+        previous = "" if major is not None else stripped
         char_pos += len(line)
-    return starts
+    return _without_quoted_articles(starts)
+
+
+def _opens_roman_sublist(lines: list[str], index: int, dot_headings: bool) -> bool:
+    for line in lines[index + 1 :]:
+        stripped = line.strip()
+        if _ROMAN_SUBITEM_RE.match(stripped):
+            return True
+        if _parse_major_heading(stripped, dot_headings=dot_headings) is not None or _SUBSECTION_RE.match(stripped):
+            return False
+    return False
+
+
+def _article_number(ref: str) -> int | None:
+    digits = re.match(r"\d+", ref)
+    return int(digits.group()) if digits else None
+
+
+def _without_quoted_articles(starts: list[dict]) -> list[dict]:
+    """Drop an article heading quoted inside another article.
+
+    An amending law quotes the new text of another law's article ("… 44 üncü
+    maddesi aşağıdaki şekilde değiştirilmiştir; Madde 44- …"): its number jumps
+    past the running sequence (25 → 44) while the next real article resumes it
+    (26).  The quoted text then stays in the quoting article, with no rows of its own.
+    """
+    maddes = [
+        i
+        for i, s in enumerate(starts)
+        if s["level"] == 1 and s["section_type"] == "madde" and not s.get("boundary_only")
+    ]
+    quoted: set[int] = set()
+    for before, current, after in zip(maddes, maddes[1:], maddes[2:], strict=False):
+        numbers = [_article_number(starts[i]["section_ref"]) for i in (before, current, after)]
+        if None not in numbers and numbers[1] > numbers[0] + 2 and numbers[0] < numbers[2] <= numbers[0] + 2:
+            quoted.add(current)
+    if not quoted:
+        return starts
+    kept: list[dict] = []
+    dropping = False
+    for i, start in enumerate(starts):
+        if start["level"] == 1:
+            dropping = i in quoted
+            if dropping:
+                continue
+        elif dropping:
+            continue
+        kept.append(start)
+    return kept
 
 
 def _merge_guideline_paragraphs(text: str, starts: list[dict]) -> list[dict]:
@@ -454,10 +565,21 @@ def _section_end_char(matches: list[dict], index: int, text_len: int) -> int:
 _LEAKED_TITLE_MAX_WORDS = 12
 _LEAKED_FRAGMENT_MAX_WORDS = 3
 _SENTENCE_END_RE = re.compile(r"[.!?…]$")
+# Display-math delimiters, LaTeX commands and equations end a section's own
+# formula ("… aşağıdaki formüle göre hesaplanır." followed by the formula); they
+# are never a leaked next-article title.
+_FORMULA_LINE_RE = re.compile(r"\$\$|\\[A-Za-z]|\s=\s")
+# An abbreviation list entry ("BK : Beklenen Kayıp") is annex content, not a title.
+_GLOSSARY_LINE_RE = re.compile(r"^[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜa-zçğıöşü0-9/&-]{0,11}\s*:\s*\S")
 
 
 def _is_leaked_trailing_line(line: str) -> bool:
-    if line.startswith("(") or _SENTENCE_END_RE.search(line):
+    if (
+        line.startswith("(")
+        or _SENTENCE_END_RE.search(line)
+        or _FORMULA_LINE_RE.search(line)
+        or _GLOSSARY_LINE_RE.match(line)
+    ):
         return False
     words = line.split()
     if not words or not any(ch.isalpha() for ch in line):
@@ -467,27 +589,56 @@ def _is_leaked_trailing_line(line: str) -> bool:
     return len(words) <= _LEAKED_TITLE_MAX_WORDS and words[0][:1].isupper()
 
 
-def _trim_trailing_heading_leak(text: str, start_char: int, end_char: int) -> int:
+def _trim_trailing_heading_leak(text: str, start_char: int, end_char: int, *, annex: bool = False) -> int:
     lines = text[start_char:end_char].splitlines(keepends=True)
     last_keep = len(lines)
-    while last_keep > 0:
+    # The first line is the section's own heading ("Madde 72 — (Mülga: …)"), never a leak;
+    # an annex's table rows ("| 11,314 | 8 | 5,657 |") are its content.
+    while last_keep > 1:
         stripped = lines[last_keep - 1].strip()
-        if not stripped or _is_leaked_trailing_line(stripped):
+        if not stripped or (_is_leaked_trailing_line(stripped) and not (annex and stripped.startswith("|"))):
             last_keep -= 1
             continue
         break
     if last_keep <= 0 or last_keep == len(lines):
         return end_char
+    # A last sentence wrapped over short capitalised lines ("… olmayacağı Bakanlar" /
+    # "Kurulunca düzenlenir. Düzenleme …" / "Kanunu … uygulanır") is provision text,
+    # not a leaked title: a sentence boundary inside the continuation proves it.
+    continuation: list[str] = []
+    for line in lines[last_keep:]:
+        if not line.strip():
+            break
+        continuation.append(line)
+    if (
+        continuation
+        and _WRAPPED_LINE_RE.search(lines[last_keep - 1].strip())
+        and _SENTENCE_BOUNDARY_RE.search("".join(continuation))
+    ):
+        last_keep += len(continuation)
     return start_char + sum(len(line) for line in lines[:last_keep])
 
 
-def _parse_major_heading(line: str) -> dict | None:
+def _parse_major_heading(line: str, *, dot_headings: bool = False) -> dict | None:
     match = _HEADING_RE.match(line)
     if not match:
-        return None
+        if _ARTICLE_RANGE_RE.match(line):
+            return {"section_type": "madde", "boundary_only": True}
+        if _ANNEX_LIST_RE.match(line) or _RATIONALE_RE.match(line):
+            return {"section_type": "ek", "boundary_only": True}
+        dot = _DOT_HEADING_RE.match(line) if dot_headings else None
+        if dot is None:
+            return None
+        return {
+            "section_type": "ilke" if dot.group("ilke") else "ek",
+            "section_ref": dot.group("ref"),
+            "heading": dot.group("title").strip(),
+        }
 
     if match.group("gecici"):
         section_type, section_ref = "gecici_madde", match.group("gecici_ref")
+    elif match.group("ek_madde"):
+        section_type, section_ref = "ek_madde", match.group("ek_madde_ref")
     elif match.group("madde"):
         section_type, section_ref = "madde", match.group("madde_ref")
     elif match.group("ilke"):
@@ -518,7 +669,7 @@ def _parse_subsection(line: str) -> dict | None:
 
 
 def _normalize_ref(ref: str) -> str:
-    return ref.strip().lower()
+    return canonical_section_ref(ref)
 
 
 def _content_hash(content: str) -> str:

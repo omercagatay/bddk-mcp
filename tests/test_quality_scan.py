@@ -180,6 +180,7 @@ async def seeded_quality_pool(pg_pool):
             ("doc_clean", "Normal document with çğıöşü letters " * 120, "markitdown"),
             ("doc_camelcase", "BÖLÜMBaşlangıç HükümleriAmaç " + "çğıöşü " * 120, "html_parser"),
             ("doc_replacement", "Some text � with replacement " + "çğıöşü " * 120, "markitdown"),
+            ("doc_c1", "Fiyat \x96 aralığı " + "çğıöşü " * 120, "html_parser"),
             ("doc_imgtag", "Some <img src='x.png'> leaked " + "çğıöşü " * 120, "markitdown"),
             ("doc_data_uri", "Some <img src='data:image/x-wmf;base64,AAA'> leaked " + "çğıöşü " * 120, "markitdown"),
             ("doc_cid", ("cid:12 " * 25) + "çğıöşü " * 120, "markitdown"),
@@ -225,7 +226,7 @@ async def seeded_quality_pool(pg_pool):
 async def test_scan_quality_detects_all_seeded_anomalies(seeded_quality_pool):
     report = await scan_quality(seeded_quality_pool)
 
-    assert report.total_documents == 11
+    assert report.total_documents == 12
     method_names = {m.method for m in report.methods}
     assert {"markitdown", "html_parser", "chandra2", "glm_ocr"} <= method_names
 
@@ -236,6 +237,8 @@ async def test_scan_quality_detects_all_seeded_anomalies(seeded_quality_pool):
 
     assert signals["replacement_char"].docs_flagged >= 1
     assert "doc_replacement" in signals["replacement_char"].sample_doc_ids
+
+    assert signals["c1_control_char"].sample_doc_ids == ["doc_c1"]
 
     assert signals["leaked_img_tag"].docs_flagged >= 1
     assert "doc_imgtag" in signals["leaked_img_tag"].sample_doc_ids

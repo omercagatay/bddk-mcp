@@ -1,0 +1,79 @@
+{
+ "document_id": "mevzuat_21193",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "64369b2d749ef5f200c7f5e4229e82e256a2ef8af593e1c4404e311d5de651ec",
+ "output_markdown_sha256": "970b1e24145f122056fca8a32e9cc24148106dbbd3b93e6df9c328ccc01cf6ce",
+ "extraction_method_before": "manual_pdf+markitdown",
+ "extraction_method_after": "pdftotext_layout",
+ "change_classes": [
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "67 table block(s) placed by page area (spec 'regions'), reviewed against the page image",
+  "26 word boundaries taken from the stored text where the official PDF text layer glued words (e.g. 'MADDE 1 –(1)')",
+  "paragraphs broken mid-sentence (page break, hanging indent or justified-line split) rejoined; each break was checked against the page image or the relay layout before joining",
+  "every template table rebuilt from the ruled cells of its page (regions2.py), with reviewed fixes (specs/fix_mevzuat_21193.json): table halves split by a page break merged, rows the GeneratePdf output prints twice on top of each other (overprint) taken from the stored text",
+  "a glyph the PDF font lacks (printed as an empty box) written as '•' in lists; EK-1 marks written as '✓', placed from the template frames and checked against the printed column totals (20/20/4/22/14)",
+  "3 character-order glitches from overprinted glyphs corrected as printed",
+  "2 text-layer fragments of overprinted table rows dropped (spec 'drop': 'Tablolarstoğundaki' p18, '65 Toplam' p10); the rows themselves are in the rebuilt tables"
+ ],
+ "pages_visually_reviewed": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18
+ ],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=9.5.21193&MevzuatIliski=0&sourceXmlSearch=risk yönetimi",
+ "section_changes": {
+  "lost": [
+   "bent b",
+   "bent i",
+   "bent i"
+  ],
+  "gained": [],
+  "note": "the two lost '(i)' bents are row labels of a template table ('(i) Tezgahüstü türev işlemler'), now table rows; the lost '(b)' bent was a line break inside Geçici Madde 1 ('… (b) bendinde yer alan …')"
+ },
+ "source_pdf_sha256": "34942888ce79138cbea1d4ca0d0afe9d1295fc485a7df960841a7aba6f15f8ac",
+ "source_pdf_bytes": 258639,
+ "source_pdf_matches_stored_file_size": false,
+ "source_pdf_note": "mevzuat.gov.tr File/GeneratePdf output is regenerated per request (not byte-reproducible)",
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "fail",
+  "reasons": [
+   "rebuilt-only tokens ['100', '100', '1250', '1250', '18inci', '1günlük', '20', '20', '50', '50', '65', '_______', '_______', 'a', 'a', 'a', 'a', 'a', 'a', 'a']",
+   "stored-only non-page tokens ['1', '18', '3', '5', '6', 'akışlarının', 'alan', 'altında', 'amaç', 'amaç', 'arasındaki', 'ayrılacak', 'bağımsız', 'belirlenmesi', 'birine', 'commissions', 'dair', 'değerlendirilmesine', 'duyarlılıklarının', 'duyarlılığı']",
+   "too many stored-only page tokens",
+   "section list differs",
+   "ruled tables on pages [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]",
+   "rebuild order disagrees with content-stream order (450 moved tokens)"
+  ],
+  "paragraph_break_spots": 0
+ },
+ "gate_resolution": [
+  "section list change listed in section_changes",
+  "token, table and formula differences resolved by the reviewed specs/ and manual steps above, checked against the viewed page images"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

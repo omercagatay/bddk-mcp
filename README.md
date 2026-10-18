@@ -58,7 +58,7 @@ Okuma araçları:
 - `search_bddk_announcements`: duyuru arar; canlı BDDK çağrısı yapabilir.
 - `get_bddk_document`: kayıtlı belge sayfasını getirir. Güvensiz çıkarım artığı varsa metni sessizce düzeltmez, reddeder.
 - `get_document_history`: kayıtlı belge geçmişini gösterir.
-- `get_document_section`: madde, ilke, paragraf veya ek ister.
+- `get_document_section`: madde (66/A gibi araya eklenen maddeler dahil), geçici madde, ek madde, ilke, paragraf, ek veya bent ister.
 - `search_document_sections`: bölüm başlıklarında arar.
 - `resolve_regulation_status`: görünen yürürlük sinyalini sorar. Hukuki görüş değildir.
 - `get_amendment_chain`: değişiklik zincirini gösterir.

@@ -1,0 +1,78 @@
+{
+ "document_id": "mevzuat_21194",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "3a4d719ca873f9bcc4c74b81db348f3d69e3bee519823eea36f22d7b5bb939d9",
+ "output_markdown_sha256": "ba49a2ac72fa481753cc37ccc9d49a550ed385a3b7a3d038ed53f16add042772",
+ "extraction_method_before": "manual_pdf+markitdown+manual_latex",
+ "extraction_method_after": "pdftotext_layout+manual_latex",
+ "change_classes": [
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "8 table block(s) placed by page area (spec 'regions'), reviewed against the page image",
+  "7 word boundaries taken from the stored text where the official PDF text layer glued words (e.g. 'MADDE 1 –(1)')",
+  "7 glued formula-variable sub/superscripts written as LaTeX ($_{…}$ / $^{…}$), each token checked against the PDF glyph size and baseline; occurrences the PDF prints plain stay plain (scriptfix.py)",
+  "tables rebuilt from the ruled cells of their pages (regions2.py) with reviewed fixes (specs/fix_mevzuat_21194.json): Tablo 1 risk weights (5 categories x 2 maturities), the closing Resmî Gazete table, the EK-3 slotting tables merged across page breaks, overprinted continuation rows taken from the stored text, and two blocks of unruled sub-rows split by line position (splitrows.py)",
+  "the GeneratePdf output prints every formula as an empty box (no glyphs, no images): the stored LaTeX was grafted at the box positions checked on the page images (post21194.py); the stored inline legend of the Ek-1 maturity formula replaces the text-layer legend whose symbols were boxes. The 12 display formulas and that legend were compared with the formula images of the original Tebliğ (resmigazete.gov.tr eskiler/2015/10/20151023-15.pdf, SHA-256 0b0a97af26fe29cb2c00bdac1ccfc36a7f297edabe21f85f2798b648b0854cf2, pp. 9-14 and 20-21): all match",
+  "the KOBİ correlation formula (paragraph marked '(Değişik:RG-14/3/2018-30360)') was transcribed from the amending Tebliğ's own image (resmigazete.gov.tr 20180314-8_dosyalar/image002.gif, SHA-256 c5a66fc2f894db2ee7de1bc93ee9f6e2749633e6e468aecc3aa20ce25ba430eb). The stored formula (max[S, 5], -5, /36) was a mis-transcription of the 2015 original (max{4, S}, -4, /36 on p. 10 of the RG PDF above), and RG 30360 replaced the whole paragraph with the C-form. The consolidated text also kept the 2016 legend under it (RG 20/1/2016-29599, byte-identical: net satış hâsılatı, no 'C'); RG 30360 MADDE 3 replaced the whole paragraph, so its legend is taken verbatim from the amending Tebliğ's page (legend21194.py). Every other provision amended by RG 29599, 30360 and 30742 was checked present in the consolidated text",
+  "'GEÇİCİ MADDE 1 - (1)' restored: the bold '-' is overprinted on '(1)' in the text layer",
+  "4 text-layer fragments of the EK-3 header row reprinted over continuation rows (pp. 20-22) dropped (spec 'drop'); the header is the table's first row"
+ ],
+ "pages_visually_reviewed": [
+  4,
+  5,
+  6,
+  7,
+  9,
+  10,
+  19,
+  20,
+  21,
+  22,
+  23,
+  24
+ ],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=9.5.21194&MevzuatIliski=0&sourceXmlSearch=kredi riskine esas",
+ "section_changes": {
+  "lost": [
+   "bent a",
+   "bent a",
+   "bent b",
+   "bent c"
+  ],
+  "gained": [],
+  "note": "the lost bents were row labels of the flattened EK-3 slotting tables ('(a) Al ya da öde …', '(c) İnşaat halindeki gayrimenkul'), now table cells"
+ },
+ "source_pdf_sha256": "189b2f023c1eda4c96d0e2da15d4654ff5f58259cbfd1ecf961ea94e287fde5f",
+ "source_pdf_bytes": 265625,
+ "source_pdf_matches_stored_file_size": false,
+ "source_pdf_note": "mevzuat.gov.tr File/GeneratePdf output is regenerated per request (not byte-reproducible)",
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "fail",
+  "reasons": [
+   "stored has LaTeX/table markup",
+   "rebuilt-only tokens ['_______', 'eldesınırlıdır', 'fiyatlardan1', 'kategorisatılabilir', 'temlikkategori', 'temlikkategori', 'tk', 'tk', 'tk', 'tk', 'tk', 'tk', 'tk', 'vadesinden1', 'vadesinden3', 'vadesinden4']",
+   "stored-only non-page tokens ['0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '03', '04', '05478', '1']",
+   "too many stored-only page tokens",
+   "punctuation differs {',': 22, '(': 14, ')': 14, ';': 3, \"'\": 1, '=': 12, '\\\\': 122, '{': 95, '}': 95, '[': 8, '!': 3, '+': 9, ']': 8, '^': 17, '&': 2, ':': 1, '’': 1, '–': 1, '∆': 1}",
+   "section list differs",
+   "ruled tables on pages [4, 5, 6, 8, 19, 20, 21, 22, 23, 24]",
+   "rebuild order disagrees with content-stream order (2051 moved tokens)"
+  ],
+  "paragraph_break_spots": 0
+ },
+ "gate_resolution": [
+  "punctuation difference = table/LaTeX markup written differently and dropped page-furniture lines",
+  "section list change listed in section_changes",
+  "token, table and formula differences resolved by the reviewed specs/ and manual steps above, checked against the viewed page images"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

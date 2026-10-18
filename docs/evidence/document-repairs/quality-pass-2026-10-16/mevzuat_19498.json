@@ -1,0 +1,38 @@
+{
+ "document_id": "mevzuat_19498",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "0c7d9ff0504f6ac98a09e2a839cea50eaa041dd69302ee85bb843e1387edfc5f",
+ "output_markdown_sha256": "177b8ca01fc613a437c70e7ad4c11ee4c06886b7a74ceb4f9e13eb38a07babbc",
+ "extraction_method_before": "html_parser+annex_docx",
+ "extraction_method_after": "html_parser+annex_docx+annex_xlsx+manual_latex",
+ "change_classes": [
+  "U+0092 (cp1254 right quote) -> ’ ×20",
+  "U+0094 (cp1254 right double quote) -> ” ×1",
+  "U+0096 (cp1254 en dash) -> – ×37",
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "flattened closing Resmî Gazete list written as the reviewed table layout",
+  "EK-1 and EK-2 (the LCR reporting forms with the dikkate alınma / çıkış / giriş rates Madde 9 refers to) added from the official annex archive mevzuat.gov.tr/MevzuatMetin/yonetmelik/7.5.19498-ek.zip (SHA-256 d0c1cea72e3d1048e854f9e73b7cc95f77e2a13b9d028b5e1e8f195f5e318585): the ingest annex reader handled .docx only, so the two .xlsx annexes were missing. One Markdown table per sheet block; every one of the 628 and 634 cells checked present in sheet order; rates written from Excel's percent format as %N; EK-3's three formulas (text in the docx) written as LaTeX; annex headings as plain 'EK-n' lines so the section index ends MADDE 34 before them (annex19498.py)",
+  "whitespace only: justified-text runs of spaces collapsed and paragraph indentation removed (4+ leading spaces rendered paragraphs as code blocks); non-whitespace characters unchanged (wsclean.py)"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.19498&MevzuatIliski=0&sourceXmlSearch=likidite",
+ "section_changes": {
+  "lost": [],
+  "gained": [
+   "ek 1",
+   "ek 2",
+   "ek 3"
+  ],
+  "note": "gained EK-1 and EK-2 (added from the official .xlsx annexes) and an EK-3 section (the annex text used to sit after MADDE 34 without one)"
+ },
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

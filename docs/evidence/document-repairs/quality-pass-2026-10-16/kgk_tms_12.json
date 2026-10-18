@@ -1,0 +1,16 @@
+{
+ "document_id": "kgk_tms_12",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "local_edit",
+ "input_markdown_sha256": "5f09c7a456604149dd56504511b7a361bdba70d137377938b66e9a673e0dceff",
+ "output_markdown_sha256": "723a6b4bf73f227a001ab7d61b36ca26c3f9bf9e5ce1ddcce5500d38f73dbcc4",
+ "extraction_method_before": "pdftotext_layout",
+ "extraction_method_after": "pdftotext_layout",
+ "change_classes": [
+  "paragraphs broken mid-sentence (page break, hanging indent or justified-line split) rejoined; each break was checked against the page image or the relay layout before joining",
+  "all 6 joins are page-break splits: the first part ends a page (followed by the page number) and the sentence continues on the next page; positions were located in a later KGK download whose SHA-256 differs from the file pinned in scripts/add_kgk_tms_12.py, so the pinned source PDF itself was not re-read"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "https://www.kgk.gov.tr/Portalv2Uploads/files/Duyurular/v2/TMS_TFRS_Setleri/2026/Mavi_Kitap/TMS/TMS_12.pdf"
+}

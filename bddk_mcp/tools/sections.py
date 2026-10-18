@@ -567,8 +567,8 @@ def register(mcp, deps: Dependencies) -> None:
 
         Args:
             document_id: Stored document ID, e.g. `943` or `mevzuat_22599`
-            section_type: Optional exact section type, e.g. madde, ilke, paragraf, ek
-            section_ref: Optional exact section reference, e.g. 9 or 5
+            section_type: Optional exact section type, e.g. madde, gecici_madde, ek_madde, ilke, paragraf, ek, bent
+            section_ref: Optional exact section reference, e.g. 9, 66/A (inserted article) or a (bent)
             heading: Optional heading substring filter
             as_of: Optional ISO date; resolve the cited version's status for this date.
             quotation: Optional proposed quotation; verify it in the exact provision,

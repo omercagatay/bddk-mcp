@@ -1,0 +1,20 @@
+{
+ "document_id": "mevzuat_18990",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "local_edit",
+ "input_markdown_sha256": "f96f02c0a29121c7ddb1dd88a312760266a0cca39d59cf0a5aa9da2b2e797547",
+ "output_markdown_sha256": "be2e2c0b7fb2b7be995526b2a724c5ac40b5bb73b9d19d2e74f26ecaaff4d9cb",
+ "extraction_method_before": "html_parser",
+ "extraction_method_after": "html_parser",
+ "change_classes": [
+  "U+0092 (cp1254 right quote) -> ’ ×9",
+  "U+0096 (cp1254 en dash) -> – ×10",
+  "flattened closing Resmî Gazete list written as the reviewed table layout",
+  "flattened tables (one cell per paragraph) written as Markdown tables, reviewed against the page image"
+ ],
+ "pages_visually_reviewed": [
+  2
+ ],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.18990&MevzuatIliski=0&sourceXmlSearch=kaldıraç"
+}

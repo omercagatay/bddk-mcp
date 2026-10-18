@@ -1,0 +1,45 @@
+{
+ "document_id": "mevzuat_10739",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "1b0197d3b966ecf9430e9d0ef0e370c7b14885eb4bbf6fa7c37d81ad70b7a575",
+ "output_markdown_sha256": "8b3ad3592a1323fa2c031303e9c3f4693d17e7bc08b9ca7c44f20ed255ed1b96",
+ "extraction_method_before": "markitdown_degraded",
+ "extraction_method_after": "pdftotext_layout",
+ "change_classes": [
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "stored word order differed from the PDF; rebuilt order matches the PDF content stream (pdftotext -raw)",
+  "1 table block(s) written as Markdown tables, reviewed against the page image",
+  "1 manual correction step(s) after the rebuild, reviewed against the page image"
+ ],
+ "pages_visually_reviewed": [
+  2
+ ],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.10739&MevzuatIliski=0&sourceXmlSearch=konsolide",
+ "source_pdf_sha256": "50f6996db20cf9d822278a544f7f489ac07e3d3ff7e6e162f62e2d7ccd16c353",
+ "source_pdf_bytes": 579571,
+ "source_pdf_matches_stored_file_size": true,
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "fail",
+  "reasons": [
+   "rebuilt-only tokens ['_______', 'değişiklik', 'gazete', 'gazetelerin', 'nin', 'resmî', 'resmî', 'yapan', 'yayımlandığı', 'yayımlandığı', 'yönetmeliklerin', 'yönetmelikte', 'yönetmeliğin']",
+   "section list differs",
+   "ruled tables on pages [2]"
+  ],
+  "paragraph_break_spots": 0
+ },
+ "gate_resolution": [
+  "the draft's section list difference is gone in the final text (same sections as stored)",
+  "token, table and formula differences resolved by the reviewed specs/ and manual steps above, checked against the viewed page images"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

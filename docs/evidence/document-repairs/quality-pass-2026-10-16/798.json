@@ -1,0 +1,41 @@
+{
+ "document_id": "798",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "3d92755819c961a6fddd7717a0d50d871d62e155f710ab0fad969eae7a247efb",
+ "output_markdown_sha256": "2994bf4c971a09834fa75215ac14b84aeabcb0f5b1dc64bf3a60704215e76339",
+ "extraction_method_before": "markitdown",
+ "extraction_method_after": "pdftotext_layout+manual_latex",
+ "change_classes": [
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "1 display formula(s) as LaTeX, reviewed against the page image",
+  "2 reviewed spot replacement(s) in the rebuilt text: '* Her ay sonu' -> '$^{*}$ Her ay sonu'; '** YP Mevduat' -> '$^{**}$ YP Mevduat'"
+ ],
+ "pages_visually_reviewed": "formula crop",
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/798",
+ "source_pdf_sha256": "1cd7335e85fa991eb0a8072bc85db101b969626ba96cd72794579dc635b4cc66",
+ "source_pdf_bytes": 292938,
+ "source_pdf_matches_stored_file_size": true,
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "fail",
+  "reasons": [
+   "stored has LaTeX/table markup",
+   "rebuilt-only tokens ['x', 'x', 'x']",
+   "rebuild order disagrees with content-stream order (3 moved tokens)"
+  ],
+  "paragraph_break_spots": 0
+ },
+ "gate_resolution": [
+  "token, table and formula differences resolved by the reviewed specs/ and manual steps above, checked against the viewed page images"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

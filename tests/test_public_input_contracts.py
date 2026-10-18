@@ -102,6 +102,7 @@ async def test_tools_list_describes_every_public_parameter_and_important_bounds(
     section = schemas["get_document_section"]["properties"]
     assert section["document_id"]["pattern"] == r"^[A-Za-z0-9_-]+$"
     assert "gecici_madde" in _nonnull(section["section_type"])["enum"]
+    assert "ek_madde" in _nonnull(section["section_type"])["enum"]
     assert "govde" in _nonnull(section["section_type"])["enum"]
     assert any(item.get("pattern") for item in section["section_ref"]["anyOf"])
     assert _nonnull(section["as_of"])["format"] == "date"
@@ -160,6 +161,7 @@ async def test_tools_list_describes_every_public_parameter_and_important_bounds(
         ("search_bddk_institutions", {"institution_type": "PRIVATE_TYPE"}, "PRIVATE_TYPE"),
         ("get_document_section", {"document_id": "../PRIVATE_PATH"}, "PRIVATE_PATH"),
         ("search_document_sections", {"query": "kredi", "section_type": "PRIVATE_SECTION"}, "PRIVATE_SECTION"),
+        ("get_document_section", {"document_id": "6362", "section_ref": "31//PRIVATE"}, "PRIVATE"),
         ("get_bddk_bulletin", {"days": 0}, None),
         ("get_bddk_monthly", {"party_code": "PRIVATE_PARTY"}, "PRIVATE_PARTY"),
         ("get_regulatory_digest", {"period": "PRIVATE_PERIOD"}, "PRIVATE_PERIOD"),

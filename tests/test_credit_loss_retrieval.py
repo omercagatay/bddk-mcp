@@ -37,7 +37,8 @@ def test_guideline_paragraphs_and_principle_boundaries_on_real_seed():
         s for s in extract_document_sections("943", guide) if s.section_type == "ilke" and s.section_ref == "6"
     )
     assert "Bankacılık Düzenleme ve Denetleme Kurulu" not in ilke6.content
-    assert "Uzman görüşü kullanımı" in ilke6.content
+    # the closing sentence of İlke 6 (its PDF line break falls inside "Uzman görüşü / kullanımı")
+    assert "Uzman görüşü\nkullanımı bankaların kredi riski belgelerinde yer almalı" in ilke6.content
 
 
 def test_karsilik_regulation_rebuild_on_real_seed():

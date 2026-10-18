@@ -1,0 +1,19 @@
+{
+ "tables": [
+  {
+   "start": "BBB+/BB BB-’den",
+   "end": "- 23.10.2015 tarih",
+   "md": "| Not Aralıkları | AAA/AA- | A+/A- | BBB+/BBB- | BB+/BB- | BB-’den aşağısı |\n|---|---|---|---|---|---|\n| Kredi Kalitesi Kademesi | 1 | 2 | 3 | 4 | 5 ve aşağısı |\n| Menkul kıymetleştirme pozisyonu risk ağırlığı (%) | 20 | 50 | 100 | 350 | 1250 |\n| Yeniden menkul kıymetleştirme pozisyonu risk ağırlığı (%) | 40 | 100 | 225 | 650 | 1250 |"
+  },
+  {
+   "start": "AAA/AA- A+/A- BBB+/BBB- BB+/B- B-‘den aşağısı",
+   "end": "Yabancı para cinsinden",
+   "md": "| Not Aralıkları | AAA/AA- (Trk) | A+/A- (Trk) | BBB+/BBB- (Trk) | BB+/B- (Trk) | B-‘den aşağısı (Trk) |\n|---|---|---|---|---|---|\n| Kredi Kalitesi Kademesi | 1 | 2 | 3 | 4-5 | 6 |\n| Risk ağırlığı (%) | 10 | 20 | 20 | 50 | 100 |"
+  },
+  {
+   "start": "Not Aralıkları AAA/AA- A+/A- BBB+/BBB-",
+   "end": "- Bu Kararın Kuruluş",
+   "md": "| Not Aralıkları | AAA/AA- | A+/A- | BBB+/BBB- | BB+/B- | B-‘den aşağısı |\n|---|---|---|---|---|---|\n| Kredi Kalitesi Kademesi | 1 | 2 | 3 | 4-5 | 6 |\n| Risk ağırlığı (%) | 10 | 20 | 20 | 50 | 100 |"
+  }
+ ]
+}

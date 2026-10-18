@@ -14,6 +14,7 @@ from typing import Annotated, Literal, Never
 
 from pydantic import BeforeValidator, Field
 
+from bddk_mcp.store.legal_ref import canonical_section_ref
 from bddk_mcp.tools.errors import INVALID_INPUT, tool_error
 
 MAX_QUERY_LENGTH = 500
@@ -32,10 +33,11 @@ DATE_PATTERN = r"^\d{2}\.\d{2}\.\d{4}$"
 METRIC_ID_PATTERN = r"^\d+\.\d+\.\d+$"
 METRIC_LIST_PATTERN = r"^\d+\.\d+\.\d+(?:\s*,\s*\d+\.\d+\.\d+)*$"
 DOCUMENT_ID_PATTERN = r"^[A-Za-z0-9_-]+$"
-SECTION_REF_PATTERN = r"^\d+(?:\.\d+)*[A-Za-zÇĞİÖŞÜçğıöşü]?$"
+SECTION_REF_PATTERN = r"^(?:\d+(?:\.\d+)*[A-Za-zÇĞİÖŞÜçğıöşü]?|\d+/[A-Za-zÇĞİÖŞÜçğıöşü]|[A-Za-zÇĞİÖŞÜçğıöşü])$"
 # Dotted outline refs ("2.1", "3.15") come from the numbered-paragraph fallback
 # in section_index; the grammar there is \d{1,3}(?:\.\d{1,3})*, so a ref can
-# legitimately reach four components. Any ref a tool prints must be accepted
+# legitimately reach four components. Inserted articles are stored as "66/a"
+# and bent rows as one letter ("a", "ç"). Any ref a tool prints must be accepted
 # back as input to that same tool.
 SECTION_REF_MAX_LENGTH = 16
 INSTRUMENT_ID_PATTERN = r"^inst_sha256_[0-9a-f]{64}$"
@@ -66,7 +68,7 @@ INSTITUTION_TYPES = (
     "Finansman Şirketi",
     "Varlık Yönetim Şirketi",
 )
-SECTION_TYPES = ("madde", "gecici_madde", "ilke", "paragraf", "ek", "fikra", "bent", "govde")
+SECTION_TYPES = ("madde", "gecici_madde", "ek_madde", "ilke", "paragraf", "ek", "fikra", "bent", "govde")
 PARTY_CODES = ("10001", "10002", "10003", "10004", "20001", "20002", "20003")
 
 
@@ -196,6 +198,7 @@ def _section_type(value: object) -> str:
     aliases = {
         "geçici madde": "gecici_madde",
         "geçici_madde": "gecici_madde",
+        "ek madde": "ek_madde",
         "fıkra": "fikra",
         "gövde": "govde",
     }
@@ -215,8 +218,8 @@ def _section_ref(value: object) -> str | int | None:
         return _integer(value, name="section_ref", minimum=1, maximum=99_999)
     normalized = _string(value, name="section_ref", maximum=SECTION_REF_MAX_LENGTH, allow_empty=False)
     if re.fullmatch(SECTION_REF_PATTERN, normalized) is None:
-        _invalid("section_ref must be a positive number or dotted outline, with at most one letter suffix.")
-    return normalized.lower()
+        _invalid("section_ref must be a number, dotted outline, lettered article such as 66/A, or one bent letter.")
+    return canonical_section_ref(normalized)
 
 
 def _optional_heading(value: object) -> str | None:
@@ -499,7 +502,7 @@ OptionalQuotation = Annotated[
     BeforeValidator(lambda value: None if value is None else _quotation(value)),
 ]
 SectionType = Annotated[
-    Literal["madde", "gecici_madde", "ilke", "paragraf", "ek", "fikra", "bent", "govde"] | None,
+    Literal["madde", "gecici_madde", "ek_madde", "ilke", "paragraf", "ek", "fikra", "bent", "govde"] | None,
     Field(description="Optional canonical structural type stored by the section index."),
     BeforeValidator(_optional_section_type),
 ]
@@ -512,7 +515,7 @@ SectionRef = Annotated[
     | None,
     Field(
         description=(
-            "Optional positive section number or dotted outline ref (e.g. 9, 2.1), with at most one letter suffix."
+            "Optional section number, dotted outline, lettered article or single bent letter (e.g. 9, 2.1, 66/A, a)."
         )
     ),
     BeforeValidator(_section_ref),

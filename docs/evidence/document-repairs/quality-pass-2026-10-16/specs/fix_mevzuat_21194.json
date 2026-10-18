@@ -1,0 +1,143 @@
+[
+ {
+  "page": 4,
+  "top": 553.4,
+  "md": "|  | Tebliğin Yayımlandığı Resmî Gazete’nin | Tebliğin Yayımlandığı Resmî Gazete’nin |\n|---|---|---|\n|  | Tarihi | Sayısı |\n|  | 23/10/2015 | 29511 |\n|  | Tebliğde Değişiklik Yapan Tebliğlerin Yayımlandığı Resmî Gazetelerin | Tebliğde Değişiklik Yapan Tebliğlerin Yayımlandığı Resmî Gazetelerin |\n|  | Tarihi | Sayısı |\n| 1. | 20/1/2016 | 29599 |\n| 2. | 14/3/2018 | 30360 |\n| 3. | 11/4/2019 | 30742 |"
+ },
+ {
+  "page": 5,
+  "top": 763.1,
+  "tables": [
+   "|  | Kalan Vade (Yıl) | 1.Kategori (Güçlü) | 2.Kategori (İyi) | 3.Kategori (Yeterli) | 4.Kategori (Zayıf) | 5.Kategori (Temerrüt) |\n|---|---|---|---|---|---|---|\n| Volatilitesi Yüksek Ticari Gayrimenkul Finansmanı Kredileri | <2,5 | %70 | %95 | %140 | %250 | %0 |\n| Volatilitesi Yüksek Ticari Gayrimenkul Finansmanı Kredileri | ≥2,5 | %95 | %120 | %140 | %250 | %0 |\n| Diğer İhtisas Kredileri | <2,5 | %50 | %70 | %115 | %250 | %0 |\n| Diğer İhtisas Kredileri | ≥2,5 | %70 | %90 | %115 | %250 | %0 |"
+  ]
+ },
+ {
+  "page": 6,
+  "top": 8.3,
+  "md": ""
+ },
+ {
+  "page": 10,
+  "top": 337.8,
+  "md": ""
+ },
+ {
+  "page": 20,
+  "top": 12.3,
+  "replace": [
+   [
+    "|  |  |  |  |  |\n|---|---|---|---|---|\n| kredinin süresi | vadesinde1n. çKoakt edgaohrai uzundur. | vadesinde2n. uKzautnegdourr.i | vadesinden3 .u Kzuatnedguorr.i | vadesinden4 .u Kzuante oglomraiyabilir. |\n| İtfa planı | İtfa planına g(Görüeç glüe)ri ödenen | İtfa planına gö(İryei g)eri ödenen | Sınırlı sayıda(Y toetpelrul ig)eri ödeme | Toplu geri öd(eZmaey ıvf)eya yüksek |\n|  | borç. | borç. | yapılarak itfa planına göre geri ödenen borç. | sayıda toplu geri ödeme yapılarak itfa planına göre geri ödenen borç. |",
+    "| kredinin süresi | vadesinden çok daha uzundur. | vadesinden uzundur. | vadesinden uzundur. | vadesinden uzun olmayabilir. |\n|---|---|---|---|---|\n| İtfa planı | İtfa planına göre geri ödenen borç. | İtfa planına göre geri ödenen borç. | Sınırlı sayıda toplu geri ödeme yapılarak itfa planına göre geri ödenen borç. | Toplu geri ödeme veya yüksek sayıda toplu geri ödeme yapılarak itfa planına göre geri ödenen borç. |"
+   ]
+  ]
+ },
+ {
+  "page": 20,
+  "top": 12.3,
+  "note": "split20",
+  "replace": [
+   [
+    "| İnşaat Sözleşmesinin Tipi İş bitirme garantileri Müteahhidin benzer projelerdeki deneyimi ve finansal gücü | Sabit fiyatlı ve bitirme tarihi kesin olan anahtar teslimi mühendislik, tedarik ve inşaat sözleşmesi. Finansal gücü çok iyi olan sponsorlardan alınan (i) finansal destek ve/veya (ii) güçlü iş bitirme garantisiyle desteklenen çok yüksek tutarlı zarar tazminat taahhüdü. Güçlü. | Sabit fiyatlı ve bitirme tarihi kesin olan anahtar teslimi mühendislik, tedarik ve inşaat sözleşmesi. Finansal gücü iyi olan sponsorlardan alınan (i) finansal destek ve/veya (ii) iş bitirme garantisiyle desteklenen yüksek tutarlı zarar tazminat taahhüdü. İyi. | Bir veya birden fazla müteahhitle imzalanmış, sabit fiyatlı ve bitirme tarihi kesin olan anahtar teslimi inşaat sözleşmesi. Finansal gücü iyi olan sponsorlardan alınan (i) finansal destek ve/veya (ii) iş bitirme garantisiyle desteklenen yeterli düzeyde bir zarar tazminat taahhüdü. Yeterli. | Sabit fiyatlı anahtar teslimi sözleşmede yok veya kısmi olarak var ve/veya birden fazla müteahhitle sorunlar var. Yetersiz düzeyde zarar tazminat taahhüdü olması ya da finansal destek olmaması veya iş bitirme garantileri zayıf olması. Zayıf. |",
+    "| İnşaat Sözleşmesinin Tipi | Sabit fiyatlı ve bitirme tarihi kesin olan anahtar teslimi mühendislik, tedarik ve inşaat sözleşmesi. | Sabit fiyatlı ve bitirme tarihi kesin olan anahtar teslimi mühendislik, tedarik ve inşaat sözleşmesi. | Bir veya birden fazla müteahhitle imzalanmış, sabit fiyatlı ve bitirme tarihi kesin olan anahtar teslimi inşaat sözleşmesi. | Sabit fiyatlı anahtar teslimi sözleşmede yok veya kısmi olarak var ve/veya birden fazla müteahhitle sorunlar var. |\n| İş bitirme garantileri | Finansal gücü çok iyi olan sponsorlardan alınan (i) finansal destek ve/veya (ii) güçlü iş bitirme garantisiyle desteklenen çok yüksek tutarlı zarar tazminat taahhüdü. | Finansal gücü iyi olan sponsorlardan alınan (i) finansal destek ve/veya (ii) iş bitirme garantisiyle desteklenen yüksek tutarlı zarar tazminat taahhüdü. | Finansal gücü iyi olan sponsorlardan alınan (i) finansal destek ve/veya (ii) iş bitirme garantisiyle desteklenen yeterli düzeyde bir zarar tazminat taahhüdü. | Yetersiz düzeyde zarar tazminat taahhüdü olması ya da finansal destek olmaması veya iş bitirme garantileri zayıf olması. |\n| Müteahhidin benzer projelerdeki deneyimi ve finansal gücü | Güçlü. | İyi. | Yeterli. | Zayıf. |"
+   ],
+   [
+    "| Faaliyet Riski İşletme ve bakım sözleşmelerinin kapsamı ve niteliği İşletmecinin uzmanlığı, deneyimi ve finansal gücü | Tercihen sözleşme yükümlülüklerinin yerine getirilmesini teşvik eden güçlü ve uzun süreli bir sözleşme ve/veya işletme ve bakım için ayrılan karşılık hesapları. Çok güçlü veya sponsorlardan teknik yardım taahhüdü alınması. | Uzun süreli bir sözleşme ve/veya bakım için ayrılan karşılık hesapları. Güçlü. | Sınırlı bir sözleşme veya bakım için ayrılan karşılık hesapları. Kabul edilebilir. | Sözleşme bulunmaması sebebiyle r is k azaltıcı enstrümanların etkisini aşan yüksek işletme maliyeti riski. Sınırlı/zayıf ya da yerel otoritelere bağımlı yerel işletmeci. |",
+    "| Faaliyet Riski İşletme ve bakım sözleşmelerinin kapsamı ve niteliği | Tercihen sözleşme yükümlülüklerinin yerine getirilmesini teşvik eden güçlü ve uzun süreli bir sözleşme ve/veya işletme ve bakım için ayrılan karşılık hesapları. | Uzun süreli bir sözleşme ve/veya bakım için ayrılan karşılık hesapları. | Sınırlı bir sözleşme veya bakım için ayrılan karşılık hesapları. | Sözleşme bulunmaması sebebiyle r is k azaltıcı enstrümanların etkisini aşan yüksek işletme maliyeti riski. |\n| İşletmecinin uzmanlığı, deneyimi ve finansal gücü | Çok güçlü veya sponsorlardan teknik yardım taahhüdü alınması. | Güçlü. | Kabul edilebilir. | Sınırlı/zayıf ya da yerel otoritelere bağımlı yerel işletmeci. |"
+   ]
+  ]
+ },
+ {
+  "page": 21,
+  "top": 0,
+  "replace": [
+   [
+    "|  |  |  |  |  |\n|---|---|---|---|---|\n|  | fiyatlardan1 k. oKlaaytelıgkolar isatılabilir. (Güçlü) | satılabilir.2. Kategori (İyi) | 3. Kategori (Yeterli) | 4. Kategori (Zayıf) |\n|  |  |  |  |  |",
+    "|  | fiyatlardan kolaylıkla satılabilir. | satılabilir. |  |  |\n|---|---|---|---|---|"
+   ]
+  ]
+ },
+ {
+  "merge_from": [
+   20,
+   12.3
+  ],
+  "into": [
+   19,
+   592.6
+  ],
+  "continues": true
+ },
+ {
+  "merge_from": [
+   21,
+   0
+  ],
+  "into": [
+   19,
+   592.6
+  ],
+  "continues": true
+ },
+ {
+  "page": 22,
+  "top": 7.1,
+  "replace": [
+   [
+    "|  |  |  |  |  |\n|---|---|---|---|---|\n|  | yükümlülü1k .y Kaaptıesgı, oçroik stresli ekonomik st(rGesü çdlöün)eminde | (örneğin fa2iz. Koraatnelgaorır, iekonomik büyüme) finan(sİyail) | gelirinde b3ir. aKzaaltmegao orliabilir, bu sebeple gay(rYimeetenrklui)le ilişkin | koşullarda 4iy. iKleaştmege oorlimadığı takdirde, kred(iZnainy ıtfe)merrüde |\n|  | (örneğin, faiz oranları, ekonomik büyüme) dahi finansal yükümlülüklerini karşılamasına imkan verecek niteliktedir. | yükümlülüklerini yerine getirebilir. Gayrimenkule ilişkin kredi sadece çok stresli ekonomik koşullar altında temerrüde düşebilir. | sermaye harcamaları fonlama kabiliyeti sınırlanabilir ve kredinin temerrüt riski önemli oranda artabilir. | düşme ihtimali vardır. |",
+    "|  | yükümlülük yapısı, çok stresli ekonomik stres döneminde (örneğin, faiz oranları, ekonomik büyüme) dahi finansal yükümlülüklerini karşılamasına imkan verecek niteliktedir. | (örneğin faiz oranları, ekonomik büyüme) finansal yükümlülüklerini yerine getirebilir. Gayrimenkule ilişkin kredi sadece çok stresli ekonomik koşullar altında temerrüde düşebilir. | gelirinde bir azalma olabilir, bu sebeple gayrimenkule ilişkin sermaye harcamaları fonlama kabiliyeti sınırlanabilir ve kredinin temerrüt riski önemli oranda artabilir. | koşullarda iyileşme olmadığı takdirde, kredinin temerrüde düşme ihtimali vardır. |\n|---|---|---|---|---|"
+   ]
+  ]
+ },
+ {
+  "page": 23,
+  "top": 11.1,
+  "replace": [
+   [
+    "|  |  |  |  |  |\n|---|---|---|---|---|\n| K iraların temliki (Uzun süreli kiraya verilen projeler) | dBearnekcae dbeirn t 1eip.m oKltiaket kee.lgdoer eitmiştir. Kiraların doğ(rGuüdçalnü )bankaya | dBearnekcae dbeirn t 2eip.m oKltiaket kee.lgdoer eitmiştir. Kiraların doğru(İdyai)n bankaya | dBearnekcae dbeirn t 3e i.mp Koliatket eeklg.doer eitmiştir. Kiraların doğ(Yruedtearnl ib)ankaya | çBeavnikrma e t ekmab4lii.kl iK yeaeldtteie gs eıontrmıirelımdıirş.tir ya da kiracılara t(eZbaliygıaf)t göndermek |\n|  | ödenmesi için kiracılara tebligat gönderilmesini sağlayacak kiracılara ait güncel bilgi ve belgeler bankada bulunmaktadır. | ödenmesi için kiracılara tebligat gönderilmesini sağlayacak kiracılara ait güncel bilgi ve belgeler bankada bulunmaktadır. | ödenmesi için kiracılara tebligat gönderilmesini sağlayacak kiracılara ait güncel bilgi ve belgeler bankada bulunmaktadır. | için gereken bilgi ve belgeler bankada bulunmamaktadır. |",
+    "|  | dereceden ipotek. | dereceden ipotek. | dereceden ipotek. | çevirme kabiliyeti sınırlıdır. |\n|---|---|---|---|---|\n| Kiraların temliki (Uzun süreli kiraya verilen projeler) | Banka bir temlik elde etmiştir. Kiraların doğrudan bankaya ödenmesi için kiracılara tebligat gönderilmesini sağlayacak kiracılara ait güncel bilgi ve belgeler bankada bulunmaktadır. | Banka bir temlik elde etmiştir. Kiraların doğrudan bankaya ödenmesi için kiracılara tebligat gönderilmesini sağlayacak kiracılara ait güncel bilgi ve belgeler bankada bulunmaktadır. | Banka bir temlik elde etmiştir. Kiraların doğrudan bankaya ödenmesi için kiracılara tebligat gönderilmesini sağlayacak kiracılara ait güncel bilgi ve belgeler bankada bulunmaktadır. | Banka temlik elde etmemiştir ya da kiracılara tebligat göndermek için gereken bilgi ve belgeler bankada bulunmamaktadır. |"
+   ]
+  ]
+ },
+ {
+  "merge_from": [
+   22,
+   7.1
+  ],
+  "into": [
+   21,
+   589.2
+  ],
+  "continues": true
+ },
+ {
+  "merge_from": [
+   23,
+   11.1
+  ],
+  "into": [
+   21,
+   589.2
+  ],
+  "continues": true
+ },
+ {
+  "page": 24,
+  "top": 27.4,
+  "replace": [
+   [
+    "| S ponsorun gücü | 1. Kategori | 2. Kategori | 3. Kategori | 4. Kategori |\n|---|---|---|---|---|\n| Sponsorların deneyimleri ve | Geçmiş dene(Gyiümçil mü)ükemmel ve | Geçmiş deneyim(İyi iv)e finansal | Geçmiş dene(yYiemtei ryleit)erli ve iyi | Deneyimsiz y(Za adyaı fg)eçmiş |\n| finansal gücü | yüksek finansal güce sahip sponsorlar. | gücü iyi olan sponsorlar. | finansal güce sahip sponsorlar. | deneyimi şüpheli olan ve/veya finansal zayıflıklara sahip sponsorlar. |",
+    "| Sponsorun gücü |  |  |  |  |\n|---|---|---|---|---|\n| Sponsorların deneyimleri ve finansal gücü | Geçmiş deneyimi mükemmel ve yüksek finansal güce sahip sponsorlar. | Geçmiş deneyimi ve finansal gücü iyi olan sponsorlar. | Geçmiş deneyimi yeterli ve iyi finansal güce sahip sponsorlar. | Deneyimsiz ya da geçmiş deneyimi şüpheli olan ve/veya finansal zayıflıklara sahip sponsorlar. |"
+   ]
+  ]
+ },
+ {
+  "merge_from": [
+   24,
+   27.4
+  ],
+  "into": [
+   23,
+   143.2
+  ]
+ }
+]

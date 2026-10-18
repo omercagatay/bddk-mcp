@@ -1,0 +1,43 @@
+{
+ "document_id": "mevzuat_10770",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "c4f061ea2bf00e8d2d960ba2e33f64e7ccb843b84c7c3482ed83d6bf305a7d1b",
+ "output_markdown_sha256": "a3c4c3561ca8300b909132c96506a2a8d3ce6cb6820208d72f461846c65add34",
+ "extraction_method_before": "markitdown_degraded",
+ "extraction_method_after": "pdftotext_layout",
+ "change_classes": [
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "stored word order differed from the PDF; rebuilt order matches the PDF content stream (pdftotext -raw)",
+  "1 table block(s) written as Markdown tables, reviewed against the page image"
+ ],
+ "pages_visually_reviewed": [
+  2
+ ],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=9.5.10770&MevzuatIliski=0&sourceXmlSearch=konsolide finansal",
+ "source_pdf_sha256": "f8abc5a56c09b9d606277b6da5f82d87f0ff67ec9937f8c1acb2fd2e061070ad",
+ "source_pdf_bytes": 51006,
+ "source_pdf_matches_stored_file_size": false,
+ "source_pdf_note": "mevzuat.gov.tr File/GeneratePdf output is regenerated per request (not byte-reproducible)",
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "fail",
+  "reasons": [
+   "rebuilt-only tokens ['_______', 'değişiklik', 'gazete', 'gazetelerin', 'nin', 'resmî', 'resmî', 'tebliğde', 'tebliğin', 'tebliğlerin', 'yapan', 'yayımlandığı', 'yayımlandığı']",
+   "ruled tables on pages [2]"
+  ],
+  "paragraph_break_spots": 0
+ },
+ "gate_resolution": [
+  "token, table and formula differences resolved by the reviewed specs/ and manual steps above, checked against the viewed page images"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

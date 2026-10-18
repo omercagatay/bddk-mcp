@@ -1,0 +1,17 @@
+{
+ "document_id": "mevzuat_24788",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "local_edit",
+ "input_markdown_sha256": "8e57b5f2e6f42693b9805cf92dbae8aec8f77e7cea5668aaaff00f9f04419bb4",
+ "output_markdown_sha256": "3c50f9cb9ee6d85d5fee7a8e05cc3b8af3ea423b366cbe82e28b96e4c4f9c2b5",
+ "extraction_method_before": "html_parser",
+ "extraction_method_after": "html_parser",
+ "change_classes": [
+  "U+0092 (cp1254 right quote) -> ’ ×4",
+  "U+0096 (cp1254 en dash) -> – ×11",
+  "flattened closing Resmî Gazete list written as the reviewed table layout"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.24788&MevzuatIliski=0&sourceXmlSearch=finansal%20sekt%C3%B6re"
+}

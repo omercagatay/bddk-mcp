@@ -2,9 +2,12 @@
 Document quality scan engine.
 
 Runs SQL-side regex checks against the `documents` table to flag common
-extraction anomalies: missing whitespace (camelCase concatenation),
-replacement characters, leaked HTML, truncation, formula references
-without formulas, and diacritic-stripping outliers.
+extraction anomalies: replacement characters, C1 control characters (cp1254
+punctuation decoded as Latin-1), leaked HTML, truncation, and
+diacritic-stripping outliers. Missing whitespace (camelCase concatenation)
+and formula references without formulas come from the per-document quality
+assessment, which knows the reviewed literal identifiers and inline formulas
+that a bare regex flags.
 
 The scan is read-only. Counts are cheap (single-pass regex over the
 markdown_content column via PostgreSQL).
@@ -82,6 +85,11 @@ async def scan_quality(pool: asyncpg.Pool) -> QualityReport:
             "markdown_content ~ E'\\uFFFD'",
         ),
         (
+            "c1_control_char",
+            "Contains C1 control characters U+0080-U+009F (cp1254 punctuation decoded as Latin-1)",
+            "markdown_content ~ E'[\\u0080-\\u009F]'",
+        ),
+        (
             "leaked_img_tag",
             "Raw <img> tag leaked into markdown",
             "markdown_content ~* '<img[[:space:]>]'",
@@ -115,18 +123,6 @@ async def scan_quality(pool: asyncpg.Pool) -> QualityReport:
             "long_dot_run",
             "Contains dot-leader runs (>=10 dots) — likely TOC artifact",
             r"markdown_content ~ '\.{10,}'",
-        ),
-        (
-            "camelcase_concat",
-            "Adjacent lowercase+uppercase with no separator (html whitespace loss)",
-            # Turkish-aware: a lowercase/turkish letter directly followed by
-            # an uppercase letter indicates two words mashed together.
-            r"markdown_content ~ '[a-zçğıöşü][A-ZÇĞİÖŞÜ]'",
-        ),
-        (
-            "formula_ref_without_formula",
-            "References a formula (`formül`) but emits no LaTeX `$$...$$` block",
-            "markdown_content ~* 'formül' AND markdown_content !~ E'\\\\$\\\\$'",
         ),
         (
             "zero_sections_despite_content",
@@ -202,10 +198,16 @@ async def scan_quality(pool: asyncpg.Pool) -> QualityReport:
         """
     )
     document_findings: list[DocumentFinding] = []
+    camelcase_ids: list[str] = []
+    formula_ids: list[str] = []
     for row in finding_rows:
         document_id = row["document_id"]
         markdown = row["markdown_content"] or ""
         quality = assess_markdown_quality(markdown, document_id=document_id)
+        if quality.counts["camelcase_concat"]:
+            camelcase_ids.append(document_id)
+        if quality.counts["formula_ref_without_latex_or_image"]:
+            formula_ids.append(document_id)
         if quality.label == "clean":
             continue
         document_findings.append(
@@ -217,6 +219,22 @@ async def scan_quality(pool: asyncpg.Pool) -> QualityReport:
                 sample=_sample_text(markdown),
             )
         )
+
+    anomalies.extend(
+        AnomalyCount(name=name, docs_flagged=len(ids), description=description, sample_doc_ids=ids[:_SAMPLE_LIMIT])
+        for name, description, ids in (
+            (
+                "camelcase_concat",
+                "Adjacent lowercase+uppercase with no separator (html whitespace loss), excluding reviewed identifiers",
+                camelcase_ids,
+            ),
+            (
+                "formula_ref_without_formula",
+                "References a formula (`formül`) but no LaTeX, image or inline formula is extracted near it",
+                formula_ids,
+            ),
+        )
+    )
 
     return QualityReport(
         total_documents=total,

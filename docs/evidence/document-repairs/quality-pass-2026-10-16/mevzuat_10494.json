@@ -1,0 +1,16 @@
+{
+ "document_id": "mevzuat_10494",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "glyph_repair",
+ "input_markdown_sha256": "23b818d76c46d174dc504797070b0e83afcbbfbdae92424b7ba3d93f0ef9a7ed",
+ "output_markdown_sha256": "7a8f449200e45a93c00089500da09839a92dc4e118ae470bb5e8b42728cd585a",
+ "extraction_method_before": "html_parser",
+ "extraction_method_after": "html_parser",
+ "change_classes": [
+  "U+0092 (cp1254 right quote) -> ’ ×2",
+  "U+0096 (cp1254 en dash) -> – ×20"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.10494&MevzuatIliski=0&sourceXmlSearch=denetleme kurulunun çalışma"
+}

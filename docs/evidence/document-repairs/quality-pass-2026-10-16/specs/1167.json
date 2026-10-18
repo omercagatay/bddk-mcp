@@ -1,0 +1,9 @@
+{
+ "tables": [
+  {
+   "start": "Normal Stres Normal Stresten Fazlası Aşırı Stres",
+   "end": "17- Önlem planının uygulanmasına",
+   "md": "|  | Normal Stres → Normal Stresten Fazlası → Aşırı Stres | Çözümleme Safhası |\n|---|---|---|\n| Risk İştahı Çerçevesi | Risk İştahı<br/>Risk Toleransı<br/>Risk Kapasitesi | Çözümleme Safhası |\n| Faaliyet Safhaları | Normal Faaliyet Safhası<br/>Erken Uyarı Safhası<br/>Önlem Planı Safhası | Çözümleme Safhası |\n| Risk Limitleri ve Önlem Planı Göstergeleri | Risk İştahı Limitleri<br/>Risk Toleransı Limitleri<br/>Erken Uyarı Eşikleri<br/>Önlem Planı Eşikleri | Çözümleme Safhası |\n| Risk Yönetimi ve Yönetim Süreçleri | Normal Faaliyet Safhası İzleme<br/>Yoğunlaştırılmış İzleme<br/>Önlem planlarının hazırlanması, onaylanması ve güncellenmesi<br/>Erken uyarı ya da önlem planı safhasına ilişkin karar alınması ve uygulanması | Çözümleme Safhası |\n| Yönetim Araçları ve Önlem Planı Tedbirleri | İstenilen risk seviyelerine dönülmesi için yönetim araçlarının veya önlem planı tedbirlerinin uygulanması<br/>İSEDES, Acil ve Beklenmedik Durum Planı, İş Sürekliliği Planı<br/>Önlem Planı Tedbirleri | Çözümleme Safhası |"
+  }
+ ]
+}

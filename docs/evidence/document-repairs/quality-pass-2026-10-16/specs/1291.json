@@ -1,0 +1,9 @@
+{
+ "tables": [
+  {
+   "start": "Ürün Davranışsal opsiyonalite",
+   "end": "42. Bankanın maruz",
+   "md": "| Ürün | Davranışsal opsiyonalite haklarının kullanılmasını etkileyen sebepler |\n|---|---|\n| Erken ödenme riskine sahip sabit faizli krediler | Kredinin tutarı, kredi teminat oranı, borçlunun nitelikleri, sözleşmedeki faiz oranı, kredinin kullandırıldığı tarihten itibaren geçen süre, coğrafi bölge, orijinal vade, kalan vade ve diğer etkenler dikkate alınmalıdır.<br/><br/>Hisse senedi endeksleri, işsizlik oranı, GSYİH, enflasyon ve konut fiyat endeksleri gibi makroekonomik göstergeler erken ödenme davranışının modellenmesinde dikkate alınmalıdır. |\n| Sabit faizli kredi taahhütleri | Alacaklının nitelikleri, coğrafi bölge, diğer ürünler çerçevesinde bankanın müşteri ile ilişkisi, taahhüdün kalan vadesi, taahhüdün verildiği tarihten itibaren geçen süre ve konut kredisinin diğer hükümleri dikkate alınmalıdır. |\n| Erken kapanma riskine sahip vadeli mevduat | Mevduatın tutarı, mudinin nitelikleri, fonlama kanalı (mevduatın doğrudan veya üçüncü bir taraf aracılığıyla yatırılmış olması), sözleşmedeki faiz oranı, mevduatın açıldığı tarihten itibaren geçen süre, coğrafi bölge, rekabet ortamı, kalan vade ve diğer etkenler dikkate alınmalıdır.<br/><br/>Hisse senedi endeksleri, işsizlik oranı, GSYİH, enflasyon ve konut fiyat endeksleri gibi makroekonomik göstergeler mevduatın erken kapanma davranışının modellenmesinde dikkate alınmalıdır. |\n| Vadesiz mevduat | Piyasa faiz oranları ile mevduat faiz oranı arasındaki ilişki, cari faiz oranları, bankanın faiz oranı ile piyasa faiz oranı arasındaki fark, rekabet ortamı, bankanın coğrafi bölgesi, mudi davranışlarına ilişkin demografik ve ilgili olabilecek diğer etkenler dikkate alınmalıdır. |"
+  }
+ ]
+}

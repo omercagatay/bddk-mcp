@@ -1,0 +1,36 @@
+{
+ "document_id": "mevzuat_16291",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "bbeee332255b8120f59f2688b3f5a89aab5a8364c064935222a226208c78432d",
+ "output_markdown_sha256": "dd97c14902e2462c4a9a3994d8de1506607a76203027f089acfbd49b70e1bc58",
+ "extraction_method_before": "manual_pdf+markitdown",
+ "extraction_method_after": "pdftotext_layout",
+ "change_classes": [
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=9.5.16291&MevzuatIliski=0&sourceXmlSearch=yapısal pozisyon",
+ "source_pdf_sha256": "cdd43704ae3896ecf8dad4cea638d4385dcdea326704eff2746ca7692c3c1459",
+ "source_pdf_bytes": 38447,
+ "source_pdf_matches_stored_file_size": false,
+ "source_pdf_note": "mevzuat.gov.tr File/GeneratePdf output is regenerated per request (not byte-reproducible)",
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "review",
+  "reasons": [],
+  "paragraph_break_spots": 34
+ },
+ "gate_resolution": [
+  "34 paragraph-break difference(s) from the stored text; rebuilt breaks follow the PDF layout (indentation and vertical spacing)"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

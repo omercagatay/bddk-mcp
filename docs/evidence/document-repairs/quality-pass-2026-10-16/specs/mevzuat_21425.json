@@ -1,0 +1,17 @@
+{
+ "tables": [
+  {
+   "start": "4. Grup (Boş) %3",
+   "end": "(4) 5 inci madde",
+   "md": "| 4. Grup (Boş) | %3 |\n|---|---|\n| 3. Grup | %2 |\n| 2. Grup | %1,5 |\n| 1. Grup | %1 |"
+  },
+  {
+   "start": "Gruplar Sistemik Önemli",
+   "end": "Yürürlük",
+   "md": "| Gruplar | Sistemik Önemli Banka Tamponu Oranları (%) | Sistemik Önemli Banka Tamponu Oranları (%) | Sistemik Önemli Banka Tamponu Oranları (%) |\n|---|---|---|---|\n| Gruplar | 2016 | 2017 | 2018 |\n| 4. Grup (Boş) | 0,75 | 1,5 | 2,25 |\n| 3. Grup | 0,5 | 1 | 1,5 |\n| 2. Grup | 0,375 | 0,75 | 1,125 |\n| 1. Grup | 0,25 | 0,5 | 0,75 |"
+  }
+ ],
+ "conts": [
+  "Başkanı yürütür."
+ ]
+}

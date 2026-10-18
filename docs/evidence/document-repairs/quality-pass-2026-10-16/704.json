@@ -1,0 +1,26 @@
+{
+ "document_id": "704",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "adc56a279bc0ac8dfd95dff8c0ca1142f687373e924fb2032e4890324753add5",
+ "output_markdown_sha256": "4b9258f68988624903a458ab4ac8325a510921140f7e8308f2c09c307bb376bb",
+ "extraction_method_before": "pdftotext_degraded",
+ "extraction_method_after": "manual_pdf",
+ "change_classes": [
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)"
+ ],
+ "pages_visually_reviewed": "1-3 (all)",
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/704",
+ "source_pdf_sha256": "483e740e39cc4498d41f1441a0239f1589a6ea07c67bf2018ded977e0d83dc8a",
+ "source_pdf_bytes": 138754,
+ "source_pdf_matches_stored_file_size": true,
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

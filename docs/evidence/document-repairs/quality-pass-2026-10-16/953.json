@@ -1,0 +1,49 @@
+{
+ "document_id": "953",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "28194bafff8bec7844c7ead37358d1f2ea561f4eeaaeaba1792f920283481510",
+ "output_markdown_sha256": "a0458e01cfc535efd0e424de6a8ba181b6a4320797c58f6c64a477b0eec1bfce",
+ "extraction_method_before": "markitdown",
+ "extraction_method_after": "pdftotext_layout",
+ "change_classes": [
+  "scrambled word order: 9 windows restored from PDF order (pdftotext -layout, confirmed by -raw content-stream order)",
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "superscript footnote markers written as $^{n}$ (with their footnote bodies)",
+  "paragraph split by a page-bottom footnote block rejoined; footnotes follow the paragraph",
+  "1 manual correction step(s) after the rebuild, reviewed against the page image"
+ ],
+ "pages_visually_reviewed": [
+  9,
+  10
+ ],
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/953",
+ "source_pdf_sha256": "9f57b2f337b2148e38313dc6f44b2e698e1adbc9224ecf5bbee9a2ce0d4521b8",
+ "source_pdf_bytes": 279174,
+ "source_pdf_matches_stored_file_size": true,
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "fail",
+  "reasons": [
+   "stored has LaTeX/table markup",
+   "rebuilt-only tokens ['2', 'anlaşması']",
+   "stored-only non-page tokens ['anlaşması2', 'cari', 'cari', 'cari', 'cari', 'cari', 'cari', 'yıl', 'yıl', 'yıl', 'yıl', 'yıl', 'yıl', 'yıl', 'yıl', 'yıl', 'yıl', 'yıl', 'yıl', 'önceki']",
+   "too many stored-only page tokens",
+   "ruled tables on pages [9, 10]",
+   "rebuild order disagrees with content-stream order (45 moved tokens)"
+  ],
+  "paragraph_break_spots": 0
+ },
+ "gate_resolution": [
+  "token, table and formula differences resolved by the reviewed specs/ and manual steps above, checked against the viewed page images"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

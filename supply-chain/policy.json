@@ -10,73 +10,17 @@
     "exceptions": [
       {
         "target": "standard.grype.json",
-        "id": "CVE-2025-69720",
-        "namespace": "debian:distro:debian:13",
-        "package": "libncursesw6",
-        "version": "6.5+20250216-2",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this ncurses CVE wont-fix; terminal library unused by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2025-69720",
-        "namespace": "debian:distro:debian:13",
-        "package": "libtinfo6",
-        "version": "6.5+20250216-2",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this ncurses CVE wont-fix; terminal library unused by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2025-69720",
-        "namespace": "debian:distro:debian:13",
-        "package": "ncurses-base",
-        "version": "6.5+20250216-2",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this ncurses CVE wont-fix; terminal library unused by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2025-69720",
-        "namespace": "debian:distro:debian:13",
-        "package": "ncurses-bin",
-        "version": "6.5+20250216-2",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this ncurses CVE wont-fix; terminal library unused by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
         "id": "CVE-2026-102010",
         "namespace": "debian:distro:debian:13",
         "package": "gcc-14-base",
         "version": "14.2.0-19",
         "type": "deb",
         "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "No Debian fix released yet; libgcc/libstdc++ are required runtime libraries, re-evaluated when Debian publishes a fix.",
+        "material_sha256": "e44811b248609397f279146d8bc0db793a0ad67e991781ef3b9c39337ebf086a",
+        "reason": "Debian trixie marks this gcc runtime CVE wont-fix; libgcc-s1/libstdc++6 are required by Python extensions and torch. Re-evaluated 2026-10-16 (grype 0.115.0, database of 2026-10-16): no fixed package.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "target": "standard.grype.json",
@@ -86,11 +30,11 @@
         "version": "14.2.0-19",
         "type": "deb",
         "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "No Debian fix released yet; libgcc/libstdc++ are required runtime libraries, re-evaluated when Debian publishes a fix.",
+        "material_sha256": "e44811b248609397f279146d8bc0db793a0ad67e991781ef3b9c39337ebf086a",
+        "reason": "Debian trixie marks this gcc runtime CVE wont-fix; libgcc-s1/libstdc++6 are required by Python extensions and torch. Re-evaluated 2026-10-16 (grype 0.115.0, database of 2026-10-16): no fixed package.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "target": "standard.grype.json",
@@ -100,25 +44,11 @@
         "version": "14.2.0-19",
         "type": "deb",
         "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "No Debian fix released yet; libgcc/libstdc++ are required runtime libraries, re-evaluated when Debian publishes a fix.",
+        "material_sha256": "e44811b248609397f279146d8bc0db793a0ad67e991781ef3b9c39337ebf086a",
+        "reason": "Debian trixie marks this gcc runtime CVE wont-fix; libgcc-s1/libstdc++6 are required by Python extensions and torch. Re-evaluated 2026-10-16 (grype 0.115.0, database of 2026-10-16): no fixed package.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-103111",
-        "namespace": "debian:distro:debian:13",
-        "package": "libpcre2-8-0",
-        "version": "10.46-1~deb13u2",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Fixed in Debian 10.46-1~deb13u3, which the pinned python 3.13.16 base image does not yet carry; removed at the next base-image refresh.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "target": "standard.grype.json",
@@ -128,11 +58,11 @@
         "version": "2.41-12+deb13u4",
         "type": "deb",
         "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this glibc CVE wont-fix (no DSA); base C library of the image, re-evaluated with the next Debian point release.",
+        "material_sha256": "e44811b248609397f279146d8bc0db793a0ad67e991781ef3b9c39337ebf086a",
+        "reason": "Debian trixie marks this glibc CVE wont-fix (no DSA); libc is the base C library every process needs. Re-evaluated 2026-10-16 (grype 0.115.0, database of 2026-10-16): no fixed package.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "target": "standard.grype.json",
@@ -142,11 +72,11 @@
         "version": "2.41-12+deb13u4",
         "type": "deb",
         "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this glibc CVE wont-fix (no DSA); base C library of the image, re-evaluated with the next Debian point release.",
+        "material_sha256": "e44811b248609397f279146d8bc0db793a0ad67e991781ef3b9c39337ebf086a",
+        "reason": "Debian trixie marks this glibc CVE wont-fix (no DSA); libc is the base C library every process needs. Re-evaluated 2026-10-16 (grype 0.115.0, database of 2026-10-16): no fixed package.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "target": "standard.grype.json",
@@ -156,11 +86,11 @@
         "version": "2.41-12+deb13u4",
         "type": "deb",
         "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this glibc CVE wont-fix; no patched package exists for the digest-pinned base image.",
+        "material_sha256": "e44811b248609397f279146d8bc0db793a0ad67e991781ef3b9c39337ebf086a",
+        "reason": "Debian trixie marks this glibc CVE wont-fix; libc is the base C library every process needs. Re-evaluated 2026-10-16 (grype 0.115.0, database of 2026-10-16): no fixed package.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "target": "standard.grype.json",
@@ -170,11 +100,11 @@
         "version": "2.41-12+deb13u4",
         "type": "deb",
         "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this glibc CVE wont-fix; no patched package exists for the digest-pinned base image.",
+        "material_sha256": "e44811b248609397f279146d8bc0db793a0ad67e991781ef3b9c39337ebf086a",
+        "reason": "Debian trixie marks this glibc CVE wont-fix; libc is the base C library every process needs. Re-evaluated 2026-10-16 (grype 0.115.0, database of 2026-10-16): no fixed package.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "target": "standard.grype.json",
@@ -184,11 +114,11 @@
         "version": "2.3.2-2+b1",
         "type": "deb",
         "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this acl CVE wont-fix; no patched package exists for the digest-pinned base image.",
+        "material_sha256": "e44811b248609397f279146d8bc0db793a0ad67e991781ef3b9c39337ebf086a",
+        "reason": "Debian trixie marks this acl CVE wont-fix; libacl1 is linked by coreutils, which the image keeps for `sh -c` start commands. Re-evaluated 2026-10-16 (grype 0.115.0): no fixed package.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "target": "standard.grype.json",
@@ -198,529 +128,11 @@
         "version": "2.3.2-2+b1",
         "type": "deb",
         "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this acl CVE wont-fix; no patched package exists for the digest-pinned base image.",
+        "material_sha256": "e44811b248609397f279146d8bc0db793a0ad67e991781ef3b9c39337ebf086a",
+        "reason": "Debian trixie marks this acl CVE wont-fix; libacl1 is linked by coreutils, which the image keeps for `sh -c` start commands. Re-evaluated 2026-10-16 (grype 0.115.0): no fixed package.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-76642",
-        "namespace": "debian:distro:debian:13",
-        "package": "bsdutils",
-        "version": "1:2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-76642",
-        "namespace": "debian:distro:debian:13",
-        "package": "libblkid1",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-76642",
-        "namespace": "debian:distro:debian:13",
-        "package": "liblastlog2-2",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-76642",
-        "namespace": "debian:distro:debian:13",
-        "package": "libmount1",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-76642",
-        "namespace": "debian:distro:debian:13",
-        "package": "libsmartcols1",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-76642",
-        "namespace": "debian:distro:debian:13",
-        "package": "libuuid1",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-76642",
-        "namespace": "debian:distro:debian:13",
-        "package": "login",
-        "version": "1:4.16.0-2+really2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-76642",
-        "namespace": "debian:distro:debian:13",
-        "package": "mount",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-76642",
-        "namespace": "debian:distro:debian:13",
-        "package": "util-linux",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-direct-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78408",
-        "namespace": "debian:distro:debian:13",
-        "package": "bsdutils",
-        "version": "1:2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78408",
-        "namespace": "debian:distro:debian:13",
-        "package": "libblkid1",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78408",
-        "namespace": "debian:distro:debian:13",
-        "package": "liblastlog2-2",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78408",
-        "namespace": "debian:distro:debian:13",
-        "package": "libmount1",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78408",
-        "namespace": "debian:distro:debian:13",
-        "package": "libsmartcols1",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78408",
-        "namespace": "debian:distro:debian:13",
-        "package": "libuuid1",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78408",
-        "namespace": "debian:distro:debian:13",
-        "package": "login",
-        "version": "1:4.16.0-2+really2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78408",
-        "namespace": "debian:distro:debian:13",
-        "package": "mount",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78408",
-        "namespace": "debian:distro:debian:13",
-        "package": "util-linux",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-direct-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78409",
-        "namespace": "debian:distro:debian:13",
-        "package": "bsdutils",
-        "version": "1:2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78409",
-        "namespace": "debian:distro:debian:13",
-        "package": "libblkid1",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78409",
-        "namespace": "debian:distro:debian:13",
-        "package": "liblastlog2-2",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78409",
-        "namespace": "debian:distro:debian:13",
-        "package": "libmount1",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78409",
-        "namespace": "debian:distro:debian:13",
-        "package": "libsmartcols1",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78409",
-        "namespace": "debian:distro:debian:13",
-        "package": "libuuid1",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78409",
-        "namespace": "debian:distro:debian:13",
-        "package": "login",
-        "version": "1:4.16.0-2+really2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78409",
-        "namespace": "debian:distro:debian:13",
-        "package": "mount",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78409",
-        "namespace": "debian:distro:debian:13",
-        "package": "util-linux",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-direct-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78410",
-        "namespace": "debian:distro:debian:13",
-        "package": "bsdutils",
-        "version": "1:2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78410",
-        "namespace": "debian:distro:debian:13",
-        "package": "libblkid1",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78410",
-        "namespace": "debian:distro:debian:13",
-        "package": "liblastlog2-2",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78410",
-        "namespace": "debian:distro:debian:13",
-        "package": "libmount1",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78410",
-        "namespace": "debian:distro:debian:13",
-        "package": "libsmartcols1",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78410",
-        "namespace": "debian:distro:debian:13",
-        "package": "libuuid1",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78410",
-        "namespace": "debian:distro:debian:13",
-        "package": "login",
-        "version": "1:4.16.0-2+really2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78410",
-        "namespace": "debian:distro:debian:13",
-        "package": "mount",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-78410",
-        "namespace": "debian:distro:debian:13",
-        "package": "util-linux",
-        "version": "2.41.5-0+deb13u1",
-        "type": "deb",
-        "match_type": "exact-direct-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this util-linux CVE wont-fix; mount/login/util-linux binaries are not invoked by the headless MCP runtime.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
-      },
-      {
-        "target": "standard.grype.json",
-        "id": "CVE-2026-82560",
-        "namespace": "debian:distro:debian:13",
-        "package": "perl-base",
-        "version": "5.40.1-6+deb13u1",
-        "type": "deb",
-        "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this perl CVE wont-fix; perl-base is an essential package the MCP runtime does not execute.",
-        "owner": "project-owner",
-        "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "target": "standard.grype.json",
@@ -730,25 +142,53 @@
         "version": "1:1.3.dfsg+really1.3.1-1+b1",
         "type": "deb",
         "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "No Debian fix released yet; zlib is linked by Python's compression modules, re-evaluated when Debian publishes a fix.",
+        "material_sha256": "e44811b248609397f279146d8bc0db793a0ad67e991781ef3b9c39337ebf086a",
+        "reason": "No Debian fix released yet (not-fixed); zlib is linked by Python's compression modules. Re-evaluated 2026-10-16 (grype 0.115.0, database of 2026-10-16).",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "target": "standard.grype.json",
-        "id": "CVE-2026-9538",
+        "id": "CVE-2026-95619",
         "namespace": "debian:distro:debian:13",
-        "package": "perl-base",
-        "version": "5.40.1-6+deb13u1",
+        "package": "gcc-14-base",
+        "version": "14.2.0-19",
         "type": "deb",
         "match_type": "exact-indirect-match",
-        "material_sha256": "8cd2e2c2f385adef43f1507b6dff5c56f7cb2b1ef5c95cae9c605375147c9e48",
-        "reason": "Debian trixie marks this perl-base CVE not-fixed or wont-fix; perl-base is a base-image dependency unused by the application runtime.",
+        "material_sha256": "e44811b248609397f279146d8bc0db793a0ad67e991781ef3b9c39337ebf086a",
+        "reason": "Debian trixie marks this gcc runtime CVE wont-fix; libgcc-s1/libstdc++6 are required by Python extensions and torch. First seen 2026-10-12; re-evaluated 2026-10-16 (grype 0.115.0): no fixed package.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
+      },
+      {
+        "target": "standard.grype.json",
+        "id": "CVE-2026-95619",
+        "namespace": "debian:distro:debian:13",
+        "package": "libgcc-s1",
+        "version": "14.2.0-19",
+        "type": "deb",
+        "match_type": "exact-indirect-match",
+        "material_sha256": "e44811b248609397f279146d8bc0db793a0ad67e991781ef3b9c39337ebf086a",
+        "reason": "Debian trixie marks this gcc runtime CVE wont-fix; libgcc-s1/libstdc++6 are required by Python extensions and torch. First seen 2026-10-12; re-evaluated 2026-10-16 (grype 0.115.0): no fixed package.",
+        "owner": "project-owner",
+        "approval_state": "pending_bank_release_review",
+        "expires_on": "2026-11-15"
+      },
+      {
+        "target": "standard.grype.json",
+        "id": "CVE-2026-95619",
+        "namespace": "debian:distro:debian:13",
+        "package": "libstdc++6",
+        "version": "14.2.0-19",
+        "type": "deb",
+        "match_type": "exact-indirect-match",
+        "material_sha256": "e44811b248609397f279146d8bc0db793a0ad67e991781ef3b9c39337ebf086a",
+        "reason": "Debian trixie marks this gcc runtime CVE wont-fix; libgcc-s1/libstdc++6 are required by Python extensions and torch. First seen 2026-10-12; re-evaluated 2026-10-16 (grype 0.115.0): no fixed package.",
+        "owner": "project-owner",
+        "approval_state": "pending_bank_release_review",
+        "expires_on": "2026-11-15"
       }
     ]
   },
@@ -760,707 +200,707 @@
         "reason": "False positive on signer_key_sha256 in the governed activation receipt: exactly SHA-256 of the already-public deploy/trust/corpus-signing-public-key.pem, not a private key, credential, or capability. Its binding is covered by a repository regression test.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "2fef57b33202befbeb301399cf5a7e41b4e8ea64:tests/test_expert_evaluation.py:generic-api-key:552",
         "reason": "False-positive match on an Ed25519 private-key typed parameter; the test generates the key at runtime and contains no credential literal.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "670a5588c519ebf92708792df9da90cbe56fb136:tests/test_expert_evaluation.py:generic-api-key:302",
         "reason": "False-positive match on an optional Ed25519 private-key parameter; the test generates the key at runtime and contains no credential literal.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "af275eb420ee6b36e7b59e46f69fe7a03419e8a5:tests/test_migrations.py:generic-api-key:897",
         "reason": "Ephemeral PostgreSQL test password generated at runtime for a disposable role and database that are removed during test cleanup.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "b5f26bb30adab6b0483f5e5bf5bb819c574389b8:tests/test_benchmark_audit.py:aws-access-token:60",
         "reason": "Synthetic provider-token fixture used only to prove benchmark-output redaction.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "b5f26bb30adab6b0483f5e5bf5bb819c574389b8:tests/test_benchmark_audit.py:aws-access-token:66",
         "reason": "Synthetic provider-token fixture used only to prove benchmark-output redaction.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "f155005c8a2bd272b1b8634d3ff054909dfa4301:tests/test_expert_evaluation.py:generic-api-key:554",
         "reason": "False-positive match on an Ed25519 private-key typed parameter; the test generates the key at runtime and contains no credential literal. Re-attributed to the squash-merge commit of PR #115 (f155005); same finding, new fingerprint.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "f155005c8a2bd272b1b8634d3ff054909dfa4301:tests/test_expert_evaluation.py:generic-api-key:308",
         "reason": "False-positive match on an optional Ed25519 private-key parameter; the test generates the key at runtime and contains no credential literal. Re-attributed to the squash-merge commit of PR #115 (f155005); same finding, new fingerprint.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "f155005c8a2bd272b1b8634d3ff054909dfa4301:tests/test_migrations.py:generic-api-key:1352",
         "reason": "Ephemeral PostgreSQL test password generated at runtime for a disposable role and database that are removed during test cleanup. Re-attributed to the squash-merge commit of PR #115 (f155005); same finding, new fingerprint.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:20",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:21",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:34",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:35",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:48",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:49",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:63",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:64",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:78",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:79",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:92",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:93",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:107",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:108",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:122",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:123",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:136",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:137",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:151",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:152",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:165",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:166",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:179",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:180",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:193",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:194",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:208",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:209",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:222",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:223",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:236",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:237",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:250",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:251",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:264",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:265",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:279",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:280",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:294",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:295",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:309",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:310",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:324",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:325",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:339",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:340",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:354",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:355",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:369",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:370",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:383",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:384",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:398",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:399",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:412",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:413",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:427",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:428",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:442",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:443",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:457",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:458",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:472",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:473",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:487",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:488",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:502",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:503",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:517",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:518",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:532",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:533",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:546",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:547",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:560",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:561",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:574",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:575",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:588",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:589",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:602",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:603",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:616",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/905-textual-coverage.json:generic-api-key:617",
         "reason": "False positive: SHA-256 of public document 905 page text tokens, not an authentication token. Source transcripts and baseline slices reproduce every digest in regression tests.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/local-release-v5.json:generic-api-key:72",
         "reason": "False positive: SHA-256 of the public corpus verification key, not a signing key or credential. Recomputed from the trust-anchor PEM by a regression test.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/local-release-v5.json:generic-api-key:91",
         "reason": "False positive: SHA-256 of the public corpus verification key, not a signing key or credential. Recomputed from the trust-anchor PEM by a regression test.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/local-release-v5.json:generic-api-key:111",
         "reason": "False positive: SHA-256 of the public corpus verification key, not a signing key or credential. Recomputed from the trust-anchor PEM by a regression test.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/local-release-v6.json:generic-api-key:78",
         "reason": "False positive: SHA-256 of the public corpus verification key, not a signing key or credential. Recomputed from the trust-anchor PEM by a regression test.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/local-release-v6.json:generic-api-key:97",
         "reason": "False positive: SHA-256 of the public corpus verification key, not a signing key or credential. Recomputed from the trust-anchor PEM by a regression test.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "fa5f28cfdc3d40a2558b7f8f0d22276c98a2b355:docs/evidence/document-repairs/local-release-v6.json:generic-api-key:117",
         "reason": "False positive: SHA-256 of the public corpus verification key, not a signing key or credential. Recomputed from the trust-anchor PEM by a regression test.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "64044131909d59f73c246b8e5adfc0432228cdd8:docs/evidence/legal-versions/943.json:generic-api-key:704",
         "reason": "False positive: a SHA-256 content digest (legal version_key / legal_text_sha256) of BDDK guide 943 in the repaired legal-version evidence and its regression test, not a credential.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       },
       {
         "fingerprint": "64044131909d59f73c246b8e5adfc0432228cdd8:tests/test_943_citation_bundle.py:generic-api-key:17",
         "reason": "False positive: a SHA-256 content digest (legal version_key / legal_text_sha256) of BDDK guide 943 in the repaired legal-version evidence and its regression test, not a credential.",
         "owner": "project-owner",
         "approval_state": "pending_bank_release_review",
-        "expires_on": "2026-10-15"
+        "expires_on": "2026-11-15"
       }
     ]
   }

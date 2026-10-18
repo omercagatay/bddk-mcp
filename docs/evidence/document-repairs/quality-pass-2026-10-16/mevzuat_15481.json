@@ -1,0 +1,46 @@
+{
+ "document_id": "mevzuat_15481",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "7c45d4221e7c168173cf99119276c469ac5badd1cdcd9d6855a3ff4416b8d580",
+ "output_markdown_sha256": "f4ca03c9cff0525110d2bc6bdbbf4fcdc678b18b4bfe02e03a1a1d21703d36c5",
+ "extraction_method_before": "markitdown",
+ "extraction_method_after": "pdftotext_layout",
+ "change_classes": [
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "1 table block(s) written as Markdown tables, reviewed against the page image",
+  "paragraphs broken mid-sentence (page break, hanging indent or justified-line split) rejoined; each break was checked against the page image or the relay layout before joining"
+ ],
+ "pages_visually_reviewed": [
+  6
+ ],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.15481&MevzuatIliski=0&sourceXmlSearch=destek hizmeti",
+ "source_pdf_sha256": "9ca123a2f71c0f39321fbe5b1ab2706194a4262bb9e1a5d5112ae11f68972c6e",
+ "source_pdf_bytes": 485854,
+ "source_pdf_matches_stored_file_size": false,
+ "source_pdf_note": "static mevzuat.gov.tr MevzuatMetin PDF of the current consolidated text; the stored text came from the mevzuat HTML page, so the stored file size describes that page",
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "review",
+  "reasons": [
+   "stored has LaTeX/table markup",
+   "punctuation differs {'*': 180}",
+   "ruled tables on pages [6]"
+  ],
+  "paragraph_break_spots": 4
+ },
+ "gate_resolution": [
+  "punctuation difference = table/LaTeX markup written differently and dropped page-furniture lines",
+  "4 paragraph-break difference(s) from the stored text; rebuilt breaks follow the PDF layout (indentation and vertical spacing)",
+  "token, table and formula differences resolved by the reviewed specs/ and manual steps above, checked against the viewed page images"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

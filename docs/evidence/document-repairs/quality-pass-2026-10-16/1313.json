@@ -1,0 +1,34 @@
+{
+ "document_id": "1313",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "local_edit",
+ "input_markdown_sha256": "a4118eca762d0e2be949176faa4657fa9a5318d44e27ebc87bc83960a99bcb9f",
+ "output_markdown_sha256": "6dfe8d61ac829d5630c0ab48f1430073d32a2e91ea1ee918f842a63a7ea2af50",
+ "extraction_method_before": "markitdown+manual_latex",
+ "extraction_method_after": "markitdown+manual_latex",
+ "change_classes": [
+  "paragraphs broken mid-sentence (page break, hanging indent or justified-line split) rejoined; each break was checked against the page image or the relay layout before joining",
+  "90 glued formula-variable sub/superscripts written as LaTeX ($_{…}$ / $^{…}$), each token checked against the PDF glyph size and baseline; occurrences the PDF prints plain stay plain (scriptfix.py)",
+  "whitespace only: justified-text runs of spaces collapsed and paragraph indentation removed (4+ leading spaces rendered paragraphs as code blocks); non-whitespace characters unchanged (wsclean.py)",
+  "2 manual correction step(s), reviewed against the page image",
+  "formula legend symbols written as $\\mathrm{TF}_i$ and $\\mathrm{TF}_i^t$ (the second was split 'TFi' / 't' over two paragraphs), matching the display formula"
+ ],
+ "pages_visually_reviewed": [
+  1,
+  6,
+  7,
+  11,
+  23,
+  32,
+  44,
+  48,
+  50,
+  51,
+  52
+ ],
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1313",
+ "source_pdf_sha256": "80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+ "source_pdf_bytes": 498730,
+ "source_pdf_matches_stored_file_size": true
+}

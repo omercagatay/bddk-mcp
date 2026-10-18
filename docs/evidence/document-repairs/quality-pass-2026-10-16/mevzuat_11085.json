@@ -1,0 +1,19 @@
+{
+ "document_id": "mevzuat_11085",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "local_edit",
+ "input_markdown_sha256": "271bffcc7c6ee1d962f59988bb58a4f4145a8db08944fbbfc95808142626758a",
+ "output_markdown_sha256": "dd08d4e995adca245daebcdb952db7ece9ed77be9b8f99c9f20e59fe07607c08",
+ "extraction_method_before": "html_parser",
+ "extraction_method_after": "html_parser",
+ "change_classes": [
+  "U+0092 (cp1254 right quote) -> ’ ×3",
+  "U+0093 (cp1254 left double quote) -> “ ×4",
+  "U+0094 (cp1254 right double quote) -> ” ×4",
+  "U+0096 (cp1254 en dash) -> – ×40",
+  "flattened closing Resmî Gazete list written as the reviewed table layout"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.11085&MevzuatIliski=0&sourceXmlSearch=denetleme kurumu insan kaynakları"
+}

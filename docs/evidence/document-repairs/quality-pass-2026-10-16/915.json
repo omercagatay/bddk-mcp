@@ -1,0 +1,30 @@
+{
+ "document_id": "915",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "1cf930deca5dd4268e5833d010c460007f63dbf38d2154cb4152cd89af7c4ac4",
+ "output_markdown_sha256": "0d26c1d445770f983369a6d2643bf95f5aebfaf8f2287e800bc873bf1f14bb52",
+ "extraction_method_before": "markitdown",
+ "extraction_method_after": "manual_pdf",
+ "change_classes": [
+  "scrambled word order: 9 windows restored from PDF order (pdftotext -layout, confirmed by -raw content-stream order)",
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "2 table block(s) written as Markdown tables, reviewed against the page image",
+  "paragraphs broken mid-sentence (page break, hanging indent or justified-line split) rejoined; each break was checked against the page image or the relay layout before joining",
+  "1 manual correction step(s) after the rebuild, reviewed against the page image"
+ ],
+ "pages_visually_reviewed": "1-7 (all)",
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/915",
+ "source_pdf_sha256": "fa4ddc0b7bfed86da46a0e99d970d2e51e4082b8fd4d3bf88e508ee9e37bf897",
+ "source_pdf_bytes": 249507,
+ "source_pdf_matches_stored_file_size": true,
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

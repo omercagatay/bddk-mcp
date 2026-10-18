@@ -13,13 +13,14 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from pydantic import TypeAdapter
 
 from bddk_mcp.core.config import PAGE_SIZE
 from bddk_mcp.quality.markdown_quality import unsafe_verbatim_reason
 from bddk_mcp.quotations import check_exact_quotation
 from bddk_mcp.store.doc_store import DocumentPage, DocumentStore
 from bddk_mcp.store.section_index import extract_document_sections, split_section_truncation_notice
-from bddk_mcp.tools.contract_types import OptionalQuotation
+from bddk_mcp.tools.contract_types import OptionalQuotation, SectionRef, SectionType
 
 SEED_DOCUMENTS = json.loads((Path(__file__).parents[1] / "seed_data/documents.json").read_text(encoding="utf-8"))
 
@@ -228,7 +229,7 @@ def test_real_token_chunker_produces_exact_document_slices_for_every_document():
     assert chunks_seen > 10_000
 
 
-def test_real_ozkaynak_article_9_quotation_is_exact_and_fidelity_gap_is_reported():
+def test_real_ozkaynak_article_9_quotation_is_exact_and_never_normalized():
     """The reviewed example: Bankaların Özkaynaklarına İlişkin Yönetmelik madde 9."""
     from bddk_mcp.store.section_index import extract_document_sections, split_section_truncation_notice
 
@@ -255,19 +256,19 @@ def test_real_ozkaynak_article_9_quotation_is_exact_and_fidelity_gap_is_reported
     section_check = check_exact_quotation(verbatim, quotation, expected_reference_sha256=sha(verbatim))
     assert section_check.status == "exact_reference_match"
 
-    # Honest fidelity gap: the stored extraction uses the legacy Windows-1252
-    # apostrophe (U+0092) in this section. The legacy form matches; the official
-    # typographic form does not. It must fail, never be silently normalized.
-    assert "\x92" in verbatim
-    legacy = "yüzde 17,65\x92ini aşan kısmı"
-    official = legacy.replace("\x92", "’")
-    assert legacy in verbatim and official not in verbatim
+    # The 2026-10-16 quality pass repaired the legacy Windows-1252 apostrophe
+    # (U+0092) to the official typographic form. The official form matches; the
+    # legacy form must now fail, never be silently normalized into a match.
+    assert "\x92" not in verbatim
+    official = "yüzde 17,65’ini aşan kısmı"
+    legacy = official.replace("’", "\x92")
+    assert official in verbatim and legacy not in verbatim
     assert (
-        check_exact_quotation(verbatim, legacy, expected_reference_sha256=sha(verbatim)).status
+        check_exact_quotation(verbatim, official, expected_reference_sha256=sha(verbatim)).status
         == "exact_reference_match"
     )
     assert (
-        check_exact_quotation(verbatim, official, expected_reference_sha256=sha(verbatim)).status
+        check_exact_quotation(verbatim, legacy, expected_reference_sha256=sha(verbatim)).status
         != "exact_reference_match"
     )
 
@@ -356,3 +357,34 @@ async def test_real_ozkaynak_document_and_quote_end_to_end_through_mcp_and_postg
             assert paraphrased.structuredContent["answer_assessment"]["quotation_status"] == "not_found"
         finally:
             await transaction.rollback()
+
+
+def test_every_printed_section_identity_is_accepted_back_by_the_tool_contract():
+    types, refs = TypeAdapter(SectionType), TypeAdapter(SectionRef)
+    printed = {
+        (s.section_type, s.section_ref)
+        for document in SEED_DOCUMENTS
+        for s in extract_document_sections(document["document_id"], document["markdown_content"])
+    }
+
+    assert {("madde", "66/a"), ("madde", "13/ç"), ("ek_madde", "1"), ("bent", "ç")} <= printed
+    for section_type, section_ref in printed:
+        assert types.validate_python(section_type) == section_type
+        assert refs.validate_python(section_ref) == section_ref
+    assert refs.validate_python("66/A") == "66/a"
+    assert types.validate_python("ek madde") == "ek_madde"
+
+
+def test_seed_articles_no_longer_swallow_inserted_articles_and_guides_keep_paragraphs():
+    texts = {d["document_id"]: d["markdown_content"] for d in SEED_DOCUMENTS}
+    bankacilik = {
+        (s.section_type, s.section_ref): s for s in extract_document_sections("mevzuat_5411", texts["mevzuat_5411"])
+    }
+
+    assert "Madde 66/A" not in bankacilik[("madde", "66")].content
+    assert bankacilik[("madde", "66/a")].content.startswith("Madde 66/A")
+    assert "Ek Madde 1" not in bankacilik[("madde", "169")].content
+    # 945/946 print "İlke N." inside a numbered paragraph body; parsing it there deleted the body.
+    for doc_id, paragraphs in (("945", 46), ("946", 163)):
+        sections = extract_document_sections(doc_id, texts[doc_id])
+        assert [s.section_type for s in sections].count("paragraf") == paragraphs
