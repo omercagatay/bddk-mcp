@@ -10,7 +10,7 @@ and after, change classes, pages compared visually, and the source PDF hash.
 output-identical to the working version on all 267 source PDFs). Receipts are
 assistant technical review awaiting owner approval, not legal validation. The
 v11 manifest that carries these documents was owner-signed again on 2026-10-18 (sha `99997032…`) after section parser v10
-regenerated its chunks; it is not committed, staged or activated. Quality policy v6
+regenerated its chunks; merged in #178 and deployed to the Railway preview on 2026-10-18, it is not staged or activated as a governed release. Quality policy v6
 (owner-approved) adds one reviewed literal reference to another regulation's
 formulas (document 1296); quality policy v7 (owner-approved) adds ten reviewed references to a formula
 elsewhere in the same text (`quality-pass-2026-10-16/policy/internal-formula-references.json`). All 319 documents

@@ -25,4 +25,4 @@ healthcheckTimeout = 300
 # governed activation, then set BDDK_REQUIRE_ACTIVE_CORPUS_RELEASE=true on
 # the public service. Every corpus/profile change requires fresh verification.
 # No-op when the DB matches; requires BDDK_INGESTION_DATABASE_URL.
-preDeployCommand = "/app/.venv/bin/bddk-mcp bootstrap --force --reindex-existing --require-quantified-freshness --require-verified-signature --trusted-signing-key /app/trust/corpus-signing-public-key.pem"
+preDeployCommand = "/app/.venv/bin/bddk-mcp bootstrap --reindex-existing --require-quantified-freshness --require-verified-signature --trusted-signing-key /app/trust/corpus-signing-public-key.pem"
