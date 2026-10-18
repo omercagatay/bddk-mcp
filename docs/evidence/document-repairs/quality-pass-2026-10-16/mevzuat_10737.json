@@ -1,0 +1,18 @@
+{
+ "document_id": "mevzuat_10737",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "local_edit",
+ "input_markdown_sha256": "1b616daab084089df41ff41711b916d0792a3d3e79191de9b58dc44655a02002",
+ "output_markdown_sha256": "3f8afff7404f2f57b2e072cb60e3c81313984aa0b3d112780a64191de37fa0de",
+ "extraction_method_before": "html_parser",
+ "extraction_method_after": "html_parser",
+ "change_classes": [
+  "U+0092 (cp1254 right quote) -> ’ ×19",
+  "U+0093 (cp1254 left double quote) -> “ ×1",
+  "U+0094 (cp1254 right double quote) -> ” ×1",
+  "flattened closing Resmî Gazete list written as the reviewed table layout"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.10737&MevzuatIliski=0&sourceXmlSearch=bankaların üst"
+}

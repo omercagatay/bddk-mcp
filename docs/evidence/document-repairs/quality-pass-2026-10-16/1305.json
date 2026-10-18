@@ -1,0 +1,31 @@
+{
+ "document_id": "1305",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "local_edit",
+ "input_markdown_sha256": "d47fd29961b56dd24ba1993864c11b5fe26f35cee1948376cc354c8ca914819b",
+ "output_markdown_sha256": "35ee72610115d99c31a4844d6b11646cf617f6d097ef99401124cb5eb90ebf06",
+ "extraction_method_before": "markitdown+manual_latex",
+ "extraction_method_after": "markitdown+manual_latex",
+ "change_classes": [
+  "paragraphs broken mid-sentence (page break, hanging indent or justified-line split) rejoined; each break was checked against the page image or the relay layout before joining",
+  "25 glued formula-variable sub/superscripts written as LaTeX ($_{…}$ / $^{…}$), each token checked against the PDF glyph size and baseline; occurrences the PDF prints plain stay plain (scriptfix.py)",
+  "whitespace only: justified-text runs of spaces collapsed and paragraph indentation removed (4+ leading spaces rendered paragraphs as code blocks); non-whitespace characters unchanged (wsclean.py)"
+ ],
+ "pages_visually_reviewed": [
+  1,
+  2,
+  5,
+  8,
+  11,
+  17,
+  23,
+  36,
+  40,
+  45
+ ],
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1305",
+ "source_pdf_sha256": "44928bdde6309ad48559c18960e45638c50fae30b25c56675edf0796da6de065",
+ "source_pdf_bytes": 667279,
+ "source_pdf_matches_stored_file_size": true
+}

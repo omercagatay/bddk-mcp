@@ -1,0 +1,39 @@
+{
+ "tables": [
+  {
+   "start": "Aşamalar Kurumun göz önünde bulunduracağı hususlar",
+   "end": "Adım 2 – Resmi başvuru",
+   "md": "| Aşamalar | Kurumun göz önünde bulunduracağı hususlar |\n|---|---|\n| ▪ Bankanın amaçlarının kapsam ve yapısının anlaşılması | ▪ İçsel model yaklaşımı uygulama niyeti bankayla müzakere edilir.<br/>▪ Banka önerilerinin aşağıdaki hususlar dahil bir ön değerlendirmesi yapılır.<br/>o Bankanın genel olarak hazır olup olmadığı.<br/>o İçsel dokümantasyonun tamlığı.<br/>o Bankanın öz değerlendirmesi.<br/>o Geçiş planının uygunluğu.<br/>o Mevzuattaki asgari şartlara uyumluluk.<br/>o Kullanım testi. |\n| ▪ Denetimle ilgili eylem planı hazırlanması | ▪ Resmi başvuru yapılması uygun görüldüğü takdirde Kurumca uygun bir taslak denetim planı hazırlanır.<br/>▪ Taslak denetim planı aşağıdaki hususları içerir.<br/>o Önem arz eden modeller ve önerilen geçiş planları.<br/>o İş yükünün modellerin önemliliğiyle orantılı olarak dağılımı.<br/>o Öncelikli hususların belirlenmesi.<br/>o Zaman çizelgesi.<br/>o Başvurunun tamlığı ve doğruluğunun değerlendirilmesi için standartların belirlenmesi.<br/>o Başvuruyu karara bağlamak için standartlar.<br/>▪ Denetim planının bankayı ilgilendiren kısımları varsa bankaya iletilir. |"
+  },
+  {
+   "start": "Aşamalar Kurumun göz önünde bulunduracağı hususlar",
+   "end": "Ek:1",
+   "md": "| Aşamalar | Kurumun göz önünde bulunduracağı hususlar |\n|---|---|\n| ▪ Resmi başvurunun sunulması ve başvuru belgelerinin tamlığının kontrolü | ▪ Eğer başvuru açık bir şekilde tamamlanmamış ise bu derhal tespit edilir (örneğin, önem arz eden bir bilginin eksikliği). Bu durumda bankaya başvurunun eksik olduğu ve ne gibi bilgilerin sunulması gerektiği bildirilir.<br/>▪ Başvuru belgelerinin tamlığı değerlendirilerek, değerlendirmenin nihai sonuçları bankaya bildirilir.<br/>o Eğer başvuru eksik bulunursa, başvurunun eksik olduğu, eksikliğin nedeni ve ne gibi bilgilerin banka tarafından sunulması gerektiği bankaya bildirilir.<br/>o Eğer başvuru eksiksiz bulunursa, Kurum inceleme süreci başlar. |"
+  },
+  {
+   "start": "Aşamalar Kurumun göz önünde bulunduracağı hususlar",
+   "end": "Adım 4 – Karar",
+   "md": "| Aşamalar | Kurumun göz önünde bulunduracağı hususlar |\n|---|---|\n| ▪ Değerlendirme | ▪ Değerlendirme iki fazdan oluşur. Her iki fazda aşağıda yer alan konular değerlendirilir.<br/>o Modeller, yönetim kurulu ve üst yönetimin rolü ve risk yönetimi fonksiyonları değerlendirilir.<br/>o Asgari şartlara uyumluluk değerlendirilir.<br/>o Kullanım testine uygunluk değerlendirilir.<br/>o Öz değerlendirme değerlendirilir.<br/>o Eğer varsa, geçiş planı değerlendirilir.<br/>o Dokümantasyonun yeterliliği değerlendirilir.<br/>▪ Birinci faz, uzaktan gözetim şeklinde ikinci fazdan daha az detaylı uygulanır ve birinci faz sonucunda ikinci faza ilişkin Kurum denetim planı kesinleştirilir.<br/>▪ İkinci fazda Kurum denetim planı dahil ilgili mevzuatta yer alan hususlar açısından hem yerinde denetim hem de uzaktan gözetim gerçekleştirilir. |"
+  },
+  {
+   "start": "Aşamalar Kurumun göz önünde bulunduracağı hususlar",
+   "end": "Adım 5 – Uygulama",
+   "md": "| Aşamalar | Kurumun göz önünde bulunduracağı hususlar |\n|---|---|\n| ▪ Kararın verilmesi | ▪ Karar ve varsa karara ilişkin şartlar belirlenir.<br/>▪ Geçiş sürecinin nasıl ele alınacağı karara bağlanır.<br/>▪ Kararın uygulanmasında izlenecek zaman çizelgesi belirlenir. |\n| ▪ Kararın bildirilmesi | ▪ Karar dokümanı hazırlanır ve bankaya bildirilir. |"
+  },
+  {
+   "start": "Aşamalar Kurumun göz önünde bulunduracağı hususlar",
+   "end": "Adım 6 – Düzenli gözden geçirme",
+   "md": "| Aşamalar | Kurumun göz önünde bulunduracağı hususlar |\n|---|---|\n| ▪ Kararın uygulanması | ▪ Karar mevzuata uygun bir şekilde uygun görülen tarihte başlamak üzere uygulanır. |\n| ▪ Planlama, değerlendirme ve raporlama | ▪ Geçiş süreci kapsamında Adım 3’teki prosedürler tekrarlanır. |"
+  },
+  {
+   "start": "Kategori Alan Süreç",
+   "end": "Ek:5",
+   "md": "| Kategori | Alan | Süreç |\n|---|---|---|\n| 1 | Risk Ölçümü | Portföylerin, İDD’ye büyük ölçüde uyumlu sistemler kullanılarak tümüyle derecelendirilmiş olması<br/>Modellerin başlangıç validasyonunun yapılmış olması<br/>Yasal sermaye yükümlülüğünün hesaplanması |\n| 1 | Risk Yönetimi | Üst yönetimin derecelendirme sistemlerini genel olarak kavramış ve üst düzey yönetimin bu sistemlerin tasarımı ve işleyişi hakkında yeterince bilgi sahibi olması<br/>İçsel raporlama |\n| 2 | Risk Yönetimi/Karar Alma Süreçleri | İçsel raporlama<br/>Borçlu/müşteri limit tahsisi<br/>Portföy bazında limit tahsisi<br/>Kredilerin yönetimi<br/>Kredi risk iştahının belirlenmesi |\n| 2 | Kredi Onaylama Süreçleri | Yeni borçlu/müşteriler için kredi başvurularının onaylanması<br/>Yeni kredi ürünlerinin onaylanması<br/>Kredi fiyatlaması$^{2}$ |\n| 2 | İçsel Sermaye Tahsisi | Kredi risk iştahının belirlenmesi<br/>Yasal sermaye yükümlülüğünün hesaplanması<br/>Karşılık hesaplamaları<br/>İSEDES süreçlerinde kullanım |\n| 2 | Kurumsal Yönetim | Üst yönetimin derecelendirme sistemlerini genel olarak kavramış ve üst düzey yönetimin bu sistemlerin tasarımı ve işleyişi hakkında yeterince bilgi sahibi olması<br/>Kurumsal yönetim & faaliyet yönetimi<br/>Piyasa stratejilerinin belirlenmesi<br/>Yasal sermaye yükümlülüğünün raporlanması |\n| 3 | Risk Yönetimi/Karar Alma Süreçleri | Yeterli nitelik ve sayıda insan kaynağı ve bilgi sistemlerinin tahsisi<br/>Strateji (örneğin, orta ve uzun dönem stratejilerinin belirlenmesi) /Satın almalar<br/>Ücretlendirme<br/>Risk transferi<br/>Bütçeleme |\n| 3 | Kredi Onaylama Süreçleri | Kredi fiyatlaması$^{3}$ |\n| 3 | İçsel Sermaye Tahsisi | Risk transferi<br/>Strateji (örneğin, orta ve uzun dönem stratejilerinin belirlenmesi) / Devralmalar<br/>Ekonomik sermaye tahsisi (örneğin, ekonomik sermayenin portföy ve faaliyet kolları bazında dağıtımı)<br/>RAROC vb. ölçütler |\n| 3 | Kurumsal Yönetim | Yeterli nitelik ve sayıda insan kaynağı ve bilgi sistemlerinin tahsisi |\n\n_______\n\n$^{2}$ Uygun olduğu alanlarda kullanılması yeterlidir.\n\n$^{3}$ Uygun olduğu alanlarda kullanılması yeterlidir."
+  },
+  {
+   "start": "Üst yönetimin derecelendirme sistemlerini genel",
+   "end": null,
+   "md": ""
+  }
+ ]
+}

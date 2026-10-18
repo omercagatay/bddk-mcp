@@ -1,0 +1,9 @@
+{
+ "tables": [
+  {
+   "start": "Ana Risk",
+   "end": "ALTINCI KISIM",
+   "md": "| Ana Risk Faktörleri | Örnekler |\n|---|---|\n| Süreçler | • Yetersiz ve uygun olmayan politika, prosedür ve rehberler,<br/>• İletişimin yapılamaması ya da iletişimde yaşanan aksaklıklar<br/>• Hatalı veri girişi<br/>• Yetersiz mutabakat<br/>• Yetersiz hukuki dokümantasyon<br/>• Kontrol noktalarındaki yetersizlikler<br/>• Yasal olarak ayrılması gereken karşılıkların ayrılmaması ya da eksik ayrılması veya karşılık ayırma sürecinin etkin olmaması<br/>• Değişim yönetimi süreçlerinde yaşanan aksaklıklar<br/>• Yetersiz yedekleme faaliyeti ile etkin olmayan aksiyon planları |\n| Personel | • Rehber, politika ve prosedürlere uyulmaması<br/>• Yetkisiz işlem ve görevi ihmal<br/>• Ceza hukuku uyarınca konusu suç olan banka içi eylemler<br/>• Görev ve sorumluluk alanlarının ve çifte kontrol mekanizmasının oluşturulmasındaki eksiklikler, tecrübesiz personel çalıştırılması<br/>• Personel hatası ve dikkatsizliği, görev ve sorumlulukların açıkça tanımlanmaması |\n| Sistem | • Bilgi işlem sisteminde yer alan donanım, ağ ve sunucuların işlerliklerinin sürdürülememesi |\n| Harici Olaylar | • Ceza hukuku uyarınca konusu suç olan banka dışı eylemler<br/>• Hizmet sağlayıcıların kötü performans göstermesi<br/>• İnsan kaynaklı olarak yaşanan felaketler<br/>• Doğal felaketler<br/>• Politik ve yasal faktörler |"
+  }
+ ]
+}

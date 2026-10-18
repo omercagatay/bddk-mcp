@@ -1,0 +1,16 @@
+{
+ "tables": [
+  {
+   "start": "KONUT ALIMINDA VE KONUT TEMİNATLI",
+   "end": "- Azami kredi tutarının",
+   "md": "| KONUT ALIMINDA VE KONUT TEMİNATLI KREDİLERDE KULLANDIRILABİLECEK AZAMİ KREDİ TUTARI | KONUT ALIMINDA VE KONUT TEMİNATLI KREDİLERDE KULLANDIRILABİLECEK AZAMİ KREDİ TUTARI | KONUT ALIMINDA VE KONUT TEMİNATLI KREDİLERDE KULLANDIRILABİLECEK AZAMİ KREDİ TUTARI | KONUT ALIMINDA VE KONUT TEMİNATLI KREDİLERDE KULLANDIRILABİLECEK AZAMİ KREDİ TUTARI |\n|---|---|---|---|\n| KONUT DEĞERİ | Enerji Sınıfı$^{1}$ | Enerji Sınıfı$^{1}$ | Enerji Sınıfı$^{1}$ |\n| KONUT DEĞERİ | A-B | C | DİĞER |\n| DEĞER <= 5 MİLYON TL | DEĞER x 90% | DEĞER x 80% | DEĞER x 70% |\n| 5 MİLYON TL < DEĞER <= 7 MİLYON TL | DEĞER x 80% | DEĞER x 70% | DEĞER x 60% |\n| 7 MİLYON TL < DEĞER <= 10 MİLYON TL | DEĞER x 70% | DEĞER x 60% | DEĞER x 50% |\n| 10 MİLYON TL < DEĞER <= 20 MİLYON TL | DEĞER x 50% | DEĞER x 40% | DEĞER x 30% |\n| 20 MİLYON TL < DEĞER | DEĞER x 40% | DEĞER x 30% | DEĞER x 20% |"
+  }
+ ],
+ "replace": [
+  [
+   "\n\n1 18/4/2007 tarihli",
+   "\n\n_______\n\n$^{1}$ 18/4/2007 tarihli",
+   1
+  ]
+ ]
+}

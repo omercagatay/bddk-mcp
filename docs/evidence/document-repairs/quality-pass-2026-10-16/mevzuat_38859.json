@@ -1,0 +1,36 @@
+{
+ "document_id": "mevzuat_38859",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "88c351a2e38460a42c049f53145dbacaeba5df90f18f93e952d120195654cddf",
+ "output_markdown_sha256": "b0eca693828a4725d12b2576f28294842346490fb1874a67e8f55e588107238a",
+ "extraction_method_before": "markitdown_degraded",
+ "extraction_method_after": "pdftotext_layout",
+ "change_classes": [
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=38859&MevzuatTur=9&MevzuatTertip=5",
+ "source_pdf_sha256": "d79efcb22dce8e328b6ebe19b55041306ca61bdaad167cdd54e9c0e4ebcde0da",
+ "source_pdf_bytes": 33708,
+ "source_pdf_matches_stored_file_size": false,
+ "source_pdf_note": "mevzuat.gov.tr File/GeneratePdf output is regenerated per request (not byte-reproducible)",
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "review",
+  "reasons": [],
+  "paragraph_break_spots": 19
+ },
+ "gate_resolution": [
+  "19 paragraph-break difference(s) from the stored text; rebuilt breaks follow the PDF layout (indentation and vertical spacing)"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

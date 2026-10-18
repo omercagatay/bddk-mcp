@@ -1,0 +1,18 @@
+{
+ "document_id": "1043",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "local_edit",
+ "input_markdown_sha256": "6febb9c22ea279b4787a3d5877003fc3fdab78d1a2611f130866f119ca7fca41",
+ "output_markdown_sha256": "e0deecf588838ead3ac9946e73fdb6630568d43ab07e74394feddc49467a049a",
+ "extraction_method_before": "markitdown",
+ "extraction_method_after": "markitdown",
+ "change_classes": [
+  "paragraphs broken mid-sentence (page break, hanging indent or justified-line split) rejoined; each break was checked against the page image or the relay layout before joining"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1043",
+ "source_pdf_sha256": "dc9db2a57a3b797357b00c54c7c54040e8c5781070d805cd3f49dd50270c188d",
+ "source_pdf_bytes": 1042198,
+ "source_pdf_matches_stored_file_size": true
+}

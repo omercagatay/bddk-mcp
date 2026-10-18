@@ -1,0 +1,45 @@
+{
+ "document_id": "948",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "a3d3d4e8c89aca5025b3eae5c3d28f392b99f0cc1a25009e56d8553d3e9603f6",
+ "output_markdown_sha256": "972efdbebddfb04fbf50995c49d162bbacb75ddfe841c6410ed4bde43261490f",
+ "extraction_method_before": "markitdown",
+ "extraction_method_after": "pdftotext_layout",
+ "change_classes": [
+  "scrambled word order: 15 windows restored from PDF order (pdftotext -layout, confirmed by -raw content-stream order)",
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "1 table block(s) written as Markdown tables, reviewed against the page image",
+  "superscript footnote markers written as $^{n}$ (with their footnote bodies)",
+  "paragraph split by a page-bottom footnote block rejoined; footnotes follow the paragraph"
+ ],
+ "pages_visually_reviewed": [
+  12
+ ],
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/948",
+ "source_pdf_sha256": "0e05fd9f2316c5b4361167bc1c00f622888342e94482bab40a9e9d0a2ffedee2",
+ "source_pdf_bytes": 332572,
+ "source_pdf_matches_stored_file_size": true,
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "review",
+  "reasons": [
+   "stored has LaTeX/table markup",
+   "ruled tables on pages [12]",
+   "rebuild order disagrees with content-stream order (6 moved tokens)"
+  ],
+  "paragraph_break_spots": 0
+ },
+ "gate_resolution": [
+  "token, table and formula differences resolved by the reviewed specs/ and manual steps above, checked against the viewed page images"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

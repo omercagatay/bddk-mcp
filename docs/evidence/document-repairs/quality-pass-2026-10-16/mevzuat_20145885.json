@@ -1,0 +1,17 @@
+{
+ "document_id": "mevzuat_20145885",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "local_edit",
+ "input_markdown_sha256": "efcc633abd2c60491164b171fcafed34c35e22ac495d709407393c5834bd4e95",
+ "output_markdown_sha256": "2353841dd7f26403b508aaad8fcf7f5be8c74a55a5373a00cdd354ca0c95ddfc",
+ "extraction_method_before": "html_parser",
+ "extraction_method_after": "html_parser",
+ "change_classes": [
+  "flattened tables (one cell per paragraph) written as Markdown tables, reviewed against the page image"
+ ],
+ "pages_visually_reviewed": [
+  19
+ ],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=3.5.20145885&MevzuatIliski=0&sourceXmlSearch=denetleme kurumu teşkilat"
+}

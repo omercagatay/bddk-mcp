@@ -1,0 +1,117 @@
+{
+  "policy_version": "markdown-quality-assessment-v7",
+  "status": "reviewed_by_assistant_approved_by_owner_for_policy",
+  "review_scope": "Each referenced formula is present in the same stored text; legal correctness of the source's own cross-reference numbering is not assessed.",
+  "occurrences": [
+    {
+      "document_id": "1312",
+      "document_content_hash": "e8376ef86c4995b644123b27230c61983d7d3a6360c8e52b78f198e39feed44a",
+      "phrase": "40 ıncı maddenin birinci fıkrasında yer alan formüle",
+      "offset": 83503,
+      "host": "madde 52",
+      "referenced_provision": "printed reference; in this draft the formula is madde 38 fıkra 1 (the final Tebliğ mevzuat_20029 has it at 40/1)",
+      "formula_anchor": "TVA = T x (1 – HT – HFX)",
+      "formula_offset": 66060,
+      "formula_host": "madde 38"
+    },
+    {
+      "document_id": "1313",
+      "document_content_hash": "6dfe8d61ac829d5630c0ab48f1430073d32a2e91ea1ee918f842a63a7ea2af50",
+      "phrase": "Black-Scholes formülü\nkullanılarak",
+      "offset": 53238,
+      "host": "madde 24",
+      "referenced_provision": "madde 23",
+      "formula_anchor": "\\ln (\\mathrm{PF}_i/\\mathrm{UF}_i)",
+      "formula_offset": 51126,
+      "formula_host": "madde 23"
+    },
+    {
+      "document_id": "1313",
+      "document_content_hash": "6dfe8d61ac829d5630c0ab48f1430073d32a2e91ea1ee918f842a63a7ea2af50",
+      "phrase": "opsiyon formülü\nkullanılarak",
+      "offset": 54502,
+      "host": "madde 24",
+      "referenced_provision": "madde 23",
+      "formula_anchor": "\\ln (\\mathrm{PF}_i/\\mathrm{UF}_i)",
+      "formula_offset": 51126,
+      "formula_host": "madde 23"
+    },
+    {
+      "document_id": "1313",
+      "document_content_hash": "6dfe8d61ac829d5630c0ab48f1430073d32a2e91ea1ee918f842a63a7ea2af50",
+      "phrase": "ikinci fıkrada yer alan formüle",
+      "offset": 65750,
+      "host": "madde 30",
+      "referenced_provision": "fıkra 2 of the same article",
+      "formula_anchor": "D_i^{(\\mathrm{FO})} =",
+      "formula_offset": 64937,
+      "formula_host": "madde 30"
+    },
+    {
+      "document_id": "1313",
+      "document_content_hash": "6dfe8d61ac829d5630c0ab48f1430073d32a2e91ea1ee918f842a63a7ea2af50",
+      "phrase": "ikinci fıkrada yer alan formüle",
+      "offset": 68694,
+      "host": "madde 31",
+      "referenced_provision": "fıkra 2 of the same article",
+      "formula_anchor": "D_j^{(\\mathrm{DK})} =",
+      "formula_offset": 68092,
+      "formula_host": "madde 31"
+    },
+    {
+      "document_id": "1313",
+      "document_content_hash": "6dfe8d61ac829d5630c0ab48f1430073d32a2e91ea1ee918f842a63a7ea2af50",
+      "phrase": "ikinci fıkrada yer alan formüle",
+      "offset": 75944,
+      "host": "madde 33",
+      "referenced_provision": "fıkra 2 of the same article",
+      "formula_anchor": "D_i^{(\\mathrm{HS})} =",
+      "formula_offset": 75557,
+      "formula_host": "madde 33"
+    },
+    {
+      "document_id": "1313",
+      "document_content_hash": "6dfe8d61ac829d5630c0ab48f1430073d32a2e91ea1ee918f842a63a7ea2af50",
+      "phrase": "dördüncü fıkrada yer alan formüle",
+      "offset": 167975,
+      "host": "madde 59",
+      "referenced_provision": "fıkra 4 of the same article",
+      "formula_anchor": "\\mathrm{SMKT} = \\sum \\mathrm{RTi} * \\mathrm{RA} * \\%8",
+      "formula_offset": 162003,
+      "formula_host": "madde 59"
+    },
+    {
+      "document_id": "mevzuat_19498",
+      "document_content_hash": "177b8ca01fc613a437c70e7ad4c11ee4c06886b7a74ceb4f9e13eb38a07babbc",
+      "phrase": "Ek-3’te yer alan formül",
+      "offset": 15238,
+      "host": "madde 9",
+      "referenced_provision": "EK-3",
+      "formula_anchor": "\\text{Maksimum}\\,[\\text{Düzeltilmiş 2B Kalite Likit Varlıklar}",
+      "formula_offset": 92858,
+      "formula_host": "ek 3"
+    },
+    {
+      "document_id": "mevzuat_20029",
+      "document_content_hash": "7180f6125779820f571a1a77429f64845fa2bf587b4359cef1aaeee4d0f665aa",
+      "phrase": "44 üncü maddenin üçüncü fıkrasında yer alan formül",
+      "offset": 81958,
+      "host": "madde 45",
+      "referenced_provision": "madde 44 fıkra 3",
+      "formula_anchor": "H_M = H_N \\sqrt{\\frac{T_M}{T_N}}",
+      "formula_offset": 80083,
+      "formula_host": "madde 44"
+    },
+    {
+      "document_id": "mevzuat_20029",
+      "document_content_hash": "7180f6125779820f571a1a77429f64845fa2bf587b4359cef1aaeee4d0f665aa",
+      "phrase": "40 ıncı maddenin birinci fıkrasında yer alan formüle",
+      "offset": 104155,
+      "host": "madde 59",
+      "referenced_provision": "madde 40 fıkra 1",
+      "formula_anchor": "TVA = T x (1 – HT – HFX)",
+      "formula_offset": 72617,
+      "formula_host": "madde 40"
+    }
+  ]
+}

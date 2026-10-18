@@ -1,0 +1,28 @@
+{
+ "document_id": "696",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "2be9eff7733293e2a2f9d48635c59de10f99c9f7c51442b989b35152375f5844",
+ "output_markdown_sha256": "f47f464e98216307f886facfc876123effa58f628e20c5625bd1b5b6a9178e59",
+ "extraction_method_before": "markitdown",
+ "extraction_method_after": "manual_pdf",
+ "change_classes": [
+  "scrambled word order: 2 windows restored from PDF order (pdftotext -layout, confirmed by -raw content-stream order)",
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "1 table block(s) written as Markdown tables, reviewed against the page image"
+ ],
+ "pages_visually_reviewed": "1-3 (all)",
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/696",
+ "source_pdf_sha256": "53e53349c58bd27bbe51081af3c4d027dd1dec54e8a45a6e261a96885645a421",
+ "source_pdf_bytes": 96629,
+ "source_pdf_matches_stored_file_size": true,
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

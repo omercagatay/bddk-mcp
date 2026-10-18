@@ -1,0 +1,27 @@
+{
+ "drop": [
+  "Bankacılık Düzenleme ve Denetleme Kurulu"
+ ],
+ "replace": [
+  [
+   "tanımlamaktadır1.",
+   "tanımlamaktadır$^{1}$.",
+   1
+  ],
+  [
+   "kapsamalıdır2.",
+   "kapsamalıdır$^{2}$.",
+   1
+  ],
+  [
+   "\n\n1 Bakınız TFRS 9, Ek A, Tanımlanan Terimler",
+   "\n\n$^{1}$ Bakınız TFRS 9, Ek A, Tanımlanan Terimler",
+   1
+  ],
+  [
+   "\n\n2 Makroekonomik faktörler",
+   "\n\n$^{2}$ Makroekonomik faktörler",
+   1
+  ]
+ ]
+}

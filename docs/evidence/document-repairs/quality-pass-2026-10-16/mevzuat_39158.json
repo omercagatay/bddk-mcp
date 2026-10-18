@@ -1,0 +1,26 @@
+{
+ "document_id": "mevzuat_39158",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "516a04f672550cdb835da92078d74fcb8a496229917cbf69f37bf2d718a6dcbf",
+ "output_markdown_sha256": "81057ff7b251cd2839a290ec7ba43b1b32d744f889fcd5764084eed19eab9fb0",
+ "extraction_method_before": "html_parser",
+ "extraction_method_after": "html_parser+manual_latex",
+ "change_classes": [
+  "U+0092 (cp1254 right quote) -> ’ ×41",
+  "U+0096 (cp1254 en dash) -> – ×16",
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "formulas printed as plain text written as LaTeX with the printed symbols kept, each compared with the official source line (textformulas.py / annex19498.py for EK-3)"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=39158&MevzuatTur=7&MevzuatTertip=5",
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

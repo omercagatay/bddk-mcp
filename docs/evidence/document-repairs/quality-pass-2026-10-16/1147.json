@@ -1,0 +1,36 @@
+{
+ "document_id": "1147",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "1172705e27a1e8761f35584a9c07d4c231b1c2ede63a76c0cafb8d49d460eba3",
+ "output_markdown_sha256": "fb84c0503f42a679b5a00ab70cc2026c94691e9833974b61c0445186a1a0a41d",
+ "extraction_method_before": "markitdown",
+ "extraction_method_after": "pdftotext_layout",
+ "change_classes": [
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "stored word order differed from the PDF; rebuilt order matches the PDF content stream (pdftotext -raw)"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1147",
+ "source_pdf_sha256": "748008505d15d3a9e8e08fad243ec80eddef0ce01511e19daeb0322878ac6d83",
+ "source_pdf_bytes": 451266,
+ "source_pdf_matches_stored_file_size": true,
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "pass",
+  "reasons": [],
+  "paragraph_break_spots": 0
+ },
+ "gate_resolution": [
+  "relay output word tokens equal the stored text except dropped page furniture"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

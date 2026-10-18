@@ -128,6 +128,7 @@ def test_descriptor_binds_end_to_end_retrieval_determinants():
         ("FTS_PROFILE_VERSION", "changed-fts-policy"),
         ("DOCUMENT_STORE_SEARCH_PROFILE_VERSION", "changed-document-store-policy"),
         ("SECTION_SEARCH_PROFILE_VERSION", "changed-section-search-policy"),
+        ("LEGAL_REFERENCE_MATCH_PROFILE_VERSION", "changed-legal-reference-match"),
         ("RERANKER_MODEL_REVISION", "e" * 40),
         ("RERANKER_TOP_N", 21),
     ],

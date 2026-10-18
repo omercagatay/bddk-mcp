@@ -632,6 +632,22 @@ async def test_loose_acronym_expansion_searches_both_forms_without_rewriting_evi
 
 
 @pytest.mark.asyncio
+async def test_inserted_article_request_never_returns_the_base_article_as_exact():
+    store = MagicMock()
+    store.get_document_section = AsyncMock(return_value=[])
+    store.search_document_sections = AsyncMock(return_value=[_section("mevzuat_5411", "madde", "66")])
+    deps = Dependencies(pool=None, doc_store=store, client=None, http=None)
+
+    result = await _capture_tool(deps, "search_document_sections")("mevzuat_5411 Madde 66/A sistemik")
+
+    store.get_document_section.assert_awaited_once_with(
+        "mevzuat_5411", section_type="madde", section_ref="66/a", limit=10
+    )
+    assert result.structuredContent["status"] == "partial"
+    assert "requested exact provision was not found" in result.text
+
+
+@pytest.mark.asyncio
 async def test_missing_exact_reference_does_not_present_lexical_matches_as_complete():
     store = MagicMock()
     store.get_document_section = AsyncMock(return_value=[])

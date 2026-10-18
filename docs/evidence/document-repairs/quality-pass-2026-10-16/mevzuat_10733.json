@@ -1,0 +1,16 @@
+{
+ "document_id": "mevzuat_10733",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "glyph_repair",
+ "input_markdown_sha256": "43552e2e048766889908cc9eeea8a1cd4c1705f1f2d9819693b3622405fc42ac",
+ "output_markdown_sha256": "16b8af66fccf01c9e3947f4dc88a0b2eb46c928622c97429aeb9e0b7f9bd5f1e",
+ "extraction_method_before": "html_parser",
+ "extraction_method_after": "html_parser",
+ "change_classes": [
+  "U+0092 (cp1254 right quote) -> ’ ×5",
+  "U+0096 (cp1254 en dash) -> – ×13"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.10733&MevzuatIliski=0&sourceXmlSearch=iradi"
+}

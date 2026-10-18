@@ -1,0 +1,16 @@
+{
+ "document_id": "mevzuat_39257",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "glyph_repair",
+ "input_markdown_sha256": "b5c6f0db83d6c7ffda76758f6f0cdcedafc2c61734fb73bc5e2a90b0a20ada21",
+ "output_markdown_sha256": "94a481e23e9da8f5f22a18da6752b46a136601f7efbe890aad09bb73d09994d0",
+ "extraction_method_before": "html_parser",
+ "extraction_method_after": "html_parser",
+ "change_classes": [
+  "U+0092 (cp1254 right quote) -> ’ ×91",
+  "U+0096 (cp1254 en dash) -> – ×45"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=39257&MevzuatTur=7&MevzuatTertip=5"
+}

@@ -1,0 +1,36 @@
+{
+ "document_id": "rg_32202_20230526_6",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "41e3f2252e3f0bc12312d640fec39b265c3dd98c407654a105471e686e83e4fa",
+ "output_markdown_sha256": "6ff10571e3ff1b9b4a14128ae581ebce6bd749ef237a1bbf70b4a7a9605bf6c1",
+ "extraction_method_before": "glm_ocr",
+ "extraction_method_after": "manual_pdf",
+ "change_classes": [
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "full rebuild: prose from the RG .htm, tables visually transcribed from RG issue PDF pp.49-56 (■ = cell printed black)"
+ ],
+ "pages_visually_reviewed": "RG 26/5/2023 pp.49-56 (all)",
+ "source_url": "https://www.resmigazete.gov.tr/eskiler/2023/05/20230526-6.htm",
+ "section_changes": {
+  "lost": [
+   "bent a",
+   "bent b"
+  ],
+  "gained": [],
+  "note": "the lost bents came from OCR garbage of the table images; the tables are now transcribed"
+ },
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ],
+ "source_anomalies_preserved": [
+  "Kept as printed: 'Dikkate Anma Oranı' (row 12), '20/1/(b)' (row 20), 'oranınave' (MADDE 2)."
+ ],
+ "source_note": "file_size/downloaded_at still describe the original .htm download; the tables are images in both the .htm and RG issue PDF https://www.resmigazete.gov.tr/eskiler/2023/05/20230526.pdf (pp.49-56)"
+}

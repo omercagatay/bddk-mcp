@@ -1,0 +1,17 @@
+{
+ "document_id": "mevzuat_21278",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "local_edit",
+ "input_markdown_sha256": "f412fe308137b25b0f87a77e8419dbdbf0a2a4bd7ba71512a3b58f27c6fa32b9",
+ "output_markdown_sha256": "d8235b1b16f5024ea0a662866999b82eabc986c2156b0a412b39a2ccd300f46f",
+ "extraction_method_before": "html_parser",
+ "extraction_method_after": "html_parser",
+ "change_classes": [
+  "U+0092 (cp1254 right quote) -> ’ ×32",
+  "U+0096 (cp1254 en dash) -> – ×15",
+  "flattened closing Resmî Gazete list written as the reviewed table layout"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.21278&MevzuatIliski=0&sourceXmlSearch=repo"
+}

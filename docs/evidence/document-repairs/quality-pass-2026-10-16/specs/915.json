@@ -1,0 +1,22 @@
+{
+ "drop": [
+  "Atatürk Bulvarı No:191 Kavaklıdere 06680 ANKARA Tel: (312) 455 67 80 Faks: (312) 424 17 49",
+  "İnternet adresi: www.bddk.org.tr"
+ ],
+ "tables": [
+  {
+   "start": "Önem Derecesi Açıklama",
+   "end": "EK-2 Bulgu Formatı",
+   "md": "| Önem Derecesi | Açıklama |\n|---|---|\n| Acil | Niteliksiz saldırgan tarafından banka dış ağından gerçekleştirilen ve sistemin tamamen ele geçirilmesi ile sonuçlanan saldırılara sebep olan açıklıklardır. |\n| Kritik | Nitelikli saldırgan tarafından banka dış ağından gerçekleştirilen ve sistemin tamamen ele geçirilmesi ile sonuçlanan saldırılara sebep olan açıklıklardır. |\n| Yüksek | Banka dış ağından gerçekleştirilen ve kısıtlı hak yükseltilmesi veya hizmet dışı kalma ile sonuçlanan, ayrıca yerel ağdan ya da sunucu üzerinden gerçekleştirilen ve hak yükseltmeyi sağlayan saldırılara sebep olan açıklıklardır. |\n| Orta | Yerel ağdan veya sunucu üzerinden gerçekleştirilen ve hizmet dışı bırakılma ile sonuçlanan saldırılara sebep olan açıklıklardır. |\n| Düşük | Etkilerinin tam olarak belirlenemediği ve literatürdeki en iyi sıkılaştırma yöntemlerinin izlenmemesinden kaynaklanan eksikliklerdir. |"
+  },
+  {
+   "start": "Bulgu Referans No Rapordaki",
+   "end": "1",
+   "md": "| Bulgu Referans No | Rapordaki her bulguyu tekil olarak niteleyen harf/rakam dizisi |\n|---|---|\n| Bulgu Adı | Bulguyu özet olarak ifade eden tanımlayıcı isim |\n| Önem Derecesi | Bulgunun, EK-1’de yer verilen önem derecesi |\n| Etkisi | Bulguda yer verilen açıklığın/eksikliğin kötüye kullanılması durumunda oluşabilecek potansiyel sonuç |\n| Erişim Noktası | “3.1 Testlerin Gerçekleştirileceği Erişim Noktaları” bölümünde yer verilen testin gerçekleştirildiği erişim noktası |\n| Kullanıcı Profili | “3.2 Testlerin Gerçekleştirileceği Kullanıcı Profilleri” bölümünde yer verilen testin gerçekleştirildiği kullanıcı profili |\n| Bulgunun Tespit Edildiği Bileşen/Bileşenler$^{1}$ | Bulgunun tespit edildiği bileşeni niteleyen IP Numarası, URL, Sistem, Servis, Sunucu veya Varlık adı gibi bilgiler |\n| Bulgu Açıklaması | Bulgunun detaylı açıklaması |\n| Çözüm Önerisi | Bulgunun giderilmesi için testi gerçekleştiren kuruluş tarafından yapılacak çözüm önerisi |"
+  }
+ ],
+ "starts": [
+  "Bulgu önem dereceleri beş",
+  "EKLER:"
+ ]
+}

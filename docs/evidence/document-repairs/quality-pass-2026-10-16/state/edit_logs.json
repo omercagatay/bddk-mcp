@@ -1,0 +1,2811 @@
+{
+ "1028": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1029": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "1030": {
+  "applied_windows": 5,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1037": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "1038": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1039": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "1040": {
+  "applied_windows": 11,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "superscripts"
+   ]
+  ]
+ },
+ "1041": {
+  "applied_windows": 21,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "superscripts"
+   ],
+   [
+    "footnote_rejoin"
+   ],
+   [
+    "superscripts"
+   ]
+  ]
+ },
+ "1043": {
+  "manual_steps": [
+   [
+    "joins"
+   ]
+  ]
+ },
+ "1045": {
+  "manual_steps": [
+   [
+    "joins"
+   ],
+   [
+    "whitespace"
+   ]
+  ]
+ },
+ "1047": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "105": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1051": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1059": {
+  "applied_windows": 6,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "joins"
+   ]
+  ]
+ },
+ "1060": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1071": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1084": {
+  "applied_windows": 5,
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "superscripts"
+   ]
+  ]
+ },
+ "1085": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [],
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "joins"
+   ]
+  ]
+ },
+ "1086": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1087": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1091": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1099": {
+  "applied_windows": 3,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "110": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1109": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1121": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1125": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1126": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "1127": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1131": {
+  "applied_windows": 7,
+  "manual_steps": [
+   [],
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "superscripts"
+   ]
+  ]
+ },
+ "1135": {
+  "applied_windows": 14,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1138": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1147": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1155": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1157": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1159": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1161": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1162": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1163": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1164": {
+  "manual_steps": [
+   [],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "1166": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1167": {
+  "applied_windows": 9,
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "superscripts"
+   ],
+   [
+    "footnote_rejoin"
+   ]
+  ]
+ },
+ "1171": {
+  "applied_windows": 8,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "superscripts"
+   ],
+   [],
+   [],
+   [],
+   [
+    "footnote_rejoin"
+   ],
+   [
+    "note"
+   ],
+   [
+    "superscripts"
+   ]
+  ]
+ },
+ "1175": {
+  "applied_windows": 2,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1176": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1184": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1185": {
+  "applied_windows": 2,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1190": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1191": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1192": {
+  "applied_windows": 2,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1193": {
+  "applied_windows": 4,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1207": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1208": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1214": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1216": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1218": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1220": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1224": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1225": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "joins"
+   ]
+  ]
+ },
+ "1226": {
+  "applied_windows": 2,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1230": {
+  "applied_windows": 25,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1240": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "1249": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1253": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1254": {
+  "applied_windows": 2,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1255": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1259": {
+  "manual_steps": [
+   [],
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "126": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1260": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1263": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1268": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1270": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1278": {
+  "applied_windows": 5,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1279": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "1280": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1282": {
+  "applied_windows": 3,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1284": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1285": {
+  "applied_windows": 5,
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild",
+    "relay"
+   ],
+   [
+    "superscripts"
+   ],
+   [],
+   [],
+   [
+    "footnote_rejoin"
+   ],
+   [
+    "joins"
+   ],
+   [
+    "scripts"
+   ]
+  ],
+  "scripts_count": 10
+ },
+ "1286": {
+  "applied_windows": 3,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1287": {
+  "applied_windows": 7,
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "1288": {
+  "applied_windows": 10,
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "text_formulas"
+   ]
+  ]
+ },
+ "129": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1290": {
+  "applied_windows": 2,
+  "manual_steps": [
+   [],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "1291": {
+  "applied_windows": 6,
+  "manual_steps": [
+   [],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "1293": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1296": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [],
+   [],
+   [],
+   [],
+   [
+    "joins"
+   ],
+   [
+    "whitespace"
+   ],
+   [
+    "whitespace"
+   ],
+   [
+    "official_update",
+    "title"
+   ]
+  ]
+ },
+ "1301": {
+  "applied_windows": 3,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1305": {
+  "manual_steps": [
+   [
+    "joins"
+   ],
+   [
+    "scripts"
+   ],
+   [
+    "whitespace"
+   ],
+   [
+    "whitespace"
+   ]
+  ],
+  "scripts_count": 25
+ },
+ "1310": {
+  "applied_windows": 3,
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "1311": {
+  "applied_windows": 4,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "superscripts"
+   ],
+   [
+    "footnote_rejoin"
+   ]
+  ]
+ },
+ "1312": {
+  "applied_windows": 7,
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "1313": {
+  "manual_steps": [
+   [
+    "joins"
+   ],
+   [],
+   [],
+   [
+    "scripts"
+   ],
+   [
+    "whitespace"
+   ],
+   [
+    "whitespace"
+   ]
+  ],
+  "scripts_count": 90
+ },
+ "1314": {
+  "manual_steps": [
+   [
+    "whitespace"
+   ]
+  ]
+ },
+ "1315": {
+  "applied_windows": 2,
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "1316": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1317": {
+  "applied_windows": 2,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1318": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1321": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1323": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1324": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1325": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1326": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "1327": {
+  "manual_steps": [
+   [],
+   [],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "1334": {
+  "manual_steps": [
+   [
+    "joins"
+   ]
+  ]
+ },
+ "162": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "168": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "169": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "170": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "174": {
+  "applied_windows": 2,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "177": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "182": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "183": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "188": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "189": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "191": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "194": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "196": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "203": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "214": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "218": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "220": {
+  "applied_windows": 2,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "226": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "229": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "238": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "241": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "256": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "283": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "284": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "285": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "313": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "39": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "40": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "427": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "43": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "438": {
+  "applied_windows": 3,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "442": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "443": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "445": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "447": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "448": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "449": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "450": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "473": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "552": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "569": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "577": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "580": {
+  "applied_windows": 2,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "589": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "594": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "596": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "602": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "605": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "608": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "609": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "616": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "624": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "627": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "630": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "636": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "639": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "641": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "643": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "652": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "653": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "660": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "670": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "673": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "679": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "696": {
+  "applied_windows": 2,
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild",
+    "relay"
+   ]
+  ]
+ },
+ "698": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "70": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "702": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "703": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "704": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "71": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "720": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "73": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "731": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "74": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "744": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "751": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "758": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "759": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "77": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "773": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "774": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "775": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "776": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "777": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "778": {
+  "applied_windows": 2,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "779": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "780": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "781": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "782": {
+  "applied_windows": 2,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "783": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "784": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "786": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "787": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "789": {
+  "manual_steps": [
+   [],
+   [],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "79": {
+  "applied_windows": 2,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "793": {
+  "manual_steps": [
+   [],
+   [],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "794": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "795": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "796": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "798": {
+  "manual_steps": [
+   [],
+   [],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "80": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "800": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "802": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "803": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "804": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "805": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "806": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "808": {
+  "manual_steps": [
+   [],
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "81": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "83": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "85": {
+  "applied_windows": 4,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "90": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "900": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "901": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "902": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "903": {
+  "manual_steps": [
+   [
+    "joins",
+    "page_numbers_removed"
+   ],
+   [
+    "scripts"
+   ],
+   [
+    "whitespace"
+   ]
+  ],
+  "scripts_count": 35
+ },
+ "905": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "joins"
+   ]
+  ]
+ },
+ "907": {
+  "manual_steps": [
+   [
+    "page_furniture_removed"
+   ],
+   [
+    "joins"
+   ],
+   [
+    "joins"
+   ],
+   [
+    "joins"
+   ],
+   [
+    "whitespace"
+   ]
+  ]
+ },
+ "908": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "909": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "91": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "911": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "912": {
+  "applied_windows": 2,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "913": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "915": {
+  "applied_windows": 9,
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild",
+    "relay"
+   ],
+   [],
+   [
+    "joins"
+   ]
+  ]
+ },
+ "917": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "93": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "934": {
+  "applied_windows": 14,
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [],
+   [],
+   [
+    "joins"
+   ]
+  ]
+ },
+ "935": {
+  "applied_windows": 13,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "superscripts"
+   ]
+  ]
+ },
+ "943": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "944": {
+  "applied_windows": 1,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "945": {
+  "applied_windows": 9,
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "946": {
+  "applied_windows": 22,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "superscripts"
+   ],
+   [
+    "joins"
+   ]
+  ]
+ },
+ "947": {
+  "applied_windows": 10,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "superscripts"
+   ]
+  ]
+ },
+ "948": {
+  "applied_windows": 15,
+  "manual_steps": [
+   [],
+   [
+    "full_rebuild"
+   ],
+   [
+    "superscripts"
+   ],
+   [
+    "superscripts"
+   ],
+   [
+    "footnote_rejoin"
+   ]
+  ]
+ },
+ "949": {
+  "applied_windows": 7,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "joins"
+   ]
+  ]
+ },
+ "950": {
+  "applied_windows": 3,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "superscripts"
+   ]
+  ]
+ },
+ "951": {
+  "applied_windows": 7,
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "superscripts"
+   ],
+   [],
+   [],
+   [],
+   [],
+   [],
+   [],
+   [
+    "footnote_rejoin"
+   ]
+  ]
+ },
+ "952": {
+  "applied_windows": 2,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "superscripts"
+   ]
+  ]
+ },
+ "953": {
+  "applied_windows": 9,
+  "manual_steps": [
+   [],
+   [],
+   [
+    "full_rebuild"
+   ],
+   [
+    "superscripts"
+   ],
+   [],
+   [
+    "footnote_rejoin"
+   ]
+  ]
+ },
+ "954": {
+  "applied_windows": 29,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ],
+   [
+    "superscripts"
+   ],
+   [
+    "joins"
+   ],
+   [
+    "joins"
+   ]
+  ]
+ },
+ "955": {
+  "applied_windows": 3,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "956": {
+  "applied_windows": 4,
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "96": {
+  "manual_steps": [
+   [
+    "full_rebuild",
+    "gate"
+   ]
+  ]
+ },
+ "kgk_tms_12": {
+  "manual_steps": [
+   [
+    "joins"
+   ]
+  ]
+ },
+ "mevzuat_10732": {
+  "manual_steps": [
+   [
+    "rg_table"
+   ]
+  ]
+ },
+ "mevzuat_10735": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "mevzuat_10736": {
+  "manual_steps": [
+   [
+    "rg_table"
+   ]
+  ]
+ },
+ "mevzuat_10737": {
+  "manual_steps": [
+   [
+    "rg_table"
+   ]
+  ]
+ },
+ "mevzuat_10739": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   []
+  ]
+ },
+ "mevzuat_10742": {
+  "manual_steps": [
+   [
+    "rg_table"
+   ]
+  ]
+ },
+ "mevzuat_10747": {
+  "manual_steps": [
+   [
+    "rg_table"
+   ]
+  ]
+ },
+ "mevzuat_10749": {
+  "manual_steps": [
+   [
+    "rg_table"
+   ],
+   [
+    "flat_tables"
+   ]
+  ]
+ },
+ "mevzuat_10750": {
+  "manual_steps": [
+   [
+    "rg_table"
+   ]
+  ]
+ },
+ "mevzuat_10770": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "mevzuat_11085": {
+  "manual_steps": [
+   [
+    "rg_table"
+   ]
+  ]
+ },
+ "mevzuat_12060": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "mevzuat_15323": {
+  "manual_steps": [
+   [
+    "rg_table"
+   ]
+  ]
+ },
+ "mevzuat_15481": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "joins"
+   ]
+  ]
+ },
+ "mevzuat_16291": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "mevzuat_16292": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "mevzuat_18799": {
+  "manual_steps": [
+   [
+    "rg_table"
+   ]
+  ]
+ },
+ "mevzuat_18990": {
+  "manual_steps": [
+   [
+    "rg_table"
+   ],
+   [
+    "flat_tables"
+   ]
+  ]
+ },
+ "mevzuat_18991": {
+  "manual_steps": [
+   [
+    "flat_tables"
+   ]
+  ]
+ },
+ "mevzuat_19498": {
+  "manual_steps": [
+   [
+    "rg_table"
+   ],
+   [
+    "whitespace"
+   ],
+   [
+    "annex_xlsx"
+   ]
+  ]
+ },
+ "mevzuat_19864": {
+  "manual_steps": [
+   [
+    "rg_table"
+   ],
+   [
+    "flat_tables"
+   ]
+  ]
+ },
+ "mevzuat_20031": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "mevzuat_20145885": {
+  "manual_steps": [
+   [
+    "flat_tables"
+   ]
+  ]
+ },
+ "mevzuat_21192": {
+  "manual_steps": [
+   [
+    "whitespace"
+   ]
+  ]
+ },
+ "mevzuat_21193": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "joins"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "joins"
+   ],
+   [
+    "full_rebuild"
+   ],
+   [
+    "joins"
+   ]
+  ]
+ },
+ "mevzuat_21194": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "scripts"
+   ],
+   [
+    "rg_legend"
+   ]
+  ],
+  "scripts_count": 7
+ },
+ "mevzuat_21195": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ],
+   [
+    "text_formulas"
+   ]
+  ]
+ },
+ "mevzuat_21196": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "mevzuat_21278": {
+  "manual_steps": [
+   [
+    "rg_table"
+   ]
+  ]
+ },
+ "mevzuat_21425": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "mevzuat_22598": {
+  "manual_steps": [
+   [
+    "rg_table"
+   ],
+   [
+    "flat_tables"
+   ]
+  ]
+ },
+ "mevzuat_24654": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "mevzuat_24788": {
+  "manual_steps": [
+   [
+    "rg_table"
+   ]
+  ]
+ },
+ "mevzuat_34006": {
+  "manual_steps": [
+   [
+    "rg_table"
+   ]
+  ]
+ },
+ "mevzuat_34360": {
+  "manual_steps": [
+   [
+    "rg_table"
+   ]
+  ]
+ },
+ "mevzuat_38859": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "mevzuat_39158": {
+  "manual_steps": [
+   [
+    "text_formulas"
+   ]
+  ]
+ },
+ "mevzuat_39442": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "mevzuat_40520": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ]
+  ]
+ },
+ "mevzuat_42363": {
+  "manual_steps": [
+   [
+    "full_rebuild"
+   ]
+  ]
+ }
+}

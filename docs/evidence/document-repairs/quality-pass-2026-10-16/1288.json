@@ -1,0 +1,45 @@
+{
+ "document_id": "1288",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "0a511545f1f193cd01874b47298c20bb008a57dcf94d28b86a008bb7f1f17078",
+ "output_markdown_sha256": "2a3131f27cc8f67f09f4104473d1286241675d6b068d6fbd83c91381021c865c",
+ "extraction_method_before": "markitdown",
+ "extraction_method_after": "pdftotext_layout+manual_latex",
+ "change_classes": [
+  "scrambled word order: 10 windows restored from PDF order (pdftotext -layout, confirmed by -raw content-stream order)",
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "13 table block(s) written as Markdown tables, reviewed against the page image",
+  "formulas printed as plain text written as LaTeX with the printed symbols kept, each compared with the official source line (textformulas.py / annex19498.py for EK-3)"
+ ],
+ "pages_visually_reviewed": [
+  1,
+  4,
+  5,
+  6,
+  7,
+  9,
+  11,
+  17
+ ],
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1288",
+ "section_changes": {
+  "lost": [
+   "fikra 1"
+  ],
+  "gained": [],
+  "note": "the lost fıkra was a scrambled duplicate of 'MADDE 6 – (1) Maruz kalınan riskler', now inline as printed"
+ },
+ "source_pdf_sha256": "61459b6e626471f09f18fee4afe2aae211b91fd9a295c83319245638af56290d",
+ "source_pdf_bytes": 214025,
+ "source_pdf_matches_stored_file_size": true,
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

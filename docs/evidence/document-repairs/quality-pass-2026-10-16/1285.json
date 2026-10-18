@@ -1,0 +1,40 @@
+{
+ "document_id": "1285",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "a3c495823964a490b55378a23141e25ab8b33ea96f5787f2084682f50a49462d",
+ "output_markdown_sha256": "c1721a5c82d4ed4d573c083bb34ba3eedcaf1ad5dfe4649cc4b5696bb884a7b8",
+ "extraction_method_before": "markitdown",
+ "extraction_method_after": "pdftotext_layout",
+ "change_classes": [
+  "scrambled word order: 5 windows restored from PDF order (pdftotext -layout, confirmed by -raw content-stream order)",
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "27 table block(s) written as Markdown tables, reviewed against the page image",
+  "1 reviewed spot replacement(s) in the rebuilt text: 'm2' -> 'm²'",
+  "superscript footnote markers written as $^{n}$ (with their footnote bodies)",
+  "paragraph split by a page-bottom footnote block rejoined; footnotes follow the paragraph",
+  "paragraphs broken mid-sentence (page break, hanging indent or justified-line split) rejoined; each break was checked against the page image or the relay layout before joining",
+  "10 glued formula-variable sub/superscripts written as LaTeX ($_{…}$ / $^{…}$), each token checked against the PDF glyph size and baseline; occurrences the PDF prints plain stay plain (scriptfix.py)",
+  "2 manual correction step(s) after the rebuild, reviewed against the page image"
+ ],
+ "pages_visually_reviewed": [
+  7,
+  8,
+  21,
+  22,
+  23
+ ],
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1285",
+ "source_pdf_sha256": "148040a518163a2f732336e318aeea9873a731f4f8beee7d5895cea6f0d7c615",
+ "source_pdf_bytes": 494898,
+ "source_pdf_matches_stored_file_size": true,
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

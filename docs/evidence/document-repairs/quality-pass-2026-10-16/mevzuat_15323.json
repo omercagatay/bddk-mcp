@@ -1,0 +1,17 @@
+{
+ "document_id": "mevzuat_15323",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "local_edit",
+ "input_markdown_sha256": "c88935b9f8d28aee3d16ec7cb653edb6aef402227e90df5fb599fec1619461e8",
+ "output_markdown_sha256": "df59bf28b24361249b64aecc303804c6d8b0975344437c159b36f2e4e3415fe8",
+ "extraction_method_before": "html_parser",
+ "extraction_method_after": "html_parser",
+ "change_classes": [
+  "U+0092 (cp1254 right quote) -> ’ ×1",
+  "U+0096 (cp1254 en dash) -> – ×25",
+  "flattened closing Resmî Gazete list written as the reviewed table layout"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.15323&MevzuatIliski=0&sourceXmlSearch=denetleme kurumu personeli"
+}

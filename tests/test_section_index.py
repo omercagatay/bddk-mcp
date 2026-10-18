@@ -53,6 +53,19 @@ def test_extracts_gecici_madde_and_ek_headings():
     assert ("ek", "2") in refs
 
 
+def test_annex_headings_with_printed_dash_or_markdown_marker_end_the_last_article():
+    text = (
+        "MADDE 12 – (1) Bu Tebliğ hükümlerini Kurum Başkanı yürütür.\n\n"
+        "EK–1\n\nRİSK AĞIRLIKLI TUTAR HESAPLAMASI\n\n## EK-2\n\nKarşı taraf kredi riski\n"
+    )
+
+    sections = {(s.section_type, s.section_ref): s for s in extract_document_sections("doc", text)}
+
+    assert ("ek", "1") in sections
+    assert ("ek", "2") in sections
+    assert "RİSK AĞIRLIKLI" not in sections[("madde", "12")].content
+
+
 def test_heading_with_marker_after_the_number():
     text = (
         "MADDE 7$^{(1)}$ – (Değişik:RG-14/10/2012-28441)\nHüküm.\n\nGeçici Madde 32$^{[71]}$ – (Ek:17/7/2019)\nHüküm."
@@ -534,6 +547,32 @@ def test_pdf_wrap_debris_after_last_fikra_is_trimmed():
     assert "riski" not in madde4.content.split("alınır.")[-1]
 
 
+def test_closing_formula_stays_in_its_section_while_the_next_title_is_trimmed():
+    text = (
+        "MADDE 39- (1) Volatilite ayarlamaları kullanılır.\n\n"
+        "(2) “H”, volatilite ayarlamasını\nifade etmek üzere aşağıdaki formül yoluyla belirlenir.\n\n"
+        "$$\nH = \\sum_{i} a_{i} H_{i}\n$$\n\n"
+        "Standart Volatilite Ayarlaması Yaklaşımı\n\n"
+        "MADDE 40- (1) Ayarlamalar günlük yapılır.\n\n"
+        "(2) Kur uyumsuzluğu için teminatın değeri aşağıdaki formül yoluyla hesaplanır:\n\n"
+        "G* = G x (1 – HFX)\n\n"
+        "(3) Vade uyumsuzluğu dikkate alınır.\n"
+    )
+
+    sections = extract_document_sections("1312", text)
+    madde40_start = text.index("MADDE 40")
+
+    def section(section_type: str, ref: str, after: int = 0):
+        return next(
+            s for s in sections if s.section_type == section_type and s.section_ref == ref and s.start_char >= after
+        )
+
+    for closing in (section("madde", "39"), section("fikra", "2")):
+        assert closing.content.endswith("$$\nH = \\sum_{i} a_{i} H_{i}\n$$")
+    assert "Standart Volatilite" not in section("madde", "39").content
+    assert section("fikra", "2", madde40_start).content.endswith("G* = G x (1 – HFX)")
+
+
 def test_unstructured_body_is_indexed_as_govde_not_paragraf():
     text = (
         "Kurul tarafından 16.11.2006 tarih ve 2026 sayılı Karar ile belirlenen hedef oran. "
@@ -593,3 +632,181 @@ def test_guideline_paragraph_inventory_preserves_adjacent_transposition_and_bent
     assert [int(s.section_ref) for s in paragraphs] == numbers
     assert all("(a) Alt bent metni." in s.content for s in paragraphs)
     assert all(text[s.start_char : s.end_char].strip() == s.content for s in paragraphs)
+
+
+def test_inserted_additional_and_misprinted_articles_are_their_own_sections():
+    text = (
+        "Madde 66 — (1) Asıl madde.\n\n"
+        "Madde 66/A – (Ek:20/2/2020-7222/6 md.)\n(1) Araya eklenen madde.\n\n"
+        "MADDE 13/Ç- (Ek:RG-19/8/2015-29450)\n(1) Harfli madde.\n\n"
+        "MADDE 14. - 1. Noktalı numara.\n\n"
+        "GEÇİÇİ MADDE 1 – (1) Yanlış yazılmış geçici madde.\n\n"
+        "GEÇİCİMADDE 2 – Bitişik yazılmış geçici madde.\n\n"
+        "MADDE 16 (1) Tiresiz ilk fıkra.\n\n"
+        "Ek Madde 1 — (Ek: 13/2/2011-6111/149 md.)\n(1) Ek madde.\n"
+    )
+
+    sections = {(s.section_type, s.section_ref): s for s in extract_document_sections("doc", text)}
+
+    assert {
+        ("madde", "66"),
+        ("madde", "66/a"),
+        ("madde", "13/ç"),
+        ("madde", "14"),
+        ("madde", "16"),
+        ("gecici_madde", "1"),
+        ("gecici_madde", "2"),
+        ("ek_madde", "1"),
+    } <= set(sections)
+    assert ("madde", "1") not in sections
+    assert "Araya eklenen" not in sections[("madde", "66")].content
+    assert sections[("madde", "16")].heading == "(1) Tiresiz ilk fıkra."
+
+
+def test_article_range_closes_the_previous_article_without_an_identity():
+    text = (
+        "MADDE 145 – (1) Önceki madde.\n\n"
+        "MADDE 146 ila 149 – (660 sayılı KHK ile ilgili olup yerine işlenmiştir.)\n\n"
+        "MADDE 150 – (1) Bu Kanun yayımı tarihinde yürürlüğe girer.\n"
+    )
+
+    maddeler = {s.section_ref: s for s in extract_document_sections("doc", text) if s.section_type == "madde"}
+
+    assert set(maddeler) == {"145", "150"}
+    assert "ila 149" not in maddeler["145"].content
+
+
+def test_cross_references_and_undotted_principles_stay_prose():
+    for line in (
+        "Madde 4, Fıkra 2, (b) bendinde listelenen süreçler",
+        "Geçici Madde 2’ye paralel olarak tamamlanır.",
+        "Madde 5 (1) inci fıkrası uyarınca bildirilir.",
+        "İlke 6. Bankalar, hangi tür faaliyetlerin yoğunlaşma doğurduğunu belirler.",
+    ):
+        assert _find_section_starts(line + "\n") == []
+
+
+def test_dot_principles_index_only_once_a_classic_principle_exists():
+    text = (
+        "İlke 1. Yoğunlaşma riski yönetimi.\nMetin.\n\n"
+        "İlke 2: Bankalar yoğunlaşmayı izler.\nMetin.\n\n"
+        "İlke 3. Bankalar acil fonlama planı hazırlar.\nMetin.\n\n"
+        "EK 1. YOĞUNLAŞMA RİSKİ ÖRNEKLERİ\nTablo.\n"
+    )
+
+    sections = {(s.section_type, s.section_ref): s for s in extract_document_sections("947", text)}
+
+    assert {("ilke", "1"), ("ilke", "2"), ("ilke", "3"), ("ek", "1")} <= set(sections)
+    assert "ÖRNEKLERİ" not in sections[("ilke", "3")].content
+    # 946 shape: without a classic principle the line stays inside the numbered body.
+    body = extract_document_sections("946", "İlke 1. Bankalar yoğunlaşmayı izler.\n" + _dash_body(25))
+    assert [s.section_type for s in body].count("paragraf") == 25
+    assert not any(s.section_type == "ilke" for s in body)
+
+
+def test_wrapped_cross_references_and_reference_sentences_are_not_subsections():
+    text = (
+        "MADDE 7 – (1) Bankaların ödenmiş sermayesi asgari tutardır.\n\n"
+        "(2) Ödenmiş sermaye tutarı 7 nci maddenin\n"
+        "(2) numaralı fıkrasının (d) bendinde belirtilen tutarın üçte ikisinden az olamaz.\n\n"
+        "(3) Tabloda;\n\n"
+        "(a) ile (e) arasındaki sütunlar risk ağırlıklarını gösterir.\n\n"
+        "(a) Birinci bent.\n"
+    )
+
+    subsections = [
+        (s.section_type, s.section_ref, s.start_char)
+        for s in extract_document_sections("1230", text)
+        if s.section_type in ("fikra", "bent")
+    ]
+
+    assert [(kind, ref) for kind, ref, _ in subsections] == [("fikra", "2"), ("fikra", "3"), ("bent", "a")]
+    assert subsections[-1][2] == text.index("(a) Birinci bent.")
+
+
+def test_attached_law_lists_close_the_last_article_without_becoming_subsections():
+    text = (
+        "Madde 171 – Bu Kanun hükümlerini Cumhurbaşkanı yürütür.\n\n"
+        "(I) SAYILI CETVEL\n\nKURUMU: BANKACILIK DÜZENLEME VE DENETLEME KURUMU\n\n"
+        "(2) SAYILI LİSTE\n\n| SINIF | UNVAN |\n|---|---|\n| GİH | Kurul Üyesi |\n"
+    )
+
+    sections = extract_document_sections("mevzuat_5411", text)
+    last = next(s for s in sections if (s.section_type, s.section_ref) == ("madde", "171"))
+
+    assert last.content == "Madde 171 – Bu Kanun hükümlerini Cumhurbaşkanı yürütür."
+    assert not [s for s in sections if s.section_type in ("fikra", "bent")]
+    assert any(s.section_type == "govde" and "SAYILI LİSTE" in s.content for s in sections)
+
+
+def test_article_quoted_by_an_amending_law_stays_in_the_quoting_article():
+    text = (
+        "MADDE 24. – (1) Önceki madde.\n\n"
+        "MADDE 25. – 1211 sayılı Kanunun 44 üncü maddesi aşağıdaki şekilde değiştirilmiştir;\n\n"
+        "Madde 44- Banka, faaliyette bulunan bankalar hakkında bilgi toplar.\n\n"
+        "MADDE 26. – (1) Bu Kanun yayımı tarihinde yürürlüğe girer.\n"
+    )
+
+    maddeler = {s.section_ref: s for s in extract_document_sections("1230", text) if s.section_type == "madde"}
+
+    assert set(maddeler) == {"24", "25", "26"}
+    assert "Madde 44- Banka" in maddeler["25"].content
+
+
+def test_wrapped_last_sentence_stays_with_its_article_while_the_next_title_is_trimmed():
+    text = (
+        "MADDE 20. – (1) Çek hesabı açılır.\n\n"
+        "(5) Kanun kapsamındaki çeklerin bu Kanun\n"
+        "ve diğer mevzuatın çeke ilişkin hükümlerine tâbi olup olmayacağı Bakanlar\n"
+        "Kurulunca düzenlenir. Düzenleme dışı kalan hususlarda 6762 sayılı Türk Ticaret\n"
+        "Kanunu ve ilgili diğer kanun hükümleri uygulanır\n\n"
+        "İdari suç ve cezalar\n\n"
+        "MADDE 21. – (1) Cezalar uygulanır.\n"
+    )
+
+    madde20 = next(s for s in extract_document_sections("1230", text) if s.section_ref == "20")
+
+    assert madde20.content.endswith("Kanunu ve ilgili diğer kanun hükümleri uygulanır")
+    assert "İdari suç" not in madde20.content
+
+
+def test_reference_and_legend_lines_and_roman_sublists_are_not_bents():
+    text = (
+        "MADDE 9 – (1) Tabloda;\n\n"
+        "(c) bentleri, validasyon sürecinde dikkate alınır.\n\n"
+        "(g) sütunu, risk ağırlığını gösterir.\n\n"
+        "(c) - (e) sütunları toplamı verir.\n\n"
+        "(2) Hesaplamada;\n\n"
+        "(i) Mevduat bankaları için:\n\n"
+        "(ii) Katılım bankaları için:\n\n"
+        "(3) Bentler şunlardır:\n\n"
+        "(ı) birinci bent,\n\n"
+        "(i) ikinci bent,\n\n"
+        "(j) üçüncü bent.\n"
+    )
+
+    subsections = [(s.section_type, s.section_ref) for s in extract_document_sections("doc", text)]
+
+    assert [ref for kind, ref in subsections if kind == "bent"] == ["ı", "i", "j"]
+    assert [ref for kind, ref in subsections if kind == "fikra"] == ["2", "3"]
+
+
+def test_draft_rationale_repealed_one_liners_and_annex_tables_keep_their_own_text():
+    text = (
+        "MADDE 71 — (1) Önceki madde.\n\n"
+        "Madde 72 — (Mülga: 6/12/2012-6362/145 md.)\n\n"
+        "YEDİNCİ KISIM\n\nKanunî Yükümlülükler\n\nSırların saklanması\n\n"
+        "Madde 73 — (1) Kurul üyeleri sırları açıklayamaz.\n\n"
+        "| Yönetmeliğin Yayımlandığı Resmî Gazete | Sayısı |\n|---|---|\n| 1 | 29314 |\n\n"
+        "EK-1\n\n| 20 GETS İçin (%) | 10 GETS İçin (%) |\n|---|---|\n| 11,314 | 8 |\n\n"
+        "EK-2\n\nKISALTMALAR\n\nBK : Beklenen Kayıp\n\nTO : Temerrüt olasılığı\n\n"
+        "GENEL GEREKÇE\n\nBilindiği üzere; bu Taslak ile düzenleme yapılması amaçlanmaktadır.\n"
+    )
+
+    sections = {(s.section_type, s.section_ref): s for s in extract_document_sections("doc", text)}
+
+    assert sections[("madde", "72")].content == "Madde 72 — (Mülga: 6/12/2012-6362/145 md.)"
+    assert "| 1 | 29314 |" not in sections[("madde", "73")].content
+    assert sections[("ek", "1")].content.endswith("| 11,314 | 8 |")
+    assert sections[("ek", "2")].content.endswith("TO : Temerrüt olasılığı")
+    assert any(s.section_type == "govde" and "Bilindiği üzere" in s.content for s in sections.values())

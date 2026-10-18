@@ -1,0 +1,34 @@
+{
+ "document_id": "905",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "cfc6b3b539433400a0e7b38f38f60a7adde732690376fb83edb0e715d9dce4f2",
+ "output_markdown_sha256": "74ad1d056f0b80f9c08935a57f78269c22ea9dda5cad5538056cfff1572138ff",
+ "extraction_method_before": "markitdown",
+ "extraction_method_after": "pdftotext_layout",
+ "change_classes": [
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "3 reviewed spot replacement(s) in the rebuilt text: 'Ġ' -> 'İ'; 'ġ' -> 'Ş'; 'Ģ' -> 'ş'",
+  "paragraphs broken mid-sentence (page break, hanging indent or justified-line split) rejoined; each break was checked against the page image or the relay layout before joining",
+  "the PDF text layer maps three Turkish glyphs to Ġ/ġ/Ģ; mapped back (İ/Ş/ş) after alignment with the stored text",
+  "the 6 tables are the reviewed stored table blocks, placed at their page areas",
+  "12 glued footnote markers and the 15 footnote bodies written as Unicode superscripts (the reviewed form of this document's tables); 3 paragraphs split by a page-bottom footnote block rejoined (post905.py)"
+ ],
+ "pages_visually_reviewed": [
+  20,
+  29
+ ],
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/905",
+ "source_pdf_sha256": "2a168df63aca7d8a29c17938b99834b6a85ac39dbcd1b39033da95d01c623ab4",
+ "source_pdf_bytes": 923668,
+ "source_pdf_matches_stored_file_size": true,
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

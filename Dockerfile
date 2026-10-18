@@ -1,4 +1,4 @@
-FROM python:3.13.16-slim-trixie@sha256:5434c2206183169a6c2b11d6156b775a02cce9a2fd00f9482bb8b9bb785e9b3f
+FROM python:3.13.16-slim-trixie@sha256:70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f
 
 WORKDIR /app
 
@@ -57,6 +57,14 @@ RUN chgrp -R 0 /app/seed_data /app/trust && chmod -R g=u /app/seed_data /app/tru
 # OpenShift keeps the non-root USER below. The process creates the 0600 SQLite
 # file itself (drafts.py refuses anything less private).
 RUN mkdir -p /data && chgrp 0 /data && chmod g+rwX /data
+# Hardening: the serving process never runs the terminal, login/mount or perl
+# tooling of the base image, and their Debian 13 CVEs have no fix
+# (supply-chain/policy.json).  Nothing else in the image depends on them;
+# dash, coreutils and findutils stay because Railway wraps start commands in
+# `sh -c`.
+RUN dpkg --purge --force-remove-essential --force-remove-protected --force-depends \
+        util-linux mount login bsdutils liblastlog2-2 libsmartcols1 libmount1 libblkid1 libuuid1 \
+        ncurses-bin ncurses-base libncursesw6 libtinfo6 libreadline8t64 bash perl-base
 USER 10001:0
 
 EXPOSE 8000

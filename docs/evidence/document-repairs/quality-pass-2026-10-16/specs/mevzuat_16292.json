@@ -1,0 +1,16 @@
+{
+ "tables": [
+  {
+   "start": "Tebliğin Yayımlandığı Resmî Gazete’nin",
+   "end": null,
+   "md": "|  | Tebliğin Yayımlandığı Resmî Gazete’nin | Tebliğin Yayımlandığı Resmî Gazete’nin |\n|---|---|---|\n|  | Tarihi | Sayısı |\n|  | 28/6/2012 | 28337 |\n|  | Tebliğde Değişiklik Yapan Tebliğlerin Yayımlandığı Resmî Gazetelerin | Tebliğde Değişiklik Yapan Tebliğlerin Yayımlandığı Resmî Gazetelerin |\n|  | Tarihi | Sayısı |\n| 1. | 23/10/2015 | 29511 |\n| 2. |  |  |\n| 3. |  |  |"
+  }
+ ],
+ "replace": [
+  [
+   "Gama Etkisi = 1/2 x Gama x (FD)2\n",
+   "Gama Etkisi = 1/2 x Gama x (FD)$^{2}$\n",
+   1
+  ]
+ ]
+}

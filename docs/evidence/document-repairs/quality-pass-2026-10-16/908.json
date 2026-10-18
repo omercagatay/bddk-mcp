@@ -1,0 +1,37 @@
+{
+ "document_id": "908",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "3400b0ba17516fc10a5a8032cbd27cf26e2b13a08d17ca8d3063e4c14549602b",
+ "output_markdown_sha256": "7abb56b37a0208c6267e6180e1b8c9db5e1e2b9d60fdcf579351ddae130ab864",
+ "extraction_method_before": "markitdown",
+ "extraction_method_after": "pdftotext_layout",
+ "change_classes": [
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/908",
+ "source_pdf_sha256": "d390d88b546241429bc3986c61170a45ddd1bf16a6c167d14eb38ad0fb2dfa61",
+ "source_pdf_bytes": 39407,
+ "source_pdf_matches_stored_file_size": true,
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "review",
+  "reasons": [
+   "punctuation differs {'(': 6, ')': 6, ':': 12, '.': 9}"
+  ],
+  "paragraph_break_spots": 0
+ },
+ "gate_resolution": [
+  "punctuation difference = dropped page-furniture lines (letterhead footer, page numbers)"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

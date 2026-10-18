@@ -144,20 +144,31 @@ still `repository_policy_passed_unsigned_evidence` and is also not promotion
 eligible. The bank promotion control must reject either result until it has
 authenticated its own approval and signed the exact promoted digest.
 
-The current secret exceptions are 99 exact fingerprints: eight historical
+The current secret exceptions are 101 exact fingerprints: eight historical
 findings on runtime-generated test keys/passwords and synthetic redaction
-fixtures, seven public verification-key fingerprints, and 84 public document
-page-token checksums. The 90 document-repair findings bind the exact `fa5f28c`
+fixtures, seven public verification-key fingerprints, 84 public document
+page-token checksums, and two SHA-256 content digests of a public legal version
+(document 943 `version_key`). The 90 document-repair findings bind the exact `fa5f28c`
 commit and line identities reported by run `35575513111`. Regression tests
 recompute all 84 checksums from retained public source transcripts and baseline
 slices, and all six new key fingerprints from the public trust-anchor PEM.
 Changing either a historical or new finding's commit identity still blocks it.
 
 These records do not allowlist a file, rule, token pattern, current tree, or
-future commits. They expire on 2026-10-15 and remain pending bank release review.
+future commits. They expire on 2026-11-15 and remain pending bank release review.
 The owner field assigns follow-up responsibility; it does not record approval.
-The repair does not change vulnerability exceptions or the release gate: the
-same scan's unresolved High/Critical findings remain release-blocking.
+Before that one 30-day renewal (2026-10-16), each of the 101 lines was re-read
+at its recorded commit (five sit on commits no branch reaches any more and were
+fetched by SHA) and confirmed non-secret; a Gitleaks 8.30.1 full-history scan
+reported 96 findings, all excepted.
+
+The current vulnerability exceptions are 13 exact Debian 13 package findings in
+the standard image that Debian has not fixed: glibc (`libc6`, `libc-bin`), the
+GCC 14 runtime (`gcc-14-base`, `libgcc-s1`, `libstdc++6`), `libacl1`, and
+`zlib1g`. The Dockerfile purges the base image's unused terminal, login, mount,
+and Perl packages, so their findings no longer exist to except. The 13 records
+bind the current Dockerfile SHA-256, expire on 2026-11-15, and remain pending
+bank release review; a changed Dockerfile or package version invalidates them.
 
 ## What remains bank-owned
 

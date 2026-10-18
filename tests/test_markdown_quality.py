@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 from bddk_mcp.quality.markdown_quality import (
+    _REVIEWED_INTERNAL_FORMULA_REFS,
+    QUALITY_ASSESSMENT_POLICY_VERSION,
     assess_markdown_quality,
     load_quality_failure_registry,
+    mentions_formula,
     prepare_markdown_for_storage,
     sanitize_markdown_for_context,
     sanitize_markdown_for_storage,
@@ -261,6 +267,47 @@ def test_quality_assessment_still_warns_when_formula_reference_has_only_prose():
 
     assert result.label == "warning"
     assert "formula_ref_without_latex_or_image" in result.flags
+
+
+def test_quality_assessment_ignores_reviewed_reference_to_another_instruments_formulas():
+    reference = (
+        "Yönetmelik EK-2’de yer alan formüllerde kullanılan ekonomik değer değişimi risk tutarının "
+        "hesaplanması kapsamında uygulanacak faiz oranı şokları aşağıda yer almaktadır."
+    )
+    result = assess_markdown_quality(reference, document_id="x")
+
+    assert result.label == "clean"
+    assert not mentions_formula(reference)
+    # the same wording about this text's own annex is still a formula reference
+    own = assess_markdown_quality(reference.replace("Yönetmelik EK-2’de", "EK-2’de"), document_id="x")
+    assert "formula_ref_without_latex_or_image" in own.flags
+
+
+def test_reviewed_internal_formula_reference_is_exempt_only_for_its_document():
+    section = "(2) Volatilite ayarlamaları, 44 üncü maddenin üçüncü fıkrasında yer alan formül kullanılarak artırılır."
+
+    assert assess_markdown_quality(section, document_id="mevzuat_20029").label == "clean"
+    assert "formula_ref_without_latex_or_image" in assess_markdown_quality(section, document_id="x").flags
+
+
+def test_reviewed_internal_formula_references_are_bound_to_the_seed_text_and_receipt():
+    root = Path(__file__).resolve().parents[1]
+    docs = {
+        d["document_id"]: d["markdown_content"]
+        for d in json.loads((root / "seed_data/documents.json").read_text(encoding="utf-8"))
+    }
+    receipt = json.loads(
+        (
+            root / "docs/evidence/document-repairs/quality-pass-2026-10-16/policy/internal-formula-references.json"
+        ).read_text(encoding="utf-8")
+    )
+    recorded = {(r["document_id"], r["phrase"]) for r in receipt["occurrences"]}
+
+    assert receipt["policy_version"] == QUALITY_ASSESSMENT_POLICY_VERSION
+    for doc_id, phrases in _REVIEWED_INTERNAL_FORMULA_REFS.items():
+        for phrase in phrases:
+            assert phrase in docs[doc_id]
+            assert (doc_id, phrase) in recorded
 
 
 def test_quality_assessment_ignores_generic_formula_mentions():

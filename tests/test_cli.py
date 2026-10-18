@@ -920,7 +920,7 @@ def test_verify_corpus_checks_tracked_artifacts_and_reports_safe_identity(capsys
     cli.main(["verify-corpus", "--trusted-signing-key", _TRACKED_TRUST_KEY])
 
     output = capsys.readouterr().out
-    assert "id=bddk-job-corpus-kgk-tms12-pdf-rebuilds-local-v10-2026-10-02" in output
+    assert "id=bddk-job-corpus-quality-pass-local-v11-2026-10-16" in output
     assert "artifacts=3 exhaustive=false" in output
     assert "WARNING: This corpus is a job-specific selection" in output
     assert "markdown_content" not in output
@@ -943,7 +943,7 @@ def test_verify_corpus_production_requirements_reflect_owner_policies(capsys):
             _TRACKED_TRUST_KEY,
         ]
     )
-    assert "id=bddk-job-corpus-kgk-tms12-pdf-rebuilds-local-v10-2026-10-02" in capsys.readouterr().out
+    assert "id=bddk-job-corpus-quality-pass-local-v11-2026-10-16" in capsys.readouterr().out
 
     # Measured freshness remains the deliberately open gate.
     with pytest.raises(SystemExit, match="2"):

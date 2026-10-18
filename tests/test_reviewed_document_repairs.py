@@ -19,6 +19,7 @@ BASELINE_BYTES = gzip.decompress(
     (ROOT / "docs/evidence/document-repairs/signed-baseline-documents.json.gz").read_bytes()
 )
 BASELINE_DOCUMENTS = json.loads(BASELINE_BYTES)
+QUALITY_PASS = ROOT / "docs/evidence/document-repairs/quality-pass-2026-10-16"
 pytestmark = pytest.mark.usefixtures("historical_quality_registry")
 
 
@@ -70,11 +71,48 @@ def test_signed_repair_corpus_matches_all_reviewed_candidates(monkeypatch):
             native = ROOT / f"docs/evidence/document-repairs/{did}-native.json"
             if native.exists():
                 expected = json.loads(native.read_text())["replacements"][0]["new"]
-            assert doc["markdown_content"] == expected
+            later_pass = QUALITY_PASS / f"{did}.json"
+            if later_pass.exists():  # superseded by the 2026-10-16 quality pass, which binds this text as its input
+                input_sha256 = json.loads(later_pass.read_text())["input_markdown_sha256"]
+                assert hashlib.sha256(expected.encode()).hexdigest() == input_sha256
+            else:
+                assert doc["markdown_content"] == expected
             repaired += 1
         assert hashlib.sha256(doc["markdown_content"].encode()).hexdigest() == doc["content_hash"]
         assert assess_markdown_quality(doc["markdown_content"], did).label == "clean"
     assert repaired == 70
+
+
+def test_quality_pass_receipts_bind_every_changed_document():
+    baseline_bytes = gzip.decompress((QUALITY_PASS / "baseline-documents.json.gz").read_bytes())
+    assert (
+        hashlib.sha256(baseline_bytes).hexdigest() == "51dd56baceca45d34d119bc8c74342fb8dfa8f5efe2152eaae7393ba02c5bce4"
+    )
+    baseline = {d["document_id"]: d["markdown_content"] for d in json.loads(baseline_bytes)}
+    current = json.loads((ROOT / "seed_data/documents.json").read_text())
+    assert sorted(baseline) == sorted(d["document_id"] for d in current)
+    changed = 0
+    for doc in current:
+        did = doc["document_id"]
+        path = QUALITY_PASS / f"{did}.json"
+        if not path.exists():
+            assert doc["markdown_content"] == baseline[did], did
+            continue
+        receipt = json.loads(path.read_text())
+        assert receipt["document_id"] == did
+        assert receipt["status"] == "source_reviewed_candidate_awaiting_owner_approval"
+        assert hashlib.sha256(baseline[did].encode()).hexdigest() == receipt["input_markdown_sha256"]
+        assert hashlib.sha256(doc["markdown_content"].encode()).hexdigest() == receipt["output_markdown_sha256"]
+        assert doc["extraction_method"] == receipt["extraction_method_after"]
+        changed += 1
+    assert changed == len(list(QUALITY_PASS.glob("*.json"))) == 297
+
+
+def test_seed_has_no_mis_decoded_glyphs():
+    """cp1254 C1 controls, the Đ-for-İ text-layer error, U+037E, fi/fl ligatures and private-use glyphs."""
+    bad = re.compile("[\x80-\x9f;ﬁﬂĐ-]")
+    for doc in json.loads((ROOT / "seed_data/documents.json").read_text()):
+        assert not bad.search(doc["markdown_content"]), doc["document_id"]
 
 
 def test_rg_box_receipts_are_carried_by_the_seed():

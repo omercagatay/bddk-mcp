@@ -1,0 +1,36 @@
+{
+ "document_id": "74",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "46df66fb45bcc90ec6859474f06684384be5e0963f0dfc9255155d4ce0c90e6f",
+ "output_markdown_sha256": "4b79cca7121497208aa9f20e876869ed951eae98020bad125259bec822c707f1",
+ "extraction_method_before": "markitdown",
+ "extraction_method_after": "pdftotext_layout",
+ "change_classes": [
+  "Đ (PDF text-layer mapping error; printed glyph is İ) -> İ ×24",
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/74",
+ "source_pdf_sha256": "1b5327a52f833c2c8ff973e0521bd18083b9052d47f7fed4d8979e3118fe2add",
+ "source_pdf_bytes": 62879,
+ "source_pdf_matches_stored_file_size": true,
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "pass",
+  "reasons": [],
+  "paragraph_break_spots": 0
+ },
+ "gate_resolution": [
+  "relay output word tokens equal the stored text except dropped page furniture"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

@@ -1,0 +1,19 @@
+{
+ "document_id": "mevzuat_10750",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "local_edit",
+ "input_markdown_sha256": "39dab07f3fa4f63fb60fcaa251bea7913befb677953094caaa53f95411ad86f7",
+ "output_markdown_sha256": "7d6155f06d6b8dd182d1c245098c689a78cb769ef1f33f70f6b619fa3c723add",
+ "extraction_method_before": "html_parser",
+ "extraction_method_after": "html_parser",
+ "change_classes": [
+  "U+0092 (cp1254 right quote) -> ’ ×1",
+  "U+0093 (cp1254 left double quote) -> “ ×2",
+  "U+0094 (cp1254 right double quote) -> ” ×2",
+  "U+0096 (cp1254 en dash) -> – ×6",
+  "flattened closing Resmî Gazete list written as the reviewed table layout"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.10750&MevzuatIliski=0&sourceXmlSearch=kurumsal yönetim"
+}

@@ -1,0 +1,44 @@
+{
+ "document_id": "mevzuat_21196",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "d4b556eb55a32493dc9219a53558a2a9137ae6dc83375508e67a693be1544307",
+ "output_markdown_sha256": "25fbcd435068891888214e744c3ac40e85ecae261b6f23548eae9351d314253d",
+ "extraction_method_before": "manual_pdf+markitdown",
+ "extraction_method_after": "pdftotext_layout",
+ "change_classes": [
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "2 table block(s) written as Markdown tables, reviewed against the page image",
+  "14 word boundaries taken from the stored text where the official PDF text layer glued words (e.g. 'MADDE 1 –(1)')"
+ ],
+ "pages_visually_reviewed": [
+  3,
+  7
+ ],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=9.5.21196&MevzuatIliski=0&sourceXmlSearch=risk ölçüm",
+ "source_pdf_sha256": "1620de7533f4a34e4d19401df57c3d577772a8f155c11c561a79733204377e4f",
+ "source_pdf_bytes": 97120,
+ "source_pdf_matches_stored_file_size": false,
+ "source_pdf_note": "mevzuat.gov.tr File/GeneratePdf output is regenerated per request (not byte-reproducible)",
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "review",
+  "reasons": [
+   "ruled tables on pages [3, 7]",
+   "rebuild order disagrees with content-stream order (1 moved tokens)"
+  ],
+  "paragraph_break_spots": 0
+ },
+ "gate_resolution": [
+  "token, table and formula differences resolved by the reviewed specs/ and manual steps above, checked against the viewed page images"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

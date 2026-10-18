@@ -1,0 +1,39 @@
+{
+ "tables": [
+  {
+   "start": "K*=maksimum 0; ∑",
+   "end": "(6) Beşinci fıkradaki formülde",
+   "md": "$$\nK^{*}=\\mathrm{maksimum}\\{0;\\ \\sum_{i} K_{i} - \\sum_{j} T_{j} + 0{,}4\\,\\lvert\\sum_{MK} K_{MK} H_{MK}\\rvert + 0{,}6\\,\\frac{\\sum_{MK} K_{MK}\\lvert H_{MK}\\rvert}{\\sqrt{N}} + \\sum_{FX}(K_{FX} H_{FX})\\}\n$$"
+  },
+  {
+   "start": "H=∑ aH",
+   "end": "Standart Volatilite Ayarlaması Yaklaşımı",
+   "md": "$$\nH = \\sum_{i} a_{i} H_{i}\n$$"
+  },
+  {
+   "start": "#$ + ( − 1)",
+   "end": "%0 volatilite ayarlaması uygulanmasına",
+   "md": "$$\nH = H_{10} \\sqrt{\\dfrac{N_{R} + (T_{M} - 1)}{10}}\n$$"
+  },
+  {
+   "start": "Tablo 1",
+   "end": "Tablo 2",
+   "md": "Tablo 1\n\n| BKS | Kalan vade | A Tipi Senetlere ilişkin volatilite ayarlamaları | A Tipi Senetlere ilişkin volatilite ayarlamaları | A Tipi Senetlere ilişkin volatilite ayarlamaları | B Tipi Senetlere ilişkin volatilite ayarlamaları | B Tipi Senetlere ilişkin volatilite ayarlamaları | B Tipi Senetlere ilişkin volatilite ayarlamaları | Menkul kıymetleştirme pozisyonlarına ilişkin volatilite ayarlamaları | Menkul kıymetleştirme pozisyonlarına ilişkin volatilite ayarlamaları | Menkul kıymetleştirme pozisyonlarına ilişkin volatilite ayarlamaları |\n|---|---|---|---|---|---|---|---|---|---|---|\n| BKS | Kalan vade | 20 GETS İçin (%) | 10 GETS İçin (%) | 5 GETS İçin (%) | 20 GETS İçin (%) | 10 GETS İçin (%) | 5 GETS İçin (%) | 20 GETS İçin (%) | 10 GETS İçin (%) | 5 GETS İçin (%) |\n| 1 | <= 1 yıl | 0,7 | 0,5 | 0,4 | 1,4 | 1,0 | 0,7 | 2,8 | 2,0 | 1,4 |\n| 1 | > 1 yıl <= 3 yıl | 2,8 | 2,0 | 1,4 | 4,2 | 3,0 | 2,1 | 11,3 | 8,0 | 5,7 |\n| 1 | > 3 yıl <= 5 yıl | 2,8 | 2,0 | 1,4 | 5,7 | 4,0 | 2,8 | 11,3 | 8,0 | 5,7 |\n| 1 | > 5 yıl <= 10 yıl | 5,7 | 4,0 | 2,8 | 8,5 | 6,0 | 4,2 | 22,6 | 16,0 | 11,3 |\n| 1 | > 10 yıl | 5,7 | 4,0 | 2,8 | 17,0 | 12,0 | 8,5 | 22,6 | 16,0 | 11,3 |\n| 2–3 | <= 1 yıl | 1,4 | 1 | 0,7 | 2,8 | 2 | 1,4 | 5,7 | 4 | 2,8 |\n| 2–3 | > 1 yıl <= 3 yıl | 4,2 | 3 | 2,1 | 5,7 | 4 | 2,8 | 17,0 | 12 | 8,5 |\n| 2–3 | > 3 yıl <= 5 yıl | 4,2 | 3 | 2,1 | 8,5 | 6 | 4,2 | 17,0 | 12 | 8,5 |\n| 2–3 | > 5 yıl <= 10 yıl | 8,5 | 6 | 4,2 | 17,0 | 12 | 8,5 | 33,9 | 24 | 17,0 |\n| 2–3 | > 10 yıl | 8,5 | 6 | 4,2 | 28,3 | 20 | 14,1 | 33,9 | 24 | 17,0 |\n| 4 | Tüm vadeler | 21,213 | 15 | 10,607 | - | - | - | - | - | - |"
+  },
+  {
+   "start": "Tablo 2",
+   "end": "Tablo 3",
+   "md": "Tablo 2\n\n| KBKS | C Tipi Senetlere ilişkin volatilite ayarlamaları | C Tipi Senetlere ilişkin volatilite ayarlamaları | C Tipi Senetlere ilişkin volatilite ayarlamaları | D Tipi Senetlere ilişkin volatilite ayarlamaları | D Tipi Senetlere ilişkin volatilite ayarlamaları | D Tipi Senetlere ilişkin volatilite ayarlamaları | Menkul kıymetleştirme pozisyonlarına ilişkin volatilite ayarlamaları | Menkul kıymetleştirme pozisyonlarına ilişkin volatilite ayarlamaları | Menkul kıymetleştirme pozisyonlarına ilişkin volatilite ayarlamaları |\n|---|---|---|---|---|---|---|---|---|---|\n| KBKS | 20 GETS İçin (%) | 10 GETS İçin (%) | 5 GETS İçin (%) | 20 GETS İçin (%) | 10 GETS İçin (%) | 5 GETS İçin (%) | 20 GETS İçin (%) | 10 GETS İçin (%) | 5 GETS İçin (%) |\n| 1 | 0,7 | 0,5 | 0,4 | 1,4 | 1,0 | 0,7 | 2,8 | 2,0 | 1,4 |\n| 2-3 | 1,4 | 1 | 0,7 | 2,8 | 2 | 1,4 | 5,7 | 4 | 2,8 |"
+  },
+  {
+   "start": "Tablo 3",
+   "end": "Tablo 4",
+   "md": "Tablo 3\n\n| Diğer teminat veya kredi türleri | Diğer teminat veya kredi türleri | Diğer teminat veya kredi türleri | Diğer teminat veya kredi türleri |\n|---|---|---|---|\n|  | 20 GETS İçin (%) | 10 GETS İçin (%) | 5 GETS İçin (%) |\n| Ana endekslere dahil hisse senetleri, ana endekslere dahil hisse senedine dönüştürülebilir tahviller ve altın | 28,3 | 20,0 | 14,1 |\n| Teşkilatlanmış bir borsaya kote edilmiş ve bu borsada işlem gören diğer hisse senetleri veya bu hisse senetlerine dönüştürülebilir tahviller | 42,4 | 30,0 | 21,2 |\n| KYK’ya yapılan yatırımlar | Kredi Riskine Esas Tutarın Standart Yaklaşım ile Hesaplanmasına İlişkin Tebliğ uyarınca İçerik Yönteminin kullanılamadığı durumlarda KYK’nın yatırım yapma hakkına sahip olduğu varlıklara uygulanacak olan volatilite ayarlamalarından ilgili GETS dikkate alınarak belirlenen en yüksek volatilite ayarlaması kullanılır. İçerik Yönteminin kullanılabildiği durumlarda KYK’nın yatırım yaptığı varlıklara uygulanan volatilite ayarlamalarının ağırlıklı ortalaması kullanılır. | Kredi Riskine Esas Tutarın Standart Yaklaşım ile Hesaplanmasına İlişkin Tebliğ uyarınca İçerik Yönteminin kullanılamadığı durumlarda KYK’nın yatırım yapma hakkına sahip olduğu varlıklara uygulanacak olan volatilite ayarlamalarından ilgili GETS dikkate alınarak belirlenen en yüksek volatilite ayarlaması kullanılır. İçerik Yönteminin kullanılabildiği durumlarda KYK’nın yatırım yaptığı varlıklara uygulanan volatilite ayarlamalarının ağırlıklı ortalaması kullanılır. | Kredi Riskine Esas Tutarın Standart Yaklaşım ile Hesaplanmasına İlişkin Tebliğ uyarınca İçerik Yönteminin kullanılamadığı durumlarda KYK’nın yatırım yapma hakkına sahip olduğu varlıklara uygulanacak olan volatilite ayarlamalarından ilgili GETS dikkate alınarak belirlenen en yüksek volatilite ayarlaması kullanılır. İçerik Yönteminin kullanılabildiği durumlarda KYK’nın yatırım yaptığı varlıklara uygulanan volatilite ayarlamalarının ağırlıklı ortalaması kullanılır. |\n| Mevduat veya nakit benzeri kıymetler | 0 | 0 | 0 |"
+  },
+  {
+   "start": "Tablo 4",
+   "end": "GENEL GEREKÇE",
+   "md": "Tablo 4\n\n| Kur uyumsuzluğu için volatilite ayarlaması | Kur uyumsuzluğu için volatilite ayarlaması | Kur uyumsuzluğu için volatilite ayarlaması |\n|---|---|---|\n| 20 GETS İçin (%) | 10 GETS İçin (%) | 5 GETS İçin (%) |\n| 11,314 | 8 | 5,657 |"
+  }
+ ]
+}

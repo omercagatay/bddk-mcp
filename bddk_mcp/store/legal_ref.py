@@ -7,10 +7,16 @@ import re
 from pydantic import BaseModel, Field
 
 _DOCUMENT_ID_RE = re.compile(r"\b(?:mevzuat_|bddk_)?\d{2,8}\b", re.IGNORECASE)
-_MADDE_PREFIX_RE = re.compile(r"\b(?:madde|m)\.?\s*(\d+[A-Za-zÇĞİÖŞÜçğıöşü]?)\b", re.IGNORECASE)
-_MADDE_SUFFIX_RE = re.compile(r"\b(\d+[A-Za-zÇĞİÖŞÜçğıöşü]?)\.\s*madde\b", re.IGNORECASE)
-_ILKE_RE = re.compile(r"\b(?:ilke|ılke)\s*(\d+[A-Za-zÇĞİÖŞÜçğıöşü]?)\b", re.IGNORECASE)
-_PARAGRAPH_RE = re.compile(r"\bparagraf\s*(\d+(?:\.\d+)*)\b", re.IGNORECASE)
+# "66/A" (or "66A") is the article inserted after 66, never article 66 itself;
+# "ek madde N" and "geçici madde N" are their own series.
+_ARTICLE_REF = r"\d+(?:/?[A-Za-zÇĞİÖŞÜçğıöşü])?"
+_MADDE_PREFIX_RE = re.compile(
+    rf"\b(?:(?P<kind>ek|ge[cç]i[cç]i)\s+)?(?:madde|m)\.?\s*(?P<ref>{_ARTICLE_REF})\b", re.IGNORECASE
+)
+_MADDE_SUFFIX_RE = re.compile(rf"\b(?P<ref>{_ARTICLE_REF})\.\s*madde\b", re.IGNORECASE)
+_ILKE_RE = re.compile(r"\b(?:ilke|ılke)\s*(?P<ref>\d+[A-Za-zÇĞİÖŞÜçğıöşü]?)\b", re.IGNORECASE)
+_PARAGRAPH_RE = re.compile(r"\bparagraf\s*(?P<ref>\d+(?:\.\d+)*)\b", re.IGNORECASE)
+_LETTERED_REF_RE = re.compile(r"^(\d+)/?([a-zçğıöşü])$")
 _DECISION_RE = re.compile(r"\b(\d{3,6})\s+sayılı\s+kurul\s+kararı\b", re.IGNORECASE)
 _DATE_RE = re.compile(r"\b\d{2}\.\d{2}\.\d{4}\b|\b\d{4}/\d+\b")
 
@@ -54,6 +60,15 @@ def turkish_casefold(text: str) -> str:
     return text.translate(str.maketrans({"I": "ı", "İ": "i"})).lower()
 
 
+def canonical_section_ref(ref: str) -> str:
+    """Return the stored form of a section ref; the section index stores exactly this.
+
+    Python lowercase, except that "İ" becomes "i" rather than "i" + U+0307; an
+    inserted article's letter follows a slash ("66/A", "66A" -> "66/a").
+    """
+    return _LETTERED_REF_RE.sub(r"\1/\2", ref.strip().replace("İ", "i").lower())
+
+
 def parse_legal_refs(query: str) -> LegalRefs:
     """Parse document IDs, article/principle refs, decisions, dates, and category hints."""
     folded = turkish_casefold(query)
@@ -74,10 +89,13 @@ def parse_legal_refs(query: str) -> LegalRefs:
 
 def _parse_sections(query: str, folded: str) -> list[tuple[str, str]]:
     sections: list[tuple[str, str]] = []
-    sections.extend(("madde", match.group(1)) for match in _MADDE_PREFIX_RE.finditer(query))
-    sections.extend(("madde", match.group(1)) for match in _MADDE_SUFFIX_RE.finditer(query))
-    sections.extend(("ilke", match.group(1)) for match in _ILKE_RE.finditer(folded))
-    sections.extend(("paragraf", match.group(1)) for match in _PARAGRAPH_RE.finditer(folded))
+    for match in _MADDE_PREFIX_RE.finditer(query):
+        kind = (match.group("kind") or "").lower()
+        section_type = "ek_madde" if kind == "ek" else "gecici_madde" if kind else "madde"
+        sections.append((section_type, canonical_section_ref(match.group("ref"))))
+    sections.extend(("madde", canonical_section_ref(match.group("ref"))) for match in _MADDE_SUFFIX_RE.finditer(query))
+    sections.extend(("ilke", canonical_section_ref(match.group("ref"))) for match in _ILKE_RE.finditer(folded))
+    sections.extend(("paragraf", match.group("ref")) for match in _PARAGRAPH_RE.finditer(folded))
     return _unique(sections)
 
 
@@ -101,7 +119,7 @@ def _excluded_document_id_spans(query: str, folded: str) -> list[tuple[int, int]
     spans = [match.span() for match in _DATE_RE.finditer(query)]
     spans.extend(match.span(1) for match in _DECISION_RE.finditer(folded))
     for pattern in (_MADDE_PREFIX_RE, _MADDE_SUFFIX_RE, _ILKE_RE, _PARAGRAPH_RE):
-        spans.extend(match.span(1) for match in pattern.finditer(folded))
+        spans.extend(match.span("ref") for match in pattern.finditer(folded))
     return spans
 
 

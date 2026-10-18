@@ -1,0 +1,20 @@
+{
+ "document_id": "mevzuat_18991",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "local_edit",
+ "input_markdown_sha256": "108c1056fd6067d37304dd7444a6b2c18fd627c14c62713a23b4e0d3c5081863",
+ "output_markdown_sha256": "c0f250d6c9e81c9f426a46c62f2281f65c6588e25988f1927ad15417f6b9d4a3",
+ "extraction_method_before": "html_parser",
+ "extraction_method_after": "html_parser",
+ "change_classes": [
+  "U+0092 (cp1254 right quote) -> ’ ×10",
+  "U+0096 (cp1254 en dash) -> – ×11",
+  "flattened tables (one cell per paragraph) written as Markdown tables, reviewed against the page image"
+ ],
+ "pages_visually_reviewed": [
+  1,
+  2
+ ],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.18991&MevzuatIliski=0&sourceXmlSearch=sermaye koruma"
+}

@@ -1,0 +1,17 @@
+{
+ "document_id": "mevzuat_10736",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "local_edit",
+ "input_markdown_sha256": "e3aa7beaadddf645361523061be212686d4d9d234063b4281f87adf531f909fe",
+ "output_markdown_sha256": "c355658eb1cc2a9da8dcc4ac2fe131a783c123b3ab851746e34dedc408e776e3",
+ "extraction_method_before": "html_parser",
+ "extraction_method_after": "html_parser",
+ "change_classes": [
+  "U+0092 (cp1254 right quote) -> ’ ×2",
+  "U+0096 (cp1254 en dash) -> – ×12",
+  "flattened closing Resmî Gazete list written as the reviewed table layout"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.10736&MevzuatIliski=0&sourceXmlSearch=faaliyet raporu"
+}

@@ -1,0 +1,41 @@
+{
+ "document_id": "1126",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "d11ddd1d92b8da66852225a7ef5231692d3bd3901e0d9161ae12511d9ab37713",
+ "output_markdown_sha256": "f9dda4ecb8290b242e473003d0cff1f08d93b4e58099d22794a531f93d3a4548",
+ "extraction_method_before": "markitdown",
+ "extraction_method_after": "manual_pdf",
+ "change_classes": [
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "2 table block(s) written as Markdown tables, reviewed against the page image",
+  "1 reviewed spot replacement(s) in the rebuilt text: '1 18/4/2007 tarihli' -> '$^{1}$ 18/4/2007 tarihli'"
+ ],
+ "pages_visually_reviewed": "1-2 (all)",
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1126",
+ "source_pdf_sha256": "260dc5cf76585c7951acacafb1567a0e8a674354f69b90bd7f5fd79356b5c8d2",
+ "source_pdf_bytes": 292201,
+ "source_pdf_matches_stored_file_size": true,
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "review",
+  "reasons": [
+   "stored has LaTeX/table markup",
+   "ruled tables on pages [1]"
+  ],
+  "paragraph_break_spots": 6
+ },
+ "gate_resolution": [
+  "6 paragraph-break difference(s) from the stored text; rebuilt breaks follow the PDF layout (indentation and vertical spacing)",
+  "token, table and formula differences resolved by the reviewed specs/ and manual steps above, checked against the viewed page images"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

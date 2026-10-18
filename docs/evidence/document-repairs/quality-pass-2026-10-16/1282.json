@@ -1,0 +1,36 @@
+{
+ "document_id": "1282",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "1e36a274a5cc47c013ed96bd224d658c0717b5de09934f94b7a2eb547df696b0",
+ "output_markdown_sha256": "f428a0c1ea5b6ac2acc0665f40b09b0976acc08b2379308b40a7f4c646f03c1c",
+ "extraction_method_before": "markitdown",
+ "extraction_method_after": "pdftotext_layout",
+ "change_classes": [
+  "scrambled word order: 3 windows restored from PDF order (pdftotext -layout, confirmed by -raw content-stream order)",
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1282",
+ "source_pdf_sha256": "82af3ec8a63daa8f7849d0168ce97c825e73e7fc849f01bcaa400e1a149ca331",
+ "source_pdf_bytes": 97612,
+ "source_pdf_matches_stored_file_size": true,
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "review",
+  "reasons": [],
+  "paragraph_break_spots": 1
+ },
+ "gate_resolution": [
+  "1 paragraph-break difference(s) from the stored text; rebuilt breaks follow the PDF layout (indentation and vertical spacing)"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

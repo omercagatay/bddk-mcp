@@ -1,0 +1,48 @@
+{
+ "document_id": "950",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "7ecd43313448c09c6663607ff3ba890c5cd054a12b558dfe4eef758b07061f92",
+ "output_markdown_sha256": "0ac8887ba65924edcbe08175e39c0a1b8c022bc342abb7d7320eb1c0fa141baa",
+ "extraction_method_before": "markitdown",
+ "extraction_method_after": "pdftotext_layout",
+ "change_classes": [
+  "scrambled word order: 3 windows restored from PDF order (pdftotext -layout, confirmed by -raw content-stream order)",
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "stored word order differed from the PDF; rebuilt order matches the PDF content stream (pdftotext -raw)",
+  "superscript footnote markers written as $^{n}$ (with their footnote bodies)"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/950",
+ "section_changes": {
+  "lost": [],
+  "gained": [
+   "paragraf 3",
+   "paragraf 45"
+  ],
+  "note": "gained numbered paragraphs that the scrambled stored text had hidden mid-paragraph"
+ },
+ "source_pdf_sha256": "b19296270bcd82a46301a24ab8342ac6f65d378d8eafc1e31333a77ed49375f2",
+ "source_pdf_bytes": 358485,
+ "source_pdf_matches_stored_file_size": true,
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "fail",
+  "reasons": [
+   "section list differs"
+  ],
+  "paragraph_break_spots": 0
+ },
+ "gate_resolution": [
+  "section list change listed in section_changes"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}

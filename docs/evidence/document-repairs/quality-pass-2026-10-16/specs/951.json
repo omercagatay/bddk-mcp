@@ -1,0 +1,34 @@
+{
+ "tables": [
+  {
+   "start": "Milyon TL Cari 1.yıl 2. yıl 3. yıl",
+   "end": "İç Sistemler ve İSEDES Yönetmeliği'nin 60",
+   "md": "|  | Milyon TL | Cari | 1.yıl | 2. yıl | 3. yıl |\n|---|---|---|---|---|---|\n| 1 | Risk ağırlıklı varlık (RAV) toplamı$^{4}$ |  |  |  |  |\n| 2 | Mevcut Sermaye |  |  |  |  |\n| 3 | Hesaplamaya Esas Sermaye$^{5}$ |  |  |  |  |\n| 4 | Birinci Yapısal Blok risklerine ilişkin sermaye yükümlülüğü |  |  |  |  |\n| 5 | İkinci Yapısal Blok risklerine ilişkin sermaye yükümlülüğü |  |  |  |  |\n| 6 | İçsel sermaye yükümlülüğü |  |  |  |  |\n| 7 | Sermaye fazlası (veya serbest sermaye) |  |  |  |  |\n| 8 | Sermaye ihtiyacı | ■ |  |  |  |\n| 9 | Sermaye planlama tamponu (SPT) |  | ■ | ■ | ■ |"
+  },
+  {
+   "start": "Cari 1.yıl 2.yıl 3.yıl",
+   "end": "7. RİSKLERİN TOPLULAŞTIRILMASI",
+   "md": "|  | Cari | 1.yıl | 2.yıl | 3.yıl |\n|---|---|---|---|---|\n| Çekirdek Sermaye Oranı (%) |  |  |  |  |\n| Ana Sermaye Oranı (%) |  |  |  |  |\n| Yasal Sermaye Yeterliliği Standart Oranı (%) |  |  |  |  |\n| Kaldıraç Oranı (%) |  |  |  |  |"
+  },
+  {
+   "start": "1 Birinci Yapısal Blok risklerine ilişkin sermaye yükümlülüğü (2+3+4+5)",
+   "end": "Yukarıdaki tablonun doldurulmasına",
+   "md": "| 1 | Birinci Yapısal Blok risklerine ilişkin sermaye yükümlülüğü (2+3+4+5) |\n|---|---|\n| 2 | Kredi riski |\n| 3 | Piyasa riski |\n| 4 | Operasyonel risk |\n| 5 | Karşı taraf kredi riski |\n| 6 | İkinci Yapısal Blok risklerine ilişkin sermaye yükümlülüğü (7+8 …) |\n| 7 | Risk türü 1 |\n| 8 | Risk türü 2 |\n| 9 | … |\n| 10 | Korelasyon etkisi |\n| 11 | İÇSEL SERMAYE YÜKÜMLÜLÜĞÜ (İSY) (1+6+10) |\n| 12 | DST |\n| 13 | SPT |\n| 14 | SKT$^{7}$ |\n| 15 | İÇSEL SERMAYE GEREKSİNİMİ (İSG) (11+12 + maksimum(13,14)) |\n| 16 | İçsel sermaye yeterliliği oranı (%) (11/Y-RAV) |\n| 17 | İçsel sermaye gereksinimi oranı (%) (15/Y-RAV) |\n| 18 | İÇSEL SERMAYE TAMPONU (17-%8) |\n| 19 | MEVCUT SERMAYE YETERLİLİĞİ STANDART ORANI |"
+  },
+  {
+   "start": "1 Birinci Yapısal Blok risklerine ilişkin sermaye yükümlülüğü 1.689,04",
+   "end": "Banka; üç yıllık faaliyet",
+   "md": "| 1 | Birinci Yapısal Blok risklerine ilişkin sermaye yükümlülüğü | 1.689,04 |\n|---|---|---|\n| 2 | Kredi riski | 1.273,70 |\n| 3 | Piyasa riski | 180,73 |\n| 4 | Operasyonel risk | 119,73 |\n| 5 | Karşı taraf kredi riski | 114,88 |\n| 6 | İkinci Yapısal Blok risklerine ilişkin sermaye yükümlülüğü | 320,96 |\n| 7 | Bankacılık hesaplarından kaynaklanan faiz oranı riski | 137,97 |\n| 8 | Risk gruplarından kaynaklanan yoğunlaşma riski | 115,92 |\n| 9 | Model riski | 32,16 |\n| 10 | Artık risk | 34,91 |\n| 11 | Korelasyon etkisi | 0,00 |\n| 12 | İÇSEL SERMAYE YÜKÜMLÜLÜĞÜ | 2.010,00 |"
+  },
+  {
+   "start": "Milyon TL Cari 1.yıl 2. yıl 3. yıl",
+   "end": "Tabloda verilen sonuçlar doğrultusunda",
+   "md": "|  | Milyon TL | Cari | 1.yıl | 2. yıl | 3. yıl |\n|---|---|---|---|---|---|\n| 1 | Risk ağırlıklı varlık (RAV) toplamı | 21.113 | 23.634 | 25.159 | 24.685 |\n| 2 | Mevcut Sermaye | 2.600 | 2.510 | 2.470 | 2.550 |\n| 3 | Hesaplamaya Esas Sermaye | 2.534$^{8}$ |  |  |  |\n| 4 | Birinci Yapısal Blok risklerine ilişkin sermaye yükümlülüğü | 1.689 | 1.891 | 2.013 | 1.975 |\n| 5 | İkinci Yapısal Blok risklerine ilişkin sermaye yükümlülüğü | 321 | 384 | 402 | 395 |\n| 6 | İçsel Sermaye Yükümlülüğü | 2.010 | 2.275 | 2.415 | 2.370 |\n| 7 | Sermaye Fazlası | 524 | 235 | 55 | 180 |\n| 8 | Sermaye ihtiyacı |  | 289 | 469 | 344 |\n| 9 | Sermaye planlama tamponu (SPT) | 469 |  |  |  |"
+  },
+  {
+   "start": "12 İÇSEL SERMAYE YÜKÜMLÜLÜĞÜ (İSY) 2.010,00",
+   "end": "Banka cari ve gelecek üç yıllık",
+   "md": "| 12 | İÇSEL SERMAYE YÜKÜMLÜLÜĞÜ (İSY) | 2.010,00 |\n|---|---|---|\n| 13 | DST | 0 |\n| 14 | SPT | 469 |\n| 15 | SKT | 131,96$^{9}$ |\n| 16 | İÇSEL SERMAYE GEREKSİNİMİ (İSG) | 2.479 |\n| 17 | İçsel sermaye yeterliliği oranı (%) | 9,52% |\n| 18 | İçsel sermaye gereksinimi oranı (%) | 11,74%$^{10}$ |\n| 19 | İÇSEL SERMAYE TAMPONU | 3,74% |\n| 20 | MEVCUT SERMAYE YETERLİLİĞİ ORANI | 12,31% |"
+  }
+ ]
+}

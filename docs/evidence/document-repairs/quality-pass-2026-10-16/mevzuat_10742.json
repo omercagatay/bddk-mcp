@@ -1,0 +1,17 @@
+{
+ "document_id": "mevzuat_10742",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "local_edit",
+ "input_markdown_sha256": "42bd8d9d16e1f7890d46f62be65fc092a62538143af36c3546764959253b0a16",
+ "output_markdown_sha256": "8dda6e78d5bc91e8c04e51af54b9d6c34d5f65afa67822c353b11140ef0d1768",
+ "extraction_method_before": "html_parser",
+ "extraction_method_after": "html_parser",
+ "change_classes": [
+  "U+0092 (cp1254 right quote) -> ’ ×8",
+  "U+0096 (cp1254 en dash) -> – ×28",
+  "flattened closing Resmî Gazete list written as the reviewed table layout"
+ ],
+ "pages_visually_reviewed": [],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=7.5.10742&MevzuatIliski=0&sourceXmlSearch=bankaların birleşme"
+}

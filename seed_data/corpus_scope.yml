@@ -1,17 +1,17 @@
 schema_version: 1
-manifest_id: bddk-job-corpus-kgk-tms12-pdf-rebuilds-local-v10-2026-10-02
+manifest_id: bddk-job-corpus-quality-pass-local-v11-2026-10-16
 selection_owner: project_owner
 purpose: >-
   Job-specific corpus for Turkish banking-regulation research, compliance,
-  internal-audit, retrieval, and model/tool-calling evaluation. This release
-  adds one owner-selected KGK accounting standard, TMS 12 Gelir Vergileri,
-  acquired once as a public PDF outside the live ingestion allowlist, and rebuilds
-  twenty mevzuat.gov.tr texts whose extraction scrambled justified lines or table
-  cells or dropped image formulas from their official PDFs: regulations
-  mevzuat_22599, 16071, 39171, 40203, 40519, 20645, 10522, 38416, 10731, 42359,
-  38568, 23228, 11203, 10746, 38797 and 42628, communiqué mevzuat_11201, and laws
-  mevzuat_5411, 6362 and 5464; other canonical source text is unchanged. It is not
-  independent human legal validation.
+  internal-audit, retrieval, and model/tool-calling evaluation. It carries the
+  owner-selected KGK standard TMS 12 Gelir Vergileri (a public PDF acquired
+  outside the live ingestion allowlist) and the twenty mevzuat.gov.tr texts
+  rebuilt from their official PDFs in v10. The 2026-10-16 quality pass repairs
+  297 documents against their official sources: mis-decoded glyphs, scrambled
+  justified lines, flattened tables, page furniture, and lost superscripts and
+  formulas (receipts in docs/evidence/document-repairs/quality-pass-2026-10-16);
+  other canonical source text is unchanged. It is not independent human legal
+  validation.
   This selection is intentionally narrower than the complete BDDK corpus.
 exhaustive: false
 included_source_classes:
@@ -31,9 +31,9 @@ known_gaps:
   - Selection completeness has not been independently reconciled against an authoritative full-source inventory
 freshness:
   source_observed_start: "2026-04-08T16:50:25.439181Z"
-  source_observed_end: "2026-09-29T13:56:02Z"
-  corpus_built_at: "2026-09-29T15:45:38.433080Z"
-  scope_reviewed_at: "2026-10-02T19:40:35.162198+00:00"
+  source_observed_end: "2026-10-16T06:43:15.687767Z"
+  corpus_built_at: "2026-10-16T11:44:09.931247Z"
+  scope_reviewed_at: "2026-10-18T16:15:57.276334+00:00"
   business_expectation: quarterly-reviewed batch corpus with quantified objectives
   source_detection_slo_seconds: 604800
   publication_slo_seconds: 1209600
@@ -42,21 +42,21 @@ freshness:
 artifacts:
   - role: documents
     path: documents.json
-    sha256: 51dd56baceca45d34d119bc8c74342fb8dfa8f5efe2152eaae7393ba02c5bce4
-    bytes: 8775654
+    sha256: 4214ecbf7522ea992064f8ac443aa65868f508385137123e3ed307e8f0a59ffc
+    bytes: 8689220
     records: 319
   - role: chunks
     path: chunks.json
-    sha256: b39b63306564e348d9f6c39ce5b2c91263cf1148c553378001d0ed268372cce9
-    bytes: 19426698
-    records: 13558
+    sha256: 67e9fc660697213cf897ea71c14db09ca5ac51e4bc587c2ed81d4e14e172474d
+    bytes: 19373818
+    records: 13604
   - role: decision_cache
     path: decision_cache.json
-    sha256: 05cad5feb3557d9900b4d49640ef3b0bfc2320141c3060bb7f26516a3a0973f2
-    bytes: 153379
+    sha256: 9a3bfe5a025ba253d7931118fb93c7f07dc2df42b1d7c06fb0b32f9a4630b218
+    bytes: 153377
     records: 319
 integrity:
-  manifest_sha256: "db4def3bc160c80b5caac0d66c486935b1596691f8fd6dd6afd6e4688ff047af"
+  manifest_sha256: "99997032f5170c0b73d1abae92acd9fb400be65c69e5a767cc6205f8c1493427"
   signature_status: verified
   signature_algorithm: ed25519
   signature_reference: corpus_scope.sig

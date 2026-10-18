@@ -1,0 +1,40 @@
+{
+ "tables": [
+  {
+   "start": "Kategori Borçlanma Aracının Kredi Spesifik",
+   "end": "(4) Merkezi yönetim borçlanma araçları kategorisine",
+   "md": "| Kategori | Borçlanma Aracının Kredi Kalitesi Kademesi (KKK) | Spesifik Risk Sermaye Yükümlülüğü Oranı |\n|---|---|---|\n| Merkezi Yönetim Borçlanma Araçları | Birinci KKK | %0 |\n| Merkezi Yönetim Borçlanma Araçları | İki ve üçüncü KKK | Nihai vadeye kalan süresi 6 ay veya daha kısa ise %0,25 |\n| Merkezi Yönetim Borçlanma Araçları | İki ve üçüncü KKK | Nihai vadeye kalan süresi 6 aydan daha uzun fakat 24 ay da dâhil 24 aya kadar ise %1,00 |\n| Merkezi Yönetim Borçlanma Araçları | İki ve üçüncü KKK | Nihai vadeye kalan süre 24 aydan daha uzun ise %1,60 |\n| Merkezi Yönetim Borçlanma Araçları | Dört ve beşinci KKK | %8 |\n| Merkezi Yönetim Borçlanma Araçları | Altıncı KKK | %12 |\n| Merkezi Yönetim Borçlanma Araçları | KDK derecesi bulunmayan | %8 |\n| Nitelikli Borçlanma Araçları |  | Nihai vadeye kalan süre 6 ay veya daha kısa ise %0,25 |\n| Nitelikli Borçlanma Araçları |  | Nihai vadeye kalan süre 6 aydan daha uzun fakat 24 ay da dâhil 24 aya kadar ise %1,00 |\n| Nitelikli Borçlanma Araçları |  | Nihai vadeye kalan süre 24 aydan daha uzun ise %1,60 |\n| Diğer | Onuncu fıkrada belirtilen esaslar çerçevesinde bulunacak sermaye yükümlülüğü oranı | Onuncu fıkrada belirtilen esaslar çerçevesinde bulunacak sermaye yükümlülüğü oranı |"
+  },
+  {
+   "start": "Vade Dilimi",
+   "end": "(8) Risk ağırlıklı pozisyonlar bulunduktan sonra",
+   "md": "| Zaman Aralığı | Vade Dilimi | Vade Dilimi | Vade Dilimi | Risk ağırlığı (%) | Varsayılan Faiz Oranı Değişimi (%) |\n|---|---|---|---|---|---|\n| Zaman Aralığı | Sıra No | Yıllık Kupon Oranı Yüzde Üç veya Daha Büyük | Yıllık Kupon Oranı Yüzde Üçten Küçük | Risk ağırlığı (%) | Varsayılan Faiz Oranı Değişimi (%) |\n| I. Zaman Aralığı | 1. Vade Dilimi | ≤ 1 ay | ≤ 1 ay | 0,00 | 1,00 |\n| I. Zaman Aralığı | 2. Vade Dilimi | > 1 ay ≤ 3 ay | > 1 ay ≤ 3 ay | 0,20 | 1,00 |\n| I. Zaman Aralığı | 3. Vade Dilimi | > 3 ay ≤ 6 ay | > 3 ay ≤ 6 ay | 0,40 | 1,00 |\n| I. Zaman Aralığı | 4. Vade Dilimi | > 6 ay ≤ 12 ay | > 6 ay ≤ 12 ay | 0,70 | 1,00 |\n| II. Zaman Aralığı | 5. Vade Dilimi | > 1 yıl ≤ 2 yıl | > 1,0 yıl ≤ 1,9 yıl | 1,25 | 0,90 |\n| II. Zaman Aralığı | 6. Vade Dilimi | > 2 yıl ≤ 3 yıl | > 1,9 yıl ≤ 2,8 yıl | 1,75 | 0,80 |\n| II. Zaman Aralığı | 7. Vade Dilimi | > 3 yıl ≤ 4 yıl | > 2,8 yıl ≤ 3,6 yıl | 2,25 | 0,75 |\n| III. Zaman Aralığı | 8. Vade Dilimi | > 4 yıl ≤ 5 yıl | > 3,6 yıl ≤ 4,3 yıl | 2,75 | 0,75 |\n| III. Zaman Aralığı | 9. Vade Dilimi | > 5 yıl ≤ 7 yıl | > 4,3 yıl ≤ 5,7 yıl | 3,25 | 0,70 |\n| III. Zaman Aralığı | 10. Vade Dilimi | > 7 yıl ≤ 10 yıl | > 5,7 yıl ≤ 7,3 yıl | 3,75 | 0,65 |\n| III. Zaman Aralığı | 11. Vade Dilimi | > 10 yıl ≤ 15 yıl | > 7,3 yıl ≤ 9,3 yıl | 4,50 | 0,60 |\n| III. Zaman Aralığı | 12. Vade Dilimi | > 15 yıl ≤ 20 yıl | > 9,3 yıl ≤ 10,6 yıl | 5,25 | 0,60 |\n| III. Zaman Aralığı | 13. Vade Dilimi | > 20 yıl | > 10,6 yıl ≤ 12,0 yıl | 6,00 | 0,60 |\n| III. Zaman Aralığı | 14. Vade Dilimi | ■ | > 12,0 yıl ≤ 20,0 yıl | 8,00 | 0,60 |\n| III. Zaman Aralığı | 15. Vade Dilimi | ■ | > 20 yıl | 12,50 | 0,60 |"
+  },
+  {
+   "start": "Zaman",
+   "end": "Faiz oranı riski sermaye yükümlülüğü hesaplamasında faiz oranı türev",
+   "md": "| Zaman Aralığı | Vade Dilimi | Varsayılan Faiz Oranı Değişimi (%) |\n|---|---|---|\n| I | ≤ 1 ay | 1,00 |\n| I | > 1 ay ≤ 3 ay | 1,00 |\n| I | > 3 ay ≤ 6 ay | 1,00 |\n| I | > 6 ay ≤ 12 ay | 1,00 |\n| II | > 1,0 yıl≤ 1,9 yıl | 0,90 |\n| II | > 1,9 yıl ≤ 2,8 yıl | 0,80 |\n| II | > 2,8 yıl ≤ 3,6 yıl | 0,75 |\n| III | > 3,6 yıl ≤ 4,3 yıl | 0,75 |\n| III | > 4,3 yıl ≤ 5,7 yıl | 0,70 |\n| III | > 5,7 yıl ≤ 7,3 yıl | 0,65 |\n| III | > 7,3 yıl ≤ 9,3 yıl | 0,60 |\n| III | > 9,3 yıl ≤ 10,6 yıl | 0,60 |\n| III | > 10,6 yıl ≤ 12,0 yıl | 0,60 |\n| III | > 12,0 yıl ≤ 20,0 yıl | 0,60 |\n| III | > 20 yıl | 0,60 |"
+  },
+  {
+   "start": "Ülke Endeks",
+   "end": "(9) Bankanın, farklı uygulama tarihli",
+   "md": "| Ülke | Endeks |\n|---|---|\n| Avustralya | S&P/ASX 200 |\n| Avusturya | ATX |\n| Belçika | BEL 20 |\n| Kanada | S&P/TSX 60 |\n| Fransa | CAC 40 |\n| Almanya | DAX |\n| Japonya | Nikkei 225 |\n| Hollanda | AEX |\n| İspanya | IBEX 35 |\n| İsveç | OMX |\n| İsviçre | SMI |\n| İngiltere | FTSE 100 |\n| ABD | S&P 500 |\n| Türkiye | BIST 100 |"
+  },
+  {
+   "start": "Vade dilimi Spread oranı (%)",
+   "end": "(11) Her bir vade dilimindeki toplam uzun",
+   "md": "| Vade dilimi | Spread oranı (%) |\n|---|---|\n| ≤ 1 ay | 1,50 |\n| > 1 ay ve ≤ 3 ay | 1,50 |\n| > 3 ay ve ≤ 6 ay | 1,50 |\n| > 6 ay ve ≤ 12 ay | 1,50 |\n| > 1 yıl ve ≤ 2 yıl | 1,50 |\n| > 2 yıl ve ≤ 3 yıl | 1,50 |\n| > 3 yıl | 1,50 |"
+  },
+  {
+   "start": "Basitleştirilmiş Metot",
+   "end": "(2) Bu maddenin uygulanmasında,",
+   "md": "| Basitleştirilmiş Metot | Basitleştirilmiş Metot |\n|---|---|\n| Pozisyon | Uygulama |\n| Sözleşmeye konu varlığa ilişkin uzun pozisyon ve uzun satım opsiyonu veya Sözleşmeye konu varlığa ilişkin kısa pozisyon ve uzun alım opsiyonu | Sermaye yükümlülüğü, sözleşmeden kaynaklı dayanak varlık pozisyonunun piyasa değeri ile spesifik risk ve genel piyasa riski sermaye yükümlülüğü oranları toplamının çarpımından, kârda opsiyonun gerçek değerinin çıkarılması suretiyle hesaplanır.<br/><br/>Kârda opsiyonun gerçek değeri; kârda opsiyonun kullanım fiyatı ile opsiyon sözleşmesine konu varlığın piyasa fiyatı arasındaki farkın sözleşmeden kaynaklı dayanak varlıktaki pozisyon miktarının çarpılması suretiyle bulunur. |\n| Uzun alım opsiyonu veya Uzun satım opsiyonu | Sermaye yükümlülüğü, aşağıdakilerden küçük olanıdır:<br/>- Sözleşmeden kaynaklı dayanak varlık pozisyonunun piyasa değeri ile spesifik risk ve genel piyasa riski sermaye yükümlülüğü oranları toplamının çarpımı<br/>- Opsiyonun piyasa fiyatı |",
+   "nth": 2
+  },
+  {
+   "start": "Gama Etkisi = 1/2 x Gama x (FD)2",
+   "end": "(3) İkinci fıkraya konu fiyat değişimi",
+   "md": "$$\n\\text{Gama Etkisi} = \\frac{1}{2} \\times \\text{Gama} \\times (\\text{FD})^{2}\n$$"
+  }
+ ]
+}

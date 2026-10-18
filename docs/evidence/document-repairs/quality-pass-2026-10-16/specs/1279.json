@@ -1,0 +1,9 @@
+{
+ "tables": [
+  {
+   "start": "KREDİ SINIRI ORANLARI",
+   "end": "2) 01/01/2020",
+   "md": "| KREDİ SINIRI ORANLARI | KREDİ SINIRI ORANLARI | KREDİ SINIRI ORANLARI |\n|---|---|---|\n| Kaldıraç Oranı (k) | Bankanın dahil olduğu risk grubuna ilişkin oran | Bir gerçek veya tüzel kişiye ya da bir risk grubuna ilişkin oran |\n| % 0 ≤ k < %10 | %35 | %40 |\n| % 10 ≤ k < %20 | %40 | %45 |\n| % 20 ≤ k < %30 | %45 | %50 |\n| % 30 ≤ k < %40 | %50 | %55 |\n| % 40 ≤ k | %55 | %60 |"
+  }
+ ]
+}

@@ -1,0 +1,72 @@
+{
+ "tables": [
+  {
+   "start": "Derecelendirilmiş Derecelendirilmemiş",
+   "end": "(2) Türkiye Cumhuriyeti Merkezi Yönetimi",
+   "md": "|  | Derecelendirilmiş | Derecelendirilmiş | Derecelendirilmiş | Derecelendirilmiş | Derecelendirilmiş | Derecelendirilmiş | Derecelendirilmemiş |\n|---|---|---|---|---|---|---|---|\n| Kredi kalitesi kademesi | 1 | 2 | 3 | 4 | 5 | 6 | - |\n| Baz risk ağırlığı (%) | 0 | 20 | 50 | 100 | 100 | 150 | 100 |"
+  },
+  {
+   "start": "Asgari İhracat",
+   "end": "(7) Fazla ödenen vergiler",
+   "md": "| Asgari İhracat Sigorta Primi | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |\n|---|---|---|---|---|---|---|---|---|\n| Risk ağırlığı (%) | 0 | 0 | 20 | 50 | 100 | 100 | 100 | 150 |"
+  },
+  {
+   "start": "Derecelendirilmiş Derecelendirilmemiş",
+   "end": "(2) Bölgesel yönetimler",
+   "md": "|  | Derecelendirilmiş | Derecelendirilmiş | Derecelendirilmiş | Derecelendirilmiş | Derecelendirilmiş | Derecelendirilmiş | Derecelendirilmemiş |\n|---|---|---|---|---|---|---|---|\n| Kredi kalitesi kademesi | 1 | 2 | 3 | 4 | 5 | 6 | - |\n| Baz risk ağırlığı (%) | 20 | 50 | 50 | 100 | 100 | 150 | 50 |"
+  },
+  {
+   "start": "Derecelendirilmiş Derecelendirilmemiş",
+   "end": "Bankalar veya aracı kurumlardan alacaklar risk sınıfı",
+   "md": "|  | Derecelendirilmiş | Derecelendirilmiş | Derecelendirilmiş | Derecelendirilmiş | Derecelendirilmiş | Derecelendirilmiş | Derecelendirilmemiş |\n|---|---|---|---|---|---|---|---|\n| Kredi kalitesi kademesi | 1 | 2 | 3 | 4 | 5 | 6 | - |\n| Baz risk ağırlığı (%) | 20 | 30 | 50 | 100 | 100 | 150 | 50 |"
+  },
+  {
+   "start": "Bankalar veya aracı kurumların kredi",
+   "end": "(5) Bir KDK tarafından derecelendirilmiş",
+   "md": "| Bankalar veya aracı kurumların kredi kalitesi kademesi | 1 | 2 | 3 | 4 | 5 | 6 |\n|---|---|---|---|---|---|---|\n| Baz risk ağırlığı (%) | 20 | 30 | 50 | 100 | 100 | 150 |\n| Kısa vadeli alacaklar için risk ağırlığı (%) | 20 | 20 | 20 | 50 | 50 | 150 |"
+  },
+  {
+   "start": "Alacağın kredi kalitesi",
+   "end": "(6) Alacağa özgü kısa vadeli",
+   "md": "| Alacağın kredi kalitesi kademesi | 1 | 2 | 3 | 4 | 5 | 6 |\n|---|---|---|---|---|---|---|\n| Risk ağırlığı (%) | 20 | 50 | 100 | 150 | 150 | 150 |"
+  },
+  {
+   "start": "Kredi riski değerlendirme derecesi",
+   "end": "(9) Aşağıdaki koşulları taşıyan",
+   "md": "| Kredi riski değerlendirme derecesi | A | B | C |\n|---|---|---|---|\n| Baz risk ağırlığı (%) | 40 | 75 | 150 |\n| Kısa vadeli alacaklar için risk ağırlığı (%) | 20 | 50 | 150 |"
+  },
+  {
+   "start": "Teminatlı menkul kıymetin",
+   "end": "b) Bir KDK tarafından derecelendirilmeyen teminatlı",
+   "md": "| Teminatlı menkul kıymetin kredi kalitesi kademesi | 1 | 2 | 3 | 4 | 5 | 6 |\n|---|---|---|---|---|---|---|\n| Baz risk ağırlığı (%) | 10 | 20 | 20 | 50 | 50 | 100 |"
+  },
+  {
+   "start": "İhraççının risk ağırlığı (%)",
+   "end": "(3) Birinci fıkrada sayılan kriterleri",
+   "md": "| İhraççının risk ağırlığı (%) | 20 | 30 | 40 | 50 | 75 | 100 | 150 |\n|---|---|---|---|---|---|---|---|\n| Baz risk ağırlığı (%) | 10 | 15 | 20 | 25 | 35 | 50 | 100 |"
+  },
+  {
+   "start": "Derecelendirilmiş Derecelendirilmemiş",
+   "end": "(11) Kısa vadeli kurumsal alacak",
+   "md": "|  | Derecelendirilmiş | Derecelendirilmiş | Derecelendirilmiş | Derecelendirilmiş | Derecelendirilmiş | Derecelendirilmiş | Derecelendirilmemiş |\n|---|---|---|---|---|---|---|---|\n| Kredi kalitesi kademesi | 1 | 2 | 3 | 4 | 5 | 6 | - |\n| Baz risk ağırlığı (%) | 20 | 50 | 75 | 100 | 150 | 150 | 100 |"
+  },
+  {
+   "start": "Alacağın kredi kalitesi",
+   "end": "(12) Alacağa özgü kısa vadeli",
+   "md": "| Alacağın kredi kalitesi kademesi | 1 | 2 | 3 | 4 | 5 | 6 |\n|---|---|---|---|---|---|---|\n| Risk ağırlığı (%) | 20 | 50 | 100 | 150 | 150 | 150 |"
+  },
+  {
+   "start": "%60 < %80 < %90 <",
+   "end": "(12) Gayrimenkulün yarattığı nakit akışlarına önemli ölçüde bağlı olmayan",
+   "md": "|  | KTO ≤ %50 | %50 < KTO ≤ %60 | %60 < KTO ≤ %80 | %80 < KTO ≤ %90 | %90 < KTO ≤ %100 | KTO > %100 |\n|---|---|---|---|---|---|---|\n| Risk Ağırlığı (%) | 30 | 35 | 45 | 60 | 75 | 105 |"
+  },
+  {
+   "start": "KTO ≤ %60 %60 < KTO ≤ %80 KTO > %80",
+   "end": "(14) Aşağıdaki şartların sağlanması",
+   "md": "|  | KTO ≤ %60 | %60 < KTO ≤ %80 | KTO > %80 |\n|---|---|---|---|\n| Risk Ağırlığı (%) | 70 | 90 | 110 |"
+  }
+ ],
+ "conts": [
+  "HESAPLANMASINA İLİŞKİN TEBLİĞ TASLAĞI"
+ ]
+}

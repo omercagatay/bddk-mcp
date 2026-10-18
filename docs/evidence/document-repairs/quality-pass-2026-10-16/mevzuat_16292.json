@@ -1,0 +1,47 @@
+{
+ "document_id": "mevzuat_16292",
+ "status": "source_reviewed_candidate_awaiting_owner_approval",
+ "review_scope": "Assistant technical source review; not independent human/legal approval.",
+ "repair_class": "full_rebuild_from_official_source",
+ "input_markdown_sha256": "9163633dc2e30a819e9ca5300a76fcc2929b80e1df43100a61bd4cb092cbdefc",
+ "output_markdown_sha256": "f488b797ec6bc4a236243caafa11990c38b3a42e1b9eadbfadaa9b27e1265210",
+ "extraction_method_before": "manual_pdf+markitdown",
+ "extraction_method_after": "pdftotext_layout+manual_latex",
+ "change_classes": [
+  "full rebuild from the official source text layer with relay.py (paragraphs, page furniture, scramble-free order)",
+  "stored word order differed from the PDF; rebuilt order matches the PDF content stream (pdftotext -raw)",
+  "1 table block(s) written as Markdown tables, reviewed against the page image",
+  "1 reviewed spot replacement(s) in the rebuilt text: 'Gama Etkisi = 1/2 x Gama x (FD)2' -> 'Gama Etkisi = 1/2 x Gama x (FD)$^{2}$'",
+  "5 word boundaries taken from the stored text where the official PDF text layer glued words (e.g. 'MADDE 1 –(1)')"
+ ],
+ "pages_visually_reviewed": [
+  2,
+  3
+ ],
+ "source_url": "http://www.mevzuat.gov.tr/Metin.Aspx?MevzuatKod=9.5.16292&MevzuatIliski=0&sourceXmlSearch=opsiyonlardan kaynaklanan",
+ "source_pdf_sha256": "f2a26234be4101956ec543d4d4b2605c1895956a53f2b3bf2088392f06d14d4f",
+ "source_pdf_bytes": 59366,
+ "source_pdf_matches_stored_file_size": false,
+ "source_pdf_note": "mevzuat.gov.tr File/GeneratePdf output is regenerated per request (not byte-reproducible)",
+ "pre_review_gate": {
+  "note": "Pre-review gate on the unreviewed relay draft (token multiset, sections, content-stream order, punctuation); 'review'/'fail' sent the draft to the review recorded in gate_resolution before anything was applied.",
+  "status": "fail",
+  "reasons": [
+   "rebuilt-only tokens ['_______']",
+   "stored-only non-page tokens ['_________']",
+   "ruled tables on pages [3]"
+  ],
+  "paragraph_break_spots": 0
+ },
+ "gate_resolution": [
+  "token, table and formula differences resolved by the reviewed specs/ and manual steps above, checked against the viewed page images"
+ ],
+ "layout_not_carried": [
+  "bold, italic and underline emphasis; font sizes; page breaks",
+  "justified-line double spaces collapse to single spaces; physical line breaks inside a paragraph are kept",
+  "bare page numbers and the BDDK letterhead footer (address/phone/web lines) are page furniture and are dropped",
+  "list bullets come from the PDF text layer (private-use bullet glyphs mapped to • ▪ ➢ ✓ → —)",
+  "multi-line capitalised titles are one paragraph; paragraph breaks follow PDF indentation, short closing lines and vertical spacing",
+  "table cells merged across rows or columns repeat their label in each cell; line breaks inside a cell are <br/>"
+ ]
+}
