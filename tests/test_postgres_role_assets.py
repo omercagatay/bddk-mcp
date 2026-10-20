@@ -816,6 +816,9 @@ async def test_live_actual_login_identity_and_acl_provenance_contracts(tmp_path,
             for profile, name in login_roles.items()
         }
         dsns["schema"] += "?" + urlencode({"options": "-c role=bddk_schema_owner"})
+        # check_public_admin_drafts leaves its owner-seeded fixture document; the signed
+        # publication exercise must start from an empty corpus.
+        await admin.execute("DELETE FROM public.documents WHERE document_id = 'doc'")
         await exercise_signed_legal_publication(admin, dsns, tmp_path, monkeypatch)
     finally:
         for pool in reversed(pools):

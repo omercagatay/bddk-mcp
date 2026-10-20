@@ -24,6 +24,8 @@ async def exercise_signed_legal_publication(admin, dsns, tmp_path, monkeypatch):
     assert all(urlsplit(dsn).hostname in {"localhost", "127.0.0.1", "::1"} for dsn in dsns.values())
     database_name = await admin.fetchval("SELECT current_database()")
     assert database_name.startswith("bddk_role_contract")
+    # Bootstrap readiness and exact signed membership cover every stored document.
+    assert await admin.fetchval("SELECT count(*) FROM public.documents") == 0, "exercise requires an empty corpus"
     monkeypatch.setenv("BDDK_ALLOW_INSECURE_DATABASE", "true")
     monkeypatch.setattr(config, "EXPECTED_DATABASE_NAME", database_name)
     monkeypatch.setattr(vector_store, "EMBEDDING_CHUNK_MODE", "character")

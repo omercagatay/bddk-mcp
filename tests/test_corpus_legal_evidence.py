@@ -706,7 +706,7 @@ async def test_portable_import_reaches_dated_mcp_answer_without_exposing_legal_t
             assessment = valid.structuredContent["answer_assessment"]
             assert assessment["basis"] == "dated_version" and assessment["gaps"] == []
             assert assessment["scope_and_entailment"] == "not_assessed"
-            assert assessment["quotation_status"] == "verified"
+            assert assessment["quotation_status"] == "exact_reference_match"
             assert {claim["role"] for claim in assessment["legal_evidence"]} >= {"publication", "effective", "status"}
             assert outside.structuredContent["status"] == "partial"
             assert outside.structuredContent["answer_assessment"]["basis"] != "dated_version"
