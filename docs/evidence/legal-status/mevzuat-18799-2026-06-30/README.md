@@ -1,6 +1,7 @@
 # Özkaynak Yönetmeliği — 30.06.2026 için dar kapsamlı kaynak incelemesi
 
-**İnceleme/edinim tarihi:** 21.09.2026. **Durum:** resmî kaynak kanıtları hazırlanmıştır;
+**İnceleme/edinim tarihi:** 21.09.2026. **Corpus v11 metnine yeniden bağlama:** 20.10.2026.
+**Durum:** resmî kaynak kanıtları hazırlanmıştır;
 bağımsız hukuki inceleme, kanonik `validated` kaydı ve MCP yayını yapılmamıştır.
 Bu dosya hukuki görüş, bankaya özgü uygunluk kararı veya üretim kabulü değildir.
 
@@ -101,19 +102,24 @@ izlendi. Arama sonuçlarında görülen taslaklar yürürlük kanıtı kabul edi
 
 ## Mevcut MCP metniyle karşılaştırma
 
-21.09.2026'da halen yayındaki `263ec741...` sürümün `get_document_section` aracı,
-`document_id=mevzuat_18799`, `section_ref=9`, `as_of=2026-06-30` ile çağrıldı.
-Çağrı çalışan imajın araç fonksiyonuna SSH üzerinden yapıldı; HTTP/OAuth uçtan uca testi değildir.
+**20.10.2026 (corpus v11):** `get_document_section` aracı, bu çalışmanın oturumuna bağlı
+BDDK-MCP bağlayıcısı üzerinden `document_id=mevzuat_18799`, `section_type=madde`,
+`section_ref=9`, `as_of=2026-06-30` ile çağrıldı. Dönen madde 9'un aralığı `[18833, 29809)`,
+içerik özeti `946b1b01…` idi; bu, depodaki v11 corpus metniyle aynıdır.
 
-- 9/1/ç ve 9/2, resmî konsolidasyonla boşluk dışında birebir eşleşti.
-- 9/4/ç hesaplama metninde **bir U+0092 kodlama artığı** var; resmî metindeki
-  U+2019 kesme işaretine açıkça dönüştürüldüğünde eşleşiyor. Bu dönüşüm yapıldığı
-  gizlenmedi; `whitespace_only_equal=false` kaydı korundu. Üretim metni değiştirilmedi.
-- Araç sonucu `partial`; `citation_available=false`, `legal_evidence=[]` ve
-  `legal_status_not_checked_without_citation` hâlâ geçerli teknik durumdur.
-- Genel `formula_unaware_extraction` uyarısı kaldırılmadı. İncelenen hesaplama
-  alt bentleri resmî HTML ve PDF'de yazılı olarak yer alıyor; kayıp bir görsel formül
-  hafızadan veya Basel kaynaklarından yeniden kurulmadı.
+- 9/1/ç, 9/2 ve 9/4/ç hesaplama metni resmî konsolidasyonla boşluk dışında birebir
+  eşleşti. Metinde U+0092 kodlama artığı kalmadı; 18.10.2026 tarihli v11 kalite geçişi
+  bunu onardı. Üretim metni bu çalışmada değiştirilmedi.
+- Araç sonucu `partial`: `basis=local_text`, `citation_available=false`, `legal_evidence=[]`,
+  `validated_citation_unavailable` ve `legal_status_not_checked_without_citation`.
+  Aynı gün `resolve_regulation_status`, taslaktaki kanonik belge kimliği için
+  `instrument_not_found` döndürdü. Sistem bu tarih için hâlâ hüküm vermiyor.
+- 21.09.2026'daki ilk gözlemde (o zaman yayındaki `263ec741...` sürüm; çalışan imajın araç
+  fonksiyonuna SSH üzerinden çağrı) 9/4/ç'de bir U+0092 artığı vardı ve U+2019'a açık
+  dönüşüm gerekiyordu. O metne bağlı ilk taslak (`d29d65ed…`) artık geçerli değildir.
+- Bu çalışma hiçbir kalite uyarısını kaldırmadı. İncelenen hesaplama alt bentleri resmî
+  HTML ve PDF'de yazılı olarak yer alıyor; kayıp bir görsel formül hafızadan veya Basel
+  kaynaklarından yeniden kurulmadı.
 
 ## Kanıt paketi ve tekrar kontrol
 
@@ -122,16 +128,22 @@ izlendi. Arama sonuçlarında görülen taslaklar yürürlük kanıtı kabul edi
 - `sources/`: değiştirilmemiş kaynak baytları, kayıpsız gzip ile.
 - `text/`: HTML paragraf çıkarımları; PDF sayfa veya ham HTML bayt koordinatları değildir.
 - [verify.py](verify.py): bayt özetlerini, yeniden çıkarımı ve alıntı aralıklarını denetler.
+- [rebind.py](rebind.py): incelemede bekleyen taslağı depodaki corpus metnine yeniden bağlar.
+  Yalnız metne bağlı özetleri, bunlardan türeyen kimlikleri, inceleme isteğindeki paket
+  özetini ve tüm belge karşılaştırmasını yeniden üretir. Tamamlanmış inceleme taşıyan paketi
+  reddeder; inceleme durumlarına, hukuki tarihlere, kaynaklara ve konum metinlerine dokunmaz.
 
 ```bash
 .venv/bin/python docs/evidence/legal-status/mevzuat-18799-2026-06-30/verify.py
+.venv/bin/python docs/evidence/legal-status/mevzuat-18799-2026-06-30/rebind.py
 ```
 
 Kontrol sonuçları: **12 kaynak özeti, 10 yeniden üretilen metin çıkarımı ve 21 tam
-alıntı aralığı geçti.** Ayrı geçici kopyadaki bozulmuş kaynak baytları kontrol tarafından
-reddedildi. `verify.py` için Ruff lint ve biçim kontrolü geçti. Depo geneli hijyen
-kontrolü, bu çalışmadan önce mevcut `autoresearch-results.tsv` kök dosyası nedeniyle
-geçmedi; dosyaya dokunulmadı. Bu kontroller hukuki inceleme yerine geçmez.
+alıntı aralığı geçti.** Bozulmuş kaynak baytları içeren ayrı bir kopya reddedildi.
+Bu kontroller 21.09.2026'da yapıldı ve 20.10.2026'da aynı sonuçla tekrarlandı.
+Bir CI testi, taslağın bağlandığı belge ve madde özetlerini depodaki corpus ile karşılaştırır.
+Corpus metni yeniden değişirse bu test, `rebind.py` çalıştırılana kadar başarısız olur.
+Bu kontroller hukuki inceleme yerine geçmez.
 
 Kaynakların ilk erişiminde eksik sunucu ara sertifika zincirleri görüldü.
 GlobalSign RSA OV SSL CA 2018 ve GeoTrust TLS RSA CA G1 ara sertifikaları yayıncılarının
@@ -148,6 +160,12 @@ yönlendiğinden kanıt olarak alınmadı. Yeni yollar resmî belge sayfasındak
   madde inceleme alanları `in_review`; inceleyen/onay zamanı/onay kaydı boş bırakıldı.
   Veritabanı-yerel madde kimlikleri kullanılmıyor; belge özeti, madde özeti ve kesin
   karakter aralığı ile bağlanıyor. İmzalı `seed_data` içine veya veritabanına alınmadı.
+  **20.10.2026'da corpus v11 metnine yeniden bağlandı** (`rebind.py`). Belge özeti
+  `0fd2f517…` → `b44379b9…`, madde 9 özeti `b2c7abc7…` → `946b1b01…` oldu; aralık
+  değişmedi. Sürüm kimliği metin özetinden türediği için `ver_sha256_f4a91d…` →
+  `ver_sha256_abcb2d…`, paket özeti `d29d65ed…` → `201d5e4f…` oldu. Hukuki tarihler,
+  kaynaklar ve bütün `in_review` durumları aynıdır. Eski taslak artık depodaki metne
+  uymaz ve incelemeye konu edilmemelidir.
 - [review-request.json](review-request.json): bir insan inceleyenin gerçekten
   değerlendirmesi gereken iddialar ve kapsam dışı konular. Normalleştirilmiş sürüm
   için önerilen 2018 yayım/yürürlük olayları, ilk yönetmeliğin 2013/2014 tarihleriyle
@@ -156,9 +174,10 @@ yönlendiğinden kanıt olarak alınmadı. Yeni yollar resmî belge sayfasındak
   incelemeye sunulan yorumudur; sadece yürürlükten kaldırma kaydı bulunamadığı için
   onaylanamaz.
 - [whole-document-comparison.json](whole-document-comparison.json): yalnız 9'uncu
-  madde değil, mevcut kaydedilmiş belgenin tamamı resmî HTML paragraf metniyle
-  karşılaştırıldı. Açık Windows-1252 noktalama dönüşümleri, boşluk farkları ve tek
-  editoryal alt çizgi ayıracı dışında metin eşleşti. Bu **karşılaştırma dönüşümü**,
+  madde değil, kaydedilmiş belgenin (v11) tamamı resmî HTML paragraf metniyle
+  karşılaştırıldı. Boşluk farkları, sondaki değişiklik çizelgesinin Markdown tablo
+  biçimi ve tek editoryal alt çizgi ayıracı dışında metin eşleşti. v11 metninde
+  Windows-1252 noktalama artığı kalmadı. Bu **karşılaştırma dönüşümü**,
   Citation v1'in boşluk dışındaki değişiklikleri kabul etmeyen alıntı kontrolüne
   uygulanmadı; üretim metni değişmedi. Sayfa düzeni/görsel formül veya hukuki inceleme
   onayı anlamına gelmez.
@@ -177,8 +196,12 @@ testi, gerçek belge için insan incelemesi yapılmış gibi kullanılamaz.
    düzenlemelerin yokluğuna kanıt değildir.
 3. MCP'nin `dated_version` üretebilmesi için bu kanıtların gerçekten incelenmesi,
    kanonik belge–hukuki sürüm–madde eşleştirmesi ve tarih aralıklı durum kaydının
-   kurulması gerekir. Onaylanmış kayıtların imzalı corpus yayınına alınması da
-   geliştirme gerektirir: mevcut yayın doğrulayıcısı imzalı artefaktların temsil
-   etmediği `regulatory_*` satırlarını reddeder. Güvenlik kontrolü gevşetilmemeli.
+   kurulması gerekir. Onaylanmış kayıtlar ancak bu daldaki imzalı hukuki kanıt yoluyla
+   (`import-legal-evidence`, ardından bağımsız doğrulama ve aktivasyon) yeni bir imzalı
+   corpus yayınına alınabilir. Yayın doğrulayıcısı, imzalı paketin temsil etmediği
+   `regulatory_*` satırlarını reddetmeye devam eder. Güvenlik kontrolü gevşetilmemeli.
 4. Bu çalışma yalnız yeni yerel kanıt dosyaları ekledi; **veritabanı, imzalı corpus,
    kaynak belge veya canlı MCP cevabı değiştirilmedi**. Dağıtım/TLS geçişi ayrı iştir.
+5. Corpus metni yeniden onarılırsa taslak yine eskir. İnceleme başlamadan önce
+   `rebind.py` çalıştırılmalıdır. Tamamlanmış bir inceleme yeni kimliklere taşınmaz,
+   yeniden yapılır.

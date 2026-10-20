@@ -734,3 +734,32 @@ def test_actual_source_candidate_does_not_invent_human_review_or_resolve_dates()
     result = resolve_as_of(bundle, instrument_id=bundle.instrument.instrument_id, as_of=date(2026, 6, 30))
     assert not result.resolved
     assert result.reason is ResolutionReason.NO_VALIDATED_VERSION
+
+
+def test_actual_source_candidate_stays_bound_to_the_repository_corpus_text():
+    """A corpus text repair silently stales the candidate; import would later refuse it."""
+    import hashlib
+
+    from bddk_mcp.regulatory.corpus_evidence import LegalEvidencePackage
+    from bddk_mcp.store.section_index import extract_document_sections
+
+    root = Path(__file__).parents[1]
+    evidence = root / "docs/evidence/legal-status/mevzuat-18799-2026-06-30"
+    candidate = (evidence / "legal_evidence.candidate.json").read_bytes()
+    (binding,) = LegalEvidencePackage.model_validate_json(candidate).bindings
+    documents = json.loads((root / "seed_data/documents.json").read_text(encoding="utf-8"))
+    (text,) = [item["markdown_content"] for item in documents if item["document_id"] == binding.document_id]
+    sections = [
+        (section.start_char, section.end_char, hashlib.sha256(section.content.encode()).hexdigest())
+        for section in extract_document_sections(binding.document_id, text)
+        if (section.section_type, section.section_ref) == (binding.section_type, binding.section_ref)
+    ]
+    request = json.loads((evidence / "review-request.json").read_text(encoding="utf-8"))
+    comparison = json.loads((evidence / "whole-document-comparison.json").read_text(encoding="utf-8"))
+
+    message = f"Corpus text changed: run {evidence.relative_to(root)}/rebind.py before any review."
+    assert hashlib.sha256(text.encode()).hexdigest() == binding.document_sha256, message
+    assert sections == [(binding.start_char, binding.end_char, binding.content_sha256)], message
+    assert request["candidate_package_sha256"] == hashlib.sha256(candidate).hexdigest(), message
+    assert request["legal_version_id"] == binding.legal_version_id, message
+    assert comparison["document_sha256"] == binding.document_sha256, message

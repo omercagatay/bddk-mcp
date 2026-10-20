@@ -234,21 +234,24 @@
     }
   ],
   "live_mcp_comparison": {
-    "9/1/ç": {
-      "whitespace_only_equal": true,
-      "legacy_u0092_count": 0,
-      "equal_after_explicit_u0092_to_u2019_conversion": true
+    "observed_on": "2026-10-20",
+    "observation": "Live BDDK-MCP get_document_section(document_id=mevzuat_18799, section_type=madde, section_ref=9, as_of=2026-06-30); the returned section content_sha256 equals the repository corpus v11 section.",
+    "section_content_sha256": "946b1b01197214b1308c30f717185bb926611407f2272f7760ec9036bbdc8be4",
+    "passages": {
+      "9/1/ç": {
+        "whitespace_only_equal": true,
+        "legacy_u0092_count": 0
+      },
+      "9/2": {
+        "whitespace_only_equal": true,
+        "legacy_u0092_count": 0
+      },
+      "9/4/ç-algorithm": {
+        "whitespace_only_equal": true,
+        "legacy_u0092_count": 0
+      }
     },
-    "9/2": {
-      "whitespace_only_equal": true,
-      "legacy_u0092_count": 0,
-      "equal_after_explicit_u0092_to_u2019_conversion": true
-    },
-    "9/4/ç-algorithm": {
-      "whitespace_only_equal": false,
-      "legacy_u0092_count": 1,
-      "equal_after_explicit_u0092_to_u2019_conversion": true
-    }
+    "superseded_observation": "2026-09-21, then-serving release 263ec741 (the first candidate was bound to stored section b2c7abc7d81ee118be05c67e0717c9b44088be888f7acf4b5304cea5ab67d317): 9/4/ç-algorithm held one legacy U+0092 and matched only after explicit U+0092 to U+2019 conversion; corpus v11 repaired the stored text."
   },
   "limitations": [
     "Acquired on 2026-09-21; the current consolidation is not itself an archive snapshot taken on 2026-06-30.",
