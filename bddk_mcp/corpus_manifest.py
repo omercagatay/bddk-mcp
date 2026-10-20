@@ -47,7 +47,7 @@ class _StrictModel(BaseModel):
 class CorpusArtifact(_StrictModel):
     """One immutable artifact covered by the scope declaration."""
 
-    role: Literal["documents", "chunks", "decision_cache", "other"]
+    role: Literal["documents", "chunks", "decision_cache", "legal_evidence", "other"]
     path: str = Field(min_length=1, max_length=255)
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     bytes: int = Field(ge=0, le=_MAX_JSON_ARTIFACT_BYTES)

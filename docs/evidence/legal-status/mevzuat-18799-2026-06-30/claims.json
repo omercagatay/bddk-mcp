@@ -1,0 +1,260 @@
+{
+  "scope": {
+    "document_id": "mevzuat_18799",
+    "title": "Bankaların Özkaynaklarına İlişkin Yönetmelik",
+    "as_of": "2026-06-30",
+    "provisions": [
+      "9/1/ç",
+      "9/2",
+      "9/4/ç",
+      "Geçici 2",
+      "Geçici 5/5"
+    ]
+  },
+  "status": "primary_source_evidence_prepared_not_canonical_validation",
+  "independent_legal_review": false,
+  "database_mutation": false,
+  "claims": [
+    {
+      "id": "original_effective_date",
+      "statement": "Original regulation commenced on 2014-01-01, not its publication date 2013-09-05.",
+      "review_state": "ai_source_review_only",
+      "evidence": [
+        {
+          "source_id": "rg-2013",
+          "start_char": 36763,
+          "end_char": 36827,
+          "quotation": "MADDE 17 – (1) Bu Yönetmelik 1/1/2014 tarihinde yürürlüğe girer."
+        },
+        {
+          "source_id": "consolidated-html",
+          "start_char": 47002,
+          "end_char": 47066,
+          "quotation": "MADDE 17 – (1) Bu Yönetmelik 1/1/2014 tarihinde yürürlüğe girer."
+        }
+      ]
+    },
+    {
+      "id": "9/1/ç",
+      "statement": "The identified original and current official passages are textually equal after the declared paragraph extraction.",
+      "review_state": "ai_source_review_only",
+      "evidence": [
+        {
+          "source_id": "rg-2013",
+          "start_char": 17428,
+          "end_char": 17746,
+          "quotation": "ç) Geçici farklara dayanan ertelenmiş vergi varlıkları hariç olmak üzere gelecek dönemlerde elde edilecek vergilendirilebilir gelirlere dayanan ertelenmiş vergi varlığının, ilgili Türkiye Muhasebe Standardında yer alan koşulların sağlanması halinde ertelenmiş vergi yükümlülüğü ile mahsup edildikten sonra kalan kısmı,"
+        },
+        {
+          "source_id": "consolidated-html",
+          "start_char": 19397,
+          "end_char": 19715,
+          "quotation": "ç) Geçici farklara dayanan ertelenmiş vergi varlıkları hariç olmak üzere gelecek dönemlerde elde edilecek vergilendirilebilir gelirlere dayanan ertelenmiş vergi varlığının, ilgili Türkiye Muhasebe Standardında yer alan koşulların sağlanması halinde ertelenmiş vergi yükümlülüğü ile mahsup edildikten sonra kalan kısmı,"
+        }
+      ]
+    },
+    {
+      "id": "9/2",
+      "statement": "The identified original and current official passages are textually equal after the declared paragraph extraction.",
+      "review_state": "ai_source_review_only",
+      "evidence": [
+        {
+          "source_id": "rg-2013",
+          "start_char": 17826,
+          "end_char": 18192,
+          "quotation": "(2) Birinci fıkranın (ç) bendinde belirtilen ertelenmiş vergi varlığı ile mahsup edilecek ertelenmiş vergi yükümlülüğü, aynı fıkranın (c) bendi uyarınca mahsup edilen kısım düşülmek suretiyle belirlenir. Mahsup edilecek ertelenmiş vergi yükümlülüğü, geçici farklardan kaynaklanan ertelenmiş vergi varlığının tüm ertelenmiş vergi varlığına oranı üzerinden hesaplanır."
+        },
+        {
+          "source_id": "consolidated-html",
+          "start_char": 21645,
+          "end_char": 22011,
+          "quotation": "(2) Birinci fıkranın (ç) bendinde belirtilen ertelenmiş vergi varlığı ile mahsup edilecek ertelenmiş vergi yükümlülüğü, aynı fıkranın (c) bendi uyarınca mahsup edilen kısım düşülmek suretiyle belirlenir. Mahsup edilecek ertelenmiş vergi yükümlülüğü, geçici farklardan kaynaklanan ertelenmiş vergi varlığının tüm ertelenmiş vergi varlığına oranı üzerinden hesaplanır."
+        }
+      ]
+    },
+    {
+      "id": "9/4/ç-algorithm",
+      "statement": "The identified original and current official passages are textually equal after the declared paragraph extraction.",
+      "review_state": "ai_source_review_only",
+      "evidence": [
+        {
+          "source_id": "rg-2013",
+          "start_char": 21115,
+          "end_char": 21845,
+          "quotation": "1) Bu kalemlerin her birinin bu maddenin önceki hükümleri uygulandıktan sonra bulunan çekirdek sermaye tutarının yüzde onunu aşan kısımları çekirdek sermayeden indirilir.\n2) (1) numaralı alt bent kapsamında çekirdek sermayeden indirilmeyen tutarların toplamı (1) numaralı alt bent uyarınca bulunan çekirdek sermaye tutarından indirilir.\n3) (1) numaralı alt bent kapsamında çekirdek sermayeden indirilmeyen tutarların toplamının (2) numaralı alt bent uyarınca bulunan çekirdek sermaye tutarının yüzde 17,65’ini aşan kısmı (1) numaralı alt bent uyarınca bulunan çekirdek sermaye tutarından indirilir.\n4) (3) numaralı alt bent uyarınca bulunan çekirdek sermaye tutarı bu bent uyarınca hesaplanan çekirdek sermaye olarak kabul edilir."
+        },
+        {
+          "source_id": "consolidated-html",
+          "start_char": 27249,
+          "end_char": 27979,
+          "quotation": "1) Bu kalemlerin her birinin bu maddenin önceki hükümleri uygulandıktan sonra bulunan çekirdek sermaye tutarının yüzde onunu aşan kısımları çekirdek sermayeden indirilir.\n2) (1) numaralı alt bent kapsamında çekirdek sermayeden indirilmeyen tutarların toplamı (1) numaralı alt bent uyarınca bulunan çekirdek sermaye tutarından indirilir.\n3) (1) numaralı alt bent kapsamında çekirdek sermayeden indirilmeyen tutarların toplamının (2) numaralı alt bent uyarınca bulunan çekirdek sermaye tutarının yüzde 17,65’ini aşan kısmı (1) numaralı alt bent uyarınca bulunan çekirdek sermaye tutarından indirilir.\n4) (3) numaralı alt bent uyarınca bulunan çekirdek sermaye tutarı bu bent uyarınca hesaplanan çekirdek sermaye olarak kabul edilir."
+        }
+      ]
+    },
+    {
+      "id": "9/4/ç-intro",
+      "statement": "The 2016-01 amendment supplies the current introductory sentence of article 9/4/ç; editorial change annotations excluded explicitly.",
+      "review_state": "ai_source_review_only",
+      "evidence": [
+        {
+          "source_id": "rg-2016-01",
+          "start_char": 3129,
+          "end_char": 4002,
+          "quotation": "Alım satım veya bankacılık hesaplarında izlenip izlenmediğine bakılmaksızın, kontrol gücüne veya ortaklık paylarının yüzde onundan daha fazlasına veya oy haklarının yüzde yirmi veya daha fazlasına sahip olunan veya kendisi ile birlikte aynı ana ortaklık tarafından kontrol edilen veya Türkiye Muhasebe Standartlarına göre finansal tabloları konsolide edilmesi gereken banka ve finansal kuruluşlardan konsolide edilmeyenlerin çekirdek sermaye unsurlarına doğrudan veya türev finansal araçlar, kredi türevleri, garanti, kefaletler ve borsa yatırım fonları gibi araçlar yoluyla yapılan dolaylı yatırımların net uzun pozisyonları, geçici farklara dayanan ertelenmiş vergi varlıkları ile Türkiye Muhasebe Standartları uyarınca maddi olmayan duran varlık olarak muhasebeleştirilen ipotek hizmeti sunma hakları çekirdek sermaye hesabında aşağıda belirtilen şekilde dikkate alınır."
+        },
+        {
+          "source_id": "consolidated-html",
+          "start_char": 26375,
+          "end_char": 27248,
+          "quotation": "Alım satım veya bankacılık hesaplarında izlenip izlenmediğine bakılmaksızın, kontrol gücüne veya ortaklık paylarının yüzde onundan daha fazlasına veya oy haklarının yüzde yirmi veya daha fazlasına sahip olunan veya kendisi ile birlikte aynı ana ortaklık tarafından kontrol edilen veya Türkiye Muhasebe Standartlarına göre finansal tabloları konsolide edilmesi gereken banka ve finansal kuruluşlardan konsolide edilmeyenlerin çekirdek sermaye unsurlarına doğrudan veya türev finansal araçlar, kredi türevleri, garanti, kefaletler ve borsa yatırım fonları gibi araçlar yoluyla yapılan dolaylı yatırımların net uzun pozisyonları, geçici farklara dayanan ertelenmiş vergi varlıkları ile Türkiye Muhasebe Standartları uyarınca maddi olmayan duran varlık olarak muhasebeleştirilen ipotek hizmeti sunma hakları çekirdek sermaye hesabında aşağıda belirtilen şekilde dikkate alınır."
+        }
+      ]
+    },
+    {
+      "id": "rg-2015-effective",
+      "statement": "This amendment took effect on 2016-03-31.",
+      "review_state": "ai_source_review_only",
+      "evidence": [
+        {
+          "source_id": "rg-2015",
+          "start_char": 16775,
+          "end_char": 16835,
+          "quotation": "MADDE 9 – Bu Yönetmelik 31/3/2016 tarihinde yürürlüğe girer."
+        }
+      ]
+    },
+    {
+      "id": "rg-2016-01-effective",
+      "statement": "This amendment took effect on 2016-03-31.",
+      "review_state": "ai_source_review_only",
+      "evidence": [
+        {
+          "source_id": "rg-2016-01",
+          "start_char": 10441,
+          "end_char": 10501,
+          "quotation": "MADDE 9 – Bu Yönetmelik 31/3/2016 tarihinde yürürlüğe girer."
+        }
+      ]
+    },
+    {
+      "id": "temporary2-deadline",
+      "statement": "The special article 9/4/ç transitional calculation is expressly limited to before 2018-01-01.",
+      "review_state": "ai_source_review_only",
+      "evidence": [
+        {
+          "source_id": "rg-2013",
+          "start_char": 33800,
+          "end_char": 33902,
+          "quotation": "(2) 9 uncu maddenin dördüncü fıkrasının (ç) bendi 1/1/2018 tarihine kadar aşağıdaki şekilde uygulanır."
+        },
+        {
+          "source_id": "consolidated-html",
+          "start_char": 39555,
+          "end_char": 39657,
+          "quotation": "(2) 9 uncu maddenin dördüncü fıkrasının (ç) bendi 1/1/2018 tarihine kadar aşağıdaki şekilde uygulanır."
+        }
+      ]
+    },
+    {
+      "id": "temporary2-fifteen",
+      "statement": "The temporary fifteen-percent calculation uses the expressly described base; it is not an interchangeable label for the main 17.65-percent step.",
+      "review_state": "ai_source_review_only",
+      "evidence": [
+        {
+          "source_id": "rg-2013",
+          "start_char": 34710,
+          "end_char": 34979,
+          "quotation": "2) (1) numaralı alt bent kapsamında çekirdek sermayeden indirilmeyen tutarların toplamının, (1) numaralı alt bentteki indirime esas alınan çekirdek sermaye tutarının yüzde onbeşini aşan kısmı (1) numaralı alt bent uyarınca bulunan çekirdek sermaye tutarından indirilir."
+        },
+        {
+          "source_id": "consolidated-html",
+          "start_char": 40783,
+          "end_char": 41052,
+          "quotation": "2) (1) numaralı alt bent kapsamında çekirdek sermayeden indirilmeyen tutarların toplamının, (1) numaralı alt bentteki indirime esas alınan çekirdek sermaye tutarının yüzde onbeşini aşan kısmı (1) numaralı alt bent uyarınca bulunan çekirdek sermaye tutarından indirilir."
+        }
+      ]
+    },
+    {
+      "id": "temporary5-tax",
+      "statement": "TFRS 9 transition has a specific deferred-tax rule, requiring bank-specific eligibility and timing evidence.",
+      "review_state": "ai_source_review_only",
+      "evidence": [
+        {
+          "source_id": "rg-2018",
+          "start_char": 2792,
+          "end_char": 2974,
+          "quotation": "(5) Geçiş süreci boyunca çekirdek sermayeye eklenen tutarlar üzerinden hesaplanan geçici farklara dayanan ertelenmiş vergi varlıkları çekirdek sermaye hesaplamasında dikkate alınmaz."
+        },
+        {
+          "source_id": "consolidated-html",
+          "start_char": 46810,
+          "end_char": 46992,
+          "quotation": "(5) Geçiş süreci boyunca çekirdek sermayeye eklenen tutarlar üzerinden hesaplanan geçici farklara dayanan ertelenmiş vergi varlıkları çekirdek sermaye hesaplamasında dikkate alınmaz."
+        }
+      ]
+    },
+    {
+      "id": "2018-retroactivity",
+      "statement": "Original 2018 amendment made its other articles effective from 2018-01-01 on publication.",
+      "review_state": "ai_source_review_only",
+      "evidence": [
+        {
+          "source_id": "rg-2018",
+          "start_char": 3040,
+          "end_char": 3115,
+          "quotation": "b) Diğer maddeleri 1/1/2018 tarihinden geçerli olmak üzere yayımı tarihinde"
+        }
+      ]
+    },
+    {
+      "id": "2019-postponement",
+      "statement": "2019 postponed article 2 of the 2018 amending regulation, not article 9 of the principal regulation.",
+      "review_state": "ai_source_review_only",
+      "evidence": [
+        {
+          "source_id": "rg-2019",
+          "start_char": 475,
+          "end_char": 511,
+          "quotation": "a) 2 nci maddesi 1/1/2022 tarihinde,"
+        }
+      ]
+    },
+    {
+      "id": "2021-repeal",
+      "statement": "2021 repealed article 2 of the 2018 amending regulation before its postponed commencement; this must not be misread as repeal of the principal regulation.",
+      "review_state": "ai_source_review_only",
+      "evidence": [
+        {
+          "source_id": "rg-2021",
+          "start_char": 232,
+          "end_char": 432,
+          "quotation": "MADDE 1 – 14/3/2018 tarihli ve 30360 sayılı Resmî Gazete’de yayımlanan Bankaların Özkaynaklarına İlişkin Yönetmelikte Değişiklik Yapılmasına Dair Yönetmeliğin 2 nci maddesi yürürlükten kaldırılmıştır."
+        }
+      ]
+    }
+  ],
+  "live_mcp_comparison": {
+    "9/1/ç": {
+      "whitespace_only_equal": true,
+      "legacy_u0092_count": 0,
+      "equal_after_explicit_u0092_to_u2019_conversion": true
+    },
+    "9/2": {
+      "whitespace_only_equal": true,
+      "legacy_u0092_count": 0,
+      "equal_after_explicit_u0092_to_u2019_conversion": true
+    },
+    "9/4/ç-algorithm": {
+      "whitespace_only_equal": false,
+      "legacy_u0092_count": 1,
+      "equal_after_explicit_u0092_to_u2019_conversion": true
+    }
+  },
+  "limitations": [
+    "Acquired on 2026-09-21; the current consolidation is not itself an archive snapshot taken on 2026-06-30.",
+    "Negative search results do not establish exhaustive absence of amendments or board decisions.",
+    "Bank-specific letters, individual decisions, TFRS9 adoption/opt-in dates and J25 contents were not supplied.",
+    "No independent reviewer, legal approval, production Citation v1 mapping or bounded authoritative status record was created.",
+    "The signed corpus publication contract currently rejects unrepresented regulatory tables; do not insert this material into serving DB to silence a warning."
+  ]
+}

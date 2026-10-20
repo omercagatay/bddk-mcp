@@ -176,14 +176,83 @@ Any future chunker or profile change reopens this review: regenerate, record and
 independently review the delta, then update and re-sign the manifest; a checksum
 edit alone is not review evidence. Bootstrap still does not activate a release.
 
+## Optional signed legal evidence
+
+Dated legal resolution is separate from corpus integrity. A corpus may declare
+one additional artifact with `role: legal_evidence`. Its JSON contains
+`schema_version: 1`, `bundles` (existing `LegalVersionBundle` records, one family
+per instrument), and `bindings`. Omit the manifest artifact's optional `records`
+field for this structured object; the importer validates its internal inventory.
+A legacy manifest without this role still requires **all legal tables to be empty**.
+
+Every bundle must be checksum-correct and non-fixture. Every raw source blob's
+SHA-256 and every completed review's `review_record_sha256` must also identify
+an independently declared `role: other` artifact in the same signed manifest.
+These are the actual raw bytes, not a hash of a compressed wrapper. The importer
+and verifier recheck these bounded files after manifest verification. Source
+acquisition and completed review times must not postdate the declared scope
+review. Duplicate JSON keys, extra fields and unsigned material are rejected.
+
+`ValidationRecord` is a record of an actual review, not an instruction for the
+importer to approve content. The operator supplies the genuine reviewer, time,
+method and review record. A generated source-comparison report, this software's
+tests, or the owner's corpus signature must not be represented as an independent
+human legal review. In-review/unvalidated evidence remains in that state and
+cannot produce a resolved dated answer.
+
+Portable bundles leave `document_section_id` null. Each mapped occurrence has
+one binding with these exact fields:
+
+- `legal_version_id`, `provision_id`, `document_id`;
+- `document_sha256`, `content_sha256`;
+- `section_type`, `section_ref`, `start_char`, `end_char`.
+
+The owner importer and independent verifier resolve these signed identities
+against the actual document and section text/hashes. Missing or ambiguous matches
+fail. A database-local bundle checksum is derived after resolving the section
+ID; it is not substituted for the portable artifact's signed checksum. Review
+states, legal dates and reviewer provenance are never changed by this binding.
+
+After strict document bootstrap, run the separate owner-only preparation step
+against a fresh staging database:
+
+```bash
+BDDK_EXPECTED_DATABASE_NAME=DATABASE \
+BDDK_SCHEMA_OWNER_DATABASE_URL='postgresql://MIGRATOR:SECRET@HOST:5432/DATABASE?options=-c%20role%3Dbddk_schema_owner&sslmode=verify-full&sslrootcert=%2FAPPROVED%2Fpostgres-ca.crt' \
+  uv run --frozen bddk-mcp import-legal-evidence \
+    --seed-dir /APPROVED/CORPUS \
+    --trusted-signing-key /APPROVED/TRUST/corpus-signing-public-key.pem
+```
+
+Use `--accept-unmeasured-freshness` only when explicitly accepting the same weaker
+quantified freshness policy supported by the verifier. This command checks the
+restricted schema-owner identity and independent database target on each
+physical connection. It neither migrates the schema nor stages/activates a
+release. It has no MCP equivalent; public and ingestion role grants do not grow.
+All families are imported atomically using existing immutable/monotonic repository
+rules. An exact repeat is a no-op and does not invalidate the active corpus epoch.
+
+Run the independent `verify-and-stage-corpus-release` and publisher activation
+steps afterward. While the existing publication lock is held, verification
+compares every legal content column, review record, mapping and import receipt
+against the signed package. Missing, altered or extra rows still fail, including
+unrepresented relations or historical imports. Do not delete history to make a
+release pass: prepare a fresh staged database for a changed evidence inventory.
+
+Only an admitted active release with a validated authoritative citation and
+matching date-bounded status evidence can support `answer_assessment.basis` of
+`dated_version`. Unsupported dates, ambiguous versions and incomplete reviews
+still abstain. Scope, bank-specific applicability and semantic entailment remain
+`not_assessed`; dated source evidence is not a judgement about a bank's J25 entry.
+
 ## Bootstrap and benchmark behavior
 
 A non-empty `bddk-mcp bootstrap` verifies the exact `corpus_scope.yml` and all
 declared artifacts before creating a database pool. It loads the documents and
 decision cache only from the paths assigned those roles by the manifest, reads
 only the declared bounded byte count, and rechecks each hash after validation.
-It rejects a present `documents.json`, `chunks.json`, or `decision_cache.json`
-when that reserved filename is not declared, closing fallback-filename bypasses.
+It rejects a present `documents.json`, `chunks.json`, `decision_cache.json`, or
+`legal_evidence.json` when that reserved filename is not declared, closing fallback-filename bypasses.
 Production supplies the detached-signature trust key as a separately mounted
 file, never as part of the corpus tree or repository. Verification rejects both
 a supplied path and a resolved path inside the corpus root, so a symlink from

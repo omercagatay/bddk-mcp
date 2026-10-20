@@ -1,0 +1,250 @@
+BANKALARIN ÖZKAYNAKLARINA İLİŞKİN YÖNETMELİK
+BİRİNCİ BÖLÜM
+Amaç ve Kapsam, Dayanak ve Tanımlar
+Amaç ve kapsam
+MADDE 1 – (1) Bu Yönetmeliğin amacı, 19/10/2005 tarihli ve 5411 sayılı Bankacılık Kanunu uyarınca bankalarca uyulması zorunlu olan sınırlamalarda ve standart oranların hesaplanmasında dikkate alınacak özkaynak ve konsolide özkaynak tutarlarının hesaplanmasına ilişkin usul ve esasları düzenlemektir.
+Dayanak
+MADDE 2 – (1) Bu Yönetmelik, 5411 sayılı Bankacılık Kanununun 44 ve 93 üncü maddelerine dayanılarak hazırlanmıştır.
+Tanımlar
+MADDE 3 – (1) Bu Yönetmelikte yer alan;
+a) Banka: Kanunun 3 üncü maddesinde tanımlanan bankaları,
+b) Borçlanma araçları: 6/12/2012 tarihli ve 6362 sayılı Sermaye Piyasası Kanunu ve buna ilişkin mevzuatta düzenlenen borçlanma araçlarını,
+c) Finansal kuruluş: Kanunun 3 üncü maddesinde tanımlanan finansal kuruluşları,
+ç) Fon: Tasarruf Mevduatı Sigorta Fonunu,
+d) Kanun: 19/10/2005 tarihli ve 5411 sayılı Bankacılık Kanununu,
+e) Kurul: Bankacılık Düzenleme ve Denetleme Kurulunu,
+f) Kurum: Bankacılık Düzenleme ve Denetleme Kurumunu,
+g) (Mülga:RG-23/10/2015-29511) (1)
+ğ) Türkiye Muhasebe Standartları: Kamu Gözetimi, Muhasebe ve Denetim Standartları Kurumu tarafından Türkiye Muhasebe Standardı ve Türkiye Finansal Raporlama Standardı adıyla yayımlanan muhasebe standartlarını
+h) (Ek:RG-14/3/2018-30360)(4) TFRS 9: Kamu Gözetimi Muhasebe ve Denetim Standartları Kurumu tarafından yayımlanan TFRS 9 Finansal Araçlar Standardını
+ifade eder.
+İKİNCİ BÖLÜM
+Özkaynak Unsurları
+Özkaynak
+MADDE 4 – (1) Özkaynak; ana sermaye ve katkı sermaye toplamı üzerinden 9 uncu maddede belirtilen indirimlerin yapılması suretiyle hesaplanır.
+Ana sermaye
+MADDE 5 – (1) Ana sermaye, çekirdek sermaye ile ilave ana sermaye toplamından oluşur.
+Çekirdek sermaye
+MADDE 6 – (1) Çekirdek sermaye aşağıda sayılan kalemlerin toplamı üzerinden 9 uncu maddede belirtilen indirimlerin yapılması suretiyle bulunur.
+a) Bankanın tasfiyesi halinde alacak hakkı açısından diğer tüm alacaklardan sonra gelen ödenmiş sermaye,
+b) Hisse senedi ihraç primleri,
+c) (Mülga:RG-23/10/2015-29511) (1)
+ç) Yedek akçeler,
+d) Türkiye Muhasebe Standartları uyarınca özkaynaklara yansıtılan kazançlar,
+e) Dönem net kârı ile geçmiş yıllar kârı,
+f) (Mülga:RG-23/10/2015-29511) (1)
+g) İştirakler, bağlı ortaklıklar ve birlikte kontrol edilen ortaklıklardan bedelsiz olarak edinilen ve dönem karı içerisinde muhasebeleştirilmeyen hisseler.
+(2) Yedek akçeler, bankaların 13/1/2011 tarihli ve 6102 sayılı Türk Ticaret Kanunu ve ilgili kanunlar ile ana sözleşmelerine göre ayırdıkları yedek akçelerin toplamından bilançoda yer alan net dönem zararı ile geçmiş yıllar zararı toplamının düşülmesi suretiyle hesaplanır.
+(3) (Değişik:RG-20/1/2016-29599)(2) Türk Ticaret Kanununun 380 inci maddesinin birinci fıkrasının ikinci cümlesi kapsamında değerlendirilecek şekilde banka tarafından sağlanan finansman veya garanti karşılığında edinilen paylar ile pay sahiplerine kâr dağıtımını zorunlu kılan imtiyazlı paylara tekabül eden sermaye tutarı ve sermayenin mevzuata aykırı olarak artırıldığı tespit edilen kısmı birinci fıkranın (a) bendi kapsamında dikkate alınmaz.
+(4) (Değişik:RG-23/10/2015-29511) (1) Birinci fıkranın (e) bendindeki tutarın belirlenmesinde, Kurum tarafından izin verildiği durumlarda izin verilen tutar, aksi durumda banka tarafından genel kurulda dağıtımına karar verileceği öngörülen veya genel kurulda dağıtımına karar verilen temettü tutarı dikkate alınmaz.
+(5) (Mülga:RG-23/10/2015-29511) (1)
+İlave ana sermaye
+MADDE 7 – (1) (Değişik:RG-20/1/2016-29599)(2) İlave ana sermaye, aşağıda sayılan kalemlerin toplamı üzerinden 9 uncu maddede belirtilen indirimlerin yapılması suretiyle bulunur:
+a) Dağıtılmayan kar paylarının ileriki dönemlerde dağıtılmasını zorunlu kılanlar hariç olmak üzere, çekirdek sermayeye dahil edilmeyen imtiyazlı paylara tekabül eden sermaye tutarı,
+b) (a) bendinde yer alan paylara ilişkin ihraç primleri,
+c) Banka yönetim kurulunun ikinci fıkradaki şartları taşıdıklarını teyit eden yazılı beyanı ile birlikte yapacağı başvuru üzerine Kurumca uygun görülen borçlanma araçları ve bunlara ilişkin ihraç primleri.
+(2) İlave ana sermaye hesaplamasına dahil edilecek borçlanma araçlarının aşağıdaki şartları taşıması gerekmektedir.
+a) Banka tarafından ihraç edilmiş, Sermaye Piyasası Kurulunca kayda alınmış ve bedeli nakit olarak tamamen tahsil edilmiş olmalıdır.
+b) Bankanın tasfiyesi halinde; sahibine alacak hakkını mevduat sahipleri, diğer alacaklılar ve katkı sermaye hesaplamasına dahil edilen borçlanma araçlarından sonra tahsil etme yetkisi vermelidir.
+c) (b) bendindeki şartın ihlalini doğuracak nitelikte hiç bir türev işlem ve sözleşmeyle ilişkilendirilmemiş ya da herhangi bir şekil ve surette doğrudan ya da dolaylı olarak teminata bağlanmamış olmalıdır.
+ç) Vadesi olmamalı ve temettü veya faiz artırımı gibi geri ödemeyi teşvik edecek herhangi bir unsur içermemelidir.
+d) Geri ödeme opsiyonunun bulunması halinde, bu opsiyon Kurumdan onay alınmak kaydıyla en erken ihraçtan beş yıl sonra kullanabilmelidir. Kurum tarafından verilecek onaylarda:
+1) Bankanın opsiyonu kullanacağına dair bir piyasa beklentisi yaratmaması,
+2) Borçlanma aracının aynı veya daha kaliteli bir borçlanma aracı ile değiştirilmesi ve bu değişimin bankanın faaliyetlerini sürdürmesinde kısıtlayıcı bir etkisinin olmaması veya
+3) (Değişik:RG-23/10/2015-29511) (1) Bankanın özkaynaklarının opsiyon kullanıldıktan sonra, Bankaların Sermaye Yeterliliğinin Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmelik ve 5/11/2013 tarihli ve 28812 sayılı Resmî Gazete’de yayımlanan Sermaye Koruma ve Döngüsel Sermaye Tamponlarına İlişkin Yönetmelik çerçevesinde hesaplanan sermaye yükümlülüğü ile bankaların içsel sermaye yeterliliği değerlendirme süreci sonucunda ortaya çıkan sermaye yükümlülüğünden yüksek olanın veya Kurul tarafından daha yüksek bir sermaye yükümlülüğü belirlenmiş ise bunun üzerinde olması
+koşulları aranır. Vergi kanunları ve diğer düzenlemelerde önemli değişikliklerin olması halinde, Kurumun onayının alınması ve yukarıdaki diğer şartların karşılanması kaydıyla beş yıllık süre beklenmeksizin geri ödeme opsiyonu kullanılabilir.
+e) (Değişik:RG-23/10/2015-29511)(1) Anaparanın geri ödenmesi Kurumun onayına bağlı olmalıdır. Kurum tarafından verilecek onaylarda (d) bendinde belirtilen koşullar aranır.
+f) Bankanın faiz ve temettü ödemelerinin iptali konusunda yetkisi olmalı ve bu yetkiyi kullanması halinde, sözleşmede belirlenmiş olan tutar ile ödememe durumu da dahil olmak üzere yaptığı ödeme tutarı arasındaki farkı sonraki dönemlerde de ödeme zorunluluğu olmamalıdır. Ödemelerin iptali temerrüde düşme olarak değerlendirilmemeli, bankanın iptal edilen ödemeler üzerinde serbest kullanım hakkı olmalı ve iptalin pay sahiplerine yapılacak ödemeler hariç olmak üzere bankayı kısıtlayıcı herhangi bir etkisi bulunmamalıdır.
+g) Temettü veya faiz ödemeleri temettü dağıtımının yapılabileceği kalemlerden karşılanmalıdır.
+ğ) Temettü veya faiz ödemeleri bankanın kredi değerliliği ile ilişkilendirilmemelidir.
+h) Banka veya bankanın kontrol ettiği veya önemli etkinliğe sahip olduğu ortaklıklar tarafından satın alınmamalı, bunlara temlik edilmemeli ve satın alımı banka tarafından doğrudan ya da dolaylı olarak finanse edilmemelidir.
+ı) Yeni bir özkaynak kaleminin ihracını zorlaştırıcı özellikler taşımamalıdır.
+i) (Değişik:RG-23/10/2015-29511)(1) Bankanın çekirdek sermaye yeterliliği oranının veya konsolide çekirdek sermaye yeterliliği oranının yüzde 5,125’in altına düşmesi halinde, banka bu borçlanma araçlarının değerini azaltma veya hisse senedine dönüştürme yetkisine sahip olmalıdır. Bu durumun gerçekleşmesi halinde banka derhal Kurumu bilgilendirir. Bankanın çekirdek sermaye yeterliliği oranını veya konsolide çekirdek sermaye yeterliliği oranını en az yüzde 5,125 düzeyine ulaşmasını sağlayacak kadar bir tutar, değeri azaltımı veya hisse senedine dönüştürme işlemine konu edilmelidir. Değer azaltımının sonucunda;
+1) Bankanın tasfiyesi halinde, borçlanma aracını elinde bulunduranların alacak tutarı azaltılabilmeli,
+2) Geri ödeme opsiyonunun kullanılması halinde ödenecek tutarı azaltılabilmeli,
+3) Temettü veya faiz ödemeleri kısmen ya da tamamen iptal edilebilmelidir.
+j) (Değişik:RG-23/10/2015-29511)(1) Maruz kaldığı zararlar nedeniyle Kanunun 71 inci maddesi çerçevesinde bankanın faaliyet izninin kaldırılması veya Fona devredilmesi ihtimalinin belirmesi halinde; Kurulun bu yönde alacağı karara istinaden söz konusu zarara mahsuben kayıtlardan silinebilmeli veya hisse senedine dönüştürülebilmelidir.
+k) (Değişik:RG-23/10/2015-29511)(1) Doğrudan bankanın kendisi veya konsolidasyon kapsamındaki bir kuruluş tarafından ihraç edilmemesi halinde, ihraçtan elde edilen tutarlar herhangi bir sınırlamaya tabi olmaksızın bu fıkrada sayılan şartları taşıyacak şekilde bankaya veya konsolidasyon kapsamındaki kuruluşa derhal aktarılmalıdır.
+(3) Banka yönetim kurulunun ikinci fıkranın (a) bendinde yer alan ihraç edilmiş ve Sermaye Piyasası Kurulunca kayda alınmış olma şartları hariç olmak üzere, fıkradaki diğer tüm şartları taşıdıklarını teyit eden yazılı beyanı ile birlikte yapacağı başvuru üzerine Kurumca uygun görülen krediler de ilave ana sermaye hesaplamasına dahil edilecek borçlanma araçları olarak dikkate alınır.
+(4) (Değişik:RG-23/10/2015-29511)(1) Birinci ve üçüncü fıkra kapsamında Kuruma yapılacak başvurularda, kredi sözleşmesinin aslı veya noter onaylı örneği veya borçlanma aracının Sermaye Piyasası Kurulunca kayda alınma yazısı ve metni ibraz edilir. Kredi sözleşmesinin henüz imzalanmamış olması halinde sözleşme taslağı Kuruma ibraz edilir.
+(5) (Değişik:RG-23/10/2015-29511)(1) Dördüncü fıkra uyarınca kredi sözleşme taslağının verildiği hallerde, sözleşme taslağı hükümleriyle, imzalanan sözleşme hükümleri arasında farklılık bulunması veya ibraz edilen borçlanma aracı metninde değişiklik yapılması halinde, söz konusu farklılıkların veya değişikliklerin kullanılan kredinin veya borçlanma aracının ilave ana sermaye unsuru olma niteliğini ortadan kaldırmadığına ilişkin banka yönetim kurulunun yazılı beyanının, sözleşmenin imzalandığı veya borçlanma aracının ihraç edildiği tarihi izleyen beş iş günü içinde Kuruma ibraz edilmesi zorunludur. Kurumca aksi görüş belirtilmedikçe alınan kredi veya borçlanma aracı ilave ana sermaye hesaplamasına dahil edilir.
+(6) Uygulanacak faiz oranlarının kredi sözleşmesinde veya borçlanma aracının izahnamesinde açık bir şekilde belirlenmemesi ya da faiz oranının benzer kredilere veya borçlanma araçlarına göre aşırı ölçüde yüksek olması halinde, kredinin veya borçlanma aracının ilave ana sermaye hesaplamasına dahil edilmesine Kurumca izin verilmeyebilir.
+(7) (Değişik:RG-23/10/2015-29511)(1) Kurumca uygun görülen borçlanma araçları ile krediler, banka kayıtlarına intikal tarihi itibarıyla ilave ana sermaye hesaplamalarına dahil edilir ve Kanunun 71 inci maddesinin uygulanmasında bankanın yükümlülükleri arasında dikkate alınmaz.
+(8) Kurum ikinci fıkrada belirtilen şartlara ek olarak her bir borçlanma aracı için ilave şartlar getirebilir.
+(9) (Ek:RG-6/9/2014-29111) İlave ana sermaye hesaplamasına dahil edilecek borçlanma araçlarının değerlerinin azaltılmasına/kayıtlardan silinmesine veya hisse senedine dönüştürülmesine ilişkin usul ve esaslar Kurulca belirlenir.
+Katkı sermaye
+MADDE 8 – (1) (Değişik:RG-23/10/2015-29511)(1) Katkı sermaye, aşağıda sayılan kalemlerin toplamı üzerinden 9 uncu maddede belirtilen indirimlerin yapılması suretiyle bulunur:
+a) Bankaların Sermaye Yeterliliğinin Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmelik uyarınca kredi riskine esas tutarın belirlenmesinde standart yaklaşımın kullanıldığı alacaklar için hesaplanan genel karşılıklar,
+b) Kredi Riskine Esas Tutarın İçsel Derecelendirmeye Dayalı Yaklaşımlar İle Hesaplanmasına İlişkin Tebliğin 8 inci maddesinin ikinci fıkrasında belirtilen hesaplama sonucu elde edilen pozitif tutar,
+c) Banka yönetim kurulunun ikinci fıkradaki şartları taşıdıklarını teyit eden yazılı beyanı ile birlikte yapacağı başvuru üzerine Kurumca uygun görülen borçlanma araçları ve bunlara ilişkin ihraç primleri.
+(2) Katkı sermaye hesaplamasına dahil edilecek borçlanma araçlarının aşağıdaki şartları taşıması gerekmektedir.
+a) Banka tarafından ihraç edilmiş, Sermaye Piyasası Kurulunca kayda alınmış ve bedeli nakit olarak tamamen tahsil edilmiş olmalıdır.
+b) Bankanın tasfiyesi halinde; sahibine alacak hakkını ilave ana sermaye hesaplamasına dahil edilecek borçlanma araçlarından önce, mevduat sahipleri ve diğer tüm alacaklılardan sonra tahsil etme yetkisi vermelidir.
+c) (b) bendindeki şartın ihlalini doğuracak nitelikte hiç bir türev işlem ve sözleşmeyle ilişkilendirilmemiş ya da herhangi bir şekil ve surette doğrudan ya da dolaylı olarak teminata bağlanmamış olmalıdır.
+ç) Başlangıç vadesi en az beş yıl olmalı, temettü veya faiz artırımı gibi geri ödemeyi teşvik edecek herhangi bir unsur içermemelidir.
+d) Erken itfa opsiyonun bulunması halinde, bu opsiyon Kurumdan onay alınmak kaydıyla en erken ihraçtan beş yıl sonra kullanılabilmelidir. Kurum tarafından verilecek onaylarda;
+1) Bankanın opsiyonu kullanacağına dair bir piyasa beklentisi yaratmaması,
+2) Borçlanma aracının aynı veya daha kaliteli bir borçlanma aracı ile değiştirilmesi ve bu değişimin bankanın faaliyetlerini sürdürmesinde kısıtlayıcı bir etkisinin olmaması veya
+3) (Değişik:RG-23/10/2015-29511)(1) Bankanın özkaynaklarının opsiyon kullanıldıktan sonra, Bankaların Sermaye Yeterliliğinin Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmelik ve Sermaye Koruma ve Döngüsel Sermaye Tamponlarına İlişkin Yönetmelik çerçevesinde hesaplanan sermaye yükümlülüğü ile bankaların içsel sermaye yeterliliği değerlendirme süreci sonucunda ortaya çıkan sermaye yükümlülüğünden yüksek olanın veya Kurul tarafından daha yüksek bir sermaye yükümlülüğü belirlenmiş ise bunun üzerinde olması
+koşulları aranır. Vergi kanunları ve diğer düzenlemelerde önemli değişikliklerin olması halinde, Kurum onayının alınması ve yukarıdaki diğer şartların karşılanması kaydıyla beş yıllık süre beklenmeksizin erken itfa opsiyonu kullanılabilir.
+e) İflas ve tasfiye süreci hariç olmak üzere yatırımcının itfa planının hızlandırılmasını talep etme hakkı olmamalıdır.
+f) Temettü veya faiz ödemeleri bankanın kredi değerliliği ile ilişkilendirilmemelidir.
+g) Banka veya bankanın kontrol ettiği veya önemli etkinliğe sahip olduğu ortaklıklar tarafından satın alınmamalı, bunlara temlik edilmemeli ve satın alımı banka tarafından doğrudan ya da dolaylı olarak finanse edilmemelidir.
+ğ) (Değişik:RG-23/10/2015-29511)(1) Maruz kaldığı zararlar nedeniyle Kanunun 71 inci maddesi çerçevesinde bankanın faaliyet izninin kaldırılması veya Fona devredilmesi ihtimalinin belirmesi halinde; Kurulun bu yönde alacağı karara istinaden söz konusu zarara mahsuben kayıtlardan silinebilmeli veya hisse senedine dönüştürülebilmelidir.
+h) Doğrudan bankanın kendisi veya konsolidasyon kapsamındaki bir kuruluş tarafından ihraç edilmemesi halinde, ihraçtan elde edilen tutarlar herhangi bir sınırlamaya tabi olmaksızın bu maddede sayılan şartları taşıyacak şekilde bankaya veya konsolidasyon kapsamındaki kuruluşa derhal aktarılmalıdır.
+ı) (Ek:RG-23/10/2015-29511)(1) Anaparanın vadesinden önce geri ödenmesi Kurumun onayına bağlı olmalıdır. Kurum tarafından verilecek onaylarda (d) bendinde belirtilen koşullar aranır.
+(3) Banka yönetim kurulunun ikinci fıkranın (a) bendinde yer alan ihraç edilmiş ve Sermaye Piyasası Kurulunca kayda alınmış olma şartları hariç olmak üzere, fıkradaki diğer tüm şartları taşıdıklarını teyit eden yazılı beyanı ile birlikte yapacağı başvuru üzerine Kurumca uygun görülen krediler de katkı sermaye hesaplamasına dahil edilecek borçlanma araçları olarak dikkate alınır.
+(4) (Değişik:RG-23/10/2015-29511)(1) Birinci ve üçüncü fıkra kapsamında Kuruma yapılacak başvurularda, kredi sözleşmesinin aslı veya noter onaylı örneği veya borçlanma aracının Sermaye Piyasası Kurulunca kayda alınma yazısı ve metni ibraz edilir. Kredi sözleşmesinin henüz imzalanmamış olması halinde sözleşme taslağı Kuruma ibraz edilir.
+(5) (Değişik:RG-23/10/2015-29511)(1) Dördüncü fıkra uyarınca kredi sözleşme taslağının verildiği hallerde, sözleşme taslağı hükümleriyle, imzalanan sözleşme hükümleri arasında farklılık bulunması veya ibraz edilen borçlanma aracı metninde değişiklik yapılması halinde, söz konusu farklılıkların veya değişikliklerin kullanılan kredinin veya borçlanma aracının katkı sermaye unsuru olma niteliğini ortadan kaldırmadığına ilişkin banka yönetim kurulunun yazılı beyanının, sözleşmenin imzalandığı veya borçlanma aracının ihraç edildiği tarihi izleyen 5 iş günü içinde Kuruma ibraz edilmesi zorunludur. Kurumca aksi görüş belirtilmedikçe alınan kredi veya borçlanma aracı katkı sermaye hesaplamasına dahil edilir.
+(6) Uygulanacak faiz oranlarının kredi sözleşmesinde veya borçlanma aracının izahnamesinde açık bir şekilde belirlenmemesi ya da faiz oranının benzer kredilere veya borçlanma araçlarına göre aşırı ölçüde yüksek olması halinde, kredinin veya borçlanma aracının katkı sermaye hesaplamasına dahil edilmesine Kurumca izin verilmeyebilir.
+(7) Kurumca uygun görülen borçlanma araçları ile krediler, banka kayıtlarına intikal tarihi itibarıyla katkı sermaye hesaplamalarına dahil edilir.
+(8) Kurum ikinci fıkrada belirtilen şartlara ek olarak her bir borçlanma aracı için ilave şartlar getirebilir.
+(9) Katkı sermaye hesaplamasına dahil edilen borçlanma araçları ile kredilerden kalan vadesi beş yıldan az olanlar her bir yıl için yüzde yirmi oranında azaltılarak katkı sermaye hesaplamasına dahil edilir.
+(10) (Mülga:RG-23/10/2015-29511)(1)
+(11) (Değişik:RG-23/10/2015-29511)(1) Genel karşılıkların, Bankaların Sermaye Yeterliliğinin Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmelik uyarınca kredi riskine esas tutarın belirlenmesinde standart yaklaşımın kullanıldığı alacakların risk ağırlıklı tutarları toplamının onbindeyüzyirmibeşini aşan kısmı ile Kredi Riskine Esas Tutarın İçsel Derecelendirmeye Dayalı Yaklaşımlar İle Hesaplanmasına İlişkin Tebliğin 8 inci maddesinin ikinci fıkrasında belirtilen hesaplama sonucu elde edilen pozitif tutarın, aynı Yönetmelik uyarınca içsel derecelendirmeye dayalı yaklaşımların kullanıldığı alacakların risk ağırlıklı tutarları toplamının binde altısını aşan kısmı katkı sermaye hesabına dahil edilmez.
+(12) Katılım bankaları açısından genel karşılıkların katkı sermayeye dahil edilmesinde, gider hesaplarına yansıtılan genel karşılık tutarları dikkate alınır.
+(13) (Ek:RG-6/9/2014-29111) Katkı sermaye hesaplamasına dahil edilecek borçlanma araçlarının kayıtlardan silinmesine veya hisse senedine dönüştürülmesine ilişkin usul ve esaslar Kurulca belirlenir.
+Özkaynak unsurlarına uygulanacak indirim esasları
+MADDE 9 – (1) Aşağıda belirtilen kalemler çekirdek sermaye hesaplamasında indirim kalemi olarak dikkate alınır.
+a) Net dönem zararı ile geçmiş yıllar zararı toplamının yedek akçeler ile karşılanamayan kısmı ile Türkiye Muhasebe Standartları uyarınca özkaynaklara yansıtılan kayıplar,
+b) Faaliyet kiralaması geliştirme maliyetleri,
+c) İpotek hizmeti sunma hakları hariç olmak üzere, Türkiye Muhasebe Standartları uyarınca maddi olmayan duran varlık veya şerefiye olarak sınıflandırılan kalemlerin, bunlara ilişkin ertelenmiş vergi yükümlülüğünün bu kalemlerin değer düşüklüğüne uğraması veya kayıtlardan çıkarılması halinde silinecek olan kısmı ile mahsup edildikten sonra kalan kısımları,
+ç) Geçici farklara dayanan ertelenmiş vergi varlıkları hariç olmak üzere gelecek dönemlerde elde edilecek vergilendirilebilir gelirlere dayanan ertelenmiş vergi varlığının, ilgili Türkiye Muhasebe Standardında yer alan koşulların sağlanması halinde ertelenmiş vergi yükümlülüğü ile mahsup edildikten sonra kalan kısmı,
+d) Kanunun 56 ncı maddesinin dördüncü fıkrasına aykırı olarak edinilen paylar.
+e) (Ek:RG-6/9/2014-29111) (Değişik:RG-23/10/2015-29511)(1) Kredi Riskine Esas Tutarın İçsel Derecelendirmeye Dayalı Yaklaşımlar İle Hesaplanmasına İlişkin Tebliğin 8 inci maddesinin ikinci fıkrasında belirtilen hesaplama sonucu elde edilen negatif tutarın mutlak değeri.
+f) (Ek:RG-23/10/2015-29511)(1) Gerçeğe uygun değeri üzerinden izlenmeyen varlık veya yükümlülüklerin nakit akış riskinden korunma işlemine konu edilmesi halinde, bunlara ilişkin olarak Türkiye Muhasebe Standartları uyarınca özkaynaklara yansıtılan kazançlar,
+g) (Ek:RG-23/10/2015-29511)(1) Menkul kıymetleştirme işlemlerinden kaynaklanan kazançlar,
+ğ) (Ek:RG-23/10/2015-29511)(1) Bankanın kredi değerliliğinde meydana gelen değişikliklere bağlı olarak yükümlülüklerinin gerçeğe uygun değerinde meydana gelen değişiklikler sonucu ortaya çıkan gerçekleşmemiş kazançlar,
+h) (Ek:RG-23/10/2015-29511)(1) (Değişik:RG-20/1/2016-29599)(2) Türkiye Muhasebe Standartlarında belirtilen tanımlanmış fayda plan varlıklarının, bankanın herhangi bir kısıtlama olmaksızın serbest kullanımında olduğu Kurum tarafından onaylananlar hariç olmak üzere, bu varlıkların değer düşüklüğüne uğraması veya kayıtlardan çıkarılması halinde silinecek olan ertelenmiş vergi yükümlülüğü ile mahsup edildikten sonra kalan kısımları ile tanımlanmış fayda plan yükümlülüklerinde gerçekleşen herhangi bir azalmadan dolayı çekirdek sermayede oluşacak artışlar
+ı) (Ek:RG-23/10/2015-29511)(1) Bankaların Sermaye Yeterliliğinin Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmeliğin ekinde yer alan Ek-3’ün 15 inci fıkrası uyarınca likiditesi düşük pozisyonlar için yapılan değerleme ayarlamaları sonucunda bulunan değerin, Türkiye Muhasebe Standartlarına göre bulunan değer ile aynı Ek’in 11 ve 12 nci fıkralarına göre yapılan değerleme ayarlamaları sonucunda bulunan değerin altında olması halinde aradaki farklar.
+(2) Birinci fıkranın (ç) bendinde belirtilen ertelenmiş vergi varlığı ile mahsup edilecek ertelenmiş vergi yükümlülüğü, aynı fıkranın (c) bendi uyarınca mahsup edilen kısım düşülmek suretiyle belirlenir. Mahsup edilecek ertelenmiş vergi yükümlülüğü, geçici farklardan kaynaklanan ertelenmiş vergi varlığının tüm ertelenmiş vergi varlığına oranı üzerinden hesaplanır.
+(3) Aşağıda belirtilen unsurlar birinci fıkranın (a) bendi kapsamında değerlendirilmez.
+a) (Değişik:RG-6/9/2014-29111) Gerçeğe uygun değeri üzerinden izlenmeyen varlık veya yükümlülüklerin nakit akış riskinden korunma işlemine konu edilmesi halinde, bunlara ilişkin olarak Türkiye Muhasebe Standartları uyarınca özkaynaklara yansıtılan kayıplar,
+b) Bankanın kredi değerliliğinde meydana gelen değişikliklere bağlı olarak yükümlülüklerinin gerçeğe uygun değerinde meydana gelen değişiklikler sonucu ortaya çıkan gerçekleşmemiş kayıplar.
+(4) Aşağıda belirtilen kalemler ilgisine göre çekirdek sermaye, ilave ana sermaye veya katkı sermaye hesaplamasında indirim kalemi olarak dikkate alınır.
+a1) (Değişik:RG-23/10/2015-29511)(1) Alım satım veya bankacılık hesaplarında izlenip izlenmediğine bakılmaksızın bankanın kendi hisse senetlerine, ilave ana sermaye ve katkı sermaye kalemlerine yapmış olduğu doğrudan veya türev finansal araçlar, kredi türevleri, garanti, kefaletler ve borsa yatırım fonları gibi araçlar yoluyla yapılan dolaylı yatırımların net uzun pozisyonları ile bankanın herhangi bir sözleşmeye bağlı olarak ileride satın almak zorunda kalabileceği kendi hisse senetleri, ilave ana sermaye ve katkı sermaye kalemleri ilgisine göre çekirdek sermaye, ilave ana sermaye veya katkı sermayeden indirilir. Net uzun pozisyonların hesaplanmasında aynı varlıklara ilişkin kısa pozisyonlar karşı taraf kredi riski içermemeleri halinde dikkate alınabilir. Bankaların kendi hisse senetlerinde borsa yatırım fonları dolayısıyla edindikleri uzun pozisyonlar, bu fonun baz aldığı endekste sahip olunan kısa pozisyonlar ile netleştirilebilir. Bu durumda, karşı taraf kredi riski içeren kısa pozisyonlar da net uzun pozisyon hesabına dahil edilebilir.
+a2) Bankanın ilave ana sermaye ve katkı sermaye kalemlerine yatırım yapan bankalar ile finansal kuruluşlar tarafından ihraç edilen ve 7 ve 8 inci maddelerde belirtilen şartları taşıyan özkaynak kalemlerine bankanın yaptığı yatırımlar ilgisine göre ilave ana sermaye veya katkı sermayeden indirilir.
+b) (Değişik:RG-23/10/2015-29511)(1) Alım satım veya bankacılık hesaplarında izlenip izlenmediğine bakılmaksızın, ortaklık paylarının yüzde on veya daha azına sahip olunan ve konsolide edilmeyen bankalar ve finansal kuruluşların özkaynak unsurlarına doğrudan veya türev finansal araçlar, kredi türevleri, garanti, kefaletler ve borsa yatırım fonları gibi araçlar yoluyla yapılan dolaylı yatırımların net uzun pozisyonları toplamının, bankanın çekirdek sermayesinin bu maddenin önceki hükümleri uygulandıktan sonra bulunan tutarının yüzde onunu aşan kısmının;
+1) Çekirdek sermaye unsurlarına yapılan yatırımların net uzun pozisyonlar toplamı içindeki payı ile çarpılması,
+2) İlave ana sermaye unsurlarına yapılan yatırımların net uzun pozisyonlar toplamı içindeki payı ile çarpılması,
+3) Katkı sermaye unsurlarına yapılan yatırımların net uzun pozisyonlar toplamı içindeki payı ile çarpılması
+suretiyle bulunan tutarlar sırasıyla çekirdek sermaye, ilave ana sermaye ve katkı sermayeden indirilir. Net uzun pozisyonların hesaplanmasında; aynı varlıklara ilişkin kısa pozisyonlar uzun pozisyon ile aynı vadeye sahip olmaları veya kalan vadelerinin en az bir yıl olması halinde dikkate alınabilir.
+c) (Değişik:RG-23/10/2015-29511)(1) (Değişik:RG-20/1/2016-29599)(2) Alım satım veya bankacılık hesaplarında izlenip izlenmediğine bakılmaksızın; hakim ortaklık niteliğindeki banka veya finansal kuruluşlar ile kontrol gücüne veya ortaklık paylarının yüzde onundan daha fazlasına veya oy haklarının yüzde yirmi veya daha fazlasına sahip olunan veya kendisi ile birlikte aynı ana ortaklık tarafından kontrol edilen veya Türkiye Muhasebe Standartlarına göre finansal tabloları konsolide edilmesi gereken banka ve finansal kuruluşlardan konsolide edilmeyenlerin ilave ana sermaye ile katkı sermaye unsurlarına doğrudan veya türev finansal araçlar, kredi türevleri, garanti, kefaletler ve borsa yatırım fonları gibi araçlar yoluyla yapılan dolaylı yatırımların net uzun pozisyonlarının tamamı sırasıyla ilave ana sermaye ve katkı sermayeden indirilir. Net uzun pozisyonların hesaplanmasında, aynı varlıklara ilişkin kısa pozisyonlar uzun pozisyon ile aynı vadeye sahip olmaları veya kalan vadelerinin en az bir yıl olması halinde dikkate alınabilir.
+ç) (Değişik cümle:RG-23/10/2015-29511)(1) (Değişik cümle:RG-20/1/2016-29599)(2) Alım satım veya bankacılık hesaplarında izlenip izlenmediğine bakılmaksızın, kontrol gücüne veya ortaklık paylarının yüzde onundan daha fazlasına veya oy haklarının yüzde yirmi veya daha fazlasına sahip olunan veya kendisi ile birlikte aynı ana ortaklık tarafından kontrol edilen veya Türkiye Muhasebe Standartlarına göre finansal tabloları konsolide edilmesi gereken banka ve finansal kuruluşlardan konsolide edilmeyenlerin çekirdek sermaye unsurlarına doğrudan veya türev finansal araçlar, kredi türevleri, garanti, kefaletler ve borsa yatırım fonları gibi araçlar yoluyla yapılan dolaylı yatırımların net uzun pozisyonları, geçici farklara dayanan ertelenmiş vergi varlıkları ile Türkiye Muhasebe Standartları uyarınca maddi olmayan duran varlık olarak muhasebeleştirilen ipotek hizmeti sunma hakları çekirdek sermaye hesabında aşağıda belirtilen şekilde dikkate alınır.
+1) Bu kalemlerin her birinin bu maddenin önceki hükümleri uygulandıktan sonra bulunan çekirdek sermaye tutarının yüzde onunu aşan kısımları çekirdek sermayeden indirilir.
+2) (1) numaralı alt bent kapsamında çekirdek sermayeden indirilmeyen tutarların toplamı (1) numaralı alt bent uyarınca bulunan çekirdek sermaye tutarından indirilir.
+3) (1) numaralı alt bent kapsamında çekirdek sermayeden indirilmeyen tutarların toplamının (2) numaralı alt bent uyarınca bulunan çekirdek sermaye tutarının yüzde 17,65’ini aşan kısmı (1) numaralı alt bent uyarınca bulunan çekirdek sermaye tutarından indirilir.
+4) (3) numaralı alt bent uyarınca bulunan çekirdek sermaye tutarı bu bent uyarınca hesaplanan çekirdek sermaye olarak kabul edilir.
+(5) Dördüncü fıkranın (b) ve (c) bentlerinin uygulamasında, ilgili indirim kalemine ilişkin yeterli ilave ana sermaye veya katkı sermaye bulunmaması halinde indirim bir üst sermaye kaleminden gerçekleştirilir.
+(6) Halka arza aracılık yüklenimleri kapsamında edinilen ve beş iş gününden daha kısa süre elde bulundurulan yatırımlar ile yeniden yapılandırılma kapsamında edinilen banka ve finansal kuruluşlardaki geçici nitelikteki ortaklık payları dördüncü fıkra kapsamında değerlendirilmez.
+(7) Dördüncü fıkra kapsamında indirime konu edilecek tutarlar bu Yönetmelik uyarınca özkaynak unsuru olarak değerlendirilmemelerine rağmen, ilgili banka veya finansal kuruluşun özkaynak hesaplamasında dikkate alınan kalemlerden oluşmaları halinde, söz konusu fıkra uygulamasında çekirdek sermaye unsuru olarak kabul edilir. Ortaklık payına sahip olunan banka veya finansal kuruluşların kendi özkaynak hesaplamasında yer almayan yatırımlar indirime tabi tutulmaz.
+(8) Aşağıda sayılan kalemler, bu maddenin önceki tüm fıkra hükümleri uygulandıktan sonra bulunan ana sermaye ve katkı sermaye toplamından indirilir.
+a) Kanunun 50 ve 51 inci maddeleri hükümlerine aykırı olarak kullandırılan krediler,
+b) (Mülga:RG-11/7/2017- 30121)
+c) (Mülga:RG-23/10/2015-29511)(1)
+ç) (Ek:RG-6/9/2014-29111) 1/11/2006 tarihli ve 26333 sayılı Resmî Gazete’de yayımlananan Bankaların Kredi İşlemlerine İlişkin Yönetmeliğin 12/A maddesinin beşinci fıkrasında belirtilen kredi tutarları
+(9) (Mülga:RG-23/10/2015-29511)(1)
+(10) (Mülga:RG-23/10/2015-29511)(1)
+(11) Kurul, bu maddede belirtilenler dışında başka kalemlerin de indirim kalemi olarak dikkate alınmasına karar verebilir.
+ÜÇÜNCÜ BÖLÜM
+Konsolide Özkaynak Hesaplaması
+Konsolide özkaynak hesaplaması
+MADDE 10 – (1) Konsolide özkaynak; Kanun uyarınca yürürlüğe konulan düzenlemelere göre, ana ortaklık niteliğinde olan bankaların konsolide finansal tabloları üzerinden ikinci bölümde yer alan esaslar çerçevesinde hesapladıkları özkaynaklarına, bu bölümde belirtilen usul ve esaslar çerçevesinde hesaplanan azınlık payları ile üçüncü kişilerin paylarının eklenmesi suretiyle bulunur. Konsolide özkaynak hesaplamasında sigorta şirketlerinin teknik karşılıkları dikkate alınmaz.
+(2) (Değişik:RG-6/9/2014-29111) Bağlı ortaklıktaki azınlık payları, ana ortaklık banka veya bağlı ortaklık tarafından özel amaçlı bir şirket veya başka bir araç ya da sözleşme aracılığıyla doğrudan veya dolaylı olarak fonlanmış olmaları halinde, ana ortaklık bankanın konsolide özkaynak hesabında dikkate alınmaz.
+(3) Bankaların yurtdışında kurulu bağlı ortaklıklarında yer alan azınlık payları ile üçüncü kişilere ait paylar, ilgisine göre 6, 7 ve 8 inci maddelerde belirtilen koşulları taşımaları halinde 12, 13 ve 14 üncü maddelerde belirtilen esaslar çerçevesinde konsolide sermaye hesaplamasında dikkate alınırlar.
+(4) Kanun uyarınca yürürlüğe konulan düzenlemelere göre ana ortaklık niteliğinde olan bankalar, konsolide edilen sigorta şirketlerindeki yatırımlarını ilgisine göre, 9 uncu maddenin dördüncü fıkrasının (c) ve (ç) bentleri kapsamında konsolide edilmeyen bir finansal kuruluşa yapılan yatırımlar gibi değerlendirmek suretiyle de konsolide özkaynaklarını hesaplarlar.
+(5) Birinci ve dördüncü fıkra hükümlerine göre hesaplanan konsolide özkaynak tutarlarından düşük olan tutar bu Yönetmelik uyarınca hesaplanacak konsolide özkaynak tutarı olarak dikkate alınır.
+Yurt dışında kurulu ortaklıklarca ihraç edilen borçlanma araçları
+MADDE 11 – (Değişik:RG-23/10/2015-29511)(1)
+(1) Bankaların yurt dışında kurulu bulunan ve konsolide edilen bağlı ortaklıkları tarafından ihraç edilen borçlanma araçları veya alınan krediler, 7 ve 8 inci maddelerde belirtilen şartları taşımaları kaydıyla konsolide özkaynak hesabında dikkate alınabilir.
+(2) Banka yönetim kurulunun bu borçlanma araçları ile kredilerin ilgili maddelerdeki şartları taşıdıklarını teyit eden yazılı beyanda bulunulması ve bunlara ilişkin yasal belgelerin muadil denetleme ve düzenleme yapısına sahip kurum tarafından onaylanmış örnekleri ile bunların yeminli tercümanlarca Türkçe’ye tercüme edilmiş metinlerinin yapılacak denetimlerde ibraz edilmek üzere bankaca saklanması gereklidir.
+Azınlıkların çekirdek sermayedeki payları
+MADDE 12 – (1) (Değişik:RG-20/1/2016-29599)(2) Bankanın konsolide edilen bağlı ortaklıklarının çekirdek sermayelerinde azınlıkların sahip oldukları paylar, bağlı ortaklığın çekirdek sermaye kalemlerinin 6 ncı madde kapsamındaki unsurlar ile aynı nitelikleri haiz olması ve söz konusu ortaklığın bankalar ile aynı düzenlemelere ve denetime tabi olması durumunda bankanın konsolide çekirdek sermaye hesabında izleyen fıkralarda belirtildiği şekilde dikkate alınır.
+(2) Konsolide çekirdek sermaye hesabında dikkate alınacak tutar, bağlı ortaklığın çekirdek sermayesinde azınlıkların sahip olduğu paylardan, bağlı ortaklığın çekirdek sermayesinin asgari olarak bulundurulması gereken tutarı aşan kısmının azınlıkların sahip olduğu paylara tekabül eden kısmı indirilerek bulunur.
+(3) (Değişik:RG-20/1/2016-29599)(2) Bağlı ortaklığın çekirdek sermayesinin asgari olarak bulundurulması gereken tutarı aşan kısmı; bağlı ortaklığın çekirdek sermayesinden, bağlı ortaklığın asgari çekirdek sermaye tutarına sermaye koruma tamponunun eklenmesi suretiyle bulunan tutar ve bankanın asgari konsolide çekirdek sermaye tutarına konsolide sermaye koruma tamponunun eklenmesi ile bulunan tutarın bağlı ortaklığa ait olan kısmından düşük olanın indirilmesi suretiyle hesaplanır.
+(4) Azınlıkların bağlı ortaklığın çekirdek sermayesinin asgari olarak bulundurulması gereken tutarı aşan kısmındaki payı, çekirdek sermayenin asgari olarak bulundurulması gereken tutarı aşan kısmının azınlıkların çekirdek sermayede sahip oldukları payların oranı ile çarpılması suretiyle bulunur.
+Üçüncü kişilerin ana sermayedeki payları
+MADDE 13 – (1) Bankanın konsolide edilen bağlı ortaklıklarının 12 nci maddede belirtilenler de dahil olmak üzere, ana sermayelerinde üçüncü kişilerin sahip oldukları paylar, bağlı ortaklığın çekirdek sermaye kalemlerinin 6 ncı madde kapsamındaki unsurlar ile aynı nitelikleri haiz olması veya 7 nci maddede belirtilen şartları taşımaları halinde konsolide ana sermaye hesabında izleyen fıkralarda belirtildiği şekilde dikkate alınır.
+(2) Konsolide ana sermaye hesaplamasında dikkate alınacak tutar, bağlı ortaklığın ana sermayesinin üçüncü kişilere ait olan kısmından, bağlı ortaklığın ana sermayesinin asgari olarak bulundurulması gereken tutarı aşan kısmının üçüncü kişilerin paylarına tekabül eden kısmı indirilerek bulunur.
+(3)(Değişik:RG-20/1/2016-29599)(2) Bağlı ortaklığın ana sermayesinin asgari olarak bulundurulması gereken tutarı aşan kısmı; bağlı ortaklığın ana sermayesinden, bağlı ortaklığın asgari ana sermaye tutarına sermaye koruma tamponunun eklenmesi suretiyle bulunan tutar ve bankanın asgari konsolide ana sermaye tutarına konsolide sermaye koruma tamponunun eklenmesi ile bulunan tutarın bağlı ortaklığa ait olan kısmından düşük olanın indirilmesi suretiyle hesaplanır.
+(4) Üçüncü kişilerin bağlı ortaklığın ana sermayesinin asgari olarak bulundurulması gereken tutarı aşan kısmındaki payı, ana sermayenin asgari olarak bulundurulması gereken tutarı aşan kısmının üçüncü kişilerin ana sermayede sahip oldukları payların oranı ile çarpılması suretiyle bulunur.
+(5) Bu madde uyarınca hesaplanan ana sermaye tutarının ilave ana sermaye hesabında dikkate alınan kısmı, 12 nci madde kapsamında hesaplanan çekirdek sermaye tutarını içermez.
+Üçüncü kişilerin özkaynaktaki payları
+MADDE 14 – (1) Bankanın konsolide edilen bağlı ortaklıklarının 12 ve 13 üncü maddelerde belirtilenler dahil olmak üzere özkaynaklarında üçüncü kişilerin sahip oldukları paylar, bağlı ortaklığın çekirdek sermaye kalemlerinin 6 ncı madde kapsamındaki unsurlar ile aynı nitelikleri haiz olması durumunda veya ilgisine göre 7 veya 8 inci maddelerde belirtilen şartları taşımaları halinde konsolide özkaynak hesabında izleyen fıkralarda belirtildiği şekilde dikkate alınır.
+(2) Konsolide özkaynak hesaplamasında dikkate alınacak tutar, bağlı ortaklığın özkaynağının üçüncü kişilere ait olan kısmından, bağlı ortaklığın özkaynağının asgari olarak bulundurulması gereken tutarı aşan kısmının üçüncü kişilerin paylarına tekabül eden kısmı indirilerek bulunur.
+(3) (Değişik:RG-20/1/2016-29599)(2) Bağlı ortaklığın özkaynağının asgari olarak bulundurulması gereken tutarı aşan kısmı; bağlı ortaklığın özkaynağından, bağlı ortaklığın asgari özkaynak tutarına sermaye koruma tamponunun eklenmesi suretiyle bulunan tutar ve bankanın asgari konsolide özkaynak tutarına konsolide sermaye koruma tamponunun eklenmesi ile bulunan tutarın bağlı ortaklığa ait olan kısmından düşük olanın indirilmesi suretiyle hesaplanır.
+(4) Üçüncü kişilerin bağlı ortaklığın özkaynağının asgari olarak bulundurulması gereken tutarı aşan kısmındaki payı, özkaynağın asgari olarak bulundurulması gereken tutarı aşan kısmının üçüncü kişilerin özkaynakta sahip oldukları payların oranı ile çarpılması suretiyle bulunur.
+(5) Bu madde uyarınca hesaplanan özkaynak tutarının katkı sermaye hesabında dikkate alınan kısmı, 12 nci madde kapsamında hesaplanan çekirdek sermaye tutarı ile 13 üncü madde kapsamında hesaplanan ilave ana sermaye tutarını içermez.
+(6) (Değişik:RG-23/10/2015-29511)(1) Özel amaçlı kuruluşlar aracılığıyla ihraç edilen özkaynak kalemleri 7 veya 8 inci maddelerde belirtilen şartları taşımaları ve bu kuruluşların varlıklarının, göz ardı edilebilecek nitelikteki kısmı hariç olmak üzere sadece bankanın ihraç ettiği özkaynak kalemlerinden oluşması kaydıyla konsolide ilave ana sermaye veya konsolide katkı sermaye hesabına dahil edilebilir. Bankanın konsolide edilen bağlı ortaklıkları tarafından özel amaçlı kuruluşlar aracılığıyla ihraç edilen özkaynak kalemleri; bağlı ortaklığın kendisi tarafından ihraç edilmiş gibi kabul edilerek, 7 veya 8 inci maddelerde belirtilen şartları taşımaları kaydıyla 13 üncü madde ile bu maddedeki hükümler çerçevesinde konsolide ilave ana sermaye veya konsolide katkı sermaye hesaplamasında dikkate alınır.
+DÖRDÜNCÜ BÖLÜM
+Çeşitli ve Son Hükümler
+Özkaynak ve konsolide özkaynak hesaplama dönemleri
+MADDE 15 – (1) Özkaynak ve konsolide özkaynak ay sonları itibarıyla hesaplanır. Kurum, banka bazında da dahil olmak üzere özkaynak ve konsolide özkaynak hesaplama dönemini değiştirmeye yetkilidir.
+Yürürlükten kaldırılan yönetmelik
+MADDE 16 – (1) 1/11/2006 tarihli ve 26333 sayılı Resmî Gazete'de yayımlanan Bankaların Özkaynaklarına İlişkin Yönetmelik yürürlükten kaldırılmıştır.
+(2) Diğer düzenlemelerde, bu Yönetmelik ile yürürlükten kaldırılan düzenlemeye yapılan atıflar bu Yönetmeliğe yapılmış sayılır.
+Enflasyon düzeltme farklarına ilişkin uygulama
+GEÇİCİ MADDE 1 – (1) Bu Yönetmeliğin yürürlüğe girdiği tarih itibarıyla kayıtlarda enflasyona göre düzeltme farkı olarak yer alan bakiyeler ilgili oldukları kalemlere aktarılır.
+Özkaynak unsurlarına uygulanacak indirim esaslarına ilişkin uygulama
+GEÇİCİ MADDE 2 – (1) (Değişik fıkra:RG-6/9/2014-29111) 9 uncu maddenin birinci fıkrasının (c) ve (ç) bentleri ile dördüncü fıkrasının (b), (c) ve (ç) bentleri çerçevesinde hesaplanacak tutarlar 1/1/2015 tarihine kadar yüzde yirmi, 1/1/2016 tarihine kadar yüzde kırk, 1/1/2017 tarihine kadar yüzde altmış, 1/1/2018 tarihine kadar yüzde seksen oranında dikkate alınır. Bu hüküm uyarınca dikkate alınmayan kısımlar; 9 uncu maddenin birinci fıkrasının (c) ve (ç) bentleri bakımından ana sermayeden indirim kalemi olarak, aynı maddenin dördüncü fıkrasının (b), (c) ve (ç) bentleri bakımından ana sermaye ve katkı sermaye toplamından indirim kalemi olarak dikkate alınır.
+(2) 9 uncu maddenin dördüncü fıkrasının (ç) bendi 1/1/2018 tarihine kadar aşağıdaki şekilde uygulanır.
+ç) (Değişik cümle:RG-23/10/2015-29511)(1) (Değişik cümle:RG-20/1/2016-29599)(2) Alım satım veya bankacılık hesaplarında izlenip izlenmediğine bakılmaksızın, kontrol gücüne veya ortaklık paylarının yüzde onundan daha fazlasına veya oy haklarının yüzde yirmi veya daha fazlasına sahip olunan veya kendisi ile birlikte aynı ana ortaklık tarafından kontrol edilen veya Türkiye Muhasebe Standartlarına göre finansal tabloları konsolide edilmesi gereken banka ve finansal kuruluşlardan konsolide edilmeyenlerin çekirdek sermaye unsurlarına doğrudan veya türev finansal araçlar, kredi türevleri, garanti, kefaletler ve borsa yatırım fonları gibi araçlar yoluyla yapılan dolaylı yatırımların net uzun pozisyonları, geçici farklara dayanan ertelenmiş vergi varlıkları ile Türkiye Muhasebe Standartları uyarınca maddi olmayan duran varlık olarak muhasebeleştirilen ipotek hizmeti sunma hakları çekirdek sermaye hesabında aşağıda belirtilen şekilde dikkate alınır.
+1) Bu kalemlerin her birinin bu maddenin önceki hükümleri uygulandıktan sonra bulunan çekirdek sermaye tutarının yüzde onunu aşan kısımları çekirdek sermayeden indirilir.
+2) (1) numaralı alt bent kapsamında çekirdek sermayeden indirilmeyen tutarların toplamının, (1) numaralı alt bentteki indirime esas alınan çekirdek sermaye tutarının yüzde onbeşini aşan kısmı (1) numaralı alt bent uyarınca bulunan çekirdek sermaye tutarından indirilir.
+3) (2) alt bendi uyarınca bulunan çekirdek sermaye tutarı bu bent uyarınca hesaplanan çekirdek sermaye olarak kabul edilir.
+Azınlıkların ve üçüncü kişilerin özkaynak unsurlarındaki paylarına ilişkin uygulama
+GEÇİCİ MADDE 3 – (1) Bu Yönetmeliğin yürürlüğe girdiği tarih itibarıyla özkaynaklar içerisinde yer alan azınlık payları ile üçüncü kişilere ait paylardan 12, 13 ve 14 üncü maddeler uyarınca özkaynak hesabında dikkate alınmayacak olanlar, ilgili olduğu özkaynak hesabında 1/1/2015 tarihine kadar yüzde seksen, 1/1/2016 tarihine kadar yüzde altmış, 1/1/2017 tarihine kadar yüzde kırk, 1/1/2018 tarihine kadar yüzde yirmi oranında dikkate alınır.
+1/1/2014 tarihi öncesinde ihraç edilen sermaye kalemlerine ilişkin uygulama
+GEÇİCİ MADDE 4 – (Değişik:RG-20/1/2016-29599) (2)
+(1) 11/1/2014 itibarıyla ilave ana sermaye veya katkı sermaye hesaplamasında dikkate alınan kalemlerden 12/09/2010 tarihi öncesinde ihraç edilmiş olan ve 7 nci veya 8 inci maddelerde belirtilen şartları taşımayanlar 1/1/2014 ile 31/12/2014 tarihleri arasında yüzde yirmi, izleyen yıllarda ise her bir yıl için yüzde on oranında azaltılmak suretiyle ilgili özkaynak unsurunun hesabında dikkate alınır. Bu hesaplama, her bir özkaynak unsuru içerisinde yer alan tüm borçlanma araçlarının 1/1/2013 tarihi itibarıyla toplam tutarı üzerinden yapılır.
+(2) Birinci fıkra kapsamında yer alan kalemlerden erken itfa opsiyonu ve faiz artırımı gibi geri çağırmayı teşvik edici özellikleri haiz olanlardan bu özelliklerin kullanımı;
+a) 1/1/2013 tarihinden öncesine ait olanlar, söz konusu özelliklerin kullanılabileceği tarihe kadar kullanılmamış olmaları halinde, 7 veya 8 inci maddelerdeki şartları haiz olmaları kaydıyla ilgili özkaynak unsurunun hesabında dikkate alınır.
+b) 1/1/2013 veya bu tarihten sonrasına ait olanlar söz konusu özelliklerin kullanılmamaları ve 7 veya 8 inci maddelerdeki şartları haiz olmaları kaydıyla ilgili özkaynak unsurunun hesabında dikkate alınır. Bahse konu sermaye kalemleri söz konusu özelliklerin kullanılabileceği tarih öncesinde birinci fıkra uygulamasına tabidir.
+c) 12/09/2010 ile 1/1/2013 tarihleri arasında olan, söz konusu özelliklerin kullanılabileceği tarihe kadar kullanılmayan ve 7 veya 8 inci maddelerdeki şartları haiz olmayanlar ilgili özkaynak unsurunun hesabında dikkate alınmaz. Bahse konu sermaye kalemlerinden 7 nci maddenin ikinci fıkrasının (j) bendi ile 8 inci maddenin ikinci fıkrasının (ğ) bendi hariç diğer şartları haiz olanlar birinci fıkra uygulamasına tabidir.
+ç) 1/1/2013 veya bu tarihten sonrasına ait olan, söz konusu özelliklerin kullanılabileceği tarihte kullanılmayan ve 7 veya 8 inci maddelerdeki şartları haiz olmayanlar, söz konusu özelliklerin kullanılabileceği tarih itibariyle ilgili özkaynak unsurunun hesabında dikkate alınmaz. Bahse konu sermaye kalemleri söz konusu özelliklerin kullanılabileceği tarihe kadar birinci fıkra hükümlerine tabidir.
+d) 12/09/2010 tarihi veya öncesindeki bir tarihte kullanılabilecek ancak söz konusu özelliklerin kullanılabileceği tarihte kullanılmamış olan ve 7 veya 8 inci maddelerdeki şartları haiz olmayanlar birinci fıkra hükümlerine tabidirler.
+(3) 12/09/2010 tarihi ile 1/1/2013 tarihleri arasında ihraç edilen özkaynak kalemleri, 7 nci maddenin ikinci fıkrasının (j) bendi ile 8 inci maddenin ikinci fıkrasının (ğ) bendi dışında kalan şartları taşımaları kaydıyla birinci fıkrada belirtilen çerçevede dikkate alınır.
+(4) 1/1/2013 tarihinden sonra ihraç edilen sermaye kalemleri 7 veya 8 inci maddelerdeki tüm şartları taşımaları kaydıyla özkaynak hesabında dikkate alınırlar.
+(5) Bu Yönetmeliğin yürürlüğe girdiği tarih itibarıyla özkaynaklar içerisinde yer alan çekirdek sermaye kalemlerinden 12/09/2010 tarihi itibarıyla bankaların özkaynak hesaplarında dikkate alınanlardan 6 ncı maddedeki koşulları haiz olmayanlar, anonim şirket şekli dışında kurulmuş bir şirket tarafından ihraç edilmiş olması, Türkiye Muhasebe Standartları uyarınca özkaynaklarda muhasebeleştirilmesi ve yüzde yüz oranında ana sermayede dikkate alınması kaydıyla birinci fıkrada belirtilen çerçevede dikkate alınır.
+TFRS 9 uygulayan bankalarca ayrılacak karşılıklara ilişkin uygulama
+GEÇİCİ MADDE 5 – (Ek:RG-14/3/2018-30360)(4)
+(1) Kredilerin Sınıflandırılması ve Bunlar İçin Ayrılacak Karşılıklara İlişkin Usul ve Esaslar Hakkında Yönetmelik uyarınca TFRS 9 kapsamında beklenen kredi zarar karşılıklarının ayrılmaya başlandığı tarih itibarıyla hesaplanan toplam beklenen kredi zarar karşılık tutarı ile TFRS 9 uygulamasına başlanmadan önce hesaplanan toplam karşılık tutarı arasındaki pozitif farkın, farktan kaynaklanan vergi tutarı indirildikten sonraki kısmının birinci yıl yüzde sekseni, ikinci yıl yüzde altmışı, üçüncü yıl yüzde kırkı, dördüncü yıl yüzde yirmisi çekirdek sermaye tutarına eklenebilir.
+(2) Birinci fıkra uygulamasında, Bankaların Sermaye Yeterliliğinin Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmelik uyarınca kredi riskine esas tutarın belirlenmesinde içsel derecelendirmeye dayalı yaklaşımların kullanılması durumunda, Kredi Riskine Esas Tutarın İçsel Derecelendirmeye Dayalı Yaklaşımlar ile Hesaplanmasına İlişkin Tebliğin 8 inci maddesinin ikinci fıkrasında belirtilen hesaplama sonucu elde edilen negatif tutarın mutlak değeri, çekirdek sermaye tutarlarına eklenmeden önce birinci fıkrada belirtilen pozitif fark tutarından indirilir.
+(3) Bu madde uygulamasında çekirdek sermayeye eklenen tutarlar katkı sermaye hesaplamasında dikkate alınmazlar.
+(4) Bu madde uygulamasını tercih eden bankaların durumlarını ilk raporlama tarihinde Kuruma bildirmeleri zorunludur. TFRS 9 kapsamında beklenen kredi zarar karşılıklarının ayrılmaya başlandığı tarih itibarıyla geçiş süreci uygulamasını tercih etmeyen bankaların daha sonra bu uygulamaya geçme imkanı bulunmamaktadır.
+(5) Geçiş süreci boyunca çekirdek sermayeye eklenen tutarlar üzerinden hesaplanan geçici farklara dayanan ertelenmiş vergi varlıkları çekirdek sermaye hesaplamasında dikkate alınmaz.
+Yürürlük
+MADDE 17 – (1) Bu Yönetmelik 1/1/2014 tarihinde yürürlüğe girer.
+Yürütme
+MADDE 18 – (1) Bu Yönetmelik hükümlerini Bankacılık Düzenleme ve Denetleme Kurumu Başkanı yürütür.
+_____________
+(1) 23/10/2015 tarihli ve 29511 sayılı Resmi Gazete’de yayımlanan Yönetmelik değişikliği 31/3/2016 tarihinde yürürlüğe girer.
+(2) 20/1/2016 tarihli ve 29599 sayılı Resmi Gazete’de yayımlanan Yönetmelik değişikliği 31/3/2016 tarihinde yürürlüğe girer.
+(3) Bu değişiklik 1/1/2017 tarihinde yürürlüğe girer.
+(4) Bu değişiklik 1/1/2018 tarihinden geçerli olmak üzere yayımı tarihinde yürürlüğe girer.
+Yönetmeliğin Yayımlandığı Resmî Gazete’nin
+Tarihi
+Sayısı
+5/9/2013
+28756
+Yönetmelikte Değişiklik Yapan Yönetmeliklerin Yayımlandığı Resmî Gazetelerin
+Tarihi
+Sayısı
+1
+6/9/2014
+29111
+2
+23/10/2015
+29511
+3
+20/1/2016
+29599
+4
+22/6/2016
+29750
+5
+11/7/2017
+30121
+6
+14/3/2018
+30360

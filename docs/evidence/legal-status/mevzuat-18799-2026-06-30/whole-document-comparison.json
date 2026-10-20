@@ -1,0 +1,11 @@
+{
+  "document_sha256": "0fd2f517e679914f0842174a731a5a9e18f7d1339d1a5f7d459a0b00ff1471e0",
+  "official_extracted_text_sha256": "34ec05950ed0be821123a5fdda2d9c3ce77c982df8eb0fafb0af84d9faef7f81",
+  "equal_after_declared_comparison_transform": true,
+  "transform": "Whitespace removal, explicit Windows-1252 C1 punctuation recovery, and removal of the single standalone 13-underscore editorial separator. Comparison ONLY, not a change to stored text or Citation v1 quotation matching.",
+  "punctuation_counts": {
+    "U+0092": 10,
+    "U+0096": 23
+  },
+  "independent_legal_review": false
+}
