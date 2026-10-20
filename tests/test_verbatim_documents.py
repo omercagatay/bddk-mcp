@@ -388,3 +388,35 @@ def test_seed_articles_no_longer_swallow_inserted_articles_and_guides_keep_parag
     for doc_id, paragraphs in (("945", 46), ("946", 163)):
         sections = extract_document_sections(doc_id, texts[doc_id])
         assert [s.section_type for s in sections].count("paragraf") == paragraphs
+
+
+def test_seed_tms_12_paragraphs_carry_their_printed_numbers():
+    """kgk_tms_12 prints bare paragraph numbers; it was indexed as six 20,000-character windows."""
+    text = next(d["markdown_content"] for d in SEED_DOCUMENTS if d["document_id"] == "kgk_tms_12")
+    sections = extract_document_sections("kgk_tms_12", text)
+    paragraphs = {s.section_ref: s for s in sections if s.section_type == "paragraf"}
+
+    assert len(paragraphs) == 140
+    assert {"1", "4/a", "29/a", "51/e", "68/c", "71", "88/d", "98/m", "99"} <= set(paragraphs)
+    assert not {"69", "70"} & set(paragraphs)  # printed as one "69–70 [Silinmiştir]" line
+    assert paragraphs["29/a"].content.startswith("29A Bazı varlıkların geri kazanılabilecek tutarının")
+    assert paragraphs["29/a"].content.endswith("geçerli olabilir.")
+    assert paragraphs["51/a"].content.endswith("özkaynaklar ile ilişkilendirilir.)")
+    assert paragraphs["88/d"].content.endswith("değişeceğine ilişkin bilgiler")
+    assert "Mahsup" not in paragraphs["68/c"].content
+    assert [s.section_type for s in sections].count("govde") == 3
+
+
+def test_no_seed_govde_window_splits_a_word():
+    """Capped govde windows used to end mid-word ("döne" + "mlerde") 59 times in 13 documents.
+
+    A truncated madde/ek span still ends at exactly 20,000 characters: the
+    corpus_retrieval_ready integrity check (migration v0005) pins that length.
+    """
+    for document in SEED_DOCUMENTS:
+        content = document["markdown_content"]
+        for section in extract_document_sections(document["document_id"], content):
+            end = section.end_char
+            if section.section_type != "govde" or end == len(content):
+                continue
+            assert not (content[end - 1].isalnum() and content[end].isalnum()), (document["document_id"], section)

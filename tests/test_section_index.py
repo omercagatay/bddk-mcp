@@ -417,6 +417,91 @@ def test_dash_form_rejects_amounts_and_ranges():
     assert {s.section_ref for s in sections} == {str(n) for n in range(1, 26)}
 
 
+def _tms_body(numbers: list[str]) -> str:
+    return "".join(f"{n} Bu Standardın {n} numaralı paragrafı{' metni' * 12}.\n" for n in numbers)
+
+
+def test_bare_numbered_paragraphs_index_a_kgk_standard():
+    """kgk_tms_12 corpus shape: a paragraph number is printed bare, an inserted
+    paragraph carries a letter ("29A", stored as 29/a) and a deleted run is one
+    range line.  Example items restart at 1 inside their paragraph."""
+    text = (
+        "TMS 99\nÖRNEK VERGİLER\n\nAmaç\n\nBu Standardın amacı gelir vergilerini düzenlemektir.\n\nKapsam\n\n"
+        + _tms_body(["1", "2", "3", "4", "4A", "5", "6", "7"])
+        + "\nÖrnekler\n\n1 Bir makinenin maliyeti 100 TL’dir.\n2 Faiz alacaklarının defter değeri 100 TL’dir.\n\n"
+        + _tms_body([str(n) for n in range(8, 30)] + ["29A", "29B"])
+        + "\nSunum\n\n30–31 [Silinmiştir]\n\nMahsup\n\n"
+        + _tms_body(["32", "33"])
+    )
+
+    sections = extract_document_sections("kgk_tms_99", text)
+
+    paragraphs = {s.section_ref: s for s in sections if s.section_type == "paragraf"}
+    expected = [str(n) for n in range(1, 30)] + ["4/a", "29/a", "29/b", "32", "33"]
+    assert set(paragraphs) == set(expected)
+    assert paragraphs["29/a"].content.startswith("29A Bu Standardın 29A numaralı paragrafı")
+    assert paragraphs["29/a"].heading.startswith("Bu Standardın 29A numaralı paragrafı")
+    assert "1 Bir makinenin maliyeti" in paragraphs["7"].content
+    # The range closes 29B without an identity of its own; the heading before it is trimmed.
+    assert paragraphs["29/b"].content.endswith("metni.")
+    assert all(text[s.start_char : s.end_char].strip() == s.content for s in sections)
+    assert any("Bu Standardın amacı" in s.content for s in sections if s.section_type == "govde")
+
+
+def test_bare_numbered_fallback_requires_a_standard_length_run():
+    """A Kurul Kararı can number a few clauses bare; only a run as long as a
+    standard's paragraph body indexes."""
+    short = extract_document_sections("doc", _tms_body([str(n) for n in range(1, 20)]))
+    long = extract_document_sections("doc", _tms_body([str(n) for n in range(1, 21)]))
+
+    assert {s.section_type for s in short} == {"govde"}
+    assert {s.section_ref for s in long} == {str(n) for n in range(1, 21)}
+
+
+def test_bare_numbered_wrapped_numbers_and_cited_paragraphs_are_prose():
+    """A wrapped standard name ("bakınız: TMS" + "21 Kur …") and an example
+    heading citing a paragraph ("22A paragrafını açıklayan örnek") both land on
+    the next expected number; taking them would bind 21 and 22A to wrong text."""
+    text = (
+        _tms_body([str(n) for n in range(1, 20)])
+        + "20 Parasal kalemler geçerli para birimiyle ölçülür (bakınız: TMS\n"
+        + "21 Kur Değişiminin Etkileri). Kur farkları ertelenmiş vergiyi etkiler.\n"
+        + _tms_body(["21", "22"])
+        + "\n22A paragrafını açıklayan örnek\n\nBir gayrimenkulün maliyeti 100 TL’dir.\n\n"
+        + _tms_body(["22A", "23"])
+    )
+
+    paragraphs = {
+        s.section_ref: s for s in extract_document_sections("kgk_tms_99", text) if s.section_type == "paragraf"
+    }
+
+    assert "21 Kur Değişiminin Etkileri" in paragraphs["20"].content
+    assert paragraphs["21"].content.startswith("21 Bu Standardın 21 numaralı paragrafı")
+    assert "22A paragrafını açıklayan örnek" in paragraphs["22"].content
+    assert paragraphs["22/a"].content.startswith("22A Bu Standardın 22A numaralı paragrafı")
+
+
+def test_bare_paragraph_keeps_its_closing_lines_while_standalone_headings_are_trimmed():
+    """kgk_tms_12 51A/85 shape: a wrapped closing line and the last table rows
+    belong to their paragraph; only a subheading set apart by blank lines before
+    the next paragraph is trimmed."""
+    text = (
+        _tms_body([str(n) for n in range(1, 21)])
+        + "21 Yeniden değerleme ertelenmiş vergi doğurur.\n(not: 61A paragrafı uyarınca, ilave borç doğrudan\n"
+        + "özkaynaklar ile ilişkilendirilir.)\n\n"
+        + "22 Vergi gideri aşağıdaki gibi uzlaştırılır.\nMuhasebe kârı 2,500 3,000\nVergi gideri 760 780\n\n"
+        + "Sunum\n\nVergi varlıkları ve vergi borçları\n\n"
+        + _tms_body(["23", "24"])
+    )
+
+    paragraphs = {
+        s.section_ref: s for s in extract_document_sections("kgk_tms_99", text) if s.section_type == "paragraf"
+    }
+
+    assert paragraphs["21"].content.endswith("özkaynaklar ile ilişkilendirilir.)")
+    assert paragraphs["22"].content.endswith("Muhasebe kârı 2,500 3,000\nVergi gideri 760 780")
+
+
 def test_dominant_marker_style_wins_over_embedded_other_style():
     """A document numbers its paragraphs one way; the losing style is the
     enumerated lists inside it."""
@@ -614,6 +699,28 @@ def test_capped_span_remainder_is_govde():
     govde = [s for s in sections if s.section_type == "govde"]
     assert govde
     assert any("2026 sayılı" in s.content for s in govde)
+
+
+def test_govde_windows_end_at_a_paragraph_line_or_word_break():
+    """A window cut at exactly the cap split kgk_tms_12's "dönemlerde" into
+    "döne" and "mlerde", so section search could find neither half."""
+    from bddk_mcp.store.section_index import MAX_SECTION_CHARS
+
+    lines = "Vergilendirilebilir kâr gelecek dönemlerde oluşur.\n" * 1500
+    words = "vergilendirilebilir dönemlerde " * 2500
+    unbroken = "x" * 30_000
+
+    for text, separator in ((lines, "\n"), (words, " "), (unbroken, None)):
+        windows = extract_document_sections("doc", text)
+
+        assert {s.section_type for s in windows} == {"govde"}
+        assert "".join(text[s.start_char : s.end_char] for s in windows) == text
+        for window in windows[:-1]:
+            assert MAX_SECTION_CHARS // 2 < window.end_char - window.start_char <= MAX_SECTION_CHARS
+            if separator is None:
+                assert window.end_char - window.start_char == MAX_SECTION_CHARS
+            else:
+                assert text[window.end_char - 1] == separator
 
 
 def test_guideline_paragraph_inventory_refuses_restarting_numbering():
