@@ -805,6 +805,21 @@ async def test_live_actual_login_identity_and_acl_provenance_contracts(tmp_path,
                 f"REVOKE SELECT ON public.document_retrieval_publications FROM {login_roles['telemetry']}"
             )
         await assert_telemetry_writer_ready(telemetry_pool)
+
+        from urllib.parse import quote, urlencode
+
+        from tests.legal_publication_support import exercise_signed_legal_publication
+
+        dsns = {
+            profile: f"postgresql://{name}:{quote(passwords[profile], safe='')}@{parsed.hostname}:"
+            f"{parsed.port or 5432}/{database_name}"
+            for profile, name in login_roles.items()
+        }
+        dsns["schema"] += "?" + urlencode({"options": "-c role=bddk_schema_owner"})
+        # check_public_admin_drafts leaves its owner-seeded fixture document; the signed
+        # publication exercise must start from an empty corpus.
+        await admin.execute("DELETE FROM public.documents WHERE document_id = 'doc'")
+        await exercise_signed_legal_publication(admin, dsns, tmp_path, monkeypatch)
     finally:
         for pool in reversed(pools):
             await pool.close()

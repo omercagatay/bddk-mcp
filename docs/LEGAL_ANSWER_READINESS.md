@@ -8,8 +8,11 @@ score, or deployment approval**. Formal certification and deployment remain defe
 
 `get_document_section` accepts optional `quotation` (at most 2,000 characters) and
 `as_of` (ISO date). Existing callers supplying neither retain their response shape
-and issue no status query. No tool, dependency, migration, live-fetch route, or legal
-approval import was added.
+and issue no status query. No new public tool, dependency, migration or live-fetch
+route is needed for these checks. The optional
+[signed legal-evidence admission workflow](CORPUS_GOVERNANCE.md#optional-signed-legal-evidence)
+now lets an owner import legal bundles with explicit review states before
+independent verification and activation. It does not create a review or infer legal approval.
 
 ```json
 {

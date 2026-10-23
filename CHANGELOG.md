@@ -29,6 +29,12 @@ Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızd
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Eklendi — imzalı tarihli hukuki kanıt yolu (taslak; insan incelemesi bekliyor)
+
+- İmzalı corpus manifestine isteğe bağlı `legal_evidence` artefaktı ve yalnız şema sahibi kimliğiyle çalışan `bddk-mcp import-legal-evidence` komutu eklendi. Komut yayını hazırlamaz veya etkinleştirmez; bağımsız doğrulama, hukuki satırları imzalı paketle birebir karşılaştırır. MCP araç yüzeyi, rol yetkileri ve şema (v11) değişmedi.
+- Bankaların Özkaynaklarına İlişkin Yönetmelik madde 9 için 30.06.2026 tarihli kaynak araştırması ve inceleme taslağı (`docs/evidence/legal-status/mevzuat-18799-2026-06-30/`) eklendi. Taslak 20.10.2026'da corpus v11 metnine yeniden bağlandı; bütün inceleme alanları `in_review`. Gerçek bir insan incelemesi olmadığı için sistem bu tarih için hüküm vermemeye devam eder.
+- Taslağın corpus metnine bağlı kalmasını denetleyen bir test ve taslağı yeniden bağlayan `rebind.py` eklendi. Corpus metni değişirse test, taslak yeniden bağlanana kadar başarısız olur.
+
 ### Güvenlik — bağımlılık ve temel imaj
 
 - `fsspec` 2026.2.0 → 2026.9.0 (`uv.lock`; GHSA-27vj-qcqg-25rc 2026.6.0'da kapanıyor). Yalnızca bu paket yükseltildi.
