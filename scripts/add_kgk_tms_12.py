@@ -7,8 +7,9 @@ three seed artifacts, and refreshes the manifest's artifact facts. The manifest
 is left unsigned (`not_configured`); sign it with scripts/sign_corpus_manifest.py
 after reviewing the delta. Edit the manifest's prose (id, scope) before running.
 
-Paragraph numbers ("24 İndirilebilir ...") carry no trailing dot, so the section
-parser indexes the body as govde windows. No text is invented to change that.
+Paragraph numbers ("24 İndirilebilir ...") carry no trailing dot. Section parser
+v10 indexed the body as govde windows; v11 recognizes the bare numbers. No text
+is invented to make a number parse.
 
 Usage:
     curl -o /tmp/TMS_12.pdf <SOURCE_URL>

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # Bump whenever heading recognition, span construction, subsection handling,
 # truncation, or section-content hashing changes.  Persisted chunk metadata is
 # bound to this value by the vector retrieval profile.
-SECTION_PARSER_PROFILE_VERSION = "turkish-regulatory-sections-v10"
+SECTION_PARSER_PROFILE_VERSION = "turkish-regulatory-sections-v11"
 SECTION_SEARCH_PROFILE_VERSION = "document-section-simple-fts-length-normalized-v6"
 
 # Hard upper bound for a single section's span. Legitimate maddeler are a few
@@ -151,6 +151,29 @@ _NUMBERED_STYLES = (
 # artifacts start at 93% and 97%.
 _NUMBERED_MAX_FIRST_OFFSET_RATIO = 0.4
 
+# KGK's TMS/TFRS translations (kgk_tms_12) print the paragraph number bare:
+# "1 Bu Standart …", an inserted paragraph with its letter ("29A Bazı …", stored
+# as 29/a) and a deleted run as one range ("69–70 [Silinmiştir]").  A bare number
+# also opens example items ("1 Bir makinenin maliyeti …"), dates, amounts and
+# wrapped lines, so this grammar is tried only when the dot and dash forms find
+# nothing, and only lines that follow a finished line can start a paragraph.
+_NUMBERED_BARE_HEADING_RE = re.compile(
+    r"^\s*(?P<top>\d{1,3})(?P<letter>[A-Z]?)"
+    r"(?:\s*[-–—]\s*(?P<last>\d{1,3})(?P<last_letter>[A-Z]?))?"
+    r"\s+(?P<title>\S.*)$"
+)
+# A line ending in a word, number or comma runs on: "… (bakınız: TMS" followed by
+# "21 Kur Değişiminin Etkileri)" is a wrapped standard name, not paragraph 21.
+# Every paragraph and range line of kgk_tms_12 follows a blank line, ".", "]" or "”".
+_MID_SENTENCE_END_RE = re.compile(r"[\w,]$")
+# "51C paragrafını açıklayan örnek" and "52A ve 57A paragraflarını açıklayan
+# örnek" head an example that cites a paragraph; no paragraph opens that way.
+_PARAGRAPH_CITATION_TITLE_RE = re.compile(r"^(?:(?:ve|ile|ila|veya)\s+\d{1,3}[A-Z]?\s+)?paragraf", re.IGNORECASE)
+# A standard runs to dozens of paragraphs (TMS 12 has 140, 43 of them
+# inserted); no other seed document that reaches this grammar has even 5 bare
+# numbers in sequence.
+_NUMBERED_BARE_MIN_SECTIONS = 20
+
 # Rehber can interleave principles and a globally numbered paragraph body.
 # Decimal outlines / KISIM headings close a principle but are not themselves
 # numbered legal paragraphs. Keep them as span boundaries, not citation IDs.
@@ -182,7 +205,7 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
     if any(start["section_type"] == "ilke" for start in matches):
         matches = _find_section_starts(text, dot_headings=True)
     if not matches:
-        matches = _find_numbered_paragraph_starts(text)
+        matches = _find_numbered_paragraph_starts(text) or _find_bare_paragraph_starts(text)
     elif {s["section_type"] for s in matches if s["level"] == 1} == {"ilke"}:
         matches = _merge_guideline_paragraphs(text, matches)
     else:
@@ -227,12 +250,13 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
             # sequence check, and a top-level outline span routinely exceeds
             # the cap while its dotted children remain genuine.
             continue
-        end_char = _trim_trailing_heading_leak(
-            text,
-            start["start_char"],
-            _section_end_char(matches, index, len(text)),
-            annex=start["section_type"] == "ek",
-        )
+        end_char = _section_end_char(matches, index, len(text))
+        if start.get("isolated_headings"):
+            end_char = _trim_trailing_heading_blocks(text, start["start_char"], end_char)
+        else:
+            end_char = _trim_trailing_heading_leak(
+                text, start["start_char"], end_char, annex=start["section_type"] == "ek"
+            )
         truncated_from = None
         if end_char - start["start_char"] > MAX_SECTION_CHARS:
             truncated_from = end_char - start["start_char"]
@@ -295,7 +319,7 @@ def _remainder_govde_sections(
     for start_char, end_char in _uncovered_spans(len(text), sections):
         cursor = start_char
         while cursor < end_char:
-            window_end = min(end_char, cursor + MAX_SECTION_CHARS)
+            window_end = _govde_window_end(text, cursor, end_char)
             content = text[cursor:window_end].strip()
             if len(content) < _MIN_GOVDE_CHARS:
                 cursor = window_end
@@ -321,6 +345,25 @@ def _remainder_govde_sections(
             )
             cursor = window_end
     return remainder
+
+
+def _govde_window_end(text: str, start_char: int, end_char: int) -> int:
+    """End a capped window at a paragraph, line or word break, in that order.
+
+    A cut at exactly MAX_SECTION_CHARS splits a word ("döne" + "mlerde"), and
+    then neither window contains it.  The break is looked for only in the
+    window's second half, so no window shrinks below half the cap; a span with
+    no break there keeps the exact cut.
+    """
+    limit = start_char + MAX_SECTION_CHARS
+    if limit >= end_char:
+        return end_char
+    floor = start_char + MAX_SECTION_CHARS // 2
+    for separator in ("\n\n", "\n", " "):
+        cut = text.rfind(separator, floor, limit)
+        if cut != -1:
+            return cut + len(separator)
+    return limit
 
 
 def _uncovered_spans(text_len: int, sections: list[DocumentSection]) -> list[tuple[int, int]]:
@@ -552,6 +595,71 @@ def _scan_numbered_style(
     return accepted
 
 
+def _find_bare_paragraph_starts(text: str) -> list[dict]:
+    """Parse a TMS/TFRS body whose paragraph numbers carry no dot or dash.
+
+    The sequence is ordered by number, then letter (4 < 4A < 4B < 5), and a
+    candidate is accepted only while it advances that order by at most
+    _NUMBERED_MAX_GAP numbers or letters.  A range ("69–70 [Silinmiştir]") moves
+    the sequence to its last number and closes the previous paragraph without an
+    identity of its own, as "MADDE 146 ila 149" does.  A wrapped line or a cited
+    paragraph is prose, not a candidate; the skip and offset gates of the other
+    numbered styles apply to the rest.
+    """
+    accepted: list[dict] = []
+    skipped = 0
+    current = (0, 0)
+    previous = ""
+    char_pos = 0
+    for line in text.splitlines(keepends=True):
+        char_start, char_pos = char_pos, char_pos + len(line)
+        stripped = line.strip()
+        wrapped = _MID_SENTENCE_END_RE.search(previous) is not None
+        previous = stripped
+        match = _NUMBERED_BARE_HEADING_RE.match(stripped)
+        if match is None or wrapped or _PARAGRAPH_CITATION_TITLE_RE.match(match.group("title")):
+            continue
+        first = _bare_paragraph_order(match.group("top"), match.group("letter"))
+        last = first
+        if match.group("last") is not None:
+            last = _bare_paragraph_order(match.group("last"), match.group("last_letter"))
+        if not _advances_bare_sequence(current, first) or (match.group("last") is not None and last <= first):
+            skipped += 1
+            continue
+        current = last
+        if match.group("last") is not None:
+            accepted.append({"section_type": "paragraf", "boundary_only": True, "start_char": char_start, "level": 1})
+            continue
+        accepted.append(
+            {
+                "section_type": "paragraf",
+                "section_ref": _normalize_ref(match.group("top") + match.group("letter")),
+                "heading": match.group("title").strip(),
+                "start_char": char_start,
+                "level": 1,
+                "sequence_validated": True,
+                "isolated_headings": True,
+            }
+        )
+    total = len(accepted) + skipped
+    if len(accepted) < _NUMBERED_BARE_MIN_SECTIONS or skipped > total * _NUMBERED_MAX_SKIP_RATIO:
+        return []
+    if accepted[0]["start_char"] > len(text) * _NUMBERED_MAX_FIRST_OFFSET_RATIO:
+        return []
+    return accepted
+
+
+def _bare_paragraph_order(number: str, letter: str) -> tuple[int, int]:
+    return int(number), ord(letter) - ord("A") + 1 if letter else 0
+
+
+def _advances_bare_sequence(current: tuple[int, int], candidate: tuple[int, int]) -> bool:
+    (top, letter), (current_top, current_letter) = candidate, current
+    if top == current_top:
+        return current_letter < letter <= current_letter + _NUMBERED_MAX_GAP
+    return current_top < top <= current_top + _NUMBERED_MAX_GAP and letter <= _NUMBERED_MAX_GAP
+
+
 def _section_end_char(matches: list[dict], index: int, text_len: int) -> int:
     current_level = matches[index]["level"]
     for later in matches[index + 1 :]:
@@ -617,6 +725,28 @@ def _trim_trailing_heading_leak(text: str, start_char: int, end_char: int, *, an
     ):
         last_keep += len(continuation)
     return start_char + sum(len(line) for line in lines[:last_keep])
+
+
+def _trim_trailing_heading_blocks(text: str, start_char: int, end_char: int) -> int:
+    """Trim whole trailing blocks of heading lines, never a line out of a block.
+
+    KGK's layout sets every subheading ("Tanımlar", "Sunum") apart with blank
+    lines, while a paragraph's wrapped last line ("özkaynaklar ile
+    ilişkilendirilir.)"), closing table row ("Vergi gideri 760 780") or list item
+    sits in its last block; trimming those line by line would cut them off.
+    """
+    lines = text[start_char:end_char].splitlines(keepends=True)
+    keep = len(lines)
+    while True:
+        end = keep
+        while end > 1 and not lines[end - 1].strip():
+            end -= 1
+        block_start = end
+        while block_start > 0 and lines[block_start - 1].strip():
+            block_start -= 1
+        if block_start == 0 or not all(_is_leaked_trailing_line(line.strip()) for line in lines[block_start:end]):
+            return start_char + sum(len(line) for line in lines[:end])
+        keep = block_start
 
 
 def _parse_major_heading(line: str, *, dot_headings: bool = False) -> dict | None:
