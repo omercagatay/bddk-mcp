@@ -1,6 +1,6 @@
 # Ontology plan: one regulation, end to end
 
-**Progress: 1 / 6 steps done.** Next: Step 1.
+**Progress: 2 / 6 steps done.** Next: Step 2.
 
 ## Goal
 
@@ -50,13 +50,14 @@ Each step is one session. Do only the first unchecked step.
   *Done when:* I approve the plan.
   *Done 2026-10-28:* plan in [ONTOLOGY_IMPLEMENTATION_PLAN.md](ONTOLOGY_IMPLEMENTATION_PLAN.md), approved by the owner with the proposed defaults; decision F (status window dates) is supplied before Step 4.
 
-- [ ] **Step 1: Write the ontology spec.**
+- [x] **Step 1: Write the ontology spec.**
   `ontology/ontology.yml` with object types (instrument, legal version, provision, obligation), link types (reuse the
   existing relation kinds: amends, repeals, replaces, consolidates, implements, cites, defines, exception_to; add
   contains and creates), link sources (rule, ai_approved, action), proposal statuses (proposed, approved, rejected) and
   action types (review link proposal, confirm obligation) with their rules. Add a test that fails if the relation kinds
   in code and in the spec drift apart, like the tool registry check.
   *Done when:* the test passes, and I can explain every object and link from the file without notes.
+  *Done 2026-10-28:* `ontology/ontology.yml`, loader `bddk_mcp/ontology/spec.py`, drift test `tests/test_ontology_spec.py` (15 tests); the owner confirmed the file is understandable after the instrument, legal-version and consolidation wording was rewritten in plain Turkish.
 
 - [ ] **Step 2: Rule extractor, writing to a file only.**
   Parse (a) the Resmî Gazete table, (b) every inline tag `(Değişik|Ek|Mülga:RG-DD/MM/YYYY-NNNNN)` with its article, and
