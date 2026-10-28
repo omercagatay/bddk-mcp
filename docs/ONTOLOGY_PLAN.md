@@ -1,6 +1,6 @@
 # Ontology plan: one regulation, end to end
 
-**Progress: 3 / 6 steps done.** Next: Step 3.
+**Progress: 4 / 6 steps done.** Next: Step 4.
 
 ## Goal
 
@@ -73,7 +73,7 @@ Each step is one session. Do only the first unchecked step.
   cross-confirmed, Madde 22 repeal and Madde 23 effective date as `needs_review`), `tests/test_ontology_rule_extract.py`.
   Publication and effective dates travel as event proposals so Step 3 reviews them and Step 4 uses them. No database access.
 
-- [ ] **Step 3: Review screen (the fun part).**
+- [x] **Step 3: Review screen (the fun part).**
   A loopback admin page, "Link proposals": one card per proposal with the quote, source, confidence and what approving
   adds (for example "adds RG 29918 to the amendment chain"). Approve and Reject buttons with an optional reason,
   keyboard shortcuts (A, R, next), and a counter ("34 of 52 reviewed"). `cross_confirmed` rule proposals are
@@ -81,6 +81,11 @@ Each step is one session. Do only the first unchecked step.
   corpus (like `drafts.py`), each with reviewer, time and reason. CSRF protection like the existing forms.
   *Done when:* I can review all proposals in one sitting in the browser, the decisions are saved, and PostgreSQL is
   unchanged.
+  *Done 2026-10-28:* admin page "Mevzuat ilişkileri" (`bddk_mcp/admin/views/proposals.py`, `services/proposals.py`,
+  `templates/proposals/`), append-only review store `bddk_mcp/ontology/review_store.py` (`BDDK_ONTOLOGY_REVIEW_DB`,
+  outside the corpus), auto-acceptance of cross-confirmed rule proposals with a deterministic 1-in-5 spot check
+  (26 auto, 5 spot checks, 3 needs_review = 8 to review), keyboard shortcuts A/R/N, `/proposals/decisions.json`.
+  Wording rewritten in natural Turkish at the owner's request; the owner confirmed the screen.
 
 - [ ] **Step 4: Bundle builder and dry-run import.**
   Following `scripts/build_943_citation_bundle.py`, build a validated bundle from **approved decisions only**: one
