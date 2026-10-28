@@ -364,6 +364,33 @@ activation succeeds. A gate failure marks that request `error`; the previous
 release stays active and the draft remains for another attempt. See
 [Admin upload admission](ADMIN_UPLOAD_ADMISSION.md).
 
+## Admin link-proposal review (ontology pilot)
+
+The admin console can show the rule-extracted link proposals of the ontology
+pilot (`docs/evidence/legal-versions/22599.proposals.json`, see
+[ONTOLOGY_PLAN.md](ONTOLOGY_PLAN.md)) on `/proposals` and record approve or
+reject decisions. Configure both variables or neither:
+
+```bash
+BDDK_ONTOLOGY_PROPOSALS=/CHECKOUT/docs/evidence/legal-versions/22599.proposals.json \
+BDDK_ONTOLOGY_REVIEW_DB=/PRIVATE/EDITORIAL/ontology-review.sqlite \
+BDDK_ONTOLOGY_REVIEWER=project_owner \
+  uv run bddk-mcp admin-ui
+```
+
+The review database is a sidecar SQLite file with the same handling as the
+draft database: outside the corpus directory, created owner-only (0600), never
+a corpus publication. Its decision table is append-only at the database level
+(update and delete triggers abort); a change of mind appends a new decision
+and the latest one wins. Every decision records the reviewer, time, reason,
+method (`human`, or `auto:cross_confirmed` for rule proposals the Resmî Gazete
+table confirms) and the SHA-256 of the proposals file it belongs to. A
+deterministic one-in-five sample of the auto-acceptable proposals is held back
+for the reviewer as a spot check. The pages use the same same-origin plus
+form-token protection as editorial forms and never touch PostgreSQL;
+`/proposals/decisions.json` downloads the current decisions for the bundle
+builder, which takes only approved ones.
+
 ## Reviewed update procedure
 
 1. Acquire and normalize sources through the bounded ingestion path.

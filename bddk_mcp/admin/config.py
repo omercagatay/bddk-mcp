@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +39,9 @@ class AdminConfig:
     draft_db: Path | None = None
     signing_key: Path | None = None
     signing_public_key: Path | None = None
+    ontology_proposals: Path | None = None
+    ontology_review_db: Path | None = None
+    ontology_reviewer: str = "project_owner"
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> AdminConfig:
@@ -93,6 +97,7 @@ class AdminConfig:
                 raise AdminConfigError("Admin signing keys must be outside the draft storage directory.")
             if signing_key.resolve() == signing_public_key.resolve():
                 raise AdminConfigError("Admin private and trusted public keys must be separate files.")
+        ontology_proposals, ontology_review_db, ontology_reviewer = _ontology_review_settings(source, seed_dir=seed_dir)
         return cls(
             bind_host=bind_host,
             port=port,
@@ -105,7 +110,34 @@ class AdminConfig:
             draft_db=draft_db,
             signing_key=signing_key,
             signing_public_key=signing_public_key,
+            ontology_proposals=ontology_proposals,
+            ontology_review_db=ontology_review_db,
+            ontology_reviewer=ontology_reviewer,
         )
+
+
+_REVIEWER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,199}$")
+
+
+def _ontology_review_settings(source: Mapping[str, str], *, seed_dir: Path) -> tuple[Path | None, Path | None, str]:
+    """Resolve the link-proposal review settings; both paths or neither, never inside the corpus."""
+
+    raw_proposals = source.get("BDDK_ONTOLOGY_PROPOSALS", "").strip()
+    raw_review_db = source.get("BDDK_ONTOLOGY_REVIEW_DB", "").strip()
+    reviewer = source.get("BDDK_ONTOLOGY_REVIEWER", "").strip() or "project_owner"
+    if not _REVIEWER_RE.fullmatch(reviewer):
+        raise AdminConfigError("BDDK_ONTOLOGY_REVIEWER must be a short identifier without spaces.")
+    if bool(raw_proposals) != bool(raw_review_db):
+        raise AdminConfigError("Ontology review requires both BDDK_ONTOLOGY_PROPOSALS and BDDK_ONTOLOGY_REVIEW_DB.")
+    if not raw_proposals:
+        return None, None, reviewer
+    proposals = Path(raw_proposals).absolute()
+    review_db = Path(raw_review_db).absolute()
+    if review_db.is_relative_to(seed_dir) or review_db.resolve().is_relative_to(seed_dir.resolve()):
+        raise AdminConfigError("The ontology review database must be outside the corpus directory.")
+    if review_db.resolve() == proposals.resolve():
+        raise AdminConfigError("The ontology review database and the proposals file must be separate files.")
+    return proposals, review_db, reviewer
 
 
 def _flag(source: Mapping[str, str], name: str) -> bool:

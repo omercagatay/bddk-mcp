@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Öneri {{ item.position }} / {{ queue.total }}{% endblock %}
+{% block content %}
+<p style="margin-bottom:.6rem;"><a href="/proposals">&larr; Mevzuat ilişkileri</a></p>
+<h1>Öneri {{ item.position }} / {{ queue.total }} <span class="muted" style="font-weight:400; font-size:.9rem;">· {{ queue.reviewed }} incelendi, {{ queue.pending }} bekliyor</span></h1>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+<div class="card">
+  <p style="margin:0 0 .5rem;">
+    {% if item.status == "approved" %}<span class="badge badge-published">onaylı{% if item.auto_accepted %} (otomatik){% endif %}</span>
+    {% elif item.status == "rejected" %}<span class="badge badge-error">reddedildi</span>
+    {% else %}<span class="badge badge-waiting">bekliyor</span>{% endif %}
+    {% if item.spot_check %}<span class="badge badge-waiting">rastgele kontrol</span>{% endif %}
+    {% for flag in item.flags_tr %}<span class="badge">{{ flag }}</span> {% endfor %}
+  </p>
+  <h2 style="margin-top:.2rem;">{{ item.kind_tr }} · {{ item.subject_tr }}</h2>
+  <blockquote style="margin:.6rem 0; padding:.7rem .9rem; background:var(--surface-2); border-left:4px solid var(--accent); border-radius:var(--radius-sm); white-space:pre-wrap;">{{ item.proposal.evidence.quote }}</blockquote>
+  <table class="kv">
+    <tr><th>Hedef</th><td>{{ item.target_tr }}</td></tr>
+    <tr><th>Kaynak</th><td>{{ item.rule_tr }} ({{ item.proposal.source.value }}, {{ item.proposal.rule_id }}){% if item.proposal.change_kind %} · değişiklik türü: {{ item.proposal.change_kind }}{% endif %}</td></tr>
+    <tr><th>Güven</th><td>{{ "%.2f"|format(item.proposal.confidence) }}</td></tr>
+    <tr><th>Metindeki yeri</th><td>karakter {{ item.proposal.evidence.start_char }}–{{ item.proposal.evidence.end_char }} · <code>{{ item.proposal.proposal_id[:24] }}…</code></td></tr>
+    <tr><th>Onaylanınca</th><td>{{ item.adds_tr }}</td></tr>
+    <tr><th>Kısa açıklama</th><td class="muted">{{ item.proposal.preview_tr }}</td></tr>
+  </table>
+</div>
+
+<form method="post" action="{{ decide_url }}" id="decide-form" class="card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <label>Gerekçe (isteğe bağlı)<br>
+    <textarea name="reason" rows="3" maxlength="2000" placeholder="Örneğin: tablo satırı ile madde içindeki etiket birbirini doğruluyor"></textarea>
+  </label>
+  <div class="row-actions" style="margin-top:.6rem;">
+    <button class="btn btn-primary" type="submit" name="decision" value="approved" id="approve-button" accesskey="a">Onayla <span class="muted">(A)</span></button>
+    <button class="btn" type="submit" name="decision" value="rejected" id="reject-button" accesskey="r">Reddet <span class="muted">(R)</span></button>
+    {% if next_url %}<a class="btn" href="{{ next_url }}" id="next-link">Sonraki bekleyen <span class="muted">(N)</span></a>{% endif %}
+  </div>
+  <p class="field-note">Karar, "{{ reviewer }}" adı, saat ve gerekçeyle birlikte kaydedilir. Eski kayıtlar silinmez; fikir değiştirirseniz yeni bir karar eklenir ve son karar geçerli olur.</p>
+</form>
+
+{% if history %}
+<div class="card">
+  <h2 style="margin-top:0;">Karar geçmişi</h2>
+  <table style="border:none; margin:0;">
+    <thead><tr><th>Zaman</th><th>Karar</th><th>İnceleyen</th><th>Yöntem</th><th>Gerekçe</th></tr></thead>
+    <tbody>
+    {% for decision in history %}
+      <tr><td>{{ decision.decided_at }}</td><td>{{ decision.decision }}</td><td>{{ decision.decided_by }}</td><td>{{ decision.method }}{% if decision.spot_check %} · kontrol{% endif %}</td><td>{{ decision.reason }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<script>
+  document.addEventListener("keydown", function (event) {
+    var tag = (event.target && event.target.tagName) || "";
+    if (tag === "TEXTAREA" || tag === "INPUT" || tag === "SELECT" || event.altKey || event.ctrlKey || event.metaKey) { return; }
+    var key = event.key.toLowerCase();
+    var form = document.getElementById("decide-form");
+    if (key === "a") { form.requestSubmit(document.getElementById("approve-button")); }
+    else if (key === "r") { form.requestSubmit(document.getElementById("reject-button")); }
+    else if (key === "n") { var next = document.getElementById("next-link"); if (next) { window.location.href = next.href; } }
+  });
+</script>
+{% endblock %}

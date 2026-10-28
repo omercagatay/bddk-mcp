@@ -1,0 +1,316 @@
+# BDDK MCP ontoloji spesifikasyonu. Tek doğruluk kaynağı bu dosyadır.
+#
+# Dosya, düzenleyici bilgi pilotunun nesnelerini, mevzuat ilişkilerini, ilişki
+# kaynaklarını, öneri durumlarını ve eylemleri tanımlar. Kod bu dosyaya karşı
+# test edilir (tests/test_ontology_spec.py): `storage: regulatory_relations`
+# olan ilişki türleri, bddk_mcp/regulatory/relations.py içindeki RELATION_TYPES
+# listesi ve v0009 migration'ındaki CHECK kısıtı ile birebir aynı olmalıdır.
+# Biri değişip diğeri değişmezse test kırmızıya döner.
+#
+# Okuma kılavuzu: her nesne ve ilişki için `label` (kısa Türkçe ad),
+# `description` (ne olduğu) ve `example` (mevzuat_22599 pilotundan somut örnek)
+# verilir. Anahtarlar İngilizcedir ve kodla aynıdır; açıklamalar Türkçedir.
+
+schema_version: 1
+
+pilot:
+  instrument_document_id: mevzuat_22599
+  title: Kredilerin Sınıflandırılması ve Bunlar İçin Ayrılacak Karşılıklara İlişkin Usul ve Esaslar Hakkında Yönetmelik
+  plan: docs/ONTOLOGY_PLAN.md
+
+principles:
+  - id: unknown_is_not_false
+    text: Doğrulanamayan bilgi yok sayılmaz; araçlar yanıt vermek yerine çekimser kalır.
+  - id: proposal_counts_for_nothing
+    text: Onaylanmamış bir öneri hiçbir araçta görünmez ve korpusa yazılmaz.
+  - id: every_link_records_its_source
+    text: Her ilişki nasıl kurulduğunu (kural, onaylanmış AI önerisi veya eylem) ve dayandığı kanıtı taşır.
+  - id: public_text_only
+    text: Yalnızca kamuya açık mevzuat metni işlenir. Banka verisi, denetim bulgusu ve gizli belge bu depoya girmez.
+
+# ---------------------------------------------------------------------------
+# Nesne türleri
+# ---------------------------------------------------------------------------
+object_types:
+  instrument:
+    label: Mevzuat kimliği (düzenleme)
+    description: >-
+      Bir yönetmeliğin, tebliğin, kanunun veya rehberin kendisi. Metni kaç kez değişirse değişsin
+      kimliği aynı kalır. Nüfus cüzdanı gibi düşünün: fotoğraf yıllar içinde değişir, kimlik numarası
+      değişmez. Karşılık Yönetmeliği 2016'dan bugüne yedi kez değişti; hepsi tek bir mevzuattır. Bu
+      yönetmeliği değiştiren her "Değişiklik Yapılmasına Dair Yönetmelik" ise ayrı bir mevzuattır ve
+      ayrı kimlik alır.
+    identity: [jurisdiction, authority_code, identity_key]
+    storage:
+      table: public.regulatory_instruments
+      id_prefix: inst_sha256_
+      model: bddk_mcp.regulatory.legal_versions.CanonicalInstrument
+    example: "TR / BDDK / 22599 = Karşılık Yönetmeliği. 14.12.2016 tarihli ve 29918 sayılı Resmî Gazete'de yayımlanan değişiklik yönetmeliği ayrı bir mevzuat kimliğidir."
+
+  legal_version:
+    label: Metin sürümü (hukuki sürüm)
+    description: >-
+      Aynı mevzuatın belirli bir tarihteki metni. Her Resmî Gazete değişikliğinden sonra yürürlükteki
+      metin değişir; her hâl ayrı bir sürümdür. Karşılık Yönetmeliği'nin 15.08.2018 ile 18.10.2018
+      arasında geçerli olan metni bir sürüm, 24.05.2022 değişikliğinden sonraki bugünkü metni başka bir
+      sürümdür. Sürüm; yayım tarihini, yürürlük tarihini ve "şu tarihler arasında yürürlükteydi"
+      bilgisini taşır. Dikkat: aynı metnin yeni bir PDF taraması veya düzeltilmiş okuması yeni sürüm
+      sayılmaz. Hukuki metin değişmeden sürüm değişmez. Pilotta tek sürüm kaydedilir: bugünkü konsolide
+      metin.
+    identity: [instrument_id, version_key, legal_text_sha256]
+    storage:
+      table: public.regulatory_legal_versions
+      id_prefix: ver_sha256_
+      model: bddk_mcp.regulatory.legal_versions.LegalVersion
+    lifecycle_events: [publication, effective, expiry, repeal, supersession, consolidation]
+    example: "mevzuat_22599'un bugünkü metni: 22.06.2016 tarihli ve 29750 sayılı Resmî Gazete'de yayımlandı, 01.01.2018'de yürürlüğe girdi (Madde 23), yedi değişiklik işlenmiş."
+
+  provision:
+    label: Hüküm
+    description: >-
+      Düzenlemenin adreslenebilir parçası: madde, geçici madde, fıkra, bent, ilke veya paragraf.
+      Kimliği sürümler arasında sabit kalır; metni her sürümde değişebilir. İlişkiler ve yükümlülükler
+      sayfaya veya satıra değil, hükme bağlanır.
+    identity: [instrument_id, kind, canonical_path]
+    storage:
+      table: public.regulatory_provisions
+      id_prefix: prov_sha256_
+      model: bddk_mcp.regulatory.legal_versions.ProvisionIdentity
+    example: "madde/9 (TFRS 9 kapsamında karşılık), madde/22 (yürürlükten kaldırılan yönetmelik), madde/23 (yürürlük)."
+
+  obligation:
+    label: Yükümlülük
+    description: >-
+      Bir hükümden çıkan, denetlenebilir tek bir "yapılmalı" veya "yapılmamalı" cümlesi: kim, neyi,
+      hangi koşulda. Pilotun altıncı adımında AI önerir, insan onaylar. Kontrol eşlemesinin temel
+      birimidir. Henüz PostgreSQL'de saklanmaz; onaylanana kadar öneri dosyasında durur.
+    identity: [provision_id, statement_sha256]
+    storage:
+      table: null
+      id_prefix: oblig_sha256_
+      model: null
+    example: "madde/9 fıkra 1: Bankalar, kredileri için TFRS 9 kapsamında karşılık ayırır."
+
+# ---------------------------------------------------------------------------
+# Mevzuat ilişkileri (kodda: link types / relation kinds)
+#   storage: regulatory_relations -> public.regulatory_relations tablosunda bir satır
+#            derived              -> başka tablolardan türetilir, satır yazılmaz
+#            planned              -> henüz saklanmıyor, sonraki adımda gelecek
+#   amendment_chain: get_amendment_chain aracının değişiklik zincirinde gösterdiği
+#            türler (bddk_mcp/regulatory/graph_queries.py _CHAIN_EDGE_TYPES ile aynı)
+# ---------------------------------------------------------------------------
+link_types:
+  amends:
+    label: değiştirir
+    description: >-
+      Kaynak düzenleme, hedef düzenlemenin metnini değiştirir. Ekleme (Ek), değiştirme (Değişik) ve
+      bir hükmü kaldırma (Mülga) bu ilişkiye girer. Hedef, düzenlemenin bütünü veya tek bir hüküm
+      olabilir. Değişikliğin türü kanıt açıklamasında yazılır.
+    from_types: [instrument]
+    to_types: [instrument, provision]
+    storage: regulatory_relations
+    amendment_chain: true
+    example: "14.12.2016 tarihli ve 29918 sayılı Resmî Gazete'de yayımlanan yönetmelik, mevzuat_22599'un 23. maddesini değiştirmiştir (etiket: Değişik:RG-14/12/2016-29918)."
+
+  repeals:
+    label: yürürlükten kaldırır
+    description: >-
+      Kaynak düzenleme veya içindeki bir hüküm, hedef düzenlemeyi bütünüyle yürürlükten kaldırır.
+      Hedef korpusta yoksa dış referans (target_external_ref) olarak kaydedilir; eksik bilgi uydurulmaz.
+    from_types: [instrument, provision]
+    to_types: [instrument]
+    storage: regulatory_relations
+    amendment_chain: true
+    example: "mevzuat_22599'un 22. maddesi, 01.11.2006 tarihli ve 26333 sayılı Resmî Gazete'de yayımlanan 2006 yönetmeliğini yürürlükten kaldırmıştır."
+
+  replaces:
+    label: yerine geçer
+    description: >-
+      Kaynak düzenleme hedef düzenlemenin yerini alır; hem kaldırır hem aynı konuyu yeniden düzenler.
+    from_types: [instrument]
+    to_types: [instrument]
+    storage: regulatory_relations
+    amendment_chain: true
+    example: "Pilotta örneği yoktur. mevzuat_22599'un 2006 yönetmeliğinin yerine geçtiği ayrıca kanıtlanmadığı için yalnızca 'yürürlükten kaldırır' ilişkisi kaydedilir."
+
+  consolidates:
+    label: konsolide (birleştirilmiş) metnidir
+    description: >-
+      Resmî Gazete'de asıl metin bir kez, değişiklikler ayrı tarihlerde yayımlanır. mevzuat.gov.tr
+      bunları tek bir okunur metinde birleştirir; buna konsolide metin, yani değişiklikleri işlenmiş
+      metin denir. Bu ilişki "şu metin sürümü, şu mevzuatın değişiklikleri işlenmiş hâlidir" der. Yeni
+      bir hüküm getirmez; var olan değişiklikleri tek metinde gösterir. Pilotta bu ilişki kurulmaz;
+      bilgi, sürümün "konsolidasyon durumu" alanında taşınır.
+    from_types: [legal_version]
+    to_types: [instrument]
+    storage: regulatory_relations
+    amendment_chain: false
+    example: "mevzuat.gov.tr'deki bugünkü Karşılık Yönetmeliği metni, 22599 numaralı mevzuatın konsolide metnidir."
+
+  implements:
+    label: dayanır
+    description: >-
+      Kaynak düzenleme, hedef hükme dayanılarak çıkarılmıştır ("... maddesine dayanılarak
+      hazırlanmıştır"). İlişki hiyerarşiktir: kanun maddesi yetki verir, yönetmelik uygular.
+    from_types: [instrument]
+    to_types: [instrument, provision]
+    storage: regulatory_relations
+    amendment_chain: false
+    example: "mevzuat_22599 (Madde 2, Dayanak), 5411 sayılı Bankacılık Kanunu'nun 37, 53, 57 ve 93. maddelerine dayanır."
+
+  cites:
+    label: atıf yapar
+    description: >-
+      Metin içinde başka bir düzenlemeye veya hükme gönderme yapılır. Değiştirme, kaldırma veya dayanak
+      değildir. En zayıf ilişkidir; yalnızca "şuraya da bakılmalı" der.
+    from_types: [instrument, provision]
+    to_types: [instrument, provision]
+    storage: regulatory_relations
+    amendment_chain: false
+    example: "madde/12, 11.07.2014 tarihli ve 29057 sayılı Resmî Gazete'de yayımlanan Bankaların İç Sistemleri ve İçsel Sermaye Yeterliliği Değerlendirme Süreci Hakkında Yönetmelik'e atıf yapar."
+
+  defines:
+    label: tanımlar
+    description: >-
+      Kaynak hüküm bir kavramı tanımlar; hedef, o kavramı kullanan hüküm veya düzenlemedir. Bu ilişki,
+      bir hükmü okurken hangi tanıma bakılacağını gösterir.
+    from_types: [provision]
+    to_types: [provision, instrument]
+    storage: regulatory_relations
+    amendment_chain: false
+    example: "madde/5 (Donuk alacaklar) hangi kredilerin donuk alacak sayılacağını tanımlar; madde/11 bu kavramı kullanarak özel karşılığı düzenler."
+
+  exception_to:
+    label: istisnasıdır
+    description: >-
+      Kaynak hüküm, hedef hükmün uygulanmasına istisna getirir ("... hükümleri saklıdır" ifadesi veya
+      ayrı bir istisna maddesi). Hedef hüküm okunurken istisna da okunmalıdır.
+    from_types: [provision]
+    to_types: [provision, instrument]
+    storage: regulatory_relations
+    amendment_chain: false
+    example: "madde/21 (İstisnalar: özel ve genel karşılık oranı yüzde sıfır), genel karşılığı düzenleyen madde/10 ile özel karşılığı düzenleyen madde/11'in istisnasıdır."
+
+  contains:
+    label: içerir
+    description: >-
+      Düzenleme hükümlerini, üst hüküm alt hükümlerini içerir (düzenleme, madde, fıkra, bent sırasıyla).
+      Ayrı bir ilişki satırı olarak saklanmaz; regulatory_provisions tablosundaki instrument_id ve
+      canonical_path alanlarından türetilir.
+    from_types: [instrument, provision]
+    to_types: [provision]
+    storage: derived
+    amendment_chain: false
+    example: "mevzuat_22599, madde/9'u içerir; madde/9, birinci fıkrasını içerir."
+
+  creates:
+    label: doğurur
+    description: >-
+      Bir hüküm bir yükümlülük doğurur. Pilotun altıncı adımında AI önerir, insan onaylar. Onaylanana
+      kadar öneri dosyasında kalır; henüz hiçbir tabloda saklanmaz.
+    from_types: [provision]
+    to_types: [obligation]
+    storage: planned
+    amendment_chain: false
+    example: "madde/9, 'Bankalar, kredileri için TFRS 9 kapsamında karşılık ayırır' yükümlülüğünü doğurur."
+
+# ---------------------------------------------------------------------------
+# İlişki kaynakları: her ilişki nasıl kurulduğunu taşır.
+#   extraction_method_prefix: regulatory_relations.extraction_method alanının ön eki
+#   evidence_authority_level: kanıt kaydının otorite düzeyi (legal_versions.AuthorityLevel)
+# ---------------------------------------------------------------------------
+link_sources:
+  rule:
+    label: kural
+    description: >-
+      Metinden kesin bir kuralla çıkarıldı: Resmî Gazete tablosundaki satır, madde içindeki
+      "(Değişik|Ek|Mülga:RG-...)" etiketi veya Madde 22 ve 23'teki kalıp cümle. Birebir alıntı ve
+      karakter aralığı kanıttır.
+    extraction_method_prefix: "rule:"
+    approval: >-
+      Resmî Gazete tablosuyla doğrulanan (cross_confirmed) öneriler kendiliğinden onaylanır. Öneri
+      kimliğinden türetilen beşte birlik örnek ile needs_review işaretli öneriler insana gösterilir.
+    evidence_authority_level: authoritative
+    example: "Madde 23'teki (Değişik:RG-14/12/2016-29918) etiketi: 29918 sayılı Resmî Gazete'de yayımlanan yönetmelik, mevzuat_22599'un 23. maddesini değiştirmiştir."
+
+  ai_approved:
+    label: AI önerdi, insan onayladı
+    description: >-
+      Bir dil modeli önerdi; inceleme ekranında insan onayladıktan sonra ilişki sayılır. Onaysız AI
+      önerisi hiçbir yerde ilişki sayılmaz.
+    extraction_method_prefix: "ai_approved:"
+    approval: Her zaman insan onayı gerekir; kendiliğinden kabul yoktur.
+    evidence_authority_level: secondary
+    example: "AI, madde/9 için bir yükümlülük cümlesi önerir; sahip inceleme ekranında onaylar."
+
+  action:
+    label: eylem
+    description: >-
+      Bir eylem sırasında (örneğin yükümlülük doğrulama) kaydedildi. Eylem günlüğündeki kayıt kanıttır.
+    extraction_method_prefix: "action:"
+    approval: Eylemi yapan kişi onaylayan sayılır. Günlük kaydı (kim, ne zaman, neden) zorunludur.
+    evidence_authority_level: secondary
+    example: "confirm_obligation eylemi, düzeltilmiş bir yükümlülük cümlesini kaydeder."
+
+# ---------------------------------------------------------------------------
+# Öneri durumları: inceleme deposundaki yaşam döngüsü.
+#   validation_state: korpusa yazıldığında PostgreSQL'deki validation_state değeri
+# ---------------------------------------------------------------------------
+proposal_statuses:
+  proposed:
+    label: öneri
+    description: Üretildi, henüz karar verilmedi. Korpusa yazılmaz, araçlarda görünmez.
+    writes_to_corpus: false
+    validation_state: null
+    transitions: [approved, rejected]
+
+  approved:
+    label: onaylandı
+    description: >-
+      İnsan onayladı ya da kural kendiliğinden onayladı ve sahip demeti onayladı. Demet oluşturucu
+      yalnızca bu durumdaki önerileri "validated" ilişki veya iddia olarak yazar. Demet içe aktarıldıktan
+      sonra satır bir kez yazılmış olur; geri almak için yeni kanıtla yeni öneri gerekir.
+    writes_to_corpus: true
+    validation_state: validated
+    transitions: [rejected]
+
+  rejected:
+    label: reddedildi
+    description: Kabul edilmedi. Gerekçe kaydedilir; korpusa hiçbir şey yazılmaz.
+    writes_to_corpus: false
+    validation_state: null
+    transitions: [approved]
+
+# PostgreSQL'deki inceleme durumları (legal_versions.ValidationState ile aynı sıra).
+storage_review_states: [unvalidated, in_review, validated, rejected]
+
+# ---------------------------------------------------------------------------
+# Eylem türleri: insanın yaptığı ve denetim izi bırakan işlemler.
+#   writes: review_store -> yalnızca korpus dışındaki inceleme deposuna yazar
+# ---------------------------------------------------------------------------
+action_types:
+  review_link_proposal:
+    label: Mevzuat ilişkisi önerisini incele
+    description: İnceleme ekranında bir ilişki önerisini onaylar veya reddeder.
+    inputs: [proposal_id, decision, reason]
+    decision_values: [approved, rejected]
+    writes: review_store
+    audit_fields: [reviewer, decided_at, reason, proposals_file_sha256]
+    rules:
+      - Karar yalnızca inceleme deposuna yazılır; PostgreSQL ve korpus değişmez.
+      - Her karar inceleyeni, saati ve varsa gerekçeyi taşır. Kayıt silinmez; yeni karar eklenir ve son karar geçerli olur.
+      - Onay, önerinin alıntısını ve karakter aralığını değiştirmez. Öneri dosyasının hash'i kararla birlikte saklanır.
+      - Kendiliğinden kabul yalnızca kural kaynaklı ve cross_confirmed önerilerde uygulanır; beşte birlik örnek insana gösterilir.
+
+  confirm_obligation:
+    label: Yükümlülüğü doğrula
+    description: >-
+      AI'nin bir hüküm için önerdiği yükümlülük cümlesini onaylar, düzeltir veya reddeder (Adım 6).
+    inputs: [proposal_id, decision, corrected_statement, reason]
+    decision_values: [approved, rejected]
+    writes: review_store
+    audit_fields: [reviewer, decided_at, reason, corrected_statement]
+    rules:
+      - Düzeltilen cümle yeni bir öneri olarak kaydedilir; ilk öneri silinmez.
+      - Bir hükme "doğurur" ilişkisi kurulmadan yükümlülük onaylanamaz.
+      - Örnek kontroller uydurma veridir; gerçek banka kontrolleri bu depoya girmez.

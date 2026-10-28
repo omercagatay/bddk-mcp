@@ -17,6 +17,7 @@ This index is the canonical map of BDDK MCP documentation. Documents are grouped
 - [Architecture](ARCHITECTURE.md) — component design and dated implementation checkpoints.
 - [Roadmap](ROADMAP.md) — planned work, historical checkpoints, and sequencing.
 - [Gap register](GAP_REGISTER.md) — dated open risks, missing evidence, and ownership boundaries.
+- [Ontology pilot plan](ONTOLOGY_PLAN.md) — owner's step plan for running one regulation (`mevzuat_22599`) through reviewed links; Step 0 implementation plan (Turkish): [ONTOLOGY_IMPLEMENTATION_PLAN.md](ONTOLOGY_IMPLEMENTATION_PLAN.md).
 
 ## Operations and governance
 

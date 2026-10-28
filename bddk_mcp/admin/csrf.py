@@ -22,9 +22,11 @@ class FormSecurity:
         self._secret = secrets.token_bytes(32)
 
     def _binding(self, request: Request) -> str:
-        # Editorial tokens bind the document or upload a form targets; a page
-        # with no path parameter (the new-upload form) binds the empty string.
-        return request.path_params.get("document_id") or request.path_params.get("upload_id") or ""
+        # Editorial tokens bind the document, upload or link proposal a form
+        # targets; a page with no path parameter (the new-upload form) binds the
+        # empty string.
+        params = request.path_params
+        return params.get("document_id") or params.get("upload_id") or params.get("proposal_id") or ""
 
     def _mac(self, request: Request, nonce: str, expires: str) -> str:
         identity = hashlib.sha256(token_from_request(request).encode()).hexdigest()

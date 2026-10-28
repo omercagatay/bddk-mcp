@@ -119,3 +119,44 @@ def test_railway_admin_starts_with_platform_port_and_no_bootstrap() -> None:
     assert config.port == 9001
     assert config.loopback_only is False
     assert config.http_security is not None
+
+
+def _ontology_env(tmp_path: Path, **extra: str) -> dict[str, str]:
+    proposals = tmp_path / "22599.proposals.json"
+    proposals.write_text("{}", encoding="utf-8")
+    env = {
+        "BDDK_DATABASE_URL": "postgresql://u:p@localhost:5432/bddk",
+        "BDDK_SEED_DIR": str(tmp_path / "corpus"),
+        "BDDK_ONTOLOGY_PROPOSALS": str(proposals),
+        "BDDK_ONTOLOGY_REVIEW_DB": str(tmp_path / "review" / "ontology-review.sqlite"),
+    }
+    env.update(extra)
+    return env
+
+
+def test_ontology_review_settings_are_resolved(tmp_path: Path) -> None:
+    config = AdminConfig.from_env(_ontology_env(tmp_path, BDDK_ONTOLOGY_REVIEWER="owner@example"))
+    assert config.ontology_proposals == tmp_path / "22599.proposals.json"
+    assert config.ontology_review_db == tmp_path / "review" / "ontology-review.sqlite"
+    assert config.ontology_reviewer == "owner@example"
+
+
+def test_ontology_review_is_off_without_both_paths(tmp_path: Path) -> None:
+    config = AdminConfig.from_env({"BDDK_DATABASE_URL": "postgresql://u:p@localhost:5432/bddk"})
+    assert config.ontology_proposals is None and config.ontology_review_db is None
+    assert config.ontology_reviewer == "project_owner"
+    half = _ontology_env(tmp_path)
+    del half["BDDK_ONTOLOGY_REVIEW_DB"]
+    with pytest.raises(AdminConfigError, match="both"):
+        AdminConfig.from_env(half)
+
+
+def test_ontology_review_database_must_stay_outside_the_corpus(tmp_path: Path) -> None:
+    env = _ontology_env(tmp_path, BDDK_ONTOLOGY_REVIEW_DB=str(tmp_path / "corpus" / "review.sqlite"))
+    with pytest.raises(AdminConfigError, match="outside the corpus"):
+        AdminConfig.from_env(env)
+
+
+def test_ontology_reviewer_must_be_an_identifier(tmp_path: Path) -> None:
+    with pytest.raises(AdminConfigError, match="BDDK_ONTOLOGY_REVIEWER"):
+        AdminConfig.from_env(_ontology_env(tmp_path, BDDK_ONTOLOGY_REVIEWER="Ahmet Yılmaz"))
