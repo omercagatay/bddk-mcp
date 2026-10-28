@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Teklif {{ item.position }} / {{ queue.total }}{% endblock %}
+{% block title %}Öneri {{ item.position }} / {{ queue.total }}{% endblock %}
 {% block content %}
-<p style="margin-bottom:.6rem;"><a href="/proposals">&larr; Bağ teklifleri</a></p>
-<h1>Teklif {{ item.position }} / {{ queue.total }} <span class="muted" style="font-weight:400; font-size:.9rem;">· {{ queue.reviewed }} incelendi, {{ queue.pending }} bekliyor</span></h1>
+<p style="margin-bottom:.6rem;"><a href="/proposals">&larr; İlişki önerileri</a></p>
+<h1>Öneri {{ item.position }} / {{ queue.total }} <span class="muted" style="font-weight:400; font-size:.9rem;">· {{ queue.reviewed }} incelendi, {{ queue.pending }} bekliyor</span></h1>
 {% if error %}<p class="error">{{ error }}</p>{% endif %}
 
 <div class="card">

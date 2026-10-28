@@ -318,7 +318,7 @@ def build_proposal_file(
                 change_kind=tag.kind,
                 preview_tr=(
                     f"{tag.rg.label_tr()} yönetmeliği → {provision_label_tr(provision)} ({tag.kind});"
-                    " değişiklik zincirine madde düzeyinde bağ ekler."
+                    " değişiklik zincirine madde düzeyinde ilişki ekler."
                 ),
             )
         )

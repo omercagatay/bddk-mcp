@@ -106,11 +106,11 @@ def _adds_tr(proposal: Proposal) -> str:
         where = "belge düzeyinde" if proposal.subject_provision is None else f"{subject} düzeyinde"
         return (
             f"{proposal.target.rg.label_tr()} yönetmeliği değişiklik zincirine girer ({where});"
-            " get_amendment_chain bu kenarı gösterir."
+            " get_amendment_chain bu ilişkiyi gösterir."
         )
     if proposal.link_type == "repeals":
-        return f"{subject} için 'yürürlükten kaldırır' kenarı eklenir; get_cross_references bu kenarı gösterir."
-    return f"'{proposal.link_type}' kenarı eklenir."
+        return f"{subject} için 'yürürlükten kaldırır' ilişkisi eklenir; get_cross_references bu ilişkiyi gösterir."
+    return f"'{proposal.link_type}' ilişkisi eklenir."
 
 
 class ProposalService:
@@ -130,7 +130,7 @@ class ProposalService:
         if proposal.kind is ProposalKind.EVENT:
             kind_tr = f"olay: {_EVENT_LABELS.get(proposal.event_type or '', proposal.event_type)}"
         else:
-            kind_tr = f"bağ: {_LINK_LABELS.get(proposal.link_type or '', proposal.link_type)}"
+            kind_tr = f"ilişki: {_LINK_LABELS.get(proposal.link_type or '', proposal.link_type)}"
         return QueueItem(
             proposal=proposal,
             position=self._positions[proposal.proposal_id],

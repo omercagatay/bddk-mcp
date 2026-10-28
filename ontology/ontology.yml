@@ -1,13 +1,13 @@
 # BDDK MCP ontoloji spesifikasyonu — tek doğruluk kaynağı.
 #
-# Bu dosya, düzenleyici bilgi pilotunun nesnelerini, bağ türlerini, bağ
-# kaynaklarını, teklif durumlarını ve eylemleri tanımlar. Kod bu dosyaya karşı
+# Bu dosya, düzenleyici bilgi pilotunun nesnelerini, ilişki türlerini, ilişki
+# kaynaklarını, öneri durumlarını ve eylemleri tanımlar. Kod bu dosyaya karşı
 # test edilir (tests/test_ontology_spec.py): `storage: regulatory_relations`
-# olan bağ türleri, bddk_mcp/regulatory/relations.py içindeki RELATION_TYPES
+# olan ilişki türleri, bddk_mcp/regulatory/relations.py içindeki RELATION_TYPES
 # ve v0009 migration'ındaki CHECK kısıtı ile birebir aynı olmalıdır. Biri
 # değişir de diğeri değişmezse test kırmızıya döner.
 #
-# Okuma kılavuzu: her nesne ve bağ için `label` (kısa Türkçe ad), `description`
+# Okuma kılavuzu: her nesne ve ilişki için `label` (kısa Türkçe ad), `description`
 # (ne olduğu) ve `example` (mevzuat_22599 pilotundan somut örnek) verilir.
 # Anahtarlar İngilizce ve kodla aynıdır; açıklamalar Türkçedir.
 
@@ -22,9 +22,9 @@ principles:
   - id: unknown_is_not_false
     text: Doğrulanamayan bilgi "yok" sayılmaz; araçlar çekimser kalır.
   - id: proposal_counts_for_nothing
-    text: Bir teklif onaylanmadan hiçbir araçta görünmez ve korpusa yazılmaz.
+    text: Bir öneri onaylanmadan hiçbir araçta görünmez ve korpusa yazılmaz.
   - id: every_link_records_its_source
-    text: Her bağ nasıl yapıldığını taşır (kural, AI önerdi ve insan onayladı, eylem) ve bir kanıta bağlıdır.
+    text: Her ilişki nasıl kurulduğunu taşır (kural, AI önerdi ve insan onayladı, eylem) ve bir kanıta bağlıdır.
   - id: public_text_only
     text: Yalnızca kamuya açık mevzuat metni işlenir; banka verisi, bulgu ve gizli belge girmez.
 
@@ -69,7 +69,7 @@ object_types:
     description: >-
       Düzenleme içindeki adreslenebilir birim: madde, geçici madde, fıkra, bent, ilke veya paragraf.
       Kimliği sürümler arasında sabittir; metni (ve metin hash'i) her sürümde farklı olabilir.
-      Bağlar ve yükümlülükler hükme bağlanır, sayfaya veya satıra değil.
+      İlişkiler ve yükümlülükler hükme bağlanır, sayfaya veya satıra değil.
     identity: [instrument_id, kind, canonical_path]
     storage:
       table: public.regulatory_provisions
@@ -82,7 +82,7 @@ object_types:
     description: >-
       Bir hükümden çıkan, denetlenebilir tek bir "yapılmalı / yapılmamalı" ifadesi: kim, neyi,
       hangi koşulda. Pilotun 6. adımında AI önerir, insan onaylar; kontrol eşlemesinin temel
-      birimidir. Henüz PostgreSQL'de saklanmaz; onaya kadar teklif dosyasında yaşar.
+      birimidir. Henüz PostgreSQL'de saklanmaz; onaya kadar öneri dosyasında yaşar.
     identity: [provision_id, statement_sha256]
     storage:
       table: null
@@ -91,8 +91,8 @@ object_types:
     example: "madde/9 fıkra 1: Bankalar kredileri için TFRS 9 kapsamında karşılık ayırır."
 
 # ---------------------------------------------------------------------------
-# Bağ türleri
-#   storage: regulatory_relations -> public.regulatory_relations tablosunda kenar
+# İlişki türleri (kodda: link types / relation kinds)
+#   storage: regulatory_relations -> public.regulatory_relations tablosunda ilişki satırı
 #            derived              -> başka tablolardan türetilir, kenar yazılmaz
 #            planned              -> henüz saklanmıyor (sonraki adım)
 #   amendment_chain: get_amendment_chain aracının zincirde gösterdiği türler
@@ -138,8 +138,8 @@ link_types:
     description: >-
       Resmî Gazete'de asıl metin bir kez, değişiklikler ayrı tarihlerde yayımlanır. mevzuat.gov.tr
       bunları tek bir okunur metinde birleştirir; buna "konsolide metin", yani değişiklikleri işlenmiş
-      metin denir. Bu bağ "şu metin sürümü, şu mevzuatın değişiklikleri işlenmiş hâlidir" der. Yeni bir
-      hüküm getirmez, yalnızca mevcut değişiklikleri tek metinde gösterir. Pilotta bu bağın kurulması
+      metin denir. Bu ilişki "şu metin sürümü, şu mevzuatın değişiklikleri işlenmiş hâlidir" der. Yeni bir
+      hüküm getirmez, yalnızca mevcut değişiklikleri tek metinde gösterir. Pilotta bu ilişkinin kurulması
       planlanmıyor; bilgi, sürümün kendi "konsolidasyon durumu" alanında taşınır.
     from_types: [legal_version]
     to_types: [instrument]
@@ -151,7 +151,7 @@ link_types:
     label: dayanır
     description: >-
       Kaynak düzenleme hedef hükme dayanılarak çıkarılmıştır ("... maddesine dayanılarak").
-      Hiyerarşik bağdır: kanun maddesi yetki verir, yönetmelik uygular.
+      Hiyerarşik ilişkidir: kanun maddesi yetki verir, yönetmelik uygular.
     from_types: [instrument]
     to_types: [instrument, provision]
     storage: regulatory_relations
@@ -162,7 +162,7 @@ link_types:
     label: atıf yapar
     description: >-
       Metin içinde başka bir düzenlemeye veya hükme gönderme; değiştirme, kaldırma veya dayanak
-      değildir. En zayıf bağdır; yalnızca "orada da bakılmalı" der.
+      değildir. En zayıf ilişkidir; yalnızca "orada da bakılmalı" der.
     from_types: [instrument, provision]
     to_types: [instrument, provision]
     storage: regulatory_relations
@@ -173,7 +173,7 @@ link_types:
     label: tanımlar
     description: >-
       Kaynak hüküm bir terimi tanımlar; hedef, o terimi kullanan hüküm veya düzenlemedir.
-      Tanım bağı, bir hükmün okunması için hangi tanım maddesine gidileceğini söyler.
+      Tanım ilişkisi, bir hükmün okunması için hangi tanım maddesine gidileceğini söyler.
     from_types: [provision]
     to_types: [provision, instrument]
     storage: regulatory_relations
@@ -195,7 +195,7 @@ link_types:
     label: içerir
     description: >-
       Düzenleme hükümlerini, üst hüküm alt hükümlerini içerir (düzenleme -> madde -> fıkra -> bent).
-      Ayrı bir kenar olarak saklanmaz; regulatory_provisions tablosundaki instrument_id ve
+      Ayrı bir ilişki satırı olarak saklanmaz; regulatory_provisions tablosundaki instrument_id ve
       canonical_path yolundan türetilir.
     from_types: [instrument, provision]
     to_types: [provision]
@@ -207,7 +207,7 @@ link_types:
     label: doğurur
     description: >-
       Bir hüküm bir yükümlülük doğurur. Pilotun 6. adımında AI önerir, insan onaylar; onaylanana
-      kadar teklif dosyasında kalır ve henüz hiçbir tabloda saklanmaz.
+      kadar öneri dosyasında kalır ve henüz hiçbir tabloda saklanmaz.
     from_types: [provision]
     to_types: [obligation]
     storage: planned
@@ -215,7 +215,7 @@ link_types:
     example: "madde/9 -> 'Bankalar kredileri için TFRS 9 kapsamında karşılık ayırır' yükümlülüğü."
 
 # ---------------------------------------------------------------------------
-# Bağ kaynakları: her bağ nasıl yapıldığını taşır.
+# İlişki kaynakları: her ilişki nasıl kurulduğunu taşır.
 #   extraction_method_prefix: regulatory_relations.extraction_method alanının ön eki
 #   evidence_authority_level: kanıt kaydının otorite düzeyi (legal_versions.AuthorityLevel)
 # ---------------------------------------------------------------------------
@@ -228,8 +228,8 @@ link_sources:
       aralığı kanıttır.
     extraction_method_prefix: "rule:"
     approval: >-
-      Resmî Gazete tablosuyla çapraz doğrulanan (cross_confirmed) teklifler otomatik onaylanır;
-      teklif kimliğinden türetilen deterministik 1/5 örnek ve needs_review işaretli teklifler
+      Resmî Gazete tablosuyla çapraz doğrulanan (cross_confirmed) öneriler otomatik onaylanır;
+      öneri kimliğinden türetilen deterministik 1/5 örnek ve needs_review işaretli öneriler
       insana gösterilir.
     evidence_authority_level: authoritative
     example: "Madde 23'teki (Değişik:RG-14/12/2016-29918) etiketi -> RG 29918 yönetmeliği amends mevzuat_22599 madde/23."
@@ -237,8 +237,8 @@ link_sources:
   ai_approved:
     label: AI önerdi, insan onayladı
     description: >-
-      Bir dil modeli önerdi; yalnızca inceleme ekranında insan onayından sonra bağ olur. Onaysız
-      AI önerisi hiçbir yerde bağ sayılmaz.
+      Bir dil modeli önerdi; yalnızca inceleme ekranında insan onayından sonra ilişki olur. Onaysız
+      AI önerisi hiçbir yerde ilişki sayılmaz.
     extraction_method_prefix: "ai_approved:"
     approval: Her zaman insan onayı; otomatik kabul yok.
     evidence_authority_level: secondary
@@ -254,12 +254,12 @@ link_sources:
     example: "confirm_obligation eylemi düzeltilmiş bir yükümlülük ifadesini kaydeder."
 
 # ---------------------------------------------------------------------------
-# Teklif durumları: inceleme deposundaki yaşam döngüsü.
+# Öneri durumları: inceleme deposundaki yaşam döngüsü.
 #   validation_state: korpusa yazıldığında PostgreSQL'deki validation_state değeri
 # ---------------------------------------------------------------------------
 proposal_statuses:
   proposed:
-    label: teklif
+    label: öneri
     description: Üretildi, karar yok. Korpusa yazılmaz, araçlarda görünmez.
     writes_to_corpus: false
     validation_state: null
@@ -269,8 +269,8 @@ proposal_statuses:
     label: onaylandı
     description: >-
       İnsan (veya kural otomatiği ile sahibin onayladığı demet) kabul etti. Demet oluşturucu
-      yalnızca bu durumdaki teklifleri "validated" kenar veya iddia olarak yazar. Demet içe
-      aktarıldıktan sonra satır bir kez yazılmıştır; geri alma yeni kanıtla yeni teklif ister.
+      yalnızca bu durumdaki önerileri "validated" ilişki veya iddia olarak yazar. Demet içe
+      aktarıldıktan sonra satır bir kez yazılmıştır; geri alma yeni kanıtla yeni öneri ister.
     writes_to_corpus: true
     validation_state: validated
     transitions: [rejected]
@@ -291,8 +291,8 @@ storage_review_states: [unvalidated, in_review, validated, rejected]
 # ---------------------------------------------------------------------------
 action_types:
   review_link_proposal:
-    label: Bağ teklifini incele
-    description: İnceleme ekranında bir bağ teklifini onayla veya reddet.
+    label: İlişki önerisini incele
+    description: İnceleme ekranında bir ilişki önerisini onayla veya reddet.
     inputs: [proposal_id, decision, reason]
     decision_values: [approved, rejected]
     writes: review_store
@@ -300,8 +300,8 @@ action_types:
     rules:
       - Karar yalnızca inceleme deposuna yazılır; PostgreSQL ve korpus değişmez.
       - Her karar inceleyen, zaman ve (varsa) gerekçe taşır; kayıt silinmez, yeni karar eklenir ve sonuncusu geçerlidir.
-      - Onay teklifin alıntısını ve ofsetlerini değiştirmez; teklif dosyasının hash'i kararla birlikte saklanır.
-      - Otomatik kabul yalnızca rule kaynaklı ve cross_confirmed tekliflerde; deterministik 1/5 örnek insana gösterilir.
+      - Onay önerinin alıntısını ve ofsetlerini değiştirmez; öneri dosyasının hash'i kararla birlikte saklanır.
+      - Otomatik kabul yalnızca rule kaynaklı ve cross_confirmed önerilerde; deterministik 1/5 örnek insana gösterilir.
 
   confirm_obligation:
     label: Yükümlülüğü doğrula
@@ -312,6 +312,6 @@ action_types:
     writes: review_store
     audit_fields: [reviewer, decided_at, reason, corrected_statement]
     rules:
-      - Düzeltilen ifade yeni bir teklif olarak kaydedilir; orijinal öneri silinmez.
-      - Yükümlülük, bir hükme creates bağı olmadan onaylanamaz.
+      - Düzeltilen ifade yeni bir öneri olarak kaydedilir; orijinal öneri silinmez.
+      - Yükümlülük, bir hükme creates ilişkisi olmadan onaylanamaz.
       - Örnek kontroller uydurma veridir; gerçek banka kontrolleri bu depoya girmez.

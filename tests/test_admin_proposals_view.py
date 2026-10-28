@@ -75,7 +75,7 @@ def test_queue_shows_counter_auto_acceptance_and_navigation(client_and_service):
     assert f"{queue.reviewed} / 34" in page.text
     assert queue.auto_accepted == service.auto_accepted_now > 20
     assert queue.pending == 34 - queue.auto_accepted
-    assert "Bağ teklifleri" in page.text  # navigation link
+    assert "İlişki önerileri" in page.text  # navigation link
     assert "İncelemeye başla" in page.text
     assert "PostgreSQL değişmez" in page.text
 
@@ -229,7 +229,7 @@ def test_whole_queue_can_be_reviewed_in_one_sitting(client_and_service):
     queue = service.queue()
     assert queue.pending == 0 and queue.reviewed == 34
     assert seen == 34 - service.auto_accepted_now
-    assert "Bekleyen teklif kalmadı" in client.get("/proposals").text
+    assert "Bekleyen öneri kalmadı" in client.get("/proposals").text
 
 
 def test_proposals_navigation_is_hidden_without_configuration(tmp_path):
