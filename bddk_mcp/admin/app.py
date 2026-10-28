@@ -21,9 +21,11 @@ from bddk_mcp.admin.config import AdminConfig
 from bddk_mcp.admin.password_auth import PasswordAuthMiddleware, PasswordSessions
 from bddk_mcp.admin.services.documents import DocumentService
 from bddk_mcp.admin.services.governance import GovernanceService
+from bddk_mcp.admin.services.proposals import ProposalService
 from bddk_mcp.admin.uploads import UploadStore
 from bddk_mcp.admin.views import documents as documents_view
 from bddk_mcp.admin.views import governance as governance_view
+from bddk_mcp.admin.views import proposals as proposals_view
 from bddk_mcp.admin.views import session as session_view
 from bddk_mcp.admin.views import uploads as uploads_view
 
@@ -37,6 +39,7 @@ def create_app(
     *,
     token_verifier: Any | None = None,
     upload_store: UploadStore | None = None,
+    proposal_service: ProposalService | None = None,
 ) -> ASGIApp:
     """Build the admin console app from already-resolved collaborators."""
 
@@ -68,6 +71,8 @@ def create_app(
     password_sessions = PasswordSessions(config.password) if config.password else None
     if upload_store is not None:
         uploads_view.register(routes, templates, upload_store)
+    if proposal_service is not None:
+        proposals_view.register(routes, templates, proposal_service)
     if token_verifier is not None:
         assert config.http_security is not None
         session_view.register(

@@ -129,6 +129,9 @@
           {% if request.app.state.config.draft_db %}
             <a href="/uploads/new" {% if path.startswith('/uploads') %}class="active"{% endif %}>Yükle</a>
           {% endif %}
+          {% if request.app.state.config.ontology_proposals %}
+            <a href="/proposals" {% if path.startswith('/proposals') %}class="active"{% endif %}>Bağ teklifleri</a>
+          {% endif %}
           <a href="/governance" {% if path.startswith('/governance') %}class="active"{% endif %}>İmza Durumu</a>
           <span class="flex-gap"></span>
           {# The governance page is guarded read-only (no forms anywhere); the

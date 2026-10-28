@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Bağ teklifleri{% endblock %}
+{% block content %}
+<h1>Bağ teklifleri</h1>
+<p class="muted">{{ title }} <code>{{ document_id }}</code></p>
+
+<div class="card">
+  <p style="font-size:1.15rem; margin:0 0 .4rem;"><strong>{{ queue.reviewed }} / {{ queue.total }}</strong> incelendi
+    <span class="muted">· {{ queue.approved }} onaylı · {{ queue.rejected }} reddedilen · {{ queue.pending }} bekleyen</span></p>
+  <p class="muted" style="margin:0 0 .8rem;">{{ queue.auto_accepted }} teklif Resmî Gazete tablosuyla çapraz doğrulandığı için otomatik onaylandı;
+    {{ queue.spot_checks }} tanesi rastgele kontrol olarak size ayrıldı. Kararlar korpus dışındaki inceleme deposuna yazılır; PostgreSQL değişmez.</p>
+  <div class="row-actions">
+    {% if queue.next_pending_id %}
+      <a class="btn btn-primary" href="{{ card_url(queue.next_pending_id) }}">İncelemeye başla ({{ queue.pending }} bekleyen)</a>
+    {% else %}
+      <span class="badge badge-published">Bekleyen teklif kalmadı</span>
+    {% endif %}
+    <a class="btn" href="/proposals/decisions.json">Kararları indir (JSON)</a>
+  </div>
+</div>
+
+<form method="get" action="/proposals" class="toolbar">
+  <label>Göster
+    <select name="durum" onchange="this.form.submit()">
+      {% for name in filters %}
+        <option value="{{ name }}" {% if name == queue.filter %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+</form>
+
+<div class="card" style="padding:0; overflow:hidden;">
+<table style="border:none; margin:0;">
+  <thead>
+    <tr><th>#</th><th>Teklif</th><th>Hedef</th><th>Kaynak</th><th>Güven</th><th>Durum</th></tr>
+  </thead>
+  <tbody>
+    {% for item in queue.items %}
+      <tr>
+        <td>{{ item.position }}</td>
+        <td><a href="{{ card_url(item.proposal.proposal_id) }}" style="text-decoration:none; font-weight:600;">{{ item.kind_tr }} · {{ item.subject_tr }}</a>
+            <div class="muted" style="font-size:.8rem;">{{ item.proposal.evidence.quote[:90] }}{% if item.proposal.evidence.quote|length > 90 %}…{% endif %}</div></td>
+        <td style="font-size:.86rem;">{{ item.target_tr }}</td>
+        <td style="font-size:.86rem;">{{ item.rule_tr }}{% if item.spot_check %} <span class="badge badge-waiting">kontrol</span>{% endif %}</td>
+        <td>{{ "%.2f"|format(item.proposal.confidence) }}</td>
+        <td>
+          {% if item.status == "approved" %}<span class="badge badge-published">onaylı{% if item.auto_accepted %} (oto){% endif %}</span>
+          {% elif item.status == "rejected" %}<span class="badge badge-error">reddedildi</span>
+          {% else %}<span class="badge badge-waiting">bekliyor</span>{% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="muted">Bu filtrede teklif yok.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="field-note">Teklif dosyası: <code>{{ proposals_path }}</code> · sha256 <code>{{ file_sha256[:16] }}…</code></p>
+{% endblock %}
