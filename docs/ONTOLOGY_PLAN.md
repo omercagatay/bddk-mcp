@@ -1,6 +1,6 @@
 # Ontology plan: one regulation, end to end
 
-**Progress: 2 / 6 steps done.** Next: Step 2.
+**Progress: 3 / 6 steps done.** Next: Step 3.
 
 ## Goal
 
@@ -59,7 +59,7 @@ Each step is one session. Do only the first unchecked step.
   *Done when:* the test passes, and I can explain every object and link from the file without notes.
   *Done 2026-10-28:* `ontology/ontology.yml`, loader `bddk_mcp/ontology/spec.py`, drift test `tests/test_ontology_spec.py` (15 tests); the owner confirmed the file is understandable after the instrument, legal-version and consolidation wording was rewritten in plain Turkish.
 
-- [ ] **Step 2: Rule extractor, writing to a file only.**
+- [x] **Step 2: Rule extractor, writing to a file only.**
   Parse (a) the Resmî Gazete table, (b) every inline tag `(Değişik|Ek|Mülga:RG-DD/MM/YYYY-NNNNN)` with its article, and
   (c) Madde 22 and Madde 23 (flag these two as `needs_review`). Write
   `docs/evidence/legal-versions/22599.proposals.json`: each proposal has source `rule`, the exact quoted text with
@@ -68,6 +68,10 @@ Each step is one session. Do only the first unchecked step.
   Unit tests on fixture text.
   *Done when:* the file lists the 7 amending regulations and every tagged article, tests pass, and nothing was written
   to the database.
+  *Done 2026-10-28:* `bddk_mcp/ontology/rule_extract.py` + `proposals.py`, `scripts/build_22599_link_proposals.py`,
+  `docs/evidence/legal-versions/22599.proposals.json` (34 proposals: 7 table rows + publication event, 24 tags all
+  cross-confirmed, Madde 22 repeal and Madde 23 effective date as `needs_review`), `tests/test_ontology_rule_extract.py`.
+  Publication and effective dates travel as event proposals so Step 3 reviews them and Step 4 uses them. No database access.
 
 - [ ] **Step 3: Review screen (the fun part).**
   A loopback admin page, "Link proposals": one card per proposal with the quote, source, confidence and what approving
@@ -101,6 +105,8 @@ Each step is one session. Do only the first unchecked step.
 - The stored text of LCR Madde 32(1) shows `RG-20/1/2016-294599`, a six-digit number, probably a glued footnote.
   Add a quality check for RG numbers.
 - "destek hizmeti" misses the Bilgi Sistemleri Yönetmeliği, which says "dış hizmet". Add a synonym map.
+- The footnotes under the consolidated text give the effective dates of individual amendments ("(1) Bu değişiklik
+  1/1/2017 tarihinde yürürlüğe girer"). Extract them as event proposals for the amending regulations after the pilot.
 
 ## Session prompt (paste this to start each session)
 
