@@ -15,6 +15,7 @@ BDDK MCP separates application code, governed data, operational tooling, deploym
 | `deploy/` | PostgreSQL, OpenShift, Open WebUI, and trust assets. |
 | `supply-chain/` | Scanner manifests, exception policy, and supply-chain documentation. |
 | `docs/` | Durable documentation, architecture decisions, and retained evidence. |
+| `ontology/` | Ontology specification (`ontology.yml`) for the regulatory knowledge pilot: object types, link types, link sources, proposal statuses, and actions. `tests/test_ontology_spec.py` fails when it drifts from the relation code or schema. |
 | `.github/` | CI, dependency automation, ownership, issue forms, and PR policy. |
 
 ## Root files
@@ -44,6 +45,7 @@ Do not place implementation modules, generated reports, scratch files, one-off p
 | `bddk_mcp/ocr/` | OCR interfaces and optional GPU implementation. |
 | `bddk_mcp/admin/` | Admin console (`bddk-mcp admin-ui`): read-only PostgreSQL, isolated SQLite editorial drafts, CSRF-protected editing and optional Ed25519 document signing; remote binds require operator JWT authentication. |
 | `bddk_mcp/regulatory/` | Canonical legal versions, relations, graph queries, and curation repositories. |
+| `bddk_mcp/ontology/` | Regulatory knowledge pilot: closed-schema loader for the root `ontology/ontology.yml` specification (later steps add proposals, the rule extractor, the review store, and the bundle builder). |
 | `bddk_mcp/jobs/` | Durable operator job models, repository, and runner. |
 | `bddk_mcp/migrations/` | Append-only schema ledger and migration implementations. |
 | `bddk_mcp/observability/` | Privacy-safe analytics, metrics, and telemetry. |

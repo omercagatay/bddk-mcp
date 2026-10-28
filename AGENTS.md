@@ -61,6 +61,7 @@ Two-layer pattern: modules under `bddk_mcp/tools/` are thin MCP wrappers over en
   - `ingest/` — `client.py` (BDDK scraper: httpx, BeautifulSoup), `html_extractor.py`, `doc_sync.py` (download → OCR → chunking), `backfill.py`, `data_sources.py` (bulletins), `seed.py` (DB export/import; root `seed.py` is a shim)
   - `store/` — `doc_store.py` (documents + FTS), `vector_store.py` (pgvector), `section_index.py` (structural parser for Turkish legal Markdown), `legal_ref.py`, `bulk_write.py`
   - `regulatory/` — abstention-first legal versions/status resolver and the amendment/cross-reference relations graph
+  - `ontology/` — regulatory knowledge pilot; `spec.py` loads the root `ontology/ontology.yml`, the reviewed vocabulary of object/link types, link sources, proposal statuses and actions. Reviewed link kinds stay in `regulatory/relations.py`; `tests/test_ontology_spec.py` fails when spec and code drift apart
   - `quality/` — `markdown_quality.py`, `quality_scan.py`, `quality_failures.yml` (reviewed extraction-failure registry)
   - `ocr/` — pluggable backends (`base.py`, `chandra.py` primary; requires `gpu` group)
   - `observability/` — `analytics.py` (trend/comparison engine), `telemetry.py`, `metrics.py`

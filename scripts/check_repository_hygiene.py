@@ -57,6 +57,7 @@ ALLOWED_TOP_LEVEL = {
     "deploy",
     "docker-compose.yml",
     "docs",
+    "ontology",
     "pyproject.toml",
     "railway.toml",
     "scripts",
