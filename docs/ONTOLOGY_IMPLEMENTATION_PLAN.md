@@ -1,6 +1,6 @@
 # Ontoloji pilotu — Adım 0 uygulama planı (mevzuat_22599)
 
-Tarih: 2026-10-28. Durum: **onay bekliyor.** Üst plan: [ONTOLOGY_PLAN.md](ONTOLOGY_PLAN.md).
+Tarih: 2026-10-28. Durum: **onaylandı (2026-10-28, sahip).** Üst plan: [ONTOLOGY_PLAN.md](ONTOLOGY_PLAN.md).
 Bu sayfa Adım 1–5'i dosyalara bağlar; kod, veritabanı ve korpus bu adımda değişmedi.
 
 ## Okumadan çıkan temel bulgular
@@ -68,7 +68,7 @@ yardımcıyla genişler. Her adımda `uv run ruff check .`, `uv run ruff format 
 | Hijyen/paketleme kontrolleri: yeni kök dizin, yeni dokümanlar, yeni şablonlar | `ALLOWED_TOP_LEVEL` +1, `docs/README.md` dizini, `test_admin_package_data.py` güncellemesi aynı adımda yapılır. |
 | Adım 1–4 geri alma | Yalnızca dosya: `git checkout -- <yol>` / yeni dosyayı sil; inceleme deposu sidecar SQLite dosyasıdır, silinmesi korpusu etkilemez. |
 
-## Onayına sunulan kararlar (önerim parantez içinde)
+## Kararlar (önerilen varsayılanlarla 2026-10-28'de onaylandı)
 
 - **A. Ana enstrüman `identity_key`:** `22599` (öneri; `_resolve_target_instrument` rakam-sınırı eşlemesiyle ve belge
   kimliğiyle uyumlu). Alternatif: `7.5.22599`.
@@ -80,7 +80,7 @@ yardımcıyla genişler. Her adımda `uv run ruff check .`, `uv run ruff format 
   AI teklifleri `secondary`.
 - **E. Kanonik HTTPS kaynak:** `https://www.mevzuat.gov.tr/MevzuatMetin/yonetmelik/7.5.22599.pdf` (rebuild
   betiğinin kullandığı statik PDF; sha `a5b278dd…`). `retrieved_at` 2026-04-21T15:52:19Z.
-- **F. Statü penceresi:** `valid_from` / `valid_through` tarihlerini sen verirsin; 1/1/2018'den önce başlayamaz.
+- **F. Statü penceresi:** `valid_from` / `valid_through` tarihlerini sen verirsin; 1/1/2018'den önce başlayamaz. **Açık:** tarihler henüz verilmedi; Adım 4 başlamadan önce istenecek.
 - **G. Otomatik kabul edilen tekliflerin veritabanındaki `validated_by` değeri:** `project_owner` (demeti sen
   onaylıyorsun); karar kaydında `auto:cross_confirmed` izi kalır (öneri).
 - **H. Spec konumu:** kökte `ontology/` (planındaki gibi; hijyen listesine bir giriş).
@@ -88,4 +88,6 @@ yardımcıyla genişler. Her adımda `uv run ruff check .`, `uv run ruff format 
 ## Bu oturumda yapılmayanlar
 
 Kod, test, veritabanı, korpus veya `seed_data/` değişikliği yok. `uv sync` çalıştırılmadı; hijyen betiği
-PyYAML gerektirdiği için koşulmadı (dizin ve bağlantılar elle kontrol edildi). Commit ve push yapılmadı.
+yerelde PyYAML gerektirdiği için koşulmadı (dizin ve bağlantılar elle kontrol edildi); PR #185 CI'da lint, hijyen,
+birim, PostgreSQL ve paketleme kontrolleri yeşil geçti. Dokümanlar sahibin stop hook'u üzerine
+`ccr-f9d2104c-5x206h` dalına gönderildi; `main` dalına birleştirme sahibin kararıdır.

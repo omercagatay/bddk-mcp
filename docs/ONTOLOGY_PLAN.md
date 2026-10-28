@@ -1,6 +1,6 @@
 # Ontology plan: one regulation, end to end
 
-**Progress: 0 / 6 steps done.** Next: Step 0.
+**Progress: 1 / 6 steps done.** Next: Step 1.
 
 ## Goal
 
@@ -41,13 +41,14 @@ Use it as a design reference, not as code to copy.
 
 Each step is one session. Do only the first unchecked step.
 
-- [ ] **Step 0: Read and plan (no code).**
+- [x] **Step 0: Read and plan (no code).**
   Read `AGENTS.md`, `docs/STATUS.md`, `docs/CORPUS_GOVERNANCE.md`, `bddk_mcp/regulatory/` (`relations.py`,
   `relation_extract.py`, `graph_queries.py`, `repository.py`, `legal_versions.py`),
   `bddk_mcp/migrations/v0009_regulatory_relations.py`, `v0011_graph_corpus_state.py`, `bddk_mcp/admin/drafts.py`,
   `scripts/build_943_citation_bundle.py` and `docs/evidence/legal-versions/943.json`.
   Write a one-page plan in Turkish mapping Steps 1–5 to files, with risks and rollback.
   *Done when:* I approve the plan.
+  *Done 2026-10-28:* plan in [ONTOLOGY_IMPLEMENTATION_PLAN.md](ONTOLOGY_IMPLEMENTATION_PLAN.md), approved by the owner with the proposed defaults; decision F (status window dates) is supplied before Step 4.
 
 - [ ] **Step 1: Write the ontology spec.**
   `ontology/ontology.yml` with object types (instrument, legal version, provision, obligation), link types (reuse the
