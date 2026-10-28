@@ -33,32 +33,36 @@ principles:
 # ---------------------------------------------------------------------------
 object_types:
   instrument:
-    label: Düzenleme
+    label: Mevzuat kimliği (düzenleme)
     description: >-
-      Bir hukuki metin ailesinin değişmez kimliği: yönetmelik, tebliğ, kanun veya rehber.
-      Sürümlerinden ve metnin kendisinden bağımsızdır; başlık veya metin değişse de kimlik aynı kalır.
-      Bir düzenlemeyi değiştiren her yönetmelik de kendi başına bir düzenlemedir.
+      Bir yönetmelik, tebliğ, kanun veya rehberin kendisi: metni kaç kez değişse de aynı kalan tek
+      kimlik. Nüfus cüzdanı gibi düşünün: kişinin fotoğrafı yıllar içinde değişir, kimlik numarası
+      değişmez. Karşılık Yönetmeliği 2016'dan bugüne 7 kez değişti; hepsi aynı mevzuattır. Bu
+      yönetmeliği değiştiren her "Değişiklik Yapılmasına Dair Yönetmelik" ise kendi başına ayrı bir
+      mevzuattır ve ayrı kimlik alır.
     identity: [jurisdiction, authority_code, identity_key]
     storage:
       table: public.regulatory_instruments
       id_prefix: inst_sha256_
       model: bddk_mcp.regulatory.legal_versions.CanonicalInstrument
-    example: "TR / BDDK / 22599 = Karşılık Yönetmeliği; RG 14/12/2016-29918 ile değişiklik yapan yönetmelik ayrı bir düzenlemedir."
+    example: "TR / BDDK / 22599 = Karşılık Yönetmeliği. RG 14/12/2016-29918'de yayımlanan değişiklik yönetmeliği ayrı bir mevzuat kimliğidir."
 
   legal_version:
-    label: Hukuki sürüm
+    label: Metin sürümü (hukuki sürüm)
     description: >-
-      Bir düzenlemenin belirli bir metin hâli: asıl metin, bir değişiklik metni veya değişiklikleri
-      işlenmiş konsolide metin. Yayım, yürürlük, yürürlükten kalkma gibi tarihli olayları ve tarih
-      aralıklı statü iddialarını ("şu tarihler arasında yürürlükte") taşır. Çıkarım sürümü değildir:
-      aynı hukuki metnin yeni bir PDF okuması yeni bir hukuki sürüm yapmaz.
+      Aynı mevzuatın belirli bir tarihteki metni. Her Resmî Gazete değişikliğinden sonra yürürlükteki
+      metin değişir; her bir hâl ayrı bir sürümdür. Karşılık Yönetmeliği'nin 15/8/2018 ile 18/10/2018
+      arasında geçerli olan metni bir sürüm, 24/5/2022 değişikliğinden sonraki bugünkü metni başka bir
+      sürümdür. Sürüm; yayım tarihi, yürürlük tarihi ve "şu tarihler arasında yürürlükteydi" bilgisini
+      taşır. Dikkat: aynı metnin yeni bir PDF taraması veya düzeltilmiş okuması yeni sürüm değildir;
+      hukuki metin değişmeden sürüm değişmez. Pilotta tek sürüm kaydedilir: bugünkü konsolide metin.
     identity: [instrument_id, version_key, legal_text_sha256]
     storage:
       table: public.regulatory_legal_versions
       id_prefix: ver_sha256_
       model: bddk_mcp.regulatory.legal_versions.LegalVersion
     lifecycle_events: [publication, effective, expiry, repeal, supersession, consolidation]
-    example: "mevzuat_22599'un bugünkü konsolide metni: yayım 22/6/2016 (RG 29750), yürürlük 1/1/2018 (Madde 23)."
+    example: "mevzuat_22599'un bugünkü metni: yayım 22/6/2016 (RG 29750), yürürlük 1/1/2018 (Madde 23), 7 değişiklik işlenmiş."
 
   provision:
     label: Hüküm
@@ -130,15 +134,18 @@ link_types:
     example: "Pilotta örneği yok: mevzuat_22599'un 2006 yönetmeliğinin yerine geçtiği ayrıca kanıtlanmadan yalnızca repeals kaydedilir."
 
   consolidates:
-    label: konsolide eder
+    label: konsolide (birleştirilmiş) metnidir
     description: >-
-      Kaynak metin, hedef düzenlemenin değişiklikleri işlenmiş bütünleşik hâlidir. Konsolide
-      metin yeni hukuk yaratmaz; mevcut değişiklikleri tek metinde gösterir.
+      Resmî Gazete'de asıl metin bir kez, değişiklikler ayrı tarihlerde yayımlanır. mevzuat.gov.tr
+      bunları tek bir okunur metinde birleştirir; buna "konsolide metin", yani değişiklikleri işlenmiş
+      metin denir. Bu bağ "şu metin sürümü, şu mevzuatın değişiklikleri işlenmiş hâlidir" der. Yeni bir
+      hüküm getirmez, yalnızca mevcut değişiklikleri tek metinde gösterir. Pilotta bu bağın kurulması
+      planlanmıyor; bilgi, sürümün kendi "konsolidasyon durumu" alanında taşınır.
     from_types: [legal_version]
     to_types: [instrument]
     storage: regulatory_relations
     amendment_chain: false
-    example: "mevzuat.gov.tr konsolide metni (bugünkü hukuki sürüm) -> mevzuat_22599."
+    example: "mevzuat.gov.tr'deki bugünkü Karşılık Yönetmeliği metni -> 22599 mevzuatının konsolide metnidir."
 
   implements:
     label: dayanır
