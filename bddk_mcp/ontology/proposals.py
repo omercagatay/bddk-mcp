@@ -65,6 +65,12 @@ def _turkish_date(value: date) -> str:
     return f"{value.day}/{value.month}/{value.year}"
 
 
+def dotted_date(value: date) -> str:
+    """Turkish written form, zero-padded: ``01.01.2018``."""
+
+    return value.strftime("%d.%m.%Y")
+
+
 class _Frozen(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -108,7 +114,14 @@ class RgReference(_Frozen):
         return f"{self.date.isoformat()}-{self.number}"
 
     def label_tr(self) -> str:
+        """Compact form mirroring the source tag, e.g. ``RG 14/12/2016-29918``."""
+
         return f"RG {_turkish_date(self.date)}-{self.number}"
+
+    def phrase_tr(self) -> str:
+        """The official citation form: ``14.12.2016 tarihli ve 29918 sayılı Resmî Gazete``."""
+
+        return f"{dotted_date(self.date)} tarihli ve {self.number} sayılı Resmî Gazete"
 
 
 class ProposalTarget(_Frozen):
@@ -340,7 +353,7 @@ def provision_label_tr(path: str | None) -> str:
     """Human label for a canonical provision path, e.g. ``madde/23`` → ``Madde 23``."""
 
     if path is None:
-        return "belge düzeyi"
+        return "yönetmeliğin bütünü"
     kind, _, ref = path.partition("/")
     names = {"madde": "Madde", "gecici_madde": "Geçici Madde", "ek_madde": "Ek Madde", "fikra": "Fıkra", "bent": "Bent"}
     return f"{names.get(kind, kind)} {ref}"

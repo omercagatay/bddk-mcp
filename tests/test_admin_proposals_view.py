@@ -75,9 +75,9 @@ def test_queue_shows_counter_auto_acceptance_and_navigation(client_and_service):
     assert f"{queue.reviewed} / 34" in page.text
     assert queue.auto_accepted == service.auto_accepted_now > 20
     assert queue.pending == 34 - queue.auto_accepted
-    assert "İlişki önerileri" in page.text  # navigation link
+    assert "Mevzuat ilişkileri" in page.text  # navigation link
     assert "İncelemeye başla" in page.text
-    assert "PostgreSQL değişmez" in page.text
+    assert "PostgreSQL'e dokunulmaz" in page.text
 
 
 def test_queue_filters_select_subsets(client_and_service):
@@ -97,8 +97,9 @@ def test_card_shows_quote_flags_and_what_approving_adds(client_and_service):
     page = client.get(f"/proposals/{queue.next_pending_id}")
     assert page.status_code == 200
     item = service.item(queue.next_pending_id)
-    assert item.proposal.evidence.quote[:40] in page.text
-    assert item.adds_tr in page.text
+    rendered = BeautifulSoup(page.text, "html.parser").get_text(" ")
+    assert item.proposal.evidence.quote[:40] in rendered
+    assert item.adds_tr in rendered  # compared on text, not HTML, because apostrophes are escaped
     assert "Onayla" in page.text and "Reddet" in page.text
     assert 'name="csrf_token"' in page.text
     assert "Content-Security-Policy" in page.headers

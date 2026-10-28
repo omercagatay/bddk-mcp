@@ -1,15 +1,15 @@
 {% extends "base.html" %}
-{% block title %}İlişki önerileri{% endblock %}
+{% block title %}Mevzuat ilişkileri{% endblock %}
 {% block content %}
-<h1>İlişki önerileri</h1>
-<p class="muted" style="margin-top:-.4rem;">Mevzuat metninden kuralla çıkarılan değişiklik, yürürlükten kaldırma ve tarih önerileri. Onaylanan öneriler Adım 4'te demete girer.</p>
+<h1>Mevzuat ilişkileri</h1>
+<p class="muted" style="margin-top:-.4rem;">Metinden kuralla çıkarılan öneriler: hangi yönetmelik hangi maddeyi değiştirmiş, hangi yönetmelik yürürlükten kaldırılmış, yayım ve yürürlük tarihleri nedir. Onaylanan öneriler bir sonraki adımda demete alınır.</p>
 <p class="muted">{{ title }} <code>{{ document_id }}</code></p>
 
 <div class="card">
   <p style="font-size:1.15rem; margin:0 0 .4rem;"><strong>{{ queue.reviewed }} / {{ queue.total }}</strong> incelendi
     <span class="muted">· {{ queue.approved }} onaylı · {{ queue.rejected }} reddedilen · {{ queue.pending }} bekleyen</span></p>
-  <p class="muted" style="margin:0 0 .8rem;">{{ queue.auto_accepted }} öneri Resmî Gazete tablosuyla çapraz doğrulandığı için otomatik onaylandı;
-    {{ queue.spot_checks }} tanesi rastgele kontrol olarak size ayrıldı. Kararlar korpus dışındaki inceleme deposuna yazılır; PostgreSQL değişmez.</p>
+  <p class="muted" style="margin:0 0 .8rem;">Resmî Gazete tablosuyla doğrulanan {{ queue.auto_accepted }} öneri kendiliğinden onaylandı.
+    {{ queue.spot_checks }} öneri rastgele kontrol için incelemenize bırakıldı. Kararlar korpusun dışındaki inceleme deposuna yazılır; PostgreSQL'e dokunulmaz.</p>
   <div class="row-actions">
     {% if queue.next_pending_id %}
       <a class="btn btn-primary" href="{{ card_url(queue.next_pending_id) }}">İncelemeye başla ({{ queue.pending }} bekleyen)</a>
@@ -23,8 +23,9 @@
 <form method="get" action="/proposals" class="toolbar">
   <label>Göster
     <select name="durum" onchange="this.form.submit()">
+      {% set filter_labels = {"hepsi": "hepsi", "bekleyen": "bekleyen", "onayli": "onaylı", "reddedilen": "reddedilen", "kontrol": "rastgele kontrol"} %}
       {% for name in filters %}
-        <option value="{{ name }}" {% if name == queue.filter %}selected{% endif %}>{{ name }}</option>
+        <option value="{{ name }}" {% if name == queue.filter %}selected{% endif %}>{{ filter_labels[name] }}</option>
       {% endfor %}
     </select>
   </label>

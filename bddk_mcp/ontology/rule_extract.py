@@ -43,6 +43,7 @@ from bddk_mcp.ontology.proposals import (
     TargetKind,
     TextEvidence,
     counts_for,
+    dotted_date,
     proposal_id_for,
     provision_label_tr,
     sha256_text,
@@ -273,8 +274,8 @@ def build_proposal_file(
                 confidence=CONFIDENCE_MALFORMED if row.rg.is_malformed else CONFIDENCE_TABLE_ROW,
                 flags=flags,
                 preview_tr=(
-                    f"{row.rg.label_tr()} değişiklik yönetmeliğini {document_id} değişiklik zincirine ekler"
-                    f" (amends, tablo satırı {row.ordinal})."
+                    f"Resmî Gazete tablosunun {row.ordinal}. satırı: {row.rg.phrase_tr()}'de yayımlanan"
+                    " yönetmelik bu düzenlemeyi değiştirmiştir."
                 ),
             )
         )
@@ -294,7 +295,9 @@ def build_proposal_file(
             evidence=table.original.evidence,
             confidence=CONFIDENCE_MALFORMED if table.original.rg.is_malformed else CONFIDENCE_PUBLICATION,
             flags=publication_flags,
-            preview_tr=f"Yayım olayı: {table.original.rg.label_tr()}; sürümün publication kanıtı olur.",
+            preview_tr=(
+                f"Asıl metin {table.original.rg.phrase_tr()}'de yayımlanmıştır; bu satır yayım tarihinin kanıtıdır."
+            ),
         )
     )
 
@@ -317,8 +320,8 @@ def build_proposal_file(
                 flags=flags,
                 change_kind=tag.kind,
                 preview_tr=(
-                    f"{tag.rg.label_tr()} yönetmeliği → {provision_label_tr(provision)} ({tag.kind});"
-                    " değişiklik zincirine madde düzeyinde ilişki ekler."
+                    f"{provision_label_tr(provision)}, {tag.rg.phrase_tr()}'de yayımlanan yönetmelikle"
+                    f" değişmiştir ({tag.kind})."
                 ),
             )
         )
@@ -350,8 +353,8 @@ def build_proposal_file(
                 confidence=CONFIDENCE_MALFORMED if rg.is_malformed else CONFIDENCE_REPEAL,
                 flags=flags,
                 preview_tr=(
-                    f"{provision_label_tr(provision)} → {rg.label_tr()} ile yayımlanan yönetmeliği yürürlükten kaldırır"
-                    " (repeals, dış referans: hedef korpusta yok)."
+                    f"{provision_label_tr(provision)}, {rg.phrase_tr()}'de yayımlanan yönetmeliği yürürlükten"
+                    " kaldırmıştır. O yönetmelik korpusta yoktur; dış referans olarak kaydedilir."
                 ),
             )
         )
@@ -375,8 +378,8 @@ def build_proposal_file(
                 confidence=CONFIDENCE_EFFECTIVE,
                 flags=(ProposalFlag.NEEDS_REVIEW,),
                 preview_tr=(
-                    f"Yürürlük olayı: {effective_on.day}/{effective_on.month}/{effective_on.year}"
-                    f" ({provision_label_tr(provision)}); sürümün effective kanıtı olur."
+                    f"{provision_label_tr(provision)}: yönetmelik {dotted_date(effective_on)} tarihinde yürürlüğe"
+                    " girmiştir. Bu cümle yürürlük tarihinin kanıtıdır."
                 ),
             )
         )

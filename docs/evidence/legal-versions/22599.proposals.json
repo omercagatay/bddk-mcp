@@ -1,7 +1,7 @@
 {
  "schema_version": 1,
  "generator": "rule_extract:v1",
- "ontology_spec_sha256": "90490b0ae66bba7dbc23b6c6e1d100fdd69d6f9878610bd912fcf46bbfa92730",
+ "ontology_spec_sha256": "318dc989f89376978c828897ac911c1323dbbfa7f2df1ca3e4ffa55231414a13",
  "document_id": "mevzuat_22599",
  "content_hash": "c7a59f7865f0594fbd16d46137477d818d24ec65747d15470a466ec895ede6d2",
  "title": "Kredilerin Sınıflandırılması ve Bunlar İçin Ayrılacak Karşılıklara İlişkin Usul ve Esaslar Hakkında Yönetmelik",
@@ -152,7 +152,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 27/3/2018-30373 yönetmeliği → Madde 5 (Ek); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 5, 27.03.2018 tarihli ve 30373 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Ek)."
   },
   {
    "proposal_id": "prop_sha256_3aa0735fdaf01689269592316a00a5cc3c3dfd0f849a5739c9e51aff54333f80",
@@ -184,7 +184,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 24/5/2022-31845 yönetmeliği → Madde 5 (Değişik); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 5, 24.05.2022 tarihli ve 31845 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Değişik)."
   },
   {
    "proposal_id": "prop_sha256_1e1cb6c660189a5fdea023ea9f5da8397fdfcf5f86dae09b86531a643f0380e0",
@@ -216,7 +216,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 6/7/2021-31533 yönetmeliği → Madde 6 (Ek); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 6, 06.07.2021 tarihli ve 31533 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Ek)."
   },
   {
    "proposal_id": "prop_sha256_508f255da44cf8cf8bfcb902e05461a94c06b455559edb1aa652e0f9d16fb779",
@@ -248,7 +248,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 15/8/2018-30510 yönetmeliği → Madde 7 (Mülga); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 7, 15.08.2018 tarihli ve 30510 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Mülga)."
   },
   {
    "proposal_id": "prop_sha256_470e68e707636832400b3883763d7b40b37b5431c805460627809063986307eb",
@@ -280,7 +280,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 15/8/2018-30510 yönetmeliği → Madde 7 (Mülga); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 7, 15.08.2018 tarihli ve 30510 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Mülga)."
   },
   {
    "proposal_id": "prop_sha256_ebd6dda1a8ddd891e57d9c7da4ea7f09747e13e8993ca44249abed2d429667f3",
@@ -312,7 +312,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 15/8/2018-30510 yönetmeliği → Madde 7 (Ek); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 7, 15.08.2018 tarihli ve 30510 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Ek)."
   },
   {
    "proposal_id": "prop_sha256_c574b43078ad2bae46cd80de5bf3b19150fc44f89f533b01c95a2563219d1384",
@@ -344,7 +344,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 15/8/2018-30510 yönetmeliği → Madde 7 (Ek); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 7, 15.08.2018 tarihli ve 30510 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Ek)."
   },
   {
    "proposal_id": "prop_sha256_9591765d77d5ba1376b8b7818da40b1e891977ff6a24efd7e3c4a9d536f6f5fe",
@@ -376,7 +376,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 6/7/2021-31533 yönetmeliği → Madde 7 (Ek); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 7, 06.07.2021 tarihli ve 31533 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Ek)."
   },
   {
    "proposal_id": "prop_sha256_da7c5c74d803461f24d96bf4ca519b4e1b769f1cab030ac9cf53601ec39c8738",
@@ -408,7 +408,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 27/11/2019-30961 yönetmeliği → Madde 8 (Ek); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 8, 27.11.2019 tarihli ve 30961 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Ek)."
   },
   {
    "proposal_id": "prop_sha256_d74b82d4436431bff792662a8f0f12bb402d6731ef2cb6cc7807c6f18e955510",
@@ -440,7 +440,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 6/7/2021-31533 yönetmeliği → Madde 8 (Değişik); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 8, 06.07.2021 tarihli ve 31533 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Değişik)."
   },
   {
    "proposal_id": "prop_sha256_9d036838864bb76e3734bbdc41989b83a43ac85c629fcfe7e9e560bf20d43e8e",
@@ -472,7 +472,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 27/11/2019-30961 yönetmeliği → Madde 8 (Ek); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 8, 27.11.2019 tarihli ve 30961 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Ek)."
   },
   {
    "proposal_id": "prop_sha256_0583d748f028eb60c3605067f1c6ec6fa2b6d04f09383c97fbe214c114564dfa",
@@ -504,7 +504,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 27/11/2019-30961 yönetmeliği → Madde 8 (Ek); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 8, 27.11.2019 tarihli ve 30961 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Ek)."
   },
   {
    "proposal_id": "prop_sha256_9094f942e80f657d674e90d68087cfab86ff7fde3f84c6a26e85e1a6291c6f79",
@@ -536,7 +536,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 6/7/2021-31533 yönetmeliği → Madde 13 (Ek); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 13, 06.07.2021 tarihli ve 31533 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Ek)."
   },
   {
    "proposal_id": "prop_sha256_d7b66152d72b6c81dd68cb5015086fb1843e0bc1881550c22a01fdfc265dcdb8",
@@ -568,7 +568,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 6/7/2021-31533 yönetmeliği → Madde 13 (Ek); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 13, 06.07.2021 tarihli ve 31533 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Ek)."
   },
   {
    "proposal_id": "prop_sha256_d05146401bfe076996a51bdb0a663ab2554c9053fadf21e08a2e369b7c3d3414",
@@ -600,7 +600,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 6/7/2021-31533 yönetmeliği → Madde 13 (Değişik); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 13, 06.07.2021 tarihli ve 31533 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Değişik)."
   },
   {
    "proposal_id": "prop_sha256_1beac484dba27ae3561e4dd3dc3939025fb2b891f48f01d974e7f7331c749be0",
@@ -632,7 +632,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 6/7/2021-31533 yönetmeliği → Madde 13 (Değişik); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 13, 06.07.2021 tarihli ve 31533 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Değişik)."
   },
   {
    "proposal_id": "prop_sha256_838e4cc0bd0092219a3135a8cccbdc058bb077636eb818334a5783f658282f44",
@@ -664,7 +664,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 6/7/2021-31533 yönetmeliği → Madde 16 (Değişik); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 16, 06.07.2021 tarihli ve 31533 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Değişik)."
   },
   {
    "proposal_id": "prop_sha256_461766660abc05a090ac43626773f31054247786d2c03bb1b4e347aef7ec8648",
@@ -696,7 +696,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 6/7/2021-31533 yönetmeliği → Madde 16 (Değişik); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 16, 06.07.2021 tarihli ve 31533 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Değişik)."
   },
   {
    "proposal_id": "prop_sha256_74987338a9b1f0518fbdc4c2b675877ca255ac971a77d66e509d8e00b1bf8f64",
@@ -728,7 +728,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 6/7/2021-31533 yönetmeliği → Madde 16 (Ek); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 16, 06.07.2021 tarihli ve 31533 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Ek)."
   },
   {
    "proposal_id": "prop_sha256_f7d98df5dd14f1bec885b459681f352b0a928ed609849c2372e46d2cf9e86b07",
@@ -760,7 +760,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 27/3/2018-30373 yönetmeliği → Madde 18 (Değişik ibare); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 18, 27.03.2018 tarihli ve 30373 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Değişik ibare)."
   },
   {
    "proposal_id": "prop_sha256_a5af80c0a5094020acf2f23c3679c5131fb45b354eb5b225adcf0915e626dc5f",
@@ -792,7 +792,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 27/3/2018-30373 yönetmeliği → Madde 18 (Değişik); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 18, 27.03.2018 tarihli ve 30373 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Değişik)."
   },
   {
    "proposal_id": "prop_sha256_b777f1ad7ebeb01254ba23b89c85f0463d1b329704d56b09cc81fec7884a7247",
@@ -824,7 +824,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 18/10/2018-30569 yönetmeliği → Madde 19 (Mülga); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 19, 18.10.2018 tarihli ve 30569 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Mülga)."
   },
   {
    "proposal_id": "prop_sha256_d25d3e5e5543db1e2a25bd6bfc4baff5922d62d13b1b5983bf1b7c437f6d77ba",
@@ -852,7 +852,7 @@
    "flags": [
     "needs_review"
    ],
-   "preview_tr": "Madde 22 → RG 1/11/2006-26333 ile yayımlanan yönetmeliği yürürlükten kaldırır (repeals, dış referans: hedef korpusta yok)."
+   "preview_tr": "Madde 22, 01.11.2006 tarihli ve 26333 sayılı Resmî Gazete'de yayımlanan yönetmeliği yürürlükten kaldırmıştır. O yönetmelik korpusta yoktur; dış referans olarak kaydedilir."
   },
   {
    "proposal_id": "prop_sha256_2af26becb17863a2197fdc23836922005ead6b0c4ace34cb4d9a55a68048f16e",
@@ -884,7 +884,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 14/12/2016-29918 yönetmeliği → Geçici Madde 1 (Başlığı ile Birlikte Değişik); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Geçici Madde 1, 14.12.2016 tarihli ve 29918 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Başlığı ile Birlikte Değişik)."
   },
   {
    "proposal_id": "prop_sha256_80f417f2fe83a4b4777da2dfce2c20dec902e37c534e77b3c2bed96b69143738",
@@ -916,7 +916,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 14/12/2016-29918 yönetmeliği → Madde 23 (Değişik); değişiklik zincirine madde düzeyinde ilişki ekler."
+   "preview_tr": "Madde 23, 14.12.2016 tarihli ve 29918 sayılı Resmî Gazete'de yayımlanan yönetmelikle değişmiştir (Değişik)."
   },
   {
    "proposal_id": "prop_sha256_8eb97eb24fa6a4e706c79e54695d311a1859edab45ca8541d659dbcc952c25e9",
@@ -944,7 +944,7 @@
    "flags": [
     "needs_review"
    ],
-   "preview_tr": "Yürürlük olayı: 1/1/2018 (Madde 23); sürümün effective kanıtı olur."
+   "preview_tr": "Madde 23: yönetmelik 01.01.2018 tarihinde yürürlüğe girmiştir. Bu cümle yürürlük tarihinin kanıtıdır."
   },
   {
    "proposal_id": "prop_sha256_a482a359ee920eaa1472b5839c908d836906892756af5938918d36f014c3ff7b",
@@ -972,7 +972,7 @@
    "flags": [
     "needs_review"
    ],
-   "preview_tr": "Yayım olayı: RG 22/6/2016-29750; sürümün publication kanıtı olur."
+   "preview_tr": "Asıl metin 22.06.2016 tarihli ve 29750 sayılı Resmî Gazete'de yayımlanmıştır; bu satır yayım tarihinin kanıtıdır."
   },
   {
    "proposal_id": "prop_sha256_f66305ed936c4ce5bbb152c47c98566513ba9d79aed50ee336c15356c065cfbd",
@@ -1004,7 +1004,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 14/12/2016-29918 değişiklik yönetmeliğini mevzuat_22599 değişiklik zincirine ekler (amends, tablo satırı 1)."
+   "preview_tr": "Resmî Gazete tablosunun 1. satırı: 14.12.2016 tarihli ve 29918 sayılı Resmî Gazete'de yayımlanan yönetmelik bu düzenlemeyi değiştirmiştir."
   },
   {
    "proposal_id": "prop_sha256_a4ed560e882ecfa345d9fef39fa6ead2dc1b86f147eb72ac4f23717f113a31e4",
@@ -1036,7 +1036,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 27/3/2018-30373 değişiklik yönetmeliğini mevzuat_22599 değişiklik zincirine ekler (amends, tablo satırı 2)."
+   "preview_tr": "Resmî Gazete tablosunun 2. satırı: 27.03.2018 tarihli ve 30373 sayılı Resmî Gazete'de yayımlanan yönetmelik bu düzenlemeyi değiştirmiştir."
   },
   {
    "proposal_id": "prop_sha256_4eaf55c7dcf5dbd619e025de26445b2c53bc89efad32b5ee5e32f0944085f5ba",
@@ -1068,7 +1068,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 15/8/2018-30510 değişiklik yönetmeliğini mevzuat_22599 değişiklik zincirine ekler (amends, tablo satırı 3)."
+   "preview_tr": "Resmî Gazete tablosunun 3. satırı: 15.08.2018 tarihli ve 30510 sayılı Resmî Gazete'de yayımlanan yönetmelik bu düzenlemeyi değiştirmiştir."
   },
   {
    "proposal_id": "prop_sha256_71d10f867e3a2a2d27a6484eee62634b5bf0c5305922770808bef47010097cc0",
@@ -1100,7 +1100,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 18/10/2018-30569 değişiklik yönetmeliğini mevzuat_22599 değişiklik zincirine ekler (amends, tablo satırı 4)."
+   "preview_tr": "Resmî Gazete tablosunun 4. satırı: 18.10.2018 tarihli ve 30569 sayılı Resmî Gazete'de yayımlanan yönetmelik bu düzenlemeyi değiştirmiştir."
   },
   {
    "proposal_id": "prop_sha256_70c4c0701b1ceb37d4ae4e04e766a632cc48a8791fa5cd86d2c73e50a77b87cd",
@@ -1132,7 +1132,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 27/11/2019-30961 değişiklik yönetmeliğini mevzuat_22599 değişiklik zincirine ekler (amends, tablo satırı 5)."
+   "preview_tr": "Resmî Gazete tablosunun 5. satırı: 27.11.2019 tarihli ve 30961 sayılı Resmî Gazete'de yayımlanan yönetmelik bu düzenlemeyi değiştirmiştir."
   },
   {
    "proposal_id": "prop_sha256_e518024d4301891ac74df7770340393bbbfca0120ec7e0646ef17f52039674dd",
@@ -1164,7 +1164,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 6/7/2021-31533 değişiklik yönetmeliğini mevzuat_22599 değişiklik zincirine ekler (amends, tablo satırı 6)."
+   "preview_tr": "Resmî Gazete tablosunun 6. satırı: 06.07.2021 tarihli ve 31533 sayılı Resmî Gazete'de yayımlanan yönetmelik bu düzenlemeyi değiştirmiştir."
   },
   {
    "proposal_id": "prop_sha256_ff4d325030c5f7d41ff8cee547a07a445e2ac6d1b7e7e7d13e7e107bd50b2c6e",
@@ -1196,7 +1196,7 @@
    "flags": [
     "cross_confirmed"
    ],
-   "preview_tr": "RG 24/5/2022-31845 değişiklik yönetmeliğini mevzuat_22599 değişiklik zincirine ekler (amends, tablo satırı 7)."
+   "preview_tr": "Resmî Gazete tablosunun 7. satırı: 24.05.2022 tarihli ve 31845 sayılı Resmî Gazete'de yayımlanan yönetmelik bu düzenlemeyi değiştirmiştir."
   }
  ],
  "counts": {

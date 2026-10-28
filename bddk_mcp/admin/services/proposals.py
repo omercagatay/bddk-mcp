@@ -12,6 +12,7 @@ from bddk_mcp.ontology.proposals import (
     ProposalFlag,
     ProposalKind,
     TargetKind,
+    dotted_date,
     load_proposal_file,
     provision_label_tr,
 )
@@ -29,14 +30,14 @@ STATUS_PENDING = "pending"
 FILTERS = ("hepsi", "bekleyen", "onayli", "reddedilen", "kontrol")
 
 _FLAG_LABELS = {
-    ProposalFlag.CROSS_CONFIRMED: "tabloyla çapraz doğrulandı",
-    ProposalFlag.NEEDS_REVIEW: "inceleme gerekir",
-    ProposalFlag.RG_NUMBER_MALFORMED: "RG sayısı 5 haneli değil",
-    ProposalFlag.NOT_IN_RG_TABLE: "RG tablosunda yok",
+    ProposalFlag.CROSS_CONFIRMED: "Resmî Gazete tablosuyla doğrulandı",
+    ProposalFlag.NEEDS_REVIEW: "incelemeniz gerekiyor",
+    ProposalFlag.RG_NUMBER_MALFORMED: "Resmî Gazete sayısı beş haneli değil",
+    ProposalFlag.NOT_IN_RG_TABLE: "Resmî Gazete tablosunda yok",
 }
 _RULE_LABELS = {
     "rg_table:v1": "Resmî Gazete tablosu",
-    "inline_tag:v1": "satır içi etiket",
+    "inline_tag:v1": "madde içindeki etiket",
     "article_clause:v1": "madde hükmü",
 }
 _LINK_LABELS = {"amends": "değiştirir", "repeals": "yürürlükten kaldırır"}
@@ -84,11 +85,11 @@ class QueueView:
 def _target_tr(proposal: Proposal) -> str:
     target = proposal.target
     if target.kind is TargetKind.RG_INSTRUMENT and target.rg is not None:
-        return f"{target.rg.label_tr()} ile yayımlanan değişiklik yönetmeliği"
+        return f"{target.rg.phrase_tr()}'de yayımlanan değişiklik yönetmeliği"
     if target.kind is TargetKind.EXTERNAL_REF and target.external_ref is not None:
-        return f"{target.external_ref} (korpusta yok, dış referans)"
+        return f"{target.external_ref} (korpusta bulunmuyor; dış referans olarak kaydedilir)"
     if target.value_date is not None:
-        return f"{target.value_date.day}/{target.value_date.month}/{target.value_date.year}"
+        return dotted_date(target.value_date)
     return "-"
 
 
@@ -98,19 +99,27 @@ def _adds_tr(proposal: Proposal) -> str:
     subject = provision_label_tr(proposal.subject_provision)
     if proposal.kind is ProposalKind.EVENT:
         if proposal.event_type == "publication":
-            return "Sürümün yayım tarihi olur; resolve_regulation_status için 'publication' kanıtı."
+            return (
+                "Bu tarih, metin sürümünün yayım tarihi olarak kaydedilir. Yürürlük sorgusu"
+                " (resolve_regulation_status) bu kanıta dayanır."
+            )
         if proposal.event_type == "effective":
-            return "Sürümün yürürlük tarihi olur; bu tarihten önceki sorularda araç çekimser kalır."
-        return f"Sürüme '{proposal.event_type}' olayı eklenir."
+            return (
+                "Bu tarih, metin sürümünün yürürlük tarihi olarak kaydedilir. Daha erken bir tarih sorulduğunda"
+                " araç yanıt vermez, çekimser kalır."
+            )
+        return f"Metin sürümüne '{proposal.event_type}' olayı eklenir."
     if proposal.link_type == "amends" and proposal.target.rg is not None:
-        where = "belge düzeyinde" if proposal.subject_provision is None else f"{subject} düzeyinde"
         return (
-            f"{proposal.target.rg.label_tr()} yönetmeliği değişiklik zincirine girer ({where});"
-            " get_amendment_chain bu ilişkiyi gösterir."
+            f"{proposal.target.rg.phrase_tr()}'de yayımlanan yönetmelik, {subject} için değişiklik zincirine"
+            " eklenir. Değişiklik geçmişi sorgusu (get_amendment_chain) bu ilişkiyi listeler."
         )
     if proposal.link_type == "repeals":
-        return f"{subject} için 'yürürlükten kaldırır' ilişkisi eklenir; get_cross_references bu ilişkiyi gösterir."
-    return f"'{proposal.link_type}' ilişkisi eklenir."
+        return (
+            f"{subject}, hedef yönetmeliği yürürlükten kaldıran hüküm olarak kaydedilir. Çapraz referans sorgusu"
+            " (get_cross_references) bu ilişkiyi listeler."
+        )
+    return f"'{proposal.link_type}' ilişkisi kurulur."
 
 
 class ProposalService:
