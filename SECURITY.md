@@ -39,5 +39,4 @@ If the issue belongs to an upstream dependency, deployment platform, or private 
 
 - [Security review](docs/SECURITY_REVIEW.md) — a dated repository assessment, with explicit residual risks.
 - [Deployment guide](docs/DEPLOYMENT.md) — supported process profiles and fail-closed remote configuration.
-- [Supply-chain policy](supply-chain/README.md) — scanner evidence, exact exceptions, and release-eligibility boundaries.
 - [Corpus governance](docs/CORPUS_GOVERNANCE.md) — corpus identity, signing, freshness, and publication controls.

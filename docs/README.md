@@ -20,37 +20,33 @@ This index is the canonical map of BDDK MCP documentation. Documents are grouped
 
 ## Operations and governance
 
-- [Deployment](DEPLOYMENT.md) — local, container, HTTP, PostgreSQL, and OpenShift operation.
+- [Deployment](DEPLOYMENT.md) — local, container, HTTP, and PostgreSQL operation.
 - [Corpus governance](CORPUS_GOVERNANCE.md) — manifest, signature, freshness, publication, and rollback boundaries; [admin draft editing/signing configuration](CORPUS_GOVERNANCE.md#admin-editorial-drafts-and-document-signatures).
 - [Admin upload admission](ADMIN_UPLOAD_ADMISSION.md) — upload PDF or DOCX, correct the extraction, then admit it through a separate corpus release. Implementation plan: [ADMIN_UPLOAD_ADMISSION_PLAN.md](ADMIN_UPLOAD_ADMISSION_PLAN.md).
 - [Document quality](DOCUMENT_QUALITY.md) — extraction and retrieval quality controls.
 - [Document catalog](DOCUMENTS.md) — generated corpus reference.
 - [Testing and evaluation](TESTING_AND_EVALUATION_STRATEGY.md) — test lanes, benchmarks, and evidence limits.
-- [Recovery drills](RECOVERY_DRILLS.md) — backup/restore procedure and evidence expectations.
 - [Legacy database upgrade](LEGACY_DATABASE_UPGRADE.md) — upgrading ledgered databases and the blue-green data-only path.
 - [Licensing and provenance](LICENSING_AND_PROVENANCE.md) — source, model, and artifact provenance.
-- [Supply-chain evidence](../supply-chain/README.md) — artifact, scanner, and policy workflow.
 
 Deployment-specific guides:
 
 - [PostgreSQL identities and grants](../deploy/postgres/README.md)
-- [OpenShift deployment](../deploy/openshift/README.md)
 - [Open WebUI integration](../deploy/open-webui/README.md)
 
-## Reviews, decisions, and evidence
+## Reviews and evidence
 
 These files are dated snapshots or records. Their findings do not override newer code or the current guidance above.
 
 - [Security review](SECURITY_REVIEW.md) — threat review and residual-risk record.
 - [Credit-loss retrieval review](CREDIT_LOSS_RETRIEVAL_REVIEW.md) — retrieval regressions and historical release gaps.
 - [Legal-answer readiness](LEGAL_ANSWER_READINESS.md) — runtime evidence checks, exploratory grading, and verification limits.
-- [`decisions/`](decisions/) — architecture decisions and versioned policy contracts.
 - [`evidence/`](evidence/) — retained local test and recovery evidence; not production acceptance.
 
 ## Documentation rules
 
 - Add new durable guidance to the closest existing document before creating another top-level file.
-- Put architecture decisions in `decisions/` and reproducible evidence in `evidence/`.
+- Put reproducible evidence in `evidence/`.
 - Identify a review date or commit for claims that can become stale.
 - Say whether evidence is local, synthetic, deployment-specific, or externally approved.
 - Update this index whenever a top-level document is added, renamed, or retired.

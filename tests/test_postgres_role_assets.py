@@ -26,7 +26,6 @@ ROOT = Path(__file__).resolve().parents[1]
 ROLES_SQL = (ROOT / "deploy/postgres/01_roles.sql").read_text(encoding="utf-8")
 GRANTS_SQL = (ROOT / "deploy/postgres/02_grants.sql").read_text(encoding="utf-8")
 README = (ROOT / "deploy/postgres/README.md").read_text(encoding="utf-8")
-OPENSHIFT_SECRETS = (ROOT / "deploy/openshift/secrets.example.yaml").read_text(encoding="utf-8")
 CI_WORKFLOW = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
 GROUP_ROLES = {
@@ -383,15 +382,6 @@ def test_deployment_documentation_maps_separate_workload_identities() -> None:
     assert "SET ROLE bddk_schema_owner" in README
     assert "Do not apply these assets to a\nshared database" in README
     assert "does **not** create a role named `bddk_operator`" in README
-    assert "BDDK_SCHEMA_OWNER_DATABASE_URL" in OPENSHIFT_SECRETS
-    assert "BDDK_INGESTION_DATABASE_URL" in OPENSHIFT_SECRETS
-    assert "bddk-mcp-release-verifier-db" in OPENSHIFT_SECRETS
-    assert "BDDK_RELEASE_VERIFIER_DATABASE_URL" in OPENSHIFT_SECRETS
-    assert "LOGIN membership: bddk_ingestion" in OPENSHIFT_SECRETS
-    assert "LOGIN membership: bddk_release_verifier" in OPENSHIFT_SECRETS
-    assert "LOGIN membership: bddk_release_publisher" in OPENSHIFT_SECRETS
-    assert "operator LOGIN must never" in OPENSHIFT_SECRETS
-    assert "options=-c%20role%3Dbddk_schema_owner" in OPENSHIFT_SECRETS
     assert "cluster-global" in README
     assert "dedicated PostgreSQL cluster/service" in README
 

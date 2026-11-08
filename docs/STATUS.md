@@ -28,12 +28,12 @@ The tool counts are derived from `bddk_mcp/tools/registry.py`; schema version is
 ## What is ready at repository level
 
 - Packaged stdio and Streamable HTTP MCP entry points with strict public/operator profiles.
-- Protected `main` with required lint, Python, PostgreSQL, packaging, container, and supply-chain checks.
+- Protected `main` with required lint, Python, PostgreSQL, packaging, and container checks (the supply-chain lane was removed on 2026-11-08).
 - Fail-closed remote HTTP configuration and separate database lifecycle roles.
 - Signed, governed offline corpus artifacts with staged verifier/publisher activation.
-- Structured deployment assets for local Compose, PostgreSQL, OpenShift, and Open WebUI; Railway remains a development/preview profile outside the bank path.
+- Structured deployment assets for local Compose, PostgreSQL, and Open WebUI; Railway remains a development/preview profile. No bank deployment path is maintained: the OpenShift starter, recovery-drill tooling, operational-objectives contract and supply-chain lane were removed on 2026-11-08 and remain in Git history.
 - An admin console (`bddk-mcp admin-ui`, `bddk_mcp/admin/`) with public-reader PostgreSQL access, optional persistent SQLite editorial drafts and optional server-held Ed25519 document signing. Remote binds require operator JWT authentication. Drafts never mutate/publish the corpus; see [configuration and handoff](CORPUS_GOVERNANCE.md#admin-editorial-drafts-and-document-signatures).
-- Broad automated coverage across runtime, migrations, retrieval, deployment, recovery, and supply-chain policy.
+- Broad automated coverage across runtime, migrations, retrieval, and deployment.
 
 ## What is not established
 

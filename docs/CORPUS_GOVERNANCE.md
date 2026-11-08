@@ -102,25 +102,11 @@ unavailable, expired, previously used, wrong-epoch, changed-state, or non-ready
 request before writing the release, activation, and request binding. The old
 `publish-corpus-release` CLI always fails closed and is not a fallback.
 
-For the OpenShift target, the reviewed
-`deploy/openshift-overlays/bank-bootstrap` contract invokes that same strict
-bootstrap command. It mounts PVC `bddk-mcp-approved-corpus` at
-`/var/run/bddk-mcp/corpus` read-only and mounts Secret
-`bddk-mcp-corpus-trust` separately at
-`/var/run/secrets/bddk-mcp/corpus-trust` read-only, using key
-`ed25519-public-key.pem`. Repository preflight renders and exact-inventory-checks
-these arguments and sources. It does not provision them, execute the Job, or
-approve their bank custody.
-
-The same overlay includes `verify-stage-release.yaml` and
-`activate-release.yaml`. The verifier Job uses ServiceAccount
-`bddk-mcp-release-verifier`, Secret `bddk-mcp-release-verifier-db`, the approved
-corpus PVC, and the corpus-trust Secret. The activation Job uses ServiceAccount
-`bddk-mcp-release-publisher`, Secret `bddk-mcp-release-publisher-db`, and
-`BDDK_RELEASE_REQUEST_ID`; it mounts only PostgreSQL CA and bounded temporary
-storage, never corpus or trust material. Repository rendering is still not
-evidence that the four Jobs ran in the required `migrate` → `bootstrap` →
-verify-and-stage → activate order in a bank namespace.
+A bank deployment must run that same strict bootstrap command with the approved
+corpus and its Ed25519 public key mounted read-only, and must run `migrate` →
+`bootstrap` → verify-and-stage → activate in that order with separate verifier
+and publisher identities. The repository no longer ships OpenShift Jobs for
+this (see [Deployment](DEPLOYMENT.md#bank-deployment)).
 
 The checked-in manifest (`bddk-job-corpus-quality-repairs-local-v6-2026-09-21`, reviewed 2026-09-21)
 declares owner-quantified objectives (7-day source detection, 14-day

@@ -3,7 +3,6 @@
 [English](README.en.md) | [Güncel durum](docs/STATUS.md) | [Belge indeksi](docs/README.md) | [Güvenlik](SECURITY.md)
 
 [![CI](https://github.com/omercagatay/bddk-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/omercagatay/bddk-mcp/actions/workflows/ci.yml)
-[![Supply chain evidence](https://github.com/omercagatay/bddk-mcp/actions/workflows/supply-chain.yml/badge.svg)](https://github.com/omercagatay/bddk-mcp/actions/workflows/supply-chain.yml)
 
 Banka içindeki bir yapay zeka asistanının, BDDK karar, düzenleme ve bülten sorularını modelin hafızasından değil, yayımlanmış kaynaklardan cevaplaması için kurulmuş bir MCP sunucusudur.
 

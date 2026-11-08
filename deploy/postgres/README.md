@@ -349,7 +349,7 @@ reviews needlessly ambiguous.
 The identity names below are illustrative; provision the real LOGIN roles and
 credentials through the bank's approved controls.
 
-| Workload / OpenShift Secret | Required memberships |
+| Workload / Secret | Required memberships |
 |---|---|
 | Migration / `bddk-mcp-schema-owner-db` (`BDDK_SCHEMA_OWNER_DATABASE_URL`) | `bddk_schema_owner` (connection must `SET ROLE` it) |
 | Bootstrap and ingestion / `bddk-mcp-ingestion-db` (`BDDK_INGESTION_DATABASE_URL`) | `bddk_ingestion` |

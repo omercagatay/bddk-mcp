@@ -12,8 +12,7 @@ BDDK MCP separates application code, governed data, operational tooling, deploym
 | `scripts/` | Maintainer utilities and repository/deployment validation entry points. |
 | `seed_data/` | Governed offline corpus exports, manifest, and signature. |
 | `data/` | Static benchmark and evaluation data that is not runtime corpus state. |
-| `deploy/` | PostgreSQL, OpenShift, Open WebUI, and trust assets. |
-| `supply-chain/` | Scanner manifests, exception policy, and supply-chain documentation. |
+| `deploy/` | PostgreSQL, Railway, Open WebUI, and trust assets. |
 | `docs/` | Durable documentation, architecture decisions, and retained evidence. |
 | `.github/` | CI, dependency automation, ownership, issue forms, and PR policy. |
 
@@ -64,7 +63,6 @@ New code should go into the narrowest existing subsystem. Create another package
 ## Documentation placement
 
 - Current user, operator, architecture, and governance guidance belongs in `docs/` and must be linked from [the documentation index](README.md).
-- Versioned decisions belong in `docs/decisions/`.
 - Reproducible evidence belongs in `docs/evidence/` and must state its environment and limitations.
 - Component-specific instructions stay beside the component, such as `benchmark/README.md` or `deploy/postgres/README.md`.
 - Historical reviews must name their review date and commit and must not present snapshot findings as current guarantees.

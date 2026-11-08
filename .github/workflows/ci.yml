@@ -166,29 +166,6 @@ jobs:
           version: ${{ env.UV_VERSION }}
       - name: Install test dependencies
         run: uv sync --frozen --dev --python 3.12
-      - name: Install checksum-verified Kustomize
-        env:
-          KUSTOMIZE_VERSION: v5.8.1
-          # Source: https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/v5.8.1/checksums.txt
-          KUSTOMIZE_SHA256: 029a7f0f4e1932c52a0476cf02a0fd855c0bb85694b82c338fc648dcb53a819d
-        run: |
-          archive="$RUNNER_TEMP/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
-          bin_dir="$RUNNER_TEMP/kustomize-bin"
-          curl --fail --location --silent --show-error \
-            "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" \
-            --output "$archive"
-          echo "${KUSTOMIZE_SHA256}  ${archive}" | sha256sum --check --strict -
-          mkdir -p "$bin_dir"
-          tar -xzf "$archive" -C "$bin_dir"
-          echo "$bin_dir" >> "$GITHUB_PATH"
-      - name: Require rendered OpenShift manifest validation
-        env:
-          BDDK_REQUIRE_KUSTOMIZE: "1"
-        run: >-
-          uv run pytest
-          tests/test_openshift_manifests.py
-          tests/test_openshift_acceptance.py
-          --strict-markers -v --tb=short
       - name: Validate Compose interpolation and structure
         env:
           BDDK_JWT_ISSUER: https://idp.example.test

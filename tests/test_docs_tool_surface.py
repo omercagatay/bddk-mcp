@@ -87,8 +87,7 @@ def test_container_and_deployment_docs_use_packaged_entry_point():
     assert "python server.py" not in content
 
     deployment = _read("docs/DEPLOYMENT.md")
-    assert "OpenShift AI Starter" in deployment
-    assert "deploy/openshift" in deployment
+    assert "## Bank deployment" in deployment
     assert "not bank acceptance or a production-ready platform configuration" in deployment
     assert "17 public tools" in deployment
     assert "31 total tools" in deployment

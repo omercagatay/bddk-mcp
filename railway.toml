@@ -2,8 +2,8 @@
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
-# Railway is a development/preview profile, not the reviewed bank deployment
-# path (that is deploy/openshift/). The container binds 0.0.0.0, so the
+# Railway is a development/preview profile, not a bank deployment path (none is
+# maintained; see docs/DEPLOYMENT.md#bank-deployment). The container binds 0.0.0.0, so the
 # fail-closed HTTP policy refuses startup until the service supplies the
 # complete non-loopback policy as variables:
 #   BDDK_DATABASE_URL              verify-full PostgreSQL DSN (public reader)

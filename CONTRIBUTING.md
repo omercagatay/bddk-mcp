@@ -34,7 +34,7 @@ uv run python scripts/check_repository_hygiene.py
 uv run pytest tests/ -m "not postgres and not gpu" --strict-markers -q
 ```
 
-The complete CI matrix also exercises Python 3.12 and 3.13, PostgreSQL roles and migrations, package artifacts, container recipes, OpenShift manifests, and supply-chain evidence. See [Testing and evaluation](docs/TESTING_AND_EVALUATION_STRATEGY.md) for the longer lanes and required environment variables.
+The complete CI matrix also exercises Python 3.12 and 3.13, PostgreSQL roles and migrations, package artifacts, and container recipes. See [Testing and evaluation](docs/TESTING_AND_EVALUATION_STRATEGY.md) for the longer lanes and required environment variables.
 
 ## Branch and pull-request workflow
 
@@ -72,7 +72,7 @@ Do not force-push `main`, commit directly around its protection rules, or leave 
 ### Deployment and security
 
 - Remote public and operator modes must remain fail-closed.
-- Changes under `deploy/`, `supply-chain/`, the Dockerfiles, authentication, egress, or database roles need explicit threat/rollout notes.
+- Changes under `deploy/`, the Dockerfiles, authentication, egress, or database roles need explicit threat/rollout notes.
 - Public examples must contain only obvious local fixtures or placeholders; never paste a real DSN, token, certificate, or endpoint secret.
 
 ### Documentation

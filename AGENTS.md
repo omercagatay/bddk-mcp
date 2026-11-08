@@ -50,7 +50,7 @@ uv run python scripts/check_repository_hygiene.py  # Repository surface and docu
 
 ## Code knowledge graph (graphify, optional)
 
-[graphify](https://github.com/Graphify-Labs/graphify) builds a navigable code graph for exploring dependencies and callers. It is an optional developer aid in its own `graph` dependency group; CI, supply-chain checks and the serving image do not install it.
+[graphify](https://github.com/Graphify-Labs/graphify) builds a navigable code graph for exploring dependencies and callers. It is an optional developer aid in its own `graph` dependency group; CI and the serving image do not install it.
 
 ```bash
 uv sync --dev --group graph                  # Install graphify locally
@@ -94,7 +94,7 @@ Two-layer pattern: modules under `bddk_mcp/tools/` are thin MCP wrappers over en
   - `observability/` — `analytics.py` (trend/comparison engine), `telemetry.py`, `metrics.py`
 - **Corpus governance** (top-level `bddk_mcp/` modules): `corpus_manifest.py`, `corpus_generations.py`, `corpus_publication.py`, `corpus_serving.py` (fail-closed release-epoch guard around local-corpus reads), `catalog_integrity.py`, `citations.py` (versioned, reconstructable citations), `resources.py` (MCP resources)
 - **Admin console** (`bddk_mcp/admin/`, `bddk-mcp admin-ui`): defaults to loopback. Remote binds require explicit opt-in and operator-scoped JWT authentication; unauthenticated remote access is rejected. PostgreSQL access remains read-only. Optional SQLite editorial drafts (`drafts.py`), CSRF-protected forms (`csrf.py`), and server-held Ed25519 draft signing are separate from canonical corpus publication. Saving or signing a draft must not mutate, publish, or establish legal approval of the corpus. Keep draft storage and signing keys outside the corpus, with keys outside the draft storage directory. See [Corpus Governance](docs/CORPUS_GOVERNANCE.md#admin-editorial-drafts-and-document-signatures) and [Deployment](docs/DEPLOYMENT.md). Check Git status: working-tree implementations are not proof of merged or deployed features.
-- **Platform**: `migrations/` (versioned schema modules + `runner.py`), `jobs/` (Postgres-backed operator job manager), `operations/recovery.py`, `db_identity.py` / `db_lifecycle.py` / `db_transport.py` / `db_compatibility.py`, `http_security.py`, `transport_tls.py`
+- **Platform**: `migrations/` (versioned schema modules + `runner.py`), `jobs/` (Postgres-backed operator job manager), `db_identity.py` / `db_lifecycle.py` / `db_transport.py` / `db_compatibility.py`, `http_security.py`, `transport_tls.py`
 - **Infrastructure** (`bddk_mcp/core/`): `deps.py` (DI container `Dependencies`), `config.py` (core config via `BDDK_*` env vars), `models.py`, `exceptions.py`, `logging_config.py`, `outbound_http.py`
 
 ## Conventions

@@ -64,7 +64,6 @@ ALLOWED_TOP_LEVEL = {
     "seed.py",
     "seed_data",
     "server.py",
-    "supply-chain",
     "tests",
     "uv.lock",
 }

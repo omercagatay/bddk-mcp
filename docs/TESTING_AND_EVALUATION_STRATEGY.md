@@ -3,6 +3,9 @@
 > [!NOTE]
 > Executed counts and implementation overlays in this document are dated evidence, not automatically current results. Current repository facts are in [Current Repository Status](STATUS.md); current test truth comes from the checks attached to the commit under review. Known-stale figures below include the tool counts (15/29 at the overlay date; currently 17/31) and the manifest state (the corpus has been signed and regenerated since).
 
+> [!IMPORTANT]
+> On 2026-11-08 the OpenShift starter and acceptance preflight, the recovery-drill tooling, the operational-objectives contract (`docs/decisions/`) and the supply-chain evidence lane were removed from the repository; they remain in Git history. References to them below are historical. See [Deployment](DEPLOYMENT.md#bank-deployment).
+
 ## Purpose
 
 The test strategy must answer four different questions:

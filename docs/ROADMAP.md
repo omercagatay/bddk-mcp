@@ -3,6 +3,9 @@
 > [!NOTE]
 > This roadmap preserves dated checkpoints and planned work. It is not the canonical source for current runtime counts or release state; use [Current Repository Status](STATUS.md) for those facts.
 
+> [!IMPORTANT]
+> On 2026-11-08 the OpenShift starter and acceptance preflight, the recovery-drill tooling, the operational-objectives contract (`docs/decisions/`) and the supply-chain evidence lane were removed from the repository; they remain in Git history. References to them below are historical. See [Deployment](DEPLOYMENT.md#bank-deployment).
+
 ## Roadmap principles
 
 - Stabilize the current product before adding knowledge-platform features.

@@ -3,7 +3,6 @@
 [Türkçe](README.md) | [Current status](docs/STATUS.md) | [Documentation index](docs/README.md) | [Security](SECURITY.md)
 
 [![CI](https://github.com/omercagatay/bddk-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/omercagatay/bddk-mcp/actions/workflows/ci.yml)
-[![Supply chain evidence](https://github.com/omercagatay/bddk-mcp/actions/workflows/supply-chain.yml/badge.svg)](https://github.com/omercagatay/bddk-mcp/actions/workflows/supply-chain.yml)
 
 This is an MCP server so a bank assistant can answer questions about BDDK decisions, regulations, and bulletins from published sources, not from the model's memory.
 

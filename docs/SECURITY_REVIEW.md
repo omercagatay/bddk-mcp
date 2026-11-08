@@ -3,6 +3,9 @@
 > [!NOTE]
 > This document preserves a dated security review and implementation overlays. It does not replace the reporting policy in [`SECURITY.md`](../SECURITY.md) or the current repository facts in [Current Repository Status](STATUS.md).
 
+> [!IMPORTANT]
+> On 2026-11-08 the OpenShift starter and acceptance preflight, the recovery-drill tooling, the operational-objectives contract (`docs/decisions/`) and the supply-chain evidence lane were removed from the repository; they remain in Git history. References to them below are historical. See [Deployment](DEPLOYMENT.md#bank-deployment).
+
 Review basis: commit **5684a34c10e6d90bc22d6ab2a6466944afb6bf81**, reviewed 2026-07-14.
 
 ## Implementation progress overlay — 2026-07-16

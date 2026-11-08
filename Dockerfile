@@ -54,12 +54,12 @@ RUN chgrp -R 0 /app/seed_data /app/trust && chmod -R g=u /app/seed_data /app/tru
 # Persistent-volume mount path (admin editorial drafts). Railway mounts volumes
 # root-owned regardless of image ownership, so the admin preview service runs
 # with RAILWAY_RUN_UID=0 (Railway's documented remedy for non-root images);
-# OpenShift keeps the non-root USER below. The process creates the 0600 SQLite
+# other runtimes keep the non-root USER below. The process creates the 0600 SQLite
 # file itself (drafts.py refuses anything less private).
 RUN mkdir -p /data && chgrp 0 /data && chmod g+rwX /data
 # Hardening: the serving process never runs the terminal, login/mount or perl
-# tooling of the base image, and their Debian 13 CVEs have no fix
-# (supply-chain/policy.json).  Nothing else in the image depends on them;
+# tooling of the base image, and their Debian 13 CVEs have no fix.
+# Nothing else in the image depends on them;
 # dash, coreutils and findutils stay because Railway wraps start commands in
 # `sh -c`.
 RUN dpkg --purge --force-remove-essential --force-remove-protected --force-depends \

@@ -136,11 +136,9 @@ active-release view and the operator `health_check` report the recorded level,
 so a bank can see which gate an active release actually passed.
 
 The tracked corpus declares `not_measured` freshness, so it needs
-`--accept-unmeasured-freshness` at the verifier stage. The checked-in OpenShift
-Jobs and the `bank-bootstrap` overlay deliberately keep the strict measured
-flags: admitting an unmeasured corpus into a bank namespace must be an explicit,
-separately approved deviation that drops `--require-measured-freshness` from the
-bootstrap Job and adds `--accept-unmeasured-freshness` to the verifier Job.
+`--accept-unmeasured-freshness` at the verifier stage. Admitting an unmeasured
+corpus into a bank deployment must be an explicit, separately approved
+deviation from the strict measured flags.
 Reaching the measured level still requires a live pipeline that records
 per-document authoritative-publication, detection, download, extraction, and
 retrieval-publication events.
@@ -411,8 +409,7 @@ not a distributed workflow engine:
 - graceful shutdown drains and then cancels local tasks, but abrupt process,
   node, or database failure still requires operational reconciliation.
 
-The supplied OpenShift operator Deployment deliberately remains one replica
-with `Recreate`. Do not scale it or represent it as a bank-grade queue/system of
+Run the operator runtime as one replica. Do not scale it or represent it as a bank-grade queue/system of
 record until overlapping-pod, queued-recovery, cancellation, database-failover,
 and multi-replica acceptance tests pass in the target bank environment.
 
@@ -451,42 +448,9 @@ evaluation workflows from a source checkout with `uv sync --group benchmark`.
 
 The Compose and image definitions bind HTTP on `0.0.0.0`. Under the fail-closed HTTP policy, a container must receive the exact Host/Origin settings above and either the complete JWT settings or the explicit `BDDK_HTTP_ALLOW_UNAUTHENTICATED` opt-in, or startup will be refused. Development credentials and database ports from Compose must never be reused or exposed outside a developer environment.
 
-The repository supply-chain lane invokes Buildx with
-`--provenance=false --load`, then binds the exact manifest descriptor/digest,
-image-config digest,
-loaded local image identity, and Syft SBOM before producing canonical evidence.
-It separately creates an **unsigned** repository SLSA provenance envelope; that
-envelope is not Buildx or bank-signed attestation. The lane also requires the
-model manifest's immutable Git commit to agree with runtime configuration and
-the Dockerfile.
-
-The workflow has two deliberately different repository decisions. The
-always-run `evidence-integrity` job builds and scans everything, verifies
-fresh/non-suppressive evidence, fails on unexcepted secrets, and records
-unresolved High/Critical vulnerabilities without making them a pull-request
-failure by themselves. The `release-eligibility` job runs only on a `v*` tag or
-when a manual workflow invocation explicitly sets
-`evaluate_release_policy=true` **on `main`**; a feature-branch manual run cannot
-produce that job. For a `v*` push, the checked-out tag commit must be in
-`origin/main` history; a tag on an unmerged feature commit fails closed. It
-requires the same run's integrity job to
-succeed, downloads the artifact bound to that run ID and attempt, and exactly
-re-hashes that run's complete evidence manifest before it binds
-the image scan report to the Dockerfile SHA-256,
-and then fails on any unexcepted High/Critical finding. It also fails whenever
-an applied pending vulnerability or secret exception reports
-`external_approval_required=true`.
-
-Despite its name, a green `release-eligibility` job is only a repository
-precondition. It cannot authenticate bank risk acceptance, sign an artifact,
-prove internal-registry custody, verify the digest selected by an OpenShift
-deployment, apply an admission policy, or authorize promotion. The repository
-result therefore keeps `release_promotion_eligible=false`; the bank-controlled
-promotion path must independently authenticate approvals and verify the exact
-image digest, signature, provenance, SBOM, scanner age, and retained evidence.
-The GitHub workflow itself does not push, sign, admit, or promote an image.
-Protecting the workflow, policy, and release tags with repository rulesets and
-CODEOWNERS remains a separate GitHub governance requirement.
+The repository no longer produces SBOM, image-scan, or provenance evidence; that
+supply-chain lane was removed (see [Bank deployment](#bank-deployment)). Any
+bank promotion path must produce and verify that evidence itself.
 
 ### Outbound regulatory HTTP
 
@@ -511,152 +475,26 @@ pods but deliberately supplies no bank addresses or peer selectors. Without
 the bank-specific exact allow policies, connectivity is expected to fail
 closed.
 
-## OpenShift AI Starter
+## Bank deployment
 
-[`deploy/openshift`](../deploy/openshift/README.md) now provides a conservative
-starter: separate public/operator Deployments, Services and service accounts;
-OpenShift service-serving certificates at both application sockets; a
-public-only re-encrypt TLS Route; an internal HTTPS operator Service; exact
-HTTPS probes; non-root/read-only security contexts; resource bounds; restricted
-ingress plus default-deny egress; exact Secret references; a mounted PostgreSQL
-CA contract; and separately applied migration, bootstrap, verifier-stage, and
-publisher-activation Jobs. Every workload
-uses a fail-closed image-digest placeholder, the image uses a digest-pinned `uv`
-source, the embedding-model revision is pinned, and the default non-root UID is
-compatible with OpenShift's arbitrary-UID model. Version labels are excluded
-from immutable selectors. The offline preflight is run as
-`uv run python scripts/openshift_acceptance.py --config <acceptance.yaml>`
-(the `--config` argument is required; start from
-`deploy/openshift/acceptance.example.yaml` — see
-[`deploy/openshift/README.md`](../deploy/openshift/README.md) for its inputs
-and the pre-deployment trap checklist); it executes exact standalone
-Kustomize v5.8.1 and binds the actual executable SHA-256 to the reviewed release
-input. It requires exact rendered-object, selector/label/namespace,
-NetworkPolicy, Secret/ConfigMap-key, command/port, volume/mount, pod-container,
-and restricted security-context inventories; omissions, additions, sidecars,
-init/ephemeral containers, host namespace sharing, command overrides, and
-broadened ingress/egress fail closed.
-
-The production-import repository contract is the separately reviewed
-[`deploy/openshift-overlays/bank-bootstrap`](../deploy/openshift-overlays/bank-bootstrap/)
-overlay. It renders the runtime and lifecycle inventory while patching the
-bootstrap Job to use the read-only `bddk-mcp-approved-corpus` PVC and the
-separate read-only `bddk-mcp-corpus-trust` Secret. The exact command passes
-`--require-quantified-freshness`, `--require-measured-freshness`,
-`--require-verified-signature`, and `--trusted-signing-key` directly to the
-mutating bootstrap process. The offline preflight renders and checks this
-overlay; it does not prove that either bank-managed source exists or that the
-Job ran successfully. Because the activation resource must contain the actual
-unexpired staged request ID, the complete final-release preflight runs after the
-first three lifecycle Jobs have completed through a separately reviewed gate;
-never use a dummy ID or apply the combined overlay to impose Job order.
-
-This is repository-level implementation evidence, not bank acceptance or a production-ready platform configuration,
-including for OpenShift AI. No target
-bank cluster, SCC, namespace policy, storage class, PostgreSQL service, IdP,
-internal registry, or enterprise proxy was available for this review. Every
-`REPLACE_*` value must be
-resolved through the bank design, and Secret examples must never contain real
-values in Git. The manifests still require validation against the bank's SCC,
-trust-bundle injection, registry/image policy, ingress, IdP, namespace labels,
-capacity model, backup/restore, disaster recovery, and release controls. The
-included policy default-denies egress; environment-specific allow rules are not
-supplied. Operator job records and advisory leases are durable, but the
-in-process runner/failover behavior remains unaccepted, so the starter
-deliberately uses one `Recreate` operator replica.
+The OpenShift starter manifests and offline acceptance preflight
+(`deploy/openshift`, `deploy/openshift-overlays`), the recovery-drill tooling,
+the operational-objectives contract, and the supply-chain evidence lane were
+removed on 2026-11-08: no bank deployment is planned in the near term and the
+corpus is small. They remain in Git history (last present at commit `e858590`)
+and must be restored and re-reviewed before any bank deployment. This
+repository is therefore not bank acceptance or a production-ready platform configuration.
+Railway (below) is a development/preview profile only.
 
 The automated database lifecycle and role-isolation lane exercises the complete
 declared compatibility set, currently PostgreSQL 17 only. A bank-selected
 version outside that set is rejected and requires a separately reviewed release
 that adds equivalent mandatory evidence before deployment.
 
-For the target bank deployment:
-
-1. Provision a dedicated external PostgreSQL database, install `vector` and
-   `unaccent` in `public`, and create distinct schema-owner, ingestion,
-   release-verifier, release-publisher, public, operator, and optional telemetry
-   LOGIN identities using the reviewed group roles. Apply both DBA SQL files
-   with the independent target-database guard and run migration with
-   `BDDK_EXPECTED_DATABASE_NAME`. For a v5/v6 upgrade,
-   treat any pre-v7 release hash as historical: v7 canonicalizes retained-row
-   and current/retained state hashing with function-local `TimeZone=UTC`,
-   `DateStyle=ISO, YMD`, `IntervalStyle=postgres`, `bytea_output=hex`, and
-   `extra_float_digits=3`. The v7 migration refuses if the active release does
-   not match that canonical recomputation. Keep the old ledger row immutable;
-   on the unchanged pre-v7 schema (v5 or v6), use only the separately approved
-   exact-schema publication-remediation procedure to append/activate a reviewed
-   canonical release, then retry v7 and continue immediately through v8. The
-   current `publish-corpus-release` CLI is disabled, v8 revokes direct
-   publication from non-owners, and current workload admission is v10-only. Continue through v9 and v10, then reapply the grants so the verifier receives the v10 staging signature.
-2. Replace the application image placeholder with the scanned immutable digest,
-   create `bddk-mcp-postgres-ca` with key `ca.crt`, and keep every workload DSN
-   at `sslmode=verify-full` with the mounted absolute CA path.
-3. Provision the approved corpus as read-only PVC
-   `bddk-mcp-approved-corpus` and its Ed25519 public verification key as key
-   `ed25519-public-key.pem` in the separate read-only Secret
-   `bddk-mcp-corpus-trust`. Use the reviewed `bank-bootstrap` overlay contract,
-   which passes all strict freshness/signature flags and the separately mounted
-   `--trusted-signing-key` directly to bootstrap. Preserve migration → grants →
-   bootstrap/reindex → release-verifier verification/staging → request-ID-only
-   release-publisher activation → approved one-shot `retain-corpus-generation`
-   ordering when the release must be an immutable recovery target. The verifier
-   Job must receive its own DSN, the corpus/trust mounts, immutable verifier
-   revision/image provenance, and a 60–3,600 second request TTL. The activation
-   Job must receive only its distinct publisher DSN and exact staged request ID,
-   with no corpus PVC, trust Secret, verifier DSN, manifest, or signing material.
-   Do not start lifecycle Jobs concurrently merely because the overlay renders
-   them together. Retain the bootstrap and verifier's path-free evidence, the
-   activation receipt, and the content-free retention receipt. The
-   retention command currently has no checked-in OpenShift Job and must use the
-   release-publisher identity; it is not an MCP operation and does not activate
-   or serve the retained generation. It uses transaction-local
-   `lock_timeout=30s` and `statement_timeout=30min`; a timeout is a rolled-back
-   operation, not partial success, and requires active-release revalidation
-   before retry. If a separately governed release has the
-   same exact corpus state and retrieval profile as an existing retained target,
-   the command creates a new per-release binding and reuses that physical
-   generation and seal. The base `jobs/bootstrap.yaml` remains a
-   development/baseline Job and is not a production trust gate.
-4. Run public and operator profiles as separate workloads; inject `BDDK_DATABASE_URL` only into public and `BDDK_OPERATOR_DATABASE_URL` only into operator.
-5. Keep remote operator disabled unless a private operator Route, `bddk.operator` authorization, and explicit `BDDK_OPERATOR_REMOTE_ENABLED=true` have been approved.
-6. Add bank-specific least-privilege egress for DNS, PostgreSQL, and TCP 443
-   to the approved BDDK/Mevzuat source or enterprise proxy before starting
-   either public or operator runtime, plus IdP/JWKS egress for the operator
-   runtime only; retain the checked-in default
-   deny. Keep lifecycle Jobs limited to DNS/PostgreSQL, without regulatory-source
-   or proxy reach.
-7. Review and adapt the starter, then validate the exact `/health/live` and `/health/ready` probes in a disposable bank-like namespace.
-8. Validate the re-encrypt Route-to-pod handshake and operator Service TLS against the injected OpenShift service CA; retain the operator profile's JWT checks, prove the unauthenticated public Route is reachable only from the approved department/frontend network segment, and place shared request limits and audit events at the approved ingress boundary.
-9. Prove backup, point-in-time/selected restore, schema upgrade, legacy refusal
-   or adoption where relevant, and rollback/cutover procedures in an isolated
-   environment. The retained
-   [local PostgreSQL 17 v8 drill](evidence/LOCAL_PG17_V8_RECOVERY_DRILL.md)
-   passed across two disposable clusters for all 53 managed objects, staged
-   request/binding state, and seven LOGIN profiles including the verifier. That
-   synthetic repository-scale run is not bank backup/PITR, TLS/HBA, custody,
-   target-size RPO/RTO, or capacity evidence; repeat the current v8 contract at
-   the bank boundary. Measure backup growth on a target with the same database encoding,
-   collation/character-classification names, locale provider/locale, ICU rules,
-   and collation version as the source; recovery evidence records and requires
-   those values exactly and rejects stored/actual version drift. A mismatch is a fail-closed restore, not an
-   equivalent target. Use a controlled backup; the retention CLI's observed WAL
-   interval is cluster-wide and non-exclusive. Its baseline is attempted inside
-   a savepoint and its endpoint after commit; either failure leaves WAL
-   `not_measured` without undoing a durable seal. V7 retained targets are not
-   application rollback until H2-02B generation-bound serving/reactivation is
-   implemented. Size capacity against unique retained state/profile generations,
-   not governed-release binding count, and keep bank retention/capacity approval
-   as a release gate.
-10. Run release-specific MCP discovery, schema, authentication, tool-call,
-   structured-output, timeout, and citation tests for every actual client/model
-   combination used by the bank.
-
-The repository has not completed this bank-cluster acceptance, backup/restore
+The repository has not completed a bank-cluster acceptance, backup/restore
 drill, or a release compatibility matrix for Claude, Codex, GPT-based clients,
 LM Studio, GPT-OSS, or other local clients. Example configurations demonstrate
 configuration shape; they are not compatibility certification.
-
-OpenShift rotates service-serving certificates by updating the generated Secret. Uvicorn does not hot-reload that material, so the bank must use an approved restart/reloader mechanism and prove both routine rotation and CA rollover in a disposable namespace before promotion.
 
 ## Admin draft editing and document signing
 

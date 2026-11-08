@@ -29,6 +29,23 @@ Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızd
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Kaldırıldı — banka üretim hazırlığı katmanı (2026-11-08)
+
+- Yakın vadede banka kurulumu planlanmadığı için şu parçalar kaldırıldı; hepsi
+  Git geçmişinde duruyor (son hâlleri `e858590` commit'inde):
+  - OpenShift başlangıç manifestleri ve çevrimdışı kabul kontrolü
+    (`deploy/openshift/`, `deploy/openshift-overlays/`,
+    `bddk_mcp/openshift_acceptance.py`) ile CI'daki Kustomize adımı.
+  - Yedekten geri yükleme tatbikatı (`bddk_mcp/operations/`,
+    `scripts/recovery_drill.py`, `docs/RECOVERY_DRILLS.md`). Graf testinin
+    kullandığı saklı nesil mühür sorgusu test dosyasına taşındı. Geçmiş tatbikat
+    kanıtları `docs/evidence/` altında kalır.
+  - Operasyonel hedefler sözleşmesi (`bddk_mcp/operational_objectives.py`,
+    `docs/decisions/`).
+  - Supply-chain kanıt hattı (`supply-chain/`,
+    `.github/workflows/supply-chain.yml` ve scriptleri). Depo artık SBOM,
+    imaj taraması ve provenance kanıtı üretmez.
+
 ### Kaldırıldı — eski şema kabul yolu (`--adopt-legacy`)
 
 - Kayıt defteri olmayan ön-v0001 veritabanlarını sisteme alan
