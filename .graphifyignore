@@ -1,0 +1,11 @@
+# graphify scope: source code and public engineering docs only.
+# Corpus artifacts, local data and benchmark output never enter the graph.
+seed_data/
+data/
+benchmark_results/
+quality_reports/
+supply-chain/
+*.tsv
+*.db
+.env
+.env.*

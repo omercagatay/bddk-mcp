@@ -48,6 +48,23 @@ uv run ruff format .                       # Format (prefer changed paths to avo
 uv run python scripts/check_repository_hygiene.py  # Repository surface and documentation links
 ```
 
+## Code knowledge graph (graphify, optional)
+
+[graphify](https://github.com/Graphify-Labs/graphify) builds a navigable code graph for exploring dependencies and callers. It is an optional developer aid in its own `graph` dependency group; CI, supply-chain checks and the serving image do not install it.
+
+```bash
+uv sync --dev --group graph                  # Install graphify locally
+uv run graphify update .                     # Build/refresh graphify-out/ from code (AST only, no LLM, no network)
+uv run graphify query "<question>"           # BFS traversal over graphify-out/graph.json
+uv run graphify explain "ActiveCorpusGuard"  # A node and its neighbours
+uv run graphify affected "<symbol>"          # What depends on a symbol
+```
+
+- Use only the local `graphify update` path. Do not run `graphify extract`, `label`, `add`, `clone`, or the assistant `/graphify` skill's semantic step on this repository without explicit approval: they send content to an LLM backend or fetch external URLs.
+- `.graphifyignore` keeps `seed_data/`, `data/`, benchmark/quality output and environment files out of the graph. Never widen its scope to corpus artifacts, bank documents or secrets.
+- `graphify-out/` is git-ignored local output. Never commit it, and do not install graphify's git hooks or edit agent config with `graphify install` without approval.
+- The graph is a navigation lead, not authority. It goes stale as code changes; confirm every conclusion against the source, callers and tests, and refresh it with `graphify update .` after large changes.
+
 Corpus release lifecycle (operator workflow, explicit approval required): `bddk-mcp verify-corpus`, `verify-and-stage-corpus-release`, `activate-corpus-release`, `retain-corpus-generation` — see [Corpus Governance](docs/CORPUS_GOVERNANCE.md).
 
 ## Architecture
