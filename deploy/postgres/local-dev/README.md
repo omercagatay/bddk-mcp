@@ -38,8 +38,7 @@ partially indexed chunks.
 An old pre-ledger `pgdata` volume will fail the ordinary migration instead of
 being guessed/adopted. Preserve any data you need and follow
 [`docs/LEGACY_DATABASE_UPGRADE.md`](../../../docs/LEGACY_DATABASE_UPGRADE.md),
-or deliberately recreate only a disposable volume. Never add
-`--adopt-legacy` to the normal Compose lifecycle.
+or deliberately recreate only a disposable volume.
 
 A populated v0002 disposable volume likewise refuses migration v0003 until a
 human explicitly approves its blocking backfill. Either intentionally recreate

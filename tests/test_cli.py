@@ -120,11 +120,10 @@ def test_migrate_command_forwards_only_explicit_maintenance_approvals(capsys):
         patch("bddk_mcp.cli._migrate") as migrate,
         patch("bddk_mcp.cli.asyncio.run") as run,
     ):
-        cli.main(["migrate", "--adopt-legacy", "--allow-retrieval-publication-backfill"])
+        cli.main(["migrate", "--allow-retrieval-publication-backfill"])
 
     migrate.assert_called_once_with(
         None,
-        adopt_legacy=True,
         allow_retrieval_publication_backfill=True,
     )
     run.assert_called_once()

@@ -21,7 +21,7 @@ from bddk_mcp.corpus_publication import (
 )
 from bddk_mcp.db_compatibility import PostgreSQLCompatibilityError, assert_supported_postgresql
 from bddk_mcp.db_transport import assert_database_transport
-from bddk_mcp.migrations import LATEST_SCHEMA_VERSION, LegacyAdoptionError, MigrationError, inspect_migration_state
+from bddk_mcp.migrations import LATEST_SCHEMA_VERSION, MigrationError, inspect_migration_state
 from bddk_mcp.migrations import migrate as apply_migrations
 
 _REQUIRED_EXTENSIONS = frozenset({"unaccent", "vector"})
@@ -789,7 +789,6 @@ async def migrate_database(
     dsn: str | None = None,
     *,
     pool: asyncpg.Pool | None = None,
-    adopt_legacy: bool = False,
     allow_retrieval_publication_backfill: bool = False,
     expected_database: str | None = None,
 ) -> DatabaseReadiness:
@@ -814,15 +813,13 @@ async def migrate_database(
             expected_database or require_expected_database_name(),
         )
         migration_options: dict[str, bool] = {}
-        if adopt_legacy:
-            migration_options["adopt_legacy"] = True
         if allow_retrieval_publication_backfill:
             migration_options["allow_retrieval_publication_backfill"] = True
         await apply_migrations(active_pool, **migration_options)
         return await assert_database_ready(pool=active_pool, require_corpus=False)
-    except (LegacyAdoptionError, MigrationError) as exc:
+    except MigrationError as exc:
         # Migration exceptions contain bounded, credential-free remediation.
-        # Preserve scale, lock, timeout, and adoption refusals for operators
+        # Preserve scale, lock, and timeout refusals for operators
         # instead of replacing them with an unactionable generic error.
         raise DatabaseLifecycleError(str(exc)) from None
     except DatabaseLifecycleError:

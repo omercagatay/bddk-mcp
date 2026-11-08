@@ -29,6 +29,16 @@ Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızd
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Kaldırıldı — eski şema kabul yolu (`--adopt-legacy`)
+
+- Kayıt defteri olmayan ön-v0001 veritabanlarını sisteme alan
+  `bddk-mcp migrate --adopt-legacy` bayrağı ve `bddk_mcp/migrations/legacy.py`
+  kaldırıldı; bu şekilde bir veritabanı artık kullanılmıyor. Kayıt defteri
+  olmayan bir şema normal migration'da reddedilip geri alınmaya devam eder
+  (yeni test: `test_migrate_refuses_an_unmanaged_schema_without_a_ledger`).
+  v0003'teki `bddk_meta.legacy_schema_adoptions` tablosu denetim geçmişi olarak
+  kalır.
+
 ### Güvenlik — bağımlılık ve temel imaj
 
 - `fsspec` 2026.2.0 → 2026.9.0 (`uv.lock`; GHSA-27vj-qcqg-25rc 2026.6.0'da kapanıyor). Yalnızca bu paket yükseltildi.

@@ -145,11 +145,9 @@ Reaching the measured level still requires a live pipeline that records
 per-document authoritative-publication, detection, download, extraction, and
 retrieval-publication events.
 
-The ordinary migration refuses an unmanaged pre-ledger schema. The explicit
-`bddk-mcp migrate --adopt-legacy` path supports only the exact verified legacy
-shape and is never a clean-install flag or a general repair mechanism. Stop all
-workloads, prove a restorable backup, and follow
-[`docs/LEGACY_DATABASE_UPGRADE.md`](LEGACY_DATABASE_UPGRADE.md) before using it.
+The ordinary migration refuses an unmanaged pre-ledger schema and rolls back.
+Move such data with the blue-green data-only path in
+[`docs/LEGACY_DATABASE_UPGRADE.md`](LEGACY_DATABASE_UPGRADE.md).
 
 Migration v0003 also refuses a populated v0002 database before its blocking
 section-hash/FK backfill unless
@@ -284,8 +282,8 @@ bound to host loopback. The reserved `.invalid` JWT values only satisfy Compose
 interpolation for the unused HTTP runtime definition; this lifecycle target
 does not start that server, and those values must never be used to serve HTTP.
 Do not copy the fixed credentials into a remote environment. A pre-ledger
-Compose volume is not automatically adopted; preserve it and use the legacy
-upgrade runbook, or intentionally recreate only disposable data.
+Compose volume is not adopted; preserve it and use the data-only path in the
+legacy upgrade runbook, or intentionally recreate only disposable data.
 
 The default transport is stdio. Use the repository [`.mcp.json`](../.mcp.json) with clients that support that project configuration format. Codex uses `config.toml`; see the examples in the main [README](../README.md#codex-configuration).
 

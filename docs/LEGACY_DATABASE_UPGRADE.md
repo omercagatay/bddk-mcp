@@ -1,12 +1,14 @@
 # Legacy database upgrade
 
-This runbook covers one transition only: a database created by the final
-pre-ledger `bddk-mcp` initializers. Adoption verifies and records canonical
-v0001, then applies every pending migration through the current schema v10. It
-is not a general schema-repair command.
+This runbook covers upgrading an existing, already-ledgered database through
+ordinary migration. The `--adopt-legacy` path for databases created by the
+pre-ledger initializers was removed: no supported deployment still carries that
+shape. A database whose managed objects exist without
+`bddk_meta.schema_migrations` fails ordinary migration and rolls back; move its
+data with the blue-green data-only path below.
 
-An already-ledgered v5/v6/v7 database uses ordinary migration, not
-`--adopt-legacy`. V7 makes retained-row and v5/retained state hashing
+An already-ledgered v5/v6/v7 database uses ordinary migration. V7 makes
+retained-row and v5/retained state hashing
 session-independent with function-local `TimeZone=UTC`,
 `DateStyle=ISO, YMD`, `IntervalStyle=postgres`, `bytea_output=hex`, and
 `extra_float_digits=3`. It deliberately does not rewrite an existing release
@@ -32,168 +34,32 @@ BDDK_SCHEMA_OWNER_DATABASE_URL='postgresql://MIGRATOR:SECRET@HOST:5432/DATABASE?
   bddk-mcp migrate
 ```
 
-If managed v0001 objects exist but `bddk_meta.schema_migrations` does not, the
-ordinary command fails and rolls back. It never guesses that existing objects
-belong to this project. Do not create ledger rows manually.
+It never guesses that existing objects belong to this project. Do not create
+ledger rows manually.
 
 Both DBA SQL assets additionally require
 `PGOPTIONS='-c bddk.expected_database=DATABASE'`, and the application migration
 requires the independent exact `BDDK_EXPECTED_DATABASE_NAME` shown above.
 Outside isolated local development, every application DSN must retain exactly
-`sslmode=verify-full` and one absolute `sslrootcert` path. These target and
-transport guards remain mandatory during adoption; do not bypass them to make
-an old database pass.
+`sslmode=verify-full` and one absolute `sslrootcert` path. Do not bypass these
+target and transport guards to make an old database pass.
 
-## What `--adopt-legacy` proves
+The `bddk_meta.legacy_schema_adoptions` table created by migration v0003 stays
+in the schema as audit history; nothing writes to it any more.
 
-`bddk-mcp migrate --adopt-legacy` is an explicit, one-time operation. Before
-the first catalog mutation, under the same transaction and advisory lock as a
-normal migration, it verifies all of the following with catalog `SELECT`s. It
-then takes access-exclusive locks on the eight managed tables and repeats the
-verification before reading sequence state or changing metadata:
+## Blue-green data-only path
 
-- `unaccent` and `vector` are installed in `public`;
-- the migration role has database `CREATE`, has `USAGE` and `CREATE` on
-  `public`, owns every managed table, sequence, and function, and is not a
-  superuser, role/database creator, replication role, or RLS-bypass role;
-- all eight v0001 tables have the exact columns, order, PostgreSQL types,
-  nullability, defaults, generated/identity state, and inheritance state;
-- `document_chunks.embedding` is exactly `public.vector(768)`;
-- all primary/unique constraints have the expected definition and validation
-  state;
-- all indexes have the expected method, key order/direction, operator classes,
-  uniqueness, validity, predicate, tablespace, and options, including HNSW
-  `m=16` and `ef_construction=64`;
-- all four functions have the expected signature, language, volatility,
-  parallel-safety, owner, configuration, and normalized body;
-- all three full-text triggers have the expected timing, events, level,
-  function, enabled state, and no arguments/transition tables/`WHEN` clause;
-- all four sequences have the expected integer type, bounds, increment, cache,
-  cycle, owner, and ownership dependency;
-- managed tables/sequences have no object ACL drift, there are no unexpected
-  rewrite rules or logical-publication memberships; and
-- there is no pre-existing `bddk_meta` schema that could spoof migration
-  history or adoption evidence.
+Use this when an old database cannot be migrated in place. Do not patch the
+ledger, rename objects by trial and error, or weaken a verifier. Leave the
+source database unchanged and use a new database:
 
-Extra columns, constraints, indexes, overloads, triggers, changed function
-bodies, disabled triggers, invalid indexes, different vector dimensions,
-misplaced extensions, nonstandard sequences, row-level security, and
-ownership differences all cause refusal. The diagnostic names only catalog
-categories; it does not include DSNs, SQL errors, document text, embeddings,
-or other corpus values.
-
-## The only accepted normalizations
-
-The supported legacy initializer differs from v0001 in eleven known metadata
-details:
-
-- four `SERIAL`/`BIGSERIAL` columns become `GENERATED BY DEFAULT AS IDENTITY`;
-- three automatically named unique constraints receive their v0001 names; and
-- four functions receive schema-qualified calls and a fixed
-  `search_path=pg_catalog, public`; `immutable_unaccent` also receives the
-  canonical parallel-safety declaration (both historical initializer orders
-  are recognized).
-
-These changes run transactionally after the read-only verifier succeeds. For
-each serial column, the runner reads the old sequence state and maximum ID,
-recreates the standard identity sequence, and advances it beyond both values.
-It does not update, delete, truncate, or overwrite any table row. A second,
-strict catalog verification must match canonical v0001 before the runner can
-record v0001 or apply every pending migration through v0008. Any error rolls back the normalizations,
-ledger, audit evidence, and all pending migrations together.
-
-## Change procedure
-
-1. Stop every writer, including ingestion, bootstrap, synchronization,
-   telemetry, and operator processes. Keep public readers stopped as well to
-   make the change window unambiguous.
-2. Take a bank-approved encrypted database backup or storage snapshot. Prove
-   that the backup is readable in an isolated restore environment. Record the
-   backup identifier and change ticket outside this repository.
-3. Apply the current database role baseline with
-   `PGOPTIONS='-c bddk.expected_database=DATABASE'`. The migration connection
-   must authenticate as a distinct restricted LOGIN and run as the effective
-   `bddk_schema_owner`; the recommended DSN uses
-   `options=-c%20role%3Dbddk_schema_owner`. If legacy objects have another
-   owner, have the DBA reassign only the listed application objects after
-   review. The adopter deliberately does not seize ownership.
-4. Confirm that no one has manually created `bddk_meta`, and that both required
-   extensions are in `public`.
-5. Run the explicit operation once:
-
-   ```bash
-   BDDK_EXPECTED_DATABASE_NAME='DATABASE' \
-   BDDK_SCHEMA_OWNER_DATABASE_URL='postgresql://MIGRATOR:SECRET@HOST:5432/DATABASE?options=-c%20role%3Dbddk_schema_owner&sslmode=verify-full&sslrootcert=%2FAPPROVED%2Fpostgres-ca.crt' \
-     bddk-mcp migrate --adopt-legacy --allow-retrieval-publication-backfill
-   ```
-
-   The second flag is required because the legacy corpus is populated and
-   v0003 performs a blocking section-hash/FK backfill before installing
-   fail-closed retrieval publication. Use it only after the stopped-workload,
-   restorable-backup and size-matched rehearsal gates above; it is not a clean
-   install flag.
-
-6. Reapply [`deploy/postgres/02_grants.sql`](../deploy/postgres/02_grants.sql)
-   as the approved DBA identity with
-   `PGOPTIONS='-c bddk.expected_database=DATABASE'`. The adoption evidence
-   stays schema-owner-only; runtime roles do not need access to it.
-7. Inspect the bounded audit record as schema owner:
-
-   ```sql
-   SELECT migration_version,
-          source_kind,
-          verifier_version,
-          target_checksum,
-          pre_normalization_fingerprint,
-          post_normalization_fingerprint,
-          normalizations,
-          adopted_by,
-          adopted_session_user,
-          adopted_at
-   FROM bddk_meta.legacy_schema_adoptions;
-   ```
-
-   The fingerprints cover catalog structure only. They contain no row counts,
-   document IDs, text, PDF bytes, embeddings, query arguments, or trace data.
-8. With the ingestion identity, run the controlled bootstrap/reindex using the
-   approved seed directory, `--reindex-existing`, all three
-   `--require-quantified-freshness`, `--require-measured-freshness`, and
-   `--require-verified-signature` gates, and a `--trusted-signing-key` mounted
-   separately from and outside the corpus root. Do not treat a prior
-   `verify-corpus` run as a trust handoff. Retain bootstrap's path-free manifest
-   ID/SHA output. Then run `verify-and-stage-corpus-release` with the distinct
-   release-verifier identity, pinned verifier revision/image provenance and a
-   short TTL. Pass only the resulting request ID to
-   `activate-corpus-release` under the separate release-publisher identity;
-   that publisher must receive no corpus mount, signature or trust key.
-   Migration v0003 leaves existing chunks unpublished by design; retrieval
-   must remain fail closed until every approved document is rebuilt and
-   published under the active retrieval profile.
-9. Run schema/catalog readiness, corpus-integrity, retrieval, citation, and
-   client smoke tests before restarting traffic. Compare pre/post table counts
-   and application-level content hashes from the approved change evidence. Do
-   not use the catalog fingerprint as a corpus-integrity checksum.
-10. Retain the backup until the bank change window and validation period close.
-   Rollback is restore-and-cutover, not deletion of migration rows.
-
-Running `--adopt-legacy` again after successful adoption is harmless: the
-validated ledger takes the normal idempotent migration path, and no second
-audit row is created. Do not retain the separate retrieval-backfill approval
-flag in routine migration commands.
-
-## If adoption refuses: blue-green data-only path
-
-Refusal means the database is not proven equivalent. Do not patch the ledger,
-rename objects by trial and error, or weaken the verifier. Leave the source
-database unchanged and use a new database:
-
-1. Keep the legacy database read-only and preserve the verified backup.
+1. Keep the old database read-only and preserve the verified backup.
 2. Create a new dedicated database; install `vector` and `unaccent` in
    `public`; apply `01_roles.sql` with the independent target guard; and run
    ordinary `bddk-mcp migrate` with the schema-owner identity, exact
    `BDDK_EXPECTED_DATABASE_NAME`, and `verify-full` database transport.
-3. Produce a bank-approved encrypted **data-only** export of the legacy
-   application tables. Do not restore legacy schemas, functions, triggers,
+3. Produce a bank-approved encrypted **data-only** export of the old
+   application tables. Do not restore old schemas, functions, triggers,
    indexes, privileges, owners, or extension objects into the new database.
 4. Load into a staging database first, using explicit column lists and reviewed
    mappings for `decision_cache`, `documents`, `document_sections`,

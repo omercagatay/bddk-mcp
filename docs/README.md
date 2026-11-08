@@ -27,7 +27,7 @@ This index is the canonical map of BDDK MCP documentation. Documents are grouped
 - [Document catalog](DOCUMENTS.md) — generated corpus reference.
 - [Testing and evaluation](TESTING_AND_EVALUATION_STRATEGY.md) — test lanes, benchmarks, and evidence limits.
 - [Recovery drills](RECOVERY_DRILLS.md) — backup/restore procedure and evidence expectations.
-- [Legacy database upgrade](LEGACY_DATABASE_UPGRADE.md) — controlled adoption of supported pre-ledger databases.
+- [Legacy database upgrade](LEGACY_DATABASE_UPGRADE.md) — upgrading ledgered databases and the blue-green data-only path.
 - [Licensing and provenance](LICENSING_AND_PROVENANCE.md) — source, model, and artifact provenance.
 - [Supply-chain evidence](../supply-chain/README.md) — artifact, scanner, and policy workflow.
 

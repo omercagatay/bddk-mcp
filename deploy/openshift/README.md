@@ -191,12 +191,10 @@ still be provisioned, and the lifecycle Job must run successfully in an
 isolated bank-like namespace before production use.
 
 The supplied migration Job runs ordinary `bddk-mcp migrate`; this is the only
-correct mode for a clean database. If a pre-ledger database must be preserved,
-do not add `--adopt-legacy` casually or edit the migration ledger. Stop every
-workload, prove a restorable bank backup, follow
-[`docs/LEGACY_DATABASE_UPGRADE.md`](../../docs/LEGACY_DATABASE_UPGRADE.md), and
-run a separately reviewed one-time Job with the explicit flag. Refusal requires
-the documented blue-green data-only path.
+correct mode. If a pre-ledger database must be preserved, do not edit the
+migration ledger; prove a restorable bank backup and follow the blue-green
+data-only path in
+[`docs/LEGACY_DATABASE_UPGRADE.md`](../../docs/LEGACY_DATABASE_UPGRADE.md).
 
 A populated v0002 database also requires a separately reviewed one-time Job:
 the checked-in clean-install Job deliberately omits

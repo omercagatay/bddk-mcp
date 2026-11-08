@@ -155,12 +155,9 @@ SQL error. Apply each file as one transaction, for example with
    that adds a relation must add an explicit grant here in the same release.
 
 The ordinary migration is the clean-install/default path and refuses managed
-objects without a valid global ledger. `bddk-mcp migrate --adopt-legacy` is a
-one-time, fail-closed path for only the exact final pre-ledger schema; it is not
-a repair mode. Before using it, stop all readers/writers, prove a restorable
-encrypted backup, and follow
-[`docs/LEGACY_DATABASE_UPGRADE.md`](../../docs/LEGACY_DATABASE_UPGRADE.md). If
-the structural verifier refuses, use the documented blue-green data-only path;
+objects without a valid global ledger. For such a database, prove a restorable
+encrypted backup and use the blue-green data-only path in
+[`docs/LEGACY_DATABASE_UPGRADE.md`](../../docs/LEGACY_DATABASE_UPGRADE.md);
 never insert migration rows manually or restore legacy DDL over a clean schema.
 
 A populated v0002 database is a separate controlled-upgrade case. Migration

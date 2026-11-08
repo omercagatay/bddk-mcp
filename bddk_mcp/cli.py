@@ -84,11 +84,6 @@ def build_parser() -> argparse.ArgumentParser:
     migrate = subparsers.add_parser("migrate", help="Create or upgrade the PostgreSQL schema explicitly")
     migrate.add_argument("--db", help="PostgreSQL DSN; defaults to BDDK_SCHEMA_OWNER_DATABASE_URL")
     migrate.add_argument(
-        "--adopt-legacy",
-        action="store_true",
-        help="Explicitly verify and adopt the exact supported pre-ledger schema; never use for a clean database",
-    )
-    migrate.add_argument(
         "--allow-retrieval-publication-backfill",
         action="store_true",
         help=(
@@ -318,14 +313,12 @@ def _run_admin_ui(args: argparse.Namespace) -> None:
 async def _migrate(
     dsn: str | None,
     *,
-    adopt_legacy: bool = False,
     allow_retrieval_publication_backfill: bool = False,
 ) -> None:
     from bddk_mcp.db_lifecycle import migrate_database
 
     await migrate_database(
         dsn=dsn,
-        adopt_legacy=adopt_legacy,
         allow_retrieval_publication_backfill=allow_retrieval_publication_backfill,
     )
 
@@ -876,7 +869,6 @@ def main(argv: Sequence[str] | None = None) -> None:
             asyncio.run(
                 _migrate(
                     args.db,
-                    adopt_legacy=args.adopt_legacy,
                     allow_retrieval_publication_backfill=args.allow_retrieval_publication_backfill,
                 )
             )

@@ -2046,3 +2046,24 @@ async def test_v10_removes_the_measured_only_staging_signature(pg_pool) -> None:
         assert "requested_freshness_policy_result text" in identities.pop()
     finally:
         await pg_pool.release(connection)
+
+
+@pytest.mark.postgres
+@pytest.mark.asyncio
+async def test_migrate_refuses_an_unmanaged_schema_without_a_ledger(pg_pool) -> None:
+    """A populated schema with no migration ledger fails closed and changes nothing."""
+
+    connection = await pg_pool.acquire()
+    transaction = connection.transaction()
+    await transaction.start()
+    try:
+        await connection.execute("DROP SCHEMA bddk_meta CASCADE")
+
+        with pytest.raises(MigrationError, match="rolled back"):
+            await migrate(_PinnedPool(connection))  # type: ignore[arg-type]
+
+        assert await connection.fetchval("SELECT pg_catalog.to_regclass('bddk_meta.schema_migrations')") is None
+        assert await connection.fetchval("SELECT pg_catalog.to_regclass('public.documents')") is not None
+    finally:
+        await transaction.rollback()
+        await pg_pool.release(connection)

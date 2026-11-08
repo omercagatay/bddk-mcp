@@ -53,7 +53,7 @@ from bddk_mcp.db_lifecycle import (
     migrate_database,
 )
 from bddk_mcp.ingest.client import BddkApiClient
-from bddk_mcp.migrations import MIGRATIONS, LegacyAdoptionError, MigrationScaleError
+from bddk_mcp.migrations import MIGRATIONS, MigrationScaleError
 from bddk_mcp.migrations.v0011_graph_corpus_state import V0011_GRAPH_CORPUS_STATE
 
 
@@ -644,22 +644,6 @@ async def test_migrate_orchestrates_every_schema_then_validates_schema_only():
 
 
 @pytest.mark.asyncio
-async def test_migrate_forwards_explicit_legacy_adoption_only_when_requested():
-    pool = MagicMock()
-    ready = DatabaseReadiness()
-
-    with (
-        patch("bddk_mcp.db_lifecycle.assert_schema_owner_identity", new=AsyncMock()),
-        patch("bddk_mcp.db_lifecycle.apply_migrations", new=AsyncMock()) as migrate,
-        patch("bddk_mcp.db_lifecycle.assert_database_ready", new=AsyncMock(return_value=ready)),
-    ):
-        result = await migrate_database(pool=pool, adopt_legacy=True, expected_database="bddk_test")
-
-    assert result is ready
-    migrate.assert_awaited_once_with(pool, adopt_legacy=True)
-
-
-@pytest.mark.asyncio
 async def test_migrate_forwards_retrieval_backfill_approval_only_when_explicit():
     pool = MagicMock()
     ready = DatabaseReadiness()
@@ -677,23 +661,6 @@ async def test_migrate_forwards_retrieval_backfill_approval_only_when_explicit()
 
     assert result is ready
     migrate.assert_awaited_once_with(pool, allow_retrieval_publication_backfill=True)
-
-
-@pytest.mark.asyncio
-async def test_migrate_preserves_bounded_actionable_adoption_refusal():
-    pool = MagicMock()
-    refusal = LegacyAdoptionError(
-        "Legacy adoption refused. No corpus rows were changed. Follow the blue-green runbook."
-    )
-
-    with (
-        patch("bddk_mcp.db_lifecycle.assert_schema_owner_identity", new=AsyncMock()),
-        patch("bddk_mcp.db_lifecycle.apply_migrations", new=AsyncMock(side_effect=refusal)),
-    ):
-        with pytest.raises(DatabaseLifecycleError, match="No corpus rows were changed") as exc_info:
-            await migrate_database(pool=pool, adopt_legacy=True, expected_database="bddk_test")
-
-    assert exc_info.value.__cause__ is None
 
 
 @pytest.mark.asyncio
