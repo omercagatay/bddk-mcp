@@ -40,6 +40,7 @@ ALLOWED_TOP_LEVEL = {
     ".github",
     ".gitlab-ci.yml",
     ".gitignore",
+    ".graphifyignore",
     ".mcp.json",
     "AGENTS.md",
     "CHANGELOG.md",

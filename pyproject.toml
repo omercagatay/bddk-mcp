@@ -46,6 +46,11 @@ dev = [
 benchmark = [
     "anthropic>=0.40",
 ]
+# Optional developer tool: local code knowledge graph (graphify-out/, git-ignored).
+# Kept out of the dev group so CI, supply-chain checks and the serving image stay unchanged.
+graph = [
+    "graphifyy>=0.9.104,<0.10",
+]
 gpu = [
     "torch>=2.13.0",
     "torchvision>=0.15",
