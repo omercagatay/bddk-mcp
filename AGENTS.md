@@ -60,9 +60,20 @@ uv run graphify explain "ActiveCorpusGuard"  # A node and its neighbours
 uv run graphify affected "<symbol>"          # What depends on a symbol
 ```
 
+Obsidian vault and agent access (both local, opt-in):
+
+```bash
+uv run --group graph python scripts/graphify_sync.py                  # Refresh graph + Obsidian vault in graphify-out/obsidian
+uv run --group graph python scripts/graphify_sync.py --install-hooks  # Auto-refresh after commit/merge/checkout (local .git/hooks only)
+uv run --group graph python scripts/graphify_sync.py --uninstall-hooks
+uv run --group graph python -m graphify.serve graphify-out/graph.json  # Read-only stdio MCP server for an agent (e.g. Hermes)
+```
+
 - Use only the local `graphify update` path. Do not run `graphify extract`, `label`, `add`, `clone`, or the assistant `/graphify` skill's semantic step on this repository without explicit approval: they send content to an LLM backend or fetch external URLs.
 - `.graphifyignore` keeps `seed_data/`, `data/`, benchmark/quality output and environment files out of the graph. Never widen its scope to corpus artifacts, bank documents or secrets.
-- `graphify-out/` is git-ignored local output. Never commit it, and do not install graphify's git hooks or edit agent config with `graphify install` without approval.
+- `graphify-out/` (including the `obsidian/` vault) is git-ignored local output. Never commit it or point the export at `docs/` or another tracked directory.
+- The only approved automation is `scripts/graphify_sync.py`: it strips LLM provider keys from the child environment and its hooks add a marked block without overwriting existing hooks. Do not run `graphify hook install`, `graphify install`, or `graphify <platform> install` (including `hermes install`): they rewrite `AGENTS.md` and install skills that run the LLM extraction step.
+- Agents connect through the read-only `graphify.serve` MCP server, configured on the owner's machine, not in this repository. Its answers (code symbols, comments, doc headings) go to whatever model that agent uses, so connect an agent only with the owner's explicit decision about that model. Its `list_prs`/`triage_prs`/`get_pr_impact` tools query GitHub and are not needed for code navigation.
 - The graph is a navigation lead, not authority. It goes stale as code changes; confirm every conclusion against the source, callers and tests, and refresh it with `graphify update .` after large changes.
 
 Corpus release lifecycle (operator workflow, explicit approval required): `bddk-mcp verify-corpus`, `verify-and-stage-corpus-release`, `activate-corpus-release`, `retain-corpus-generation` — see [Corpus Governance](docs/CORPUS_GOVERNANCE.md).
