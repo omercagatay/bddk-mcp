@@ -37,6 +37,5 @@ If the issue belongs to an upstream dependency, deployment platform, or private 
 
 ## Public hardening information
 
-- [Security review](docs/SECURITY_REVIEW.md) — a dated repository assessment, with explicit residual risks.
-- [Deployment guide](docs/DEPLOYMENT.md) — supported process profiles and fail-closed remote configuration.
-- [Corpus governance](docs/CORPUS_GOVERNANCE.md) — corpus identity, signing, freshness, and publication controls.
+- [Deployment guide](docs/DEPLOYMENT.md) — supported transports, fail-closed remote HTTP configuration, database TLS contract, and outbound HTTP controls.
+- [Current status](docs/STATUS.md) — what the repository does and does not establish.

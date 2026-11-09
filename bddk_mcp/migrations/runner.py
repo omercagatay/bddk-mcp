@@ -360,7 +360,7 @@ async def migrate(
                 "Migration 7 refused the active corpus because its pre-v7 state fingerprint is not canonical. "
                 "While the database remains on its pre-v7 schema (v5 or v6), independently review and revalidate "
                 "the unchanged corpus, publish and activate a new release under the canonical session settings "
-                "documented in docs/LEGACY_DATABASE_UPGRADE.md, then retry. Do not update or backfill the prior "
+                "then retry. Do not update or backfill the prior "
                 "release row."
             ) from None
         raise MigrationError(

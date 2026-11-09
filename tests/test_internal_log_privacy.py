@@ -12,7 +12,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from bddk_mcp.ingest.backfill import BackfillCandidate, execute_backfill
 from bddk_mcp.ingest.client import BddkApiClient
 from bddk_mcp.ingest.doc_sync import DocumentSyncer, ExtractionResult
 from bddk_mcp.ocr.base import LightOCRBackend, _run_markitdown, _run_pdftotext, run_extraction_chain
@@ -180,36 +179,6 @@ def test_chandra_input_exception_and_temp_path_are_not_logged(caplog, monkeypatc
 
     _assert_private_values_absent(caplog)
     assert _error_records(caplog)[-1].error_type == "OSError"
-
-
-@pytest.mark.asyncio
-async def test_backfill_logs_omit_document_metadata_and_failure_details(caplog):
-    candidate = BackfillCandidate(
-        document_id=PRIVATE_TERM,
-        title=f"Audit title {PRIVATE_TERM}",
-        source_url=PRIVATE_URL,
-        category="Internal audit",
-        decision_date="",
-        decision_number="",
-        len=1,
-        signature="test",
-    )
-    failure = MagicMock(
-        success=False,
-        method="",
-        size_bytes=0,
-        error=f"{PRIVATE_DSN} {PRIVATE_PATH}",
-    )
-    syncer = MagicMock(sync_document=AsyncMock(return_value=failure))
-
-    with caplog.at_level(logging.INFO, logger="bddk_mcp.ingest.backfill"):
-        report = await execute_backfill(syncer, [candidate], inter_request_delay=0)
-
-    assert PRIVATE_TERM in report.failed[0][0]
-    assert PRIVATE_DSN in report.failed[0][1]
-    _assert_private_values_absent(caplog)
-    assert _error_records(caplog)[-1].error_type == "SyncResultFailure"
-    assert "item 1/1" in caplog.text.lower()
 
 
 @pytest.mark.asyncio

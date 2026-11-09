@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -14,7 +13,6 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from reindex_document_sections import (  # noqa: E402
     DocumentSectionReindexCandidate,
     _resolve_ingestion_database_url,
-    execute_reindex,
     reindex_document_rows,
     render_summary,
 )
@@ -92,28 +90,3 @@ def test_reindex_database_override_must_match_ingestion_identity(monkeypatch: py
         _resolve_ingestion_database_url("postgresql://public.invalid/bddk")
 
     assert _resolve_ingestion_database_url(None) == "postgresql://ingestion.invalid/bddk"
-
-
-@pytest.mark.asyncio
-async def test_reindex_verifies_actual_ingestion_login_before_loading_documents(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    pool = MagicMock()
-    pool.close = AsyncMock()
-    identity = AsyncMock(side_effect=RuntimeError("identity rejected"))
-    monkeypatch.setattr(
-        "reindex_document_sections.require_database_url",
-        lambda profile: "postgresql://ingestion.invalid/bddk" if profile == "ingestion" else None,
-    )
-
-    with (
-        patch("reindex_document_sections.asyncpg.create_pool", new=AsyncMock(return_value=pool)),
-        patch("reindex_document_sections.assert_database_ready", new=AsyncMock()),
-        patch("reindex_document_sections.assert_database_identity", new=identity),
-        pytest.raises(RuntimeError, match="identity rejected"),
-    ):
-        await execute_reindex(dry_run=True)
-
-    identity.assert_awaited_once_with(pool, "ingestion")
-    pool.fetch.assert_not_called()
-    pool.close.assert_awaited_once_with()

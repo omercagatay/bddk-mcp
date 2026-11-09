@@ -29,6 +29,62 @@ Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızd
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Kaldırıldı — yayın töreni, kimlik katmanı, iş kuyruğu, admin konsolu, telemetri (2026-11-09)
+
+- 319 belgelik korpus için gereksiz olan katmanlar kaldırıldı; hepsi Git
+  geçmişinde duruyor (son hâlleri `9ed84a0` commit'inde,
+  `archive/pre-simplify-2026-11-09` etiketi):
+  - İmzalı korpus yayın töreni: manifest doğrulama, Ed25519 imza, aşamalı
+    doğrulama/aktivasyon, nesil saklama, katalog bütünlük denetimi ve aktif
+    yayın muhafızı (`corpus_manifest.py`, `corpus_publication.py`,
+    `corpus_generations.py`, `corpus_serving.py`, `catalog_integrity.py`,
+    `release_yaml.py`, `resources.py`, `scripts/sign_corpus_manifest.py`,
+    `deploy/trust/`). `bootstrap`, `verify-corpus`,
+    `verify-and-stage-corpus-release`, `activate-corpus-release`,
+    `retain-corpus-generation`, `publish-corpus-release` ve `admit-next-upload`
+    komutları gitti; kurulum artık `bddk-mcp migrate` + `bddk-seed import`.
+    `bddk-seed import` imza ve manifest okumaz; parçaları ve gömmeleri belge
+    metninden yeniden üretir; türetilmiş `seed_data/chunks.json` (19 MB) ve
+    `corpus_scope.sig` silindi, `scripts/regen_chunks_seed.py`, tek seferlik
+    `repair_943_page_furniture.py` / `repair_rg_box_interleave.py` scriptleri
+    ve F1 değerlendirme testi (`tests/test_f1_score.py`) kaldırıldı.
+    Uygulanmış v0005–v0011 migration'ları değişmedi; oluşturdukları yönetişim
+    tabloları şemada kullanılmadan kalıyor.
+  - Çoklu PostgreSQL kimliği sözleşmesi (`db_identity.py`, `deploy/postgres/`
+    rol/grant SQL'i, CI'daki rol matrisi). Tek `BDDK_DATABASE_URL` yeter;
+    `BDDK_SCHEMA_OWNER_DATABASE_URL` ve `BDDK_INGESTION_DATABASE_URL` ayrı
+    login kullanan kurulumlar için isteğe bağlı kaldı ve ona düşer.
+  - Operatör profili ve 14 operatör aracı ile Postgres destekli iş yöneticisi
+    (`bddk_mcp/jobs/`, `tools/sync.py`, `tools/admin.py`, `ingest/backfill.py`).
+    Belge indirme artık senkron `bddk-mcp sync` komutu.
+  - Admin konsolu (`bddk_mcp/admin/`, `bddk-mcp admin-ui`, Railway admin
+    servisi) ve `jinja2` bağımlılığı.
+  - Telemetri ve sayaçlar (`observability/telemetry.py`, `metrics.py`,
+    `BDDK_TELEMETRY_*`).
+  - Benchmark/uzman değerlendirme paketi (`benchmark/`, `data/`, `anthropic`
+    bağımlılık grubu) ve ilgili testler.
+  - `docs/evidence/` altındaki onarım makbuzları, kurtarma kayıtları ve
+    tek kullanımlık onarım scriptleri (`rebuild_mevzuat_from_pdf.py`,
+    `add_kgk_tms_12.py`); testlerin kullandığı iki dosya `tests/fixtures/`
+    altına taşındı. Tarihli planlama belgeleri (ROADMAP, GAP_REGISTER,
+    SECURITY_REVIEW, ARCHITECTURE, TESTING_AND_EVALUATION_STRATEGY,
+    CORPUS_GOVERNANCE, LEGACY_DATABASE_UPGRADE, ADMIN_UPLOAD_ADMISSION*)
+    kaldırıldı.
+  - Hukuki durum katmanı: `resolve_regulation_status`, `get_amendment_chain`
+    ve `get_cross_references` araçları, `bddk_mcp/regulatory/`, `citations.py`
+    (Citation v1), `get_document_section`'ın `as_of` parametresi ve
+    `search_document_sections`'ın `expand_references` parametresi. Bu
+    tabloları dolduran hiçbir üretim yolu yoktu; `seed_data/` ile kurulan
+    veritabanında araçlar her soruya "doğrulanmış veri yok" dönüyordu.
+    `quotation` (alıntıyı kayıtlı metinde harfi harfine doğrulama) kaldı.
+    `regulatory_*` tabloları ve `regulatory_validated_*` görünümleri şemada
+    (v0004, v0006, v0009) kullanılmadan duruyor; `document_sections` sorguları
+    artık atıf görünümüne katılmıyor.
+- Yerel Compose topolojisi `db` + `bddk-init` + `bddk` servislerine indi;
+  Railway ön-dağıtım komutu `migrate && bddk-seed import --reindex-existing`.
+- Değişmeyen: 14 genel araç, HTTP/JWT taşıma sözleşmesi, migration kayıt
+  defteri, korpus artefaktları.
+
 ### Kaldırıldı — banka üretim hazırlığı katmanı (2026-11-08)
 
 - Yakın vadede banka kurulumu planlanmadığı için şu parçalar kaldırıldı; hepsi
@@ -559,17 +615,17 @@ aynı principal'ın erişemediğini, gerçek Secret/RBAC/rotation/audit ayrımı
   logical fingerprint; workflow sonucu `passed`.
 
 Güncel kalıcı recovery kanıtı:
-[`docs/evidence/LOCAL_PG17_V8_RECOVERY_DRILL.md`](docs/evidence/LOCAL_PG17_V8_RECOVERY_DRILL.md)
+`docs/evidence/LOCAL_PG17_V8_RECOVERY_DRILL.md` (arşiv: `archive/pre-simplify-2026-11-09`)
 ve
-[`docs/evidence/local-pg17-v8-restore-2026-07-16.json`](docs/evidence/local-pg17-v8-restore-2026-07-16.json).
+`docs/evidence/local-pg17-v8-restore-2026-07-16.json` (arşiv: `archive/pre-simplify-2026-11-09`).
 
 Önceki şema-v7 kontrol noktası ayrıca korunur: PostgreSQL gerektirmeyen hatta
 1.411 başarılı/34 atlandı, PostgreSQL 17 hattında 177 başarılı/4 atlandı ve
 iki-cluster kurtarma tatbikatında 51 managed object ile altı LOGIN profili
 doğrulandı. Tarihsel kanıt:
-[`docs/evidence/LOCAL_PG17_V7_RECOVERY_DRILL.md`](docs/evidence/LOCAL_PG17_V7_RECOVERY_DRILL.md)
+`docs/evidence/LOCAL_PG17_V7_RECOVERY_DRILL.md` (arşiv: `archive/pre-simplify-2026-11-09`)
 ve
-[`docs/evidence/local-pg17-v7-restore-2026-07-16.json`](docs/evidence/local-pg17-v7-restore-2026-07-16.json).
+`docs/evidence/local-pg17-v7-restore-2026-07-16.json` (arşiv: `archive/pre-simplify-2026-11-09`).
 
 Bu yerel sonuçlar banka üretim ortamı, gerçek corpus hukuki onayı, PITR,
 hedef-hacim RPO/RTO veya OpenShift kabulü yerine geçmez.

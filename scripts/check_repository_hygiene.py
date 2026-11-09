@@ -53,8 +53,6 @@ ALLOWED_TOP_LEVEL = {
     "README.md",
     "SECURITY.md",
     "bddk_mcp",
-    "benchmark",
-    "data",
     "deploy",
     "docker-compose.yml",
     "docs",

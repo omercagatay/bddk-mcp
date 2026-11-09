@@ -16,9 +16,8 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.types import LATEST_PROTOCOL_VERSION
 
 from bddk_mcp import __version__
-from bddk_mcp.corpus_manifest import CORPUS_SCOPE_WARNING
 from bddk_mcp.tools.registry import PUBLIC_TOOL_NAMES
-from bddk_mcp.tools.structured_outputs import SOURCE_DATA_BEGIN, SOURCE_DATA_END
+from bddk_mcp.tools.structured_outputs import CORPUS_SCOPE_WARNING, SOURCE_DATA_BEGIN, SOURCE_DATA_END
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 E2E_SUPPORT = Path(__file__).resolve().parent / "e2e_support"

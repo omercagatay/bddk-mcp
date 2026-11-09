@@ -1,19 +1,17 @@
 # Repository Structure
 
-BDDK MCP separates application code, governed data, operational tooling, deployment assets, tests, and evidence. This map describes the current `main` layout and the placement rules for new work.
+BDDK MCP separates application code, corpus data, maintainer scripts, deployment assets, tests, and documentation. This map describes the current `main` layout and the placement rules for new work.
 
 ## Top-level map
 
 | Path | Purpose |
 |---|---|
 | `bddk_mcp/` | Installable Python package and all supported runtime behavior. |
-| `tests/` | Unit, protocol, PostgreSQL, packaging, deployment, and policy contracts. |
-| `benchmark/` | Evaluation datasets, graders, trust policy, reports, and benchmark runners. |
-| `scripts/` | Maintainer utilities and repository/deployment validation entry points. |
-| `seed_data/` | Governed offline corpus exports, manifest, and signature. |
-| `data/` | Static benchmark and evaluation data that is not runtime corpus state. |
-| `deploy/` | PostgreSQL, Railway, Open WebUI, and trust assets. |
-| `docs/` | Durable documentation, architecture decisions, and retained evidence. |
+| `tests/` | Unit, protocol, PostgreSQL, packaging, and policy contracts; fixtures under `tests/fixtures/`. |
+| `scripts/` | Maintainer utilities (document repair, quality scans, section reindex) and the repository hygiene check. |
+| `seed_data/` | Offline corpus exports: `documents.json`, `decision_cache.json` (read by `bddk-seed import`); `corpus_scope.yml` is a retained scope declaration the runtime no longer reads. |
+| `deploy/` | Open WebUI integration assets. |
+| `docs/` | Durable documentation and the retained legal-version fixture bundle. |
 | `.github/` | CI, dependency automation, ownership, issue forms, and PR policy. |
 
 ## Root files
@@ -26,8 +24,8 @@ The root is reserved for project entry points and tools that conventionally live
 | `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md`, `LICENSE` | Repository governance and release history. |
 | `pyproject.toml`, `uv.lock`, `MANIFEST.in` | Python metadata, dependency lock, and distribution policy. |
 | `server.py`, `seed.py` | Compatibility shims; implementation belongs under `bddk_mcp/`. |
-| `Dockerfile`, `docker-compose.yml` | Container builds and the disposable local lifecycle. |
-| `railway.toml` | Railway development/preview deployment manifest (not the bank path). |
+| `Dockerfile`, `docker-compose.yml` | Container build and the disposable local lifecycle. |
+| `railway.toml` | Railway development/preview deployment manifest (not a bank path). |
 | `.env.example`, `.mcp.json` | Sanitized local configuration examples. |
 
 Do not place implementation modules, generated reports, scratch files, one-off plans, or environment-specific secrets in the repository root.
@@ -39,16 +37,13 @@ Do not place implementation modules, generated reports, scratch files, one-off p
 | `bddk_mcp/core/` | Settings, shared models, dependency wiring, logging, and outbound HTTP controls. |
 | `bddk_mcp/tools/` | Thin MCP handlers, schemas, registry, errors, and structured output adapters. |
 | `bddk_mcp/store/` | Document, section, vector, reference, and bulk-write storage. |
-| `bddk_mcp/ingest/` | Source discovery, extraction, synchronization, seed import/export, and backfill. |
+| `bddk_mcp/ingest/` | Source discovery, extraction, synchronization, and seed import/export. |
 | `bddk_mcp/ocr/` | OCR interfaces and optional GPU implementation. |
-| `bddk_mcp/admin/` | Admin console (`bddk-mcp admin-ui`): read-only PostgreSQL, isolated SQLite editorial drafts, CSRF-protected editing and optional Ed25519 document signing; remote binds require operator JWT authentication. |
 | `bddk_mcp/regulatory/` | Canonical legal versions, relations, graph queries, and curation repositories. |
-| `bddk_mcp/jobs/` | Durable operator job models, repository, and runner. |
 | `bddk_mcp/migrations/` | Append-only schema ledger and migration implementations. |
-| `bddk_mcp/observability/` | Privacy-safe analytics, metrics, and telemetry. |
-| `bddk_mcp/operations/` | Recovery and other explicit operational workflows. |
+| `bddk_mcp/observability/` | Bulletin trend/comparison analytics. |
 | `bddk_mcp/quality/` | Document quality rules and their packaged configuration. |
-| Package-root modules | Cross-cutting runtime, corpus, database, citation, and transport boundaries. |
+| Package-root modules | `server.py`, `cli.py`, `mcp_server.py`, `db_lifecycle.py`, `db_transport.py`, `db_compatibility.py`, `http_security.py`, `transport_tls.py`, `citations.py`, `quotations.py`, `corpus_coordination.py`. |
 
 New code should go into the narrowest existing subsystem. Create another package only when it establishes a durable responsibility boundary, not merely to reduce file count.
 
@@ -56,15 +51,14 @@ New code should go into the narrowest existing subsystem. Create another package
 
 - Tests normally mirror the source area as `tests/test_<module>.py`. Shared fixtures belong in `tests/conftest.py` or `tests/fixtures/`.
 - PostgreSQL and GPU requirements must use the registered `postgres` and `gpu` markers.
-- `seed_data/*.json`, `docs/evidence/*.json`, and `uv.lock` are marked generated for GitHub presentation. They remain reviewable and must be regenerated intentionally.
+- `seed_data/*.json` and `uv.lock` are marked generated for GitHub presentation. They remain reviewable and must be regenerated intentionally.
 - Binary fixtures are explicitly marked binary in `.gitattributes`.
-- Local caches, environments, benchmark results, quality reports, and scratch analysis are ignored by `.gitignore`.
+- Local caches, environments, quality reports, and scratch analysis are ignored by `.gitignore`.
 
 ## Documentation placement
 
-- Current user, operator, architecture, and governance guidance belongs in `docs/` and must be linked from [the documentation index](README.md).
-- Reproducible evidence belongs in `docs/evidence/` and must state its environment and limitations.
-- Component-specific instructions stay beside the component, such as `benchmark/README.md` or `deploy/postgres/README.md`.
+- Current user, operator, and governance guidance belongs in `docs/` and must be linked from [the documentation index](README.md).
+- Component-specific instructions stay beside the component, such as `deploy/open-webui/README.md`.
 - Historical reviews must name their review date and commit and must not present snapshot findings as current guarantees.
 
 ## Branch lifecycle

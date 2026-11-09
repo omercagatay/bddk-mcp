@@ -16,7 +16,6 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from bddk_mcp.core.config import require_database_url  # noqa: E402
-from bddk_mcp.db_identity import assert_database_identity  # noqa: E402
 from bddk_mcp.db_lifecycle import assert_database_ready  # noqa: E402
 from bddk_mcp.db_transport import assert_database_transport  # noqa: E402
 from bddk_mcp.ingest.doc_sync import DocumentSyncer  # noqa: E402
@@ -98,7 +97,6 @@ async def execute_quality_backfill(candidates: list[QualityFailureCandidate], *,
     http = httpx.AsyncClient()
     try:
         await assert_database_ready(pool=pool, require_corpus=False)
-        await assert_database_identity(pool, "ingestion")
         store = DocumentStore(pool)
         async with DocumentSyncer(store, http=http) as syncer:
             for index, candidate in enumerate(candidates, 1):

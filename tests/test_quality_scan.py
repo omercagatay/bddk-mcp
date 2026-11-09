@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-import time
-from unittest.mock import AsyncMock, MagicMock, patch
-
 import pytest
-from mcp.server.fastmcp.exceptions import ToolError
 
 from bddk_mcp.quality.quality_scan import (
     AnomalyCount,
@@ -276,63 +272,3 @@ async def test_scan_quality_detects_all_seeded_anomalies(seeded_quality_pool):
     assert findings["doc_formula_missing"].label == "warning"
     assert "formula_ref_without_latex_or_image" in findings["doc_formula_missing"].flags
     assert "doc_clean" not in findings
-
-
-# -- admin tool wrapper -------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_document_quality_report_without_pool_returns_message():
-    from bddk_mcp.core.deps import Dependencies
-    from bddk_mcp.tools.admin import register
-
-    mcp = MagicMock()
-    captured: dict[str, object] = {}
-
-    def capture_tool():
-        def inner(fn):
-            captured[fn.__name__] = fn
-            return fn
-
-        return inner
-
-    mcp.tool = capture_tool
-    deps = Dependencies(
-        pool=None,
-        doc_store=None,
-        client=None,
-        http=None,
-        server_start_time=time.time(),
-    )
-    register(mcp, deps)
-
-    fn = captured["document_quality_report"]
-    out = await fn()
-    assert "DB pool not initialized" in out
-
-
-@pytest.mark.asyncio
-async def test_document_quality_report_does_not_expose_database_error_text():
-    from bddk_mcp.core.deps import Dependencies
-    from bddk_mcp.tools.admin import register
-
-    mcp = MagicMock()
-    captured: dict[str, object] = {}
-
-    def capture_tool():
-        def inner(fn):
-            captured[fn.__name__] = fn
-            return fn
-
-        return inner
-
-    mcp.tool = capture_tool
-    deps = Dependencies(pool=MagicMock(), doc_store=None, client=None, http=None)
-    sentinel = "postgresql://user:secret@internal.example/regulations"
-    with patch("bddk_mcp.tools.admin.scan_quality", new=AsyncMock(side_effect=RuntimeError(sentinel))):
-        register(mcp, deps)
-        with pytest.raises(ToolError) as error:
-            await captured["document_quality_report"]()
-
-    assert "[ERROR:QUALITY_SCAN_FAILED]" in str(error.value)
-    assert sentinel not in str(error.value)

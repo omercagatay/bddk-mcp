@@ -28,7 +28,6 @@ import time
 import zipfile
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
-from functools import partial
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlparse
 
@@ -1459,21 +1458,14 @@ async def _create_pool_and_store(dsn: str | None) -> tuple:
     import asyncpg as _asyncpg
 
     from bddk_mcp.core.config import require_database_url
-    from bddk_mcp.db_identity import assert_database_connection_identity, assert_database_identity
     from bddk_mcp.db_lifecycle import assert_database_ready
     from bddk_mcp.db_transport import assert_database_transport
     from bddk_mcp.store.vector_store import VectorStore
 
     selected_dsn = assert_database_transport(dsn) if dsn else require_database_url("ingestion")
-    pool = await _asyncpg.create_pool(
-        selected_dsn,
-        min_size=1,
-        max_size=5,
-        init=partial(assert_database_connection_identity, profile="ingestion"),
-    )
+    pool = await _asyncpg.create_pool(selected_dsn, min_size=1, max_size=5)
     try:
         await assert_database_ready(pool=pool, require_corpus=False)
-        await assert_database_identity(pool, "ingestion")
         store = DocumentStore(pool)
         vector_store = VectorStore(pool)
     except BaseException:

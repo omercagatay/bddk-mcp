@@ -1,6 +1,4 @@
-"""Integration tests for server lifecycle."""
-
-import time
+"""Integration tests for server lifecycle wiring."""
 
 from bddk_mcp.core.deps import Dependencies
 
@@ -8,46 +6,13 @@ from bddk_mcp.core.deps import Dependencies
 def test_deps_creation():
     """Dependencies can be created with None values for unit tests."""
     deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
-    assert deps.server_start_time <= time.time()
     assert deps.vector_store is None
-    assert deps.sync_circuit_open is False
+    assert deps.pool is None
 
 
-def test_deps_health_state_tracking():
-    """Dependencies tracks health state correctly."""
-    deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
+def test_server_module_exports_a_complete_mcp_object():
+    """``mcp run server.py`` relies on the import-time server object."""
+    from bddk_mcp import server
+    from bddk_mcp.tools.registry import PUBLIC_TOOL_NAMES
 
-    # Simulate failures
-    deps.sync_consecutive_failures = 10
-    deps.sync_circuit_open = True
-    deps.last_sync_error = "Connection refused"
-
-    assert deps.sync_circuit_open is True
-    assert deps.last_sync_error == "Connection refused"
-
-    # Reset
-    deps.sync_consecutive_failures = 0
-    deps.sync_circuit_open = False
-    deps.last_sync_time = time.time()
-    deps.last_sync_error = None
-
-    assert deps.sync_circuit_open is False
-    assert deps.last_sync_time is not None
-
-
-def test_all_tool_modules_importable():
-    """All tool modules can be imported and have register()."""
-    from bddk_mcp.tools import admin, analytics, bulletin, documents, search, sync
-
-    for mod in [admin, analytics, bulletin, documents, search, sync]:
-        assert hasattr(mod, "register"), f"{mod.__name__} missing register()"
-        assert callable(mod.register)
-
-
-def test_sync_module_has_startup_sync():
-    """sync module exposes startup_sync for server.py."""
-    import asyncio
-
-    from bddk_mcp.tools.sync import startup_sync
-
-    assert asyncio.iscoroutinefunction(startup_sync)
+    assert {tool.name for tool in server.mcp._tool_manager.list_tools()} == set(PUBLIC_TOOL_NAMES)

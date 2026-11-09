@@ -6,7 +6,44 @@ those rows represent extraction history, not authoritative legal versions.
 """
 
 from bddk_mcp.migrations.model import Migration
-from bddk_mcp.regulatory.text_profile import POSTGRES_PROVISION_BOUNDARY_WHITESPACE_V1
+
+# Frozen provision-boundary whitespace used by the applied DDL below.  The
+# value is inlined verbatim from the retired ``regulatory.text_profile`` module
+# so the recorded migration checksum stays byte-identical.
+_PROVISION_BOUNDARY_CODEPOINTS_V1 = (
+    9,
+    10,
+    11,
+    12,
+    13,
+    28,
+    29,
+    30,
+    31,
+    32,
+    133,
+    160,
+    5760,
+    8192,
+    8193,
+    8194,
+    8195,
+    8196,
+    8197,
+    8198,
+    8199,
+    8200,
+    8201,
+    8202,
+    8232,
+    8233,
+    8239,
+    8287,
+    12288,
+)
+POSTGRES_PROVISION_BOUNDARY_WHITESPACE_V1 = " || ".join(
+    f"pg_catalog.chr({codepoint})" for codepoint in _PROVISION_BOUNDARY_CODEPOINTS_V1
+)
 
 V0004_CANONICAL_LEGAL_VERSIONS = Migration(
     version=4,

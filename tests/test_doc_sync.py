@@ -40,13 +40,11 @@ async def test_standalone_cli_store_creation_is_readiness_only():
     document_store.initialize = AsyncMock()
     vector_store = MagicMock()
     vector_store.initialize = AsyncMock()
-    identity_readiness = AsyncMock()
 
     with (
         patch("asyncpg.create_pool", new=AsyncMock(return_value=pool)) as create_pool,
         patch("bddk_mcp.db_transport.assert_database_transport", side_effect=lambda value: value),
         patch("bddk_mcp.db_lifecycle.assert_database_ready", new=readiness),
-        patch("bddk_mcp.db_identity.assert_database_identity", new=identity_readiness),
         patch("bddk_mcp.ingest.doc_sync.DocumentStore", return_value=document_store),
         patch("bddk_mcp.store.vector_store.VectorStore", return_value=vector_store),
     ):
@@ -57,10 +55,7 @@ async def test_standalone_cli_store_creation_is_readiness_only():
     assert create_pool.await_args.args == ("postgresql://example",)
     assert create_pool.await_args.kwargs["min_size"] == 1
     assert create_pool.await_args.kwargs["max_size"] == 5
-    pool_init = create_pool.await_args.kwargs["init"]
-    assert pool_init.keywords == {"profile": "ingestion"}
     readiness.assert_awaited_once_with(pool=pool, require_corpus=False)
-    identity_readiness.assert_awaited_once_with(pool, "ingestion")
     document_store.initialize.assert_not_awaited()
     vector_store.initialize.assert_not_awaited()
     pool.execute.assert_not_called()

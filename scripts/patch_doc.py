@@ -5,8 +5,8 @@ recover image-based formulas). For one doc_id, this script:
 
   1. validates inputs (markdown exists, doc_id present in both DB and seed),
   2. strips any docs_dump-style header from the markdown,
-  3. computes the new content hash and regenerates section-aware chunks via
-     the same chunker used by vector_store.add_document and seed.py,
+  3. computes the new content hash and previews the section-aware chunk
+     count via the same chunker used by vector_store.add_document and seed.py,
   4. on --dry-run, stops here and prints the planned delta,
   5. atomically replaces each target seed JSON file, documents.json first,
   6. updates the canonical DB row, then republishes its derived vector index.
@@ -14,9 +14,8 @@ recover image-based formulas). For one doc_id, this script:
 Filesystem and PostgreSQL commits cannot form one atomic transaction.  The
 ordering is deliberate: documents.json is the durable reviewed source; the
 database publication is fail-closed while its canonical row and chunks differ;
-and a crash can be recovered by rerunning this idempotent command.  chunks.json
-is a derived review artifact and is never trusted by bootstrap.
-     documents.json and chunks.json.
+and a crash can be recovered by rerunning this idempotent command.  Chunks and
+embeddings are regenerated from documents.json by `bddk-seed import`.
 
 Run:
     BDDK_INGESTION_DATABASE_URL=... uv run python scripts/patch_doc.py <doc_id> \\
@@ -45,7 +44,6 @@ import asyncpg  # noqa: E402
 from patch_md import validate_latex  # noqa: E402
 
 from bddk_mcp.core.config import PAGE_SIZE, require_database_url  # noqa: E402
-from bddk_mcp.db_identity import assert_database_identity  # noqa: E402
 from bddk_mcp.db_lifecycle import assert_database_ready  # noqa: E402
 from bddk_mcp.ingest.seed import _strip_docs_dump_header  # noqa: E402
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument  # noqa: E402
@@ -85,13 +83,10 @@ async def patch_document(
         raise PatchError(f"{doc_id} not found in DB")
 
     docs_path = seed_dir / "documents.json"
-    chunks_path = seed_dir / "chunks.json"
     seed_docs = json.loads(docs_path.read_text(encoding="utf-8"))
     seed_entry = next((d for d in seed_docs if d.get("document_id") == doc_id), None)
     if seed_entry is None:
         raise PatchError(f"{doc_id} not found in seed_data/documents.json")
-    if not chunks_path.exists():
-        raise PatchError(f"seed_data/chunks.json not found at {chunks_path}")
 
     # --- 2. Strip header + validate LaTeX + compute hash + regenerate chunks
     body = _strip_docs_dump_header(raw)
@@ -141,40 +136,6 @@ async def patch_document(
         encoding="utf-8",
     )
     docs_tmp.replace(docs_path)
-
-    # chunks.json — strip old entries for doc_id, append fresh ones
-    seed_chunks = json.loads(chunks_path.read_text(encoding="utf-8"))
-    seed_chunks = [c for c in seed_chunks if c.get("doc_id") != doc_id]
-    for i, chunk in enumerate(chunks):
-        new_chunk = {
-            "doc_id": doc_id,
-            "chunk_index": i,
-            "title": current_doc.title,
-            "category": current_doc.category,
-            "decision_date": current_doc.decision_date,
-            "decision_number": current_doc.decision_number,
-            "source_url": current_doc.source_url,
-            "total_chunks": len(chunks),
-            "total_pages": total_pages,
-            "content_hash": new_hash,
-            "chunk_start_char": chunk.start_char,
-            "chunk_end_char": chunk.end_char,
-            "section_type": chunk.section_type,
-            "section_ref": chunk.section_ref,
-            "section_start_char": chunk.section_start_char,
-            "section_end_char": chunk.section_end_char,
-            "section_content_hash": chunk.section_content_hash,
-            "chunk_text": chunk.chunk_text,
-        }
-        # Belt-and-suspenders: doc hash and chunk hash must agree
-        assert new_chunk["content_hash"] == new_hash, f"hash divergence at chunk {i} for {doc_id}"
-        seed_chunks.append(new_chunk)
-    chunks_tmp = chunks_path.with_suffix(".json.new")
-    chunks_tmp.write_text(
-        json.dumps(seed_chunks, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    chunks_tmp.replace(chunks_path)
 
     # --- 4. Fail-closed DB publication ----------------------------------
     # These two idempotent transactions cannot be combined with filesystem
@@ -229,7 +190,6 @@ async def _main_async(args: argparse.Namespace) -> int:
     pool = await asyncpg.create_pool(require_database_url("ingestion"), min_size=1, max_size=3)
     try:
         await assert_database_ready(pool=pool, require_corpus=False)
-        await assert_database_identity(pool, "ingestion")
         doc_store = DocumentStore(pool)
         vector_store = VectorStore(pool)
 

@@ -50,7 +50,7 @@ invent rights over regulatory material.
 ## What technical controls can enforce
 
 For a bank-operated on-premises service, authentication, scopes, network
-segmentation, separate public/operator processes and database roles, private
+segmentation, database roles, private
 registries, encryption, audit events, and contractual entitlements can control
 access to the running service and private data. They can also restrict who may
 import a curated legal bundle or promote a validated knowledge pack.
@@ -82,6 +82,7 @@ until an approved decision record names, for every artifact class:
 - reviewer/approval authority; and
 - withdrawal, correction, and incident procedure.
 
-The current `corpus_scope.yml` checksum proves selected artifact identities.
+The retained `corpus_scope.yml` checksum describes selected artifact identities
+(the runtime no longer verifies it).
 It does **not** prove ownership, model or source licensing, legal permission,
 bank approval, or non-commercial enforceability.

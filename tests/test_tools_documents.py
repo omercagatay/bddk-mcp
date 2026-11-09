@@ -26,20 +26,6 @@ def test_register_exposes_end_user_tools_only_by_default():
     }
 
 
-def test_register_adds_admin_tool_only_when_explicitly_requested():
-    """The registry must explicitly request the operator-only store tool."""
-    mcp = MagicMock()
-    deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
-    register(mcp, deps, include_operator=True)
-
-    tool_names = {call.args[0].__name__ for call in mcp.tool.return_value.call_args_list}
-    assert tool_names == {
-        "get_bddk_document",
-        "get_document_history",
-        "document_store_stats",
-    }
-
-
 def _capture_get_bddk_document(deps: Dependencies):
     """Register tools on a stub MCP and return the get_bddk_document callable."""
     mcp = MagicMock()

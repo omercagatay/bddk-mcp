@@ -10,11 +10,11 @@ over LDAP; the MCP connection itself carries no per-user login.
   (`ENABLE_LDAP=true`, LDAPS on port 636 with the bank trust root). Local
   self-signup is disabled; every account is a directory account.
 - **Open WebUI → MCP server**: a direct streamable-HTTP connection without
-  OAuth. The MCP public profile runs with
+  OAuth. The MCP server runs with
   `BDDK_HTTP_ALLOW_UNAUTHENTICATED=true` and is reachable only inside the bank
   network segment approved for this deployment. Network isolation — the MCP
-  exact Host/Origin allowlists, the bank firewall/ingress rules, and the
-  OpenShift NetworkPolicies — replaces the earlier Keycloak bearer-token layer.
+  exact Host/Origin allowlists and the bank firewall/ingress rules — replaces
+  the earlier Keycloak bearer-token layer.
 - The earlier single-host stack (Keycloak realm, confidential OAuth client,
   and the patched Open WebUI image with per-request MCP token refresh) was
   removed with this migration; the compose file now runs the plain upstream
@@ -23,8 +23,7 @@ over LDAP; the MCP connection itself carries no per-user login.
 Because MCP requests are no longer attributable to an end user by the MCP
 server, per-user attribution lives in Open WebUI's own chat history and the
 bank's access logs. Do not expose the MCP endpoint outside the approved
-segment, and do not reuse this profile for the operator tools: the application
-refuses to serve the operator profile unauthenticated on a non-loopback bind.
+segment.
 
 ## Configuration
 

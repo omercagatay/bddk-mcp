@@ -6,7 +6,6 @@ variables (prefixed with BDDK_).
 
 import math
 import os
-import re
 from pathlib import Path
 
 
@@ -77,104 +76,44 @@ def _environment_choice(name: str, *, default: str, choices: frozenset[str]) -> 
 # -- Paths --------------------------------------------------------------------
 
 BASE_DIR = Path(__file__).parent
+
 # -- PostgreSQL ---------------------------------------------------------------
 
 DATABASE_URL = os.environ.get("BDDK_DATABASE_URL", "")
-OPERATOR_DATABASE_URL = os.environ.get("BDDK_OPERATOR_DATABASE_URL", "")
-SCHEMA_OWNER_DATABASE_URL = os.environ.get("BDDK_SCHEMA_OWNER_DATABASE_URL", "")
+# Optional write-capable DSNs for lifecycle commands.  Each falls back to
+# BDDK_DATABASE_URL, so a single-identity database needs only that variable.
 INGESTION_DATABASE_URL = os.environ.get("BDDK_INGESTION_DATABASE_URL", "")
-RELEASE_PUBLISHER_DATABASE_URL = os.environ.get("BDDK_RELEASE_PUBLISHER_DATABASE_URL", "")
-RELEASE_VERIFIER_DATABASE_URL = os.environ.get("BDDK_RELEASE_VERIFIER_DATABASE_URL", "")
-RELEASE_VERIFIER_REVISION_SHA256 = os.environ.get("BDDK_RELEASE_VERIFIER_REVISION_SHA256", "").strip()
-RELEASE_VERIFIER_IMAGE_DIGEST = os.environ.get("BDDK_RELEASE_VERIFIER_IMAGE_DIGEST", "").strip()
-RELEASE_VERIFICATION_VALIDITY_SECONDS = _environment_int(
-    "BDDK_RELEASE_VERIFICATION_VALIDITY_SECONDS",
-    default=900,
-    minimum=60,
-    maximum=3600,
-)
-EXPECTED_DATABASE_NAME = os.environ.get("BDDK_EXPECTED_DATABASE_NAME", "").strip()
-_DATABASE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$")
+SCHEMA_OWNER_DATABASE_URL = os.environ.get("BDDK_SCHEMA_OWNER_DATABASE_URL", "")
 
-
-def require_expected_database_name() -> str:
-    """Return the independently configured lifecycle target database name."""
-
-    if not EXPECTED_DATABASE_NAME:
-        raise RuntimeError(
-            "BDDK_EXPECTED_DATABASE_NAME is required for database lifecycle operations. "
-            "Set it independently from the connection URL to guard against a wrong-database deployment."
-        )
-    if not _DATABASE_NAME_RE.fullmatch(EXPECTED_DATABASE_NAME):
-        raise RuntimeError(
-            "BDDK_EXPECTED_DATABASE_NAME must be 1-63 characters using only letters, digits, '.', '_' or '-'."
-        )
-    return EXPECTED_DATABASE_NAME
+_DATABASE_PROFILES: dict[str, tuple[str, ...]] = {
+    "public": ("BDDK_DATABASE_URL",),
+    "ingestion": ("BDDK_INGESTION_DATABASE_URL", "BDDK_DATABASE_URL"),
+    "schema-owner": ("BDDK_SCHEMA_OWNER_DATABASE_URL", "BDDK_DATABASE_URL"),
+}
 
 
 def require_database_url(profile: str = "public") -> str:
-    """Return the database URL assigned to one process profile.
+    """Return the DSN for one process profile, falling back to ``BDDK_DATABASE_URL``.
 
-    Call this at the start of any entry point (server, seed CLI, doc_sync CLI)
-    that needs to open a pool.  Public serving uses ``BDDK_DATABASE_URL``;
-    operator serving must use the separately provisioned
-    ``BDDK_OPERATOR_DATABASE_URL`` so enabling mutation tools cannot silently
-    reuse the public runtime identity.
+    ``public`` serves; ``ingestion`` imports and syncs; ``schema-owner`` runs
+    migrations.  The optional profile-specific variables exist only for
+    deployments that keep separate PostgreSQL logins.
     """
     normalized = profile.strip().lower()
-    if normalized == "public":
-        variable = "BDDK_DATABASE_URL"
-        dsn = DATABASE_URL
-    elif normalized == "operator":
-        variable = "BDDK_OPERATOR_DATABASE_URL"
-        dsn = OPERATOR_DATABASE_URL
-    elif normalized == "schema-owner":
-        variable = "BDDK_SCHEMA_OWNER_DATABASE_URL"
-        dsn = SCHEMA_OWNER_DATABASE_URL
-    elif normalized == "ingestion":
-        variable = "BDDK_INGESTION_DATABASE_URL"
-        dsn = INGESTION_DATABASE_URL
-    elif normalized == "release-publisher":
-        variable = "BDDK_RELEASE_PUBLISHER_DATABASE_URL"
-        dsn = RELEASE_PUBLISHER_DATABASE_URL
-    elif normalized == "release-verifier":
-        variable = "BDDK_RELEASE_VERIFIER_DATABASE_URL"
-        dsn = RELEASE_VERIFIER_DATABASE_URL
-    else:
+    try:
+        variables = _DATABASE_PROFILES[normalized]
+    except KeyError:
         raise RuntimeError(
-            f"Unknown database profile {profile!r}; expected public, operator, schema-owner, ingestion, "
-            "release-verifier, or release-publisher"
-        )
-
+            f"Unknown database profile {profile!r}; expected public, ingestion, or schema-owner"
+        ) from None
+    values = {
+        "BDDK_DATABASE_URL": DATABASE_URL,
+        "BDDK_INGESTION_DATABASE_URL": INGESTION_DATABASE_URL,
+        "BDDK_SCHEMA_OWNER_DATABASE_URL": SCHEMA_OWNER_DATABASE_URL,
+    }
+    dsn = next((values[name] for name in variables if values[name]), "")
     if not dsn:
-        raise RuntimeError(
-            f"{variable} is not set for the {normalized} process profile. "
-            "Provision a PostgreSQL DSN with the least-privileged role for "
-            "that profile before starting the server."
-        )
-    if normalized == "operator" and DATABASE_URL and dsn == DATABASE_URL:
-        raise RuntimeError(
-            "BDDK_OPERATOR_DATABASE_URL must not reuse BDDK_DATABASE_URL. "
-            "Provision a distinct least-privileged operator database identity."
-        )
-    if normalized in {"schema-owner", "ingestion", "release-verifier", "release-publisher"}:
-        other_identities = {
-            name: value
-            for name, value in {
-                "BDDK_DATABASE_URL": DATABASE_URL,
-                "BDDK_OPERATOR_DATABASE_URL": OPERATOR_DATABASE_URL,
-                "BDDK_SCHEMA_OWNER_DATABASE_URL": SCHEMA_OWNER_DATABASE_URL,
-                "BDDK_INGESTION_DATABASE_URL": INGESTION_DATABASE_URL,
-                "BDDK_RELEASE_VERIFIER_DATABASE_URL": RELEASE_VERIFIER_DATABASE_URL,
-                "BDDK_RELEASE_PUBLISHER_DATABASE_URL": RELEASE_PUBLISHER_DATABASE_URL,
-            }.items()
-            if value and name != variable
-        }
-        reused = next((name for name, value in other_identities.items() if value == dsn), None)
-        if reused is not None:
-            raise RuntimeError(
-                f"{variable} must not reuse {reused}. Provision a distinct database identity for each lifecycle plane."
-            )
+        raise RuntimeError(f"{variables[-1]} is not set. Provide a PostgreSQL DSN before starting the server.")
     from bddk_mcp.db_transport import assert_database_transport
 
     return assert_database_transport(dsn)
@@ -185,15 +124,6 @@ PG_POOL_MIN = _environment_int("BDDK_PG_POOL_MIN", default=2, minimum=1, maximum
 PG_POOL_MAX = _environment_int("BDDK_PG_POOL_MAX", default=10, minimum=1, maximum=1000)
 if PG_POOL_MIN > PG_POOL_MAX:
     raise RuntimeError("BDDK_PG_POOL_MIN must not exceed BDDK_PG_POOL_MAX.")
-
-
-# Local research can explicitly operate without a signed release identity.
-# Bank/OpenShift profiles set this true so serving readiness requires the
-# strict bootstrap activation recorded by migration v0005.
-REQUIRE_ACTIVE_CORPUS_RELEASE = _environment_bool(
-    "BDDK_REQUIRE_ACTIVE_CORPUS_RELEASE",
-    default=False,
-)
 
 # -- Embedding model (offline-first) -----------------------------------------
 
@@ -417,52 +347,9 @@ HTTP_POOL_TIMEOUT = _environment_float(
 )
 MAX_RETRIES = _environment_int("BDDK_MAX_RETRIES", default=3, minimum=1, maximum=20)
 
-# -- Optional telemetry -------------------------------------------------------
-
-# Disabled by default. When enabled, retrieval tools persist privacy-safe
-# call traces for production retrieval debugging and benchmark comparison.
-TELEMETRY_ENABLED = _environment_bool("BDDK_TELEMETRY_ENABLED", default=False)
-TELEMETRY_DATABASE_URL = os.environ.get("BDDK_TELEMETRY_DATABASE_URL", "")
-TELEMETRY_STORE_TEXT = _environment_bool("BDDK_TELEMETRY_STORE_TEXT", default=False)
-TELEMETRY_MODEL_ID = os.environ.get("BDDK_TELEMETRY_MODEL_ID", "")
-TELEMETRY_SESSION_ID = os.environ.get("BDDK_TELEMETRY_SESSION_ID", "")
-
-
-def require_telemetry_database_url() -> str:
-    """Return a dedicated telemetry-writer DSN when telemetry is enabled."""
-
-    if not TELEMETRY_ENABLED:
-        raise RuntimeError("Telemetry is disabled; no telemetry database identity should be opened")
-    if not TELEMETRY_DATABASE_URL:
-        raise RuntimeError(
-            "BDDK_TELEMETRY_DATABASE_URL is required when BDDK_TELEMETRY_ENABLED=true. "
-            "Provision a dedicated INSERT-only telemetry database identity."
-        )
-    if TELEMETRY_DATABASE_URL in {DATABASE_URL, OPERATOR_DATABASE_URL}:
-        raise RuntimeError(
-            "BDDK_TELEMETRY_DATABASE_URL must not reuse a public or operator database identity. "
-            "Provision a dedicated INSERT-only telemetry role."
-        )
-    from bddk_mcp.db_transport import assert_database_transport
-
-    return assert_database_transport(TELEMETRY_DATABASE_URL)
-
-
 # -- Sync ---------------------------------------------------------------------
 
 SYNC_CONCURRENCY = _environment_int("BDDK_SYNC_CONCURRENCY", default=5, minimum=1, maximum=100)
-OPERATOR_JOB_DRAIN_TIMEOUT = _environment_float(
-    "BDDK_OPERATOR_JOB_DRAIN_TIMEOUT",
-    default=30.0,
-    minimum=0.0,
-    maximum=3600.0,
-)
-OPERATOR_JOB_HISTORY = _environment_int(
-    "BDDK_OPERATOR_JOB_HISTORY",
-    default=1000,
-    minimum=1,
-    maximum=1_000_000,
-)
 
 # Prefer the iframe/HTML download path over PDF for mevzuat.gov.tr documents.
 # Values: "true" | "false" | "auto". "auto" flips to true when no GPU OCR

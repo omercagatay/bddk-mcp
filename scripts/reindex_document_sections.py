@@ -14,7 +14,6 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from bddk_mcp.core.config import require_database_url  # noqa: E402
-from bddk_mcp.db_identity import assert_database_identity  # noqa: E402
 from bddk_mcp.db_lifecycle import assert_database_ready  # noqa: E402
 from bddk_mcp.store.doc_store import DocumentStore  # noqa: E402
 from bddk_mcp.store.section_index import extract_document_sections  # noqa: E402
@@ -110,7 +109,6 @@ async def execute_reindex(
     pool = await asyncpg.create_pool(_resolve_ingestion_database_url(dsn), min_size=1, max_size=3)
     try:
         await assert_database_ready(pool=pool, require_corpus=False)
-        await assert_database_identity(pool, "ingestion")
         store = DocumentStore(pool)
         rows = await load_document_rows(pool, doc_id=doc_id, limit=limit)
         return await reindex_document_rows(rows, store=store, dry_run=dry_run)

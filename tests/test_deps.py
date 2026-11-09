@@ -1,7 +1,5 @@
 """Tests for the Dependencies container."""
 
-import time
-
 from bddk_mcp.core.deps import Dependencies
 
 
@@ -13,11 +11,13 @@ def test_dependencies_defaults():
         client=None,
         http=None,
     )
-    assert deps.telemetry_pool is None
     assert deps.vector_store is None
-    assert deps.last_sync_time is None
-    assert deps.last_sync_error is None
-    assert deps.sync_consecutive_failures == 0
-    assert deps.sync_circuit_open is False
-    assert isinstance(deps.server_start_time, float)
-    assert deps.server_start_time <= time.time()
+
+
+def test_all_tool_modules_importable():
+    """All tool modules can be imported and have register()."""
+    from bddk_mcp.tools import analytics, bulletin, documents, search, sections
+
+    for mod in [analytics, bulletin, documents, search, sections]:
+        assert hasattr(mod, "register"), f"{mod.__name__} missing register()"
+        assert callable(mod.register)

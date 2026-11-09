@@ -438,7 +438,7 @@ class BddkApiClient:
         except (asyncpg.PostgresError, OSError):
             raise BddkStorageError(
                 "Decision cache could not be read with serving credentials. Run `bddk-mcp migrate` and "
-                "`bddk-mcp bootstrap` with ingestion credentials, then grant the serving role SELECT access."
+                "`bddk-seed import`, then grant the serving role SELECT access."
             ) from None
 
         loaded = [
@@ -460,7 +460,7 @@ class BddkApiClient:
 
         if require_nonempty and not self._cache:
             raise BddkStorageError(
-                "Decision cache is empty or contains no in-scope documents. Run `bddk-mcp bootstrap` with the "
+                "Decision cache is empty or contains no in-scope documents. Run `bddk-seed import` with the "
                 "reviewed seed corpus before starting the server."
             )
 
@@ -663,7 +663,7 @@ class BddkApiClient:
         if not self._allow_live_population:
             raise BddkStorageError(
                 "Decision cache became unavailable while the server was running. "
-                "Restore the reviewed corpus with `bddk-mcp bootstrap`; serving mode will not populate it from the network."
+                "Restore the reviewed corpus with `bddk-seed import`; serving mode will not populate it from the network."
             )
 
         # DB is empty — must scrape BDDK for initial population

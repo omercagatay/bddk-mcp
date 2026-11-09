@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import logging
-import time
 from typing import TYPE_CHECKING, Annotated
 
 from pydantic import Field
 
 from bddk_mcp.core.exceptions import BddkStorageError
-from bddk_mcp.observability.telemetry import elapsed_ms, record_tool_call_trace
 from bddk_mcp.quality.markdown_quality import (
     FORMULA_EXTRACTION_WARNING as _DEGRADED_WARNING,
 )
@@ -64,8 +62,6 @@ _LARGE_DOCUMENT_WARNING_TEMPLATE = (
 def register(
     mcp,
     deps: Dependencies,
-    *,
-    include_operator: bool = False,
 ) -> None:
     """Register document tools on the given MCP instance."""
 
@@ -92,10 +88,8 @@ def register(
             page_number: First page of the markdown output (documents are split into 5000-char pages)
             max_pages: Consecutive pages to return (1-5)
         """
-        start = time.perf_counter()
         if isinstance(max_pages, bool) or not 1 <= max_pages <= _MAX_PAGES_PER_RESPONSE:
             return tool_error(INVALID_INPUT, "max_pages must be between 1 and 5.", retryable=False)
-        args = {"document_id": document_id, "page_number": page_number, "max_pages": max_pages}
         candidates = document_id_candidates(document_id)
 
         async def _lookup_page(cand: str, page: int) -> tuple[int, int, str, str, bool] | None:
@@ -143,15 +137,6 @@ def register(
                 break
 
         if resolved_id is None:
-            await record_tool_call_trace(
-                getattr(deps, "telemetry_pool", None),
-                tool_name="get_bddk_document",
-                args=args,
-                latency_ms=elapsed_ms(start),
-                result_count=0,
-                doc_ids=[],
-                relevance_stats={"status": "not_found"},
-            )
             return tool_error(
                 NOT_FOUND,
                 f"Document {document_id} is not available in the local store. This MCP server is airlocked "
@@ -213,15 +198,6 @@ def register(
             None,
         )
         if unsafe_reason is not None:
-            await record_tool_call_trace(
-                getattr(deps, "telemetry_pool", None),
-                tool_name="get_bddk_document",
-                args=args,
-                latency_ms=elapsed_ms(start),
-                result_count=0,
-                doc_ids=[resolved_id],
-                relevance_stats={"status": "verbatim_refused", "reason": unsafe_reason},
-            )
             return tool_error(
                 "VERBATIM_UNAVAILABLE",
                 f"Document {resolved_id} cannot be returned verbatim: its stored text contains an unsafe "
@@ -303,22 +279,6 @@ def register(
         }
         if missing_page is not None:
             relevance_stats["missing_page"] = missing_page
-        await record_tool_call_trace(
-            getattr(deps, "telemetry_pool", None),
-            tool_name="get_bddk_document",
-            args=args,
-            latency_ms=elapsed_ms(start),
-            result_count=1,
-            doc_ids=[resolved_id],
-            quality_labels={
-                resolved_id: {
-                    "label": quality.label,
-                    "flags": quality.flags,
-                    "extraction_method": extraction_method or "unknown",
-                }
-            },
-            relevance_stats=relevance_stats,
-        )
         quality_metadata = QualityMetadata(
             label=quality.label,  # type: ignore[arg-type]
             flags=list(quality.flags),
@@ -417,42 +377,3 @@ def register(
                 versions=versions,
             )
         )
-
-    if not include_operator:
-        return
-
-    @mcp.tool()
-    @logged_tool(logger)
-    async def document_store_stats() -> str:
-        """
-        Show document store statistics for PostgreSQL and pgvector stores.
-        """
-        lines = ["**Document Store Statistics**\n"]
-
-        if deps.vector_store is not None:
-            try:
-                vs = await deps.vector_store.stats()
-                lines.append(
-                    f"**pgvector (Vector Store):**\n  Documents: {vs['total_documents']}\n"
-                    f"  Chunks: {vs['total_chunks']}\n  Embedding model: {vs['embedding_model']}"
-                )
-                if vs.get("categories"):
-                    lines.append("  Categories:")
-                    for cat, count in vs["categories"].items():
-                        lines.append(f"    {cat}: {count}")
-            except Exception as exc:
-                logger.warning("Vector store statistics unavailable", extra={"error_type": type(exc).__name__})
-                lines.append("  pgvector: unavailable")
-        else:
-            lines.append("  pgvector: unavailable (not initialized)")
-
-        try:
-            st = await deps.doc_store.stats()
-            lines.append(
-                f"\n**PostgreSQL (Document Store):**\n  Documents: {st.total_documents}\n  Size: {st.total_size_mb} MB"
-            )
-        except (RuntimeError, BddkStorageError) as exc:
-            logger.warning("Document store statistics unavailable", extra={"error_type": type(exc).__name__})
-            lines.append("  PostgreSQL: unavailable")
-
-        return "\n".join(lines)

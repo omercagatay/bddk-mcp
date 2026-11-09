@@ -13,7 +13,6 @@ _APPLICATION_DATABASE_PATHS = (
     "bddk_mcp/ingest/client.py",
     "bddk_mcp/store/doc_store.py",
     "bddk_mcp/store/vector_store.py",
-    "scripts/retrieval_score.py",
     "scripts/reindex_document_sections.py",
     "scripts/patch_doc.py",
 )
@@ -22,7 +21,6 @@ _SETUP_PATHS_WITHOUT_INITIALIZER_CALLS = (
     "tests/conftest.py",
     "tests/test_improvements.py",
     "tests/test_integration.py",
-    "tests/test_f1_score.py",
 )
 
 _DDL = re.compile(
@@ -46,13 +44,10 @@ def test_test_setup_does_not_depend_on_legacy_initializers(relative_path: str):
 
 
 def test_write_scripts_select_explicit_non_public_database_identities():
-    retrieval_score = (ROOT / "scripts/retrieval_score.py").read_text(encoding="utf-8")
     reindex = (ROOT / "scripts/reindex_document_sections.py").read_text(encoding="utf-8")
     patch_doc = (ROOT / "scripts/patch_doc.py").read_text(encoding="utf-8")
 
-    assert "BDDK_TEST_DATABASE_URL" in retrieval_score
     assert 'require_database_url("ingestion")' in reindex
     assert 'require_database_url("ingestion")' in patch_doc
-    assert "assert_database_ready" in retrieval_score
     assert "assert_database_ready" in reindex
     assert "assert_database_ready" in patch_doc

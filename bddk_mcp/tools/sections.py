@@ -2,25 +2,11 @@
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import math
 import re
-import time
-from datetime import date
 from typing import TYPE_CHECKING
 
-from pydantic import ValidationError
-
-from bddk_mcp.citations import (
-    CitationQuality,
-    CitationV1,
-    NormalizedTextRange,
-    TrustedCitationContext,
-    build_normalized_range_citation,
-    section_retrieval_profile_sha256,
-)
-from bddk_mcp.observability.telemetry import elapsed_ms, record_tool_call_trace, unique_doc_ids
 from bddk_mcp.quality.markdown_quality import (
     FORMULA_EXTRACTION_WARNING,
     QualityAssessment,
@@ -29,15 +15,12 @@ from bddk_mcp.quality.markdown_quality import (
     mentions_formula,
     unsafe_verbatim_reason,
 )
-from bddk_mcp.regulatory.answer_readiness import assess_section_answer
-from bddk_mcp.regulatory.graph_queries import one_hop_section_refs
+from bddk_mcp.quotations import check_exact_quotation
 from bddk_mcp.store.legal_ref import document_id_candidates, parse_legal_refs, turkish_casefold
 from bddk_mcp.store.section_index import split_section_truncation_notice
 from bddk_mcp.tools.contract_types import (
     DocumentId,
-    ExpandReferences,
     HeadingFilter,
-    OptionalAsOfDate,
     OptionalDocumentId,
     OptionalQuotation,
     SectionQuery,
@@ -52,6 +35,7 @@ from bddk_mcp.tools.structured_outputs import (
     DocumentSectionToolResult,
     EvidenceReference,
     QualityMetadata,
+    SectionAnswerAssessment,
     SectionItem,
     SectionSearchResponse,
     SectionSearchToolResult,
@@ -78,27 +62,14 @@ _EXACT_REFERENCE_MISSING_WARNING = (
     "not evidence for that requested provision. Check the reference or retrieve the full document."
 )
 _LEGAL_APPLICABILITY_WARNING = (
-    "Text retrieval and Citation v1 do not establish current legal applicability. Check the instrument's scope "
-    "and resolve_regulation_status for the required as-of date; if validated status evidence is absent, abstain "
-    "from a current-law conclusion. Keep TFRS 9/BKZ, problem-loan resolution, and IRB/IDD requirements distinct."
+    "Text retrieval does not establish current legal applicability. Verify the instrument's scope and its "
+    "publication/amendment status against the official source for the required date; if that evidence is "
+    "absent, abstain from a current-law conclusion. Keep TFRS 9/BKZ, problem-loan resolution, and IRB/IDD "
+    "requirements distinct."
 )
 _GOVDE_WARNING = (
     "One or more hits are govde remainder (unparsed body/footnote text), not madde/ilke/paragraf identities. "
     "Do not cite them as a legal provision."
-)
-_CITATION_UNAVAILABLE_NO_MAPPING = (
-    "[citation_v1_unavailable_no_validated_mapping] Citation v1 was not emitted: this section has no "
-    "validated authoritative, non-fixture legal-version occurrence mapping."
-)
-_CITATION_UNAVAILABLE_TRUNCATED = (
-    "[citation_v1_unavailable_truncated] Citation v1 was not emitted because the returned section body is truncated."
-)
-_CITATION_UNAVAILABLE_QUALITY_FAILURE = (
-    "[citation_v1_unavailable_quality_failure] Citation v1 was not emitted because extraction quality is failed."
-)
-_CITATION_UNAVAILABLE_RECONSTRUCTION = (
-    "[citation_v1_unavailable_reconstruction_mismatch] Citation v1 was not emitted because the returned text "
-    "could not be reconstructed exactly from the validated normalized-document range."
 )
 
 _LOOSE_SECTION_SEARCH_STOPWORDS = {
@@ -171,14 +142,6 @@ def _quality_lines(quality: QualityAssessment, *, prefix: str) -> list[str]:
     if quality.warning:
         lines.append(f"{prefix}⚠ Quality warning: {quality.warning}")
     return lines
-
-
-def _quality_labels(sections: list[StoredDocumentSection]) -> dict[str, dict[str, object]]:
-    labels: dict[str, dict[str, object]] = {}
-    for section in sections:
-        quality = _section_quality(section)
-        labels[section.doc_id] = {"label": quality.label, "flags": quality.flags}
-    return labels
 
 
 def _quality_metadata(quality: QualityAssessment) -> QualityMetadata:
@@ -271,15 +234,11 @@ def _section_item(
     )
 
 
-def _section_evidence(
-    section: StoredDocumentSection,
-    *,
-    citation: CitationV1 | None = None,
-) -> EvidenceReference:
+def _section_evidence(section: StoredDocumentSection) -> EvidenceReference:
     return EvidenceReference(
         document_id=section.doc_id,
         title=section.document_title or None,
-        source_url=citation.source_url if citation else section.document_source_url or None,
+        source_url=section.document_source_url or None,
         category=section.document_category or None,
         extraction_method=section.document_extraction_method or None,
         retrieval_source="section_index",
@@ -291,99 +250,32 @@ def _section_evidence(
         end_char=section.end_char,
         content_hash=section.content_hash,
         quality=_quality_metadata(_section_quality(section)),
-        citation=citation,
     )
 
 
-def _sha256_text(value: str) -> str:
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+def _assess_quotation(sections: list[StoredDocumentSection], quotation: str) -> SectionAnswerAssessment:
+    """Check a proposed quotation character-for-character against one resolved section."""
 
-
-def _build_exact_section_citation(
-    section: StoredDocumentSection,
-    *,
-    section_item: SectionItem,
-    quality: QualityAssessment,
-) -> tuple[CitationV1 | None, str | None]:
-    """Build Citation v1 only for an exact, complete, validated occurrence."""
-
-    mapping = section.citation_mapping
-    if mapping is None:
-        return None, _CITATION_UNAVAILABLE_NO_MAPPING
-    if section_item.content_truncated:
-        return None, _CITATION_UNAVAILABLE_TRUNCATED
-    if quality.label == "fail":
-        return None, _CITATION_UNAVAILABLE_QUALITY_FAILURE
-
-    normalized_source_range = section.normalized_source_range
-    try:
-        trusted = TrustedCitationContext(
-            instrument_id=mapping.instrument_id,
-            instrument_jurisdiction=mapping.instrument_jurisdiction,
-            instrument_authority_code=mapping.instrument_authority_code,
-            instrument_identity_key=mapping.instrument_identity_key,
-            legal_version_id=mapping.legal_version_id,
-            legal_version_key=mapping.legal_version_key,
-            legal_validation_record_sha256=mapping.legal_validation_record_sha256,
-            provision_validation_record_sha256=mapping.provision_validation_record_sha256,
-            artifact_id=mapping.artifact_id,
-            artifact_blob_id=mapping.artifact_blob_id,
-            artifact_sha256=mapping.artifact_sha256,
-            source_url=mapping.source_url,
-            artifact_retrieved_at=mapping.artifact_retrieved_at,
-            source_document_id=section.doc_id,
-            normalized_document_sha256=section.source_content_hash,
-            evidence_id=mapping.evidence_id,
-            evidence_locator=mapping.evidence_locator,
-            evidence_statement_sha256=mapping.evidence_statement_sha256,
-            provision_id=mapping.provision_id,
-            provision_kind=mapping.provision_kind,
-            provision_path=mapping.provision_path,
-            provision_text_sha256=section.content_hash,
-            locator=NormalizedTextRange(
-                start_char=section.start_char,
-                end_char=section.end_char,
-                normalized_range_sha256=_sha256_text(normalized_source_range),
-            ),
-            excerpt_sha256=_sha256_text(section_item.content),
-            excerpt_length=len(section_item.content),
-            retrieval_profile_sha256=section_retrieval_profile_sha256(),
-            quality=CitationQuality(
-                label=quality.label,
-                flags=tuple(sorted(set(quality.flags))),
-                warning=quality.warning or None,
-            ),
+    if len(sections) != 1:
+        return SectionAnswerAssessment(
+            basis="insufficient",
+            quotation_status="unavailable",
+            gaps=["exact_section_not_resolved"],
         )
-        citation = build_normalized_range_citation(
-            trusted=trusted,
-            provision_text=section.content,
-            normalized_source_range=normalized_source_range,
-            rendered_excerpt=section_item.content,
-        )
-    except (ValidationError, ValueError):
-        logger.warning("Citation v1 reconstruction rejected for a retrieved section")
-        return None, _CITATION_UNAVAILABLE_RECONSTRUCTION
-    return citation, None
-
-
-def _citation_lines(citation: CitationV1) -> list[str]:
-    locator = citation.locator
-    return [
-        "",
-        "#### Citation v1",
-        f"- Citation ID: {citation.citation_id}",
-        f"- Instrument ID: {citation.instrument_id}",
-        f"- Legal version ID: {citation.legal_version_id}",
-        f"- Artifact ID: {citation.artifact_id}",
-        f"- Evidence ID: {citation.evidence_id}",
-        f"- Provision ID: {citation.provision_id}",
-        f"- Authoritative source: {citation.source_url}",
-        f"- Normalized document SHA-256: {citation.normalized_document_sha256}",
-        f"- Provision SHA-256: {citation.provision_text_sha256}",
-        (f"- Normalized Markdown code-point range: [{locator.start_char}, {locator.end_char}); not source PDF pages"),
-        f"- Normalized range SHA-256: {locator.normalized_range_sha256}",
-        f"- Returned excerpt SHA-256: {citation.excerpt_sha256}",
-    ]
+    section = sections[0]
+    check = check_exact_quotation(section.content, quotation, expected_reference_sha256=section.content_hash)
+    if check.status == "exact_reference_match":
+        status = "exact_reference_match"
+    elif check.status == "mismatch":
+        status = "not_found"
+    else:
+        status = "unavailable"
+    return SectionAnswerAssessment(
+        basis="local_text",
+        quotation_status=status,  # type: ignore[arg-type]
+        quotation_check=check,
+        gaps=[] if status == "exact_reference_match" else [f"quotation_{check.reason}"],
+    )
 
 
 def _section_warnings(
@@ -409,7 +301,6 @@ def _format_section(
     *,
     include_content: bool = True,
     quality: QualityAssessment | None = None,
-    citation: CitationV1 | None = None,
 ) -> str:
     heading = f" — {section.heading}" if section.heading else ""
     lines = [
@@ -439,8 +330,6 @@ def _format_section(
                 f"- Returned normalized excerpt range: [{excerpt_start}, {excerpt_end}) (section body truncated)"
             )
         lines.extend(["", excerpt])
-    if citation is not None:
-        lines.extend(_citation_lines(citation))
     return "\n".join(lines)
 
 
@@ -556,7 +445,6 @@ def register(mcp, deps: Dependencies) -> None:
         section_type: SectionType = None,
         section_ref: SectionRef = None,
         heading: HeadingFilter = None,
-        as_of: OptionalAsOfDate = None,
         quotation: OptionalQuotation = None,
     ) -> DocumentSectionToolResult:
         """
@@ -570,24 +458,14 @@ def register(mcp, deps: Dependencies) -> None:
             section_type: Optional exact section type, e.g. madde, gecici_madde, ek_madde, ilke, paragraf, ek, bent
             section_ref: Optional exact section reference, e.g. 9, 66/A (inserted article) or a (bent)
             heading: Optional heading substring filter
-            as_of: Optional ISO date; resolve the cited version's status for this date.
             quotation: Optional proposed quotation; verify it in the exact provision,
                 preserving every character, including whitespace. An exact stored-reference
                 match does not establish original-source fidelity, a paraphrase or a duty.
 
-        Supplying as_of or quotation returns answer_assessment with explicit evidence
-        gaps. Scope and semantic entailment still require review; never infer them
-        from a quotation match or from effective status alone.
+        Supplying quotation returns answer_assessment with the mechanical match result.
+        Scope and semantic entailment still require review; never infer them from a
+        quotation match.
         """
-        start = time.perf_counter()
-        args = {
-            "document_id": document_id,
-            "section_type": section_type,
-            "section_ref": section_ref,
-            "heading": heading,
-            "as_of": as_of,
-            "quotation": quotation,
-        }
         sections = []
         for candidate in document_id_candidates(document_id):
             sections = await deps.doc_store.get_document_section(
@@ -599,55 +477,26 @@ def register(mcp, deps: Dependencies) -> None:
             )
             if sections:
                 break
-        section_item = None
-        citation = citation_warning = quality = None
+        section_item = quality = None
         if len(sections) == 1:
             quality = _section_quality(sections[0])
             section_item = _section_item(sections[0], max_chars=_MAX_EXACT_SECTION_CHARS)
-            citation, citation_warning = _build_exact_section_citation(
-                sections[0], section_item=section_item, quality=quality
-            )
         assessment = None
         assessment_text = ""
-        if as_of is not None or quotation is not None:
-            assessment = await assess_section_answer(
-                deps.pool,
-                sections,
-                item=section_item,
-                citation=citation,
-                as_of=date.fromisoformat(as_of) if as_of else None,
-                quotation=quotation,
-            )
+        if quotation is not None:
+            assessment = _assess_quotation(sections, quotation)
             assessment_text = (
                 f"\n\nAnswer evidence checks: {assessment.basis}\n"
                 f"Quotation in stored reference (no normalization): {assessment.quotation_status}\n"
                 "Original-source fidelity is NOT established by this character comparison.\n"
-                f"As of: {assessment.as_of or 'not supplied'}\n"
-                f"Legal status: {assessment.status_reason or 'not checked'}\n"
-                f"Resolved version: {assessment.resolved_legal_version_id or 'not established'}\n"
                 f"Evidence gaps: {', '.join(assessment.gaps) or 'none in the requested mechanical checks'}\n"
                 "Scope and semantic entailment are NOT assessed. A matching quotation does not prove "
                 "a broader claim, obligation, frequency, threshold, or applicability to a particular bank."
             )
-            for evidence in assessment.legal_evidence:
-                assessment_text += (
-                    f"\nDated {evidence.role} evidence: {evidence.claim_id}; {evidence.source_url}; "
-                    f"date={evidence.claim_date or 'status interval'}; "
-                    f"valid_from={evidence.valid_from}; valid_through={evidence.valid_through}"
-                )
         assessment_incomplete = bool(assessment and assessment.gaps)
         if not sections:
             query = " ".join(
                 str(part) for part in (document_id, section_type or "", section_ref or "", heading or "") if part
-            )
-            await record_tool_call_trace(
-                getattr(deps, "telemetry_pool", None),
-                tool_name="get_document_section",
-                args=args,
-                latency_ms=elapsed_ms(start),
-                result_count=0,
-                doc_ids=[],
-                relevance_stats={"status": "not_found"},
             )
             output = (
                 f"No section found for document {document_id} with the requested filters.\n"
@@ -667,30 +516,14 @@ def register(mcp, deps: Dependencies) -> None:
 
         if len(sections) == 1:
             assert section_item is not None and quality is not None
-            await record_tool_call_trace(
-                getattr(deps, "telemetry_pool", None),
-                tool_name="get_document_section",
-                args=args,
-                latency_ms=elapsed_ms(start),
-                result_count=1,
-                doc_ids=[sections[0].doc_id],
-                quality_labels={sections[0].doc_id: {"label": quality.label, "flags": quality.flags}},
-                relevance_stats={"status": "exact_match"},
-            )
             section = sections[0]
             return structured_tool_result(
                 DocumentSectionResponse(
                     status="partial" if section_item.content_truncated or assessment_incomplete else "ok",
-                    text=_format_section(section, quality=quality, citation=citation) + assessment_text,
+                    text=_format_section(section, quality=quality) + assessment_text,
                     answer_assessment=assessment,
-                    evidence=[_section_evidence(section, citation=citation)],
-                    warnings=[
-                        *_section_warnings(
-                            [section],
-                            content_truncated=section_item.content_truncated,
-                        ),
-                        *([citation_warning] if citation_warning else []),
-                    ],
+                    evidence=[_section_evidence(section)],
+                    warnings=_section_warnings([section], content_truncated=section_item.content_truncated),
                     requested_document_id=document_id,
                     section_type=_normalize_optional(section_type),
                     section_ref=_normalize_optional(section_ref),
@@ -721,16 +554,6 @@ def register(mcp, deps: Dependencies) -> None:
             lines.append("... additional matches omitted; add a section reference or heading filter.")
         result_items = [_section_item(section) for section in result_sections]
         result_content_truncated = more_results or any(item.content_truncated for item in result_items)
-        await record_tool_call_trace(
-            getattr(deps, "telemetry_pool", None),
-            tool_name="get_document_section",
-            args=args,
-            latency_ms=elapsed_ms(start),
-            result_count=len(result_sections),
-            doc_ids=unique_doc_ids([section.doc_id for section in result_sections]),
-            quality_labels=_quality_labels(result_sections),
-            relevance_stats={"status": "disambiguation", "additional_matches_omitted": more_results},
-        )
         return structured_tool_result(
             DocumentSectionResponse(
                 status="partial" if result_content_truncated or assessment_incomplete else "ok",
@@ -756,7 +579,6 @@ def register(mcp, deps: Dependencies) -> None:
         document_id: OptionalDocumentId = None,
         section_type: SectionType = None,
         limit: SectionResultLimit = 10,
-        expand_references: ExpandReferences = False,
     ) -> SectionSearchToolResult:
         """
         Search section-level content in stored BDDK documents.
@@ -769,8 +591,6 @@ def register(mcp, deps: Dependencies) -> None:
             document_id: Optional document ID filter
             section_type: Optional section type filter
             limit: Maximum number of section results
-            expand_references: Doğrulanmış çapraz referans kenarlarını 1 adım
-                takip ederek ilişkili bölüm etiketleri ekle (içerik dahil edilmez)
 
         Unparsed `govde` remainder and nested fıkra/bent rows are omitted unless
         `section_type` requests them.
@@ -779,14 +599,6 @@ def register(mcp, deps: Dependencies) -> None:
         higher is better; ranks are comparable within one query's results and
         can be used to gate low-confidence retrieval.
         """
-        start = time.perf_counter()
-        args = {
-            "query": query,
-            "document_id": document_id,
-            "section_type": section_type,
-            "limit": limit,
-            "expand_references": expand_references,
-        }
         refs = parse_legal_refs(query)
         inferred_doc_id = document_id or (refs.document_ids[0] if refs.document_ids else None)
         inferred_section_type = section_type or (refs.sections[0][0] if refs.sections else None)
@@ -842,15 +654,6 @@ def register(mcp, deps: Dependencies) -> None:
             seen = {_section_key(section) for section in exact_hits}
             hits = (exact_hits + [section for section in hits if _section_key(section) not in seen])[:limit]
         if not hits:
-            await record_tool_call_trace(
-                getattr(deps, "telemetry_pool", None),
-                tool_name="search_document_sections",
-                args=args,
-                latency_ms=elapsed_ms(start),
-                result_count=0,
-                doc_ids=[],
-                relevance_stats={"exact_ref_detected": exact_ref_detected, "status": "no_results"},
-            )
             output = (
                 f"NO RESULTS: No document sections found matching '{query}'.\n"
                 "Try a broader query, remove the document_id/section_type filter, or retrieve the full document."
@@ -894,41 +697,6 @@ def register(mcp, deps: Dependencies) -> None:
                 if truncated:
                     lines.append("  [excerpt truncated — call get_document_section for the full section]")
             lines.append("")
-        if expand_references and deps.pool is not None:
-            expanded_blocks: list[str] = []
-            for hit in hits:
-                try:
-                    neighbors = await one_hop_section_refs(
-                        deps.pool,
-                        doc_id=hit.doc_id,
-                        section_type=hit.section_type,
-                        section_ref=hit.section_ref,
-                        limit=3,
-                    )
-                except Exception:  # noqa: BLE001 — expansion must never break search
-                    neighbors = []
-                if not neighbors:
-                    continue
-                block = [
-                    f"#### İlişkili bölümler (doğrulanmış kenarlar) — {hit.doc_id} {hit.section_type} {hit.section_ref}"
-                ]
-                block.extend(
-                    f"- {n['doc_id']} — {n['section_type']} {n['section_ref']} (kenar: {n['relation_type']})"
-                    for n in neighbors
-                )
-                expanded_blocks.append("\n".join(block))
-            if expanded_blocks:
-                lines.append("\n\n".join(expanded_blocks))
-        await record_tool_call_trace(
-            getattr(deps, "telemetry_pool", None),
-            tool_name="search_document_sections",
-            args=args,
-            latency_ms=elapsed_ms(start),
-            result_count=len(hits),
-            doc_ids=unique_doc_ids([hit.doc_id for hit in hits]),
-            quality_labels=_quality_labels(hits),
-            relevance_stats={"exact_ref_detected": exact_ref_detected, "loose_fallback": loose_fallback_used},
-        )
         result_items = [_section_item(hit, query=query) for hit in hits]
         result_content_truncated = any(item.content_truncated for item in result_items)
         return structured_tool_result(

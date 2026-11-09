@@ -34,7 +34,7 @@ uv run python scripts/check_repository_hygiene.py
 uv run pytest tests/ -m "not postgres and not gpu" --strict-markers -q
 ```
 
-The complete CI matrix also exercises Python 3.12 and 3.13, PostgreSQL roles and migrations, package artifacts, and container recipes. See [Testing and evaluation](docs/TESTING_AND_EVALUATION_STRATEGY.md) for the longer lanes and required environment variables.
+The complete CI matrix also exercises Python 3.12 and 3.13, the PostgreSQL lane (`BDDK_REQUIRE_TEST_DATABASE=1 uv run pytest tests/ -m "postgres and not gpu"`), package artifacts, and container recipes.
 
 ## Branch and pull-request workflow
 
@@ -50,7 +50,6 @@ Do not force-push `main`, commit directly around its protection rules, or leave 
 
 ### Runtime and MCP contracts
 
-- Public and operator tool profiles are separate security boundaries.
 - Keep tool registration declarative in `bddk_mcp/tools/registry.py` and update contract tests when a tool changes.
 - Preserve stable error codes, structured outputs, and the text fallback used by clients.
 - Add focused tests beside the corresponding `tests/test_<area>.py` coverage.
@@ -58,21 +57,20 @@ Do not force-push `main`, commit directly around its protection rules, or leave 
 ### Database and migrations
 
 - Migrations in `bddk_mcp/migrations/` are append-only after merge. Add a new numbered migration instead of rewriting history.
-- Preserve role separation among schema owner, ingestion, verifier, publisher, public, operator, and telemetry identities.
 - Document backup, maintenance-window, backfill, and rollout requirements for any state transition.
-- Run the PostgreSQL-marked lanes for schema, privilege, publication, or query changes.
+- Run the PostgreSQL-marked lane for schema, publication, or query changes.
 
 ### Corpus and generated artifacts
 
-- `seed_data/*.json`, corpus signatures, evidence JSON, and `uv.lock` are generated or governed artifacts. Do not hand-edit them to make a test pass.
-- State the generation command, source corpus/manifest identity, and validation result in the PR.
-- Keep trust keys outside the corpus root and never commit private keys, credentials, customer data, or restricted source documents.
+- `seed_data/*.json` and `uv.lock` are generated artifacts. Do not hand-edit them to make a test pass.
+- State the generation command and validation result in the PR.
+- Never commit private keys, credentials, customer data, or restricted source documents.
 - Use the data-quality issue form for defects that require authoritative source review.
 
 ### Deployment and security
 
-- Remote public and operator modes must remain fail-closed.
-- Changes under `deploy/`, the Dockerfiles, authentication, egress, or database roles need explicit threat/rollout notes.
+- Remote HTTP must remain fail-closed.
+- Changes under `deploy/`, the Dockerfile, authentication, or egress need explicit threat/rollout notes.
 - Public examples must contain only obvious local fixtures or placeholders; never paste a real DSN, token, certificate, or endpoint secret.
 
 ### Documentation

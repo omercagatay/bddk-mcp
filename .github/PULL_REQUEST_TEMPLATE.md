@@ -22,7 +22,7 @@ Commands and results:
 
 ## Impact
 
-- [ ] No public/operator MCP contract change
+- [ ] No MCP contract change
 - [ ] No database schema, migration, or privilege change
 - [ ] No corpus, seed, embedding, or generated-data change
 - [ ] No deployment, authentication, or security-policy change

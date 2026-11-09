@@ -1,8 +1,8 @@
 """Apply storage-safe Markdown cleanup to seed_data documents.
 
 This is a mechanical seed maintenance helper. It keeps document metadata in sync
-with sanitized markdown, then operators should run scripts/regen_chunks_seed.py
-so seed_data/chunks.json is derived from the cleaned text.
+with sanitized markdown; `bddk-seed import` regenerates chunks and embeddings
+from the cleaned text.
 """
 
 from __future__ import annotations

@@ -296,11 +296,7 @@ def test_reviewed_internal_formula_references_are_bound_to_the_seed_text_and_rec
         d["document_id"]: d["markdown_content"]
         for d in json.loads((root / "seed_data/documents.json").read_text(encoding="utf-8"))
     }
-    receipt = json.loads(
-        (
-            root / "docs/evidence/document-repairs/quality-pass-2026-10-16/policy/internal-formula-references.json"
-        ).read_text(encoding="utf-8")
-    )
+    receipt = json.loads((root / "tests/fixtures/internal-formula-references.json").read_text(encoding="utf-8"))
     recorded = {(r["document_id"], r["phrase"]) for r in receipt["occurrences"]}
 
     assert receipt["policy_version"] == QUALITY_ASSESSMENT_POLICY_VERSION

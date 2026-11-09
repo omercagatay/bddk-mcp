@@ -5,10 +5,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from bddk_mcp.core.config import ANNOUNCEMENT_CATEGORY_IDS, validate_column, validate_currency, validate_metric_id
-from bddk_mcp.core.exceptions import BddkUpstreamError
-from bddk_mcp.ingest.data_sources import fetch_announcements
-from bddk_mcp.observability.analytics import analyze_trends, build_digest, check_updates, compare_metrics
+from bddk_mcp.core.config import validate_column, validate_currency, validate_metric_id
+from bddk_mcp.observability.analytics import analyze_trends, build_digest, compare_metrics
 from bddk_mcp.tools.contract_types import (
     BulletinColumn,
     HistoryDays,
@@ -29,7 +27,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def register(mcp, deps: Dependencies, *, include_operator: bool = False) -> None:
+def register(mcp, deps: Dependencies) -> None:
     """Register public analytics and, when requested, stateful monitoring."""
 
     @mcp.tool()
@@ -183,62 +181,4 @@ def register(mcp, deps: Dependencies, *, include_operator: bool = False) -> None
             else:
                 lines.append(f"{m['title'][:55]:<55} {m['current']:>15,.2f} {m['wow_pct']:>+11.2f}%")
 
-        return frame_untrusted_source("\n".join(lines))
-
-    if not include_operator:
-        return
-
-    @mcp.tool()
-    @logged_tool(logger)
-    async def check_bddk_updates() -> str:
-        """
-        Check for new BDDK announcements since last check.
-
-        Compares current announcements with cached state to detect new items.
-        Useful for monitoring regulatory changes.
-        """
-        known_urls = deps.client.known_announcements
-        if not known_urls:
-            baseline: set[str] = set()
-            try:
-                for cat_id in ANNOUNCEMENT_CATEGORY_IDS:
-                    baseline.update(a["url"] for a in await fetch_announcements(deps.http, cat_id) if a.get("url"))
-            except BddkUpstreamError:
-                # Never store a partial baseline: it would report every missed
-                # announcement as "new" on the next call.
-                return tool_error(
-                    UPSTREAM_FETCH_FAILED,
-                    "BDDK announcements could not be fetched, so no update baseline was created. "
-                    "This is NOT evidence that there are no announcements.",
-                    retryable=True,
-                    hint="Retry later. In restricted networks, verify egress to www.bddk.org.tr is permitted.",
-                )
-            known_urls.update(baseline)
-            deps.client.known_announcements = known_urls
-            return f"Baseline oluşturuldu: {len(known_urls)} duyuru biliniyor. Bir sonraki çağrıda yeni duyurular tespit edilecek."
-
-        try:
-            result = await check_updates(deps.http, deps.client.get_cache_items(), known_urls)
-        except BddkUpstreamError:
-            return tool_error(
-                UPSTREAM_FETCH_FAILED,
-                "BDDK announcements could not be fetched; update status is unknown. "
-                "This is NOT evidence that there are no new announcements.",
-                retryable=True,
-                hint="Retry later. In restricted networks, verify egress to www.bddk.org.tr is permitted.",
-            )
-
-        for a in result.get("new_announcements", []):
-            if a.get("url"):
-                known_urls.add(a["url"])
-
-        if not result["new_announcements"]:
-            return "Yeni duyuru yok. Her şey güncel."
-
-        lines = [f"**{result['new_announcements_count']} Yeni Duyuru Tespit Edildi!**\n"]
-        for a in result["new_announcements"]:
-            date = a.get("date", "")
-            lines.append(f"  - {a['title']} ({date})")
-            if a.get("url"):
-                lines.append(f"    {a['url']}")
         return frame_untrusted_source("\n".join(lines))

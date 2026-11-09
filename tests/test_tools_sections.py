@@ -3,22 +3,12 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from bddk_mcp.core.deps import Dependencies
-from bddk_mcp.regulatory.legal_versions import (
-    AuthorityLevel,
-    artifact_id_for,
-    blob_id_for,
-    evidence_id_for,
-    instrument_id_for,
-    legal_version_id_for,
-    provision_id_for,
-)
-from bddk_mcp.store.doc_store import StoredDocumentSection, StoredSectionCitationMapping
+from bddk_mcp.store.doc_store import StoredDocumentSection
 from bddk_mcp.tools.sections import register
 
 
@@ -50,84 +40,6 @@ def _section(
     )
 
 
-def _sha(value: str) -> str:
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()
-
-
-def _citable_section() -> StoredDocumentSection:
-    prefix = "Önsöz\n\n"
-    source_range = "  **MADDE 5** - Model validasyonu\n(1) Banka bağımsız validasyon yapar.\n\n"
-    suffix = "Sonraki madde\n"
-    normalized_document = prefix + source_range + suffix
-    provision_text = source_range.strip()
-    instrument_id = instrument_id_for(
-        jurisdiction="TR",
-        authority_code="BDDK",
-        identity_key="synthetic-citation-tool-contract",
-    )
-    normalized_document_sha256 = _sha(normalized_document)
-    version_key = "synthetic-v1"
-    artifact_sha256 = _sha("synthetic source artifact bytes")
-    artifact_blob_id = blob_id_for(content_sha256=artifact_sha256)
-    source_url = "https://regulator.example.test/synthetic/source.pdf"
-    retrieved_at = datetime(2026, 7, 15, 8, 0, tzinfo=UTC)
-    artifact_id = artifact_id_for(
-        blob_id=artifact_blob_id,
-        canonical_uri=source_url,
-        retrieved_at=retrieved_at,
-    )
-    provision_id = provision_id_for(
-        instrument_id=instrument_id,
-        kind="madde",
-        canonical_path="madde/5",
-    )
-    evidence_locator = "normalized/madde/5"
-    statement_sha256 = _sha(provision_text)
-    start = len(prefix)
-    return StoredDocumentSection(
-        doc_id="citation-contract",
-        section_type="madde",
-        section_ref="5",
-        heading="Model validasyonu",
-        start_char=start,
-        end_char=start + len(source_range),
-        content=provision_text,
-        content_hash=statement_sha256,
-        normalized_source_range=source_range,
-        source_content_hash=normalized_document_sha256,
-        citation_mapping=StoredSectionCitationMapping(
-            instrument_id=instrument_id,
-            instrument_jurisdiction="TR",
-            instrument_authority_code="BDDK",
-            instrument_identity_key="synthetic-citation-tool-contract",
-            legal_version_id=legal_version_id_for(
-                instrument_id=instrument_id,
-                version_key=version_key,
-                legal_text_sha256=normalized_document_sha256,
-            ),
-            legal_version_key=version_key,
-            legal_validation_record_sha256="6" * 64,
-            provision_validation_record_sha256="7" * 64,
-            artifact_id=artifact_id,
-            artifact_blob_id=artifact_blob_id,
-            artifact_sha256=artifact_sha256,
-            source_url=source_url,
-            artifact_retrieved_at=retrieved_at,
-            evidence_id=evidence_id_for(
-                artifact_id=artifact_id,
-                locator=evidence_locator,
-                statement_sha256=statement_sha256,
-                authority_level=AuthorityLevel.AUTHORITATIVE,
-            ),
-            evidence_locator=evidence_locator,
-            evidence_statement_sha256=statement_sha256,
-            provision_id=provision_id,
-            provision_kind="madde",
-            provision_path="madde/5",
-        ),
-    )
-
-
 def test_register_exposes_section_tools():
     mcp = MagicMock()
     deps = Dependencies(pool=None, doc_store=MagicMock(), client=None, http=None)
@@ -152,64 +64,6 @@ async def test_get_document_section_returns_exact_match():
     assert "Bankalar model validasyonunu yapar." in out
     doc_store.get_document_section.assert_awaited_once_with(
         "943", section_type="ilke", section_ref="5", heading=None, limit=11
-    )
-
-
-@pytest.mark.asyncio
-async def test_exact_validated_section_emits_same_citation_in_structured_and_text_channels():
-    section = _citable_section()
-    doc_store = MagicMock()
-    doc_store.get_document_section = AsyncMock(return_value=[section])
-    deps = Dependencies(pool=None, doc_store=doc_store, client=None, http=None)
-
-    result = await _capture_tool(deps, "get_document_section")(
-        section.doc_id,
-        section_type="madde",
-        section_ref="5",
-    )
-
-    citation = result.structuredContent["evidence"][0]["citation"]
-    assert citation["schema_version"] == "2.0"
-    assert citation["citation_id"] in result.text
-    assert citation["normalized_document_sha256"] in result.text
-    assert citation["provision_text_sha256"] in result.text
-    assert citation["locator"]["normalized_range_sha256"] in result.text
-    assert citation["excerpt_sha256"] in result.text
-    assert "not source PDF pages" in result.text
-    assert citation["source_url"] == result.structuredContent["evidence"][0]["source_url"]
-    assert not any("citation_v1_unavailable" in warning for warning in result.structuredContent["warnings"])
-
-
-@pytest.mark.asyncio
-async def test_exact_section_without_validated_mapping_reports_citation_unavailable():
-    doc_store = MagicMock()
-    doc_store.get_document_section = AsyncMock(return_value=[_section()])
-    deps = Dependencies(pool=None, doc_store=doc_store, client=None, http=None)
-
-    result = await _capture_tool(deps, "get_document_section")("943", section_type="ilke", section_ref="5")
-
-    assert "citation" not in result.structuredContent["evidence"][0]
-    assert any(
-        "citation_v1_unavailable_no_validated_mapping" in warning for warning in result.structuredContent["warnings"]
-    )
-
-
-@pytest.mark.asyncio
-async def test_inconsistent_validated_mapping_fails_closed_without_a_citation():
-    section = _citable_section().model_copy(update={"normalized_source_range": "different normalized source"})
-    doc_store = MagicMock()
-    doc_store.get_document_section = AsyncMock(return_value=[section])
-    deps = Dependencies(pool=None, doc_store=doc_store, client=None, http=None)
-
-    result = await _capture_tool(deps, "get_document_section")(
-        section.doc_id,
-        section_type="madde",
-        section_ref="5",
-    )
-
-    assert "citation" not in result.structuredContent["evidence"][0]
-    assert any(
-        "citation_v1_unavailable_reconstruction_mismatch" in warning for warning in result.structuredContent["warnings"]
     )
 
 
@@ -544,30 +398,6 @@ async def test_loose_fallback_ranks_operative_madde_ahead_of_govde_gecici_and_ip
     assert out.index("mevzuat_10749 — madde 13") < out.index("mevzuat_5464 — madde 35")
 
 
-@pytest.mark.asyncio
-async def test_document_quality_failure_prevents_clean_section_citation():
-    from bddk_mcp.quality.markdown_quality import QualityAssessment
-
-    section = _citable_section().model_copy(
-        update={
-            "document_quality": QualityAssessment(
-                document_id="citation-contract",
-                label="fail",
-                flags=["cid_marker"],
-                warning="Full document is corrupted.",
-            ),
-        }
-    )
-    store = MagicMock()
-    store.get_document_section = AsyncMock(return_value=[section])
-    deps = Dependencies(pool=None, doc_store=store, client=None, http=None)
-    result = await _capture_tool(deps, "get_document_section")(section.doc_id, section_type="madde", section_ref="5")
-    assert "citation" not in result.structuredContent["evidence"][0]
-    assert result.structuredContent["results"][0]["quality"]["label"] == "fail"
-    assert "citation_v1_unavailable_quality_failure" in result.text
-    assert "Full document is corrupted" in result.text
-
-
 def test_excerpt_offsets_survive_turkish_capitals_and_leading_whitespace():
     from bddk_mcp.tools.sections import _section_excerpt
 
@@ -659,3 +489,43 @@ async def test_missing_exact_reference_does_not_present_lexical_matches_as_compl
     assert result.structuredContent["results"][0]["section_ref"] == "43"
     assert "requested exact provision was not found" in result.text
     assert any("requested exact provision was not found" in w for w in result.structuredContent["warnings"])
+
+
+@pytest.mark.asyncio
+async def test_quotation_is_checked_character_for_character_against_the_resolved_section():
+    content = "İlke 5\nBankalar model validasyonunu yapar."
+    section = _section(content=content).model_copy(
+        update={"content_hash": hashlib.sha256(content.encode("utf-8")).hexdigest()}
+    )
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[section])
+    deps = Dependencies(pool=None, doc_store=doc_store, client=None, http=None)
+    tool = _capture_tool(deps, "get_document_section")
+
+    exact = await tool("943", section_type="ilke", section_ref="5", quotation="model validasyonunu yapar")
+    paraphrased = await tool("943", section_type="ilke", section_ref="5", quotation="model validasyonu yapılır")
+
+    assert exact.structuredContent["answer_assessment"]["quotation_status"] == "exact_reference_match"
+    assert exact.structuredContent["answer_assessment"]["basis"] == "local_text"
+    assert exact.structuredContent["answer_assessment"]["scope_and_entailment"] == "not_assessed"
+    assert exact.structuredContent["status"] == "ok"
+    assert paraphrased.structuredContent["answer_assessment"]["quotation_status"] == "not_found"
+    assert paraphrased.structuredContent["status"] == "partial"
+    assert "Quotation in stored reference (no normalization): not_found" in paraphrased.text
+
+
+@pytest.mark.asyncio
+async def test_quotation_is_unavailable_without_exactly_one_resolved_section():
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[])
+    deps = Dependencies(pool=None, doc_store=doc_store, client=None, http=None)
+
+    result = await _capture_tool(deps, "get_document_section")("943", section_ref="99", quotation="metin")
+
+    assessment = result.structuredContent["answer_assessment"]
+    assert assessment == {
+        "basis": "insufficient",
+        "quotation_status": "unavailable",
+        "gaps": ["exact_section_not_resolved"],
+        "scope_and_entailment": "not_assessed",
+    }
