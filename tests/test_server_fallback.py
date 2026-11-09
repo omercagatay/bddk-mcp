@@ -33,7 +33,6 @@ class TestGetBddkDocumentAirlock:
         mock_client = MagicMock()
         mock_client._cache = []
         mock_client.find_by_id.return_value = None
-        mock_client.get_document_markdown = AsyncMock()
 
         mock_vs = MagicMock()
         mock_vs.get_document_page = AsyncMock(side_effect=Exception('relation "document_chunks" does not exist'))
@@ -61,7 +60,6 @@ class TestGetBddkDocumentAirlock:
 
         assert "Local doc_store content" in result
         mock_doc_store.get_document_page.assert_awaited_once_with("956", 1)
-        mock_client.get_document_markdown.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_uses_pgvector_when_available(self):
@@ -71,7 +69,6 @@ class TestGetBddkDocumentAirlock:
         mock_client = MagicMock()
         mock_client._cache = []
         mock_client.find_by_id.return_value = None
-        mock_client.get_document_markdown = AsyncMock()
 
         mock_vs = MagicMock()
         mock_vs.get_document_page = AsyncMock(
@@ -90,7 +87,6 @@ class TestGetBddkDocumentAirlock:
 
         assert "pgvector content here" in result
         deps.doc_store.get_document_page.assert_not_called()
-        mock_client.get_document_markdown.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_returns_not_in_seed_when_both_stores_miss(self):
@@ -100,7 +96,6 @@ class TestGetBddkDocumentAirlock:
         mock_client = MagicMock()
         mock_client._cache = []
         mock_client.find_by_id.return_value = None
-        mock_client.get_document_markdown = AsyncMock()
 
         mock_vs = MagicMock()
         mock_vs.get_document_page = AsyncMock(return_value=None)
@@ -119,4 +114,3 @@ class TestGetBddkDocumentAirlock:
         assert "[ERROR:NOT_FOUND] retryable=false" in str(error.value)
         assert "airlocked" in str(error.value).lower()
         assert "mevzuat_42626" in str(error.value)
-        mock_client.get_document_markdown.assert_not_called()

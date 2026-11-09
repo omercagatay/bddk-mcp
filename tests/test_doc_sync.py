@@ -5,17 +5,15 @@ import socket
 import sys
 import zipfile
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
 
 import bddk_mcp.ingest.doc_sync as doc_sync_module
-from bddk_mcp.db_lifecycle import DatabaseNotReadyError
 from bddk_mcp.ingest.doc_sync import (
     DocumentSyncer,
     UnsafeUpstreamResourceError,
-    _create_pool_and_store,
     _decode_html,
     _extract_annex_zip_markdown,
     _extract_docx_text,
@@ -29,61 +27,6 @@ from bddk_mcp.ingest.doc_sync import (
 )
 from bddk_mcp.ocr.base import MarkitdownBackend
 from bddk_mcp.store.doc_store import StoredDocument
-
-
-@pytest.mark.asyncio
-async def test_standalone_cli_store_creation_is_readiness_only():
-    pool = MagicMock()
-    pool.close = AsyncMock()
-    readiness = AsyncMock()
-    document_store = MagicMock()
-    document_store.initialize = AsyncMock()
-    vector_store = MagicMock()
-    vector_store.initialize = AsyncMock()
-
-    with (
-        patch("asyncpg.create_pool", new=AsyncMock(return_value=pool)) as create_pool,
-        patch("bddk_mcp.db_transport.assert_database_transport", side_effect=lambda value: value),
-        patch("bddk_mcp.db_lifecycle.assert_database_ready", new=readiness),
-        patch("bddk_mcp.ingest.doc_sync.DocumentStore", return_value=document_store),
-        patch("bddk_mcp.store.vector_store.VectorStore", return_value=vector_store),
-    ):
-        actual_pool, actual_store, actual_vector_store = await _create_pool_and_store("postgresql://example")
-
-    assert (actual_pool, actual_store, actual_vector_store) == (pool, document_store, vector_store)
-    create_pool.assert_awaited_once()
-    assert create_pool.await_args.args == ("postgresql://example",)
-    assert create_pool.await_args.kwargs["min_size"] == 1
-    assert create_pool.await_args.kwargs["max_size"] == 5
-    readiness.assert_awaited_once_with(pool=pool, require_corpus=False)
-    document_store.initialize.assert_not_awaited()
-    vector_store.initialize.assert_not_awaited()
-    pool.execute.assert_not_called()
-    pool.close.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_standalone_cli_closes_pool_when_schema_is_not_ready():
-    pool = MagicMock()
-    pool.close = AsyncMock()
-    readiness = AsyncMock(side_effect=DatabaseNotReadyError("migration required"))
-    document_store_class = MagicMock()
-    vector_store_class = MagicMock()
-
-    with (
-        patch("asyncpg.create_pool", new=AsyncMock(return_value=pool)),
-        patch("bddk_mcp.db_transport.assert_database_transport", side_effect=lambda value: value),
-        patch("bddk_mcp.db_lifecycle.assert_database_ready", new=readiness),
-        patch("bddk_mcp.ingest.doc_sync.DocumentStore", new=document_store_class),
-        patch("bddk_mcp.store.vector_store.VectorStore", new=vector_store_class),
-        pytest.raises(DatabaseNotReadyError, match="migration required"),
-    ):
-        await _create_pool_and_store("postgresql://example")
-
-    pool.close.assert_awaited_once_with()
-    document_store_class.assert_not_called()
-    vector_store_class.assert_not_called()
-
 
 # -- URL helpers -----------------------------------------------------------
 

@@ -31,8 +31,6 @@ async def test_installed_stdio_command_protocol_and_clean_shutdown(tmp_path: Pat
 
     teardown_sentinel = tmp_path / "stdio-teardown-complete"
     child_env = {
-        "BDDK_ADMIN_TOOLS": "false",
-        "BDDK_AUTO_SYNC": "false",
         "BDDK_MCP_E2E_STUB": "1",
         "BDDK_MCP_E2E_TEARDOWN_SENTINEL": str(teardown_sentinel),
         "MCP_TRANSPORT": "stdio",

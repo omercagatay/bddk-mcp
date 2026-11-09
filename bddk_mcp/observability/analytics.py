@@ -1,4 +1,4 @@
-"""BDDK analytics: trend analysis, digest, comparison, update detection."""
+"""BDDK analytics: trend analysis, digest, comparison."""
 
 from datetime import datetime
 
@@ -266,42 +266,3 @@ async def compare_metrics(
 
 
 # -- Update Detection -------------------------------------------------------
-
-
-async def check_updates(
-    http: httpx.AsyncClient,
-    known_decisions: list[dict],
-    known_announcement_ids: set[str] | None = None,
-) -> dict:
-    """Compare current BDDK state with known state to detect new items.
-
-    Args:
-        known_decisions: Previously cached decisions list.
-        known_announcement_ids: Set of known announcement URLs.
-
-    Returns dict with: new_decisions_count, new_announcements, details.
-    """
-    # Check announcements (fast — just one page per category)
-    new_announcements: list[dict] = []
-    if known_announcement_ids is None:
-        known_announcement_ids = set()
-
-    for cat_id in ANNOUNCEMENT_CATEGORY_IDS:
-        anns = await fetch_announcements(http, cat_id)
-        for a in anns:
-            if a.get("url") and a["url"] not in known_announcement_ids:
-                new_announcements.append(a)
-
-    # For decisions, we compare snapshot counts
-    # (Full re-fetch is expensive, so we just report announcement changes)
-    return {
-        "new_announcements": new_announcements[:10],
-        "new_announcements_count": len(new_announcements),
-        "checked_categories": [
-            "Basın Duyurusu",
-            "Mevzuat Duyurusu",
-            "İnsan Kaynakları Duyurusu",
-            "Veri Yayımlama Duyurusu",
-            "Kuruluş Duyurusu",
-        ],
-    }

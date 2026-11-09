@@ -2,7 +2,6 @@
 
 from bddk_mcp.ingest.client import (
     _external_url_to_id,
-    _mevzuat_to_pdf_url,
     _parse_date,
     _turkish_lower,
     _turkish_stem,
@@ -91,31 +90,6 @@ class TestExternalUrlToId:
 
     def test_resmi_gazete_url(self):
         assert _external_url_to_id("https://www.resmigazete.gov.tr/eskiler/2005/11/20051101M1-1.htm") is None
-
-
-class TestMevzuatToPdfUrl:
-    def test_yonetmelik(self):
-        url = _mevzuat_to_pdf_url("42628", "7", "5")
-        assert url == "https://www.mevzuat.gov.tr/MevzuatMetin/yonetmelik/7.5.42628.pdf"
-
-    def test_teblig(self):
-        url = _mevzuat_to_pdf_url("42363", "9", "5")
-        assert url == "https://www.mevzuat.gov.tr/MevzuatMetin/teblig/9.5.42363.pdf"
-
-    def test_kanun(self):
-        url = _mevzuat_to_pdf_url("5411", "1", "5")
-        assert url == "https://www.mevzuat.gov.tr/MevzuatMetin/kanun/1.5.5411.pdf"
-
-    def test_unknown_tur(self):
-        assert _mevzuat_to_pdf_url("123", "99", "5") is None
-
-    def test_default_params(self):
-        url = _mevzuat_to_pdf_url("42628")
-        assert url == "https://www.mevzuat.gov.tr/MevzuatMetin/yonetmelik/7.5.42628.pdf"
-
-    def test_invalid_path_components_are_rejected(self):
-        assert _mevzuat_to_pdf_url("../private", "7", "5") is None
-        assert _mevzuat_to_pdf_url("42628", "7", "../5") is None
 
 
 class TestParseDate:

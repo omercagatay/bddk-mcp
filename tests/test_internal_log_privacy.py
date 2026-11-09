@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import subprocess
 import sys
-from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -340,23 +339,6 @@ async def test_document_sync_debug_log_omits_url_document_id_and_exception(caplo
 
 
 @pytest.mark.asyncio
-async def test_legacy_cache_missing_log_omits_configured_path(caplog, monkeypatch):
-    syncer = DocumentSyncer(
-        MagicMock(),
-        ocr_backends=[],
-        http=MagicMock(spec=httpx.AsyncClient),
-        prefer_html_for_mevzuat=False,
-    )
-    monkeypatch.setattr("bddk_mcp.ingest.doc_sync.CACHE_FILE", Path(PRIVATE_PATH))
-
-    with caplog.at_level(logging.ERROR, logger="bddk_mcp.ingest.doc_sync"):
-        report = await syncer.import_and_sync_from_cache()
-
-    assert report.total == 0
-    _assert_private_values_absent(caplog)
-
-
-@pytest.mark.asyncio
 async def test_client_unmapped_upstream_category_is_not_logged(caplog):
     client = BddkApiClient(pool=MagicMock(), http=MagicMock(spec=httpx.AsyncClient))
     html = f"""
@@ -373,26 +355,3 @@ async def test_client_unmapped_upstream_category_is_not_logged(caplog):
     assert decisions[0].category == PRIVATE_TERM
     _assert_private_values_absent(caplog)
     assert f"chars={len(PRIVATE_TERM)}" in caplog.text
-
-
-@pytest.mark.asyncio
-async def test_client_store_hit_log_omits_document_identifier(caplog):
-    page = SimpleNamespace(
-        document_id=PRIVATE_TERM,
-        markdown_content="public text",
-        page_number=1,
-        total_pages=2,
-    )
-    doc_store = MagicMock(get_document_page=AsyncMock(return_value=page))
-    client = BddkApiClient(
-        pool=MagicMock(),
-        http=MagicMock(spec=httpx.AsyncClient),
-        doc_store=doc_store,
-    )
-
-    with caplog.at_level(logging.INFO, logger="bddk_mcp.ingest.client"):
-        result = await client.get_document_markdown(PRIVATE_TERM)
-
-    assert result.document_id == PRIVATE_TERM
-    _assert_private_values_absent(caplog)
-    assert "page 1/2" in caplog.text

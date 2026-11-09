@@ -1,7 +1,5 @@
 import asyncio
-import io
 import logging
-import math
 import re
 import time
 from datetime import datetime
@@ -13,10 +11,8 @@ from bs4 import BeautifulSoup
 from markitdown import MarkItDown
 
 from bddk_mcp.core.config import (
-    CACHE_TTL_SECONDS,
     HTTP_CONNECT_TIMEOUT,
     HTTP_POOL_TIMEOUT,
-    PAGE_SIZE,
     REQUEST_TIMEOUT,
     STALE_CACHE_FALLBACK,
     SYNC_CONCURRENCY,
@@ -24,7 +20,6 @@ from bddk_mcp.core.config import (
 from bddk_mcp.core.exceptions import BddkStorageError, BddkUpstreamError
 from bddk_mcp.core.models import (
     BddkDecisionSummary,
-    BddkDocumentMarkdown,
     BddkSearchRequest,
     BddkSearchResult,
 )
@@ -58,8 +53,6 @@ _BDDK_BASE_URL = "https://www.bddk.org.tr"
 # buffering an unbounded upstream response. Catalog pages should be small;
 # document fallback permits large regulatory PDFs while remaining finite.
 _MAX_CATALOG_RESPONSE_BYTES = 8 * 1024 * 1024
-_MAX_DOCUMENT_RESPONSE_BYTES = 128 * 1024 * 1024
-
 # Pages that use accordion card structure (h5 headers with card-body)
 _ACCORDION_PAGE_IDS = [50, 51]
 # Pages that use flat list with DokumanGetir links and (date - number) format
@@ -250,28 +243,6 @@ def _external_url_to_id(url: str) -> str | None:
     return None
 
 
-def _mevzuat_to_pdf_url(mevzuat_no: str, mevzuat_tur: str = "7", mevzuat_tertip: str = "5") -> str | None:
-    """Convert mevzuat.gov.tr parameters to a direct PDF download URL."""
-    if not re.fullmatch(r"[0-9]{1,20}", mevzuat_no) or not re.fullmatch(r"[0-9]{1,4}", mevzuat_tertip):
-        return None
-    path_segment = MEVZUAT_TUR_MAP.get(mevzuat_tur)
-    if not path_segment:
-        return None
-    return f"https://www.mevzuat.gov.tr/MevzuatMetin/{path_segment}/{mevzuat_tur}.{mevzuat_tertip}.{mevzuat_no}.pdf"
-
-
-async def initialize_cache_schema(pool: asyncpg.Pool) -> None:
-    """Deprecated compatibility wrapper for database readiness.
-
-    Schema ownership belongs exclusively to :mod:`bddk_mcp.migrations`.  The
-    historical function name is retained for callers that have not migrated,
-    but it now performs only the shared SELECT-based readiness check.
-    """
-    from bddk_mcp.db_lifecycle import assert_database_ready
-
-    await assert_database_ready(pool=pool, require_corpus=False)
-
-
 class BddkApiClient:
     """
     Client for searching and retrieving BDDK decisions and regulations.
@@ -316,22 +287,10 @@ class BddkApiClient:
         self._cache: list[BddkDecisionSummary] = []
         self._cache_timestamp: float = 0.0
         self._page_errors: dict[int, str] = {}
-        self.known_announcements: set[str] = set()
         # Bound the parallel _scrape_bddk() fan-out so BDDK sees at most
         # SYNC_CONCURRENCY (default 5) in-flight requests at once, matching
         # the rate limit data_sources.py already enforces for the same host.
         self._scrape_sem = asyncio.Semaphore(SYNC_CONCURRENCY)
-
-    async def initialize(self) -> None:
-        """Deprecated SELECT-only readiness and cache-load wrapper.
-
-        Run ``bddk-mcp migrate`` separately with schema-owner credentials.
-        Runtime and context-manager paths should call
-        :meth:`load_cache_read_only` directly.
-        """
-        await initialize_cache_schema(self._pool)
-        # Eagerly load from DB — instant, no network needed
-        await self._load_cache_from_db()
 
     # -- context manager ------------------------------------------------------
 
@@ -478,21 +437,6 @@ class BddkApiClient:
 
     # -- cache ----------------------------------------------------------------
 
-    def _is_cache_valid(self) -> bool:
-        return len(self._cache) > 0 and (time.time() - self._cache_timestamp) < CACHE_TTL_SECONDS
-
-    def cache_status(self) -> dict:
-        """Return cache statistics."""
-        age = time.time() - self._cache_timestamp if self._cache_timestamp else None
-        return {
-            "total_items": len(self._cache),
-            "cache_age_seconds": round(age) if age else None,
-            "cache_valid": self._is_cache_valid(),
-            "ttl_seconds": CACHE_TTL_SECONDS,
-            "page_errors": dict(self._page_errors),
-            "categories": _count_categories(self._cache),
-        }
-
     def get_cache_items(self) -> list[BddkDecisionSummary]:
         """Return a shallow copy of the cached decision list."""
         return list(self._cache)
@@ -503,10 +447,6 @@ class BddkApiClient:
             if dec.document_id == doc_id:
                 return dec
         return None
-
-    def cache_size(self) -> int:
-        """Return the number of items in the cache."""
-        return len(self._cache)
 
     # -- parsers --------------------------------------------------------------
 
@@ -834,166 +774,3 @@ class BddkApiClient:
             page=request.page,
             page_size=request.page_size,
         )
-
-    def _resolve_document_url(self, document_id: str) -> str:
-        """Resolve a document ID to a fetchable URL."""
-        if re.fullmatch(r"[0-9]{1,20}", document_id):
-            return _DOCUMENT_URL_TEMPLATE.format(document_id=document_id)
-
-        if document_id.startswith("mevzuat_"):
-            mevzuat_no = document_id.removeprefix("mevzuat_")
-            if not re.fullmatch(r"[0-9]{1,20}", mevzuat_no):
-                raise OutboundHttpPolicyError("Document identifier is invalid for live retrieval.")
-            for dec in self._cache:
-                if dec.document_id == document_id and dec.source_url:
-                    source = dec.source_url
-                    try:
-                        parsed = urlparse(source)
-                        source_host = (parsed.hostname or "").rstrip(".").lower()
-                    except ValueError:
-                        continue
-                    if (
-                        source_host not in MEVZUAT_HTTPS_HOSTS
-                        or parsed.username is not None
-                        or parsed.password is not None
-                    ):
-                        continue
-                    params = parse_qs(parsed.query)
-
-                    tur = params.get("MevzuatTur", [None])[0]
-                    tertip = params.get("MevzuatTertip", [None])[0]
-
-                    if not tur:
-                        kod = params.get("MevzuatKod", [None])[0]
-                        if kod:
-                            parts = kod.split(".")
-                            if len(parts) >= 3:
-                                tur = parts[0]
-                                tertip = parts[1]
-
-                    pdf_url = _mevzuat_to_pdf_url(mevzuat_no, tur or "7", tertip or "5")
-                    if pdf_url:
-                        return pdf_url
-                    break
-
-            pdf_url = _mevzuat_to_pdf_url(mevzuat_no)
-            if pdf_url:
-                return pdf_url
-
-        raise OutboundHttpPolicyError("Document identifier is invalid for live retrieval.")
-
-    async def get_document_markdown(
-        self,
-        document_id: str,
-        page_number: int = 1,
-    ) -> BddkDocumentMarkdown:
-        """Fetch a BDDK document and return its content as paginated Markdown.
-
-        Uses store-first strategy: check local DocumentStore before fetching
-        from the network.
-        """
-        # Store-first lookup
-        if self._doc_store:
-            page = await self._doc_store.get_document_page(document_id, page_number)
-            if page and page.markdown_content and "Invalid page" not in page.markdown_content:
-                logger.info(
-                    "Document served from store (page %d/%d)",
-                    page.page_number,
-                    page.total_pages,
-                )
-                return BddkDocumentMarkdown(
-                    document_id=page.document_id,
-                    markdown_content=page.markdown_content,
-                    page_number=page.page_number,
-                    total_pages=page.total_pages,
-                )
-
-        # Live fetch fallback
-        try:
-            url = self._resolve_document_url(document_id)
-            logger.info("Fetching approved regulatory document from live upstream")
-            response = await self._fetch_with_retry(url, max_bytes=_MAX_DOCUMENT_RESPONSE_BYTES)
-        except (httpx.HTTPError, httpx.TransportError, OutboundHttpPolicyError) as exc:
-            logger.warning(
-                "Approved regulatory document fetch failed",
-                extra={"error_type": type(exc).__name__},
-            )
-            return BddkDocumentMarkdown(
-                document_id=document_id,
-                markdown_content="Error fetching document from the approved regulatory upstream.",
-                page_number=1,
-                total_pages=1,
-            )
-
-        content_type = response.headers.get("content-type", "").lower()
-        ext = ".pdf" if "pdf" in content_type else ".html"
-
-        try:
-            result = self._md.convert_stream(
-                io.BytesIO(response.content),
-                file_extension=ext,
-            )
-            markdown = result.text_content.strip()
-        except (ValueError, OSError, UnicodeDecodeError) as exc:
-            logger.warning(
-                "Approved regulatory document conversion failed",
-                extra={"error_type": type(exc).__name__},
-            )
-            return BddkDocumentMarkdown(
-                document_id=document_id,
-                markdown_content="Error converting the approved regulatory document to Markdown.",
-                page_number=1,
-                total_pages=1,
-            )
-
-        # Store for future use
-        if self._doc_store and markdown:
-            from bddk_mcp.store.doc_store import StoredDocument
-
-            try:
-                await self._doc_store.store_document(
-                    StoredDocument(
-                        document_id=document_id,
-                        title=document_id,
-                        source_url=url,
-                        markdown_content=markdown,
-                        extraction_method="markitdown",
-                        file_size=len(response.content),
-                        pdf_bytes=response.content if ext == ".pdf" else None,
-                    )
-                )
-                logger.info("Converted regulatory document stored in local document store")
-            except (RuntimeError, OSError) as exc:
-                logger.warning(
-                    "Failed to store converted regulatory document",
-                    extra={"error_type": type(exc).__name__},
-                )
-
-        total_pages = max(1, math.ceil(len(markdown) / PAGE_SIZE))
-
-        if page_number < 1 or page_number > total_pages:
-            return BddkDocumentMarkdown(
-                document_id=document_id,
-                markdown_content=f"Invalid page number {page_number}. Document has {total_pages} page(s).",
-                page_number=page_number,
-                total_pages=total_pages,
-            )
-
-        start = (page_number - 1) * PAGE_SIZE
-        page_content = markdown[start : start + PAGE_SIZE]
-
-        return BddkDocumentMarkdown(
-            document_id=document_id,
-            markdown_content=page_content,
-            page_number=page_number,
-            total_pages=total_pages,
-        )
-
-
-def _count_categories(cache: list[BddkDecisionSummary]) -> dict[str, int]:
-    """Count documents per category."""
-    counts: dict[str, int] = {}
-    for d in cache:
-        cat = d.category or "Unknown"
-        counts[cat] = counts.get(cat, 0) + 1
-    return dict(sorted(counts.items()))

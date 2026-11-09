@@ -117,11 +117,6 @@ class _LRUCache:
 _search_cache: _LRUCache = _LRUCache(max_size=SEARCH_CACHE_MAX, ttl=SEARCH_CACHE_TTL)
 
 
-def clear_search_cache() -> None:
-    """Invalidate all query results derived from the previous corpus release."""
-    _search_cache.clear()
-
-
 def _match_strength(relevance: float) -> str:
     if relevance >= 0.70:
         return "strong"

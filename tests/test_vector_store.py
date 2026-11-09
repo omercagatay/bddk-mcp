@@ -13,7 +13,6 @@ from bddk_mcp.store.vector_store import (
     VectorIndexConsistencyError,
     VectorStore,
     _chunk_document,
-    _chunk_text,
     _document_quality_by_ids,
     _quality_metadata,
 )
@@ -119,39 +118,6 @@ class TestQualityMetadata:
 
 class TestChunkText:
     """Test the text chunking utility (no DB needed)."""
-
-    def test_empty_text(self):
-        assert _chunk_text("") == []
-
-    def test_short_text(self):
-        text = "Short text"
-        chunks = _chunk_text(text, chunk_size=1000)
-        assert chunks == [text]
-
-    def test_exact_chunk_size(self):
-        text = "A" * 1000
-        chunks = _chunk_text(text, chunk_size=1000, overlap=200)
-        assert len(chunks) == 1
-        assert chunks[0] == text
-
-    def test_two_chunks_with_overlap(self):
-        text = "A" * 1500
-        chunks = _chunk_text(text, chunk_size=1000, overlap=200)
-        assert len(chunks) == 2
-        assert len(chunks[0]) == 1000
-        assert len(chunks[1]) == 700
-
-    def test_many_chunks(self):
-        text = "A" * 5000
-        chunks = _chunk_text(text, chunk_size=1000, overlap=200)
-        assert len(chunks) >= 5
-        assert len(chunks[0]) == 1000
-
-    def test_whitespace_only_chunks_skipped(self):
-        text = "real content" + " " * 2000
-        chunks = _chunk_text(text, chunk_size=1000, overlap=200)
-        for chunk in chunks:
-            assert chunk.strip() != ""
 
     def test_chunk_document_attaches_section_metadata(self):
         text = (
@@ -474,18 +440,6 @@ class TestVectorStoreLifecycle:
     """Test VectorStore initialization and basic operations."""
 
     @pytest.mark.asyncio
-    async def test_initialize_is_select_only_readiness_wrapper(self):
-        pool = MagicMock()
-        readiness = AsyncMock()
-
-        with patch("bddk_mcp.db_lifecycle.assert_database_ready", new=readiness):
-            await VectorStore(pool).initialize()
-
-        readiness.assert_awaited_once_with(pool=pool, require_corpus=False)
-        pool.acquire.assert_not_called()
-        pool.execute.assert_not_called()
-
-    @pytest.mark.asyncio
     async def test_semantic_readiness_probe_accepts_empty_results_and_is_cached(self):
         store = VectorStore(MagicMock())
         search = AsyncMock(return_value=[])
@@ -553,12 +507,6 @@ class TestVectorStoreLifecycle:
             yield vs
         finally:
             await _clean_vector_test_documents(pg_pool)
-
-    @pytest.mark.asyncio
-    async def test_initialize(self, store):
-        stats = await store.stats()
-        assert isinstance(stats["total_documents"], int)
-        assert isinstance(stats["total_chunks"], int)
 
     @pytest.mark.asyncio
     async def test_add_document(self, store, pg_pool):

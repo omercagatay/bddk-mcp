@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import re
-from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -22,7 +21,6 @@ from bddk_mcp.store.bulk_write import (
     insert_document_section_rows,
     upsert_decision_cache_rows,
 )
-from bddk_mcp.store.doc_store import DocumentStore
 
 
 class _LockConnection:
@@ -194,33 +192,6 @@ async def test_hot_batches_bound_epoch_growth_by_statements_not_rows(pg_pool) ->
         before = after
         assert await insert_document_chunk_rows(connection, []) == 0
         assert await _epoch(connection) == before
-    finally:
-        await transaction.rollback()
-        await pg_pool.release(connection)
-
-
-@pytest.mark.postgres
-@pytest.mark.asyncio
-async def test_repeated_cache_metadata_import_is_a_true_noop(pg_pool) -> None:
-    connection = await pg_pool.acquire()
-    transaction = connection.transaction()
-    await transaction.start()
-
-    class PinnedPool:
-        @asynccontextmanager
-        async def acquire(self):
-            yield connection
-
-    prefix = f"metadata-noop-{uuid4().hex}"
-    items = [{"document_id": f"{prefix}-{index}", "title": f"document {index}"} for index in range(16)]
-    try:
-        before = await _epoch(connection)
-        assert await DocumentStore(PinnedPool()).import_from_cache(items) == len(items)  # type: ignore[arg-type]
-        after_first = await _epoch(connection)
-        assert after_first > before
-
-        assert await DocumentStore(PinnedPool()).import_from_cache(items) == 0  # type: ignore[arg-type]
-        assert await _epoch(connection) == after_first
     finally:
         await transaction.rollback()
         await pg_pool.release(connection)

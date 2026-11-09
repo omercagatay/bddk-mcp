@@ -19,7 +19,6 @@ import re
 
 from bs4 import BeautifulSoup, NavigableString, Tag
 
-INLINE_TAGS = {"span", "font", "a", "u", "sub", "sup"}
 BOLD_TAGS = {"b", "strong"}
 ITALIC_TAGS = {"i", "em"}
 
@@ -62,10 +61,6 @@ HEADING_RE = re.compile(
     re.IGNORECASE,
 )
 EK_RE = re.compile(r"^EK[-–—]?\s*\d+", re.IGNORECASE)
-
-
-def _clean(text: str) -> str:
-    return WS_RE.sub(" ", text).strip()
 
 
 def _is_bold(node: Tag) -> bool:

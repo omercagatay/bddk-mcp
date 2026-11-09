@@ -2,7 +2,7 @@
 
 import logging
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
@@ -190,29 +190,12 @@ class TestCachePersistence:
 
         pool = SelectOnlyPool()
         client = BddkApiClient(pool=pool, http=AsyncMock(spec=httpx.AsyncClient))
-        client.initialize = AsyncMock()
 
         async with client as entered:
             assert entered is client
 
-        client.initialize.assert_not_awaited()
         assert len(pool.statements) == 1
         assert pool.statements[0].upper().startswith("SELECT")
-
-    @pytest.mark.asyncio
-    async def test_legacy_initialize_is_select_only_readiness_wrapper(self):
-        pool = MagicMock()
-        client = BddkApiClient(pool=pool, http=AsyncMock(spec=httpx.AsyncClient))
-        client._load_cache_from_db = AsyncMock(return_value=False)
-        readiness = AsyncMock()
-
-        with patch("bddk_mcp.db_lifecycle.assert_database_ready", new=readiness):
-            await client.initialize()
-
-        readiness.assert_awaited_once_with(pool=pool, require_corpus=False)
-        client._load_cache_from_db.assert_awaited_once_with()
-        pool.acquire.assert_not_called()
-        pool.execute.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_serving_mode_never_populates_an_empty_cache_from_network(self):
@@ -264,61 +247,6 @@ class TestDecisionParsing:
 
         decisions = await client._fetch_and_parse_decision_page(55)
         assert decisions == []
-
-
-class TestDocumentUrlResolution:
-    def test_numeric_id(self):
-        client = _make_client()
-        url = client._resolve_document_url("1296")
-        assert url == "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1296"
-
-    def test_mevzuat_id_with_cache(self):
-        client = _make_client()
-        client._cache = [
-            BddkDecisionSummary(
-                title="Test",
-                document_id="mevzuat_42628",
-                content="",
-                source_url="https://mevzuat.gov.tr/mevzuat?MevzuatNo=42628&MevzuatTur=7&MevzuatTertip=5",
-            )
-        ]
-        url = client._resolve_document_url("mevzuat_42628")
-        assert "mevzuat.gov.tr" in url
-        assert "42628" in url
-
-    def test_mevzuat_id_fallback(self):
-        client = _make_client()
-        client._cache = []
-        url = client._resolve_document_url("mevzuat_99999")
-        assert "mevzuat.gov.tr" in url
-        assert "99999" in url
-
-    def test_unsafe_document_identifier_is_rejected(self):
-        client = _make_client()
-
-        with pytest.raises(RuntimeError, match="identifier is invalid"):
-            client._resolve_document_url("../../private?token=secret")
-
-
-class TestLiveDocumentFailureSafety:
-    @pytest.mark.asyncio
-    async def test_transport_details_and_source_url_are_not_returned(self):
-        client = _make_client()
-        client._fetch_with_retry = AsyncMock(
-            side_effect=httpx.ConnectError("proxy password and private network address")
-        )
-
-        result = await client.get_document_markdown("1296")
-
-        assert "proxy password" not in result.markdown_content
-        assert "https://" not in result.markdown_content
-        assert result.markdown_content == "Error fetching document from the approved regulatory upstream."
-
-
-class TestCacheValidity:
-    def test_empty_cache_invalid(self):
-        client = _make_client()
-        assert not client._is_cache_valid()
 
 
 class TestCacheRefreshIntegrity:
@@ -401,7 +329,7 @@ class TestCacheRefreshIntegrity:
 
         assert client.get_cache_items() == [previous]
         assert client._cache_timestamp == 123.0
-        assert sentinel not in repr(client.cache_status()["page_errors"])
+        assert sentinel not in repr(client._page_errors)
         client._save_cache_to_db.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -433,41 +361,6 @@ class TestCacheRefreshIntegrity:
         assert client.get_cache_items() == [previous]
         assert client._cache_timestamp == 456.0
 
-    def test_fresh_cache_valid(self):
-        client = _make_client()
-        client._cache = [BddkDecisionSummary(title="T", document_id="1", content="")]
-        client._cache_timestamp = time.time()
-        assert client._is_cache_valid()
-
-    def test_expired_cache_invalid(self):
-        client = _make_client()
-        client._cache = [BddkDecisionSummary(title="T", document_id="1", content="")]
-        client._cache_timestamp = time.time() - 7200
-        assert not client._is_cache_valid()
-
-
-class TestCacheStatus:
-    def test_cache_status_with_data(self):
-        client = _make_client()
-        client._cache = [
-            BddkDecisionSummary(title="A", document_id="1", content="", category="Rehber"),
-            BddkDecisionSummary(title="B", document_id="2", content="", category="Genelge"),
-            BddkDecisionSummary(title="C", document_id="3", content="", category="Rehber"),
-        ]
-        client._cache_timestamp = time.time()
-
-        status = client.cache_status()
-        assert status["total_items"] == 3
-        assert status["cache_valid"] is True
-        assert status["categories"]["Rehber"] == 2
-        assert status["categories"]["Genelge"] == 1
-
-    def test_cache_status_empty(self):
-        client = _make_client()
-        status = client.cache_status()
-        assert status["total_items"] == 0
-        assert status["cache_valid"] is False
-
 
 class TestPublicCacheAPI:
     """Tests for BddkApiClient public cache API methods."""
@@ -486,7 +379,7 @@ class TestPublicCacheAPI:
         assert len(items) == 2
         # Mutating the returned list must not affect internal cache
         items.clear()
-        assert client.cache_size() == 2
+        assert len(client.get_cache_items()) == 2
 
     def test_get_cache_items_empty(self):
         client = _make_client()
@@ -504,11 +397,11 @@ class TestPublicCacheAPI:
 
     def test_cache_size(self):
         client = self._client_with_cache()
-        assert client.cache_size() == 2
+        assert len(client.get_cache_items()) == 2
 
     def test_cache_size_empty(self):
         client = _make_client()
-        assert client.cache_size() == 0
+        assert len(client.get_cache_items()) == 0
 
 
 class TestScopeFilter:

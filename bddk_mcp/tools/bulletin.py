@@ -1,4 +1,4 @@
-"""Bulletin tools: get_bddk_bulletin, get_bddk_bulletin_snapshot, get_bddk_monthly, bddk_cache_status."""
+"""Bulletin tools: get_bddk_bulletin, get_bddk_bulletin_snapshot, get_bddk_monthly."""
 
 from __future__ import annotations
 

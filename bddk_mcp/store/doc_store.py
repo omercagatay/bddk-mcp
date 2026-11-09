@@ -16,7 +16,7 @@ import re
 import time
 
 import asyncpg
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from bddk_mcp.core.config import FTS_RANK_THRESHOLD, PAGE_SIZE
 from bddk_mcp.corpus_coordination import acquire_corpus_mutation_lock
@@ -27,7 +27,7 @@ from bddk_mcp.quality.markdown_quality import (
     get_configured_quality_failure,
     prepare_markdown_for_storage,
 )
-from bddk_mcp.store.bulk_write import insert_document_metadata_rows, insert_document_section_rows
+from bddk_mcp.store.bulk_write import insert_document_section_rows
 from bddk_mcp.store.section_index import extract_document_sections
 
 logger = logging.getLogger(__name__)
@@ -115,18 +115,6 @@ class StoredDocumentSection(BaseModel):
     comparable within one query's result set, not across queries."""
 
 
-class StoreStats(BaseModel):
-    """Statistics about the document store."""
-
-    total_documents: int = 0
-    total_size_mb: float = 0.0
-    categories: dict[str, int] = Field(default_factory=dict)
-    extraction_methods: dict[str, int] = Field(default_factory=dict)
-    oldest_document: str | None = None
-    newest_document: str | None = None
-    documents_needing_refresh: int = 0
-
-
 def _content_hash(content: str) -> str:
     """SHA-256 hash of document content for change detection."""
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
@@ -180,15 +168,6 @@ class DocumentStore:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
         self._document_quality_cache: dict[tuple[str, str, QualityFailure | None], QualityAssessment] = {}
-
-    async def initialize(self) -> None:
-        """Deprecated SELECT-only compatibility readiness check.
-
-        Schema creation is available only through ``bddk-mcp migrate``.
-        """
-        from bddk_mcp.db_lifecycle import assert_database_ready
-
-        await assert_database_ready(pool=self._pool, require_corpus=False)
 
     async def close(self) -> None:
         """No-op — pool lifecycle is managed externally."""
@@ -494,17 +473,6 @@ class DocumentStore:
             )
         return await insert_document_section_rows(conn, rows)
 
-    async def delete_document_sections(self, doc_id: str) -> bool:
-        """Delete all structural sections for a document."""
-        async with self._pool.acquire() as conn, conn.transaction():
-            await acquire_corpus_mutation_lock(conn)
-            await conn.fetchval(
-                "SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended($1::pg_catalog.text, 1095652431))",
-                doc_id,
-            )
-            result = await conn.execute("DELETE FROM public.document_sections WHERE doc_id = $1", doc_id)
-            return result != "DELETE 0"
-
     async def _document_quality_by_doc(self, rows: list[asyncpg.Record]) -> dict[str, QualityAssessment]:
         """Assess each distinct document once per content hash, not once per section row.
 
@@ -774,19 +742,6 @@ class DocumentStore:
 
     # -- Utilities ------------------------------------------------------------
 
-    async def needs_refresh(self, doc_id: str, max_age_days: int = 30) -> bool:
-        """Check if a document needs to be re-downloaded/re-extracted."""
-        row = await self._pool.fetchrow(
-            "SELECT downloaded_at, markdown_content FROM documents WHERE document_id = $1",
-            doc_id,
-        )
-        if not row:
-            return True
-        if not row["markdown_content"]:
-            return True
-        age_days = (time.time() - (row["downloaded_at"] or 0)) / 86400
-        return age_days > max_age_days
-
     async def has_document(self, doc_id: str) -> bool:
         """Check if a document exists in the store (with content)."""
         row = await self._pool.fetchval(
@@ -832,120 +787,6 @@ class DocumentStore:
         """Remove a sync failure record after successful sync."""
         await self._pool.execute("DELETE FROM sync_failures WHERE document_id = $1", doc_id)
 
-    async def get_sync_failures(self, retryable_only: bool = False) -> list[dict]:
-        """Get all current sync failures."""
-        query = "SELECT * FROM sync_failures"
-        if retryable_only:
-            query += " WHERE retryable = true"
-        query += " ORDER BY last_failed_at DESC"
-        rows = await self._pool.fetch(query)
-        return [dict(r) for r in rows]
-
-    async def import_from_cache(self, cache_items: list[dict]) -> int:
-        """Import document metadata from BddkApiClient cache.
-
-        Only creates entries for documents not already in the store.
-        Does NOT download content -- use doc_sync for that.
-        """
-        # Collapse duplicate cache entries deterministically before acquiring
-        # the global writer lock.  The last entry is the same behavior callers
-        # would observe from a later catalog refresh.
-        by_id: dict[str, dict] = {}
-        for item in cache_items:
-            doc_id = item.get("document_id", "")
-            if isinstance(doc_id, str) and doc_id:
-                by_id[doc_id] = item
-        if not by_id:
-            return 0
-
-        async with self._pool.acquire() as conn, conn.transaction():
-            await acquire_corpus_mutation_lock(conn)
-            candidate_ids = sorted(by_id)
-            existing_rows = await conn.fetch(
-                "SELECT document_id FROM public.documents WHERE document_id = ANY($1::pg_catalog.text[])",
-                candidate_ids,
-            )
-            existing_ids = {str(row["document_id"]) for row in existing_rows}
-            now = time.time()
-            rows = [
-                (
-                    doc_id,
-                    by_id[doc_id].get("title", ""),
-                    by_id[doc_id].get("category", ""),
-                    by_id[doc_id].get("decision_date", ""),
-                    by_id[doc_id].get("decision_number", ""),
-                    by_id[doc_id].get("source_url", ""),
-                    now,
-                )
-                for doc_id in candidate_ids
-                if doc_id not in existing_ids
-            ]
-            # Empty input is a true no-op: no INSERT statement means no corpus
-            # epoch trigger fires on repeated imports.
-            imported = await insert_document_metadata_rows(conn, rows)
-
-        logger.info("Imported %d items from cache", imported)
-        return imported
-
-    async def list_documents(self, category: str | None = None, limit: int = 100, offset: int = 0) -> list[dict]:
-        """List documents with basic metadata (no content)."""
-        sql = """
-            SELECT document_id, title, category, decision_date,
-                   extraction_method, total_pages, file_size,
-                   downloaded_at, extracted_at
-            FROM documents
-        """
-        params: list = []
-        if category:
-            sql += " WHERE category = $1"
-            params.append(category)
-        sql += f" ORDER BY downloaded_at DESC LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}"
-        params.extend([limit, offset])
-
-        rows = await self._pool.fetch(sql, *params)
-        return [dict(row) for row in rows]
-
-    async def stats(self) -> StoreStats:
-        """Return statistics about the document store."""
-        row = await self._pool.fetchrow("SELECT COUNT(*), COALESCE(SUM(file_size), 0) FROM documents")
-        total = row[0]
-        total_size = row[1]
-
-        categories: dict[str, int] = {}
-        rows = await self._pool.fetch(
-            "SELECT COALESCE(category, 'Unknown') AS cat, COUNT(*) AS cnt FROM documents GROUP BY cat ORDER BY cat"
-        )
-        for r in rows:
-            categories[r["cat"]] = r["cnt"]
-
-        methods: dict[str, int] = {}
-        rows = await self._pool.fetch(
-            "SELECT COALESCE(extraction_method, 'none') AS m, COUNT(*) AS cnt "
-            "FROM documents WHERE markdown_content != '' GROUP BY m"
-        )
-        for r in rows:
-            methods[r["m"]] = r["cnt"]
-
-        row = await self._pool.fetchrow("SELECT MIN(downloaded_at), MAX(downloaded_at) FROM documents")
-        oldest = time.strftime("%Y-%m-%d", time.localtime(row[0])) if row[0] else None
-        newest = time.strftime("%Y-%m-%d", time.localtime(row[1])) if row[1] else None
-
-        threshold = time.time() - (30 * 86400)
-        needs_refresh = await self._pool.fetchval(
-            "SELECT COUNT(*) FROM documents WHERE markdown_content = '' OR downloaded_at < $1",
-            threshold,
-        )
-
-        return StoreStats(
-            total_documents=total,
-            total_size_mb=round(total_size / (1024 * 1024), 2),
-            categories=categories,
-            extraction_methods=methods,
-            oldest_document=oldest,
-            newest_document=newest,
-            documents_needing_refresh=needs_refresh,
-        )
-
     # -- Document Versioning --------------------------------------------------
 
     async def get_document_history(self, doc_id: str) -> list[dict]:
@@ -964,17 +805,6 @@ class DocumentStore:
             }
             for row in rows
         ]
-
-    async def get_version_count(self, doc_id: str) -> tuple[int, str | None]:
-        """Get version count and latest sync time for a document (lightweight)."""
-        row = await self._pool.fetchrow(
-            "SELECT COUNT(*) AS cnt, MAX(synced_at) AS latest FROM document_versions WHERE document_id = $1",
-            doc_id,
-        )
-        if not row or row["cnt"] == 0:
-            return 0, None
-        latest = time.strftime("%Y-%m-%d %H:%M", time.localtime(row["latest"]))
-        return row["cnt"], latest
 
     async def get_version_counts(self, doc_ids: list[str]) -> dict[str, tuple[int, str | None]]:
         """Batch version count for multiple documents. Returns {doc_id: (count, latest_date)}."""

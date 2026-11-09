@@ -14,7 +14,7 @@ from bddk_mcp.tools.documents import _is_formula_aware, register
 
 
 def test_register_exposes_end_user_tools_only_by_default():
-    """Default (ADMIN_TOOLS=false) hides document_store_stats from end users."""
+    """Only the two document tools are registered."""
     mcp = MagicMock()
     deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
     register(mcp, deps)

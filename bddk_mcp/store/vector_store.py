@@ -694,26 +694,6 @@ class _TextUnit:
 _WORD_UNIT_RE = re.compile(r"\S+\s*", re.MULTILINE)
 
 
-def _chunk_text(text: str, chunk_size: int = EMBEDDING_CHUNK_SIZE, overlap: int = EMBEDDING_CHUNK_OVERLAP) -> list[str]:
-    """Split text into overlapping chunks for embedding."""
-    if not text:
-        return []
-    if len(text) <= chunk_size:
-        return [text]
-
-    chunks = []
-    start = 0
-    step = max(1, chunk_size - overlap)
-    while start < len(text):
-        end = start + chunk_size
-        chunk = text[start:end]
-        if chunk.strip():
-            chunks.append(chunk)
-        start += step
-
-    return chunks
-
-
 def _chunk_document(
     doc_id: str,
     text: str,
@@ -1122,16 +1102,6 @@ class VectorStore:
         if descriptor is None:
             descriptor = retrieval_profile_descriptor(self._embedding_model)
         return _retrieval_profile_hash_from_descriptor(descriptor)
-
-    async def initialize(self) -> None:
-        """Deprecated SELECT-only compatibility readiness check.
-
-        Schema migrations and data backfills are explicit operator actions;
-        this method never mutates database state.
-        """
-        from bddk_mcp.db_lifecycle import assert_database_ready
-
-        await assert_database_ready(pool=self._pool, require_corpus=False)
 
     async def close(self) -> None:
         """No-op — pool lifecycle is managed externally."""
@@ -2099,18 +2069,6 @@ class VectorStore:
         )
         return row is not None
 
-    async def document_count(self) -> int:
-        """Return number of unique documents (not chunks)."""
-        return await self._pool.fetchval(
-            "SELECT COUNT(DISTINCT chunk.doc_id) FROM public.document_chunks AS chunk "
-            "JOIN public.documents AS document "
-            "ON document.document_id = chunk.doc_id AND document.content_hash = chunk.content_hash "
-            "JOIN public.document_retrieval_publications AS publication "
-            "ON publication.doc_id = chunk.doc_id AND publication.content_hash = chunk.content_hash "
-            "WHERE publication.retrieval_profile_hash = $1",
-            self.retrieval_profile_hash,
-        )
-
     async def chunk_count(self) -> int:
         """Return total number of chunks."""
         return await self._pool.fetchval(
@@ -2122,40 +2080,6 @@ class VectorStore:
             "WHERE publication.retrieval_profile_hash = $1",
             self.retrieval_profile_hash,
         )
-
-    async def stats(self) -> dict:
-        """Return store statistics."""
-        doc_count = await self.document_count()
-        chunks = await self.chunk_count()
-
-        categories: dict[str, int] = {}
-        rows = await self._pool.fetch(
-            "SELECT document.category, COUNT(DISTINCT chunk.doc_id) AS cnt "
-            "FROM public.document_chunks AS chunk JOIN public.documents AS document "
-            "ON document.document_id = chunk.doc_id AND document.content_hash = chunk.content_hash "
-            "JOIN public.document_retrieval_publications AS publication "
-            "ON publication.doc_id = chunk.doc_id AND publication.content_hash = chunk.content_hash "
-            "WHERE publication.retrieval_profile_hash = $1 "
-            "GROUP BY document.category ORDER BY document.category",
-            self.retrieval_profile_hash,
-        )
-        for r in rows:
-            categories[r["category"] or "Unknown"] = r["cnt"]
-
-        return {
-            "total_documents": doc_count,
-            "total_chunks": chunks,
-            "categories": categories,
-            "embedding_model": self._embedding_model,
-            "embedding_model_revision": "local" if EMBEDDING_MODEL_PATH else EMBEDDING_MODEL_REVISION,
-            "embedding_dimension": EMBEDDING_DIMENSION,
-            "retrieval_profile_hash": self.retrieval_profile_hash,
-            "hybrid_search": HYBRID_SEARCH,
-            "reranker_enabled": RERANKER_ENABLED,
-            "reranker_model_revision": (
-                "local" if RERANKER_MODEL_PATH else RERANKER_MODEL_REVISION if RERANKER_ENABLED else None
-            ),
-        }
 
     async def delete_document(self, doc_id: str) -> bool:
         """Delete all chunks for a document."""

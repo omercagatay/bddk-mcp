@@ -39,16 +39,3 @@ class BddkSearchResult(BaseModel):
     total_results: int = Field(0, description="Total number of results")
     page: int = Field(1, description="Current page number")
     page_size: int = Field(10, description="Results per page")
-
-
-class BddkDocumentMarkdown(BaseModel):
-    """
-    BDDK decision document converted to Markdown format.
-
-    Supports paginated content for long documents (5000 chars per page).
-    """
-
-    document_id: str = Field(..., description="BDDK document ID")
-    markdown_content: str = Field("", description="Document content in Markdown")
-    page_number: int = Field(1, description="Current page number")
-    total_pages: int = Field(1, description="Total number of pages")

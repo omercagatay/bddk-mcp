@@ -13,7 +13,7 @@ from bddk_mcp.tools.bulletin import register
 
 
 def test_register_exposes_end_user_tools_only_by_default():
-    """Default (ADMIN_TOOLS=false) hides bddk_cache_status from end users."""
+    """Only the three bulletin tools are registered."""
     mcp = MagicMock()
     deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
     register(mcp, deps)

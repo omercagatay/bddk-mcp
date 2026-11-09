@@ -56,7 +56,14 @@ Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızd
     login kullanan kurulumlar için isteğe bağlı kaldı ve ona düşer.
   - Operatör profili ve 14 operatör aracı ile Postgres destekli iş yöneticisi
     (`bddk_mcp/jobs/`, `tools/sync.py`, `tools/admin.py`, `ingest/backfill.py`).
-    Belge indirme artık senkron `bddk-mcp sync` komutu.
+    Belge indirme artık senkron `bddk-mcp sync` komutu: kataloğu
+    `decision_cache` tablosundan okur, `--refresh-catalog` ile önce BDDK'dan
+    yeniler; eski `.cache.json` yolu, `doc_sync.py`'nin kendi komut satırı ve
+    hiçbir aracın okumadığı `cache_status` istatistikleri kaldırıldı.
+  - Kaldırılan katmanların geride bıraktığı artık kod: istemcideki canlı belge
+    çekme yolu (`get_document_markdown`), mağaza istatistikleri ile liste/içe
+    aktarma yardımcıları, karakter tabanlı eski parçalayıcı, `check_updates`,
+    korelasyon kimliği yardımcıları ve `initialize` uyumluluk sarmalayıcıları.
   - Admin konsolu (`bddk_mcp/admin/`, `bddk-mcp admin-ui`, Railway admin
     servisi) ve `jinja2` bağımlılığı.
   - Telemetri ve sayaçlar (`observability/telemetry.py`, `metrics.py`,

@@ -316,7 +316,7 @@ async def test_strict_cache_load_is_select_only():
     count = await client.load_cache_read_only()
 
     assert count == 1
-    assert client.cache_size() == 1
+    assert len(client.get_cache_items()) == 1
     assert len(pool.statements) == 1
 
 
@@ -327,7 +327,7 @@ async def test_strict_cache_load_rejects_empty_cache_with_import_instruction():
     with pytest.raises(BddkStorageError, match="bddk-seed import"):
         await client.load_cache_read_only()
 
-    assert client.cache_size() == 0
+    assert len(client.get_cache_items()) == 0
 
 
 @pytest.mark.asyncio

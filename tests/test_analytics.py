@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from bddk_mcp.core.exceptions import BddkUpstreamError
-from bddk_mcp.observability.analytics import analyze_trends, build_digest, check_updates, compare_metrics
+from bddk_mcp.observability.analytics import analyze_trends, build_digest, compare_metrics
 
 
 def _make_response(text: str = "", status_code: int = 200, json_data=None):
@@ -240,36 +240,6 @@ async def test_build_digest_empty_cache(mock_http):
 
     assert result["total_decisions"] == 0
     assert "narrative" in result
-
-
-# -- Update Detection Tests --
-
-
-async def test_check_updates_new_items(mock_http):
-    mock_http.get = AsyncMock(return_value=_make_response(ANNOUNCEMENT_HTML))
-
-    # Empty known set — everything is "new"
-    result = await check_updates(mock_http, [], known_announcement_ids=set())
-
-    assert result["new_announcements_count"] >= 1
-    assert result["new_announcements"][0]["title"] == "Test Duyuru"
-
-
-async def test_check_updates_nothing_new(mock_http):
-    mock_http.get = AsyncMock(return_value=_make_response(ANNOUNCEMENT_HTML))
-
-    # Already know about this announcement
-    known = {"https://www.bddk.org.tr/Duyuru/Detay/9999"}
-    result = await check_updates(mock_http, [], known_announcement_ids=known)
-
-    assert result["new_announcements_count"] == 0
-
-
-async def test_check_updates_error_propagates_upstream_failure(mock_http):
-    """A failed fetch must surface as an upstream error, not zero new announcements."""
-    mock_http.get = AsyncMock(return_value=_make_response("", status_code=500))
-    with pytest.raises(BddkUpstreamError):
-        await check_updates(mock_http, [], known_announcement_ids=set())
 
 
 async def test_build_digest_marks_announcements_unavailable_and_drops_partial_rows(mock_http, monkeypatch):

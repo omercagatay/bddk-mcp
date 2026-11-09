@@ -20,7 +20,7 @@ Three explicit commands prepare a database; the serving process never runs them:
 ```bash
 uv run --frozen bddk-mcp migrate        # create/upgrade the schema (append-only migration ledger)
 uv run --frozen bddk-seed import        # load seed_data/ documents + decision cache, regenerate chunks and embeddings
-uv run --frozen bddk-mcp sync           # optional: download and extract documents listed in the decision cache
+uv run --frozen bddk-mcp sync           # optional: download and extract the catalogued documents (--refresh-catalog re-scrapes BDDK first)
 ```
 
 All three default to `BDDK_DATABASE_URL`. A deployment that keeps separate PostgreSQL logins can set `BDDK_SCHEMA_OWNER_DATABASE_URL` (used by `migrate`) and `BDDK_INGESTION_DATABASE_URL` (used by `import` and `sync`); each falls back to `BDDK_DATABASE_URL` when unset. `--db DSN` overrides the environment for one command.

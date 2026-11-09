@@ -73,10 +73,6 @@ def _environment_choice(name: str, *, default: str, choices: frozenset[str]) -> 
     return value
 
 
-# -- Paths --------------------------------------------------------------------
-
-BASE_DIR = Path(__file__).parent
-
 # -- PostgreSQL ---------------------------------------------------------------
 
 DATABASE_URL = os.environ.get("BDDK_DATABASE_URL", "")
@@ -218,14 +214,6 @@ if EMBEDDING_CHUNK_TOKEN_OVERLAP >= EMBEDDING_CHUNK_TARGET_TOKENS:
     raise RuntimeError("BDDK_EMBEDDING_CHUNK_TOKEN_OVERLAP must be smaller than BDDK_EMBEDDING_CHUNK_TARGET_TOKENS.")
 
 # -- Cache --------------------------------------------------------------------
-
-# Decision list cache TTL (seconds) -- how long before re-scraping BDDK pages
-CACHE_TTL_SECONDS = _environment_int(
-    "BDDK_CACHE_TTL",
-    default=3600,
-    minimum=0,
-    maximum=31_536_000,
-)
 
 # Search result in-memory cache
 SEARCH_CACHE_TTL = _environment_int(

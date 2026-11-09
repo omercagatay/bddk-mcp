@@ -37,7 +37,6 @@ def test_stored_document_section_model():
 async def test_context_entry_checks_schema_without_initializing_it():
     pool = MagicMock()
     store = DocumentStore(pool)
-    store.initialize = AsyncMock()
     readiness = AsyncMock()
 
     with patch("bddk_mcp.db_lifecycle.assert_database_ready", new=readiness):
@@ -45,20 +44,6 @@ async def test_context_entry_checks_schema_without_initializing_it():
             assert entered is store
 
     readiness.assert_awaited_once_with(pool=pool, require_corpus=False)
-    store.initialize.assert_not_awaited()
-    pool.execute.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_legacy_initialize_is_select_only_readiness_wrapper():
-    pool = MagicMock()
-    readiness = AsyncMock()
-
-    with patch("bddk_mcp.db_lifecycle.assert_database_ready", new=readiness):
-        await DocumentStore(pool).initialize()
-
-    readiness.assert_awaited_once_with(pool=pool, require_corpus=False)
-    pool.acquire.assert_not_called()
     pool.execute.assert_not_called()
 
 
@@ -137,12 +122,6 @@ async def test_search_with_category_filter(store, sample_doc, mevzuat_doc):
 
     hits = await store.search_content("sermaye", category="Rehber")
     assert all(h.category == "Rehber" for h in hits)
-
-
-async def test_needs_refresh(store, sample_doc):
-    assert await store.needs_refresh("1291") is True  # not in store
-    await store.store_document(sample_doc)
-    assert await store.needs_refresh("1291") is False  # just stored
 
 
 async def test_has_document(store, sample_doc):
@@ -342,38 +321,3 @@ async def test_upsert(store, sample_doc):
     await store.store_document(updated)
     doc = await store.get_document("1291")
     assert doc.title == "Güncellenmiş Başlık"
-
-
-async def test_import_from_cache(store):
-    cache_items = [
-        {"document_id": "100", "title": "Doc A", "category": "Genelge"},
-        {"document_id": "200", "title": "Doc B", "category": "Tebliğ"},
-    ]
-    imported = await store.import_from_cache(cache_items)
-    assert imported == 2
-
-    # Second import should skip existing
-    imported2 = await store.import_from_cache(cache_items)
-    assert imported2 == 0
-
-
-async def test_stats(store, sample_doc, mevzuat_doc):
-    await store.store_document(sample_doc)
-    await store.store_document(mevzuat_doc)
-
-    st = await store.stats()
-    assert st.total_documents == 2
-    assert "Rehber" in st.categories
-    assert "Yönetmelik" in st.categories
-
-
-async def test_list_documents(store, sample_doc, mevzuat_doc):
-    await store.store_document(sample_doc)
-    await store.store_document(mevzuat_doc)
-
-    docs = await store.list_documents()
-    assert len(docs) == 2
-
-    docs_filtered = await store.list_documents(category="Rehber")
-    assert len(docs_filtered) == 1
-    assert docs_filtered[0]["document_id"] == "1291"
