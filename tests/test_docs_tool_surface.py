@@ -18,6 +18,10 @@ _RETIRED_STRINGS = (
     "bddk-mcp bootstrap",
     "admin-ui",
     "get_operator_job",
+    "BDDK_DATABASE_URL",
+    "bddk-seed",
+    "bddk-mcp migrate",
+    "pgvector",
 )
 
 
@@ -56,13 +60,13 @@ def test_container_and_deployment_docs_use_packaged_entry_point():
     deployment = _read("docs/DEPLOYMENT.md")
     assert "## Bank deployment" in deployment
     assert "not bank acceptance or a production-ready platform configuration" in deployment
-    assert "17 public tools" in deployment
+    assert "14 public tools" in deployment
     assert "stateless JSON responses" in deployment
     assert "GET /health/live" in deployment
     assert "GET /health/ready" in deployment
     assert "global ingress limit" in deployment
     assert "process-local and non-durable" in deployment
-    assert "bddk-seed import" in deployment
+    assert "bddk-mcp build" in deployment
     for retired in _RETIRED_STRINGS:
         assert retired not in deployment, retired
     for variable in (
@@ -89,7 +93,7 @@ def test_environment_example_records_the_http_boundary():
     example = _read(".env.example")
 
     for variable in (
-        "BDDK_DATABASE_URL",
+        "BDDK_CORPUS_PATH",
         "BDDK_HTTP_ALLOWED_HOSTS",
         "BDDK_HTTP_ALLOWED_ORIGINS",
         "BDDK_JWT_ISSUER",
@@ -125,7 +129,9 @@ def test_status_document_pins_current_facts():
     status = _read("docs/STATUS.md")
 
     assert "14 tools" in status
-    assert "schema v11" in status
+    assert "One SQLite file" in status
+    assert "corpus/bddk.sqlite" in status
+    assert "schema version 1" in status
     assert "13,604 chunks" in status
     assert "archive/pre-simplify-2026-11-09" in status
     for retired in _RETIRED_STRINGS:

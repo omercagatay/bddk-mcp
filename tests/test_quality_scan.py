@@ -124,103 +124,58 @@ def test_format_report_json_and_csv_include_findings():
     assert "mevzuat_21192,fail,data_uri_image,blob" in as_csv
 
 
-# -- scan_quality: integration against a single-connection pool --------------
+# -- scan_quality: integration against a temporary corpus file ----------------
 
 
 @pytest.fixture
-async def seeded_quality_pool(pg_pool):
-    """Seed a throwaway set of docs into an isolated schema.
+async def seeded_quality_db(corpus_db):
+    """Seed a throwaway set of docs with one orphan chunk and one parsed section."""
+    docs = [
+        ("doc_clean", "Normal document with çğıöşü letters " * 120, "markitdown"),
+        ("doc_camelcase", "BÖLÜMBaşlangıç HükümleriAmaç " + "çğıöşü " * 120, "html_parser"),
+        ("doc_replacement", "Some text \ufffd with replacement " + "çğıöşü " * 120, "markitdown"),
+        ("doc_c1", "Fiyat \x96 aralığı " + "çğıöşü " * 120, "html_parser"),
+        ("doc_imgtag", "Some <img src='x.png'> leaked " + "çğıöşü " * 120, "markitdown"),
+        ("doc_data_uri", "Some <img src='data:image/x-wmf;base64,AAA'> leaked " + "çğıöşü " * 120, "markitdown"),
+        ("doc_cid", ("cid:12 " * 25) + "çğıöşü " * 120, "markitdown"),
+        ("doc_short", "tiny", "markitdown"),
+        ("doc_dots", "TOC entry .......... page 3 " + "çğıöşü " * 120, "markitdown"),
+        (
+            "doc_formula_missing",
+            "Article references aşağıdaki formül ama formül yok. " + "çğıöşü " * 120,
+            "markitdown",
+        ),
+        (
+            "doc_formula_ok",
+            "Article with formula $$x=y$$ and formül ref. " + "çğıöşü " * 120,
+            "chandra2",
+        ),
+        ("doc_no_diacritics", "ASCII only text here no turkish letters at all " * 40, "glm_ocr"),
+    ]
 
-    Uses a single pinned connection so schema / search_path are consistent
-    across every query scan_quality issues (a real pool could reuse different
-    connections that don't see the temp schema).
-    """
-    from tests.conftest import SingleConnPool
-
-    schema = "quality_scan_test"
-    conn = await pg_pool.acquire()
-    try:
-        await conn.execute(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
-        await conn.execute(f"CREATE SCHEMA {schema}")
-        await conn.execute(f"SET search_path TO {schema}, public")
-        await conn.execute(
-            """
-            CREATE TABLE documents (
-                document_id text PRIMARY KEY,
-                title text NOT NULL DEFAULT '',
-                markdown_content text NOT NULL DEFAULT '',
-                extraction_method text DEFAULT 'markitdown'
-            )
-            """
+    def _seed(conn):
+        conn.executemany(
+            "INSERT INTO documents (document_id, title, markdown_content, extraction_method, content_hash)"
+            " VALUES (?, ?, ?, ?, 'x')",
+            [(doc_id, doc_id, content, method) for doc_id, content, method in docs],
         )
-        await conn.execute(
-            """
-            CREATE TABLE document_chunks (
-                id serial PRIMARY KEY,
-                doc_id text NOT NULL
-            )
-            """
+        conn.executemany(
+            "INSERT INTO chunks (doc_id, chunk_index, chunk_text, start_char, end_char, content_hash, embedding)"
+            " VALUES (?, 0, 'chunk', 0, 5, 'x', X'00')",
+            [("doc_clean",), ("missing_parent_doc",)],
         )
-        await conn.execute(
-            """
-            CREATE TABLE document_sections (
-                id serial PRIMARY KEY,
-                doc_id text NOT NULL,
-                section_type text NOT NULL,
-                section_ref text NOT NULL,
-                content text NOT NULL
-            )
-            """
-        )
-        docs = [
-            ("doc_clean", "Normal document with çğıöşü letters " * 120, "markitdown"),
-            ("doc_camelcase", "BÖLÜMBaşlangıç HükümleriAmaç " + "çğıöşü " * 120, "html_parser"),
-            ("doc_replacement", "Some text � with replacement " + "çğıöşü " * 120, "markitdown"),
-            ("doc_c1", "Fiyat \x96 aralığı " + "çğıöşü " * 120, "html_parser"),
-            ("doc_imgtag", "Some <img src='x.png'> leaked " + "çğıöşü " * 120, "markitdown"),
-            ("doc_data_uri", "Some <img src='data:image/x-wmf;base64,AAA'> leaked " + "çğıöşü " * 120, "markitdown"),
-            ("doc_cid", ("cid:12 " * 25) + "çğıöşü " * 120, "markitdown"),
-            ("doc_short", "tiny", "markitdown"),
-            ("doc_dots", "TOC entry .......... page 3 " + "çğıöşü " * 120, "markitdown"),
-            (
-                "doc_formula_missing",
-                "Article references aşağıdaki formül ama formül yok. " + "çğıöşü " * 120,
-                "markitdown",
-            ),
-            (
-                "doc_formula_ok",
-                "Article with formula $$x=y$$ and formül ref. " + "çğıöşü " * 120,
-                "chandra2",
-            ),
-            ("doc_no_diacritics", "ASCII only text here no turkish letters at all " * 40, "glm_ocr"),
-        ]
-        for doc_id, content, method in docs:
-            await conn.execute(
-                "INSERT INTO documents (document_id, title, markdown_content, extraction_method)"
-                " VALUES ($1, $2, $3, $4)",
-                doc_id,
-                doc_id,
-                content,
-                method,
-            )
-        await conn.execute("INSERT INTO document_chunks (doc_id) VALUES ('doc_clean'), ('missing_parent_doc')")
-        await conn.execute(
-            "INSERT INTO document_sections (doc_id, section_type, section_ref, content)"
-            " VALUES ('doc_clean', 'madde', '1', 'Hüküm içeriği.')"
+        conn.execute(
+            "INSERT INTO document_sections (doc_id, section_type, section_ref, start_char, end_char, content,"
+            " content_hash, source_content_hash) VALUES ('doc_clean', 'madde', '1', 0, 14, 'Hüküm içeriği.', 'h', 'x')"
         )
 
-        yield SingleConnPool(conn)
-    finally:
-        try:
-            await conn.execute(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
-            await conn.execute("SET search_path TO public")
-        finally:
-            await pg_pool.release(conn)
+    await corpus_db.transaction(_seed)
+    return corpus_db
 
 
 @pytest.mark.asyncio
-async def test_scan_quality_detects_all_seeded_anomalies(seeded_quality_pool):
-    report = await scan_quality(seeded_quality_pool)
+async def test_scan_quality_detects_all_seeded_anomalies(seeded_quality_db):
+    report = await scan_quality(seeded_quality_db)
 
     assert report.total_documents == 12
     method_names = {m.method for m in report.methods}

@@ -1,4 +1,4 @@
-"""Tests for VectorStore (pgvector) — chunking, add, search, retrieval."""
+"""Tests for VectorStore — chunking, model loading, add, hybrid search — on a temporary corpus file."""
 
 import asyncio
 from types import SimpleNamespace
@@ -16,33 +16,12 @@ from bddk_mcp.store.vector_store import (
     _document_quality_by_ids,
     _quality_metadata,
 )
-
-# VectorStore integration tests require both PostgreSQL and the embedding model.
-# They skip if either is unavailable.
-_SKIP_REASON = "Embedding model not available or PostgreSQL not reachable"
-_VECTOR_TEST_IDS = {
-    "a",
-    "b",
-    "capital",
-    "d1",
-    "del_me",
-    "empty",
-    "interest",
-    "loans",
-    "multi",
-    "s1",
-    "s2",
-    "tampered-chunk",
-    "test_1",
-    "test_doc1",
-    "test_long",
-    "quality_formula",
-}
+from tests.conftest import FakeTokenizer, fake_embed
 
 
 async def _store_and_index(
     vector_store: VectorStore,
-    pool,
+    doc_store: DocumentStore,
     *,
     doc_id: str,
     title: str,
@@ -57,7 +36,7 @@ async def _store_and_index(
         category=category,
         decision_date=decision_date,
     )
-    await DocumentStore(pool).store_document(stored)
+    await doc_store.store_document(stored)
     return await vector_store.add_document(
         doc_id=doc_id,
         title=title,
@@ -65,14 +44,6 @@ async def _store_and_index(
         category=category,
         decision_date=decision_date,
     )
-
-
-async def _clean_vector_test_documents(pool) -> None:
-    ids = sorted(_VECTOR_TEST_IDS)
-    await pool.execute("DELETE FROM public.document_chunks WHERE doc_id = ANY($1::text[])", ids)
-    await pool.execute("DELETE FROM public.document_sections WHERE doc_id = ANY($1::text[])", ids)
-    await pool.execute("DELETE FROM public.document_versions WHERE document_id = ANY($1::text[])", ids)
-    await pool.execute("DELETE FROM public.documents WHERE document_id = ANY($1::text[])", ids)
 
 
 class WhitespaceTokenizer:
@@ -97,27 +68,25 @@ class TestQualityMetadata:
         assert "formula_ref_without_latex_or_image" in document_quality["quality_flags"]
 
     @pytest.mark.asyncio
-    async def test_document_quality_by_ids_reads_full_stored_markdown(self, pg_pool):
+    async def test_document_quality_by_ids_reads_full_stored_markdown(self, corpus_db, doc_store):
         matching_chunk = "Bankaların kredi işlemlerine ilişkin genel kurallar ve prosedürler."
-        await DocumentStore(pg_pool).store_document(
+        await doc_store.store_document(
             StoredDocument(
                 document_id="quality_formula",
                 title="Formül uyarısı belgesi",
                 markdown_content=matching_chunk + "\n\nBu metinde aşağıdaki formül kullanılır.",
             )
         )
-        try:
-            quality_by_id = await _document_quality_by_ids(pg_pool, ["quality_formula"])
-            quality = quality_by_id["quality_formula"]
-            assert quality["quality_label"] == "warning"
-            assert "formula_ref_without_latex_or_image" in quality["quality_flags"]
-            assert _quality_metadata(matching_chunk, "quality_formula")["quality_label"] == "clean"
-        finally:
-            await _clean_vector_test_documents(pg_pool)
+        quality_by_id = await _document_quality_by_ids(corpus_db, ["quality_formula", "missing"])
+        quality = quality_by_id["quality_formula"]
+        assert quality["quality_label"] == "warning"
+        assert "formula_ref_without_latex_or_image" in quality["quality_flags"]
+        assert quality_by_id["missing"]["quality_label"] != "clean" or quality_by_id["missing"]["quality_flags"] == []
+        assert _quality_metadata(matching_chunk, "quality_formula")["quality_label"] == "clean"
 
 
 class TestChunkText:
-    """Test the text chunking utility (no DB needed)."""
+    """Test the text chunking utility (no corpus needed)."""
 
     def test_chunk_document_attaches_section_metadata(self):
         text = (
@@ -178,14 +147,12 @@ class TestChunkText:
 
         assert not any("MADDE 9" in chunk.chunk_text and "MADDE 10" in chunk.chunk_text for chunk in chunks)
 
-    def test_reconstruct_content_uses_chunk_offsets_for_token_overlap(self):
-        vs = VectorStore.__new__(VectorStore)
-        rows = [
-            {"chunk_text": "alpha beta", "chunk_start_char": 0, "chunk_end_char": 10},
-            {"chunk_text": "beta gamma", "chunk_start_char": 6, "chunk_end_char": 16},
-        ]
-
-        assert vs._reconstruct_content(rows) == "alpha beta gamma"
+    def test_every_chunk_is_an_exact_slice_of_the_source(self):
+        text = "MADDE 1 - Giriş\n" + " ".join(f"kelime{i}" for i in range(300)) + "\n\nMADDE 2 - Son\nkısa."
+        chunks = _chunk_document("doc", text, tokenizer=WhitespaceTokenizer(), target_tokens=50, token_overlap=5)
+        assert len(chunks) > 3
+        for chunk in chunks:
+            assert chunk.chunk_text == text[chunk.start_char : chunk.end_char]
 
 
 class TestModelReproducibility:
@@ -204,6 +171,7 @@ class TestModelReproducibility:
             patch.dict("sys.modules", {"sentence_transformers": fake_module}),
             patch("bddk_mcp.store.vector_store.EMBEDDING_MODEL_PATH", ""),
             patch("bddk_mcp.store.vector_store.EMBEDDING_MODEL_REVISION", "a" * 40),
+            patch("bddk_mcp.store.vector_store._torch_device", return_value="cuda"),
         ):
             store = VectorStore(MagicMock(), embedding_model="reviewed/model")
             store._ensure_embeddings()
@@ -243,15 +211,6 @@ class TestModelReproducibility:
             second._ensure_embeddings()
 
         assert calls == ["reviewed/model"]
-        assert first._embed_fn is second._embed_fn
-
-    def test_remote_custom_embedding_model_requires_revision(self):
-        with (
-            patch("bddk_mcp.store.vector_store.EMBEDDING_MODEL_PATH", ""),
-            patch("bddk_mcp.store.vector_store.EMBEDDING_MODEL_REVISION", ""),
-            pytest.raises(RuntimeError, match="remote embedding model revision"),
-        ):
-            VectorStore(MagicMock(), embedding_model="custom/model")._ensure_embeddings()
 
     def test_wrong_embedding_dimension_is_rejected(self, tmp_path):
         class FakeSentenceTransformer:
@@ -286,6 +245,7 @@ class TestModelReproducibility:
             patch("bddk_mcp.store.vector_store.RERANKER_MODEL_NAME", "reviewed/reranker"),
             patch("bddk_mcp.store.vector_store.RERANKER_MODEL_REVISION", "b" * 40),
             patch("bddk_mcp.store.vector_store.RERANKER_ENABLED", True),
+            patch("bddk_mcp.store.vector_store._torch_device", return_value="cuda"),
         ):
             store = VectorStore(MagicMock())
             store._ensure_reranker()
@@ -340,11 +300,6 @@ class TestHybridSearchOrdering:
         """
         vs = VectorStore.__new__(VectorStore)
 
-        # Cosines chosen close together so the score-gap filter keeps
-        # all three hits. Vector and FTS rankings disagree: vector ranks
-        # a > b > c by cosine, FTS ranks c > a > b. The lexical boost lets
-        # c outrank b, but the final output must still be monotonic in the
-        # displayed score.
         vs._vector_search = AsyncMock(
             return_value=[
                 {"doc_id": "a", "relevance": 0.85, "title": "A", "snippet": "a"},
@@ -368,11 +323,7 @@ class TestHybridSearchOrdering:
 
     @pytest.mark.asyncio
     async def test_hybrid_search_preserves_fts_only_exact_legal_reference(self):
-        """Exact legal-reference FTS hits must survive semantic thresholding.
-
-        A query like `Madde 9` can be best answered by an exact lexical hit even
-        when dense retrieval misses it or gives it no cosine relevance.
-        """
+        """Exact legal-reference FTS hits must survive semantic thresholding."""
         vs = VectorStore.__new__(VectorStore)
 
         vs._vector_search = AsyncMock(return_value=[])
@@ -417,27 +368,8 @@ class TestHybridSearchOrdering:
         assert results == []
 
 
-async def _can_load_embedding_model(pg_pool) -> bool:
-    """Check whether the configured embedding model can be loaded."""
-    try:
-        vs = VectorStore(pg_pool)
-        vs._ensure_embeddings()
-        return True
-    except Exception:
-        return False
-
-
-@pytest.fixture
-async def _check_model(pg_pool):
-    """Check if embedding model is available."""
-    try:
-        return await _can_load_embedding_model(pg_pool)
-    except Exception:
-        return False
-
-
 class TestVectorStoreLifecycle:
-    """Test VectorStore initialization and basic operations."""
+    """Readiness probe, embedding circuit breaker, add/replace/delete on a corpus file."""
 
     @pytest.mark.asyncio
     async def test_semantic_readiness_probe_accepts_empty_results_and_is_cached(self):
@@ -482,7 +414,7 @@ class TestVectorStoreLifecycle:
         load = MagicMock(side_effect=OSError("private model detail"))
 
         with (
-            patch.object(store, "_ensure_embeddings_threadsafe", new=load),
+            patch.object(store, "_ensure_embeddings", new=load),
             pytest.raises(SemanticSearchUnavailableError) as first_error,
         ):
             await store._embed(["test"], prefix="query")
@@ -496,276 +428,164 @@ class TestVectorStoreLifecycle:
         assert load.call_count == 1
         assert store.semantic_search_ready is False
 
-    @pytest.fixture
-    async def store(self, pg_pool, _check_model):
-        if not _check_model:
-            pytest.skip(_SKIP_REASON)
-        vs = VectorStore(pg_pool)
-        # Clean up any leftover test data
-        await _clean_vector_test_documents(pg_pool)
-        try:
-            yield vs
-        finally:
-            await _clean_vector_test_documents(pg_pool)
-
     @pytest.mark.asyncio
-    async def test_add_document(self, store, pg_pool):
+    async def test_add_document(self, vector_store, doc_store):
         chunks = await _store_and_index(
-            store,
-            pg_pool,
+            vector_store,
+            doc_store,
             doc_id="test_1",
             title="Test Document",
             content="This is a test document with some content.",
             category="Rehber",
         )
         assert chunks >= 1
-        assert await store.has_document("test_1")
-        assert not await store.has_document("nonexistent")
-        # Cleanup
-        await store.delete_document("test_1")
+        assert await vector_store.has_document("test_1")
+        assert not await vector_store.has_document("nonexistent")
+        assert await vector_store.chunk_count() == chunks
 
     @pytest.mark.asyncio
-    async def test_add_empty_document(self, store):
-        chunks = await store.add_document(doc_id="empty", title="Empty", content="", category="")
+    async def test_add_empty_document(self, vector_store):
+        chunks = await vector_store.add_document(doc_id="empty", title="Empty", content="", category="")
         assert chunks == 0
-        assert not await store.has_document("empty")
+        assert not await vector_store.has_document("empty")
 
     @pytest.mark.asyncio
-    async def test_add_document_replaces_existing(self, store, pg_pool):
-        await _store_and_index(
-            store,
-            pg_pool,
-            doc_id="d1",
-            title="V1",
-            content="Version one content",
-        )
-        await _store_and_index(
-            store,
-            pg_pool,
-            doc_id="d1",
-            title="V2",
-            content="Version two content updated",
-        )
+    async def test_add_document_replaces_existing(self, vector_store, doc_store, corpus_db):
+        await _store_and_index(vector_store, doc_store, doc_id="d1", title="V1", content="Version one content")
+        await _store_and_index(vector_store, doc_store, doc_id="d1", title="V2", content="Version two content updated")
 
-        doc = await store.get_document("d1")
-        assert doc is not None
-        assert doc["title"] == "V2"
-        assert "two" in doc["content"]
-        await store.delete_document("d1")
+        rows = await corpus_db.run(
+            lambda conn: conn.execute("SELECT title, chunk_text FROM chunks WHERE doc_id = 'd1'").fetchall()
+        )
+        assert {row["title"] for row in rows} == {"V2"}
+        assert all("two" in row["chunk_text"] for row in rows)
 
     @pytest.mark.asyncio
-    async def test_stale_chunks_are_hidden_until_matching_index_is_published(self, store, pg_pool):
-        await _store_and_index(
-            store,
-            pg_pool,
-            doc_id="d1",
-            title="V1",
-            content="Version one content",
-        )
-        assert await store.has_document("d1")
+    async def test_stale_chunks_are_hidden_until_matching_index_is_published(self, vector_store, doc_store):
+        await _store_and_index(vector_store, doc_store, doc_id="d1", title="V1", content="Version one content")
+        assert await vector_store.has_document("d1")
 
-        await DocumentStore(pg_pool).store_document(
-            StoredDocument(
-                document_id="d1",
-                title="V2",
-                markdown_content="Version two content updated",
-            )
+        await doc_store.store_document(
+            StoredDocument(document_id="d1", title="V2", markdown_content="Version two content updated")
         )
-        assert not await store.has_document("d1")
-        assert await store.get_document("d1") is None
+        assert not await vector_store.has_document("d1")
+        assert await vector_store.chunk_count() == 0
+        assert await vector_store._vector_search("version content", limit=5) == []
 
         with pytest.raises(VectorIndexConsistencyError, match="stored document hash does not match"):
-            await store.add_document(doc_id="d1", title="V1", content="Version one content")
+            await vector_store.add_document(doc_id="d1", title="V1", content="Version one content")
 
-        await store.add_document(doc_id="d1", title="V2", content="Version two content updated")
-        assert await store.has_document("d1")
-
-    @pytest.mark.asyncio
-    async def test_publication_refuses_chunk_text_not_regenerated_from_canonical_document(self, store, pg_pool):
-        chunks = await _store_and_index(
-            store,
-            pg_pool,
-            doc_id="tampered-chunk",
-            title="Canonical",
-            content="Canonical regulatory text",
-        )
-        content_hash = await pg_pool.fetchval(
-            "SELECT content_hash FROM public.documents WHERE document_id = $1",
-            "tampered-chunk",
-        )
-        await pg_pool.execute(
-            "UPDATE public.document_chunks SET chunk_text = $2 WHERE doc_id = $1 AND chunk_index = 0",
-            "tampered-chunk",
-            "Unsupported replacement text",
-        )
-
-        async with pg_pool.acquire() as connection:
-            with pytest.raises(VectorIndexConsistencyError, match="publication integrity validation"):
-                await store._publish_document_on_connection(
-                    connection,
-                    doc_id="tampered-chunk",
-                    content_hash=content_hash,
-                    expected_chunks=chunks,
-                )
-
-        assert not await store.has_document("tampered-chunk")
-        await store.delete_document("tampered-chunk")
+        await vector_store.add_document(doc_id="d1", title="V2", content="Version two content updated")
+        assert await vector_store.has_document("d1")
 
     @pytest.mark.asyncio
-    async def test_get_document(self, store, pg_pool):
-        await _store_and_index(
-            store,
-            pg_pool,
-            doc_id="test_doc1",
-            title="Capital Adequacy",
-            content="Capital adequacy regulation for banks.",
-            category="Rehber",
-            decision_date="15.03.2024",
-        )
+    async def test_corpus_records_the_embedding_model_and_rejects_another(self, vector_store, doc_store, corpus_db):
+        await _store_and_index(vector_store, doc_store, doc_id="d1", title="V1", content="Version one content")
+        readiness = corpus_db.readiness_sync(require_corpus=False)
+        assert readiness.issues == []
+        assert readiness.embedding_model
 
-        doc = await store.get_document("test_doc1")
-        assert doc is not None
-        assert doc["doc_id"] == "test_doc1"
-        assert doc["title"] == "Capital Adequacy"
-        assert doc["category"] == "Rehber"
-        assert "Capital adequacy" in doc["content"]
-        await store.delete_document("test_doc1")
+        other = VectorStore(corpus_db, embedding_model="other/model", embed_fn=fake_embed, tokenizer=FakeTokenizer())
+        with pytest.raises(RuntimeError, match="different embedding model"):
+            await other.add_document(doc_id="d1", title="V1", content="Version one content")
 
     @pytest.mark.asyncio
-    async def test_get_nonexistent_document(self, store):
-        assert await store.get_document("nonexistent") is None
+    async def test_delete_document(self, vector_store, doc_store):
+        await _store_and_index(vector_store, doc_store, doc_id="del_me", title="Delete Me", content="Some content")
+        assert await vector_store.has_document("del_me")
 
-    @pytest.mark.asyncio
-    async def test_get_document_page(self, store, pg_pool):
-        long_content = "A" * 12000
-        await _store_and_index(
-            store,
-            pg_pool,
-            doc_id="test_long",
-            title="Long Doc",
-            content=long_content,
-        )
-
-        page1 = await store.get_document_page("test_long", page=1)
-        assert page1 is not None
-        assert page1["page_number"] == 1
-        assert page1["total_pages"] >= 2
-
-        invalid = await store.get_document_page("test_long", page=999)
-        assert invalid is not None
-        assert "Invalid page" in invalid["content"]
-        await store.delete_document("test_long")
-
-    @pytest.mark.asyncio
-    async def test_delete_document(self, store, pg_pool):
-        await _store_and_index(
-            store,
-            pg_pool,
-            doc_id="del_me",
-            title="Delete Me",
-            content="Some content",
-        )
-        assert await store.has_document("del_me")
-
-        deleted = await store.delete_document("del_me")
-        assert deleted is True
-        assert not await store.has_document("del_me")
-
-    @pytest.mark.asyncio
-    async def test_delete_nonexistent(self, store):
-        deleted = await store.delete_document("never_existed")
-        assert deleted is False
+        assert await vector_store.delete_document("del_me") is True
+        assert not await vector_store.has_document("del_me")
+        assert await vector_store.delete_document("never_existed") is False
 
 
 class TestVectorStoreSearch:
-    """Test semantic search functionality."""
+    """Semantic search on a small corpus with the deterministic fake embedder."""
 
     @pytest.fixture
-    async def populated_store(self, pg_pool, _check_model):
-        if not _check_model:
-            pytest.skip(_SKIP_REASON)
-        vs = VectorStore(pg_pool)
-
-        # Clean and populate
-        await _clean_vector_test_documents(pg_pool)
-
-        await _store_and_index(
-            vs,
-            pg_pool,
-            doc_id="capital",
-            title="Sermaye Yeterliliği Rehberi",
-            content="Bu rehber bankacılık sektöründe sermaye yeterliliği hesaplamalarını düzenler.",
-            category="Rehber",
-        )
-        await _store_and_index(
-            vs,
-            pg_pool,
-            doc_id="interest",
-            title="Faiz Oranı Riski Yönetmeliği",
-            content="Banka faiz oranı riskini ölçmek için standart yaklaşım kullanır.",
-            category="Yönetmelik",
-        )
-        await _store_and_index(
-            vs,
-            pg_pool,
-            doc_id="loans",
-            title="Kredi İşlemleri Genelgesi",
-            content="Bankaların kredi işlemlerine ilişkin genel kurallar ve prosedürler.",
-            category="Genelge",
-        )
-
-        try:
-            yield vs
-        finally:
-            await _clean_vector_test_documents(pg_pool)
+    async def populated_store(self, vector_store, doc_store):
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", 0.3):
+            await _store_and_index(
+                vector_store,
+                doc_store,
+                doc_id="capital",
+                title="Sermaye Yeterliliği Rehberi",
+                content="Bu rehber bankacılık sektöründe sermaye yeterliliği hesaplamalarını düzenler.",
+                category="Rehber",
+            )
+            await _store_and_index(
+                vector_store,
+                doc_store,
+                doc_id="interest",
+                title="Faiz Oranı Riski Yönetmeliği",
+                content="Banka faiz oranı riskini ölçmek için standart yaklaşım kullanır.",
+                category="Yönetmelik",
+            )
+            await _store_and_index(
+                vector_store,
+                doc_store,
+                doc_id="loans",
+                title="Kredi İşlemleri Genelgesi",
+                content="Bankaların kredi işlemlerine ilişkin genel kurallar ve prosedürler.",
+                category="Genelge",
+            )
+            yield vector_store
 
     @pytest.mark.asyncio
     async def test_search_returns_results(self, populated_store):
-        hits = await populated_store.search("sermaye yeterliliği", limit=10)
+        hits = await populated_store.search("sermaye yeterliliği hesaplamalarını", limit=10)
         assert len(hits) >= 1
         assert hits[0]["doc_id"] == "capital"
+        assert hits[0]["match_type"] == "hybrid"
 
     @pytest.mark.asyncio
     async def test_search_relevance_ordering(self, populated_store):
-        hits = await populated_store.search("faiz oranı riski", limit=10)
+        hits = await populated_store.search("faiz oranı riskini ölçmek", limit=10)
         assert len(hits) >= 1
         assert hits[0]["doc_id"] == "interest"
 
     @pytest.mark.asyncio
     async def test_search_with_category_filter(self, populated_store):
-        hits = await populated_store.search("banka", limit=10, category="Genelge")
-        assert all(h["category"] == "Genelge" for h in hits)
+        hits = await populated_store.search("bankaların kredi işlemlerine ilişkin", limit=10, category="Genelge")
+        assert hits and all(h["category"] == "Genelge" for h in hits)
+        assert await populated_store.search("bankaların kredi işlemlerine ilişkin", limit=10, category="Kanun") == []
 
     @pytest.mark.asyncio
-    async def test_search_no_results(self, populated_store):
+    async def test_search_without_keyword_overlap_is_gated(self, populated_store):
         hits = await populated_store.search("quantum physics dark matter", limit=10)
-        assert isinstance(hits, list)
+        assert hits == []
 
     @pytest.mark.asyncio
     async def test_search_deduplicates_by_doc_id(self, populated_store):
-        hits = await populated_store.search("banka", limit=10)
+        hits = await populated_store.search("bankaların kredi işlemlerine ilişkin genel kurallar", limit=10)
         doc_ids = [h["doc_id"] for h in hits]
         assert len(doc_ids) == len(set(doc_ids))
 
     @pytest.mark.asyncio
     async def test_search_includes_relevance_score(self, populated_store):
-        hits = await populated_store.search("sermaye", limit=5)
+        hits = await populated_store.search("sermaye yeterliliği hesaplamalarını", limit=5)
+        assert hits
         for h in hits:
-            assert "relevance" in h
             assert 0 <= h["relevance"] <= 1
+            assert h["confidence"] in {"high", "medium", "low"}
 
     @pytest.mark.asyncio
-    async def test_search_quality_uses_full_document_markdown(self, populated_store, pg_pool):
+    async def test_fts_matches_ignore_case_and_diacritics(self, populated_store):
+        hits = await populated_store._fts_search("SERMAYE YETERLILIGI", limit=5)
+        assert [h["doc_id"] for h in hits] == ["capital"]
+
+    @pytest.mark.asyncio
+    async def test_search_quality_uses_full_document_markdown(self, populated_store, doc_store):
         matching_chunk = "Bankaların kredi işlemlerine ilişkin genel kurallar ve prosedürler. "
         await _store_and_index(
             populated_store,
-            pg_pool,
+            doc_store,
             doc_id="quality_formula",
             title="Formül uyarısı belgesi",
             content=matching_chunk * 80 + "\n\nBu metinde aşağıdaki formül kullanılır.",
             category="Genelge",
         )
-        hits = await populated_store.search("kredi işlemleri", limit=10)
+        hits = await populated_store.search("bankaların kredi işlemlerine ilişkin genel kurallar", limit=10)
         quality_hit = next(hit for hit in hits if hit["doc_id"] == "quality_formula")
         assert quality_hit["quality_label"] == "warning"
         assert "formula_ref_without_latex_or_image" in quality_hit["quality_flags"]

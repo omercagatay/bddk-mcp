@@ -50,7 +50,7 @@ invent rights over regulatory material.
 ## What technical controls can enforce
 
 For a bank-operated on-premises service, authentication, scopes, network
-segmentation, database roles, private
+segmentation, file permissions on the corpus file, private
 registries, encryption, audit events, and contractual entitlements can control
 access to the running service and private data. They can also restrict who may
 import a curated legal bundle or promote a validated knowledge pack.

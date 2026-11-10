@@ -3,25 +3,18 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 # Railway is a development/preview profile, not a bank deployment path (none is
-# maintained; see docs/DEPLOYMENT.md#bank-deployment). The container binds 0.0.0.0, so the
-# fail-closed HTTP policy refuses startup until the service supplies the
-# complete non-loopback policy as variables:
-#   BDDK_DATABASE_URL              verify-full PostgreSQL DSN
+# maintained; see docs/DEPLOYMENT.md#bank-deployment). The corpus file is built
+# into the image, so the service needs no database. The container binds
+# 0.0.0.0, so the fail-closed HTTP policy refuses startup until the service
+# supplies the complete non-loopback policy as variables:
 #   BDDK_HTTP_ALLOWED_HOSTS        exact public hostname of the Railway domain
 #   BDDK_HTTP_ALLOWED_ORIGINS      exact HTTPS origins allowed to call /mcp
 #   and either the full BDDK_JWT_* set or BDDK_HTTP_ALLOW_UNAUTHENTICATED=true
 #     (unauthenticated exposure on a public Railway URL serves the corpus to
 #     the whole Internet; prefer JWT or a private network).
-# When BDDK_DATABASE_URL is a read-only login, also set
-#   BDDK_SCHEMA_OWNER_DATABASE_URL (migrate) and BDDK_INGESTION_DATABASE_URL (import)
-# for the pre-deploy command below; each falls back to BDDK_DATABASE_URL.
 
 [deploy]
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
 healthcheckPath = "/health/ready"
 healthcheckTimeout = 300
-# Upgrade the schema ledger and import seed_data/. Both steps are no-ops when
-# the database already matches; a seed that differs from stored documents is
-# refused until an operator reviews it and reruns the import with --force.
-preDeployCommand = "/app/.venv/bin/bddk-mcp migrate && /app/.venv/bin/bddk-seed import --reindex-existing"

@@ -7,7 +7,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.12.3@sha256:2d890623d310b57771ce840f0da5eed5f
 ENV UV_LINK_MODE=copy
 
 # Copy install metadata and package source before syncing so the packaged
-# bddk-mcp / bddk-seed console entry points are installed in the image.
+# bddk-mcp console entry point is installed in the image.
 COPY pyproject.toml uv.lock README.md LICENSE ./
 COPY bddk_mcp/ ./bddk_mcp/
 # Group-0 ownership and group-equals-owner permissions are applied inside the
@@ -15,7 +15,7 @@ COPY bddk_mcp/ ./bddk_mcp/
 # whole tree again (overlayfs copy-up) and double the image size.
 RUN uv sync --frozen --no-dev && rm -rf /root/.cache/uv && chgrp -R 0 /app && chmod -R g=u /app
 
-# Bundle the offline corpus (run `bddk-seed export` locally first)
+# Bundle the reviewed seed data (documents.json + decision_cache.json).
 COPY seed_data/ ./seed_data/
 
 # Pre-download the embedding model at build time so runtime is fully offline.
@@ -30,12 +30,11 @@ ENV HF_HUB_OFFLINE=1
 ENV HOME=/tmp
 ENV TORCHINDUCTOR_CACHE_DIR=/tmp/torchinductor
 
-# PostgreSQL connection is required and must be injected at runtime.
-ENV BDDK_DATABASE_URL=""
-
-# Serving is read-only with respect to the corpus and schema. Run
-# `bddk-mcp migrate` and `bddk-seed import` (Railway: the pre-deploy command)
-# before starting this process.
+# Build the corpus file (sections, chunks, embeddings) into the image. The
+# serving process opens it read-only, so the image is the versioned corpus
+# artifact: no database, no migration and no pre-deploy step at runtime.
+ENV BDDK_CORPUS_PATH=/app/corpus/bddk.sqlite
+RUN .venv/bin/bddk-mcp build && chgrp -R 0 /app/corpus && chmod -R g=u /app/corpus
 
 # Default to streamable-http transport for remote deployment
 ENV MCP_TRANSPORT=streamable-http

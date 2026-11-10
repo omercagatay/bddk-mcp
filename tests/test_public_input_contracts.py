@@ -36,7 +36,7 @@ def _server() -> tuple[FastMCP, Dependencies]:
     doc_store = MagicMock()
     server = FastMCP("public-contract-tests")
     deps = Dependencies(
-        pool=None,
+        db=None,
         doc_store=doc_store,
         client=client,
         http=MagicMock(),

@@ -49,11 +49,11 @@ Regulation and decision text comes from the locally published copy. Institution,
 - `get_regulatory_digest`: recent decisions, announcements, and bulletin summary. The announcement and bulletin half may be live.
 - `compare_bulletin_metrics`: compares bulletin figures across two periods; may call live.
 
-The server only reads. Database preparation is separate: `bddk-mcp migrate` creates the schema, `bddk-seed import` loads the documents in `seed_data/`, and `bddk-mcp sync` downloads documents from the source. Details: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+The server only reads: it opens the corpus file read-only. Preparing the corpus is separate: `bddk-mcp build` turns the documents in `seed_data/` into one SQLite corpus file with their sections, chunks and embeddings; `bddk-mcp sync` downloads documents from the source into the same file. Details: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Connecting an assistant
 
-The technical team makes the connection. The checked-in [`.mcp.json`](.mcp.json) is a portable local stdio example. Supply `BDDK_DATABASE_URL` from the platform secret store. Fixed local passwords are not the bank path.
+The technical team makes the connection. The checked-in [`.mcp.json`](.mcp.json) is a portable local stdio example. The server's only input is the corpus file: `bddk-mcp build` produces it, and `BDDK_CORPUS_PATH` points at it when it is not at the default `corpus/bddk.sqlite`. There is no database service and no connection password.
 
 <a id="codex-configuration"></a>
 
@@ -66,7 +66,7 @@ For Codex, add this to `~/.codex/config.toml` or `.codex/config.toml` inside a t
 command = "uv"
 args = ["run", "--frozen", "bddk-mcp"]
 cwd = "/absolute/path/to/bddk-mcp"
-env_vars = ["BDDK_DATABASE_URL"]
+env_vars = ["BDDK_CORPUS_PATH"]
 startup_timeout_sec = 30
 tool_timeout_sec = 60
 ```
@@ -77,9 +77,9 @@ This sketch is local stdio only. HTTP, identity, and network limits are in the [
 
 The package version is 5.0.1. There is no GitHub release tag for that version.
 
-The tool list lives in `bddk_mcp/tools/registry.py`: 14 tools, one surface. Example: `uv run --frozen bddk-mcp serve`. Requires Python 3.12 or 3.13, `uv`, PostgreSQL 17, `pgvector`, and `unaccent`.
+The tool list lives in `bddk_mcp/tools/registry.py`: 14 tools, one surface. Example: `uv run --frozen bddk-mcp serve`. Requires Python 3.12 or 3.13 and `uv`; the corpus is one SQLite file, so no database service is needed.
 
-Setup order is `migrate`, then `bddk-seed import`, optionally `sync`. The signed release workflow, multi-identity database roles, operator job queue, admin console, telemetry and the legal-status tools that had no data path (`resolve_regulation_status`, `get_amendment_chain`, `get_cross_references`) were removed on 2026-11-09 and remain in Git history (tag `archive/pre-simplify-2026-11-09`).
+Setup order is `bddk-mcp build` (`seed_data/` → `corpus/bddk.sqlite`; the first run takes about 15 minutes on a laptop CPU), then `serve`; `sync` is optional. The earlier PostgreSQL backend was replaced by this single file on 2026-11-10 and remains at tag `archive/postgres-2026-11-10`. The signed release workflow, multi-identity database roles, operator job queue, admin console, telemetry and the legal-status tools that had no data path (`resolve_regulation_status`, `get_amendment_chain`, `get_cross_references`) were removed on 2026-11-09 and remain in Git history (tag `archive/pre-simplify-2026-11-09`).
 
 ## License
 

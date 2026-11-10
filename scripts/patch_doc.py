@@ -3,23 +3,23 @@
 Intended for manual corrections (e.g. hand-inserted LaTeX where OCR couldn't
 recover image-based formulas). For one doc_id, this script:
 
-  1. validates inputs (markdown exists, doc_id present in both DB and seed),
+  1. validates inputs (markdown exists, doc_id present in both corpus and seed),
   2. strips any docs_dump-style header from the markdown,
   3. computes the new content hash and previews the section-aware chunk
      count via the same chunker used by vector_store.add_document and seed.py,
   4. on --dry-run, stops here and prints the planned delta,
   5. atomically replaces each target seed JSON file, documents.json first,
-  6. updates the canonical DB row, then republishes its derived vector index.
+  6. updates the canonical corpus row, then republishes its derived vector index.
 
-Filesystem and PostgreSQL commits cannot form one atomic transaction.  The
+Filesystem and corpus commits cannot form one atomic transaction.  The
 ordering is deliberate: documents.json is the durable reviewed source; the
-database publication is fail-closed while its canonical row and chunks differ;
+corpus publication is fail-closed while its canonical row and chunks differ;
 and a crash can be recovered by rerunning this idempotent command.  Chunks and
-embeddings are regenerated from documents.json by `bddk-seed import`.
+embeddings are regenerated from documents.json by `bddk-mcp build`.
 
 Run:
-    BDDK_INGESTION_DATABASE_URL=... uv run python scripts/patch_doc.py <doc_id> \\
-        --markdown <path> [--extraction-method <tag>] [--dry-run]
+    uv run python scripts/patch_doc.py <doc_id> --markdown <path> \\
+        [--corpus <path>] [--extraction-method <tag>] [--dry-run]
 
 See docs/superpowers/specs/2026-04-23-patch-doc-helper-design.md for rationale.
 """
@@ -40,12 +40,11 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import asyncpg  # noqa: E402
 from patch_md import validate_latex  # noqa: E402
 
-from bddk_mcp.core.config import PAGE_SIZE, require_database_url  # noqa: E402
-from bddk_mcp.db_lifecycle import assert_database_ready  # noqa: E402
+from bddk_mcp.core.config import CORPUS_PATH, PAGE_SIZE  # noqa: E402
 from bddk_mcp.ingest.seed import _strip_docs_dump_header  # noqa: E402
+from bddk_mcp.store.corpus_db import CorpusDB  # noqa: E402
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument  # noqa: E402
 from bddk_mcp.store.vector_store import VectorStore, _chunk_document  # noqa: E402
 
@@ -137,7 +136,7 @@ async def patch_document(
     )
     docs_tmp.replace(docs_path)
 
-    # --- 4. Fail-closed DB publication ----------------------------------
+    # --- 4. Fail-closed corpus publication --------------------------------
     # These two idempotent transactions cannot be combined with filesystem
     # replacement.  If the process stops after the canonical row changes,
     # retrieval publication is hidden by its content-hash contract until a
@@ -169,9 +168,12 @@ async def patch_document(
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Patch reviewed seed source, then fail-closed DB publication.")
+    p = argparse.ArgumentParser(description="Patch reviewed seed source, then fail-closed corpus publication.")
     p.add_argument("doc_id", help="Exact document_id (e.g. mevzuat_20029)")
     p.add_argument("--markdown", required=True, type=Path, help="Path to corrected markdown file")
+    p.add_argument(
+        "--corpus", default=CORPUS_PATH, help="Corpus file path (default: BDDK_CORPUS_PATH or corpus/bddk.sqlite)"
+    )
     p.add_argument(
         "--extraction-method",
         default=DEFAULT_EXTRACTION_METHOD,
@@ -187,11 +189,10 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 
 
 async def _main_async(args: argparse.Namespace) -> int:
-    pool = await asyncpg.create_pool(require_database_url("ingestion"), min_size=1, max_size=3)
+    db = CorpusDB.open(args.corpus, create=False)
     try:
-        await assert_database_ready(pool=pool, require_corpus=False)
-        doc_store = DocumentStore(pool)
-        vector_store = VectorStore(pool)
+        doc_store = DocumentStore(db)
+        vector_store = VectorStore(db)
 
         seed_dir = ROOT / "seed_data"
 
@@ -221,7 +222,7 @@ async def _main_async(args: argparse.Namespace) -> int:
             print("\nrun 'git diff --stat seed_data/' to review the seed changes")
         return 0
     finally:
-        await pool.close()
+        db.close()
 
 
 def main() -> int:

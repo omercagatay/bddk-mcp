@@ -15,8 +15,9 @@ Requirements:
 
 - Python 3.12 or 3.13
 - [`uv`](https://docs.astral.sh/uv/)
-- PostgreSQL 17 with `pgvector` and `unaccent` for database-marked tests
-- Docker with Compose for the disposable local database workflow
+- Docker only if you want to build and run the container image locally
+
+There is no database service. The corpus is one SQLite file (`corpus/bddk.sqlite`, git-ignored) that `uv run bddk-mcp build` produces from `seed_data/`; the test suite never needs it, because every storage test runs on a temporary corpus file created by `tests/conftest.py`.
 
 Install the locked development environment:
 
@@ -31,10 +32,10 @@ uv lock --check
 uv run ruff check .
 uv run ruff format --check .
 uv run python scripts/check_repository_hygiene.py
-uv run pytest tests/ -m "not postgres and not gpu" --strict-markers -q
+uv run pytest tests/ -m "not gpu" --strict-markers -q
 ```
 
-The complete CI matrix also exercises Python 3.12 and 3.13, the PostgreSQL lane (`BDDK_REQUIRE_TEST_DATABASE=1 uv run pytest tests/ -m "postgres and not gpu"`), package artifacts, and container recipes.
+The complete CI matrix also exercises Python 3.12 and 3.13, package artifacts, and container recipes. The whole suite runs without any service; only the `gpu` marker is skipped by default.
 
 ## Branch and pull-request workflow
 
@@ -54,24 +55,25 @@ Do not force-push `main`, commit directly around its protection rules, or leave 
 - Preserve stable error codes, structured outputs, and the text fallback used by clients.
 - Add focused tests beside the corresponding `tests/test_<area>.py` coverage.
 
-### Database and migrations
+### Corpus schema and corpus file
 
-- Migrations in `bddk_mcp/migrations/` are append-only after merge. Add a new numbered migration instead of rewriting history.
-- Document backup, maintenance-window, backfill, and rollout requirements for any state transition.
-- Run the PostgreSQL-marked lane for schema, publication, or query changes.
+- The schema lives in `bddk_mcp/store/corpus_db.py` (`CREATE TABLE IF NOT EXISTS`, `SCHEMA_VERSION` recorded in the `meta` table). There is no migration ledger: a schema change means a rebuilt corpus file (`bddk-mcp build --force`; remove the old file first when a table layout changed), never an in-place upgrade.
+- Document the rebuild, re-embedding time and rollout requirements for any schema or retrieval-profile change (embedding model, chunking, text normalization, FTS tokenizer).
+- Serving opens the corpus read-only. Keep every write path in `bddk-mcp build`, `bddk-mcp sync`, `bddk-mcp export` and the maintainer scripts under `scripts/`; a tool must never write.
+- Query SQL belongs to the module that owns the table (`bddk_mcp/store/*.py`); run it through `CorpusDB.run` / `CorpusDB.transaction`.
 
 ### Corpus and generated artifacts
 
 - `seed_data/*.json` and `uv.lock` are generated artifacts. Do not hand-edit them to make a test pass.
 - State the generation command and validation result in the PR.
-- Never commit private keys, credentials, customer data, or restricted source documents.
+- Never commit private keys, credentials, customer data, restricted source documents, or a built corpus file.
 - Use the data-quality issue form for defects that require authoritative source review.
 
 ### Deployment and security
 
 - Remote HTTP must remain fail-closed.
 - Changes under `deploy/`, the Dockerfile, authentication, or egress need explicit threat/rollout notes.
-- Public examples must contain only obvious local fixtures or placeholders; never paste a real DSN, token, certificate, or endpoint secret.
+- Public examples must contain only obvious local fixtures or placeholders; never paste a real token, certificate, or endpoint secret.
 
 ### Documentation
 

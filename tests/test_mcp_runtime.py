@@ -29,12 +29,12 @@ async def test_root_shim_export_lists_public_tools_with_official_client():
 
 @pytest.mark.asyncio
 async def test_factory_supports_protocol_tool_call_without_database():
-    """Injected dependencies keep MCP contract tests independent of PostgreSQL."""
+    """Injected dependencies keep MCP contract tests independent of the corpus file."""
     from bddk_mcp.server import create_mcp
 
     doc_store = MagicMock()
     doc_store.get_document_history = AsyncMock(return_value=[])
-    deps = Dependencies(pool=None, doc_store=doc_store, client=MagicMock(), http=None)
+    deps = Dependencies(db=None, doc_store=doc_store, client=MagicMock(), http=None)
     test_server = create_mcp(deps)
 
     async with create_connected_server_and_client_session(test_server) as session:
@@ -57,7 +57,7 @@ async def test_production_boundary_sanitizes_validation_and_handler_failures():
     sentinel = "RAW-PRIVATE-HANDLER-FAILURE"
     doc_store = MagicMock()
     doc_store.get_document_history = AsyncMock(side_effect=RuntimeError(sentinel))
-    deps = Dependencies(pool=None, doc_store=doc_store, client=MagicMock(), http=None)
+    deps = Dependencies(db=None, doc_store=doc_store, client=MagicMock(), http=None)
     test_server = create_mcp(deps)
 
     async with create_connected_server_and_client_session(test_server) as session:
@@ -100,7 +100,7 @@ async def test_nested_lifespans_share_one_dependency_runtime():
     """HTTP's outer lease prevents per-request dependency reinitialization."""
     import bddk_mcp.server as server_module
 
-    created = Dependencies(pool=MagicMock(), doc_store=MagicMock(), client=MagicMock(), http=MagicMock())
+    created = Dependencies(db=MagicMock(), doc_store=MagicMock(), client=MagicMock(), http=MagicMock())
     server_module._runtime_leases = 0
     server_module._runtime_lock = None
     server_module._empty_runtime_deps()
@@ -118,27 +118,22 @@ async def test_nested_lifespans_share_one_dependency_runtime():
         teardown.assert_awaited_once_with(outer_deps)
 
     assert server_module._runtime_leases == 0
-    assert server_module._runtime_deps.pool is None
+    assert server_module._runtime_deps.db is None
     assert server_module._runtime_lock is None
     assert server_module._runtime_loop is None
 
 
 @pytest.mark.asyncio
-async def test_create_deps_closes_http_when_pool_creation_fails():
+async def test_create_deps_closes_http_when_the_corpus_cannot_be_opened():
     """Partially-created resources must not leak when startup fails."""
     import bddk_mcp.server as server_module
 
     http = MagicMock()
     http.aclose = AsyncMock()
     with (
-        patch.object(server_module, "require_database_url", return_value="postgresql://test"),
         patch.object(server_module.httpx, "AsyncClient", return_value=http),
-        patch.object(
-            server_module.asyncpg,
-            "create_pool",
-            new=AsyncMock(side_effect=RuntimeError("database unavailable")),
-        ),
-        pytest.raises(RuntimeError, match="database unavailable"),
+        patch.object(server_module.CorpusDB, "open", side_effect=RuntimeError("corpus unavailable")),
+        pytest.raises(RuntimeError, match="corpus unavailable"),
     ):
         await server_module.create_deps()
 
@@ -146,32 +141,22 @@ async def test_create_deps_closes_http_when_pool_creation_fails():
 
 
 @pytest.mark.asyncio
-async def test_create_deps_closes_pool_and_http_when_readiness_fails():
-    """A readiness failure after pool creation must unwind every resource."""
+async def test_create_deps_closes_db_and_http_when_readiness_fails():
+    """A readiness failure after the corpus opened must unwind every resource."""
     import bddk_mcp.server as server_module
 
     http = MagicMock()
     http.aclose = AsyncMock()
-    pool = MagicMock()
-    pool.close = AsyncMock()
+    db = MagicMock()
+    db.assert_ready = AsyncMock(side_effect=RuntimeError("corpus not ready"))
     with (
-        patch.object(server_module, "require_database_url", return_value="postgresql://test"),
         patch.object(server_module.httpx, "AsyncClient", return_value=http),
-        patch.object(
-            server_module.asyncpg,
-            "create_pool",
-            new=AsyncMock(return_value=pool),
-        ),
-        patch.object(
-            server_module,
-            "assert_database_ready",
-            new=AsyncMock(side_effect=RuntimeError("schema unavailable")),
-        ),
-        pytest.raises(RuntimeError, match="schema unavailable"),
+        patch.object(server_module.CorpusDB, "open", return_value=db),
+        pytest.raises(RuntimeError, match="corpus not ready"),
     ):
         await server_module.create_deps()
 
-    pool.close.assert_awaited_once()
+    db.close.assert_called_once()
     http.aclose.assert_awaited_once()
 
 
@@ -184,9 +169,9 @@ async def test_teardown_attempts_every_close_and_aggregates_failures():
     client.close = AsyncMock(side_effect=ValueError("client close"))
     http = MagicMock()
     http.aclose = AsyncMock(side_effect=RuntimeError("http close"))
-    pool = MagicMock()
-    pool.close = AsyncMock(side_effect=OSError("pool close"))
-    deps = Dependencies(pool=pool, doc_store=MagicMock(), client=client, http=http)
+    db = MagicMock()
+    db.close = MagicMock(side_effect=OSError("db close"))
+    deps = Dependencies(db=db, doc_store=MagicMock(), client=client, http=http)
 
     with pytest.raises(ExceptionGroup) as exc_info:
         await server_module.teardown_deps(deps)
@@ -194,7 +179,7 @@ async def test_teardown_attempts_every_close_and_aggregates_failures():
     assert len(exc_info.value.exceptions) == 3
     client.close.assert_awaited_once()
     http.aclose.assert_awaited_once()
-    pool.close.assert_awaited_once()
+    db.close.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -204,7 +189,7 @@ async def test_cancelled_readiness_rolls_back_unpublished_dependencies():
 
     entered = asyncio.Event()
 
-    async def blocking_readiness(*, pool, require_corpus):
+    async def blocking_readiness(*, require_corpus):
         assert require_corpus is True
         entered.set()
         await asyncio.Event().wait()
@@ -213,8 +198,8 @@ async def test_cancelled_readiness_rolls_back_unpublished_dependencies():
     client.close = AsyncMock()
     http = MagicMock()
     http.aclose = AsyncMock()
-    pool = MagicMock()
-    pool.close = AsyncMock()
+    db = MagicMock()
+    db.assert_ready = AsyncMock(side_effect=blocking_readiness)
     server_module._runtime_leases = 0
     server_module._runtime_lock = None
     server_module._runtime_loop = None
@@ -222,10 +207,8 @@ async def test_cancelled_readiness_rolls_back_unpublished_dependencies():
     server_module._empty_runtime_deps()
 
     with (
-        patch.object(server_module, "require_database_url", return_value="postgresql://test"),
         patch.object(server_module.httpx, "AsyncClient", return_value=http),
-        patch.object(server_module.asyncpg, "create_pool", new=AsyncMock(return_value=pool)),
-        patch.object(server_module, "assert_database_ready", side_effect=blocking_readiness),
+        patch.object(server_module.CorpusDB, "open", return_value=db),
     ):
         startup_task = asyncio.create_task(server_module.create_deps())
         await entered.wait()
@@ -235,9 +218,9 @@ async def test_cancelled_readiness_rolls_back_unpublished_dependencies():
 
     client.close.assert_not_awaited()
     http.aclose.assert_awaited_once()
-    pool.close.assert_awaited_once()
+    db.close.assert_called_once()
     assert server_module._runtime_leases == 0
-    assert server_module._runtime_deps.pool is None
+    assert server_module._runtime_deps.db is None
     assert server_module._runtime_lock is None
     assert server_module._runtime_loop is None
 
@@ -249,39 +232,31 @@ async def test_create_deps_uses_only_read_only_runtime_initialization():
 
     http = MagicMock()
     http.aclose = AsyncMock()
-    pool = MagicMock()
-    pool.close = AsyncMock()
+    db = MagicMock()
+    db.assert_ready = AsyncMock()
     doc_store = MagicMock()
     client = MagicMock()
     client.load_cache_read_only = AsyncMock(return_value=1)
     vector_store = MagicMock()
     vector_store.assert_semantic_search_ready = AsyncMock()
-    readiness = AsyncMock()
-    create_pool = AsyncMock(return_value=pool)
 
     with (
-        patch.object(server_module, "require_database_url", return_value="postgresql://test"),
         patch.object(server_module.httpx, "AsyncClient", return_value=http),
-        patch.object(server_module.asyncpg, "create_pool", new=create_pool),
-        patch.object(server_module, "assert_database_ready", new=readiness),
+        patch.object(server_module.CorpusDB, "open", return_value=db) as opener,
         patch.object(server_module, "DocumentStore", return_value=doc_store),
         patch.object(server_module, "BddkApiClient", return_value=client) as client_type,
         patch.object(server_module, "VectorStore", return_value=vector_store),
     ):
         deps = await server_module.create_deps()
 
-    assert create_pool.await_args.args == ("postgresql://test",)
-    readiness.assert_awaited_once_with(pool=pool, require_corpus=True)
+    opener.assert_called_once_with(None, readonly=True)
+    db.assert_ready.assert_awaited_once_with(require_corpus=True)
     client.load_cache_read_only.assert_awaited_once_with()
     vector_store.assert_semantic_search_ready.assert_awaited_once_with()
-    client_type.assert_called_once_with(
-        pool=pool,
-        doc_store=doc_store,
-        http=http,
-        allow_live_population=False,
-    )
+    client_type.assert_called_once_with(store=doc_store, http=http, allow_live_population=False)
     assert deps.vector_store is vector_store
-    assert not hasattr(doc_store, "initialize") or doc_store.initialize.call_count == 0
+    assert deps.db is db
+    db.transaction.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -291,8 +266,8 @@ async def test_create_deps_rolls_back_when_semantic_search_is_not_ready():
 
     http = MagicMock()
     http.aclose = AsyncMock()
-    pool = MagicMock()
-    pool.close = AsyncMock()
+    db = MagicMock()
+    db.assert_ready = AsyncMock()
     doc_store = MagicMock()
     client = MagicMock()
     client.load_cache_read_only = AsyncMock(return_value=1)
@@ -301,10 +276,8 @@ async def test_create_deps_rolls_back_when_semantic_search_is_not_ready():
     vector_store.assert_semantic_search_ready = AsyncMock(side_effect=RuntimeError("semantic path unavailable"))
 
     with (
-        patch.object(server_module, "require_database_url", return_value="postgresql://test"),
         patch.object(server_module.httpx, "AsyncClient", return_value=http),
-        patch.object(server_module.asyncpg, "create_pool", new=AsyncMock(return_value=pool)),
-        patch.object(server_module, "assert_database_ready", new=AsyncMock()),
+        patch.object(server_module.CorpusDB, "open", return_value=db),
         patch.object(server_module, "DocumentStore", return_value=doc_store),
         patch.object(server_module, "BddkApiClient", return_value=client),
         patch.object(server_module, "VectorStore", return_value=vector_store),
@@ -314,7 +287,7 @@ async def test_create_deps_rolls_back_when_semantic_search_is_not_ready():
 
     client.close.assert_awaited_once_with()
     http.aclose.assert_awaited_once_with()
-    pool.close.assert_awaited_once_with()
+    db.close.assert_called_once_with()
 
 
 @pytest.mark.asyncio
@@ -326,8 +299,8 @@ async def test_semantic_readiness_probe_has_a_bounded_startup_time():
 
     http = MagicMock()
     http.aclose = AsyncMock()
-    pool = MagicMock()
-    pool.close = AsyncMock()
+    db = MagicMock()
+    db.assert_ready = AsyncMock()
     client = MagicMock()
     client.load_cache_read_only = AsyncMock(return_value=1)
     client.close = AsyncMock()
@@ -336,10 +309,8 @@ async def test_semantic_readiness_probe_has_a_bounded_startup_time():
 
     with (
         patch.object(server_module, "_SEMANTIC_SEARCH_STARTUP_TIMEOUT_SECONDS", 0.01),
-        patch.object(server_module, "require_database_url", return_value="postgresql://test"),
         patch.object(server_module.httpx, "AsyncClient", return_value=http),
-        patch.object(server_module.asyncpg, "create_pool", new=AsyncMock(return_value=pool)),
-        patch.object(server_module, "assert_database_ready", new=AsyncMock()),
+        patch.object(server_module.CorpusDB, "open", return_value=db),
         patch.object(server_module, "BddkApiClient", return_value=client),
         patch.object(server_module, "VectorStore", return_value=vector_store),
         pytest.raises(TimeoutError),
@@ -348,7 +319,7 @@ async def test_semantic_readiness_probe_has_a_bounded_startup_time():
 
     client.close.assert_awaited_once_with()
     http.aclose.assert_awaited_once_with()
-    pool.close.assert_awaited_once_with()
+    db.close.assert_called_once_with()
 
 
 @pytest.mark.asyncio
@@ -359,17 +330,16 @@ async def test_cancelled_shutdown_finishes_closing_before_propagating():
     close_started = asyncio.Event()
     allow_close = asyncio.Event()
 
-    async def blocking_pool_close():
+    async def blocking_client_close():
         close_started.set()
         await allow_close.wait()
 
     client = MagicMock()
-    client.close = AsyncMock()
+    client.close = AsyncMock(side_effect=blocking_client_close)
     http = MagicMock()
     http.aclose = AsyncMock()
-    pool = MagicMock()
-    pool.close = AsyncMock(side_effect=blocking_pool_close)
-    deps = Dependencies(pool=pool, doc_store=MagicMock(), client=client, http=http)
+    db = MagicMock()
+    deps = Dependencies(db=db, doc_store=MagicMock(), client=client, http=http)
     server_module._runtime_leases = 1
     server_module._runtime_lock = None
     server_module._runtime_loop = None
@@ -388,8 +358,8 @@ async def test_cancelled_shutdown_finishes_closing_before_propagating():
 
     client.close.assert_awaited_once()
     http.aclose.assert_awaited_once()
-    pool.close.assert_awaited_once()
+    db.close.assert_called_once()
     assert server_module._runtime_leases == 0
-    assert server_module._runtime_deps.pool is None
+    assert server_module._runtime_deps.db is None
     assert server_module._runtime_lock is None
     assert server_module._runtime_loop is None

@@ -23,13 +23,13 @@ Commands and results:
 ## Impact
 
 - [ ] No MCP contract change
-- [ ] No database schema, migration, or privilege change
+- [ ] No corpus schema change (`bddk_mcp/store/corpus_db.py`) and no corpus rebuild required
 - [ ] No corpus, seed, embedding, or generated-data change
 - [ ] No deployment, authentication, or security-policy change
 - [ ] Documentation and changelog are updated where needed
 
-<!-- Explain every unchecked item and include rollout/backfill notes when relevant. -->
+<!-- Explain every unchecked item and include rollout/rebuild notes when relevant. -->
 
 ## Review notes
 
-<!-- Call out risky files, generated artifacts, migration order, or follow-up work. -->
+<!-- Call out risky files, generated artifacts, corpus rebuild steps (`bddk-mcp build --force`), or follow-up work. -->

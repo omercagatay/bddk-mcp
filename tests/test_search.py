@@ -4,12 +4,12 @@ import pytest
 
 from bddk_mcp.core.models import BddkDecisionSummary, BddkSearchRequest
 from bddk_mcp.ingest.client import BddkApiClient
-from tests.conftest import MockPool
+from tests.conftest import MockStore
 
 
 def _make_client_with_cache(items: list[BddkDecisionSummary]) -> BddkApiClient:
     """Create a client with a pre-populated cache (no HTTP needed)."""
-    client = BddkApiClient(pool=MockPool())
+    client = BddkApiClient(store=MockStore())
     client._cache = items
     client._cache_timestamp = 9999999999.0  # far future so cache stays valid
     return client

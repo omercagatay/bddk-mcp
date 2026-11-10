@@ -19,16 +19,18 @@ def test_parser_exposes_explicit_runtime_commands():
     serve = parser.parse_args(["serve", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8443"])
     assert (serve.command, serve.transport, serve.host, serve.port) == ("serve", "streamable-http", "0.0.0.0", 8443)
 
-    migrate = parser.parse_args(["migrate", "--db", "postgresql://example", "--allow-retrieval-publication-backfill"])
-    assert migrate.command == "migrate"
-    assert migrate.db == "postgresql://example"
-    assert migrate.allow_retrieval_publication_backfill is True
+    build = parser.parse_args(["build", "--corpus", "c.sqlite", "--seed-dir", "seed", "--force"])
+    assert (build.command, build.corpus, build.seed_dir, build.force) == ("build", "c.sqlite", "seed", True)
+    assert parser.parse_args(["build"]).corpus is None
+
+    export = parser.parse_args(["export", "--corpus", "c.sqlite"])
+    assert (export.command, export.corpus, export.seed_dir) == ("export", "c.sqlite", None)
 
     sync = parser.parse_args(["sync", "--doc-id", "943", "--force", "--concurrency", "2", "--refresh-catalog"])
     assert (sync.command, sync.doc_id, sync.force, sync.concurrency) == ("sync", "943", True, 2)
     assert sync.refresh_catalog is True
     defaults = parser.parse_args(["sync"])
-    assert (defaults.concurrency, defaults.refresh_catalog, defaults.doc_id) == (5, False, None)
+    assert (defaults.concurrency, defaults.refresh_catalog, defaults.doc_id, defaults.corpus) == (5, False, None, None)
 
 
 def test_version_does_not_import_runtime(capsys):
@@ -42,24 +44,34 @@ def test_version_does_not_import_runtime(capsys):
     assert "bddk-mcp" in result.stdout
 
 
-def test_migrate_command_forwards_only_explicit_maintenance_approvals(capsys):
-    with patch("bddk_mcp.cli._migrate", new=AsyncMock()) as migrate:
-        cli.main(["migrate", "--db", "postgresql://example"])
-        cli.main(["migrate", "--allow-retrieval-publication-backfill"])
+def test_build_command_reports_counts_and_skips(capsys):
+    built = {"decision_cache": 1, "documents": 2, "sections": 3, "chunks": 4, "skipped": False}
+    with patch("bddk_mcp.ingest.seed.build_corpus", new=AsyncMock(return_value=built)) as build:
+        cli.main(["build", "--corpus", "c.sqlite", "--force"])
+    build.assert_awaited_once_with(corpus_path="c.sqlite", seed_dir=None, force=True)
+    assert "2 documents, 3 sections, 4 chunks embedded" in capsys.readouterr().out
 
-    assert [call.args[0] for call in migrate.await_args_list] == ["postgresql://example", None]
-    assert [call.kwargs["allow_retrieval_publication_backfill"] for call in migrate.await_args_list] == [False, True]
-    assert capsys.readouterr().out.count("Database schema is ready.") == 2
+    skipped = dict(built, skipped=True)
+    with patch("bddk_mcp.ingest.seed.build_corpus", new=AsyncMock(return_value=skipped)):
+        cli.main(["build"])
+    assert "already matches" in capsys.readouterr().out
+
+
+def test_export_command_reports_counts(capsys):
+    with patch("bddk_mcp.ingest.seed.export_corpus", new=AsyncMock(return_value=(319, 300))) as export:
+        cli.main(["export", "--seed-dir", "out"])
+    export.assert_awaited_once_with(corpus_path=None, seed_dir="out")
+    assert "Exported 319 documents and 300 catalog entries." in capsys.readouterr().out
 
 
 def test_runtime_errors_become_clean_parser_errors(capsys):
     with (
-        patch("bddk_mcp.cli._migrate", new=AsyncMock(side_effect=RuntimeError("database is not ready"))),
+        patch("bddk_mcp.ingest.seed.build_corpus", new=AsyncMock(side_effect=RuntimeError("corpus is not ready"))),
         pytest.raises(SystemExit),
     ):
-        cli.main(["migrate"])
+        cli.main(["build"])
 
-    assert "database is not ready" in capsys.readouterr().err
+    assert "corpus is not ready" in capsys.readouterr().err
 
 
 def test_serve_applies_overrides_before_import(monkeypatch):
@@ -101,8 +113,7 @@ class _Catalog:
 
 
 def _sync_doubles(catalog):
-    pool = MagicMock()
-    pool.close = AsyncMock()
+    db = MagicMock()
     client = MagicMock()
     client.refresh_cache = AsyncMock(return_value=len(catalog))
     client.ensure_cache = AsyncMock()
@@ -117,28 +128,28 @@ def _sync_doubles(catalog):
         )
     )
     patches = (
-        patch("asyncpg.create_pool", new=AsyncMock(return_value=pool)),
-        patch("bddk_mcp.core.config.require_database_url", return_value="postgresql://ingestion"),
-        patch("bddk_mcp.db_lifecycle.assert_database_ready", new=AsyncMock()),
+        patch("bddk_mcp.store.corpus_db.CorpusDB.open", return_value=db),
         patch("bddk_mcp.ingest.client.BddkApiClient", return_value=client),
         patch("bddk_mcp.ingest.doc_sync.DocumentSyncer", return_value=syncer),
         patch("bddk_mcp.store.doc_store.DocumentStore"),
         patch("bddk_mcp.store.vector_store.VectorStore"),
     )
-    return pool, client, syncer, patches
+    return db, client, syncer, patches
 
 
 @pytest.mark.asyncio
-async def test_sync_reads_the_catalog_from_the_database_and_syncs_every_document(capsys):
+async def test_sync_reads_the_catalog_from_the_corpus_and_syncs_every_document(capsys):
     catalog = [_Catalog("943"), _Catalog("1296")]
-    pool, client, syncer, patches = _sync_doubles(catalog)
-    args = cli.build_parser().parse_args(["sync", "--concurrency", "2"])
+    db, client, syncer, patches = _sync_doubles(catalog)
+    args = cli.build_parser().parse_args(["sync", "--concurrency", "2", "--corpus", "c.sqlite"])
 
     with ExitStack() as stack:
-        for item in patches:
+        opener = stack.enter_context(patches[0])
+        for item in patches[1:]:
             stack.enter_context(item)
         await cli._sync(args)
 
+    opener.assert_called_once_with("c.sqlite")
     client.ensure_cache.assert_awaited_once_with()
     client.refresh_cache.assert_not_awaited()
     documents = syncer.sync_all.await_args.args[0]
@@ -146,14 +157,14 @@ async def test_sync_reads_the_catalog_from_the_database_and_syncs_every_document
     assert documents[0]["source_url"] == catalog[0].source_url
     assert syncer.sync_all.await_args.kwargs == {"concurrency": 2, "force": False}
     client.close.assert_awaited_once_with()
-    pool.close.assert_awaited_once_with()
+    db.close.assert_called_once_with()
     assert "Sync: 2 total" in capsys.readouterr().out
 
 
 @pytest.mark.asyncio
 async def test_sync_can_refresh_the_catalog_and_target_one_document(capsys):
     catalog = [_Catalog("943"), _Catalog("1296")]
-    _pool, client, syncer, patches = _sync_doubles(catalog)
+    _db, client, syncer, patches = _sync_doubles(catalog)
     args = cli.build_parser().parse_args(["sync", "--refresh-catalog", "--doc-id", "1296", "--force"])
 
     with ExitStack() as stack:
@@ -171,7 +182,7 @@ async def test_sync_can_refresh_the_catalog_and_target_one_document(capsys):
 
 @pytest.mark.asyncio
 async def test_sync_refuses_an_uncatalogued_document_id():
-    pool, client, _syncer, patches = _sync_doubles([_Catalog("943")])
+    db, client, _syncer, patches = _sync_doubles([_Catalog("943")])
     args = cli.build_parser().parse_args(["sync", "--doc-id", "99999"])
 
     with ExitStack() as stack:
@@ -181,4 +192,4 @@ async def test_sync_refuses_an_uncatalogued_document_id():
             await cli._sync(args)
 
     client.close.assert_awaited_once_with()
-    pool.close.assert_awaited_once_with()
+    db.close.assert_called_once_with()

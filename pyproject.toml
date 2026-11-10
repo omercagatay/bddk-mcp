@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "bddk-mcp"
 version = "5.0.1"
-description = "MCP server for BDDK regulatory intelligence — search, analytics, and monitoring (PostgreSQL + pgvector)"
+description = "MCP server for BDDK regulatory intelligence — search, analytics, and monitoring (single SQLite corpus file)"
 readme = "README.md"
 license = "PolyForm-Noncommercial-1.0.0"
 license-files = ["LICENSE"]
@@ -19,7 +19,7 @@ dependencies = [
     "markitdown[pdf]>=0.1",
     "beautifulsoup4>=4.12",
     "defusedxml>=0.7.1,<1",
-    "asyncpg>=0.30",
+    "numpy>=1.26",
     "sentence-transformers>=5.0",
     "transformers>=4.50",
     "starlette>=0.47",
@@ -32,7 +32,6 @@ Issues = "https://github.com/omercagatay/bddk-mcp/issues"
 
 [project.scripts]
 bddk-mcp = "bddk_mcp.cli:main"
-bddk-seed = "bddk_mcp.ingest.seed:main"
 
 [dependency-groups]
 dev = [
@@ -63,7 +62,6 @@ pythonpath = ["."]
 addopts = "-m 'not gpu'"
 markers = [
     "gpu: requires explicit offline GPU/OCR provisioning via BDDK_REQUIRE_GPU_OCR=1",
-    "postgres: requires the PostgreSQL + pgvector test service",
 ]
 
 [tool.ruff]

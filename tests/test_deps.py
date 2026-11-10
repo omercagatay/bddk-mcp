@@ -6,7 +6,7 @@ from bddk_mcp.core.deps import Dependencies
 def test_dependencies_defaults():
     """Dependencies initializes with correct defaults."""
     deps = Dependencies(
-        pool=None,
+        db=None,
         doc_store=None,
         client=None,
         http=None,

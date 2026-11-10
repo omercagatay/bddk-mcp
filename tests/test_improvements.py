@@ -8,92 +8,27 @@ import pytest
 from bddk_mcp.core.models import BddkDecisionSummary
 from bddk_mcp.ingest.client import BddkApiClient
 from bddk_mcp.ingest.doc_sync import DocumentSyncer, ExtractionResult
-from tests.conftest import MockPool, make_http_response
+from tests.conftest import MockStore, make_http_response
 
 # -- Chunk Overlap Reconstruction Bug Fix ------------------------------------
-
-
-class TestOverlapReconstruction:
-    def test_reconstruction_preserves_content(self):
-        """The critical test: reconstruct must produce the original text."""
-        from bddk_mcp.store.vector_store import VectorStore
-
-        vs = VectorStore.__new__(VectorStore)
-
-        original = "ABCDE" * 400  # 2000 chars
-        chunks = [original[start : start + 1000] for start in range(0, len(original), 800)]
-
-        # Simulate asyncpg.Record-like objects for _reconstruct_content
-        class FakeRecord:
-            def __init__(self, text):
-                self._data = {"chunk_text": text}
-
-            def __getitem__(self, key):
-                return self._data[key]
-
-        rows = [FakeRecord(chunk) for chunk in chunks]
-        reconstructed = vs._reconstruct_content(rows)
-        assert reconstructed == original
-
-    def test_reconstruction_large_document(self):
-        from bddk_mcp.store.vector_store import VectorStore
-
-        vs = VectorStore.__new__(VectorStore)
-        original = "".join(chr(65 + (i % 26)) for i in range(10000))
-        chunks = [original[start : start + 1000] for start in range(0, len(original), 800)]
-
-        class FakeRecord:
-            def __init__(self, text):
-                self._data = {"chunk_text": text}
-
-            def __getitem__(self, key):
-                return self._data[key]
-
-        rows = [FakeRecord(chunk) for chunk in chunks]
-        reconstructed = vs._reconstruct_content(rows)
-        assert reconstructed == original
-
-    def test_reconstruction_single_chunk(self):
-        from bddk_mcp.store.vector_store import VectorStore
-
-        vs = VectorStore.__new__(VectorStore)
-
-        class FakeRecord:
-            def __init__(self, text):
-                self._data = {"chunk_text": text}
-
-            def __getitem__(self, key):
-                return self._data[key]
-
-        rows = [FakeRecord("Hello world")]
-        assert vs._reconstruct_content(rows) == "Hello world"
-
-    def test_reconstruction_empty(self):
-        from bddk_mcp.store.vector_store import VectorStore
-
-        vs = VectorStore.__new__(VectorStore)
-        assert vs._reconstruct_content([]) == ""
 
 
 # -- Stale Cache Fallback ---------------------------------------------------
 
 
 class TestStaleCacheFallback:
-    """Test that stale cache from DB is served when BDDK is unreachable."""
+    """Test that a stale catalog from the corpus is served when BDDK is unreachable."""
 
     @pytest.mark.asyncio
     async def test_stale_db_cache_loaded(self, doc_store):
-        pool = doc_store._pool
-        # Save stale cache to DB
-        client = BddkApiClient(pool=pool)
+        client = BddkApiClient(store=doc_store)
         client._cache = [
             BddkDecisionSummary(title="Stale Decision", document_id="stale_999", content="stale", category="Rehber")
         ]
         client._cache_timestamp = 1.0  # very old
         await client._save_cache_to_db()
 
-        # New client loads from DB
-        client2 = BddkApiClient(pool=pool)
+        client2 = BddkApiClient(store=doc_store)
         loaded = await client2._load_cache_from_db()
         assert loaded
         assert any(d.document_id == "stale_999" for d in client2._cache)
@@ -103,8 +38,7 @@ class TestStaleCacheFallback:
 
     @pytest.mark.asyncio
     async def test_empty_db_returns_false(self):
-        pool = MockPool()
-        client = BddkApiClient(pool=pool)
+        client = BddkApiClient(store=MockStore())
         assert not await client._load_cache_from_db()
 
 
@@ -178,7 +112,7 @@ class TestUnmappedCategoryWarning:
           </div>
         </div>
         """
-        client = BddkApiClient(pool=MockPool())
+        client = BddkApiClient(store=MockStore())
         client._fetch_with_retry = AsyncMock(return_value=make_http_response(html))
 
         import logging
@@ -194,7 +128,7 @@ class TestUnmappedCategoryWarning:
     async def test_known_category_no_warning(self, caplog):
         from tests.conftest import BDDK_ACCORDION_HTML
 
-        client = BddkApiClient(pool=MockPool())
+        client = BddkApiClient(store=MockStore())
         client._fetch_with_retry = AsyncMock(return_value=make_http_response(BDDK_ACCORDION_HTML))
 
         import logging

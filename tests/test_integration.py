@@ -23,7 +23,7 @@ class TestSearchThenRetrieveFlow:
         """Populate the catalog from one live list page, then search it."""
         # This flow exercises the ingest-side live catalog population, which is
         # an explicit opt-in: serving defaults to the airlocked read-only path.
-        client = BddkApiClient(pool=doc_store._pool, doc_store=doc_store, allow_live_population=True)
+        client = BddkApiClient(store=doc_store, allow_live_population=True)
         client._fetch_with_retry = AsyncMock(return_value=make_http_response(BDDK_ACCORDION_HTML))
 
         # Populate cache directly (bypass DB cache)
@@ -48,8 +48,8 @@ class TestSyncThenSearchFlow:
     """Test sync -> store -> search flow."""
 
     @pytest.mark.asyncio
-    async def test_sync_and_fts_search(self, doc_store):
-        """Sync a document, then search for it via FTS."""
+    async def test_sync_and_fts_search(self, doc_store, vector_store):
+        """Store and index a document, then find it by keyword search."""
         doc = StoredDocument(
             document_id="42",
             title="Bankacılık Sektörü Sermaye Yeterliliği Rehberi",
@@ -63,10 +63,11 @@ class TestSyncThenSearchFlow:
             extraction_method="markitdown",
         )
         await doc_store.store_document(doc)
+        await vector_store.add_document("42", doc.title, doc.markdown_content, category="Rehber")
 
-        hits = await doc_store.search_content("sermaye yeterliliği")
+        hits = await vector_store._fts_search("sermaye yeterliliği")
         assert len(hits) > 0
-        assert hits[0].document_id == "42"
+        assert hits[0]["doc_id"] == "42"
 
         page = await doc_store.get_document_page("42", 1)
         assert page is not None
@@ -79,10 +80,10 @@ class TestCacheFallbackFlow:
     @pytest.mark.asyncio
     async def test_stale_db_cache_used_when_bddk_unreachable(self, doc_store):
         """When BDDK is unreachable, stale DB cache should be served."""
-        pool = doc_store._pool  # SingleConnPool from fixture
+        pool = doc_store
 
         # Pre-populate DB cache
-        client = BddkApiClient(pool=pool)
+        client = BddkApiClient(store=pool)
         from bddk_mcp.core.models import BddkDecisionSummary
 
         client._cache = [
@@ -92,7 +93,7 @@ class TestCacheFallbackFlow:
         await client._save_cache_to_db()
 
         # New client, all HTTP fails
-        client2 = BddkApiClient(pool=pool)
+        client2 = BddkApiClient(store=pool)
         await client2.load_cache_read_only(require_nonempty=False)
         client2._http = AsyncMock(spec=httpx.AsyncClient)
         client2._http.get = AsyncMock(side_effect=httpx.TransportError("Network unreachable"))

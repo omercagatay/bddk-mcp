@@ -23,7 +23,7 @@ if os.environ.get("BDDK_MCP_E2E_STUB") == "1":
 
     async def create_e2e_deps(_profile=None) -> Dependencies:
         return Dependencies(
-            pool=None,
+            db=None,
             doc_store=FakeDocumentStore(),
             client=None,
             http=None,

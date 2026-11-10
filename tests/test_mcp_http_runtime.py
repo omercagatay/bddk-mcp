@@ -11,8 +11,8 @@ from mcp.client.streamable_http import streamable_http_client
 from mcp.server.auth.provider import AccessToken
 
 from bddk_mcp.core.deps import Dependencies
-from bddk_mcp.db_lifecycle import DatabaseReadiness
 from bddk_mcp.http_security import HttpSecurityMiddleware, load_http_security_config
+from bddk_mcp.store.corpus_db import CorpusReadiness
 from bddk_mcp.tools.registry import PUBLIC_TOOL_NAMES
 from bddk_mcp.tools.structured_outputs import CORPUS_SCOPE_WARNING, SOURCE_DATA_BEGIN, SOURCE_DATA_END
 
@@ -29,7 +29,7 @@ async def test_official_client_initializes_lists_and_calls_over_secured_local_ht
 
     doc_store = MagicMock()
     doc_store.get_document_history = AsyncMock(return_value=[])
-    deps = Dependencies(pool=None, doc_store=doc_store, client=MagicMock(), http=None)
+    deps = Dependencies(db=None, doc_store=doc_store, client=MagicMock(), http=None)
     security = load_http_security_config({"MCP_HOST": "127.0.0.1", "PORT": "8123"})
     server = create_mcp(deps, http_security=security)
     raw_app = server.streamable_http_app()
@@ -107,7 +107,7 @@ async def test_http_auth_scope_and_origin_statuses_are_fail_closed():
     from bddk_mcp.server import create_mcp
 
     security = _remote_security()
-    deps = Dependencies(pool=None, doc_store=MagicMock(), client=MagicMock(), http=None)
+    deps = Dependencies(db=None, doc_store=MagicMock(), client=MagicMock(), http=None)
     with patch("bddk_mcp.server.JwtTokenVerifier", return_value=_TestTokenVerifier()):
         server = create_mcp(deps, http_security=security)
     raw_app = server.streamable_http_app()
@@ -147,9 +147,9 @@ async def test_http_auth_scope_and_origin_statuses_are_fail_closed():
 async def test_content_free_health_routes_support_orchestrator_host_headers():
     from bddk_mcp.server import create_mcp
 
-    pool = MagicMock()
+    db = MagicMock()
     deps = Dependencies(
-        pool=pool,
+        db=db,
         doc_store=MagicMock(),
         client=MagicMock(),
         http=None,
@@ -159,9 +159,9 @@ async def test_content_free_health_routes_support_orchestrator_host_headers():
     server = create_mcp(deps, http_security=security)
     raw_app = server.streamable_http_app()
     app = HttpSecurityMiddleware(raw_app, security)
-    schema_ready = AsyncMock(return_value=DatabaseReadiness())
+    schema_ready = AsyncMock(return_value=CorpusReadiness())
 
-    with patch("bddk_mcp.server.assert_database_ready", new=schema_ready):
+    with patch.object(db, "assert_ready", new=schema_ready, create=True):
         async with raw_app.router.lifespan_context(raw_app):
             async with httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=app),
@@ -176,18 +176,18 @@ async def test_content_free_health_routes_support_orchestrator_host_headers():
     assert ready.status_code == 200
     assert ready.json() == {"status": "ready"}
     assert cached_ready.status_code == 200
-    schema_ready.assert_awaited_once_with(pool=pool, require_corpus=True)
+    schema_ready.assert_awaited_once_with(require_corpus=True)
 
 
 @pytest.mark.asyncio
 async def test_public_readiness_fails_closed_when_semantic_search_is_unhealthy():
     from bddk_mcp.server import create_mcp
 
-    pool = MagicMock()
+    db = MagicMock()
     vector_store = MagicMock()
     vector_store.semantic_search_ready = False
     deps = Dependencies(
-        pool=pool,
+        db=db,
         doc_store=MagicMock(),
         client=MagicMock(),
         http=None,
@@ -211,7 +211,7 @@ async def test_public_readiness_fails_closed_when_semantic_search_is_unhealthy()
 def test_public_profile_accepts_unauthenticated_remote_exposure():
     from bddk_mcp.server import create_mcp
 
-    deps = Dependencies(pool=None, doc_store=MagicMock(), client=MagicMock(), http=None)
+    deps = Dependencies(db=None, doc_store=MagicMock(), client=MagicMock(), http=None)
     server = create_mcp(deps, http_security=_unauthenticated_remote_security())
 
     assert server.settings.auth is None
@@ -224,7 +224,7 @@ async def test_unauthenticated_public_server_advertises_no_oauth():
     security = _unauthenticated_remote_security()
     assert security.jwt_issuer is None
 
-    deps = Dependencies(pool=None, doc_store=MagicMock(), client=MagicMock(), http=None)
+    deps = Dependencies(db=None, doc_store=MagicMock(), client=MagicMock(), http=None)
     server = create_mcp(deps, http_security=security)
     raw_app = server.streamable_http_app()
     app = HttpSecurityMiddleware(raw_app, security)
@@ -267,7 +267,7 @@ async def test_official_client_full_round_trip_on_unauthenticated_remote_public_
     security = _unauthenticated_remote_security()
     doc_store = MagicMock()
     doc_store.get_document_history = AsyncMock(return_value=[])
-    deps = Dependencies(pool=None, doc_store=doc_store, client=MagicMock(), http=None)
+    deps = Dependencies(db=None, doc_store=doc_store, client=MagicMock(), http=None)
     server = create_mcp(deps, http_security=security)
     raw_app = server.streamable_http_app()
     app = HttpSecurityMiddleware(raw_app, security)

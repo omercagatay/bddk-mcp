@@ -2,7 +2,7 @@
 
 Every document must be returned as exact stored characters: no sanitization,
 wrapping, paraphrase or summary. These tests read the reviewed seed snapshot and
-a real PostgreSQL table; they do not call live BDDK/mevzuat sources.
+a real temporary corpus file; they do not call live BDDK/mevzuat sources.
 """
 
 from __future__ import annotations
@@ -145,7 +145,7 @@ async def test_every_document_returned_through_mcp_is_exact_and_not_summarized(d
     doc_store.get_document_quality = AsyncMock(return_value=None)
     client = MagicMock()
     client.find_by_id.return_value = None
-    deps = Dependencies(pool=None, doc_store=doc_store, client=client, http=None)
+    deps = Dependencies(db=None, doc_store=doc_store, client=client, http=None)
 
     async with create_connected_server_and_client_session(create_mcp(deps)) as session:
         result = await session.call_tool("get_bddk_document", {"document_id": document["document_id"]})
@@ -159,44 +159,35 @@ async def test_every_document_returned_through_mcp_is_exact_and_not_summarized(d
     assert "no sanitization, wrapping, paraphrase or summary" in structured["text"]
 
 
-@pytest.mark.postgres
 @pytest.mark.asyncio
-async def test_all_seeded_documents_round_trip_exactly_through_postgresql(pg_pool):
-    """Real PostgreSQL storage: every page equals the stored characters exactly."""
-    async with pg_pool.acquire() as connection:
-        transaction = connection.transaction()
-        await transaction.start()
-        try:
-            for document in SEED_DOCUMENTS:
-                await connection.execute(
-                    """
-                    INSERT INTO public.documents (document_id, title, markdown_content, content_hash)
-                    VALUES ($1, $2, $3, $4)
-                    ON CONFLICT (document_id) DO UPDATE SET
-                        markdown_content = EXCLUDED.markdown_content,
-                        content_hash = EXCLUDED.content_hash
-                    """,
+async def test_all_seeded_documents_round_trip_exactly_through_the_corpus_file(corpus_db):
+    """Real corpus storage: every page equals the stored characters exactly."""
+    await corpus_db.transaction(
+        lambda conn: conn.executemany(
+            "INSERT INTO documents (document_id, title, markdown_content, content_hash) VALUES (?, ?, ?, ?)",
+            [
+                (
                     document["document_id"],
                     document.get("title", ""),
                     document["markdown_content"],
                     document["content_hash"],
                 )
-            from tests.conftest import SingleConnPool
-
-            store = DocumentStore(SingleConnPool(connection))
-            for document in SEED_DOCUMENTS:
-                content = document["markdown_content"]
-                total_pages = max(1, -(-len(content) // PAGE_SIZE))
-                for page in range(1, total_pages + 1):
-                    start = (page - 1) * PAGE_SIZE
-                    fetched = await store.get_document_page(document["document_id"], page)
-                    assert fetched is not None, document["document_id"]
-                    assert fetched.markdown_content == content[start : start + PAGE_SIZE], (
-                        document["document_id"],
-                        page,
-                    )
-        finally:
-            await transaction.rollback()
+                for document in SEED_DOCUMENTS
+            ],
+        )
+    )
+    store = DocumentStore(corpus_db)
+    for document in SEED_DOCUMENTS:
+        content = document["markdown_content"]
+        total_pages = max(1, -(-len(content) // PAGE_SIZE))
+        for page in range(1, total_pages + 1):
+            start = (page - 1) * PAGE_SIZE
+            fetched = await store.get_document_page(document["document_id"], page)
+            assert fetched is not None, document["document_id"]
+            assert fetched.markdown_content == content[start : start + PAGE_SIZE], (
+                document["document_id"],
+                page,
+            )
 
 
 def test_quotation_argument_accepts_exact_boundaries_and_rejects_whitespace_only():
@@ -273,15 +264,13 @@ def test_real_ozkaynak_article_9_quotation_is_exact_and_never_normalized():
     )
 
 
-@pytest.mark.postgres
 @pytest.mark.asyncio
-async def test_real_ozkaynak_document_and_quote_end_to_end_through_mcp_and_postgresql(pg_pool):
-    """Real PostgreSQL + official MCP SDK: exact text out, exact quote verified."""
+async def test_real_ozkaynak_document_and_quote_end_to_end_through_mcp_and_the_corpus(corpus_db):
+    """Real corpus file + official MCP SDK: exact text out, exact quote verified."""
     from mcp.shared.memory import create_connected_server_and_client_session
 
     from bddk_mcp.core.deps import Dependencies
     from bddk_mcp.server import create_mcp
-    from tests.conftest import SingleConnPool
 
     document = next(d for d in SEED_DOCUMENTS if d["document_id"] == "mevzuat_18799")
     content = document["markdown_content"]
@@ -291,24 +280,15 @@ async def test_real_ozkaynak_document_and_quote_end_to_end_through_mcp_and_postg
         "Muhasebe Standardında yer alan koşulların sağlanması halinde ertelenmiş vergi yükümlülüğü ile "
         "mahsup edildikten sonra kalan kısmı,"
     )
-    async with pg_pool.acquire() as connection:
-        transaction = connection.transaction()
-        await transaction.start()
+    await corpus_db.transaction(
+        lambda conn: conn.execute(
+            "INSERT INTO documents (document_id, title, markdown_content, content_hash) VALUES (?, ?, ?, ?)",
+            (document["document_id"], document.get("title", ""), content, document["content_hash"]),
+        )
+    )
+    if True:
         try:
-            await connection.execute(
-                """
-                INSERT INTO public.documents (document_id, title, markdown_content, content_hash)
-                VALUES ($1, $2, $3, $4)
-                ON CONFLICT (document_id) DO UPDATE SET
-                    markdown_content = EXCLUDED.markdown_content,
-                    content_hash = EXCLUDED.content_hash
-                """,
-                document["document_id"],
-                document.get("title", ""),
-                content,
-                document["content_hash"],
-            )
-            store = DocumentStore(SingleConnPool(connection))
+            store = DocumentStore(corpus_db)
             await store.replace_document_sections(
                 document["document_id"],
                 extract_document_sections(document["document_id"], content),
@@ -316,7 +296,7 @@ async def test_real_ozkaynak_document_and_quote_end_to_end_through_mcp_and_postg
             )
             client = MagicMock()
             client.find_by_id.return_value = None
-            deps = Dependencies(pool=None, doc_store=store, client=client, http=None)
+            deps = Dependencies(db=None, doc_store=store, client=client, http=None)
             async with create_connected_server_and_client_session(create_mcp(deps)) as session:
                 page = await session.call_tool(
                     "get_bddk_document", {"document_id": "mevzuat_18799", "page_number": 1, "max_pages": 1}
@@ -356,7 +336,7 @@ async def test_real_ozkaynak_document_and_quote_end_to_end_through_mcp_and_postg
             )
             assert paraphrased.structuredContent["answer_assessment"]["quotation_status"] == "not_found"
         finally:
-            await transaction.rollback()
+            pass
 
 
 def test_every_printed_section_identity_is_accepted_back_by_the_tool_contract():

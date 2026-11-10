@@ -1,18 +1,24 @@
-"""Shared test fixtures for BDDK MCP Server tests."""
+"""Shared test fixtures for BDDK MCP Server tests.
 
-import asyncio
+Every storage test runs against a temporary SQLite corpus file; nothing here
+needs a database service.  Embeddings come from a deterministic fake so the
+vector store is exercised without loading a model.
+"""
+
+import hashlib
 import importlib.util
 import os
-from contextlib import asynccontextmanager
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
-import asyncpg
 import httpx
+import numpy as np
 import pytest
 
 from bddk_mcp.core.models import BddkDecisionSummary
+from bddk_mcp.store.corpus_db import CorpusDB
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
+from bddk_mcp.store.vector_store import VectorStore
 
 
 @pytest.fixture
@@ -24,12 +30,6 @@ def historical_quality_registry(monkeypatch):
     registry = markdown_quality.load_quality_failure_registry(path)
     monkeypatch.setattr(markdown_quality, "_QUALITY_FAILURES", registry)
     return registry
-
-
-# -- PostgreSQL test database -------------------------------------------------
-
-_TEST_DSN = os.environ.get("BDDK_TEST_DATABASE_URL", "postgresql://bddk:bddk@localhost:5432/bddk_test")
-_REQUIRE_TEST_DATABASE = os.environ.get("BDDK_REQUIRE_TEST_DATABASE", "").lower() in {"1", "true", "yes"}
 
 
 @pytest.fixture(scope="session")
@@ -64,174 +64,66 @@ def provisioned_gpu_ocr_lane() -> None:
         pytest.fail("Required GPU OCR lane cannot access CUDA.", pytrace=False)
 
 
-def pytest_collection_modifyitems(items):
-    """Label every test that depends on the real PostgreSQL fixture.
-
-    Keeping this at the fixture boundary prevents newly-added database tests
-    from silently escaping the dedicated CI gate simply because an author
-    forgot a decorator.
-    """
-    postgres = pytest.mark.postgres
-    for item in items:
-        if "pg_pool" in item.fixturenames:
-            item.add_marker(postgres)
+# -- Temporary corpus ----------------------------------------------------------
 
 
-# -- Pool fixture (created once per test, reused via caching) -----------------
-
-_pg_pool_cache: asyncpg.Pool | None = None
-_pg_pool_loop_id: int | None = None
-
-
-@pytest.fixture
-async def pg_pool():
-    """Provide a PostgreSQL pool. Skips if PG unavailable.
-
-    Caches the pool across tests sharing the same event loop.
-    """
-    global _pg_pool_cache, _pg_pool_loop_id
-
-    loop = asyncio.get_running_loop()
-    loop_id = id(loop)
-
-    # Reuse pool if on same loop
-    if _pg_pool_cache is not None and _pg_pool_loop_id == loop_id:
-        yield _pg_pool_cache
-        return
-
-    # Close stale pool from a different loop
-    if _pg_pool_cache is not None:
-        try:
-            await _pg_pool_cache.close()
-        except Exception:
-            pass
-        _pg_pool_cache = None
-
-    try:
-        pool = await asyncpg.create_pool(_TEST_DSN, min_size=1, max_size=5, timeout=5)
-        await pool.execute("CREATE EXTENSION IF NOT EXISTS vector")
-        await pool.execute("CREATE EXTENSION IF NOT EXISTS unaccent")
-        # Every PostgreSQL test starts from the same checksum-verified schema;
-        # fixtures never create an independent application schema.
-        from bddk_mcp.migrations import migrate
-
-        await migrate(pool)
-        _pg_pool_cache = pool
-        _pg_pool_loop_id = loop_id
-        yield pool
-    except (TimeoutError, asyncpg.PostgresError, OSError) as exc:
-        if _REQUIRE_TEST_DATABASE:
-            pytest.fail(
-                f"Required PostgreSQL test database is unavailable ({type(exc).__name__}). "
-                "Check BDDK_TEST_DATABASE_URL and required extensions.",
-                pytrace=False,
-            )
-        pytest.skip("PostgreSQL test database not available")
+def fake_embed(texts: list[str]) -> np.ndarray:
+    """Deterministic bag-of-words unit vectors: shared words give a higher cosine."""
+    vectors = []
+    for text in texts:
+        vector = np.zeros(768, dtype=np.float32)
+        for word in text.lower().split():
+            seed = int(hashlib.md5(word.encode("utf-8")).hexdigest()[:8], 16)
+            vector += np.random.default_rng(seed).standard_normal(768).astype(np.float32)
+        norm = float(np.linalg.norm(vector)) or 1.0
+        vectors.append(vector / norm)
+    return np.stack(vectors)
 
 
-class SingleConnPool:
-    """Wraps a single asyncpg connection to behave like a pool.
+class FakeTokenizer:
+    """Whitespace tokens stand in for the embedding model's tokenizer."""
 
-    Used in tests so each test runs inside a transaction that gets rolled back.
-    """
-
-    def __init__(self, conn: asyncpg.Connection):
-        self._conn = conn
-
-    @asynccontextmanager
-    async def acquire(self):
-        yield self._conn
-
-    async def fetch(self, query, *args, **kwargs):
-        return await self._conn.fetch(query, *args, **kwargs)
-
-    async def fetchrow(self, query, *args, **kwargs):
-        return await self._conn.fetchrow(query, *args, **kwargs)
-
-    async def fetchval(self, query, *args, **kwargs):
-        return await self._conn.fetchval(query, *args, **kwargs)
-
-    async def execute(self, query, *args, **kwargs):
-        return await self._conn.execute(query, *args, **kwargs)
+    def encode(self, text: str, add_special_tokens: bool = False) -> list[str]:
+        return text.split()
 
 
 @pytest.fixture
-async def doc_store(pg_pool):
-    """Create a DocumentStore inside a transaction (rolled back after test)."""
-    conn = await pg_pool.acquire()
-    tx = conn.transaction()
-    await tx.start()
-
-    pool_wrapper = SingleConnPool(conn)
-    store = DocumentStore(pool_wrapper)
-    # The session pool has already run the canonical global migrations.  Test
-    # fixtures deliberately never maintain an independent application schema.
-
-    yield store
-
-    await tx.rollback()
-    await pg_pool.release(conn)
+def corpus_db(tmp_path):
+    """A fresh read-write corpus file."""
+    db = CorpusDB.open(tmp_path / "corpus.sqlite")
+    yield db
+    db.close()
 
 
 @pytest.fixture
-async def doc_store_factory():
-    """Build DocumentStore instances directly on a caller-supplied pool.
-
-    Unlike the ``doc_store`` fixture — whose rows live in an uncommitted,
-    rolled-back transaction on one connection — stores built here COMMIT
-    their writes, which is required when another connection (e.g. a
-    ``REFRESH MATERIALIZED VIEW``) must see the rows. Documents stored
-    through the returned stores are deleted again on teardown.
-    """
-    entries: list[tuple[DocumentStore, set[str]]] = []
-
-    async def factory(pool) -> DocumentStore:
-        store = DocumentStore(pool)
-        stored_ids: set[str] = set()
-        original_store_document = store.store_document
-
-        async def tracking_store_document(doc: StoredDocument) -> None:
-            stored_ids.add(doc.document_id)
-            await original_store_document(doc)
-
-        store.store_document = tracking_store_document  # type: ignore[method-assign]
-        entries.append((store, stored_ids))
-        return store
-
-    yield factory
-
-    for store, stored_ids in entries:
-        for doc_id in stored_ids:
-            await store.delete_document(doc_id)
-
-
-# -- Mock pool for tests that don't need real SQL ----------------------------
-
-
-class MockPool:
-    """A no-op pool for client tests that only test in-memory behavior."""
-
-    @asynccontextmanager
-    async def acquire(self):
-        yield AsyncMock()
-
-    async def fetch(self, *args, **kwargs):
-        return []
-
-    async def fetchrow(self, *args, **kwargs):
-        return None
-
-    async def fetchval(self, *args, **kwargs):
-        return None
-
-    async def execute(self, *args, **kwargs):
-        return "SELECT 0"
+def doc_store(corpus_db):
+    return DocumentStore(corpus_db)
 
 
 @pytest.fixture
-def mock_pool():
-    """A mock pool for client tests that don't touch the database."""
-    return MockPool()
+def vector_store(corpus_db):
+    return VectorStore(corpus_db, embed_fn=fake_embed, tokenizer=FakeTokenizer())
+
+
+# -- Store double for client tests --------------------------------------------
+
+
+class MockStore:
+    """A DocumentStore double for client tests that only test in-memory behavior."""
+
+    def __init__(self, catalog: list[dict] | None = None) -> None:
+        self.catalog = list(catalog or [])
+        self.load_catalog = AsyncMock(side_effect=lambda: list(self.catalog))
+        self.replace_catalog = AsyncMock(side_effect=self._replace)
+
+    async def _replace(self, items: list[dict], *, cached_at: float | None = None) -> int:
+        self.catalog = [dict(item, cached_at=cached_at or 0.0) for item in items]
+        return len(items)
+
+
+@pytest.fixture
+def mock_store():
+    return MockStore()
 
 
 # -- HTTP mocking helpers ---------------------------------------------------

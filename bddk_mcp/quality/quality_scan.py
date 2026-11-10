@@ -1,27 +1,27 @@
 """
 Document quality scan engine.
 
-Runs SQL-side regex checks against the `documents` table to flag common
-extraction anomalies: replacement characters, C1 control characters (cp1254
-punctuation decoded as Latin-1), leaked HTML, truncation, and
-diacritic-stripping outliers. Missing whitespace (camelCase concatenation)
-and formula references without formulas come from the per-document quality
-assessment, which knows the reviewed literal identifiers and inline formulas
-that a bare regex flags.
+Runs regex checks over every document body to flag common extraction
+anomalies: replacement characters, C1 control characters (cp1254 punctuation
+decoded as Latin-1), leaked HTML, truncation, and diacritic-stripping
+outliers. Missing whitespace (camelCase concatenation) and formula references
+without formulas come from the per-document quality assessment, which knows
+the reviewed literal identifiers and inline formulas that a bare regex flags.
 
-The scan is read-only. Counts are cheap (single-pass regex over the
-markdown_content column via PostgreSQL).
+The scan is read-only and runs in one pass over the corpus file.
 """
 
 from __future__ import annotations
 
 import csv
 import io
+import re
+from collections.abc import Callable
 
-import asyncpg
 from pydantic import BaseModel, Field
 
 from bddk_mcp.quality.markdown_quality import assess_markdown_quality
+from bddk_mcp.store.corpus_db import CorpusDB
 
 
 class AnomalyCount(BaseModel):
@@ -55,154 +55,111 @@ class QualityReport(BaseModel):
 
 
 _SAMPLE_LIMIT = 5
+_C1_RE = re.compile(r"[\u0080-\u009f]")
+_IMG_RE = re.compile(r"<img[\s>]", re.IGNORECASE)
+_HTML_BLOCK_RE = re.compile(r"<(div|table|tr|td)[\s>]", re.IGNORECASE)
+_DOT_RUN_RE = re.compile(r"\.{10,}")
+_TURKISH_DIACRITIC_RE = re.compile(r"[çğıöşüÇĞİÖŞÜ]")
+_LETTER_RE = re.compile(r"[A-Za-zÇĞİÖŞÜçğıöşü]")
 
 
-async def scan_quality(pool: asyncpg.Pool) -> QualityReport:
-    """Run all anomaly checks against the documents table."""
-    total = await pool.fetchval("SELECT COUNT(*) FROM documents")
+def _diacritic_outlier(markdown: str) -> bool:
+    if len(markdown) <= 1000:
+        return False
+    letters = len(_LETTER_RE.findall(markdown))
+    if not letters:
+        return False
+    return len(_TURKISH_DIACRITIC_RE.findall(markdown)) / letters < 0.06
 
-    method_rows = await pool.fetch(
-        """
-        SELECT extraction_method AS method,
-               COUNT(*)          AS doc_count,
-               AVG(LENGTH(markdown_content))::int AS avg_chars
-        FROM documents
-        GROUP BY extraction_method
-        ORDER BY doc_count DESC
-        """
-    )
-    methods = [
-        MethodBreakdown(method=r["method"] or "unknown", doc_count=r["doc_count"], avg_chars=r["avg_chars"] or 0)
-        for r in method_rows
-    ]
 
-    anomalies: list[AnomalyCount] = []
+_CHECKS: tuple[tuple[str, str, Callable[[str, bool], bool]], ...] = (
+    ("replacement_char", "Contains U+FFFD replacement characters (encoding issue)", lambda md, _s: "�" in md),
+    (
+        "c1_control_char",
+        "Contains C1 control characters U+0080-U+009F (cp1254 punctuation decoded as Latin-1)",
+        lambda md, _s: _C1_RE.search(md) is not None,
+    ),
+    ("leaked_img_tag", "Raw <img> tag leaked into markdown", lambda md, _s: _IMG_RE.search(md) is not None),
+    (
+        "data_uri_image",
+        "Embedded data:image/... payload leaked into markdown",
+        lambda md, _s: "data:image/" in md.lower(),
+    ),
+    (
+        "wmf_data_uri",
+        "Embedded data:image/x-wmf payload leaked into markdown",
+        lambda md, _s: "data:image/x-wmf" in md.lower(),
+    ),
+    ("cid_marker", "CID image/formula markers leaked into markdown", lambda md, _s: "cid:" in md.lower()),
+    (
+        "leaked_html_block",
+        "Raw <div>/<table>/<tr>/<td> tag leaked into markdown",
+        lambda md, _s: _HTML_BLOCK_RE.search(md) is not None,
+    ),
+    ("short_content", "Extraction output is <500 chars (likely truncation)", lambda md, _s: len(md) < 500),
+    (
+        "long_dot_run",
+        "Contains dot-leader runs (>=10 dots) — likely TOC artifact",
+        lambda md, _s: _DOT_RUN_RE.search(md) is not None,
+    ),
+    (
+        "zero_sections_despite_content",
+        "Substantial content but zero parsed sections — invisible to section search",
+        lambda md, has_sections: len(md) > 1000 and not has_sections,
+    ),
+    (
+        "diacritic_outlier",
+        "Turkish diacritic ratio <6% (expected 8-12%) — possible OCR stripping",
+        lambda md, _s: _diacritic_outlier(md),
+    ),
+)
 
-    checks = [
-        (
-            "replacement_char",
-            "Contains U+FFFD replacement characters (encoding issue)",
-            "markdown_content ~ E'\\uFFFD'",
-        ),
-        (
-            "c1_control_char",
-            "Contains C1 control characters U+0080-U+009F (cp1254 punctuation decoded as Latin-1)",
-            "markdown_content ~ E'[\\u0080-\\u009F]'",
-        ),
-        (
-            "leaked_img_tag",
-            "Raw <img> tag leaked into markdown",
-            "markdown_content ~* '<img[[:space:]>]'",
-        ),
-        (
-            "data_uri_image",
-            "Embedded data:image/... payload leaked into markdown",
-            "markdown_content ~* 'data:image/'",
-        ),
-        (
-            "wmf_data_uri",
-            "Embedded data:image/x-wmf payload leaked into markdown",
-            "markdown_content ~* 'data:image/x-wmf'",
-        ),
-        (
-            "cid_marker",
-            "CID image/formula markers leaked into markdown",
-            "markdown_content ~* 'cid:'",
-        ),
-        (
-            "leaked_html_block",
-            "Raw <div>/<table>/<tr>/<td> tag leaked into markdown",
-            "markdown_content ~* '<(div|table|tr|td)[[:space:]>]'",
-        ),
-        (
-            "short_content",
-            "Extraction output is <500 chars (likely truncation)",
-            "LENGTH(markdown_content) < 500",
-        ),
-        (
-            "long_dot_run",
-            "Contains dot-leader runs (>=10 dots) — likely TOC artifact",
-            r"markdown_content ~ '\.{10,}'",
-        ),
-        (
-            "zero_sections_despite_content",
-            "Substantial content but zero parsed sections — invisible to section search",
-            "LENGTH(markdown_content) > 1000"
-            " AND NOT EXISTS (SELECT 1 FROM document_sections s WHERE s.doc_id = documents.document_id)",
-        ),
-    ]
 
-    for name, description, predicate in checks:
-        count = await pool.fetchval(f"SELECT COUNT(*) FROM documents WHERE {predicate}")
-        samples = []
-        if count:
-            sample_rows = await pool.fetch(
-                f"SELECT document_id FROM documents WHERE {predicate} ORDER BY document_id LIMIT $1",
-                _SAMPLE_LIMIT,
-            )
-            samples = [r["document_id"] for r in sample_rows]
-        anomalies.append(AnomalyCount(name=name, docs_flagged=count, description=description, sample_doc_ids=samples))
+async def scan_quality(db: CorpusDB) -> QualityReport:
+    """Run all anomaly checks against the documents in the corpus."""
 
-    diacritic_count = await pool.fetchval(
-        """
-        SELECT COUNT(*) FROM documents
-        WHERE LENGTH(markdown_content) > 1000
-          AND (LENGTH(markdown_content) - LENGTH(REGEXP_REPLACE(markdown_content, '[çğıöşüÇĞİÖŞÜ]', '', 'g')))::float
-              / NULLIF(LENGTH(REGEXP_REPLACE(markdown_content, '[^A-Za-zÇĞİÖŞÜçğıöşü]', '', 'g')), 0)
-              < 0.06
-        """
-    )
-    diacritic_samples = []
-    if diacritic_count:
-        sample_rows = await pool.fetch(
-            """
-            SELECT document_id FROM documents
-            WHERE LENGTH(markdown_content) > 1000
-              AND (LENGTH(markdown_content) - LENGTH(REGEXP_REPLACE(markdown_content, '[çğıöşüÇĞİÖŞÜ]', '', 'g')))::float
-                  / NULLIF(LENGTH(REGEXP_REPLACE(markdown_content, '[^A-Za-zÇĞİÖŞÜçğıöşü]', '', 'g')), 0)
-                  < 0.06
-            ORDER BY document_id LIMIT $1
-            """,
-            _SAMPLE_LIMIT,
+    def _load(conn):
+        documents = conn.execute(
+            "SELECT document_id, markdown_content, extraction_method FROM documents ORDER BY document_id"
+        ).fetchall()
+        sectioned = {row[0] for row in conn.execute("SELECT DISTINCT doc_id FROM document_sections")}
+        chunked = {row[0] for row in conn.execute("SELECT DISTINCT doc_id FROM chunks")}
+        orphan_chunks = conn.execute(
+            "SELECT COUNT(*) FROM chunks AS c WHERE NOT EXISTS "
+            "(SELECT 1 FROM documents AS d WHERE d.document_id = c.doc_id)"
+        ).fetchone()[0]
+        return [dict(row) for row in documents], sectioned, chunked, orphan_chunks
+
+    documents, sectioned, chunked, orphan_chunks = await db.run(_load)
+
+    method_stats: dict[str, list[int]] = {}
+    for document in documents:
+        method_stats.setdefault(document["extraction_method"] or "unknown", []).append(
+            len(document["markdown_content"] or "")
         )
-        diacritic_samples = [r["document_id"] for r in sample_rows]
-    anomalies.append(
-        AnomalyCount(
-            name="diacritic_outlier",
-            docs_flagged=diacritic_count,
-            description="Turkish diacritic ratio <6% (expected 8-12%) — possible OCR stripping",
-            sample_doc_ids=diacritic_samples,
-        )
+    methods = sorted(
+        (
+            MethodBreakdown(method=method, doc_count=len(lengths), avg_chars=int(sum(lengths) / len(lengths)))
+            for method, lengths in method_stats.items()
+        ),
+        key=lambda item: -item.doc_count,
     )
 
-    orphan_chunks = await pool.fetchval(
-        """
-        SELECT COUNT(*) FROM document_chunks c
-        WHERE NOT EXISTS (SELECT 1 FROM documents d WHERE d.document_id = c.doc_id)
-        """
-    )
-    docs_without_chunks = await pool.fetchval(
-        """
-        SELECT COUNT(*) FROM documents d
-        WHERE LENGTH(d.markdown_content) > 500
-          AND NOT EXISTS (SELECT 1 FROM document_chunks c WHERE c.doc_id = d.document_id)
-        """
-    )
-
-    finding_rows = await pool.fetch(
-        """
-        SELECT document_id, markdown_content
-        FROM documents
-        WHERE markdown_content != ''
-        ORDER BY document_id
-        """
-    )
+    flagged: dict[str, list[str]] = {name: [] for name, _description, _check in _CHECKS}
     document_findings: list[DocumentFinding] = []
     camelcase_ids: list[str] = []
     formula_ids: list[str] = []
-    for row in finding_rows:
-        document_id = row["document_id"]
-        markdown = row["markdown_content"] or ""
+    docs_without_chunks = 0
+    for document in documents:
+        document_id = document["document_id"]
+        markdown = document["markdown_content"] or ""
+        for name, _description, check in _CHECKS:
+            if check(markdown, document_id in sectioned):
+                flagged[name].append(document_id)
+        if len(markdown) > 500 and document_id not in chunked:
+            docs_without_chunks += 1
+        if not markdown:
+            continue
         quality = assess_markdown_quality(markdown, document_id=document_id)
         if quality.counts["camelcase_concat"]:
             camelcase_ids.append(document_id)
@@ -220,6 +177,15 @@ async def scan_quality(pool: asyncpg.Pool) -> QualityReport:
             )
         )
 
+    anomalies = [
+        AnomalyCount(
+            name=name,
+            docs_flagged=len(flagged[name]),
+            description=description,
+            sample_doc_ids=flagged[name][:_SAMPLE_LIMIT],
+        )
+        for name, description, _check in _CHECKS
+    ]
     anomalies.extend(
         AnomalyCount(name=name, docs_flagged=len(ids), description=description, sample_doc_ids=ids[:_SAMPLE_LIMIT])
         for name, description, ids in (
@@ -237,11 +203,11 @@ async def scan_quality(pool: asyncpg.Pool) -> QualityReport:
     )
 
     return QualityReport(
-        total_documents=total,
+        total_documents=len(documents),
         methods=methods,
         anomalies=anomalies,
-        orphan_chunks=orphan_chunks or 0,
-        docs_without_chunks=docs_without_chunks or 0,
+        orphan_chunks=orphan_chunks,
+        docs_without_chunks=docs_without_chunks,
         document_findings=document_findings,
     )
 

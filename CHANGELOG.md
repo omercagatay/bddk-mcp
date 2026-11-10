@@ -29,6 +29,40 @@ Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızd
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Değiştirildi — PostgreSQL + pgvector yerine tek SQLite corpus dosyası (2026-11-10)
+
+- Corpus artık tek bir SQLite dosyası (`BDDK_CORPUS_PATH`, varsayılan
+  `corpus/bddk.sqlite`): documents, document_versions, document_sections,
+  chunks (float16 embedding BLOB), decision_cache, sync_failures ve meta
+  tabloları; section ve chunk metni için FTS5 indeksleri
+  (`bddk_mcp/store/corpus_db.py`). Serve süreci dosyayı salt okunur açar
+  (`mode=ro`); airlock artık dosya kipinden gelir.
+- Arama: dense retrieval numpy ile tüm chunk vektörleri üzerinde tam kosinüs
+  (yaklaşık değil, kesin sonuç; birkaç yüz bin chunk'a kadar milisaniyeler),
+  keyword retrieval FTS5 BM25 (Türkçe küçük harf ve diacritic normalizasyonu
+  Python'da), ikisi RRF ile birleşir; reranker isteğe bağlı kaldı. Section
+  search de FTS5 BM25. 319 belgelik seed üzerindeki BKZ/backtesting regresyon
+  sorgularının hepsi aynı section'ı ilk sırada buldu.
+- Komutlar: `bddk-mcp build` (seed_data → corpus dosyası; section, chunk ve
+  embedding üretir; güncelse atlar, `--force` yeniden üretir), `bddk-mcp export`
+  (corpus → seed_data JSON), `bddk-mcp sync` (`--corpus`), `bddk-mcp serve`.
+  `bddk-mcp migrate`, `bddk-seed` ve kök `seed.py` kaldırıldı.
+- Docker imajı corpus dosyasını build aşamasında üretir; Railway'de veritabanı
+  servisi, `preDeployCommand` ve DSN değişkenleri yok. `docker-compose.yml`
+  tek servise indi. Script'ler `--corpus PATH` alır.
+- Kaldırılanlar (son hâlleri `archive/postgres-2026-11-10` etiketinde):
+  `bddk_mcp/migrations/` (11 modül + runner, 5.498 satır), `db_lifecycle.py`,
+  `db_transport.py`, `db_compatibility.py`, `corpus_coordination.py`,
+  `store/bulk_write.py`, retrieval profile hash katmanı, `deploy/postgres-local/`,
+  `asyncpg` bağımlılığı, `BDDK_DATABASE_URL` / `BDDK_INGESTION_DATABASE_URL` /
+  `BDDK_SCHEMA_OWNER_DATABASE_URL` / `BDDK_PG_POOL_*` / `BDDK_ALLOW_INSECURE_DATABASE`
+  / `BDDK_TEST_DATABASE_URL` değişkenleri, pytest `postgres` işareti ve CI'daki
+  Postgres işi. Test paketi artık hiçbir servis olmadan, geçici bir corpus
+  dosyasıyla çalışır.
+- Yeni bağımlılık: `numpy` (zaten sentence-transformers ile geliyordu).
+- Model imzası: corpus dosyası hangi embedding modeli ve boyutla üretildiğini
+  `meta` tablosunda tutar; farklı model yapılandırılırsa readiness reddeder.
+
 ### Kaldırıldı — yayın töreni, kimlik katmanı, iş kuyruğu, admin konsolu, telemetri (2026-11-09)
 
 - 319 belgelik korpus için gereksiz olan katmanlar kaldırıldı; hepsi Git

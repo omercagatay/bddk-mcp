@@ -75,7 +75,7 @@ def test_search_register():
     from bddk_mcp.tools.search import register
 
     mcp = MagicMock()
-    deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None)
     register(mcp, deps)
 
     tool_names = {call.args[0].__name__ for call in mcp.tool.return_value.call_args_list}
@@ -112,7 +112,7 @@ async def test_search_document_store_uses_match_wording_and_section_guidance():
             }
         ]
     )
-    deps = Dependencies(pool=None, doc_store=None, client=None, http=None, vector_store=vector_store)
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None, vector_store=vector_store)
     mcp = MagicMock()
     register(mcp, deps)
     search_document_store = _registered_tools(mcp)["search_document_store"]
@@ -147,7 +147,7 @@ async def test_search_document_store_registry_overrides_stale_clean_index_metada
             }
         ]
     )
-    deps = Dependencies(pool=None, doc_store=None, client=None, http=None, vector_store=vector_store)
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None, vector_store=vector_store)
     mcp = MagicMock()
     register(mcp, deps)
     search_document_store = _registered_tools(mcp)["search_document_store"]
@@ -170,7 +170,7 @@ async def test_search_document_store_returns_non_retryable_error_when_embedding_
         side_effect=SemanticSearchUnavailableError("private runtime detail")
     )
     vector_store.search = AsyncMock()
-    deps = Dependencies(pool=None, doc_store=None, client=None, http=None, vector_store=vector_store)
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None, vector_store=vector_store)
     mcp = MagicMock()
     register(mcp, deps)
     search_document_store = _registered_tools(mcp)["search_document_store"]
@@ -215,7 +215,7 @@ async def test_search_institutions_upstream_failure_is_tool_error():
     from bddk_mcp.tools.search import register
 
     mcp = MagicMock()
-    deps = Dependencies(pool=None, doc_store=None, client=None, http=MagicMock())
+    deps = Dependencies(db=None, doc_store=None, client=None, http=MagicMock())
     register(mcp, deps)
     tool = _registered_tools(mcp)["search_bddk_institutions"]
 
@@ -243,7 +243,7 @@ async def test_search_announcements_total_upstream_failure_is_tool_error():
     from bddk_mcp.tools.search import register
 
     mcp = MagicMock()
-    deps = Dependencies(pool=None, doc_store=None, client=None, http=MagicMock())
+    deps = Dependencies(db=None, doc_store=None, client=None, http=MagicMock())
     register(mcp, deps)
     tool = _registered_tools(mcp)["search_bddk_announcements"]
 
@@ -272,7 +272,7 @@ async def test_search_announcements_unreachable_host_aborts_remaining_categories
     from bddk_mcp.tools.search import register
 
     mcp = MagicMock()
-    deps = Dependencies(pool=None, doc_store=None, client=None, http=MagicMock())
+    deps = Dependencies(db=None, doc_store=None, client=None, http=MagicMock())
     register(mcp, deps)
     tool = _registered_tools(mcp)["search_bddk_announcements"]
 
@@ -296,7 +296,7 @@ async def test_search_announcements_partial_failure_appends_warning():
     from bddk_mcp.tools.search import register
 
     mcp = MagicMock()
-    deps = Dependencies(pool=None, doc_store=None, client=None, http=MagicMock())
+    deps = Dependencies(db=None, doc_store=None, client=None, http=MagicMock())
     register(mcp, deps)
     tool = _registered_tools(mcp)["search_bddk_announcements"]
 
@@ -327,7 +327,7 @@ async def test_search_institutions_partial_directory_is_marked_incomplete():
     from bddk_mcp.tools.search import register
 
     mcp = MagicMock()
-    deps = Dependencies(pool=None, doc_store=None, client=None, http=MagicMock())
+    deps = Dependencies(db=None, doc_store=None, client=None, http=MagicMock())
     register(mcp, deps)
     tool = _registered_tools(mcp)["search_bddk_institutions"]
 

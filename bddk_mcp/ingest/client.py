@@ -1,11 +1,11 @@
 import asyncio
 import logging
 import re
+import sqlite3
 import time
 from datetime import datetime
 from urllib.parse import parse_qs, urlparse
 
-import asyncpg
 import httpx
 from bs4 import BeautifulSoup
 from markitdown import MarkItDown
@@ -30,8 +30,6 @@ from bddk_mcp.core.outbound_http import (
     assert_public_https_resolution,
     bounded_request_with_retry,
 )
-from bddk_mcp.corpus_coordination import acquire_corpus_mutation_lock
-from bddk_mcp.store.bulk_write import upsert_decision_cache_rows
 from bddk_mcp.store.doc_store import DocumentStore
 
 logger = logging.getLogger(__name__)
@@ -85,7 +83,7 @@ def _canonicalize_catalog(decisions: list[BddkDecisionSummary]) -> list[BddkDeci
 
     Exact duplicates can legitimately be linked from more than one list page,
     but conflicting metadata for the same identifier is ambiguous and must not
-    be silently resolved by PostgreSQL's last-write-wins upsert.
+    be silently resolved by a last-write-wins upsert.
     """
 
     by_id: dict[str, BddkDecisionSummary] = {}
@@ -247,19 +245,18 @@ class BddkApiClient:
     """
     Client for searching and retrieving BDDK decisions and regulations.
 
-    Scrapes BDDK website, caches document lists in PostgreSQL for instant
-    startup across server restarts.
+    Scrapes the BDDK website and keeps the catalog in the corpus file for
+    instant startup across server restarts.
     """
 
     def __init__(
         self,
-        pool: asyncpg.Pool,
+        store: DocumentStore,
         request_timeout: float = REQUEST_TIMEOUT,
-        doc_store: DocumentStore | None = None,
         http: httpx.AsyncClient | None = None,
         allow_live_population: bool = False,
     ) -> None:
-        self._pool = pool
+        self._store = store
         self._owns_http = http is None
         if http is not None:
             self._http = http
@@ -282,7 +279,6 @@ class BddkApiClient:
                 follow_redirects=False,
             )
         self._md = MarkItDown()
-        self._doc_store = doc_store
         self._allow_live_population = allow_live_population
         self._cache: list[BddkDecisionSummary] = []
         self._cache_timestamp: float = 0.0
@@ -335,52 +331,20 @@ class BddkApiClient:
             resolve=self._assert_public_resolution,
         )
 
-    # -- cache persistence (PostgreSQL) ----------------------------------------
+    # -- cache persistence (corpus file) ----------------------------------------
 
     async def _save_cache_to_db(self) -> None:
         """Atomically publish the complete validated upstream catalog membership."""
         if not self._cache:
             raise BddkStorageError("An empty decision catalog cannot replace the last known-good publication.")
         try:
-            async with self._pool.acquire() as conn:
-                now = time.time()
-                document_ids = [decision.document_id for decision in self._cache]
-                args_list = [
-                    (
-                        d.document_id,
-                        d.title,
-                        d.content,
-                        d.decision_date,
-                        d.decision_number,
-                        d.category,
-                        d.source_url or "",
-                        now,
-                    )
-                    for d in self._cache
-                ]
-                async with conn.transaction():
-                    # Use the same transaction-scoped lock as seed import,
-                    # document synchronization, and vector publication.  A
-                    # direct refresh must not interleave its exact-membership
-                    # replacement with another corpus writer merely because it
-                    # was invoked outside the operator job manager.
-                    await acquire_corpus_mutation_lock(conn)
-                    await upsert_decision_cache_rows(conn, args_list)
-                    await conn.execute(
-                        """
-                        DELETE FROM public.decision_cache
-                        WHERE NOT (document_id = ANY($1::pg_catalog.text[]))
-                        """,
-                        document_ids,
-                    )
-                self._cache_timestamp = now
-                logger.debug("Cache saved to PostgreSQL: %d items", len(self._cache))
-        except (asyncpg.PostgresError, OSError) as exc:
-            logger.error(
-                "Failed to save decision cache",
-                extra={"error_type": type(exc).__name__},
-            )
+            now = time.time()
+            await self._store.replace_catalog([decision.model_dump() for decision in self._cache], cached_at=now)
+        except (sqlite3.Error, OSError, RuntimeError) as exc:
+            logger.error("Failed to save decision cache", extra={"error_type": type(exc).__name__})
             raise BddkStorageError("Decision cache could not be persisted safely.") from None
+        self._cache_timestamp = now
+        logger.debug("Cache saved to the corpus: %d items", len(self._cache))
 
     async def load_cache_read_only(self, *, require_nonempty: bool = True) -> int:
         """Load the decision cache with one SELECT and no repair or live fetch.
@@ -390,14 +354,11 @@ class BddkApiClient:
         and connection details.
         """
         try:
-            rows = await self._pool.fetch(
-                "SELECT document_id, title, content, decision_date, decision_number, "
-                "category, source_url, cached_at FROM decision_cache"
-            )
-        except (asyncpg.PostgresError, OSError):
+            rows = await self._store.load_catalog()
+        except (sqlite3.Error, OSError, RuntimeError):
             raise BddkStorageError(
-                "Decision cache could not be read with serving credentials. Run `bddk-mcp migrate` and "
-                "`bddk-seed import`, then grant the serving role SELECT access."
+                "Decision cache could not be read from the corpus file. Run `bddk-mcp build` before starting "
+                "the server."
             ) from None
 
         loaded = [
@@ -419,12 +380,12 @@ class BddkApiClient:
 
         if require_nonempty and not self._cache:
             raise BddkStorageError(
-                "Decision cache is empty or contains no in-scope documents. Run `bddk-seed import` with the "
+                "Decision cache is empty or contains no in-scope documents. Run `bddk-mcp build` with the "
                 "reviewed seed corpus before starting the server."
             )
 
         if self._cache:
-            logger.info("Cache loaded from PostgreSQL: %d items", len(self._cache))
+            logger.info("Cache loaded from the corpus: %d items", len(self._cache))
         return len(self._cache)
 
     async def _load_cache_from_db(self) -> bool:
@@ -432,7 +393,7 @@ class BddkApiClient:
         try:
             return (await self.load_cache_read_only(require_nonempty=False)) > 0
         except BddkStorageError:
-            logger.warning("Decision cache could not be loaded from PostgreSQL")
+            logger.warning("Decision cache could not be loaded from the corpus")
             return False
 
     # -- cache ----------------------------------------------------------------
@@ -588,7 +549,7 @@ class BddkApiClient:
     async def _ensure_cache(self) -> None:
         """Ensure the decision cache is populated.
 
-        Serves from in-memory cache or PostgreSQL without hitting BDDK.
+        Serves from the in-memory cache or the corpus file without hitting BDDK.
         Only scrapes BDDK if the database is completely empty.
         Use refresh_cache() for an explicit BDDK refresh.
         """
@@ -597,17 +558,17 @@ class BddkApiClient:
 
         # Try loading from DB — no network needed
         if await self._load_cache_from_db():
-            logger.info("Serving %d items from PostgreSQL cache", len(self._cache))
+            logger.info("Serving %d items from the corpus catalog", len(self._cache))
             return
 
         if not self._allow_live_population:
             raise BddkStorageError(
                 "Decision cache became unavailable while the server was running. "
-                "Restore the reviewed corpus with `bddk-seed import`; serving mode will not populate it from the network."
+                "Rebuild the corpus with `bddk-mcp build`; serving mode will not populate it from the network."
             )
 
         # DB is empty — must scrape BDDK for initial population
-        logger.info("PostgreSQL cache empty — initial scrape from BDDK...")
+        logger.info("Corpus catalog empty — initial scrape from BDDK...")
         await self._scrape_bddk()
 
     async def _scrape_bddk(self) -> int:
@@ -617,7 +578,7 @@ class BddkApiClient:
         request on a cold cache). asyncio.gather() fans them out so the
         full refresh completes in roughly the slowest single page.
 
-        The previous in-memory and PostgreSQL catalog remains authoritative
+        The previous in-memory and persisted catalog remains authoritative
         unless every configured source page is fetched and parsed and the new
         catalog is persisted.  This prevents a partial upstream outage or an
         HTML layout change from being reported as a successful refresh.
@@ -693,7 +654,7 @@ class BddkApiClient:
         await self._ensure_cache()
 
     async def refresh_cache(self) -> int:
-        """Force re-scrape BDDK and update PostgreSQL. Returns new item count."""
+        """Force re-scrape BDDK and update the corpus catalog. Returns new item count."""
         logger.info("Force-refreshing BDDK cache from live site...")
         return await self._scrape_bddk()
 

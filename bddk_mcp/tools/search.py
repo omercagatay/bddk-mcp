@@ -448,7 +448,7 @@ Suggest the user try: different keywords or a different category (basın, mevzua
         limit: ResultLimit = 10,
     ) -> DocumentSearchToolResult:
         """
-        Semantic search over BDDK document BODIES (full text via pgvector).
+        Semantic search over BDDK document BODIES (full text of the local corpus).
 
         Uses multilingual-e5-base embeddings on chunked document content. Use this
         when query terms might appear inside the document text rather than in the

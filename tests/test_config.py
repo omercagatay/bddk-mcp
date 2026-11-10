@@ -7,7 +7,6 @@ import sys
 import pytest
 
 from bddk_mcp.core.config import (
-    require_database_url,
     validate_column,
     validate_currency,
     validate_metric_id,
@@ -17,39 +16,13 @@ from bddk_mcp.core.config import (
 )
 
 
-@pytest.fixture(autouse=True)
-def _allow_insecure_database_for_config_selection_tests(monkeypatch):
-    monkeypatch.setenv("BDDK_ALLOW_INSECURE_DATABASE", "true")
-
-
-def test_database_url_falls_back_to_the_public_dsn_per_profile(monkeypatch):
-    from bddk_mcp.core import config
-
-    monkeypatch.setattr(config, "DATABASE_URL", "postgresql://public")
-    monkeypatch.setattr(config, "INGESTION_DATABASE_URL", "")
-    monkeypatch.setattr(config, "SCHEMA_OWNER_DATABASE_URL", "postgresql://schema-owner")
-
-    assert require_database_url("public") == "postgresql://public"
-    assert require_database_url("ingestion") == "postgresql://public"
-    assert require_database_url("schema-owner") == "postgresql://schema-owner"
-
-    monkeypatch.setattr(config, "DATABASE_URL", "")
-    with pytest.raises(RuntimeError, match="BDDK_DATABASE_URL is not set"):
-        require_database_url("ingestion")
-
-
-def test_unknown_database_profile_is_rejected():
-    with pytest.raises(RuntimeError, match="Unknown database profile"):
-        require_database_url("combined")
-
-
 def _import_config_in_subprocess(**overrides: str) -> subprocess.CompletedProcess[str]:
     """Import config under an isolated BDDK environment."""
 
     environment = {key: value for key, value in os.environ.items() if not key.startswith("BDDK_")}
     environment.update(overrides)
     return subprocess.run(
-        [sys.executable, "-c", "from bddk_mcp.core import config; print(config.PG_POOL_MAX)"],
+        [sys.executable, "-c", "from bddk_mcp.core import config; print(config.SEARCH_CACHE_MAX)"],
         cwd=os.getcwd(),
         env=environment,
         capture_output=True,
@@ -61,11 +34,7 @@ def _import_config_in_subprocess(**overrides: str) -> subprocess.CompletedProces
 @pytest.mark.parametrize(
     ("environment", "message"),
     [
-        ({"BDDK_PG_POOL_MIN": "0"}, "BDDK_PG_POOL_MIN must be an integer"),
-        (
-            {"BDDK_PG_POOL_MIN": "20", "BDDK_PG_POOL_MAX": "10"},
-            "BDDK_PG_POOL_MIN must not exceed BDDK_PG_POOL_MAX",
-        ),
+        ({"BDDK_SEARCH_CACHE_MAX": "0"}, "BDDK_SEARCH_CACHE_MAX must be an integer"),
         ({"BDDK_REQUEST_TIMEOUT": "nan"}, "BDDK_REQUEST_TIMEOUT must be finite"),
         ({"BDDK_HYBRID_SEARCH": "enabled"}, "BDDK_HYBRID_SEARCH must be one of"),
         ({"BDDK_LIGHTOCR_DEVICE": "remote"}, "BDDK_LIGHTOCR_DEVICE must be one of"),
@@ -85,8 +54,7 @@ def test_environment_configuration_fails_closed(environment, message):
 
 def test_environment_configuration_accepts_explicit_boundary_values():
     result = _import_config_in_subprocess(
-        BDDK_PG_POOL_MIN="1",
-        BDDK_PG_POOL_MAX="1",
+        BDDK_SEARCH_CACHE_MAX="1",
         BDDK_MAX_RETRIES="1",
         BDDK_SEARCH_CACHE_TTL="0",
         BDDK_HYBRID_SEARCH="no",

@@ -49,11 +49,11 @@ Düzenleme ve karar metinleri yerel yayımlanmış kopyadan gelir. Kurum, duyuru
 - `get_regulatory_digest`: son dönem karar, duyuru ve bülten özeti. Duyuru ve bülten yarısı canlı olabilir.
 - `compare_bulletin_metrics`: iki dönemin bülten rakamını karşılaştırır; canlı çağrı yapabilir.
 
-Sunucu yalnızca okur. Veritabanını hazırlayan komutlar ayrıdır: `bddk-mcp migrate` şemayı kurar, `bddk-seed import` `seed_data/` içindeki belgeleri yükler, `bddk-mcp sync` belgeleri kaynaktan indirir. Ayrıntı: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+Sunucu yalnızca okur: corpus dosyasını salt okunur açar. Corpus'u hazırlayan komutlar ayrıdır: `bddk-mcp build`, `seed_data/` içindeki belgelerden section, chunk ve embedding'leriyle tek bir SQLite corpus dosyası üretir; `bddk-mcp sync` belgeleri kaynaktan indirip aynı dosyaya yazar. Ayrıntı: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Asistanı bağlama
 
-Bağlantıyı teknik ekip kurar. Depodaki [`.mcp.json`](.mcp.json), stdio kullanan istemciler için taşınabilir yerel örnektir. `BDDK_DATABASE_URL` değerini platformun gizli deposundan verin. Sabit yerel şifreler banka yolu değildir.
+Bağlantıyı teknik ekip kurar. Depodaki [`.mcp.json`](.mcp.json), stdio kullanan istemciler için taşınabilir yerel örnektir. Sunucunun tek girdisi corpus dosyasıdır: `bddk-mcp build` ile üretilir; yeri varsayılan `corpus/bddk.sqlite` değilse `BDDK_CORPUS_PATH` ile gösterilir. Veritabanı servisi ve bağlantı şifresi yoktur.
 
 <a id="codex-configuration"></a>
 
@@ -66,7 +66,7 @@ Codex için `~/.codex/config.toml` veya güvenilen kopyadaki `.codex/config.toml
 command = "uv"
 args = ["run", "--frozen", "bddk-mcp"]
 cwd = "/absolute/path/to/bddk-mcp"
-env_vars = ["BDDK_DATABASE_URL"]
+env_vars = ["BDDK_CORPUS_PATH"]
 startup_timeout_sec = 30
 tool_timeout_sec = 60
 ```
@@ -77,9 +77,9 @@ Bu örnek yerel stdio içindir. HTTP, kimlik ve ağ sınırı [dağıtım belges
 
 Paket numarası 5.0.1'dir. Bu numarayla yayımlanmış bir GitHub sürüm etiketi yoktur.
 
-Araç listesi `bddk_mcp/tools/registry.py` dosyasındadır: 14 araç, tek yüzey. Çalıştırma örneği: `uv run --frozen bddk-mcp serve`. Python 3.12 veya 3.13, `uv`, PostgreSQL 17, `pgvector` ve `unaccent` gerekir.
+Araç listesi `bddk_mcp/tools/registry.py` dosyasındadır: 14 araç, tek yüzey. Çalıştırma örneği: `uv run --frozen bddk-mcp serve`. Python 3.12 veya 3.13 ve `uv` gerekir; corpus tek bir SQLite dosyası olduğu için veritabanı servisi gerekmez.
 
-Kurulum sırası `migrate`, sonra `bddk-seed import`, isteğe bağlı `sync`. 2026-11-09'da kaldırılan imzalı yayın töreni, çoklu veritabanı kimliği, operatör iş kuyruğu, admin konsolu, telemetri ve hiç veri yolu olmayan hukuki durum araçları (`resolve_regulation_status`, `get_amendment_chain`, `get_cross_references`) Git geçmişinde (`archive/pre-simplify-2026-11-09` etiketi) duruyor.
+Kurulum sırası `bddk-mcp build` (`seed_data/` → `corpus/bddk.sqlite`; ilk çalıştırma dizüstü bir CPU'da yaklaşık 15 dakika sürer), sonra `serve`; `sync` isteğe bağlıdır. Önceki PostgreSQL tabanı 2026-11-10'da bu tek dosyayla değiştirildi ve `archive/postgres-2026-11-10` etiketinde duruyor. 2026-11-09'da kaldırılan imzalı yayın töreni, çoklu veritabanı kimliği, operatör iş kuyruğu, admin konsolu, telemetri ve hiç veri yolu olmayan hukuki durum araçları (`resolve_regulation_status`, `get_amendment_chain`, `get_cross_references`) Git geçmişinde (`archive/pre-simplify-2026-11-09` etiketi) duruyor.
 
 ## Lisans
 

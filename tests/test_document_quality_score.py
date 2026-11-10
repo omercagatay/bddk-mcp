@@ -1,7 +1,11 @@
+import asyncio
 import json
 
+from bddk_mcp.core.config import CORPUS_PATH
 from bddk_mcp.quality.quality_scan import AnomalyCount, DocumentFinding, MethodBreakdown, QualityReport
-from scripts.document_quality_score import quality_score, scan_seed_dir
+from bddk_mcp.store.corpus_db import CorpusDB
+from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
+from scripts.document_quality_score import _build_parser, main, quality_score, scan_seed_dir
 
 
 def _report(**overrides):
@@ -92,3 +96,29 @@ def test_scan_seed_dir_scores_documents_and_chunk_integrity(tmp_path):
     assert report.orphan_chunks == 1
     assert report.docs_without_chunks == 1
     assert report.document_findings[0].document_id == "bad"
+
+
+def test_main_scores_the_corpus_file(tmp_path, capsys):
+    corpus = tmp_path / "c.sqlite"
+    db = CorpusDB.open(corpus)
+    doc = StoredDocument(
+        document_id="clean",
+        title="Temiz",
+        markdown_content="Temiz belge çğıöşü " * 40,  # >500 chars and never embedded
+        extraction_method="html_parser",
+    )
+    asyncio.run(DocumentStore(db).store_document(doc))
+    db.close()
+
+    assert main(["--db", "--corpus", str(corpus), "--json"]) == 0
+
+    result = json.loads(capsys.readouterr().out)
+    assert result["total_documents"] == 1
+    assert result["clean_documents"] == 1
+    assert result["fail_documents"] == 0
+    assert result["docs_without_chunks"] == 1
+    assert 0 < result["score"] < 100
+
+
+def test_parser_defaults_to_the_configured_corpus_path():
+    assert _build_parser().parse_args(["--db"]).corpus == CORPUS_PATH

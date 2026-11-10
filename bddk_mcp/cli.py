@@ -1,4 +1,4 @@
-"""Command-line entry points for serving and explicitly preparing BDDK data."""
+"""Command-line entry points: serve the corpus, build it from seed data, export it, sync documents."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ def _positive_port(value: str) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="bddk-mcp",
-        description="Serve or explicitly prepare the BDDK MCP regulatory corpus.",
+        description="Serve, build, export or sync the BDDK MCP regulatory corpus (one SQLite file).",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command")
@@ -34,23 +34,26 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--host", help="Override MCP_HOST for Streamable HTTP")
     serve.add_argument("--port", type=_positive_port, help="Override PORT for Streamable HTTP")
 
-    migrate = subparsers.add_parser("migrate", help="Create or upgrade the PostgreSQL schema explicitly")
-    migrate.add_argument("--db", help="PostgreSQL DSN; defaults to BDDK_SCHEMA_OWNER_DATABASE_URL or BDDK_DATABASE_URL")
-    migrate.add_argument(
-        "--allow-retrieval-publication-backfill",
-        action="store_true",
-        help=(
-            "Permit the blocking v3 backfill only after stopping workloads, proving a backup, and rehearsing a "
-            "size-matched restore; never use for a clean database"
-        ),
+    corpus_help = "Corpus file path; defaults to BDDK_CORPUS_PATH (corpus/bddk.sqlite)"
+    seed_help = "Seed directory with documents.json and decision_cache.json (default: seed_data/)"
+
+    build = subparsers.add_parser(
+        "build", help="Build the corpus file from seed_data/ (documents, sections, embeddings)"
     )
+    build.add_argument("--corpus", help=corpus_help)
+    build.add_argument("--seed-dir", help=seed_help)
+    build.add_argument("--force", action="store_true", help="Rewrite documents and re-embed even when current")
+
+    export = subparsers.add_parser("export", help="Export the corpus file to seed_data/ JSON")
+    export.add_argument("--corpus", help=corpus_help)
+    export.add_argument("--seed-dir", help=seed_help)
 
     sync = subparsers.add_parser("sync", help="Download and extract the documents listed in the BDDK catalog")
-    sync.add_argument("--db", help="PostgreSQL DSN; defaults to BDDK_INGESTION_DATABASE_URL or BDDK_DATABASE_URL")
+    sync.add_argument("--corpus", help=corpus_help)
     sync.add_argument(
         "--refresh-catalog",
         action="store_true",
-        help="Re-scrape the BDDK catalog pages into decision_cache before syncing",
+        help="Re-scrape the BDDK catalog pages into the corpus before syncing",
     )
     sync.add_argument("--force", action="store_true", help="Re-download and re-extract every document")
     sync.add_argument("--doc-id", help="Sync a single catalogued document by ID")
@@ -74,37 +77,38 @@ def _run_serve(args: argparse.Namespace) -> None:
     server_main()
 
 
-async def _migrate(
-    dsn: str | None,
-    *,
-    allow_retrieval_publication_backfill: bool = False,
-) -> None:
-    from bddk_mcp.db_lifecycle import migrate_database
+async def _build(args: argparse.Namespace) -> None:
+    from bddk_mcp.ingest.seed import build_corpus
 
-    await migrate_database(
-        dsn=dsn,
-        allow_retrieval_publication_backfill=allow_retrieval_publication_backfill,
+    result = await build_corpus(corpus_path=args.corpus, seed_dir=args.seed_dir, force=args.force)
+    if result["skipped"]:
+        print("Corpus already matches the seed data (use --force to rebuild).")
+        return
+    print(
+        f"Built corpus: {result['decision_cache']} catalog entries, {result['documents']} documents, "
+        f"{result['sections']} sections, {result['chunks']} chunks embedded."
     )
 
 
-async def _sync(args: argparse.Namespace) -> None:
-    """Download and extract the catalogued documents into the local store."""
-    import asyncpg
+async def _export(args: argparse.Namespace) -> None:
+    from bddk_mcp.ingest.seed import export_corpus
 
-    from bddk_mcp.core.config import require_database_url
-    from bddk_mcp.db_lifecycle import assert_database_ready
-    from bddk_mcp.db_transport import assert_database_transport
+    documents, catalog = await export_corpus(corpus_path=args.corpus, seed_dir=args.seed_dir)
+    print(f"Exported {documents} documents and {catalog} catalog entries.")
+
+
+async def _sync(args: argparse.Namespace) -> None:
+    """Download and extract the catalogued documents into the corpus file."""
     from bddk_mcp.ingest.client import BddkApiClient
     from bddk_mcp.ingest.doc_sync import DocumentSyncer
+    from bddk_mcp.store.corpus_db import CorpusDB
     from bddk_mcp.store.doc_store import DocumentStore
     from bddk_mcp.store.vector_store import VectorStore
 
-    dsn = assert_database_transport(args.db) if args.db else require_database_url("ingestion")
-    pool = await asyncpg.create_pool(dsn, min_size=1, max_size=5)
+    db = CorpusDB.open(args.corpus)
     try:
-        await assert_database_ready(pool=pool, require_corpus=False)
-        store = DocumentStore(pool)
-        client = BddkApiClient(pool=pool, doc_store=store, allow_live_population=True)
+        store = DocumentStore(db)
+        client = BddkApiClient(store=store, allow_live_population=True)
         try:
             if args.refresh_catalog:
                 print(f"Catalog refreshed from BDDK: {await client.refresh_cache()} items")
@@ -126,12 +130,12 @@ async def _sync(args: argparse.Namespace) -> None:
                 }
                 for item in catalog
             ]
-            async with DocumentSyncer(store, vector_store=VectorStore(pool)) as syncer:
+            async with DocumentSyncer(store, vector_store=VectorStore(db)) as syncer:
                 report = await syncer.sync_all(documents, concurrency=args.concurrency, force=args.force)
         finally:
             await client.close()
     finally:
-        await pool.close()
+        db.close()
 
     print(
         f"Sync: {report.total} total, {report.downloaded} downloaded, {report.skipped} skipped, "
@@ -142,9 +146,6 @@ async def _sync(args: argparse.Namespace) -> None:
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-    from bddk_mcp.db_transport import materialize_postgres_ca_from_env
-
-    materialize_postgres_ca_from_env()
     parser = build_parser()
     args = parser.parse_args(argv)
 
@@ -155,23 +156,11 @@ def main(argv: Sequence[str] | None = None) -> None:
         _run_serve(args)
         return
 
+    commands = {"build": _build, "export": _export, "sync": _sync}
     try:
-        if args.command == "migrate":
-            asyncio.run(
-                _migrate(
-                    args.db,
-                    allow_retrieval_publication_backfill=args.allow_retrieval_publication_backfill,
-                )
-            )
-            print("Database schema is ready.")
-            return
-        if args.command == "sync":
-            asyncio.run(_sync(args))
-            return
+        asyncio.run(commands[args.command](args))
     except RuntimeError as exc:
         parser.error(str(exc))
-
-    parser.error(f"unsupported command: {args.command}")
 
 
 if __name__ == "__main__":

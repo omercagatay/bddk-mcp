@@ -75,9 +75,9 @@ def register(
         """
         Retrieve a BDDK decision document as Markdown.
 
-        Airlocked: serves only from local stores (pgvector chunks, then PostgreSQL
-        documents). If the document is not present locally, returns a clear
-        "not in seed" error rather than live-fetching from mevzuat.gov.tr / BDDK.
+        Airlocked: serves only from the local corpus file. If the document is not
+        present locally, returns a clear "not in seed" error rather than
+        live-fetching from mevzuat.gov.tr / BDDK.
 
         A bare numeric ID (e.g. "21192") is also tried as `mevzuat_<id>` and
         `bddk_<id>` so callers don't need to know the catalog's prefix
@@ -92,18 +92,7 @@ def register(
             return tool_error(INVALID_INPUT, "max_pages must be between 1 and 5.", retryable=False)
         candidates = document_id_candidates(document_id)
 
-        async def _lookup_page(cand: str, page: int) -> tuple[int, int, str, str, bool] | None:
-            if deps.vector_store is not None:
-                try:
-                    vp = await deps.vector_store.get_document_page(cand, page)
-                    if vp and vp["content"] and "Invalid page" not in vp["content"]:
-                        return vp["page_number"], vp["total_pages"], vp["content"], "", True
-                except Exception as exc:
-                    logger.warning(
-                        "Vector page lookup failed; falling back to document store",
-                        extra={"error_type": type(exc).__name__},
-                    )
-
+        async def _lookup_page(cand: str, page: int) -> tuple[int, int, str, str] | None:
             try:
                 stored = await deps.doc_store.get_document_page(cand, page)
             except (RuntimeError, BddkStorageError) as exc:
@@ -111,13 +100,7 @@ def register(
                 stored = None
 
             if stored and stored.markdown_content and "Invalid page" not in stored.markdown_content:
-                return (
-                    stored.page_number,
-                    stored.total_pages,
-                    stored.markdown_content,
-                    stored.extraction_method or "",
-                    False,
-                )
+                return stored.page_number, stored.total_pages, stored.markdown_content, stored.extraction_method or ""
             return None
 
         resolved_id: str | None = None
@@ -125,15 +108,13 @@ def register(
         total_pages = 0
         page_contents: list[tuple[int, str]] = []
         extraction_method = ""
-        served_sources: set[str] = set()
 
         for cand in candidates:
             found_page = await _lookup_page(cand, page_number)
             if found_page:
                 resolved_id = cand
-                page_num, total_pages, content, extraction_method, served_via_vector = found_page
+                page_num, total_pages, content, extraction_method = found_page
                 page_contents.append((page_num, content))
-                served_sources.add("vector_store" if served_via_vector else "document_store")
                 break
 
         if resolved_id is None:
@@ -142,7 +123,7 @@ def register(
                 f"Document {document_id} is not available in the local store. This MCP server is airlocked "
                 "and does not fetch from live BDDK / mevzuat.gov.tr sources at runtime.",
                 retryable=False,
-                hint="If the document should be available, re-run the seed (`seed.py import`) or sync pipeline.",
+                hint="If the document should be available, rebuild the corpus (`bddk-mcp build`) or run `bddk-mcp sync`.",
             )
 
         found = deps.client.find_by_id(resolved_id)
@@ -168,18 +149,10 @@ def register(
                         total_pages,
                     )
                     break
-                last_page_num, total_pages, page_content, page_extraction_method, served_via_vector = found_page
+                last_page_num, total_pages, page_content, page_extraction_method = found_page
                 page_contents.append((last_page_num, page_content))
-                served_sources.add("vector_store" if served_via_vector else "document_store")
                 if page_extraction_method and not extraction_method:
                     extraction_method = page_extraction_method
-
-        # The pgvector chunk rows don't carry extraction_method; look it up.
-        if "vector_store" in served_sources:
-            try:
-                extraction_method = await deps.doc_store.get_extraction_method(resolved_id) or ""
-            except (RuntimeError, BddkStorageError) as exc:
-                logger.debug("Extraction method lookup failed", extra={"error_type": type(exc).__name__})
 
         # Page cuts can split tables/formulas, or hide a failure elsewhere in the body.
         try:
@@ -269,7 +242,7 @@ def register(
             f"{quality_warning_block}{degraded_warning_block}"
         )
 
-        served_via = next(iter(served_sources)) if len(served_sources) == 1 else "mixed"
+        served_via = "document_store"
         relevance_stats = {
             "page_number": page_num,
             "last_page_number": last_page_num,

@@ -3,13 +3,13 @@
 import asyncio
 import logging
 import os
+import sqlite3
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import fields
 
 import anyio
-import asyncpg
 import httpx
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
@@ -20,15 +20,11 @@ from bddk_mcp import __version__
 from bddk_mcp.core.config import (
     HTTP_CONNECT_TIMEOUT,
     HTTP_POOL_TIMEOUT,
-    PG_POOL_MAX,
-    PG_POOL_MIN,
     REQUEST_TIMEOUT,
-    require_database_url,
     validate_model_asset_policy,
 )
 from bddk_mcp.core.deps import Dependencies
 from bddk_mcp.core.logging_config import configure_logging
-from bddk_mcp.db_lifecycle import assert_database_ready
 from bddk_mcp.http_security import (
     HttpSecurityConfig,
     HttpSecurityConfigError,
@@ -39,6 +35,7 @@ from bddk_mcp.http_security import (
 )
 from bddk_mcp.ingest.client import BddkApiClient
 from bddk_mcp.mcp_server import BddkFastMCP
+from bddk_mcp.store.corpus_db import CorpusDB
 from bddk_mcp.store.doc_store import DocumentStore
 from bddk_mcp.store.vector_store import VectorStore
 from bddk_mcp.tools.registry import assert_tool_surface, register_tools
@@ -77,8 +74,8 @@ RESPONSE STYLE AND TOOL-USE DISCIPLINE:
 
 # Tool functions close over this stable object.  Runtime resources are copied
 # into it when the FastMCP lifespan starts, which lets import-based launchers
-# discover the complete tool surface before a database connection is opened.
-_runtime_deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
+# discover the complete tool surface before the corpus file is opened.
+_runtime_deps = Dependencies(db=None, doc_store=None, client=None, http=None)
 _runtime_lock: asyncio.Lock | None = None
 _runtime_loop: asyncio.AbstractEventLoop | None = None
 _runtime_lock_users = 0
@@ -136,11 +133,9 @@ def _validate_http_policy(config: HttpSecurityConfig) -> None:
 
 
 async def create_deps() -> Dependencies:
-    """Create serving dependencies without schema, seed, or index writes."""
-    dsn = require_database_url()
-
+    """Open the corpus read-only and build the serving dependencies."""
     http: httpx.AsyncClient | None = None
-    pool: asyncpg.Pool | None = None
+    db: CorpusDB | None = None
     doc_store: DocumentStore | None = None
     client: BddkApiClient | None = None
     vector_store: VectorStore | None = None
@@ -163,32 +158,19 @@ async def create_deps() -> Dependencies:
             follow_redirects=True,
         )
 
-        pool = await asyncpg.create_pool(
-            dsn,
-            min_size=PG_POOL_MIN,
-            max_size=PG_POOL_MAX,
-            command_timeout=30,
-            timeout=10,
-        )
-        logger.info("PostgreSQL pool created")
+        db = await asyncio.to_thread(CorpusDB.open, None, readonly=True)
+        await db.assert_ready(require_corpus=True)
 
-        await assert_database_ready(pool=pool, require_corpus=True)
-
-        doc_store = DocumentStore(pool)
-        client = BddkApiClient(
-            pool=pool,
-            doc_store=doc_store,
-            http=http,
-            allow_live_population=False,
-        )
+        doc_store = DocumentStore(db)
+        client = BddkApiClient(store=doc_store, http=http, allow_live_population=False)
         await client.load_cache_read_only()
         validate_model_asset_policy()
-        vector_store = VectorStore(pool)
+        vector_store = VectorStore(db)
         async with asyncio.timeout(_SEMANTIC_SEARCH_STARTUP_TIMEOUT_SECONDS):
             await vector_store.assert_semantic_search_ready()
 
         return Dependencies(
-            pool=pool,
+            db=db,
             doc_store=doc_store,
             client=client,
             http=http,
@@ -196,7 +178,7 @@ async def create_deps() -> Dependencies:
         )
     except BaseException as startup_error:
         partial_deps = Dependencies(
-            pool=pool,
+            db=db,
             doc_store=doc_store,
             client=client,
             http=http,
@@ -219,8 +201,8 @@ def register_health_routes(server: FastMCP, deps: Dependencies) -> None:
     last_attested_at = 0.0
     last_readiness = None
 
-    async def database_attestation():
-        """Periodically re-check schema and corpus state."""
+    async def corpus_attestation():
+        """Periodically re-check the corpus file."""
 
         nonlocal last_attested_at, last_readiness
         now = time.monotonic()
@@ -233,8 +215,8 @@ def register_health_routes(server: FastMCP, deps: Dependencies) -> None:
                 return last_readiness
             try:
                 async with asyncio.timeout(5):
-                    readiness = await assert_database_ready(pool=deps.pool, require_corpus=True)
-            except (TimeoutError, RuntimeError, OSError, asyncpg.PostgresError):
+                    readiness = await deps.db.assert_ready(require_corpus=True)
+            except (TimeoutError, RuntimeError, OSError, sqlite3.Error):
                 last_readiness = None
             else:
                 last_readiness = readiness
@@ -248,14 +230,14 @@ def register_health_routes(server: FastMCP, deps: Dependencies) -> None:
     @server.custom_route("/health/ready", methods=["GET"], include_in_schema=False)
     async def readiness(_request: Request) -> JSONResponse:
         if (
-            deps.pool is None
+            deps.db is None
             or deps.doc_store is None
             or deps.client is None
             or deps.vector_store is None
             or deps.vector_store.semantic_search_ready is not True
         ):
             return JSONResponse({"status": "not_ready"}, status_code=503)
-        if await database_attestation() is None:
+        if await corpus_attestation() is None:
             return JSONResponse({"status": "not_ready"}, status_code=503)
         return JSONResponse({"status": "ready"})
 
@@ -279,12 +261,12 @@ async def teardown_deps(deps: Dependencies) -> None:
             await deps.http.aclose()
         except BaseException as error:
             record_failure("http", error)
-    if deps.pool:
+    if deps.db:
         try:
-            await deps.pool.close()
-            logger.info("PostgreSQL pool closed")
+            deps.db.close()
+            logger.info("Corpus closed")
         except BaseException as error:
-            record_failure("pool", error)
+            record_failure("db", error)
 
     if errors:
         logger.error("Graceful shutdown completed with %d error(s)", len(errors))
@@ -343,7 +325,7 @@ def _copy_deps(source: Dependencies, target: Dependencies = _runtime_deps) -> De
 
 def _empty_runtime_deps() -> None:
     """Remove references to closed resources after the final runtime lease."""
-    _copy_deps(Dependencies(pool=None, doc_store=None, client=None, http=None))
+    _copy_deps(Dependencies(db=None, doc_store=None, client=None, http=None))
 
 
 def _get_runtime_lock() -> asyncio.Lock:
@@ -442,7 +424,7 @@ def create_mcp(
     """Construct a fully registered BDDK FastMCP server.
 
     Supplying dependencies separately makes the protocol surface testable with
-    the official MCP client without opening a real database connection.
+    the official MCP client without opening a real corpus file.
     """
     security = http_security or _local_discovery_http_config()
     _validate_http_policy(security)
@@ -494,7 +476,7 @@ def main() -> None:
 
     _transport = _runtime_transport()
     logger.info("Transport: %s", _transport)
-    logger.info("Database configuration is validated during startup")
+    logger.info("The corpus file is validated during startup")
 
     if _transport == "streamable-http":
         import uvicorn

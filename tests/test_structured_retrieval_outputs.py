@@ -36,7 +36,7 @@ def _server(deps: Dependencies):
 
 @pytest.mark.asyncio
 async def test_six_regulatory_retrieval_tools_publish_closed_versioned_output_schemas():
-    deps = Dependencies(pool=None, doc_store=MagicMock(), client=MagicMock(), http=None)
+    deps = Dependencies(db=None, doc_store=MagicMock(), client=MagicMock(), http=None)
 
     async with create_connected_server_and_client_session(_server(deps)) as session:
         listed = await session.list_tools()
@@ -70,7 +70,7 @@ async def test_official_client_validates_structured_no_result_contracts():
     vector_store.assert_semantic_search_ready = AsyncMock()
     vector_store.search = AsyncMock(return_value=[])
     deps = Dependencies(
-        pool=None,
+        db=None,
         doc_store=doc_store,
         client=client,
         http=None,
@@ -123,7 +123,7 @@ async def test_malicious_looking_document_text_remains_bounded_data_not_result_m
     doc_store.get_document_quality = AsyncMock(return_value=assess_markdown_quality(malicious_source, "mevzuat_5411"))
     client = MagicMock()
     client.find_by_id.return_value = None
-    deps = Dependencies(pool=None, doc_store=doc_store, client=client, http=None)
+    deps = Dependencies(db=None, doc_store=doc_store, client=client, http=None)
 
     async with create_connected_server_and_client_session(_server(deps)) as session:
         listed = await session.list_tools()
@@ -225,7 +225,7 @@ async def test_all_six_retrieval_text_fallbacks_frame_source_metadata_and_escape
         ]
     )
     deps = Dependencies(
-        pool=None,
+        db=None,
         doc_store=doc_store,
         client=client,
         http=None,

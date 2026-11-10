@@ -14,7 +14,6 @@ import pytest
 from bddk_mcp.ingest.client import BddkApiClient
 from bddk_mcp.ingest.doc_sync import DocumentSyncer, ExtractionResult
 from bddk_mcp.ocr.base import LightOCRBackend, _run_markitdown, _run_pdftotext, run_extraction_chain
-from bddk_mcp.store.doc_store import DocumentStore
 from bddk_mcp.store.vector_store import RetrievalProfileError, VectorStore, _load_embedding_tokenizer
 
 PRIVATE_TERM = "PRIVATE_AUDIT_TERM_91f8"
@@ -180,10 +179,16 @@ def test_chandra_input_exception_and_temp_path_are_not_logged(caplog, monkeypatc
     assert _error_records(caplog)[-1].error_type == "OSError"
 
 
+async def _sync_failure_row(store):
+    row = await store.db.run(
+        lambda conn: conn.execute("SELECT * FROM sync_failures WHERE document_id = '123'").fetchone()
+    )
+    return dict(row)
+
+
 @pytest.mark.asyncio
-async def test_sync_failure_persistence_rejects_raw_error_and_source_url():
-    pool = MagicMock(execute=AsyncMock())
-    store = DocumentStore(pool)
+async def test_sync_failure_persistence_rejects_raw_error_and_source_url(doc_store):
+    store = doc_store
     await store.record_sync_failure(
         "123",
         f"ConnectError: {PRIVATE_DSN} {PRIVATE_PATH}",
@@ -192,20 +197,23 @@ async def test_sync_failure_persistence_rejects_raw_error_and_source_url():
         True,
     )
 
-    persisted = pool.execute.await_args.args
-    assert persisted[1:] == ("123", "sync_unknown_failed", "unknown", "", True, persisted[-1])
+    persisted = await _sync_failure_row(store)
+    assert (persisted["error"], persisted["error_category"], persisted["source_url"], persisted["retryable"]) == (
+        "sync_unknown_failed",
+        "unknown",
+        "",
+        1,
+    )
     for private_value in (PRIVATE_TERM, PRIVATE_DSN, PRIVATE_PATH, PRIVATE_URL):
         assert private_value not in repr(persisted)
 
 
 @pytest.mark.asyncio
-async def test_sync_failure_persistence_preserves_safe_machine_code():
-    pool = MagicMock(execute=AsyncMock())
-    store = DocumentStore(pool)
-    await store.record_sync_failure("123", "reindex_failed", "index", PRIVATE_URL, True)
+async def test_sync_failure_persistence_preserves_safe_machine_code(doc_store):
+    await doc_store.record_sync_failure("123", "reindex_failed", "index", PRIVATE_URL, True)
 
-    persisted = pool.execute.await_args.args
-    assert persisted[2:5] == ("reindex_failed", "index", "")
+    persisted = await _sync_failure_row(doc_store)
+    assert (persisted["error"], persisted["error_category"], persisted["source_url"]) == ("reindex_failed", "index", "")
 
 
 def test_embedding_tokenizer_log_omits_model_path_and_exception(caplog, monkeypatch, tmp_path):
@@ -255,7 +263,7 @@ def test_embedding_loader_uses_private_path_without_logging_it(caplog, monkeypat
     monkeypatch.setitem(sys.modules, "sentence_transformers", sentence_transformers)
     monkeypatch.setattr("bddk_mcp.store.vector_store.EMBEDDING_MODEL_PATH", str(model_path))
 
-    store = VectorStore(pool=MagicMock())
+    store = VectorStore(MagicMock())
     with caplog.at_level(logging.INFO, logger="bddk_mcp.store.vector_store"):
         store._ensure_embeddings()
 
@@ -280,7 +288,7 @@ def test_reranker_loader_uses_private_path_without_logging_it(caplog, monkeypatc
     monkeypatch.setattr("bddk_mcp.store.vector_store.RERANKER_MODEL_PATH", str(model_path))
     monkeypatch.setattr("bddk_mcp.store.vector_store.RERANKER_ENABLED", True)
 
-    store = VectorStore(pool=MagicMock())
+    store = VectorStore(MagicMock())
     with caplog.at_level(logging.INFO, logger="bddk_mcp.store.vector_store"):
         store._ensure_reranker()
 
@@ -340,7 +348,7 @@ async def test_document_sync_debug_log_omits_url_document_id_and_exception(caplo
 
 @pytest.mark.asyncio
 async def test_client_unmapped_upstream_category_is_not_logged(caplog):
-    client = BddkApiClient(pool=MagicMock(), http=MagicMock(spec=httpx.AsyncClient))
+    client = BddkApiClient(store=MagicMock(), http=MagicMock(spec=httpx.AsyncClient))
     html = f"""
     <div class="card">
       <h5>{PRIVATE_TERM}</h5>

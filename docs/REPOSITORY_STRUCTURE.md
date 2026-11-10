@@ -7,11 +7,12 @@ BDDK MCP separates application code, corpus data, maintainer scripts, deployment
 | Path | Purpose |
 |---|---|
 | `bddk_mcp/` | Installable Python package and all supported runtime behavior. |
-| `tests/` | Unit, protocol, PostgreSQL, packaging, and policy contracts; fixtures under `tests/fixtures/`. |
-| `scripts/` | Maintainer utilities (document repair, quality scans, section reindex) and the repository hygiene check. |
-| `seed_data/` | Offline corpus exports: `documents.json`, `decision_cache.json` (read by `bddk-seed import`); `corpus_scope.yml` is a retained scope declaration the runtime no longer reads. |
+| `tests/` | Unit, protocol, packaging, and policy contracts, all over a temporary SQLite corpus file; fixtures under `tests/fixtures/`. |
+| `scripts/` | Maintainer utilities (document repair, quality scans, section reindex; each takes `--corpus PATH`) and the repository hygiene check. |
+| `seed_data/` | Reviewed corpus source: `documents.json`, `decision_cache.json` (turned into the corpus file by `bddk-mcp build`, written back by `bddk-mcp export`); `corpus_scope.yml` is a retained scope declaration the runtime no longer reads. |
+| `corpus/` | Built corpus file (`bddk.sqlite`), git-ignored. Never hand-edit it; rebuild it from `seed_data/`. |
 | `deploy/` | Open WebUI integration assets. |
-| `docs/` | Durable documentation and the retained legal-version fixture bundle. |
+| `docs/` | Durable documentation and its index. |
 | `.github/` | CI, dependency automation, ownership, issue forms, and PR policy. |
 
 ## Root files
@@ -23,8 +24,8 @@ The root is reserved for project entry points and tools that conventionally live
 | `README.md`, `README.en.md` | Turkish and English landing pages for bank users. Operator procedure stays in `docs/`. |
 | `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md`, `LICENSE` | Repository governance and release history. |
 | `pyproject.toml`, `uv.lock`, `MANIFEST.in` | Python metadata, dependency lock, and distribution policy. |
-| `server.py`, `seed.py` | Compatibility shims; implementation belongs under `bddk_mcp/`. |
-| `Dockerfile`, `docker-compose.yml` | Container build and the disposable local lifecycle. |
+| `server.py` | Compatibility shim for `python server.py` and `mcp run server.py`; implementation belongs under `bddk_mcp/`. |
+| `Dockerfile`, `docker-compose.yml` | Container build (downloads the embedding model and runs `bddk-mcp build`, so the image carries the corpus file) and the single-service local Compose topology. |
 | `railway.toml` | Railway development/preview deployment manifest (not a bank path). |
 | `.env.example`, `.mcp.json` | Sanitized local configuration examples. |
 
@@ -36,24 +37,22 @@ Do not place implementation modules, generated reports, scratch files, one-off p
 |---|---|
 | `bddk_mcp/core/` | Settings, shared models, dependency wiring, logging, and outbound HTTP controls. |
 | `bddk_mcp/tools/` | Thin MCP handlers, schemas, registry, errors, and structured output adapters. |
-| `bddk_mcp/store/` | Document, section, vector, reference, and bulk-write storage. |
-| `bddk_mcp/ingest/` | Source discovery, extraction, synchronization, and seed import/export. |
+| `bddk_mcp/store/` | The SQLite corpus file (`corpus_db.py`: schema, read-only serving handle, readiness), documents, versions, sections and catalog (`doc_store.py`), chunks, embeddings and hybrid search (`vector_store.py`), the section parser and legal references. |
+| `bddk_mcp/ingest/` | Source discovery, extraction, synchronization, and corpus build/export against `seed_data/`. |
 | `bddk_mcp/ocr/` | OCR interfaces and optional GPU implementation. |
-| `bddk_mcp/regulatory/` | Canonical legal versions, relations, graph queries, and curation repositories. |
-| `bddk_mcp/migrations/` | Append-only schema ledger and migration implementations. |
 | `bddk_mcp/observability/` | Bulletin trend/comparison analytics. |
 | `bddk_mcp/quality/` | Document quality rules and their packaged configuration. |
-| Package-root modules | `server.py`, `cli.py`, `mcp_server.py`, `db_lifecycle.py`, `db_transport.py`, `db_compatibility.py`, `http_security.py`, `transport_tls.py`, `citations.py`, `quotations.py`, `corpus_coordination.py`. |
+| Package-root modules | `server.py`, `cli.py`, `mcp_server.py`, `http_security.py`, `transport_tls.py`, `quotations.py`. |
 
 New code should go into the narrowest existing subsystem. Create another package only when it establishes a durable responsibility boundary, not merely to reduce file count.
 
 ## Tests and generated artifacts
 
 - Tests normally mirror the source area as `tests/test_<module>.py`. Shared fixtures belong in `tests/conftest.py` or `tests/fixtures/`.
-- PostgreSQL and GPU requirements must use the registered `postgres` and `gpu` markers.
+- GPU requirements must use the registered `gpu` marker. Storage tests use the temporary corpus fixtures in `tests/conftest.py`; nothing may depend on a shared service or on an existing `corpus/bddk.sqlite`.
 - `seed_data/*.json` and `uv.lock` are marked generated for GitHub presentation. They remain reviewable and must be regenerated intentionally.
 - Binary fixtures are explicitly marked binary in `.gitattributes`.
-- Local caches, environments, quality reports, and scratch analysis are ignored by `.gitignore`.
+- Local caches, environments, the built corpus file (`corpus/`), quality reports, and scratch analysis are ignored by `.gitignore`.
 
 ## Documentation placement
 

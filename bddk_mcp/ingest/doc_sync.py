@@ -2,7 +2,7 @@
 Document sync engine for BDDK MCP Server.
 
 Downloads BDDK decisions and mevzuat.gov.tr documents, extracts content
-to markdown, and stores them in the PostgreSQL database.
+to markdown, and stores them in the corpus file.
 
 Extraction pipeline (configured in ocr.base.get_default_backends):
   1. LightOnOCR-2-1B (GPU) — primary, formula-aware

@@ -17,7 +17,7 @@ from bddk_mcp.tools.registry import (
 
 def _server() -> FastMCP:
     server = FastMCP("contract-test")
-    deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None)
     register_tools(server, deps)
     return server
 
@@ -87,7 +87,7 @@ def test_every_input_parameter_has_a_client_visible_description():
 async def test_official_client_rejects_extra_tool_argument():
     doc_store = MagicMock()
     doc_store.get_document_history = AsyncMock(return_value=[])
-    deps = Dependencies(pool=None, doc_store=doc_store, client=MagicMock(), http=None)
+    deps = Dependencies(db=None, doc_store=doc_store, client=MagicMock(), http=None)
     server = FastMCP("strict-contract-test")
     register_tools(server, deps)
 

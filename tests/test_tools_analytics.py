@@ -18,7 +18,7 @@ def _registered_tools(mcp: MagicMock) -> dict:
 
 def test_public_register_adds_only_stateless_analytics_tools():
     mcp = MagicMock()
-    deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None)
     register(mcp, deps)
 
     assert set(_registered_tools(mcp).keys()) == {
@@ -36,7 +36,7 @@ def test_public_register_adds_only_stateless_analytics_tools():
 async def test_regulatory_digest_period_mapping(period, expected_days):
     """get_regulatory_digest must map 'day' → 1 day and fall back to 30 on unknown."""
     mcp = MagicMock()
-    deps = Dependencies(pool=None, doc_store=None, client=MagicMock(), http=MagicMock())
+    deps = Dependencies(db=None, doc_store=None, client=MagicMock(), http=MagicMock())
     deps.client.ensure_cache = AsyncMock()
     deps.client.get_cache_items = MagicMock(return_value=[])
     register(mcp, deps)
@@ -65,7 +65,7 @@ async def test_regulatory_digest_period_mapping(period, expected_days):
 @pytest.mark.asyncio
 async def test_regulatory_digest_rejects_unknown_period():
     mcp = MagicMock()
-    deps = Dependencies(pool=None, doc_store=None, client=MagicMock(), http=MagicMock())
+    deps = Dependencies(db=None, doc_store=None, client=MagicMock(), http=MagicMock())
     register(mcp, deps)
     get_regulatory_digest = _registered_tools(mcp)["get_regulatory_digest"]
 
@@ -80,7 +80,7 @@ async def test_regulatory_digest_rejects_unknown_period():
 async def test_regulatory_digest_marks_unavailable_upstream_sections():
     """The digest must say announcement/bulletin data was unavailable, not omit it."""
     mcp = MagicMock()
-    deps = Dependencies(pool=None, doc_store=None, client=MagicMock(), http=MagicMock())
+    deps = Dependencies(db=None, doc_store=None, client=MagicMock(), http=MagicMock())
     deps.client.ensure_cache = AsyncMock()
     deps.client.get_cache_items = MagicMock(return_value=[])
     register(mcp, deps)

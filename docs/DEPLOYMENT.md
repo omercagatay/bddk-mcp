@@ -4,47 +4,46 @@ This guide describes the deployment paths the repository currently supports: loc
 
 ## Runtime
 
-One process serves the 17 public tools. `bddk-mcp serve` reads `BDDK_DATABASE_URL`; stdio is the default transport and Streamable HTTP is the alternative.
+One process serves the 14 public tools. `bddk-mcp serve` opens the corpus file named by `BDDK_CORPUS_PATH` (default `corpus/bddk.sqlite`) read-only; stdio is the default transport and Streamable HTTP is the alternative.
 
-| Mode | Selection | Database identity |
+| Mode | Selection | Corpus |
 |---|---|---|
-| stdio | `bddk-mcp serve` (default) | `BDDK_DATABASE_URL` |
-| Streamable HTTP | Add `--transport streamable-http` or `MCP_TRANSPORT=streamable-http` | `BDDK_DATABASE_URL` |
+| stdio | `bddk-mcp serve` (default) | `BDDK_CORPUS_PATH`, opened read-only |
+| Streamable HTTP | Add `--transport streamable-http` or `MCP_TRANSPORT=streamable-http` | `BDDK_CORPUS_PATH`, opened read-only |
 
-Serving startup does not perform schema, seed, synchronization, or embedding-backfill writes. It validates the database (migration ledger at the current version, corpus present and published for the current retrieval profile), loads the decision cache with `SELECT`, and constructs search clients. An incomplete database fails startup with remediation guidance.
+The corpus is one SQLite file. Its tables are `documents`, `document_versions`, `document_sections` (with the FTS5 index `sections_fts`), `chunks` with float16 embedding BLOBs (with the FTS5 index `chunks_fts`), `decision_cache` (the BDDK catalog), `sync_failures`, and `meta` (`schema_version`, `embedding_model`, `embedding_dimension`). `bddk_mcp/store/corpus_db.py` creates the schema with `CREATE TABLE IF NOT EXISTS`; there is no migration ledger and no in-place upgrade. A schema change means a rebuilt file.
 
-## Preparing the database
+Serving startup performs no write. The file is opened with SQLite `mode=ro`, which is the airlock: a serving process cannot change the corpus even by mistake. Startup validates the file (present, recognised schema version, documents, chunks and catalog present, every chunk and section hash current against its document, embedding model and dimension in `meta` equal to the configured runtime), loads the catalog, and loads every chunk vector into memory for exact cosine search. A missing, incomplete or differently embedded corpus file fails startup with remediation guidance that names `bddk-mcp build`.
 
-Three explicit commands prepare a database; the serving process never runs them:
+## Preparing the corpus
+
+Three explicit commands write the corpus file; the serving process never runs them:
 
 ```bash
-uv run --frozen bddk-mcp migrate        # create/upgrade the schema (append-only migration ledger)
-uv run --frozen bddk-seed import        # load seed_data/ documents + decision cache, regenerate chunks and embeddings
-uv run --frozen bddk-mcp sync           # optional: download and extract the catalogued documents (--refresh-catalog re-scrapes BDDK first)
+uv run --frozen bddk-mcp build          # seed_data/ (documents.json + decision_cache.json) -> corpus file with sections, chunks and embeddings
+uv run --frozen bddk-mcp sync           # optional: download and extract the catalogued documents into the corpus file and re-embed them
+uv run --frozen bddk-mcp export         # corpus file -> seed_data/ JSON (overwrites the local seed artifacts)
 ```
 
-All three default to `BDDK_DATABASE_URL`. A deployment that keeps separate PostgreSQL logins can set `BDDK_SCHEMA_OWNER_DATABASE_URL` (used by `migrate`) and `BDDK_INGESTION_DATABASE_URL` (used by `import` and `sync`); each falls back to `BDDK_DATABASE_URL` when unset. `--db DSN` overrides the environment for one command.
+All three default to `BDDK_CORPUS_PATH`; `--corpus PATH` overrides it for one command, and `build`/`export` take `--seed-dir PATH` for another seed directory. `sync` also accepts `--refresh-catalog` (re-scrape the BDDK catalog pages into the corpus first), `--force` (re-download and re-extract every document), `--doc-id ID` (one catalogued document) and `--concurrency N` (parallel downloads, default 5).
 
-`bddk-seed import` is idempotent: it skips when the stored documents, decision cache, section index, chunks, and retrieval publication already match the seed. Content that differs from the database requires `--force` after review. Chunks and embeddings are always regenerated from the canonical document text under the current retrieval profile; no chunk or embedding artifact is shipped.
+`bddk-mcp build` is idempotent: it skips when every seed document is stored with the same content hash, indexed with current chunks, and the catalog count matches. A changed or new document is rewritten (the previous body is kept in `document_versions`) and re-embedded; `--force` rewrites and re-embeds everything, which is required after changing the embedding model, tokenizer, prefixes, chunk settings or the schema. Chunks and embeddings are always regenerated from the canonical document text; no chunk or embedding artifact is shipped in Git. With the real `intfloat/multilingual-e5-base` model, building the current seed (319 documents, 13,604 chunks) took 816 seconds, about 14 minutes, on a laptop CPU and produced a corpus file of about 100 MB.
 
-### Database target and TLS contract
+A corpus file is complete only after `bddk-mcp build` or `bddk-mcp sync` has returned. Build into a new file and then replace or redeploy; never write a file that a serving process has open, and never serve or write a corpus over a network share (NFS/SMB), where SQLite locking is not reliable.
 
-Remote DSNs must use `sslmode=verify-full` with an absolute `sslrootcert` path; `BDDK_POSTGRES_CA_CERT` can materialize the CA file from an environment value at startup. Only isolated loopback development may set `BDDK_ALLOW_INSECURE_DATABASE=true`. The application admits PostgreSQL 17 only; every connection boundary checks the server version before any other statement.
+### Retrieval inside the corpus file
+
+Dense retrieval is exact cosine similarity computed with numpy over all chunk vectors, which are held in memory and reloaded after any write to the file. Keyword retrieval is SQLite FTS5 BM25 over normalized text (lowercased with Turkish rules and stripped of diacritics in Python, both when indexing and when matching). The two result lists are fused with Reciprocal Rank Fusion; the optional cross-encoder reranker (`BDDK_RERANKER=true`) reorders the fused top candidates. Section search is FTS5 BM25 as well. Brute-force cosine is exact and takes milliseconds up to a few hundred thousand chunks; an ANN index (hnswlib or sqlite-vec) is the upgrade beyond that scale, not something the current corpus needs.
 
 ## Local stdio
 
-The disposable loopback Compose topology runs PostgreSQL with pgvector, migrates, and imports the seed:
-
 ```bash
 uv sync --frozen
-docker compose up --build -d bddk-init
-docker compose wait bddk-init
-BDDK_ALLOW_INSECURE_DATABASE=true \
-BDDK_DATABASE_URL=postgresql://bddk:bddk@localhost:5432/bddk \
-  uv run --frozen bddk-mcp serve
+uv run --frozen bddk-mcp build          # about 15 minutes of CPU the first time; later runs skip when the seed is unchanged
+uv run --frozen bddk-mcp serve
 ```
 
-The fixed local credentials are public test fixtures and the PostgreSQL port is bound to host loopback. Do not copy them into a remote environment. The same container also creates the `bddk_test` database used by the `postgres`-marked tests (`BDDK_TEST_DATABASE_URL=postgresql://bddk:bddk@localhost:5432/bddk_test`).
+The first `build` downloads the embedding model unless `BDDK_EMBEDDING_MODEL_PATH` points at a pre-downloaded copy. `corpus/` is git-ignored; nothing in the checkout needs a service, an open port or a credential.
 
 Use the repository [`.mcp.json`](../.mcp.json) with clients that support that project configuration format. Codex uses `config.toml`; see the examples in the main [README](../README.md#codex-configuration).
 
@@ -102,19 +101,26 @@ Only these exact, content-free GET routes are provided for orchestration:
 | Endpoint | Meaning |
 |---|---|
 | `GET /health/live` | The application process is alive; returns `{"status":"alive"}` |
-| `GET /health/ready` | Dependencies exist, semantic search is ready, and the cached five-second schema/corpus check passes; otherwise returns 503 |
+| `GET /health/ready` | Dependencies exist, semantic search is ready, and the cached five-second corpus-file check (schema, counts, hashes, embedding model) passes; otherwise returns 503 |
 
 These two routes intentionally bypass MCP bearer authentication and Host/Origin admission so orchestrator probes can use a pod-IP Host header. They return no corpus, configuration, or identity data. The readiness probe bounds each refresh to five seconds and caches only the outcome for five seconds. Liveness deliberately does not contact dependencies.
 
 ## Docker and Container Contract
 
-The Dockerfile installs and runs the packaged `bddk-mcp` entry point. Its base and `uv` images are digest-pinned. The image copies `seed_data/` and downloads `intfloat/multilingual-e5-base` at full commit `d13f1b27baf31030b7fd040960d60d909913633f`, then saves it at `/app/embedding_model` for offline runtime loading.
+The Dockerfile installs and runs the packaged `bddk-mcp` entry point. Its base and `uv` images are digest-pinned. The image copies `seed_data/`, downloads `intfloat/multilingual-e5-base` at full commit `d13f1b27baf31030b7fd040960d60d909913633f` and saves it at `/app/embedding_model` for offline runtime loading, then runs `bddk-mcp build` with `BDDK_CORPUS_PATH=/app/corpus/bddk.sqlite`. The image therefore carries the built corpus file and is the versioned corpus artifact: no database, no pre-deploy step, nothing to prepare when the container starts. Expect the image build to spend on the order of 15 minutes of CPU in that step (816 seconds for the current seed on a laptop CPU) on top of the model download.
 
-The immutable schema stores `public.vector(768)`, and configuration rejects any `BDDK_EMBEDDING_DIM` other than `768`. A remote custom embedding model requires an immutable full commit in `BDDK_EMBEDDING_MODEL_REVISION`; the optional reranker `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` defaults to full commit `1427fd652930e4ba29e8149678df786c240d8825`. Changing an embedding model, tokenizer, prefixes, or chunk settings requires a controlled full re-embedding: the v3 migration keeps a retrieval-publication record keyed by document, content hash, and retrieval-profile hash, and retrieval fails closed instead of serving stale or differently profiled chunks. After such a change, run `bddk-seed import --reindex-existing` before serving.
+Every corpus file records the embedding model and dimension it was built with, and configuration rejects any `BDDK_EMBEDDING_DIM` other than `768`. A remote custom embedding model requires an immutable full commit in `BDDK_EMBEDDING_MODEL_REVISION`; the optional reranker `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` defaults to full commit `1427fd652930e4ba29e8149678df786c240d8825`. Changing an embedding model, tokenizer, prefixes, or chunk settings requires a controlled full re-embedding: serving refuses a corpus whose recorded model or dimension differs from the configured runtime, and readiness fails when a chunk or section no longer matches its document, so stale or differently profiled chunks are never served. After such a change, rebuild the image (or run `bddk-mcp build --force`) before serving.
 
-The runtime wheel/sdist exclude tests, `.env` files, Compose, and `seed_data/`; the code package does not silently distribute the corpus. A source checkout or the provided container supplies `seed_data/`; another wheel installation must point `BDDK_SEED_DIR` at an approved corpus directory before `bddk-seed import`.
+The runtime wheel/sdist exclude tests, `.env` files, Compose, and `seed_data/`; the code package does not silently distribute the corpus. A source checkout or the provided container supplies `seed_data/`; another wheel installation must either point `bddk-mcp build --seed-dir` at an approved seed directory or receive an already built corpus file.
 
-The Compose and image definitions bind HTTP on `0.0.0.0`. Under the fail-closed HTTP policy, a container must receive the exact Host/Origin settings above and either the complete JWT settings or the explicit `BDDK_HTTP_ALLOW_UNAUTHENTICATED` opt-in, or startup will be refused. Development credentials and database ports from Compose must never be reused or exposed outside a developer environment.
+`docker-compose.yml` defines one service, `bddk`, built from the Dockerfile and published on host loopback only (`127.0.0.1:8000`). It runs with `BDDK_HTTP_ALLOW_UNAUTHENTICATED=true` because the loopback publication stands in for a private network boundary:
+
+```bash
+docker compose up --build -d bddk
+curl -fsS http://localhost:8000/health/ready
+```
+
+The Compose and image definitions bind HTTP on `0.0.0.0`. Under the fail-closed HTTP policy, a container must receive the exact Host/Origin settings above and either the complete JWT settings or the explicit `BDDK_HTTP_ALLOW_UNAUTHENTICATED` opt-in, or startup will be refused. The Compose development settings (loopback publication, the unauthenticated opt-in) must never be reused or exposed outside a developer environment.
 
 The repository produces no SBOM, image-scan, or provenance evidence; any promotion path must produce and verify that evidence itself.
 
@@ -122,11 +128,13 @@ The repository produces no SBOM, image-scan, or provenance evidence; any promoti
 
 Live catalog, document-sync, institution, announcement, and bulletin paths use code-owned outbound controls: exact HTTPS hosts for BDDK/mevzuat, no embedded credentials or non-default ports, public-address DNS preflight, bounded redirect hops with destination/DNS revalidation, streamed decoded-body limits, and privacy-safe retry logs that omit URLs, query strings, and exception messages. Catalog/API responses are capped at 8 MiB; document-sync limits vary by artifact class up to 128 MiB. These are application memory safeguards, not source authenticity, malware-scanning, or network-isolation guarantees.
 
-DNS validation and the subsequent socket connection are not atomic. A restricted deployment must enforce the same destinations with its own egress firewall, proxy, and DNS policy. Public institution, announcement, bulletin, and digest tools can call live BDDK sources, so the serving runtime requires narrow TCP 443 egress to the approved regulatory-source destinations or an enterprise proxy; `migrate` and `import` require only PostgreSQL reachability.
+DNS validation and the subsequent socket connection are not atomic. A restricted deployment must enforce the same destinations with its own egress firewall, proxy, and DNS policy. Public institution, announcement, bulletin, and digest tools can call live BDDK sources, so the serving runtime requires narrow TCP 443 egress to the approved regulatory-source destinations or an enterprise proxy. `bddk-mcp build` needs no network at all once the embedding model is local; `bddk-mcp sync` needs the same regulatory egress as the live tools.
 
 ## Bank deployment
 
-The OpenShift starter manifests, the recovery-drill tooling, the operational-objectives contract and the supply-chain evidence lane (removed 2026-11-08, last present at commit `e858590`), and the signed corpus-release workflow, multi-identity PostgreSQL role contract, operator job manager, admin console and telemetry (removed 2026-11-09, last present at commit `9ed84a0`, tag `archive/pre-simplify-2026-11-09`) remain in Git history and must be restored and re-reviewed before any bank deployment. This repository is therefore not bank acceptance or a production-ready platform configuration. Railway (below) is a development/preview profile only.
+The OpenShift starter manifests, the recovery-drill tooling, the operational-objectives contract and the supply-chain evidence lane (removed 2026-11-08, last present at commit `e858590`), the signed corpus-release workflow, multi-identity database role contract, operator job manager, admin console and telemetry (removed 2026-11-09, last present at commit `9ed84a0`, tag `archive/pre-simplify-2026-11-09`), and the PostgreSQL backend itself (replaced 2026-11-10, tag `archive/postgres-2026-11-10`) remain in Git history and must be restored and re-reviewed before any bank deployment that needs them. This repository is therefore not bank acceptance or a production-ready platform configuration. Railway (below) is a development/preview profile only.
+
+The corpus file is distributed like a versioned package. Build it once on a build host (`bddk-mcp build`, or the container image), record its version, copy the file or the image to every serving node, and start `bddk-mcp serve` against the node's local copy. Each node serves its own read-only file; no node writes it. Never serve a corpus from, or write it live over, a network share (NFS/SMB). A corpus update is a new file produced by `bddk-mcp build` or `bddk-mcp sync` on the build host and redistributed in the same way; the sync writer never runs on a serving node.
 
 The repository has not completed a bank-cluster acceptance, backup/restore drill, or a release compatibility matrix for Claude, Codex, GPT-based clients, LM Studio, GPT-OSS, or other local clients. Example configurations demonstrate configuration shape; they are not compatibility certification.
 
@@ -134,13 +142,13 @@ The repository has not completed a bank-cluster acceptance, backup/restore drill
 
 Railway and Hugging Face Spaces are development/preview profiles. They are not part of a reviewed bank deployment path and must not be used for bank data or bank-facing service.
 
-`railway.toml` builds the standard Dockerfile, declares a `/health/ready` healthcheck, runs `bddk-mcp migrate` and `bddk-seed import` as the pre-deploy command (both are no-ops when the database already matches), and documents the required service variables inline. Railway must inject a `verify-full` PostgreSQL DSN with an available CA path and the complete non-loopback HTTP policy (`BDDK_HTTP_ALLOWED_HOSTS`, `BDDK_HTTP_ALLOWED_ORIGINS`, and either the full `BDDK_JWT_*` set or the explicit unauthenticated opt-in); without them the server refuses startup. When the public DSN is read-only, also set `BDDK_INGESTION_DATABASE_URL` and `BDDK_SCHEMA_OWNER_DATABASE_URL` for the pre-deploy command.
+`railway.toml` builds the standard Dockerfile and declares a `/health/ready` healthcheck. Because the corpus file is built into the image, the service needs no database, no pre-deploy command and no connection variables. Railway must inject the complete non-loopback HTTP policy (`BDDK_HTTP_ALLOWED_HOSTS`, `BDDK_HTTP_ALLOWED_ORIGINS`, and either the full `BDDK_JWT_*` set or the explicit unauthenticated opt-in); without them the server refuses startup. The unauthenticated opt-in on a public Railway URL serves the corpus to the whole Internet; prefer JWT or a private network.
 
 There is no separate Spaces image. Preview hosts that need port `7860` should set `PORT` on the standard image. Neither Railway nor a preview host supplies deployment-specific identity or global ingress controls by itself.
 
 ## Secrets and Logs
 
-- Keep DSNs, tokens, and credentials in platform Secrets, never in Git, image layers, committed MCP configuration, or command-line examples with real values.
-- Mount the approved PostgreSQL CA separately from credentials; keep `sslmode=verify-full` and the absolute `sslrootcert` path in every remote DSN. Never enable `BDDK_ALLOW_INSECURE_DATABASE` outside isolated local development.
+- Keep tokens, JWT settings, and TLS keys in platform Secrets, never in Git, image layers, committed MCP configuration, or command-line examples with real values.
+- The corpus file holds public regulatory text and no secret, but it is the reviewed corpus state: distribute it only through the approved artifact path and never let a serving node write it.
 - Keep `BDDK_TOOL_LOG_CONTENT=false` in shared and production environments.
 - Treat bank queries as confidential even when the regulatory corpus itself is public.

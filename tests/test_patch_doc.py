@@ -1,12 +1,13 @@
-"""Tests for scripts/patch_doc.py — patch_document() behavior."""
+"""Tests for scripts/patch_doc.py — patch_document() against a temporary corpus file."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
 
+import numpy as np
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -14,23 +15,46 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 import patch_doc  # type: ignore  # noqa: E402
 
-from bddk_mcp.store.doc_store import StoredDocument  # noqa: E402
+from bddk_mcp.core.config import CORPUS_PATH  # noqa: E402
+from bddk_mcp.store.corpus_db import CorpusDB  # noqa: E402
+from bddk_mcp.store.doc_store import DocumentStore, StoredDocument  # noqa: E402
+from bddk_mcp.store.vector_store import VectorStore  # noqa: E402
+
+DOC_ID = "mevzuat_20029"
 
 
-def _stored_doc(doc_id: str, *, markdown: str = "old body", content_hash: str = "deadbeef") -> StoredDocument:
-    """StoredDocument instance shaped like DocumentStore.get_document returns."""
+def _embed(texts: list[str]) -> np.ndarray:
+    """One-hot unit vectors (dimension 768) stand in for the embedding model."""
+    vectors = np.zeros((len(texts), 768), dtype=np.float32)
+    for row, text in enumerate(texts):
+        vectors[row, int(hashlib.md5(text.encode("utf-8")).hexdigest(), 16) % 768] = 1.0
+    return vectors
+
+
+class _Tokenizer:
+    """Whitespace tokens stand in for the embedding model's tokenizer."""
+
+    def encode(self, text: str, add_special_tokens: bool = False) -> list[str]:
+        return text.split()
+
+
+@pytest.fixture
+def stores(tmp_path):
+    """A real DocumentStore and VectorStore over a fresh corpus file."""
+    db = CorpusDB.open(tmp_path / "c.sqlite")
+    yield DocumentStore(db), VectorStore(db, embed_fn=_embed, tokenizer=_Tokenizer())
+    db.close()
+
+
+def _stored_doc(doc_id: str, *, markdown: str = "old body") -> StoredDocument:
+    """The document as it sits in the corpus before the patch."""
     return StoredDocument(
         document_id=doc_id,
         title=f"Title of {doc_id}",
         category="Sermaye Yeterliliği",
-        decision_date="",
-        decision_number="",
         source_url=f"https://example.org/{doc_id}",
         markdown_content=markdown,
-        content_hash=content_hash,
         extraction_method="markitdown_degraded",
-        total_pages=1,
-        file_size=len(markdown),
     )
 
 
@@ -53,114 +77,69 @@ def _seed_doc_entry(doc_id: str, *, markdown: str = "old body", content_hash: st
     }
 
 
-def _write_seed_files(seed_dir: Path, *, docs: list[dict]) -> None:
-    (seed_dir / "documents.json").write_text(json.dumps(docs, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-def _mock_doc_store(current_doc: StoredDocument | None) -> MagicMock:
-    """Build a DocumentStore mock that returns current_doc from get_document."""
-    store = MagicMock()
-    store.get_document = AsyncMock(return_value=current_doc)
-    store.store_document = AsyncMock()
-    return store
-
-
-def _mock_vector_store() -> MagicMock:
-    vs = MagicMock()
-    tokenizer = MagicMock()
-    tokenizer.encode.side_effect = lambda text, *, add_special_tokens=False: list(text.encode("utf-8"))
-    vs._chunk_tokenizer.return_value = tokenizer
-    vs.add_document = AsyncMock(return_value=1)
-    return vs
-
-
-@pytest.mark.asyncio
-async def test_patch_document_aborts_when_markdown_file_missing(tmp_path):
+def _write_seed_dir(tmp_path: Path, docs: list[dict]) -> Path:
     seed_dir = tmp_path / "seed_data"
     seed_dir.mkdir()
-    _write_seed_files(seed_dir, docs=[_seed_doc_entry("mevzuat_20029")])
-    missing_md = tmp_path / "does_not_exist.md"
+    (seed_dir / "documents.json").write_text(json.dumps(docs, ensure_ascii=False, indent=2), encoding="utf-8")
+    return seed_dir
+
+
+async def _patch(stores, seed_dir: Path, markdown_path: Path, **kwargs):
+    doc_store, vector_store = stores
+    return await patch_doc.patch_document(
+        doc_id=DOC_ID,
+        markdown_path=markdown_path,
+        extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
+        doc_store=doc_store,
+        vector_store=vector_store,
+        seed_dir=seed_dir,
+        **kwargs,
+    )
+
+
+async def test_patch_document_aborts_when_markdown_file_missing(tmp_path, stores):
+    seed_dir = _write_seed_dir(tmp_path, [_seed_doc_entry(DOC_ID)])
+    await stores[0].store_document(_stored_doc(DOC_ID))
 
     with pytest.raises(FileNotFoundError):
-        await patch_doc.patch_document(
-            doc_id="mevzuat_20029",
-            markdown_path=missing_md,
-            extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
-            doc_store=_mock_doc_store(_stored_doc("mevzuat_20029")),
-            vector_store=_mock_vector_store(),
-            seed_dir=seed_dir,
-            dry_run=True,
-        )
+        await _patch(stores, seed_dir, tmp_path / "does_not_exist.md", dry_run=True)
 
 
-@pytest.mark.asyncio
-async def test_patch_document_aborts_when_doc_missing_from_db(tmp_path):
-    seed_dir = tmp_path / "seed_data"
-    seed_dir.mkdir()
-    _write_seed_files(seed_dir, docs=[_seed_doc_entry("mevzuat_20029")])
+async def test_patch_document_aborts_when_doc_missing_from_db(tmp_path, stores):
+    seed_dir = _write_seed_dir(tmp_path, [_seed_doc_entry(DOC_ID)])
     md = tmp_path / "body.md"
     md.write_text("new body\n", encoding="utf-8")
 
     with pytest.raises(patch_doc.PatchError, match="not found in DB"):
-        await patch_doc.patch_document(
-            doc_id="mevzuat_20029",
-            markdown_path=md,
-            extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
-            doc_store=_mock_doc_store(None),
-            vector_store=_mock_vector_store(),
-            seed_dir=seed_dir,
-            dry_run=True,
-        )
+        await _patch(stores, seed_dir, md, dry_run=True)
 
 
-@pytest.mark.asyncio
-async def test_patch_document_aborts_when_doc_missing_from_seed(tmp_path):
-    seed_dir = tmp_path / "seed_data"
-    seed_dir.mkdir()
-    _write_seed_files(seed_dir, docs=[_seed_doc_entry("mevzuat_99999")])
+async def test_patch_document_aborts_when_doc_missing_from_seed(tmp_path, stores):
+    seed_dir = _write_seed_dir(tmp_path, [_seed_doc_entry("mevzuat_99999")])
+    await stores[0].store_document(_stored_doc(DOC_ID))
     md = tmp_path / "body.md"
     md.write_text("new body\n", encoding="utf-8")
 
     with pytest.raises(patch_doc.PatchError, match="not found in seed_data"):
-        await patch_doc.patch_document(
-            doc_id="mevzuat_20029",
-            markdown_path=md,
-            extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
-            doc_store=_mock_doc_store(_stored_doc("mevzuat_20029")),
-            vector_store=_mock_vector_store(),
-            seed_dir=seed_dir,
-            dry_run=True,
-        )
+        await _patch(stores, seed_dir, md, dry_run=True)
 
 
-@pytest.mark.asyncio
-async def test_patch_document_aborts_when_body_empty_after_header_strip(tmp_path):
+async def test_patch_document_aborts_when_body_empty_after_header_strip(tmp_path, stores):
     """Header-only file (no body) gives a clear error instead of 'no chunks produced'."""
-    seed_dir = tmp_path / "seed_data"
-    seed_dir.mkdir()
-    _write_seed_files(seed_dir, docs=[_seed_doc_entry("mevzuat_20029")])
+    seed_dir = _write_seed_dir(tmp_path, [_seed_doc_entry(DOC_ID)])
+    await stores[0].store_document(_stored_doc(DOC_ID))
     md = tmp_path / "header_only.md"
     md.write_text("# Title\n- Document ID: mevzuat_20029\n---\n", encoding="utf-8")
 
     with pytest.raises(patch_doc.PatchError, match="no content after stripping"):
-        await patch_doc.patch_document(
-            doc_id="mevzuat_20029",
-            markdown_path=md,
-            extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
-            doc_store=_mock_doc_store(_stored_doc("mevzuat_20029")),
-            vector_store=_mock_vector_store(),
-            seed_dir=seed_dir,
-            dry_run=True,
-        )
+        await _patch(stores, seed_dir, md, dry_run=True)
 
 
-@pytest.mark.asyncio
-async def test_patch_document_rejects_unbalanced_latex(tmp_path):
+async def test_patch_document_rejects_unbalanced_latex(tmp_path, stores):
     """An unclosed `$$` block in the corrected markdown should fail fast,
-    before touching DB or seed_data."""
-    seed_dir = tmp_path / "seed_data"
-    seed_dir.mkdir()
-    _write_seed_files(seed_dir, docs=[_seed_doc_entry("mevzuat_20029")])
+    before touching the corpus or seed_data."""
+    seed_dir = _write_seed_dir(tmp_path, [_seed_doc_entry(DOC_ID)])
+    await stores[0].store_document(_stored_doc(DOC_ID))
     md = tmp_path / "bad_latex.md"
     md.write_text(
         "opens but never closes: $$RA = \\max\\{0;\n\nmore text below.\n",
@@ -168,66 +147,37 @@ async def test_patch_document_rejects_unbalanced_latex(tmp_path):
     )
 
     with pytest.raises(patch_doc.PatchError, match="LaTeX validation failed"):
-        await patch_doc.patch_document(
-            doc_id="mevzuat_20029",
-            markdown_path=md,
-            extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
-            doc_store=_mock_doc_store(_stored_doc("mevzuat_20029")),
-            vector_store=_mock_vector_store(),
-            seed_dir=seed_dir,
-            dry_run=True,
-        )
+        await _patch(stores, seed_dir, md, dry_run=True)
 
 
-@pytest.mark.asyncio
-async def test_patch_document_skip_latex_check_bypasses_validator(tmp_path):
+async def test_patch_document_skip_latex_check_bypasses_validator(tmp_path, stores):
     """--skip-latex-check lets a body with unbalanced $ through — useful for
     documents that legitimately contain currency figures or other bare `$`."""
-    seed_dir = tmp_path / "seed_data"
-    seed_dir.mkdir()
-    _write_seed_files(seed_dir, docs=[_seed_doc_entry("mevzuat_20029")])
+    seed_dir = _write_seed_dir(tmp_path, [_seed_doc_entry(DOC_ID)])
+    await stores[0].store_document(_stored_doc(DOC_ID))
     md = tmp_path / "bare_dollar.md"
     md.write_text("price $100 and $200 — total $300", encoding="utf-8")
 
     # Doesn't raise — bypass path is honored.
-    result = await patch_doc.patch_document(
-        doc_id="mevzuat_20029",
-        markdown_path=md,
-        extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
-        doc_store=_mock_doc_store(_stored_doc("mevzuat_20029")),
-        vector_store=_mock_vector_store(),
-        seed_dir=seed_dir,
-        dry_run=True,
-        skip_latex_check=True,
-    )
+    result = await _patch(stores, seed_dir, md, dry_run=True, skip_latex_check=True)
     assert result["dry_run"] is True
 
 
-@pytest.mark.asyncio
-async def test_dry_run_performs_no_writes(tmp_path):
-    seed_dir = tmp_path / "seed_data"
-    seed_dir.mkdir()
-    original_docs = [_seed_doc_entry("mevzuat_20029", markdown="old body", content_hash="oldhash")]
-    _write_seed_files(seed_dir, docs=original_docs)
+async def test_dry_run_performs_no_writes(tmp_path, stores):
+    doc_store, vector_store = stores
+    original_docs = [_seed_doc_entry(DOC_ID, markdown="old body", content_hash="oldhash")]
+    seed_dir = _write_seed_dir(tmp_path, original_docs)
+    await doc_store.store_document(_stored_doc(DOC_ID))
     md = tmp_path / "body.md"
     md.write_text("brand new body content\n", encoding="utf-8")
 
-    ds = _mock_doc_store(_stored_doc("mevzuat_20029"))
-    vs = _mock_vector_store()
+    result = await _patch(stores, seed_dir, md, dry_run=True)
 
-    result = await patch_doc.patch_document(
-        doc_id="mevzuat_20029",
-        markdown_path=md,
-        extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
-        doc_store=ds,
-        vector_store=vs,
-        seed_dir=seed_dir,
-        dry_run=True,
-    )
-
-    # No DB writes
-    ds.store_document.assert_not_awaited()
-    vs.add_document.assert_not_awaited()
+    # No corpus writes: the stored row keeps its body and hash, nothing was embedded
+    current = await doc_store.get_document(DOC_ID)
+    assert current.markdown_content == "old body"
+    assert current.content_hash == result["old_hash"]
+    assert await vector_store.chunk_count() == 0
     # No FS writes — JSON files byte-identical to what we seeded
     assert json.loads((seed_dir / "documents.json").read_text(encoding="utf-8")) == original_docs
     # Result carries the planned numbers
@@ -236,14 +186,10 @@ async def test_dry_run_performs_no_writes(tmp_path):
     assert result["chunk_count"] >= 1
 
 
-@pytest.mark.asyncio
-async def test_strips_docs_dump_header_before_hashing(tmp_path):
+async def test_strips_docs_dump_header_before_hashing(tmp_path, stores):
     """When markdown has a docs_dump header, the hash is of the body only."""
-    import hashlib
-
-    seed_dir = tmp_path / "seed_data"
-    seed_dir.mkdir()
-    _write_seed_files(seed_dir, docs=[_seed_doc_entry("mevzuat_20029")])
+    seed_dir = _write_seed_dir(tmp_path, [_seed_doc_entry(DOC_ID)])
+    await stores[0].store_document(_stored_doc(DOC_ID))
     md = tmp_path / "body.md"
     body = "the actual body\n"
     md.write_text(
@@ -251,99 +197,55 @@ async def test_strips_docs_dump_header_before_hashing(tmp_path):
         encoding="utf-8",
     )
 
-    result = await patch_doc.patch_document(
-        doc_id="mevzuat_20029",
-        markdown_path=md,
-        extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
-        doc_store=_mock_doc_store(_stored_doc("mevzuat_20029")),
-        vector_store=_mock_vector_store(),
-        seed_dir=seed_dir,
-        dry_run=True,
-    )
+    result = await _patch(stores, seed_dir, md, dry_run=True)
 
     expected_hash = hashlib.sha256(body.encode("utf-8")).hexdigest()
     assert result["new_hash"] == expected_hash
 
 
-@pytest.mark.asyncio
-async def test_db_update_passes_body_and_metadata(tmp_path):
-    """store_document + add_document must be awaited with the stripped body."""
-    seed_dir = tmp_path / "seed_data"
-    seed_dir.mkdir()
-    _write_seed_files(seed_dir, docs=[_seed_doc_entry("mevzuat_20029")])
+async def test_db_update_passes_body_and_metadata(tmp_path, stores):
+    """The corpus row carries the stripped body and its chunks are republished for it."""
+    doc_store, vector_store = stores
+    seed_dir = _write_seed_dir(tmp_path, [_seed_doc_entry(DOC_ID)])
+    await doc_store.store_document(_stored_doc(DOC_ID))
     md = tmp_path / "body.md"
     body = "fresh body content\n"
     md.write_text(body, encoding="utf-8")
 
-    ds = _mock_doc_store(_stored_doc("mevzuat_20029"))
-    vs = _mock_vector_store()
+    result = await _patch(stores, seed_dir, md, dry_run=False)
 
-    await patch_doc.patch_document(
-        doc_id="mevzuat_20029",
-        markdown_path=md,
-        extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
-        doc_store=ds,
-        vector_store=vs,
-        seed_dir=seed_dir,
-        dry_run=False,
-    )
-
-    # store_document awaited once with the correct body + extraction_method
-    ds.store_document.assert_awaited_once()
-    stored = ds.store_document.await_args.args[0]
-    assert stored.document_id == "mevzuat_20029"
+    stored = await doc_store.get_document(DOC_ID)
     assert stored.markdown_content == body
     assert stored.extraction_method == patch_doc.DEFAULT_EXTRACTION_METHOD
-    # Existing title / category / source_url carried over from the DB row
-    assert stored.title == "Title of mevzuat_20029"
+    # Existing title / category / source_url carried over from the corpus row
+    assert stored.title == f"Title of {DOC_ID}"
     assert stored.category == "Sermaye Yeterliliği"
-    assert stored.source_url == "https://example.org/mevzuat_20029"
-
-    # Hash invariant — store_document recomputes from markdown_content; the
-    # StoredDocument we pass should already carry that exact hash for the
-    # body we patched.
-    import hashlib
-
-    expected_hash = hashlib.sha256(body.encode("utf-8")).hexdigest()
-    # store_document recomputes hash from markdown_content, so we verify
-    # the body itself round-trips to the expected hash. (The Pydantic model's
-    # content_hash field is unused by store_document.)
-    assert hashlib.sha256(stored.markdown_content.encode("utf-8")).hexdigest() == expected_hash
-    # total_pages is computed in patch_document and passed verbatim
+    assert stored.source_url == f"https://example.org/{DOC_ID}"
+    # Hash invariant — the stored row hashes the body we patched
+    assert stored.content_hash == hashlib.sha256(body.encode("utf-8")).hexdigest() == result["new_hash"]
     assert stored.total_pages == 1  # body is 19 bytes, well under PAGE_SIZE
+    # The previous body was archived as a version
+    assert len(await doc_store.get_document_history(DOC_ID)) == 1
 
-    # add_document awaited once with the same body
-    vs.add_document.assert_awaited_once()
-    kwargs = vs.add_document.await_args.kwargs
-    assert kwargs["doc_id"] == "mevzuat_20029"
-    assert kwargs["content"] == body
-    assert kwargs["title"] == "Title of mevzuat_20029"
+    # The vector index was republished against the new hash
+    assert await vector_store.has_document(DOC_ID)
+    assert await vector_store.chunk_count() == result["chunk_count"] >= 1
 
 
-@pytest.mark.asyncio
-async def test_seed_surgery_updates_only_target_doc(tmp_path):
+async def test_seed_surgery_updates_only_target_doc(tmp_path, stores):
     """documents.json: target updated, sibling byte-identical."""
-    seed_dir = tmp_path / "seed_data"
-    seed_dir.mkdir()
-    target = _seed_doc_entry("mevzuat_20029", markdown="old body", content_hash="oldhash")
+    target = _seed_doc_entry(DOC_ID, markdown="old body", content_hash="oldhash")
     sibling = _seed_doc_entry("mevzuat_99999", markdown="sibling body", content_hash="siblinghash")
-    _write_seed_files(seed_dir, docs=[target, sibling])
+    seed_dir = _write_seed_dir(tmp_path, [target, sibling])
+    await stores[0].store_document(_stored_doc(DOC_ID))
     md = tmp_path / "body.md"
     md.write_text("new corrected body\n", encoding="utf-8")
 
-    await patch_doc.patch_document(
-        doc_id="mevzuat_20029",
-        markdown_path=md,
-        extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
-        doc_store=_mock_doc_store(_stored_doc("mevzuat_20029")),
-        vector_store=_mock_vector_store(),
-        seed_dir=seed_dir,
-        dry_run=False,
-    )
+    await _patch(stores, seed_dir, md, dry_run=False)
 
     written = json.loads((seed_dir / "documents.json").read_text(encoding="utf-8"))
     assert len(written) == 2
-    target_out = next(d for d in written if d["document_id"] == "mevzuat_20029")
+    target_out = next(d for d in written if d["document_id"] == DOC_ID)
     sibling_out = next(d for d in written if d["document_id"] == "mevzuat_99999")
     assert target_out["markdown_content"] == "new corrected body\n"
     assert target_out["content_hash"] != "oldhash"
@@ -365,6 +267,7 @@ def test_arg_parser_requires_doc_id_and_markdown():
     args = parser.parse_args(["mevzuat_20029", "--markdown", "body.md"])
     assert args.doc_id == "mevzuat_20029"
     assert args.markdown == Path("body.md")
+    assert args.corpus == CORPUS_PATH
     assert args.extraction_method == patch_doc.DEFAULT_EXTRACTION_METHOD
     assert args.dry_run is False
 
@@ -376,10 +279,13 @@ def test_arg_parser_honors_flags():
             "mevzuat_20029",
             "--markdown",
             "body.md",
+            "--corpus",
+            "other.sqlite",
             "--extraction-method",
             "html_parser",
             "--dry-run",
         ]
     )
+    assert args.corpus == "other.sqlite"
     assert args.extraction_method == "html_parser"
     assert args.dry_run is True

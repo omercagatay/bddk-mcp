@@ -17,7 +17,7 @@ over LDAP; the MCP connection itself carries no per-user login.
   the earlier Keycloak bearer-token layer.
 - The earlier single-host stack (Keycloak realm, confidential OAuth client,
   and the patched Open WebUI image with per-request MCP token refresh) was
-  removed with this migration; the compose file now runs the plain upstream
+  removed with the move to LDAP; the compose file now runs the plain upstream
   image pinned by digest.
 
 Because MCP requests are no longer attributable to an end user by the MCP
@@ -59,8 +59,10 @@ set -euo pipefail
 ```
 
 The named volume is external, so `docker compose down -v` cannot delete it.
-`UVICORN_WORKERS` stays at 1 because SQLite must have a single application
-writer; before adding replicas, move to a database backend.
+`UVICORN_WORKERS` stays at 1 because Open WebUI's own SQLite database must have
+a single application writer; before adding replicas, move Open WebUI to a
+database backend. (The BDDK corpus file is unaffected: the MCP server only
+reads it.)
 
 ## Backup
 

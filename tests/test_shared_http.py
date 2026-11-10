@@ -3,7 +3,7 @@
 import httpx
 import pytest
 
-from tests.conftest import MockPool
+from tests.conftest import MockStore
 
 
 @pytest.mark.asyncio
@@ -11,7 +11,7 @@ async def test_client_accepts_external_http():
     from bddk_mcp.ingest.client import BddkApiClient
 
     external_http = httpx.AsyncClient(timeout=httpx.Timeout(5.0))
-    client = BddkApiClient(pool=MockPool(), http=external_http)
+    client = BddkApiClient(store=MockStore(), http=external_http)
     assert client._http is external_http
     assert client._owns_http is False
     await external_http.aclose()
@@ -21,7 +21,7 @@ async def test_client_accepts_external_http():
 async def test_client_creates_own_http():
     from bddk_mcp.ingest.client import BddkApiClient
 
-    client = BddkApiClient(pool=MockPool())
+    client = BddkApiClient(store=MockStore())
     assert client._http is not None
     assert client._owns_http is True
     await client.close()

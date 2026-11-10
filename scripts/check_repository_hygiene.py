@@ -59,7 +59,6 @@ ALLOWED_TOP_LEVEL = {
     "pyproject.toml",
     "railway.toml",
     "scripts",
-    "seed.py",
     "seed_data",
     "server.py",
     "tests",

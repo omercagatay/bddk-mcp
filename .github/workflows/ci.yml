@@ -47,44 +47,8 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
       - name: Install dependencies
         run: uv sync --frozen --dev --python ${{ matrix.python-version }}
-      - name: Run tests that do not require PostgreSQL
-        run: uv run pytest tests/ -m "not postgres and not gpu" --strict-markers -v --tb=short
-
-  postgres-test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.12", "3.13"]
-    services:
-      postgres:
-        image: pgvector/pgvector:pg17@sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0
-        env:
-          POSTGRES_USER: bddk
-          POSTGRES_PASSWORD: bddk
-          POSTGRES_DB: bddk_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          version: ${{ env.UV_VERSION }}
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
-      - name: Install dependencies
-        run: uv sync --frozen --dev --python ${{ matrix.python-version }}
-      - name: Run required PostgreSQL tests
-        env:
-          BDDK_TEST_DATABASE_URL: postgresql://bddk:bddk@localhost:5432/bddk_test
-          BDDK_REQUIRE_TEST_DATABASE: "1"
-        run: uv run pytest tests/ -m "postgres and not gpu" --strict-markers -v --tb=short
+      - name: Run the unit tests (temporary SQLite corpus, no database service)
+        run: uv run pytest tests/ -m "not gpu" --strict-markers -v --tb=short
 
   package-test:
     runs-on: ubuntu-latest
@@ -115,7 +79,8 @@ jobs:
           /tmp/bddk-wheel-venv/bin/python -I -c "from importlib.resources import files; import bddk_mcp; assert files('bddk_mcp.quality').joinpath('quality_failures.yml').is_file(); print(bddk_mcp.__version__)"
           /tmp/bddk-wheel-venv/bin/bddk-mcp --version
           /tmp/bddk-wheel-venv/bin/bddk-mcp serve --help
-          /tmp/bddk-wheel-venv/bin/bddk-mcp migrate --help
+          /tmp/bddk-wheel-venv/bin/bddk-mcp build --help
+          /tmp/bddk-wheel-venv/bin/bddk-mcp export --help
           /tmp/bddk-wheel-venv/bin/bddk-mcp sync --help
       - name: Verify container recipes use the packaged source tree
         run: |

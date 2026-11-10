@@ -73,53 +73,12 @@ def _environment_choice(name: str, *, default: str, choices: frozenset[str]) -> 
     return value
 
 
-# -- PostgreSQL ---------------------------------------------------------------
+# -- Corpus file --------------------------------------------------------------
 
-DATABASE_URL = os.environ.get("BDDK_DATABASE_URL", "")
-# Optional write-capable DSNs for lifecycle commands.  Each falls back to
-# BDDK_DATABASE_URL, so a single-identity database needs only that variable.
-INGESTION_DATABASE_URL = os.environ.get("BDDK_INGESTION_DATABASE_URL", "")
-SCHEMA_OWNER_DATABASE_URL = os.environ.get("BDDK_SCHEMA_OWNER_DATABASE_URL", "")
-
-_DATABASE_PROFILES: dict[str, tuple[str, ...]] = {
-    "public": ("BDDK_DATABASE_URL",),
-    "ingestion": ("BDDK_INGESTION_DATABASE_URL", "BDDK_DATABASE_URL"),
-    "schema-owner": ("BDDK_SCHEMA_OWNER_DATABASE_URL", "BDDK_DATABASE_URL"),
-}
-
-
-def require_database_url(profile: str = "public") -> str:
-    """Return the DSN for one process profile, falling back to ``BDDK_DATABASE_URL``.
-
-    ``public`` serves; ``ingestion`` imports and syncs; ``schema-owner`` runs
-    migrations.  The optional profile-specific variables exist only for
-    deployments that keep separate PostgreSQL logins.
-    """
-    normalized = profile.strip().lower()
-    try:
-        variables = _DATABASE_PROFILES[normalized]
-    except KeyError:
-        raise RuntimeError(
-            f"Unknown database profile {profile!r}; expected public, ingestion, or schema-owner"
-        ) from None
-    values = {
-        "BDDK_DATABASE_URL": DATABASE_URL,
-        "BDDK_INGESTION_DATABASE_URL": INGESTION_DATABASE_URL,
-        "BDDK_SCHEMA_OWNER_DATABASE_URL": SCHEMA_OWNER_DATABASE_URL,
-    }
-    dsn = next((values[name] for name in variables if values[name]), "")
-    if not dsn:
-        raise RuntimeError(f"{variables[-1]} is not set. Provide a PostgreSQL DSN before starting the server.")
-    from bddk_mcp.db_transport import assert_database_transport
-
-    return assert_database_transport(dsn)
-
-
-# asyncpg pool settings
-PG_POOL_MIN = _environment_int("BDDK_PG_POOL_MIN", default=2, minimum=1, maximum=100)
-PG_POOL_MAX = _environment_int("BDDK_PG_POOL_MAX", default=10, minimum=1, maximum=1000)
-if PG_POOL_MIN > PG_POOL_MAX:
-    raise RuntimeError("BDDK_PG_POOL_MIN must not exceed BDDK_PG_POOL_MAX.")
+# The whole corpus (documents, sections, chunks with embeddings, catalog) is one
+# SQLite file.  Serving opens it read-only; `bddk-mcp build` and `bddk-mcp sync`
+# write it.
+CORPUS_PATH = os.environ.get("BDDK_CORPUS_PATH", "").strip() or "corpus/bddk.sqlite"
 
 # -- Embedding model (offline-first) -----------------------------------------
 
@@ -158,20 +117,18 @@ OCR_MIN_CONTENT_LEN = _environment_int(
 
 CHANDRA_MODEL_NAME = os.environ.get("BDDK_CHANDRA_MODEL", "datalab-to/chandra-ocr-2")
 
-# -- pgvector -----------------------------------------------------------------
+# -- Embedding dimension ------------------------------------------------------
 
-# The immutable PostgreSQL migration stores public.vector(768), and the default
-# E5 model emits exactly 768 values. Reject a misleading override instead of
-# allowing ingestion to fail after an expensive embedding run.
+# The default E5 model emits exactly 768 values and every corpus file records
+# the dimension it was built with. Reject a misleading override instead of
+# allowing a build to fail after an expensive embedding run.
 EMBEDDING_DIMENSION = 768
 _configured_embedding_dimension = os.environ.get("BDDK_EMBEDDING_DIM", str(EMBEDDING_DIMENSION))
 try:
     if int(_configured_embedding_dimension) != EMBEDDING_DIMENSION:
-        raise RuntimeError("BDDK_EMBEDDING_DIM must be 768 for the current immutable database schema.")
+        raise RuntimeError("BDDK_EMBEDDING_DIM must be 768 for the current corpus format.")
 except ValueError:
-    raise RuntimeError(
-        "BDDK_EMBEDDING_DIM must be the integer 768 for the current immutable database schema."
-    ) from None
+    raise RuntimeError("BDDK_EMBEDDING_DIM must be the integer 768 for the current corpus format.") from None
 
 # -- Document chunking -------------------------------------------------------
 

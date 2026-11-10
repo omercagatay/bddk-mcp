@@ -211,7 +211,7 @@ class SectionItem(StrictOutputModel):
         description="Exclusive absolute normalized-document offset where the returned excerpt ends.",
     )
     content_hash: str = Field(description="Full stored section content hash.")
-    rank: float | None = Field(default=None, ge=0, description="Within-query PostgreSQL FTS rank.")
+    rank: float | None = Field(default=None, ge=0, description="Within-query FTS rank.")
     quality: QualityMetadata = Field(description="Quality assessment inherited from the document and content.")
 
 
