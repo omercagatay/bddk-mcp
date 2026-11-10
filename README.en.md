@@ -79,7 +79,7 @@ The package version is 5.0.1. There is no GitHub release tag for that version.
 
 The tool list lives in `bddk_mcp/tools/registry.py`: 14 tools, one surface. Example: `uv run --frozen bddk-mcp serve`. Requires Python 3.12 or 3.13 and `uv`; the corpus is one SQLite file, so no database service is needed.
 
-Setup order is `bddk-mcp build` (`seed_data/` → `corpus/bddk.sqlite`; the first run takes about 15 minutes on a laptop CPU), then `serve`; `sync` is optional. The earlier PostgreSQL backend was replaced by this single file on 2026-11-10 and remains at tag `archive/postgres-2026-11-10`. The signed release workflow, multi-identity database roles, operator job queue, admin console, telemetry and the legal-status tools that had no data path (`resolve_regulation_status`, `get_amendment_chain`, `get_cross_references`) were removed on 2026-11-09 and remain in Git history (tag `archive/pre-simplify-2026-11-09`).
+Setup order is `bddk-mcp build` (`seed_data/` → `corpus/bddk.sqlite`; with the vectors shipped in `seed_data/embeddings/` it takes about half a minute on a laptop CPU; documents without a matching vector are embedded again, and embedding everything from scratch takes about 15 minutes), then `serve`; `sync` is optional. The earlier PostgreSQL backend was replaced by this single file on 2026-11-10 and remains at tag `archive/postgres-2026-11-10`. The signed release workflow, multi-identity database roles, operator job queue, admin console, telemetry and the legal-status tools that had no data path (`resolve_regulation_status`, `get_amendment_chain`, `get_cross_references`) were removed on 2026-11-09 and remain in Git history (tag `archive/pre-simplify-2026-11-09`).
 
 ## License
 

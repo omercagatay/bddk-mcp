@@ -595,9 +595,10 @@ def register(mcp, deps: Dependencies) -> None:
         Unparsed `govde` remainder and nested fıkra/bent rows are omitted unless
         `section_type` requests them.
 
-        Each FTS hit includes a `Match rank` (length-normalized ts_rank_cd):
-        higher is better; ranks are comparable within one query's results and
-        can be used to gate low-confidence retrieval.
+        Each FTS hit includes a `Match rank` (SQLite FTS5 BM25 over the section
+        heading and body, heading weighted 2x, sign-flipped so that higher is
+        better): ranks are comparable within one query's results and can be
+        used to gate low-confidence retrieval.
         """
         refs = parse_legal_refs(query)
         inferred_doc_id = document_id or (refs.document_ids[0] if refs.document_ids else None)

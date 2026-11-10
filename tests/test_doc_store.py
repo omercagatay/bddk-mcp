@@ -1,4 +1,4 @@
-"""Tests for DocumentStore (PostgreSQL + tsvector)."""
+"""Tests for DocumentStore (SQLite corpus file + FTS5)."""
 
 import hashlib
 from unittest.mock import MagicMock

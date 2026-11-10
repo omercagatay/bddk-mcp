@@ -533,6 +533,15 @@ def _embedding_blob(vector) -> bytes:
     return array.astype(_EMBEDDING_DTYPE).tobytes()
 
 
+def chunk_digest(texts: list[str]) -> str:
+    """Identity of a chunk list: exported embeddings are reused only for exactly these texts."""
+    digest = hashlib.sha256()
+    for text in texts:
+        digest.update(f"{len(text)}:".encode())
+        digest.update(text.encode())
+    return digest.hexdigest()
+
+
 @dataclass
 class _VectorIndex:
     """Every current chunk vector in memory, aligned with its row identity."""
@@ -709,8 +718,15 @@ class VectorStore:
         decision_date: str = "",
         decision_number: str = "",
         source_url: str = "",
+        *,
+        cached_embeddings=None,
     ) -> int:
-        """Embed and publish a document's chunks. Returns the number of chunks."""
+        """Embed and publish a document's chunks. Returns the number of chunks.
+
+        ``cached_embeddings(digest, count)`` may return the vectors exported earlier
+        for exactly these chunk texts (see ``chunk_digest``); a seed whose chunks and
+        model are unchanged then builds without loading the embedding model.
+        """
         if not content.strip():
             return 0
         tokenizer = await asyncio.to_thread(self._chunk_tokenizer)
@@ -718,7 +734,10 @@ class VectorStore:
         if not chunks:
             return 0
         content_hash = hashlib.sha256(content.encode()).hexdigest()
-        embeddings = await self._embed([chunk.chunk_text for chunk in chunks])
+        texts = [chunk.chunk_text for chunk in chunks]
+        embeddings = cached_embeddings(chunk_digest(texts), len(texts)) if cached_embeddings else None
+        if embeddings is None or embeddings.shape != (len(texts), EMBEDDING_DIMENSION):
+            embeddings = await self._embed(texts)
         rows = [
             (
                 doc_id,

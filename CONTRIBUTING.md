@@ -64,7 +64,7 @@ Do not force-push `main`, commit directly around its protection rules, or leave 
 
 ### Corpus and generated artifacts
 
-- `seed_data/*.json` and `uv.lock` are generated artifacts. Do not hand-edit them to make a test pass.
+- `seed_data/*.json`, `seed_data/embeddings/` and `uv.lock` are generated artifacts. Do not hand-edit them to make a test pass; after changing documents, run `bddk-mcp export` so the JSON and the embedding cache match.
 - State the generation command and validation result in the PR.
 - Never commit private keys, credentials, customer data, restricted source documents, or a built corpus file.
 - Use the data-quality issue form for defects that require authoritative source review.

@@ -6,8 +6,10 @@ import hashlib
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 
+from bddk_mcp.core.config import EMBEDDING_MODEL_NAME
 from bddk_mcp.ingest import seed
 from bddk_mcp.store.corpus_db import CorpusDB
 from bddk_mcp.store.doc_store import DocumentStore
@@ -18,6 +20,23 @@ from tests.conftest import FakeTokenizer, fake_embed
 
 def _fake_vector_store(db: CorpusDB) -> VectorStore:
     return VectorStore(db, embed_fn=fake_embed, tokenizer=FakeTokenizer())
+
+
+def _forbidden_embed(texts: list[str]) -> np.ndarray:
+    raise AssertionError("the embedding model must not run when the seed cache covers every chunk")
+
+
+def _chunk_blobs(corpus: Path) -> list[tuple[str, int, bytes]]:
+    db = CorpusDB.open(corpus, readonly=True)
+    try:
+        return db.run_sync(
+            lambda conn: [
+                (row["doc_id"], row["chunk_index"], row["embedding"])
+                for row in conn.execute("SELECT doc_id, chunk_index, embedding FROM chunks ORDER BY 1, 2")
+            ]
+        )
+    finally:
+        db.close()
 
 
 def _write_seed_files(seed_dir: Path, *, docs: list[dict], cache: list[dict] | None = None) -> None:
@@ -84,7 +103,14 @@ def test_load_records_rejects_non_object_artifacts(tmp_path: Path) -> None:
 async def test_build_creates_a_ready_corpus_from_seed_json(tmp_path: Path, seed_dir: Path):
     result = await _build(tmp_path)
 
-    assert result == {"decision_cache": 1, "documents": 2, "sections": 2, "chunks": 3, "skipped": False}
+    assert result == {
+        "decision_cache": 1,
+        "documents": 2,
+        "sections": 2,
+        "chunks": 3,
+        "chunks_cached": 0,
+        "skipped": False,
+    }
     db = CorpusDB.open(tmp_path / "corpus.sqlite", readonly=True)
     try:
         readiness = await db.assert_ready(require_corpus=True)
@@ -161,15 +187,83 @@ async def test_build_refuses_a_tampered_seed(tmp_path: Path, seed_dir: Path):
 async def test_export_round_trips_the_seed(tmp_path: Path, seed_dir: Path):
     await _build(tmp_path)
     out_dir = tmp_path / "out"
+    stale = out_dir / "embeddings" / "gone.npy"
+    stale.parent.mkdir(parents=True)
+    stale.write_bytes(b"stale")
 
-    documents, catalog = await seed.export_corpus(corpus_path=tmp_path / "corpus.sqlite", seed_dir=out_dir)
+    documents, catalog, embedded = await seed.export_corpus(corpus_path=tmp_path / "corpus.sqlite", seed_dir=out_dir)
 
-    assert (documents, catalog) == (2, 1)
+    assert (documents, catalog, embedded) == (2, 1, 2)
+    manifest = json.loads((out_dir / "embeddings" / "manifest.json").read_text(encoding="utf-8"))
+    assert (manifest["embedding_model"], manifest["embedding_dimension"]) == (EMBEDDING_MODEL_NAME, 768)
+    assert set(manifest["documents"]) == {"943", "mevzuat_22599"}
+    assert sorted(path.name for path in (out_dir / "embeddings").glob("*.npy")) == ["943.npy", "mevzuat_22599.npy"]
+    vectors = np.load(out_dir / "embeddings" / "943.npy", allow_pickle=False)
+    assert vectors.dtype == np.float16 and vectors.shape[1] == 768
     exported = json.loads((out_dir / "documents.json").read_text(encoding="utf-8"))
     original = json.loads((seed_dir / "documents.json").read_text(encoding="utf-8"))
     for key in ("document_id", "title", "category", "markdown_content", "content_hash", "extraction_method"):
         assert [d[key] for d in exported] == [d[key] for d in original]
     assert json.loads((out_dir / "decision_cache.json").read_text(encoding="utf-8"))[0]["document_id"] == "943"
+
+
+@pytest.mark.asyncio
+async def test_build_reuses_exported_embeddings_without_the_model(tmp_path: Path, seed_dir: Path):
+    await _build(tmp_path)
+    await seed.export_corpus(corpus_path=tmp_path / "corpus.sqlite", seed_dir=seed_dir)
+
+    result = await seed.build_corpus(
+        corpus_path=tmp_path / "cached.sqlite",
+        seed_dir=seed_dir,
+        vector_store_factory=lambda db: VectorStore(db, embed_fn=_forbidden_embed, tokenizer=FakeTokenizer()),
+    )
+
+    assert (result["chunks"], result["chunks_cached"]) == (3, 3)
+    assert _chunk_blobs(tmp_path / "cached.sqlite") == _chunk_blobs(tmp_path / "corpus.sqlite")
+    cached = CorpusDB.open(tmp_path / "cached.sqlite", readonly=True)
+    try:
+        assert (await cached.assert_ready(require_corpus=True)).issues == []
+    finally:
+        cached.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("spoil", ["content", "corrupt_file", "model", "force"])
+async def test_build_embeds_again_when_the_cache_does_not_match(tmp_path: Path, seed_dir: Path, spoil: str):
+    await _build(tmp_path)
+    await seed.export_corpus(corpus_path=tmp_path / "corpus.sqlite", seed_dir=seed_dir)
+    embeddings = seed_dir / "embeddings"
+    kwargs = {}
+    if spoil == "content":
+        changed = json.loads(json.dumps(DOCS))
+        changed[1]["markdown_content"] += "Ek fıkra eklendi.\n"
+        _write_seed_files(seed_dir, docs=changed, cache=CACHE)
+    elif spoil == "corrupt_file":
+        (embeddings / "mevzuat_22599.npy").write_bytes(b"not a numpy file")
+    elif spoil == "model":
+        manifest = json.loads((embeddings / "manifest.json").read_text(encoding="utf-8"))
+        manifest["embedding_model"] = "other/model"
+        (embeddings / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    else:
+        kwargs["force"] = True
+    embedded: list[int] = []
+
+    def counting_embed(texts: list[str]) -> np.ndarray:
+        embedded.append(len(texts))
+        return fake_embed(texts)
+
+    result = await seed.build_corpus(
+        corpus_path=tmp_path / "again.sqlite",
+        seed_dir=seed_dir,
+        vector_store_factory=lambda db: VectorStore(db, embed_fn=counting_embed, tokenizer=FakeTokenizer()),
+        **kwargs,
+    )
+
+    assert result["chunks_cached"] == result["chunks"] - sum(embedded)
+    if spoil in {"content", "corrupt_file"}:
+        assert 0 < sum(embedded) < result["chunks"]  # only the spoiled document was embedded again
+    else:
+        assert (sum(embedded), result["chunks_cached"]) == (result["chunks"], 0)
 
 
 class TestStripDocsDumpHeader:
