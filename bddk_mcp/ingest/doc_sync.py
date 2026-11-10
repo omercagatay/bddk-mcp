@@ -2,7 +2,7 @@
 Document sync engine for BDDK MCP Server.
 
 Downloads BDDK decisions and mevzuat.gov.tr documents, extracts content
-to markdown, and stores them in the PostgreSQL database.
+to markdown, and stores them in the corpus file.
 
 Extraction pipeline (configured in ocr.base.get_default_backends):
   1. LightOnOCR-2-1B (GPU) — primary, formula-aware
@@ -10,17 +10,12 @@ Extraction pipeline (configured in ocr.base.get_default_backends):
   3. markitdown — CPU last resort, no formulas
   4. HTML parsing — mevzuat.gov.tr HTML fallback
 
-Usage:
-    python doc_sync.py sync [--force] [--doc-id DOC_ID] [--concurrency 5]
-    python doc_sync.py stats
-    python doc_sync.py import-cache
+Run it through ``bddk-mcp sync``.
 """
 
-import argparse
 import asyncio
 import html
 import io
-import json
 import logging
 import re
 import stat
@@ -28,7 +23,6 @@ import time
 import zipfile
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
-from functools import partial
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, urlparse
 
@@ -40,7 +34,6 @@ from defusedxml.common import DefusedXmlException
 from pydantic import BaseModel
 
 from bddk_mcp.core.config import (
-    BASE_DIR,
     HTTP_CONNECT_TIMEOUT,
     HTTP_POOL_TIMEOUT,
     MAX_RETRIES,
@@ -62,8 +55,6 @@ from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
 
 if TYPE_CHECKING:
     from bddk_mcp.store.vector_store import VectorStore
-
-CACHE_FILE = BASE_DIR / ".cache.json"  # legacy path for CLI compat
 
 logger = logging.getLogger(__name__)
 
@@ -1423,173 +1414,3 @@ class DocumentSyncer:
 
         report.elapsed_seconds = round(time.time() - start, 2)
         return report
-
-    # ── Cache import helper ──────────────────────────────────────────────
-
-    async def import_and_sync_from_cache(self, force: bool = False, concurrency: int = 5) -> SyncReport:
-        """Load documents from .cache.json and sync them all."""
-        if not CACHE_FILE.exists():
-            logger.error("Legacy cache file was not found")
-            return SyncReport()
-
-        data = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
-        items = data.get("items", [])
-        if not items:
-            logger.warning("Cache file is empty")
-            return SyncReport()
-
-        logger.info("Found %d items in cache file", len(items))
-
-        # First import metadata
-        await self._store.import_from_cache(items)
-
-        # Then sync content
-        return await self.sync_all(items, concurrency=concurrency, force=force)
-
-
-# ── CLI ──────────────────────────────────────────────────────────────────────
-
-
-async def _create_pool_and_store(dsn: str | None) -> tuple:
-    """Create asyncpg pool, DocumentStore, and VectorStore for CLI usage.
-
-    The standalone CLI is a data operation.  It requires a schema prepared by
-    ``bddk-mcp migrate`` and never creates or upgrades database objects itself.
-    """
-    import asyncpg as _asyncpg
-
-    from bddk_mcp.core.config import require_database_url
-    from bddk_mcp.db_identity import assert_database_connection_identity, assert_database_identity
-    from bddk_mcp.db_lifecycle import assert_database_ready
-    from bddk_mcp.db_transport import assert_database_transport
-    from bddk_mcp.store.vector_store import VectorStore
-
-    selected_dsn = assert_database_transport(dsn) if dsn else require_database_url("ingestion")
-    pool = await _asyncpg.create_pool(
-        selected_dsn,
-        min_size=1,
-        max_size=5,
-        init=partial(assert_database_connection_identity, profile="ingestion"),
-    )
-    try:
-        await assert_database_ready(pool=pool, require_corpus=False)
-        await assert_database_identity(pool, "ingestion")
-        store = DocumentStore(pool)
-        vector_store = VectorStore(pool)
-    except BaseException:
-        await pool.close()
-        raise
-
-    return pool, store, vector_store
-
-
-async def _cli_sync(args: argparse.Namespace) -> None:
-    """CLI: sync documents."""
-    pool, store, vs = await _create_pool_and_store(args.db)
-    try:
-        async with DocumentSyncer(store, vector_store=vs) as syncer:
-            if args.doc_id:
-                # Look up metadata from decision_cache for source_url/title
-                row = await pool.fetchrow(
-                    "SELECT source_url, title, category, decision_date, decision_number"
-                    " FROM decision_cache WHERE document_id = $1",
-                    args.doc_id,
-                )
-                result = await syncer.sync_document(
-                    doc_id=args.doc_id,
-                    source_url=row["source_url"] if row else "",
-                    title=row["title"] if row else "",
-                    category=row["category"] if row else "",
-                    decision_date=row["decision_date"] if row else "",
-                    decision_number=row["decision_number"] if row else "",
-                    force=args.force,
-                )
-                status = "OK" if result.success else "FAIL"
-                print(f"[{status}] {result.document_id}: {result.method or result.error}")
-            else:
-                report = await syncer.import_and_sync_from_cache(
-                    force=args.force,
-                    concurrency=args.concurrency,
-                )
-                print("\nSync Report:")
-                print(f"  Total:      {report.total}")
-                print(f"  Downloaded: {report.downloaded}")
-                print(f"  Skipped:    {report.skipped}")
-                print(f"  Failed:     {report.failed}")
-                print(f"  Time:       {report.elapsed_seconds}s")
-                if report.errors:
-                    print("\nErrors:")
-                    for e in report.errors[:20]:
-                        print(f"  [{e.document_id}] {e.error}")
-    finally:
-        await pool.close()
-
-
-async def _cli_stats(args: argparse.Namespace) -> None:
-    """CLI: show store stats."""
-    pool, store, _vs = await _create_pool_and_store(args.db)
-    try:
-        st = await store.stats()
-        print(f"Documents: {st.total_documents}")
-        print(f"Size: {st.total_size_mb} MB")
-        print(f"Need refresh: {st.documents_needing_refresh}")
-        if st.categories:
-            print("\nCategories:")
-            for cat, count in st.categories.items():
-                print(f"  {cat}: {count}")
-        if st.extraction_methods:
-            print("\nExtraction methods:")
-            for m, count in st.extraction_methods.items():
-                print(f"  {m}: {count}")
-    finally:
-        await pool.close()
-
-
-async def _cli_import(args: argparse.Namespace) -> None:
-    """CLI: import metadata from cache without downloading content."""
-    pool, store, _vs = await _create_pool_and_store(args.db)
-    try:
-        if not CACHE_FILE.exists():
-            print(f"No cache file at {CACHE_FILE}")
-            return
-
-        data = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
-        items = data.get("items", [])
-        imported = await store.import_from_cache(items)
-        print(f"Imported {imported} new entries from cache ({len(items)} total in cache)")
-    finally:
-        await pool.close()
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="BDDK Document Sync")
-    parser.add_argument("--db", help="PostgreSQL DSN (e.g. postgresql://user:pass@host/db)", default=None)
-    sub = parser.add_subparsers(dest="command")
-
-    # sync
-    sync_p = sub.add_parser("sync", help="Download and extract documents")
-    sync_p.add_argument("--force", action="store_true", help="Re-download all")
-    sync_p.add_argument("--doc-id", help="Sync a single document by ID")
-    sync_p.add_argument("--concurrency", type=int, default=5)
-
-    # stats
-    sub.add_parser("stats", help="Show document store statistics")
-
-    # import-cache
-    sub.add_parser("import-cache", help="Import metadata from .cache.json (legacy)")
-
-    args = parser.parse_args()
-
-    if args.command == "sync":
-        asyncio.run(_cli_sync(args))
-    elif args.command == "stats":
-        asyncio.run(_cli_stats(args))
-    elif args.command == "import-cache":
-        asyncio.run(_cli_import(args))
-    else:
-        parser.print_help()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-    main()

@@ -19,7 +19,7 @@ SEED = Path(__file__).resolve().parents[1] / "seed_data" / "documents.json"
 
 
 def test_guideline_paragraphs_and_principle_boundaries_on_real_seed():
-    docs = {d["document_id"]: d for d in json.loads(SEED.read_text())}
+    docs = {d["document_id"]: d for d in json.loads(SEED.read_text(encoding="utf-8"))}
     for doc_id, principle, last_paragraph, next_heading, target in (
         ("943", "7", "52.", "ÜÇÜNCÜ KISIM", "43"),
         ("935", "6", "25.", "2.2.", "29"),
@@ -42,7 +42,7 @@ def test_guideline_paragraphs_and_principle_boundaries_on_real_seed():
 
 
 def test_karsilik_regulation_rebuild_on_real_seed():
-    docs = {d["document_id"]: d for d in json.loads(SEED.read_text())}
+    docs = {d["document_id"]: d for d in json.loads(SEED.read_text(encoding="utf-8"))}
     sections = extract_document_sections("mevzuat_22599", docs["mevzuat_22599"]["markdown_content"])
     madde = {s.section_ref: s.content for s in sections if s.section_type == "madde"}
     assert (
@@ -54,11 +54,9 @@ def test_karsilik_regulation_rebuild_on_real_seed():
 
 @pytest.mark.asyncio
 async def test_credit_loss_queries_against_full_seed(doc_store):
-    for doc in json.loads(SEED.read_text()):
+    for doc in json.loads(SEED.read_text(encoding="utf-8")):
         await doc_store.store_document(StoredDocument(**doc))
-    tool = _capture_tool(
-        Dependencies(pool=None, doc_store=doc_store, client=None, http=None), "search_document_sections"
-    )
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "search_document_sections")
     cases = (
         (
             "gerçekleşen kayıp oranı geriye dönük test LGD tarihsel veri stres testi",
@@ -115,7 +113,7 @@ async def test_credit_loss_queries_against_full_seed(doc_store):
         print(json.dumps({"query": query, "top": keys, "hit_at": cutoff, "passed": passed}, ensure_ascii=False))
     assert all(outcomes)
 
-    exact = _capture_tool(Dependencies(pool=None, doc_store=doc_store, client=None, http=None), "get_document_section")
+    exact = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "get_document_section")
     for doc_id, ref in (
         ("943", "43"),
         ("1040", "80"),
@@ -142,8 +140,6 @@ async def test_credit_loss_queries_against_full_seed(doc_store):
         assert evidence["source_url"] in result.text
         assert evidence["extraction_method"]
         assert "citation" not in evidence  # Seed text alone is not independently validated authority.
-        assert "citation_v1_unavailable_no_validated_mapping" in result.text
-        assert "do not establish current legal applicability" in result.text
 
     result = await tool("943 paragraf 43", limit=1)
     assert result.structuredContent["exact_reference_detected"]

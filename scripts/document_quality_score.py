@@ -16,13 +16,10 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-import asyncpg
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from bddk_mcp.core.config import require_database_url  # noqa: E402
-from bddk_mcp.db_transport import assert_database_transport  # noqa: E402
+from bddk_mcp.core.config import CORPUS_PATH  # noqa: E402
 from bddk_mcp.quality.markdown_quality import assess_markdown_quality  # noqa: E402
 from bddk_mcp.quality.quality_scan import (  # noqa: E402
     AnomalyCount,
@@ -32,6 +29,7 @@ from bddk_mcp.quality.quality_scan import (  # noqa: E402
     format_report_json,
     scan_quality,
 )
+from bddk_mcp.store.corpus_db import CorpusDB  # noqa: E402
 from scripts.scan_document_quality import scan_markdown_dir  # noqa: E402
 
 
@@ -62,13 +60,13 @@ def quality_score(report: QualityReport) -> dict:
     }
 
 
-async def scan_db(dsn: str | None) -> QualityReport:
-    selected_dsn = assert_database_transport(dsn) if dsn else require_database_url()
-    pool = await asyncpg.create_pool(selected_dsn, min_size=1, max_size=3)
+async def scan_db(corpus_path: str | None = None) -> QualityReport:
+    """Run the canonical quality scan over the corpus file (opened read-only)."""
+    db = CorpusDB.open(corpus_path, readonly=True)
     try:
-        return await scan_quality(pool)
+        return await scan_quality(db)
     finally:
-        await pool.close()
+        db.close()
 
 
 def scan_seed_dir(seed_dir: Path) -> QualityReport:
@@ -141,10 +139,12 @@ def scan_seed_dir(seed_dir: Path) -> QualityReport:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Compute BDDK document-quality score.")
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--db", action="store_true", help="Scan documents from PostgreSQL")
+    source.add_argument("--db", action="store_true", help="Scan documents from the corpus file")
     source.add_argument("--md-dir", type=Path, help="Scan local Markdown export directory")
     source.add_argument("--seed-dir", type=Path, help="Scan seed_data documents.json/chunks.json")
-    parser.add_argument("--dsn", help="Override BDDK_DATABASE_URL")
+    parser.add_argument(
+        "--corpus", default=CORPUS_PATH, help="Corpus file path (default: BDDK_CORPUS_PATH or corpus/bddk.sqlite)"
+    )
     parser.add_argument("--json", action="store_true", help="Print score details as JSON")
     parser.add_argument("--include-report", action="store_true", help="Include full quality report in JSON output")
     return parser
@@ -153,7 +153,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     if args.db:
-        report = asyncio.run(scan_db(args.dsn))
+        report = asyncio.run(scan_db(args.corpus))
     elif args.seed_dir:
         report = scan_seed_dir(args.seed_dir)
     else:

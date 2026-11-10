@@ -3,14 +3,13 @@
 import asyncio
 import logging
 import os
+import sqlite3
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import fields
-from functools import partial
 
 import anyio
-import asyncpg
 import httpx
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
@@ -21,27 +20,11 @@ from bddk_mcp import __version__
 from bddk_mcp.core.config import (
     HTTP_CONNECT_TIMEOUT,
     HTTP_POOL_TIMEOUT,
-    OPERATOR_JOB_DRAIN_TIMEOUT,
-    OPERATOR_JOB_HISTORY,
-    PG_POOL_MAX,
-    PG_POOL_MIN,
     REQUEST_TIMEOUT,
-    REQUIRE_ACTIVE_CORPUS_RELEASE,
-    TELEMETRY_ENABLED,
-    require_database_url,
-    require_telemetry_database_url,
     validate_model_asset_policy,
 )
 from bddk_mcp.core.deps import Dependencies
 from bddk_mcp.core.logging_config import configure_logging
-from bddk_mcp.corpus_publication import (
-    CorpusPublicationError,
-    CorpusReleaseIdentity,
-    inspect_active_corpus_release,
-)
-from bddk_mcp.corpus_serving import ActiveCorpusGuard
-from bddk_mcp.db_identity import assert_database_connection_identity, assert_database_identity
-from bddk_mcp.db_lifecycle import assert_database_ready
 from bddk_mcp.http_security import (
     HttpSecurityConfig,
     HttpSecurityConfigError,
@@ -51,18 +34,11 @@ from bddk_mcp.http_security import (
     load_http_security_config,
 )
 from bddk_mcp.ingest.client import BddkApiClient
-from bddk_mcp.jobs import (
-    MIN_OPERATOR_JOB_POOL_SIZE,
-    OperatorJobManager,
-    PostgresJobRepository,
-    assert_operator_job_schema_ready,
-)
 from bddk_mcp.mcp_server import BddkFastMCP
-from bddk_mcp.observability.telemetry import assert_telemetry_writer_ready
-from bddk_mcp.resources import register_resources
+from bddk_mcp.store.corpus_db import CorpusDB
 from bddk_mcp.store.doc_store import DocumentStore
 from bddk_mcp.store.vector_store import VectorStore
-from bddk_mcp.tools.registry import ToolProfile, assert_tool_profile, register_tool_profile
+from bddk_mcp.tools.registry import assert_tool_surface, register_tools
 from bddk_mcp.transport_tls import ServerTlsConfig, load_server_tls_config
 
 logger = logging.getLogger(__name__)
@@ -89,38 +65,25 @@ RESPONSE STYLE AND TOOL-USE DISCIPLINE:
 14. Search results and snippets are leads, not final authority. Retrieve exact sections or pages before making detailed legal or audit conclusions.
 15. For multi-concept queries, search each substantive issue separately, then narrow by document and retrieve each exact provision. A loose fallback is lexical discovery, not a legal-confidence score; FTS ranks are not percentages.
 16. Preserve the source's unit and scope: paragraf is not madde, and an IRB/IDD capital requirement is not automatically a TFRS 9/BKZ accounting requirement. Distinguish explicit duties from supporting context and your interpretation; never infer a test frequency, data window, threshold, or formula that the cited provision does not state.
-17. A catalog URL, clean extraction, source download, or Citation v1 alone does not establish legal currentness. Before a current-law conclusion, require the relevant as-of date and validated authoritative legal-status evidence via resolve_regulation_status. If the evidence or canonical instrument ID is unavailable, state the gap and abstain from that conclusion; do not invent identifiers or validation.
-18. For a legal answer, check each proposed quotation with get_document_section(quotation=..., as_of=...) using the user's required date, not an assumed current date. Inspect answer_assessment: local_text is not validated law, and dated_version binds only the cited version to that date. Keep a claim-to-provision list covering every substantive claim; mark missing support explicitly instead of filling it with inference. A quotation match never validates a paraphrase, omitted exception, application scope, or unstated numeric requirement; scope_and_entailment remains not_assessed and must be reviewed against the full provision and relevant cross-references.
+17. A catalog URL, clean extraction, or source download alone does not establish legal currentness. Before a current-law conclusion, verify the instrument's publication and amendment status against the official source (mevzuat.gov.tr / Resmî Gazete) for the required date; if that evidence is unavailable, state the gap and abstain from that conclusion.
+18. For a legal answer, check each proposed quotation with get_document_section(quotation=...). Inspect answer_assessment: an exact match proves only that the characters occur in the stored provision. Keep a claim-to-provision list covering every substantive claim; mark missing support explicitly instead of filling it with inference. A quotation match never validates a paraphrase, omitted exception, application scope, or unstated numeric requirement; scope_and_entailment remains not_assessed and must be reviewed against the full provision and relevant cross-references.
 19. NEVER summarize, paraphrase, shorten, reword, correct, or "clean up" regulatory text returned by a document or section tool. Return the exact characters the tool returned, including punctuation, numbering, and abbreviations. Never present your own summary as the provision's text, and never label a summary as a quotation. Explicitly state when text is truncated, when a section is only an excerpt, or when a source is unavailable.
-20. An exact-reference match proves the characters occur in the returned stored text. It does NOT prove the extraction equals the official source or that the rule is currently in force; verify against source_url and the dated legal-status evidence, and report any fidelity or freshness gap instead of implying it is verified.
+20. An exact-reference match proves the characters occur in the returned stored text. It does NOT prove the extraction equals the official source or that the rule is currently in force; verify against source_url and the official publication/amendment record, and report any fidelity or freshness gap instead of implying it is verified.
 21. Catalog search results may include BDDK-catalog summary/excerpt fields. These are catalog metadata, not extracted document text: never quote them as the provision or document body, and retrieve the exact document/section when the wording matters.
 """
 
 # Tool functions close over this stable object.  Runtime resources are copied
 # into it when the FastMCP lifespan starts, which lets import-based launchers
-# discover the complete tool surface before a database connection is opened.
-_runtime_deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
+# discover the complete tool surface before the corpus file is opened.
+_runtime_deps = Dependencies(db=None, doc_store=None, client=None, http=None)
 _runtime_lock: asyncio.Lock | None = None
 _runtime_loop: asyncio.AbstractEventLoop | None = None
 _runtime_lock_users = 0
 _runtime_leases = 0
-_runtime_profile: ToolProfile | None = None
 
 _TRANSPORTS = frozenset({"stdio", "streamable-http"})
 _READINESS_ATTESTATION_TTL_SECONDS = 5.0
 _SEMANTIC_SEARCH_STARTUP_TIMEOUT_SECONDS = 45.0
-
-
-def _requires_active_release_for_readiness(profile: ToolProfile) -> bool:
-    """Keep operator recovery available while strict corpus reads fail closed."""
-
-    return REQUIRE_ACTIVE_CORPUS_RELEASE and profile is ToolProfile.PUBLIC
-
-
-def _requires_corpus_for_readiness(profile: ToolProfile) -> bool:
-    """Permit the strict operator plane to repair an empty or invalid corpus."""
-
-    return not (REQUIRE_ACTIVE_CORPUS_RELEASE and profile is ToolProfile.OPERATOR)
 
 
 def _runtime_host() -> str:
@@ -163,53 +126,19 @@ def _local_discovery_http_config() -> HttpSecurityConfig:
     return load_http_security_config({"MCP_HOST": host, "PORT": port})
 
 
-def _validate_profile_http_policy(config: HttpSecurityConfig, profile: ToolProfile) -> None:
-    """Require profile-specific authorization and explicit operator exposure."""
-    if config.jwt_issuer is not None:
-        required_scope = "bddk.read" if profile is ToolProfile.PUBLIC else "bddk.operator"
-        if required_scope not in config.jwt_required_scopes:
-            raise HttpSecurityConfigError(f"The {profile.value} HTTP profile requires JWT scope {required_scope!r}")
-
-    if profile is ToolProfile.OPERATOR and config.allow_unauthenticated and not config.loopback_only:
-        raise HttpSecurityConfigError(
-            "Operator tools must never be exposed unauthenticated. "
-            "BDDK_HTTP_ALLOW_UNAUTHENTICATED is limited to the public read-only profile."
-        )
-
-    if profile is ToolProfile.OPERATOR and not config.loopback_only:
-        enabled = os.environ.get("BDDK_OPERATOR_REMOTE_ENABLED", "").strip().lower()
-        if enabled not in {"1", "true", "yes"}:
-            raise HttpSecurityConfigError(
-                "Remote operator HTTP is disabled by default. Set "
-                "BDDK_OPERATOR_REMOTE_ENABLED=true only for a private, authenticated operator endpoint."
-            )
+def _validate_http_policy(config: HttpSecurityConfig) -> None:
+    """Require the read scope whenever JWT authentication is configured."""
+    if config.jwt_issuer is not None and "bddk.read" not in config.jwt_required_scopes:
+        raise HttpSecurityConfigError("The HTTP transport requires JWT scope 'bddk.read'")
 
 
-async def create_deps(profile: ToolProfile = ToolProfile.PUBLIC) -> Dependencies:
-    """Create serving dependencies without schema, seed, or index writes."""
-    if os.environ.get("BDDK_AUTO_SYNC", "false").strip().lower() in {"1", "true", "yes"}:
-        raise RuntimeError(
-            "BDDK_AUTO_SYNC is not allowed in serving mode. Use an explicit operator workflow, "
-            "then start `bddk-mcp serve`."
-        )
-    if OPERATOR_JOB_HISTORY < 1:
-        raise RuntimeError("BDDK_OPERATOR_JOB_HISTORY must be a positive integer")
-    if OPERATOR_JOB_DRAIN_TIMEOUT < 0:
-        raise RuntimeError("BDDK_OPERATOR_JOB_DRAIN_TIMEOUT cannot be negative")
-    if profile is ToolProfile.OPERATOR and PG_POOL_MAX < MIN_OPERATOR_JOB_POOL_SIZE:
-        raise RuntimeError(
-            "The operator profile requires BDDK_PG_POOL_MAX to be at least "
-            f"{MIN_OPERATOR_JOB_POOL_SIZE} so its durable execution lease cannot exhaust the pool."
-        )
-    dsn = require_database_url(profile.value)
-
+async def create_deps() -> Dependencies:
+    """Open the corpus read-only and build the serving dependencies."""
     http: httpx.AsyncClient | None = None
-    pool: asyncpg.Pool | None = None
+    db: CorpusDB | None = None
     doc_store: DocumentStore | None = None
     client: BddkApiClient | None = None
     vector_store: VectorStore | None = None
-    job_manager: OperatorJobManager | None = None
-    telemetry_pool: asyncpg.Pool | None = None
     try:
         http = httpx.AsyncClient(
             headers={
@@ -229,76 +158,31 @@ async def create_deps(profile: ToolProfile = ToolProfile.PUBLIC) -> Dependencies
             follow_redirects=True,
         )
 
-        pool = await asyncpg.create_pool(
-            dsn,
-            min_size=PG_POOL_MIN,
-            max_size=PG_POOL_MAX,
-            command_timeout=30,
-            timeout=10,
-            init=partial(assert_database_connection_identity, profile=profile.value),
-        )
-        logger.info("PostgreSQL pool created")
+        db = await asyncio.to_thread(CorpusDB.open, None, readonly=True)
+        await db.assert_ready(require_corpus=True)
 
-        await assert_database_ready(
-            pool=pool,
-            require_corpus=_requires_corpus_for_readiness(profile),
-            require_active_release=_requires_active_release_for_readiness(profile),
-        )
-        await assert_database_identity(pool, profile.value)
-        if profile is ToolProfile.OPERATOR:
-            await assert_operator_job_schema_ready(pool)
-
-        if TELEMETRY_ENABLED:
-            telemetry_pool = await asyncpg.create_pool(
-                require_telemetry_database_url(),
-                min_size=1,
-                max_size=3,
-                command_timeout=5,
-                timeout=10,
-                init=assert_telemetry_writer_ready,
-            )
-            await assert_telemetry_writer_ready(telemetry_pool)
-
-        doc_store = DocumentStore(pool)
-        client = BddkApiClient(
-            pool=pool,
-            doc_store=doc_store,
-            http=http,
-            allow_live_population=False,
-        )
+        doc_store = DocumentStore(db)
+        client = BddkApiClient(store=doc_store, http=http, allow_live_population=False)
         await client.load_cache_read_only()
         validate_model_asset_policy()
-        vector_store = VectorStore(pool)
-        if profile is ToolProfile.PUBLIC:
-            async with asyncio.timeout(_SEMANTIC_SEARCH_STARTUP_TIMEOUT_SECONDS):
-                await vector_store.assert_semantic_search_ready()
-
-        if profile is ToolProfile.OPERATOR:
-            job_manager = OperatorJobManager(
-                PostgresJobRepository(pool),
-                retained_history=OPERATOR_JOB_HISTORY,
-            )
-            await job_manager.recover_interrupted()
+        vector_store = VectorStore(db)
+        async with asyncio.timeout(_SEMANTIC_SEARCH_STARTUP_TIMEOUT_SECONDS):
+            await vector_store.assert_semantic_search_ready()
 
         return Dependencies(
-            pool=pool,
+            db=db,
             doc_store=doc_store,
             client=client,
             http=http,
-            telemetry_pool=telemetry_pool,
             vector_store=vector_store,
-            job_manager=job_manager,
-            server_start_time=time.time(),
         )
     except BaseException as startup_error:
         partial_deps = Dependencies(
-            pool=pool,
+            db=db,
             doc_store=doc_store,
             client=client,
             http=http,
-            telemetry_pool=telemetry_pool,
             vector_store=vector_store,
-            job_manager=job_manager,
         )
         try:
             await _await_cleanup_shielded(teardown_deps(partial_deps))
@@ -310,53 +194,15 @@ async def create_deps(profile: ToolProfile = ToolProfile.PUBLIC) -> Dependencies
         raise
 
 
-def configured_tool_profile() -> ToolProfile:
-    """Return the single reviewed tool profile selected for this process."""
-    legacy_admin = os.environ.get("BDDK_ADMIN_TOOLS", "").strip().lower()
-    if legacy_admin in {"1", "true", "yes"}:
-        raise RuntimeError(
-            "BDDK_ADMIN_TOOLS=true is no longer supported because it mixed public and "
-            "operator capabilities in one runtime. Use BDDK_TOOL_PROFILE=operator "
-            "(or `bddk-mcp serve --profile operator`) and provision "
-            "BDDK_OPERATOR_DATABASE_URL."
-        )
-
-    value = os.environ.get("BDDK_TOOL_PROFILE", ToolProfile.PUBLIC.value).strip().lower()
-    try:
-        return ToolProfile(value)
-    except ValueError as exc:
-        allowed = ", ".join(profile.value for profile in ToolProfile)
-        raise RuntimeError(f"Invalid BDDK_TOOL_PROFILE {value!r}; expected one of: {allowed}") from exc
-
-
-def register_tools(
-    server: FastMCP,
-    deps: Dependencies,
-    *,
-    profile: ToolProfile | None = None,
-) -> None:
-    """Register and verify one canonical MCP tool profile."""
-    selected_profile = profile or ToolProfile.PUBLIC
-    register_tool_profile(server, deps, selected_profile)
-    assert_tool_profile(server, selected_profile)
-
-
-def register_health_routes(
-    server: FastMCP,
-    deps: Dependencies,
-    *,
-    profile: ToolProfile,
-) -> None:
+def register_health_routes(server: FastMCP, deps: Dependencies) -> None:
     """Expose content-free liveness/readiness probes for orchestrators."""
 
     attestation_lock = asyncio.Lock()
-    require_corpus_for_readiness = _requires_corpus_for_readiness(profile)
-    require_active_release_for_readiness = _requires_active_release_for_readiness(profile)
     last_attested_at = 0.0
     last_readiness = None
 
-    async def database_attestation():
-        """Periodically re-check schema, catalog, and least-privilege state."""
+    async def corpus_attestation():
+        """Periodically re-check the corpus file."""
 
         nonlocal last_attested_at, last_readiness
         now = time.monotonic()
@@ -369,17 +215,8 @@ def register_health_routes(
                 return last_readiness
             try:
                 async with asyncio.timeout(5):
-                    readiness = await assert_database_ready(
-                        pool=deps.pool,
-                        require_corpus=require_corpus_for_readiness,
-                        require_active_release=require_active_release_for_readiness,
-                    )
-                    await assert_database_identity(deps.pool, profile.value)
-                    if profile is ToolProfile.OPERATOR:
-                        await assert_operator_job_schema_ready(deps.pool)
-                    if deps.telemetry_pool is not None:
-                        await assert_telemetry_writer_ready(deps.telemetry_pool)
-            except (TimeoutError, RuntimeError, OSError, asyncpg.PostgresError):
+                    readiness = await deps.db.assert_ready(require_corpus=True)
+            except (TimeoutError, RuntimeError, OSError, sqlite3.Error):
                 last_readiness = None
             else:
                 last_readiness = readiness
@@ -393,41 +230,16 @@ def register_health_routes(
     @server.custom_route("/health/ready", methods=["GET"], include_in_schema=False)
     async def readiness(_request: Request) -> JSONResponse:
         if (
-            deps.pool is None
+            deps.db is None
             or deps.doc_store is None
             or deps.client is None
             or deps.vector_store is None
-            or (profile is ToolProfile.PUBLIC and deps.vector_store.semantic_search_ready is not True)
+            or deps.vector_store.semantic_search_ready is not True
         ):
             return JSONResponse({"status": "not_ready"}, status_code=503)
-        database_readiness = await database_attestation()
-        if database_readiness is None:
+        if await corpus_attestation() is None:
             return JSONResponse({"status": "not_ready"}, status_code=503)
-        active_release = getattr(database_readiness, "active_corpus_release", None)
-        if require_active_release_for_readiness:
-            # Schema/ACL attestation is intentionally cached, but a corpus
-            # mutation must invalidate strict readiness immediately.  Re-read
-            # the security-barrier active view on every probe instead of
-            # serving the cached release identity for the attestation TTL.
-            try:
-                async with asyncio.timeout(5):
-                    current_release = await inspect_active_corpus_release(deps.pool)
-            except (TimeoutError, CorpusPublicationError, OSError, asyncpg.PostgresError):
-                return JSONResponse({"status": "not_ready"}, status_code=503)
-            if (
-                not isinstance(active_release, CorpusReleaseIdentity)
-                or current_release is None
-                or current_release.release_id != active_release.release_id
-            ):
-                return JSONResponse({"status": "not_ready"}, status_code=503)
-            active_release = current_release
-        response: dict[str, object] = {"status": "ready"}
-        if isinstance(active_release, CorpusReleaseIdentity):
-            # This route is intentionally unauthenticated. Expose only the
-            # opaque release identifier; signer, policy, manifest and state
-            # evidence remain operator-only.
-            response["active_corpus_release_id"] = active_release.release_id
-        return JSONResponse(response)
+        return JSONResponse({"status": "ready"})
 
 
 async def teardown_deps(deps: Dependencies) -> None:
@@ -439,14 +251,6 @@ async def teardown_deps(deps: Dependencies) -> None:
         error.add_note(f"while closing BDDK dependency: {resource}")
         errors.append(error)
 
-    if deps.job_manager is not None:
-        try:
-            report = await deps.job_manager.drain(timeout=OPERATOR_JOB_DRAIN_TIMEOUT)
-            if report.still_running:
-                raise RuntimeError(f"{report.still_running} operator job(s) survived shutdown drain")
-        except BaseException as error:
-            record_failure("job_manager", error)
-
     if deps.client:
         try:
             await deps.client.close()
@@ -457,18 +261,12 @@ async def teardown_deps(deps: Dependencies) -> None:
             await deps.http.aclose()
         except BaseException as error:
             record_failure("http", error)
-    if deps.pool:
+    if deps.db:
         try:
-            await deps.pool.close()
-            logger.info("PostgreSQL pool closed")
+            deps.db.close()
+            logger.info("Corpus closed")
         except BaseException as error:
-            record_failure("pool", error)
-    if deps.telemetry_pool:
-        try:
-            await deps.telemetry_pool.close()
-            logger.info("Telemetry PostgreSQL pool closed")
-        except BaseException as error:
-            record_failure("telemetry_pool", error)
+            record_failure("db", error)
 
     if errors:
         logger.error("Graceful shutdown completed with %d error(s)", len(errors))
@@ -527,7 +325,7 @@ def _copy_deps(source: Dependencies, target: Dependencies = _runtime_deps) -> De
 
 def _empty_runtime_deps() -> None:
     """Remove references to closed resources after the final runtime lease."""
-    _copy_deps(Dependencies(pool=None, doc_store=None, client=None, http=None))
+    _copy_deps(Dependencies(db=None, doc_store=None, client=None, http=None))
 
 
 def _get_runtime_lock() -> asyncio.Lock:
@@ -558,7 +356,7 @@ async def _runtime_guard() -> AsyncIterator[None]:
             _runtime_loop = None
 
 
-async def startup(profile: ToolProfile = ToolProfile.PUBLIC) -> Dependencies:
+async def startup() -> Dependencies:
     """Acquire the process-wide dependency runtime.
 
     FastMCP invokes its low-level lifespan once per session (and once per
@@ -566,24 +364,19 @@ async def startup(profile: ToolProfile = ToolProfile.PUBLIC) -> Dependencies:
     alive when the HTTP process holds an outer lease while still supporting the
     import-based stdio launcher used by ``mcp run server.py``.
     """
-    global _runtime_leases, _runtime_profile
+    global _runtime_leases
 
     async with _runtime_guard():
         if _runtime_leases == 0:
-            deps = await create_deps(profile)
+            deps = await create_deps()
             _copy_deps(deps)
-            _runtime_profile = profile
-        elif _runtime_profile is not profile:
-            raise RuntimeError(
-                f"Cannot share one dependency runtime between {_runtime_profile!s} and {profile!s} profiles"
-            )
         _runtime_leases += 1
         return _runtime_deps
 
 
 async def _shutdown_unshielded() -> None:
     """Release one runtime lease; callers must protect this from cancellation."""
-    global _runtime_leases, _runtime_profile
+    global _runtime_leases
 
     async with _runtime_guard():
         if _runtime_leases == 0:
@@ -596,7 +389,6 @@ async def _shutdown_unshielded() -> None:
                 await teardown_deps(_runtime_deps)
             finally:
                 _empty_runtime_deps()
-                _runtime_profile = None
 
 
 async def shutdown() -> None:
@@ -607,8 +399,7 @@ async def shutdown() -> None:
 @asynccontextmanager
 async def server_lifespan(server: FastMCP) -> AsyncIterator[Dependencies]:
     """FastMCP lifecycle hook shared by SDK and direct launch paths."""
-    profile = getattr(server, "_bddk_tool_profile", ToolProfile.PUBLIC)
-    deps = await startup(profile)
+    deps = await startup()
     try:
         yield deps
     except BaseException as runtime_error:
@@ -628,18 +419,15 @@ def create_mcp(
     deps: Dependencies,
     *,
     lifespan=None,
-    profile: ToolProfile | None = None,
     http_security: HttpSecurityConfig | None = None,
-    require_active_corpus_release: bool | None = None,
 ) -> FastMCP:
     """Construct a fully registered BDDK FastMCP server.
 
     Supplying dependencies separately makes the protocol surface testable with
-    the official MCP client without opening a real database connection.
+    the official MCP client without opening a real corpus file.
     """
-    selected_profile = profile or ToolProfile.PUBLIC
     security = http_security or _local_discovery_http_config()
-    _validate_profile_http_policy(security, selected_profile)
+    _validate_http_policy(security)
 
     auth = None
     token_verifier = None
@@ -667,50 +455,37 @@ def create_mcp(
     # Set the SDK Server field so initialize returns this project's version,
     # rather than the installed `mcp` library version.
     server._mcp_server.version = __version__
-    server._bddk_tool_profile = selected_profile
     server._bddk_http_security = security
-    server._bddk_active_corpus_guard = ActiveCorpusGuard(
-        deps,
-        required=(
-            REQUIRE_ACTIVE_CORPUS_RELEASE if require_active_corpus_release is None else require_active_corpus_release
-        ),
-    )
-    register_tools(server, deps, profile=selected_profile)
-    register_resources(server, deps)
-    register_health_routes(server, deps, profile=selected_profile)
+    register_tools(server, deps)
+    assert_tool_surface(server)
+    register_health_routes(server, deps)
     return server
 
 
 # This object is intentionally complete at import time.  The MCP CLI imports
 # ``server.py:mcp`` and calls ``mcp.run()``; registering tools only in a custom
 # main() startup path therefore exposed an empty server to that supported path.
-mcp = create_mcp(_runtime_deps, lifespan=server_lifespan, profile=ToolProfile.PUBLIC)
-operator_mcp = create_mcp(_runtime_deps, lifespan=server_lifespan, profile=ToolProfile.OPERATOR)
+mcp = create_mcp(_runtime_deps, lifespan=server_lifespan)
 
 
 def main() -> None:
     """Entry point — selects transport and runs the MCP server."""
-    # The importable `mcp` objects must not mutate a host application's root
+    # The importable `mcp` object must not mutate a host application's root
     # logger. Packaged process entry points own logging configuration instead.
     configure_logging()
 
     _transport = _runtime_transport()
-    profile = configured_tool_profile()
-    selected_mcp = mcp if profile is ToolProfile.PUBLIC else operator_mcp
     logger.info("Transport: %s", _transport)
-    logger.info("Tool profile: %s", profile.value)
-    logger.info("Database configuration is validated during profile startup")
+    logger.info("The corpus file is validated during startup")
 
     if _transport == "streamable-http":
         import uvicorn
 
         http_security = load_http_security_config()
         tls = load_server_tls_config()
-        _validate_profile_http_policy(http_security, profile)
         selected_mcp = create_mcp(
             _runtime_deps,
             lifespan=server_lifespan,
-            profile=profile,
             http_security=http_security,
         )
         app = HttpSecurityMiddleware(selected_mcp.streamable_http_app(), http_security)
@@ -725,11 +500,9 @@ def main() -> None:
         asyncio.run(_run_server())
     else:
         # Default transport: stdio
-        import anyio
-
         async def _run_stdio():
             # FastMCP enters server_lifespan on this event loop.
-            await selected_mcp.run_stdio_async()
+            await mcp.run_stdio_async()
 
         anyio.run(_run_stdio)
 

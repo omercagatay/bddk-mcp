@@ -2,7 +2,7 @@
 
 import logging
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
@@ -18,12 +18,12 @@ from bddk_mcp.ingest.client import (
     BddkApiClient,
     _is_in_scope,
 )
-from tests.conftest import BDDK_ACCORDION_HTML, BDDK_DECISION_HTML, MockPool, make_http_response
+from tests.conftest import BDDK_ACCORDION_HTML, BDDK_DECISION_HTML, MockStore, make_http_response
 
 
 def _make_client(**kwargs) -> BddkApiClient:
     """Create a client with a mock pool (no real DB)."""
-    c = BddkApiClient(pool=MockPool(), **kwargs)
+    c = BddkApiClient(store=MockStore(), **kwargs)
     return c
 
 
@@ -111,14 +111,13 @@ class TestFetchWithRetry:
 
 
 class TestCachePersistence:
-    """Test cache save/load via PostgreSQL."""
+    """Test cache save/load through the corpus file."""
 
     @pytest.mark.asyncio
     async def test_save_and_load_cache(self, doc_store):
-        """Use doc_store fixture which provides a transactional pool wrapper."""
+        """Use the doc_store fixture, which is backed by a temporary corpus file."""
 
-        pool = doc_store._pool  # SingleConnPool wrapping a real connection
-        client = BddkApiClient(pool=pool)
+        client = BddkApiClient(store=doc_store)
 
         client._cache = [
             BddkDecisionSummary(title="Test", document_id="cache_test_1", content="test", category="Rehber")
@@ -127,8 +126,7 @@ class TestCachePersistence:
 
         await client._save_cache_to_db()
 
-        # Same pool should load cached data
-        client2 = BddkApiClient(pool=pool)
+        client2 = BddkApiClient(store=doc_store)
         loaded = await client2._load_cache_from_db()
         assert loaded
         assert len(client2._cache) >= 1
@@ -141,8 +139,7 @@ class TestCachePersistence:
     async def test_complete_catalog_publication_retires_removed_upstream_rows(self, doc_store):
         """A successful full refresh must publish exact membership, not append forever."""
 
-        pool = doc_store._pool
-        client = BddkApiClient(pool=pool)
+        client = BddkApiClient(store=doc_store)
         client._cache = [
             BddkDecisionSummary(title="Retained", document_id="catalog-retained", category="Rehber"),
             BddkDecisionSummary(title="Removed", document_id="catalog-removed", category="Rehber"),
@@ -154,7 +151,7 @@ class TestCachePersistence:
         ]
         await client._save_cache_to_db()
 
-        rows = await pool.fetch("SELECT document_id FROM public.decision_cache ORDER BY document_id")
+        rows = await doc_store.load_catalog()
         assert [row["document_id"] for row in rows] == ["catalog-retained"]
 
     @pytest.mark.asyncio
@@ -167,56 +164,25 @@ class TestCachePersistence:
 
     @pytest.mark.asyncio
     async def test_load_empty_cache(self):
-        """Empty DB returns False."""
-        pool = MockPool()
-        client = BddkApiClient(pool=pool)
+        """An empty catalog loads as False."""
+        client = BddkApiClient(store=MockStore())
         loaded = await client._load_cache_from_db()
         assert not loaded
 
     @pytest.mark.asyncio
-    async def test_context_entry_loads_cache_with_select_and_never_initializes_schema(self):
-        class SelectOnlyPool:
-            def __init__(self) -> None:
-                self.statements: list[str] = []
-
-            async def fetch(self, query: str, *_args):
-                normalized = query.strip()
-                assert normalized.upper().startswith("SELECT"), normalized
-                self.statements.append(normalized)
-                return []
-
-            async def execute(self, *_args, **_kwargs):
-                raise AssertionError("client context entry must not execute DDL")
-
-        pool = SelectOnlyPool()
-        client = BddkApiClient(pool=pool, http=AsyncMock(spec=httpx.AsyncClient))
-        client.initialize = AsyncMock()
+    async def test_context_entry_only_reads_the_catalog(self):
+        store = MockStore()
+        client = BddkApiClient(store=store, http=AsyncMock(spec=httpx.AsyncClient))
 
         async with client as entered:
             assert entered is client
 
-        client.initialize.assert_not_awaited()
-        assert len(pool.statements) == 1
-        assert pool.statements[0].upper().startswith("SELECT")
-
-    @pytest.mark.asyncio
-    async def test_legacy_initialize_is_select_only_readiness_wrapper(self):
-        pool = MagicMock()
-        client = BddkApiClient(pool=pool, http=AsyncMock(spec=httpx.AsyncClient))
-        client._load_cache_from_db = AsyncMock(return_value=False)
-        readiness = AsyncMock()
-
-        with patch("bddk_mcp.db_lifecycle.assert_database_ready", new=readiness):
-            await client.initialize()
-
-        readiness.assert_awaited_once_with(pool=pool, require_corpus=False)
-        client._load_cache_from_db.assert_awaited_once_with()
-        pool.acquire.assert_not_called()
-        pool.execute.assert_not_called()
+        store.load_catalog.assert_awaited_once_with()
+        store.replace_catalog.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_serving_mode_never_populates_an_empty_cache_from_network(self):
-        client = BddkApiClient(pool=MockPool(), allow_live_population=False)
+        client = BddkApiClient(store=MockStore(), allow_live_population=False)
         client._scrape_bddk = AsyncMock()
 
         with pytest.raises(BddkStorageError, match="will not populate it from the network"):
@@ -264,61 +230,6 @@ class TestDecisionParsing:
 
         decisions = await client._fetch_and_parse_decision_page(55)
         assert decisions == []
-
-
-class TestDocumentUrlResolution:
-    def test_numeric_id(self):
-        client = _make_client()
-        url = client._resolve_document_url("1296")
-        assert url == "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1296"
-
-    def test_mevzuat_id_with_cache(self):
-        client = _make_client()
-        client._cache = [
-            BddkDecisionSummary(
-                title="Test",
-                document_id="mevzuat_42628",
-                content="",
-                source_url="https://mevzuat.gov.tr/mevzuat?MevzuatNo=42628&MevzuatTur=7&MevzuatTertip=5",
-            )
-        ]
-        url = client._resolve_document_url("mevzuat_42628")
-        assert "mevzuat.gov.tr" in url
-        assert "42628" in url
-
-    def test_mevzuat_id_fallback(self):
-        client = _make_client()
-        client._cache = []
-        url = client._resolve_document_url("mevzuat_99999")
-        assert "mevzuat.gov.tr" in url
-        assert "99999" in url
-
-    def test_unsafe_document_identifier_is_rejected(self):
-        client = _make_client()
-
-        with pytest.raises(RuntimeError, match="identifier is invalid"):
-            client._resolve_document_url("../../private?token=secret")
-
-
-class TestLiveDocumentFailureSafety:
-    @pytest.mark.asyncio
-    async def test_transport_details_and_source_url_are_not_returned(self):
-        client = _make_client()
-        client._fetch_with_retry = AsyncMock(
-            side_effect=httpx.ConnectError("proxy password and private network address")
-        )
-
-        result = await client.get_document_markdown("1296")
-
-        assert "proxy password" not in result.markdown_content
-        assert "https://" not in result.markdown_content
-        assert result.markdown_content == "Error fetching document from the approved regulatory upstream."
-
-
-class TestCacheValidity:
-    def test_empty_cache_invalid(self):
-        client = _make_client()
-        assert not client._is_cache_valid()
 
 
 class TestCacheRefreshIntegrity:
@@ -401,7 +312,7 @@ class TestCacheRefreshIntegrity:
 
         assert client.get_cache_items() == [previous]
         assert client._cache_timestamp == 123.0
-        assert sentinel not in repr(client.cache_status()["page_errors"])
+        assert sentinel not in repr(client._page_errors)
         client._save_cache_to_db.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -433,41 +344,6 @@ class TestCacheRefreshIntegrity:
         assert client.get_cache_items() == [previous]
         assert client._cache_timestamp == 456.0
 
-    def test_fresh_cache_valid(self):
-        client = _make_client()
-        client._cache = [BddkDecisionSummary(title="T", document_id="1", content="")]
-        client._cache_timestamp = time.time()
-        assert client._is_cache_valid()
-
-    def test_expired_cache_invalid(self):
-        client = _make_client()
-        client._cache = [BddkDecisionSummary(title="T", document_id="1", content="")]
-        client._cache_timestamp = time.time() - 7200
-        assert not client._is_cache_valid()
-
-
-class TestCacheStatus:
-    def test_cache_status_with_data(self):
-        client = _make_client()
-        client._cache = [
-            BddkDecisionSummary(title="A", document_id="1", content="", category="Rehber"),
-            BddkDecisionSummary(title="B", document_id="2", content="", category="Genelge"),
-            BddkDecisionSummary(title="C", document_id="3", content="", category="Rehber"),
-        ]
-        client._cache_timestamp = time.time()
-
-        status = client.cache_status()
-        assert status["total_items"] == 3
-        assert status["cache_valid"] is True
-        assert status["categories"]["Rehber"] == 2
-        assert status["categories"]["Genelge"] == 1
-
-    def test_cache_status_empty(self):
-        client = _make_client()
-        status = client.cache_status()
-        assert status["total_items"] == 0
-        assert status["cache_valid"] is False
-
 
 class TestPublicCacheAPI:
     """Tests for BddkApiClient public cache API methods."""
@@ -486,7 +362,7 @@ class TestPublicCacheAPI:
         assert len(items) == 2
         # Mutating the returned list must not affect internal cache
         items.clear()
-        assert client.cache_size() == 2
+        assert len(client.get_cache_items()) == 2
 
     def test_get_cache_items_empty(self):
         client = _make_client()
@@ -504,11 +380,11 @@ class TestPublicCacheAPI:
 
     def test_cache_size(self):
         client = self._client_with_cache()
-        assert client.cache_size() == 2
+        assert len(client.get_cache_items()) == 2
 
     def test_cache_size_empty(self):
         client = _make_client()
-        assert client.cache_size() == 0
+        assert len(client.get_cache_items()) == 0
 
 
 class TestScopeFilter:
@@ -545,5 +421,5 @@ class TestScopeFilter:
 
 def test_client_defaults_to_no_live_population():
     """The airlock must be the default: live population is an explicit opt-in."""
-    client = BddkApiClient(pool=MockPool())
+    client = BddkApiClient(store=MockStore())
     assert client._allow_live_population is False

@@ -1,22 +1,18 @@
 import asyncio
-import io
 import logging
-import math
 import re
+import sqlite3
 import time
 from datetime import datetime
 from urllib.parse import parse_qs, urlparse
 
-import asyncpg
 import httpx
 from bs4 import BeautifulSoup
 from markitdown import MarkItDown
 
 from bddk_mcp.core.config import (
-    CACHE_TTL_SECONDS,
     HTTP_CONNECT_TIMEOUT,
     HTTP_POOL_TIMEOUT,
-    PAGE_SIZE,
     REQUEST_TIMEOUT,
     STALE_CACHE_FALLBACK,
     SYNC_CONCURRENCY,
@@ -24,7 +20,6 @@ from bddk_mcp.core.config import (
 from bddk_mcp.core.exceptions import BddkStorageError, BddkUpstreamError
 from bddk_mcp.core.models import (
     BddkDecisionSummary,
-    BddkDocumentMarkdown,
     BddkSearchRequest,
     BddkSearchResult,
 )
@@ -35,8 +30,6 @@ from bddk_mcp.core.outbound_http import (
     assert_public_https_resolution,
     bounded_request_with_retry,
 )
-from bddk_mcp.corpus_coordination import acquire_corpus_mutation_lock
-from bddk_mcp.store.bulk_write import upsert_decision_cache_rows
 from bddk_mcp.store.doc_store import DocumentStore
 
 logger = logging.getLogger(__name__)
@@ -58,8 +51,6 @@ _BDDK_BASE_URL = "https://www.bddk.org.tr"
 # buffering an unbounded upstream response. Catalog pages should be small;
 # document fallback permits large regulatory PDFs while remaining finite.
 _MAX_CATALOG_RESPONSE_BYTES = 8 * 1024 * 1024
-_MAX_DOCUMENT_RESPONSE_BYTES = 128 * 1024 * 1024
-
 # Pages that use accordion card structure (h5 headers with card-body)
 _ACCORDION_PAGE_IDS = [50, 51]
 # Pages that use flat list with DokumanGetir links and (date - number) format
@@ -92,7 +83,7 @@ def _canonicalize_catalog(decisions: list[BddkDecisionSummary]) -> list[BddkDeci
 
     Exact duplicates can legitimately be linked from more than one list page,
     but conflicting metadata for the same identifier is ambiguous and must not
-    be silently resolved by PostgreSQL's last-write-wins upsert.
+    be silently resolved by a last-write-wins upsert.
     """
 
     by_id: dict[str, BddkDecisionSummary] = {}
@@ -250,45 +241,22 @@ def _external_url_to_id(url: str) -> str | None:
     return None
 
 
-def _mevzuat_to_pdf_url(mevzuat_no: str, mevzuat_tur: str = "7", mevzuat_tertip: str = "5") -> str | None:
-    """Convert mevzuat.gov.tr parameters to a direct PDF download URL."""
-    if not re.fullmatch(r"[0-9]{1,20}", mevzuat_no) or not re.fullmatch(r"[0-9]{1,4}", mevzuat_tertip):
-        return None
-    path_segment = MEVZUAT_TUR_MAP.get(mevzuat_tur)
-    if not path_segment:
-        return None
-    return f"https://www.mevzuat.gov.tr/MevzuatMetin/{path_segment}/{mevzuat_tur}.{mevzuat_tertip}.{mevzuat_no}.pdf"
-
-
-async def initialize_cache_schema(pool: asyncpg.Pool) -> None:
-    """Deprecated compatibility wrapper for database readiness.
-
-    Schema ownership belongs exclusively to :mod:`bddk_mcp.migrations`.  The
-    historical function name is retained for callers that have not migrated,
-    but it now performs only the shared SELECT-based readiness check.
-    """
-    from bddk_mcp.db_lifecycle import assert_database_ready
-
-    await assert_database_ready(pool=pool, require_corpus=False)
-
-
 class BddkApiClient:
     """
     Client for searching and retrieving BDDK decisions and regulations.
 
-    Scrapes BDDK website, caches document lists in PostgreSQL for instant
-    startup across server restarts.
+    Scrapes the BDDK website and keeps the catalog in the corpus file for
+    instant startup across server restarts.
     """
 
     def __init__(
         self,
-        pool: asyncpg.Pool,
+        store: DocumentStore,
         request_timeout: float = REQUEST_TIMEOUT,
-        doc_store: DocumentStore | None = None,
         http: httpx.AsyncClient | None = None,
         allow_live_population: bool = False,
     ) -> None:
-        self._pool = pool
+        self._store = store
         self._owns_http = http is None
         if http is not None:
             self._http = http
@@ -311,27 +279,14 @@ class BddkApiClient:
                 follow_redirects=False,
             )
         self._md = MarkItDown()
-        self._doc_store = doc_store
         self._allow_live_population = allow_live_population
         self._cache: list[BddkDecisionSummary] = []
         self._cache_timestamp: float = 0.0
         self._page_errors: dict[int, str] = {}
-        self.known_announcements: set[str] = set()
         # Bound the parallel _scrape_bddk() fan-out so BDDK sees at most
         # SYNC_CONCURRENCY (default 5) in-flight requests at once, matching
         # the rate limit data_sources.py already enforces for the same host.
         self._scrape_sem = asyncio.Semaphore(SYNC_CONCURRENCY)
-
-    async def initialize(self) -> None:
-        """Deprecated SELECT-only readiness and cache-load wrapper.
-
-        Run ``bddk-mcp migrate`` separately with schema-owner credentials.
-        Runtime and context-manager paths should call
-        :meth:`load_cache_read_only` directly.
-        """
-        await initialize_cache_schema(self._pool)
-        # Eagerly load from DB — instant, no network needed
-        await self._load_cache_from_db()
 
     # -- context manager ------------------------------------------------------
 
@@ -376,52 +331,20 @@ class BddkApiClient:
             resolve=self._assert_public_resolution,
         )
 
-    # -- cache persistence (PostgreSQL) ----------------------------------------
+    # -- cache persistence (corpus file) ----------------------------------------
 
     async def _save_cache_to_db(self) -> None:
         """Atomically publish the complete validated upstream catalog membership."""
         if not self._cache:
             raise BddkStorageError("An empty decision catalog cannot replace the last known-good publication.")
         try:
-            async with self._pool.acquire() as conn:
-                now = time.time()
-                document_ids = [decision.document_id for decision in self._cache]
-                args_list = [
-                    (
-                        d.document_id,
-                        d.title,
-                        d.content,
-                        d.decision_date,
-                        d.decision_number,
-                        d.category,
-                        d.source_url or "",
-                        now,
-                    )
-                    for d in self._cache
-                ]
-                async with conn.transaction():
-                    # Use the same transaction-scoped lock as seed import,
-                    # document synchronization, and vector publication.  A
-                    # direct refresh must not interleave its exact-membership
-                    # replacement with another corpus writer merely because it
-                    # was invoked outside the operator job manager.
-                    await acquire_corpus_mutation_lock(conn)
-                    await upsert_decision_cache_rows(conn, args_list)
-                    await conn.execute(
-                        """
-                        DELETE FROM public.decision_cache
-                        WHERE NOT (document_id = ANY($1::pg_catalog.text[]))
-                        """,
-                        document_ids,
-                    )
-                self._cache_timestamp = now
-                logger.debug("Cache saved to PostgreSQL: %d items", len(self._cache))
-        except (asyncpg.PostgresError, OSError) as exc:
-            logger.error(
-                "Failed to save decision cache",
-                extra={"error_type": type(exc).__name__},
-            )
+            now = time.time()
+            await self._store.replace_catalog([decision.model_dump() for decision in self._cache], cached_at=now)
+        except (sqlite3.Error, OSError, RuntimeError) as exc:
+            logger.error("Failed to save decision cache", extra={"error_type": type(exc).__name__})
             raise BddkStorageError("Decision cache could not be persisted safely.") from None
+        self._cache_timestamp = now
+        logger.debug("Cache saved to the corpus: %d items", len(self._cache))
 
     async def load_cache_read_only(self, *, require_nonempty: bool = True) -> int:
         """Load the decision cache with one SELECT and no repair or live fetch.
@@ -431,14 +354,11 @@ class BddkApiClient:
         and connection details.
         """
         try:
-            rows = await self._pool.fetch(
-                "SELECT document_id, title, content, decision_date, decision_number, "
-                "category, source_url, cached_at FROM decision_cache"
-            )
-        except (asyncpg.PostgresError, OSError):
+            rows = await self._store.load_catalog()
+        except (sqlite3.Error, OSError, RuntimeError):
             raise BddkStorageError(
-                "Decision cache could not be read with serving credentials. Run `bddk-mcp migrate` and "
-                "`bddk-mcp bootstrap` with ingestion credentials, then grant the serving role SELECT access."
+                "Decision cache could not be read from the corpus file. Run `bddk-mcp build` before starting "
+                "the server."
             ) from None
 
         loaded = [
@@ -460,12 +380,12 @@ class BddkApiClient:
 
         if require_nonempty and not self._cache:
             raise BddkStorageError(
-                "Decision cache is empty or contains no in-scope documents. Run `bddk-mcp bootstrap` with the "
+                "Decision cache is empty or contains no in-scope documents. Run `bddk-mcp build` with the "
                 "reviewed seed corpus before starting the server."
             )
 
         if self._cache:
-            logger.info("Cache loaded from PostgreSQL: %d items", len(self._cache))
+            logger.info("Cache loaded from the corpus: %d items", len(self._cache))
         return len(self._cache)
 
     async def _load_cache_from_db(self) -> bool:
@@ -473,25 +393,10 @@ class BddkApiClient:
         try:
             return (await self.load_cache_read_only(require_nonempty=False)) > 0
         except BddkStorageError:
-            logger.warning("Decision cache could not be loaded from PostgreSQL")
+            logger.warning("Decision cache could not be loaded from the corpus")
             return False
 
     # -- cache ----------------------------------------------------------------
-
-    def _is_cache_valid(self) -> bool:
-        return len(self._cache) > 0 and (time.time() - self._cache_timestamp) < CACHE_TTL_SECONDS
-
-    def cache_status(self) -> dict:
-        """Return cache statistics."""
-        age = time.time() - self._cache_timestamp if self._cache_timestamp else None
-        return {
-            "total_items": len(self._cache),
-            "cache_age_seconds": round(age) if age else None,
-            "cache_valid": self._is_cache_valid(),
-            "ttl_seconds": CACHE_TTL_SECONDS,
-            "page_errors": dict(self._page_errors),
-            "categories": _count_categories(self._cache),
-        }
 
     def get_cache_items(self) -> list[BddkDecisionSummary]:
         """Return a shallow copy of the cached decision list."""
@@ -503,10 +408,6 @@ class BddkApiClient:
             if dec.document_id == doc_id:
                 return dec
         return None
-
-    def cache_size(self) -> int:
-        """Return the number of items in the cache."""
-        return len(self._cache)
 
     # -- parsers --------------------------------------------------------------
 
@@ -648,7 +549,7 @@ class BddkApiClient:
     async def _ensure_cache(self) -> None:
         """Ensure the decision cache is populated.
 
-        Serves from in-memory cache or PostgreSQL without hitting BDDK.
+        Serves from the in-memory cache or the corpus file without hitting BDDK.
         Only scrapes BDDK if the database is completely empty.
         Use refresh_cache() for an explicit BDDK refresh.
         """
@@ -657,17 +558,17 @@ class BddkApiClient:
 
         # Try loading from DB — no network needed
         if await self._load_cache_from_db():
-            logger.info("Serving %d items from PostgreSQL cache", len(self._cache))
+            logger.info("Serving %d items from the corpus catalog", len(self._cache))
             return
 
         if not self._allow_live_population:
             raise BddkStorageError(
                 "Decision cache became unavailable while the server was running. "
-                "Restore the reviewed corpus with `bddk-mcp bootstrap`; serving mode will not populate it from the network."
+                "Rebuild the corpus with `bddk-mcp build`; serving mode will not populate it from the network."
             )
 
         # DB is empty — must scrape BDDK for initial population
-        logger.info("PostgreSQL cache empty — initial scrape from BDDK...")
+        logger.info("Corpus catalog empty — initial scrape from BDDK...")
         await self._scrape_bddk()
 
     async def _scrape_bddk(self) -> int:
@@ -677,7 +578,7 @@ class BddkApiClient:
         request on a cold cache). asyncio.gather() fans them out so the
         full refresh completes in roughly the slowest single page.
 
-        The previous in-memory and PostgreSQL catalog remains authoritative
+        The previous in-memory and persisted catalog remains authoritative
         unless every configured source page is fetched and parsed and the new
         catalog is persisted.  This prevents a partial upstream outage or an
         HTML layout change from being reported as a successful refresh.
@@ -753,7 +654,7 @@ class BddkApiClient:
         await self._ensure_cache()
 
     async def refresh_cache(self) -> int:
-        """Force re-scrape BDDK and update PostgreSQL. Returns new item count."""
+        """Force re-scrape BDDK and update the corpus catalog. Returns new item count."""
         logger.info("Force-refreshing BDDK cache from live site...")
         return await self._scrape_bddk()
 
@@ -834,166 +735,3 @@ class BddkApiClient:
             page=request.page,
             page_size=request.page_size,
         )
-
-    def _resolve_document_url(self, document_id: str) -> str:
-        """Resolve a document ID to a fetchable URL."""
-        if re.fullmatch(r"[0-9]{1,20}", document_id):
-            return _DOCUMENT_URL_TEMPLATE.format(document_id=document_id)
-
-        if document_id.startswith("mevzuat_"):
-            mevzuat_no = document_id.removeprefix("mevzuat_")
-            if not re.fullmatch(r"[0-9]{1,20}", mevzuat_no):
-                raise OutboundHttpPolicyError("Document identifier is invalid for live retrieval.")
-            for dec in self._cache:
-                if dec.document_id == document_id and dec.source_url:
-                    source = dec.source_url
-                    try:
-                        parsed = urlparse(source)
-                        source_host = (parsed.hostname or "").rstrip(".").lower()
-                    except ValueError:
-                        continue
-                    if (
-                        source_host not in MEVZUAT_HTTPS_HOSTS
-                        or parsed.username is not None
-                        or parsed.password is not None
-                    ):
-                        continue
-                    params = parse_qs(parsed.query)
-
-                    tur = params.get("MevzuatTur", [None])[0]
-                    tertip = params.get("MevzuatTertip", [None])[0]
-
-                    if not tur:
-                        kod = params.get("MevzuatKod", [None])[0]
-                        if kod:
-                            parts = kod.split(".")
-                            if len(parts) >= 3:
-                                tur = parts[0]
-                                tertip = parts[1]
-
-                    pdf_url = _mevzuat_to_pdf_url(mevzuat_no, tur or "7", tertip or "5")
-                    if pdf_url:
-                        return pdf_url
-                    break
-
-            pdf_url = _mevzuat_to_pdf_url(mevzuat_no)
-            if pdf_url:
-                return pdf_url
-
-        raise OutboundHttpPolicyError("Document identifier is invalid for live retrieval.")
-
-    async def get_document_markdown(
-        self,
-        document_id: str,
-        page_number: int = 1,
-    ) -> BddkDocumentMarkdown:
-        """Fetch a BDDK document and return its content as paginated Markdown.
-
-        Uses store-first strategy: check local DocumentStore before fetching
-        from the network.
-        """
-        # Store-first lookup
-        if self._doc_store:
-            page = await self._doc_store.get_document_page(document_id, page_number)
-            if page and page.markdown_content and "Invalid page" not in page.markdown_content:
-                logger.info(
-                    "Document served from store (page %d/%d)",
-                    page.page_number,
-                    page.total_pages,
-                )
-                return BddkDocumentMarkdown(
-                    document_id=page.document_id,
-                    markdown_content=page.markdown_content,
-                    page_number=page.page_number,
-                    total_pages=page.total_pages,
-                )
-
-        # Live fetch fallback
-        try:
-            url = self._resolve_document_url(document_id)
-            logger.info("Fetching approved regulatory document from live upstream")
-            response = await self._fetch_with_retry(url, max_bytes=_MAX_DOCUMENT_RESPONSE_BYTES)
-        except (httpx.HTTPError, httpx.TransportError, OutboundHttpPolicyError) as exc:
-            logger.warning(
-                "Approved regulatory document fetch failed",
-                extra={"error_type": type(exc).__name__},
-            )
-            return BddkDocumentMarkdown(
-                document_id=document_id,
-                markdown_content="Error fetching document from the approved regulatory upstream.",
-                page_number=1,
-                total_pages=1,
-            )
-
-        content_type = response.headers.get("content-type", "").lower()
-        ext = ".pdf" if "pdf" in content_type else ".html"
-
-        try:
-            result = self._md.convert_stream(
-                io.BytesIO(response.content),
-                file_extension=ext,
-            )
-            markdown = result.text_content.strip()
-        except (ValueError, OSError, UnicodeDecodeError) as exc:
-            logger.warning(
-                "Approved regulatory document conversion failed",
-                extra={"error_type": type(exc).__name__},
-            )
-            return BddkDocumentMarkdown(
-                document_id=document_id,
-                markdown_content="Error converting the approved regulatory document to Markdown.",
-                page_number=1,
-                total_pages=1,
-            )
-
-        # Store for future use
-        if self._doc_store and markdown:
-            from bddk_mcp.store.doc_store import StoredDocument
-
-            try:
-                await self._doc_store.store_document(
-                    StoredDocument(
-                        document_id=document_id,
-                        title=document_id,
-                        source_url=url,
-                        markdown_content=markdown,
-                        extraction_method="markitdown",
-                        file_size=len(response.content),
-                        pdf_bytes=response.content if ext == ".pdf" else None,
-                    )
-                )
-                logger.info("Converted regulatory document stored in local document store")
-            except (RuntimeError, OSError) as exc:
-                logger.warning(
-                    "Failed to store converted regulatory document",
-                    extra={"error_type": type(exc).__name__},
-                )
-
-        total_pages = max(1, math.ceil(len(markdown) / PAGE_SIZE))
-
-        if page_number < 1 or page_number > total_pages:
-            return BddkDocumentMarkdown(
-                document_id=document_id,
-                markdown_content=f"Invalid page number {page_number}. Document has {total_pages} page(s).",
-                page_number=page_number,
-                total_pages=total_pages,
-            )
-
-        start = (page_number - 1) * PAGE_SIZE
-        page_content = markdown[start : start + PAGE_SIZE]
-
-        return BddkDocumentMarkdown(
-            document_id=document_id,
-            markdown_content=page_content,
-            page_number=page_number,
-            total_pages=total_pages,
-        )
-
-
-def _count_categories(cache: list[BddkDecisionSummary]) -> dict[str, int]:
-    """Count documents per category."""
-    counts: dict[str, int] = {}
-    for d in cache:
-        cat = d.category or "Unknown"
-        counts[cat] = counts.get(cat, 0) + 1
-    return dict(sorted(counts.items()))

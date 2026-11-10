@@ -9,10 +9,9 @@ from bddk_mcp.core.exceptions import BddkError, BddkStorageError
 from bddk_mcp.core.logging_config import (
     HumanFormatter,
     JsonFormatter,
+    _correlation_id,
     configure_logging,
     correlation_scope,
-    get_correlation_id,
-    set_correlation_id,
 )
 
 
@@ -32,23 +31,13 @@ class TestExceptionHierarchy:
 
 
 class TestCorrelationId:
-    def test_get_generates_id(self):
-        set_correlation_id("")
-        cid = get_correlation_id()
-        assert len(cid) == 12
-
-    def test_set_and_get(self):
-        set_correlation_id("test123")
-        assert get_correlation_id() == "test123"
-        set_correlation_id("")  # cleanup
-
     def test_scope_is_unique_and_restores_parent(self):
-        set_correlation_id("parent")
-        with correlation_scope() as first:
-            assert get_correlation_id() == first
-            assert first != "parent"
-        assert get_correlation_id() == "parent"
-        set_correlation_id("")
+        with correlation_scope("parent"):
+            with correlation_scope() as first:
+                assert first != "parent"
+                assert _correlation_id.get() == first
+            assert _correlation_id.get() == "parent"
+        assert _correlation_id.get() == ""
 
     @pytest.mark.parametrize("value", ["", "contains space", "line\nbreak", "x" * 65])
     def test_scope_rejects_unsafe_explicit_ids(self, value):
@@ -76,7 +65,6 @@ class TestJsonFormatter:
         assert parsed["logger"] == "test"
 
     def test_format_includes_correlation_id(self):
-        set_correlation_id("abc123")
         formatter = JsonFormatter()
         record = logging.LogRecord(
             name="test",
@@ -87,9 +75,9 @@ class TestJsonFormatter:
             args=(),
             exc_info=None,
         )
-        parsed = json.loads(formatter.format(record))
+        with correlation_scope("abc123"):
+            parsed = json.loads(formatter.format(record))
         assert parsed["correlation_id"] == "abc123"
-        set_correlation_id("")
 
     def test_format_includes_tool_boundary_fields(self):
         formatter = JsonFormatter()

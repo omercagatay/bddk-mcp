@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import logging
-import time
 from typing import TYPE_CHECKING, Annotated
 
 from pydantic import Field
 
 from bddk_mcp.core.exceptions import BddkStorageError
-from bddk_mcp.observability.telemetry import elapsed_ms, record_tool_call_trace
 from bddk_mcp.quality.markdown_quality import (
     FORMULA_EXTRACTION_WARNING as _DEGRADED_WARNING,
 )
@@ -64,8 +62,6 @@ _LARGE_DOCUMENT_WARNING_TEMPLATE = (
 def register(
     mcp,
     deps: Dependencies,
-    *,
-    include_operator: bool = False,
 ) -> None:
     """Register document tools on the given MCP instance."""
 
@@ -79,9 +75,9 @@ def register(
         """
         Retrieve a BDDK decision document as Markdown.
 
-        Airlocked: serves only from local stores (pgvector chunks, then PostgreSQL
-        documents). If the document is not present locally, returns a clear
-        "not in seed" error rather than live-fetching from mevzuat.gov.tr / BDDK.
+        Airlocked: serves only from the local corpus file. If the document is not
+        present locally, returns a clear "not in seed" error rather than
+        live-fetching from mevzuat.gov.tr / BDDK.
 
         A bare numeric ID (e.g. "21192") is also tried as `mevzuat_<id>` and
         `bddk_<id>` so callers don't need to know the catalog's prefix
@@ -92,24 +88,11 @@ def register(
             page_number: First page of the markdown output (documents are split into 5000-char pages)
             max_pages: Consecutive pages to return (1-5)
         """
-        start = time.perf_counter()
         if isinstance(max_pages, bool) or not 1 <= max_pages <= _MAX_PAGES_PER_RESPONSE:
             return tool_error(INVALID_INPUT, "max_pages must be between 1 and 5.", retryable=False)
-        args = {"document_id": document_id, "page_number": page_number, "max_pages": max_pages}
         candidates = document_id_candidates(document_id)
 
-        async def _lookup_page(cand: str, page: int) -> tuple[int, int, str, str, bool] | None:
-            if deps.vector_store is not None:
-                try:
-                    vp = await deps.vector_store.get_document_page(cand, page)
-                    if vp and vp["content"] and "Invalid page" not in vp["content"]:
-                        return vp["page_number"], vp["total_pages"], vp["content"], "", True
-                except Exception as exc:
-                    logger.warning(
-                        "Vector page lookup failed; falling back to document store",
-                        extra={"error_type": type(exc).__name__},
-                    )
-
+        async def _lookup_page(cand: str, page: int) -> tuple[int, int, str, str] | None:
             try:
                 stored = await deps.doc_store.get_document_page(cand, page)
             except (RuntimeError, BddkStorageError) as exc:
@@ -117,13 +100,7 @@ def register(
                 stored = None
 
             if stored and stored.markdown_content and "Invalid page" not in stored.markdown_content:
-                return (
-                    stored.page_number,
-                    stored.total_pages,
-                    stored.markdown_content,
-                    stored.extraction_method or "",
-                    False,
-                )
+                return stored.page_number, stored.total_pages, stored.markdown_content, stored.extraction_method or ""
             return None
 
         resolved_id: str | None = None
@@ -131,33 +108,22 @@ def register(
         total_pages = 0
         page_contents: list[tuple[int, str]] = []
         extraction_method = ""
-        served_sources: set[str] = set()
 
         for cand in candidates:
             found_page = await _lookup_page(cand, page_number)
             if found_page:
                 resolved_id = cand
-                page_num, total_pages, content, extraction_method, served_via_vector = found_page
+                page_num, total_pages, content, extraction_method = found_page
                 page_contents.append((page_num, content))
-                served_sources.add("vector_store" if served_via_vector else "document_store")
                 break
 
         if resolved_id is None:
-            await record_tool_call_trace(
-                getattr(deps, "telemetry_pool", None),
-                tool_name="get_bddk_document",
-                args=args,
-                latency_ms=elapsed_ms(start),
-                result_count=0,
-                doc_ids=[],
-                relevance_stats={"status": "not_found"},
-            )
             return tool_error(
                 NOT_FOUND,
                 f"Document {document_id} is not available in the local store. This MCP server is airlocked "
                 "and does not fetch from live BDDK / mevzuat.gov.tr sources at runtime.",
                 retryable=False,
-                hint="If the document should be available, re-run the seed (`seed.py import`) or sync pipeline.",
+                hint="If the document should be available, rebuild the corpus (`bddk-mcp build`) or run `bddk-mcp sync`.",
             )
 
         found = deps.client.find_by_id(resolved_id)
@@ -183,18 +149,10 @@ def register(
                         total_pages,
                     )
                     break
-                last_page_num, total_pages, page_content, page_extraction_method, served_via_vector = found_page
+                last_page_num, total_pages, page_content, page_extraction_method = found_page
                 page_contents.append((last_page_num, page_content))
-                served_sources.add("vector_store" if served_via_vector else "document_store")
                 if page_extraction_method and not extraction_method:
                     extraction_method = page_extraction_method
-
-        # The pgvector chunk rows don't carry extraction_method; look it up.
-        if "vector_store" in served_sources:
-            try:
-                extraction_method = await deps.doc_store.get_extraction_method(resolved_id) or ""
-            except (RuntimeError, BddkStorageError) as exc:
-                logger.debug("Extraction method lookup failed", extra={"error_type": type(exc).__name__})
 
         # Page cuts can split tables/formulas, or hide a failure elsewhere in the body.
         try:
@@ -213,15 +171,6 @@ def register(
             None,
         )
         if unsafe_reason is not None:
-            await record_tool_call_trace(
-                getattr(deps, "telemetry_pool", None),
-                tool_name="get_bddk_document",
-                args=args,
-                latency_ms=elapsed_ms(start),
-                result_count=0,
-                doc_ids=[resolved_id],
-                relevance_stats={"status": "verbatim_refused", "reason": unsafe_reason},
-            )
             return tool_error(
                 "VERBATIM_UNAVAILABLE",
                 f"Document {resolved_id} cannot be returned verbatim: its stored text contains an unsafe "
@@ -293,7 +242,7 @@ def register(
             f"{quality_warning_block}{degraded_warning_block}"
         )
 
-        served_via = next(iter(served_sources)) if len(served_sources) == 1 else "mixed"
+        served_via = "document_store"
         relevance_stats = {
             "page_number": page_num,
             "last_page_number": last_page_num,
@@ -303,22 +252,6 @@ def register(
         }
         if missing_page is not None:
             relevance_stats["missing_page"] = missing_page
-        await record_tool_call_trace(
-            getattr(deps, "telemetry_pool", None),
-            tool_name="get_bddk_document",
-            args=args,
-            latency_ms=elapsed_ms(start),
-            result_count=1,
-            doc_ids=[resolved_id],
-            quality_labels={
-                resolved_id: {
-                    "label": quality.label,
-                    "flags": quality.flags,
-                    "extraction_method": extraction_method or "unknown",
-                }
-            },
-            relevance_stats=relevance_stats,
-        )
         quality_metadata = QualityMetadata(
             label=quality.label,  # type: ignore[arg-type]
             flags=list(quality.flags),
@@ -417,42 +350,3 @@ def register(
                 versions=versions,
             )
         )
-
-    if not include_operator:
-        return
-
-    @mcp.tool()
-    @logged_tool(logger)
-    async def document_store_stats() -> str:
-        """
-        Show document store statistics for PostgreSQL and pgvector stores.
-        """
-        lines = ["**Document Store Statistics**\n"]
-
-        if deps.vector_store is not None:
-            try:
-                vs = await deps.vector_store.stats()
-                lines.append(
-                    f"**pgvector (Vector Store):**\n  Documents: {vs['total_documents']}\n"
-                    f"  Chunks: {vs['total_chunks']}\n  Embedding model: {vs['embedding_model']}"
-                )
-                if vs.get("categories"):
-                    lines.append("  Categories:")
-                    for cat, count in vs["categories"].items():
-                        lines.append(f"    {cat}: {count}")
-            except Exception as exc:
-                logger.warning("Vector store statistics unavailable", extra={"error_type": type(exc).__name__})
-                lines.append("  pgvector: unavailable")
-        else:
-            lines.append("  pgvector: unavailable (not initialized)")
-
-        try:
-            st = await deps.doc_store.stats()
-            lines.append(
-                f"\n**PostgreSQL (Document Store):**\n  Documents: {st.total_documents}\n  Size: {st.total_size_mb} MB"
-            )
-        except (RuntimeError, BddkStorageError) as exc:
-            logger.warning("Document store statistics unavailable", extra={"error_type": type(exc).__name__})
-            lines.append("  PostgreSQL: unavailable")
-
-        return "\n".join(lines)

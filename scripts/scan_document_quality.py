@@ -1,4 +1,4 @@
-"""Scan BDDK document quality from DB or a local Markdown export."""
+"""Scan BDDK document quality from the corpus file or a local Markdown export."""
 
 from __future__ import annotations
 
@@ -8,12 +8,10 @@ import json
 import sys
 from pathlib import Path
 
-import asyncpg
-
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from bddk_mcp.core.config import require_database_url  # noqa: E402
+from bddk_mcp.core.config import CORPUS_PATH  # noqa: E402
 from bddk_mcp.quality.markdown_quality import (  # noqa: E402
     QUALITY_FAILURES_PATH,
     assess_markdown_quality,
@@ -28,6 +26,7 @@ from bddk_mcp.quality.quality_scan import (  # noqa: E402
     format_report_json,
     scan_quality,
 )
+from bddk_mcp.store.corpus_db import CorpusDB  # noqa: E402
 
 
 def load_quality_failures(path: Path) -> list[dict[str, str]]:
@@ -74,13 +73,13 @@ def scan_markdown_dir(md_dir: Path, manifest: Path | None = None) -> QualityRepo
     )
 
 
-async def scan_db() -> QualityReport:
-    """Run the canonical DB quality scan."""
-    pool = await asyncpg.create_pool(require_database_url(), min_size=1, max_size=3)
+async def scan_db(corpus_path: str | None = None) -> QualityReport:
+    """Run the canonical quality scan over the corpus file (opened read-only)."""
+    db = CorpusDB.open(corpus_path, readonly=True)
     try:
-        return await scan_quality(pool)
+        return await scan_quality(db)
     finally:
-        await pool.close()
+        db.close()
 
 
 def write_outputs(report: QualityReport, out_dir: Path) -> None:
@@ -142,8 +141,11 @@ def _should_fail(report: QualityReport, *, allow_failures: bool, fail_on: set[st
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Scan BDDK document Markdown quality.")
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--db", action="store_true", help="Scan documents from the configured PostgreSQL database")
+    source.add_argument("--db", action="store_true", help="Scan documents from the corpus file")
     source.add_argument("--md-dir", type=Path, help="Scan local Markdown export directory")
+    parser.add_argument(
+        "--corpus", default=CORPUS_PATH, help="Corpus file path (default: BDDK_CORPUS_PATH or corpus/bddk.sqlite)"
+    )
     parser.add_argument("--manifest", type=Path, help="Optional Markdown export manifest CSV")
     parser.add_argument("--out-dir", type=Path, required=True, help="Directory for quality report outputs")
     parser.add_argument("--allow-failures", action="store_true", help="Exit zero even when fail-labeled docs exist")
@@ -157,7 +159,7 @@ def main(argv: list[str] | None = None) -> int:
     load_quality_failures(args.quality_failures)
 
     if args.db:
-        report = asyncio.run(scan_db())
+        report = asyncio.run(scan_db(args.corpus))
     else:
         report = scan_markdown_dir(args.md_dir, manifest=args.manifest)
 

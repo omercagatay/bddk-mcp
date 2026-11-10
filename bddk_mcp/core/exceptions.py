@@ -19,4 +19,4 @@ class BddkUpstreamUnreachableError(BddkUpstreamError):
 
 
 class BddkStorageError(BddkError):
-    """Error during PostgreSQL storage operations."""
+    """Error during corpus storage operations."""

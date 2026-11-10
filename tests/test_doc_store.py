@@ -1,12 +1,12 @@
 """Tests for DocumentStore (PostgreSQL + tsvector)."""
 
 import hashlib
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from bddk_mcp.quality.markdown_quality import assess_markdown_quality
-from bddk_mcp.store.doc_store import DocumentStore, StoredDocument, StoredDocumentSection
+from bddk_mcp.store.doc_store import StoredDocument, StoredDocumentSection
 from bddk_mcp.store.section_index import extract_document_sections
 
 
@@ -31,35 +31,6 @@ def test_stored_document_section_model():
 
     assert section.doc_id == "943"
     assert section.section_type == "ilke"
-
-
-@pytest.mark.asyncio
-async def test_context_entry_checks_schema_without_initializing_it():
-    pool = MagicMock()
-    store = DocumentStore(pool)
-    store.initialize = AsyncMock()
-    readiness = AsyncMock()
-
-    with patch("bddk_mcp.db_lifecycle.assert_database_ready", new=readiness):
-        async with store as entered:
-            assert entered is store
-
-    readiness.assert_awaited_once_with(pool=pool, require_corpus=False)
-    store.initialize.assert_not_awaited()
-    pool.execute.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_legacy_initialize_is_select_only_readiness_wrapper():
-    pool = MagicMock()
-    readiness = AsyncMock()
-
-    with patch("bddk_mcp.db_lifecycle.assert_database_ready", new=readiness):
-        await DocumentStore(pool).initialize()
-
-    readiness.assert_awaited_once_with(pool=pool, require_corpus=False)
-    pool.acquire.assert_not_called()
-    pool.execute.assert_not_called()
 
 
 async def test_store_and_retrieve(store, sample_doc):
@@ -116,33 +87,6 @@ async def test_pagination(store):
     invalid = await store.get_document_page("long_doc", page=99)
     assert invalid is not None
     assert "Invalid page" in invalid.markdown_content
-
-
-async def test_fts_search(store, sample_doc, mevzuat_doc):
-    await store.store_document(sample_doc)
-    await store.store_document(mevzuat_doc)
-
-    hits = await store.search_content("sermaye")
-    assert len(hits) >= 1
-    assert any(h.document_id == "1291" for h in hits)
-
-    hits = await store.search_content("faiz oranı")
-    assert len(hits) >= 1
-    assert any(h.document_id == "mevzuat_42628" for h in hits)
-
-
-async def test_search_with_category_filter(store, sample_doc, mevzuat_doc):
-    await store.store_document(sample_doc)
-    await store.store_document(mevzuat_doc)
-
-    hits = await store.search_content("sermaye", category="Rehber")
-    assert all(h.category == "Rehber" for h in hits)
-
-
-async def test_needs_refresh(store, sample_doc):
-    assert await store.needs_refresh("1291") is True  # not in store
-    await store.store_document(sample_doc)
-    assert await store.needs_refresh("1291") is False  # just stored
 
 
 async def test_has_document(store, sample_doc):
@@ -236,8 +180,8 @@ async def test_document_and_sections_publish_in_one_transaction(store, monkeypat
         markdown_content="İlke 5\nEski içerik.",
     )
     await store.store_document(original)
-    section_failure = AsyncMock(side_effect=RuntimeError("synthetic section failure"))
-    monkeypatch.setattr(store, "_replace_document_sections_on_connection", section_failure)
+    section_failure = MagicMock(side_effect=RuntimeError("synthetic section failure"))
+    monkeypatch.setattr("bddk_mcp.store.doc_store.replace_sections_sync", section_failure)
 
     with pytest.raises(RuntimeError, match="synthetic section failure"):
         await store.store_document(
@@ -342,38 +286,3 @@ async def test_upsert(store, sample_doc):
     await store.store_document(updated)
     doc = await store.get_document("1291")
     assert doc.title == "Güncellenmiş Başlık"
-
-
-async def test_import_from_cache(store):
-    cache_items = [
-        {"document_id": "100", "title": "Doc A", "category": "Genelge"},
-        {"document_id": "200", "title": "Doc B", "category": "Tebliğ"},
-    ]
-    imported = await store.import_from_cache(cache_items)
-    assert imported == 2
-
-    # Second import should skip existing
-    imported2 = await store.import_from_cache(cache_items)
-    assert imported2 == 0
-
-
-async def test_stats(store, sample_doc, mevzuat_doc):
-    await store.store_document(sample_doc)
-    await store.store_document(mevzuat_doc)
-
-    st = await store.stats()
-    assert st.total_documents == 2
-    assert "Rehber" in st.categories
-    assert "Yönetmelik" in st.categories
-
-
-async def test_list_documents(store, sample_doc, mevzuat_doc):
-    await store.store_document(sample_doc)
-    await store.store_document(mevzuat_doc)
-
-    docs = await store.list_documents()
-    assert len(docs) == 2
-
-    docs_filtered = await store.list_documents(category="Rehber")
-    assert len(docs_filtered) == 1
-    assert docs_filtered[0]["document_id"] == "1291"

@@ -4,8 +4,7 @@
       "command": "uv",
       "args": ["run", "--frozen", "bddk-mcp"],
       "env": {
-        "MCP_TRANSPORT": "stdio",
-        "BDDK_DATABASE_URL": "${BDDK_DATABASE_URL}"
+        "MCP_TRANSPORT": "stdio"
       }
     }
   }

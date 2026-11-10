@@ -11,7 +11,6 @@ from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, TypeVar
 
 from bddk_mcp.core.logging_config import tool_content_logging_enabled
-from bddk_mcp.observability.metrics import metrics
 
 _MAX_TEXT_CHARS = 200
 _SENSITIVE_KEY_EXACT = {"database_url", "dsn"}
@@ -184,8 +183,6 @@ def logged_tool(logger: logging.Logger) -> Callable[[F], F]:
                 result = await func(*args, **kwargs)
             except Exception as exc:
                 duration_ms = round((time.perf_counter() - started) * 1000, 2)
-                metrics.record_request(func.__name__, duration_ms)
-                metrics.record_error(func.__name__)
                 failure_metadata = {
                     "operation": "mcp_tool_call",
                     "tool_name": func.__name__,
@@ -210,7 +207,6 @@ def logged_tool(logger: logging.Logger) -> Callable[[F], F]:
                 raise
 
             duration_ms = round((time.perf_counter() - started) * 1000, 2)
-            metrics.record_request(func.__name__, duration_ms)
             logger.info(
                 "MCP tool call completed",
                 extra={

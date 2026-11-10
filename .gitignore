@@ -52,3 +52,6 @@ docs/.obsidian/
 # Local knowledge-graph tool output
 graphify-out/
 **/graphify-out/
+
+# Built corpus file (bddk-mcp build); seed_data/ is the reviewed source
+corpus/

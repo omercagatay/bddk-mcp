@@ -47,79 +47,8 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
       - name: Install dependencies
         run: uv sync --frozen --dev --python ${{ matrix.python-version }}
-      - name: Run tests that do not require PostgreSQL
-        run: uv run pytest tests/ -m "not postgres and not gpu" --strict-markers -v --tb=short
-
-  postgres-test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.12", "3.13"]
-    services:
-      postgres:
-        image: pgvector/pgvector:pg17@sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0
-        env:
-          POSTGRES_USER: bddk
-          POSTGRES_PASSWORD: bddk
-          POSTGRES_DB: bddk_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-        with:
-          version: ${{ env.UV_VERSION }}
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
-      - name: Install dependencies
-        run: uv sync --frozen --dev --python ${{ matrix.python-version }}
-      - name: Run required PostgreSQL tests
-        env:
-          BDDK_TEST_DATABASE_URL: postgresql://bddk:bddk@localhost:5432/bddk_test
-          BDDK_REQUIRE_TEST_DATABASE: "1"
-        run: uv run pytest tests/ -m "postgres and not gpu" --strict-markers -v --tb=short
-
-  postgres-role-contract:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    services:
-      postgres:
-        image: pgvector/pgvector:pg17@sha256:d2ef61f42ef767baa5a1475393303cc235bcd92febd9d7014eddb48b41f3bad0
-        env:
-          POSTGRES_USER: bddk
-          POSTGRES_PASSWORD: bddk
-          POSTGRES_DB: bddk_role_contract
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-        with:
-          version: ${{ env.UV_VERSION }}
-      - name: Install test dependencies
-        run: uv sync --frozen --dev --python 3.12
-      - name: Prove the live PostgreSQL allow and deny matrix
-        env:
-          BDDK_ROLE_TEST_DATABASE_URL: postgresql://bddk:bddk@localhost:5432/bddk_role_contract
-          BDDK_ALLOW_ROLE_PROVISIONING_TEST: "1"
-          BDDK_ALLOW_DISPOSABLE_IDENTITY_TEST: I_UNDERSTAND_THIS_MUTATES_A_DISPOSABLE_CLUSTER
-        run: >-
-          uv run pytest
-          tests/test_postgres_role_assets.py
-          -m postgres
-          --strict-markers -v --tb=short
+      - name: Run the unit tests (temporary SQLite corpus, no database service)
+        run: uv run pytest tests/ -m "not gpu" --strict-markers -v --tb=short
 
   package-test:
     runs-on: ubuntu-latest
@@ -150,8 +79,9 @@ jobs:
           /tmp/bddk-wheel-venv/bin/python -I -c "from importlib.resources import files; import bddk_mcp; assert files('bddk_mcp.quality').joinpath('quality_failures.yml').is_file(); print(bddk_mcp.__version__)"
           /tmp/bddk-wheel-venv/bin/bddk-mcp --version
           /tmp/bddk-wheel-venv/bin/bddk-mcp serve --help
-          /tmp/bddk-wheel-venv/bin/bddk-mcp migrate --help
-          /tmp/bddk-wheel-venv/bin/bddk-mcp bootstrap --help
+          /tmp/bddk-wheel-venv/bin/bddk-mcp build --help
+          /tmp/bddk-wheel-venv/bin/bddk-mcp export --help
+          /tmp/bddk-wheel-venv/bin/bddk-mcp sync --help
       - name: Verify container recipes use the packaged source tree
         run: |
           grep -q "COPY bddk_mcp/" Dockerfile
@@ -166,35 +96,7 @@ jobs:
           version: ${{ env.UV_VERSION }}
       - name: Install test dependencies
         run: uv sync --frozen --dev --python 3.12
-      - name: Install checksum-verified Kustomize
-        env:
-          KUSTOMIZE_VERSION: v5.8.1
-          # Source: https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/v5.8.1/checksums.txt
-          KUSTOMIZE_SHA256: 029a7f0f4e1932c52a0476cf02a0fd855c0bb85694b82c338fc648dcb53a819d
-        run: |
-          archive="$RUNNER_TEMP/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
-          bin_dir="$RUNNER_TEMP/kustomize-bin"
-          curl --fail --location --silent --show-error \
-            "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" \
-            --output "$archive"
-          echo "${KUSTOMIZE_SHA256}  ${archive}" | sha256sum --check --strict -
-          mkdir -p "$bin_dir"
-          tar -xzf "$archive" -C "$bin_dir"
-          echo "$bin_dir" >> "$GITHUB_PATH"
-      - name: Require rendered OpenShift manifest validation
-        env:
-          BDDK_REQUIRE_KUSTOMIZE: "1"
-        run: >-
-          uv run pytest
-          tests/test_openshift_manifests.py
-          tests/test_openshift_acceptance.py
-          --strict-markers -v --tb=short
       - name: Validate Compose interpolation and structure
-        env:
-          BDDK_JWT_ISSUER: https://idp.example.test
-          BDDK_JWT_RESOURCE: https://localhost:8000/mcp
-          BDDK_JWT_JWKS_URL: https://idp.example.test/jwks
-          BDDK_JWT_AUDIENCE: bddk-ci
         run: docker compose config -q
       - name: Check container recipes without executing build stages
         run: |

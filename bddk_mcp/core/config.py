@@ -6,7 +6,6 @@ variables (prefixed with BDDK_).
 
 import math
 import os
-import re
 from pathlib import Path
 
 
@@ -74,126 +73,12 @@ def _environment_choice(name: str, *, default: str, choices: frozenset[str]) -> 
     return value
 
 
-# -- Paths --------------------------------------------------------------------
+# -- Corpus file --------------------------------------------------------------
 
-BASE_DIR = Path(__file__).parent
-# -- PostgreSQL ---------------------------------------------------------------
-
-DATABASE_URL = os.environ.get("BDDK_DATABASE_URL", "")
-OPERATOR_DATABASE_URL = os.environ.get("BDDK_OPERATOR_DATABASE_URL", "")
-SCHEMA_OWNER_DATABASE_URL = os.environ.get("BDDK_SCHEMA_OWNER_DATABASE_URL", "")
-INGESTION_DATABASE_URL = os.environ.get("BDDK_INGESTION_DATABASE_URL", "")
-RELEASE_PUBLISHER_DATABASE_URL = os.environ.get("BDDK_RELEASE_PUBLISHER_DATABASE_URL", "")
-RELEASE_VERIFIER_DATABASE_URL = os.environ.get("BDDK_RELEASE_VERIFIER_DATABASE_URL", "")
-RELEASE_VERIFIER_REVISION_SHA256 = os.environ.get("BDDK_RELEASE_VERIFIER_REVISION_SHA256", "").strip()
-RELEASE_VERIFIER_IMAGE_DIGEST = os.environ.get("BDDK_RELEASE_VERIFIER_IMAGE_DIGEST", "").strip()
-RELEASE_VERIFICATION_VALIDITY_SECONDS = _environment_int(
-    "BDDK_RELEASE_VERIFICATION_VALIDITY_SECONDS",
-    default=900,
-    minimum=60,
-    maximum=3600,
-)
-EXPECTED_DATABASE_NAME = os.environ.get("BDDK_EXPECTED_DATABASE_NAME", "").strip()
-_DATABASE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$")
-
-
-def require_expected_database_name() -> str:
-    """Return the independently configured lifecycle target database name."""
-
-    if not EXPECTED_DATABASE_NAME:
-        raise RuntimeError(
-            "BDDK_EXPECTED_DATABASE_NAME is required for database lifecycle operations. "
-            "Set it independently from the connection URL to guard against a wrong-database deployment."
-        )
-    if not _DATABASE_NAME_RE.fullmatch(EXPECTED_DATABASE_NAME):
-        raise RuntimeError(
-            "BDDK_EXPECTED_DATABASE_NAME must be 1-63 characters using only letters, digits, '.', '_' or '-'."
-        )
-    return EXPECTED_DATABASE_NAME
-
-
-def require_database_url(profile: str = "public") -> str:
-    """Return the database URL assigned to one process profile.
-
-    Call this at the start of any entry point (server, seed CLI, doc_sync CLI)
-    that needs to open a pool.  Public serving uses ``BDDK_DATABASE_URL``;
-    operator serving must use the separately provisioned
-    ``BDDK_OPERATOR_DATABASE_URL`` so enabling mutation tools cannot silently
-    reuse the public runtime identity.
-    """
-    normalized = profile.strip().lower()
-    if normalized == "public":
-        variable = "BDDK_DATABASE_URL"
-        dsn = DATABASE_URL
-    elif normalized == "operator":
-        variable = "BDDK_OPERATOR_DATABASE_URL"
-        dsn = OPERATOR_DATABASE_URL
-    elif normalized == "schema-owner":
-        variable = "BDDK_SCHEMA_OWNER_DATABASE_URL"
-        dsn = SCHEMA_OWNER_DATABASE_URL
-    elif normalized == "ingestion":
-        variable = "BDDK_INGESTION_DATABASE_URL"
-        dsn = INGESTION_DATABASE_URL
-    elif normalized == "release-publisher":
-        variable = "BDDK_RELEASE_PUBLISHER_DATABASE_URL"
-        dsn = RELEASE_PUBLISHER_DATABASE_URL
-    elif normalized == "release-verifier":
-        variable = "BDDK_RELEASE_VERIFIER_DATABASE_URL"
-        dsn = RELEASE_VERIFIER_DATABASE_URL
-    else:
-        raise RuntimeError(
-            f"Unknown database profile {profile!r}; expected public, operator, schema-owner, ingestion, "
-            "release-verifier, or release-publisher"
-        )
-
-    if not dsn:
-        raise RuntimeError(
-            f"{variable} is not set for the {normalized} process profile. "
-            "Provision a PostgreSQL DSN with the least-privileged role for "
-            "that profile before starting the server."
-        )
-    if normalized == "operator" and DATABASE_URL and dsn == DATABASE_URL:
-        raise RuntimeError(
-            "BDDK_OPERATOR_DATABASE_URL must not reuse BDDK_DATABASE_URL. "
-            "Provision a distinct least-privileged operator database identity."
-        )
-    if normalized in {"schema-owner", "ingestion", "release-verifier", "release-publisher"}:
-        other_identities = {
-            name: value
-            for name, value in {
-                "BDDK_DATABASE_URL": DATABASE_URL,
-                "BDDK_OPERATOR_DATABASE_URL": OPERATOR_DATABASE_URL,
-                "BDDK_SCHEMA_OWNER_DATABASE_URL": SCHEMA_OWNER_DATABASE_URL,
-                "BDDK_INGESTION_DATABASE_URL": INGESTION_DATABASE_URL,
-                "BDDK_RELEASE_VERIFIER_DATABASE_URL": RELEASE_VERIFIER_DATABASE_URL,
-                "BDDK_RELEASE_PUBLISHER_DATABASE_URL": RELEASE_PUBLISHER_DATABASE_URL,
-            }.items()
-            if value and name != variable
-        }
-        reused = next((name for name, value in other_identities.items() if value == dsn), None)
-        if reused is not None:
-            raise RuntimeError(
-                f"{variable} must not reuse {reused}. Provision a distinct database identity for each lifecycle plane."
-            )
-    from bddk_mcp.db_transport import assert_database_transport
-
-    return assert_database_transport(dsn)
-
-
-# asyncpg pool settings
-PG_POOL_MIN = _environment_int("BDDK_PG_POOL_MIN", default=2, minimum=1, maximum=100)
-PG_POOL_MAX = _environment_int("BDDK_PG_POOL_MAX", default=10, minimum=1, maximum=1000)
-if PG_POOL_MIN > PG_POOL_MAX:
-    raise RuntimeError("BDDK_PG_POOL_MIN must not exceed BDDK_PG_POOL_MAX.")
-
-
-# Local research can explicitly operate without a signed release identity.
-# Bank/OpenShift profiles set this true so serving readiness requires the
-# strict bootstrap activation recorded by migration v0005.
-REQUIRE_ACTIVE_CORPUS_RELEASE = _environment_bool(
-    "BDDK_REQUIRE_ACTIVE_CORPUS_RELEASE",
-    default=False,
-)
+# The whole corpus (documents, sections, chunks with embeddings, catalog) is one
+# SQLite file.  Serving opens it read-only; `bddk-mcp build` and `bddk-mcp sync`
+# write it.
+CORPUS_PATH = os.environ.get("BDDK_CORPUS_PATH", "").strip() or "corpus/bddk.sqlite"
 
 # -- Embedding model (offline-first) -----------------------------------------
 
@@ -232,20 +117,18 @@ OCR_MIN_CONTENT_LEN = _environment_int(
 
 CHANDRA_MODEL_NAME = os.environ.get("BDDK_CHANDRA_MODEL", "datalab-to/chandra-ocr-2")
 
-# -- pgvector -----------------------------------------------------------------
+# -- Embedding dimension ------------------------------------------------------
 
-# The immutable PostgreSQL migration stores public.vector(768), and the default
-# E5 model emits exactly 768 values. Reject a misleading override instead of
-# allowing ingestion to fail after an expensive embedding run.
+# The default E5 model emits exactly 768 values and every corpus file records
+# the dimension it was built with. Reject a misleading override instead of
+# allowing a build to fail after an expensive embedding run.
 EMBEDDING_DIMENSION = 768
 _configured_embedding_dimension = os.environ.get("BDDK_EMBEDDING_DIM", str(EMBEDDING_DIMENSION))
 try:
     if int(_configured_embedding_dimension) != EMBEDDING_DIMENSION:
-        raise RuntimeError("BDDK_EMBEDDING_DIM must be 768 for the current immutable database schema.")
+        raise RuntimeError("BDDK_EMBEDDING_DIM must be 768 for the current corpus format.")
 except ValueError:
-    raise RuntimeError(
-        "BDDK_EMBEDDING_DIM must be the integer 768 for the current immutable database schema."
-    ) from None
+    raise RuntimeError("BDDK_EMBEDDING_DIM must be the integer 768 for the current corpus format.") from None
 
 # -- Document chunking -------------------------------------------------------
 
@@ -288,14 +171,6 @@ if EMBEDDING_CHUNK_TOKEN_OVERLAP >= EMBEDDING_CHUNK_TARGET_TOKENS:
     raise RuntimeError("BDDK_EMBEDDING_CHUNK_TOKEN_OVERLAP must be smaller than BDDK_EMBEDDING_CHUNK_TARGET_TOKENS.")
 
 # -- Cache --------------------------------------------------------------------
-
-# Decision list cache TTL (seconds) -- how long before re-scraping BDDK pages
-CACHE_TTL_SECONDS = _environment_int(
-    "BDDK_CACHE_TTL",
-    default=3600,
-    minimum=0,
-    maximum=31_536_000,
-)
 
 # Search result in-memory cache
 SEARCH_CACHE_TTL = _environment_int(
@@ -417,52 +292,9 @@ HTTP_POOL_TIMEOUT = _environment_float(
 )
 MAX_RETRIES = _environment_int("BDDK_MAX_RETRIES", default=3, minimum=1, maximum=20)
 
-# -- Optional telemetry -------------------------------------------------------
-
-# Disabled by default. When enabled, retrieval tools persist privacy-safe
-# call traces for production retrieval debugging and benchmark comparison.
-TELEMETRY_ENABLED = _environment_bool("BDDK_TELEMETRY_ENABLED", default=False)
-TELEMETRY_DATABASE_URL = os.environ.get("BDDK_TELEMETRY_DATABASE_URL", "")
-TELEMETRY_STORE_TEXT = _environment_bool("BDDK_TELEMETRY_STORE_TEXT", default=False)
-TELEMETRY_MODEL_ID = os.environ.get("BDDK_TELEMETRY_MODEL_ID", "")
-TELEMETRY_SESSION_ID = os.environ.get("BDDK_TELEMETRY_SESSION_ID", "")
-
-
-def require_telemetry_database_url() -> str:
-    """Return a dedicated telemetry-writer DSN when telemetry is enabled."""
-
-    if not TELEMETRY_ENABLED:
-        raise RuntimeError("Telemetry is disabled; no telemetry database identity should be opened")
-    if not TELEMETRY_DATABASE_URL:
-        raise RuntimeError(
-            "BDDK_TELEMETRY_DATABASE_URL is required when BDDK_TELEMETRY_ENABLED=true. "
-            "Provision a dedicated INSERT-only telemetry database identity."
-        )
-    if TELEMETRY_DATABASE_URL in {DATABASE_URL, OPERATOR_DATABASE_URL}:
-        raise RuntimeError(
-            "BDDK_TELEMETRY_DATABASE_URL must not reuse a public or operator database identity. "
-            "Provision a dedicated INSERT-only telemetry role."
-        )
-    from bddk_mcp.db_transport import assert_database_transport
-
-    return assert_database_transport(TELEMETRY_DATABASE_URL)
-
-
 # -- Sync ---------------------------------------------------------------------
 
 SYNC_CONCURRENCY = _environment_int("BDDK_SYNC_CONCURRENCY", default=5, minimum=1, maximum=100)
-OPERATOR_JOB_DRAIN_TIMEOUT = _environment_float(
-    "BDDK_OPERATOR_JOB_DRAIN_TIMEOUT",
-    default=30.0,
-    minimum=0.0,
-    maximum=3600.0,
-)
-OPERATOR_JOB_HISTORY = _environment_int(
-    "BDDK_OPERATOR_JOB_HISTORY",
-    default=1000,
-    minimum=1,
-    maximum=1_000_000,
-)
 
 # Prefer the iframe/HTML download path over PDF for mevzuat.gov.tr documents.
 # Values: "true" | "false" | "auto". "auto" flips to true when no GPU OCR

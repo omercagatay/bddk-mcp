@@ -17,13 +17,6 @@ from bddk_mcp.core.exceptions import BddkUpstreamError, BddkUpstreamUnreachableE
 from bddk_mcp.core.models import BddkSearchRequest
 from bddk_mcp.ingest.client import _turkish_lower
 from bddk_mcp.ingest.data_sources import fetch_announcements, fetch_institutions_with_status
-from bddk_mcp.observability.metrics import metrics
-from bddk_mcp.observability.telemetry import (
-    elapsed_ms,
-    record_tool_call_trace,
-    relevance_stats_from_hits,
-    unique_doc_ids,
-)
 from bddk_mcp.quality.markdown_quality import (
     QualityAssessment,
     assess_markdown_quality,
@@ -124,11 +117,6 @@ class _LRUCache:
 _search_cache: _LRUCache = _LRUCache(max_size=SEARCH_CACHE_MAX, ttl=SEARCH_CACHE_TTL)
 
 
-def clear_search_cache() -> None:
-    """Invalidate all query results derived from the previous corpus release."""
-    _search_cache.clear()
-
-
 def _match_strength(relevance: float) -> str:
     if relevance >= 0.70:
         return "strong"
@@ -208,28 +196,10 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
             date_from: Optional start date filter (DD.MM.YYYY)
             date_to: Optional end date filter (DD.MM.YYYY)
         """
-        start = time.perf_counter()
-        args = {
-            "keywords": keywords,
-            "page": page,
-            "page_size": page_size,
-            "category": category,
-            "date_from": date_from,
-            "date_to": date_to,
-        }
         validate_date_order(date_from, date_to)
         cache_key = f"regulations:{keywords}:{page}:{page_size}:{category}:{date_from}:{date_to}"
         cached = _search_cache.get(cache_key)
         if isinstance(cached, RegulationCatalogResponse):
-            await record_tool_call_trace(
-                getattr(deps, "telemetry_pool", None),
-                tool_name="search_bddk_regulations",
-                args=args,
-                latency_ms=elapsed_ms(start),
-                result_count=None,
-                doc_ids=[item.document_id for item in cached.results],
-                relevance_stats={"cache": "hit"},
-            )
             return structured_tool_result(cached)
 
         request = BddkSearchRequest(
@@ -243,16 +213,6 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
         result = await deps.client.search_decisions(request)
 
         if not result.decisions:
-            metrics.record_empty_search("search_bddk_regulations")
-            await record_tool_call_trace(
-                getattr(deps, "telemetry_pool", None),
-                tool_name="search_bddk_regulations",
-                args=args,
-                latency_ms=elapsed_ms(start),
-                result_count=0,
-                doc_ids=[],
-                relevance_stats={"status": "no_results"},
-            )
             output = """NO RESULTS: No BDDK regulations found whose title/category/date/number matches ALL keywords.
 This tool searches catalog metadata only — not document bodies.
 DO NOT provide information about BDDK regulations from your own knowledge.
@@ -331,15 +291,6 @@ Try: (1) call search_document_store with the same query for full-text semantic s
             results=items,
         )
         _search_cache.set(cache_key, response)
-        await record_tool_call_trace(
-            getattr(deps, "telemetry_pool", None),
-            tool_name="search_bddk_regulations",
-            args=args,
-            latency_ms=elapsed_ms(start),
-            result_count=len(result.decisions),
-            doc_ids=[d.document_id for d in result.decisions],
-            relevance_stats={"total_results": result.total_results, "page": result.page},
-        )
         return structured_tool_result(response)
 
     @mcp.tool()
@@ -390,7 +341,6 @@ Try: (1) call search_document_store with the same query for full-text semantic s
             ]
 
         if not institutions:
-            metrics.record_empty_search("search_bddk_institutions")
             return (
                 """NO RESULTS: No institutions found matching these criteria.
 DO NOT guess institution names, license statuses, or other details.
@@ -472,7 +422,6 @@ Suggest the user try: broader keywords or removing the type/active filter."""
             announcements = [a for a in announcements if kw in _turkish_lower(a.get("title", ""))]
 
         if not announcements:
-            metrics.record_empty_search("search_bddk_announcements")
             return (
                 """NO RESULTS: No BDDK announcements found matching these criteria.
 DO NOT fabricate announcements or press releases.
@@ -499,7 +448,7 @@ Suggest the user try: different keywords or a different category (basın, mevzua
         limit: ResultLimit = 10,
     ) -> DocumentSearchToolResult:
         """
-        Semantic search over BDDK document BODIES (full text via pgvector).
+        Semantic search over BDDK document BODIES (full text of the local corpus).
 
         Uses multilingual-e5-base embeddings on chunked document content. Use this
         when query terms might appear inside the document text rather than in the
@@ -519,18 +468,7 @@ Suggest the user try: different keywords or a different category (basın, mevzua
             category: Optional category filter (e.g. "Yönetmelik", "Rehber", "Kurul Kararı")
             limit: Maximum results to return (default 10)
         """
-        start = time.perf_counter()
-        args = {"query": query, "category": category, "limit": limit}
         if deps.vector_store is None:
-            await record_tool_call_trace(
-                getattr(deps, "telemetry_pool", None),
-                tool_name="search_document_store",
-                args=args,
-                latency_ms=elapsed_ms(start),
-                result_count=0,
-                doc_ids=[],
-                relevance_stats={"status": "semantic_search_unavailable", "retryable": False},
-            )
             return tool_error(
                 "SEMANTIC_SEARCH_UNAVAILABLE",
                 "Semantic document search is unavailable in this runtime.",
@@ -541,15 +479,6 @@ Suggest the user try: different keywords or a different category (basın, mevzua
         try:
             await deps.vector_store.assert_semantic_search_ready()
         except SemanticSearchUnavailableError:
-            await record_tool_call_trace(
-                getattr(deps, "telemetry_pool", None),
-                tool_name="search_document_store",
-                args=args,
-                latency_ms=elapsed_ms(start),
-                result_count=0,
-                doc_ids=[],
-                relevance_stats={"status": "semantic_search_unavailable", "retryable": False},
-            )
             return tool_error(
                 "SEMANTIC_SEARCH_UNAVAILABLE",
                 "Semantic document search failed its runtime model check.",
@@ -557,15 +486,6 @@ Suggest the user try: different keywords or a different category (basın, mevzua
                 hint="Use search_document_sections or get_document_section; an operator must repair this runtime.",
             )
         except SemanticSearchReadinessError:
-            await record_tool_call_trace(
-                getattr(deps, "telemetry_pool", None),
-                tool_name="search_document_store",
-                args=args,
-                latency_ms=elapsed_ms(start),
-                result_count=0,
-                doc_ids=[],
-                relevance_stats={"status": "semantic_search_not_ready", "retryable": True},
-            )
             return tool_error(
                 "SEMANTIC_SEARCH_NOT_READY",
                 "Semantic document search could not complete its readiness check.",
@@ -576,29 +496,11 @@ Suggest the user try: different keywords or a different category (basın, mevzua
         cache_key = f"semantic:{query}:{category}:{limit}"
         cached = _search_cache.get(cache_key)
         if isinstance(cached, DocumentSearchResponse):
-            await record_tool_call_trace(
-                getattr(deps, "telemetry_pool", None),
-                tool_name="search_document_store",
-                args=args,
-                latency_ms=elapsed_ms(start),
-                result_count=None,
-                doc_ids=[item.document_id for item in cached.results],
-                relevance_stats={"cache": "hit"},
-            )
             return structured_tool_result(cached)
 
         try:
             hits = await deps.vector_store.search(query, limit=limit, category=category)
         except SemanticSearchUnavailableError:
-            await record_tool_call_trace(
-                getattr(deps, "telemetry_pool", None),
-                tool_name="search_document_store",
-                args=args,
-                latency_ms=elapsed_ms(start),
-                result_count=0,
-                doc_ids=[],
-                relevance_stats={"status": "semantic_search_unavailable", "retryable": False},
-            )
             return tool_error(
                 "SEMANTIC_SEARCH_UNAVAILABLE",
                 "Semantic document search failed during query encoding.",
@@ -607,16 +509,6 @@ Suggest the user try: different keywords or a different category (basın, mevzua
             )
 
         if not hits:
-            metrics.record_empty_search("search_document_store")
-            await record_tool_call_trace(
-                getattr(deps, "telemetry_pool", None),
-                tool_name="search_document_store",
-                args=args,
-                latency_ms=elapsed_ms(start),
-                result_count=0,
-                doc_ids=[],
-                relevance_stats={"status": "no_results"},
-            )
             output = f"""NO RESULTS: No documents found matching '{query}'.
 DO NOT provide information from your own knowledge about BDDK regulations.
 Suggest the user try: different Turkish keywords, broader terms, or removing the category filter."""
@@ -680,7 +572,6 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
 
         low_count = sum(1 for h in hits if h.get("relevance", 0) < 0.50)
         if low_count > 0:
-            metrics.record_low_confidence_hit()
             lines.append(
                 f"\nWARNING: {low_count} result(s) are weak matches. They may not be directly relevant. Verify before citing."
             )
@@ -697,16 +588,4 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
             results=items,
         )
         _search_cache.set(cache_key, response)
-        await record_tool_call_trace(
-            getattr(deps, "telemetry_pool", None),
-            tool_name="search_document_store",
-            args=args,
-            latency_ms=elapsed_ms(start),
-            result_count=len(hits),
-            doc_ids=unique_doc_ids([hit.get("doc_id") for hit in hits]),
-            quality_labels={
-                doc_id: {"label": quality.label, "flags": quality.flags} for doc_id, quality in hit_quality.items()
-            },
-            relevance_stats=relevance_stats_from_hits(hits),
-        )
         return structured_tool_result(response)

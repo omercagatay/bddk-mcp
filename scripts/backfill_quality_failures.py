@@ -9,19 +9,17 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-import asyncpg
 import httpx
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from bddk_mcp.core.config import require_database_url  # noqa: E402
-from bddk_mcp.db_identity import assert_database_identity  # noqa: E402
-from bddk_mcp.db_lifecycle import assert_database_ready  # noqa: E402
-from bddk_mcp.db_transport import assert_database_transport  # noqa: E402
+from bddk_mcp.core.config import CORPUS_PATH  # noqa: E402
 from bddk_mcp.ingest.doc_sync import DocumentSyncer  # noqa: E402
 from bddk_mcp.quality.markdown_quality import QUALITY_FAILURES_PATH  # noqa: E402
+from bddk_mcp.store.corpus_db import CorpusDB  # noqa: E402
 from bddk_mcp.store.doc_store import DocumentStore  # noqa: E402
+from bddk_mcp.store.vector_store import VectorStore  # noqa: E402
 from scripts.scan_document_quality import load_quality_failures  # noqa: E402
 
 
@@ -91,16 +89,13 @@ def render_dry_run(candidates: list[QualityFailureCandidate]) -> str:
     return "\n".join(lines)
 
 
-async def execute_quality_backfill(candidates: list[QualityFailureCandidate], *, dsn: str | None = None) -> int:
+async def execute_quality_backfill(candidates: list[QualityFailureCandidate], *, corpus_path: str | None = None) -> int:
     """Execute targeted re-extraction for quality failures."""
-    selected_dsn = assert_database_transport(dsn) if dsn else require_database_url("ingestion")
-    pool = await asyncpg.create_pool(selected_dsn, min_size=1, max_size=3)
+    db = CorpusDB.open(corpus_path, create=False)
     http = httpx.AsyncClient()
     try:
-        await assert_database_ready(pool=pool, require_corpus=False)
-        await assert_database_identity(pool, "ingestion")
-        store = DocumentStore(pool)
-        async with DocumentSyncer(store, http=http) as syncer:
+        store = DocumentStore(db)
+        async with DocumentSyncer(store, http=http, vector_store=VectorStore(db)) as syncer:
             for index, candidate in enumerate(candidates, 1):
                 print(f"[{index}/{len(candidates)}] {candidate.document_id}: re-extracting")
                 doc = await store.get_document(candidate.document_id)
@@ -123,7 +118,7 @@ async def execute_quality_backfill(candidates: list[QualityFailureCandidate], *,
         return 0
     finally:
         await http.aclose()
-        await pool.close()
+        db.close()
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -132,7 +127,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--doc-id", help="Target one document ID")
     parser.add_argument("--dry-run", action="store_true", default=True)
     parser.add_argument("--execute", action="store_true", help="Actually re-extract matching documents")
-    parser.add_argument("--database-url", help="Override BDDK_INGESTION_DATABASE_URL")
+    parser.add_argument(
+        "--corpus", default=CORPUS_PATH, help="Corpus file path (default: BDDK_CORPUS_PATH or corpus/bddk.sqlite)"
+    )
     return parser
 
 
@@ -144,7 +141,7 @@ def main(argv: list[str] | None = None) -> int:
         print(render_dry_run(candidates))
         return 0
 
-    return asyncio.run(execute_quality_backfill(candidates, dsn=args.database_url))
+    return asyncio.run(execute_quality_backfill(candidates, corpus_path=args.corpus))
 
 
 if __name__ == "__main__":

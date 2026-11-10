@@ -13,9 +13,9 @@ from bddk_mcp.tools.bulletin import register
 
 
 def test_register_exposes_end_user_tools_only_by_default():
-    """Default (ADMIN_TOOLS=false) hides bddk_cache_status from end users."""
+    """Only the three bulletin tools are registered."""
     mcp = MagicMock()
-    deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None)
     register(mcp, deps)
 
     tool_names = {call.args[0].__name__ for call in mcp.tool.return_value.call_args_list}
@@ -23,21 +23,6 @@ def test_register_exposes_end_user_tools_only_by_default():
         "get_bddk_bulletin",
         "get_bddk_bulletin_snapshot",
         "get_bddk_monthly",
-    }
-
-
-def test_register_adds_admin_tool_only_when_explicitly_requested():
-    """The registry must explicitly request the operator-only cache tool."""
-    mcp = MagicMock()
-    deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
-    register(mcp, deps, include_operator=True)
-
-    tool_names = {call.args[0].__name__ for call in mcp.tool.return_value.call_args_list}
-    assert tool_names == {
-        "get_bddk_bulletin",
-        "get_bddk_bulletin_snapshot",
-        "get_bddk_monthly",
-        "bddk_cache_status",
     }
 
 
@@ -52,7 +37,7 @@ def _registered_tools(mcp: MagicMock) -> dict:
 async def test_bulletin_snapshot_upstream_failure_is_tool_error():
     """Blocked egress must surface as a retryable error, not 'No bulletin data'."""
     mcp = MagicMock()
-    deps = Dependencies(pool=None, doc_store=None, client=None, http=MagicMock())
+    deps = Dependencies(db=None, doc_store=None, client=None, http=MagicMock())
     register(mcp, deps)
     tool = _registered_tools(mcp)["get_bddk_bulletin_snapshot"]
 

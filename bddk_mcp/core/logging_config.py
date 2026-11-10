@@ -16,20 +16,6 @@ _TOOL_CONTENT_LOG_ENV = "BDDK_TOOL_LOG_CONTENT"
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 
 
-def get_correlation_id() -> str:
-    """Get the current correlation ID, or generate a new one."""
-    cid = _correlation_id.get()
-    if not cid:
-        cid = uuid.uuid4().hex[:12]
-        _correlation_id.set(cid)
-    return cid
-
-
-def set_correlation_id(cid: str) -> None:
-    """Set the correlation ID for the current context."""
-    _correlation_id.set(cid)
-
-
 @contextmanager
 def correlation_scope(cid: str | None = None) -> Iterator[str]:
     """Set one bounded correlation ID and restore the parent context afterward."""

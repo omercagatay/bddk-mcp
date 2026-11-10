@@ -4,12 +4,12 @@ import pytest
 
 from bddk_mcp.core.models import BddkDecisionSummary, BddkSearchRequest
 from bddk_mcp.ingest.client import BddkApiClient
-from tests.conftest import MockPool
+from tests.conftest import MockStore
 
 
 def _make_client_with_cache(items: list[BddkDecisionSummary]) -> BddkApiClient:
     """Create a client with a pre-populated cache (no HTTP needed)."""
-    client = BddkApiClient(pool=MockPool())
+    client = BddkApiClient(store=MockStore())
     client._cache = items
     client._cache_timestamp = 9999999999.0  # far future so cache stays valid
     return client
@@ -143,35 +143,3 @@ async def test_no_results():
     result = await client.search_decisions(req)
     assert result.total_results == 0
     assert result.decisions == []
-
-
-@pytest.mark.asyncio
-async def test_cache_status():
-    client = _make_client_with_cache(SAMPLE_ITEMS)
-    status = client.cache_status()
-    assert status["total_items"] == len(SAMPLE_ITEMS)
-    assert status["cache_valid"] is True
-    assert "Yönetmelik" in status["categories"]
-
-
-@pytest.mark.asyncio
-async def test_resolve_document_url_numeric():
-    client = _make_client_with_cache(SAMPLE_ITEMS)
-    url = client._resolve_document_url("1296")
-    assert url == "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1296"
-
-
-@pytest.mark.asyncio
-async def test_resolve_document_url_mevzuat():
-    client = _make_client_with_cache(SAMPLE_ITEMS)
-    url = client._resolve_document_url("mevzuat_40520")
-    assert "mevzuat.gov.tr" in url
-    assert "40520" in url
-
-
-@pytest.mark.asyncio
-async def test_page_validation():
-    client = _make_client_with_cache(SAMPLE_ITEMS)
-    # We can't test get_document_markdown without HTTP, but we can test _resolve
-    url = client._resolve_document_url("999999")
-    assert "DokumanGetir/999999" in url

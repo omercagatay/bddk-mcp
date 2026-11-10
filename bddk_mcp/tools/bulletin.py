@@ -1,4 +1,4 @@
-"""Bulletin tools: get_bddk_bulletin, get_bddk_bulletin_snapshot, get_bddk_monthly, bddk_cache_status."""
+"""Bulletin tools: get_bddk_bulletin, get_bddk_bulletin_snapshot, get_bddk_monthly."""
 
 from __future__ import annotations
 
@@ -40,8 +40,6 @@ logger = logging.getLogger(__name__)
 def register(
     mcp,
     deps: Dependencies,
-    *,
-    include_operator: bool = False,
 ) -> None:
     """Register bulletin tools on the given MCP instance."""
 
@@ -177,35 +175,5 @@ def register(
             lines.append("-" * 105)
             for r in rows:
                 lines.append(f"{r['name']:<55} {r.get('tp', ''):>15} {r.get('yp', ''):>15} {r.get('total', ''):>15}")
-
-        return frame_untrusted_source("\n".join(lines))
-
-    if not include_operator:
-        return
-
-    @mcp.tool()
-    @logged_tool(logger)
-    async def bddk_cache_status() -> str:
-        """
-        Show BDDK cache statistics: total items, age, categories, and any page errors.
-        """
-        status = deps.client.cache_status()
-
-        lines = ["**BDDK Cache Status**\n"]
-        lines.append(f"  Total items: {status['total_items']}")
-        lines.append(f"  Cache valid: {status['cache_valid']}")
-        if status["cache_age_seconds"] is not None:
-            mins = status["cache_age_seconds"] // 60
-            lines.append(f"  Cache age: {mins} min ({status['cache_age_seconds']}s)")
-        lines.append(f"  TTL: {status['ttl_seconds']}s")
-
-        if status["categories"]:
-            lines.append("\n**Categories:**")
-            for cat, count in status["categories"].items():
-                lines.append(f"  {cat}: {count}")
-
-        if status["page_errors"]:
-            lines.append("\n**Page Errors:**")
-            lines.append(f"  {len(status['page_errors'])} page(s) failed; details withheld.")
 
         return frame_untrusted_source("\n".join(lines))

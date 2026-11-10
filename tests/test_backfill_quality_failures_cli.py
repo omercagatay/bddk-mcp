@@ -2,18 +2,23 @@
 
 from __future__ import annotations
 
+import asyncio
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from backfill_quality_failures import execute_quality_backfill, load_fail_documents, main  # noqa: E402
+import backfill_quality_failures  # noqa: E402
+from backfill_quality_failures import load_fail_documents, main  # noqa: E402
 
-HISTORICAL_REGISTRY = ROOT / "docs/evidence/document-repairs/historical-quality-failures.yml"
+from bddk_mcp.core.config import CORPUS_PATH  # noqa: E402
+from bddk_mcp.ingest.doc_sync import SyncResult  # noqa: E402
+from bddk_mcp.store.corpus_db import CorpusDB  # noqa: E402
+from bddk_mcp.store.doc_store import DocumentStore, StoredDocument  # noqa: E402
+from bddk_mcp.store.vector_store import VectorStore  # noqa: E402
+
+HISTORICAL_REGISTRY = ROOT / "tests/fixtures/historical-quality-failures.yml"
 
 
 def test_load_fail_documents_from_quality_failures_yml():
@@ -77,24 +82,62 @@ def test_backfill_quality_failures_doc_id_filters_one_candidate(capsys):
     assert "1314" not in out
 
 
-@pytest.mark.asyncio
-async def test_executing_backfill_requires_verified_ingestion_identity() -> None:
-    pool = MagicMock()
-    pool.close = AsyncMock()
-    http = MagicMock()
-    http.aclose = AsyncMock()
-    identity = AsyncMock(side_effect=RuntimeError("identity rejected"))
+def test_backfill_quality_failures_execute_reextracts_stored_documents(tmp_path, capsys, monkeypatch):
+    """--execute re-syncs every flagged document that exists in the corpus file (with force)."""
+    corpus = tmp_path / "c.sqlite"
+    db = CorpusDB.open(corpus)
+    doc = StoredDocument(
+        document_id="mevzuat_21192",
+        title="Eski",
+        category="Yönetmelik",
+        source_url="https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=21192",
+        markdown_content="eski metin",
+        extraction_method="markitdown",
+    )
+    asyncio.run(DocumentStore(db).store_document(doc))
+    db.close()
+    csv_path = tmp_path / "quality_findings.csv"
+    csv_path.write_text(
+        "document_id,label,flags,sample\nmevzuat_21192,fail,data_uri_image,blob\n1314,fail,c1_control_char,x\n",
+        encoding="utf-8",
+    )
 
-    with (
-        patch("backfill_quality_failures.assert_database_transport", side_effect=lambda value: value),
-        patch("backfill_quality_failures.asyncpg.create_pool", new=AsyncMock(return_value=pool)),
-        patch("backfill_quality_failures.httpx.AsyncClient", return_value=http),
-        patch("backfill_quality_failures.assert_database_ready", new=AsyncMock()),
-        patch("backfill_quality_failures.assert_database_identity", new=identity),
-        pytest.raises(RuntimeError, match="identity rejected"),
-    ):
-        await execute_quality_backfill([], dsn="postgresql://different-text-same-login")
+    calls: list[dict] = []
+    wiring: dict = {}
 
-    identity.assert_awaited_once_with(pool, "ingestion")
-    pool.close.assert_awaited_once_with()
-    http.aclose.assert_awaited_once_with()
+    class FakeSyncer:
+        def __init__(self, store, **kwargs):
+            wiring.update(store=store, **kwargs)
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return None
+
+        async def sync_document(self, **kwargs):
+            calls.append(kwargs)
+            return SyncResult(document_id=kwargs["doc_id"], success=True, method="html_parser", size_bytes=42)
+
+    monkeypatch.setattr(backfill_quality_failures, "DocumentSyncer", FakeSyncer)
+
+    code = main(["--execute", "--config", str(csv_path), "--corpus", str(corpus)])
+    out = capsys.readouterr().out
+
+    assert code == 0
+    assert "[1/2] mevzuat_21192: re-extracting" in out
+    assert "ok: method=html_parser size=42" in out
+    assert "[2/2] 1314: re-extracting" in out
+    assert "skipped: not found in document store" in out
+    # Only the stored document reaches the syncer, with its catalog metadata and force=True
+    assert [call["doc_id"] for call in calls] == ["mevzuat_21192"]
+    assert calls[0]["force"] is True
+    assert calls[0]["title"] == "Eski"
+    assert calls[0]["source_url"] == doc.source_url
+    # The syncer is wired to the corpus file's stores so re-extraction republishes chunks too
+    assert isinstance(wiring["store"], DocumentStore)
+    assert isinstance(wiring["vector_store"], VectorStore)
+
+
+def test_parser_defaults_to_the_configured_corpus_path():
+    assert backfill_quality_failures._build_parser().parse_args([]).corpus == CORPUS_PATH

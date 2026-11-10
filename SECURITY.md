@@ -4,7 +4,7 @@
 
 Security fixes target the current `main` branch. Historical tags and closed branches are not supported release lines. The package metadata may identify an unreleased target version; consult `CHANGELOG.md` and the GitHub release page before treating a tag as a published release.
 
-This repository is an engineering beta. Its application controls do not by themselves establish production, bank, regulatory, or legal acceptance. Deployment-specific identity, TLS, network, database, backup, and operational controls remain the deployer's responsibility.
+This repository is an engineering beta. Its application controls do not by themselves establish production, bank, regulatory, or legal acceptance. Deployment-specific identity, TLS, network, corpus-file distribution, backup, and operational controls remain the deployer's responsibility.
 
 ## Report a vulnerability privately
 
@@ -37,7 +37,5 @@ If the issue belongs to an upstream dependency, deployment platform, or private 
 
 ## Public hardening information
 
-- [Security review](docs/SECURITY_REVIEW.md) — a dated repository assessment, with explicit residual risks.
-- [Deployment guide](docs/DEPLOYMENT.md) — supported process profiles and fail-closed remote configuration.
-- [Supply-chain policy](supply-chain/README.md) — scanner evidence, exact exceptions, and release-eligibility boundaries.
-- [Corpus governance](docs/CORPUS_GOVERNANCE.md) — corpus identity, signing, freshness, and publication controls.
+- [Deployment guide](docs/DEPLOYMENT.md) — supported transports, fail-closed remote HTTP configuration, the read-only corpus file, and outbound HTTP controls.
+- [Current status](docs/STATUS.md) — what the repository does and does not establish.

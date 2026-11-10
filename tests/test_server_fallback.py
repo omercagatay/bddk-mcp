@@ -1,4 +1,4 @@
-"""Tests for local pgvector/document-store retrieval fallback."""
+"""get_bddk_document serves only the local corpus: no live fetch, no second store."""
 
 from unittest.mock import AsyncMock, MagicMock
 
@@ -25,18 +25,13 @@ class TestGetBddkDocumentAirlock:
     """get_bddk_document is airlocked — it must never call the live-fetch client path."""
 
     @pytest.mark.asyncio
-    async def test_falls_back_to_doc_store_on_pgvector_error(self):
-        """If pgvector raises, fall back to the local PostgreSQL doc_store (still local)."""
+    async def test_serves_pages_from_the_document_store(self):
         from bddk_mcp.core.deps import Dependencies
         from bddk_mcp.store.doc_store import DocumentPage
 
         mock_client = MagicMock()
         mock_client._cache = []
         mock_client.find_by_id.return_value = None
-        mock_client.get_document_markdown = AsyncMock()
-
-        mock_vs = MagicMock()
-        mock_vs.get_document_page = AsyncMock(side_effect=Exception('relation "document_chunks" does not exist'))
 
         mock_doc_store = MagicMock()
         mock_doc_store.get_document_quality = AsyncMock(return_value=None)
@@ -54,63 +49,32 @@ class TestGetBddkDocumentAirlock:
 
         deps = MagicMock(spec=Dependencies)
         deps.client = mock_client
-        deps.vector_store = mock_vs
+        deps.vector_store = MagicMock()
         deps.doc_store = mock_doc_store
 
         result = await _register_and_get_tool(deps)("956")
 
         assert "Local doc_store content" in result
+        assert result.structuredContent["served_via"] == "document_store"
         mock_doc_store.get_document_page.assert_awaited_once_with("956", 1)
-        mock_client.get_document_markdown.assert_not_called()
+        deps.vector_store.assert_not_called()
+        mock_client.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_uses_pgvector_when_available(self):
-        """If pgvector works, use it without falling back."""
+    async def test_returns_not_in_seed_when_the_store_misses(self):
+        """When the corpus has no such document, return an error — never live-fetch."""
         from bddk_mcp.core.deps import Dependencies
 
         mock_client = MagicMock()
         mock_client._cache = []
         mock_client.find_by_id.return_value = None
-        mock_client.get_document_markdown = AsyncMock()
-
-        mock_vs = MagicMock()
-        mock_vs.get_document_page = AsyncMock(
-            return_value={"content": "pgvector content here", "page_number": 1, "total_pages": 1}
-        )
-
-        deps = MagicMock(spec=Dependencies)
-        deps.client = mock_client
-        deps.vector_store = mock_vs
-        deps.doc_store = MagicMock()
-        deps.doc_store.get_document_page = AsyncMock()
-        deps.doc_store.get_extraction_method = AsyncMock(return_value="lightocr")
-        deps.doc_store.get_document_quality = AsyncMock(return_value=None)
-
-        result = await _register_and_get_tool(deps)("956")
-
-        assert "pgvector content here" in result
-        deps.doc_store.get_document_page.assert_not_called()
-        mock_client.get_document_markdown.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_returns_not_in_seed_when_both_stores_miss(self):
-        """When both pgvector and doc_store miss, return an error — never live-fetch."""
-        from bddk_mcp.core.deps import Dependencies
-
-        mock_client = MagicMock()
-        mock_client._cache = []
-        mock_client.find_by_id.return_value = None
-        mock_client.get_document_markdown = AsyncMock()
-
-        mock_vs = MagicMock()
-        mock_vs.get_document_page = AsyncMock(return_value=None)
 
         mock_doc_store = MagicMock()
         mock_doc_store.get_document_page = AsyncMock(return_value=None)
 
         deps = MagicMock(spec=Dependencies)
         deps.client = mock_client
-        deps.vector_store = mock_vs
+        deps.vector_store = MagicMock()
         deps.doc_store = mock_doc_store
 
         with pytest.raises(ToolError) as error:
@@ -119,4 +83,4 @@ class TestGetBddkDocumentAirlock:
         assert "[ERROR:NOT_FOUND] retryable=false" in str(error.value)
         assert "airlocked" in str(error.value).lower()
         assert "mevzuat_42626" in str(error.value)
-        mock_client.get_document_markdown.assert_not_called()
+        assert "bddk-mcp build" in str(error.value)

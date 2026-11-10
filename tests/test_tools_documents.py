@@ -9,34 +9,20 @@ from mcp.server.fastmcp.exceptions import ToolError
 
 from bddk_mcp.core.deps import Dependencies
 from bddk_mcp.quality.markdown_quality import assess_markdown_quality
-from bddk_mcp.store.doc_store import DocumentPage, DocumentStore
+from bddk_mcp.store.doc_store import DocumentPage
 from bddk_mcp.tools.documents import _is_formula_aware, register
 
 
 def test_register_exposes_end_user_tools_only_by_default():
-    """Default (ADMIN_TOOLS=false) hides document_store_stats from end users."""
+    """Only the two document tools are registered."""
     mcp = MagicMock()
-    deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None)
     register(mcp, deps)
 
     tool_names = {call.args[0].__name__ for call in mcp.tool.return_value.call_args_list}
     assert tool_names == {
         "get_bddk_document",
         "get_document_history",
-    }
-
-
-def test_register_adds_admin_tool_only_when_explicitly_requested():
-    """The registry must explicitly request the operator-only store tool."""
-    mcp = MagicMock()
-    deps = Dependencies(pool=None, doc_store=None, client=None, http=None)
-    register(mcp, deps, include_operator=True)
-
-    tool_names = {call.args[0].__name__ for call in mcp.tool.return_value.call_args_list}
-    assert tool_names == {
-        "get_bddk_document",
-        "get_document_history",
-        "document_store_stats",
     }
 
 
@@ -53,7 +39,7 @@ def _capture_get_bddk_document(deps: Dependencies):
 
 def _make_deps(*, doc_store, client=None, vector_store=None) -> Dependencies:
     doc_store.get_document_quality = AsyncMock(side_effect=lambda doc_id: assess_markdown_quality("", doc_id))
-    deps = Dependencies(pool=None, doc_store=doc_store, client=client or MagicMock(), http=None)
+    deps = Dependencies(db=None, doc_store=doc_store, client=client or MagicMock(), http=None)
     deps.vector_store = vector_store
     if client is None:
         deps.client.find_by_id = MagicMock(return_value=None)
@@ -294,33 +280,6 @@ async def test_get_bddk_document_rejects_oversized_page_window():
 
 
 @pytest.mark.asyncio
-async def test_pgvector_path_still_looks_up_extraction_method():
-    """When served via vector_store, the tool must still fetch extraction_method via doc_store."""
-    vector_store = MagicMock()
-    vector_store.get_document_page = AsyncMock(
-        return_value={
-            "doc_id": "mevzuat_20029",
-            "title": "Kredi Riski Azaltım Tekniklerine İlişkin Tebliğ",
-            "content": "page text",
-            "page_number": 1,
-            "total_pages": 24,
-        }
-    )
-    doc_store = MagicMock()
-    doc_store.get_document_page = AsyncMock(return_value=None)
-    doc_store.get_extraction_method = AsyncMock(return_value="markitdown")
-    deps = _make_deps(doc_store=doc_store, vector_store=vector_store)
-
-    tool = _capture_get_bddk_document(deps)
-    out = await tool("mevzuat_20029", 1)
-
-    doc_store.get_extraction_method.assert_awaited_once_with("mevzuat_20029")
-    assert "- Extraction: markitdown" in out
-    assert "formula-unaware" not in out
-    assert "formülü hafızadan" not in out
-
-
-@pytest.mark.asyncio
 async def test_get_bddk_document_refuses_rather_than_rewriting_unsafe_verbatim_text():
     """Unsafe extraction blobs must never leak, and document text is never rewritten/sanitized."""
     page = DocumentPage(
@@ -431,45 +390,6 @@ async def test_multi_page_gap_is_surfaced_as_warning():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("via_vector", [False, True])
-@pytest.mark.parametrize(
-    "body,page,expected_label,expected_flags",
-    [
-        ("| A | B |\n| --- | --- |\n| x | y |", "| A | B", "clean", []),
-        ("Temiz sayfa.\n\nSonraki sayfa: \ufffd", "Temiz sayfa.", "fail", ["replacement_char"]),
-        (
-            "Temiz sayfa.\n\naşağıdaki formül kullanılır.",
-            "Temiz sayfa.",
-            "warning",
-            ["formula_ref_without_latex_or_image"],
-        ),
-        (None, "Temiz sayfa.", "unknown", ["document_quality_unavailable"]),
-    ],
-)
-async def test_document_quality_uses_canonical_body_on_both_page_paths(
-    via_vector, body, page, expected_label, expected_flags
-):
-    pool = MagicMock()
-    pool.fetchval = AsyncMock(return_value=body)
-    store = MagicMock()
-    store.get_document_page = AsyncMock(
-        return_value=DocumentPage(document_id="x", title="x", markdown_content=page, extraction_method="manual_latex")
-    )
-    store.get_extraction_method = AsyncMock(return_value="manual_latex")
-    vector = MagicMock() if via_vector else None
-    if vector:
-        vector.get_document_page = AsyncMock(return_value={"content": page, "page_number": 1, "total_pages": 1})
-    deps = _make_deps(doc_store=store, vector_store=vector)
-    store.get_document_quality = DocumentStore(pool).get_document_quality
-    result = await _capture_get_bddk_document(deps)("x")
-    quality = result.structuredContent["quality"]
-    assert quality["label"] == expected_label
-    assert quality["flags"] == expected_flags
-    assert result.structuredContent["evidence"][0]["quality"] == quality
-    pool.fetchval.assert_awaited_once_with("SELECT markdown_content FROM public.documents WHERE document_id = $1", "x")
-
-
-@pytest.mark.asyncio
 async def test_document_quality_lookup_failure_cannot_claim_clean():
     from bddk_mcp.core.exceptions import BddkStorageError
 
@@ -482,3 +402,30 @@ async def test_document_quality_lookup_failure_cannot_claim_clean():
     result = await _capture_get_bddk_document(deps)("x")
     assert result.structuredContent["quality"]["label"] == "unknown"
     assert "document_quality_unavailable" in result.structuredContent["quality"]["flags"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "body,expected_label,expected_flags",
+    [
+        ("| A | B |\n| --- | --- |\n| x | y |", "clean", []),
+        ("Temiz sayfa.\n\nSonraki sayfa: \ufffd", "fail", ["replacement_char"]),
+        ("Temiz sayfa.\n\naşağıdaki formül kullanılır.", "warning", ["formula_ref_without_latex_or_image"]),
+    ],
+)
+async def test_document_quality_is_assessed_on_the_canonical_body(doc_store, body, expected_label, expected_flags):
+    """The quality label comes from the whole stored body, not from the page that was returned."""
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(StoredDocument(document_id="x", title="x", markdown_content=body))
+    client = MagicMock()
+    client.find_by_id = MagicMock(return_value=None)
+    deps = Dependencies(db=None, doc_store=doc_store, client=client, http=None)
+
+    result = await _capture_get_bddk_document(deps)("x")
+
+    quality = result.structuredContent["quality"]
+    assert quality["label"] == expected_label
+    assert quality["flags"] == expected_flags
+    assert result.structuredContent["evidence"][0]["quality"] == quality
+    assert result.structuredContent["pages"][0]["content"] == body

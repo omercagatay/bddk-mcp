@@ -101,8 +101,8 @@ def test_public_quotation_argument_preserves_boundary_whitespace():
 
 
 def test_stricter_quotation_wire_semantics_have_an_explicit_output_version():
-    from bddk_mcp.tools.structured_outputs import SCHEMA_VERSION, RegulationStatusResponse, RetrievalResponse
+    from bddk_mcp.tools.structured_outputs import SCHEMA_VERSION, DocumentSectionResponse, RetrievalResponse
 
     assert SCHEMA_VERSION == "2.0"
-    for model in (RetrievalResponse, RegulationStatusResponse):
+    for model in (RetrievalResponse, DocumentSectionResponse):
         assert model.model_json_schema()["properties"]["schema_version"]["const"] == "2.0"

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "bddk-mcp"
 version = "5.0.1"
-description = "MCP server for BDDK regulatory intelligence — search, analytics, and monitoring (PostgreSQL + pgvector)"
+description = "MCP server for BDDK regulatory intelligence — search, analytics, and monitoring (single SQLite corpus file)"
 readme = "README.md"
 license = "PolyForm-Noncommercial-1.0.0"
 license-files = ["LICENSE"]
@@ -19,11 +19,10 @@ dependencies = [
     "markitdown[pdf]>=0.1",
     "beautifulsoup4>=4.12",
     "defusedxml>=0.7.1,<1",
-    "asyncpg>=0.30",
+    "numpy>=1.26",
     "sentence-transformers>=5.0",
     "transformers>=4.50",
     "starlette>=0.47",
-    "jinja2>=3.1",
     "uvicorn>=0.34",
 ]
 
@@ -33,7 +32,6 @@ Issues = "https://github.com/omercagatay/bddk-mcp/issues"
 
 [project.scripts]
 bddk-mcp = "bddk_mcp.cli:main"
-bddk-seed = "bddk_mcp.ingest.seed:main"
 
 [dependency-groups]
 dev = [
@@ -43,11 +41,8 @@ dev = [
     "ruff>=0.8",
     "pdfplumber>=0.11",
 ]
-benchmark = [
-    "anthropic>=0.40",
-]
 # Optional developer tool: local code knowledge graph (graphify-out/, git-ignored).
-# Kept out of the dev group so CI, supply-chain checks and the serving image stay unchanged.
+# Kept out of the dev group so CI and the serving image stay unchanged.
 graph = [
     "graphifyy>=0.9.104,<0.10",
 ]
@@ -67,7 +62,6 @@ pythonpath = ["."]
 addopts = "-m 'not gpu'"
 markers = [
     "gpu: requires explicit offline GPU/OCR provisioning via BDDK_REQUIRE_GPU_OCR=1",
-    "postgres: requires the PostgreSQL + pgvector test service",
 ]
 
 [tool.ruff]
@@ -89,9 +83,3 @@ include = ["bddk_mcp*"]
 
 [tool.setuptools.package-data]
 "bddk_mcp.quality" = ["*.yml"]
-"bddk_mcp.admin" = [
-    "templates/*.html",
-    "templates/**/*.html",
-    "static/*",
-    "static/**/*",
-]

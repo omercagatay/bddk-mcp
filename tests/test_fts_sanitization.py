@@ -1,111 +1,85 @@
-"""Tests for FTS query sanitization in DocumentStore."""
+"""FTS5 query construction: user text can never inject MATCH operators."""
 
 import logging
 
 import pytest
 
-from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
+from bddk_mcp.store.doc_store import StoredDocument, fts_match_query
 
 
-class TestFtsSanitization:
-    """Test the _sanitize_fts_term static method."""
+class TestFtsMatchQuery:
+    """Every token is quoted, so FTS5 syntax in user input is matched literally or dropped."""
 
     def test_normal_term(self):
-        assert DocumentStore._sanitize_fts_term("sermaye") == "sermaye"
+        assert fts_match_query("sermaye") == '"sermaye"'
 
-    def test_strips_quotes(self):
-        assert DocumentStore._sanitize_fts_term('"test"') == "test"
+    def test_every_token_must_match(self):
+        assert fts_match_query("sermaye yeterliliği") == '"sermaye" "yeterliligi"'
 
-    def test_strips_asterisk(self):
-        assert DocumentStore._sanitize_fts_term("test*") == "test"
+    def test_operators_and_syntax_characters_are_neutralized(self):
+        assert fts_match_query('"test"') == '"test"'
+        assert fts_match_query("test*") == '"test"'
+        assert fts_match_query("(test)") == '"test"'
+        assert fts_match_query("+test-") == '"test"'
+        assert fts_match_query("test:col") == '"test" "col"'
 
-    def test_strips_parentheses(self):
-        assert DocumentStore._sanitize_fts_term("(test)") == "test"
+    def test_operator_words_become_plain_quoted_tokens(self):
+        assert fts_match_query("sermaye AND risk") == '"sermaye" "and" "risk"'
+        assert fts_match_query("NEAR") == '"near"'
 
-    def test_strips_plus_minus(self):
-        assert DocumentStore._sanitize_fts_term("+test-") == "test"
+    def test_case_and_diacritics_are_folded(self):
+        assert fts_match_query("SERMAYE Yeterliliği İlke") == '"sermaye" "yeterliligi" "ilke"'
 
-    def test_rejects_and_operator(self):
-        assert DocumentStore._sanitize_fts_term("AND") == ""
+    def test_prefix_mode(self):
+        assert fts_match_query("serma yeter", prefix=True) == '"serma"* "yeter"*'
 
-    def test_rejects_or_operator(self):
-        assert DocumentStore._sanitize_fts_term("OR") == ""
-
-    def test_rejects_not_operator(self):
-        assert DocumentStore._sanitize_fts_term("NOT") == ""
-
-    def test_rejects_near_operator(self):
-        assert DocumentStore._sanitize_fts_term("NEAR") == ""
-
-    def test_case_insensitive_operator_rejection(self):
-        assert DocumentStore._sanitize_fts_term("and") == ""
-        assert DocumentStore._sanitize_fts_term("Or") == ""
-
-    def test_normal_words_not_rejected(self):
-        assert DocumentStore._sanitize_fts_term("android") == "android"
-        assert DocumentStore._sanitize_fts_term("notion") == "notion"
-
-    def test_empty_string(self):
-        assert DocumentStore._sanitize_fts_term("") == ""
+    def test_empty_or_symbol_only_input(self):
+        assert fts_match_query("") is None
+        assert fts_match_query("*** ()) --") is None
 
 
-class TestFtsSearchSanitized:
-    """Integration tests: FTS search with potentially dangerous input."""
+class TestSectionSearchSanitized:
+    """Integration: section search with potentially dangerous input never raises."""
+
+    async def _seed(self, doc_store):
+        await doc_store.store_document(
+            StoredDocument(
+                document_id="1",
+                title="Sermaye Yeterliliği",
+                markdown_content="MADDE 1\nBankacılık sermaye yeterliliği hesaplama rehberi.",
+            )
+        )
 
     @pytest.mark.asyncio
     async def test_search_with_quotes(self, doc_store):
-        await doc_store.store_document(
-            StoredDocument(
-                document_id="1",
-                title="Sermaye Yeterliliği",
-                markdown_content="Bankacılık sermaye yeterliliği hesaplama rehberi.",
-            )
-        )
-        hits = await doc_store.search_content('"sermaye"')
-        assert len(hits) >= 1
+        await self._seed(doc_store)
+        hits = await doc_store.search_document_sections('"sermaye"')
+        assert [hit.doc_id for hit in hits] == ["1"]
 
     @pytest.mark.asyncio
     async def test_search_with_operators(self, doc_store):
-        await doc_store.store_document(
-            StoredDocument(
-                document_id="1",
-                title="Sermaye Yeterliliği",
-                markdown_content="Bankacılık sermaye yeterliliği hesaplama rehberi.",
-            )
-        )
-        hits = await doc_store.search_content("sermaye AND OR NOT")
-        assert isinstance(hits, list)
+        await self._seed(doc_store)
+        assert await doc_store.search_document_sections("sermaye AND OR NOT") == []
+        assert [hit.doc_id for hit in await doc_store.search_document_sections("sermaye OR")] == []
 
     @pytest.mark.asyncio
     async def test_search_with_special_chars(self, doc_store):
-        await doc_store.store_document(
-            StoredDocument(
-                document_id="1",
-                title="Sermaye Yeterliliği",
-                markdown_content="Bankacılık sermaye yeterliliği hesaplama rehberi.",
-            )
-        )
-        hits = await doc_store.search_content("sermaye* (test) +risk-")
-        assert isinstance(hits, list)
+        await self._seed(doc_store)
+        hits = await doc_store.search_document_sections("sermaye* (rehberi) +yeterliliği-")
+        assert [hit.doc_id for hit in hits] == ["1"]
 
     @pytest.mark.asyncio
-    async def test_search_all_operators_returns_empty(self, doc_store):
-        hits = await doc_store.search_content("AND OR NOT")
-        assert hits == []
+    async def test_search_symbols_only_returns_empty(self, doc_store):
+        await self._seed(doc_store)
+        assert await doc_store.search_document_sections("*** ()) --") == []
 
 
 @pytest.mark.asyncio
-async def test_fts_operational_log_does_not_include_raw_query(caplog):
+async def test_section_search_log_does_not_include_raw_query(doc_store, caplog):
     sentinel = "PRIVATE_FTS_QUERY_SENTINEL_4d2a"
 
-    class EmptyPool:
-        async def fetch(self, query, *args):
-            return []
-
-    store = DocumentStore(EmptyPool())  # type: ignore[arg-type]
-    with caplog.at_level(logging.INFO, logger="bddk_mcp.store.doc_store"):
-        hits = await store.search_content(sentinel)
+    with caplog.at_level(logging.DEBUG, logger="bddk_mcp.store"):
+        hits = await doc_store.search_document_sections(sentinel)
 
     assert hits == []
     assert sentinel not in caplog.text
-    assert f"query_chars={len(sentinel)} hits=0" in caplog.text

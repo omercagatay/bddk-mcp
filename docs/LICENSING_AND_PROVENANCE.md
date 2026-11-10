@@ -43,14 +43,14 @@ invent rights over regulatory material.
 | Public regulatory source artifacts | Source URLs and derived normalized content; rights are not granted by MIT | Source-by-source acquisition, retention, redistribution, citation, and derived-work basis. |
 | Seed documents/chunks/cache | Integrity-bound job corpus; intentionally non-exhaustive | Whether these files may be redistributed outside the approved project/bank boundary. |
 | Benchmark and NLI data | Repository test/evaluation material with incomplete provenance review; `data/bddk_nli/metadata.json` declares PolyForm Noncommercial 1.0.0 after `aa62301` | Dataset-specific terms, contributor/annotation rights, and publication boundary. |
-| Downloaded embedding model | `supply-chain/model-assets.json` pins the exact upstream Git commit and marks `license_review_status: pending_bank_review` | Bank approval of model license, internal mirror, redistribution/use boundary, vulnerability review, and disconnected deployment process. |
+| Downloaded embedding model | The Dockerfile and runtime configuration pin the exact upstream Git commit; license review is pending bank review | Bank approval of model license, internal mirror, redistribution/use boundary, vulnerability review, and disconnected deployment process. |
 | Future validated legal-status or audit knowledge packs | Not yet a released product artifact | Separate ownership, reviewer authority, license/contract, export, retention, and revocation policy. |
 | Bank-internal corpus, controls, findings, or workpapers | Explicitly excluded from the tracked public corpus | Bank-owned access, confidentiality, retention, residency, audit, and deletion terms before ingestion. |
 
 ## What technical controls can enforce
 
 For a bank-operated on-premises service, authentication, scopes, network
-segmentation, separate public/operator processes and database roles, private
+segmentation, file permissions on the corpus file, private
 registries, encryption, audit events, and contractual entitlements can control
 access to the running service and private data. They can also restrict who may
 import a curated legal bundle or promote a validated knowledge pack.
@@ -82,8 +82,7 @@ until an approved decision record names, for every artifact class:
 - reviewer/approval authority; and
 - withdrawal, correction, and incident procedure.
 
-The current `corpus_scope.yml` checksum and the supply-chain evidence lane prove
-selected artifact identities. The latter also checks that the model manifest,
-runtime configuration, and Dockerfiles name the same immutable model revision.
-They do **not** prove ownership, model or source licensing, legal permission,
+The retained `corpus_scope.yml` checksum describes selected artifact identities
+(the runtime no longer verifies it).
+It does **not** prove ownership, model or source licensing, legal permission,
 bank approval, or non-commercial enforceability.

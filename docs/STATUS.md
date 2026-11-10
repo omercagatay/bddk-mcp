@@ -1,12 +1,8 @@
 # Current Repository Status
 
-Repository baseline verified on **2026-08-26**. Corpus facts below were refreshed on
-**2026-09-29** (KGK TMS 12 addition); quality-policy facts on **2026-09-21**, following the merged v8 refresh (PR #152).
-See the [repair release evidence](evidence/document-repairs/local-release-v6.json)
-for signed artifacts, fresh local staging, and real MCP verification.
-The earlier checkpoint was **2026-08-18** (`3a93189`).
+Repository baseline verified on **2026-11-10** (SQLite corpus branch). Corpus facts were last refreshed on **2026-10-16** (quality pass) and **2026-09-29** (KGK TMS 12 addition).
 
-This is the concise source for current repository facts. The longer architecture, review, roadmap, and testing documents preserve dated analysis and may intentionally describe older checkpoints.
+This is the concise source for current repository facts. Dated reviews that used to live beside it were removed on 2026-11-09 and remain in Git history at tag `archive/pre-simplify-2026-11-09`. The PostgreSQL backend that the corpus file replaced on 2026-11-10 is at tag `archive/postgres-2026-11-10`.
 
 ## Current contract
 
@@ -14,42 +10,38 @@ This is the concise source for current repository facts. The longer architecture
 |---|---|
 | Package | `bddk-mcp` 5.0.1 metadata; not yet represented by a `v5.0.1` GitHub release or tag. |
 | Python | 3.12 and 3.13. |
-| MCP public profile | 17 tools. |
-| MCP operator profile | 17 public tools plus 14 operator additions, 31 total. |
-| MCP resources/prompts | One resource (`bddk://corpus/active-release`); zero prompts. |
-| Database | PostgreSQL 17 contract coverage; append-only migration ledger through schema v11. |
-| Corpus | `bddk-job-corpus-quality-pass-local-v11-2026-10-16` (merged in #178): 319 documents, 13,604 chunks, quality policy v7, section parser v10; owner-signed on 2026-10-18 (manifest sha `99997032…`, re-signed after the parser v10 chunk regeneration; benchmark dataset rebound to `0.1.0-draft.11`). It was deployed to the Railway development/preview service on 2026-10-18 by the preDeploy bootstrap (one-off `--force`, reverted in #179); it is not staged or activated as a governed release. Before that import, the 111 validated provisions of the document 943 legal-version bundle on the Railway database were unlinked from their v10 sections (rows and validation kept, links backed up); the 943 bundle must be rebuilt against the v11 text before they are re-linked. Its 2026-10-16 quality pass repairs 297 documents against their official sources (mis-decoded glyphs, scrambled justified lines, flattened tables, page furniture, lost superscripts and formulas); per-document receipts are in `docs/evidence/document-repairs/quality-pass-2026-10-16/`. The previous owner-signed manifest is `bddk-job-corpus-kgk-tms12-pdf-rebuilds-local-v10-2026-10-02` (13,558 chunks), not yet staged or activated. It supersedes the signed but unactivated v8 manifest (and an owner-signed, uncommitted v9 that lacked two of these repairs). Twenty mevzuat.gov.tr texts are rebuilt from their official PDFs (`scripts/rebuild_mevzuat_from_pdf.py`): sixteen regulations whose extraction scrambled justified lines (`mevzuat_22599`, `16071`, `39171`, `40203`, `40519`, `20645`, `10522`, `38416`, `10731`, `42359`, `38568`, `23228`, `11203`, `10746`, `38797`, `42628`), the communiqué `mevzuat_11201`, and the Bankacılık Kanunu, Sermaye Piyasası Kanunu and Banka Kartları ve Kredi Kartları Kanunu (`mevzuat_5411`, `6362`, `5464`); the communiqué and the laws come from mevzuat.gov.tr's generated PDF of the current consolidated text, and `mevzuat_42628`'s 34 image formulas are transcribed into LaTeX. It adds one KGK accounting standard, TMS 12 Gelir Vergileri (`kgk_tms_12`, category `Muhasebe Standardı`), from a manually downloaded public PDF (`scripts/add_kgk_tms_12.py`); kgk.gov.tr stays off the outbound allowlist, and the standard is indexed as body windows, not numbered paragraphs. The previous v6 release (318 documents, 50 source repairs) was verified/activated in fresh local staging and retired all 11 historical extraction failures; see `docs/evidence/document-repairs/local-release-v6.json`. Freshness remains quantified and unmeasured; 297 documents carry formula-unaware extraction provenance. No production deployment or independent legal approval is claimed. |
-| Runtime profiles | Separate public and operator processes, scopes, and database identities. |
-| CI | The quality-repair PR is validated independently of unrelated admin-editor changes. Local unit/integration results and required GitHub checks are recorded in the PR; skips are not passes. Protected checks remain required before merge. |
+| MCP tools | 14 tools in one public surface (`bddk_mcp/tools/registry.py`); no operator profile, resources, or prompts. |
+| Corpus store | One SQLite file (`BDDK_CORPUS_PATH`, default `corpus/bddk.sqlite`, git-ignored; about 100 MB for the current seed), schema version 1 recorded in its `meta` table together with the embedding model and dimension (`bddk_mcp/store/corpus_db.py`). `bddk-mcp build` creates it from `seed_data/`; serving opens it read-only (SQLite `mode=ro`) and refuses to start unless the tables, documents, chunks and catalog are present, every chunk and section hash is current, and the recorded embedding model matches the configured one. Dense retrieval is exact cosine similarity over all chunk vectors held in memory; keyword and section search are FTS5 BM25 over Turkish-normalized text; the two are fused with Reciprocal Rank Fusion. |
+| Corpus | 319 documents, 13,604 chunks, quality policy v7, section parser v10 (`seed_data/documents.json`, `seed_data/decision_cache.json`). `seed_data/corpus_scope.yml` is a retained scope declaration that the runtime no longer reads. Its 2026-10-16 quality pass repaired 297 documents against their official sources; the per-document receipts were archived with the governance layer. Twenty mevzuat.gov.tr texts were rebuilt from their official PDFs and one KGK standard (TMS 12, `kgk_tms_12`) was added from a manually downloaded public PDF. Freshness is not measured; 297 documents carry formula-unaware extraction provenance. No production deployment or independent legal approval is claimed. |
+| Legal status | Not modeled. The abstention-first legal-version resolver and relations graph (`resolve_regulation_status`, `get_amendment_chain`, `get_cross_references`, Citation v1) were removed on 2026-11-09 because no production path ever populated their `regulatory_*` tables; those tables went away with the PostgreSQL schema on 2026-11-10. `get_document_section` keeps the character-exact `quotation` check. |
+| Runtime | One process, one corpus file (`BDDK_CORPUS_PATH`); no database service, connection string or separate login. stdio by default; Streamable HTTP with the fail-closed remote policy. |
+| CI | Lint, hygiene, unit (3.12/3.13, temporary corpus file, no service), packaging and container-static checks. Skips are not passes. |
 | Maturity | Engineering beta. Repository controls do not establish legal advice, bank acceptance, or production readiness. |
 
-The tool counts are derived from `bddk_mcp/tools/registry.py`; schema version is derived from `bddk_mcp/migrations/runner.py`; corpus identity and counts are derived from `seed_data/corpus_scope.yml`. Contract tests pin these facts.
+The tool count is derived from `bddk_mcp/tools/registry.py`; the corpus schema version from `SCHEMA_VERSION` in `bddk_mcp/store/corpus_db.py`. Contract tests pin these facts.
 
 ## What is ready at repository level
 
-- Packaged stdio and Streamable HTTP MCP entry points with strict public/operator profiles.
-- Protected `main` with required lint, Python, PostgreSQL, packaging, container, and supply-chain checks.
-- Fail-closed remote HTTP configuration and separate database lifecycle roles.
-- Signed, governed offline corpus artifacts with staged verifier/publisher activation.
-- Structured deployment assets for local Compose, PostgreSQL, OpenShift, and Open WebUI; Railway remains a development/preview profile outside the bank path.
-- An admin console (`bddk-mcp admin-ui`, `bddk_mcp/admin/`) with public-reader PostgreSQL access, optional persistent SQLite editorial drafts and optional server-held Ed25519 document signing. Remote binds require operator JWT authentication. Drafts never mutate/publish the corpus; see [configuration and handoff](CORPUS_GOVERNANCE.md#admin-editorial-drafts-and-document-signatures).
-- Broad automated coverage across runtime, migrations, retrieval, deployment, recovery, and supply-chain policy.
+- Packaged stdio and Streamable HTTP MCP entry points with a strict public tool contract.
+- Explicit corpus preparation: `bddk-mcp build`, `bddk-mcp sync`, `bddk-mcp export`; the serving process never writes the corpus.
+- Fail-closed remote HTTP configuration (exact Host/Origin allowlists, JWT or explicit unauthenticated opt-in).
+- Container image that carries the built corpus file, and a single-service Compose topology for local development; Railway remains a development/preview profile.
+- Automated coverage across runtime, corpus build and readiness, retrieval, extraction quality and the HTTP transport.
 
 ## What is not established
 
 - A tagged or published 5.0.1 release.
-- Independent human/legal approval of the signed technical corpus refresh; signing alone is not that approval.
+- Independent human/legal approval of the corpus; a clean extraction is not that approval.
 - Legal advice or authoritative proof of which rule applies to a real case.
 - Measured live freshness for every corpus document.
-- Bank-owned identity, CA, network, database, backup/PITR, image-signing, promotion, and operational acceptance.
+- Bank-owned identity, CA, network, corpus-file distribution, backup, image-signing, promotion, and operational acceptance.
 - Named client/model certification, approved expert judgments, or audit-grade product scores.
-- Generation-bound serving and an authorized retained-generation rollback workflow.
-
-See the [gap register](GAP_REGISTER.md), [architecture](ARCHITECTURE.md), and [deployment guide](DEPLOYMENT.md) for the detailed boundaries.
+- Any model of legal currentness, amendment chains or cross-references; the assistant must verify those against the official source.
+- Retrieval beyond a few hundred thousand chunks: dense search is brute-force cosine over in-memory vectors, which is exact and fast at the current size; an ANN index (hnswlib or sqlite-vec) is the upgrade past that scale.
 
 ## Maintenance policy
 
 - `main` is the only long-lived branch; merged topic branches are deleted automatically.
 - Pull requests must pass the protected checks and state schema, corpus, deployment, and security impact.
-- Current facts belong here or in directly executable contracts. Dated reviews remain snapshots and link back here.
+- Current facts belong here or in directly executable contracts.
 - Version metadata, changelog state, and GitHub tags/releases must be reconciled before publishing 5.0.1.

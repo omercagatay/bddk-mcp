@@ -11,8 +11,6 @@ reports when verbatim serving would leak an unsafe extraction artifact.
 from __future__ import annotations
 
 import functools
-import hashlib
-import json
 import re
 import textwrap
 from collections.abc import Mapping
@@ -90,31 +88,6 @@ def load_quality_failure_registry(path: Path = QUALITY_FAILURES_PATH) -> dict[st
 
 
 _QUALITY_FAILURES: Mapping[str, QualityFailure] = MappingProxyType(load_quality_failure_registry())
-
-
-def quality_retrieval_profile_descriptor() -> dict[str, int | str]:
-    """Return a path-free identity for user-visible retrieval quality signals."""
-
-    canonical_failures = [
-        {
-            "document_id": failure.document_id,
-            "reason": failure.reason,
-            "preferred_backfill": failure.preferred_backfill,
-        }
-        for failure in sorted(_QUALITY_FAILURES.values(), key=lambda item: item.document_id)
-    ]
-    encoded = json.dumps(
-        canonical_failures,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-    ).encode("utf-8")
-    return {
-        "assessment_policy_version": QUALITY_ASSESSMENT_POLICY_VERSION,
-        "registry_format_version": QUALITY_FAILURE_REGISTRY_FORMAT_VERSION,
-        "registry_sha256": hashlib.sha256(encoded).hexdigest(),
-        "failure_count": len(canonical_failures),
-    }
 
 
 def get_configured_quality_failure(document_id: str) -> QualityFailure | None:
