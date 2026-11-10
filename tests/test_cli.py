@@ -45,11 +45,11 @@ def test_version_does_not_import_runtime(capsys):
 
 
 def test_build_command_reports_counts_and_skips(capsys):
-    built = {"decision_cache": 1, "documents": 2, "sections": 3, "chunks": 4, "skipped": False}
+    built = {"decision_cache": 1, "documents": 2, "sections": 3, "chunks": 4, "chunks_cached": 3, "skipped": False}
     with patch("bddk_mcp.ingest.seed.build_corpus", new=AsyncMock(return_value=built)) as build:
         cli.main(["build", "--corpus", "c.sqlite", "--force"])
     build.assert_awaited_once_with(corpus_path="c.sqlite", seed_dir=None, force=True)
-    assert "2 documents, 3 sections, 4 chunks embedded" in capsys.readouterr().out
+    assert "2 documents, 3 sections, 4 chunks (1 embedded, 3 from the seed cache)" in capsys.readouterr().out
 
     skipped = dict(built, skipped=True)
     with patch("bddk_mcp.ingest.seed.build_corpus", new=AsyncMock(return_value=skipped)):
@@ -58,10 +58,10 @@ def test_build_command_reports_counts_and_skips(capsys):
 
 
 def test_export_command_reports_counts(capsys):
-    with patch("bddk_mcp.ingest.seed.export_corpus", new=AsyncMock(return_value=(319, 300))) as export:
+    with patch("bddk_mcp.ingest.seed.export_corpus", new=AsyncMock(return_value=(319, 300, 318))) as export:
         cli.main(["export", "--seed-dir", "out"])
     export.assert_awaited_once_with(corpus_path=None, seed_dir="out")
-    assert "Exported 319 documents and 300 catalog entries." in capsys.readouterr().out
+    assert "Exported 319 documents, 300 catalog entries and embeddings for 318 documents." in capsys.readouterr().out
 
 
 def test_runtime_errors_become_clean_parser_errors(capsys):

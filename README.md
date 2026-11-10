@@ -79,7 +79,7 @@ Paket numarası 5.0.1'dir. Bu numarayla yayımlanmış bir GitHub sürüm etiket
 
 Araç listesi `bddk_mcp/tools/registry.py` dosyasındadır: 14 araç, tek yüzey. Çalıştırma örneği: `uv run --frozen bddk-mcp serve`. Python 3.12 veya 3.13 ve `uv` gerekir; corpus tek bir SQLite dosyası olduğu için veritabanı servisi gerekmez.
 
-Kurulum sırası `bddk-mcp build` (`seed_data/` → `corpus/bddk.sqlite`; ilk çalıştırma dizüstü bir CPU'da yaklaşık 15 dakika sürer), sonra `serve`; `sync` isteğe bağlıdır. Önceki PostgreSQL tabanı 2026-11-10'da bu tek dosyayla değiştirildi ve `archive/postgres-2026-11-10` etiketinde duruyor. 2026-11-09'da kaldırılan imzalı yayın töreni, çoklu veritabanı kimliği, operatör iş kuyruğu, admin konsolu, telemetri ve hiç veri yolu olmayan hukuki durum araçları (`resolve_regulation_status`, `get_amendment_chain`, `get_cross_references`) Git geçmişinde (`archive/pre-simplify-2026-11-09` etiketi) duruyor.
+Kurulum sırası `bddk-mcp build` (`seed_data/` → `corpus/bddk.sqlite`; `seed_data/embeddings/` içindeki hazır vektörler sayesinde dizüstü bir CPU'da yaklaşık yarım dakika sürer; vektörü olmayan veya değişen belgeler yeniden gömülür, sıfırdan gömme yaklaşık 15 dakikadır), sonra `serve`; `sync` isteğe bağlıdır. Önceki PostgreSQL tabanı 2026-11-10'da bu tek dosyayla değiştirildi ve `archive/postgres-2026-11-10` etiketinde duruyor. 2026-11-09'da kaldırılan imzalı yayın töreni, çoklu veritabanı kimliği, operatör iş kuyruğu, admin konsolu, telemetri ve hiç veri yolu olmayan hukuki durum araçları (`resolve_regulation_status`, `get_amendment_chain`, `get_cross_references`) Git geçmişinde (`archive/pre-simplify-2026-11-09` etiketi) duruyor.
 
 ## Lisans
 

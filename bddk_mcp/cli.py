@@ -86,15 +86,16 @@ async def _build(args: argparse.Namespace) -> None:
         return
     print(
         f"Built corpus: {result['decision_cache']} catalog entries, {result['documents']} documents, "
-        f"{result['sections']} sections, {result['chunks']} chunks embedded."
+        f"{result['sections']} sections, {result['chunks']} chunks "
+        f"({result['chunks'] - result['chunks_cached']} embedded, {result['chunks_cached']} from the seed cache)."
     )
 
 
 async def _export(args: argparse.Namespace) -> None:
     from bddk_mcp.ingest.seed import export_corpus
 
-    documents, catalog = await export_corpus(corpus_path=args.corpus, seed_dir=args.seed_dir)
-    print(f"Exported {documents} documents and {catalog} catalog entries.")
+    documents, catalog, embedded = await export_corpus(corpus_path=args.corpus, seed_dir=args.seed_dir)
+    print(f"Exported {documents} documents, {catalog} catalog entries and embeddings for {embedded} documents.")
 
 
 async def _sync(args: argparse.Namespace) -> None:

@@ -3,7 +3,12 @@
 ``seed_data/documents.json`` and ``seed_data/decision_cache.json`` are the
 reviewed, git-tracked source of the corpus.  ``bddk-mcp build`` turns them into
 one SQLite file with sections, chunks and embeddings; ``bddk-mcp export``
-writes the file back to the same JSON shape.
+writes the file back to the same JSON shape and exports the chunk vectors to
+``seed_data/embeddings/`` (one float16 ``.npy`` per document plus a
+``manifest.json`` naming the model and a digest of each document's chunk
+texts).  A later ``build`` reuses those vectors for every document whose chunk
+texts and model still match, so an unchanged seed builds without loading the
+embedding model.
 """
 
 from __future__ import annotations
@@ -11,16 +16,22 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import sqlite3
 import time
 from pathlib import Path
 
+import numpy as np
+
+from bddk_mcp.core.config import EMBEDDING_DIMENSION, EMBEDDING_MODEL_NAME
 from bddk_mcp.store.corpus_db import CorpusDB
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument, upsert_document_sync
 
 logger = logging.getLogger(__name__)
 
 SEED_DIR = Path(__file__).resolve().parents[2] / "seed_data"
+EMBEDDINGS_SUBDIR = "embeddings"
+_SAFE_DOC_ID = re.compile(r"[A-Za-z0-9_.-]+")
 _DOCUMENT_COLUMNS = (
     "document_id, title, category, decision_date, decision_number, source_url, markdown_content, "
     "content_hash, downloaded_at, extracted_at, extraction_method, total_pages, file_size"
@@ -92,8 +103,11 @@ def _seed_document(record: dict) -> StoredDocument:
 # -- Export -------------------------------------------------------------------
 
 
-async def export_corpus(corpus_path: str | None = None, seed_dir: str | None = None) -> tuple[int, int]:
-    """Write the corpus documents and catalog to seed JSON. Returns (documents, catalog)."""
+async def export_corpus(corpus_path: str | None = None, seed_dir: str | None = None) -> tuple[int, int, int]:
+    """Write the corpus documents, catalog and chunk vectors to the seed directory.
+
+    Returns (documents, catalog entries, documents with exported embeddings).
+    """
     target = Path(seed_dir) if seed_dir else SEED_DIR
     target.mkdir(parents=True, exist_ok=True)
     db = CorpusDB.open(corpus_path, readonly=True)
@@ -112,15 +126,110 @@ async def export_corpus(corpus_path: str | None = None, seed_dir: str | None = N
                 ).fetchall()
             ]
         )
+
+        def _chunk_vectors(conn: sqlite3.Connection) -> tuple[dict, dict[str, tuple[list[str], list[bytes]]]]:
+            meta = {row["key"]: row["value"] for row in conn.execute("SELECT key, value FROM meta")}
+            by_doc: dict[str, tuple[list[str], list[bytes]]] = {}
+            for row in conn.execute("SELECT doc_id, chunk_text, embedding FROM chunks ORDER BY doc_id, chunk_index"):
+                texts, blobs = by_doc.setdefault(row["doc_id"], ([], []))
+                texts.append(row["chunk_text"])
+                blobs.append(row["embedding"])
+            return meta, by_doc
+
+        meta, by_doc = await db.run(_chunk_vectors)
     finally:
         db.close()
     (target / "documents.json").write_text(json.dumps(docs, ensure_ascii=False, indent=2), encoding="utf-8")
     (target / "decision_cache.json").write_text(json.dumps(catalog, ensure_ascii=False, indent=2), encoding="utf-8")
-    logger.info("Exported %d documents and %d catalog entries to %s", len(docs), len(catalog), target)
-    return len(docs), len(catalog)
+    embedded = _export_embeddings(target / EMBEDDINGS_SUBDIR, meta, by_doc)
+    logger.info(
+        "Exported %d documents, %d catalog entries and embeddings for %d documents to %s",
+        len(docs),
+        len(catalog),
+        embedded,
+        target,
+    )
+    return len(docs), len(catalog), embedded
+
+
+def _export_embeddings(directory: Path, meta: dict, by_doc: dict[str, tuple[list[str], list[bytes]]]) -> int:
+    """Write ``<doc_id>.npy`` (float16 chunk vectors) and ``manifest.json``; drop files of vanished documents."""
+    from bddk_mcp.store.vector_store import chunk_digest
+
+    directory.mkdir(parents=True, exist_ok=True)
+    dimension = int(meta.get("embedding_dimension") or EMBEDDING_DIMENSION)
+    digests: dict[str, str] = {}
+    for doc_id, (texts, blobs) in sorted(by_doc.items()):
+        if not _SAFE_DOC_ID.fullmatch(doc_id):
+            logger.warning("Embedding cache skipped for a document whose id is not a safe file name")
+            continue
+        vectors = np.frombuffer(b"".join(blobs), dtype=np.float16).reshape(len(blobs), dimension)
+        np.save(directory / f"{doc_id}.npy", vectors)
+        digests[doc_id] = chunk_digest(texts)
+    for stale in directory.glob("*.npy"):
+        if stale.stem not in digests:
+            stale.unlink()
+    manifest = {
+        "embedding_model": meta.get("embedding_model", ""),
+        "embedding_dimension": dimension,
+        "documents": digests,
+    }
+    (directory / "manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
+    )
+    return len(digests)
 
 
 # -- Build --------------------------------------------------------------------
+
+
+class _EmbeddingCache:
+    """Vectors exported to ``seed_data/embeddings/``, reused when the chunk texts and the model match."""
+
+    def __init__(self, directory: Path, digests: dict[str, str]) -> None:
+        self.directory = directory
+        self.digests = digests
+        self.chunks_used = 0
+
+    @classmethod
+    def load(cls, seed: Path) -> _EmbeddingCache:
+        directory = seed / EMBEDDINGS_SUBDIR
+        try:
+            manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return cls(directory, {})
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            logger.warning("Embedding cache manifest is unreadable; every document is embedded")
+            return cls(directory, {})
+        if not isinstance(manifest, dict):
+            manifest = {}
+        identity = (EMBEDDING_MODEL_NAME, EMBEDDING_DIMENSION)
+        if (manifest.get("embedding_model"), manifest.get("embedding_dimension")) != identity:
+            logger.warning("Embedding cache was exported with another embedding model; every document is embedded")
+            return cls(directory, {})
+        documents = manifest.get("documents")
+        return cls(directory, documents if isinstance(documents, dict) else {})
+
+    def lookup(self, doc_id: str):
+        """``cached_embeddings(digest, count)`` for ``VectorStore.add_document``, or None without an entry."""
+        expected = self.digests.get(doc_id)
+        if not isinstance(expected, str) or not _SAFE_DOC_ID.fullmatch(doc_id):
+            return None
+
+        def cached(digest: str, count: int) -> np.ndarray | None:
+            if digest != expected:
+                return None
+            try:
+                vectors = np.load(self.directory / f"{doc_id}.npy", allow_pickle=False)
+            except (OSError, ValueError, EOFError) as exc:
+                logger.warning("Embedding cache file is unreadable (%s); the document is embedded", type(exc).__name__)
+                return None
+            if vectors.shape != (count, EMBEDDING_DIMENSION):
+                return None
+            self.chunks_used += count
+            return vectors
+
+        return cached
 
 
 async def build_corpus(
@@ -134,8 +243,10 @@ async def build_corpus(
 
     Unchanged documents keep their rows, sections and chunks; changed or new
     documents are rewritten (the previous body is archived as a version) and
-    re-embedded.  ``force`` rewrites and re-embeds everything.  ``vector_store_factory``
-    (``db -> VectorStore``) is a test seam for a fake embedder.
+    re-embedded, unless ``seed_data/embeddings/`` still holds the vectors exported for
+    exactly its chunk texts and model.  ``force`` rewrites and re-embeds everything and
+    ignores that cache.  ``vector_store_factory`` (``db -> VectorStore``) is a test seam
+    for a fake embedder.
     """
     from bddk_mcp.store.vector_store import VectorStore
 
@@ -143,7 +254,7 @@ async def build_corpus(
     docs = _load_records(seed / "documents.json")
     catalog = _load_records(seed / "decision_cache.json")
     seed_hashes = _validate_seed_documents(docs)
-    result = {"decision_cache": 0, "documents": 0, "sections": 0, "chunks": 0, "skipped": False}
+    result = {"decision_cache": 0, "documents": 0, "sections": 0, "chunks": 0, "chunks_cached": 0, "skipped": False}
     if not docs and not catalog:
         logger.info("Seed files are empty; nothing to build")
         return result
@@ -194,6 +305,7 @@ async def build_corpus(
 
         to_embed = sorted(set(rewrite) | set(unindexed))
         by_id = {record["document_id"]: record for record in docs}
+        cache = _EmbeddingCache(seed / EMBEDDINGS_SUBDIR, {}) if force else _EmbeddingCache.load(seed)
         for doc_id in to_embed:
             record = by_id[doc_id]
             if not record.get("markdown_content"):
@@ -206,13 +318,17 @@ async def build_corpus(
                 decision_date=record.get("decision_date", ""),
                 decision_number=record.get("decision_number", ""),
                 source_url=record.get("source_url", "") or "",
+                cached_embeddings=cache.lookup(doc_id),
             )
+        result["chunks_cached"] = cache.chunks_used
         logger.info(
-            "Corpus built (%d catalog, %d documents rewritten, %d sections, %d chunks embedded)",
+            "Corpus built (%d catalog, %d documents rewritten, %d sections, %d chunks: %d embedded, %d from the seed cache)",
             result["decision_cache"],
             result["documents"],
             result["sections"],
             result["chunks"],
+            result["chunks"] - result["chunks_cached"],
+            result["chunks_cached"],
         )
     finally:
         db.close()

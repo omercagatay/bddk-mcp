@@ -29,6 +29,24 @@ Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızd
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Eklendi — `seed_data/embeddings/` vektör cache'i (2026-11-10)
+
+- `bddk-mcp export` artık chunk vektörlerini de yazar: belge başına bir float16
+  `.npy` dosyası ve modelin adını, boyutunu ve her belgenin chunk metinlerinin
+  SHA-256 özetini tutan `manifest.json` (`seed_data/embeddings/`, 319 belge
+  için 21 MB). `bddk-mcp build` bir belgenin vektörlerini yalnızca yeni
+  üretilen chunk metinlerinin özeti ve yapılandırılmış model manifest ile
+  birebir eşleşirse cache'ten alır; aksi hâlde belgeyi yeniden gömer.
+  `--force` cache'i yok sayar. Değişmemiş seed ile build, modeli hiç
+  yüklemeden dizüstü CPU'da 816 saniye yerine 35 saniye sürdü ve birebir aynı
+  chunk ve vektörleri üretti; Docker imaj build'indeki corpus adımı da aynı
+  oranda kısalır. CLI çıktısı kaç chunk'ın gömüldüğünü, kaçının cache'ten
+  geldiğini yazar.
+- `search_document_sections` açıklamasındaki PostgreSQL kalıntısı
+  (`ts_rank_cd`) SQLite FTS5 BM25 ifadesiyle düzeltildi; `uv.lock`'ta
+  `setuptools` 84.1.0'a yükseltildi (Dependabot güvenlik uyarısı: 84.1.0
+  öncesinde Windows yol kaçışı açığı).
+
 ### Değiştirildi — PostgreSQL + pgvector yerine tek SQLite corpus dosyası (2026-11-10)
 
 - Corpus artık tek bir SQLite dosyası (`BDDK_CORPUS_PATH`, varsayılan
