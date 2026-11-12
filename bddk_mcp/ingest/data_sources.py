@@ -4,8 +4,9 @@ import asyncio
 import logging
 import math
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta, timezone
 
 import httpx
 from bs4 import BeautifulSoup
@@ -17,8 +18,26 @@ from bddk_mcp.core.outbound_http import (
     assert_public_https_resolution,
     bounded_request_with_retry,
 )
+from bddk_mcp.store.legal_ref import turkish_casefold
 
 logger = logging.getLogger(__name__)
+
+# Turkey has used UTC+3 all year since 2016. A fixed offset avoids a time-zone
+# database dependency (Windows hosts have none without an extra package).
+ISTANBUL_TZ = timezone(timedelta(hours=3), "Europe/Istanbul")
+
+
+def istanbul_now() -> datetime:
+    """Current time in Istanbul (UTC+3), whatever the host time zone is."""
+    return datetime.now(UTC).astimezone(ISTANBUL_TZ)
+
+
+def istanbul_today(clock: Callable[[], datetime] | None = None) -> date:
+    """The Istanbul calendar date; ``clock`` (aware or naive Istanbul time) is injectable for tests."""
+    now = (clock or istanbul_now)()
+    if now.tzinfo is not None:
+        now = now.astimezone(ISTANBUL_TZ)
+    return now.date()
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,10 +99,28 @@ async def _post(http: httpx.AsyncClient, url: str, **kwargs) -> httpx.Response:
 
 
 def _format_number(val) -> str:
-    """Format a numeric value with thousands separators."""
+    """Render one monthly-table cell in a single explicit format.
+
+    A JSON number uses an en-US style: comma thousands separator, dot decimal
+    mark, no decimals for whole values and two decimals otherwise (1500 ->
+    "1,500", 1234.5 -> "1,234.50"). A missing observation (None, an empty
+    string, a non-finite number) is "-".
+
+    Text from BDDK passes through exactly as sent, numeric-looking or not: a
+    string such as "1.234" or "1.500" does not say whether its dot is a
+    thousands separator or a decimal mark, and guessing would print a figure
+    BDDK never published. The tool states this next to the table.
+    """
+    if val is None:
+        return "-"
+    if isinstance(val, bool):
+        return str(val)
     if isinstance(val, (int, float)):
+        if isinstance(val, float) and not math.isfinite(val):
+            return "-"
         return f"{val:,.0f}" if val == int(val) else f"{val:,.2f}"
-    return str(val)
+    text = str(val).strip()
+    return text or "-"
 
 
 # Institution directory page IDs and their types
@@ -123,7 +160,9 @@ def _parse_card_institutions(soup: BeautifulSoup, inst_type: str) -> list[dict]:
         subcategory = re.sub(r"\s*\(\d+\)\s*$", "", raw_header).strip()
 
         status = "Aktif"
-        lower_sub = subcategory.lower()
+        # Turkish rules: "İPTAL"/"İptal" must fold to "iptal"; ASCII "IPTAL" is
+        # accepted too (dotless "ı" is mapped back to "i" for the comparison).
+        lower_sub = turkish_casefold(subcategory).replace("ı", "i")
         if "iptal" in lower_sub or "mülga" in lower_sub or "tmsf" in lower_sub:
             status = "İptal Edilmiş"
 
@@ -288,6 +327,23 @@ async def fetch_institutions_with_status(
 # -- Weekly Bulletin Data -------------------------------------------------
 
 
+def _ascending_by_date(dates: list[str], values: list[float]) -> tuple[list[str], list[float]]:
+    """Order observations oldest first when every date parses as DD.MM.YYYY.
+
+    The consumers take the last point as current and the one before as previous,
+    so the upstream order is not trusted. If any date does not parse the series
+    is returned as received.
+    """
+    try:
+        parsed = [datetime.strptime(d.strip(), "%d.%m.%Y") for d in dates]
+    except ValueError:
+        return dates, values
+    if all(a <= b for a, b in zip(parsed, parsed[1:], strict=False)):
+        return dates, values
+    order = sorted(range(len(parsed)), key=lambda i: parsed[i])
+    return [dates[i] for i in order], [values[i] for i in order]
+
+
 async def fetch_weekly_bulletin(
     http: httpx.AsyncClient,
     metric_id: str = "1.0.1",
@@ -308,7 +364,9 @@ async def fetch_weekly_bulletin(
         date: Specific date (DD.MM.YYYY), empty for latest
         column: Column number (1=TP, 2=YP, 3=Toplam)
 
-    Returns dict with: title, dates, values, currency, metric_id.
+    Returns dict with: title, dates, values, currency, metric_id. The series is
+    oldest first (re-ordered when the dates parse and arrive out of order). An
+    empty series from BDDK comes back as empty lists, not as an error.
     """
     try:
         # Step 1: Visit the page to get session cookies and CSRF token
@@ -355,6 +413,16 @@ async def fetch_weekly_bulletin(
         if not isinstance(data, dict):
             raise ValueError("Invalid bulletin response")
         dates, values = data.get("XEkseni"), data.get("YEkseni")
+        if isinstance(dates, list) and isinstance(values, list) and not dates and not values:
+            # Both series present and empty: BDDK answered "no observations",
+            # which is not an upstream failure.
+            return {
+                "title": data.get("Baslik", ""),
+                "dates": [],
+                "values": [],
+                "currency": currency,
+                "metric_id": metric_id,
+            }
         if (
             not isinstance(dates, list)
             or not isinstance(values, list)
@@ -367,6 +435,7 @@ async def fetch_weekly_bulletin(
         values = [float(value) for value in values]
         if not all(math.isfinite(value) for value in values):
             raise ValueError("Non-finite bulletin observations")
+        dates, values = _ascending_by_date(dates, values)
 
         return {
             "title": data.get("Baslik", ""),
@@ -509,9 +578,12 @@ async def fetch_announcements(
 # -- Monthly Bulletin Data -------------------------------------------------
 
 
-def recent_complete_months(count: int) -> list[tuple[int, int]]:
-    """Return the ``count`` most recent complete calendar months as (year, month), newest first."""
-    first_day = date.today().replace(day=1)
+def recent_complete_months(count: int, clock: Callable[[], datetime] | None = None) -> list[tuple[int, int]]:
+    """Return the ``count`` most recent complete calendar months as (year, month), newest first.
+
+    "Today" is the Istanbul date (see ``istanbul_today``), not the host's.
+    """
+    first_day = istanbul_today(clock).replace(day=1)
     months: list[tuple[int, int]] = []
     for _ in range(count):
         first_day = (first_day - timedelta(days=1)).replace(day=1)
@@ -539,6 +611,9 @@ async def fetch_monthly_bulletin(
         party_code: Bank group code (10001=sector total)
 
     Returns dict with: title, rows [{name, tp, yp, total}], period, currency.
+    Numeric cells are rendered en-US style by ``_format_number`` ("1,500",
+    "1,234.50"); a missing cell is "-". A response without a ``rows`` list, or
+    with a row that is not an object with at least 7 cells, is an error.
     BDDK refuses a period it holds no data for (typically a month it has not
     published yet) with success=false and a "... veri bulunma..." message; that
     is an answer, so rows is empty and the message is passed on as notice.
@@ -600,20 +675,25 @@ async def fetch_monthly_bulletin(
         data = js.get("data", {})
         if not isinstance(data, dict):
             raise ValueError("Unexpected monthly bulletin response")
-        raw_rows = data.get("rows", [])
+        raw_rows = data.get("rows")
+        if not isinstance(raw_rows, list):
+            raise ValueError("Monthly bulletin response has no rows list")
 
+        # An unexpected row shape is an upstream error, never "no data": only an
+        # empty rows list (or BDDK's own refusal above) means no data.
         rows: list[dict] = []
         for r in raw_rows:
-            cell = r.get("cell", [])
-            if len(cell) >= 7:
-                rows.append(
-                    {
-                        "name": str(cell[2]),
-                        "tp": _format_number(cell[4]),
-                        "yp": _format_number(cell[5]),
-                        "total": _format_number(cell[6]),
-                    }
-                )
+            cell = r.get("cell") if isinstance(r, dict) else None
+            if not isinstance(cell, list) or len(cell) < 7:
+                raise ValueError("Unexpected monthly bulletin row")
+            rows.append(
+                {
+                    "name": str(cell[2]),
+                    "tp": _format_number(cell[4]),
+                    "yp": _format_number(cell[5]),
+                    "total": _format_number(cell[6]),
+                }
+            )
 
         return {
             "title": caption,

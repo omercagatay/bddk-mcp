@@ -136,3 +136,71 @@ async def test_regulatory_digest_header_shows_true_totals_and_cut_lines():
     assert "**Duyurular (57):**" in out
     assert "... ve 47 daha" in out
     assert "... ve 15 daha" in out
+
+
+def _analytics_tool(name: str):
+    mcp = MagicMock()
+    register(mcp, Dependencies(db=None, doc_store=None, client=MagicMock(), http=MagicMock()))
+    return _registered_tools(mcp)[name]
+
+
+@pytest.mark.asyncio
+async def test_trend_with_too_few_points_is_a_non_retryable_error_not_an_upstream_failure():
+    tool = _analytics_tool("analyze_bulletin_trends")
+    result = {"error": "En az 2 gözlem gerekir (bulunan: 1).", "reason": "insufficient_data"}
+    with patch("bddk_mcp.tools.analytics.analyze_trends", new=AsyncMock(return_value=result)):
+        with pytest.raises(ToolError) as excinfo:
+            await tool()
+    message = str(excinfo.value)
+    assert "[ERROR:INSUFFICIENT_DATA] retryable=false" in message
+    assert "UPSTREAM_FETCH_FAILED" not in message and "En az 2 gözlem" in message
+
+
+@pytest.mark.asyncio
+async def test_trend_upstream_error_stays_retryable():
+    tool = _analytics_tool("analyze_bulletin_trends")
+    with patch("bddk_mcp.tools.analytics.analyze_trends", new=AsyncMock(return_value={"error": "x"})):
+        with pytest.raises(ToolError, match="UPSTREAM_FETCH_FAILED"):
+            await tool()
+
+
+@pytest.mark.asyncio
+async def test_compare_table_shows_the_reason_and_the_missing_percentage():
+    tool = _analytics_tool("compare_bulletin_metrics")
+    result = {
+        "metrics": [
+            {"metric_id": "1.0.1", "error": "En az 2 gözlem gerekir (bulunan: 1).", "reason": "insufficient_data"},
+            {"metric_id": "1.0.2", "error": "Approved BDDK upstream request failed."},
+            {"metric_id": "1.0.4", "title": "Konut", "current": 5.0, "wow_pct": None},
+        ]
+    }
+    with patch("bddk_mcp.tools.analytics.compare_metrics", new=AsyncMock(return_value=result)):
+        out = await tool(metric_ids="1.0.1,1.0.2,1.0.4")
+    assert "En az 2 gözlem gerekir" in out
+    assert "HATA" in out
+    assert "n/a" in out and "yüzde değişim hesaplanamadı (önceki değer 0)" in out
+
+
+@pytest.mark.asyncio
+async def test_trend_text_for_a_zero_base_does_not_print_a_percentage():
+    tool = _analytics_tool("analyze_bulletin_trends")
+    result = {
+        "title": "T",
+        "narrative": "n",
+        "current": 50.0,
+        "current_date": "b",
+        "previous": 0.0,
+        "previous_date": "a",
+        "wow_change": 50.0,
+        "wow_pct": None,
+        "avg": 25.0,
+        "min": 0.0,
+        "min_date": "a",
+        "max": 50.0,
+        "max_date": "b",
+        "trend_direction": "yükseliş",
+        "data_points": 2,
+    }
+    with patch("bddk_mcp.tools.analytics.analyze_trends", new=AsyncMock(return_value=result)):
+        out = await tool()
+    assert "yüzde değişim hesaplanamadı (önceki değer 0)" in out and "%+" not in out

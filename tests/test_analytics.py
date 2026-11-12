@@ -123,10 +123,10 @@ async def test_analyze_trends_basic(mock_http):
     ("values", "expected"),
     [
         ([5, 5, 5, 5], "yatay"),
-        ([5, 6, 6, 6], "yatay"),
+        ([5, 6, 6, 6], "yükseliş"),
         ([6, 6, 6, 6], "yatay"),
         ([9, 8, 7, 6], "düşüş"),
-        ([5, 5, 6, 4], "yatay"),
+        ([5, 5, 6, 4], "düşüş"),
         ([5, 6, 5, 4], "düşüş"),
         ([1, 2, 3, 4], "yükseliş"),
     ],
@@ -161,7 +161,8 @@ async def test_analyze_trends_not_enough_data(mock_http):
     )
     result = await analyze_trends(mock_http)
     assert "error" in result
-    assert "Not enough" in result["error"]
+    assert result["reason"] == "insufficient_data"
+    assert "En az 2 gözlem" in result["error"]
 
 
 async def test_analyze_trends_api_error(mock_http):
@@ -317,23 +318,124 @@ async def test_numeric_strings_and_zero_remain_valid_observations(mock_http):
     assert result["wow_pct"] == -100
 
 
-class _FrozenDatetime(datetime):
-    @classmethod
-    def now(cls, tz=None):
-        return cls(2026, 4, 10, 15, 30)
+def _frozen_clock() -> datetime:
+    return datetime(2026, 4, 10, 15, 30)
 
 
 async def test_build_digest_window_is_period_days_calendar_days_including_today(mock_http, monkeypatch):
-    monkeypatch.setattr("bddk_mcp.observability.analytics.datetime", _FrozenDatetime)
     mock_http.get = AsyncMock(return_value=_make_response("<html></html>"))
     decisions = [
         {"title": f"K{day}", "decision_date": f"{day:02d}.04.2026", "category": "Kurul Kararı"}
         for day in (10, 9, 4, 3)  # 0, 1, 6 and 7 days old
     ]
 
-    day = await build_digest(mock_http, decisions, period_days=1)
-    week = await build_digest(mock_http, decisions, period_days=7)
+    day = await build_digest(mock_http, decisions, period_days=1, clock=_frozen_clock)
+    week = await build_digest(mock_http, decisions, period_days=7, clock=_frozen_clock)
 
     assert [d["title"] for d in day["new_decisions"]] == ["K10"]
     assert [d["title"] for d in week["new_decisions"]] == ["K10", "K9", "K4"]
     assert "yerel corpus kataloğundan" in week["narrative"]
+
+
+async def test_build_digest_window_uses_the_istanbul_date_around_midnight_utc(mock_http):
+    from datetime import UTC
+
+    mock_http.get = AsyncMock(return_value=_make_response("<html></html>"))
+    decisions = [{"title": f"K{d}", "decision_date": f"{d:02d}.04.2026", "category": "Kurul Kararı"} for d in (10, 11)]
+
+    # 21:30 UTC on 10 April is 00:30 on 11 April in Istanbul.
+    late = await build_digest(mock_http, decisions, 1, clock=lambda: datetime(2026, 4, 10, 21, 30, tzinfo=UTC))
+    assert late["cutoff_date"] == "11.04.2026"
+    assert [d["title"] for d in late["new_decisions"]] == ["K11"]
+    # 20:30 UTC on 10 April is still 23:30 on 10 April in Istanbul.
+    early = await build_digest(mock_http, decisions, 1, clock=lambda: datetime(2026, 4, 10, 20, 30, tzinfo=UTC))
+    assert early["cutoff_date"] == "10.04.2026"
+    assert [d["title"] for d in early["new_decisions"]] == ["K10"]
+
+
+# -- Percent change, trend label, ordering -------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("current", "previous", "expected"),
+    [
+        (50, 0, None),
+        (0, 0, None),
+        (-50, 0, None),
+        (110, 100, 10.0),
+        (-50, -100, 50.0),
+        (-150, -100, -50.0),
+        (0, 100, -100.0),
+    ],
+)
+def test_pct_change_is_none_for_a_zero_base_and_uses_the_absolute_base(current, previous, expected):
+    from bddk_mcp.observability.analytics import _pct_change
+
+    assert _pct_change(current, previous) == expected
+
+
+async def test_analyze_trends_zero_previous_says_the_percentage_cannot_be_computed(mock_http):
+    _setup_bulletin_mock(mock_http, {"Baslik": "T", "XEkseni": ["01.01.2026", "08.01.2026"], "YEkseni": [0, 50]})
+    result = await analyze_trends(mock_http)
+    assert result["wow_pct"] is None
+    assert "yüzde değişim hesaplanamadı (önceki değer 0)" in result["narrative"]
+    assert "%0.00" not in result["narrative"]
+    compared = (await compare_metrics(mock_http, ["1.0.1"]))["metrics"][0]
+    assert compared["wow_pct"] is None
+
+
+async def test_analyze_trends_negative_base_rise_is_positive_and_labelled_increase(mock_http):
+    _setup_bulletin_mock(mock_http, {"Baslik": "T", "XEkseni": ["01.01.2026", "08.01.2026"], "YEkseni": [-100, -50]})
+    result = await analyze_trends(mock_http)
+    assert result["wow_pct"] == 50.0
+    assert "%50.00 arttı" in result["narrative"]
+    assert (await compare_metrics(mock_http, ["1.0.1"]))["metrics"][0]["wow_pct"] == 50.0
+
+
+@pytest.mark.parametrize(
+    ("values", "expected"),
+    [
+        ([10, 20, 30, 5], "düşüş"),  # window ends lower than it started
+        ([30, 20, 10, 50], "yükseliş"),  # window ends higher than it started
+        ([10, 10, 10, 50], "yükseliş"),
+        ([100, 101, 102, 1], "düşüş"),
+        ([50, 10, 10, 10], "düşüş"),
+        ([7, 9, 3, 7], "yatay"),
+        ([10, 11, 12, 13], "yükseliş"),
+    ],
+)
+async def test_trend_label_follows_net_movement(mock_http, values, expected):
+    dates = ["01.01.2026", "08.01.2026", "15.01.2026", "22.01.2026"]
+    _setup_bulletin_mock(mock_http, {"Baslik": "T", "XEkseni": dates, "YEkseni": values})
+    assert (await analyze_trends(mock_http))["trend_direction"] == expected
+
+
+@pytest.mark.parametrize(
+    ("count", "expected"), [(2, "Yalnızca son adıma"), (3, "Yalnızca son adıma"), (5, "Son 4 veri noktasına")]
+)
+async def test_narrative_states_the_points_actually_used(mock_http, count, expected):
+    dates = ["01.01.2026", "08.01.2026", "15.01.2026", "22.01.2026", "29.01.2026"][:count]
+    _setup_bulletin_mock(mock_http, {"Baslik": "T", "XEkseni": dates, "YEkseni": list(range(1, count + 1))})
+    assert expected in (await analyze_trends(mock_http))["narrative"]
+
+
+async def test_compare_metrics_marks_insufficient_data_with_a_reason(mock_http):
+    _setup_bulletin_mock(mock_http, {"Baslik": "T", "XEkseni": ["01.01.2026"], "YEkseni": [1]})
+    metric = (await compare_metrics(mock_http, ["1.0.1"]))["metrics"][0]
+    assert metric["reason"] == "insufficient_data"
+
+
+async def test_weekly_series_is_sorted_ascending_when_dates_parse(mock_http):
+    api = {"Baslik": "T", "XEkseni": ["15.01.2026", "01.01.2026", "08.01.2026"], "YEkseni": [30, 10, 20]}
+    _setup_bulletin_mock(mock_http, api)
+    result = await analyze_trends(mock_http)
+    assert (result["current"], result["previous"]) == (30, 20)
+    assert result["current_date"] == "15.01.2026"
+    assert result["series"] == [("01.01.2026", 10.0), ("08.01.2026", 20.0), ("15.01.2026", 30.0)]
+
+
+async def test_weekly_series_with_unparseable_dates_keeps_upstream_order(mock_http):
+    api = {"Baslik": "T", "XEkseni": ["b", "a", "c"], "YEkseni": [30, 10, 20]}
+    _setup_bulletin_mock(mock_http, api)
+    result = await analyze_trends(mock_http)
+    assert (result["current"], result["previous"]) == (20, 10)

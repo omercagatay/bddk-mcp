@@ -72,6 +72,46 @@ def test_parse_card_institutions():
     assert tmsf["subcategory"] == "TMSF'ye Devredilen Bankalar"
 
 
+@pytest.mark.parametrize(
+    "heading", ["Faaliyet İzni İptal Edilen Bankalar (1)", "İPTAL EDİLEN BANKALAR (1)", "IPTAL EDILEN BANKALAR (1)"]
+)
+def test_parse_card_institutions_recognises_turkish_cased_cancelled_headings(heading):
+    html = (
+        f'<div class="card"><h5>{heading}</h5><div class="card-body">'
+        "<ul><li>1. ESKI BANKA A.Ş. Detay</li></ul></div></div>"
+    )
+    result = _parse_card_institutions(BeautifulSoup(html, "html.parser"), "Banka")
+    assert [i["status"] for i in result] == ["İptal Edilmiş"]
+
+
+async def test_active_only_search_leaves_out_turkish_cased_cancelled_cards():
+    from unittest.mock import patch
+
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.ingest.data_sources import InstitutionDirectory
+    from bddk_mcp.tools.search import register
+
+    def card(heading: str, name: str) -> str:
+        return (
+            f'<div class="card"><h5>{heading}</h5><div class="card-body"><ul><li>1. {name} Detay</li></ul></div></div>'
+        )
+
+    html = (
+        card("Mevduat Bankaları (1)", "AKTİF BANKA A.Ş.")
+        + card("Faaliyet İzni İptal Edilen Bankalar (1)", "ESKİ BANKA A.Ş.")
+        + card("İPTAL EDİLEN BANKALAR (1)", "KAPANAN BANKA A.Ş.")
+    )
+    items = _parse_card_institutions(BeautifulSoup(html, "html.parser"), "Banka")
+    mcp = MagicMock()
+    register(mcp, Dependencies(db=None, doc_store=None, client=None, http=MagicMock()))
+    tool = {c.args[0].__name__: c.args[0] for c in mcp.tool.return_value.call_args_list}["search_bddk_institutions"]
+    directory = InstitutionDirectory(institutions=items, failed_pages=0, attempted_pages=1)
+    with patch("bddk_mcp.tools.search.fetch_institutions_with_status", new=AsyncMock(return_value=directory)):
+        out = await tool(active_only=True)
+    assert "AKTİF BANKA" in out
+    assert "ESKİ BANKA" not in out and "KAPANAN BANKA" not in out
+
+
 TABPANE_HTML = """
 <div class="tab-pane active" id="faaliyette">
   <li class="row">
@@ -273,6 +313,14 @@ async def test_fetch_weekly_bulletin_error(mock_http):
     mock_http.post = AsyncMock(return_value=_make_response("", status_code=500))
     result = await fetch_weekly_bulletin(mock_http)
     assert "error" in result
+
+
+async def test_fetch_weekly_bulletin_empty_series_is_no_data_not_an_upstream_error(mock_http):
+    mock_http.get = AsyncMock(return_value=_make_response(BULLETIN_PAGE_HTML))
+    mock_http.post = AsyncMock(return_value=_make_response(json_data={"Baslik": "T", "XEkseni": [], "YEkseni": []}))
+    result = await fetch_weekly_bulletin(mock_http)
+    assert "error" not in result
+    assert result["dates"] == [] and result["values"] == []
 
 
 async def test_fetch_bulletin_snapshot(mock_http):

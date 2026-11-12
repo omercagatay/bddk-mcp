@@ -205,9 +205,14 @@ def register(
             lines.append("BDDK bu dönem ve parametreler için veri döndürmedi; dönem henüz yayımlanmamış olabilir.")
             lines.extend(notice)
         else:
+            lines.append(
+                "Sayı biçimi: BDDK'nın sayı olarak gönderdiği değerler 1,234.50 biçiminde yazılır "
+                "(binlik ayırıcı virgül, ondalık nokta); metin olarak gönderdiği değerler olduğu gibi bırakılır; "
+                "'-' = BDDK'da değer yok."
+            )
             lines.append(f"{'Kalem':<55} {'TP':>15} {'YP':>15} {'Toplam':>15}")
             lines.append("-" * 105)
             for r in rows:
-                lines.append(f"{r['name']:<55} {r.get('tp', ''):>15} {r.get('yp', ''):>15} {r.get('total', ''):>15}")
+                lines.append(f"{r['name']:<55} {r.get('tp', '-'):>15} {r.get('yp', '-'):>15} {r.get('total', '-'):>15}")
 
         return frame_untrusted_source("\n".join(lines))

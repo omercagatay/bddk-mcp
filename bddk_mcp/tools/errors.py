@@ -12,6 +12,7 @@ from mcp.server.fastmcp.exceptions import ToolError
 INVALID_INPUT = "INVALID_INPUT"
 NOT_FOUND = "NOT_FOUND"
 UPSTREAM_FETCH_FAILED = "UPSTREAM_FETCH_FAILED"
+INSUFFICIENT_DATA = "INSUFFICIENT_DATA"
 
 
 def tool_error(code: str, message: str, *, retryable: bool, hint: str = "") -> Never:
