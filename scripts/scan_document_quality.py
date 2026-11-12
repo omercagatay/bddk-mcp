@@ -13,7 +13,6 @@ sys.path.insert(0, str(ROOT))
 
 from bddk_mcp.core.config import CORPUS_PATH  # noqa: E402
 from bddk_mcp.quality.markdown_quality import (  # noqa: E402
-    QUALITY_FAILURES_PATH,
     assess_markdown_quality,
     load_quality_failure_registry,
 )
@@ -24,6 +23,7 @@ from bddk_mcp.quality.quality_scan import (  # noqa: E402
     format_report,
     format_report_csv,
     format_report_json,
+    known_signal_names,
     scan_quality,
 )
 from bddk_mcp.store.corpus_db import CorpusDB  # noqa: E402
@@ -41,16 +41,17 @@ def load_quality_failures(path: Path) -> list[dict[str, str]]:
     ]
 
 
-def scan_markdown_dir(md_dir: Path, manifest: Path | None = None) -> QualityReport:
+def scan_markdown_dir(md_dir: Path) -> QualityReport:
     """Scan a local Markdown export directory and return a QualityReport."""
-    del manifest  # reserved for manifest char-count checks in the next CLI slice
-
+    signal_docs: dict[str, list[str]] = {}
     findings: list[DocumentFinding] = []
     markdown_files = sorted(p for p in md_dir.rglob("*.md") if p.is_file())
     for path in markdown_files:
         text = path.read_text(encoding="utf-8")
         document_id = path.stem
         quality = assess_markdown_quality(text, document_id=document_id)
+        for flag in quality.flags:
+            signal_docs.setdefault(flag, []).append(document_id)
         if quality.label == "clean":
             continue
         findings.append(
@@ -66,10 +67,11 @@ def scan_markdown_dir(md_dir: Path, manifest: Path | None = None) -> QualityRepo
     return QualityReport(
         total_documents=len(markdown_files),
         methods=[MethodBreakdown(method="markdown_export", doc_count=len(markdown_files), avg_chars=0)],
-        anomalies=_anomalies_from_findings(findings),
+        anomalies=_anomalies_from_signals(signal_docs),
         orphan_chunks=0,
         docs_without_chunks=0,
         document_findings=findings,
+        signal_docs={flag: len(ids) for flag, ids in sorted(signal_docs.items())},
     )
 
 
@@ -94,13 +96,9 @@ def write_outputs(report: QualityReport, out_dir: Path) -> None:
     (out_dir / "suspicious_snippets.md").write_text(_format_snippets(report), encoding="utf-8")
 
 
-def _anomalies_from_findings(findings: list[DocumentFinding]):
+def _anomalies_from_signals(counts: dict[str, list[str]]):
     from bddk_mcp.quality.quality_scan import AnomalyCount
 
-    counts: dict[str, list[str]] = {}
-    for finding in findings:
-        for flag in finding.flags:
-            counts.setdefault(flag, []).append(finding.document_id)
     return [
         AnomalyCount(
             name=flag,
@@ -130,8 +128,16 @@ def _format_snippets(report: QualityReport) -> str:
     return "\n".join(lines)
 
 
+def _fired_signals(report: QualityReport) -> set[str]:
+    """Signal names the report shows as flagged, including flags of documents labelled clean."""
+    fired = {anomaly.name for anomaly in report.anomalies if anomaly.docs_flagged > 0}
+    fired.update(name for name, count in report.signal_docs.items() if count > 0)
+    fired.update(flag for finding in report.document_findings for flag in finding.flags)
+    return fired
+
+
 def _should_fail(report: QualityReport, *, allow_failures: bool, fail_on: set[str]) -> bool:
-    if fail_on and any(flag in fail_on for finding in report.document_findings for flag in finding.flags):
+    if fail_on & _fired_signals(report):
         return True
     if allow_failures:
         return False
@@ -146,25 +152,30 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--corpus", default=CORPUS_PATH, help="Corpus file path (default: BDDK_CORPUS_PATH or corpus/bddk.sqlite)"
     )
-    parser.add_argument("--manifest", type=Path, help="Optional Markdown export manifest CSV")
     parser.add_argument("--out-dir", type=Path, required=True, help="Directory for quality report outputs")
     parser.add_argument("--allow-failures", action="store_true", help="Exit zero even when fail-labeled docs exist")
-    parser.add_argument("--fail-on", default="", help="Comma-separated quality flags that should force non-zero exit")
-    parser.add_argument("--quality-failures", type=Path, default=QUALITY_FAILURES_PATH)
+    parser.add_argument(
+        "--fail-on",
+        default="",
+        help="Comma-separated signal names shown in the report (anomaly or flag) that force a non-zero exit",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = _build_parser().parse_args(argv)
-    load_quality_failures(args.quality_failures)
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+    fail_on = {item.strip() for item in args.fail_on.split(",") if item.strip()}
+    unknown = sorted(fail_on - known_signal_names())
+    if unknown:
+        parser.error(f"unknown --fail-on signal(s): {', '.join(unknown)}")
 
     if args.db:
         report = asyncio.run(scan_db(args.corpus))
     else:
-        report = scan_markdown_dir(args.md_dir, manifest=args.manifest)
+        report = scan_markdown_dir(args.md_dir)
 
     write_outputs(report, args.out_dir)
-    fail_on = {item.strip() for item in args.fail_on.split(",") if item.strip()}
     return 1 if _should_fail(report, allow_failures=args.allow_failures, fail_on=fail_on) else 0
 
 

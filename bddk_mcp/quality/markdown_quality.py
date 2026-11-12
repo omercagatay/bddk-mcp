@@ -22,7 +22,7 @@ import yaml
 from pydantic import BaseModel, Field
 
 QUALITY_FAILURES_PATH = Path(__file__).with_name("quality_failures.yml")
-QUALITY_ASSESSMENT_POLICY_VERSION = "markdown-quality-assessment-v7"
+QUALITY_ASSESSMENT_POLICY_VERSION = "markdown-quality-assessment-v8"
 QUALITY_FAILURE_REGISTRY_FORMAT_VERSION = 1
 _CONFIGURED_QUALITY_FAILURE_FLAG = "configured_quality_failure"
 FORMULA_EXTRACTION_WARNING = (
@@ -144,7 +144,35 @@ _CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 _BDDK_CIRCULAR_AUTHOR_RE = re.compile(r"\b([A-ZÇĞİÖŞÜ]{2,})BaşkanSayı\s*:\s*")
 _BDDK_CIRCULAR_SUBJECT_RE = re.compile(r"(\d{4})Konu\s*:\s*")
 _BDDK_CIRCULAR_NUMBER_RE = re.compile(r"\b(GENELGE)(\d{4}/\d+)\b")
-_OCR_DOUBLED_UPPERCASE_WORD_RE = re.compile(r"\b([A-ZÇĞİÖŞÜ])\1([A-ZÇĞİÖŞÜ]{3,})\b")
+# OCR of the BDDK letterhead doubles the initial of each word.  Only these reviewed
+# words are repaired: a doubled initial is also how real acronyms (AAOIFI, LLOYD)
+# and placeholders (XXXXX) are spelled, so no general rule is applied.
+_OCR_DOUBLED_LETTERHEAD_WORDS = {
+    "BBANKACILIK": "BANKACILIK",
+    "DDÜZENLEME": "DÜZENLEME",
+    "DDENETLEME": "DENETLEME",
+    "KKURUMU": "KURUMU",
+}
+_OCR_DOUBLED_LETTERHEAD_RE = re.compile(r"(?<!\w)(?:" + "|".join(_OCR_DOUBLED_LETTERHEAD_WORDS) + r")(?!\w)")
+_MOJIBAKE_SOURCE_CHARS = "öüçğışİŞĞÖÜÇ’‘“”–—…"
+
+
+def _build_mojibake_re() -> re.Pattern[str]:
+    """Match Turkish letters and curly punctuation whose UTF-8 bytes were read as a single-byte charset."""
+    sequences: set[str] = set()
+    for char in _MOJIBAKE_SOURCE_CHARS:
+        for codec in ("cp1252", "latin-1", "iso-8859-9"):
+            try:
+                seq = char.encode("utf-8").decode(codec)
+            except UnicodeDecodeError:
+                continue
+            if len(seq) > 1:
+                sequences.add(seq)
+    return re.compile("|".join(re.escape(seq) for seq in sorted(sequences, key=lambda x: (-len(x), x))))
+
+
+# Double-encoded Turkish (UTF-8 bytes read as cp1252, Latin-1 or ISO-8859-9).
+MOJIBAKE_RE = _build_mojibake_re()
 _CAMELCASE_TRANSITION_RE = re.compile(r"[a-zçğıöşü][A-ZÇĞİÖŞÜ]")
 _KNOWN_MIXED_CASE_TERMS = {
     "HashCalc",
@@ -349,6 +377,8 @@ def _assess_markdown_quality_cached(
 
     warning = (
         counts["control_char"] > 0
+        or counts["cid_marker"] > 0
+        or counts["mojibake"] > 0
         or counts["formula_ref_without_latex_or_image"] > 0
         or counts["long_underscore_run"] > 0
         or counts["camelcase_concat"] > 0
@@ -378,6 +408,7 @@ def _count_signals(text: str, document_id: str = "") -> dict[str, int]:
         "data_uri_image": len(data_uris),
         "wmf_data_uri": sum(1 for uri in data_uris if uri.lower().startswith("data:image/x-wmf")),
         "cid_marker": cid_count,
+        "mojibake": len(MOJIBAKE_RE.findall(text)),
         "image_placeholder": text.lower().count("[image") + text.lower().count("[resim"),
         "html_attr": len(_HTML_ATTR_RE.findall(text)),
         "html_entity": len(_HTML_ENTITY_RE.findall(text)),
@@ -443,7 +474,7 @@ def _repair_pdf_spacing_loss(text: str) -> str:
     out = _BDDK_CIRCULAR_AUTHOR_RE.sub(r"\1\nBaşkan\nSayı: ", text)
     out = _BDDK_CIRCULAR_SUBJECT_RE.sub(r"\1\nKonu: ", out)
     out = _BDDK_CIRCULAR_NUMBER_RE.sub(r"\1 \2", out)
-    out = _OCR_DOUBLED_UPPERCASE_WORD_RE.sub(r"\1\2", out)
+    out = _OCR_DOUBLED_LETTERHEAD_RE.sub(lambda match: _OCR_DOUBLED_LETTERHEAD_WORDS[match.group(0)], out)
     replacements = {
         "HakkındaYönetmeliğ": "Hakkında Yönetmeliğ",
         "ilişkinYönetmelik": "ilişkin Yönetmelik",

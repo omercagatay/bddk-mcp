@@ -1,5 +1,5 @@
 {
-  "policy_version": "markdown-quality-assessment-v7",
+  "policy_version": "markdown-quality-assessment-v8",
   "status": "reviewed_by_assistant_approved_by_owner_for_policy",
   "review_scope": "Each referenced formula is present in the same stored text; legal correctness of the source's own cross-reference numbering is not assessed.",
   "occurrences": [

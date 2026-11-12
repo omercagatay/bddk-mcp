@@ -7,9 +7,10 @@ This page documents how BDDK MCP labels extracted Markdown quality, how warnings
 Stored documents can come from several extraction paths:
 
 - `html_parser`: preferred when mevzuat.gov.tr or BDDK HTML preserves legal text cleanly.
+- `pdftotext_layout`: the method of most reviewed seed documents (233 of 319); formula-unaware.
 - `markitdown`: general PDF/office extraction path; good for ordinary text, weaker for formulas, annex tables, and embedded images.
-- `markitdown_degraded`: fallback or legacy extraction where important structure may be missing.
-- `lightocr`, `chandra2`, `pp_structure`, or `manual_latex`: formula-aware paths or manual repairs used when formulas, tables, or image-based math matter.
+- `pdftotext_degraded` and `markitdown_degraded`: the CPU fallbacks of the sync OCR chain, where important structure may be missing.
+- `manual_pdf` and combined names such as `pdftotext_layout+manual_latex`: manually repaired text; only a name containing `lightocr`, `chandra2`, `pp_structure` or `manual_latex` counts as formula-aware (`lightocr` needs the `gpu` group; no sync path constructs `chandra2`).
 
 Trade-offs:
 
@@ -22,9 +23,9 @@ Trade-offs:
 
 The quality engine reports one document-level label plus flags:
 
-- `clean`: no material extraction signal detected. The document can be used normally, subject to ordinary legal-source caution.
-- `warning`: usable text with extraction caveats such as control characters, formula references without visible formulas, moderate duplication, or layout artifacts.
-- `fail`: severe extraction risk such as raw HTML/data URI leakage, many `cid:` markers, replacement characters, very long blob-like lines, or repeated corrupted blocks.
+- `clean`: none of the signals below fired. The document can be used normally, subject to ordinary legal-source caution.
+- `warning`: one of these signals fired: control characters, any `cid:` marker, double-encoded Turkish text (mojibake such as `Ã¶` or `ÄŸ`), a formula reference without a visible formula or image, a long underscore run, a camelCase concatenation, or a paragraph block repeated more than twice.
+- `fail`: raw HTML tags, a `data:` URI image, 20 or more `cid:` markers, replacement characters, a very long line (over 3,000 characters) combined with raw markup or blob content, or an entry in the quality-failure registry.
 - `unknown`: quality metadata is unavailable or unresolved. A locally clean section must not erase an explicitly unknown document-level assessment.
 
 ## Verbatim serving contract
@@ -85,7 +86,7 @@ As a standing rule, formula-heavy failed documents require source review before 
 
 ## Quality Warnings In MCP Results
 
-Public retrieval tools sanitize document content before returning it to a model. `get_bddk_document` removes unsafe context artifacts such as raw HTML tags, `data:image/...;base64,...` payloads, `cid:` markers, and pathological long blobs.
+Public retrieval tools return the exact stored characters and do not rewrite them. When returning the text unchanged would leak an unsafe artifact (embedded `data:image` base64 payloads, `cid:` markers, the raw tags `div`, `table`, `tr`, `td`, `img`, `span` and `font`, or C0 control characters), `get_bddk_document` refuses with `VERBATIM_UNAVAILABLE` instead of cleaning it.
 
 When a page is not `clean`, `get_bddk_document` includes concise metadata in the response header:
 
@@ -93,9 +94,9 @@ When a page is not `clean`, `get_bddk_document` includes concise metadata in the
 - `Quality flags: ...`
 - A visible quality warning before the document text
 
-Formula-unaware extraction methods receive an extraction warning only when the returned text refers to a formula, so a guide with no formula mention is not flagged merely for using markitdown. Whole-document and section tools share this policy; section results expose `formula_unaware_extraction` without invalidating an otherwise exact text quotation. The retrieval quality-policy identity is `markdown-quality-assessment-v7`. It recognizes the reviewed formula/XML identifiers in documents 903 and 907 without exempting arbitrary code, math or text after unmatched delimiters; (since v6) the reviewed literal reference "Yönetmelik EK-2’de yer alan formüllerde" in document 1296, which points at the formulas of another regulation rather than at a formula missing from that text; and (since v7) ten reviewed, per-document references to a formula stated in another article, paragraph or annex of the same text (1312, 1313, `mevzuat_19498`, `mevzuat_20029`). Section-level assessment would otherwise flag those references because the formula sits in a different section; [`tests/fixtures/internal-formula-references.json`](../tests/fixtures/internal-formula-references.json) records where each referenced formula is. The section parser keeps a section's closing formula lines instead of trimming them as a next-article title, so the only section that still carries a formula note is the capped `mevzuat_21192` EK-4, whose formula lies past the 20,000-character cap. The parser carries no version name in code (Git history is its record); since 2026-11-12 it also indexes KGK standards that print bare paragraph numbers (`kgk_tms_12`), and ends a capped body (`govde`) window at a paragraph, line or word break instead of mid-word. Document retrieval assesses the full canonical body, not a page fragment: page-cut tables cannot create false failures, and a clean page cannot hide failures elsewhere. An unavailable full-document assessment stays `unknown`; a formula-aware method cannot erase a missing-formula signal. A parser change is invisible to `bddk-mcp build`, which skips by content hash: delete the local corpus file and run `bddk-mcp build` so sections and chunks are regenerated (the shipped vectors are reused while the chunk texts still match; `--force` would re-embed every document), then `bddk-mcp export`. `scripts/reindex_document_sections.py` rewrites `document_sections` only and leaves the chunks' section fields stale. A rebuild does not remove registry entries or formula-unaware extraction warnings.
+Formula-unaware extraction methods receive an extraction warning only when the returned text refers to a formula, so a guide with no formula mention is not flagged merely for using markitdown. Whole-document and section tools share this policy; section results expose `formula_unaware_extraction` without invalidating an otherwise exact text quotation. The retrieval quality-policy identity is `markdown-quality-assessment-v8`. It recognizes the reviewed formula/XML identifiers in documents 903 and 907 without exempting arbitrary code, math or text after unmatched delimiters; (since v6) the reviewed literal reference "Yönetmelik EK-2’de yer alan formüllerde" in document 1296, which points at the formulas of another regulation rather than at a formula missing from that text; and (since v7) ten reviewed, per-document references to a formula stated in another article, paragraph or annex of the same text (1312, 1313, `mevzuat_19498`, `mevzuat_20029`); and (since v8) any `cid:` marker or double-encoded Turkish text (mojibake) makes a document at least `warning`. Section-level assessment would otherwise flag those references because the formula sits in a different section; [`tests/fixtures/internal-formula-references.json`](../tests/fixtures/internal-formula-references.json) records where each referenced formula is. The section parser keeps a section's closing formula lines instead of trimming them as a next-article title, so the only section that still carries a formula note is the capped `mevzuat_21192` EK-4, whose formula lies past the 20,000-character cap. The parser carries no version name in code (Git history is its record); since 2026-11-12 it also indexes KGK standards that print bare paragraph numbers (`kgk_tms_12`), and ends a capped body (`govde`) window at a paragraph, line or word break instead of mid-word. Document retrieval assesses the full canonical body, not a page fragment: page-cut tables cannot create false failures, and a clean page cannot hide failures elsewhere. An unavailable full-document assessment stays `unknown`; a formula-aware method cannot erase a missing-formula signal. A parser change is invisible to `bddk-mcp build`, which skips by content hash: delete the local corpus file and run `bddk-mcp build` so sections and chunks are regenerated (the shipped vectors are reused while the chunk texts still match; `--force` would re-embed every document), then `bddk-mcp export`. `scripts/reindex_document_sections.py` rewrites `document_sections` only and leaves the chunks' section fields stale. A rebuild does not remove registry entries or formula-unaware extraction warnings.
 
-Search results and section retrieval can surface quality metadata so agents can decide whether a snippet is appropriate evidence. Vector and FTS hits label quality from the **full stored document**, not only the matching chunk, so a clean snippet cannot hide document-level formula or extraction failures. Warning or fail labels do not block retrieval by themselves; the server sanitizes and warns unless unsafe inline blobs would leak into context.
+Search results and section retrieval can surface quality metadata so agents can decide whether a snippet is appropriate evidence. Vector and FTS hits label quality from the **full stored document**, not only the matching chunk, so a clean snippet cannot hide document-level formula or extraction failures. Warning or fail labels do not block retrieval by themselves; the server returns the exact text with a warning, and refuses only when unsafe artifacts would leak into context.
 
 ## Scan Commands
 
@@ -110,7 +111,6 @@ Scan a local Markdown export:
 ```bash
 uv run python scripts/scan_document_quality.py \
   --md-dir ./bddk-md-export/docs \
-  --manifest ./bddk-md-export/manifest.csv \
   --out-dir quality_reports \
   --allow-failures
 ```
@@ -124,6 +124,8 @@ uv run python scripts/scan_document_quality.py \
   --fail-on data_uri_image,cid_marker,raw_html_tag,replacement_char
 ```
 
+`--fail-on` takes the signal names the report shows (scan anomalies and assessment flags, also on documents whose label is clean); an unknown name is rejected with exit code 2.
+
 Outputs:
 
 - `quality_report.md`
@@ -131,7 +133,7 @@ Outputs:
 - `quality_findings.json`
 - `suspicious_snippets.md`
 
-The corpus scan counts `c1_control_char` (U+0080–U+009F, cp1254 punctuation decoded as Latin-1) in SQL; `camelcase_concat` and `formula_ref_without_formula` come from the per-document assessment, so reviewed identifiers and inline formulas are not counted.
+The corpus scan counts `c1_control_char` (U+0080–U+009F, cp1254 punctuation decoded as Latin-1) per document in Python; `camelcase_concat` and `formula_ref_without_formula` come from the per-document assessment, so reviewed identifiers and inline formulas are not counted.
 
 ## Quality pass 2026-10-16
 
