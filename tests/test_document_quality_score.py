@@ -5,7 +5,7 @@ from bddk_mcp.core.config import CORPUS_PATH
 from bddk_mcp.quality.quality_scan import AnomalyCount, DocumentFinding, MethodBreakdown, QualityReport
 from bddk_mcp.store.corpus_db import CorpusDB
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
-from scripts.document_quality_score import _build_parser, main, quality_score, scan_seed_dir
+from scripts.document_quality_score import _build_parser, main, quality_score
 
 
 def _report(**overrides):
@@ -51,51 +51,6 @@ def test_quality_score_penalizes_failures_warnings_anomalies_and_integrity():
     assert result["warning_documents"] == 1
     assert result["fail_documents"] == 1
     assert result["anomaly_hits"] == 3
-
-
-def test_scan_seed_dir_scores_documents_and_chunk_integrity(tmp_path):
-    seed_dir = tmp_path / "seed_data"
-    seed_dir.mkdir()
-    (seed_dir / "documents.json").write_text(
-        json.dumps(
-            [
-                {
-                    "document_id": "clean",
-                    "markdown_content": "Temiz belge çğıöşü " * 40,
-                    "extraction_method": "html_parser",
-                },
-                {
-                    "document_id": "bad",
-                    "markdown_content": "<img src='data:image/x-wmf;base64,AAA'>",
-                    "extraction_method": "markitdown",
-                },
-                {
-                    "document_id": "missing_chunks",
-                    "markdown_content": "Uzun belge " * 80,
-                    "extraction_method": "markitdown",
-                },
-            ]
-        ),
-        encoding="utf-8",
-    )
-    (seed_dir / "chunks.json").write_text(
-        json.dumps(
-            [
-                {"doc_id": "clean"},
-                {"doc_id": "bad"},
-                {"doc_id": "orphan"},
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    report = scan_seed_dir(seed_dir)
-
-    assert report.total_documents == 3
-    assert {method.method for method in report.methods} == {"html_parser", "markitdown"}
-    assert report.orphan_chunks == 1
-    assert report.docs_without_chunks == 1
-    assert report.document_findings[0].document_id == "bad"
 
 
 def test_main_scores_the_corpus_file(tmp_path, capsys):

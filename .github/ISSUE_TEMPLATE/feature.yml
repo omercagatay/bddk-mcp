@@ -24,7 +24,6 @@ body:
       label: Area
       options:
         - Public MCP tools
-        - Operator workflows
         - Retrieval or corpus quality
         - Security or governance
         - Deployment or operations

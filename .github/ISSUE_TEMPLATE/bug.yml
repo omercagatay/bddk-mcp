@@ -35,7 +35,7 @@ body:
         - MCP server or tool
         - CLI or packaging
         - Ingestion or document quality
-        - PostgreSQL or migration
+        - Corpus file (build or serve)
         - Deployment or container
         - Documentation
         - Other
@@ -52,7 +52,7 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: Include Python, PostgreSQL, operating system, transport, and deployment platform where relevant.
+      description: Include Python, the corpus file, operating system, transport, and deployment platform where relevant.
     validations:
       required: true
   - type: textarea

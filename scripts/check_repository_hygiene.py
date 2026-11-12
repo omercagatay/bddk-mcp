@@ -38,7 +38,6 @@ ALLOWED_TOP_LEVEL = {
     ".env.example",
     ".gitattributes",
     ".github",
-    ".gitlab-ci.yml",
     ".gitignore",
     ".graphifyignore",
     ".mcp.json",
@@ -190,7 +189,7 @@ def main() -> int:
         errors.append("pyproject.toml and bddk_mcp.__version__ disagree")
 
     attributes = (ROOT / ".gitattributes").read_text(encoding="utf-8")
-    for marker in ("seed_data/*.json", "docs/evidence/*.json", "uv.lock", "tests/fixtures/*.pdf"):
+    for marker in ("seed_data/*.json", "uv.lock", "tests/fixtures/*.pdf"):
         if marker not in attributes:
             errors.append(f".gitattributes does not classify {marker}")
 

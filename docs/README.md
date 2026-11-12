@@ -16,7 +16,6 @@ This index is the canonical map of BDDK MCP documentation.
 
 - [Deployment](DEPLOYMENT.md) — local stdio, container, Streamable HTTP, corpus build and distribution, and the Railway preview profile.
 - [Document quality](DOCUMENT_QUALITY.md) — extraction and retrieval quality controls.
-- [Document catalog](DOCUMENTS.md) — generated corpus reference.
 - [Licensing and provenance](LICENSING_AND_PROVENANCE.md) — source, model, and artifact provenance.
 
 Deployment-specific guides:

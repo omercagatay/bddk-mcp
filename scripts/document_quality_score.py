@@ -13,18 +13,13 @@ import argparse
 import asyncio
 import json
 import sys
-from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from bddk_mcp.core.config import CORPUS_PATH  # noqa: E402
-from bddk_mcp.quality.markdown_quality import assess_markdown_quality  # noqa: E402
 from bddk_mcp.quality.quality_scan import (  # noqa: E402
-    AnomalyCount,
-    DocumentFinding,
-    MethodBreakdown,
     QualityReport,
     format_report_json,
     scan_quality,
@@ -69,79 +64,11 @@ async def scan_db(corpus_path: str | None = None) -> QualityReport:
         db.close()
 
 
-def scan_seed_dir(seed_dir: Path) -> QualityReport:
-    documents_path = seed_dir / "documents.json"
-    chunks_path = seed_dir / "chunks.json"
-    documents = json.loads(documents_path.read_text(encoding="utf-8"))
-    chunks = json.loads(chunks_path.read_text(encoding="utf-8")) if chunks_path.exists() else []
-
-    method_counts: dict[str, list[int]] = defaultdict(list)
-    findings: list[DocumentFinding] = []
-    for doc in documents:
-        markdown = doc.get("markdown_content") or ""
-        method = doc.get("extraction_method") or "unknown"
-        method_counts[method].append(len(markdown))
-        quality = assess_markdown_quality(markdown, document_id=doc.get("document_id") or "")
-        if quality.label == "clean":
-            continue
-        findings.append(
-            DocumentFinding(
-                document_id=doc.get("document_id") or "",
-                label=quality.label,
-                flags=quality.flags,
-                counts=quality.counts,
-                sample=" ".join(markdown.split())[:160],
-            )
-        )
-
-    methods = [
-        MethodBreakdown(
-            method=method,
-            doc_count=len(lengths),
-            avg_chars=round(sum(lengths) / max(len(lengths), 1)),
-        )
-        for method, lengths in sorted(method_counts.items(), key=lambda item: (-len(item[1]), item[0]))
-    ]
-
-    doc_ids = {doc.get("document_id") for doc in documents}
-    chunk_doc_ids = {chunk.get("doc_id") for chunk in chunks}
-    orphan_chunks = sum(1 for chunk in chunks if chunk.get("doc_id") not in doc_ids)
-    docs_without_chunks = sum(
-        1
-        for doc in documents
-        if len(doc.get("markdown_content") or "") > 500 and doc.get("document_id") not in chunk_doc_ids
-    )
-
-    flag_docs: dict[str, list[str]] = defaultdict(list)
-    for finding in findings:
-        for flag in finding.flags:
-            flag_docs[flag].append(finding.document_id)
-    anomalies = [
-        AnomalyCount(
-            name=flag,
-            docs_flagged=len(doc_ids_for_flag),
-            description=f"{flag} detected by markdown quality assessment",
-            sample_doc_ids=doc_ids_for_flag[:5],
-        )
-        for flag, doc_ids_for_flag in sorted(flag_docs.items())
-    ]
-
-    return QualityReport(
-        total_documents=len(documents),
-        methods=methods,
-        anomalies=anomalies,
-        orphan_chunks=orphan_chunks,
-        docs_without_chunks=docs_without_chunks,
-        document_findings=findings,
-    )
-
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Compute BDDK document-quality score.")
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--db", action="store_true", help="Scan documents from the corpus file")
     source.add_argument("--md-dir", type=Path, help="Scan local Markdown export directory")
-    source.add_argument("--seed-dir", type=Path, help="Scan seed_data documents.json/chunks.json")
     parser.add_argument(
         "--corpus", default=CORPUS_PATH, help="Corpus file path (default: BDDK_CORPUS_PATH or corpus/bddk.sqlite)"
     )
@@ -154,8 +81,6 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     if args.db:
         report = asyncio.run(scan_db(args.corpus))
-    elif args.seed_dir:
-        report = scan_seed_dir(args.seed_dir)
     else:
         report = scan_markdown_dir(args.md_dir)
     result = quality_score(report)
