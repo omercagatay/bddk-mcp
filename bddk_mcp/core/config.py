@@ -134,11 +134,19 @@ SEARCH_CACHE_MAX = _environment_int(
 
 # -- Relevance thresholds (anti-hallucination) --------------------------------
 
-SEMANTIC_RELEVANCE_THRESHOLD = _environment_float(
-    "BDDK_SEMANTIC_THRESHOLD",
-    default=0.50,
-    minimum=-1.0,
-    maximum=1.0,
+# Minimum raw cosine similarity of the embedding model for a dense hit to be
+# kept.  Unset (None) means the default recorded for the embedding model in
+# ``bddk_mcp.store.vector_store`` (0.80 for intfloat/multilingual-e5-base, 0.50
+# for any other model); BDDK_SEMANTIC_THRESHOLD overrides it.
+SEMANTIC_RELEVANCE_THRESHOLD: float | None = (
+    _environment_float(
+        "BDDK_SEMANTIC_THRESHOLD",
+        default=0.0,
+        minimum=-1.0,
+        maximum=1.0,
+    )
+    if "BDDK_SEMANTIC_THRESHOLD" in os.environ
+    else None
 )
 
 

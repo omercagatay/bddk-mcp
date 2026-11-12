@@ -43,7 +43,7 @@ Any existing corpus file built with code older than this release (including a fi
 - Named client/model certification, approved expert judgments, or audit-grade product scores.
 - Any model of legal currentness, amendment chains or cross-references; the assistant must verify those against the official source.
 - Live acquisition: the changes of the 2026-11-12 rounds to `sync` (annex text, error-page fallthrough, charset repair, table limits, re-indexing) and to the bulletin, monthly, digest and institution tools were tested with fakes and were not run against the live BDDK or mevzuat.gov.tr sources.
-- Relevance bands and the `BDDK_SEMANTIC_THRESHOLD` default (0.50) are not calibrated with the real embedding model; the sandbox of 2026-11-12 could not load the model, so the tests use a fake embedder.
+- The displayed search relevance, its bands and the raw-cosine threshold default (0.80) are calibrated for `intfloat/multilingual-e5-base` on 101 queries with one model revision (see [Document Quality](DOCUMENT_QUALITY.md#displayed-search-relevance)); that is a calibration, not a retrieval evaluation, and any other embedding model gets an uncalibrated identity mapping with a 0.50 threshold. The unit tests use a fake embedder.
 - `bddk-mcp build` cannot detect by itself that seed metadata or the section parser changed; it skips by content hash, chunks and catalog count.
 - Retrieval beyond a few hundred thousand chunks: dense search is brute-force cosine over in-memory vectors, which is exact and fast at the current size; an ANN index (hnswlib or sqlite-vec) is the upgrade past that scale.
 

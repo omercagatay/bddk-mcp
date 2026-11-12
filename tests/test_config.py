@@ -57,6 +57,33 @@ def test_environment_configuration_accepts_explicit_boundary_values():
     assert result.returncode == 0, result.stderr
 
 
+def _semantic_threshold_in_subprocess(**overrides: str) -> subprocess.CompletedProcess[str]:
+    environment = {key: value for key, value in os.environ.items() if not key.startswith("BDDK_")}
+    environment.update(overrides)
+    return subprocess.run(
+        [sys.executable, "-c", "from bddk_mcp.core import config; print(config.SEMANTIC_RELEVANCE_THRESHOLD)"],
+        cwd=os.getcwd(),
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_semantic_threshold_is_unset_by_default_so_the_model_default_applies():
+    result = _semantic_threshold_in_subprocess()
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "None"
+
+
+def test_semantic_threshold_environment_override_is_kept_and_validated():
+    assert _semantic_threshold_in_subprocess(BDDK_SEMANTIC_THRESHOLD="0.65").stdout.strip() == "0.65"
+    rejected = _semantic_threshold_in_subprocess(BDDK_SEMANTIC_THRESHOLD="1.5")
+    assert rejected.returncode != 0
+    assert "BDDK_SEMANTIC_THRESHOLD must be finite" in rejected.stderr
+
+
 class TestValidateMetricId:
     def test_valid_metric_ids(self):
         assert validate_metric_id("1.0.1") == "1.0.1"

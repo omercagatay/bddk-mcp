@@ -37,7 +37,8 @@ kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözle
 Aynı gün ikinci tur: bağımsız denetimin ve dört bakış açılı tasarım
 incelemesinin bulguları uygulandı, ardından çapraz inceleme yapıldı. Aşağıdaki
 değişikliklerin hiçbiri BDDK ve mevzuat.gov.tr canlı kaynaklarına karşı
-denenmedi ve gerçek embedding modeliyle çalıştırılmadı; ayrıntı en sondaki
+denenmedi ve gerçek embedding modeliyle çalıştırılmadı; yalnızca "Arama
+skoru" maddesindeki kalibrasyon gerçek modelle ölçüldü. Ayrıntı en sondaki
 "Bu ortamda doğrulanamayanlar" başlığındadır.
 
 **Yükseltme notu.** Bu turdan önce üretilmiş bir corpus dosyası, 636 ve 774
@@ -357,6 +358,21 @@ Kaldırılanlar:
   `scan_document_quality.py` için `--quality-failures` ve `--manifest`
   seçenekleri (`--manifest` zaten yok sayılıyordu).
 
+Arama skoru:
+
+- `search_document_store` artık gösterdiği `relevance` değerini embedding
+  modeline göre kalibre eder: sıralama skoru (ham cosine ile kelime ve ifade
+  katkıları; sıralama ve skor aralığı filtresi değişmedi)
+  `intfloat/multilingual-e5-base` için 0.82–0.96 aralığından 0–1'e taşınır;
+  hiçbir anahtar kelime eşleşmezse yalnızca gösterilen değer düşürülür.
+  `semantic_relevance` ham cosine'dir; eleme eşiği ham cosine'e uygulanır ve
+  varsayılanı bu model için 0.80, başka modeller için 0.50'dir
+  (`BDDK_SEMANTIC_THRESHOLD` hâlâ geçersiz kılar). Gerçek modelle 101 soruda
+  ölçüldü: 40 alan içi sorunun 40'ı yine "strong"; 40 alan dışı sorunun 34'ü
+  önceden "strong" iken artık 38'i "weak" ya da sonuçsuz. Ölçüm betiği
+  `scripts/calibrate_relevance.py`; ayrıntı ve sınırlar
+  [Document Quality](docs/DOCUMENT_QUALITY.md#displayed-search-relevance).
+
 Bu ortamda doğrulanamayanlar:
 
 - BDDK ve mevzuat.gov.tr canlı kaynaklarına bu ortamdan erişilemedi. Sync
@@ -365,9 +381,9 @@ Bu ortamda doğrulanamayanlar:
   yanıtlarla test edildi; canlı kaynaklara karşı çalıştırılmadı. Gerçek mevzuat
   HTML'sinde eksik `</tr>`/`</td>` ne sıklıkta görülüyor, ölçülmedi.
 - Gerçek embedding modeli (`intfloat/multilingual-e5-base`) ve tokenizer'ı bu
-  ortamda yüklenemedi; testler sahte embedder kullandı. `BDDK_SEMANTIC_THRESHOLD`
-  varsayılanının (0.50) ve relevance bantlarının gerçek modelle kalibrasyonu
-  yapılmadı. `tests/test_verbatim_documents.py::test_real_token_chunker_produces_exact_document_slices_for_every_document`
+  ortamda yüklenemedi; testler sahte embedder kullandı. Relevance bantları ve
+  eleme eşiği sonradan gerçek modelle kalibre edildi (yukarıda "Arama skoru").
+  `tests/test_verbatim_documents.py::test_real_token_chunker_produces_exact_document_slices_for_every_document`
   yalnızca bu nedenle çalıştırılamadı.
 - Bölüm ve başlık değişikliklerinin etkisi, 319 belgelik kısmi bir corpus
   dosyası (chunk'sız) üzerinde salt okunur denendi; tam bir `build` bu ortamda

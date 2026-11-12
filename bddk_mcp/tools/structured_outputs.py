@@ -228,9 +228,10 @@ class DocumentSearchItem(StrictOutputModel):
         ge=-1,
         le=1,
         description=(
-            "Heuristic score: cosine similarity adjusted by a keyword gate and lexical/phrase boosts, clamped "
-            "to 1. Not a probability and not a cosine. Without fts_exact hits the results are sorted by this "
-            "score. When fts_exact hits are present the order is: hybrid hits by this score, then fts_exact "
+            "Calibrated ranking score between 0 and 1 for the embedding model in use: the cosine similarity "
+            "plus lexical/phrase boosts, mapped through a per-model calibration and lowered when no query "
+            "keyword matches. Not a probability and not a cosine. Without fts_exact hits the results are "
+            "sorted by this score. When fts_exact hits are present the order is: hybrid hits by this score, then fts_exact "
             "hits (0.0, no semantic score) in keyword (BM25) order, then the remaining vector and fts hits by "
             "this score, so a later hit can score higher than an earlier hybrid hit."
         ),

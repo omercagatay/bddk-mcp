@@ -108,6 +108,30 @@ Formula-unaware extraction methods receive an extraction warning only when the r
 
 Search results and section retrieval can surface quality metadata so agents can decide whether a snippet is appropriate evidence. Vector and FTS hits label quality from the **full stored document**, not only the matching chunk, so a clean snippet cannot hide document-level formula or extraction failures. Warning or fail labels do not block retrieval by themselves; the server returns the exact text with a warning, and refuses only when unsafe artifacts would leak into context.
 
+## Displayed search relevance
+
+`search_document_store` orders hits by an internal ordering score: the raw cosine similarity of the embedding model plus small lexical and phrase boosts. The `relevance` it shows is that score mapped through a calibration recorded for the embedding model, `clamp((score - floor) / (ceiling - floor), 0, 1)`, with floor 0.82 and ceiling 0.96 for `intfloat/multilingual-e5-base`; when no query keyword matches at all, the shown value is multiplied by 0.65. It is a ranking score for that model, not a probability and not a cosine. The bands stay at 0.70 (strong) and 0.50 (moderate) on the shown value, so "strong" means an ordering score of at least 0.918. `semantic_relevance` is the raw cosine, and dense hits below the raw-cosine threshold (default 0.80 for this model, `BDDK_SEMANTIC_THRESHOLD` overrides it) are dropped. Any other embedding model gets the identity mapping and a 0.50 threshold; nothing was measured for it. The mapping does not change the order of the results.
+
+The constants come from a measurement on 2026-11-12 with the pinned model revision on the 319-document corpus (13,721 chunks), 101 queries in five groups, top-1 band before and after:
+
+| Group | Raw top-1 cosine | Before | After |
+| --- | --- | --- | --- |
+| 40 Turkish in-domain questions with expected documents | 0.852–0.914 | 40 strong | 40 strong |
+| 6 English questions on corpus topics | 0.830–0.881 | 6 strong | 1 moderate, 5 weak |
+| 10 near-domain questions on instruments outside the corpus | 0.838–0.896 | 10 strong | 4 strong, 3 moderate, 3 weak |
+| 40 off-topic questions | 0.739–0.852 | 34 strong, 6 moderate | 2 moderate, 29 weak, 9 no result |
+| 5 gibberish strings | 0.821–0.851 | 2 strong, 3 moderate | 5 weak |
+
+Every expected document of the first two groups scored a raw cosine of at least 0.822; the expected document is the dense rank-1 hit for 29 of the 40 Turkish questions and in the dense top 5 for 36. For all 101 queries the top five results are the same documents in the same order as before, except that hits under the raw threshold are dropped (all on off-topic questions) and lower-ranked hits move up into their places; the remaining hits keep their relative order.
+
+Limits: 101 queries and one model revision make this a calibration, not an evaluation of retrieval quality. Near-domain questions about instruments that are not in the corpus (4 of 10 measured: insurance technical provisions, crypto-asset service providers, severance pay, general-meeting quorum) can still be shown as strong matches, and English questions tend to be labelled weak although the expected document was among the shown results for 5 of the 6. After a change of embedding model, model revision, chunker or a large corpus change, re-run the measurement and update the mapping in `bddk_mcp/store/vector_store.py`:
+
+```bash
+uv run python scripts/calibrate_relevance.py --corpus corpus/bddk.sqlite --out calibration.json
+```
+
+The script opens the corpus file read-only, loads the real model and prints, per group, the raw and shown top-1 distributions, the band shares and the rank-1/top-5 counts; it writes nothing except the optional `--out` file. It is not run in CI.
+
 ## Scan Commands
 
 Run the canonical corpus quality scan and write Markdown, CSV, JSON, and snippet outputs (`--db` reads the corpus file at `BDDK_CORPUS_PATH`, default `corpus/bddk.sqlite`; `--corpus PATH` names another file):

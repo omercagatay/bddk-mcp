@@ -105,6 +105,54 @@ _PHRASE_RELEVANCE_MAX = 0.06
 _TURKISH_STEM_SUFFIXES = ("leri", "lari", "inin", "unun", "nin", "nun", "ler", "lar", "si", "su", "i", "u")
 _EMBEDDING_DTYPE = np.float16
 
+
+@dataclass(frozen=True)
+class RelevanceCalibration:
+    """Maps the internal ordering score of one embedding model to the displayed relevance.
+
+    ``displayed = clamp((ordering_score - floor) / (ceiling - floor), 0, 1)``.
+    ``semantic_threshold`` is the default minimum raw cosine for a dense hit.
+    """
+
+    floor: float
+    ceiling: float
+    semantic_threshold: float
+
+
+# Any model without a measured entry: identity mapping and the old 0.50 raw
+# threshold. Nothing has been measured for such a model.
+_IDENTITY_RELEVANCE_CALIBRATION = RelevanceCalibration(floor=0.0, ceiling=1.0, semantic_threshold=0.50)
+
+# Measured 2026-11-12 on the 319-document corpus (13,721 chunks) with the pinned
+# revision of intfloat/multilingual-e5-base, 101 queries (scripts/calibrate_relevance.py):
+# 40 Turkish in-domain questions with expected documents, 6 English questions on
+# corpus topics, 10 near-domain questions on instruments outside the corpus, 40
+# off-topic questions and 5 gibberish strings. Raw top-1 cosines: in-domain
+# 0.852-0.914, off-topic 0.739-0.852; every expected document scored >= 0.822.
+# A calibration on a small query set, not a retrieval evaluation.
+RELEVANCE_CALIBRATIONS: dict[str, RelevanceCalibration] = {
+    "intfloat/multilingual-e5-base": RelevanceCalibration(floor=0.82, ceiling=0.96, semantic_threshold=0.80),
+}
+
+
+def relevance_calibration(embedding_model: str) -> RelevanceCalibration:
+    """The calibration recorded for ``embedding_model``, or the identity mapping."""
+    return RELEVANCE_CALIBRATIONS.get(embedding_model, _IDENTITY_RELEVANCE_CALIBRATION)
+
+
+def semantic_threshold(embedding_model: str) -> float:
+    """Minimum raw cosine for a dense hit: BDDK_SEMANTIC_THRESHOLD, else the model's default."""
+    if SEMANTIC_RELEVANCE_THRESHOLD is not None:
+        return SEMANTIC_RELEVANCE_THRESHOLD
+    return relevance_calibration(embedding_model).semantic_threshold
+
+
+def displayed_relevance(ordering_score: float, calibration: RelevanceCalibration) -> float:
+    """Calibrated relevance in [0, 1]; monotonic in the ordering score, so ranking is unchanged."""
+    span = calibration.ceiling - calibration.floor
+    return min(1.0, max(0.0, (ordering_score - calibration.floor) / span))
+
+
 # Loaded embedding models shared by every VectorStore in this process, keyed by
 # (loader class, model reference, load kwargs).
 _LOADED_EMBEDDING_MODELS: dict[tuple[object, str, tuple[tuple[str, object], ...]], object] = {}
@@ -596,7 +644,12 @@ class VectorStore:
                     if len(_LOADED_EMBEDDING_MODELS) >= _LOADED_EMBEDDING_MODELS_LIMIT:
                         _LOADED_EMBEDDING_MODELS.clear()
                     _LOADED_EMBEDDING_MODELS[cache_key] = loaded_model
-            dimension = loaded_model.get_sentence_embedding_dimension()
+            # sentence-transformers renamed get_sentence_embedding_dimension to
+            # get_embedding_dimension; older releases have only the old name.
+            dimension_of = getattr(loaded_model, "get_embedding_dimension", None)
+            if dimension_of is None:
+                dimension_of = loaded_model.get_sentence_embedding_dimension
+            dimension = dimension_of()
             if dimension != EMBEDDING_DIMENSION:
                 raise RuntimeError(f"Embedding model dimension must be {EMBEDDING_DIMENSION} for the corpus.")
 
@@ -905,8 +958,13 @@ class VectorStore:
     ) -> list[dict]:
         """Hybrid search: dense + sparse retrieval fused with RRF.
 
-        Anti-hallucination features: an FTS gate penalises vector-only scores
-        when no keyword matches at all, and score-gap filtering drops results
+        Each hit carries three scores. ``semantic_relevance`` is the raw cosine
+        of the embedding model; hits below the semantic threshold are dropped.
+        The internal ordering score (``ordering_score``: the raw cosine plus the
+        lexical and phrase boosts) orders the hits. ``relevance`` is the
+        displayed value: the ordering score mapped through the model's
+        calibration and, when no keyword matches at all (the FTS gate),
+        multiplied by ``_FTS_GATE_PENALTY``. Score-gap filtering drops results
         far below the top hit.
         """
         vector_hits, fts_hits = await asyncio.gather(
@@ -922,11 +980,13 @@ class VectorStore:
         vector_by_doc = {hit["doc_id"]: hit for hit in vector_hits}
         fts_by_doc = {hit["doc_id"]: hit for hit in fts_hits}
 
-        if len(fts_hits) == 0:
-            for hit in vector_hits:
-                hit["relevance"] = round(hit.get("relevance", 0) * _FTS_GATE_PENALTY, _SCORE_DECIMAL_PLACES)
+        # FTS gate: with no keyword match at all the displayed relevance is
+        # penalised; the raw cosine (and so the threshold) is not.
+        gate_factor = _FTS_GATE_PENALTY if len(fts_hits) == 0 else 1.0
+        if gate_factor != 1.0:
             logger.debug(
-                "FTS gate: 0 keyword matches, applying %.0f%% penalty to vector scores", (1 - _FTS_GATE_PENALTY) * 100
+                "FTS gate: 0 keyword matches, applying %.0f%% penalty to displayed relevance",
+                (1 - _FTS_GATE_PENALTY) * 100,
             )
 
         fused = self._rrf_fuse(vector_hits, fts_hits)
@@ -972,27 +1032,36 @@ class VectorStore:
                             _SCORE_DECIMAL_PLACES,
                         )
 
+        calibration = relevance_calibration(self._embedding_model)
         for hit in fused:
-            hit["relevance"] = round(hit.get("relevance", 0.0), _SCORE_DECIMAL_PLACES)
+            ordering_score = round(hit.get("relevance", 0.0), _SCORE_DECIMAL_PLACES)
+            hit["ordering_score"] = ordering_score
+            hit["relevance"] = round(
+                displayed_relevance(ordering_score, calibration) * gate_factor, _SCORE_DECIMAL_PLACES
+            )
 
-        fused = [
-            h
-            for h in fused
-            if h["semantic_relevance"] >= SEMANTIC_RELEVANCE_THRESHOLD or h["match_type"] == "fts_exact"
-        ]
+        threshold = semantic_threshold(self._embedding_model)
+        fused = [h for h in fused if h["semantic_relevance"] >= threshold or h["match_type"] == "fts_exact"]
 
         # RRF order only breaks ties. Hits with a dense score are ordered by the
-        # displayed relevance. FTS-only exact legal-reference matches have none,
-        # so they follow every hybrid hit in BM25 order, ahead of vector-only hits.
+        # ordering score (the displayed relevance is monotonic in it, so a tie in
+        # the displayed value keeps the ordering-score order). FTS-only exact
+        # legal-reference matches have none, so they follow every hybrid hit in
+        # BM25 order, ahead of vector-only hits.
         exact_hits = sorted(
             (h for h in fused if h["match_type"] == "fts_exact"), key=lambda h: h["fts_rank"], reverse=True
         )
         semantic_hits = [h for h in fused if h["match_type"] != "fts_exact"]
-        semantic_hits.sort(key=lambda h: h["relevance"], reverse=True)
+        semantic_hits.sort(key=lambda h: (h["relevance"], h["ordering_score"]), reverse=True)
 
         if len(semantic_hits) > 1:
-            top_score = semantic_hits[0]["relevance"]
-            semantic_hits = [h for h in semantic_hits if (top_score - h["relevance"]) <= _SCORE_GAP_THRESHOLD]
+            # The gap is measured on the ordering score under the FTS gate, as
+            # before the calibration, so the same hits survive it.
+            def gap_score(h: dict) -> float:
+                return round(h["ordering_score"] * gate_factor, _SCORE_DECIMAL_PLACES)
+
+            top_score = gap_score(semantic_hits[0])
+            semantic_hits = [h for h in semantic_hits if (top_score - gap_score(h)) <= _SCORE_GAP_THRESHOLD]
 
         if exact_hits:
             hybrid_hits = [h for h in semantic_hits if h["match_type"] == "hybrid"]
