@@ -192,18 +192,16 @@ def logged_tool(logger: logging.Logger) -> Callable[[F], F]:
                     "duration_ms": duration_ms,
                     "error_type": type(exc).__name__,
                 }
+                # Exception messages and formatted tracebacks can contain the
+                # caller's query or retrieved content. Keep production logs
+                # metadata-only unless the operator explicitly opts in.
                 if include_content:
                     failure_metadata["error_message"] = _truncate(str(exc))
-                    # A formatted traceback includes absolute source paths and
-                    # may repeat untrusted exception text.  Preserve the
-                    # explicitly requested sanitized message without attaching
-                    # exc_info to a production log record.
-                    logger.error("MCP tool call failed", extra=failure_metadata)
-                else:
-                    # Exception messages and formatted tracebacks can contain the
-                    # caller's query or retrieved content. Keep production logs
-                    # metadata-only unless the operator explicitly opts in.
-                    logger.error("MCP tool call failed", extra=failure_metadata)
+                # A formatted traceback includes absolute source paths and
+                # may repeat untrusted exception text.  Preserve the
+                # explicitly requested sanitized message without attaching
+                # exc_info to a production log record.
+                logger.error("MCP tool call failed", extra=failure_metadata)
                 raise
 
             duration_ms = round((time.perf_counter() - started) * 1000, 2)

@@ -39,7 +39,7 @@ Regulation and decision text comes from the locally published copy. Institution,
 - `search_bddk_institutions`: searches institutions and may call BDDK live.
 - `search_bddk_announcements`: searches announcements and may call BDDK live.
 - `get_bddk_document`: returns a stored document page. If extraction left an unsafe artifact, it refuses instead of silently rewriting the text.
-- `get_document_history`: shows the stored document history.
+- `get_document_history`: lists a document's earlier (replaced) bodies; the current body is not listed, and the list is empty until a sync or build replaces the text.
 - `get_document_section`: asks for an article (including inserted articles such as 66/A), a temporary or additional article, a principle, paragraph, annex, or lettered item (bent); with `quotation` it verifies the quote character for character against the stored text.
 - `search_document_sections`: searches section headings.
 - `get_bddk_bulletin`: weekly bulletin; may call live.

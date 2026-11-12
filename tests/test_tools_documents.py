@@ -429,3 +429,53 @@ async def test_document_quality_is_assessed_on_the_canonical_body(doc_store, bod
     assert quality["flags"] == expected_flags
     assert result.structuredContent["evidence"][0]["quality"] == quality
     assert result.structuredContent["pages"][0]["content"] == body
+
+
+@pytest.mark.asyncio
+async def test_page_beyond_the_end_of_an_existing_document_is_invalid_input(doc_store):
+    """An out-of-range page names the page count; it must not claim the document is absent."""
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(StoredDocument(document_id="x", title="x", markdown_content="Kısa belge."))
+    client = MagicMock()
+    client.find_by_id = MagicMock(return_value=None)
+    deps = Dependencies(db=None, doc_store=doc_store, client=client, http=None)
+
+    with pytest.raises(ToolError) as exc_info:
+        await _capture_get_bddk_document(deps)("x", page_number=50)
+    out = str(exc_info.value)
+
+    assert out.splitlines()[0] == "[ERROR:INVALID_INPUT] retryable=false"
+    assert "has 1 page(s)" in out
+    assert "not available in the local store" not in out
+
+
+@pytest.mark.asyncio
+async def test_a_real_page_mentioning_invalid_page_is_returned():
+    """Stored legal text is never treated as the out-of-range sentinel because of its wording."""
+    page = DocumentPage(
+        document_id="x",
+        title="x",
+        markdown_content="Invalid page ifadesi geçen gerçek metin.",
+        page_number=1,
+        total_pages=1,
+    )
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(return_value=page)
+    out = await _capture_get_bddk_document(_make_deps(doc_store=doc_store))("x", 1)
+    assert "Invalid page ifadesi geçen gerçek metin." in out
+
+
+@pytest.mark.asyncio
+async def test_empty_document_history_explains_that_only_replaced_bodies_are_listed():
+    mcp = MagicMock()
+    doc_store = MagicMock()
+    doc_store.get_document_history = AsyncMock(return_value=[])
+    register(mcp, Dependencies(db=None, doc_store=doc_store, client=None, http=None))
+    tool = next(
+        call.args[0] for call in mcp.tool.return_value.call_args_list if call.args[0].__name__ == "get_document_history"
+    )
+    result = await tool("943")
+    assert result.structuredContent["status"] == "no_results"
+    assert "No version history found for document 943." in result.text
+    assert "current body is not listed" in result.text

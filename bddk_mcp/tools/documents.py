@@ -76,8 +76,9 @@ def register(
         Retrieve a BDDK decision document as Markdown.
 
         Airlocked: serves only from the local corpus file. If the document is not
-        present locally, returns a clear "not in seed" error rather than
-        live-fetching from mevzuat.gov.tr / BDDK.
+        present locally, returns a NOT_FOUND error rather than live-fetching from
+        mevzuat.gov.tr / BDDK. A page_number beyond the end of a stored document
+        is INVALID_INPUT and the error gives the document's page count.
 
         A bare numeric ID (e.g. "21192") is also tried as `mevzuat_<id>` and
         `bddk_<id>` so callers don't need to know the catalog's prefix
@@ -99,7 +100,7 @@ def register(
                 logger.warning("Document page lookup failed", extra={"error_type": type(exc).__name__})
                 stored = None
 
-            if stored and stored.markdown_content and "Invalid page" not in stored.markdown_content:
+            if stored and stored.markdown_content:
                 return stored.page_number, stored.total_pages, stored.markdown_content, stored.extraction_method or ""
             return None
 
@@ -111,6 +112,13 @@ def register(
 
         for cand in candidates:
             found_page = await _lookup_page(cand, page_number)
+            if found_page and not 1 <= found_page[0] <= found_page[1]:
+                # The store answers an out-of-range page with a sentinel page; the document exists.
+                return tool_error(
+                    INVALID_INPUT,
+                    f"page_number {page_number} is out of range; document {cand} has {found_page[1]} page(s).",
+                    retryable=False,
+                )
             if found_page:
                 resolved_id = cand
                 page_num, total_pages, content, extraction_method = found_page
@@ -177,7 +185,7 @@ def register(
                 f"extraction artifact ({unsafe_reason}). This server does not rewrite, sanitize, or summarize "
                 "document text; repair and re-publish the source instead.",
                 retryable=False,
-                hint="Use the source document (source_url) or repair/re-extract the document and publish a new corpus release.",
+                hint="Use the source document (source_url), or repair/re-extract the document and rebuild or sync the corpus.",
             )
         sanitized_pages = [
             DocumentPageContent(page_number=page, content=page_content) for page, page_content in page_contents
@@ -301,7 +309,9 @@ def register(
         """
         Get version history for a BDDK document.
 
-        Shows all previous versions with timestamps and content hashes.
+        Lists earlier (replaced) bodies with timestamps and content hashes. The list is
+        empty until a sync or build replaces a document's text, and the current body is
+        not listed; an unknown document ID also gives an empty list.
 
         Args:
             document_id: The document ID (from search results)
@@ -310,7 +320,11 @@ def register(
         history = await store.get_document_history(document_id)
 
         if not history:
-            output = f"No version history found for document {document_id}."
+            output = (
+                f"No version history found for document {document_id}. Only earlier (replaced) bodies are "
+                "listed; the list is empty until a sync or build replaces a document's text, and the current "
+                "body is not listed. An unknown document ID gives the same empty result."
+            )
             return structured_tool_result(
                 DocumentHistoryResponse(
                     status="no_results",

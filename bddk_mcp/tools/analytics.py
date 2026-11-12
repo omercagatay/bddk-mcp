@@ -1,4 +1,4 @@
-"""Analytics tools: analyze_bulletin_trends, get_regulatory_digest, compare_bulletin_metrics, check_bddk_updates."""
+"""Analytics tools: analyze_bulletin_trends, get_regulatory_digest, compare_bulletin_metrics."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 def register(mcp, deps: Dependencies) -> None:
-    """Register public analytics and, when requested, stateful monitoring."""
+    """Register the public analytics tools."""
 
     @mcp.tool()
     @logged_tool(logger)

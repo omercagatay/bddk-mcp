@@ -39,7 +39,7 @@ Düzenleme ve karar metinleri yerel yayımlanmış kopyadan gelir. Kurum, duyuru
 - `search_bddk_institutions`: kurum arar; canlı BDDK çağrısı yapabilir.
 - `search_bddk_announcements`: duyuru arar; canlı BDDK çağrısı yapabilir.
 - `get_bddk_document`: kayıtlı belge sayfasını getirir. Güvensiz çıkarım artığı varsa metni sessizce düzeltmez, reddeder.
-- `get_document_history`: kayıtlı belge geçmişini gösterir.
+- `get_document_history`: bir belgenin yerine yenisi konmuş eski gövdelerini listeler; mevcut gövde listelenmez ve bir sync ya da build metni değiştirene kadar liste boştur.
 - `get_document_section`: madde (66/A gibi araya eklenen maddeler dahil), geçici madde, ek madde, ilke, paragraf, ek veya bent ister; `quotation` verilirse alıntıyı kayıtlı metinde harfi harfine doğrular.
 - `search_document_sections`: bölüm başlıklarında arar.
 - `get_bddk_bulletin`: haftalık bülten; canlı çağrı yapabilir.

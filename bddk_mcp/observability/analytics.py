@@ -268,6 +268,3 @@ async def compare_metrics(
         )
 
     return {"metrics": results, "currency": currency, "column": column}
-
-
-# -- Update Detection -------------------------------------------------------

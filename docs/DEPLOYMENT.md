@@ -33,7 +33,7 @@ A corpus file is complete only after `bddk-mcp build` or `bddk-mcp sync` has ret
 
 ### Retrieval inside the corpus file
 
-Dense retrieval is exact cosine similarity computed with numpy over all chunk vectors, which are held in memory and reloaded after any write to the file. Keyword retrieval is SQLite FTS5 BM25 over normalized text (lowercased with Turkish rules and stripped of diacritics in Python, both when indexing and when matching). The two result lists are fused with Reciprocal Rank Fusion; the optional cross-encoder reranker (`BDDK_RERANKER=true`) reorders the fused top candidates. Section search is FTS5 BM25 as well. Brute-force cosine is exact and takes milliseconds up to a few hundred thousand chunks; an ANN index (hnswlib or sqlite-vec) is the upgrade beyond that scale, not something the current corpus needs.
+Dense retrieval is exact cosine similarity computed with numpy over all chunk vectors, which are held in memory and reloaded after any write to the file. Keyword retrieval is SQLite FTS5 BM25 over normalized text (lowercased with Turkish rules and stripped of diacritics in Python, both when indexing and when matching). The candidates of the two lists are merged with Reciprocal Rank Fusion; the final order uses a heuristic relevance score (cosine similarity adjusted by a keyword gate and lexical/phrase boosts, not a probability), and the optional cross-encoder reranker (`BDDK_RERANKER=true`) replaces that score for the top candidates. Section search is FTS5 BM25 as well. Brute-force cosine is exact and takes milliseconds up to a few hundred thousand chunks; an ANN index (hnswlib or sqlite-vec) is the upgrade beyond that scale, not something the current corpus needs.
 
 ## Local stdio
 
