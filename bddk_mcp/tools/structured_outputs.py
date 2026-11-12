@@ -78,6 +78,14 @@ def decision_identifier_text(decision_date: str | None, decision_number: str | N
     return f"{decision_date or 'N/A'} / {decision_number or 'N/A'}"
 
 
+# One label for a govde row/chunk of a document whose parser found no article structure (for example
+# a Kurul Kararı): the govde windows carry its whole body.
+STRUCTURELESS_GOVDE_LABEL = "full-text window (this document has no article structure)"
+STRUCTURELESS_CITATION_HINT = (
+    "Cite this document by its title and decision date/number, not as an article (madde) or as a govde window."
+)
+
+
 SOURCE_DATA_BEGIN = "[BEGIN_UNTRUSTED_SOURCE_DATA]"
 SOURCE_DATA_END = "[END_UNTRUSTED_SOURCE_DATA]"
 
@@ -199,6 +207,14 @@ class RegulationCatalogResponse(RetrievalResponse):
     page: int = Field(ge=1, description="Returned catalog page.")
     page_size: int = Field(ge=1, description="Requested page size.")
     total_results: int = Field(ge=0, description="Total catalog matches.")
+    undated_excluded: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Catalog entries that passed the other filters but were not considered by date_from/date_to "
+            "because they have no decision date; 0 when no date bound was given."
+        ),
+    )
     results: list[RegulationCatalogItem] = Field(default_factory=list, description="Catalog matches on this page.")
 
 
@@ -326,7 +342,12 @@ class SectionItem(StrictOutputModel):
     document_id: str = Field(description="Canonical document identifier.")
     section_type: str = Field(description="Structural legal unit type.")
     section_ref: str = Field(description="Structural legal unit reference.")
-    heading: str = Field(description="Stored section heading.")
+    heading: str = Field(
+        description=(
+            "Stored section heading; empty for a govde row labelled as a full-text window or a continuation, "
+            "whose stored generic heading would contradict that label."
+        )
+    )
     start_char: int = Field(ge=0, description="Start offset in the normalized document.")
     end_char: int = Field(ge=0, description="End offset in the normalized document.")
     page_start: int | None = Field(default=None, ge=1, description="First mapped normalized page.")
@@ -447,7 +468,14 @@ class SectionSearchResponse(RetrievalResponse):
     query: str = Field(description="Validated section query.")
     document_id: str | None = Field(default=None, description="Explicit or inferred document filter.")
     section_type: str | None = Field(default=None, description="Explicit or inferred section-type filter.")
-    section_ref: str | None = Field(default=None, description="Section reference inferred from the query.")
+    section_ref: str | None = Field(
+        default=None,
+        description="Section reference inferred from the query and applied; None when no document was identified.",
+    )
+    parsed_section_ref: str | None = Field(
+        default=None,
+        description="Section reference parsed from the query, whether or not it was applied as a filter.",
+    )
     exact_reference_detected: bool = Field(description="Whether the query contained a complete legal reference.")
     loose_fallback_used: bool = Field(description="Whether token-wise fallback supplied the results.")
     inferred_document_filter_dropped: bool = Field(
@@ -456,6 +484,13 @@ class SectionSearchResponse(RetrievalResponse):
             "Whether a document ID inferred from a number in the query was not applied as a filter, either "
             "because no such document is stored or because no section in it matched; the search then ran "
             "over all documents."
+        ),
+    )
+    inferred_document_filter_applied: bool = Field(
+        default=False,
+        description=(
+            "Whether the returned hits were limited to a document whose ID was inferred from a number in the "
+            "query (not passed as document_id)."
         ),
     )
     results: list[SectionItem] = Field(default_factory=list, description="Ranked structural section matches.")

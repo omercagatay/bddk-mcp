@@ -40,3 +40,10 @@ class BddkSearchResult(BaseModel):
     page: int = Field(1, description="Current page number")
     page_size: int = Field(10, description="Results per page")
     catalog_size: int | None = Field(None, description="Number of in-scope entries in the searched corpus catalog")
+    undated_excluded: int = Field(
+        0,
+        description=(
+            "Catalog entries that passed the other filters but were not considered by the date filter "
+            "because they have no parseable decision date"
+        ),
+    )

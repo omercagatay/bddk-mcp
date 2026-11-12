@@ -13,7 +13,13 @@ _ARTICLE_REF = r"\d+(?:/?[A-Za-zÇĞİÖŞÜçğıöşü])?"
 _MADDE_PREFIX_RE = re.compile(
     rf"\b(?:(?P<kind>ek|ge[cç]i[cç]i)\s+)?(?:madde|m)\.?\s*(?P<ref>{_ARTICLE_REF})\b", re.IGNORECASE
 )
-_MADDE_SUFFIX_RE = re.compile(rf"\b(?P<ref>{_ARTICLE_REF})\.\s*madde\b", re.IGNORECASE)
+# "9. madde", "9 uncu madde", "10'uncu maddesi": the ordinal form of an article reference.
+# Matched on the Turkish-casefolded query; a preceding "ek"/"geçici" names that series.
+_MADDE_SUFFIX_RE = re.compile(
+    rf"\b(?P<ref>{_ARTICLE_REF})(?:\.\s*|(?:\s+|\s*['’]\s*)(?:inci|ıncı|uncu|üncü|nci|ncı|ncu|ncü)\s+)"
+    r"madde(?:si\w*)?\b"
+)
+_SERIES_BEFORE_RE = re.compile(r"\b(?P<kind>ek|ge[cç]i[cç]i)\s+$")
 _ILKE_RE = re.compile(r"\b(?:ilke|ılke)\s*(?P<ref>\d+[A-Za-zÇĞİÖŞÜçğıöşü]?)\b", re.IGNORECASE)
 _PARAGRAPH_RE = re.compile(r"\bparagraf\s*(?P<ref>\d+(?:\.\d+)*)\b", re.IGNORECASE)
 _LETTERED_REF_RE = re.compile(r"^(\d+)/?([a-zçğıöşü])$")
@@ -102,7 +108,11 @@ def _parse_sections(query: str, folded: str) -> list[tuple[str, str]]:
         kind = (match.group("kind") or "").lower()
         section_type = "ek_madde" if kind == "ek" else "gecici_madde" if kind else "madde"
         sections.append((section_type, canonical_section_ref(match.group("ref"))))
-    sections.extend(("madde", canonical_section_ref(match.group("ref"))) for match in _MADDE_SUFFIX_RE.finditer(query))
+    for match in _MADDE_SUFFIX_RE.finditer(folded):
+        series = _SERIES_BEFORE_RE.search(folded[: match.start()])
+        kind = series.group("kind") if series else ""
+        section_type = "ek_madde" if kind == "ek" else "gecici_madde" if kind else "madde"
+        sections.append((section_type, canonical_section_ref(match.group("ref"))))
     sections.extend(("ilke", canonical_section_ref(match.group("ref"))) for match in _ILKE_RE.finditer(folded))
     sections.extend(("paragraf", match.group("ref")) for match in _PARAGRAPH_RE.finditer(folded))
     return _unique(sections)

@@ -128,3 +128,14 @@ def test_bare_ids_next_to_standards_and_years_are_still_inferred():
     assert parse_legal_refs("943 TFRS 16 kiralama").document_ids == ["943"]
     assert parse_legal_refs("mevzuat_22599 2024 yılı karşılıklar").document_ids == ["mevzuat_22599"]
     assert parse_legal_refs("1028 kredi kartı").document_ids == ["1028"]
+
+
+def test_ordinal_article_references_parse_as_madde_and_stay_out_of_document_ids():
+    refs = parse_legal_refs("5411 sayılı Kanunun 10 uncu maddesi")
+    assert refs.document_ids == ["5411"]
+    assert refs.sections == [("madde", "10")]
+    for query in ("9 uncu madde", "9. madde", "9 uncu maddesi", "9'uncu maddesinde", "9. MADDE"):
+        assert parse_legal_refs(query).sections == [("madde", "9")], query
+    assert parse_legal_refs("3 üncü madde").sections == [("madde", "3")]
+    assert parse_legal_refs("geçici 2 nci madde").sections == [("gecici_madde", "2")]
+    assert parse_legal_refs("ek 1 inci maddesine göre").sections == [("ek_madde", "1")]

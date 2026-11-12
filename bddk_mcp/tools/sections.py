@@ -39,6 +39,7 @@ from bddk_mcp.tools.contract_types import (
 from bddk_mcp.tools.errors import tool_error
 from bddk_mcp.tools.structured_outputs import (
     LEGAL_APPLICABILITY_WARNING,
+    STRUCTURELESS_GOVDE_LABEL,
     UNTRUSTED_SOURCE_WARNING,
     DocumentSectionResponse,
     DocumentSectionToolResult,
@@ -76,8 +77,9 @@ _EXACT_REFERENCE_MISSING_WARNING = (
 )
 _LEGAL_APPLICABILITY_WARNING = LEGAL_APPLICABILITY_WARNING
 _NESTED_ROW_HINT = (
-    "fikra and bent rows are search-oriented and carry no parent madde, so they are not unique addresses; "
-    "retrieve the parent madde (section_type=madde) for the full provision."
+    "fikra and bent rows are search-oriented and are not unique addresses (many rows can share one reference); "
+    'where a stored parent article contains a row it is shown as "Parent:"; retrieve the parent madde '
+    "(section_type=madde, or gecici_madde/ek_madde) for the full provision."
 )
 _CAPPED_QUOTATION_NOTE = (
     "This reference is a capped stored window of the provision: the quotation was compared only with that "
@@ -88,7 +90,7 @@ _CAPPED_QUOTATION_NOTE = (
 _Parents = dict[tuple[str, str, int], tuple[str, str]]
 # Value: (type, ref, true end code point, row runs past that end) of the capped named section a govde row continues.
 _Continuations = dict[tuple[str, str, int], tuple[str, str, int, bool]]
-_STRUCTURELESS_LABEL = "full-text window (this document has no article structure)"
+_STRUCTURELESS_LABEL = STRUCTURELESS_GOVDE_LABEL
 _STRUCTURELESS_WARNING = (
     "One or more hits are full-text windows of a document that has no article structure (for example a Kurul "
     "Kararı). Cite such a document by its title and decision date/number, not as an article (madde) or as a "
@@ -362,7 +364,8 @@ def _section_item(
         document_id=section.doc_id,
         section_type=section.section_type,
         section_ref=section.section_ref,
-        heading=section.heading,
+        # Same rule as the text title line: a generic govde heading that contradicts the kind label is left out.
+        heading=_heading_suffix(section, continuations or {}).removeprefix(" — "),
         start_char=section.start_char,
         end_char=section.end_char,
         page_start=section.page_start,
@@ -726,9 +729,9 @@ def register(mcp, deps: Dependencies) -> None:
                 sharing type, reference and heading; copy it from the disambiguation list.
                 It is valid only for the corpus file being served and is not a citation.
 
-        fikra and bent rows are search-oriented, not unique addresses: they carry no
-        parent madde, so many rows can share one reference. Fetch the parent madde for
-        the full provision.
+        fikra and bent rows are search-oriented, not unique addresses: many rows can
+        share one reference. Where a stored parent article contains a row it is shown
+        as "Parent:"; fetch that parent article for the full provision.
 
         Supplying quotation returns answer_assessment with the mechanical match result.
         The quotation is compared with the section's legal text after its stored hash
@@ -919,11 +922,19 @@ def register(mcp, deps: Dependencies) -> None:
         "süresinin"). Those hits follow the exact-word hits, carry no rank and are
         marked `stem_match`. The loose token fallback runs only when both passes
         find nothing.
+
+        A bare number in the query that equals a stored document ID limits the
+        search to that document only when the exact-reference, exact-word or
+        inflection-tolerant pass finds something there; the text then says so and
+        `inferred_document_filter_applied` is true. Otherwise the search runs over
+        every document.
         """
         refs = parse_legal_refs(query)
         # An explicit document_id is a hard filter. A number inferred from the
         # query text is only a preference: it is ignored when no such document
-        # is stored, and dropped when nothing in it matches.
+        # is stored, and dropped when the exact-reference, strict and
+        # inflection-tolerant passes find nothing in it; it never scopes the
+        # loose fallback.
         query_doc_id = None if document_id else (refs.document_ids[0] if refs.document_ids else None)
         filter_drop_reason: str | None = None
         if query_doc_id and not await _any_document_stored(deps, query_doc_id):
@@ -956,7 +967,24 @@ def register(mcp, deps: Dependencies) -> None:
             limit=limit,
         )
         loose_fallback_used = False
+        if not hits and not exact_hits and query_doc_id:
+            # Nothing exact or strict inside the inferred document: a loose match there must not
+            # outrank a strict match elsewhere, so repeat strict, then loose, with no document scope.
+            filter_drop_reason = f"no section in document {query_doc_id} matched the query"
+            inferred_doc_id = None
+            # With the inferred document dropped no document is identified, so the section reference
+            # was not applied to the unscoped search.
+            exact_ref_detected = False
+            hits, stem_keys = await _search_sections_strict_with_stem_top_up(
+                deps,
+                query,
+                candidate_doc_ids=[None],
+                section_type=_normalize_optional(inferred_section_type),
+                limit=limit,
+            )
+            candidate_doc_ids = [None]
         if not hits and not exact_hits:
+            # The in-document loose loop runs only for an explicit document_id argument.
             for candidate_doc_id in candidate_doc_ids:
                 hits = await _search_sections_loose(
                     deps,
@@ -968,33 +996,29 @@ def register(mcp, deps: Dependencies) -> None:
                 if hits:
                     break
             loose_fallback_used = bool(hits)
-        if not hits and not exact_hits and query_doc_id:
-            # Nothing inside the inferred document: repeat strict, then loose,
-            # with no document scope, and say so.
-            filter_drop_reason = f"no section in document {query_doc_id} matched the query"
-            inferred_doc_id = None
-            hits, stem_keys = await _search_sections_strict_with_stem_top_up(
-                deps,
-                query,
-                candidate_doc_ids=[None],
-                section_type=_normalize_optional(inferred_section_type),
-                limit=limit,
-            )
-            if not hits:
-                hits = await _search_sections_loose(
-                    deps,
-                    query,
-                    document_id=None,
-                    section_type=_normalize_optional(inferred_section_type),
-                    limit=limit,
-                )
-                loose_fallback_used = bool(hits)
+        # A section reference without an identified document cannot be looked up, so it is not applied.
+        # Computed after the drop decision so that a dropped inferred document reports it as not applied.
+        unapplied_ref_note = (
+            f"Note: {refs.sections[0][0]} {inferred_section_ref} in the query was not applied as a filter because "
+            "no document was identified; find the document id with search_bddk_regulations, then call "
+            f"get_document_section(document_id, section_type='{refs.sections[0][0]}', "
+            f"section_ref='{inferred_section_ref}')."
+            if inferred_section_ref and not exact_ref_detected
+            else None
+        )
+        reported_section_ref = None if unapplied_ref_note else _normalize_optional(inferred_section_ref)
         filter_dropped = filter_drop_reason is not None
+        inferred_filter_applied = bool(query_doc_id and not filter_dropped)
         filter_note = (
             f"Note: the number {refs.document_ids[0]} in the query was not applied as a document filter "
             f"({filter_drop_reason}).\n"
             if filter_dropped
-            else ""
+            else (
+                f"Note: the search was limited to document {query_doc_id} because of the number {query_doc_id} "
+                "in the query; pass document_id or remove the number to search every document.\n"
+                if inferred_filter_applied
+                else ""
+            )
         )
         if exact_hits:
             # Exact-ref lookups carry no FTS rank; inherit it from the FTS
@@ -1018,6 +1042,7 @@ def register(mcp, deps: Dependencies) -> None:
             output = (
                 f"NO RESULTS: No document sections found matching '{query}'.\n"
                 + filter_note
+                + (f"{unapplied_ref_note}\n" if unapplied_ref_note else "")
                 + f"Try a broader query, {remove_hint}or retrieve the full document."
             )
             return structured_tool_result(
@@ -1027,9 +1052,11 @@ def register(mcp, deps: Dependencies) -> None:
                     query=query,
                     document_id=inferred_doc_id,
                     section_type=_normalize_optional(inferred_section_type),
-                    section_ref=_normalize_optional(inferred_section_ref),
+                    section_ref=reported_section_ref,
+                    parsed_section_ref=_normalize_optional(inferred_section_ref),
                     exact_reference_detected=exact_ref_detected,
                     loose_fallback_used=False,
+                    warnings=[unapplied_ref_note] if unapplied_ref_note else [],
                     inferred_document_filter_dropped=filter_dropped,
                 )
             )
@@ -1037,8 +1064,11 @@ def register(mcp, deps: Dependencies) -> None:
         continuations = await _find_continuations(deps, hits)
         parents = await _find_parents(deps, hits)
         lines = [f"Found {len(hits)} section result(s) for '{query}':\n"]
+        if unapplied_ref_note:
+            lines.insert(0, f"{unapplied_ref_note}\n")
         if filter_note:
             lines.insert(0, filter_note)
+        has_exact_word_hits = any(_section_key(hit) not in stem_keys for hit in hits)
         for hit in hits:
             heading = _heading_suffix(hit, continuations)
             lines.append(f"**{hit.doc_id} — {hit.section_type} {hit.section_ref}{heading}**")
@@ -1066,7 +1096,7 @@ def register(mcp, deps: Dependencies) -> None:
             if _section_key(hit) in stem_keys:
                 lines.append(
                     "  Match: inflection-tolerant match (word prefixes of the query terms, not the exact words); "
-                    "no rank, listed after the exact-word hits"
+                    + ("no rank, listed after the exact-word hits" if has_exact_word_hits else "no rank")
                 )
             lines.extend(_quality_lines(_section_quality(hit), prefix="  "))
             excerpt, truncated, _, _ = _section_excerpt(hit, max_chars=_MAX_SEARCH_EXCERPT_CHARS, query=query)
@@ -1090,6 +1120,7 @@ def register(mcp, deps: Dependencies) -> None:
                 warnings=[
                     *_section_warnings(hits, content_truncated=result_content_truncated, continuations=continuations),
                     *([_EXACT_REFERENCE_MISSING_WARNING] if exact_ref_detected and not exact_hits else []),
+                    *([unapplied_ref_note] if unapplied_ref_note else []),
                     *(
                         [
                             "Loose token fallback was used: results may match only part of the query. "
@@ -1103,10 +1134,12 @@ def register(mcp, deps: Dependencies) -> None:
                 query=query,
                 document_id=inferred_doc_id,
                 section_type=_normalize_optional(inferred_section_type),
-                section_ref=_normalize_optional(inferred_section_ref),
+                section_ref=reported_section_ref,
+                parsed_section_ref=_normalize_optional(inferred_section_ref),
                 exact_reference_detected=exact_ref_detected,
                 loose_fallback_used=loose_fallback_used,
                 inferred_document_filter_dropped=filter_dropped,
+                inferred_document_filter_applied=inferred_filter_applied,
                 results=result_items,
             )
         )

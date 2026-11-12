@@ -208,6 +208,14 @@ async def test_store_document_empty_content_clears_sections(store):
     assert await store.get_document_section("auto_sections") == []
 
 
+async def test_filling_an_empty_body_archives_no_version(store):
+    await store.store_document(StoredDocument(document_id="x1", title="Doc", markdown_content=""))
+    await store.store_document(StoredDocument(document_id="x1", title="Doc", markdown_content="MADDE 1 – Metin."))
+
+    assert await store.get_document_history("x1") == []
+    assert await store.get_version_counts(["x1"]) == {}
+
+
 async def test_search_document_sections(store):
     text = "MADDE 9 - TFRS 9 karşılık\nBankalar karşılık ayırır.\n\nMADDE 10\nBaşka hüküm."
     await store.store_document(StoredDocument(document_id="mevzuat_22599", title="Test", markdown_content=text))

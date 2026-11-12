@@ -46,6 +46,8 @@ from bddk_mcp.tools.contract_types import (
 from bddk_mcp.tools.errors import UPSTREAM_FETCH_FAILED, tool_error
 from bddk_mcp.tools.structured_outputs import (
     LEGAL_APPLICABILITY_WARNING,
+    STRUCTURELESS_CITATION_HINT,
+    STRUCTURELESS_GOVDE_LABEL,
     UNTRUSTED_SOURCE_WARNING,
     DocumentSearchItem,
     DocumentSearchResponse,
@@ -55,6 +57,7 @@ from bddk_mcp.tools.structured_outputs import (
     RegulationCatalogItem,
     RegulationCatalogResponse,
     RegulationCatalogToolResult,
+    decision_identifier_text,
     document_status_notice,
     frame_untrusted_source,
     structured_tool_result,
@@ -221,7 +224,9 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
         every other token must match the title (exactly or by a shared word stem) or the
         category/date/number. A number equal to a decision number ranks that decision first.
         keywords may be empty when category or a date range is given: the matching catalog
-        entries are then listed newest decision date first.
+        entries are then listed newest decision date first. A date bound skips every entry
+        without a decision date (most yönetmelik, kanun, rehber, genelge and tebliğ entries);
+        the response states how many were skipped (undated_excluded).
 
         Args:
             keywords: Search terms in Turkish (e.g. "elektronik para", "banka lisansı");
@@ -234,8 +239,8 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
                 Kurul Kararı, Kanun, Banka Kartları,
                 Finansal Kiralama ve Faktoring, BDDK Düzenlemesi,
                 Düzenleme Taslağı, Mülga Düzenleme, Muhasebe Standardı
-            date_from: Optional start date filter (DD.MM.YYYY)
-            date_to: Optional end date filter (DD.MM.YYYY)
+            date_from: Optional start date filter (DD.MM.YYYY); undated entries are not considered
+            date_to: Optional end date filter (DD.MM.YYYY); undated entries are not considered
         """
         validate_catalog_query(catalog_keyword_tokens(keywords), category, date_from, date_to)
         validate_date_order(date_from, date_to)
@@ -254,6 +259,12 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
             date_to=date_to,
         )
         result = await deps.client.search_decisions(request)
+        undated_excluded = result.undated_excluded if (date_from or date_to) else 0
+        undated_note = (
+            f"{undated_excluded:,} catalog entries have no decision date and were not considered by the date filter."
+            if undated_excluded
+            else ""
+        )
 
         if not result.decisions:
             catalog_scope = (
@@ -261,9 +272,16 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
                 if result.catalog_size is not None
                 else "this corpus catalog"
             )
+            absence_line = (
+                f"{undated_note} Absence here is NOT evidence that the instrument does not exist; repeat the "
+                "search without date_from/date_to to include the undated entries."
+                if undated_note
+                else "Absence here is NOT evidence that the instrument does not exist; it may simply not be in "
+                "this corpus."
+            )
             output = f"""NO RESULTS: No entry in {catalog_scope} matches these keywords and filters.
 This tool searches the local corpus catalog metadata only — not document bodies and not the BDDK website.
-Absence here is NOT evidence that the instrument does not exist; it may simply not be in this corpus.
+{absence_line}
 DO NOT provide information about BDDK regulations from your own knowledge.
 Try: (1) call search_document_store with the same query for full-text semantic search, or
 (2) use only words you'd expect in the regulation's title."""
@@ -275,6 +293,8 @@ Try: (1) call search_document_store with the same query for full-text semantic s
                     page=result.page,
                     page_size=result.page_size,
                     total_results=result.total_results,
+                    undated_excluded=undated_excluded,
+                    warnings=[undated_note] if undated_note else [],
                 )
             )
 
@@ -283,9 +303,13 @@ Try: (1) call search_document_store with the same query for full-text semantic s
         version_counts = await deps.doc_store.get_version_counts(doc_ids)
 
         lines = [f"Found {result.total_results} result(s) (page {result.page}):\n"]
+        if undated_note:
+            lines.insert(0, f"Note: {undated_note}")
         items: list[RegulationCatalogItem] = []
         evidence: list[EvidenceReference] = []
         warnings: list[str] = [UNTRUSTED_SOURCE_WARNING, LEGAL_APPLICABILITY_WARNING]
+        if undated_note:
+            warnings.append(undated_note)
         for d in result.decisions:
             date_info = f" ({d.decision_date} - {d.decision_number})" if d.decision_date else ""
             cat_info = f" [{d.category}]" if d.category else ""
@@ -350,6 +374,7 @@ Try: (1) call search_document_store with the same query for full-text semantic s
             page=result.page,
             page_size=result.page_size,
             total_results=result.total_results,
+            undated_excluded=undated_excluded,
             results=items,
         )
         _search_cache.set(cache_key, response)
@@ -595,6 +620,12 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
                 )
             )
 
+        govde_doc_ids = [str(h["doc_id"]) for h in hits if h.get("section_type") == "govde"]
+        structureless_ids = (
+            await deps.doc_store.structureless_documents(govde_doc_ids)
+            if govde_doc_ids and deps.doc_store is not None
+            else set()
+        )
         lines = [f"Found {len(hits)} result(s) for '{query}':\n"]
         hit_quality: dict[str, QualityAssessment] = {}
         items: list[DocumentSearchItem] = []
@@ -620,18 +651,17 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
             source_url = str(h.get("source_url") or "")
             decision_number = str(h.get("decision_number") or "")
             decision_date = str(h.get("decision_date") or "")
-            if section_type == "govde":
+            if section_type == "govde" and str(h["doc_id"]) in structureless_ids:
+                lines.append(f"  Section: {STRUCTURELESS_GOVDE_LABEL}")
+                lines.append(f"  {STRUCTURELESS_CITATION_HINT}")
+            elif section_type == "govde":
                 lines.append("  Section: govde remainder — not a legal provision identity")
             elif section_type:
                 lines.append(f"  Section: {section_type} {section_ref}".rstrip())
             if source_url:
                 lines.append(f"  Catalog source (not a validated citation): {source_url}")
-            if decision_date or decision_number:
-                parts = [
-                    f"date {decision_date}" if decision_date else "",
-                    f"number {decision_number}" if decision_number else "",
-                ]
-                lines.append(f"  Decision {', '.join(part for part in parts if part)}")
+            if decision := decision_identifier_text(decision_date, decision_number):
+                lines.append(f"  Decision date / number: {decision}")
             quality = _search_hit_quality(h)
             hit_quality[str(h["doc_id"])] = quality
             lines.extend(_quality_result_lines(quality))

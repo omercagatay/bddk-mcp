@@ -694,6 +694,28 @@ class DocumentStore:
                     continuations[key] = (section_type, section_ref, end, True)
         return continuations
 
+    async def structureless_documents(self, doc_ids: list[str]) -> set[str]:
+        """Return the ids among ``doc_ids`` whose current body has govde sections and no article structure.
+
+        Same rule as ``document_structureless`` on section rows: the sections of the current
+        content hash are only govde/fikra/bent rows, so the govde windows carry the whole body.
+        """
+        unique = sorted(set(doc_ids))
+        if not unique:
+            return set()
+        placeholders = ",".join("?" for _ in unique)
+        rows = await self._db.run(
+            lambda conn: conn.execute(
+                f"SELECT d.document_id FROM documents AS d WHERE d.document_id IN ({placeholders}) "
+                "AND EXISTS (SELECT 1 FROM document_sections AS g WHERE g.doc_id = d.document_id "
+                "AND g.source_content_hash = d.content_hash AND g.section_type = 'govde') "
+                "AND NOT EXISTS (SELECT 1 FROM document_sections AS x WHERE x.doc_id = d.document_id "
+                "AND x.source_content_hash = d.content_hash AND x.section_type NOT IN ('fikra', 'bent', 'govde'))",
+                unique,
+            ).fetchall()
+        )
+        return {row["document_id"] for row in rows}
+
     async def find_parent_articles(
         self, sections: list[StoredDocumentSection]
     ) -> dict[tuple[str, str, int], tuple[str, str]]:

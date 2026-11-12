@@ -377,7 +377,11 @@ def _http_charset(headers: Mapping[str, str]) -> str | None:
 
 
 def _declared_charset(content: bytes, http_charset: str | None) -> str | None:
-    """The HTTP charset parameter, else a <meta> charset in the first 2 KB; None if unknown to Python."""
+    """The HTTP charset parameter, else a <meta> charset in the first 2 KB.
+
+    None when neither names a text encoding known to Python: codecs such as zlib, hex,
+    base64 or rot13 resolve through codecs.lookup but are not text encodings.
+    """
 
     candidates = [http_charset] if http_charset else []
     match = _META_CHARSET_RE.search(content[:2048])
@@ -385,9 +389,12 @@ def _declared_charset(content: bytes, http_charset: str | None) -> str | None:
         candidates.append(match.group(1).decode("ascii"))
     for candidate in candidates:
         try:
-            return codecs.lookup(candidate).name
+            info = codecs.lookup(candidate)
         except LookupError:
             continue
+        if not getattr(info, "_is_text_encoding", True):
+            continue
+        return info.name
     return None
 
 
@@ -441,7 +448,7 @@ def _decode_html(content: bytes, http_charset: str | None = None) -> str:
     if declared is not None:
         try:
             return content.decode(declared).translate(_WIN1252_C1_MAP)
-        except UnicodeDecodeError:
+        except (UnicodeDecodeError, LookupError):
             pass
     return content.decode("windows-1254", errors="replace").translate(_WIN1252_C1_MAP)
 

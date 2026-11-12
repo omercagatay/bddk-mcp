@@ -431,6 +431,16 @@ class TestDecodeHtml:
         assert _decode_html(text.encode()) == text
         assert _decode_html(text.encode(), "no-such-charset") == text
 
+    @pytest.mark.parametrize("codec", ["zlib", "hex", "base64", "rot13", "bz2", "uu"])
+    def test_declared_non_text_codec_is_ignored_and_falls_back_to_windows_1254(self, codec):
+        page = f'<html><head><meta charset="{codec}"></head><body>Ba'.encode() + b"\xfeka \x96 metin</body></html>"
+        expected = page.decode("windows-1254").translate(doc_sync_module._WIN1252_C1_MAP)
+        assert doc_sync_module._declared_charset(page, None) is None
+        assert doc_sync_module._declared_charset(page, codec) is None
+        assert _decode_html(page) == expected
+        assert _decode_html(page, codec) == expected
+        assert "Başka – metin" in expected
+
     def test_maps_c1_en_dash_to_real_en_dash(self):
         # SYSTEMIC-8. Mevzuat HTML sometimes carries a literal U+0096 (C1
         # control) where an en-dash belongs — residue from Word export that

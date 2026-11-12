@@ -806,23 +806,26 @@ class BddkApiClient:
         date_to = _parse_date(request.date_to) if request.date_to else None
 
         matching: list[tuple[tuple[int, int, int, int], BddkDecisionSummary]] = []
+        # Entries that pass every other filter but have no parseable decision date: a date bound cannot
+        # consider them, so they are counted and reported instead of being dropped silently.
+        undated_excluded = 0
         for dec in self._cache:
             if category_filter and category_filter not in _turkish_lower(dec.category):
                 continue
 
+            undated = False
             if date_from or date_to:
-                if not dec.decision_date:
-                    continue
-                doc_date = _parse_date(dec.decision_date)
-                if not doc_date:
-                    continue
-                if date_from and doc_date < date_from:
-                    continue
-                if date_to and doc_date > date_to:
+                doc_date = _parse_date(dec.decision_date) if dec.decision_date else None
+                if doc_date is None:
+                    undated = True
+                elif (date_from and doc_date < date_from) or (date_to and doc_date > date_to):
                     continue
 
             if browse:
-                matching.append(((0, 0, 0, 0), dec))
+                if undated:
+                    undated_excluded += 1
+                else:
+                    matching.append(((0, 0, 0, 0), dec))
                 continue
 
             text_lower = _turkish_lower(f"{dec.title} {dec.decision_date} {dec.decision_number} {dec.category}")
@@ -866,6 +869,9 @@ class BddkApiClient:
             )
             if content_score == 0 and type_hits == 0:
                 continue
+            if undated:
+                undated_excluded += 1
+                continue
             # Decision number first, then content words found literally in the title, then the
             # requested document type, then the overall content score (stem/category matches).
             matching.append(((number_hit, exact_title_hits, type_hits, content_score), dec))
@@ -900,4 +906,5 @@ class BddkApiClient:
             page=request.page,
             page_size=request.page_size,
             catalog_size=len(self._cache),
+            undated_excluded=undated_excluded,
         )

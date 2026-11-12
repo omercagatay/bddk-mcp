@@ -430,7 +430,10 @@ DateFrom = Annotated[
     Field(
         max_length=10,
         pattern=DATE_PATTERN,
-        description="Optional inclusive start date in DD.MM.YYYY format.",
+        description=(
+            "Optional inclusive start date in DD.MM.YYYY format."
+            " Catalog entries without a decision date (most yönetmelik, kanun, rehber, genelge and tebliğ entries) are not considered by a date filter; the response reports how many were skipped."
+        ),
         json_schema_extra={"format": "date-dd-mm-yyyy"},
     ),
     BeforeValidator(lambda value: _optional_date(value, name="date_from")),
@@ -440,7 +443,10 @@ DateTo = Annotated[
     Field(
         max_length=10,
         pattern=DATE_PATTERN,
-        description="Optional inclusive end date in DD.MM.YYYY format.",
+        description=(
+            "Optional inclusive end date in DD.MM.YYYY format."
+            " Catalog entries without a decision date (most yönetmelik, kanun, rehber, genelge and tebliğ entries) are not considered by a date filter; the response reports how many were skipped."
+        ),
         json_schema_extra={"format": "date-dd-mm-yyyy"},
     ),
     BeforeValidator(lambda value: _optional_date(value, name="date_to")),

@@ -10,7 +10,6 @@ import pytest
 
 from bddk_mcp.core.deps import Dependencies
 from bddk_mcp.store.doc_store import StoredDocumentSection
-from bddk_mcp.store.section_index import GOVDE_HEADING
 from bddk_mcp.tools.sections import register
 
 
@@ -762,6 +761,86 @@ async def test_bare_document_id_with_a_principle_still_resolves_inside_that_docu
 
 
 @pytest.mark.asyncio
+async def test_bare_document_id_scope_is_stated_in_text_and_structure(doc_store):
+    tool = _capture_tool(await _store_inference_fixture(doc_store), "search_document_sections")
+
+    result = await tool("943 İlke 5 model validasyonu")
+
+    assert result.structuredContent["inferred_document_filter_applied"] is True
+    assert (
+        "Note: the search was limited to document 943 because of the number 943 in the query; "
+        "pass document_id or remove the number to search every document." in result.text
+    )
+
+
+@pytest.mark.asyncio
+async def test_inferred_id_never_scopes_the_loose_fallback(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="90",
+            title="Aval ve kefaletler",
+            markdown_content="MADDE 1 - Kabul edilen aval ve kefaletler kredi riskine dahil edilir.",
+        )
+    )
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_8001",
+            title="Kredilerin sınıflandırılması",
+            markdown_content="MADDE 1 - Kredi 90 gün gecikme halinde temerrüt sayılır.",
+        )
+    )
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "search_document_sections")
+
+    result = await tool("kredi 90 gün gecikme")
+
+    structured = result.structuredContent
+    assert [item["document_id"] for item in structured["results"]][:1] == ["mevzuat_8001"]
+    assert "90" not in {item["document_id"] for item in structured["results"]}
+    assert structured["inferred_document_filter_dropped"] is True
+    assert structured["inferred_document_filter_applied"] is False
+    assert structured["loose_fallback_used"] is False
+    assert structured.get("document_id") is None
+    assert "the search was limited to document" not in result.text
+
+
+@pytest.mark.asyncio
+async def test_dropped_inferred_document_reports_the_section_reference_as_not_applied(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="90",
+            title="Aval ve kefaletler",
+            markdown_content="MADDE 1 - Kabul edilen aval ve kefaletler kredi riskine dahil edilir.",
+        )
+    )
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_8001",
+            title="Kredilerin sınıflandırılması",
+            markdown_content="MADDE 9 - Kredi 90 gün gecikme halinde temerrüt sayılır.",
+        )
+    )
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "search_document_sections")
+
+    result = await tool("kredi 90 gün gecikme madde 9")
+
+    structured = result.structuredContent
+    assert structured["results"][0]["document_id"] == "mevzuat_8001"
+    assert structured["inferred_document_filter_dropped"] is True
+    assert structured["exact_reference_detected"] is False
+    assert structured.get("section_ref") is None
+    assert structured["parsed_section_ref"] == "9"
+    assert structured["status"] == "ok"
+    note = "Note: madde 9 in the query was not applied as a filter because no document was identified"
+    assert note in result.text
+    assert any(warning.startswith(note) for warning in structured["warnings"])
+    assert not any("requested exact provision was not found" in warning for warning in structured["warnings"])
+
+
+@pytest.mark.asyncio
 async def test_explicit_document_id_stays_a_hard_filter(doc_store):
     tool = _capture_tool(await _store_inference_fixture(doc_store), "search_document_sections")
 
@@ -771,6 +850,7 @@ async def test_explicit_document_id_stays_a_hard_filter(doc_store):
     assert structured["status"] == "no_results"
     assert structured["document_id"] == "39"
     assert structured["inferred_document_filter_dropped"] is False
+    assert structured["inferred_document_filter_applied"] is False
     assert "remove the document_id filter" in result.text
 
 
@@ -1052,7 +1132,7 @@ async def test_structureless_document_rows_are_labelled_full_text_not_remainder(
         assert not any("Do not cite them as a legal provision" in w for w in warnings)
         # The stored generic govde heading ("gövde/dipnot kalanı") would contradict the kind label.
         assert "gövde/dipnot kalanı" not in result.text
-        assert item["heading"] == GOVDE_HEADING  # the structured field stays as stored
+        assert item["heading"] == ""  # left out of the structured field as well
     assert "govde remainder — not a legal provision identity" not in search.text
     assert exact.structuredContent["answer_assessment"]["quotation_status"] == "exact_reference_match"
 
@@ -1231,6 +1311,58 @@ async def test_inflection_tolerant_top_up_alone_is_not_the_loose_fallback(doc_st
     items = result.structuredContent["results"]
     assert [(i["document_id"], i["stem_match"]) for i in items] == [("mevzuat_2", True)]
     assert result.structuredContent["loose_fallback_used"] is False
+    assert "listed after the exact-word hits" not in result.text
+    assert "not the exact words); no rank\n" in result.text
+
+
+@pytest.mark.asyncio
+async def test_inflection_label_mentions_exact_word_hits_only_when_they_exist(doc_store):
+    deps = await _store_inflection_fixture(doc_store)
+
+    result = await _capture_tool(deps, "search_document_sections")("gecikme süresi", limit=10)
+
+    assert result.text.count("listed after the exact-word hits") == 1
+
+
+@pytest.mark.asyncio
+async def test_section_reference_without_a_document_is_reported_as_not_applied(doc_store):
+    deps = await _store_inflection_fixture(doc_store)
+
+    result = await _capture_tool(deps, "search_document_sections")("kredilerin gecikme süresi yönetmeliği madde 9")
+
+    structured = result.structuredContent
+    note = (
+        "Note: madde 9 in the query was not applied as a filter because no document was identified; find the "
+        "document id with search_bddk_regulations, then call get_document_section(document_id, "
+        "section_type='madde', section_ref='9')."
+    )
+    assert note in result.text
+    assert note in structured["warnings"]
+    assert structured.get("section_ref") is None
+    assert structured["parsed_section_ref"] == "9"
+    assert structured["exact_reference_detected"] is False
+
+
+@pytest.mark.asyncio
+async def test_section_reference_without_a_document_is_noted_when_nothing_matches(doc_store):
+    deps = await _store_inflection_fixture(doc_store)
+
+    result = await _capture_tool(deps, "search_document_sections")("eşsizbulunmayanterim 10 uncu maddesi")
+
+    assert result.structuredContent["status"] == "no_results"
+    assert "madde 10 in the query was not applied as a filter" in result.text
+    assert result.structuredContent.get("section_ref") is None
+
+
+@pytest.mark.asyncio
+async def test_applied_section_reference_is_still_reported(doc_store):
+    tool = _capture_tool(await _store_inference_fixture(doc_store), "search_document_sections")
+
+    result = await tool("943 İlke 5 model validasyonu")
+
+    assert result.structuredContent["section_ref"] == "5"
+    assert result.structuredContent["parsed_section_ref"] == "5"
+    assert "was not applied as a filter because no document" not in result.text
 
 
 @pytest.mark.asyncio
@@ -1283,6 +1415,9 @@ async def test_get_document_section_names_the_parent_of_each_fikra(doc_store):
     parents = [(i["parent_section_type"], i["parent_section_ref"]) for i in several.structuredContent["results"]]
     assert parents == [("madde", "1"), ("madde", "2"), ("gecici_madde", "1")]
     assert "  Parent: gecici_madde 1" in several.text
+    assert "carry no parent" not in several.text
+    assert 'where a stored parent article contains a row it is shown as "Parent:"' in several.text
+    assert "carry no parent" not in (tool.__doc__ or "")
 
 
 @pytest.mark.asyncio

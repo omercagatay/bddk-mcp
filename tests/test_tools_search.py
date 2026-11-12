@@ -472,7 +472,7 @@ async def test_search_hits_show_section_source_decision_and_the_exact_section_ca
 
     assert "  Section: madde 4" in result.text
     assert "  Catalog source (not a validated citation): https://www.bddk.org.tr/Mevzuat/DokumanGetir/1" in result.text
-    assert "  Decision date 01.02.2024, number 10812" in result.text
+    assert "  Decision date / number: 01.02.2024 / 10812" in result.text
     assert 'get_document_section(document_id="kurul", section_type="madde", section_ref="4")' in result.text
     assert "  Section: govde remainder — not a legal provision identity" in result.text
     assert 'get_document_section(document_id="plain"' not in result.text
@@ -488,6 +488,47 @@ async def test_search_hits_show_section_source_decision_and_the_exact_section_ca
     evidence = structured["evidence"][0]
     assert (evidence["section_type"], evidence["section_ref"], evidence["decision_number"]) == ("madde", "4", "10812")
     assert evidence["source_url"] == "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1"
+
+
+@pytest.mark.asyncio
+async def test_govde_chunk_of_a_structureless_document_is_a_full_text_window(doc_store):
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.store.doc_store import StoredDocument
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="779",
+            title="Kurul Kararı",
+            markdown_content="Kurulun 01.02.2024 tarihli toplantısında gecikme süresi doksan gün olarak belirlendi.",
+        )
+    )
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_8",
+            title="Yönetmelik",
+            markdown_content="Dipnot: değişikliklerle okunur.\n\nMADDE 1 - Amaç\nBu yönetmeliğin amacı denetimdir.\n",
+        )
+    )
+    window = {**_hit("779", 0.81, "vector"), "section_type": "govde", "section_ref": "1", "decision_number": "10812"}
+    window["decision_date"] = "01.02.2024"
+    remainder = {**_hit("mevzuat_8", 0.79, "vector"), "section_type": "govde", "section_ref": "1"}
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(return_value=[window, remainder])
+    mcp = MagicMock()
+    register(mcp, Dependencies(db=None, doc_store=doc_store, client=None, http=None, vector_store=vector_store))
+
+    result = await _registered_tools(mcp)["search_document_store"]("gecikme süresi", limit=2)
+
+    window_block, remainder_block = result.text.split("**Belge mevzuat_8**")
+    assert "  Section: full-text window (this document has no article structure)" in window_block
+    assert "Cite this document by its title and decision date/number" in window_block
+    assert "  Decision date / number: 01.02.2024 / 10812" in window_block
+    assert "govde remainder" not in window_block
+    assert "  Section: govde remainder — not a legal provision identity" in remainder_block
+    assert await doc_store.structureless_documents(["779", "mevzuat_8", "missing"]) == {"779"}
 
 
 @pytest.mark.asyncio
@@ -650,6 +691,31 @@ async def test_catalog_browse_mode_needs_a_category_or_date_and_lists_without_ke
 
     assert [r["document_id"] for r in browse.structuredContent["results"]] == ["1"]
     assert [r["document_id"] for r in dated.structuredContent["results"]] == ["1"]
+    assert dated.structuredContent["undated_excluded"] == 1
+    assert "1 catalog entries have no decision date and were not considered by the date filter." in dated.text
+    assert browse.structuredContent["undated_excluded"] == 0
+    assert "no decision date" not in browse.text
+
+
+@pytest.mark.asyncio
+async def test_catalog_date_filter_no_results_reports_skipped_undated_entries():
+    from bddk_mcp.core.models import BddkDecisionSummary
+
+    items = [
+        BddkDecisionSummary(
+            title="A Kurul Kararı", document_id="1", decision_date="01.01.2020", category="Kurul Kararı"
+        ),
+        BddkDecisionSummary(title="B Rehber", document_id="2", category="Rehber"),
+    ]
+    result = await _catalog_tools(items)["search_bddk_regulations"](category="Rehber", date_from="01.01.2019")
+
+    structured = result.structuredContent
+    assert structured["status"] == "no_results"
+    assert structured["undated_excluded"] == 1
+    note = "1 catalog entries have no decision date and were not considered by the date filter."
+    assert note in result.text
+    assert note in structured["warnings"]
+    assert "may simply not be in this corpus" not in result.text
 
 
 def test_catalog_tool_description_says_it_searches_the_local_corpus_catalog():

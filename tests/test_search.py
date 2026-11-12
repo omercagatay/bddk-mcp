@@ -105,6 +105,32 @@ async def test_date_filter_excludes_no_date_items():
 
 
 @pytest.mark.asyncio
+async def test_date_filter_counts_the_undated_entries_it_could_not_consider():
+    items = [
+        BddkDecisionSummary(title="Kredi Yönetmeliği", document_id="y1", category="Yönetmelik"),
+        BddkDecisionSummary(title="Kredi Rehberi", document_id="r1", category="Rehber"),
+        BddkDecisionSummary(title="Faktoring Rehberi", document_id="r2", category="Rehber"),
+        BddkDecisionSummary(
+            title="Kredi kararı", document_id="k1", decision_date="01.02.2021", category="Kurul Kararı"
+        ),
+        BddkDecisionSummary(
+            title="Eski kredi kararı", document_id="k2", decision_date="01.02.2001", category="Kurul Kararı"
+        ),
+    ]
+    client = _make_client_with_cache(items)
+
+    keyword = await client.search_decisions(BddkSearchRequest(keywords="kredi", date_from="01.01.2020"))
+    browse = await client.search_decisions(BddkSearchRequest(keywords="", category="Rehber", date_from="01.01.2020"))
+    undated_filter_absent = await client.search_decisions(BddkSearchRequest(keywords="kredi"))
+
+    assert [d.document_id for d in keyword.decisions] == ["k1"]
+    assert keyword.undated_excluded == 2
+    assert browse.decisions == []
+    assert browse.undated_excluded == 2
+    assert undated_filter_absent.undated_excluded == 0
+
+
+@pytest.mark.asyncio
 async def test_pagination():
     client = _make_client_with_cache(SAMPLE_ITEMS)
     req = BddkSearchRequest(keywords="banka", page=1, page_size=2)

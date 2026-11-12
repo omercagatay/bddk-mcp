@@ -29,3 +29,13 @@ def test_mcp_instructions_forbid_presenting_repealed_or_draft_text_as_current_la
     assert "mülga" in instructions and "taslak" in instructions
     assert "never present a document marked mülga" in instructions
     assert "absence of that mark does not establish that a text is in force" in instructions
+
+
+def test_mcp_instructions_exempt_keyword_hits_from_the_relevance_rule():
+    instructions = MCP_INSTRUCTIONS.lower()
+
+    assert "below 50%" in instructions
+    assert 'match_strength "keyword" (match_type fts_exact)' in instructions
+    assert "no semantic score" in instructions
+    assert "relevance 0.0 is not a low score" in instructions
+    assert "verify the provision with get_document_section" in instructions

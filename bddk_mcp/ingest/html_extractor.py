@@ -15,6 +15,7 @@ Public helpers (rendering primitives) are exposed for tests.
 
 from __future__ import annotations
 
+import logging
 import re
 
 from bs4 import BeautifulSoup, NavigableString, Tag
@@ -22,6 +23,8 @@ from bs4.element import PreformattedString
 
 BOLD_TAGS = {"b", "strong"}
 ITALIC_TAGS = {"i", "em"}
+
+logger = logging.getLogger(__name__)
 
 # Table-cell deduplication threshold. A handful of mevzuat pages copy the
 # entire article body into 3+ sibling <td> cells (hidden from the browser
@@ -32,9 +35,29 @@ ITALIC_TAGS = {"i", "em"}
 # repeating across rows.
 _DEDUP_MIN_CELL_CHARS = 200
 
-# Upper bound for colspan/rowspan. Upstream HTML is untrusted; an unbounded
-# span (e.g. colspan="300000") would multiply the rendered table size.
+# Upper bound for a single colspan/rowspan value. It bounds one cell's span only,
+# not the table: padding every row to the widest one still multiplies the grid,
+# which _MAX_TABLE_CELLS bounds.
 _MAX_SPAN = 100
+
+# Upper bound for the rendered grid of one table: padded rows times columns plus
+# pending rowspan entries. Upstream HTML is untrusted; a larger table is emitted as
+# its flattened cell text instead of a grid.
+_MAX_TABLE_CELLS = 200_000
+
+# Upper bound for the rendered grid cells of all tables of one document together.
+# Each table below _MAX_TABLE_CELLS still adds up: once the document total would
+# pass this bound, the remaining tables are emitted as flattened cell text.
+_MAX_DOCUMENT_CELLS = 2_000_000
+
+
+class _GridBudget:
+    """Rendered grid cells of one document so far (shared by all its tables)."""
+
+    __slots__ = ("used",)
+
+    def __init__(self) -> None:
+        self.used = 0
 
 
 def _cell_fingerprint(text: str) -> str:
@@ -251,7 +274,24 @@ def _cell_plain(td: Tag) -> str:
     return WS_RE.sub(" ", text).strip()
 
 
-def _render_table(table: Tag, seen_cells: set[str] | None = None) -> str:
+def _flattened_large_table(table: Tag, *, rows: int, document_bound: bool = False) -> str:
+    """Flattened cell text of a table whose rendered grid would exceed a grid bound."""
+    if document_bound:
+        logger.warning(
+            "HTML table with %d rows would pass the %d-cell grid bound of the document; emitted as flattened cell text",
+            rows,
+            _MAX_DOCUMENT_CELLS,
+        )
+    else:
+        logger.warning(
+            "HTML table with %d rows exceeds the %d-cell grid bound; emitted as flattened cell text",
+            rows,
+            _MAX_TABLE_CELLS,
+        )
+    return _nested_table_text(table)
+
+
+def _render_table(table: Tag, seen_cells: set[str] | None = None, budget: _GridBudget | None = None) -> str:
     """Build a markdown table with colspan/rowspan flattened.
 
     `seen_cells` is a document-scoped set of large cell contents already
@@ -259,6 +299,9 @@ def _render_table(table: Tag, seen_cells: set[str] | None = None) -> str:
     and matches a prior cell is blanked so the duplication doesn't reach
     the reader. If dedup leaves the table entirely empty, the whole table
     is skipped.
+
+    `budget` counts the grid cells already rendered in this document; a table
+    that would take the total past `_MAX_DOCUMENT_CELLS` is flattened.
     """
     rows_raw = _direct_rows(table)
     if not rows_raw:
@@ -267,6 +310,20 @@ def _render_table(table: Tag, seen_cells: set[str] | None = None) -> str:
     grid: list[list[str]] = []
     pending: dict[tuple[int, int], str] = {}
     max_cols = 0
+
+    already_rendered = budget.used if budget is not None else 0
+
+    def grid_cells(row: list[str]) -> int:
+        # Cells of the padded grid so far (this row included) plus pending rowspan entries.
+        return (len(grid) + 1) * max(max_cols, len(row)) + len(pending)
+
+    def flattened(row: list[str]) -> str | None:
+        cells = grid_cells(row)
+        if cells > _MAX_TABLE_CELLS:
+            return _flattened_large_table(table, rows=len(rows_raw))
+        if already_rendered + cells > _MAX_DOCUMENT_CELLS:
+            return _flattened_large_table(table, rows=len(rows_raw), document_bound=True)
+        return None
 
     for r, tr in enumerate(rows_raw):
         row: list[str] = []
@@ -283,9 +340,13 @@ def _render_table(table: Tag, seen_cells: set[str] | None = None) -> str:
                 for rs in range(1, rowspan):
                     pending[(r + rs, c + i)] = text if i == 0 else ""
                 c += 1
+            if (flat := flattened(row)) is not None:
+                return flat
         while (r, c) in pending:
             row.append(pending.pop((r, c)))
             c += 1
+        if (flat := flattened(row)) is not None:
+            return flat
         grid.append(row)
         max_cols = max(max_cols, len(row))
 
@@ -295,6 +356,8 @@ def _render_table(table: Tag, seen_cells: set[str] | None = None) -> str:
 
     if not grid or max_cols == 0:
         return ""
+    if budget is not None:
+        budget.used += len(grid) * max_cols
 
     # Dedup pass: compare cells by alphanumeric fingerprint so cosmetic
     # differences (bold marker placement, whitespace, trailing punctuation)
@@ -340,7 +403,9 @@ def _render_table(table: Tag, seen_cells: set[str] | None = None) -> str:
     return "\n".join(lines)
 
 
-def _walk(container: Tag, out: list[str], seen_cells: set[str] | None = None) -> None:
+def _walk(
+    container: Tag, out: list[str], seen_cells: set[str] | None = None, budget: _GridBudget | None = None
+) -> None:
     for child in container.children:
         if isinstance(child, NavigableString):
             t = str(child).strip()
@@ -356,7 +421,7 @@ def _walk(container: Tag, out: list[str], seen_cells: set[str] | None = None) ->
             continue
 
         if name == "table":
-            md = _render_table(child, seen_cells)
+            md = _render_table(child, seen_cells, budget)
             if md:
                 out.append(md)
             continue
@@ -400,7 +465,7 @@ def _walk(container: Tag, out: list[str], seen_cells: set[str] | None = None) ->
             continue
 
         if name in ("div", "section", "article", "body", "main", "header", "footer"):
-            _walk(child, out, seen_cells)
+            _walk(child, out, seen_cells, budget)
             continue
 
         # Fallback: inline-render anything else as a paragraph.
@@ -428,6 +493,6 @@ def html_to_markdown(html: str) -> str:
     body = soup.body or soup
     out: list[str] = []
     seen_cells: set[str] = set()
-    _walk(body, out, seen_cells)
+    _walk(body, out, seen_cells, _GridBudget())
     result = "\n\n".join(p for p in (x.strip() for x in out) if p)
     return re.sub(r"\n{3,}", "\n\n", result).strip()
