@@ -61,6 +61,8 @@ _RATE_STATE_IDLE_SECONDS = 120.0
 _RATE_STATE_MIN_CLIENTS = 256
 _RATE_STATE_MAX_CLIENTS = 16_384
 _HEALTH_PATHS = frozenset({"/health/live", "/health/ready"})
+# FastMCP's default Streamable HTTP path; server.py does not override it.
+_MCP_PATH = "/mcp"
 _MAX_CONTENT_LENGTH_DIGITS = 20
 
 
@@ -611,6 +613,14 @@ def _header_values(scope: Scope, header_name: bytes) -> list[bytes]:
     return [value for name, value in scope.get("headers", []) if name.lower() == header_name]
 
 
+def _rate_key_for_address(value: str) -> str:
+    """Key IPv6 clients by their /64 network (one subscriber); keep IPv4 and IPv4-mapped whole."""
+    address = ipaddress.ip_address(value)
+    if address.version == 6 and address.ipv4_mapped is None:
+        return ipaddress.ip_network(f"{address}/64", strict=False).network_address.compressed
+    return address.compressed
+
+
 def _client_rate_key(scope: Scope, trusted_proxy_hops: int = 0) -> str:
     """Return a coarse client key, trusting forwarding headers only when configured.
 
@@ -619,8 +629,10 @@ def _client_rate_key(scope: Scope, trusted_proxy_hops: int = 0) -> str:
     correct for a directly exposed bind.  A deployment behind ``n`` trusted
     reverse proxies sets ``BDDK_HTTP_TRUSTED_PROXY_HOPS=n``; the key is then the
     ``n``-th entry from the right of the combined forwarded list, which is the
-    last hop the operator asserts is trustworthy.  Anything unusable degrades to
-    ``"unknown"`` rather than to a spoofable value.
+    last hop the operator asserts is trustworthy.  IPv6 clients are keyed by
+    their /64 network so one subscriber cannot rotate addresses for fresh
+    buckets.  Anything unusable degrades to ``"unknown"`` rather than to a
+    spoofable value.
     """
     if trusted_proxy_hops > 0:
         forwarded: list[str] = []
@@ -630,7 +642,7 @@ def _client_rate_key(scope: Scope, trusted_proxy_hops: int = 0) -> str:
         if len(forwarded) < trusted_proxy_hops:
             return "unknown"
         try:
-            return ipaddress.ip_address(forwarded[-trusted_proxy_hops]).compressed
+            return _rate_key_for_address(forwarded[-trusted_proxy_hops])
         except ValueError:
             return "unknown"
 
@@ -638,7 +650,7 @@ def _client_rate_key(scope: Scope, trusted_proxy_hops: int = 0) -> str:
     if not isinstance(client, tuple) or not client or not isinstance(client[0], str):
         return "unknown"
     try:
-        return ipaddress.ip_address(client[0]).compressed
+        return _rate_key_for_address(client[0])
     except ValueError:
         return "unknown"
 
@@ -791,6 +803,15 @@ class HttpSecurityMiddleware:
         validation_error = await self._transport.validate_request(HTTPConnection(scope), is_post=method == "POST")
         if validation_error is not None:
             await validation_error(scope, receive, send)
+            return
+
+        # The app is stateless JSON: it has no server-initiated stream for GET
+        # and no session for DELETE.  The SDK would still hold a GET open as an
+        # SSE stream with a concurrency slot, so refuse both before admission.
+        if method in {"GET", "DELETE"} and scope.get("path") == _MCP_PATH:
+            await PlainTextResponse("Method Not Allowed", status_code=405, headers={"Allow": "POST"})(
+                scope, receive, send
+            )
             return
 
         if method != "POST":

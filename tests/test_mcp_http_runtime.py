@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+import warnings
+from dataclasses import replace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -292,3 +295,44 @@ async def test_official_client_full_round_trip_on_unauthenticated_remote_public_
     assert {tool.name for tool in listed.tools} == set(PUBLIC_TOOL_NAMES)
     assert result.content, "tools/call must return content without any bearer token"
     assert not result.isError, "the delivered unauthenticated profile must serve tool calls, not error them"
+
+
+@pytest.mark.asyncio
+async def test_get_and_delete_on_mcp_return_405_without_holding_concurrency_slots():
+    """A stateless JSON server has no server stream, so GET/DELETE must not hold a slot."""
+    from bddk_mcp.server import create_mcp
+
+    security = replace(_unauthenticated_remote_security(), max_concurrency=2)
+    deps = Dependencies(db=None, doc_store=MagicMock(), client=MagicMock(), http=None)
+    server = create_mcp(deps, http_security=security)
+    raw_app = server.streamable_http_app()
+    app = HttpSecurityMiddleware(raw_app, security)
+
+    async with raw_app.router.lifespan_context(raw_app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="https://mcp.bank.example",
+            headers={"origin": "https://client.bank.example", "accept": "text/event-stream"},
+        ) as client:
+            streams = await asyncio.wait_for(
+                asyncio.gather(*(client.get("/mcp") for _ in range(4)), client.delete("/mcp")),
+                timeout=5,
+            )
+            bad_origin = await client.get("/mcp", headers={"origin": "https://evil.example"})
+            live = await client.get("/health/live")
+
+    assert [response.status_code for response in streams] == [405] * 5
+    assert all(response.headers["allow"] == "POST" for response in streams)
+    assert bad_origin.status_code == 403
+    assert live.status_code == 200
+
+
+def test_jwt_auth_settings_leave_audience_checks_to_the_token_verifier():
+    from bddk_mcp.server import create_mcp
+
+    deps = Dependencies(db=None, doc_store=MagicMock(), client=MagicMock(), http=None)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        server = create_mcp(deps, http_security=_remote_security())
+
+    assert server.settings.auth.validate_token_resource is False

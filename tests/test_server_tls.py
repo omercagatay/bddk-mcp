@@ -51,6 +51,8 @@ def test_tls_material_is_parsed_and_passed_to_uvicorn():
     assert options["host"] == "127.0.0.1"
     assert options["port"] == 8443
     assert options["proxy_headers"] is False
+    # The middleware limiter is the only concurrency bound (it answers 503 with Retry-After).
+    assert "limit_concurrency" not in options
 
 
 @pytest.mark.parametrize("error", (OSError("missing"), ssl.SSLError("mismatch"), ValueError("bad")))

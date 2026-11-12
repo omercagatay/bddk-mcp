@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import ipaddress
 import time
 from dataclasses import FrozenInstanceError, replace
 from typing import Any
@@ -881,3 +882,20 @@ def test_forwarded_clients_receive_independent_rate_windows():
     assert second is None
     assert third is not None
     assert middleware.tracked_rate_clients == 2
+
+
+@pytest.mark.parametrize("hops", [0, 1])
+def test_rate_key_groups_ipv6_clients_by_their_64_network(hops):
+    from bddk_mcp.http_security import _client_rate_key
+
+    def key(address: str) -> str:
+        if hops:
+            return _client_rate_key(_scope_with_forwarded(address), hops)
+        return _client_rate_key(_scope_with_forwarded(None, peer=address), hops)
+
+    assert key("2001:db8:1:2::1") == key("2001:db8:1:2:ffff:ffff:ffff:fffe") == "2001:db8:1:2::"
+    assert key("2001:db8:1:3::1") == "2001:db8:1:3::"
+    # IPv4 and IPv4-mapped peers keep their full address.
+    assert key("192.0.2.10") == "192.0.2.10"
+    assert key("::ffff:192.0.2.10") == ipaddress.ip_address("::ffff:192.0.2.10").compressed
+    assert key("::ffff:192.0.2.11") != key("::ffff:192.0.2.10")
