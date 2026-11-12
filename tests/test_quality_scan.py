@@ -148,7 +148,7 @@ async def seeded_quality_db(corpus_db):
         (
             "doc_formula_ok",
             "Article with formula $$x=y$$ and formül ref. " + "çğıöşü " * 120,
-            "chandra2",
+            "lightocr",
         ),
         ("doc_no_diacritics", "ASCII only text here no turkish letters at all " * 40, "glm_ocr"),
     ]
@@ -179,7 +179,7 @@ async def test_scan_quality_detects_all_seeded_anomalies(seeded_quality_db):
 
     assert report.total_documents == 12
     method_names = {m.method for m in report.methods}
-    assert {"markitdown", "html_parser", "chandra2", "glm_ocr"} <= method_names
+    assert {"markitdown", "html_parser", "lightocr", "glm_ocr"} <= method_names
 
     signals = {a.name: a for a in report.anomalies}
 

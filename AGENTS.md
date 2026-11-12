@@ -29,7 +29,7 @@ These are command references, not permission to mutate an environment. Confirm t
 
 ```bash
 uv sync --dev                              # Install runtime + dev dependencies
-uv sync --group gpu                        # Add CUDA torch + LightOnOCR dependencies (chandra-ocr is installed too; no sync path uses it)
+uv sync --group gpu                        # Add CUDA torch + LightOnOCR dependencies
 uv run bddk-mcp build                      # seed_data/ -> corpus file (sections, chunks, embeddings; reuses seed_data/embeddings/ while chunk texts and model match); skips when current; --force rebuilds every document and ignores the cache (approval required)
 uv run bddk-mcp export                     # Corpus file -> seed_data/ JSON + embeddings/ cache (overwrites the local seed artifacts)
 uv run bddk-mcp sync                       # Download/extract the catalogued documents into the corpus file and re-embed them (approval required; --refresh-catalog, --force, --doc-id, --concurrency, --corpus)
@@ -82,7 +82,7 @@ Two-layer pattern: modules under `bddk_mcp/tools/` are thin MCP wrappers over en
   - `ingest/` — `client.py` (BDDK scraper: httpx, BeautifulSoup), `html_extractor.py`, `doc_sync.py` (download → OCR → store → re-embed), `data_sources.py` (bulletins), `seed.py` (corpus build from / export to `seed_data/`)
   - `store/` — `corpus_db.py` (the SQLite corpus file: schema, read-only/read-write open, readiness), `doc_store.py` (documents, versions, sections + FTS5 section search, catalog, sync failures), `vector_store.py` (chunks with float16 embeddings, exact cosine search with numpy over the in-memory vectors, FTS5 BM25, RRF fusion), `section_index.py` (structural parser for Turkish legal Markdown), `legal_ref.py`
   - `quality/` — `markdown_quality.py`, `quality_scan.py`, `quality_failures.yml` (reviewed extraction-failure registry)
-  - `ocr/` — pluggable backends (`base.py` builds the sync chain lightocr, pdftotext_degraded, markitdown_degraded; `chandra.py` exists but no sync path constructs it; lightocr requires the `gpu` group)
+  - `ocr/` — pluggable backends (`base.py` builds the sync chain lightocr, pdftotext_degraded, markitdown_degraded; lightocr requires the `gpu` group)
   - `observability/` — `analytics.py` (trend/comparison engine)
 - **Platform**: `store/corpus_db.py` (schema as `CREATE TABLE IF NOT EXISTS`, `SCHEMA_VERSION` in the `meta` table, no migration ledger; serving opens the file with SQLite `mode=ro`, which is the airlock), `http_security.py`, `transport_tls.py`, `quotations.py` (character-exact quotation check)
 - **Infrastructure** (`bddk_mcp/core/`): `deps.py` (DI container `Dependencies`), `config.py` (core config via `BDDK_*` env vars), `models.py`, `exceptions.py`, `logging_config.py`, `outbound_http.py`

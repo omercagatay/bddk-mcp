@@ -10,7 +10,7 @@ Stored documents can come from several extraction paths:
 - `pdftotext_layout`: the method of most reviewed seed documents (233 of 319); formula-unaware.
 - `markitdown`: general PDF/office extraction path; good for ordinary text, weaker for formulas, annex tables, and embedded images.
 - `pdftotext_degraded` and `markitdown_degraded`: the CPU fallbacks of the sync OCR chain, where important structure may be missing.
-- `manual_pdf` and combined names such as `pdftotext_layout+manual_latex`: manually repaired text; only a name containing `lightocr`, `chandra2`, `pp_structure` or `manual_latex` counts as formula-aware (`lightocr` needs the `gpu` group; no sync path constructs `chandra2`).
+- `manual_pdf` and combined names such as `pdftotext_layout+manual_latex`: manually repaired text; only a name containing `lightocr`, `pp_structure` or `manual_latex` counts as formula-aware (`lightocr` needs the `gpu` group).
 
 Trade-offs:
 

@@ -208,16 +208,6 @@ class TestDefaultBackends:
         names = [b.name for b in backends]
         assert names == ["lightocr", "pdftotext_degraded", "markitdown_degraded"]
 
-    def test_include_chandra_prepends_chandra2(self):
-        backends = get_default_backends(include_chandra=True)
-        names = [b.name for b in backends]
-        assert names == ["chandra2", "lightocr", "pdftotext_degraded", "markitdown_degraded"]
-
-    def test_default_without_chandra_unchanged(self):
-        backends = get_default_backends(include_chandra=False)
-        names = [b.name for b in backends]
-        assert names == ["lightocr", "pdftotext_degraded", "markitdown_degraded"]
-
 
 class _FakeIds(list):
     """A list of token ids with the tensor features the generation helper uses."""

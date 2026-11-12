@@ -133,52 +133,6 @@ def test_extraction_chain_preserves_user_result_but_sanitizes_failure_log(caplog
     assert _error_records(caplog)[-1].error_type == "RuntimeError"
 
 
-def test_chandra_model_reference_is_used_but_not_logged(caplog, monkeypatch):
-    from bddk_mcp.ocr import chandra
-
-    manager = object()
-    settings = SimpleNamespace(MODEL_CHECKPOINT="initial")
-    model_module = ModuleType("chandra.model")
-    model_module.InferenceManager = MagicMock(return_value=manager)
-    model_module.settings = settings
-    chandra_package = ModuleType("chandra")
-    chandra_package.__path__ = []
-    monkeypatch.setitem(sys.modules, "chandra", chandra_package)
-    monkeypatch.setitem(sys.modules, "chandra.model", model_module)
-    monkeypatch.setattr(chandra, "CHANDRA_MODEL_NAME", PRIVATE_PATH)
-
-    with caplog.at_level(logging.INFO, logger="bddk_mcp.ocr.chandra"):
-        assert chandra.ChandraBackend()._load_manager() is manager
-
-    assert settings.MODEL_CHECKPOINT == PRIVATE_PATH
-    _assert_private_values_absent(caplog)
-
-
-def test_chandra_input_exception_and_temp_path_are_not_logged(caplog, monkeypatch):
-    from bddk_mcp.ocr import chandra
-
-    input_module = ModuleType("chandra.input")
-    input_module.load_file = MagicMock(side_effect=OSError(f"{PRIVATE_PATH} {PRIVATE_URL}"))
-    schema_module = ModuleType("chandra.model.schema")
-    schema_module.BatchInputItem = MagicMock
-    chandra_package = ModuleType("chandra")
-    chandra_package.__path__ = []
-    model_package = ModuleType("chandra.model")
-    model_package.__path__ = []
-    monkeypatch.setitem(sys.modules, "chandra", chandra_package)
-    monkeypatch.setitem(sys.modules, "chandra.input", input_module)
-    monkeypatch.setitem(sys.modules, "chandra.model", model_package)
-    monkeypatch.setitem(sys.modules, "chandra.model.schema", schema_module)
-
-    backend = chandra.ChandraBackend()
-    backend._manager = MagicMock()
-    with caplog.at_level(logging.DEBUG, logger="bddk_mcp.ocr.chandra"):
-        assert backend.extract(b"%PDF-private") is None
-
-    _assert_private_values_absent(caplog)
-    assert _error_records(caplog)[-1].error_type == "OSError"
-
-
 async def _sync_failure_row(store):
     row = await store.db.run(
         lambda conn: conn.execute("SELECT * FROM sync_failures WHERE document_id = '123'").fetchone()

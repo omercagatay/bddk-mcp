@@ -34,7 +34,7 @@ FORMULA_EXTRACTION_WARNING = (
 
 def is_formula_aware(method: str) -> bool:
     """Recognize existing formula-preserving backends, including combined method names."""
-    return any(token in (method or "").lower() for token in ("lightocr", "chandra2", "pp_structure", "manual_latex"))
+    return any(token in (method or "").lower() for token in ("lightocr", "pp_structure", "manual_latex"))
 
 
 def mentions_formula(text: str) -> bool:

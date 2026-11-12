@@ -421,15 +421,6 @@ def run_extraction_chain(
     )
 
 
-def get_default_backends(include_chandra: bool = False) -> list[OCRBackend]:
-    """Return backend chain in preference order.
-
-    Default: [lightocr, pdftotext_degraded, markitdown_degraded].
-    With include_chandra=True: [chandra2, lightocr, pdftotext_degraded, markitdown_degraded].
-    """
-    chain: list[OCRBackend] = [LightOCRBackend(), PdftotextBackend(), MarkitdownBackend()]
-    if include_chandra:
-        from bddk_mcp.ocr.chandra import ChandraBackend
-
-        chain.insert(0, ChandraBackend())
-    return chain
+def get_default_backends() -> list[OCRBackend]:
+    """Return backend chain in preference order: [lightocr, pdftotext_degraded, markitdown_degraded]."""
+    return [LightOCRBackend(), PdftotextBackend(), MarkitdownBackend()]

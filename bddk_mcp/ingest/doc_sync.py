@@ -10,7 +10,6 @@ Extraction pipeline (the PDF chain is built by ocr.base.get_default_backends):
   3. markitdown — CPU last resort, no formulas
   4. HTML parsing — mevzuat.gov.tr iframe HTML (first on hosts where only the
      degraded backends 2 and 3 are available, see BDDK_PREFER_HTML_FOR_MEVZUAT)
-The Chandra2 backend (ocr/chandra.py) exists, but no sync path constructs it.
 
 Run it through ``bddk-mcp sync``.
 """

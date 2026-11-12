@@ -119,9 +119,8 @@ async def test_prefixed_id_does_not_get_expanded():
     "method,expected",
     [
         ("lightocr", True),
-        ("chandra2", True),
         ("mevzuat_pdf+lightocr", True),
-        ("cached_pdf+chandra2", True),
+        ("cached_pdf+pp_structure", True),
         ("manual_latex", True),
         ("html_parser+manual_latex", True),
         ("markitdown", False),

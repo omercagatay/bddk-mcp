@@ -99,10 +99,6 @@ OCR_MIN_CONTENT_LEN = _environment_int(
     maximum=10_000_000,
 )
 
-# -- Chandra2 (in-process HF backend; no sync path constructs it today) -------
-
-CHANDRA_MODEL_NAME = os.environ.get("BDDK_CHANDRA_MODEL", "datalab-to/chandra-ocr-2")
-
 # -- Embedding dimension ------------------------------------------------------
 
 # The default E5 model emits exactly 768 values and every corpus file records
