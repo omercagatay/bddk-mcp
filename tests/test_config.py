@@ -36,12 +36,11 @@ def _import_config_in_subprocess(**overrides: str) -> subprocess.CompletedProces
     [
         ({"BDDK_SEARCH_CACHE_MAX": "0"}, "BDDK_SEARCH_CACHE_MAX must be an integer"),
         ({"BDDK_REQUEST_TIMEOUT": "nan"}, "BDDK_REQUEST_TIMEOUT must be finite"),
-        ({"BDDK_HYBRID_SEARCH": "enabled"}, "BDDK_HYBRID_SEARCH must be one of"),
         ({"BDDK_LIGHTOCR_DEVICE": "remote"}, "BDDK_LIGHTOCR_DEVICE must be one of"),
         ({"BDDK_MAX_RETRIES": "0"}, "BDDK_MAX_RETRIES must be an integer"),
         (
-            {"BDDK_EMBEDDING_CHUNK_SIZE": "100", "BDDK_EMBEDDING_CHUNK_OVERLAP": "100"},
-            "BDDK_EMBEDDING_CHUNK_OVERLAP must be smaller",
+            {"BDDK_EMBEDDING_CHUNK_TARGET_TOKENS": "100", "BDDK_EMBEDDING_CHUNK_TOKEN_OVERLAP": "100"},
+            "BDDK_EMBEDDING_CHUNK_TOKEN_OVERLAP must be smaller",
         ),
     ],
 )
@@ -57,7 +56,6 @@ def test_environment_configuration_accepts_explicit_boundary_values():
         BDDK_SEARCH_CACHE_MAX="1",
         BDDK_MAX_RETRIES="1",
         BDDK_SEARCH_CACHE_TTL="0",
-        BDDK_HYBRID_SEARCH="no",
     )
 
     assert result.returncode == 0, result.stderr
@@ -180,8 +178,6 @@ def test_model_asset_policy_accepts_online_defaults(tmp_path):
 
     validate_model_asset_policy(
         embedding_model_path="",
-        reranker_enabled=False,
-        reranker_model_path="",
         hub_offline=False,
     )
 
@@ -192,8 +188,6 @@ def test_model_asset_policy_rejects_offline_without_embedding_path():
     with pytest.raises(RuntimeError, match="BDDK_EMBEDDING_MODEL_PATH"):
         validate_model_asset_policy(
             embedding_model_path="",
-            reranker_enabled=False,
-            reranker_model_path="",
             hub_offline=True,
         )
 
@@ -204,24 +198,7 @@ def test_model_asset_policy_rejects_missing_embedding_directory(tmp_path):
     with pytest.raises(RuntimeError, match="existing model directory"):
         validate_model_asset_policy(
             embedding_model_path=str(tmp_path / "missing"),
-            reranker_enabled=False,
-            reranker_model_path="",
             hub_offline=False,
-        )
-
-
-def test_model_asset_policy_rejects_reranker_without_local_path(tmp_path):
-    """BDDK_RERANKER=true must fail at startup, not at first search."""
-    from bddk_mcp.core.config import validate_model_asset_policy
-
-    model_dir = tmp_path / "embedding"
-    model_dir.mkdir()
-    with pytest.raises(RuntimeError, match="BDDK_RERANKER_MODEL_PATH"):
-        validate_model_asset_policy(
-            embedding_model_path=str(model_dir),
-            reranker_enabled=True,
-            reranker_model_path="",
-            hub_offline=True,
         )
 
 
@@ -229,13 +206,9 @@ def test_model_asset_policy_accepts_fully_local_offline_setup(tmp_path):
     from bddk_mcp.core.config import validate_model_asset_policy
 
     embedding_dir = tmp_path / "embedding"
-    reranker_dir = tmp_path / "reranker"
     embedding_dir.mkdir()
-    reranker_dir.mkdir()
     validate_model_asset_policy(
         embedding_model_path=str(embedding_dir),
-        reranker_enabled=True,
-        reranker_model_path=str(reranker_dir),
         hub_offline=True,
     )
 
@@ -249,16 +222,12 @@ def test_model_asset_policy_reads_hf_offline_env_spellings(tmp_path, monkeypatch
         with pytest.raises(RuntimeError, match="BDDK_EMBEDDING_MODEL_PATH"):
             validate_model_asset_policy(
                 embedding_model_path="",
-                reranker_enabled=False,
-                reranker_model_path="",
             )
 
     monkeypatch.setenv("HF_HUB_OFFLINE", "0")
     monkeypatch.delenv("TRANSFORMERS_OFFLINE", raising=False)
     validate_model_asset_policy(
         embedding_model_path="",
-        reranker_enabled=False,
-        reranker_model_path="",
     )
 
 

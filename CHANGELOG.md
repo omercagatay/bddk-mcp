@@ -29,6 +29,113 @@ Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızd
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Değişti — bakım turu: denetimden çıkan düzeltmeler (2026-11-12)
+
+Kod tabanının tamamı gözden geçirildi; doğrulanan 80 bulgunun hiçbiri yüksek
+veya kritik değildi. Bu turda düzeltilenler aşağıdadır.
+
+HTTP:
+
+- `/mcp` üzerinde `GET` ve `DELETE` artık Host/Origin kontrolünden sonra,
+  admission'dan önce 405 ve `Allow: POST` ile reddedilir. Sunucu stateless
+  JSON çalışır ve server-initiated stream sunmaz; buna rağmen SDK kimliği
+  doğrulanmamış bir `GET /mcp` isteğini SSE stream olarak açık tutuyor ve bir
+  concurrency slot'u harcıyordu. Birkaç açık stream health probe'lar dahil
+  bütün istekleri kilitleyebiliyordu.
+- uvicorn `limit_concurrency` kaldırıldı. Bu ayar yalnızca açık duran
+  bağlantıları sayıp `Retry-After` içermeyen bir 503 döndürüyordu; tek
+  concurrency sınırı artık middleware limiter'dır. IPv6 istemcilerin
+  rate-limit anahtarı /64 ağıdır.
+- JSON log formatı retry alanlarını (`attempt`, `max_retries`, `max_attempts`,
+  `http_method`, `upstream_boundary`, `status_code`) yazar; hiçbir kodun
+  üretmediği `doc_id`, `query`, `result_count` anahtarları çıkarıldı.
+  `AuthSettings.validate_token_resource=False` açıkça ayarlandı (audience
+  kontrolünü `JwtTokenVerifier` yapar; davranış değişmedi).
+
+Tool çıktıları:
+
+- `get_bddk_monthly`: dönem verilmezse son 3 tamamlanmış ay yeniden eskiye
+  doğru denenir ve çıktı kullanılan dönemi yazar. BDDK bir ayı haftalar sonra
+  yayımladığı için "son tamamlanmış ay" çoğu zaman henüz yoktur; eski varsayılan
+  ise sabit 12/2025 idi. BDDK'nın "bu döneme ait veri yok" cevabı
+  (`success=false` ve "veri bulunma…" mesajı) veri yok olarak döner ve
+  BDDK'nın mesajı çıktıya yazılır; başka her `success=false` cevabı ve
+  beklenmeyen cevap biçimi hata sayılır.
+  `year` ve `month` birlikte verilir ya da hiç verilmez.
+- `compare_bulletin_metrics` en çok 4 metrik kabul eder; beşinci metrik artık
+  sessizce atılmaz, şema reddeder. `get_bddk_bulletin` en yeni 60 gözlemi yazar
+  ve liste kesildiyse "Son 60 / N gözlem gösteriliyor." der.
+- `analyze_bulletin_trends` düşüşleri de sayar (sabit seri artık "yatay"),
+  anlatı kullanılan son 4 veri noktasını söyler, boş başlık yerine metrik
+  kimliği yazılır.
+- `get_regulatory_digest` gerçek toplamları ve kesilen listeler için
+  "... ve N daha" satırını yazar, kararların yerel corpus kataloğundan
+  geldiğini söyler. Pencere bugünü içeren takvim günleridir (day=1, week=7).
+- `get_bddk_document`: var olan bir belgenin aralık dışındaki sayfası artık
+  `NOT_FOUND` değil, sayfa sayısını veren `INVALID_INPUT` hatasıdır.
+- `get_document_section` quotation kontrolü önce saklanan hash'i doğrular,
+  sonra alıntıyı kısaltma notu çıkarılmış yasal metinle karşılaştırır; kısaltma
+  notu artık alıntı olarak "eşleşmez". fikra/bent satırlarının tekil adres
+  olmadığı ve üst maddenin getirilmesi gerektiği çıktıda yazar.
+- Section aramasındaki tek kelimelik `+400` özel durumu silindi. `relevance`
+  alanı "heuristic sıralama skoru" olarak tanımlandı (olasılık ya da cosine
+  değil).
+
+Retrieval:
+
+- Exact legal-reference sorgularında sıra: önce hem FTS hem dense ile bulunan
+  (hybrid) sonuçlar, sonra yalnız FTS ile bulunan exact eşleşmeler (BM25
+  sırasıyla), en sonda yalnız vector sonuçları. Önceki sırada FTS-only
+  eşleşmeler hybrid sonucu limit dışına itebiliyordu.
+- Belge quality değerlendirmesi artık yalnızca dönen sonuçlar için, bir kez ve
+  event loop dışında yapılır (önceden her aday için ana thread'de çalışıyordu).
+- Silindi: reranker, karakter tabanlı chunker ve hiçbir şeyi değiştirmeyen
+  ayarlar (`BDDK_RERANKER*`, `BDDK_HYBRID_SEARCH`, `BDDK_RRF_K`,
+  `BDDK_FTS_THRESHOLD`, `BDDK_EMBEDDING_CHUNK_SIZE`,
+  `BDDK_EMBEDDING_CHUNK_OVERLAP`, `BDDK_EMBEDDING_CHUNK_MODE`,
+  `BDDK_SYNC_CONCURRENCY`, `BDDK_STALE_CACHE_FALLBACK`). Token chunker
+  değişmedi.
+
+Corpus, seed ve CLI:
+
+- Section parser, paragraf numarasını yalın basan KGK standartlarını
+  (`kgk_tms_12`: 6 govde penceresi yerine 140 paragraf) indeksler ve kısaltılan
+  govde pencerelerini kelime ortasında değil paragraf, satır ya da kelime
+  sınırında bitirir (#181'in taşınmış hâli). 14 belgenin chunk'ları değişti:
+  13.604 yerine 13.721 chunk. `seed_data/embeddings/` bu 14 belge için
+  yenilendi; build yine hiçbir chunk gömmeden tamamlanır.
+- `bddk-mcp export` iki seed JSON dosyasını tek kanonik biçimde yazar (id'ye
+  göre sıralı, 2 boşluk girinti, LF, sonda yeni satır) ve `downloaded_at` ile
+  `extracted_at` değerlerini korur; `build` ardından `export` seed dosyalarını
+  byte byte geri verir. Seed dosyaları bir kez bu biçimde yeniden yazıldı;
+  içerik değişmedi.
+- On Kurul Kararı kaydının karar tarihi, sayısı ve başlığı düzeltildi (1121,
+  1157, 1166, 1207, 1208, 1214, 1216, 1270, 751, 773). Scraper, BDDK'nın
+  "(25.10.2018 - 8062 ) başlık" biçimindeki satırlarını da ayrıştırır.
+- CLI: `--concurrency` pozitif tamsayı ister; boş ya da eksik seed ile `build`
+  ve belge hatası olan `sync` exit code 1 verir; çalışma hataları tek satır
+  yazılır. Okunamayan bir corpus dosyası not-ready hatası verir; başka modelle
+  kurulmuş dosyaya build "dosyayı silip yeniden build edin" der.
+
+Sync:
+
+- Metni kaydedilmiş ama indekslemesi başarısız kalmış belge sonraki `sync`'te
+  yeniden denenir. Yalnızca `_degraded` backend'lerin (pdftotext, markitdown)
+  bulunduğu makinelerde mevzuat belgeleri önce HTML olarak alınır. HTML
+  extractor yorum, doctype, CDATA ve processing instruction düğümlerini metne
+  katmaz. `pdftotext` Windows'ta da çalışır.
+
+Temizlik:
+
+- Kaldırılan tasarımlardan kalan dosyalar silindi: `.gitlab-ci.yml`,
+  `scripts/validate_all_pages.py`, `docs/DOCUMENTS.md`,
+  `seed_data/corpus_scope.yml`, `document_quality_score.py --seed-dir` modu,
+  kullanılmayan store metotları ve test yardımcıları.
+- Dockerfile'da model indirme katmanı `COPY seed_data/` satırının üstüne
+  alındı; seed değişikliği artık model katmanını geçersiz kılmaz.
+- Windows'ta başarısız olan iki test (hook izin biti, `bddk-mcp.exe` adı)
+  düzeltildi; dokümanlar kodla hizalandı.
+
 ### Eklendi — `seed_data/embeddings/` vektör cache'i (2026-11-10)
 
 - `bddk-mcp export` artık chunk vektörlerini de yazar: belge başına bir float16

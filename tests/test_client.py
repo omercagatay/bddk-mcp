@@ -22,7 +22,7 @@ from tests.conftest import BDDK_ACCORDION_HTML, BDDK_DECISION_HTML, MockStore, m
 
 
 def _make_client(**kwargs) -> BddkApiClient:
-    """Create a client with a mock pool (no real DB)."""
+    """Create a client with a store double (no corpus file)."""
     c = BddkApiClient(store=MockStore(), **kwargs)
     return c
 
@@ -222,6 +222,20 @@ class TestDecisionParsing:
         assert decisions[0].decision_date == "31.10.2024"
         assert decisions[0].decision_number == "11000"
         assert decisions[0].category == "Kurul Kararı"
+
+    @pytest.mark.asyncio
+    async def test_parse_decision_page_accepts_a_space_before_the_closing_parenthesis(self):
+        """BDDK lists some decisions as "(25.10.2018 - 8062 ) title"; the prefix is not part of the title."""
+        client = _make_client()
+        html = '<html><a href="/Mevzuat/DokumanGetir/751">(25.10.2018 - 8062 ) 2 adet sirket</a></html>'
+        client._fetch_with_retry = AsyncMock(return_value=make_http_response(html))
+
+        (decision,) = await client._fetch_and_parse_decision_page(55)
+        assert (decision.decision_date, decision.decision_number, decision.title) == (
+            "25.10.2018",
+            "8062",
+            "2 adet sirket",
+        )
 
     @pytest.mark.asyncio
     async def test_parse_decision_page_empty(self):

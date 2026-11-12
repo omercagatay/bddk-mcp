@@ -9,20 +9,6 @@ import os
 from pathlib import Path
 
 
-def _environment_bool(name: str, *, default: bool) -> bool:
-    """Parse one explicit boolean without silently treating typos as false."""
-
-    value = os.environ.get(name)
-    if value is None:
-        return default
-    normalized = value.strip().lower()
-    if normalized in {"1", "true", "yes"}:
-        return True
-    if normalized in {"0", "false", "no"}:
-        return False
-    raise RuntimeError(f"{name} must be one of true, false, 1, 0, yes, or no.")
-
-
 def _environment_int(
     name: str,
     *,
@@ -113,7 +99,7 @@ OCR_MIN_CONTENT_LEN = _environment_int(
     maximum=10_000_000,
 )
 
-# -- Chandra2 (primary OCR, backfill-only, in-process HF) --------------------
+# -- Chandra2 (in-process HF backend; no sync path constructs it today) -------
 
 CHANDRA_MODEL_NAME = os.environ.get("BDDK_CHANDRA_MODEL", "datalab-to/chandra-ocr-2")
 
@@ -135,24 +121,6 @@ except ValueError:
 # Page size for paginated markdown output (client, doc_store, vector_store)
 PAGE_SIZE = _environment_int("BDDK_PAGE_SIZE", default=5000, minimum=1, maximum=1_000_000)
 
-# Embedding chunk size and overlap (vector_store only)
-EMBEDDING_CHUNK_SIZE = _environment_int(
-    "BDDK_EMBEDDING_CHUNK_SIZE",
-    default=1000,
-    minimum=1,
-    maximum=1_000_000,
-)
-EMBEDDING_CHUNK_OVERLAP = _environment_int(
-    "BDDK_EMBEDDING_CHUNK_OVERLAP",
-    default=200,
-    minimum=0,
-    maximum=999_999,
-)
-EMBEDDING_CHUNK_MODE = _environment_choice(
-    "BDDK_EMBEDDING_CHUNK_MODE",
-    default="token",
-    choices=frozenset({"character", "token"}),
-)
 EMBEDDING_CHUNK_TARGET_TOKENS = _environment_int(
     "BDDK_EMBEDDING_CHUNK_TARGET_TOKENS",
     default=400,
@@ -165,8 +133,6 @@ EMBEDDING_CHUNK_TOKEN_OVERLAP = _environment_int(
     minimum=0,
     maximum=999_999,
 )
-if EMBEDDING_CHUNK_OVERLAP >= EMBEDDING_CHUNK_SIZE:
-    raise RuntimeError("BDDK_EMBEDDING_CHUNK_OVERLAP must be smaller than BDDK_EMBEDDING_CHUNK_SIZE.")
 if EMBEDDING_CHUNK_TOKEN_OVERLAP >= EMBEDDING_CHUNK_TARGET_TOKENS:
     raise RuntimeError("BDDK_EMBEDDING_CHUNK_TOKEN_OVERLAP must be smaller than BDDK_EMBEDDING_CHUNK_TARGET_TOKENS.")
 
@@ -186,9 +152,6 @@ SEARCH_CACHE_MAX = _environment_int(
     maximum=100_000,
 )
 
-# When BDDK is unreachable, serve stale DB cache even if TTL expired
-STALE_CACHE_FALLBACK = _environment_bool("BDDK_STALE_CACHE_FALLBACK", default=True)
-
 # -- Relevance thresholds (anti-hallucination) --------------------------------
 
 SEMANTIC_RELEVANCE_THRESHOLD = _environment_float(
@@ -197,48 +160,21 @@ SEMANTIC_RELEVANCE_THRESHOLD = _environment_float(
     minimum=-1.0,
     maximum=1.0,
 )
-FTS_RANK_THRESHOLD = _environment_float(
-    "BDDK_FTS_THRESHOLD",
-    default=0.01,
-    minimum=0.0,
-    maximum=1_000_000.0,
-)
-
-# -- Hybrid search (dense + sparse fusion) ------------------------------------
-
-HYBRID_SEARCH = _environment_bool("BDDK_HYBRID_SEARCH", default=True)
-HYBRID_RRF_K = _environment_int("BDDK_RRF_K", default=60, minimum=1, maximum=1_000_000)
-
-# -- Cross-encoder re-ranking -------------------------------------------------
-
-RERANKER_ENABLED = _environment_bool("BDDK_RERANKER", default=False)
-RERANKER_MODEL_NAME = os.environ.get("BDDK_RERANKER_MODEL", "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1")
-RERANKER_MODEL_PATH = os.environ.get("BDDK_RERANKER_MODEL_PATH", "")
-_DEFAULT_RERANKER_MODEL_REVISION = "1427fd652930e4ba29e8149678df786c240d8825"
-RERANKER_MODEL_REVISION = os.environ.get(
-    "BDDK_RERANKER_MODEL_REVISION",
-    _DEFAULT_RERANKER_MODEL_REVISION if RERANKER_MODEL_NAME == "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1" else "",
-)
-RERANKER_TOP_N = _environment_int("BDDK_RERANKER_TOP_N", default=20, minimum=1, maximum=10_000)
 
 
 def validate_model_asset_policy(
     *,
     embedding_model_path: str | None = None,
-    reranker_enabled: bool | None = None,
-    reranker_model_path: str | None = None,
     hub_offline: bool | None = None,
 ) -> None:
     """Fail at startup, not inside a tool call, when model assets cannot load.
 
     The delivered container runs with HF_HUB_OFFLINE=1 and pre-baked model
     directories. Without this check, a missing local model path surfaces as a
-    Hugging Face download failure at first search time; a misconfigured
-    reranker flag does the same. Keyword overrides exist for tests only.
+    Hugging Face download failure at first search time. Keyword overrides exist
+    for tests only.
     """
     embedding_path = EMBEDDING_MODEL_PATH if embedding_model_path is None else embedding_model_path
-    reranker_on = RERANKER_ENABLED if reranker_enabled is None else reranker_enabled
-    reranker_path = RERANKER_MODEL_PATH if reranker_model_path is None else reranker_model_path
     if hub_offline is None:
         # Hugging Face treats several spellings as true; mirror that rather than
         # matching only "1", or an offline image would slip past this gate.
@@ -252,18 +188,10 @@ def validate_model_asset_policy(
 
     if embedding_path and not Path(embedding_path).is_dir():
         raise RuntimeError("BDDK_EMBEDDING_MODEL_PATH does not point to an existing model directory.")
-    if reranker_path and not Path(reranker_path).is_dir():
-        raise RuntimeError("BDDK_RERANKER_MODEL_PATH does not point to an existing model directory.")
     if offline and not embedding_path:
         raise RuntimeError(
             "Offline model mode (HF_HUB_OFFLINE/TRANSFORMERS_OFFLINE) requires BDDK_EMBEDDING_MODEL_PATH; "
             "the embedding model cannot be downloaded at serving runtime."
-        )
-    if reranker_on and not reranker_path:
-        raise RuntimeError(
-            "BDDK_RERANKER=true requires BDDK_RERANKER_MODEL_PATH: the reranker model is not baked into "
-            "the delivered image and cannot be downloaded at serving runtime. Provide a local model "
-            "directory or disable the reranker."
         )
 
 
@@ -292,14 +220,10 @@ HTTP_POOL_TIMEOUT = _environment_float(
 )
 MAX_RETRIES = _environment_int("BDDK_MAX_RETRIES", default=3, minimum=1, maximum=20)
 
-# -- Sync ---------------------------------------------------------------------
-
-SYNC_CONCURRENCY = _environment_int("BDDK_SYNC_CONCURRENCY", default=5, minimum=1, maximum=100)
-
 # Prefer the iframe/HTML download path over PDF for mevzuat.gov.tr documents.
-# Values: "true" | "false" | "auto". "auto" flips to true when no GPU OCR
-# backend is available — markitdown-on-PDF produces no formulas / no tables,
-# so the rich HTML path is the better CPU-only choice.
+# Values: "true" | "false" | "auto". "auto" flips to true when every available
+# OCR backend is a *_degraded one (pdftotext, markitdown): they produce no
+# formulas / no tables, so the rich HTML path is the better CPU-only choice.
 PREFER_HTML_FOR_MEVZUAT = _environment_choice(
     "BDDK_PREFER_HTML_FOR_MEVZUAT",
     default="auto",

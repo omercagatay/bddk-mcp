@@ -9,7 +9,7 @@ BDDK MCP separates application code, corpus data, maintainer scripts, deployment
 | `bddk_mcp/` | Installable Python package and all supported runtime behavior. |
 | `tests/` | Unit, protocol, packaging, and policy contracts, all over a temporary SQLite corpus file; fixtures under `tests/fixtures/`. |
 | `scripts/` | Maintainer utilities (document repair, quality scans, section reindex; each takes `--corpus PATH`) and the repository hygiene check. |
-| `seed_data/` | Reviewed corpus source: `documents.json`, `decision_cache.json` (turned into the corpus file by `bddk-mcp build`, written back by `bddk-mcp export`) and `embeddings/` (one float16 `.npy` of chunk vectors per document plus `manifest.json`, written by `export` and reused by `build` while the chunk texts and model still match); `corpus_scope.yml` is a retained scope declaration the runtime no longer reads. |
+| `seed_data/` | Reviewed corpus source: `documents.json`, `decision_cache.json` (turned into the corpus file by `bddk-mcp build`, written back by `bddk-mcp export`) and `embeddings/` (one float16 `.npy` of chunk vectors per document plus `manifest.json`, written by `export` and reused by `build` while the chunk texts and model still match). |
 | `corpus/` | Built corpus file (`bddk.sqlite`), git-ignored. Never hand-edit it; rebuild it from `seed_data/`. |
 | `deploy/` | Open WebUI integration assets. |
 | `docs/` | Durable documentation and its index. |

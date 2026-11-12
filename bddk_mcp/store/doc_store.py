@@ -42,17 +42,15 @@ def normalize_search_text(text: str) -> str:
     return "".join(char for char in normalized if not unicodedata.combining(char))
 
 
-def fts_match_query(query: str, *, prefix: bool = False) -> str | None:
+def fts_match_query(query: str) -> str | None:
     """Turn free text into an FTS5 MATCH expression: every token must match.
 
-    Tokens are quoted so FTS5 operators in user text are never interpreted;
-    ``prefix`` makes each token a prefix match (the relaxed fallback).
+    Tokens are quoted so FTS5 operators in user text are never interpreted.
     """
     tokens = _FTS_TOKEN_RE.findall(normalize_search_text(query))
     if not tokens:
         return None
-    suffix = "*" if prefix else ""
-    return " ".join(f'"{token}"{suffix}' for token in tokens)
+    return " ".join(f'"{token}"' for token in tokens)
 
 
 def _safe_sync_failure_fields(error: str, category: str) -> tuple[str, str]:
@@ -82,6 +80,9 @@ class StoredDocument(BaseModel):
     extraction_method: str = "markitdown"
     total_pages: int = 1
     file_size: int = 0
+    downloaded_at: float | None = None
+    """Carried from seed data by the build; the writer stamps the current time when absent."""
+    extracted_at: float | None = None
 
     model_config = {"arbitrary_types_allowed": True}
 
@@ -264,8 +265,8 @@ def upsert_document_sync(
             doc.pdf_bytes,
             doc.markdown_content,
             content_hash,
-            now,
-            now if doc.markdown_content else None,
+            doc.downloaded_at if doc.downloaded_at is not None else now,
+            doc.extracted_at if doc.extracted_at is not None else (now if doc.markdown_content else None),
             doc.extraction_method,
             total_pages,
             doc.file_size or (len(doc.pdf_bytes) if doc.pdf_bytes else 0),
@@ -288,10 +289,6 @@ class DocumentStore:
     @property
     def db(self) -> CorpusDB:
         return self._db
-
-    async def close(self) -> None:
-        """No-op: the corpus connection is owned by the caller."""
-        logger.info("DocumentStore closed")
 
     # -- documents ----------------------------------------------------------------
 
@@ -340,16 +337,6 @@ class DocumentStore:
         if row is None:
             return None
         return assess_markdown_quality(row["markdown_content"] or "", document_id=document_id)
-
-    async def get_extraction_method(self, document_id: str) -> str | None:
-        row = await self._db.run(
-            lambda conn: conn.execute(
-                "SELECT extraction_method FROM documents WHERE document_id = ?", (document_id,)
-            ).fetchone()
-        )
-        if row is None:
-            return None
-        return row["extraction_method"] or ""
 
     async def get_document_page(self, doc_id: str, page: int = 1) -> DocumentPage | None:
         """Retrieve one page of a document's markdown content (PAGE_SIZE characters)."""

@@ -25,8 +25,8 @@ invent rights over regulatory material.
   recipient from removing that control. The license and contracts, not code
   checks, are the commercial-use boundary.
 - The tracked seed corpus is a project-owner-selected, job-specific collection.
-  Its selection and artifact identity are declared by
-  `seed_data/corpus_scope.yml`; it is not exhaustive BDDK coverage.
+  Its selection is the set of documents in
+  `seed_data/documents.json`; it is not exhaustive BDDK coverage.
 - The code license does not grant additional rights to BDDK, Official Gazette,
   Mevzuat, bank-internal, benchmark, or other third-party content. Each content
   class needs its own provenance and reuse basis.
@@ -41,8 +41,8 @@ invent rights over regulatory material.
 | Application source and packaged Python code | PolyForm Noncommercial 1.0.0 after `aa62301`; MIT up to and including `aa62301` | Counsel review of the change, including prior-release, contributor, and employment-related ownership questions; written terms for each commercial grant. |
 | Container recipes and deployment manifests | Part of the source distribution, under the same license | Bank registry, signing, admission, retention, and support terms. |
 | Public regulatory source artifacts | Source URLs and derived normalized content; rights are not granted by MIT | Source-by-source acquisition, retention, redistribution, citation, and derived-work basis. |
-| Seed documents/chunks/cache | Integrity-bound job corpus; intentionally non-exhaustive | Whether these files may be redistributed outside the approved project/bank boundary. |
-| Benchmark and NLI data | Repository test/evaluation material with incomplete provenance review; `data/bddk_nli/metadata.json` declares PolyForm Noncommercial 1.0.0 after `aa62301` | Dataset-specific terms, contributor/annotation rights, and publication boundary. |
+| Seed documents, embedding cache, decision cache | Reviewed job corpus; intentionally non-exhaustive | Whether these files may be redistributed outside the approved project/bank boundary. |
+| Benchmark and NLI data | Repository test/evaluation material with incomplete provenance review; the `data/` directory and the benchmark harness were removed (Git history, tag `archive/pre-simplify-2026-11-09`) | Dataset-specific terms, contributor/annotation rights, and publication boundary. |
 | Downloaded embedding model | The Dockerfile and runtime configuration pin the exact upstream Git commit; license review is pending bank review | Bank approval of model license, internal mirror, redistribution/use boundary, vulnerability review, and disconnected deployment process. |
 | Future validated legal-status or audit knowledge packs | Not yet a released product artifact | Separate ownership, reviewer authority, license/contract, export, retention, and revocation policy. |
 | Bank-internal corpus, controls, findings, or workpapers | Explicitly excluded from the tracked public corpus | Bank-owned access, confidentiality, retention, residency, audit, and deletion terms before ingestion. |
@@ -82,7 +82,6 @@ until an approved decision record names, for every artifact class:
 - reviewer/approval authority; and
 - withdrawal, correction, and incident procedure.
 
-The retained `corpus_scope.yml` checksum describes selected artifact identities
-(the runtime no longer verifies it).
-It does **not** prove ownership, model or source licensing, legal permission,
+The content hashes that `bddk-mcp build` checks describe artifact identity only.
+They do **not** prove ownership, model or source licensing, legal permission,
 bank approval, or non-commercial enforceability.

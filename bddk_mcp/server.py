@@ -108,7 +108,6 @@ def _uvicorn_options(
     return {
         "host": http_security.bind_host,
         "port": http_security.port,
-        "limit_concurrency": http_security.max_concurrency,
         "proxy_headers": False,
         "server_header": False,
         **tls.uvicorn_options(),
@@ -436,6 +435,8 @@ def create_mcp(
             issuer_url=security.jwt_issuer,
             resource_server_url=security.jwt_resource,
             required_scopes=sorted(security.jwt_required_scopes),
+            # JwtTokenVerifier enforces the configured ``aud`` itself, so the SDK resource check stays off.
+            validate_token_resource=False,
         )
         token_verifier = JwtTokenVerifier(security)
 

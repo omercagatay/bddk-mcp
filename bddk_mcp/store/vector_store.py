@@ -8,7 +8,6 @@ Architecture:
     (``ponytail``: brute force is exact and takes milliseconds up to a few
     hundred thousand chunks; add an ANN index such as hnswlib beyond that)
   - Hybrid search: dense + FTS5 BM25 fused with Reciprocal Rank Fusion
-  - Optional cross-encoder re-ranking
 """
 
 from __future__ import annotations
@@ -16,7 +15,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
-import math
 import re
 import sqlite3
 import threading
@@ -25,22 +23,12 @@ from dataclasses import dataclass
 import numpy as np
 
 from bddk_mcp.core.config import (
-    EMBEDDING_CHUNK_MODE,
-    EMBEDDING_CHUNK_OVERLAP,
-    EMBEDDING_CHUNK_SIZE,
     EMBEDDING_CHUNK_TARGET_TOKENS,
     EMBEDDING_CHUNK_TOKEN_OVERLAP,
     EMBEDDING_DIMENSION,
     EMBEDDING_MODEL_NAME,
     EMBEDDING_MODEL_PATH,
     EMBEDDING_MODEL_REVISION,
-    HYBRID_RRF_K,
-    HYBRID_SEARCH,
-    RERANKER_ENABLED,
-    RERANKER_MODEL_NAME,
-    RERANKER_MODEL_PATH,
-    RERANKER_MODEL_REVISION,
-    RERANKER_TOP_N,
     SEMANTIC_RELEVANCE_THRESHOLD,
 )
 from bddk_mcp.quality.markdown_quality import assess_markdown_quality
@@ -72,7 +60,7 @@ _PASSAGE_PREFIX = "passage"
 _QUERY_PREFIX = "query"
 _PREFIX_SEPARATOR = ": "
 _EMBEDDING_ENCODE_BATCH_SIZE = 32
-_RERANKER_PREDICT_BATCH_SIZE = 32
+_RRF_K = 60
 _HYBRID_VECTOR_CANDIDATE_LIMIT = 50
 _HYBRID_VECTOR_FETCH_LIMIT = 100
 _HYBRID_FTS_CANDIDATE_LIMIT = 50
@@ -162,55 +150,17 @@ _WORD_UNIT_RE = re.compile(r"\S+\s*", re.MULTILINE)
 def _chunk_document(
     doc_id: str,
     text: str,
-    chunk_size: int = EMBEDDING_CHUNK_SIZE,
-    overlap: int = EMBEDDING_CHUNK_OVERLAP,
     tokenizer=None,
     target_tokens: int = EMBEDDING_CHUNK_TARGET_TOKENS,
     token_overlap: int = EMBEDDING_CHUNK_TOKEN_OVERLAP,
-    use_token_chunking: bool | None = None,
 ) -> list[DocumentChunk]:
     """Split text into chunks and attach best-effort legal section metadata."""
     if not text:
         return []
     sections = extract_document_sections(doc_id, text)
-    if use_token_chunking is None:
-        use_token_chunking = EMBEDDING_CHUNK_MODE == "token"
-    if use_token_chunking:
-        if tokenizer is None:
-            raise RetrievalProfileError("Token chunking is configured but the embedding tokenizer is unavailable.")
-        return _chunk_document_by_tokens(doc_id, text, sections, tokenizer, target_tokens, token_overlap)
-    return _chunk_document_by_chars(doc_id, text, sections, chunk_size, overlap)
-
-
-def _chunk_document_by_chars(
-    doc_id: str,
-    text: str,
-    sections: list[DocumentSection],
-    chunk_size: int = EMBEDDING_CHUNK_SIZE,
-    overlap: int = EMBEDDING_CHUNK_OVERLAP,
-) -> list[DocumentChunk]:
-    chunks: list[DocumentChunk] = []
-    start = 0
-    step = max(1, chunk_size - overlap)
-    while start < len(text):
-        end = min(len(text), start + chunk_size)
-        chunk = text[start:end]
-        if chunk.strip():
-            section = _section_for_chunk(start, end, sections)
-            chunks.append(
-                DocumentChunk(
-                    chunk_text=chunk,
-                    start_char=start,
-                    end_char=end,
-                    section_type=section.section_type if section else "",
-                    section_ref=section.section_ref if section else "",
-                    section_start_char=section.start_char if section else None,
-                    section_end_char=section.end_char if section else None,
-                    section_content_hash=section.content_hash if section else "",
-                )
-            )
-        start += step
-    return chunks
+    if tokenizer is None:
+        raise RetrievalProfileError("Token chunking is configured but the embedding tokenizer is unavailable.")
+    return _chunk_document_by_tokens(doc_id, text, sections, tokenizer, target_tokens, token_overlap)
 
 
 def _chunk_document_by_tokens(
@@ -402,8 +352,6 @@ def _load_torch_model(loader, model_ref: str, **model_kwargs):
 
 
 def _load_embedding_tokenizer(embedding_model: str = EMBEDDING_MODEL_NAME):
-    if EMBEDDING_CHUNK_MODE != "token":
-        return None
     model_ref, kwargs = _model_reference(embedding_model)
     try:
         from transformers import AutoTokenizer
@@ -497,7 +445,7 @@ def _quality_metadata(text: str, doc_id: str) -> dict:
 
 
 async def _document_quality_by_ids(db: CorpusDB, doc_ids: list[str]) -> dict[str, dict]:
-    """Assess quality from full stored documents, not the matching chunk."""
+    """Assess quality from full stored documents, not the matching chunk, on a worker thread."""
     unique_ids = list(dict.fromkeys(doc_ids))
     if not unique_ids:
         return {}
@@ -508,12 +456,10 @@ async def _document_quality_by_ids(db: CorpusDB, doc_ids: list[str]) -> dict[str
             unique_ids,
         ).fetchall()
     )
-    quality_by_id = {
-        row["document_id"]: _quality_metadata(row["markdown_content"] or "", row["document_id"]) for row in rows
-    }
-    for doc_id in unique_ids:
-        quality_by_id.setdefault(doc_id, _quality_metadata("", doc_id))
-    return quality_by_id
+    content_by_id = {row["document_id"]: row["markdown_content"] or "" for row in rows}
+    return await asyncio.to_thread(
+        lambda: {doc_id: _quality_metadata(content_by_id.get(doc_id, ""), doc_id) for doc_id in unique_ids}
+    )
 
 
 def _section_metadata_from_row(row: sqlite3.Row) -> dict:
@@ -600,7 +546,6 @@ class VectorStore:
         # ``tokenizer`` (``encode(text, add_special_tokens=False)``) the chunk tokenizer.
         self._embed_fn = embed_fn
         self._chunk_tokenizer_fn = tokenizer
-        self._rerank_fn = None
         self._embedding_load_lock = threading.Lock()
         self._semantic_search_ready = False
         self._semantic_search_failure_type: str | None = None
@@ -662,31 +607,9 @@ class VectorStore:
             self._embed_fn = encode
 
     def _chunk_tokenizer(self):
-        if EMBEDDING_CHUNK_MODE != "token":
-            return None
         if self._chunk_tokenizer_fn is None:
             self._chunk_tokenizer_fn = _load_embedding_tokenizer(self._embedding_model)
         return self._chunk_tokenizer_fn
-
-    def _ensure_reranker(self) -> None:
-        """Lazy-load the cross-encoder re-ranking model."""
-        if self._rerank_fn is not None:
-            return
-        from sentence_transformers import CrossEncoder
-
-        model_ref = RERANKER_MODEL_PATH if RERANKER_MODEL_PATH else RERANKER_MODEL_NAME
-        model_kwargs = {
-            "backend": "torch",
-            "local_files_only": bool(RERANKER_MODEL_PATH),
-            "trust_remote_code": False,
-        }
-        model_source = "local" if RERANKER_MODEL_PATH else "remote"
-        if not RERANKER_MODEL_PATH and RERANKER_MODEL_REVISION:
-            model_kwargs["revision"] = RERANKER_MODEL_REVISION
-        logger.info("Loading cross-encoder reranker (%s source)", model_source)
-        loaded_model, device = _load_torch_model(CrossEncoder, model_ref, **model_kwargs)
-        logger.info("Loaded cross-encoder reranker (%s execution, %s source)", device, model_source)
-        self._rerank_fn = loaded_model
 
     async def _embed(self, texts: list[str], prefix: str = _PASSAGE_PREFIX) -> np.ndarray:
         """Embed texts (unit vectors, float32) on a worker thread."""
@@ -769,7 +692,10 @@ class VectorStore:
             expected = {"embedding_model": self._embedding_model, "embedding_dimension": str(EMBEDDING_DIMENSION)}
             for key, value in expected.items():
                 if key in meta and meta[key] != value:
-                    raise RetrievalProfileError("The corpus was built with a different embedding model.")
+                    raise RetrievalProfileError(
+                        "The corpus file was built with a different embedding model; "
+                        "delete it and run `bddk-mcp build` again."
+                    )
                 conn.execute("INSERT OR IGNORE INTO meta (key, value) VALUES (?, ?)", (key, value))
             conn.execute("DELETE FROM chunks WHERE doc_id = ?", (doc_id,))
             conn.executemany(
@@ -803,11 +729,16 @@ class VectorStore:
         limit: int = 10,
         category: str | None = None,
     ) -> list[dict]:
-        """Search documents. Uses hybrid search when enabled, else vector-only."""
+        """Search documents with hybrid (dense + keyword) retrieval.
+
+        Document quality is assessed once, for the returned hits only.
+        """
         self._raise_if_semantic_search_unavailable()
-        if HYBRID_SEARCH:
-            return await self._hybrid_search(query, limit, category)
-        return await self._vector_search(query, limit, category)
+        hits = await self._hybrid_search(query, limit, category)
+        quality_by_id = await _document_quality_by_ids(self._db, [hit["doc_id"] for hit in hits])
+        for hit in hits:
+            hit.update(quality_by_id[hit["doc_id"]])
+        return hits
 
     async def assert_semantic_search_ready(self) -> None:
         """Fail closed unless model loading, encoding and corpus retrieval all work.
@@ -887,10 +818,6 @@ class VectorStore:
                     **_section_metadata_from_row(row),
                 }
 
-        quality_by_id = await _document_quality_by_ids(self._db, list(seen))
-        for did, hit in seen.items():
-            hit.update(quality_by_id[did])
-
         hits = sorted(seen.values(), key=lambda x: x["distance"])
         return hits[:limit]
 
@@ -924,10 +851,6 @@ class VectorStore:
                     **_section_metadata_from_row(row),
                 }
 
-        quality_by_id = await _document_quality_by_ids(self._db, list(seen))
-        for did, hit in seen.items():
-            hit.update(quality_by_id[did])
-
         return sorted(seen.values(), key=lambda x: x["fts_rank"], reverse=True)
 
     async def _fts_rows(self, match: str | None, *, limit: int, category: str | None) -> list[sqlite3.Row]:
@@ -960,7 +883,7 @@ class VectorStore:
         limit: int = 10,
         category: str | None = None,
     ) -> list[dict]:
-        """Hybrid search: dense + sparse retrieval fused with RRF, optionally re-ranked.
+        """Hybrid search: dense + sparse retrieval fused with RRF.
 
         Anti-hallucination features: an FTS gate penalises vector-only scores
         when no keyword matches at all, and score-gap filtering drops results
@@ -1004,10 +927,7 @@ class VectorStore:
             else:
                 hit["match_type"] = "vector"
 
-        if RERANKER_ENABLED and fused:
-            top_n = min(RERANKER_TOP_N, len(fused))
-            fused[:top_n] = await self._rerank(query, fused[:top_n])
-        elif fts_hits:
+        if fts_hits:
             max_fts_rank = max((hit.get("fts_rank", 0.0) for hit in fts_hits), default=0.0)
             if max_fts_rank > 0:
                 for hit in fused:
@@ -1039,8 +959,12 @@ class VectorStore:
             if h["semantic_relevance"] >= SEMANTIC_RELEVANCE_THRESHOLD or h["match_type"] == "fts_exact"
         ]
 
-        # Output order follows the displayed relevance; RRF only decides membership.
-        exact_hits = [h for h in fused if h["match_type"] == "fts_exact"]
+        # RRF order only breaks ties. Hits with a dense score are ordered by the
+        # displayed relevance. FTS-only exact legal-reference matches have none,
+        # so they follow every hybrid hit in BM25 order, ahead of vector-only hits.
+        exact_hits = sorted(
+            (h for h in fused if h["match_type"] == "fts_exact"), key=lambda h: h["fts_rank"], reverse=True
+        )
         semantic_hits = [h for h in fused if h["match_type"] != "fts_exact"]
         semantic_hits.sort(key=lambda h: h["relevance"], reverse=True)
 
@@ -1048,7 +972,12 @@ class VectorStore:
             top_score = semantic_hits[0]["relevance"]
             semantic_hits = [h for h in semantic_hits if (top_score - h["relevance"]) <= _SCORE_GAP_THRESHOLD]
 
-        fused = exact_hits + semantic_hits
+        if exact_hits:
+            hybrid_hits = [h for h in semantic_hits if h["match_type"] == "hybrid"]
+            vector_only_hits = [h for h in semantic_hits if h["match_type"] != "hybrid"]
+            fused = hybrid_hits + exact_hits + vector_only_hits
+        else:
+            fused = semantic_hits
 
         for h in fused:
             if h["relevance"] >= _HIGH_CONFIDENCE_THRESHOLD:
@@ -1060,7 +989,7 @@ class VectorStore:
 
         return fused[:limit]
 
-    def _rrf_fuse(self, vector_hits: list[dict], fts_hits: list[dict], k: int = HYBRID_RRF_K) -> list[dict]:
+    def _rrf_fuse(self, vector_hits: list[dict], fts_hits: list[dict], k: int = _RRF_K) -> list[dict]:
         """Reciprocal Rank Fusion: RRF(d) = sum over systems of 1 / (k + rank)."""
         doc_data: dict[str, dict] = {}
         rrf_scores: dict[str, float] = {}
@@ -1089,30 +1018,6 @@ class VectorStore:
             results.append(entry)
 
         return results
-
-    # -- Cross-encoder re-ranking ---------------------------------------------
-
-    async def _rerank(self, query: str, candidates: list[dict]) -> list[dict]:
-        """Re-rank candidates using a cross-encoder model in a thread."""
-        if not candidates:
-            return candidates
-        self._ensure_reranker()
-        pairs = [(query, c["snippet"]) for c in candidates]
-        scores = await asyncio.to_thread(
-            lambda: self._rerank_fn.predict(
-                pairs,
-                batch_size=_RERANKER_PREDICT_BATCH_SIZE,
-                show_progress_bar=False,
-                activation_fn=None,
-                apply_softmax=False,
-                convert_to_numpy=True,
-                convert_to_tensor=False,
-            )
-        )
-        for candidate, score in zip(candidates, scores, strict=True):
-            candidate["rerank_score"] = float(score)
-            candidate["relevance"] = round(1.0 / (1.0 + math.exp(-float(score))), _SCORE_DECIMAL_PLACES)
-        return sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)
 
     # -- Bookkeeping ------------------------------------------------------------
 

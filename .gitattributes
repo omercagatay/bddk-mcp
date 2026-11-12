@@ -3,7 +3,6 @@
 # Generated artifacts are still reviewed, but GitHub should collapse them by default.
 seed_data/*.json linguist-generated=true
 seed_data/embeddings/manifest.json linguist-generated=true
-docs/evidence/*.json linguist-generated=true
 uv.lock linguist-generated=true
 
 # Binary fixtures must never be rendered as text diffs.

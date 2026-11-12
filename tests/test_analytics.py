@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -118,6 +119,27 @@ async def test_analyze_trends_basic(mock_http):
     assert "narrative" in result
 
 
+@pytest.mark.parametrize(
+    ("values", "expected"),
+    [
+        ([5, 5, 5, 5], "yatay"),
+        ([5, 6, 6, 6], "yatay"),
+        ([6, 6, 6, 6], "yatay"),
+        ([9, 8, 7, 6], "düşüş"),
+        ([5, 5, 6, 4], "yatay"),
+        ([5, 6, 5, 4], "düşüş"),
+        ([1, 2, 3, 4], "yükseliş"),
+    ],
+)
+async def test_analyze_trends_direction_counts_falls_as_well_as_rises(mock_http, values, expected):
+    dates = ["01.01.2026", "08.01.2026", "15.01.2026", "22.01.2026", "29.01.2026"][-len(values) :]
+    _setup_bulletin_mock(mock_http, {"Baslik": "", "XEkseni": dates, "YEkseni": values})
+    result = await analyze_trends(mock_http, "1.0.1")
+    assert result["trend_direction"] == expected
+    assert result["title"] == "1.0.1"  # blank upstream title falls back to the metric id
+    assert "Son 4 veri noktasına göre trend" in result["narrative"]
+
+
 async def test_analyze_trends_includes_minmax(mock_http):
     _setup_bulletin_mock(mock_http)
     result = await analyze_trends(mock_http, "1.0.1", "TRY", "1", 12)
@@ -164,17 +186,17 @@ async def test_compare_metrics_multiple(mock_http):
         assert m["current"] == 10500.0
 
 
-async def test_compare_metrics_max_four(mock_http):
+async def test_compare_metrics_never_drops_requested_ids(mock_http):
+    """The 4-metric limit lives in the tool schema; the engine must not slice silently."""
     _setup_bulletin_mock(mock_http)
-    result = await compare_metrics(
-        mock_http,
-        ["1", "2", "3", "4", "5", "6"],
-        "TRY",
-        "1",
-        90,
-    )
-    # Should cap at 4
-    assert len(result["metrics"]) == 4
+    result = await compare_metrics(mock_http, ["1.0.1", "1.0.2", "1.0.4", "1.0.8", "1.0.10"], "TRY", "1", 90)
+    assert [m["metric_id"] for m in result["metrics"]] == ["1.0.1", "1.0.2", "1.0.4", "1.0.8", "1.0.10"]
+
+
+async def test_compare_metrics_blank_title_falls_back_to_metric_id(mock_http):
+    _setup_bulletin_mock(mock_http, {**BULLETIN_API, "Baslik": ""})
+    result = await compare_metrics(mock_http, ["1.0.1"])
+    assert result["metrics"][0]["title"] == "1.0.1"
 
 
 async def test_compare_metrics_with_error(mock_http):
@@ -293,3 +315,25 @@ async def test_numeric_strings_and_zero_remain_valid_observations(mock_http):
     result = await analyze_trends(mock_http)
     assert result["current"] == 0
     assert result["wow_pct"] == -100
+
+
+class _FrozenDatetime(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return cls(2026, 4, 10, 15, 30)
+
+
+async def test_build_digest_window_is_period_days_calendar_days_including_today(mock_http, monkeypatch):
+    monkeypatch.setattr("bddk_mcp.observability.analytics.datetime", _FrozenDatetime)
+    mock_http.get = AsyncMock(return_value=_make_response("<html></html>"))
+    decisions = [
+        {"title": f"K{day}", "decision_date": f"{day:02d}.04.2026", "category": "Kurul Kararı"}
+        for day in (10, 9, 4, 3)  # 0, 1, 6 and 7 days old
+    ]
+
+    day = await build_digest(mock_http, decisions, period_days=1)
+    week = await build_digest(mock_http, decisions, period_days=7)
+
+    assert [d["title"] for d in day["new_decisions"]] == ["K10"]
+    assert [d["title"] for d in week["new_decisions"]] == ["K10", "K9", "K4"]
+    assert "yerel corpus kataloğundan" in week["narrative"]

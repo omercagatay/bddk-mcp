@@ -98,8 +98,7 @@ class TestCacheFallbackFlow:
         client2._http = AsyncMock(spec=httpx.AsyncClient)
         client2._http.get = AsyncMock(side_effect=httpx.TransportError("Network unreachable"))
 
-        with patch("bddk_mcp.ingest.client.STALE_CACHE_FALLBACK", True):
-            await client2._ensure_cache()
+        await client2._ensure_cache()
 
         # Should have loaded stale cache from DB
         assert len(client2.get_cache_items()) >= 1

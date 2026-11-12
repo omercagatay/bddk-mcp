@@ -1,1 +1,1 @@
-"""Observability: analytics, telemetry, and metrics."""
+"""Observability: bulletin trend and comparison analytics."""

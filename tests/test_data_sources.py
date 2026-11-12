@@ -13,7 +13,7 @@ from bddk_mcp.ingest.data_sources import (
     _parse_tabpane_institutions,
     fetch_announcements,
     fetch_bulletin_snapshot,
-    fetch_institutions,
+    fetch_institutions_with_status,
     fetch_weekly_bulletin,
 )
 
@@ -132,7 +132,7 @@ def test_parse_tabpane_institutions_empty():
     assert _parse_tabpane_institutions(soup, "Test") == []
 
 
-# -- fetch_institutions integration (mocked HTTP) --
+# -- fetch_institutions_with_status integration (mocked HTTP) --
 
 
 @pytest.fixture(autouse=True)
@@ -175,35 +175,35 @@ def _make_response(text: str = "", status_code: int = 200, *, json_data=None) ->
     return httpx.Response(status_code, text=text, request=request)
 
 
-async def test_fetch_institutions_card_page(mock_http):
+async def test_fetch_institutions_with_status_card_page(mock_http):
     mock_http.get = AsyncMock(return_value=_make_response(CARD_HTML))
-    result = await fetch_institutions(mock_http, institution_type="Banka")
+    result = (await fetch_institutions_with_status(mock_http, institution_type="Banka")).institutions
     assert len(result) == 4
     assert all(r["type"] == "Banka" for r in result)
 
 
-async def test_fetch_institutions_type_filter(mock_http):
+async def test_fetch_institutions_with_status_type_filter(mock_http):
     mock_http.get = AsyncMock(return_value=_make_response(TABPANE_HTML))
-    result = await fetch_institutions(mock_http, institution_type="Finansal Kiralama")
+    result = (await fetch_institutions_with_status(mock_http, institution_type="Finansal Kiralama")).institutions
     assert len(result) == 3
 
 
-async def test_fetch_institutions_total_failure_raises_upstream_error(mock_http):
+async def test_fetch_institutions_with_status_total_failure_raises_upstream_error(mock_http):
     """A fully failed directory fetch must never look like an empty directory."""
     mock_http.get = AsyncMock(return_value=_make_response("", status_code=500))
     with pytest.raises(BddkUpstreamError):
-        await fetch_institutions(mock_http)
+        await fetch_institutions_with_status(mock_http)
 
 
-async def test_fetch_institutions_partial_failure_returns_partial_results(mock_http):
+async def test_fetch_institutions_with_status_partial_failure_returns_partial_results(mock_http):
     """One good page plus failing pages still returns the fetched institutions."""
     # Page 77 (card layout) succeeds; every later page returns 500.
     mock_http.get = AsyncMock(side_effect=[_make_response(CARD_HTML)] + [_make_response("", status_code=500)] * 20)
-    result = await fetch_institutions(mock_http)
+    result = (await fetch_institutions_with_status(mock_http)).institutions
     assert len(result) > 0
 
 
-async def test_fetch_institutions_unreachable_fails_fast(mock_http):
+async def test_fetch_institutions_with_status_unreachable_fails_fast(mock_http):
     """A connect-class failure aborts the remaining serial page fetches.
 
     The retry layer may attempt one page a few times, but the loop must not
@@ -211,7 +211,7 @@ async def test_fetch_institutions_unreachable_fails_fast(mock_http):
     """
     mock_http.get = AsyncMock(side_effect=httpx.ConnectError("blocked egress"))
     with pytest.raises(BddkUpstreamError):
-        await fetch_institutions(mock_http)
+        await fetch_institutions_with_status(mock_http)
     assert mock_http.get.await_count <= 3  # one page's retries, not pages x retries
 
 

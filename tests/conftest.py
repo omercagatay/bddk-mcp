@@ -15,7 +15,6 @@ import httpx
 import numpy as np
 import pytest
 
-from bddk_mcp.core.models import BddkDecisionSummary
 from bddk_mcp.store.corpus_db import CorpusDB
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
 from bddk_mcp.store.vector_store import VectorStore
@@ -121,11 +120,6 @@ class MockStore:
         return len(items)
 
 
-@pytest.fixture
-def mock_store():
-    return MockStore()
-
-
 # -- HTTP mocking helpers ---------------------------------------------------
 
 
@@ -195,43 +189,6 @@ def mevzuat_doc():
     )
 
 
-# -- Sample decision cache -------------------------------------------------
-
-
-SAMPLE_DECISIONS = [
-    BddkDecisionSummary(
-        title="Bankaların Kredi İşlemlerine İlişkin Yönetmelik",
-        document_id="mevzuat_40520",
-        content="Bankaların Kredi İşlemlerine İlişkin Yönetmelik",
-        category="Yönetmelik",
-        source_url="https://mevzuat.gov.tr/mevzuat?MevzuatNo=40520",
-    ),
-    BddkDecisionSummary(
-        title="2025/1 Sayılı Genelge: Bankacılık Hesapları",
-        document_id="1296",
-        content="Bankacılık hesapları hakkında genelge",
-        category="Genelge",
-        source_url="https://www.bddk.org.tr/Mevzuat/DokumanGetir/1296",
-    ),
-    BddkDecisionSummary(
-        title="Ziraat Bankası faaliyet izni",
-        document_id="1280",
-        content="Ziraat Bankası faaliyet izni",
-        decision_date="31.10.2024",
-        decision_number="11000",
-        category="Kurul Kararı",
-        source_url="https://www.bddk.org.tr/Mevzuat/DokumanGetir/1280",
-    ),
-    BddkDecisionSummary(
-        title="5411 Sayılı Bankacılık Kanunu",
-        document_id="mevzuat_5411",
-        content="Bankacılık Kanunu",
-        category="Kanun",
-        source_url="https://mevzuat.gov.tr/mevzuat?MevzuatNo=5411&MevzuatTur=1",
-    ),
-]
-
-
 # -- Sample HTML responses -------------------------------------------------
 
 BDDK_ACCORDION_HTML = """
@@ -249,9 +206,4 @@ BDDK_ACCORDION_HTML = """
 BDDK_DECISION_HTML = """
 <a href="/Mevzuat/DokumanGetir/1280">(31.10.2024 - 11000) Ziraat Bankası faaliyet izni</a>
 <a href="/Mevzuat/DokumanGetir/1281">(15.06.2023 - 10800) Katılım bankası kuruluş izni</a>
-"""
-
-BDDK_FLAT_HTML = """
-<a href="/Mevzuat/DokumanGetir/500">5411 Sayılı Bankacılık Kanunu</a>
-<a href="https://mevzuat.gov.tr/mevzuat?MevzuatNo=5411&MevzuatTur=1">Bankacılık Kanunu</a>
 """

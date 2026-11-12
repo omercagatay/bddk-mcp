@@ -39,15 +39,15 @@ Düzenleme ve karar metinleri yerel yayımlanmış kopyadan gelir. Kurum, duyuru
 - `search_bddk_institutions`: kurum arar; canlı BDDK çağrısı yapabilir.
 - `search_bddk_announcements`: duyuru arar; canlı BDDK çağrısı yapabilir.
 - `get_bddk_document`: kayıtlı belge sayfasını getirir. Güvensiz çıkarım artığı varsa metni sessizce düzeltmez, reddeder.
-- `get_document_history`: kayıtlı belge geçmişini gösterir.
+- `get_document_history`: bir belgenin yerine yenisi konmuş eski gövdelerini listeler; mevcut gövde listelenmez ve bir sync ya da build metni değiştirene kadar liste boştur.
 - `get_document_section`: madde (66/A gibi araya eklenen maddeler dahil), geçici madde, ek madde, ilke, paragraf, ek veya bent ister; `quotation` verilirse alıntıyı kayıtlı metinde harfi harfine doğrular.
 - `search_document_sections`: bölüm başlıklarında arar.
 - `get_bddk_bulletin`: haftalık bülten; canlı çağrı yapabilir.
 - `get_bddk_bulletin_snapshot`: bir tarihli bülten görüntüsü; canlı çağrı yapabilir.
 - `get_bddk_monthly`: aylık bülten; canlı çağrı yapabilir.
 - `analyze_bulletin_trends`: bülten serisinin yönünü okur; canlı çağrı yapabilir.
-- `get_regulatory_digest`: son dönem karar, duyuru ve bülten özeti. Duyuru ve bülten yarısı canlı olabilir.
-- `compare_bulletin_metrics`: iki dönemin bülten rakamını karşılaştırır; canlı çağrı yapabilir.
+- `get_regulatory_digest`: son dönem karar, duyuru ve bülten özeti. Kararlar yerel corpus kataloğundan gelir; duyuru ve bülten yarısı canlı olabilir.
+- `compare_bulletin_metrics`: en çok 4 bülten metriğini yan yana karşılaştırır; canlı çağrı yapabilir.
 
 Sunucu yalnızca okur: corpus dosyasını salt okunur açar. Corpus'u hazırlayan komutlar ayrıdır: `bddk-mcp build`, `seed_data/` içindeki belgelerden section, chunk ve embedding'leriyle tek bir SQLite corpus dosyası üretir; `bddk-mcp sync` belgeleri kaynaktan indirip aynı dosyaya yazar. Ayrıntı: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 

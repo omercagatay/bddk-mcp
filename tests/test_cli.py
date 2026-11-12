@@ -64,14 +64,32 @@ def test_export_command_reports_counts(capsys):
     assert "Exported 319 documents, 300 catalog entries and embeddings for 318 documents." in capsys.readouterr().out
 
 
-def test_runtime_errors_become_clean_parser_errors(capsys):
+def test_runtime_errors_print_one_line_and_exit_1(capsys):
     with (
         patch("bddk_mcp.ingest.seed.build_corpus", new=AsyncMock(side_effect=RuntimeError("corpus is not ready"))),
-        pytest.raises(SystemExit),
+        pytest.raises(SystemExit) as exited,
     ):
         cli.main(["build"])
 
-    assert "corpus is not ready" in capsys.readouterr().err
+    assert exited.value.code == 1
+    err = capsys.readouterr().err
+    assert err == "bddk-mcp build: error: corpus is not ready\n"
+
+
+def test_build_of_an_empty_or_missing_seed_fails(tmp_path, capsys):
+    with pytest.raises(SystemExit) as exited:
+        cli.main(["build", "--seed-dir", str(tmp_path / "typo"), "--corpus", str(tmp_path / "c.sqlite")])
+
+    assert exited.value.code == 1
+    assert "no seed data" in capsys.readouterr().err
+    assert not (tmp_path / "c.sqlite").exists()
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "x"])
+def test_concurrency_must_be_a_positive_integer(value):
+    with pytest.raises(SystemExit) as exited:
+        cli.build_parser().parse_args(["sync", "--concurrency", value])
+    assert exited.value.code == 2
 
 
 def test_serve_applies_overrides_before_import(monkeypatch):
@@ -112,7 +130,7 @@ class _Catalog:
         self.decision_number = ""
 
 
-def _sync_doubles(catalog):
+def _sync_doubles(catalog, failed: int = 0):
     db = MagicMock()
     client = MagicMock()
     client.refresh_cache = AsyncMock(return_value=len(catalog))
@@ -124,7 +142,7 @@ def _sync_doubles(catalog):
     syncer.__aexit__ = AsyncMock(return_value=None)
     syncer.sync_all = AsyncMock(
         return_value=SimpleNamespace(
-            total=len(catalog), downloaded=1, skipped=0, failed=0, elapsed_seconds=0.1, errors=[]
+            total=len(catalog), downloaded=1, skipped=0, failed=failed, elapsed_seconds=0.1, errors=[]
         )
     )
     patches = (
@@ -193,3 +211,18 @@ async def test_sync_refuses_an_uncatalogued_document_id():
 
     client.close.assert_awaited_once_with()
     db.close.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+async def test_sync_exits_1_when_a_document_failed(capsys):
+    _db, _client, _syncer, patches = _sync_doubles([_Catalog("943")], failed=1)
+    args = cli.build_parser().parse_args(["sync"])
+
+    with ExitStack() as stack:
+        for item in patches:
+            stack.enter_context(item)
+        with pytest.raises(SystemExit) as exited:
+            await cli._sync(args)
+
+    assert exited.value.code == 1
+    assert "1 failed" in capsys.readouterr().out

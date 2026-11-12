@@ -79,6 +79,35 @@ class TestJsonFormatter:
             parsed = json.loads(formatter.format(record))
         assert parsed["correlation_id"] == "abc123"
 
+    def test_format_keeps_emitted_retry_extras_and_drops_unemitted_keys(self):
+        record = logging.LogRecord(
+            name="retry",
+            level=logging.WARNING,
+            pathname="",
+            lineno=0,
+            msg="Retrying approved upstream HTTP request",
+            args=(),
+            exc_info=None,
+        )
+        retry_extras = {
+            "attempt": 2,
+            "max_retries": 3,
+            "http_method": "GET",
+            "upstream_boundary": "bddk",
+            "status_code": 503,
+            "max_attempts": 4,
+        }
+        for key, value in retry_extras.items():
+            setattr(record, key, value)
+        record.doc_id = "943"
+        record.query = "confidential query"
+        record.result_count = 5
+
+        parsed = json.loads(JsonFormatter().format(record))
+
+        assert {key: parsed[key] for key in retry_extras} == retry_extras
+        assert not {"doc_id", "query", "result_count"} & parsed.keys()
+
     def test_format_includes_tool_boundary_fields(self):
         formatter = JsonFormatter()
         record = logging.LogRecord(

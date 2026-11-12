@@ -14,7 +14,12 @@ from bddk_mcp.core.config import (
     validate_year,
 )
 from bddk_mcp.core.exceptions import BddkUpstreamError
-from bddk_mcp.ingest.data_sources import fetch_bulletin_snapshot, fetch_monthly_bulletin, fetch_weekly_bulletin
+from bddk_mcp.ingest.data_sources import (
+    fetch_bulletin_snapshot,
+    fetch_monthly_bulletin,
+    fetch_weekly_bulletin,
+    recent_complete_months,
+)
 from bddk_mcp.tools.contract_types import (
     BulletinColumn,
     BulletinDate,
@@ -35,6 +40,11 @@ if TYPE_CHECKING:
     from bddk_mcp.core.deps import Dependencies
 
 logger = logging.getLogger(__name__)
+
+_MAX_PRINTED_OBSERVATIONS = 60
+# BDDK publishes a month several weeks after it ends, so the newest complete
+# month is usually not out yet; without a period the tool walks back this far.
+_DEFAULT_MONTH_LOOKBACK = 3
 
 
 def register(
@@ -63,7 +73,8 @@ def register(
             currency: TRY or USD
             column: 1=TP (TL), 2=YP (Foreign Currency), 3=Toplam
             date: Specific date (DD.MM.YYYY), empty for latest
-            days: Number of days of history (default 90)
+            days: Number of days of history (default 90). At most the most recent
+                60 observations are printed; the output says when it is cut.
         """
         try:
             validate_metric_id(metric_id)
@@ -85,7 +96,9 @@ def register(
         lines = [f"**{data.get('title', 'BDDK Weekly Bulletin')}** ({data['currency']})\n"]
         dates, values = data.get("dates", []), data.get("values", [])
         if dates and values:
-            for d, v in zip(dates[-10:], values[-10:], strict=False):
+            if len(values) > _MAX_PRINTED_OBSERVATIONS:
+                lines.append(f"Son {_MAX_PRINTED_OBSERVATIONS} / {len(values)} gözlem gösteriliyor.")
+            for d, v in zip(dates[-_MAX_PRINTED_OBSERVATIONS:], values[-_MAX_PRINTED_OBSERVATIONS:], strict=False):
                 lines.append(f"  {d}: {v}")
         else:
             lines.append("No data returned for the given parameters.")
@@ -126,8 +139,8 @@ def register(
     @logged_tool(logger)
     async def get_bddk_monthly(
         table_no: MonthlyTableNumber = 1,
-        year: MonthlyYear = 2025,
-        month: MonthlyMonth = 12,
+        year: MonthlyYear = None,
+        month: MonthlyMonth = None,
         currency: MonthlyCurrency = "TL",
         party_code: PartyCode = "10001",
     ) -> str:
@@ -139,22 +152,33 @@ def register(
                 1=Aktif Toplamı, 2=Krediler, 3=Menkul Değerler,
                 4=Mevduat, 9=Sermaye Yeterliliği, 11=Gelir Tablosu,
                 14=Takipteki Alacaklar
-            year: Year (e.g. 2025)
+            year: Year (e.g. 2025). Omit year and month together to get the most
+                recent month BDDK has published (the last 3 complete months are
+                tried, newest first; the output names the period used).
             month: Month (1-12)
             currency: TL or USD
             party_code: Bank group code. 10001=Sektör, 10002=Mevduat Bankaları,
                 10003=Kalkınma ve Yatırım, 10004=Katılım Bankaları,
                 20001=Kamu, 20002=Özel, 20003=Yabancı
         """
+        if (year is None) != (month is None):
+            return tool_error(INVALID_INPUT, "Give both year and month, or neither.", retryable=False)
+        explicit_period = year is not None and month is not None
         try:
             validate_table_no(table_no)
-            validate_year(year)
-            validate_month(month)
+            if explicit_period:
+                validate_year(year)
+                validate_month(month)
             validate_currency(currency, "monthly")
         except ValueError:
             return tool_error(INVALID_INPUT, "One or more monthly bulletin parameters are invalid.", retryable=False)
 
-        result = await fetch_monthly_bulletin(deps.http, table_no, year, month, currency, party_code)
+        periods = [(year, month)] if explicit_period else recent_complete_months(_DEFAULT_MONTH_LOOKBACK)
+        result: dict = {}
+        for year, month in periods:
+            result = await fetch_monthly_bulletin(deps.http, table_no, year, month, currency, party_code)
+            if "error" in result or result.get("rows"):
+                break
 
         if "error" in result:
             return tool_error(
@@ -165,11 +189,21 @@ def register(
             )
 
         lines = [f"**{result.get('title', 'BDDK Aylık Bülten')}**\n"]
-        lines.append(f"Dönem: {month}/{year} | Para Birimi: {currency}\n")
-
         rows = result.get("rows", [])
+        notice = [f"BDDK'nın cevabı: {result['notice']}"] if result.get("notice") else []
+        if not rows and not explicit_period:
+            tried = ", ".join(f"{m}/{y}" for y, m in periods)
+            lines.append(f"Denenen dönemler: {tried} | Para Birimi: {currency}\n")
+            lines.append("BDDK bu dönemlerin hiçbiri için veri döndürmedi.")
+            lines.extend(notice)
+            return frame_untrusted_source("\n".join(lines))
+
+        lines.append(f"Dönem: {month}/{year} | Para Birimi: {currency}\n")
+        if not explicit_period:
+            lines.append("Dönem verilmedi; BDDK'nın veri döndürdüğü en son tamamlanmış ay kullanıldı.\n")
         if not rows:
-            lines.append("Bu parametreler için veri bulunamadı.")
+            lines.append("BDDK bu dönem ve parametreler için veri döndürmedi; dönem henüz yayımlanmamış olabilir.")
+            lines.extend(notice)
         else:
             lines.append(f"{'Kalem':<55} {'TP':>15} {'YP':>15} {'Toplam':>15}")
             lines.append("-" * 105)

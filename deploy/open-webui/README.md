@@ -1,5 +1,7 @@
 # Open WebUI on the bank servers
 
+> Reference profile, not a maintained bank deployment path (see [docs/DEPLOYMENT.md](../../docs/DEPLOYMENT.md)).
+
 Open WebUI is the only user-facing entry point for the BDDK MCP server. The
 department (about 25 users) signs in with Microsoft (Active Directory) accounts
 over LDAP; the MCP connection itself carries no per-user login.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
+import sys
 from collections.abc import Sequence
 
 from bddk_mcp import __version__
@@ -15,6 +16,16 @@ def _positive_port(value: str) -> int:
     if not 1 <= port <= 65535:
         raise argparse.ArgumentTypeError("port must be between 1 and 65535")
     return port
+
+
+def _positive_int(value: str) -> int:
+    try:
+        number = int(value)
+    except ValueError:
+        number = 0
+    if number < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return number
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -55,9 +66,13 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Re-scrape the BDDK catalog pages into the corpus before syncing",
     )
-    sync.add_argument("--force", action="store_true", help="Re-download and re-extract every document")
+    sync.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-extract every document (a stored mevzuat PDF is reused unless HTML-first is on)",
+    )
     sync.add_argument("--doc-id", help="Sync a single catalogued document by ID")
-    sync.add_argument("--concurrency", type=int, default=5, help="Parallel downloads (default 5)")
+    sync.add_argument("--concurrency", type=_positive_int, default=5, help="Parallel downloads (default 5)")
 
     return parser
 
@@ -84,6 +99,8 @@ async def _build(args: argparse.Namespace) -> None:
     if result["skipped"]:
         print("Corpus already matches the seed data (use --force to rebuild).")
         return
+    if not any(result[key] for key in ("decision_cache", "documents", "chunks")):
+        raise RuntimeError(f"no seed data in {args.seed_dir or 'seed_data/'} (documents.json and decision_cache.json)")
     print(
         f"Built corpus: {result['decision_cache']} catalog entries, {result['documents']} documents, "
         f"{result['sections']} sections, {result['chunks']} chunks "
@@ -144,6 +161,8 @@ async def _sync(args: argparse.Namespace) -> None:
     )
     for error in report.errors[:20]:
         print(f"  [{error.document_id}] {error.error}")
+    if report.failed:
+        sys.exit(1)
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -161,7 +180,8 @@ def main(argv: Sequence[str] | None = None) -> None:
     try:
         asyncio.run(commands[args.command](args))
     except RuntimeError as exc:
-        parser.error(str(exc))
+        print(f"bddk-mcp {args.command}: error: {exc}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

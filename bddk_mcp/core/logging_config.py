@@ -54,9 +54,6 @@ class JsonFormatter(logging.Formatter):
         for key in (
             "operation",
             "duration_ms",
-            "doc_id",
-            "query",
-            "result_count",
             "tool_name",
             "tool_status",
             "argument_count",
@@ -67,6 +64,12 @@ class JsonFormatter(logging.Formatter):
             "result_preview",
             "error_type",
             "error_message",
+            "attempt",
+            "max_retries",
+            "max_attempts",
+            "http_method",
+            "upstream_boundary",
+            "status_code",
         ):
             val = getattr(record, key, None)
             if val is not None:

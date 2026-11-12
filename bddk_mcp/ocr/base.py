@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import io
 import logging
+import os
 import re
 import shutil
 import subprocess
@@ -130,11 +131,14 @@ def _run_pdftotext(pdf_bytes: bytes) -> str | None:
     if not shutil.which("pdftotext"):
         return None
     try:
-        with tempfile.NamedTemporaryFile(suffix=".pdf") as f:
-            f.write(pdf_bytes)
-            f.flush()
+        # Windows cannot reopen a NamedTemporaryFile that is still open, so write into a directory
+        # and let pdftotext open the closed file.
+        with tempfile.TemporaryDirectory() as tmp:
+            pdf_path = os.path.join(tmp, "input.pdf")
+            with open(pdf_path, "wb") as f:
+                f.write(pdf_bytes)
             proc = subprocess.run(
-                ["pdftotext", "-layout", "-enc", "UTF-8", f.name, "-"],
+                ["pdftotext", "-layout", "-enc", "UTF-8", pdf_path, "-"],
                 capture_output=True,
                 text=True,
                 encoding="utf-8",

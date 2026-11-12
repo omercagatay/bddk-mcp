@@ -143,7 +143,11 @@ class DocumentSearchItem(StrictOutputModel):
     relevance: float = Field(
         ge=-1,
         le=1,
-        description="Cosine-derived or reranked relevance on the store's normalized -1 to 1 scale.",
+        description=(
+            "Heuristic ranking score that orders the results: cosine similarity adjusted by a keyword gate and "
+            "lexical/phrase boosts, clamped to 1; 0.0 for exact legal-reference hits. "
+            "Not a probability and not a cosine."
+        ),
     )
     match_strength: Literal["strong", "moderate", "weak"] = Field(description="Stable relevance band.")
     quality: QualityMetadata = Field(description="Known local document-quality status.")

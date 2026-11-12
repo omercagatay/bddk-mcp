@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -26,7 +27,8 @@ def test_install_is_idempotent_and_preserves_existing_hooks(tmp_path):
     text = existing.read_text(encoding="utf-8")
     assert "echo owner-hook" in text
     assert text.count(graphify_sync.BLOCK_START) == 1
-    assert (tmp_path / "post-merge").stat().st_mode & 0o111
+    if os.name != "nt":  # Windows has no executable permission bit
+        assert (tmp_path / "post-merge").stat().st_mode & 0o111
 
 
 def test_uninstall_removes_only_the_sync_block(tmp_path):

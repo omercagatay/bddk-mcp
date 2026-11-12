@@ -230,7 +230,6 @@ def test_embedding_tokenizer_log_omits_model_path_and_exception(caplog, monkeypa
     transformers_module = ModuleType("transformers")
     transformers_module.AutoTokenizer = FailingTokenizer
     monkeypatch.setitem(sys.modules, "transformers", transformers_module)
-    monkeypatch.setattr("bddk_mcp.store.vector_store.EMBEDDING_CHUNK_MODE", "token")
     monkeypatch.setattr("bddk_mcp.store.vector_store.EMBEDDING_MODEL_PATH", str(model_path))
 
     with caplog.at_level(logging.WARNING, logger="bddk_mcp.store.vector_store"):
@@ -266,31 +265,6 @@ def test_embedding_loader_uses_private_path_without_logging_it(caplog, monkeypat
     store = VectorStore(MagicMock())
     with caplog.at_level(logging.INFO, logger="bddk_mcp.store.vector_store"):
         store._ensure_embeddings()
-
-    assert loaded_sources == [str(model_path)]
-    _assert_private_values_absent(caplog)
-    assert "local source" in caplog.text
-
-
-def test_reranker_loader_uses_private_path_without_logging_it(caplog, monkeypatch, tmp_path):
-    model_path = tmp_path / PRIVATE_TERM
-    model_path.mkdir()
-    (model_path / "config.json").write_text("{}", encoding="utf-8")
-    loaded_sources: list[str] = []
-
-    class FakeCrossEncoder:
-        def __init__(self, source, **_kwargs):
-            loaded_sources.append(source)
-
-    sentence_transformers = ModuleType("sentence_transformers")
-    sentence_transformers.CrossEncoder = FakeCrossEncoder
-    monkeypatch.setitem(sys.modules, "sentence_transformers", sentence_transformers)
-    monkeypatch.setattr("bddk_mcp.store.vector_store.RERANKER_MODEL_PATH", str(model_path))
-    monkeypatch.setattr("bddk_mcp.store.vector_store.RERANKER_ENABLED", True)
-
-    store = VectorStore(MagicMock())
-    with caplog.at_level(logging.INFO, logger="bddk_mcp.store.vector_store"):
-        store._ensure_reranker()
 
     assert loaded_sources == [str(model_path)]
     _assert_private_values_absent(caplog)

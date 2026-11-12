@@ -8,6 +8,7 @@ from bddk_mcp.ocr.base import (
     MarkitdownBackend,
     OCRBackend,
     PdftotextBackend,
+    _run_pdftotext,
     get_default_backends,
     run_extraction_chain,
 )
@@ -59,6 +60,22 @@ class TestPdftotextBackend:
             result = backend.extract(b"%PDF-1.4\nfake")
             assert result == "layout text"
             mock.assert_called_once()
+
+    def test_run_pdftotext_does_not_hold_the_temp_file_open(self):
+        """Windows cannot reopen a NamedTemporaryFile that is still open, so the child must see a closed file."""
+        seen = {}
+
+        def fake_run(cmd, **kwargs):
+            with open(cmd[-2], "rb") as handle:
+                seen["bytes"] = handle.read()
+            return MagicMock(returncode=0, stdout="layout text\n")
+
+        with (
+            patch("bddk_mcp.ocr.base.shutil.which", return_value="pdftotext"),
+            patch("bddk_mcp.ocr.base.subprocess.run", side_effect=fake_run),
+        ):
+            assert _run_pdftotext(b"%PDF-1.4\nfake") == "layout text"
+        assert seen["bytes"] == b"%PDF-1.4\nfake"
 
 
 class TestProtocol:

@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 
 from bs4 import BeautifulSoup, NavigableString, Tag
+from bs4.element import PreformattedString
 
 BOLD_TAGS = {"b", "strong"}
 ITALIC_TAGS = {"i", "em"}
@@ -325,6 +326,10 @@ def html_to_markdown(html: str) -> str:
     soup = BeautifulSoup(html, "html.parser")
     for tag in soup.find_all(["script", "style"]):
         tag.decompose()
+    # Comments (Word conditional comments), doctype, CDATA, processing instructions and declarations
+    # are NavigableString subclasses (PreformattedString) but never page text.
+    for node in soup.find_all(string=lambda s: isinstance(s, PreformattedString)):
+        node.extract()
     body = soup.body or soup
     out: list[str] = []
     seen_cells: set[str] = set()

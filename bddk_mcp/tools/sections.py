@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import math
 import re
@@ -15,7 +16,7 @@ from bddk_mcp.quality.markdown_quality import (
     mentions_formula,
     unsafe_verbatim_reason,
 )
-from bddk_mcp.quotations import check_exact_quotation
+from bddk_mcp.quotations import ExactQuotationCheck, check_exact_quotation
 from bddk_mcp.store.legal_ref import document_id_candidates, parse_legal_refs, turkish_casefold
 from bddk_mcp.store.section_index import split_section_truncation_notice
 from bddk_mcp.tools.contract_types import (
@@ -66,6 +67,10 @@ _LEGAL_APPLICABILITY_WARNING = (
     "publication/amendment status against the official source for the required date; if that evidence is "
     "absent, abstain from a current-law conclusion. Keep TFRS 9/BKZ, problem-loan resolution, and IRB/IDD "
     "requirements distinct."
+)
+_NESTED_ROW_HINT = (
+    "fikra and bent rows are search-oriented and carry no parent madde, so they are not unique addresses; "
+    "retrieve the parent madde (section_type=madde) for the full provision."
 )
 _GOVDE_WARNING = (
     "One or more hits are govde remainder (unparsed body/footnote text), not madde/ilke/paragraf identities. "
@@ -263,7 +268,18 @@ def _assess_quotation(sections: list[StoredDocumentSection], quotation: str) -> 
             gaps=["exact_section_not_resolved"],
         )
     section = sections[0]
-    check = check_exact_quotation(section.content, quotation, expected_reference_sha256=section.content_hash)
+    # The stored hash binds the stored content, truncation notice included. Verify that
+    # binding first, then compare only the legal text: the notice is storage metadata,
+    # never legal text. It is trailing, so offsets into the legal text stay valid.
+    if hashlib.sha256(section.content.encode("utf-8")).hexdigest() != section.content_hash:
+        check = ExactQuotationCheck(status="unavailable", reason="reference_hash_mismatch")
+    else:
+        legal_text, _notice = split_section_truncation_notice(section.content)
+        check = check_exact_quotation(
+            legal_text,
+            quotation,
+            expected_reference_sha256=hashlib.sha256(legal_text.encode("utf-8")).hexdigest(),
+        )
     if check.status == "exact_reference_match":
         status = "exact_reference_match"
     elif check.status == "mismatch":
@@ -373,8 +389,6 @@ def _loose_search_terms(query: str, *, limit: int = 16) -> list[str]:
 def _loose_section_score(section: StoredDocumentSection, terms: list[str], weights: dict[str, float]) -> float:
     text = _loose_search_text(f"{section.heading} {section.content}")
     score = sum(weights[term] for term in terms if term in text)
-    if "uyumsuzluk" in terms and "uyumsuzluk" in text:
-        score += 400
     # Penalize large cross-topic spans without rewarding tiny fragments:
     # short clauses (up to 100 words) compete on coverage, not brevity.
     score /= 1 + math.log(max(1, len(text.split()) / 100))
@@ -413,7 +427,7 @@ async def _search_sections_loose(
             include_source_range=False,
         )
         for section in term_hits:
-            # Per-term ranks come from different tsqueries and are not
+            # Per-term ranks come from different FTS queries and are not
             # comparable; surfacing them would mislead rank-gating clients.
             merged[_section_key(section)] = section.model_copy(update={"rank": None})
 
@@ -455,14 +469,21 @@ def register(mcp, deps: Dependencies) -> None:
 
         Args:
             document_id: Stored document ID, e.g. `943` or `mevzuat_22599`
-            section_type: Optional exact section type, e.g. madde, gecici_madde, ek_madde, ilke, paragraf, ek, bent
-            section_ref: Optional exact section reference, e.g. 9, 66/A (inserted article) or a (bent)
+            section_type: Optional exact section type, e.g. madde, gecici_madde, ek_madde, ilke, paragraf, ek
+            section_ref: Optional exact section reference, e.g. 9 or 66/A (inserted article)
             heading: Optional heading substring filter
             quotation: Optional proposed quotation; verify it in the exact provision,
                 preserving every character, including whitespace. An exact stored-reference
                 match does not establish original-source fidelity, a paraphrase or a duty.
 
+        fikra and bent rows are search-oriented, not unique addresses: they carry no
+        parent madde, so many rows can share one reference. Fetch the parent madde for
+        the full provision.
+
         Supplying quotation returns answer_assessment with the mechanical match result.
+        The quotation is compared with the section's legal text after its stored hash
+        is confirmed; a storage truncation notice on a capped section is not legal text
+        and is excluded, so reference_sha256 is the hash of exactly the text compared.
         Scope and semantic entailment still require review; never infer them from a
         quotation match.
         """
@@ -542,6 +563,8 @@ def register(mcp, deps: Dependencies) -> None:
             )
             + "Narrow by section_type, section_ref, or heading:\n"
         ]
+        if any(section.section_type in {"fikra", "bent"} for section in result_sections):
+            lines.append(_NESTED_ROW_HINT)
         for section in result_sections:
             heading_text = f" — {section.heading}" if section.heading else ""
             lines.append(

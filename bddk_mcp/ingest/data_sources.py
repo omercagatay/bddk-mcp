@@ -5,6 +5,7 @@ import logging
 import math
 import re
 from dataclasses import dataclass
+from datetime import date, timedelta
 
 import httpx
 from bs4 import BeautifulSoup
@@ -207,19 +208,6 @@ def _parse_tabpane_institutions(soup: BeautifulSoup, inst_type: str) -> list[dic
                 }
             )
     return results
-
-
-async def fetch_institutions(
-    http: httpx.AsyncClient,
-    institution_type: str | None = None,
-) -> list[dict]:
-    """Fetch the institution directory, discarding partial-fetch status.
-
-    Prefer :func:`fetch_institutions_with_status` where the caller renders the
-    result to a user: a silently truncated directory reads as a complete one.
-    """
-
-    return (await fetch_institutions_with_status(http, institution_type)).institutions
 
 
 async def fetch_institutions_with_status(
@@ -521,11 +509,21 @@ async def fetch_announcements(
 # -- Monthly Bulletin Data -------------------------------------------------
 
 
+def recent_complete_months(count: int) -> list[tuple[int, int]]:
+    """Return the ``count`` most recent complete calendar months as (year, month), newest first."""
+    first_day = date.today().replace(day=1)
+    months: list[tuple[int, int]] = []
+    for _ in range(count):
+        first_day = (first_day - timedelta(days=1)).replace(day=1)
+        months.append((first_day.year, first_day.month))
+    return months
+
+
 async def fetch_monthly_bulletin(
     http: httpx.AsyncClient,
-    table_no: int = 1,
-    year: int = 2025,
-    month: int = 12,
+    table_no: int,
+    year: int,
+    month: int,
     currency: str = "TL",
     party_code: str = "10001",
 ) -> dict:
@@ -540,7 +538,12 @@ async def fetch_monthly_bulletin(
         currency: TL or USD
         party_code: Bank group code (10001=sector total)
 
-    Returns dict with: title, rows [{name, value}], period.
+    Returns dict with: title, rows [{name, tp, yp, total}], period, currency.
+    BDDK refuses a period it holds no data for (typically a month it has not
+    published yet) with success=false and a "... veri bulunma..." message; that
+    is an answer, so rows is empty and the message is passed on as notice.
+    Returns {"error": ...} when the request fails, BDDK refuses for any other
+    reason, or the response is not the expected object.
     """
     try:
         page_url = f"{_BDDK_BASE_URL}/BultenAylik"
@@ -574,9 +577,30 @@ async def fetch_monthly_bulletin(
         result = response.json()
 
         # Response: {success, Json: {data: {rows: [{cell: [group, idx, name, font, tp, yp, total]}]}}}
-        js = result.get("Json", {})
+        if not isinstance(result, dict):
+            raise ValueError("Unexpected monthly bulletin response")
+        if result.get("success") is False:
+            # Seen live: "2026 yılının en son 9 ayına ait veri bulunmaktadır!" and
+            # "2031 yılına ait veri bulunmamaktadır!". Any other refusal is a failed
+            # call, not evidence of missing data.
+            notice = str(result.get("error") or "")
+            if "veri bulunma" not in notice.lower():
+                raise ValueError("Unexpected monthly bulletin response")
+            return {
+                "title": f"Tablo {table_no}",
+                "rows": [],
+                "period": f"{month}/{year}",
+                "currency": currency,
+                "notice": notice[:200],
+            }
+        if not isinstance(result.get("Json"), dict):
+            raise ValueError("Unexpected monthly bulletin response")
+        js = result["Json"]
         caption = js.get("caption", f"Tablo {table_no}")
-        raw_rows = js.get("data", {}).get("rows", [])
+        data = js.get("data", {})
+        if not isinstance(data, dict):
+            raise ValueError("Unexpected monthly bulletin response")
+        raw_rows = data.get("rows", [])
 
         rows: list[dict] = []
         for r in raw_rows:
@@ -597,6 +621,14 @@ async def fetch_monthly_bulletin(
             "period": f"{month}/{year}",
             "currency": currency,
         }
-    except (httpx.HTTPError, httpx.TransportError, OutboundHttpPolicyError, KeyError, ValueError) as exc:
+    except (
+        httpx.HTTPError,
+        httpx.TransportError,
+        OutboundHttpPolicyError,
+        AttributeError,
+        KeyError,
+        TypeError,
+        ValueError,
+    ) as exc:
         logger.error("Failed to fetch monthly bulletin", extra={"error_type": type(exc).__name__})
         return {"error": "Approved BDDK upstream request failed."}

@@ -1,11 +1,13 @@
 """Tests for VectorStore — chunking, model loading, add, hybrid search — on a temporary corpus file."""
 
 import asyncio
+import threading
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from bddk_mcp.quality.markdown_quality import assess_markdown_quality
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
 from bddk_mcp.store.vector_store import (
     SemanticSearchReadinessError,
@@ -84,6 +86,30 @@ class TestQualityMetadata:
         assert quality_by_id["missing"]["quality_label"] != "clean" or quality_by_id["missing"]["quality_flags"] == []
         assert _quality_metadata(matching_chunk, "quality_formula")["quality_label"] == "clean"
 
+    @pytest.mark.asyncio
+    async def test_search_assesses_quality_once_for_final_hits_off_the_event_loop(self, doc_store, vector_store):
+        for index in range(4):
+            await _store_and_index(
+                vector_store,
+                doc_store,
+                doc_id=f"quality_{index}",
+                title="Sermaye yeterliliği hesaplaması",
+                content=f"sermaye yeterliliği hesaplaması {index}",
+            )
+        calls: list[tuple[str, bool]] = []
+
+        def spy(text, *, document_id):
+            calls.append((document_id, threading.current_thread() is threading.main_thread()))
+            return assess_markdown_quality(text, document_id=document_id)
+
+        with patch("bddk_mcp.store.vector_store.assess_markdown_quality", new=spy):
+            hits = await vector_store.search("sermaye yeterliliği hesaplaması", limit=1)
+
+        assert len(hits) == 1
+        assert hits[0]["quality_label"] == "clean"
+        assert hits[0]["quality_flags"] == []
+        assert calls == [(hits[0]["doc_id"], False)]
+
 
 class TestChunkText:
     """Test the text chunking utility (no corpus needed)."""
@@ -96,9 +122,9 @@ class TestChunkText:
         chunks = _chunk_document(
             "mevzuat_22599",
             text,
-            chunk_size=55,
-            overlap=0,
-            use_token_chunking=False,
+            tokenizer=WhitespaceTokenizer(),
+            target_tokens=50,
+            token_overlap=0,
         )
 
         assert chunks[0].chunk_text.startswith("MADDE 9")
@@ -231,38 +257,6 @@ class TestModelReproducibility:
         ):
             VectorStore(MagicMock())._ensure_embeddings()
 
-    def test_remote_reranker_uses_pinned_revision(self):
-        calls: list[tuple[str, dict]] = []
-
-        class FakeCrossEncoder:
-            def __init__(self, model_ref: str, **kwargs):
-                calls.append((model_ref, kwargs))
-
-        fake_module = SimpleNamespace(CrossEncoder=FakeCrossEncoder)
-        with (
-            patch.dict("sys.modules", {"sentence_transformers": fake_module}),
-            patch("bddk_mcp.store.vector_store.RERANKER_MODEL_PATH", ""),
-            patch("bddk_mcp.store.vector_store.RERANKER_MODEL_NAME", "reviewed/reranker"),
-            patch("bddk_mcp.store.vector_store.RERANKER_MODEL_REVISION", "b" * 40),
-            patch("bddk_mcp.store.vector_store.RERANKER_ENABLED", True),
-            patch("bddk_mcp.store.vector_store._torch_device", return_value="cuda"),
-        ):
-            store = VectorStore(MagicMock())
-            store._ensure_reranker()
-
-        assert calls == [
-            (
-                "reviewed/reranker",
-                {
-                    "device": "cuda",
-                    "backend": "torch",
-                    "local_files_only": False,
-                    "trust_remote_code": False,
-                    "revision": "b" * 40,
-                },
-            )
-        ]
-
 
 class TestHybridSearchOrdering:
     """Regression coverage for the RRF-vs-final-relevance sort invariant.
@@ -345,6 +339,34 @@ class TestHybridSearchOrdering:
         assert results[0]["semantic_relevance"] == 0.0
         assert results[0]["fts_rank"] == 0.4
         assert results[0]["relevance"] == 0.0
+
+    @pytest.mark.asyncio
+    async def test_exact_reference_query_ranks_hybrid_hits_ahead_of_fts_only_matches(self):
+        """A hit found by both FTS and dense search must not be cut by FTS-only exact matches."""
+        vs = VectorStore.__new__(VectorStore)
+
+        vs._vector_search = AsyncMock(
+            return_value=[
+                {"doc_id": "good", "relevance": 0.85, "title": "Good", "snippet": "good"},
+                {"doc_id": "vec", "relevance": 0.84, "title": "Vec", "snippet": "vec"},
+            ]
+        )
+        vs._fts_search = AsyncMock(
+            return_value=[
+                {"doc_id": "x1", "fts_rank": 0.9, "title": "X1", "snippet": "x1"},
+                {"doc_id": "x2", "fts_rank": 0.8, "title": "X2", "snippet": "x2"},
+                {"doc_id": "good", "fts_rank": 0.5, "title": "Good", "snippet": "good"},
+            ]
+        )
+        query = "sermaye yeterliliği madde 5"
+
+        top_two = await vs._hybrid_search(query, limit=2)
+        everything = await vs._hybrid_search(query, limit=10)
+
+        assert [r["doc_id"] for r in top_two] == ["good", "x1"]
+        assert top_two[0]["match_type"] == "hybrid"
+        assert [r["doc_id"] for r in everything] == ["good", "x1", "x2", "vec"]
+        assert [r["match_type"] for r in everything] == ["hybrid", "fts_exact", "fts_exact", "vector"]
 
     @pytest.mark.asyncio
     async def test_hybrid_search_drops_fts_only_non_legal_query(self):

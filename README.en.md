@@ -39,15 +39,15 @@ Regulation and decision text comes from the locally published copy. Institution,
 - `search_bddk_institutions`: searches institutions and may call BDDK live.
 - `search_bddk_announcements`: searches announcements and may call BDDK live.
 - `get_bddk_document`: returns a stored document page. If extraction left an unsafe artifact, it refuses instead of silently rewriting the text.
-- `get_document_history`: shows the stored document history.
+- `get_document_history`: lists a document's earlier (replaced) bodies; the current body is not listed, and the list is empty until a sync or build replaces the text.
 - `get_document_section`: asks for an article (including inserted articles such as 66/A), a temporary or additional article, a principle, paragraph, annex, or lettered item (bent); with `quotation` it verifies the quote character for character against the stored text.
 - `search_document_sections`: searches section headings.
 - `get_bddk_bulletin`: weekly bulletin; may call live.
 - `get_bddk_bulletin_snapshot`: one dated bulletin view; may call live.
 - `get_bddk_monthly`: monthly bulletin; may call live.
 - `analyze_bulletin_trends`: reads the direction of a bulletin series; may call live.
-- `get_regulatory_digest`: recent decisions, announcements, and bulletin summary. The announcement and bulletin half may be live.
-- `compare_bulletin_metrics`: compares bulletin figures across two periods; may call live.
+- `get_regulatory_digest`: recent decisions, announcements, and bulletin summary. Decisions come from the local corpus catalog; the announcement and bulletin half may be live.
+- `compare_bulletin_metrics`: compares up to 4 bulletin metrics side by side; may call live.
 
 The server only reads: it opens the corpus file read-only. Preparing the corpus is separate: `bddk-mcp build` turns the documents in `seed_data/` into one SQLite corpus file with their sections, chunks and embeddings; `bddk-mcp sync` downloads documents from the source into the same file. Details: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 

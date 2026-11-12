@@ -529,3 +529,78 @@ async def test_quotation_is_unavailable_without_exactly_one_resolved_section():
         "gaps": ["exact_section_not_resolved"],
         "scope_and_entailment": "not_assessed",
     }
+
+
+def _capped_section(legal_text: str) -> StoredDocumentSection:
+    from bddk_mcp.store.section_index import TRUNCATION_NOTICE_PREFIX
+
+    content = (
+        f"{legal_text}\n\n{TRUNCATION_NOTICE_PREFIX} içerik 25000 karakterden 20000 karaktere kısaltıldı"
+        " — tam metin için get_bddk_document kullanın]"
+    )
+    return _section("mevzuat_1", "ek", "1", content).model_copy(
+        update={"content_hash": hashlib.sha256(content.encode("utf-8")).hexdigest()}
+    )
+
+
+@pytest.mark.asyncio
+async def test_quotation_check_excludes_the_storage_truncation_notice_of_a_capped_section():
+    legal_text = "EK 1\nBankalar aşağıdaki tabloyu doldurur."
+    section = _capped_section(legal_text)
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[section])
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "get_document_section")
+
+    notice = await tool("mevzuat_1", section_type="ek", section_ref="1", quotation="[BÖLÜM KESİLDİ: içerik 25000")
+    spanning = await tool("mevzuat_1", section_type="ek", section_ref="1", quotation="doldurur.\n\n[BÖLÜM")
+    legal = await tool("mevzuat_1", section_type="ek", section_ref="1", quotation="tabloyu doldurur.")
+
+    assert notice.structuredContent["answer_assessment"]["quotation_status"] == "not_found"
+    assert spanning.structuredContent["answer_assessment"]["quotation_status"] == "not_found"
+    assessment = legal.structuredContent["answer_assessment"]
+    check = assessment["quotation_check"]
+    assert assessment["quotation_status"] == "exact_reference_match"
+    assert check["start_char"] == legal_text.index("tabloyu doldurur.")
+    assert check["end_char"] == len(legal_text)
+    # Bound to exactly the characters compared: the legal text without the notice.
+    assert check["reference_sha256"] == hashlib.sha256(legal_text.encode("utf-8")).hexdigest()
+
+
+@pytest.mark.asyncio
+async def test_quotation_check_is_unavailable_when_stored_content_no_longer_matches_its_hash():
+    section = _capped_section("EK 1\nBankalar aşağıdaki tabloyu doldurur.").model_copy(
+        update={"content_hash": "0" * 64}
+    )
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[section])
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "get_document_section")
+
+    result = await tool("mevzuat_1", section_type="ek", section_ref="1", quotation="tabloyu doldurur.")
+
+    assessment = result.structuredContent["answer_assessment"]
+    assert assessment["quotation_status"] == "unavailable"
+    assert assessment["gaps"] == ["quotation_reference_hash_mismatch"]
+
+
+def test_loose_section_score_has_no_single_word_bonus():
+    from bddk_mcp.tools.sections import _loose_section_score
+
+    terms = ["uyumsuzluk", "model", "validasyonu"]
+    weights = dict.fromkeys(terms, 1.0)
+    one_word = _section(content="Uyumsuzluk halinde bildirim yapılır.").model_copy(update={"heading": ""})
+    all_others = _section(content="Model validasyonu yıllık yapılır.").model_copy(update={"heading": ""})
+
+    assert _loose_section_score(all_others, terms, weights) > _loose_section_score(one_word, terms, weights)
+
+
+@pytest.mark.asyncio
+async def test_ambiguous_fikra_rows_point_to_the_parent_madde():
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(
+        return_value=[_section("mevzuat_1", "fikra", "2", f"(2) Fıkra metni {n}.") for n in range(3)]
+    )
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "get_document_section")
+
+    result = await tool("mevzuat_1", section_type="fikra", section_ref="2")
+
+    assert "retrieve the parent madde" in result.text
