@@ -80,7 +80,7 @@ Two-layer pattern: modules under `bddk_mcp/tools/` are thin MCP wrappers over en
 - **MCP tool wrappers** (`bddk_mcp/tools/`): `search.py`, `documents.py` (incl. formula-aware extraction warnings), `sections.py` (exact sections, section search, character-exact `quotation` check), `bulletin.py`, `analytics.py`. Shared plumbing: `structured_outputs.py`, `errors.py`, `contract_types.py`, `tool_logging.py`.
 - **Engines**:
   - `ingest/` — `client.py` (BDDK scraper: httpx, BeautifulSoup), `html_extractor.py`, `doc_sync.py` (download → OCR → store → re-embed), `data_sources.py` (bulletins), `seed.py` (corpus build from / export to `seed_data/`)
-  - `store/` — `corpus_db.py` (the SQLite corpus file: schema, read-only/read-write open, readiness), `doc_store.py` (documents, versions, sections + FTS5 section search, catalog, sync failures), `vector_store.py` (chunks with float16 embeddings, exact cosine search with numpy over the in-memory vectors, FTS5 BM25, RRF fusion, optional reranker), `section_index.py` (structural parser for Turkish legal Markdown), `legal_ref.py`
+  - `store/` — `corpus_db.py` (the SQLite corpus file: schema, read-only/read-write open, readiness), `doc_store.py` (documents, versions, sections + FTS5 section search, catalog, sync failures), `vector_store.py` (chunks with float16 embeddings, exact cosine search with numpy over the in-memory vectors, FTS5 BM25, RRF fusion), `section_index.py` (structural parser for Turkish legal Markdown), `legal_ref.py`
   - `quality/` — `markdown_quality.py`, `quality_scan.py`, `quality_failures.yml` (reviewed extraction-failure registry)
   - `ocr/` — pluggable backends (`base.py`, `chandra.py` primary; requires `gpu` group)
   - `observability/` — `analytics.py` (trend/comparison engine)

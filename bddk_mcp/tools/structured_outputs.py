@@ -145,7 +145,7 @@ class DocumentSearchItem(StrictOutputModel):
         le=1,
         description=(
             "Heuristic ranking score that orders the results: cosine similarity adjusted by a keyword gate and "
-            "lexical/phrase boosts (or the reranker's score), clamped to 1; 0.0 for exact legal-reference hits. "
+            "lexical/phrase boosts, clamped to 1; 0.0 for exact legal-reference hits. "
             "Not a probability and not a cosine."
         ),
     )

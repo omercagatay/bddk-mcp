@@ -122,9 +122,9 @@ class TestChunkText:
         chunks = _chunk_document(
             "mevzuat_22599",
             text,
-            chunk_size=55,
-            overlap=0,
-            use_token_chunking=False,
+            tokenizer=WhitespaceTokenizer(),
+            target_tokens=50,
+            token_overlap=0,
         )
 
         assert chunks[0].chunk_text.startswith("MADDE 9")
@@ -256,38 +256,6 @@ class TestModelReproducibility:
             pytest.raises(RuntimeError, match="dimension must be 768"),
         ):
             VectorStore(MagicMock())._ensure_embeddings()
-
-    def test_remote_reranker_uses_pinned_revision(self):
-        calls: list[tuple[str, dict]] = []
-
-        class FakeCrossEncoder:
-            def __init__(self, model_ref: str, **kwargs):
-                calls.append((model_ref, kwargs))
-
-        fake_module = SimpleNamespace(CrossEncoder=FakeCrossEncoder)
-        with (
-            patch.dict("sys.modules", {"sentence_transformers": fake_module}),
-            patch("bddk_mcp.store.vector_store.RERANKER_MODEL_PATH", ""),
-            patch("bddk_mcp.store.vector_store.RERANKER_MODEL_NAME", "reviewed/reranker"),
-            patch("bddk_mcp.store.vector_store.RERANKER_MODEL_REVISION", "b" * 40),
-            patch("bddk_mcp.store.vector_store.RERANKER_ENABLED", True),
-            patch("bddk_mcp.store.vector_store._torch_device", return_value="cuda"),
-        ):
-            store = VectorStore(MagicMock())
-            store._ensure_reranker()
-
-        assert calls == [
-            (
-                "reviewed/reranker",
-                {
-                    "device": "cuda",
-                    "backend": "torch",
-                    "local_files_only": False,
-                    "trust_remote_code": False,
-                    "revision": "b" * 40,
-                },
-            )
-        ]
 
 
 class TestHybridSearchOrdering:

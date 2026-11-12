@@ -14,8 +14,6 @@ from bddk_mcp.core.config import (
     HTTP_CONNECT_TIMEOUT,
     HTTP_POOL_TIMEOUT,
     REQUEST_TIMEOUT,
-    STALE_CACHE_FALLBACK,
-    SYNC_CONCURRENCY,
 )
 from bddk_mcp.core.exceptions import BddkStorageError, BddkUpstreamError
 from bddk_mcp.core.models import (
@@ -51,6 +49,8 @@ _BDDK_BASE_URL = "https://www.bddk.org.tr"
 # buffering an unbounded upstream response. Catalog pages should be small;
 # document fallback permits large regulatory PDFs while remaining finite.
 _MAX_CATALOG_RESPONSE_BYTES = 8 * 1024 * 1024
+# Parallel catalog-page requests BDDK sees at once.
+_SCRAPE_CONCURRENCY = 5
 # Pages that use accordion card structure (h5 headers with card-body)
 _ACCORDION_PAGE_IDS = [50, 51]
 # Pages that use flat list with DokumanGetir links and (date - number) format
@@ -284,9 +284,9 @@ class BddkApiClient:
         self._cache_timestamp: float = 0.0
         self._page_errors: dict[int, str] = {}
         # Bound the parallel _scrape_bddk() fan-out so BDDK sees at most
-        # SYNC_CONCURRENCY (default 5) in-flight requests at once, matching
+        # _SCRAPE_CONCURRENCY in-flight requests at once, matching
         # the rate limit data_sources.py already enforces for the same host.
-        self._scrape_sem = asyncio.Semaphore(SYNC_CONCURRENCY)
+        self._scrape_sem = asyncio.Semaphore(_SCRAPE_CONCURRENCY)
 
     # -- context manager ------------------------------------------------------
 
@@ -630,7 +630,7 @@ class BddkApiClient:
                 len(self._page_errors),
                 len(_ALL_PAGE_IDS),
             )
-            if STALE_CACHE_FALLBACK and self._cache:
+            if self._cache:
                 logger.warning("Retaining last known-good decision cache (%d items)", len(self._cache))
             raise BddkUpstreamError("BDDK catalog refresh was incomplete; the last known-good cache was retained.")
 
