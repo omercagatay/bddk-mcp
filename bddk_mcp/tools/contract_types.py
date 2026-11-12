@@ -532,7 +532,7 @@ MonthlyYear = Annotated[
     Field(
         ge=2000,
         le=2100,
-        description="Four-digit bulletin year from 2000 through 2100; omit with month for the last complete month.",
+        description="Four-digit bulletin year from 2000 through 2100; omit with month for the most recent published month.",
     ),
     BeforeValidator(lambda value: None if value is None else _integer(value, name="year", minimum=2000, maximum=2100)),
 ]
@@ -541,7 +541,7 @@ MonthlyMonth = Annotated[
     Field(
         ge=1,
         le=12,
-        description="Calendar month number from 1 through 12; omit with year for the last complete month.",
+        description="Calendar month number from 1 through 12; omit with year for the most recent published month.",
     ),
     BeforeValidator(lambda value: None if value is None else _integer(value, name="month", minimum=1, maximum=12)),
 ]

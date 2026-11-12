@@ -336,4 +336,4 @@ async def test_build_digest_window_is_period_days_calendar_days_including_today(
 
     assert [d["title"] for d in day["new_decisions"]] == ["K10"]
     assert [d["title"] for d in week["new_decisions"]] == ["K10", "K9", "K4"]
-    assert "yerel korpus kataloğundan" in week["narrative"]
+    assert "yerel corpus kataloğundan" in week["narrative"]

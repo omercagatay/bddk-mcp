@@ -692,7 +692,10 @@ class VectorStore:
             expected = {"embedding_model": self._embedding_model, "embedding_dimension": str(EMBEDDING_DIMENSION)}
             for key, value in expected.items():
                 if key in meta and meta[key] != value:
-                    raise RetrievalProfileError("The corpus was built with a different embedding model.")
+                    raise RetrievalProfileError(
+                        "The corpus file was built with a different embedding model; "
+                        "delete it and run `bddk-mcp build` again."
+                    )
                 conn.execute("INSERT OR IGNORE INTO meta (key, value) VALUES (?, ?)", (key, value))
             conn.execute("DELETE FROM chunks WHERE doc_id = ?", (doc_id,))
             conn.executemany(

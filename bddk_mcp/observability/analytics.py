@@ -196,7 +196,7 @@ async def build_digest(
         )
 
     narrative_parts.append(
-        "Kararlar yerel korpus kataloğundan gelir, canlı bir akış değildir; katalog güncel değilse yeni kararlar görünmez."
+        "Kararlar yerel corpus kataloğundan gelir, canlı bir akış değildir; katalog güncel değilse yeni kararlar görünmez."
     )
 
     if by_category:

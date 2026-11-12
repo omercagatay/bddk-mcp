@@ -340,7 +340,7 @@ async def test_export_after_build_gives_back_the_seed_bytes(tmp_path: Path):
 async def test_build_against_a_corpus_of_another_model_says_to_delete_the_file(tmp_path: Path, seed_dir: Path):
     await _build(tmp_path)
 
-    with pytest.raises(RuntimeError, match=r"embedded with another model.*[Dd]elete"):
+    with pytest.raises(RuntimeError, match=r"different embedding model.*[Dd]elete"):
         await seed.build_corpus(
             corpus_path=tmp_path / "corpus.sqlite",
             seed_dir=seed_dir,
@@ -383,21 +383,18 @@ def _seed_documents_and_cache():
 
 
 def test_seed_decision_metadata_agrees_with_decision_cache():
+    """An empty date or number in one file is a mismatch too: that was the defect."""
     documents, cache = _seed_documents_and_cache()
+    assert {d["document_id"] for d in documents} == set(cache)
     mismatches = [
         (d["document_id"], field, d[field], cache[d["document_id"]][field])
         for d in documents
-        if d["document_id"] in cache
-        for field in ("decision_date", "decision_number")
-        if d[field] and cache[d["document_id"]][field] and d[field] != cache[d["document_id"]][field]
+        for field in ("title", "decision_date", "decision_number")
+        if d[field] != cache[d["document_id"]][field]
     ]
     assert not mismatches
 
 
-# ponytail: 751 and 773 still carry the "(date - number) " prefix in both seed files and have no
-# decision_date/decision_number; the owner has not decided on them yet. strict=True forces removing this
-# marker as soon as they are fixed.
-@pytest.mark.xfail(strict=True, reason="seed documents 751 and 773 are awaiting an owner decision")
 def test_seed_titles_do_not_start_with_a_parenthesised_date():
     documents, _ = _seed_documents_and_cache()
     prefixed = [d["document_id"] for d in documents if re.match(r"\(\d{2}\.\d{2}\.\d{4}", d["title"])]

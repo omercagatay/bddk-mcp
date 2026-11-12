@@ -475,7 +475,7 @@ class BddkApiClient:
             if not raw_text:
                 continue
 
-            date_match = re.match(r"\((\d{2}[./]\d{2}[./]\d{4})\s*[-–—]\s*(\d+)\)\s*(.*)", raw_text)
+            date_match = re.match(r"\((\d{2}[./]\d{2}[./]\d{4})\s*[-–—]\s*(\d+)\s*\)\s*(.*)", raw_text)
             if date_match:
                 decision_date = date_match.group(1)
                 decision_number = date_match.group(2)

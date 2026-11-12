@@ -258,7 +258,7 @@ async def build_corpus(
     so metadata-only seed edits and documents removed from the seed need a fresh file.
     ``vector_store_factory`` (``db -> VectorStore``) is a test seam for a fake embedder.
     """
-    from bddk_mcp.store.vector_store import RetrievalProfileError, VectorStore
+    from bddk_mcp.store.vector_store import VectorStore
 
     seed = Path(seed_dir) if seed_dir else SEED_DIR
     docs = _load_records(seed / "documents.json")
@@ -320,22 +320,16 @@ async def build_corpus(
             record = by_id[doc_id]
             if not record.get("markdown_content"):
                 continue
-            try:
-                result["chunks"] += await vs.add_document(
-                    doc_id=doc_id,
-                    title=record.get("title", "") or doc_id,
-                    content=record["markdown_content"],
-                    category=record.get("category", ""),
-                    decision_date=record.get("decision_date", ""),
-                    decision_number=record.get("decision_number", ""),
-                    source_url=record.get("source_url", "") or "",
-                    cached_embeddings=cache.lookup(doc_id),
-                )
-            except RetrievalProfileError as exc:
-                raise RuntimeError(
-                    f"The corpus file {db.path} was embedded with another model; "
-                    "delete it and run `bddk-mcp build` again."
-                ) from exc
+            result["chunks"] += await vs.add_document(
+                doc_id=doc_id,
+                title=record.get("title", "") or doc_id,
+                content=record["markdown_content"],
+                category=record.get("category", ""),
+                decision_date=record.get("decision_date", ""),
+                decision_number=record.get("decision_number", ""),
+                source_url=record.get("source_url", "") or "",
+                cached_embeddings=cache.lookup(doc_id),
+            )
         result["chunks_cached"] = cache.chunks_used
         logger.info(
             "Corpus built (%d catalog, %d documents rewritten, %d sections, %d chunks: %d embedded, %d from the seed cache)",

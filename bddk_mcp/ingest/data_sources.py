@@ -509,10 +509,14 @@ async def fetch_announcements(
 # -- Monthly Bulletin Data -------------------------------------------------
 
 
-def last_complete_month() -> tuple[int, int]:
-    """Return (year, month) of the most recent complete calendar month."""
-    previous = date.today().replace(day=1) - timedelta(days=1)
-    return previous.year, previous.month
+def recent_complete_months(count: int) -> list[tuple[int, int]]:
+    """Return the ``count`` most recent complete calendar months as (year, month), newest first."""
+    first_day = date.today().replace(day=1)
+    months: list[tuple[int, int]] = []
+    for _ in range(count):
+        first_day = (first_day - timedelta(days=1)).replace(day=1)
+        months.append((first_day.year, first_day.month))
+    return months
 
 
 async def fetch_monthly_bulletin(
@@ -534,9 +538,11 @@ async def fetch_monthly_bulletin(
         currency: TL or USD
         party_code: Bank group code (10001=sector total)
 
-    Returns dict with: title, rows [{name, tp, yp, total}], period, currency;
-    or {"error": ...} when the request fails, BDDK reports success=false or the
-    response is not the expected object.
+    Returns dict with: title, rows [{name, tp, yp, total}], period, currency.
+    BDDK answers success=false for a period it holds no data for (typically a
+    month it has not published yet); that is an answer, so rows is empty.
+    Returns {"error": ...} when the request fails or the response is not the
+    expected object.
     """
     try:
         page_url = f"{_BDDK_BASE_URL}/BultenAylik"
@@ -570,7 +576,11 @@ async def fetch_monthly_bulletin(
         result = response.json()
 
         # Response: {success, Json: {data: {rows: [{cell: [group, idx, name, font, tp, yp, total]}]}}}
-        if not isinstance(result, dict) or result.get("success") is False or not isinstance(result.get("Json"), dict):
+        if not isinstance(result, dict):
+            raise ValueError("Unexpected monthly bulletin response")
+        if result.get("success") is False:
+            return {"title": f"Tablo {table_no}", "rows": [], "period": f"{month}/{year}", "currency": currency}
+        if not isinstance(result.get("Json"), dict):
             raise ValueError("Unexpected monthly bulletin response")
         js = result["Json"]
         caption = js.get("caption", f"Tablo {table_no}")
