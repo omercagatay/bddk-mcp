@@ -20,6 +20,7 @@ from bddk_mcp.quotations import ExactQuotationCheck, check_exact_quotation
 from bddk_mcp.store.doc_store import fts_prefix_stem_query
 from bddk_mcp.store.legal_ref import document_id_candidates, parse_legal_refs, turkish_casefold
 from bddk_mcp.store.section_index import (
+    GOVDE_HEADING,
     MAX_SECTION_CHARS,
     split_section_truncation_notice,
     truncation_notice_original_length,
@@ -293,6 +294,18 @@ def _govde_label(section: StoredDocumentSection, continuations: _Continuations) 
     return None
 
 
+def _heading_suffix(section: StoredDocumentSection, continuations: _Continuations) -> str:
+    """The heading part of a title line.
+
+    The parser stores one generic heading on every govde row ("no structural heading; body/footnote
+    remainder").  For a row that is a full-text window or the continuation of a capped provision that
+    wording contradicts the kind label printed below it, so the title line leaves it out.
+    """
+    if not section.heading or (section.heading == GOVDE_HEADING and _govde_label(section, continuations)):
+        return ""
+    return f" — {section.heading}"
+
+
 def _continuation_warning(section: StoredDocumentSection, parent: tuple[str, str, int, bool]) -> str:
     belongs = f"{parent[0]} {parent[1]}"
     if overrun := _continuation_overrun(parent):
@@ -487,7 +500,7 @@ def _format_section(
     continuations: _Continuations | None = None,
     parents: _Parents | None = None,
 ) -> str:
-    heading = f" — {section.heading}" if section.heading else ""
+    heading = _heading_suffix(section, continuations or {})
     lines = [
         f"### {section.doc_id} — {section.section_type} {section.section_ref}{heading}",
         f"- Document ID: {section.doc_id}",
@@ -829,7 +842,7 @@ def register(mcp, deps: Dependencies) -> None:
         if any(section.section_type in {"fikra", "bent"} for section in result_sections):
             lines.append(_NESTED_ROW_HINT)
         for section in result_sections:
-            heading_text = f" — {section.heading}" if section.heading else ""
+            heading_text = _heading_suffix(section, continuations)
             lines.append(
                 f"- {section.doc_id} {section.section_type} {section.section_ref}{heading_text} "
                 f"(start_char={section.start_char}, hash={section.content_hash[:12]})"
@@ -1027,7 +1040,7 @@ def register(mcp, deps: Dependencies) -> None:
         if filter_note:
             lines.insert(0, filter_note)
         for hit in hits:
-            heading = f" — {hit.heading}" if hit.heading else ""
+            heading = _heading_suffix(hit, continuations)
             lines.append(f"**{hit.doc_id} — {hit.section_type} {hit.section_ref}{heading}**")
             lines.append(f"  Document ID: {hit.doc_id}")
             if hit.document_title:

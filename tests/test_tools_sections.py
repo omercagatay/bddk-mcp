@@ -10,6 +10,7 @@ import pytest
 
 from bddk_mcp.core.deps import Dependencies
 from bddk_mcp.store.doc_store import StoredDocumentSection
+from bddk_mcp.store.section_index import GOVDE_HEADING
 from bddk_mcp.tools.sections import register
 
 
@@ -1049,6 +1050,9 @@ async def test_structureless_document_rows_are_labelled_full_text_not_remainder(
         warnings = result.structuredContent["warnings"]
         assert any("Cite such a document by its title and decision date/number" in w for w in warnings)
         assert not any("Do not cite them as a legal provision" in w for w in warnings)
+        # The stored generic govde heading ("gövde/dipnot kalanı") would contradict the kind label.
+        assert "gövde/dipnot kalanı" not in result.text
+        assert item["heading"] == GOVDE_HEADING  # the structured field stays as stored
     assert "govde remainder — not a legal provision identity" not in search.text
     assert exact.structuredContent["answer_assessment"]["quotation_status"] == "exact_reference_match"
 
