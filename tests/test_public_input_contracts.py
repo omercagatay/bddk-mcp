@@ -98,7 +98,7 @@ async def test_tools_list_describes_every_public_parameter_and_important_bounds(
 
     monthly = schemas["get_bddk_monthly"]["properties"]
     assert monthly["table_no"]["maximum"] == 17
-    assert monthly["month"]["maximum"] == 12
+    assert _nonnull(monthly["month"])["maximum"] == 12
     assert monthly["currency"]["enum"] == ["TL", "USD"]
     assert monthly["party_code"]["enum"] == [
         "10001",

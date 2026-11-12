@@ -14,7 +14,12 @@ from bddk_mcp.core.config import (
     validate_year,
 )
 from bddk_mcp.core.exceptions import BddkUpstreamError
-from bddk_mcp.ingest.data_sources import fetch_bulletin_snapshot, fetch_monthly_bulletin, fetch_weekly_bulletin
+from bddk_mcp.ingest.data_sources import (
+    fetch_bulletin_snapshot,
+    fetch_monthly_bulletin,
+    fetch_weekly_bulletin,
+    last_complete_month,
+)
 from bddk_mcp.tools.contract_types import (
     BulletinColumn,
     BulletinDate,
@@ -35,6 +40,8 @@ if TYPE_CHECKING:
     from bddk_mcp.core.deps import Dependencies
 
 logger = logging.getLogger(__name__)
+
+_MAX_PRINTED_OBSERVATIONS = 60
 
 
 def register(
@@ -63,7 +70,8 @@ def register(
             currency: TRY or USD
             column: 1=TP (TL), 2=YP (Foreign Currency), 3=Toplam
             date: Specific date (DD.MM.YYYY), empty for latest
-            days: Number of days of history (default 90)
+            days: Number of days of history (default 90). At most the most recent
+                60 observations are printed; the output says when it is cut.
         """
         try:
             validate_metric_id(metric_id)
@@ -85,7 +93,9 @@ def register(
         lines = [f"**{data.get('title', 'BDDK Weekly Bulletin')}** ({data['currency']})\n"]
         dates, values = data.get("dates", []), data.get("values", [])
         if dates and values:
-            for d, v in zip(dates[-10:], values[-10:], strict=False):
+            if len(values) > _MAX_PRINTED_OBSERVATIONS:
+                lines.append(f"Son {_MAX_PRINTED_OBSERVATIONS} / {len(values)} gözlem gösteriliyor.")
+            for d, v in zip(dates[-_MAX_PRINTED_OBSERVATIONS:], values[-_MAX_PRINTED_OBSERVATIONS:], strict=False):
                 lines.append(f"  {d}: {v}")
         else:
             lines.append("No data returned for the given parameters.")
@@ -126,8 +136,8 @@ def register(
     @logged_tool(logger)
     async def get_bddk_monthly(
         table_no: MonthlyTableNumber = 1,
-        year: MonthlyYear = 2025,
-        month: MonthlyMonth = 12,
+        year: MonthlyYear = None,
+        month: MonthlyMonth = None,
         currency: MonthlyCurrency = "TL",
         party_code: PartyCode = "10001",
     ) -> str:
@@ -139,13 +149,18 @@ def register(
                 1=Aktif Toplamı, 2=Krediler, 3=Menkul Değerler,
                 4=Mevduat, 9=Sermaye Yeterliliği, 11=Gelir Tablosu,
                 14=Takipteki Alacaklar
-            year: Year (e.g. 2025)
+            year: Year (e.g. 2025). Omit year and month together to get the most
+                recent complete calendar month.
             month: Month (1-12)
             currency: TL or USD
             party_code: Bank group code. 10001=Sektör, 10002=Mevduat Bankaları,
                 10003=Kalkınma ve Yatırım, 10004=Katılım Bankaları,
                 20001=Kamu, 20002=Özel, 20003=Yabancı
         """
+        if (year is None) != (month is None):
+            return tool_error(INVALID_INPUT, "Give both year and month, or neither.", retryable=False)
+        if year is None or month is None:
+            year, month = last_complete_month()
         try:
             validate_table_no(table_no)
             validate_year(year)

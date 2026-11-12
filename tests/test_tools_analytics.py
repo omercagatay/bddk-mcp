@@ -105,3 +105,34 @@ async def test_regulatory_digest_marks_unavailable_upstream_sections():
     assert "Duyurular:" in out
     assert "veri alınamadı" in out
     assert "Bülten Özet:" in out
+
+
+@pytest.mark.asyncio
+async def test_regulatory_digest_header_shows_true_totals_and_cut_lines():
+    """Capped lists must say how many entries were left out; the header prints the true total."""
+    mcp = MagicMock()
+    deps = Dependencies(db=None, doc_store=None, client=MagicMock(), http=MagicMock())
+    deps.client.ensure_cache = AsyncMock()
+    deps.client.get_cache_items = MagicMock(return_value=[])
+    register(mcp, deps)
+    get_regulatory_digest = _registered_tools(mcp)["get_regulatory_digest"]
+
+    with patch(
+        "bddk_mcp.tools.analytics.build_digest",
+        new=AsyncMock(
+            return_value={
+                "narrative": "ok",
+                "decisions_by_category": {"Kurul Kararı": 25},
+                "new_decisions": [{"title": f"K{i}", "decision_date": "01.01.2026"} for i in range(20)],
+                "total_decisions": 25,
+                "announcements": [{"title": f"D{i}", "date": "01.01.2026"} for i in range(20)],
+                "total_announcements": 57,
+                "bulletin_snapshot": [],
+            }
+        ),
+    ):
+        out = await get_regulatory_digest(period="month")
+
+    assert "**Duyurular (57):**" in out
+    assert "... ve 47 daha" in out
+    assert "... ve 15 daha" in out

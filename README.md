@@ -46,8 +46,8 @@ Düzenleme ve karar metinleri yerel yayımlanmış kopyadan gelir. Kurum, duyuru
 - `get_bddk_bulletin_snapshot`: bir tarihli bülten görüntüsü; canlı çağrı yapabilir.
 - `get_bddk_monthly`: aylık bülten; canlı çağrı yapabilir.
 - `analyze_bulletin_trends`: bülten serisinin yönünü okur; canlı çağrı yapabilir.
-- `get_regulatory_digest`: son dönem karar, duyuru ve bülten özeti. Duyuru ve bülten yarısı canlı olabilir.
-- `compare_bulletin_metrics`: iki dönemin bülten rakamını karşılaştırır; canlı çağrı yapabilir.
+- `get_regulatory_digest`: son dönem karar, duyuru ve bülten özeti. Kararlar yerel corpus kataloğundan gelir; duyuru ve bülten yarısı canlı olabilir.
+- `compare_bulletin_metrics`: en çok 4 bülten metriğini yan yana karşılaştırır; canlı çağrı yapabilir.
 
 Sunucu yalnızca okur: corpus dosyasını salt okunur açar. Corpus'u hazırlayan komutlar ayrıdır: `bddk-mcp build`, `seed_data/` içindeki belgelerden section, chunk ve embedding'leriyle tek bir SQLite corpus dosyası üretir; `bddk-mcp sync` belgeleri kaynaktan indirip aynı dosyaya yazar. Ayrıntı: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 

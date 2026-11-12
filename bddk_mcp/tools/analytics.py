@@ -93,7 +93,8 @@ def register(mcp, deps: Dependencies) -> None:
         an executive summary.
 
         Args:
-            period: Time period -- day (last 24 hours), week (7 days), month (30 days), quarter (90 days)
+            period: Time period in calendar days, today included -- day (1), week (7), month (30), quarter (90).
+                Decisions come from the local corpus catalog, not a live feed.
         """
         period_map = {"day": 1, "week": 7, "month": 30, "quarter": 90}
         if period not in period_map:
@@ -116,6 +117,8 @@ def register(mcp, deps: Dependencies) -> None:
             lines.append("**Son Kararlar:**")
             for d in digest["new_decisions"][:10]:
                 lines.append(f"  - {d['title']} ({d.get('decision_date', '')}) [{d.get('category', '')}]")
+            if digest["total_decisions"] > 10:
+                lines.append(f"  ... ve {digest['total_decisions'] - 10} daha")
             lines.append("")
 
         if not digest.get("announcements_available", True):
@@ -124,9 +127,11 @@ def register(mcp, deps: Dependencies) -> None:
             )
             lines.append("")
         elif digest["announcements"]:
-            lines.append(f"**Duyurular ({len(digest['announcements'])}):**")
+            lines.append(f"**Duyurular ({digest['total_announcements']}):**")
             for a in digest["announcements"][:10]:
                 lines.append(f"  - {a['title']} ({a.get('date', '')})")
+            if digest["total_announcements"] > 10:
+                lines.append(f"  ... ve {digest['total_announcements'] - 10} daha")
             lines.append("")
 
         if not digest.get("bulletin_snapshot_available", True):
@@ -150,7 +155,7 @@ def register(mcp, deps: Dependencies) -> None:
         Compare multiple BDDK bulletin metrics side-by-side.
 
         Args:
-            metric_ids: Comma-separated metric IDs (e.g. "1.0.1,1.0.2,1.0.4")
+            metric_ids: Up to 4 comma-separated metric IDs (e.g. "1.0.1,1.0.2,1.0.4")
                 Common: 1.0.1=Toplam Krediler, 1.0.2=Tüketici, 1.0.4=Konut,
                 1.0.8=Kredi Kartları, 1.0.10=Ticari Krediler
             currency: TRY or USD

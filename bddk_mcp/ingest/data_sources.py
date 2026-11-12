@@ -5,6 +5,7 @@ import logging
 import math
 import re
 from dataclasses import dataclass
+from datetime import date, timedelta
 
 import httpx
 from bs4 import BeautifulSoup
@@ -521,11 +522,17 @@ async def fetch_announcements(
 # -- Monthly Bulletin Data -------------------------------------------------
 
 
+def last_complete_month() -> tuple[int, int]:
+    """Return (year, month) of the most recent complete calendar month."""
+    previous = date.today().replace(day=1) - timedelta(days=1)
+    return previous.year, previous.month
+
+
 async def fetch_monthly_bulletin(
     http: httpx.AsyncClient,
-    table_no: int = 1,
-    year: int = 2025,
-    month: int = 12,
+    table_no: int,
+    year: int,
+    month: int,
     currency: str = "TL",
     party_code: str = "10001",
 ) -> dict:
@@ -540,7 +547,9 @@ async def fetch_monthly_bulletin(
         currency: TL or USD
         party_code: Bank group code (10001=sector total)
 
-    Returns dict with: title, rows [{name, value}], period.
+    Returns dict with: title, rows [{name, tp, yp, total}], period, currency;
+    or {"error": ...} when the request fails, BDDK reports success=false or the
+    response is not the expected object.
     """
     try:
         page_url = f"{_BDDK_BASE_URL}/BultenAylik"
@@ -574,9 +583,14 @@ async def fetch_monthly_bulletin(
         result = response.json()
 
         # Response: {success, Json: {data: {rows: [{cell: [group, idx, name, font, tp, yp, total]}]}}}
-        js = result.get("Json", {})
+        if not isinstance(result, dict) or result.get("success") is False or not isinstance(result.get("Json"), dict):
+            raise ValueError("Unexpected monthly bulletin response")
+        js = result["Json"]
         caption = js.get("caption", f"Tablo {table_no}")
-        raw_rows = js.get("data", {}).get("rows", [])
+        data = js.get("data", {})
+        if not isinstance(data, dict):
+            raise ValueError("Unexpected monthly bulletin response")
+        raw_rows = data.get("rows", [])
 
         rows: list[dict] = []
         for r in raw_rows:
@@ -597,6 +611,14 @@ async def fetch_monthly_bulletin(
             "period": f"{month}/{year}",
             "currency": currency,
         }
-    except (httpx.HTTPError, httpx.TransportError, OutboundHttpPolicyError, KeyError, ValueError) as exc:
+    except (
+        httpx.HTTPError,
+        httpx.TransportError,
+        OutboundHttpPolicyError,
+        AttributeError,
+        KeyError,
+        TypeError,
+        ValueError,
+    ) as exc:
         logger.error("Failed to fetch monthly bulletin", extra={"error_type": type(exc).__name__})
         return {"error": "Approved BDDK upstream request failed."}

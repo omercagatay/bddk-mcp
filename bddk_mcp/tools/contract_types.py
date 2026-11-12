@@ -26,7 +26,7 @@ MAX_RESULTS = 50
 MAX_HISTORY_DAYS = 3_650
 MAX_LOOKBACK_WEEKS = 260
 MAX_METRIC_ID_LENGTH = 32
-MAX_METRIC_IDS = 10
+MAX_METRIC_IDS = 4
 MAX_METRIC_LIST_LENGTH = MAX_METRIC_IDS * MAX_METRIC_ID_LENGTH + (MAX_METRIC_IDS - 1)
 
 DATE_PATTERN = r"^\d{2}\.\d{2}\.\d{4}$"
@@ -528,14 +528,22 @@ MonthlyTableNumber = Annotated[
     BeforeValidator(lambda value: _integer(value, name="table_no", minimum=1, maximum=17)),
 ]
 MonthlyYear = Annotated[
-    int,
-    Field(ge=2000, le=2100, description="Four-digit bulletin year from 2000 through 2100."),
-    BeforeValidator(lambda value: _integer(value, name="year", minimum=2000, maximum=2100)),
+    int | None,
+    Field(
+        ge=2000,
+        le=2100,
+        description="Four-digit bulletin year from 2000 through 2100; omit with month for the last complete month.",
+    ),
+    BeforeValidator(lambda value: None if value is None else _integer(value, name="year", minimum=2000, maximum=2100)),
 ]
 MonthlyMonth = Annotated[
-    int,
-    Field(ge=1, le=12, description="Calendar month number from 1 through 12."),
-    BeforeValidator(lambda value: _integer(value, name="month", minimum=1, maximum=12)),
+    int | None,
+    Field(
+        ge=1,
+        le=12,
+        description="Calendar month number from 1 through 12; omit with year for the last complete month.",
+    ),
+    BeforeValidator(lambda value: None if value is None else _integer(value, name="month", minimum=1, maximum=12)),
 ]
 PartyCode = Annotated[
     Literal["10001", "10002", "10003", "10004", "20001", "20002", "20003"],

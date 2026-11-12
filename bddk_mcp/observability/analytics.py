@@ -61,17 +61,18 @@ async def analyze_trends(
     if len(parsed) >= 4:
         recent = parsed[-4:]
         ups = sum(1 for i in range(1, len(recent)) if recent[i] > recent[i - 1])
-        trend = "yükseliş" if ups >= 2 else "düşüş" if ups == 0 else "yatay"
+        downs = sum(1 for i in range(1, len(recent)) if recent[i] < recent[i - 1])
+        trend = "yükseliş" if ups >= 2 else "düşüş" if downs >= 2 else "yatay"
     else:
         trend = "yükseliş" if wow_change > 0 else "düşüş" if wow_change < 0 else "yatay"
 
     # Narrative
-    title = data.get("title", metric_id)
+    title = data.get("title") or metric_id
     direction = "arttı" if wow_change > 0 else "azaldı" if wow_change < 0 else "değişmedi"
 
     narrative = (
         f"{title}: Son haftada %{abs(wow_pct):.2f} {direction}. "
-        f"Son {len(parsed)} haftalık trend: {trend}. "
+        f"Son {min(len(parsed), 4)} veri noktasına göre trend: {trend}. "
         f"Mevcut değer: {current:,.2f}, ortalama: {avg_val:,.2f}."
     )
 
@@ -115,6 +116,7 @@ async def build_digest(
     """
     cutoff = datetime.now()
     cutoff_str = cutoff.strftime("%d.%m.%Y")
+    today = cutoff.date()  # window = period_days calendar days, today included
 
     # -- Recent decisions from cache --
     # Cache items may be Pydantic models or dicts; normalize access.
@@ -131,8 +133,7 @@ async def build_digest(
             continue
         try:
             dt = datetime.strptime(date_str, "%d.%m.%Y")
-            diff = (cutoff - dt).days
-            if 0 <= diff <= period_days:
+            if 0 <= (today - dt.date()).days < period_days:
                 recent_decisions.append(dd)
         except ValueError:
             continue
@@ -169,7 +170,7 @@ async def build_digest(
                 continue
             try:
                 dt = datetime.strptime(date_str, "%d.%m.%Y")
-                if 0 <= (cutoff - dt).days <= period_days:
+                if 0 <= (today - dt.date()).days < period_days:
                     all_announcements.append(a)
             except ValueError:
                 continue
@@ -193,6 +194,10 @@ async def build_digest(
             f"Son {period_days} günde {len(recent_decisions)} yeni karar yayımlandı. "
             "Duyuru verileri alınamadı (BDDK üst kaynağına erişilemedi); duyuru sayıları bu özette eksiktir."
         )
+
+    narrative_parts.append(
+        "Kararlar yerel korpus kataloğundan gelir, canlı bir akış değildir; katalog güncel değilse yeni kararlar görünmez."
+    )
 
     if by_category:
         top_cats = sorted(by_category.items(), key=lambda x: -len(x[1]))[:3]
@@ -229,7 +234,7 @@ async def compare_metrics(
     Returns dict with: metrics (list of {title, current, wow_pct, trend}), comparison.
     """
     results = []
-    for mid in metric_ids[:4]:  # Max 4 metrics
+    for mid in metric_ids:  # the tool schema caps the list (MAX_METRIC_IDS)
         data = await fetch_weekly_bulletin(
             http,
             metric_id=mid,
@@ -254,7 +259,7 @@ async def compare_metrics(
         results.append(
             {
                 "metric_id": mid,
-                "title": data.get("title", mid),
+                "title": data.get("title") or mid,
                 "current": current,
                 "current_date": dates[-1] if dates else "",
                 "wow_pct": wow_pct,
