@@ -87,6 +87,14 @@ def test_every_input_parameter_has_a_client_visible_description():
 async def test_official_client_rejects_extra_tool_argument():
     doc_store = MagicMock()
     doc_store.get_document_history = AsyncMock(return_value=[])
+    doc_store.get_current_body = AsyncMock(
+        return_value={
+            "content_hash": "c" * 64,
+            "content_length": 10,
+            "downloaded_at": 1775667192.0,
+            "extraction_method": "manual",
+        }
+    )
     deps = Dependencies(db=None, doc_store=doc_store, client=MagicMock(), http=None)
     server = FastMCP("strict-contract-test")
     register_tools(server, deps)

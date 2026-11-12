@@ -151,7 +151,8 @@ async def test_every_document_returned_through_mcp_is_exact_and_not_summarized(d
     assert expected in structured["text"]
     # The prose around the document must declare the verbatim contract, not a summary.
     assert "exact stored document content" in structured["text"]
-    assert "no sanitization, wrapping, paraphrase or summary" in structured["text"]
+    assert "no sanitization, paraphrase or summary" in structured["text"]
+    assert "no sanitization, wrapping" not in structured["text"]
 
 
 @pytest.mark.asyncio

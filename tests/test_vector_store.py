@@ -369,6 +369,38 @@ class TestHybridSearchOrdering:
         assert [r["match_type"] for r in everything] == ["hybrid", "fts_exact", "fts_exact", "vector"]
 
     @pytest.mark.asyncio
+    async def test_vector_only_hit_follows_fts_exact_hits_even_with_a_higher_score(self):
+        """Pins the order that DocumentSearchItem.relevance documents: with fts_exact hits present,
+        a vector-only hit comes after them even when it outscores a hybrid hit."""
+        from bddk_mcp.tools.structured_outputs import DocumentSearchItem
+
+        vs = VectorStore.__new__(VectorStore)
+        vs._vector_search = AsyncMock(
+            return_value=[
+                {"doc_id": "vec", "relevance": 0.84, "title": "Vec", "snippet": "vec"},
+                {"doc_id": "hyb", "relevance": 0.79, "title": "Hyb", "snippet": "hyb"},
+            ]
+        )
+        vs._fts_search = AsyncMock(
+            return_value=[
+                {"doc_id": "ex", "fts_rank": 0.9, "title": "Ex", "snippet": "ex", "fts_relaxed": False},
+                {"doc_id": "hyb", "fts_rank": 0.5, "title": "Hyb", "snippet": "hyb", "fts_relaxed": False},
+            ]
+        )
+
+        results = await vs._hybrid_search("sermaye madde 5", limit=10)
+
+        assert [(r["doc_id"], r["match_type"]) for r in results] == [
+            ("hyb", "hybrid"),
+            ("ex", "fts_exact"),
+            ("vec", "vector"),
+        ]
+        assert results[2]["relevance"] > results[0]["relevance"]
+        description = DocumentSearchItem.model_fields["relevance"].description
+        assert "then fts_exact" in description
+        assert "then the remaining vector and fts hits" in description
+
+    @pytest.mark.asyncio
     async def test_hybrid_search_drops_fts_only_non_legal_query(self):
         """FTS-only bypass is limited to exact legal-reference queries."""
         vs = VectorStore.__new__(VectorStore)
@@ -388,6 +420,93 @@ class TestHybridSearchOrdering:
         results = await vs._hybrid_search("bankacılık işlemleri", limit=10)
 
         assert results == []
+
+
+class TestRelaxedFtsFallbackIsNotExact:
+    """The relaxed OR fallback matches only some query words, so it never earns fts_exact."""
+
+    @pytest.fixture
+    async def article_store(self, vector_store, doc_store):
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="infosys",
+            title="Bilgi Sistemleri Yönetmeliği",
+            content="MADDE 12 - Bilgi sistemleri yönetimi bankanın yönetim kurulu tarafından gözetilir.",
+        )
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="governance",
+            title="Kurumsal Yönetim Yönetmeliği",
+            content="MADDE 3 - Yönetim kurulu kurumsal yönetim ilkelerini uygular.",
+        )
+        # No dense candidates: simulates unrelated chunks falling outside the dense top-k.
+        vector_store._vector_search = AsyncMock(return_value=[])
+        return vector_store
+
+    @pytest.mark.asyncio
+    async def test_relaxed_or_hits_are_flagged_and_not_labelled_fts_exact(self, article_store):
+        query = "madde 5 kredi kartı asgari ödeme tutarı"
+
+        fts_hits = await article_store._fts_search(query, limit=50)
+        results = await article_store._hybrid_search(query, limit=10)
+
+        assert {hit["doc_id"] for hit in fts_hits} == {"infosys", "governance"}
+        assert all(hit["fts_relaxed"] for hit in fts_hits)
+        assert all(hit["match_type"] != "fts_exact" for hit in results)
+        # Relaxed FTS-only hits have no semantic score and fall under the normal threshold.
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_strict_and_hit_of_a_legal_reference_query_stays_fts_exact(self, article_store):
+        query = "madde 12 bilgi sistemleri yönetimi"
+
+        fts_hits = await article_store._fts_search(query, limit=50)
+        results = await article_store._hybrid_search(query, limit=10)
+
+        assert [hit["doc_id"] for hit in fts_hits] == ["infosys"]
+        assert fts_hits[0]["fts_relaxed"] is False
+        assert [(hit["doc_id"], hit["match_type"]) for hit in results] == [("infosys", "fts_exact")]
+
+    @pytest.mark.asyncio
+    async def test_hybrid_search_does_not_grant_fts_exact_to_mocked_relaxed_hits(self):
+        vs = VectorStore.__new__(VectorStore)
+        vs._vector_search = AsyncMock(return_value=[])
+        vs._fts_search = AsyncMock(
+            return_value=[
+                {"doc_id": "strict", "fts_rank": 0.9, "title": "S", "snippet": "s", "fts_relaxed": False},
+                {"doc_id": "loose", "fts_rank": 0.5, "title": "L", "snippet": "l", "fts_relaxed": True},
+            ]
+        )
+
+        results = await vs._hybrid_search("sermaye yeterliliği madde 5", limit=10)
+
+        assert [(r["doc_id"], r["match_type"]) for r in results] == [("strict", "fts_exact")]
+
+
+class TestSearchHitDocumentMetadata:
+    @pytest.mark.asyncio
+    async def test_hits_carry_source_url_decision_number_and_chunk_section(self, vector_store, doc_store):
+        stored = StoredDocument(
+            document_id="kurul",
+            title="Kurul Kararı",
+            markdown_content="MADDE 4 - Sermaye yeterliliği hesaplamalarında standart yaklaşım kullanılır.",
+            decision_date="01.02.2024",
+            decision_number="10812",
+            source_url="https://www.bddk.org.tr/Mevzuat/DokumanGetir/1",
+        )
+        await doc_store.store_document(stored)
+        await vector_store.add_document(doc_id="kurul", title=stored.title, content=stored.markdown_content)
+
+        dense = await vector_store._vector_search("sermaye yeterliliği hesaplamalarında", limit=5)
+        lexical = await vector_store._fts_search("sermaye yeterliliği hesaplamalarında", limit=5)
+
+        for hit in (dense[0], lexical[0]):
+            assert hit["source_url"] == "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1"
+            assert hit["decision_number"] == "10812"
+            assert hit["decision_date"] == "01.02.2024"
+            assert (hit["section_type"], hit["section_ref"]) == ("madde", "4")
 
 
 class TestVectorStoreLifecycle:

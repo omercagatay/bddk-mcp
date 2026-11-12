@@ -34,6 +34,14 @@ async def test_factory_supports_protocol_tool_call_without_database():
 
     doc_store = MagicMock()
     doc_store.get_document_history = AsyncMock(return_value=[])
+    doc_store.get_current_body = AsyncMock(
+        return_value={
+            "content_hash": "c" * 64,
+            "content_length": 10,
+            "downloaded_at": 1775667192.0,
+            "extraction_method": "manual",
+        }
+    )
     deps = Dependencies(db=None, doc_store=doc_store, client=MagicMock(), http=None)
     test_server = create_mcp(deps)
 
@@ -57,6 +65,14 @@ async def test_production_boundary_sanitizes_validation_and_handler_failures():
     sentinel = "RAW-PRIVATE-HANDLER-FAILURE"
     doc_store = MagicMock()
     doc_store.get_document_history = AsyncMock(side_effect=RuntimeError(sentinel))
+    doc_store.get_current_body = AsyncMock(
+        return_value={
+            "content_hash": "c" * 64,
+            "content_length": 10,
+            "downloaded_at": 1775667192.0,
+            "extraction_method": "manual",
+        }
+    )
     deps = Dependencies(db=None, doc_store=doc_store, client=MagicMock(), http=None)
     test_server = create_mcp(deps)
 

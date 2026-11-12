@@ -286,3 +286,45 @@ async def test_upsert(store, sample_doc):
     await store.store_document(updated)
     doc = await store.get_document("1291")
     assert doc.title == "Güncellenmiş Başlık"
+
+
+async def test_truncation_notice_words_are_not_searchable_but_the_stored_content_keeps_them(store):
+    body = "Söz konusu yükümlülük yerine getirilir ve kayıt altına alınır. " * 500
+    text = f"MADDE 1 - Yükümlülük\n{body}\n\nMADDE 2 - Yürürlük\nBu yönetmelik yayımı tarihinde yürürlüğe girer.\n"
+    await store.store_document(StoredDocument(document_id="mevzuat_9", title="Uzun", markdown_content=text))
+    [capped] = await store.get_document_section("mevzuat_9", section_type="madde", section_ref="1")
+    assert "[BÖLÜM KESİLDİ:" in capped.content
+    assert capped.content_hash == hashlib.sha256(capped.content.encode("utf-8")).hexdigest()
+
+    assert await store.search_document_sections("karakterden kısaltıldı", document_id="mevzuat_9") == []
+    assert await store.search_document_sections("get_bddk_document", document_id="mevzuat_9") == []
+    hits = await store.search_document_sections("yükümlülük kayıt altına", document_id="mevzuat_9")
+    assert [(hit.section_type, hit.section_ref) for hit in hits] == [("madde", "1")]
+
+
+def test_prefix_stem_query_keeps_every_token_quoted_and_a_five_character_floor():
+    from bddk_mcp.store.doc_store import fts_prefix_stem_query
+
+    assert fts_prefix_stem_query("Gecikme süresi") == '"gecik"* "sures"*'
+    assert fts_prefix_stem_query("sınıflandırılması") == '"siniflandirilm"*'
+    assert fts_prefix_stem_query("geçici") == '"gecic"*'
+    # Short and numeric tokens stay exact; operators in user text are only words.
+    assert fts_prefix_stem_query("grup 12345 NEAR OR süresinin") == '"grup" "12345" "near" "or" "suresi"*'
+    assert fts_prefix_stem_query('"kredilerin" -faiz* (AND)') == '"kredile"* "faiz" "and"'
+    # Nothing to widen: the strict expression would be the same.
+    assert fts_prefix_stem_query("faiz 2024") is None
+    assert fts_prefix_stem_query("") is None
+
+
+@pytest.mark.asyncio
+async def test_prefix_stem_section_search_matches_inflected_forms(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(document_id="1", title="T", markdown_content="MADDE 1 - Süre\nGecikme süresinin uzatılması.\n")
+    )
+
+    assert await doc_store.search_document_sections("gecikme süresi") == []
+    hits = await doc_store.search_document_sections("gecikme süresi", prefix_stem=True)
+    assert [(h.doc_id, h.section_type, h.section_ref) for h in hits] == [("1", "madde", "1")]
+    assert await doc_store.search_document_sections("faiz", prefix_stem=True) == []

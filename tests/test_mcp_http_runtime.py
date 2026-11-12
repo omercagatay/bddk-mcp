@@ -32,6 +32,14 @@ async def test_official_client_initializes_lists_and_calls_over_secured_local_ht
 
     doc_store = MagicMock()
     doc_store.get_document_history = AsyncMock(return_value=[])
+    doc_store.get_current_body = AsyncMock(
+        return_value={
+            "content_hash": "c" * 64,
+            "content_length": 10,
+            "downloaded_at": 1775667192.0,
+            "extraction_method": "manual",
+        }
+    )
     deps = Dependencies(db=None, doc_store=doc_store, client=MagicMock(), http=None)
     security = load_http_security_config({"MCP_HOST": "127.0.0.1", "PORT": "8123"})
     server = create_mcp(deps, http_security=security)
@@ -270,6 +278,14 @@ async def test_official_client_full_round_trip_on_unauthenticated_remote_public_
     security = _unauthenticated_remote_security()
     doc_store = MagicMock()
     doc_store.get_document_history = AsyncMock(return_value=[])
+    doc_store.get_current_body = AsyncMock(
+        return_value={
+            "content_hash": "c" * 64,
+            "content_length": 10,
+            "downloaded_at": 1775667192.0,
+            "extraction_method": "manual",
+        }
+    )
     deps = Dependencies(db=None, doc_store=doc_store, client=MagicMock(), http=None)
     server = create_mcp(deps, http_security=security)
     raw_app = server.streamable_http_app()

@@ -21,3 +21,11 @@ def test_mcp_instructions_require_user_facing_answer_style():
     assert '"mevzuat_22599 madde 9"' not in instructions
     assert "section/page" in instructions
     assert "quality warning" in instructions
+
+
+def test_mcp_instructions_forbid_presenting_repealed_or_draft_text_as_current_law():
+    instructions = MCP_INSTRUCTIONS.lower()
+
+    assert "mülga" in instructions and "taslak" in instructions
+    assert "never present a document marked mülga" in instructions
+    assert "absence of that mark does not establish that a text is in force" in instructions

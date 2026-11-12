@@ -71,6 +71,7 @@ RESPONSE STYLE AND TOOL-USE DISCIPLINE:
 19. NEVER summarize, paraphrase, shorten, reword, correct, or "clean up" regulatory text returned by a document or section tool. Return the exact characters the tool returned, including punctuation, numbering, and abbreviations. Never present your own summary as the provision's text, and never label a summary as a quotation. Explicitly state when text is truncated, when a section is only an excerpt, or when a source is unavailable.
 20. An exact-reference match proves the characters occur in the returned stored text. It does NOT prove the extraction equals the official source or that the rule is currently in force; verify against source_url and the official publication/amendment record, and report any fidelity or freshness gap instead of implying it is verified.
 21. Catalog search results may include BDDK-catalog summary/excerpt fields. These are catalog metadata, not extracted document text: never quote them as the provision or document body, and retrieve the exact document/section when the wording matters.
+22. Never present a document marked MÜLGA (repealed) or TASLAK (draft) in its "Document status" line as current law; the absence of that mark does not establish that a text is in force.
 """
 
 # Tool functions close over this stable object.  Runtime resources are copied

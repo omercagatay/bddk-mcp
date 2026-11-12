@@ -14,6 +14,7 @@ import re
 import sqlite3
 import time
 import unicodedata
+from datetime import UTC, datetime
 
 from pydantic import BaseModel
 
@@ -26,13 +27,29 @@ from bddk_mcp.quality.markdown_quality import (
     prepare_markdown_for_storage,
 )
 from bddk_mcp.store.corpus_db import CorpusDB
-from bddk_mcp.store.section_index import DocumentSection, extract_document_sections
+from bddk_mcp.store.section_index import (
+    GOVDE_SECTION_TYPE,
+    TRUNCATION_NOTICE_PREFIX,
+    DocumentSection,
+    extract_document_sections,
+    split_section_truncation_notice,
+    truncation_notice_original_length,
+)
 
 logger = logging.getLogger(__name__)
 _SAFE_SYNC_FAILURE_TOKEN_RE = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
 _DOCUMENT_QUALITY_CACHE_LIMIT = 4096
 _FTS_TOKEN_RE = re.compile(r"\w+")
 _EXCLUDED_SECTION_TYPES = ("fikra", "bent", "govde")
+_NESTED_SECTION_TYPES = ("fikra", "bent")
+_ARTICLE_SECTION_TYPES = ("madde", "gecici_madde", "ek_madde")
+# True when the section's document version has no section other than govde/fikra/bent,
+# i.e. the parser found no article structure and govde windows carry the whole body.
+_STRUCTURELESS_SQL = """NOT EXISTS (
+    SELECT 1 FROM document_sections AS x
+    WHERE x.doc_id = s.doc_id AND x.source_content_hash = s.source_content_hash
+      AND x.section_type NOT IN ('fikra', 'bent', 'govde')
+)"""
 
 
 def normalize_search_text(text: str) -> str:
@@ -51,6 +68,32 @@ def fts_match_query(query: str) -> str | None:
     if not tokens:
         return None
     return " ".join(f'"{token}"' for token in tokens)
+
+
+# Prefix-stem matching: a normalized token of at least this many characters keeps its
+# first max(_PREFIX_STEM_MIN, len - _PREFIX_STEM_SUFFIX) characters as an FTS5 prefix.
+_PREFIX_STEM_MIN = 5
+_PREFIX_STEM_SUFFIX = 3
+
+
+def fts_prefix_stem_query(query: str) -> str | None:
+    """Turn free text into an inflection-tolerant FTS5 MATCH expression.
+
+    Tokens of five or more characters become a quoted prefix query of their first
+    ``max(5, len - 3)`` characters (``"suresi"`` -> ``"sures"*``); shorter and numeric
+    tokens stay exact. Every token stays quoted, so FTS5 operators in user text are never
+    interpreted. Returns None when the expression would equal :func:`fts_match_query`.
+    """
+    tokens = _FTS_TOKEN_RE.findall(normalize_search_text(query))
+    terms: list[str] = []
+    widened = False
+    for token in tokens:
+        if len(token) >= _PREFIX_STEM_MIN and not token.isdigit():
+            terms.append(f'"{token[: max(_PREFIX_STEM_MIN, len(token) - _PREFIX_STEM_SUFFIX)]}"*')
+            widened = True
+        else:
+            terms.append(f'"{token}"')
+    return " ".join(terms) if widened else None
 
 
 def _safe_sync_failure_fields(error: str, category: str) -> tuple[str, str]:
@@ -97,6 +140,9 @@ class DocumentPage(BaseModel):
     total_pages: int = 1
     extraction_method: str = ""
     category: str = ""
+    content_hash: str = ""
+    """Hash of the whole stored body, not of this page."""
+    downloaded_at: float | None = None
 
 
 class StoredDocumentSection(BaseModel):
@@ -118,10 +164,21 @@ class StoredDocumentSection(BaseModel):
     document_source_url: str = ""
     document_category: str = ""
     document_extraction_method: str = ""
+    document_decision_date: str = ""
+    document_decision_number: str = ""
+    document_downloaded_at: float | None = None
+    """Unix time the document body was downloaded from its source, as stored."""
     document_quality: QualityAssessment | None = None
+    document_structureless: bool = False
+    """True when the document version has no section other than govde/fikra/bent (no article structure)."""
     rank: float | None = None
     """FTS match rank (higher is better). Only set by search paths; comparable
     within one query's result set, not across queries."""
+
+
+def _utc_minute(timestamp: float) -> str:
+    """Render a stored Unix time in UTC, independent of the host time zone."""
+    return datetime.fromtimestamp(float(timestamp), tz=UTC).strftime("%Y-%m-%d %H:%M UTC")
 
 
 def _content_hash(content: str) -> str:
@@ -148,18 +205,29 @@ def _section_from_row(row: sqlite3.Row, document_quality: QualityAssessment | No
         document_source_url=row["document_source_url"] or "",
         document_category=row["document_category"] or "",
         document_extraction_method=row["document_extraction_method"] or "",
+        document_decision_date=(row["document_decision_date"] or "") if "document_decision_date" in keys else "",
+        document_decision_number=(row["document_decision_number"] or "") if "document_decision_number" in keys else "",
+        document_downloaded_at=row["document_downloaded_at"] if "document_downloaded_at" in keys else None,
         document_quality=document_quality,
+        document_structureless=bool(row["document_structureless"]) if "document_structureless" in keys else False,
         rank=row["rank"] if "rank" in keys else None,
     )
 
 
-_SECTION_COLUMNS = """
+_SECTION_COLUMNS = (
+    """
     s.doc_id, s.section_type, s.section_ref, s.heading, s.start_char, s.end_char,
     s.content, s.content_hash, s.page_start, s.page_end,
     d.content_hash AS source_content_hash, d.title AS document_title,
     d.source_url AS document_source_url, d.category AS document_category,
-    d.extraction_method AS document_extraction_method
+    d.extraction_method AS document_extraction_method,
+    d.decision_date AS document_decision_date, d.decision_number AS document_decision_number,
+    d.downloaded_at AS document_downloaded_at,
+    """
+    + _STRUCTURELESS_SQL
+    + """ AS document_structureless
 """
+)
 _SOURCE_RANGE_COLUMN = (
     ", substr(d.markdown_content, s.start_char + 1, s.end_char - s.start_char) AS normalized_source_range"
 )
@@ -182,7 +250,9 @@ def _section_rows(sections: list[DocumentSection], doc_id: str, source_content_h
             section.page_end,
             source_content_hash,
             normalize_search_text(section.heading or ""),
-            normalize_search_text(section.content or ""),
+            # Index the legal text only: the truncation notice of a capped section is
+            # storage metadata, so its words must not make the section searchable.
+            normalize_search_text(split_section_truncation_notice(section.content or "")[0]),
         )
         for section in sections
     ]
@@ -344,8 +414,8 @@ class DocumentStore:
         """Retrieve one page of a document's markdown content (PAGE_SIZE characters)."""
         row = await self._db.run(
             lambda conn: conn.execute(
-                "SELECT document_id, title, markdown_content, extraction_method, category "
-                "FROM documents WHERE document_id = ?",
+                "SELECT document_id, title, markdown_content, extraction_method, category, content_hash, "
+                "downloaded_at FROM documents WHERE document_id = ?",
                 (doc_id,),
             ).fetchone()
         )
@@ -366,6 +436,8 @@ class DocumentStore:
             total_pages=total_pages,
             extraction_method=row["extraction_method"] or "",
             category=row["category"] or "",
+            content_hash=row["content_hash"] or "",
+            downloaded_at=row["downloaded_at"],
         )
 
     async def delete_document(self, doc_id: str) -> bool:
@@ -460,8 +532,9 @@ class DocumentStore:
         section_ref: str | None = None,
         heading: str | None = None,
         limit: int | None = None,
+        start_char: int | None = None,
     ) -> list[StoredDocumentSection]:
-        """Fetch structural sections by document ID and optional exact refs."""
+        """Fetch structural sections by document ID and optional exact refs and start offset."""
         if limit is not None and (isinstance(limit, bool) or not 1 <= limit <= 1_000):
             raise ValueError("section limit must be between 1 and 1000")
         where = ["s.doc_id = ?"]
@@ -476,6 +549,9 @@ class DocumentStore:
             where.append("s.heading_norm LIKE ? ESCAPE '\\'")
             escaped = normalize_search_text(heading).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
             params.append(f"%{escaped}%")
+        if start_char is not None:
+            where.append("s.start_char = ?")
+            params.append(start_char)
         limit_clause = ""
         if limit is not None:
             limit_clause = "LIMIT ?"
@@ -499,14 +575,17 @@ class DocumentStore:
         section_type: str | None = None,
         limit: int = 10,
         include_source_range: bool = True,
+        prefix_stem: bool = False,
     ) -> list[StoredDocumentSection]:
         """Full-text search over structural sections (every query token must match).
 
         ``include_source_range=False`` skips slicing the document body per row;
         candidate retrieval uses it and hydrates only the final hits via
-        ``hydrate_source_ranges``.
+        ``hydrate_source_ranges``. ``prefix_stem=True`` matches the tokens with
+        :func:`fts_prefix_stem_query` instead (inflection-tolerant); it returns
+        nothing when that expression would equal the strict one.
         """
-        match = fts_match_query(query)
+        match = fts_prefix_stem_query(query) if prefix_stem else fts_match_query(query)
         if match is None:
             return []
         where = ["sections_fts MATCH ?"]
@@ -518,10 +597,13 @@ class DocumentStore:
             where.append("s.section_type = ?")
             params.append(section_type)
         else:
-            # Nested fıkra/bent rows duplicate a parent madde; govde is unparsed
-            # leftover.  Both stay opt-in via section_type.
-            where.append("s.section_type NOT IN (?, ?, ?)")
-            params.extend(_EXCLUDED_SECTION_TYPES)
+            # Nested fıkra/bent rows duplicate a parent madde and stay opt-in via
+            # section_type. govde is leftover text only in a document with article
+            # structure; in a document without one, govde windows are its whole body.
+            where.append(
+                f"s.section_type NOT IN (?, ?) AND NOT (s.section_type = 'govde' AND NOT {_STRUCTURELESS_SQL})"
+            )
+            params.extend(_NESTED_SECTION_TYPES)
         params.append(limit)
         sql = f"""
             SELECT {_SECTION_COLUMNS} {_SOURCE_RANGE_COLUMN if include_source_range else ""},
@@ -535,6 +617,124 @@ class DocumentStore:
         """
         rows = await self._db.run(lambda conn: conn.execute(sql, params).fetchall())
         return await self._sections_from_rows(rows)
+
+    async def find_capped_continuations(
+        self, sections: list[StoredDocumentSection]
+    ) -> dict[tuple[str, str, int], tuple[str, str, int, bool]]:
+        """Map each govde row that continues a capped named section to (type, ref, true end, runs past).
+
+        A named section longer than ``MAX_SECTION_CHARS`` is stored as a capped window; the rest of
+        its span is indexed as govde windows. A govde row is such a continuation when a capped named
+        section of the same document and content hash has an uncapped span (``start_char`` plus the
+        length recorded in its truncation notice) that contains the row's ``start_char``. When several
+        nested capped sections contain the row, the innermost (latest-starting) one is chosen. Keys are
+        ``(doc_id, source_content_hash, start_char)`` of the govde rows passed in. The value's third
+        element is the capped section's true end (exclusive code point); the fourth is True when the
+        row has non-whitespace document text at or after that end, i.e. part of the row lies outside
+        the provision.
+        """
+        govde = [section for section in sections if section.section_type == GOVDE_SECTION_TYPE]
+        if not govde:
+            return {}
+        doc_ids = sorted({section.doc_id for section in govde})
+        placeholders = ",".join("?" for _ in doc_ids)
+        rows = await self._db.run(
+            lambda conn: conn.execute(
+                f"SELECT doc_id, section_type, section_ref, start_char, content, source_content_hash "
+                f"FROM document_sections WHERE doc_id IN ({placeholders}) "
+                f"AND section_type NOT IN (?, ?, ?) AND instr(content, ?) > 0 "
+                f"ORDER BY doc_id, start_char",
+                [*doc_ids, *_EXCLUDED_SECTION_TYPES, TRUNCATION_NOTICE_PREFIX],
+            ).fetchall()
+        )
+        capped: dict[tuple[str, str], list[tuple[int, int, str, str]]] = {}
+        for row in rows:
+            original_length = truncation_notice_original_length(split_section_truncation_notice(row["content"])[1])
+            if original_length is None:
+                continue
+            capped.setdefault((row["doc_id"], row["source_content_hash"]), []).append(
+                (row["start_char"], row["start_char"] + original_length, row["section_type"], row["section_ref"])
+            )
+        continuations: dict[tuple[str, str, int], tuple[str, str, int, bool]] = {}
+        overruns: list[tuple[tuple[str, str, int], int, int]] = []
+        for section in govde:
+            parents = [
+                (start, end, section_type, section_ref)
+                for start, end, section_type, section_ref in capped.get(
+                    (section.doc_id, section.source_content_hash), []
+                )
+                if start < section.start_char < end
+            ]
+            if parents:
+                # Innermost span first: the latest-starting capped section that contains the row.
+                _start, end, section_type, section_ref = max(parents)
+                key = (section.doc_id, section.source_content_hash, section.start_char)
+                continuations[key] = (section_type, section_ref, end, False)
+                if section.end_char > end:
+                    overruns.append((key, end, section.end_char))
+        if overruns:
+
+            def tails(conn: sqlite3.Connection) -> list[tuple[tuple[str, str, int], str]]:
+                return [
+                    (
+                        key,
+                        conn.execute(
+                            "SELECT substr(markdown_content, ? + 1, ? - ?) FROM documents "
+                            "WHERE document_id = ? AND content_hash = ?",
+                            [end, row_end, end, key[0], key[1]],
+                        ).fetchone()[0]
+                        or "",
+                    )
+                    for key, end, row_end in overruns
+                ]
+
+            for key, tail in await self._db.run(tails):
+                if tail.strip():
+                    section_type, section_ref, end, _runs_past = continuations[key]
+                    continuations[key] = (section_type, section_ref, end, True)
+        return continuations
+
+    async def find_parent_articles(
+        self, sections: list[StoredDocumentSection]
+    ) -> dict[tuple[str, str, int], tuple[str, str]]:
+        """Map each fıkra/bent row to the (type, ref) of the madde, geçici madde or ek madde containing it.
+
+        Computed at query time from the stored sections of the same document and content hash:
+        the innermost stored article window ``[start_char, end_char)`` that contains the row's
+        ``start_char``. Keys are ``(doc_id, source_content_hash, start_char)`` of the rows passed in;
+        a row without such a stored window has no entry.
+        """
+        nested = [section for section in sections if section.section_type in _NESTED_SECTION_TYPES]
+        if not nested:
+            return {}
+        doc_ids = sorted({section.doc_id for section in nested})
+        placeholders = ",".join("?" for _ in doc_ids)
+        rows = await self._db.run(
+            lambda conn: conn.execute(
+                f"SELECT doc_id, section_type, section_ref, start_char, end_char, source_content_hash "
+                f"FROM document_sections WHERE doc_id IN ({placeholders}) "
+                f"AND section_type IN (?, ?, ?) ORDER BY doc_id, start_char",
+                [*doc_ids, *_ARTICLE_SECTION_TYPES],
+            ).fetchall()
+        )
+        articles: dict[tuple[str, str], list[tuple[int, int, str, str]]] = {}
+        for row in rows:
+            articles.setdefault((row["doc_id"], row["source_content_hash"]), []).append(
+                (row["start_char"], row["end_char"], row["section_type"], row["section_ref"])
+            )
+        parents: dict[tuple[str, str, int], tuple[str, str]] = {}
+        for section in nested:
+            containing = [
+                (start, section_type, section_ref)
+                for start, end, section_type, section_ref in articles.get(
+                    (section.doc_id, section.source_content_hash), []
+                )
+                if start <= section.start_char < end
+            ]
+            if containing:
+                _start, section_type, section_ref = max(containing)
+                parents[(section.doc_id, section.source_content_hash, section.start_char)] = (section_type, section_ref)
+        return parents
 
     async def hydrate_source_ranges(self, sections: list[StoredDocumentSection]) -> list[StoredDocumentSection]:
         """Fill ``normalized_source_range`` for sections retrieved without it."""
@@ -598,7 +798,26 @@ class DocumentStore:
 
     # -- versions -----------------------------------------------------------------
 
+    async def get_current_body(self, doc_id: str) -> dict | None:
+        """Return the stored body's hash, length, download time and extraction method, or None."""
+        row = await self._db.run(
+            lambda conn: conn.execute(
+                "SELECT content_hash, LENGTH(markdown_content) AS content_length, downloaded_at, extraction_method "
+                "FROM documents WHERE document_id = ? AND markdown_content <> ''",
+                (doc_id,),
+            ).fetchone()
+        )
+        if row is None:
+            return None
+        return {
+            "content_hash": row["content_hash"] or "",
+            "content_length": row["content_length"] or 0,
+            "downloaded_at": row["downloaded_at"],
+            "extraction_method": row["extraction_method"] or "",
+        }
+
     async def get_document_history(self, doc_id: str) -> list[dict]:
+        """List archived bodies, newest first; ``synced_at`` is when each was replaced (UTC)."""
         rows = await self._db.run(
             lambda conn: conn.execute(
                 "SELECT version, content_hash, LENGTH(markdown_content) AS content_length, synced_at "
@@ -610,14 +829,14 @@ class DocumentStore:
             {
                 "version": row["version"],
                 "content_hash": row["content_hash"],
-                "synced_at": time.strftime("%Y-%m-%d %H:%M", time.localtime(row["synced_at"])),
+                "synced_at": _utc_minute(row["synced_at"]),
                 "content_length": row["content_length"],
             }
             for row in rows
         ]
 
     async def get_version_counts(self, doc_ids: list[str]) -> dict[str, tuple[int, str | None]]:
-        """Batch version count for documents. Returns {doc_id: (count, latest_date)}."""
+        """Batch count of archived bodies. Returns {doc_id: (count, latest replacement time in UTC)}."""
         if not doc_ids:
             return {}
         placeholders = ",".join("?" for _ in doc_ids)
@@ -630,7 +849,7 @@ class DocumentStore:
         )
         result = {}
         for row in rows:
-            latest = time.strftime("%Y-%m-%d %H:%M", time.localtime(row["latest"])) if row["latest"] else None
+            latest = _utc_minute(row["latest"]) if row["latest"] else None
             result[row["document_id"]] = (row["cnt"], latest)
         return result
 

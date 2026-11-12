@@ -462,6 +462,14 @@ async def _document_quality_by_ids(db: CorpusDB, doc_ids: list[str]) -> dict[str
     )
 
 
+def _document_metadata_from_row(row: sqlite3.Row) -> dict:
+    return {
+        "decision_date": row["decision_date"] or "",
+        "decision_number": row["decision_number"] or "",
+        "source_url": row["source_url"] or "",
+    }
+
+
 def _section_metadata_from_row(row: sqlite3.Row) -> dict:
     return {
         "section_type": row["section_type"] or "",
@@ -790,7 +798,8 @@ class VectorStore:
         placeholders = ",".join("?" for _ in rowids)
         rows = await self._db.run(
             lambda conn: conn.execute(
-                f"SELECT c.rowid AS rowid, c.doc_id, d.title, d.category, d.decision_date, c.chunk_text, "
+                f"SELECT c.rowid AS rowid, c.doc_id, d.title, d.category, d.decision_date, d.decision_number, "
+                f"d.source_url, c.chunk_text, "
                 f"c.section_type, c.section_ref, c.section_start_char, c.section_end_char, c.section_content_hash "
                 f"FROM chunks AS c JOIN documents AS d ON d.document_id = c.doc_id "
                 f"WHERE c.rowid IN ({placeholders})",
@@ -812,7 +821,7 @@ class VectorStore:
                     "doc_id": did,
                     "title": row["title"] or "",
                     "category": row["category"] or "",
-                    "decision_date": row["decision_date"] or "",
+                    **_document_metadata_from_row(row),
                     "snippet": (row["chunk_text"] or "")[:_SEARCH_SNIPPET_CHARS],
                     "distance": distance,
                     "relevance": round(1 - distance, _SCORE_DECIMAL_PLACES),
@@ -833,10 +842,16 @@ class VectorStore:
         limit: int = 50,
         category: str | None = None,
     ) -> list[dict]:
-        """FTS5 search on chunk text (plus title) with BM25 scoring."""
+        """FTS5 search on chunk text (plus title) with BM25 scoring.
+
+        Hits from the relaxed OR fallback carry ``fts_relaxed=True``: they
+        matched only some query words, so they never count as exact matches.
+        """
         rows = await self._fts_rows(fts_match_query(query), limit=limit, category=category)
+        relaxed = False
         if not rows and (relaxed_query := _relaxed_fts_query(query)):
             rows = await self._fts_rows(relaxed_query, limit=limit, category=category)
+            relaxed = True
 
         seen: dict[str, dict] = {}
         for row in rows:
@@ -847,11 +862,12 @@ class VectorStore:
                     "doc_id": did,
                     "title": row["title"] or "",
                     "category": row["category"] or "",
-                    "decision_date": row["decision_date"] or "",
+                    **_document_metadata_from_row(row),
                     "snippet": (row["chunk_text"] or "")[:_SEARCH_SNIPPET_CHARS],
                     "fts_rank": rank,
                     "semantic_relevance": 0.0,
                     "match_type": "fts",
+                    "fts_relaxed": relaxed,
                     **_section_metadata_from_row(row),
                 }
 
@@ -867,7 +883,7 @@ class VectorStore:
             params.append(category)
         params.append(limit)
         sql = f"""
-            SELECT c.doc_id, d.title, d.category, d.decision_date, c.chunk_text,
+            SELECT c.doc_id, d.title, d.category, d.decision_date, d.decision_number, d.source_url, c.chunk_text,
                    c.section_type, c.section_ref, c.section_start_char, c.section_end_char,
                    c.section_content_hash, -bm25(chunks_fts, 2.0, 1.0) AS fts_rank
             FROM chunks_fts
@@ -924,7 +940,9 @@ class VectorStore:
 
             if did in vector_by_doc and did in fts_by_doc:
                 hit["match_type"] = "hybrid"
-            elif did in fts_by_doc and exact_legal_query:
+            elif did in fts_by_doc and exact_legal_query and not fts_by_doc[did].get("fts_relaxed"):
+                # Only the strict AND query can stand in for a semantic score;
+                # relaxed OR hits face the threshold like any other FTS hit.
                 hit["match_type"] = "fts_exact"
             elif did in fts_by_doc:
                 hit["match_type"] = "fts"

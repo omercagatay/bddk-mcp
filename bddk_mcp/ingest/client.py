@@ -211,6 +211,113 @@ def _turkish_stem(word: str) -> str:
     return word
 
 
+# Catalog-query words that carry no title content ("8970 sayılı", "... hakkında").
+# They are dropped before the all-token match.
+_CATALOG_FUNCTION_WORDS = frozenset(
+    {
+        "sayılı",
+        "sayili",
+        "hakkında",
+        "hakkinda",
+        "hk",
+        "ilişkin",
+        "iliskin",
+        "dair",
+        "göre",
+        "gore",
+        "ile",
+        "ve",
+        "veya",
+        "nolu",
+        "no",
+        "numaralı",
+        "numarali",
+        "tarihli",
+    }
+)
+
+
+# Document-type words with their case, possessive and plural inflections, with or
+# without Turkish diacritics. They never have to occur literally: a type word is
+# satisfied by the title or the category and otherwise only affects ranking.
+# Only an explicit suffix set in the noun's own vowel harmony is accepted, so
+# derived words are content words: "kanuni"/"kanunen" (adjective/adverb),
+# "kararname", "kararlaştırılan", "kararlı", "rehberlik", "tebligat".
+def _type_noun_pattern(hard: str, soft: str, *, back: bool, rounded: bool = False) -> str:
+    """Regex for a document-type noun and its inflections.
+
+    ``hard`` is the bare stem, ``soft`` the stem before a vowel suffix (k/ğ
+    alternation); a vowel-final stem passes ``soft=""``. Suffix vowels follow
+    the noun's harmony; ``[ıi]`` keeps unaccented spellings ("karari").
+    """
+    a = "a" if back else "e"
+    i = ("u" if rounded else "[ıi]") if back else ("ü" if rounded else "i")
+    plural_i = "[ıi]" if back else "i"
+
+    def case_after(vowel: str) -> str:
+        # After a possessive vowel: -n (genitive), -nı, -nın, -na, -nda, -ndan, -yla.
+        return f"(?:n(?:{vowel}n?|{a}|d{a}n?)?|yl{a})?"
+
+    plural = f"l{a}r(?:{plural_i}{case_after(plural_i)}|{plural_i}n|{a}|d{a}n?|l{a})?"
+    if not soft:
+        suffixes = f"(?:s{i}{case_after(i)}|n{i}n|y{a}|d{a}n?|y?l{a}|{plural})?"
+        return f"{hard}{suffixes}"
+    return f"(?:{hard}(?:[dt]{a}n?|l{a}|{plural})?|{soft}(?:{i}{case_after(i)}|{a}))"
+
+
+_DOCUMENT_TYPE_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(pattern)
+    for pattern in (
+        _type_noun_pattern("y[öo]netmelik", "y[öo]netmeli[ğg]", back=False),
+        _type_noun_pattern("tebli[ğg]", "tebli[ğg]", back=False),
+        _type_noun_pattern("genelge", "", back=False),
+        _type_noun_pattern("rehber", "rehber", back=False),
+        _type_noun_pattern("karar", "karar", back=True),
+        _type_noun_pattern("kanun", "kanun", back=True, rounded=True),
+        _type_noun_pattern("taslak", "tasla[ğgk]", back=True),
+    )
+)
+
+# A content token shares a stem with a title word when both are at least this
+# long and their common prefix covers all but the last few characters of the
+# shorter word (Turkish case/possessive suffixes).
+_STEM_MIN_LENGTH = 5
+_STEM_MAX_SUFFIX = 4
+
+_TOKEN_EDGE_PUNCTUATION = ".,;:()[]\"'’!?"
+
+
+def _catalog_tokens(text: str) -> list[str]:
+    """Turkish-lowercased whitespace tokens without surrounding punctuation."""
+    tokens = (token.strip(_TOKEN_EDGE_PUNCTUATION) for token in _turkish_lower(text).split())
+    return [token for token in tokens if token]
+
+
+def catalog_keyword_tokens(keywords: str) -> list[str]:
+    """The tokens search_decisions matches for ``keywords``; empty means browse mode."""
+    return _catalog_tokens(keywords)
+
+
+def _document_type_pattern(token: str) -> re.Pattern[str] | None:
+    for pattern in _DOCUMENT_TYPE_PATTERNS:
+        if pattern.fullmatch(token):
+            return pattern
+    return None
+
+
+def _shares_stem(token: str, word: str) -> bool:
+    """Conservative inflection-tolerant comparison of two lowercased words."""
+    shorter = min(len(token), len(word))
+    if shorter < _STEM_MIN_LENGTH:
+        return False
+    prefix = 0
+    for left, right in zip(token, word, strict=False):
+        if left != right:
+            break
+        prefix += 1
+    return prefix >= _STEM_MIN_LENGTH and prefix >= shorter - _STEM_MAX_SUFFIX
+
+
 def _parse_date(date_str: str) -> datetime | None:
     """Parse DD.MM.YYYY or DD/MM/YYYY date string to datetime."""
     for fmt in ("%d.%m.%Y", "%d/%m/%Y"):
@@ -664,18 +771,41 @@ class BddkApiClient:
         self,
         request: BddkSearchRequest,
     ) -> BddkSearchResult:
-        """Search for BDDK decisions/regulations by keyword matching against cached list."""
+        """Search the corpus catalog by title, category, date and decision number.
+
+        Function words ("sayılı", "hakkında", "ilişkin", ...) are dropped.
+        Document-type words ("yönetmeliği", "tebliğ", "kararı", ...) are never
+        required literally. Every remaining content token must match the title
+        (exactly, or by a shared stem of at least five characters) or the
+        category/date/number. Ranking: a numeric token equal to a decision
+        number first; then the number of content tokens found literally in the
+        title; then the requested document type (named by title and category
+        counts most); then the overall content score. Empty keywords list the filtered catalog (browse
+        mode), newest decision date first.
+        """
         await self._ensure_cache()
 
-        keywords_lower = _turkish_lower(request.keywords)
-        keyword_parts = keywords_lower.split()
-        keyword_stems = [_turkish_stem(p) for p in keyword_parts]
+        keyword_parts = _catalog_tokens(request.keywords)
+        content_tokens: list[str] = []
+        type_patterns: list[re.Pattern[str]] = []
+        for part in keyword_parts:
+            if part in _CATALOG_FUNCTION_WORDS:
+                continue
+            pattern = _document_type_pattern(part)
+            if pattern is not None:
+                type_patterns.append(pattern)
+            else:
+                content_tokens.append(part)
+        if keyword_parts and not content_tokens and not type_patterns:
+            # Only function words: match them literally rather than everything.
+            content_tokens = keyword_parts
+        browse = not keyword_parts
 
         category_filter = _turkish_lower(request.category) if request.category else None
         date_from = _parse_date(request.date_from) if request.date_from else None
         date_to = _parse_date(request.date_to) if request.date_to else None
 
-        matching: list[tuple[int, BddkDecisionSummary]] = []
+        matching: list[tuple[tuple[int, int, int, int], BddkDecisionSummary]] = []
         for dec in self._cache:
             if category_filter and category_filter not in _turkish_lower(dec.category):
                 continue
@@ -691,29 +821,64 @@ class BddkApiClient:
                 if date_to and doc_date > date_to:
                     continue
 
-            text_lower = _turkish_lower(f"{dec.title} {dec.decision_date} {dec.decision_number} {dec.category}")
-            text_words = text_lower.split()
-            text_stems = [_turkish_stem(w) for w in text_words]
+            if browse:
+                matching.append(((0, 0, 0, 0), dec))
+                continue
 
-            score = 0
+            text_lower = _turkish_lower(f"{dec.title} {dec.decision_date} {dec.decision_number} {dec.category}")
+            text_stems = " ".join(_turkish_stem(w) for w in text_lower.split())
             title_lower = _turkish_lower(dec.title)
+            title_words = _catalog_tokens(dec.title)
+            # Type-word title words ("Kanunu", "Rehberi", "Kararı") are matched only by the type
+            # patterns: a derived content word ("kanuni", "rehberlik", "kararname") must not reach
+            # them through the shared-stem rule.
+            stem_words = [word for word in title_words if _document_type_pattern(word) is None]
+            category_lower = _turkish_lower(dec.category)
+
+            content_score = 0
+            exact_title_hits = 0
+            number_hit = 0
             all_match = True
-            for part, stem in zip(keyword_parts, keyword_stems, strict=True):
+            for part in content_tokens:
                 if part in title_lower:
-                    score += 3
-                elif stem in " ".join(text_stems):
-                    score += 2
+                    content_score += 3
+                    exact_title_hits += 1
+                elif any(_shares_stem(part, word) for word in stem_words):
+                    content_score += 2
+                elif _turkish_stem(part) in text_stems:
+                    content_score += 2
                 elif part in text_lower:
-                    score += 1
+                    content_score += 1
                 else:
                     all_match = False
                     break
+                if part.isdigit() and part == dec.decision_number.strip():
+                    number_hit = 1
+            if not all_match:
+                continue
 
-            if all_match and score > 0:
-                matching.append((score, dec))
+            # A type word named by both the title and the category counts twice.
+            category_words = _catalog_tokens(category_lower)
+            type_hits = sum(
+                any(pattern.fullmatch(word) for word in title_words)
+                + any(pattern.fullmatch(word) for word in category_words)
+                for pattern in type_patterns
+            )
+            if content_score == 0 and type_hits == 0:
+                continue
+            # Decision number first, then content words found literally in the title, then the
+            # requested document type, then the overall content score (stem/category matches).
+            matching.append(((number_hit, exact_title_hits, type_hits, content_score), dec))
 
-        matching.sort(key=lambda x: x[0], reverse=True)
-        results_only = [dec for _, dec in matching]
+        if browse:
+            # Newest decision date first; undated entries keep catalog order at the end.
+            dated = [(d, dec) for _, dec in matching if (d := _parse_date(dec.decision_date)) is not None]
+            undated = [dec for _, dec in matching if _parse_date(dec.decision_date) is None]
+            dated.sort(key=lambda item: item[0], reverse=True)
+            results_only = [dec for _, dec in dated] + undated
+        else:
+            matching.sort(key=lambda x: x[0], reverse=True)
+            results_only = [dec for _, dec in matching]
 
         total_results = len(results_only)
         start_idx = (request.page - 1) * request.page_size
@@ -734,4 +899,5 @@ class BddkApiClient:
             total_results=total_results,
             page=request.page,
             page_size=request.page_size,
+            catalog_size=len(self._cache),
         )

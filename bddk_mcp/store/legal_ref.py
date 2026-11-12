@@ -19,6 +19,15 @@ _PARAGRAPH_RE = re.compile(r"\bparagraf\s*(?P<ref>\d+(?:\.\d+)*)\b", re.IGNORECA
 _LETTERED_REF_RE = re.compile(r"^(\d+)/?([a-zçğıöşü])$")
 _DECISION_RE = re.compile(r"\b(\d{3,6})\s+sayılı\s+kurul\s+kararı\b", re.IGNORECASE)
 _DATE_RE = re.compile(r"\b\d{2}\.\d{2}\.\d{4}\b|\b\d{4}/\d+\b")
+# A number right after an accounting/audit standard or framework name is that
+# standard's number ("TFRS 16", "TMS 39", "BDS 701", "Basel 3"), and "COVID-19"
+# names a disease; neither is a local document ID. Matched on the Turkish-casefolded query, where "I" becomes "ı".
+_STANDARD_NUMBER_RE = re.compile(
+    r"\b(?:tfrs|tms|ufrs|ums|[iı]frs|[iı]as|bds|tfryk|ufryk|[iı]fr[iı]c|bob[iı]\s*frs|basel(?:\s+[iı]{1,3})?|cov[iı]d)"
+    r"\s*-?\s*(?P<ref>\d+)\b"
+)
+# "2024 yılı", "2019 yılında": a calendar year, never a local document ID.
+_YEAR_RE = re.compile(r"\b(?P<ref>(?:19|20)\d{2})\s+y[ıi]l")
 
 _CATEGORY_ALIASES = {
     "yönetmelik": "Yönetmelik",
@@ -118,7 +127,7 @@ def _normalize_doc_id(document_id: str) -> str:
 def _excluded_document_id_spans(query: str, folded: str) -> list[tuple[int, int]]:
     spans = [match.span() for match in _DATE_RE.finditer(query)]
     spans.extend(match.span(1) for match in _DECISION_RE.finditer(folded))
-    for pattern in (_MADDE_PREFIX_RE, _MADDE_SUFFIX_RE, _ILKE_RE, _PARAGRAPH_RE):
+    for pattern in (_MADDE_PREFIX_RE, _MADDE_SUFFIX_RE, _ILKE_RE, _PARAGRAPH_RE, _STANDARD_NUMBER_RE, _YEAR_RE):
         spans.extend(match.span("ref") for match in pattern.finditer(folded))
     return spans
 

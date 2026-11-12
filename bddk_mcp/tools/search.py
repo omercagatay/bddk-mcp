@@ -7,15 +7,17 @@ O(n) min() scan in server.py.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections import OrderedDict
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from bddk_mcp.core.config import ANNOUNCEMENT_CATEGORY_IDS, SEARCH_CACHE_MAX, SEARCH_CACHE_TTL
 from bddk_mcp.core.exceptions import BddkUpstreamError, BddkUpstreamUnreachableError
 from bddk_mcp.core.models import BddkSearchRequest
-from bddk_mcp.ingest.client import _turkish_lower
+from bddk_mcp.ingest.client import _turkish_lower, catalog_keyword_tokens
 from bddk_mcp.ingest.data_sources import fetch_announcements, fetch_institutions_with_status
 from bddk_mcp.quality.markdown_quality import (
     QualityAssessment,
@@ -38,10 +40,12 @@ from bddk_mcp.tools.contract_types import (
     SemanticQuery,
     normalize_announcement_category,
     normalize_institution_type,
+    validate_catalog_query,
     validate_date_order,
 )
 from bddk_mcp.tools.errors import UPSTREAM_FETCH_FAILED, tool_error
 from bddk_mcp.tools.structured_outputs import (
+    LEGAL_APPLICABILITY_WARNING,
     UNTRUSTED_SOURCE_WARNING,
     DocumentSearchItem,
     DocumentSearchResponse,
@@ -51,6 +55,7 @@ from bddk_mcp.tools.structured_outputs import (
     RegulationCatalogItem,
     RegulationCatalogResponse,
     RegulationCatalogToolResult,
+    document_status_notice,
     frame_untrusted_source,
     structured_tool_result,
 )
@@ -108,13 +113,25 @@ class _LRUCache:
             # popitem(last=False) removes the front — oldest/least-recently-used
             self._data.popitem(last=False)
 
-    def clear(self) -> None:
-        """Remove every cached response when the served corpus epoch changes."""
-        self._data.clear()
 
-
-# Module-level cache shared across all invocations
+# Module-level cache shared across all invocations. Keys of corpus-backed
+# searches carry the corpus change token, so a response computed before a
+# corpus write is never served after it.
 _search_cache: _LRUCache = _LRUCache(max_size=SEARCH_CACHE_MAX, ttl=SEARCH_CACHE_TTL)
+
+
+async def _corpus_cache_token(deps: Dependencies) -> str:
+    """Return the corpus change token as a cache-key part ("none" without a corpus)."""
+    if deps.db is None:
+        return "none"
+    epoch, data_version = await asyncio.to_thread(deps.db.change_token)
+    return f"{epoch}.{data_version}"
+
+
+_MATCH_TYPES = frozenset({"hybrid", "vector", "fts", "fts_exact"})
+# A keyword (FTS AND) match on a query that names a legal reference: there is no
+# semantic score to show, and the match does not confirm the provision.
+_FTS_EXACT_LABEL = "[keyword match on the legal reference in the query; no semantic score]"
 
 
 def _match_strength(relevance: float) -> str:
@@ -152,13 +169,31 @@ def _search_hit_quality(hit: dict) -> QualityAssessment:
     )
 
 
+_MAX_ANNOUNCEMENTS_SHOWN = 20
+
+
+def _newest_first(announcements: list[dict]) -> list[dict]:
+    """Sort announcements by their DD.MM.YYYY date, newest first; undated or unparsable ones last (stable)."""
+    dated: list[tuple[datetime, int, dict]] = []
+    undated: list[dict] = []
+    for index, announcement in enumerate(announcements):
+        try:
+            parsed = datetime.strptime(str(announcement.get("date") or "").strip(), "%d.%m.%Y")
+        except ValueError:
+            undated.append(announcement)
+            continue
+        dated.append((parsed, index, announcement))
+    dated.sort(key=lambda item: (-item[0].toordinal(), item[1]))
+    return [announcement for _, _, announcement in dated] + undated
+
+
 def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
     """Register the four search tools on the given MCP instance."""
 
     @mcp.tool()
     @logged_tool(logger)
     async def search_bddk_regulations(
-        keywords: RegulationKeywords,
+        keywords: RegulationKeywords = "",
         page: PageNumber = 1,
         page_size: PageSize = 10,
         category: OptionalRegulationCategory = None,
@@ -166,25 +201,31 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
         date_to: DateTo = None,
     ) -> RegulationCatalogToolResult:
         """
-        Search the BDDK regulations CATALOG by title, category, decision number, and date.
+        Search the local corpus catalog (the BDDK regulations served by this corpus file) by title,
+        category, decision number, and date. It is not a live search of the BDDK website.
 
-        Covers all BDDK regulatory document types: yönetmelik, tebliğ, genelge, rehber,
-        kurul kararı, kanun, mülga düzenleme, etc. ("decisions" is loose terminology;
-        the catalog is broader than just kararlar.)
+        Covers the BDDK regulatory document types held in this corpus: yönetmelik, tebliğ, genelge,
+        rehber, kurul kararı, kanun, mülga düzenleme, etc.
 
         This is a TITLE/METADATA search only — it does NOT search document body content.
         Use this when you know words that appear in the regulation's name itself
-        (e.g. "kredilerin sınıflandırılması", "elektronik para", "banka kartları").
+        (e.g. "kredilerin sınıflandırılması yönetmeliği", "8970 sayılı kurul kararı").
 
         For terms that appear only inside document bodies — abbreviations like "TFRS 9",
         article references ("madde 5"), defined terms, calculation formulas — use
         search_document_store instead (semantic search over full text).
 
-        All keyword tokens must match somewhere in title/category/date/number; one
-        missing token returns zero results.
+        Matching: function words (sayılı, hakkında, ilişkin, dair, göre, ile, ve, ...) are
+        ignored; document-type words (yönetmelik, tebliğ, genelge, rehber, karar, kanun, taslak,
+        in any inflection) are not required literally but rank documents of that type first;
+        every other token must match the title (exactly or by a shared word stem) or the
+        category/date/number. A number equal to a decision number ranks that decision first.
+        keywords may be empty when category or a date range is given: the matching catalog
+        entries are then listed newest decision date first.
 
         Args:
-            keywords: Search terms in Turkish (e.g. "elektronik para", "banka lisansı")
+            keywords: Search terms in Turkish (e.g. "elektronik para", "banka lisansı");
+                optional when category, date_from or date_to is given
             page: Page number, starting from 1
             page_size: Number of results per page (max 50)
             category: Optional category filter. Available categories:
@@ -196,8 +237,10 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
             date_from: Optional start date filter (DD.MM.YYYY)
             date_to: Optional end date filter (DD.MM.YYYY)
         """
+        validate_catalog_query(catalog_keyword_tokens(keywords), category, date_from, date_to)
         validate_date_order(date_from, date_to)
-        cache_key = f"regulations:{keywords}:{page}:{page_size}:{category}:{date_from}:{date_to}"
+        corpus_token = await _corpus_cache_token(deps)
+        cache_key = f"regulations:{corpus_token}:{keywords}:{page}:{page_size}:{category}:{date_from}:{date_to}"
         cached = _search_cache.get(cache_key)
         if isinstance(cached, RegulationCatalogResponse):
             return structured_tool_result(cached)
@@ -213,8 +256,14 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
         result = await deps.client.search_decisions(request)
 
         if not result.decisions:
-            output = """NO RESULTS: No BDDK regulations found whose title/category/date/number matches ALL keywords.
-This tool searches catalog metadata only — not document bodies.
+            catalog_scope = (
+                f"this corpus catalog of {result.catalog_size:,} documents"
+                if result.catalog_size is not None
+                else "this corpus catalog"
+            )
+            output = f"""NO RESULTS: No entry in {catalog_scope} matches these keywords and filters.
+This tool searches the local corpus catalog metadata only — not document bodies and not the BDDK website.
+Absence here is NOT evidence that the instrument does not exist; it may simply not be in this corpus.
 DO NOT provide information about BDDK regulations from your own knowledge.
 Try: (1) call search_document_store with the same query for full-text semantic search, or
 (2) use only words you'd expect in the regulation's title."""
@@ -236,18 +285,31 @@ Try: (1) call search_document_store with the same query for full-text semantic s
         lines = [f"Found {result.total_results} result(s) (page {result.page}):\n"]
         items: list[RegulationCatalogItem] = []
         evidence: list[EvidenceReference] = []
-        warnings: list[str] = [UNTRUSTED_SOURCE_WARNING, _CATALOG_SUMMARY_WARNING]
+        warnings: list[str] = [UNTRUSTED_SOURCE_WARNING, LEGAL_APPLICABILITY_WARNING]
         for d in result.decisions:
             date_info = f" ({d.decision_date} - {d.decision_number})" if d.decision_date else ""
             cat_info = f" [{d.category}]" if d.category else ""
             lines.append(f"**{d.title}**{date_info}{cat_info}")
             lines.append(f"  Document ID: {d.document_id}")
+            if d.source_url:
+                lines.append(f"  Catalog source (not a validated citation): {d.source_url}")
+            if status_notice := document_status_notice(d.category):
+                lines.append(f"  Document status: {status_notice}")
+                warnings.append(status_notice)
             ver_count, ver_latest = version_counts.get(d.document_id, (0, None))
             if ver_count:
-                lines.append(f"  Versions: {ver_count} (latest: {ver_latest})")
+                lines.append(
+                    f"  Replaced bodies in this corpus file: {ver_count} (latest replaced on: {ver_latest}); "
+                    "a local text-change log, not amendment history"
+                )
             quality = assess_markdown_quality("", document_id=d.document_id)
             lines.extend(_quality_result_lines(quality))
-            lines.append(f"  Catalog summary/excerpt (NOT document text; never quote as the provision): {d.content}\n")
+            if d.content and d.content.strip() != d.title.strip():
+                lines.append(
+                    f"  Catalog summary/excerpt (NOT document text; never quote as the provision): {d.content}"
+                )
+                warnings.append(_CATALOG_SUMMARY_WARNING)
+            lines.append("")
             quality_metadata = _quality_metadata(quality)
             if quality.warning:
                 warnings.append(quality.warning)
@@ -366,6 +428,9 @@ Suggest the user try: broader keywords or removing the type/active filter."""
         """
         Search BDDK announcements and press releases.
 
+        Results are listed newest first by announcement date (undated last); at most
+        the 20 most recent are shown, and the output says how many more matched.
+
         Args:
             keywords: Search terms in Turkish
             category: Announcement type: basın (press), mevzuat (regulation),
@@ -429,13 +494,22 @@ Suggest the user try: different keywords or a different category (basın, mevzua
                 + partial_warning
             )
 
-        lines = [f"Found {len(announcements)} announcement(s):\n"]
-        for a in announcements[:20]:
+        announcements = _newest_first(announcements)
+        total = len(announcements)
+        shown = announcements[:_MAX_ANNOUNCEMENTS_SHOWN]
+        header = f"Found {total} announcement(s)"
+        if total > len(shown):
+            header += f"; showing the {len(shown)} most recent of {total}"
+        lines = [header + ":\n"]
+        for a in shown:
             date_info = f" ({a['date']})" if a.get("date") else ""
-            lines.append(f"**{a['title']}**{date_info}")
+            category_info = f" [{a['category']}]" if a.get("category") else ""
+            lines.append(f"**{a['title']}**{date_info}{category_info}")
             if a.get("url"):
                 lines.append(f"  URL: {a['url']}")
             lines.append("")
+        if total > len(shown):
+            lines.append(f"... and {total - len(shown)} more (narrow the keywords or the category to see them).")
         if partial_warning:
             lines.append(partial_warning.strip())
         return frame_untrusted_source("\n".join(lines))
@@ -493,7 +567,7 @@ Suggest the user try: different keywords or a different category (basın, mevzua
                 hint="Retry once, then use search_document_sections or get_document_section.",
             )
 
-        cache_key = f"semantic:{query}:{category}:{limit}"
+        cache_key = f"semantic:{await _corpus_cache_token(deps)}:{query}:{category}:{limit}"
         cached = _search_cache.get(cache_key)
         if isinstance(cached, DocumentSearchResponse):
             return structured_tool_result(cached)
@@ -525,19 +599,49 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
         hit_quality: dict[str, QualityAssessment] = {}
         items: list[DocumentSearchItem] = []
         evidence: list[EvidenceReference] = []
-        warnings: list[str] = [UNTRUSTED_SOURCE_WARNING, _SNIPPET_TRUNCATION_WARNING]
+        warnings: list[str] = [UNTRUSTED_SOURCE_WARNING, _SNIPPET_TRUNCATION_WARNING, LEGAL_APPLICABILITY_WARNING]
         for h in hits:
             date_info = f" ({h['decision_date']})" if h.get("decision_date") else ""
             cat_info = f" [{h['category']}]" if h.get("category") else ""
-            match_strength = _match_strength(h["relevance"])
-            relevance = f" [{match_strength} match, relevance {h['relevance']:.1%}]"
+            match_type = h.get("match_type") if h.get("match_type") in _MATCH_TYPES else None
+            if match_type == "fts_exact":
+                match_strength = "keyword"
+                relevance = f" {_FTS_EXACT_LABEL}"
+            else:
+                match_strength = _match_strength(h["relevance"])
+                relevance = f" [{match_strength} match, relevance {h['relevance']:.1%}]"
             lines.append(f"**{h['title']}**{date_info}{cat_info}{relevance}")
             lines.append(f"  Document ID: {h['doc_id']}")
+            if status_notice := document_status_notice(str(h.get("category") or "")):
+                lines.append(f"  Document status: {status_notice}")
+                warnings.append(status_notice)
+            section_type = str(h.get("section_type") or "")
+            section_ref = str(h.get("section_ref") or "")
+            source_url = str(h.get("source_url") or "")
+            decision_number = str(h.get("decision_number") or "")
+            decision_date = str(h.get("decision_date") or "")
+            if section_type == "govde":
+                lines.append("  Section: govde remainder — not a legal provision identity")
+            elif section_type:
+                lines.append(f"  Section: {section_type} {section_ref}".rstrip())
+            if source_url:
+                lines.append(f"  Catalog source (not a validated citation): {source_url}")
+            if decision_date or decision_number:
+                parts = [
+                    f"date {decision_date}" if decision_date else "",
+                    f"number {decision_number}" if decision_number else "",
+                ]
+                lines.append(f"  Decision {', '.join(part for part in parts if part)}")
             quality = _search_hit_quality(h)
             hit_quality[str(h["doc_id"])] = quality
             lines.extend(_quality_result_lines(quality))
             if h.get("snippet"):
                 lines.append(f"  ...{h['snippet'][:200]}...")
+            if section_type and section_ref and section_type != "govde":
+                lines.append(
+                    f'  Full section: get_document_section(document_id="{h["doc_id"]}", '
+                    f'section_type="{section_type}", section_ref="{section_ref}")'
+                )
             lines.append("")
             quality_metadata = _quality_metadata(quality)
             if quality.warning:
@@ -552,6 +656,11 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
                     relevance=float(h["relevance"]),
                     match_strength=match_strength,  # type: ignore[arg-type]
                     quality=quality_metadata,
+                    match_type=match_type,
+                    section_type=section_type or None,
+                    section_ref=section_ref or None,
+                    source_url=source_url or None,
+                    decision_number=decision_number or None,
                 )
             )
             evidence.append(
@@ -561,6 +670,10 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
                     decision_date=str(h.get("decision_date") or "") or None,
                     category=str(h.get("category") or "") or None,
                     retrieval_source="vector_store",
+                    source_url=source_url or None,
+                    decision_number=decision_number or None,
+                    section_type=section_type or None,
+                    section_ref=section_ref or None,
                     quality=quality_metadata,
                 )
             )
@@ -570,7 +683,8 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
             "search_document_sections or get_document_section before making detailed conclusions."
         )
 
-        low_count = sum(1 for h in hits if h.get("relevance", 0) < 0.50)
+        # fts_exact hits have no semantic score, so they are not "weak".
+        low_count = sum(1 for h in hits if h.get("match_type") != "fts_exact" and h.get("relevance", 0) < 0.50)
         if low_count > 0:
             lines.append(
                 f"\nWARNING: {low_count} result(s) are weak matches. They may not be directly relevant. Verify before citing."

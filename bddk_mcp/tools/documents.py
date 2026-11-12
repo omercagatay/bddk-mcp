@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING
 
-from pydantic import Field
-
+from bddk_mcp.core.config import PAGE_SIZE
 from bddk_mcp.core.exceptions import BddkStorageError
 from bddk_mcp.quality.markdown_quality import (
     FORMULA_EXTRACTION_WARNING as _DEGRADED_WARNING,
@@ -15,9 +14,17 @@ from bddk_mcp.quality.markdown_quality import is_formula_aware as _is_formula_aw
 from bddk_mcp.quality.markdown_quality import mentions_formula as _mentions_formula
 from bddk_mcp.quality.markdown_quality import quality_assessment_from_metadata, unsafe_verbatim_reason
 from bddk_mcp.store.legal_ref import document_id_candidates
+from bddk_mcp.tools.contract_types import (
+    MAX_DOCUMENT_PAGES_PER_RESPONSE,
+    DocumentId,
+    DocumentMaxPages,
+    DocumentPageNumber,
+)
 from bddk_mcp.tools.errors import INVALID_INPUT, NOT_FOUND, tool_error
 from bddk_mcp.tools.structured_outputs import (
+    LEGAL_APPLICABILITY_WARNING,
     UNTRUSTED_SOURCE_WARNING,
+    DocumentCurrentBody,
     DocumentHistoryResponse,
     DocumentHistoryToolResult,
     DocumentPageContent,
@@ -26,28 +33,26 @@ from bddk_mcp.tools.structured_outputs import (
     DocumentVersionItem,
     EvidenceReference,
     QualityMetadata,
+    decision_identifier_text,
+    document_status_notice,
+    source_date_text,
     structured_tool_result,
+    utc_date,
 )
 from bddk_mcp.tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
     from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.store.doc_store import DocumentPage
 
 logger = logging.getLogger(__name__)
 
 _LARGE_DOCUMENT_PAGE_THRESHOLD = 20
-_MAX_PAGES_PER_RESPONSE = 5
-DocumentId = Annotated[
-    str,
-    Field(
-        min_length=1,
-        max_length=128,
-        pattern=r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
-        description="Local BDDK/mevzuat document identifier returned by search.",
-    ),
-]
-PageNumber = Annotated[int, Field(ge=1, le=10_000, description="1-based normalized document page number.")]
-MaxPages = Annotated[int, Field(ge=1, le=5, description="Consecutive pages to return (1-5).")]
+_MAX_PAGES_PER_RESPONSE = MAX_DOCUMENT_PAGES_PER_RESPONSE
+_HISTORY_NOTICE = (
+    "This is the local text-change log of this corpus file (bodies replaced by bddk-mcp sync); it is not the "
+    "legal amendment history of the instrument. Check mevzuat.gov.tr / Resmî Gazete for amendments."
+)
 _PAGE_GAP_WARNING_TEMPLATE = (
     "Sayfa {missing_page} local store'dan alınamadı; yalnızca {first_page}-{last_page} arası döndürüldü. "
     "Belge toplam {total_pages} sayfa olarak kayıtlı — eksik sayfa, store tutarsızlığına işaret edebilir."
@@ -57,6 +62,42 @@ _LARGE_DOCUMENT_WARNING_TEMPLATE = (
     "Hedefli retrieval için önce search_document_sections veya get_document_section kullan; "
     "yalnızca gerekli sayfalar için get_bddk_document içinde page_number ve max_pages parametrelerini kullan."
 )
+
+
+def _page_cut_warning(page: int, content: str, *, total_pages: int, returned_pages: set[int]) -> str | None:
+    """Name a clear structural cut on a page that is not the last one.
+
+    An odd number of $$ delimiters says only that a formula crosses one of the page's two boundaries,
+    not which one, so that advice names both neighbours. A last line starting with "|" and no final
+    newline is an end-of-page cut, so that advice names the next page only. A neighbour already in
+    this response is not asked for again.
+    """
+    advice = []
+    if content.count("$$") % 2 == 1:
+        adjacent = [n for n in (page - 1, page + 1) if 1 <= n <= total_pages]
+        missing = [n for n in adjacent if n not in returned_pages]
+        text = (
+            f"Page {page} has an odd number of $$ formula delimiters: a formula is cut at the start or the end of "
+            "this page, and the delimiter count cannot tell which."
+        )
+        if missing:
+            text += (
+                f" Retrieve page(s) {' and '.join(map(str, missing))} as well before quoting a formula at either "
+                "edge of this page."
+            )
+        else:
+            text += " Read the adjacent page(s) in this response before quoting a formula at either edge of it."
+        advice.append(text)
+    if not content.endswith("\n") and content.rsplit("\n", 1)[-1].startswith("|"):
+        text = f"Page {page} ends inside a table row that continues on the next page."
+        if page + 1 not in returned_pages:
+            text += f" Retrieve page {page + 1} as well before quoting that row."
+        else:
+            text += f" Its continuation is at the start of page {page + 1} in this response."
+        advice.append(text)
+    if not advice:
+        return None
+    return " ".join(advice) + " The page boundary is a fixed character window, not a source boundary."
 
 
 def register(
@@ -69,8 +110,8 @@ def register(
     @logged_tool(logger)
     async def get_bddk_document(
         document_id: DocumentId,
-        page_number: PageNumber = 1,
-        max_pages: MaxPages = 1,
+        page_number: DocumentPageNumber = 1,
+        max_pages: DocumentMaxPages = 1,
     ) -> DocumentToolResult:
         """
         Retrieve a BDDK decision document as Markdown.
@@ -86,43 +127,45 @@ def register(
 
         Args:
             document_id: The numeric document ID (from search results)
-            page_number: First page of the markdown output (documents are split into 5000-char pages)
+            page_number: First page of the markdown output. Pages are fixed windows of
+                BDDK_PAGE_SIZE characters (5000 by default) that can cut a word, table row or formula.
             max_pages: Consecutive pages to return (1-5)
         """
         if isinstance(max_pages, bool) or not 1 <= max_pages <= _MAX_PAGES_PER_RESPONSE:
             return tool_error(INVALID_INPUT, "max_pages must be between 1 and 5.", retryable=False)
         candidates = document_id_candidates(document_id)
 
-        async def _lookup_page(cand: str, page: int) -> tuple[int, int, str, str] | None:
-            try:
-                stored = await deps.doc_store.get_document_page(cand, page)
-            except (RuntimeError, BddkStorageError) as exc:
-                logger.warning("Document page lookup failed", extra={"error_type": type(exc).__name__})
-                stored = None
-
+        async def _lookup_page(cand: str, page: int) -> DocumentPage | None:
+            stored = await deps.doc_store.get_document_page(cand, page)
             if stored and stored.markdown_content:
-                return stored.page_number, stored.total_pages, stored.markdown_content, stored.extraction_method or ""
+                return stored
             return None
 
         resolved_id: str | None = None
+        first_found: DocumentPage | None = None
         page_num = 0
         total_pages = 0
         page_contents: list[tuple[int, str]] = []
         extraction_method = ""
+        body_hash = ""
+        downloaded_at: float | None = None
 
         for cand in candidates:
             found_page = await _lookup_page(cand, page_number)
-            if found_page and not 1 <= found_page[0] <= found_page[1]:
+            if found_page and not 1 <= found_page.page_number <= found_page.total_pages:
                 # The store answers an out-of-range page with a sentinel page; the document exists.
                 return tool_error(
                     INVALID_INPUT,
-                    f"page_number {page_number} is out of range; document {cand} has {found_page[1]} page(s).",
+                    f"page_number {page_number} is out of range; document {cand} has {found_page.total_pages} page(s).",
                     retryable=False,
                 )
             if found_page:
                 resolved_id = cand
-                page_num, total_pages, content, extraction_method = found_page
-                page_contents.append((page_num, content))
+                first_found = found_page
+                page_num, total_pages = found_page.page_number, found_page.total_pages
+                extraction_method = found_page.extraction_method or ""
+                body_hash, downloaded_at = found_page.content_hash, found_page.downloaded_at
+                page_contents.append((page_num, found_page.markdown_content))
                 break
 
         if resolved_id is None:
@@ -135,10 +178,18 @@ def register(
             )
 
         found = deps.client.find_by_id(resolved_id)
+        # Without a catalog row, the stored page still carries the document's title and category, so the
+        # MÜLGA/TASLAK status mark agrees with the section tools, which read it from the documents table.
         meta_title, meta_date, meta_number, meta_category, source_url = (
             (found.title, found.decision_date, found.decision_number, found.category, found.source_url or "")
             if found
-            else (resolved_id, "", "", "", "")
+            else (
+                (first_found.title if first_found else "") or resolved_id,
+                "",
+                "",
+                first_found.category if first_found else "",
+                "",
+            )
         )
 
         alias_line = f"- Resolved from: `{document_id}` -> `{resolved_id}`\n" if resolved_id != document_id else ""
@@ -157,10 +208,10 @@ def register(
                         total_pages,
                     )
                     break
-                last_page_num, total_pages, page_content, page_extraction_method = found_page
-                page_contents.append((last_page_num, page_content))
-                if page_extraction_method and not extraction_method:
-                    extraction_method = page_extraction_method
+                last_page_num, total_pages = found_page.page_number, found_page.total_pages
+                page_contents.append((last_page_num, found_page.markdown_content))
+                if found_page.extraction_method and not extraction_method:
+                    extraction_method = found_page.extraction_method
 
         # Page cuts can split tables/formulas, or hide a failure elsewhere in the body.
         try:
@@ -205,7 +256,11 @@ def register(
 
         quality_lines = ""
         quality_warning_block = ""
-        warnings: list[str] = [UNTRUSTED_SOURCE_WARNING]
+        warnings: list[str] = [UNTRUSTED_SOURCE_WARNING, LEGAL_APPLICABILITY_WARNING]
+        status_notice = document_status_notice(meta_category)
+        status_line = f"- Document status: {status_notice}\n" if status_notice else ""
+        if status_notice:
+            warnings.append(status_notice)
         if quality.label != "clean":
             flags = ", ".join(quality.flags) if quality.flags else "none"
             quality_lines = f"- Quality: {quality.label}\n- Quality flags: {flags}\n"
@@ -230,6 +285,28 @@ def register(
             page_gap_warning_block = "⚠ " + page_gap_warning + "\n\n"
             warnings.append(page_gap_warning)
 
+        separator_note = (
+            " In this multi-page output the '---' and '### Page N/T' lines are tool separators between pages, "
+            "not source text; never quote them."
+            if len(page_contents) > 1
+            else ""
+        )
+        page_cut_warnings = [
+            warning
+            for page, page_content in page_contents
+            if page < total_pages
+            and (
+                warning := _page_cut_warning(
+                    page,
+                    page_content,
+                    total_pages=total_pages,
+                    returned_pages={returned for returned, _content in page_contents},
+                )
+            )
+        ]
+        page_cut_warning_block = "".join(f"⚠ {warning}\n\n" for warning in page_cut_warnings)
+        warnings.extend(page_cut_warnings)
+
         degraded_warning_block = f"⚠ {_DEGRADED_WARNING}\n\n" if degraded else ""
         if degraded:
             warnings.append(_DEGRADED_WARNING)
@@ -237,29 +314,26 @@ def register(
             f"{page_num}/{total_pages}" if last_page_num == page_num else f"{page_num}-{last_page_num}/{total_pages}"
         )
 
+        decision = decision_identifier_text(meta_date, meta_number)
+        decision_line = f"- Decision date / number: {decision}\n" if decision else ""
         header = (
             f"## {meta_title}\n- Document ID: {resolved_id}\n{alias_line}"
-            f"- Decision Date: {meta_date or 'N/A'}\n- Decision Number: {meta_number or 'N/A'}\n"
-            f"- Category: {meta_category or 'N/A'}\n- Source: {source_url or 'N/A'}\n"
+            f"{decision_line}"
+            f"- Category: {meta_category or 'N/A'}\n{status_line}- Source: {source_url or 'N/A'}\n"
+            f"- Text obtained from the source on: {source_date_text(downloaded_at)}\n"
             f"- Page: {page_display}\n- Extraction: {method_display}\n{quality_lines}---\n"
-            "The text below is the exact stored document content; no sanitization, wrapping, paraphrase or "
+            "The text below is the exact stored document content; no sanitization, paraphrase or "
             "summary has been applied. Quote it verbatim, character for character, and do not add information "
             "not present in this document. Verbatim equality with the stored extraction does not by itself prove "
-            "equality with the official source; use source_url to verify.\n\n"
-            f"{large_document_warning_block}{page_gap_warning_block}"
+            "equality with the official source; use source_url to verify. "
+            f"Pages are fixed windows of {PAGE_SIZE:,} characters of the stored text, so a page can start or end "
+            "inside a word, a table row or a formula."
+            f"{separator_note}\n\n"
+            f"{large_document_warning_block}{page_gap_warning_block}{page_cut_warning_block}"
             f"{quality_warning_block}{degraded_warning_block}"
         )
 
         served_via = "document_store"
-        relevance_stats = {
-            "page_number": page_num,
-            "last_page_number": last_page_num,
-            "total_pages": total_pages,
-            "pages_returned": len(page_contents),
-            "served_via": served_via,
-        }
-        if missing_page is not None:
-            relevance_stats["missing_page"] = missing_page
         quality_metadata = QualityMetadata(
             label=quality.label,  # type: ignore[arg-type]
             flags=list(quality.flags),
@@ -279,6 +353,8 @@ def register(
                     retrieval_source=served_via,
                     page_start=page_num,
                     page_end=last_page_num,
+                    content_hash=body_hash or None,
+                    source_downloaded_on=utc_date(downloaded_at),
                     extraction_method=extraction_method or "unknown",
                     quality=quality_metadata,
                 )
@@ -307,38 +383,78 @@ def register(
         document_id: DocumentId,
     ) -> DocumentHistoryToolResult:
         """
-        Get version history for a BDDK document.
+        List the local text-change log of a stored document in this corpus file.
 
-        Lists earlier (replaced) bodies with timestamps and content hashes. The list is
-        empty until a sync or build replaces a document's text, and the current body is
-        not listed; an unknown document ID also gives an empty list.
+        This is NOT the legal amendment history of the instrument: it lists only
+        earlier bodies that `bddk-mcp sync` (or a rebuild) replaced in this corpus
+        file, newest first, each with the UTC time it was replaced and its content
+        hash. The current body is reported separately (content hash, source
+        download date, extraction method) and is never one of the versions. Check
+        mevzuat.gov.tr / Resmî Gazete for amendments. A bare numeric ID is also
+        tried as `mevzuat_<id>` and `bddk_<id>`; an ID that is not a stored
+        document is a NOT_FOUND error.
 
         Args:
             document_id: The document ID (from search results)
         """
         store = deps.doc_store
-        history = await store.get_document_history(document_id)
+        resolved_id: str | None = None
+        current: dict | None = None
+        for candidate in document_id_candidates(document_id):
+            current = await store.get_current_body(candidate)
+            if current is not None:
+                resolved_id = candidate
+                break
+        if resolved_id is None or current is None:
+            return tool_error(
+                NOT_FOUND,
+                f"Document {document_id} is not available in the local store. This MCP server is airlocked "
+                "and does not fetch from live BDDK / mevzuat.gov.tr sources at runtime.",
+                retryable=False,
+                hint="Check the document ID with search_bddk_regulations or search_document_store.",
+            )
+        history = await store.get_document_history(resolved_id)
+
+        current_body = DocumentCurrentBody(
+            content_hash=str(current["content_hash"]),
+            content_length=int(current["content_length"]),
+            source_downloaded_on=utc_date(current["downloaded_at"]),
+            extraction_method=str(current["extraction_method"] or "unknown"),
+        )
+        alias_line = f"Resolved from: `{document_id}` -> `{resolved_id}`\n" if resolved_id != document_id else ""
+        current_line = (
+            f"Current stored body (not a version): hash {current_body.content_hash[:12]}..., "
+            f"{current_body.content_length} chars, text obtained from the source on: "
+            f"{source_date_text(current['downloaded_at'])}, extraction method: {current_body.extraction_method}"
+        )
 
         if not history:
             output = (
-                f"No version history found for document {document_id}. Only earlier (replaced) bodies are "
-                "listed; the list is empty until a sync or build replaces a document's text, and the current "
-                "body is not listed. An unknown document ID gives the same empty result."
+                f"{alias_line}{current_line}\n\n"
+                f"No version history found for document {resolved_id}. This corpus file records no replaced "
+                "body for it; that says nothing about whether the instrument was amended."
             )
             return structured_tool_result(
                 DocumentHistoryResponse(
                     status="no_results",
                     text=output,
                     document_id=document_id,
-                )
+                    resolved_document_id=resolved_id,
+                    current_body=current_body,
+                ),
+                trusted_notice=_HISTORY_NOTICE,
             )
 
-        lines = [f"**Version History for {document_id}** ({len(history)} version(s)):\n"]
+        lines = [
+            f"{alias_line}{current_line}\n",
+            f"**Replaced bodies of {resolved_id}** ({len(history)} version(s), newest first):\n",
+        ]
         versions: list[DocumentVersionItem] = []
         evidence: list[EvidenceReference] = []
         for v in history:
             lines.append(
-                f"  v{v['version']} — {v['synced_at']} (hash: {v['content_hash'][:12]}..., {v['content_length']} chars)"
+                f"  v{v['version']} — replaced on {v['synced_at']} "
+                f"(hash: {v['content_hash'][:12]}..., {v['content_length']} chars)"
             )
             version = DocumentVersionItem(
                 version=int(v["version"]),
@@ -349,7 +465,7 @@ def register(
             versions.append(version)
             evidence.append(
                 EvidenceReference(
-                    document_id=document_id,
+                    document_id=resolved_id,
                     retrieval_source="version_store",
                     content_hash=version.content_hash,
                 )
@@ -362,5 +478,8 @@ def register(
                 evidence=evidence,
                 document_id=document_id,
                 versions=versions,
-            )
+                resolved_document_id=resolved_id,
+                current_body=current_body,
+            ),
+            trusted_notice=_HISTORY_NOTICE,
         )

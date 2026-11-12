@@ -18,6 +18,11 @@ if os.environ.get("BDDK_MCP_E2E_STUB") == "1":
     class FakeDocumentStore:
         """Smallest local dependency needed by the representative tool call."""
 
+        async def get_current_body(self, document_id: str) -> dict | None:
+            if document_id not in {"943", "22599"}:
+                return None
+            return {"content_hash": "0" * 64, "content_length": 1, "downloaded_at": None, "extraction_method": ""}
+
         async def get_document_history(self, document_id: str) -> list[dict]:
             return []
 

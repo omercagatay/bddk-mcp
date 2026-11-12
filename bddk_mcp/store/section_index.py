@@ -33,6 +33,17 @@ def split_section_truncation_notice(content: str) -> tuple[str, str | None]:
     return content[: match.start()], content[match.start() :].strip()
 
 
+_NOTICE_ORIGINAL_LENGTH_RE = re.compile(r"içerik (\d+) karakterden")
+
+
+def truncation_notice_original_length(notice: str | None) -> int | None:
+    """Return the uncapped span length recorded in a truncation notice, if it states one."""
+    if not notice:
+        return None
+    match = _NOTICE_ORIGINAL_LENGTH_RE.search(notice)
+    return int(match.group(1)) if match else None
+
+
 # Uncovered remainder (preamble, refused numbered bodies, footnotes, text
 # past a capped span) is indexed as this type so section FTS can see it
 # without inventing madde/paragraf identities.

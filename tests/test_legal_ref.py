@@ -98,3 +98,33 @@ def test_gecici_and_ek_madde_map_to_their_own_section_types():
 def test_canonical_section_ref_is_the_stored_form():
     cases = {"66/A": "66/a", "66A": "66/a", " 13/Ç ": "13/ç", "a": "a", "Ç": "ç", "I": "i", "İ": "i", "2.1": "2.1"}
     assert {value: canonical_section_ref(value) for value in cases} == cases
+
+
+def test_standard_and_framework_numbers_are_not_document_ids():
+    for query in (
+        "TFRS 16 kiralama işlemleri",
+        "TMS 39 finansal araçlar",
+        "TFRS-15 hasılat",
+        "IFRS 17 sigorta sözleşmeleri",
+        "IAS 37 karşılıklar",
+        "UFRS 10 ve UMS 28",
+        "BDS 701 kilit denetim konuları",
+        "BOBİ FRS 12 uygulaması",
+        "Basel 3 sermaye tamponları",
+        "Basel III 2017 reformları",
+        "COVID-19 kredi erteleme",
+    ):
+        assert parse_legal_refs(query).document_ids == [], query
+
+
+def test_years_followed_by_yil_are_not_document_ids():
+    assert parse_legal_refs("2024 yılı kredi kartı asgari ödeme").document_ids == []
+    assert parse_legal_refs("2019 yılında yürürlüğe giren düzenleme").document_ids == []
+    assert parse_legal_refs("1999 YILI bütçesi").document_ids == []
+
+
+def test_bare_ids_next_to_standards_and_years_are_still_inferred():
+    assert parse_legal_refs("943 İlke 5 TFRS 9 model validasyonu").document_ids == ["943"]
+    assert parse_legal_refs("943 TFRS 16 kiralama").document_ids == ["943"]
+    assert parse_legal_refs("mevzuat_22599 2024 yılı karşılıklar").document_ids == ["mevzuat_22599"]
+    assert parse_legal_refs("1028 kredi kartı").document_ids == ["1028"]
