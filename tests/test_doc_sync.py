@@ -25,7 +25,7 @@ from bddk_mcp.ingest.doc_sync import (
     _parse_mevzuat_params,
     _validate_office_archive_for_markitdown,
 )
-from bddk_mcp.ocr.base import MarkitdownBackend
+from bddk_mcp.ocr.base import MarkitdownBackend, PdftotextBackend
 from bddk_mcp.store.doc_store import StoredDocument
 
 # -- URL helpers -----------------------------------------------------------
@@ -1056,6 +1056,13 @@ def test_resolve_html_first_flag_explicit_false_overrides_auto():
         prefer_html_for_mevzuat=False,
     )
     assert syncer._prefer_html_for_mevzuat is False
+
+
+def test_resolve_html_first_flag_auto_treats_pdftotext_as_degraded(monkeypatch):
+    """pdftotext_degraded loses tables and formulas too, so a CPU-only chain must go HTML-first."""
+    monkeypatch.setattr("bddk_mcp.ocr.base.shutil.which", lambda name: "/usr/bin/pdftotext")
+    syncer = DocumentSyncer(object(), ocr_backends=[PdftotextBackend(), MarkitdownBackend()])
+    assert syncer._prefer_html_for_mevzuat is True
 
 
 def test_resolve_html_first_flag_formula_capable_backend_flips_auto_false():

@@ -4,11 +4,13 @@ Document sync engine for BDDK MCP Server.
 Downloads BDDK decisions and mevzuat.gov.tr documents, extracts content
 to markdown, and stores them in the corpus file.
 
-Extraction pipeline (configured in ocr.base.get_default_backends):
-  1. LightOnOCR-2-1B (GPU) — primary, formula-aware
-  2. PP-StructureV3 (GPU fallback)
+Extraction pipeline (the PDF chain is built by ocr.base.get_default_backends):
+  1. LightOnOCR-2-1B (GPU) — formula-aware
+  2. pdftotext (poppler, CPU) — layout text, no formulas or tables
   3. markitdown — CPU last resort, no formulas
-  4. HTML parsing — mevzuat.gov.tr HTML fallback
+  4. HTML parsing — mevzuat.gov.tr iframe HTML (first on hosts where only the
+     degraded backends 2 and 3 are available, see BDDK_PREFER_HTML_FOR_MEVZUAT)
+The Chandra2 backend (ocr/chandra.py) exists, but no sync path constructs it.
 
 Run it through ``bddk-mcp sync``.
 """
@@ -803,8 +805,8 @@ class DocumentSyncer:
         Precedence: explicit ctor arg → BDDK_PREFER_HTML_FOR_MEVZUAT env var
         (via config.PREFER_HTML_FOR_MEVZUAT). When the env var resolves to
         "auto", flip to True iff no formula-capable OCR backend is available
-        — markitdown-on-PDF loses formulas and tables, so the rich HTML path
-        beats it whenever only markitdown is on hand.
+        — the *_degraded backends (pdftotext, markitdown) lose formulas and
+        tables on PDF, so the rich HTML path beats them whenever only they are on hand.
         """
         if explicit is not None:
             return explicit
@@ -813,9 +815,9 @@ class DocumentSyncer:
             return True
         if setting in ("0", "false", "no"):
             return False
-        # "auto": prefer HTML iff every available backend is markitdown-only.
+        # "auto": prefer HTML iff every available backend is degraded (*_degraded: no formulas or tables).
         formula_capable = any(
-            getattr(b, "name", "") != "markitdown_degraded" and b.is_available() for b in self._ocr_backends
+            not getattr(b, "name", "").endswith("_degraded") and b.is_available() for b in self._ocr_backends
         )
         return not formula_capable
 
@@ -833,8 +835,13 @@ class DocumentSyncer:
     ) -> SyncResult:
         """Download and extract a single document."""
 
-        # Skip if already in store and not forced
-        if not force and await self._store.has_document(doc_id):
+        # Skip only when the text is stored and, if a vector store is attached, its
+        # chunks are current. A document whose indexing failed is retried here.
+        if (
+            not force
+            and await self._store.has_document(doc_id)
+            and (self._vector_store is None or await self._vector_store.has_document(doc_id))
+        ):
             return SyncResult(document_id=doc_id, success=True, method="cached")
 
         # If re-extracting with force=True and the PDF is already cached in DB,
@@ -941,7 +948,7 @@ class DocumentSyncer:
             except Exception as error:
                 logger.warning(
                     "Vector index publication failed after document sync; "
-                    "hash-gated retrieval will hide stale chunks until retry",
+                    "hash-gated retrieval will hide stale chunks until the next sync retries it",
                     extra={"error_type": type(error).__name__},
                 )
                 await self._store.record_sync_failure(

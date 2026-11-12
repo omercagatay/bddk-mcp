@@ -99,7 +99,7 @@ OCR_MIN_CONTENT_LEN = _environment_int(
     maximum=10_000_000,
 )
 
-# -- Chandra2 (primary OCR, backfill-only, in-process HF) --------------------
+# -- Chandra2 (in-process HF backend; no sync path constructs it today) -------
 
 CHANDRA_MODEL_NAME = os.environ.get("BDDK_CHANDRA_MODEL", "datalab-to/chandra-ocr-2")
 
@@ -221,9 +221,9 @@ HTTP_POOL_TIMEOUT = _environment_float(
 MAX_RETRIES = _environment_int("BDDK_MAX_RETRIES", default=3, minimum=1, maximum=20)
 
 # Prefer the iframe/HTML download path over PDF for mevzuat.gov.tr documents.
-# Values: "true" | "false" | "auto". "auto" flips to true when no GPU OCR
-# backend is available — markitdown-on-PDF produces no formulas / no tables,
-# so the rich HTML path is the better CPU-only choice.
+# Values: "true" | "false" | "auto". "auto" flips to true when every available
+# OCR backend is a *_degraded one (pdftotext, markitdown): they produce no
+# formulas / no tables, so the rich HTML path is the better CPU-only choice.
 PREFER_HTML_FOR_MEVZUAT = _environment_choice(
     "BDDK_PREFER_HTML_FOR_MEVZUAT",
     default="auto",

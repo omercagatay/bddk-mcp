@@ -66,7 +66,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Re-scrape the BDDK catalog pages into the corpus before syncing",
     )
-    sync.add_argument("--force", action="store_true", help="Re-download and re-extract every document")
+    sync.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-extract every document (a stored mevzuat PDF is reused unless HTML-first is on)",
+    )
     sync.add_argument("--doc-id", help="Sync a single catalogued document by ID")
     sync.add_argument("--concurrency", type=_positive_int, default=5, help="Parallel downloads (default 5)")
 

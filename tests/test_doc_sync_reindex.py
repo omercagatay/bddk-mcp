@@ -114,3 +114,39 @@ async def test_sync_document_records_sanitized_reindex_failure_without_clearing_
     assert "secret" not in result.model_dump_json()
     assert store.cleared == []
     assert store.failures == [(("999998", "reindex_failed", "index", "", True), {})]
+
+
+@pytest.mark.asyncio
+async def test_plain_resync_retries_document_whose_chunks_are_missing():
+    """A stored document without current chunks (earlier reindex_failed) is not skipped as cached."""
+    store = _DummyStore()
+    store.has.add("999997")
+    vector_store = AsyncMock()
+    vector_store.has_document = AsyncMock(return_value=False)
+    vector_store.add_document = AsyncMock(return_value=3)
+    html = "<html><body><h1>Test</h1><p>" + ("Yeterli düzenleyici içerik. " * 30) + "</p></body></html>"
+
+    async with DocumentSyncer(store, ocr_backends=[MarkitdownBackend()], vector_store=vector_store) as syncer:
+        syncer._fetch_trusted_bddk = AsyncMock(
+            return_value=SimpleNamespace(status_code=200, content=html.encode(), headers={"content-type": "text/html"})
+        )
+        result = await syncer.sync_document(doc_id="999997")
+
+    assert result.success
+    assert result.method != "cached"
+    vector_store.add_document.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_plain_resync_skips_document_with_text_and_current_chunks():
+    store = _DummyStore()
+    store.has.add("999996")
+    vector_store = AsyncMock()
+    vector_store.has_document = AsyncMock(return_value=True)
+
+    async with DocumentSyncer(store, ocr_backends=[MarkitdownBackend()], vector_store=vector_store) as syncer:
+        result = await syncer.sync_document(doc_id="999996")
+
+    assert result.success
+    assert result.method == "cached"
+    vector_store.add_document.assert_not_awaited()
