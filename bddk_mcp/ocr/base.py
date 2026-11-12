@@ -11,6 +11,7 @@ Each backend owns its own model lifecycle and availability check.
 
 from __future__ import annotations
 
+import contextlib
 import io
 import logging
 import os
@@ -181,6 +182,84 @@ class PdftotextBackend:
 
 # --- LightOnOCR-2-1B backend (GPU, primary) ----------------------------------
 
+_LIGHTOCR_MAX_NEW_TOKENS = 4096
+
+
+class LightOCRPageTruncatedError(RuntimeError):
+    """A page stopped at max_new_tokens without an end-of-sequence token."""
+
+    def __init__(self, page_number: int, page_count: int) -> None:
+        self.page_number = page_number
+        super().__init__(
+            f"LightOCR page {page_number} of {page_count} stopped at the max_new_tokens limit "
+            "without an end-of-sequence token; its text may be truncated"
+        )
+
+
+def _eos_token_ids(model, processor) -> set[int]:
+    """End-of-sequence ids from the model's generation config, else the tokenizer."""
+    for source in (getattr(model, "generation_config", None), getattr(processor, "tokenizer", None)):
+        value = getattr(source, "eos_token_id", None)
+        if value is None:
+            continue
+        values = value if isinstance(value, list | tuple | set) else [value]
+        ids = {int(v) for v in values}
+        if ids:
+            return ids
+    return set()
+
+
+def _generate_lightocr_markdown(
+    model,
+    processor,
+    images,
+    *,
+    move_inputs=lambda inputs: inputs,
+    no_grad=contextlib.nullcontext,
+    max_new_tokens: int = _LIGHTOCR_MAX_NEW_TOKENS,
+) -> str | None:
+    """Generate markdown page by page.
+
+    Raises LightOCRPageTruncatedError when a page stops at ``max_new_tokens``
+    without an end-of-sequence token, so the backend fails and the chain falls
+    through to the next backend instead of storing a cut page. A page that
+    decodes empty is logged with its number and counted, not failed.
+    """
+    eos_ids = _eos_token_ids(model, processor)
+    page_count = len(images)
+    pages: list[str] = []
+    empty_pages = 0
+    for page_number, image in enumerate(images, 1):
+        conversation = [{"role": "user", "content": [{"type": "image", "url": image}]}]
+        inputs = processor.apply_chat_template(
+            conversation,
+            add_generation_prompt=True,
+            tokenize=True,
+            return_dict=True,
+            return_tensors="pt",
+        )
+        inputs = move_inputs(inputs)
+        with no_grad():
+            output_ids = model.generate(**inputs, max_new_tokens=max_new_tokens)
+        prompt_len = inputs["input_ids"].shape[1]
+        generated = output_ids[0, prompt_len:]
+        if len(generated) >= max_new_tokens and int(generated[-1]) not in eos_ids:
+            logger.warning(
+                "LightOCR page %d of %d stopped at max_new_tokens without an end-of-sequence token",
+                page_number,
+                page_count,
+            )
+            raise LightOCRPageTruncatedError(page_number, page_count)
+        text = processor.decode(generated, skip_special_tokens=True)
+        if text.strip():
+            pages.append(text.strip())
+        else:
+            empty_pages += 1
+            logger.warning("LightOCR page %d of %d decoded empty", page_number, page_count)
+    if empty_pages:
+        logger.warning("LightOCR produced %d empty page(s) of %d", empty_pages, page_count)
+    return "\n\n".join(pages) if pages else None
+
 
 class LightOCRBackend:
     """Primary extractor: LightOnOCR-2-1B on CUDA.
@@ -252,17 +331,9 @@ class LightOCRBackend:
                 images = convert_from_bytes(pdf_bytes, dpi=200)
                 if not images:
                     return None
-                pages: list[str] = []
-                for image in images:
-                    conversation = [{"role": "user", "content": [{"type": "image", "url": image}]}]
-                    inputs = self.processor.apply_chat_template(
-                        conversation,
-                        add_generation_prompt=True,
-                        tokenize=True,
-                        return_dict=True,
-                        return_tensors="pt",
-                    )
-                    inputs = {
+
+                def move_inputs(inputs):
+                    return {
                         k: (
                             v.to(device=self.device, dtype=torch.bfloat16)
                             if hasattr(v, "is_floating_point") and v.is_floating_point()
@@ -270,14 +341,14 @@ class LightOCRBackend:
                         )
                         for k, v in inputs.items()
                     }
-                    with torch.no_grad():
-                        output_ids = self.model.generate(**inputs, max_new_tokens=4096)
-                    prompt_len = inputs["input_ids"].shape[1]
-                    generated = output_ids[0, prompt_len:]
-                    text = self.processor.decode(generated, skip_special_tokens=True)
-                    if text.strip():
-                        pages.append(text.strip())
-                return "\n\n".join(pages) if pages else None
+
+                return _generate_lightocr_markdown(
+                    self.model,
+                    self.processor,
+                    images,
+                    move_inputs=move_inputs,
+                    no_grad=torch.no_grad,
+                )
 
         logger.info("LightOnOCR loaded, VRAM cached: %.1f GB", torch.cuda.memory_allocated() / 1e9)
         return _Wrapper(model_obj, processor, device)

@@ -32,6 +32,10 @@ ITALIC_TAGS = {"i", "em"}
 # repeating across rows.
 _DEDUP_MIN_CELL_CHARS = 200
 
+# Upper bound for colspan/rowspan. Upstream HTML is untrusted; an unbounded
+# span (e.g. colspan="300000") would multiply the rendered table size.
+_MAX_SPAN = 100
+
 
 def _cell_fingerprint(text: str) -> str:
     """Alphanumeric-only signature used to detect duplicate cells.
@@ -149,8 +153,82 @@ def _render_paragraph(p: Tag) -> str:
     return WS_RE.sub(" ", text).strip()
 
 
+def _span(value: object) -> int:
+    """Parse a colspan/rowspan attribute: 0, negative or non-numeric become 1; capped at _MAX_SPAN."""
+    try:
+        span = int(str(value).strip())
+    except (TypeError, ValueError):
+        return 1
+    return min(max(span, 1), _MAX_SPAN)
+
+
+def _direct_rows(table: Tag) -> list[Tag]:
+    """Rows of this table only, in document order.
+
+    Direct <tr> children and those of direct thead/tbody/tfoot, plus any <tr>
+    that html.parser nested inside one of these rows (or inside one of its
+    cells) because the source omitted ``</tr>`` or ``</td>``. Rows of a real
+    nested <table> are not included.
+    """
+    rows: list[Tag] = []
+    for child in table.children:
+        if not isinstance(child, Tag):
+            continue
+        if child.name == "tr":
+            _collect_row(child, rows)
+        elif child.name in ("thead", "tbody", "tfoot"):
+            for tr in child.find_all("tr", recursive=False):
+                _collect_row(tr, rows)
+    return rows
+
+
+def _collect_row(tr: Tag, rows: list[Tag]) -> None:
+    rows.append(tr)
+    for child in tr.children:
+        if isinstance(child, Tag):
+            if child.name == "tr":
+                _collect_row(child, rows)
+            elif child.name in ("td", "th"):
+                _collect_rows_in_cell(child, rows)
+
+
+def _collect_rows_in_cell(cell: Tag, rows: list[Tag]) -> None:
+    for child in cell.children:
+        if isinstance(child, Tag):
+            if child.name == "tr":
+                _collect_row(child, rows)
+            elif child.name in ("td", "th"):
+                _collect_rows_in_cell(child, rows)
+
+
+def _row_cells(tr: Tag) -> list[Tag]:
+    """Cells of this row only: direct td/th children, plus a td/th that html.parser
+    nested inside one of them because the source omitted ``</td>``."""
+    cells: list[Tag] = []
+
+    def collect(parent: Tag) -> None:
+        for child in parent.children:
+            if isinstance(child, Tag) and child.name in ("td", "th"):
+                cells.append(child)
+                collect(child)
+
+    collect(tr)
+    return cells
+
+
+def _nested_table_text(table: Tag) -> str:
+    """Flatten a table nested inside a cell: each inner cell once, joined with ' ; '."""
+    cells = [_cell_plain(cell) for row in _direct_rows(table) for cell in _row_cells(row)]
+    return " ; ".join(c for c in cells if c)
+
+
 def _cell_text(td: Tag) -> str:
     """Render a single table cell to a one-line markdown string."""
+    return _cell_plain(td).replace("|", "\\|")
+
+
+def _cell_plain(td: Tag) -> str:
+    """One-line text of a cell (or of a block inside one) before pipe escaping."""
     chunks: list[str] = []
     for child in td.children:
         if isinstance(child, NavigableString):
@@ -158,13 +236,19 @@ def _cell_text(td: Tag) -> str:
             if t.strip():
                 chunks.append(t.strip())
         elif isinstance(child, Tag):
-            if child.name in ("p", "div"):
+            if child.name in ("td", "th", "tr"):
+                # A cell or row nested by the parser (omitted </td> or </tr>) is rendered on its own.
+                continue
+            if child.name == "table":
+                chunks.append(_nested_table_text(child))
+            elif child.name in ("p", "div") and not child.find("table"):
                 chunks.append(_render_paragraph(child))
+            elif child.find("table"):
+                chunks.append(_cell_plain(child))
             else:
                 chunks.append(_render_inline(child))
     text = " ".join(c for c in chunks if c and c.strip())
-    text = WS_RE.sub(" ", text).strip()
-    return text.replace("|", "\\|")
+    return WS_RE.sub(" ", text).strip()
 
 
 def _render_table(table: Tag, seen_cells: set[str] | None = None) -> str:
@@ -176,7 +260,7 @@ def _render_table(table: Tag, seen_cells: set[str] | None = None) -> str:
     the reader. If dedup leaves the table entirely empty, the whole table
     is skipped.
     """
-    rows_raw = table.find_all("tr")
+    rows_raw = _direct_rows(table)
     if not rows_raw:
         return ""
 
@@ -187,13 +271,13 @@ def _render_table(table: Tag, seen_cells: set[str] | None = None) -> str:
     for r, tr in enumerate(rows_raw):
         row: list[str] = []
         c = 0
-        for cell in tr.find_all(["td", "th"]):
+        for cell in _row_cells(tr):
             while (r, c) in pending:
                 row.append(pending.pop((r, c)))
                 c += 1
             text = _cell_text(cell)
-            colspan = int(cell.get("colspan", 1) or 1)
-            rowspan = int(cell.get("rowspan", 1) or 1)
+            colspan = _span(cell.get("colspan", 1))
+            rowspan = _span(cell.get("rowspan", 1))
             for i in range(colspan):
                 row.append(text if i == 0 else "")
                 for rs in range(1, rowspan):
@@ -236,7 +320,10 @@ def _render_table(table: Tag, seen_cells: set[str] | None = None) -> str:
 
     header_idx = 0
     for r, tr in enumerate(rows_raw):
-        if tr.find(["th"]) or tr.find(["b", "strong"]):
+        cells = _row_cells(tr)
+        if any(cell.name == "th" for cell in cells) or any(
+            bold.find_parent(["td", "th"]) is cell for cell in cells for bold in cell.find_all(["b", "strong"])
+        ):
             header_idx = r
             break
 
@@ -302,6 +389,14 @@ def _walk(container: Tag, out: list[str], seen_cells: set[str] | None = None) ->
                 txt = _render_paragraph(li)
                 if txt:
                     out.append(f"- {txt}")
+            continue
+
+        if name == "pre":
+            # Preformatted text (e.g. the merged mevzuat annex) keeps its line breaks.
+            lines = [WS_RE.sub(" ", line).strip() for line in child.get_text().splitlines()]
+            text = re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+            if text:
+                out.append(text)
             continue
 
         if name in ("div", "section", "article", "body", "main", "header", "footer"):

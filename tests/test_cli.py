@@ -142,7 +142,13 @@ def _sync_doubles(catalog, failed: int = 0):
     syncer.__aexit__ = AsyncMock(return_value=None)
     syncer.sync_all = AsyncMock(
         return_value=SimpleNamespace(
-            total=len(catalog), downloaded=1, skipped=0, failed=failed, elapsed_seconds=0.1, errors=[]
+            total=len(catalog),
+            downloaded=1,
+            reindexed=1,
+            skipped=0,
+            failed=failed,
+            elapsed_seconds=0.1,
+            errors=[],
         )
     )
     patches = (
@@ -176,7 +182,7 @@ async def test_sync_reads_the_catalog_from_the_corpus_and_syncs_every_document(c
     assert syncer.sync_all.await_args.kwargs == {"concurrency": 2, "force": False}
     client.close.assert_awaited_once_with()
     db.close.assert_called_once_with()
-    assert "Sync: 2 total" in capsys.readouterr().out
+    assert "Sync: 2 total, 1 downloaded, 1 reindexed, 0 skipped, 0 failed" in capsys.readouterr().out
 
 
 @pytest.mark.asyncio

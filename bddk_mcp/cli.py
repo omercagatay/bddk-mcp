@@ -156,8 +156,8 @@ async def _sync(args: argparse.Namespace) -> None:
         db.close()
 
     print(
-        f"Sync: {report.total} total, {report.downloaded} downloaded, {report.skipped} skipped, "
-        f"{report.failed} failed, {report.elapsed_seconds}s"
+        f"Sync: {report.total} total, {report.downloaded} downloaded, {report.reindexed} reindexed, "
+        f"{report.skipped} skipped, {report.failed} failed, {report.elapsed_seconds}s"
     )
     for error in report.errors[:20]:
         print(f"  [{error.document_id}] {error.error}")
