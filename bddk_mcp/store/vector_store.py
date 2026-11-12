@@ -497,7 +497,7 @@ def _quality_metadata(text: str, doc_id: str) -> dict:
 
 
 async def _document_quality_by_ids(db: CorpusDB, doc_ids: list[str]) -> dict[str, dict]:
-    """Assess quality from full stored documents, not the matching chunk."""
+    """Assess quality from full stored documents, not the matching chunk, on a worker thread."""
     unique_ids = list(dict.fromkeys(doc_ids))
     if not unique_ids:
         return {}
@@ -508,12 +508,10 @@ async def _document_quality_by_ids(db: CorpusDB, doc_ids: list[str]) -> dict[str
             unique_ids,
         ).fetchall()
     )
-    quality_by_id = {
-        row["document_id"]: _quality_metadata(row["markdown_content"] or "", row["document_id"]) for row in rows
-    }
-    for doc_id in unique_ids:
-        quality_by_id.setdefault(doc_id, _quality_metadata("", doc_id))
-    return quality_by_id
+    content_by_id = {row["document_id"]: row["markdown_content"] or "" for row in rows}
+    return await asyncio.to_thread(
+        lambda: {doc_id: _quality_metadata(content_by_id.get(doc_id, ""), doc_id) for doc_id in unique_ids}
+    )
 
 
 def _section_metadata_from_row(row: sqlite3.Row) -> dict:
@@ -803,11 +801,19 @@ class VectorStore:
         limit: int = 10,
         category: str | None = None,
     ) -> list[dict]:
-        """Search documents. Uses hybrid search when enabled, else vector-only."""
+        """Search documents. Uses hybrid search when enabled, else vector-only.
+
+        Document quality is assessed once, for the returned hits only.
+        """
         self._raise_if_semantic_search_unavailable()
         if HYBRID_SEARCH:
-            return await self._hybrid_search(query, limit, category)
-        return await self._vector_search(query, limit, category)
+            hits = await self._hybrid_search(query, limit, category)
+        else:
+            hits = await self._vector_search(query, limit, category)
+        quality_by_id = await _document_quality_by_ids(self._db, [hit["doc_id"] for hit in hits])
+        for hit in hits:
+            hit.update(quality_by_id[hit["doc_id"]])
+        return hits
 
     async def assert_semantic_search_ready(self) -> None:
         """Fail closed unless model loading, encoding and corpus retrieval all work.
@@ -887,10 +893,6 @@ class VectorStore:
                     **_section_metadata_from_row(row),
                 }
 
-        quality_by_id = await _document_quality_by_ids(self._db, list(seen))
-        for did, hit in seen.items():
-            hit.update(quality_by_id[did])
-
         hits = sorted(seen.values(), key=lambda x: x["distance"])
         return hits[:limit]
 
@@ -923,10 +925,6 @@ class VectorStore:
                     "match_type": "fts",
                     **_section_metadata_from_row(row),
                 }
-
-        quality_by_id = await _document_quality_by_ids(self._db, list(seen))
-        for did, hit in seen.items():
-            hit.update(quality_by_id[did])
 
         return sorted(seen.values(), key=lambda x: x["fts_rank"], reverse=True)
 
@@ -1039,8 +1037,12 @@ class VectorStore:
             if h["semantic_relevance"] >= SEMANTIC_RELEVANCE_THRESHOLD or h["match_type"] == "fts_exact"
         ]
 
-        # Output order follows the displayed relevance; RRF only decides membership.
-        exact_hits = [h for h in fused if h["match_type"] == "fts_exact"]
+        # RRF only decides membership. Hits with a dense score are ordered by the
+        # displayed relevance. FTS-only exact legal-reference matches have none,
+        # so they follow every hybrid hit in BM25 order, ahead of vector-only hits.
+        exact_hits = sorted(
+            (h for h in fused if h["match_type"] == "fts_exact"), key=lambda h: h["fts_rank"], reverse=True
+        )
         semantic_hits = [h for h in fused if h["match_type"] != "fts_exact"]
         semantic_hits.sort(key=lambda h: h["relevance"], reverse=True)
 
@@ -1048,7 +1050,12 @@ class VectorStore:
             top_score = semantic_hits[0]["relevance"]
             semantic_hits = [h for h in semantic_hits if (top_score - h["relevance"]) <= _SCORE_GAP_THRESHOLD]
 
-        fused = exact_hits + semantic_hits
+        if exact_hits:
+            hybrid_hits = [h for h in semantic_hits if h["match_type"] == "hybrid"]
+            vector_only_hits = [h for h in semantic_hits if h["match_type"] != "hybrid"]
+            fused = hybrid_hits + exact_hits + vector_only_hits
+        else:
+            fused = semantic_hits
 
         for h in fused:
             if h["relevance"] >= _HIGH_CONFIDENCE_THRESHOLD:
