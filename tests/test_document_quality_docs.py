@@ -31,7 +31,7 @@ def test_document_quality_page_covers_operator_workflow():
         "Quality Warnings In MCP Results",
         "formula-heavy failed documents require source review",
         "uv run python scripts/scan_document_quality.py --db --out-dir quality_reports --allow-failures",
-        "uv run python scripts/backfill_quality_failures.py --dry-run",
+        "uv run bddk-mcp sync --doc-id mevzuat_21192 --force --corpus corpus/bddk-repair.sqlite",
     ]
     for text in required_text:
         assert text in page
@@ -43,4 +43,7 @@ def test_document_quality_page_lists_tracked_fail_documents():
 
     assert candidates == []
     assert "No documents are currently registered as extraction failures" in page
-    assert "local-release-v6.json" in page
+    assert "all 319 documents clean" in page.replace(chr(10), " ")
+    assert "signed corpus" not in page
+    assert "release receipt" not in page
+    assert "318 clean" not in page
