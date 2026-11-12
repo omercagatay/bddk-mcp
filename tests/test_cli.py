@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
+import json
 import subprocess
 import sys
 from contextlib import ExitStack
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from bddk_mcp import cli
+from bddk_mcp import __version__, cli
 
 
 def test_parser_exposes_explicit_runtime_commands():
@@ -31,6 +35,10 @@ def test_parser_exposes_explicit_runtime_commands():
     assert sync.refresh_catalog is True
     defaults = parser.parse_args(["sync"])
     assert (defaults.concurrency, defaults.refresh_catalog, defaults.doc_id, defaults.corpus) == (5, False, None, None)
+
+    info = parser.parse_args(["info", "--corpus", "c.sqlite"])
+    assert (info.command, info.corpus) == ("info", "c.sqlite")
+    assert parser.parse_args(["info"]).corpus is None
 
 
 def test_version_does_not_import_runtime(capsys):
@@ -81,8 +89,19 @@ def test_build_of_an_empty_or_missing_seed_fails(tmp_path, capsys):
         cli.main(["build", "--seed-dir", str(tmp_path / "typo"), "--corpus", str(tmp_path / "c.sqlite")])
 
     assert exited.value.code == 1
-    assert "no seed data" in capsys.readouterr().err
+    assert f"no seed data in {tmp_path / 'typo'} " in capsys.readouterr().err
     assert not (tmp_path / "c.sqlite").exists()
+
+
+def test_build_without_seed_dir_names_the_resolved_default_seed_directory(tmp_path, monkeypatch, capsys):
+    from bddk_mcp.ingest import seed
+
+    monkeypatch.setattr(seed, "SEED_DIR", tmp_path / "packaged" / "seed_data")
+    with pytest.raises(SystemExit) as exited:
+        cli.main(["build", "--corpus", str(tmp_path / "c.sqlite")])
+
+    assert exited.value.code == 1
+    assert f"no seed data in {tmp_path / 'packaged' / 'seed_data'} " in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("value", ["0", "-1", "x"])
@@ -232,3 +251,91 @@ async def test_sync_exits_1_when_a_document_failed(capsys):
 
     assert exited.value.code == 1
     assert "1 failed" in capsys.readouterr().out
+
+
+_INFO_CONTENT = "MADDE 1 - Amaç\nBankalar karşılık ayırır.\n"
+
+
+def _ready_corpus(tmp_path) -> Path:
+    from bddk_mcp.ingest import seed
+    from bddk_mcp.store.vector_store import VectorStore
+    from tests.conftest import FakeTokenizer, fake_embed
+
+    seed_dir = tmp_path / "seed"
+    seed_dir.mkdir()
+    content = _INFO_CONTENT
+    document = {
+        "document_id": "mevzuat_1",
+        "title": "Yönetmelik",
+        "markdown_content": content,
+        "content_hash": hashlib.sha256(content.encode()).hexdigest(),
+    }
+    (seed_dir / "documents.json").write_text(json.dumps([document], ensure_ascii=False), encoding="utf-8")
+    (seed_dir / "decision_cache.json").write_text(
+        json.dumps([{"document_id": "mevzuat_1", "title": "Yönetmelik"}], ensure_ascii=False), encoding="utf-8"
+    )
+    corpus = tmp_path / "c.sqlite"
+    asyncio.run(
+        seed.build_corpus(
+            corpus_path=corpus,
+            seed_dir=seed_dir,
+            vector_store_factory=lambda db: VectorStore(db, embed_fn=fake_embed, tokenizer=FakeTokenizer()),
+        )
+    )
+    return corpus
+
+
+def test_info_describes_a_ready_corpus_read_only(tmp_path, capsys):
+    from bddk_mcp.core.config import EMBEDDING_MODEL_NAME
+    from bddk_mcp.store.corpus_db import SCHEMA_VERSION, corpus_digest
+
+    corpus = _ready_corpus(tmp_path)
+    before = corpus.read_bytes()
+    capsys.readouterr()
+
+    cli.main(["info", "--corpus", str(corpus)])
+
+    out = capsys.readouterr().out
+    expected_digest = corpus_digest([("mevzuat_1", hashlib.sha256(_INFO_CONTENT.encode()).hexdigest())])
+    lines = out.splitlines()
+    assert lines[0] == f"bddk-mcp version: {__version__}"
+    assert lines[1] == f"corpus digest: {expected_digest}"
+    assert "documents: 1" in lines and "catalog entries: 1" in lines
+    assert any(line.startswith("chunks: ") and int(line.split(": ")[1]) >= 1 for line in lines)
+    assert f"embedding model: {EMBEDDING_MODEL_NAME}" in lines
+    assert f"schema version: {SCHEMA_VERSION}" in lines
+    assert f"file size: {corpus.stat().st_size} bytes" in lines
+    assert "journal mode: delete" in lines
+    assert lines[-1] == "status: ready"
+    assert str(tmp_path) not in out
+    assert corpus.read_bytes() == before
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["c.sqlite", "seed"]
+
+
+def test_info_lists_the_issues_and_exits_1_for_a_corpus_that_is_not_ready(tmp_path, capsys):
+    from bddk_mcp.store.corpus_db import CorpusDB
+
+    corpus = tmp_path / "empty.sqlite"
+    CorpusDB.open(corpus).close()
+
+    with pytest.raises(SystemExit) as exited:
+        cli.main(["info", "--corpus", str(corpus)])
+
+    assert exited.value.code == 1
+    out = capsys.readouterr().out
+    assert "status: not ready" in out
+    assert "  issue: the corpus holds no retrieval chunks" in out.splitlines()
+
+
+def test_info_of_a_missing_or_foreign_file_prints_one_line_and_exits_1(tmp_path, capsys):
+    with pytest.raises(SystemExit) as exited:
+        cli.main(["info", "--corpus", str(tmp_path / "missing.sqlite")])
+    assert exited.value.code == 1
+    assert capsys.readouterr().err.startswith("bddk-mcp info: error: Corpus file not found")
+
+    foreign = tmp_path / "foreign.sqlite"
+    foreign.write_bytes(b"not a database, " * 64)
+    with pytest.raises(SystemExit) as exited:
+        cli.main(["info", "--corpus", str(foreign)])
+    assert exited.value.code == 1
+    assert capsys.readouterr().err.startswith("bddk-mcp info: error: Corpus is not ready: the file is not a readable")

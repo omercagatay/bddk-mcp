@@ -1,4 +1,4 @@
-"""Command-line entry points: serve the corpus, build it from seed data, export it, sync documents."""
+"""Command-line entry points: serve the corpus, build it from seed data, export it, sync documents, describe it."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def _positive_int(value: str) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="bddk-mcp",
-        description="Serve, build, export or sync the BDDK MCP regulatory corpus (one SQLite file).",
+        description="Serve, build, export, sync or describe the BDDK MCP regulatory corpus (one SQLite file).",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subparsers = parser.add_subparsers(dest="command")
@@ -74,6 +74,9 @@ def build_parser() -> argparse.ArgumentParser:
     sync.add_argument("--doc-id", help="Sync a single catalogued document by ID")
     sync.add_argument("--concurrency", type=_positive_int, default=5, help="Parallel downloads (default 5)")
 
+    info = subparsers.add_parser("info", help="Describe the corpus file read-only (identity, counts, readiness)")
+    info.add_argument("--corpus", help=corpus_help)
+
     return parser
 
 
@@ -100,7 +103,9 @@ async def _build(args: argparse.Namespace) -> None:
         print("Corpus already matches the seed data (use --force to rebuild).")
         return
     if not any(result[key] for key in ("decision_cache", "documents", "chunks")):
-        raise RuntimeError(f"no seed data in {args.seed_dir or 'seed_data/'} (documents.json and decision_cache.json)")
+        from bddk_mcp.ingest.seed import SEED_DIR
+
+        raise RuntimeError(f"no seed data in {args.seed_dir or SEED_DIR} (documents.json and decision_cache.json)")
     print(
         f"Built corpus: {result['decision_cache']} catalog entries, {result['documents']} documents, "
         f"{result['sections']} sections, {result['chunks']} chunks "
@@ -165,6 +170,41 @@ async def _sync(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+async def _info(args: argparse.Namespace) -> None:
+    """Print the corpus identity and counts; exit 1 when it is not ready to serve."""
+    import sqlite3
+    from pathlib import Path
+
+    from bddk_mcp.store.corpus_db import CorpusDB, unreadable_corpus_error
+
+    db = CorpusDB.open(args.corpus, readonly=True)
+    try:
+        try:
+            readiness = await asyncio.to_thread(db.readiness_sync, require_corpus=True)
+            journal_mode = await asyncio.to_thread(db.journal_mode_sync)
+        except sqlite3.DatabaseError as exc:
+            raise unreadable_corpus_error(exc) from exc
+        size = Path(db.path).stat().st_size
+    finally:
+        db.close()
+
+    print(f"bddk-mcp version: {__version__}")
+    print(f"corpus digest: {readiness.digest or '-'}")
+    print(f"documents: {readiness.documents}")
+    print(f"chunks: {readiness.chunks}")
+    print(f"catalog entries: {readiness.catalog}")
+    print(f"embedding model: {readiness.embedding_model or '-'}")
+    print(f"schema version: {readiness.schema_version or '-'}")
+    print(f"file size: {size} bytes")
+    print(f"journal mode: {journal_mode}")
+    if readiness.issues:
+        print("status: not ready")
+        for issue in readiness.issues:
+            print(f"  issue: {issue}")
+        sys.exit(1)
+    print("status: ready")
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -176,7 +216,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         _run_serve(args)
         return
 
-    commands = {"build": _build, "export": _export, "sync": _sync}
+    commands = {"build": _build, "export": _export, "sync": _sync, "info": _info}
     try:
         asyncio.run(commands[args.command](args))
     except RuntimeError as exc:

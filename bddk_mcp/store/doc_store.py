@@ -215,17 +215,19 @@ def upsert_document_sync(
     Returns the content hash and the number of sections written.  Runs inside
     the caller's transaction; ``store_document`` and the corpus build share it.
     ``prepare=False`` stores reviewed seed text verbatim so its hash is kept.
+    The hash is SHA-256 of the stored text, an empty body included, so it agrees
+    with the seed validator; "no content" is ``markdown_content == ''``.
     """
     if doc.markdown_content and prepare:
         doc.markdown_content = prepare_markdown_for_storage(doc.markdown_content)
-    content_hash = _content_hash(doc.markdown_content) if doc.markdown_content else ""
+    content_hash = _content_hash(doc.markdown_content)
     total_pages = max(1, math.ceil(len(doc.markdown_content) / PAGE_SIZE)) if doc.markdown_content else 1
     sections = extract_document_sections(doc.document_id, doc.markdown_content) if doc.markdown_content else []
 
     existing = conn.execute(
         "SELECT content_hash, markdown_content FROM documents WHERE document_id = ?", (doc.document_id,)
     ).fetchone()
-    if existing and existing["content_hash"] and existing["content_hash"] != content_hash:
+    if existing and existing["markdown_content"] and existing["content_hash"] != content_hash:
         max_version = conn.execute(
             "SELECT COALESCE(MAX(version), 0) FROM document_versions WHERE document_id = ?", (doc.document_id,)
         ).fetchone()[0]

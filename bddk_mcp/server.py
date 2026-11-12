@@ -159,7 +159,18 @@ async def create_deps() -> Dependencies:
         )
 
         db = await asyncio.to_thread(CorpusDB.open, None, readonly=True)
-        await db.assert_ready(require_corpus=True)
+        corpus = await db.assert_ready(require_corpus=True)
+        logger.info(
+            "Corpus ready: bddk-mcp %s, corpus digest %s, %d documents, %d chunks, %d catalog entries, "
+            "embedding model %s, schema version %s",
+            __version__,
+            corpus.digest,
+            corpus.documents,
+            corpus.chunks,
+            corpus.catalog,
+            corpus.embedding_model,
+            corpus.schema_version,
+        )
 
         doc_store = DocumentStore(db)
         client = BddkApiClient(store=doc_store, http=http, allow_live_population=False)

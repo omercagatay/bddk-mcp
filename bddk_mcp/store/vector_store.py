@@ -611,6 +611,10 @@ class VectorStore:
             self._chunk_tokenizer_fn = _load_embedding_tokenizer(self._embedding_model)
         return self._chunk_tokenizer_fn
 
+    def load_chunk_tokenizer(self) -> None:
+        """Load the chunk tokenizer now, so a build fails before it writes when the tokenizer is unavailable."""
+        self._chunk_tokenizer()
+
     async def _embed(self, texts: list[str], prefix: str = _PASSAGE_PREFIX) -> np.ndarray:
         """Embed texts (unit vectors, float32) on a worker thread."""
         if prefix not in {_PASSAGE_PREFIX, _QUERY_PREFIX}:
