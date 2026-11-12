@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 import numpy as np
@@ -373,3 +374,31 @@ def test_reviewed_seed_contains_required_exact_section_fixtures():
 
     assert any(item.section_type == "ilke" and item.section_ref == "5" for item in sections_943)
     assert any(item.section_type == "madde" and item.section_ref == "9" for item in sections_22599)
+
+
+def _seed_documents_and_cache():
+    documents = json.loads((seed.SEED_DIR / "documents.json").read_text(encoding="utf-8"))
+    cache = {d["document_id"]: d for d in json.loads((seed.SEED_DIR / "decision_cache.json").read_text("utf-8"))}
+    return documents, cache
+
+
+def test_seed_decision_metadata_agrees_with_decision_cache():
+    documents, cache = _seed_documents_and_cache()
+    mismatches = [
+        (d["document_id"], field, d[field], cache[d["document_id"]][field])
+        for d in documents
+        if d["document_id"] in cache
+        for field in ("decision_date", "decision_number")
+        if d[field] and cache[d["document_id"]][field] and d[field] != cache[d["document_id"]][field]
+    ]
+    assert not mismatches
+
+
+# ponytail: 751 and 773 still carry the "(date - number) " prefix in both seed files and have no
+# decision_date/decision_number; the owner has not decided on them yet. strict=True forces removing this
+# marker as soon as they are fixed.
+@pytest.mark.xfail(strict=True, reason="seed documents 751 and 773 are awaiting an owner decision")
+def test_seed_titles_do_not_start_with_a_parenthesised_date():
+    documents, _ = _seed_documents_and_cache()
+    prefixed = [d["document_id"] for d in documents if re.match(r"\(\d{2}\.\d{2}\.\d{4}", d["title"])]
+    assert not prefixed, prefixed
