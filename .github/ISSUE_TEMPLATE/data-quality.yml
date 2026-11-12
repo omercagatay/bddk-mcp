@@ -13,7 +13,7 @@ body:
     id: document_id
     attributes:
       label: Document ID
-      placeholder: "mevzuat_22599 or bddk_943"
+      placeholder: "943 or mevzuat_22599"
     validations:
       required: true
   - type: input

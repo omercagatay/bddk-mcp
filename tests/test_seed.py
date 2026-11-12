@@ -539,3 +539,29 @@ def test_seed_titles_do_not_start_with_a_parenthesised_date():
     documents, _ = _seed_documents_and_cache()
     prefixed = [d["document_id"] for d in documents if re.match(r"\(\d{2}\.\d{2}\.\d{4}", d["title"])]
     assert not prefixed, prefixed
+
+
+_PRINTED_DECISION_NUMBER = re.compile(r"Karar Sayısı\s*:\s*(\S+)", re.IGNORECASE)
+_PRINTED_DECISION_DATE = re.compile(r"Karar Tarihi\s*:\s*(\d{1,2})[./](\d{1,2})[./](\d{4})", re.IGNORECASE)
+
+
+def test_seed_decision_number_and_date_equal_the_values_the_decision_prints():
+    """Where a Kurul Kararı prints its number and date at the top, the stored fields repeat them."""
+    records = json.loads((seed.SEED_DIR / "documents.json").read_text(encoding="utf-8"))
+    checked = 0
+    mismatches = []
+    for record in records:
+        if record.get("category") != "Kurul Kararı":
+            continue
+        head = record["markdown_content"][:1500]
+        number, date = _PRINTED_DECISION_NUMBER.search(head), _PRINTED_DECISION_DATE.search(head)
+        if number is None or date is None:
+            continue
+        checked += 1
+        printed_date = f"{int(date.group(1)):02d}.{int(date.group(2)):02d}.{date.group(3)}"
+        stored = (record["decision_number"], record["decision_date"])
+        if stored != (number.group(1), printed_date):
+            mismatches.append((record["document_id"], stored, (number.group(1), printed_date)))
+
+    assert checked >= 180
+    assert mismatches == []

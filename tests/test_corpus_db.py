@@ -5,6 +5,7 @@ import sqlite3
 
 import pytest
 
+from bddk_mcp.core.config import EMBEDDING_DIMENSION, EMBEDDING_MODEL_NAME
 from bddk_mcp.store.corpus_db import SCHEMA_VERSION, CorpusDB, CorpusNotReadyError, corpus_digest
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
 
@@ -210,3 +211,72 @@ async def test_readiness_digest_identifies_the_document_texts(corpus_db):
 
     await store.store_document(StoredDocument(document_id="1", title="T", markdown_content="MADDE 1\nDeğişti."))
     assert corpus_db.readiness_sync(require_corpus=False).digest != first.digest
+
+
+async def _corpus_with_one_chunk(corpus_db):
+    """A corpus whose only document has a matching chunk and a matching section."""
+    store = DocumentStore(corpus_db)
+    await store.store_document(StoredDocument(document_id="1", title="T", markdown_content="MADDE 1\nMetin."))
+    content_hash = corpus_db.run_sync(lambda conn: conn.execute("SELECT content_hash FROM documents").fetchone()[0])
+
+    def add_chunk(conn):
+        conn.execute(
+            "INSERT INTO chunks (doc_id, chunk_index, chunk_text, start_char, end_char, content_hash, embedding) "
+            "VALUES ('1', 0, 'MADDE 1', 0, 7, ?, ?)",
+            (content_hash, b"\x00\x00"),
+        )
+        conn.execute(
+            "INSERT OR REPLACE INTO meta (key, value) VALUES ('embedding_model', ?), ('embedding_dimension', ?)",
+            (EMBEDDING_MODEL_NAME, str(EMBEDDING_DIMENSION)),
+        )
+
+    corpus_db.transaction_sync(add_chunk)
+    return content_hash
+
+
+@pytest.mark.asyncio
+async def test_a_consistent_corpus_with_a_chunk_is_ready(corpus_db):
+    await _corpus_with_one_chunk(corpus_db)
+
+    assert (await corpus_db.assert_ready(require_corpus=False)).issues == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("key", "value", "message"),
+    [
+        ("embedding_model", "other/model", "different model"),
+        ("embedding_dimension", "384", "embedding dimension"),
+    ],
+)
+async def test_readiness_refuses_a_corpus_embedded_with_another_model_or_dimension(corpus_db, key, value, message):
+    await _corpus_with_one_chunk(corpus_db)
+    corpus_db.transaction_sync(lambda conn: conn.execute("UPDATE meta SET value = ? WHERE key = ?", (value, key)))
+
+    with pytest.raises(CorpusNotReadyError, match=message):
+        await corpus_db.assert_ready(require_corpus=False)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("orphan", ["missing_document", "changed_document_hash"])
+async def test_readiness_refuses_a_chunk_that_matches_no_document(corpus_db, orphan):
+    content_hash = await _corpus_with_one_chunk(corpus_db)
+    if orphan == "missing_document":
+        corpus_db.transaction_sync(lambda conn: conn.execute("UPDATE chunks SET doc_id = '999'"))
+    else:
+        corpus_db.transaction_sync(lambda conn: conn.execute("UPDATE chunks SET content_hash = 'stale'"))
+    assert content_hash != "stale"
+
+    with pytest.raises(CorpusNotReadyError, match="chunk belongs to a missing or changed document"):
+        await corpus_db.assert_ready(require_corpus=False)
+
+
+@pytest.mark.asyncio
+async def test_readiness_refuses_a_section_with_a_stale_source_hash(corpus_db):
+    await _corpus_with_one_chunk(corpus_db)
+    count = corpus_db.run_sync(lambda conn: conn.execute("SELECT COUNT(*) FROM document_sections").fetchone()[0])
+    assert count > 0
+    corpus_db.transaction_sync(lambda conn: conn.execute("UPDATE document_sections SET source_content_hash = 'stale'"))
+
+    with pytest.raises(CorpusNotReadyError, match="section belongs to a missing or changed document"):
+        await corpus_db.assert_ready(require_corpus=False)

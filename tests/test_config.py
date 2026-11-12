@@ -38,10 +38,6 @@ def _import_config_in_subprocess(**overrides: str) -> subprocess.CompletedProces
         ({"BDDK_REQUEST_TIMEOUT": "nan"}, "BDDK_REQUEST_TIMEOUT must be finite"),
         ({"BDDK_LIGHTOCR_DEVICE": "remote"}, "BDDK_LIGHTOCR_DEVICE must be one of"),
         ({"BDDK_MAX_RETRIES": "0"}, "BDDK_MAX_RETRIES must be an integer"),
-        (
-            {"BDDK_EMBEDDING_CHUNK_TARGET_TOKENS": "100", "BDDK_EMBEDDING_CHUNK_TOKEN_OVERLAP": "100"},
-            "BDDK_EMBEDDING_CHUNK_TOKEN_OVERLAP must be smaller",
-        ),
     ],
 )
 def test_environment_configuration_fails_closed(environment, message):

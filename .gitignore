@@ -18,6 +18,8 @@ chroma_db/
 
 # Environment variables
 .env
+.env.*
+!.env.example
 
 # Git worktrees
 .worktrees/

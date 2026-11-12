@@ -103,3 +103,48 @@ async def test_official_client_rejects_extra_tool_argument():
     assert result.isError is True
     assert "Extra inputs are not permitted" in result.content[0].text
     doc_store.get_document_history.assert_not_awaited()
+
+
+def test_assert_tool_surface_raises_when_a_reviewed_tool_is_missing():
+    server = _server()
+    server.remove_tool("get_bddk_monthly")
+
+    with pytest.raises(RuntimeError, match=r"drifted.*missing=\['get_bddk_monthly'\]"):
+        assert_tool_surface(server)
+
+
+def test_assert_tool_surface_raises_when_an_unreviewed_tool_is_registered():
+    server = _server()
+
+    @server.tool()
+    def unreviewed_tool() -> str:
+        return "x"
+
+    with pytest.raises(RuntimeError, match=r"drifted.*unexpected=\['unreviewed_tool'\]"):
+        assert_tool_surface(server)
+
+
+@pytest.mark.parametrize("drift", ["missing", "unexpected"])
+def test_building_the_server_fails_when_the_tool_surface_drifts(monkeypatch, drift):
+    from bddk_mcp import server as server_module
+
+    def drifted_registration(server, deps):
+        register_tools(server, deps)
+        if drift == "missing":
+            server.remove_tool("get_bddk_monthly")
+        else:
+            server.tool(name="unreviewed_tool")(lambda: "x")
+
+    monkeypatch.setattr(server_module, "register_tools", drifted_registration)
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None)
+
+    with pytest.raises(RuntimeError, match="tool surface drifted"):
+        server_module.create_mcp(deps)
+
+
+def test_building_the_server_with_the_reviewed_surface_succeeds():
+    from bddk_mcp import server as server_module
+
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None)
+
+    assert set(registered_tool_names(server_module.create_mcp(deps))) == set(PUBLIC_TOOL_NAMES)

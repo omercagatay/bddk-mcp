@@ -50,7 +50,15 @@ list the exact values this deployment presents.
 
 ## Deployment
 
-Run all commands from `deploy/open-webui`. The wrapper script passes the model
+The `open-webui` data volume is external, so Compose does not create it: create
+it once before the first start (an existing volume is left as it is), then copy
+`ldap-ca.crt` into it as described above:
+
+```bash
+docker volume create open-webui
+```
+
+Run all wrapper commands from `deploy/open-webui`. The wrapper script passes the model
 provider key only through the Compose process environment and permits only
 `up`, `down`, and the non-rendering `config --quiet`:
 

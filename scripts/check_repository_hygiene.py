@@ -70,6 +70,12 @@ MARKDOWN_LINK = re.compile(r"!?\[[^\]]*\]\(([^)\n]+)\)")
 VERSION_ASSIGNMENT = re.compile(r'^__version__\s*=\s*["\']([^"\']+)["\']', re.MULTILINE)
 
 
+def _is_env_file(name: str) -> bool:
+    """True for `.env.*` files other than the tracked `.env.example`."""
+
+    return name.startswith(".env.") and name != ".env.example"
+
+
 def _repository_files() -> list[str]:
     result = subprocess.run(
         ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
@@ -149,8 +155,8 @@ def _check_dependabot(errors: list[str]) -> None:
         errors.append(".github/dependabot.yml must define an updates list")
         return
     ecosystems = {entry.get("package-ecosystem") for entry in updates if isinstance(entry, dict)}
-    if ecosystems != {"uv", "github-actions"}:
-        errors.append(".github/dependabot.yml must cover exactly uv and github-actions")
+    if ecosystems != {"uv", "github-actions", "docker"}:
+        errors.append(".github/dependabot.yml must cover exactly uv, github-actions and docker")
 
 
 def main() -> int:
@@ -166,7 +172,12 @@ def main() -> int:
 
     for path_text in repository_files:
         path = Path(path_text)
-        if path.name in JUNK_NAMES or path.suffix == ".pyc" or JUNK_PARTS.intersection(path.parts):
+        if (
+            path.name in JUNK_NAMES
+            or _is_env_file(path.name)
+            or path.suffix == ".pyc"
+            or JUNK_PARTS.intersection(path.parts)
+        ):
             errors.append(f"tracked local/build artifact: {path_text}")
 
     for markdown in _markdown_files(repository_files):
