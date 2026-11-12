@@ -37,6 +37,18 @@ def test_read_only_open_requires_an_existing_file_and_blocks_writes(tmp_path):
         db.close()
 
 
+@pytest.mark.asyncio
+async def test_a_file_that_is_not_a_corpus_is_not_ready_with_the_usual_hint(tmp_path):
+    empty = tmp_path / "empty.sqlite"
+    empty.write_bytes(b"")
+    db = CorpusDB.open(empty, readonly=True)
+    try:
+        with pytest.raises(CorpusNotReadyError, match=r"not a readable corpus.*bddk-mcp build"):
+            await db.assert_ready(require_corpus=True)
+    finally:
+        db.close()
+
+
 def test_repair_scripts_can_refuse_a_missing_file(tmp_path):
     with pytest.raises(CorpusNotReadyError, match="not found"):
         CorpusDB.open(tmp_path / "missing.sqlite", create=False)

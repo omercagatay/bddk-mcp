@@ -300,7 +300,12 @@ class CorpusDB:
 
     async def assert_ready(self, *, require_corpus: bool = True) -> CorpusReadiness:
         """Raise an actionable error unless the corpus can be served."""
-        readiness = await asyncio.to_thread(self.readiness_sync, require_corpus=require_corpus)
+        try:
+            readiness = await asyncio.to_thread(self.readiness_sync, require_corpus=require_corpus)
+        except sqlite3.DatabaseError as exc:
+            raise CorpusNotReadyError(
+                f"Corpus is not ready: the file is not a readable corpus. {NOT_READY_HINT}"
+            ) from exc
         if readiness.issues:
             raise CorpusNotReadyError("Corpus is not ready: " + "; ".join(readiness.issues) + f". {NOT_READY_HINT}")
         return readiness

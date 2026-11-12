@@ -97,7 +97,15 @@ def _seed_document(record: dict) -> StoredDocument:
         extraction_method=record.get("extraction_method", "markitdown"),
         total_pages=record.get("total_pages", 1),
         file_size=record.get("file_size", 0),
+        downloaded_at=record.get("downloaded_at"),
+        extracted_at=record.get("extracted_at"),
     )
+
+
+def _write_canonical_json(path: Path, records: list[dict]) -> None:
+    """The one seed file format: records sorted by id, indent 2, UTF-8 text, LF, trailing newline."""
+    ordered = sorted(records, key=lambda record: record["document_id"])
+    path.write_text(json.dumps(ordered, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
 # -- Export -------------------------------------------------------------------
@@ -139,8 +147,8 @@ async def export_corpus(corpus_path: str | None = None, seed_dir: str | None = N
         meta, by_doc = await db.run(_chunk_vectors)
     finally:
         db.close()
-    (target / "documents.json").write_text(json.dumps(docs, ensure_ascii=False, indent=2), encoding="utf-8")
-    (target / "decision_cache.json").write_text(json.dumps(catalog, ensure_ascii=False, indent=2), encoding="utf-8")
+    _write_canonical_json(target / "documents.json", docs)
+    _write_canonical_json(target / "decision_cache.json", catalog)
     embedded = _export_embeddings(target / EMBEDDINGS_SUBDIR, meta, by_doc)
     logger.info(
         "Exported %d documents, %d catalog entries and embeddings for %d documents to %s",
@@ -245,10 +253,12 @@ async def build_corpus(
     documents are rewritten (the previous body is archived as a version) and
     re-embedded, unless ``seed_data/embeddings/`` still holds the vectors exported for
     exactly its chunk texts and model.  ``force`` rewrites and re-embeds everything and
-    ignores that cache.  ``vector_store_factory`` (``db -> VectorStore``) is a test seam
-    for a fake embedder.
+    ignores that cache; it cannot switch a corpus file to another embedding model (delete
+    the file and build instead).  The build skips by content hash and catalog size only,
+    so metadata-only seed edits and documents removed from the seed need a fresh file.
+    ``vector_store_factory`` (``db -> VectorStore``) is a test seam for a fake embedder.
     """
-    from bddk_mcp.store.vector_store import VectorStore
+    from bddk_mcp.store.vector_store import RetrievalProfileError, VectorStore
 
     seed = Path(seed_dir) if seed_dir else SEED_DIR
     docs = _load_records(seed / "documents.json")
@@ -310,16 +320,22 @@ async def build_corpus(
             record = by_id[doc_id]
             if not record.get("markdown_content"):
                 continue
-            result["chunks"] += await vs.add_document(
-                doc_id=doc_id,
-                title=record.get("title", "") or doc_id,
-                content=record["markdown_content"],
-                category=record.get("category", ""),
-                decision_date=record.get("decision_date", ""),
-                decision_number=record.get("decision_number", ""),
-                source_url=record.get("source_url", "") or "",
-                cached_embeddings=cache.lookup(doc_id),
-            )
+            try:
+                result["chunks"] += await vs.add_document(
+                    doc_id=doc_id,
+                    title=record.get("title", "") or doc_id,
+                    content=record["markdown_content"],
+                    category=record.get("category", ""),
+                    decision_date=record.get("decision_date", ""),
+                    decision_number=record.get("decision_number", ""),
+                    source_url=record.get("source_url", "") or "",
+                    cached_embeddings=cache.lookup(doc_id),
+                )
+            except RetrievalProfileError as exc:
+                raise RuntimeError(
+                    f"The corpus file {db.path} was embedded with another model; "
+                    "delete it and run `bddk-mcp build` again."
+                ) from exc
         result["chunks_cached"] = cache.chunks_used
         logger.info(
             "Corpus built (%d catalog, %d documents rewritten, %d sections, %d chunks: %d embedded, %d from the seed cache)",

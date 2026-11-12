@@ -30,7 +30,7 @@ These are command references, not permission to mutate an environment. Confirm t
 ```bash
 uv sync --dev                              # Install runtime + dev dependencies
 uv sync --group gpu                        # Add CUDA torch + chandra-ocr (for the doc_sync OCR path)
-uv run bddk-mcp build                      # seed_data/ -> corpus file (sections, chunks, embeddings; reuses seed_data/embeddings/ while chunk texts and model match); skips when current; --force rebuilds, re-embeds and ignores the cache (approval required)
+uv run bddk-mcp build                      # seed_data/ -> corpus file (sections, chunks, embeddings; reuses seed_data/embeddings/ while chunk texts and model match); skips when current; --force rebuilds every document and ignores the cache (approval required)
 uv run bddk-mcp export                     # Corpus file -> seed_data/ JSON + embeddings/ cache (overwrites the local seed artifacts)
 uv run bddk-mcp sync                       # Download/extract the catalogued documents into the corpus file and re-embed them (approval required; --refresh-catalog, --force, --doc-id, --concurrency, --corpus)
 uv run bddk-mcp serve                      # Run MCP server; opens the corpus file read-only (root `server.py` is the import shim)
@@ -100,7 +100,7 @@ Two-layer pattern: modules under `bddk_mcp/tools/` are thin MCP wrappers over en
 ## Important Rules
 
 - Never hardcode a corpus location — the file comes from `BDDK_CORPUS_PATH` (default `corpus/bddk.sqlite`) or the `--corpus` option. Serving opens it read-only and must never write it; the only writers are `bddk-mcp build`, `bddk-mcp sync` and the maintainer scripts under `scripts/`.
-- Embedding model is offline-first (pre-downloaded via `BDDK_EMBEDDING_MODEL_PATH`). Every corpus file records its embedding model and dimension in `meta`; a model change requires `bddk-mcp build --force` followed by `bddk-mcp export`, not only a variable change: `seed_data/embeddings/` is reused only while its manifest names the configured model and each document's chunk digest.
+- Embedding model is offline-first (pre-downloaded via `BDDK_EMBEDDING_MODEL_PATH`). Every corpus file records its embedding model and dimension in `meta`; after a change of embedding model, section parser or chunk settings, delete the local corpus file, run `bddk-mcp build`, then `bddk-mcp export`; changing only a variable is not enough, and `--force` cannot switch an existing file to another model. `seed_data/embeddings/` is reused only while its manifest names the configured model and each document's chunk digest; `--force` re-embeds every document and ignores it. `build` skips by content hash and catalog size, so metadata-only seed edits and documents removed from the seed also need a fresh file. `scripts/reindex_document_sections.py` updates sections only and leaves the chunks' section fields stale.
 - All tools must receive dependencies through the `Dependencies` DI container.
 - Adding, renaming, or removing an MCP tool requires updating `tools/registry.py` (`PUBLIC_TOOL_NAMES` + `TOOL_ANNOTATIONS`) — startup asserts the registered surface matches the reviewed list and fails on drift.
 - Schema changes go through `bddk_mcp/store/corpus_db.py` and a rebuilt corpus file (`bddk-mcp build --force`; when a table layout changed, remove the old file first, because `CREATE TABLE IF NOT EXISTS` never alters an existing table). There is no in-place upgrade or migration ledger. Keep affected `seed_data/` artifacts in sync.

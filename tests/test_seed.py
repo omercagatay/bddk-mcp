@@ -282,6 +282,89 @@ class TestStripDocsDumpHeader:
         assert seed._strip_docs_dump_header(text) == "body with\n---\nembedded separator\n"
 
 
+def _canonical_json(records: list[dict]) -> bytes:
+    ordered = sorted(records, key=lambda record: record["document_id"])
+    return (json.dumps(ordered, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+
+
+@pytest.mark.asyncio
+async def test_export_after_build_gives_back_the_seed_bytes(tmp_path: Path):
+    """Build from a canonical seed, export, and get the same bytes: timestamps and format survive."""
+    documents = []
+    for index, document in enumerate(reversed(DOCS)):
+        content = document["markdown_content"]
+        documents.append(
+            {
+                "document_id": document["document_id"],
+                "title": document["title"],
+                "category": document["category"],
+                "decision_date": "",
+                "decision_number": "",
+                "source_url": f"https://www.bddk.org.tr/Mevzuat/DokumanGetir/{index}",
+                "markdown_content": content,
+                "content_hash": hashlib.sha256(content.encode()).hexdigest(),
+                "downloaded_at": 1776786536.134837 + index,
+                "extracted_at": 1778524399.189718 + index,
+                "extraction_method": document["extraction_method"],
+                "total_pages": 1,
+                "file_size": 1234 + index,
+            }
+        )
+    catalog = [
+        {
+            "document_id": document["document_id"],
+            "title": document["title"],
+            "content": document["title"],
+            "decision_date": "",
+            "decision_number": "",
+            "category": document["category"],
+            "source_url": document["source_url"],
+        }
+        for document in documents
+    ]
+    seed_dir = tmp_path / "seed"
+    seed_dir.mkdir()
+    (seed_dir / "documents.json").write_bytes(_canonical_json(documents))
+    (seed_dir / "decision_cache.json").write_bytes(_canonical_json(catalog))
+
+    await _build(tmp_path)
+    out_dir = tmp_path / "out"
+    await seed.export_corpus(corpus_path=tmp_path / "corpus.sqlite", seed_dir=out_dir)
+
+    for name in ("documents.json", "decision_cache.json"):
+        assert (out_dir / name).read_bytes() == (seed_dir / name).read_bytes(), name
+
+
+@pytest.mark.asyncio
+async def test_build_against_a_corpus_of_another_model_says_to_delete_the_file(tmp_path: Path, seed_dir: Path):
+    await _build(tmp_path)
+
+    with pytest.raises(RuntimeError, match=r"embedded with another model.*[Dd]elete"):
+        await seed.build_corpus(
+            corpus_path=tmp_path / "corpus.sqlite",
+            seed_dir=seed_dir,
+            force=True,
+            vector_store_factory=lambda db: VectorStore(
+                db, embedding_model="other/model", embed_fn=fake_embed, tokenizer=FakeTokenizer()
+            ),
+        )
+
+
+def test_committed_embedding_cache_matches_the_seed_documents():
+    """seed_data/embeddings must cover exactly the seed documents; after editing documents.json, run export."""
+    documents = json.loads((seed.SEED_DIR / "documents.json").read_text(encoding="utf-8"))
+    directory = seed.SEED_DIR / seed.EMBEDDINGS_SUBDIR
+    manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
+    doc_ids = {document["document_id"] for document in documents}
+
+    assert set(manifest["documents"]) == doc_ids, "stale embedding cache: run `bddk-mcp export` after a seed edit"
+    assert {path.stem for path in directory.glob("*.npy")} == doc_ids
+    for doc_id in sorted(doc_ids):
+        vectors = np.load(directory / f"{doc_id}.npy", allow_pickle=False)
+        assert vectors.dtype == np.float16 and vectors.ndim == 2 and vectors.shape[1] == 768, doc_id
+        assert np.isfinite(vectors).all(), doc_id
+
+
 def test_reviewed_seed_contains_required_exact_section_fixtures():
     documents = json.loads((seed.SEED_DIR / "documents.json").read_text(encoding="utf-8"))
     by_id = {document["document_id"]: document for document in documents}

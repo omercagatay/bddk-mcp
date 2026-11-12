@@ -82,6 +82,9 @@ class StoredDocument(BaseModel):
     extraction_method: str = "markitdown"
     total_pages: int = 1
     file_size: int = 0
+    downloaded_at: float | None = None
+    """Carried from seed data by the build; the writer stamps the current time when absent."""
+    extracted_at: float | None = None
 
     model_config = {"arbitrary_types_allowed": True}
 
@@ -264,8 +267,8 @@ def upsert_document_sync(
             doc.pdf_bytes,
             doc.markdown_content,
             content_hash,
-            now,
-            now if doc.markdown_content else None,
+            doc.downloaded_at if doc.downloaded_at is not None else now,
+            doc.extracted_at if doc.extracted_at is not None else (now if doc.markdown_content else None),
             doc.extraction_method,
             total_pages,
             doc.file_size or (len(doc.pdf_bytes) if doc.pdf_bytes else 0),
