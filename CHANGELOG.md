@@ -57,8 +57,10 @@ Tool çıktıları:
 - `get_bddk_monthly`: dönem verilmezse son 3 tamamlanmış ay yeniden eskiye
   doğru denenir ve çıktı kullanılan dönemi yazar. BDDK bir ayı haftalar sonra
   yayımladığı için "son tamamlanmış ay" çoğu zaman henüz yoktur; eski varsayılan
-  ise sabit 12/2025 idi. BDDK'nın `success=false` cevabı "BDDK bu dönem için
-  veri döndürmedi" olarak, beklenmeyen cevap biçimi ise hata olarak döner.
+  ise sabit 12/2025 idi. BDDK'nın "bu döneme ait veri yok" cevabı
+  (`success=false` ve "veri bulunma…" mesajı) veri yok olarak döner ve
+  BDDK'nın mesajı çıktıya yazılır; başka her `success=false` cevabı ve
+  beklenmeyen cevap biçimi hata sayılır.
   `year` ve `month` birlikte verilir ya da hiç verilmez.
 - `compare_bulletin_metrics` en çok 4 metrik kabul eder; beşinci metrik artık
   sessizce atılmaz, şema reddeder. `get_bddk_bulletin` en yeni 60 gözlemi yazar

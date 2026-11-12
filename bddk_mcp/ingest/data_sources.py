@@ -539,10 +539,11 @@ async def fetch_monthly_bulletin(
         party_code: Bank group code (10001=sector total)
 
     Returns dict with: title, rows [{name, tp, yp, total}], period, currency.
-    BDDK answers success=false for a period it holds no data for (typically a
-    month it has not published yet); that is an answer, so rows is empty.
-    Returns {"error": ...} when the request fails or the response is not the
-    expected object.
+    BDDK refuses a period it holds no data for (typically a month it has not
+    published yet) with success=false and a "... veri bulunma..." message; that
+    is an answer, so rows is empty and the message is passed on as notice.
+    Returns {"error": ...} when the request fails, BDDK refuses for any other
+    reason, or the response is not the expected object.
     """
     try:
         page_url = f"{_BDDK_BASE_URL}/BultenAylik"
@@ -579,7 +580,19 @@ async def fetch_monthly_bulletin(
         if not isinstance(result, dict):
             raise ValueError("Unexpected monthly bulletin response")
         if result.get("success") is False:
-            return {"title": f"Tablo {table_no}", "rows": [], "period": f"{month}/{year}", "currency": currency}
+            # Seen live: "2026 yılının en son 9 ayına ait veri bulunmaktadır!" and
+            # "2031 yılına ait veri bulunmamaktadır!". Any other refusal is a failed
+            # call, not evidence of missing data.
+            notice = str(result.get("error") or "")
+            if "veri bulunma" not in notice.lower():
+                raise ValueError("Unexpected monthly bulletin response")
+            return {
+                "title": f"Tablo {table_no}",
+                "rows": [],
+                "period": f"{month}/{year}",
+                "currency": currency,
+                "notice": notice[:200],
+            }
         if not isinstance(result.get("Json"), dict):
             raise ValueError("Unexpected monthly bulletin response")
         js = result["Json"]

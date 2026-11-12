@@ -190,10 +190,12 @@ def register(
 
         lines = [f"**{result.get('title', 'BDDK Aylık Bülten')}**\n"]
         rows = result.get("rows", [])
+        notice = [f"BDDK'nın cevabı: {result['notice']}"] if result.get("notice") else []
         if not rows and not explicit_period:
             tried = ", ".join(f"{m}/{y}" for y, m in periods)
             lines.append(f"Denenen dönemler: {tried} | Para Birimi: {currency}\n")
             lines.append("BDDK bu dönemlerin hiçbiri için veri döndürmedi.")
+            lines.extend(notice)
             return frame_untrusted_source("\n".join(lines))
 
         lines.append(f"Dönem: {month}/{year} | Para Birimi: {currency}\n")
@@ -201,6 +203,7 @@ def register(
             lines.append("Dönem verilmedi; BDDK'nın veri döndürdüğü en son tamamlanmış ay kullanıldı.\n")
         if not rows:
             lines.append("BDDK bu dönem ve parametreler için veri döndürmedi; dönem henüz yayımlanmamış olabilir.")
+            lines.extend(notice)
         else:
             lines.append(f"{'Kalem':<55} {'TP':>15} {'YP':>15} {'Toplam':>15}")
             lines.append("-" * 105)

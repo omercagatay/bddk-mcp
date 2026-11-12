@@ -105,11 +105,16 @@ def test_recent_complete_months_are_computed_from_today(monkeypatch):
 _MONTHLY_ROWS = [{"name": "Krediler", "tp": "1", "yp": "2", "total": "3"}]
 
 
+_NOT_PUBLISHED = "2026 yılının en son 9 ayına ait veri bulunmaktadır!"
+
+
 def _monthly_fetch(published: set[tuple[int, int]]) -> AsyncMock:
     """A fetch double: BDDK returns rows only for the published (year, month) periods."""
 
     async def fetch(_http, _table_no, year, month, *_rest):
-        return {"title": "T", "rows": _MONTHLY_ROWS if (year, month) in published else []}
+        if (year, month) in published:
+            return {"title": "T", "rows": _MONTHLY_ROWS}
+        return {"title": "T", "rows": [], "notice": _NOT_PUBLISHED}
 
     return AsyncMock(side_effect=fetch)
 
@@ -140,6 +145,7 @@ async def test_monthly_without_a_period_walks_back_to_the_newest_published_month
     assert _periods(fetch) == [(2025, 12), (2025, 11), (2025, 10)]
     assert "Denenen dönemler: 12/2025, 11/2025, 10/2025" in out
     assert "hiçbiri için veri döndürmedi" in out
+    assert f"BDDK'nın cevabı: {_NOT_PUBLISHED}" in out
 
 
 @pytest.mark.asyncio
@@ -153,6 +159,7 @@ async def test_monthly_with_an_explicit_period_asks_once_and_says_when_bddk_has_
     assert "Dönem: 10/2026" in out
     assert "Dönem verilmedi" not in out
     assert "yayımlanmamış olabilir" in out
+    assert f"BDDK'nın cevabı: {_NOT_PUBLISHED}" in out
 
     with pytest.raises(ToolError, match="INVALID_INPUT"):
         await tool(year=2024)
@@ -208,6 +215,9 @@ async def test_fetch_monthly_bulletin_parses_rows(monkeypatch):
 @pytest.mark.parametrize(
     "payload",
     [
+        {"success": False, "Json": {"caption": "x", "data": {"rows": []}}},
+        {"success": False, "error": "Güvenlik doğrulaması başarısız."},
+        {"success": False, "error": None},
         {"success": True, "Json": None},
         {"success": True},
         {"success": True, "Json": {"data": None}},
@@ -222,14 +232,17 @@ async def test_fetch_monthly_bulletin_unexpected_shape_is_an_error_not_no_data(m
 
 
 @pytest.mark.asyncio
-async def test_fetch_monthly_bulletin_reads_bddk_refusal_of_a_period_as_no_rows(monkeypatch):
-    """BDDK's own answer for a month it has not published (seen live on 2026-11-12) is not an outage."""
+@pytest.mark.parametrize(
+    "message",
+    [_NOT_PUBLISHED, "2031 yılına ait veri bulunmamaktadır!"],  # both seen live on 2026-11-12
+)
+async def test_fetch_monthly_bulletin_reads_bddk_refusal_of_a_period_as_no_rows(monkeypatch, message):
+    """Only BDDK's own "no data for this period" answer is no data; it is passed on as the notice."""
     from bddk_mcp.ingest.data_sources import fetch_monthly_bulletin
 
-    _patch_monthly_upstream(
-        monkeypatch, {"success": False, "error": "2026 yılının en son 9 ayına ait veri bulunmaktadır!"}
-    )
+    _patch_monthly_upstream(monkeypatch, {"success": False, "error": message})
     result = await fetch_monthly_bulletin(MagicMock(), 1, 2026, 10, "TL", "10001")
     assert "error" not in result
     assert result["rows"] == []
     assert result["period"] == "10/2026"
+    assert result["notice"] == message
