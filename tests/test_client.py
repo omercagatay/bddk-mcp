@@ -22,7 +22,7 @@ from tests.conftest import BDDK_ACCORDION_HTML, BDDK_DECISION_HTML, MockStore, m
 
 
 def _make_client(**kwargs) -> BddkApiClient:
-    """Create a client with a mock pool (no real DB)."""
+    """Create a client with a store double (no corpus file)."""
     c = BddkApiClient(store=MockStore(), **kwargs)
     return c
 

@@ -30,9 +30,6 @@ class TestFtsMatchQuery:
     def test_case_and_diacritics_are_folded(self):
         assert fts_match_query("SERMAYE Yeterliliği İlke") == '"sermaye" "yeterliligi" "ilke"'
 
-    def test_prefix_mode(self):
-        assert fts_match_query("serma yeter", prefix=True) == '"serma"* "yeter"*'
-
     def test_empty_or_symbol_only_input(self):
         assert fts_match_query("") is None
         assert fts_match_query("*** ()) --") is None

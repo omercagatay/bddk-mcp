@@ -149,7 +149,6 @@ async def test_degraded_extraction_emits_warning_and_method_line():
     )
     doc_store = MagicMock()
     doc_store.get_document_page = AsyncMock(return_value=page)
-    doc_store.get_extraction_method = AsyncMock(return_value="manual_pdf+markitdown")
     deps = _make_deps(doc_store=doc_store)
 
     tool = _capture_get_bddk_document(deps)
@@ -175,7 +174,6 @@ async def test_formula_aware_extraction_no_warning():
     )
     doc_store = MagicMock()
     doc_store.get_document_page = AsyncMock(return_value=page)
-    doc_store.get_extraction_method = AsyncMock(return_value="mevzuat_pdf+lightocr")
     deps = _make_deps(doc_store=doc_store)
 
     tool = _capture_get_bddk_document(deps)
@@ -199,7 +197,6 @@ async def test_large_document_emits_targeted_retrieval_warning():
     )
     doc_store = MagicMock()
     doc_store.get_document_page = AsyncMock(return_value=page)
-    doc_store.get_extraction_method = AsyncMock(return_value="mevzuat_pdf+lightocr")
     deps = _make_deps(doc_store=doc_store)
 
     tool = _capture_get_bddk_document(deps)
@@ -239,7 +236,6 @@ async def test_get_bddk_document_can_return_limited_consecutive_pages():
 
     doc_store = MagicMock()
     doc_store.get_document_page = AsyncMock(side_effect=fake_get_page)
-    doc_store.get_extraction_method = AsyncMock(return_value="mevzuat_pdf+lightocr")
     deps = _make_deps(doc_store=doc_store)
 
     tool = _capture_get_bddk_document(deps)
@@ -269,7 +265,6 @@ async def test_get_bddk_document_rejects_oversized_page_window():
     }
     doc_store = MagicMock()
     doc_store.get_document_page = AsyncMock(side_effect=lambda _doc_id, page_number: pages.get(page_number))
-    doc_store.get_extraction_method = AsyncMock(return_value="mevzuat_pdf+lightocr")
     deps = _make_deps(doc_store=doc_store)
 
     tool = _capture_get_bddk_document(deps)
@@ -292,7 +287,6 @@ async def test_get_bddk_document_refuses_rather_than_rewriting_unsafe_verbatim_t
     )
     doc_store = MagicMock()
     doc_store.get_document_page = AsyncMock(return_value=page)
-    doc_store.get_extraction_method = AsyncMock(return_value="markitdown")
     deps = _make_deps(doc_store=doc_store)
     doc_store.get_document_quality = AsyncMock(
         return_value=assess_markdown_quality(page.markdown_content, page.document_id)

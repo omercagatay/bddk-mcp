@@ -12,8 +12,7 @@ from bddk_mcp.ocr.base import MarkitdownBackend
 class _DummyStore:
     """Minimal DocumentStore satisfying DocumentSyncer's interface.
 
-    Mirrors the MemStore in scripts/resync_corrupted_mevzuat.py — lets
-    this test run without a Postgres fixture.
+    Lets this test run without a corpus file.
     """
 
     def __init__(self) -> None:

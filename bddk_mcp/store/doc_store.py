@@ -42,17 +42,15 @@ def normalize_search_text(text: str) -> str:
     return "".join(char for char in normalized if not unicodedata.combining(char))
 
 
-def fts_match_query(query: str, *, prefix: bool = False) -> str | None:
+def fts_match_query(query: str) -> str | None:
     """Turn free text into an FTS5 MATCH expression: every token must match.
 
-    Tokens are quoted so FTS5 operators in user text are never interpreted;
-    ``prefix`` makes each token a prefix match (the relaxed fallback).
+    Tokens are quoted so FTS5 operators in user text are never interpreted.
     """
     tokens = _FTS_TOKEN_RE.findall(normalize_search_text(query))
     if not tokens:
         return None
-    suffix = "*" if prefix else ""
-    return " ".join(f'"{token}"{suffix}' for token in tokens)
+    return " ".join(f'"{token}"' for token in tokens)
 
 
 def _safe_sync_failure_fields(error: str, category: str) -> tuple[str, str]:
@@ -292,10 +290,6 @@ class DocumentStore:
     def db(self) -> CorpusDB:
         return self._db
 
-    async def close(self) -> None:
-        """No-op: the corpus connection is owned by the caller."""
-        logger.info("DocumentStore closed")
-
     # -- documents ----------------------------------------------------------------
 
     async def store_document(self, doc: StoredDocument) -> None:
@@ -343,16 +337,6 @@ class DocumentStore:
         if row is None:
             return None
         return assess_markdown_quality(row["markdown_content"] or "", document_id=document_id)
-
-    async def get_extraction_method(self, document_id: str) -> str | None:
-        row = await self._db.run(
-            lambda conn: conn.execute(
-                "SELECT extraction_method FROM documents WHERE document_id = ?", (document_id,)
-            ).fetchone()
-        )
-        if row is None:
-            return None
-        return row["extraction_method"] or ""
 
     async def get_document_page(self, doc_id: str, page: int = 1) -> DocumentPage | None:
         """Retrieve one page of a document's markdown content (PAGE_SIZE characters)."""

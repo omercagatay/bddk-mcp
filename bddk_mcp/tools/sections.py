@@ -427,7 +427,7 @@ async def _search_sections_loose(
             include_source_range=False,
         )
         for section in term_hits:
-            # Per-term ranks come from different tsqueries and are not
+            # Per-term ranks come from different FTS queries and are not
             # comparable; surfacing them would mislead rank-gating clients.
             merged[_section_key(section)] = section.model_copy(update={"rank": None})
 

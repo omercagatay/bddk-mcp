@@ -12,12 +12,6 @@ from bddk_mcp.store.legal_ref import canonical_section_ref
 
 logger = logging.getLogger(__name__)
 
-# Bump whenever heading recognition, span construction, subsection handling,
-# truncation, or section-content hashing changes.  Persisted chunk metadata is
-# bound to this value by the vector retrieval profile.
-SECTION_PARSER_PROFILE_VERSION = "turkish-regulatory-sections-v11"
-SECTION_SEARCH_PROFILE_VERSION = "document-section-simple-fts-length-normalized-v6"
-
 # Hard upper bound for a single section's span. Legitimate maddeler are a few
 # thousand chars; spans beyond this are parser artifacts (typically trailing EK
 # annexes swallowed by the last matched heading) and poison section search.
@@ -227,11 +221,11 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
             len(text),
         )
     sections: list[DocumentSection] = []
-    # document_sections_identity_uq declares a section's identity to be
-    # (doc_id, section_type, section_ref, content_hash), and chunks bind to
-    # sections through section_content_hash.  Consolidated tebliğ repeat an
-    # identical closing article once per amendment, so emitting a row per
-    # occurrence produces rows the schema cannot store.  Keep the first.
+    # A section's identity is (doc_id, section_type, section_ref, content_hash):
+    # lookups key on it and chunks bind to sections through section_content_hash.
+    # Consolidated tebliğ repeat an identical closing article once per amendment,
+    # so emitting a row per occurrence yields rows no lookup can tell apart.
+    # Keep the first.
     seen_identities: set[tuple[str, str, str]] = set()
     level1_capped_end: int | None = None
     for index, start in enumerate(matches):

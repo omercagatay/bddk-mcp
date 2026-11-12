@@ -141,7 +141,6 @@ async def test_every_document_returned_through_mcp_is_exact_and_not_summarized(d
             extraction_method=document.get("extraction_method", ""),
         )
     )
-    doc_store.get_extraction_method = AsyncMock(return_value=document.get("extraction_method", ""))
     doc_store.get_document_quality = AsyncMock(return_value=None)
     client = MagicMock()
     client.find_by_id.return_value = None

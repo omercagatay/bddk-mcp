@@ -185,7 +185,7 @@ async def test_search_document_store_returns_non_retryable_error_when_embedding_
     vector_store.search.assert_not_awaited()
 
 
-# -- get_version_counts integration test (requires PostgreSQL) ---------------
+# -- get_version_counts integration test (temporary corpus file) ---------------
 
 
 @pytest.mark.asyncio

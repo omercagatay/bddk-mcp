@@ -720,7 +720,7 @@ class TestDocumentSyncer:
                 {"document_id": "102", "title": "B", "category": "Genelge", "source_url": ""},
             ]
 
-            # concurrency=1 because test fixture uses a single-connection pool
+            # concurrency=1 because the test fixture shares one SQLite connection
             report = await syncer.sync_all(docs, concurrency=1, force=True)
             assert report.total == 2
             assert report.downloaded == 2

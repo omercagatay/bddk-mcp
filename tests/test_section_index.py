@@ -194,9 +194,9 @@ def test_no_subsection_rows_beyond_capped_parent():
 def test_repeated_identical_article_yields_one_section():
     """Consolidated tebliğ repeat an identical closing article per amendment.
 
-    ``document_sections_identity_uq`` declares a section's identity to be
-    (doc_id, section_type, section_ref, content_hash), so emitting a row per
-    occurrence produces rows the schema cannot store.  Keep the first.
+    A section's identity is (doc_id, section_type, section_ref, content_hash),
+    so emitting a row per occurrence yields rows no lookup can tell apart.
+    Keep the first.
     """
     article = "MADDE 2 – Bu Tebliğ 1/1/2021 tarihinde yürürlüğe girer.\n\n"
     text = article * 3

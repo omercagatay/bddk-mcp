@@ -210,19 +210,6 @@ def _parse_tabpane_institutions(soup: BeautifulSoup, inst_type: str) -> list[dic
     return results
 
 
-async def fetch_institutions(
-    http: httpx.AsyncClient,
-    institution_type: str | None = None,
-) -> list[dict]:
-    """Fetch the institution directory, discarding partial-fetch status.
-
-    Prefer :func:`fetch_institutions_with_status` where the caller renders the
-    result to a user: a silently truncated directory reads as a complete one.
-    """
-
-    return (await fetch_institutions_with_status(http, institution_type)).institutions
-
-
 async def fetch_institutions_with_status(
     http: httpx.AsyncClient,
     institution_type: str | None = None,
