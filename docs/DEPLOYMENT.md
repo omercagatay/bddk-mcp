@@ -49,7 +49,7 @@ Use the repository [`.mcp.json`](../.mcp.json) with clients that support that pr
 
 ## Streamable HTTP Contract
 
-Select HTTP with `MCP_TRANSPORT=streamable-http` or `--transport streamable-http`. The MCP endpoint is `/mcp`. FastMCP is configured for stateless JSON responses rather than durable server sessions. It offers no server-initiated stream, so `GET` and `DELETE` on `/mcp` return 405 with `Allow: POST` before rate and concurrency admission.
+Select HTTP with `MCP_TRANSPORT=streamable-http` or `--transport streamable-http`. The MCP endpoint is `/mcp`. FastMCP is configured for stateless JSON responses rather than durable server sessions. It offers no server-initiated stream and accepts MCP messages only through `POST`, so every other method on `/mcp` (including `GET`, `DELETE`, `PUT`, `PATCH`, `OPTIONS` and `HEAD`) returns 405 with `Allow: POST` before rate and concurrency admission and without reading a request body.
 
 Loopback (`127.0.0.1`) is the default bind and is the appropriate development default. A non-loopback bind, including `0.0.0.0` in a container, fails startup unless all remote security settings are complete (or the explicit unauthenticated opt-in described below replaces the bearer-authentication settings):
 

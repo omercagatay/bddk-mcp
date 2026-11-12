@@ -1,6 +1,7 @@
 """MCP server exposing BDDK decision search, document retrieval, and data tools."""
 
 import asyncio
+import inspect
 import logging
 import os
 import sqlite3
@@ -414,6 +415,19 @@ async def server_lifespan(server: FastMCP) -> AsyncIterator[Dependencies]:
         await shutdown()
 
 
+def _sdk_body_limit_kwargs(security: HttpSecurityConfig) -> dict[str, int]:
+    """Hand the configured body limit to an SDK that enforces its own.
+
+    The locked mcp release (1.30) wraps /mcp in a body-size check of its own
+    (4 MiB by default), which would silently cap ``BDDK_HTTP_MAX_BODY_BYTES``.
+    Releases 1.27 and 1.28 have no such check and no such argument; there the
+    outer ``HttpSecurityMiddleware`` limit is the only one.
+    """
+    if "max_request_body_size" in inspect.signature(FastMCP.__init__).parameters:
+        return {"max_request_body_size": security.max_body_bytes}
+    return {}
+
+
 def create_mcp(
     deps: Dependencies,
     *,
@@ -451,6 +465,7 @@ def create_mcp(
         transport_security=security.transport_security_settings(),
         auth=auth,
         token_verifier=token_verifier,
+        **_sdk_body_limit_kwargs(security),
     )
     # FastMCP v1.x does not expose the low-level version in its constructor.
     # Set the SDK Server field so initialize returns this project's version,

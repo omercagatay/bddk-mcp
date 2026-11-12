@@ -12,7 +12,7 @@ from typing import Any
 import httpx
 import jwt
 import pytest
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from mcp.server.auth.middleware.bearer_auth import BearerAuthBackend, RequireAuthMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 
@@ -513,6 +513,95 @@ async def test_concurrency_limit_rejects_immediately_and_releases_capacity():
     assert downstream.calls == 2
 
 
+def _asgi_scope(method: str, headers: list[tuple[bytes, bytes]], path: str = "/mcp") -> dict[str, Any]:
+    return {
+        "type": "http",
+        "http_version": "1.1",
+        "method": method,
+        "scheme": "http",
+        "path": path,
+        "raw_path": path.encode(),
+        "query_string": b"",
+        "root_path": "",
+        "headers": [(b"host", b"localhost:8000"), *headers],
+        "client": ("127.0.0.1", 12345),
+        "server": ("127.0.0.1", 8000),
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["PUT", "PATCH", "OPTIONS", "HEAD", "TRACE", "PROPFIND"])
+async def test_non_post_mcp_methods_are_refused_before_admission_without_reading_the_body(method):
+    downstream = _RejectingApp()
+    config = replace(load_http_security_config({}), max_concurrency=1, rate_limit_per_minute=100)
+    app = HttpSecurityMiddleware(downstream, config, clock=lambda: 100.0)
+    never = asyncio.Event()
+    sent: list[dict[str, Any]] = []
+
+    async def never_yielding_receive():
+        await never.wait()
+        return {"type": "http.disconnect"}
+
+    async def send(message):
+        sent.append(message)
+
+    slow_body_headers = [(b"content-type", b"application/json"), (b"transfer-encoding", b"chunked")]
+    await asyncio.wait_for(app(_asgi_scope(method, slow_body_headers), never_yielding_receive, send), timeout=1)
+
+    assert sent[0]["status"] == 405
+    assert (b"allow", b"POST") in sent[0]["headers"]
+    assert downstream.calls == 0
+
+    # The refused request held no concurrency slot, so the single slot admits a POST.
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost:8000") as client:
+        admitted = await client.post("/mcp", content=b"{}", headers={"content-type": "application/json"})
+    assert admitted.status_code == 401
+    assert downstream.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_concurrent_slow_put_and_patch_cannot_exhaust_the_concurrency_limit():
+    downstream = _RejectingApp()
+    config = replace(load_http_security_config({}), max_concurrency=1, rate_limit_per_minute=100)
+    app = HttpSecurityMiddleware(downstream, config, clock=lambda: 100.0)
+    never = asyncio.Event()
+    statuses: list[int] = []
+
+    async def never_yielding_receive():
+        await never.wait()
+        return {"type": "http.disconnect"}
+
+    async def send(message):
+        if message["type"] == "http.response.start":
+            statuses.append(message["status"])
+
+    headers = [(b"content-type", b"application/json"), (b"transfer-encoding", b"chunked")]
+    await asyncio.wait_for(
+        asyncio.gather(
+            app(_asgi_scope("PUT", headers), never_yielding_receive, send),
+            app(_asgi_scope("PATCH", headers), never_yielding_receive, send),
+        ),
+        timeout=1,
+    )
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost:8000") as client:
+        admitted = await client.post("/mcp", content=b"{}", headers={"content-type": "application/json"})
+
+    assert statuses == [405, 405]
+    assert admitted.status_code == 401
+    assert downstream.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_non_mcp_paths_keep_their_method_handling():
+    downstream = _RejectingApp()
+    app = HttpSecurityMiddleware(downstream, load_http_security_config({}))
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost:8000") as client:
+        well_known = await client.get("/.well-known/oauth-protected-resource")
+
+    assert well_known.status_code == 401
+    assert downstream.calls == 1
+
+
 def _b64_uint(value: int) -> str:
     raw = value.to_bytes((value.bit_length() + 7) // 8, "big")
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
@@ -710,6 +799,80 @@ async def test_jwt_verifier_rejects_wrong_signature_disallowed_algorithm_and_ove
     assert await verifier.verify_token("x" * (config.jwt_max_token_length + 1)) is None
 
 
+def _rsa_jwk(private_key, kid: str, alg: str | None) -> dict[str, Any]:
+    numbers = private_key.public_key().public_numbers()
+    jwk = {"kty": "RSA", "use": "sig", "kid": kid, "n": _b64_uint(numbers.n), "e": _b64_uint(numbers.e)}
+    if alg is not None:
+        jwk["alg"] = alg
+    return jwk
+
+
+def _ec_jwk(private_key, kid: str, crv: str) -> dict[str, Any]:
+    numbers = private_key.public_key().public_numbers()
+    size = (private_key.curve.key_size + 7) // 8
+
+    def coordinate(value: int) -> str:
+        return base64.urlsafe_b64encode(value.to_bytes(size, "big")).rstrip(b"=").decode("ascii")
+
+    return {"kty": "EC", "use": "sig", "kid": kid, "crv": crv, "x": coordinate(numbers.x), "y": coordinate(numbers.y)}
+
+
+def _verifier_for(jwks_keys: list[dict[str, Any]], algorithms: str) -> JwtTokenVerifier:
+    env = _remote_env()
+    env["BDDK_JWT_ALGORITHMS"] = algorithms
+    return JwtTokenVerifier(load_http_security_config(env), jwks_client=_StaticJwksClient({"keys": jwks_keys}))
+
+
+def _sign(private_key, algorithm: str, kid: str) -> str:
+    return jwt.encode(_claims(), private_key, algorithm=algorithm, headers={"kid": kid, "typ": "JWT"})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("algorithm", ["PS256", "RS384", "RS512"])
+async def test_jwt_verifier_accepts_rsa_family_tokens_with_an_alg_less_rsa_jwk(jwt_material, algorithm):
+    private_key, _jwks = jwt_material
+    verifier = _verifier_for([_rsa_jwk(private_key, "no-alg", None)], f"RS256,{algorithm}")
+
+    assert await verifier.verify_token(_sign(private_key, algorithm, "no-alg")) is not None
+    assert await verifier.verify_token(_sign(private_key, "RS256", "no-alg")) is not None
+
+
+@pytest.mark.asyncio
+async def test_jwt_verifier_rejects_a_token_whose_alg_differs_from_the_declared_jwk_alg(jwt_material):
+    private_key, _jwks = jwt_material
+    verifier = _verifier_for([_rsa_jwk(private_key, "declared", "RS256")], "RS256,PS256")
+
+    assert await verifier.verify_token(_sign(private_key, "PS256", "declared")) is None
+    assert await verifier.verify_token(_sign(private_key, "RS256", "declared")) is not None
+
+
+@pytest.mark.asyncio
+async def test_jwt_verifier_rejects_key_type_and_curve_mismatches_for_alg_less_jwks(jwt_material):
+    rsa_private, _jwks = jwt_material
+    p256 = ec.generate_private_key(ec.SECP256R1())
+    p384 = ec.generate_private_key(ec.SECP384R1())
+    keys = [_ec_jwk(p256, "ec-p256", "P-256"), _ec_jwk(p384, "ec-p384", "P-384"), _rsa_jwk(rsa_private, "rsa", None)]
+    verifier = _verifier_for(keys, "RS256,ES256,ES384")
+
+    # An RS256 header naming an EC key never reaches signature checking.
+    assert await verifier.verify_token(_sign(rsa_private, "RS256", "ec-p256")) is None
+    # An ES256 header naming an RSA key or a P-384 key is refused as well.
+    assert await verifier.verify_token(_sign(p256, "ES256", "rsa")) is None
+    assert await verifier.verify_token(_sign(p256, "ES256", "ec-p384")) is None
+    # Matching alg-less EC keys still verify.
+    assert await verifier.verify_token(_sign(p256, "ES256", "ec-p256")) is not None
+    assert await verifier.verify_token(_sign(p384, "ES384", "ec-p384")) is not None
+
+
+@pytest.mark.asyncio
+async def test_jwt_verifier_rejects_an_algorithm_outside_the_configured_set_for_an_alg_less_jwk(jwt_material):
+    private_key, _jwks = jwt_material
+    verifier = _verifier_for([_rsa_jwk(private_key, "no-alg", None)], "RS256")
+
+    assert await verifier.verify_token(_sign(private_key, "PS256", "no-alg")) is None
+    assert await verifier.verify_token(_sign(private_key, "RS512", "no-alg")) is None
+
+
 def _unauthenticated_env() -> dict[str, str]:
     return {
         "MCP_HOST": "0.0.0.0",
@@ -899,3 +1062,83 @@ def test_rate_key_groups_ipv6_clients_by_their_64_network(hops):
     assert key("192.0.2.10") == "192.0.2.10"
     assert key("::ffff:192.0.2.10") == ipaddress.ip_address("::ffff:192.0.2.10").compressed
     assert key("::ffff:192.0.2.11") != key("::ffff:192.0.2.10")
+
+
+@pytest.mark.asyncio
+async def test_replayed_body_is_followed_by_the_original_receive_so_a_disconnect_is_visible():
+    seen: list[dict[str, Any]] = []
+
+    async def reading_app(scope, receive, send):
+        seen.append(await receive())
+        seen.append(await asyncio.wait_for(receive(), timeout=1))
+        await send({"type": "http.response.start", "status": 204, "headers": []})
+        await send({"type": "http.response.body", "body": b""})
+
+    app = HttpSecurityMiddleware(reading_app, load_http_security_config({}))
+    incoming = [
+        {"type": "http.request", "body": b'{"a":', "more_body": True},
+        {"type": "http.request", "body": b"1}", "more_body": False},
+        {"type": "http.disconnect"},
+    ]
+
+    async def receive():
+        return incoming.pop(0)
+
+    sent: list[dict[str, Any]] = []
+
+    async def send(message):
+        sent.append(message)
+
+    headers = [(b"content-type", b"application/json"), (b"transfer-encoding", b"chunked")]
+    await app(_asgi_scope("POST", headers), receive, send)
+
+    assert seen[0] == {"type": "http.request", "body": b'{"a":1}', "more_body": False}
+    assert seen[1] == {"type": "http.disconnect"}
+    assert sent[0]["status"] == 204
+
+
+def test_jwks_client_does_not_follow_redirects(monkeypatch):
+    """Keys come only from the configured HTTPS URL, never from a redirect target.
+
+    PyJWT (>=2.15, the project floor) fetches the JWK Set with a no-redirect
+    opener.  This pins that behaviour offline so a dependency change that starts
+    following redirects (including HTTPS to HTTP) fails here.
+    """
+    import http.server
+    import threading
+
+    for name in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "ALL_PROXY", "all_proxy"):
+        monkeypatch.delenv(name, raising=False)
+    served: list[str] = []
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802 - http.server API
+            served.append(self.path)
+            if self.path == "/jwks":
+                self.send_response(302)
+                self.send_header("Location", "/redirected-jwks")
+                self.end_headers()
+                return
+            body = b'{"keys": []}'
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
+            pass
+
+    httpd = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    try:
+        client = jwt.PyJWKClient(f"http://127.0.0.1:{httpd.server_port}/jwks", cache_jwk_set=False, timeout=5)
+        with pytest.raises(jwt.PyJWKClientConnectionError):
+            client.fetch_data()
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        thread.join(timeout=5)
+
+    assert served == ["/jwks"]

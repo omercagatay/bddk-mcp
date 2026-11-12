@@ -336,3 +336,54 @@ def test_jwt_auth_settings_leave_audience_checks_to_the_token_verifier():
         server = create_mcp(deps, http_security=_remote_security())
 
     assert server.settings.auth.validate_token_resource is False
+
+
+@pytest.mark.asyncio
+async def test_configured_body_limit_above_the_sdk_default_governs_the_composed_http_app():
+    from bddk_mcp.server import create_mcp
+
+    configured = 8 * 1024 * 1024
+    security = load_http_security_config(
+        {"MCP_HOST": "127.0.0.1", "PORT": "8123", "BDDK_HTTP_MAX_BODY_BYTES": str(configured)}
+    )
+    deps = Dependencies(db=None, doc_store=MagicMock(), client=MagicMock(), http=None)
+    server = create_mcp(deps, http_security=security)
+    assert server.settings.max_request_body_size == configured
+    raw_app = server.streamable_http_app()
+    app = HttpSecurityMiddleware(raw_app, security)
+
+    def ping(total_size: int) -> bytes:
+        prefix = b'{"jsonrpc":"2.0","id":1,"method":"ping","params":{"_meta":{"pad":"'
+        suffix = b'"}}}'
+        return prefix + b"x" * (total_size - len(prefix) - len(suffix)) + suffix
+
+    headers = {
+        "content-type": "application/json",
+        "accept": "application/json, text/event-stream",
+        "mcp-protocol-version": "2025-06-18",
+    }
+    transport = httpx.ASGITransport(app=app)
+    async with raw_app.router.lifespan_context(raw_app):
+        async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8123") as client:
+            # 5 MiB exceeds the SDK's 4 MiB default but not the configured limit.
+            within = await client.post("/mcp", content=ping(5 * 1024 * 1024), headers=headers)
+            beyond = await client.post("/mcp", content=ping(configured + 1), headers=headers)
+
+    assert within.status_code == 200
+    assert within.json()["id"] == 1
+    assert beyond.status_code == 413
+
+
+def test_sdk_body_limit_argument_is_omitted_for_an_sdk_without_its_own_body_check(monkeypatch):
+    from mcp.server.fastmcp import FastMCP
+
+    from bddk_mcp import server as server_module
+
+    security = load_http_security_config({"BDDK_HTTP_MAX_BODY_BYTES": "8388608"})
+    assert server_module._sdk_body_limit_kwargs(security) == {"max_request_body_size": 8388608}
+
+    def legacy_init(self, name=None, instructions=None, **settings):  # mcp 1.27/1.28 have no body-size argument
+        raise AssertionError("not called")
+
+    monkeypatch.setattr(FastMCP, "__init__", legacy_init)
+    assert server_module._sdk_body_limit_kwargs(security) == {}
