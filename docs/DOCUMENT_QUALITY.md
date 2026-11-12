@@ -42,7 +42,17 @@ emits exact slices and that the corpus file round-trips every page exactly.
 
 A capped parser span stores a system truncation notice. The notice is storage
 metadata, never legal text: serving strips it and reports truncation
-(`content_truncated`). Catalog search results carry BDDK catalog summary/excerpt
+(`content_truncated`).
+A capped named section (stored window of 20,000 characters) also reports its true
+extent: `stored_span_capped`, `original_end_char` and a text line with the stored and
+the full length. A `quotation` that is not found in the stored window is
+`unavailable` (check reason `reference_truncated`, gap
+`quotation_reference_truncated`), not `not_found`, because the text beyond the window
+was not compared; a quotation equal to the whole stored window has extent `excerpt`.
+The rest of the provision is in full in `get_bddk_document`; parts of it are also
+stored as later rows (nested rows or `govde` windows), which are labelled as
+continuing that provision. In corpus files built with the code of this release the words of the
+truncation notice are not in the section full-text index. Catalog search results carry BDDK catalog summary/excerpt
 metadata, which is labeled as such and must never be quoted as provision text;
 document-store snippets are exact leading excerpts of one chunk and may be
 truncated.
@@ -160,6 +170,6 @@ The tracked fail list is empty, so `scripts/backfill_quality_failures.py` with i
 4. Re-run the quality scan against the copy (`scan_document_quality.py --db --corpus corpus/bddk-repair.sqlite`) and compare labels, flags, snippets and content hashes with the first scan.
 5. After owner review confirms the repair, remove the document from `bddk_mcp/quality/quality_failures.yml` if it was listed, export the repaired copy back to `seed_data/` (`bddk-mcp export --corpus corpus/bddk-repair.sqlite`) so the reviewed source matches, rebuild the corpus file from the seed, redeploy it and restart the server. Until then runtime retrieval keeps the old text and labels.
 
-`scripts/backfill_quality_failures.py` runs the same forced re-extraction for a batch: `--config quality_reports/quality_findings.csv --dry-run` lists the documents labelled `fail` in a scan, and `--execute` (with `--corpus` on a copy) re-extracts them. `reindex_document_sections.py`, `scan_document_quality.py`, `document_quality_score.py` and `patch_doc.py` also read or write the file at `BDDK_CORPUS_PATH`; `--corpus PATH` targets another file.
+`scripts/backfill_quality_failures.py` runs the same forced re-extraction for a batch: `--config quality_reports/quality_findings.csv --dry-run` lists the documents labelled `fail` in a scan, and `--execute` (with `--corpus` on a copy) re-extracts them. `reindex_document_sections.py`, `scan_document_quality.py`, `document_quality_score.py` and `patch_doc.py` also read or write the file at `BDDK_CORPUS_PATH`; `--corpus PATH` targets another file. `patch_doc.py` refuses a replacement text that the corpus would rewrite on storage (it names the markers, also with `--dry-run`) and writes the seed in the canonical format; it updates the repository `seed_data/` only for the default corpus file, and `--seed-dir PATH` names another seed directory.
 
 Backfill should not erase prior versions. It should create a fresh stored version or preserve enough hash/version history to compare old and new extraction output.

@@ -8,7 +8,10 @@ yorumlanmalıdır.
 
 ## Sürümleme hakkında önemli not
 
-Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızdır:
+Uygulama/paket sürümü, `v0001`–`v0011` adlı eski PostgreSQL migration
+sürümlerinden bağımsızdır. PostgreSQL backend'i ve migration'ları 2026-11-10'da
+kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözleşmesi
+`meta` tablosundaki `SCHEMA_VERSION = 1` değeridir ve migration kaydı yoktur. Sürüm geçmişi:
 
 - `1.0.0` ve `2.0.0`, Git'te gerçekten `v1.0.0` ve `v2.0.0` etiketiyle
   işaretlenmiş tek sürümlerdir. `v1.0.0` etiketindeki `pyproject.toml` paket
@@ -25,9 +28,350 @@ Uygulama/paket sürümü ile PostgreSQL şema sürümü birbirinden bağımsızd
   yayımlanmış veya etiketlenmiş bir release değildir.
 - `v0001`–`v0011` adları Python paket sürümü değil, ileri yönlü PostgreSQL
   migration sürümleridir. Bir uygulama release'i birden fazla migration
-  içerebilir.
+  içerebilirdi; bu migration'lar artık kodda yoktur, yalnızca Git geçmişindedir.
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
+
+### Değişti — ikinci bakım turu: bağımsız denetim ve tasarım incelemesi (2026-11-12)
+
+Aynı gün ikinci tur: bağımsız denetimin ve dört bakış açılı tasarım
+incelemesinin bulguları uygulandı, ardından çapraz inceleme yapıldı. Aşağıdaki
+değişikliklerin hiçbiri BDDK ve mevzuat.gov.tr canlı kaynaklarına karşı
+denenmedi ve gerçek embedding modeliyle çalıştırılmadı; ayrıntı en sondaki
+"Bu ortamda doğrulanamayanlar" başlığındadır.
+
+**Yükseltme notu.** Bu turdan önce üretilmiş bir corpus dosyası, 636 ve 774
+numaralı belgelerin eski karar tarihlerini (07.02.2013 ve 14.02.2020; seed'de
+artık karar metninde yazan 31.01.2013 ve 13.02.2020 var) ve eski madde
+başlıklarını korur. Başlık değişikliği 79 belgede 1.596 başlıktır: `MADDE`
+satırında başlık yoksa başlık artık üstündeki başlık satırından gelir,
+önceden ilk fıkra metni olurdu. Hiçbir içerik özeti değişmediği için düz bir
+`bddk-mcp build` "dosya seed ile zaten uyumlu" der ve eski değerleri bırakır.
+Sahibin onayıyla yeni bir dosya üretin (`bddk-mcp build --corpus <yeni yol>`;
+yeni dosyada her belge yeniden bölündüğü için tokenizer ağdan ya da
+`BDDK_EMBEDDING_MODEL_PATH` üzerinden yüklenebilmelidir), `bddk-mcp info --corpus
+<yeni yol>` ile kontrol edin, sonra hiçbir sunucu açık tutmazken eski dosyanın
+yerine koyun; gerekirse ardından `bddk-mcp export`. Chunk metinleri değişmediği için yeniden embedding gerekmez.
+Docker imajı her seferinde yeni dosya üretir, bundan etkilenmez.
+
+HTTP:
+
+- `/mcp` üzerinde `POST` dışındaki her yöntem (`PUT`, `PATCH`, `OPTIONS`,
+  `HEAD`, `TRACE` dahil) artık admission'dan önce, gövde okunmadan 405 ve
+  `Allow: POST` ile reddedilir. Önceden yalnızca `GET` ve `DELETE` böyleydi;
+  diğerleri concurrency slot'u tutarak SDK'ya geçiyordu.
+- `alg` üyesi olmayan bir JWK artık anahtar türüne göre denetlenir (RS*/PS* için
+  RSA, ES* için eşleşen eğrili EC). `BDDK_JWT_ALGORITHMS` izin veriyorsa bu
+  anahtarla PS256, RS384 ve RS512 de kabul edilir. Anahtar türü uymayan token
+  reddedilir.
+- `BDDK_HTTP_MAX_BODY_BYTES` 4 MiB üstünde de (en çok 16 MiB) geçerli olur.
+  Önceden SDK'nın kendi 4 MiB sınırı ayardan bağımsız 413 veriyordu.
+- İstek gövdesi geri verildikten sonra uygulamanın `receive()` çağrıları gerçek
+  bağlantıyı bekler; istemcinin bağlantıyı kapatması artık görülür.
+
+Tool çıktıları, istemciye görünen sözleşme (yalnızca ekleme; hiçbir alan
+yeniden adlandırılmadı ya da silinmedi):
+
+- Yeni isteğe bağlı argümanlar: `get_document_section` için `start_char` (aynı
+  numaralı birkaç bölümden birini başlangıç konumuyla seçen, `0` veya daha büyük
+  tamsayı; yalnızca o corpus dosyası için geçerlidir, atıf değildir).
+  `search_bddk_regulations` için `keywords` artık isteğe bağlı (varsayılan
+  boş): kategori veya `date_from`/`date_to` ile birlikte boş bırakılırsa süzülmüş
+  kataloğu en yeniden başlayarak sayfalar; ne süzgeç ne anahtar kelime yoksa
+  `INVALID_INPUT` döner.
+- Yeni isteğe bağlı çıktı alanları: `SectionSearchResponse` için
+  `inferred_document_filter_applied`, `inferred_document_filter_dropped` ve
+  `parsed_section_ref`; `RegulationCatalogResponse` için `undated_excluded`; `DocumentSearchItem` için `match_type`, `section_type`,
+  `section_ref`, `source_url` ve `decision_number`; `SectionItem` için
+  `stem_match`, `parent_section_type`, `parent_section_ref`,
+  `stored_span_capped`, `original_end_char`, `continuation_of_section_type`,
+  `continuation_of_section_ref`, `continuation_of_section_end_char` ve
+  `document_structureless`; `EvidenceReference` için `source_downloaded_on`;
+  `DocumentHistoryResponse` için `current_body` ve `resolved_document_id`.
+- `match_strength` yeni bir değer aldı: `keyword`. Sorgudaki hukuki atıfla (madde
+  numarası, karar numarası, tarih) birebir eşleşen FTS sonuçları artık
+  `[keyword match on the legal reference in the query; no semantic score]`
+  etiketiyle gelir; `relevance` 0.0 düşük skor değildir ve bu sonuçlar zayıf
+  eşleşme sayılmaz. Sunucu talimatının 7. kuralı bu sonuçları %50 kuralından
+  muaf tutar, onları doğrulanacak ipucu olarak tanımlar.
+- Yeni hata kodu `INSUFFICIENT_DATA`: `analyze_bulletin_trends` ikiden az gözlem
+  olduğunda yeniden denenemeyen bu hatayı döner. `compare_bulletin_metrics`
+  tablosu aynı durumda `HATA` yerine nedenle birlikte `YETERSİZ VERİ` yazar.
+- `get_document_history` kayıtlı olmayan bir belge numarası için boş sonuç
+  yerine `NOT_FOUND` döner. `get_bddk_document` ve `get_document_history`
+  `document_id` için diğer tool'larla aynı katı kalıbı kullanır (harf, rakam, `_`
+  ve `-`, en çok 64 karakter); `.` veya `:` içeren numara `INVALID_INPUT` olur.
+  `page_number` ve `max_pages` katı tamsayıdır: `true` ve `"2"` reddedilir.
+  Çıplak numaralar `mevzuat_` veya `bddk_` önekiyle çözülür.
+- `get_document_history` her cevabın başına, veri çerçevesinin dışında sabit bir
+  uyarı koyar: bu corpus dosyasının yerel metin değişikliği kaydıdır, tadil
+  tarihçesi değildir. Mevcut gövde "Current stored body (not a version)" satırıyla
+  ayrı bildirilir. Sürüm ve katalog zamanları artık UTC yazılır (` UTC` son eki);
+  önceden sunucunun yerel saatiydi ve son ek yoktu.
+- Belge durumu: BDDK katalog sınıfı Mülga Düzenleme veya Düzenleme Taslağı olan
+  belgelerde `Document status: ... MÜLGA (repealed)` ya da `TASLAK (draft)` satırı
+  ve aynı metinde bir uyarı çıkar (`get_document_section`,
+  `search_document_sections`, `get_bddk_document`, `search_document_store`,
+  `search_bddk_regulations`). Sunucu talimatına 22. kural eklendi: bu işaretli
+  belge güncel hukuk gibi sunulmaz; işaretin olmaması yürürlükte olduğunu
+  göstermez. `get_bddk_document`, `search_document_store` ve
+  `search_bddk_regulations` section tool'larındaki hukuki uygulanabilirlik
+  uyarısını da taşır.
+- Kaynak tarihleri: section çıktıları `Decision date / number: T / N` ve `Text
+  obtained from the source on: YYYY-MM-DD (UTC download date; not a statement
+  that the text is current)` satırlarını yazar; indirme tarihi kayıtlı değilse
+  `unknown`. `get_bddk_document` başlığı kaynak tarihi satırını alır, kanıtı
+  `content_hash` ve `source_downloaded_on` taşır. `search_bddk_regulations` artık
+  `Versions: N (latest: X)` yerine "Replaced bodies in this corpus file: N ...; a
+  local text-change log, not amendment history" yazar ve her sonuca "Catalog
+  source (not a validated citation)" satırı ekler.
+- `get_bddk_document` başlığı artık "sarmalama yok" demez: sayfalar
+  `PAGE_SIZE` karakterlik sabit pencerelerdir ve bir kelimeyi, tablo satırını
+  veya formülü kesebilir; çok sayfalı çıktıda `---` ve `### Page N/T` satırları
+  tool ayırıcısıdır. Çift sayıda olmayan `$$` işaretiyle ya da tablo satırı
+  ortasında biten, son olmayan sayfa metinde ve `warnings[]` içinde uyarı alır.
+  Depolama hatası artık "belge yok" sayılmaz; temizlenmiş `TOOL_EXECUTION_FAILED`
+  olarak çıkar.
+- Alıntı kontrolü ve kısaltılmış hükümler: kayıtlı pencerede bulunmayan alıntı
+  artık `not_found` değil `unavailable` döner (neden `reference_truncated`,
+  boşluk `quotation_reference_truncated`); pencerenin tamamına eşit alıntının
+  kapsamı `excerpt` olur. Kısaltılmış bir hüküm gerçek uzunluğunu yazar
+  ("Stored window capped at 20,000 of N characters ..."). Hükmün devamını
+  taşıyan `govde` satırları "continuation of <tür> <no>" etiketini alır, hükmün
+  gerçek bitişini aşan satırlar bunu söyler; bunlar için "yasal hüküm olarak
+  atıf yapmayın" uyarısı yerine o hükme atıf yapıp `get_bddk_document` ile
+  doğrulama uyarısı gelir. Bu eski uyarı yalnızca yapılı belgelerin gerçek artık
+  satırlarında kalır.
+- Madde yapısı olmayan belgeler: `search_document_sections` artık bu
+  belgelerin (çoğu Kurul Kararı; kısmi corpus'ta 319 belgenin 204'ü) `govde`
+  satırlarını varsayılan olarak da döndürür ve "full-text window (this document has no
+  article structure)" diye etiketler; belgeye başlık ve karar tarihiyle atıf
+  yapılması istenir. `search_document_store` aynı etiketi ve aynı karar satırını
+  kullanır; bu satır artık `Decision date / number: T / N` biçimindedir. Bu
+  satırlarda `SectionItem.heading` boştur (önceden genel `govde` başlığıydı).
+  Yapılı belgelerin `govde` satırları `section_type=govde` verilmedikçe yine
+  gelmez.
+- fıkra ve bent satırları tekil adres değildir: çıktı artık "Parent: madde N"
+  (ya da `gecici_madde`/`ek_madde`) satırı yazar ve ipucu "bu satırlar üst madde
+  taşımaz" demez; tam hüküm için üst madde istenir.
+- `search_bddk_regulations`: bağlaç sözcükleri (sayılı, hakkında, ilişkin, dair,
+  göre, ile, ve, veya, no, nolu, numaralı, tarihli, hk) yok sayılır; belge türü
+  sözcükleri (yönetmelik, tebliğ, genelge, rehber, karar, kanun, taslak; her
+  çekimiyle, ASCII ya da Türkçe harfle) hiçbir zaman zorunlu değildir, yalnızca
+  başlığında ya da kategorisinde o türü taşıyan belgeleri öne alır. İçerik
+  sözcükleri başlıkta en az 5 karakterlik ortak kökle de eşleşir; tam başlık
+  eşleşmesi kök eşleşmesinin, karar numarası eşleşmesi ikisinin önündedir.
+  "kanuni takip" kanun belgelerini, "rehberlik" rehberleri getirmez. Özet başlığı
+  tekrar ediyorsa (319 kayıttan 318'i) özet satırı yazılmaz. Sonuç yoksa metin
+  "bu corpus kataloğunda (N belge)" eşleşme olmadığını ve yokluğun enstrümanın
+  var olmadığını göstermediğini söyler; tool açıklaması BDDK sitesinde değil yerel
+  katalogda aradığını belirtir.
+- `search_bddk_regulations` tarih süzgeci: karar tarihi okunamayan katalog
+  kayıtları süzgece alınamaz; metin, uyarılar ve `undated_excluded` kaç kaydın
+  atlandığını söyler ("K catalog entries have no decision date and were not
+  considered by the date filter"). Sonuç boşsa metin artık "corpus'ta
+  olmayabilir" demek yerine tarih sınırsız yeniden denemeyi önerir. Tarih
+  argümanlarının açıklaması bu uyarıyı taşır.
+- `search_bddk_announcements` kategorilerin tümünde en yeniden başlayarak
+  listeler, tarihsizler sonda; her satır `[kategori]` yazar. 20'den fazlaysa "showing
+  the 20 most recent of N" der ve "... and K more" ile biter.
+- `search_document_store` ile `search_bddk_regulations` önbelleği corpus yazımından
+  sonra eski cevap vermez (önbellek anahtarı corpus değişim belirtecini içerir).
+  Yalnızca gevşetilmiş OR geri dönüşüyle bulunan sonuçlar `fts_exact` olmaz,
+  normal anlamsal eşik ve boşluk süzgecine tabidir.
+- `DocumentSearchItem.relevance` açıklaması artık sıralamayı yanlış anlatmaz
+  (önce hybrid sonuçlar skora göre, sonra `fts_exact` BM25 sırasıyla, sonra
+  kalan vector/FTS sonuçları skora göre). Çıktı şema açıklamaları sayfa ve
+  bölüm içeriğini "exact stored characters (no sanitization)" diye tanımlar;
+  `DocumentResponse.quality` tüm kayıtlı gövdeyi kapsar.
+
+Bölüm araması:
+
+- Sorgudaki bir sayı kayıtlı bir belge numarasına eşitse (`kredi 90 gün` →
+  belge 90) artık yalnızca tam, tam kelime ve çekim toleranslı geçişlerde o
+  belgeye kapsam çizer. Orada eşleşme yoksa kapsam bırakılır ve önce katı geçiş,
+  sonra gevşek geri dönüş tüm belgelerde çalışır. Önceden gevşek geri dönüş de
+  o tek belgede kalıyor ve ilgisiz sonuç ya da boş cevap veriyordu. Kapsam
+  uygulandığında metin "the search was limited to document N because of the number
+  N in the query ..." der ve `inferred_document_filter_applied` true olur;
+  bırakıldığında not sayıyı ve nedeni yazar. Tanımlı olmayan bir numara hiç kapsam
+  sayılmaz. Açıkça verilen `document_id` hâlâ kesin süzgeçtir.
+- TFRS, TMS, UFRS, UMS, IFRS, IAS, BDS, TFRYK, UFRYK, IFRIC, BOBİ FRS ve Basel
+  sözcüklerinden sonra gelen sayı, COVID-19 ve "yıl..." ile biten 19xx/20xx yılı
+  artık sorgudan belge numarası diye okunmaz.
+- Belge belirlenmeden verilen bir bölüm göndermesi ("madde 9") artık sessizce
+  düşmez: metin ve `warnings` bunun süzgeç olarak uygulanmadığını ve
+  `search_bddk_regulations` ardından `get_document_section` çağrılacağını söyler;
+  `section_ref` boş kalır, ayrıştırılan değer `parsed_section_ref` içindedir.
+  "9. madde", "9 uncu madde", "10'uncu maddesinde" ve "ek/geçici" önekli biçimler
+  madde olarak ayrıştırılır, sayı belge numarası sayılmaz ("5411 sayılı Kanunun 10
+  uncu maddesi" → belge 5411, madde 10).
+- Kesin eşleşme azsa aynı kapsamda çekim toleranslı (ön ek kök) eşleşmeler
+  tamamlanır; `stem_match` true, sıra boş ve "inflection-tolerant match" satırı
+  vardır. Gevşek geri dönüş yalnızca iki geçiş de boşsa çalışır. Tam kelime
+  sonucu olmadığında etiket "exact-word hits'ten sonra listelendi" demez.
+  Zaten tam referansla bulunmuş bir sonuç `stem_match` sayılmaz.
+- NO RESULTS metni belge veya bölüm türü süzgecini kaldırmayı yalnızca çağıran o
+  argümanı verdiyse önerir.
+- Madde başlığı artık `MADDE` satırında başlık yoksa üstündeki başlık satırından
+  alınır ("Tanımlar"; önceden "(1) Bu Yönetmelikte yer alan;"), başlık satırındaki
+  değişiklik notu da başlığa girer (`mevzuat_38416` madde 14). Böylece
+  `get_document_section(heading="Tanımlar")` ve başlık ağırlıklı arama bulur.
+  Bölüm türü, numara, konum, içerik, hash ve sıra 319 belgenin hiçbirinde
+  değişmedi; chunk sınırları ve seed vektörleri geçerli kalır. Etki için yukarıdaki
+  yükseltme notuna bakın.
+- Kısaltma notunun sözcükleri (`karakterden kısaltıldı`, `get_bddk_document` ...)
+  bu tur sonrası üretilen corpus dosyalarında bölüm FTS dizininde yer almaz;
+  eski dosyalarda dizin yeniden üretilene kadar kalır.
+
+Corpus, seed ve CLI:
+
+- Yeni komut `bddk-mcp info [--corpus YOL]`: corpus dosyasını salt okunur açıp
+  paket sürümünü, corpus özetini (saklanan belge metinleri üzerinden 12
+  karakterlik özet), belge, chunk ve katalog sayılarını, embedding modelini,
+  şema sürümünü, dosya boyutunu ve journal modunu yazar; hazır değilse sorunları
+  sıralar ve 1 ile çıkar. `serve` başlangıç denetimi geçince aynı kimliği tek
+  `Corpus ready: ...` satırıyla loglar. `CorpusReadiness` iki isteğe bağlı alan
+  aldı (`schema_version`, `digest`); `/health` cevapları değişmedi.
+- `bddk-mcp export` hazır olmayan bir corpus dosyasını reddeder (tek satır hata,
+  çıkış kodu 1) ve seed dizinine hiçbir şey yazmaz.
+- Yazıcı (build, sync, betikler) kapanırken dosyayı rollback-journal (`delete`)
+  kipinde bırakır; salt okunur açılış artık yanında `-wal`/`-shm` üretmez. Bu en
+  iyi çaba esasıdır: bu turdan önce üretilmiş ya da geçişi başarısız olmuş dosya WAL
+  kipinde kalır (`info` bunu gösterir); `bddk-mcp build` çalıştırmak yazıcı açıp
+  kapattığı için dosyayı dönüştürür.
+- Okuma izni, salt okunur dizin ya da "açılamıyor" hatası artık "geçerli bir
+  corpus değil, build çalıştırın" yerine izin sorunu olarak bildirilir. Hazır
+  değil ipucu yalnızca `bddk-mcp build` der; `sync` eşdeğer çare olarak
+  önerilmez.
+- Yazıcı, başka şema sürümündeki dosyayı, `meta` tablosu olmayan bir SQLite
+  veritabanını ve SQLite olmayan dosyayı değiştirmeden reddeder.
+- Boş gövdeli seed belgesi `sha256('')` özetiyle saklanır; build tekrarında
+  atlar ve export edilmiş seed yeniden build olur. Boş gövdeyi dolduran güncelleme
+  sürüm arşivi oluşturmaz.
+- `bddk-mcp build` chunk'lanacak bir şey varsa tokenizer'ı ilk yazımdan önce
+  yükler; çevrimdışı bir makinede erken ve temiz hata verir, yeni oluşturduğu
+  dosyayı siler. "Seed verisi yok" hatası okunan dizini söyler.
+- 636 ve 774 numaralı Kurul Kararı kayıtlarının karar tarihi, karar metninde
+  yazan Karar Tarihi'ne düzeltildi (31.01.2013, 13.02.2020).
+
+Sync:
+
+- Düz `bddk-mcp sync` (`--force` olmadan), metni kayıtlı ama güncel chunk'ı
+  olmayan belgeyi indirmeden, kayıtlı metinden yeniden indeksler; metin ve
+  `extraction_method` değişmez. Sonuç yöntemi `reindexed`, başarısızlık
+  `reindex_failed` olarak kaydedilir. Özet satırı artık `Sync: T total, D
+  downloaded, R reindexed, S skipped, F failed, Xs`; `SyncReport` isteğe bağlı
+  `reindexed` alanı aldı.
+- Mevzuat `*-ek.zip` içindeki ek metni artık saklanan markdown'a girer ve ek
+  `<pre>` satırları ayrı satır kalır.
+- İç içe HTML tablosu dış hücresinin içinde bir kez, `;` ile birleştirilmiş düz
+  metin olarak çıkar; hayalet satır oluşmaz. `colspan`/`rowspan` 1–100 aralığına
+  sıkıştırılır, 0, negatif ya da sayı olmayan değer 1 sayılır. Eksik `</tr>` ya da
+  `</td>` yüzünden iç içe düşen satır ve hücreler artık atılmaz.
+- Çıktı ızgarası 200.000 hücreyi aşacak bir tablo ızgara yerine düz hücre
+  metni olarak yazılır ve uyarı loglanır (çok geniş `colspan` ile şişirilmiş
+  tablolar bellek ve süre tüketiyordu). Bekleyen `rowspan` hücreleri de bu
+  sayıya girer. Bir belgenin bütün tablolarının ızgaraları birlikte 2.000.000
+  hücreyi geçecekse kalan tablolar da düz metin olarak yazılır.
+- Mevzuat hata sayfası dönen bir iframe ya da div artık indirmeyi bitirmez;
+  GeneratePdf, statik PDF, `.htm` ve diğer adaylar denenir.
+- Çıkarma sırasında oluşan bir istisna sync'ten kaçmaz: gerçek belge numarasıyla
+  `sync_failures` içine yazılır ve CLI `[<belge no>] Extraction failed: ...`
+  yazar (önceden `[unknown]`). Eski OLE `.doc` indirmesi "legacy .doc is not
+  supported (OLE Word file)" nedeniyle başarısız olur. HTML ayrıştırma hatası
+  markitdown'a düşer, markitdown istisnası başarısız çıkarma sayılır.
+- HTML çözümleme sırası: katı UTF-8; olmazsa, en az bir geçerli çok baytlı
+  karakter çözülebiliyorsa başıboş baytlar windows-1254 okunan UTF-8; olmazsa
+  bildirilen karakter kümesi (HTTP ya da `<meta>`); en son windows-1254.
+  Bildirilen tek baytlık küme geçerli UTF-8 baytların önüne geçmez. Metin
+  kodlaması olmayan bildirimler (`zlib`, `hex`, `base64`, `rot13`, `bz2`, `uu`)
+  yok sayılır ve çıkarma bunlar yüzünden başarısız olmaz.
+- LightOCR: `max_new_tokens`'a EOS olmadan ulaşan sayfa backend'i başarısız
+  sayar ("page N of M" loglanır); zincir uyarılı `_degraded` backend'lere düşer.
+  Boş sayfalar loglanır ve sayılır. Başarısızlık sınıfları artık `mevzuat_14036`
+  gibi belge numaralarındaki 403/404'ü HTTP durumu diye okumaz.
+
+Bülten ve analitik:
+
+- `get_bddk_monthly` hücreleri BDDK'nın gönderdiği gibi geçirir: JSON sayısı
+  en-US biçimiyle (`1,500`, `1,234.50`), metin hücreleri olduğu gibi yazılır;
+  tablo bunu söyler ve eksik hücre `-` olur. Beklenmeyen cevap biçimi artık "veri
+  yok" değil, yeniden denenebilir üst akış hatasıdır.
+- Önceki değer 0 olunca trend ve karşılaştırma tool'ları `0%` yerine yüzdenin
+  hesaplanamadığını ("önceki değer 0") yazar; negatif tabanlarda `abs(önceki)`
+  kullanılır. Trend etiketi son 4 noktanın net hareketine bakar (4'ten az
+  noktada son adım); anlatı kaç nokta kullanıldığını söyler.
+- Kurum rehberinde Türkçe büyük/küçük harfli iptal başlıkları (`Iptal`, `IPTAL`,
+  noktalı büyük İ) tanınır, `active_only` bunları dışarıda bırakır.
+- Özet penceresi ve aylık geriye yürüme, sunucunun saat diliminden bağımsız
+  İstanbul (UTC+3) tarihini kullanır. Haftalık seri tarihler okunabiliyorsa
+  eskiden yeniye sıralanır; boş haftalık dönem yeniden denenebilir üst akış hatası
+  yerine "No data returned" yazar.
+
+Kalite ve betikler:
+
+- Kalite politikası `markdown-quality-assessment-v8`: herhangi bir `cid:` işareti
+  ya da çift kodlanmış Türkçe metin (mojibake) belgeyi en az `warning` yapar.
+  Seed'de hiçbir belgenin etiketi değişmedi. Mojibake desenleri Latin-1 ve
+  ISO-8859-9 biçimlerini de kapsar.
+- Depolama temizleyicisi yalnızca gözden geçirilmiş dört antet sözcüğünü onarır
+  (`BBANKACILIK`, `DDÜZENLEME`, `DDENETLEME`, `KKURUMU`); `AAOIFI`, `LLOYD` ya da
+  `XXXXX` gibi gerçek kısaltmalar ve yer tutucular korunur.
+- `scripts/scan_document_quality.py`: `--fail-on` raporda görünen sinyal adlarını
+  kabul eder, etiketi temiz belgelerde de çalışır; bilinmeyen ad 2 ile çıkar.
+  Rapor, chunk bütünlüğü sayıları sıfır değilken artık "tüm sinyaller temiz"
+  demez; yeni `mojibake` anomali denetimi ve `QualityReport.signal_docs` alanı
+  eklendi, rapor "Assessment flags" bloğunu yazar.
+- `scripts/patch_doc.py`: corpus'un depolarken yeniden yazacağı metni reddeder
+  (işaretleri adlandırır, `--dry-run`'da da); seed'i kanonik biçimde yazar. Yeni
+  `--seed-dir`; varsayılan olmayan `--corpus` ile `--seed-dir` verilmezse seed
+  yazılmaz ve bunu söyler.
+- `scripts/inventory_dropped_formulas.py` açıklaması düzeltildi, raporları
+  varsayılan olarak `quality_reports/` altına yazar. `scripts/mcp_fetch_full.py`
+  `argparse` kullanır (`--help`, `--url`, belge numarası, sayfa numaraları).
+
+Testler, ayarlar ve depo:
+
+- Hygiene denetimi `.env.example` dışında izlenen her `.env.*` dosyasında ve
+  Dependabot `uv`, `github-actions`, `docker` ekosistemlerinden birini
+  kapsamıyorsa başarısız olur. Dependabot artık Dockerfile temel imajları için de
+  haftalık güncelleme PR'ı açar.
+- Tokenizer testi yüklenemediğinde nedeni ve çareyi söyleyen bir mesajla
+  başarısız olur (hâlâ başarısızlıktır). Test paketi bu ortamda atlanan test
+  içermeden çalıştı; `gpu` işaretli testler varsayılan olarak seçilmez.
+- `.env.example` kodun okuduğu her değişkeni varsayılanıyla listeler ve hangilerinin
+  yalnızca sync ya da OCR için olduğunu söyler. Üstteki not `docker compose`'un
+  yalnızca `BDDK_HTTP_ALLOWED_HOSTS` ve `BDDK_HTTP_ALLOWED_ORIGINS` değişkenlerini
+  aktardığını belirtir. `docs/DEPLOYMENT.md` sync'te yeniden indekslemeyi,
+  `BDDK_PREFER_HTML_FOR_MEVZUAT` ayarını, izin mesajını ve yükseltme notunu anlatır.
+
+Kaldırılanlar:
+
+- `BDDK_EMBEDDING_DIM`, `BDDK_EMBEDDING_CHUNK_TARGET_TOKENS` ve
+  `BDDK_EMBEDDING_CHUNK_TOKEN_OVERLAP` artık okunmaz; ayarlanırlarsa hata vermeden
+  yok sayılır. Boyut (768), chunk boyutu (400 token) ve örtüşme (40) kod sabitidir.
+- `BDDK_CHANDRA_MODEL` ve Chandra OCR backend'i (hiçbir sync yolu onu
+  kurmuyordu), ilgili bağımlılık ve testler.
+- `scripts/sanitize_seed_data.py` ve `scripts/mcp_smoke.py`.
+  `scan_document_quality.py` için `--quality-failures` ve `--manifest`
+  seçenekleri (`--manifest` zaten yok sayılıyordu).
+
+Bu ortamda doğrulanamayanlar:
+
+- BDDK ve mevzuat.gov.tr canlı kaynaklarına bu ortamdan erişilemedi. Sync
+  (ek metni, hata sayfası geçişi, karakter kümesi, tablo sınırı, yeniden
+  indeksleme), bülten, aylık tablo, özet ve kurum rehberi değişiklikleri sahte
+  yanıtlarla test edildi; canlı kaynaklara karşı çalıştırılmadı. Gerçek mevzuat
+  HTML'sinde eksik `</tr>`/`</td>` ne sıklıkta görülüyor, ölçülmedi.
+- Gerçek embedding modeli (`intfloat/multilingual-e5-base`) ve tokenizer'ı bu
+  ortamda yüklenemedi; testler sahte embedder kullandı. `BDDK_SEMANTIC_THRESHOLD`
+  varsayılanının (0.50) ve relevance bantlarının gerçek modelle kalibrasyonu
+  yapılmadı. `tests/test_verbatim_documents.py::test_real_token_chunker_produces_exact_document_slices_for_every_document`
+  yalnızca bu nedenle çalıştırılamadı.
+- Bölüm ve başlık değişikliklerinin etkisi, 319 belgelik kısmi bir corpus
+  dosyası (chunk'sız) üzerinde salt okunur denendi; tam bir `build` bu ortamda
+  çalıştırılmadı.
 
 ### Değişti — bakım turu: denetimden çıkan düzeltmeler (2026-11-12)
 
@@ -165,7 +509,7 @@ Temizlik:
 - Arama: dense retrieval numpy ile tüm chunk vektörleri üzerinde tam kosinüs
   (yaklaşık değil, kesin sonuç; birkaç yüz bin chunk'a kadar milisaniyeler),
   keyword retrieval FTS5 BM25 (Türkçe küçük harf ve diacritic normalizasyonu
-  Python'da), ikisi RRF ile birleşir; reranker isteğe bağlı kaldı. Section
+  Python'da), ikisi RRF ile birleşir; reranker isteğe bağlı kaldı (2026-11-12'de reranker silindi). Section
   search de FTS5 BM25. 319 belgelik seed üzerindeki BKZ/backtesting regresyon
   sorgularının hepsi aynı section'ı ilk sırada buldu.
 - Komutlar: `bddk-mcp build` (seed_data → corpus dosyası; section, chunk ve
