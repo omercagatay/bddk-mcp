@@ -26,7 +26,7 @@ E2E_SUPPORT = Path(__file__).resolve().parent / "e2e_support"
 @pytest.mark.asyncio
 async def test_installed_stdio_command_protocol_and_clean_shutdown(tmp_path: Path, caplog: pytest.LogCaptureFixture):
     """The installed command must expose, call, reject, recover, and exit cleanly."""
-    executable = Path(sys.executable).with_name("bddk-mcp")
+    executable = Path(sys.executable).with_name("bddk-mcp.exe" if os.name == "nt" else "bddk-mcp")
     assert executable.is_file(), f"installed bddk-mcp executable not found beside {sys.executable}"
 
     teardown_sentinel = tmp_path / "stdio-teardown-complete"
