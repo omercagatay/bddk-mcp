@@ -35,11 +35,11 @@ kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözle
 ### Değişti — ikinci bakım turu: bağımsız denetim ve tasarım incelemesi (2026-11-12)
 
 Aynı gün ikinci tur: bağımsız denetimin ve dört bakış açılı tasarım
-incelemesinin bulguları uygulandı, ardından çapraz inceleme yapıldı. Aşağıdaki
-değişikliklerin hiçbiri BDDK ve mevzuat.gov.tr canlı kaynaklarına karşı
-denenmedi ve gerçek embedding modeliyle çalıştırılmadı; yalnızca "Arama
-skoru" maddesindeki kalibrasyon gerçek modelle ölçüldü. Ayrıntı en sondaki
-"Bu ortamda doğrulanamayanlar" başlığındadır.
+incelemesinin bulguları uygulandı, ardından çapraz inceleme yapıldı.
+Değişiklikler önce ağ erişimi olmayan bir ortamda sahte yanıtlarla test edildi;
+sonra gerçek tokenizer ve embedding modeliyle tam bir corpus kuruldu ve tool'lar
+BDDK canlı kaynağına karşı denendi. Neyin doğrulandığı ve neyin doğrulanamadığı
+en sondaki "Doğrulama" başlığındadır.
 
 **Yükseltme notu.** Bu turdan önce üretilmiş bir corpus dosyası, 636 ve 774
 numaralı belgelerin eski karar tarihlerini (07.02.2013 ve 14.02.2020; seed'de
@@ -144,7 +144,7 @@ yeniden adlandırılmadı ya da silinmedi):
   doğrulama uyarısı gelir. Bu eski uyarı yalnızca yapılı belgelerin gerçek artık
   satırlarında kalır.
 - Madde yapısı olmayan belgeler: `search_document_sections` artık bu
-  belgelerin (çoğu Kurul Kararı; kısmi corpus'ta 319 belgenin 204'ü) `govde`
+  belgelerin (çoğu Kurul Kararı; 319 belgenin 204'ü) `govde`
   satırlarını varsayılan olarak da döndürür ve "full-text window (this document has no
   article structure)" diye etiketler; belgeye başlık ve karar tarihiyle atıf
   yapılması istenir. `search_document_store` aynı etiketi ve aynı karar satırını
@@ -373,21 +373,46 @@ Arama skoru:
   `scripts/calibrate_relevance.py`; ayrıntı ve sınırlar
   [Document Quality](docs/DOCUMENT_QUALITY.md#displayed-search-relevance).
 
-Bu ortamda doğrulanamayanlar:
+Doğrulama (2026-11-12):
 
-- BDDK ve mevzuat.gov.tr canlı kaynaklarına bu ortamdan erişilemedi. Sync
-  (ek metni, hata sayfası geçişi, karakter kümesi, tablo sınırı, yeniden
-  indeksleme), bülten, aylık tablo, özet ve kurum rehberi değişiklikleri sahte
-  yanıtlarla test edildi; canlı kaynaklara karşı çalıştırılmadı. Gerçek mevzuat
+Gerçek tokenizer ve embedding modeliyle (`intfloat/multilingual-e5-base`,
+sabitlenmiş revizyon):
+
+- Seed'den tam `bddk-mcp build`: 319 belge, 8.556 bölüm, 13.721 chunk. Chunk'ların
+  hepsi seed önbelleğinden geldi, hiçbiri yeniden gömülmedi; yani bu turdaki
+  ayrıştırıcı değişiklikleri hiçbir chunk metnini değiştirmedi.
+- Bu dosyadan alınan `bddk-mcp export`, `seed_data/` içeriğini bayt bayt geri
+  verdi (iki JSON dosyası, manifest ve 319 vektör dosyası).
+- Test paketi atlanan ya da başarısız test olmadan geçti; gerçek tokenizer testi
+  (`test_real_token_chunker_produces_exact_document_slices_for_every_document`)
+  dahil.
+- Tool'lar gerçek sunucu nesnesi üzerinden, tam corpus ve gerçek modelle
+  çağrıldı: anlamsal arama, bölüm araması, başlıkla madde bulma
+  (`heading="Tanımlar"`).
+
+BDDK canlı kaynağına karşı:
+
+- Haftalık bülten, aylık tablo, trend, karşılaştırma, özet, duyuru ve kurum
+  rehberi tool'ları gerçek cevaplarla çalıştı. Aylık tablo dönem verilmeden
+  Eylül 2026'ya gitti; iptal edilmiş banka kurum rehberinde işaretli geldi;
+  duyurular en yeniden başlayıp "514'ün en yeni 20'si" dedi.
+- Bir Kurul Kararı (belge 779) geçici bir corpus kopyasına `--force` ile yeniden
+  senkronize edildi: belge indirildi, CPU zinciriyle çıkarıldı
+  (`pdftotext_degraded`), yeniden indekslendi, eski gövde sürüm olarak
+  arşivlendi ve dosya hazır kaldı.
+- Deneme ortamında DNS çözümleyici yoktu; bu yüzden yalnızca deneme betiğinde
+  DNS ön kontrolü devre dışı bırakıldı. Tam host ve yönlendirme kontrolleri
+  etkindi; depodaki kod değişmedi.
+
+Doğrulanamayanlar:
+
+- mevzuat.gov.tr deneme ortamından cevap vermedi (bağlantı zaman aşımı). Sync'in
+  mevzuat'a özgü değişiklikleri (ek metni, hata sayfası geçişi, karakter kümesi,
+  tablo sınırları) yalnızca sahte yanıtlarla test edildi. Gerçek mevzuat
   HTML'sinde eksik `</tr>`/`</td>` ne sıklıkta görülüyor, ölçülmedi.
-- Gerçek embedding modeli (`intfloat/multilingual-e5-base`) ve tokenizer'ı bu
-  ortamda yüklenemedi; testler sahte embedder kullandı. Relevance bantları ve
-  eleme eşiği sonradan gerçek modelle kalibre edildi (yukarıda "Arama skoru").
-  `tests/test_verbatim_documents.py::test_real_token_chunker_produces_exact_document_slices_for_every_document`
-  yalnızca bu nedenle çalıştırılamadı.
-- Bölüm ve başlık değişikliklerinin etkisi, 319 belgelik kısmi bir corpus
-  dosyası (chunk'sız) üzerinde salt okunur denendi; tam bir `build` bu ortamda
-  çalıştırılmadı.
+- LightOCR (GPU) yolu çalıştırılmadı; kesilme denetimi sahte model ile test
+  edildi.
+- Docker imajı kurulmadı.
 
 ### Değişti — bakım turu: denetimden çıkan düzeltmeler (2026-11-12)
 
