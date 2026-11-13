@@ -2,12 +2,16 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from bddk_mcp.ocr.base import (
     ExtractionAttempt,
     LightOCRBackend,
+    LightOCRPageTruncatedError,
     MarkitdownBackend,
     OCRBackend,
     PdftotextBackend,
+    _generate_lightocr_markdown,
     _run_pdftotext,
     get_default_backends,
     run_extraction_chain,
@@ -204,12 +208,87 @@ class TestDefaultBackends:
         names = [b.name for b in backends]
         assert names == ["lightocr", "pdftotext_degraded", "markitdown_degraded"]
 
-    def test_include_chandra_prepends_chandra2(self):
-        backends = get_default_backends(include_chandra=True)
-        names = [b.name for b in backends]
-        assert names == ["chandra2", "lightocr", "pdftotext_degraded", "markitdown_degraded"]
 
-    def test_default_without_chandra_unchanged(self):
-        backends = get_default_backends(include_chandra=False)
-        names = [b.name for b in backends]
-        assert names == ["lightocr", "pdftotext_degraded", "markitdown_degraded"]
+class _FakeIds(list):
+    """A list of token ids with the tensor features the generation helper uses."""
+
+    @property
+    def shape(self):
+        return (1, len(self))
+
+
+class _FakeOutput:
+    def __init__(self, ids):
+        self._ids = ids
+
+    def __getitem__(self, key):
+        _row, columns = key
+        return self._ids[columns]
+
+
+class _FakeProcessor:
+    def __init__(self, texts):
+        self._texts = list(texts)
+        self.tokenizer = type("Tok", (), {"eos_token_id": 2})()
+
+    def apply_chat_template(self, conversation, **_kwargs):
+        return {"input_ids": _FakeIds([9, 9, 9])}
+
+    def decode(self, generated, skip_special_tokens=True):
+        return self._texts.pop(0)
+
+
+class _FakeModel:
+    def __init__(self, generated_per_page):
+        self._generated = list(generated_per_page)
+        self.calls = 0
+
+    def generate(self, *, input_ids, max_new_tokens):
+        self.calls += 1
+        return _FakeOutput(list(input_ids) + self._generated.pop(0))
+
+
+class TestLightOCRGeneration:
+    def test_pages_ending_with_eos_are_joined(self):
+        model = _FakeModel([[5, 6, 2], [7, 2]])
+        processor = _FakeProcessor(["Sayfa bir", "Sayfa iki"])
+        assert _generate_lightocr_markdown(model, processor, ["p1", "p2"], max_new_tokens=8) == (
+            "Sayfa bir\n\nSayfa iki"
+        )
+
+    def test_page_stopped_at_max_new_tokens_without_eos_raises_with_page_number(self, caplog):
+        model = _FakeModel([[5, 2], [5, 5, 5, 5]])
+        processor = _FakeProcessor(["Sayfa bir", "kesik"])
+        with caplog.at_level("WARNING", logger="bddk_mcp.ocr.base"):
+            with pytest.raises(LightOCRPageTruncatedError) as error:
+                _generate_lightocr_markdown(model, processor, ["p1", "p2", "p3"], max_new_tokens=4)
+        assert error.value.page_number == 2
+        assert "page 2 of 3" in str(error.value)
+        assert "page 2 of 3" in caplog.text
+        assert model.calls == 2
+
+    def test_eos_exactly_at_the_limit_is_not_truncation(self):
+        model = _FakeModel([[5, 5, 5, 2]])
+        assert _generate_lightocr_markdown(model, _FakeProcessor(["tam"]), ["p1"], max_new_tokens=4) == "tam"
+
+    def test_empty_page_is_logged_and_counted_not_failed(self, caplog):
+        model = _FakeModel([[5, 2], [2], [6, 2]])
+        processor = _FakeProcessor(["bir", "   ", "üç"])
+        with caplog.at_level("WARNING", logger="bddk_mcp.ocr.base"):
+            result = _generate_lightocr_markdown(model, processor, ["p1", "p2", "p3"], max_new_tokens=8)
+        assert result == "bir\n\nüç"
+        assert "page 2 of 3 decoded empty" in caplog.text
+        assert "1 empty page(s) of 3" in caplog.text
+
+    def test_truncation_makes_the_backend_fail_so_the_chain_falls_through(self):
+        backend = LightOCRBackend()
+        wrapper = MagicMock()
+        wrapper.generate_markdown.side_effect = lambda pdf: _generate_lightocr_markdown(
+            _FakeModel([[5, 5]]), _FakeProcessor(["kesik"]), ["p1"], max_new_tokens=2
+        )
+        fallback = _FakeBackend("pdftotext_degraded", "x" * 200)
+        with patch("bddk_mcp.ocr.base._cuda_available", return_value=True):
+            with patch("bddk_mcp.ocr.base._transformers_available", return_value=True):
+                with patch.object(backend, "_load_model", return_value=wrapper):
+                    attempt = run_extraction_chain(b"%PDF", [backend, fallback], min_len=10)
+        assert attempt.backend == "pdftotext_degraded"

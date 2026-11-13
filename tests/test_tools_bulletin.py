@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -11,6 +11,7 @@ from mcp.server.fastmcp.exceptions import ToolError
 
 from bddk_mcp.core.deps import Dependencies
 from bddk_mcp.core.exceptions import BddkUpstreamError
+from bddk_mcp.ingest.data_sources import ISTANBUL_TZ
 from bddk_mcp.tools.bulletin import register
 
 
@@ -61,10 +62,8 @@ async def test_bulletin_snapshot_upstream_failure_is_tool_error():
 # -- Honest outputs ------------------------------------------------------------
 
 
-class _FrozenDate(date):
-    @classmethod
-    def today(cls):
-        return cls(2026, 1, 15)
+def _frozen_istanbul_now() -> datetime:
+    return datetime(2026, 1, 15, 12, 0, tzinfo=ISTANBUL_TZ)
 
 
 def _bulletin_tool(name: str):
@@ -95,10 +94,10 @@ async def test_weekly_bulletin_prints_window_up_to_60_and_says_when_cut():
     assert "d0: 0.0" in out and "d12: 12.0" in out
 
 
-def test_recent_complete_months_are_computed_from_today(monkeypatch):
+def test_recent_complete_months_are_computed_from_the_istanbul_date(monkeypatch):
     import bddk_mcp.ingest.data_sources as data_sources
 
-    monkeypatch.setattr(data_sources, "date", _FrozenDate)  # frozen today = 2026-01-15
+    monkeypatch.setattr(data_sources, "istanbul_now", _frozen_istanbul_now)  # frozen today = 2026-01-15
     assert data_sources.recent_complete_months(3) == [(2025, 12), (2025, 11), (2025, 10)]
 
 
@@ -128,7 +127,7 @@ async def test_monthly_without_a_period_walks_back_to_the_newest_published_month
     """BDDK publishes a month weeks after it ends: the last complete month is usually not out yet."""
     import bddk_mcp.ingest.data_sources as data_sources
 
-    monkeypatch.setattr(data_sources, "date", _FrozenDate)
+    monkeypatch.setattr(data_sources, "istanbul_now", _frozen_istanbul_now)
     tool = _bulletin_tool("get_bddk_monthly")
 
     fetch = _monthly_fetch({(2025, 11), (2025, 10)})
@@ -169,7 +168,7 @@ async def test_monthly_with_an_explicit_period_asks_once_and_says_when_bddk_has_
 async def test_monthly_upstream_failure_stops_the_walk_and_is_a_tool_error(monkeypatch):
     import bddk_mcp.ingest.data_sources as data_sources
 
-    monkeypatch.setattr(data_sources, "date", _FrozenDate)
+    monkeypatch.setattr(data_sources, "istanbul_now", _frozen_istanbul_now)
     tool = _bulletin_tool("get_bddk_monthly")
     fetch = AsyncMock(return_value={"error": "Approved BDDK upstream request failed."})
     with patch("bddk_mcp.tools.bulletin.fetch_monthly_bulletin", new=fetch):
@@ -201,14 +200,117 @@ async def test_fetch_monthly_bulletin_parses_rows(monkeypatch):
         "success": True,
         "Json": {
             "caption": "Aktif",
-            "data": {"rows": [{"cell": [1, 1, "Krediler", 0, 1500, 2.5, "x"]}, {"cell": [1]}]},
+            "data": {
+                "rows": [
+                    {"cell": [1, 1, "Krediler", 0, 1500, 2.5, "x"]},
+                    {"cell": [2, 2, "Menkul", 0, None, "", 1234.5]},
+                ]
+            },
         },
     }
     _patch_monthly_upstream(monkeypatch, payload)
     result = await fetch_monthly_bulletin(MagicMock(), 1, 2025, 12, "TL", "10001")
     assert result["title"] == "Aktif"
-    assert result["rows"] == [{"name": "Krediler", "tp": "1,500", "yp": "2.50", "total": "x"}]
+    assert result["rows"] == [
+        {"name": "Krediler", "tp": "1,500", "yp": "2.50", "total": "x"},
+        {"name": "Menkul", "tp": "-", "yp": "-", "total": "1,234.50"},  # missing cell is "-", never "None"
+    ]
     assert result["period"] == "12/2025"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "data",
+    [
+        {},  # renamed or missing rows key
+        {"rows": None},
+        {"rows": {"cell": []}},  # not a list
+        {"rows": [{"cell": [1, 1, "Krediler", 0, 1500, 2.5]}]},  # 6 cells
+        {"rows": [{"cell": "not a list"}]},
+        {"rows": [{"cell": [1, 1, "K", 0, 1, 2, 3]}, {"cell": [1]}]},  # one bad row poisons the table
+        {"rows": ["not an object"]},
+    ],
+)
+async def test_fetch_monthly_bulletin_unexpected_rows_shape_is_an_error(monkeypatch, data):
+    from bddk_mcp.ingest.data_sources import fetch_monthly_bulletin
+
+    _patch_monthly_upstream(monkeypatch, {"success": True, "Json": {"caption": "x", "data": data}})
+    assert "error" in await fetch_monthly_bulletin(MagicMock(), 1, 2025, 12, "TL", "10001")
+
+
+@pytest.mark.asyncio
+async def test_fetch_monthly_bulletin_empty_rows_list_still_means_no_data(monkeypatch):
+    from bddk_mcp.ingest.data_sources import fetch_monthly_bulletin
+
+    _patch_monthly_upstream(monkeypatch, {"success": True, "Json": {"caption": "x", "data": {"rows": []}}})
+    result = await fetch_monthly_bulletin(MagicMock(), 1, 2025, 12, "TL", "10001")
+    assert "error" not in result and result["rows"] == []
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (None, "-"),
+        ("", "-"),
+        (1500, "1,500"),
+        (1234.5, "1,234.50"),
+        (0, "0"),
+        # Text is never re-interpreted: "1.234" and "1.500" do not say whether the
+        # dot is a thousands separator or a decimal mark.
+        ("1.234,56", "1.234,56"),
+        ("1.234", "1.234"),
+        ("1.500", "1.500"),
+        ("1234.56", "1234.56"),
+        ("0.123", "0.123"),
+        ("-1.234,5", "-1.234,5"),
+        (" 1.234,56 ", "1.234,56"),
+        ("n/a", "n/a"),
+        ("  ", "-"),
+        (float("nan"), "-"),
+    ],
+)
+def test_format_number_formats_json_numbers_and_passes_text_through_unchanged(value, expected):
+    from bddk_mcp.ingest.data_sources import _format_number
+
+    assert _format_number(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("utc_now", "expected_today"),
+    [
+        (datetime(2025, 12, 31, 21, 30, tzinfo=UTC), (2026, 1, 1)),  # 00:30 in Istanbul already next day
+        (datetime(2025, 12, 31, 20, 59, tzinfo=UTC), (2025, 12, 31)),
+    ],
+)
+def test_istanbul_today_is_independent_of_host_time_zone(utc_now, expected_today):
+    from bddk_mcp.ingest.data_sources import istanbul_today, recent_complete_months
+
+    today = istanbul_today(lambda: utc_now)
+    assert (today.year, today.month, today.day) == expected_today
+    # The monthly walk-back starts from the Istanbul month.
+    first = recent_complete_months(1, lambda: utc_now)[0]
+    assert first == ((2025, 12) if expected_today == (2026, 1, 1) else (2025, 11))
+
+
+@pytest.mark.asyncio
+async def test_weekly_bulletin_empty_period_prints_no_data_instead_of_upstream_failure():
+    tool = _bulletin_tool("get_bddk_bulletin")
+    data = {"title": "T", "currency": "TRY", "dates": [], "values": []}
+    with patch("bddk_mcp.tools.bulletin.fetch_weekly_bulletin", new=AsyncMock(return_value=data)):
+        out = await tool()
+    assert "No data returned for the given parameters." in out
+
+
+@pytest.mark.asyncio
+async def test_monthly_table_states_number_format_and_prints_dash_for_missing_cells():
+    tool = _bulletin_tool("get_bddk_monthly")
+    result = {"title": "T", "rows": [{"name": "Krediler", "tp": "-", "yp": "2", "total": "3"}]}
+    with patch("bddk_mcp.tools.bulletin.fetch_monthly_bulletin", new=AsyncMock(return_value=result)):
+        out = await tool(year=2025, month=12)
+    assert "None" not in out
+    # The format line documents the number format and says that text values are not re-interpreted.
+    assert "1,234.50" in out
+    assert "olduğu gibi bırakılır" in out
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,7 @@
 """MCP server exposing BDDK decision search, document retrieval, and data tools."""
 
 import asyncio
+import inspect
 import logging
 import os
 import sqlite3
@@ -53,7 +54,7 @@ GROUNDING RULES — follow these strictly:
 4. If document content is paginated, do NOT speculate about content on pages you have not retrieved.
 5. Never fabricate karar numarası (decision numbers), tarih (dates), or legal conclusions.
 6. When quoting from a document, quote only text that appears verbatim in the tool output.
-7. If relevance scores are below 50%, flag this to the user and recommend refining the query.
+7. If relevance scores are below 50%, flag this to the user and recommend refining the query. Hits with match_strength "keyword" (match_type fts_exact) are keyword matches on a legal reference in the query and carry no semantic score: their relevance 0.0 is not a low score, so do not apply the 50% rule to them; treat them as leads and verify the provision with get_document_section.
 8. Distinguish clearly between: (a) information from BDDK tools, and (b) your general knowledge.
 
 RESPONSE STYLE AND TOOL-USE DISCIPLINE:
@@ -70,6 +71,7 @@ RESPONSE STYLE AND TOOL-USE DISCIPLINE:
 19. NEVER summarize, paraphrase, shorten, reword, correct, or "clean up" regulatory text returned by a document or section tool. Return the exact characters the tool returned, including punctuation, numbering, and abbreviations. Never present your own summary as the provision's text, and never label a summary as a quotation. Explicitly state when text is truncated, when a section is only an excerpt, or when a source is unavailable.
 20. An exact-reference match proves the characters occur in the returned stored text. It does NOT prove the extraction equals the official source or that the rule is currently in force; verify against source_url and the official publication/amendment record, and report any fidelity or freshness gap instead of implying it is verified.
 21. Catalog search results may include BDDK-catalog summary/excerpt fields. These are catalog metadata, not extracted document text: never quote them as the provision or document body, and retrieve the exact document/section when the wording matters.
+22. Never present a document marked MÜLGA (repealed) or TASLAK (draft) in its "Document status" line as current law; the absence of that mark does not establish that a text is in force.
 """
 
 # Tool functions close over this stable object.  Runtime resources are copied
@@ -158,7 +160,18 @@ async def create_deps() -> Dependencies:
         )
 
         db = await asyncio.to_thread(CorpusDB.open, None, readonly=True)
-        await db.assert_ready(require_corpus=True)
+        corpus = await db.assert_ready(require_corpus=True)
+        logger.info(
+            "Corpus ready: bddk-mcp %s, corpus digest %s, %d documents, %d chunks, %d catalog entries, "
+            "embedding model %s, schema version %s",
+            __version__,
+            corpus.digest,
+            corpus.documents,
+            corpus.chunks,
+            corpus.catalog,
+            corpus.embedding_model,
+            corpus.schema_version,
+        )
 
         doc_store = DocumentStore(db)
         client = BddkApiClient(store=doc_store, http=http, allow_live_population=False)
@@ -414,6 +427,19 @@ async def server_lifespan(server: FastMCP) -> AsyncIterator[Dependencies]:
         await shutdown()
 
 
+def _sdk_body_limit_kwargs(security: HttpSecurityConfig) -> dict[str, int]:
+    """Hand the configured body limit to an SDK that enforces its own.
+
+    The locked mcp release (1.30) wraps /mcp in a body-size check of its own
+    (4 MiB by default), which would silently cap ``BDDK_HTTP_MAX_BODY_BYTES``.
+    Releases 1.27 and 1.28 have no such check and no such argument; there the
+    outer ``HttpSecurityMiddleware`` limit is the only one.
+    """
+    if "max_request_body_size" in inspect.signature(FastMCP.__init__).parameters:
+        return {"max_request_body_size": security.max_body_bytes}
+    return {}
+
+
 def create_mcp(
     deps: Dependencies,
     *,
@@ -451,6 +477,7 @@ def create_mcp(
         transport_security=security.transport_security_settings(),
         auth=auth,
         token_verifier=token_verifier,
+        **_sdk_body_limit_kwargs(security),
     )
     # FastMCP v1.x does not expose the low-level version in its constructor.
     # Set the SDK Server field so initialize returns this project's version,

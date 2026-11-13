@@ -13,6 +13,7 @@ SQLite's own case folding.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import sqlite3
 import threading
@@ -26,7 +27,14 @@ from bddk_mcp.core.config import CORPUS_PATH, EMBEDDING_DIMENSION, EMBEDDING_MOD
 logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 1
-NOT_READY_HINT = "Run `bddk-mcp build` (seed_data -> corpus file) or `bddk-mcp sync` to prepare the corpus."
+NOT_READY_HINT = "Run `bddk-mcp build` (seed_data -> corpus file) to prepare the corpus."
+UNREADABLE_MESSAGE = (
+    "Corpus is not ready: this process cannot open the corpus file for reading. Either it cannot read the file "
+    "or its directory, or the file is still in WAL mode in a directory it cannot write. Check the permissions "
+    "of the file and its directory."
+)
+# sqlite3.OperationalError texts that mean "no access", not "broken file".
+_ACCESS_ERROR_MARKERS = ("readonly", "read-only", "unable to open", "permission denied")
 
 _T = TypeVar("_T")
 
@@ -169,11 +177,65 @@ class CorpusNotReadyError(RuntimeError):
 
 @dataclass
 class CorpusReadiness:
+    """Counts and identity of a corpus file.
+
+    ``digest`` is the first 12 hex characters of SHA-256 over the sorted
+    ``document_id:content_hash`` lines (joined by newlines) of every document.
+    It identifies the stored document texts only: a change of title, date or
+    other metadata, of the catalog or of the chunks leaves it unchanged.
+    """
+
     documents: int = 0
     chunks: int = 0
     catalog: int = 0
     embedding_model: str = ""
+    schema_version: str = ""
+    digest: str = ""
     issues: list[str] = field(default_factory=list)
+
+
+def corpus_digest(rows: list[tuple[str, str]]) -> str:
+    """First 12 hex characters of SHA-256 over sorted ``document_id:content_hash`` lines."""
+    lines = sorted(f"{document_id}:{content_hash}" for document_id, content_hash in rows)
+    return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()[:12]
+
+
+def is_access_error(exc: BaseException) -> bool:
+    """Whether a SQLite error means the process may not read the file, rather than a damaged file."""
+    if not isinstance(exc, sqlite3.OperationalError):
+        return False
+    text = str(exc).lower()
+    return any(marker in text for marker in _ACCESS_ERROR_MARKERS)
+
+
+def unreadable_corpus_error(exc: sqlite3.DatabaseError) -> CorpusNotReadyError:
+    """The operator-facing error for a corpus file that SQLite could not read."""
+    if is_access_error(exc):
+        return CorpusNotReadyError(UNREADABLE_MESSAGE)
+    return CorpusNotReadyError(f"Corpus is not ready: the file is not a readable corpus. {NOT_READY_HINT}")
+
+
+def _inspect_existing_file(connection: sqlite3.Connection, target: Path) -> None:
+    """Refuse, without modifying it, an existing file that is not a corpus of this schema version."""
+    try:
+        tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        if not tables:
+            return  # a missing or empty database: the schema is created as for a new file
+        if "meta" not in tables:
+            raise CorpusNotReadyError(
+                f"{target} is an SQLite database but not a corpus file (it has no meta table); it was left unchanged. "
+                "Choose another --corpus path."
+            )
+        stored = connection.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()
+    except sqlite3.DatabaseError as exc:
+        raise CorpusNotReadyError(f"{target} is not a readable corpus file; it was left unchanged.") from exc
+    if stored is not None and stored[0] != str(SCHEMA_VERSION):
+        # CREATE TABLE IF NOT EXISTS never alters an existing layout: an
+        # old file is rebuilt from seed data, not upgraded in place.
+        raise CorpusNotReadyError(
+            f"Corpus file {target} has schema version {stored[0]}, this runtime expects {SCHEMA_VERSION}. "
+            "Delete the file and run `bddk-mcp build`."
+        )
 
 
 class CorpusDB:
@@ -194,9 +256,17 @@ class CorpusDB:
     def open(cls, path: str | Path | None = None, *, readonly: bool = False, create: bool = True) -> CorpusDB:
         """Open the corpus file.
 
-        Writers create or upgrade the schema; ``create=False`` makes a writer
+        Writers inspect an existing file first and refuse, without modifying it,
+        one of another schema version or an SQLite database that is not a corpus;
+        a missing or empty file gets the schema.  ``create=False`` makes a writer
         refuse a missing file instead of silently starting an empty corpus
-        (operator scripts that repair an existing corpus use it).
+        (operator scripts that repair an existing corpus use it).  Writers use
+        WAL while open and try to switch the file back to rollback-journal mode
+        on ``close``, so the closed file is normally self-contained.  The switch
+        is best effort: when it fails (logged as a warning), and for a file
+        written before this behaviour existed, the file stays in WAL mode and a
+        reader creates ``-wal``/``-shm`` files beside it; opening and closing
+        such a file with a writer, or rebuilding it, converts it.
         """
         target = Path(path or CORPUS_PATH)
         if readonly or not create:
@@ -208,17 +278,13 @@ class CorpusDB:
         else:
             target.parent.mkdir(parents=True, exist_ok=True)
             connection = sqlite3.connect(str(target), check_same_thread=False, isolation_level=None)
+            try:
+                _inspect_existing_file(connection, target)
+            except BaseException:
+                connection.close()
+                raise
             connection.execute("PRAGMA journal_mode=WAL")
             connection.executescript(_SCHEMA)
-            stored = connection.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()
-            if stored is not None and stored[0] != str(SCHEMA_VERSION):
-                # CREATE TABLE IF NOT EXISTS never alters an existing layout: an
-                # old file is rebuilt from seed data, not upgraded in place.
-                connection.close()
-                raise CorpusNotReadyError(
-                    f"Corpus file {target} has schema version {stored[0]}, this runtime expects {SCHEMA_VERSION}. "
-                    "Delete the file and run `bddk-mcp build`."
-                )
             connection.execute(
                 "INSERT OR IGNORE INTO meta (key, value) VALUES ('schema_version', ?)",
                 (str(SCHEMA_VERSION),),
@@ -263,8 +329,27 @@ class CorpusDB:
             return self._write_epoch, int(data_version)
 
     def close(self) -> None:
+        """Close the connection; a writer first folds the WAL back and leaves rollback-journal mode.
+
+        A file left in WAL mode makes every later reader create ``-wal``/``-shm``
+        files beside it, which fails in a directory the reader cannot write.
+        Best effort: another open connection can block the switch, which is logged.
+        """
         with self._lock:
+            if not self.readonly:
+                try:
+                    self._conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                    mode = self._conn.execute("PRAGMA journal_mode=DELETE").fetchone()
+                    if mode is None or str(mode[0]).lower() != "delete":
+                        logger.warning("Corpus file left in WAL mode (another connection holds it open)")
+                except sqlite3.Error as exc:
+                    logger.warning("Corpus file could not leave WAL mode (%s)", type(exc).__name__)
             self._conn.close()
+
+    def journal_mode_sync(self) -> str:
+        """The file's journal mode as SQLite reports it (``delete`` or ``wal``)."""
+        with self._lock:
+            return str(self._conn.execute("PRAGMA journal_mode").fetchone()[0]).lower()
 
     # -- readiness ---------------------------------------------------------------
 
@@ -272,10 +357,15 @@ class CorpusDB:
         with self._lock:
             conn = self._conn
             meta = {row["key"]: row["value"] for row in conn.execute("SELECT key, value FROM meta")}
-            readiness = CorpusReadiness(embedding_model=meta.get("embedding_model", ""))
+            readiness = CorpusReadiness(
+                embedding_model=meta.get("embedding_model", ""), schema_version=meta.get("schema_version", "")
+            )
             if meta.get("schema_version") != str(SCHEMA_VERSION):
                 readiness.issues.append("the corpus file has no recognised schema")
                 return readiness
+            readiness.digest = corpus_digest(
+                [(row[0], row[1]) for row in conn.execute("SELECT document_id, content_hash FROM documents")]
+            )
             readiness.documents = conn.execute(
                 "SELECT COUNT(*) FROM documents WHERE markdown_content <> ''"
             ).fetchone()[0]
@@ -303,9 +393,7 @@ class CorpusDB:
         try:
             readiness = await asyncio.to_thread(self.readiness_sync, require_corpus=require_corpus)
         except sqlite3.DatabaseError as exc:
-            raise CorpusNotReadyError(
-                f"Corpus is not ready: the file is not a readable corpus. {NOT_READY_HINT}"
-            ) from exc
+            raise unreadable_corpus_error(exc) from exc
         if readiness.issues:
             raise CorpusNotReadyError("Corpus is not ready: " + "; ".join(readiness.issues) + f". {NOT_READY_HINT}")
         return readiness

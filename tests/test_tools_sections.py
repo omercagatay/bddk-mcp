@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import call as mock_call
 
 import pytest
 
@@ -63,7 +64,7 @@ async def test_get_document_section_returns_exact_match():
     assert "Model validasyonu" in out
     assert "Bankalar model validasyonunu yapar." in out
     doc_store.get_document_section.assert_awaited_once_with(
-        "943", section_type="ilke", section_ref="5", heading=None, limit=11
+        "943", section_type="ilke", section_ref="5", heading=None, limit=11, start_char=None
     )
 
 
@@ -94,7 +95,7 @@ async def test_get_document_section_accepts_integer_section_ref():
 
     assert "Section: ilke 5" in out
     doc_store.get_document_section.assert_awaited_once_with(
-        "943", section_type="ilke", section_ref="5", heading=None, limit=11
+        "943", section_type="ilke", section_ref="5", heading=None, limit=11, start_char=None
     )
 
 
@@ -112,7 +113,7 @@ async def test_get_document_section_accepts_dotted_outline_section_ref():
 
     assert "Section: paragraf 2.1" in out
     doc_store.get_document_section.assert_awaited_once_with(
-        "1135", section_type="paragraf", section_ref="2.1", heading=None, limit=11
+        "1135", section_type="paragraf", section_ref="2.1", heading=None, limit=11, start_char=None
     )
 
 
@@ -190,6 +191,7 @@ async def test_search_document_sections_outputs_ranked_sections():
             _section("mevzuat_22599", "madde", "9", "MADDE 9\nTFRS 9 karşılık ayrılır."),
         ]
     )
+    doc_store.has_document = AsyncMock(return_value=True)
     deps = Dependencies(db=None, doc_store=doc_store, client=None, http=None)
 
     tool = _capture_tool(deps, "search_document_sections")
@@ -199,9 +201,15 @@ async def test_search_document_sections_outputs_ranked_sections():
     assert "943 — ilke 5" in out
     assert "mevzuat_22599 — madde 9" in out
     assert "Model validasyonu yapılır" in out
-    doc_store.search_document_sections.assert_awaited_once_with(
+    # Strict pass first; with fewer than `limit` hits it is topped up by the prefix-stem
+    # pass in the same document and section scope (the mock's duplicates are dropped).
+    assert doc_store.search_document_sections.await_args_list[0] == mock_call(
         "943 İlke 5 model validasyonu", document_id="943", section_type="ilke", limit=5
     )
+    assert doc_store.search_document_sections.await_args_list[1] == mock_call(
+        "943 İlke 5 model validasyonu", document_id="943", section_type="ilke", limit=7, prefix_stem=True
+    )
+    assert doc_store.search_document_sections.await_count == 2
 
 
 @pytest.mark.asyncio
@@ -228,6 +236,7 @@ async def test_search_document_sections_boosts_exact_legal_reference():
     doc_store = MagicMock()
     doc_store.get_document_section = AsyncMock(return_value=[exact])
     doc_store.search_document_sections = AsyncMock(return_value=[fts, exact])
+    doc_store.has_document = AsyncMock(return_value=True)
     deps = Dependencies(db=None, doc_store=doc_store, client=None, http=None)
 
     tool = _capture_tool(deps, "search_document_sections")
@@ -466,6 +475,7 @@ async def test_inserted_article_request_never_returns_the_base_article_as_exact(
     store = MagicMock()
     store.get_document_section = AsyncMock(return_value=[])
     store.search_document_sections = AsyncMock(return_value=[_section("mevzuat_5411", "madde", "66")])
+    store.has_document = AsyncMock(return_value=True)
     deps = Dependencies(db=None, doc_store=store, client=None, http=None)
 
     result = await _capture_tool(deps, "search_document_sections")("mevzuat_5411 Madde 66/A sistemik")
@@ -482,6 +492,7 @@ async def test_missing_exact_reference_does_not_present_lexical_matches_as_compl
     store = MagicMock()
     store.get_document_section = AsyncMock(return_value=[])
     store.search_document_sections = AsyncMock(return_value=[_section("943", "paragraf", "43")])
+    store.has_document = AsyncMock(return_value=True)
     deps = Dependencies(db=None, doc_store=store, client=None, http=None)
     result = await _capture_tool(deps, "search_document_sections")("943 paragraf 999 validasyon")
     assert result.structuredContent["status"] == "partial"
@@ -555,8 +566,10 @@ async def test_quotation_check_excludes_the_storage_truncation_notice_of_a_cappe
     spanning = await tool("mevzuat_1", section_type="ek", section_ref="1", quotation="doldurur.\n\n[BÖLÜM")
     legal = await tool("mevzuat_1", section_type="ek", section_ref="1", quotation="tabloyu doldurur.")
 
-    assert notice.structuredContent["answer_assessment"]["quotation_status"] == "not_found"
-    assert spanning.structuredContent["answer_assessment"]["quotation_status"] == "not_found"
+    # The notice is never legal text; on a capped reference a miss is inconclusive, not not_found.
+    for result in (notice, spanning):
+        assert result.structuredContent["answer_assessment"]["quotation_status"] == "unavailable"
+        assert result.structuredContent["answer_assessment"]["gaps"] == ["quotation_reference_truncated"]
     assessment = legal.structuredContent["answer_assessment"]
     check = assessment["quotation_check"]
     assert assessment["quotation_status"] == "exact_reference_match"
@@ -564,6 +577,61 @@ async def test_quotation_check_excludes_the_storage_truncation_notice_of_a_cappe
     assert check["end_char"] == len(legal_text)
     # Bound to exactly the characters compared: the legal text without the notice.
     assert check["reference_sha256"] == hashlib.sha256(legal_text.encode("utf-8")).hexdigest()
+
+
+@pytest.mark.asyncio
+async def test_quotation_past_the_cap_of_a_capped_section_is_unavailable_not_not_found():
+    legal_text = "EK 1\nBankalar aşağıdaki tabloyu doldurur."
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[_capped_section(legal_text)])
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "get_document_section")
+
+    result = await tool("mevzuat_1", section_type="ek", section_ref="1", quotation="sonraki satırdaki metin")
+
+    assessment = result.structuredContent["answer_assessment"]
+    assert assessment["quotation_status"] == "unavailable"
+    assert assessment["gaps"] == ["quotation_reference_truncated"]
+    check = assessment["quotation_check"]
+    assert (check["status"], check["reason"]) == ("unavailable", "reference_truncated")
+    assert check["reference_sha256"] == hashlib.sha256(legal_text.encode("utf-8")).hexdigest()
+    assert "Quotation in stored reference (no normalization): unavailable" in result.text
+    assert "text beyond it was NOT compared" in result.text
+    assert "The rest of the provision is in full in get_bddk_document" in result.text
+    assert "nested fikra/bent/paragraf rows and/or govde windows" in result.text
+    assert "continuation govde rows" not in result.text
+
+
+@pytest.mark.asyncio
+async def test_quotation_of_a_whole_capped_window_is_an_excerpt_not_the_whole_reference():
+    legal_text = "EK 1\nBankalar aşağıdaki tabloyu doldurur."
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[_capped_section(legal_text)])
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "get_document_section")
+
+    result = await tool("mevzuat_1", section_type="ek", section_ref="1", quotation=legal_text)
+
+    assessment = result.structuredContent["answer_assessment"]
+    assert assessment["quotation_status"] == "exact_reference_match"
+    assert assessment["quotation_check"]["extent"] == "excerpt"
+    assert "text beyond it was NOT compared" in result.text
+
+
+@pytest.mark.asyncio
+async def test_quotation_check_of_an_uncapped_section_is_unchanged():
+    content = "İlke 5\nBankalar model validasyonunu yapar."
+    section = _section(content=content).model_copy(
+        update={"content_hash": hashlib.sha256(content.encode("utf-8")).hexdigest()}
+    )
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[section])
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "get_document_section")
+
+    whole = await tool("943", section_type="ilke", section_ref="5", quotation=content)
+    missing = await tool("943", section_type="ilke", section_ref="5", quotation="başka metin")
+
+    assert whole.structuredContent["answer_assessment"]["quotation_check"]["extent"] == "whole_reference"
+    assert missing.structuredContent["answer_assessment"]["gaps"] == ["quotation_not_found"]
+    assert "NOT compared" not in whole.text + missing.text
 
 
 @pytest.mark.asyncio
@@ -599,8 +667,885 @@ async def test_ambiguous_fikra_rows_point_to_the_parent_madde():
     doc_store.get_document_section = AsyncMock(
         return_value=[_section("mevzuat_1", "fikra", "2", f"(2) Fıkra metni {n}.") for n in range(3)]
     )
+    doc_store.find_parent_articles = AsyncMock(return_value={})
     tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "get_document_section")
 
     result = await tool("mevzuat_1", section_type="fikra", section_ref="2")
 
     assert "retrieve the parent madde" in result.text
+
+
+async def _store_inference_fixture(doc_store) -> Dependencies:
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    for doc_id, content in (
+        ("mevzuat_7001", "MADDE 1 - Kiralama işlemleri TFRS 16 kapsamında muhasebeleştirilir."),
+        ("mevzuat_7002", "MADDE 1 - Finansal araçlar TMS 39 hükümlerine göre ölçülür."),
+        ("mevzuat_7003", "MADDE 1 - 2024 yılı için kredi kartı asgari ödeme tutarı yeniden belirlenir."),
+        ("39", "MADDE 1 - Bağımsız denetim kuruluşlarının yetkilendirilmesi."),
+        ("16", "MADDE 1 - Faktoring şirketlerinin kuruluşu."),
+        ("2024", "MADDE 1 - Kurul toplantı usulleri."),
+        ("943", "İlke 5\nBankalar model validasyonunu bağımsız olarak yapar.\n\nİlke 6\nUzman görüşü belgelenir."),
+        ("mevzuat_7004", "MADDE 1 - Bankalar model validasyonunu yıllık yapar."),
+    ):
+        await doc_store.store_document(
+            StoredDocument(document_id=doc_id, title=f"Belge {doc_id}", markdown_content=content)
+        )
+    return Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("query", "expected_doc"),
+    [
+        ("TFRS 16 kiralama işlemleri", "mevzuat_7001"),
+        ("TMS 39 finansal araçlar", "mevzuat_7002"),
+        ("2024 yılı kredi kartı asgari ödeme", "mevzuat_7003"),
+    ],
+)
+async def test_standard_numbers_and_years_never_scope_the_section_search(doc_store, query, expected_doc):
+    tool = _capture_tool(await _store_inference_fixture(doc_store), "search_document_sections")
+
+    result = await tool(query)
+
+    structured = result.structuredContent
+    assert structured["status"] != "no_results", result.text
+    assert structured["results"][0]["document_id"] == expected_doc
+    assert structured.get("document_id") is None
+    assert structured["inferred_document_filter_dropped"] is False
+    assert "not applied as a document filter" not in result.text
+
+
+@pytest.mark.asyncio
+async def test_inferred_id_without_a_matching_section_is_dropped_and_retried_unscoped(doc_store):
+    tool = _capture_tool(await _store_inference_fixture(doc_store), "search_document_sections")
+
+    result = await tool("39 finansal araçlar")
+
+    structured = result.structuredContent
+    assert structured["results"][0]["document_id"] == "mevzuat_7002"
+    assert structured.get("document_id") is None
+    assert structured["inferred_document_filter_dropped"] is True
+    assert (
+        "the number 39 in the query was not applied as a document filter "
+        "(no section in document 39 matched the query)" in result.text
+    )
+
+
+@pytest.mark.asyncio
+async def test_inferred_id_of_an_unstored_document_is_ignored(doc_store):
+    tool = _capture_tool(await _store_inference_fixture(doc_store), "search_document_sections")
+
+    result = await tool("5555 madde 1 finansal araçlar")
+
+    structured = result.structuredContent
+    assert structured["results"][0]["document_id"] == "mevzuat_7002"
+    assert structured.get("document_id") is None
+    assert structured["exact_reference_detected"] is False
+    assert structured["inferred_document_filter_dropped"] is True
+    assert "the number 5555 in the query was not applied as a document filter (no stored document" in result.text
+
+
+@pytest.mark.asyncio
+async def test_bare_document_id_with_a_principle_still_resolves_inside_that_document(doc_store):
+    tool = _capture_tool(await _store_inference_fixture(doc_store), "search_document_sections")
+
+    result = await tool("943 İlke 5 model validasyonu")
+
+    structured = result.structuredContent
+    assert (structured["results"][0]["document_id"], structured["results"][0]["section_ref"]) == ("943", "5")
+    assert {item["document_id"] for item in structured["results"]} == {"943"}
+    assert structured["document_id"] == "943"
+    assert structured["exact_reference_detected"] is True
+    assert structured["inferred_document_filter_dropped"] is False
+
+
+@pytest.mark.asyncio
+async def test_bare_document_id_scope_is_stated_in_text_and_structure(doc_store):
+    tool = _capture_tool(await _store_inference_fixture(doc_store), "search_document_sections")
+
+    result = await tool("943 İlke 5 model validasyonu")
+
+    assert result.structuredContent["inferred_document_filter_applied"] is True
+    assert (
+        "Note: the search was limited to document 943 because of the number 943 in the query; "
+        "pass document_id or remove the number to search every document." in result.text
+    )
+
+
+@pytest.mark.asyncio
+async def test_inferred_id_never_scopes_the_loose_fallback(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="90",
+            title="Aval ve kefaletler",
+            markdown_content="MADDE 1 - Kabul edilen aval ve kefaletler kredi riskine dahil edilir.",
+        )
+    )
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_8001",
+            title="Kredilerin sınıflandırılması",
+            markdown_content="MADDE 1 - Kredi 90 gün gecikme halinde temerrüt sayılır.",
+        )
+    )
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "search_document_sections")
+
+    result = await tool("kredi 90 gün gecikme")
+
+    structured = result.structuredContent
+    assert [item["document_id"] for item in structured["results"]][:1] == ["mevzuat_8001"]
+    assert "90" not in {item["document_id"] for item in structured["results"]}
+    assert structured["inferred_document_filter_dropped"] is True
+    assert structured["inferred_document_filter_applied"] is False
+    assert structured["loose_fallback_used"] is False
+    assert structured.get("document_id") is None
+    assert "the search was limited to document" not in result.text
+
+
+@pytest.mark.asyncio
+async def test_dropped_inferred_document_reports_the_section_reference_as_not_applied(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="90",
+            title="Aval ve kefaletler",
+            markdown_content="MADDE 1 - Kabul edilen aval ve kefaletler kredi riskine dahil edilir.",
+        )
+    )
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_8001",
+            title="Kredilerin sınıflandırılması",
+            markdown_content="MADDE 9 - Kredi 90 gün gecikme halinde temerrüt sayılır.",
+        )
+    )
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "search_document_sections")
+
+    result = await tool("kredi 90 gün gecikme madde 9")
+
+    structured = result.structuredContent
+    assert structured["results"][0]["document_id"] == "mevzuat_8001"
+    assert structured["inferred_document_filter_dropped"] is True
+    assert structured["exact_reference_detected"] is False
+    assert structured.get("section_ref") is None
+    assert structured["parsed_section_ref"] == "9"
+    assert structured["status"] == "ok"
+    note = "Note: madde 9 in the query was not applied as a filter because no document was identified"
+    assert note in result.text
+    assert any(warning.startswith(note) for warning in structured["warnings"])
+    assert not any("requested exact provision was not found" in warning for warning in structured["warnings"])
+
+
+@pytest.mark.asyncio
+async def test_explicit_document_id_stays_a_hard_filter(doc_store):
+    tool = _capture_tool(await _store_inference_fixture(doc_store), "search_document_sections")
+
+    result = await tool("finansal araçlar", document_id="39")
+
+    structured = result.structuredContent
+    assert structured["status"] == "no_results"
+    assert structured["document_id"] == "39"
+    assert structured["inferred_document_filter_dropped"] is False
+    assert structured["inferred_document_filter_applied"] is False
+    assert "remove the document_id filter" in result.text
+
+
+@pytest.mark.asyncio
+async def test_no_results_suggests_removing_only_filters_the_caller_passed(doc_store):
+    tool = _capture_tool(await _store_inference_fixture(doc_store), "search_document_sections")
+
+    result = await tool("39 eşsizbulunmayanterim")
+
+    assert result.structuredContent["status"] == "no_results"
+    assert result.structuredContent["inferred_document_filter_dropped"] is True
+    assert "remove the" not in result.text
+    assert "the number 39 in the query was not applied as a document filter" in result.text
+
+
+_CAPPED_BODY = "Söz konusu yükümlülük yerine getirilir ve kayıt altına alınır. " * 500
+_CAPPED_DOCUMENT = (
+    "MADDE 1 - Amaç\nBu yönetmeliğin amacı.\n\nMADDE 2 - Yükümlülük\n"
+    + _CAPPED_BODY
+    + "\n\nMADDE 3 - Yürürlük\nBu yönetmelik yayımı tarihinde yürürlüğe girer.\n"
+)
+
+
+async def _store_capped_document(doc_store) -> Dependencies:
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(document_id="mevzuat_9", title="Uzun Yönetmelik", markdown_content=_CAPPED_DOCUMENT)
+    )
+    return Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+
+def test_truncation_notice_original_length_reads_the_recorded_length():
+    from bddk_mcp.store.section_index import truncation_notice_original_length
+
+    notice = "[BÖLÜM KESİLDİ: içerik 40048 karakterden 20000 karaktere kısaltıldı — tam metin için get_bddk_document]"
+    assert truncation_notice_original_length(notice) == 40048
+    assert truncation_notice_original_length("[BÖLÜM KESİLDİ: içerik kısaltıldı]") is None
+    assert truncation_notice_original_length(None) is None
+
+
+@pytest.mark.asyncio
+async def test_capped_section_reports_its_true_extent(doc_store):
+    tool = _capture_tool(await _store_capped_document(doc_store), "get_document_section")
+    madde_2_start = _CAPPED_DOCUMENT.index("MADDE 2")
+    true_end = _CAPPED_DOCUMENT.index("MADDE 3") - 1
+
+    result = await tool("mevzuat_9", section_type="madde", section_ref="2")
+
+    item = result.structuredContent["results"][0]
+    assert (item["start_char"], item["end_char"]) == (madde_2_start, madde_2_start + 20_000)
+    assert item["stored_span_capped"] is True
+    assert item["original_end_char"] == true_end
+    assert (
+        f"Stored window capped at 20,000 of {true_end - madde_2_start:,} characters; "
+        f"the provision continues to code point {true_end}" in result.text
+    )
+    assert "The rest of the provision is in full in get_bddk_document" in result.text
+    assert "following govde rows" not in result.text
+
+
+@pytest.mark.asyncio
+async def test_uncapped_section_reports_no_capped_extent(doc_store):
+    tool = _capture_tool(await _store_capped_document(doc_store), "get_document_section")
+
+    result = await tool("mevzuat_9", section_type="madde", section_ref="3")
+
+    item = result.structuredContent["results"][0]
+    assert item["stored_span_capped"] is False
+    assert item.get("original_end_char") is None
+    assert "Stored window capped" not in result.text
+
+
+@pytest.mark.asyncio
+async def test_doc_store_links_govde_rows_to_the_capped_section_they_continue(doc_store):
+    await _store_capped_document(doc_store)
+    sections = await doc_store.get_document_section("mevzuat_9")
+    govde = [section for section in sections if section.section_type == "govde"]
+    assert govde, "the overflow of the capped madde must be stored as govde windows"
+
+    continuations = await doc_store.find_capped_continuations(sections)
+
+    true_end = _CAPPED_DOCUMENT.index("MADDE 3") - 1
+    assert continuations == {
+        (row.doc_id, row.source_content_hash, row.start_char): ("madde", "2", true_end, False) for row in govde
+    }
+
+
+@pytest.mark.asyncio
+async def test_doc_store_maps_a_shared_govde_row_to_the_innermost_capped_section(doc_store):
+    """Nested capped spans (e.g. paragraf 2 containing capped paragraf 2.2.4) share overflow govde rows."""
+    from bddk_mcp.store.section_index import TRUNCATION_NOTICE_PREFIX
+
+    await _store_capped_document(doc_store)
+    sections = await doc_store.get_document_section("mevzuat_9")
+    outer = next(section for section in sections if (section.section_type, section.section_ref) == ("madde", "2"))
+    govde = [section for section in sections if section.section_type == "govde"]
+    true_end = _CAPPED_DOCUMENT.index("MADDE 3") - 1
+    inner_start = outer.start_char + 100
+    inner_length = true_end - inner_start
+    inner_content = (
+        _CAPPED_DOCUMENT[inner_start : inner_start + 20_000]
+        + f"\n\n{TRUNCATION_NOTICE_PREFIX} içerik {inner_length} karakterden 20000 karaktere kısaltıldı"
+        " — tam metin için get_bddk_document kullanın]"
+    )
+
+    def insert_inner(conn):
+        conn.execute(
+            "INSERT INTO document_sections (doc_id, section_type, section_ref, heading, start_char, end_char, "
+            "content, content_hash, source_content_hash) VALUES (?, ?, ?, '', ?, ?, ?, ?, ?)",
+            [
+                "mevzuat_9",
+                "paragraf",
+                "2.2.4",
+                inner_start,
+                inner_start + 20_000,
+                inner_content,
+                hashlib.sha256(inner_content.encode("utf-8")).hexdigest(),
+                outer.source_content_hash,
+            ],
+        )
+
+    await doc_store._db.transaction(insert_inner)
+
+    continuations = await doc_store.find_capped_continuations(sections)
+
+    assert govde
+    assert continuations == {
+        (row.doc_id, row.source_content_hash, row.start_char): ("paragraf", "2.2.4", true_end, False) for row in govde
+    }
+
+
+@pytest.mark.asyncio
+async def test_continuation_govde_row_names_its_provision_in_both_section_tools(doc_store):
+    deps = await _store_capped_document(doc_store)
+    exact = await _capture_tool(deps, "get_document_section")("mevzuat_9", section_type="govde", section_ref="1")
+    search = await _capture_tool(deps, "search_document_sections")(
+        "yükümlülük kayıt altına alınır", document_id="mevzuat_9", section_type="govde"
+    )
+
+    for result in (exact, search):
+        item = result.structuredContent["results"][0]
+        assert (item["section_type"], item["section_ref"]) == ("govde", "1")
+        assert (item["continuation_of_section_type"], item["continuation_of_section_ref"]) == ("madde", "2")
+        assert "continuation of madde 2 beyond its 20,000-character stored window" in result.text
+        warnings = result.structuredContent["warnings"]
+        assert any(
+            "this text belongs to madde 2. Cite that provision and verify the full text with get_bddk_document"
+            in warning
+            for warning in warnings
+        )
+        assert not any("Do not cite them as a legal provision" in warning for warning in warnings)
+    assert "govde remainder — not a legal provision identity" not in search.text
+
+
+@pytest.mark.asyncio
+async def test_genuine_govde_remainder_keeps_the_remainder_warning(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    footnote = "Dipnot: Bu yönetmelik değişiklikleri ile birlikte okunmalıdır ve ekleri kurul kararı ile güncellenir."
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_8",
+            title="Kısa Yönetmelik",
+            markdown_content=f"{footnote}\n\nMADDE 1 - Amaç\nBu yönetmeliğin amacı bankaların denetimidir.\n",
+        )
+    )
+    deps = Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+    result = await _capture_tool(deps, "get_document_section")("mevzuat_8", section_type="govde", section_ref="1")
+
+    item = result.structuredContent["results"][0]
+    assert item.get("continuation_of_section_type") is None
+    assert any("Do not cite them as a legal provision" in warning for warning in result.structuredContent["warnings"])
+    assert "continuation of" not in result.text
+
+
+async def _store_repeated_reference_document(doc_store) -> tuple[Dependencies, list[int]]:
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    text = (
+        "MADDE 1 - Değişiklik\nBirinci değişiklik hükmü uygulanır.\n\n"
+        "MADDE 1 - Değişiklik\nİkinci değişiklik hükmü uygulanır.\n"
+    )
+    await doc_store.store_document(StoredDocument(document_id="mevzuat_802", title="Değişiklik", markdown_content=text))
+    starts = [section.start_char for section in await doc_store.get_document_section("mevzuat_802")]
+    return Dependencies(db=None, doc_store=doc_store, client=None, http=None), starts
+
+
+@pytest.mark.asyncio
+async def test_start_char_selects_one_of_several_sections_sharing_a_reference(doc_store):
+    deps, starts = await _store_repeated_reference_document(doc_store)
+    assert len(starts) == 2
+    tool = _capture_tool(deps, "get_document_section")
+
+    ambiguous = await tool("mevzuat_802", section_type="madde", section_ref="1", quotation="İkinci değişiklik")
+    selected = await tool(
+        "mevzuat_802", section_type="madde", section_ref="1", quotation="İkinci değişiklik", start_char=starts[1]
+    )
+
+    assert len(ambiguous.structuredContent["results"]) == 2
+    assert ambiguous.structuredContent["answer_assessment"]["gaps"] == ["exact_section_not_resolved"]
+    assert "repeat the call with start_char=<value>" in ambiguous.text
+    assert f"start_char={starts[1]}" in ambiguous.text
+    [item] = selected.structuredContent["results"]
+    assert item["start_char"] == starts[1]
+    assert selected.structuredContent["answer_assessment"]["quotation_status"] == "exact_reference_match"
+
+
+@pytest.mark.asyncio
+async def test_start_char_that_matches_no_section_returns_no_results(doc_store):
+    deps, starts = await _store_repeated_reference_document(doc_store)
+
+    result = await _capture_tool(deps, "get_document_section")("mevzuat_802", section_ref="1", start_char=starts[1] + 1)
+
+    assert result.structuredContent["status"] == "no_results"
+
+
+def test_start_char_docstring_says_it_is_not_a_citation():
+    tool = _capture_tool(Dependencies(db=None, doc_store=MagicMock(), client=None, http=None), "get_document_section")
+
+    assert "valid only for the corpus file being served and is not a citation" in " ".join(tool.__doc__.split())
+
+
+_DECISION_TEXT = (
+    "Bankacılık Düzenleme ve Denetleme Kurulunun kararı ile ikinci grupta sınıflandırılması gereken krediler "
+    "için gecikme süresi doksan gün olarak uygulanmaya devam edilmesine karar verilmiştir."
+)
+
+
+async def _store_structureless_and_structured(doc_store) -> Dependencies:
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(document_id="779", title="Kurul Kararı 779", markdown_content=_DECISION_TEXT)
+    )
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_8",
+            title="Kısa Yönetmelik",
+            markdown_content=(
+                "Dipnot: Bu yönetmelik değişiklikleri ile birlikte okunmalıdır; ikinci grupta sınıflandırılması "
+                "gecikme süresi kurul kararı ile güncellenir.\n\nMADDE 1 - Amaç\nBu yönetmeliğin amacı denetimdir.\n"
+            ),
+        )
+    )
+    return Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+
+@pytest.mark.asyncio
+async def test_section_search_finds_govde_of_a_structureless_document_by_default(doc_store):
+    await _store_structureless_and_structured(doc_store)
+
+    hits = await doc_store.search_document_sections("ikinci grupta sınıflandırılması gecikme süresi")
+
+    # 779 has no article structure, so its govde window is its body; mevzuat_8's govde is a remainder.
+    assert [(hit.doc_id, hit.section_type, hit.document_structureless) for hit in hits] == [("779", "govde", True)]
+    remainder = await doc_store.search_document_sections(
+        "ikinci grupta sınıflandırılması gecikme süresi", section_type="govde"
+    )
+    assert {(hit.doc_id, hit.document_structureless) for hit in remainder} == {("779", True), ("mevzuat_8", False)}
+
+
+@pytest.mark.asyncio
+async def test_structureless_document_rows_are_labelled_full_text_not_remainder(doc_store):
+    deps = await _store_structureless_and_structured(doc_store)
+    search = await _capture_tool(deps, "search_document_sections")("ikinci grupta sınıflandırılması gecikme süresi")
+    exact = await _capture_tool(deps, "get_document_section")(
+        "779", quotation="gecikme süresi doksan gün olarak uygulanmaya"
+    )
+
+    assert search.structuredContent["results"][0]["document_id"] == "779"
+    for result in (search, exact):
+        item = result.structuredContent["results"][0]
+        assert item["document_structureless"] is True
+        assert "full-text window (this document has no article structure)" in result.text
+        warnings = result.structuredContent["warnings"]
+        assert any("Cite such a document by its title and decision date/number" in w for w in warnings)
+        assert not any("Do not cite them as a legal provision" in w for w in warnings)
+        # The stored generic govde heading ("gövde/dipnot kalanı") would contradict the kind label.
+        assert "gövde/dipnot kalanı" not in result.text
+        assert item["heading"] == ""  # left out of the structured field as well
+    assert "govde remainder — not a legal provision identity" not in search.text
+    assert exact.structuredContent["answer_assessment"]["quotation_status"] == "exact_reference_match"
+
+
+@pytest.mark.asyncio
+async def test_remainder_of_a_structured_document_keeps_the_do_not_cite_warning(doc_store):
+    deps = await _store_structureless_and_structured(doc_store)
+
+    result = await _capture_tool(deps, "search_document_sections")(
+        "yönetmelik değişiklikleri ile birlikte okunmalıdır", section_type="govde"
+    )
+
+    [item] = result.structuredContent["results"]
+    assert (item["document_id"], item["document_structureless"]) == ("mevzuat_8", False)
+    assert "govde remainder — not a legal provision identity" in result.text
+    assert any("Do not cite them as a legal provision" in w for w in result.structuredContent["warnings"])
+
+
+def _categorised(category: str, **kwargs) -> StoredDocumentSection:
+    return _section(**kwargs).model_copy(update={"document_category": category, "document_title": "4389 sayılı Kanun"})
+
+
+@pytest.mark.asyncio
+async def test_repealed_and_draft_documents_are_marked_in_every_section_output():
+    repealed = _categorised("Mülga Düzenleme", doc_id="1230", section_type="madde", section_ref="1")
+    draft = _categorised("Düzenleme Taslağı", doc_id="1290", section_type="madde", section_ref="2")
+    in_force = _categorised("Yönetmelik", doc_id="22599", section_type="madde", section_ref="3")
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[repealed])
+    doc_store.has_document = AsyncMock(return_value=False)
+    doc_store.search_document_sections = AsyncMock(return_value=[repealed, draft, in_force])
+    deps = Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+    single = await _capture_tool(deps, "get_document_section")("1230", section_type="madde", section_ref="1")
+    assert "- Document status: BDDK catalog class: MÜLGA (repealed)" in single.text
+    assert any(w.startswith("BDDK catalog class: MÜLGA") for w in single.structuredContent["warnings"])
+
+    doc_store.get_document_section = AsyncMock(return_value=[repealed, repealed.model_copy(update={"start_char": 90})])
+    listed = await _capture_tool(deps, "get_document_section")("1230", section_type="madde", section_ref="1")
+    assert "- Document status: BDDK catalog class: MÜLGA (repealed)" in listed.text
+
+    hits = await _capture_tool(deps, "search_document_sections")("kanun kapsamı")
+    assert hits.text.count("Document status: BDDK catalog class: MÜLGA (repealed)") == 1
+    assert hits.text.count("Document status: BDDK catalog class: TASLAK (draft)") == 1
+    assert hits.text.count("Document status:") == 2
+    warnings = hits.structuredContent["warnings"]
+    assert any("MÜLGA" in w for w in warnings) and any("TASLAK" in w for w in warnings)
+
+
+@pytest.mark.asyncio
+async def test_in_force_category_gets_no_status_line():
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[_categorised("Yönetmelik")])
+    deps = Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+    out = await _capture_tool(deps, "get_document_section")("943", section_type="ilke", section_ref="5")
+
+    assert "Document status:" not in out.text
+    assert not any("catalog class" in w for w in out.structuredContent["warnings"])
+
+
+# 2026-04-08 23:30 UTC is already 2026-04-09 in UTC+14; the date line must stay in UTC.
+_LATE_UTC_DOWNLOAD = 1775691000.0
+
+
+@pytest.fixture
+def far_east_timezone(monkeypatch):
+    import time as _time
+
+    monkeypatch.setenv("TZ", "Pacific/Kiritimati")
+    _time.tzset()
+    yield
+    monkeypatch.undo()
+    _time.tzset()
+
+
+async def _store_provenance_document(doc_store) -> Dependencies:
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="1291",
+            title="Sermaye Yeterliliği Rehberi",
+            category="Rehber",
+            decision_date="15.03.2024",
+            decision_number="11200",
+            source_url="https://www.bddk.org.tr/Mevzuat/DokumanGetir/1291",
+            markdown_content="MADDE 1 - Kredi riski için asgari sermaye oranı belirlenir.\n",
+            downloaded_at=_LATE_UTC_DOWNLOAD,
+        )
+    )
+    return Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+
+@pytest.mark.asyncio
+async def test_section_answers_carry_decision_identifiers_and_the_utc_source_date(doc_store, far_east_timezone):
+    from datetime import datetime
+
+    assert datetime.fromtimestamp(_LATE_UTC_DOWNLOAD).date().isoformat() == "2026-04-09"
+    deps = await _store_provenance_document(doc_store)
+
+    single = await _capture_tool(deps, "get_document_section")("1291", section_type="madde", section_ref="1")
+    hits = await _capture_tool(deps, "search_document_sections")("asgari sermaye oranı", document_id="1291")
+
+    for text, prefix in ((single.text, "- "), (hits.text, "  ")):
+        assert f"{prefix}Decision date / number: 15.03.2024 / 11200" in text
+        assert (
+            f"{prefix}Text obtained from the source on: 2026-04-08 (UTC download date; not a statement that the "
+            "text is current)"
+        ) in text
+        assert "days ago" not in text
+    for result in (single, hits):
+        evidence = result.structuredContent["evidence"][0]
+        assert (evidence["decision_date"], evidence["decision_number"]) == ("15.03.2024", "11200")
+        assert evidence["source_downloaded_on"] == "2026-04-08"
+
+
+@pytest.mark.asyncio
+async def test_section_without_decision_identifiers_prints_no_decision_line():
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[_section()])
+    deps = Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+    out = await _capture_tool(deps, "get_document_section")("943", section_type="ilke", section_ref="5")
+
+    assert "Decision date / number:" not in out.text
+    assert "- Text obtained from the source on: unknown" in out.text
+    assert "source_downloaded_on" not in out.structuredContent["evidence"][0]
+
+
+async def _store_inflection_fixture(doc_store) -> Dependencies:
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    texts = {
+        "mevzuat_1": "MADDE 1 - Süre\nKredilerin gecikme süresi doksan gündür.\n",
+        "mevzuat_2": "MADDE 2 - Değişiklik\nKurul gecikme süresinin uzatılmasına karar verebilir.\n",
+        "mevzuat_3": "GEÇİCİ MADDE 1 - Geçiş\nGeçici süreler için kurul kararı uygulanır.\n",
+    }
+    for doc_id, text in texts.items():
+        await doc_store.store_document(
+            StoredDocument(document_id=doc_id, title=f"Yönetmelik {doc_id}", markdown_content=text)
+        )
+    return Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+
+@pytest.mark.asyncio
+async def test_section_search_tops_up_with_inflection_tolerant_matches_after_strict_hits(doc_store):
+    deps = await _store_inflection_fixture(doc_store)
+
+    result = await _capture_tool(deps, "search_document_sections")("gecikme süresi", limit=10)
+
+    items = result.structuredContent["results"]
+    assert [(i["document_id"], i["stem_match"]) for i in items] == [("mevzuat_1", False), ("mevzuat_2", True)]
+    assert items[0].get("rank") is not None
+    assert items[1].get("rank") is None
+    assert result.text.count("inflection-tolerant match") == 1
+    assert result.structuredContent["loose_fallback_used"] is False
+
+
+@pytest.mark.asyncio
+async def test_section_search_skips_the_top_up_when_strict_hits_fill_the_limit(doc_store):
+    deps = await _store_inflection_fixture(doc_store)
+
+    result = await _capture_tool(deps, "search_document_sections")("gecikme süresi", limit=1)
+
+    assert [i["document_id"] for i in result.structuredContent["results"]] == ["mevzuat_1"]
+    assert "inflection-tolerant" not in result.text
+
+
+@pytest.mark.asyncio
+async def test_inflection_tolerant_top_up_alone_is_not_the_loose_fallback(doc_store):
+    deps = await _store_inflection_fixture(doc_store)
+
+    result = await _capture_tool(deps, "search_document_sections")("süresinin uzatılması")
+
+    items = result.structuredContent["results"]
+    assert [(i["document_id"], i["stem_match"]) for i in items] == [("mevzuat_2", True)]
+    assert result.structuredContent["loose_fallback_used"] is False
+    assert "listed after the exact-word hits" not in result.text
+    assert "not the exact words); no rank\n" in result.text
+
+
+@pytest.mark.asyncio
+async def test_inflection_label_mentions_exact_word_hits_only_when_they_exist(doc_store):
+    deps = await _store_inflection_fixture(doc_store)
+
+    result = await _capture_tool(deps, "search_document_sections")("gecikme süresi", limit=10)
+
+    assert result.text.count("listed after the exact-word hits") == 1
+
+
+@pytest.mark.asyncio
+async def test_section_reference_without_a_document_is_reported_as_not_applied(doc_store):
+    deps = await _store_inflection_fixture(doc_store)
+
+    result = await _capture_tool(deps, "search_document_sections")("kredilerin gecikme süresi yönetmeliği madde 9")
+
+    structured = result.structuredContent
+    note = (
+        "Note: madde 9 in the query was not applied as a filter because no document was identified; find the "
+        "document id with search_bddk_regulations, then call get_document_section(document_id, "
+        "section_type='madde', section_ref='9')."
+    )
+    assert note in result.text
+    assert note in structured["warnings"]
+    assert structured.get("section_ref") is None
+    assert structured["parsed_section_ref"] == "9"
+    assert structured["exact_reference_detected"] is False
+
+
+@pytest.mark.asyncio
+async def test_section_reference_without_a_document_is_noted_when_nothing_matches(doc_store):
+    deps = await _store_inflection_fixture(doc_store)
+
+    result = await _capture_tool(deps, "search_document_sections")("eşsizbulunmayanterim 10 uncu maddesi")
+
+    assert result.structuredContent["status"] == "no_results"
+    assert "madde 10 in the query was not applied as a filter" in result.text
+    assert result.structuredContent.get("section_ref") is None
+
+
+@pytest.mark.asyncio
+async def test_applied_section_reference_is_still_reported(doc_store):
+    tool = _capture_tool(await _store_inference_fixture(doc_store), "search_document_sections")
+
+    result = await tool("943 İlke 5 model validasyonu")
+
+    assert result.structuredContent["section_ref"] == "5"
+    assert result.structuredContent["parsed_section_ref"] == "5"
+    assert "was not applied as a filter because no document" not in result.text
+
+
+@pytest.mark.asyncio
+async def test_prefix_floor_keeps_gecici_apart_from_gecikme(doc_store):
+    deps = await _store_inflection_fixture(doc_store)
+
+    result = await _capture_tool(deps, "search_document_sections")("gecikme", limit=10, section_type="gecici_madde")
+
+    assert result.structuredContent["status"] == "no_results"
+
+
+_NESTED_TEXT = (
+    "MADDE 1 - Amaç\n(1) Bu yönetmeliğin amacı denetimdir.\n(2) Bankalar şunları yapar:\na) Kredi faiz riskini "
+    "ölçmek,\nb) Raporlamak.\n\nMADDE 2 - Kapsam\n(1) Kapsam bankalardır.\n\nGEÇİCİ MADDE 1 - Geçiş\n"
+    "(1) Geçiş hükmü uygulanır.\n"
+)
+
+
+async def _store_nested_fixture(doc_store) -> Dependencies:
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(document_id="mevzuat_1", title="Yönetmelik", markdown_content=_NESTED_TEXT)
+    )
+    return Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+
+@pytest.mark.asyncio
+async def test_fikra_search_hit_names_its_parent_article(doc_store):
+    deps = await _store_nested_fixture(doc_store)
+
+    result = await _capture_tool(deps, "search_document_sections")("kredi faiz riskini", section_type="fikra")
+
+    [item] = result.structuredContent["results"]
+    assert (item["section_type"], item["section_ref"]) == ("fikra", "2")
+    assert (item["parent_section_type"], item["parent_section_ref"]) == ("madde", "1")
+    assert "  Parent: madde 1" in result.text
+
+
+@pytest.mark.asyncio
+async def test_get_document_section_names_the_parent_of_each_fikra(doc_store):
+    deps = await _store_nested_fixture(doc_store)
+    tool = _capture_tool(deps, "get_document_section")
+
+    single = await tool("mevzuat_1", section_type="fikra", section_ref="2")
+    several = await tool("mevzuat_1", section_type="fikra", section_ref="1")
+
+    assert "- Parent: madde 1" in single.text
+    assert single.structuredContent["results"][0]["parent_section_ref"] == "1"
+    parents = [(i["parent_section_type"], i["parent_section_ref"]) for i in several.structuredContent["results"]]
+    assert parents == [("madde", "1"), ("madde", "2"), ("gecici_madde", "1")]
+    assert "  Parent: gecici_madde 1" in several.text
+    assert "carry no parent" not in several.text
+    assert 'where a stored parent article contains a row it is shown as "Parent:"' in several.text
+    assert "carry no parent" not in (tool.__doc__ or "")
+
+
+@pytest.mark.asyncio
+async def test_article_rows_and_rows_outside_any_article_have_no_parent(doc_store):
+    deps = await _store_nested_fixture(doc_store)
+    [madde] = await doc_store.get_document_section("mevzuat_1", section_type="madde", section_ref="1")
+    [fikra] = await doc_store.get_document_section("mevzuat_1", section_type="fikra", section_ref="2")
+    orphan = fikra.model_copy(update={"start_char": 10_000})
+
+    assert await doc_store.find_parent_articles([madde, orphan]) == {}
+    result = await _capture_tool(deps, "get_document_section")("mevzuat_1", section_type="madde", section_ref="1")
+    assert "Parent:" not in result.text
+    assert result.structuredContent["results"][0].get("parent_section_type") is None
+
+
+@pytest.mark.asyncio
+async def test_doc_store_flags_a_continuation_row_with_text_past_the_provision_end(doc_store):
+    """A govde window can run past the capped provision's true end (mevzuat_21193 govde 6, 1305 govde 8)."""
+    from bddk_mcp.store.section_index import TRUNCATION_NOTICE_PREFIX
+
+    await _store_capped_document(doc_store)
+    sections = await doc_store.get_document_section("mevzuat_9")
+    outer = next(section for section in sections if (section.section_type, section.section_ref) == ("madde", "2"))
+    govde = sorted((section for section in sections if section.section_type == "govde"), key=lambda s: s.start_char)
+    last = govde[-1]
+    short_start = outer.start_char + 50
+    short_end = last.start_char + 100
+    short_content = (
+        _CAPPED_DOCUMENT[short_start : short_start + 20_000]
+        + f"\n\n{TRUNCATION_NOTICE_PREFIX} içerik {short_end - short_start} karakterden 20000 karaktere kısaltıldı"
+        " — tam metin için get_bddk_document kullanın]"
+    )
+
+    def insert_short(conn):
+        conn.execute(
+            "INSERT INTO document_sections (doc_id, section_type, section_ref, heading, start_char, end_char, "
+            "content, content_hash, source_content_hash) VALUES (?, 'ek', '1', '', ?, ?, ?, ?, ?)",
+            [
+                "mevzuat_9",
+                short_start,
+                short_start + 20_000,
+                short_content,
+                hashlib.sha256(short_content.encode("utf-8")).hexdigest(),
+                outer.source_content_hash,
+            ],
+        )
+
+    await doc_store._db.transaction(insert_short)
+
+    continuations = await doc_store.find_capped_continuations(sections)
+
+    assert continuations[(last.doc_id, last.source_content_hash, last.start_char)] == ("ek", "1", short_end, True)
+    for row in govde[:-1]:
+        assert continuations[(row.doc_id, row.source_content_hash, row.start_char)][3] is False
+
+
+@pytest.mark.asyncio
+async def test_capped_section_whose_overflow_is_in_nested_rows_does_not_claim_govde_rows():
+    """Real case: 1135 paragraf 2 is capped and its overflow is in nested paragraf rows, not govde."""
+    from bddk_mcp.store.section_index import TRUNCATION_NOTICE_PREFIX
+
+    content = (
+        "2. Bankalar risklerini ölçer.\n\n"
+        f"{TRUNCATION_NOTICE_PREFIX} içerik 26603 karakterden 20000 karaktere kısaltıldı"
+        " — tam metin için get_bddk_document kullanın]"
+    )
+    capped = _section("1135", "paragraf", "2", content).model_copy(update={"start_char": 3590, "end_char": 23590})
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[capped])
+    deps = Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+    result = await _capture_tool(deps, "get_document_section")("1135", section_type="paragraf", section_ref="2")
+    quoted = await _capture_tool(deps, "get_document_section")(
+        "1135", section_type="paragraf", section_ref="2", quotation="metinde olmayan cümle"
+    )
+
+    assert "the provision continues to code point 30193" in result.text
+    for text in (result.text, quoted.text):
+        assert "nested fikra/bent/paragraf rows and/or govde windows" in text
+        assert "in full in get_bddk_document" in text
+        assert "following govde rows" not in text
+        assert "continuation govde rows" not in text
+
+
+@pytest.mark.asyncio
+async def test_continuation_row_running_past_the_provision_end_states_the_outside_tail():
+    """Real case: mevzuat_21193 govde 6 is [70856, 71187) while madde 10 ends at 71109."""
+    row = _section("mevzuat_21193", "govde", "6", "Devam eden metin. MADDE 11 - Sonraki").model_copy(
+        update={"start_char": 70856, "end_char": 71187}
+    )
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[row])
+    doc_store.find_capped_continuations = AsyncMock(
+        return_value={(row.doc_id, row.source_content_hash, row.start_char): ("madde", "10", 71109, True)}
+    )
+    deps = Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+    result = await _capture_tool(deps, "get_document_section")("mevzuat_21193", section_type="govde", section_ref="6")
+
+    item = result.structuredContent["results"][0]
+    assert (item["continuation_of_section_type"], item["continuation_of_section_ref"]) == ("madde", "10")
+    assert item["continuation_of_section_end_char"] == 71109
+    tail = "the characters from code point 71109 on are outside madde 10"
+    assert f"up to code point 71109; {tail}" in result.text
+    assert any(
+        f"this text belongs to madde 10 up to code point 71109; {tail}" in warning
+        for warning in result.structuredContent["warnings"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_continuation_row_inside_the_provision_has_no_outside_tail(doc_store):
+    deps = await _store_capped_document(doc_store)
+
+    result = await _capture_tool(deps, "get_document_section")("mevzuat_9", section_type="govde", section_ref="1")
+
+    item = result.structuredContent["results"][0]
+    assert item["continuation_of_section_end_char"] == _CAPPED_DOCUMENT.index("MADDE 3") - 1
+    assert "are outside madde 2" not in result.text
+
+
+@pytest.mark.asyncio
+async def test_exact_reference_hit_found_again_by_the_top_up_is_not_labelled_a_stem_match(doc_store):
+    deps = await _store_inflection_fixture(doc_store)
+
+    result = await _capture_tool(deps, "search_document_sections")("madde 2 gecikme süresi", document_id="mevzuat_2")
+
+    assert result.structuredContent["exact_reference_detected"] is True
+    items = result.structuredContent["results"]
+    assert [(i["section_type"], i["section_ref"], i["stem_match"]) for i in items] == [("madde", "2", False)]
+    assert "inflection-tolerant match" not in result.text

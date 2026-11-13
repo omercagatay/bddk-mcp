@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import re
@@ -10,12 +11,14 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from bddk_mcp import cli
 from bddk_mcp.core.config import EMBEDDING_MODEL_NAME
 from bddk_mcp.ingest import seed
-from bddk_mcp.store.corpus_db import CorpusDB
-from bddk_mcp.store.doc_store import DocumentStore
+from bddk_mcp.store import vector_store as vector_store_module
+from bddk_mcp.store.corpus_db import CorpusDB, CorpusNotReadyError
+from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
 from bddk_mcp.store.section_index import extract_document_sections
-from bddk_mcp.store.vector_store import VectorStore
+from bddk_mcp.store.vector_store import RetrievalProfileError, VectorStore
 from tests.conftest import FakeTokenizer, fake_embed
 
 
@@ -206,6 +209,143 @@ async def test_export_round_trips_the_seed(tmp_path: Path, seed_dir: Path):
     for key in ("document_id", "title", "category", "markdown_content", "content_hash", "extraction_method"):
         assert [d[key] for d in exported] == [d[key] for d in original]
     assert json.loads((out_dir / "decision_cache.json").read_text(encoding="utf-8"))[0]["document_id"] == "943"
+
+
+def _tree_bytes(directory: Path) -> dict[str, bytes]:
+    return {
+        str(path.relative_to(directory)): path.read_bytes() for path in sorted(directory.rglob("*")) if path.is_file()
+    }
+
+
+async def _seed_export_and_partial_corpus(tmp_path: Path, seed_dir: Path) -> Path:
+    """Export a ready corpus into ``seed_dir``, then return a corpus with documents and catalog but no chunks."""
+    await _build(tmp_path)
+    await seed.export_corpus(corpus_path=tmp_path / "corpus.sqlite", seed_dir=seed_dir)
+    partial = tmp_path / "partial.sqlite"
+    db = CorpusDB.open(partial)
+    try:
+        store = DocumentStore(db)
+        await store.store_document(StoredDocument(document_id="943", title="T", markdown_content="MADDE 1\nMetin."))
+        await store.replace_catalog(CACHE)
+    finally:
+        db.close()
+    return partial
+
+
+@pytest.mark.asyncio
+async def test_export_refuses_a_corpus_without_chunks_and_leaves_the_seed_untouched(tmp_path: Path, seed_dir: Path):
+    partial = await _seed_export_and_partial_corpus(tmp_path, seed_dir)
+    before = _tree_bytes(seed_dir)
+    assert "embeddings/943.npy" in before
+
+    with pytest.raises(CorpusNotReadyError, match="no retrieval chunks"):
+        await seed.export_corpus(corpus_path=partial, seed_dir=seed_dir)
+
+    assert _tree_bytes(seed_dir) == before
+
+
+def test_export_command_exits_1_on_a_corpus_that_is_not_ready(tmp_path: Path, seed_dir: Path, capsys):
+    partial = asyncio.run(_seed_export_and_partial_corpus(tmp_path, seed_dir))
+    before = _tree_bytes(seed_dir)
+
+    with pytest.raises(SystemExit) as exited:
+        cli.main(["export", "--corpus", str(partial), "--seed-dir", str(seed_dir)])
+
+    assert exited.value.code == 1
+    # Other tests may leave logging handlers behind, so look for the error line itself.
+    lines = [line for line in capsys.readouterr().err.splitlines() if line.startswith("bddk-mcp export: error:")]
+    assert len(lines) == 1 and "Corpus is not ready:" in lines[0] and lines[0].endswith("to prepare the corpus.")
+    assert _tree_bytes(seed_dir) == before
+
+
+@pytest.mark.asyncio
+async def test_an_empty_body_document_survives_build_skip_export_and_rebuild(tmp_path: Path, seed_dir: Path):
+    empty = {"document_id": "empty_1", "title": "Boş", "category": "Rehber", "markdown_content": ""}
+    _write_seed_files(seed_dir, docs=[*DOCS, empty], cache=CACHE)
+
+    first = await _build(tmp_path)
+    again = await _build(tmp_path)
+
+    assert first["documents"] == 3
+    assert again["skipped"] is True
+    db = CorpusDB.open(tmp_path / "corpus.sqlite", readonly=True)
+    try:
+        stored = await DocumentStore(db).get_document("empty_1")
+        assert stored is not None and stored.content_hash == hashlib.sha256(b"").hexdigest()
+        assert (await db.assert_ready(require_corpus=True)).documents == 2
+    finally:
+        db.close()
+
+    out_dir = tmp_path / "out"
+    await seed.export_corpus(corpus_path=tmp_path / "corpus.sqlite", seed_dir=out_dir)
+    rebuilt = await seed.build_corpus(
+        corpus_path=tmp_path / "fresh.sqlite", seed_dir=out_dir, vector_store_factory=_fake_vector_store
+    )
+
+    assert (rebuilt["documents"], rebuilt["skipped"]) == (3, False)
+    assert rebuilt["chunks_cached"] == rebuilt["chunks"] == first["chunks"]
+
+
+def _offline_vector_store(db: CorpusDB) -> VectorStore:
+    """A vector store whose chunk tokenizer cannot load, as on a host without the model files."""
+    return VectorStore(db, embed_fn=_forbidden_embed)
+
+
+@pytest.fixture
+def offline_tokenizer(monkeypatch):
+    def refuse(_model: str):
+        raise RetrievalProfileError("The embedding tokenizer could not be loaded.")
+
+    monkeypatch.setattr(vector_store_module, "_load_embedding_tokenizer", refuse)
+
+
+@pytest.mark.asyncio
+async def test_a_build_without_the_tokenizer_fails_before_creating_a_corpus_file(
+    tmp_path: Path, seed_dir: Path, offline_tokenizer
+):
+    with pytest.raises(RetrievalProfileError, match="tokenizer"):
+        await seed.build_corpus(
+            corpus_path=tmp_path / "corpus.sqlite", seed_dir=seed_dir, vector_store_factory=_offline_vector_store
+        )
+
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["seed"]
+
+
+@pytest.mark.asyncio
+async def test_a_build_without_the_tokenizer_leaves_an_existing_corpus_unchanged(
+    tmp_path: Path, seed_dir: Path, offline_tokenizer
+):
+    await _build(tmp_path)
+    changed = json.loads(json.dumps(DOCS))
+    changed[1]["markdown_content"] = "MADDE 9 - TFRS 9 karşılık\nBankalar güncel karşılık ayırır.\n"
+    _write_seed_files(seed_dir, docs=changed, cache=[*CACHE, {"document_id": "x", "title": "X"}])
+
+    with pytest.raises(RetrievalProfileError, match="tokenizer"):
+        await seed.build_corpus(
+            corpus_path=tmp_path / "corpus.sqlite", seed_dir=seed_dir, vector_store_factory=_offline_vector_store
+        )
+
+    db = CorpusDB.open(tmp_path / "corpus.sqlite", readonly=True)
+    try:
+        readiness = await db.assert_ready(require_corpus=True)
+        assert readiness.catalog == 1
+        stored = await DocumentStore(db).get_document("mevzuat_22599")
+        assert stored is not None and stored.markdown_content == DOCS[1]["markdown_content"]
+    finally:
+        db.close()
+
+
+@pytest.mark.asyncio
+async def test_a_build_with_nothing_to_chunk_does_not_need_the_tokenizer(tmp_path: Path, offline_tokenizer):
+    seed_dir = tmp_path / "seed"
+    seed_dir.mkdir()
+    _write_seed_files(seed_dir, docs=[{"document_id": "empty_1", "title": "Boş", "markdown_content": ""}], cache=CACHE)
+
+    result = await seed.build_corpus(
+        corpus_path=tmp_path / "corpus.sqlite", seed_dir=seed_dir, vector_store_factory=_offline_vector_store
+    )
+
+    assert (result["documents"], result["decision_cache"], result["chunks"]) == (1, 1, 0)
 
 
 @pytest.mark.asyncio
@@ -399,3 +539,29 @@ def test_seed_titles_do_not_start_with_a_parenthesised_date():
     documents, _ = _seed_documents_and_cache()
     prefixed = [d["document_id"] for d in documents if re.match(r"\(\d{2}\.\d{2}\.\d{4}", d["title"])]
     assert not prefixed, prefixed
+
+
+_PRINTED_DECISION_NUMBER = re.compile(r"Karar Sayısı\s*:\s*(\S+)", re.IGNORECASE)
+_PRINTED_DECISION_DATE = re.compile(r"Karar Tarihi\s*:\s*(\d{1,2})[./](\d{1,2})[./](\d{4})", re.IGNORECASE)
+
+
+def test_seed_decision_number_and_date_equal_the_values_the_decision_prints():
+    """Where a Kurul Kararı prints its number and date at the top, the stored fields repeat them."""
+    records = json.loads((seed.SEED_DIR / "documents.json").read_text(encoding="utf-8"))
+    checked = 0
+    mismatches = []
+    for record in records:
+        if record.get("category") != "Kurul Kararı":
+            continue
+        head = record["markdown_content"][:1500]
+        number, date = _PRINTED_DECISION_NUMBER.search(head), _PRINTED_DECISION_DATE.search(head)
+        if number is None or date is None:
+            continue
+        checked += 1
+        printed_date = f"{int(date.group(1)):02d}.{int(date.group(2)):02d}.{date.group(3)}"
+        stored = (record["decision_number"], record["decision_date"])
+        if stored != (number.group(1), printed_date):
+            mismatches.append((record["document_id"], stored, (number.group(1), printed_date)))
+
+    assert checked >= 180
+    assert mismatches == []

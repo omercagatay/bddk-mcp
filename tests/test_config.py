@@ -38,10 +38,6 @@ def _import_config_in_subprocess(**overrides: str) -> subprocess.CompletedProces
         ({"BDDK_REQUEST_TIMEOUT": "nan"}, "BDDK_REQUEST_TIMEOUT must be finite"),
         ({"BDDK_LIGHTOCR_DEVICE": "remote"}, "BDDK_LIGHTOCR_DEVICE must be one of"),
         ({"BDDK_MAX_RETRIES": "0"}, "BDDK_MAX_RETRIES must be an integer"),
-        (
-            {"BDDK_EMBEDDING_CHUNK_TARGET_TOKENS": "100", "BDDK_EMBEDDING_CHUNK_TOKEN_OVERLAP": "100"},
-            "BDDK_EMBEDDING_CHUNK_TOKEN_OVERLAP must be smaller",
-        ),
     ],
 )
 def test_environment_configuration_fails_closed(environment, message):
@@ -59,6 +55,33 @@ def test_environment_configuration_accepts_explicit_boundary_values():
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def _semantic_threshold_in_subprocess(**overrides: str) -> subprocess.CompletedProcess[str]:
+    environment = {key: value for key, value in os.environ.items() if not key.startswith("BDDK_")}
+    environment.update(overrides)
+    return subprocess.run(
+        [sys.executable, "-c", "from bddk_mcp.core import config; print(config.SEMANTIC_RELEVANCE_THRESHOLD)"],
+        cwd=os.getcwd(),
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_semantic_threshold_is_unset_by_default_so_the_model_default_applies():
+    result = _semantic_threshold_in_subprocess()
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "None"
+
+
+def test_semantic_threshold_environment_override_is_kept_and_validated():
+    assert _semantic_threshold_in_subprocess(BDDK_SEMANTIC_THRESHOLD="0.65").stdout.strip() == "0.65"
+    rejected = _semantic_threshold_in_subprocess(BDDK_SEMANTIC_THRESHOLD="1.5")
+    assert rejected.returncode != 0
+    assert "BDDK_SEMANTIC_THRESHOLD must be finite" in rejected.stderr
 
 
 class TestValidateMetricId:
@@ -148,26 +171,6 @@ class TestValidateColumn:
             validate_column("4")
         with pytest.raises(ValueError):
             validate_column("abc")
-
-
-class TestChandraConfig:
-    def test_chandra_model_name_default(self, monkeypatch):
-        monkeypatch.delenv("BDDK_CHANDRA_MODEL", raising=False)
-        import importlib
-
-        from bddk_mcp.core import config
-
-        importlib.reload(config)
-        assert config.CHANDRA_MODEL_NAME == "datalab-to/chandra-ocr-2"
-
-    def test_chandra_model_name_env_override(self, monkeypatch):
-        monkeypatch.setenv("BDDK_CHANDRA_MODEL", "custom/model")
-        import importlib
-
-        from bddk_mcp.core import config
-
-        importlib.reload(config)
-        assert config.CHANDRA_MODEL_NAME == "custom/model"
 
 
 # -- Model asset startup policy ----------------------------------------------

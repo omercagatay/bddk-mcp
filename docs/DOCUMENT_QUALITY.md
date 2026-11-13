@@ -7,9 +7,10 @@ This page documents how BDDK MCP labels extracted Markdown quality, how warnings
 Stored documents can come from several extraction paths:
 
 - `html_parser`: preferred when mevzuat.gov.tr or BDDK HTML preserves legal text cleanly.
+- `pdftotext_layout`: the method of most reviewed seed documents (233 of 319); formula-unaware.
 - `markitdown`: general PDF/office extraction path; good for ordinary text, weaker for formulas, annex tables, and embedded images.
-- `markitdown_degraded`: fallback or legacy extraction where important structure may be missing.
-- `lightocr`, `chandra2`, `pp_structure`, or `manual_latex`: formula-aware paths or manual repairs used when formulas, tables, or image-based math matter.
+- `pdftotext_degraded` and `markitdown_degraded`: the CPU fallbacks of the sync OCR chain, where important structure may be missing.
+- `manual_pdf` and combined names such as `pdftotext_layout+manual_latex`: manually repaired text; only a name containing `lightocr`, `pp_structure` or `manual_latex` counts as formula-aware (`lightocr` needs the `gpu` group).
 
 Trade-offs:
 
@@ -22,9 +23,9 @@ Trade-offs:
 
 The quality engine reports one document-level label plus flags:
 
-- `clean`: no material extraction signal detected. The document can be used normally, subject to ordinary legal-source caution.
-- `warning`: usable text with extraction caveats such as control characters, formula references without visible formulas, moderate duplication, or layout artifacts.
-- `fail`: severe extraction risk such as raw HTML/data URI leakage, many `cid:` markers, replacement characters, very long blob-like lines, or repeated corrupted blocks.
+- `clean`: none of the signals below fired. The document can be used normally, subject to ordinary legal-source caution.
+- `warning`: one of these signals fired: control characters, any `cid:` marker, double-encoded Turkish text (mojibake such as `Ã¶` or `ÄŸ`), a formula reference without a visible formula or image, a long underscore run, a camelCase concatenation, or a paragraph block repeated more than twice.
+- `fail`: raw HTML tags, a `data:` URI image, 20 or more `cid:` markers, replacement characters, a very long line (over 3,000 characters) combined with raw markup or blob content, or an entry in the quality-failure registry.
 - `unknown`: quality metadata is unavailable or unresolved. A locally clean section must not erase an explicitly unknown document-level assessment.
 
 ## Verbatim serving contract
@@ -41,7 +42,17 @@ emits exact slices and that the corpus file round-trips every page exactly.
 
 A capped parser span stores a system truncation notice. The notice is storage
 metadata, never legal text: serving strips it and reports truncation
-(`content_truncated`). Catalog search results carry BDDK catalog summary/excerpt
+(`content_truncated`).
+A capped named section (stored window of 20,000 characters) also reports its true
+extent: `stored_span_capped`, `original_end_char` and a text line with the stored and
+the full length. A `quotation` that is not found in the stored window is
+`unavailable` (check reason `reference_truncated`, gap
+`quotation_reference_truncated`), not `not_found`, because the text beyond the window
+was not compared; a quotation equal to the whole stored window has extent `excerpt`.
+The rest of the provision is in full in `get_bddk_document`; parts of it are also
+stored as later rows (nested rows or `govde` windows), which are labelled as
+continuing that provision. In corpus files built with the code of this release the words of the
+truncation notice are not in the section full-text index. Catalog search results carry BDDK catalog summary/excerpt
 metadata, which is labeled as such and must never be quoted as provision text;
 document-store snippets are exact leading excerpts of one chunk and may be
 truncated.
@@ -85,7 +96,7 @@ As a standing rule, formula-heavy failed documents require source review before 
 
 ## Quality Warnings In MCP Results
 
-Public retrieval tools sanitize document content before returning it to a model. `get_bddk_document` removes unsafe context artifacts such as raw HTML tags, `data:image/...;base64,...` payloads, `cid:` markers, and pathological long blobs.
+Public retrieval tools return the exact stored characters and do not rewrite them. When returning the text unchanged would leak an unsafe artifact (embedded `data:image` base64 payloads, `cid:` markers, the raw tags `div`, `table`, `tr`, `td`, `img`, `span` and `font`, or C0 control characters), `get_bddk_document` refuses with `VERBATIM_UNAVAILABLE` instead of cleaning it.
 
 When a page is not `clean`, `get_bddk_document` includes concise metadata in the response header:
 
@@ -93,9 +104,33 @@ When a page is not `clean`, `get_bddk_document` includes concise metadata in the
 - `Quality flags: ...`
 - A visible quality warning before the document text
 
-Formula-unaware extraction methods receive an extraction warning only when the returned text refers to a formula, so a guide with no formula mention is not flagged merely for using markitdown. Whole-document and section tools share this policy; section results expose `formula_unaware_extraction` without invalidating an otherwise exact text quotation. The retrieval quality-policy identity is `markdown-quality-assessment-v7`. It recognizes the reviewed formula/XML identifiers in documents 903 and 907 without exempting arbitrary code, math or text after unmatched delimiters; (since v6) the reviewed literal reference "Yönetmelik EK-2’de yer alan formüllerde" in document 1296, which points at the formulas of another regulation rather than at a formula missing from that text; and (since v7) ten reviewed, per-document references to a formula stated in another article, paragraph or annex of the same text (1312, 1313, `mevzuat_19498`, `mevzuat_20029`). Section-level assessment would otherwise flag those references because the formula sits in a different section; [`tests/fixtures/internal-formula-references.json`](../tests/fixtures/internal-formula-references.json) records where each referenced formula is. The section parser keeps a section's closing formula lines instead of trimming them as a next-article title, so the only section that still carries a formula note is the capped `mevzuat_21192` EK-4, whose formula lies past the 20,000-character cap. The parser carries no version name in code (Git history is its record); since 2026-11-12 it also indexes KGK standards that print bare paragraph numbers (`kgk_tms_12`), and ends a capped body (`govde`) window at a paragraph, line or word break instead of mid-word. Document retrieval assesses the full canonical body, not a page fragment: page-cut tables cannot create false failures, and a clean page cannot hide failures elsewhere. An unavailable full-document assessment stays `unknown`; a formula-aware method cannot erase a missing-formula signal. A parser change is invisible to `bddk-mcp build`, which skips by content hash: delete the local corpus file and run `bddk-mcp build` so sections and chunks are regenerated (the shipped vectors are reused while the chunk texts still match; `--force` would re-embed every document), then `bddk-mcp export`. `scripts/reindex_document_sections.py` rewrites `document_sections` only and leaves the chunks' section fields stale. A rebuild does not remove registry entries or formula-unaware extraction warnings.
+Formula-unaware extraction methods receive an extraction warning only when the returned text refers to a formula, so a guide with no formula mention is not flagged merely for using markitdown. Whole-document and section tools share this policy; section results expose `formula_unaware_extraction` without invalidating an otherwise exact text quotation. The retrieval quality-policy identity is `markdown-quality-assessment-v8`. It recognizes the reviewed formula/XML identifiers in documents 903 and 907 without exempting arbitrary code, math or text after unmatched delimiters; (since v6) the reviewed literal reference "Yönetmelik EK-2’de yer alan formüllerde" in document 1296, which points at the formulas of another regulation rather than at a formula missing from that text; and (since v7) ten reviewed, per-document references to a formula stated in another article, paragraph or annex of the same text (1312, 1313, `mevzuat_19498`, `mevzuat_20029`); and (since v8) any `cid:` marker or double-encoded Turkish text (mojibake) makes a document at least `warning`. Section-level assessment would otherwise flag those references because the formula sits in a different section; [`tests/fixtures/internal-formula-references.json`](../tests/fixtures/internal-formula-references.json) records where each referenced formula is. The section parser keeps a section's closing formula lines instead of trimming them as a next-article title, so the only section that still carries a formula note is the capped `mevzuat_21192` EK-4, whose formula lies past the 20,000-character cap. The parser carries no version name in code (Git history is its record); since 2026-11-12 it also indexes KGK standards that print bare paragraph numbers (`kgk_tms_12`), and ends a capped body (`govde`) window at a paragraph, line or word break instead of mid-word. Document retrieval assesses the full canonical body, not a page fragment: page-cut tables cannot create false failures, and a clean page cannot hide failures elsewhere. An unavailable full-document assessment stays `unknown`; a formula-aware method cannot erase a missing-formula signal. A parser change is invisible to `bddk-mcp build`, which skips by content hash: delete the local corpus file and run `bddk-mcp build` so sections and chunks are regenerated (the shipped vectors are reused while the chunk texts still match; `--force` would re-embed every document), then `bddk-mcp export`. `scripts/reindex_document_sections.py` rewrites `document_sections` only and leaves the chunks' section fields stale. A rebuild does not remove registry entries or formula-unaware extraction warnings.
 
-Search results and section retrieval can surface quality metadata so agents can decide whether a snippet is appropriate evidence. Vector and FTS hits label quality from the **full stored document**, not only the matching chunk, so a clean snippet cannot hide document-level formula or extraction failures. Warning or fail labels do not block retrieval by themselves; the server sanitizes and warns unless unsafe inline blobs would leak into context.
+Search results and section retrieval can surface quality metadata so agents can decide whether a snippet is appropriate evidence. Vector and FTS hits label quality from the **full stored document**, not only the matching chunk, so a clean snippet cannot hide document-level formula or extraction failures. Warning or fail labels do not block retrieval by themselves; the server returns the exact text with a warning, and refuses only when unsafe artifacts would leak into context.
+
+## Displayed search relevance
+
+`search_document_store` orders hits by an internal ordering score: the raw cosine similarity of the embedding model plus small lexical and phrase boosts. The `relevance` it shows is that score mapped through a calibration recorded for the embedding model, `clamp((score - floor) / (ceiling - floor), 0, 1)`, with floor 0.82 and ceiling 0.96 for `intfloat/multilingual-e5-base`; when no query keyword matches at all, the shown value is multiplied by 0.65. It is a ranking score for that model, not a probability and not a cosine. The bands stay at 0.70 (strong) and 0.50 (moderate) on the shown value, so "strong" means an ordering score of at least 0.918. `semantic_relevance` is the raw cosine, and dense hits below the raw-cosine threshold (default 0.80 for this model, `BDDK_SEMANTIC_THRESHOLD` overrides it) are dropped. Any other embedding model gets the identity mapping and a 0.50 threshold; nothing was measured for it. The mapping does not change the order of the results.
+
+The constants come from a measurement on 2026-11-12 with the pinned model revision on the 319-document corpus (13,721 chunks), 101 queries in five groups, top-1 band before and after:
+
+| Group | Raw top-1 cosine | Before | After |
+| --- | --- | --- | --- |
+| 40 Turkish in-domain questions with expected documents | 0.852–0.914 | 40 strong | 40 strong |
+| 6 English questions on corpus topics | 0.830–0.881 | 6 strong | 1 moderate, 5 weak |
+| 10 near-domain questions on instruments outside the corpus | 0.838–0.896 | 10 strong | 4 strong, 3 moderate, 3 weak |
+| 40 off-topic questions | 0.739–0.852 | 34 strong, 6 moderate | 2 moderate, 29 weak, 9 no result |
+| 5 gibberish strings | 0.821–0.851 | 2 strong, 3 moderate | 5 weak |
+
+Every expected document of the first two groups scored a raw cosine of at least 0.822; the expected document is the dense rank-1 hit for 29 of the 40 Turkish questions and in the dense top 5 for 36. For all 101 queries the top five results are the same documents in the same order as before, except that hits under the raw threshold are dropped (all on off-topic questions) and lower-ranked hits move up into their places; the remaining hits keep their relative order.
+
+Limits: 101 queries and one model revision make this a calibration, not an evaluation of retrieval quality. Near-domain questions about instruments that are not in the corpus (4 of 10 measured: insurance technical provisions, crypto-asset service providers, severance pay, general-meeting quorum) can still be shown as strong matches, and English questions tend to be labelled weak although the expected document was among the shown results for 5 of the 6. After a change of embedding model, model revision, chunker or a large corpus change, re-run the measurement and update the mapping in `bddk_mcp/store/vector_store.py`:
+
+```bash
+uv run python scripts/calibrate_relevance.py --corpus corpus/bddk.sqlite --out calibration.json
+```
+
+The script opens the corpus file read-only, loads the real model and prints, per group, the raw and shown top-1 distributions, the band shares and the rank-1/top-5 counts; it writes nothing except the optional `--out` file. It is not run in CI.
 
 ## Scan Commands
 
@@ -110,7 +145,6 @@ Scan a local Markdown export:
 ```bash
 uv run python scripts/scan_document_quality.py \
   --md-dir ./bddk-md-export/docs \
-  --manifest ./bddk-md-export/manifest.csv \
   --out-dir quality_reports \
   --allow-failures
 ```
@@ -124,6 +158,8 @@ uv run python scripts/scan_document_quality.py \
   --fail-on data_uri_image,cid_marker,raw_html_tag,replacement_char
 ```
 
+`--fail-on` takes the signal names the report shows (scan anomalies and assessment flags, also on documents whose label is clean); an unknown name is rejected with exit code 2.
+
 Outputs:
 
 - `quality_report.md`
@@ -131,7 +167,7 @@ Outputs:
 - `quality_findings.json`
 - `suspicious_snippets.md`
 
-The corpus scan counts `c1_control_char` (U+0080–U+009F, cp1254 punctuation decoded as Latin-1) in SQL; `camelcase_concat` and `formula_ref_without_formula` come from the per-document assessment, so reviewed identifiers and inline formulas are not counted.
+The corpus scan counts `c1_control_char` (U+0080–U+009F, cp1254 punctuation decoded as Latin-1) per document in Python; `camelcase_concat` and `formula_ref_without_formula` come from the per-document assessment, so reviewed identifiers and inline formulas are not counted.
 
 ## Quality pass 2026-10-16
 
@@ -158,6 +194,6 @@ The tracked fail list is empty, so `scripts/backfill_quality_failures.py` with i
 4. Re-run the quality scan against the copy (`scan_document_quality.py --db --corpus corpus/bddk-repair.sqlite`) and compare labels, flags, snippets and content hashes with the first scan.
 5. After owner review confirms the repair, remove the document from `bddk_mcp/quality/quality_failures.yml` if it was listed, export the repaired copy back to `seed_data/` (`bddk-mcp export --corpus corpus/bddk-repair.sqlite`) so the reviewed source matches, rebuild the corpus file from the seed, redeploy it and restart the server. Until then runtime retrieval keeps the old text and labels.
 
-`scripts/backfill_quality_failures.py` runs the same forced re-extraction for a batch: `--config quality_reports/quality_findings.csv --dry-run` lists the documents labelled `fail` in a scan, and `--execute` (with `--corpus` on a copy) re-extracts them. `reindex_document_sections.py`, `scan_document_quality.py`, `document_quality_score.py` and `patch_doc.py` also read or write the file at `BDDK_CORPUS_PATH`; `--corpus PATH` targets another file.
+`scripts/backfill_quality_failures.py` runs the same forced re-extraction for a batch: `--config quality_reports/quality_findings.csv --dry-run` lists the documents labelled `fail` in a scan, and `--execute` (with `--corpus` on a copy) re-extracts them. `reindex_document_sections.py`, `scan_document_quality.py`, `document_quality_score.py` and `patch_doc.py` also read or write the file at `BDDK_CORPUS_PATH`; `--corpus PATH` targets another file. `patch_doc.py` refuses a replacement text that the corpus would rewrite on storage (it names the markers, also with `--dry-run`) and writes the seed in the canonical format; it updates the repository `seed_data/` only for the default corpus file, and `--seed-dir PATH` names another seed directory.
 
 Backfill should not erase prior versions. It should create a fresh stored version or preserve enough hash/version history to compare old and new extraction output.

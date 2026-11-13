@@ -7,7 +7,7 @@ body:
   - type: markdown
     attributes:
       value: >-
-        Remove credentials, tokens, database URLs, private documents, and customer data before submitting.
+        Remove credentials, tokens, connection strings, private documents, and customer data before submitting.
         Use a private security advisory for suspected vulnerabilities.
   - type: textarea
     id: goal

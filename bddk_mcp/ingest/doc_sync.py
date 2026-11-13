@@ -10,12 +10,12 @@ Extraction pipeline (the PDF chain is built by ocr.base.get_default_backends):
   3. markitdown — CPU last resort, no formulas
   4. HTML parsing — mevzuat.gov.tr iframe HTML (first on hosts where only the
      degraded backends 2 and 3 are available, see BDDK_PREFER_HTML_FOR_MEVZUAT)
-The Chandra2 backend (ocr/chandra.py) exists, but no sync path constructs it.
 
 Run it through ``bddk-mcp sync``.
 """
 
 import asyncio
+import codecs
 import html
 import io
 import logging
@@ -33,6 +33,7 @@ import httpx
 from bs4 import BeautifulSoup
 from defusedxml import ElementTree
 from defusedxml.common import DefusedXmlException
+from markitdown import MarkItDownException
 from pydantic import BaseModel
 
 from bddk_mcp.core.config import (
@@ -110,6 +111,13 @@ _SOFT_ERROR_PAGE_MARKERS = (
 
 class UnsafeUpstreamResourceError(RuntimeError):
     """A privacy-safe rejection of an unsafe URL, redirect, or payload."""
+
+
+class LegacyDocNotSupportedError(RuntimeError):
+    """A legacy OLE ``.doc`` download; the extraction path has no converter for it."""
+
+    def __init__(self) -> None:
+        super().__init__("legacy .doc is not supported (OLE Word file)")
 
 
 @dataclass(frozen=True, slots=True)
@@ -259,17 +267,22 @@ def _validate_office_archive_for_markitdown(office_bytes: bytes) -> None:
         raise UnsafeUpstreamResourceError("Office archive is invalid or unsupported.") from None
 
 
-def _categorize_error(error: str) -> tuple[str, bool]:
+def _categorize_error(error: str, doc_id: str = "") -> tuple[str, bool]:
     """Categorize a sync error and determine if retryable.
 
-    Returns (category, retryable).
+    The document id (and its number) is removed first and HTTP status codes
+    match only as whole tokens, so an id such as ``mevzuat_14036`` is not read
+    as a 403. Returns (category, retryable).
     """
     lower = error.lower()
-    if "robots" in lower or "403" in lower:
+    for identifier in (doc_id, doc_id.removeprefix("mevzuat_")):
+        if identifier:
+            lower = re.sub(rf"\b{re.escape(identifier.lower())}\b", " ", lower)
+    if "robots" in lower or re.search(r"\b403\b", lower):
         return "robots_txt", False
     if "timeout" in lower or "timed out" in lower:
         return "timeout", True
-    if "extraction failed" in lower or "404" in lower or "error page" in lower:
+    if "extraction failed" in lower or re.search(r"\b404\b", lower) or "error page" in lower:
         return "extraction", False
     if "all download" in lower or "no content" in lower:
         return "download", True
@@ -302,6 +315,7 @@ class SyncReport(BaseModel):
     total: int = 0
     downloaded: int = 0
     skipped: int = 0
+    reindexed: int = 0
     failed: int = 0
     errors: list[SyncResult] = []
     elapsed_seconds: float = 0.0
@@ -351,24 +365,92 @@ _WIN1252_C1_MAP = str.maketrans(
 )
 
 
-def _decode_html(content: bytes) -> str:
-    """Decode HTML content with encoding detection for Turkish text.
+_META_CHARSET_RE = re.compile(rb"""<meta[^>]*?charset\s*=\s*["']?\s*([A-Za-z0-9_.:-]{1,40})""", re.IGNORECASE)
+_HTTP_CHARSET_RE = re.compile(r"""charset\s*=\s*["']?\s*([A-Za-z0-9_.:-]{1,40})""", re.IGNORECASE)
 
-    After successful decode, remap Windows-1252 C1 controls to their
-    printable equivalents so en-dashes and smart quotes survive intact
-    instead of rendering as tofu boxes downstream.
+
+def _http_charset(headers: Mapping[str, str]) -> str | None:
+    """Return the charset parameter of a Content-Type header, if any."""
+
+    match = _HTTP_CHARSET_RE.search(headers.get("content-type", ""))
+    return match.group(1) if match else None
+
+
+def _declared_charset(content: bytes, http_charset: str | None) -> str | None:
+    """The HTTP charset parameter, else a <meta> charset in the first 2 KB.
+
+    None when neither names a text encoding known to Python: codecs such as zlib, hex,
+    base64 or rot13 resolve through codecs.lookup but are not text encodings.
     """
-    for encoding in ("utf-8", "iso-8859-9", "windows-1254"):
+
+    candidates = [http_charset] if http_charset else []
+    match = _META_CHARSET_RE.search(content[:2048])
+    if match:
+        candidates.append(match.group(1).decode("ascii"))
+    for candidate in candidates:
         try:
-            decoded = content.decode(encoding)
-            # Replacement chars anywhere in the body indicate either the
-            # wrong encoding or a corrupt source. Either way, do not return
-            # silently — try the next encoding.
-            if "\ufffd" not in decoded:
-                return decoded.translate(_WIN1252_C1_MAP)
-        except (UnicodeDecodeError, LookupError):
+            info = codecs.lookup(candidate)
+        except LookupError:
             continue
-    return content.decode("utf-8", errors="replace").translate(_WIN1252_C1_MAP)
+        if not getattr(info, "_is_text_encoding", True):
+            continue
+        return info.name
+    return None
+
+
+def _decode_utf8_repairing_with_cp1254(content: bytes) -> tuple[str, int]:
+    """Decode UTF-8; each invalid byte is decoded as windows-1254. Returns (text, repaired byte count)."""
+
+    parts: list[str] = []
+    repaired = 0
+    position = 0
+    while True:
+        try:
+            parts.append(content[position:].decode("utf-8"))
+            break
+        except UnicodeDecodeError as error:
+            parts.append(content[position : position + error.start].decode("utf-8"))
+            bad = content[position + error.start : position + error.end]
+            parts.append(bad.decode("windows-1254", errors="replace"))
+            repaired += len(bad)
+            position += error.end
+    return "".join(parts), repaired
+
+
+def _decode_html(content: bytes, http_charset: str | None = None) -> str:
+    """Decode HTML content for Turkish text.
+
+    The bytes decide before any declaration does, because a single-byte charset
+    such as windows-1254 "decodes" every byte string and so proves nothing:
+
+    1. Strict UTF-8. Bytes that are valid UTF-8 are UTF-8 whatever the page or
+       the server declares. A literal U+FFFD is kept for the quality scan.
+    2. UTF-8 in which each invalid byte is read as windows-1254 (a stray Word
+       byte 0x96 becomes an en dash and the Turkish letters around it survive),
+       whenever at least one valid multi-byte UTF-8 character decoded: real
+       windows-1254 text almost never forms one.
+    3. The declared charset (the HTTP ``charset`` parameter, else a ``<meta>``
+       charset in the first 2 KB) when the bytes decode strictly in it.
+    4. windows-1254.
+
+    After decoding, Windows-1252 C1 controls are remapped to their printable
+    equivalents so en-dashes and smart quotes survive intact.
+    """
+    try:
+        return content.decode("utf-8").translate(_WIN1252_C1_MAP)
+    except UnicodeDecodeError:
+        pass
+    repaired_text, repaired = _decode_utf8_repairing_with_cp1254(content)
+    valid_multibyte = sum(1 for character in repaired_text if ord(character) > 0x7F) - repaired
+    if valid_multibyte > 0:
+        return repaired_text.translate(_WIN1252_C1_MAP)
+    declared = _declared_charset(content, http_charset)
+    if declared is not None:
+        try:
+            return content.decode(declared).translate(_WIN1252_C1_MAP)
+        except (UnicodeDecodeError, LookupError):
+            pass
+    return content.decode("windows-1254", errors="replace").translate(_WIN1252_C1_MAP)
 
 
 # Known patterns from mevzuat.gov.tr error/navigation pages
@@ -835,14 +917,15 @@ class DocumentSyncer:
     ) -> SyncResult:
         """Download and extract a single document."""
 
-        # Skip only when the text is stored and, if a vector store is attached, its
-        # chunks are current. A document whose indexing failed is retried here.
-        if (
-            not force
-            and await self._store.has_document(doc_id)
-            and (self._vector_store is None or await self._vector_store.has_document(doc_id))
-        ):
-            return SyncResult(document_id=doc_id, success=True, method="cached")
+        # Skip when the text is stored and, if a vector store is attached, its chunks
+        # are current. Stored text without current chunks (an earlier reindex_failed,
+        # an interrupted build) is re-indexed from the stored text, not downloaded again.
+        if not force and await self._store.has_document(doc_id):
+            if self._vector_store is None or await self._vector_store.has_document(doc_id):
+                return SyncResult(document_id=doc_id, success=True, method="cached")
+            stored = await self._store.get_document(doc_id)
+            if stored is not None and stored.markdown_content:
+                return await self._reindex_stored_document(stored, source_url)
 
         # If re-extracting with force=True and the PDF is already cached in DB,
         # skip re-downloading (bandwidth saving).
@@ -868,7 +951,7 @@ class DocumentSyncer:
                 )
         except Exception as e:
             error_msg = str(e)
-            cat, retryable = _categorize_error(error_msg)
+            cat, retryable = _categorize_error(error_msg, doc_id)
             await self._store.record_sync_failure(doc_id, error_msg, cat, source_url, retryable)
             return SyncResult(
                 document_id=doc_id,
@@ -878,7 +961,7 @@ class DocumentSyncer:
 
         if not content:
             error_msg = "No content downloaded"
-            cat, retryable = _categorize_error(error_msg)
+            cat, retryable = _categorize_error(error_msg, doc_id)
             await self._store.record_sync_failure(doc_id, error_msg, cat, source_url, retryable)
             return SyncResult(
                 document_id=doc_id,
@@ -890,21 +973,39 @@ class DocumentSyncer:
         async with self._extraction_lock:
             worker = asyncio.create_task(asyncio.to_thread(self._extract, content, ext))
             cancellation = None
-            # A cancelled operator job must keep its lease until OCR actually stops.
+            # On cancellation, wait for the OCR worker thread to finish so the extraction lock
+            # (and the GPU) are not released while it is still running.
             with anyio.CancelScope(shield=True):
                 while not worker.done():
                     try:
                         await asyncio.shield(worker)
                     except asyncio.CancelledError as error:
                         cancellation = error
+                    except Exception:  # the finished worker's error is read below
+                        pass
                 if cancellation is not None:
-                    worker.result()
+                    worker.exception()  # the worker is done; its own error yields to the cancellation
                     raise cancellation
-                markdown, extraction_method = worker.result()
+                try:
+                    markdown, extraction_method = worker.result()
+                except Exception as error:  # CancelledError is a BaseException and still propagates
+                    extraction_error: Exception | None = error
+                else:
+                    extraction_error = None
+        if extraction_error is not None:
+            error_msg = f"Extraction failed: {extraction_error}"
+            cat, retryable = _categorize_error(error_msg, doc_id)
+            await self._store.record_sync_failure(doc_id, error_msg, cat, source_url, retryable)
+            logger.warning(
+                "Document extraction raised; preserving old content (force=%s)",
+                force,
+                extra={"error_type": type(extraction_error).__name__},
+            )
+            return SyncResult(document_id=doc_id, success=False, error=error_msg)
         markdown = _sanitize_for_storage(markdown or "")
         if not markdown:
             error_msg = f"Extraction failed (method={extraction_method})"
-            cat, retryable = _categorize_error(error_msg)
+            cat, retryable = _categorize_error(error_msg, doc_id)
             await self._store.record_sync_failure(doc_id, error_msg, cat, source_url, retryable)
             # Preserve old content on failed force re-extract — losing it would
             # erase successful prior extractions when a new backend transiently fails.
@@ -972,6 +1073,37 @@ class DocumentSyncer:
             success=True,
             method=f"{method}+{extraction_method}",
             size_bytes=len(content),
+        )
+
+    async def _reindex_stored_document(self, stored: StoredDocument, source_url: str) -> SyncResult:
+        """Publish chunks for stored text; the stored text and extraction method stay untouched."""
+        assert self._vector_store is not None
+        doc_id = stored.document_id
+        try:
+            await self._vector_store.add_document(
+                doc_id=doc_id,
+                title=stored.title or doc_id,
+                content=stored.markdown_content,
+                category=stored.category,
+                decision_date=stored.decision_date,
+                decision_number=stored.decision_number,
+                source_url=stored.source_url,
+            )
+        except Exception as error:
+            logger.warning(
+                "Vector index publication failed for stored document text; the next sync retries it",
+                extra={"error_type": type(error).__name__},
+            )
+            await self._store.record_sync_failure(
+                doc_id, "reindex_failed", "index", stored.source_url or source_url, True
+            )
+            return SyncResult(document_id=doc_id, success=False, method="reindexed", error="reindex_failed")
+        await self._store.clear_sync_failure(doc_id)
+        return SyncResult(
+            document_id=doc_id,
+            success=True,
+            method="reindexed",
+            size_bytes=len(stored.markdown_content.encode()),
         )
 
     # ── Download methods ─────────────────────────────────────────────────
@@ -1048,7 +1180,7 @@ class DocumentSyncer:
                 )
                 if resp.status_code == 200:
                     main_page_visited = True
-                    main_page_html = _decode_html(resp.content)
+                    main_page_html = _decode_html(resp.content, _http_charset(resp.headers))
             except UnsafeUpstreamResourceError:
                 raise
             except Exception as error:
@@ -1124,7 +1256,7 @@ class DocumentSyncer:
                 if (
                     resp.status_code == 200
                     and len(resp.content) > 200
-                    and not _is_error_page(_decode_html(resp.content))
+                    and not _is_error_page(_decode_html(resp.content, _http_charset(resp.headers)))
                 ):
                     logger.warning("Mevzuat extraction is falling back to HTML; formulas may be lost")
                     return resp.content, "mevzuat_htm", ".html"
@@ -1203,7 +1335,11 @@ class DocumentSyncer:
                     timeout=layer_timeout,
                     max_bytes=_MAX_IFRAME_BYTES,
                 )
-                if iframe_resp.status_code == 200 and len(iframe_resp.content) > 200:
+                if (
+                    iframe_resp.status_code == 200
+                    and len(iframe_resp.content) > 200
+                    and not _is_error_page(_decode_html(iframe_resp.content, _http_charset(iframe_resp.headers)))
+                ):
                     logger.info("Mevzuat document fetched from approved iframe layer")
                     content, annex_merged = await self._append_annex_zip_if_present(
                         iframe_resp.content,
@@ -1216,7 +1352,7 @@ class DocumentSyncer:
                     method = "mevzuat_iframe+annex_zip" if annex_merged else "mevzuat_iframe"
                     return content, method, ".html"
             div = soup.find("div", id="divMevzuatMetni")
-            if div and len(div.get_text(strip=True)) > 100:
+            if div and len(div.get_text(strip=True)) > 100 and not _is_error_page(str(div)):
                 logger.info("Mevzuat document fetched from approved main-page layer")
                 return str(div).encode("utf-8"), "mevzuat_div", ".html"
         except Exception as error:
@@ -1263,10 +1399,16 @@ class DocumentSyncer:
 
         if not annex_markdown:
             return content, False
+        # ASCII with character references, so the block decodes the same in whatever
+        # charset the iframe page uses.
         annex_html = (
             f'\n\n<div id="mevzuat-ekler">\n<h2>Ekler</h2>\n<pre>{html.escape(annex_markdown)}</pre>\n</div>\n'
-        ).encode()
-        return content + annex_html, True
+        ).encode("ascii", "xmlcharrefreplace")
+        # The HTML extractor walks only the first <body>: a block after </body></html> would be dropped.
+        body_end = content.lower().find(b"</body")
+        if body_end == -1:
+            return content + annex_html, True
+        return content[:body_end] + annex_html + content[body_end:], True
 
     # ── Extraction ───────────────────────────────────────────────────────
 
@@ -1295,12 +1437,21 @@ class DocumentSyncer:
         if ext in (".html", ".htm"):
             errors: list[str] = []
             html_str = _decode_html(content)
-            result = _extract_html_to_markdown(html_str)
+            try:
+                result = _extract_html_to_markdown(html_str)
+            except Exception as error:
+                # Untrusted upstream HTML: a parser error falls through to markitdown.
+                logger.warning(
+                    "HTML parser extraction raised; trying markitdown",
+                    extra={"error_type": type(error).__name__},
+                )
+                result = ""
+                errors.append(f"html_parser: raised {type(error).__name__}")
             if result and not _is_error_page(result):
                 return ExtractionResult(content=result, method="html_parser")
-            if result and _is_error_page(result):
+            if result:
                 errors.append("html_parser: extracted content is a 404/navigation page")
-            else:
+            elif not errors:
                 errors.append("html_parser: no meaningful content extracted")
 
             try:
@@ -1311,7 +1462,7 @@ class DocumentSyncer:
                 if html_result and not _is_error_page(html_result):
                     return ExtractionResult(content=html_result, method="markitdown")
                 errors.append("markitdown: HTML fallback failed or error page")
-            except (ValueError, OSError, UnicodeDecodeError) as e:
+            except (MarkItDownException, ValueError, OSError, UnicodeDecodeError) as e:
                 errors.append(f"markitdown: {e}")
 
             retryable = len(content) < 200 or any("404" in e or "navigation" in e for e in errors)
@@ -1343,6 +1494,9 @@ class DocumentSyncer:
                     error="office document signature is invalid",
                     retryable=False,
                 )
+            else:
+                # markitdown has no converter for legacy OLE Word files; fail with a clear reason.
+                raise LegacyDocNotSupportedError()
             try:
                 from markitdown import MarkItDown
 
@@ -1354,7 +1508,7 @@ class DocumentSyncer:
                 if result and len(result) >= OCR_MIN_CONTENT_LEN:
                     return ExtractionResult(content=result, method="markitdown")
                 return ExtractionResult(method="failed", error="markitdown output too short", retryable=True)
-            except (ValueError, OSError, UnicodeDecodeError) as e:
+            except (MarkItDownException, ValueError, OSError, UnicodeDecodeError) as e:
                 return ExtractionResult(method="failed", error=f"markitdown: {e}", retryable=True)
 
         return ExtractionResult(method="failed", error=f"Unsupported extension: {ext}", retryable=False)
@@ -1406,13 +1560,17 @@ class DocumentSyncer:
         tasks = [_sync_one(doc) for doc in documents]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        for r in results:
+        for doc_info, r in zip(documents, results, strict=True):
             if isinstance(r, Exception):
                 report.failed += 1
-                report.errors.append(SyncResult(document_id="unknown", success=False, error=str(r)))
+                report.errors.append(
+                    SyncResult(document_id=doc_info.get("document_id") or "unknown", success=False, error=str(r))
+                )
             elif r.success:
                 if r.method == "cached":
                     report.skipped += 1
+                elif r.method == "reindexed":
+                    report.reindexed += 1
                 else:
                     report.downloaded += 1
             else:

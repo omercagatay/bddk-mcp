@@ -1,5 +1,6 @@
 """BDDK analytics: trend analysis, digest, comparison."""
 
+from collections.abc import Callable
 from datetime import datetime
 
 import httpx
@@ -10,9 +11,37 @@ from bddk_mcp.ingest.data_sources import (
     fetch_announcements,
     fetch_bulletin_snapshot,
     fetch_weekly_bulletin,
+    istanbul_today,
 )
 
 # -- Trend Analysis --------------------------------------------------------
+
+REASON_INSUFFICIENT_DATA = "insufficient_data"
+PCT_UNAVAILABLE_TEXT = "yüzde değişim hesaplanamadı (önceki değer 0)"
+
+
+def _pct_change(current: float, previous: float) -> float | None:
+    """Percent change from ``previous`` to ``current``; None when ``previous`` is 0.
+
+    The base enters as its absolute value so the sign of the result always
+    follows the direction of the move, also for negative series.
+    """
+    if previous == 0:
+        return None
+    return (current - previous) / abs(previous) * 100
+
+
+def _trend_label(points: list[float]) -> str:
+    """Label the movement over up to the last 4 points by net change.
+
+    With fewer than 4 points only the last step is used. With 4, the label
+    follows the net move over the window (last minus first).
+    """
+    if len(points) < 4:
+        net = points[-1] - points[-2]
+    else:
+        net = points[-1] - points[-4]
+    return "yükseliş" if net > 0 else "düşüş" if net < 0 else "yatay"
 
 
 async def analyze_trends(
@@ -26,6 +55,8 @@ async def analyze_trends(
 
     Returns dict with: title, current, previous, wow_change, wow_pct,
     avg, min, max, min_date, max_date, trend_direction, narrative, series.
+    wow_pct is None when the previous value is 0 (no percentage exists). A series
+    with fewer than 2 points returns an error with reason "insufficient_data".
     """
     data = await fetch_weekly_bulletin(
         http,
@@ -42,14 +73,17 @@ async def analyze_trends(
     values = data.get("values", [])
 
     if len(values) < 2:
-        return {"error": "Not enough data points for trend analysis."}
+        return {
+            "error": f"En az 2 gözlem gerekir (bulunan: {len(values)}).",
+            "reason": REASON_INSUFFICIENT_DATA,
+        }
 
     parsed = values
 
     current = parsed[-1]
     previous = parsed[-2]
     wow_change = current - previous
-    wow_pct = (wow_change / previous * 100) if previous != 0 else 0.0
+    wow_pct = _pct_change(current, previous)
 
     avg_val = sum(parsed) / len(parsed)
     min_val = min(parsed)
@@ -57,22 +91,22 @@ async def analyze_trends(
     min_idx = parsed.index(min_val)
     max_idx = parsed.index(max_val)
 
-    # Trend direction over last 4 data points
-    if len(parsed) >= 4:
-        recent = parsed[-4:]
-        ups = sum(1 for i in range(1, len(recent)) if recent[i] > recent[i - 1])
-        downs = sum(1 for i in range(1, len(recent)) if recent[i] < recent[i - 1])
-        trend = "yükseliş" if ups >= 2 else "düşüş" if downs >= 2 else "yatay"
-    else:
-        trend = "yükseliş" if wow_change > 0 else "düşüş" if wow_change < 0 else "yatay"
+    trend = _trend_label(parsed)
+    points_used = min(len(parsed), 4)
+    basis = (
+        f"Son {points_used} veri noktasına göre"
+        if len(parsed) >= 4
+        else "Yalnızca son adıma göre (4'ten az veri noktası)"
+    )
 
     # Narrative
     title = data.get("title") or metric_id
     direction = "arttı" if wow_change > 0 else "azaldı" if wow_change < 0 else "değişmedi"
+    change_text = f"%{abs(wow_pct):.2f} {direction}" if wow_pct is not None else f"{direction}; {PCT_UNAVAILABLE_TEXT}"
 
     narrative = (
-        f"{title}: Son haftada %{abs(wow_pct):.2f} {direction}. "
-        f"Son {min(len(parsed), 4)} veri noktasına göre trend: {trend}. "
+        f"{title}: Son haftada {change_text}. "
+        f"{basis} trend: {trend}. "
         f"Mevcut değer: {current:,.2f}, ortalama: {avg_val:,.2f}."
     )
 
@@ -103,6 +137,7 @@ async def build_digest(
     http: httpx.AsyncClient,
     decisions_cache: list[dict],
     period_days: int = 30,
+    clock: Callable[[], datetime] | None = None,
 ) -> dict:
     """Build a regulatory change digest for the given period.
 
@@ -111,12 +146,13 @@ async def build_digest(
     Args:
         decisions_cache: The current list of cached decision dicts from BddkApiClient.
         period_days: How many days back to look.
+        clock: Injectable "now" for tests; the default is the Istanbul (UTC+3) time.
 
     Returns dict with: period, new_decisions, announcements, bulletin_summary, narrative.
     """
-    cutoff = datetime.now()
-    cutoff_str = cutoff.strftime("%d.%m.%Y")
-    today = cutoff.date()  # window = period_days calendar days, today included
+    today = istanbul_today(clock)  # Istanbul date, not the host's
+    cutoff_str = today.strftime("%d.%m.%Y")
+    # window = period_days calendar days, today included
 
     # -- Recent decisions from cache --
     # Cache items may be Pydantic models or dicts; normalize access.
@@ -250,11 +286,17 @@ async def compare_metrics(
         dates = data.get("dates", [])
 
         if len(values) < 2:
-            results.append({"metric_id": mid, "error": "Not enough data points for metric comparison."})
+            results.append(
+                {
+                    "metric_id": mid,
+                    "error": f"En az 2 gözlem gerekir (bulunan: {len(values)}).",
+                    "reason": REASON_INSUFFICIENT_DATA,
+                }
+            )
             continue
         current = values[-1]
         previous = values[-2]
-        wow_pct = ((current - previous) / previous * 100) if previous else 0
+        wow_pct = _pct_change(current, previous)
 
         results.append(
             {

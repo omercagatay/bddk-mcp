@@ -13,6 +13,7 @@ embedding model.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -23,7 +24,7 @@ from pathlib import Path
 
 import numpy as np
 
-from bddk_mcp.core.config import EMBEDDING_DIMENSION, EMBEDDING_MODEL_NAME
+from bddk_mcp.core.config import CORPUS_PATH, EMBEDDING_DIMENSION, EMBEDDING_MODEL_NAME
 from bddk_mcp.store.corpus_db import CorpusDB
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument, upsert_document_sync
 
@@ -115,11 +116,14 @@ async def export_corpus(corpus_path: str | None = None, seed_dir: str | None = N
     """Write the corpus documents, catalog and chunk vectors to the seed directory.
 
     Returns (documents, catalog entries, documents with exported embeddings).
+    A corpus that is not ready (for example one without chunks after a failed
+    build) is refused before anything is read or written, so an export can never
+    delete the seed embedding cache or blank its manifest.
     """
     target = Path(seed_dir) if seed_dir else SEED_DIR
-    target.mkdir(parents=True, exist_ok=True)
     db = CorpusDB.open(corpus_path, readonly=True)
     try:
+        await db.assert_ready(require_corpus=True)
         docs = await db.run(
             lambda conn: [
                 dict(row)
@@ -147,6 +151,7 @@ async def export_corpus(corpus_path: str | None = None, seed_dir: str | None = N
         meta, by_doc = await db.run(_chunk_vectors)
     finally:
         db.close()
+    target.mkdir(parents=True, exist_ok=True)
     _write_canonical_json(target / "documents.json", docs)
     _write_canonical_json(target / "decision_cache.json", catalog)
     embedded = _export_embeddings(target / EMBEDDINGS_SUBDIR, meta, by_doc)
@@ -256,6 +261,9 @@ async def build_corpus(
     ignores that cache; it cannot switch a corpus file to another embedding model (delete
     the file and build instead).  The build skips by content hash and catalog size only,
     so metadata-only seed edits and documents removed from the seed need a fresh file.
+    When a document needs chunking, the chunk tokenizer is loaded before the first
+    write, so a host without it fails early; a corpus file that did not exist before
+    such a failure is removed again.
     ``vector_store_factory`` (``db -> VectorStore``) is a test seam for a fake embedder.
     """
     from bddk_mcp.store.vector_store import VectorStore
@@ -269,7 +277,10 @@ async def build_corpus(
         logger.info("Seed files are empty; nothing to build")
         return result
 
+    corpus_file = Path(corpus_path or CORPUS_PATH)
+    corpus_existed = corpus_file.exists()
     db = CorpusDB.open(corpus_path)
+    closed = False
     try:
         store = DocumentStore(db)
         vs = (vector_store_factory or VectorStore)(db)
@@ -291,16 +302,31 @@ async def build_corpus(
 
         stored_hashes, indexed, catalog_count = await db.run(_stored_state)
         stale = [doc_id for doc_id, digest in seed_hashes.items() if stored_hashes.get(doc_id) != digest]
-        unindexed = [doc_id for doc_id, record in seed_hashes.items() if doc_id not in indexed and record]
+        by_id = {record["document_id"]: record for record in docs}
+        unindexed = [
+            doc_id for doc_id in seed_hashes if doc_id not in indexed and by_id[doc_id].get("markdown_content")
+        ]
         if not force and not stale and not unindexed and catalog_count == len(catalog):
             logger.info("Corpus already matches the seed data; build skipped")
             result["skipped"] = True
             return result
 
+        rewrite = list(seed_hashes) if force else stale
+        to_embed = sorted(set(rewrite) | set(unindexed))
+        if any((by_id[doc_id].get("markdown_content") or "").strip() for doc_id in to_embed):
+            # Preflight: fail before the first write when the tokenizer cannot load (offline host).
+            try:
+                await asyncio.to_thread(vs.load_chunk_tokenizer)
+            except BaseException:
+                db.close()
+                closed = True
+                if not corpus_existed:
+                    _remove_corpus_file(corpus_file)
+                raise
+
         if catalog:
             result["decision_cache"] = await store.replace_catalog(catalog)
 
-        rewrite = list(seed_hashes) if force else stale
         now = time.time()
 
         def _write_documents(conn: sqlite3.Connection) -> int:
@@ -313,8 +339,6 @@ async def build_corpus(
         result["sections"] = await db.transaction(_write_documents)
         result["documents"] = len(rewrite)
 
-        to_embed = sorted(set(rewrite) | set(unindexed))
-        by_id = {record["document_id"]: record for record in docs}
         cache = _EmbeddingCache(seed / EMBEDDINGS_SUBDIR, {}) if force else _EmbeddingCache.load(seed)
         for doc_id in to_embed:
             record = by_id[doc_id]
@@ -341,5 +365,12 @@ async def build_corpus(
             result["chunks_cached"],
         )
     finally:
-        db.close()
+        if not closed:
+            db.close()
     return result
+
+
+def _remove_corpus_file(path: Path) -> None:
+    """Remove a corpus file created by a build that failed its preflight, with its side files."""
+    for candidate in (path, *(path.with_name(path.name + suffix) for suffix in ("-wal", "-shm", "-journal"))):
+        candidate.unlink(missing_ok=True)

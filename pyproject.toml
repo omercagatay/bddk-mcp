@@ -39,7 +39,6 @@ dev = [
     "pytest-asyncio>=0.24",
     "pytest-httpx>=0.30",
     "ruff>=0.8",
-    "pdfplumber>=0.11",
 ]
 # Optional developer tool: local code knowledge graph (graphify-out/, git-ignored).
 # Kept out of the dev group so CI and the serving image stay unchanged.
@@ -49,7 +48,6 @@ graph = [
 gpu = [
     "torch>=2.13.0",
     "torchvision>=0.15",
-    "chandra-ocr[hf]>=0.2",
     # pdf2image wraps the poppler-utils system binary; it is used only by the
     # GPU OCR page-render path and must not ship in the serving image, which
     # does not install poppler.

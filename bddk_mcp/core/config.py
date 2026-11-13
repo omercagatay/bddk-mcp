@@ -99,42 +99,22 @@ OCR_MIN_CONTENT_LEN = _environment_int(
     maximum=10_000_000,
 )
 
-# -- Chandra2 (in-process HF backend; no sync path constructs it today) -------
-
-CHANDRA_MODEL_NAME = os.environ.get("BDDK_CHANDRA_MODEL", "datalab-to/chandra-ocr-2")
-
 # -- Embedding dimension ------------------------------------------------------
 
 # The default E5 model emits exactly 768 values and every corpus file records
-# the dimension it was built with. Reject a misleading override instead of
-# allowing a build to fail after an expensive embedding run.
+# the dimension it was built with. A fixed corpus-format constant, not a setting.
 EMBEDDING_DIMENSION = 768
-_configured_embedding_dimension = os.environ.get("BDDK_EMBEDDING_DIM", str(EMBEDDING_DIMENSION))
-try:
-    if int(_configured_embedding_dimension) != EMBEDDING_DIMENSION:
-        raise RuntimeError("BDDK_EMBEDDING_DIM must be 768 for the current corpus format.")
-except ValueError:
-    raise RuntimeError("BDDK_EMBEDDING_DIM must be the integer 768 for the current corpus format.") from None
 
 # -- Document chunking -------------------------------------------------------
 
 # Page size for paginated markdown output (client, doc_store, vector_store)
 PAGE_SIZE = _environment_int("BDDK_PAGE_SIZE", default=5000, minimum=1, maximum=1_000_000)
 
-EMBEDDING_CHUNK_TARGET_TOKENS = _environment_int(
-    "BDDK_EMBEDDING_CHUNK_TARGET_TOKENS",
-    default=400,
-    minimum=1,
-    maximum=1_000_000,
-)
-EMBEDDING_CHUNK_TOKEN_OVERLAP = _environment_int(
-    "BDDK_EMBEDDING_CHUNK_TOKEN_OVERLAP",
-    default=40,
-    minimum=0,
-    maximum=999_999,
-)
-if EMBEDDING_CHUNK_TOKEN_OVERLAP >= EMBEDDING_CHUNK_TARGET_TOKENS:
-    raise RuntimeError("BDDK_EMBEDDING_CHUNK_TOKEN_OVERLAP must be smaller than BDDK_EMBEDDING_CHUNK_TARGET_TOKENS.")
+# Chunk size and overlap change the corpus format and are recorded nowhere in the
+# corpus file, so they are constants: changing them means editing code and
+# rebuilding the corpus.
+EMBEDDING_CHUNK_TARGET_TOKENS = 400
+EMBEDDING_CHUNK_TOKEN_OVERLAP = 40
 
 # -- Cache --------------------------------------------------------------------
 
@@ -154,11 +134,19 @@ SEARCH_CACHE_MAX = _environment_int(
 
 # -- Relevance thresholds (anti-hallucination) --------------------------------
 
-SEMANTIC_RELEVANCE_THRESHOLD = _environment_float(
-    "BDDK_SEMANTIC_THRESHOLD",
-    default=0.50,
-    minimum=-1.0,
-    maximum=1.0,
+# Minimum raw cosine similarity of the embedding model for a dense hit to be
+# kept.  Unset (None) means the default recorded for the embedding model in
+# ``bddk_mcp.store.vector_store`` (0.80 for intfloat/multilingual-e5-base, 0.50
+# for any other model); BDDK_SEMANTIC_THRESHOLD overrides it.
+SEMANTIC_RELEVANCE_THRESHOLD: float | None = (
+    _environment_float(
+        "BDDK_SEMANTIC_THRESHOLD",
+        default=0.0,
+        minimum=-1.0,
+        maximum=1.0,
+    )
+    if "BDDK_SEMANTIC_THRESHOLD" in os.environ
+    else None
 )
 
 

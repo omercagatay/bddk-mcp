@@ -34,6 +34,14 @@ async def test_factory_supports_protocol_tool_call_without_database():
 
     doc_store = MagicMock()
     doc_store.get_document_history = AsyncMock(return_value=[])
+    doc_store.get_current_body = AsyncMock(
+        return_value={
+            "content_hash": "c" * 64,
+            "content_length": 10,
+            "downloaded_at": 1775667192.0,
+            "extraction_method": "manual",
+        }
+    )
     deps = Dependencies(db=None, doc_store=doc_store, client=MagicMock(), http=None)
     test_server = create_mcp(deps)
 
@@ -57,6 +65,14 @@ async def test_production_boundary_sanitizes_validation_and_handler_failures():
     sentinel = "RAW-PRIVATE-HANDLER-FAILURE"
     doc_store = MagicMock()
     doc_store.get_document_history = AsyncMock(side_effect=RuntimeError(sentinel))
+    doc_store.get_current_body = AsyncMock(
+        return_value={
+            "content_hash": "c" * 64,
+            "content_length": 10,
+            "downloaded_at": 1775667192.0,
+            "extraction_method": "manual",
+        }
+    )
     deps = Dependencies(db=None, doc_store=doc_store, client=MagicMock(), http=None)
     test_server = create_mcp(deps)
 
@@ -363,3 +379,43 @@ async def test_cancelled_shutdown_finishes_closing_before_propagating():
     assert server_module._runtime_deps.db is None
     assert server_module._runtime_lock is None
     assert server_module._runtime_loop is None
+
+
+@pytest.mark.asyncio
+async def test_create_deps_logs_the_corpus_identity_once_after_readiness(caplog):
+    """One start-up line names the corpus without paths or document ids."""
+    import logging
+
+    import bddk_mcp.server as server_module
+    from bddk_mcp.store.corpus_db import CorpusReadiness
+
+    http = MagicMock()
+    http.aclose = AsyncMock()
+    db = MagicMock()
+    db.assert_ready = AsyncMock(
+        return_value=CorpusReadiness(
+            documents=319,
+            chunks=13721,
+            catalog=320,
+            embedding_model="org/model",
+            schema_version="1",
+            digest="abc123def456",
+        )
+    )
+    client = MagicMock()
+    client.load_cache_read_only = AsyncMock(side_effect=RuntimeError("stop after the identity line"))
+    client.close = AsyncMock()
+    with (
+        caplog.at_level(logging.INFO, logger=server_module.logger.name),
+        patch.object(server_module.httpx, "AsyncClient", return_value=http),
+        patch.object(server_module.CorpusDB, "open", return_value=db),
+        patch.object(server_module, "BddkApiClient", return_value=client),
+        pytest.raises(RuntimeError, match="stop after"),
+    ):
+        await server_module.create_deps()
+
+    lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith("Corpus ready:")]
+    assert lines == [
+        f"Corpus ready: bddk-mcp {__version__}, corpus digest abc123def456, 319 documents, 13721 chunks, "
+        "320 catalog entries, embedding model org/model, schema version 1"
+    ]

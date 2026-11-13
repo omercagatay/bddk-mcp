@@ -25,6 +25,7 @@ MAX_PAGE_SIZE = 50
 MAX_RESULTS = 50
 MAX_HISTORY_DAYS = 3_650
 MAX_LOOKBACK_WEEKS = 260
+MAX_SECTION_START_CHAR = 100_000_000
 MAX_METRIC_ID_LENGTH = 32
 MAX_METRIC_IDS = 4
 MAX_METRIC_LIST_LENGTH = MAX_METRIC_IDS * MAX_METRIC_ID_LENGTH + (MAX_METRIC_IDS - 1)
@@ -208,8 +209,8 @@ def _required_query(value: object) -> str:
     return _string(value, name="query", maximum=MAX_QUERY_LENGTH, allow_empty=False)
 
 
-def _required_keywords(value: object) -> str:
-    return _string(value, name="keywords", maximum=MAX_QUERY_LENGTH, allow_empty=False)
+def _regulation_keywords(value: object) -> str:
+    return _string(value, name="keywords", maximum=MAX_QUERY_LENGTH, allow_empty=True)
 
 
 def _optional_keywords(value: object) -> str:
@@ -291,6 +292,18 @@ def _period(value: object) -> str:
     return _enum(value, name="period", values=("day", "week", "month", "quarter"))
 
 
+def validate_catalog_query(
+    keyword_tokens: list[str], category: str | None, date_from: str | None, date_to: str | None
+) -> None:
+    """Require searchable keywords unless a category or a date bound narrows the catalog listing.
+
+    ``keyword_tokens`` are the tokens the catalog search matches (punctuation stripped), so keywords
+    made only of punctuation ("...", "()") count as empty instead of listing the whole catalog.
+    """
+    if not keyword_tokens and not category and not date_from and not date_to:
+        _invalid("keywords must contain a word or number unless category, date_from or date_to is given.")
+
+
 def validate_date_order(date_from: str | None, date_to: str | None) -> None:
     """Reject a reversed optional date interval without echoing either value."""
     normalized_from = _optional_date(date_from, name="date_from")
@@ -304,8 +317,14 @@ def validate_date_order(date_from: str | None, date_to: str | None) -> None:
 
 RegulationKeywords = Annotated[
     str,
-    Field(min_length=1, max_length=MAX_QUERY_LENGTH, description="Turkish words required in catalog metadata."),
-    BeforeValidator(_required_keywords),
+    Field(
+        max_length=MAX_QUERY_LENGTH,
+        description=(
+            "Turkish words matched against the corpus catalog title, category, date and decision number. May be "
+            "empty only when category, date_from or date_to is given (browse mode)."
+        ),
+    ),
+    BeforeValidator(_regulation_keywords),
 ]
 OptionalSearchKeywords = Annotated[
     str,
@@ -331,6 +350,19 @@ PageSize = Annotated[
     int,
     Field(ge=1, le=MAX_PAGE_SIZE, description="Catalog results per page."),
     BeforeValidator(lambda value: _integer(value, name="page_size", minimum=1, maximum=MAX_PAGE_SIZE)),
+]
+DocumentPageNumber = Annotated[
+    int,
+    Field(ge=1, le=MAX_PAGE, description="1-based page number of the stored document text."),
+    BeforeValidator(lambda value: _integer(value, name="page_number", minimum=1, maximum=MAX_PAGE)),
+]
+MAX_DOCUMENT_PAGES_PER_RESPONSE = 5
+DocumentMaxPages = Annotated[
+    int,
+    Field(ge=1, le=MAX_DOCUMENT_PAGES_PER_RESPONSE, description="Consecutive pages to return (1-5)."),
+    BeforeValidator(
+        lambda value: _integer(value, name="max_pages", minimum=1, maximum=MAX_DOCUMENT_PAGES_PER_RESPONSE)
+    ),
 ]
 ResultLimit = Annotated[
     int,
@@ -398,7 +430,10 @@ DateFrom = Annotated[
     Field(
         max_length=10,
         pattern=DATE_PATTERN,
-        description="Optional inclusive start date in DD.MM.YYYY format.",
+        description=(
+            "Optional inclusive start date in DD.MM.YYYY format."
+            " Catalog entries without a decision date (most yönetmelik, kanun, rehber, genelge and tebliğ entries) are not considered by a date filter; the response reports how many were skipped."
+        ),
         json_schema_extra={"format": "date-dd-mm-yyyy"},
     ),
     BeforeValidator(lambda value: _optional_date(value, name="date_from")),
@@ -408,7 +443,10 @@ DateTo = Annotated[
     Field(
         max_length=10,
         pattern=DATE_PATTERN,
-        description="Optional inclusive end date in DD.MM.YYYY format.",
+        description=(
+            "Optional inclusive end date in DD.MM.YYYY format."
+            " Catalog entries without a decision date (most yönetmelik, kanun, rehber, genelge and tebliğ entries) are not considered by a date filter; the response reports how many were skipped."
+        ),
         json_schema_extra={"format": "date-dd-mm-yyyy"},
     ),
     BeforeValidator(lambda value: _optional_date(value, name="date_to")),
@@ -470,6 +508,22 @@ SectionRef = Annotated[
         )
     ),
     BeforeValidator(_section_ref),
+]
+OptionalSectionStartChar = Annotated[
+    int | None,
+    Field(
+        ge=0,
+        le=MAX_SECTION_START_CHAR,
+        description=(
+            "Optional exact start_char of one section, copied from a disambiguation list of the corpus file being "
+            "served; not a citation."
+        ),
+    ),
+    BeforeValidator(
+        lambda value: (
+            None if value is None else _integer(value, name="start_char", minimum=0, maximum=MAX_SECTION_START_CHAR)
+        )
+    ),
 ]
 HeadingFilter = Annotated[
     str | None,

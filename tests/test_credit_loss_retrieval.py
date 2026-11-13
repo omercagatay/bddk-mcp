@@ -1,7 +1,7 @@
 """Full-seed regressions for the reported BKZ/backtesting retrieval failures.
 
 These are retrieval checks, not certification of source currency or legal applicability.
-Run with BDDK_REQUIRE_TEST_DATABASE=1 uv run pytest tests/test_credit_loss_retrieval.py -s.
+Run with: uv run pytest tests/test_credit_loss_retrieval.py -s
 """
 
 import hashlib

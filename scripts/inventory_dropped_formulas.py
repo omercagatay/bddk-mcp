@@ -33,7 +33,7 @@ Score = weighted sum of signal hits. Output is ranked descending.
 Usage:
     uv run python scripts/inventory_dropped_formulas.py
     uv run python scripts/inventory_dropped_formulas.py --min-score 2
-    uv run python scripts/inventory_dropped_formulas.py --out logs/report.md
+    uv run python scripts/inventory_dropped_formulas.py --out quality_reports/report.md
 """
 
 from __future__ import annotations
@@ -187,7 +187,7 @@ def render_report(reports: list[DocReport], min_score: int) -> str:
         "",
         "Signal legend (weights in parentheses):",
         "- **S1** (×1) — extraction_method lacks `manual_latex`",
-        "- **S2** (×2) — formula-introducer phrase without LaTeX within 500 chars",
+        "- **S2** (×3) — formula-introducer phrase followed by `Formülde,` within 250 chars, no LaTeX between",
         "- **S3** (×5) — residual `_dosyalar/imageNNN.gif` broken image ref",
         "- **S4** (×1) — dangling `   : definition` line (stripped inline variable)",
         "- **S5** (×3) — `Formülde,` → bullet list with no LaTeX immediately before",
@@ -216,11 +216,20 @@ def render_report(reports: list[DocReport], min_score: int) -> str:
     return "\n".join(lines) + "\n"
 
 
-def main() -> int:
+def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--min-score", type=int, default=1, help="minimum score to include in report (default 1)")
-    p.add_argument("--out", type=Path, default=ROOT / "logs" / "dropped_formulas_report.md")
-    args = p.parse_args()
+    p.add_argument(
+        "--out",
+        type=Path,
+        default=ROOT / "quality_reports" / "dropped_formulas_report.md",
+        help="report path (default: quality_reports/dropped_formulas_report.md, git-ignored)",
+    )
+    return p
+
+
+def main() -> int:
+    args = _build_parser().parse_args()
 
     with SEED_DOCS.open(encoding="utf-8") as f:
         docs = json.load(f)

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -18,7 +19,7 @@ from pydantic import TypeAdapter
 from bddk_mcp.core.config import PAGE_SIZE
 from bddk_mcp.quality.markdown_quality import unsafe_verbatim_reason
 from bddk_mcp.quotations import check_exact_quotation
-from bddk_mcp.store.doc_store import DocumentPage, DocumentStore
+from bddk_mcp.store.doc_store import DocumentPage, DocumentStore, StoredDocument, upsert_document_sync
 from bddk_mcp.store.section_index import extract_document_sections, split_section_truncation_notice
 from bddk_mcp.tools.contract_types import OptionalQuotation, SectionRef, SectionType
 
@@ -54,11 +55,6 @@ def test_every_seed_document_is_verbatim_servable_and_quote_exact(document):
     content = document["markdown_content"]
     # No document is refused and none is silently rewritten by a sanitizer.
     assert unsafe_verbatim_reason(content) is None
-    # Page slicing must be exact stored characters for the whole document.
-    total_pages = max(1, -(-len(content) // PAGE_SIZE))
-    for page in range(1, total_pages + 1):
-        start = (page - 1) * PAGE_SIZE
-        assert content[start : start + PAGE_SIZE] == content[start : start + PAGE_SIZE]
     # Whole-document verification is exact and reconstructable.
     whole = check_exact_quotation(
         content, content, expected_reference_sha256=document["content_hash"], require_complete=True
@@ -155,7 +151,8 @@ async def test_every_document_returned_through_mcp_is_exact_and_not_summarized(d
     assert expected in structured["text"]
     # The prose around the document must declare the verbatim contract, not a summary.
     assert "exact stored document content" in structured["text"]
-    assert "no sanitization, wrapping, paraphrase or summary" in structured["text"]
+    assert "no sanitization, paraphrase or summary" in structured["text"]
+    assert "no sanitization, wrapping" not in structured["text"]
 
 
 @pytest.mark.asyncio
@@ -189,6 +186,47 @@ async def test_all_seeded_documents_round_trip_exactly_through_the_corpus_file(c
             )
 
 
+@pytest.mark.asyncio
+async def test_every_stored_section_is_the_exact_document_slice_through_the_store(corpus_db):
+    """Real store path for all seed documents: no chunks, embeddings or tokenizer involved.
+
+    Documents are written the way the corpus build writes them (verbatim, no
+    re-preparation); every section read back through ``get_document_section``
+    must be the document slice [start_char, end_char) apart from surrounding
+    whitespace, with a storage truncation notice of a capped section split off.
+    """
+    now = time.time()
+
+    def write(conn):
+        for record in SEED_DOCUMENTS:
+            document = StoredDocument(
+                document_id=record["document_id"],
+                title=record.get("title", ""),
+                markdown_content=record["markdown_content"],
+                content_hash=record["content_hash"],
+            )
+            upsert_document_sync(conn, document, now=now, prepare=False)
+
+    await corpus_db.transaction(write)
+    store = DocumentStore(corpus_db)
+
+    checked = capped = 0
+    for record in SEED_DOCUMENTS:
+        content = record["markdown_content"]
+        for section in await store.get_document_section(record["document_id"]):
+            checked += 1
+            verbatim, notice = split_section_truncation_notice(section.content)
+            capped += notice is not None
+            assert content[section.start_char : section.end_char].strip() == verbatim, (
+                record["document_id"],
+                section.section_type,
+                section.section_ref,
+            )
+            assert "BÖLÜM KESİLDİ" not in verbatim
+    assert checked > 8_000
+    assert capped > 0
+
+
 def test_quotation_argument_accepts_exact_boundaries_and_rejects_whitespace_only():
     from mcp.server.fastmcp.exceptions import ToolError
     from pydantic import TypeAdapter
@@ -202,10 +240,17 @@ def test_quotation_argument_accepts_exact_boundaries_and_rejects_whitespace_only
 
 def test_real_token_chunker_produces_exact_document_slices_for_every_document():
     """The production retrieval profile's chunker must emit exact stored slices."""
-    from bddk_mcp.store.vector_store import VectorStore, _chunk_document
+    from bddk_mcp.store.vector_store import RetrievalProfileError, VectorStore, _chunk_document
 
     store = VectorStore(None)
-    tokenizer = store._chunk_tokenizer()
+    try:
+        tokenizer = store._chunk_tokenizer()
+    except RetrievalProfileError as exc:
+        pytest.fail(
+            "The embedding tokenizer could not be loaded; set BDDK_EMBEDDING_MODEL_PATH to a local copy of the "
+            f"model or allow access to the model hub ({exc}).",
+            pytrace=False,
+        )
     chunks_seen = 0
     for document in SEED_DOCUMENTS:
         content = document["markdown_content"]
@@ -285,57 +330,53 @@ async def test_real_ozkaynak_document_and_quote_end_to_end_through_mcp_and_the_c
             (document["document_id"], document.get("title", ""), content, document["content_hash"]),
         )
     )
-    if True:
-        try:
-            store = DocumentStore(corpus_db)
-            await store.replace_document_sections(
-                document["document_id"],
-                extract_document_sections(document["document_id"], content),
-                source_content_hash=document["content_hash"],
-            )
-            client = MagicMock()
-            client.find_by_id.return_value = None
-            deps = Dependencies(db=None, doc_store=store, client=client, http=None)
-            async with create_connected_server_and_client_session(create_mcp(deps)) as session:
-                page = await session.call_tool(
-                    "get_bddk_document", {"document_id": "mevzuat_18799", "page_number": 1, "max_pages": 1}
-                )
-                section = await session.call_tool(
-                    "get_document_section",
-                    {"document_id": "mevzuat_18799", "section_type": "madde", "section_ref": "9"},
-                )
-                exact_quote = await session.call_tool(
-                    "get_document_section",
-                    {
-                        "document_id": "mevzuat_18799",
-                        "section_type": "madde",
-                        "section_ref": "9",
-                        "quotation": quotation,
-                    },
-                )
-                paraphrased = await session.call_tool(
-                    "get_document_section",
-                    {
-                        "document_id": "mevzuat_18799",
-                        "section_type": "madde",
-                        "section_ref": "9",
-                        "quotation": quotation.replace("hariç olmak üzere", "hariç"),
-                    },
-                )
+    store = DocumentStore(corpus_db)
+    await store.replace_document_sections(
+        document["document_id"],
+        extract_document_sections(document["document_id"], content),
+        source_content_hash=document["content_hash"],
+    )
+    client = MagicMock()
+    client.find_by_id.return_value = None
+    deps = Dependencies(db=None, doc_store=store, client=client, http=None)
+    async with create_connected_server_and_client_session(create_mcp(deps)) as session:
+        page = await session.call_tool(
+            "get_bddk_document", {"document_id": "mevzuat_18799", "page_number": 1, "max_pages": 1}
+        )
+        section = await session.call_tool(
+            "get_document_section",
+            {"document_id": "mevzuat_18799", "section_type": "madde", "section_ref": "9"},
+        )
+        exact_quote = await session.call_tool(
+            "get_document_section",
+            {
+                "document_id": "mevzuat_18799",
+                "section_type": "madde",
+                "section_ref": "9",
+                "quotation": quotation,
+            },
+        )
+        paraphrased = await session.call_tool(
+            "get_document_section",
+            {
+                "document_id": "mevzuat_18799",
+                "section_type": "madde",
+                "section_ref": "9",
+                "quotation": quotation.replace("hariç olmak üzere", "hariç"),
+            },
+        )
 
-            assert page.isError is False
-            assert page.structuredContent["pages"][0]["content"] == content[:PAGE_SIZE]
-            assert section.isError is False
-            section_item = section.structuredContent["results"][0]
-            assert content[section_item["start_char"] : section_item["end_char"]].strip() == section_item["content"]
-            assert exact_quote.structuredContent["answer_assessment"]["quotation_status"] == "exact_reference_match"
-            assert (
-                exact_quote.structuredContent["answer_assessment"]["quotation_check"]["original_source_fidelity"]
-                == "not_established"
-            )
-            assert paraphrased.structuredContent["answer_assessment"]["quotation_status"] == "not_found"
-        finally:
-            pass
+    assert page.isError is False
+    assert page.structuredContent["pages"][0]["content"] == content[:PAGE_SIZE]
+    assert section.isError is False
+    section_item = section.structuredContent["results"][0]
+    assert content[section_item["start_char"] : section_item["end_char"]].strip() == section_item["content"]
+    assert exact_quote.structuredContent["answer_assessment"]["quotation_status"] == "exact_reference_match"
+    assert (
+        exact_quote.structuredContent["answer_assessment"]["quotation_check"]["original_source_fidelity"]
+        == "not_established"
+    )
+    assert paraphrased.structuredContent["answer_assessment"]["quotation_status"] == "not_found"
 
 
 def test_every_printed_section_identity_is_accepted_back_by_the_tool_contract():

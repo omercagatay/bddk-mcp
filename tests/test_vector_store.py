@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from bddk_mcp.core.config import EMBEDDING_MODEL_NAME
 from bddk_mcp.quality.markdown_quality import assess_markdown_quality
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
 from bddk_mcp.store.vector_store import (
@@ -17,6 +18,9 @@ from bddk_mcp.store.vector_store import (
     _chunk_document,
     _document_quality_by_ids,
     _quality_metadata,
+    displayed_relevance,
+    relevance_calibration,
+    semantic_threshold,
 )
 from tests.conftest import FakeTokenizer, fake_embed
 
@@ -102,7 +106,12 @@ class TestQualityMetadata:
             calls.append((document_id, threading.current_thread() is threading.main_thread()))
             return assess_markdown_quality(text, document_id=document_id)
 
-        with patch("bddk_mcp.store.vector_store.assess_markdown_quality", new=spy):
+        # The fake embedder's cosines are not on the scale of the calibrated model's
+        # 0.80 default threshold; this test is about quality assessment, not thresholds.
+        with (
+            patch("bddk_mcp.store.vector_store.assess_markdown_quality", new=spy),
+            patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", 0.5),
+        ):
             hits = await vector_store.search("sermaye yeterliliği hesaplaması", limit=1)
 
         assert len(hits) == 1
@@ -257,6 +266,28 @@ class TestModelReproducibility:
         ):
             VectorStore(MagicMock())._ensure_embeddings()
 
+    def test_renamed_embedding_dimension_accessor_is_preferred(self, tmp_path):
+        class FakeSentenceTransformer:
+            def __init__(self, _model_ref: str, **_kwargs):
+                pass
+
+            def get_embedding_dimension(self):
+                return 384
+
+            def get_sentence_embedding_dimension(self):
+                raise AssertionError("the deprecated accessor must not be called when the new one exists")
+
+        fake_module = SimpleNamespace(SentenceTransformer=FakeSentenceTransformer)
+        model_path = tmp_path / "reviewed-local-model"
+        model_path.mkdir()
+        (model_path / "config.json").write_text("{}", encoding="utf-8")
+        with (
+            patch.dict("sys.modules", {"sentence_transformers": fake_module}),
+            patch("bddk_mcp.store.vector_store.EMBEDDING_MODEL_PATH", str(model_path)),
+            pytest.raises(RuntimeError, match="dimension must be 768"),
+        ):
+            VectorStore(MagicMock())._ensure_embeddings()
+
 
 class TestHybridSearchOrdering:
     """Regression coverage for the RRF-vs-final-relevance sort invariant.
@@ -270,6 +301,7 @@ class TestHybridSearchOrdering:
         """FTS-only hits have no cosine — stay at 0.0 so the
         SEMANTIC_RELEVANCE_THRESHOLD filter drops them downstream."""
         vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = EMBEDDING_MODEL_NAME
 
         vector_hits = [{"doc_id": "a", "relevance": 0.9, "title": "A", "snippet": "a"}]
         fts_hits = [
@@ -293,6 +325,7 @@ class TestHybridSearchOrdering:
         see rank #1 scoring lower than rank #2.
         """
         vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = EMBEDDING_MODEL_NAME
 
         vs._vector_search = AsyncMock(
             return_value=[
@@ -319,6 +352,7 @@ class TestHybridSearchOrdering:
     async def test_hybrid_search_preserves_fts_only_exact_legal_reference(self):
         """Exact legal-reference FTS hits must survive semantic thresholding."""
         vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = EMBEDDING_MODEL_NAME
 
         vs._vector_search = AsyncMock(return_value=[])
         vs._fts_search = AsyncMock(
@@ -344,6 +378,7 @@ class TestHybridSearchOrdering:
     async def test_exact_reference_query_ranks_hybrid_hits_ahead_of_fts_only_matches(self):
         """A hit found by both FTS and dense search must not be cut by FTS-only exact matches."""
         vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = EMBEDDING_MODEL_NAME
 
         vs._vector_search = AsyncMock(
             return_value=[
@@ -369,9 +404,44 @@ class TestHybridSearchOrdering:
         assert [r["match_type"] for r in everything] == ["hybrid", "fts_exact", "fts_exact", "vector"]
 
     @pytest.mark.asyncio
+    async def test_vector_only_hit_follows_fts_exact_hits_even_with_a_higher_score(self):
+        """Pins the order that DocumentSearchItem.relevance documents: with fts_exact hits present,
+        a vector-only hit comes after them even when it outscores a hybrid hit."""
+        from bddk_mcp.tools.structured_outputs import DocumentSearchItem
+
+        vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = EMBEDDING_MODEL_NAME
+        vs._vector_search = AsyncMock(
+            return_value=[
+                {"doc_id": "vec", "relevance": 0.84, "title": "Vec", "snippet": "vec"},
+                # Above the calibrated model's 0.80 raw-cosine threshold.
+                {"doc_id": "hyb", "relevance": 0.81, "title": "Hyb", "snippet": "hyb"},
+            ]
+        )
+        vs._fts_search = AsyncMock(
+            return_value=[
+                {"doc_id": "ex", "fts_rank": 0.9, "title": "Ex", "snippet": "ex", "fts_relaxed": False},
+                {"doc_id": "hyb", "fts_rank": 0.5, "title": "Hyb", "snippet": "hyb", "fts_relaxed": False},
+            ]
+        )
+
+        results = await vs._hybrid_search("sermaye madde 5", limit=10)
+
+        assert [(r["doc_id"], r["match_type"]) for r in results] == [
+            ("hyb", "hybrid"),
+            ("ex", "fts_exact"),
+            ("vec", "vector"),
+        ]
+        assert results[2]["relevance"] > results[0]["relevance"]
+        description = DocumentSearchItem.model_fields["relevance"].description
+        assert "then fts_exact" in description
+        assert "then the remaining vector and fts hits" in description
+
+    @pytest.mark.asyncio
     async def test_hybrid_search_drops_fts_only_non_legal_query(self):
         """FTS-only bypass is limited to exact legal-reference queries."""
         vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = EMBEDDING_MODEL_NAME
 
         vs._vector_search = AsyncMock(return_value=[])
         vs._fts_search = AsyncMock(
@@ -388,6 +458,219 @@ class TestHybridSearchOrdering:
         results = await vs._hybrid_search("bankacılık işlemleri", limit=10)
 
         assert results == []
+
+
+class TestRelevanceCalibration:
+    """Displayed relevance is a per-model mapping of the ordering score; ranking and raw cosine are untouched."""
+
+    E5 = "intfloat/multilingual-e5-base"
+
+    def test_e5_mapping_has_floor_ceiling_and_clamps(self):
+        calibration = relevance_calibration(self.E5)
+
+        assert (calibration.floor, calibration.ceiling) == (0.82, 0.96)
+        assert displayed_relevance(0.82, calibration) == 0.0
+        assert displayed_relevance(0.96, calibration) == 1.0
+        assert displayed_relevance(0.89, calibration) == pytest.approx(0.5)
+        assert displayed_relevance(0.70, calibration) == 0.0
+        assert displayed_relevance(1.0, calibration) == 1.0
+
+    def test_strong_band_means_ordering_score_at_least_0_918(self):
+        calibration = relevance_calibration(self.E5)
+
+        assert displayed_relevance(0.918, calibration) >= 0.70
+        assert displayed_relevance(0.917, calibration) < 0.70
+
+    def test_unknown_model_uses_identity_mapping_and_old_threshold(self):
+        calibration = relevance_calibration("other/model")
+
+        assert (calibration.floor, calibration.ceiling) == (0.0, 1.0)
+        assert displayed_relevance(0.4321, calibration) == pytest.approx(0.4321)
+        assert displayed_relevance(-0.2, calibration) == 0.0
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", None):
+            assert semantic_threshold("other/model") == 0.50
+
+    def test_default_threshold_per_model_and_environment_override(self):
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", None):
+            assert semantic_threshold(self.E5) == 0.80
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", 0.3):
+            assert semantic_threshold(self.E5) == 0.3
+            assert semantic_threshold("other/model") == 0.3
+
+    @staticmethod
+    def _store(vector_hits, fts_hits, model=E5):
+        vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = model
+        vs._vector_search = AsyncMock(return_value=vector_hits)
+        vs._fts_search = AsyncMock(return_value=fts_hits)
+        return vs
+
+    @pytest.mark.asyncio
+    async def test_gate_penalises_displayed_relevance_not_the_raw_cosine(self):
+        vs = self._store(
+            [
+                {"doc_id": "a", "relevance": 0.86, "title": "A", "snippet": "a"},
+                {"doc_id": "low", "relevance": 0.79, "title": "Low", "snippet": "low"},
+            ],
+            [],
+        )
+
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", None):
+            results = await vs._hybrid_search("capital adequacy", limit=10)
+
+        # The 0.86 hit would fall under a 0.80 threshold if the gate (x0.65) hit the raw cosine.
+        assert [r["doc_id"] for r in results] == ["a"]
+        assert results[0]["semantic_relevance"] == 0.86
+        assert results[0]["ordering_score"] == 0.86
+        assert results[0]["relevance"] == round((0.86 - 0.82) / 0.14 * 0.65, 4)
+        assert results[0]["confidence"] == "low"
+
+    @pytest.mark.asyncio
+    async def test_hybrid_hit_shows_calibrated_relevance_and_raw_semantic_score(self):
+        vs = self._store(
+            [{"doc_id": "a", "relevance": 0.90, "title": "A", "snippet": "a"}],
+            [{"doc_id": "a", "fts_rank": 2.0, "title": "A", "snippet": "a"}],
+        )
+
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", None):
+            [hit] = await vs._hybrid_search("zzz", limit=10)
+
+        assert hit["semantic_relevance"] == 0.90
+        assert hit["ordering_score"] == round(0.90 + 0.045, 4)
+        assert hit["relevance"] == round((0.945 - 0.82) / 0.14, 4)
+        assert hit["confidence"] == "high"
+
+    @pytest.mark.asyncio
+    async def test_ties_in_displayed_relevance_keep_ordering_score_order(self):
+        vs = self._store(
+            [
+                {"doc_id": "first_by_rrf", "relevance": 0.97, "title": "A", "snippet": "a"},
+                {"doc_id": "higher_score", "relevance": 0.99, "title": "B", "snippet": "b"},
+            ],
+            [],
+        )
+
+        results = await vs._hybrid_search("q", limit=10)
+
+        assert [r["relevance"] for r in results] == [0.65, 0.65]
+        assert [r["doc_id"] for r in results] == ["higher_score", "first_by_rrf"]
+
+    @pytest.mark.asyncio
+    async def test_score_gap_still_sees_the_gated_ordering_score(self):
+        # Gated: 0.65 * (0.90 - 0.83) = 0.0455 <= 0.051 keeps the second hit, as before calibration.
+        vs = self._store(
+            [
+                {"doc_id": "a", "relevance": 0.90, "title": "A", "snippet": "a"},
+                {"doc_id": "b", "relevance": 0.83, "title": "B", "snippet": "b"},
+            ],
+            [],
+        )
+
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", None):
+            results = await vs._hybrid_search("q", limit=10)
+
+        assert [r["doc_id"] for r in results] == ["a", "b"]
+
+    @pytest.mark.asyncio
+    async def test_unknown_model_displays_the_ordering_score(self):
+        vs = self._store(
+            [{"doc_id": "a", "relevance": 0.6, "title": "A", "snippet": "a"}],
+            [{"doc_id": "a", "fts_rank": 1.0, "title": "A", "snippet": "a"}],
+            model="other/model",
+        )
+
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", None):
+            [hit] = await vs._hybrid_search("zzz", limit=10)
+
+        assert hit["relevance"] == hit["ordering_score"] == round(0.6 + 0.045, 4)
+
+
+class TestRelaxedFtsFallbackIsNotExact:
+    """The relaxed OR fallback matches only some query words, so it never earns fts_exact."""
+
+    @pytest.fixture
+    async def article_store(self, vector_store, doc_store):
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="infosys",
+            title="Bilgi Sistemleri Yönetmeliği",
+            content="MADDE 12 - Bilgi sistemleri yönetimi bankanın yönetim kurulu tarafından gözetilir.",
+        )
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="governance",
+            title="Kurumsal Yönetim Yönetmeliği",
+            content="MADDE 3 - Yönetim kurulu kurumsal yönetim ilkelerini uygular.",
+        )
+        # No dense candidates: simulates unrelated chunks falling outside the dense top-k.
+        vector_store._vector_search = AsyncMock(return_value=[])
+        return vector_store
+
+    @pytest.mark.asyncio
+    async def test_relaxed_or_hits_are_flagged_and_not_labelled_fts_exact(self, article_store):
+        query = "madde 5 kredi kartı asgari ödeme tutarı"
+
+        fts_hits = await article_store._fts_search(query, limit=50)
+        results = await article_store._hybrid_search(query, limit=10)
+
+        assert {hit["doc_id"] for hit in fts_hits} == {"infosys", "governance"}
+        assert all(hit["fts_relaxed"] for hit in fts_hits)
+        assert all(hit["match_type"] != "fts_exact" for hit in results)
+        # Relaxed FTS-only hits have no semantic score and fall under the normal threshold.
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_strict_and_hit_of_a_legal_reference_query_stays_fts_exact(self, article_store):
+        query = "madde 12 bilgi sistemleri yönetimi"
+
+        fts_hits = await article_store._fts_search(query, limit=50)
+        results = await article_store._hybrid_search(query, limit=10)
+
+        assert [hit["doc_id"] for hit in fts_hits] == ["infosys"]
+        assert fts_hits[0]["fts_relaxed"] is False
+        assert [(hit["doc_id"], hit["match_type"]) for hit in results] == [("infosys", "fts_exact")]
+
+    @pytest.mark.asyncio
+    async def test_hybrid_search_does_not_grant_fts_exact_to_mocked_relaxed_hits(self):
+        vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = EMBEDDING_MODEL_NAME
+        vs._vector_search = AsyncMock(return_value=[])
+        vs._fts_search = AsyncMock(
+            return_value=[
+                {"doc_id": "strict", "fts_rank": 0.9, "title": "S", "snippet": "s", "fts_relaxed": False},
+                {"doc_id": "loose", "fts_rank": 0.5, "title": "L", "snippet": "l", "fts_relaxed": True},
+            ]
+        )
+
+        results = await vs._hybrid_search("sermaye yeterliliği madde 5", limit=10)
+
+        assert [(r["doc_id"], r["match_type"]) for r in results] == [("strict", "fts_exact")]
+
+
+class TestSearchHitDocumentMetadata:
+    @pytest.mark.asyncio
+    async def test_hits_carry_source_url_decision_number_and_chunk_section(self, vector_store, doc_store):
+        stored = StoredDocument(
+            document_id="kurul",
+            title="Kurul Kararı",
+            markdown_content="MADDE 4 - Sermaye yeterliliği hesaplamalarında standart yaklaşım kullanılır.",
+            decision_date="01.02.2024",
+            decision_number="10812",
+            source_url="https://www.bddk.org.tr/Mevzuat/DokumanGetir/1",
+        )
+        await doc_store.store_document(stored)
+        await vector_store.add_document(doc_id="kurul", title=stored.title, content=stored.markdown_content)
+
+        dense = await vector_store._vector_search("sermaye yeterliliği hesaplamalarında", limit=5)
+        lexical = await vector_store._fts_search("sermaye yeterliliği hesaplamalarında", limit=5)
+
+        for hit in (dense[0], lexical[0]):
+            assert hit["source_url"] == "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1"
+            assert hit["decision_number"] == "10812"
+            assert hit["decision_date"] == "01.02.2024"
+            assert (hit["section_type"], hit["section_ref"]) == ("madde", "4")
 
 
 class TestVectorStoreLifecycle:

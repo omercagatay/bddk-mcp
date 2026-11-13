@@ -33,6 +33,17 @@ def split_section_truncation_notice(content: str) -> tuple[str, str | None]:
     return content[: match.start()], content[match.start() :].strip()
 
 
+_NOTICE_ORIGINAL_LENGTH_RE = re.compile(r"içerik (\d+) karakterden")
+
+
+def truncation_notice_original_length(notice: str | None) -> int | None:
+    """Return the uncapped span length recorded in a truncation notice, if it states one."""
+    if not notice:
+        return None
+    match = _NOTICE_ORIGINAL_LENGTH_RE.search(notice)
+    return int(match.group(1)) if match else None
+
+
 # Uncovered remainder (preamble, refused numbered bodies, footnotes, text
 # past a capped span) is indexed as this type so section FTS can see it
 # without inventing madde/paragraf identities.
@@ -297,8 +308,63 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
                 content_hash=content_hash,
             )
         )
+    sections = _with_article_titles(text, sections)
     sections.extend(_remainder_govde_sections(doc_id, text, sections, seen_identities))
     return sections
+
+
+# Mevzuat prints an article's title on its own line above "MADDE N –"; the
+# heading then parsed from the MADDE line is its first fıkra ("(1) Bu …").
+_ARTICLE_TITLE_TYPES = frozenset({"madde", "gecici_madde", "ek_madde"})
+_FIKRA_HEADING_RE = re.compile(r"^\(\d+\)")
+_PART_CAPTION_RE = re.compile(r"BÖLÜM|KISIM|\bBölüm\b|\bKısım\b")
+
+
+def _with_article_titles(text: str, sections: list[DocumentSection]) -> list[DocumentSection]:
+    """Take an article's heading from its title line when the MADDE line carries none.
+
+    Only the heading changes: offsets, content and content_hash stay as parsed,
+    so chunk binding and stored embeddings are unaffected.  The title line must
+    lie after the end of every earlier parsed section (the trimming above left
+    it to none of them) and be the last non-blank line before the article start.
+    """
+    spans = sorted((section.start_char, section.end_char) for section in sections)
+    titled: list[DocumentSection] = []
+    for section in sections:
+        heading = section.heading
+        if section.section_type in _ARTICLE_TITLE_TYPES and (not heading or _FIKRA_HEADING_RE.match(heading)):
+            floor = max((end for start, end in spans if start < section.start_char), default=0)
+            title = _article_title_above(text, min(floor, section.start_char), section.start_char)
+            if title:
+                section = section.model_copy(update={"heading": title})
+        titled.append(section)
+    return titled
+
+
+def _article_title_above(text: str, floor: int, start_char: int) -> str:
+    lines = [line.strip() for line in text[floor:start_char].splitlines()]
+    while lines and not lines[-1]:
+        lines.pop()
+    if not lines:
+        return ""
+    title = lines[-1]
+    above = [line for line in lines[:-1] if line]
+    if (
+        not title[:1].isupper()
+        or not _is_leaked_trailing_line(title)
+        # A structural caption ("İKİNCİ BÖLÜM", "GENEL HÜKÜMLER", a document title), or
+        # the caption of a part ("Genel Hükümler" under "BİRİNCİ BÖLÜM"), is not the article's.
+        or title.upper() == title
+        or _PART_CAPTION_RE.search(title)
+        or (above and _PART_CAPTION_RE.search(above[-1]))
+    ):
+        return ""
+    # A line set directly on the title may be the first half of a wrapped title
+    # ("… Riske Esas Tutara" / "Dair Üst Sınır"); the last half alone is no title.
+    # Only a part caption ("İKİNCİ BÖLÜM" / "Genel Esaslar" / title) may sit there.
+    if lines[-2:-1] and lines[-2] and not (len(above) > 1 and _PART_CAPTION_RE.search(above[-2])):
+        return ""
+    return title
 
 
 def _remainder_govde_sections(

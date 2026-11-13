@@ -34,14 +34,14 @@ Düzenleme ve karar metinleri yerel yayımlanmış kopyadan gelir. Kurum, duyuru
 
 ## Araçlar
 
-- `search_bddk_regulations`: katalogda başlık ve künye arar; madde metnini açmaz.
+- `search_bddk_regulations`: bu corpus'un kataloğunda başlık ve künye arar (BDDK sitesinde aramaz); anahtar kelime boş bırakılıp kategori veya tarih aralığıyla da listelenebilir. Madde metnini açmaz.
 - `search_document_store`: yayımlanmış metnin içinde arar.
 - `search_bddk_institutions`: kurum arar; canlı BDDK çağrısı yapabilir.
-- `search_bddk_announcements`: duyuru arar; canlı BDDK çağrısı yapabilir.
+- `search_bddk_announcements`: duyuru arar, en yeni 20'sini gösterir; canlı BDDK çağrısı yapabilir.
 - `get_bddk_document`: kayıtlı belge sayfasını getirir. Güvensiz çıkarım artığı varsa metni sessizce düzeltmez, reddeder.
-- `get_document_history`: bir belgenin yerine yenisi konmuş eski gövdelerini listeler; mevcut gövde listelenmez ve bir sync ya da build metni değiştirene kadar liste boştur.
-- `get_document_section`: madde (66/A gibi araya eklenen maddeler dahil), geçici madde, ek madde, ilke, paragraf, ek veya bent ister; `quotation` verilirse alıntıyı kayıtlı metinde harfi harfine doğrular.
-- `search_document_sections`: bölüm başlıklarında arar.
+- `get_document_history`: bu corpus dosyasının yerel metin değişikliği kaydıdır, değişiklik (tadil) tarihçesi değildir. Yerine yenisi konmuş eski gövdeleri UTC zamanıyla listeler, mevcut gövdeyi ayrı bildirir; bir sync ya da build metni değiştirene kadar liste boştur. Kayıtlı olmayan belge numarası `NOT_FOUND` verir.
+- `get_document_section`: madde (66/A gibi araya eklenen maddeler dahil), geçici madde, ek madde, ilke, paragraf, ek veya bent ister; `quotation` verilirse alıntıyı kayıtlı metinde harfi harfine doğrular. İsteğe bağlı `start_char` aynı numaralı bölümlerden birini başlangıç konumuyla seçer (yalnızca bu corpus dosyası için geçerlidir, atıf değildir). Kayıtta kısaltılmış bir hüküm gerçek uzunluğuyla bildirilir; kayıtlı pencerenin dışında kalan alıntı `unavailable` (doğrulanamadı) döner.
+- `search_document_sections`: bölüm başlığında ve gövdesinde arar; madde yapısı olmayan belgeleri (örneğin Kurul Kararları) tam metin pencereleriyle bulur.
 - `get_bddk_bulletin`: haftalık bülten; canlı çağrı yapabilir.
 - `get_bddk_bulletin_snapshot`: bir tarihli bülten görüntüsü; canlı çağrı yapabilir.
 - `get_bddk_monthly`: aylık bülten; canlı çağrı yapabilir.
@@ -49,7 +49,7 @@ Düzenleme ve karar metinleri yerel yayımlanmış kopyadan gelir. Kurum, duyuru
 - `get_regulatory_digest`: son dönem karar, duyuru ve bülten özeti. Kararlar yerel corpus kataloğundan gelir; duyuru ve bülten yarısı canlı olabilir.
 - `compare_bulletin_metrics`: en çok 4 bülten metriğini yan yana karşılaştırır; canlı çağrı yapabilir.
 
-Sunucu yalnızca okur: corpus dosyasını salt okunur açar. Corpus'u hazırlayan komutlar ayrıdır: `bddk-mcp build`, `seed_data/` içindeki belgelerden section, chunk ve embedding'leriyle tek bir SQLite corpus dosyası üretir; `bddk-mcp sync` belgeleri kaynaktan indirip aynı dosyaya yazar. Ayrıntı: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+Sunucu yalnızca okur: corpus dosyasını salt okunur açar. Corpus'u hazırlayan komutlar ayrıdır: `bddk-mcp build`, `seed_data/` içindeki belgelerden section, chunk ve embedding'leriyle tek bir SQLite corpus dosyası üretir; `bddk-mcp sync` belgeleri kaynaktan indirip aynı dosyaya yazar. `bddk-mcp info` corpus dosyasını değiştirmeden tanımlar (sürüm, içerik özeti, sayılar, embedding modeli; dosya hazır değilse çıkış kodu 1). Ayrıntı: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Asistanı bağlama
 

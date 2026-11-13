@@ -22,6 +22,7 @@ from typing import Any, Protocol
 from urllib.parse import urlsplit
 
 import jwt
+from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from mcp.server.auth.provider import AccessToken
 from mcp.server.transport_security import TransportSecurityMiddleware, TransportSecuritySettings
 from starlette.requests import HTTPConnection
@@ -529,6 +530,32 @@ def _extract_scopes(claims: Mapping[str, Any]) -> frozenset[str]:
     return frozenset(scopes)
 
 
+_EC_CURVE_FOR_ALGORITHM = {"ES256": "secp256r1", "ES384": "secp384r1", "ES512": "secp521r1"}
+
+
+def _signing_key_fits_algorithm(signing_key: Any, algorithm: str) -> bool:
+    """Return whether the selected JWK may verify a token signed with ``algorithm``.
+
+    A JWK that declares ``alg`` must declare exactly the token algorithm.  The
+    member is optional (RFC 7517), and PyJWT then fills in RS256 for every RSA
+    key, so an alg-less key is instead checked by key type: an RSA public key
+    for ``RS*``/``PS*`` and an EC public key on the matching curve for ``ES*``.
+    Anything else fails closed.
+    """
+    jwk_data = getattr(signing_key, "_jwk_data", None)
+    declared = jwk_data.get("alg") if isinstance(jwk_data, Mapping) else None
+    if declared is not None:
+        return declared == algorithm
+
+    key = getattr(signing_key, "key", None)
+    if algorithm.startswith(("RS", "PS")):
+        return isinstance(key, rsa.RSAPublicKey)
+    expected_curve = _EC_CURVE_FOR_ALGORITHM.get(algorithm)
+    if expected_curve is not None:
+        return isinstance(key, ec.EllipticCurvePublicKey) and key.curve.name == expected_curve
+    return False
+
+
 class JwtTokenVerifier:
     """MCP TokenVerifier using asymmetric JWT signatures and a JWKS key set."""
 
@@ -573,8 +600,7 @@ class JwtTokenVerifier:
             raise jwt.InvalidTokenError("unapproved JWT header")
 
         signing_key = self._jwks_client.get_signing_key_from_jwt(token)
-        key_algorithm = getattr(signing_key, "algorithm_name", None)
-        if key_algorithm is not None and key_algorithm != algorithm:
+        if not _signing_key_fits_algorithm(signing_key, algorithm):
             raise jwt.InvalidTokenError("JWT key algorithm mismatch")
         claims = jwt.decode(
             token,
@@ -805,10 +831,12 @@ class HttpSecurityMiddleware:
             await validation_error(scope, receive, send)
             return
 
-        # The app is stateless JSON: it has no server-initiated stream for GET
-        # and no session for DELETE.  The SDK would still hold a GET open as an
-        # SSE stream with a concurrency slot, so refuse both before admission.
-        if method in {"GET", "DELETE"} and scope.get("path") == _MCP_PATH:
+        # The app is stateless JSON and speaks MCP only through POST: it has no
+        # server-initiated stream for GET and no session for DELETE.  Only POST
+        # takes the bounded body read below, and the SDK would hold a GET open as
+        # an SSE stream or read a PUT/PATCH body without any deadline while
+        # keeping a concurrency slot.  Refuse every other method before admission.
+        if method != "POST" and scope.get("path") == _MCP_PATH:
             await PlainTextResponse("Method Not Allowed", status_code=405, headers={"Allow": "POST"})(
                 scope, receive, send
             )
@@ -876,7 +904,9 @@ class HttpSecurityMiddleware:
             async def replay_receive() -> Message:
                 nonlocal body_replayed
                 if body_replayed:
-                    return {"type": "http.request", "body": b"", "more_body": False}
+                    # The body is complete; later reads wait on the original
+                    # channel so the application sees a client disconnect.
+                    return await receive()
                 body_replayed = True
                 return {"type": "http.request", "body": bytes(body), "more_body": False}
 

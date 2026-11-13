@@ -20,7 +20,7 @@ from collections.abc import Callable
 
 from pydantic import BaseModel, Field
 
-from bddk_mcp.quality.markdown_quality import assess_markdown_quality
+from bddk_mcp.quality.markdown_quality import MOJIBAKE_RE, assess_markdown_quality
 from bddk_mcp.store.corpus_db import CorpusDB
 
 
@@ -52,6 +52,8 @@ class QualityReport(BaseModel):
     orphan_chunks: int
     docs_without_chunks: int
     document_findings: list[DocumentFinding] = Field(default_factory=list)
+    # Assessment flag -> number of documents carrying it, counting documents whose label is clean.
+    signal_docs: dict[str, int] = Field(default_factory=dict)
 
 
 _SAMPLE_LIMIT = 5
@@ -95,6 +97,11 @@ _CHECKS: tuple[tuple[str, str, Callable[[str, bool], bool]], ...] = (
         "leaked_html_block",
         "Raw <div>/<table>/<tr>/<td> tag leaked into markdown",
         lambda md, _s: _HTML_BLOCK_RE.search(md) is not None,
+    ),
+    (
+        "mojibake",
+        "Double-encoded Turkish text (UTF-8 bytes decoded as cp1252/Latin-1, for example Ã¶ or ÄŸ)",
+        lambda md, _s: MOJIBAKE_RE.search(md) is not None,
     ),
     ("short_content", "Extraction output is <500 chars (likely truncation)", lambda md, _s: len(md) < 500),
     (
@@ -147,6 +154,7 @@ async def scan_quality(db: CorpusDB) -> QualityReport:
 
     flagged: dict[str, list[str]] = {name: [] for name, _description, _check in _CHECKS}
     document_findings: list[DocumentFinding] = []
+    signal_docs: dict[str, int] = {}
     camelcase_ids: list[str] = []
     formula_ids: list[str] = []
     docs_without_chunks = 0
@@ -165,6 +173,8 @@ async def scan_quality(db: CorpusDB) -> QualityReport:
             camelcase_ids.append(document_id)
         if quality.counts["formula_ref_without_latex_or_image"]:
             formula_ids.append(document_id)
+        for flag in quality.flags:
+            signal_docs[flag] = signal_docs.get(flag, 0) + 1
         if quality.label == "clean":
             continue
         document_findings.append(
@@ -209,7 +219,17 @@ async def scan_quality(db: CorpusDB) -> QualityReport:
         orphan_chunks=orphan_chunks,
         docs_without_chunks=docs_without_chunks,
         document_findings=document_findings,
+        signal_docs=dict(sorted(signal_docs.items())),
     )
+
+
+def known_signal_names() -> frozenset[str]:
+    """Every signal name a report can show: scan anomalies, assessment flags and the registry flag."""
+    names = {name for name, _description, _check in _CHECKS}
+    names.update({"camelcase_concat", "formula_ref_without_formula"})
+    names.update(assess_markdown_quality("").counts)
+    names.add("configured_quality_failure")
+    return frozenset(names)
 
 
 def format_report(report: QualityReport) -> str:
@@ -260,6 +280,15 @@ def format_report(report: QualityReport) -> str:
         if len(findings) > 20:
             lines.append(f"  ... and {len(findings) - 20} more finding(s)")
 
+    if report.signal_docs:
+        lines.append("")
+        lines.append("**Assessment flags (all documents)**")
+        lines.append("")
+        lines.append(f"  {'Flag':<40} {'Docs':>6}")
+        lines.append("  " + "-" * 48)
+        for name, count in sorted(report.signal_docs.items()):
+            lines.append(f"  {name:<40} {count:>6}")
+
     flagged_signals = [a for a in report.anomalies if a.docs_flagged > 0]
     if flagged_signals:
         lines.append("")
@@ -268,6 +297,9 @@ def format_report(report: QualityReport) -> str:
             "Inspect samples and trace each to its extraction method. "
             "Counts are indicators, not guarantees of defect."
         )
+    elif report.docs_without_chunks or report.orphan_chunks:
+        lines.append("")
+        lines.append("No anomaly signal fires, but the chunk integrity counts above are not zero.")
     else:
         lines.append("")
         lines.append("All anomaly signals are clean.")

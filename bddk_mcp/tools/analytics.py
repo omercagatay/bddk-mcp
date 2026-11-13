@@ -6,7 +6,13 @@ import logging
 from typing import TYPE_CHECKING
 
 from bddk_mcp.core.config import validate_column, validate_currency, validate_metric_id
-from bddk_mcp.observability.analytics import analyze_trends, build_digest, compare_metrics
+from bddk_mcp.observability.analytics import (
+    PCT_UNAVAILABLE_TEXT,
+    REASON_INSUFFICIENT_DATA,
+    analyze_trends,
+    build_digest,
+    compare_metrics,
+)
 from bddk_mcp.tools.contract_types import (
     BulletinColumn,
     HistoryDays,
@@ -17,7 +23,7 @@ from bddk_mcp.tools.contract_types import (
     WeeklyCurrency,
     parse_metric_ids,
 )
-from bddk_mcp.tools.errors import INVALID_INPUT, UPSTREAM_FETCH_FAILED, tool_error
+from bddk_mcp.tools.errors import INSUFFICIENT_DATA, INVALID_INPUT, UPSTREAM_FETCH_FAILED, tool_error
 from bddk_mcp.tools.structured_outputs import frame_untrusted_source
 from bddk_mcp.tools.tool_logging import logged_tool
 
@@ -60,6 +66,13 @@ def register(mcp, deps: Dependencies) -> None:
 
         result = await analyze_trends(deps.http, metric_id, currency, column, lookback_weeks)
 
+        if result.get("reason") == REASON_INSUFFICIENT_DATA:
+            return tool_error(
+                INSUFFICIENT_DATA,
+                f"Trend analysis needs at least 2 observations in the lookback window. {result['error']}",
+                retryable=False,
+                hint="Increase lookback_weeks or choose another metric; retrying the same request will not help.",
+            )
         if "error" in result:
             return tool_error(
                 UPSTREAM_FETCH_FAILED,
@@ -73,7 +86,10 @@ def register(mcp, deps: Dependencies) -> None:
         lines.append("")
         lines.append(f"  Güncel ({result['current_date']}): {result['current']:,.2f}")
         lines.append(f"  Önceki ({result['previous_date']}): {result['previous']:,.2f}")
-        lines.append(f"  Haftalık değişim: {result['wow_change']:+,.2f} (%{result['wow_pct']:+.2f})")
+        if result["wow_pct"] is None:
+            lines.append(f"  Haftalık değişim: {result['wow_change']:+,.2f} ({PCT_UNAVAILABLE_TEXT})")
+        else:
+            lines.append(f"  Haftalık değişim: {result['wow_change']:+,.2f} (%{result['wow_pct']:+.2f})")
         lines.append(f"  Dönem ortalaması: {result['avg']:,.2f}")
         lines.append(f"  Dönem min: {result['min']:,.2f} ({result['min_date']})")
         lines.append(f"  Dönem max: {result['max']:,.2f} ({result['max_date']})")
@@ -180,10 +196,18 @@ def register(mcp, deps: Dependencies) -> None:
             f"{'Metrik':<55} {'Güncel':>15} {'Haftalık %':>12}",
             "-" * 85,
         ]
+        pct_missing = False
         for m in result["metrics"]:
-            if "error" in m:
+            if m.get("reason") == REASON_INSUFFICIENT_DATA:
+                lines.append(f"{m['metric_id']:<55} {'YETERSİZ VERİ':>15} {'-':>12}  {m['error']}")
+            elif "error" in m:
                 lines.append(f"{m['metric_id']:<55} {'HATA':>15} {'-':>12}")
+            elif m["wow_pct"] is None:
+                pct_missing = True
+                lines.append(f"{m['title'][:55]:<55} {m['current']:>15,.2f} {'n/a':>12}")
             else:
                 lines.append(f"{m['title'][:55]:<55} {m['current']:>15,.2f} {m['wow_pct']:>+11.2f}%")
+        if pct_missing:
+            lines.append(f"n/a: {PCT_UNAVAILABLE_TEXT}")
 
         return frame_untrusted_source("\n".join(lines))

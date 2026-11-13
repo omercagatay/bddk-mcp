@@ -9,6 +9,7 @@ import pytest
 
 from bddk_mcp.quality.markdown_quality import (
     _REVIEWED_INTERNAL_FORMULA_REFS,
+    MOJIBAKE_RE,
     QUALITY_ASSESSMENT_POLICY_VERSION,
     assess_markdown_quality,
     load_quality_failure_registry,
@@ -16,6 +17,7 @@ from bddk_mcp.quality.markdown_quality import (
     prepare_markdown_for_storage,
     sanitize_markdown_for_context,
     sanitize_markdown_for_storage,
+    unsafe_verbatim_reason,
 )
 
 
@@ -71,6 +73,22 @@ def test_storage_sanitizer_repairs_ocr_doubled_uppercase_headings():
     out = sanitize_markdown_for_storage(raw)
 
     assert out == "BANKACILIK DÜZENLEME VE DENETLEME KURUMU"
+    # Only the reviewed letterhead words are repaired; any other doubled initial is left as extracted.
+    assert sanitize_markdown_for_storage("AAOIFI SSTANDARTLARI") == "AAOIFI SSTANDARTLARI"
+    assert sanitize_markdown_for_storage("BBANKACILIKLA KKURUMUN") == "BBANKACILIKLA KKURUMUN"
+
+
+def test_storage_sanitizer_keeps_doubled_leading_letters_of_acronyms_and_placeholders():
+    for raw in (
+        "Katılım bankaları AAOIFI standartlarına\u00a0uyar.",
+        "LLOYD sigorta poliçesi\u00a0hakkında",
+        "tarihli ve XXXXX sayılı Resmî Gazete\u00a0ile",
+        "AAOIFI ve LLOYD\u00a0anılır",
+        "AAOIFI VE LLOYD\u00a0STANDARTLARI",
+    ):
+        out = sanitize_markdown_for_storage(raw)
+        assert out == raw.replace("\u00a0", " ")
+        assert prepare_markdown_for_storage(raw) == out
 
 
 def test_context_sanitizer_removes_unsafe_embedded_blobs_and_raw_html():
@@ -411,3 +429,32 @@ def test_source_identifier_exceptions_do_not_hide_concatenated_prose(text):
     result = assess_markdown_quality(text)
     assert result.counts["camelcase_concat"] > 0
     assert result.label == "warning"
+
+
+def test_any_cid_marker_makes_the_document_at_least_warning_like_the_verbatim_refusal():
+    text = "Madde 1 - Metin cid:12 devam eder. " * 3
+    result = assess_markdown_quality(text)
+
+    assert result.label == "warning"
+    assert "cid_marker" in result.flags
+    assert unsafe_verbatim_reason(text) == "cid_marker"
+    assert assess_markdown_quality("Madde 1 - Temiz metin.").label == "clean"
+
+
+def test_double_encoded_turkish_text_is_a_warning():
+    garbled = "Bankalarýn kredi iÃ§in ÅŸartlarÄ± ve â€“ deÄŸerlendirme"
+    result = assess_markdown_quality("Madde 1 - " + garbled)
+
+    assert result.label == "warning"
+    assert "mojibake" in result.flags
+    assert result.counts["mojibake"] >= 4
+    # Latin-1 / ISO-8859-9 readings carry C1 bytes; cp1252 readings of Ğ and curly quotes also count.
+    for forms in (
+        "Yönetmeliğin amacı şirketlerin".encode().decode("iso-8859-9"),
+        "ĞÖÜÇŞ".encode().decode("latin-1"),
+        "‘tırnak’ …".encode().decode("cp1252", errors="ignore"),
+        "Ğ".encode().decode("cp1252", errors="ignore"),
+    ):
+        assert MOJIBAKE_RE.search(forms), forms
+    assert len(MOJIBAKE_RE.findall("Yönetmeliğin amacı şirketlerin".encode().decode("iso-8859-9"))) == 4
+    assert assess_markdown_quality("Madde 1 - Bankaların kredi için şartları – değerlendirme").label == "clean"

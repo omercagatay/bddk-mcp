@@ -119,9 +119,8 @@ async def test_prefixed_id_does_not_get_expanded():
     "method,expected",
     [
         ("lightocr", True),
-        ("chandra2", True),
         ("mevzuat_pdf+lightocr", True),
-        ("cached_pdf+chandra2", True),
+        ("cached_pdf+pp_structure", True),
         ("manual_latex", True),
         ("html_parser+manual_latex", True),
         ("markitdown", False),
@@ -464,6 +463,9 @@ async def test_a_real_page_mentioning_invalid_page_is_returned():
 async def test_empty_document_history_explains_that_only_replaced_bodies_are_listed():
     mcp = MagicMock()
     doc_store = MagicMock()
+    doc_store.get_current_body = AsyncMock(
+        return_value={"content_hash": "d" * 64, "content_length": 5, "downloaded_at": None, "extraction_method": ""}
+    )
     doc_store.get_document_history = AsyncMock(return_value=[])
     register(mcp, Dependencies(db=None, doc_store=doc_store, client=None, http=None))
     tool = next(
@@ -472,4 +474,292 @@ async def test_empty_document_history_explains_that_only_replaced_bodies_are_lis
     result = await tool("943")
     assert result.structuredContent["status"] == "no_results"
     assert "No version history found for document 943." in result.text
-    assert "current body is not listed" in result.text
+    assert "Current stored body (not a version)" in result.text
+    assert result.structuredContent["versions"] == []
+    assert result.structuredContent["current_body"]["content_hash"] == "d" * 64
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("category", "marker"),
+    [("Mülga Düzenleme", "MÜLGA (repealed)"), ("Düzenleme Taslağı", "TASLAK (draft)"), ("Yönetmelik", None)],
+)
+async def test_get_bddk_document_marks_repealed_and_draft_documents(category, marker):
+    from bddk_mcp.core.models import BddkDecisionSummary
+
+    page = DocumentPage(document_id="1230", title="4389 sayılı Bankalar Kanunu", markdown_content="MADDE 1 - Metin.")
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(return_value=page)
+    client = MagicMock()
+    client.find_by_id = MagicMock(
+        return_value=BddkDecisionSummary(
+            title="4389 sayılı Bankalar Kanunu", document_id="1230", content="", category=category
+        )
+    )
+    deps = _make_deps(doc_store=doc_store, client=client)
+
+    out = await _capture_get_bddk_document(deps)("1230")
+
+    if marker is None:
+        assert "Document status:" not in out.text
+    else:
+        assert f"- Document status: BDDK catalog class: {marker}" in out.text
+        assert any(marker in warning for warning in out.structuredContent["warnings"])
+
+
+@pytest.mark.asyncio
+async def test_get_bddk_document_states_the_utc_source_date_and_the_body_hash(doc_store, monkeypatch):
+    import hashlib
+    import time as _time
+
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    monkeypatch.setenv("TZ", "Pacific/Kiritimati")
+    _time.tzset()
+    try:
+        body = "MADDE 1 - Kredi riski için asgari sermaye oranı belirlenir.\n"
+        await doc_store.store_document(
+            StoredDocument(document_id="1291", title="Rehber", markdown_content=body, downloaded_at=1775691000.0)
+        )
+        deps = Dependencies(db=None, doc_store=doc_store, client=MagicMock(), http=None)
+        deps.client.find_by_id = MagicMock(return_value=None)
+
+        out = await _capture_get_bddk_document(deps)("1291")
+    finally:
+        monkeypatch.undo()
+        _time.tzset()
+
+    assert (
+        "- Text obtained from the source on: 2026-04-08 (UTC download date; not a statement that the text is current)"
+    ) in out.text
+    evidence = out.structuredContent["evidence"][0]
+    assert evidence["source_downloaded_on"] == "2026-04-08"
+    assert evidence["content_hash"] == hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+def _history_tool(deps: Dependencies):
+    mcp = MagicMock()
+    register(mcp, deps)
+    return next(
+        call.args[0] for call in mcp.tool.return_value.call_args_list if call.args[0].__name__ == "get_document_history"
+    )
+
+
+@pytest.mark.asyncio
+async def test_document_history_of_an_unknown_id_is_not_found(doc_store):
+    with pytest.raises(ToolError, match="NOT_FOUND"):
+        await _history_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None))("no-such-doc")
+
+
+@pytest.mark.asyncio
+async def test_document_history_is_framed_as_a_local_text_change_log_not_amendment_history(doc_store, monkeypatch):
+    import hashlib
+    import time as _time
+
+    from bddk_mcp.store.doc_store import StoredDocument
+    from bddk_mcp.tools.structured_outputs import SOURCE_DATA_BEGIN
+
+    first = StoredDocument(document_id="mevzuat_21192", title="Y", markdown_content="MADDE 1 - Eski metin.\n")
+    first.downloaded_at = 1775667192.0
+    await doc_store.store_document(first)
+    replaced_at = 1775691000.0  # 2026-04-08 23:30 UTC, already 2026-04-09 in UTC+14
+    monkeypatch.setattr("bddk_mcp.store.doc_store.time.time", lambda: replaced_at)
+    second = StoredDocument(
+        document_id="mevzuat_21192",
+        title="Y",
+        markdown_content="MADDE 1 - Yeni metin.\n",
+        downloaded_at=replaced_at,
+        extraction_method="manual",
+    )
+    await doc_store.store_document(second)
+    monkeypatch.undo()
+    monkeypatch.setenv("TZ", "Pacific/Kiritimati")
+    _time.tzset()
+    try:
+        result = await _history_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None))("21192")
+    finally:
+        monkeypatch.undo()
+        _time.tzset()
+
+    text = result.text
+    assert text.startswith("This is the local text-change log of this corpus file")
+    assert "not the legal amendment history" in text.split(SOURCE_DATA_BEGIN)[0]
+    assert "mevzuat.gov.tr / Resmî Gazete" in text.split(SOURCE_DATA_BEGIN)[0]
+    assert "Resolved from: `21192` -> `mevzuat_21192`" in text
+    assert "v1 — replaced on 2026-04-08 23:30 UTC" in text
+    current_hash = hashlib.sha256(b"MADDE 1 - Yeni metin.\n").hexdigest()
+    assert f"hash {current_hash[:12]}..." in text
+    assert "text obtained from the source on: 2026-04-08 (UTC download date" in text
+    structured = result.structuredContent
+    assert structured["resolved_document_id"] == "mevzuat_21192"
+    assert structured["current_body"] == {
+        "content_hash": current_hash,
+        "content_length": len("MADDE 1 - Yeni metin.\n"),
+        "source_downloaded_on": "2026-04-08",
+        "extraction_method": "manual",
+    }
+    assert [v["synced_at"] for v in structured["versions"]] == ["2026-04-08 23:30 UTC"]
+    assert current_hash not in {v["content_hash"] for v in structured["versions"]}
+
+
+def _paged_store(pages: list[str]) -> MagicMock:
+    async def fake_get_page(doc_id, page_number):
+        return DocumentPage(
+            document_id=doc_id,
+            title="Formül Rehberi",
+            markdown_content=pages[page_number - 1],
+            page_number=page_number,
+            total_pages=len(pages),
+            extraction_method="manual_latex",
+        )
+
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(side_effect=fake_get_page)
+    return doc_store
+
+
+@pytest.mark.asyncio
+async def test_header_states_fixed_page_windows_and_separator_lines():
+    from bddk_mcp.core.config import PAGE_SIZE
+
+    tool = _capture_get_bddk_document(_make_deps(doc_store=_paged_store(["a\n", "b\n"])))
+
+    single = await tool("1240", 1, 1)
+    multi = await tool("1240", 1, 2)
+
+    for out in (single, multi):
+        assert f"Pages are fixed windows of {PAGE_SIZE:,} characters" in out.text
+        assert "inside a word, a table row or a formula" in out.text
+        assert "wrapping" not in out.text
+    assert "tool separators" not in single.text
+    assert "'---' and '### Page N/T' lines are tool separators between pages, not source text" in multi.text
+
+
+@pytest.mark.asyncio
+async def test_page_ending_inside_a_formula_or_table_row_is_warned():
+    pages = ["Giriş\n$$\n\\text{İKÇ} = \\ln\\left(\\ex", "p(1)\n$$\n| a | b |\n| 1 | 2", "| 3 | 4 |\nson\n"]
+    tool = _capture_get_bddk_document(_make_deps(doc_store=_paged_store(pages)))
+
+    first = await tool("1240", 1, 1)
+    second = await tool("1240", 2, 1)
+
+    assert "Page 1 has an odd number of $$ formula delimiters" in first.text
+    assert any("Page 1 has an odd number of $$" in w for w in first.structuredContent["warnings"])
+    # Page 1 has no previous page; its only neighbour is page 2.
+    assert "Retrieve page(s) 2 as well" in first.text
+    # Page 2 only closes the formula begun on page 1: the cut is at its start, so the advice must not
+    # claim the formula continues on page 3; parity alone cannot tell the direction, so both neighbours.
+    assert "Page 2 has an odd number of $$ formula delimiters" in second.text
+    assert "cut at the start or the end of this page" in second.text
+    assert "Retrieve page(s) 1 and 3 as well" in second.text
+    # The table row really is an end-of-page cut, so it names the next page.
+    assert "Page 2 ends inside a table row that continues on the next page" in second.text
+    assert "Retrieve page 3 as well before quoting that row" in second.text
+
+
+@pytest.mark.asyncio
+async def test_cut_advice_does_not_ask_for_a_page_already_in_the_response():
+    pages = ["Giriş\n$$\n\\text{İKÇ} = \\ln\\left(\\ex", "p(1)\n$$\n| a | b |\n| 1 | 2", "| 3 | 4 |\nson\n"]
+    tool = _capture_get_bddk_document(_make_deps(doc_store=_paged_store(pages)))
+
+    result = await tool("1240", 1, 3)
+
+    assert "Retrieve page" not in result.text
+    assert "Read the adjacent page(s) in this response" in result.text
+    assert "Its continuation is at the start of page 3 in this response" in result.text
+
+
+@pytest.mark.asyncio
+async def test_last_page_and_clean_boundaries_get_no_cut_warning():
+    pages = ["MADDE 1 - Metin.\n| a | b |\n", "Son $$ formül"]
+    tool = _capture_get_bddk_document(_make_deps(doc_store=_paged_store(pages)))
+
+    first = await tool("1240", 1, 1)
+    last = await tool("1240", 2, 1)
+
+    assert "formula delimiters" not in first.text and "table row that continues" not in first.text
+    assert "formula delimiters" not in last.text
+
+
+def _documents_server(doc_store) -> object:
+    from mcp.server.fastmcp import FastMCP
+
+    server = FastMCP("documents-contract-tests")
+    deps = _make_deps(doc_store=doc_store)
+    register(server, deps)
+    return server
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {"document_id": "1291", "page_number": True},
+        {"document_id": "1291", "page_number": "2"},
+        {"document_id": "1291", "max_pages": True},
+        {"document_id": "1291", "max_pages": 6},
+        {"document_id": "a.b"},
+        {"document_id": "x" * 65},
+    ],
+)
+async def test_document_arguments_use_the_strict_shared_contract_types(arguments):
+    from mcp.shared.memory import create_connected_server_and_client_session
+
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(return_value=None)
+    async with create_connected_server_and_client_session(_documents_server(doc_store)) as session:
+        result = await session.call_tool("get_bddk_document", arguments)
+
+    assert result.isError is True
+    assert "[ERROR:INVALID_INPUT]" in result.content[0].text
+    doc_store.get_document_page.assert_not_awaited()
+
+
+def test_every_seeded_document_id_satisfies_the_document_id_contract():
+    import json
+    from pathlib import Path
+
+    from pydantic import TypeAdapter
+
+    from bddk_mcp.tools.contract_types import DocumentId
+
+    seed = Path(__file__).resolve().parents[1] / "seed_data" / "documents.json"
+    if not seed.is_file():
+        pytest.skip("seed_data/documents.json is not present")
+    documents = json.loads(seed.read_text(encoding="utf-8"))
+    adapter = TypeAdapter(DocumentId)
+    for document in documents:
+        assert adapter.validate_python(document["document_id"]) == document["document_id"]
+
+
+@pytest.mark.asyncio
+async def test_status_mark_falls_back_to_the_stored_page_category_without_a_catalog_row():
+    page = DocumentPage(
+        document_id="1100",
+        title="Eski Yönetmelik",
+        markdown_content="MADDE 1 - Metin.\n",
+        category="Mülga Düzenleme",
+    )
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(return_value=page)
+    deps = _make_deps(doc_store=doc_store)
+    assert deps.client.find_by_id("1100") is None
+
+    result = await _capture_get_bddk_document(deps)("1100", 1, 1)
+
+    assert "## Eski Yönetmelik\n" in result.text
+    assert result.structuredContent["title"] == "Eski Yönetmelik"
+    assert "- Category: Mülga Düzenleme" in result.text
+    assert "- Document status: BDDK catalog class: MÜLGA" in result.text
+    assert any("MÜLGA" in warning for warning in result.structuredContent["warnings"])
+    assert result.structuredContent["category"] == "Mülga Düzenleme"
+
+
+@pytest.mark.asyncio
+async def test_header_prints_the_combined_decision_line_only_when_stored():
+    tool = _capture_get_bddk_document(_make_deps(doc_store=_paged_store(["a\n"])))
+
+    result = await tool("1240", 1, 1)
+
+    assert "Decision date / number:" not in result.text
+    assert "- Decision Date:" not in result.text and "- Decision Number:" not in result.text

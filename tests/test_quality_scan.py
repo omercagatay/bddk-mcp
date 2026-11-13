@@ -148,7 +148,7 @@ async def seeded_quality_db(corpus_db):
         (
             "doc_formula_ok",
             "Article with formula $$x=y$$ and formül ref. " + "çğıöşü " * 120,
-            "chandra2",
+            "lightocr",
         ),
         ("doc_no_diacritics", "ASCII only text here no turkish letters at all " * 40, "glm_ocr"),
     ]
@@ -179,7 +179,7 @@ async def test_scan_quality_detects_all_seeded_anomalies(seeded_quality_db):
 
     assert report.total_documents == 12
     method_names = {m.method for m in report.methods}
-    assert {"markitdown", "html_parser", "chandra2", "glm_ocr"} <= method_names
+    assert {"markitdown", "html_parser", "lightocr", "glm_ocr"} <= method_names
 
     signals = {a.name: a for a in report.anomalies}
 
@@ -227,3 +227,36 @@ async def test_scan_quality_detects_all_seeded_anomalies(seeded_quality_db):
     assert findings["doc_formula_missing"].label == "warning"
     assert "formula_ref_without_latex_or_image" in findings["doc_formula_missing"].flags
     assert "doc_clean" not in findings
+
+
+def test_format_report_does_not_claim_all_clean_when_chunk_integrity_is_off():
+    for override in ({"docs_without_chunks": 3}, {"orphan_chunks": 2}):
+        out = format_report(_make_report(**override))
+        assert "All anomaly signals are clean." not in out
+        assert "chunk integrity" in out
+    assert "All anomaly signals are clean." in format_report(_make_report())
+
+
+@pytest.mark.asyncio
+async def test_scan_quality_flags_mojibake_and_aggregates_assessment_flags(corpus_db):
+    paragraph = "Bu paragraf iki kez geçer. " * 3
+    docs = [
+        ("doc_mojibake", "Madde 1 - Bu Yönetmeliğin amacı: YÃ¶netmeliÄŸin ÅŸartlarÄ± " * 15),
+        ("doc_dup", f"{paragraph}\n\nBaşka metin.\n\n{paragraph}\n\n" + "Bankalar risk yönetimi kurar. " * 20),
+    ]
+
+    def _seed(conn):
+        conn.executemany(
+            "INSERT INTO documents (document_id, title, markdown_content, extraction_method, content_hash)"
+            " VALUES (?, ?, ?, 'markitdown', 'x')",
+            [(doc_id, doc_id, content) for doc_id, content in docs],
+        )
+
+    await corpus_db.transaction(_seed)
+    report = await scan_quality(corpus_db)
+
+    signals = {a.name: a for a in report.anomalies}
+    assert signals["mojibake"].sample_doc_ids == ["doc_mojibake"]
+    assert report.signal_docs["mojibake"] == 1
+    assert report.signal_docs["duplicate_paragraphs"] == 1
+    assert "duplicate_paragraphs" in format_report(report)

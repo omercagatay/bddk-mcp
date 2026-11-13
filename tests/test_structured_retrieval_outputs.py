@@ -62,6 +62,14 @@ async def test_six_regulatory_retrieval_tools_publish_closed_versioned_output_sc
 async def test_official_client_validates_structured_no_result_contracts():
     doc_store = MagicMock()
     doc_store.get_document_history = AsyncMock(return_value=[])
+    doc_store.get_current_body = AsyncMock(
+        return_value={
+            "content_hash": "c" * 64,
+            "content_length": 10,
+            "downloaded_at": 1775667192.0,
+            "extraction_method": "manual",
+        }
+    )
     doc_store.get_document_section = AsyncMock(return_value=[])
     doc_store.search_document_sections = AsyncMock(return_value=[])
     client = MagicMock()
@@ -192,6 +200,14 @@ async def test_all_six_retrieval_text_fallbacks_frame_source_metadata_and_escape
             category=malicious_metadata,
         )
     )
+    doc_store.get_current_body = AsyncMock(
+        return_value={
+            "content_hash": "c" * 64,
+            "content_length": 10,
+            "downloaded_at": None,
+            "extraction_method": malicious_metadata,
+        }
+    )
     doc_store.get_document_history = AsyncMock(
         return_value=[
             {
@@ -255,3 +271,47 @@ async def test_all_six_retrieval_text_fallbacks_frame_source_metadata_and_escape
         assert injection not in text[end + len(SOURCE_DATA_END) :], name
         assert text.index("Corpus scope notice:") > end, name
         assert result.structuredContent["text"] == text, name
+
+
+@pytest.mark.parametrize(
+    ("category", "expected"),
+    [
+        ("Mülga Düzenleme", "MÜLGA (repealed)"),
+        ("MÜLGA DÜZENLEME", "MÜLGA (repealed)"),
+        ("mulga duzenleme", "MÜLGA (repealed)"),
+        ("Düzenleme Taslağı", "TASLAK (draft)"),
+        ("DÜZENLEME TASLAĞI", "TASLAK (draft)"),
+        ("Taslak", "TASLAK (draft)"),
+    ],
+)
+def test_document_status_notice_names_the_catalog_class_as_its_source(category, expected):
+    from bddk_mcp.tools.structured_outputs import document_status_notice
+
+    notice = document_status_notice(category)
+
+    assert notice is not None
+    assert notice.startswith("BDDK catalog class: ")
+    assert expected in notice
+    assert "in force" in notice
+
+
+@pytest.mark.parametrize("category", [None, "", "Yönetmelik", "Kurul Kararı", "Rehber", "BDDK Düzenlemesi"])
+def test_document_status_notice_is_none_for_other_catalog_classes(category):
+    from bddk_mcp.tools.structured_outputs import document_status_notice
+
+    assert document_status_notice(category) is None
+
+
+def test_output_schemas_never_call_verbatim_text_sanitized():
+    import json
+
+    from bddk_mcp.tools.structured_outputs import DocumentResponse, DocumentSectionResponse, SectionSearchResponse
+
+    for model in (DocumentResponse, DocumentSectionResponse, SectionSearchResponse):
+        schema = json.dumps(model.model_json_schema()).lower()
+        assert "sanitized" not in schema, model.__name__
+    defs = DocumentResponse.model_json_schema()["$defs"]
+    assert "no sanitization" in defs["DocumentPageContent"]["properties"]["content"]["description"]
+    quality = DocumentResponse.model_json_schema()["properties"]["quality"]
+    assert "whole stored document body" in json.dumps(quality)
+    assert "returned content" not in json.dumps(quality)

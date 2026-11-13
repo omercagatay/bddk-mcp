@@ -14,6 +14,7 @@ import bddk_mcp.ingest.doc_sync as doc_sync_module
 from bddk_mcp.ingest.doc_sync import (
     DocumentSyncer,
     UnsafeUpstreamResourceError,
+    _categorize_error,
     _decode_html,
     _extract_annex_zip_markdown,
     _extract_docx_text,
@@ -375,15 +376,70 @@ async def test_mevzuat_download_aborts_after_bounded_fetch_rejection():
 
 
 class TestDecodeHtml:
-    def test_does_not_silently_return_replacement_chars_in_body(self):
-        # Regression for stored mevzuat_* docs. Prior version checked
-        # only decoded[:500] for U+FFFD and would return utf-8 decoded
-        # content even when body bytes contained literal EF BF BD,
-        # baking replacement chars into the document store.
-        content = (b"A" * 600) + b"\xef\xbf\xbd test"
+    def test_literal_replacement_char_in_valid_utf8_is_kept_without_mojibake(self):
+        # Valid UTF-8 that carries a literal EF BF BD must stay UTF-8: switching the
+        # whole page to a Latin-5 decode would turn every Turkish letter into mojibake.
+        # The U+FFFD stays so the quality scan can flag it.
+        content = (b"A" * 600) + "\ufffd Yönetmeliğin işleyiş".encode()
         result = _decode_html(content)
 
-        assert "\ufffd" not in result
+        assert result == "A" * 600 + "\ufffd Yönetmeliğin işleyiş"
+        assert "Ã" not in result and "Ä" not in result and "Å" not in result
+
+    def test_stray_cp1254_byte_in_utf8_becomes_en_dash_and_turkish_survives(self):
+        content = b"<p>MADDE 1 " + b"\x96" + " Bu Yönetmeliğin amacı; şirketlerin işleyişi</p>".encode()
+        assert _decode_html(content) == "<p>MADDE 1 – Bu Yönetmeliğin amacı; şirketlerin işleyişi</p>"
+
+    def test_stray_bytes_outnumbering_turkish_letters_keep_utf8(self):
+        # A Word-pasted UTF-8 page with more stray smart quotes than Turkish letters.
+        content = "<p>Bankacılık Kanunu".encode() + b" \x93tasarruf\x94 \x93mevduat\x94 \x93kredi\x94 </p>"
+        result = _decode_html(content)
+        assert result == "<p>Bankacılık Kanunu “tasarruf” “mevduat” “kredi” </p>"
+        assert "Ä" not in result and "Å" not in result
+
+    def test_many_stray_en_dashes_keep_turkish_letters(self):
+        content = "Şirket ödemesi".encode() + b" \x96" * 6
+        result = _decode_html(content)
+        assert result == "Şirket ödemesi" + " –" * 6
+        assert "Ä" not in result and "Å" not in result and "Ã" not in result
+
+    def test_windows_1254_page_without_declaration_is_decoded_as_windows_1254(self):
+        text = "<p>MADDE 1 – Bu Yönetmeliğin amacı; şirketlerin işleyişi</p>"
+        assert _decode_html(text.encode("windows-1254")) == text
+
+    def test_meta_charset_decodes_bytes_that_are_not_utf8(self):
+        text = '<html><head><meta charset="iso-8859-9"></head><body>Şirket ığdır</body></html>'
+        assert _decode_html(text.encode("iso-8859-9")) == text
+
+    def test_http_charset_parameter_decodes_bytes_that_are_not_utf8(self):
+        text = "<p>Şirket ığdır ölçü</p>"
+        assert _decode_html(text.encode("windows-1254"), "windows-1254") == text
+        assert doc_sync_module._http_charset({"content-type": "text/html; charset=Windows-1254"}) == "Windows-1254"
+
+    @pytest.mark.parametrize("stray", [b"", b" \x96 "])
+    def test_utf8_bytes_win_over_a_wrong_single_byte_declaration(self, stray):
+        # A single-byte charset decodes any bytes, so a wrong declaration must not turn UTF-8 into mojibake.
+        text = '<meta charset="windows-1254"><p>Yönetmeliğin işleyişi</p>'
+        expected = text + stray.decode("windows-1254")
+        for http_charset in (None, "iso-8859-9"):
+            result = _decode_html(text.encode("utf-8") + stray, http_charset)
+            assert result == expected
+            assert "Ã" not in result and "Ä" not in result and "Å" not in result
+
+    def test_declared_charset_that_does_not_fit_falls_back_to_utf8(self):
+        text = '<meta charset="utf-8"><p>Yönetmelik</p>'
+        assert _decode_html(text.encode()) == text
+        assert _decode_html(text.encode(), "no-such-charset") == text
+
+    @pytest.mark.parametrize("codec", ["zlib", "hex", "base64", "rot13", "bz2", "uu"])
+    def test_declared_non_text_codec_is_ignored_and_falls_back_to_windows_1254(self, codec):
+        page = f'<html><head><meta charset="{codec}"></head><body>Ba'.encode() + b"\xfeka \x96 metin</body></html>"
+        expected = page.decode("windows-1254").translate(doc_sync_module._WIN1252_C1_MAP)
+        assert doc_sync_module._declared_charset(page, None) is None
+        assert doc_sync_module._declared_charset(page, codec) is None
+        assert _decode_html(page) == expected
+        assert _decode_html(page, codec) == expected
+        assert "Başka – metin" in expected
 
     def test_maps_c1_en_dash_to_real_en_dash(self):
         # SYSTEMIC-8. Mevzuat HTML sometimes carries a literal U+0096 (C1
@@ -851,6 +907,51 @@ async def test_mevzuat_download_prefers_iframe_when_html_first():
     assert pdf_idx == -1, f"static .pdf must not be tried before iframe; order={call_log}"
 
 
+_MEVZUAT_404_PAGE = (
+    "<html><body><h1>404 - Sayfa Bulunamadı</h1><p>Aradığınız sayfa bulunamadı.</p>"
+    + "<p>Ana sayfaya dönmek için tıklayınız.</p>" * 10
+    + "</body></html>"
+)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("error_layer", ["iframe", "div"])
+async def test_mevzuat_iframe_error_page_falls_through_to_generate_pdf(error_layer):
+    """An iframe (or main-page div) that serves an error page must not end the download."""
+    import httpx as _httpx
+
+    async with DocumentSyncer(
+        object(),
+        ocr_backends=[MarkitdownBackend()],
+        prefer_html_for_mevzuat=True,
+    ) as syncer:
+        call_log: list[str] = []
+        if error_layer == "iframe":
+            main_html = '<html><body><iframe src="/api/Mevzuat/42628/IframeDetay"></iframe></body></html>'
+        else:
+            main_html = f'<html><body><div id="divMevzuatMetni">{_MEVZUAT_404_PAGE}</div></body></html>'
+        pdf_bytes = b"%PDF-1.4\n" + b"x" * 1000
+
+        async def fake_get(url, **_kwargs):
+            call_log.append(url)
+            if "mevzuat?MevzuatNo=42628" in url:
+                return SimpleNamespace(status_code=200, content=main_html.encode(), headers={})
+            if "IframeDetay" in url:
+                return SimpleNamespace(status_code=200, content=_MEVZUAT_404_PAGE.encode(), headers={})
+            if "GeneratePdf" in url:
+                return SimpleNamespace(status_code=200, content=pdf_bytes, headers={})
+            return SimpleNamespace(status_code=404, content=b"", headers={})
+
+        syncer._http = AsyncMock(spec=_httpx.AsyncClient)
+        syncer._fetch_trusted_mevzuat = AsyncMock(side_effect=fake_get)
+
+        content, method, ext = await syncer._download_mevzuat("mevzuat_42628")
+
+    assert method == "mevzuat_generate_pdf"
+    assert ext == ".pdf"
+    assert content == pdf_bytes
+
+
 @pytest.mark.asyncio
 async def test_mevzuat_iframe_download_appends_docx_annex_zip_when_present():
     """HTML-first mevzuat downloads should merge docx annex formulas linked from the iframe."""
@@ -898,7 +999,14 @@ async def test_mevzuat_iframe_download_appends_docx_annex_zip_when_present():
 
     assert method == "mevzuat_iframe+annex_zip"
     assert ext == ".html"
-    assert "Yüksek Kaliteli Likit Varlık Stoku".encode() in content
+    # The merged bytes must survive the real HTML extraction: the annex goes inside <body>
+    # and its <pre> lines stay separate lines.
+    extraction = syncer._extract_structured(content, ext)
+    assert extraction.method == "html_parser"
+    lines = extraction.content.splitlines()
+    assert "Yüksek Kaliteli Likit Varlık Stoku = Birinci Kalite + 2A + 2B" in lines
+    assert "EK:3" in lines
+    assert lines.index("EK:3") + 1 == lines.index("Yüksek Kaliteli Likit Varlık Stoku = Birinci Kalite + 2A + 2B")
 
 
 def _build_minimal_docx(*, document_xml: str) -> bytes:
@@ -1165,3 +1273,97 @@ async def test_extraction_yields_serializes_and_finishes_before_cancellation(mon
         assert len(calls) == 2
         store.store_document.assert_awaited_once()
         assert store.store_document.await_args.args[0].document_id == "2"
+
+
+async def _failure_row(store, doc_id):
+    row = await store.db.run(
+        lambda conn: conn.execute("SELECT * FROM sync_failures WHERE document_id = ?", (doc_id,)).fetchone()
+    )
+    return dict(row) if row is not None else None
+
+
+@pytest.mark.asyncio
+async def test_legacy_ole_doc_fails_with_clear_reason_and_records_failure(doc_store):
+    ole_doc = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 600
+    async with DocumentSyncer(doc_store, ocr_backends=[MarkitdownBackend()], http=MagicMock()) as syncer:
+        syncer._download_mevzuat = AsyncMock(return_value=(ole_doc, "mevzuat_doc", ".doc"))
+        result = await syncer.sync_document("mevzuat_1234", force=True)
+        report = await syncer.sync_all([{"document_id": "mevzuat_1234"}], concurrency=1, force=True)
+
+    assert result.success is False
+    assert result.document_id == "mevzuat_1234"
+    assert "legacy .doc is not supported" in result.error
+    assert await _failure_row(doc_store, "mevzuat_1234") is not None
+    assert not await doc_store.has_document("mevzuat_1234")
+    assert [e.document_id for e in report.errors] == ["mevzuat_1234"]
+
+
+@pytest.mark.asyncio
+async def test_unexpected_extraction_exception_is_recorded_for_the_document(doc_store, monkeypatch):
+    async with DocumentSyncer(doc_store, ocr_backends=[MarkitdownBackend()], http=MagicMock()) as syncer:
+        syncer._download_bddk = AsyncMock(return_value=(b"<html>x</html>", "bddk_direct", ".html"))
+
+        def boom(content, ext):
+            raise KeyError("parser state")
+
+        monkeypatch.setattr(syncer, "_extract", boom)
+        result = await syncer.sync_document("777", force=True)
+
+    assert result.success is False
+    assert result.document_id == "777"
+    assert result.error.startswith("Extraction failed")
+    assert await _failure_row(doc_store, "777") is not None
+
+
+def test_markitdown_exception_on_docx_is_a_failed_extraction(monkeypatch):
+    from markitdown import MarkItDown
+    from markitdown._exceptions import FileConversionException
+
+    def raise_conversion(self, *args, **kwargs):
+        raise FileConversionException("cannot convert")
+
+    monkeypatch.setattr(MarkItDown, "convert_stream", raise_conversion)
+    monkeypatch.setattr(doc_sync_module, "_validate_office_archive_for_markitdown", lambda content: None)
+    syncer = DocumentSyncer(object(), ocr_backends=[], http=MagicMock())
+    result = syncer._extract_structured(b"PK\x03\x04" + b"x" * 200, ".docx")
+    assert result.method == "failed"
+    assert result.error.startswith("markitdown:")
+
+
+def test_markitdown_exception_on_html_fallback_is_a_failed_extraction(monkeypatch):
+    from markitdown import MarkItDown
+    from markitdown._exceptions import UnsupportedFormatException
+
+    def raise_unsupported(self, *args, **kwargs):
+        raise UnsupportedFormatException("no converter")
+
+    monkeypatch.setattr(MarkItDown, "convert_stream", raise_unsupported)
+    syncer = DocumentSyncer(object(), ocr_backends=[], http=MagicMock())
+    result = syncer._extract_structured(b"<html><body></body></html>", ".html")
+    assert result.method == "failed"
+    assert "markitdown: no converter" in result.error
+
+
+def test_html_parser_error_falls_through_to_markitdown(monkeypatch):
+    def broken_parser(html_text):
+        raise ValueError("bad markup")
+
+    monkeypatch.setattr(doc_sync_module, "_extract_html_to_markdown", broken_parser)
+    syncer = DocumentSyncer(object(), ocr_backends=[], http=MagicMock())
+    result = syncer._extract_structured(
+        "<html><body><p>MADDE 1 – Bu Yönetmeliğin amacı bankaların iç sistemlerini düzenlemektir.</p></body></html>".encode(),
+        ".html",
+    )
+    assert result.method == "markitdown"
+    assert "MADDE 1" in result.content
+
+
+@pytest.mark.parametrize("doc_id", ["mevzuat_14036", "mevzuat_24045", "403", "404"])
+def test_categorize_error_ignores_status_digits_inside_the_document_id(doc_id):
+    message = f"All download methods failed for {doc_id} (tried tur values: ['7', '9'])"
+    assert _categorize_error(message, doc_id) == ("download", True)
+
+
+def test_categorize_error_still_reads_whole_status_tokens():
+    assert _categorize_error("HTTP 403 Forbidden for mevzuat_14036", "mevzuat_14036") == ("robots_txt", False)
+    assert _categorize_error("Client error '404 Not Found'", "mevzuat_24045") == ("extraction", False)

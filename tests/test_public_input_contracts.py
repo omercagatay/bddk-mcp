@@ -17,7 +17,7 @@ _PARAMETERS = {
     "search_bddk_institutions": {"keywords", "institution_type", "active_only"},
     "search_bddk_announcements": {"keywords", "category"},
     "search_document_store": {"query", "category", "limit"},
-    "get_document_section": {"document_id", "section_type", "section_ref", "heading", "quotation"},
+    "get_document_section": {"document_id", "section_type", "section_ref", "heading", "quotation", "start_char"},
     "search_document_sections": {"query", "document_id", "section_type", "limit"},
     "get_bddk_bulletin": {"metric_id", "currency", "column", "date", "days"},
     "get_bddk_bulletin_snapshot": set(),
@@ -70,6 +70,8 @@ async def test_tools_list_describes_every_public_parameter_and_important_bounds(
 
     regulations = schemas["search_bddk_regulations"]["properties"]
     assert regulations["keywords"]["maxLength"] == MAX_QUERY_LENGTH
+    assert "keywords" not in schemas["search_bddk_regulations"].get("required", [])
+    assert "browse mode" in regulations["keywords"]["description"]
     assert regulations["page"]["minimum"] == 1
     assert regulations["page_size"]["maximum"] == 50
     assert "Rehber" in _nonnull(regulations["category"])["enum"]
@@ -87,6 +89,9 @@ async def test_tools_list_describes_every_public_parameter_and_important_bounds(
     assert "govde" in _nonnull(section["section_type"])["enum"]
     assert any(item.get("pattern") for item in section["section_ref"]["anyOf"])
     assert _nonnull(section["quotation"])["maxLength"] == 2000
+    assert _nonnull(section["start_char"])["type"] == "integer"
+    assert _nonnull(section["start_char"])["minimum"] == 0
+    assert "not a citation" in section["start_char"]["description"]
 
     weekly = schemas["get_bddk_bulletin"]["properties"]
     assert weekly["metric_id"]["pattern"] == r"^\d+\.\d+\.\d+$"
@@ -126,6 +131,10 @@ async def test_tools_list_describes_every_public_parameter_and_important_bounds(
     [
         ("search_document_store", {"query": "PRIVATE_QUERY_" + "x" * MAX_QUERY_LENGTH}, "PRIVATE_QUERY_"),
         ("search_bddk_regulations", {"keywords": "kredi", "date_from": "31.02.2025"}, "31.02.2025"),
+        ("search_bddk_regulations", {}, None),
+        ("search_bddk_regulations", {"keywords": "   "}, None),
+        ("search_bddk_regulations", {"keywords": "..."}, None),
+        ("search_bddk_regulations", {"keywords": "()"}, None),
         (
             "search_bddk_regulations",
             {"keywords": "kredi", "date_from": "02.01.2025", "date_to": "01.01.2025"},
@@ -136,6 +145,9 @@ async def test_tools_list_describes_every_public_parameter_and_important_bounds(
         ("get_document_section", {"document_id": "../PRIVATE_PATH"}, "PRIVATE_PATH"),
         ("search_document_sections", {"query": "kredi", "section_type": "PRIVATE_SECTION"}, "PRIVATE_SECTION"),
         ("get_document_section", {"document_id": "6362", "section_ref": "31//PRIVATE"}, "PRIVATE"),
+        ("get_document_section", {"document_id": "6362", "start_char": -1}, None),
+        ("get_document_section", {"document_id": "6362", "start_char": "1275"}, None),
+        ("get_document_section", {"document_id": "6362", "start_char": True}, None),
         ("get_bddk_bulletin", {"days": 0}, None),
         ("get_bddk_monthly", {"party_code": "PRIVATE_PARTY"}, "PRIVATE_PARTY"),
         ("get_regulatory_digest", {"period": "PRIVATE_PERIOD"}, "PRIVATE_PERIOD"),
@@ -239,3 +251,21 @@ async def test_upstream_failure_details_are_not_exposed(tool_name, patch_target,
     assert "[ERROR:UPSTREAM_FETCH_FAILED] retryable=true" in text
     assert safe_fragment in text
     assert sentinel not in text
+
+
+@pytest.mark.asyncio
+async def test_catalog_search_accepts_empty_keywords_with_a_category_or_date_bound():
+    from bddk_mcp.core.models import BddkSearchResult
+
+    server, deps = _server()
+    deps.client.search_decisions = AsyncMock(return_value=BddkSearchResult(catalog_size=3))
+
+    async with create_connected_server_and_client_session(server) as session:
+        by_category = await session.call_tool("search_bddk_regulations", {"category": "rehber"})
+        by_date = await session.call_tool("search_bddk_regulations", {"keywords": "", "date_to": "01.01.2020"})
+
+    assert by_category.isError is False
+    assert by_date.isError is False
+    requests = [call.args[0] for call in deps.client.search_decisions.await_args_list]
+    assert [(r.keywords, r.category, r.date_to) for r in requests] == [("", "Rehber", None), ("", None, "01.01.2020")]
+    assert "this corpus catalog of 3 documents" in by_category.content[0].text

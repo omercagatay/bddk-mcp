@@ -34,14 +34,14 @@ Regulation and decision text comes from the locally published copy. Institution,
 
 ## Tools
 
-- `search_bddk_regulations`: searches titles and catalog metadata. It does not open article text.
+- `search_bddk_regulations`: searches titles and catalog metadata of this corpus catalog (it does not search the BDDK website); with empty keywords it can also list by category or date range. It does not open article text.
 - `search_document_store`: searches inside published text.
 - `search_bddk_institutions`: searches institutions and may call BDDK live.
-- `search_bddk_announcements`: searches announcements and may call BDDK live.
+- `search_bddk_announcements`: searches announcements and shows the newest 20; may call BDDK live.
 - `get_bddk_document`: returns a stored document page. If extraction left an unsafe artifact, it refuses instead of silently rewriting the text.
-- `get_document_history`: lists a document's earlier (replaced) bodies; the current body is not listed, and the list is empty until a sync or build replaces the text.
-- `get_document_section`: asks for an article (including inserted articles such as 66/A), a temporary or additional article, a principle, paragraph, annex, or lettered item (bent); with `quotation` it verifies the quote character for character against the stored text.
-- `search_document_sections`: searches section headings.
+- `get_document_history`: the local text-change log of this corpus file, not an amendment history. It lists earlier (replaced) bodies with UTC replacement times and reports the current body separately; the list is empty until a sync or build replaces the text. An id that is not stored gives `NOT_FOUND`.
+- `get_document_section`: asks for an article (including inserted articles such as 66/A), a temporary or additional article, a principle, paragraph, annex, or lettered item (bent); with `quotation` it verifies the quote character for character against the stored text. The optional `start_char` selects one of several sections with the same number by its start offset (valid only for this corpus file, not a citation). A provision stored in a capped window is reported with its true length; a quotation outside the stored window comes back as `unavailable`.
+- `search_document_sections`: searches section headings and bodies; it finds documents without article structure (for example Board decisions) through their full-text windows.
 - `get_bddk_bulletin`: weekly bulletin; may call live.
 - `get_bddk_bulletin_snapshot`: one dated bulletin view; may call live.
 - `get_bddk_monthly`: monthly bulletin; may call live.
@@ -49,7 +49,7 @@ Regulation and decision text comes from the locally published copy. Institution,
 - `get_regulatory_digest`: recent decisions, announcements, and bulletin summary. Decisions come from the local corpus catalog; the announcement and bulletin half may be live.
 - `compare_bulletin_metrics`: compares up to 4 bulletin metrics side by side; may call live.
 
-The server only reads: it opens the corpus file read-only. Preparing the corpus is separate: `bddk-mcp build` turns the documents in `seed_data/` into one SQLite corpus file with their sections, chunks and embeddings; `bddk-mcp sync` downloads documents from the source into the same file. Details: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+The server only reads: it opens the corpus file read-only. Preparing the corpus is separate: `bddk-mcp build` turns the documents in `seed_data/` into one SQLite corpus file with their sections, chunks and embeddings; `bddk-mcp sync` downloads documents from the source into the same file. `bddk-mcp info` describes a corpus file without changing it (version, content digest, counts, embedding model; exit code 1 when the file is not ready). Details: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Connecting an assistant
 

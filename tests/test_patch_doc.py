@@ -120,7 +120,7 @@ async def test_patch_document_aborts_when_doc_missing_from_seed(tmp_path, stores
     md = tmp_path / "body.md"
     md.write_text("new body\n", encoding="utf-8")
 
-    with pytest.raises(patch_doc.PatchError, match="not found in seed_data"):
+    with pytest.raises(patch_doc.PatchError, match="not found in .*documents.json"):
         await _patch(stores, seed_dir, md, dry_run=True)
 
 
@@ -289,3 +289,65 @@ def test_arg_parser_honors_flags():
     assert args.corpus == "other.sqlite"
     assert args.extraction_method == "html_parser"
     assert args.dry_run is True
+
+
+async def test_storage_markers_raise_before_anything_is_written(tmp_path, stores):
+    original_docs = [_seed_doc_entry(DOC_ID)]
+    seed_dir = _write_seed_dir(tmp_path, original_docs)
+    before = (seed_dir / "documents.json").read_bytes()
+    await stores[0].store_document(_stored_doc(DOC_ID))
+    md = tmp_path / "body.md"
+    md.write_text("Madde 1 - metin ****** devam\n", encoding="utf-8")
+
+    for dry_run in (True, False):
+        with pytest.raises(patch_doc.PatchError, match="storage markers"):
+            await _patch(stores, seed_dir, md, dry_run=dry_run)
+    assert (seed_dir / "documents.json").read_bytes() == before
+
+
+async def test_seed_is_written_in_canonical_format(tmp_path, stores):
+    seed_dir = _write_seed_dir(tmp_path, [_seed_doc_entry("mevzuat_99999"), _seed_doc_entry(DOC_ID)])
+    await stores[0].store_document(_stored_doc(DOC_ID))
+    md = tmp_path / "body.md"
+    md.write_text("new corrected body\n", encoding="utf-8")
+
+    result = await _patch(stores, seed_dir, md, dry_run=False)
+
+    assert result["seed_written"] is True
+    raw = (seed_dir / "documents.json").read_text(encoding="utf-8")
+    assert raw.endswith("]\n")
+    assert [d["document_id"] for d in json.loads(raw)] == sorted([DOC_ID, "mevzuat_99999"])
+
+
+async def test_no_seed_dir_leaves_seed_untouched(tmp_path, stores):
+    await stores[0].store_document(_stored_doc(DOC_ID))
+    md = tmp_path / "body.md"
+    md.write_text("new corrected body\n", encoding="utf-8")
+    doc_store, vector_store = stores
+
+    result = await patch_doc.patch_document(
+        doc_id=DOC_ID,
+        markdown_path=md,
+        extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
+        doc_store=doc_store,
+        vector_store=vector_store,
+        seed_dir=None,
+    )
+
+    assert result["seed_written"] is False
+    assert (await doc_store.get_document(DOC_ID)).markdown_content == "new corrected body\n"
+
+
+def test_resolve_seed_dir(tmp_path):
+    assert patch_doc._resolve_seed_dir(tmp_path, "other.sqlite") == tmp_path
+    assert patch_doc._resolve_seed_dir(None, "other.sqlite") is None
+    assert patch_doc._resolve_seed_dir(None, patch_doc.ROOT / "corpus" / "bddk.sqlite") == patch_doc.ROOT / "seed_data"
+
+
+def test_resolve_seed_dir_ignores_a_scratch_corpus_set_through_the_environment(tmp_path, monkeypatch):
+    scratch = tmp_path / "scratch.sqlite"
+    monkeypatch.setattr(patch_doc, "CORPUS_PATH", str(scratch))
+
+    assert patch_doc._resolve_seed_dir(None, patch_doc.CORPUS_PATH) is None
+    args = patch_doc._build_arg_parser().parse_args(["d", "--markdown", "b.md", "--seed-dir", str(tmp_path)])
+    assert args.seed_dir == tmp_path

@@ -48,12 +48,12 @@ def provisioned_gpu_ocr_lane() -> None:
             pytrace=False,
         )
 
-    for variable in ("BDDK_LIGHTOCR_MODEL_PATH", "BDDK_CHANDRA_MODEL"):
+    for variable in ("BDDK_LIGHTOCR_MODEL_PATH",):
         configured_path = os.environ.get(variable, "")
         if not configured_path or not Path(configured_path).is_dir():
             pytest.fail(f"Required GPU OCR lane needs {variable} to name a local model directory.", pytrace=False)
 
-    for package in ("chandra", "torch", "torchvision", "transformers"):
+    for package in ("torch", "torchvision", "transformers"):
         if importlib.util.find_spec(package) is None:
             pytest.fail(f"Required GPU OCR lane is missing the optional {package} package.", pytrace=False)
 

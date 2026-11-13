@@ -9,7 +9,7 @@ class BddkSearchRequest(BaseModel):
     Regulation and Supervision Agency.
     """
 
-    keywords: str = Field(..., description="Search keywords in Turkish")
+    keywords: str = Field(..., description="Search keywords in Turkish; empty lists the filtered catalog")
     page: int = Field(1, ge=1, description="Page number (1-indexed)")
     page_size: int = Field(10, ge=1, le=50, description="Results per page (1-50)")
     category: str | None = Field(None, description="Filter by category (e.g. 'Yönetmelik', 'Genelge', 'Kurul Kararı')")
@@ -39,3 +39,11 @@ class BddkSearchResult(BaseModel):
     total_results: int = Field(0, description="Total number of results")
     page: int = Field(1, description="Current page number")
     page_size: int = Field(10, description="Results per page")
+    catalog_size: int | None = Field(None, description="Number of in-scope entries in the searched corpus catalog")
+    undated_excluded: int = Field(
+        0,
+        description=(
+            "Catalog entries that passed the other filters but were not considered by the date filter "
+            "because they have no parseable decision date"
+        ),
+    )
