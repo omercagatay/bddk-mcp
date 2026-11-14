@@ -1469,6 +1469,64 @@ class TestSearchHonesty:
         assert top["semantic_relevance"] == 0.95
         assert below["relevance_clamped"] is False
 
+    def test_adjacent_dated_decisions_at_the_ceiling_are_listed_newest_first(self):
+        from bddk_mcp.store.vector_store import _newest_first_among_clamped_decisions
+
+        def hit(doc_id: str, date: str, clamped: bool = True) -> dict:
+            return {"doc_id": doc_id, "decision_date": date, "relevance_clamped": clamped}
+
+        hits = [
+            hit("d2020", "10.01.2020"),
+            hit("d2022", "05.05.2022"),
+            hit("law", ""),
+            hit("d2021", "01.03.2021"),
+            hit("same_a", "26.09.2024"),
+            hit("same_b", "26.09.2024"),
+            hit("unparseable", "2024-09-26"),
+            hit("d2025", "01.01.2025"),
+            hit("below_2026", "01.01.2026", clamped=False),
+            hit("below_2027", "01.01.2027", clamped=False),
+        ]
+
+        assert [h["doc_id"] for h in _newest_first_among_clamped_decisions(hits)] == [
+            "d2022",
+            "d2020",
+            "law",
+            "same_a",
+            "same_b",
+            "d2021",
+            "unparseable",
+            "d2025",
+            "below_2026",
+            "below_2027",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_the_date_order_is_applied_before_the_limit(self):
+        vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = "intfloat/multilingual-e5-base"
+        dates = {"old": "30.03.2020", "mid": "09.06.2022", "new": "26.09.2024"}
+        cosines = {"old": 0.99, "mid": 0.98, "new": 0.97}
+        vs._vector_search = AsyncMock(
+            return_value=[
+                {"doc_id": d, "relevance": c, "title": d, "snippet": d, "decision_date": dates[d]}
+                for d, c in cosines.items()
+            ]
+        )
+        vs._fts_search = AsyncMock(
+            return_value=[
+                {"doc_id": d, "fts_rank": 1.0, "title": d, "snippet": d, "fts_relaxed": False} for d in cosines
+            ]
+        )
+
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", None):
+            everything = await vs._hybrid_search("kredi kartı", limit=10)
+            top_two = await vs._hybrid_search("kredi kartı", limit=2)
+
+        assert all(h["relevance_clamped"] for h in everything)
+        assert [h["doc_id"] for h in everything] == ["new", "mid", "old"]
+        assert [h["doc_id"] for h in top_two] == ["new", "mid"]
+
     @pytest.mark.asyncio
     async def test_a_query_of_function_words_only_is_not_searched(self, vector_store, doc_store):
         await _store_and_index(vector_store, doc_store, doc_id="d1", title="T", content="ve ile bir bu da de için")

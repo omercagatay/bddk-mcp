@@ -779,6 +779,9 @@ Suggest the user try: different keywords or a different category (basın, mevzua
         For title-only catalog lookups (where you know words from the regulation's
         name), use search_bddk_regulations instead.
 
+        Hits at the calibration ceiling (100%) tie on the shown relevance; adjacent dated
+        decisions among them are listed newest first.
+
         For legal or audit questions, use a section-first workflow and treat these
         document-level results as leads.
         Prefer search_document_sections or get_document_section for exact articles,
@@ -911,7 +914,7 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
                 match_strength = _match_strength(h["relevance"])
                 relevance = (
                     f" [{match_strength} match, relevance at the calibration ceiling (100%); tied hits are ordered "
-                    "by the internal score]"
+                    "by the internal score, adjacent dated decisions among them newest first]"
                 )
             else:
                 match_strength = _match_strength(h["relevance"])

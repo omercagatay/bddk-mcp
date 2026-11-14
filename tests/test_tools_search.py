@@ -1171,8 +1171,8 @@ async def test_a_clamped_relevance_is_shown_as_the_calibration_ceiling_and_snipp
 
     assert "100.0%" not in result.text
     assert (
-        "[strong match, relevance at the calibration ceiling (100%); tied hits are ordered by the internal score]"
-        in (result.text)
+        "[strong match, relevance at the calibration ceiling (100%); tied hits are ordered by the internal score, "
+        "adjacent dated decisions among them newest first]" in (result.text)
     )
     assert "[strong match, relevance 80.0%]" in result.text
     assert f"\n  {'x' * 200}...\n" in result.text

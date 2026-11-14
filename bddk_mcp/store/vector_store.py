@@ -13,6 +13,7 @@ Architecture:
 from __future__ import annotations
 
 import asyncio
+import datetime
 import hashlib
 import logging
 import re
@@ -21,6 +22,7 @@ import threading
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
+from itertools import groupby
 
 import numpy as np
 
@@ -909,6 +911,30 @@ def _keyword_only_hits(fts_hits: list[dict], shown_doc_ids: set[str]) -> list[di
     return sorted(hits, key=lambda h: h.get("fts_rank", 0.0), reverse=True)
 
 
+def _decision_day(hit: dict) -> datetime.date | None:
+    """The stored decision date (DD.MM.YYYY) of a hit, or None when it has none or another form."""
+    try:
+        return datetime.datetime.strptime(str(hit.get("decision_date") or ""), "%d.%m.%Y").date()
+    except ValueError:
+        return None
+
+
+def _newest_first_among_clamped_decisions(hits: list[dict]) -> list[dict]:
+    """Each run of adjacent hits at the calibration ceiling that carry a decision date, newest first.
+
+    Hits at the ceiling tie on the shown relevance; for successive Board decisions on one subject the
+    newest comes first (the same date keeps the ordering-score order). Every other hit, an undated one at
+    the ceiling included, keeps its place, so no decision moves past it.
+    """
+    ordered: list[dict] = []
+    for movable, group in groupby(
+        hits, key=lambda h: bool(h.get("relevance_clamped")) and _decision_day(h) is not None
+    ):
+        run = list(group)
+        ordered += sorted(run, key=_decision_day, reverse=True) if movable else run
+    return ordered
+
+
 def _quality_metadata(text: str, doc_id: str) -> dict:
     quality = assess_markdown_quality(text or "", document_id=doc_id)
     return {"quality_label": quality.label, "quality_flags": quality.flags}
@@ -1670,8 +1696,9 @@ class VectorStore:
         for hit in fused:
             ordering_score = round(hit.get("relevance", 0.0), _SCORE_DECIMAL_PLACES)
             hit["ordering_score"] = ordering_score
-            # At the ceiling the displayed value is clamped: hits there tie at 1.0 and are
-            # ordered by the ordering score, which the displayed value no longer shows.
+            # At the ceiling the displayed value is clamped: hits there tie at 1.0 and are ordered by
+            # the ordering score, which the displayed value no longer shows, except that adjacent dated
+            # decisions among them are listed newest first (_newest_first_among_clamped_decisions).
             hit["relevance_clamped"] = gate_factor == 1.0 and ordering_score >= calibration.ceiling
             hit["relevance"] = round(
                 displayed_relevance(ordering_score, calibration) * gate_factor, _SCORE_DECIMAL_PLACES
@@ -1707,7 +1734,7 @@ class VectorStore:
         # remaining strong and moderate hits come first, then the keyword-only hits, then the weak
         # semantic hits in their order.
         listed = {h["doc_id"] for h in head + rest}
-        fused = (
+        fused = _newest_first_among_clamped_decisions(
             head
             + [h for h in rest if _shown_as_strong_or_moderate(h)]
             + _keyword_only_hits(keyword_candidates, listed)
