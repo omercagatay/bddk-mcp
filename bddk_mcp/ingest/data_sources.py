@@ -187,8 +187,10 @@ def _parse_card_institutions(soup: BeautifulSoup, inst_type: str) -> list[dict]:
                 name = name.replace(link.get_text(strip=True), "")
             name = re.sub(r"\s*Detay\s*$", "", name).strip()
             name = re.sub(r"^\d+\.\s*", "", name).strip()
+            # The live page writes the marker as a "(Dijital Banka)" suffix; older
+            # pages put "Dijital Banka" before the name. Remove it with its brackets.
             is_digital = "Dijital Banka" in name
-            name = name.replace("Dijital Banka", "").strip()
+            name = re.sub(r"\s*\(?\s*Dijital Banka\s*\)?\s*", " ", name).strip()
 
             if not name or len(name) < 3:
                 continue
@@ -326,6 +328,96 @@ async def fetch_institutions_with_status(
 
 # -- Weekly Bulletin Data -------------------------------------------------
 
+# Commonly asked weekly metric ids with BDDK's own row label (the Krediler table
+# of /bultenhaftalik, or the series title for ids from the other weekly tables)
+# and, for a sub-row, the row it belongs to. Checked against captured BDDK pages
+# in tests/fixtures/bddk_weekly_page.html and bddk_weekly_series.json.
+WEEKLY_METRICS: tuple[tuple[str, str, str], ...] = (
+    ("1.0.1", "Toplam Krediler (2+10)", ""),
+    ("1.0.2", "Tüketici Kredileri ve Bireysel Kredi Kartları (3+7)", ""),
+    ("1.0.3", "Tüketici Kredileri (4+5+6)", ""),
+    ("1.0.4", "a) Konut", "Tüketici Kredileri altında"),
+    ("1.0.8", "Bireysel Kredi Kartları (8+9)", ""),
+    ("1.0.10", "b) Taksitsiz", "Bireysel Kredi Kartları altında"),
+    ("1.0.12", "Ticari ve Diğer Krediler", ""),
+    ("1.0.11", "KOBİ Kredileri (Bilgi)", ""),
+    ("2.0.1", "Takipteki Alacaklar (2+8)", "haftalık Takipteki Alacaklar tablosu"),
+    ("4.0.1", "Mevduat (Katılım Fonu) (2+5+8)", "haftalık Mevduat tablosu"),
+)
+
+
+def weekly_metric_guide(indent: str) -> str:
+    """The WEEKLY_METRICS key as description lines, one id per line."""
+    lines = [f"{indent}{mid}={label}" + (f" ({note})" if note else "") for mid, label, note in WEEKLY_METRICS]
+    return ",\n".join(lines)
+
+
+# BDDK answers an id it does not know with this chart title and empty series.
+_WEEKLY_PLACEHOLDER_TITLE = "Grafik Başlığı"
+UNKNOWN_METRIC = "unknown_metric"
+# BDDK ignores the requested window ("gun") and serves about the last 13 weeks.
+WEEKLY_SERIES_LIMIT_NOTE = "BDDK haftalık bültende yalnızca son yaklaşık 13 haftayı döndürür"
+WEEKLY_NUMBER_FORMAT_NOTE = "Sayı biçimi: binlik ayırıcı virgül, ondalık nokta (1,234.50)."
+_TURKISH_NUMBER = re.compile(r"^-?\d{1,3}(?:\.\d{3})*(?:,(\d+))?$")
+
+
+def format_bulletin_number(value: float, decimals: int = 2) -> str:
+    """The one number format of the weekly tools: comma thousands, dot decimals."""
+    return f"{value:,.{decimals}f}"
+
+
+def format_snapshot_cell(text: str) -> str:
+    """Re-render a weekly-page cell such as "18.523.337" or "1.234,56" in the weekly format.
+
+    The page writes numbers in Turkish style (dot thousands, comma decimals), as
+    its Excel copy of the same table confirms ("18.523.337,66"). Only text that
+    matches that pattern exactly is converted, keeping the decimals it shows;
+    anything else passes through unchanged.
+    """
+    raw = text.strip()
+    match = _TURKISH_NUMBER.match(raw)
+    if not match:
+        return raw
+    decimals = len(match.group(1) or "")
+    return format_bulletin_number(float(raw.replace(".", "").replace(",", ".")), decimals)
+
+
+def _weekly_page_header(soup: BeautifulSoup) -> tuple[str, str]:
+    """The bulletin date and unit the weekly page states ("Tarih: ... | Birim: ...")."""
+    for h5 in soup.find_all("h5"):
+        text = h5.get_text(" ", strip=True)
+        if "Tarih:" in text and "Birim:" in text:
+            bold = [b.get_text(" ", strip=True) for b in h5.find_all("b")]
+            if len(bold) >= 2:
+                return " ".join(bold[0].split()), " ".join(bold[1].split())
+    return "", ""
+
+
+def _parse_weekly_date(text: str) -> date | None:
+    try:
+        return datetime.strptime(text.strip(), "%d.%m.%Y").date()
+    except ValueError:
+        return None
+
+
+def _trim_to_window(dates: list[str], values: list[float], days: int) -> tuple[list[str], list[float], bool | None]:
+    """Keep the observations within ``days`` of the latest one.
+
+    Returns the kept series and whether BDDK's series reached back to the start of
+    the window: False when an observation one step before the oldest returned one
+    would still have fallen inside it. None when the dates do not parse (the
+    series is then kept as received).
+    """
+    parsed = [_parse_weekly_date(d) for d in dates]
+    if not parsed or any(p is None for p in parsed):
+        return dates, values, None
+    cutoff = parsed[-1] - timedelta(days=days)
+    gaps = [(b - a).days for a, b in zip(parsed, parsed[1:], strict=False) if b > a]
+    step = min(gaps) if gaps else 7
+    window_met = parsed[0] - timedelta(days=step) < cutoff
+    kept = [i for i, p in enumerate(parsed) if p >= cutoff]
+    return [dates[i] for i in kept], [values[i] for i in kept], window_met
+
 
 def _ascending_by_date(dates: list[str], values: list[float]) -> tuple[list[str], list[float]]:
     """Order observations oldest first when every date parses as DD.MM.YYYY.
@@ -364,9 +456,19 @@ async def fetch_weekly_bulletin(
         date: Specific date (DD.MM.YYYY), empty for latest
         column: Column number (1=TP, 2=YP, 3=Toplam)
 
-    Returns dict with: title, dates, values, currency, metric_id. The series is
-    oldest first (re-ordered when the dates parse and arrive out of order). An
-    empty series from BDDK comes back as empty lists, not as an error.
+    Returns dict with: title, dates, values, currency, metric_id, unit (the
+    page's "Birim" for TRY; empty for USD, which the page does not state),
+    bulletin_date (the page's "Tarih"), requested_days, returned_observations,
+    returned_first_date, trimmed_observations and window_met. The series is
+    oldest first (re-ordered when the dates parse and arrive out of order).
+
+    BDDK ignores the requested window and returns about the last 13 weekly
+    observations, so the series is trimmed here to the observations within
+    ``days`` of the latest one; window_met is False when BDDK's series did not
+    reach back to the start of the requested window (None when the dates do
+    not parse). An empty series from BDDK comes back as empty lists, not as an
+    error; BDDK's placeholder answer for an unknown id is an error with reason
+    "unknown_metric".
     """
     try:
         # Step 1: Visit the page to get session cookies and CSRF token
@@ -376,6 +478,9 @@ async def fetch_weekly_bulletin(
 
         token_input = soup.find("input", {"name": "__RequestVerificationToken"})
         token = token_input["value"] if token_input else ""
+        bulletin_date, page_unit = _weekly_page_header(soup)
+        # The page states the unit of its TL view only.
+        unit = page_unit if currency == "TRY" else ""
 
         # If no date provided, extract default from page JS
         # JS uses mixed quoting: "tarih": '27.03.2026'
@@ -414,6 +519,14 @@ async def fetch_weekly_bulletin(
             raise ValueError("Invalid bulletin response")
         dates, values = data.get("XEkseni"), data.get("YEkseni")
         if isinstance(dates, list) and isinstance(values, list) and not dates and not values:
+            title = str(data.get("Baslik") or "").strip()
+            if not title or title == _WEEKLY_PLACEHOLDER_TITLE:
+                # BDDK's placeholder chart: it does not know this metric id.
+                return {
+                    "error": f"BDDK does not know the weekly metric id {metric_id}.",
+                    "reason": UNKNOWN_METRIC,
+                    "metric_id": metric_id,
+                }
             # Both series present and empty: BDDK answered "no observations",
             # which is not an upstream failure.
             return {
@@ -422,6 +535,13 @@ async def fetch_weekly_bulletin(
                 "values": [],
                 "currency": currency,
                 "metric_id": metric_id,
+                "unit": unit,
+                "bulletin_date": bulletin_date,
+                "requested_days": days,
+                "returned_observations": 0,
+                "returned_first_date": "",
+                "trimmed_observations": 0,
+                "window_met": None,
             }
         if (
             not isinstance(dates, list)
@@ -436,6 +556,8 @@ async def fetch_weekly_bulletin(
         if not all(math.isfinite(value) for value in values):
             raise ValueError("Non-finite bulletin observations")
         dates, values = _ascending_by_date(dates, values)
+        returned, returned_first = len(dates), dates[0]
+        dates, values, window_met = _trim_to_window(dates, values, days)
 
         return {
             "title": data.get("Baslik", ""),
@@ -443,6 +565,13 @@ async def fetch_weekly_bulletin(
             "values": values,
             "currency": currency,
             "metric_id": metric_id,
+            "unit": unit,
+            "bulletin_date": bulletin_date,
+            "requested_days": days,
+            "returned_observations": returned,
+            "returned_first_date": returned_first,
+            "trimmed_observations": returned - len(dates),
+            "window_met": window_met,
         }
     except (httpx.HTTPError, httpx.TransportError, OutboundHttpPolicyError, KeyError, ValueError, OverflowError) as exc:
         logger.error("Failed to fetch weekly bulletin", extra={"error_type": type(exc).__name__})
@@ -455,6 +584,20 @@ async def fetch_bulletin_snapshot(
     """Fetch the current weekly bulletin table data (latest snapshot).
 
     Returns list of dicts with: row_number, name, metric_id, tp, yp.
+    """
+    return (await fetch_bulletin_snapshot_table(http))["rows"]
+
+
+async def fetch_bulletin_snapshot_table(
+    http: httpx.AsyncClient,
+) -> dict:
+    """Fetch the table the weekly bulletin page shows, with what the page says about it.
+
+    The /bultenhaftalik page carries one table, the Krediler table of the sector
+    (the other weekly tables need separate requests and are not fetched).
+    Returns dict with: heading (e.g. "Krediler"), party (e.g. "Sektör"),
+    bulletin_date (the page's "Tarih"), unit (the page's "Birim") and rows
+    [{row_number, name, metric_id, tp, yp}], cells as the page writes them.
     """
     try:
         page_url = f"{_BDDK_BASE_URL}/bultenhaftalik"
@@ -486,7 +629,16 @@ async def fetch_bulletin_snapshot(
                     "yp": tds[3].get_text(strip=True),
                 }
             )
-        return rows
+        heading_tag = table.find_previous("h4")
+        party_tag = heading_tag.find_next("h5") if heading_tag else None
+        bulletin_date, unit = _weekly_page_header(soup)
+        return {
+            "heading": " ".join(heading_tag.get_text(" ", strip=True).split()) if heading_tag else "",
+            "party": " ".join(party_tag.get_text(" ", strip=True).split()) if party_tag else "",
+            "bulletin_date": bulletin_date,
+            "unit": unit,
+            "rows": rows,
+        }
     except (httpx.TransportError, OutboundHttpPolicyError) as exc:
         logger.error(
             "Failed to fetch bulletin snapshot; upstream unreachable", extra={"error_type": type(exc).__name__}
@@ -591,6 +743,24 @@ def recent_complete_months(count: int, clock: Callable[[], datetime] | None = No
     return months
 
 
+# Cells 0-3 of a monthly row are [group, index, name, font]; the value cells follow.
+_MONTHLY_LABEL_CELLS = 4
+MONTHLY_CLASSIC_COLUMNS = ("TP", "YP", "Toplam")
+MONTHLY_SHAPE_ERROR = "unexpected_shape"
+MONTHLY_REFUSED = "bddk_refused"
+# BDDK's footnote (Json.uyari) is an HTML string whose only markup is <br/>.
+_MONTHLY_FOOTNOTE_BREAK = re.compile(r"<br\s*/?>", re.IGNORECASE)
+
+
+def _is_monthly_not_offered(message: str) -> bool:
+    # Only "not offered" says these parameters can never be served; any other BDDK error may be transient.
+    return "sunulmamaktad" in turkish_casefold(message)
+
+
+class _MonthlyShapeError(ValueError):
+    """BDDK answered, but the rows do not match the column list it sent."""
+
+
 async def fetch_monthly_bulletin(
     http: httpx.AsyncClient,
     table_no: int,
@@ -610,15 +780,28 @@ async def fetch_monthly_bulletin(
         currency: TL or USD
         party_code: Bank group code (10001=sector total)
 
-    Returns dict with: title, rows [{name, tp, yp, total}], period, currency.
+    Returns dict with: title (BDDK's caption), columns (the value-column labels
+    from BDDK's ``Json.colNames[4:]``), rows [{name, values}], period, currency,
+    and footnote when BDDK's ``Json.uyari`` is a non-empty string (its <br/>
+    breaks and runs of whitespace collapsed to single spaces, otherwise as sent).
+    ``values`` holds one cell per label, in BDDK's order. A table whose value
+    columns are exactly TP, YP, Toplam also carries tp/yp/total on each row.
     Numeric cells are rendered en-US style by ``_format_number`` ("1,500",
-    "1,234.50"); a missing cell is "-". A response without a ``rows`` list, or
-    with a row that is not an object with at least 7 cells, is an error.
+    "1,234.50"); a missing cell is "-". A response without a ``rows`` list is
+    an error. A row whose cell count differs from ``len(colNames)``, or rows
+    that are not the classic 7-cell layout when colNames is missing, are an
+    upstream shape error: {"error": ..., "reason": "unexpected_shape"}, which
+    retrying does not fix.
     BDDK refuses a period it holds no data for (typically a month it has not
     published yet) with success=false and a "... veri bulunma..." message; that
     is an answer, so rows is empty and the message is passed on as notice.
-    Returns {"error": ...} when the request fails, BDDK refuses for any other
-    reason, or the response is not the expected object.
+    BDDK saying the requested data is not offered (seen live: "Bu tabloya
+    ilişkin USD cinsinden veri sunulmamaktadır.") is also its answer:
+    {"error": ..., "reason": "bddk_refused", "notice": <BDDK's message>}, which
+    retrying does not change. Any other non-empty BDDK message is an upstream
+    error that carries the message: {"error": ..., "notice": <BDDK's message>}.
+    Returns {"error": ...} when the request fails, BDDK refuses without a
+    message, or the response is not the expected object.
     """
     try:
         page_url = f"{_BDDK_BASE_URL}/BultenAylik"
@@ -651,16 +834,29 @@ async def fetch_monthly_bulletin(
         )
         result = response.json()
 
-        # Response: {success, Json: {data: {rows: [{cell: [group, idx, name, font, tp, yp, total]}]}}}
+        # Response: {success, Json: {caption, colNames, data: {rows: [{cell: [group, idx, name, font, values...]}]}}}
         if not isinstance(result, dict):
             raise ValueError("Unexpected monthly bulletin response")
         if result.get("success") is False:
             # Seen live: "2026 yılının en son 9 ayına ait veri bulunmaktadır!" and
-            # "2031 yılına ait veri bulunmamaktadır!". Any other refusal is a failed
-            # call, not evidence of missing data.
+            # "2031 yılına ait veri bulunmamaktadır!". Any other answer is not
+            # evidence of missing data: "not offered" is BDDK's refusal of these
+            # parameters, another message is BDDK's own error, and no message is
+            # a failed call.
             notice = str(result.get("error") or "")
             if "veri bulunma" not in notice.lower():
-                raise ValueError("Unexpected monthly bulletin response")
+                if not notice.strip():
+                    raise ValueError("Unexpected monthly bulletin response")
+                if _is_monthly_not_offered(notice):
+                    return {
+                        "error": "BDDK refused this monthly bulletin request.",
+                        "reason": MONTHLY_REFUSED,
+                        "notice": notice.strip()[:500],
+                    }
+                return {
+                    "error": "BDDK answered the monthly bulletin request with an error of its own.",
+                    "notice": notice.strip()[:500],
+                }
             return {
                 "title": f"Tablo {table_no}",
                 "rows": [],
@@ -679,28 +875,55 @@ async def fetch_monthly_bulletin(
         if not isinstance(raw_rows, list):
             raise ValueError("Monthly bulletin response has no rows list")
 
+        # The value columns are BDDK's own: colNames is [group, idx, name, font,
+        # value columns...] and every row has one cell per colNames entry (1, 3,
+        # 6 or 9 value columns, depending on the table). Without usable colNames
+        # only the classic [group, idx, name, font, TP, YP, Toplam] row is read.
+        col_names = js.get("colNames")
+        if (
+            isinstance(col_names, list)
+            and len(col_names) > _MONTHLY_LABEL_CELLS
+            and all(isinstance(name, str) for name in col_names)
+        ):
+            columns = [
+                " ".join(name.split()) or f"Sütun {i}"
+                for i, name in enumerate(col_names[_MONTHLY_LABEL_CELLS:], start=1)
+            ]
+            width = len(col_names)
+        else:
+            columns = list(MONTHLY_CLASSIC_COLUMNS)
+            width = _MONTHLY_LABEL_CELLS + len(MONTHLY_CLASSIC_COLUMNS)
+        classic = tuple(columns) == MONTHLY_CLASSIC_COLUMNS
+
         # An unexpected row shape is an upstream error, never "no data": only an
         # empty rows list (or BDDK's own refusal above) means no data.
         rows: list[dict] = []
         for r in raw_rows:
             cell = r.get("cell") if isinstance(r, dict) else None
-            if not isinstance(cell, list) or len(cell) < 7:
-                raise ValueError("Unexpected monthly bulletin row")
-            rows.append(
-                {
-                    "name": str(cell[2]),
-                    "tp": _format_number(cell[4]),
-                    "yp": _format_number(cell[5]),
-                    "total": _format_number(cell[6]),
-                }
-            )
+            if not isinstance(cell, list) or len(cell) != width:
+                raise _MonthlyShapeError("Monthly bulletin row does not match its column list")
+            values = [_format_number(v) for v in cell[_MONTHLY_LABEL_CELLS:]]
+            row: dict = {"name": str(cell[2]), "values": values}
+            if classic:
+                row.update({"tp": values[0], "yp": values[1], "total": values[2]})
+            rows.append(row)
 
-        return {
+        answer: dict = {
             "title": caption,
+            "columns": columns,
             "rows": rows,
             "period": f"{month}/{year}",
             "currency": currency,
         }
+        uyari = js.get("uyari")
+        if isinstance(uyari, str):
+            footnote = " ".join(_MONTHLY_FOOTNOTE_BREAK.sub(" ", uyari).split())
+            if footnote:
+                answer["footnote"] = footnote
+        return answer
+    except _MonthlyShapeError as exc:
+        logger.error("Monthly bulletin response not understood", extra={"error_type": type(exc).__name__})
+        return {"error": "BDDK monthly bulletin response format was not understood.", "reason": MONTHLY_SHAPE_ERROR}
     except (
         httpx.HTTPError,
         httpx.TransportError,

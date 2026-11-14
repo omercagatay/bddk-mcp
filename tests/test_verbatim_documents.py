@@ -402,7 +402,8 @@ def test_seed_articles_no_longer_swallow_inserted_articles_and_guides_keep_parag
     }
 
     assert "Madde 66/A" not in bankacilik[("madde", "66")].content
-    assert bankacilik[("madde", "66/a")].content.startswith("Madde 66/A")
+    # The title is part of the section and is the heading.
+    assert bankacilik[("madde", "66/a")].content.startswith("Bankalarca hazırlanacak önlem planı\n\nMadde 66/A")
     assert "Ek Madde 1" not in bankacilik[("madde", "169")].content
     # 945/946 print "İlke N." inside a numbered paragraph body; parsing it there deleted the body.
     for doc_id, paragraphs in (("945", 46), ("946", 163)):

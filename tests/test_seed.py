@@ -111,14 +111,15 @@ async def test_build_creates_a_ready_corpus_from_seed_json(tmp_path: Path, seed_
         "decision_cache": 1,
         "documents": 2,
         "sections": 2,
-        "chunks": 3,
+        # The "# Rehber" caption opens the İLKE 5 chunk instead of being a chunk of its own.
+        "chunks": 2,
         "chunks_cached": 0,
         "skipped": False,
     }
     db = CorpusDB.open(tmp_path / "corpus.sqlite", readonly=True)
     try:
         readiness = await db.assert_ready(require_corpus=True)
-        assert (readiness.documents, readiness.chunks, readiness.catalog) == (2, 3, 1)
+        assert (readiness.documents, readiness.chunks, readiness.catalog) == (2, 2, 1)
         store = DocumentStore(db)
         stored = await store.get_document("943")
         assert stored is not None
@@ -173,7 +174,7 @@ async def test_build_force_rewrites_and_reembeds_everything(tmp_path: Path, seed
 
     assert result["skipped"] is False
     assert result["documents"] == 2
-    assert result["chunks"] == 3
+    assert result["chunks"] == 2
 
 
 @pytest.mark.asyncio
@@ -359,7 +360,7 @@ async def test_build_reuses_exported_embeddings_without_the_model(tmp_path: Path
         vector_store_factory=lambda db: VectorStore(db, embed_fn=_forbidden_embed, tokenizer=FakeTokenizer()),
     )
 
-    assert (result["chunks"], result["chunks_cached"]) == (3, 3)
+    assert (result["chunks"], result["chunks_cached"]) == (2, 2)
     assert _chunk_blobs(tmp_path / "cached.sqlite") == _chunk_blobs(tmp_path / "corpus.sqlite")
     cached = CorpusDB.open(tmp_path / "cached.sqlite", readonly=True)
     try:
@@ -565,3 +566,231 @@ def test_seed_decision_number_and_date_equal_the_values_the_decision_prints():
 
     assert checked >= 180
     assert mismatches == []
+
+
+# -- Build fingerprint ----------------------------------------------------------
+
+
+def _stored_meta(corpus: Path) -> dict[str, str]:
+    db = CorpusDB.open(corpus, readonly=True)
+    try:
+        return db.run_sync(
+            lambda conn: {row["key"]: row["value"] for row in conn.execute("SELECT key, value FROM meta")}
+        )
+    finally:
+        db.close()
+
+
+def _logical_content(corpus: Path) -> list[str]:
+    """Every row of the file as SQL (a writer open and close only bumps the header's change counter)."""
+    import sqlite3
+
+    connection = sqlite3.connect(corpus)
+    try:
+        return list(connection.iterdump())
+    finally:
+        connection.close()
+
+
+def _counting_store(embedded: list[int]):
+    def counting_embed(texts: list[str]) -> np.ndarray:
+        embedded.append(len(texts))
+        return fake_embed(texts)
+
+    return lambda db: VectorStore(db, embed_fn=counting_embed, tokenizer=FakeTokenizer())
+
+
+@pytest.mark.asyncio
+async def test_build_records_the_fingerprint_and_skips_an_unchanged_file(tmp_path: Path, seed_dir: Path):
+    from bddk_mcp.store import fingerprint
+
+    await _build(tmp_path)
+    stored = fingerprint.decode(_stored_meta(tmp_path / "corpus.sqlite")[fingerprint.FINGERPRINT_META_KEY])
+    docs = json.loads((seed_dir / "documents.json").read_text(encoding="utf-8"))
+    assert stored == fingerprint.build_fingerprint(docs, CACHE)
+
+    assert (await _build(tmp_path))["skipped"] is True
+
+
+@pytest.mark.asyncio
+async def test_a_metadata_only_seed_edit_rewrites_every_document(tmp_path: Path, seed_dir: Path, caplog):
+    await _build(tmp_path)
+    changed = json.loads(json.dumps(DOCS))
+    changed[0]["title"] = "TFRS 9 Rehberi (güncel)"
+    _write_seed_files(seed_dir, docs=changed, cache=CACHE)
+
+    with caplog.at_level("WARNING", logger=seed.logger.name):
+        result = await _build(tmp_path)
+
+    assert (result["skipped"], result["documents"]) == (False, 2)
+    notes = [record.getMessage() for record in caplog.records if "fingerprint" in record.getMessage()]
+    assert notes == ["Build fingerprint differs (seed); every document is rewritten"]
+    db = CorpusDB.open(tmp_path / "corpus.sqlite", readonly=True)
+    try:
+        assert (await DocumentStore(db).get_document("943")).title == "TFRS 9 Rehberi (güncel)"
+        assert (await db.assert_ready()).issues == []
+    finally:
+        db.close()
+    assert (await _build(tmp_path))["skipped"] is True
+
+
+@pytest.mark.asyncio
+async def test_a_file_without_a_fingerprint_is_rewritten_once_and_then_skipped(tmp_path: Path, seed_dir: Path, caplog):
+    from bddk_mcp.store import fingerprint
+
+    await _build(tmp_path)
+    db = CorpusDB.open(tmp_path / "corpus.sqlite")
+    db.transaction_sync(
+        lambda conn: conn.execute("DELETE FROM meta WHERE key = ?", (fingerprint.FINGERPRINT_META_KEY,))
+    )
+    db.close()
+
+    with caplog.at_level("WARNING", logger=seed.logger.name):
+        result = await _build(tmp_path)
+
+    assert (result["skipped"], result["documents"]) == (False, 2)
+    assert "No build fingerprint: file predates fingerprinting; every document is rewritten" in caplog.messages
+    assert fingerprint.FINGERPRINT_META_KEY in _stored_meta(tmp_path / "corpus.sqlite")
+    assert (await _build(tmp_path))["skipped"] is True
+
+
+@pytest.mark.asyncio
+async def test_a_new_file_is_built_without_a_fingerprint_note(tmp_path: Path, seed_dir: Path, caplog):
+    with caplog.at_level("WARNING", logger=seed.logger.name):
+        await _build(tmp_path)
+    assert not [message for message in caplog.messages if "fingerprint" in message]
+
+
+@pytest.mark.asyncio
+async def test_a_parser_source_change_rewrites_every_document_from_the_cached_vectors(
+    tmp_path: Path, seed_dir: Path, monkeypatch, caplog
+):
+    from bddk_mcp.store import fingerprint
+
+    await _build(tmp_path)
+    await seed.export_corpus(corpus_path=tmp_path / "corpus.sqlite", seed_dir=seed_dir)
+    await _build(tmp_path)  # export wrote the stored metadata back into the seed: settle that seed change first
+    assert (await _build(tmp_path))["skipped"] is True
+    before = _chunk_blobs(tmp_path / "corpus.sqlite")
+    real = fingerprint._module_source
+    monkeypatch.setattr(
+        fingerprint,
+        "_module_source",
+        lambda name: real(name) + "\n# parser changed\n" if name == "bddk_mcp.store.section_index" else real(name),
+    )
+    embedded: list[int] = []
+
+    with caplog.at_level("WARNING", logger=seed.logger.name):
+        result = await seed.build_corpus(
+            corpus_path=tmp_path / "corpus.sqlite", seed_dir=seed_dir, vector_store_factory=_counting_store(embedded)
+        )
+
+    assert (result["skipped"], result["documents"]) == (False, 2)
+    assert embedded == []  # chunk texts are unchanged, so every vector comes from the seed cache
+    assert result["chunks_cached"] == result["chunks"] == 2
+    assert "Build fingerprint differs (parser); every document is rewritten" in caplog.messages
+    assert _chunk_blobs(tmp_path / "corpus.sqlite") == before
+    stored = fingerprint.decode(_stored_meta(tmp_path / "corpus.sqlite")[fingerprint.FINGERPRINT_META_KEY])
+    assert stored["parser"] == fingerprint.parser_part()
+
+
+@pytest.mark.asyncio
+async def test_the_fingerprint_is_not_written_when_a_document_fails(tmp_path: Path, seed_dir: Path):
+    from bddk_mcp.store import fingerprint
+
+    def failing_embed(texts: list[str]) -> np.ndarray:
+        raise RuntimeError("embedding failed")
+
+    with pytest.raises(Exception, match="unavailable|embedding failed"):
+        await seed.build_corpus(
+            corpus_path=tmp_path / "corpus.sqlite",
+            seed_dir=seed_dir,
+            vector_store_factory=lambda db: VectorStore(db, embed_fn=failing_embed, tokenizer=FakeTokenizer()),
+        )
+
+    assert fingerprint.FINGERPRINT_META_KEY not in _stored_meta(tmp_path / "corpus.sqlite")
+
+
+@pytest.mark.asyncio
+async def test_a_model_revision_only_difference_is_refused_with_delete_and_force(
+    tmp_path: Path, seed_dir: Path, monkeypatch
+):
+    from bddk_mcp.core import config
+
+    await _build(tmp_path)
+    before = _logical_content(tmp_path / "corpus.sqlite")
+    monkeypatch.setattr(config, "EMBEDDING_MODEL_REVISION", "0" * 40)
+
+    with pytest.raises(RuntimeError, match=r"revision.*[Dd]elete the corpus file.*bddk-mcp build --force"):
+        await _build(tmp_path)
+    assert _logical_content(tmp_path / "corpus.sqlite") == before
+
+    result = await _build(tmp_path, force=True)  # --force behaves as today and records the new fingerprint
+    assert (result["skipped"], result["documents"]) == (False, 2)
+    assert (await _build(tmp_path))["skipped"] is True
+
+
+@pytest.mark.asyncio
+async def test_a_passage_prefix_change_is_refused_and_force_embeds_every_document_again(
+    tmp_path: Path, seed_dir: Path, monkeypatch
+):
+    from bddk_mcp.store import fingerprint
+
+    await _build(tmp_path)
+    await seed.export_corpus(corpus_path=tmp_path / "corpus.sqlite", seed_dir=seed_dir)
+    await _build(tmp_path)  # export wrote the stored metadata back into the seed: settle that seed change first
+    assert (await _build(tmp_path))["skipped"] is True
+    stored_before = _stored_meta(tmp_path / "corpus.sqlite")[fingerprint.FINGERPRINT_META_KEY]
+    before = _logical_content(tmp_path / "corpus.sqlite")
+    real = fingerprint._module_source
+    monkeypatch.setattr(
+        fingerprint,
+        "_module_source",
+        lambda name: (
+            real(name).replace('_PASSAGE_PREFIX = "passage"', '_PASSAGE_PREFIX = "doc"', 1)
+            if name == "bddk_mcp.store.vector_store"
+            else real(name)
+        ),
+    )
+    embedded: list[int] = []
+
+    with pytest.raises(RuntimeError, match=r"passage prefix.*[Dd]elete the corpus file.*bddk-mcp build --force"):
+        await seed.build_corpus(
+            corpus_path=tmp_path / "corpus.sqlite", seed_dir=seed_dir, vector_store_factory=_counting_store(embedded)
+        )
+    assert embedded == []
+    assert _logical_content(tmp_path / "corpus.sqlite") == before
+    assert _stored_meta(tmp_path / "corpus.sqlite")[fingerprint.FINGERPRINT_META_KEY] == stored_before
+
+    result = await seed.build_corpus(
+        corpus_path=tmp_path / "corpus.sqlite",
+        seed_dir=seed_dir,
+        force=True,
+        vector_store_factory=_counting_store(embedded),
+    )
+    assert (result["skipped"], result["documents"]) == (False, 2)
+    assert sum(embedded) == result["chunks"] == 2  # the seed cache is ignored: every chunk is embedded again
+    assert result["chunks_cached"] == 0
+    stored = fingerprint.decode(_stored_meta(tmp_path / "corpus.sqlite")[fingerprint.FINGERPRINT_META_KEY])
+    assert stored["model"] == fingerprint.model_part()
+    db = CorpusDB.open(tmp_path / "corpus.sqlite", readonly=True)
+    try:
+        assert db.readiness_sync(require_corpus=True).stale_fingerprint_parts == []
+    finally:
+        db.close()
+    assert (await _build(tmp_path))["skipped"] is True
+
+
+@pytest.mark.asyncio
+async def test_a_corpus_of_another_model_is_refused_before_any_write(tmp_path: Path, seed_dir: Path):
+    await _build(tmp_path)
+    db = CorpusDB.open(tmp_path / "corpus.sqlite")
+    db.transaction_sync(
+        lambda conn: conn.execute("UPDATE meta SET value = 'other/model' WHERE key = 'embedding_model'")
+    )
+    db.close()
+    before = _logical_content(tmp_path / "corpus.sqlite")
+
+    with pytest.raises(RetrievalProfileError, match=r"different embedding model.*delete"):
+        await _build(tmp_path)
+    assert _logical_content(tmp_path / "corpus.sqlite") == before

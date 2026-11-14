@@ -38,6 +38,18 @@ def _import_config_in_subprocess(**overrides: str) -> subprocess.CompletedProces
         ({"BDDK_REQUEST_TIMEOUT": "nan"}, "BDDK_REQUEST_TIMEOUT must be finite"),
         ({"BDDK_LIGHTOCR_DEVICE": "remote"}, "BDDK_LIGHTOCR_DEVICE must be one of"),
         ({"BDDK_MAX_RETRIES": "0"}, "BDDK_MAX_RETRIES must be an integer"),
+        (
+            {"BDDK_SEMANTIC_STARTUP_TIMEOUT_SECONDS": "0"},
+            "BDDK_SEMANTIC_STARTUP_TIMEOUT_SECONDS must be an integer between 1 and 900",
+        ),
+        (
+            {"BDDK_SEMANTIC_STARTUP_TIMEOUT_SECONDS": "901"},
+            "BDDK_SEMANTIC_STARTUP_TIMEOUT_SECONDS must be an integer between 1 and 900",
+        ),
+        (
+            {"BDDK_SEMANTIC_STARTUP_TIMEOUT_SECONDS": "slow"},
+            "BDDK_SEMANTIC_STARTUP_TIMEOUT_SECONDS must be an integer between 1 and 900",
+        ),
     ],
 )
 def test_environment_configuration_fails_closed(environment, message):
@@ -55,6 +67,37 @@ def test_environment_configuration_accepts_explicit_boundary_values():
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def _startup_timeout_in_subprocess(**overrides: str) -> subprocess.CompletedProcess[str]:
+    environment = {key: value for key, value in os.environ.items() if not key.startswith("BDDK_")}
+    environment.update(overrides)
+    return subprocess.run(
+        [sys.executable, "-c", "from bddk_mcp.core import config; print(config.SEMANTIC_STARTUP_TIMEOUT_SECONDS)"],
+        cwd=os.getcwd(),
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+@pytest.mark.parametrize(
+    ("overrides", "expected"), [({}, "180"), ({"BDDK_SEMANTIC_STARTUP_TIMEOUT_SECONDS": "600"}, "600")]
+)
+def test_semantic_startup_timeout_has_a_default_and_an_override(overrides, expected):
+    result = _startup_timeout_in_subprocess(**overrides)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == expected
+
+
+@pytest.mark.parametrize("value", ["1", "900"])
+def test_semantic_startup_timeout_accepts_its_boundaries(value):
+    result = _startup_timeout_in_subprocess(BDDK_SEMANTIC_STARTUP_TIMEOUT_SECONDS=value)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == value
 
 
 def _semantic_threshold_in_subprocess(**overrides: str) -> subprocess.CompletedProcess[str]:

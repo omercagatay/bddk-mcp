@@ -89,6 +89,110 @@ async def test_pagination(store):
     assert "Invalid page" in invalid.markdown_content
 
 
+async def test_page_reports_whether_it_starts_inside_a_table_row_or_a_formula(store):
+    filler = "a\n" * 2400
+    row_cut = filler + "| 030001 | " + "Y" * (5000 - len(filler) - 11) + "T BANKALARI |\nson\n"
+    formula_cut = filler + "$$ x " + "y" * (5000 - len(filler) - 5) + "z $$\nson\n"
+    clean = filler + "| 1 | 2 |\n" + "b" * (5000 - len(filler) - 12) + "tail\n"
+    for doc_id, body in (("row_cut", row_cut), ("formula_cut", formula_cut), ("clean", clean)):
+        await store.store_document(StoredDocument(document_id=doc_id, title=doc_id, markdown_content=body))
+
+    row_first = await store.get_document_page("row_cut", 1)
+    row_second = await store.get_document_page("row_cut", 2)
+    formula_second = await store.get_document_page("formula_cut", 2)
+    clean_second = await store.get_document_page("clean", 2)
+
+    assert row_first.starts_inside_table_row is False and row_first.starts_inside_formula is False
+    assert row_second.starts_inside_table_row is True and row_second.starts_inside_formula is False
+    assert formula_second.starts_inside_formula is True and formula_second.starts_inside_table_row is False
+    assert clean_second.starts_inside_table_row is False and clean_second.starts_inside_formula is False
+
+
+async def test_page_flags_for_complete_rows_and_formulas_cut_at_either_edge(store):
+    filler = "a\n" * 2400
+
+    complete_row = filler + "| 030001 | " + "Y" * (5000 - len(filler) - 11 - 2) + " |" + "\n| 3 | 4 |\nson\n"
+    formula_both = filler + "$$ x " + "y" * (5000 - len(filler) - 5) + "z" * 5000 + "w $$\nson\n"
+    for doc_id, body in (("complete_row", complete_row), ("formula_both", formula_both)):
+        await store.store_document(StoredDocument(document_id=doc_id, title=doc_id, markdown_content=body))
+
+    row_first = await store.get_document_page("complete_row", 1)
+    row_second = await store.get_document_page("complete_row", 2)
+    middle = await store.get_document_page("formula_both", 2)
+    first = await store.get_document_page("formula_both", 1)
+    last = await store.get_document_page("formula_both", 3)
+
+    assert len(row_first.markdown_content) == 5000
+    assert row_first.ends_inside_table_row is False and row_second.starts_inside_table_row is False
+    assert first.ends_inside_formula is True and first.starts_inside_formula is False
+    assert middle.starts_inside_formula is True and middle.ends_inside_formula is True
+    assert last.starts_inside_formula is True and last.ends_inside_formula is False
+
+
+async def _section_rows(store, doc_id):
+    rows = await store._db.run(
+        lambda conn: conn.execute(
+            "SELECT * FROM document_sections WHERE doc_id = ? ORDER BY start_char", (doc_id,)
+        ).fetchall()
+    )
+    return [tuple(row) for row in rows]
+
+
+async def test_page_reports_a_placeholder_line_that_stands_for_annexes_that_are_not_stored(store):
+    bodies = {
+        "own_line": "MADDE 1 - (1) Metin.\n\nMADDE 2 - (1) Son.\n\nEkleri için tıklayınız.",
+        "genitive": "MADDE 1 - (1) Metin.\n\nYönetmeliğin eklerini görmek için tıklayınız\n",
+        "see_form": "MADDE 1 - (1) Metin.\n\nEki görmek için tıklayınız\n",
+        "prose": "MADDE 1 - (1) Bu Yönetmeliğin ekleri için tıklayınız demek yeterli değildir; ekleri ayrıca düzenlenir.\n",
+        "annex_stored": "MADDE 1 - (1) Metin.\n\nEki için tıklayınız.\n\nEK-1\n\nBİLDİRİM FORMU\n\nForm alanları burada.\n",
+    }
+    for doc_id, body in bodies.items():
+        await store.store_document(StoredDocument(document_id=doc_id, title=doc_id, markdown_content=body))
+
+    found = {doc_id: (await store.get_document_page(doc_id, 1)).annex_placeholder for doc_id in bodies}
+
+    assert found["own_line"] == "Ekleri için tıklayınız."
+    assert found["genitive"] == "Yönetmeliğin eklerini görmek için tıklayınız"
+    assert found["see_form"] == "Eki görmek için tıklayınız"
+    assert found["prose"] == ""
+    # The annex text is stored after the link text: nothing is missing.
+    assert found["annex_stored"] == ""
+
+
+async def test_update_document_metadata_changes_only_the_named_non_empty_columns(store):
+    body = "MADDE 1 - (1) Metin.\n\nMADDE 2 - (2) Başka.\n"
+    await store.store_document(
+        StoredDocument(
+            document_id="1310",
+            title="Eski Başlık",
+            category="Yönetmelik",
+            decision_date="2020-01-01",
+            decision_number="1",
+            source_url="https://www.bddk.org.tr/old",
+            markdown_content=body,
+            downloaded_at=1_700_000_000.0,
+        )
+    )
+    before = await store.get_document("1310")
+    sections_before = await _section_rows(store, "1310")
+
+    changed = await store.update_document_metadata(
+        "1310", title="", category="Mülga Düzenleme", source_url="", decision_date="2021-02-03", decision_number=""
+    )
+    unchanged = await store.update_document_metadata("1310", category="Mülga Düzenleme")
+    missing = await store.update_document_metadata("nope", category="Mülga Düzenleme")
+
+    after = await store.get_document("1310")
+    assert sorted(changed) == ["category", "decision_date"]
+    assert unchanged == [] and missing == []
+    assert (after.category, after.decision_date) == ("Mülga Düzenleme", "2021-02-03")
+    # Empty arguments never blank stored metadata.
+    assert (after.title, after.decision_number, after.source_url) == ("Eski Başlık", "1", "https://www.bddk.org.tr/old")
+    assert after.markdown_content == body and after.content_hash == before.content_hash
+    assert sections_before and await _section_rows(store, "1310") == sections_before
+    assert (await store.get_document_page("1310", 1)).downloaded_at == 1_700_000_000.0
+
+
 async def test_has_document(store, sample_doc):
     assert await store.has_document("1291") is False
     await store.store_document(sample_doc)
@@ -267,7 +371,7 @@ async def test_search_document_sections_skips_nested_fikra_unless_requested(stor
     assert any(hit.section_type == "fikra" for hit in fikra_hits)
 
 
-async def test_search_document_sections_skips_govde_unless_requested(store):
+async def test_search_document_sections_includes_govde_by_default_and_flags_its_kind(store):
     preamble = "Önsöz likidite yeterlilik kalanı. " * 8
     text = preamble + "\n\nMADDE 13 - Asgari likidite yeterlilik oranı yüzde yüzden az olamaz.\n"
     await store.store_document(StoredDocument(document_id="mevzuat_10749", title="Test", markdown_content=text))
@@ -279,7 +383,14 @@ async def test_search_document_sections_skips_govde_unless_requested(store):
 
     hits = await store.search_document_sections("likidite yeterlilik", document_id="mevzuat_10749")
     assert hits
-    assert all(hit.section_type != "govde" for hit in hits)
+    # Every govde row is searched by default; the preamble of an article-structured document is
+    # remainder, so none of the kind flags is set on it.
+    [preamble] = [hit for hit in hits if hit.section_type == "govde"]
+    assert (
+        preamble.document_structureless,
+        preamble.document_decision_window,
+        preamble.document_annex_or_paragraph_only,
+    ) == (False, False, False)
     assert any(hit.section_type == "madde" and hit.section_ref == "13" for hit in hits)
 
     govde_hits = await store.search_document_sections(
@@ -307,21 +418,65 @@ async def test_truncation_notice_words_are_not_searchable_but_the_stored_content
     assert await store.search_document_sections("karakterden kısaltıldı", document_id="mevzuat_9") == []
     assert await store.search_document_sections("get_bddk_document", document_id="mevzuat_9") == []
     hits = await store.search_document_sections("yükümlülük kayıt altına", document_id="mevzuat_9")
-    assert [(hit.section_type, hit.section_ref) for hit in hits] == [("madde", "1")]
+    # The capped madde and the govde windows that continue it; none contains the notice words.
+    assert ("madde", "1") in [(hit.section_type, hit.section_ref) for hit in hits]
+    assert {hit.section_type for hit in hits} == {"madde", "govde"}
 
 
 def test_prefix_stem_query_keeps_every_token_quoted_and_a_five_character_floor():
     from bddk_mcp.store.doc_store import fts_prefix_stem_query
 
-    assert fts_prefix_stem_query("Gecikme süresi") == '"gecik"* "sures"*'
-    assert fts_prefix_stem_query("sınıflandırılması") == '"siniflandirilm"*'
-    assert fts_prefix_stem_query("geçici") == '"gecic"*'
-    # Short and numeric tokens stay exact; operators in user text are only words.
-    assert fts_prefix_stem_query("grup 12345 NEAR OR süresinin") == '"grup" "12345" "near" "or" "suresi"*'
-    assert fts_prefix_stem_query('"kredilerin" -faiz* (AND)') == '"kredile"* "faiz" "and"'
+    assert fts_prefix_stem_query("Gecikme süresi") == '"gecik"* "suresi"*'
+    assert fts_prefix_stem_query("sınıflandırılması") == '"siniflandir"*'
+    assert fts_prefix_stem_query("geçici") == '"gecici"*'
+    # Short alphabetic tokens are prefixes, numbers stay exact; operators in user text are only words.
+    assert fts_prefix_stem_query("grup 12345 NEAR OR süresinin") == '"grup"* "12345" "near"* "or"* "sures"*'
+    assert fts_prefix_stem_query('"kredilerin" -faiz* (AND)') == '"kredi"* "faiz"* "and"*'
+    assert fts_prefix_stem_query("yüzde on 90 gün") == '"yuzde"* "on"* "90" "gun"*'
     # Nothing to widen: the strict expression would be the same.
-    assert fts_prefix_stem_query("faiz 2024") is None
+    assert fts_prefix_stem_query("2024 a 15") is None
     assert fts_prefix_stem_query("") is None
+
+
+def test_prefix_stem_removes_one_turkish_ending_above_a_five_character_root():
+    from bddk_mcp.store.doc_store import fts_prefix_stem_query
+
+    cases = {
+        "denetlenmesi": '"denet"*',
+        "yedeklenmesi": '"yedek"*',
+        "bulundurulması": '"bulundur"*',
+        "saklanması": '"sakla"*',
+        "denetimi": '"denet"*',
+        "sistemlerinin": '"sistem"*',
+        "yapılandırılmış": '"yapilandir"*',
+        "uzatılması": '"uzatil"*',
+        # No known ending, or the root would be shorter than five characters: the token is not cut.
+        "birincil": '"birincil"*',
+        "ikincil": '"ikincil"*',
+        "testleri": '"testleri"*',
+        "süresi": '"suresi"*',
+    }
+    assert {word: fts_prefix_stem_query(word) for word in cases} == cases
+
+
+@pytest.mark.asyncio
+async def test_prefix_stem_finds_a_root_form_and_keeps_birincil_apart_from_birinci(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_1",
+            title="T",
+            markdown_content=(
+                "MADDE 9 - Destek hizmeti kuruluşlarının denetimi\nKurum denetim yapar.\n\n"
+                "MADDE 10 - Birinci grup\nBirinci ve ikinci grup krediler.\n"
+            ),
+        )
+    )
+
+    hits = await doc_store.search_document_sections("kuruluşlarının denetlenmesi", prefix_stem=True)
+    assert [(hit.section_type, hit.section_ref) for hit in hits] == [("madde", "9")]
+    assert await doc_store.search_document_sections("birincil ikincil", prefix_stem=True) == []
 
 
 @pytest.mark.asyncio
@@ -336,3 +491,53 @@ async def test_prefix_stem_section_search_matches_inflected_forms(doc_store):
     hits = await doc_store.search_document_sections("gecikme süresi", prefix_stem=True)
     assert [(h.doc_id, h.section_type, h.section_ref) for h in hits] == [("1", "madde", "1")]
     assert await doc_store.search_document_sections("faiz", prefix_stem=True) == []
+
+
+def test_prefix_stem_removes_an_aorist_verb_ending_above_a_five_character_root():
+    from bddk_mcp.store.doc_store import fts_prefix_stem_query
+
+    cases = {
+        "seçilir": '"secil"*',
+        "hesaplanır": '"hesaplan"*',
+        "oluşturulur": '"olustur"*',
+        "değerlenir": '"degerlen"*',
+        "belirlenir": '"belirlen"*',
+        # The root floor still holds: a short word is not cut.
+        "takdir": '"takdir"*',
+        "karar": '"karar"*',
+    }
+    for token, expected in cases.items():
+        assert fts_prefix_stem_query(token) == expected, token
+
+
+async def test_the_generic_govde_heading_is_not_indexed_but_govde_content_is(store):
+    from bddk_mcp.store.section_index import GOVDE_HEADING
+
+    text = "Kurul kararı ile kredi kartı borçlarının yeniden yapılandırılmasına karar verilmiştir.\n"
+    await store.store_document(StoredDocument(document_id="1301", title="Kurul Kararı", markdown_content=text))
+    [govde] = await store.get_document_section("1301", section_type="govde")
+    assert govde.heading == GOVDE_HEADING
+
+    for words in ("yapısal başlık yok", "dipnot", "gövde kalanı", "başlık"):
+        assert await store.search_document_sections(words) == []
+    heading_norms = await store._db.run(
+        lambda conn: conn.execute("SELECT heading_norm FROM document_sections WHERE doc_id = '1301'").fetchall()
+    )
+    assert [row["heading_norm"] for row in heading_norms] == [""]
+    [hit] = await store.search_document_sections("yeniden yapılandırılmasına")
+    assert (hit.doc_id, hit.section_type, hit.heading) == ("1301", "govde", GOVDE_HEADING)
+
+
+@pytest.mark.parametrize("typed", ["BSD'nin kapsamı", "BSD’nin kapsamı", "bsd‘nin KAPSAMI", "BSDʼnin kapsamı"])
+async def test_heading_filter_reads_apostrophe_variants_as_one_character(store, typed):
+    text = (
+        "MADDE 21 - BSD’nin tanımı\nBirinci metin.\n\nMADDE 22 - BSD’nin kapsamı\nİkinci metin.\n\n"
+        "MADDE 23 - Banka'nın yükümlülüğü\nÜçüncü metin.\n"
+    )
+    await store.store_document(StoredDocument(document_id="mevzuat_39257", title="Test", markdown_content=text))
+
+    [section] = await store.get_document_section("mevzuat_39257", heading=typed)
+    assert (section.section_type, section.section_ref, section.heading) == ("madde", "22", "BSD’nin kapsamı")
+    [ascii_stored] = await store.get_document_section("mevzuat_39257", heading="Banka’nın")
+    assert ascii_stored.section_ref == "23"
+    assert await store.get_document_section("mevzuat_39257", heading="BSD nin kapsamı") == []

@@ -170,6 +170,25 @@ async def _sync(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def _sync_failures_text(failures: dict[str, int]) -> str:
+    """``none`` or ``N (category: count, ...)`` for the info line."""
+    if not failures:
+        return "none"
+    by_category = ", ".join(f"{category}: {count}" for category, count in failures.items())
+    return f"{sum(failures.values())} ({by_category})"
+
+
+def _fingerprint_text(stored: dict[str, str] | None, stale: list[str]) -> str:
+    """``current``, ``stale (parts) — ...`` or ``absent (...) — ...``; a warning, never a readiness issue."""
+    if stored is None:
+        return "absent (file predates fingerprinting) — run bddk-mcp build"
+    if stale:
+        # build refuses a model-part difference (revision, prefix, dtype: the embedding cache cannot detect it).
+        remedy = "delete the corpus file and run bddk-mcp build --force" if "model" in stale else "run bddk-mcp build"
+        return f"stale ({', '.join(stale)}) — {remedy}"
+    return "current"
+
+
 async def _info(args: argparse.Namespace) -> None:
     """Print the corpus identity and counts; exit 1 when it is not ready to serve."""
     import sqlite3
@@ -197,6 +216,8 @@ async def _info(args: argparse.Namespace) -> None:
     print(f"schema version: {readiness.schema_version or '-'}")
     print(f"file size: {size} bytes")
     print(f"journal mode: {journal_mode}")
+    print(f"sync failures: {_sync_failures_text(readiness.sync_failures)}")
+    print(f"build fingerprint: {_fingerprint_text(readiness.build_fingerprint, readiness.stale_fingerprint_parts)}")
     if readiness.issues:
         print("status: not ready")
         for issue in readiness.issues:

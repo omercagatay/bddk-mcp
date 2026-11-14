@@ -8,6 +8,7 @@ import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 
 from bddk_mcp.core.deps import Dependencies
+from bddk_mcp.core.models import BddkDecisionSummary
 from bddk_mcp.quality.markdown_quality import assess_markdown_quality
 from bddk_mcp.store.doc_store import DocumentPage
 from bddk_mcp.tools.documents import _is_formula_aware, register
@@ -604,13 +605,31 @@ async def test_document_history_is_framed_as_a_local_text_change_log_not_amendme
 
 def _paged_store(pages: list[str]) -> MagicMock:
     async def fake_get_page(doc_id, page_number):
+        # The same four structural flags DocumentStore.get_document_page derives from the whole body.
+        body = "".join(pages)
+        start = sum(len(page) for page in pages[: page_number - 1])
+        content = pages[page_number - 1]
+        end = start + len(content)
+        previous = body[:start]
+        last_line = content.rsplit("\n", 1)[-1]
+        previous_last_line = previous.rsplit("\n", 1)[-1]
         return DocumentPage(
             document_id=doc_id,
             title="Formül Rehberi",
-            markdown_content=pages[page_number - 1],
+            markdown_content=content,
             page_number=page_number,
             total_pages=len(pages),
             extraction_method="manual_latex",
+            starts_inside_table_row=start > 0
+            and not previous.endswith("\n")
+            and previous_last_line.startswith("|")
+            and body[start] not in "\r\n",
+            starts_inside_formula=previous.count("$$") % 2 == 1,
+            ends_inside_table_row=end < len(body)
+            and not content.endswith("\n")
+            and last_line.startswith("|")
+            and body[end] not in "\r\n",
+            ends_inside_formula=body[:end].count("$$") % 2 == 1,
         )
 
     doc_store = MagicMock()
@@ -643,15 +662,14 @@ async def test_page_ending_inside_a_formula_or_table_row_is_warned():
     first = await tool("1240", 1, 1)
     second = await tool("1240", 2, 1)
 
-    assert "Page 1 has an odd number of $$ formula delimiters" in first.text
-    assert any("Page 1 has an odd number of $$" in w for w in first.structuredContent["warnings"])
+    assert "Page 1 ends inside a formula that continues on page 2" in first.text
+    assert any("Page 1 ends inside a formula" in w for w in first.structuredContent["warnings"])
     # Page 1 has no previous page; its only neighbour is page 2.
-    assert "Retrieve page(s) 2 as well" in first.text
-    # Page 2 only closes the formula begun on page 1: the cut is at its start, so the advice must not
-    # claim the formula continues on page 3; parity alone cannot tell the direction, so both neighbours.
-    assert "Page 2 has an odd number of $$ formula delimiters" in second.text
-    assert "cut at the start or the end of this page" in second.text
-    assert "Retrieve page(s) 1 and 3 as well" in second.text
+    assert "Retrieve page 2 as well before quoting that formula" in first.text
+    # Page 2 only closes the formula begun on page 1: the start flag is exact, so it names page 1 only.
+    assert "Page 2 starts inside a formula opened on page 1" in second.text
+    assert "Retrieve page 1 as well before quoting that formula" in second.text
+    assert "ends inside a formula" not in second.text and "cannot tell which" not in second.text
     # The table row really is an end-of-page cut, so it names the next page.
     assert "Page 2 ends inside a table row that continues on the next page" in second.text
     assert "Retrieve page 3 as well before quoting that row" in second.text
@@ -665,7 +683,7 @@ async def test_cut_advice_does_not_ask_for_a_page_already_in_the_response():
     result = await tool("1240", 1, 3)
 
     assert "Retrieve page" not in result.text
-    assert "Read the adjacent page(s) in this response" in result.text
+    assert "Its continuation is at the start of page 2 in this response" in result.text
     assert "Its continuation is at the start of page 3 in this response" in result.text
 
 
@@ -763,3 +781,338 @@ async def test_header_prints_the_combined_decision_line_only_when_stored():
 
     assert "Decision date / number:" not in result.text
     assert "- Decision Date:" not in result.text and "- Decision Number:" not in result.text
+
+
+def _catalog_client(entries):
+    from bddk_mcp.ingest.client import BddkApiClient
+    from tests.conftest import MockStore
+
+    client = BddkApiClient(store=MockStore())
+    client._cache = list(entries)
+    client._cache_timestamp = 9999999999.0
+    return client
+
+
+_DECISION_8970 = BddkDecisionSummary(
+    title="Kredilerin İkinci Grupta Sınıflandırılması için Öngörülen Gecikme Süresinin Değiştirilmesi hk. Kurul Kararı",
+    document_id="779",
+    decision_date="27.03.2020",
+    decision_number="8970",
+    category="Kurul Kararı",
+)
+_DECISION_10747 = BddkDecisionSummary(
+    title="SYR Hesaplamasına İlişkin Değişiklikler Hk. Kurul Kararı",
+    document_id="1207",
+    decision_date="12.12.2023",
+    decision_number="10747",
+    category="Kurul Kararı",
+)
+_REGULATION_10747 = BddkDecisionSummary(
+    title="Bankaların Muhasebe Uygulamalarına ve Belgelerin Saklanmasına İlişkin Usul ve Esaslar Hakkında Yönetmelik",
+    document_id="mevzuat_10747",
+    category="Yönetmelik",
+)
+
+
+@pytest.mark.asyncio
+async def test_a_decision_number_given_as_document_id_names_the_document_carrying_it():
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(return_value=None)
+    deps = _make_deps(doc_store=doc_store, client=_catalog_client([_DECISION_8970, _REGULATION_10747]))
+
+    with pytest.raises(ToolError) as exc_info:
+        await _capture_get_bddk_document(deps)("8970", 1)
+    out = str(exc_info.value)
+
+    assert out.splitlines()[0] == "[ERROR:NOT_FOUND] retryable=false"
+    assert "decision number" in out
+    assert "779" in out
+    assert 'get_bddk_document(document_id="779")' in out
+    assert "search_bddk_regulations" in out
+    assert "bddk-mcp build" not in out and "bddk-mcp sync" not in out
+
+
+@pytest.mark.asyncio
+async def test_a_number_that_is_no_decision_number_gets_no_decision_note():
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(return_value=None)
+    deps = _make_deps(doc_store=doc_store, client=_catalog_client([_DECISION_8970]))
+
+    with pytest.raises(ToolError) as exc_info:
+        await _capture_get_bddk_document(deps)("99999999", 1)
+    out = str(exc_info.value)
+
+    assert "Document 99999999 is not available" in out
+    assert "decision number of" not in out
+
+
+@pytest.mark.asyncio
+async def test_a_stored_id_that_is_also_another_documents_decision_number_names_that_document():
+    page = DocumentPage(
+        document_id="mevzuat_10747",
+        title=_REGULATION_10747.title,
+        markdown_content="BANKALARIN MUHASEBE UYGULAMALARI...",
+        page_number=1,
+        total_pages=1,
+    )
+
+    async def fake_get_page(doc_id, page_number):
+        return page if doc_id == "mevzuat_10747" else None
+
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(side_effect=fake_get_page)
+    deps = _make_deps(doc_store=doc_store, client=_catalog_client([_DECISION_10747, _REGULATION_10747]))
+
+    result = await _capture_get_bddk_document(deps)("10747", 1)
+
+    assert "Document ID: mevzuat_10747" in result.text
+    assert "BANKALARIN MUHASEBE UYGULAMALARI" in result.text
+    note = [line for line in result.text.splitlines() if "1207" in line]
+    assert len(note) == 1
+    assert "decision number" in note[0]
+
+
+@pytest.mark.asyncio
+async def test_a_resmi_gazete_identifier_is_not_labelled_as_a_kurul_decision():
+    entry = BddkDecisionSummary(
+        title="Bankalarca Kamuya Açıklanacak Finansal Tablolar Tebliğinde Değişiklik - Net İstikrarlı Fonlama Oranı",
+        document_id="rg_32202_20230526_6",
+        decision_date="26.05.2023",
+        decision_number="32202",
+        category="Tebliğ",
+    )
+    doc_store = _paged_store(["metin\n"])
+    deps = _make_deps(doc_store=doc_store, client=_catalog_client([entry]))
+
+    result = await _capture_get_bddk_document(deps)("rg_32202_20230526_6", 1, 1)
+
+    assert "Decision date / number" not in result.text
+    assert "- Resmî Gazete date / issue: 26.05.2023 / 32202" in result.text
+    # Stored metadata is unchanged.
+    assert result.structuredContent["evidence"][0]["decision_number"] == "32202"
+
+
+def test_decision_identifier_label():
+    from bddk_mcp.tools.structured_outputs import decision_identifier_label
+
+    assert decision_identifier_label("rg_32202_20230526_6") == "Resmî Gazete date / issue"
+    assert decision_identifier_label("779") == "Decision date / number"
+    assert decision_identifier_label("mevzuat_5411") == "Decision date / number"
+
+
+@pytest.mark.asyncio
+async def test_tool_written_warnings_come_before_the_verbatim_claim_and_only_stored_text_follows_it():
+    pages = [f"Sayfa {n} metni\n" for n in range(1, 25)]
+    pages[2] = "Giriş\n$$\n\\text{İKÇ} = \\ln\\left(\\ex"
+    tool = _capture_get_bddk_document(_make_deps(doc_store=_paged_store(pages)))
+
+    single = await tool("954", 3, 1)
+    multi = await tool("954", 2, 3)
+
+    for result, content in ((single, pages[2]), (multi, None)):
+        text = result.text
+        claim = text.index("The text below is the exact stored document content")
+        assert text.rindex("⚠") < claim
+        assert "Bu belge 24 sayfa" in text[:claim]
+        assert "Page 3 ends inside a formula that continues on page 4" in text[:claim]
+        assert "⚠" not in text[claim:]
+        assert "Retrieval warnings:" not in text
+        assert "current legal applicability" in text[:claim]
+        if content is not None:
+            assert "inside a word, a table row or a formula.\n\n" + content in text
+    assert multi.text.index("tool separators") < multi.text.index("### Page 2/24")
+    assert multi.text.index("### Page 2/24") > multi.text.index("The text below is the exact stored")
+
+
+@pytest.mark.asyncio
+async def test_page_starting_inside_a_cut_table_row_or_formula_names_the_previous_page():
+    pages = [
+        "Giriş\n| 030001 | YERLİ MEVDUA",
+        "T BANKALARI |\n| 2 | b |\n",
+        "Metin\n$$\nx = 1",
+        "+ 2\n$$\nson\n",
+        "Temiz\n",
+    ]
+    structured_warnings = lambda r: r.structuredContent["warnings"]  # noqa: E731
+    tool = _capture_get_bddk_document(_make_deps(doc_store=_paged_store(pages)))
+
+    first = await tool("1043", 1, 1)
+    row = await tool("1043", 2, 1)
+    both = await tool("1043", 1, 2)
+    formula = await tool("1043", 4, 1)
+    clean = await tool("1043", 5, 1)
+
+    assert "Page 2 starts inside a table row that began on page 1" in row.text
+    assert "first line of this page is the rest of a row begun there" in row.text
+    assert "Retrieve page 1 as well before quoting that row" in row.text
+    assert any("Page 2 starts inside a table row" in w for w in structured_warnings(row))
+    # The opening fragment is before the verbatim claim, not after it.
+    assert row.text.index("Page 2 starts inside") < row.text.index("The text below is the exact stored")
+    # Both pages in one response: the previous page is not asked for again.
+    assert "Retrieve page 1" not in both.text
+    assert "begun at the end of page 1 in this response" in both.text
+    # A formula opened on the previous page, on a page that is also the last one.
+    assert "Page 4 starts inside a formula opened on page 3" in formula.text
+    assert "first lines of this page are the rest of a formula begun there" in formula.text
+    assert "Retrieve page 3 as well before quoting that formula" in formula.text
+    # Clean boundary, and page 1 itself: no start warning.
+    assert "starts inside" not in clean.text and "starts inside" not in first.text
+
+
+@pytest.mark.asyncio
+async def test_both_tools_show_the_same_status_after_a_catalog_refresh_and_sync(doc_store):
+    from bddk_mcp.ingest.client import BddkApiClient
+    from bddk_mcp.ingest.doc_sync import DocumentSyncer
+    from bddk_mcp.store.doc_store import StoredDocument
+    from bddk_mcp.tools import sections as sections_tools
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="1310",
+            title="Faiz Oranı Riski Yönetmeliği",
+            category="Yönetmelik",
+            source_url="https://www.bddk.org.tr/Mevzuat/DokumanGetir/1310",
+            markdown_content="MADDE 1 - (1) Bankalar faiz oranı riskini ölçer.\n\nMADDE 2 - (2) Rapor verilir.\n",
+        )
+    )
+    # `sync --refresh-catalog` publishes a listing in which BDDK now files the instrument as repealed.
+    await doc_store.replace_catalog(
+        [
+            {
+                "document_id": "1310",
+                "title": "Faiz Oranı Riski Yönetmeliği",
+                "category": "Mülga Düzenleme",
+                "source_url": "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1310",
+            }
+        ]
+    )
+    client = BddkApiClient(doc_store)
+    await client.ensure_cache()
+    deps = Dependencies(db=None, doc_store=doc_store, client=client, http=None)
+    mcp = MagicMock()
+    sections_tools.register(mcp, deps)
+    section_tool = next(
+        c.args[0] for c in mcp.tool.return_value.call_args_list if c.args[0].__name__ == "get_document_section"
+    )
+    document_tool = _capture_get_bddk_document(deps)
+
+    async with DocumentSyncer(doc_store, ocr_backends=[]) as syncer:
+        await syncer.sync_document("1310", title="Faiz Oranı Riski Yönetmeliği", category="Mülga Düzenleme")
+
+    document = await document_tool("1310")
+    section = await section_tool("1310", "madde", "1")
+    assert "MÜLGA" in document.text and "MÜLGA" in section.text
+
+
+_ANNEX_PLACEHOLDER_BODY = (
+    "MADDE 1 - (1) Bu Yönetmelik denetimi düzenler.\n\nMADDE 2 - (1) Ek-1 formu kullanılır.\n\nEkleri için tıklayınız."
+)
+
+
+def _real_store_deps(doc_store) -> Dependencies:
+    return Dependencies(
+        db=None, doc_store=doc_store, client=MagicMock(find_by_id=MagicMock(return_value=None)), http=None
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_placeholder_for_annexes_that_are_not_stored_is_noticed_before_the_verbatim_claim(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(document_id="mevzuat_39257", title="BSD Yönetmeliği", markdown_content=_ANNEX_PLACEHOLDER_BODY)
+    )
+    tool = _capture_get_bddk_document(_real_store_deps(doc_store))
+
+    result = await tool("mevzuat_39257", 1)
+
+    notice = next(w for w in result.structuredContent["warnings"] if "annexes" in w)
+    assert "not stored in this corpus" in notice
+    assert '"Ekleri için tıklayınız."' in notice and "source" in notice
+    assert result.text.count(notice) == 1
+    claim = result.text.index("The text below is the exact stored document content")
+    assert result.text.index(notice) < claim
+    assert "Retrieval warnings:" not in result.text
+    assert result.text.count("annexes (ekler) of this instrument are not stored") == 1
+
+
+@pytest.mark.asyncio
+async def test_no_annex_notice_for_prose_that_mentions_ekleri_or_for_a_document_that_stores_its_annex(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_11111",
+            title="Düz Yönetmelik",
+            markdown_content="MADDE 1 - (1) Bu Yönetmeliğin ekleri bakımından düzenleme yapılır; ekleri için tıklayınız "
+            "demek yeterli değildir.\n\nMADDE 2 - (1) Son.\n",
+        )
+    )
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_19498",
+            title="Ekli Yönetmelik",
+            markdown_content="MADDE 1 - (1) Metin.\n\nEki için tıklayınız.\n\nEK-1\n\nBİLDİRİM FORMU\n\nForm alanları burada.\n",
+        )
+    )
+    tool = _capture_get_bddk_document(_real_store_deps(doc_store))
+
+    for doc_id in ("mevzuat_11111", "mevzuat_19498"):
+        result = await tool(doc_id, 1)
+        assert "annexes" not in result.text
+        assert not any("annex" in w for w in result.structuredContent["warnings"])
+
+
+@pytest.mark.asyncio
+async def test_formula_cut_warnings_are_exact_for_each_edge():
+    # Page 1 ends inside a formula; page 2 only closes it; page 3 opens and closes one inside itself;
+    # page 4 opens a formula and ends inside it; page 5 is cut at both edges; page 6 only closes it.
+    pages = [
+        "a\n$$ x +",
+        "y $$\nb\n",
+        "c $$ z $$\n",
+        "d\n$$ u +",
+        "v +",
+        "w $$\nend\n",
+    ]
+    tool = _capture_get_bddk_document(_make_deps(doc_store=_paged_store(pages)))
+
+    out = {n: await tool("1240", n, 1) for n in range(1, 7)}
+
+    for n in range(1, 7):
+        assert "cannot tell which" not in out[n].text and "cut at the start or the end" not in out[n].text
+    assert "Page 1 ends inside a formula that continues on page 2" in out[1].text
+    assert "Retrieve page 2 as well before quoting that formula" in out[1].text
+    assert "starts inside a formula" not in out[1].text
+    # Page 2 only starts inside one: previous page only, no request for page 3.
+    assert "Page 2 starts inside a formula opened on page 1" in out[2].text
+    assert "Retrieve page 1 as well" in out[2].text
+    assert "ends inside a formula" not in out[2].text and "page 3" not in out[2].text
+    assert "starts inside" not in out[3].text and "ends inside" not in out[3].text
+    assert "Page 4 ends inside a formula that continues on page 5" in out[4].text
+    assert "starts inside" not in out[4].text
+    assert "Page 5 starts inside a formula opened on page 4" in out[5].text
+    assert "Page 5 ends inside a formula that continues on page 6" in out[5].text
+    assert "Retrieve page 4 as well" in out[5].text and "Retrieve page 6 as well" in out[5].text
+    # The last page asks for the previous page only.
+    assert "Page 6 starts inside a formula opened on page 5" in out[6].text
+    assert "page 7" not in out[6].text and "ends inside" not in out[6].text
+    both = await tool("1240", 4, 3)
+    assert "Retrieve page" not in both.text
+    assert "continuation is at the start of page 5 in this response" in both.text
+
+
+@pytest.mark.asyncio
+async def test_a_complete_table_row_at_a_page_edge_is_no_cut_but_a_row_cut_mid_cell_warns_on_both_sides():
+    complete = ["| a | b |\n| 1 | 2 |", "\n| 3 | 4 |\nson\n"]
+    cut = ["| a | b |\n| 1 | 2", " |\n| 3 | 4 |\nson\n"]
+    complete_tool = _capture_get_bddk_document(_make_deps(doc_store=_paged_store(complete)))
+    cut_tool = _capture_get_bddk_document(_make_deps(doc_store=_paged_store(cut)))
+
+    for n in (1, 2):
+        text = (await complete_tool("1043", n, 1)).text
+        assert "table row" not in text.split("The text below")[0]
+    first = (await cut_tool("1043", 1, 1)).text
+    second = (await cut_tool("1043", 2, 1)).text
+    assert "Page 1 ends inside a table row that continues on the next page" in first
+    assert "Page 2 starts inside a table row that began on page 1" in second

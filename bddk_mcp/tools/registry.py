@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import inspect
+
 from mcp.types import ToolAnnotations
 from pydantic import ConfigDict
 
@@ -93,6 +95,9 @@ def _apply_tool_contracts(server) -> None:
         if annotations is None:
             raise RuntimeError(f"MCP tool {tool_name!r} has no reviewed risk annotations")
         tool.annotations = annotations.model_copy(deep=True)
+        # Python 3.13 dedents docstrings at compile time and 3.12 does not: normalise on every version.
+        if tool.description:
+            tool.description = inspect.cleandoc(tool.description)
 
         argument_model = tool.fn_metadata.arg_model
         model_config = dict(argument_model.model_config)

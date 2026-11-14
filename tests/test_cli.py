@@ -339,3 +339,108 @@ def test_info_of_a_missing_or_foreign_file_prints_one_line_and_exits_1(tmp_path,
         cli.main(["info", "--corpus", str(foreign)])
     assert exited.value.code == 1
     assert capsys.readouterr().err.startswith("bddk-mcp info: error: Corpus is not ready: the file is not a readable")
+
+
+def test_info_refuses_a_stale_wal_beside_a_replaced_file_in_one_line(tmp_path, capsys):
+    from tests.test_corpus_db import _replaced_after_a_killed_writer
+
+    corpus = _replaced_after_a_killed_writer(tmp_path)
+    before = corpus.read_bytes()
+
+    with pytest.raises(SystemExit) as exited:
+        cli.main(["info", "--corpus", str(corpus)])
+
+    assert exited.value.code == 1
+    captured = capsys.readouterr()
+    assert captured.err.startswith("bddk-mcp info: error: ")
+    assert "bddk.sqlite-wal" in captured.err and "Traceback" not in captured.err
+    assert len(captured.err.strip().splitlines()) == 1
+    assert corpus.read_bytes() == before
+
+
+def test_info_of_a_file_it_may_not_open_prints_the_permission_message_without_a_traceback(
+    tmp_path, capsys, monkeypatch
+):
+    import sqlite3
+
+    from bddk_mcp.store.corpus_db import UNREADABLE_MESSAGE, CorpusDB
+    from tests.test_corpus_db import _refusing_connect
+
+    corpus = tmp_path / "c.sqlite"
+    CorpusDB.open(corpus).close()
+    monkeypatch.setattr(sqlite3, "connect", _refusing_connect(sqlite3.connect))
+
+    with pytest.raises(SystemExit) as exited:
+        cli.main(["info", "--corpus", str(corpus)])
+
+    assert exited.value.code == 1
+    assert capsys.readouterr().err == f"bddk-mcp info: error: {UNREADABLE_MESSAGE}\n"
+
+
+def test_info_reports_sync_failures_by_category(tmp_path, capsys):
+    from bddk_mcp.store.corpus_db import CorpusDB
+    from bddk_mcp.store.doc_store import DocumentStore
+
+    corpus = _ready_corpus(tmp_path)
+    cli.main(["info", "--corpus", str(corpus)])
+    assert "sync failures: none" in capsys.readouterr().out.splitlines()
+
+    db = CorpusDB.open(corpus)
+    store = DocumentStore(db)
+    for doc_id, category in (("a", "download"), ("b", "download"), ("c", "extraction")):
+        asyncio.run(store.record_sync_failure(doc_id, "timeout", category))
+    db.close()
+
+    cli.main(["info", "--corpus", str(corpus)])
+    lines = capsys.readouterr().out.splitlines()
+    assert "sync failures: 3 (download: 2, extraction: 1)" in lines
+    assert lines[-1] == "status: ready"
+
+
+def _set_fingerprint(corpus, change) -> None:
+    from bddk_mcp.store import fingerprint
+    from bddk_mcp.store.corpus_db import CorpusDB
+
+    db = CorpusDB.open(corpus)
+
+    def write(conn):
+        key = fingerprint.FINGERPRINT_META_KEY
+        stored = fingerprint.decode(conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()[0])
+        updated = change(stored)
+        if updated is None:
+            conn.execute("DELETE FROM meta WHERE key = ?", (key,))
+        else:
+            conn.execute("UPDATE meta SET value = ? WHERE key = ?", (fingerprint.encode(updated), key))
+
+    db.transaction_sync(write)
+    db.close()
+
+
+def test_info_reports_a_current_stale_or_absent_build_fingerprint_without_changing_the_exit_code(tmp_path, capsys):
+    corpus = _ready_corpus(tmp_path)
+    capsys.readouterr()
+    cli.main(["info", "--corpus", str(corpus)])
+    lines = capsys.readouterr().out.splitlines()
+    assert "build fingerprint: current" in lines and lines[-1] == "status: ready"
+
+    _set_fingerprint(corpus, lambda stored: {**stored, "parser": "1" * 16, "chunker": "2" * 16, "seed": "3" * 16})
+    cli.main(["info", "--corpus", str(corpus)])
+    lines = capsys.readouterr().out.splitlines()
+    assert "build fingerprint: stale (parser, chunker) — run bddk-mcp build" in lines
+    assert lines[-1] == "status: ready"
+
+    # A model-revision difference cannot be fixed by a plain build (build refuses it), so info says so.
+    _set_fingerprint(corpus, lambda stored: {**stored, "model": "4" * 16})
+    cli.main(["info", "--corpus", str(corpus)])
+    lines = capsys.readouterr().out.splitlines()
+    expected = (
+        "build fingerprint: stale (parser, chunker, model) — delete the corpus file and run bddk-mcp build --force"
+    )
+    assert expected in lines
+    assert lines[-1] == "status: ready"
+
+    _set_fingerprint(corpus, lambda stored: None)
+    cli.main(["info", "--corpus", str(corpus)])
+    lines = capsys.readouterr().out.splitlines()
+    assert "build fingerprint: absent (file predates fingerprinting) — run bddk-mcp build" in lines
+    assert lines[-1] == "status: ready"

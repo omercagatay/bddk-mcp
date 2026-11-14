@@ -68,6 +68,28 @@ def test_storage_sanitizer_repairs_common_pdf_spacing_loss_phrases():
     assert "Standart Yaklaşımı" in out
 
 
+def test_prepare_for_storage_repairs_the_letterhead_without_any_other_marker():
+    for doubled, repaired in (
+        ("BBANKACILIK", "BANKACILIK"),
+        ("DDÜZENLEME", "DÜZENLEME"),
+        ("DDENETLEME", "DENETLEME"),
+        ("KKURUMU", "KURUMU"),
+    ):
+        body = f"{doubled} VE METİN\n\nMADDE 1 – Metin.\n"
+        assert prepare_markdown_for_storage(body) == f"{repaired} VE METİN\n\nMADDE 1 – Metin.\n"
+    full = "BBANKACILIK DDÜZENLEME VE DDENETLEME KKURUMU\n\nMADDE 1 – Metin.\n"
+    assert prepare_markdown_for_storage(full) == "BANKACILIK DÜZENLEME VE DENETLEME KURUMU\n\nMADDE 1 – Metin.\n"
+    # Real acronyms and longer words stay untouched.
+    assert prepare_markdown_for_storage("AAOIFI SSTANDARTLARI\n") == "AAOIFI SSTANDARTLARI\n"
+    assert prepare_markdown_for_storage("BBANKACILIKLA KKURUMUN\n") == "BBANKACILIKLA KKURUMUN\n"
+
+
+def test_storage_gate_is_derived_from_the_letterhead_repair_table():
+    from bddk_mcp.quality import markdown_quality
+
+    assert set(markdown_quality._OCR_DOUBLED_LETTERHEAD_WORDS) <= set(markdown_quality._STORAGE_PREPARE_MARKERS)
+
+
 def test_storage_sanitizer_repairs_ocr_doubled_uppercase_headings():
     raw = "BBANKACILIK DDÜZENLEME VE DDENETLEME KKURUMU"
     out = sanitize_markdown_for_storage(raw)
@@ -441,8 +463,28 @@ def test_any_cid_marker_makes_the_document_at_least_warning_like_the_verbatim_re
     assert assess_markdown_quality("Madde 1 - Temiz metin.").label == "clean"
 
 
+def test_wrong_single_byte_codepage_turkish_text_is_a_warning_on_its_own():
+    # windows-1254 bytes read as Latin-1 / cp1252: ı ş ğ İ Ş Ğ become ý þ ð Ý Þ Ð.
+    for text in (
+        "Madde 1 - Bankalarýn kredi iþlemlerinde þartlarý",
+        "Madde 1 - Ýþbu deðerlendirme",
+        "Madde 1 - ÞARTLAR ve ÐARTLAR",
+    ):
+        result = assess_markdown_quality(text)
+        assert result.label == "warning", text
+        assert "mojibake" in result.flags, text
+        assert result.counts["mojibake"] >= 1
+
+
+def test_correct_turkish_and_isolated_symbols_stay_clean_under_the_wrong_codepage_signal():
+    assert (
+        assess_markdown_quality("Madde 1 - Bankaların kredi işlemlerinde şartları değerlendirme İşbu").label == "clean"
+    )
+    assert assess_markdown_quality("Madde 1 - Değer 5 ð 3 þ ý 2 tutarı.").label == "clean"
+
+
 def test_double_encoded_turkish_text_is_a_warning():
-    garbled = "Bankalarýn kredi iÃ§in ÅŸartlarÄ± ve â€“ deÄŸerlendirme"
+    garbled = "Bankalar kredi iÃ§in ÅŸartlarÄ± ve â€“ deÄŸerlendirme"
     result = assess_markdown_quality("Madde 1 - " + garbled)
 
     assert result.label == "warning"

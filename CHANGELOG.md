@@ -55,6 +55,467 @@ corpus üzerinde 32/64 paralel arama denendi; başka açık bulunmadı. Bağıml
 bilinen açık taraması (`pip-audit`) çalıştırılamadı; gerçek bir kimlik sağlayıcı,
 canlı BDDK ve Docker imajı denenmedi.
 
+### Değişti — üçüncü bakım turu: 14 aracın gerçek corpus ile denenmesi ve düzeltmeler (2026-11-14)
+
+Önceki turun birleştirilmiş hâli (PR #197) üzerinde üçüncü tur. Bu kez 14 aracın
+hepsi gerçek sunucu nesnesi üzerinden, tam corpus ve gerçek embedding modeliyle,
+gerçek kullanıma benzer sorularla denendi; çıkan hatalar düzeltildi.
+
+**Müfettişin fark edeceği şeyler (kısa özet).**
+
+- Aylık bülten tabloları: önceki tur beş geçerli tabloyu (12, 13, 15, 16, 17)
+  yanlışlıkla "geçici olarak kullanılamıyor" hatasına çevirmişti; bunlar yine
+  çalışıyor. Sütunlar BDDK'nın kendi başlıklarıyla yazılıyor. Haftalık araçlar
+  hangi dönemi ve hangi birimi gösterdiklerini söylüyor.
+- Madde başlıkları artık maddenin içinde: bir madde başlık satırından başlıyor ve
+  başlık o maddenin başlığı. Uzun hükümler sözcüğün ortasında değil, bir
+  paragraf veya satır sonunda bitiyor. Ekler, tırnak içine alınmış maddeler ve
+  numaralı rehber paragrafları artık kendi satırlarını taşıyor.
+- `search_document_store` istenen sayıda sonuç döndürüyor; önceden sessizce
+  kısalan liste artık kısalmıyor. Sorguda geçen her kelimeyi içeren belge,
+  anlamsal skoru olmasa bile "anahtar kelime eşleşmesi" olarak listeleniyor.
+  Türkçe harf olmadan yazılan ya da bağırarak (büyük harfle) yazılan sorular da
+  aranıyor.
+- Katalog araması (`search_bddk_regulations`) Türkçe harfleri, büyük harfleri ve
+  çekimleri tanıyor, tam kelime eşleştiriyor ve aranan belgeyi başa koyuyor.
+- Bölüm araması soru kalıplarını ("kaç", "nedir", "nasıl") aranan kelime saymıyor
+  ve hangi kelimeleri aramadığını söylüyor.
+- `get_bddk_document` uyarıları, belgenin kendi metninden önce yazıyor; kayıtlı
+  olmayan ekler açıkça bildiriliyor.
+- Sunucu bir soğuk makinede açılırken artık 45 saniyede vazgeçmiyor (başlangıç süresi bir ayar, varsayılanı 180 saniye); corpus
+  dosyasının bu kodla uyumlu olup olmadığını `bddk-mcp info` söylüyor ve düz
+  `bddk-mcp build` eski dosyayı kendisi yeniliyor.
+
+**Önceki turun iki hatası.** Bu turda düzeltilen onaylanmış bulgulardan ikisi,
+önceki turun (PR #197) kendi eklediği hatalardı: (1) `get_bddk_monthly` içine
+konan katı satır denetimi beş geçerli aylık tabloyu (12, 13, 15, 16, 17) yanlış
+bir "geçici olarak kullanılamıyor" hatasına çeviriyordu; (2) belge belirtilmeden
+sorguda geçen bir bölüm göndermesi ("madde 9"), cevapta "uygulanmadı" yazmasına
+rağmen sonuçları bölüm türüne göre yine süzüyordu.
+
+**Nasıl yapıldı.** 14 araç 14 senaryo ailesiyle denendi (kredi, sermaye, likidite,
+bilgi teknolojisi, yönetişim, Kurul Kararları, standart ve rehberler, okuma
+araçları, katalog, canlı BDDK araçları, dayanıklılık, araçlar arası tutarlılık,
+doğal dil ile arama, asistanın araç açıklamalarını nasıl gördüğü); #197 ile
+birleşen değişiklik 8 alanda yeniden denetlendi; 7 kapsam raporu yazıldı. Çıkan
+155 bulgunun her biri onu çürütmeye çalışan ayrı bir doğrulayıcıya verildi: 110
+doğrulandı, 36 yineleme, 7 tasarım gereği davranış, 2 çürütüldü. Uygulama, her
+biri kendi çalışma ağacında ve izin verilen dosya listesiyle yapılan 12 iz ile
+yürüdü; her iz bağımsız olarak incelendi ve değişen dosyalar, silinen testler
+ve tam test paketi açısından kapıdan geçirildi.
+
+**Yükseltme notu.**
+
+- Düz `bddk-mcp build` çalıştırın. Bu turdan önce üretilmiş bir corpus dosyasında
+  derleme parmak izi yoktur; `build` bunu görür ve her belgeyi seed'den yeniden
+  yazar. Vektörler seed önbelleğinden gelir, hiçbir şey yeniden gömülmez.
+  `bddk-mcp info` dosyanın güncel olup olmadığını söyler. Önceki turun
+  "yeni dosya üretin ve eskisinin yerine koyun" adımı artık gerekmez. Bu turun
+  başında üretilmiş bir corpus dosyası bir kez eski ayrıştırıcı ve chunk parmak
+  izi bildirir; düz `bddk-mcp build` onu seed önbelleğinden yeniden yazar.
+- Bir corpus dosyasını elle değiştirirseniz eski `<dosya>-wal` ve `<dosya>-shm`
+  dosyalarını da kaldırın. Değiştirilen dosyanın yanında kalmış, boş olmayan bir
+  `-wal` artık açılışta reddedilir (yazıcı ve okuyucu).
+- Yeni ayar `BDDK_SEMANTIC_STARTUP_TIMEOUT_SECONDS` (varsayılan 180, aralık
+  1–900; önceden sabit 45 saniyeydi).
+- Kalite politikası `markdown-quality-assessment-v9` (319 seed belgesinin hepsi
+  temiz kalır).
+- MCP sözleşmesi yalnızca eklemedir: yeni isteğe bağlı çıktı alanları var; araç
+  eklenmedi, yeniden adlandırılmadı, kaldırılmadı; hiçbir argüman kaldırılmadı.
+  İstemcinin fark edebileceği davranışlar: `search_document_store` istenen
+  sınıra kadar sonuç döndürür ve anahtar kelime eşleşmelerini (`match_type`
+  `fts`, `decision_number`) listeler, gerektiğinde "Searched as" yazar;
+  varsayılan bölüm araması `govde` satırlarını da arar ve tür etiketi yazar;
+  başlıklı madde bölümleri artık başlık satırıyla başlar, bu yüzden başlıklı
+  maddelerin `start_char` ve içerik özetleri değişti, bölüm ve chunk sayıları da
+  değişti (istemcinin eski içerik özetiyle sakladığı alıntılar artık eşleşmez);
+  sunucu talimatının 7. kuralı `match_strength` `keyword` sonuçlarını üç türle
+  anlatır (`fts_exact`: sorgudaki hukuki atıfı chunk taşıyor; `fts`: her sorgu
+  kelimesi chunk'ta ya da belge başlığında geçiyor; `decision_number`: sorgudaki
+  karar numarasını taşıyan belge);
+  `get_document_section` ve `search_document_sections` kayıtlı olmayan açık bir
+  `document_id` için `NOT_FOUND` döner; `get_bddk_monthly` BDDK'nın kendi sütun
+  başlıklarını yazar; haftalık araçlar kapsanan dönemi ve birimi yazar ve istenen
+  pencereye göre keser.
+
+Aylık ve haftalık bülten araçları:
+
+- `get_bddk_monthly`: değer sütunları BDDK'nın kendi `colNames` alanından gelir
+  ve her sütun kendi başlığı altında yazılır. Vade ya da büyüklük dilimi
+  sütunlarını `TP / YP / Toplam` başlıkları altında yazıp gerçek toplamı atan
+  altı tablo düzeldi; tek sütunlu tablolar (sermaye yeterliliği, oranlar) yine
+  satır olarak çıkar; BDDK'nın döndürdüğü tablo başlığı tablo numarasının yanında
+  yazılır ve BDDK'nın tablo dipnotu basılır.
+- Tool açıklamasındaki tablo anahtarı, canlı 17 tablo başlığından üretilir; elle
+  yazılmış anahtar, yedi örnekten altısında yanlış tabloyu adlandırıyordu.
+- Cevabın şekli anlaşılamıyorsa hata yeniden denenemez (önceki turda yeniden
+  denenebilir üst akış hatasıydı). BDDK'nın kendi "bu tablo sunulmuyor" cevabı
+  (örneğin USD görünümü yok) BDDK'nın cümlesiyle bir ret olarak bildirilir; BDDK'nın
+  döndürdüğü başka bir hata mesajı yeniden denenebilir üst akış hatasında
+  alıntılanır.
+- Haftalık bülten, trend, karşılaştırma ve anlık görüntü: metrik anahtarı
+  BDDK'nın satır etiketlerinden üretilir (1.0.10 ticari kredi diye anlatılıyordu;
+  taksitsiz kart satırıdır). BDDK istenen pencereyi yok sayıp yaklaşık 13 haftalık
+  gözlem verir: seri istenen gün sayısına göre kesilir, kapsanan dönem, gözlem
+  sayısı ve birim yazılır, BDDK'nın verdiğinden uzun bir pencere karşılanmamış
+  diye bildirilir. Bilinmeyen metrik numarası `INVALID_INPUT` döner. Anlık görüntü
+  yalnızca Krediler tablosudur; tarihini ve birimini yazar. Haftalık araçlar tek
+  bir sayı biçimi kullanır (1,234.50) ve bunu belirtir.
+- `get_regulatory_digest`: karar sayısı yerel katalogun sayısı olarak, en yeni
+  karar tarihiyle birlikte yazılır; katalog dönemi kapsamıyorsa özet bunu söyler.
+  Duyurular en yeniden başlar. `search_bddk_institutions`: dijital banka işareti
+  korunur, boş "()" görünmez.
+
+Bölüm ayrıştırıcısı ve bir bölümün şimdi içerdikleri:
+
+- Bir madde başlık satırında başlar ve başlık o bölümün başlığıdır; madde
+  satırında değişiklik notu, Markdown işareti ya da maddenin ilk cümlesi
+  (Bankacılık Kanunu biçimi) olduğunda da böyledir (84 belgede 2.129 başlıklı
+  madde). Başlık hiçbir zaman bir önceki maddenin içinde kalmaz. İki satıra sarılan
+  başlıklar ve adlı bir başlığın altındaki başlıklar, bütün seed'de hatalı başlık
+  üretmeyen kural olduğu yerde desteklenir.
+- Kayıtlı pencereden uzun bir hüküm (en çok 20.000 karakter) bir paragraf sonunda,
+  satır sonunda ya da boşlukta biter, sözcüğün ortasında bitmez. Kısaltma notu
+  gerçek pencere ve hüküm uzunluklarını yazar.
+- Bir Markdown tablo satırı hiçbir zaman sızmış başlık sanılıp bölümden atılmaz
+  (`mevzuat_18991` geçici madde 1 faiz satırlarını, 1240 fıkra 3 son satırını geri
+  aldı). 44 yönetmeliğin sonundaki değişiklik geçmişi tablosu artık son maddenin
+  parçası değildir; son maddeden sonraki değişiklik dipnotları o maddenin fıkra
+  satırı sayılmaz.
+- Ek başlıkları: `EK: 1` ve `EK-1 BAŞLIK` biçimleri ek başlığıdır
+  (`mevzuat_18990` kaldıraç oranı tabloları artık ek 1 ve ek 2; 946 numaralı
+  belgenin iki eki paragraf 163'ten sonra gelir). Metin içindeki başlık
+  yinelemeleri satır oluşturmaz. Kendi satırında başlığı olmayan ek, altında
+  basılı başlığı alır (bir formun muhatap satırını almaz). Numarasız bir `Ek: …`
+  satırı kendinden önceki hükmü kapatır.
+- Yalnızca başka bir metni alıntılayan `MADDE N` satırları olan belge madde satırı
+  üretmez: Genelge 2023/1 (1171) artık alıntılanan yönetmeliğin madde 13'ü altında
+  kayıtlı değildir.
+- Bir fıkra ya da bent satırı, içinde bulunduğu hükmün kayıtlı penceresinde biter
+  (`mevzuat_21192` ek 2 fıkra 2 hükmün 8.500 karakter ötesine taşıyordu).
+- Numaralı rehber gövdeleri: Kredi Tahsis ve İzleme Rehberi'nin (1041) 261 basılı
+  paragrafı vardır ve ondalık bölüm başlıkları ayırıcıdır; 947, 949 ve 934
+  numaralı belgelerde paragraflar adreslenebilir; 951 eke kadar ayrışır; 11165
+  sayılı kararın (1285) sektör alt başlıkları başlıktır. Kaynağın kendi baskı
+  hataları (949'da 57 eksik, 60 iki kez) iki "60"ı da adreslenemez bırakır.
+- Hiçbir bölüme ait olmayan altyazı satırları, kendilerini izleyen bölümün
+  chunk'ına katılır; yalnızca başlıktan ya da altyazıdan oluşan chunk kalmadı. Bu
+  yüzden bir chunk, bağlı olduğu bölümün `start_char` değerinden önce başlayabilir.
+- Sayılar: bölüm 8.556 → 9.029, chunk 13.721 → 12.091 (319 belge).
+
+Bölüm araması ve alıntı kontrolü:
+
+- Sorgudan okunan bölüm türü ya da göndermesi, yalnızca belge belirlenmişse
+  aramayı daraltır; açıkça verilen argüman yine kesin süzgeçtir. Belge
+  belirlenmeden verilen gönderme uygulanmaz ve cevap bunu yazar (önceki turun
+  hatası).
+- Göndermeler: "md." madde demektir; sıra sayısının hâl ekleri (maddenin, maddede,
+  maddeye) ayrışır, sayı belge numarası olmaz; ilke ve paragraf için sıra sayısı
+  biçimleri, harfli paragraflar (21A), ek göndermeleri (EK-2, 2 numaralı ek) ve
+  `kgk_`/`rg_` kimlikleri tanınır; tutarlar, oranlar ve yüzdeler hiçbir zaman belge
+  numarası sayılmaz. Belge numarası olarak yalnızca ilk aday dikkate alınır ve
+  aday, kapsamlı geçişte sorgu metninden çıkarılır; her not hangi aday için
+  yazıldığını söyler.
+- Kayıtlı olmayan açık bir `document_id`, iki bölüm aracında da `NOT_FOUND` döner.
+- Varsayılan bölüm araması her `govde` satırını arar ve türünü yazar
+  (`SectionItem.govde_kind`): madde yapısı olmayan belgenin tam metin penceresi,
+  uzun bir hükmün devamı, ekleri olan bir Kurul Kararının karar metni, yalnızca ek
+  ya da paragraflardan oluşan belgenin gövde metni, artık metin. Uzun bir ekin ilk
+  20.000 karakterinden sonrası önceden aranamıyordu.
+- Soru ve çerçeve sözcükleri (Türkçe harfle ya da harfsiz yazılsın) zorunlu kelime
+  sayılmaz; cevap hangi kelimelerin aranmadığını söyler
+  (`query_words_not_searched`). "yüzde N" ve "%N" aynı rakamdır; yumuşak tire ve
+  sıfır genişlikli karakterler yok sayılır. Çekim toleranslı geçişte kısa
+  sözcükler ön ek sayılır, beş karakterden uzun köklerde bilinen bir Türkçe ek
+  (aorist dahil) atılır; zayıf bir kök eşleşmesi gevşek geçişi engellemez, gevşek
+  sonuçlar kök eşleşmelerinin arkasına eklenir.
+- Arama alıntısı bir bölümün içinden alınmışsa kendi aralığını yazar ve öyle
+  işaretlenir; sorgu sözcüklerinin çoğunu kapsayan pencere seçilir ve sözcük
+  başında başlar. Kayıtlı pencereden uzun bir hüküm, gerçek kayıtlı uzunluğu
+  (satırın aralığı, sabit bir sayı değil) ve gerçek hüküm uzunluğunu yazar ve
+  hükmün tamamının ve pencerenin ötesinin hangi `get_bddk_document` sayfalarında
+  olduğunu söyler; devam satırları aynı rakamları taşır.
+- Harfli göndermeler kaynağın bastığı gibi yazılır (madde 66/A, paragraf 21A;
+  `SectionItem.display_section_ref`; saklanan biçim ve argüman değeri aynıdır).
+  Bir rehberin bent ve fıkra satırları üst paragraf ya da ilkelerini ("Parent:")
+  yazar. Sorgudaki denetim karakterleri ham olarak yankılanmaz. Başlık süzgecinde
+  düz ve tipografik kesme işareti aynıdır.
+- Alıntı kontrolü: durum anlamı değişmedi, kontrol harfi harfine kalır. Yeni
+  tanılar: alıntı kayıtlı metinden yalnızca boşluk ya da satır sonu, tipografik
+  kesme ya da tırnak, yıldız ya da alt çizgi işareti ya da yumuşak tire ile
+  ayrılıyorsa ve tam bir yerde eşleşiyorsa kayıtlı karakterler ve konumları verilir;
+  belirsiz alıntı geçtiği yerleri sıralar; ardışık birkaç metin penceresinden
+  birinde bulunmayan alıntı (pencere türü ne olursa olsun) `unavailable` olur,
+  komşu satırlar adlandırılır ve alıntı sınırı aşıyorsa pencereler arası konum
+  yazılır (`quotation_reference_window`). Bu kural artık yalnızca kısaltılmış
+  hükümlere bağlı değildir.
+- `govde` satırlarının yer tutucu başlığı artık dizine girmez; bu, yeniden
+  üretilmiş corpus dosyasında geçerlidir (düz `bddk-mcp build` dosyayı yeniler). "gövde" ve "dipnot" yer tutucu
+  sözcükleriyle başlık süzgeci artık `govde` satırlarını seçmez;
+  `section_type=govde` desteklenen süzgeçtir.
+
+Anlamsal arama (`search_document_store`):
+
+- Skor boşluğu kesimi kaldırıldı: en üst sonuçtan 0,051'den fazla düşük bir
+  sonuç sessizce atılıyordu; bu yüzden 40 alan içi kalibrasyon sorusunun 38'i
+  istenenden az sonuç veriyordu ve tek bir öne çıkarılmış chunk, yönetmelikleri
+  gizliyordu. Önceden dönen sonuçlar yerinde kalır, yeni giren sonuçlar arkadan
+  gelir.
+- Sıra: güçlü ve orta sonuçlar; sonra anahtar kelime eşleşmeleri; sonra aracın
+  kendi "zayıf" dediği sonuçlar. Sorgudaki her kelimeyi içeren ama anlamsal
+  sonucu olmayan belge (belge başına çekilir) anahtar kelime eşleşmesi olarak
+  listelenir (`match_type` `fts`); "SYR", "pandemi", "deprem" ve "5411" artık
+  "sonuç yok" ya da iki sonuç vermez. Yalnızca bir karar numarası içeren sorgu o
+  kararı ilk sıraya koyar (`match_type` `decision_number`). "Hukuki atıf üzerinden
+  anahtar kelime eşleşmesi" etiketi yalnızca chunk o atfı taşıyorsa verilir;
+  aynı türden başka bir numarayı taşıyan sonuç bunu söyler.
+- Sorgu, anahtar kelime tarafının zaten yaptığı gibi embedding için de
+  normalleştirilir: bağırarak yazılan cümle küçük harfe çevrilir; Türkçe harf
+  olmadan yazılan sorguda, corpus sözlüğünde belirsiz olmayan sözcüklere harfleri
+  geri verilir; kısaltmalar ve kısa başlıklar ("TFRS 9", "MADDE 5") yazıldığı gibi
+  kalır. Aranan metin yazılandan farklıysa cevap "Searched as" ile söyler.
+- `bddk_mcp/store/search_glossary.py`: corpus'un kendisinin açılımıyla birlikte
+  bastığı 17 kısaltmanın gözden geçirilmiş sözlüğü (LKO, NSFR, İSEDES, BKZ ...);
+  kullanılan açılım cevapta yazılır. Her girdi en çok üç saklı belgeyi kanıt
+  gösterir ve `tests/test_search_glossary.py` bunları seed'e karşı denetler.
+  Corpus'ta açılımıyla basılmayan kısaltma listeye alınmaz.
+- Bir fıkra ya da bent sonucu üst bölümünü adlandırır ve işaretçisi tam bir
+  bölümü açar; devam, gövde metni ve karar metni chunk'ları bölüm araçlarının
+  etiketlerini taşır. Kalibrasyon tavanındaki bir relevance kesin "100%" diye
+  gösterilmez: sonuç "relevance at the calibration ceiling (100%); tied hits are
+  ordered by the internal score" diye işaretlenir (`relevance_clamped`), çünkü
+  tavanda birçok sonuç eşit görünür ve aralarındaki sırayı iç skor belirler.
+- Ölçüm (gerçek model, `limit` 10, yeni corpus): 40 alan içi kalibrasyon sorusunda
+  beklenen belge ilk sırada ya da ilk beşte 33/38 → 33/39; 45 tanınmış-belge
+  sorusunda 23/38 → 25/40; aynı sorular Türkçe harfsiz yazıldığında 17/30 → 25/39;
+  alan içi sorularda önceki sonuçların sırası 40/40 korundu; 30 sorudan oluşan
+  bir kümedeki 18 gerçek hukuki atıf sonucunun hepsi yerini korudu ya da yükseldi.
+  Kalibrasyon yeniden ölçüldü (101 soru, `scripts/calibrate_relevance.py`): alan içi
+  40/40 güçlü; İngilizce 6/6 zayıf; alan yakını 3 güçlü, 3 orta, 4 zayıf; alan dışı 0
+  güçlü, 0 orta, 26 zayıf, 14 sonuçsuz; anlamsız 5/5 zayıf. Sabitler (taban 0,82,
+  tavan 0,96, ham cosine eşiği 0,80) değişmedi. Ayrıntı:
+  [Document Quality](docs/DOCUMENT_QUALITY.md#displayed-search-relevance).
+
+Katalog araması (`search_bddk_regulations`):
+
+- Başlıklar ve sorgu, bölüm aramasının normalleştiricisiyle katlanır: harfsiz
+  (ASCII), büyük harfli ve birleşik noktalı yazım, Türkçe yazımın bulduğunu bulur.
+  319 katalog başlığının her biri sorgu olarak kullanıldığında kayıt dört
+  yazımda da (yazıldığı gibi, ASCII, Türkçe büyük harf, ASCII "I" ile büyük harf)
+  287 kez ilk sonuçtur; önceki sürümde yazıldığı gibi 278, ASCII 17, Türkçe büyük
+  harf 278, ASCII "I" ile büyük harf 8 idi.
+- Sorgu kelimesi bütün bir başlık kelimesiyle ya da aynı kökün çekimiyle eşleşir,
+  alt dizeyle eşleşmez: "faiz" artık "Faizsiz", "kar" artık her "Kararı" getirmez.
+  Çekim kuralı üç harfli köklerden başlayan isim çekim kalıbıdır (çoğul, iyelik,
+  tamlayıcı ekleri ve kaynaştırma harfleriyle hâl ekleri) ve "/" ya da "." ile
+  birleşik kelimeleri ayırır; kataloğun her kelime çifti sonuna göre gözden
+  geçirildi; "gerekçe" ve "mali" daha kısa bir kökün çekimi sayılmaz. 2.207
+  başlık-kelimesi sorgusunda öncekine göre aynı kökün gerçek bir çekimi
+  kaybedilmedi.
+- Sayı, karar numarası, `mevzuat_`/`bddk_` kimliğinin numarası ya da baştaki
+  "<n> sayılı" ile eşleşir: "5411" Bankacılık Kanunu'nu ilk sıraya koyar.
+- Sıralama: numara eşleşmesi, tam başlık, sorgu kapsama oranı, tam eşleşmeler,
+  tür, yürürlükteki metin (taslak ve mülgadan önce), başlık tarafı kapsama oranı
+  (tam kesir; tür kelimesinden önceki "Kurul" ve baştaki atıf hariç), ifadenin
+  başlıktaki konumu, sonra en yeni karar tarihi. "kredilerin sınıflandırılması" ve
+  "sermaye yeterliliği" kendi yönetmeliklerini ilk sıraya koyar.
+- `category` argümanı BDDK sitesindeki bölümdür; cevap, başka bölümlerde bulunan
+  eşleşmeleri adlandırır. Sonuç sayfasının ötesine istek yapılırsa bu söylenir. Bir
+  karar numarası `document_id` olarak verilirse onu taşıyan belge adlandırılır;
+  bir Resmî Gazete kimliği artık Kurul Kararı diye etiketlenmez.
+
+`get_bddk_document` ve `get_document_section`:
+
+- Araç tarafından yazılan her uyarı ve bildirim, metnin altta kayıtlı içerik
+  olduğunu söyleyen cümleden önce basılır; o cümleden sonra yalnızca kayıtlı metin
+  gelir. Hukuki uygulanabilirlik bildirimi önceden metnin arkasına ekleniyordu.
+- Sayfa kesme uyarıları iki kenar için de kesin işaretlere dayanır: bir tablo
+  satırının ya da önceki sayfada başlamış bir formülün ortasında başlayan sayfa
+  bunu söyler ve o sayfayı adlandırır; böyle bir yerde biten sayfa sonraki sayfayı
+  adlandırır; sayfa kenarındaki eksiksiz bir satır kesik sayılmaz. "Hangi kenar
+  olduğu söylenemiyor" uyarısı kalktı.
+- On beş yönetmelik eklerinin yalnızca bağlantı metnini saklar. `get_bddk_document`
+  ve bir ek için `get_document_section`, eklerin bu corpus'ta kayıtlı olmadığını
+  ve kaynakta bakılması gerektiğini artık söyler (kayıtlı metinden türetilir;
+  seed ya da etiket değişikliği yoktur).
+- `bddk-mcp sync`, gövdesi değişmemiş kayıtlı bir belgede değişen katalog
+  sınıfını, başlığı, kaynağı ve karar alanlarını belgeye taşır: BDDK'nın "Mülga
+  Düzenleme"ye aldığı bir metin her araçta aynı işareti alır. Gövde, özet, bölümler
+  ve indirme tarihi değişmez.
+
+Corpus yaşam döngüsü ve derleme parmak izi:
+
+- Yedek dosyalar: bir `-wal` dosyası, yanında değiştirilmiş bir corpus dosyasının
+  durduğu bir yerde boş değilse açılışta (okuyucu ve yazıcı) reddedilir; dosyaya
+  dokunulmaz ve mesaj kalan dosyayı adlandırır. Önceden SQLite bunu yeni dosyanın
+  üstüne sessizce uyguluyordu. Kendi `-wal` dosyasıyla duran WAL biçimli bir dosya
+  (çökme sonrası kurtarma) normal açılır.
+- Yazıcı, yalnızca anahtar/değer biçiminde bir `meta` tablosu olan yabancı bir
+  SQLite dosyasını (`schema_version` yoksa ve corpus'a ait olmayan tablolar varsa)
+  reddeder. Okunamayan bir dosya `info`, `export` ve `serve` için iz yerine
+  "corpus okunamıyor" mesajı verir. Başka bir modelle gömülmüş corpus için
+  silinip yeniden kurulması söylenir; düz `build` bunu değiştiremez.
+- `BDDK_SEMANTIC_STARTUP_TIMEOUT_SECONDS`: ilk model yüklemesi ve deneme araması
+  için başlangıç süresi bir ayardır (varsayılan 180, aralık 1–900). Soğuk bir
+  makine 45 saniyeyi aşıyor ve sunucu açılmayı reddediyordu. Süre dolduğunda hata
+  ayarın adını söyler.
+- `bddk-mcp info` ve hazırlık denetimi, kategori başına kayıtlı sync hatalarını
+  (`sync failures:`) ve derleme parmak izini (`build fingerprint:`) yazar.
+- Derleme parmak izi (`meta` tablosunda `build_fingerprint` anahtarı; şema
+  değişmedi): seed meta verisinin, bölüm ayrıştırıcı kaynağının (bölüm satırlarının
+  indeks sütunlarını türeten kod dahil), chunk'lama kodunun ve embedding
+  ayarlarının özetleri. `build`, seed, ayrıştırıcı ya da chunk'layıcı bölümü
+  farklı olan ya da parmak izi olmayan mevcut dosyadaki her belgeyi yeniden yazar
+  (chunk metni değişmediği yerde vektörler seed önbelleğinden gelir); parmak izi,
+  bütün belgeler başarıyla yazıldıktan sonra son adım olarak kaydedilir. Başka
+  embedding ayarlarıyla (model revizyonu, pasaj öneki, önek ayracı ya da vektör
+  türü) gömülmüş bir dosyayı `build` reddeder ve dosyanın silinip `bddk-mcp build
+  --force` çalıştırılmasını söyler; seed önbelleği bu değişikliği göremez.
+  `info` ve sunucu başlangıç günlüğü dosyanın güncel, eski ya da parmak izinden
+  önce üretilmiş olduğunu söyler; eski dosya bir uyarıdır, hazırlık hatası değildir.
+  Seed'den kaldırılmış belgeler dosyada kalır ve yeni dosya gerektirir.
+
+Canlı edinme ve kalite politikası v9:
+
+- HTML sayfaları: tek bir rastlantısal geçerli UTF-8 çifti olan windows-1254 sayfa
+  (KOBİ’leri) UTF-8 sanılıp çifti bozuluyordu. UTF-8 onarımı yalnızca geçerli çok
+  baytlı karakterler onarılan baytlardan çoksa kabul edilir; bildirilmiş tek
+  baytlık Türkçe küme daha sıkı sayıma tabidir; Türkçe bir sayfadaki Batı etiketi
+  (latin-1, cp1252, iso-8859-15) windows-1254 olarak okunur.
+- Tablolar: kapanmamış `thead`/`tbody` ya da sarmalayıcı öğe altındaki tablo
+  satırları yine yazılır; 100'ü aşan `rowspan` sonraki satırları bir sütun
+  kaydırıyordu, artık kalan satır sayısına sıkıştırılır (`colspan` için sınır 100
+  kalır); bir hücrenin bekleyen `rowspan` kayıtları yazılmadan önce sınırlanır.
+- "Metnin kaynaktan alındığı tarih" bir indirmenin tarihidir: elle yama
+  (`scripts/patch_doc.py`) ve önbellekteki PDF baytlarından yeniden çıkarma bunu
+  korur; yama zamanı `extracted_at` olarak kaydedilir.
+- Kalite politikası `markdown-quality-assessment-v9`: yanlış tek baytlık kod
+  sayfasıyla çözülmüş metin mojibake sayılır (bir harfin yanında `ý þ ð Ý Þ Ð`
+  işaretleri); 319 seed belgesinin hepsi temiz kalır. Gözden geçirilmiş antet
+  onarımı, dört sözcükten biri bulunduğunda çalışır. Tarama raporu işaret varken
+  "tüm sinyaller temiz" demez; `scan_document_quality.py --md-dir`, üretemeyeceği
+  `--fail-on` adlarını 2 koduyla reddeder.
+- `alg` üyesi olmayan JWK'ler için anahtar türü ve eğri denetiminin, olmadan
+  başarısız olan doğrudan testleri var; HTTP güvenlik katmanındaki yeniden
+  oynatılan `receive` yorumu artık yalnızca kodun yaptığını söyler: sonraki
+  `receive()` çağrıları özgün `receive`'e verilir, dinleyen bir alt katman
+  (örneğin `StreamingResponse`) istemcinin bağlantıyı kapattığını görebilir; çalışan
+  bir JSON `/mcp` çağrısı iptal edilmez ve eş zamanlılık yuvası erken serbest
+  kalmaz.
+
+Depo ve CI:
+
+- Dependabot, Docker temel imajının Python sürümünün major ve minor yükseltmelerini
+  yok sayar (proje 3.12 ve 3.13'ü destekler; imajı kuran bir iş olmadığı için 3.15
+  yükseltmesi yeşil kontrol gösteriyordu). Yama güncellemeleri gelmeye devam eder.
+- CI, Dockerfile'ın sabitlediği `uv` sürümünü (0.12.3) kullanır; hygiene denetimi
+  bu ikisi ya da Dockerfile ile yapılandırmadaki embedding modeli revizyonu birbirinden
+  ayrılırsa başarısız olur.
+- Yeni CI işi `image-smoke`: imajı kurar, kapsayıcıyı başlatır, hazır olmasını
+  bekler, 14 araç adını denetler ve MCP uç noktasından bir araç çağrısı yapar.
+  İlk çalışması `870a49a` üzerinde başarılı oldu (imaj çalıştırıcıda kuruldu,
+  kapsayıcı başladı, hazır olma durumuna ulaşıldı, 14 araç adı eşleşti ve bir
+  araç çağrısı cevaplandı; önbelleksiz yaklaşık 9 dakika).
+
+Seed verisi:
+
+- Bölüm ayrıştırıcısı bölüm sınırlarını taşıdığı ve altyazı satırlarını bir sonraki
+  chunk'a kattığı için 108 belgenin chunk metni değişti. Vektörleri sabitlenmiş
+  `intfloat/multilingual-e5-base` revizyonuyla geçici corpus dosyalarında yeniden
+  gömüldü ve `seed_data/embeddings/` içine aktarıldı. Bu seed'den bir `build`
+  hiçbir şey gömmez ve `export` seed dosyalarını bayt bayt geri verir.
+- Daha önce düz `http://` olan ve eski arama sözcükleri taşıyan 47 `source_url`,
+  belgenin kendi numarası, türü ve serisinden türetilmiş kanonik `https://`
+  mevzuat.gov.tr adresine çevrildi (diğer kayıtların zaten kullandığı biçim).
+  Metin, özet ve vektörler değişmedi. `mevzuat_20145885` türetilemediği için
+  olduğu gibi bırakıldı. Bu adresler geliştirme ortamından açılamadı.
+
+**Birleştirilmiş turun çapraz incelemesi.** Birleştirilmiş bütünün bağımsız bir
+incelemesi, araçların birbiriyle çeliştiği yerler buldu; hepsi düzeltildi.
+
+- `search_document_store`, anahtar kelime aşamasında `md. 9`, `md 9` ve `m. 9`
+  yazımlarını madde 9 olarak okur; bölüm aracı bunu zaten yapıyordu.
+- "<n> sayılı karar" için tek ortak kural var: bölüm aracı artık aramayı 1043
+  numaralı saklı belgeye daraltmaz; diğer araçlar da 1043 sayılı kararı döndürür.
+- Anahtar kelime etiketi ve sunucu talimatı doğruyu söyler: sorgudaki sözcükler
+  ayrı ayrı geçiyor; ifadenin ya da rakamın geçtiği söylenmiyor. Yüzde ve harfli
+  gönderme tek parça olarak denetlenir; yalnızca bir tarihte "12" geçen belge
+  "%12" için artık anahtar kelime eşleşmesi sayılmaz.
+- `search_document_sections`, bağlantı metninden başka bir şey saklamayan bir
+  belgede ek istendiğinde "ekler kayıtlı değil" notunu verir.
+- Derleme parmak izi artık başlık birleştirme (altyazı) kurallarını ve bölüm
+  göndermesinin saklanan biçimini de kapsar; parmak izine girmeyen, saklanan
+  satırlara karar veren bir işlev olduğunda başarısız olan bir test eklendi.
+- Katalog araması, sorgudaki bölüm göndermesini başlık sözcüklerinden çıkarır ve
+  bunu yazar; bölüm aracının yazdığı ipucu böylece işe yarar.
+- Sözlük kısaltması yalnızca büyük harfle yazıldığında genişletilir: Türkçe
+  "bkz." artık BKZ diye okunmaz.
+- Üst işaretçiler, üst gönderme tekrar ettiğinde `start_char` taşır; adı geçenden
+  başka bir maddenin altındaki isabet bunu söyler; `get_document_section`'a
+  verilen karar numarası onu taşıyan belgeyi adlandırır; üretilen araç
+  açıklamalarının girintisi temizlendi.
+
+Doğrulama (2026-11-14; hepsini bakımcı birleştirilmiş baş üzerinde çalıştırdı):
+
+- `uv run pytest tests/ -m "not gpu" -q`: 2699 geçti, 2 seçilmedi (`gpu` işareti).
+  `main` üzerinde aynı komut 2216 geçti.
+- Gerçek tokenizer testi (`tests/test_verbatim_documents.py`, model önbelleğiyle):
+  968 geçti.
+- `ruff check`, `ruff format --check`, `scripts/check_repository_hygiene.py` ve
+  `uv lock --check`: geçti.
+- Gerçek tokenizer ile seed'den `bddk-mcp build`: 319 belge, 9.029 bölüm, 12.091
+  chunk (0 gömüldü, 12.091'i seed önbelleğinden). Bu turdan önce 8.556 bölüm ve
+  13.721 chunk idi. Derleme ve dışa aktarma turu son baş üzerinde tekrarlandı ve
+  aynı sonucu verdi (319 belge, 9.029 bölüm, 12.091 chunk, 0 gömüldü; dışa aktarma
+  bayt bayt aynı).
+- Bu dosyada `bddk-mcp info`: durum hazır, journal modu `delete`, derleme parmak
+  izi güncel, sync hatası yok.
+- Bu dosyadan `bddk-mcp export`: `seed_data/` ile bayt bayt aynı (`documents.json`,
+  `decision_cache.json`, manifest ve 319 `.npy` dosyası).
+- Düzeltmelerden önce yazılan kabul denetimleri (hepsi `main` üzerinde başarısız
+  olmuştu): corpus araçları için anlamsal arama 22/22, bölüm sorgusu 34/35 (35.
+  sorgu artık daha iyi cevap veriyor: metin penceresi yerine paragraf), ayrıştırıcı
+  23/24, katalog 21/23, çeşitli 2/3, bilgi teknolojisi ailesi 6/11; canlı BDDK
+  araçları 13/13. Kalan her başarısızlık bilerek ertelenen bir maddedir
+  (aşağıda).
+- GitHub Actions, `8d124b9` dahil her gönderilen baş için başarılı; `image-smoke`
+  işi dahil bütün işler iki kez başarıyla bitti.
+
+Doğrulanamayanlar:
+
+- mevzuat.gov.tr geliştirme ortamından cevap vermedi: mevzuat sayfaları için sync
+  değişiklikleri (karakter kümesi, tablo satırları, katalog alanı yenileme) yalnızca
+  sabit dosyalar ve sahte taşıyıcılarla test edildi; 47 yeni `https` kaynak adresi
+  açılamadı.
+- LightOCR (GPU) yolu çalıştırılmadı. Docker imajı yerelde kurulmadı (Docker
+  servisi yok); imajı yalnızca CI'daki `image-smoke` işi kurdu ve denedi.
+
+Ertelenenler (sahibin kararı için):
+
+- "kredi kartları" sorgusunda 758 sayılı karar, 5464 sayılı Kanun'dan önce
+  geliyor (ikisi her anahtarda eşit; tarih belirliyor).
+- Harf düzeltme: `ayni sermaye` (düzeltme işareti olmadan yazılmış) hâlâ `aynı
+  sermaye` diye aranıyor; corpus sayıları sözcüğü belirsiz göstermiyor.
+- On beş yönetmelik eklerinden yoksun saklanıyor (araçlar bunu artık söylüyor);
+  ekleri getirmek mevzuat.gov.tr'ye ulaşan bir makinede yapılacak bir sync işidir.
+- Rehber ve Genelge kayıtlarının katalogda kabul eden karar ya da genelge numarası
+  yoktur; bu yüzden "2023/1 sayılı genelge" katalog aramasında hiçbir şey bulmaz.
+  Numarayı metinden doldurmak karar alanlarının anlamını kaydıracağı için yapılmadı.
+- 909 ve 917 aynı genelgedir (iki başlıkla).
+- `mevzuat_20029` EK-1 Tablo 1'de kaynakta `≤` olan yerde `£` görünüyor (Symbol
+  yazı tipi); kaynak denetlenemediği için onarılmadı.
+- 9268 sayılı karar (802): ikinci ve üçüncü tebliğin aynı maddelerinin kendi
+  satırları yok (özdeş içerik tekilleştirmesine dokunulmadı). 915 numaralı belgedeki
+  `N)` ana hat ayrıştırılmıyor. 949'daki kaynak baskı hataları iki "60"ı da
+  adreslenemez bırakıyor.
+- Sunucu imajı için yalnızca CPU'lu torch (PyTorch indeksi geliştirme ortamından
+  erişilemedi), Compose sağlık denetimi ve CI'da önbellekli imaj kurulumu.
+- Eski taslak PR'lar #157, #181, #182 ve #185 artık birleştirilemez (#181'in kodu
+  `main`'de). Dependabot #198 (soupsieve 4.0) ayrı bir çalışma ağacında tam paketi
+  geçti; #199 (Python 3.15 temel imajı) birleştirilmemelidir.
+- `.claude/settings.json` kancaları hâlâ bozuk ve dokunulmadı; sürüm hâlâ 5.0.1 ve
+  etiketsiz.
+
 ### Değişti — ikinci bakım turu: bağımsız denetim ve tasarım incelemesi (2026-11-12)
 
 Aynı gün ikinci tur: bağımsız denetimin ve dört bakış açılı tasarım
@@ -77,6 +538,9 @@ yeni dosyada her belge yeniden bölündüğü için tokenizer ağdan ya da
 <yeni yol>` ile kontrol edin, sonra hiçbir sunucu açık tutmazken eski dosyanın
 yerine koyun; gerekirse ardından `bddk-mcp export`. Chunk metinleri değişmediği için yeniden embedding gerekmez.
 Docker imajı her seferinde yeni dosya üretir, bundan etkilenmez.
+
+> Bu not üçüncü bakım turu (2026-11-14) tarafından değiştirildi: artık düz
+> `bddk-mcp build` yeterlidir; elle yeni dosya üretip değiştirmek gerekmez.
 
 HTTP:
 
@@ -175,6 +639,7 @@ yeniden adlandırılmadı ya da silinmedi):
   satırlarda `SectionItem.heading` boştur (önceden genel `govde` başlığıydı).
   Yapılı belgelerin `govde` satırları `section_type=govde` verilmedikçe yine
   gelmez.
+  > Üçüncü bakım turu (2026-11-14) tarafından değiştirildi: varsayılan arama her `govde` satırını arar.
 - fıkra ve bent satırları tekil adres değildir: çıktı artık "Parent: madde N"
   (ya da `gecici_madde`/`ek_madde`) satırı yazar ve ipucu "bu satırlar üst madde
   taşımaz" demez; tam hüküm için üst madde istenir.
@@ -185,6 +650,8 @@ yeniden adlandırılmadı ya da silinmedi):
   başlığında ya da kategorisinde o türü taşıyan belgeleri öne alır. İçerik
   sözcükleri başlıkta en az 5 karakterlik ortak kökle de eşleşir; tam başlık
   eşleşmesi kök eşleşmesinin, karar numarası eşleşmesi ikisinin önündedir.
+  > Üçüncü bakım turu (2026-11-14) tarafından değiştirildi: katalog araması artık alt dizeyle ve kök ön ekiyle
+  değil, tam kelimeyle ya da aynı kökün çekimiyle eşleşir.
   "kanuni takip" kanun belgelerini, "rehberlik" rehberleri getirmez. Özet başlığı
   tekrar ediyorsa (319 kayıttan 318'i) özet satırı yazılmaz. Sonuç yoksa metin
   "bu corpus kataloğunda (N belge)" eşleşme olmadığını ve yokluğun enstrümanın
@@ -203,6 +670,7 @@ yeniden adlandırılmadı ya da silinmedi):
   sonra eski cevap vermez (önbellek anahtarı corpus değişim belirtecini içerir).
   Yalnızca gevşetilmiş OR geri dönüşüyle bulunan sonuçlar `fts_exact` olmaz,
   normal anlamsal eşik ve boşluk süzgecine tabidir.
+  > Üçüncü bakım turu (2026-11-14) tarafından değiştirildi: skor boşluğu kesimi kaldırıldı.
 - `DocumentSearchItem.relevance` açıklaması artık sıralamayı yanlış anlatmaz
   (önce hybrid sonuçlar skora göre, sonra `fts_exact` BM25 sırasıyla, sonra
   kalan vector/FTS sonuçları skora göre). Çıktı şema açıklamaları sayfa ve
@@ -235,6 +703,8 @@ Bölüm araması:
   vardır. Gevşek geri dönüş yalnızca iki geçiş de boşsa çalışır. Tam kelime
   sonucu olmadığında etiket "exact-word hits'ten sonra listelendi" demez.
   Zaten tam referansla bulunmuş bir sonuç `stem_match` sayılmaz.
+  > Üçüncü bakım turu (2026-11-14) tarafından değiştirildi: gevşek sonuçlar artık kök eşleşmelerinin arkasına
+  eklenir.
 - NO RESULTS metni belge veya bölüm türü süzgecini kaldırmayı yalnızca çağıran o
   argümanı verdiyse önerir.
 - Madde başlığı artık `MADDE` satırında başlık yoksa üstündeki başlık satırından
@@ -311,6 +781,8 @@ Sync:
   Bildirilen tek baytlık küme geçerli UTF-8 baytların önüne geçmez. Metin
   kodlaması olmayan bildirimler (`zlib`, `hex`, `base64`, `rot13`, `bz2`, `uu`)
   yok sayılır ve çıkarma bunlar yüzünden başarısız olmaz.
+  > Üçüncü bakım turu (2026-11-14) tarafından değiştirildi: geçerli çok baytlı karakterler onarılan baytlardan
+  çok olmalıdır; Batı etiketi taşıyan Türkçe sayfa windows-1254 okunur.
 - LightOCR: `max_new_tokens`'a EOS olmadan ulaşan sayfa backend'i başarısız
   sayar ("page N of M" loglanır); zincir uyarılı `_degraded` backend'lere düşer.
   Boş sayfalar loglanır ve sayılır. Başarısızlık sınıfları artık `mevzuat_14036`
@@ -322,6 +794,8 @@ Bülten ve analitik:
   en-US biçimiyle (`1,500`, `1,234.50`), metin hücreleri olduğu gibi yazılır;
   tablo bunu söyler ve eksik hücre `-` olur. Beklenmeyen cevap biçimi artık "veri
   yok" değil, yeniden denenebilir üst akış hatasıdır.
+  > Üçüncü bakım turu (2026-11-14) tarafından değiştirildi: anlaşılamayan cevap biçimi yeniden denenemeyen
+  bir hatadır.
 - Önceki değer 0 olunca trend ve karşılaştırma tool'ları `0%` yerine yüzdenin
   hesaplanamadığını ("önceki değer 0") yazar; negatif tabanlarda `abs(önceki)`
   kullanılır. Trend etiketi son 4 noktanın net hareketine bakar (4'ten az
@@ -339,6 +813,7 @@ Kalite ve betikler:
   ya da çift kodlanmış Türkçe metin (mojibake) belgeyi en az `warning` yapar.
   Seed'de hiçbir belgenin etiketi değişmedi. Mojibake desenleri Latin-1 ve
   ISO-8859-9 biçimlerini de kapsar.
+  > Üçüncü bakım turu (2026-11-14) tarafından değiştirildi: politika v9'dur (yanlış kod sayfası işareti).
 - Depolama temizleyicisi yalnızca gözden geçirilmiş dört antet sözcüğünü onarır
   (`BBANKACILIK`, `DDÜZENLEME`, `DDENETLEME`, `KKURUMU`); `AAOIFI`, `LLOYD` ya da
   `XXXXX` gibi gerçek kısaltmalar ve yer tutucular korunur.

@@ -35,9 +35,10 @@ logger = logging.getLogger(__name__)
 # repeating across rows.
 _DEDUP_MIN_CELL_CHARS = 200
 
-# Upper bound for a single colspan/rowspan value. It bounds one cell's span only,
-# not the table: padding every row to the widest one still multiplies the grid,
-# which _MAX_TABLE_CELLS bounds.
+# Upper bound for a single colspan value. It bounds one cell's span only, not the
+# table: padding every row to the widest one still multiplies the grid, which
+# _MAX_TABLE_CELLS bounds. A rowspan is clamped to the rows that remain instead,
+# so a group cell spanning more than this many rows keeps later rows aligned.
 _MAX_SPAN = 100
 
 # Upper bound for the rendered grid of one table: padded rows times columns plus
@@ -176,52 +177,25 @@ def _render_paragraph(p: Tag) -> str:
     return WS_RE.sub(" ", text).strip()
 
 
-def _span(value: object) -> int:
-    """Parse a colspan/rowspan attribute: 0, negative or non-numeric become 1; capped at _MAX_SPAN."""
+def _span(value: object, limit: int = _MAX_SPAN) -> int:
+    """Parse a colspan/rowspan attribute: 0, negative or non-numeric become 1; capped at ``limit``."""
     try:
         span = int(str(value).strip())
     except (TypeError, ValueError):
         return 1
-    return min(max(span, 1), _MAX_SPAN)
+    return min(max(span, 1), limit)
 
 
 def _direct_rows(table: Tag) -> list[Tag]:
     """Rows of this table only, in document order.
 
-    Direct <tr> children and those of direct thead/tbody/tfoot, plus any <tr>
-    that html.parser nested inside one of these rows (or inside one of its
-    cells) because the source omitted ``</tr>`` or ``</td>``. Rows of a real
-    nested <table> are not included.
+    Every <tr> whose closest <table> ancestor is this table, wherever html.parser
+    left it: under thead/tbody/tfoot, under an unclosed thead or tbody, inside a
+    <font> or <form> wrapper, or nested inside another row or cell because the
+    source omitted ``</tr>`` or ``</td>``. Rows of a real nested <table> are not
+    included.
     """
-    rows: list[Tag] = []
-    for child in table.children:
-        if not isinstance(child, Tag):
-            continue
-        if child.name == "tr":
-            _collect_row(child, rows)
-        elif child.name in ("thead", "tbody", "tfoot"):
-            for tr in child.find_all("tr", recursive=False):
-                _collect_row(tr, rows)
-    return rows
-
-
-def _collect_row(tr: Tag, rows: list[Tag]) -> None:
-    rows.append(tr)
-    for child in tr.children:
-        if isinstance(child, Tag):
-            if child.name == "tr":
-                _collect_row(child, rows)
-            elif child.name in ("td", "th"):
-                _collect_rows_in_cell(child, rows)
-
-
-def _collect_rows_in_cell(cell: Tag, rows: list[Tag]) -> None:
-    for child in cell.children:
-        if isinstance(child, Tag):
-            if child.name == "tr":
-                _collect_row(child, rows)
-            elif child.name in ("td", "th"):
-                _collect_rows_in_cell(child, rows)
+    return [tr for tr in table.find_all("tr") if tr.find_parent("table") is table]
 
 
 def _row_cells(tr: Tag) -> list[Tag]:
@@ -317,8 +291,9 @@ def _render_table(table: Tag, seen_cells: set[str] | None = None, budget: _GridB
         # Cells of the padded grid so far (this row included) plus pending rowspan entries.
         return (len(grid) + 1) * max(max_cols, len(row)) + len(pending)
 
-    def flattened(row: list[str]) -> str | None:
-        cells = grid_cells(row)
+    def flattened(row: list[str], extra: int = 0) -> str | None:
+        # `extra` counts pending entries a cell is about to add, so the bound is checked before they are written.
+        cells = grid_cells(row) + extra
         if cells > _MAX_TABLE_CELLS:
             return _flattened_large_table(table, rows=len(rows_raw))
         if already_rendered + cells > _MAX_DOCUMENT_CELLS:
@@ -334,7 +309,9 @@ def _render_table(table: Tag, seen_cells: set[str] | None = None, budget: _GridB
                 c += 1
             text = _cell_text(cell)
             colspan = _span(cell.get("colspan", 1))
-            rowspan = _span(cell.get("rowspan", 1))
+            rowspan = _span(cell.get("rowspan", 1), max(len(rows_raw) - r, 1))
+            if (flat := flattened(row, colspan * (rowspan - 1))) is not None:
+                return flat
             for i in range(colspan):
                 row.append(text if i == 0 else "")
                 for rs in range(1, rowspan):

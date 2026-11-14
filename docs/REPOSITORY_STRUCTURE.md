@@ -8,12 +8,12 @@ BDDK MCP separates application code, corpus data, maintainer scripts, deployment
 |---|---|
 | `bddk_mcp/` | Installable Python package and all supported runtime behavior. |
 | `tests/` | Unit, protocol, packaging, and policy contracts, all over a temporary SQLite corpus file; fixtures under `tests/fixtures/`. |
-| `scripts/` | Maintainer utilities (document repair, quality scans, section reindex; the ones that open the corpus file take `--corpus PATH`), `mcp_fetch_full.py` (prints pages of one document through a running HTTP server), and the repository hygiene check. |
+| `scripts/` | Maintainer utilities (document repair, quality scans, section reindex; the ones that open the corpus file take `--corpus PATH`), `mcp_fetch_full.py` (prints pages of one document through a running HTTP server), the repository hygiene check (which also compares the `uv` version of the Dockerfile and CI and the embedding model revision of the Dockerfile and `core/config.py`), and `ci_image_smoke.py` (the checks the CI job `image-smoke` runs against the built container). |
 | `seed_data/` | Reviewed corpus source: `documents.json`, `decision_cache.json` (turned into the corpus file by `bddk-mcp build`, written back by `bddk-mcp export`) and `embeddings/` (one float16 `.npy` of chunk vectors per document plus `manifest.json`, written by `export` and reused by `build` while the chunk texts and model still match). |
 | `corpus/` | Built corpus file (`bddk.sqlite`), git-ignored. Never hand-edit it; rebuild it from `seed_data/`. |
 | `deploy/` | Open WebUI integration assets. |
 | `docs/` | Durable documentation and its index. |
-| `.github/` | CI, dependency automation, ownership, issue forms, and PR policy. |
+| `.github/` | CI (lint, unit tests on Python 3.12 and 3.13, package tests, container-static checks and the `image-smoke` job), dependency automation, ownership, issue forms, and PR policy. |
 
 ## Root files
 
@@ -37,7 +37,7 @@ Do not place implementation modules, generated reports, scratch files, one-off p
 |---|---|
 | `bddk_mcp/core/` | Settings, shared models, dependency wiring, logging, and outbound HTTP controls. |
 | `bddk_mcp/tools/` | Thin MCP handlers, schemas, registry, errors, and structured output adapters. |
-| `bddk_mcp/store/` | The SQLite corpus file (`corpus_db.py`: schema, read-only serving handle, readiness), documents, versions, sections and catalog (`doc_store.py`), chunks, embeddings and hybrid search (`vector_store.py`), the section parser and legal references. |
+| `bddk_mcp/store/` | The SQLite corpus file (`corpus_db.py`: schema, read-only serving handle, readiness), documents, versions, sections and catalog (`doc_store.py`), chunks, embeddings and hybrid search (`vector_store.py`), the section parser and legal references, the build fingerprint (`fingerprint.py`: digests of seed metadata, parser, chunker and embedding settings that `bddk-mcp build` stores in `meta` and `info` compares) and the reviewed abbreviation glossary of `search_document_store` (`search_glossary.py`). |
 | `bddk_mcp/ingest/` | Source discovery, extraction, synchronization, and corpus build/export against `seed_data/`. |
 | `bddk_mcp/ocr/` | OCR interfaces and optional GPU implementation. |
 | `bddk_mcp/observability/` | Bulletin trend/comparison analytics. |

@@ -58,3 +58,8 @@ updates:
       docker-base-images:
         patterns:
           - "*"
+    ignore:
+      - dependency-name: "python"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"

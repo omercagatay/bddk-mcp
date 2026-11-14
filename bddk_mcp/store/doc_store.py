@@ -28,6 +28,7 @@ from bddk_mcp.quality.markdown_quality import (
 )
 from bddk_mcp.store.corpus_db import CorpusDB
 from bddk_mcp.store.section_index import (
+    GOVDE_HEADING,
     GOVDE_SECTION_TYPE,
     TRUNCATION_NOTICE_PREFIX,
     DocumentSection,
@@ -43,6 +44,8 @@ _FTS_TOKEN_RE = re.compile(r"\w+")
 _EXCLUDED_SECTION_TYPES = ("fikra", "bent", "govde")
 _NESTED_SECTION_TYPES = ("fikra", "bent")
 _ARTICLE_SECTION_TYPES = ("madde", "gecici_madde", "ek_madde")
+# The provisions that can contain a fıkra/bent row: articles, and in guides and standards paragraphs and principles.
+_PARENT_SECTION_TYPES = (*_ARTICLE_SECTION_TYPES, "paragraf", "ilke")
 # True when the section's document version has no section other than govde/fikra/bent,
 # i.e. the parser found no article structure and govde windows carry the whole body.
 _STRUCTURELESS_SQL = """NOT EXISTS (
@@ -50,6 +53,53 @@ _STRUCTURELESS_SQL = """NOT EXISTS (
     WHERE x.doc_id = s.doc_id AND x.source_content_hash = s.source_content_hash
       AND x.section_type NOT IN ('fikra', 'bent', 'govde')
 )"""
+
+
+def _named_sections_only_sql(types: str) -> str:
+    """True when the section's document version has named sections and every one is of ``types``.
+
+    ``types`` is a SQL list of literal section types; govde/fikra/bent are not named sections.
+    """
+    return f"""(EXISTS (
+    SELECT 1 FROM document_sections AS y
+    WHERE y.doc_id = s.doc_id AND y.source_content_hash = s.source_content_hash AND y.section_type IN ({types})
+) AND NOT EXISTS (
+    SELECT 1 FROM document_sections AS x
+    WHERE x.doc_id = s.doc_id AND x.source_content_hash = s.source_content_hash
+      AND x.section_type NOT IN ('fikra', 'bent', 'govde', {types})
+))"""
+
+
+# True for a govde row of a Kurul Kararı whose only named sections are annexes (ek) when the row starts
+# before the first annex: the leading window is the decision text itself, not remainder.
+_DECISION_WINDOW_SQL = f"""(s.section_type = 'govde' AND d.category = 'Kurul Kararı'
+    AND {_named_sections_only_sql("'ek'")}
+    AND s.start_char < (
+        SELECT MIN(z.start_char) FROM document_sections AS z
+        WHERE z.doc_id = s.doc_id AND z.source_content_hash = s.source_content_hash AND z.section_type = 'ek'
+    ))"""
+# True when the section's document version has named sections and they are only annexes (ek) and/or
+# paragraphs (paragraf): its govde rows are body text outside those named sections, not article remainder.
+_ANNEX_OR_PARAGRAPH_ONLY_SQL = _named_sections_only_sql("'ek', 'paragraf'")
+
+
+# Typographic apostrophes and look-alikes that survive normalize_search_text; the heading filter reads each
+# as the ASCII apostrophe.
+_APOSTROPHE_VARIANTS = ("’", "‘", "ʼ", "`")
+
+
+def _apostrophes_folded_sql(column: str) -> str:
+    """SQL for ``column`` with every apostrophe variant replaced by the ASCII apostrophe."""
+    for variant in _APOSTROPHE_VARIANTS:
+        column = f"replace({column}, '{variant}', '''')"
+    return column
+
+
+_HEADING_NORM_FOLDED_SQL = _apostrophes_folded_sql("s.heading_norm")
+
+
+def _fold_apostrophes(text: str) -> str:
+    return text.translate(str.maketrans(dict.fromkeys(_APOSTROPHE_VARIANTS, "'")))
 
 
 def normalize_search_text(text: str) -> str:
@@ -70,26 +120,106 @@ def fts_match_query(query: str) -> str | None:
     return " ".join(f'"{token}"' for token in tokens)
 
 
-# Prefix-stem matching: a normalized token of at least this many characters keeps its
-# first max(_PREFIX_STEM_MIN, len - _PREFIX_STEM_SUFFIX) characters as an FTS5 prefix.
+# Prefix-stem matching: a normalized token of at least _PREFIX_STEM_MIN characters loses one known
+# Turkish ending (_STEM_SUFFIXES, longest first) when at least _PREFIX_STEM_MIN characters of root
+# remain, and the rest is an FTS5 prefix: "denetlenmesi" -> "denet"*, which also finds "denetimi".
+# A token with no such ending is not cut: "birincil" stays "birincil"*, never "birin"* (birinci).
 _PREFIX_STEM_MIN = 5
-_PREFIX_STEM_SUFFIX = 3
+# Normalized forms (diacritics stripped, ı -> i): verbal nouns, passives and participles, aorist verb
+# endings ("seçilir", "oluşturulur", "hesaplanır"), plural and case endings, possessives. Reviewed list; one ending is removed, never a chain.
+_STEM_SUFFIXES = tuple(
+    sorted(
+        {
+            "lenmesi",
+            "lanmasi",
+            "ilmesi",
+            "ilmasi",
+            "ulmesi",
+            "ulmasi",
+            "nmesi",
+            "nmasi",
+            "meleri",
+            "malari",
+            "mesi",
+            "masi",
+            "me",
+            "ma",
+            "ilmeli",
+            "ilmali",
+            "ulmeli",
+            "ulmali",
+            "meli",
+            "mali",
+            "ilmis",
+            "ulmis",
+            "ilen",
+            "ilan",
+            "ulen",
+            "ulan",
+            "lerinin",
+            "larinin",
+            "lerinde",
+            "larinda",
+            "lerine",
+            "larina",
+            "lerini",
+            "larini",
+            "lerin",
+            "larin",
+            "leri",
+            "lari",
+            "ler",
+            "lar",
+            "sinin",
+            "sinde",
+            "sine",
+            "sini",
+            "si",
+            "inin",
+            "imi",
+            "ilir",
+            "ulur",
+            "ir",
+            "ur",
+            "ar",
+            "er",
+        },
+        key=lambda suffix: (-len(suffix), suffix),
+    )
+)
+# Short alphabetic tokens ("on", "gün", "faiz") are matched as prefixes in the stem pass, so that
+# "yüzde on" also finds "yüzde onunun"; a single letter stays exact.
+_PREFIX_SHORT_MIN = 2
+
+
+def _prefix_stem(token: str) -> str:
+    """Return the FTS prefix of a normalized token: its root without one known ending, else the token."""
+    for suffix in _STEM_SUFFIXES:
+        if token.endswith(suffix) and len(token) - len(suffix) >= _PREFIX_STEM_MIN:
+            return token[: -len(suffix)]
+    return token
 
 
 def fts_prefix_stem_query(query: str) -> str | None:
     """Turn free text into an inflection-tolerant FTS5 MATCH expression.
 
-    Tokens of five or more characters become a quoted prefix query of their first
-    ``max(5, len - 3)`` characters (``"suresi"`` -> ``"sures"*``); shorter and numeric
-    tokens stay exact. Every token stays quoted, so FTS5 operators in user text are never
-    interpreted. Returns None when the expression would equal :func:`fts_match_query`.
+    Tokens of five or more characters become a quoted prefix query of their root: one known
+    Turkish ending is removed when at least five characters remain (``"suresinin"`` ->
+    ``"sures"*``, ``"yedeklenmesi"`` -> ``"yedek"*``), otherwise the whole token is the prefix
+    (``"birincil"*``). Alphabetic tokens of two to four characters become a prefix of
+    themselves (``"gun"*``); numbers and single letters stay exact. Every token stays quoted,
+    so FTS5 operators in user text are never interpreted. Returns None when the expression
+    would equal :func:`fts_match_query`.
     """
     tokens = _FTS_TOKEN_RE.findall(normalize_search_text(query))
     terms: list[str] = []
     widened = False
     for token in tokens:
         if len(token) >= _PREFIX_STEM_MIN and not token.isdigit():
-            terms.append(f'"{token[: max(_PREFIX_STEM_MIN, len(token) - _PREFIX_STEM_SUFFIX)]}"*')
+            terms.append(f'"{_prefix_stem(token)}"*')
+            widened = True
+        elif len(token) >= _PREFIX_SHORT_MIN and token.isalpha():
+            terms.append(f'"{token}"*')
             widened = True
         else:
             terms.append(f'"{token}"')
@@ -130,6 +260,16 @@ class StoredDocument(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
 
+# The website shows an instrument's annexes as a link and the stored text keeps only that link text, on a
+# line of its own: "Ekleri için tıklayınız.", "Eki için tıklayınız", "Yönetmeliğin eklerini görmek için
+# tıklayınız". Prose that merely mentions "ekleri" is not on a line of its own and never matches.
+_ANNEX_PLACEHOLDER_RE = re.compile(
+    r"^[ \t*_]*(?:[A-ZÇĞİÖŞÜ][a-zçğıöşü]+[ \t]+)?[Ee]k(?:i|ini|leri|lerini)[ \t]+(?:görmek[ \t]+)?için[ \t]+"
+    r"tıklayınız[ \t.*_]*$",
+    re.MULTILINE,
+)
+
+
 class DocumentPage(BaseModel):
     """A single page of a paginated document."""
 
@@ -143,6 +283,16 @@ class DocumentPage(BaseModel):
     content_hash: str = ""
     """Hash of the whole stored body, not of this page."""
     downloaded_at: float | None = None
+    starts_inside_table_row: bool = False
+    """The previous page ends inside a line that starts with '|', so this page opens with the rest of that row."""
+    annex_placeholder: str = ""
+    """The link-text line that stands for the instrument's annexes when the stored text has no annex ('' otherwise)."""
+    starts_inside_formula: bool = False
+    """An odd number of $$ markers precedes this page, so it opens inside a formula."""
+    ends_inside_table_row: bool = False
+    """This page's last line starts with '|' and the row is cut there (not a complete row before a line break)."""
+    ends_inside_formula: bool = False
+    """An odd number of $$ markers lies up to the end of this page, so it ends inside a formula."""
 
 
 class StoredDocumentSection(BaseModel):
@@ -171,6 +321,11 @@ class StoredDocumentSection(BaseModel):
     document_quality: QualityAssessment | None = None
     document_structureless: bool = False
     """True when the document version has no section other than govde/fikra/bent (no article structure)."""
+    document_decision_window: bool = False
+    """True for a govde row of a Kurul Kararı whose only named sections are annexes, starting before the
+    first annex: the decision text itself."""
+    document_annex_or_paragraph_only: bool = False
+    """True when the document version's only named sections are annexes (ek) and/or paragraphs (paragraf)."""
     rank: float | None = None
     """FTS match rank (higher is better). Only set by search paths; comparable
     within one query's result set, not across queries."""
@@ -210,6 +365,10 @@ def _section_from_row(row: sqlite3.Row, document_quality: QualityAssessment | No
         document_downloaded_at=row["document_downloaded_at"] if "document_downloaded_at" in keys else None,
         document_quality=document_quality,
         document_structureless=bool(row["document_structureless"]) if "document_structureless" in keys else False,
+        document_decision_window=bool(row["document_decision_window"]) if "document_decision_window" in keys else False,
+        document_annex_or_paragraph_only=(
+            bool(row["document_annex_or_paragraph_only"]) if "document_annex_or_paragraph_only" in keys else False
+        ),
         rank=row["rank"] if "rank" in keys else None,
     )
 
@@ -225,7 +384,11 @@ _SECTION_COLUMNS = (
     d.downloaded_at AS document_downloaded_at,
     """
     + _STRUCTURELESS_SQL
-    + """ AS document_structureless
+    + " AS document_structureless, "
+    + _DECISION_WINDOW_SQL
+    + " AS document_decision_window, "
+    + _ANNEX_OR_PARAGRAPH_ONLY_SQL
+    + """ AS document_annex_or_paragraph_only
 """
 )
 _SOURCE_RANGE_COLUMN = (
@@ -249,7 +412,9 @@ def _section_rows(sections: list[DocumentSection], doc_id: str, source_content_h
             section.page_start,
             section.page_end,
             source_content_hash,
-            normalize_search_text(section.heading or ""),
+            # The generic govde heading is a display placeholder, not a heading of the text: its words
+            # must not make every govde row match (the stored heading column keeps it).
+            "" if section.heading == GOVDE_HEADING else normalize_search_text(section.heading or ""),
             # Index the legal text only: the truncation notice of a capped section is
             # storage metadata, so its words must not make the section searchable.
             normalize_search_text(split_section_truncation_notice(section.content or "")[0]),
@@ -422,12 +587,40 @@ class DocumentStore:
         if not row:
             return None
         md = row["markdown_content"] or ""
+        starts_inside_table_row = starts_inside_formula = False
+        ends_inside_table_row = ends_inside_formula = False
         total_pages = max(1, math.ceil(len(md) / PAGE_SIZE))
         if page < 1 or page > total_pages:
             content = f"Invalid page {page}. Document has {total_pages} page(s)."
         else:
             start = (page - 1) * PAGE_SIZE
             content = md[start : start + PAGE_SIZE]
+            end = start + len(content)
+            # A row that ends exactly at the page edge, with the line break opening the next page, is complete.
+            if start > 0:
+                previous = md[start - PAGE_SIZE : start]
+                starts_inside_table_row = (
+                    not previous.endswith("\n")
+                    and previous.rsplit("\n", 1)[-1].startswith("|")
+                    and md[start] not in "\r\n"
+                )
+                starts_inside_formula = md.count("$$", 0, start) % 2 == 1
+            ends_inside_table_row = (
+                end < len(md)
+                and not content.endswith("\n")
+                and content.rsplit("\n", 1)[-1].startswith("|")
+                and md[end] not in "\r\n"
+            )
+            ends_inside_formula = md.count("$$", 0, end) % 2 == 1
+        annex_placeholder = ""
+        if match := _ANNEX_PLACEHOLDER_RE.search(md):
+            has_annex_section = await self._db.run(
+                lambda conn: conn.execute(
+                    "SELECT 1 FROM document_sections WHERE doc_id = ? AND section_type = 'ek' LIMIT 1", (doc_id,)
+                ).fetchone()
+            )
+            if has_annex_section is None:
+                annex_placeholder = match.group(0).strip(" \t*_")
         return DocumentPage(
             document_id=doc_id,
             title=row["title"],
@@ -438,6 +631,11 @@ class DocumentStore:
             category=row["category"] or "",
             content_hash=row["content_hash"] or "",
             downloaded_at=row["downloaded_at"],
+            starts_inside_table_row=starts_inside_table_row,
+            starts_inside_formula=starts_inside_formula,
+            ends_inside_table_row=ends_inside_table_row,
+            ends_inside_formula=ends_inside_formula,
+            annex_placeholder=annex_placeholder,
         )
 
     async def delete_document(self, doc_id: str) -> bool:
@@ -455,6 +653,49 @@ class DocumentStore:
             return deleted > 0
 
         return await self._db.transaction(_delete)
+
+    async def update_document_metadata(
+        self,
+        doc_id: str,
+        *,
+        title: str = "",
+        category: str = "",
+        source_url: str = "",
+        decision_date: str = "",
+        decision_number: str = "",
+    ) -> list[str]:
+        """Bring the catalog fields of a stored document up to date without touching its body.
+
+        Only non-empty values that differ from the stored row are written (empty arguments never blank
+        stored metadata). Body, content hash, sections, chunks and download date stay as they are. Returns
+        the names of the columns that changed; an unknown document changes nothing.
+        """
+        wanted = {
+            "title": title,
+            "category": category,
+            "source_url": source_url,
+            "decision_date": decision_date,
+            "decision_number": decision_number,
+        }
+
+        def _update(conn: sqlite3.Connection) -> list[str]:
+            row = conn.execute(
+                "SELECT title, category, source_url, decision_date, decision_number FROM documents "
+                "WHERE document_id = ?",
+                (doc_id,),
+            ).fetchone()
+            if row is None:
+                return []
+            changed = [column for column, value in wanted.items() if value and (row[column] or "") != value]
+            if changed:
+                assignments = ", ".join(f"{column} = ?" for column in changed)
+                conn.execute(
+                    f"UPDATE documents SET {assignments} WHERE document_id = ?",  # noqa: S608 - fixed column names
+                    (*(wanted[column] for column in changed), doc_id),
+                )
+            return changed
+
+        return await self._db.transaction(_update)
 
     async def has_document(self, doc_id: str) -> bool:
         """Check if a document exists in the store (with content)."""
@@ -546,8 +787,15 @@ class DocumentStore:
             where.append("s.section_ref = ?")
             params.append(section_ref)
         if heading:
-            where.append("s.heading_norm LIKE ? ESCAPE '\\'")
-            escaped = normalize_search_text(heading).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            # Apostrophe variants are one character on both sides: "BSD'nin" finds "BSD’nin". The stored
+            # heading_norm keeps the typographic form, so the column is folded here, not at build time.
+            where.append(f"{_HEADING_NORM_FOLDED_SQL} LIKE ? ESCAPE '\\'")
+            escaped = (
+                _fold_apostrophes(normalize_search_text(heading))
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            )
             params.append(f"%{escaped}%")
         if start_char is not None:
             where.append("s.start_char = ?")
@@ -597,12 +845,11 @@ class DocumentStore:
             where.append("s.section_type = ?")
             params.append(section_type)
         else:
-            # Nested fıkra/bent rows duplicate a parent madde and stay opt-in via
-            # section_type. govde is leftover text only in a document with article
-            # structure; in a document without one, govde windows are its whole body.
-            where.append(
-                f"s.section_type NOT IN (?, ?) AND NOT (s.section_type = 'govde' AND NOT {_STRUCTURELESS_SQL})"
-            )
+            # Nested fıkra/bent rows duplicate a parent madde and stay opt-in via section_type.
+            # Every govde row is searched: a full-text window, the continuation of a capped
+            # provision, decision or body text outside annexes/paragraphs, or remainder; the
+            # flags on each row let the caller label it.
+            where.append("s.section_type NOT IN (?, ?)")
             params.extend(_NESTED_SECTION_TYPES)
         params.append(limit)
         sql = f"""
@@ -719,10 +966,11 @@ class DocumentStore:
     async def find_parent_articles(
         self, sections: list[StoredDocumentSection]
     ) -> dict[tuple[str, str, int], tuple[str, str]]:
-        """Map each fıkra/bent row to the (type, ref) of the madde, geçici madde or ek madde containing it.
+        """Map each fıkra/bent row to the (type, ref) of the provision containing it.
 
-        Computed at query time from the stored sections of the same document and content hash:
-        the innermost stored article window ``[start_char, end_char)`` that contains the row's
+        The provision is a madde, geçici madde or ek madde, or (in guides and standards) a paragraf
+        or ilke. Computed at query time from the stored sections of the same document and content hash:
+        the innermost stored provision window ``[start_char, end_char)`` that contains the row's
         ``start_char``. Keys are ``(doc_id, source_content_hash, start_char)`` of the rows passed in;
         a row without such a stored window has no entry.
         """
@@ -735,8 +983,8 @@ class DocumentStore:
             lambda conn: conn.execute(
                 f"SELECT doc_id, section_type, section_ref, start_char, end_char, source_content_hash "
                 f"FROM document_sections WHERE doc_id IN ({placeholders}) "
-                f"AND section_type IN (?, ?, ?) ORDER BY doc_id, start_char",
-                [*doc_ids, *_ARTICLE_SECTION_TYPES],
+                f"AND section_type IN ({','.join('?' for _ in _PARENT_SECTION_TYPES)}) ORDER BY doc_id, start_char",
+                [*doc_ids, *_PARENT_SECTION_TYPES],
             ).fetchall()
         )
         articles: dict[tuple[str, str], list[tuple[int, int, str, str]]] = {}

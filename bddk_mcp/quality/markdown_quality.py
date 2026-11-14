@@ -22,7 +22,7 @@ import yaml
 from pydantic import BaseModel, Field
 
 QUALITY_FAILURES_PATH = Path(__file__).with_name("quality_failures.yml")
-QUALITY_ASSESSMENT_POLICY_VERSION = "markdown-quality-assessment-v8"
+QUALITY_ASSESSMENT_POLICY_VERSION = "markdown-quality-assessment-v9"
 QUALITY_FAILURE_REGISTRY_FORMAT_VERSION = 1
 _CONFIGURED_QUALITY_FAILURE_FLAG = "configured_quality_failure"
 FORMULA_EXTRACTION_WARNING = (
@@ -173,6 +173,9 @@ def _build_mojibake_re() -> re.Pattern[str]:
 
 # Double-encoded Turkish (UTF-8 bytes read as cp1252, Latin-1 or ISO-8859-9).
 MOJIBAKE_RE = _build_mojibake_re()
+# windows-1254 bytes read as Latin-1/cp1252: ı ş ğ İ Ş Ğ become ý þ ð Ý Þ Ð. Counted only
+# when directly next to a letter, so an isolated symbol is not a signal.
+WRONG_CODEPAGE_RE = re.compile(r"(?<=[^\W\d_])[ýþðÝÞÐ]|[ýþðÝÞÐ](?=[^\W\d_])")
 _CAMELCASE_TRANSITION_RE = re.compile(r"[a-zçğıöşü][A-ZÇĞİÖŞÜ]")
 _KNOWN_MIXED_CASE_TERMS = {
     "HashCalc",
@@ -271,6 +274,8 @@ _STORAGE_PREPARE_MARKERS = (
     "ilişkinYönetmelik",
     "ConsistencyAssessment",
     "StandartYaklaşım",
+    # Derived from the repair table, so the gate and the repair cannot drift apart.
+    *_OCR_DOUBLED_LETTERHEAD_WORDS,
 )
 
 
@@ -408,7 +413,7 @@ def _count_signals(text: str, document_id: str = "") -> dict[str, int]:
         "data_uri_image": len(data_uris),
         "wmf_data_uri": sum(1 for uri in data_uris if uri.lower().startswith("data:image/x-wmf")),
         "cid_marker": cid_count,
-        "mojibake": len(MOJIBAKE_RE.findall(text)),
+        "mojibake": len(MOJIBAKE_RE.findall(text)) + len(WRONG_CODEPAGE_RE.findall(text)),
         "image_placeholder": text.lower().count("[image") + text.lower().count("[resim"),
         "html_attr": len(_HTML_ATTR_RE.findall(text)),
         "html_entity": len(_HTML_ENTITY_RE.findall(text)),
