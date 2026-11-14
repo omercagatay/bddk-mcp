@@ -693,12 +693,14 @@ class SearchHits(list):
     """Search hits plus how the query was read.
 
     ``searched_as`` is the normalised query when it differs from the typed one; ``expansions`` lists the
-    (abbreviation, expansion) pairs of the glossary that were applied.
+    (abbreviation, expansion) pairs of the glossary that were applied. ``decision_numbers_not_stored`` are
+    the decision numbers the query names that no stored document carries.
     """
 
     searched_as: str | None = None
     expansions: list[tuple[str, str]] = []
     no_content_words: bool = False
+    decision_numbers_not_stored: list[str] = []
 
 
 def _date_pattern(date: str) -> re.Pattern[str]:
@@ -1332,17 +1334,33 @@ class VectorStore:
             )
         else:
             found = await self._hybrid_search(searched, limit, category)
+        named_numbers = list(parse_legal_refs(searched).decision_numbers)
         if number := _DECISION_NUMBER_QUERY_RE.match(normalize_search_text(searched)):
+            named_numbers.append(number.group(1))
             decisions = await self._decision_number_hits(number.group(1), category)
             decision_ids = {hit["doc_id"] for hit in decisions}
             found = (decisions + [hit for hit in found if hit["doc_id"] not in decision_ids])[:limit]
         hits = SearchHits(found)
         hits.searched_as = searched if searched != query else None
         hits.expansions = [(entry.abbreviation, entry.expansion) for entry in entries]
+        hits.decision_numbers_not_stored = await self._decision_numbers_not_stored(list(dict.fromkeys(named_numbers)))
         quality_by_id = await _document_quality_by_ids(self._db, [hit["doc_id"] for hit in hits])
         for hit in hits:
             hit.update(quality_by_id[hit["doc_id"]])
         return hits
+
+    async def _decision_numbers_not_stored(self, numbers: list[str]) -> list[str]:
+        """The ``numbers`` that no stored document carries as its decision number, whatever its category."""
+        if not numbers:
+            return []
+        rows = await self._db.run(
+            lambda conn: conn.execute(
+                f"SELECT DISTINCT decision_number FROM documents WHERE decision_number IN ({', '.join('?' for _ in numbers)})",
+                numbers,
+            ).fetchall()
+        )
+        stored = {row[0] for row in rows}
+        return [number for number in numbers if number not in stored]
 
     async def _decision_number_hits(self, number: str, category: str | None) -> list[dict]:
         """The stored documents whose decision number is ``number``, each with its first current chunk."""

@@ -1668,6 +1668,40 @@ class TestSearchHonesty:
         assert all(not hit.get("decision_number_match") for hit in await vector_store.search("9999", limit=10))
         assert await vector_store.search("8948", limit=10, category="Yönetmelik") == []
 
+    @pytest.mark.asyncio
+    async def test_decision_numbers_the_query_names_that_no_stored_document_carries(self, vector_store, doc_store):
+        await doc_store.store_document(
+            StoredDocument(
+                document_id="775",
+                title="Kurul Kararı",
+                markdown_content="Kurul kararı metni: kredilerin sınıflandırılması.",
+                category="Kurul Kararı",
+                decision_number="8948",
+            )
+        )
+        await vector_store.add_document(
+            doc_id="775", title="Kurul Kararı", content="Kurul kararı metni: kredilerin sınıflandırılması."
+        )
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="other",
+            title="T",
+            content="11250 sayılı Kurul Kararı ile 5411 sayılı Kanun",
+        )
+
+        async def not_stored(query: str, category: str | None = None) -> list[str]:
+            return (await vector_store.search(query, limit=10, category=category)).decision_numbers_not_stored
+
+        assert await not_stored("8948 sayılı Kurul Kararı") == []
+        # The category filter does not hide a stored number.
+        assert await not_stored("8948 sayılı karar", category="Yönetmelik") == []
+        assert await not_stored("15.07.2025 tarihli ve 11250 sayılı Kurul Kararı") == ["11250"]
+        assert await not_stored("11250") == ["11250"]
+        assert await not_stored("11250 sayılı karar ile 8948 sayılı karar") == ["11250"]
+        # A law number is not a decision number.
+        assert await not_stored("5411 sayılı Kanun") == []
+
 
 class TestSectionReferencesInTheKeywordPass:
     """A section reference is searched by keyword as the corpus prints it ("md. 9" -> "madde 9")."""

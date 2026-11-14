@@ -320,6 +320,14 @@ class DocumentSearchResponse(RetrievalResponse):
             "the abbreviation. Other abbreviations are matched only literally."
         ),
     )
+    decision_numbers_not_stored: list[str] | None = Field(
+        default=None,
+        description=(
+            "Decision numbers the query names ('<n> sayılı karar', or a bare decision number) that no stored "
+            "document carries. The corpus is a selection of BDDK documents: this does not say that the decision "
+            "does not exist, and the results are other documents."
+        ),
+    )
 
 
 class DocumentPageContent(StrictOutputModel):

@@ -782,7 +782,9 @@ Suggest the user try: different keywords or a different category (basın, mevzua
         Hits at the calibration ceiling (100%) tie on the shown relevance; adjacent dated
         decisions among them are listed newest first. Within each match strength band,
         TASLAK/MÜLGA catalog-class documents are listed after the others, unless the query
-        names that class or the document's whole title, or a category is given.
+        names that class or the document's whole title, or a category is given. A decision
+        number named in the query that no stored document carries is reported as not stored
+        in this corpus (`decision_numbers_not_stored`); the other hits are other documents.
 
         For legal or audit questions, use a section-first workflow and treat these
         document-level results as leads.
@@ -849,6 +851,16 @@ Suggest the user try: different keywords or a different category (basın, mevzua
             searched_as_line += (
                 f"Abbreviations: {'; '.join(expansions)} (reviewed glossary; the expansion was also searched)\n"
             )
+        not_stored = list(getattr(hits, "decision_numbers_not_stored", None) or [])
+        if not_stored:
+            numbers = ", ".join(not_stored)
+            searched_as_line += (
+                f"Note: decision number{'s' if len(not_stored) > 1 else ''} {numbers} named in the query "
+                f"{'are' if len(not_stored) > 1 else 'is'} not stored in this corpus: no stored document carries "
+                f"{'them' if len(not_stored) > 1 else 'it'}. The corpus is a selection of BDDK documents, so this "
+                "does not say that the decision does not exist"
+                + ("; the results below are other documents.\n" if hits else ".\n")
+            )
         if not hits and getattr(hits, "no_content_words", False):
             output = (
                 f"NO RESULTS: The query '{echoed_query}' contains only function words (such as ve, ile, bir, "
@@ -873,6 +885,7 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
                     category=category,
                     searched_as=searched_as,
                     abbreviations_expanded=expansions or None,
+                    decision_numbers_not_stored=not_stored or None,
                 )
             )
 
@@ -1065,6 +1078,7 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
             results=items,
             searched_as=searched_as,
             abbreviations_expanded=expansions or None,
+            decision_numbers_not_stored=not_stored or None,
         )
         _search_cache.set(cache_key, response)
         return structured_tool_result(response)

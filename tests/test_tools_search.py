@@ -1370,3 +1370,39 @@ async def test_the_mismatch_note_also_compares_the_parent_provision(doc_store):
 
     assert "[note: this hit is part of madde 2, not the madde 12 requested in the query]" in other.text
     assert "[note:" not in same.text
+
+
+@pytest.mark.asyncio
+async def test_a_decision_number_the_corpus_does_not_store_is_named_before_the_results():
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.store.vector_store import SearchHits
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    other = SearchHits([{**_hit("1301", 0.9, "hybrid"), "decision_number": "11200"}])
+    other.decision_numbers_not_stored = ["11250"]
+    nothing = SearchHits([])
+    nothing.decision_numbers_not_stored = ["11250"]
+    stored = SearchHits([{**_hit("1301", 0.9, "hybrid"), "decision_number": "11200"}])
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(side_effect=[other, nothing, stored])
+    mcp = MagicMock()
+    register(mcp, Dependencies(db=None, doc_store=None, client=None, http=None, vector_store=vector_store))
+    tool = _registered_tools(mcp)["search_document_store"]
+
+    with_hits = await tool("15.07.2025 tarihli ve 11250 sayılı Kurul Kararı", limit=10)
+    without_hits = await tool("11250 sayılı karar kredi", limit=10)
+    known = await tool("11200 sayılı karar", limit=10)
+
+    note = "Note: decision number 11250 named in the query is not stored in this corpus"
+    assert with_hits.text.index(note) < with_hits.text.index("Found 1 result(s)")
+    assert "the results below are other documents" in with_hits.text
+    assert "does not say that the decision does not exist" in with_hits.text
+    assert with_hits.structuredContent["decision_numbers_not_stored"] == ["11250"]
+    assert without_hits.structuredContent["status"] == "no_results"
+    assert without_hits.text.index(note) < without_hits.text.index("NO RESULTS")
+    assert "the results below" not in without_hits.text
+    assert without_hits.structuredContent["decision_numbers_not_stored"] == ["11250"]
+    assert "not stored in this corpus" not in known.text
+    assert known.structuredContent.get("decision_numbers_not_stored") is None
