@@ -159,6 +159,41 @@ def _check_dependabot(errors: list[str]) -> None:
         errors.append(".github/dependabot.yml must cover exactly uv, github-actions and docker")
 
 
+DOCKERFILE_UV_VERSION = re.compile(r"ghcr\.io/astral-sh/uv:(\d+\.\d+\.\d+)")
+DOCKERFILE_MODEL_REVISION = re.compile(r"revision=['\"]([0-9a-f]{40})['\"]")
+CONFIG_MODEL_REVISION = re.compile(r'^_DEFAULT_EMBEDDING_MODEL_REVISION\s*=\s*["\']([0-9a-f]{40})["\']', re.MULTILINE)
+
+
+def _check_pinned_versions(errors: list[str], root: Path = ROOT) -> None:
+    """The image and CI must use one uv version, and the image the model revision the code defaults to."""
+
+    dockerfile = (root / "Dockerfile").read_text(encoding="utf-8")
+    uv_match = DOCKERFILE_UV_VERSION.search(dockerfile)
+    try:
+        workflow = yaml.safe_load((root / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8"))
+        ci_uv = str(workflow["env"]["UV_VERSION"])
+    except (yaml.YAMLError, KeyError, TypeError):
+        errors.append(".github/workflows/ci.yml must define env.UV_VERSION")
+        ci_uv = None
+    if uv_match is None:
+        errors.append("Dockerfile does not pin a uv version (ghcr.io/astral-sh/uv:<version>)")
+    elif ci_uv is not None and uv_match.group(1) != ci_uv:
+        errors.append(f"uv version differs: Dockerfile {uv_match.group(1)} vs ci.yml UV_VERSION {ci_uv}")
+
+    image_revision = DOCKERFILE_MODEL_REVISION.search(dockerfile)
+    config = (root / "bddk_mcp" / "core" / "config.py").read_text(encoding="utf-8")
+    config_revision = CONFIG_MODEL_REVISION.search(config)
+    if image_revision is None:
+        errors.append("Dockerfile does not pin the embedding model revision (revision='<sha>')")
+    elif config_revision is None:
+        errors.append("bddk_mcp/core/config.py does not define _DEFAULT_EMBEDDING_MODEL_REVISION")
+    elif image_revision.group(1) != config_revision.group(1):
+        errors.append(
+            "embedding model revision differs: "
+            f"Dockerfile {image_revision.group(1)} vs config.py {config_revision.group(1)}"
+        )
+
+
 def main() -> int:
     errors: list[str] = []
     repository_files = _repository_files()
@@ -211,6 +246,7 @@ def main() -> int:
 
     _check_issue_forms(errors)
     _check_dependabot(errors)
+    _check_pinned_versions(errors)
 
     if errors:
         print("Repository hygiene check failed:", file=sys.stderr)
