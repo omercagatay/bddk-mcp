@@ -15,10 +15,12 @@ from bddk_mcp.store.vector_store import (
     SemanticSearchUnavailableError,
     VectorIndexConsistencyError,
     VectorStore,
+    _build_query_vocabulary,
     _chunk_document,
     _document_quality_by_ids,
     _quality_metadata,
     displayed_relevance,
+    normalize_query,
     relevance_calibration,
     semantic_threshold,
 )
@@ -388,8 +390,8 @@ class TestHybridSearchOrdering:
         )
         vs._fts_search = AsyncMock(
             return_value=[
-                {"doc_id": "x1", "fts_rank": 0.9, "title": "X1", "snippet": "x1"},
-                {"doc_id": "x2", "fts_rank": 0.8, "title": "X2", "snippet": "x2"},
+                {"doc_id": "x1", "fts_rank": 0.9, "title": "X1", "snippet": "MADDE 5 - x1"},
+                {"doc_id": "x2", "fts_rank": 0.8, "title": "X2", "snippet": "MADDE 5 - x2"},
                 {"doc_id": "good", "fts_rank": 0.5, "title": "Good", "snippet": "good"},
             ]
         )
@@ -420,7 +422,7 @@ class TestHybridSearchOrdering:
         )
         vs._fts_search = AsyncMock(
             return_value=[
-                {"doc_id": "ex", "fts_rank": 0.9, "title": "Ex", "snippet": "ex", "fts_relaxed": False},
+                {"doc_id": "ex", "fts_rank": 0.9, "title": "Ex", "snippet": "MADDE 5 - ex", "fts_relaxed": False},
                 {"doc_id": "hyb", "fts_rank": 0.5, "title": "Hyb", "snippet": "hyb", "fts_relaxed": False},
             ]
         )
@@ -435,11 +437,12 @@ class TestHybridSearchOrdering:
         assert results[2]["relevance"] > results[0]["relevance"]
         description = DocumentSearchItem.model_fields["relevance"].description
         assert "then fts_exact" in description
-        assert "then the remaining vector and fts hits" in description
+        assert "then the remaining vector hits" in description
+        assert "keyword-only fts hits" in description
 
     @pytest.mark.asyncio
-    async def test_hybrid_search_drops_fts_only_non_legal_query(self):
-        """FTS-only bypass is limited to exact legal-reference queries."""
+    async def test_hybrid_search_keeps_a_strict_fts_only_hit_of_a_non_legal_query_as_a_keyword_match(self):
+        """A document that contains every query word is not dropped for want of a semantic score."""
         vs = VectorStore.__new__(VectorStore)
         vs._embedding_model = EMBEDDING_MODEL_NAME
 
@@ -457,7 +460,215 @@ class TestHybridSearchOrdering:
 
         results = await vs._hybrid_search("bankacılık işlemleri", limit=10)
 
-        assert results == []
+        assert [(r["doc_id"], r["match_type"]) for r in results] == [("general", "fts")]
+        assert results[0]["relevance"] == 0.0
+        assert results[0]["semantic_relevance"] == 0.0
+
+    @pytest.mark.asyncio
+    async def test_keyword_only_hits_follow_strong_and_moderate_hits_in_bm25_order_and_precede_weak_ones(self):
+        vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = EMBEDDING_MODEL_NAME
+        vs._vector_search = AsyncMock(
+            return_value=[
+                {"doc_id": "sem1", "relevance": 0.86, "title": "S1", "snippet": "dense chunk"},
+                {"doc_id": "sem2", "relevance": 0.83, "title": "S2", "snippet": "dense chunk"},
+                # Below the 0.80 threshold: not a semantic hit, but it contains every query word.
+                {"doc_id": "below", "relevance": 0.75, "title": "B", "snippet": "dense chunk of below"},
+            ]
+        )
+        vs._fts_search = AsyncMock(
+            return_value=[
+                {"doc_id": "kw_best", "fts_rank": 3.0, "title": "K1", "snippet": "k1", "fts_relaxed": False},
+                {"doc_id": "below", "fts_rank": 2.0, "title": "B", "snippet": "keyword chunk", "fts_relaxed": False},
+                {"doc_id": "sem2", "fts_rank": 1.0, "title": "S2", "snippet": "s2", "fts_relaxed": False},
+            ]
+        )
+
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", None):
+            everything = await vs._hybrid_search("pandemi kararı", limit=10)
+            top_two = await vs._hybrid_search("pandemi kararı", limit=2)
+
+        # sem1 and sem2 are shown as weak (displayed relevance below 0.50), so the documents that
+        # contain every query word come before them.
+        assert [(r["doc_id"], r["match_type"]) for r in everything] == [
+            ("kw_best", "fts"),
+            ("below", "fts"),
+            ("sem1", "vector"),
+            ("sem2", "hybrid"),
+        ]
+        # The keyword hit shows the chunk that contains the words, not the dense chunk.
+        assert everything[1]["snippet"] == "keyword chunk"
+        assert all(r["relevance"] == 0.0 for r in everything[:2])
+        assert [r["doc_id"] for r in top_two] == ["kw_best", "below"]
+
+    @pytest.mark.asyncio
+    async def test_relaxed_or_hits_are_never_appended_as_keyword_matches(self):
+        vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = EMBEDDING_MODEL_NAME
+        vs._vector_search = AsyncMock(return_value=[])
+        vs._fts_search = AsyncMock(
+            return_value=[{"doc_id": "loose", "fts_rank": 0.5, "title": "L", "snippet": "l", "fts_relaxed": True}]
+        )
+
+        assert await vs._hybrid_search("kredi kartı asgari ödeme tutarı", limit=10) == []
+
+
+class TestHitsOfTheOldCutKeepTheirPlace:
+    """Hits the old score-gap cut kept come first, in their old order; hits it would have cut follow them."""
+
+    @staticmethod
+    def _store(cosines: dict[str, float], exact: list[str]):
+        vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = EMBEDDING_MODEL_NAME
+        vs._vector_search = AsyncMock(
+            return_value=[{"doc_id": d, "relevance": c, "title": d, "snippet": "x"} for d, c in cosines.items()]
+        )
+        vs._fts_search = AsyncMock(
+            return_value=[
+                {"doc_id": d, "fts_rank": 1.0, "title": d, "snippet": "x", "fts_relaxed": False} for d in cosines
+            ]
+            + [
+                {"doc_id": d, "fts_rank": 1.0, "title": d, "snippet": "MADDE 5 - metin", "fts_relaxed": False}
+                for d in exact
+            ]
+        )
+        return vs
+
+    @pytest.mark.asyncio
+    async def test_exact_hits_stay_ahead_of_hybrid_hits_the_old_cut_would_have_dropped(self):
+        cosines = {"h1": 0.95, "h2": 0.94, "h3": 0.86, "h4": 0.85, "h5": 0.84, "h6": 0.83}
+        vs = self._store(cosines, ["ex1", "ex2"])
+
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", None):
+            top = await vs._hybrid_search("sermaye madde 5", limit=4)
+            everything = await vs._hybrid_search("sermaye madde 5", limit=10)
+
+        # h1/h2 are within 0.051 of the top ordering score (the old cut kept them); h3-h6 are not.
+        assert [r["doc_id"] for r in top] == ["h1", "h2", "ex1", "ex2"]
+        assert [r["doc_id"] for r in everything] == ["h1", "h2", "ex1", "ex2", "h3", "h4", "h5", "h6"]
+        assert [r["match_type"] for r in everything[2:4]] == ["fts_exact", "fts_exact"]
+
+    @pytest.mark.asyncio
+    async def test_without_exact_hits_the_order_is_the_ordering_score_order(self):
+        vs = self._store({"a": 0.95, "b": 0.86, "c": 0.90}, [])
+
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", None):
+            results = await vs._hybrid_search("sermaye", limit=10)
+
+        assert [r["doc_id"] for r in results] == ["a", "c", "b"]
+
+
+class TestKeywordOnlyHitsComeBeforeWeakHits:
+    @pytest.mark.asyncio
+    async def test_order_is_strong_and_moderate_then_keyword_only_then_weak(self):
+        vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = EMBEDDING_MODEL_NAME
+        vs._vector_search = AsyncMock(
+            return_value=[
+                {"doc_id": "strong", "relevance": 0.95, "title": "S", "snippet": "s"},
+                {"doc_id": "moderate", "relevance": 0.90, "title": "M", "snippet": "m"},
+                {"doc_id": "weak", "relevance": 0.85, "title": "W", "snippet": "w"},
+            ]
+        )
+        vs._fts_search = AsyncMock(
+            return_value=[
+                {"doc_id": "kw2", "fts_rank": 1.0, "title": "K2", "snippet": "k", "fts_relaxed": False},
+                {"doc_id": "kw1", "fts_rank": 2.0, "title": "K1", "snippet": "k", "fts_relaxed": False},
+            ]
+        )
+
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", None):
+            results = await vs._hybrid_search("deprem", limit=10)
+            top = await vs._hybrid_search("deprem", limit=3)
+
+        assert [(r["doc_id"], r["confidence"]) for r in results] == [
+            ("strong", "high"),
+            ("moderate", "medium"),
+            ("kw1", "low"),
+            ("kw2", "low"),
+            ("weak", "low"),
+        ]
+        assert [r["doc_id"] for r in top] == ["strong", "moderate", "kw1"]
+
+
+class TestKeywordOnlyHitsAreCountedByDocument:
+    @pytest.mark.asyncio
+    async def test_one_document_owning_more_matching_chunks_than_the_fetch_limit_does_not_hide_the_others(
+        self, vector_store, doc_store
+    ):
+        articles = "\n\n".join(f"MADDE {n} – 5411 5411 5411 kısa." for n in range(1, 61))
+        await _store_and_index(vector_store, doc_store, doc_id="kanun", title="Kanun", content=articles)
+        filler = " ".join(f"kelime{i}" for i in range(150))
+        for doc_id in ("other1", "other2", "other3"):
+            await _store_and_index(
+                vector_store, doc_store, doc_id=doc_id, title="Karar", content=f"{filler} 5411 sayılı Kanun {filler}"
+            )
+        vector_store._vector_search = AsyncMock(return_value=[])
+
+        chunk_hits = await vector_store._fts_search("5411", limit=50)
+        results = await vector_store._hybrid_search("5411", limit=10)
+
+        assert [hit["doc_id"] for hit in chunk_hits] == ["kanun"]
+        assert [hit["doc_id"] for hit in results][0] == "kanun"
+        assert {hit["doc_id"] for hit in results} == {"kanun", "other1", "other2", "other3"}
+        assert all(hit["match_type"] == "fts" for hit in results)
+
+
+class TestKeywordLabelOnLegalReferences:
+    """fts_exact ("keyword match on the legal reference in the query") only where the chunk holds that reference."""
+
+    @staticmethod
+    def _store(fts_hit):
+        vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = EMBEDDING_MODEL_NAME
+        vs._vector_search = AsyncMock(return_value=[])
+        vs._fts_search = AsyncMock(return_value=[{"fts_rank": 1.0, "title": "T", "fts_relaxed": False, **fts_hit}])
+        return vs
+
+    @pytest.mark.asyncio
+    async def test_article_number_inside_a_date_is_not_the_article(self):
+        vs = self._store({"doc_id": "802", "snippet": "MADDE 1 – 20/9/2017 tarihli kararla değişik."})
+
+        [hit] = await vs._hybrid_search("madde 9", limit=10)
+
+        assert hit["match_type"] == "fts"
+
+    @pytest.mark.asyncio
+    async def test_date_tokens_scattered_over_the_chunk_are_not_the_date(self):
+        vs = self._store({"doc_id": "1184", "snippet": "11/01/2019 tarihli karar, 31 banka ve 12 kuruluş."})
+
+        [hit] = await vs._hybrid_search("31.12.2019", limit=10)
+
+        assert hit["match_type"] == "fts"
+
+    @pytest.mark.asyncio
+    async def test_the_article_itself_and_the_date_itself_stay_fts_exact(self):
+        article = self._store({"doc_id": "a", "snippet": "MADDE 9 – (1) Bankalar karşılık ayırır."})
+        date = self._store({"doc_id": "d", "snippet": "31/12/2019 tarihi itibarıyla uygulanır."})
+        decision = self._store({"doc_id": "k", "snippet": "Kurulun 8948 sayılı kararı ile belirlenmiştir."})
+
+        assert (await article._hybrid_search("madde 9", limit=10))[0]["match_type"] == "fts_exact"
+        assert (await date._hybrid_search("31.12.2019", limit=10))[0]["match_type"] == "fts_exact"
+        assert (await decision._hybrid_search("8948 sayılı kurul kararı", limit=10))[0]["match_type"] == "fts_exact"
+
+    @pytest.mark.asyncio
+    async def test_the_section_binding_of_the_chunk_counts_as_the_reference(self):
+        vs = self._store(
+            {"doc_id": "a", "snippet": "(3) devamı olan metin.", "section_type": "madde", "section_ref": "66/a"}
+        )
+
+        [hit] = await vs._hybrid_search("madde 66/A", limit=10)
+
+        assert hit["match_type"] == "fts_exact"
+
+    @pytest.mark.asyncio
+    async def test_the_reference_is_checked_on_the_whole_chunk_not_on_the_snippet(self):
+        vs = self._store({"doc_id": "a", "snippet": "giriş metni", "chunk_text": "giriş metni ... MADDE 9 – metin"})
+
+        [hit] = await vs._hybrid_search("madde 9", limit=10)
+
+        assert hit["match_type"] == "fts_exact"
+        assert "chunk_text" not in hit
 
 
 class TestRelevanceCalibration:
@@ -556,20 +767,23 @@ class TestRelevanceCalibration:
         assert [r["doc_id"] for r in results] == ["higher_score", "first_by_rrf"]
 
     @pytest.mark.asyncio
-    async def test_score_gap_still_sees_the_gated_ordering_score(self):
-        # Gated: 0.65 * (0.90 - 0.83) = 0.0455 <= 0.051 keeps the second hit, as before calibration.
+    async def test_a_hit_far_below_the_top_is_kept_after_it_when_it_passes_the_threshold(self):
+        # No score-gap cut: b is 0.06 below a on the ordering score (the FTS gate is open, so the
+        # scores are not scaled), passes the 0.80 raw-cosine threshold and is listed after a.
         vs = self._store(
             [
                 {"doc_id": "a", "relevance": 0.90, "title": "A", "snippet": "a"},
-                {"doc_id": "b", "relevance": 0.83, "title": "B", "snippet": "b"},
+                {"doc_id": "b", "relevance": 0.84, "title": "B", "snippet": "b"},
+                {"doc_id": "low", "relevance": 0.79, "title": "Low", "snippet": "low"},
             ],
-            [],
+            [{"doc_id": "z", "fts_rank": 1.0, "title": "Z", "snippet": "z", "fts_relaxed": True}],
         )
 
         with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", None):
             results = await vs._hybrid_search("q", limit=10)
 
         assert [r["doc_id"] for r in results] == ["a", "b"]
+        assert results[0]["ordering_score"] - results[1]["ordering_score"] == pytest.approx(0.06)
 
     @pytest.mark.asyncio
     async def test_unknown_model_displays_the_ordering_score(self):
@@ -639,7 +853,7 @@ class TestRelaxedFtsFallbackIsNotExact:
         vs._vector_search = AsyncMock(return_value=[])
         vs._fts_search = AsyncMock(
             return_value=[
-                {"doc_id": "strict", "fts_rank": 0.9, "title": "S", "snippet": "s", "fts_relaxed": False},
+                {"doc_id": "strict", "fts_rank": 0.9, "title": "S", "snippet": "MADDE 5 - s", "fts_relaxed": False},
                 {"doc_id": "loose", "fts_rank": 0.5, "title": "L", "snippet": "l", "fts_relaxed": True},
             ]
         )
@@ -991,3 +1205,219 @@ def test_seed_has_no_standalone_caption_chunk_except_a_document_tail():
     # Measured: 1041 "45. Ödenmemiş borçlar", and the "Eki/Ekleri için tıklayınız" link of 21425 and 40520.
     assert sorted(tails) == ["1041", "mevzuat_21425", "mevzuat_40520"]
     assert standalone < 30
+
+
+class TestQueryNormalisation:
+    """Case and missing Turkish letters are folded on the keyword side; the embedded query is normalised to match."""
+
+    @staticmethod
+    def _vocabulary():
+        texts = ["Müşteri şikayetleri ve sızma testi raporu."] * 25 + ["musteri kaydı"] * 1
+        return _build_query_vocabulary(texts)
+
+    def test_shouted_queries_are_lower_cased_with_the_matching_rules(self):
+        vocabulary = self._vocabulary()
+
+        assert normalize_query("SERMAYE KORUMA TAMPONU", vocabulary) == "sermaye koruma tamponu"
+        assert normalize_query("MÜŞTERİ ŞİKAYETLERİ", vocabulary) == "müşteri şikayetleri"
+        assert normalize_query("İÇ DENETİM BİRİMİ", vocabulary) == "iç denetim birimi"
+
+    def test_short_all_caps_queries_are_codes_and_references_and_stay_as_typed(self):
+        vocabulary = self._vocabulary()
+
+        for query in ("TFRS 9", "IFRS 9", "TMS 39", "MADDE 5", "BDDK", "SYR", "LKO", "İÇ DENETİM"):
+            assert normalize_query(query, vocabulary) == query
+
+    def test_a_shouted_sentence_is_lower_cased_but_keeps_its_abbreviations(self):
+        vocabulary = _build_query_vocabulary(
+            ["Bankalar BDDK ve TFRS hükümlerine göre hesaplama yapar."] * 25 + ["hesaplaması nasıl yapılır"] * 25
+        )
+
+        assert normalize_query("LKO HESAPLAMASI NASIL YAPILIR", vocabulary) == "LKO hesaplaması nasıl yapılır"
+        assert normalize_query("BDDK TFRS HESAPLAMASI NASIL", vocabulary) == "BDDK TFRS hesaplaması nasıl"
+
+    def test_a_query_without_turkish_letters_gets_them_back_from_the_corpus_vocabulary(self):
+        vocabulary = self._vocabulary()
+
+        assert normalize_query("musteri sikayetleri", vocabulary) == "müşteri şikayetleri"
+        assert normalize_query("BILGI SISTEMLERI SIZMA TESTI", vocabulary) == "bilgi sistemleri sızma testi"
+        assert normalize_query("Musteri sikayetleri", vocabulary) == "Müşteri şikayetleri"
+
+    def test_a_folded_form_with_two_common_turkish_spellings_is_left_as_typed(self):
+        vocabulary = _build_query_vocabulary(
+            ["kısmı"] * 60 + ["kısmi ödeme"] * 30 + ["aynı"] * 100 + ["aynî sermaye"] * 25 + ["ödeme sermaye"] * 30
+        )
+
+        assert normalize_query("kismi odeme", vocabulary) == "kismi ödeme"
+        assert normalize_query("ayni sermaye", vocabulary) == "ayni sermaye"
+
+    def test_a_query_whose_words_are_mostly_not_in_the_corpus_is_not_restored(self):
+        vocabulary = _build_query_vocabulary(["iş ve işlem"] * 50 + ["is"] * 1)
+
+        assert normalize_query("what is NPL", vocabulary) == "what is NPL"
+        assert normalize_query("how is the loan classified", vocabulary) == "how is the loan classified"
+
+    def test_a_circumflex_is_a_turkish_letter_and_the_query_passes_unchanged(self):
+        vocabulary = _build_query_vocabulary(["sermaye ödenir"] * 50 + ["kâr payı"] * 50)
+
+        assert normalize_query("aynî sermaye odenir", vocabulary) == "aynî sermaye odenir"
+        assert normalize_query("kâr payi odenir", vocabulary) == "kâr payi odenir"
+
+    def test_restoration_needs_a_frequent_corpus_form_and_a_rare_typed_form(self):
+        rare = _build_query_vocabulary(["müşteri"] * 19)
+        typed_common = _build_query_vocabulary(["müşteri"] * 25 + ["musteri"] * 2)
+
+        assert normalize_query("musteri", rare) == "musteri"
+        assert normalize_query("musteri", typed_common) == "musteri"
+
+    def test_a_query_with_a_turkish_letter_and_abbreviations_in_a_mixed_query_are_left_alone(self):
+        vocabulary = self._vocabulary()
+
+        assert normalize_query("müşteri sikayetleri", vocabulary) == "müşteri sikayetleri"
+        assert normalize_query("LKO musteri sikayetleri", vocabulary) == "LKO müşteri şikayetleri"
+        assert normalize_query("Bankacılık KANUNU madde 5", vocabulary) == "Bankacılık KANUNU madde 5"
+
+    def test_the_query_is_nfc_normalised(self):
+        decomposed = "müşteri"
+
+        assert normalize_query(decomposed, self._vocabulary()) == "müşteri"
+
+    @pytest.mark.asyncio
+    async def test_search_embeds_the_normalised_query_and_says_what_was_searched(self, corpus_db, doc_store):
+        embedded: list[str] = []
+
+        def recording_embed(texts):
+            embedded.extend(texts)
+            return fake_embed(texts)
+
+        store = VectorStore(corpus_db, embed_fn=recording_embed, tokenizer=FakeTokenizer())
+        await _store_and_index(
+            store, doc_store, doc_id="d1", title="Şikayet", content="Müşteri şikayetleri kayda alınır. " * 25
+        )
+        embedded.clear()
+
+        hits = await store.search("MUSTERI SIKAYETLERI", limit=5)
+        unchanged = await store.search("müşteri şikayetleri", limit=5)
+
+        assert "query: müşteri şikayetleri" in embedded
+        assert "query: MUSTERI SIKAYETLERI" not in embedded
+        assert hits.searched_as == "müşteri şikayetleri"
+        assert unchanged.searched_as is None
+
+
+class TestAbbreviationExpansion:
+    """A glossary abbreviation in the query is also searched as its expansion, and the answer says so."""
+
+    @pytest.fixture
+    async def recording_store(self, corpus_db, doc_store):
+        embedded: list[str] = []
+
+        def recording_embed(texts):
+            embedded.extend(texts)
+            return fake_embed(texts)
+
+        store = VectorStore(corpus_db, embed_fn=recording_embed, tokenizer=FakeTokenizer())
+        await _store_and_index(
+            store,
+            doc_store,
+            doc_id="lko_reg",
+            title="Yönetmelik",
+            content="MADDE 4 - Likidite karşılama oranı yüzde yüzden az olamaz.",
+        )
+        await _store_and_index(
+            store, doc_store, doc_id="lko_kk", title="Kurul Kararı", content="Bankalar LKO hesaplamasından muaftır."
+        )
+        embedded.clear()
+        return store, embedded
+
+    @pytest.mark.asyncio
+    async def test_expansion_is_embedded_searched_by_keyword_and_stated(self, recording_store):
+        store, embedded = recording_store
+
+        hits = await store.search("LKO", limit=10)
+
+        assert embedded == ["query: LKO likidite karşılama oranı"]
+        assert {hit["doc_id"] for hit in hits} == {"lko_reg", "lko_kk"}
+        assert hits.expansions == [("LKO", "likidite karşılama oranı")]
+
+    @pytest.mark.asyncio
+    async def test_the_expansion_is_not_appended_when_the_query_already_contains_it(self, recording_store):
+        store, embedded = recording_store
+
+        hits = await store.search("LKO likidite karşılama oranı", limit=10)
+
+        assert embedded == ["query: LKO likidite karşılama oranı"]
+        assert hits.expansions == []
+
+    @pytest.mark.asyncio
+    async def test_an_unknown_abbreviation_changes_nothing(self, recording_store):
+        store, embedded = recording_store
+
+        hits = await store.search("XYZQ hesaplaması", limit=10)
+
+        assert embedded == ["query: XYZQ hesaplaması"]
+        assert hits.expansions == []
+        assert hits.searched_as is None
+
+
+class TestSearchHonesty:
+    @pytest.mark.asyncio
+    async def test_a_hit_at_the_calibration_ceiling_is_marked_clamped(self):
+        vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = "intfloat/multilingual-e5-base"
+        vs._vector_search = AsyncMock(
+            return_value=[
+                {"doc_id": "top", "relevance": 0.95, "title": "T", "snippet": "t"},
+                {"doc_id": "below", "relevance": 0.86, "title": "B", "snippet": "b"},
+            ]
+        )
+        vs._fts_search = AsyncMock(
+            return_value=[{"doc_id": "top", "fts_rank": 2.0, "title": "T", "snippet": "t", "fts_relaxed": False}]
+        )
+
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", None):
+            top, below = await vs._hybrid_search("zzz", limit=10)
+
+        assert top["relevance"] == 1.0 and top["relevance_clamped"] is True
+        assert top["semantic_relevance"] == 0.95
+        assert below["relevance_clamped"] is False
+
+    @pytest.mark.asyncio
+    async def test_a_query_of_function_words_only_is_not_searched(self, vector_store, doc_store):
+        await _store_and_index(vector_store, doc_store, doc_id="d1", title="T", content="ve ile bir bu da de için")
+        vector_store._hybrid_search = AsyncMock(return_value=[])
+
+        hits = await vector_store.search("ve ile bir bu da de için", limit=10)
+        await vector_store.search("ve sermaye", limit=10)
+
+        single_letter = await vector_store.search("a", limit=10)
+
+        assert hits == [] and hits.no_content_words is True
+        assert single_letter == [] and single_letter.no_content_words is True
+        vector_store._hybrid_search.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_a_bare_decision_number_returns_that_decision_first(self, vector_store, doc_store):
+        await doc_store.store_document(
+            StoredDocument(
+                document_id="775",
+                title="Kurul Kararı",
+                markdown_content="Kurul kararı metni: kredilerin sınıflandırılması.",
+                category="Kurul Kararı",
+                decision_number="8948",
+            )
+        )
+        await vector_store.add_document(
+            doc_id="775", title="Kurul Kararı", content="Kurul kararı metni: kredilerin sınıflandırılması."
+        )
+        await _store_and_index(vector_store, doc_store, doc_id="other", title="T", content="8948 tutarında 8948 işlem")
+
+        for query in ("8948", "8948 sayılı karar", "8948 sayılı Kurul Kararı"):
+            hits = await vector_store.search(query, limit=10)
+            assert hits[0]["doc_id"] == "775", query
+            assert hits[0]["decision_number_match"] is True
+            assert hits[0]["match_type"] == "decision_number"
+            assert [hit["doc_id"] for hit in hits].count("775") == 1
+
+        assert all(not hit.get("decision_number_match") for hit in await vector_store.search("9999", limit=10))
+        assert await vector_store.search("8948", limit=10, category="Yönetmelik") == []

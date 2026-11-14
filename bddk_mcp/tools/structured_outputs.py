@@ -238,25 +238,30 @@ class DocumentSearchItem(StrictOutputModel):
         description=(
             "Calibrated ranking score between 0 and 1 for the embedding model in use: the cosine similarity "
             "plus lexical/phrase boosts, mapped through a per-model calibration and lowered when no query "
-            "keyword matches. Not a probability and not a cosine. Without fts_exact hits the results are "
+            "keyword matches. Not a probability and not a cosine. Without fts_exact hits the semantic hits are "
             "sorted by this score. When fts_exact hits are present the order is: hybrid hits by this score, then fts_exact "
-            "hits (0.0, no semantic score) in keyword (BM25) order, then the remaining vector and fts hits by "
-            "this score, so a later hit can score higher than an earlier hybrid hit."
+            "hits (0.0, no semantic score) in keyword (BM25) order, then the remaining vector hits by "
+            "this score, so a later hit can score higher than an earlier hybrid hit; these are the hits within "
+            "0.051 of the top ordering score, and the other semantic hits follow them by this score. keyword-only fts hits "
+            "(0.0, no semantic score: every query word occurs in the chunk or the document title) follow the strong and moderate hits in BM25 order, and the weak hits (relevance below 0.50) come after them."
         ),
     )
     match_strength: Literal["strong", "moderate", "weak", "keyword"] = Field(
         description=(
-            "Stable relevance band derived from relevance; 'keyword' for fts_exact hits, which have no "
+            "Stable relevance band derived from relevance; 'keyword' for fts_exact, fts and decision_number "
+            "hits, which have no "
             "semantic score to band."
         )
     )
     quality: QualityMetadata = Field(description="Known local document-quality status.")
-    match_type: Literal["hybrid", "vector", "fts", "fts_exact"] | None = Field(
+    match_type: Literal["hybrid", "vector", "fts", "fts_exact", "decision_number"] | None = Field(
         default=None,
         description=(
             "How the hit was retrieved: hybrid (semantic and keyword), vector (semantic only), fts (keyword "
-            "only) or fts_exact (every query word, including a legal reference, matched by keyword search; "
-            "a keyword match, not a confirmed provision)."
+            "only: every query word occurs in the chunk or the document title, and the document had no "
+            "semantic hit; no semantic score) or fts_exact (every query word, including a legal reference, matched by keyword search; "
+            "a keyword match, not a confirmed provision) or decision_number (the query is a bare decision "
+            "number and this document carries that decision number; no semantic score)."
         ),
     )
     section_type: str | None = Field(
@@ -267,12 +272,57 @@ class DocumentSearchItem(StrictOutputModel):
         default=None, description="Catalog source URL of the document, when stored; not a validated citation."
     )
     decision_number: str | None = Field(default=None, description="Document decision number as stored.")
+    section_start_char: int | None = Field(
+        default=None,
+        description=(
+            "Start code point of the matched chunk's section in the normalized Markdown; with section_type and "
+            "section_ref it addresses a fikra/bent row uniquely (get_document_section start_char)."
+        ),
+    )
+    parent_section_type: str | None = Field(
+        default=None,
+        description="Type of the stored provision (madde, paragraf, ilke ...) containing a fikra/bent hit.",
+    )
+    parent_section_ref: str | None = Field(
+        default=None, description="Stored reference of the provision containing a fikra/bent hit."
+    )
+    relevance_clamped: bool | None = Field(
+        default=None,
+        description=(
+            "True when relevance sits at the calibration ceiling (1.0) because the ordering score reached or "
+            "passed it: such hits tie on the shown value and are ordered by the internal score."
+        ),
+    )
+    semantic_relevance: float | None = Field(
+        default=None,
+        description="Raw cosine similarity of the embedding model for this hit; absent for keyword hits.",
+    )
+    decision_number_match: bool | None = Field(
+        default=None,
+        description="True for a document listed first because its decision number equals the number in the query.",
+    )
 
 
 class DocumentSearchResponse(RetrievalResponse):
-    query: str = Field(description="Validated semantic query.")
+    query: str = Field(description="Validated semantic query, with control characters shown as \\xNN escapes.")
     category: str | None = Field(default=None, description="Applied category filter.")
     results: list[DocumentSearchItem] = Field(default_factory=list, description="Semantic document matches.")
+    searched_as: str | None = Field(
+        default=None,
+        description=(
+            "The query as it was searched, when that differs from the typed query: NFC, an all-upper-case query "
+            "lower-cased, and in a query typed without Turkish letters the words restored to their corpus "
+            "spelling. Absent when the query was searched as typed."
+        ),
+    )
+    abbreviations_expanded: list[str] | None = Field(
+        default=None,
+        description=(
+            "Abbreviations of the reviewed search glossary found in the query, each as '<ABBR> read as "
+            "<expansion>': the expansion was added to the semantic query and searched by keyword in place of "
+            "the abbreviation. Other abbreviations are matched only literally."
+        ),
+    )
 
 
 class DocumentPageContent(StrictOutputModel):

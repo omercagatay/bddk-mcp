@@ -25,6 +25,7 @@ from bddk_mcp.quality.markdown_quality import (
     assess_markdown_quality,
     quality_assessment_from_metadata,
 )
+from bddk_mcp.store.legal_ref import canonical_section_ref, parse_legal_refs
 from bddk_mcp.store.vector_store import SemanticSearchReadinessError, SemanticSearchUnavailableError
 from bddk_mcp.tools.contract_types import (
     ActiveOnly,
@@ -45,6 +46,17 @@ from bddk_mcp.tools.contract_types import (
     validate_date_order,
 )
 from bddk_mcp.tools.errors import UPSTREAM_FETCH_FAILED, tool_error
+from bddk_mcp.tools.sections import (
+    _continuation_of,
+    _continuation_warning,
+    _find_continuations,
+    _find_parents,
+    _govde_kind,
+    _govde_label,
+    _parent_of,
+    _visible_controls,
+    display_section_ref,
+)
 from bddk_mcp.tools.structured_outputs import (
     LEGAL_APPLICABILITY_WARNING,
     STRUCTURELESS_CITATION_HINT,
@@ -67,6 +79,7 @@ from bddk_mcp.tools.tool_logging import logged_tool
 
 if TYPE_CHECKING:
     from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.store.doc_store import StoredDocumentSection
 
 logger = logging.getLogger(__name__)
 
@@ -132,10 +145,90 @@ async def _corpus_cache_token(deps: Dependencies) -> str:
     return f"{epoch}.{data_version}"
 
 
-_MATCH_TYPES = frozenset({"hybrid", "vector", "fts", "fts_exact"})
+_MATCH_TYPES = frozenset({"hybrid", "vector", "fts", "fts_exact", "decision_number"})
 # A keyword (FTS AND) match on a query that names a legal reference: there is no
 # semantic score to show, and the match does not confirm the provision.
 _FTS_EXACT_LABEL = "[keyword match on the legal reference in the query; no semantic score]"
+# A document that matched every query word by keyword search but had no semantic hit.
+_FTS_KEYWORD_LABEL = (
+    "[keyword match: every query word occurs in this chunk or in its document title; no semantic score]"
+)
+# Hits without a semantic score: their relevance 0.0 is not a weak score.
+_KEYWORD_MATCH_TYPES = frozenset({"fts", "fts_exact", "decision_number"})
+# Per-hit citation hints for govde rows that are not remainder (the section tools word the plural warning).
+_DECISION_TEXT_HINT = (
+    "Cite this decision by its title and decision date/number, not as an article (madde) or as a govde window."
+)
+_BODY_TEXT_HINT = "Cite this document by its title, not as a named annex or paragraph."
+
+
+def _reference_mismatch_note(requested: list[tuple[str, str]], section_type: str, section_ref: str) -> str:
+    """Say so when a hit is bound to another number of a section kind the query names ("ilke 22", not "ilke 12")."""
+    if not section_type or not section_ref or (section_type, canonical_section_ref(section_ref)) in requested:
+        return ""
+    same_kind = [ref for kind, ref in requested if kind == section_type]
+    if not same_kind:
+        return ""
+    named = " or ".join(f"{section_type} {display_section_ref(section_type, ref)}" for ref in same_kind)
+    return (
+        f" [note: this hit is about {section_type} {display_section_ref(section_type, section_ref)}, "
+        f"not the {named} requested in the query]"
+    )
+
+
+_NESTED_ROW_TYPES = frozenset({"fikra", "bent"})
+
+
+async def _hit_sections(deps: Dependencies, hits: list[dict]) -> dict[int, StoredDocumentSection]:
+    """The stored section row each hit's chunk is bound to (by document, type, reference and start), by hit index.
+
+    Read-only; a hit whose row is not found (or a runtime without a document store) is left out.
+    """
+    if deps.doc_store is None:
+        return {}
+    found: dict[int, StoredDocumentSection] = {}
+    for index, hit in enumerate(hits):
+        start = hit.get("section_start_char")
+        if not hit.get("section_type") or not isinstance(start, int) or isinstance(start, bool):
+            continue
+        rows = await deps.doc_store.get_document_section(
+            str(hit["doc_id"]),
+            section_type=str(hit["section_type"]),
+            section_ref=str(hit.get("section_ref") or "") or None,
+            start_char=start,
+        )
+        if len(rows) == 1:
+            found[index] = rows[0]
+    return found
+
+
+async def _repeated_references(deps: Dependencies, hits: list[dict]) -> set[int]:
+    """Indexes of the hits whose (document, section type, reference) names more than one stored row.
+
+    fikra/bent rows always repeat and get their start offset anyway; govde rows get no such pointer.
+    """
+    if deps.doc_store is None:
+        return set()
+    repeated: set[int] = set()
+    for index, hit in enumerate(hits):
+        section_type = str(hit.get("section_type") or "")
+        section_ref = str(hit.get("section_ref") or "")
+        if not section_type or not section_ref or section_type == "govde" or section_type in _NESTED_ROW_TYPES:
+            continue
+        rows = await deps.doc_store.get_document_section(
+            str(hit["doc_id"]), section_type=section_type, section_ref=section_ref, limit=2
+        )
+        if len(rows) > 1:
+            repeated.add(index)
+    return repeated
+
+
+def _section_call(doc_id: str, section_type: str, section_ref: str, start_char: int | None = None) -> str:
+    start = f", start_char={start_char}" if start_char is not None else ""
+    return (
+        f'get_document_section(document_id="{doc_id}", section_type="{section_type}", '
+        f'section_ref="{section_ref}"{start})'
+    )
 
 
 def _match_strength(relevance: float) -> str:
@@ -650,7 +743,9 @@ Suggest the user try: different keywords or a different category (basın, mevzua
         Uses multilingual-e5-base embeddings on chunked document content. Use this
         when query terms might appear inside the document text rather than in the
         title — abbreviations like "TFRS 9", article references, calculation
-        formulas, defined terms. Understands meaning, not just keywords.
+        formulas, defined terms. Understands meaning, not just keywords. An abbreviation of a small
+        reviewed glossary (e.g. LKO, NSFR, İSEDES) is also searched as its spelled-out form; any other
+        abbreviation matches only where the text itself uses it.
 
         For title-only catalog lookups (where you know words from the regulation's
         name), use search_bddk_regulations instead.
@@ -705,16 +800,45 @@ Suggest the user try: different keywords or a different category (basın, mevzua
                 hint="Use search_document_sections or get_document_section; an operator must repair this runtime.",
             )
 
+        echoed_query = _visible_controls(query)
+        searched_as = getattr(hits, "searched_as", None)
+        searched_as_line = (
+            f"Searched as: '{_visible_controls(searched_as or '')}' (case and Turkish letters normalised from "
+            "the typed query)\n"
+            if searched_as
+            else ""
+        )
+        expansions = [
+            f"{abbreviation} read as {expansion}" for abbreviation, expansion in getattr(hits, "expansions", [])
+        ]
+        if expansions:
+            searched_as_line += (
+                f"Abbreviations: {'; '.join(expansions)} (reviewed glossary; the expansion was also searched)\n"
+            )
+        if not hits and getattr(hits, "no_content_words", False):
+            output = (
+                f"NO RESULTS: The query '{echoed_query}' contains only function words (such as ve, ile, bir, "
+                "için), so there was nothing to search for; it was treated like an empty query.\n"
+                "Ask again with the subject words of the question."
+            )
+            return structured_tool_result(
+                DocumentSearchResponse(status="no_results", text=output, query=echoed_query, category=category)
+            )
         if not hits:
-            output = f"""NO RESULTS: No documents found matching '{query}'.
+            output = (
+                searched_as_line
+                + f"""NO RESULTS: No documents found matching '{echoed_query}': no semantic match passed the threshold and no document contains every query word.
 DO NOT provide information from your own knowledge about BDDK regulations.
 Suggest the user try: different Turkish keywords, broader terms, or removing the category filter."""
+            )
             return structured_tool_result(
                 DocumentSearchResponse(
                     status="no_results",
                     text=output,
-                    query=query,
+                    query=echoed_query,
                     category=category,
+                    searched_as=searched_as,
+                    abbreviations_expanded=expansions or None,
                 )
             )
 
@@ -724,38 +848,101 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
             if govde_doc_ids and deps.doc_store is not None
             else set()
         )
-        lines = [f"Found {len(hits)} result(s) for '{query}':\n"]
+        requested_sections = list(parse_legal_refs(query).sections)
+        hit_sections = await _hit_sections(deps, hits)
+        repeated_references = await _repeated_references(deps, hits)
+        stored_sections = list(hit_sections.values())
+        continuations = await _find_continuations(deps, stored_sections) if stored_sections else {}
+        parents = await _find_parents(deps, stored_sections) if stored_sections else {}
+        lines = [f"Found {len(hits)} result(s) for '{echoed_query}':\n"]
+        if searched_as_line:
+            lines.insert(0, searched_as_line)
         hit_quality: dict[str, QualityAssessment] = {}
         items: list[DocumentSearchItem] = []
         evidence: list[EvidenceReference] = []
         warnings: list[str] = [UNTRUSTED_SOURCE_WARNING, _SNIPPET_TRUNCATION_WARNING, LEGAL_APPLICABILITY_WARNING]
-        for h in hits:
+        for hit_index, h in enumerate(hits):
             date_info = f" ({h['decision_date']})" if h.get("decision_date") else ""
             cat_info = f" [{h['category']}]" if h.get("category") else ""
             match_type = h.get("match_type") if h.get("match_type") in _MATCH_TYPES else None
-            if match_type == "fts_exact":
+            if h.get("decision_number_match"):
+                match_strength = "keyword"
+                relevance = (
+                    f" [decision-number match: this document's decision number is {h.get('decision_number')}; "
+                    "no semantic score]"
+                )
+            elif match_type == "fts_exact":
                 match_strength = "keyword"
                 relevance = f" {_FTS_EXACT_LABEL}"
+            elif match_type == "fts":
+                match_strength = "keyword"
+                relevance = f" {_FTS_KEYWORD_LABEL}"
+            elif h.get("relevance_clamped"):
+                match_strength = _match_strength(h["relevance"])
+                relevance = (
+                    f" [{match_strength} match, relevance at the calibration ceiling (100%); tied hits are ordered "
+                    "by the internal score]"
+                )
             else:
                 match_strength = _match_strength(h["relevance"])
                 relevance = f" [{match_strength} match, relevance {h['relevance']:.1%}]"
-            lines.append(f"**{h['title']}**{date_info}{cat_info}{relevance}")
+            section_type = str(h.get("section_type") or "")
+            section_ref = str(h.get("section_ref") or "")
+            mismatch = _reference_mismatch_note(requested_sections, section_type, section_ref)
+            lines.append(f"**{h['title']}**{date_info}{cat_info}{relevance}{mismatch}")
             lines.append(f"  Document ID: {h['doc_id']}")
             if status_notice := document_status_notice(str(h.get("category") or "")):
                 lines.append(f"  Document status: {status_notice}")
                 warnings.append(status_notice)
-            section_type = str(h.get("section_type") or "")
-            section_ref = str(h.get("section_ref") or "")
             source_url = str(h.get("source_url") or "")
             decision_number = str(h.get("decision_number") or "")
             decision_date = str(h.get("decision_date") or "")
-            if section_type == "govde" and str(h["doc_id"]) in structureless_ids:
+            doc_id = str(h["doc_id"])
+            stored_section = hit_sections.get(hit_index)
+            start_char = h.get("section_start_char") if isinstance(h.get("section_start_char"), int) else None
+            parent = _parent_of(stored_section, parents) if stored_section is not None else None
+            continued = _continuation_of(stored_section, continuations) if stored_section is not None else None
+            section_calls: list[str] = []
+            govde_kind = _govde_kind(stored_section, continuations) if stored_section is not None else None
+            if govde_kind and govde_kind != "remainder":
+                # Same kinds and wording as the section tools (search_document_sections, get_document_section).
+                lines.append(f"  Section: {_govde_label(stored_section, continuations)}")
+                if continued is not None:
+                    lines.append(f"  {_continuation_warning(stored_section, continued)}")
+                    section_calls.append(f"  Full section: {_section_call(doc_id, 'govde', section_ref)}")
+                    section_calls.append(
+                        f"  Full provision: {_section_call(doc_id, continued[0], continued[1])} "
+                        "(its stored window is capped; the whole text is in get_bddk_document)"
+                    )
+                else:
+                    lines.append(
+                        "  "
+                        + {
+                            "full_text_window": STRUCTURELESS_CITATION_HINT,
+                            "decision_text": _DECISION_TEXT_HINT,
+                            "body_text": _BODY_TEXT_HINT,
+                        }[govde_kind]
+                    )
+            elif section_type == "govde" and stored_section is None and doc_id in structureless_ids:
                 lines.append(f"  Section: {STRUCTURELESS_GOVDE_LABEL}")
                 lines.append(f"  {STRUCTURELESS_CITATION_HINT}")
             elif section_type == "govde":
                 lines.append("  Section: govde remainder — not a legal provision identity")
             elif section_type:
-                lines.append(f"  Section: {section_type} {section_ref}".rstrip())
+                shown = f"{section_type} {display_section_ref(section_type, section_ref)}".rstrip()
+                if parent is not None:
+                    shown += f" — Parent: {parent[0]} {display_section_ref(parent[0], parent[1])}"
+                lines.append(f"  Section: {shown}")
+                if section_ref:
+                    # A fıkra/bent reference repeats in a document, and so can a madde reference (for
+                    # example in a quoted amendment); the start offset makes the call unique.
+                    unique = section_type not in _NESTED_ROW_TYPES and hit_index not in repeated_references
+                    nested_start = None if unique else start_char
+                    section_calls.append(
+                        f"  Full section: {_section_call(doc_id, section_type, section_ref, nested_start)}"
+                    )
+                    if parent is not None:
+                        section_calls.append(f"  Full provision: {_section_call(doc_id, parent[0], parent[1])}")
             if source_url:
                 lines.append(f"  Catalog source (not a validated citation): {source_url}")
             if decision := decision_identifier_text(decision_date, decision_number):
@@ -763,13 +950,10 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
             quality = _search_hit_quality(h)
             hit_quality[str(h["doc_id"])] = quality
             lines.extend(_quality_result_lines(quality))
-            if h.get("snippet"):
-                lines.append(f"  ...{h['snippet'][:200]}...")
-            if section_type and section_ref and section_type != "govde":
-                lines.append(
-                    f'  Full section: get_document_section(document_id="{h["doc_id"]}", '
-                    f'section_type="{section_type}", section_ref="{section_ref}")'
-                )
+            if snippet := str(h.get("snippet") or ""):
+                # The snippet is the leading text of the chunk: an ellipsis only where it is cut here.
+                lines.append(f"  {snippet[:200]}..." if len(snippet) > 200 else f"  {snippet}")
+            lines.extend(section_calls)
             lines.append("")
             quality_metadata = _quality_metadata(quality)
             if quality.warning:
@@ -789,6 +973,16 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
                     section_ref=section_ref or None,
                     source_url=source_url or None,
                     decision_number=decision_number or None,
+                    section_start_char=start_char,
+                    relevance_clamped=bool(h["relevance_clamped"]) if "relevance_clamped" in h else None,
+                    semantic_relevance=(
+                        float(h["semantic_relevance"])
+                        if "semantic_relevance" in h and match_strength != "keyword"
+                        else None
+                    ),
+                    decision_number_match=True if h.get("decision_number_match") else None,
+                    parent_section_type=parent[0] if parent else None,
+                    parent_section_ref=parent[1] if parent else None,
                 )
             )
             evidence.append(
@@ -811,8 +1005,10 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
             "search_document_sections or get_document_section before making detailed conclusions."
         )
 
-        # fts_exact hits have no semantic score, so they are not "weak".
-        low_count = sum(1 for h in hits if h.get("match_type") != "fts_exact" and h.get("relevance", 0) < 0.50)
+        # Keyword hits (fts_exact, fts) have no semantic score, so they are not "weak".
+        low_count = sum(
+            1 for h in hits if h.get("match_type") not in _KEYWORD_MATCH_TYPES and h.get("relevance", 0) < 0.50
+        )
         if low_count > 0:
             lines.append(
                 f"\nWARNING: {low_count} result(s) are weak matches. They may not be directly relevant. Verify before citing."
@@ -825,9 +1021,11 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
             text=output,
             evidence=evidence,
             warnings=list(dict.fromkeys(warnings)),
-            query=query,
+            query=echoed_query,
             category=category,
             results=items,
+            searched_as=searched_as,
+            abbreviations_expanded=expansions or None,
         )
         _search_cache.set(cache_key, response)
         return structured_tool_result(response)

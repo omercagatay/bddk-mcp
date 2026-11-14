@@ -10,6 +10,7 @@ from mcp.server.fastmcp.exceptions import ToolError
 
 from bddk_mcp.store.vector_store import SemanticSearchUnavailableError
 from bddk_mcp.tools.search import _LRUCache, _search_cache
+from bddk_mcp.tools.structured_outputs import DocumentSearchItem
 
 # -- LRU cache unit tests ---------------------------------------------------
 
@@ -394,6 +395,54 @@ async def test_fts_exact_hits_are_labelled_as_keyword_matches_not_weak_matches()
         ("fts_exact", "keyword"),
         ("vector", "strong"),
     ]
+
+
+@pytest.mark.asyncio
+async def test_keyword_only_hits_are_listed_as_keyword_matches_and_not_as_no_results():
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(return_value=[_hit("sem", 0.8, "hybrid"), _hit("806", 0.0, "fts")])
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None, vector_store=vector_store)
+    mcp = MagicMock()
+    register(mcp, deps)
+
+    result = await _registered_tools(mcp)["search_document_store"]("pandemi", limit=10)
+
+    assert "No documents found" not in result.text
+    label = "[keyword match: every query word occurs in this chunk or in its document title; no semantic score]"
+    assert result.text.count(label) == 1
+    assert "relevance 0.0%" not in result.text
+    assert "weak match" not in result.text
+    items = result.structuredContent["results"]
+    assert [(item["match_type"], item["match_strength"]) for item in items] == [
+        ("hybrid", "strong"),
+        ("fts", "keyword"),
+    ]
+    assert "every query word occurs" in DocumentSearchItem.model_fields["match_type"].description
+    assert "keyword-only" in DocumentSearchItem.model_fields["relevance"].description
+
+
+@pytest.mark.asyncio
+async def test_no_results_only_when_neither_semantic_nor_keyword_hits_exist():
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(return_value=[])
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None, vector_store=vector_store)
+    mcp = MagicMock()
+    register(mcp, deps)
+
+    result = await _registered_tools(mcp)["search_document_store"]("zzqqxx", limit=10)
+
+    assert result.structuredContent["status"] == "no_results"
+    assert "no document contains every query word" in result.text
 
 
 @pytest.mark.asyncio
@@ -886,3 +935,348 @@ async def test_search_institutions_marks_digital_banks_without_stray_brackets():
     assert "**HAYAT FİNANS KATILIM BANKASI A.Ş.** (Dijital Banka) [Banka]" in result
     assert "**DÜNYA KATILIM BANKASI A.Ş.** [Banka]" in result
     assert "A.Ş.()" not in result
+
+
+@pytest.mark.asyncio
+async def test_a_hit_on_another_number_of_the_requested_section_kind_says_so():
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    other = {**_hit("949", 0.9, "hybrid"), "section_type": "ilke", "section_ref": "22"}
+    same = {**_hit("950", 0.9, "hybrid"), "section_type": "ilke", "section_ref": "12"}
+    article = {**_hit("951", 0.9, "hybrid"), "section_type": "madde", "section_ref": "4"}
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(return_value=[other, same, article])
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None, vector_store=vector_store)
+    mcp = MagicMock()
+    register(mcp, deps)
+
+    result = await _registered_tools(mcp)["search_document_store"]("Kredi yönetimi rehberi İlke 12", limit=3)
+
+    blocks = result.text.split("**Belge ")
+    assert "this hit is about ilke 22, not the ilke 12 requested in the query" in blocks[1]
+    assert "requested in the query" not in blocks[2]
+    assert "requested in the query" not in blocks[3]
+    assert [item["relevance"] for item in result.structuredContent["results"]] == [0.9, 0.9, 0.9]
+
+
+@pytest.mark.asyncio
+async def test_a_query_without_a_section_reference_gets_no_mismatch_note():
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(
+        return_value=[{**_hit("949", 0.9, "hybrid"), "section_type": "ilke", "section_ref": "22"}]
+    )
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None, vector_store=vector_store)
+    mcp = MagicMock()
+    register(mcp, deps)
+
+    result = await _registered_tools(mcp)["search_document_store"]("kredi limitleri", limit=1)
+
+    assert "requested in the query" not in result.text
+
+
+@pytest.mark.asyncio
+async def test_a_normalised_query_is_stated_in_the_text_and_the_structured_result():
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.store.vector_store import SearchHits
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    hits = SearchHits([_hit("1224", 0.8, "hybrid")])
+    hits.searched_as = "müşteri şikayetleri"
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(return_value=hits)
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None, vector_store=vector_store)
+    mcp = MagicMock()
+    register(mcp, deps)
+    tool = _registered_tools(mcp)["search_document_store"]
+
+    result = await tool("musteri sikayetleri", limit=1)
+    vector_store.search = AsyncMock(return_value=[_hit("1224", 0.8, "hybrid")])
+    plain = await tool("müşteri şikayetleri", limit=1)
+
+    assert "Searched as: 'müşteri şikayetleri'" in result.text
+    assert result.structuredContent["searched_as"] == "müşteri şikayetleri"
+    assert "Searched as" not in plain.text
+    assert "searched_as" not in plain.structuredContent
+
+
+@pytest.mark.asyncio
+async def test_an_expanded_abbreviation_is_stated():
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.store.vector_store import SearchHits
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    hits = SearchHits([_hit("806", 0.0, "fts")])
+    hits.expansions = [("LKO", "likidite karşılama oranı")]
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(return_value=hits)
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None, vector_store=vector_store)
+    mcp = MagicMock()
+    register(mcp, deps)
+
+    result = await _registered_tools(mcp)["search_document_store"]("LKO", limit=5)
+
+    assert "LKO read as likidite karşılama oranı" in result.text
+    assert result.structuredContent["abbreviations_expanded"] == ["LKO read as likidite karşılama oranı"]
+
+
+_TWO_ARTICLES_WITH_AN_ANNEX = (
+    "MADDE 1 – Amaç\n(1) Bu Yönetmeliğin amacı denetimdir.\n\nMADDE 2 – Kapsam\n(1) Birinci fıkra.\n"
+    "(2) İkinci fıkra metni.\n\nEK-2\n\nKarşı taraf kredi riski hesaplaması\n\n"
+    + " ".join(f"cümle{i} uzun ek metni." for i in range(3000))
+    + "\n"
+)
+
+
+async def _store_with_sections(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="m1", title="Yönetmelik", markdown_content=_TWO_ARTICLES_WITH_AN_ANNEX, category="Yönetmelik"
+        )
+    )
+    return {
+        (row.section_type, row.section_ref, row.start_char): row for row in await doc_store.get_document_section("m1")
+    }
+
+
+def _section_hit(row, relevance=0.9):
+    return {
+        **_hit(row.doc_id, relevance, "hybrid"),
+        "section_type": row.section_type,
+        "section_ref": row.section_ref,
+        "section_start_char": row.start_char,
+        "section_end_char": row.end_char,
+    }
+
+
+@pytest.mark.asyncio
+async def test_a_fikra_hit_names_its_parent_article_and_points_to_a_unique_address(doc_store):
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    rows = await _store_with_sections(doc_store)
+    fikra = next(row for (kind, ref, _), row in rows.items() if (kind, ref) == ("fikra", "1") and row.start_char > 54)
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(return_value=[_section_hit(fikra)])
+    mcp = MagicMock()
+    register(mcp, Dependencies(db=None, doc_store=doc_store, client=None, http=None, vector_store=vector_store))
+
+    result = await _registered_tools(mcp)["search_document_store"]("birinci fıkra", limit=1)
+
+    assert "  Section: fikra 1 — Parent: madde 2" in result.text
+    pointer = (
+        f'get_document_section(document_id="m1", section_type="fikra", section_ref="1", start_char={fikra.start_char})'
+    )
+    assert pointer in result.text
+    assert 'get_document_section(document_id="m1", section_type="madde", section_ref="2")' in result.text
+    assert (
+        len(
+            await doc_store.get_document_section(
+                "m1", section_type="fikra", section_ref="1", start_char=fikra.start_char
+            )
+        )
+        == 1
+    )
+    item = result.structuredContent["results"][0]
+    assert (item["section_start_char"], item["parent_section_type"], item["parent_section_ref"]) == (
+        fikra.start_char,
+        "madde",
+        "2",
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_govde_hit_that_continues_a_capped_annex_is_labelled_as_that_continuation(doc_store):
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    rows = await _store_with_sections(doc_store)
+    continuation = next(row for (kind, ref, _), row in rows.items() if (kind, ref) == ("govde", "2"))
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(return_value=[_section_hit(continuation)])
+    mcp = MagicMock()
+    register(mcp, Dependencies(db=None, doc_store=doc_store, client=None, http=None, vector_store=vector_store))
+
+    result = await _registered_tools(mcp)["search_document_store"]("uzun ek metni", limit=1)
+
+    assert "govde remainder" not in result.text
+    assert "  Section: continuation of ek 2 beyond its" in result.text
+    assert 'get_document_section(document_id="m1", section_type="govde", section_ref="2")' in result.text
+    assert 'get_document_section(document_id="m1", section_type="ek", section_ref="2")' in result.text
+
+
+@pytest.mark.asyncio
+async def test_section_refs_are_printed_in_display_form_and_control_characters_are_not_echoed():
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    inserted = {**_hit("5411", 0.9, "hybrid"), "section_type": "madde", "section_ref": "66/a"}
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(return_value=[inserted])
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None, vector_store=vector_store)
+    mcp = MagicMock()
+    register(mcp, deps)
+
+    result = await _registered_tools(mcp)["search_document_store"]("ek madde\x07 sermaye", limit=1)
+
+    assert "  Section: madde 66/A" in result.text
+    assert 'section_ref="66/a")' in result.text
+    assert "\x07" not in result.text
+    assert "ek madde\\x07 sermaye" in result.text
+
+
+@pytest.mark.asyncio
+async def test_a_clamped_relevance_is_shown_as_the_calibration_ceiling_and_snippets_have_honest_ellipses():
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    clamped = {**_hit("a", 1.0, "hybrid"), "relevance_clamped": True, "semantic_relevance": 0.95}
+    clamped["snippet"] = "x" * 250
+    plain = {**_hit("b", 0.8, "hybrid"), "relevance_clamped": False, "semantic_relevance": 0.93}
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(return_value=[clamped, plain])
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None, vector_store=vector_store)
+    mcp = MagicMock()
+    register(mcp, deps)
+
+    result = await _registered_tools(mcp)["search_document_store"]("sermaye", limit=2)
+
+    assert "100.0%" not in result.text
+    assert (
+        "[strong match, relevance at the calibration ceiling (100%); tied hits are ordered by the internal score]"
+        in (result.text)
+    )
+    assert "[strong match, relevance 80.0%]" in result.text
+    assert f"\n  {'x' * 200}...\n" in result.text
+    assert "\n  MADDE 5 - metin b\n" in result.text
+    assert "\n  ..." not in result.text
+    first, second = result.structuredContent["results"]
+    assert (first["relevance"], first["relevance_clamped"], first["semantic_relevance"]) == (1.0, True, 0.95)
+    assert (second["relevance_clamped"], second["semantic_relevance"]) == (False, 0.93)
+
+
+@pytest.mark.asyncio
+async def test_function_word_queries_and_decision_number_matches_are_said_plainly():
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.store.vector_store import SearchHits
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    empty = SearchHits([])
+    empty.no_content_words = True
+    decision = {**_hit("775", 0.0, "fts_exact"), "decision_number": "8948", "decision_number_match": True}
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(side_effect=[empty, [decision]])
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None, vector_store=vector_store)
+    mcp = MagicMock()
+    register(mcp, deps)
+    tool = _registered_tools(mcp)["search_document_store"]
+
+    function_words = await tool("ve ile bir bu da de için", limit=10)
+    number = await tool("8948", limit=10)
+
+    assert function_words.structuredContent["status"] == "no_results"
+    assert "only function words" in function_words.text
+    assert "match" not in function_words.text.split("only function words")[0]
+    assert "[decision-number match: this document's decision number is 8948; no semantic score]" in number.text
+    assert number.structuredContent["results"][0]["decision_number_match"] is True
+
+
+@pytest.mark.asyncio
+async def test_a_reference_that_repeats_in_the_document_gets_start_char_in_its_pointer(doc_store):
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.store.doc_store import StoredDocument
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    content = "BİRİNCİ KISIM\n\nMADDE 1 – Amaç birinci kısım.\n\nMADDE 2 – Kapsam.\n\nİKİNCİ KISIM\n\nMADDE 1 – Amaç ikinci kısım.\n"
+    await doc_store.store_document(StoredDocument(document_id="m2", title="Yönetmelik", markdown_content=content))
+    rows = {(row.section_ref, row.start_char): row for row in await doc_store.get_document_section("m2")}
+    second_madde_1 = max((row for (ref, _), row in rows.items() if ref == "1"), key=lambda row: row.start_char)
+    madde_2 = next(row for (ref, _), row in rows.items() if ref == "2")
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(return_value=[_section_hit(second_madde_1), _section_hit(madde_2)])
+    mcp = MagicMock()
+    register(mcp, Dependencies(db=None, doc_store=doc_store, client=None, http=None, vector_store=vector_store))
+
+    result = await _registered_tools(mcp)["search_document_store"]("amaç", limit=2)
+
+    assert (
+        f'get_document_section(document_id="m2", section_type="madde", section_ref="1", '
+        f"start_char={second_madde_1.start_char})"
+    ) in result.text
+    assert 'get_document_section(document_id="m2", section_type="madde", section_ref="2")' in result.text
+
+
+@pytest.mark.asyncio
+async def test_decision_number_hits_have_their_own_match_type_and_the_structured_query_has_no_raw_controls():
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    decision = {**_hit("775", 0.0, "decision_number"), "decision_number": "8948", "decision_number_match": True}
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(return_value=[decision])
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None, vector_store=vector_store)
+    mcp = MagicMock()
+    register(mcp, deps)
+
+    result = await _registered_tools(mcp)["search_document_store"]("8948\x07", limit=10)
+
+    item = result.structuredContent["results"][0]
+    assert (item["match_type"], item["match_strength"]) == ("decision_number", "keyword")
+    assert "decision_number" in DocumentSearchItem.model_fields["match_type"].description
+    assert "every query word" not in result.text.split("Document ID: 775")[0]
+    assert result.structuredContent["query"] == "8948\\x07"
+    assert "WARNING" not in result.text
+
+
+@pytest.mark.asyncio
+async def test_a_decision_text_hit_carries_a_per_hit_label_not_the_plural_warning(doc_store):
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.store.doc_store import StoredDocument
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    content = (
+        "Kurulun 01.02.2024 tarihli toplantısında aşağıdaki karar alınmıştır. " * 8 + "\n\nEK-1\n\nEk tablo metni.\n"
+    )
+    await doc_store.store_document(
+        StoredDocument(document_id="k1", title="Kurul Kararı", markdown_content=content, category="Kurul Kararı")
+    )
+    [decision_text] = await doc_store.get_document_section("k1", section_type="govde")
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(return_value=[_section_hit(decision_text)])
+    mcp = MagicMock()
+    register(mcp, Dependencies(db=None, doc_store=doc_store, client=None, http=None, vector_store=vector_store))
+
+    result = await _registered_tools(mcp)["search_document_store"]("karar", limit=1)
+
+    assert "  Section: leading decision text of a Kurul Kararı whose only named sections are annexes" in result.text
+    assert "One or more hits" not in result.text
+    assert "Cite this decision by its title and decision date/number" in result.text
