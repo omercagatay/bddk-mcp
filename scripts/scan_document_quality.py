@@ -144,6 +144,11 @@ def _should_fail(report: QualityReport, *, allow_failures: bool, fail_on: set[st
     return any(finding.label == "fail" for finding in report.document_findings)
 
 
+def known_markdown_signal_names() -> frozenset[str]:
+    """Signal names --md-dir mode can show: the assessment flags (scan anomalies need the corpus file)."""
+    return frozenset({*assess_markdown_quality("").counts, "configured_quality_failure"})
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Scan BDDK document Markdown quality.")
     source = parser.add_mutually_exclusive_group(required=True)
@@ -169,6 +174,16 @@ def main(argv: list[str] | None = None) -> int:
     unknown = sorted(fail_on - known_signal_names())
     if unknown:
         parser.error(f"unknown --fail-on signal(s): {', '.join(unknown)}")
+    if args.md_dir is not None:
+        # This mode reports assessment flags only; a scan anomaly such as short_content or the
+        # database alias formula_ref_without_formula could never fire and would silently pass.
+        valid = known_markdown_signal_names()
+        not_in_mode = sorted(fail_on - valid)
+        if not_in_mode:
+            parser.error(
+                f"--fail-on signal(s) {', '.join(not_in_mode)} cannot be produced by --md-dir; "
+                f"valid in this mode: {', '.join(sorted(valid))}"
+            )
 
     if args.db:
         report = asyncio.run(scan_db(args.corpus))

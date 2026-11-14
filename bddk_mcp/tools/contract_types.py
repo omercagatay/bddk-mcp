@@ -568,12 +568,20 @@ BulletinColumn = Annotated[
 ]
 HistoryDays = Annotated[
     int,
-    Field(ge=1, le=MAX_HISTORY_DAYS, description="Calendar-day history window."),
+    Field(
+        ge=1,
+        le=MAX_HISTORY_DAYS,
+        description="Calendar-day history window; BDDK serves about the last 13 weekly observations, so a longer window cannot be met.",
+    ),
     BeforeValidator(lambda value: _integer(value, name="days", minimum=1, maximum=MAX_HISTORY_DAYS)),
 ]
 LookbackWeeks = Annotated[
     int,
-    Field(ge=1, le=MAX_LOOKBACK_WEEKS, description="Weekly trend lookback window."),
+    Field(
+        ge=1,
+        le=MAX_LOOKBACK_WEEKS,
+        description="Weekly trend lookback window; BDDK serves about the last 13 weekly observations, so a longer window cannot be met.",
+    ),
     BeforeValidator(lambda value: _integer(value, name="lookback_weeks", minimum=1, maximum=MAX_LOOKBACK_WEEKS)),
 ]
 MonthlyTableNumber = Annotated[

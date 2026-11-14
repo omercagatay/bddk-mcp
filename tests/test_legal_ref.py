@@ -82,7 +82,10 @@ def test_inserted_articles_parse_to_the_stored_ref_and_bare_articles_stay_bare()
         assert refs.document_ids == ["mevzuat_5411"]
         assert refs.sections == [("madde", "66/a")]
     assert parse_legal_refs("m. 13/Ç").sections == [("madde", "13/ç")]
-    assert parse_legal_refs("66/A. madde") == parse_legal_refs("madde 66/A")
+    # The two forms parse the same; only the character spans of the reference differ.
+    assert parse_legal_refs("66/A. madde").model_dump(exclude={"section_spans"}) == parse_legal_refs(
+        "madde 66/A"
+    ).model_dump(exclude={"section_spans"})
     assert parse_legal_refs("mevzuat_5411 madde 66").sections == [("madde", "66")]
     assert parse_legal_refs("madde 4/1-a").sections == [("madde", "4")]
     assert parse_legal_refs("madde 5 a) bendi").sections == [("madde", "5")]
@@ -139,3 +142,150 @@ def test_ordinal_article_references_parse_as_madde_and_stay_out_of_document_ids(
     assert parse_legal_refs("3 üncü madde").sections == [("madde", "3")]
     assert parse_legal_refs("geçici 2 nci madde").sections == [("gecici_madde", "2")]
     assert parse_legal_refs("ek 1 inci maddesine göre").sections == [("ek_madde", "1")]
+
+
+def test_md_abbreviation_is_an_article_reference():
+    for query in ("5411 md. 54", "5411 md 54", "5411 MD. 54"):
+        refs = parse_legal_refs(query)
+        assert refs.document_ids == ["5411"], query
+        assert refs.sections == [("madde", "54")], query
+    assert parse_legal_refs("mevzuat_22599 md. 5").sections == [("madde", "5")]
+    # An amendment note with no number after "md." names no article.
+    assert parse_legal_refs("(Değişik:20/2/2020-7222/14 md.)").sections == []
+
+
+def test_ordinal_article_case_forms_parse_as_madde_and_stay_out_of_document_ids():
+    cases = {
+        "9 uncu maddenin ikinci fıkrası": "9",
+        "Bankacılık Kanununun 43 üncü maddenin kredi": "43",
+        "13. maddedeki": "13",
+        "9. maddeye göre": "9",
+        "10. maddeleri": "10",
+        "15. maddede belirtilen": "15",
+        "12 nci maddesinin": "12",
+    }
+    for query, ref in cases.items():
+        refs = parse_legal_refs(query)
+        assert refs.sections == [("madde", ref)], query
+        assert refs.document_ids == [], query
+    assert parse_legal_refs("ek 7. maddenin").sections == [("ek_madde", "7")]
+
+
+def test_ordinal_ilke_and_paragraf_forms_and_lettered_paragraphs():
+    refs = parse_legal_refs("943 5. ilke")
+    assert refs.document_ids == ["943"]
+    assert refs.sections == [("ilke", "5")]
+    refs = parse_legal_refs("TMS 12 15. paragraf")
+    assert refs.document_ids == []
+    assert refs.sections == [("paragraf", "15")]
+    assert parse_legal_refs("39’uncu paragrafı").sections == [("paragraf", "39")]
+    assert parse_legal_refs("12 nci ilkesi").sections == [("ilke", "12")]
+    # An inserted KGK paragraph is parsed to its stored form.
+    assert parse_legal_refs("paragraf 21A").sections == [("paragraf", "21/a")]
+    assert parse_legal_refs("paragraf 98I").sections == [("paragraf", "98/i")]
+    assert parse_legal_refs("paragraf 2.1").sections == [("paragraf", "2.1")]
+
+
+def test_annex_references_parse_as_ek_without_colliding_with_ek_madde():
+    for query in ("EK-2", "Ek 2", "ek-2", "EK–2", "2 numaralı ek", "2 numaralı eki"):
+        assert parse_legal_refs(query).sections == [("ek", "2")], query
+    refs = parse_legal_refs("mevzuat_21192 EK-2")
+    assert refs.document_ids == ["mevzuat_21192"]
+    assert refs.sections == [("ek", "2")]
+    assert parse_legal_refs("ek madde 2").sections == [("ek_madde", "2")]
+    assert parse_legal_refs("ek 1 inci maddesine göre").sections == [("ek_madde", "1")]
+    assert parse_legal_refs("EK-1 madde 5").sections == [("madde", "5")]
+    assert parse_legal_refs("EK-12").document_ids == []
+
+
+def test_letter_prefixed_stored_ids_are_document_id_candidates():
+    refs = parse_legal_refs("kgk_tms_12 paragraf 15")
+    assert refs.document_ids == ["kgk_tms_12"]
+    assert refs.sections == [("paragraf", "15")]
+    assert parse_legal_refs("RG_32202_20230526_6 madde 3").document_ids == ["rg_32202_20230526_6"]
+    assert document_id_candidates("kgk_tms_12") == ["kgk_tms_12"]
+    # Snake-case words without a digit are not IDs.
+    assert parse_legal_refs("bddk_mcp kredi").document_ids == []
+
+
+def test_amounts_rates_and_percentages_are_not_document_ids():
+    for query in (
+        "riskin marj süresi günlük marjlama 5.000 işlem",
+        "genel karşılık oranı yüzde 0,90",
+        "temerrüt olasılığı yüzde 0,03 ten az",
+        "%15 sınırı",
+        "% 25 oranında",
+        "yüzde 90",
+        "1.250.000 TL",
+    ):
+        assert parse_legal_refs(query).document_ids == [], query
+    assert parse_legal_refs("943 model 5.000 işlem").document_ids == ["943"]
+    assert "01.02.2024" in parse_legal_refs("01.02.2024 tarihli").dates
+    assert parse_legal_refs("2024 yılı").document_ids == []
+    assert parse_legal_refs("TFRS 16").document_ids == []
+
+
+def test_document_id_spans_point_at_the_accepted_id():
+    query = "Kredi 943 İlke 5 ve mevzuat_22599 943"
+    refs = parse_legal_refs(query)
+    assert refs.document_ids == ["943", "mevzuat_22599"]
+    assert [query[start:end] for start, end in refs.document_id_spans] == ["943", "mevzuat_22599"]
+    assert parse_legal_refs("kredi").document_id_spans == []
+
+
+def test_only_kgk_and_rg_letter_prefixes_are_document_id_candidates():
+    assert parse_legal_refs("covid_19 tedbirleri kredi").document_ids == []
+    assert parse_legal_refs("TMS_16 kiralama").document_ids == []
+    refs = parse_legal_refs("basel_3 943 model validasyonu")
+    assert refs.document_ids == ["943"]
+    assert refs.document_id_spans == [(8, 11)]
+
+
+def test_section_spans_point_at_every_recognised_section_reference():
+    query = "Kredilerin md. 9 ve 12 nci maddesi, geçici 3 üncü madde, İlke 5, EK-1"
+    refs = parse_legal_refs(query)
+    assert [(query[start:end], kind, ref) for start, end, kind, ref in refs.section_spans] == [
+        ("md. 9", "madde", "9"),
+        ("12 nci maddesi", "madde", "12"),
+        ("geçici 3 üncü madde", "gecici_madde", "3"),
+        ("İlke 5", "ilke", "5"),
+        ("EK-1", "ek", "1"),
+    ]
+    # Every occurrence is listed, not only the first of each reference.
+    assert len(parse_legal_refs("madde 9 ile madde 9").section_spans) == 2
+    assert parse_legal_refs("kredi riski").section_spans == []
+
+
+def test_decision_number_forms_are_decision_numbers_and_never_document_ids():
+    for query in (
+        "1043 sayılı karar",
+        "1043 sayılı kararı",
+        "1043 sayılı Kurul kararı",
+        "1043 SAYILI KURUL KARARI",
+        "1043 sayılı kararın ekinde",
+        "1043 sayılı kararında belirtilen",
+        "1043 sayılı Kurul Kararıyla",
+        "1043 sayili karar",
+    ):
+        refs = parse_legal_refs(query)
+        assert refs.decision_numbers == ["1043"], query
+        assert refs.document_ids == [], query
+    # A number followed by another instrument is not a decision number.
+    assert parse_legal_refs("5411 sayılı Kanun").decision_numbers == []
+    assert parse_legal_refs("1043 madde 5").document_ids == ["1043"]
+
+
+def test_the_store_decision_number_query_uses_the_shared_pattern():
+    from bddk_mcp.store.doc_store import normalize_search_text
+    from bddk_mcp.store.vector_store import _DECISION_NUMBER_QUERY_RE
+
+    for query in (
+        "8948",
+        "8948 sayılı karar",
+        "8948 sayılı Kurul kararı",
+        "8948 sayılı kararı",
+        "8948 sayılı kararında",
+    ):
+        match = _DECISION_NUMBER_QUERY_RE.match(normalize_search_text(query))
+        assert match is not None and match.group(1) == "8948", query
+    assert _DECISION_NUMBER_QUERY_RE.match(normalize_search_text("8948 sayılı kanun")) is None

@@ -300,6 +300,9 @@ def format_report(report: QualityReport) -> str:
     elif report.docs_without_chunks or report.orphan_chunks:
         lines.append("")
         lines.append("No anomaly signal fires, but the chunk integrity counts above are not zero.")
+    elif present_flags := [name for name, count in report.signal_docs.items() if count > 0]:
+        lines.append("")
+        lines.append(f"No scan anomaly fires; {len(present_flags)} assessment flag(s) are present above.")
     else:
         lines.append("")
         lines.append("All anomaly signals are clean.")

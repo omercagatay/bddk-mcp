@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  UV_VERSION: "0.11.14"
+  UV_VERSION: "0.12.3"
 
 jobs:
   lint:
@@ -101,3 +101,55 @@ jobs:
       - name: Check container recipes without executing build stages
         run: |
           docker build --check -f Dockerfile .
+
+  image-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      IMAGE: bddk-mcp-ci:test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: Install test dependencies
+        run: uv sync --frozen --dev --python 3.12
+      # Plain buildx commands: no third-party docker action is pinned in this repository.
+      # The GitHub Actions cache is used when the runner exposes its cache credentials.
+      - name: Build the image (buildx, GitHub Actions cache, loaded locally)
+        run: |
+          docker buildx create --name ci-builder --driver docker-container --use
+          cache_args=()
+          if [ -n "${ACTIONS_RUNTIME_TOKEN:-}" ]; then
+            cache_args=(--cache-from type=gha --cache-to type=gha,mode=max,ignore-error=true)
+          fi
+          docker buildx build --load --tag "$IMAGE" "${cache_args[@]}" -f Dockerfile .
+      - name: Start the container (environment from docker-compose.yml)
+        run: |
+          docker run -d --name bddk-smoke -p 127.0.0.1:8000:8000 \
+            -e MCP_TRANSPORT=streamable-http \
+            -e MCP_HOST=0.0.0.0 \
+            -e PORT=8000 \
+            -e BDDK_HTTP_ALLOWED_HOSTS=localhost:8000 \
+            -e BDDK_HTTP_ALLOWED_ORIGINS=https://localhost:8000 \
+            -e BDDK_HTTP_ALLOW_UNAUTHENTICATED=true \
+            "$IMAGE"
+      - name: Wait for /health/ready (up to 300 s)
+        run: |
+          for _ in $(seq 1 60); do
+            if curl -fsS http://localhost:8000/health/ready; then
+              echo
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Server did not become ready within 300 s" >&2
+          docker logs bddk-smoke >&2
+          exit 1
+      - name: Smoke-test the MCP endpoint
+        run: uv run python scripts/ci_image_smoke.py http://localhost:8000
+      - name: Container log and cleanup
+        if: always()
+        run: |
+          docker logs bddk-smoke || true
+          docker stop bddk-smoke || true

@@ -78,6 +78,14 @@ def decision_identifier_text(decision_date: str | None, decision_number: str | N
     return f"{decision_date or 'N/A'} / {decision_number or 'N/A'}"
 
 
+def decision_identifier_label(document_id: str | None) -> str:
+    """Label of the decision identifier line. An ``rg_`` document is identified by its Resmî Gazete date and
+    issue number, not by a Kurul decision; the stored values are the same, only the label differs."""
+    if (document_id or "").strip().lower().startswith("rg_"):
+        return "Resmî Gazete date / issue"
+    return "Decision date / number"
+
+
 # One label for a govde row/chunk of a document whose parser found no article structure (for example
 # a Kurul Kararı): the govde windows carry its whole body.
 STRUCTURELESS_GOVDE_LABEL = "full-text window (this document has no article structure)"
@@ -230,25 +238,31 @@ class DocumentSearchItem(StrictOutputModel):
         description=(
             "Calibrated ranking score between 0 and 1 for the embedding model in use: the cosine similarity "
             "plus lexical/phrase boosts, mapped through a per-model calibration and lowered when no query "
-            "keyword matches. Not a probability and not a cosine. Without fts_exact hits the results are "
+            "keyword matches. Not a probability and not a cosine. Without fts_exact hits the semantic hits are "
             "sorted by this score. When fts_exact hits are present the order is: hybrid hits by this score, then fts_exact "
-            "hits (0.0, no semantic score) in keyword (BM25) order, then the remaining vector and fts hits by "
-            "this score, so a later hit can score higher than an earlier hybrid hit."
+            "hits (0.0, no semantic score) in keyword (BM25) order, then the remaining vector hits by "
+            "this score, so a later hit can score higher than an earlier hybrid hit; these are the hits within "
+            "0.051 of the top ordering score, and the other semantic hits follow them by this score. keyword-only fts hits "
+            "(0.0, no semantic score: the words of the query all occur in the chunk or in its document title as separate words; this does not say that the phrase or the figure of the query occurs) follow the strong and moderate hits in BM25 order, and the weak hits (relevance below 0.50) come after them."
         ),
     )
     match_strength: Literal["strong", "moderate", "weak", "keyword"] = Field(
         description=(
-            "Stable relevance band derived from relevance; 'keyword' for fts_exact hits, which have no "
+            "Stable relevance band derived from relevance; 'keyword' for fts_exact, fts and decision_number "
+            "hits, which have no "
             "semantic score to band."
         )
     )
     quality: QualityMetadata = Field(description="Known local document-quality status.")
-    match_type: Literal["hybrid", "vector", "fts", "fts_exact"] | None = Field(
+    match_type: Literal["hybrid", "vector", "fts", "fts_exact", "decision_number"] | None = Field(
         default=None,
         description=(
             "How the hit was retrieved: hybrid (semantic and keyword), vector (semantic only), fts (keyword "
-            "only) or fts_exact (every query word, including a legal reference, matched by keyword search; "
-            "a keyword match, not a confirmed provision)."
+            "only: the words of the query all occur in the chunk or in its document title as separate words, which does not say "
+            "that the phrase or the figure of the query occurs, and the document had no "
+            "semantic hit; no semantic score) or fts_exact (every query word, including a legal reference, matched by keyword search; "
+            "a keyword match, not a confirmed provision) or decision_number (the query is a bare decision "
+            "number and this document carries that decision number; no semantic score)."
         ),
     )
     section_type: str | None = Field(
@@ -259,12 +273,57 @@ class DocumentSearchItem(StrictOutputModel):
         default=None, description="Catalog source URL of the document, when stored; not a validated citation."
     )
     decision_number: str | None = Field(default=None, description="Document decision number as stored.")
+    section_start_char: int | None = Field(
+        default=None,
+        description=(
+            "Start code point of the matched chunk's section in the normalized Markdown; with section_type and "
+            "section_ref it addresses a fikra/bent row uniquely (get_document_section start_char)."
+        ),
+    )
+    parent_section_type: str | None = Field(
+        default=None,
+        description="Type of the stored provision (madde, paragraf, ilke ...) containing a fikra/bent hit.",
+    )
+    parent_section_ref: str | None = Field(
+        default=None, description="Stored reference of the provision containing a fikra/bent hit."
+    )
+    relevance_clamped: bool | None = Field(
+        default=None,
+        description=(
+            "True when relevance sits at the calibration ceiling (1.0) because the ordering score reached or "
+            "passed it: such hits tie on the shown value and are ordered by the internal score."
+        ),
+    )
+    semantic_relevance: float | None = Field(
+        default=None,
+        description="Raw cosine similarity of the embedding model for this hit; absent for keyword hits.",
+    )
+    decision_number_match: bool | None = Field(
+        default=None,
+        description="True for a document listed first because its decision number equals the number in the query.",
+    )
 
 
 class DocumentSearchResponse(RetrievalResponse):
-    query: str = Field(description="Validated semantic query.")
+    query: str = Field(description="Validated semantic query, with control characters shown as \\xNN escapes.")
     category: str | None = Field(default=None, description="Applied category filter.")
     results: list[DocumentSearchItem] = Field(default_factory=list, description="Semantic document matches.")
+    searched_as: str | None = Field(
+        default=None,
+        description=(
+            "The query as it was searched, when that differs from the typed query: NFC, an all-upper-case query "
+            "lower-cased, and in a query typed without Turkish letters the words restored to their corpus "
+            "spelling. Absent when the query was searched as typed."
+        ),
+    )
+    abbreviations_expanded: list[str] | None = Field(
+        default=None,
+        description=(
+            "Abbreviations of the reviewed search glossary found in the query, each as '<ABBR> read as "
+            "<expansion>': the expansion was added to the semantic query and searched by keyword in place of "
+            "the abbreviation. Other abbreviations are matched only literally."
+        ),
+    )
 
 
 class DocumentPageContent(StrictOutputModel):
@@ -378,8 +437,9 @@ class SectionItem(StrictOutputModel):
     stored_span_capped: bool = Field(
         default=False,
         description=(
-            "Whether the stored section is a 20,000-character window of a longer provision; end_char is then "
-            "the end of that window, not of the provision."
+            "Whether the stored section is a capped window of a longer provision (at most 20,000 characters; "
+            "the answer text states its stored length); end_char is then the end of that window, not of the "
+            "provision."
         ),
     )
     original_end_char: int | None = Field(
@@ -393,8 +453,8 @@ class SectionItem(StrictOutputModel):
     continuation_of_section_type: str | None = Field(
         default=None,
         description=(
-            "For a govde row that continues a capped named section beyond its 20,000-character stored window, "
-            "that section's type; cite that provision, not the govde row."
+            "For a govde row that continues a capped named section beyond its stored window (at most 20,000 "
+            "characters), that section's type; cite that provision, not the govde row."
         ),
     )
     continuation_of_section_ref: str | None = Field(
@@ -416,16 +476,30 @@ class SectionItem(StrictOutputModel):
             "document by its title and decision date/number, not as an article."
         ),
     )
+    govde_kind: Literal["full_text_window", "continuation", "decision_text", "body_text", "remainder"] | None = Field(
+        default=None,
+        description=(
+            "For a govde row, what it is: a full-text window of a document without article structure; the "
+            "continuation of a capped named provision; the leading decision text of a Kurul Kararı whose only "
+            "named sections are annexes; body text of a document whose only named sections are annexes or "
+            "paragraphs; or remainder text between provisions (not a legal provision identity). None for named "
+            "sections."
+        ),
+    )
     parent_section_type: str | None = Field(
         default=None,
         description=(
-            "For a fikra/bent row, the type of the stored madde, gecici_madde or ek_madde whose window contains "
-            "it; null when no stored article window contains the row."
+            "For a fikra/bent row, the type of the stored madde, gecici_madde or ek_madde, or (in guides and "
+            "standards) paragraf or ilke, whose window contains it; null when no stored window of such a "
+            "provision contains the row."
         ),
     )
     parent_section_ref: str | None = Field(
         default=None,
-        description="For such a fikra/bent row, the reference of the containing article.",
+        description=(
+            "For such a fikra/bent row, the reference of the containing madde, gecici_madde, ek_madde, paragraf "
+            "or ilke."
+        ),
     )
     stem_match: bool = Field(
         default=False,
@@ -434,6 +508,30 @@ class SectionItem(StrictOutputModel):
             "the exact query words); such hits carry no rank and are listed after the strict hits."
         ),
     )
+    display_section_ref: str | None = Field(
+        default=None,
+        description=(
+            "The reference as the source prints it (inserted article 'madde 66/A', KGK paragraph '21A'); "
+            "section_ref keeps the stored form, which is the value to pass back as section_ref."
+        ),
+    )
+
+
+class WindowReference(StrictOutputModel):
+    """A neighbouring stored row of a govde window (a full-text window or part of a long provision)."""
+
+    section_type: str = Field(description="Structural unit type of the neighbouring row.")
+    section_ref: str = Field(description="Stored reference of the neighbouring row (pass it back as section_ref).")
+    start_char: int = Field(ge=0, description="Start offset in the normalized document; selects the row.")
+    end_char: int = Field(ge=0, description="End offset in the normalized document.")
+
+
+class CrossWindowMatch(StrictOutputModel):
+    """An exact occurrence of the quotation in the stored text of this window joined with a neighbouring one."""
+
+    start_char: int = Field(ge=0, description="Start offset of the occurrence in the normalized document.")
+    end_char: int = Field(ge=0, description="Exclusive end offset of the occurrence in the normalized document.")
+    windows: list[WindowReference] = Field(description="The two consecutive rows whose joined text was compared.")
 
 
 class SectionAnswerAssessment(StrictOutputModel):
@@ -448,6 +546,20 @@ class SectionAnswerAssessment(StrictOutputModel):
         description="No-normalization match against stored section text; not proof of original-source fidelity.",
     )
     gaps: list[str] = Field(default_factory=list)
+    neighbouring_windows: list[WindowReference] | None = Field(
+        default=None,
+        description=(
+            "For a govde row that is one of several consecutive windows of one text: the rows before and after "
+            "it. A quotation not found in this row may cross into one of them, so its status is unavailable."
+        ),
+    )
+    cross_window_match: CrossWindowMatch | None = Field(
+        default=None,
+        description=(
+            "Where the quotation occurs exactly once in the text of this window joined with a neighbouring "
+            "window; the status stays unavailable because the stored reference is one row."
+        ),
+    )
     scope_and_entailment: Literal["not_assessed"] = Field(
         default="not_assessed",
         description="Quote matching does not prove a paraphrase, duty, or applicability to a bank.",
@@ -492,6 +604,14 @@ class SectionSearchResponse(RetrievalResponse):
         description=(
             "Whether the returned hits were limited to a document whose ID was inferred from a number in the "
             "query (not passed as document_id)."
+        ),
+    )
+    query_words_not_searched: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Query words that the exact-word and inflection-tolerant passes did not require: Turkish question "
+            "words, the frame words of a question (e.g. 'oluşur'), and 'yüzde' (optional because sources also "
+            "write '%')."
         ),
     )
     results: list[SectionItem] = Field(default_factory=list, description="Ranked structural section matches.")

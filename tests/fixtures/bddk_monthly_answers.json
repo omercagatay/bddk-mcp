@@ -1,0 +1,11 @@
+{
+ "_source": "BDDK BultenAylik/tr/Home/BasitRaporGetir answers kept verbatim. 'refusal_usd' is the whole body BDDK sent for table 17, 2026/9, USD, taraf 20003 (captured 2026-11-14). 'footnotes' holds Json.uyari exactly as BDDK sent it for 2026/9, TL, taraf 10001 (captured 2026-11-13); table 2 sends an empty string.",
+ "refusal_usd": {
+  "success": false,
+  "error": "Bu tabloya ilişkin USD cinsinden veri sunulmamaktadır."
+ },
+ "footnotes": {
+  "12": "<br/>*Merkezi Karşı Taraf- Garanti Fonu Tutarları Riskine Esas bilgisini de içermektedir. ",
+  "2": ""
+ }
+}

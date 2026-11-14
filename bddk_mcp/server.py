@@ -22,6 +22,7 @@ from bddk_mcp.core.config import (
     HTTP_CONNECT_TIMEOUT,
     HTTP_POOL_TIMEOUT,
     REQUEST_TIMEOUT,
+    SEMANTIC_STARTUP_TIMEOUT_SECONDS,
     validate_model_asset_policy,
 )
 from bddk_mcp.core.deps import Dependencies
@@ -54,7 +55,7 @@ GROUNDING RULES — follow these strictly:
 4. If document content is paginated, do NOT speculate about content on pages you have not retrieved.
 5. Never fabricate karar numarası (decision numbers), tarih (dates), or legal conclusions.
 6. When quoting from a document, quote only text that appears verbatim in the tool output.
-7. If relevance scores are below 50%, flag this to the user and recommend refining the query. Hits with match_strength "keyword" (match_type fts_exact) are keyword matches on a legal reference in the query and carry no semantic score: their relevance 0.0 is not a low score, so do not apply the 50% rule to them; treat them as leads and verify the provision with get_document_section.
+7. If relevance scores are below 50%, flag this to the user and recommend refining the query. Hits with match_strength "keyword" are one of three kinds: (match_type fts_exact) a keyword match on a legal reference of the query that the chunk contains; (match_type fts) a keyword-only match in which the words of the query all occur in the chunk or the document title as separate words, which does not say that the phrase or a figure of the query occurs; (match_type decision_number) a decision-number match, the document carrying the decision number the query names. They carry no semantic score: their relevance 0.0 is not a low score, so do not apply the 50% rule to them; treat them as leads and verify the provision with get_document_section.
 8. Distinguish clearly between: (a) information from BDDK tools, and (b) your general knowledge.
 
 RESPONSE STYLE AND TOOL-USE DISCIPLINE:
@@ -85,7 +86,6 @@ _runtime_leases = 0
 
 _TRANSPORTS = frozenset({"stdio", "streamable-http"})
 _READINESS_ATTESTATION_TTL_SECONDS = 5.0
-_SEMANTIC_SEARCH_STARTUP_TIMEOUT_SECONDS = 45.0
 
 
 def _runtime_host() -> str:
@@ -172,14 +172,35 @@ async def create_deps() -> Dependencies:
             corpus.embedding_model,
             corpus.schema_version,
         )
+        if corpus.build_fingerprint is None:
+            logger.warning("Corpus has no build fingerprint (file predates fingerprinting); run bddk-mcp build")
+        elif corpus.stale_fingerprint_parts:
+            # build refuses a model-part difference (revision, prefix, dtype: the embedding cache cannot detect it).
+            remedy = (
+                "delete the corpus file and run bddk-mcp build --force"
+                if "model" in corpus.stale_fingerprint_parts
+                else "run bddk-mcp build"
+            )
+            logger.warning(
+                "Corpus build fingerprint is stale (%s); %s", ", ".join(corpus.stale_fingerprint_parts), remedy
+            )
 
         doc_store = DocumentStore(db)
         client = BddkApiClient(store=doc_store, http=http, allow_live_population=False)
         await client.load_cache_read_only()
         validate_model_asset_policy()
         vector_store = VectorStore(db)
-        async with asyncio.timeout(_SEMANTIC_SEARCH_STARTUP_TIMEOUT_SECONDS):
-            await vector_store.assert_semantic_search_ready()
+        startup_timeout = SEMANTIC_STARTUP_TIMEOUT_SECONDS
+        try:
+            async with asyncio.timeout(startup_timeout) as deadline:
+                await vector_store.assert_semantic_search_ready()
+        except TimeoutError as exc:
+            if not deadline.expired():
+                raise
+            raise TimeoutError(
+                f"The embedding model load and probe search did not finish within {startup_timeout} seconds; "
+                "on a slow or cold host raise BDDK_SEMANTIC_STARTUP_TIMEOUT_SECONDS (1 to 900)."
+            ) from exc
 
         return Dependencies(
             db=db,

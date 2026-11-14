@@ -18,7 +18,9 @@ import logging
 import re
 import sqlite3
 import threading
-from dataclasses import dataclass
+import unicodedata
+from collections import Counter
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -34,7 +36,14 @@ from bddk_mcp.core.config import (
 from bddk_mcp.quality.markdown_quality import assess_markdown_quality
 from bddk_mcp.store.corpus_db import CorpusDB
 from bddk_mcp.store.doc_store import fts_match_query, normalize_search_text
-from bddk_mcp.store.legal_ref import parse_legal_refs
+from bddk_mcp.store.legal_ref import (
+    DECISION_NUMBER_SUFFIX,
+    LegalRefs,
+    canonical_section_ref,
+    parse_legal_refs,
+    turkish_casefold,
+)
+from bddk_mcp.store.search_glossary import GlossaryEntry, query_abbreviation
 from bddk_mcp.store.section_index import DocumentSection, extract_document_sections
 
 logger = logging.getLogger(__name__)
@@ -68,7 +77,9 @@ _SEARCH_SNIPPET_CHARS = 800
 _SCORE_DECIMAL_PLACES = 4
 _RRF_SCORE_DECIMAL_PLACES = 6
 _FTS_GATE_PENALTY = 0.65
-_SCORE_GAP_THRESHOLD = 0.051
+# The former score-gap cut: hits within this distance of the top ordering score were the only ones
+# returned. Nothing is cut any more, but those hits keep their former place ahead of the others.
+_GAP_ORDER_THRESHOLD = 0.051
 _HIGH_CONFIDENCE_THRESHOLD = 0.70
 _MEDIUM_CONFIDENCE_THRESHOLD = 0.50
 _FTS_TOKEN_RE = re.compile(r"[0-9A-Za-zÇĞİÖŞÜçğıöşü]{3,}")
@@ -104,6 +115,33 @@ _PHRASE_RELEVANCE_BOOST = 0.03
 _PHRASE_RELEVANCE_MAX = 0.06
 _TURKISH_STEM_SUFFIXES = ("leri", "lari", "inin", "unun", "nin", "nun", "ler", "lar", "si", "su", "i", "u")
 _EMBEDDING_DTYPE = np.float16
+# Query normalisation (VectorStore.search): the keyword side folds case and diacritics, the embedding does
+# not, so the embedded query is normalised. Letters only Turkish has (with the circumflex vowels â, î, û);
+# a query with none of them may have been typed without them.
+_TURKISH_LETTERS = frozenset("çğıöşüâîûÇĞİÖŞÜÂÎÛ")
+_QUERY_WORD_RE = re.compile(r"[^\W\d_]+")
+_VOCABULARY_WORD_RE = re.compile(r"[A-Za-zÇĞİÖŞÜÂÎÛçğıöşüâîû]+")
+# An all-upper-case query is lower-cased only when it has at least this many words of four or more letters:
+# "TFRS 9", "MADDE 5", "BDDK" or "SYR" are codes and references, not shouted sentences.
+_SHOUTED_MIN_LONG_WORDS = 2
+# Function words: a query made only of these has nothing to search for and is treated like an empty one.
+# Reviewed list, compared on the folded form.
+_QUERY_FUNCTION_WORDS = frozenset(
+    normalize_search_text(word)
+    for word in (
+        *_FTS_RELAXED_STOPWORDS,
+        *"ama bu bunlar da de daha diye en fakat gibi hem her ise ki mi mı mu mü ne o ve ya yani şu çok".split(),
+    )
+)
+# "8948", "8948 sayılı karar", "8948 sayılı Kurul Kararı": a decision number on its own (folded query; the
+# decision-number pattern of legal_ref).
+_DECISION_NUMBER_QUERY_RE = re.compile(rf"^\s*(\d{{3,6}})(?:{DECISION_NUMBER_SUFFIX})?\s*$")
+# A word typed without Turkish letters is replaced by the corpus form only when that form occurs at least
+# this often in the chunk texts and the typed form less than this share as often.
+_RESTORE_MIN_COUNT = 20
+_RESTORE_MAX_TYPED_SHARE = 0.05
+# ... and only when no second Turkish spelling of the same folded form occurs at least this share as often.
+_RESTORE_AMBIGUOUS_SHARE = 0.20
 
 
 @dataclass(frozen=True)
@@ -249,6 +287,63 @@ def _chunk_document_by_tokens(
     return chunks
 
 
+# A stretch of text that belongs to no section and holds only caption lines (a
+# "İKİNCİ BÖLÜM" part caption, a Rehber sub-heading "Kredi Riskinde Önemli
+# Artışın Değerlendirilmesi", a document title) is no provision: embedded on its
+# own it matches a topic query almost perfectly and has nothing behind it.  It is
+# merged into the chunk of the section that follows it.  A caption line is at
+# most _CAPTION_MAX_CHARS long, opens with a capital letter or a number (or, set
+# directly under another caption line, continues it in lower case), carries no
+# sentence or clause punctuation at its end, is no table row and carries no
+# bracketed editorial note such as "69–70 [Silinmiştir]".  An upper-case
+# line must name a part, carry an outline number or run to several words, unless
+# the stretch holds a part caption or opens the document; so a signature block
+# ("İMZA" / "ADI-SOYADI" / "UNVAN") stays its own chunk.
+_CAPTION_MAX_CHARS = 120
+_CAPTION_MIN_UPPER_WORDS = 3
+_CAPTION_MARKUP_RE = re.compile(r"^[#*\s]+|[*\s]+$")
+_CAPTION_END_RE = re.compile(r"[.!?…;:,][”’\"']*$")
+_CAPTION_PART_RE = re.compile(r"BÖLÜM|KISIM|\bBölüm\b|\bKısım\b")
+_CAPTION_OUTLINE_RE = re.compile(r"^(?:[IVXLC]+|\d+(?:\.\d+)*)\.\s")
+_CAPTION_NOTE_RE = re.compile(r"\[[^\]]*\]")
+
+
+def _is_caption_line(line: str, *, continues: bool, short_upper_ok: bool) -> bool:
+    line = _CAPTION_MARKUP_RE.sub("", line)
+    if (
+        not line
+        or len(line) > _CAPTION_MAX_CHARS
+        or not (line[:1].isupper() or line[:1].isdigit() or (continues and line[:1].islower()))
+        or not any(ch.isalpha() for ch in line)
+        or line.startswith("|")
+        or _CAPTION_NOTE_RE.search(line)
+        or _CAPTION_END_RE.search(line)
+    ):
+        return False
+    if line.upper() == line:
+        return bool(
+            short_upper_ok
+            or _CAPTION_PART_RE.search(line)
+            or _CAPTION_OUTLINE_RE.match(line)
+            or len(line.split()) >= _CAPTION_MIN_UPPER_WORDS
+        )
+    return True
+
+
+def _is_caption_stretch(stretch: str, *, opens_document: bool = False) -> bool:
+    lines = [line.strip() for line in stretch.strip().splitlines()]
+    if not lines:
+        return False
+    short_upper_ok = opens_document or any(_CAPTION_PART_RE.search(line) for line in lines)
+    for index, line in enumerate(lines):
+        if not line:
+            continue
+        continues = index > 0 and bool(lines[index - 1])
+        if not _is_caption_line(line, continues=continues, short_upper_ok=short_upper_ok):
+            return False
+    return True
+
+
 def _chunk_spans(text: str, sections: list[DocumentSection]) -> list[_ChunkSpan]:
     if not sections:
         return [_ChunkSpan(start_char=0, end_char=len(text))] if text.strip() else []
@@ -257,8 +352,15 @@ def _chunk_spans(text: str, sections: list[DocumentSection]) -> list[_ChunkSpan]
     sorted_sections = sorted(sections, key=lambda section: (section.start_char, section.end_char))
     cursor = 0
     for index, section in enumerate(sorted_sections):
+        caption_start: int | None = None
         if cursor < section.start_char and text[cursor : section.start_char].strip():
-            spans.append(_ChunkSpan(start_char=cursor, end_char=section.start_char))
+            uncovered = not any(
+                max(cursor, other.start_char) < min(section.start_char, other.end_char) for other in sorted_sections
+            )
+            if uncovered and _is_caption_stretch(text[cursor : section.start_char], opens_document=cursor == 0):
+                caption_start = cursor
+            else:
+                spans.append(_ChunkSpan(start_char=cursor, end_char=section.start_char))
 
         later_starts = [
             later.start_char
@@ -267,7 +369,12 @@ def _chunk_spans(text: str, sections: list[DocumentSection]) -> list[_ChunkSpan]
         ]
         end_char = min(section.end_char, later_starts[0]) if later_starts else section.end_char
         if section.start_char < end_char and text[section.start_char : end_char].strip():
-            spans.append(_ChunkSpan(start_char=section.start_char, end_char=end_char, section=section))
+            # A caption stretch opens the following section's span: the chunk stays
+            # one contiguous slice of the document and is bound to that section.
+            span_start = section.start_char if caption_start is None else caption_start
+            spans.append(_ChunkSpan(start_char=span_start, end_char=end_char, section=section))
+        elif caption_start is not None:
+            spans.append(_ChunkSpan(start_char=caption_start, end_char=section.start_char))
         cursor = max(cursor, end_char)
 
     if cursor < len(text) and text[cursor:].strip():
@@ -432,9 +539,263 @@ def _section_for_chunk(start_char: int, end_char: int, sections: list[DocumentSe
 # -- Query helpers ------------------------------------------------------------
 
 
-def _has_exact_legal_reference(query: str) -> bool:
-    refs = parse_legal_refs(query)
-    return bool(refs.sections or refs.decision_numbers or refs.dates)
+def _turkish_lower(text: str) -> str:
+    return text.replace("I", "ı").replace("İ", "i").lower()
+
+
+def _turkish_upper(text: str) -> str:
+    return text.replace("i", "İ").replace("ı", "I").upper()
+
+
+@dataclass(frozen=True)
+class QueryVocabulary:
+    """Word counts of the chunk texts (lower-cased with Turkish rules); per folded form, its most frequent
+    surface form where that form differs from the folded one and no second such form is comparably common;
+    and every folded form that occurs."""
+
+    counts: dict[str, int] = field(default_factory=dict)
+    surface: dict[str, str] = field(default_factory=dict)
+    folded: frozenset[str] = frozenset()
+    upper_only: frozenset[str] = frozenset()
+    """Lower-cased words that the chunk texts spell only in upper case (codes such as BDDK, TFRS, SYR)."""
+
+
+def _build_query_vocabulary(texts) -> QueryVocabulary:
+    spelled = Counter(_VOCABULARY_WORD_RE.findall("\n".join(texts)))
+    counts: Counter[str] = Counter()
+    in_capitals: set[str] = set()
+    otherwise: set[str] = set()
+    for token, count in spelled.items():
+        word = _turkish_lower(token)
+        counts[word] += count
+        (in_capitals if len(token) >= 2 and token.isupper() else otherwise).add(word)
+    spellings: dict[str, list[tuple[int, str]]] = {}
+    folded_forms: set[str] = set()
+    for word, count in counts.items():
+        folded = normalize_search_text(word)
+        folded_forms.add(folded)
+        if folded != word:
+            spellings.setdefault(folded, []).append((count, word))
+    surface: dict[str, str] = {}
+    for folded, forms in spellings.items():
+        forms.sort(reverse=True)
+        # "kismi" can be "kısmi" or "kısmı", "ayni" "aynı" or "aynî": two comparably common Turkish
+        # spellings leave the typed word as it is.
+        if len(forms) > 1 and forms[1][0] >= _RESTORE_AMBIGUOUS_SHARE * forms[0][0]:
+            continue
+        surface[folded] = forms[0][1]
+    return QueryVocabulary(
+        counts=dict(counts),
+        surface=surface,
+        folded=frozenset(folded_forms),
+        upper_only=frozenset(in_capitals - otherwise),
+    )
+
+
+def _looks_turkish(text: str, vocabulary: QueryVocabulary) -> bool:
+    """At least half of the words of three or more letters occur in the corpus vocabulary in some form."""
+    words = [word for word in _QUERY_WORD_RE.findall(text) if len(word) >= 3]
+    known = sum(1 for word in words if normalize_search_text(word) in vocabulary.folded)
+    return 2 * known >= len(words)
+
+
+def _restored_word(word: str, vocabulary: QueryVocabulary) -> str:
+    if len(word) >= 2 and word.isupper():
+        return word  # an abbreviation inside a mixed-case query
+    lowered = word.lower()
+    candidate = vocabulary.surface.get(normalize_search_text(lowered))
+    if candidate is None or candidate == lowered:
+        return word
+    count = vocabulary.counts.get(candidate, 0)
+    if count < _RESTORE_MIN_COUNT or vocabulary.counts.get(lowered, 0) >= _RESTORE_MAX_TYPED_SHARE * count:
+        return word
+    if word[:1].isupper():
+        return _turkish_upper(candidate[:1]) + candidate[1:]
+    return candidate
+
+
+def normalize_query(query: str, vocabulary: QueryVocabulary | None) -> str:
+    """The query as it is embedded: NFC; an all-upper-case query with at least two words of four or more
+    letters lower-cased (Turkish rules when it has a Turkish letter), except its glossary abbreviations and
+    the words the corpus spells only in upper case; in a query without any Turkish letter whose words are mostly in the corpus vocabulary,
+    each word typed without its Turkish letters restored from that vocabulary when one spelling clearly
+    dominates. A query that has a Turkish letter is otherwise left as typed, and so is an all-caps word
+    inside a mixed-case query.
+    """
+    text = unicodedata.normalize("NFC", query)
+    words = [word for word in _QUERY_WORD_RE.findall(text) if len(word) >= 2]
+    has_turkish_letter = any(char in _TURKISH_LETTERS for char in text)
+    long_words = sum(1 for word in words if len(word) >= 4)
+    if words and all(word.isupper() for word in words) and long_words >= _SHOUTED_MIN_LONG_WORDS:
+        lower = _turkish_lower if has_turkish_letter else str.lower
+
+        def lowered(match: re.Match[str]) -> str:
+            word = match.group(0)
+            if _query_abbreviation_at(match) is not None or (
+                vocabulary is not None and _turkish_lower(word) in vocabulary.upper_only
+            ):
+                return word  # an abbreviation in a shouted sentence
+            return lower(word)
+
+        text = _QUERY_WORD_RE.sub(lowered, text)
+    if has_turkish_letter or vocabulary is None or not _looks_turkish(text, vocabulary):
+        return text
+    return _QUERY_WORD_RE.sub(lambda match: _restored_word(match.group(0), vocabulary), text)
+
+
+def _query_abbreviation_at(match: re.Match[str]) -> GlossaryEntry | None:
+    """The glossary entry of a word match of the query, by the rule of ``query_abbreviation`` (in capitals,
+    a whole word, no abbreviating full stop: never Turkish "bkz.")."""
+    return query_abbreviation(match.group(0), match.string[match.end() :], match.string[: match.start()])
+
+
+def _glossary_entries(query: str) -> list[GlossaryEntry]:
+    """The glossary entries whose abbreviation is a word of the query as ``query_abbreviation`` reads it, in
+    query order, each once; an entry whose expansion the query already contains is left out."""
+    folded_query = " ".join(re.findall(r"\w+", normalize_search_text(query)))
+    entries: dict[str, GlossaryEntry] = {}
+    for match in _QUERY_WORD_RE.finditer(query):
+        if (entry := _query_abbreviation_at(match)) is not None:
+            if f" {normalize_search_text(entry.expansion)} " in f" {folded_query} ":
+                continue
+            entries.setdefault(entry.abbreviation, entry)
+    return list(entries.values())
+
+
+def _expanded_query(query: str, entries: list[GlossaryEntry]) -> str:
+    """The query with each glossary abbreviation replaced by its expansion (for the strict keyword pass)."""
+    by_abbreviation = {entry.abbreviation: entry.expansion for entry in entries}
+
+    def expanded(match: re.Match[str]) -> str:
+        entry = _query_abbreviation_at(match)
+        return by_abbreviation.get(entry.abbreviation, match.group(0)) if entry is not None else match.group(0)
+
+    return _QUERY_WORD_RE.sub(expanded, query)
+
+
+def _has_content_word(query: str) -> bool:
+    """A word that is neither a function word nor a single letter."""
+    return any(
+        token not in _QUERY_FUNCTION_WORDS and not (len(token) == 1 and token.isalpha())
+        for token in re.findall(r"\w+", normalize_search_text(query))
+    )
+
+
+class SearchHits(list):
+    """Search hits plus how the query was read.
+
+    ``searched_as`` is the normalised query when it differs from the typed one; ``expansions`` lists the
+    (abbreviation, expansion) pairs of the glossary that were applied.
+    """
+
+    searched_as: str | None = None
+    expansions: list[tuple[str, str]] = []
+    no_content_words: bool = False
+
+
+def _date_pattern(date: str) -> re.Pattern[str]:
+    """A query date as it can stand in a chunk: "31.12.2019" also as "31/12/2019" or "31-12-2019"."""
+    day_month_year = re.fullmatch(r"(\d{2})\.(\d{2})\.(\d{4})", date)
+    if day_month_year is None:
+        return re.compile(rf"(?<![\d/]){re.escape(date)}(?![\d/])")
+    day, month, year = (part.lstrip("0") or "0" for part in day_month_year.groups())
+    return re.compile(rf"(?<![\d./-])0?{day}[./-]0?{month}[./-]{day_month_year.group(3)}(?!\d)")
+
+
+def _hit_contains_reference(hit: dict, refs: LegalRefs) -> bool:
+    """Whether the chunk itself holds a legal reference of the query.
+
+    A section reference counts when the chunk text names it with its kind word ("MADDE 9", "9 uncu
+    madde") or the chunk is bound to that section; a decision number when the chunk has "<n> sayılı" or
+    the document carries that number; a date when the chunk has that date. Separate tokens that happen to
+    match ("madde" and a "9" inside "20/9/2017") do not count.
+    """
+    text = str(hit.get("chunk_text") or hit.get("snippet") or "")
+    if refs.sections:
+        bound = (str(hit.get("section_type") or ""), canonical_section_ref(str(hit.get("section_ref") or "")))
+        named = set(parse_legal_refs(text).sections) | {bound}
+        if any(ref in named for ref in refs.sections):
+            return True
+    if refs.decision_numbers:
+        folded = turkish_casefold(text)
+        for number in refs.decision_numbers:
+            if str(hit.get("decision_number") or "") == number or re.search(rf"(?<!\d){number}\s+sayılı", folded):
+                return True
+    return any(_date_pattern(date).search(text) for date in refs.dates)
+
+
+# A section reference as the corpus prints it: the kind word, then the number ("md. 9" -> "madde 9").
+_SECTION_KIND_WORDS = {
+    "madde": "madde",
+    "gecici_madde": "geçici madde",
+    "ek_madde": "ek madde",
+    "ilke": "ilke",
+    "paragraf": "paragraf",
+    "ek": "ek",
+}
+
+
+def _canonical_reference_query(query: str) -> str:
+    """The query with every section reference that ``parse_legal_refs`` recognises written as the corpus
+    prints it ("md. 9", "m. 9", "9 uncu maddesi" -> "madde 9"; "EK-1" -> "ek 1"), for the keyword passes;
+    a query without one is returned unchanged."""
+    parts: list[str] = []
+    end = 0
+    for start, stop, section_type, ref in parse_legal_refs(query).section_spans:
+        if start < end:
+            continue  # overlaps a reference already rewritten
+        parts.append(query[end:start])
+        parts.append(f"{_SECTION_KIND_WORDS[section_type]} {ref}")
+        end = stop
+    if not parts:
+        return query
+    parts.append(query[end:])
+    return "".join(parts)
+
+
+# A percentage ("%12", "% 0,90", "yüzde 12") and a lettered reference ("66/A") in the search-normalised
+# query. The chunk index splits "%12" into the token 12 and "66/A" into 66 and a: the strict pass searches
+# the parts of each as one phrase, and a percentage is checked on the chunk itself (_has_percent_figures).
+_PERCENT_FIGURE_RE = re.compile(r"(?:%\s*|\byuzde\s+)(\d+(?:[.,]\d+)*)")
+_LETTERED_REFERENCE_RE = re.compile(r"\b(\d+)\s*/\s*([^\W\d_])(?!\w)")
+_WORD_TOKEN_RE = re.compile(r"\w+")
+
+
+def _strict_fts_query(query: str) -> str | None:
+    """The strict all-words MATCH expression (``fts_match_query``), except that the number of a percentage
+    is required without "%" or "yüzde" (the chunk may write either; the index keeps neither) and a lettered
+    reference ("66/A") is one phrase ("66 a"); a query with neither gives ``fts_match_query`` exactly."""
+    text = normalize_search_text(query)
+    spans = [(match.start(), match.end(), match.group(1)) for match in _PERCENT_FIGURE_RE.finditer(text)]
+    spans += [(match.start(), match.end(), match.group(0)) for match in _LETTERED_REFERENCE_RE.finditer(text)]
+    if not spans:
+        return fts_match_query(query)
+    terms: list[str] = []
+    end = 0
+    for start, stop, phrase in sorted(spans):
+        if start < end:
+            continue
+        terms.extend(f'"{token}"' for token in _WORD_TOKEN_RE.findall(text[end:start]))
+        terms.append('"' + " ".join(_WORD_TOKEN_RE.findall(phrase)) + '"')
+        end = stop
+    terms.extend(f'"{token}"' for token in _WORD_TOKEN_RE.findall(text[end:]))
+    return " ".join(terms) or None
+
+
+def _percent_figures(query: str) -> list[str]:
+    """The numbers of the percentages of the query ("%12", "yüzde 0,90" -> "12", "0,90")."""
+    return list(dict.fromkeys(match.group(1) for match in _PERCENT_FIGURE_RE.finditer(normalize_search_text(query))))
+
+
+def _has_percent_figures(hit: dict, figures: list[str]) -> bool:
+    """Whether the chunk (or its document title) holds every percentage of the query, written with "%" or
+    "yüzde" right before the number ("%12", "% 12", "yüzde 12"; a decimal comma or point either way)."""
+    text = normalize_search_text(f"{hit.get('title') or ''} {hit.get('chunk_text') or hit.get('snippet') or ''}")
+    for figure in figures:
+        number = "[.,]".join(re.escape(part) for part in re.split(r"[.,]", figure))
+        if not re.search(rf"(?:%\s*|\byuzde\s+){number}(?![.,]?\d)", text):
+            return False
+    return True
 
 
 def _relaxed_fts_query(query: str) -> str | None:
@@ -485,6 +846,51 @@ def _phrase_match_count(query: str, text: str) -> int:
             phrases.add(" ".join(terms[index : index + size]))
 
     return sum(1 for phrase in phrases if phrase in normalized_text)
+
+
+def _split_by_former_gap(semantic_hits: list[dict], gate_factor: float) -> tuple[list[dict], list[dict]]:
+    """Split ordered semantic hits into those the former score-gap cut kept and those it dropped.
+
+    Used only to order the hits; nothing is dropped.
+    """
+    if not semantic_hits:
+        return [], []
+
+    def gap_score(hit: dict) -> float:
+        return round(hit["ordering_score"] * gate_factor, _SCORE_DECIMAL_PLACES)
+
+    top = gap_score(semantic_hits[0])
+    kept = [h for h in semantic_hits if top - gap_score(h) <= _GAP_ORDER_THRESHOLD]
+    admitted = [h for h in semantic_hits if top - gap_score(h) > _GAP_ORDER_THRESHOLD]
+    return kept, admitted
+
+
+def _shown_as_strong_or_moderate(hit: dict) -> bool:
+    return hit["relevance"] >= _MEDIUM_CONFIDENCE_THRESHOLD
+
+
+def _keyword_only_hits(fts_hits: list[dict], shown_doc_ids: set[str]) -> list[dict]:
+    """Strict all-words FTS matches of documents without a semantic hit, in BM25 order.
+
+    They follow the strong and moderate semantic hits, precede the weak ones, and carry no semantic
+    score; hits of the relaxed OR fallback
+    (only some query words) are never kept this way.
+    """
+    hits: list[dict] = []
+    for fts_hit in fts_hits:
+        if fts_hit.get("fts_relaxed") or fts_hit["doc_id"] in shown_doc_ids:
+            continue
+        hit = dict(fts_hit)
+        hit.update(
+            match_type="fts",
+            relevance=0.0,
+            semantic_relevance=0.0,
+            ordering_score=0.0,
+            relevance_clamped=False,
+            confidence="low",
+        )
+        hits.append(hit)
+    return sorted(hits, key=lambda h: h.get("fts_rank", 0.0), reverse=True)
 
 
 def _quality_metadata(text: str, doc_id: str) -> dict:
@@ -553,6 +959,7 @@ class _VectorIndex:
     doc_ids: list[str]
     categories: np.ndarray
     matrix: np.ndarray
+    vocabulary: QueryVocabulary | None = None
 
     @classmethod
     def load(cls, conn: sqlite3.Connection, token: tuple[int, int]) -> _VectorIndex:
@@ -575,6 +982,13 @@ class _VectorIndex:
             doc_ids=[row["doc_id"] for row in rows],
             categories=np.array([row["category"] or "" for row in rows], dtype=object),
             matrix=matrix,
+            vocabulary=_build_query_vocabulary(
+                row["chunk_text"] or ""
+                for row in conn.execute(
+                    "SELECT c.chunk_text FROM chunks AS c "
+                    "JOIN documents AS d ON d.document_id = c.doc_id AND d.content_hash = c.content_hash"
+                )
+            ),
         )
 
 
@@ -796,14 +1210,80 @@ class VectorStore:
     ) -> list[dict]:
         """Search documents with hybrid (dense + keyword) retrieval.
 
+        The query is normalised once (``normalize_query``) for the embedding and the phrase matching;
+        the returned ``SearchHits`` say what was searched when that differs from the typed query. A query
+        word that is an abbreviation of the reviewed glossary (``search_glossary``), typed in capitals and
+        not abbreviated by a full stop (never Turkish "bkz."), gets its expansion
+        appended to the embedded query, and the strict keyword pass also runs with the expansion in its
+        place.
         Document quality is assessed once, for the returned hits only.
         """
         self._raise_if_semantic_search_unavailable()
-        hits = await self._hybrid_search(query, limit, category)
+        if not _has_content_word(query):
+            empty = SearchHits()
+            empty.no_content_words = True
+            return empty
+        index = await asyncio.to_thread(self._current_index)
+        searched = normalize_query(query, index.vocabulary)
+        entries = _glossary_entries(searched)
+        if entries:
+            expansions = " ".join(dict.fromkeys(entry.expansion for entry in entries))
+            found = await self._hybrid_search(
+                searched,
+                limit,
+                category,
+                embed_query=f"{searched} {expansions}",
+                fts_alternative_query=_expanded_query(searched, entries),
+            )
+        else:
+            found = await self._hybrid_search(searched, limit, category)
+        if number := _DECISION_NUMBER_QUERY_RE.match(normalize_search_text(searched)):
+            decisions = await self._decision_number_hits(number.group(1), category)
+            decision_ids = {hit["doc_id"] for hit in decisions}
+            found = (decisions + [hit for hit in found if hit["doc_id"] not in decision_ids])[:limit]
+        hits = SearchHits(found)
+        hits.searched_as = searched if searched != query else None
+        hits.expansions = [(entry.abbreviation, entry.expansion) for entry in entries]
         quality_by_id = await _document_quality_by_ids(self._db, [hit["doc_id"] for hit in hits])
         for hit in hits:
             hit.update(quality_by_id[hit["doc_id"]])
         return hits
+
+    async def _decision_number_hits(self, number: str, category: str | None) -> list[dict]:
+        """The stored documents whose decision number is ``number``, each with its first current chunk."""
+        where = "d.decision_number = ?" + (" AND d.category = ?" if category else "")
+        params = [number, category] if category else [number]
+        rows = await self._db.run(
+            lambda conn: conn.execute(
+                "SELECT c.doc_id, d.title, d.category, d.decision_date, d.decision_number, d.source_url, "
+                "c.chunk_text, c.section_type, c.section_ref, c.section_start_char, c.section_end_char, "
+                "c.section_content_hash FROM chunks AS c "
+                "JOIN documents AS d ON d.document_id = c.doc_id AND d.content_hash = c.content_hash "
+                f"WHERE {where} AND c.chunk_index = ("
+                "SELECT MIN(x.chunk_index) FROM chunks AS x WHERE x.doc_id = c.doc_id AND x.content_hash = c.content_hash"
+                ") ORDER BY c.doc_id",
+                params,
+            ).fetchall()
+        )
+        return [
+            {
+                "doc_id": row["doc_id"],
+                "title": row["title"] or "",
+                "category": row["category"] or "",
+                **_document_metadata_from_row(row),
+                "snippet": (row["chunk_text"] or "")[:_SEARCH_SNIPPET_CHARS],
+                "fts_rank": 0.0,
+                "relevance": 0.0,
+                "semantic_relevance": 0.0,
+                "ordering_score": 0.0,
+                "relevance_clamped": False,
+                "match_type": "decision_number",
+                "decision_number_match": True,
+                "confidence": "low",
+                **_section_metadata_from_row(row),
+            }
+            for row in rows
+        ]
 
     async def assert_semantic_search_ready(self) -> None:
         """Fail closed unless model loading, encoding and corpus retrieval all work.
@@ -894,13 +1374,31 @@ class VectorStore:
         query: str,
         limit: int = 50,
         category: str | None = None,
+        alternative_query: str | None = None,
+        document_limit: int | None = None,
     ) -> list[dict]:
         """FTS5 search on chunk text (plus title) with BM25 scoring.
 
         Hits from the relaxed OR fallback carry ``fts_relaxed=True``: they
         matched only some query words, so they never count as exact matches.
+        ``alternative_query`` (the query with abbreviations expanded) runs as a
+        second strict pass; a document keeps its best-ranked chunk of the two.
+        With ``document_limit``, the strict matches are also fetched per document
+        (best chunk of each) until that many documents are found; documents that
+        only this pass found carry ``keyword_tail=True`` and serve only the
+        keyword-only list, so the fused ranking sees the same candidates as before.
+        Every pass searches the section references of the query as the corpus prints them
+        (``_canonical_reference_query``).
         """
-        rows = await self._fts_rows(fts_match_query(query), limit=limit, category=category)
+        query = _canonical_reference_query(query)
+        if alternative_query:
+            alternative_query = _canonical_reference_query(alternative_query)
+        rows = await self._fts_rows(_strict_fts_query(query), limit=limit, category=category)
+        if alternative_query:
+            rows = [
+                *rows,
+                *await self._fts_rows(_strict_fts_query(alternative_query), limit=limit, category=category),
+            ]
         relaxed = False
         if not rows and (relaxed_query := _relaxed_fts_query(query)):
             rows = await self._fts_rows(relaxed_query, limit=limit, category=category)
@@ -917,6 +1415,8 @@ class VectorStore:
                     "category": row["category"] or "",
                     **_document_metadata_from_row(row),
                     "snippet": (row["chunk_text"] or "")[:_SEARCH_SNIPPET_CHARS],
+                    # The whole chunk, for the legal-reference check of _hybrid_search; not returned.
+                    "chunk_text": row["chunk_text"] or "",
                     "fts_rank": rank,
                     "semantic_relevance": 0.0,
                     "match_type": "fts",
@@ -924,7 +1424,71 @@ class VectorStore:
                     **_section_metadata_from_row(row),
                 }
 
+        if document_limit and not relaxed:
+            document_rows = await self._fts_document_rows(
+                _strict_fts_query(query), limit=document_limit, category=category
+            )
+            if alternative_query:
+                document_rows += await self._fts_document_rows(
+                    _strict_fts_query(alternative_query), limit=document_limit, category=category
+                )
+            tail: dict[str, dict] = {}
+            for row in document_rows:
+                did = row["doc_id"]
+                rank = float(row["fts_rank"])
+                if did in seen or (did in tail and tail[did]["fts_rank"] >= rank):
+                    continue
+                tail[did] = {
+                    "doc_id": did,
+                    "title": row["title"] or "",
+                    "category": row["category"] or "",
+                    **_document_metadata_from_row(row),
+                    "snippet": (row["chunk_text"] or "")[:_SEARCH_SNIPPET_CHARS],
+                    "chunk_text": row["chunk_text"] or "",
+                    "fts_rank": rank,
+                    "semantic_relevance": 0.0,
+                    "match_type": "fts",
+                    "fts_relaxed": False,
+                    "keyword_tail": True,
+                    **_section_metadata_from_row(row),
+                }
+            return sorted(seen.values(), key=lambda x: x["fts_rank"], reverse=True) + sorted(
+                tail.values(), key=lambda x: x["fts_rank"], reverse=True
+            )
+
         return sorted(seen.values(), key=lambda x: x["fts_rank"], reverse=True)
+
+    async def _fts_document_rows(self, match: str | None, *, limit: int, category: str | None) -> list[sqlite3.Row]:
+        """Strict FTS matches, the best-ranked chunk of each document, best documents first."""
+        if match is None:
+            return []
+        category_clause = "AND d.category = ?" if category else ""
+        params: list = [match, *([category] if category else []), limit]
+        # bm25() cannot be used in a window, so the ranks are materialised first.
+        sql = f"""
+            WITH matched AS MATERIALIZED (
+                SELECT c.rowid AS chunk_rowid, c.doc_id AS doc_id, -bm25(chunks_fts, 2.0, 1.0) AS fts_rank
+                FROM chunks_fts
+                JOIN chunks AS c ON c.rowid = chunks_fts.rowid
+                JOIN documents AS d ON d.document_id = c.doc_id AND d.content_hash = c.content_hash
+                WHERE chunks_fts MATCH ? {category_clause}
+            ),
+            best AS (
+                SELECT chunk_rowid, fts_rank,
+                       ROW_NUMBER() OVER (PARTITION BY doc_id ORDER BY fts_rank DESC, chunk_rowid) AS position
+                FROM matched
+            )
+            SELECT c.doc_id, d.title, d.category, d.decision_date, d.decision_number, d.source_url, c.chunk_text,
+                   c.section_type, c.section_ref, c.section_start_char, c.section_end_char,
+                   c.section_content_hash, best.fts_rank AS fts_rank
+            FROM best
+            JOIN chunks AS c ON c.rowid = best.chunk_rowid
+            JOIN documents AS d ON d.document_id = c.doc_id
+            WHERE best.position = 1
+            ORDER BY best.fts_rank DESC
+            LIMIT ?
+        """
+        return await self._db.run(lambda conn: conn.execute(sql, params).fetchall())
 
     async def _fts_rows(self, match: str | None, *, limit: int, category: str | None) -> list[sqlite3.Row]:
         if match is None:
@@ -955,8 +1519,15 @@ class VectorStore:
         query: str,
         limit: int = 10,
         category: str | None = None,
+        *,
+        embed_query: str | None = None,
+        fts_alternative_query: str | None = None,
     ) -> list[dict]:
         """Hybrid search: dense + sparse retrieval fused with RRF.
+
+        ``embed_query`` replaces the query for the embedding only, and
+        ``fts_alternative_query`` adds a second strict keyword pass (both used for
+        glossary abbreviations).
 
         Each hit carries three scores. ``semantic_relevance`` is the raw cosine
         of the embedding model; hits below the semantic threshold are dropped.
@@ -964,19 +1535,39 @@ class VectorStore:
         lexical and phrase boosts) orders the hits. ``relevance`` is the
         displayed value: the ordering score mapped through the model's
         calibration and, when no keyword matches at all (the FTS gate),
-        multiplied by ``_FTS_GATE_PENALTY``. Score-gap filtering drops results
-        far below the top hit.
+        multiplied by ``_FTS_GATE_PENALTY``. Every hit that passes the threshold
+        is kept, up to ``limit``, however far its score lies below the top hit;
+        the hits within ``_GAP_ORDER_THRESHOLD`` of the top (the only ones the
+        former score-gap cut returned) keep their former place and order, and the
+        others follow them.
+        Documents that match the strict all-words FTS query but have no
+        semantic hit follow the strong and moderate semantic hits, ahead of the weak ones, as keyword matches
+        (``match_type`` "fts", no semantic score), in BM25 order.
         """
         vector_hits, fts_hits = await asyncio.gather(
             self._vector_search(
-                query,
+                embed_query or query,
                 limit=_HYBRID_VECTOR_CANDIDATE_LIMIT,
                 category=category,
                 fetch_limit=_HYBRID_VECTOR_FETCH_LIMIT,
             ),
-            self._fts_search(query, limit=_HYBRID_FTS_CANDIDATE_LIMIT, category=category),
+            self._fts_search(
+                query,
+                limit=_HYBRID_FTS_CANDIDATE_LIMIT,
+                category=category,
+                alternative_query=fts_alternative_query,
+                # Enough documents for the keyword-only list even when every semantic hit is another one.
+                document_limit=2 * limit,
+            ),
         )
-        exact_legal_query = _has_exact_legal_reference(query)
+        # A keyword-only hit for a percentage must hold the figure itself, not only its number (the index
+        # cannot tell "%12" from a 12 inside a date).
+        figures = _percent_figures(query)
+        keyword_candidates = [hit for hit in fts_hits if not figures or _has_percent_figures(hit, figures)]
+        # The documents found only by the per-document pass serve the keyword-only list alone.
+        fts_hits = [hit for hit in fts_hits if not hit.get("keyword_tail")]
+        query_refs = parse_legal_refs(query)
+        exact_legal_query = bool(query_refs.sections or query_refs.decision_numbers or query_refs.dates)
         vector_by_doc = {hit["doc_id"]: hit for hit in vector_hits}
         fts_by_doc = {hit["doc_id"]: hit for hit in fts_hits}
 
@@ -1000,9 +1591,15 @@ class VectorStore:
 
             if did in vector_by_doc and did in fts_by_doc:
                 hit["match_type"] = "hybrid"
-            elif did in fts_by_doc and exact_legal_query and not fts_by_doc[did].get("fts_relaxed"):
-                # Only the strict AND query can stand in for a semantic score;
-                # relaxed OR hits face the threshold like any other FTS hit.
+            elif (
+                did in fts_by_doc
+                and exact_legal_query
+                and not fts_by_doc[did].get("fts_relaxed")
+                and _hit_contains_reference(fts_by_doc[did], query_refs)
+            ):
+                # Only the strict AND query of a chunk that holds the reference itself can
+                # stand in for a semantic score; relaxed OR hits face the threshold like any
+                # other FTS hit, and a strict hit without the reference is a keyword-only hit.
                 hit["match_type"] = "fts_exact"
             elif did in fts_by_doc:
                 hit["match_type"] = "fts"
@@ -1036,6 +1633,9 @@ class VectorStore:
         for hit in fused:
             ordering_score = round(hit.get("relevance", 0.0), _SCORE_DECIMAL_PLACES)
             hit["ordering_score"] = ordering_score
+            # At the ceiling the displayed value is clamped: hits there tie at 1.0 and are
+            # ordered by the ordering score, which the displayed value no longer shows.
+            hit["relevance_clamped"] = gate_factor == 1.0 and ordering_score >= calibration.ceiling
             hit["relevance"] = round(
                 displayed_relevance(ordering_score, calibration) * gate_factor, _SCORE_DECIMAL_PLACES
             )
@@ -1054,21 +1654,28 @@ class VectorStore:
         semantic_hits = [h for h in fused if h["match_type"] != "fts_exact"]
         semantic_hits.sort(key=lambda h: (h["relevance"], h["ordering_score"]), reverse=True)
 
-        if len(semantic_hits) > 1:
-            # The gap is measured on the ordering score under the FTS gate, as
-            # before the calibration, so the same hits survive it.
-            def gap_score(h: dict) -> float:
-                return round(h["ordering_score"] * gate_factor, _SCORE_DECIMAL_PLACES)
-
-            top_score = gap_score(semantic_hits[0])
-            semantic_hits = [h for h in semantic_hits if (top_score - gap_score(h)) <= _SCORE_GAP_THRESHOLD]
-
+        # The hits that the former score-gap cut kept (ordering score under the FTS gate within
+        # _GAP_ORDER_THRESHOLD of the top) keep their former place and order; the hits it would have
+        # cut are no longer dropped but follow them, so they never push a former hit out of the limit.
+        kept_hits, admitted_hits = _split_by_former_gap(semantic_hits, gate_factor)
         if exact_hits:
-            hybrid_hits = [h for h in semantic_hits if h["match_type"] == "hybrid"]
-            vector_only_hits = [h for h in semantic_hits if h["match_type"] != "hybrid"]
-            fused = hybrid_hits + exact_hits + vector_only_hits
+            hybrid_hits = [h for h in kept_hits if h["match_type"] == "hybrid"]
+            vector_only_hits = [h for h in kept_hits if h["match_type"] != "hybrid"]
+            # The exact legal-reference hits and the hybrid hits before them keep this place.
+            head = hybrid_hits + exact_hits
+            rest = vector_only_hits + admitted_hits
         else:
-            fused = semantic_hits
+            head, rest = [], kept_hits + admitted_hits
+        # A document that contains every query word is not hidden behind hits labelled weak: the
+        # remaining strong and moderate hits come first, then the keyword-only hits, then the weak
+        # semantic hits in their order.
+        listed = {h["doc_id"] for h in head + rest}
+        fused = (
+            head
+            + [h for h in rest if _shown_as_strong_or_moderate(h)]
+            + _keyword_only_hits(keyword_candidates, listed)
+            + [h for h in rest if not _shown_as_strong_or_moderate(h)]
+        )
 
         for h in fused:
             if h["relevance"] >= _HIGH_CONFIDENCE_THRESHOLD:
@@ -1078,7 +1685,10 @@ class VectorStore:
             else:
                 h["confidence"] = "low"
 
-        return fused[:limit]
+        fused = fused[:limit]
+        for h in fused:
+            h.pop("chunk_text", None)
+        return fused
 
     def _rrf_fuse(self, vector_hits: list[dict], fts_hits: list[dict], k: int = _RRF_K) -> list[dict]:
         """Reciprocal Rank Fusion: RRF(d) = sum over systems of 1 / (k + rank)."""

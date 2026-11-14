@@ -35,7 +35,7 @@ uv run python scripts/check_repository_hygiene.py
 uv run pytest tests/ -m "not gpu" --strict-markers -q
 ```
 
-The complete CI matrix also exercises Python 3.12 and 3.13, package artifacts, and container recipes. The whole suite runs without any service; only the `gpu` marker is skipped by default.
+The complete CI matrix also exercises Python 3.12 and 3.13, package artifacts, container recipes and the `image-smoke` job, which builds the image and calls one tool in the running container. CI and the Dockerfile use the same `uv` version (0.12.3); the hygiene check fails when they differ. The whole suite runs without any service; only the `gpu` marker is skipped by default.
 
 ## Branch and pull-request workflow
 
@@ -58,7 +58,7 @@ Do not force-push `main`, commit directly around its protection rules, or leave 
 ### Corpus schema and corpus file
 
 - The schema lives in `bddk_mcp/store/corpus_db.py` (`CREATE TABLE IF NOT EXISTS`, `SCHEMA_VERSION` recorded in the `meta` table). There is no migration ledger: a schema change means a rebuilt corpus file (`bddk-mcp build --force`; remove the old file first when a table layout changed), never an in-place upgrade.
-- Document the rebuild, re-embedding time and rollout requirements for any schema or retrieval-profile change (embedding model, chunking, text normalization, FTS tokenizer).
+- Document the rebuild, re-embedding time and rollout requirements for any schema or retrieval-profile change (embedding model, chunking, text normalization, FTS tokenizer). A change of the section parser, the chunker or the seed metadata is detected by the build fingerprint (`bddk_mcp/store/fingerprint.py`) and a plain `bddk-mcp build` rewrites the file; a change of the embedding model or its revision, prefix or dtype still needs a deleted file.
 - Serving opens the corpus read-only. Keep every write path in `bddk-mcp build`, `bddk-mcp sync`, `bddk-mcp export` and the maintainer scripts under `scripts/`; a tool must never write.
 - Query SQL belongs to the module that owns the table (`bddk_mcp/store/*.py`); run it through `CorpusDB.run` / `CorpusDB.transaction`.
 

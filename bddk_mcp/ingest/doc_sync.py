@@ -398,11 +398,23 @@ def _declared_charset(content: bytes, http_charset: str | None) -> str | None:
     return None
 
 
-def _decode_utf8_repairing_with_cp1254(content: bytes) -> tuple[str, int]:
-    """Decode UTF-8; each invalid byte is decoded as windows-1254. Returns (text, repaired byte count)."""
+# Codec names (as codecs.lookup(...).name reports them) of Western single-byte code pages.
+_WESTERN_SINGLE_BYTE_CODECS = frozenset({"iso8859-1", "cp1252", "iso8859-15"})
+
+
+# Codec names of the Turkish single-byte code pages.
+_TURKISH_SINGLE_BYTE_CODECS = frozenset({"cp1254", "iso8859-9"})
+
+
+def _decode_utf8_repairing_with_cp1254(content: bytes) -> tuple[str, int, int]:
+    """Decode UTF-8; each invalid byte is decoded as windows-1254.
+
+    Returns (text, repaired byte count, repaired bytes that became letters).
+    """
 
     parts: list[str] = []
     repaired = 0
+    repaired_letters = 0
     position = 0
     while True:
         try:
@@ -411,10 +423,12 @@ def _decode_utf8_repairing_with_cp1254(content: bytes) -> tuple[str, int]:
         except UnicodeDecodeError as error:
             parts.append(content[position : position + error.start].decode("utf-8"))
             bad = content[position + error.start : position + error.end]
-            parts.append(bad.decode("windows-1254", errors="replace"))
+            repaired_bad = bad.decode("windows-1254", errors="replace")
+            parts.append(repaired_bad)
             repaired += len(bad)
+            repaired_letters += sum(1 for character in repaired_bad if character.isalpha())
             position += error.end
-    return "".join(parts), repaired
+    return "".join(parts), repaired, repaired_letters
 
 
 def _decode_html(content: bytes, http_charset: str | None = None) -> str:
@@ -427,10 +441,18 @@ def _decode_html(content: bytes, http_charset: str | None = None) -> str:
        the server declares. A literal U+FFFD is kept for the quality scan.
     2. UTF-8 in which each invalid byte is read as windows-1254 (a stray Word
        byte 0x96 becomes an en dash and the Turkish letters around it survive),
-       whenever at least one valid multi-byte UTF-8 character decoded: real
-       windows-1254 text almost never forms one.
+       whenever the valid multi-byte UTF-8 characters outnumber the repaired
+       bytes that became letters (outnumber all repaired bytes when a single-byte
+       charset is declared, so a declared windows-1254 page full of curly quotes
+       is not read as UTF-8). A windows-1254 page can contain a few
+       accidental pairs (an uppercase Turkish letter followed by a curly quote,
+       an en dash or a no-break space, as in "KOBİ’leri"), but nearly every
+       Turkish letter on it is a repaired byte, so it falls through to the next
+       steps. Stray punctuation bytes (0x93, 0x94, 0x96) of a Word-pasted UTF-8
+       page do not count against the UTF-8 reading.
     3. The declared charset (the HTTP ``charset`` parameter, else a ``<meta>``
-       charset in the first 2 KB) when the bytes decode strictly in it.
+       charset in the first 2 KB) when the bytes decode strictly in it. A
+       declared latin-1, windows-1252 or iso-8859-15 is read as windows-1254.
     4. windows-1254.
 
     After decoding, Windows-1252 C1 controls are remapped to their printable
@@ -440,11 +462,21 @@ def _decode_html(content: bytes, http_charset: str | None = None) -> str:
         return content.decode("utf-8").translate(_WIN1252_C1_MAP)
     except UnicodeDecodeError:
         pass
-    repaired_text, repaired = _decode_utf8_repairing_with_cp1254(content)
+    repaired_text, repaired, repaired_letters = _decode_utf8_repairing_with_cp1254(content)
     valid_multibyte = sum(1 for character in repaired_text if ord(character) > 0x7F) - repaired
-    if valid_multibyte > 0:
-        return repaired_text.translate(_WIN1252_C1_MAP)
     declared = _declared_charset(content, http_charset)
+    # A page that declares a Turkish or Western single-byte charset is far more likely to be that
+    # charset than UTF-8 with stray bytes, so the repair must then outnumber every repaired byte.
+    if declared in _WESTERN_SINGLE_BYTE_CODECS or declared in _TURKISH_SINGLE_BYTE_CODECS:
+        accepted = valid_multibyte > repaired
+    else:
+        accepted = valid_multibyte > repaired_letters
+    if accepted:
+        return repaired_text.translate(_WIN1252_C1_MAP)
+    if declared in _WESTERN_SINGLE_BYTE_CODECS:
+        # The approved hosts are Turkish and these code pages differ from windows-1254
+        # only in Ğ ğ İ ı Ş ş, so a Western label on non-UTF-8 bytes is read as windows-1254.
+        declared = "windows-1254"
     if declared is not None:
         try:
             return content.decode(declared).translate(_WIN1252_C1_MAP)
@@ -921,6 +953,17 @@ class DocumentSyncer:
         # are current. Stored text without current chunks (an earlier reindex_failed,
         # an interrupted build) is re-indexed from the stored text, not downloaded again.
         if not force and await self._store.has_document(doc_id):
+            # A catalog refresh may have moved the instrument to another class (for example repealed) while its
+            # body is unchanged: take over the catalog fields, never the body, sections, chunks or download date.
+            if title or category or source_url or decision_date or decision_number:
+                await self._store.update_document_metadata(
+                    doc_id,
+                    title=title,
+                    category=category,
+                    source_url=source_url,
+                    decision_date=decision_date,
+                    decision_number=decision_number,
+                )
             if self._vector_store is None or await self._vector_store.has_document(doc_id):
                 return SyncResult(document_id=doc_id, success=True, method="cached")
             stored = await self._store.get_document(doc_id)
@@ -1020,7 +1063,12 @@ class DocumentSyncer:
                 error=error_msg,
             )
 
-        # Store
+        # Store. A re-extraction from the cached PDF downloaded nothing: keep the stored download date.
+        downloaded_at = None
+        if method == "cached_pdf":
+            current_body = await self._store.get_current_body(doc_id)
+            if current_body is not None:
+                downloaded_at = current_body["downloaded_at"]
         doc = StoredDocument(
             document_id=doc_id,
             title=title or doc_id,
@@ -1032,6 +1080,7 @@ class DocumentSyncer:
             markdown_content=markdown,
             extraction_method=extraction_method,
             file_size=len(content),
+            downloaded_at=downloaded_at,
         )
         await self._store.store_document(doc)
 

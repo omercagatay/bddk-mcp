@@ -351,3 +351,54 @@ def test_resolve_seed_dir_ignores_a_scratch_corpus_set_through_the_environment(t
     assert patch_doc._resolve_seed_dir(None, patch_doc.CORPUS_PATH) is None
     args = patch_doc._build_arg_parser().parse_args(["d", "--markdown", "b.md", "--seed-dir", str(tmp_path)])
     assert args.seed_dir == tmp_path
+
+
+async def _dates(doc_store: DocumentStore) -> tuple[float, float]:
+    row = await doc_store._db.run(
+        lambda conn: conn.execute(
+            "SELECT downloaded_at, extracted_at FROM documents WHERE document_id = ?", (DOC_ID,)
+        ).fetchone()
+    )
+    return row["downloaded_at"], row["extracted_at"]
+
+
+async def test_patch_keeps_the_download_date_and_row_and_seed_agree_on_the_patch_time(tmp_path, stores):
+    seed_dir = _write_seed_dir(tmp_path, [_seed_doc_entry(DOC_ID)])
+    stored = _stored_doc(DOC_ID)
+    stored.downloaded_at = 1_700_000_000.0
+    stored.extracted_at = 1_700_000_000.0
+    await stores[0].store_document(stored)
+    md = tmp_path / "body.md"
+    md.write_text("new corrected body\n", encoding="utf-8")
+
+    await _patch(stores, seed_dir, md)
+
+    downloaded_at, extracted_at = await _dates(stores[0])
+    seed_entry = json.loads((seed_dir / "documents.json").read_text(encoding="utf-8"))[0]
+    assert downloaded_at == 1_700_000_000.0
+    assert seed_entry["downloaded_at"] == 1_700_000_000
+    assert extracted_at > 1_700_000_000
+    assert extracted_at == seed_entry["extracted_at"]
+
+
+async def test_patch_without_a_seed_dir_also_keeps_the_download_date(tmp_path, stores):
+    stored = _stored_doc(DOC_ID)
+    stored.downloaded_at = 1_700_000_000.0
+    stored.extracted_at = 1_700_000_000.0
+    await stores[0].store_document(stored)
+    md = tmp_path / "body.md"
+    md.write_text("new corrected body\n", encoding="utf-8")
+    doc_store, vector_store = stores
+
+    await patch_doc.patch_document(
+        doc_id=DOC_ID,
+        markdown_path=md,
+        extraction_method=patch_doc.DEFAULT_EXTRACTION_METHOD,
+        doc_store=doc_store,
+        vector_store=vector_store,
+        seed_dir=None,
+    )
+
+    downloaded_at, extracted_at = await _dates(doc_store)
+    assert downloaded_at == 1_700_000_000.0
+    assert extracted_at > 1_700_000_000

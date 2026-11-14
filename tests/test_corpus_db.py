@@ -6,7 +6,13 @@ import sqlite3
 import pytest
 
 from bddk_mcp.core.config import EMBEDDING_DIMENSION, EMBEDDING_MODEL_NAME
-from bddk_mcp.store.corpus_db import SCHEMA_VERSION, CorpusDB, CorpusNotReadyError, corpus_digest
+from bddk_mcp.store.corpus_db import (
+    NOT_READY_HINT,
+    SCHEMA_VERSION,
+    CorpusDB,
+    CorpusNotReadyError,
+    corpus_digest,
+)
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
 
 
@@ -253,8 +259,13 @@ async def test_readiness_refuses_a_corpus_embedded_with_another_model_or_dimensi
     await _corpus_with_one_chunk(corpus_db)
     corpus_db.transaction_sync(lambda conn: conn.execute("UPDATE meta SET value = ? WHERE key = ?", (value, key)))
 
-    with pytest.raises(CorpusNotReadyError, match=message):
+    with pytest.raises(CorpusNotReadyError, match=message) as raised:
         await corpus_db.assert_ready(require_corpus=False)
+    # A plain build and --force both refuse such a file; only a fresh file built with this model fixes it.
+    assert "Delete the corpus file and run `bddk-mcp build`" in str(raised.value)
+    assert "refuse to switch an existing file to another embedding model" in str(raised.value)
+    assert "skips" not in str(raised.value)
+    assert NOT_READY_HINT not in str(raised.value)
 
 
 @pytest.mark.asyncio
@@ -280,3 +291,202 @@ async def test_readiness_refuses_a_section_with_a_stale_source_hash(corpus_db):
 
     with pytest.raises(CorpusNotReadyError, match="section belongs to a missing or changed document"):
         await corpus_db.assert_ready(require_corpus=False)
+
+
+# -- A leftover write-ahead log beside a replaced file -----------------------------
+
+_KILLED_WRITER = """
+import os, sys
+from bddk_mcp.store.corpus_db import CorpusDB
+db = CorpusDB.open(sys.argv[1])
+db.transaction_sync(lambda conn: conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('who', 'OLD')"))
+os._exit(0)  # killed before close(): the committed frames stay in the -wal file
+"""
+
+
+def _killed_writer(path) -> None:
+    import subprocess
+    import sys
+
+    subprocess.run([sys.executable, "-c", _KILLED_WRITER, str(path)], check=True)
+
+
+def _who(db) -> str:
+    return db.run_sync(lambda conn: conn.execute("SELECT value FROM meta WHERE key = 'who'").fetchone()[0])
+
+
+def _replaced_after_a_killed_writer(tmp_path):
+    corpus = tmp_path / "bddk.sqlite"
+    _killed_writer(corpus)
+    wal = tmp_path / "bddk.sqlite-wal"
+    assert wal.stat().st_size > 0 and _header_journal_bytes(corpus) == (2, 2)
+    new = tmp_path / "new.sqlite"
+    db = CorpusDB.open(new)
+    db.transaction_sync(lambda conn: conn.execute("INSERT INTO meta (key, value) VALUES ('who', 'NEW')"))
+    db.close()
+    new.replace(corpus)
+    assert _header_journal_bytes(corpus) == (1, 1)
+    return corpus
+
+
+@pytest.mark.parametrize("readonly", [True, False])
+def test_a_stale_wal_beside_a_replaced_file_is_refused_without_touching_it(tmp_path, readonly):
+    corpus = _replaced_after_a_killed_writer(tmp_path)
+    before = corpus.read_bytes()
+    wal_before = (tmp_path / "bddk.sqlite-wal").read_bytes()
+
+    with pytest.raises(CorpusNotReadyError) as raised:
+        CorpusDB.open(corpus, readonly=readonly)
+
+    text = str(raised.value)
+    assert "bddk.sqlite-wal" in text and "bddk.sqlite-shm" in text
+    assert "earlier file" in text and "on top of" in text
+    assert "move or delete" in text.lower()
+    assert corpus.read_bytes() == before
+    assert (tmp_path / "bddk.sqlite-wal").read_bytes() == wal_before
+
+
+def test_a_rollback_journal_file_with_an_empty_or_missing_wal_opens_normally(tmp_path):
+    corpus = tmp_path / "c.sqlite"
+    db = CorpusDB.open(corpus)
+    db.transaction_sync(lambda conn: conn.execute("INSERT INTO meta (key, value) VALUES ('who', 'NEW')"))
+    db.close()
+    assert _header_journal_bytes(corpus) == (1, 1)
+
+    reader = CorpusDB.open(corpus, readonly=True)
+    assert _who(reader) == "NEW"
+    reader.close()
+
+    (tmp_path / "c.sqlite-wal").write_bytes(b"")
+    reader = CorpusDB.open(corpus, readonly=True)
+    assert _who(reader) == "NEW"
+    reader.close()
+    CorpusDB.open(corpus).close()
+
+
+def test_a_wal_mode_file_with_its_own_wal_still_recovers_after_a_killed_writer(tmp_path):
+    corpus = tmp_path / "bddk.sqlite"
+    _killed_writer(corpus)
+    assert (tmp_path / "bddk.sqlite-wal").stat().st_size > 0
+
+    reader = CorpusDB.open(corpus, readonly=True)
+    try:
+        assert _who(reader) == "OLD"
+    finally:
+        reader.close()
+    writer = CorpusDB.open(corpus)
+    try:
+        assert _who(writer) == "OLD"
+    finally:
+        writer.close()
+
+
+def test_a_writer_refuses_a_foreign_database_with_a_key_value_meta_table_without_touching_it(tmp_path):
+    other = tmp_path / "History"
+    connection = sqlite3.connect(other)
+    connection.execute("CREATE TABLE meta (key LONGVARCHAR NOT NULL UNIQUE PRIMARY KEY, value LONGVARCHAR)")
+    connection.executemany("INSERT INTO meta VALUES (?, ?)", [("version", "58"), ("last_compatible_version", "16")])
+    connection.execute("CREATE TABLE urls (id INTEGER PRIMARY KEY, url LONGVARCHAR)")
+    connection.execute("INSERT INTO urls (url) VALUES ('https://example.invalid/')")
+    connection.commit()
+    connection.close()
+    before = other.read_bytes()
+
+    with pytest.raises(CorpusNotReadyError, match=r"not a corpus file.*schema_version.*left unchanged"):
+        CorpusDB.open(other)
+
+    assert other.read_bytes() == before
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["History"]
+
+
+def test_a_writer_accepts_a_half_initialised_corpus_without_a_schema_version_row(tmp_path):
+    corpus = tmp_path / "c.sqlite"
+    CorpusDB.open(corpus).close()
+    connection = sqlite3.connect(corpus)
+    connection.execute("DELETE FROM meta")
+    connection.commit()
+    connection.close()
+
+    db = CorpusDB.open(corpus)
+    try:
+        version = db.run_sync(lambda conn: conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone())
+        assert version[0] == str(SCHEMA_VERSION)
+    finally:
+        db.close()
+
+
+def _refusing_connect(real_connect):
+    def connect(database, *args, **kwargs):
+        if kwargs.get("uri") and "mode=ro" in str(database):
+            raise sqlite3.OperationalError("unable to open database file")
+        return real_connect(database, *args, **kwargs)
+
+    return connect
+
+
+def test_a_file_the_reader_may_not_open_gives_the_unreadable_message(tmp_path, monkeypatch):
+    from bddk_mcp.store.corpus_db import UNREADABLE_MESSAGE
+
+    CorpusDB.open(tmp_path / "c.sqlite").close()
+    monkeypatch.setattr(sqlite3, "connect", _refusing_connect(sqlite3.connect))
+
+    with pytest.raises(CorpusNotReadyError) as raised:
+        CorpusDB.open(tmp_path / "c.sqlite", readonly=True)
+
+    assert str(raised.value) == UNREADABLE_MESSAGE
+
+
+@pytest.mark.asyncio
+async def test_readiness_counts_sync_failures_by_category(corpus_db):
+    assert corpus_db.readiness_sync(require_corpus=False).sync_failures == {}
+
+    store = DocumentStore(corpus_db)
+    await store.record_sync_failure("1", "timeout", "download")
+    await store.record_sync_failure("1", "timeout", "download")  # a retry of the same document counts once
+    await store.record_sync_failure("2", "timeout", "download")
+    await store.record_sync_failure("3", "empty", "extraction")
+
+    readiness = corpus_db.readiness_sync(require_corpus=False)
+    assert readiness.sync_failures == {"download": 2, "extraction": 1}
+    assert readiness.issues == []  # failures are reported, they do not make the corpus unready
+
+
+def _store_fingerprint(corpus_db, value) -> None:
+    from bddk_mcp.store import fingerprint
+
+    corpus_db.transaction_sync(
+        lambda conn: conn.execute(
+            "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", (fingerprint.FINGERPRINT_META_KEY, value)
+        )
+    )
+
+
+@pytest.mark.asyncio
+async def test_readiness_reports_the_build_fingerprint_and_its_stale_parts_as_a_warning_only(corpus_db):
+    from bddk_mcp.store import fingerprint
+
+    await _corpus_with_one_chunk(corpus_db)
+    absent = await corpus_db.assert_ready(require_corpus=False)
+    assert (absent.build_fingerprint, absent.stale_fingerprint_parts) == (None, [])
+
+    current = {"seed": "0" * 16, **fingerprint.runtime_parts()}
+    _store_fingerprint(corpus_db, fingerprint.encode(current))
+    ready = await corpus_db.assert_ready(require_corpus=False)
+    assert ready.build_fingerprint == current and ready.stale_fingerprint_parts == []
+
+    _store_fingerprint(corpus_db, fingerprint.encode({**current, "parser": "1" * 16, "chunker": "2" * 16}))
+    stale = await corpus_db.assert_ready(require_corpus=False)  # a stale fingerprint does not fail readiness
+    assert stale.stale_fingerprint_parts == ["parser", "chunker"]
+    assert stale.issues == []
+
+
+def test_readiness_never_lists_the_seed_part_and_skips_unknown_parts(corpus_db, monkeypatch):
+    from bddk_mcp.store import fingerprint
+
+    current = fingerprint.runtime_parts()
+    _store_fingerprint(corpus_db, fingerprint.encode({"seed": "x", **current, "chunker": fingerprint.UNKNOWN}))
+    assert corpus_db.readiness_sync(require_corpus=False).stale_fingerprint_parts == []
+
+    monkeypatch.setattr(fingerprint, "_module_source", lambda name: None)
+    _store_fingerprint(corpus_db, fingerprint.encode({"seed": "x", **current, "parser": "1" * 16}))
+    assert corpus_db.readiness_sync(require_corpus=False).stale_fingerprint_parts == []

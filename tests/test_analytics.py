@@ -277,7 +277,7 @@ async def test_build_digest_marks_announcements_unavailable_and_drops_partial_ro
 
     monkeypatch.setattr("bddk_mcp.observability.analytics.fetch_announcements", flaky_fetch)
     monkeypatch.setattr(
-        "bddk_mcp.observability.analytics.fetch_bulletin_snapshot",
+        "bddk_mcp.observability.analytics.fetch_bulletin_snapshot_table",
         AsyncMock(side_effect=BddkUpstreamError("upstream down")),
     )
 
@@ -439,3 +439,59 @@ async def test_weekly_series_with_unparseable_dates_keeps_upstream_order(mock_ht
     _setup_bulletin_mock(mock_http, api)
     result = await analyze_trends(mock_http)
     assert (result["current"], result["previous"]) == (20, 10)
+
+
+# -- Digest: catalog coverage and announcement order (injected clock) ----------
+
+
+def _november_clock() -> datetime:
+    return datetime(2026, 11, 14, 12, 0)
+
+
+def _patch_digest_upstream(monkeypatch, announcements_by_category: dict[int, list[dict]]):
+    async def fetch(_http, category_id: int):
+        return announcements_by_category.get(category_id, [])
+
+    monkeypatch.setattr("bddk_mcp.observability.analytics.fetch_announcements", fetch)
+    monkeypatch.setattr(
+        "bddk_mcp.observability.analytics.fetch_bulletin_snapshot_table",
+        AsyncMock(
+            return_value={"heading": "Krediler", "bulletin_date": "6 Kasım 2026 Cuma", "unit": "Milyon TL", "rows": []}
+        ),
+    )
+
+
+async def test_digest_says_when_the_catalog_does_not_cover_the_period(mock_http, monkeypatch):
+    _patch_digest_upstream(monkeypatch, {48: [{"title": "Kurul Kararı 11593", "date": "06.11.2026"}]})
+    decisions = [
+        {"title": "KMH", "decision_date": "29.01.2026", "category": "Kurul Kararı"},
+        {"title": "Eski", "decision_date": "05.01.2026", "category": "Kurul Kararı"},
+    ]
+    digest = await build_digest(mock_http, decisions, 30, clock=_november_clock)
+    assert digest["latest_catalog_decision_date"] == "29.01.2026"
+    assert digest["catalog_covers_period"] is False
+    assert digest["total_decisions"] == 0
+    assert "katalogdaki en yeni karar tarihi: 29.01.2026" in digest["narrative"]
+    assert "Katalog bu dönemi kapsamıyor" in digest["narrative"]
+    assert "yayımlandı" not in digest["narrative"]
+    assert (digest["bulletin_date"], digest["bulletin_unit"]) == ("6 Kasım 2026 Cuma", "Milyon TL")
+
+
+async def test_digest_keeps_the_catalog_count_when_the_catalog_covers_the_period(mock_http, monkeypatch):
+    _patch_digest_upstream(monkeypatch, {})
+    decisions = [{"title": "Yeni", "decision_date": "10.11.2026", "category": "Kurul Kararı"}]
+    digest = await build_digest(mock_http, decisions, 30, clock=_november_clock)
+    assert digest["catalog_covers_period"] is True and digest["total_decisions"] == 1
+    assert "son 30 gün için 1 karar var (katalogdaki en yeni karar tarihi: 10.11.2026)" in digest["narrative"]
+    assert "kapsamıyor" not in digest["narrative"]
+
+
+async def test_digest_lists_announcements_newest_first_across_categories(mock_http, monkeypatch):
+    older = [{"title": f"Basın {d}", "date": f"{d:02d}.10.2026"} for d in range(16, 31)]  # 15 in category 39
+    newer = [{"title": f"Kuruluş {d}", "date": f"{d:02d}.11.2026"} for d in (6, 9, 10, 11, 12, 13)]  # fetched last
+    _patch_digest_upstream(monkeypatch, {39: older, 48: newer})
+    digest = await build_digest(mock_http, [], 30, clock=_november_clock)
+    titles = [a["title"] for a in digest["announcements"]]
+    assert titles[0] == "Kuruluş 13"
+    assert len(titles) == 20 and digest["total_announcements"] == 21
+    assert "Kuruluş 6" in titles and "Basın 16" not in titles  # the cut drops the oldest

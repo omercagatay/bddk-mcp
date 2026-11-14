@@ -426,6 +426,58 @@ class TestDecodeHtml:
             assert result == expected
             assert "Ã" not in result and "Ä" not in result and "Å" not in result
 
+    @pytest.mark.parametrize("declaration", [None, "windows-1254", "iso-8859-9"])
+    def test_realistic_utf8_page_with_a_few_stray_bytes_keeps_the_repair_even_when_windows_1254_is_declared(
+        self, declaration
+    ):
+        head = "<p>Bankaların ".encode()
+        middle = (
+            " kredi işlemlerinde uygulanacak şartlar, Kurulun belirlediği usul ve esaslara göre düzenlenir.".encode()
+        )
+        tail = " İlgili öğelerin çıkarılması, değerlendirilmesi ve güncellenmesi ödevlidir.".encode()
+        last = " Yönetim kurulu üyelerinin sorumluluğu ışığında gerekli önlemler alınır.</p>".encode()
+        content = head + b"\x93" + middle + b"\x94" + tail + b" \x96" + last
+        expected = (
+            "<p>Bankaların “ kredi işlemlerinde uygulanacak şartlar, Kurulun belirlediği usul ve esaslara göre"
+            " düzenlenir.” İlgili öğelerin çıkarılması, değerlendirilmesi ve güncellenmesi ödevlidir. –"
+            " Yönetim kurulu üyelerinin sorumluluğu ışığında gerekli önlemler alınır.</p>"
+        )
+        result = _decode_html(content, declaration)
+        assert result == expected
+        assert "Ã" not in result and "Ä" not in result and "Å" not in result
+
+    def test_short_fragment_with_more_stray_bytes_than_multibyte_letters_follows_the_declared_charset(self):
+        # Accepted trade-off: for an ambiguous short fragment the declaration decides; a real page has far
+        # more valid multibyte characters than stray bytes and keeps the UTF-8 repair (previous test).
+        fragment = "ğ".encode() + b" \x93a\x94 \x96"
+        assert _decode_html(fragment, "windows-1254") == fragment.decode("windows-1254")
+        assert _decode_html(fragment, "windows-1254") == "Ä\u0178 “a” –"
+        # the same bytes without a declaration keep the UTF-8 repair reading
+        assert _decode_html(fragment) == "ğ “a” –"
+
+    @pytest.mark.parametrize("declaration", [None, "windows-1254", "iso-8859-9"])
+    def test_windows_1254_page_with_accidental_utf8_pairs_is_decoded_exactly(self, declaration):
+        # In windows-1254 "İ’" (0xDD 0x92), "Ş\xa0" and "Ö–" are also valid UTF-8 pairs.
+        text = "<p>Şirket ığdır ölçü. KOBİ’leri ifade eder. TÜRKİYE CUMHURİYETİ’NİN kararı. Ş\xa0Kredi Ö–zel ışık</p>"
+        assert _decode_html(text.encode("windows-1254"), declaration) == text
+
+    @pytest.mark.parametrize("declaration", ["windows-1254", "iso-8859-9"])
+    def test_declared_windows_1254_fragment_with_curly_quotes_is_decoded_exactly(self, declaration):
+        text = "<p>“KOBİ’leri” “BDDK” “TCMB” “SPK” “KOBİ’ler”</p>"
+        assert _decode_html(text.encode("windows-1254"), declaration) == text
+
+    def test_windows_1254_page_with_accidental_utf8_pair_and_meta_declaration(self):
+        text = '<meta charset="windows-1254"><p>Şirket KOBİ’leri ığdır</p>'
+        assert _decode_html(text.encode("windows-1254")) == text
+
+    @pytest.mark.parametrize("declaration", [None, "iso-8859-1", "windows-1252", "iso-8859-15"])
+    def test_western_single_byte_declaration_on_turkish_bytes_is_read_as_windows_1254(self, declaration):
+        text = "<p>Bankaların kredi işlemlerinde şartları ve değerlendirme esasları İşbu ğ</p>"
+        page = text.encode("windows-1254")
+        assert _decode_html(page, declaration) == text
+        meta = (f'<meta charset="{declaration}">' if declaration else "") + text
+        assert _decode_html(meta.encode("windows-1254")) == meta
+
     def test_declared_charset_that_does_not_fit_falls_back_to_utf8(self):
         text = '<meta charset="utf-8"><p>Yönetmelik</p>'
         assert _decode_html(text.encode()) == text
@@ -1367,3 +1419,145 @@ def test_categorize_error_ignores_status_digits_inside_the_document_id(doc_id):
 def test_categorize_error_still_reads_whole_status_tokens():
     assert _categorize_error("HTTP 403 Forbidden for mevzuat_14036", "mevzuat_14036") == ("robots_txt", False)
     assert _categorize_error("Client error '404 Not Found'", "mevzuat_24045") == ("extraction", False)
+
+
+class _FakeOcr:
+    name = "lightocr"
+
+    def is_available(self):
+        return True
+
+    def extract(self, pdf_bytes):
+        return "MADDE 1 - (1) Yeniden çıkarılmış metin, formül dahil. " * 10
+
+
+async def _downloaded_at(store, doc_id):
+    page = await store.get_document_page(doc_id, 1)
+    return page.downloaded_at
+
+
+@pytest.mark.asyncio
+async def test_cached_pdf_reextraction_keeps_the_stored_download_date(doc_store):
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_21192",
+            title="Y",
+            category="Yönetmelik",
+            markdown_content="MADDE 1 - eski çıkarım",
+            pdf_bytes=b"%PDF-1.4 fake",
+            extraction_method="markitdown_degraded",
+            downloaded_at=1_700_000_000.0,
+        )
+    )
+
+    def no_network(request):
+        raise AssertionError("a cached-PDF re-extraction must not use the network")
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(no_network))
+    syncer = DocumentSyncer(doc_store, ocr_backends=[_FakeOcr()], http=http, prefer_html_for_mevzuat=False)
+    result = await syncer.sync_document("mevzuat_21192", title="Y", category="Yönetmelik", force=True)
+
+    assert result.success is True and result.method == "cached_pdf+lightocr"
+    assert await _downloaded_at(doc_store, "mevzuat_21192") == 1_700_000_000.0
+    await http.aclose()
+
+
+@pytest.mark.asyncio
+async def test_a_real_download_still_stamps_a_new_download_date(doc_store):
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="777",
+            title="Y",
+            category="Genelge",
+            markdown_content="eski",
+            extraction_method="markitdown_degraded",
+            downloaded_at=1_700_000_000.0,
+        )
+    )
+    async with DocumentSyncer(doc_store, ocr_backends=[MarkitdownBackend()], http=MagicMock()) as syncer:
+        syncer._download_bddk = AsyncMock(return_value=(b"<html><body><p>Yeni metin</p></body></html>", "x", ".html"))
+        result = await syncer.sync_document("777", force=True)
+
+    assert result.success is True
+    assert await _downloaded_at(doc_store, "777") > 1_700_000_000.0
+
+
+_REFRESH_BODY = "MADDE 1 - (1) Bankalar faiz oranı riskini ölçer.\n\nMADDE 2 - (2) Rapor verilir.\n"
+
+
+async def _store_refresh_doc(doc_store):
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="1310",
+            title="Faiz Oranı Riski Yönetmeliği",
+            category="Yönetmelik",
+            decision_date="2020-01-01",
+            decision_number="7",
+            source_url="https://www.bddk.org.tr/Mevzuat/DokumanGetir/1310",
+            markdown_content=_REFRESH_BODY,
+            downloaded_at=1_700_000_000.0,
+        )
+    )
+
+
+@pytest.mark.asyncio
+async def test_cached_document_takes_over_a_refreshed_catalog_class_and_keeps_its_body(doc_store):
+    await _store_refresh_doc(doc_store)
+    before = await doc_store.get_document("1310")
+    sections_before = await doc_store._db.run(
+        lambda conn: [tuple(r) for r in conn.execute("SELECT * FROM document_sections WHERE doc_id = '1310'")]
+    )
+
+    def no_network(request):
+        raise AssertionError("a cached document must not use the network")
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(no_network))
+    async with DocumentSyncer(doc_store, ocr_backends=[], http=http) as syncer:
+        result = await syncer.sync_document(
+            "1310",
+            title="Faiz Oranı Riski Yönetmeliği",
+            category="Mülga Düzenleme",
+            decision_date="2021-05-06",
+        )
+
+    after = await doc_store.get_document("1310")
+    assert result.success is True and result.method == "cached"
+    assert (after.category, after.decision_date) == ("Mülga Düzenleme", "2021-05-06")
+    assert (after.title, after.decision_number, after.source_url) == (
+        before.title,
+        "7",
+        before.source_url,
+    )
+    assert after.markdown_content == before.markdown_content and after.content_hash == before.content_hash
+    assert await _downloaded_at(doc_store, "1310") == 1_700_000_000.0
+    assert sections_before and sections_before == await doc_store._db.run(
+        lambda conn: [tuple(r) for r in conn.execute("SELECT * FROM document_sections WHERE doc_id = '1310'")]
+    )
+    await http.aclose()
+
+
+@pytest.mark.asyncio
+async def test_cached_document_keeps_its_metadata_when_the_catalog_arguments_are_empty(doc_store):
+    await _store_refresh_doc(doc_store)
+    before = await doc_store.get_document("1310")
+
+    async with DocumentSyncer(doc_store, ocr_backends=[]) as syncer:
+        result = await syncer.sync_document("1310")
+
+    assert result.method == "cached"
+    assert await doc_store.get_document("1310") == before
+
+
+@pytest.mark.asyncio
+async def test_reindexed_stored_text_takes_over_the_refreshed_catalog_class(doc_store, vector_store):
+    await _store_refresh_doc(doc_store)
+    assert not await vector_store.has_document("1310")
+
+    async with DocumentSyncer(doc_store, vector_store=vector_store, ocr_backends=[]) as syncer:
+        result = await syncer.sync_document("1310", category="Mülga Düzenleme")
+
+    after = await doc_store.get_document("1310")
+    assert result.success is True and result.method == "reindexed"
+    assert after.category == "Mülga Düzenleme" and after.markdown_content == _REFRESH_BODY
+    assert await vector_store.has_document("1310")
+    assert await _downloaded_at(doc_store, "1310") == 1_700_000_000.0

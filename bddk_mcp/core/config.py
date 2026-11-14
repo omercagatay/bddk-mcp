@@ -78,6 +78,15 @@ EMBEDDING_MODEL_REVISION = os.environ.get(
     _DEFAULT_EMBEDDING_MODEL_REVISION if EMBEDDING_MODEL_NAME == "intfloat/multilingual-e5-base" else "",
 )
 
+# Seconds `serve` waits at start-up for the first embedding model load and probe
+# search; a cold host (first load from disk) can need minutes.
+SEMANTIC_STARTUP_TIMEOUT_SECONDS = _environment_int(
+    "BDDK_SEMANTIC_STARTUP_TIMEOUT_SECONDS",
+    default=180,
+    minimum=1,
+    maximum=900,
+)
+
 # -- OCR extraction backends -------------------------------------------------
 
 # LightOnOCR-2-1B model path (offline-first; empty = download from HF)

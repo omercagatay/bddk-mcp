@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 
@@ -204,3 +207,145 @@ async def test_trend_text_for_a_zero_base_does_not_print_a_percentage():
     with patch("bddk_mcp.tools.analytics.analyze_trends", new=AsyncMock(return_value=result)):
         out = await tool()
     assert "yüzde değişim hesaplanamadı (önceki değer 0)" in out and "%+" not in out
+
+
+@pytest.mark.parametrize("tool_name", ["analyze_bulletin_trends", "compare_bulletin_metrics"])
+def test_weekly_metric_key_in_descriptions_is_bddk_labels(tool_name):
+    mcp = MagicMock()
+    register(mcp, Dependencies(db=None, doc_store=None, client=None, http=None))
+    doc = " ".join(_registered_tools(mcp)[tool_name].__doc__.split())
+    assert "1.0.12=Ticari ve Diğer Krediler" in doc
+    assert "1.0.10=b) Taksitsiz (Bireysel Kredi Kartları altında)" in doc
+    assert "1.0.2=Tüketici Kredileri ve Bireysel Kredi Kartları (3+7)" in doc
+    assert "4.0.1=Mevduat (Katılım Fonu)" in doc and "2.0.1=Takipteki Alacaklar" in doc
+    assert "1.0.10=Ticari" not in doc
+
+
+# -- Weekly coverage, unit and unknown ids through the real engine (captured BDDK page) --
+
+_FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def _patch_weekly_upstream(monkeypatch, series_by_id: dict[str, str] | None = None):
+    import bddk_mcp.ingest.data_sources as data_sources
+
+    series = json.loads((_FIXTURES / "bddk_weekly_series.json").read_text(encoding="utf-8"))["series"]
+    page = (_FIXTURES / "bddk_weekly_page.html").read_text(encoding="utf-8")
+    request = httpx.Request("GET", "https://www.bddk.org.tr/bultenhaftalik")
+
+    async def post(_http, _url, **kwargs):
+        metric_id = kwargs["data"]["id"]
+        payload = series[(series_by_id or {}).get(metric_id, metric_id)]
+        return httpx.Response(200, json=payload, request=request)
+
+    monkeypatch.setattr(data_sources, "_get", AsyncMock(return_value=httpx.Response(200, text=page, request=request)))
+    monkeypatch.setattr(data_sources, "_post", post)
+
+
+@pytest.mark.asyncio
+async def test_trend_over_a_longer_window_than_bddk_serves_states_the_covered_period(monkeypatch):
+    _patch_weekly_upstream(monkeypatch)
+    out = await _analytics_tool("analyze_bulletin_trends")(metric_id="1.0.1", lookback_weeks=52)
+    assert "Kapsanan dönem: 14.08.2026 – 6.11.2026 (13 gözlem; istenen pencere: son 52 hafta (364 gün))" in out
+    assert "istenen pencere karşılanamadı" in out
+    assert "Birim: Milyon TL" in out
+    assert "Güncel (6.11.2026): 18,523,337.66" in out
+
+
+@pytest.mark.asyncio
+async def test_trend_statistics_use_only_the_requested_weeks(monkeypatch):
+    _patch_weekly_upstream(monkeypatch)
+    out = await _analytics_tool("analyze_bulletin_trends")(metric_id="1.0.1", lookback_weeks=4)
+    # 6.11.2026 - 28 days = 9.10.2026: five weekly points, the lowest of them on 16.10.2026.
+    assert "Kapsanan dönem: 9.10.2026 – 6.11.2026 (5 gözlem" in out
+    assert "Veri noktası: 5" in out
+    assert "Dönem min: 18,246,309.67 (16.10.2026)" in out
+    assert "karşılanamadı" not in out
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("trimmed", "suggests_longer_window"),
+    [(3, True), (0, False)],
+)
+async def test_insufficient_data_hint_suggests_a_longer_window_only_when_trimming_caused_it(
+    trimmed, suggests_longer_window
+):
+    tool = _analytics_tool("analyze_bulletin_trends")
+    result = {
+        "error": "En az 2 gözlem gerekir (bulunan: 1).",
+        "reason": "insufficient_data",
+        "trimmed_observations": trimmed,
+    }
+    with patch("bddk_mcp.tools.analytics.analyze_trends", new=AsyncMock(return_value=result)):
+        with pytest.raises(ToolError) as excinfo:
+            await tool()
+    message = str(excinfo.value)
+    assert ("increase lookback_weeks" in message) is suggests_longer_window
+    if not suggests_longer_window:
+        assert "a longer lookback_weeks will not help" in message
+
+
+@pytest.mark.asyncio
+async def test_trend_and_comparison_report_an_unknown_metric_as_invalid_input(monkeypatch):
+    _patch_weekly_upstream(monkeypatch)
+    with pytest.raises(ToolError) as excinfo:
+        await _analytics_tool("analyze_bulletin_trends")(metric_id="9.9.9")
+    assert "[ERROR:INVALID_INPUT]" in str(excinfo.value) and "INSUFFICIENT_DATA" not in str(excinfo.value)
+    with pytest.raises(ToolError, match="INVALID_INPUT"):
+        await _analytics_tool("compare_bulletin_metrics")(metric_ids="9.9.9")
+    out = await _analytics_tool("compare_bulletin_metrics")(metric_ids="1.0.1,9.9.9")
+    assert "BİLİNMEYEN ID" in out
+
+
+@pytest.mark.asyncio
+async def test_comparison_states_date_unit_coverage_and_number_format(monkeypatch):
+    _patch_weekly_upstream(monkeypatch)
+    out = await _analytics_tool("compare_bulletin_metrics")(metric_ids="1.0.1,1.0.12", days=3650)
+    row = next(line for line in out.splitlines() if line.startswith("Ticari ve Diğer Krediler"))
+    assert "6.11.2026" in row and "11,509,666.16" in row
+    assert "Kapsanan dönem (1.0.12): 14.08.2026 – 6.11.2026 (13 gözlem; istenen pencere: son 3650 gün)" in out
+    assert "Birim: Milyon TL" in out
+    assert "istenen pencere karşılanamadı" in out
+    assert out.count("Sayı biçimi:") == 1
+
+
+@pytest.mark.asyncio
+async def test_comparison_uses_only_the_requested_window(monkeypatch):
+    _patch_weekly_upstream(monkeypatch)
+    out = await _analytics_tool("compare_bulletin_metrics")(metric_ids="1.0.1,1.0.12", days=14)
+    # 6.11.2026 - 14 days = 23.10.2026: three weekly points per metric.
+    assert "Kapsanan dönem (1.0.12): 23.10.2026 – 6.11.2026 (3 gözlem; istenen pencere: son 14 gün)" in out
+    assert "karşılanamadı" not in out
+
+
+# -- Digest: catalog count is not a fact about BDDK; announcements newest first --
+
+
+def _digest_tool_with(decisions):
+    mcp = MagicMock()
+    deps = Dependencies(db=None, doc_store=None, client=MagicMock(), http=MagicMock())
+    deps.client.ensure_cache = AsyncMock()
+    deps.client.get_cache_items = MagicMock(return_value=decisions)
+    register(mcp, deps)
+    return _registered_tools(mcp)["get_regulatory_digest"]
+
+
+@pytest.mark.asyncio
+async def test_digest_prints_the_bulletin_block_with_date_unit_and_format():
+    tool = _digest_tool_with([])
+    digest = {
+        "narrative": "n",
+        "decisions_by_category": {},
+        "new_decisions": [],
+        "announcements": [],
+        "bulletin_snapshot": [{"name": "Toplam Krediler (2+10)", "tp": "18.523.337", "yp": "10.517.881"}],
+        "bulletin_heading": "Krediler",
+        "bulletin_date": "6 Kasım 2026 Cuma",
+        "bulletin_unit": "Milyon TL",
+    }
+    with patch("bddk_mcp.tools.analytics.build_digest", new=AsyncMock(return_value=digest)):
+        out = await tool(period="week")
+    assert "Krediler tablosu" in out and "Bülten tarihi: 6 Kasım 2026 Cuma" in out and "Birim: Milyon TL" in out
+    assert "Toplam Krediler (2+10): TP=18,523,337, YP=10,517,881" in out
+    assert "Sayı biçimi:" in out

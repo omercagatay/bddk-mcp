@@ -904,8 +904,11 @@ class HttpSecurityMiddleware:
             async def replay_receive() -> Message:
                 nonlocal body_replayed
                 if body_replayed:
-                    # The body is complete; later reads wait on the original
-                    # channel so the application sees a client disconnect.
+                    # The body is complete; later reads are handed back to the
+                    # original channel, so a downstream that listens (for example
+                    # a streaming response) can see a client disconnect. Nothing
+                    # here watches for it: a running JSON /mcp call is not
+                    # cancelled and its concurrency slot is not freed early.
                     return await receive()
                 body_replayed = True
                 return {"type": "http.request", "body": bytes(body), "more_body": False}

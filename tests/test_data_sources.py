@@ -1,6 +1,8 @@
 """Tests for data_sources.py — institution, bulletin, and announcement parsers."""
 
 import json
+import re
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -392,3 +394,140 @@ async def test_fetch_announcements_error_raises_upstream_error(mock_http):
     mock_http.get = AsyncMock(return_value=_make_response("", status_code=500))
     with pytest.raises(BddkUpstreamError):
         await fetch_announcements(mock_http, category_id=39)
+
+
+# -- Weekly metric key pinned against captured BDDK pages --
+
+_FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def _weekly_page_rows() -> dict[str, str]:
+    soup = BeautifulSoup((_FIXTURES / "bddk_weekly_page.html").read_text(encoding="utf-8"), "html.parser")
+    rows = {}
+    for tr in soup.find("table", id="Tablo").find_all("tr"):
+        match = re.search(r"ShowModalGraph\('([^']+)'", str(tr))
+        if match:
+            rows[match.group(1)] = tr.find_all("td")[1].get_text(strip=True)
+    return rows
+
+
+def test_weekly_metric_key_uses_bddk_row_labels():
+    from bddk_mcp.ingest.data_sources import WEEKLY_METRICS
+
+    page_rows = _weekly_page_rows()
+    series = json.loads((_FIXTURES / "bddk_weekly_series.json").read_text(encoding="utf-8"))["series"]
+    for metric_id, label, _note in WEEKLY_METRICS:
+        if metric_id in page_rows:
+            assert page_rows[metric_id] == label, metric_id
+        else:
+            assert series[metric_id]["Baslik"].startswith(f"{label} (TRY)"), metric_id
+    ids = {metric_id for metric_id, _label, _note in WEEKLY_METRICS}
+    assert {"1.0.1", "1.0.2", "1.0.4", "1.0.8", "1.0.10", "1.0.12", "2.0.1", "4.0.1"} <= ids
+    assert page_rows["1.0.10"] == "b) Taksitsiz" and page_rows["1.0.12"] == "Ticari ve Diğer Krediler"
+
+
+def _weekly_series_fixture(metric_id: str) -> dict:
+    return json.loads((_FIXTURES / "bddk_weekly_series.json").read_text(encoding="utf-8"))["series"][metric_id]
+
+
+def _mock_weekly(mock_http, metric_id: str = "1.0.1") -> None:
+    page = (_FIXTURES / "bddk_weekly_page.html").read_text(encoding="utf-8")
+    mock_http.get = AsyncMock(return_value=_make_response(page))
+    mock_http.post = AsyncMock(return_value=_make_response(json_data=_weekly_series_fixture(metric_id)))
+
+
+@pytest.mark.parametrize(
+    ("days", "expected_dates", "window_met"),
+    [
+        (14, ["23.10.2026", "30.10.2026", "6.11.2026"], True),
+        (7, ["30.10.2026", "6.11.2026"], True),
+        (90, None, True),  # 14.08-6.11 is every weekly point a 90-day window can hold
+        (91, None, False),  # a 7.08.2026 observation would have been inside the window
+        (3650, None, False),
+    ],
+)
+async def test_weekly_series_is_trimmed_to_the_requested_window(mock_http, days, expected_dates, window_met):
+    """BDDK ignores the requested window and always returns its last 13 weeks."""
+    _mock_weekly(mock_http)
+    result = await fetch_weekly_bulletin(mock_http, "1.0.1", "TRY", days)
+    returned = _weekly_series_fixture("1.0.1")["XEkseni"]
+    assert result["dates"] == (expected_dates or returned)
+    assert result["values"][-1] == 18523337.65624
+    assert result["returned_observations"] == 13 and result["returned_first_date"] == "14.08.2026"
+    assert result["trimmed_observations"] == 13 - len(result["dates"])
+    assert result["window_met"] is window_met
+    assert result["requested_days"] == days
+
+
+async def test_weekly_series_carries_the_unit_and_date_the_page_states(mock_http):
+    _mock_weekly(mock_http)
+    result = await fetch_weekly_bulletin(mock_http, "1.0.1", "TRY")
+    assert result["unit"] == "Milyon TL"
+    assert result["bulletin_date"] == "6 Kasım 2026 Cuma"
+    assert mock_http.post.call_args.kwargs["data"]["tarih"] == "6.11.2026"
+    # The page states the unit of its TL view only; a USD series gets no guessed unit.
+    _mock_weekly(mock_http)
+    assert (await fetch_weekly_bulletin(mock_http, "1.0.1", "USD"))["unit"] == ""
+
+
+async def test_unknown_weekly_metric_is_an_unknown_metric_error_not_an_empty_period(mock_http):
+    from bddk_mcp.ingest.data_sources import UNKNOWN_METRIC
+
+    _mock_weekly(mock_http, "9.9.9")
+    result = await fetch_weekly_bulletin(mock_http, "9.9.9")
+    assert result["reason"] == UNKNOWN_METRIC and "9.9.9" in result["error"]
+
+
+async def test_bulletin_snapshot_table_reads_heading_date_and_unit(mock_http):
+    from bddk_mcp.ingest.data_sources import fetch_bulletin_snapshot_table
+
+    _mock_weekly(mock_http)
+    table = await fetch_bulletin_snapshot_table(mock_http)
+    assert (table["heading"], table["party"]) == ("Krediler", "Sektör")
+    assert (table["bulletin_date"], table["unit"]) == ("6 Kasım 2026 Cuma", "Milyon TL")
+    assert len(table["rows"]) == 22
+    assert table["rows"][0] == {
+        "row_number": "1",
+        "name": "Toplam Krediler (2+10)",
+        "metric_id": "1.0.1",
+        "tp": "18.523.337",
+        "yp": "10.517.881",
+    }
+    assert {row["metric_id"] for row in table["rows"]} == set(_weekly_page_rows())
+    assert await fetch_bulletin_snapshot(mock_http) == table["rows"]
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("18.523.337", "18,523,337"),
+        (" 10.517.881", "10,517,881"),
+        ("280", "280"),
+        ("0", "0"),
+        ("18.523.337,66", "18,523,337.66"),
+        ("-1.234,5", "-1,234.5"),
+        ("n/a", "n/a"),
+        ("1,234.56", "1,234.56"),  # not the page's pattern: passed through unchanged
+    ],
+)
+def test_snapshot_cells_use_the_weekly_number_format(text, expected):
+    from bddk_mcp.ingest.data_sources import format_snapshot_cell
+
+    assert format_snapshot_cell(text) == expected
+
+
+def test_parse_card_institutions_live_digital_bank_suffix():
+    """The live page writes '(Dijital Banka)' after the name; neither '()' nor the flag may be lost."""
+    soup = BeautifulSoup((_FIXTURES / "bddk_kurulus_77_katilim.html").read_text(encoding="utf-8"), "html.parser")
+    result = {item["name"]: item for item in _parse_card_institutions(soup, "Banka")}
+    assert list(result) == [
+        "ADİL KATILIM BANKASI A.Ş.",
+        "ALBARAKA TÜRK KATILIM BANKASI A.Ş.",
+        "DÜNYA KATILIM BANKASI A.Ş.",
+        "HAYAT FİNANS KATILIM BANKASI A.Ş.",
+    ]
+    assert result["ADİL KATILIM BANKASI A.Ş."]["digital"] is True
+    assert result["HAYAT FİNANS KATILIM BANKASI A.Ş."]["digital"] is True
+    assert result["DÜNYA KATILIM BANKASI A.Ş."]["digital"] is False
+    assert result["ADİL KATILIM BANKASI A.Ş."]["subcategory"] == "Katılım Bankaları"
+    assert all("()" not in name and "Dijital" not in name for name in result)

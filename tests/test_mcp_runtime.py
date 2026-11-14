@@ -324,12 +324,12 @@ async def test_semantic_readiness_probe_has_a_bounded_startup_time():
     vector_store.assert_semantic_search_ready = AsyncMock(side_effect=never_ready)
 
     with (
-        patch.object(server_module, "_SEMANTIC_SEARCH_STARTUP_TIMEOUT_SECONDS", 0.01),
+        patch.object(server_module, "SEMANTIC_STARTUP_TIMEOUT_SECONDS", 0.01),
         patch.object(server_module.httpx, "AsyncClient", return_value=http),
         patch.object(server_module.CorpusDB, "open", return_value=db),
         patch.object(server_module, "BddkApiClient", return_value=client),
         patch.object(server_module, "VectorStore", return_value=vector_store),
-        pytest.raises(TimeoutError),
+        pytest.raises(TimeoutError, match=r"within 0\.01 seconds.*BDDK_SEMANTIC_STARTUP_TIMEOUT_SECONDS"),
     ):
         await server_module.create_deps()
 
@@ -419,3 +419,52 @@ async def test_create_deps_logs_the_corpus_identity_once_after_readiness(caplog)
         f"Corpus ready: bddk-mcp {__version__}, corpus digest abc123def456, 319 documents, 13721 chunks, "
         "320 catalog entries, embedding model org/model, schema version 1"
     ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("fingerprint", "stale", "expected"),
+    [
+        (
+            {"parser": "x"},
+            ["parser", "chunker"],
+            "Corpus build fingerprint is stale (parser, chunker); run bddk-mcp build",
+        ),
+        (
+            {"parser": "x"},
+            ["model"],
+            "Corpus build fingerprint is stale (model); delete the corpus file and run bddk-mcp build --force",
+        ),
+        (None, [], "Corpus has no build fingerprint (file predates fingerprinting); run bddk-mcp build"),
+        ({"parser": "x"}, [], None),
+    ],
+)
+async def test_create_deps_warns_once_about_a_stale_or_absent_build_fingerprint(caplog, fingerprint, stale, expected):
+    import logging
+
+    import bddk_mcp.server as server_module
+    from bddk_mcp.store.corpus_db import CorpusReadiness
+
+    http = MagicMock()
+    http.aclose = AsyncMock()
+    db = MagicMock()
+    db.assert_ready = AsyncMock(
+        return_value=CorpusReadiness(
+            documents=1, chunks=1, catalog=1, build_fingerprint=fingerprint, stale_fingerprint_parts=stale
+        )
+    )
+    client = MagicMock()
+    client.load_cache_read_only = AsyncMock(side_effect=RuntimeError("stop after the identity line"))
+    client.close = AsyncMock()
+    with (
+        caplog.at_level(logging.INFO, logger=server_module.logger.name),
+        patch.object(server_module.httpx, "AsyncClient", return_value=http),
+        patch.object(server_module.CorpusDB, "open", return_value=db),
+        patch.object(server_module, "BddkApiClient", return_value=client),
+        pytest.raises(RuntimeError, match="stop after"),
+    ):
+        await server_module.create_deps()
+
+    warnings = [record.getMessage() for record in caplog.records if "fingerprint" in record.getMessage()]
+    assert warnings == ([expected] if expected else [])
+    assert all(record.levelno == logging.WARNING for record in caplog.records if "fingerprint" in record.getMessage())

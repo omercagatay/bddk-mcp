@@ -1,7 +1,7 @@
 """BDDK analytics: trend analysis, digest, comparison."""
 
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import httpx
 
@@ -9,8 +9,9 @@ from bddk_mcp.core.config import ANNOUNCEMENT_CATEGORY_IDS
 from bddk_mcp.core.exceptions import BddkUpstreamError
 from bddk_mcp.ingest.data_sources import (
     fetch_announcements,
-    fetch_bulletin_snapshot,
+    fetch_bulletin_snapshot_table,
     fetch_weekly_bulletin,
+    format_bulletin_number,
     istanbul_today,
 )
 
@@ -29,6 +30,21 @@ def _pct_change(current: float, previous: float) -> float | None:
     if previous == 0:
         return None
     return (current - previous) / abs(previous) * 100
+
+
+def _coverage(data: dict) -> dict:
+    """What the weekly fetch says about the window it actually covers."""
+    dates = data.get("dates") or []
+    return {
+        "first_date": dates[0] if dates else "",
+        "unit": data.get("unit", ""),
+        "bulletin_date": data.get("bulletin_date", ""),
+        "requested_days": data.get("requested_days"),
+        "returned_observations": data.get("returned_observations", len(dates)),
+        "returned_first_date": data.get("returned_first_date", ""),
+        "trimmed_observations": data.get("trimmed_observations", 0),
+        "window_met": data.get("window_met"),
+    }
 
 
 def _trend_label(points: list[float]) -> str:
@@ -56,7 +72,11 @@ async def analyze_trends(
     Returns dict with: title, current, previous, wow_change, wow_pct,
     avg, min, max, min_date, max_date, trend_direction, narrative, series.
     wow_pct is None when the previous value is 0 (no percentage exists). A series
-    with fewer than 2 points returns an error with reason "insufficient_data".
+    with fewer than 2 points returns an error with reason "insufficient_data" and
+    trimmed_observations (how many of BDDK's points fell outside the window). The
+    result also carries the coverage of the window (first_date, unit,
+    returned_observations, returned_first_date, window_met); an unknown metric id
+    is an error with reason "unknown_metric".
     """
     data = await fetch_weekly_bulletin(
         http,
@@ -67,7 +87,7 @@ async def analyze_trends(
     )
 
     if "error" in data:
-        return {"error": data["error"]}
+        return {key: data[key] for key in ("error", "reason") if key in data}
 
     dates = data.get("dates", [])
     values = data.get("values", [])
@@ -76,6 +96,7 @@ async def analyze_trends(
         return {
             "error": f"En az 2 gözlem gerekir (bulunan: {len(values)}).",
             "reason": REASON_INSUFFICIENT_DATA,
+            "trimmed_observations": data.get("trimmed_observations", 0),
         }
 
     parsed = values
@@ -107,10 +128,11 @@ async def analyze_trends(
     narrative = (
         f"{title}: Son haftada {change_text}. "
         f"{basis} trend: {trend}. "
-        f"Mevcut değer: {current:,.2f}, ortalama: {avg_val:,.2f}."
+        f"Mevcut değer: {format_bulletin_number(current)}, ortalama: {format_bulletin_number(avg_val)}."
     )
 
     return {
+        **_coverage(data),
         "title": title,
         "current": current,
         "current_date": dates[-1] if dates else "",
@@ -149,14 +171,22 @@ async def build_digest(
         clock: Injectable "now" for tests; the default is the Istanbul (UTC+3) time.
 
     Returns dict with: period, new_decisions, announcements, bulletin_summary, narrative.
+    The decision count is a count of the local corpus catalog, not of BDDK:
+    latest_catalog_decision_date is the newest decision date in that catalog and
+    catalog_covers_period is False when it is older than the start of the period
+    (the count then says nothing about what BDDK published). Announcements are
+    newest first across categories. The bulletin block is the weekly page's
+    Krediler table with its bulletin_heading, bulletin_date and bulletin_unit.
     """
     today = istanbul_today(clock)  # Istanbul date, not the host's
     cutoff_str = today.strftime("%d.%m.%Y")
     # window = period_days calendar days, today included
+    window_start = today - timedelta(days=period_days - 1)
 
     # -- Recent decisions from cache --
     # Cache items may be Pydantic models or dicts; normalize access.
     recent_decisions: list[dict] = []
+    latest_catalog_date = None
     for d in decisions_cache:
         if hasattr(d, "model_dump"):
             dd = d.model_dump()
@@ -169,10 +199,13 @@ async def build_digest(
             continue
         try:
             dt = datetime.strptime(date_str, "%d.%m.%Y")
-            if 0 <= (today - dt.date()).days < period_days:
-                recent_decisions.append(dd)
         except ValueError:
             continue
+        if dt.date() <= today and (latest_catalog_date is None or dt.date() > latest_catalog_date):
+            latest_catalog_date = dt.date()
+        if 0 <= (today - dt.date()).days < period_days:
+            recent_decisions.append(dd)
+    catalog_covers_period = latest_catalog_date is not None and latest_catalog_date >= window_start
 
     # Sort by date descending
     recent_decisions.sort(
@@ -211,23 +244,33 @@ async def build_digest(
             except ValueError:
                 continue
 
+    # Newest first across categories, so a cut keeps the most recent ones.
+    all_announcements.sort(key=lambda a: datetime.strptime(a["date"], "%d.%m.%Y"), reverse=True)
+
     # -- Bulletin snapshot --
     bulletin_snapshot_available = True
     try:
-        snapshot = await fetch_bulletin_snapshot(http)
+        snapshot_table = await fetch_bulletin_snapshot_table(http)
     except BddkUpstreamError:
-        snapshot = []
+        snapshot_table = {}
         bulletin_snapshot_available = False
+    snapshot = snapshot_table.get("rows") or []
 
     # -- Build narrative --
-    narrative_parts = []
-    if announcements_available:
+    latest_text = latest_catalog_date.strftime("%d.%m.%Y") if latest_catalog_date else ""
+    narrative_parts = [
+        f"Yerel karar kataloğunda son {period_days} gün için {len(recent_decisions)} karar var "
+        f"(katalogdaki en yeni karar tarihi: {latest_text or 'katalogda tarihli karar yok'})."
+    ]
+    if not catalog_covers_period:
         narrative_parts.append(
-            f"Son {period_days} günde {len(recent_decisions)} yeni karar ve {len(all_announcements)} duyuru yayımlandı."
+            "Katalog bu dönemi kapsamıyor; karar sayısı BDDK'nın bu dönemde yayımladığı kararlar hakkında "
+            "bir şey söylemez (kararlar için BDDK'nın sitesine ve duyurulara bakın)."
         )
+    if announcements_available:
+        narrative_parts.append(f"BDDK sitesinden bu dönem için {len(all_announcements)} duyuru alındı.")
     else:
         narrative_parts.append(
-            f"Son {period_days} günde {len(recent_decisions)} yeni karar yayımlandı. "
             "Duyuru verileri alınamadı (BDDK üst kaynağına erişilemedi); duyuru sayıları bu özette eksiktir."
         )
 
@@ -249,6 +292,11 @@ async def build_digest(
         "announcements_available": announcements_available,
         "bulletin_snapshot": snapshot[:5] if snapshot else [],
         "bulletin_snapshot_available": bulletin_snapshot_available,
+        "bulletin_heading": snapshot_table.get("heading", ""),
+        "bulletin_date": snapshot_table.get("bulletin_date", ""),
+        "bulletin_unit": snapshot_table.get("unit", ""),
+        "latest_catalog_decision_date": latest_text,
+        "catalog_covers_period": catalog_covers_period,
         "narrative": " ".join(narrative_parts),
         "total_decisions": len(recent_decisions),
         "total_announcements": len(all_announcements),
@@ -279,7 +327,7 @@ async def compare_metrics(
             column=column,
         )
         if "error" in data:
-            results.append({"metric_id": mid, "error": data["error"]})
+            results.append({"metric_id": mid, **{key: data[key] for key in ("error", "reason") if key in data}})
             continue
 
         values = data.get("values", [])
@@ -291,6 +339,7 @@ async def compare_metrics(
                     "metric_id": mid,
                     "error": f"En az 2 gözlem gerekir (bulunan: {len(values)}).",
                     "reason": REASON_INSUFFICIENT_DATA,
+                    "trimmed_observations": data.get("trimmed_observations", 0),
                 }
             )
             continue
@@ -300,6 +349,7 @@ async def compare_metrics(
 
         results.append(
             {
+                **_coverage(data),
                 "metric_id": mid,
                 "title": data.get("title") or mid,
                 "current": current,

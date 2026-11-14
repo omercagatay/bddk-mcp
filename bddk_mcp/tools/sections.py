@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import bisect
 import hashlib
 import logging
 import math
 import re
+import unicodedata
 from typing import TYPE_CHECKING
 
+from bddk_mcp.core.config import PAGE_SIZE
 from bddk_mcp.quality.markdown_quality import (
     FORMULA_EXTRACTION_WARNING,
     QualityAssessment,
@@ -17,11 +20,10 @@ from bddk_mcp.quality.markdown_quality import (
     unsafe_verbatim_reason,
 )
 from bddk_mcp.quotations import ExactQuotationCheck, check_exact_quotation
-from bddk_mcp.store.doc_store import fts_prefix_stem_query
+from bddk_mcp.store.doc_store import fts_prefix_stem_query, normalize_search_text
 from bddk_mcp.store.legal_ref import document_id_candidates, parse_legal_refs, turkish_casefold
 from bddk_mcp.store.section_index import (
     GOVDE_HEADING,
-    MAX_SECTION_CHARS,
     split_section_truncation_notice,
     truncation_notice_original_length,
 )
@@ -36,11 +38,13 @@ from bddk_mcp.tools.contract_types import (
     SectionResultLimit,
     SectionType,
 )
-from bddk_mcp.tools.errors import tool_error
+from bddk_mcp.tools.documents import annex_not_stored_notice
+from bddk_mcp.tools.errors import NOT_FOUND, tool_error
 from bddk_mcp.tools.structured_outputs import (
     LEGAL_APPLICABILITY_WARNING,
     STRUCTURELESS_GOVDE_LABEL,
     UNTRUSTED_SOURCE_WARNING,
+    CrossWindowMatch,
     DocumentSectionResponse,
     DocumentSectionToolResult,
     EvidenceReference,
@@ -49,6 +53,7 @@ from bddk_mcp.tools.structured_outputs import (
     SectionItem,
     SectionSearchResponse,
     SectionSearchToolResult,
+    WindowReference,
     decision_identifier_text,
     document_status_notice,
     source_date_text,
@@ -76,11 +81,34 @@ _EXACT_REFERENCE_MISSING_WARNING = (
     "not evidence for that requested provision. Check the reference or retrieve the full document."
 )
 _LEGAL_APPLICABILITY_WARNING = LEGAL_APPLICABILITY_WARNING
-_NESTED_ROW_HINT = (
+_NESTED_ROW_HINT_START = (
     "fikra and bent rows are search-oriented and are not unique addresses (many rows can share one reference); "
-    'where a stored parent article contains a row it is shown as "Parent:"; retrieve the parent madde '
-    "(section_type=madde, or gecici_madde/ek_madde) for the full provision."
 )
+_NESTED_ROW_HINT = (
+    _NESTED_ROW_HINT_START + 'where a stored parent article contains a row it is shown as "Parent:"; retrieve the '
+    "parent madde (section_type=madde, or gecici_madde/ek_madde) for the full provision."
+)
+_PARENT_ARTICLE_TYPES = ("madde", "gecici_madde", "ek_madde")
+
+
+def _nested_row_hint(parent_types: set[str]) -> str:
+    """The fikra/bent hint, naming the kind of parent the listed rows actually have."""
+    if parent_types and parent_types <= set(_PARENT_ARTICLE_TYPES):
+        return _NESTED_ROW_HINT
+    if parent_types:
+        kinds = " or ".join(sorted(parent_types))
+        types = ", ".join(f"section_type={kind}" for kind in sorted(parent_types))
+        return (
+            _NESTED_ROW_HINT_START + 'where a stored parent provision contains a row it is shown as "Parent:"; '
+            f"retrieve that parent {kinds} ({types}) for the full provision."
+        )
+    return (
+        _NESTED_ROW_HINT_START + 'where a stored parent provision contains a row it is shown as "Parent:"; '
+        "retrieve the parent provision (madde, gecici_madde/ek_madde, paragraf or ilke) that contains the row "
+        "for the full provision."
+    )
+
+
 _CAPPED_QUOTATION_NOTE = (
     "This reference is a capped stored window of the provision: the quotation was compared only with that "
     "window, and text beyond it was NOT compared. The rest of the provision is in full in get_bddk_document; "
@@ -89,39 +117,120 @@ _CAPPED_QUOTATION_NOTE = (
 )
 _Parents = dict[tuple[str, str, int], tuple[str, str]]
 # Value: (type, ref, true end code point, row runs past that end) of the capped named section a govde row continues.
-_Continuations = dict[tuple[str, str, int], tuple[str, str, int, bool]]
+# The fifth element is (start code point, stored window length) of that capped section, when it was found.
+_Continuation = tuple[str, str, int, bool, tuple[int, int] | None]
+_Continuations = dict[tuple[str, str, int], _Continuation]
 _STRUCTURELESS_LABEL = STRUCTURELESS_GOVDE_LABEL
 _STRUCTURELESS_WARNING = (
     "One or more hits are full-text windows of a document that has no article structure (for example a Kurul "
     "Kararı). Cite such a document by its title and decision date/number, not as an article (madde) or as a "
     "govde window."
 )
+_DECISION_TEXT_LABEL = "leading decision text of a Kurul Kararı whose only named sections are annexes"
+_DECISION_TEXT_WARNING = (
+    "One or more hits are the leading decision text of a Kurul Kararı whose only named sections are its annexes. "
+    "Cite it by the decision's title and decision date/number, not as an article (madde) or as a govde window."
+)
+_BODY_TEXT_LABEL = (
+    "body text of a document whose only named sections are annexes or paragraphs (outside those named sections)"
+)
+_BODY_TEXT_WARNING = (
+    "One or more hits are body text of a document whose only named sections are annexes or paragraphs, outside "
+    "those named sections. Cite it by the document title, not as a named annex or paragraph."
+)
 _GOVDE_WARNING = (
     "One or more hits are govde remainder (unparsed body/footnote text), not madde/ilke/paragraf identities. "
     "Do not cite them as a legal provision."
 )
 
-_LOOSE_SECTION_SEARCH_STOPWORDS = {
-    "acaba",
-    "altına",
-    "aşağıdaki",
-    "aşağıdakilerden",
-    "bir",
-    "biri",
-    "değildir",
-    "göre",
-    "hangi",
-    "hangisi",
-    "hakkında",
-    "için",
-    "ilişkin",
-    "olan",
-    "olarak",
-    "ve",
-    "veya",
-    "yanlıştır",
-    "yer",
-}
+# Turkish question words and question particles. A question such as
+# "Denetim komitesi en az kaç üyeden oluşur?" is searched without them: the provision that answers
+# it never contains "kaç". Reviewed list; matched on the diacritic-free search form of the word.
+_QUERY_QUESTION_WORDS = frozenset(
+    {
+        "acaba",
+        "hangi",
+        "hangisi",
+        "hangileri",
+        "kaç",
+        "kaçtır",
+        "kim",
+        "kimdir",
+        "kimler",
+        "kimlerdir",
+        "kimlerden",
+        "ne",
+        "nedir",
+        "neler",
+        "nelerdir",
+        "neden",
+        "niçin",
+        "nasıl",
+        "nasıldır",
+        "mi",
+        "mı",
+        "mu",
+        "mü",
+        "midir",
+        "mıdır",
+        "mudur",
+        "müdür",
+        "misin",
+        "mısın",
+        "musun",
+        "müsün",
+    }
+)
+# The predicate and frame words of a question ("... kimlerden oluşur?", "ne sıklıkla yapılır?"): left out
+# only when the query is a question (it has a question word or a "?"), because in a statement they are
+# content ("komite en az iki üyeden oluşur").
+_QUESTION_FRAME_WORDS = frozenset(
+    {
+        "gerekir",
+        "gerekmektedir",
+        "olmalı",
+        "olmalıdır",
+        "oluşur",
+        "sıklıkla",
+        "yapılır",
+        "yapılmalı",
+        "yapılmalıdır",
+    }
+)
+# "yüzde 15" and "%15" are the same figure; the source may write either, so "yüzde" is never required.
+_QUERY_PERCENT_WORDS = frozenset({"yüzde", "yuzde"})
+
+_LOOSE_SECTION_SEARCH_STOPWORDS = (
+    _QUERY_QUESTION_WORDS
+    | _QUESTION_FRAME_WORDS
+    | {
+        "acaba",
+        "altına",
+        "aşağıdaki",
+        "aşağıdakilerden",
+        "bir",
+        "biri",
+        "değildir",
+        "göre",
+        "hangi",
+        "hangisi",
+        "hakkında",
+        "için",
+        "ilişkin",
+        "olan",
+        "olarak",
+        "ve",
+        "veya",
+        "yanlıştır",
+        "yer",
+    }
+)
+# The same lists on the diacritic-free search form, so "kac", "olusur" and "icin" match like "kaç",
+# "oluşur" and "için" (the FTS search itself ignores diacritics).
+_NORMALIZED_QUESTION_WORDS = frozenset(normalize_search_text(word) for word in _QUERY_QUESTION_WORDS)
+_NORMALIZED_QUESTION_FRAME_WORDS = frozenset(normalize_search_text(word) for word in _QUESTION_FRAME_WORDS)
+_NORMALIZED_PERCENT_WORDS = frozenset(normalize_search_text(word) for word in _QUERY_PERCENT_WORDS)
+_NORMALIZED_LOOSE_STOPWORDS = frozenset(normalize_search_text(word) for word in _LOOSE_SECTION_SEARCH_STOPWORDS)
 # Standalone FTS on these floods IPC / generic-ratio articles and crowds out
 # the provision that actually contains the distinctive tokens.
 _LOOSE_FTS_SKIP = {
@@ -137,6 +246,32 @@ _LOOSE_FTS_SKIP = {
     "yaptırım",
     "yüzde",
 }
+
+
+_ARTICLE_TYPES = frozenset({"madde", "gecici_madde", "ek_madde"})
+_LETTERED_STORED_REF_RE = re.compile(r"^(\d+)/([^\W\d_])$")
+
+
+def display_section_ref(section_type: str | None, section_ref: str | None) -> str:
+    """A stored section reference as the source prints it; the stored form stays the lookup key.
+
+    An inserted article keeps its slash with an upper-case letter ("66/a" -> "66/A"); a lettered paragraph
+    of a KGK standard is printed without one ("21/a" -> "21A"). Every other reference is shown as stored.
+    """
+    ref = section_ref or ""
+    match = _LETTERED_STORED_REF_RE.match(ref)
+    if match is None:
+        return ref
+    if section_type in _ARTICLE_TYPES:
+        return f"{match.group(1)}/{match.group(2).upper()}"
+    if section_type == "paragraf":
+        return f"{match.group(1)}{match.group(2).upper()}"
+    return ref
+
+
+def _ref_text(section_type: str | None, section_ref: str | None) -> str:
+    """'<type> <reference>' for the text of an answer, the reference in its printed form."""
+    return f"{section_type} {display_section_ref(section_type, section_ref)}"
 
 
 def _section_quality(section: StoredDocumentSection) -> QualityAssessment:
@@ -181,6 +316,57 @@ def _quality_metadata(quality: QualityAssessment) -> QualityMetadata:
     )
 
 
+_EXCERPT_SNAP_CHARS = 40
+
+
+def _window_start(match_offset: int, length: int, max_chars: int) -> int:
+    """Start of a ``max_chars`` window that shows ``match_offset`` a quarter of the way in."""
+    return max(0, min(match_offset - max_chars // 4, length - max_chars))
+
+
+def _best_term_window_start(text: str, terms: list[str], max_chars: int) -> int:
+    """Start of the window that contains the most distinct query terms; ties go to the earliest start.
+
+    Candidate windows place one occurrence of a term a quarter of the way in, as the phrase window does.
+    """
+    occurrences = {
+        term: [match.start() for match in re.finditer(re.escape(term), text, re.IGNORECASE)] for term in terms
+    }
+    occurrences = {term: offsets for term, offsets in occurrences.items() if offsets}
+    if not occurrences:
+        return 0
+    candidates = sorted(
+        {_window_start(offset, len(text), max_chars) for offsets in occurrences.values() for offset in offsets}
+    )
+    best_start, best_count = candidates[0], -1
+    for start in candidates:
+        count = sum(
+            1
+            for term, offsets in occurrences.items()
+            if (index := bisect.bisect_left(offsets, start)) < len(offsets)
+            and offsets[index] + len(term) <= start + max_chars
+        )
+        if count > best_count:
+            best_start, best_count = start, count
+    return best_start
+
+
+def _snap_to_word_start(text: str, start: int) -> int:
+    """Move a window start that falls inside a word back to that word's start, when it is close by."""
+    if start <= 0 or text[start - 1].isspace() or text[start].isspace():
+        return start
+    for index in range(start - 1, max(-1, start - 1 - _EXCERPT_SNAP_CHARS), -1):
+        if text[index].isspace():
+            return index + 1
+    return start
+
+
+def _leading_space(section: StoredDocumentSection, raw_content: str) -> int:
+    """Whitespace before the stored text in the section's document range (offsets count it, the content does not)."""
+    source_range = section.normalized_source_range
+    return len(source_range) - len(source_range.lstrip()) if source_range.strip() == raw_content else 0
+
+
 def _section_excerpt(
     section: StoredDocumentSection,
     *,
@@ -195,20 +381,17 @@ def _section_excerpt(
         local_start = 0
         local_end = len(raw_content)
     else:
-        match_offset = 0
+        local_start = 0
         if query:
             # Search the original string so Turkish İ / Unicode case changes
             # cannot shift normalized code-point offsets. Prefer the complete
-            # phrase (including PDF line wraps) over its earliest generic word.
+            # phrase (including PDF line wraps) over the window of its words.
             phrase = re.search(r"\s+".join(re.escape(word) for word in query.split()), raw_content, re.IGNORECASE)
             if phrase:
-                match_offset = phrase.start()
+                local_start = _window_start(phrase.start(), len(raw_content), max_chars)
             else:
-                matches = [
-                    re.search(re.escape(term), raw_content, re.IGNORECASE) for term in _loose_search_terms(query)
-                ]
-                match_offset = min((match.start() for match in matches if match), default=0)
-        local_start = max(0, min(match_offset - max_chars // 4, len(raw_content) - max_chars))
+                local_start = _best_term_window_start(raw_content, _loose_search_terms(query), max_chars)
+            local_start = _snap_to_word_start(raw_content, local_start)
         local_end = min(len(raw_content), local_start + max_chars)
 
     # Verbatim contract: the excerpt is an exact stored substring, never a
@@ -218,19 +401,33 @@ def _section_excerpt(
     if unsafe_reason is not None:
         tool_error(
             "VERBATIM_UNAVAILABLE",
-            f"Section {section.doc_id}/{section.section_type} {section.section_ref} cannot be returned verbatim: "
+            f"Section {section.doc_id}/{_ref_text(section.section_type, section.section_ref)} cannot be returned verbatim: "
             f"its stored text contains an unsafe extraction artifact ({unsafe_reason}). This server does not "
             "rewrite or summarize section text; repair and re-publish the source instead.",
             retryable=False,
         )
-    source_range = section.normalized_source_range
-    leading_space = len(source_range) - len(source_range.lstrip()) if source_range.strip() == raw_content else 0
+    leading_space = _leading_space(section, raw_content)
     return (
         excerpt,
         local_start > 0 or local_end < len(raw_content) or truncation_notice is not None,
         section.start_char + leading_space + local_start,
         min(section.end_char, section.start_char + leading_space + local_end),
     )
+
+
+def _search_excerpt_lines(
+    section: StoredDocumentSection, excerpt_start: int, excerpt_end: int, *, truncated: bool
+) -> list[str]:
+    """Where a search excerpt lies in its section, printed before the excerpt when it is not the whole section."""
+    if not truncated:
+        return []
+    raw_content = split_section_truncation_notice(section.content or "")[0]
+    if excerpt_start > section.start_char + _leading_space(section, raw_content):
+        return [
+            f"  Excerpt from inside the section: returned normalized excerpt range [{excerpt_start}, {excerpt_end}) "
+            f"of [{section.start_char}, {section.end_char}); the text before code point {excerpt_start} is omitted"
+        ]
+    return [f"  Returned normalized excerpt range: [{excerpt_start}, {excerpt_end}) (section body truncated)"]
 
 
 def _capped_span(section: StoredDocumentSection) -> tuple[bool, int | None]:
@@ -242,19 +439,36 @@ def _capped_span(section: StoredDocumentSection) -> tuple[bool, int | None]:
     return True, None if original_length is None else section.start_char + original_length
 
 
+def _document_page(offset: int) -> int:
+    """The get_bddk_document page (1-based, PAGE_SIZE code points each) that holds a code point offset."""
+    return offset // PAGE_SIZE + 1
+
+
+def _page_range_text(start: int, end: int) -> str:
+    """'pages A-B' (or 'page A') of get_bddk_document that hold the code points [start, end)."""
+    first, last = _document_page(start), _document_page(max(start, end - 1))
+    return f"page {first}" if first == last else f"pages {first}-{last}"
+
+
 def _capped_span_line(section: StoredDocumentSection) -> str | None:
     capped, original_end = _capped_span(section)
     if not capped:
         return None
+    # The stored window is the span [start_char, end_char); its stored text is stripped, so it can be a few
+    # whitespace characters shorter than the window when the window ends at a break.
+    stored_length = section.end_char - section.start_char
     if original_end is None:
         return (
-            f"- Stored window capped at {MAX_SECTION_CHARS:,} characters; the provision continues past code point "
-            f"{section.end_char}. {_CAPPED_REMAINDER_TEXT}"
+            f"- Stored window capped at {stored_length:,} characters of a longer provision; the provision "
+            f"continues past code point {section.end_char} (get_bddk_document from page "
+            f"{_document_page(section.end_char)}, {PAGE_SIZE:,} characters per page). {_CAPPED_REMAINDER_TEXT}"
         )
     return (
-        f"- Stored window capped at {MAX_SECTION_CHARS:,} of {original_end - section.start_char:,} characters; "
+        f"- Stored window capped at {stored_length:,} of {original_end - section.start_char:,} characters; "
         f"the provision continues to code point {original_end} (uncapped span [{section.start_char}, "
-        f"{original_end})). {_CAPPED_REMAINDER_TEXT}"
+        f"{original_end})). The whole provision is on get_bddk_document "
+        f"{_page_range_text(section.start_char, original_end)} ({PAGE_SIZE:,} characters per page); the part "
+        f"past this stored window is on {_page_range_text(section.end_char, original_end)}. {_CAPPED_REMAINDER_TEXT}"
     )
 
 
@@ -264,36 +478,60 @@ _CAPPED_REMAINDER_TEXT = (
 )
 
 
-def _continuation_of(
-    section: StoredDocumentSection, continuations: _Continuations
-) -> tuple[str, str, int, bool] | None:
+def _continuation_of(section: StoredDocumentSection, continuations: _Continuations) -> _Continuation | None:
     """Return (type, ref) of the capped named section a govde row continues, if any."""
     if section.section_type != "govde":
         return None
     return continuations.get((section.doc_id, section.source_content_hash, section.start_char))
 
 
-def _continuation_label(parent: tuple[str, str, int, bool]) -> str:
-    return f"continuation of {parent[0]} {parent[1]} beyond its {MAX_SECTION_CHARS:,}-character stored window"
+def _continuation_label(parent: _Continuation) -> str:
+    if parent[4] is None:
+        return f"continuation of {_ref_text(parent[0], parent[1])} beyond its stored window"
+    start, stored_length = parent[4]
+    return (
+        f"continuation of {_ref_text(parent[0], parent[1])} beyond its {stored_length:,}-character stored window "
+        f"(the provision is {parent[2] - start:,} characters long)"
+    )
 
 
-def _continuation_overrun(parent: tuple[str, str, int, bool]) -> str | None:
+def _continuation_overrun(parent: _Continuation) -> str | None:
     """State the out-of-provision tail when the govde window has text past the capped provision's true end."""
     if not parent[3]:
         return None
-    return f"the characters from code point {parent[2]} on are outside {parent[0]} {parent[1]}"
+    return f"the characters from code point {parent[2]} on are outside {_ref_text(parent[0], parent[1])}"
+
+
+def _govde_kind(section: StoredDocumentSection, continuations: _Continuations) -> str | None:
+    """Classify a govde row as exactly one kind; None for a named section."""
+    if section.section_type != "govde":
+        return None
+    if _continuation_of(section, continuations):
+        return "continuation"
+    if section.document_structureless:
+        return "full_text_window"
+    if section.document_decision_window:
+        return "decision_text"
+    if section.document_annex_or_paragraph_only:
+        return "body_text"
+    return "remainder"
 
 
 def _govde_label(section: StoredDocumentSection, continuations: _Continuations) -> str | None:
-    """Label a govde row as a capped-provision continuation, a structureless full text, or None."""
-    if parent := _continuation_of(section, continuations):
+    """Label a govde row by its kind; None for a named section and for genuine remainder."""
+    kind = _govde_kind(section, continuations)
+    if kind == "continuation":
+        parent = _continuation_of(section, continuations)
+        assert parent is not None
         label = _continuation_label(parent)
         if overrun := _continuation_overrun(parent):
             label = f"{label} up to code point {parent[2]}; {overrun}"
         return label
-    if section.section_type == "govde" and section.document_structureless:
-        return _STRUCTURELESS_LABEL
-    return None
+    return {
+        "full_text_window": _STRUCTURELESS_LABEL,
+        "decision_text": _DECISION_TEXT_LABEL,
+        "body_text": _BODY_TEXT_LABEL,
+    }.get(kind or "")
 
 
 def _heading_suffix(section: StoredDocumentSection, continuations: _Continuations) -> str:
@@ -308,8 +546,8 @@ def _heading_suffix(section: StoredDocumentSection, continuations: _Continuation
     return f" — {section.heading}"
 
 
-def _continuation_warning(section: StoredDocumentSection, parent: tuple[str, str, int, bool]) -> str:
-    belongs = f"{parent[0]} {parent[1]}"
+def _continuation_warning(section: StoredDocumentSection, parent: _Continuation) -> str:
+    belongs = _ref_text(parent[0], parent[1])
     if overrun := _continuation_overrun(parent):
         belongs = f"{belongs} up to code point {parent[2]}; {overrun}"
     return (
@@ -319,9 +557,31 @@ def _continuation_warning(section: StoredDocumentSection, parent: tuple[str, str
 
 
 async def _find_continuations(deps: Dependencies, sections: list[StoredDocumentSection]) -> _Continuations:
+    """Capped named sections continued by the govde rows, with each capped section's stored window length."""
     if not any(section.section_type == "govde" for section in sections):
         return {}
-    return await deps.doc_store.find_capped_continuations(sections)
+    found = await deps.doc_store.find_capped_continuations(sections)
+    windows: dict[tuple[str, str, str, str, int], tuple[int, int] | None] = {}
+    for (doc_id, content_hash, _start), (section_type, section_ref, end, _overrun) in found.items():
+        key = (doc_id, content_hash, section_type, section_ref, end)
+        if key in windows:
+            continue
+        windows[key] = None
+        for row in await deps.doc_store.get_document_section(
+            doc_id, section_type=section_type, section_ref=section_ref
+        ):
+            legal_text, notice = split_section_truncation_notice(row.content or "")
+            if (
+                row.source_content_hash == content_hash
+                and (length := truncation_notice_original_length(notice)) is not None
+                and row.start_char + length == end
+            ):
+                windows[key] = (row.start_char, row.end_char - row.start_char)
+                break
+    return {
+        key: (section_type, section_ref, end, overrun, windows.get((key[0], key[1], section_type, section_ref, end)))
+        for key, (section_type, section_ref, end, overrun) in found.items()
+    }
 
 
 async def _find_parents(deps: Dependencies, sections: list[StoredDocumentSection]) -> _Parents:
@@ -334,9 +594,50 @@ def _parent_of(section: StoredDocumentSection, parents: _Parents) -> tuple[str, 
     return parents.get((section.doc_id, section.source_content_hash, section.start_char))
 
 
-def _parent_line(section: StoredDocumentSection, parents: _Parents, *, prefix: str) -> list[str]:
+# Per nested row (doc_id, source_content_hash, start_char): the start_char of its parent provision, only
+# when the parent's (document, type, reference) names more than one stored row.
+_ParentStarts = dict[tuple[str, str, int], int]
+
+
+async def _find_parent_starts(
+    deps: Dependencies, sections: list[StoredDocumentSection], parents: _Parents
+) -> _ParentStarts:
+    """The start offset of each row's parent provision whose (document, type, reference) is not unique."""
+    starts: _ParentStarts = {}
+    rows_by_parent: dict[tuple[str, str, str], list[StoredDocumentSection]] = {}
+    for section in sections:
+        parent = _parent_of(section, parents)
+        if parent is None:
+            continue
+        key = (section.doc_id, parent[0], parent[1])
+        if key not in rows_by_parent:
+            rows_by_parent[key] = await deps.doc_store.get_document_section(
+                section.doc_id, section_type=parent[0], section_ref=parent[1]
+            )
+        rows = [row for row in rows_by_parent[key] if row.source_content_hash == section.source_content_hash]
+        containing = [row.start_char for row in rows if row.start_char <= section.start_char < row.end_char]
+        if len(rows) > 1 and containing:
+            starts[(section.doc_id, section.source_content_hash, section.start_char)] = max(containing)
+    return starts
+
+
+def _parent_start_of(section: StoredDocumentSection, parent_starts: _ParentStarts | None) -> int | None:
+    return (parent_starts or {}).get((section.doc_id, section.source_content_hash, section.start_char))
+
+
+def _parent_line(
+    section: StoredDocumentSection, parents: _Parents, *, prefix: str, parent_starts: _ParentStarts | None = None
+) -> list[str]:
     parent = _parent_of(section, parents)
-    return [f"{prefix}Parent: {parent[0]} {parent[1]}"] if parent else []
+    if not parent:
+        return []
+    start = _parent_start_of(section, parent_starts)
+    where = (
+        f" (start_char={start}; this reference names more than one stored provision of the document)"
+        if start is not None
+        else ""
+    )
+    return [f"{prefix}Parent: {_ref_text(parent[0], parent[1])}{where}"]
 
 
 def _with_parent(item: SectionItem, section: StoredDocumentSection, parents: _Parents) -> SectionItem:
@@ -364,6 +665,7 @@ def _section_item(
         document_id=section.doc_id,
         section_type=section.section_type,
         section_ref=section.section_ref,
+        display_section_ref=display_section_ref(section.section_type, section.section_ref),
         # Same rule as the text title line: a generic govde heading that contradicts the kind label is left out.
         heading=_heading_suffix(section, continuations or {}).removeprefix(" — "),
         start_char=section.start_char,
@@ -383,6 +685,7 @@ def _section_item(
         continuation_of_section_ref=parent[1] if parent else None,
         continuation_of_section_end_char=parent[2] if parent else None,
         document_structureless=section.document_structureless,
+        govde_kind=_govde_kind(section, continuations or {}),  # type: ignore[arg-type]
     )
 
 
@@ -408,7 +711,99 @@ def _section_evidence(section: StoredDocumentSection) -> EvidenceReference:
     )
 
 
-def _assess_quotation(sections: list[StoredDocumentSection], quotation: str) -> SectionAnswerAssessment:
+async def _window_neighbours(
+    deps: Dependencies, section: StoredDocumentSection, continuations: _Continuations
+) -> list[StoredDocumentSection]:
+    """The rows before and after a govde row that is one of several consecutive windows of one text.
+
+    That is a full-text window of a structureless document, a govde row continuing a capped provision
+    (its neighbours are the capped provision itself or the other govde rows continuing it), or a govde row
+    of any other kind (decision text, body text, remainder) that touches another govde row of the same
+    stored text: a long uncovered span is split into touching windows. Empty for a named section and for
+    a window that has no neighbour.
+    """
+    kind = _govde_kind(section, continuations)
+    if kind is None:
+        return []
+    rows = sorted(
+        (
+            row
+            for row in await deps.doc_store.get_document_section(section.doc_id, section_type="govde")
+            if row.source_content_hash == section.source_content_hash
+        ),
+        key=lambda row: row.start_char,
+    )
+    position = next((index for index, row in enumerate(rows) if row.start_char == section.start_char), None)
+    if position is None:
+        return []
+    before = rows[position - 1] if position > 0 else None
+    after = rows[position + 1] if position + 1 < len(rows) else None
+    if kind == "full_text_window":
+        return [row for row in (before, after) if row is not None]
+    if kind != "continuation":
+        return [
+            row
+            for row in (before, after)
+            if row is not None and (row.end_char == section.start_char or row.start_char == section.end_char)
+        ]
+    parent = _continuation_of(section, continuations)
+    assert parent is not None
+    linked = await _find_continuations(deps, [row for row in (before, after) if row is not None])
+
+    def continues_same(row: StoredDocumentSection | None) -> bool:
+        other = None if row is None else _continuation_of(row, linked)
+        return other is not None and other[:3] == parent[:3]
+
+    neighbours = []
+    if continues_same(before):
+        neighbours.append(before)
+    elif parent[4] is not None:
+        neighbours.extend(
+            row
+            for row in await deps.doc_store.get_document_section(
+                section.doc_id, section_type=parent[0], section_ref=parent[1]
+            )
+            if row.source_content_hash == section.source_content_hash and row.start_char == parent[4][0]
+        )
+    if continues_same(after):
+        neighbours.append(after)
+    return [row for row in neighbours if row is not None]
+
+
+def _window_reference(section: StoredDocumentSection) -> WindowReference:
+    return WindowReference(
+        section_type=section.section_type,
+        section_ref=section.section_ref,
+        start_char=section.start_char,
+        end_char=section.end_char,
+    )
+
+
+def _cross_window_match(
+    section: StoredDocumentSection, neighbours: list[StoredDocumentSection], quotation: str
+) -> CrossWindowMatch | None:
+    """The one exact occurrence of the quotation in this window's document text joined with a touching neighbour."""
+    for neighbour in neighbours:
+        first, second = sorted((neighbour, section), key=lambda row: row.start_char)
+        if first.end_char != second.start_char or not first.normalized_source_range:
+            continue
+        joined = first.normalized_source_range + second.normalized_source_range
+        found = joined.find(quotation)
+        if found >= 0 and joined.find(quotation, found + 1) < 0:
+            return CrossWindowMatch(
+                start_char=first.start_char + found,
+                end_char=first.start_char + found + len(quotation),
+                windows=[_window_reference(first), _window_reference(second)],
+            )
+    return None
+
+
+def _assess_quotation(
+    sections: list[StoredDocumentSection],
+    quotation: str,
+    *,
+    neighbours: list[StoredDocumentSection] | None = None,
+) -> SectionAnswerAssessment:
     """Check a proposed quotation character-for-character against one resolved section."""
 
     if len(sections) != 1:
@@ -438,6 +833,18 @@ def _assess_quotation(sections: list[StoredDocumentSection], quotation: str) -> 
                 check = check.model_copy(update={"status": "unavailable", "reason": "reference_truncated"})
             elif check.extent == "whole_reference":
                 check = check.model_copy(update={"extent": "excerpt"})
+        elif neighbours:
+            # One of several consecutive windows of one text: a quotation absent from this window may
+            # cross into a neighbouring one, so the check is inconclusive; a whole window is an excerpt.
+            if check.status == "mismatch":
+                check = check.model_copy(update={"status": "unavailable", "reason": "reference_window"})
+            elif check.extent == "whole_reference":
+                check = check.model_copy(update={"extent": "excerpt"})
+    cross_window = (
+        _cross_window_match(section, neighbours, quotation)
+        if neighbours and check.reason == "reference_window"
+        else None
+    )
     if check.status == "exact_reference_match":
         status = "exact_reference_match"
     elif check.status == "mismatch":
@@ -449,7 +856,80 @@ def _assess_quotation(sections: list[StoredDocumentSection], quotation: str) -> 
         quotation_status=status,  # type: ignore[arg-type]
         quotation_check=check,
         gaps=[] if status == "exact_reference_match" else [f"quotation_{check.reason}"],
+        neighbouring_windows=[_window_reference(row) for row in neighbours] if neighbours else None,
+        cross_window_match=cross_window,
     )
+
+
+def _span_text(section: StoredDocumentSection, start: int, end: int) -> str:
+    """'[s, e) of this provision (document code points [S, E))' for offsets into the section's legal text."""
+    offset = section.start_char + _leading_space(section, split_section_truncation_notice(section.content)[0])
+    return f"[{start}, {end}) of this provision (document code points [{offset + start}, {offset + end}))"
+
+
+_NEAR_MATCH_DIFFERENCE_TEXT = {
+    "whitespace": "whitespace and line breaks",
+    "apostrophes_or_quotation_marks": "typographic vs ASCII apostrophes or quotation marks",
+    "asterisk_or_underscore_markers": "asterisk or underscore markers (** or __: Markdown emphasis or footnote/blank markers)",
+    "soft_hyphens": "soft hyphens",
+}
+
+
+def _quotation_diagnostic_lines(
+    assessment: SectionAnswerAssessment, section: StoredDocumentSection | None
+) -> list[str]:
+    """Diagnostics printed next to the character-exact status; they never change it."""
+    check = assessment.quotation_check
+    if check is None or section is None:
+        return []
+    lines: list[str] = []
+    if check.occurrences:
+        spans = ", ".join(_span_text(section, span.start_char, span.end_char) for span in check.occurrences)
+        more = (
+            f" (the first {len(check.occurrences)} are listed)"
+            if check.occurrence_count > len(check.occurrences)
+            else ""
+        )
+        lines.append(
+            f"The quotation occurs exactly {check.occurrence_count} times in the stored provision{more}, at "
+            f"{spans}; quote enough surrounding characters to make it unique."
+        )
+    if check.near_match is not None:
+        near = check.near_match
+        differences = ", ".join(_NEAR_MATCH_DIFFERENCE_TEXT[difference] for difference in near.differences)
+        lines.append(
+            f"Near match (the status above is unchanged): the quotation differs from the stored text only by "
+            f"{differences}, at {_span_text(section, near.start_char, near.end_char)}. Quote those stored "
+            f"characters exactly, as given between the markers below:"
+        )
+        lines.extend(["<<<", near.stored_text, ">>>"])
+    elif check.near_match_places == "several":
+        lines.append(
+            "Near match: after ignoring only whitespace, apostrophe/quotation-mark, asterisk/underscore-marker "
+            "(Markdown emphasis or footnote/blank markers) and "
+            "soft-hyphen differences, the quotation matches the stored text at several places, so no single "
+            "stored span is named; the status above is unchanged."
+        )
+    if assessment.neighbouring_windows and check.reason == "reference_window":
+        rows = ", ".join(
+            f"{_ref_text(row.section_type, row.section_ref)} (start_char={row.start_char})"
+            for row in assessment.neighbouring_windows
+        )
+        lines.append(
+            "This row is one of several consecutive windows of one text, and the quotation was compared with "
+            "this window only: it was not found here, but it may cross into the neighbouring window. Check it "
+            f"against {rows}."
+        )
+        if (match := assessment.cross_window_match) is not None:
+            windows = " and ".join(
+                f"{_ref_text(row.section_type, row.section_ref)} [{row.start_char}, {row.end_char})"
+                for row in match.windows
+            )
+            lines.append(
+                f"The quotation occurs exactly once in the stored text of {windows} joined, at document code points "
+                f"[{match.start_char}, {match.end_char}); it crosses the boundary between those windows."
+            )
+    return lines
 
 
 def _section_warnings(
@@ -469,20 +949,24 @@ def _section_warnings(
     )
     if content_truncated:
         warnings.append(_SECTION_TRUNCATION_WARNING)
-    remainder = structureless = False
+    kinds: set[str] = set()
     for section in sections:
-        if section.section_type != "govde":
-            continue
-        if parent := _continuation_of(section, continuations or {}):
+        kind = _govde_kind(section, continuations or {})
+        if kind == "continuation":
+            parent = _continuation_of(section, continuations or {})
+            assert parent is not None
             warnings.append(_continuation_warning(section, parent))
-        elif section.document_structureless:
-            structureless = True
-        else:
-            remainder = True
-    if structureless:
-        warnings.append(_STRUCTURELESS_WARNING)
-    if remainder:
-        warnings.append(_GOVDE_WARNING)
+        elif kind:
+            kinds.add(kind)
+    # Only genuine remainder keeps the warning that it is not a legal provision identity.
+    for kind, warning in (
+        ("full_text_window", _STRUCTURELESS_WARNING),
+        ("decision_text", _DECISION_TEXT_WARNING),
+        ("body_text", _BODY_TEXT_WARNING),
+        ("remainder", _GOVDE_WARNING),
+    ):
+        if kind in kinds:
+            warnings.append(warning)
     return warnings
 
 
@@ -502,15 +986,16 @@ def _format_section(
     quality: QualityAssessment | None = None,
     continuations: _Continuations | None = None,
     parents: _Parents | None = None,
+    parent_starts: _ParentStarts | None = None,
 ) -> str:
     heading = _heading_suffix(section, continuations or {})
     lines = [
-        f"### {section.doc_id} — {section.section_type} {section.section_ref}{heading}",
+        f"### {section.doc_id} — {_ref_text(section.section_type, section.section_ref)}{heading}",
         f"- Document ID: {section.doc_id}",
-        f"- Section: {section.section_type} {section.section_ref}",
+        f"- Section: {_ref_text(section.section_type, section.section_ref)}",
         (f"- Normalized Markdown code-point range: [{section.start_char}, {section.end_char}); not source PDF pages"),
     ]
-    lines.extend(_parent_line(section, parents or {}, prefix="- "))
+    lines.extend(_parent_line(section, parents or {}, prefix="- ", parent_starts=parent_starts))
     if capped_line := _capped_span_line(section):
         lines.append(capped_line)
     if label := _govde_label(section, continuations or {}):
@@ -570,7 +1055,7 @@ def _loose_search_terms(query: str, *, limit: int = 16) -> list[str]:
     seen: set[str] = set()
     for raw_term in re.findall(r"\w+", query, flags=re.UNICODE):
         term = _loose_search_text(raw_term)
-        if len(term) < 3 or term in _LOOSE_SECTION_SEARCH_STOPWORDS or term in seen:
+        if len(term) < 3 or normalize_search_text(term) in _NORMALIZED_LOOSE_STOPWORDS or term in seen:
             continue
         terms.append(term)
         seen.add(term)
@@ -579,8 +1064,56 @@ def _loose_search_terms(query: str, *, limit: int = 16) -> list[str]:
     return terms
 
 
+def _is_control(char: str) -> bool:
+    return ord(char) < 0x20 or ord(char) == 0x7F
+
+
+def _controls_as_spaces(text: str) -> str:
+    """Treat C0 control characters (and DEL) in a query as word separators."""
+    return "".join(" " if _is_control(char) else char for char in text)
+
+
+def _visible_controls(text: str) -> str:
+    """Echo text with each C0 control character (and DEL) as a visible escape such as \\x00, never raw."""
+    return "".join(f"\\x{ord(char):02x}" if _is_control(char) else char for char in text)
+
+
+def _strip_format_chars(text: str) -> str:
+    """Remove Unicode format characters (soft hyphen, zero-width space/joiner, BOM) from a search query."""
+    return "".join(char for char in text if unicodedata.category(char) != "Cf")
+
+
+def _required_search_text(query: str) -> tuple[str, list[str]]:
+    """Return the query text the exact-word and stem passes require, and the words left out.
+
+    Question words are left out, and in a question also its frame words ("oluşur", "yapılır"); so is
+    "yüzde" (a source may write "%" instead).
+    When nothing would remain, every word is kept: a word is never dropped when it is the only one.
+    """
+    words = re.findall(r"\w+", query, flags=re.UNICODE)
+    question = "?" in query or any(normalize_search_text(word) in _NORMALIZED_QUESTION_WORDS for word in words)
+    not_required = (
+        _NORMALIZED_QUESTION_WORDS
+        | _NORMALIZED_PERCENT_WORDS
+        | (_NORMALIZED_QUESTION_FRAME_WORDS if question else frozenset())
+    )
+    kept: list[str] = []
+    dropped: list[str] = []
+    for word in words:
+        (dropped if normalize_search_text(word) in not_required else kept).append(word)
+    if not kept or not dropped:
+        return query, []
+    return " ".join(kept), dropped
+
+
+def _loose_scored_text(section: StoredDocumentSection) -> str:
+    """Heading and body that the loose ranking scores; the generic govde placeholder heading is not text."""
+    heading = "" if section.heading == GOVDE_HEADING else section.heading
+    return f"{heading} {section.content}"
+
+
 def _loose_section_score(section: StoredDocumentSection, terms: list[str], weights: dict[str, float]) -> float:
-    text = _loose_search_text(f"{section.heading} {section.content}")
+    text = _loose_search_text(_loose_scored_text(section))
     score = sum(weights[term] for term in terms if term in text)
     # Penalize large cross-topic spans without rewarding tiny fragments:
     # short clauses (up to 100 words) compete on coverage, not brevity.
@@ -590,11 +1123,60 @@ def _loose_section_score(section: StoredDocumentSection, terms: list[str], weigh
     return score
 
 
+def _document_id_phrase(document_id: str) -> str:
+    """Name an ID inferred from the query: "the number 943", "the document ID kgk_tms_12"."""
+    return f"the number {document_id}" if document_id.isdigit() else f"the document ID {document_id}"
+
+
 async def _any_document_stored(deps: Dependencies, document_id: str) -> bool:
     for candidate in document_id_candidates(document_id):
         if await deps.doc_store.has_document(candidate):
             return True
     return False
+
+
+async def _annex_not_stored_notice(deps: Dependencies, document_id: str) -> str:
+    """The notice that a document's annexes are not stored, from its stored text ('' when it shows no placeholder)."""
+    for candidate in document_id_candidates(document_id):
+        page = await deps.doc_store.get_document_page(candidate, 1)
+        if page is not None:
+            return annex_not_stored_notice(page.annex_placeholder) if page.annex_placeholder else ""
+    return ""
+
+
+def _decision_number_holders(deps: Dependencies, document_id: str) -> list:
+    """The catalog entries whose Kurul decision number is the bare number ``document_id`` (as
+    get_bddk_document reads it: 8970 is the decision number of document 779)."""
+    bare_number = document_id.strip()
+    if not bare_number.isdigit() or deps.client is None:
+        return []
+    return [entry for entry in deps.client.get_cache_items() if (entry.decision_number or "").strip() == bare_number]
+
+
+async def _require_stored_document(deps: Dependencies, document_id: str, *, decision_pointer: bool = False) -> None:
+    """Raise NOT_FOUND for an explicit document_id that is not a stored document (as get_bddk_document does).
+
+    With ``decision_pointer``, a bare number that is a catalog decision number gets the pointer that
+    get_bddk_document gives: the document that carries that decision number."""
+    if not await _any_document_stored(deps, document_id):
+        if decision_pointer and (holders := _decision_number_holders(deps, document_id)):
+            holders_text = "; ".join(f'document {entry.document_id} "{entry.title}"' for entry in holders)
+            bare_number = document_id.strip()
+            tool_error(
+                NOT_FOUND,
+                f"Document {document_id} is not available in the local store: {document_id} is not a stored "
+                f"document id, but it is the Kurul decision number of {holders_text}. This MCP server is "
+                "airlocked and does not fetch from live BDDK / mevzuat.gov.tr sources at runtime.",
+                retryable=False,
+                hint=f'Call get_bddk_document(document_id="{holders[0].document_id}"), or use '
+                f'search_bddk_regulations(keywords="{bare_number}") to see every entry with this number.',
+            )
+        tool_error(
+            NOT_FOUND,
+            f"Document {document_id} is not available in the local store. This MCP server is airlocked "
+            "and does not fetch from live BDDK / mevzuat.gov.tr sources at runtime.",
+            retryable=False,
+        )
 
 
 async def _search_sections_strict_with_stem_top_up(
@@ -680,7 +1262,7 @@ async def _search_sections_loose(
             # comparable; surfacing them would mislead rank-gating clients.
             merged[_section_key(section)] = section.model_copy(update={"rank": None})
 
-    texts = [_loose_search_text(f"{s.heading} {s.content}") for s in merged.values()]
+    texts = [_loose_search_text(_loose_scored_text(s)) for s in merged.values()]
     # Rarity already captures specificity. Squared character length favored
     # long title words over short substantive terms such as test, veri and THK.
     weights = {
@@ -729,18 +1311,37 @@ def register(mcp, deps: Dependencies) -> None:
                 sharing type, reference and heading; copy it from the disambiguation list.
                 It is valid only for the corpus file being served and is not a citation.
 
+        A document_id that is not a stored document is a NOT_FOUND error (a bare
+        numeric ID is also tried as `mevzuat_<id>` and `bddk_<id>`); for a bare number
+        that is a catalog decision number, the error names the document that carries it.
+
         fikra and bent rows are search-oriented, not unique addresses: many rows can
-        share one reference. Where a stored parent article contains a row it is shown
-        as "Parent:"; fetch that parent article for the full provision.
+        share one reference. Where a stored parent provision (a madde, gecici_madde or
+        ek_madde, or in a guide or standard a paragraf or ilke) contains a row it is
+        shown as "Parent:"; fetch that parent for the full provision.
 
         Supplying quotation returns answer_assessment with the mechanical match result.
         The quotation is compared with the section's legal text after its stored hash
         is confirmed; a storage truncation notice on a capped section is not legal text
         and is excluded, so reference_sha256 is the hash of exactly the text compared.
-        A capped section holds only a 20,000-character window of its provision, so text
-        beyond that window is not compared: a quotation absent from the window is
+        A capped section holds only a stored window of its provision (at most 20,000
+        characters; the answer states its length and the provision's true length, and
+        the get_bddk_document pages that hold the rest), so text beyond that window is
+        not compared: a quotation absent from the window is
         reported as unavailable (gap quotation_reference_truncated), never not_found,
-        and a match is never reported as the whole reference.
+        and a match is never reported as the whole reference. The same holds for a govde
+        row that is one of several consecutive windows of one text (a document without
+        article structure, the continuation of a long provision, or any govde row that
+        touches another govde row of the same text): a quotation absent
+        from it is unavailable (gap quotation_reference_window), the neighbouring rows
+        are named with their start_char, and an exact occurrence in this window joined
+        with a neighbour is reported with its document offsets.
+        The status is always character-exact. Next to a not_found status the answer may
+        name the one stored place the quotation matches once only whitespace/line
+        breaks, typographic vs ASCII apostrophes and quotation marks, asterisk or
+        underscore markers ** / __ (Markdown emphasis or footnote/blank markers)
+        and soft hyphens are ignored, with those stored characters to quote instead; an
+        ambiguous quotation lists where it occurs.
         Scope and semantic entailment still require review; never infer them from a
         quotation match.
         """
@@ -759,6 +1360,9 @@ def register(mcp, deps: Dependencies) -> None:
         section_item = quality = None
         continuations = await _find_continuations(deps, sections[:_MAX_DISAMBIGUATION_RESULTS])
         parents = await _find_parents(deps, sections[:_MAX_DISAMBIGUATION_RESULTS])
+        parent_starts = (
+            await _find_parent_starts(deps, sections[:_MAX_DISAMBIGUATION_RESULTS], parents) if parents else {}
+        )
         if len(sections) == 1:
             quality = _section_quality(sections[0])
             section_item = _with_parent(
@@ -769,7 +1373,8 @@ def register(mcp, deps: Dependencies) -> None:
         assessment = None
         assessment_text = ""
         if quotation is not None:
-            assessment = _assess_quotation(sections, quotation)
+            neighbours = await _window_neighbours(deps, sections[0], continuations) if len(sections) == 1 else []
+            assessment = _assess_quotation(sections, quotation, neighbours=neighbours)
             assessment_text = (
                 f"\n\nAnswer evidence checks: {assessment.basis}\n"
                 f"Quotation in stored reference (no normalization): {assessment.quotation_status}\n"
@@ -780,15 +1385,24 @@ def register(mcp, deps: Dependencies) -> None:
             )
             if len(sections) == 1 and split_section_truncation_notice(sections[0].content)[1] is not None:
                 assessment_text += f"\n{_CAPPED_QUOTATION_NOTE}"
+            if diagnostics := _quotation_diagnostic_lines(assessment, sections[0] if len(sections) == 1 else None):
+                assessment_text += "\n" + "\n".join(diagnostics)
         assessment_incomplete = bool(assessment and assessment.gaps)
         if not sections:
+            # A document without the requested section is "no results"; an unknown document is NOT_FOUND.
+            await _require_stored_document(deps, document_id, decision_pointer=True)
             query = " ".join(
                 str(part) for part in (document_id, section_type or "", section_ref or "", heading or "") if part
             )
             output = (
                 f"No section found for document {document_id} with the requested filters.\n"
-                f"Try search_document_sections with query: {query or document_id}"
+                f"Try search_document_sections with query: {_visible_controls(query or document_id)}"
             )
+            annex_notice = (
+                await _annex_not_stored_notice(deps, document_id) if _normalize_optional(section_type) == "ek" else ""
+            )
+            if annex_notice:
+                output += f"\n\n{annex_notice}"
             return structured_tool_result(
                 DocumentSectionResponse(
                     status="no_results",
@@ -798,6 +1412,7 @@ def register(mcp, deps: Dependencies) -> None:
                     section_type=_normalize_optional(section_type),
                     section_ref=_normalize_optional(section_ref),
                     heading=heading,
+                    warnings=[annex_notice] if annex_notice else [],
                 )
             )
 
@@ -807,7 +1422,13 @@ def register(mcp, deps: Dependencies) -> None:
             return structured_tool_result(
                 DocumentSectionResponse(
                     status="partial" if section_item.content_truncated or assessment_incomplete else "ok",
-                    text=_format_section(section, quality=quality, continuations=continuations, parents=parents)
+                    text=_format_section(
+                        section,
+                        quality=quality,
+                        continuations=continuations,
+                        parents=parents,
+                        parent_starts=parent_starts,
+                    )
                     + assessment_text,
                     answer_assessment=assessment,
                     evidence=[_section_evidence(section)],
@@ -843,14 +1464,14 @@ def register(mcp, deps: Dependencies) -> None:
         ):
             lines.append(f"- Document status: {status_notice}")
         if any(section.section_type in {"fikra", "bent"} for section in result_sections):
-            lines.append(_NESTED_ROW_HINT)
+            lines.append(_nested_row_hint({parent[0] for parent in parents.values()}))
         for section in result_sections:
             heading_text = _heading_suffix(section, continuations)
             lines.append(
-                f"- {section.doc_id} {section.section_type} {section.section_ref}{heading_text} "
+                f"- {section.doc_id} {_ref_text(section.section_type, section.section_ref)}{heading_text} "
                 f"(start_char={section.start_char}, hash={section.content_hash[:12]})"
             )
-            lines.extend(_parent_line(section, parents, prefix="  "))
+            lines.extend(_parent_line(section, parents, prefix="  ", parent_starts=parent_starts))
             if label := _govde_label(section, continuations):
                 lines.append(f"  Section kind: {label}")
             lines.extend(_quality_lines(_section_quality(section), prefix="  "))
@@ -897,56 +1518,95 @@ def register(mcp, deps: Dependencies) -> None:
 
         Args:
             query: Turkish legal query, e.g. `943 İlke 5 model validasyonu`
-            document_id: Optional document ID filter
+            document_id: Optional document ID filter; an ID that is not a stored
+                document is a NOT_FOUND error
             section_type: Optional section type filter
             limit: Maximum number of section results
 
-        Nested fıkra/bent rows are omitted unless `section_type` requests them.
-        `govde` rows are of three kinds: (1) the full-text windows of a document with
-        no article structure (for example a Kurul Kararı), which are searched by
-        default and cited by the document's title and decision date/number, not as
-        an article; (2) the continuation of a named provision beyond its
-        20,000-character stored window, which belongs to that provision and is
-        labelled with it; (3) genuine remainder text of a structured document
-        (preamble, footnotes, unparsed leftovers), which is not a legal provision.
-        In a document with article structure, govde rows are omitted unless
-        `section_type=govde` requests them.
+        Without `section_type`, every named section and every `govde` row is
+        searched; nested fıkra/bent rows are omitted unless `section_type` requests
+        them. Named sections and govde rows are ranked by the same FTS rank. Each
+        govde hit is labelled as exactly one kind: (1) a full-text window of a
+        document with no article structure (for example a Kurul Kararı), cited by
+        the document's title and decision date/number, not as an article; (2) the
+        continuation of a named provision beyond its stored window (at most 20,000
+        characters), which belongs to that provision and is labelled with it; (3) the
+        leading decision text of a Kurul Kararı whose only named sections are
+        annexes, cited as that decision; (4) body text of a document whose only
+        named sections are annexes or paragraphs; (5) remainder text between
+        provisions (preamble, footnotes, unparsed leftovers), which is not a legal
+        provision identity.
 
         Each FTS hit includes a `Match rank` (SQLite FTS5 BM25 over the section
         heading and body, heading weighted 2x, sign-flipped so that higher is
         better): ranks are comparable within one query's results and can be
         used to gate low-confidence retrieval.
 
-        When the exact-word pass returns fewer than `limit` hits, it is topped up
-        with an inflection-tolerant pass (word prefixes, e.g. "süresi" also finds
-        "süresinin"). Those hits follow the exact-word hits, carry no rank and are
-        marked `stem_match`. The loose token fallback runs only when both passes
-        find nothing.
+        Turkish question words (kaç, nedir, nasıl, mi ...), in a question also its
+        frame words (oluşur, yapılır ...), and "yüzde" (sources also write "%") are
+        not required words; the answer lists them under "not searched". Invisible
+        format characters are ignored.
 
-        A bare number in the query that equals a stored document ID limits the
-        search to that document only when the exact-reference, exact-word or
+        When the exact-word pass returns fewer than `limit` hits, it is topped up
+        with an inflection-tolerant pass (word roots and prefixes, e.g. "süresi"
+        also finds "süresinin", "denetlenmesi" also finds "denetimi"). Those hits
+        follow the exact-word hits, carry no rank and are marked `stem_match`. The
+        loose token fallback runs when both passes find nothing, and also when
+        every hit is an inflection-tolerant one; its hits then follow them.
+
+        A bare number or a `kgk_`/`rg_` document ID in the query (typically at its
+        start, e.g. `943 İlke 5`) is read as a document ID only when such a
+        document is stored; only the first such candidate in the query is
+        considered (a later number is never promoted). It scopes the search as a preference, not a filter: it limits
+        the search to that document only when the exact-reference, exact-word or
         inflection-tolerant pass finds something there; the text then says so and
-        `inferred_document_filter_applied` is true. Otherwise the search runs over
-        every document.
+        `inferred_document_filter_applied` is true. Otherwise the search falls back
+        to every document and the text adds a note saying that the ID was not
+        applied (`inferred_document_filter_dropped` is true).
         """
-        refs = parse_legal_refs(query)
+        # Invisible format characters (soft hyphen, zero-width space) split words: never search them.
+        # Control characters (NUL ...) separate words. The query is echoed as given, except that a
+        # control character is shown as an escape, never raw.
+        search_query = _strip_format_chars(_controls_as_spaces(query))
+        echoed_query = _visible_controls(query)
+        refs = parse_legal_refs(search_query)
         # An explicit document_id is a hard filter. A number inferred from the
         # query text is only a preference: it is ignored when no such document
         # is stored, and dropped when the exact-reference, strict and
         # inflection-tolerant passes find nothing in it; it never scopes the
         # loose fallback.
-        query_doc_id = None if document_id else (refs.document_ids[0] if refs.document_ids else None)
+        # Only the first candidate is considered: an unstored number is query content (an amount, a
+        # day count, a year), so a later number is never promoted over it and nothing is stripped.
+        candidate_query_doc_id = None if document_id else (refs.document_ids[0] if refs.document_ids else None)
+        query_doc_id = candidate_query_doc_id
         filter_drop_reason: str | None = None
         if query_doc_id and not await _any_document_stored(deps, query_doc_id):
             filter_drop_reason = "no stored document has that ID"
             query_doc_id = None
         inferred_doc_id = document_id or query_doc_id
-        inferred_section_type = section_type or (refs.sections[0][0] if refs.sections else None)
-        inferred_section_ref = refs.sections[0][1] if refs.sections else None
+        explicit_section_type = _normalize_optional(section_type)
+        # The exact reference is the first parsed one; with an explicit section_type only a reference of
+        # that type qualifies, so "İlke 5" with section_type=paragraf is not read as paragraf 5.
+        parsed_refs = [ref for ref in refs.sections if not explicit_section_type or ref[0] == explicit_section_type]
+        mismatched_ref = None if parsed_refs or not refs.sections else refs.sections[0]
+        parsed_section_type, inferred_section_ref = parsed_refs[0] if parsed_refs else (None, None)
+        inferred_section_type = explicit_section_type or parsed_section_type
         exact_ref_detected = bool(inferred_doc_id and inferred_section_type and inferred_section_ref)
+        # The filter actually applied: an explicit section_type always; a type parsed from the query
+        # text only while a document is identified.
+        applied_section_type = inferred_section_type if exact_ref_detected else explicit_section_type
         candidate_doc_ids: list[str | None] = (
             list(document_id_candidates(inferred_doc_id)) if inferred_doc_id else [None]
         )
+        # The document number names the scope, it is not a content word: no section contains its own
+        # document ID, so the scoped passes search the query without it. The unscoped retry keeps the
+        # raw query, where the number may be content ("kredi 90 gün gecikme").
+        scoped_query = search_query
+        if query_doc_id:
+            start, end = refs.document_id_spans[0]
+            scoped_query = f"{search_query[:start].rstrip()} {search_query[end:].lstrip()}".strip()
+        # Question words and "yüzde" are not required by the exact-word and stem passes.
+        required_scoped_query, not_searched = _required_search_text(scoped_query)
 
         exact_hits = []
         if exact_ref_detected:
@@ -961,25 +1621,35 @@ def register(mcp, deps: Dependencies) -> None:
                     break
         hits, stem_keys = await _search_sections_strict_with_stem_top_up(
             deps,
-            query,
+            required_scoped_query,
             candidate_doc_ids=candidate_doc_ids,
-            section_type=_normalize_optional(inferred_section_type),
+            section_type=applied_section_type,
             limit=limit,
         )
         loose_fallback_used = False
+        # Set when the inferred document is stored but the exact provision named in the query is not in it.
+        missing_in_dropped_doc: str | None = None
         if not hits and not exact_hits and query_doc_id:
             # Nothing exact or strict inside the inferred document: a loose match there must not
             # outrank a strict match elsewhere, so repeat strict, then loose, with no document scope.
             filter_drop_reason = f"no section in document {query_doc_id} matched the query"
+            if exact_ref_detected:
+                missing_in_dropped_doc = query_doc_id
+                filter_drop_reason = (
+                    f"document {query_doc_id} is stored, but {_ref_text(parsed_section_type, inferred_section_ref)} "
+                    "was not "
+                    "found in it and no other section of it matched the query"
+                )
             inferred_doc_id = None
-            # With the inferred document dropped no document is identified, so the section reference
-            # was not applied to the unscoped search.
+            # With the inferred document dropped no document is identified, so neither the section
+            # reference nor its type is applied to the unscoped search.
             exact_ref_detected = False
+            applied_section_type = explicit_section_type
             hits, stem_keys = await _search_sections_strict_with_stem_top_up(
                 deps,
-                query,
+                _required_search_text(search_query)[0],
                 candidate_doc_ids=[None],
-                section_type=_normalize_optional(inferred_section_type),
+                section_type=applied_section_type,
                 limit=limit,
             )
             candidate_doc_ids = [None]
@@ -988,37 +1658,76 @@ def register(mcp, deps: Dependencies) -> None:
             for candidate_doc_id in candidate_doc_ids:
                 hits = await _search_sections_loose(
                     deps,
-                    query,
+                    search_query,
                     document_id=candidate_doc_id,
-                    section_type=_normalize_optional(inferred_section_type),
+                    section_type=applied_section_type,
                     limit=limit,
                 )
                 if hits:
                     break
             loose_fallback_used = bool(hits)
+        elif not exact_hits and len(hits) < limit and all(_section_key(hit) in stem_keys for hit in hits):
+            # Only inflection-tolerant hits: a weak prefix match must not block the provision the query
+            # names, so the loose pass also runs, in the same scope, and its hits follow the stem hits.
+            seen = {_section_key(hit) for hit in hits}
+            loose_hits = await _search_sections_loose(
+                deps,
+                scoped_query if inferred_doc_id else search_query,
+                document_id=hits[0].doc_id if inferred_doc_id else None,
+                section_type=applied_section_type,
+                limit=limit,
+            )
+            extra = [hit for hit in loose_hits if _section_key(hit) not in seen][: limit - len(hits)]
+            hits = hits + extra
+            loose_fallback_used = bool(extra)
         # A section reference without an identified document cannot be looked up, so it is not applied.
         # Computed after the drop decision so that a dropped inferred document reports it as not applied.
-        unapplied_ref_note = (
-            f"Note: {refs.sections[0][0]} {inferred_section_ref} in the query was not applied as a filter because "
-            "no document was identified; find the document id with search_bddk_regulations, then call "
-            f"get_document_section(document_id, section_type='{refs.sections[0][0]}', "
-            f"section_ref='{inferred_section_ref}')."
-            if inferred_section_ref and not exact_ref_detected
-            else None
-        )
+        unapplied_ref_note: str | None = None
+        if missing_in_dropped_doc:
+            unapplied_ref_note = (
+                f"Note: {_ref_text(parsed_section_type, inferred_section_ref)} was not found in document "
+                f"{missing_in_dropped_doc}, which {_document_id_phrase(missing_in_dropped_doc)} in the query "
+                "identified; the "
+                "reference was not applied to the search over every document. Check the reference, or retrieve "
+                "that document with get_bddk_document."
+            )
+        elif inferred_section_ref and not exact_ref_detected:
+            unapplied_ref_note = (
+                f"Note: {_ref_text(parsed_section_type, inferred_section_ref)} in the query was not applied as a filter "
+                "because no document was identified; find the document id with search_bddk_regulations, then call "
+                f"get_document_section(document_id, section_type='{parsed_section_type}', "
+                f"section_ref='{inferred_section_ref}')."
+            )
+        elif mismatched_ref:
+            unapplied_ref_note = (
+                f"Note: {_ref_text(mismatched_ref[0], mismatched_ref[1])} in the query was not used as an exact reference "
+                f"because section_type={explicit_section_type} was passed."
+            )
         reported_section_ref = None if unapplied_ref_note else _normalize_optional(inferred_section_ref)
         filter_dropped = filter_drop_reason is not None
         inferred_filter_applied = bool(query_doc_id and not filter_dropped)
         filter_note = (
-            f"Note: the number {refs.document_ids[0]} in the query was not applied as a document filter "
+            f"Note: {_document_id_phrase(candidate_query_doc_id)} in the query was not applied as a document filter "
             f"({filter_drop_reason}).\n"
             if filter_dropped
             else (
-                f"Note: the search was limited to document {query_doc_id} because of the number {query_doc_id} "
-                "in the query; pass document_id or remove the number to search every document.\n"
+                f"Note: the search was limited to document {query_doc_id} because of "
+                f"{_document_id_phrase(query_doc_id)} in the query; pass document_id or remove the "
+                f"{'number' if query_doc_id.isdigit() else 'document ID'} to search every document.\n"
                 if inferred_filter_applied
                 else ""
             )
+        )
+        # The "yüzde" rule is named only for a query that has a percentage.
+        percent_query = "%" in search_query or any(
+            normalize_search_text(word) in _NORMALIZED_PERCENT_WORDS for word in re.findall(r"\w+", search_query)
+        )
+        percent_rule = "; 'yüzde' is optional because sources also write '%'" if percent_query else ""
+        not_searched_note = (
+            f"Note: not searched as required words: {', '.join(not_searched)} (Turkish question words and the "
+            f"frame words of a question are left out{percent_rule}).\n"
+            if not_searched
+            else ""
         )
         if exact_hits:
             # Exact-ref lookups carry no FTS rank; inherit it from the FTS
@@ -1034,15 +1743,30 @@ def register(mcp, deps: Dependencies) -> None:
             # The explicitly requested provision is an exact-reference hit even when the prefix top-up
             # also found it: never label it as an inflection-tolerant match.
             stem_keys -= seen
+        if not hits and document_id:
+            # An explicit document_id that names no stored document is NOT_FOUND, not "no sections".
+            await _require_stored_document(deps, document_id)
         if not hits:
+            # An annex asked of an identified document whose stored text shows that its annexes were not
+            # stored: say so (as get_document_section does), and do not suggest dropping the document.
+            identified_doc_id = document_id or query_doc_id
+            annex_notice = (
+                await _annex_not_stored_notice(deps, identified_doc_id)
+                if identified_doc_id and inferred_section_type == "ek"
+                else ""
+            )
             passed_filters = [
-                name for name, value in (("document_id", document_id), ("section_type", section_type)) if value
+                name
+                for name, value in (("document_id", document_id), ("section_type", section_type))
+                if value and not (annex_notice and name == "document_id")
             ]
             remove_hint = f"remove the {'/'.join(passed_filters)} filter, " if passed_filters else ""
             output = (
-                f"NO RESULTS: No document sections found matching '{query}'.\n"
+                f"NO RESULTS: No document sections found matching '{echoed_query}'.\n"
                 + filter_note
+                + not_searched_note
                 + (f"{unapplied_ref_note}\n" if unapplied_ref_note else "")
+                + (f"{annex_notice}\n" if annex_notice else "")
                 + f"Try a broader query, {remove_hint}or retrieve the full document."
             )
             return structured_tool_result(
@@ -1051,27 +1775,30 @@ def register(mcp, deps: Dependencies) -> None:
                     text=output,
                     query=query,
                     document_id=inferred_doc_id,
-                    section_type=_normalize_optional(inferred_section_type),
+                    section_type=applied_section_type,
                     section_ref=reported_section_ref,
                     parsed_section_ref=_normalize_optional(inferred_section_ref),
                     exact_reference_detected=exact_ref_detected,
                     loose_fallback_used=False,
-                    warnings=[unapplied_ref_note] if unapplied_ref_note else [],
+                    warnings=[note for note in (unapplied_ref_note, annex_notice) if note],
                     inferred_document_filter_dropped=filter_dropped,
+                    query_words_not_searched=not_searched,
                 )
             )
 
         continuations = await _find_continuations(deps, hits)
         parents = await _find_parents(deps, hits)
-        lines = [f"Found {len(hits)} section result(s) for '{query}':\n"]
+        lines = [f"Found {len(hits)} section result(s) for '{echoed_query}':\n"]
         if unapplied_ref_note:
             lines.insert(0, f"{unapplied_ref_note}\n")
+        if not_searched_note:
+            lines.insert(0, not_searched_note)
         if filter_note:
             lines.insert(0, filter_note)
         has_exact_word_hits = any(_section_key(hit) not in stem_keys for hit in hits)
         for hit in hits:
             heading = _heading_suffix(hit, continuations)
-            lines.append(f"**{hit.doc_id} — {hit.section_type} {hit.section_ref}{heading}**")
+            lines.append(f"**{hit.doc_id} — {_ref_text(hit.section_type, hit.section_ref)}{heading}**")
             lines.append(f"  Document ID: {hit.doc_id}")
             if hit.document_title:
                 lines.append(f"  Document title: {hit.document_title}")
@@ -1080,7 +1807,7 @@ def register(mcp, deps: Dependencies) -> None:
             lines.extend(_provenance_lines(hit, prefix="  "))
             if hit.document_source_url:
                 lines.append(f"  Catalog source (not a validated citation): {hit.document_source_url}")
-            lines.append(f"  Section: {hit.section_type} {hit.section_ref}")
+            lines.append(f"  Section: {_ref_text(hit.section_type, hit.section_ref)}")
             lines.extend(_parent_line(hit, parents, prefix="  "))
             if label := _govde_label(hit, continuations):
                 lines.append(f"  Note: {label}")
@@ -1099,14 +1826,17 @@ def register(mcp, deps: Dependencies) -> None:
                     + ("no rank, listed after the exact-word hits" if has_exact_word_hits else "no rank")
                 )
             lines.extend(_quality_lines(_section_quality(hit), prefix="  "))
-            excerpt, truncated, _, _ = _section_excerpt(hit, max_chars=_MAX_SEARCH_EXCERPT_CHARS, query=query)
+            excerpt, truncated, excerpt_start, excerpt_end = _section_excerpt(
+                hit, max_chars=_MAX_SEARCH_EXCERPT_CHARS, query=search_query
+            )
             if excerpt:
+                lines.extend(_search_excerpt_lines(hit, excerpt_start, excerpt_end, truncated=truncated))
                 lines.append(excerpt)
                 if truncated:
                     lines.append("  [excerpt truncated — call get_document_section for the full section]")
             lines.append("")
         result_items = [
-            _with_parent(_section_item(hit, query=query, continuations=continuations), hit, parents).model_copy(
+            _with_parent(_section_item(hit, query=search_query, continuations=continuations), hit, parents).model_copy(
                 update={"stem_match": _section_key(hit) in stem_keys}
             )
             for hit in hits
@@ -1119,7 +1849,11 @@ def register(mcp, deps: Dependencies) -> None:
                 evidence=[_section_evidence(hit) for hit in hits],
                 warnings=[
                     *_section_warnings(hits, content_truncated=result_content_truncated, continuations=continuations),
-                    *([_EXACT_REFERENCE_MISSING_WARNING] if exact_ref_detected and not exact_hits else []),
+                    *(
+                        [_EXACT_REFERENCE_MISSING_WARNING]
+                        if (exact_ref_detected and not exact_hits) or missing_in_dropped_doc
+                        else []
+                    ),
                     *([unapplied_ref_note] if unapplied_ref_note else []),
                     *(
                         [
@@ -1133,13 +1867,14 @@ def register(mcp, deps: Dependencies) -> None:
                 ],
                 query=query,
                 document_id=inferred_doc_id,
-                section_type=_normalize_optional(inferred_section_type),
+                section_type=applied_section_type,
                 section_ref=reported_section_ref,
                 parsed_section_ref=_normalize_optional(inferred_section_ref),
                 exact_reference_detected=exact_ref_detected,
                 loose_fallback_used=loose_fallback_used,
                 inferred_document_filter_dropped=filter_dropped,
                 inferred_document_filter_applied=inferred_filter_applied,
+                query_words_not_searched=not_searched,
                 results=result_items,
             )
         )

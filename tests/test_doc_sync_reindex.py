@@ -18,6 +18,7 @@ class _DummyStore:
 
     def __init__(self) -> None:
         self.has: set[str] = set()
+        self.metadata_updates: list[tuple[str, dict]] = []
         self.stored: dict = {}
         self.cleared: list[str] = []
         self.failures: list[tuple] = []
@@ -37,6 +38,16 @@ class _DummyStore:
 
     async def get_pdf_bytes(self, doc_id: str):
         return None
+
+    async def update_document_metadata(self, doc_id: str, **fields) -> list[str]:
+        self.metadata_updates.append((doc_id, fields))
+        doc = self.stored.get(doc_id)
+        if doc is None:
+            return []
+        changed = [name for name, value in fields.items() if value and getattr(doc, name) != value]
+        for name in changed:
+            setattr(doc, name, fields[name])
+        return changed
 
     async def get_document(self, doc_id: str):
         return self.stored.get(doc_id)
@@ -163,7 +174,7 @@ async def test_plain_resync_reindexes_stored_text_whose_chunks_are_missing():
     call_kwargs = vector_store.add_document.await_args.kwargs
     assert call_kwargs == {
         "doc_id": "999997",
-        "title": "Stored title",
+        "title": "Catalog title",
         "content": stored.markdown_content,
         "category": "Yönetmelik",
         "decision_date": "2020-01-01",
@@ -172,6 +183,10 @@ async def test_plain_resync_reindexes_stored_text_whose_chunks_are_missing():
     }
     assert store.stored["999997"] is stored
     assert store.stored["999997"].extraction_method == "lightocr"
+    assert stored.markdown_content == "MADDE 1 – Gözden geçirilmiş tohum metni."
+    first_call = vector_store.add_document.await_args_list[0].kwargs
+    assert first_call["title"] == "Catalog title" and first_call["category"] == "Yönetmelik"
+    assert [update[0] for update in store.metadata_updates] == ["999997"]
     assert store.cleared == ["999997", "999997"]
     assert (report.reindexed, report.downloaded, report.skipped, report.failed) == (1, 0, 0, 0)
 

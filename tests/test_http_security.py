@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import ipaddress
+import json
 import time
 from dataclasses import FrozenInstanceError, replace
 from typing import Any
@@ -12,7 +13,9 @@ from typing import Any
 import httpx
 import jwt
 import pytest
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
+from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 from mcp.server.auth.middleware.bearer_auth import BearerAuthBackend, RequireAuthMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 
@@ -20,6 +23,7 @@ from bddk_mcp.http_security import (
     HttpSecurityConfigError,
     HttpSecurityMiddleware,
     JwtTokenVerifier,
+    _signing_key_fits_algorithm,
     is_loopback_host,
     load_http_security_config,
 )
@@ -846,22 +850,78 @@ async def test_jwt_verifier_rejects_a_token_whose_alg_differs_from_the_declared_
     assert await verifier.verify_token(_sign(private_key, "RS256", "declared")) is not None
 
 
+def _forge_es256_token_signed_by(private_key, kid: str) -> str:
+    """An ES256-header token whose ECDSA/SHA-256 signature was made by ``private_key`` (PyJWT refuses to encode it)."""
+
+    def part(data: bytes) -> str:
+        return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+    header = part(json.dumps({"alg": "ES256", "kid": kid, "typ": "JWT"}).encode())
+    payload = part(json.dumps(_claims()).encode())
+    r, s = decode_dss_signature(private_key.sign(f"{header}.{payload}".encode(), ec.ECDSA(hashes.SHA256())))
+    size = (private_key.curve.key_size + 7) // 8
+    return f"{header}.{payload}.{part(r.to_bytes(size, 'big') + s.to_bytes(size, 'big'))}"
+
+
 @pytest.mark.asyncio
-async def test_jwt_verifier_rejects_key_type_and_curve_mismatches_for_alg_less_jwks(jwt_material):
+async def test_jwt_verifier_rejects_key_type_and_curve_mismatches_for_alg_less_jwks(jwt_material, monkeypatch):
     rsa_private, _jwks = jwt_material
     p256 = ec.generate_private_key(ec.SECP256R1())
     p384 = ec.generate_private_key(ec.SECP384R1())
     keys = [_ec_jwk(p256, "ec-p256", "P-256"), _ec_jwk(p384, "ec-p384", "P-384"), _rsa_jwk(rsa_private, "rsa", None)]
     verifier = _verifier_for(keys, "RS256,ES256,ES384")
+    decode_calls: list[object] = []
+    real_decode = jwt.decode
+
+    def spy(*args, **kwargs):
+        decode_calls.append(args)
+        return real_decode(*args, **kwargs)
+
+    monkeypatch.setattr(jwt, "decode", spy)
 
     # An RS256 header naming an EC key never reaches signature checking.
     assert await verifier.verify_token(_sign(rsa_private, "RS256", "ec-p256")) is None
-    # An ES256 header naming an RSA key or a P-384 key is refused as well.
+    # An ES256 header naming an RSA key is refused as well.
     assert await verifier.verify_token(_sign(p256, "ES256", "rsa")) is None
-    assert await verifier.verify_token(_sign(p256, "ES256", "ec-p384")) is None
+    # An ES256 header naming the P-384 key, signed by that same P-384 key, is refused by the
+    # key-type check alone: jwt.decode (and so the signature check) is never reached.
+    assert await verifier.verify_token(_forge_es256_token_signed_by(p384, "ec-p384")) is None
+    assert decode_calls == []
     # Matching alg-less EC keys still verify.
     assert await verifier.verify_token(_sign(p256, "ES256", "ec-p256")) is not None
     assert await verifier.verify_token(_sign(p384, "ES384", "ec-p384")) is not None
+    assert len(decode_calls) == 2
+
+
+def _pyjwk(jwk: dict[str, Any]) -> jwt.PyJWK:
+    return jwt.PyJWK.from_dict(jwk)
+
+
+def test_signing_key_fits_algorithm_checks_alg_less_keys_by_key_type_and_curve():
+    rsa_private = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    p256 = _pyjwk(_ec_jwk(ec.generate_private_key(ec.SECP256R1()), "p256", "P-256"))
+    p384 = _pyjwk(_ec_jwk(ec.generate_private_key(ec.SECP384R1()), "p384", "P-384"))
+    rsa_key = _pyjwk(_rsa_jwk(rsa_private, "rsa", None))
+
+    assert _signing_key_fits_algorithm(rsa_key, "ES256") is False
+    assert _signing_key_fits_algorithm(p384, "ES256") is False
+    assert _signing_key_fits_algorithm(p256, "ES256") is True
+    assert _signing_key_fits_algorithm(p384, "ES384") is True
+    assert _signing_key_fits_algorithm(p256, "RS256") is False
+    for algorithm in ("RS256", "PS256", "RS512"):
+        assert _signing_key_fits_algorithm(rsa_key, algorithm) is True
+    # Anything else fails closed.
+    assert _signing_key_fits_algorithm(rsa_key, "HS256") is False
+    assert _signing_key_fits_algorithm(p256, "none") is False
+
+
+def test_signing_key_fits_algorithm_requires_a_declared_alg_to_equal_the_token_alg():
+    rsa_private = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    declared = _pyjwk(_rsa_jwk(rsa_private, "declared", "RS256"))
+
+    assert _signing_key_fits_algorithm(declared, "RS256") is True
+    assert _signing_key_fits_algorithm(declared, "PS256") is False
+    assert _signing_key_fits_algorithm(declared, "RS512") is False
 
 
 @pytest.mark.asyncio
