@@ -863,6 +863,93 @@ class TestRelaxedFtsFallbackIsNotExact:
         assert [(r["doc_id"], r["match_type"]) for r in results] == [("strict", "fts_exact")]
 
 
+class TestInflectedKeywordPass:
+    """A document that holds every query word only in an inflected form ("tutarının" for "tutarı") is a
+    keyword match for the fusion and the lexical boost, never an exact or keyword-only match."""
+
+    @pytest.fixture
+    async def credit_card_store(self, vector_store, doc_store):
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="exact",
+            title="Kurul Kararı",
+            content="Kredi kartı asgari ödeme tutarı yüzde yirmi olarak belirlenmiştir.",
+        )
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="inflected",
+            title="Kredi Kartı Asgari Ödeme Tutarının Değiştirilmesi Hk. Kurul Kararı",
+            content="Kredi kartı asgari ödeme tutarının değiştirilmesi yüzde kırk olarak uygulanır.",
+        )
+        # Unrelated documents keep the BM25 weight of the query words positive.
+        for number, text in enumerate(("Mevduat sigortası primleri.", "Likidite oranı.", "Faiz riski.", "Sermaye.")):
+            await _store_and_index(vector_store, doc_store, doc_id=f"other{number}", title="Genelge", content=text)
+        return vector_store
+
+    @pytest.mark.asyncio
+    async def test_the_only_document_holding_the_inflected_word_gets_the_lexical_boost(self, credit_card_store):
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", -1.0):
+            hits = await credit_card_store._hybrid_search("kredi kartı asgari ödeme tutarı", limit=10)
+
+        by_id = {hit["doc_id"]: hit for hit in hits}
+        assert by_id["inflected"]["match_type"] == "hybrid"
+        assert by_id["inflected"]["lexical_relevance"] > 0
+        assert by_id["exact"]["match_type"] == "hybrid" and by_id["exact"]["lexical_relevance"] == 1.0
+        assert by_id["other0"]["match_type"] == "vector"
+
+    @pytest.mark.asyncio
+    async def test_strict_hits_keep_their_order_and_inflected_hits_follow_flagged(self, credit_card_store):
+        hits = await credit_card_store._fts_search("kredi kartı asgari ödeme tutarı", limit=50)
+
+        assert [(hit["doc_id"], bool(hit.get("fts_inflected"))) for hit in hits] == [
+            ("exact", False),
+            ("inflected", True),
+        ]
+        assert not any(hit["fts_relaxed"] for hit in hits)
+
+    @pytest.mark.asyncio
+    async def test_an_inflected_match_opens_the_fts_gate_and_stops_the_relaxed_fallback(self, credit_card_store):
+        # No document holds every word as typed; the OR fallback would also find "exact".
+        fts_hits = await credit_card_store._fts_search("asgari ödeme tutarı değiştirilmesi", limit=50)
+        # Neither pass finds "kırkıncı": the OR fallback still runs.
+        relaxed = await credit_card_store._fts_search("asgari ödeme tutarı kırkıncı", limit=50)
+        # Two words give no OR query, so without the inflected match the FTS gate would penalise the hit;
+        # an uncalibrated model shows the ordering score itself unless the gate penalises it.
+        credit_card_store._embedding_model = "uncalibrated-test-model"
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", -1.0):
+            hits = await credit_card_store._hybrid_search("tutarı değiştirilmesi", limit=10)
+
+        assert [(hit["doc_id"], hit["fts_relaxed"], hit["fts_inflected"]) for hit in fts_hits] == [
+            ("inflected", False, True)
+        ]
+        assert {hit["doc_id"] for hit in relaxed} >= {"exact", "inflected"}
+        assert all(hit["fts_relaxed"] for hit in relaxed)
+        hit = next(hit for hit in hits if hit["doc_id"] == "inflected")
+        assert hit["match_type"] == "hybrid"
+        assert hit["ordering_score"] > 0 and hit["relevance"] == hit["ordering_score"]
+
+    @pytest.mark.asyncio
+    async def test_an_inflected_hit_is_never_fts_exact_nor_a_keyword_only_hit(self):
+        vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = EMBEDDING_MODEL_NAME
+        vs._vector_search = AsyncMock(return_value=[])
+        inflected = {
+            "doc_id": "inflected",
+            "fts_rank": 0.9,
+            "title": "Yönetmelik",
+            "snippet": "MADDE 5 - Sermaye yeterliliğinin hesaplanması",
+            "chunk_text": "MADDE 5 - Sermaye yeterliliğinin hesaplanması",
+            "fts_relaxed": False,
+            "fts_inflected": True,
+        }
+        vs._fts_search = AsyncMock(return_value=[inflected])
+
+        assert await vs._hybrid_search("sermaye yeterliliği madde 5", limit=10) == []
+        assert await vs._hybrid_search("sermaye yeterliliği hesaplanması", limit=10) == []
+
+
 class TestSearchHitDocumentMetadata:
     @pytest.mark.asyncio
     async def test_hits_carry_source_url_decision_number_and_chunk_section(self, vector_store, doc_store):

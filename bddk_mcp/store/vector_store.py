@@ -35,7 +35,7 @@ from bddk_mcp.core.config import (
 )
 from bddk_mcp.quality.markdown_quality import assess_markdown_quality
 from bddk_mcp.store.corpus_db import CorpusDB
-from bddk_mcp.store.doc_store import fts_match_query, normalize_search_text
+from bddk_mcp.store.doc_store import fts_match_query, fts_prefix_stem_query, normalize_search_text
 from bddk_mcp.store.legal_ref import (
     DECISION_NUMBER_SUFFIX,
     LegalRefs,
@@ -782,6 +782,21 @@ def _strict_fts_query(query: str) -> str | None:
     return " ".join(terms) or None
 
 
+def _inflected_fts_query(query: str) -> str | None:
+    """The strict expression with each one-word term widened as the section search's inflection-tolerant
+    pass widens it (``fts_prefix_stem_query``: "tutarı" -> "tutari"*, which finds "tutarının"); a phrase of
+    the strict expression (a percentage number, "66 a") stays as it is. None when nothing is widened."""
+    strict = _strict_fts_query(query)
+    if strict is None:
+        return None
+    terms = [
+        term if " " in term else fts_prefix_stem_query(term.strip('"')) or term
+        for term in re.findall(r'"[^"]*"', strict)
+    ]
+    inflected = " ".join(terms)
+    return None if inflected == strict else inflected
+
+
 def _percent_figures(query: str) -> list[str]:
     """The numbers of the percentages of the query ("%12", "yüzde 0,90" -> "12", "0,90")."""
     return list(dict.fromkeys(match.group(1) for match in _PERCENT_FIGURE_RE.finditer(normalize_search_text(query))))
@@ -874,11 +889,12 @@ def _keyword_only_hits(fts_hits: list[dict], shown_doc_ids: set[str]) -> list[di
 
     They follow the strong and moderate semantic hits, precede the weak ones, and carry no semantic
     score; hits of the relaxed OR fallback
-    (only some query words) are never kept this way.
+    (only some query words) and of the inflection-tolerant pass (the words not as typed)
+    are never kept this way.
     """
     hits: list[dict] = []
     for fts_hit in fts_hits:
-        if fts_hit.get("fts_relaxed") or fts_hit["doc_id"] in shown_doc_ids:
+        if fts_hit.get("fts_relaxed") or fts_hit.get("fts_inflected") or fts_hit["doc_id"] in shown_doc_ids:
             continue
         hit = dict(fts_hit)
         hit.update(
@@ -1381,6 +1397,11 @@ class VectorStore:
 
         Hits from the relaxed OR fallback carry ``fts_relaxed=True``: they
         matched only some query words, so they never count as exact matches.
+        Documents whose chunks hold every query word only in an inflected form
+        (``_inflected_fts_query``) follow the strict matches with
+        ``fts_inflected=True``: a keyword match for the fusion, the lexical
+        boost and the FTS gate, never an exact or keyword-only match. The
+        relaxed fallback runs only when neither pass finds anything.
         ``alternative_query`` (the query with abbreviations expanded) runs as a
         second strict pass; a document keeps its best-ranked chunk of the two.
         With ``document_limit``, the strict matches are also fetched per document
@@ -1399,30 +1420,44 @@ class VectorStore:
                 *rows,
                 *await self._fts_rows(_strict_fts_query(alternative_query), limit=limit, category=category),
             ]
+        # The inflection-tolerant pass finds only chunks that the strict expression does not match.
+        inflected_rows = []
+        if inflected_query := _inflected_fts_query(query):
+            inflected_match = f"({inflected_query}) NOT ({_strict_fts_query(query)})"
+            inflected_rows = await self._fts_rows(inflected_match, limit=limit, category=category)
         relaxed = False
-        if not rows and (relaxed_query := _relaxed_fts_query(query)):
+        if not rows and not inflected_rows and (relaxed_query := _relaxed_fts_query(query)):
             rows = await self._fts_rows(relaxed_query, limit=limit, category=category)
             relaxed = True
 
         seen: dict[str, dict] = {}
-        for row in rows:
-            did = row["doc_id"]
-            rank = float(row["fts_rank"])
-            if did not in seen or rank > seen[did]["fts_rank"]:
-                seen[did] = {
-                    "doc_id": did,
-                    "title": row["title"] or "",
-                    "category": row["category"] or "",
-                    **_document_metadata_from_row(row),
-                    "snippet": (row["chunk_text"] or "")[:_SEARCH_SNIPPET_CHARS],
-                    # The whole chunk, for the legal-reference check of _hybrid_search; not returned.
-                    "chunk_text": row["chunk_text"] or "",
-                    "fts_rank": rank,
-                    "semantic_relevance": 0.0,
-                    "match_type": "fts",
-                    "fts_relaxed": relaxed,
-                    **_section_metadata_from_row(row),
-                }
+        # Documents that only the inflection-tolerant pass found; they follow the strict ones.
+        inflected: dict[str, dict] = {}
+        for found, found_rows in ((seen, rows), (inflected, inflected_rows)):
+            for row in found_rows:
+                did = row["doc_id"]
+                rank = float(row["fts_rank"])
+                if found is inflected and did in seen:
+                    continue
+                if did not in found or rank > found[did]["fts_rank"]:
+                    found[did] = {
+                        "doc_id": did,
+                        "title": row["title"] or "",
+                        "category": row["category"] or "",
+                        **_document_metadata_from_row(row),
+                        "snippet": (row["chunk_text"] or "")[:_SEARCH_SNIPPET_CHARS],
+                        # The whole chunk, for the legal-reference check of _hybrid_search; not returned.
+                        "chunk_text": row["chunk_text"] or "",
+                        "fts_rank": rank,
+                        "semantic_relevance": 0.0,
+                        "match_type": "fts",
+                        "fts_relaxed": relaxed,
+                        "fts_inflected": found is inflected,
+                        **_section_metadata_from_row(row),
+                    }
+        matched = sorted(seen.values(), key=lambda x: x["fts_rank"], reverse=True) + sorted(
+            inflected.values(), key=lambda x: x["fts_rank"], reverse=True
+        )
 
         if document_limit and not relaxed:
             document_rows = await self._fts_document_rows(
@@ -1452,11 +1487,9 @@ class VectorStore:
                     "keyword_tail": True,
                     **_section_metadata_from_row(row),
                 }
-            return sorted(seen.values(), key=lambda x: x["fts_rank"], reverse=True) + sorted(
-                tail.values(), key=lambda x: x["fts_rank"], reverse=True
-            )
+            return matched + sorted(tail.values(), key=lambda x: x["fts_rank"], reverse=True)
 
-        return sorted(seen.values(), key=lambda x: x["fts_rank"], reverse=True)
+        return matched
 
     async def _fts_document_rows(self, match: str | None, *, limit: int, category: str | None) -> list[sqlite3.Row]:
         """Strict FTS matches, the best-ranked chunk of each document, best documents first."""
@@ -1595,11 +1628,12 @@ class VectorStore:
                 did in fts_by_doc
                 and exact_legal_query
                 and not fts_by_doc[did].get("fts_relaxed")
+                and not fts_by_doc[did].get("fts_inflected")
                 and _hit_contains_reference(fts_by_doc[did], query_refs)
             ):
                 # Only the strict AND query of a chunk that holds the reference itself can
-                # stand in for a semantic score; relaxed OR hits face the threshold like any
-                # other FTS hit, and a strict hit without the reference is a keyword-only hit.
+                # stand in for a semantic score; relaxed OR and inflected hits face the threshold
+                # like any other FTS hit, and a strict hit without the reference is a keyword-only hit.
                 hit["match_type"] = "fts_exact"
             elif did in fts_by_doc:
                 hit["match_type"] = "fts"
@@ -1607,10 +1641,13 @@ class VectorStore:
                 hit["match_type"] = "vector"
 
         if fts_hits:
-            max_fts_rank = max((hit.get("fts_rank", 0.0) for hit in fts_hits), default=0.0)
+            # The strict matches set the scale (BM25 of the inflected expression is another query's
+            # score), so an inflected match never changes their lexical relevance; it is capped at 1.
+            scale_hits = [hit for hit in fts_hits if not hit.get("fts_inflected")] or fts_hits
+            max_fts_rank = max((hit.get("fts_rank", 0.0) for hit in scale_hits), default=0.0)
             if max_fts_rank > 0:
                 for hit in fused:
-                    lexical_relevance = float(hit.get("fts_rank", 0.0)) / max_fts_rank
+                    lexical_relevance = min(1.0, float(hit.get("fts_rank", 0.0)) / max_fts_rank)
                     hit["lexical_relevance"] = round(lexical_relevance, _SCORE_DECIMAL_PLACES)
                     if hit.get("semantic_relevance", 0.0) > 0 and lexical_relevance > 0:
                         hit["relevance"] = round(
