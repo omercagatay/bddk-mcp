@@ -1566,7 +1566,7 @@ class TestSearchHonesty:
         assert top["semantic_relevance"] == 0.95
         assert below["relevance_clamped"] is False
 
-    def test_adjacent_dated_decisions_at_the_ceiling_are_listed_newest_first(self):
+    def test_dated_decisions_at_the_ceiling_are_listed_newest_first_in_their_own_positions(self):
         from bddk_mcp.store.vector_store import _newest_first_among_clamped_decisions
 
         def hit(doc_id: str, date: str, clamped: bool = True) -> dict:
@@ -1585,20 +1585,40 @@ class TestSearchHonesty:
             hit("below_2027", "01.01.2027", clamped=False),
         ]
 
+        # The dated hits at the ceiling fill their own positions newest first; the undated, unparseable and
+        # below-ceiling hits keep theirs, so a decision may pass an undated hit.
         assert [h["doc_id"] for h in _newest_first_among_clamped_decisions(hits, "kredi kartı")] == [
-            "d2022",
-            "d2020",
-            "law",
+            "d2025",
             "same_a",
+            "law",
             "same_b",
+            "d2022",
             "d2021",
             "unparseable",
-            "d2025",
+            "d2020",
             "below_2026",
             "below_2027",
         ]
 
-    def test_a_decision_whose_whole_title_is_in_the_query_keeps_its_place_and_separates_the_runs(self):
+    def test_a_newer_decision_passes_an_undated_regulation_and_a_named_decision_stays(self):
+        from bddk_mcp.store.vector_store import _newest_first_among_clamped_decisions
+
+        def hit(doc_id: str, date: str, title: str) -> dict:
+            return {"doc_id": doc_id, "decision_date": date, "relevance_clamped": True, "title": title}
+
+        hits = [
+            hit("1255", "26.09.2024", "Kredi Kartı Asgari Ödeme Tutarının Değiştirilmesi Hk. Kurul Kararı"),
+            hit("mevzuat_11180", "", "Yönetmelik"),
+            hit("named", "01.01.2025", "Asgari Ödeme Oranı Yüzde"),
+            hit("1349", "01.10.2026", "Kredi Kartı Asgari Ödeme Tutarının Değiştirilmesi Hk. Kurul Kararı"),
+            hit("781", "30.03.2020", "Bireysel Kredi Kartlarında Asgari Ödeme Oranının Değiştirilmesi"),
+        ]
+
+        ordered = _newest_first_among_clamped_decisions(hits, "kredi kartı asgari ödeme oranı yüzde kaç")
+
+        assert [h["doc_id"] for h in ordered] == ["1349", "mevzuat_11180", "named", "1255", "781"]
+
+    def test_a_decision_whose_whole_title_is_in_the_query_keeps_its_place(self):
         from bddk_mcp.store.vector_store import _newest_first_among_clamped_decisions
 
         def hit(doc_id: str, date: str, title: str) -> dict:
@@ -1614,15 +1634,15 @@ class TestSearchHonesty:
             hit("d2023", "01.01.2023", "Kredi Kartı Asgari Ödeme Süresi"),
         ]
 
-        # The query is a stored title: the decisions carrying it keep their internal-score order and places,
-        # and no other decision moves past them.
+        # The query is a stored title: the decisions carrying it keep their internal-score order and places;
+        # the other dated decisions fill the remaining positions newest first.
         assert [h["doc_id"] for h in _newest_first_among_clamped_decisions(hits, title)] == [
-            "d2019",
-            "named_2020",
-            "d2021",
-            "named_2024",
             "d2023",
+            "named_2020",
             "d2022",
+            "named_2024",
+            "d2021",
+            "d2019",
         ]
         assert [h["doc_id"] for h in _newest_first_among_clamped_decisions(hits, "kredi kartı asgari ödeme")] == [
             "named_2024",

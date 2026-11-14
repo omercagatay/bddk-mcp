@@ -22,7 +22,6 @@ import threading
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
-from itertools import groupby
 
 import numpy as np
 
@@ -934,23 +933,25 @@ def _decision_day(hit: dict) -> datetime.date | None:
 
 
 def _newest_first_among_clamped_decisions(hits: list[dict], query: str) -> list[dict]:
-    """Each run of adjacent hits at the calibration ceiling that carry a decision date, newest first.
+    """The dated hits at the calibration ceiling, newest first, in the positions they occupy.
 
     Hits at the ceiling tie on the shown relevance; for successive Board decisions on one subject the
-    newest comes first (the same date keeps the ordering-score order). Every other hit, an undated one at
-    the ceiling included, keeps its place, so no decision moves past it; so does a decision whose whole
-    title occurs in the query (``_title_in_query``): the query names it.
+    newest comes first (the same date keeps the ordering-score order). The hits at the ceiling that carry
+    a parseable decision date and whose whole title does not occur in the query (``_title_in_query``: the
+    query names those) are re-ordered into their own positions. Every other hit keeps its exact position:
+    an undated one, a named decision, a hit below the ceiling; a decision may therefore pass an undated hit.
     """
     query_words = _query_words(query)
-    ordered: list[dict] = []
-    for movable, group in groupby(
-        hits,
-        key=lambda h: (
-            bool(h.get("relevance_clamped")) and _decision_day(h) is not None and not _title_in_query(h, query_words)
-        ),
+    positions = [
+        i
+        for i, h in enumerate(hits)
+        if h.get("relevance_clamped") and _decision_day(h) is not None and not _title_in_query(h, query_words)
+    ]
+    ordered = list(hits)
+    for position, hit in zip(
+        positions, sorted((hits[i] for i in positions), key=_decision_day, reverse=True), strict=True
     ):
-        run = list(group)
-        ordered += sorted(run, key=_decision_day, reverse=True) if movable else run
+        ordered[position] = hit
     return ordered
 
 
@@ -1704,8 +1705,8 @@ class VectorStore:
         Documents that match the strict all-words FTS query but have no
         semantic hit follow the strong and moderate semantic hits, ahead of the weak ones, as keyword matches
         (``match_type`` "fts", no semantic score), in BM25 order. Before the
-        limit, adjacent dated decisions at the calibration ceiling are listed
-        newest first, then TASLAK/MÜLGA catalog-class hits follow the others of
+        limit, the dated decisions at the calibration ceiling are listed newest
+        first in their own positions, then TASLAK/MÜLGA catalog-class hits follow the others of
         their shown band (``_catalog_class_last``).
         """
         vector_hits, fts_hits = await asyncio.gather(
@@ -1812,8 +1813,8 @@ class VectorStore:
             ordering_score = round(hit.get("relevance", 0.0), _SCORE_DECIMAL_PLACES)
             hit["ordering_score"] = ordering_score
             # At the ceiling the displayed value is clamped: hits there tie at 1.0 and are ordered by
-            # the ordering score, which the displayed value no longer shows, except that adjacent dated
-            # decisions among them that the query does not name by title are listed newest first
+            # the ordering score, which the displayed value no longer shows, except that the dated decisions
+            # among them that the query does not name by title are listed newest first in their own positions
             # (_newest_first_among_clamped_decisions).
             hit["relevance_clamped"] = gate_factor == 1.0 and ordering_score >= calibration.ceiling
             hit["relevance"] = round(

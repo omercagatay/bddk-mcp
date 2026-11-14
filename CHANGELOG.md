@@ -44,9 +44,10 @@ cevap metnini değiştirir; corpus, şema, chunk ve embedding değişmedi.
   "kredi kartı asgari ödeme tutarı" sorusunda tutarı belirleyen 26.09.2024
   tarihli ve 10970 sayılı Kurul Kararı 5. sıradan 2. sıraya çıktı; önünde aynı
   gün tarihli 1254 var, 2022 ve 2020 kararları onlardan sonra geliyor.
-- %100'de (kalibrasyon tavanı) eşit görünen ve art arda gelen tarihli Kurul
-  Kararları en yeniden eskiye sıralanıyor; aralarındaki tarihsiz bir kanun,
-  yönetmelik veya rehber ve tam başlığı sorguda geçen karar yerinde kalıyor.
+- %100'de (kalibrasyon tavanı) eşit görünen tarihli Kurul Kararları, kendi
+  tuttukları sıralarda en yeniden eskiye diziliyor; aralarındaki tarihsiz bir
+  kanun, yönetmelik veya rehber ve tam başlığı sorguda geçen karar sırasını
+  koruyor, yeni bir karar tarihsiz bir metnin önüne geçebiliyor.
 - BDDK kataloğunda Düzenleme Taslağı veya Mülga Düzenleme sınıfındaki belgeler,
   kendi bandının (strong, moderate, weak, keyword) diğer sonuçlarından sonra
   listeleniyor; `search_document_sections` aynı kuralı her geçişinde uyguluyor.
@@ -74,11 +75,12 @@ cevap metnini değiştirir; corpus, şema, chunk ve embedding değişmedi.
   değerinin altına düşmez. 0.5 bir kalibrasyon değeridir: çekimli geçiş kapalı
   ağaca karşı 267 denetim cümlesinde ilk sıra 186/186 (ilk sekiz kelime) ve
   194/194 (cümlenin kendisi) kaldı; 1.0 ile ilk sekiz kelimede 182'ye düşüyordu.
-- Tarih sırası yalnızca art arda gelen ve tavandaki (`relevance_clamped`)
-  tarihli sonuçlara uygulanır; aynı tarih iç skor sırasını korur, `DD.MM.YYYY`
-  olmayan tarih tarihsiz sayılır. Tam başlığı sorguda geçen karar (TASLAK/MÜLGA
-  istisnasıyla aynı tanım) tarih sırasıyla yer değiştirmez ve tarihsiz bir sonuç
-  gibi diziyi böler. Sıra, sınırdan (`limit`) önce uygulanır.
+- Tarih sırası yalnızca tavandaki (`relevance_clamped`) tarihli sonuçlara
+  uygulanır: bu sonuçlar kendi tuttukları sıralara en yeniden eskiye yerleşir;
+  aynı tarih iç skor sırasını korur, `DD.MM.YYYY` olmayan tarih tarihsiz sayılır.
+  Tarihsiz sonuç, tam başlığı sorguda geçen karar (TASLAK/MÜLGA istisnasıyla aynı
+  tanım) ve tavanın altındaki sonuç sırasını tam olarak korur. Sıra, sınırdan
+  (`limit`) önce uygulanır.
 - TASLAK/MÜLGA sırasının istisnaları: `fts_exact` ve karar numarası sonuçları;
   sorgu o sınıfı adlandırıyorsa ("taslak"/"taslağ", "mülga", "yürürlükten
   kaldır" ile başlayan kelime) o sınıfın bütün sonuçları; tam başlığı sorguda
