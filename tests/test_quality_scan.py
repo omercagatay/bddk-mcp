@@ -237,6 +237,15 @@ def test_format_report_does_not_claim_all_clean_when_chunk_integrity_is_off():
     assert "All anomaly signals are clean." in format_report(_make_report())
 
 
+def test_format_report_does_not_claim_all_clean_when_assessment_flags_are_present():
+    out = format_report(_make_report(signal_docs={"duplicate_paragraphs": 61, "very_long_lines_gt_3000": 1}))
+    assert "All anomaly signals are clean." not in out
+    assert "All signals are clean" not in out
+    assert "No scan anomaly fires; 2 assessment flag(s) are present above." in out
+    # Flags with a zero count do not count as present.
+    assert "All anomaly signals are clean." in format_report(_make_report(signal_docs={"cid_marker": 0}))
+
+
 @pytest.mark.asyncio
 async def test_scan_quality_flags_mojibake_and_aggregates_assessment_flags(corpus_db):
     paragraph = "Bu paragraf iki kez geçer. " * 3

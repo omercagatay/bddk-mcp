@@ -1,5 +1,7 @@
 """html_to_markdown must not turn non-content nodes into text."""
 
+import pytest
+
 from bddk_mcp.ingest.html_extractor import html_to_markdown
 
 
@@ -116,19 +118,44 @@ def test_padded_table_grid_is_bounded_and_falls_back_to_flattened_text(caplog):
 def test_rowspans_count_toward_the_table_grid_bound(monkeypatch, caplog):
     from bddk_mcp.ingest import html_extractor
 
-    # One row of three 100x100 cells: the row itself is 300 cells wide, so only the
-    # 29,700 pending rowspan entries can cross the lowered bound.
+    # A rowspan reaches only the rows that exist, so the pending entries equal the cells
+    # the rows below would hold anyway. Row 0 is 300 cells wide; with 40 rows the 11,700
+    # pending rowspan entries cross the lowered bound before any later row is built.
     monkeypatch.setattr(html_extractor, "_MAX_TABLE_CELLS", 10_000)
-    spanning = "<table><tr>" + '<td rowspan="100" colspan="100">y</td>' * 3 + "</tr></table>"
+    cells = '<td rowspan="100" colspan="100">y</td>' * 3
+    spanning = "<table><tr>" + cells + "</tr>" + "<tr></tr>" * 39 + "</table>"
     with caplog.at_level("WARNING", logger="bddk_mcp.ingest.html_extractor"):
         out = html_to_markdown(spanning)
     assert "y" in out
     assert "|" not in out
     assert "exceeds the 10000-cell grid bound" in caplog.text
 
-    # The same row without rowspans stays a grid under the same bound.
+    # The same cells over three rows (900 grid cells) stay a grid under the same bound,
+    # and so does a single row without rowspans.
+    short = "<table><tr>" + cells + "</tr>" + "<tr></tr>" * 2 + "</table>"
+    assert "|" in html_to_markdown(short)
     flat_row = "<table><tr>" + '<td colspan="100">y</td>' * 3 + "</tr></table>"
     assert "|" in html_to_markdown(flat_row)
+
+
+def test_rowspan_longer_than_one_hundred_rows_keeps_later_rows_under_their_headers():
+    rows = "".join(
+        f"<tr>{'<td rowspan="120">Krediler</td>' if n == 1 else ''}<td>Hesap {n}</td><td>%{n}</td></tr>"
+        for n in range(1, 121)
+    )
+    md = html_to_markdown("<table><tr><th>Grup</th><th>Hesap</th><th>Oran</th></tr>" + rows + "</table>")
+    lines = md.splitlines()
+    assert lines[0] == "| Grup | Hesap | Oran |"
+    assert "| Krediler | Hesap 100 | %100 |" in lines
+    assert "| Krediler | Hesap 101 | %101 |" in lines
+    assert lines[-1] == "| Krediler | Hesap 120 | %120 |"
+
+
+def test_rowspan_beyond_the_table_is_clamped_to_the_remaining_rows():
+    md = html_to_markdown(
+        '<table><tr><th>A</th><th>B</th></tr><tr><td rowspan="300000">g</td><td>1</td></tr><tr><td>2</td></tr></table>'
+    )
+    assert md.splitlines() == ["| A | B |", "|---|---|", "| g | 1 |", "| g | 2 |"]
 
 
 def test_many_tables_below_the_table_bound_share_a_document_bound(monkeypatch, caplog):
@@ -166,3 +193,78 @@ def test_ordinary_colspan_table_still_renders_as_a_grid():
     assert "| Başlık |  | C |" in out
     assert "| a | b | c |" in out
     assert "| d | e | f |" in out
+
+
+def test_rows_after_an_unclosed_thead_are_kept():
+    md = html_to_markdown(
+        "<table><thead><tr><th>Kalem</th><th>Oran</th></tr>"
+        "<tbody><tr><td>Nakit</td><td>%0</td></tr><tr><td>Konut kredisi</td><td>%35</td></tr></tbody></table>"
+    )
+    assert md.splitlines() == ["| Kalem | Oran |", "|---|---|", "| Nakit | %0 |", "| Konut kredisi | %35 |"]
+
+
+def test_rows_of_a_second_unclosed_tbody_are_kept():
+    md = html_to_markdown(
+        "<table><tbody><tr><td>Satir 1</td><td>a</td></tr><tbody><tr><td>Satir 2</td><td>b</td></tr></table>"
+    )
+    assert "| Satir 1 | a |" in md
+    assert "| Satir 2 | b |" in md
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        "<table><tbody><font size=2><tr><td>Teminat</td><td>%50</td></tr></font></tbody></table>",
+        "<table><form><tr><td>Teminat</td><td>%50</td></tr></form></table>",
+    ],
+)
+def test_rows_inside_a_font_or_form_wrapper_are_kept(html):
+    assert "Teminat" in html_to_markdown(html)
+    assert "%50" in html_to_markdown(html)
+
+
+def test_rows_in_wrapper_keep_document_order_and_exclude_nested_table_rows():
+    md = html_to_markdown(
+        "<table><tr><td>a1</td><td>a2</td></tr>"
+        "<font><tr><td>b1</td><td><table><tr><td>inner</td></tr></table></td></tr></font>"
+        "<tr><td>c1</td><td>c2</td></tr></table>"
+    )
+    assert md.count("inner") == 1
+    assert [line for line in md.splitlines() if line.startswith("|")] == [
+        "| a1 | a2 |",
+        "|---|---|",
+        "| b1 | inner |",
+        "| c1 | c2 |",
+    ]
+
+
+def test_one_huge_colspan_rowspan_cell_is_bounded_before_its_pending_entries_are_written(monkeypatch, caplog):
+    import tracemalloc
+
+    from bs4 import BeautifulSoup
+
+    from bddk_mcp.ingest import html_extractor
+
+    monkeypatch.setattr(html_extractor, "_MAX_TABLE_CELLS", 1_000)
+    rows = 5_000
+    spanning = (
+        f'<table><tr><td colspan="100" rowspan="{rows}">x</td></tr>' + "<tr><td>a</td></tr>" * (rows - 1) + "</table>"
+    )
+
+    def render_peak(markup: str) -> tuple[str, int]:
+        table = BeautifulSoup(markup, "html.parser").find("table")
+        tracemalloc.start()
+        try:
+            with caplog.at_level("WARNING", logger="bddk_mcp.ingest.html_extractor"):
+                result = html_extractor._render_table(table)
+            return result, tracemalloc.get_traced_memory()[1]
+        finally:
+            tracemalloc.stop()
+
+    # The same table without the rowspan costs the same flattening work; only the pending
+    # entries differ, and those must not be written past the bound.
+    _, baseline = render_peak(spanning.replace(f' rowspan="{rows}"', ""))
+    out, peak = render_peak(spanning)
+    assert "|" not in out
+    assert "exceeds the 1000-cell grid bound" in caplog.text
+    assert peak < baseline + 1_000_000

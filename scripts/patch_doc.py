@@ -154,6 +154,9 @@ async def patch_document(
     # replacement.  If the process stops after the canonical row changes,
     # retrieval publication is hidden by its content-hash contract until a
     # rerun completes add_document.
+    # A text repair is not a download: keep the stored download date and stamp the patch time
+    # (the same value the seed entry got) as the extraction time.
+    current_body = await doc_store.get_current_body(doc_id)
     stored = StoredDocument(
         document_id=doc_id,
         title=current_doc.title,
@@ -165,6 +168,8 @@ async def patch_document(
         extraction_method=extraction_method,
         total_pages=total_pages,
         file_size=len(body.encode("utf-8")),
+        downloaded_at=current_body["downloaded_at"] if current_body is not None else None,
+        extracted_at=now,
     )
     await doc_store.store_document(stored)
     await vector_store.add_document(
