@@ -32,6 +32,66 @@ kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözle
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Değişti — arama sıralaması: çekimli kelimeler, karar tarihi, TASLAK/MÜLGA sınıfı (2026-11-15)
+
+Bir denetimde bulunan beş sıralama sorunu düzeltildi. Hepsi yalnızca sıralamayı ve
+cevap metnini değiştirir; corpus, şema, chunk ve embedding değişmedi.
+
+**Müfettişin fark edeceği şeyler (kısa özet).**
+
+- `search_document_store`: sorgudaki kelimelerin hepsini çekimli hâliyle taşıyan
+  belge ("tutarı" yerine "tutarının") artık anahtar kelime eşleşmesi sayılıyor.
+  "kredi kartı asgari ödeme tutarı" sorusunda tutarı belirleyen 26.09.2024
+  tarihli ve 10970 sayılı Kurul Kararı 5. sıradan 1. sıraya çıktı.
+- %100'de (kalibrasyon tavanı) eşit görünen ve art arda gelen tarihli Kurul
+  Kararları en yeniden eskiye sıralanıyor; aralarındaki tarihsiz bir kanun,
+  yönetmelik veya rehber yerinde kalıyor.
+- BDDK kataloğunda Düzenleme Taslağı veya Mülga Düzenleme sınıfındaki belgeler,
+  kendi bandının (strong, moderate, weak, keyword) diğer sonuçlarından sonra
+  listeleniyor; `search_document_sections` aynı kuralı her geçişinde uyguluyor.
+  Sınıf yalnızca katalog kategorisinden gelir: sınıfın olmaması metnin yürürlükte
+  olduğunu göstermez.
+- Sorguda geçen bir karar numarasını hiçbir kayıtlı belge taşımıyorsa
+  (`15.07.2025 tarihli ve 11250 sayılı Kurul Kararı`) cevap bunu sonuçlardan önce
+  söylüyor: numara bu corpus'ta kayıtlı değil; corpus bir seçki olduğu için bu,
+  kararın var olmadığı anlamına gelmez.
+
+**Ayrıntılar.**
+
+- Çekime dayanıklı geçiş, katı ifadenin tek kelimelik terimlerini bölüm
+  aramasının `fts_prefix_stem_query` kuralıyla genişletir ve yalnızca katı
+  ifadenin bulmadığı chunk'ları arar (`fts_inflected`). Böyle bir sonuç RRF
+  birleştirmesine, lexical boost'a ve FTS kapısına sayılır; `fts_exact` olmaz ve
+  anahtar-kelime-yalnız listesine girmez. Lexical boost'un ölçeğini katı
+  eşleşmeler belirler, çekimli eşleşmenin değeri 1 ile sınırlanır. Gevşek OR
+  geçişi artık yalnızca iki geçiş de bir şey bulamadığında çalışır.
+- Tarih sırası yalnızca art arda gelen ve tavandaki (`relevance_clamped`)
+  tarihli sonuçlara uygulanır; aynı tarih iç skor sırasını korur, `DD.MM.YYYY`
+  olmayan tarih tarihsiz sayılır. Sıra, sınırdan (`limit`) önce uygulanır.
+- TASLAK/MÜLGA sırasının istisnaları: `fts_exact` ve karar numarası sonuçları;
+  sorgu o sınıfı adlandırıyorsa ("taslak"/"taslağ", "mülga", "yürürlükten
+  kaldır" ile başlayan kelime) o sınıfın bütün sonuçları; tam başlığı sorguda
+  geçen belge; açık `category` argümanı. Bölüm aramasında ayrıca tam atıf
+  sonuçları ve tek belgeyle sınırlı arama. Sınıf kuralının tek tanımı
+  `bddk_mcp/store/doc_store.py` içindeki `catalog_status_class`;
+  `document_status_notice` onu kullanır. Katı ve çekime dayanıklı bölüm
+  geçişleri sırayı SQL'de uygular (`LIMIT` önce diğerlerini alır); gevşek geçiş
+  aday havuzunun tamamını Python'da ayırır.
+
+**Ölçüm** (319 belgelik corpus, gerçek embedding modeli, 78 denetim sorusu ve her
+belgenin kendi başlığı): bölüm aramasında hüküm hit@10 38/71'den 39/71'e, belge
+hit@10 49/71'den 51/71'e çıktı; `search_document_store` belge hit@1 52/71'den
+51/71'e, hit@10 68/71'de kaldı; kendi başlığıyla 1. sıra 262/319'dan 267/319'a
+çıktı, taslak/mülga belgelerde 16/18 kaldı. Kötüleşen sorular: gevşek OR geçişi
+artık çalışmadığı için onun verdiği boost'u kaybeden birkaç tam atıf sorusu
+(örneğin "Kredilerin Sınıflandırılması Yönetmeliği madde 10", "Bankaların Kredi
+İşlemlerine İlişkin Yönetmelik madde 12 üçüncü fıkra") ve aynı konudaki daha yeni
+bir kararın öne geçtiği eski kararların kendi başlık aramaları.
+
+**Yükseltme notu.** Yeniden derleme gerekmez. MCP sözleşmesi yalnızca eklemedir:
+yeni isteğe bağlı çıktı alanı `decision_numbers_not_stored`; tavandaki sonucun
+satırı ve alan açıklamaları yeni sırayı anlatır.
+
 ### Güvenlik — MCP SDK log kayıtlarında istek içeriği (2026-11-14)
 
 MCP sunucusunun güvenlik incelemesinde bulundu: `BDDK_TOOL_LOG_CONTENT` kapalıyken
