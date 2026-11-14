@@ -1513,7 +1513,9 @@ class VectorStore:
         (``_inflected_fts_query``) follow the strict matches with
         ``fts_inflected=True``: a keyword match for the fusion, the lexical
         boost and the FTS gate, never an exact or keyword-only match. The
-        relaxed fallback runs only when neither pass finds anything.
+        relaxed fallback runs whenever the strict pass finds nothing; an
+        inflected match then takes precedence over a document's relaxed row
+        and the inflected documents come first.
         ``alternative_query`` (the query with abbreviations expanded) runs as a
         second strict pass; a document keeps its best-ranked chunk of the two.
         With ``document_limit``, the strict matches are also fetched per document
@@ -1538,18 +1540,20 @@ class VectorStore:
             inflected_match = f"({inflected_query}) NOT ({_strict_fts_query(query)})"
             inflected_rows = await self._fts_rows(inflected_match, limit=limit, category=category)
         relaxed = False
-        if not rows and not inflected_rows and (relaxed_query := _relaxed_fts_query(query)):
+        if not rows and (relaxed_query := _relaxed_fts_query(query)):
             rows = await self._fts_rows(relaxed_query, limit=limit, category=category)
             relaxed = True
 
         seen: dict[str, dict] = {}
-        # Documents that only the inflection-tolerant pass found; they follow the strict ones.
+        # Documents that the inflection-tolerant pass found and the strict pass did not. An inflected
+        # (all-words) match takes precedence over a relaxed row of the same document; the inflected
+        # documents follow the strict ones and precede the relaxed ones.
         inflected: dict[str, dict] = {}
         for found, found_rows in ((seen, rows), (inflected, inflected_rows)):
             for row in found_rows:
                 did = row["doc_id"]
                 rank = float(row["fts_rank"])
-                if found is inflected and did in seen:
+                if found is inflected and did in seen and not relaxed:
                     continue
                 if did not in found or rank > found[did]["fts_rank"]:
                     found[did] = {
@@ -1563,13 +1567,19 @@ class VectorStore:
                         "fts_rank": rank,
                         "semantic_relevance": 0.0,
                         "match_type": "fts",
-                        "fts_relaxed": relaxed,
+                        "fts_relaxed": relaxed and found is seen,
                         "fts_inflected": found is inflected,
                         **_section_metadata_from_row(row),
                     }
-        matched = sorted(seen.values(), key=lambda x: x["fts_rank"], reverse=True) + sorted(
-            inflected.values(), key=lambda x: x["fts_rank"], reverse=True
+        for did, hit in inflected.items():
+            if did in seen:
+                # The superseded relaxed row keeps its place in the lexical scale (_hybrid_search).
+                hit["relaxed_fts_rank"] = seen[did]["fts_rank"]
+        strict_or_relaxed = sorted(
+            (hit for did, hit in seen.items() if did not in inflected), key=lambda x: x["fts_rank"], reverse=True
         )
+        inflected_hits = sorted(inflected.values(), key=lambda x: x["fts_rank"], reverse=True)
+        matched = inflected_hits + strict_or_relaxed if relaxed else strict_or_relaxed + inflected_hits
 
         if document_limit and not relaxed:
             document_rows = await self._fts_document_rows(
@@ -1756,13 +1766,20 @@ class VectorStore:
                 hit["match_type"] = "vector"
 
         if fts_hits:
-            # The strict matches set the scale (BM25 of the inflected expression is another query's
-            # score), so an inflected match never changes their lexical relevance; it is capped at 1.
-            scale_hits = [hit for hit in fts_hits if not hit.get("fts_inflected")] or fts_hits
-            max_fts_rank = max((hit.get("fts_rank", 0.0) for hit in scale_hits), default=0.0)
+            # The strict matches, or without them every relaxed row (a row an inflected match superseded
+            # included), set the scale (BM25 of the inflected expression is another query's score), so an
+            # inflected match never changes their lexical relevance. An inflected hit takes the larger of its
+            # inflected and its superseded relaxed rank, capped at 1, so promotion never lowers its value.
+            scale_ranks = [hit.get("fts_rank", 0.0) for hit in fts_hits if not hit.get("fts_inflected")]
+            scale_ranks += [hit["relaxed_fts_rank"] for hit in fts_hits if "relaxed_fts_rank" in hit]
+            max_fts_rank = max(scale_ranks or [hit.get("fts_rank", 0.0) for hit in fts_hits], default=0.0)
             if max_fts_rank > 0:
                 for hit in fused:
-                    lexical_relevance = min(1.0, float(hit.get("fts_rank", 0.0)) / max_fts_rank)
+                    rank = max(
+                        float(hit.get("fts_rank", 0.0)),
+                        float(fts_by_doc.get(hit["doc_id"], {}).get("relaxed_fts_rank", 0.0)),
+                    )
+                    lexical_relevance = min(1.0, rank / max_fts_rank)
                     hit["lexical_relevance"] = round(lexical_relevance, _SCORE_DECIMAL_PLACES)
                     if hit.get("semantic_relevance", 0.0) > 0 and lexical_relevance > 0:
                         hit["relevance"] = round(

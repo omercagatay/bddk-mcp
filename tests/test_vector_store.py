@@ -910,8 +910,9 @@ class TestInflectedKeywordPass:
         assert not any(hit["fts_relaxed"] for hit in hits)
 
     @pytest.mark.asyncio
-    async def test_an_inflected_match_opens_the_fts_gate_and_stops_the_relaxed_fallback(self, credit_card_store):
-        # No document holds every word as typed; the OR fallback would also find "exact".
+    async def test_an_inflected_match_opens_the_fts_gate_and_precedes_the_relaxed_fallback(self, credit_card_store):
+        # No document holds every word as typed, so the OR fallback runs; it also finds "inflected", whose
+        # all-words inflected match takes precedence over its relaxed row and comes first.
         fts_hits = await credit_card_store._fts_search("asgari ödeme tutarı değiştirilmesi", limit=50)
         # Neither pass finds "kırkıncı": the OR fallback still runs.
         relaxed = await credit_card_store._fts_search("asgari ödeme tutarı kırkıncı", limit=50)
@@ -922,13 +923,77 @@ class TestInflectedKeywordPass:
             hits = await credit_card_store._hybrid_search("tutarı değiştirilmesi", limit=10)
 
         assert [(hit["doc_id"], hit["fts_relaxed"], hit["fts_inflected"]) for hit in fts_hits] == [
-            ("inflected", False, True)
+            ("inflected", False, True),
+            ("exact", True, False),
         ]
+        # The relaxed rank of the superseded row is kept for the lexical scale.
+        assert fts_hits[0]["relaxed_fts_rank"] > 0 and "relaxed_fts_rank" not in fts_hits[1]
         assert {hit["doc_id"] for hit in relaxed} >= {"exact", "inflected"}
         assert all(hit["fts_relaxed"] for hit in relaxed)
         hit = next(hit for hit in hits if hit["doc_id"] == "inflected")
         assert hit["match_type"] == "hybrid"
         assert hit["ordering_score"] > 0 and hit["relevance"] == hit["ordering_score"]
+
+    @pytest.mark.asyncio
+    async def test_without_a_strict_match_a_relaxed_only_document_keeps_its_boost_beside_an_inflected_one(
+        self, credit_card_store
+    ):
+        # "exact" lacks "değiştirilmesi": only the relaxed OR pass finds it; "inflected" holds every word inflected.
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", -1.0):
+            hits = await credit_card_store._hybrid_search("asgari ödeme tutarı değiştirilmesi", limit=10)
+
+        by_id = {hit["doc_id"]: hit for hit in hits}
+        assert by_id["exact"]["match_type"] == "hybrid" and by_id["exact"]["lexical_relevance"] > 0
+        assert by_id["inflected"]["match_type"] == "hybrid" and by_id["inflected"]["lexical_relevance"] > 0
+
+    @pytest.mark.asyncio
+    async def test_an_inflected_hit_that_supersedes_a_relaxed_row_changes_no_lexical_value(self):
+        vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = EMBEDDING_MODEL_NAME
+        vs._vector_search = AsyncMock(
+            return_value=[
+                {"doc_id": d, "relevance": 0.85, "title": d, "snippet": d} for d in ("promoted", "loose", "low")
+            ]
+        )
+        vs._fts_search = AsyncMock(
+            return_value=[
+                # Its relaxed row (rank 10) was the best relaxed match; its inflected rank is lower.
+                {
+                    "doc_id": "promoted",
+                    "fts_rank": 5.0,
+                    "title": "P",
+                    "snippet": "p",
+                    "fts_relaxed": False,
+                    "fts_inflected": True,
+                    "relaxed_fts_rank": 10.0,
+                },
+                {
+                    "doc_id": "low",
+                    "fts_rank": 12.0,
+                    "title": "N",
+                    "snippet": "n",
+                    "fts_relaxed": False,
+                    "fts_inflected": True,
+                    "relaxed_fts_rank": 2.0,
+                },
+                {
+                    "doc_id": "loose",
+                    "fts_rank": 8.0,
+                    "title": "L",
+                    "snippet": "l",
+                    "fts_relaxed": True,
+                    "fts_inflected": False,
+                },
+            ]
+        )
+
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", None):
+            hits = await vs._hybrid_search("zzz", limit=10)
+
+        lexical = {hit["doc_id"]: hit["lexical_relevance"] for hit in hits}
+        # Every relaxed row, superseded ones included, sets the scale (10), as before the inflected pass;
+        # an inflected hit takes the larger of its two ranks, capped at 1.
+        assert lexical == {"promoted": 1.0, "loose": 0.8, "low": 1.0}
 
     @pytest.mark.asyncio
     async def test_an_inflected_hit_is_never_fts_exact_nor_a_keyword_only_hit(self):
@@ -1776,7 +1841,7 @@ class TestSectionReferencesInTheKeywordPass:
         await vs._fts_search("Kredilerin Sınıflandırılması md. 9", document_limit=None)
         assert matches[0] == '"kredilerin" "siniflandirilmasi" "madde" "9"'
         assert matches[1] is not None and '"madde"*' in matches[1]
-        # Neither the strict nor the inflection-tolerant pass found anything: the relaxed OR pass runs.
+        # The strict pass found nothing: the relaxed OR pass runs.
         assert matches[2] is not None and " OR " in matches[2] and '"madde"*' in matches[2]
 
 

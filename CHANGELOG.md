@@ -62,9 +62,12 @@ cevap metnini değiştirir; corpus, şema, chunk ve embedding değişmedi.
   aramasının `fts_prefix_stem_query` kuralıyla genişletir ve yalnızca katı
   ifadenin bulmadığı chunk'ları arar (`fts_inflected`). Böyle bir sonuç RRF
   birleştirmesine, lexical boost'a ve FTS kapısına sayılır; `fts_exact` olmaz ve
-  anahtar-kelime-yalnız listesine girmez. Lexical boost'un ölçeğini katı
-  eşleşmeler belirler, çekimli eşleşmenin değeri 1 ile sınırlanır. Gevşek OR
-  geçişi artık yalnızca iki geçiş de bir şey bulamadığında çalışır.
+  anahtar-kelime-yalnız listesine girmez. Gevşek OR geçişi, 696a9d1'deki gibi,
+  katı geçiş bir şey bulamadığında her zaman çalışır; aynı belgeyi çekime
+  dayanıklı geçiş de bulduysa çekimli eşleşme gevşek satırın yerine geçer ve
+  çekimli belgeler gevşeklerden önce gelir. Lexical boost'un ölçeğini katı
+  eşleşmeler, onlar yoksa bütün gevşek satırlar (yerine geçilenler dahil)
+  belirler; çekimli sonuç iki değerinden büyüğünü alır, en çok 1.
 - Tarih sırası yalnızca art arda gelen ve tavandaki (`relevance_clamped`)
   tarihli sonuçlara uygulanır; aynı tarih iç skor sırasını korur, `DD.MM.YYYY`
   olmayan tarih tarihsiz sayılır. Tam başlığı sorguda geçen karar (TASLAK/MÜLGA
@@ -83,13 +86,11 @@ cevap metnini değiştirir; corpus, şema, chunk ve embedding değişmedi.
 **Ölçüm** (319 belgelik corpus, gerçek embedding modeli, 78 denetim sorusu ve her
 belgenin kendi başlığı): bölüm aramasında hüküm hit@10 38/71'den 39/71'e, belge
 hit@10 49/71'den 51/71'e çıktı; `search_document_store` belge hit@1 52/71'den
-51/71'e, hit@10 68/71'de kaldı; kendi başlığıyla 1. sıra 262/319'dan 268/319'a,
-ilk 10 310/319'da kaldı, taslak/mülga belgelerde 16/18 kaldı. Kötüleşen sorular:
-gevşek OR geçişi artık çalışmadığı için onun verdiği boost'u kaybeden birkaç tam
-atıf sorusu (örneğin "Kredilerin Sınıflandırılması Yönetmeliği madde 10",
-"Bankaların Kredi İşlemlerine İlişkin Yönetmelik madde 12 üçüncü fıkra") ve
-başlığının kelimelerini çekimli taşıyan benzer adlı bir belgenin öne geçtiği
-birkaç kendi başlık araması.
+53/71'e çıktı, hit@10 68/71'de kaldı; kendi başlığıyla 1. sıra 262/319'dan
+260/319'a indi, ilk 10 310/319'da, taslak/mülga belgelerde 16/18 kaldı.
+Kötüleşenler: başlığının kelimelerini çekimli taşıyan benzer adlı bir belgenin
+lexical boost aldığı "5411 sayılı Kanunun 54 üncü maddesi" (5411 sayılı Kanun
+2.'den 4.'ye) ve 1208, 445, 91 numaralı kararların kendi başlık aramaları.
 
 **Yükseltme notu.** Yeniden derleme gerekmez. MCP sözleşmesi yalnızca eklemedir:
 yeni isteğe bağlı çıktı alanı `decision_numbers_not_stored`; tavandaki sonucun
