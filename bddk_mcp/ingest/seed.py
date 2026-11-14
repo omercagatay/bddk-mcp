@@ -24,7 +24,9 @@ from pathlib import Path
 
 import numpy as np
 
+from bddk_mcp.core import config as _config
 from bddk_mcp.core.config import CORPUS_PATH, EMBEDDING_DIMENSION, EMBEDDING_MODEL_NAME
+from bddk_mcp.store import fingerprint as build_fingerprint
 from bddk_mcp.store.corpus_db import CorpusDB
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument, upsert_document_sync
 
@@ -259,8 +261,14 @@ async def build_corpus(
     re-embedded, unless ``seed_data/embeddings/`` still holds the vectors exported for
     exactly its chunk texts and model.  ``force`` rewrites and re-embeds everything and
     ignores that cache; it cannot switch a corpus file to another embedding model (delete
-    the file and build instead).  The build skips by content hash and catalog size only,
-    so metadata-only seed edits and documents removed from the seed need a fresh file.
+    the file and build instead).  The build skips when every content hash, the catalog size
+    and the stored build fingerprint (``bddk_mcp.store.fingerprint``) match.  When the
+    fingerprint is missing or its seed, parser or chunker part differs, every document is
+    rewritten (vectors still come from the seed cache where the chunk texts match); without
+    ``force``, a model-part difference (revision, passage prefix, prefix separator or vector
+    dtype) is refused.  The fingerprint is written as the
+    last step, after every document succeeded.  Documents removed from the seed stay in
+    the file and need a fresh file.
     When a document needs chunking, the chunk tokenizer is loaded before the first
     write, so a host without it fails early; a corpus file that did not exist before
     such a failure is removed again.
@@ -277,6 +285,7 @@ async def build_corpus(
         logger.info("Seed files are empty; nothing to build")
         return result
 
+    current_fingerprint = build_fingerprint.build_fingerprint(docs, catalog)
     corpus_file = Path(corpus_path or CORPUS_PATH)
     corpus_existed = corpus_file.exists()
     db = CorpusDB.open(corpus_path)
@@ -285,7 +294,7 @@ async def build_corpus(
         store = DocumentStore(db)
         vs = (vector_store_factory or VectorStore)(db)
 
-        def _stored_state(conn: sqlite3.Connection) -> tuple[dict[str, str], set[str], int]:
+        def _stored_state(conn: sqlite3.Connection) -> tuple[dict[str, str], set[str], int, dict[str, str]]:
             hashes = {
                 row["document_id"]: row["content_hash"]
                 for row in conn.execute("SELECT document_id, content_hash FROM documents").fetchall()
@@ -298,20 +307,22 @@ async def build_corpus(
                 ).fetchall()
             }
             catalog_count = conn.execute("SELECT COUNT(*) FROM decision_cache").fetchone()[0]
-            return hashes, indexed, catalog_count
+            meta = {row["key"]: row["value"] for row in conn.execute("SELECT key, value FROM meta").fetchall()}
+            return hashes, indexed, catalog_count, meta
 
-        stored_hashes, indexed, catalog_count = await db.run(_stored_state)
+        stored_hashes, indexed, catalog_count, meta = await db.run(_stored_state)
+        rewrite_all = _fingerprint_rewrite(meta, current_fingerprint, has_documents=bool(stored_hashes), force=force)
         stale = [doc_id for doc_id, digest in seed_hashes.items() if stored_hashes.get(doc_id) != digest]
         by_id = {record["document_id"]: record for record in docs}
         unindexed = [
             doc_id for doc_id in seed_hashes if doc_id not in indexed and by_id[doc_id].get("markdown_content")
         ]
-        if not force and not stale and not unindexed and catalog_count == len(catalog):
+        if not force and not rewrite_all and not stale and not unindexed and catalog_count == len(catalog):
             logger.info("Corpus already matches the seed data; build skipped")
             result["skipped"] = True
             return result
 
-        rewrite = list(seed_hashes) if force else stale
+        rewrite = list(seed_hashes) if force or rewrite_all else stale
         to_embed = sorted(set(rewrite) | set(unindexed))
         if any((by_id[doc_id].get("markdown_content") or "").strip() for doc_id in to_embed):
             # Preflight: fail before the first write when the tokenizer cannot load (offline host).
@@ -355,6 +366,14 @@ async def build_corpus(
                 cached_embeddings=cache.lookup(doc_id),
             )
         result["chunks_cached"] = cache.chunks_used
+        # Last step: a build that failed before here leaves the old (or no) fingerprint and is redone.
+        encoded = build_fingerprint.encode(current_fingerprint)
+        await db.transaction(
+            lambda conn: conn.execute(
+                "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
+                (build_fingerprint.FINGERPRINT_META_KEY, encoded),
+            )
+        )
         logger.info(
             "Corpus built (%d catalog, %d documents rewritten, %d sections, %d chunks: %d embedded, %d from the seed cache)",
             result["decision_cache"],
@@ -368,6 +387,44 @@ async def build_corpus(
         if not closed:
             db.close()
     return result
+
+
+def _fingerprint_rewrite(meta: dict[str, str], current: dict[str, str], *, has_documents: bool, force: bool) -> bool:
+    """Whether every document must be rewritten because the file was built from other inputs or by other code.
+
+    Refuses, before any write, a file embedded with another model name or dimension
+    (as the vector store would) and, unless ``force``, one whose model part differs
+    otherwise (revision, passage prefix, prefix separator or vector dtype): the seed
+    embedding cache cannot detect such a change.
+    """
+    from bddk_mcp.store.vector_store import RetrievalProfileError
+
+    embedded_with = meta.get("embedding_model")
+    if embedded_with is not None and (
+        embedded_with != EMBEDDING_MODEL_NAME or meta.get("embedding_dimension") != str(EMBEDDING_DIMENSION)
+    ):
+        raise RetrievalProfileError(
+            "The corpus file was built with a different embedding model; delete it and run `bddk-mcp build` again."
+        )
+    stored = build_fingerprint.decode(meta.get(build_fingerprint.FINGERPRINT_META_KEY))
+    if stored is None:
+        if has_documents and not force:
+            logger.warning("No build fingerprint: file predates fingerprinting; every document is rewritten")
+        return has_documents
+    unknown = build_fingerprint.unknown_parts(stored, current)
+    if unknown:
+        logger.warning("Build fingerprint parts not comparable (source text unavailable): %s", ", ".join(unknown))
+    differing = build_fingerprint.differing_parts(stored, current)
+    if "model" in differing and embedded_with is not None and not force:
+        raise RuntimeError(
+            "The corpus file was embedded with other embedding settings: another model revision, passage prefix, "
+            "prefix separator or vector dtype "
+            f"(BDDK_EMBEDDING_MODEL_REVISION is now {_config.EMBEDDING_MODEL_REVISION or 'unset'}); the seed "
+            "embedding cache cannot detect such a change. Delete the corpus file and run `bddk-mcp build --force`."
+        )
+    if differing and not force:
+        logger.warning("Build fingerprint differs (%s); every document is rewritten", ", ".join(differing))
+    return bool(differing)
 
 
 def _remove_corpus_file(path: Path) -> None:

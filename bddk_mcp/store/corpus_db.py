@@ -13,6 +13,7 @@ SQLite's own case folding.
 from __future__ import annotations
 
 import asyncio
+import functools
 import hashlib
 import logging
 import sqlite3
@@ -28,6 +29,13 @@ logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 1
 NOT_READY_HINT = "Run `bddk-mcp build` (seed_data -> corpus file) to prepare the corpus."
+# A plain build and --force both refuse to switch a file embedded with another model.
+MODEL_MISMATCH_HINT = (
+    "Delete the corpus file and run `bddk-mcp build`; build and --force refuse to switch an existing file to "
+    "another embedding model."
+)
+_MODEL_ISSUE = "the corpus was embedded with a different model than BDDK_EMBEDDING_MODEL"
+_DIMENSION_ISSUE = "the corpus embedding dimension does not match this runtime"
 UNREADABLE_MESSAGE = (
     "Corpus is not ready: this process cannot open the corpus file for reading. Either it cannot read the file "
     "or its directory, or the file is still in WAL mode in a directory it cannot write. Check the permissions "
@@ -192,6 +200,12 @@ class CorpusReadiness:
     schema_version: str = ""
     digest: str = ""
     issues: list[str] = field(default_factory=list)
+    # Documents `bddk-mcp sync` could not fetch or extract, per error category; reported, never an issue.
+    sync_failures: dict[str, int] = field(default_factory=dict)
+    # The stored build fingerprint (None: the file predates fingerprinting) and the parts the
+    # running code would compute differently (never ``seed``).  A warning, never an issue.
+    build_fingerprint: dict[str, str] | None = None
+    stale_fingerprint_parts: list[str] = field(default_factory=list)
 
 
 def corpus_digest(rows: list[tuple[str, str]]) -> str:
@@ -215,6 +229,17 @@ def unreadable_corpus_error(exc: sqlite3.DatabaseError) -> CorpusNotReadyError:
     return CorpusNotReadyError(f"Corpus is not ready: the file is not a readable corpus. {NOT_READY_HINT}")
 
 
+@functools.cache
+def _corpus_table_names() -> frozenset[str]:
+    """Every table the corpus schema creates, FTS5 shadow tables included."""
+    connection = sqlite3.connect(":memory:")
+    try:
+        connection.executescript(_SCHEMA)
+        return frozenset(row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'"))
+    finally:
+        connection.close()
+
+
 def _inspect_existing_file(connection: sqlite3.Connection, target: Path) -> None:
     """Refuse, without modifying it, an existing file that is not a corpus of this schema version."""
     try:
@@ -229,6 +254,14 @@ def _inspect_existing_file(connection: sqlite3.Connection, target: Path) -> None
         stored = connection.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()
     except sqlite3.DatabaseError as exc:
         raise CorpusNotReadyError(f"{target} is not a readable corpus file; it was left unchanged.") from exc
+    foreign = {name for name in tables if not name.startswith("sqlite_")} - _corpus_table_names()
+    if stored is None and foreign:
+        # A key/value `meta` table is a common name (browser History files have one); a file a
+        # writer left half-initialised holds corpus tables only and is still accepted.
+        raise CorpusNotReadyError(
+            f"{target} is an SQLite database but not a corpus file (its meta table has no schema_version); "
+            "it was left unchanged. Choose another --corpus path."
+        )
     if stored is not None and stored[0] != str(SCHEMA_VERSION):
         # CREATE TABLE IF NOT EXISTS never alters an existing layout: an
         # old file is rebuilt from seed data, not upgraded in place.
@@ -236,6 +269,43 @@ def _inspect_existing_file(connection: sqlite3.Connection, target: Path) -> None
             f"Corpus file {target} has schema version {stored[0]}, this runtime expects {SCHEMA_VERSION}. "
             "Delete the file and run `bddk-mcp build`."
         )
+
+
+def _refuse_stale_wal(target: Path) -> None:
+    """Refuse a rollback-journal file with a non-empty ``-wal`` beside it, without touching either.
+
+    SQLite applies a ``-wal`` file it finds beside a database even when the
+    database header says rollback-journal mode, and a WAL is not tied to one
+    database file.  A file put in place of an earlier one at the same path (whose
+    writer was killed before ``close``) would then be read with the earlier file's
+    pages laid over it, silently.  A WAL-format file with its own ``-wal`` is
+    legitimate crash recovery and opens normally.
+    """
+    wal = target.with_name(target.name + "-wal")
+    try:
+        if not target.is_file() or wal.stat().st_size == 0:
+            return
+        with target.open("rb") as handle:
+            header = handle.read(20)
+    except OSError:
+        return  # a missing -wal, or a file this process cannot read: the open reports it
+    if len(header) == 20 and header.startswith(b"SQLite format 3\x00") and header[18] == 1 and header[19] == 1:
+        shm = target.with_name(target.name + "-shm")
+        raise CorpusNotReadyError(
+            f"Corpus is not ready: {wal} is a leftover write-ahead log of an earlier file at this path; SQLite "
+            f"would apply it on top of {target}, which was left unchanged. Move or delete '{wal}' and '{shm}' "
+            "while no process has the corpus open, then retry."
+        )
+
+
+def _fingerprint_state(meta: dict[str, str]) -> tuple[dict[str, str] | None, list[str]]:
+    """The stored build fingerprint and its parts that differ from the running code."""
+    from bddk_mcp.store import fingerprint
+
+    stored = fingerprint.decode(meta.get(fingerprint.FINGERPRINT_META_KEY))
+    if stored is None:
+        return None, []
+    return stored, fingerprint.differing_parts(stored, fingerprint.runtime_parts(), fingerprint.RUNTIME_PARTS)
 
 
 class CorpusDB:
@@ -272,9 +342,13 @@ class CorpusDB:
         if readonly or not create:
             if not target.is_file():
                 raise CorpusNotReadyError(f"Corpus file not found: {target}. {NOT_READY_HINT}")
+        _refuse_stale_wal(target)
         if readonly:
             uri = f"{target.resolve().as_uri()}?mode=ro"
-            connection = sqlite3.connect(uri, uri=True, check_same_thread=False, isolation_level=None)
+            try:
+                connection = sqlite3.connect(uri, uri=True, check_same_thread=False, isolation_level=None)
+            except sqlite3.DatabaseError as exc:
+                raise unreadable_corpus_error(exc) from exc
         else:
             target.parent.mkdir(parents=True, exist_ok=True)
             connection = sqlite3.connect(str(target), check_same_thread=False, isolation_level=None)
@@ -371,11 +445,18 @@ class CorpusDB:
             ).fetchone()[0]
             readiness.chunks = conn.execute("SELECT COUNT(*) FROM chunks").fetchone()[0]
             readiness.catalog = conn.execute("SELECT COUNT(*) FROM decision_cache").fetchone()[0]
+            readiness.build_fingerprint, readiness.stale_fingerprint_parts = _fingerprint_state(meta)
+            readiness.sync_failures = {
+                row[0]: row[1]
+                for row in conn.execute(
+                    "SELECT error_category, COUNT(*) FROM sync_failures GROUP BY error_category ORDER BY error_category"
+                )
+            }
             if readiness.chunks:
                 if readiness.embedding_model != EMBEDDING_MODEL_NAME:
-                    readiness.issues.append("the corpus was embedded with a different model than BDDK_EMBEDDING_MODEL")
+                    readiness.issues.append(_MODEL_ISSUE)
                 if meta.get("embedding_dimension") != str(EMBEDDING_DIMENSION):
-                    readiness.issues.append("the corpus embedding dimension does not match this runtime")
+                    readiness.issues.append(_DIMENSION_ISSUE)
             for message, sql in _READINESS_CHECKS:
                 if conn.execute(sql).fetchone() is not None:
                     readiness.issues.append(message)
@@ -395,5 +476,7 @@ class CorpusDB:
         except sqlite3.DatabaseError as exc:
             raise unreadable_corpus_error(exc) from exc
         if readiness.issues:
-            raise CorpusNotReadyError("Corpus is not ready: " + "; ".join(readiness.issues) + f". {NOT_READY_HINT}")
+            model_mismatch = _MODEL_ISSUE in readiness.issues or _DIMENSION_ISSUE in readiness.issues
+            hint = MODEL_MISMATCH_HINT if model_mismatch else NOT_READY_HINT
+            raise CorpusNotReadyError("Corpus is not ready: " + "; ".join(readiness.issues) + f". {hint}")
         return readiness

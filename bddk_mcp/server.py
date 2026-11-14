@@ -22,6 +22,7 @@ from bddk_mcp.core.config import (
     HTTP_CONNECT_TIMEOUT,
     HTTP_POOL_TIMEOUT,
     REQUEST_TIMEOUT,
+    SEMANTIC_STARTUP_TIMEOUT_SECONDS,
     validate_model_asset_policy,
 )
 from bddk_mcp.core.deps import Dependencies
@@ -85,7 +86,6 @@ _runtime_leases = 0
 
 _TRANSPORTS = frozenset({"stdio", "streamable-http"})
 _READINESS_ATTESTATION_TTL_SECONDS = 5.0
-_SEMANTIC_SEARCH_STARTUP_TIMEOUT_SECONDS = 45.0
 
 
 def _runtime_host() -> str:
@@ -172,14 +172,35 @@ async def create_deps() -> Dependencies:
             corpus.embedding_model,
             corpus.schema_version,
         )
+        if corpus.build_fingerprint is None:
+            logger.warning("Corpus has no build fingerprint (file predates fingerprinting); run bddk-mcp build")
+        elif corpus.stale_fingerprint_parts:
+            # build refuses a model-part difference (revision, prefix, dtype: the embedding cache cannot detect it).
+            remedy = (
+                "delete the corpus file and run bddk-mcp build --force"
+                if "model" in corpus.stale_fingerprint_parts
+                else "run bddk-mcp build"
+            )
+            logger.warning(
+                "Corpus build fingerprint is stale (%s); %s", ", ".join(corpus.stale_fingerprint_parts), remedy
+            )
 
         doc_store = DocumentStore(db)
         client = BddkApiClient(store=doc_store, http=http, allow_live_population=False)
         await client.load_cache_read_only()
         validate_model_asset_policy()
         vector_store = VectorStore(db)
-        async with asyncio.timeout(_SEMANTIC_SEARCH_STARTUP_TIMEOUT_SECONDS):
-            await vector_store.assert_semantic_search_ready()
+        startup_timeout = SEMANTIC_STARTUP_TIMEOUT_SECONDS
+        try:
+            async with asyncio.timeout(startup_timeout) as deadline:
+                await vector_store.assert_semantic_search_ready()
+        except TimeoutError as exc:
+            if not deadline.expired():
+                raise
+            raise TimeoutError(
+                f"The embedding model load and probe search did not finish within {startup_timeout} seconds; "
+                "on a slow or cold host raise BDDK_SEMANTIC_STARTUP_TIMEOUT_SECONDS (1 to 900)."
+            ) from exc
 
         return Dependencies(
             db=db,
