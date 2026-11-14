@@ -119,6 +119,12 @@ _FTS_RELAXED_STOPWORDS = {
 _FTS_RELAXED_MIN_TERMS = 3
 _FTS_RELAXED_MAX_TERMS = 12
 _LEXICAL_RELEVANCE_BOOST = 0.045
+# A query word matched only in another inflection ("tutarının" for "tutarı") counts half of a word matched as
+# typed: the lexical relevance of an inflected all-words match is weighted by this factor. A calibration value,
+# measured on 2026-11-15 on the 319-document corpus against the same tree without the inflected pass: at 0.5
+# the 267 audit sentences keep top 1 186/186 (first eight words) and 194/194 (verbatim), own-title rank 1 stays
+# 262, and decision 10970 (document 1255) still reaches the ceiling; at 1.0 sentence top 1 fell to 182.
+_INFLECTED_LEXICAL_WEIGHT = 0.5
 _PHRASE_RELEVANCE_BOOST = 0.03
 _PHRASE_RELEVANCE_MAX = 0.06
 _TURKISH_STEM_SUFFIXES = ("leri", "lari", "inin", "unun", "nin", "nun", "ler", "lar", "si", "su", "i", "u")
@@ -1512,7 +1518,7 @@ class VectorStore:
         Documents whose chunks hold every query word only in an inflected form
         (``_inflected_fts_query``) follow the strict matches with
         ``fts_inflected=True``: a keyword match for the fusion, the lexical
-        boost and the FTS gate, never an exact or keyword-only match. The
+        boost (at _INFLECTED_LEXICAL_WEIGHT) and the FTS gate, never an exact or keyword-only match. The
         relaxed fallback runs whenever the strict pass finds nothing; an
         inflected match then takes precedence over a document's relaxed row
         and the inflected documents come first.
@@ -1768,18 +1774,21 @@ class VectorStore:
         if fts_hits:
             # The strict matches, or without them every relaxed row (a row an inflected match superseded
             # included), set the scale (BM25 of the inflected expression is another query's score), so an
-            # inflected match never changes their lexical relevance. An inflected hit takes the larger of its
-            # inflected and its superseded relaxed rank, capped at 1, so promotion never lowers its value.
+            # inflected match never changes their lexical relevance. An inflected hit gets
+            # _INFLECTED_LEXICAL_WEIGHT of its value on that scale (capped at 1), and never less than the
+            # value of its superseded relaxed row, so promotion never lowers it.
             scale_ranks = [hit.get("fts_rank", 0.0) for hit in fts_hits if not hit.get("fts_inflected")]
             scale_ranks += [hit["relaxed_fts_rank"] for hit in fts_hits if "relaxed_fts_rank" in hit]
             max_fts_rank = max(scale_ranks or [hit.get("fts_rank", 0.0) for hit in fts_hits], default=0.0)
             if max_fts_rank > 0:
                 for hit in fused:
-                    rank = max(
-                        float(hit.get("fts_rank", 0.0)),
-                        float(fts_by_doc.get(hit["doc_id"], {}).get("relaxed_fts_rank", 0.0)),
-                    )
-                    lexical_relevance = min(1.0, rank / max_fts_rank)
+                    matched = fts_by_doc.get(hit["doc_id"], {})
+                    lexical_relevance = min(1.0, float(hit.get("fts_rank", 0.0)) / max_fts_rank)
+                    if matched.get("fts_inflected"):
+                        lexical_relevance = max(
+                            lexical_relevance * _INFLECTED_LEXICAL_WEIGHT,
+                            min(1.0, float(matched.get("relaxed_fts_rank", 0.0)) / max_fts_rank),
+                        )
                     hit["lexical_relevance"] = round(lexical_relevance, _SCORE_DECIMAL_PLACES)
                     if hit.get("semantic_relevance", 0.0) > 0 and lexical_relevance > 0:
                         hit["relevance"] = round(

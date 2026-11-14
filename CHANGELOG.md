@@ -42,7 +42,8 @@ cevap metnini değiştirir; corpus, şema, chunk ve embedding değişmedi.
 - `search_document_store`: sorgudaki kelimelerin hepsini çekimli hâliyle taşıyan
   belge ("tutarı" yerine "tutarının") artık anahtar kelime eşleşmesi sayılıyor.
   "kredi kartı asgari ödeme tutarı" sorusunda tutarı belirleyen 26.09.2024
-  tarihli ve 10970 sayılı Kurul Kararı 5. sıradan 1. sıraya çıktı.
+  tarihli ve 10970 sayılı Kurul Kararı 5. sıradan 2. sıraya çıktı; önünde aynı
+  gün tarihli 1254 var, 2022 ve 2020 kararları onlardan sonra geliyor.
 - %100'de (kalibrasyon tavanı) eşit görünen ve art arda gelen tarihli Kurul
   Kararları en yeniden eskiye sıralanıyor; aralarındaki tarihsiz bir kanun,
   yönetmelik veya rehber ve tam başlığı sorguda geçen karar yerinde kalıyor.
@@ -67,7 +68,12 @@ cevap metnini değiştirir; corpus, şema, chunk ve embedding değişmedi.
   dayanıklı geçiş de bulduysa çekimli eşleşme gevşek satırın yerine geçer ve
   çekimli belgeler gevşeklerden önce gelir. Lexical boost'un ölçeğini katı
   eşleşmeler, onlar yoksa bütün gevşek satırlar (yerine geçilenler dahil)
-  belirler; çekimli sonuç iki değerinden büyüğünü alır, en çok 1.
+  belirler. Yalnızca başka bir çekimle eşleşen kelime, yazıldığı gibi eşleşen
+  kelimenin yarısı sayılır: çekimli sonucun bu ölçekteki değeri (en çok 1)
+  `_INFLECTED_LEXICAL_WEIGHT = 0.5` ile çarpılır ve yerine geçtiği gevşek satırın
+  değerinin altına düşmez. 0.5 bir kalibrasyon değeridir: çekimli geçiş kapalı
+  ağaca karşı 267 denetim cümlesinde ilk sıra 186/186 (ilk sekiz kelime) ve
+  194/194 (cümlenin kendisi) kaldı; 1.0 ile ilk sekiz kelimede 182'ye düşüyordu.
 - Tarih sırası yalnızca art arda gelen ve tavandaki (`relevance_clamped`)
   tarihli sonuçlara uygulanır; aynı tarih iç skor sırasını korur, `DD.MM.YYYY`
   olmayan tarih tarihsiz sayılır. Tam başlığı sorguda geçen karar (TASLAK/MÜLGA
@@ -86,11 +92,11 @@ cevap metnini değiştirir; corpus, şema, chunk ve embedding değişmedi.
 **Ölçüm** (319 belgelik corpus, gerçek embedding modeli, 78 denetim sorusu ve her
 belgenin kendi başlığı): bölüm aramasında hüküm hit@10 38/71'den 39/71'e, belge
 hit@10 49/71'den 51/71'e çıktı; `search_document_store` belge hit@1 52/71'den
-53/71'e çıktı, hit@10 68/71'de kaldı; kendi başlığıyla 1. sıra 262/319'dan
-260/319'a indi, ilk 10 310/319'da, taslak/mülga belgelerde 16/18 kaldı.
-Kötüleşenler: başlığının kelimelerini çekimli taşıyan benzer adlı bir belgenin
-lexical boost aldığı "5411 sayılı Kanunun 54 üncü maddesi" (5411 sayılı Kanun
-2.'den 4.'ye) ve 1208, 445, 91 numaralı kararların kendi başlık aramaları.
+53/71'e çıktı, hit@10 68/71'de kaldı; kendi başlığıyla 1. sıra 262/319'da, ilk
+10 310/319'da, taslak/mülga belgelerde 16/18 kaldı. Kötüleşenler: kelimeleri
+çekimli taşıyan belgelerin lexical boost aldığı "5411 sayılı Kanunun 54 üncü
+maddesi" (5411 sayılı Kanun 2.'den 4.'ye) ve 91 numaralı kararın kendi başlık
+araması (3.'den 4.'ye).
 
 **Yükseltme notu.** Yeniden derleme gerekmez. MCP sözleşmesi yalnızca eklemedir:
 yeni isteğe bağlı çıktı alanı `decision_numbers_not_stored`; tavandaki sonucun

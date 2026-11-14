@@ -947,6 +947,38 @@ class TestInflectedKeywordPass:
         assert by_id["inflected"]["match_type"] == "hybrid" and by_id["inflected"]["lexical_relevance"] > 0
 
     @pytest.mark.asyncio
+    async def test_an_exact_all_words_match_outranks_a_slightly_closer_inflected_one(self):
+        vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = EMBEDDING_MODEL_NAME
+        vs._vector_search = AsyncMock(
+            return_value=[
+                {"doc_id": "inflected", "relevance": 0.87, "title": "I", "snippet": "i"},
+                {"doc_id": "exact", "relevance": 0.86, "title": "E", "snippet": "e"},
+            ]
+        )
+        vs._fts_search = AsyncMock(
+            return_value=[
+                {"doc_id": "exact", "fts_rank": 4.0, "title": "E", "snippet": "e", "fts_relaxed": False},
+                {
+                    "doc_id": "inflected",
+                    "fts_rank": 4.0,
+                    "title": "I",
+                    "snippet": "i",
+                    "fts_relaxed": False,
+                    "fts_inflected": True,
+                },
+            ]
+        )
+
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", None):
+            hits = await vs._hybrid_search("zzz", limit=10)
+
+        # A word matched only in another inflection counts for less than a word matched as typed, but counts.
+        assert [hit["doc_id"] for hit in hits] == ["exact", "inflected"]
+        assert hits[0]["lexical_relevance"] == 1.0
+        assert 0 < hits[1]["lexical_relevance"] < 1.0
+
+    @pytest.mark.asyncio
     async def test_an_inflected_hit_that_supersedes_a_relaxed_row_changes_no_lexical_value(self):
         vs = VectorStore.__new__(VectorStore)
         vs._embedding_model = EMBEDDING_MODEL_NAME
@@ -992,8 +1024,8 @@ class TestInflectedKeywordPass:
 
         lexical = {hit["doc_id"]: hit["lexical_relevance"] for hit in hits}
         # Every relaxed row, superseded ones included, sets the scale (10), as before the inflected pass;
-        # an inflected hit takes the larger of its two ranks, capped at 1.
-        assert lexical == {"promoted": 1.0, "loose": 0.8, "low": 1.0}
+        # an inflected hit gets half its capped value on that scale, never less than its relaxed row's.
+        assert lexical == {"promoted": 1.0, "loose": 0.8, "low": 0.5}
 
     @pytest.mark.asyncio
     async def test_an_inflected_hit_is_never_fts_exact_nor_a_keyword_only_hit(self):
