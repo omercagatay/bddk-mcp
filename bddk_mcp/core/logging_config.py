@@ -35,6 +35,61 @@ def tool_content_logging_enabled() -> bool:
     return os.environ.get(_TOOL_CONTENT_LOG_ENV, "").strip().lower() in _TRUE_VALUES
 
 
+# Class names the SDK logs as arguments (request, notification and warning types).
+_SAFE_LOG_ARGUMENT_RE = re.compile(r"[A-Z][A-Za-z]{0,60}(?:Request|Notification|Warning|Error)")
+_WITHHELD = "<withheld>"
+
+
+class SdkLogPrivacyFilter(logging.Filter):
+    """Keep request content and tracebacks of the MCP SDK out of the logs.
+
+    The SDK logs outside this project's tool boundary: a request that fails its
+    schema check is logged with the rejected values (``input_value=...``), an
+    unknown tool with the name the caller sent, and transport errors with a full
+    traceback. Those values are caller text (a query, a document excerpt) and
+    the tracebacks carry absolute paths, so the metadata-only policy of
+    ``tools/tool_logging.py`` would not hold for them. Unless
+    ``BDDK_TOOL_LOG_CONTENT`` is enabled, a record of the SDK (logger ``mcp.*``,
+    or the root logger its session layer writes to) keeps only its fixed message
+    text and the exception type.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.name != "root" and record.name != "mcp" and not record.name.startswith("mcp."):
+            return True
+        if tool_content_logging_enabled():
+            return True
+
+        if record.args:
+            arguments = record.args if isinstance(record.args, tuple) else (record.args,)
+            try:
+                message = str(record.msg) % tuple(self._safe_argument(value) for value in arguments)
+            except (TypeError, ValueError, KeyError):
+                message = str(record.msg)
+        else:
+            # The SDK builds these messages with f-strings: the fixed text ends at the first colon.
+            text = str(record.msg)
+            head, separator, _detail = text.partition(":")
+            message = f"{head}: {_WITHHELD}" if separator else text
+        if record.exc_info and record.exc_info[0] is not None:
+            message = f"{message} [{record.exc_info[0].__name__}]"
+
+        record.msg = message[:200]
+        record.args = None
+        record.exc_info = None
+        record.exc_text = None
+        record.stack_info = None
+        return True
+
+    @staticmethod
+    def _safe_argument(value: object) -> object:
+        if isinstance(value, bool | int | float) or value is None:
+            return value
+        if isinstance(value, str) and _SAFE_LOG_ARGUMENT_RE.fullmatch(value):
+            return value
+        return _WITHHELD
+
+
 class JsonFormatter(logging.Formatter):
     """Structured JSON log formatter."""
 
@@ -106,6 +161,7 @@ def configure_logging(json_output: bool | None = None) -> None:
 
     handler = logging.StreamHandler(sys.stderr)
     handler.setFormatter(JsonFormatter() if json_output else HumanFormatter())
+    handler.addFilter(SdkLogPrivacyFilter())
     root.addHandler(handler)
 
     if tool_content_logging_enabled():

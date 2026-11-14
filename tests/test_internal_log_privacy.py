@@ -291,3 +291,95 @@ async def test_client_unmapped_upstream_category_is_not_logged(caplog):
     assert decisions[0].category == PRIVATE_TERM
     _assert_private_values_absent(caplog)
     assert f"chars={len(PRIVATE_TERM)}" in caplog.text
+
+
+# -- MCP SDK records -----------------------------------------------------------
+
+
+@pytest.fixture
+def production_log_stream(monkeypatch):
+    """Run the packaged JSON logging setup against a buffer and restore the root logger."""
+    import io
+
+    from bddk_mcp.core.logging_config import configure_logging
+
+    root = logging.getLogger()
+    saved_handlers, saved_level = root.handlers[:], root.level
+    monkeypatch.delenv("BDDK_TOOL_LOG_CONTENT", raising=False)
+    stream = io.StringIO()
+    try:
+        configure_logging(json_output=True)
+        root.handlers[0].setStream(stream)
+        yield stream
+    finally:
+        root.handlers[:] = saved_handlers
+        root.setLevel(saved_level)
+
+
+@pytest.mark.asyncio
+async def test_sdk_logs_do_not_carry_request_content_or_tracebacks(production_log_stream):
+    """Requests the SDK rejects must not put caller text or source paths into the logs."""
+    import json
+
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.http_security import HttpSecurityMiddleware, load_http_security_config
+    from bddk_mcp.server import create_mcp
+
+    security = load_http_security_config({"MCP_HOST": "127.0.0.1", "PORT": "8123"})
+    deps = Dependencies(db=None, doc_store=MagicMock(), client=MagicMock(), http=None)
+    raw_app = create_mcp(deps, http_security=security).streamable_http_app()
+    app = HttpSecurityMiddleware(raw_app, security)
+    headers = {"accept": "application/json, text/event-stream", "content-type": "application/json"}
+    bodies = [
+        json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": name, "arguments": args}})
+        for name, args in (("search_document_store", PRIVATE_TERM), (PRIVATE_TERM, {}))
+    ]
+    bodies.append(json.dumps({"jsonrpc": "2.0", "id": 1, "method": PRIVATE_TERM, "params": {}}))
+    bodies.append("[" * 100_000 + "]" * 100_000)  # RecursionError inside the SDK's JSON parsing
+
+    async with raw_app.router.lifespan_context(raw_app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:8123", headers=headers
+        ) as client:
+            for body in bodies:
+                await client.post("/mcp", content=body)
+
+    rendered = production_log_stream.getvalue()
+    records = [json.loads(line) for line in rendered.splitlines()]
+    sdk_problems = [r for r in records if r["level"] in {"WARNING", "ERROR"} and not r["logger"].startswith("bddk_mcp")]
+    assert len(sdk_problems) >= 4, "the SDK must still report each rejected request"
+    assert PRIVATE_TERM not in rendered
+    assert "site-packages" not in rendered
+    assert all("exception" not in record for record in records)
+    assert any("RecursionError" in record["message"] for record in sdk_problems)
+
+
+def test_sdk_log_filter_keeps_project_records_and_honours_the_content_opt_in(monkeypatch):
+    from bddk_mcp.core.logging_config import SdkLogPrivacyFilter
+
+    def record(name: str, msg: str, *args: object, level: int = logging.WARNING) -> logging.LogRecord:
+        return logging.LogRecord(name, level, __file__, 1, msg, args, None)
+
+    privacy_filter = SdkLogPrivacyFilter()
+    monkeypatch.delenv("BDDK_TOOL_LOG_CONTENT", raising=False)
+
+    own = record("bddk_mcp.tools.search", f"kept {PRIVATE_TERM}")
+    assert privacy_filter.filter(own) and PRIVATE_TERM in own.getMessage()
+
+    request_type = record(
+        "mcp.server.lowlevel.server", "Processing request of type %s", "PingRequest", level=logging.INFO
+    )
+    assert privacy_filter.filter(request_type) and request_type.getMessage() == "Processing request of type PingRequest"
+
+    for sdk in (
+        record("root", f"Failed to validate request: input_value='{PRIVATE_TERM}'"),
+        record("mcp.server.lowlevel.server", "Tool '%s' not listed, no validation will be performed", PRIVATE_TERM),
+        record("mcp.server.lowlevel.server", "Warning: %s: %s", "UserWarning", PRIVATE_TERM, level=logging.INFO),
+    ):
+        assert privacy_filter.filter(sdk)
+        assert PRIVATE_TERM not in sdk.getMessage()
+        assert "<withheld>" in sdk.getMessage()
+
+    monkeypatch.setenv("BDDK_TOOL_LOG_CONTENT", "true")
+    opted_in = record("root", f"Failed to validate request: input_value='{PRIVATE_TERM}'")
+    assert privacy_filter.filter(opted_in) and PRIVATE_TERM in opted_in.getMessage()

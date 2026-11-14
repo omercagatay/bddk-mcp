@@ -32,6 +32,29 @@ kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözle
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Güvenlik — MCP SDK log kayıtlarında istek içeriği (2026-11-14)
+
+MCP sunucusunun güvenlik incelemesinde bulundu: `BDDK_TOOL_LOG_CONTENT` kapalıyken
+de MCP SDK'nın kendi log kayıtları istek içeriği taşıyordu. Şemaya uymayan bir
+istekte reddedilen değer (`input_value=...`, yani çağıranın sorgu metni olabilir),
+kayıtlı olmayan bir tool çağrısında gönderilen ad ve taşıma hatalarında dosya
+yollarını içeren tam traceback loglanıyordu.
+
+- `bddk_mcp/core/logging_config.py`: `SdkLogPrivacyFilter`. İçerik loglaması
+  kapalıyken `mcp.*` ve root logger kayıtlarında yalnızca sabit mesaj metni ve
+  hata türü kalır; `BDDK_TOOL_LOG_CONTENT` açıkken davranış değişmez.
+- `docs/DEPLOYMENT.md`: bu davranış ve eşzamanlılık sınırının çağıranlar arasında
+  paylaştırılmadığı (tek istemci bütün slotları doldurabilir) yazıldı.
+
+**Doğrulama.** İşaretli bir metin taşıyan bozuk istekler üretim (JSON) log
+ayarında gönderildi: düzeltmeden önce işaret logda bulundu, sonra bulunmadı.
+Aynı incelemede kimlik doğrulamayı yol varyasyonlarıyla atlatma, toplu JSON-RPC
+isteği, aşırı iç içe JSON, istemciye hata sızıntısı, HTTP istek kaçakçılığı
+biçimleri, paketteki düzenli ifadelerin kötü niyetli girdiyle süresi ve tam
+corpus üzerinde 32/64 paralel arama denendi; başka açık bulunmadı. Bağımlılıkların
+bilinen açık taraması (`pip-audit`) çalıştırılamadı; gerçek bir kimlik sağlayıcı,
+canlı BDDK ve Docker imajı denenmedi.
+
 ### Değişti — üçüncü bakım turu: 14 aracın gerçek corpus ile denenmesi ve düzeltmeler (2026-11-14)
 
 Önceki turun birleştirilmiş hâli (PR #197) üzerinde üçüncü tur. Bu kez 14 aracın
