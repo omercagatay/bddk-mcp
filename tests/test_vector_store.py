@@ -940,6 +940,26 @@ def test_deletion_note_is_no_caption_and_is_not_merged_into_the_next_section():
     assert not any("[Silinmiştir]" in chunk.chunk_text for chunk in chunks if chunk.section_type)
 
 
+def test_seed_deletion_note_is_not_merged_into_the_chunk_of_the_next_paragraph():
+    import json
+    from pathlib import Path
+
+    from bddk_mcp.store.section_index import extract_document_sections
+    from bddk_mcp.store.vector_store import _chunk_spans
+
+    seed = Path(__file__).resolve().parents[1] / "seed_data" / "documents.json"
+    text = next(
+        d["markdown_content"] for d in json.loads(seed.read_text(encoding="utf-8")) if d["document_id"] == "kgk_tms_12"
+    )
+    note = text.index("69–70 [Silinmiştir]")
+    spans = _chunk_spans(text, extract_document_sections("kgk_tms_12", text))
+
+    covering = [span for span in spans if span.start_char <= note < span.end_char]
+    assert len(covering) == 1 and covering[0].section is None
+    paragraph_71 = next(span for span in spans if span.section is not None and span.section.section_ref == "71")
+    assert paragraph_71.start_char == paragraph_71.section.start_char > note
+
+
 def test_seed_has_no_standalone_caption_chunk_except_a_document_tail():
     import json
     from pathlib import Path

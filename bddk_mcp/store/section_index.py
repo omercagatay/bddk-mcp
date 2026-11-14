@@ -74,7 +74,7 @@ _HEADING_RE = re.compile(
     rf"|(?P<madde>madde)\s+(?P<madde_ref>{_ARTICLE_REF})"
     r"|(?P<ilke>ilke)\s+(?P<ilke_ref>\d+[A-Za-zÇĞİÖŞÜçğıöşü]?)"
     r"|(?P<paragraf>paragraf)\s+(?P<paragraf_ref>\d+[A-Za-zÇĞİÖŞÜçğıöşü]?)"
-    r"|(?P<ek>ek)[-\s–—\x96\x97]*(?P<ek_ref>\d+[A-Za-zÇĞİÖŞÜçğıöşü]?))"
+    r"|(?P<ek>ek)(?P<ek_separator>[-\s:–—\x96\x97]*)(?P<ek_ref>\d+[A-Za-zÇĞİÖŞÜçğıöşü]?))"
     r"(?:\.(?=\s*[-–—\x96\x97]))?"
     # A footnote/endnote marker printed right after the number ("MADDE 7$^{(1)}$ –").
     r"(?:\$\^\{[^}]*\}\$)*"
@@ -117,12 +117,48 @@ _ANNEX_LIST_RE = re.compile(
 # 946, 948, 950, 954-956, 1311) these lines sit inside a numbered paragraph body
 # that only the numbered fallback indexes; parsing them there deletes it.
 _DOT_HEADING_RE = re.compile(r"^\s*(?:(?P<ilke>(?i:ilke))|(?i:ek))\s+(?P<ref>\d+)\.\s+(?P<title>[A-ZÇĞİÖŞÜ].*)$")
+# An annex number followed directly by its upper-case title ("EK-1 TANIMLAR",
+# "EK-2 STRES TESTİ RAPORU" in 946).  The title must be upper case: "EK-1 bir
+# ilâ sekizinci fıkralarda belirtilen hükümler …" (902/903) is a cross-reference
+# inside a paragraph.
+_ANNEX_INLINE_TITLE_RE = re.compile(
+    r"^\s*(?:#{1,6}\s+)?(?:\*{2,3}\s*)?(?i:ek)[-\s–—\x96\x97]*(?P<ref>\d+)\s+(?P<title>[^\s(].*?)\s*\*{0,3}\s*$"
+)
+
+# An annex printed without a number ("Ek: Açıklamalar", "Ek: Eşleştirme Tablosu"
+# in the Genelgeler, "EK- İSEDES RAPORUNUN ŞEKLİ VE İÇERİĞİ" in 951) closes the
+# provision before it; it has no identity of its own and stays searchable as
+# govde.  An amendment note "Ek:RG-…" is no annex.
+_UNNUMBERED_ANNEX_RE = re.compile(
+    r"^\s*(?:#{1,6}\s+)?(?:\*{2,3}\s*)?(?i:ek)\s*(?::\s*(?!RG\b|RG-)[A-ZÇĞİÖŞÜ]|[-–—\x96\x97]\s*[A-ZÇĞİÖŞÜ]{2})"
+)
+
+
+def _is_annex_inline_title(title: str) -> bool:
+    letters = [ch for ch in title if ch.isalpha()]
+    return len(letters) >= 2 and title[:1].isalpha() and title.upper() == title
+
 
 # Fallback grammar for documents without MADDE/İlke-style headings: Rehber
 # number their paragraphs "1. ... 206." and Genelge use decimal outlines
 # ("2.", "2.1.").  The trailing dot is required — footnotes ("3 Orta vadeli
 # fonlama...") and cross-references ("5 inci maddesinin...") have none.
 _NUMBERED_HEADING_RE = re.compile(r"^\s*(?:\*{2,3}\s*)?(?P<top>\d{1,3})(?P<sub>(?:\.\d{1,3})*)\.\s+(?P<title>\S.*)$")
+# A sub-heading whose trailing dot the source dropped ("2.2.5 LOJİSTİK VE
+# ULAŞTIRMA SEKTÖRÜ" after "2.2.4. İMALAT SEKTÖRÜ" in 1285).  It needs a
+# sub-number and an upper-case title, so amounts ("2.5 milyon TL") and
+# footnotes stay prose; the sequence check still applies.
+_NUMBERED_UNDOTTED_SUBHEADING_RE = re.compile(
+    r"^\s*(?:\*{2,3}\s*)?(?P<top>\d{1,3})(?P<sub>(?:\.\d{1,3})+)\s+(?P<title>[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜ ,'’-]{3,})$"
+)
+# A lettered part heading of a decimal outline ("B - ÇEVREYE ÖNEMLİ ZARAR
+# VERMEME KRİTERLERİ" in 1285) closes the outline entry before it; it has no
+# identity of its own.
+# A chapter heading of a decimal outline without its trailing dot ("2.1 Kredi
+# Riski Yönetimi ve Kültürü" in 1041).  It only ever divides: it is honoured
+# solely far behind a globally numbered body, like the dotted outline headings.
+_NUMBERED_DOTLESS_OUTLINE_RE = re.compile(r"^\s*(?:\*{2,3}\s*)?(?P<top>\d{1,3})(?:\.\d{1,3})+\s+[A-ZÇĞİÖŞÜ][^.:;]*$")
+_LETTER_PART_HEADING_RE = re.compile(r"^\s*[A-ZÇĞİÖŞÜ]\s+[-–—]\s+[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜ ,'’-]{3,}$")
 # A second family of Rehber numbers the same paragraphs with a dash ("1-  Bu
 # rehberin amacı...").  Sub-numbering is deliberately not accepted here: no
 # document in the corpus writes "2.1-", while "1.500- TL" style amounts would
@@ -185,6 +221,7 @@ _NUMBERED_BARE_MIN_SECTIONS = 20
 # Decimal outlines / KISIM headings close a principle but are not themselves
 # numbered legal paragraphs. Keep them as span boundaries, not citation IDs.
 _GUIDELINE_PARAGRAPH_RE = re.compile(r"^\s*(?:\*{2,3}\s*)?(?P<ref>\d{1,3})\.\s+(?P<title>\S.*)$")
+_GUIDELINE_DASH_PARAGRAPH_RE = re.compile(r"^\s*(?:\*{2,3}\s*)?(?P<ref>\d{1,3})-\s+(?P<title>\S.*)$")
 _GUIDELINE_DIVIDER_RE = re.compile(r"^(?:[A-ZÇĞİÖŞÜ]+\s+(?:KISIM|BÖLÜM)|\d+(?:\.\d+)+\.?\s+[A-ZÇĞİÖŞÜ].*)$")
 
 
@@ -211,9 +248,19 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
     matches = _find_section_starts(text)
     if any(start["section_type"] == "ilke" for start in matches):
         matches = _find_section_starts(text, dot_headings=True)
-    if not matches:
+    if all(start.get("boundary_only") for start in matches):
+        # Only boundaries (an unnumbered "Ek: Açıklamalar" line): the document has
+        # no classic structure, and the boundaries close the numbered body's rows.
+        boundaries = matches
         matches = _find_numbered_paragraph_starts(text) or _find_bare_paragraph_starts(text)
-    elif {s["section_type"] for s in matches if s["level"] == 1} == {"ilke"}:
+        annex = next((start["start_char"] for start in boundaries if start.get("unnumbered_annex")), None)
+        if not matches and annex is not None:
+            # The body may end where an unnumbered annex starts whose own outline
+            # restarts the numbering (951's "EK- İSEDES RAPORUNUN ŞEKLİ VE İÇERİĞİ").
+            matches = _find_numbered_paragraph_starts(text, region_end=annex)
+        if matches:
+            matches = sorted(matches + boundaries, key=lambda start: start["start_char"])
+    elif _is_principle_structured(matches):
         matches = _merge_guideline_paragraphs(text, matches)
     else:
         # A document can carry classic headings for its annexes only (1040's
@@ -241,6 +288,8 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
     # Keep the first.
     seen_identities: set[tuple[str, str, str]] = set()
     level1_capped_end: int | None = None
+    # The stored window end of each open provision level that was capped.
+    capped_window_ends: dict[int, int] = {}
     for index, start in enumerate(matches):
         if start.get("boundary_only"):
             continue
@@ -275,8 +324,24 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
             title = _article_title_above(text, min(floor, start_char), start_char)
             if title is not None:
                 heading, start_char = title
+        if start["section_type"] == "ek" and not heading:
+            heading = _annex_title_below(text, start_char, end_char)
         truncated_from = None
-        if end_char - start_char > MAX_SECTION_CHARS:
+        if start["section_type"] in {"fikra", "bent"}:
+            # A nested row ends with its parent's stored window: the text past a
+            # capped provision's window is served by the govde rows that continue
+            # it, never as part of a fıkra that started inside the window
+            # (21192 EK-2's netting fıkra (2) ran 8,500 characters on over the
+            # annex's numbered paragraphs).  A row longer than the cap keeps its
+            # truncation notice, as before; a shorter one claims no longer span,
+            # because its next marker past the window is no reliable end (the
+            # annex's "N." paragraphs are no markers).
+            for level, window_end in capped_window_ends.items():
+                if level < start["level"] and start_char < window_end < end_char:
+                    if end_char - start_char > MAX_SECTION_CHARS:
+                        truncated_from = truncated_from or end_char - start_char
+                    end_char = window_end
+        if truncated_from is None and end_char - start_char > MAX_SECTION_CHARS:
             truncated_from = end_char - start_char
             logger.warning(
                 "extract_document_sections: capping oversized section span %d-%d (%d chars) to %d",
@@ -290,6 +355,9 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
             end_char = _govde_window_end(text, start_char, end_char)
         if start["level"] == 1:
             level1_capped_end = end_char if truncated_from else None
+        capped_window_ends = {level: end for level, end in capped_window_ends.items() if level < start["level"]}
+        if truncated_from:
+            capped_window_ends[start["level"]] = end_char
         content = text[start_char:end_char].strip()
         if not content:
             continue
@@ -502,6 +570,51 @@ def _article_title_above(text: str, floor: int, start_char: int) -> tuple[str, i
     return _INNER_EMPHASIS_RE.sub(" ", title).strip(), offsets[len(lines) - count]
 
 
+# An amendment note printed under an annex number ("(Değişik:RG-4/2/2022-31740)$^{(1)}$").
+_AMENDMENT_NOTE_RE = re.compile(r"^\(\s*(?:Değişik|Ek|Mülga)\s*:", re.IGNORECASE)
+
+
+def _annex_title_below(text: str, start_char: int, end_char: int) -> str:
+    """Return the title printed under an annex number line ("EK-2" / "(Değişik:…)" / "KARŞI TARAF KREDİ RİSKİ").
+
+    The title is the first non-blank line after the annex line that is not an
+    amendment note, when that line reads as a title (upper case is the norm for
+    annex titles).  Only the heading comes from it; the section's span is unchanged.
+    """
+    line_end = text.find("\n", start_char, end_char)
+    if line_end == -1:
+        return ""
+    for raw in text[line_end + 1 : end_char].splitlines():
+        line = _strip_title_markup(raw.strip())
+        if not line or _AMENDMENT_NOTE_RE.match(line):
+            continue
+        title = _INNER_EMPHASIS_RE.sub(" ", line).strip()
+        if _ADDRESSEE_LINE_RE.search(title):
+            # A form's addressee ("… KURULU BAŞKANLIĞINA" under 16071's EK-4) is no title.
+            return ""
+        return title if _is_annex_title_line(title) else ""
+    return ""
+
+
+# The dative ending of an office or institution an annex form is addressed to.
+_ADDRESSEE_LINE_RE = re.compile(r"(?:L[IİUÜ][ĞG][IİUÜ]N[AE]|KURUMUNA|BANKASINA)$")
+
+
+def _is_annex_title_line(line: str) -> bool:
+    """The article-title shape rules, without refusing an upper-case line."""
+    return not (
+        not (line[:1].isupper() or line[:1].isdigit())
+        or _CLAUSE_END_RE.search(line)
+        or line.startswith(("(", "|"))
+        or _SENTENCE_END_RE.search(line)
+        or _FORMULA_LINE_RE.search(line)
+        or _GLOSSARY_LINE_RE.match(line)
+        or _HEADING_RE.match(line)
+        or not any(ch.isalpha() for ch in line)
+        or len(line.split()) > _ARTICLE_TITLE_MAX_WORDS
+    )
+
+
 def _remainder_govde_sections(
     doc_id: str,
     text: str,
@@ -609,7 +722,160 @@ def _find_section_starts(text: str, *, dot_headings: bool = False) -> list[dict]
                 starts.append({**subsection, "start_char": char_pos, "level": 2})
         previous = "" if major is not None else stripped
         char_pos += len(line)
-    return _with_amendment_table_boundary(text, _without_quoted_articles(starts))
+    starts = _without_quoted_only_articles(text, _without_annex_captions(starts))
+    return _without_amendment_footnotes(_with_amendment_table_boundary(text, _without_quoted_articles(starts)))
+
+
+# An amendment footnote printed as a numbered marker: "(1) Bu değişiklik 1/1/2012 tarihinde yürürlüğe girer."
+_AMENDMENT_FOOTNOTE_RE = re.compile(r"^Bu\s+değişiklik\b.*\byürürlüğe\s+girer\.?$")
+_INLINE_FIKRA_RE = re.compile(r"^\((\d+)\)\s")
+
+
+def _without_amendment_footnotes(starts: list[dict]) -> list[dict]:
+    """Keep amendment footnotes out of the fıkra rows.
+
+    A consolidated regulation prints its amendment footnotes with the same
+    "(N)" markers as fıkras ("MADDE 6 – (1) Bu Yönetmelik hükümlerini …
+    yürütür." / "(1) Bu değişiklik 1/1/2012 tarihinde yürürlüğe girer.").  A
+    marker that does not advance its article's fıkra numbering (an inline
+    "(1)" on the MADDE line counts as fıkra 1), and a "(N) Bu değişiklik …
+    yürürlüğe girer." line, is no fıkra.  After the last article, or the last
+    provision of the document, the first such footnote closes the provision,
+    and the footnotes after it stay searchable as govde.
+    """
+    footnotes: set[int] = set()
+    last_fikra = 0
+    in_article = False
+    for index, start in enumerate(starts):
+        if start["level"] == 1:
+            in_article = start["section_type"] in _ARTICLE_TITLE_TYPES and not start.get("boundary_only")
+            inline = _INLINE_FIKRA_RE.match(start.get("heading") or "")
+            last_fikra = int(inline.group(1)) if inline else 0
+            continue
+        if start["section_type"] != "fikra":
+            continue
+        number = int(start["section_ref"])
+        if _AMENDMENT_FOOTNOTE_RE.match(start["heading"]) or (in_article and number <= last_fikra):
+            footnotes.add(index)
+        else:
+            last_fikra = number
+    if not footnotes:
+        return starts
+    closing = [
+        index
+        for index, start in enumerate(starts)
+        if start["level"] == 1 and not start.get("boundary_only") and start["section_type"] in _ARTICLE_TITLE_TYPES
+    ][-1:]
+    closing += [index for index, start in enumerate(starts) if start["level"] == 1 and not start.get("boundary_only")][
+        -1:
+    ]
+    boundaries: set[int] = set()
+    for parent in closing:
+        for index in range(parent + 1, len(starts)):
+            if starts[index]["level"] == 1:
+                break
+            if index in footnotes:
+                boundaries.add(index)
+                break
+    kept: list[dict] = []
+    closed = False
+    for index, start in enumerate(starts):
+        if start["level"] == 1:
+            closed = False
+        if index in boundaries:
+            kept.append({"section_type": "ek", "boundary_only": True, "start_char": start["start_char"], "level": 1})
+            closed = True
+            continue
+        if index in footnotes or (closed and start["level"] > 1):
+            continue
+        kept.append(start)
+    return kept
+
+
+def _without_quoted_only_articles(text: str, starts: list[dict]) -> list[dict]:
+    """Drop the articles of a document whose article run has no first article.
+
+    An instrument's own articles start at madde 1.  A Genelge that quotes
+    another regulation ("… 12 nci ve 13 üncü maddelerinde de aşağıdaki
+    hükümlere yer verilmiştir: MADDE 12 – … MADDE 13 – …", 1171) has no article
+    of its own: the quoted MADDE lines and their fıkra/bent markers are not its
+    provisions, and the document is indexed as text windows.  A document with a
+    geçici or ek madde keeps its articles, and so does an excerpt that does not
+    open with a sentence introducing the quotation (its last line before the
+    first article, or before that article's title, ends with a colon).
+    """
+    articles = [s for s in starts if s["level"] == 1 and not s.get("boundary_only") and s["section_type"] == "madde"]
+    if (
+        not articles
+        or any(_article_number(s["section_ref"]) == 1 for s in articles)
+        or any(s["level"] == 1 and s["section_type"] in {"gecici_madde", "ek_madde"} for s in starts)
+        or not _introduces_quotation(text[: articles[0]["start_char"]])
+    ):
+        return starts
+    kept: list[dict] = []
+    dropping = False
+    for start in starts:
+        if start["level"] == 1:
+            dropping = start["section_type"] == "madde" and not start.get("boundary_only")
+        if not dropping:
+            kept.append(start)
+    return kept
+
+
+def _without_annex_captions(starts: list[dict]) -> list[dict]:
+    """Keep a colon-form annex heading ("EK: 1") only where it opens the next annex.
+
+    Mevzuat_18990 heads its annexes "EK: 1" and "EK: 2".  The same form also
+    echoes an annex just opened ("EK-1" / "(Değişik:RG-…)" / "Ek:1" in 19498)
+    and serves as a page caption repeated over an annex's pages (934 prints
+    "Ek:1", "Ek:1", "Ek:2", "Ek:2", "Ek:2", "Ek:3" …), and a Genelge's
+    explanatory annex numbers its own sub-annexes that way (905).  An echo is
+    dropped; a colon-form line that does not advance the annex numbering, or
+    that no article heading precedes, marks the whole document's colon-form
+    lines as captions, and none of them is a heading.
+    The text under a dropped line stays in the section that contains it.
+    """
+    if not any(start.get("colon_form") for start in starts):
+        return starts
+    echoes: set[int] = set()
+    captions = False
+    highest = 0
+    after_article = False
+    previous_major: dict | None = None
+    for index, start in enumerate(starts):
+        if start["level"] != 1:
+            continue
+        is_annex = start["section_type"] == "ek" and not start.get("boundary_only")
+        number = _article_number(start["section_ref"]) if is_annex else None
+        if start.get("colon_form"):
+            if (
+                previous_major is not None
+                and previous_major["section_type"] == "ek"
+                and not previous_major.get("colon_form")
+                and previous_major.get("section_ref") == start["section_ref"]
+            ):
+                echoes.add(index)
+                continue
+            if number is None or number <= highest or not after_article:
+                captions = True
+        after_article = after_article or (
+            start["section_type"] in _ARTICLE_TITLE_TYPES and not start.get("boundary_only")
+        )
+        if number is not None:
+            highest = max(highest, number)
+        previous_major = start
+    return [
+        start
+        for index, start in enumerate(starts)
+        if index not in echoes and not (captions and start.get("colon_form"))
+    ]
+
+
+def _introduces_quotation(preamble: str) -> bool:
+    lines = [_strip_title_markup(line.strip()) for line in preamble.splitlines() if line.strip()]
+    if lines and _is_article_title_line(lines[-1]):
+        lines.pop()
+    return bool(lines) and lines[-1].endswith(":")
 
 
 def _with_amendment_table_boundary(text: str, starts: list[dict]) -> list[dict]:
@@ -693,19 +959,64 @@ def _without_quoted_articles(starts: list[dict]) -> list[dict]:
     return kept
 
 
+def _is_principle_structured(matches: list[dict]) -> bool:
+    """Whether the classic headings are principles, optionally followed by annexes (947's "EK 1.")."""
+    types = {s["section_type"] for s in matches if s["level"] == 1 and not s.get("boundary_only")}
+    if types == {"ilke"}:
+        return {s["section_type"] for s in matches if s["level"] == 1} == {"ilke"}
+    return types == {"ilke", "ek"}
+
+
 def _merge_guideline_paragraphs(text: str, starts: list[dict]) -> list[dict]:
     """Accept a unique, near-contiguous paragraph inventory, never restarting lists.
 
     A long run is required before interpreting bare numbers inside principles.
     Physical order is retained (943's extracted 88/87 are transposed); uniqueness
     and the sorted sequence validate identities without moving or rewriting text.
+    Paragraphs are numbered "N." or, in 949, "N-"; one style per document.  The
+    inventory ends at the first annex heading (947's "EK 1." restarts its own
+    list), and a body numbered before the first principle stands on its own
+    when the principles carry restarting lists of their own (934's annex
+    tables under İlke 4).  A number printed twice in a row (949's "60-" before
+    and after "İlke 10") binds to neither text: both lines only end the
+    paragraph before them.
     """
-    paragraphs: list[dict] = []
     boundaries: list[dict] = []
     char_pos = 0
     for line in text.splitlines(keepends=True):
-        stripped = line.strip()
-        match = _GUIDELINE_PARAGRAPH_RE.match(stripped)
+        if _GUIDELINE_DIVIDER_RE.match(line.strip()):
+            boundaries.append({"start_char": char_pos, "level": 1, "boundary_only": True})
+        char_pos += len(line)
+    region_end = min(
+        (
+            s["start_char"]
+            for s in starts
+            if s["level"] == 1 and s["section_type"] == "ek" and not s.get("boundary_only")
+        ),
+        default=len(text),
+    )
+    first_principle = min(s["start_char"] for s in starts if s["level"] == 1 and s["section_type"] == "ilke")
+    for pattern in (_GUIDELINE_PARAGRAPH_RE, _GUIDELINE_DASH_PARAGRAPH_RE):
+        paragraphs = _guideline_paragraph_candidates(text, pattern, region_end)
+        inventory = _validated_guideline_inventory(text, paragraphs)
+        if inventory is None:
+            inventory = _validated_guideline_inventory(
+                text, [p for p in paragraphs if p["start_char"] < first_principle]
+            )
+        if inventory is not None:
+            # Fıkra/bent markers are children of the numbered paragraph, not its peers.
+            starts = [{**s, "level": 3} if s["level"] == 2 else s for s in starts]
+            return sorted(starts + inventory + boundaries, key=lambda s: s["start_char"])
+    return sorted(starts + boundaries, key=lambda s: s["start_char"])
+
+
+def _guideline_paragraph_candidates(text: str, pattern: re.Pattern[str], region_end: int) -> list[dict]:
+    paragraphs: list[dict] = []
+    char_pos = 0
+    for line in text.splitlines(keepends=True):
+        if char_pos >= region_end:
+            break
+        match = pattern.match(line.strip())
         if match:
             paragraphs.append(
                 {
@@ -717,20 +1028,33 @@ def _merge_guideline_paragraphs(text: str, starts: list[dict]) -> list[dict]:
                     "sequence_validated": True,
                 }
             )
-        elif _GUIDELINE_DIVIDER_RE.match(stripped):
-            boundaries.append({"start_char": char_pos, "level": 1, "boundary_only": True})
         char_pos += len(line)
-    refs = sorted(int(p["section_ref"]) for p in paragraphs)
+    return paragraphs
+
+
+def _validated_guideline_inventory(text: str, paragraphs: list[dict]) -> list[dict] | None:
+    """The paragraph rows (with repeated numbers as plain boundaries), or None when the inventory fails."""
+    repeated = {
+        i
+        for i in range(1, len(paragraphs))
+        if paragraphs[i]["section_ref"] == paragraphs[i - 1]["section_ref"]
+        for i in (i - 1, i)
+    }
+    kept = [p for i, p in enumerate(paragraphs) if i not in repeated]
+    refs = sorted(int(p["section_ref"]) for p in kept)
     if (
         len(refs) < _NUMBERED_DASH_MIN_SECTIONS
         or refs[0] > _NUMBERED_MAX_GAP
         or any(not 0 < right - left <= _NUMBERED_MAX_GAP for left, right in zip(refs, refs[1:], strict=False))
-        or paragraphs[0]["start_char"] > len(text) * _NUMBERED_MAX_FIRST_OFFSET_RATIO
+        or kept[0]["start_char"] > len(text) * _NUMBERED_MAX_FIRST_OFFSET_RATIO
     ):
-        return sorted(starts + boundaries, key=lambda s: s["start_char"])
-    # Fıkra/bent markers are children of the numbered paragraph, not its peers.
-    starts = [{**s, "level": 3} if s["level"] == 2 else s for s in starts]
-    return sorted(starts + paragraphs + boundaries, key=lambda s: s["start_char"])
+        return None
+    ends = [
+        {"section_type": "paragraf", "boundary_only": True, "start_char": p["start_char"], "level": 2}
+        for i, p in enumerate(paragraphs)
+        if i in repeated
+    ]
+    return kept + ends
 
 
 def _find_numbered_paragraph_starts(text: str, region_end: int | None = None) -> list[dict]:
@@ -749,7 +1073,8 @@ def _find_numbered_paragraph_starts(text: str, region_end: int | None = None) ->
         candidate = _scan_numbered_style(text, pattern, min_sections, region_end)
         if not candidate:
             continue
-        span = candidate[-1]["start_char"] - candidate[0]["start_char"]
+        numbered = [start for start in candidate if not start.get("boundary_only")]
+        span = numbered[-1]["start_char"] - numbered[0]["start_char"]
         if span > best_span:
             best, best_span = candidate, span
     return best
@@ -775,6 +1100,7 @@ def _scan_numbered_style(
     accepted: list[dict] = []
     # Bare accepts since the last dotted confirmation, still open to eviction.
     tentative: list[int] = []
+    dividers: list[dict] = []
     skipped = 0
     current_top = 0
     char_pos = 0
@@ -783,6 +1109,19 @@ def _scan_numbered_style(
         char_start, char_pos = char_pos, char_pos + len(line)
         if char_start >= limit:
             break
+        if match is None and pattern is _NUMBERED_HEADING_RE:
+            if _LETTER_PART_HEADING_RE.match(line.strip()):
+                dividers.append(
+                    {"section_type": "paragraf", "boundary_only": True, "start_char": char_start, "level": 1}
+                )
+                continue
+            match = _NUMBERED_UNDOTTED_SUBHEADING_RE.match(line.strip())
+            outline = None if match else _NUMBERED_DOTLESS_OUTLINE_RE.match(line.strip())
+            if outline and int(outline.group("top")) < current_top - _NUMBERED_MAX_GAP:
+                dividers.append(
+                    {"section_type": "paragraf", "boundary_only": True, "start_char": char_start, "level": 1}
+                )
+                continue
         if not match:
             continue
         top = int(match.group("top"))
@@ -795,6 +1134,13 @@ def _scan_numbered_style(
             "level": 2 if sub else 1,
             "sequence_validated": True,
         }
+        if sub and top < current_top - _NUMBERED_MAX_GAP:
+            # A chapter outline heading far behind a globally numbered body
+            # ("2.3.4. Kredibiliteyi Değerlendirmede …" after paragraph 37 in
+            # 1041) is no child of the running paragraph: it closes that
+            # paragraph and has no identity of its own.
+            dividers.append({"section_type": "paragraf", "boundary_only": True, "start_char": char_start, "level": 1})
+            continue
         if sub:
             evicted = [i for i in tentative if int(accepted[i]["section_ref"]) > top]
             if top == current_top:
@@ -820,7 +1166,7 @@ def _scan_numbered_style(
         return []
     if accepted[0]["start_char"] > limit * _NUMBERED_MAX_FIRST_OFFSET_RATIO:
         return []
-    return accepted
+    return sorted(accepted + dividers, key=lambda start: start["start_char"])
 
 
 def _find_bare_paragraph_starts(text: str) -> list[dict]:
@@ -1001,8 +1347,17 @@ def _trim_trailing_heading_blocks(text: str, start_char: int, end_char: int) -> 
 def _parse_major_heading(line: str, *, dot_headings: bool = False) -> dict | None:
     match = _HEADING_RE.match(line)
     if not match:
+        titled = _ANNEX_INLINE_TITLE_RE.match(line)
+        if titled is not None and _is_annex_inline_title(titled.group("title")):
+            return {
+                "section_type": "ek",
+                "section_ref": _normalize_ref(titled.group("ref")),
+                "heading": titled.group("title").strip(),
+            }
         if _ARTICLE_RANGE_RE.match(line):
             return {"section_type": "madde", "boundary_only": True}
+        if _UNNUMBERED_ANNEX_RE.match(line):
+            return {"section_type": "ek", "boundary_only": True, "unnumbered_annex": True}
         if _ANNEX_LIST_RE.match(line) or _RATIONALE_RE.match(line):
             return {"section_type": "ek", "boundary_only": True}
         dot = _DOT_HEADING_RE.match(line) if dot_headings else None
@@ -1027,11 +1382,14 @@ def _parse_major_heading(line: str, *, dot_headings: bool = False) -> dict | Non
     else:
         section_type, section_ref = "ek", match.group("ek_ref")
 
-    return {
+    parsed = {
         "section_type": section_type,
         "section_ref": _normalize_ref(section_ref),
         "heading": (match.group("title") or "").strip(),
     }
+    if section_type == "ek" and ":" in match.group("ek_separator"):
+        parsed["colon_form"] = True
+    return parsed
 
 
 def _parse_subsection(line: str) -> dict | None:

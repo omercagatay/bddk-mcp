@@ -351,7 +351,9 @@ def test_numbered_fallback_refuses_a_trailing_annex_list():
 
     sections = extract_document_sections("946", body + annex)
     assert not any(s.section_type == "paragraf" for s in sections)
-    assert {s.section_type for s in sections} == {"govde"}
+    # The inline-titled annex line is an annex heading of its own; no paragraf row exists.
+    assert {s.section_type for s in sections} == {"govde", "ek"}
+    assert [(s.section_ref, s.heading) for s in sections if s.section_type == "ek"] == [("2", "STRES TESTİ RAPORU")]
     assert any("STRES TESTİ" in s.content or "paragrafı" in s.content for s in sections)
 
 
@@ -556,8 +558,9 @@ def test_early_classic_heading_does_not_trigger_numbered_body_merge():
 
 
 def test_restarting_numbering_in_the_body_region_is_refused():
-    """Rehber 1041/1230/934 corpus shape: the body renumbers from 1 per section,
-    so no subset can be trusted and only the classic annex headings survive."""
+    """A body that renumbers from 1 per section (1041 does not: it numbers its
+    paragraphs globally 1..261) cannot be trusted in any subset, so only the
+    classic annex headings survive."""
     restarting = "".join(
         f"{n}.  Bölüm içi madde {n}. " + ("Metin " * 20) + "\n\n" for _ in range(8) for n in range(1, 5)
     )
@@ -1270,7 +1273,9 @@ def test_no_seed_capped_section_ends_inside_a_word_and_its_continuation_follows(
             assert any(s.start_char == end and s.section_type == "govde" for s in sections) or any(
                 s is not section and s.start_char <= following < s.end_char for s in sections
             ), key
-    assert capped == 26
+    # 1171 madde 13 and its fikra 2 were quoted articles (item B2); 1285 paragraf 2.2.4 ends at its
+    # undotted sibling 2.2.5 and is no longer capped (item B5d).
+    assert capped == 23
 
 
 def test_table_rows_at_the_end_of_any_section_are_its_content():
@@ -1351,3 +1356,417 @@ def test_seed_table_rows_stay_in_their_provision_and_amendment_tables_leave_the_
             line_end = text.find("\n", position)
             position = len(text) if line_end == -1 else line_end + 1
     assert documents == 44
+
+
+def test_colon_form_annexes_end_the_last_article_and_take_their_title():
+    text = (
+        "Yürütme\n\nMADDE 10 – (1) Bu Yönetmelik hükümlerini Kurum Başkanı yürütür.\n\n"
+        "EK: 1\n\nKALDIRAÇ ORANI BİLDİRİM TABLOSU\n\n| A | B |\n|---|---|\n| 1 | 2 |\n"
+        "EK: 2\n\nKONSOLİDE KALDIRAÇ ORANI BİLDİRİM TABLOSU\n\n| A | B |\n|---|---|\n| 3 | 4 |\n"
+    )
+
+    sections = extract_document_sections("mevzuat_18990", text)
+
+    assert _madde(sections, "10").content.endswith("Kurum Başkanı yürütür.")
+    annexes = [(s.section_ref, s.heading, s.content.splitlines()[0]) for s in sections if s.section_type == "ek"]
+    assert annexes == [
+        ("1", "KALDIRAÇ ORANI BİLDİRİM TABLOSU", "EK: 1"),
+        ("2", "KONSOLİDE KALDIRAÇ ORANI BİLDİRİM TABLOSU", "EK: 2"),
+    ]
+
+
+def test_inline_titled_annexes_close_a_dash_paragraph_body_and_lowercase_references_stay_prose():
+    body = "".join(f"{n}-  Bu Rehberin {n} numaralı paragrafı. " + ("Metin " * 20) + "\n\n" for n in range(1, 31))
+    annexes = (
+        "EK-1 TANIMLAR\n\nAd hoc stres testi\n\nTanım metni.\n\nEK-2 STRES TESTİ RAPORU\n\n1. Risklerin Tanımlanması\n"
+    )
+    text = body + annexes
+
+    sections = extract_document_sections("946", text)
+
+    paragraphs = [s for s in sections if s.section_type == "paragraf"]
+    assert [s.section_ref for s in paragraphs] == [str(n) for n in range(1, 31)]
+    assert "EK-1" not in paragraphs[-1].content
+    assert [(s.section_ref, s.heading) for s in sections if s.section_type == "ek"] == [
+        ("1", "TANIMLAR"),
+        ("2", "STRES TESTİ RAPORU"),
+    ]
+    prose = "3. Paragraf metni:\n\nEK-1 bir ilâ sekizinci fıkralarda belirtilen hükümler esas alınacaktır.\n"
+    assert not [s for s in extract_document_sections("903", "MADDE 1 – (1) X.\n\n" + prose) if s.section_type == "ek"]
+
+
+def test_colon_form_echoes_and_page_captions_create_no_annex_rows():
+    echo = (
+        "MADDE 1 – (1) Hüküm.\n\nEK-1\n\n(Değişik:RG-4/2/2022-31740)\n\nEk:1\nBİN TL\n\nCETVEL\n\n"
+        "EK-2\n\n(Değişik:RG-4/2/2022-31740)\n\nEk: 2\nBİN TL\n\nCETVEL\n"
+    )
+    annexes = [s.section_ref for s in extract_document_sections("mevzuat_19498", echo) if s.section_type == "ek"]
+    assert annexes == ["1", "2"]
+
+    captions = "İlke 1 – Başlık\n\nMetin.\n\n" + "".join(
+        f"Ek:{n}\n\nSayfa metni {n}.\n\n" for n in (1, 1, 2, 2, 3, 3, 3)
+    )
+    assert not [s for s in extract_document_sections("934", captions) if s.section_type == "ek"]
+    # Without an article before it, a colon-form line is a sub-annex caption of an explanatory annex.
+    genelge = "Açıklamalar.\n\n" + "Metin satırı.\n" * 40 + "EK: 1\nÖRNEKLER\n\nListe.\n"
+    assert not [s for s in extract_document_sections("905", genelge) if s.section_type == "ek"]
+
+
+def test_annex_heading_comes_from_the_title_under_the_annex_line_and_spans_are_unchanged():
+    text = (
+        "MADDE 1 – (1) Hüküm.\n\n## EK-2\n\n## (Değişik:RG-4/2/2022-31740)$^{(1)}$\n\n## KARŞI TARAF KREDİ RİSKİ\n\n"
+        "Metin.\n\nEK–3\n\nİHTİSAS KREDİLERİNE İLİŞKİN SINIFLANDIRMA KRİTERLERİ\n\nMetin.\n\n"
+        "EK-4\n\n| A | B |\n|---|---|\n| 1 | 2 |\n"
+    )
+
+    sections = extract_document_sections("mevzuat_21192", text)
+
+    annexes = {s.section_ref: s for s in sections if s.section_type == "ek"}
+    assert annexes["2"].heading == "KARŞI TARAF KREDİ RİSKİ"
+    assert annexes["3"].heading == "İHTİSAS KREDİLERİNE İLİŞKİN SINIFLANDIRMA KRİTERLERİ"
+    assert annexes["4"].heading == ""
+    for annex in annexes.values():
+        assert annex.content == text[annex.start_char : annex.end_char].strip()
+        assert text[annex.start_char :].lstrip("# ").startswith("EK")
+
+
+def test_a_form_addressee_under_the_annex_number_is_no_annex_title():
+    text = (
+        "MADDE 1 – (1) Hüküm.\n\nEK-3\n\nTAAHHÜTNAME\n\nMetin.\n\n"
+        "EK-4\n\nTASARRUF MEVDUATI SİGORTA FONU KURULU BAŞKANLIĞINA\n\nBankacılık Düzenleme ve Denetleme Kurumuna verilmek üzere.\n"
+    )
+
+    annexes = {s.section_ref: s for s in extract_document_sections("mevzuat_16071", text) if s.section_type == "ek"}
+
+    assert annexes["3"].heading == "TAAHHÜTNAME"
+    assert annexes["4"].heading == ""
+    _, seed = _seed_sections("mevzuat_16071")
+    assert seed[("ek", "4")].heading == ""
+
+
+def test_seed_annexes_after_the_last_article_or_paragraph_are_their_own_rows():
+    _, kaldirac = _seed_sections("mevzuat_18990")
+    assert kaldirac[("ek", "1")].heading == "KALDIRAÇ ORANI BİLDİRİM TABLOSU"
+    assert "KALDIRAÇ ORANI BİLDİRİM TABLOSU" not in kaldirac[("madde", "10")].content
+    assert kaldirac[("ek", "2")].heading == "KONSOLİDE KALDIRAÇ ORANI BİLDİRİM TABLOSU"
+    _, stres = _seed_sections("946")
+    assert "EK-1 TANIMLAR" not in stres[("paragraf", "163")].content
+    assert stres[("ek", "1")].heading == "TANIMLAR"
+    assert stres[("ek", "2")].heading == "STRES TESTİ RAPORU"
+    assert len([key for key in stres if key[0] == "paragraf"]) == 163
+    _, sermaye = _seed_sections("mevzuat_21192")
+    assert sermaye[("ek", "2")].heading == "KARŞI TARAF KREDİ RİSKİ"
+    _, likidite = _seed_sections("mevzuat_19498")
+    assert sorted(key[1] for key in likidite if key[0] == "ek") == ["1", "2", "3"]
+    _, idd = _seed_sections("934")
+    assert not [key for key in idd if key[0] == "ek"]
+
+
+def test_genelge_that_only_quotes_articles_has_no_article_rows():
+    text = (
+        "Konu: Elektronik bankacılık\n\nYönetmeliğin 12 nci ve 13 üncü maddelerinde de aşağıdaki hükümlere yer verilmiştir:\n\n"
+        "MADDE 12 – (1) Alıntılanan hüküm.\n\n(2) İkinci fıkra.\n\nKimlik tespiti\n\n"
+        "MADDE 13 – (1) Alıntılanan başka hüküm.\n\n(2) Bu Yönetmelikte yer alan şartlar.\n\n"
+        "Bilgilerinize rica olunur. Tebliğ olunur.\n\nBaşkan\n\nEk: Açıklamalar\n\n"
+        + "Açıklama metni ve gereklilikler. " * 20
+        + "\n\n(2) Ekteki bir madde işareti.\n"
+    )
+
+    sections = extract_document_sections("1171", text)
+
+    assert {s.section_type for s in sections} == {"govde"}
+    assert any("Ek: Açıklamalar" in s.content for s in sections)
+
+
+def test_unnumbered_annex_line_closes_the_last_article():
+    for annex in ("Ek: Eşleştirme Tablosu", "EK- İSEDES RAPORUNUN ŞEKLİ VE İÇERİĞİ"):
+        text = (
+            "MADDE 1 – (1) Birinci madde.\n\nMADDE 2 – (1) Son madde hükmü.\n\n(2) İkinci fıkra.\n\n"
+            f"{annex}\n\n| Not | Derece |\n|---|---|\n| AAA | 1 |\n\n(3) Tablo dipnotu.\n"
+        )
+
+        sections = extract_document_sections("696", text)
+
+        assert _madde(sections, "2").content.endswith("İkinci fıkra.")
+        assert [s.section_ref for s in sections if s.section_type == "fikra"] == ["2"]
+        assert not [s for s in sections if s.section_type == "ek"]
+        assert next(s for s in sections if s.section_type == "govde").content.startswith(annex)
+
+
+def test_seed_quoted_articles_and_unnumbered_annexes():
+    text, genelge = _seed_sections("1171")
+    assert {key[0] for key in genelge} == {"govde"}
+    _, ulke = _seed_sections("955")
+    assert "ÜLKE RİSKİNİ ETKİLEYEN FAKTÖRLER" not in ulke[("paragraf", "48")].content
+    assert len([key for key in ulke if key[0] == "paragraf"]) == 48
+    _, sir = _seed_sections("1135")
+    assert len([key for key in sir if key[0] == "paragraf"]) == 28
+
+
+def test_nested_row_ends_with_its_capped_parent_window():
+    from bddk_mcp.store.section_index import MAX_SECTION_CHARS, split_section_truncation_notice
+
+    filler = "".join(f"Ek metni satırı {n} ve açıklaması.\n\n" for n in range(520))
+    paragraphs = "".join(f"{n}. Numaralı paragraf {n} metni. " + "Hüküm " * 30 + "\n\n" for n in range(8, 60))
+    text = (
+        f"MADDE 1 – (1) Hüküm.\n\nEK-2\n\nKARŞI TARAF KREDİ RİSKİ\n\n{filler}(2) Netleştirme fıkrası.\n\n{paragraphs}"
+    )
+    assert MAX_SECTION_CHARS - 2_000 < text.index("(2) Netleştirme") - text.index("EK-2") < MAX_SECTION_CHARS
+
+    sections = extract_document_sections("mevzuat_21192", text)
+
+    annex = next(s for s in sections if s.section_type == "ek")
+    fikra = next(s for s in sections if s.section_type == "fikra" and s.section_ref == "2")
+    assert fikra.end_char == annex.end_char
+    # The fıkra's next marker lies past the window and is no reliable end, so no longer span is claimed.
+    legal, notice = split_section_truncation_notice(fikra.content)
+    assert legal == text[fikra.start_char : fikra.end_char].strip() and notice is None
+    assert "40. Numaralı paragraf" not in fikra.content
+    assert any(s.section_type == "govde" and s.start_char == annex.end_char for s in sections)
+    # An article that is not capped keeps its fıkra ends.
+    short = extract_document_sections("doc", "MADDE 1 – (1) Bir.\n\n(2) İki.\n\n(3) Üç.\n\nMADDE 2 – (1) Dört.\n")
+    assert [s.content for s in short if s.section_type == "fikra"] == ["(2) İki.", "(3) Üç."]
+
+
+def test_seed_netting_fikra_does_not_run_past_its_annex_window():
+    text, sermaye = _seed_sections("mevzuat_21192")
+    annex = sermaye[("ek", "2")]
+    sections = extract_document_sections("mevzuat_21192", text)
+    netting = next(s for s in sections if (s.section_type, s.section_ref, s.start_char) == ("fikra", "2", 191866))
+    assert netting.end_char == annex.end_char
+    assert "YM = max (CPD – CTD, ET + ATT – NBTT, 0)" not in netting.content
+    assert any(s.section_type == "govde" and s.start_char == annex.end_char for s in sections)
+
+
+def test_amendment_footnotes_are_not_fikra_rows_of_the_last_article():
+    text = (
+        "Yürürlük\n\nMADDE 5 – (1) Bu Yönetmelik yayımı tarihinde yürürlüğe girer.\n\n"
+        "Yürütme\n\nMADDE 6 – (1) Bu Yönetmelik hükümlerini Kurum Başkanı yürütür.\n\n"
+        "(1) 23/10/2015 tarihli ve 29511 sayılı Resmi Gazete’de yayımlanan Yönetmelik değişikliği 31/3/2016 tarihinde "
+        "yürürlüğe girer.\n\n(2) Bu değişiklik 1/1/2017 tarihinde yürürlüğe girer.\n\n"
+    )
+
+    sections = extract_document_sections("mevzuat_10750", text)
+
+    assert _madde(sections, "6").content.endswith("Kurum Başkanı yürütür.")
+    assert not [s for s in sections if s.section_type == "fikra"]
+    govde = next(s for s in sections if s.section_type == "govde")
+    assert govde.content.startswith("(1) 23/10/2015") and govde.content.endswith("tarihinde yürürlüğe girer.")
+
+
+def test_non_advancing_marker_is_no_fikra_and_genuine_fikras_are_unchanged():
+    text = (
+        "MADDE 1 – (1) Birinci fıkra.\n\n(1) Dipnot satırı, 1/1/2012 tarihli değişiklik.\n\n(2) İkinci fıkra.\n\n"
+        "MADDE 2 –\n\n(1) Bir.\n\n(2) İki.\n\n(3) Üç.\n\nMADDE 3 – (1) Son.\n"
+    )
+
+    sections = extract_document_sections("doc", text)
+
+    fikras = [(s.section_ref, s.content) for s in sections if s.section_type == "fikra"]
+    assert fikras == [
+        ("2", "(2) İkinci fıkra."),
+        ("1", "(1) Bir."),
+        ("2", "(2) İki."),
+        ("3", "(3) Üç."),
+    ]
+    assert "(1) Dipnot satırı" in _madde(sections, "1").content
+
+
+def test_seed_amendment_footnotes_have_no_fikra_rows():
+    _, kurumsal = _seed_sections("mevzuat_10750")
+    assert ("fikra", "1") not in kurumsal
+    assert kurumsal[("madde", "6")].content.endswith("Kurumu Başkanı yürütür.")
+    seed = Path(__file__).resolve().parents[1] / "seed_data" / "documents.json"
+    footnote = re.compile(r"^Bu değişiklik\b|tarihli ve \d+ sayılı Resm[iî] Gazete’de yayımlanan (?:\w+ )?değişikli")
+    rows = [
+        (doc["document_id"], s.start_char)
+        for doc in json.loads(seed.read_text(encoding="utf-8"))
+        for s in extract_document_sections(doc["document_id"], doc["markdown_content"] or "")
+        if s.section_type == "fikra" and footnote.search(s.heading)
+    ]
+    assert rows == []
+
+
+def test_outline_headings_far_behind_a_global_paragraph_sequence_are_dividers():
+    def paragraphs(numbers):
+        return "".join(f"{n}. Rehber paragrafı {n}. " + ("Metin " * 20) + "\n\n" for n in numbers)
+
+    text = (
+        paragraphs(range(1, 41))
+        + "2.3.4. Kredibiliteyi Değerlendirmede Kullanılan Modeller\n\n"
+        + paragraphs(range(41, 61))
+        + "Ek 1 – Kredi tahsis kriterleri\n\nEk içeriği.\n"
+    )
+
+    sections = extract_document_sections("1041", text)
+
+    paragraf = [s for s in sections if s.section_type == "paragraf"]
+    assert [s.section_ref for s in paragraf] == [str(n) for n in range(1, 61)]
+    assert all(s.content.startswith(f"{s.section_ref}. ") for s in paragraf)
+    assert not any("2.3.4." in s.content for s in paragraf)
+    assert ("ek", "1") in {(s.section_type, s.section_ref) for s in sections}
+
+
+def test_seed_credit_guide_body_is_its_numbered_paragraphs():
+    text, rehber = _seed_sections("1041")
+    paragraf = [s for s in extract_document_sections("1041", text) if s.section_type == "paragraf"]
+    assert [s.section_ref for s in paragraf] == [str(n) for n in range(1, 262)]
+    assert all(text[s.start_char : s.end_char].startswith(f"{s.section_ref}. ") for s in paragraf)
+    assert rehber[("paragraf", "54")].content.startswith("54. Bankalarda kredi karar verme")
+    # The 1-6 list inside a definition stays in paragraph 7.
+    assert rehber[("paragraf", "7")].start_char < 7258 < rehber[("paragraf", "7")].end_char
+    assert {key[1] for key in rehber if key[0] == "ek"} == {"1", "2", "3"}
+
+
+def _guide_paragraphs(numbers, marker="."):
+    return "".join(f"{n}{marker} Rehber paragrafı {n} metni. " + ("Metin " * 12) + "\n\n" for n in numbers)
+
+
+def test_dash_numbered_paragraphs_under_principles_are_rows_and_a_repeated_number_binds_to_neither_text():
+    text = (
+        _guide_paragraphs(range(1, 4), "-")
+        + "İlke 1- Bankalar kredi riski stratejisi oluşturur.\n\n"
+        + _guide_paragraphs([*range(4, 57), 58, 59, 60], "-")
+        + "İlke 2- Kredi tahsis süreci.\n\n(a) Bent metni.\n\n"
+        + _guide_paragraphs(range(60, 80), "-")
+    )
+
+    sections = extract_document_sections("949", text)
+
+    paragraf = [s for s in sections if s.section_type == "paragraf"]
+    assert [s.section_ref for s in paragraf] == [str(n) for n in [*range(1, 57), 58, 59, *range(61, 80)]]
+    assert all(s.content.startswith(f"{s.section_ref}- ") for s in paragraf)
+    assert "60- Rehber" not in next(s for s in paragraf if s.section_ref == "59").content
+    assert [s.section_ref for s in sections if s.section_type == "ilke"] == ["1", "2"]
+    assert ("bent", "a") in {(s.section_type, s.section_ref) for s in sections}
+
+
+def test_principle_guide_with_annexes_indexes_its_preamble_paragraphs_but_not_the_annex_list():
+    text = (
+        _guide_paragraphs(range(1, 5))
+        + "5. Bu rehberde yer alan;\n\na) Acil ve beklenmedik durum planı: Tanım.\n\n"
+        + _guide_paragraphs(range(6, 20))
+        + "İlke 1: Yoğunlaşma riski yönetimi.\n\n"
+        + _guide_paragraphs(range(20, 25))
+        + "İlke 2. Yoğunlaşma riski limitleri.\n\n"
+        + _guide_paragraphs(range(25, 30))
+        + "EK 1. YOĞUNLAŞMA RİSKİ ÖRNEKLERİ\n\n"
+        + _guide_paragraphs(range(1, 7))
+    )
+
+    sections = extract_document_sections("947", text)
+
+    paragraf = {s.section_ref: s for s in sections if s.section_type == "paragraf"}
+    assert sorted(paragraf, key=int) == [str(n) for n in range(1, 30)]
+    assert paragraf["5"].content.startswith("5. Bu rehberde yer alan;")
+    assert all(s.end_char <= text.index("EK 1.") for s in paragraf.values())
+    assert {(s.section_type, s.section_ref) for s in sections} >= {("ek", "1"), ("ilke", "1"), ("ilke", "2")}
+
+
+def test_body_numbered_before_the_principles_stands_alone_when_the_principles_restart_lists():
+    text = (
+        _guide_paragraphs(range(1, 31))
+        + "İlke 1: Birinci ilke.\n\nİlke 2: İkinci ilke.\n\nEk:1\n\n"
+        + _guide_paragraphs(range(1, 5))
+        + "Ek:2\n\n"
+        + _guide_paragraphs(range(1, 4))
+    )
+
+    sections = extract_document_sections("934", text)
+
+    paragraf = [s for s in sections if s.section_type == "paragraf"]
+    assert [s.section_ref for s in paragraf] == [str(n) for n in range(1, 31)]
+    assert paragraf[-1].end_char <= text.index("İlke 1:")
+    assert not any("Ek:" in s.content for s in paragraf)
+
+
+def test_seed_principle_guides_have_paragraph_rows():
+    for doc_id, last, missing in (("947", 101, set()), ("949", 190, {57, 60}), ("934", 102, set())):
+        text, rows = _seed_sections(doc_id)
+        paragraf = [s for s in extract_document_sections(doc_id, text) if s.section_type == "paragraf"]
+        assert [int(s.section_ref) for s in paragraf] == [n for n in range(1, last + 1) if n not in missing]
+        assert all(re.match(rf"{s.section_ref}[.-]\s", text[s.start_char : s.end_char]) for s in paragraf)
+    _, kredi = _seed_sections("949")
+    assert kredi[("paragraf", "182")].content.startswith("182- Bankalar donuk alacakların yönetimine")
+    _, yogunlasma = _seed_sections("947")
+    assert yogunlasma[("paragraf", "5")].content.startswith("5. Bu rehberde yer alan;")
+
+
+def test_numbered_body_ends_at_an_unnumbered_annex_whose_outline_restarts():
+    body = "".join(f"{n}. Rehber paragrafı {n}. " + ("Metin " * 15) + "\n\n" for n in range(1, 12))
+    annex = "EK- İSEDES RAPORUNUN ŞEKLİ VE İÇERİĞİ\n\n" + "".join(
+        f"{n}. RAPOR BÖLÜMÜ {n}\n\nBölüm açıklaması.\n\n{n}.1. Alt bölüm\n\nMetin.\n\n"
+        for n in (1, 2, 1, 2, 3, 1, 2, 3, 4)
+    )
+
+    sections = extract_document_sections("951", body + annex)
+
+    paragraf = [s for s in sections if s.section_type == "paragraf"]
+    assert [s.section_ref for s in paragraf] == [str(n) for n in range(1, 12)]
+    assert paragraf[-1].end_char <= len(body)
+    assert any(s.section_type == "govde" and s.content.startswith("EK- İSEDES") for s in sections)
+
+
+def test_seed_isedes_guide_paragraphs_end_before_its_annex():
+    text, rehber = _seed_sections("951")
+    assert sorted(int(key[1]) for key in rehber if key[0] == "paragraf") == list(range(1, 12))
+    assert rehber[("paragraf", "4")].content.startswith("4. İSEDES Raporu’nda kullanılan verilerin doğruluğu")
+    assert rehber[("paragraf", "11")].end_char <= text.index("EK- İSEDES RAPORUNUN")
+
+
+def test_undotted_upper_case_sub_headings_and_lettered_parts_close_the_outline_entry():
+    def entry(ref, title):
+        return f"{ref} {title}\n\n" + "Kriter metni. " * 20 + "\n\n"
+
+    text = (
+        entry("1.", "TÜKETİCİ FİNANSMANI")
+        + entry("2.", "TİCARİ FİNANSAL VARLIKLAR")
+        + entry("2.1.", "GENEL KRİTERLER")
+        + entry("2.2.", "SEKTÖREL KRİTERLER")
+        + entry("2.2.4.", "İMALAT SEKTÖRÜ")
+        + "2.5 milyon TL tutarındaki krediler için ek kriter.\n\n"
+        + entry("2.2.5", "LOJİSTİK VE ULAŞTIRMA SEKTÖRÜ")
+        + entry("2.2.6", "İNŞAAT VE GAYRİMENKUL SEKTÖRÜ")
+        + "B - ÇEVREYE ÖNEMLİ ZARAR VERMEME KRİTERLERİ\n\n"
+        + "Ölçüt metni. " * 20
+    )
+
+    sections = {s.section_ref: s for s in extract_document_sections("1285", text) if s.section_type == "paragraf"}
+
+    assert sorted(sections) == ["1", "2", "2.1", "2.2", "2.2.4", "2.2.5", "2.2.6"]
+    assert sections["2.2.4"].end_char <= text.index("2.2.5 LOJİSTİK")
+    assert "2.5 milyon TL" in sections["2.2.4"].content
+    assert sections["2.2.6"].end_char <= text.index("B - ÇEVREYE")
+    assert sections["2"].end_char <= text.index("B - ÇEVREYE")
+
+
+def test_seed_green_asset_decision_sector_headings():
+    text, karar = _seed_sections("1285")
+    assert karar[("paragraf", "2.2.5")].heading == "LOJİSTİK VE ULAŞTIRMA SEKTÖRÜ"
+    assert karar[("paragraf", "2.2.6")].heading == "İNŞAAT VE GAYRİMENKUL SEKTÖRÜ"
+    assert "LOJİSTİK VE ULAŞTIRMA SEKTÖRÜ" not in karar[("paragraf", "2.2.4")].content
+    assert karar[("paragraf", "2.2.6")].end_char <= text.index("B - ÇEVREYE ÖNEMLİ ZARAR VERMEME")
+
+
+def test_dotless_outline_headings_far_behind_a_global_paragraph_sequence_are_dividers():
+    def paragraphs(numbers):
+        return "".join(f"{n}. Rehber paragrafı {n}. " + ("Metin " * 20) + "\n\n" for n in numbers)
+
+    text = (
+        paragraphs(range(1, 41))
+        + "2.1 Kredi Riski Yönetimi ve Kültürü\n\n2.1.1 Üst Yönetimin Sorumlulukları\n\n"
+        + paragraphs(range(41, 61))
+    )
+
+    paragraf = [s for s in extract_document_sections("1041", text) if s.section_type == "paragraf"]
+
+    assert [s.section_ref for s in paragraf] == [str(n) for n in range(1, 61)]
+    assert not any("Kredi Riski Yönetimi" in s.content or "Üst Yönetimin" in s.content for s in paragraf)
+
+
+def test_seed_credit_guide_paragraphs_end_before_their_dotless_chapter_headings():
+    text, rehber = _seed_sections("1041")
+    heading = re.compile(r"^\d{1,3}(?:\.\d{1,3})+\.?\s+[A-ZÇĞİÖŞÜ]", re.MULTILINE)
+    carrying = [key[1] for key, s in rehber.items() if key[0] == "paragraf" and heading.search(s.content)]
+    assert carrying == []
+    assert [key[1] for key in rehber if key[0] == "paragraf"] == [str(n) for n in range(1, 262)]
