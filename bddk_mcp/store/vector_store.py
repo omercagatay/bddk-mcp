@@ -927,16 +927,21 @@ def _decision_day(hit: dict) -> datetime.date | None:
         return None
 
 
-def _newest_first_among_clamped_decisions(hits: list[dict]) -> list[dict]:
+def _newest_first_among_clamped_decisions(hits: list[dict], query: str) -> list[dict]:
     """Each run of adjacent hits at the calibration ceiling that carry a decision date, newest first.
 
     Hits at the ceiling tie on the shown relevance; for successive Board decisions on one subject the
     newest comes first (the same date keeps the ordering-score order). Every other hit, an undated one at
-    the ceiling included, keeps its place, so no decision moves past it.
+    the ceiling included, keeps its place, so no decision moves past it; so does a decision whose whole
+    title occurs in the query (``_title_in_query``): the query names it.
     """
+    query_words = _query_words(query)
     ordered: list[dict] = []
     for movable, group in groupby(
-        hits, key=lambda h: bool(h.get("relevance_clamped")) and _decision_day(h) is not None
+        hits,
+        key=lambda h: (
+            bool(h.get("relevance_clamped")) and _decision_day(h) is not None and not _title_in_query(h, query_words)
+        ),
     ):
         run = list(group)
         ordered += sorted(run, key=_decision_day, reverse=True) if movable else run
@@ -946,6 +951,17 @@ def _newest_first_among_clamped_decisions(hits: list[dict]) -> list[dict]:
 def _search_words(text: str) -> str:
     """The search-normalised words of ``text``, joined by single spaces."""
     return " ".join(_WORD_TOKEN_RE.findall(normalize_search_text(text)))
+
+
+def _query_words(query: str) -> str:
+    """The search-normalised words of the query, padded with spaces for ``_title_in_query``."""
+    return f" {_search_words(query)} "
+
+
+def _title_in_query(hit: dict, query_words: str) -> bool:
+    """Whether the hit's whole title occurs in the query (search-normalised words; not the reverse)."""
+    title = _search_words(str(hit.get("title") or ""))
+    return bool(title) and f" {title} " in query_words
 
 
 def _shown_band(hit: dict) -> str:
@@ -967,15 +983,14 @@ def _catalog_class_last(hits: list[dict], query: str, category: str | None) -> l
     if category:
         return hits
     named = catalog_classes_named(query)
-    query_words = f" {_search_words(query)} "
+    query_words = _query_words(query)
 
     def moves(hit: dict) -> bool:
-        title = _search_words(str(hit.get("title") or ""))
         return not (
             hit.get("match_type") in ("fts_exact", "decision_number")
             or hit.get("decision_number_match")
             or catalog_status_class(hit.get("category")) in named
-            or (title and f" {title} " in query_words)
+            or _title_in_query(hit, query_words)
         )
 
     ordered = list(hits)
@@ -1772,7 +1787,8 @@ class VectorStore:
             hit["ordering_score"] = ordering_score
             # At the ceiling the displayed value is clamped: hits there tie at 1.0 and are ordered by
             # the ordering score, which the displayed value no longer shows, except that adjacent dated
-            # decisions among them are listed newest first (_newest_first_among_clamped_decisions).
+            # decisions among them that the query does not name by title are listed newest first
+            # (_newest_first_among_clamped_decisions).
             hit["relevance_clamped"] = gate_factor == 1.0 and ordering_score >= calibration.ceiling
             hit["relevance"] = round(
                 displayed_relevance(ordering_score, calibration) * gate_factor, _SCORE_DECIMAL_PLACES
@@ -1812,7 +1828,8 @@ class VectorStore:
             head
             + [h for h in rest if _shown_as_strong_or_moderate(h)]
             + _keyword_only_hits(keyword_candidates, listed)
-            + [h for h in rest if not _shown_as_strong_or_moderate(h)]
+            + [h for h in rest if not _shown_as_strong_or_moderate(h)],
+            query,
         )
         fused = _catalog_class_last(fused, query, category)
 

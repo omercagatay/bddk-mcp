@@ -780,7 +780,8 @@ Suggest the user try: different keywords or a different category (basın, mevzua
         name), use search_bddk_regulations instead.
 
         Hits at the calibration ceiling (100%) tie on the shown relevance; adjacent dated
-        decisions among them are listed newest first. Within each match strength band,
+        decisions among them are listed newest first, except a decision whose whole title is in
+        the query, which keeps its place. Within each match strength band,
         TASLAK/MÜLGA catalog-class documents are listed after the others, unless the query
         names that class or the document's whole title, or a category is given. A decision
         number named in the query that no stored document carries is reported as not stored
@@ -937,7 +938,7 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
                 match_strength = _match_strength(h["relevance"])
                 relevance = (
                     f" [{match_strength} match, relevance at the calibration ceiling (100%); tied hits are ordered "
-                    "by the internal score, adjacent dated decisions among them newest first]"
+                    "by the internal score, adjacent dated decisions among them newest first unless the query names one by its title]"
                 )
             else:
                 match_strength = _match_strength(h["relevance"])

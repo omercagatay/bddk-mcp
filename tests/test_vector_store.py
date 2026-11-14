@@ -1488,7 +1488,7 @@ class TestSearchHonesty:
             hit("below_2027", "01.01.2027", clamped=False),
         ]
 
-        assert [h["doc_id"] for h in _newest_first_among_clamped_decisions(hits)] == [
+        assert [h["doc_id"] for h in _newest_first_among_clamped_decisions(hits, "kredi kartı")] == [
             "d2022",
             "d2020",
             "law",
@@ -1499,6 +1499,41 @@ class TestSearchHonesty:
             "d2025",
             "below_2026",
             "below_2027",
+        ]
+
+    def test_a_decision_whose_whole_title_is_in_the_query_keeps_its_place_and_separates_the_runs(self):
+        from bddk_mcp.store.vector_store import _newest_first_among_clamped_decisions
+
+        def hit(doc_id: str, date: str, title: str) -> dict:
+            return {"doc_id": doc_id, "decision_date": date, "relevance_clamped": True, "title": title}
+
+        title = "Kredi Kartı Asgari Ödeme Tutarının Değiştirilmesi Hk. Kurul Kararı"
+        hits = [
+            hit("d2019", "01.01.2019", "Başka Karar"),
+            hit("named_2020", "30.03.2020", title),
+            hit("d2021", "01.01.2021", "Kredi Kartı Hk. Kurul Kararı"),
+            hit("named_2024", "26.09.2024", title),
+            hit("d2022", "01.01.2022", "Kredi Kartı Asgari Ödeme Oranı"),
+            hit("d2023", "01.01.2023", "Kredi Kartı Asgari Ödeme Süresi"),
+        ]
+
+        # The query is a stored title: the decisions carrying it keep their internal-score order and places,
+        # and no other decision moves past them.
+        assert [h["doc_id"] for h in _newest_first_among_clamped_decisions(hits, title)] == [
+            "d2019",
+            "named_2020",
+            "d2021",
+            "named_2024",
+            "d2023",
+            "d2022",
+        ]
+        assert [h["doc_id"] for h in _newest_first_among_clamped_decisions(hits, "kredi kartı asgari ödeme")] == [
+            "named_2024",
+            "d2023",
+            "d2022",
+            "d2021",
+            "named_2020",
+            "d2019",
         ]
 
     @staticmethod

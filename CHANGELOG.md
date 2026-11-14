@@ -45,7 +45,7 @@ cevap metnini değiştirir; corpus, şema, chunk ve embedding değişmedi.
   tarihli ve 10970 sayılı Kurul Kararı 5. sıradan 1. sıraya çıktı.
 - %100'de (kalibrasyon tavanı) eşit görünen ve art arda gelen tarihli Kurul
   Kararları en yeniden eskiye sıralanıyor; aralarındaki tarihsiz bir kanun,
-  yönetmelik veya rehber yerinde kalıyor.
+  yönetmelik veya rehber ve tam başlığı sorguda geçen karar yerinde kalıyor.
 - BDDK kataloğunda Düzenleme Taslağı veya Mülga Düzenleme sınıfındaki belgeler,
   kendi bandının (strong, moderate, weak, keyword) diğer sonuçlarından sonra
   listeleniyor; `search_document_sections` aynı kuralı her geçişinde uyguluyor.
@@ -67,7 +67,9 @@ cevap metnini değiştirir; corpus, şema, chunk ve embedding değişmedi.
   geçişi artık yalnızca iki geçiş de bir şey bulamadığında çalışır.
 - Tarih sırası yalnızca art arda gelen ve tavandaki (`relevance_clamped`)
   tarihli sonuçlara uygulanır; aynı tarih iç skor sırasını korur, `DD.MM.YYYY`
-  olmayan tarih tarihsiz sayılır. Sıra, sınırdan (`limit`) önce uygulanır.
+  olmayan tarih tarihsiz sayılır. Tam başlığı sorguda geçen karar (TASLAK/MÜLGA
+  istisnasıyla aynı tanım) tarih sırasıyla yer değiştirmez ve tarihsiz bir sonuç
+  gibi diziyi böler. Sıra, sınırdan (`limit`) önce uygulanır.
 - TASLAK/MÜLGA sırasının istisnaları: `fts_exact` ve karar numarası sonuçları;
   sorgu o sınıfı adlandırıyorsa ("taslak"/"taslağ", "mülga", "yürürlükten
   kaldır" ile başlayan kelime) o sınıfın bütün sonuçları; tam başlığı sorguda
@@ -81,12 +83,13 @@ cevap metnini değiştirir; corpus, şema, chunk ve embedding değişmedi.
 **Ölçüm** (319 belgelik corpus, gerçek embedding modeli, 78 denetim sorusu ve her
 belgenin kendi başlığı): bölüm aramasında hüküm hit@10 38/71'den 39/71'e, belge
 hit@10 49/71'den 51/71'e çıktı; `search_document_store` belge hit@1 52/71'den
-51/71'e, hit@10 68/71'de kaldı; kendi başlığıyla 1. sıra 262/319'dan 267/319'a
-çıktı, taslak/mülga belgelerde 16/18 kaldı. Kötüleşen sorular: gevşek OR geçişi
-artık çalışmadığı için onun verdiği boost'u kaybeden birkaç tam atıf sorusu
-(örneğin "Kredilerin Sınıflandırılması Yönetmeliği madde 10", "Bankaların Kredi
-İşlemlerine İlişkin Yönetmelik madde 12 üçüncü fıkra") ve aynı konudaki daha yeni
-bir kararın öne geçtiği eski kararların kendi başlık aramaları.
+51/71'e, hit@10 68/71'de kaldı; kendi başlığıyla 1. sıra 262/319'dan 268/319'a,
+ilk 10 310/319'da kaldı, taslak/mülga belgelerde 16/18 kaldı. Kötüleşen sorular:
+gevşek OR geçişi artık çalışmadığı için onun verdiği boost'u kaybeden birkaç tam
+atıf sorusu (örneğin "Kredilerin Sınıflandırılması Yönetmeliği madde 10",
+"Bankaların Kredi İşlemlerine İlişkin Yönetmelik madde 12 üçüncü fıkra") ve
+başlığının kelimelerini çekimli taşıyan benzer adlı bir belgenin öne geçtiği
+birkaç kendi başlık araması.
 
 **Yükseltme notu.** Yeniden derleme gerekmez. MCP sözleşmesi yalnızca eklemedir:
 yeni isteğe bağlı çıktı alanı `decision_numbers_not_stored`; tavandaki sonucun

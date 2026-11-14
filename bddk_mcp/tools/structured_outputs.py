@@ -286,8 +286,8 @@ class DocumentSearchItem(StrictOutputModel):
         description=(
             "True when relevance sits at the calibration ceiling (1.0) because the ordering score reached or "
             "passed it: such hits tie on the shown value and are ordered by the internal score, except that "
-            "adjacent tied hits with a decision date are listed newest first (an undated tied hit keeps its "
-            "place)."
+            "adjacent tied hits with a decision date are listed newest first (an undated tied hit, and a decision "
+            "whose whole title occurs in the query, keeps its place)."
         ),
     )
     semantic_relevance: float | None = Field(
