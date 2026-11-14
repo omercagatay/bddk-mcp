@@ -9,7 +9,6 @@ results.
 
 from __future__ import annotations
 
-import re
 from datetime import UTC, datetime
 from typing import Annotated, Literal, TypeAlias
 
@@ -17,6 +16,7 @@ from mcp.types import CallToolResult, TextContent
 from pydantic import BaseModel, ConfigDict, Field
 
 from bddk_mcp.quotations import ExactQuotationCheck
+from bddk_mcp.store.doc_store import catalog_status_class
 
 SCHEMA_VERSION = "2.0"
 CORPUS_SCOPE_WARNING = (
@@ -35,9 +35,6 @@ LEGAL_APPLICABILITY_WARNING = (
 )
 REPEALED_STATUS_NOTICE = "BDDK catalog class: MÜLGA (repealed) - do not present this text as a provision in force."
 DRAFT_STATUS_NOTICE = "BDDK catalog class: TASLAK (draft) - not an instrument in force."
-_STATUS_FOLD = str.maketrans({"I": "ı", "İ": "i", "ü": "u", "Ü": "u", "ğ": "g", "Ğ": "g"})
-_REPEALED_CATEGORY_RE = re.compile(r"\bmulga\b")
-_DRAFT_CATEGORY_RE = re.compile(r"\btasla[kg]")
 
 
 def document_status_notice(category: str | None) -> str | None:
@@ -46,14 +43,7 @@ def document_status_notice(category: str | None) -> str | None:
     Only the catalog category is read: an instrument repealed or drafted under
     another category is not detected, so None never means the text is in force.
     """
-    if not category:
-        return None
-    folded = category.translate(_STATUS_FOLD).lower()
-    if _REPEALED_CATEGORY_RE.search(folded):
-        return REPEALED_STATUS_NOTICE
-    if _DRAFT_CATEGORY_RE.search(folded):
-        return DRAFT_STATUS_NOTICE
-    return None
+    return {"repealed": REPEALED_STATUS_NOTICE, "draft": DRAFT_STATUS_NOTICE}.get(catalog_status_class(category))
 
 
 def utc_date(timestamp: float | None) -> str | None:
@@ -243,7 +233,11 @@ class DocumentSearchItem(StrictOutputModel):
             "hits (0.0, no semantic score) in keyword (BM25) order, then the remaining vector hits by "
             "this score, so a later hit can score higher than an earlier hybrid hit; these are the hits within "
             "0.051 of the top ordering score, and the other semantic hits follow them by this score. keyword-only fts hits "
-            "(0.0, no semantic score: the words of the query all occur in the chunk or in its document title as separate words; this does not say that the phrase or the figure of the query occurs) follow the strong and moderate hits in BM25 order, and the weak hits (relevance below 0.50) come after them."
+            "(0.0, no semantic score: the words of the query all occur in the chunk or in its document title as separate words; this does not say that the phrase or the figure of the query occurs) follow the strong and moderate hits in BM25 order, and the weak hits (relevance below 0.50) come after them. "
+            "Within each match_strength band, TASLAK/MÜLGA catalog-class documents are listed after the others "
+            "(not when the query names that class or the document's whole title, nor with a category filter; "
+            "fts_exact and decision_number hits keep their place); the catalog class is the only source of that "
+            "mark."
         ),
     )
     match_strength: Literal["strong", "moderate", "weak", "keyword"] = Field(

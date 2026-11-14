@@ -780,7 +780,9 @@ Suggest the user try: different keywords or a different category (basın, mevzua
         name), use search_bddk_regulations instead.
 
         Hits at the calibration ceiling (100%) tie on the shown relevance; adjacent dated
-        decisions among them are listed newest first.
+        decisions among them are listed newest first. Within each match strength band,
+        TASLAK/MÜLGA catalog-class documents are listed after the others, unless the query
+        names that class or the document's whole title, or a category is given.
 
         For legal or audit questions, use a section-first workflow and treat these
         document-level results as leads.

@@ -37,7 +37,13 @@ from bddk_mcp.core.config import (
 )
 from bddk_mcp.quality.markdown_quality import assess_markdown_quality
 from bddk_mcp.store.corpus_db import CorpusDB
-from bddk_mcp.store.doc_store import fts_match_query, fts_prefix_stem_query, normalize_search_text
+from bddk_mcp.store.doc_store import (
+    catalog_classes_named,
+    catalog_status_class,
+    fts_match_query,
+    fts_prefix_stem_query,
+    normalize_search_text,
+)
 from bddk_mcp.store.legal_ref import (
     DECISION_NUMBER_SUFFIX,
     LegalRefs,
@@ -935,6 +941,53 @@ def _newest_first_among_clamped_decisions(hits: list[dict]) -> list[dict]:
     return ordered
 
 
+def _search_words(text: str) -> str:
+    """The search-normalised words of ``text``, joined by single spaces."""
+    return " ".join(_WORD_TOKEN_RE.findall(normalize_search_text(text)))
+
+
+def _shown_band(hit: dict) -> str:
+    """The match_strength band the tool shows for a hit."""
+    if hit.get("match_type") in ("fts", "fts_exact", "decision_number"):
+        return "keyword"
+    if hit["relevance"] >= _HIGH_CONFIDENCE_THRESHOLD:
+        return "strong"
+    return "moderate" if hit["relevance"] >= _MEDIUM_CONFIDENCE_THRESHOLD else "weak"
+
+
+def _catalog_class_last(hits: list[dict], query: str, category: str | None) -> list[dict]:
+    """Within each shown band, TASLAK/MÜLGA catalog-class hits after the others, each group in its order.
+
+    The class is the BDDK catalog category alone (``catalog_status_class``). A hit keeps its place when
+    it is an exact legal-reference or decision-number hit, when the query names its class, or when its
+    whole title occurs in the query; with an explicit ``category`` nothing moves.
+    """
+    if category:
+        return hits
+    named = catalog_classes_named(query)
+    query_words = f" {_search_words(query)} "
+
+    def moves(hit: dict) -> bool:
+        title = _search_words(str(hit.get("title") or ""))
+        return not (
+            hit.get("match_type") in ("fts_exact", "decision_number")
+            or hit.get("decision_number_match")
+            or catalog_status_class(hit.get("category")) in named
+            or (title and f" {title} " in query_words)
+        )
+
+    ordered = list(hits)
+    for band in ("strong", "moderate", "weak", "keyword"):
+        positions = [i for i, hit in enumerate(hits) if _shown_band(hit) == band and moves(hit)]
+        group = [hits[i] for i in positions]
+        regrouped = [h for h in group if catalog_status_class(h.get("category")) is None] + [
+            h for h in group if catalog_status_class(h.get("category")) is not None
+        ]
+        for position, hit in zip(positions, regrouped, strict=True):
+            ordered[position] = hit
+    return ordered
+
+
 def _quality_metadata(text: str, doc_id: str) -> dict:
     quality = assess_markdown_quality(text or "", document_id=doc_id)
     return {"quality_label": quality.label, "quality_flags": quality.flags}
@@ -1601,7 +1654,10 @@ class VectorStore:
         others follow them.
         Documents that match the strict all-words FTS query but have no
         semantic hit follow the strong and moderate semantic hits, ahead of the weak ones, as keyword matches
-        (``match_type`` "fts", no semantic score), in BM25 order.
+        (``match_type`` "fts", no semantic score), in BM25 order. Before the
+        limit, adjacent dated decisions at the calibration ceiling are listed
+        newest first, then TASLAK/MÜLGA catalog-class hits follow the others of
+        their shown band (``_catalog_class_last``).
         """
         vector_hits, fts_hits = await asyncio.gather(
             self._vector_search(
@@ -1740,6 +1796,7 @@ class VectorStore:
             + _keyword_only_hits(keyword_candidates, listed)
             + [h for h in rest if not _shown_as_strong_or_moderate(h)]
         )
+        fused = _catalog_class_last(fused, query, category)
 
         for h in fused:
             if h["relevance"] >= _HIGH_CONFIDENCE_THRESHOLD:

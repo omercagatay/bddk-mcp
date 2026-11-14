@@ -1501,6 +1501,107 @@ class TestSearchHonesty:
             "below_2027",
         ]
 
+    @staticmethod
+    def _class_hit(doc_id: str, category: str, relevance: float, match_type: str = "hybrid", title: str = "") -> dict:
+        return {
+            "doc_id": doc_id,
+            "category": category,
+            "relevance": relevance,
+            "match_type": match_type,
+            "title": title or f"Belge {doc_id}",
+        }
+
+    def test_taslak_and_mulga_hits_follow_the_others_of_their_band(self):
+        from bddk_mcp.store.vector_store import _catalog_class_last
+
+        hit = self._class_hit
+        hits = [
+            hit("draft_s", "Düzenleme Taslağı", 1.0),
+            hit("reg_s", "Yönetmelik", 1.0),
+            hit("exact_draft", "Düzenleme Taslağı", 0.0, "fts_exact"),
+            hit("repealed_s", "Mülga Düzenleme", 0.9),
+            hit("reg2_s", "Yönetmelik", 0.8),
+            hit("draft_m", "Düzenleme Taslağı", 0.6),
+            hit("reg_m", "Rehber", 0.55),
+            hit("draft_kw", "Düzenleme Taslağı", 0.0, "fts"),
+            hit("reg_kw", "Tebliğ", 0.0, "fts"),
+            hit("repealed_w", "Mülga Düzenleme", 0.4),
+            hit("reg_w", "Genelge", 0.3),
+        ]
+
+        ordered = [h["doc_id"] for h in _catalog_class_last(hits, "kredi riskine esas tutar", None)]
+
+        assert ordered == [
+            "reg_s",
+            "reg2_s",
+            "exact_draft",
+            "draft_s",
+            "repealed_s",
+            "reg_m",
+            "draft_m",
+            "reg_kw",
+            "draft_kw",
+            "reg_w",
+            "repealed_w",
+        ]
+
+    def test_the_class_order_exemptions(self):
+        from bddk_mcp.store.vector_store import _catalog_class_last
+
+        hit = self._class_hit
+        hits = [
+            hit("draft", "Düzenleme Taslağı", 1.0, title="Kredi Riskine Esas Tutarın Hesaplanmasına İlişkin Taslak"),
+            hit("repealed", "Mülga Düzenleme", 1.0, title="Faiz Oranı Riskinin Standart Yöntemle Ölçülmesi"),
+            hit("number", "Mülga Düzenleme", 0.0, "decision_number"),
+            hit("reg", "Yönetmelik", 0.9),
+        ]
+
+        def order(query: str, category: str | None = None) -> list[str]:
+            return [h["doc_id"] for h in _catalog_class_last(hits, query, category)]
+
+        assert order("kredi riski") == ["reg", "draft", "number", "repealed"]
+        # A query naming the class keeps every hit of that class in place, not those of the other class.
+        assert order("kredi riski düzenleme taslağı") == ["draft", "reg", "number", "repealed"]
+        assert order("taslak metinler") == ["draft", "reg", "number", "repealed"]
+        assert order("mülga yönetmelik") == ["reg", "repealed", "number", "draft"]
+        assert order("yürürlükten kaldırılan düzenleme") == ["reg", "repealed", "number", "draft"]
+        # The whole title in the query exempts that hit; title words in a generic query do not.
+        assert order("faiz oranı riskinin standart yöntemle ölçülmesi madde 4") == [
+            "reg",
+            "repealed",
+            "number",
+            "draft",
+        ]
+        assert order("faiz oranı riski") == ["reg", "draft", "number", "repealed"]
+        # An explicit category leaves the order alone.
+        assert order("kredi riski", "Düzenleme Taslağı") == ["draft", "repealed", "number", "reg"]
+
+    @pytest.mark.asyncio
+    async def test_the_class_order_is_applied_before_the_limit(self):
+        vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = "intfloat/multilingual-e5-base"
+        categories = {"draft": "Düzenleme Taslağı", "reg": "Yönetmelik"}
+        vs._vector_search = AsyncMock(
+            return_value=[
+                {"doc_id": "draft", "relevance": 0.99, "title": "T", "snippet": "t", "category": categories["draft"]},
+                {"doc_id": "reg", "relevance": 0.97, "title": "R", "snippet": "r", "category": categories["reg"]},
+            ]
+        )
+        vs._fts_search = AsyncMock(
+            return_value=[
+                {"doc_id": d, "fts_rank": 1.0, "title": d, "snippet": d, "fts_relaxed": False} for d in categories
+            ]
+        )
+
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", None):
+            everything = await vs._hybrid_search("kredi riski", limit=10)
+            top = await vs._hybrid_search("kredi riski", limit=1)
+            filtered = await vs._hybrid_search("kredi riski", limit=10, category="Yönetmelik")
+
+        assert [h["doc_id"] for h in everything] == ["reg", "draft"]
+        assert [h["doc_id"] for h in top] == ["reg"]
+        assert [h["doc_id"] for h in filtered] == ["draft", "reg"]
+
     @pytest.mark.asyncio
     async def test_the_date_order_is_applied_before_the_limit(self):
         vs = VectorStore.__new__(VectorStore)

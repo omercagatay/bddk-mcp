@@ -109,6 +109,35 @@ def normalize_search_text(text: str) -> str:
     return "".join(char for char in normalized if not unicodedata.combining(char))
 
 
+# The BDDK catalog classes of repealed and draft texts ("Mülga Düzenleme", "Düzenleme Taslağı"), read from the
+# catalog category alone: a text repealed or drafted under another category is not detected, so no class
+# never means that a text is in force.
+_REPEALED_CATEGORY_RE = re.compile(r"\bmulga\b")
+_DRAFT_CATEGORY_RE = re.compile(r"\btasla[kg]")
+# A query that names a class: a word starting with "mülga" or "yürürlükten kaldır", or with "taslak"/"taslağ".
+_REPEALED_QUERY_RE = re.compile(r"\bmulga|\byururlukten kaldir")
+
+
+def catalog_status_class(category: str | None) -> str | None:
+    """The class of a MÜLGA ("repealed") or TASLAK ("draft") BDDK catalog category, else None."""
+    folded = normalize_search_text(category or "")
+    if _REPEALED_CATEGORY_RE.search(folded):
+        return "repealed"
+    if _DRAFT_CATEGORY_RE.search(folded):
+        return "draft"
+    return None
+
+
+def catalog_classes_named(query: str) -> set[str]:
+    """The catalog classes ("repealed", "draft") that the query names."""
+    folded = normalize_search_text(query)
+    return {
+        name
+        for name, pattern in (("repealed", _REPEALED_QUERY_RE), ("draft", _DRAFT_CATEGORY_RE))
+        if pattern.search(folded)
+    }
+
+
 def fts_match_query(query: str) -> str | None:
     """Turn free text into an FTS5 MATCH expression: every token must match.
 
