@@ -20,7 +20,12 @@ from bddk_mcp.quality.markdown_quality import (
     unsafe_verbatim_reason,
 )
 from bddk_mcp.quotations import ExactQuotationCheck, check_exact_quotation
-from bddk_mcp.store.doc_store import fts_prefix_stem_query, normalize_search_text
+from bddk_mcp.store.doc_store import (
+    catalog_classes_named,
+    catalog_status_class,
+    fts_prefix_stem_query,
+    normalize_search_text,
+)
 from bddk_mcp.store.legal_ref import document_id_candidates, parse_legal_refs, turkish_casefold
 from bddk_mcp.store.section_index import (
     GOVDE_HEADING,
@@ -1179,6 +1184,12 @@ async def _require_stored_document(deps: Dependencies, document_id: str, *, deci
         )
 
 
+def _class_order(classes_last: frozenset[str], document_id: str | None) -> dict:
+    """The ``classes_last`` argument of a section search over every document; a search limited to one
+    document has no other document's sections to order."""
+    return {"classes_last": classes_last} if classes_last and document_id is None else {}
+
+
 async def _search_sections_strict_with_stem_top_up(
     deps: Dependencies,
     query: str,
@@ -1186,13 +1197,15 @@ async def _search_sections_strict_with_stem_top_up(
     candidate_doc_ids: list[str | None],
     section_type: str | None,
     limit: int,
+    classes_last: frozenset[str] = frozenset(),
 ) -> tuple[list[StoredDocumentSection], set[tuple[str, str, str, str]]]:
     """Strict FTS pass, topped up with the prefix-stem pass when it returns fewer than ``limit`` hits.
 
     The top-up uses the same document scope (the candidate that produced the strict hits, or
     each candidate in turn when there were none) and section filter. Strict hits come first;
-    top-up hits are de-duplicated against them and carry no rank. Returns the hits and the
-    keys of the top-up hits.
+    top-up hits are de-duplicated against them and carry no rank. Within each pass, sections of
+    the catalog classes in ``classes_last`` follow the others (``_class_order``). Returns the hits
+    and the keys of the top-up hits.
     """
     hits: list[StoredDocumentSection] = []
     used_doc_id: str | None = None
@@ -1202,6 +1215,7 @@ async def _search_sections_strict_with_stem_top_up(
             document_id=candidate_doc_id,
             section_type=section_type,
             limit=limit,
+            **_class_order(classes_last, candidate_doc_id),
         )
         if hits:
             used_doc_id = candidate_doc_id
@@ -1219,6 +1233,7 @@ async def _search_sections_strict_with_stem_top_up(
             section_type=section_type,
             limit=limit + len(hits),
             prefix_stem=True,
+            **_class_order(classes_last, candidate_doc_id),
         )
         top_up = [section for section in stem_hits if _section_key(section) not in seen]
         if top_up:
@@ -1235,6 +1250,7 @@ async def _search_sections_loose(
     document_id: str | None,
     section_type: str | None,
     limit: int,
+    classes_last: frozenset[str] = frozenset(),
 ) -> list[StoredDocumentSection]:
     terms = _loose_search_terms(query)
     if not terms:
@@ -1275,6 +1291,13 @@ async def _search_sections_loose(
         merged.values(),
         key=lambda section: (-_loose_section_score(section, terms, weights), section.start_char, _section_key(section)),
     )
+    # The class order is applied to the whole candidate pool (each term's top candidate_limit sections), not
+    # in the per-term SQL, so the pool and the rarity weights stay what they were. It does not cover a section
+    # outside every term's top candidate_limit: that is never a candidate, whatever its class.
+    if _class_order(classes_last, document_id):
+        ranked = [s for s in ranked if catalog_status_class(s.document_category) not in classes_last] + [
+            s for s in ranked if catalog_status_class(s.document_category) in classes_last
+        ]
     top = ranked[:limit]
     # Only the hits that leave this function need their verbatim source range.
     return await deps.doc_store.hydrate_source_ranges(top) if top else []
@@ -1553,6 +1576,9 @@ def register(mcp, deps: Dependencies) -> None:
         follow the exact-word hits, carry no rank and are marked `stem_match`. The
         loose token fallback runs when both passes find nothing, and also when
         every hit is an inflection-tolerant one; its hits then follow them.
+        Within each pass, sections of TASLAK/MÜLGA catalog-class documents are
+        listed after the others, unless the query names that class or the search
+        is limited to one document; exact-reference hits keep their place.
 
         A bare number or a `kgk_`/`rg_` document ID in the query (typically at its
         start, e.g. `943 İlke 5`) is read as a document ID only when such a
@@ -1607,6 +1633,8 @@ def register(mcp, deps: Dependencies) -> None:
             scoped_query = f"{search_query[:start].rstrip()} {search_query[end:].lstrip()}".strip()
         # Question words and "yüzde" are not required by the exact-word and stem passes.
         required_scoped_query, not_searched = _required_search_text(scoped_query)
+        # TASLAK/MÜLGA catalog-class sections follow the others of each pass, unless the query names the class.
+        classes_last = frozenset({"draft", "repealed"} - catalog_classes_named(search_query))
 
         exact_hits = []
         if exact_ref_detected:
@@ -1625,6 +1653,7 @@ def register(mcp, deps: Dependencies) -> None:
             candidate_doc_ids=candidate_doc_ids,
             section_type=applied_section_type,
             limit=limit,
+            classes_last=classes_last,
         )
         loose_fallback_used = False
         # Set when the inferred document is stored but the exact provision named in the query is not in it.
@@ -1651,6 +1680,7 @@ def register(mcp, deps: Dependencies) -> None:
                 candidate_doc_ids=[None],
                 section_type=applied_section_type,
                 limit=limit,
+                classes_last=classes_last,
             )
             candidate_doc_ids = [None]
         if not hits and not exact_hits:
@@ -1662,6 +1692,7 @@ def register(mcp, deps: Dependencies) -> None:
                     document_id=candidate_doc_id,
                     section_type=applied_section_type,
                     limit=limit,
+                    classes_last=classes_last,
                 )
                 if hits:
                     break
@@ -1676,6 +1707,7 @@ def register(mcp, deps: Dependencies) -> None:
                 document_id=hits[0].doc_id if inferred_doc_id else None,
                 section_type=applied_section_type,
                 limit=limit,
+                classes_last=classes_last,
             )
             extra = [hit for hit in loose_hits if _section_key(hit) not in seen][: limit - len(hits)]
             hits = hits + extra

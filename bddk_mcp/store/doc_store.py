@@ -853,6 +853,7 @@ class DocumentStore:
         limit: int = 10,
         include_source_range: bool = True,
         prefix_stem: bool = False,
+        classes_last: frozenset[str] = frozenset(),
     ) -> list[StoredDocumentSection]:
         """Full-text search over structural sections (every query token must match).
 
@@ -860,7 +861,9 @@ class DocumentStore:
         candidate retrieval uses it and hydrates only the final hits via
         ``hydrate_source_ranges``. ``prefix_stem=True`` matches the tokens with
         :func:`fts_prefix_stem_query` instead (inflection-tolerant); it returns
-        nothing when that expression would equal the strict one.
+        nothing when that expression would equal the strict one. Sections of
+        documents whose catalog class (:func:`catalog_status_class`) is in
+        ``classes_last`` follow the others, in SQL, so the limit takes the others first.
         """
         match = fts_prefix_stem_query(query) if prefix_stem else fts_match_query(query)
         if match is None:
@@ -880,18 +883,31 @@ class DocumentStore:
             # flags on each row let the caller label it.
             where.append("s.section_type NOT IN (?, ?)")
             params.extend(_NESTED_SECTION_TYPES)
-        params.append(limit)
-        sql = f"""
-            SELECT {_SECTION_COLUMNS} {_SOURCE_RANGE_COLUMN if include_source_range else ""},
-                   -bm25(sections_fts, 2.0, 1.0) AS rank
-            FROM sections_fts
-            JOIN document_sections AS s ON s.rowid = sections_fts.rowid
-            JOIN documents AS d ON d.document_id = s.doc_id AND d.content_hash = s.source_content_hash
-            WHERE {" AND ".join(where)}
-            ORDER BY rank DESC, s.start_char
-            LIMIT ?
-        """
-        rows = await self._db.run(lambda conn: conn.execute(sql, params).fetchall())
+
+        def search(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+            last = (
+                [
+                    category
+                    for (category,) in conn.execute("SELECT DISTINCT category FROM documents")
+                    if catalog_status_class(category) in classes_last
+                ]
+                if classes_last
+                else []
+            )
+            class_order = f"d.category IN ({', '.join('?' for _ in last)}), " if last else ""
+            sql = f"""
+                SELECT {_SECTION_COLUMNS} {_SOURCE_RANGE_COLUMN if include_source_range else ""},
+                       -bm25(sections_fts, 2.0, 1.0) AS rank
+                FROM sections_fts
+                JOIN document_sections AS s ON s.rowid = sections_fts.rowid
+                JOIN documents AS d ON d.document_id = s.doc_id AND d.content_hash = s.source_content_hash
+                WHERE {" AND ".join(where)}
+                ORDER BY {class_order}rank DESC, s.start_char
+                LIMIT ?
+            """
+            return conn.execute(sql, [*params, *last, limit]).fetchall()
+
+        rows = await self._db.run(search)
         return await self._sections_from_rows(rows)
 
     async def find_capped_continuations(

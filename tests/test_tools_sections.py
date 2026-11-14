@@ -363,6 +363,7 @@ async def test_search_document_sections_uses_loose_fallback_when_strict_misses()
         "document_id": None,
         "section_type": None,
         "limit": 5,
+        "classes_last": frozenset({"draft", "repealed"}),
     }
 
 
@@ -2947,3 +2948,49 @@ async def test_the_yuzde_rule_is_mentioned_only_for_a_query_with_a_percentage(do
     assert "Note: not searched as required words: kaç, oluşur" in question.text
     assert "yüzde" not in question.text.split("Note: not searched as required words")[1].split("\n")[0]
     assert "'yüzde' is optional because sources also write '%'" in percent.text
+
+
+async def _store_class_fixture(doc_store) -> Dependencies:
+    """A draft whose provision repeats the words (highest BM25), a repealed text and a regulation."""
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    filler = " Diğer hususlar Kurulca belirlenir." * 6
+    for doc_id, category, content in (
+        (
+            "1288",
+            "Düzenleme Taslağı",
+            "MADDE 5 - (taslak) Risk ağırlığı 100 olan alacaklar; risk ağırlığı 100 olan alacaklar.",
+        ),
+        ("1310", "Mülga Düzenleme", "MADDE 5 - (taslak) Risk ağırlığı 100 olan alacaklar." + filler),
+        ("mevzuat_21192", "Yönetmelik", "MADDE 6 - (taslak) Risk ağırlığı 100 olan alacaklar." + filler * 2),
+    ):
+        await doc_store.store_document(
+            StoredDocument(document_id=doc_id, title=f"Belge {doc_id}", category=category, markdown_content=content)
+        )
+    return Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+
+@pytest.mark.asyncio
+async def test_taslak_and_mulga_sections_follow_the_others_of_each_pass(doc_store):
+    tool = _capture_tool(await _store_class_fixture(doc_store), "search_document_sections")
+
+    def documents(result) -> list[str]:
+        return [item["document_id"] for item in result.structuredContent["results"]]
+
+    strict = await tool("risk ağırlığı 100 olan alacaklar")
+    first_only = await tool("risk ağırlığı 100 olan alacaklar", limit=1)
+    stem = await tool("risk ağırlığının alacakları")
+    loose = await tool("risk ağırlığı alacaklar zzzzyy")
+    # A query that names the draft class keeps the drafts where BM25 puts them; the repealed text still follows.
+    named = await tool("taslak risk ağırlığı 100 olan alacaklar")
+    # A search limited to one document has nothing to reorder.
+    scoped = await tool("risk ağırlığı 100 olan alacaklar", document_id="1288")
+
+    assert documents(strict) == ["mevzuat_21192", "1288", "1310"]
+    assert documents(first_only) == ["mevzuat_21192"]
+    assert stem.structuredContent["results"][0]["stem_match"] is True
+    assert documents(stem) == ["mevzuat_21192", "1288", "1310"]
+    assert loose.structuredContent["loose_fallback_used"] is True
+    assert documents(loose)[0] == "mevzuat_21192"
+    assert documents(named)[0] == "1288" and documents(named).index("mevzuat_21192") < documents(named).index("1310")
+    assert documents(scoped) == ["1288"]
