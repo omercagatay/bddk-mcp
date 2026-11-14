@@ -139,6 +139,7 @@ async def test_get_document_section_resolves_bare_mevzuat_alias():
 async def test_get_document_section_no_match_suggests_search():
     doc_store = MagicMock()
     doc_store.get_document_section = AsyncMock(return_value=[])
+    doc_store.has_document = AsyncMock(return_value=True)
     deps = Dependencies(db=None, doc_store=doc_store, client=None, http=None)
 
     tool = _capture_tool(deps, "get_document_section")
@@ -153,6 +154,7 @@ async def test_get_document_section_no_match_suggests_search():
 async def test_get_document_section_integer_ref_no_match_suggests_search():
     doc_store = MagicMock()
     doc_store.get_document_section = AsyncMock(return_value=[])
+    doc_store.has_document = AsyncMock(return_value=True)
     deps = Dependencies(db=None, doc_store=doc_store, client=None, http=None)
 
     tool = _capture_tool(deps, "get_document_section")
@@ -203,11 +205,12 @@ async def test_search_document_sections_outputs_ranked_sections():
     assert "Model validasyonu yapılır" in out
     # Strict pass first; with fewer than `limit` hits it is topped up by the prefix-stem
     # pass in the same document and section scope (the mock's duplicates are dropped).
+    # The inferred document number scopes the passes and is not searched as a word.
     assert doc_store.search_document_sections.await_args_list[0] == mock_call(
-        "943 İlke 5 model validasyonu", document_id="943", section_type="ilke", limit=5
+        "İlke 5 model validasyonu", document_id="943", section_type="ilke", limit=5
     )
     assert doc_store.search_document_sections.await_args_list[1] == mock_call(
-        "943 İlke 5 model validasyonu", document_id="943", section_type="ilke", limit=7, prefix_stem=True
+        "İlke 5 model validasyonu", document_id="943", section_type="ilke", limit=7, prefix_stem=True
     )
     assert doc_store.search_document_sections.await_count == 2
 
@@ -529,6 +532,7 @@ async def test_quotation_is_checked_character_for_character_against_the_resolved
 async def test_quotation_is_unavailable_without_exactly_one_resolved_section():
     doc_store = MagicMock()
     doc_store.get_document_section = AsyncMock(return_value=[])
+    doc_store.has_document = AsyncMock(return_value=True)
     deps = Dependencies(db=None, doc_store=doc_store, client=None, http=None)
 
     result = await _capture_tool(deps, "get_document_section")("943", section_ref="99", quotation="metin")
@@ -834,10 +838,12 @@ async def test_dropped_inferred_document_reports_the_section_reference_as_not_ap
     assert structured.get("section_ref") is None
     assert structured["parsed_section_ref"] == "9"
     assert structured["status"] == "ok"
-    note = "Note: madde 9 in the query was not applied as a filter because no document was identified"
+    # Document 90 is stored, so it was identified; madde 9 is what it lacks.
+    note = "Note: madde 9 was not found in document 90, which the number 90 in the query identified"
     assert note in result.text
+    assert "no document was identified" not in result.text
     assert any(warning.startswith(note) for warning in structured["warnings"])
-    assert not any("requested exact provision was not found" in warning for warning in structured["warnings"])
+    assert any("requested exact provision was not found" in warning for warning in structured["warnings"])
 
 
 @pytest.mark.asyncio
@@ -1107,7 +1113,11 @@ async def test_section_search_finds_govde_of_a_structureless_document_by_default
     hits = await doc_store.search_document_sections("ikinci grupta sınıflandırılması gecikme süresi")
 
     # 779 has no article structure, so its govde window is its body; mevzuat_8's govde is a remainder.
-    assert [(hit.doc_id, hit.section_type, hit.document_structureless) for hit in hits] == [("779", "govde", True)]
+    # Both are searched by default and ranked by the same FTS rank; the flag tells them apart.
+    assert {(hit.doc_id, hit.section_type, hit.document_structureless) for hit in hits} == {
+        ("779", "govde", True),
+        ("mevzuat_8", "govde", False),
+    }
     remainder = await doc_store.search_document_sections(
         "ikinci grupta sınıflandırılması gecikme süresi", section_type="govde"
     )
@@ -1117,7 +1127,9 @@ async def test_section_search_finds_govde_of_a_structureless_document_by_default
 @pytest.mark.asyncio
 async def test_structureless_document_rows_are_labelled_full_text_not_remainder(doc_store):
     deps = await _store_structureless_and_structured(doc_store)
-    search = await _capture_tool(deps, "search_document_sections")("ikinci grupta sınıflandırılması gecikme süresi")
+    search = await _capture_tool(deps, "search_document_sections")(
+        "ikinci grupta sınıflandırılması gecikme süresi", document_id="779"
+    )
     exact = await _capture_tool(deps, "get_document_section")(
         "779", quotation="gecikme süresi doksan gün olarak uygulanmaya"
     )
@@ -1549,3 +1561,647 @@ async def test_exact_reference_hit_found_again_by_the_top_up_is_not_labelled_a_s
     items = result.structuredContent["results"]
     assert [(i["section_type"], i["section_ref"], i["stem_match"]) for i in items] == [("madde", "2", False)]
     assert "inflection-tolerant match" not in result.text
+
+
+_ARTICLE_CITING_DECISION = (
+    "Kanunun 43 üncü maddesi uyarınca aktif rasyosu hesaplamasında yabancı para yükümlülükler dikkate alınır."
+)
+
+
+async def _store_reference_without_document_fixture(doc_store) -> Dependencies:
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="798",
+            title="Kurul Kararı 798",
+            category="Kurul Kararı",
+            markdown_content=_ARTICLE_CITING_DECISION,
+        )
+    )
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_7101",
+            title="Dayanak Yönetmeliği",
+            markdown_content="MADDE 2 - Dayanak\nBu Yönetmelik aktif rasyosu konusunda Kanuna dayanılarak hazırlanmıştır.\n",
+        )
+    )
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="943",
+            title="Rehber",
+            markdown_content="İlke 3\nAktif rasyosu yabancı para yükümlülükler ilkesi.\n\nİlke 4\nDiğer konular.\n",
+        )
+    )
+    return Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+
+@pytest.mark.asyncio
+async def test_section_type_parsed_without_a_document_does_not_filter_the_search(doc_store):
+    deps = await _store_reference_without_document_fixture(doc_store)
+
+    result = await _capture_tool(deps, "search_document_sections")(
+        "Kanunun 43 üncü maddesi aktif rasyosu yabancı para yükümlülükler"
+    )
+
+    structured = result.structuredContent
+    assert structured["results"][0]["document_id"] == "798"
+    assert structured["results"][0]["section_type"] == "govde"
+    assert structured.get("section_type") is None
+    assert structured["parsed_section_ref"] == "43"
+    assert structured["exact_reference_detected"] is False
+    assert "madde 43 in the query was not applied as a filter because no document was identified" in result.text
+
+
+@pytest.mark.asyncio
+async def test_section_type_parsed_with_an_identified_document_still_filters(doc_store):
+    deps = await _store_reference_without_document_fixture(doc_store)
+
+    result = await _capture_tool(deps, "search_document_sections")("943 ilke 3 aktif rasyosu")
+
+    structured = result.structuredContent
+    assert structured["section_type"] == "ilke"
+    assert {(item["document_id"], item["section_type"]) for item in structured["results"]} == {("943", "ilke")}
+    assert structured["exact_reference_detected"] is True
+
+
+@pytest.mark.asyncio
+async def test_dropped_inferred_document_does_not_keep_the_parsed_type_filter(doc_store):
+    deps = await _store_reference_without_document_fixture(doc_store)
+
+    # 943 is stored but holds none of these words: the document is dropped, and with it the ilke filter.
+    result = await _capture_tool(deps, "search_document_sections")("943 ilke 9 Kanunun 43 üncü maddesi uyarınca")
+
+    structured = result.structuredContent
+    assert structured["inferred_document_filter_dropped"] is True
+    assert structured.get("section_type") is None
+    assert structured["results"][0]["document_id"] == "798"
+
+
+@pytest.mark.asyncio
+async def test_explicit_section_type_stays_a_hard_filter_without_a_document(doc_store):
+    deps = await _store_reference_without_document_fixture(doc_store)
+
+    result = await _capture_tool(deps, "search_document_sections")("aktif rasyosu", section_type="madde")
+
+    structured = result.structuredContent
+    assert structured["section_type"] == "madde"
+    assert {item["section_type"] for item in structured["results"]} == {"madde"}
+
+
+@pytest.mark.asyncio
+async def test_explicit_section_type_ignores_a_parsed_reference_of_another_type(doc_store):
+    deps = await _store_inference_fixture(doc_store)
+    tool = _capture_tool(deps, "search_document_sections")
+
+    other = await tool("İlke 5", document_id="943", section_type="paragraf")
+    same = await tool("İlke 5", document_id="943", section_type="ilke")
+
+    assert other.structuredContent["exact_reference_detected"] is False
+    assert other.structuredContent.get("section_ref") is None
+    assert "ilke 5 in the query was not used as an exact reference because section_type=paragraf" in other.text
+    assert same.structuredContent["exact_reference_detected"] is True
+    assert same.structuredContent["results"][0]["section_ref"] == "5"
+
+
+@pytest.mark.asyncio
+async def test_inferred_document_number_scopes_free_text_without_being_searched_as_a_word(doc_store):
+    tool = _capture_tool(await _store_inference_fixture(doc_store), "search_document_sections")
+
+    result = await tool("943 model validasyonu")
+
+    structured = result.structuredContent
+    assert structured["inferred_document_filter_applied"] is True
+    assert structured["inferred_document_filter_dropped"] is False
+    assert {item["document_id"] for item in structured["results"]} == {"943"}
+    assert "not applied as a document filter" not in result.text
+    assert "the search was limited to document 943" in result.text
+
+
+@pytest.mark.asyncio
+async def test_bare_document_number_alone_does_not_crash(doc_store):
+    tool = _capture_tool(await _store_inference_fixture(doc_store), "search_document_sections")
+
+    result = await tool("943")
+
+    assert result.structuredContent["status"] in {"ok", "no_results"}
+
+
+@pytest.mark.asyncio
+async def test_missing_provision_in_an_identified_document_is_reported_as_missing_there(doc_store):
+    tool = _capture_tool(await _store_inference_fixture(doc_store), "search_document_sections")
+
+    result = await tool("943 ilke 9 kiralama işlemleri")
+
+    structured = result.structuredContent
+    assert structured["inferred_document_filter_dropped"] is True
+    assert "ilke 9 was not found in document 943, which the number 943 in the query identified" in result.text
+    assert "no document was identified" not in result.text
+    assert "document 943 is stored, but ilke 9 was not found in it" in result.text
+    assert any("requested exact provision was not found" in warning for warning in structured["warnings"])
+    assert structured["results"][0]["document_id"] == "mevzuat_7001"
+
+
+async def _store_query_hygiene_fixture(doc_store) -> Dependencies:
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    texts = {
+        "mevzuat_5411": "MADDE 24 - Denetim komitesi\nDenetim komitesi en az iki üyeden oluşur.\n",
+        "mevzuat_42628": "MADDE 4 - Standart rasyo\nFaiz oranı riski standart rasyosu %15’i aşamaz.\n",
+        "mevzuat_22599": (
+            "MADDE 7 - Yeniden yapılandırma\nYeniden yapılandırılan alacağın en az yüzde onunun tahsil edilmesi "
+            "gerekir.\n"
+        ),
+        "mevzuat_19864": "MADDE 22 - İç denetim birimi\nİç denetim birimi yönetim kuruluna bağlıdır.\n",
+        "mevzuat_1310": "MADDE 3 - Oran\nKaldıraç oranı yüzde 15 olarak uygulanır.\n",
+    }
+    for doc_id, text in texts.items():
+        await doc_store.store_document(
+            StoredDocument(document_id=doc_id, title=f"Belge {doc_id}", markdown_content=text)
+        )
+    return Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+
+@pytest.mark.asyncio
+async def test_question_words_are_not_required_and_are_reported(doc_store):
+    tool = _capture_tool(await _store_query_hygiene_fixture(doc_store), "search_document_sections")
+
+    question = await tool("Denetim komitesi en az kaç üyeden oluşur?")
+    keywords = await tool("Denetim komitesi en az üyeden oluşur")
+
+    assert question.structuredContent["results"][0]["document_id"] == "mevzuat_5411"
+    assert question.structuredContent["loose_fallback_used"] is False
+    assert question.structuredContent["results"][0].get("rank") is not None
+    assert question.structuredContent["query_words_not_searched"] == ["kaç", "oluşur"]
+    assert "Note: not searched as required words: kaç, oluşur" in question.text
+    assert keywords.structuredContent["query_words_not_searched"] == []
+    assert "not searched as required words" not in keywords.text
+
+
+@pytest.mark.asyncio
+async def test_nedir_form_finds_the_same_sections_as_the_bare_words(doc_store):
+    tool = _capture_tool(await _store_query_hygiene_fixture(doc_store), "search_document_sections")
+
+    asked = await tool("iç denetim birimi nedir")
+    bare = await tool("iç denetim birimi")
+
+    assert [item["document_id"] for item in asked.structuredContent["results"]] == [
+        item["document_id"] for item in bare.structuredContent["results"]
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_query_made_only_of_question_words_still_runs(doc_store):
+    tool = _capture_tool(await _store_query_hygiene_fixture(doc_store), "search_document_sections")
+
+    result = await tool("nedir")
+
+    assert result.structuredContent["query_words_not_searched"] == []
+    assert result.structuredContent["status"] == "no_results"
+
+
+@pytest.mark.asyncio
+async def test_yuzde_and_percent_sign_are_the_same_figure(doc_store):
+    tool = _capture_tool(await _store_query_hygiene_fixture(doc_store), "search_document_sections")
+
+    by_word = await tool("faiz oranı riski standart rasyosu yüzde")
+    by_sign = await tool("oranı %15")
+
+    assert by_word.structuredContent["results"][0]["document_id"] == "mevzuat_42628"
+    assert by_word.structuredContent["loose_fallback_used"] is False
+    assert "yüzde" in by_word.structuredContent["query_words_not_searched"]
+    assert {item["document_id"] for item in by_sign.structuredContent["results"]} == {"mevzuat_42628", "mevzuat_1310"}
+
+
+@pytest.mark.asyncio
+async def test_short_words_are_prefixes_in_the_inflection_tolerant_pass(doc_store):
+    tool = _capture_tool(await _store_query_hygiene_fixture(doc_store), "search_document_sections")
+
+    result = await tool("yeniden yapılandırılan alacağın yüzde on")
+
+    [item] = result.structuredContent["results"]
+    assert (item["document_id"], item["stem_match"]) == ("mevzuat_22599", True)
+    assert result.structuredContent["loose_fallback_used"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("invisible", ["­", "​", "‍", "﻿"])
+async def test_format_characters_in_the_query_are_ignored(doc_store, invisible):
+    tool = _capture_tool(await _store_query_hygiene_fixture(doc_store), "search_document_sections")
+
+    result = await tool(f"iç de{invisible}netim birimi")
+
+    structured = result.structuredContent
+    assert structured["results"][0]["document_id"] == "mevzuat_19864"
+    assert structured["results"][0].get("rank") is not None
+    assert structured["loose_fallback_used"] is False
+
+
+@pytest.mark.asyncio
+async def test_format_characters_in_a_quotation_are_compared_raw(doc_store):
+    deps = await _store_query_hygiene_fixture(doc_store)
+
+    result = await _capture_tool(deps, "get_document_section")(
+        "mevzuat_19864", section_type="madde", section_ref="22", quotation="İç de­netim birimi"
+    )
+
+    assert result.structuredContent["answer_assessment"]["quotation_status"] == "not_found"
+
+
+@pytest.mark.asyncio
+async def test_stem_only_hits_do_not_block_the_loose_pass(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_3",
+            title="Yönetmelik 3",
+            markdown_content="MADDE 3 - Hazırlık\nKredi kayıtlarını saklanmaya hazır tutar.\n",
+        )
+    )
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_13",
+            title="Yönetmelik 13",
+            markdown_content="MADDE 13 - İz kayıtları\nKredi kayıtlarının tutulması ve izlenmesi.\n",
+        )
+    )
+    deps = Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+    result = await _capture_tool(deps, "search_document_sections")("kredi kayıtlarının saklanması", limit=5)
+
+    items = result.structuredContent["results"]
+    assert [(item["document_id"], item["stem_match"]) for item in items] == [
+        ("mevzuat_3", True),
+        ("mevzuat_13", False),
+    ]
+    assert result.structuredContent["loose_fallback_used"] is True
+    assert any("Loose token fallback was used" in warning for warning in result.structuredContent["warnings"])
+
+
+@pytest.mark.asyncio
+async def test_unknown_document_is_not_found_in_both_section_tools(doc_store):
+    from mcp.server.fastmcp.exceptions import ToolError
+
+    deps = await _store_inference_fixture(doc_store)
+
+    with pytest.raises(ToolError, match=r"\[ERROR:NOT_FOUND\][\s\S]*Document mevzuat_2259 is not available"):
+        await _capture_tool(deps, "get_document_section")("mevzuat_2259", section_type="madde", section_ref="5")
+    with pytest.raises(ToolError, match=r"\[ERROR:NOT_FOUND\][\s\S]*Document nonexistent_999 is not available"):
+        await _capture_tool(deps, "search_document_sections")("kredi", document_id="nonexistent_999")
+
+
+@pytest.mark.asyncio
+async def test_stored_document_without_the_section_is_still_no_results(doc_store):
+    deps = await _store_inference_fixture(doc_store)
+
+    exact = await _capture_tool(deps, "get_document_section")("7001", section_type="madde", section_ref="99")
+    search = await _capture_tool(deps, "search_document_sections")("eşsizbulunmayanterim", document_id="7001")
+
+    assert exact.structuredContent["status"] == "no_results"
+    assert "No section found for document 7001 with the requested filters" in exact.text
+    assert search.structuredContent["status"] == "no_results"
+
+
+@pytest.mark.asyncio
+async def test_inferred_unknown_document_never_raises(doc_store):
+    tool = _capture_tool(await _store_inference_fixture(doc_store), "search_document_sections")
+
+    result = await tool("5555 eşsizbulunmayanterim")
+
+    assert result.structuredContent["status"] == "no_results"
+    assert result.structuredContent["inferred_document_filter_dropped"] is True
+
+
+_ANNEXED_DECISION = (
+    "Kurulumuzun 10265 sayılı kararı ile finansal istikrarın güçlendirilmesine yönelik olarak kredi büyümesinin "
+    "sınırlandırılmasına karar verilmiştir.\n\nEK-1\n\nBAŞVURU FORMU\n\nForm alanları doldurulur.\n\n"
+    "EK-2\n\nBEYAN\n\nBeyan metni.\n"
+)
+_ANNEXED_GUIDE = (
+    "Ekonomik güçlükler içinde olan borçlulara adil muamelede bulunulur. Bankalar kredi tahsis ve izleme "
+    "süreçlerini yazılı politikalarla belirler ve uygular.\n\nEK-1\n\nTABLO\n\nTablo satırları.\n"
+)
+_PARAGRAPH_DECISION = (
+    "Kurul, 4389 sayılı Yasanın hükümlerine dayanılarak aşağıdaki gibi belirlemiştir.\n\n"
+    "1. Banka kurucularının mali güce sahip olmaları gereklidir.\n\n2. Taahhüt edilen sermaye nakden ödenir.\n\n"
+    "3. Kurucular hakkında inceleme yapılır.\n"
+)
+
+
+async def _store_govde_kind_fixture(doc_store) -> Dependencies:
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    for doc_id, category, text in (
+        ("1131", "Kurul Kararı", _ANNEXED_DECISION),
+        ("1041", "Rehber", _ANNEXED_GUIDE),
+        ("43", "Kurul Kararı", _PARAGRAPH_DECISION),
+    ):
+        await doc_store.store_document(
+            StoredDocument(document_id=doc_id, title=f"Belge {doc_id}", category=category, markdown_content=text)
+        )
+    await _store_structureless_and_structured(doc_store)
+    await _store_capped_document(doc_store)
+    return Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+
+@pytest.mark.asyncio
+async def test_doc_store_flags_each_govde_kind(doc_store):
+    await _store_govde_kind_fixture(doc_store)
+
+    async def govde(doc_id: str):
+        return [s for s in await doc_store.get_document_section(doc_id, section_type="govde")][0]
+
+    flags = {
+        doc_id: (row.document_structureless, row.document_decision_window, row.document_annex_or_paragraph_only)
+        for doc_id in ("779", "1131", "1041", "43", "mevzuat_8")
+        for row in [await govde(doc_id)]
+    }
+    assert flags == {
+        "779": (True, False, False),
+        "1131": (False, True, True),
+        "1041": (False, False, True),
+        "43": (False, False, True),
+        "mevzuat_8": (False, False, False),
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("query", "document_id", "kind", "label", "warning"),
+    [
+        (
+            "ikinci grupta sınıflandırılması gecikme süresi",
+            "779",
+            "full_text_window",
+            "full-text window (this document has no article structure)",
+            "Cite such a document by its title and decision date/number",
+        ),
+        (
+            "finansal istikrarın güçlendirilmesine",
+            "1131",
+            "decision_text",
+            "leading decision text of a Kurul Kararı whose only named sections are annexes",
+            "Cite it by the decision's title and decision date/number",
+        ),
+        (
+            "Ekonomik güçlükler içinde olan borçlulara adil muamelede",
+            "1041",
+            "body_text",
+            "body text of a document whose only named sections are annexes or paragraphs",
+            "body text of a document whose only named sections are annexes or paragraphs, outside those",
+        ),
+        (
+            "Yasanın hükümlerine dayanılarak",
+            "43",
+            "body_text",
+            "body text of a document whose only named sections are annexes or paragraphs",
+            "Cite it by the document title, not as a named annex or paragraph",
+        ),
+        (
+            "yükümlülük kayıt altına alınır",
+            "mevzuat_9",
+            "continuation",
+            "continuation of madde 2 beyond its 20,000-character stored window",
+            "this text belongs to madde 2",
+        ),
+    ],
+)
+async def test_default_section_search_finds_and_labels_each_govde_kind(
+    doc_store, query, document_id, kind, label, warning
+):
+    deps = await _store_govde_kind_fixture(doc_store)
+
+    result = await _capture_tool(deps, "search_document_sections")(query, document_id=document_id)
+
+    govde = [item for item in result.structuredContent["results"] if item["section_type"] == "govde"]
+    assert govde, result.text
+    assert {item.get("govde_kind") for item in govde} == {kind}
+    assert label in result.text
+    warnings = result.structuredContent["warnings"]
+    assert any(warning in w for w in warnings)
+    # Only genuine remainder is "not a legal provision".
+    assert not any("Do not cite them as a legal provision" in w for w in warnings)
+    assert "govde remainder — not a legal provision identity" not in result.text
+    assert result.structuredContent["loose_fallback_used"] is False
+
+
+@pytest.mark.asyncio
+async def test_default_section_search_keeps_the_remainder_label_and_warning(doc_store):
+    deps = await _store_govde_kind_fixture(doc_store)
+
+    result = await _capture_tool(deps, "search_document_sections")("yönetmelik değişiklikleri ile birlikte okunmalıdır")
+
+    [item] = result.structuredContent["results"]
+    assert (item["document_id"], item.get("govde_kind")) == ("mevzuat_8", "remainder")
+    assert "govde remainder — not a legal provision identity" in result.text
+    assert any("Do not cite them as a legal provision" in w for w in result.structuredContent["warnings"])
+
+
+@pytest.mark.asyncio
+async def test_named_sections_carry_no_govde_kind_and_rank_with_govde_rows(doc_store):
+    deps = await _store_govde_kind_fixture(doc_store)
+
+    result = await _capture_tool(deps, "search_document_sections")("Bu yönetmeliğin amacı", limit=10)
+
+    items = result.structuredContent["results"]
+    assert {item.get("govde_kind") for item in items if item["section_type"] != "govde"} == {None}
+    ranks = [item["rank"] for item in items]
+    assert all(rank is not None for rank in ranks)
+    assert ranks == sorted(ranks, reverse=True)
+
+
+def test_question_frame_words_are_left_out_only_in_a_question():
+    from bddk_mcp.tools.sections import _required_search_text
+
+    assert _required_search_text("Kredi komitesi kimlerden oluşur?") == ("Kredi komitesi", ["kimlerden", "oluşur"])
+    assert _required_search_text("Sızma testleri ne sıklıkla yapılır") == (
+        "Sızma testleri",
+        ["ne", "sıklıkla", "yapılır"],
+    )
+    # In a statement the frame word is content.
+    assert _required_search_text("komite en az iki üyeden oluşur") == ("komite en az iki üyeden oluşur", [])
+    assert _required_search_text("oran yüzde 15") == ("oran 15", ["yüzde"])
+    assert _required_search_text("nedir?") == ("nedir?", [])
+
+
+def test_question_and_frame_words_typed_without_turkish_characters_are_left_out():
+    from bddk_mcp.tools.sections import _loose_search_terms, _required_search_text
+
+    assert _required_search_text("Kredi komitesi kimlerden olusur?") == ("Kredi komitesi", ["kimlerden", "olusur"])
+    assert _required_search_text("Denetim komitesi en az kac uyeden olusur") == (
+        "Denetim komitesi en az uyeden",
+        ["kac", "olusur"],
+    )
+    assert _required_search_text("Sizma testleri ne siklikla yapilir") == (
+        "Sizma testleri",
+        ["ne", "siklikla", "yapilir"],
+    )
+    assert _required_search_text("risk kactir nasil") == ("risk", ["kactir", "nasil"])
+    assert _required_search_text("oran yuzde 15") == ("oran 15", ["yuzde"])
+    assert _loose_search_terms("kredi kactir nasil olusur siklikla icin") == ["kredi"]
+
+
+@pytest.mark.asyncio
+async def test_a_question_typed_without_turkish_characters_finds_the_same_provision(doc_store):
+    tool = _capture_tool(await _store_query_hygiene_fixture(doc_store), "search_document_sections")
+
+    ascii_question = await tool("Denetim komitesi en az kac uyeden olusur?")
+    turkish_question = await tool("Denetim komitesi en az kaç üyeden oluşur?")
+
+    assert ascii_question.structuredContent["query_words_not_searched"] == ["kac", "olusur"]
+    assert "Note: not searched as required words: kac, olusur" in ascii_question.text
+    assert [item["document_id"] for item in ascii_question.structuredContent["results"]] == [
+        item["document_id"] for item in turkish_question.structuredContent["results"]
+    ]
+    assert ascii_question.structuredContent["results"][0]["document_id"] == "mevzuat_5411"
+
+
+def _spy_section_search(doc_store) -> AsyncMock:
+    spy = AsyncMock(wraps=doc_store.search_document_sections)
+    doc_store.search_document_sections = spy
+    return spy
+
+
+def _filter_note(text: str) -> str:
+    return next(line for line in text.splitlines() if line.startswith("Note: the "))
+
+
+@pytest.mark.asyncio
+async def test_a_stored_number_after_an_unstored_one_does_not_scope_the_search(doc_store):
+    # Only the first candidate is considered: 5555 is not stored, so it is query content and 943 is
+    # never promoted to a document filter, not even with an exact reference.
+    tool = _capture_tool(await _store_inference_fixture(doc_store), "search_document_sections")
+
+    result = await tool("5555 943 İlke 5 model validasyonu")
+
+    structured = result.structuredContent
+    assert structured.get("document_id") is None
+    assert structured["exact_reference_detected"] is False
+    assert structured["inferred_document_filter_applied"] is False
+    assert structured["inferred_document_filter_dropped"] is True
+    assert "limited to document 943" not in result.text
+    assert _filter_note(result.text) == (
+        "Note: the number 5555 in the query was not applied as a document filter (no stored document has that ID)."
+    )
+
+
+@pytest.mark.asyncio
+async def test_an_unstored_first_number_leaves_the_whole_query_unscoped(doc_store):
+    deps = await _store_inference_fixture(doc_store)
+    spy = _spy_section_search(doc_store)
+    tool = _capture_tool(deps, "search_document_sections")
+
+    result = await tool("99999 943 model validasyonu")
+
+    structured = result.structuredContent
+    assert all(call.kwargs["document_id"] is None for call in spy.await_args_list)
+    assert spy.await_args_list[0].args[0] == "99999 943 model validasyonu"
+    assert structured.get("document_id") is None
+    assert structured["inferred_document_filter_applied"] is False
+    note = _filter_note(result.text)
+    assert note == (
+        "Note: the number 99999 in the query was not applied as a document filter (no stored document has that ID)."
+    )
+    assert "943" not in note
+
+
+@pytest.mark.asyncio
+async def test_a_stored_first_number_is_removed_from_the_scoped_search_text(doc_store):
+    deps = await _store_inference_fixture(doc_store)
+    spy = _spy_section_search(doc_store)
+    tool = _capture_tool(deps, "search_document_sections")
+
+    result = await tool("943 model validasyonu")
+
+    assert result.structuredContent["inferred_document_filter_applied"] is True
+    assert spy.await_args_list[0].args[0] == "model validasyonu"
+    assert spy.await_args_list[0].kwargs["document_id"] == "943"
+
+
+async def _store_kgk_fixture(doc_store) -> Dependencies:
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    deps = await _store_inference_fixture(doc_store)
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="kgk_tms_12",
+            title="TMS 12 Gelir Vergileri",
+            markdown_content="Paragraf 1\nErtelenmiş vergi varlıkları ve borçları muhasebeleştirilir.",
+        )
+    )
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_7005",
+            title="Belge mevzuat_7005",
+            markdown_content="MADDE 1 - Kur farkları dönem sonunda değerlenir.",
+        )
+    )
+    return deps
+
+
+@pytest.mark.asyncio
+async def test_a_letter_prefixed_document_id_is_named_as_a_document_id_in_the_scope_note(doc_store):
+    tool = _capture_tool(await _store_kgk_fixture(doc_store), "search_document_sections")
+
+    result = await tool("kgk_tms_12 ertelenmiş vergi")
+
+    structured = result.structuredContent
+    assert structured["inferred_document_filter_applied"] is True
+    assert {item["document_id"] for item in structured["results"]} == {"kgk_tms_12"}
+    assert _filter_note(result.text) == (
+        "Note: the search was limited to document kgk_tms_12 because of the document ID kgk_tms_12 in the query; "
+        "pass document_id or remove the document ID to search every document."
+    )
+    assert "the number kgk_tms_12" not in result.text
+
+
+@pytest.mark.asyncio
+async def test_a_dropped_stored_document_id_names_it_and_retries_with_the_raw_query(doc_store):
+    deps = await _store_kgk_fixture(doc_store)
+    spy = _spy_section_search(doc_store)
+    tool = _capture_tool(deps, "search_document_sections")
+
+    result = await tool("kgk_tms_12 kur farkları")
+
+    structured = result.structuredContent
+    assert structured["inferred_document_filter_dropped"] is True
+    assert structured["results"][0]["document_id"] == "mevzuat_7005"
+    assert _filter_note(result.text) == (
+        "Note: the document ID kgk_tms_12 in the query was not applied as a document filter "
+        "(no section in document kgk_tms_12 matched the query)."
+    )
+    scoped = [call for call in spy.await_args_list if call.kwargs["document_id"] == "kgk_tms_12"]
+    assert scoped and all(call.args[0] == "kur farkları" for call in scoped)
+    unscoped = [call for call in spy.await_args_list if call.kwargs["document_id"] is None]
+    assert unscoped[0].args[0] == "kgk_tms_12 kur farkları"
+
+
+@pytest.mark.asyncio
+async def test_a_dropped_stored_number_retries_with_the_raw_query(doc_store):
+    deps = await _store_inference_fixture(doc_store)
+    spy = _spy_section_search(doc_store)
+    tool = _capture_tool(deps, "search_document_sections")
+
+    result = await tool("39 finansal araçlar")
+
+    assert _filter_note(result.text) == (
+        "Note: the number 39 in the query was not applied as a document filter "
+        "(no section in document 39 matched the query)."
+    )
+    unscoped = [call for call in spy.await_args_list if call.kwargs["document_id"] is None]
+    assert unscoped[0].args[0] == "39 finansal araçlar"
+
+
+@pytest.mark.asyncio
+async def test_a_provision_missing_from_a_letter_prefixed_document_names_its_document_id(doc_store):
+    tool = _capture_tool(await _store_kgk_fixture(doc_store), "search_document_sections")
+
+    result = await tool("kgk_tms_12 madde 9 kur farkları")
+
+    assert result.structuredContent["inferred_document_filter_dropped"] is True
+    assert (
+        "madde 9 was not found in document kgk_tms_12, which the document ID kgk_tms_12 in the query identified"
+        in result.text
+    )
+    assert "the number kgk_tms_12" not in result.text

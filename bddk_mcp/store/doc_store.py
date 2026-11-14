@@ -52,6 +52,34 @@ _STRUCTURELESS_SQL = """NOT EXISTS (
 )"""
 
 
+def _named_sections_only_sql(types: str) -> str:
+    """True when the section's document version has named sections and every one is of ``types``.
+
+    ``types`` is a SQL list of literal section types; govde/fikra/bent are not named sections.
+    """
+    return f"""(EXISTS (
+    SELECT 1 FROM document_sections AS y
+    WHERE y.doc_id = s.doc_id AND y.source_content_hash = s.source_content_hash AND y.section_type IN ({types})
+) AND NOT EXISTS (
+    SELECT 1 FROM document_sections AS x
+    WHERE x.doc_id = s.doc_id AND x.source_content_hash = s.source_content_hash
+      AND x.section_type NOT IN ('fikra', 'bent', 'govde', {types})
+))"""
+
+
+# True for a govde row of a Kurul Kararı whose only named sections are annexes (ek) when the row starts
+# before the first annex: the leading window is the decision text itself, not remainder.
+_DECISION_WINDOW_SQL = f"""(s.section_type = 'govde' AND d.category = 'Kurul Kararı'
+    AND {_named_sections_only_sql("'ek'")}
+    AND s.start_char < (
+        SELECT MIN(z.start_char) FROM document_sections AS z
+        WHERE z.doc_id = s.doc_id AND z.source_content_hash = s.source_content_hash AND z.section_type = 'ek'
+    ))"""
+# True when the section's document version has named sections and they are only annexes (ek) and/or
+# paragraphs (paragraf): its govde rows are body text outside those named sections, not article remainder.
+_ANNEX_OR_PARAGRAPH_ONLY_SQL = _named_sections_only_sql("'ek', 'paragraf'")
+
+
 def normalize_search_text(text: str) -> str:
     """Lowercase with Turkish dotted/dotless-i rules and strip diacritics."""
     text = text.translate(str.maketrans({"ı": "i", "İ": "i"})).lower()
@@ -70,26 +98,106 @@ def fts_match_query(query: str) -> str | None:
     return " ".join(f'"{token}"' for token in tokens)
 
 
-# Prefix-stem matching: a normalized token of at least this many characters keeps its
-# first max(_PREFIX_STEM_MIN, len - _PREFIX_STEM_SUFFIX) characters as an FTS5 prefix.
+# Prefix-stem matching: a normalized token of at least _PREFIX_STEM_MIN characters loses one known
+# Turkish ending (_STEM_SUFFIXES, longest first) when at least _PREFIX_STEM_MIN characters of root
+# remain, and the rest is an FTS5 prefix: "denetlenmesi" -> "denet"*, which also finds "denetimi".
+# A token with no such ending is not cut: "birincil" stays "birincil"*, never "birin"* (birinci).
 _PREFIX_STEM_MIN = 5
-_PREFIX_STEM_SUFFIX = 3
+# Normalized forms (diacritics stripped, ı -> i): verbal nouns, passives and participles, aorist verb
+# endings ("seçilir", "oluşturulur", "hesaplanır"), plural and case endings, possessives. Reviewed list; one ending is removed, never a chain.
+_STEM_SUFFIXES = tuple(
+    sorted(
+        {
+            "lenmesi",
+            "lanmasi",
+            "ilmesi",
+            "ilmasi",
+            "ulmesi",
+            "ulmasi",
+            "nmesi",
+            "nmasi",
+            "meleri",
+            "malari",
+            "mesi",
+            "masi",
+            "me",
+            "ma",
+            "ilmeli",
+            "ilmali",
+            "ulmeli",
+            "ulmali",
+            "meli",
+            "mali",
+            "ilmis",
+            "ulmis",
+            "ilen",
+            "ilan",
+            "ulen",
+            "ulan",
+            "lerinin",
+            "larinin",
+            "lerinde",
+            "larinda",
+            "lerine",
+            "larina",
+            "lerini",
+            "larini",
+            "lerin",
+            "larin",
+            "leri",
+            "lari",
+            "ler",
+            "lar",
+            "sinin",
+            "sinde",
+            "sine",
+            "sini",
+            "si",
+            "inin",
+            "imi",
+            "ilir",
+            "ulur",
+            "ir",
+            "ur",
+            "ar",
+            "er",
+        },
+        key=lambda suffix: (-len(suffix), suffix),
+    )
+)
+# Short alphabetic tokens ("on", "gün", "faiz") are matched as prefixes in the stem pass, so that
+# "yüzde on" also finds "yüzde onunun"; a single letter stays exact.
+_PREFIX_SHORT_MIN = 2
+
+
+def _prefix_stem(token: str) -> str:
+    """Return the FTS prefix of a normalized token: its root without one known ending, else the token."""
+    for suffix in _STEM_SUFFIXES:
+        if token.endswith(suffix) and len(token) - len(suffix) >= _PREFIX_STEM_MIN:
+            return token[: -len(suffix)]
+    return token
 
 
 def fts_prefix_stem_query(query: str) -> str | None:
     """Turn free text into an inflection-tolerant FTS5 MATCH expression.
 
-    Tokens of five or more characters become a quoted prefix query of their first
-    ``max(5, len - 3)`` characters (``"suresi"`` -> ``"sures"*``); shorter and numeric
-    tokens stay exact. Every token stays quoted, so FTS5 operators in user text are never
-    interpreted. Returns None when the expression would equal :func:`fts_match_query`.
+    Tokens of five or more characters become a quoted prefix query of their root: one known
+    Turkish ending is removed when at least five characters remain (``"suresinin"`` ->
+    ``"sures"*``, ``"yedeklenmesi"`` -> ``"yedek"*``), otherwise the whole token is the prefix
+    (``"birincil"*``). Alphabetic tokens of two to four characters become a prefix of
+    themselves (``"gun"*``); numbers and single letters stay exact. Every token stays quoted,
+    so FTS5 operators in user text are never interpreted. Returns None when the expression
+    would equal :func:`fts_match_query`.
     """
     tokens = _FTS_TOKEN_RE.findall(normalize_search_text(query))
     terms: list[str] = []
     widened = False
     for token in tokens:
         if len(token) >= _PREFIX_STEM_MIN and not token.isdigit():
-            terms.append(f'"{token[: max(_PREFIX_STEM_MIN, len(token) - _PREFIX_STEM_SUFFIX)]}"*')
+            terms.append(f'"{_prefix_stem(token)}"*')
+            widened = True
+        elif len(token) >= _PREFIX_SHORT_MIN and token.isalpha():
+            terms.append(f'"{token}"*')
             widened = True
         else:
             terms.append(f'"{token}"')
@@ -171,6 +279,11 @@ class StoredDocumentSection(BaseModel):
     document_quality: QualityAssessment | None = None
     document_structureless: bool = False
     """True when the document version has no section other than govde/fikra/bent (no article structure)."""
+    document_decision_window: bool = False
+    """True for a govde row of a Kurul Kararı whose only named sections are annexes, starting before the
+    first annex: the decision text itself."""
+    document_annex_or_paragraph_only: bool = False
+    """True when the document version's only named sections are annexes (ek) and/or paragraphs (paragraf)."""
     rank: float | None = None
     """FTS match rank (higher is better). Only set by search paths; comparable
     within one query's result set, not across queries."""
@@ -210,6 +323,10 @@ def _section_from_row(row: sqlite3.Row, document_quality: QualityAssessment | No
         document_downloaded_at=row["document_downloaded_at"] if "document_downloaded_at" in keys else None,
         document_quality=document_quality,
         document_structureless=bool(row["document_structureless"]) if "document_structureless" in keys else False,
+        document_decision_window=bool(row["document_decision_window"]) if "document_decision_window" in keys else False,
+        document_annex_or_paragraph_only=(
+            bool(row["document_annex_or_paragraph_only"]) if "document_annex_or_paragraph_only" in keys else False
+        ),
         rank=row["rank"] if "rank" in keys else None,
     )
 
@@ -225,7 +342,11 @@ _SECTION_COLUMNS = (
     d.downloaded_at AS document_downloaded_at,
     """
     + _STRUCTURELESS_SQL
-    + """ AS document_structureless
+    + " AS document_structureless, "
+    + _DECISION_WINDOW_SQL
+    + " AS document_decision_window, "
+    + _ANNEX_OR_PARAGRAPH_ONLY_SQL
+    + """ AS document_annex_or_paragraph_only
 """
 )
 _SOURCE_RANGE_COLUMN = (
@@ -597,12 +718,11 @@ class DocumentStore:
             where.append("s.section_type = ?")
             params.append(section_type)
         else:
-            # Nested fıkra/bent rows duplicate a parent madde and stay opt-in via
-            # section_type. govde is leftover text only in a document with article
-            # structure; in a document without one, govde windows are its whole body.
-            where.append(
-                f"s.section_type NOT IN (?, ?) AND NOT (s.section_type = 'govde' AND NOT {_STRUCTURELESS_SQL})"
-            )
+            # Nested fıkra/bent rows duplicate a parent madde and stay opt-in via section_type.
+            # Every govde row is searched: a full-text window, the continuation of a capped
+            # provision, decision or body text outside annexes/paragraphs, or remainder; the
+            # flags on each row let the caller label it.
+            where.append("s.section_type NOT IN (?, ?)")
             params.extend(_NESTED_SECTION_TYPES)
         params.append(limit)
         sql = f"""

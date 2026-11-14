@@ -72,6 +72,8 @@ async def test_official_client_validates_structured_no_result_contracts():
     )
     doc_store.get_document_section = AsyncMock(return_value=[])
     doc_store.search_document_sections = AsyncMock(return_value=[])
+    # The document is stored but has no matching section (an unknown document is NOT_FOUND).
+    doc_store.has_document = AsyncMock(return_value=True)
     client = MagicMock()
     client.search_decisions = AsyncMock(return_value=BddkSearchResult())
     vector_store = MagicMock()

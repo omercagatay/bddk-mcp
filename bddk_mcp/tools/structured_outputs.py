@@ -416,6 +416,16 @@ class SectionItem(StrictOutputModel):
             "document by its title and decision date/number, not as an article."
         ),
     )
+    govde_kind: Literal["full_text_window", "continuation", "decision_text", "body_text", "remainder"] | None = Field(
+        default=None,
+        description=(
+            "For a govde row, what it is: a full-text window of a document without article structure; the "
+            "continuation of a capped named provision; the leading decision text of a Kurul Kararı whose only "
+            "named sections are annexes; body text of a document whose only named sections are annexes or "
+            "paragraphs; or remainder text between provisions (not a legal provision identity). None for named "
+            "sections."
+        ),
+    )
     parent_section_type: str | None = Field(
         default=None,
         description=(
@@ -492,6 +502,14 @@ class SectionSearchResponse(RetrievalResponse):
         description=(
             "Whether the returned hits were limited to a document whose ID was inferred from a number in the "
             "query (not passed as document_id)."
+        ),
+    )
+    query_words_not_searched: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Query words that the exact-word and inflection-tolerant passes did not require: Turkish question "
+            "words, the frame words of a question (e.g. 'oluşur'), and 'yüzde' (optional because sources also "
+            "write '%')."
         ),
     )
     results: list[SectionItem] = Field(default_factory=list, description="Ranked structural section matches.")

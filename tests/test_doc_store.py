@@ -267,7 +267,7 @@ async def test_search_document_sections_skips_nested_fikra_unless_requested(stor
     assert any(hit.section_type == "fikra" for hit in fikra_hits)
 
 
-async def test_search_document_sections_skips_govde_unless_requested(store):
+async def test_search_document_sections_includes_govde_by_default_and_flags_its_kind(store):
     preamble = "Önsöz likidite yeterlilik kalanı. " * 8
     text = preamble + "\n\nMADDE 13 - Asgari likidite yeterlilik oranı yüzde yüzden az olamaz.\n"
     await store.store_document(StoredDocument(document_id="mevzuat_10749", title="Test", markdown_content=text))
@@ -279,7 +279,14 @@ async def test_search_document_sections_skips_govde_unless_requested(store):
 
     hits = await store.search_document_sections("likidite yeterlilik", document_id="mevzuat_10749")
     assert hits
-    assert all(hit.section_type != "govde" for hit in hits)
+    # Every govde row is searched by default; the preamble of an article-structured document is
+    # remainder, so none of the kind flags is set on it.
+    [preamble] = [hit for hit in hits if hit.section_type == "govde"]
+    assert (
+        preamble.document_structureless,
+        preamble.document_decision_window,
+        preamble.document_annex_or_paragraph_only,
+    ) == (False, False, False)
     assert any(hit.section_type == "madde" and hit.section_ref == "13" for hit in hits)
 
     govde_hits = await store.search_document_sections(
@@ -307,21 +314,65 @@ async def test_truncation_notice_words_are_not_searchable_but_the_stored_content
     assert await store.search_document_sections("karakterden kısaltıldı", document_id="mevzuat_9") == []
     assert await store.search_document_sections("get_bddk_document", document_id="mevzuat_9") == []
     hits = await store.search_document_sections("yükümlülük kayıt altına", document_id="mevzuat_9")
-    assert [(hit.section_type, hit.section_ref) for hit in hits] == [("madde", "1")]
+    # The capped madde and the govde windows that continue it; none contains the notice words.
+    assert ("madde", "1") in [(hit.section_type, hit.section_ref) for hit in hits]
+    assert {hit.section_type for hit in hits} == {"madde", "govde"}
 
 
 def test_prefix_stem_query_keeps_every_token_quoted_and_a_five_character_floor():
     from bddk_mcp.store.doc_store import fts_prefix_stem_query
 
-    assert fts_prefix_stem_query("Gecikme süresi") == '"gecik"* "sures"*'
-    assert fts_prefix_stem_query("sınıflandırılması") == '"siniflandirilm"*'
-    assert fts_prefix_stem_query("geçici") == '"gecic"*'
-    # Short and numeric tokens stay exact; operators in user text are only words.
-    assert fts_prefix_stem_query("grup 12345 NEAR OR süresinin") == '"grup" "12345" "near" "or" "suresi"*'
-    assert fts_prefix_stem_query('"kredilerin" -faiz* (AND)') == '"kredile"* "faiz" "and"'
+    assert fts_prefix_stem_query("Gecikme süresi") == '"gecik"* "suresi"*'
+    assert fts_prefix_stem_query("sınıflandırılması") == '"siniflandir"*'
+    assert fts_prefix_stem_query("geçici") == '"gecici"*'
+    # Short alphabetic tokens are prefixes, numbers stay exact; operators in user text are only words.
+    assert fts_prefix_stem_query("grup 12345 NEAR OR süresinin") == '"grup"* "12345" "near"* "or"* "sures"*'
+    assert fts_prefix_stem_query('"kredilerin" -faiz* (AND)') == '"kredi"* "faiz"* "and"*'
+    assert fts_prefix_stem_query("yüzde on 90 gün") == '"yuzde"* "on"* "90" "gun"*'
     # Nothing to widen: the strict expression would be the same.
-    assert fts_prefix_stem_query("faiz 2024") is None
+    assert fts_prefix_stem_query("2024 a 15") is None
     assert fts_prefix_stem_query("") is None
+
+
+def test_prefix_stem_removes_one_turkish_ending_above_a_five_character_root():
+    from bddk_mcp.store.doc_store import fts_prefix_stem_query
+
+    cases = {
+        "denetlenmesi": '"denet"*',
+        "yedeklenmesi": '"yedek"*',
+        "bulundurulması": '"bulundur"*',
+        "saklanması": '"sakla"*',
+        "denetimi": '"denet"*',
+        "sistemlerinin": '"sistem"*',
+        "yapılandırılmış": '"yapilandir"*',
+        "uzatılması": '"uzatil"*',
+        # No known ending, or the root would be shorter than five characters: the token is not cut.
+        "birincil": '"birincil"*',
+        "ikincil": '"ikincil"*',
+        "testleri": '"testleri"*',
+        "süresi": '"suresi"*',
+    }
+    assert {word: fts_prefix_stem_query(word) for word in cases} == cases
+
+
+@pytest.mark.asyncio
+async def test_prefix_stem_finds_a_root_form_and_keeps_birincil_apart_from_birinci(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_1",
+            title="T",
+            markdown_content=(
+                "MADDE 9 - Destek hizmeti kuruluşlarının denetimi\nKurum denetim yapar.\n\n"
+                "MADDE 10 - Birinci grup\nBirinci ve ikinci grup krediler.\n"
+            ),
+        )
+    )
+
+    hits = await doc_store.search_document_sections("kuruluşlarının denetlenmesi", prefix_stem=True)
+    assert [(hit.section_type, hit.section_ref) for hit in hits] == [("madde", "9")]
+    assert await doc_store.search_document_sections("birincil ikincil", prefix_stem=True) == []
 
 
 @pytest.mark.asyncio
@@ -336,3 +387,20 @@ async def test_prefix_stem_section_search_matches_inflected_forms(doc_store):
     hits = await doc_store.search_document_sections("gecikme süresi", prefix_stem=True)
     assert [(h.doc_id, h.section_type, h.section_ref) for h in hits] == [("1", "madde", "1")]
     assert await doc_store.search_document_sections("faiz", prefix_stem=True) == []
+
+
+def test_prefix_stem_removes_an_aorist_verb_ending_above_a_five_character_root():
+    from bddk_mcp.store.doc_store import fts_prefix_stem_query
+
+    cases = {
+        "seçilir": '"secil"*',
+        "hesaplanır": '"hesaplan"*',
+        "oluşturulur": '"olustur"*',
+        "değerlenir": '"degerlen"*',
+        "belirlenir": '"belirlen"*',
+        # The root floor still holds: a short word is not cut.
+        "takdir": '"takdir"*',
+        "karar": '"karar"*',
+    }
+    for token, expected in cases.items():
+        assert fts_prefix_stem_query(token) == expected, token

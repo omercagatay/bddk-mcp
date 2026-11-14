@@ -6,6 +6,7 @@ import hashlib
 import logging
 import math
 import re
+import unicodedata
 from typing import TYPE_CHECKING
 
 from bddk_mcp.quality.markdown_quality import (
@@ -17,7 +18,7 @@ from bddk_mcp.quality.markdown_quality import (
     unsafe_verbatim_reason,
 )
 from bddk_mcp.quotations import ExactQuotationCheck, check_exact_quotation
-from bddk_mcp.store.doc_store import fts_prefix_stem_query
+from bddk_mcp.store.doc_store import fts_prefix_stem_query, normalize_search_text
 from bddk_mcp.store.legal_ref import document_id_candidates, parse_legal_refs, turkish_casefold
 from bddk_mcp.store.section_index import (
     GOVDE_HEADING,
@@ -36,7 +37,7 @@ from bddk_mcp.tools.contract_types import (
     SectionResultLimit,
     SectionType,
 )
-from bddk_mcp.tools.errors import tool_error
+from bddk_mcp.tools.errors import NOT_FOUND, tool_error
 from bddk_mcp.tools.structured_outputs import (
     LEGAL_APPLICABILITY_WARNING,
     STRUCTURELESS_GOVDE_LABEL,
@@ -96,32 +97,111 @@ _STRUCTURELESS_WARNING = (
     "Kararı). Cite such a document by its title and decision date/number, not as an article (madde) or as a "
     "govde window."
 )
+_DECISION_TEXT_LABEL = "leading decision text of a Kurul Kararı whose only named sections are annexes"
+_DECISION_TEXT_WARNING = (
+    "One or more hits are the leading decision text of a Kurul Kararı whose only named sections are its annexes. "
+    "Cite it by the decision's title and decision date/number, not as an article (madde) or as a govde window."
+)
+_BODY_TEXT_LABEL = (
+    "body text of a document whose only named sections are annexes or paragraphs (outside those named sections)"
+)
+_BODY_TEXT_WARNING = (
+    "One or more hits are body text of a document whose only named sections are annexes or paragraphs, outside "
+    "those named sections. Cite it by the document title, not as a named annex or paragraph."
+)
 _GOVDE_WARNING = (
     "One or more hits are govde remainder (unparsed body/footnote text), not madde/ilke/paragraf identities. "
     "Do not cite them as a legal provision."
 )
 
-_LOOSE_SECTION_SEARCH_STOPWORDS = {
-    "acaba",
-    "altına",
-    "aşağıdaki",
-    "aşağıdakilerden",
-    "bir",
-    "biri",
-    "değildir",
-    "göre",
-    "hangi",
-    "hangisi",
-    "hakkında",
-    "için",
-    "ilişkin",
-    "olan",
-    "olarak",
-    "ve",
-    "veya",
-    "yanlıştır",
-    "yer",
-}
+# Turkish question words and question particles. A question such as
+# "Denetim komitesi en az kaç üyeden oluşur?" is searched without them: the provision that answers
+# it never contains "kaç". Reviewed list; matched on the diacritic-free search form of the word.
+_QUERY_QUESTION_WORDS = frozenset(
+    {
+        "acaba",
+        "hangi",
+        "hangisi",
+        "hangileri",
+        "kaç",
+        "kaçtır",
+        "kim",
+        "kimdir",
+        "kimler",
+        "kimlerdir",
+        "kimlerden",
+        "ne",
+        "nedir",
+        "neler",
+        "nelerdir",
+        "neden",
+        "niçin",
+        "nasıl",
+        "nasıldır",
+        "mi",
+        "mı",
+        "mu",
+        "mü",
+        "midir",
+        "mıdır",
+        "mudur",
+        "müdür",
+        "misin",
+        "mısın",
+        "musun",
+        "müsün",
+    }
+)
+# The predicate and frame words of a question ("... kimlerden oluşur?", "ne sıklıkla yapılır?"): left out
+# only when the query is a question (it has a question word or a "?"), because in a statement they are
+# content ("komite en az iki üyeden oluşur").
+_QUESTION_FRAME_WORDS = frozenset(
+    {
+        "gerekir",
+        "gerekmektedir",
+        "olmalı",
+        "olmalıdır",
+        "oluşur",
+        "sıklıkla",
+        "yapılır",
+        "yapılmalı",
+        "yapılmalıdır",
+    }
+)
+# "yüzde 15" and "%15" are the same figure; the source may write either, so "yüzde" is never required.
+_QUERY_PERCENT_WORDS = frozenset({"yüzde", "yuzde"})
+
+_LOOSE_SECTION_SEARCH_STOPWORDS = (
+    _QUERY_QUESTION_WORDS
+    | _QUESTION_FRAME_WORDS
+    | {
+        "acaba",
+        "altına",
+        "aşağıdaki",
+        "aşağıdakilerden",
+        "bir",
+        "biri",
+        "değildir",
+        "göre",
+        "hangi",
+        "hangisi",
+        "hakkında",
+        "için",
+        "ilişkin",
+        "olan",
+        "olarak",
+        "ve",
+        "veya",
+        "yanlıştır",
+        "yer",
+    }
+)
+# The same lists on the diacritic-free search form, so "kac", "olusur" and "icin" match like "kaç",
+# "oluşur" and "için" (the FTS search itself ignores diacritics).
+_NORMALIZED_QUESTION_WORDS = frozenset(normalize_search_text(word) for word in _QUERY_QUESTION_WORDS)
+_NORMALIZED_QUESTION_FRAME_WORDS = frozenset(normalize_search_text(word) for word in _QUESTION_FRAME_WORDS)
+_NORMALIZED_PERCENT_WORDS = frozenset(normalize_search_text(word) for word in _QUERY_PERCENT_WORDS)
+_NORMALIZED_LOOSE_STOPWORDS = frozenset(normalize_search_text(word) for word in _LOOSE_SECTION_SEARCH_STOPWORDS)
 # Standalone FTS on these floods IPC / generic-ratio articles and crowds out
 # the provision that actually contains the distinctive tokens.
 _LOOSE_FTS_SKIP = {
@@ -284,16 +364,36 @@ def _continuation_overrun(parent: tuple[str, str, int, bool]) -> str | None:
     return f"the characters from code point {parent[2]} on are outside {parent[0]} {parent[1]}"
 
 
+def _govde_kind(section: StoredDocumentSection, continuations: _Continuations) -> str | None:
+    """Classify a govde row as exactly one kind; None for a named section."""
+    if section.section_type != "govde":
+        return None
+    if _continuation_of(section, continuations):
+        return "continuation"
+    if section.document_structureless:
+        return "full_text_window"
+    if section.document_decision_window:
+        return "decision_text"
+    if section.document_annex_or_paragraph_only:
+        return "body_text"
+    return "remainder"
+
+
 def _govde_label(section: StoredDocumentSection, continuations: _Continuations) -> str | None:
-    """Label a govde row as a capped-provision continuation, a structureless full text, or None."""
-    if parent := _continuation_of(section, continuations):
+    """Label a govde row by its kind; None for a named section and for genuine remainder."""
+    kind = _govde_kind(section, continuations)
+    if kind == "continuation":
+        parent = _continuation_of(section, continuations)
+        assert parent is not None
         label = _continuation_label(parent)
         if overrun := _continuation_overrun(parent):
             label = f"{label} up to code point {parent[2]}; {overrun}"
         return label
-    if section.section_type == "govde" and section.document_structureless:
-        return _STRUCTURELESS_LABEL
-    return None
+    return {
+        "full_text_window": _STRUCTURELESS_LABEL,
+        "decision_text": _DECISION_TEXT_LABEL,
+        "body_text": _BODY_TEXT_LABEL,
+    }.get(kind or "")
 
 
 def _heading_suffix(section: StoredDocumentSection, continuations: _Continuations) -> str:
@@ -383,6 +483,7 @@ def _section_item(
         continuation_of_section_ref=parent[1] if parent else None,
         continuation_of_section_end_char=parent[2] if parent else None,
         document_structureless=section.document_structureless,
+        govde_kind=_govde_kind(section, continuations or {}),  # type: ignore[arg-type]
     )
 
 
@@ -469,20 +570,24 @@ def _section_warnings(
     )
     if content_truncated:
         warnings.append(_SECTION_TRUNCATION_WARNING)
-    remainder = structureless = False
+    kinds: set[str] = set()
     for section in sections:
-        if section.section_type != "govde":
-            continue
-        if parent := _continuation_of(section, continuations or {}):
+        kind = _govde_kind(section, continuations or {})
+        if kind == "continuation":
+            parent = _continuation_of(section, continuations or {})
+            assert parent is not None
             warnings.append(_continuation_warning(section, parent))
-        elif section.document_structureless:
-            structureless = True
-        else:
-            remainder = True
-    if structureless:
-        warnings.append(_STRUCTURELESS_WARNING)
-    if remainder:
-        warnings.append(_GOVDE_WARNING)
+        elif kind:
+            kinds.add(kind)
+    # Only genuine remainder keeps the warning that it is not a legal provision identity.
+    for kind, warning in (
+        ("full_text_window", _STRUCTURELESS_WARNING),
+        ("decision_text", _DECISION_TEXT_WARNING),
+        ("body_text", _BODY_TEXT_WARNING),
+        ("remainder", _GOVDE_WARNING),
+    ):
+        if kind in kinds:
+            warnings.append(warning)
     return warnings
 
 
@@ -570,13 +675,41 @@ def _loose_search_terms(query: str, *, limit: int = 16) -> list[str]:
     seen: set[str] = set()
     for raw_term in re.findall(r"\w+", query, flags=re.UNICODE):
         term = _loose_search_text(raw_term)
-        if len(term) < 3 or term in _LOOSE_SECTION_SEARCH_STOPWORDS or term in seen:
+        if len(term) < 3 or normalize_search_text(term) in _NORMALIZED_LOOSE_STOPWORDS or term in seen:
             continue
         terms.append(term)
         seen.add(term)
         if len(terms) >= limit:
             break
     return terms
+
+
+def _strip_format_chars(text: str) -> str:
+    """Remove Unicode format characters (soft hyphen, zero-width space/joiner, BOM) from a search query."""
+    return "".join(char for char in text if unicodedata.category(char) != "Cf")
+
+
+def _required_search_text(query: str) -> tuple[str, list[str]]:
+    """Return the query text the exact-word and stem passes require, and the words left out.
+
+    Question words are left out, and in a question also its frame words ("oluşur", "yapılır"); so is
+    "yüzde" (a source may write "%" instead).
+    When nothing would remain, every word is kept: a word is never dropped when it is the only one.
+    """
+    words = re.findall(r"\w+", query, flags=re.UNICODE)
+    question = "?" in query or any(normalize_search_text(word) in _NORMALIZED_QUESTION_WORDS for word in words)
+    not_required = (
+        _NORMALIZED_QUESTION_WORDS
+        | _NORMALIZED_PERCENT_WORDS
+        | (_NORMALIZED_QUESTION_FRAME_WORDS if question else frozenset())
+    )
+    kept: list[str] = []
+    dropped: list[str] = []
+    for word in words:
+        (dropped if normalize_search_text(word) in not_required else kept).append(word)
+    if not kept or not dropped:
+        return query, []
+    return " ".join(kept), dropped
 
 
 def _loose_section_score(section: StoredDocumentSection, terms: list[str], weights: dict[str, float]) -> float:
@@ -590,11 +723,27 @@ def _loose_section_score(section: StoredDocumentSection, terms: list[str], weigh
     return score
 
 
+def _document_id_phrase(document_id: str) -> str:
+    """Name an ID inferred from the query: "the number 943", "the document ID kgk_tms_12"."""
+    return f"the number {document_id}" if document_id.isdigit() else f"the document ID {document_id}"
+
+
 async def _any_document_stored(deps: Dependencies, document_id: str) -> bool:
     for candidate in document_id_candidates(document_id):
         if await deps.doc_store.has_document(candidate):
             return True
     return False
+
+
+async def _require_stored_document(deps: Dependencies, document_id: str) -> None:
+    """Raise NOT_FOUND for an explicit document_id that is not a stored document (as get_bddk_document does)."""
+    if not await _any_document_stored(deps, document_id):
+        tool_error(
+            NOT_FOUND,
+            f"Document {document_id} is not available in the local store. This MCP server is airlocked "
+            "and does not fetch from live BDDK / mevzuat.gov.tr sources at runtime.",
+            retryable=False,
+        )
 
 
 async def _search_sections_strict_with_stem_top_up(
@@ -729,6 +878,9 @@ def register(mcp, deps: Dependencies) -> None:
                 sharing type, reference and heading; copy it from the disambiguation list.
                 It is valid only for the corpus file being served and is not a citation.
 
+        A document_id that is not a stored document is a NOT_FOUND error (a bare
+        numeric ID is also tried as `mevzuat_<id>` and `bddk_<id>`).
+
         fikra and bent rows are search-oriented, not unique addresses: many rows can
         share one reference. Where a stored parent article contains a row it is shown
         as "Parent:"; fetch that parent article for the full provision.
@@ -782,6 +934,8 @@ def register(mcp, deps: Dependencies) -> None:
                 assessment_text += f"\n{_CAPPED_QUOTATION_NOTE}"
         assessment_incomplete = bool(assessment and assessment.gaps)
         if not sections:
+            # A document without the requested section is "no results"; an unknown document is NOT_FOUND.
+            await _require_stored_document(deps, document_id)
             query = " ".join(
                 str(part) for part in (document_id, section_type or "", section_ref or "", heading or "") if part
             )
@@ -897,31 +1051,41 @@ def register(mcp, deps: Dependencies) -> None:
 
         Args:
             query: Turkish legal query, e.g. `943 İlke 5 model validasyonu`
-            document_id: Optional document ID filter
+            document_id: Optional document ID filter; an ID that is not a stored
+                document is a NOT_FOUND error
             section_type: Optional section type filter
             limit: Maximum number of section results
 
-        Nested fıkra/bent rows are omitted unless `section_type` requests them.
-        `govde` rows are of three kinds: (1) the full-text windows of a document with
-        no article structure (for example a Kurul Kararı), which are searched by
-        default and cited by the document's title and decision date/number, not as
-        an article; (2) the continuation of a named provision beyond its
-        20,000-character stored window, which belongs to that provision and is
-        labelled with it; (3) genuine remainder text of a structured document
-        (preamble, footnotes, unparsed leftovers), which is not a legal provision.
-        In a document with article structure, govde rows are omitted unless
-        `section_type=govde` requests them.
+        Without `section_type`, every named section and every `govde` row is
+        searched; nested fıkra/bent rows are omitted unless `section_type` requests
+        them. Named sections and govde rows are ranked by the same FTS rank. Each
+        govde hit is labelled as exactly one kind: (1) a full-text window of a
+        document with no article structure (for example a Kurul Kararı), cited by
+        the document's title and decision date/number, not as an article; (2) the
+        continuation of a named provision beyond its 20,000-character stored
+        window, which belongs to that provision and is labelled with it; (3) the
+        leading decision text of a Kurul Kararı whose only named sections are
+        annexes, cited as that decision; (4) body text of a document whose only
+        named sections are annexes or paragraphs; (5) remainder text between
+        provisions (preamble, footnotes, unparsed leftovers), which is not a legal
+        provision identity.
 
         Each FTS hit includes a `Match rank` (SQLite FTS5 BM25 over the section
         heading and body, heading weighted 2x, sign-flipped so that higher is
         better): ranks are comparable within one query's results and can be
         used to gate low-confidence retrieval.
 
+        Turkish question words (kaç, nedir, nasıl, mi ...), in a question also its
+        frame words (oluşur, yapılır ...), and "yüzde" (sources also write "%") are
+        not required words; the answer lists them under "not searched". Invisible
+        format characters are ignored.
+
         When the exact-word pass returns fewer than `limit` hits, it is topped up
-        with an inflection-tolerant pass (word prefixes, e.g. "süresi" also finds
-        "süresinin"). Those hits follow the exact-word hits, carry no rank and are
-        marked `stem_match`. The loose token fallback runs only when both passes
-        find nothing.
+        with an inflection-tolerant pass (word roots and prefixes, e.g. "süresi"
+        also finds "süresinin", "denetlenmesi" also finds "denetimi"). Those hits
+        follow the exact-word hits, carry no rank and are marked `stem_match`. The
+        loose token fallback runs when both passes find nothing, and also when
+        every hit is an inflection-tolerant one; its hits then follow them.
 
         A bare number in the query that equals a stored document ID limits the
         search to that document only when the exact-reference, exact-word or
@@ -929,24 +1093,47 @@ def register(mcp, deps: Dependencies) -> None:
         `inferred_document_filter_applied` is true. Otherwise the search runs over
         every document.
         """
-        refs = parse_legal_refs(query)
+        # Invisible format characters (soft hyphen, zero-width space) split words: never search them.
+        # The query is echoed as given.
+        search_query = _strip_format_chars(query)
+        refs = parse_legal_refs(search_query)
         # An explicit document_id is a hard filter. A number inferred from the
         # query text is only a preference: it is ignored when no such document
         # is stored, and dropped when the exact-reference, strict and
         # inflection-tolerant passes find nothing in it; it never scopes the
         # loose fallback.
-        query_doc_id = None if document_id else (refs.document_ids[0] if refs.document_ids else None)
+        # Only the first candidate is considered: an unstored number is query content (an amount, a
+        # day count, a year), so a later number is never promoted over it and nothing is stripped.
+        candidate_query_doc_id = None if document_id else (refs.document_ids[0] if refs.document_ids else None)
+        query_doc_id = candidate_query_doc_id
         filter_drop_reason: str | None = None
         if query_doc_id and not await _any_document_stored(deps, query_doc_id):
             filter_drop_reason = "no stored document has that ID"
             query_doc_id = None
         inferred_doc_id = document_id or query_doc_id
-        inferred_section_type = section_type or (refs.sections[0][0] if refs.sections else None)
-        inferred_section_ref = refs.sections[0][1] if refs.sections else None
+        explicit_section_type = _normalize_optional(section_type)
+        # The exact reference is the first parsed one; with an explicit section_type only a reference of
+        # that type qualifies, so "İlke 5" with section_type=paragraf is not read as paragraf 5.
+        parsed_refs = [ref for ref in refs.sections if not explicit_section_type or ref[0] == explicit_section_type]
+        mismatched_ref = None if parsed_refs or not refs.sections else refs.sections[0]
+        parsed_section_type, inferred_section_ref = parsed_refs[0] if parsed_refs else (None, None)
+        inferred_section_type = explicit_section_type or parsed_section_type
         exact_ref_detected = bool(inferred_doc_id and inferred_section_type and inferred_section_ref)
+        # The filter actually applied: an explicit section_type always; a type parsed from the query
+        # text only while a document is identified.
+        applied_section_type = inferred_section_type if exact_ref_detected else explicit_section_type
         candidate_doc_ids: list[str | None] = (
             list(document_id_candidates(inferred_doc_id)) if inferred_doc_id else [None]
         )
+        # The document number names the scope, it is not a content word: no section contains its own
+        # document ID, so the scoped passes search the query without it. The unscoped retry keeps the
+        # raw query, where the number may be content ("kredi 90 gün gecikme").
+        scoped_query = search_query
+        if query_doc_id:
+            start, end = refs.document_id_spans[0]
+            scoped_query = f"{search_query[:start].rstrip()} {search_query[end:].lstrip()}".strip()
+        # Question words and "yüzde" are not required by the exact-word and stem passes.
+        required_scoped_query, not_searched = _required_search_text(scoped_query)
 
         exact_hits = []
         if exact_ref_detected:
@@ -961,25 +1148,34 @@ def register(mcp, deps: Dependencies) -> None:
                     break
         hits, stem_keys = await _search_sections_strict_with_stem_top_up(
             deps,
-            query,
+            required_scoped_query,
             candidate_doc_ids=candidate_doc_ids,
-            section_type=_normalize_optional(inferred_section_type),
+            section_type=applied_section_type,
             limit=limit,
         )
         loose_fallback_used = False
+        # Set when the inferred document is stored but the exact provision named in the query is not in it.
+        missing_in_dropped_doc: str | None = None
         if not hits and not exact_hits and query_doc_id:
             # Nothing exact or strict inside the inferred document: a loose match there must not
             # outrank a strict match elsewhere, so repeat strict, then loose, with no document scope.
             filter_drop_reason = f"no section in document {query_doc_id} matched the query"
+            if exact_ref_detected:
+                missing_in_dropped_doc = query_doc_id
+                filter_drop_reason = (
+                    f"document {query_doc_id} is stored, but {parsed_section_type} {inferred_section_ref} was not "
+                    "found in it and no other section of it matched the query"
+                )
             inferred_doc_id = None
-            # With the inferred document dropped no document is identified, so the section reference
-            # was not applied to the unscoped search.
+            # With the inferred document dropped no document is identified, so neither the section
+            # reference nor its type is applied to the unscoped search.
             exact_ref_detected = False
+            applied_section_type = explicit_section_type
             hits, stem_keys = await _search_sections_strict_with_stem_top_up(
                 deps,
-                query,
+                _required_search_text(search_query)[0],
                 candidate_doc_ids=[None],
-                section_type=_normalize_optional(inferred_section_type),
+                section_type=applied_section_type,
                 limit=limit,
             )
             candidate_doc_ids = [None]
@@ -988,37 +1184,71 @@ def register(mcp, deps: Dependencies) -> None:
             for candidate_doc_id in candidate_doc_ids:
                 hits = await _search_sections_loose(
                     deps,
-                    query,
+                    search_query,
                     document_id=candidate_doc_id,
-                    section_type=_normalize_optional(inferred_section_type),
+                    section_type=applied_section_type,
                     limit=limit,
                 )
                 if hits:
                     break
             loose_fallback_used = bool(hits)
+        elif not exact_hits and len(hits) < limit and all(_section_key(hit) in stem_keys for hit in hits):
+            # Only inflection-tolerant hits: a weak prefix match must not block the provision the query
+            # names, so the loose pass also runs, in the same scope, and its hits follow the stem hits.
+            seen = {_section_key(hit) for hit in hits}
+            loose_hits = await _search_sections_loose(
+                deps,
+                scoped_query if inferred_doc_id else search_query,
+                document_id=hits[0].doc_id if inferred_doc_id else None,
+                section_type=applied_section_type,
+                limit=limit,
+            )
+            extra = [hit for hit in loose_hits if _section_key(hit) not in seen][: limit - len(hits)]
+            hits = hits + extra
+            loose_fallback_used = bool(extra)
         # A section reference without an identified document cannot be looked up, so it is not applied.
         # Computed after the drop decision so that a dropped inferred document reports it as not applied.
-        unapplied_ref_note = (
-            f"Note: {refs.sections[0][0]} {inferred_section_ref} in the query was not applied as a filter because "
-            "no document was identified; find the document id with search_bddk_regulations, then call "
-            f"get_document_section(document_id, section_type='{refs.sections[0][0]}', "
-            f"section_ref='{inferred_section_ref}')."
-            if inferred_section_ref and not exact_ref_detected
-            else None
-        )
+        unapplied_ref_note: str | None = None
+        if missing_in_dropped_doc:
+            unapplied_ref_note = (
+                f"Note: {parsed_section_type} {inferred_section_ref} was not found in document "
+                f"{missing_in_dropped_doc}, which {_document_id_phrase(missing_in_dropped_doc)} in the query "
+                "identified; the "
+                "reference was not applied to the search over every document. Check the reference, or retrieve "
+                "that document with get_bddk_document."
+            )
+        elif inferred_section_ref and not exact_ref_detected:
+            unapplied_ref_note = (
+                f"Note: {parsed_section_type} {inferred_section_ref} in the query was not applied as a filter "
+                "because no document was identified; find the document id with search_bddk_regulations, then call "
+                f"get_document_section(document_id, section_type='{parsed_section_type}', "
+                f"section_ref='{inferred_section_ref}')."
+            )
+        elif mismatched_ref:
+            unapplied_ref_note = (
+                f"Note: {mismatched_ref[0]} {mismatched_ref[1]} in the query was not used as an exact reference "
+                f"because section_type={explicit_section_type} was passed."
+            )
         reported_section_ref = None if unapplied_ref_note else _normalize_optional(inferred_section_ref)
         filter_dropped = filter_drop_reason is not None
         inferred_filter_applied = bool(query_doc_id and not filter_dropped)
         filter_note = (
-            f"Note: the number {refs.document_ids[0]} in the query was not applied as a document filter "
+            f"Note: {_document_id_phrase(candidate_query_doc_id)} in the query was not applied as a document filter "
             f"({filter_drop_reason}).\n"
             if filter_dropped
             else (
-                f"Note: the search was limited to document {query_doc_id} because of the number {query_doc_id} "
-                "in the query; pass document_id or remove the number to search every document.\n"
+                f"Note: the search was limited to document {query_doc_id} because of "
+                f"{_document_id_phrase(query_doc_id)} in the query; pass document_id or remove the "
+                f"{'number' if query_doc_id.isdigit() else 'document ID'} to search every document.\n"
                 if inferred_filter_applied
                 else ""
             )
+        )
+        not_searched_note = (
+            f"Note: not searched as required words: {', '.join(not_searched)} (Turkish question words and the "
+            "frame words of a question are left out; 'yüzde' is optional because sources also write '%').\n"
+            if not_searched
+            else ""
         )
         if exact_hits:
             # Exact-ref lookups carry no FTS rank; inherit it from the FTS
@@ -1034,6 +1264,9 @@ def register(mcp, deps: Dependencies) -> None:
             # The explicitly requested provision is an exact-reference hit even when the prefix top-up
             # also found it: never label it as an inflection-tolerant match.
             stem_keys -= seen
+        if not hits and document_id:
+            # An explicit document_id that names no stored document is NOT_FOUND, not "no sections".
+            await _require_stored_document(deps, document_id)
         if not hits:
             passed_filters = [
                 name for name, value in (("document_id", document_id), ("section_type", section_type)) if value
@@ -1042,6 +1275,7 @@ def register(mcp, deps: Dependencies) -> None:
             output = (
                 f"NO RESULTS: No document sections found matching '{query}'.\n"
                 + filter_note
+                + not_searched_note
                 + (f"{unapplied_ref_note}\n" if unapplied_ref_note else "")
                 + f"Try a broader query, {remove_hint}or retrieve the full document."
             )
@@ -1051,13 +1285,14 @@ def register(mcp, deps: Dependencies) -> None:
                     text=output,
                     query=query,
                     document_id=inferred_doc_id,
-                    section_type=_normalize_optional(inferred_section_type),
+                    section_type=applied_section_type,
                     section_ref=reported_section_ref,
                     parsed_section_ref=_normalize_optional(inferred_section_ref),
                     exact_reference_detected=exact_ref_detected,
                     loose_fallback_used=False,
                     warnings=[unapplied_ref_note] if unapplied_ref_note else [],
                     inferred_document_filter_dropped=filter_dropped,
+                    query_words_not_searched=not_searched,
                 )
             )
 
@@ -1066,6 +1301,8 @@ def register(mcp, deps: Dependencies) -> None:
         lines = [f"Found {len(hits)} section result(s) for '{query}':\n"]
         if unapplied_ref_note:
             lines.insert(0, f"{unapplied_ref_note}\n")
+        if not_searched_note:
+            lines.insert(0, not_searched_note)
         if filter_note:
             lines.insert(0, filter_note)
         has_exact_word_hits = any(_section_key(hit) not in stem_keys for hit in hits)
@@ -1099,14 +1336,14 @@ def register(mcp, deps: Dependencies) -> None:
                     + ("no rank, listed after the exact-word hits" if has_exact_word_hits else "no rank")
                 )
             lines.extend(_quality_lines(_section_quality(hit), prefix="  "))
-            excerpt, truncated, _, _ = _section_excerpt(hit, max_chars=_MAX_SEARCH_EXCERPT_CHARS, query=query)
+            excerpt, truncated, _, _ = _section_excerpt(hit, max_chars=_MAX_SEARCH_EXCERPT_CHARS, query=search_query)
             if excerpt:
                 lines.append(excerpt)
                 if truncated:
                     lines.append("  [excerpt truncated — call get_document_section for the full section]")
             lines.append("")
         result_items = [
-            _with_parent(_section_item(hit, query=query, continuations=continuations), hit, parents).model_copy(
+            _with_parent(_section_item(hit, query=search_query, continuations=continuations), hit, parents).model_copy(
                 update={"stem_match": _section_key(hit) in stem_keys}
             )
             for hit in hits
@@ -1119,7 +1356,11 @@ def register(mcp, deps: Dependencies) -> None:
                 evidence=[_section_evidence(hit) for hit in hits],
                 warnings=[
                     *_section_warnings(hits, content_truncated=result_content_truncated, continuations=continuations),
-                    *([_EXACT_REFERENCE_MISSING_WARNING] if exact_ref_detected and not exact_hits else []),
+                    *(
+                        [_EXACT_REFERENCE_MISSING_WARNING]
+                        if (exact_ref_detected and not exact_hits) or missing_in_dropped_doc
+                        else []
+                    ),
                     *([unapplied_ref_note] if unapplied_ref_note else []),
                     *(
                         [
@@ -1133,13 +1374,14 @@ def register(mcp, deps: Dependencies) -> None:
                 ],
                 query=query,
                 document_id=inferred_doc_id,
-                section_type=_normalize_optional(inferred_section_type),
+                section_type=applied_section_type,
                 section_ref=reported_section_ref,
                 parsed_section_ref=_normalize_optional(inferred_section_ref),
                 exact_reference_detected=exact_ref_detected,
                 loose_fallback_used=loose_fallback_used,
                 inferred_document_filter_dropped=filter_dropped,
                 inferred_document_filter_applied=inferred_filter_applied,
+                query_words_not_searched=not_searched,
                 results=result_items,
             )
         )
