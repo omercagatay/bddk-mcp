@@ -386,8 +386,9 @@ class SectionItem(StrictOutputModel):
     stored_span_capped: bool = Field(
         default=False,
         description=(
-            "Whether the stored section is a 20,000-character window of a longer provision; end_char is then "
-            "the end of that window, not of the provision."
+            "Whether the stored section is a capped window of a longer provision (at most 20,000 characters; "
+            "the answer text states its stored length); end_char is then the end of that window, not of the "
+            "provision."
         ),
     )
     original_end_char: int | None = Field(
@@ -401,8 +402,8 @@ class SectionItem(StrictOutputModel):
     continuation_of_section_type: str | None = Field(
         default=None,
         description=(
-            "For a govde row that continues a capped named section beyond its 20,000-character stored window, "
-            "that section's type; cite that provision, not the govde row."
+            "For a govde row that continues a capped named section beyond its stored window (at most 20,000 "
+            "characters), that section's type; cite that provision, not the govde row."
         ),
     )
     continuation_of_section_ref: str | None = Field(
@@ -437,13 +438,17 @@ class SectionItem(StrictOutputModel):
     parent_section_type: str | None = Field(
         default=None,
         description=(
-            "For a fikra/bent row, the type of the stored madde, gecici_madde or ek_madde whose window contains "
-            "it; null when no stored article window contains the row."
+            "For a fikra/bent row, the type of the stored madde, gecici_madde or ek_madde, or (in guides and "
+            "standards) paragraf or ilke, whose window contains it; null when no stored window of such a "
+            "provision contains the row."
         ),
     )
     parent_section_ref: str | None = Field(
         default=None,
-        description="For such a fikra/bent row, the reference of the containing article.",
+        description=(
+            "For such a fikra/bent row, the reference of the containing madde, gecici_madde, ek_madde, paragraf "
+            "or ilke."
+        ),
     )
     stem_match: bool = Field(
         default=False,
@@ -452,6 +457,30 @@ class SectionItem(StrictOutputModel):
             "the exact query words); such hits carry no rank and are listed after the strict hits."
         ),
     )
+    display_section_ref: str | None = Field(
+        default=None,
+        description=(
+            "The reference as the source prints it (inserted article 'madde 66/A', KGK paragraph '21A'); "
+            "section_ref keeps the stored form, which is the value to pass back as section_ref."
+        ),
+    )
+
+
+class WindowReference(StrictOutputModel):
+    """A neighbouring stored row of a govde window (a full-text window or part of a long provision)."""
+
+    section_type: str = Field(description="Structural unit type of the neighbouring row.")
+    section_ref: str = Field(description="Stored reference of the neighbouring row (pass it back as section_ref).")
+    start_char: int = Field(ge=0, description="Start offset in the normalized document; selects the row.")
+    end_char: int = Field(ge=0, description="End offset in the normalized document.")
+
+
+class CrossWindowMatch(StrictOutputModel):
+    """An exact occurrence of the quotation in the stored text of this window joined with a neighbouring one."""
+
+    start_char: int = Field(ge=0, description="Start offset of the occurrence in the normalized document.")
+    end_char: int = Field(ge=0, description="Exclusive end offset of the occurrence in the normalized document.")
+    windows: list[WindowReference] = Field(description="The two consecutive rows whose joined text was compared.")
 
 
 class SectionAnswerAssessment(StrictOutputModel):
@@ -466,6 +495,20 @@ class SectionAnswerAssessment(StrictOutputModel):
         description="No-normalization match against stored section text; not proof of original-source fidelity.",
     )
     gaps: list[str] = Field(default_factory=list)
+    neighbouring_windows: list[WindowReference] | None = Field(
+        default=None,
+        description=(
+            "For a govde row that is one of several consecutive windows of one text: the rows before and after "
+            "it. A quotation not found in this row may cross into one of them, so its status is unavailable."
+        ),
+    )
+    cross_window_match: CrossWindowMatch | None = Field(
+        default=None,
+        description=(
+            "Where the quotation occurs exactly once in the text of this window joined with a neighbouring "
+            "window; the status stays unavailable because the stored reference is one row."
+        ),
+    )
     scope_and_entailment: Literal["not_assessed"] = Field(
         default="not_assessed",
         description="Quote matching does not prove a paraphrase, duty, or applicability to a bank.",

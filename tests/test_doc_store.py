@@ -404,3 +404,36 @@ def test_prefix_stem_removes_an_aorist_verb_ending_above_a_five_character_root()
     }
     for token, expected in cases.items():
         assert fts_prefix_stem_query(token) == expected, token
+
+
+async def test_the_generic_govde_heading_is_not_indexed_but_govde_content_is(store):
+    from bddk_mcp.store.section_index import GOVDE_HEADING
+
+    text = "Kurul kararı ile kredi kartı borçlarının yeniden yapılandırılmasına karar verilmiştir.\n"
+    await store.store_document(StoredDocument(document_id="1301", title="Kurul Kararı", markdown_content=text))
+    [govde] = await store.get_document_section("1301", section_type="govde")
+    assert govde.heading == GOVDE_HEADING
+
+    for words in ("yapısal başlık yok", "dipnot", "gövde kalanı", "başlık"):
+        assert await store.search_document_sections(words) == []
+    heading_norms = await store._db.run(
+        lambda conn: conn.execute("SELECT heading_norm FROM document_sections WHERE doc_id = '1301'").fetchall()
+    )
+    assert [row["heading_norm"] for row in heading_norms] == [""]
+    [hit] = await store.search_document_sections("yeniden yapılandırılmasına")
+    assert (hit.doc_id, hit.section_type, hit.heading) == ("1301", "govde", GOVDE_HEADING)
+
+
+@pytest.mark.parametrize("typed", ["BSD'nin kapsamı", "BSD’nin kapsamı", "bsd‘nin KAPSAMI", "BSDʼnin kapsamı"])
+async def test_heading_filter_reads_apostrophe_variants_as_one_character(store, typed):
+    text = (
+        "MADDE 21 - BSD’nin tanımı\nBirinci metin.\n\nMADDE 22 - BSD’nin kapsamı\nİkinci metin.\n\n"
+        "MADDE 23 - Banka'nın yükümlülüğü\nÜçüncü metin.\n"
+    )
+    await store.store_document(StoredDocument(document_id="mevzuat_39257", title="Test", markdown_content=text))
+
+    [section] = await store.get_document_section("mevzuat_39257", heading=typed)
+    assert (section.section_type, section.section_ref, section.heading) == ("madde", "22", "BSD’nin kapsamı")
+    [ascii_stored] = await store.get_document_section("mevzuat_39257", heading="Banka’nın")
+    assert ascii_stored.section_ref == "23"
+    assert await store.get_document_section("mevzuat_39257", heading="BSD nin kapsamı") == []

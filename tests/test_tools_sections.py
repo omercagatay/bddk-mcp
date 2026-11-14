@@ -676,7 +676,7 @@ async def test_ambiguous_fikra_rows_point_to_the_parent_madde():
 
     result = await tool("mevzuat_1", section_type="fikra", section_ref="2")
 
-    assert "retrieve the parent madde" in result.text
+    assert "retrieve the parent provision (madde, gecici_madde/ek_madde, paragraf or ilke)" in result.text
 
 
 async def _store_inference_fixture(doc_store) -> Dependencies:
@@ -889,6 +889,12 @@ async def _store_capped_document(doc_store) -> Dependencies:
     return Dependencies(db=None, doc_store=doc_store, client=None, http=None)
 
 
+async def _stored_madde_2_window(doc_store) -> int:
+    """Length of the stored window [start_char, end_char) of the capped madde 2, as the parser stored it."""
+    (row,) = await doc_store.get_document_section("mevzuat_9", section_type="madde", section_ref="2")
+    return row.end_char - row.start_char
+
+
 def test_truncation_notice_original_length_reads_the_recorded_length():
     from bddk_mcp.store.section_index import truncation_notice_original_length
 
@@ -914,8 +920,8 @@ async def test_capped_section_reports_its_true_extent(doc_store):
     assert item["stored_span_capped"] is True
     assert item["original_end_char"] == true_end
     assert (
-        f"Stored window capped at 20,000 of {true_end - madde_2_start:,} characters; "
-        f"the provision continues to code point {true_end}" in result.text
+        f"Stored window capped at {item['end_char'] - item['start_char']:,} of {true_end - madde_2_start:,} "
+        f"characters; the provision continues to code point {true_end}" in result.text
     )
     assert "The rest of the provision is in full in get_bddk_document" in result.text
     assert "following govde rows" not in result.text
@@ -1000,11 +1006,13 @@ async def test_continuation_govde_row_names_its_provision_in_both_section_tools(
         "yükümlülük kayıt altına alınır", document_id="mevzuat_9", section_type="govde"
     )
 
+    window = await _stored_madde_2_window(doc_store)
+
     for result in (exact, search):
         item = result.structuredContent["results"][0]
         assert (item["section_type"], item["section_ref"]) == ("govde", "1")
         assert (item["continuation_of_section_type"], item["continuation_of_section_ref"]) == ("madde", "2")
-        assert "continuation of madde 2 beyond its 20,000-character stored window" in result.text
+        assert f"continuation of madde 2 beyond its {window:,}-character stored window" in result.text
         warnings = result.structuredContent["warnings"]
         assert any(
             "this text belongs to madde 2. Cite that provision and verify the full text with get_bddk_document"
@@ -1965,7 +1973,7 @@ async def test_doc_store_flags_each_govde_kind(doc_store):
             "yükümlülük kayıt altına alınır",
             "mevzuat_9",
             "continuation",
-            "continuation of madde 2 beyond its 20,000-character stored window",
+            "continuation of madde 2 beyond its {madde_2_window}-character stored window",
             "this text belongs to madde 2",
         ),
     ],
@@ -1980,6 +1988,8 @@ async def test_default_section_search_finds_and_labels_each_govde_kind(
     govde = [item for item in result.structuredContent["results"] if item["section_type"] == "govde"]
     assert govde, result.text
     assert {item.get("govde_kind") for item in govde} == {kind}
+    if kind == "continuation":
+        label = label.format(madde_2_window=f"{await _stored_madde_2_window(doc_store):,}")
     assert label in result.text
     warnings = result.structuredContent["warnings"]
     assert any(warning in w for w in warnings)
@@ -2208,3 +2218,555 @@ async def test_a_provision_missing_from_a_letter_prefixed_document_names_its_doc
         in result.text
     )
     assert "the number kgk_tms_12" not in result.text
+
+
+@pytest.mark.asyncio
+async def test_search_excerpt_from_inside_a_section_states_its_range_and_marks_it():
+    content = "Başlangıç metni. " * 200 + "eşsizhedef kuralı burada. " + "Son metin. " * 300
+    section = _section(content=content).model_copy(update={"end_char": len(content) + 10})
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[])
+    doc_store.search_document_sections = AsyncMock(return_value=[section])
+    deps = Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+    result = await _capture_tool(deps, "search_document_sections")("eşsizhedef", limit=1)
+
+    item = result.structuredContent["results"][0]
+    assert item["excerpt_start_char"] > 10
+    assert (
+        f"Excerpt from inside the section: returned normalized excerpt range "
+        f"[{item['excerpt_start_char']}, {item['excerpt_end_char']}) of [10, {len(content) + 10})"
+    ) in result.text
+    assert result.text.index("Excerpt from inside the section") < result.text.index(item["content"])
+
+
+@pytest.mark.asyncio
+async def test_search_excerpt_at_the_section_start_or_whole_section_gets_no_inside_marker():
+    long_content = "eşsizhedef başta. " + "Son metin. " * 400
+    short = _section(content="Kısa eşsizhedef metni.")
+    long = _section(section_ref="6", content=long_content).model_copy(update={"end_char": len(long_content) + 10})
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[])
+    doc_store.search_document_sections = AsyncMock(return_value=[short, long])
+    deps = Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+    result = await _capture_tool(deps, "search_document_sections")("eşsizhedef", limit=2)
+
+    assert "Excerpt from inside the section" not in result.text
+    assert result.text.count("Returned normalized excerpt range") == 1
+    assert "Returned normalized excerpt range: [10, 2010) (section body truncated)" in result.text
+
+
+def test_search_excerpt_starts_at_a_word_boundary_and_keeps_exact_offsets():
+    from bddk_mcp.tools.sections import _section_excerpt
+
+    content = "kelimelerr " * 300 + "eşsizhedef" + " sonra" * 600
+    section = _section(content=content).model_copy(update={"end_char": 10 + len(content)})
+    excerpt, truncated, start, end = _section_excerpt(section, max_chars=2000, query="eşsizhedef")
+    local = start - 10
+    assert truncated and local > 0
+    assert content[local - 1].isspace() and not excerpt[0].isspace()
+    assert content[local : local + len(excerpt)] == excerpt and end - start == len(excerpt)
+    assert "eşsizhedef" in excerpt
+
+
+def test_search_excerpt_window_covers_the_most_query_terms_earliest_on_ties():
+    from bddk_mcp.tools.sections import _section_excerpt
+
+    content = "kredi " + "dolgu " * 600 + "kredi kartı asgari ödeme tutarı " + "dolgu " * 600 + "kartı asgari ödeme "
+    section = _section(content=content).model_copy(update={"end_char": 10 + len(content)})
+    excerpt, _truncated, _start, _end = _section_excerpt(
+        section, max_chars=2000, query="kredi kartı asgari ödeme tutarı yok"
+    )
+    assert "kredi kartı asgari ödeme tutarı" in excerpt
+    # Two windows with every term but "tutarı": the earliest is chosen.
+    content = "dolgu " * 600 + "kartı asgari " + "dolgu " * 600 + "kartı asgari "
+    section = _section(content=content).model_copy(update={"end_char": 10 + len(content)})
+    _excerpt, _truncated, start, _end = _section_excerpt(section, max_chars=2000, query="kartı asgari kural")
+    assert start - 10 < 3600
+
+
+@pytest.mark.asyncio
+async def test_capped_section_names_the_get_bddk_document_pages_of_the_provision(doc_store, monkeypatch):
+    import bddk_mcp.tools.sections as sections_module
+
+    monkeypatch.setattr(sections_module, "PAGE_SIZE", 3_000)
+    tool = _capture_tool(await _store_capped_document(doc_store), "get_document_section")
+    madde_2_start = _CAPPED_DOCUMENT.index("MADDE 2")
+    true_end = _CAPPED_DOCUMENT.index("MADDE 3") - 1
+
+    result = await tool("mevzuat_9", section_type="madde", section_ref="2")
+
+    first, last = madde_2_start // 3_000 + 1, (true_end - 1) // 3_000 + 1
+    rest = (madde_2_start + 20_000) // 3_000 + 1
+    assert f"The whole provision is on get_bddk_document pages {first}-{last} (3,000 characters per page)" in (
+        result.text
+    )
+    assert f"the part past this stored window is on pages {rest}-{last}" in result.text
+
+
+@pytest.mark.asyncio
+async def test_capped_window_shorter_than_the_cap_states_its_real_stored_length():
+    from bddk_mcp.store.section_index import TRUNCATION_NOTICE_PREFIX
+
+    legal_text = ("Madde metni. " * 1_400).rstrip()
+    content = (
+        f"{legal_text}\n\n{TRUNCATION_NOTICE_PREFIX} içerik 31000 karakterden 20000 karaktere kısaltıldı"
+        " — tam metin için get_bddk_document kullanın]"
+    )
+    section = _section("mevzuat_1", "madde", "4", content).model_copy(
+        update={"start_char": 12_000, "end_char": 12_000 + len(legal_text)}
+    )
+    store = MagicMock()
+    store.get_document_section = AsyncMock(return_value=[section])
+    deps = Dependencies(db=None, doc_store=store, client=None, http=None)
+
+    result = await _capture_tool(deps, "get_document_section")("mevzuat_1", section_type="madde", section_ref="4")
+
+    assert f"Stored window capped at {len(legal_text):,} of 31,000 characters" in result.text
+    assert "capped at 20,000" not in result.text
+    assert "get_bddk_document pages 3-9" in result.text
+
+
+@pytest.mark.asyncio
+async def test_continuation_label_states_the_stored_window_and_the_provision_length(doc_store):
+    deps = await _store_capped_document(doc_store)
+    madde_2_start = _CAPPED_DOCUMENT.index("MADDE 2")
+    true_end = _CAPPED_DOCUMENT.index("MADDE 3") - 1
+
+    window = await _stored_madde_2_window(doc_store)
+
+    result = await _capture_tool(deps, "get_document_section")("mevzuat_9", section_type="govde", section_ref="1")
+
+    assert (
+        f"continuation of madde 2 beyond its {window:,}-character stored window "
+        f"(the provision is {true_end - madde_2_start:,} characters long)"
+    ) in result.text
+
+
+def test_display_section_ref_prints_lettered_references_as_the_source_does():
+    from bddk_mcp.tools.sections import display_section_ref
+
+    assert display_section_ref("madde", "66/a") == "66/A"
+    assert display_section_ref("gecici_madde", "2/b") == "2/B"
+    assert display_section_ref("ek_madde", "1/a") == "1/A"
+    assert display_section_ref("paragraf", "21/a") == "21A"
+    assert display_section_ref("paragraf", "98/i") == "98I"
+    assert display_section_ref("paragraf", "2.2.4") == "2.2.4"
+    assert display_section_ref("bent", "ç") == "ç"
+    assert display_section_ref("madde", "9") == "9"
+
+
+@pytest.mark.asyncio
+async def test_lettered_references_are_displayed_in_source_form_and_kept_stored_in_structure():
+    article = _section("mevzuat_5411", "madde", "66/a", "Madde 66/A – (Ek:20/2/2020-7222/6 md.) Metin.")
+    paragraph = _section("kgk_tms_12", "paragraf", "21/a", "21A Şerefiyenin ilk muhasebeleştirilmesi.")
+    for section, shown, hidden in (
+        (article, "madde 66/A", "madde 66/a"),
+        (paragraph, "paragraf 21A", "paragraf 21/a"),
+    ):
+        store = MagicMock()
+        store.get_document_section = AsyncMock(return_value=[section])
+        store.search_document_sections = AsyncMock(return_value=[section])
+        deps = Dependencies(db=None, doc_store=store, client=None, http=None)
+
+        exact = await _capture_tool(deps, "get_document_section")(
+            section.doc_id, section_type=section.section_type, section_ref=section.section_ref
+        )
+        search = await _capture_tool(deps, "search_document_sections")("Metin şerefiye", document_id=section.doc_id)
+        for result in (exact, search):
+            assert f"{section.doc_id} — {shown}" in result.text
+            assert f"Section: {shown}" in result.text
+            assert hidden not in result.text
+            item = result.structuredContent["results"][0]
+            assert item["section_ref"] == section.section_ref
+            assert item["display_section_ref"] == shown.split(" ", 1)[1]
+
+
+async def _store_guide_fixture(doc_store) -> Dependencies:
+    """A guide whose bent rows sit inside paragraf rows inside an ilke, with no madde at all."""
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    text = "İlke 1 Genel\n\n9. Paragraf dokuz.\n(a) birinci bent.\n\n10. Paragraf on.\n(a) ikinci bent.\n"
+    await doc_store.store_document(StoredDocument(document_id="943", title="Rehber", markdown_content=text))
+    [document] = await doc_store._db.run(
+        lambda conn: conn.execute("SELECT content_hash FROM documents WHERE document_id = '943'").fetchall()
+    )
+    rows = [
+        ("ilke", "1", 0, len(text)),
+        ("paragraf", "9", text.index("9."), text.index("10.")),
+        ("bent", "a", text.index("(a) birinci"), text.index("10.")),
+        ("paragraf", "10", text.index("10."), len(text)),
+        ("bent", "a", text.index("(a) ikinci"), len(text)),
+    ]
+
+    def insert(conn):
+        conn.execute("DELETE FROM document_sections WHERE doc_id = '943'")
+        for section_type, section_ref, start, end in rows:
+            content = text[start:end].strip()
+            conn.execute(
+                "INSERT INTO document_sections (doc_id, section_type, section_ref, heading, start_char, end_char, "
+                "content, content_hash, source_content_hash) VALUES ('943', ?, ?, '', ?, ?, ?, ?, ?)",
+                [
+                    section_type,
+                    section_ref,
+                    start,
+                    end,
+                    content,
+                    hashlib.sha256(content.encode("utf-8")).hexdigest(),
+                    document["content_hash"],
+                ],
+            )
+
+    await doc_store._db.transaction(insert)
+    return Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+
+@pytest.mark.asyncio
+async def test_bent_rows_of_a_guide_name_their_parent_paragraph(doc_store):
+    deps = await _store_guide_fixture(doc_store)
+    tool = _capture_tool(deps, "get_document_section")
+
+    several = await tool("943", section_type="bent", section_ref="a")
+    parents = [(i["parent_section_type"], i["parent_section_ref"]) for i in several.structuredContent["results"]]
+    assert parents == [("paragraf", "9"), ("paragraf", "10")]
+    assert "  Parent: paragraf 9" in several.text and "  Parent: paragraf 10" in several.text
+    assert 'where a stored parent provision contains a row it is shown as "Parent:"' in several.text
+    assert "retrieve that parent paragraf (section_type=paragraf) for the full provision" in several.text
+    assert "parent madde" not in several.text
+
+    start = several.structuredContent["results"][0]["start_char"]
+    single = await tool("943", section_type="bent", section_ref="a", start_char=start)
+    assert "- Parent: paragraf 9" in single.text
+
+
+@pytest.mark.asyncio
+async def test_control_characters_in_a_query_are_never_echoed_raw_and_separate_words():
+    section = _section(content="Kredi ve faiz hükmü.")
+    store = MagicMock()
+    store.get_document_section = AsyncMock(return_value=[])
+    store.search_document_sections = AsyncMock(return_value=[section])
+    deps = Dependencies(db=None, doc_store=store, client=None, http=None)
+    tool = _capture_tool(deps, "search_document_sections")
+
+    found = await tool("kredi\x00faiz\x07", limit=1)
+    assert "\x00" not in found.text and "\x07" not in found.text
+    assert "for 'kredi\\x00faiz\\x07'" in found.text
+    assert store.search_document_sections.await_args_list[0].args[0].split() == ["kredi", "faiz"]
+
+    store.search_document_sections = AsyncMock(return_value=[])
+    empty = await tool("yok\x00kelime", limit=1)
+    assert "\x00" not in empty.text
+    assert "matching 'yok\\x00kelime'" in empty.text
+
+
+def _hashed_section(content: str, **update) -> StoredDocumentSection:
+    return _section("mevzuat_5411", "madde", "71", content).model_copy(
+        update={"content_hash": hashlib.sha256(content.encode("utf-8")).hexdigest(), **update}
+    )
+
+
+async def _quote(section: StoredDocumentSection, quotation: str):
+    store = MagicMock()
+    store.get_document_section = AsyncMock(return_value=[section])
+    deps = Dependencies(db=None, doc_store=store, client=None, http=None)
+    return await _capture_tool(deps, "get_document_section")(
+        section.doc_id, section_type=section.section_type, section_ref=section.section_ref, quotation=quotation
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_near_match_keeps_not_found_and_gives_the_stored_characters_with_offsets():
+    content = "MADDE 71 – Kurul kararları Resmî Gazete’de yayımlanır. Yayım\ntarihi ilan edilir."
+    result = await _quote(_hashed_section(content), "Resmî Gazete'de yayımlanır. Yayım tarihi")
+
+    assessment = result.structuredContent["answer_assessment"]
+    assert assessment["quotation_status"] == "not_found"
+    assert assessment["gaps"] == ["quotation_not_found"]
+    near = assessment["quotation_check"]["near_match"]
+    start = content.index("Resmî")
+    assert (near["start_char"], near["end_char"]) == (start, start + len("Resmî Gazete’de yayımlanır. Yayım\ntarihi"))
+    assert near["differences"] == ["whitespace", "apostrophes_or_quotation_marks"]
+    assert "Quotation in stored reference (no normalization): not_found" in result.text
+    assert (
+        "the quotation differs from the stored text only by whitespace and line breaks, typographic vs ASCII "
+        f"apostrophes or quotation marks, at [{start}, {near['end_char']}) of this provision (document code points "
+        f"[{10 + start}, {10 + near['end_char']}))"
+    ) in result.text
+    assert f"<<<\n{near['stored_text']}\n>>>" in result.text
+
+
+@pytest.mark.asyncio
+async def test_a_near_match_at_several_places_names_no_span():
+    content = "Bu yükümlülük\ndevam eder. Ayrıca bu yükümlülük  devam eder. Bu yükümlülük devam eder!"
+    result = await _quote(_hashed_section(content), "yükümlülük devam eder.")
+
+    assessment = result.structuredContent["answer_assessment"]
+    assert assessment["quotation_status"] == "not_found"
+    assert assessment["quotation_check"]["near_match_places"] == "several"
+    assert "near_match" not in assessment["quotation_check"] or assessment["quotation_check"]["near_match"] is None
+    assert "matches the stored text at several places" in result.text
+
+
+@pytest.mark.asyncio
+async def test_verbatim_unavailable_prints_the_section_reference_as_the_source_does():
+    from mcp.server.fastmcp.exceptions import ToolError
+
+    section = _hashed_section("MADDE 66/A – Metin <div>x</div> devam eder.", section_ref="66/a")
+    with pytest.raises(ToolError) as exc_info:
+        await _quote(section, "Metin")
+    out = str(exc_info.value)
+
+    assert out.splitlines()[0] == "[ERROR:VERBATIM_UNAVAILABLE] retryable=false"
+    assert "Section mevzuat_5411/madde 66/A cannot be returned verbatim" in out
+    assert "66/a" not in out
+
+
+@pytest.mark.asyncio
+async def test_a_near_match_names_asterisk_markers_without_calling_them_emphasis_only():
+    content = "(1) Kredi kuruluşları*** tarafından bildirilir."
+    result = await _quote(_hashed_section(content), "Kredi kuruluşları* tarafından bildirilir.")
+
+    assessment = result.structuredContent["answer_assessment"]
+    assert assessment["quotation_status"] == "not_found"
+    assert assessment["quotation_check"]["near_match"]["differences"] == ["asterisk_or_underscore_markers"]
+    assert "asterisk or underscore markers (** or __: Markdown emphasis or footnote/blank markers)" in result.text
+    assert "Markdown emphasis markers (** or __)" not in result.text
+
+
+@pytest.mark.asyncio
+async def test_an_ambiguous_quotation_lists_where_it_occurs():
+    sentence = "Bu yükümlülük görevden ayrıldıktan sonra da devam eder."
+    content = f"(1) {sentence} (2) Başka hüküm. {sentence}"
+    result = await _quote(_hashed_section(content), sentence)
+
+    assessment = result.structuredContent["answer_assessment"]
+    assert assessment["quotation_status"] == "unavailable"
+    assert assessment["gaps"] == ["quotation_ambiguous_location"]
+    first, second = content.index(sentence), content.rindex(sentence)
+    assert assessment["quotation_check"]["occurrence_count"] == 2
+    assert f"occurs exactly 2 times in the stored provision, at [{first}, {first + len(sentence)})" in result.text
+    assert f"[{second}, {second + len(sentence)}) of this provision" in result.text
+
+
+@pytest.mark.asyncio
+async def test_an_exact_quotation_is_reported_exactly_as_before():
+    content = "MADDE 71 – Kurul kararları yayımlanır."
+    result = await _quote(_hashed_section(content), "Kurul kararları yayımlanır.")
+
+    assessment = result.structuredContent["answer_assessment"]
+    assert assessment["quotation_status"] == "exact_reference_match"
+    assert assessment["gaps"] == []
+    assert set(assessment["quotation_check"]) == {
+        "status",
+        "reason",
+        "reference_sha256",
+        "quotation_sha256",
+        "start_char",
+        "end_char",
+        "extent",
+        "normalization",
+        "original_source_fidelity",
+        "legal_applicability",
+    }
+    assert "Near match" not in result.text and "occurs exactly" not in result.text
+    assert "consecutive windows" not in result.text
+
+
+_WINDOW_PARAGRAPH = "Kurul kararı ile bankaların uyması gereken esaslar aşağıda belirtilmiştir ve uygulanır.\n\n"
+
+
+async def _store_window_documents(doc_store) -> tuple[Dependencies, list[StoredDocumentSection]]:
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    body = "".join(f"{n}) {_WINDOW_PARAGRAPH}" for n in range(500))
+    await doc_store.store_document(
+        StoredDocument(document_id="85", title="Kurul Kararı 85", category="Kurul Kararı", markdown_content=body)
+    )
+    await doc_store.store_document(
+        StoredDocument(document_id="779", title="Kurul Kararı 779", markdown_content=_DECISION_TEXT)
+    )
+    windows = await doc_store.get_document_section("85", section_type="govde")
+    assert len(windows) >= 2 and windows[0].end_char == windows[1].start_char
+    return Dependencies(db=None, doc_store=doc_store, client=None, http=None), windows
+
+
+@pytest.mark.asyncio
+async def test_a_quotation_across_two_full_text_windows_is_unavailable_with_the_cross_window_offsets(doc_store):
+    deps, windows = await _store_window_documents(doc_store)
+    body = (await doc_store.get_document("85")).markdown_content
+    boundary = windows[0].end_char
+    start = body.rindex(")", 0, boundary - 5) - 3
+    end = boundary + 30
+    quotation = body[start:end]
+    tool = _capture_tool(deps, "get_document_section")
+
+    for ref in (windows[0].section_ref, windows[1].section_ref):
+        result = await tool("85", section_type="govde", section_ref=ref, quotation=quotation)
+        assessment = result.structuredContent["answer_assessment"]
+        assert assessment["quotation_status"] == "unavailable"
+        assert assessment["gaps"] == ["quotation_reference_window"]
+        assert "Quotation in stored reference (no normalization): not_found" not in result.text
+        assert "it may cross into the neighbouring window" in result.text
+        assert assessment["cross_window_match"]["start_char"] == start
+        assert assessment["cross_window_match"]["end_char"] == end
+        assert f"joined, at document code points [{start}, {end})" in result.text
+    first = await tool("85", section_type="govde", section_ref=windows[0].section_ref, quotation=quotation)
+    assert f"govde {windows[1].section_ref} (start_char={windows[1].start_char})" in first.text
+
+
+@pytest.mark.asyncio
+async def test_a_quotation_absent_from_every_window_is_still_unavailable_in_a_window(doc_store):
+    deps, windows = await _store_window_documents(doc_store)
+    result = await _capture_tool(deps, "get_document_section")(
+        "85", section_type="govde", section_ref=windows[1].section_ref, quotation="hiç geçmeyen bir cümle"
+    )
+    assessment = result.structuredContent["answer_assessment"]
+    assert assessment["quotation_status"] == "unavailable"
+    assert assessment.get("cross_window_match") is None
+    assert [row["start_char"] for row in assessment["neighbouring_windows"]][0] == windows[0].start_char
+
+
+@pytest.mark.asyncio
+async def test_a_whole_window_quotation_is_an_excerpt_and_a_lone_window_keeps_not_found(doc_store):
+    deps, windows = await _store_window_documents(doc_store)
+    tool = _capture_tool(deps, "get_document_section")
+    whole = await tool("85", section_type="govde", section_ref=windows[0].section_ref, quotation=windows[0].content)
+    assert whole.structuredContent["answer_assessment"]["quotation_status"] == "exact_reference_match"
+    assert whole.structuredContent["answer_assessment"]["quotation_check"]["extent"] == "excerpt"
+
+    lone = await tool("779", section_type="govde", section_ref="1", quotation="bulunmayan ifade")
+    assert lone.structuredContent["answer_assessment"]["quotation_status"] == "not_found"
+    assert lone.structuredContent["answer_assessment"].get("neighbouring_windows") is None
+
+
+@pytest.mark.asyncio
+async def test_a_continuation_row_quotation_names_the_capped_provision_as_its_neighbour(doc_store):
+    deps = await _store_capped_document(doc_store)
+    madde_2_start = _CAPPED_DOCUMENT.index("MADDE 2")
+    result = await _capture_tool(deps, "get_document_section")(
+        "mevzuat_9", section_type="govde", section_ref="1", quotation="hiç geçmeyen bir cümle"
+    )
+    assessment = result.structuredContent["answer_assessment"]
+    assert assessment["quotation_status"] == "unavailable"
+    assert assessment["gaps"] == ["quotation_reference_window"]
+    assert ("madde", "2", madde_2_start) == tuple(
+        assessment["neighbouring_windows"][0][key] for key in ("section_type", "section_ref", "start_char")
+    )
+    assert f"madde 2 (start_char={madde_2_start})" in result.text
+
+
+_ARTICLES_AFTER_PREAMBLE = (
+    "MADDE 1 - Amaç\nBu yönetmeliğin amacı.\n\nMADDE 2 - Yürürlük\nBu yönetmelik yayımı tarihinde yürürlüğe girer.\n"
+)
+
+
+async def _store_remainder_window_documents(doc_store) -> tuple[Dependencies, list[StoredDocumentSection]]:
+    """A document with article structure whose long uncovered preamble is split into touching govde windows,
+    and one whose short preamble is a lone govde window."""
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    preamble = "".join(f"{n}) {_WINDOW_PARAGRAPH}" for n in range(500))
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_21",
+            title="Uzun Girişli Yönetmelik",
+            markdown_content=preamble + _ARTICLES_AFTER_PREAMBLE,
+        )
+    )
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_22",
+            title="Kısa Girişli Yönetmelik",
+            markdown_content=(
+                "Bu yönetmelik Bankacılık Kanununun ilgili hükümlerine dayanılarak hazırlanmış olup bankaların "
+                "uyacağı esasları düzenler.\n\n" + _ARTICLES_AFTER_PREAMBLE
+            ),
+        )
+    )
+    windows = sorted(
+        await doc_store.get_document_section("mevzuat_21", section_type="govde"), key=lambda r: r.start_char
+    )
+    assert len(windows) >= 2 and windows[0].end_char == windows[1].start_char
+    assert not windows[0].document_structureless and not windows[0].document_decision_window
+    return Dependencies(db=None, doc_store=doc_store, client=None, http=None), windows
+
+
+@pytest.mark.asyncio
+async def test_a_quotation_across_two_touching_remainder_windows_is_unavailable_with_the_cross_window_offsets(
+    doc_store,
+):
+    deps, windows = await _store_remainder_window_documents(doc_store)
+    body = (await doc_store.get_document("mevzuat_21")).markdown_content
+    boundary = windows[0].end_char
+    start = body.rindex(")", 0, boundary - 5) - 3
+    end = boundary + 30
+    quotation = body[start:end]
+    tool = _capture_tool(deps, "get_document_section")
+
+    for ref in (windows[0].section_ref, windows[1].section_ref):
+        result = await tool("mevzuat_21", section_type="govde", section_ref=ref, quotation=quotation)
+        assessment = result.structuredContent["answer_assessment"]
+        assert result.structuredContent["results"][0]["govde_kind"] == "remainder"
+        assert assessment["quotation_status"] == "unavailable"
+        assert assessment["gaps"] == ["quotation_reference_window"]
+        assert "it may cross into the neighbouring window" in result.text
+        assert assessment["cross_window_match"]["start_char"] == start
+        assert assessment["cross_window_match"]["end_char"] == end
+        assert f"joined, at document code points [{start}, {end})" in result.text
+    first = await tool("mevzuat_21", section_type="govde", section_ref=windows[0].section_ref, quotation=quotation)
+    assert f"govde {windows[1].section_ref} (start_char={windows[1].start_char})" in first.text
+
+
+@pytest.mark.asyncio
+async def test_a_quotation_absent_from_touching_remainder_windows_is_unavailable_naming_the_neighbours(doc_store):
+    deps, windows = await _store_remainder_window_documents(doc_store)
+    result = await _capture_tool(deps, "get_document_section")(
+        "mevzuat_21", section_type="govde", section_ref=windows[1].section_ref, quotation="hiç geçmeyen bir cümle"
+    )
+    assessment = result.structuredContent["answer_assessment"]
+    assert assessment["quotation_status"] == "unavailable"
+    assert assessment["gaps"] == ["quotation_reference_window"]
+    assert assessment.get("cross_window_match") is None
+    assert assessment["neighbouring_windows"][0]["start_char"] == windows[0].start_char
+    assert f"govde {windows[0].section_ref} (start_char={windows[0].start_char})" in result.text
+
+
+@pytest.mark.asyncio
+async def test_a_lone_remainder_window_keeps_not_found(doc_store):
+    deps, _windows = await _store_remainder_window_documents(doc_store)
+    lone_rows = await doc_store.get_document_section("mevzuat_22", section_type="govde")
+    assert len(lone_rows) == 1
+    result = await _capture_tool(deps, "get_document_section")(
+        "mevzuat_22", section_type="govde", section_ref=lone_rows[0].section_ref, quotation="bulunmayan ifade"
+    )
+    assessment = result.structuredContent["answer_assessment"]
+    assert result.structuredContent["results"][0]["govde_kind"] == "remainder"
+    assert assessment["quotation_status"] == "not_found"
+    assert assessment.get("neighbouring_windows") is None
+
+
+def test_section_search_description_states_how_a_document_id_in_the_query_is_read():
+    tool = _capture_tool(
+        Dependencies(db=None, doc_store=MagicMock(), client=None, http=None), "search_document_sections"
+    )
+    doc = " ".join(tool.__doc__.split())
+
+    assert "A bare number or a `kgk_`/`rg_` document ID in the query" in doc
+    assert "is read as a document ID only when such a document is stored" in doc
+    assert "only the first such candidate in the query is considered" in doc
+    assert "It scopes the search as a preference, not a filter" in doc
+    assert "falls back to every document and the text adds a note" in doc
+
+
+def test_loose_ranking_does_not_score_the_generic_govde_heading():
+    from bddk_mcp.store.section_index import GOVDE_HEADING
+    from bddk_mcp.tools.sections import _loose_section_score
+
+    govde = _section(section_type="govde", section_ref="1", content="Faiz oranı uygulanır.").model_copy(
+        update={"heading": GOVDE_HEADING}
+    )
+    plain = govde.model_copy(update={"heading": ""})
+    terms = ["yapısal", "başlık", "faiz"]
+    weights = dict.fromkeys(terms, 1.0)
+    assert _loose_section_score(govde, terms, weights) == _loose_section_score(plain, terms, weights)

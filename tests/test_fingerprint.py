@@ -179,3 +179,44 @@ def test_encode_and_decode_round_trip_and_reject_other_values():
     assert fingerprint.decode(fingerprint.encode(value)) == value
     for broken in (None, "", "not json", "[1, 2]", '{"seed": 1}'):
         assert fingerprint.decode(broken) is None
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("def _section_rows(", "def _section_rows(  "),
+        ("def normalize_search_text(", "def normalize_search_text(  "),
+    ],
+)
+def test_the_parser_part_follows_how_section_rows_are_derived_and_nothing_else_does(monkeypatch, old, new):
+    before = fingerprint.runtime_parts()
+    _patched_source(monkeypatch, "bddk_mcp.store.doc_store", lambda text: text.replace(old, new, 1))
+    after = fingerprint.runtime_parts()
+    assert after["parser"] != before["parser"]
+    assert (after["chunker"], after["model"]) == (before["chunker"], before["model"])
+
+
+def test_unrelated_document_store_code_does_not_change_the_parser_part(monkeypatch):
+    before = fingerprint.parser_part()
+    _patched_source(
+        monkeypatch,
+        "bddk_mcp.store.doc_store",
+        lambda text: text.replace("async def load_catalog(", "async def load_catalog(  ", 1) + "\n# unrelated\n",
+    )
+    assert fingerprint.parser_part() == before
+
+
+def test_the_parser_part_is_unknown_when_a_section_row_function_is_missing(monkeypatch):
+    _patched_source(
+        monkeypatch, "bddk_mcp.store.doc_store", lambda text: text.replace("def _section_rows(", "def _rows(", 1)
+    )
+    assert fingerprint.parser_part() == fingerprint.UNKNOWN
+
+
+def test_the_module_does_not_import_the_document_store():
+    code = (
+        "import sys; from bddk_mcp.store import fingerprint; fingerprint.runtime_parts(); "
+        "print('bddk_mcp.store.doc_store' in sys.modules)"
+    )
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert result.stdout.strip() == "False"

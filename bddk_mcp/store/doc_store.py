@@ -28,6 +28,7 @@ from bddk_mcp.quality.markdown_quality import (
 )
 from bddk_mcp.store.corpus_db import CorpusDB
 from bddk_mcp.store.section_index import (
+    GOVDE_HEADING,
     GOVDE_SECTION_TYPE,
     TRUNCATION_NOTICE_PREFIX,
     DocumentSection,
@@ -43,6 +44,8 @@ _FTS_TOKEN_RE = re.compile(r"\w+")
 _EXCLUDED_SECTION_TYPES = ("fikra", "bent", "govde")
 _NESTED_SECTION_TYPES = ("fikra", "bent")
 _ARTICLE_SECTION_TYPES = ("madde", "gecici_madde", "ek_madde")
+# The provisions that can contain a fıkra/bent row: articles, and in guides and standards paragraphs and principles.
+_PARENT_SECTION_TYPES = (*_ARTICLE_SECTION_TYPES, "paragraf", "ilke")
 # True when the section's document version has no section other than govde/fikra/bent,
 # i.e. the parser found no article structure and govde windows carry the whole body.
 _STRUCTURELESS_SQL = """NOT EXISTS (
@@ -78,6 +81,25 @@ _DECISION_WINDOW_SQL = f"""(s.section_type = 'govde' AND d.category = 'Kurul Kar
 # True when the section's document version has named sections and they are only annexes (ek) and/or
 # paragraphs (paragraf): its govde rows are body text outside those named sections, not article remainder.
 _ANNEX_OR_PARAGRAPH_ONLY_SQL = _named_sections_only_sql("'ek', 'paragraf'")
+
+
+# Typographic apostrophes and look-alikes that survive normalize_search_text; the heading filter reads each
+# as the ASCII apostrophe.
+_APOSTROPHE_VARIANTS = ("’", "‘", "ʼ", "`")
+
+
+def _apostrophes_folded_sql(column: str) -> str:
+    """SQL for ``column`` with every apostrophe variant replaced by the ASCII apostrophe."""
+    for variant in _APOSTROPHE_VARIANTS:
+        column = f"replace({column}, '{variant}', '''')"
+    return column
+
+
+_HEADING_NORM_FOLDED_SQL = _apostrophes_folded_sql("s.heading_norm")
+
+
+def _fold_apostrophes(text: str) -> str:
+    return text.translate(str.maketrans(dict.fromkeys(_APOSTROPHE_VARIANTS, "'")))
 
 
 def normalize_search_text(text: str) -> str:
@@ -370,7 +392,9 @@ def _section_rows(sections: list[DocumentSection], doc_id: str, source_content_h
             section.page_start,
             section.page_end,
             source_content_hash,
-            normalize_search_text(section.heading or ""),
+            # The generic govde heading is a display placeholder, not a heading of the text: its words
+            # must not make every govde row match (the stored heading column keeps it).
+            "" if section.heading == GOVDE_HEADING else normalize_search_text(section.heading or ""),
             # Index the legal text only: the truncation notice of a capped section is
             # storage metadata, so its words must not make the section searchable.
             normalize_search_text(split_section_truncation_notice(section.content or "")[0]),
@@ -667,8 +691,15 @@ class DocumentStore:
             where.append("s.section_ref = ?")
             params.append(section_ref)
         if heading:
-            where.append("s.heading_norm LIKE ? ESCAPE '\\'")
-            escaped = normalize_search_text(heading).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            # Apostrophe variants are one character on both sides: "BSD'nin" finds "BSD’nin". The stored
+            # heading_norm keeps the typographic form, so the column is folded here, not at build time.
+            where.append(f"{_HEADING_NORM_FOLDED_SQL} LIKE ? ESCAPE '\\'")
+            escaped = (
+                _fold_apostrophes(normalize_search_text(heading))
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            )
             params.append(f"%{escaped}%")
         if start_char is not None:
             where.append("s.start_char = ?")
@@ -839,10 +870,11 @@ class DocumentStore:
     async def find_parent_articles(
         self, sections: list[StoredDocumentSection]
     ) -> dict[tuple[str, str, int], tuple[str, str]]:
-        """Map each fıkra/bent row to the (type, ref) of the madde, geçici madde or ek madde containing it.
+        """Map each fıkra/bent row to the (type, ref) of the provision containing it.
 
-        Computed at query time from the stored sections of the same document and content hash:
-        the innermost stored article window ``[start_char, end_char)`` that contains the row's
+        The provision is a madde, geçici madde or ek madde, or (in guides and standards) a paragraf
+        or ilke. Computed at query time from the stored sections of the same document and content hash:
+        the innermost stored provision window ``[start_char, end_char)`` that contains the row's
         ``start_char``. Keys are ``(doc_id, source_content_hash, start_char)`` of the rows passed in;
         a row without such a stored window has no entry.
         """
@@ -855,8 +887,8 @@ class DocumentStore:
             lambda conn: conn.execute(
                 f"SELECT doc_id, section_type, section_ref, start_char, end_char, source_content_hash "
                 f"FROM document_sections WHERE doc_id IN ({placeholders}) "
-                f"AND section_type IN (?, ?, ?) ORDER BY doc_id, start_char",
-                [*doc_ids, *_ARTICLE_SECTION_TYPES],
+                f"AND section_type IN ({','.join('?' for _ in _PARENT_SECTION_TYPES)}) ORDER BY doc_id, start_char",
+                [*doc_ids, *_PARENT_SECTION_TYPES],
             ).fetchall()
         )
         articles: dict[tuple[str, str], list[tuple[int, int, str, str]]] = {}

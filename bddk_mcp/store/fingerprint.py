@@ -7,7 +7,10 @@
   (everything except ``markdown_content`` and ``content_hash``, which build
   already compares per document) plus the whole catalog.  Only build computes
   it, from the seed it was given; it is not comparable at serve time.
-- ``parser``: the source text of ``bddk_mcp/store/section_index.py``.
+- ``parser``: the source text of ``bddk_mcp/store/section_index.py``, plus the
+  source text of the functions of ``bddk_mcp/store/doc_store.py`` that derive the
+  stored section rows and their search columns from the parsed sections:
+  ``_section_rows`` and the text normaliser it calls, ``normalize_search_text``.
 - ``chunker``: only what decides chunk boundaries and chunk text: the chunking
   constants (``EMBEDDING_CHUNK_TARGET_TOKENS``, ``EMBEDDING_CHUNK_TOKEN_OVERLAP``,
   ``MAX_SECTION_CHARS``), the word-unit pattern of
@@ -25,9 +28,10 @@
 The parts are derived from the source, so there is no hand-maintained parser
 version to forget.  The source is read as text (line endings normalised to
 ``\\n``) and the vector-store constants are taken from its syntax tree, so this
-module imports neither the vector store, numpy, the model nor the tokenizer.
-When a source text cannot be read (unusual packaging), that part is
-``"unknown"`` and is not compared; the model part is ``"unknown"`` when the
+module imports neither the vector store, the document store, numpy, the model
+nor the tokenizer.
+When a source text cannot be read (unusual packaging), or a named function is
+missing from it, that part is ``"unknown"`` and is not compared; the model part is ``"unknown"`` when the
 vector-store source cannot be read.
 """
 
@@ -52,6 +56,9 @@ RUNTIME_PARTS = ("parser", "chunker", "model")
 
 _PARSER_MODULE = "bddk_mcp.store.section_index"
 _VECTOR_STORE_MODULE = "bddk_mcp.store.vector_store"
+_DOC_STORE_MODULE = "bddk_mcp.store.doc_store"
+# How the stored section rows (and their indexed heading/content columns) are derived from the parsed sections.
+SECTION_ROW_FUNCTIONS = ("_section_rows", "normalize_search_text")
 CHUNK_FUNCTIONS = (
     "_chunk_document",
     "_chunk_document_by_tokens",
@@ -95,7 +102,10 @@ def _digest(payload: object) -> str:
 
 def parser_part() -> str:
     source = _module_source(_PARSER_MODULE)
-    return UNKNOWN if source is None else hashlib.sha256(source.encode("utf-8")).hexdigest()[:_DIGEST_CHARS]
+    rows = _named_segments(_DOC_STORE_MODULE, SECTION_ROW_FUNCTIONS, "parser")
+    if source is None or rows is None:
+        return UNKNOWN
+    return _digest({"section_index": hashlib.sha256(source.encode("utf-8")).hexdigest(), "section_rows": rows})
 
 
 def _top_level_segments(source: str) -> dict[str, str]:
@@ -112,9 +122,9 @@ def _top_level_segments(source: str) -> dict[str, str]:
     return segments
 
 
-def _vector_store_segments(names: tuple[str, ...], part: str) -> dict[str, str] | None:
-    """The named top-level segments of the vector-store source, or None when any cannot be read."""
-    source = _module_source(_VECTOR_STORE_MODULE)
+def _named_segments(module_name: str, names: tuple[str, ...], part: str) -> dict[str, str] | None:
+    """The named top-level segments of a module's source, or None when any cannot be read."""
+    source = _module_source(module_name)
     if source is None:
         return None
     try:
@@ -123,10 +133,15 @@ def _vector_store_segments(names: tuple[str, ...], part: str) -> dict[str, str] 
         return None
     if any(not segments.get(name) for name in names):
         logger.warning(
-            "Build fingerprint: a function or constant of the vector store was not found; %s not compared", part
+            "Build fingerprint: a function or constant of %s was not found; %s not compared", module_name, part
         )
         return None
     return {name: segments[name] for name in names}
+
+
+def _vector_store_segments(names: tuple[str, ...], part: str) -> dict[str, str] | None:
+    """The named top-level segments of the vector-store source, or None when any cannot be read."""
+    return _named_segments(_VECTOR_STORE_MODULE, names, part)
 
 
 def chunker_part() -> str:
