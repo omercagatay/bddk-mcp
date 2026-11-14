@@ -12,7 +12,22 @@ This is the canonical project instruction file for Cursor, Codex, Pi, and other 
 - Use the existing checks appropriate to the change. Never delete, weaken, or skip tests merely to obtain a pass. Report which checks actually ran, their results, and anything unverified; distinguish pre-existing failures from new ones.
 - Security review is the agent's job; no external review bot does it. Before a pull request is merged, review its diff for security impact (authentication and the HTTP boundary, outbound hosts, input validation, what reaches logs and tool errors, corpus write paths, dependencies, CI and the image) and write the result in the pull request description: what was checked, what was found and fixed, and what was not checked. A finding that is not fixed stays open for the owner's decision; do not merge over it. This also applies to Dependabot pull requests and to ones another session opened.
 - Do not read or expose secret values unnecessarily. Never send credentials, customer data, internal audit findings, or confidential bank documents to external services. Public regulatory text does not make the rest of the workspace public.
-- Use applicable installed skills when available, but do not require a particular agent's plugins to work on this repository. Skills do not authorize extra scope, subagent delegation, or external actions; ask before delegating unless already authorized.
+- Use applicable installed skills when available, but do not require a particular agent's plugins to work on this repository. Skills do not authorize extra scope or external actions; delegation to subagents follows the next section.
+
+## Delegation and model choice
+
+The owner gave the orchestrating agent standing authority on 2026-11-15 to delegate work to subagents and to choose the model for each job. Do not ask the owner which model to use and do not expect a prompt to say it. The condition of that freedom is maximum care: the choice is made per job, deliberately, and the orchestrator answers for every result.
+
+- Choose by what the job needs, in three tiers:
+  - **Smallest model**: purely mechanical work whose result a script or a count decides. Running an existing script or harness, counting, tabulating, converting formats, repeating a measurement. No judgement about legal text, no design decision, no code change beyond a literal instruction.
+  - **Middle model**: work that needs reading and classification but not design. Scans of document text and metadata, documentation alignment, mechanical code edits against a written specification, test runs with triage.
+  - **Strongest subagent model**: judgement-heavy work. Changes to retrieval, ranking, the section parser, quality policy, security boundaries or the corpus build; writing ground truth for an evaluation; root-cause diagnosis; code and security review.
+- When two tiers are plausible, take the higher one. A wrong result from a cheaper model costs more than it saves, and anything an inspector could end up citing is never a job for the smallest model.
+- The orchestrator's own model is for orchestration, briefs and review, not for subagents, unless the owner says otherwise for a particular job.
+- The orchestrator writes every brief itself: goal, files, what is already known or ruled out, hard rules (read-only or not, what must not be touched), the expected output and what done looks like.
+- The orchestrator reviews every result personally before acting on it or reporting it, and verifies it with an independent check of its own (its own query, its own run, the diff read line by line). An agent's statement that it verified its own finding is not verification. Say in the report what was verified independently and what was not.
+- Keep the fan-out small, give each set of files one writer at a time, and stop agents that die on a usage limit instead of letting them retry.
+- A subagent has no more authority than the orchestrator: everything in "Working with the owner" (approval for push, deployment, corpus mutations, destructive operations; no secrets or bank data to external services) applies to delegated work unchanged.
 
 ## Project scope and current facts
 
