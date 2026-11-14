@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import time
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -193,6 +194,29 @@ def _newest_first(announcements: list[dict]) -> list[dict]:
 def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
     """Register the four search tools on the given MCP instance."""
 
+    def _in_section(category: str, entry_category: str) -> bool:
+        # The catalog's own category rule (search_decisions): a Turkish-lowercased substring.
+        return _turkish_lower(category) in _turkish_lower(entry_category)
+
+    def _section_size(category: str) -> int:
+        return sum(1 for entry in deps.client.get_cache_items() if _in_section(category, entry.category))
+
+    async def _other_section_matches(request: BddkSearchRequest) -> list[tuple[str, int]]:
+        """Matches of the same keywords and dates outside the requested section, per section."""
+        counts: Counter[str] = Counter()
+        page_number = 1
+        while True:
+            unfiltered = await deps.client.search_decisions(
+                request.model_copy(update={"category": None, "page": page_number, "page_size": 50})
+            )
+            for entry in unfiltered.decisions:
+                if not _in_section(request.category or "", entry.category):
+                    counts[entry.category or "(no section)"] += 1
+            if page_number * 50 >= unfiltered.total_results:
+                break
+            page_number += 1
+        return sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+
     @mcp.tool()
     @logged_tool(logger)
     async def search_bddk_regulations(
@@ -218,11 +242,17 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
         article references ("madde 5"), defined terms, calculation formulas — use
         search_document_store instead (semantic search over full text).
 
-        Matching: function words (sayılı, hakkında, ilişkin, dair, göre, ile, ve, ...) are
-        ignored; document-type words (yönetmelik, tebliğ, genelge, rehber, karar, kanun, taslak,
-        in any inflection) are not required literally but rank documents of that type first;
-        every other token must match the title (exactly or by a shared word stem) or the
-        category/date/number. A number equal to a decision number ranks that decision first.
+        Matching: Turkish characters and capitals are optional ("kredilerin siniflandirilmasi",
+        "BANKALARIN IÇ SISTEMLERI" work). Function words (sayılı, hakkında, ilişkin, dair, göre,
+        ile, ve, ...) are ignored; document-type words (yönetmelik, tebliğ, genelge, rehber, karar,
+        kanun, taslak, in any inflection) are not required literally but rank documents of that
+        type first; every other token must match a whole word of the title (exactly, as an
+        inflected form, or by a shared word stem) or of the category/date/number/document id; a
+        number matches whole numbers only. A number that identifies an entry (its decision number,
+        the number of its mevzuat_ document id, or a leading "<n> sayılı" in its title, e.g.
+        "5411") ranks that entry first; then a title equal to the query, then the titles that
+        contain the most query words. In-force texts rank before drafts and repealed texts unless
+        the query names them (taslak, mülga).
         keywords may be empty when category or a date range is given: the matching catalog
         entries are then listed newest decision date first. A date bound skips every entry
         without a decision date (most yönetmelik, kanun, rehber, genelge and tebliğ entries);
@@ -233,7 +263,12 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
                 optional when category, date_from or date_to is given
             page: Page number, starting from 1
             page_size: Number of results per page (max 50)
-            category: Optional category filter. Available categories:
+            category: Optional filter on the BDDK website section the entry was listed under —
+                not the legal type of the instrument. Sections mix types: Bilgi Sistemleri holds
+                yönetmelik, tebliğ and genelge; Sermaye Yeterliliği holds tebliğ and rehber; BDDK
+                Düzenlemesi holds yönetmelik; Mülga Düzenleme holds repealed instruments of every
+                type. To find every instrument of one type, put the type word in keywords and give
+                no category. The answer says how many matches other sections hold. Sections:
                 Yönetmelik, Genelge, Tebliğ, Rehber, Bilgi Sistemleri,
                 Sermaye Yeterliliği, Faizsiz Bankacılık, Tekdüzen Hesap Planı,
                 Kurul Kararı, Kanun, Banka Kartları,
@@ -266,6 +301,34 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
             else ""
         )
 
+        other_sections: list[tuple[str, int]] = []
+        if category and catalog_keyword_tokens(keywords):
+            other_sections = await _other_section_matches(request)
+        other_total = sum(count for _, count in other_sections)
+        other_list = ", ".join(f"{name} ({count})" for name, count in other_sections)
+
+        if not result.decisions and result.total_results > 0:
+            last_page = math.ceil(result.total_results / result.page_size)
+            output = (
+                f"PAGE OUT OF RANGE: page {result.page} is beyond the last page. {result.total_results} result(s) "
+                f"match these keywords and filters, in {last_page} page(s) of {result.page_size}; request a page "
+                f"from 1 to {last_page}."
+            )
+            if undated_note:
+                output = f"{output}\n{undated_note}"
+            return structured_tool_result(
+                RegulationCatalogResponse(
+                    status="no_results",
+                    text=output,
+                    keywords=keywords,
+                    page=result.page,
+                    page_size=result.page_size,
+                    total_results=result.total_results,
+                    undated_excluded=undated_excluded,
+                    warnings=[undated_note] if undated_note else [],
+                )
+            )
+
         if not result.decisions:
             catalog_scope = (
                 f"this corpus catalog of {result.catalog_size:,} documents"
@@ -279,6 +342,27 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
                 else "Absence here is NOT evidence that the instrument does not exist; it may simply not be in "
                 "this corpus."
             )
+            if category:
+                section_size = _section_size(category)
+                section_line = f"Category '{category}' is a BDDK website section, not the legal type of the instrument."
+                if other_total:
+                    absence_line = (
+                        f"{section_line} {other_total} match(es) for these keywords are listed under other "
+                        f"sections: {other_list}. Repeat the search without category (put a type word such as "
+                        f"'tebliğ' in keywords to rank that type first)."
+                    )
+                    if undated_note:
+                        absence_line = f"{undated_note} {absence_line}"
+                elif section_size == 0:
+                    absence_line = (
+                        f"{section_line} Category '{category}' holds 0 documents in this corpus catalog, so this "
+                        "filter can match nothing; repeat the search without category."
+                    )
+                elif not undated_note:
+                    absence_line = (
+                        f"{section_line} It holds {section_size:,} document(s); no other section matches either. "
+                        "Absence here is NOT evidence that the instrument does not exist."
+                    )
             output = f"""NO RESULTS: No entry in {catalog_scope} matches these keywords and filters.
 This tool searches the local corpus catalog metadata only — not document bodies and not the BDDK website.
 {absence_line}
@@ -305,11 +389,21 @@ Try: (1) call search_document_store with the same query for full-text semantic s
         lines = [f"Found {result.total_results} result(s) (page {result.page}):\n"]
         if undated_note:
             lines.insert(0, f"Note: {undated_note}")
+        other_sections_note = (
+            f"{other_total} more match(es) for these keywords are listed under other BDDK website sections: "
+            f"{other_list}. The category filter is a website section, not the legal type of the instrument."
+            if other_total
+            else ""
+        )
+        if other_sections_note:
+            lines.insert(0, f"Note: {other_sections_note}")
         items: list[RegulationCatalogItem] = []
         evidence: list[EvidenceReference] = []
         warnings: list[str] = [UNTRUSTED_SOURCE_WARNING, LEGAL_APPLICABILITY_WARNING]
         if undated_note:
             warnings.append(undated_note)
+        if other_sections_note:
+            warnings.append(other_sections_note)
         for d in result.decisions:
             date_info = f" ({d.decision_date} - {d.decision_number})" if d.decision_date else ""
             cat_info = f" [{d.category}]" if d.category else ""

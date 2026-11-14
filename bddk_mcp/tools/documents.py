@@ -33,6 +33,7 @@ from bddk_mcp.tools.structured_outputs import (
     DocumentVersionItem,
     EvidenceReference,
     QualityMetadata,
+    decision_identifier_label,
     decision_identifier_text,
     document_status_notice,
     source_date_text,
@@ -168,7 +169,31 @@ def register(
                 page_contents.append((page_num, found_page.markdown_content))
                 break
 
+        # A bare number may be a Kurul decision number rather than a document id (8970 is the decision
+        # number of document 779); the alias order of document_id_candidates is not changed by this.
+        bare_number = document_id.strip()
+        decision_holders = (
+            [
+                entry
+                for entry in deps.client.get_cache_items()
+                if (entry.decision_number or "").strip() == bare_number and entry.document_id != resolved_id
+            ]
+            if bare_number.isdigit()
+            else []
+        )
+        holders_text = "; ".join(f'document {entry.document_id} "{entry.title}"' for entry in decision_holders)
+
         if resolved_id is None:
+            if decision_holders:
+                return tool_error(
+                    NOT_FOUND,
+                    f"Document {document_id} is not available in the local store: {document_id} is not a stored "
+                    f"document id, but it is the Kurul decision number of {holders_text}. This MCP server is "
+                    "airlocked and does not fetch from live BDDK / mevzuat.gov.tr sources at runtime.",
+                    retryable=False,
+                    hint=f'Call get_bddk_document(document_id="{decision_holders[0].document_id}"), or use '
+                    f'search_bddk_regulations(keywords="{bare_number}") to see every entry with this number.',
+                )
             return tool_error(
                 NOT_FOUND,
                 f"Document {document_id} is not available in the local store. This MCP server is airlocked "
@@ -193,6 +218,11 @@ def register(
         )
 
         alias_line = f"- Resolved from: `{document_id}` -> `{resolved_id}`\n" if resolved_id != document_id else ""
+        if decision_holders:
+            alias_line += (
+                f"- Note: {bare_number} is also the Kurul decision number of {holders_text}, a different "
+                f'document (get_bddk_document(document_id="{decision_holders[0].document_id}")).\n'
+            )
 
         last_page_num = page_num
         missing_page: int | None = None
@@ -315,7 +345,7 @@ def register(
         )
 
         decision = decision_identifier_text(meta_date, meta_number)
-        decision_line = f"- Decision date / number: {decision}\n" if decision else ""
+        decision_line = f"- {decision_identifier_label(resolved_id)}: {decision}\n" if decision else ""
         header = (
             f"## {meta_title}\n- Document ID: {resolved_id}\n{alias_line}"
             f"{decision_line}"

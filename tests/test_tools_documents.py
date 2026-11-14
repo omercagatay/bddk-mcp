@@ -8,6 +8,7 @@ import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 
 from bddk_mcp.core.deps import Dependencies
+from bddk_mcp.core.models import BddkDecisionSummary
 from bddk_mcp.quality.markdown_quality import assess_markdown_quality
 from bddk_mcp.store.doc_store import DocumentPage
 from bddk_mcp.tools.documents import _is_formula_aware, register
@@ -763,3 +764,120 @@ async def test_header_prints_the_combined_decision_line_only_when_stored():
 
     assert "Decision date / number:" not in result.text
     assert "- Decision Date:" not in result.text and "- Decision Number:" not in result.text
+
+
+def _catalog_client(entries):
+    from bddk_mcp.ingest.client import BddkApiClient
+    from tests.conftest import MockStore
+
+    client = BddkApiClient(store=MockStore())
+    client._cache = list(entries)
+    client._cache_timestamp = 9999999999.0
+    return client
+
+
+_DECISION_8970 = BddkDecisionSummary(
+    title="Kredilerin İkinci Grupta Sınıflandırılması için Öngörülen Gecikme Süresinin Değiştirilmesi hk. Kurul Kararı",
+    document_id="779",
+    decision_date="27.03.2020",
+    decision_number="8970",
+    category="Kurul Kararı",
+)
+_DECISION_10747 = BddkDecisionSummary(
+    title="SYR Hesaplamasına İlişkin Değişiklikler Hk. Kurul Kararı",
+    document_id="1207",
+    decision_date="12.12.2023",
+    decision_number="10747",
+    category="Kurul Kararı",
+)
+_REGULATION_10747 = BddkDecisionSummary(
+    title="Bankaların Muhasebe Uygulamalarına ve Belgelerin Saklanmasına İlişkin Usul ve Esaslar Hakkında Yönetmelik",
+    document_id="mevzuat_10747",
+    category="Yönetmelik",
+)
+
+
+@pytest.mark.asyncio
+async def test_a_decision_number_given_as_document_id_names_the_document_carrying_it():
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(return_value=None)
+    deps = _make_deps(doc_store=doc_store, client=_catalog_client([_DECISION_8970, _REGULATION_10747]))
+
+    with pytest.raises(ToolError) as exc_info:
+        await _capture_get_bddk_document(deps)("8970", 1)
+    out = str(exc_info.value)
+
+    assert out.splitlines()[0] == "[ERROR:NOT_FOUND] retryable=false"
+    assert "decision number" in out
+    assert "779" in out
+    assert 'get_bddk_document(document_id="779")' in out
+    assert "search_bddk_regulations" in out
+    assert "bddk-mcp build" not in out and "bddk-mcp sync" not in out
+
+
+@pytest.mark.asyncio
+async def test_a_number_that_is_no_decision_number_gets_no_decision_note():
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(return_value=None)
+    deps = _make_deps(doc_store=doc_store, client=_catalog_client([_DECISION_8970]))
+
+    with pytest.raises(ToolError) as exc_info:
+        await _capture_get_bddk_document(deps)("99999999", 1)
+    out = str(exc_info.value)
+
+    assert "Document 99999999 is not available" in out
+    assert "decision number of" not in out
+
+
+@pytest.mark.asyncio
+async def test_a_stored_id_that_is_also_another_documents_decision_number_names_that_document():
+    page = DocumentPage(
+        document_id="mevzuat_10747",
+        title=_REGULATION_10747.title,
+        markdown_content="BANKALARIN MUHASEBE UYGULAMALARI...",
+        page_number=1,
+        total_pages=1,
+    )
+
+    async def fake_get_page(doc_id, page_number):
+        return page if doc_id == "mevzuat_10747" else None
+
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(side_effect=fake_get_page)
+    deps = _make_deps(doc_store=doc_store, client=_catalog_client([_DECISION_10747, _REGULATION_10747]))
+
+    result = await _capture_get_bddk_document(deps)("10747", 1)
+
+    assert "Document ID: mevzuat_10747" in result.text
+    assert "BANKALARIN MUHASEBE UYGULAMALARI" in result.text
+    note = [line for line in result.text.splitlines() if "1207" in line]
+    assert len(note) == 1
+    assert "decision number" in note[0]
+
+
+@pytest.mark.asyncio
+async def test_a_resmi_gazete_identifier_is_not_labelled_as_a_kurul_decision():
+    entry = BddkDecisionSummary(
+        title="Bankalarca Kamuya Açıklanacak Finansal Tablolar Tebliğinde Değişiklik - Net İstikrarlı Fonlama Oranı",
+        document_id="rg_32202_20230526_6",
+        decision_date="26.05.2023",
+        decision_number="32202",
+        category="Tebliğ",
+    )
+    doc_store = _paged_store(["metin\n"])
+    deps = _make_deps(doc_store=doc_store, client=_catalog_client([entry]))
+
+    result = await _capture_get_bddk_document(deps)("rg_32202_20230526_6", 1, 1)
+
+    assert "Decision date / number" not in result.text
+    assert "- Resmî Gazete date / issue: 26.05.2023 / 32202" in result.text
+    # Stored metadata is unchanged.
+    assert result.structuredContent["evidence"][0]["decision_number"] == "32202"
+
+
+def test_decision_identifier_label():
+    from bddk_mcp.tools.structured_outputs import decision_identifier_label
+
+    assert decision_identifier_label("rg_32202_20230526_6") == "Resmî Gazete date / issue"
+    assert decision_identifier_label("779") == "Decision date / number"
+    assert decision_identifier_label("mevzuat_5411") == "Decision date / number"

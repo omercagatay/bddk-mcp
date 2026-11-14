@@ -730,6 +730,79 @@ def test_catalog_tool_description_says_it_searches_the_local_corpus_catalog():
 
 
 @pytest.mark.asyncio
+async def test_catalog_page_beyond_the_last_page_says_so_and_gives_the_totals():
+    from bddk_mcp.core.models import BddkDecisionSummary
+
+    items = [
+        BddkDecisionSummary(
+            title=f"Kredi Kurul Kararı {i}", document_id=str(i), decision_date="01.01.2020", category="Kurul Kararı"
+        )
+        for i in range(23)
+    ]
+    result = await _catalog_tools(items)["search_bddk_regulations"](category="Kurul Kararı", page=5, page_size=10)
+
+    assert result.structuredContent["status"] == "no_results"
+    assert result.structuredContent["total_results"] == 23
+    assert "No entry in this corpus catalog" not in result.text
+    assert "page 5 is beyond the last page" in result.text
+    assert "23 result(s)" in result.text
+    assert "3 page(s)" in result.text
+
+
+@pytest.mark.asyncio
+async def test_catalog_empty_section_says_it_holds_no_documents():
+    from bddk_mcp.core.models import BddkDecisionSummary
+
+    items = [BddkDecisionSummary(title="Kredi Kartları Rehberi", document_id="1", category="Rehber")]
+    result = await _catalog_tools(items)["search_bddk_regulations"](category="Banka Kartları")
+
+    assert result.structuredContent["status"] == "no_results"
+    assert "Banka Kartları" in result.text
+    assert "holds 0 documents" in result.text
+    assert "it may simply not be in this corpus" not in result.text
+
+
+@pytest.mark.asyncio
+async def test_catalog_category_filter_names_the_matches_in_other_sections():
+    from bddk_mcp.core.models import BddkDecisionSummary
+
+    items = [
+        BddkDecisionSummary(
+            title="Kredi Riski Azaltım Tekniklerine İlişkin Tebliğ", document_id="kra", category="Sermaye Yeterliliği"
+        ),
+        BddkDecisionSummary(title="Bankalarca Risk Yönetimine İlişkin Tebliğ", document_id="risk", category="Tebliğ"),
+        BddkDecisionSummary(title="Kredi Riski Rehberi", document_id="rehber", category="Rehber"),
+    ]
+    tools = _catalog_tools(items)
+
+    empty = await tools["search_bddk_regulations"]("kredi riski", category="Tebliğ")
+    assert empty.structuredContent["status"] == "no_results"
+    assert "2 match(es)" in empty.text
+    assert "Sermaye Yeterliliği (1)" in empty.text
+    assert "Rehber (1)" in empty.text
+    assert "it may simply not be in this corpus" not in empty.text
+
+    partial = await tools["search_bddk_regulations"]("tebliğ", category="Tebliğ")
+    assert [r["document_id"] for r in partial.structuredContent["results"]] == ["risk"]
+    assert "1 more match(es)" in partial.text
+    assert "Sermaye Yeterliliği (1)" in partial.text
+
+    alone = await tools["search_bddk_regulations"]("risk yönetimine", category="Tebliğ")
+    assert "more match(es)" not in alone.text
+
+
+def test_catalog_category_is_described_as_a_website_section_not_the_instrument_type():
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.tools.search import register
+
+    mcp = MagicMock()
+    register(mcp, Dependencies(db=None, doc_store=None, client=None, http=None))
+    doc = _registered_tools(mcp)["search_bddk_regulations"].__doc__
+    assert "website section" in doc
+    assert "not the legal type of the instrument" in doc
+
+
+@pytest.mark.asyncio
 async def test_announcements_are_sorted_newest_first_across_categories_and_the_cut_is_stated():
     from unittest.mock import patch
 

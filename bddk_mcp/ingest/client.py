@@ -4,6 +4,7 @@ import re
 import sqlite3
 import time
 from datetime import datetime
+from fractions import Fraction
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -28,7 +29,7 @@ from bddk_mcp.core.outbound_http import (
     assert_public_https_resolution,
     bounded_request_with_retry,
 )
-from bddk_mcp.store.doc_store import DocumentStore
+from bddk_mcp.store.doc_store import DocumentStore, normalize_search_text
 
 logger = logging.getLogger(__name__)
 
@@ -212,28 +213,27 @@ def _turkish_stem(word: str) -> str:
 
 
 # Catalog-query words that carry no title content ("8970 sayılı", "... hakkında").
-# They are dropped before the all-token match.
+# They are dropped before the all-token match. Matching is on folded tokens
+# (normalize_search_text), so each word is listed once in its Turkish spelling.
 _CATALOG_FUNCTION_WORDS = frozenset(
-    {
+    normalize_search_text(word)
+    for word in (
         "sayılı",
-        "sayili",
+        "sayısı",
         "hakkında",
-        "hakkinda",
         "hk",
         "ilişkin",
-        "iliskin",
         "dair",
         "göre",
-        "gore",
         "ile",
         "ve",
         "veya",
         "nolu",
         "no",
         "numaralı",
-        "numarali",
         "tarihli",
-    }
+        "tarihi",
+    )
 )
 
 
@@ -283,14 +283,88 @@ _DOCUMENT_TYPE_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
 # shorter word (Turkish case/possessive suffixes).
 _STEM_MIN_LENGTH = 5
 _STEM_MAX_SUFFIX = 4
+# Short roots ("fon", "dış", "test", "kart", "izin"): a common root of this many characters is enough when
+# what follows it on both sides is an inflectional ending (plural, possessive, case); two letters never are.
+_STEM_MIN_ROOT = 3
+# A remainder longer than this after the common prefix must be an inflectional ending, unless the common
+# prefix is longer than the remainder: "yapılandırma" does not reach "yapılması" or "yapılacak" through "yapıl".
+_STEM_MAX_FREE_REMAINDER = 5
 
-_TOKEN_EDGE_PUNCTUATION = ".,;:()[]\"'’!?"
+_TOKEN_EDGE_PUNCTUATION = ".,;:()[]\"'’!?-–—"
+_TOKEN_SPLIT_RE = re.compile(r"[\s()\[\]{},;:!?\"“”«»\-–—]+")
+_INTERIOR_APOSTROPHE_RE = re.compile(r"['’]")
+_SLASH_DATE_RE = re.compile(r"\d{1,2}/\d{1,2}/\d{4}")
+# Two words joined by a slash or a dot ("Destek/Danışmanlık", "Pozisyon/Özkaynak", "T.Vakıflar"): a letter, then
+# the joiner, then a word of at least three letters. Abbreviations ("A.Ş.", "S.A.L") and numbers stay one token.
+_JOINED_WORDS_RE = re.compile(r"(?<=[^\W\d_])[./](?=[^\W\d_]{3})")
+
+# The nominal inflection paradigm on folded text (ı→i, ü→u, ö→o, ç→c), reviewed against every tail between
+# two title words of the catalog: [plural] [third-person possessive] [case]. The buffer letters depend on the
+# letter before the ending: after a vowel the possessive is -s[ıiuü] and the cases take y/n ("bankaya",
+# "bankanın"); after a consonant they start with the vowel ("kanunu", "kanuna"); after a possessive the cases
+# take the pronominal n ("fonunu", "fonuna", "fonunda", "fonunca", "kararıyla"), also directly after a vowel-final
+# stem, whose last vowel may be that possessive ("ili"/"ilinde"). Cases: accusative, dative, locative (+ relative
+# -ki), ablative, genitive, instrumental, equative -ca/-ce. Anything else is a derivation or another word: -siz,
+# -lik, -ci, -li, -sel, -ma/-me, -an/-en, -ış ("Faizsiz", "Kuruluş", "Kurmasına").
+_PLURAL = r"l[ae]r"
+_CASE_AFTER_POSSESSIVE = r"n[iu]n?|n[ae]|nd[ae](?:n|ki)?|nc[ae]|yl[ae]"
+_CASE_AFTER_VOWEL = r"y[iu]|y[ae]|n[iu]n|d[ae](?:n|ki)?|y?l[ae]|c[ae]"
+_CASE_AFTER_CONSONANT = r"[iu]n?|[ae]|[dt][ae](?:n|ki)?|l[ae]|c[ae]"
+_AFTER_CONSONANT = rf"(?:[iu](?:{_CASE_AFTER_POSSESSIVE})?|{_CASE_AFTER_CONSONANT})?"
+_INFLECTION_AFTER_CONSONANT_RE = re.compile(rf"(?:{_PLURAL})?{_AFTER_CONSONANT}")
+_INFLECTION_AFTER_VOWEL_RE = re.compile(
+    rf"{_PLURAL}{_AFTER_CONSONANT}|(?:s[iu](?:{_CASE_AFTER_POSSESSIVE})?|{_CASE_AFTER_VOWEL}|{_CASE_AFTER_POSSESSIVE})?"
+)
+# Consonant softening before a vowel ending (grup/grubu, hesap/hesabı, kayıt/kaydı, yönetmelik/yönetmeliği);
+# ç/c is already one letter after folding.
+_SOFTENING_PAIRS = frozenset({("p", "b"), ("b", "p"), ("t", "d"), ("d", "t"), ("k", "g"), ("g", "k")})
+_VOICED_SOFT = frozenset("bdg")
+_VOWELS = frozenset("aeiou")
+# Reviewed roots that drop a vowel before a vowel ending (izin/izni, isim/ismi, kayıt/kaydı, ...), folded:
+# elided form -> full root. Applied only when the elided form is followed by a vowel.
+_ELIDED_ROOTS: dict[str, str] = {
+    "izn": "izin",
+    "ism": "isim",
+    "kayd": "kayit",
+    "akl": "akil",
+    "hukm": "hukum",
+    "emr": "emir",
+    "nakl": "nakil",
+    "nakd": "nakit",
+    "sehr": "sehir",
+    "devr": "devir",
+}
+# Reviewed lexicalised words, folded, that the paradigm would otherwise read as an inflection of a shorter root:
+# "gerekçe" (justification; "Genel Gerekçe" of the draft titles) is not gerek + equative -ce, "malî" (financial;
+# "Mali İşler") is not mal + -i. Such a word, or an inflection of it, never matches through a root shorter than
+# itself, whichever side it is on; it still matches itself and its own inflections ("gerekçesi").
+_LEXICALISED_WORDS = frozenset({"gerekce", "mali"})
+
+# The taslak pattern of _DOCUMENT_TYPE_PATTERNS: a query naming it asks for drafts.
+_DRAFT_TYPE_PATTERN = _DOCUMENT_TYPE_PATTERNS[-1]
+_DRAFT_CATEGORY = normalize_search_text("Düzenleme Taslağı")
+_REPEALED_CATEGORY = normalize_search_text("Mülga Düzenleme")
+_REPEALED_WORD = normalize_search_text("mülga")
+_PREFIXED_DOCUMENT_ID_RE = re.compile(r"(?:mevzuat|bddk)_(\d+)")
+_SAYILI = normalize_search_text("sayılı")
+# "Kurul" directly before a document-type word ("Kurul Kararı") is boilerplate in title-side coverage.
+_KURUL = normalize_search_text("kurul")
 
 
 def _catalog_tokens(text: str) -> list[str]:
-    """Turkish-lowercased whitespace tokens without surrounding punctuation."""
-    tokens = (token.strip(_TOKEN_EDGE_PUNCTUATION) for token in _turkish_lower(text).split())
-    return [token for token in tokens if token]
+    """Folded word tokens: normalize_search_text, split on spaces and punctuation, an interior
+    apostrophe cut off with what follows it ("Kanunu'nun" -> "kanunu"), DD/MM/YYYY as DD.MM.YYYY, two words
+    joined by a slash or a dot split ("pozisyon/ozkaynak" -> "pozisyon", "ozkaynak")."""
+    tokens: list[str] = []
+    for joined in _TOKEN_SPLIT_RE.split(normalize_search_text(text)):
+        for raw in _JOINED_WORDS_RE.split(joined):
+            token = _INTERIOR_APOSTROPHE_RE.split(raw.strip(_TOKEN_EDGE_PUNCTUATION), maxsplit=1)[0]
+            token = token.strip(_TOKEN_EDGE_PUNCTUATION)
+            if _SLASH_DATE_RE.fullmatch(token):
+                token = token.replace("/", ".")
+            if token:
+                tokens.append(token)
+    return tokens
 
 
 def catalog_keyword_tokens(keywords: str) -> list[str]:
@@ -305,17 +379,138 @@ def _document_type_pattern(token: str) -> re.Pattern[str] | None:
     return None
 
 
-def _shares_stem(token: str, word: str) -> bool:
-    """Conservative inflection-tolerant comparison of two lowercased words."""
+def _is_inflection_tail(remainder: str, before: str) -> bool:
+    """Whether ``remainder`` is a nominal inflection of a stem whose last letter is ``before``."""
+    pattern = _INFLECTION_AFTER_VOWEL_RE if before in _VOWELS else _INFLECTION_AFTER_CONSONANT_RE
+    return pattern.fullmatch(remainder) is not None
+
+
+def _restore_elided_root(word: str) -> str:
+    for elided, root in _ELIDED_ROOTS.items():
+        if word.startswith(elided) and len(word) > len(elided) and word[len(elided)] in _VOWELS:
+            return root + word[len(elided) :]
+    return word
+
+
+def _lexicalised_root_length(word: str) -> int:
+    """Length of the reviewed lexicalised word that ``word`` is or inflects, else 0."""
+    for lexicalised in _LEXICALISED_WORDS:
+        if word.startswith(lexicalised) and _is_inflection_tail(word[len(lexicalised) :], lexicalised[-1]):
+            return len(lexicalised)
+    return 0
+
+
+def _common_prefix(left: str, right: str, *, softening: bool = False) -> int:
+    """Length of the common prefix; with ``softening`` one p/b, t/d or k/g pair counts as equal when the
+    voiced letter is followed by a vowel (a root-final consonant before a vowel ending)."""
+    prefix = 0
+    softened = False
+    for index, (a, b) in enumerate(zip(left, right, strict=False)):
+        if a == b:
+            prefix += 1
+            continue
+        if not softening or softened or (a, b) not in _SOFTENING_PAIRS:
+            break
+        voiced_side = left if a in _VOICED_SOFT else right
+        if index + 1 >= len(voiced_side) or voiced_side[index + 1] not in _VOWELS:
+            break
+        softened = True
+        prefix += 1
+    return prefix
+
+
+def _stem_grade(token: str, word: str) -> int:
+    """How closely two folded words match: 2 = the same word or an inflection of the same root,
+    1 = a shared stem by the general prefix rule, 0 = no match."""
+    if token == word:
+        return 2
+    # Inflection of one root: a root of at least _STEM_MIN_ROOT characters within the common prefix
+    # (softening and the reviewed elisions allowed) followed on both sides by an inflectional ending
+    # ("riske"/"riski", "orani"/"oranini" through the root "oran").
+    restored_token, restored_word = _restore_elided_root(token), _restore_elided_root(word)
+    prefix = _common_prefix(restored_token, restored_word, softening=True)
+    min_root = max(_STEM_MIN_ROOT, _lexicalised_root_length(restored_token), _lexicalised_root_length(restored_word))
+    for root in range(prefix, min_root - 1, -1):
+        if _is_inflection_tail(restored_token[root:], restored_token[root - 1]) and _is_inflection_tail(
+            restored_word[root:], restored_word[root - 1]
+        ):
+            return 2
+    # General rule: both words at least _STEM_MIN_LENGTH long and a plain common prefix that covers all
+    # but _STEM_MAX_SUFFIX characters of the shorter word; a long remainder must be an ending.
     shorter = min(len(token), len(word))
     if shorter < _STEM_MIN_LENGTH:
+        return 0
+    prefix = _common_prefix(token, word)
+    if prefix < _STEM_MIN_LENGTH or prefix < shorter - _STEM_MAX_SUFFIX:
+        return 0
+    before = token[prefix - 1]
+    for remainder in (token[prefix:], word[prefix:]):
+        if (
+            len(remainder) > _STEM_MAX_FREE_REMAINDER
+            and prefix <= len(remainder)
+            and not _is_inflection_tail(remainder, before)
+        ):
+            return 0
+    # A query token that extends the whole title word by a derivation ("yapılan" + "dırma") is a different
+    # word; a short query still reaches its longer title forms ("banka" -> "Bankacılık").
+    token_tail = token[prefix:]
+    if prefix == len(word) and len(token_tail) >= _STEM_MAX_SUFFIX and not _is_inflection_tail(token_tail, before):
+        return 0
+    return 1
+
+
+def _shares_stem(token: str, word: str) -> bool:
+    """Conservative inflection-tolerant comparison of two folded words."""
+    return _stem_grade(token, word) > 0
+
+
+def _title_word_matches(token: str, word: str) -> bool:
+    """A content token matches a title word: equal, or (not a number, not a type word) by the stem rule."""
+    if token == word:
+        return True
+    if any(char.isdigit() for char in token) or _document_type_pattern(word) is not None:
         return False
-    prefix = 0
-    for left, right in zip(token, word, strict=False):
-        if left != right:
+    return _stem_grade(token, word) > 0
+
+
+def _phrase_and_title_coverage(content_tokens: list[str], title_words: list[str]) -> tuple[int, Fraction]:
+    """Phrase hit and title-side coverage of a title for the query's content tokens.
+
+    Phrase hit: 2 when the tokens match adjacent title words in query order at the start of the title (a leading
+    document-type word does not count), 1 when they do so later in the title, 0 otherwise. Function words of the
+    title are skipped ("Usul ve Esaslar" holds the phrase "usul esaslar"). Title-side coverage: the title's
+    content words (neither function nor document-type words) matched by a token, over all of them, as an exact
+    fraction. Boilerplate is left out of both sides of that fraction: "kurul" directly before a document-type word
+    ("Kurul Kararı") and the number of a leading "<n> sayılı" citation ("5464 sayılı ...").
+    """
+    words = [word for word in title_words if word not in _CATALOG_FUNCTION_WORDS]
+    if not content_tokens or not words:
+        return 0, Fraction(0)
+    lead = 0
+    while lead < len(words) - 1 and _document_type_pattern(words[lead]) is not None:
+        lead += 1
+    phrase = 0
+    for start in range(len(words) - len(content_tokens) + 1):
+        if all(_title_word_matches(token, words[start + offset]) for offset, token in enumerate(content_tokens)):
+            phrase = 2 if start == lead else 1
             break
-        prefix += 1
-    return prefix >= _STEM_MIN_LENGTH and prefix >= shorter - _STEM_MAX_SUFFIX
+    boilerplate = {
+        index
+        for index, word in enumerate(title_words)
+        if (
+            word == _KURUL
+            and index + 1 < len(title_words)
+            and _document_type_pattern(title_words[index + 1]) is not None
+        )
+        or (index == 0 and len(title_words) > 1 and title_words[1] == _SAYILI and any(c.isdigit() for c in word))
+    }
+    content_words = [
+        word
+        for index, word in enumerate(title_words)
+        if index not in boilerplate and word not in _CATALOG_FUNCTION_WORDS and _document_type_pattern(word) is None
+    ]
+    matched = sum(1 for word in content_words if any(_title_word_matches(token, word) for token in content_tokens))
+    return phrase, Fraction(matched, len(content_words)) if content_words else Fraction(0)
 
 
 def _parse_date(date_str: str) -> datetime | None:
@@ -773,15 +968,28 @@ class BddkApiClient:
     ) -> BddkSearchResult:
         """Search the corpus catalog by title, category, date and decision number.
 
+        Titles, catalog fields and keywords are folded alike (normalize_search_text:
+        Turkish-aware lower case, diacritics removed), so "siniflandirilmasi",
+        "SINIFLANDIRILMASI" and "sınıflandırılması" are one word, and split into
+        words; an interior apostrophe ends a word ("Kanunu'nun" -> "kanunu").
         Function words ("sayılı", "hakkında", "ilişkin", ...) are dropped.
         Document-type words ("yönetmeliği", "tebliğ", "kararı", ...) are never
-        required literally. Every remaining content token must match the title
-        (exactly, or by a shared stem of at least five characters) or the
-        category/date/number. Ranking: a numeric token equal to a decision
-        number first; then the number of content tokens found literally in the
-        title; then the requested document type (named by title and category
-        counts most); then the overall content score. Empty keywords list the filtered catalog (browse
-        mode), newest decision date first.
+        required literally. Every remaining content token must match a whole
+        title word (equal, an inflection of the same root, or a shared stem of at
+        least five characters) or a whole word of the category, the decision
+        date, the decision number or the document id; a number matches whole
+        numbers only. Ranking: a number identifying the entry (its decision
+        number or the number of its mevzuat_/bddk_ document id, then a leading
+        "<n> sayılı" in its title) first; then a title equal to the query; the
+        share of content tokens found in the title; tokens found as the title's
+        own words or their inflections; the requested document type (named by
+        title and category counts most); in-force text before drafts and repealed
+        text unless the query names them; the overall content score; the share of
+        the title's content words matched by the query (exact fraction, so the
+        instrument whose title is the query's subject comes first); the query's
+        content words adjacent and in order in the title, at its start before
+        later; then the newest decision date and the shorter title. Empty keywords list the
+        filtered catalog (browse mode), newest decision date first.
         """
         await self._ensure_cache()
 
@@ -800,12 +1008,15 @@ class BddkApiClient:
             # Only function words: match them literally rather than everything.
             content_tokens = keyword_parts
         browse = not keyword_parts
+        query_words = [part for part in keyword_parts if part not in _CATALOG_FUNCTION_WORDS] or keyword_parts
+        asks_draft = _DRAFT_TYPE_PATTERN in type_patterns
+        asks_repealed = _REPEALED_WORD in keyword_parts
 
         category_filter = _turkish_lower(request.category) if request.category else None
         date_from = _parse_date(request.date_from) if request.date_from else None
         date_to = _parse_date(request.date_to) if request.date_to else None
 
-        matching: list[tuple[tuple[int, int, int, int], BddkDecisionSummary]] = []
+        matching: list[tuple[tuple[int | float, ...], BddkDecisionSummary]] = []
         # Entries that pass every other filter but have no parseable decision date: a date bound cannot
         # consider them, so they are counted and reported instead of being dropped silently.
         undated_excluded = 0
@@ -825,43 +1036,69 @@ class BddkApiClient:
                 if undated:
                     undated_excluded += 1
                 else:
-                    matching.append(((0, 0, 0, 0), dec))
+                    matching.append(((0,), dec))
                 continue
 
-            text_lower = _turkish_lower(f"{dec.title} {dec.decision_date} {dec.decision_number} {dec.category}")
-            text_stems = " ".join(_turkish_stem(w) for w in text_lower.split())
-            title_lower = _turkish_lower(dec.title)
             title_words = _catalog_tokens(dec.title)
             # Type-word title words ("Kanunu", "Rehberi", "Kararı") are matched only by the type
             # patterns: a derived content word ("kanuni", "rehberlik", "kararname") must not reach
-            # them through the shared-stem rule.
-            stem_words = [word for word in title_words if _document_type_pattern(word) is None]
-            category_lower = _turkish_lower(dec.category)
+            # them through the shared-stem rule. Function words ("Dair") are matched only literally:
+            # "daire" is not an inflection of "dair".
+            stem_words = [
+                word
+                for word in title_words
+                if _document_type_pattern(word) is None and word not in _CATALOG_FUNCTION_WORDS
+            ]
+            category_words = _catalog_tokens(dec.category)
+            category_stem_words = [word for word in category_words if _document_type_pattern(word) is None]
+            document_id = normalize_search_text(dec.document_id.strip())
+            decision_number = dec.decision_number.strip()
+            id_number_match = _PREFIXED_DOCUMENT_ID_RE.fullmatch(document_id)
+            id_number = id_number_match.group(1) if id_number_match else ""
+            title_number = title_words[0] if len(title_words) > 1 and title_words[1] == _SAYILI else ""
+            # Whole words of the other catalog fields: date, decision number, document id.
+            field_words = set(_catalog_tokens(f"{dec.decision_date} {decision_number}"))
+            if id_number:
+                field_words.update({document_id, id_number})
 
             content_score = 0
             exact_title_hits = 0
+            title_found = 0
             number_hit = 0
             all_match = True
             for part in content_tokens:
-                if part in title_lower:
+                numeric = any(char.isdigit() for char in part)
+                if numeric:
+                    title_grade = 2 if part in title_words else 0
+                elif part in title_words:
+                    title_grade = 2
+                else:
+                    title_grade = max((_stem_grade(part, word) for word in stem_words), default=0)
+                if title_grade == 2:
                     content_score += 3
                     exact_title_hits += 1
-                elif any(_shares_stem(part, word) for word in stem_words):
+                    title_found += 1
+                elif title_grade == 1:
                     content_score += 2
-                elif _turkish_stem(part) in text_stems:
-                    content_score += 2
-                elif part in text_lower:
+                    title_found += 1
+                elif (
+                    part in field_words
+                    or part in category_words
+                    or (not numeric and any(_shares_stem(part, word) for word in category_stem_words))
+                ):
                     content_score += 1
                 else:
                     all_match = False
                     break
-                if part.isdigit() and part == dec.decision_number.strip():
-                    number_hit = 1
+                if part.isdigit():
+                    if part in (decision_number, id_number):
+                        number_hit = max(number_hit, 2)
+                    elif part == title_number:
+                        number_hit = max(number_hit, 1)
             if not all_match:
                 continue
 
             # A type word named by both the title and the category counts twice.
-            category_words = _catalog_tokens(category_lower)
             type_hits = sum(
                 any(pattern.fullmatch(word) for word in title_words)
                 + any(pattern.fullmatch(word) for word in category_words)
@@ -872,9 +1109,31 @@ class BddkApiClient:
             if undated:
                 undated_excluded += 1
                 continue
-            # Decision number first, then content words found literally in the title, then the
-            # requested document type, then the overall content score (stem/category matches).
-            matching.append(((number_hit, exact_title_hits, type_hits, content_score), dec))
+            folded_category = normalize_search_text(dec.category)
+            is_draft = folded_category == _DRAFT_CATEGORY or any(
+                _DRAFT_TYPE_PATTERN.fullmatch(word) for word in title_words
+            )
+            is_repealed = folded_category == _REPEALED_CATEGORY or _REPEALED_WORD in title_words
+            in_force_or_asked = int((not is_draft or asks_draft) and (not is_repealed or asks_repealed))
+            title_equal = int([w for w in title_words if w not in _CATALOG_FUNCTION_WORDS] == query_words)
+            coverage = title_found / len(content_tokens) if content_tokens else 0.0
+            phrase, title_coverage = _phrase_and_title_coverage(content_tokens, title_words)
+            matching.append(
+                (
+                    (
+                        number_hit,
+                        title_equal,
+                        coverage,
+                        exact_title_hits,
+                        type_hits,
+                        in_force_or_asked,
+                        content_score,
+                        title_coverage,
+                        phrase,
+                    ),
+                    dec,
+                )
+            )
 
         if browse:
             # Newest decision date first; undated entries keep catalog order at the end.
@@ -883,7 +1142,19 @@ class BddkApiClient:
             dated.sort(key=lambda item: item[0], reverse=True)
             results_only = [dec for _, dec in dated] + undated
         else:
-            matching.sort(key=lambda x: x[0], reverse=True)
+            # Score first, then the newest decision date (undated last), then the shorter title; never the
+            # catalog's document-id order.
+            def _rank(item: tuple[tuple[int | float, ...], BddkDecisionSummary]) -> tuple:
+                score, dec = item
+                parsed = _parse_date(dec.decision_date) if dec.decision_date else None
+                return (
+                    tuple(-value for value in score),
+                    -(parsed.toordinal() if parsed else 0),
+                    len(dec.title),
+                    normalize_search_text(dec.title),
+                )
+
+            matching.sort(key=_rank)
             results_only = [dec for _, dec in matching]
 
         total_results = len(results_only)

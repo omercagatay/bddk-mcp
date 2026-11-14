@@ -78,6 +78,14 @@ def decision_identifier_text(decision_date: str | None, decision_number: str | N
     return f"{decision_date or 'N/A'} / {decision_number or 'N/A'}"
 
 
+def decision_identifier_label(document_id: str | None) -> str:
+    """Label of the decision identifier line. An ``rg_`` document is identified by its Resmî Gazete date and
+    issue number, not by a Kurul decision; the stored values are the same, only the label differs."""
+    if (document_id or "").strip().lower().startswith("rg_"):
+        return "Resmî Gazete date / issue"
+    return "Decision date / number"
+
+
 # One label for a govde row/chunk of a document whose parser found no article structure (for example
 # a Kurul Kararı): the govde windows carry its whole body.
 STRUCTURELESS_GOVDE_LABEL = "full-text window (this document has no article structure)"
