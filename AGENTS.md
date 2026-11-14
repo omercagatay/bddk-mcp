@@ -1,6 +1,6 @@
 # BDDK MCP Server — Shared Agent Instructions
 
-This is the canonical project instruction file for Cursor, Codex, Pi, and other coding agents. Keep shared instructions here; `CLAUDE.md` only imports this file.
+This is the canonical project instruction file for Cursor, Codex, Pi, and other coding agents. Keep shared instructions here; `CLAUDE.md` imports this file and adds only the Claude Code-specific rules on subagent models and the advisor.
 
 ## Working with the owner
 
