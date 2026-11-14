@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from bddk_mcp.store.section_index import _find_section_starts, extract_document_sections
@@ -941,14 +942,16 @@ def test_mevzuat_title_line_above_madde_becomes_its_heading():
 
     madde3 = _madde(sections, "3")
     assert madde3.heading == "Tanımlar"
-    assert madde3.start_char == text.index("MADDE 3")
-    assert madde3.content == "MADDE 3 – (1) Y;"
+    # The title is part of the section and is its heading.
+    assert madde3.start_char == text.index("Tanımlar")
+    assert madde3.content == "Tanımlar\n\nMADDE 3 – (1) Y;"
     assert "Tanımlar" not in _madde(sections, "2").content
     # The first article's title opens the document: it is the same kind of title line.
     assert _madde(sections, "2").heading == "Dayanak"
+    assert _madde(sections, "2").content.startswith("Dayanak\n\nMADDE 2 –")
 
 
-def test_article_title_changes_only_the_heading():
+def test_article_title_opens_its_section_and_is_the_heading():
     with_titles = "Giriş metni.\n\nMADDE 2 – (1) X.\n\nTanımlar\n\nMADDE 3 – (1) Y;\n\nYürürlük\nMADDE 4 – (1) Z."
     # The same text with each title line blanked out character for character.
     without_titles = with_titles.replace("Tanımlar", " " * 8).replace("Yürürlük", " " * 8)
@@ -957,7 +960,15 @@ def test_article_title_changes_only_the_heading():
     titled = extract_document_sections("doc", with_titles)
     untitled = extract_document_sections("doc", without_titles)
 
-    assert _field_rows(titled) == _field_rows(untitled)
+    # The title is now part of the section and is the heading: a titled article
+    # starts at its title line, so its content and hash include the title.
+    assert all(section.content == with_titles[section.start_char : section.end_char].strip() for section in titled)
+    assert _field_rows(titled)[0] == _field_rows(untitled)[0]
+    madde3, madde4 = _madde(titled, "3"), _madde(titled, "4")
+    assert (madde3.start_char, madde3.content) == (with_titles.index("Tanımlar"), "Tanımlar\n\nMADDE 3 – (1) Y;")
+    assert (madde4.start_char, madde4.content) == (with_titles.index("Yürürlük"), "Yürürlük\nMADDE 4 – (1) Z.")
+    assert madde3.end_char == _madde(untitled, "3").end_char
+    assert madde3.content_hash != _madde(untitled, "3").content_hash
     assert [s.heading for s in titled if s.section_type == "madde"] == ["(1) X.", "Tanımlar", "Yürürlük"]
     assert [s.heading for s in untitled if s.section_type == "madde"] == ["(1) X.", "(1) Y;", "(1) Z."]
 
@@ -988,14 +999,20 @@ def test_article_title_keeps_its_amendment_note():
     madde14 = _madde(extract_document_sections("mevzuat_38416", text), "14")
 
     assert madde14.heading == "Önlem planı tedbirlerinin etkileri (Değişik başlık:RG-29/3/2024-32504)"
-    assert madde14.content.startswith("MADDE 14 –")
+    # The title is part of the section and is the heading.
+    assert madde14.content.startswith(
+        "Önlem planı tedbirlerinin etkileri (Değişik başlık:RG-29/3/2024-32504)\n\nMADDE 14 –"
+    )
 
 
-def test_inline_kanun_title_and_untitled_first_article_are_unchanged():
+def test_kanun_title_above_a_first_sentence_heads_the_article_and_untitled_first_article_is_unchanged():
     kanun = "Amaç\n\nMadde 1 – Bu Kanunun amacı, güveni sağlamaktır.\n\nKapsam\n\nMadde 2 – Kapsam hükmü.\n"
     sections = extract_document_sections("mevzuat_5411", kanun)
-    assert _madde(sections, "1").heading == "Bu Kanunun amacı, güveni sağlamaktır."
-    assert _madde(sections, "2").heading == "Kapsam hükmü."
+    # The title is part of the section and is the heading, also over a Kanun's first sentence.
+    assert _madde(sections, "1").heading == "Amaç"
+    assert _madde(sections, "1").content.startswith("Amaç\n\nMadde 1 –")
+    assert _madde(sections, "2").heading == "Kapsam"
+    assert _madde(sections, "2").content == "Kapsam\n\nMadde 2 – Kapsam hükmü."
 
     untitled = "BANKALARIN DENETİMİ HAKKINDA YÖNETMELİK\n\nMADDE 1 – (1) Bu Yönetmeliğin amacı.\n"
     assert _madde(extract_document_sections("doc", untitled), "1").heading == "(1) Bu Yönetmeliğin amacı."
@@ -1024,22 +1041,313 @@ def test_half_of_a_wrapped_title_is_not_the_heading_but_a_title_under_a_part_cap
     assert _madde(extract_document_sections("mevzuat_10739", captioned), "4").heading == "Hesaplama dönemi"
 
 
-def test_seed_article_titles_are_single_lines_directly_above_the_article():
+_ARTICLE_LINE_RE = re.compile(
+    r"^\s*(?:#{1,6}\s+)?(?:\*{2,3}\s*)?(?:geçi[cç]i\s*madde|ek\s+madde|madde)\s*\d", re.IGNORECASE
+)
+
+
+def test_seed_article_titles_open_their_article_and_are_its_heading():
     seed = Path(__file__).resolve().parents[1] / "seed_data" / "documents.json"
     titled = 0
     for doc in json.loads(seed.read_text(encoding="utf-8")):
         text = doc["markdown_content"] or ""
-        for section in extract_document_sections(doc["document_id"], text):
-            first_line = section.content.split("\n", 1)[0]
-            if section.section_type not in _ARTICLE_TYPES or section.heading in first_line:
+        sections = extract_document_sections(doc["document_id"], text)
+        named = [s for s in sections if s.section_type != "govde"]
+        for section in sections:
+            if section.section_type not in _ARTICLE_TYPES or _ARTICLE_LINE_RE.match(section.content):
                 continue
-            # A heading not on the MADDE line is one whole line of the text, followed by
-            # nothing but blank lines up to the article start.
+            # The title is part of the section and is the heading: the section starts at
+            # the start of the title line, the title is one line (or a title wrapped over
+            # two lines), and only blank lines separate it from the MADDE line.
             titled += 1
-            before = text[: section.start_char].rstrip()
-            assert "\n" not in section.heading
-            assert before.endswith(section.heading), (doc["document_id"], section.section_ref)
-            line_start = len(before) - len(section.heading)
-            assert line_start == 0 or text[line_start - 1] == "\n"
-            assert text[line_start : section.start_char].strip() == section.heading
-    assert titled > 1400
+            key = (doc["document_id"], section.section_type, section.section_ref)
+            assert section.start_char == 0 or text[section.start_char - 1] == "\n", key
+            lines = section.content.split("\n")
+            article_line = next(i for i, line in enumerate(lines) if _ARTICLE_LINE_RE.match(line))
+            title_lines = [line for line in lines[:article_line] if line.strip()]
+            assert 1 <= len(title_lines) <= 2, key
+            assert lines[: len(title_lines)] == title_lines, key
+            assert (
+                re.sub(r"[*#]", " ", " ".join(title_lines)).split() == re.sub(r"[*#]", " ", section.heading).split()
+            ), key
+            # No title stays inside an earlier provision.
+            assert not any(
+                other.start_char < section.start_char < other.end_char for other in named if other is not section
+            ), key
+    assert titled > 2000
+
+
+def test_amendment_note_bold_and_markdown_article_lines_take_the_title_above():
+    text = (
+        "MADDE 5 – (1) Önceki madde.\n\n"
+        "Birinci kalite likit varlıklar\n\n"
+        "MADDE 6 – (Değişik:RG-20/8/2015-29451) 1\n\n(1) Birinci kalite varlıklar.\n\n"
+        "**Dayanak**\n\n**MADDE 7 –** (1) Bu Tebliğ dayanır.\n\n"
+        "## Yürürlük\n\nMADDE 8 – (1) Yürürlüğe girer.\n"
+    )
+
+    sections = extract_document_sections("mevzuat_19498", text)
+
+    assert _madde(sections, "6").heading == "Birinci kalite likit varlıklar"
+    assert _madde(sections, "6").content.startswith("Birinci kalite likit varlıklar\n\nMADDE 6 –")
+    assert _madde(sections, "7").heading == "Dayanak"
+    assert _madde(sections, "7").content.startswith("**Dayanak**\n\n**MADDE 7 –**")
+    assert _madde(sections, "8").heading == "Yürürlük"
+    assert _madde(sections, "8").content.startswith("## Yürürlük\n\nMADDE 8 –")
+    assert _madde(sections, "5").content == "MADDE 5 – (1) Önceki madde."
+
+
+def test_date_led_long_and_wrapped_titles_leave_the_previous_article():
+    long_title = "Faiz oranı riski sermaye yükümlülüğü hesaplamasında faiz oranı türev ve bilanço dışı araçlardan kaynaklı pozisyonlar"
+    text = (
+        "MADDE 22 – (1) Önceki yönetmelik yürürlükten kaldırılmıştır.\n\n"
+        "1/1/2018 tarihi itibarıyla TFRS 9’a hazır olmayan bankalar\n\n"
+        "GEÇİCİ MADDE 1 – (1) Geçici hüküm.\n\n"
+        f"{long_title}\n\n"
+        "MADDE 23 – (1) Pozisyonlar.\n\n"
+        "Kredi türevleriyle koruma sağlanan pozisyonlar için spesifik risk sermaye\nyükümlülüğü\n\n"
+        "MADDE 24 – (1) Yükümlülük.\n"
+    )
+
+    sections = extract_document_sections("mevzuat_22599", text)
+    gecici = next(s for s in sections if s.section_type == "gecici_madde")
+
+    assert _madde(sections, "22").content == "MADDE 22 – (1) Önceki yönetmelik yürürlükten kaldırılmıştır."
+    assert gecici.heading == "1/1/2018 tarihi itibarıyla TFRS 9’a hazır olmayan bankalar"
+    assert gecici.content.startswith("1/1/2018 tarihi itibarıyla")
+    assert gecici.content.endswith("(1) Geçici hüküm.")
+    assert _madde(sections, "23").heading == long_title
+    assert _madde(sections, "24").heading == (
+        "Kredi türevleriyle koruma sağlanan pozisyonlar için spesifik risk sermaye yükümlülüğü"
+    )
+    assert _madde(sections, "24").content.startswith("Kredi türevleriyle koruma sağlanan pozisyonlar")
+    assert _madde(sections, "23").content.endswith("(1) Pozisyonlar.")
+
+
+def test_text_that_is_not_a_title_stays_where_it_is():
+    # A date-led line that is provision text (it ends a sentence), a line that ends a
+    # clause, and a title printed on the MADDE line itself take nothing from above.
+    text = (
+        "MADDE 1 – (1) Bankalar uygular:\n\n"
+        "2018 yılı için oran yüzde birdir.\n\n"
+        "MADDE 2 – (1) Kurul belirler;\n\n"
+        "Bankalar aşağıdaki hususlara uyar:\n\n"
+        "MADDE 3 – (1) Uyulur.\n\n"
+        "Başlangıç\n\n"
+        "Madde 4 - Karşılık ayrılması\n(1) Karşılık ayrılır.\n"
+    )
+
+    sections = extract_document_sections("doc", text)
+
+    assert _madde(sections, "1").content.endswith("2018 yılı için oran yüzde birdir.")
+    assert _madde(sections, "3").heading == "(1) Uyulur."
+    assert _madde(sections, "3").content.startswith("MADDE 3 –")
+    assert _madde(sections, "4").heading == "Karşılık ayrılması"
+    assert _madde(sections, "4").content.startswith("Madde 4 -")
+
+
+def test_title_under_a_caption_that_carries_its_name_or_wraps_in_title_case():
+    text = (
+        "MADDE 29 – (1) Önceki madde.\n\n"
+        "## BEŞİNCİ BÖLÜM Standart Yaklaşım Yönteminde Korelasyonlar\n\n"
+        "### Faiz oranı riskine ilişkin korelasyonlar\n\n"
+        "MADDE 30 – (1) Korelasyonlar.\n\n"
+        "ÜÇÜNCÜ BÖLÜM\nSistemik Önemli Bankalara Ait Yükümlülükler, Uyumsuzluk,\nHesaplama ve Bildirim Dönemi\n"
+        "Sistemik önemli banka tamponu\n\n"
+        "MADDE 31 – (1) Tampon bulundurulur.\n\n"
+        "DÖRDÜNCÜ BÖLÜM\nÇeşitli ve Son Hükümler\n\n"
+        "MADDE 32 – (1) Başlıksız madde.\n"
+    )
+
+    sections = extract_document_sections("mevzuat_21425", text)
+
+    assert _madde(sections, "30").heading == "Faiz oranı riskine ilişkin korelasyonlar"
+    assert _madde(sections, "31").heading == "Sistemik önemli banka tamponu"
+    assert _madde(sections, "31").content.startswith("Sistemik önemli banka tamponu\n\nMADDE 31")
+    # The part's own name under a caption is never an article title.
+    assert _madde(sections, "32").heading == "(1) Başlıksız madde."
+    assert _madde(sections, "32").content.startswith("MADDE 32 –")
+
+
+def _seed_sections(doc_id):
+    seed = Path(__file__).resolve().parents[1] / "seed_data" / "documents.json"
+    text = next(
+        d["markdown_content"] for d in json.loads(seed.read_text(encoding="utf-8")) if d["document_id"] == doc_id
+    )
+    return text, {(s.section_type, s.section_ref): s for s in extract_document_sections(doc_id, text)}
+
+
+def test_seed_article_titles_head_bankacilik_kanunu_and_regulations():
+    _, bankacilik = _seed_sections("mevzuat_5411")
+    for ref, title in (("54", "Kredi sınırları"), ("10", "Faaliyet izni"), ("73", "Sırların saklanması")):
+        assert bankacilik[("madde", ref)].heading == title
+        assert bankacilik[("madde", ref)].content.startswith(f"{title}\n")
+    assert bankacilik[("madde", "54")].content.split("\n\n", 1)[1].startswith("Madde 54 —")
+
+    _, ic_sistemler = _seed_sections("mevzuat_19864")
+    assert ic_sistemler[("madde", "3")].heading == "Tanımlar"
+    assert ic_sistemler[("madde", "3")].content.startswith("Tanımlar\n")
+
+    # MADDE lines that carry only an amendment note, and a bold title line.
+    _, likidite = _seed_sections("mevzuat_19498")
+    assert likidite[("madde", "6")].heading == "Birinci kalite likit varlıklar"
+    _, sermaye = _seed_sections("mevzuat_21192")
+    assert sermaye[("gecici_madde", "1")].heading == "TFRS 9 uygulamaya başlayan bankalara ilişkin uygulama"
+    assert "araçlardan kaynaklı pozisyonlar" not in sermaye[("madde", "18")].content
+    _, kra = _seed_sections("mevzuat_20029")
+    assert kra[("madde", "2")].heading == "Dayanak"
+    assert kra[("madde", "42")].heading == "Standart Volatilite Ayarlaması Yaklaşımı"
+    assert kra[("madde", "42")].content.startswith("**Standart Volatilite Ayarlaması Yaklaşımı**\n")
+
+    # A date-led title no longer ends the previous article.
+    _, karsilik = _seed_sections("mevzuat_22599")
+    assert "TFRS 9’a hazır olmayan bankalar" not in karsilik[("madde", "22")].content
+    assert karsilik[("gecici_madde", "1")].heading == "1/1/2018 tarihi itibarıyla TFRS 9’a hazır olmayan bankalar"
+    assert karsilik[("madde", "23")].heading == "Yürürlük"
+
+
+def test_no_seed_section_boundary_falls_inside_an_article_title():
+    seed = Path(__file__).resolve().parents[1] / "seed_data" / "documents.json"
+    for doc in json.loads(seed.read_text(encoding="utf-8")):
+        text = doc["markdown_content"] or ""
+        sections = extract_document_sections(doc["document_id"], text)
+        boundaries = {s.start_char for s in sections} | {s.end_char for s in sections}
+        for section in sections:
+            if section.section_type not in _ARTICLE_TYPES or _ARTICLE_LINE_RE.match(section.content):
+                continue
+            title_end = section.start_char + len(section.content.split("\n", 1)[0])
+            inside = [b for b in boundaries if section.start_char < b < title_end]
+            assert not inside, (doc["document_id"], section.section_type, section.section_ref, inside)
+
+
+def test_capped_section_window_ends_at_a_break_and_states_its_true_lengths():
+    from bddk_mcp.store.section_index import (
+        MAX_SECTION_CHARS,
+        split_section_truncation_notice,
+        truncation_notice_original_length,
+    )
+
+    paragraph = "Bankalar dönemlerde karşılık ayırır ve raporlar " * 30
+    body = "\n\n".join(paragraph.strip() for _ in range(20))
+    text = f"MADDE 1 – (1) {body}\n\nMADDE 2 – (1) Son.\n"
+    madde2 = text.index("MADDE 2")
+
+    sections = extract_document_sections("doc", text)
+    madde1 = _madde(sections, "1")
+    legal, notice = split_section_truncation_notice(madde1.content)
+
+    assert madde1.end_char - madde1.start_char <= MAX_SECTION_CHARS
+    assert text[madde1.end_char - 2 : madde1.end_char] == "\n\n"
+    assert legal == text[madde1.start_char : madde1.end_char].strip()
+    # The notice records the uncapped span, which runs to the blank line before MADDE 2.
+    assert madde1.start_char + truncation_notice_original_length(notice) == madde2 - 1
+    assert f"karakterden {madde1.end_char - madde1.start_char} karaktere" in notice
+    # The continuation starts exactly where the window ends.
+    assert any(s.section_type == "govde" and s.start_char == madde1.end_char for s in sections)
+
+
+def test_no_seed_capped_section_ends_inside_a_word_and_its_continuation_follows():
+    from bddk_mcp.store.section_index import split_section_truncation_notice, truncation_notice_original_length
+
+    seed = Path(__file__).resolve().parents[1] / "seed_data" / "documents.json"
+    capped = 0
+    for doc in json.loads(seed.read_text(encoding="utf-8")):
+        text = doc["markdown_content"] or ""
+        sections = extract_document_sections(doc["document_id"], text)
+        for section in sections:
+            notice = split_section_truncation_notice(section.content)[1]
+            if notice is None:
+                continue
+            capped += 1
+            key = (doc["document_id"], section.section_type, section.section_ref)
+            end = section.end_char
+            assert not (text[end - 1].isalnum() and text[end].isalnum()), key
+            length = end - section.start_char
+            assert f"karakterden {length} karaktere" in notice, key
+            assert truncation_notice_original_length(notice) > length, key
+            # The next text is covered: a nested row runs on, or a govde window starts exactly here.
+            following = end + len(text[end:]) - len(text[end:].lstrip())
+            assert any(s.start_char == end and s.section_type == "govde" for s in sections) or any(
+                s is not section and s.start_char <= following < s.end_char for s in sections
+            ), key
+    assert capped == 26
+
+
+def test_table_rows_at_the_end_of_any_section_are_its_content():
+    text = (
+        "GEÇİCİ MADDE 1 – (1) Oranlar aşağıdaki gibidir.\n\n"
+        "| Yıl | SKT Oranı (%) |\n|---|---|\n| 2017 | 1,25 |\n| 2018 | 1,875 |\n\n"
+        "Yürürlük\n\nMADDE 2 – (1) Yürürlüğe girer.\n"
+    )
+
+    sections = extract_document_sections("mevzuat_18991", text)
+    gecici = next(s for s in sections if s.section_type == "gecici_madde")
+
+    assert gecici.content.endswith("| 2018 | 1,875 |")
+    assert _madde(sections, "2").heading == "Yürürlük"
+
+
+_AMENDMENT_TABLE = (
+    "|  | Yönetmeliğin Yayımlandığı Resmî Gazete’nin | Yönetmeliğin Yayımlandığı Resmî Gazete’nin |\n"
+    "|---|---|---|\n|  | Tarihi | Sayısı |\n|  | 1/11/2006 | 26333 |\n"
+)
+
+
+def test_amendment_history_table_after_the_last_article_is_not_part_of_it():
+    text = (
+        "MADDE 8 – (1) Önceki madde.\n\nYürütme\n\nMADDE 9 – (1) Bu Yönetmelik hükümlerini Başkan yürütür.\n\n"
+        f"{_AMENDMENT_TABLE}\n(1) Bu değişiklik 1/1/2012 tarihinde yürürlüğe girer.\n\n"
+        "EK-1\n\nBİLDİRİM CETVELİ\n\n| A | B |\n|---|---|\n| 1 | 2 |\n"
+    )
+
+    sections = extract_document_sections("mevzuat_10731", text)
+    madde9 = _madde(sections, "9")
+    assert madde9.content.endswith("Başkan yürütür.")
+    assert "Yayımlandığı" not in madde9.content
+    govde = next(s for s in sections if s.section_type == "govde")
+    assert govde.content.startswith("|  | Yönetmeliğin Yayımlandığı")
+    assert govde.start_char == madde9.end_char
+    # The amendment footnote after the table is no fıkra of the last article; the annex keeps its row.
+    assert not [s for s in sections if s.section_type == "fikra"]
+    assert next(s for s in sections if s.section_type == "ek").content.endswith("| 1 | 2 |")
+
+
+def test_a_table_inside_a_provision_is_never_split_off():
+    text = (
+        f"MADDE 1 – (1) Tablo:\n\n{_AMENDMENT_TABLE}\n(2) Devam eden hüküm.\n\n"
+        "MADDE 2 – (1) Son madde.\n\nEK-1\n\n"
+        f"{_AMENDMENT_TABLE}"
+    )
+
+    sections = extract_document_sections("doc", text)
+
+    assert "1/11/2006" in _madde(sections, "1").content
+    assert next(s for s in sections if s.section_type == "ek").content.endswith("| 1/11/2006 | 26333 |")
+
+
+def test_seed_table_rows_stay_in_their_provision_and_amendment_tables_leave_the_last_article():
+    _, ozkaynak = _seed_sections("mevzuat_18991")
+    assert ozkaynak[("gecici_madde", "1")].content.endswith("| 2018 | 1,875 |")
+    text, _ = _seed_sections("1240")
+    fikra = [s for s in extract_document_sections("1240", text) if (s.section_type, s.section_ref) == ("fikra", "3")]
+    assert fikra[0].content.endswith("| 3 | > 900 | 18 |")
+    _, sinirlar = _seed_sections("mevzuat_10731")
+    assert "Yayımlandığı Resmî Gazete" not in sinirlar[("madde", "9")].content
+
+    seed = Path(__file__).resolve().parents[1] / "seed_data" / "documents.json"
+    header = re.compile(r"^[ \t]*\|.*Yayımlandığı\s+Resm[iî]\s+Gazete", re.MULTILINE)
+    documents = 0
+    for doc in json.loads(seed.read_text(encoding="utf-8")):
+        text = doc["markdown_content"] or ""
+        match = header.search(text)
+        if match is None:
+            continue
+        documents += 1
+        sections = extract_document_sections(doc["document_id"], text)
+        position = match.start()
+        while position < len(text) and text[position:].lstrip(" \t").startswith("|"):
+            covering = [s.section_type for s in sections if s.start_char <= position < s.end_char]
+            assert covering and not set(covering) & {*_ARTICLE_TYPES, "fikra", "bent"}, (doc["document_id"], position)
+            line_end = text.find("\n", position)
+            position = len(text) if line_end == -1 else line_end + 1
+    assert documents == 44

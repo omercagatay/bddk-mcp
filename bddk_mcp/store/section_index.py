@@ -98,6 +98,8 @@ _SUBSECTION_REFERENCE_RE = re.compile(
 # rationale is not provision text and stays searchable as govde.
 _RATIONALE_RE = re.compile(r"^\**\s*GENEL\s+GEREKÇE\s*\**$")
 # "(i)" followed by "(ii)" opens a roman-numeral sub-list inside a fıkra or bent, not bent ı/i.
+# The header row of the amendment-history table that ends a consolidated regulation.
+_AMENDMENT_TABLE_RE = re.compile(r"^[ \t]*\|.*Yayımlandığı\s+Resm[iî]\s+Gazete", re.MULTILINE)
 _ROMAN_SUBITEM_RE = re.compile(r"^\s*\(ii\)\s", re.IGNORECASE)
 # "MADDE 146 ila 149 – (… yerine işlenmiştir.)" (6362) names no single article:
 # it closes the previous madde, and its note stays searchable as govde.
@@ -260,22 +262,35 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
             end_char = _trim_trailing_heading_blocks(text, start["start_char"], end_char)
         else:
             end_char = _trim_trailing_heading_leak(
-                text, start["start_char"], end_char, annex=start["section_type"] == "ek"
+                text,
+                start["start_char"],
+                end_char,
+                before_article=_ends_at_article(matches, index),
             )
+        start_char, heading = start["start_char"], start["heading"]
+        if start["section_type"] in _ARTICLE_TITLE_TYPES and not _carries_inline_title(text, start_char, heading):
+            # The title line stays outside every earlier section (the trimming
+            # above left it to none of them).
+            floor = max((section.end_char for section in sections), default=0)
+            title = _article_title_above(text, min(floor, start_char), start_char)
+            if title is not None:
+                heading, start_char = title
         truncated_from = None
-        if end_char - start["start_char"] > MAX_SECTION_CHARS:
-            truncated_from = end_char - start["start_char"]
+        if end_char - start_char > MAX_SECTION_CHARS:
+            truncated_from = end_char - start_char
             logger.warning(
                 "extract_document_sections: capping oversized section span %d-%d (%d chars) to %d",
-                start["start_char"],
+                start_char,
                 end_char,
                 truncated_from,
                 MAX_SECTION_CHARS,
             )
-            end_char = start["start_char"] + MAX_SECTION_CHARS
+            # The window ends at a paragraph, line or word break at or before the
+            # cap, never inside a word; its continuation starts exactly there.
+            end_char = _govde_window_end(text, start_char, end_char)
         if start["level"] == 1:
             level1_capped_end = end_char if truncated_from else None
-        content = text[start["start_char"] : end_char].strip()
+        content = text[start_char:end_char].strip()
         if not content:
             continue
         if truncated_from is not None:
@@ -283,7 +298,7 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
             # (get_document_section, search previews) sees the truncation.
             content += (
                 f"\n\n{TRUNCATION_NOTICE_PREFIX} içerik {truncated_from} karakterden "
-                f"{MAX_SECTION_CHARS} karaktere kısaltıldı — tam metin için get_bddk_document kullanın]"
+                f"{end_char - start_char} karaktere kısaltıldı — tam metin için get_bddk_document kullanın]"
             )
         content_hash = _content_hash(content)
         identity = (start["section_type"], start["section_ref"], content_hash)
@@ -301,70 +316,190 @@ def extract_document_sections(doc_id: str, text: str) -> list[DocumentSection]:
                 doc_id=doc_id,
                 section_type=start["section_type"],
                 section_ref=start["section_ref"],
-                heading=start["heading"],
-                start_char=start["start_char"],
+                heading=heading,
+                start_char=start_char,
                 end_char=end_char,
                 content=content,
                 content_hash=content_hash,
             )
         )
-    sections = _with_article_titles(text, sections)
     sections.extend(_remainder_govde_sections(doc_id, text, sections, seen_identities))
     return sections
 
 
-# Mevzuat prints an article's title on its own line above "MADDE N –"; the
-# heading then parsed from the MADDE line is its first fıkra ("(1) Bu …").
+# Mevzuat prints an article's title on its own line above "MADDE N –".  The
+# title is the article's heading, whatever the MADDE line carries after the
+# dash (its first fıkra "(1) Bu …", an amendment note "(Değişik:RG-…)", or a
+# Kanun's first sentence), and the section starts at the title line.
 _ARTICLE_TITLE_TYPES = frozenset({"madde", "gecici_madde", "ek_madde"})
-_FIKRA_HEADING_RE = re.compile(r"^\(\d+\)")
 _PART_CAPTION_RE = re.compile(r"BÖLÜM|KISIM|\bBölüm\b|\bKısım\b")
+# Markdown heading and emphasis markup around a title line ("## Yürürlük",
+# "**Dayanak**", "### **KDA …**"); it is layout, not part of the title.
+_TITLE_MARKUP_RE = re.compile(r"^#{1,6}\s+|^\*{1,3}\s*|\s*\*{1,3}$")
+_INNER_EMPHASIS_RE = re.compile(r"\s*\*{2,3}\s*")
+# A title line set apart directly above an article heading may run longer than
+# a leaked fragment ("Faiz oranı riski sermaye yükümlülüğü hesaplamasında …
+# kaynaklı pozisyonlar", 15 words) and may open with a date or a rate ("1/1/2018
+# tarihi itibarıyla …", "%0 volatilite …").  The longest seed title has 19 words.
+_ARTICLE_TITLE_MAX_WORDS = 24
+_CLAUSE_END_RE = re.compile(r"[;:,]$")
+# A title printed on the MADDE line is a bare phrase; a first sentence carries punctuation.
+_INLINE_TITLE_PUNCTUATION_RE = re.compile(r"[.;:,!?…]")
+_CAPTION_WITH_NAME_RE = re.compile(r"(?:BÖLÜM|KISIM)\s+\S")
+# A caption block is the part caption, one to three lines of its name, and the title.
+_CAPTION_BLOCK_MIN_LINES = 3
+_CAPTION_BLOCK_MAX_LINES = 5
+# Title-case captions keep short connectives in lower case ("… Grubu ve
+# Mensupları ile İlişkiler"); these words do not make a line sentence case.
+_SENTENCE_CASE_MIN_WORD = 4
+_TITLE_CASE_LOWER_WORDS = frozenset({"için", "veya", "ilişkin", "dair", "olan", "olarak", "üzere", "gibi", "kadar"})
 
 
-def _with_article_titles(text: str, sections: list[DocumentSection]) -> list[DocumentSection]:
-    """Take an article's heading from its title line when the MADDE line carries none.
+def _strip_title_markup(line: str) -> str:
+    previous = None
+    while previous != line:
+        previous, line = line, _TITLE_MARKUP_RE.sub("", line).strip()
+    return line
 
-    Only the heading changes: offsets, content and content_hash stay as parsed,
-    so chunk binding and stored embeddings are unaffected.  The title line must
-    lie after the end of every earlier parsed section (the trimming above left
-    it to none of them) and be the last non-blank line before the article start.
+
+def _is_article_title_line(line: str) -> bool:
+    """Whether a line (markup stripped) reads as an article title rather than provision text."""
+    if (
+        not (line[:1].isupper() or line[:1].isdigit() or line[:1] == "%")
+        or line.upper() == line
+        # A line that ends a clause introduces a list ("… hususlara uyar:"); it is no title.
+        or _CLAUSE_END_RE.search(line)
+    ):
+        return False
+    if line[:1].isupper() and _is_leaked_trailing_line(line):
+        return True
+    return not (
+        line.startswith("(")
+        or _SENTENCE_END_RE.search(line)
+        or _FORMULA_LINE_RE.search(line)
+        or _GLOSSARY_LINE_RE.match(line)
+        or _HEADING_RE.match(line)
+        or not any(ch.isalpha() for ch in line)
+        or len(line.split()) > _ARTICLE_TITLE_MAX_WORDS
+    )
+
+
+def _is_part_caption(line: str) -> bool:
+    """A part caption line ("İKİNCİ BÖLÜM"), not provision text that cites one ("… Üçüncü Bölümde …")."""
+    return bool(_PART_CAPTION_RE.search(line)) and _is_leaked_trailing_line(line)
+
+
+def _article_title_line_count(lines: list[str]) -> int:
+    """How many trailing lines (markup stripped, the last non-blank) form an article's title.
+
+    One line, or two when a title wraps: a first half that reads as a title
+    and a second half that continues it in lower case ("… sermaye" /
+    "yükümlülüğü").  A title set directly under another text line is no title
+    (it may be the last half of a wrap, "… Riske Esas Tutara" / "Dair Üst
+    Sınır"); only a part caption may sit there.  Returns 0 when there is none.
     """
-    spans = sorted((section.start_char, section.end_char) for section in sections)
-    titled: list[DocumentSection] = []
-    for section in sections:
-        heading = section.heading
-        if section.section_type in _ARTICLE_TITLE_TYPES and (not heading or _FIKRA_HEADING_RE.match(heading)):
-            floor = max((end for start, end in spans if start < section.start_char), default=0)
-            title = _article_title_above(text, min(floor, section.start_char), section.start_char)
-            if title:
-                section = section.model_copy(update={"heading": title})
-        titled.append(section)
-    return titled
+    title = lines[-1]
+    if title[:1].islower():
+        if len(lines) < 2 or not lines[-2] or (len(lines) > 2 and lines[-3]):
+            return 0
+        first, joined = lines[-2], f"{lines[-2]} {title}"
+        if (
+            _is_article_title_line(first.removesuffix(","))
+            and _is_article_title_line(joined)
+            and not _PART_CAPTION_RE.search(joined)
+        ):
+            return 2
+        return 0
+    above = [line for line in lines[:-1] if line]
+    # A structural caption ("İKİNCİ BÖLÜM", "GENEL HÜKÜMLER", a document title) is not the article's.
+    if not _is_article_title_line(title) or _PART_CAPTION_RE.search(title):
+        return 0
+    if above and _is_part_caption(above[-1]):
+        # The caption of a part ("Genel Hükümler" under "BİRİNCİ BÖLÜM") is not the
+        # article's either, but a caption that carries its name on its own line
+        # ("BEŞİNCİ BÖLÜM Standart Yaklaşım Yönteminde Korelasyonlar") leaves the
+        # sentence-case line under it to the article.
+        return 1 if _CAPTION_WITH_NAME_RE.search(above[-1]) and _is_sentence_case(title) else 0
+    if lines[-2:-1] and lines[-2]:
+        if len(above) > 1 and _is_part_caption(above[-2]):
+            return 1
+        # A sentence-case title set directly under a caption block whose name wraps
+        # in title case ("ÜÇÜNCÜ BÖLÜM" / "Sistemik Önemli Bankalara Ait …," /
+        # "Hesaplama ve Bildirim Dönemi" / "Sistemik önemli banka tamponu"), or under
+        # an upper-case document title.
+        block = _trailing_block(lines)
+        if (
+            _CAPTION_BLOCK_MIN_LINES <= len(block) <= _CAPTION_BLOCK_MAX_LINES
+            and (_is_part_caption(block[0]) or block[0].upper() == block[0])
+            and not any(_is_sentence_case(line) for line in block[1:-1])
+            and _is_sentence_case(title)
+        ):
+            return 1
+        return 0
+    return 1
 
 
-def _article_title_above(text: str, floor: int, start_char: int) -> str:
-    lines = [line.strip() for line in text[floor:start_char].splitlines()]
+def _carries_inline_title(text: str, start_char: int, heading: str) -> bool:
+    """Whether the MADDE line prints the article's own title ("Madde 9 - Karşılık ayrılması").
+
+    Such a line is complete: a blank line or the first fıkra follows it.  A
+    first sentence that wraps ("Madde 26. – Bu Kanunun 14 üncü maddesi ve …")
+    or an amendment note is no title, and the title line above then heads the article.
+    """
+    words = heading.split()
+    if (
+        not heading[:1].isupper()
+        or len(words) > _LEAKED_TITLE_MAX_WORDS
+        or _INLINE_TITLE_PUNCTUATION_RE.search(heading)
+        or not _is_article_title_line(heading)
+    ):
+        return False
+    line_end = text.find("\n", start_char)
+    if line_end == -1:
+        return True
+    next_end = text.find("\n", line_end + 1)
+    following = text[line_end + 1 : next_end if next_end != -1 else len(text)].strip()
+    return not following or following.startswith("(")
+
+
+def _trailing_block(lines: list[str]) -> list[str]:
+    start = len(lines)
+    while start > 0 and lines[start - 1]:
+        start -= 1
+    return lines[start:]
+
+
+def _is_sentence_case(line: str) -> bool:
+    """Whether a line is written in sentence case ("Kredilerin izlenmesi"), not title case."""
+    return any(
+        len(word) >= _SENTENCE_CASE_MIN_WORD and word[:1].islower() and word not in _TITLE_CASE_LOWER_WORDS
+        for word in re.findall(r"[^\W\d_]+", line)
+    )
+
+
+def _article_title_above(text: str, floor: int, start_char: int) -> tuple[str, int] | None:
+    """Return an article's title above its MADDE line and the offset where the title starts.
+
+    The title must lie after the end of every earlier section (``floor``) and
+    end on the last non-blank line before the article start.  The returned
+    heading is the title without Markdown markup, a wrapped title joined by a space.
+    """
+    offsets: list[int] = []
+    lines: list[str] = []
+    position = floor
+    for line in text[floor:start_char].splitlines(keepends=True):
+        offsets.append(position)
+        lines.append(_strip_title_markup(line.strip()))
+        position += len(line)
     while lines and not lines[-1]:
         lines.pop()
     if not lines:
-        return ""
-    title = lines[-1]
-    above = [line for line in lines[:-1] if line]
-    if (
-        not title[:1].isupper()
-        or not _is_leaked_trailing_line(title)
-        # A structural caption ("İKİNCİ BÖLÜM", "GENEL HÜKÜMLER", a document title), or
-        # the caption of a part ("Genel Hükümler" under "BİRİNCİ BÖLÜM"), is not the article's.
-        or title.upper() == title
-        or _PART_CAPTION_RE.search(title)
-        or (above and _PART_CAPTION_RE.search(above[-1]))
-    ):
-        return ""
-    # A line set directly on the title may be the first half of a wrapped title
-    # ("… Riske Esas Tutara" / "Dair Üst Sınır"); the last half alone is no title.
-    # Only a part caption ("İKİNCİ BÖLÜM" / "Genel Esaslar" / title) may sit there.
-    if lines[-2:-1] and lines[-2] and not (len(above) > 1 and _PART_CAPTION_RE.search(above[-2])):
-        return ""
-    return title
+        return None
+    count = _article_title_line_count(lines)
+    if not count:
+        return None
+    title = " ".join(lines[-count:])
+    return _INNER_EMPHASIS_RE.sub(" ", title).strip(), offsets[len(lines) - count]
 
 
 def _remainder_govde_sections(
@@ -474,7 +609,40 @@ def _find_section_starts(text: str, *, dot_headings: bool = False) -> list[dict]
                 starts.append({**subsection, "start_char": char_pos, "level": 2})
         previous = "" if major is not None else stripped
         char_pos += len(line)
-    return _without_quoted_articles(starts)
+    return _with_amendment_table_boundary(text, _without_quoted_articles(starts))
+
+
+def _with_amendment_table_boundary(text: str, starts: list[dict]) -> list[dict]:
+    """Close the last article at the amendment-history table that follows it.
+
+    A consolidated regulation prints, after its last article (and before any
+    annexes), a table of its publication and amendments ("| | Yönetmeliğin
+    Yayımlandığı Resmî Gazete’nin | …").  The table is not part of the last
+    article ("Yürütme"): its header row becomes a boundary, so the table is
+    indexed as govde.  Only a table after the last article heading and before
+    any annex heading counts, so a table inside a provision or an annex stays
+    where it is.  Subsection markers between the table and the next heading
+    (amendment footnotes "(1) Bu değişiklik …") are not the article's fıkra rows.
+    """
+    articles = [
+        index
+        for index, start in enumerate(starts)
+        if start["level"] == 1 and start["section_type"] in _ARTICLE_TITLE_TYPES and not start.get("boundary_only")
+    ]
+    if not articles:
+        return starts
+    last = articles[-1]
+    region_end = next((s["start_char"] for s in starts[last + 1 :] if s["level"] == 1), len(text))
+    line_end = text.find("\n", starts[last]["start_char"])
+    match = _AMENDMENT_TABLE_RE.search(text, line_end, region_end) if line_end != -1 else None
+    if match is None:
+        return starts
+    boundary = {"section_type": "ek", "boundary_only": True, "start_char": match.start(), "level": 1}
+    before = [s for s in starts if s["start_char"] < match.start()]
+    after = [
+        s for s in starts if s["start_char"] >= match.start() and (s["level"] == 1 or s["start_char"] >= region_end)
+    ]
+    return [*before, boundary, *after]
 
 
 def _opens_roman_sublist(lines: list[str], index: int, dot_headings: bool) -> bool:
@@ -742,8 +910,10 @@ _GLOSSARY_LINE_RE = re.compile(r"^[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜa-zçğıöş
 
 
 def _is_leaked_trailing_line(line: str) -> bool:
+    # A Markdown table row ("| 2018 | 1,875 |", "|---|---|") is provision or annex
+    # content in every section type, never a leaked heading.
     if (
-        line.startswith("(")
+        line.startswith(("(", "|"))
         or _SENTENCE_END_RE.search(line)
         or _FORMULA_LINE_RE.search(line)
         or _GLOSSARY_LINE_RE.match(line)
@@ -757,14 +927,33 @@ def _is_leaked_trailing_line(line: str) -> bool:
     return len(words) <= _LEAKED_TITLE_MAX_WORDS and words[0][:1].isupper()
 
 
-def _trim_trailing_heading_leak(text: str, start_char: int, end_char: int, *, annex: bool = False) -> int:
+def _ends_at_article(matches: list[dict], index: int) -> bool:
+    """Whether the section at ``index`` ends where an article heading (MADDE line) starts."""
+    current_level = matches[index]["level"]
+    for later in matches[index + 1 :]:
+        if later["level"] <= current_level:
+            return later.get("section_type") in _ARTICLE_TITLE_TYPES and not later.get("boundary_only")
+    return False
+
+
+def _trim_trailing_heading_leak(text: str, start_char: int, end_char: int, *, before_article: bool = False) -> int:
     lines = text[start_char:end_char].splitlines(keepends=True)
     last_keep = len(lines)
     # The first line is the section's own heading ("Madde 72 — (Mülga: …)"), never a leak;
-    # an annex's table rows ("| 11,314 | 8 | 5,657 |") are its content.
+    # table rows ("| 11,314 | 8 | 5,657 |") are content (see _is_leaked_trailing_line).
+    if before_article:
+        # The next article's title, set apart by a blank line, belongs to that
+        # article even when it runs long, opens with a date or wraps.
+        end = last_keep
+        while end > 1 and not lines[end - 1].strip():
+            end -= 1
+        stripped_lines = [_strip_title_markup(line.strip()) for line in lines[:end]]
+        count = _article_title_line_count(stripped_lines)
+        if count and end - count >= 2 and not stripped_lines[end - count - 1]:
+            last_keep = end - count
     while last_keep > 1:
         stripped = lines[last_keep - 1].strip()
-        if not stripped or (_is_leaked_trailing_line(stripped) and not (annex and stripped.startswith("|"))):
+        if not stripped or _is_leaked_trailing_line(stripped):
             last_keep -= 1
             continue
         break

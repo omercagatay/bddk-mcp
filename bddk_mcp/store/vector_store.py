@@ -249,6 +249,63 @@ def _chunk_document_by_tokens(
     return chunks
 
 
+# A stretch of text that belongs to no section and holds only caption lines (a
+# "İKİNCİ BÖLÜM" part caption, a Rehber sub-heading "Kredi Riskinde Önemli
+# Artışın Değerlendirilmesi", a document title) is no provision: embedded on its
+# own it matches a topic query almost perfectly and has nothing behind it.  It is
+# merged into the chunk of the section that follows it.  A caption line is at
+# most _CAPTION_MAX_CHARS long, opens with a capital letter or a number (or, set
+# directly under another caption line, continues it in lower case), carries no
+# sentence or clause punctuation at its end, is no table row and carries no
+# bracketed editorial note such as "69–70 [Silinmiştir]".  An upper-case
+# line must name a part, carry an outline number or run to several words, unless
+# the stretch holds a part caption or opens the document; so a signature block
+# ("İMZA" / "ADI-SOYADI" / "UNVAN") stays its own chunk.
+_CAPTION_MAX_CHARS = 120
+_CAPTION_MIN_UPPER_WORDS = 3
+_CAPTION_MARKUP_RE = re.compile(r"^[#*\s]+|[*\s]+$")
+_CAPTION_END_RE = re.compile(r"[.!?…;:,][”’\"']*$")
+_CAPTION_PART_RE = re.compile(r"BÖLÜM|KISIM|\bBölüm\b|\bKısım\b")
+_CAPTION_OUTLINE_RE = re.compile(r"^(?:[IVXLC]+|\d+(?:\.\d+)*)\.\s")
+_CAPTION_NOTE_RE = re.compile(r"\[[^\]]*\]")
+
+
+def _is_caption_line(line: str, *, continues: bool, short_upper_ok: bool) -> bool:
+    line = _CAPTION_MARKUP_RE.sub("", line)
+    if (
+        not line
+        or len(line) > _CAPTION_MAX_CHARS
+        or not (line[:1].isupper() or line[:1].isdigit() or (continues and line[:1].islower()))
+        or not any(ch.isalpha() for ch in line)
+        or line.startswith("|")
+        or _CAPTION_NOTE_RE.search(line)
+        or _CAPTION_END_RE.search(line)
+    ):
+        return False
+    if line.upper() == line:
+        return bool(
+            short_upper_ok
+            or _CAPTION_PART_RE.search(line)
+            or _CAPTION_OUTLINE_RE.match(line)
+            or len(line.split()) >= _CAPTION_MIN_UPPER_WORDS
+        )
+    return True
+
+
+def _is_caption_stretch(stretch: str, *, opens_document: bool = False) -> bool:
+    lines = [line.strip() for line in stretch.strip().splitlines()]
+    if not lines:
+        return False
+    short_upper_ok = opens_document or any(_CAPTION_PART_RE.search(line) for line in lines)
+    for index, line in enumerate(lines):
+        if not line:
+            continue
+        continues = index > 0 and bool(lines[index - 1])
+        if not _is_caption_line(line, continues=continues, short_upper_ok=short_upper_ok):
+            return False
+    return True
+
+
 def _chunk_spans(text: str, sections: list[DocumentSection]) -> list[_ChunkSpan]:
     if not sections:
         return [_ChunkSpan(start_char=0, end_char=len(text))] if text.strip() else []
@@ -257,8 +314,15 @@ def _chunk_spans(text: str, sections: list[DocumentSection]) -> list[_ChunkSpan]
     sorted_sections = sorted(sections, key=lambda section: (section.start_char, section.end_char))
     cursor = 0
     for index, section in enumerate(sorted_sections):
+        caption_start: int | None = None
         if cursor < section.start_char and text[cursor : section.start_char].strip():
-            spans.append(_ChunkSpan(start_char=cursor, end_char=section.start_char))
+            uncovered = not any(
+                max(cursor, other.start_char) < min(section.start_char, other.end_char) for other in sorted_sections
+            )
+            if uncovered and _is_caption_stretch(text[cursor : section.start_char], opens_document=cursor == 0):
+                caption_start = cursor
+            else:
+                spans.append(_ChunkSpan(start_char=cursor, end_char=section.start_char))
 
         later_starts = [
             later.start_char
@@ -267,7 +331,12 @@ def _chunk_spans(text: str, sections: list[DocumentSection]) -> list[_ChunkSpan]
         ]
         end_char = min(section.end_char, later_starts[0]) if later_starts else section.end_char
         if section.start_char < end_char and text[section.start_char : end_char].strip():
-            spans.append(_ChunkSpan(start_char=section.start_char, end_char=end_char, section=section))
+            # A caption stretch opens the following section's span: the chunk stays
+            # one contiguous slice of the document and is bound to that section.
+            span_start = section.start_char if caption_start is None else caption_start
+            spans.append(_ChunkSpan(start_char=span_start, end_char=end_char, section=section))
+        elif caption_start is not None:
+            spans.append(_ChunkSpan(start_char=caption_start, end_char=section.start_char))
         cursor = max(cursor, end_char)
 
     if cursor < len(text) and text[cursor:].strip():

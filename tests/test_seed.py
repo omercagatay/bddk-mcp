@@ -111,14 +111,15 @@ async def test_build_creates_a_ready_corpus_from_seed_json(tmp_path: Path, seed_
         "decision_cache": 1,
         "documents": 2,
         "sections": 2,
-        "chunks": 3,
+        # The "# Rehber" caption opens the İLKE 5 chunk instead of being a chunk of its own.
+        "chunks": 2,
         "chunks_cached": 0,
         "skipped": False,
     }
     db = CorpusDB.open(tmp_path / "corpus.sqlite", readonly=True)
     try:
         readiness = await db.assert_ready(require_corpus=True)
-        assert (readiness.documents, readiness.chunks, readiness.catalog) == (2, 3, 1)
+        assert (readiness.documents, readiness.chunks, readiness.catalog) == (2, 2, 1)
         store = DocumentStore(db)
         stored = await store.get_document("943")
         assert stored is not None
@@ -173,7 +174,7 @@ async def test_build_force_rewrites_and_reembeds_everything(tmp_path: Path, seed
 
     assert result["skipped"] is False
     assert result["documents"] == 2
-    assert result["chunks"] == 3
+    assert result["chunks"] == 2
 
 
 @pytest.mark.asyncio
@@ -359,7 +360,7 @@ async def test_build_reuses_exported_embeddings_without_the_model(tmp_path: Path
         vector_store_factory=lambda db: VectorStore(db, embed_fn=_forbidden_embed, tokenizer=FakeTokenizer()),
     )
 
-    assert (result["chunks"], result["chunks_cached"]) == (3, 3)
+    assert (result["chunks"], result["chunks_cached"]) == (2, 2)
     assert _chunk_blobs(tmp_path / "cached.sqlite") == _chunk_blobs(tmp_path / "corpus.sqlite")
     cached = CorpusDB.open(tmp_path / "cached.sqlite", readonly=True)
     try:
@@ -686,7 +687,7 @@ async def test_a_parser_source_change_rewrites_every_document_from_the_cached_ve
 
     assert (result["skipped"], result["documents"]) == (False, 2)
     assert embedded == []  # chunk texts are unchanged, so every vector comes from the seed cache
-    assert result["chunks_cached"] == result["chunks"] == 3
+    assert result["chunks_cached"] == result["chunks"] == 2
     assert "Build fingerprint differs (parser); every document is rewritten" in caplog.messages
     assert _chunk_blobs(tmp_path / "corpus.sqlite") == before
     stored = fingerprint.decode(_stored_meta(tmp_path / "corpus.sqlite")[fingerprint.FINGERPRINT_META_KEY])
@@ -768,7 +769,7 @@ async def test_a_passage_prefix_change_is_refused_and_force_embeds_every_documen
         vector_store_factory=_counting_store(embedded),
     )
     assert (result["skipped"], result["documents"]) == (False, 2)
-    assert sum(embedded) == result["chunks"] == 3  # the seed cache is ignored: every chunk is embedded again
+    assert sum(embedded) == result["chunks"] == 2  # the seed cache is ignored: every chunk is embedded again
     assert result["chunks_cached"] == 0
     stored = fingerprint.decode(_stored_meta(tmp_path / "corpus.sqlite")[fingerprint.FINGERPRINT_META_KEY])
     assert stored["model"] == fingerprint.model_part()

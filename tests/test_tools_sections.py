@@ -907,7 +907,10 @@ async def test_capped_section_reports_its_true_extent(doc_store):
     result = await tool("mevzuat_9", section_type="madde", section_ref="2")
 
     item = result.structuredContent["results"][0]
-    assert (item["start_char"], item["end_char"]) == (madde_2_start, madde_2_start + 20_000)
+    # The window ends at a break at or before the 20,000-character cap, never inside a word.
+    assert item["start_char"] == madde_2_start
+    assert madde_2_start + 10_000 <= item["end_char"] <= madde_2_start + 20_000
+    assert _CAPPED_DOCUMENT[item["end_char"] - 1].isspace()
     assert item["stored_span_capped"] is True
     assert item["original_end_char"] == true_end
     assert (

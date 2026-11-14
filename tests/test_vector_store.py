@@ -895,3 +895,79 @@ class TestVectorStoreSearch:
         assert quality_hit["quality_label"] == "warning"
         assert "formula_ref_without_latex_or_image" in quality_hit["quality_flags"]
         assert "aşağıdaki formül" not in quality_hit["snippet"]
+
+
+def test_caption_stretch_opens_the_chunk_of_the_following_section():
+    text = (
+        "MADDE 9 - (1) Bankalar karşılık ayırır.\n\n"
+        "İKİNCİ BÖLÜM\nGenel Esaslar\n\n"
+        "MADDE 10 - (1) Başka hüküm uygulanır.\n"
+    )
+
+    chunks = _chunk_document("mevzuat_22599", text, tokenizer=WhitespaceTokenizer(), target_tokens=50, token_overlap=0)
+
+    assert all(chunk.section_type for chunk in chunks)
+    assert all(chunk.chunk_text == text[chunk.start_char : chunk.end_char] for chunk in chunks)
+    caption = next(chunk for chunk in chunks if "İKİNCİ BÖLÜM" in chunk.chunk_text)
+    assert caption.chunk_text.startswith("İKİNCİ BÖLÜM\nGenel Esaslar\n\nMADDE 10 -")
+    assert (caption.section_type, caption.section_ref) == ("madde", "10")
+    assert caption.section_start_char == text.index("MADDE 10")
+    assert caption.start_char < caption.section_start_char
+
+
+def test_text_between_sections_that_is_no_caption_stays_its_own_chunk():
+    text = "MADDE 1 - (1) Birinci.\n\nİMZA\n\nADI-SOYADI\n\nMADDE 2 - (1) İkinci.\n\nBu metin bir paragraftır.\n"
+    signature = text.index("İMZA")
+
+    chunks = _chunk_document("mevzuat_16071", text, tokenizer=WhitespaceTokenizer(), target_tokens=50, token_overlap=0)
+
+    standalone = [chunk for chunk in chunks if not chunk.section_type]
+    assert [chunk.start_char for chunk in standalone] == [signature]
+    assert standalone[0].chunk_text.strip() == "İMZA\n\nADI-SOYADI"
+    assert next(chunk for chunk in chunks if chunk.section_ref == "2").chunk_text.startswith("MADDE 2 -")
+
+
+def test_deletion_note_is_no_caption_and_is_not_merged_into_the_next_section():
+    # kgk_tms_12: "69–70 [Silinmiştir]" records deleted paragraphs; it must not be bound to paragraf 71.
+    text = "MADDE 1 - (1) Birinci.\n\nSunum\n\n69–70 [Silinmiştir]\n\nMahsup\n\nMADDE 2 - (1) İkinci.\n"
+    note = text.index("Sunum")
+
+    chunks = _chunk_document("kgk_tms_12", text, tokenizer=WhitespaceTokenizer(), target_tokens=50, token_overlap=0)
+
+    standalone = [chunk for chunk in chunks if not chunk.section_type]
+    assert [chunk.start_char for chunk in standalone] == [note]
+    assert standalone[0].chunk_text.strip() == "Sunum\n\n69–70 [Silinmiştir]"
+    assert not any("[Silinmiştir]" in chunk.chunk_text for chunk in chunks if chunk.section_type)
+
+
+def test_seed_has_no_standalone_caption_chunk_except_a_document_tail():
+    import json
+    from pathlib import Path
+
+    from bddk_mcp.store.section_index import extract_document_sections
+    from bddk_mcp.store.vector_store import _chunk_spans, _is_caption_stretch
+
+    seed = Path(__file__).resolve().parents[1] / "seed_data" / "documents.json"
+    tails = []
+    standalone = 0
+    for doc in json.loads(seed.read_text(encoding="utf-8")):
+        text = doc["markdown_content"] or ""
+        sections = extract_document_sections(doc["document_id"], text)
+        spans = _chunk_spans(text, sections)
+        for index, span in enumerate(spans):
+            if span.section is not None:
+                # A span bound to a section starts at the section or at the caption stretch above it.
+                assert span.start_char <= span.section.start_char < span.end_char
+                assert span.start_char == span.section.start_char or _is_caption_stretch(
+                    text[span.start_char : span.section.start_char], opens_document=span.start_char == 0
+                )
+                continue
+            if any(s.start_char <= span.start_char < s.end_char for s in sections):
+                continue
+            standalone += 1
+            if _is_caption_stretch(text[span.start_char : span.end_char], opens_document=span.start_char == 0):
+                assert index == len(spans) - 1, (doc["document_id"], span.start_char)
+                tails.append(doc["document_id"])
+    # Measured: 1041 "45. Ödenmemiş borçlar", and the "Eki/Ekleri için tıklayınız" link of 21425 and 40520.
+    assert sorted(tails) == ["1041", "mevzuat_21425", "mevzuat_40520"]
+    assert standalone < 30
