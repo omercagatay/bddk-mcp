@@ -1386,7 +1386,9 @@ async def test_a_decision_number_the_corpus_does_not_store_is_named_before_the_r
     stored = SearchHits([{**_hit("1301", 0.9, "hybrid"), "decision_number": "11200"}])
     vector_store = MagicMock()
     vector_store.assert_semantic_search_ready = AsyncMock()
-    vector_store.search = AsyncMock(side_effect=[other, nothing, stored])
+    bare = SearchHits([_hit("mevzuat_5411", 0.9, "hybrid")])
+    bare.decision_numbers_not_stored = ["5411"]
+    vector_store.search = AsyncMock(side_effect=[other, nothing, stored, bare])
     mcp = MagicMock()
     register(mcp, Dependencies(db=None, doc_store=None, client=None, http=None, vector_store=vector_store))
     tool = _registered_tools(mcp)["search_document_store"]
@@ -1394,6 +1396,7 @@ async def test_a_decision_number_the_corpus_does_not_store_is_named_before_the_r
     with_hits = await tool("15.07.2025 tarihli ve 11250 sayılı Kurul Kararı", limit=10)
     without_hits = await tool("11250 sayılı karar kredi", limit=10)
     known = await tool("11200 sayılı karar", limit=10)
+    bare_number = await tool("5411", limit=10)
 
     note = "Note: decision number 11250 named in the query is not stored in this corpus"
     assert with_hits.text.index(note) < with_hits.text.index("Found 1 result(s)")
@@ -1406,3 +1409,8 @@ async def test_a_decision_number_the_corpus_does_not_store_is_named_before_the_r
     assert without_hits.structuredContent["decision_numbers_not_stored"] == ["11250"]
     assert "not stored in this corpus" not in known.text
     assert known.structuredContent.get("decision_numbers_not_stored") is None
+    # A bare number may be a law number or a document id: the note says only what was checked.
+    assert "the query, a bare number, was also read as a decision number" in bare_number.text
+    assert "decision number 5411 named in the query" not in bare_number.text
+    assert "other documents" not in bare_number.text
+    assert bare_number.structuredContent["decision_numbers_not_stored"] == ["5411"]

@@ -1741,6 +1741,8 @@ class TestSectionReferencesInTheKeywordPass:
         await vs._fts_search("Kredilerin Sınıflandırılması md. 9", document_limit=None)
         assert matches[0] == '"kredilerin" "siniflandirilmasi" "madde" "9"'
         assert matches[1] is not None and '"madde"*' in matches[1]
+        # Neither the strict nor the inflection-tolerant pass found anything: the relaxed OR pass runs.
+        assert matches[2] is not None and " OR " in matches[2] and '"madde"*' in matches[2]
 
 
 class TestFiguresAndLetteredReferencesInTheStrictPass:

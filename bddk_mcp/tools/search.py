@@ -852,7 +852,15 @@ Suggest the user try: different keywords or a different category (basın, mevzua
                 f"Abbreviations: {'; '.join(expansions)} (reviewed glossary; the expansion was also searched)\n"
             )
         not_stored = list(getattr(hits, "decision_numbers_not_stored", None) or [])
-        if not_stored:
+        if not_stored and not parse_legal_refs(query).decision_numbers:
+            # A bare number ("943", "5411") is also read as a decision number; it may be a document id or a
+            # law number, so the note says only what was checked and does not call the hits other documents.
+            searched_as_line += (
+                f"Note: the query, a bare number, was also read as a decision number: no stored document carries "
+                f"decision number {not_stored[0]}. The corpus is a selection of BDDK documents, so this does not "
+                "say that such a decision does not exist.\n"
+            )
+        elif not_stored:
             numbers = ", ".join(not_stored)
             searched_as_line += (
                 f"Note: decision number{'s' if len(not_stored) > 1 else ''} {numbers} named in the query "
