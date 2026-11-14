@@ -38,6 +38,7 @@ from bddk_mcp.tools.contract_types import (
     SectionResultLimit,
     SectionType,
 )
+from bddk_mcp.tools.documents import annex_not_stored_notice
 from bddk_mcp.tools.errors import NOT_FOUND, tool_error
 from bddk_mcp.tools.structured_outputs import (
     LEGAL_APPLICABILITY_WARNING,
@@ -1092,6 +1093,15 @@ async def _any_document_stored(deps: Dependencies, document_id: str) -> bool:
     return False
 
 
+async def _annex_not_stored_notice(deps: Dependencies, document_id: str) -> str:
+    """The notice that a document's annexes are not stored, from its stored text ('' when it shows no placeholder)."""
+    for candidate in document_id_candidates(document_id):
+        page = await deps.doc_store.get_document_page(candidate, 1)
+        if page is not None:
+            return annex_not_stored_notice(page.annex_placeholder) if page.annex_placeholder else ""
+    return ""
+
+
 async def _require_stored_document(deps: Dependencies, document_id: str) -> None:
     """Raise NOT_FOUND for an explicit document_id that is not a stored document (as get_bddk_document does)."""
     if not await _any_document_stored(deps, document_id):
@@ -1318,6 +1328,11 @@ def register(mcp, deps: Dependencies) -> None:
                 f"No section found for document {document_id} with the requested filters.\n"
                 f"Try search_document_sections with query: {_visible_controls(query or document_id)}"
             )
+            annex_notice = (
+                await _annex_not_stored_notice(deps, document_id) if _normalize_optional(section_type) == "ek" else ""
+            )
+            if annex_notice:
+                output += f"\n\n{annex_notice}"
             return structured_tool_result(
                 DocumentSectionResponse(
                     status="no_results",
@@ -1327,6 +1342,7 @@ def register(mcp, deps: Dependencies) -> None:
                     section_type=_normalize_optional(section_type),
                     section_ref=_normalize_optional(section_ref),
                     heading=heading,
+                    warnings=[annex_notice] if annex_notice else [],
                 )
             )
 

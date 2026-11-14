@@ -2770,3 +2770,37 @@ def test_loose_ranking_does_not_score_the_generic_govde_heading():
     terms = ["yapısal", "başlık", "faiz"]
     weights = dict.fromkeys(terms, 1.0)
     assert _loose_section_score(govde, terms, weights) == _loose_section_score(plain, terms, weights)
+
+
+@pytest.mark.asyncio
+async def test_an_annex_request_on_a_document_whose_annexes_are_not_stored_says_so(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_39257",
+            title="BSD Yönetmeliği",
+            markdown_content="MADDE 1 - (1) Metin.\n\nMADDE 2 - (1) Ek-1 formu kullanılır.\n\nEkleri için tıklayınız.",
+        )
+    )
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_11111",
+            title="Düz Yönetmelik",
+            markdown_content="MADDE 1 - (1) Bu Yönetmeliğin ekleri için tıklayınız demek yeterli değildir.\n",
+        )
+    )
+    deps = Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+    tool = _capture_tool(deps, "get_document_section")
+
+    annex = await tool(document_id="mevzuat_39257", section_type="ek", section_ref="9")
+    madde = await tool(document_id="mevzuat_39257", section_type="madde", section_ref="9")
+    plain = await tool(document_id="mevzuat_11111", section_type="ek", section_ref="1")
+
+    assert annex.structuredContent["status"] == "no_results"
+    assert "No section found for document mevzuat_39257" in annex.text
+    assert "annexes (ekler) of this instrument are not stored in this corpus" in annex.text
+    assert '"Ekleri için tıklayınız."' in annex.text and "source" in annex.text
+    # Only an annex request gets the notice, and only for a document that shows the placeholder.
+    assert "annexes" not in madde.text
+    assert "annexes" not in plain.text

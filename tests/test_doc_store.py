@@ -89,6 +89,110 @@ async def test_pagination(store):
     assert "Invalid page" in invalid.markdown_content
 
 
+async def test_page_reports_whether_it_starts_inside_a_table_row_or_a_formula(store):
+    filler = "a\n" * 2400
+    row_cut = filler + "| 030001 | " + "Y" * (5000 - len(filler) - 11) + "T BANKALARI |\nson\n"
+    formula_cut = filler + "$$ x " + "y" * (5000 - len(filler) - 5) + "z $$\nson\n"
+    clean = filler + "| 1 | 2 |\n" + "b" * (5000 - len(filler) - 12) + "tail\n"
+    for doc_id, body in (("row_cut", row_cut), ("formula_cut", formula_cut), ("clean", clean)):
+        await store.store_document(StoredDocument(document_id=doc_id, title=doc_id, markdown_content=body))
+
+    row_first = await store.get_document_page("row_cut", 1)
+    row_second = await store.get_document_page("row_cut", 2)
+    formula_second = await store.get_document_page("formula_cut", 2)
+    clean_second = await store.get_document_page("clean", 2)
+
+    assert row_first.starts_inside_table_row is False and row_first.starts_inside_formula is False
+    assert row_second.starts_inside_table_row is True and row_second.starts_inside_formula is False
+    assert formula_second.starts_inside_formula is True and formula_second.starts_inside_table_row is False
+    assert clean_second.starts_inside_table_row is False and clean_second.starts_inside_formula is False
+
+
+async def test_page_flags_for_complete_rows_and_formulas_cut_at_either_edge(store):
+    filler = "a\n" * 2400
+
+    complete_row = filler + "| 030001 | " + "Y" * (5000 - len(filler) - 11 - 2) + " |" + "\n| 3 | 4 |\nson\n"
+    formula_both = filler + "$$ x " + "y" * (5000 - len(filler) - 5) + "z" * 5000 + "w $$\nson\n"
+    for doc_id, body in (("complete_row", complete_row), ("formula_both", formula_both)):
+        await store.store_document(StoredDocument(document_id=doc_id, title=doc_id, markdown_content=body))
+
+    row_first = await store.get_document_page("complete_row", 1)
+    row_second = await store.get_document_page("complete_row", 2)
+    middle = await store.get_document_page("formula_both", 2)
+    first = await store.get_document_page("formula_both", 1)
+    last = await store.get_document_page("formula_both", 3)
+
+    assert len(row_first.markdown_content) == 5000
+    assert row_first.ends_inside_table_row is False and row_second.starts_inside_table_row is False
+    assert first.ends_inside_formula is True and first.starts_inside_formula is False
+    assert middle.starts_inside_formula is True and middle.ends_inside_formula is True
+    assert last.starts_inside_formula is True and last.ends_inside_formula is False
+
+
+async def _section_rows(store, doc_id):
+    rows = await store._db.run(
+        lambda conn: conn.execute(
+            "SELECT * FROM document_sections WHERE doc_id = ? ORDER BY start_char", (doc_id,)
+        ).fetchall()
+    )
+    return [tuple(row) for row in rows]
+
+
+async def test_page_reports_a_placeholder_line_that_stands_for_annexes_that_are_not_stored(store):
+    bodies = {
+        "own_line": "MADDE 1 - (1) Metin.\n\nMADDE 2 - (1) Son.\n\nEkleri için tıklayınız.",
+        "genitive": "MADDE 1 - (1) Metin.\n\nYönetmeliğin eklerini görmek için tıklayınız\n",
+        "see_form": "MADDE 1 - (1) Metin.\n\nEki görmek için tıklayınız\n",
+        "prose": "MADDE 1 - (1) Bu Yönetmeliğin ekleri için tıklayınız demek yeterli değildir; ekleri ayrıca düzenlenir.\n",
+        "annex_stored": "MADDE 1 - (1) Metin.\n\nEki için tıklayınız.\n\nEK-1\n\nBİLDİRİM FORMU\n\nForm alanları burada.\n",
+    }
+    for doc_id, body in bodies.items():
+        await store.store_document(StoredDocument(document_id=doc_id, title=doc_id, markdown_content=body))
+
+    found = {doc_id: (await store.get_document_page(doc_id, 1)).annex_placeholder for doc_id in bodies}
+
+    assert found["own_line"] == "Ekleri için tıklayınız."
+    assert found["genitive"] == "Yönetmeliğin eklerini görmek için tıklayınız"
+    assert found["see_form"] == "Eki görmek için tıklayınız"
+    assert found["prose"] == ""
+    # The annex text is stored after the link text: nothing is missing.
+    assert found["annex_stored"] == ""
+
+
+async def test_update_document_metadata_changes_only_the_named_non_empty_columns(store):
+    body = "MADDE 1 - (1) Metin.\n\nMADDE 2 - (2) Başka.\n"
+    await store.store_document(
+        StoredDocument(
+            document_id="1310",
+            title="Eski Başlık",
+            category="Yönetmelik",
+            decision_date="2020-01-01",
+            decision_number="1",
+            source_url="https://www.bddk.org.tr/old",
+            markdown_content=body,
+            downloaded_at=1_700_000_000.0,
+        )
+    )
+    before = await store.get_document("1310")
+    sections_before = await _section_rows(store, "1310")
+
+    changed = await store.update_document_metadata(
+        "1310", title="", category="Mülga Düzenleme", source_url="", decision_date="2021-02-03", decision_number=""
+    )
+    unchanged = await store.update_document_metadata("1310", category="Mülga Düzenleme")
+    missing = await store.update_document_metadata("nope", category="Mülga Düzenleme")
+
+    after = await store.get_document("1310")
+    assert sorted(changed) == ["category", "decision_date"]
+    assert unchanged == [] and missing == []
+    assert (after.category, after.decision_date) == ("Mülga Düzenleme", "2021-02-03")
+    # Empty arguments never blank stored metadata.
+    assert (after.title, after.decision_number, after.source_url) == ("Eski Başlık", "1", "https://www.bddk.org.tr/old")
+    assert after.markdown_content == body and after.content_hash == before.content_hash
+    assert sections_before and await _section_rows(store, "1310") == sections_before
+    assert (await store.get_document_page("1310", 1)).downloaded_at == 1_700_000_000.0
+
+
 async def test_has_document(store, sample_doc):
     assert await store.has_document("1291") is False
     await store.store_document(sample_doc)

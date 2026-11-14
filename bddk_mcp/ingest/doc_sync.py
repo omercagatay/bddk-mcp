@@ -953,6 +953,17 @@ class DocumentSyncer:
         # are current. Stored text without current chunks (an earlier reindex_failed,
         # an interrupted build) is re-indexed from the stored text, not downloaded again.
         if not force and await self._store.has_document(doc_id):
+            # A catalog refresh may have moved the instrument to another class (for example repealed) while its
+            # body is unchanged: take over the catalog fields, never the body, sections, chunks or download date.
+            if title or category or source_url or decision_date or decision_number:
+                await self._store.update_document_metadata(
+                    doc_id,
+                    title=title,
+                    category=category,
+                    source_url=source_url,
+                    decision_date=decision_date,
+                    decision_number=decision_number,
+                )
             if self._vector_store is None or await self._vector_store.has_document(doc_id):
                 return SyncResult(document_id=doc_id, success=True, method="cached")
             stored = await self._store.get_document(doc_id)

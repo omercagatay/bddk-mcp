@@ -1480,3 +1480,84 @@ async def test_a_real_download_still_stamps_a_new_download_date(doc_store):
 
     assert result.success is True
     assert await _downloaded_at(doc_store, "777") > 1_700_000_000.0
+
+
+_REFRESH_BODY = "MADDE 1 - (1) Bankalar faiz oranı riskini ölçer.\n\nMADDE 2 - (2) Rapor verilir.\n"
+
+
+async def _store_refresh_doc(doc_store):
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="1310",
+            title="Faiz Oranı Riski Yönetmeliği",
+            category="Yönetmelik",
+            decision_date="2020-01-01",
+            decision_number="7",
+            source_url="https://www.bddk.org.tr/Mevzuat/DokumanGetir/1310",
+            markdown_content=_REFRESH_BODY,
+            downloaded_at=1_700_000_000.0,
+        )
+    )
+
+
+@pytest.mark.asyncio
+async def test_cached_document_takes_over_a_refreshed_catalog_class_and_keeps_its_body(doc_store):
+    await _store_refresh_doc(doc_store)
+    before = await doc_store.get_document("1310")
+    sections_before = await doc_store._db.run(
+        lambda conn: [tuple(r) for r in conn.execute("SELECT * FROM document_sections WHERE doc_id = '1310'")]
+    )
+
+    def no_network(request):
+        raise AssertionError("a cached document must not use the network")
+
+    http = httpx.AsyncClient(transport=httpx.MockTransport(no_network))
+    async with DocumentSyncer(doc_store, ocr_backends=[], http=http) as syncer:
+        result = await syncer.sync_document(
+            "1310",
+            title="Faiz Oranı Riski Yönetmeliği",
+            category="Mülga Düzenleme",
+            decision_date="2021-05-06",
+        )
+
+    after = await doc_store.get_document("1310")
+    assert result.success is True and result.method == "cached"
+    assert (after.category, after.decision_date) == ("Mülga Düzenleme", "2021-05-06")
+    assert (after.title, after.decision_number, after.source_url) == (
+        before.title,
+        "7",
+        before.source_url,
+    )
+    assert after.markdown_content == before.markdown_content and after.content_hash == before.content_hash
+    assert await _downloaded_at(doc_store, "1310") == 1_700_000_000.0
+    assert sections_before and sections_before == await doc_store._db.run(
+        lambda conn: [tuple(r) for r in conn.execute("SELECT * FROM document_sections WHERE doc_id = '1310'")]
+    )
+    await http.aclose()
+
+
+@pytest.mark.asyncio
+async def test_cached_document_keeps_its_metadata_when_the_catalog_arguments_are_empty(doc_store):
+    await _store_refresh_doc(doc_store)
+    before = await doc_store.get_document("1310")
+
+    async with DocumentSyncer(doc_store, ocr_backends=[]) as syncer:
+        result = await syncer.sync_document("1310")
+
+    assert result.method == "cached"
+    assert await doc_store.get_document("1310") == before
+
+
+@pytest.mark.asyncio
+async def test_reindexed_stored_text_takes_over_the_refreshed_catalog_class(doc_store, vector_store):
+    await _store_refresh_doc(doc_store)
+    assert not await vector_store.has_document("1310")
+
+    async with DocumentSyncer(doc_store, vector_store=vector_store, ocr_backends=[]) as syncer:
+        result = await syncer.sync_document("1310", category="Mülga Düzenleme")
+
+    after = await doc_store.get_document("1310")
+    assert result.success is True and result.method == "reindexed"
+    assert after.category == "Mülga Düzenleme" and after.markdown_content == _REFRESH_BODY
+    assert await vector_store.has_document("1310")
+    assert await _downloaded_at(doc_store, "1310") == 1_700_000_000.0

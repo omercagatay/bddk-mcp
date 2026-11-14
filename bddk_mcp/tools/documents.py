@@ -65,37 +65,60 @@ _LARGE_DOCUMENT_WARNING_TEMPLATE = (
 )
 
 
-def _page_cut_warning(page: int, content: str, *, total_pages: int, returned_pages: set[int]) -> str | None:
-    """Name a clear structural cut on a page that is not the last one.
+def annex_not_stored_notice(placeholder: str) -> str:
+    """The notice for an instrument whose stored text has only the link text that stands for its annexes."""
+    return (
+        "The annexes (ekler) of this instrument are not stored in this corpus: the source page links them "
+        f'separately and only the link text "{placeholder}" is stored. Consult the annexes at the source '
+        "(source_url); do not treat their absence here as absence of annex requirements."
+    )
 
-    An odd number of $$ delimiters says only that a formula crosses one of the page's two boundaries,
-    not which one, so that advice names both neighbours. A last line starting with "|" and no final
-    newline is an end-of-page cut, so that advice names the next page only. A neighbour already in
-    this response is not asked for again.
+
+def _page_cut_warning(
+    page: int,
+    *,
+    total_pages: int,
+    returned_pages: set[int],
+    starts_inside_table_row: bool = False,
+    starts_inside_formula: bool = False,
+    ends_inside_table_row: bool = False,
+    ends_inside_formula: bool = False,
+) -> str | None:
+    """Name a clear structural cut at either edge of a page, from the store's exact edge flags.
+
+    A start cut names the previous page, an end cut names the next page (a last page has none). A
+    neighbour already in this response is not asked for again.
     """
     advice = []
-    if content.count("$$") % 2 == 1:
-        adjacent = [n for n in (page - 1, page + 1) if 1 <= n <= total_pages]
-        missing = [n for n in adjacent if n not in returned_pages]
-        text = (
-            f"Page {page} has an odd number of $$ formula delimiters: a formula is cut at the start or the end of "
-            "this page, and the delimiter count cannot tell which."
+
+    def _more(neighbour: int, what: str, in_response: str) -> str:
+        if neighbour not in returned_pages:
+            return f" Retrieve page {neighbour} as well before quoting that {what}."
+        return f" {in_response} in this response."
+
+    if page > 1 and starts_inside_table_row:
+        advice.append(
+            f"Page {page} starts inside a table row that began on page {page - 1}: the first line of this page "
+            "is the rest of a row begun there."
+            + _more(page - 1, "row", f"The row was begun at the end of page {page - 1}")
         )
-        if missing:
-            text += (
-                f" Retrieve page(s) {' and '.join(map(str, missing))} as well before quoting a formula at either "
-                "edge of this page."
-            )
-        else:
-            text += " Read the adjacent page(s) in this response before quoting a formula at either edge of it."
-        advice.append(text)
-    if not content.endswith("\n") and content.rsplit("\n", 1)[-1].startswith("|"):
-        text = f"Page {page} ends inside a table row that continues on the next page."
-        if page + 1 not in returned_pages:
-            text += f" Retrieve page {page + 1} as well before quoting that row."
-        else:
-            text += f" Its continuation is at the start of page {page + 1} in this response."
-        advice.append(text)
+    if page > 1 and starts_inside_formula:
+        advice.append(
+            f"Page {page} starts inside a formula opened on page {page - 1} (an odd number of $$ markers "
+            "precedes this page): the first lines of this page are the rest of a formula begun there."
+            + _more(page - 1, "formula", f"The formula was begun at the end of page {page - 1}")
+        )
+    if page < total_pages and ends_inside_formula:
+        advice.append(
+            f"Page {page} ends inside a formula that continues on page {page + 1} (an odd number of $$ "
+            "markers lies up to the end of this page)."
+            + _more(page + 1, "formula", f"Its continuation is at the start of page {page + 1}")
+        )
+    if page < total_pages and ends_inside_table_row:
+        advice.append(
+            f"Page {page} ends inside a table row that continues on the next page."
+            + _more(page + 1, "row", f"Its continuation is at the start of page {page + 1}")
+        )
     if not advice:
         return None
     return " ".join(advice) + " The page boundary is a fixed character window, not a source boundary."
@@ -147,6 +170,7 @@ def register(
         page_num = 0
         total_pages = 0
         page_contents: list[tuple[int, str]] = []
+        edge_cuts: dict[int, tuple[bool, bool, bool, bool]] = {}
         extraction_method = ""
         body_hash = ""
         downloaded_at: float | None = None
@@ -167,6 +191,12 @@ def register(
                 extraction_method = found_page.extraction_method or ""
                 body_hash, downloaded_at = found_page.content_hash, found_page.downloaded_at
                 page_contents.append((page_num, found_page.markdown_content))
+                edge_cuts[page_num] = (
+                    found_page.starts_inside_table_row,
+                    found_page.starts_inside_formula,
+                    found_page.ends_inside_table_row,
+                    found_page.ends_inside_formula,
+                )
                 break
 
         # A bare number may be a Kurul decision number rather than a document id (8970 is the decision
@@ -240,6 +270,12 @@ def register(
                     break
                 last_page_num, total_pages = found_page.page_number, found_page.total_pages
                 page_contents.append((last_page_num, found_page.markdown_content))
+                edge_cuts[last_page_num] = (
+                    found_page.starts_inside_table_row,
+                    found_page.starts_inside_formula,
+                    found_page.ends_inside_table_row,
+                    found_page.ends_inside_formula,
+                )
                 if found_page.extraction_method and not extraction_method:
                     extraction_method = found_page.extraction_method
 
@@ -298,6 +334,11 @@ def register(
             if quality.warning:
                 warnings.append(quality.warning)
 
+        annex_notice = annex_not_stored_notice(first_found.annex_placeholder) if first_found.annex_placeholder else ""
+        annex_notice_block = f"⚠ {annex_notice}\n\n" if annex_notice else ""
+        if annex_notice:
+            warnings.append(annex_notice)
+
         large_document_warning_block = ""
         if total_pages >= _LARGE_DOCUMENT_PAGE_THRESHOLD:
             large_document_warning = _LARGE_DOCUMENT_WARNING_TEMPLATE.format(total_pages=total_pages)
@@ -324,13 +365,15 @@ def register(
         page_cut_warnings = [
             warning
             for page, page_content in page_contents
-            if page < total_pages
-            and (
+            if (
                 warning := _page_cut_warning(
                     page,
-                    page_content,
                     total_pages=total_pages,
                     returned_pages={returned for returned, _content in page_contents},
+                    starts_inside_table_row=edge_cuts.get(page, (False,) * 4)[0],
+                    starts_inside_formula=edge_cuts.get(page, (False,) * 4)[1],
+                    ends_inside_table_row=edge_cuts.get(page, (False,) * 4)[2],
+                    ends_inside_formula=edge_cuts.get(page, (False,) * 4)[3],
                 )
             )
         ]
@@ -352,6 +395,9 @@ def register(
             f"- Category: {meta_category or 'N/A'}\n{status_line}- Source: {source_url or 'N/A'}\n"
             f"- Text obtained from the source on: {source_date_text(downloaded_at)}\n"
             f"- Page: {page_display}\n- Extraction: {method_display}\n{quality_lines}---\n"
+            f"{annex_notice_block}{large_document_warning_block}{page_gap_warning_block}{page_cut_warning_block}"
+            f"{quality_warning_block}{degraded_warning_block}"
+            f"Notice: {LEGAL_APPLICABILITY_WARNING}\n\n"
             "The text below is the exact stored document content; no sanitization, paraphrase or "
             "summary has been applied. Quote it verbatim, character for character, and do not add information "
             "not present in this document. Verbatim equality with the stored extraction does not by itself prove "
@@ -359,8 +405,6 @@ def register(
             f"Pages are fixed windows of {PAGE_SIZE:,} characters of the stored text, so a page can start or end "
             "inside a word, a table row or a formula."
             f"{separator_note}\n\n"
-            f"{large_document_warning_block}{page_gap_warning_block}{page_cut_warning_block}"
-            f"{quality_warning_block}{degraded_warning_block}"
         )
 
         served_via = "document_store"
