@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import logging
 from typing import TYPE_CHECKING
 
@@ -79,10 +80,14 @@ MONTHLY_TABLE_CAPTIONS: dict[int, str] = {
 
 
 def with_doc(doc: str):
-    """Set a generated tool description; FastMCP reads the function docstring."""
+    """Set a generated tool description; FastMCP reads the function docstring.
+
+    The text is cleaned like a docstring (inspect.cleandoc): written indented in an f-string, it would
+    otherwise start with spaces that Markdown clients render as a code block.
+    """
 
     def apply(func):
-        func.__doc__ = doc
+        func.__doc__ = inspect.cleandoc(doc)
         return func
 
     return apply

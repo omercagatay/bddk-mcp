@@ -82,7 +82,10 @@ def test_inserted_articles_parse_to_the_stored_ref_and_bare_articles_stay_bare()
         assert refs.document_ids == ["mevzuat_5411"]
         assert refs.sections == [("madde", "66/a")]
     assert parse_legal_refs("m. 13/Ç").sections == [("madde", "13/ç")]
-    assert parse_legal_refs("66/A. madde") == parse_legal_refs("madde 66/A")
+    # The two forms parse the same; only the character spans of the reference differ.
+    assert parse_legal_refs("66/A. madde").model_dump(exclude={"section_spans"}) == parse_legal_refs(
+        "madde 66/A"
+    ).model_dump(exclude={"section_spans"})
     assert parse_legal_refs("mevzuat_5411 madde 66").sections == [("madde", "66")]
     assert parse_legal_refs("madde 4/1-a").sections == [("madde", "4")]
     assert parse_legal_refs("madde 5 a) bendi").sections == [("madde", "5")]
@@ -236,3 +239,53 @@ def test_only_kgk_and_rg_letter_prefixes_are_document_id_candidates():
     refs = parse_legal_refs("basel_3 943 model validasyonu")
     assert refs.document_ids == ["943"]
     assert refs.document_id_spans == [(8, 11)]
+
+
+def test_section_spans_point_at_every_recognised_section_reference():
+    query = "Kredilerin md. 9 ve 12 nci maddesi, geçici 3 üncü madde, İlke 5, EK-1"
+    refs = parse_legal_refs(query)
+    assert [(query[start:end], kind, ref) for start, end, kind, ref in refs.section_spans] == [
+        ("md. 9", "madde", "9"),
+        ("12 nci maddesi", "madde", "12"),
+        ("geçici 3 üncü madde", "gecici_madde", "3"),
+        ("İlke 5", "ilke", "5"),
+        ("EK-1", "ek", "1"),
+    ]
+    # Every occurrence is listed, not only the first of each reference.
+    assert len(parse_legal_refs("madde 9 ile madde 9").section_spans) == 2
+    assert parse_legal_refs("kredi riski").section_spans == []
+
+
+def test_decision_number_forms_are_decision_numbers_and_never_document_ids():
+    for query in (
+        "1043 sayılı karar",
+        "1043 sayılı kararı",
+        "1043 sayılı Kurul kararı",
+        "1043 SAYILI KURUL KARARI",
+        "1043 sayılı kararın ekinde",
+        "1043 sayılı kararında belirtilen",
+        "1043 sayılı Kurul Kararıyla",
+        "1043 sayili karar",
+    ):
+        refs = parse_legal_refs(query)
+        assert refs.decision_numbers == ["1043"], query
+        assert refs.document_ids == [], query
+    # A number followed by another instrument is not a decision number.
+    assert parse_legal_refs("5411 sayılı Kanun").decision_numbers == []
+    assert parse_legal_refs("1043 madde 5").document_ids == ["1043"]
+
+
+def test_the_store_decision_number_query_uses_the_shared_pattern():
+    from bddk_mcp.store.doc_store import normalize_search_text
+    from bddk_mcp.store.vector_store import _DECISION_NUMBER_QUERY_RE
+
+    for query in (
+        "8948",
+        "8948 sayılı karar",
+        "8948 sayılı Kurul kararı",
+        "8948 sayılı kararı",
+        "8948 sayılı kararında",
+    ):
+        match = _DECISION_NUMBER_QUERY_RE.match(normalize_search_text(query))
+        assert match is not None and match.group(1) == "8948", query
+    assert _DECISION_NUMBER_QUERY_RE.match(normalize_search_text("8948 sayılı kanun")) is None

@@ -40,9 +40,11 @@ def test_mcp_instructions_exempt_keyword_hits_from_the_relevance_rule():
         instructions
     )
     assert (
-        "(match_type fts) a keyword-only match in which every query word occurs in the chunk or the document title"
+        "(match_type fts) a keyword-only match in which the words of the query all occur in the chunk or the "
+        "document title as separate words, which does not say that the phrase or a figure of the query occurs"
         in instructions
     )
+    assert "every query word occurs" not in instructions
     assert "(match_type decision_number) a decision-number match" in instructions
     assert "no semantic score" in instructions
     assert "relevance 0.0 is not a low score" in instructions

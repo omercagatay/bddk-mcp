@@ -9,10 +9,16 @@ Not listed although the corpus uses them: BDDK and TFRS (printed with their expa
 spelled as the abbreviation throughout the corpus, so an expansion adds nothing); SYR, YPNGP and KRA
 (used, but never printed next to an expansion; KRA is a table code); NİFO, NPL, TGA, ICAAP, RWA and IRRBB
 (not in the corpus at all). Two-letter abbreviations are not listed (they collide with ordinary words).
+
+In a query (``query_abbreviation``) an abbreviation counts only when it is typed in capitals as a whole
+word and is not followed by a full stop that abbreviates: "BKZ" and "BKZ hesaplaması" are expanded,
+Turkish "bkz." / "Bkz." (bakınız) and an abbreviation typed in lower case inside a sentence are not. A
+shouted query keeps its abbreviations in capitals when the search lower-cases it, so they still count.
 """
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from bddk_mcp.store.doc_store import normalize_search_text
@@ -51,3 +57,19 @@ _BY_FOLDED = {normalize_search_text(entry.abbreviation): entry for entry in GLOS
 def glossary_entry(word: str) -> GlossaryEntry | None:
     """The entry whose abbreviation equals ``word``, compared without case and diacritics."""
     return _BY_FOLDED.get(normalize_search_text(word))
+
+
+# A full stop right after the word that does not end the query abbreviates it ("bkz. Ek-1").
+_ABBREVIATING_FULL_STOP_RE = re.compile(r"^\.\s*\S")
+
+
+def query_abbreviation(word: str, following: str = "", preceding: str = "") -> GlossaryEntry | None:
+    """The entry ``word`` names as typed in a query: in capitals, a whole word (no letter, digit or
+    underscore right before or after it) and not followed by a full stop that abbreviates (one that does
+    not end the query); otherwise None. ``following`` and ``preceding`` are the query text after and
+    before the word."""
+    if not word.isupper() or re.match(r"\w", following) or re.search(r"\w$", preceding):
+        return None
+    if _ABBREVIATING_FULL_STOP_RE.match(following):
+        return None
+    return glossary_entry(word)

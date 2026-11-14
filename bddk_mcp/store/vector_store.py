@@ -36,8 +36,14 @@ from bddk_mcp.core.config import (
 from bddk_mcp.quality.markdown_quality import assess_markdown_quality
 from bddk_mcp.store.corpus_db import CorpusDB
 from bddk_mcp.store.doc_store import fts_match_query, normalize_search_text
-from bddk_mcp.store.legal_ref import LegalRefs, canonical_section_ref, parse_legal_refs, turkish_casefold
-from bddk_mcp.store.search_glossary import GlossaryEntry, glossary_entry
+from bddk_mcp.store.legal_ref import (
+    DECISION_NUMBER_SUFFIX,
+    LegalRefs,
+    canonical_section_ref,
+    parse_legal_refs,
+    turkish_casefold,
+)
+from bddk_mcp.store.search_glossary import GlossaryEntry, query_abbreviation
 from bddk_mcp.store.section_index import DocumentSection, extract_document_sections
 
 logger = logging.getLogger(__name__)
@@ -127,8 +133,9 @@ _QUERY_FUNCTION_WORDS = frozenset(
         *"ama bu bunlar da de daha diye en fakat gibi hem her ise ki mi mı mu mü ne o ve ya yani şu çok".split(),
     )
 )
-# "8948", "8948 sayılı karar", "8948 sayılı Kurul Kararı": a decision number on its own (folded query).
-_DECISION_NUMBER_QUERY_RE = re.compile(r"^\s*(\d{3,6})(?:\s+sayili(?:\s+kurul)?\s+karar\w*)?\s*$")
+# "8948", "8948 sayılı karar", "8948 sayılı Kurul Kararı": a decision number on its own (folded query; the
+# decision-number pattern of legal_ref).
+_DECISION_NUMBER_QUERY_RE = re.compile(rf"^\s*(\d{{3,6}})(?:{DECISION_NUMBER_SUFFIX})?\s*$")
 # A word typed without Turkish letters is replaced by the corpus form only when that form occurs at least
 # this often in the chunk texts and the typed form less than this share as often.
 _RESTORE_MIN_COUNT = 20
@@ -624,7 +631,7 @@ def normalize_query(query: str, vocabulary: QueryVocabulary | None) -> str:
 
         def lowered(match: re.Match[str]) -> str:
             word = match.group(0)
-            if glossary_entry(word) is not None or (
+            if _query_abbreviation_at(match) is not None or (
                 vocabulary is not None and _turkish_lower(word) in vocabulary.upper_only
             ):
                 return word  # an abbreviation in a shouted sentence
@@ -636,13 +643,19 @@ def normalize_query(query: str, vocabulary: QueryVocabulary | None) -> str:
     return _QUERY_WORD_RE.sub(lambda match: _restored_word(match.group(0), vocabulary), text)
 
 
+def _query_abbreviation_at(match: re.Match[str]) -> GlossaryEntry | None:
+    """The glossary entry of a word match of the query, by the rule of ``query_abbreviation`` (in capitals,
+    a whole word, no abbreviating full stop: never Turkish "bkz.")."""
+    return query_abbreviation(match.group(0), match.string[match.end() :], match.string[: match.start()])
+
+
 def _glossary_entries(query: str) -> list[GlossaryEntry]:
-    """The glossary entries whose abbreviation is a word of the query, in query order, each once; an entry
-    whose expansion the query already contains is left out."""
+    """The glossary entries whose abbreviation is a word of the query as ``query_abbreviation`` reads it, in
+    query order, each once; an entry whose expansion the query already contains is left out."""
     folded_query = " ".join(re.findall(r"\w+", normalize_search_text(query)))
     entries: dict[str, GlossaryEntry] = {}
-    for word in _QUERY_WORD_RE.findall(query):
-        if (entry := glossary_entry(word)) is not None:
+    for match in _QUERY_WORD_RE.finditer(query):
+        if (entry := _query_abbreviation_at(match)) is not None:
             if f" {normalize_search_text(entry.expansion)} " in f" {folded_query} ":
                 continue
             entries.setdefault(entry.abbreviation, entry)
@@ -651,10 +664,13 @@ def _glossary_entries(query: str) -> list[GlossaryEntry]:
 
 def _expanded_query(query: str, entries: list[GlossaryEntry]) -> str:
     """The query with each glossary abbreviation replaced by its expansion (for the strict keyword pass)."""
-    by_abbreviation = {normalize_search_text(entry.abbreviation): entry.expansion for entry in entries}
-    return _QUERY_WORD_RE.sub(
-        lambda match: by_abbreviation.get(normalize_search_text(match.group(0)), match.group(0)), query
-    )
+    by_abbreviation = {entry.abbreviation: entry.expansion for entry in entries}
+
+    def expanded(match: re.Match[str]) -> str:
+        entry = _query_abbreviation_at(match)
+        return by_abbreviation.get(entry.abbreviation, match.group(0)) if entry is not None else match.group(0)
+
+    return _QUERY_WORD_RE.sub(expanded, query)
 
 
 def _has_content_word(query: str) -> bool:
@@ -706,6 +722,80 @@ def _hit_contains_reference(hit: dict, refs: LegalRefs) -> bool:
             if str(hit.get("decision_number") or "") == number or re.search(rf"(?<!\d){number}\s+sayılı", folded):
                 return True
     return any(_date_pattern(date).search(text) for date in refs.dates)
+
+
+# A section reference as the corpus prints it: the kind word, then the number ("md. 9" -> "madde 9").
+_SECTION_KIND_WORDS = {
+    "madde": "madde",
+    "gecici_madde": "geçici madde",
+    "ek_madde": "ek madde",
+    "ilke": "ilke",
+    "paragraf": "paragraf",
+    "ek": "ek",
+}
+
+
+def _canonical_reference_query(query: str) -> str:
+    """The query with every section reference that ``parse_legal_refs`` recognises written as the corpus
+    prints it ("md. 9", "m. 9", "9 uncu maddesi" -> "madde 9"; "EK-1" -> "ek 1"), for the keyword passes;
+    a query without one is returned unchanged."""
+    parts: list[str] = []
+    end = 0
+    for start, stop, section_type, ref in parse_legal_refs(query).section_spans:
+        if start < end:
+            continue  # overlaps a reference already rewritten
+        parts.append(query[end:start])
+        parts.append(f"{_SECTION_KIND_WORDS[section_type]} {ref}")
+        end = stop
+    if not parts:
+        return query
+    parts.append(query[end:])
+    return "".join(parts)
+
+
+# A percentage ("%12", "% 0,90", "yüzde 12") and a lettered reference ("66/A") in the search-normalised
+# query. The chunk index splits "%12" into the token 12 and "66/A" into 66 and a: the strict pass searches
+# the parts of each as one phrase, and a percentage is checked on the chunk itself (_has_percent_figures).
+_PERCENT_FIGURE_RE = re.compile(r"(?:%\s*|\byuzde\s+)(\d+(?:[.,]\d+)*)")
+_LETTERED_REFERENCE_RE = re.compile(r"\b(\d+)\s*/\s*([^\W\d_])(?!\w)")
+_WORD_TOKEN_RE = re.compile(r"\w+")
+
+
+def _strict_fts_query(query: str) -> str | None:
+    """The strict all-words MATCH expression (``fts_match_query``), except that the number of a percentage
+    is required without "%" or "yüzde" (the chunk may write either; the index keeps neither) and a lettered
+    reference ("66/A") is one phrase ("66 a"); a query with neither gives ``fts_match_query`` exactly."""
+    text = normalize_search_text(query)
+    spans = [(match.start(), match.end(), match.group(1)) for match in _PERCENT_FIGURE_RE.finditer(text)]
+    spans += [(match.start(), match.end(), match.group(0)) for match in _LETTERED_REFERENCE_RE.finditer(text)]
+    if not spans:
+        return fts_match_query(query)
+    terms: list[str] = []
+    end = 0
+    for start, stop, phrase in sorted(spans):
+        if start < end:
+            continue
+        terms.extend(f'"{token}"' for token in _WORD_TOKEN_RE.findall(text[end:start]))
+        terms.append('"' + " ".join(_WORD_TOKEN_RE.findall(phrase)) + '"')
+        end = stop
+    terms.extend(f'"{token}"' for token in _WORD_TOKEN_RE.findall(text[end:]))
+    return " ".join(terms) or None
+
+
+def _percent_figures(query: str) -> list[str]:
+    """The numbers of the percentages of the query ("%12", "yüzde 0,90" -> "12", "0,90")."""
+    return list(dict.fromkeys(match.group(1) for match in _PERCENT_FIGURE_RE.finditer(normalize_search_text(query))))
+
+
+def _has_percent_figures(hit: dict, figures: list[str]) -> bool:
+    """Whether the chunk (or its document title) holds every percentage of the query, written with "%" or
+    "yüzde" right before the number ("%12", "% 12", "yüzde 12"; a decimal comma or point either way)."""
+    text = normalize_search_text(f"{hit.get('title') or ''} {hit.get('chunk_text') or hit.get('snippet') or ''}")
+    for figure in figures:
+        number = "[.,]".join(re.escape(part) for part in re.split(r"[.,]", figure))
+        if not re.search(rf"(?:%\s*|\byuzde\s+){number}(?![.,]?\d)", text):
+            return False
+    return True
 
 
 def _relaxed_fts_query(query: str) -> str | None:
@@ -1122,7 +1212,8 @@ class VectorStore:
 
         The query is normalised once (``normalize_query``) for the embedding and the phrase matching;
         the returned ``SearchHits`` say what was searched when that differs from the typed query. A query
-        word that is an abbreviation of the reviewed glossary (``search_glossary``) gets its expansion
+        word that is an abbreviation of the reviewed glossary (``search_glossary``), typed in capitals and
+        not abbreviated by a full stop (never Turkish "bkz."), gets its expansion
         appended to the embedded query, and the strict keyword pass also runs with the expansion in its
         place.
         Document quality is assessed once, for the returned hits only.
@@ -1296,10 +1387,18 @@ class VectorStore:
         (best chunk of each) until that many documents are found; documents that
         only this pass found carry ``keyword_tail=True`` and serve only the
         keyword-only list, so the fused ranking sees the same candidates as before.
+        Every pass searches the section references of the query as the corpus prints them
+        (``_canonical_reference_query``).
         """
-        rows = await self._fts_rows(fts_match_query(query), limit=limit, category=category)
+        query = _canonical_reference_query(query)
         if alternative_query:
-            rows = [*rows, *await self._fts_rows(fts_match_query(alternative_query), limit=limit, category=category)]
+            alternative_query = _canonical_reference_query(alternative_query)
+        rows = await self._fts_rows(_strict_fts_query(query), limit=limit, category=category)
+        if alternative_query:
+            rows = [
+                *rows,
+                *await self._fts_rows(_strict_fts_query(alternative_query), limit=limit, category=category),
+            ]
         relaxed = False
         if not rows and (relaxed_query := _relaxed_fts_query(query)):
             rows = await self._fts_rows(relaxed_query, limit=limit, category=category)
@@ -1327,11 +1426,11 @@ class VectorStore:
 
         if document_limit and not relaxed:
             document_rows = await self._fts_document_rows(
-                fts_match_query(query), limit=document_limit, category=category
+                _strict_fts_query(query), limit=document_limit, category=category
             )
             if alternative_query:
                 document_rows += await self._fts_document_rows(
-                    fts_match_query(alternative_query), limit=document_limit, category=category
+                    _strict_fts_query(alternative_query), limit=document_limit, category=category
                 )
             tail: dict[str, dict] = {}
             for row in document_rows:
@@ -1461,7 +1560,10 @@ class VectorStore:
                 document_limit=2 * limit,
             ),
         )
-        keyword_candidates = fts_hits
+        # A keyword-only hit for a percentage must hold the figure itself, not only its number (the index
+        # cannot tell "%12" from a 12 inside a date).
+        figures = _percent_figures(query)
+        keyword_candidates = [hit for hit in fts_hits if not figures or _has_percent_figures(hit, figures)]
         # The documents found only by the per-document pass serve the keyword-only list alone.
         fts_hits = [hit for hit in fts_hits if not hit.get("keyword_tail")]
         query_refs = parse_legal_refs(query)

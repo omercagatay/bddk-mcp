@@ -594,9 +594,50 @@ def _parent_of(section: StoredDocumentSection, parents: _Parents) -> tuple[str, 
     return parents.get((section.doc_id, section.source_content_hash, section.start_char))
 
 
-def _parent_line(section: StoredDocumentSection, parents: _Parents, *, prefix: str) -> list[str]:
+# Per nested row (doc_id, source_content_hash, start_char): the start_char of its parent provision, only
+# when the parent's (document, type, reference) names more than one stored row.
+_ParentStarts = dict[tuple[str, str, int], int]
+
+
+async def _find_parent_starts(
+    deps: Dependencies, sections: list[StoredDocumentSection], parents: _Parents
+) -> _ParentStarts:
+    """The start offset of each row's parent provision whose (document, type, reference) is not unique."""
+    starts: _ParentStarts = {}
+    rows_by_parent: dict[tuple[str, str, str], list[StoredDocumentSection]] = {}
+    for section in sections:
+        parent = _parent_of(section, parents)
+        if parent is None:
+            continue
+        key = (section.doc_id, parent[0], parent[1])
+        if key not in rows_by_parent:
+            rows_by_parent[key] = await deps.doc_store.get_document_section(
+                section.doc_id, section_type=parent[0], section_ref=parent[1]
+            )
+        rows = [row for row in rows_by_parent[key] if row.source_content_hash == section.source_content_hash]
+        containing = [row.start_char for row in rows if row.start_char <= section.start_char < row.end_char]
+        if len(rows) > 1 and containing:
+            starts[(section.doc_id, section.source_content_hash, section.start_char)] = max(containing)
+    return starts
+
+
+def _parent_start_of(section: StoredDocumentSection, parent_starts: _ParentStarts | None) -> int | None:
+    return (parent_starts or {}).get((section.doc_id, section.source_content_hash, section.start_char))
+
+
+def _parent_line(
+    section: StoredDocumentSection, parents: _Parents, *, prefix: str, parent_starts: _ParentStarts | None = None
+) -> list[str]:
     parent = _parent_of(section, parents)
-    return [f"{prefix}Parent: {_ref_text(parent[0], parent[1])}"] if parent else []
+    if not parent:
+        return []
+    start = _parent_start_of(section, parent_starts)
+    where = (
+        f" (start_char={start}; this reference names more than one stored provision of the document)"
+        if start is not None
+        else ""
+    )
+    return [f"{prefix}Parent: {_ref_text(parent[0], parent[1])}{where}"]
 
 
 def _with_parent(item: SectionItem, section: StoredDocumentSection, parents: _Parents) -> SectionItem:
@@ -945,6 +986,7 @@ def _format_section(
     quality: QualityAssessment | None = None,
     continuations: _Continuations | None = None,
     parents: _Parents | None = None,
+    parent_starts: _ParentStarts | None = None,
 ) -> str:
     heading = _heading_suffix(section, continuations or {})
     lines = [
@@ -953,7 +995,7 @@ def _format_section(
         f"- Section: {_ref_text(section.section_type, section.section_ref)}",
         (f"- Normalized Markdown code-point range: [{section.start_char}, {section.end_char}); not source PDF pages"),
     ]
-    lines.extend(_parent_line(section, parents or {}, prefix="- "))
+    lines.extend(_parent_line(section, parents or {}, prefix="- ", parent_starts=parent_starts))
     if capped_line := _capped_span_line(section):
         lines.append(capped_line)
     if label := _govde_label(section, continuations or {}):
@@ -1102,9 +1144,33 @@ async def _annex_not_stored_notice(deps: Dependencies, document_id: str) -> str:
     return ""
 
 
-async def _require_stored_document(deps: Dependencies, document_id: str) -> None:
-    """Raise NOT_FOUND for an explicit document_id that is not a stored document (as get_bddk_document does)."""
+def _decision_number_holders(deps: Dependencies, document_id: str) -> list:
+    """The catalog entries whose Kurul decision number is the bare number ``document_id`` (as
+    get_bddk_document reads it: 8970 is the decision number of document 779)."""
+    bare_number = document_id.strip()
+    if not bare_number.isdigit() or deps.client is None:
+        return []
+    return [entry for entry in deps.client.get_cache_items() if (entry.decision_number or "").strip() == bare_number]
+
+
+async def _require_stored_document(deps: Dependencies, document_id: str, *, decision_pointer: bool = False) -> None:
+    """Raise NOT_FOUND for an explicit document_id that is not a stored document (as get_bddk_document does).
+
+    With ``decision_pointer``, a bare number that is a catalog decision number gets the pointer that
+    get_bddk_document gives: the document that carries that decision number."""
     if not await _any_document_stored(deps, document_id):
+        if decision_pointer and (holders := _decision_number_holders(deps, document_id)):
+            holders_text = "; ".join(f'document {entry.document_id} "{entry.title}"' for entry in holders)
+            bare_number = document_id.strip()
+            tool_error(
+                NOT_FOUND,
+                f"Document {document_id} is not available in the local store: {document_id} is not a stored "
+                f"document id, but it is the Kurul decision number of {holders_text}. This MCP server is "
+                "airlocked and does not fetch from live BDDK / mevzuat.gov.tr sources at runtime.",
+                retryable=False,
+                hint=f'Call get_bddk_document(document_id="{holders[0].document_id}"), or use '
+                f'search_bddk_regulations(keywords="{bare_number}") to see every entry with this number.',
+            )
         tool_error(
             NOT_FOUND,
             f"Document {document_id} is not available in the local store. This MCP server is airlocked "
@@ -1246,7 +1312,8 @@ def register(mcp, deps: Dependencies) -> None:
                 It is valid only for the corpus file being served and is not a citation.
 
         A document_id that is not a stored document is a NOT_FOUND error (a bare
-        numeric ID is also tried as `mevzuat_<id>` and `bddk_<id>`).
+        numeric ID is also tried as `mevzuat_<id>` and `bddk_<id>`); for a bare number
+        that is a catalog decision number, the error names the document that carries it.
 
         fikra and bent rows are search-oriented, not unique addresses: many rows can
         share one reference. Where a stored parent provision (a madde, gecici_madde or
@@ -1293,6 +1360,9 @@ def register(mcp, deps: Dependencies) -> None:
         section_item = quality = None
         continuations = await _find_continuations(deps, sections[:_MAX_DISAMBIGUATION_RESULTS])
         parents = await _find_parents(deps, sections[:_MAX_DISAMBIGUATION_RESULTS])
+        parent_starts = (
+            await _find_parent_starts(deps, sections[:_MAX_DISAMBIGUATION_RESULTS], parents) if parents else {}
+        )
         if len(sections) == 1:
             quality = _section_quality(sections[0])
             section_item = _with_parent(
@@ -1320,7 +1390,7 @@ def register(mcp, deps: Dependencies) -> None:
         assessment_incomplete = bool(assessment and assessment.gaps)
         if not sections:
             # A document without the requested section is "no results"; an unknown document is NOT_FOUND.
-            await _require_stored_document(deps, document_id)
+            await _require_stored_document(deps, document_id, decision_pointer=True)
             query = " ".join(
                 str(part) for part in (document_id, section_type or "", section_ref or "", heading or "") if part
             )
@@ -1352,7 +1422,13 @@ def register(mcp, deps: Dependencies) -> None:
             return structured_tool_result(
                 DocumentSectionResponse(
                     status="partial" if section_item.content_truncated or assessment_incomplete else "ok",
-                    text=_format_section(section, quality=quality, continuations=continuations, parents=parents)
+                    text=_format_section(
+                        section,
+                        quality=quality,
+                        continuations=continuations,
+                        parents=parents,
+                        parent_starts=parent_starts,
+                    )
                     + assessment_text,
                     answer_assessment=assessment,
                     evidence=[_section_evidence(section)],
@@ -1395,7 +1471,7 @@ def register(mcp, deps: Dependencies) -> None:
                 f"- {section.doc_id} {_ref_text(section.section_type, section.section_ref)}{heading_text} "
                 f"(start_char={section.start_char}, hash={section.content_hash[:12]})"
             )
-            lines.extend(_parent_line(section, parents, prefix="  "))
+            lines.extend(_parent_line(section, parents, prefix="  ", parent_starts=parent_starts))
             if label := _govde_label(section, continuations):
                 lines.append(f"  Section kind: {label}")
             lines.extend(_quality_lines(_section_quality(section), prefix="  "))
@@ -1642,9 +1718,14 @@ def register(mcp, deps: Dependencies) -> None:
                 else ""
             )
         )
+        # The "yüzde" rule is named only for a query that has a percentage.
+        percent_query = "%" in search_query or any(
+            normalize_search_text(word) in _NORMALIZED_PERCENT_WORDS for word in re.findall(r"\w+", search_query)
+        )
+        percent_rule = "; 'yüzde' is optional because sources also write '%'" if percent_query else ""
         not_searched_note = (
             f"Note: not searched as required words: {', '.join(not_searched)} (Turkish question words and the "
-            "frame words of a question are left out; 'yüzde' is optional because sources also write '%').\n"
+            f"frame words of a question are left out{percent_rule}).\n"
             if not_searched
             else ""
         )
@@ -1666,8 +1747,18 @@ def register(mcp, deps: Dependencies) -> None:
             # An explicit document_id that names no stored document is NOT_FOUND, not "no sections".
             await _require_stored_document(deps, document_id)
         if not hits:
+            # An annex asked of an identified document whose stored text shows that its annexes were not
+            # stored: say so (as get_document_section does), and do not suggest dropping the document.
+            identified_doc_id = document_id or query_doc_id
+            annex_notice = (
+                await _annex_not_stored_notice(deps, identified_doc_id)
+                if identified_doc_id and inferred_section_type == "ek"
+                else ""
+            )
             passed_filters = [
-                name for name, value in (("document_id", document_id), ("section_type", section_type)) if value
+                name
+                for name, value in (("document_id", document_id), ("section_type", section_type))
+                if value and not (annex_notice and name == "document_id")
             ]
             remove_hint = f"remove the {'/'.join(passed_filters)} filter, " if passed_filters else ""
             output = (
@@ -1675,6 +1766,7 @@ def register(mcp, deps: Dependencies) -> None:
                 + filter_note
                 + not_searched_note
                 + (f"{unapplied_ref_note}\n" if unapplied_ref_note else "")
+                + (f"{annex_notice}\n" if annex_notice else "")
                 + f"Try a broader query, {remove_hint}or retrieve the full document."
             )
             return structured_tool_result(
@@ -1688,7 +1780,7 @@ def register(mcp, deps: Dependencies) -> None:
                     parsed_section_ref=_normalize_optional(inferred_section_ref),
                     exact_reference_detected=exact_ref_detected,
                     loose_fallback_used=False,
-                    warnings=[unapplied_ref_note] if unapplied_ref_note else [],
+                    warnings=[note for note in (unapplied_ref_note, annex_notice) if note],
                     inferred_document_filter_dropped=filter_dropped,
                     query_words_not_searched=not_searched,
                 )

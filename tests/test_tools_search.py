@@ -413,8 +413,12 @@ async def test_keyword_only_hits_are_listed_as_keyword_matches_and_not_as_no_res
     result = await _registered_tools(mcp)["search_document_store"]("pandemi", limit=10)
 
     assert "No documents found" not in result.text
-    label = "[keyword match: every query word occurs in this chunk or in its document title; no semantic score]"
+    label = (
+        "[keyword match: the words of the query all occur in this chunk or in its document title as separate "
+        "words; this does not say that the phrase or the figure of the query occurs; no semantic score]"
+    )
     assert result.text.count(label) == 1
+    assert "every query word occurs" not in result.text
     assert "relevance 0.0%" not in result.text
     assert "weak match" not in result.text
     items = result.structuredContent["results"]
@@ -1280,3 +1284,86 @@ async def test_a_decision_text_hit_carries_a_per_hit_label_not_the_plural_warnin
     assert "  Section: leading decision text of a Kurul Kararı whose only named sections are annexes" in result.text
     assert "One or more hits" not in result.text
     assert "Cite this decision by its title and decision date/number" in result.text
+
+
+@pytest.mark.asyncio
+async def test_catalog_search_names_the_section_reference_it_did_not_search():
+    from bddk_mcp.core.models import BddkDecisionSummary
+
+    items = [
+        BddkDecisionSummary(
+            title="Kredilerin Sınıflandırılması ve Bunlar İçin Ayrılacak Karşılıklara İlişkin Yönetmelik",
+            document_id="mevzuat_22599",
+            category="Yönetmelik",
+        )
+    ]
+    tools = _catalog_tools(items)
+
+    found = await tools["search_bddk_regulations"]("kredilerin sınıflandırılması yönetmeliği madde 9")
+    missing = await tools["search_bddk_regulations"]("kripto yönetmeliği madde 9")
+    plain = await tools["search_bddk_regulations"]("kredilerin sınıflandırılması")
+
+    assert found.structuredContent["results"][0]["document_id"] == "mevzuat_22599"
+    assert "not searched in the catalog: madde 9" in found.text
+    assert any("not searched in the catalog: madde 9" in warning for warning in found.structuredContent["warnings"])
+    assert missing.structuredContent["status"] == "no_results"
+    assert "not searched in the catalog: madde 9" in missing.text
+    assert "not searched in the catalog" not in plain.text
+
+
+_REPEATED_ARTICLE_TEXT = (
+    "MADDE 1 - Amaç\n(1) Birinci metin.\n(2) İkinci metin.\n\nMADDE 2 - Kapsam\n(1) Kapsam.\n\n"
+    "MADDE 1 - Değişik\n(1) Üçüncü metin.\n(2) Dördüncü metin kredi.\n"
+)
+
+
+@pytest.mark.asyncio
+async def test_the_full_provision_pointer_carries_the_start_of_a_parent_whose_reference_repeats(doc_store):
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.store.doc_store import StoredDocument
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    await doc_store.store_document(
+        StoredDocument(document_id="m9", title="Yönetmelik", markdown_content=_REPEATED_ARTICLE_TEXT)
+    )
+    articles = sorted(
+        row.start_char for row in await doc_store.get_document_section("m9", section_type="madde", section_ref="1")
+    )
+    fikras = await doc_store.get_document_section("m9", section_type="fikra", section_ref="2")
+    late = max(fikras, key=lambda row: row.start_char)
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(return_value=[_section_hit(late)])
+    mcp = MagicMock()
+    register(mcp, Dependencies(db=None, doc_store=doc_store, client=None, http=None, vector_store=vector_store))
+
+    result = await _registered_tools(mcp)["search_document_store"]("dördüncü metin", limit=1)
+
+    assert (
+        f'Full provision: get_document_section(document_id="m9", section_type="madde", section_ref="1", '
+        f"start_char={articles[1]})" in result.text
+    )
+
+
+@pytest.mark.asyncio
+async def test_the_mismatch_note_also_compares_the_parent_provision(doc_store):
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    rows = await _store_with_sections(doc_store)
+    fikra = next(row for (kind, ref, _), row in rows.items() if (kind, ref) == ("fikra", "1") and row.start_char > 54)
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(return_value=[_section_hit(fikra)])
+    mcp = MagicMock()
+    register(mcp, Dependencies(db=None, doc_store=doc_store, client=None, http=None, vector_store=vector_store))
+    tool = _registered_tools(mcp)["search_document_store"]
+
+    other = await tool("madde 12 birinci fıkra", limit=1)
+    _search_cache._data.clear()
+    same = await tool("madde 2 birinci fıkra", limit=1)
+
+    assert "[note: this hit is part of madde 2, not the madde 12 requested in the query]" in other.text
+    assert "[note:" not in same.text

@@ -2804,3 +2804,146 @@ async def test_an_annex_request_on_a_document_whose_annexes_are_not_stored_says_
     # Only an annex request gets the notice, and only for a document that shows the placeholder.
     assert "annexes" not in madde.text
     assert "annexes" not in plain.text
+
+
+@pytest.mark.asyncio
+async def test_a_decision_number_never_scopes_the_section_search_to_that_document_id(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="1043", title="Belge 1043", markdown_content="MADDE 1 - Sayılı karar toplantı usulleri."
+        )
+    )
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="79",
+            title="Kurul Kararı",
+            markdown_content="MADDE 1 - Kurulun 1043 sayılı karar ile kabul ettiği esaslar uygulanır.",
+            decision_number="1043",
+        )
+    )
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "search_document_sections")
+
+    result = await tool("1043 sayılı karar")
+
+    structured = result.structuredContent
+    assert structured.get("document_id") is None
+    assert structured.get("inferred_document_filter_applied") is not True
+    assert structured["inferred_document_filter_dropped"] is False
+    assert "limited to document 1043" not in result.text
+    assert [item["document_id"] for item in structured["results"]] == ["79"]
+
+
+@pytest.mark.asyncio
+async def test_an_annex_search_on_a_document_whose_annexes_are_not_stored_says_so(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_39257",
+            title="BSD Yönetmeliği",
+            markdown_content="MADDE 1 - (1) Metin.\n\nMADDE 2 - (1) Ek-1 formu kullanılır.\n\nEkleri için tıklayınız.",
+        )
+    )
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_22222",
+            title="Ekli Yönetmelik",
+            markdown_content="MADDE 1 - (1) Metin.\n\nEK-1\n\nBildirim formu.\n",
+        )
+    )
+    deps = Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+    tool = _capture_tool(deps, "search_document_sections")
+
+    explicit = await tool("EK-9", document_id="mevzuat_39257")
+    inferred = await tool("mevzuat_39257 EK-9")
+    article = await tool("madde 9", document_id="mevzuat_39257")
+    stored_annexes = await tool("EK-9", document_id="mevzuat_22222")
+
+    for result in (explicit, inferred):
+        assert result.structuredContent["status"] == "no_results", result.text
+        assert "annexes (ekler) of this instrument are not stored in this corpus" in result.text
+        assert '"Ekleri için tıklayınız."' in result.text
+        assert "remove the document_id" not in result.text
+        assert any("not stored in this corpus" in warning for warning in result.structuredContent["warnings"])
+    # Only an annex reference gets the notice, and only for a document that shows the placeholder.
+    assert "annexes" not in article.text
+    assert stored_annexes.structuredContent["status"] == "no_results"
+    assert "annexes" not in stored_annexes.text
+    assert "remove the document_id filter" in stored_annexes.text
+
+
+_REPEATED_ARTICLE_TEXT = (
+    "MADDE 1 - Amaç\n(1) Birinci metin.\n(2) İkinci metin.\n\nMADDE 2 - Kapsam\n(1) Kapsam.\n\n"
+    "MADDE 1 - Değişik\n(1) Üçüncü metin.\n(2) Dördüncü metin kredi.\n"
+)
+
+
+@pytest.mark.asyncio
+async def test_the_parent_line_carries_the_start_of_a_parent_whose_reference_repeats(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(document_id="mevzuat_9", title="Yönetmelik", markdown_content=_REPEATED_ARTICLE_TEXT)
+    )
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "get_document_section")
+    first, second = sorted(
+        row.start_char
+        for row in await doc_store.get_document_section("mevzuat_9", section_type="madde", section_ref="1")
+    )
+
+    several = await tool("mevzuat_9", section_type="fikra", section_ref="2")
+    [late] = [
+        row
+        for row in await doc_store.get_document_section("mevzuat_9", section_type="fikra", section_ref="2")
+        if row.start_char > second
+    ]
+    single = await tool("mevzuat_9", section_type="fikra", section_ref="2", start_char=late.start_char)
+
+    assert f"  Parent: madde 1 (start_char={first}" in several.text
+    assert f"  Parent: madde 1 (start_char={second}" in several.text
+    assert f"- Parent: madde 1 (start_char={second}" in single.text
+    # A parent whose reference names one stored row needs no offset.
+    [madde_2] = await doc_store.get_document_section("mevzuat_9", section_type="madde", section_ref="2")
+    [scope] = [
+        row
+        for row in await doc_store.get_document_section("mevzuat_9", section_type="fikra", section_ref="1")
+        if madde_2.start_char <= row.start_char < madde_2.end_char
+    ]
+    kapsam = await tool("mevzuat_9", section_type="fikra", section_ref="1", start_char=scope.start_char)
+    assert "- Parent: madde 2" in kapsam.text
+    assert "Parent: madde 2 (start_char" not in kapsam.text
+
+
+@pytest.mark.asyncio
+async def test_a_bare_decision_number_that_is_not_a_stored_document_points_to_its_decision(doc_store):
+    from bddk_mcp.core.models import BddkDecisionSummary
+
+    client = MagicMock()
+    client.get_cache_items = MagicMock(
+        return_value=[BddkDecisionSummary(title="Kurul Kararı", document_id="779", decision_number="8970")]
+    )
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=client, http=None), "get_document_section")
+
+    with pytest.raises(Exception) as raised:
+        await tool("8970", section_type="madde", section_ref="1")
+    message = str(raised.value)
+    assert "8970 is not a stored document id, but it is the Kurul decision number of" in message
+    assert 'document 779 "Kurul Kararı"' in message
+
+    with pytest.raises(Exception) as plain:
+        await tool("5555", section_type="madde", section_ref="1")
+    assert "decision number" not in str(plain.value)
+
+
+@pytest.mark.asyncio
+async def test_the_yuzde_rule_is_mentioned_only_for_a_query_with_a_percentage(doc_store):
+    tool = _capture_tool(await _store_query_hygiene_fixture(doc_store), "search_document_sections")
+
+    question = await tool("Denetim komitesi en az kaç üyeden oluşur?")
+    percent = await tool("Denetim komitesi yüzde kaç üyeden oluşur?")
+
+    assert "Note: not searched as required words: kaç, oluşur" in question.text
+    assert "yüzde" not in question.text.split("Note: not searched as required words")[1].split("\n")[0]
+    assert "'yüzde' is optional because sources also write '%'" in percent.text

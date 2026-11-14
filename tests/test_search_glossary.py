@@ -54,3 +54,18 @@ def test_lookup_ignores_case_and_turkish_letters():
     assert glossary_entry("ISEDES") is glossary_entry("İSEDES")
     assert glossary_entry("XYZQ") is None
     assert glossary_entry("SYR") is None
+
+
+def test_a_query_abbreviation_is_typed_in_capitals_as_a_whole_word_without_an_abbreviating_full_stop():
+    from bddk_mcp.store.search_glossary import query_abbreviation
+
+    assert query_abbreviation("BKZ").abbreviation == "BKZ"
+    assert query_abbreviation("BKZ", " hesaplaması") is glossary_entry("BKZ")
+    assert query_abbreviation("İSEDES", "") is glossary_entry("İSEDES")
+    assert query_abbreviation("BKZ", ".") is glossary_entry("BKZ")  # a full stop that ends the query
+    # Turkish "bkz." (bakınız) and any abbreviation typed in lower or mixed case are ordinary words.
+    for word, following in (("bkz", ". Ek-1)"), ("Bkz", ". Ek-1"), ("bkz", " teminat"), ("lko", ""), ("Lko", "")):
+        assert query_abbreviation(word, following) is None, (word, following)
+    assert query_abbreviation("BKZ", ". Ek-1") is None
+    assert query_abbreviation("BKZ", "2") is None  # part of a longer token
+    assert query_abbreviation("XYZQ") is None

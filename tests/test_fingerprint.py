@@ -220,3 +220,84 @@ def test_the_module_does_not_import_the_document_store():
     )
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
     assert result.stdout.strip() == "False"
+
+
+def _module_level_names(tree) -> dict[str, object]:
+    """The module-level functions and constants of a parsed module (classes are left out), by name."""
+    import ast
+
+    names: dict[str, object] = {}
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef):
+            names[node.name] = node
+        elif isinstance(node, ast.Assign | ast.AnnAssign) and node.value is not None:
+            for target in node.targets if isinstance(node, ast.Assign) else [node.target]:
+                if isinstance(target, ast.Name):
+                    names[target.id] = node.value
+    return names
+
+
+def _referenced_closure(module_name: str, roots: list[str]) -> set[str]:
+    """Every module-level function and constant of the module that the roots reference, transitively."""
+    import ast
+
+    tree = ast.parse(fingerprint._module_source(module_name))
+    defined = _module_level_names(tree)
+    found: set[str] = set()
+    pending = list(roots)
+    while pending:
+        name = pending.pop()
+        if name in found or name not in defined:
+            continue
+        found.add(name)
+        pending.extend(node.id for node in ast.walk(defined[name]) if isinstance(node, ast.Name))
+    return found
+
+
+def test_every_function_and_constant_that_decides_stored_rows_is_in_the_fingerprint():
+    import ast
+
+    chunker = _referenced_closure("bddk_mcp.store.vector_store", ["_chunk_spans", *fingerprint.CHUNK_FUNCTIONS])
+    missing = chunker - {*fingerprint.CHUNK_FUNCTIONS, *fingerprint._CHUNK_CONSTANTS}
+    assert not missing, f"chunker part misses {sorted(missing)}"
+
+    # The helpers the section parser imports from legal_ref, and what they use there.
+    section_index_tree = ast.parse(fingerprint._module_source("bddk_mcp.store.section_index"))
+    imported = [
+        alias.name
+        for node in section_index_tree.body
+        if isinstance(node, ast.ImportFrom) and node.module == "bddk_mcp.store.legal_ref"
+        for alias in node.names
+    ]
+    assert imported
+    parser = _referenced_closure("bddk_mcp.store.legal_ref", imported)
+    missing = parser - set(fingerprint.SECTION_REF_HELPERS)
+    assert not missing, f"parser part misses {sorted(missing)}"
+
+
+def test_the_chunker_part_follows_the_caption_merge_constants(monkeypatch):
+    before = fingerprint.runtime_parts()
+    _patched_source(
+        monkeypatch,
+        "bddk_mcp.store.vector_store",
+        lambda text: text.replace("_CAPTION_MAX_CHARS = 120", "_CAPTION_MAX_CHARS = 140", 1),
+    )
+    after = fingerprint.runtime_parts()
+    assert after["chunker"] != before["chunker"]
+    assert (after["parser"], after["model"]) == (before["parser"], before["model"])
+
+
+def test_the_parser_part_follows_the_canonical_section_ref_of_legal_ref(monkeypatch):
+    before = fingerprint.runtime_parts()
+    _patched_source(
+        monkeypatch,
+        "bddk_mcp.store.legal_ref",
+        lambda text: text.replace("def canonical_section_ref(", "def canonical_section_ref(  ", 1),
+    )
+    after = fingerprint.runtime_parts()
+    assert after["parser"] != before["parser"]
+    assert (after["chunker"], after["model"]) == (before["chunker"], before["model"])
+
+    monkeypatch.undo()
+    _patched_source(monkeypatch, "bddk_mcp.store.legal_ref", lambda text: text + "\n\ndef unrelated():\n    pass\n")
+    assert fingerprint.parser_part() == before["parser"]

@@ -42,7 +42,11 @@ _ANNEX_SUFFIX_RE = re.compile(r"\b(?P<ref>\d+)\s+numaral[ıi]\s+ek\w*\b")
 # document ID. Matched on the casefolded query.
 _FIGURE_RE = re.compile(r"(?<![\w.,])\d+(?:[.,]\d+)+|%\s*\d+(?:[.,]\d+)*|\by[uü]zde\s+\d+(?:[.,]\d+)*")
 _LETTERED_REF_RE = re.compile(r"^(\d+)/?([a-zçğıöşü])$")
-_DECISION_RE = re.compile(r"\b(\d{3,6})\s+sayılı\s+kurul\s+kararı\b", re.IGNORECASE)
+# What follows a decision number: "<n> sayılı karar", "kararı", "Kurul kararı" and their case forms (kararın,
+# kararında, kararıyla ...). Matched on a Turkish-casefolded or a search-normalised (ı -> i) text; a number
+# followed by it is a decision number, never a document ID. VectorStore.search uses the same pattern.
+DECISION_NUMBER_SUFFIX = r"\s+say[ıi]l[ıi]\s+(?:kurul\s+)?karar(?!name)\w*"
+_DECISION_RE = re.compile(rf"\b(\d{{3,6}}){DECISION_NUMBER_SUFFIX}")
 _DATE_RE = re.compile(r"\b\d{2}\.\d{2}\.\d{4}\b|\b\d{4}/\d+\b")
 # A number right after an accounting/audit standard or framework name is that
 # standard's number ("TFRS 16", "TMS 39", "BDS 701", "Basel 3"), and "COVID-19"
@@ -74,6 +78,9 @@ class LegalRefs(BaseModel):
     document_id_spans: list[tuple[int, int]] = Field(default_factory=list)
     """Character span in the query of the first occurrence of each entry of ``document_ids``."""
     sections: list[tuple[str, str]] = Field(default_factory=list)
+    section_spans: list[tuple[int, int, str, str]] = Field(default_factory=list)
+    """Character span in the query of every occurrence of a section reference, in query order, with the
+    (section type, reference) of ``sections`` it names; an ordinal article form includes its "ek"/"geçici"."""
     decision_numbers: list[str] = Field(default_factory=list)
     dates: list[str] = Field(default_factory=list)
     categories: list[str] = Field(default_factory=list)
@@ -114,37 +121,44 @@ def parse_legal_refs(query: str) -> LegalRefs:
         if not _span_overlaps(match.span(), excluded_doc_spans):
             doc_spans.setdefault(_normalize_doc_id(match.group(0)), match.span())
 
+    mentions = _section_mentions(query, folded)
     return LegalRefs(
         document_ids=list(doc_spans),
         document_id_spans=list(doc_spans.values()),
-        sections=_parse_sections(query, folded),
+        sections=_unique((kind, ref) for _, _, kind, ref in mentions),
+        section_spans=sorted(mentions),
         decision_numbers=_unique(match.group(1) for match in _DECISION_RE.finditer(folded)),
         dates=_unique(match.group(0) for match in _DATE_RE.finditer(query)),
         categories=_parse_categories(folded),
     )
 
 
-def _parse_sections(query: str, folded: str) -> list[tuple[str, str]]:
-    sections: list[tuple[str, str]] = []
+def _section_mentions(query: str, folded: str) -> list[tuple[int, int, str, str]]:
+    """Every section reference of the query as (start, end, section type, reference), in pattern order."""
+    mentions: list[tuple[int, int, str, str]] = []
     for match in _MADDE_PREFIX_RE.finditer(query):
         kind = (match.group("kind") or "").lower()
         section_type = "ek_madde" if kind == "ek" else "gecici_madde" if kind else "madde"
-        sections.append((section_type, canonical_section_ref(match.group("ref"))))
+        mentions.append((*match.span(), section_type, canonical_section_ref(match.group("ref"))))
     for match in _MADDE_SUFFIX_RE.finditer(folded):
         series = _SERIES_BEFORE_RE.search(folded[: match.start()])
         kind = series.group("kind") if series else ""
         section_type = "ek_madde" if kind == "ek" else "gecici_madde" if kind else "madde"
-        sections.append((section_type, canonical_section_ref(match.group("ref"))))
-    sections.extend(("ilke", canonical_section_ref(match.group("ref"))) for match in _ILKE_RE.finditer(folded))
-    sections.extend(("ilke", canonical_section_ref(match.group("ref"))) for match in _ILKE_SUFFIX_RE.finditer(folded))
+        start = series.start() if series else match.start()
+        mentions.append((start, match.end(), section_type, canonical_section_ref(match.group("ref"))))
+    for pattern in (_ILKE_RE, _ILKE_SUFFIX_RE):
+        mentions.extend(
+            (*match.span(), "ilke", canonical_section_ref(match.group("ref"))) for match in pattern.finditer(folded)
+        )
     for pattern in (_PARAGRAPH_RE, _PARAGRAPH_SUFFIX_RE):
         # The letter of an inserted KGK paragraph ("98I") is Latin: take it from the unfolded query.
-        sections.extend(
-            ("paragraf", canonical_section_ref(query[slice(*match.span("ref"))])) for match in pattern.finditer(folded)
+        mentions.extend(
+            (*match.span(), "paragraf", canonical_section_ref(query[slice(*match.span("ref"))]))
+            for match in pattern.finditer(folded)
         )
     for pattern in (_ANNEX_PREFIX_RE, _ANNEX_SUFFIX_RE):
-        sections.extend(("ek", match.group("ref")) for match in pattern.finditer(folded))
-    return _unique(sections)
+        mentions.extend((*match.span(), "ek", match.group("ref")) for match in pattern.finditer(folded))
+    return mentions
 
 
 def _parse_categories(folded: str) -> list[str]:

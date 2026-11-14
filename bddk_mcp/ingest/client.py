@@ -10,6 +10,7 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 from bs4 import BeautifulSoup
 from markitdown import MarkItDown
+from pydantic import Field
 
 from bddk_mcp.core.config import (
     HTTP_CONNECT_TIMEOUT,
@@ -30,6 +31,7 @@ from bddk_mcp.core.outbound_http import (
     bounded_request_with_retry,
 )
 from bddk_mcp.store.doc_store import DocumentStore, normalize_search_text
+from bddk_mcp.store.legal_ref import parse_legal_refs
 
 logger = logging.getLogger(__name__)
 
@@ -365,6 +367,42 @@ def _catalog_tokens(text: str) -> list[str]:
             if token:
                 tokens.append(token)
     return tokens
+
+
+class CatalogSearchResult(BddkSearchResult):
+    """A catalog search result that also names the section references left out of the required words."""
+
+    section_references_not_searched: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Section references of the keywords (an article, principle, paragraph or annex, e.g. 'madde 9', "
+            "'EK-1') that were not searched as catalog title words; empty when none was left out."
+        ),
+    )
+
+
+def _without_section_references(keywords: str) -> tuple[str, list[str]]:
+    """The keywords without the section references ``parse_legal_refs`` recognises (a kind word with its
+    number, an annex), and those references as typed. A catalog title names an instrument, not one of its
+    articles, so "madde 9" is never a required title word; a document or decision number and a standard's
+    number ("TFRS 9") are not section references and stay. When nothing else would remain to search, the
+    keywords are returned unchanged."""
+    parts: list[str] = []
+    left_out: list[str] = []
+    end = 0
+    for start, stop, _, _ in parse_legal_refs(keywords).section_spans:
+        if start < end:
+            continue
+        parts.append(keywords[end:start])
+        left_out.append(keywords[start:stop].strip())
+        end = stop
+    if not left_out:
+        return keywords, []
+    parts.append(keywords[end:])
+    rest = " ".join(part.strip() for part in parts if part.strip())
+    if not [token for token in _catalog_tokens(rest) if token not in _CATALOG_FUNCTION_WORDS]:
+        return keywords, []
+    return rest, list(dict.fromkeys(left_out))
 
 
 def catalog_keyword_tokens(keywords: str) -> list[str]:
@@ -990,10 +1028,13 @@ class BddkApiClient:
         content words adjacent and in order in the title, at its start before
         later; then the newest decision date and the shorter title. Empty keywords list the
         filtered catalog (browse mode), newest decision date first.
+        A section reference in the keywords ("madde 9", "ilke 5", "EK-1") is not a title word: it is
+        left out of the required tokens and named in ``section_references_not_searched``.
         """
         await self._ensure_cache()
 
-        keyword_parts = _catalog_tokens(request.keywords)
+        searched_keywords, references_left_out = _without_section_references(request.keywords)
+        keyword_parts = _catalog_tokens(searched_keywords)
         content_tokens: list[str] = []
         type_patterns: list[re.Pattern[str]] = []
         for part in keyword_parts:
@@ -1008,7 +1049,9 @@ class BddkApiClient:
             # Only function words: match them literally rather than everything.
             content_tokens = keyword_parts
         browse = not keyword_parts
-        query_words = [part for part in keyword_parts if part not in _CATALOG_FUNCTION_WORDS] or keyword_parts
+        # A title equal to the query counts the section references too (a title may name an article).
+        typed_parts = _catalog_tokens(request.keywords) if references_left_out else keyword_parts
+        query_words = [part for part in typed_parts if part not in _CATALOG_FUNCTION_WORDS] or typed_parts
         asks_draft = _DRAFT_TYPE_PATTERN in type_patterns
         asks_repealed = _REPEALED_WORD in keyword_parts
 
@@ -1171,11 +1214,12 @@ class BddkApiClient:
             len(page_results),
         )
 
-        return BddkSearchResult(
+        return CatalogSearchResult(
             decisions=page_results,
             total_results=total_results,
             page=request.page,
             page_size=request.page_size,
             catalog_size=len(self._cache),
             undated_excluded=undated_excluded,
+            section_references_not_searched=references_left_out,
         )

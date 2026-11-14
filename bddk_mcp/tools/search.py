@@ -50,10 +50,12 @@ from bddk_mcp.tools.sections import (
     _continuation_of,
     _continuation_warning,
     _find_continuations,
+    _find_parent_starts,
     _find_parents,
     _govde_kind,
     _govde_label,
     _parent_of,
+    _parent_start_of,
     _visible_controls,
     display_section_ref,
 )
@@ -149,9 +151,11 @@ _MATCH_TYPES = frozenset({"hybrid", "vector", "fts", "fts_exact", "decision_numb
 # A keyword (FTS AND) match on a query that names a legal reference: there is no
 # semantic score to show, and the match does not confirm the provision.
 _FTS_EXACT_LABEL = "[keyword match on the legal reference in the query; no semantic score]"
-# A document that matched every query word by keyword search but had no semantic hit.
+# A document whose chunk (or title) has every query word as a separate word but that had no semantic hit.
+# The index splits "%12" and "66/A" into separate words, so this is not a statement about a phrase or figure.
 _FTS_KEYWORD_LABEL = (
-    "[keyword match: every query word occurs in this chunk or in its document title; no semantic score]"
+    "[keyword match: the words of the query all occur in this chunk or in its document title as separate "
+    "words; this does not say that the phrase or the figure of the query occurs; no semantic score]"
 )
 # Hits without a semantic score: their relevance 0.0 is not a weak score.
 _KEYWORD_MATCH_TYPES = frozenset({"fts", "fts_exact", "decision_number"})
@@ -162,12 +166,21 @@ _DECISION_TEXT_HINT = (
 _BODY_TEXT_HINT = "Cite this document by its title, not as a named annex or paragraph."
 
 
-def _reference_mismatch_note(requested: list[tuple[str, str]], section_type: str, section_ref: str) -> str:
-    """Say so when a hit is bound to another number of a section kind the query names ("ilke 22", not "ilke 12")."""
+def _reference_mismatch_note(
+    requested: list[tuple[str, str]],
+    section_type: str,
+    section_ref: str,
+    parent: tuple[str, str] | None = None,
+) -> str:
+    """Say so when a hit is bound to another number of a section kind the query names ("ilke 22", not "ilke 12"),
+    or is a fıkra/bent of a parent provision of such a kind with another number (madde 9, not madde 12)."""
     if not section_type or not section_ref or (section_type, canonical_section_ref(section_ref)) in requested:
         return ""
     same_kind = [ref for kind, ref in requested if kind == section_type]
     if not same_kind:
+        if parent is not None and parent[1]:
+            parent_note = _reference_mismatch_note(requested, parent[0], parent[1])
+            return parent_note.replace(" [note: this hit is about ", " [note: this hit is part of ", 1)
         return ""
     named = " or ".join(f"{section_type} {display_section_ref(section_type, ref)}" for ref in same_kind)
     return (
@@ -346,6 +359,8 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
         "5411") ranks that entry first; then a title equal to the query, then the titles that
         contain the most query words. In-force texts rank before drafts and repealed texts unless
         the query names them (taslak, mülga).
+        A section reference in the keywords ("madde 9", "ilke 5", "EK-1") is not a title word: it
+        is not searched, and the answer names it under "not searched in the catalog".
         keywords may be empty when category or a date range is given: the matching catalog
         entries are then listed newest decision date first. A date bound skips every entry
         without a decision date (most yönetmelik, kanun, rehber, genelge and tebliğ entries);
@@ -391,6 +406,14 @@ def register(mcp, deps: Dependencies) -> None:  # type: ignore[type-arg]
         undated_note = (
             f"{undated_excluded:,} catalog entries have no decision date and were not considered by the date filter."
             if undated_excluded
+            else ""
+        )
+        # A section reference ("madde 9", "EK-1") is not a title word: the catalog search leaves it out.
+        references_left_out = list(getattr(result, "section_references_not_searched", None) or [])
+        reference_note = (
+            f"not searched in the catalog: {', '.join(references_left_out)} (a section reference is not a title "
+            "word; once the document is found, retrieve the provision with get_document_section)."
+            if references_left_out
             else ""
         )
 
@@ -462,6 +485,8 @@ This tool searches the local corpus catalog metadata only — not document bodie
 DO NOT provide information about BDDK regulations from your own knowledge.
 Try: (1) call search_document_store with the same query for full-text semantic search, or
 (2) use only words you'd expect in the regulation's title."""
+            if reference_note:
+                output = f"Note: {reference_note}\n{output}"
             return structured_tool_result(
                 RegulationCatalogResponse(
                     status="no_results",
@@ -471,7 +496,7 @@ Try: (1) call search_document_store with the same query for full-text semantic s
                     page_size=result.page_size,
                     total_results=result.total_results,
                     undated_excluded=undated_excluded,
-                    warnings=[undated_note] if undated_note else [],
+                    warnings=[note for note in (undated_note, reference_note) if note],
                 )
             )
 
@@ -490,6 +515,8 @@ Try: (1) call search_document_store with the same query for full-text semantic s
         )
         if other_sections_note:
             lines.insert(0, f"Note: {other_sections_note}")
+        if reference_note:
+            lines.insert(0, f"Note: {reference_note}")
         items: list[RegulationCatalogItem] = []
         evidence: list[EvidenceReference] = []
         warnings: list[str] = [UNTRUSTED_SOURCE_WARNING, LEGAL_APPLICABILITY_WARNING]
@@ -497,6 +524,8 @@ Try: (1) call search_document_store with the same query for full-text semantic s
             warnings.append(undated_note)
         if other_sections_note:
             warnings.append(other_sections_note)
+        if reference_note:
+            warnings.append(reference_note)
         for d in result.decisions:
             date_info = f" ({d.decision_date} - {d.decision_number})" if d.decision_date else ""
             cat_info = f" [{d.category}]" if d.category else ""
@@ -744,7 +773,7 @@ Suggest the user try: different keywords or a different category (basın, mevzua
         when query terms might appear inside the document text rather than in the
         title — abbreviations like "TFRS 9", article references, calculation
         formulas, defined terms. Understands meaning, not just keywords. An abbreviation of a small
-        reviewed glossary (e.g. LKO, NSFR, İSEDES) is also searched as its spelled-out form; any other
+        reviewed glossary (e.g. LKO, NSFR, İSEDES), typed in capitals, is also searched as its spelled-out form; any other
         abbreviation matches only where the text itself uses it.
 
         For title-only catalog lookups (where you know words from the regulation's
@@ -854,6 +883,7 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
         stored_sections = list(hit_sections.values())
         continuations = await _find_continuations(deps, stored_sections) if stored_sections else {}
         parents = await _find_parents(deps, stored_sections) if stored_sections else {}
+        parent_starts = await _find_parent_starts(deps, stored_sections, parents) if parents else {}
         lines = [f"Found {len(hits)} result(s) for '{echoed_query}':\n"]
         if searched_as_line:
             lines.insert(0, searched_as_line)
@@ -888,7 +918,9 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
                 relevance = f" [{match_strength} match, relevance {h['relevance']:.1%}]"
             section_type = str(h.get("section_type") or "")
             section_ref = str(h.get("section_ref") or "")
-            mismatch = _reference_mismatch_note(requested_sections, section_type, section_ref)
+            stored_section = hit_sections.get(hit_index)
+            parent = _parent_of(stored_section, parents) if stored_section is not None else None
+            mismatch = _reference_mismatch_note(requested_sections, section_type, section_ref, parent)
             lines.append(f"**{h['title']}**{date_info}{cat_info}{relevance}{mismatch}")
             lines.append(f"  Document ID: {h['doc_id']}")
             if status_notice := document_status_notice(str(h.get("category") or "")):
@@ -898,9 +930,7 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
             decision_number = str(h.get("decision_number") or "")
             decision_date = str(h.get("decision_date") or "")
             doc_id = str(h["doc_id"])
-            stored_section = hit_sections.get(hit_index)
             start_char = h.get("section_start_char") if isinstance(h.get("section_start_char"), int) else None
-            parent = _parent_of(stored_section, parents) if stored_section is not None else None
             continued = _continuation_of(stored_section, continuations) if stored_section is not None else None
             section_calls: list[str] = []
             govde_kind = _govde_kind(stored_section, continuations) if stored_section is not None else None
@@ -942,7 +972,11 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
                         f"  Full section: {_section_call(doc_id, section_type, section_ref, nested_start)}"
                     )
                     if parent is not None:
-                        section_calls.append(f"  Full provision: {_section_call(doc_id, parent[0], parent[1])}")
+                        # The parent's start offset only when its reference names more than one stored row.
+                        parent_start = _parent_start_of(stored_section, parent_starts)
+                        section_calls.append(
+                            f"  Full provision: {_section_call(doc_id, parent[0], parent[1], parent_start)}"
+                        )
             if source_url:
                 lines.append(f"  Catalog source (not a validated citation): {source_url}")
             if decision := decision_identifier_text(decision_date, decision_number):

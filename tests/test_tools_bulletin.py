@@ -712,3 +712,26 @@ def test_snapshot_description_does_not_promise_deposits():
 def test_weekly_days_description_states_the_bddk_limit():
     doc = " ".join(_bulletin_tool("get_bddk_bulletin").__doc__.split())
     assert "only about the last 13 weeks" in doc
+
+
+def test_registered_tool_descriptions_are_dedented_and_keep_their_words():
+    import inspect
+
+    from bddk_mcp import server
+    from bddk_mcp.tools import analytics, bulletin
+
+    for tool in server.mcp._tool_manager.list_tools():
+        description = tool.description or ""
+        first = next(line for line in description.splitlines() if line.strip())
+        # A line indented by four or more spaces before any text renders as a Markdown code block.
+        assert not first.startswith(" "), tool.name
+        assert description.strip() == inspect.cleandoc(description), tool.name
+    generated = {
+        "get_bddk_bulletin": bulletin._WEEKLY_DOC,
+        "get_bddk_monthly": bulletin._MONTHLY_DOC,
+        "compare_bulletin_metrics": analytics._COMPARE_DOC,
+        "analyze_bulletin_trends": analytics._TREND_DOC,
+    }
+    descriptions = {tool.name: tool.description or "" for tool in server.mcp._tool_manager.list_tools()}
+    for name, raw in generated.items():
+        assert descriptions[name].split() == raw.split(), name

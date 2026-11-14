@@ -10,7 +10,9 @@
 - ``parser``: the source text of ``bddk_mcp/store/section_index.py``, plus the
   source text of the functions of ``bddk_mcp/store/doc_store.py`` that derive the
   stored section rows and their search columns from the parsed sections:
-  ``_section_rows`` and the text normaliser it calls, ``normalize_search_text``.
+  ``_section_rows`` and the text normaliser it calls, ``normalize_search_text``;
+  plus the helper the parser imports from ``bddk_mcp/store/legal_ref.py``,
+  ``canonical_section_ref``, and the pattern it uses, ``_LETTERED_REF_RE``.
 - ``chunker``: only what decides chunk boundaries and chunk text: the chunking
   constants (``EMBEDDING_CHUNK_TARGET_TOKENS``, ``EMBEDDING_CHUNK_TOKEN_OVERLAP``,
   ``MAX_SECTION_CHARS``), the word-unit pattern of
@@ -18,7 +20,11 @@
   that decide chunk spans and chunk text: ``_chunk_document``,
   ``_chunk_document_by_tokens``, ``_chunk_spans``, ``_token_budget_ranges``,
   ``_text_units``, ``_split_oversized_unit``, ``_overlap_units``,
-  ``_count_tokens`` and ``_section_for_chunk``.
+  ``_count_tokens`` and ``_section_for_chunk``, and the caption-merge helpers
+  ``_is_caption_line`` and ``_is_caption_stretch`` with the constants they use
+  (``_CAPTION_MAX_CHARS``, ``_CAPTION_MIN_UPPER_WORDS``, ``_CAPTION_MARKUP_RE``,
+  ``_CAPTION_END_RE``, ``_CAPTION_PART_RE``, ``_CAPTION_OUTLINE_RE``,
+  ``_CAPTION_NOTE_RE``).
 - ``model``: how a vector is produced from a chunk text: embedding model name,
   dimension and configured revision string (never a filesystem path), plus the
   passage prefix, prefix separator and vector dtype as written in
@@ -57,8 +63,11 @@ RUNTIME_PARTS = ("parser", "chunker", "model")
 _PARSER_MODULE = "bddk_mcp.store.section_index"
 _VECTOR_STORE_MODULE = "bddk_mcp.store.vector_store"
 _DOC_STORE_MODULE = "bddk_mcp.store.doc_store"
+_LEGAL_REF_MODULE = "bddk_mcp.store.legal_ref"
 # How the stored section rows (and their indexed heading/content columns) are derived from the parsed sections.
 SECTION_ROW_FUNCTIONS = ("_section_rows", "normalize_search_text")
+# What the section parser imports from legal_ref, and the pattern it uses there: the stored section_ref form.
+SECTION_REF_HELPERS = ("canonical_section_ref", "_LETTERED_REF_RE")
 CHUNK_FUNCTIONS = (
     "_chunk_document",
     "_chunk_document_by_tokens",
@@ -69,8 +78,19 @@ CHUNK_FUNCTIONS = (
     "_overlap_units",
     "_count_tokens",
     "_section_for_chunk",
+    "_is_caption_line",
+    "_is_caption_stretch",
 )
-_CHUNK_CONSTANTS = ("_WORD_UNIT_RE",)
+_CHUNK_CONSTANTS = (
+    "_WORD_UNIT_RE",
+    "_CAPTION_MAX_CHARS",
+    "_CAPTION_MIN_UPPER_WORDS",
+    "_CAPTION_MARKUP_RE",
+    "_CAPTION_END_RE",
+    "_CAPTION_PART_RE",
+    "_CAPTION_OUTLINE_RE",
+    "_CAPTION_NOTE_RE",
+)
 # How a vector is produced from a chunk text; part of the model part, not the chunker part.
 _VECTOR_CONSTANTS = ("_PASSAGE_PREFIX", "_PREFIX_SEPARATOR", "_EMBEDDING_DTYPE")
 _DIGEST_CHARS = 16
@@ -103,9 +123,16 @@ def _digest(payload: object) -> str:
 def parser_part() -> str:
     source = _module_source(_PARSER_MODULE)
     rows = _named_segments(_DOC_STORE_MODULE, SECTION_ROW_FUNCTIONS, "parser")
-    if source is None or rows is None:
+    refs = _named_segments(_LEGAL_REF_MODULE, SECTION_REF_HELPERS, "parser")
+    if source is None or rows is None or refs is None:
         return UNKNOWN
-    return _digest({"section_index": hashlib.sha256(source.encode("utf-8")).hexdigest(), "section_rows": rows})
+    return _digest(
+        {
+            "section_index": hashlib.sha256(source.encode("utf-8")).hexdigest(),
+            "section_rows": rows,
+            "section_refs": refs,
+        }
+    )
 
 
 def _top_level_segments(source: str) -> dict[str, str]:

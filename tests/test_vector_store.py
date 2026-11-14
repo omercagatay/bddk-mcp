@@ -1421,3 +1421,162 @@ class TestSearchHonesty:
 
         assert all(not hit.get("decision_number_match") for hit in await vector_store.search("9999", limit=10))
         assert await vector_store.search("8948", limit=10, category="Yönetmelik") == []
+
+
+class TestSectionReferencesInTheKeywordPass:
+    """A section reference is searched by keyword as the corpus prints it ("md. 9" -> "madde 9")."""
+
+    def test_abbreviated_article_forms_give_the_strict_query_of_madde(self):
+        from bddk_mcp.store.doc_store import fts_match_query
+        from bddk_mcp.store.vector_store import _canonical_reference_query
+
+        expected = fts_match_query("Kredilerin Sınıflandırılması madde 9")
+        for query in (
+            "Kredilerin Sınıflandırılması md. 9",
+            "Kredilerin Sınıflandırılması md 9",
+            "Kredilerin Sınıflandırılması m. 9",
+            "Kredilerin Sınıflandırılması madde 9",
+        ):
+            assert fts_match_query(_canonical_reference_query(query)) == expected, query
+        assert _canonical_reference_query("geçici 3 üncü madde") == "geçici madde 3"
+        assert _canonical_reference_query("ek madde 2 ve EK-1") == "ek madde 2 ve ek 1"
+
+    def test_a_query_without_a_reference_is_untouched(self):
+        from bddk_mcp.store.vector_store import _canonical_reference_query
+
+        for query in ("kredi kartı asgari ödeme tutarı", "TFRS 9 beklenen kredi zararı", "943 model"):
+            assert _canonical_reference_query(query) == query
+
+    @pytest.mark.asyncio
+    async def test_strict_and_relaxed_passes_search_the_canonical_reference(self):
+        vs = VectorStore.__new__(VectorStore)
+        matches: list[str | None] = []
+
+        async def rows(match, *, limit, category):
+            matches.append(match)
+            return []
+
+        vs._fts_rows = rows
+        vs._fts_document_rows = AsyncMock(return_value=[])
+        await vs._fts_search("Kredilerin Sınıflandırılması md. 9", document_limit=None)
+        assert matches[0] == '"kredilerin" "siniflandirilmasi" "madde" "9"'
+        assert matches[1] is not None and '"madde"*' in matches[1]
+
+
+class TestFiguresAndLetteredReferencesInTheStrictPass:
+    """A percentage and a lettered reference ("66/A") keep their parts together in the keyword pass."""
+
+    def test_strict_query_keeps_lettered_references_and_percentage_numbers_together(self):
+        from bddk_mcp.store.doc_store import fts_match_query
+        from bddk_mcp.store.vector_store import _strict_fts_query
+
+        assert _strict_fts_query("madde 66/A geçici") == '"madde" "66 a" "gecici"'
+        # The index reads "%12" as the token 12: the number is required, the figure is checked on the chunk.
+        assert _strict_fts_query("%12 konsolide sermaye") == '"12" "konsolide" "sermaye"'
+        # Either written form may stand in the chunk, so "yüzde" itself is not required.
+        assert _strict_fts_query("yüzde 12 konsolide sermaye") == '"12" "konsolide" "sermaye"'
+        assert _strict_fts_query("oranı % 0,90") == '"orani" "0 90"'
+        for query in ("kredi kartı asgari ödeme tutarı", "madde 9 kredi", "TFRS 9", "yüzde oranı"):
+            assert _strict_fts_query(query) == fts_match_query(query), query
+
+    @staticmethod
+    def _store(chunks: dict[str, str]):
+        vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = EMBEDDING_MODEL_NAME
+        vs._vector_search = AsyncMock(return_value=[])
+        vs._fts_search = AsyncMock(
+            return_value=[
+                {
+                    "doc_id": doc_id,
+                    "fts_rank": 1.0,
+                    "title": "Belge",
+                    "snippet": text,
+                    "chunk_text": text,
+                    "fts_relaxed": False,
+                }
+                for doc_id, text in chunks.items()
+            ]
+        )
+        return vs
+
+    @pytest.mark.asyncio
+    async def test_a_chunk_whose_only_twelve_is_in_a_date_is_not_a_keyword_hit_for_a_percentage(self):
+        vs = self._store(
+            {
+                "date_only": "12.03.2020 tarihli konsolide sermaye yeterliliği tablosu.",
+                "percent": "Konsolide sermaye yeterliliği oranı %12 olarak uygulanır.",
+                "spelled": "Konsolide sermaye yeterliliği oranının yüzde 12 olması gerekir.",
+            }
+        )
+
+        hits = await vs._hybrid_search("%12 konsolide sermaye yeterliliği", limit=10)
+        spelled = await vs._hybrid_search("yüzde 12 konsolide sermaye yeterliliği", limit=10)
+
+        assert sorted(hit["doc_id"] for hit in hits) == ["percent", "spelled"]
+        assert sorted(hit["doc_id"] for hit in spelled) == ["percent", "spelled"]
+        assert {hit["match_type"] for hit in hits} == {"fts"}
+
+    @pytest.mark.asyncio
+    async def test_a_query_without_a_percentage_keeps_every_keyword_hit(self):
+        vs = self._store({"date_only": "12.03.2020 tarihli konsolide sermaye yeterliliği tablosu."})
+
+        hits = await vs._hybrid_search("12 konsolide sermaye yeterliliği", limit=10)
+
+        assert [hit["doc_id"] for hit in hits] == ["date_only"]
+
+    @pytest.mark.asyncio
+    async def test_the_chunk_index_matches_the_lettered_phrase_and_the_percentage_number(self, vector_store, doc_store):
+        await _store_and_index(
+            vector_store, doc_store, doc_id="lettered", title="Kanun", content="MADDE 66/A - Bilgi paylaşımı yapılır."
+        )
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="apart",
+            title="Kanun",
+            content="MADDE 66 - Bilgi paylaşımı a bendine göre yapılır.",
+        )
+        await _store_and_index(
+            vector_store, doc_store, doc_id="percent", title="Tebliğ", content="Oran %12 olarak bilgi paylaşımı."
+        )
+
+        lettered = await vector_store._fts_search("madde 66/A bilgi paylaşımı")
+        percent = await vector_store._fts_search("yüzde 12 bilgi paylaşımı")
+
+        assert [hit["doc_id"] for hit in lettered] == ["lettered"]
+        assert [hit["doc_id"] for hit in percent] == ["percent"]
+
+
+class TestGlossaryCapitalsRule:
+    """A glossary abbreviation is expanded only when typed in capitals, never for Turkish "bkz." (bakınız)."""
+
+    def test_entries_of_a_query(self):
+        from bddk_mcp.store.vector_store import _glossary_entries
+
+        def abbreviations(query: str) -> list[str]:
+            return [entry.abbreviation for entry in _glossary_entries(query)]
+
+        assert abbreviations("teminat değerlemesi (bkz. Ek-1)") == []
+        assert abbreviations("Bkz. Ek-1 teminat değerlemesi") == []
+        assert abbreviations("bkz teminat değerlemesi") == []
+        assert abbreviations("lko hesaplaması") == []
+        assert abbreviations("BKZ") == ["BKZ"]
+        assert abbreviations("BKZ hesaplaması") == ["BKZ"]
+        assert abbreviations("BKZ hesaplaması (bkz. Ek-1)") == ["BKZ"]
+
+    def test_only_the_capital_occurrence_is_replaced_in_the_keyword_pass(self):
+        from bddk_mcp.store.vector_store import _expanded_query, _glossary_entries
+
+        query = "BKZ hesaplaması (bkz. Ek-1)"
+        assert _expanded_query(query, _glossary_entries(query)) == "beklenen kredi zararı hesaplaması (bkz. Ek-1)"
+
+    def test_a_shouted_query_keeps_its_abbreviations_and_lower_cases_bakiniz(self):
+        vocabulary = _build_query_vocabulary(["teminat değerlemesi"])
+        from bddk_mcp.store.vector_store import _glossary_entries
+
+        shouted = normalize_query("BKZ HESAPLAMASI NASIL YAPILIR", vocabulary)
+        assert shouted == "BKZ hesaplamasi nasil yapilir"
+        assert [entry.abbreviation for entry in _glossary_entries(shouted)] == ["BKZ"]
+        bakiniz = normalize_query("TEMİNAT DEĞERLEMESİ (BKZ. EK-1)", vocabulary)
+        assert bakiniz == "teminat değerlemesi (bkz. ek-1)"
+        assert _glossary_entries(bakiniz) == []

@@ -1497,3 +1497,91 @@ async def test_gerekce_and_mali_titles_are_found_by_their_own_words_only(reverse
     # Real-title positives of the same endings: Fonunca (fon + u + nca), Değeri (değer + i).
     assert await _ranked(LEXICALISED_CATALOG, "fonu", reverse=reverse) == ["445"]
     assert await _ranked(LEXICALISED_CATALOG, "değer", reverse=reverse) == ["776"]
+
+
+SECTION_REFERENCE_ITEMS = [
+    BddkDecisionSummary(
+        title="Kredilerin Sınıflandırılması ve Bunlar İçin Ayrılacak Karşılıklara İlişkin Usul ve Esaslar Hakkında "
+        "Yönetmelik",
+        document_id="mevzuat_22599",
+        category="Yönetmelik",
+    ),
+    BddkDecisionSummary(
+        title="Kredi Riskine Esas Tutarın Hesaplanmasında Risk Ağırlıkları Rehberi",
+        document_id="1100",
+        category="Rehber",
+    ),
+    BddkDecisionSummary(
+        title="TFRS 9 Uyarınca Beklenen Kredi Zararı Karşılığı Hesaplamasına İlişkin Rehber",
+        document_id="1200",
+        category="Rehber",
+    ),
+    BddkDecisionSummary(
+        title="Kurul Kararı",
+        document_id="1300",
+        decision_number="8948",
+        category="Kurul Kararı",
+    ),
+    *SAMPLE_ITEMS,
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("keywords", "expected", "left_out"),
+    [
+        ("kredilerin sınıflandırılması yönetmeliği madde 9", "mevzuat_22599", ["madde 9"]),
+        ("EK-1 risk ağırlıkları", "1100", ["EK-1"]),
+        ("TFRS 9 beklenen kredi zararı ilke 5", "1200", ["ilke 5"]),
+    ],
+)
+async def test_a_section_reference_is_not_a_required_catalog_word_and_is_reported(keywords, expected, left_out):
+    client = _make_client_with_cache(SECTION_REFERENCE_ITEMS)
+
+    result = await client.search_decisions(BddkSearchRequest(keywords=keywords))
+
+    assert result.decisions and result.decisions[0].document_id == expected
+    assert result.section_references_not_searched == left_out
+
+
+@pytest.mark.asyncio
+async def test_document_and_decision_numbers_and_standard_numbers_stay_required():
+    client = _make_client_with_cache(SECTION_REFERENCE_ITEMS)
+
+    for keywords, expected in (("5411", "mevzuat_5411"), ("8948 sayılı karar", "1300")):
+        result = await client.search_decisions(BddkSearchRequest(keywords=keywords))
+        assert result.decisions[0].document_id == expected, keywords
+        assert result.section_references_not_searched == [], keywords
+    # "TFRS 9" keeps its 9: a title without it does not match.
+    tfrs = await client.search_decisions(BddkSearchRequest(keywords="TFRS 8 beklenen kredi zararı"))
+    assert tfrs.decisions == []
+    # A query that is only a reference still searches it rather than listing the whole catalog.
+    only = await client.search_decisions(BddkSearchRequest(keywords="madde 9"))
+    assert only.section_references_not_searched == []
+    assert only.total_results < len(SECTION_REFERENCE_ITEMS)
+
+
+@pytest.mark.asyncio
+async def test_a_title_that_names_an_article_still_ranks_first_for_its_own_title():
+    items = [
+        BddkDecisionSummary(
+            title="T.Vakıflar Bankası T.A.O.'ya 5411 sayılı Bankacılık Kanununun 4 üncü maddesinin birinci fıkrası "
+            "uyarınca faaliyet genişlemesi izni verilmesine ilişkin Kurul Kararı",
+            document_id="285",
+            decision_date="01.02.2012",
+            category="Kurul Kararı",
+        ),
+        BddkDecisionSummary(
+            title="T. Vakıflar Bankası T.A.O.'ya 5411 sayılı Bankacılık Kanununun 4 üncü maddesinin birinci fıkrası "
+            "uyarınca faaliyet genişlemesine izin verilmesine ilişkin Kurul Kararı",
+            document_id="256",
+            decision_date="01.02.2011",
+            category="Kurul Kararı",
+        ),
+    ]
+    client = _make_client_with_cache(items)
+
+    result = await client.search_decisions(BddkSearchRequest(keywords=items[1].title))
+
+    assert [d.document_id for d in result.decisions] == ["256", "285"]
+    assert result.section_references_not_searched == ["4 üncü maddesinin"]
