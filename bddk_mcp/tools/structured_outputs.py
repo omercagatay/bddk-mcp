@@ -243,7 +243,7 @@ class DocumentSearchItem(StrictOutputModel):
             "hits (0.0, no semantic score) in keyword (BM25) order, then the remaining vector hits by "
             "this score, so a later hit can score higher than an earlier hybrid hit; these are the hits within "
             "0.051 of the top ordering score, and the other semantic hits follow them by this score. keyword-only fts hits "
-            "(0.0, no semantic score: every query word occurs in the chunk or the document title) follow the strong and moderate hits in BM25 order, and the weak hits (relevance below 0.50) come after them."
+            "(0.0, no semantic score: the words of the query all occur in the chunk or in its document title as separate words; this does not say that the phrase or the figure of the query occurs) follow the strong and moderate hits in BM25 order, and the weak hits (relevance below 0.50) come after them."
         ),
     )
     match_strength: Literal["strong", "moderate", "weak", "keyword"] = Field(
@@ -258,7 +258,8 @@ class DocumentSearchItem(StrictOutputModel):
         default=None,
         description=(
             "How the hit was retrieved: hybrid (semantic and keyword), vector (semantic only), fts (keyword "
-            "only: every query word occurs in the chunk or the document title, and the document had no "
+            "only: the words of the query all occur in the chunk or in its document title as separate words, which does not say "
+            "that the phrase or the figure of the query occurs, and the document had no "
             "semantic hit; no semantic score) or fts_exact (every query word, including a legal reference, matched by keyword search; "
             "a keyword match, not a confirmed provision) or decision_number (the query is a bare decision "
             "number and this document carries that decision number; no semantic score)."

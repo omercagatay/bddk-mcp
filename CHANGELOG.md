@@ -87,7 +87,9 @@ ve tam test paketi açısından kapıdan geçirildi.
   derleme parmak izi yoktur; `build` bunu görür ve her belgeyi seed'den yeniden
   yazar. Vektörler seed önbelleğinden gelir, hiçbir şey yeniden gömülmez.
   `bddk-mcp info` dosyanın güncel olup olmadığını söyler. Önceki turun
-  "yeni dosya üretin ve eskisinin yerine koyun" adımı artık gerekmez.
+  "yeni dosya üretin ve eskisinin yerine koyun" adımı artık gerekmez. Bu turun
+  başında üretilmiş bir corpus dosyası bir kez eski ayrıştırıcı ve chunk parmak
+  izi bildirir; düz `bddk-mcp build` onu seed önbelleğinden yeniden yazar.
 - Bir corpus dosyasını elle değiştirirseniz eski `<dosya>-wal` ve `<dosya>-shm`
   dosyalarını da kaldırın. Değiştirilen dosyanın yanında kalmış, boş olmayan bir
   `-wal` artık açılışta reddedilir (yazıcı ve okuyucu).
@@ -405,9 +407,34 @@ Seed verisi:
   Metin, özet ve vektörler değişmedi. `mevzuat_20145885` türetilemediği için
   olduğu gibi bırakıldı. Bu adresler geliştirme ortamından açılamadı.
 
+**Birleştirilmiş turun çapraz incelemesi.** Birleştirilmiş bütünün bağımsız bir
+incelemesi, araçların birbiriyle çeliştiği yerler buldu; hepsi düzeltildi.
+
+- `search_document_store`, anahtar kelime aşamasında `md. 9`, `md 9` ve `m. 9`
+  yazımlarını madde 9 olarak okur; bölüm aracı bunu zaten yapıyordu.
+- "<n> sayılı karar" için tek ortak kural var: bölüm aracı artık aramayı 1043
+  numaralı saklı belgeye daraltmaz; diğer araçlar da 1043 sayılı kararı döndürür.
+- Anahtar kelime etiketi ve sunucu talimatı doğruyu söyler: sorgudaki sözcükler
+  ayrı ayrı geçiyor; ifadenin ya da rakamın geçtiği söylenmiyor. Yüzde ve harfli
+  gönderme tek parça olarak denetlenir; yalnızca bir tarihte "12" geçen belge
+  "%12" için artık anahtar kelime eşleşmesi sayılmaz.
+- `search_document_sections`, bağlantı metninden başka bir şey saklamayan bir
+  belgede ek istendiğinde "ekler kayıtlı değil" notunu verir.
+- Derleme parmak izi artık başlık birleştirme (altyazı) kurallarını ve bölüm
+  göndermesinin saklanan biçimini de kapsar; parmak izine girmeyen, saklanan
+  satırlara karar veren bir işlev olduğunda başarısız olan bir test eklendi.
+- Katalog araması, sorgudaki bölüm göndermesini başlık sözcüklerinden çıkarır ve
+  bunu yazar; bölüm aracının yazdığı ipucu böylece işe yarar.
+- Sözlük kısaltması yalnızca büyük harfle yazıldığında genişletilir: Türkçe
+  "bkz." artık BKZ diye okunmaz.
+- Üst işaretçiler, üst gönderme tekrar ettiğinde `start_char` taşır; adı geçenden
+  başka bir maddenin altındaki isabet bunu söyler; `get_document_section`'a
+  verilen karar numarası onu taşıyan belgeyi adlandırır; üretilen araç
+  açıklamalarının girintisi temizlendi.
+
 Doğrulama (2026-11-14; hepsini bakımcı birleştirilmiş baş üzerinde çalıştırdı):
 
-- `uv run pytest tests/ -m "not gpu" -q`: 2668 geçti, 2 seçilmedi (`gpu` işareti).
+- `uv run pytest tests/ -m "not gpu" -q`: 2699 geçti, 2 seçilmedi (`gpu` işareti).
   `main` üzerinde aynı komut 2216 geçti.
 - Gerçek tokenizer testi (`tests/test_verbatim_documents.py`, model önbelleğiyle):
   968 geçti.
@@ -415,7 +442,9 @@ Doğrulama (2026-11-14; hepsini bakımcı birleştirilmiş baş üzerinde çalı
   `uv lock --check`: geçti.
 - Gerçek tokenizer ile seed'den `bddk-mcp build`: 319 belge, 9.029 bölüm, 12.091
   chunk (0 gömüldü, 12.091'i seed önbelleğinden). Bu turdan önce 8.556 bölüm ve
-  13.721 chunk idi.
+  13.721 chunk idi. Derleme ve dışa aktarma turu son baş üzerinde tekrarlandı ve
+  aynı sonucu verdi (319 belge, 9.029 bölüm, 12.091 chunk, 0 gömüldü; dışa aktarma
+  bayt bayt aynı).
 - Bu dosyada `bddk-mcp info`: durum hazır, journal modu `delete`, derleme parmak
   izi güncel, sync hatası yok.
 - Bu dosyadan `bddk-mcp export`: `seed_data/` ile bayt bayt aynı (`documents.json`,
@@ -426,9 +455,8 @@ Doğrulama (2026-11-14; hepsini bakımcı birleştirilmiş baş üzerinde çalı
   23/24, katalog 21/23, çeşitli 2/3, bilgi teknolojisi ailesi 6/11; canlı BDDK
   araçları 13/13. Kalan her başarısızlık bilerek ertelenen bir maddedir
   (aşağıda).
-- GitHub Actions, `9f16261` dahil her gönderilen baş için: lint, unit-test 3.12 ve
-  3.13, package-test 3.12 ve 3.13, container-static başarılı. `870a49a` üzerinde
-  yeni `image-smoke` işi dahil bütün işler başarıyla bitti.
+- GitHub Actions, `8d124b9` dahil her gönderilen baş için başarılı; `image-smoke`
+  işi dahil bütün işler iki kez başarıyla bitti.
 
 Doğrulanamayanlar:
 

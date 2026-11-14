@@ -426,7 +426,10 @@ async def test_keyword_only_hits_are_listed_as_keyword_matches_and_not_as_no_res
         ("hybrid", "strong"),
         ("fts", "keyword"),
     ]
-    assert "every query word occurs" in DocumentSearchItem.model_fields["match_type"].description
+    assert (
+        "the words of the query all occur in the chunk or in its document title as separate words"
+        in DocumentSearchItem.model_fields["match_type"].description
+    )
     assert "keyword-only" in DocumentSearchItem.model_fields["relevance"].description
 
 
