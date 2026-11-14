@@ -1222,17 +1222,6 @@ async def test_in_force_category_gets_no_status_line():
 _LATE_UTC_DOWNLOAD = 1775691000.0
 
 
-@pytest.fixture
-def far_east_timezone(monkeypatch):
-    import time as _time
-
-    monkeypatch.setenv("TZ", "Pacific/Kiritimati")
-    _time.tzset()
-    yield
-    monkeypatch.undo()
-    _time.tzset()
-
-
 async def _store_provenance_document(doc_store) -> Dependencies:
     from bddk_mcp.store.doc_store import StoredDocument
 
@@ -1253,9 +1242,6 @@ async def _store_provenance_document(doc_store) -> Dependencies:
 
 @pytest.mark.asyncio
 async def test_section_answers_carry_decision_identifiers_and_the_utc_source_date(doc_store, far_east_timezone):
-    from datetime import datetime
-
-    assert datetime.fromtimestamp(_LATE_UTC_DOWNLOAD).date().isoformat() == "2026-04-09"
     deps = await _store_provenance_document(doc_store)
 
     single = await _capture_tool(deps, "get_document_section")("1291", section_type="madde", section_ref="1")

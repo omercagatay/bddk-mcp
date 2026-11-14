@@ -509,26 +509,19 @@ async def test_get_bddk_document_marks_repealed_and_draft_documents(category, ma
 
 
 @pytest.mark.asyncio
-async def test_get_bddk_document_states_the_utc_source_date_and_the_body_hash(doc_store, monkeypatch):
+async def test_get_bddk_document_states_the_utc_source_date_and_the_body_hash(doc_store, far_east_timezone):
     import hashlib
-    import time as _time
 
     from bddk_mcp.store.doc_store import StoredDocument
 
-    monkeypatch.setenv("TZ", "Pacific/Kiritimati")
-    _time.tzset()
-    try:
-        body = "MADDE 1 - Kredi riski için asgari sermaye oranı belirlenir.\n"
-        await doc_store.store_document(
-            StoredDocument(document_id="1291", title="Rehber", markdown_content=body, downloaded_at=1775691000.0)
-        )
-        deps = Dependencies(db=None, doc_store=doc_store, client=MagicMock(), http=None)
-        deps.client.find_by_id = MagicMock(return_value=None)
+    body = "MADDE 1 - Kredi riski için asgari sermaye oranı belirlenir.\n"
+    await doc_store.store_document(
+        StoredDocument(document_id="1291", title="Rehber", markdown_content=body, downloaded_at=1775691000.0)
+    )
+    deps = Dependencies(db=None, doc_store=doc_store, client=MagicMock(), http=None)
+    deps.client.find_by_id = MagicMock(return_value=None)
 
-        out = await _capture_get_bddk_document(deps)("1291")
-    finally:
-        monkeypatch.undo()
-        _time.tzset()
+    out = await _capture_get_bddk_document(deps)("1291")
 
     assert (
         "- Text obtained from the source on: 2026-04-08 (UTC download date; not a statement that the text is current)"
@@ -553,9 +546,10 @@ async def test_document_history_of_an_unknown_id_is_not_found(doc_store):
 
 
 @pytest.mark.asyncio
-async def test_document_history_is_framed_as_a_local_text_change_log_not_amendment_history(doc_store, monkeypatch):
+async def test_document_history_is_framed_as_a_local_text_change_log_not_amendment_history(
+    doc_store, monkeypatch, far_east_timezone
+):
     import hashlib
-    import time as _time
 
     from bddk_mcp.store.doc_store import StoredDocument
     from bddk_mcp.tools.structured_outputs import SOURCE_DATA_BEGIN
@@ -574,13 +568,7 @@ async def test_document_history_is_framed_as_a_local_text_change_log_not_amendme
     )
     await doc_store.store_document(second)
     monkeypatch.undo()
-    monkeypatch.setenv("TZ", "Pacific/Kiritimati")
-    _time.tzset()
-    try:
-        result = await _history_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None))("21192")
-    finally:
-        monkeypatch.undo()
-        _time.tzset()
+    result = await _history_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None))("21192")
 
     text = result.text
     assert text.startswith("This is the local text-change log of this corpus file")

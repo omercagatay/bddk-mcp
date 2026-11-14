@@ -634,22 +634,14 @@ async def test_repealed_and_draft_hits_are_marked_in_both_search_tools():
 
 
 @pytest.mark.asyncio
-async def test_version_counts_render_the_replacement_time_in_utc(doc_store, monkeypatch):
-    import time as _time
-
+async def test_version_counts_render_the_replacement_time_in_utc(doc_store, monkeypatch, far_east_timezone):
     from bddk_mcp.store.doc_store import StoredDocument
 
     await doc_store.store_document(StoredDocument(document_id="1", title="T", markdown_content="eski"))
     monkeypatch.setattr("bddk_mcp.store.doc_store.time.time", lambda: 1775691000.0)
     await doc_store.store_document(StoredDocument(document_id="1", title="T", markdown_content="yeni"))
     monkeypatch.undo()
-    monkeypatch.setenv("TZ", "Pacific/Kiritimati")
-    _time.tzset()
-    try:
-        counts = await doc_store.get_version_counts(["1"])
-    finally:
-        monkeypatch.undo()
-        _time.tzset()
+    counts = await doc_store.get_version_counts(["1"])
 
     assert counts == {"1": (1, "2026-04-08 23:30 UTC")}
 
