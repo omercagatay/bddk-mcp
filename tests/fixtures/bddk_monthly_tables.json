@@ -1,0 +1,1000 @@
+{
+ "_source": "Trimmed BDDK BultenAylik/tr/Home/BasitRaporGetir answers for 2026/9, TL, taraf 10001 (sector). Tables 1-13 and 15-17 captured 2026-11-13, table 14 captured 2026-11-14. Each table keeps BDDK's success flag, caption, colNames and its first rows unchanged.",
+ "tables": {
+  "1": {
+   "success": true,
+   "Json": {
+    "caption": "Bilanço (milyon TL), Dönem:2026/9",
+    "colNames": [
+     "",
+     "",
+     "",
+     "BasitFont",
+     "TP",
+     "YP",
+     "Toplam"
+    ],
+    "data": {
+     "rows": [
+      {
+       "id": "1",
+       "cell": [
+        "Sektör",
+        1,
+        "Nakit Değerler",
+        "",
+        73959,
+        447993,
+        521952
+       ]
+      },
+      {
+       "id": "2",
+       "cell": [
+        "Sektör",
+        2,
+        "T.C. Merkez Bankasından Alacaklar",
+        "",
+        2782814,
+        1565365,
+        4348179
+       ]
+      },
+      {
+       "id": "3",
+       "cell": [
+        "Sektör",
+        3,
+        "Para Piyasalarından Alacaklar",
+        "",
+        412030,
+        2263,
+        414293
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "2": {
+   "success": true,
+   "Json": {
+    "caption": "Kar Zarar (milyon TL), Dönem:2026/9",
+    "colNames": [
+     "",
+     "",
+     "",
+     "BasitFont",
+     "TP",
+     "YP",
+     "Toplam"
+    ],
+    "data": {
+     "rows": [
+      {
+       "id": "1",
+       "cell": [
+        "Sektör",
+        1,
+        "Kredilerden Alınan Faizler (Kar Payları)",
+        "",
+        4480971,
+        502079,
+        4983051
+       ]
+      },
+      {
+       "id": "2",
+       "cell": [
+        "Sektör",
+        2,
+        "a) Tüketici Kredilerinden Alınan Faizler (Kar Payları)",
+        "",
+        681639,
+        4,
+        681644
+       ]
+      },
+      {
+       "id": "3",
+       "cell": [
+        "Sektör",
+        3,
+        "b) Kredi Kartlarından Alınan Faizler (Kar Payları)",
+        "",
+        476327,
+        23,
+        476351
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "3": {
+   "success": true,
+   "Json": {
+    "caption": "Krediler (milyon TL), Dönem:2026/9",
+    "colNames": [
+     "",
+     "",
+     "",
+     "BasitFont",
+     "Kısa TP",
+     "Kısa YP",
+     "Kısa Toplam",
+     "Orta Uzun TP",
+     "Orta Uzun YP",
+     "Orta Uzun Toplam",
+     "Toplam TP",
+     "Toplam YP",
+     "Toplam"
+    ],
+    "data": {
+     "rows": [
+      {
+       "id": "1",
+       "cell": [
+        "Sektör",
+        1,
+        "İskontolu İşlemlerden Alacaklar",
+        "",
+        514421,
+        152545,
+        666966,
+        0,
+        0,
+        0,
+        514421,
+        152545,
+        666966
+       ]
+      },
+      {
+       "id": "2",
+       "cell": [
+        "Sektör",
+        2,
+        "İhracat Kredileri",
+        "",
+        395029,
+        1386590,
+        1781619,
+        352705,
+        1379627,
+        1732332,
+        747734,
+        2766217,
+        3513951
+       ]
+      },
+      {
+       "id": "3",
+       "cell": [
+        "Sektör",
+        3,
+        "İthalat Kredileri",
+        "",
+        11967,
+        25437,
+        37405,
+        4401,
+        14429,
+        18829,
+        16368,
+        39866,
+        56234
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "4": {
+   "success": true,
+   "Json": {
+    "caption": "Tüketici Kredileri (milyon TL), Dönem:2026/9",
+    "colNames": [
+     "",
+     "",
+     "",
+     "BasitFont",
+     "TP",
+     "YP",
+     "Toplam"
+    ],
+    "data": {
+     "rows": [
+      {
+       "id": "1",
+       "cell": [
+        "Sektör",
+        1,
+        "Tüketici Kredileri (2+3+4)",
+        "bold",
+        3516452,
+        267,
+        3516719
+       ]
+      },
+      {
+       "id": "2",
+       "cell": [
+        "Sektör",
+        2,
+        "Tüketici Kredileri - Konut",
+        "",
+        840461,
+        59,
+        840521
+       ]
+      },
+      {
+       "id": "3",
+       "cell": [
+        "Sektör",
+        3,
+        "Tüketici Kredileri - Taşıt",
+        "",
+        42257,
+        82,
+        42340
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "5": {
+   "success": true,
+   "Json": {
+    "caption": "Sektörel Kredi Dağılımı (bin TL), Dönem:2026/9",
+    "colNames": [
+     "",
+     "",
+     "",
+     "BasitFont",
+     "Kısa Vadeli Nakdi Krediler",
+     "Orta ve Uzun Vadeli Nakdi Krediler",
+     "Nakdi Krediler",
+     "Takipteki Krediler",
+     "Toplam Nakdi Krediler",
+     "Gayri Nakdi Krediler"
+    ],
+    "data": {
+     "rows": [
+      {
+       "id": "1",
+       "cell": [
+        "Sektör",
+        1,
+        "Tarım, Avcılık ve Ormancılık (2+3+4)",
+        "bold",
+        551467908,
+        952202321,
+        1503670229,
+        29344476,
+        1533014705,
+        60427803
+       ]
+      },
+      {
+       "id": "2",
+       "cell": [
+        "Sektör",
+        2,
+        "Tarım",
+        "",
+        545403141,
+        943973104,
+        1489376245,
+        28501630,
+        1517877875,
+        56067717
+       ]
+      },
+      {
+       "id": "3",
+       "cell": [
+        "Sektör",
+        3,
+        "Avcılık",
+        "",
+        142627,
+        247616,
+        390243,
+        6398,
+        396641,
+        54622
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "6": {
+   "success": true,
+   "Json": {
+    "caption": "KOBİ Kredileri  (milyon TL), Dönem:2026/9",
+    "colNames": [
+     "",
+     "",
+     "",
+     "BasitFont",
+     "Nakdi Kredi TP",
+     "Nakdi Kredi YP",
+     "Toplam Nakdi Krediler",
+     "Takip Kredi TP",
+     "Takip Kredi YP",
+     "Toplam Takipteki Krediler",
+     "Gayri Nakdi Kredi TP",
+     "Gayri Nakdi Kredi YP",
+     "Toplam Gayri Nakdi Krediler",
+     "Müşteri Sayısı (Net)"
+    ],
+    "data": {
+     "rows": [
+      {
+       "id": "1",
+       "cell": [
+        "Sektör",
+        1,
+        "Toplam KOBİ Kredileri (2+3+4)",
+        "bold",
+        6378389,
+        1329201,
+        7707590,
+        313986,
+        6237,
+        320223,
+        3559189,
+        773228,
+        4332417,
+        0
+       ]
+      },
+      {
+       "id": "2",
+       "cell": [
+        "Sektör",
+        2,
+        "Mikro İşletmelere Kullandırılan Krediler",
+        "",
+        1903345,
+        95955,
+        1999300,
+        82435,
+        146,
+        82581,
+        1111286,
+        50276,
+        1161562,
+        0
+       ]
+      },
+      {
+       "id": "3",
+       "cell": [
+        "Sektör",
+        3,
+        "Küçük İşletmelere Kullandırılan Krediler",
+        "",
+        1795663,
+        198311,
+        1993974,
+        89298,
+        2037,
+        91334,
+        847630,
+        108137,
+        955767,
+        0
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "7": {
+   "success": true,
+   "Json": {
+    "caption": "Sendikasyon Seküritizasyon Kredileri (milyon TL), Dönem:2026/9",
+    "colNames": [
+     "",
+     "",
+     "",
+     "BasitFont",
+     "TP",
+     "YP",
+     "Toplam"
+    ],
+    "data": {
+     "rows": [
+      {
+       "id": "1",
+       "cell": [
+        "Sektör",
+        1,
+        "Sendikasyon Kredileri (Dış Ticaret Finansmanı Amaçlı Olmayanlar)",
+        "",
+        0,
+        48337,
+        48337
+       ]
+      },
+      {
+       "id": "2",
+       "cell": [
+        "Sektör",
+        2,
+        "Sendikasyon Kredileri (Dış Ticaret Finansmanı Amaçlı Olanlar)",
+        "",
+        0,
+        1132125,
+        1132125
+       ]
+      },
+      {
+       "id": "3",
+       "cell": [
+        "Sektör",
+        3,
+        "Seküritizasyon Kredileri",
+        "",
+        0,
+        716982,
+        716982
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "8": {
+   "success": true,
+   "Json": {
+    "caption": "Menkul Kıymetler (milyon TL), Dönem:2026/9",
+    "colNames": [
+     "",
+     "",
+     "",
+     "BasitFont",
+     "TP",
+     "YP",
+     "Toplam"
+    ],
+    "data": {
+     "rows": [
+      {
+       "id": "1",
+       "cell": [
+        "Sektör",
+        1,
+        "Menkul Değerler (2 den 26'ya)",
+        "bold",
+        5013272,
+        3042237,
+        8055508
+       ]
+      },
+      {
+       "id": "2",
+       "cell": [
+        "Sektör",
+        2,
+        "Devlet Tahvilleri",
+        "",
+        4137006,
+        311965,
+        4448971
+       ]
+      },
+      {
+       "id": "3",
+       "cell": [
+        "Sektör",
+        3,
+        "Hazine Bonoları",
+        "",
+        15611,
+        0,
+        15611
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "9": {
+   "success": true,
+   "Json": {
+    "caption": "Mevduat Türler İtibarıyla (milyon TL), Dönem:2026/9",
+    "colNames": [
+     "",
+     "",
+     "",
+     "BasitFont",
+     "On Bin TL'ye Kadar",
+     "On Bin-Elli Bin TL Arası",
+     "Elli Bin-İkiyüzelli Bin TL Arası",
+     "İkiyüzelli Bin -Bir Milyon  TL Arası",
+     "Bir Milyon TL Üzeri",
+     "Toplam"
+    ],
+    "data": {
+     "rows": [
+      {
+       "id": "1",
+       "cell": [
+        "Sektör",
+        1,
+        "TP Mevduat / Katılım Fonları - Yurt İçi Yerleşik",
+        "bold",
+        129641,
+        394986,
+        867475,
+        1526373,
+        16587177,
+        19505652
+       ]
+      },
+      {
+       "id": "2",
+       "cell": [
+        "Sektör",
+        2,
+        "a) Gerçek Kişiler",
+        "italic",
+        119786,
+        363636,
+        761402,
+        1316645,
+        7096647,
+        9658116
+       ]
+      },
+      {
+       "id": "3",
+       "cell": [
+        "Sektör",
+        3,
+        "b) Resmi Kuruluşlar",
+        "italic",
+        121,
+        459,
+        2191,
+        5904,
+        1279101,
+        1287775
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "10": {
+   "success": true,
+   "Json": {
+    "caption": "Mevduat Vade İtibarıyla (milyon TL), Dönem:2026/9",
+    "colNames": [
+     "",
+     "",
+     "",
+     "BasitFont",
+     "Vadesiz",
+     "1 Aya Kadar",
+     "1-3 Ay Arası",
+     "3-6 Ay Arası",
+     "6-12 Ay Arası",
+     "1  Yıl Üzeri",
+     "Toplam"
+    ],
+    "data": {
+     "rows": [
+      {
+       "id": "1",
+       "cell": [
+        "Sektör",
+        1,
+        "TP Mevduat / Katılım Fonları - Yurt İçi Yerleşik",
+        "bold",
+        3298512,
+        4942866,
+        8808470,
+        1781210,
+        293456,
+        381137,
+        19505652
+       ]
+      },
+      {
+       "id": "2",
+       "cell": [
+        "Sektör",
+        2,
+        "a) Gerçek Kişiler",
+        "italic",
+        1634720,
+        1409239,
+        5627675,
+        804073,
+        75397,
+        107011,
+        9658116
+       ]
+      },
+      {
+       "id": "3",
+       "cell": [
+        "Sektör",
+        3,
+        "b) Resmi Kuruluşlar",
+        "italic",
+        499432,
+        591242,
+        159467,
+        26992,
+        8757,
+        1885,
+        1287775
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "11": {
+   "success": true,
+   "Json": {
+    "caption": "Likidite Durumu (milyon TL), Dönem:2026/9",
+    "colNames": [
+     "",
+     "",
+     "",
+     "BasitFont",
+     "Yedi Gün",
+     "Bir Ay",
+     "Üç Ay",
+     "On İki Ay",
+     "Toplam"
+    ],
+    "data": {
+     "rows": [
+      {
+       "id": "1",
+       "cell": [
+        "Sektör",
+        1,
+        "Nakit Değerler ve T.C. Merkez Bankası",
+        "",
+        5079262,
+        5080932,
+        5080932,
+        5080932,
+        5081719
+       ]
+      },
+      {
+       "id": "2",
+       "cell": [
+        "Sektör",
+        2,
+        "Gerçeğe Uygun Değer Farkı K/Z Yans. ve Sat.H. M.D (Net)",
+        "",
+        3538217,
+        3682549,
+        3849088,
+        4248786,
+        5313925
+       ]
+      },
+      {
+       "id": "3",
+       "cell": [
+        "Sektör",
+        3,
+        "Bankalar, Yurt Dışı Merkez ve Şubeler (Varlık)",
+        "",
+        1523890,
+        1564398,
+        1620643,
+        1628574,
+        1643242
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "12": {
+   "success": true,
+   "Json": {
+    "caption": "Sermaye Yeterliliği (milyon TL), Dönem:2026/9",
+    "colNames": [
+     "",
+     "",
+     "",
+     "BasitFont",
+     "Toplam"
+    ],
+    "data": {
+     "rows": [
+      {
+       "id": "1",
+       "cell": [
+        "Sektör",
+        1,
+        "Ana Sermaye Toplamı",
+        "",
+        5311340
+       ]
+      },
+      {
+       "id": "2",
+       "cell": [
+        "Sektör",
+        2,
+        "Katkı Sermaye Toplamı",
+        "",
+        916131
+       ]
+      },
+      {
+       "id": "3",
+       "cell": [
+        "Sektör",
+        3,
+        "Orana Esas Sermaye Toplamı (1+2)",
+        "",
+        6227471
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "13": {
+   "success": true,
+   "Json": {
+    "caption": "Yabancı Para Pozisyonu (milyon TL), Dönem:2026/9",
+    "colNames": [
+     "",
+     "",
+     "",
+     "BasitFont",
+     "Toplam"
+    ],
+    "data": {
+     "rows": [
+      {
+       "id": "1",
+       "cell": [
+        "Sektör",
+        1,
+        "Döviz Varlıkları Toplamı",
+        "bold",
+        33306543
+       ]
+      },
+      {
+       "id": "2",
+       "cell": [
+        "Sektör",
+        2,
+        "Bilanço İçi Varlıklar",
+        "italic",
+        21321093
+       ]
+      },
+      {
+       "id": "3",
+       "cell": [
+        "Sektör",
+        3,
+        "Dövize Endeksli Varlıklar",
+        "italic",
+        6878
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "14": {
+   "success": true,
+   "Json": {
+    "caption": "Bilanço Dışı İşlemler (milyon TL), Dönem:2026/9",
+    "colNames": [
+     "",
+     "",
+     "",
+     "BasitFont",
+     "TP",
+     "YP",
+     "Toplam"
+    ],
+    "data": {
+     "rows": [
+      {
+       "id": "1",
+       "cell": [
+        "Sektör",
+        1,
+        "GAYRİNAKDİ KREDİ VE YÜKÜMLÜLÜKLER (2+17+20+23+24+25+26)",
+        "bold",
+        5935976,
+        5600058,
+        11536034
+       ]
+      },
+      {
+       "id": "2",
+       "cell": [
+        "Sektör",
+        2,
+        "Teminat Mektupları (3+..+9)",
+        "",
+        5058818,
+        3517179,
+        8575997
+       ]
+      },
+      {
+       "id": "3",
+       "cell": [
+        "Sektör",
+        3,
+        "a) Geçici Teminat Mektupları",
+        "italic",
+        151558,
+        73787,
+        225344
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "15": {
+   "success": true,
+   "Json": {
+    "caption": "Rasyolar",
+    "colNames": [
+     "",
+     "",
+     "",
+     "BasitFont",
+     "Rasyo"
+    ],
+    "data": {
+     "rows": [
+      {
+       "id": "1",
+       "cell": [
+        "Sektör",
+        1,
+        "Takipteki Alacaklar (Brüt) / Toplam Nakdi Krediler (%)",
+        "",
+        3.053786
+       ]
+      },
+      {
+       "id": "2",
+       "cell": [
+        "Sektör",
+        2,
+        "Takipteki Alacaklar Karşılığı / Brüt Takipteki Alacaklar (%)",
+        "",
+        74.26755
+       ]
+      },
+      {
+       "id": "3",
+       "cell": [
+        "Sektör",
+        3,
+        "3 Aya Kadar Vadede Faize Duyarlı Aktifler / 3 Aya Kadar Vadede Faize Duyarlı Pasifler (%)",
+        "",
+        96.681399
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "16": {
+   "success": true,
+   "Json": {
+    "caption": "Diğer Bilgiler",
+    "colNames": [
+     "",
+     "",
+     "",
+     "BasitFont",
+     "Adet"
+    ],
+    "data": {
+     "rows": [
+      {
+       "id": "1",
+       "cell": [
+        "Sektör",
+        1,
+        "Banka Sayısı",
+        "",
+        66
+       ]
+      },
+      {
+       "id": "2",
+       "cell": [
+        "Sektör",
+        2,
+        "Yurt İçi Şube Sayısı",
+        "",
+        10505
+       ]
+      },
+      {
+       "id": "3",
+       "cell": [
+        "Sektör",
+        3,
+        "Yurt Dışı Şube Sayısı",
+        "",
+        81
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "17": {
+   "success": true,
+   "Json": {
+    "caption": "Yurt Dışı Şube Rasyoları",
+    "colNames": [
+     "",
+     "",
+     "",
+     "BasitFont",
+     "Rasyo"
+    ],
+    "data": {
+     "rows": [
+      {
+       "id": "1",
+       "cell": [
+        "Sektör",
+        1,
+        "Yurt Dışı Şubeler Kredileri / Toplam Krediler",
+        "",
+        3.64054
+       ]
+      },
+      {
+       "id": "2",
+       "cell": [
+        "Sektör",
+        2,
+        "Yurt Dışı Şubeler Aktifleri / Toplam Aktifler",
+        "",
+        4.037751
+       ]
+      },
+      {
+       "id": "3",
+       "cell": [
+        "Sektör",
+        3,
+        "Yurt Dışı Şubeler Mevduatı (Fon) / Toplam Mevduat (Fon)",
+        "",
+        1.170884
+       ]
+      }
+     ]
+    }
+   }
+  }
+ }
+}

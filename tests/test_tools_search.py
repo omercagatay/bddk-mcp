@@ -786,3 +786,30 @@ async def test_short_announcement_list_has_no_cut_notice_and_keeps_undated_items
 
     assert "Found 5 announcement(s):" in result
     assert "most recent" not in result and "more (narrow" not in result
+
+
+@pytest.mark.asyncio
+async def test_search_institutions_marks_digital_banks_without_stray_brackets():
+    """Built on the live '(Dijital Banka)' suffix form of BDDK's directory page."""
+    from pathlib import Path
+    from unittest.mock import patch
+
+    from bs4 import BeautifulSoup
+
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.ingest.data_sources import InstitutionDirectory, _parse_card_institutions
+    from bddk_mcp.tools.search import register
+
+    html = (Path(__file__).parent / "fixtures" / "bddk_kurulus_77_katilim.html").read_text(encoding="utf-8")
+    items = _parse_card_institutions(BeautifulSoup(html, "html.parser"), "Banka")
+    mcp = MagicMock()
+    register(mcp, Dependencies(db=None, doc_store=None, client=None, http=MagicMock()))
+    tool = _registered_tools(mcp)["search_bddk_institutions"]
+    directory = InstitutionDirectory(institutions=items, failed_pages=0, attempted_pages=1)
+    with patch("bddk_mcp.tools.search.fetch_institutions_with_status", new=AsyncMock(return_value=directory)):
+        result = await tool(keywords="katılım", institution_type="Banka")
+
+    assert "**ADİL KATILIM BANKASI A.Ş.** (Dijital Banka) [Banka]" in result
+    assert "**HAYAT FİNANS KATILIM BANKASI A.Ş.** (Dijital Banka) [Banka]" in result
+    assert "**DÜNYA KATILIM BANKASI A.Ş.** [Banka]" in result
+    assert "A.Ş.()" not in result

@@ -390,6 +390,9 @@ Try: (1) call search_document_store with the same query for full-text semantic s
         """
         Search the BDDK institution directory (banks, leasing, factoring, etc.).
 
+        Banks that BDDK's directory marks as digital banks are shown with
+        "(Dijital Banka)" after the name.
+
         Args:
             keywords: Search terms (e.g. "Ziraat", "Garanti", "katılım")
             institution_type: Filter by type: Banka, Finansal Kiralama Şirketi,
@@ -438,8 +441,9 @@ Suggest the user try: broader keywords or removing the type/active filter."""
         lines = [f"Found {len(institutions)} institution(s):\n"]
         for i in institutions:
             status = f" ({i['status']})" if i["status"] != "Aktif" else ""
+            digital = " (Dijital Banka)" if i.get("digital") else ""
             website = f" — {i['website']}" if i["website"] else ""
-            lines.append(f"**{i['name']}**{status} [{i['type']}]{website}")
+            lines.append(f"**{i['name']}**{digital}{status} [{i['type']}]{website}")
         if partial_warning:
             lines.append(partial_warning.strip())
         return frame_untrusted_source("\n".join(lines))
