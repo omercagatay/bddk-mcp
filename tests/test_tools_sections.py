@@ -69,6 +69,24 @@ async def test_get_document_section_returns_exact_match():
 
 
 @pytest.mark.asyncio
+async def test_get_document_section_warns_that_model_ocr_text_is_unverified():
+    from bddk_mcp.quality.markdown_quality import MODEL_OCR_WARNING
+
+    section = _section().model_copy(update={"document_extraction_method": "lightocr"})
+    doc_store = MagicMock()
+    doc_store.get_document_section = AsyncMock(return_value=[section])
+    deps = Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+    tool = _capture_tool(deps, "get_document_section")
+    out = await tool("943", section_type="ilke", section_ref="5")
+
+    assert "Quality: warning" in out
+    assert "model_ocr_unverified" in out
+    assert MODEL_OCR_WARNING in out
+    assert out.index(MODEL_OCR_WARNING) < out.index("Bankalar model validasyonunu yapar.")
+
+
+@pytest.mark.asyncio
 async def test_get_document_section_surfaces_configured_failure_before_content(historical_quality_registry):
     section = _section("903", "madde", "1", "MADDE 1 - Temiz görünen mevzuat metni.")
     doc_store = MagicMock()

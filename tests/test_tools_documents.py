@@ -9,7 +9,7 @@ from mcp.server.fastmcp.exceptions import ToolError
 
 from bddk_mcp.core.deps import Dependencies
 from bddk_mcp.core.models import BddkDecisionSummary
-from bddk_mcp.quality.markdown_quality import assess_markdown_quality
+from bddk_mcp.quality.markdown_quality import MODEL_OCR_WARNING, assess_markdown_quality
 from bddk_mcp.store.doc_store import DocumentPage
 from bddk_mcp.tools.documents import _is_formula_aware, register
 
@@ -165,11 +165,33 @@ async def test_degraded_extraction_emits_warning_and_method_line():
 
 @pytest.mark.asyncio
 async def test_formula_aware_extraction_no_warning():
-    """A lightocr-extracted document must NOT emit the formula-loss warning."""
+    """A manual_latex document must NOT emit the formula-loss warning."""
     page = DocumentPage(
         document_id="mevzuat_20029",
         title="Kredi Riski Azaltım Tekniklerine İlişkin Tebliğ",
-        markdown_content="formül içeren metin",
+        markdown_content="MADDE 46 ... aşağıda yer alan formül kullanılarak artırılır.",
+        page_number=1,
+        total_pages=1,
+        extraction_method="pdftotext_layout+manual_latex",
+    )
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(return_value=page)
+    deps = _make_deps(doc_store=doc_store)
+
+    tool = _capture_get_bddk_document(deps)
+    out = await tool("mevzuat_20029", 1)
+
+    assert "- Extraction: pdftotext_layout+manual_latex\n" in out
+    assert "⚠" not in out
+
+
+@pytest.mark.asyncio
+async def test_model_ocr_extraction_warns_that_the_text_is_unverified():
+    """Whole-page model OCR changed about 2 % of the words in the bake-off of 2026-11-15: say so on every page."""
+    page = DocumentPage(
+        document_id="mevzuat_20029",
+        title="Kredi Riski Azaltım Tekniklerine İlişkin Tebliğ",
+        markdown_content="MADDE 46 ... aşağıda yer alan formül kullanılarak artırılır.",
         page_number=1,
         total_pages=1,
         extraction_method="mevzuat_pdf+lightocr",
@@ -179,11 +201,35 @@ async def test_formula_aware_extraction_no_warning():
     deps = _make_deps(doc_store=doc_store)
 
     tool = _capture_get_bddk_document(deps)
-    out = await tool("mevzuat_20029", 1)
+    result = await tool("mevzuat_20029", 1)
+    out = str(result)
 
-    assert "- Extraction: mevzuat_pdf+lightocr" in out
+    assert "- Extraction: mevzuat_pdf+lightocr (formula-unaware" in out
+    assert "(whole-page model OCR, not checked against the source)" in out
+    assert f"⚠ {MODEL_OCR_WARNING}" in out
+    assert "formülü hafızadan veya standart literatürden yeniden kurma" in out
+    assert out.index(MODEL_OCR_WARNING) < out.index("The text below is the exact stored document content")
+    assert MODEL_OCR_WARNING in result.structuredContent["warnings"]
+
+
+@pytest.mark.asyncio
+async def test_model_ocr_warning_does_not_depend_on_a_formula_reference():
+    page = DocumentPage(
+        document_id="900",
+        title="Taranmış karar",
+        markdown_content="MADDE 1 - (1) Taranmış sayfadan okunan metin.",
+        page_number=1,
+        total_pages=1,
+        extraction_method="lightocr",
+    )
+    doc_store = MagicMock()
+    doc_store.get_document_page = AsyncMock(return_value=page)
+    tool = _capture_get_bddk_document(_make_deps(doc_store=doc_store))
+
+    out = str(await tool("900", 1))
+
+    assert f"⚠ {MODEL_OCR_WARNING}" in out
     assert "formula-unaware" not in out
-    assert "⚠" not in out
 
 
 @pytest.mark.asyncio
