@@ -7,7 +7,7 @@ This page documents how BDDK MCP labels extracted Markdown quality, how warnings
 Stored documents can come from several extraction paths:
 
 - `html_parser`: preferred when mevzuat.gov.tr or BDDK HTML preserves legal text cleanly.
-- `pdftotext_layout`: the method of most reviewed seed documents (233 of 319); formula-unaware.
+- `pdftotext_layout`: the method of most reviewed seed documents (241 of 328); formula-unaware.
 - `markitdown`: general PDF/office extraction path; good for ordinary text, weaker for formulas, annex tables, and embedded images.
 - `pdftotext_degraded` and `markitdown_degraded`: the CPU fallbacks of the sync OCR chain, where important structure may be missing.
 - `manual_pdf` and combined names such as `pdftotext_layout+manual_latex`: manually repaired text; only a name containing `lightocr`, `pp_structure` or `manual_latex` counts as formula-aware (`lightocr` needs the `gpu` group).
@@ -35,7 +35,7 @@ summarization, paraphrase, line wrapping, whitespace normalization, case folding
 or punctuation repair on the way out. If returning a document unchanged would
 leak an unsafe extraction artifact (embedded `data:` URI, `cid:` marker, raw HTML
 tag or control character), the tool **refuses** with `VERBATIM_UNAVAILABLE` instead
-of silently rewriting the text; repair and re-publish the source. All 319 reviewed
+of silently rewriting the text; repair and re-publish the source. All 328 reviewed
 seed documents are servable verbatim and are covered by
 `tests/test_verbatim_documents.py`, which also proves the production token chunker
 emits exact slices and that the corpus file round-trips every page exactly.
