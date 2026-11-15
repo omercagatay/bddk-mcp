@@ -1746,10 +1746,12 @@ def register(mcp, deps: Dependencies) -> None:
 
         A definition request ("tanım"/"tanımı", "demektir", or "formül"/"formülü",
         since a ratio's formula is printed in its definition) lists first the
-        exact-word hits that print the searched term at the start of a line or
-        after a list marker followed by a colon ("a) Nitelikli pay: ..."), a
-        Kanun's definition before the others, marked `definition_match`; the
-        other hits follow in rank order.
+        exact-word hits that define the searched term: their heading is the term
+        ("Risk grubu", "Donuk alacaklar"), or they print it at the start of a
+        line or after a list marker followed by a colon ("a) Nitelikli pay:
+        ...", "Sermaye koruma tamponu (SKT): ..."). A Kanun's definition comes
+        before the others, one in a TASLAK/MÜLGA document is not lifted; they are
+        marked `definition_match` and the other hits follow in rank order.
 
         When the exact-word pass returns fewer than `limit` hits, it is topped up
         with an inflection-tolerant pass (word roots and prefixes, e.g. "süresi"

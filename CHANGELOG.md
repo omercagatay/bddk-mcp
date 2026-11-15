@@ -32,6 +32,88 @@ kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözle
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Değişti — bölüm araması: tanım ve formül soruları, "asgari ne kadar", çekim ekleri (2026-11-16)
+
+`search_document_sections` 71 cevaplanabilir denetim sorusunun 18'inde hükmü ilk
+ona getirmiyordu; bunlardan 6'sı düzeldi (53/71'den 59/71'e). Corpus, şema, chunk,
+bölüm ayrıştırıcısı, `search_document_store` sıralaması ve katalog araması
+değişmedi; yeni tool ya da tool argümanı yok.
+
+**Müfettişin fark edeceği şeyler.**
+
+- Tanım isteyen soru ("tanım"/"tanımı", "demektir") ve formül isteyen soru
+  ("formül"/"formülü") önce terimi tanımlayan bölümleri listeler: başlığı terimin
+  kendisi olan madde ("Risk grubu", "Donuk alacaklar") ya da terimi satır başında
+  veya liste işaretinden sonra iki noktayla yazan bölüm ("a) Nitelikli pay: ...",
+  "Sermaye koruma tamponu (SKT): ..."). Kanun'un tanımı önce gelir (normlar
+  hiyerarşisi), TASLAK/MÜLGA belgedeki tanım öne alınmaz. Bu sonuçlar
+  `definition_match` ile ve bir "Match: DEFINITION" satırıyla işaretlenir; not,
+  sıralamanın orada rank sırasında olmadığını söyler. "nitelikli pay tanımı nedir"
+  Bankacılık Kanunu madde 3'ü 40. sıradan 1. sıraya, "sermaye yeterliliği standart
+  oranı formülü" formülü yazan tanımlar maddesini (madde 3) ilk sıraya aldı.
+- Soruda soru kelimesinin hemen önündeki "asgari"/"azami" ("asgari ne kadar",
+  "asgari yüzde kaç", "azami kaç") artık zorunlu kelime değil: hüküm sınırı "en
+  az", "... den az olamaz" ya da "aşamaz" diye yazar. Başka yerde terimin adıdır
+  ve zorunlu kalır ("asgari ödeme tutarı nedir", "azami vade kaç ay").
+- "formül"/"formülü" hiçbir zaman zorunlu kelime değil ("tanım" gibi): hüküm
+  formülü hesaplamanın kendisi olarak yazar ("... bölünmesi suretiyle hesaplanır").
+  Not, atlanan kelimeyi ve nedenini söyler.
+- Bölüm aramasının çekime dayanıklı geçişi çoğul bulunma ekini ("kredilerde" →
+  "kredi"*) ve "-ınca/-ince" ulacını ("gecikince" → "gecik"*, "geciken"i bulur)
+  da atar; `search_document_store`'un keyword geçişi eski eklerle kalır.
+
+**Ayrıntılar.**
+
+- Düzelen sorular: N01 (yok → 1), N04 (yok → 2), D04 (yok → 1), D06 (yok → 7),
+  F02 (yok → 10), F06 (yok → 1). Ayrıca D03 4 → 1, D08 4 → 2, J05 2 → 1.
+- Tanım adayları tek bir FTS sorgusuyla okunur; `DocumentStore.search_document_sections`
+  yeni `defining` ön süzgecini alır (terimin son kelimesi iki noktadan ya da açılan
+  parantezden hemen önce, ya da ilk kelimesiyle başlayan başlık; `content_norm` ve
+  `heading_norm` üzerinde LIKE), en çok 1000 aday. İlk sürüm ilk 200 kelime
+  eşleşmesini okuyordu ve "banka ne demektir"de Bankacılık Kanunu'nun "Banka:"
+  tanımını kaçırıyordu.
+- Tanım kuralının ilk sürümü, sorular başka biçimde sorulunca birincil hükmü
+  aşağı itiyordu ("risk grubu tanımı" Bankacılık Kanunu madde 49'u 7'den 10'a,
+  "donuk alacak tanımı" madde 5'i 8'den 9'a); başlık biçimi ve parantezli kısaltma
+  eklenince bu üç soru birincil hükmü ilk sıraya aldı.
+- Denenen ve alınmayanlar: (1) "madde 12 üçüncü fıkra" gibi, madde atfının hemen
+  arkasındaki fıkrayı atfın parçası okumak (R05'i 1. sıraya getiriyordu): bölüm
+  cümle taramasında 900 numaralı belgenin "... Hakkında Yönetmeliğin (Yönetmelik) 7
+  inci maddesinin birinci fıkrasında;" cümlesi artık yönetmeliğin madde 7'sine
+  kapsanıyor ve kaynak belge ilk ondan düşüyordu (3 → yok). origin/main aynı cümleyi
+  fıkra kelimeleri olmadan zaten böyle okuyor; kabul ölçütü taramaların
+  değişmemesini istediği için kural geri alındı ve sahibinin kararına bırakıldı
+  (commit 78277e1, geri alma 47e38da). (2) Sorudaki her "asgari"/"azami"yi bırakmak:
+  "asgari ödeme tutarı nedir" ve "tüketici kredilerinde azami vade kaç ay" asıl
+  hükmü kaybediyordu. (3) Corpus'ta hiç geçmeyen kelimeleri zorunlu saymamak: 18
+  sorunun hiçbirini düzeltmiyordu ve konusu corpus'ta olmayan sorulardan MASAK,
+  12999 ve 11250'yi atıp yanıltıcı kelime eşleşmeleri üretecekti. (4) Semantik
+  yerin dolu listede de son kelime eşleşmesinin yerini alması: B05, C01, C06, T05
+  ve T06'nın hükmü 10. sırada. (5) `search_document_store`'un kısaltma glossary'sini bölüm aramasında kullanmak:
+  tek adayı J01'di ve J01 sözlükle de bulunmuyor ("asgari" soru dışında zorunlu).
+  (6) Madde numarası olmadan belge adıyla kapsam ("Bankacılık Kanununa göre kredi"):
+  yalnız incelendi, kurulmadı; cümle taramasında başka belgeyi adlandıran
+  cümleler ("... Yönetmeliğe göre", "... Hakkında Yönetmelik çerçevesinde") kendi
+  belgelerinden uzaklaşırdı.
+
+**Ölçüm** (332 belgelik corpus, gerçek embedding modeli, 78 denetim sorusu, her
+belgenin kendi başlığı, 267 cümle): bölüm aramasında hüküm hit@1 29'dan 34'e, hit@3
+37'den 43'e, hit@10 53'ten 59/71'e; belge hit@10 63'ten 64/71'e. `search_document_store`
+(belge hit@1 52, hit@10 68; hüküm hit@10 40), kendi başlığıyla 1. sıra (331/332),
+iki cümle taraması ve 24 sağlamlık girdisi (0 sorun) değişmedi; hiçbir soru dört
+ölçünün hiçbirinde kötüleşmedi. Konusu corpus'ta olmayan 7 sorunun sonuçları
+birebir aynı. Süre: 78 sorunun bölüm araması süresi ölçüm gürültüsünün içinde kaldı
+(aynı makinede dönüşümlü üç koşu: origin/main ortanca 189–192 ms, bu dal 158–188 ms).
+Tanım ya da formül isteyen sorgu bir FTS sorgusu ekler: belirli terimlerde 10–35 ms
+("nitelikli pay tanımı nedir" 14 → 34 ms, "risk grubu tanımı" 20 → 53 ms), çok
+yaygın tek kelimelik terimlerde 80–125 ms ("banka ne demektir" 40 → 163 ms, "kredi
+tanımı" 37 → 139 ms, "kurum tanımı" 32 → 126 ms; ön süzgeç her FTS eşleşmesinin
+metninde LIKE çalıştırır).
+
+**Yükseltme notu.** Yeniden derleme gerekmez. MCP sözleşmesi yalnızca eklemedir:
+`SectionItem.definition_match`; `query_words_not_searched` ve tool açıklaması yeni
+kelimeleri anlatır.
+
 ### Düzeltildi — sync önce PDF'in metin katmanını okur, model OCR yalnız taranmış PDF'te (2026-11-15)
 
 Sync zinciri lightocr, pdftotext, markitdown sırasındaydı: CUDA olan bir host'ta
