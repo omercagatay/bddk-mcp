@@ -529,6 +529,27 @@ async def test_prefix_stem_section_search_matches_a_plural_locative_and_a_conver
     assert [(h.doc_id, h.section_type, h.section_ref) for h in hits] == [("1", "madde", "5")]
 
 
+@pytest.mark.asyncio
+async def test_section_search_can_keep_only_sections_with_a_word_right_before_a_colon(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="1",
+            title="T",
+            markdown_content=(
+                "MADDE 3 - Tanımlar\na) Nitelikli pay: payı,\n\nMADDE 4 - Pay\nNitelikli PAY : payı.\n\n"
+                "MADDE 5 - Edinim\nNitelikli pay edinimi izne tabidir: Kurul karar verir.\n\n"
+                "MADDE 6 - Yüzde\nNitelikli pay% oranı: on.\n"
+            ),
+        )
+    )
+
+    hits = await doc_store.search_document_sections("nitelikli pay", colon_after="pay")
+    assert sorted(hit.section_ref for hit in hits) == ["3", "4"]
+    assert len(await doc_store.search_document_sections("nitelikli pay", colon_after="pay%")) == 0
+
+
 def test_prefix_stem_removes_an_aorist_verb_ending_above_a_five_character_root():
     from bddk_mcp.store.doc_store import fts_prefix_stem_query
 

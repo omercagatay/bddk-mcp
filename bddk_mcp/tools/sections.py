@@ -1249,17 +1249,17 @@ def _without_spans(text: str, spans: list[tuple[int, int, str, str]]) -> str:
 
 # A definition request: "tanım"/"tanımı" or "demektir" among the words not searched.
 _NORMALIZED_DEFINITION_REQUEST_WORDS = _NORMALIZED_DEFINITION_WORDS | {"demektir"}
-# How many exact-word hits are read for the form of a definition.
-_DEFINITION_CANDIDATES = 200
+# How many exact-word hits whose last term word stands before a colon are read for the form of a definition.
+_DEFINITION_CANDIDATES = 1000
 
 
-def _definition_pattern(term: str) -> re.Pattern[str] | None:
-    """The form of a definition of ``term`` on the search form of a text: the term at the start of a line or
-    after a list marker ("a) ", "(1) "), followed by a colon ("Nitelikli pay: ...")."""
+def _definition_pattern(term: str) -> tuple[str, re.Pattern[str]] | None:
+    """The last word of ``term`` and the form of a definition of it on the search form of a text: the term at
+    the start of a line or after a list marker ("a) ", "(1) "), followed by a colon ("Nitelikli pay: ...")."""
     words = re.findall(r"\w+", normalize_search_text(term))
     if not words:
         return None
-    return re.compile(r"(?:^|\)\s*)" + r"[^\w:]+".join(map(re.escape, words)) + r"\s*:", re.MULTILINE)
+    return words[-1], re.compile(r"(?:^|\)\s*)" + r"[^\w:]+".join(map(re.escape, words)) + r"\s*:", re.MULTILINE)
 
 
 async def _definition_sections(
@@ -1272,15 +1272,16 @@ async def _definition_sections(
 ) -> list[StoredDocumentSection]:
     """The exact-word hits of ``term`` that define it (``_definition_pattern``), a Kanun's first (the norm
     hierarchy: a regulation's definition derives from the law's), otherwise in FTS rank order."""
-    pattern = _definition_pattern(term)
-    if pattern is None:
+    if (form := _definition_pattern(term)) is None:
         return []
+    last_word, pattern = form
     candidates = await deps.doc_store.search_document_sections(
         term,
         document_id=document_id,
         section_type=section_type,
         limit=_DEFINITION_CANDIDATES,
         include_source_range=False,
+        colon_after=last_word,
         **_class_order(classes_last, document_id),
     )
     found = [section for section in candidates if pattern.search(normalize_search_text(section.content))]

@@ -865,6 +865,7 @@ class DocumentStore:
         include_source_range: bool = True,
         prefix_stem: bool = False,
         classes_last: frozenset[str] = frozenset(),
+        colon_after: str | None = None,
     ) -> list[StoredDocumentSection]:
         """Full-text search over structural sections (every query token must match).
 
@@ -875,12 +876,18 @@ class DocumentStore:
         nothing when that expression would equal the strict one. Sections of
         documents whose catalog class (:func:`catalog_status_class`) is in
         ``classes_last`` follow the others, in SQL, so the limit takes the others first.
+        ``colon_after`` keeps only the sections whose search text has that word right before a colon
+        ("pay:" or "pay :"), the form of a definition.
         """
         match = fts_prefix_stem_query(query, section_endings=True) if prefix_stem else fts_match_query(query)
         if match is None:
             return []
         where = ["sections_fts MATCH ?"]
         params: list = [match]
+        if colon_after:
+            word = re.sub(r"([\\%_])", r"\\\1", normalize_search_text(colon_after))
+            where.append("(s.content_norm LIKE ? ESCAPE '\\' OR s.content_norm LIKE ? ESCAPE '\\')")
+            params.extend([f"%{word}:%", f"%{word} :%"])
         if document_id:
             where.append("s.doc_id = ?")
             params.append(document_id)

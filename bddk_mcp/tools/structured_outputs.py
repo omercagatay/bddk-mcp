@@ -534,8 +534,9 @@ class SectionItem(StrictOutputModel):
         default=False,
         description=(
             "Whether this exact-word hit of a definition request (the query has 'tanım'/'tanımı' or 'demektir') "
-            "prints the searched term followed by a colon, the form of a definition ('Nitelikli pay: ...'). Such "
-            "hits are listed before the other hits, a Kanun's definition first, so the ranks are not in order there."
+            "prints the searched term at the start of a line or after a list marker, followed by a colon, the form "
+            "of a definition ('a) Nitelikli pay: ...'). Such hits are listed before the other hits, a Kanun's "
+            "definition first, so the ranks are not in order there."
         ),
     )
     chunk_match: Literal["semantic"] | None = Field(
