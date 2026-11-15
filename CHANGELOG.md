@@ -32,6 +32,35 @@ kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözle
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Eklendi — seed'e dokuz yeni belge (2026-11-15)
+
+BDDK sitesinde 2026-11-15'te yapılan kontrolden çıkan dokuz belge `seed_data/`
+içine eklendi; seed 319 belgeden 328 belgeye çıktı. Mevcut 319 belgenin, katalog
+kayıtlarının ve `.npy` embedding dosyalarının hiçbiri değişmedi.
+
+- Kurul Kararları: Kredi Kartı Asgari Ödeme Tutarının Değiştirilmesi Hk. (1349;
+  01.10.2026, 11581), Cep Telefonu Alımlarında Kredi Vade Sınırlarında Değişiklik
+  Yapılması Hk. (1348; 01.10.2026, 11582), Bankaların Hisse Geri Alımları Hk. (1346;
+  17.09.2026, 11571), Tasarruf Finansman Şirketlerinin Faaliyetleri Hk. (1344;
+  30.07.2026, 11537), Kalkınma ve Yatırım Bankalarının Kredi Sınırları Hk. (1343;
+  30.07.2026, 11539), 8 adet şirketin gayrimenkul değerleme hizmeti verme
+  yetkisinin iptal edilmesine ilişkin Kurul Kararı (1337; 11.06.2026, 11471).
+- Düzenleme taslakları (karar tarihi ve numarası yok): Bankaların Özkaynaklarına
+  İlişkin Yönetmelikte Değişiklik Yapılmasına Dair Yönetmelik Taslağı ve Genel
+  Gerekçe (1342) ile Faktoring İşlemlerinde Uygulanacak Usul ve Esaslar Hakkında
+  Yönetmelikte Değişiklik Yapılmasına Dair Yönetmelik Taslağı ve Genel Gerekçe (1339).
+- Mevzuat: Banka Kartları ve Kredi Kartları Hakkında Yönetmelik
+  (`mevzuat_11180`, mevzuat.gov.tr).
+- Sekizi PDF metin katmanından `pdftotext_layout` ile çıkarıldı; boşluklar seed
+  kuralına göre normalleştirildi, kelimeler değişmedi. `mevzuat_11180`
+  mevzuat.gov.tr HTML metnidir (`html_parser`).
+- Aynı kontrolde bulunan dört yeni belge (`16`, `1336`, `1340`, `1341`) çıkarım
+  kusurları nedeniyle seed'e alınmadı; çıkarımları onarılana kadar bekletiliyor.
+- Sayılar: 328 belge, 9.202 bölüm, 12.302 chunk (önceden 319 belge, 9.029 bölüm,
+  12.091 chunk). `pdftotext_layout` belge sayısı 233'ten 241'e çıktı.
+  `bddk-mcp build` embedding cache'ini kullandı: 12.302 chunk'ın hiçbiri yeniden
+  gömülmedi.
+
 ### Değişti — arama: sorgunun adlandırdığı belge, kısa adla madde atfı, tanım ve kavram soruları (2026-11-15)
 
 Aynı denetimin üç bulgusu düzeltildi. Corpus, şema, chunk, bölüm ayrıştırıcısı ve
