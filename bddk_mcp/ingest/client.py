@@ -730,12 +730,13 @@ class BddkApiClient:
         url: str,
         *,
         max_bytes: int = _MAX_CATALOG_RESPONSE_BYTES,
+        method: str = "GET",
     ) -> httpx.Response:
-        """Fetch one approved BDDK/mevzuat URL with bounded safe retries."""
+        """Fetch one approved BDDK/mevzuat URL with bounded safe retries (HEAD: headers only)."""
 
         return await bounded_request_with_retry(
             self._http,
-            "GET",
+            method,
             url,
             base_url=f"{_BDDK_BASE_URL}/",
             allowed_hosts=BDDK_HTTPS_HOSTS | MEVZUAT_HTTPS_HOSTS,
@@ -967,6 +968,37 @@ class BddkApiClient:
             return await self._fetch_and_parse_decision_page(list_id)
         return await self._fetch_and_parse_flat_page(list_id)
 
+    async def read_catalog_pages(self, page_ids: list[int]) -> list[tuple[int, list[BddkDecisionSummary], str]]:
+        """Read each page on its own, at most _SCRAPE_CONCURRENCY at once: (page id, entries, error).
+
+        The error is "" for a page with entries, "empty_page" for a page that parsed to nothing, else the
+        exception type; one failing page does not stop the others.
+        """
+
+        async def _read(list_id: int) -> tuple[int, list[BddkDecisionSummary], str]:
+            async with self._scrape_sem:
+                try:
+                    decisions = await self.fetch_catalog_page(list_id)
+                except (
+                    httpx.HTTPError,
+                    httpx.TransportError,
+                    OutboundHttpPolicyError,
+                    ValueError,
+                    AttributeError,
+                ) as exc:
+                    logger.error(
+                        "Failed to fetch BDDK list page %d",
+                        list_id,
+                        extra={"error_type": type(exc).__name__},
+                    )
+                    return list_id, [], type(exc).__name__
+            if not decisions:
+                logger.error("BDDK list page %d returned no parseable items", list_id)
+                return list_id, [], "empty_page"
+            return list_id, decisions, ""
+
+        return list(await asyncio.gather(*(_read(page_id) for page_id in page_ids)))
+
     async def _ensure_cache(self) -> None:
         """Ensure the decision cache is populated.
 
@@ -1005,32 +1037,9 @@ class BddkApiClient:
         HTML layout change from being reported as a successful refresh.
         """
         self._page_errors.clear()
-
-        async def _fetch_page_safe(list_id: int) -> list[BddkDecisionSummary]:
-            async with self._scrape_sem:
-                try:
-                    decisions = await self.fetch_catalog_page(list_id)
-                    if not decisions:
-                        self._page_errors[list_id] = "empty_page"
-                        logger.error("BDDK list page %d returned no parseable items", list_id)
-                    return decisions
-                except (
-                    httpx.HTTPError,
-                    httpx.TransportError,
-                    OutboundHttpPolicyError,
-                    ValueError,
-                    AttributeError,
-                ) as exc:
-                    self._page_errors[list_id] = type(exc).__name__
-                    logger.error(
-                        "Failed to fetch BDDK list page %d",
-                        list_id,
-                        extra={"error_type": type(exc).__name__},
-                    )
-                    return []
-
-        page_results = await asyncio.gather(*(_fetch_page_safe(pid) for pid in _ALL_PAGE_IDS))
-        scraped: list[BddkDecisionSummary] = [dec for page in page_results for dec in page]
+        page_results = await self.read_catalog_pages(_ALL_PAGE_IDS)
+        self._page_errors.update({page_id: error for page_id, _, error in page_results if error})
+        scraped: list[BddkDecisionSummary] = [dec for _, page, _ in page_results for dec in page]
         in_scope = [dec for dec in scraped if _is_in_scope(dec)]
         all_decisions = _canonicalize_catalog(in_scope)
         scope_dropped = len(scraped) - len(in_scope)

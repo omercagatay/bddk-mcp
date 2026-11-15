@@ -541,3 +541,10 @@ async def test_heading_filter_reads_apostrophe_variants_as_one_character(store, 
     [ascii_stored] = await store.get_document_section("mevzuat_39257", heading="Banka’nın")
     assert ascii_stored.section_ref == "23"
     assert await store.get_document_section("mevzuat_39257", heading="BSD nin kapsamı") == []
+
+
+async def test_list_document_sources_reads_no_body(store, sample_doc):
+    await store.store_document(sample_doc)
+    (row,) = await store.list_document_sources()
+    assert set(row) == {"document_id", "source_url", "file_size", "downloaded_at", "extraction_method"}
+    assert row["document_id"] == "1291"

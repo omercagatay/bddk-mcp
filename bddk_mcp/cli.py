@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import os
 import sys
 from collections.abc import Sequence
@@ -76,6 +77,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     info = subparsers.add_parser("info", help="Describe the corpus file read-only (identity, counts, readiness)")
     info.add_argument("--corpus", help=corpus_help)
+
+    check = subparsers.add_parser(
+        "check-updates",
+        help="Compare the live BDDK catalog and sources with the corpus file, read-only",
+        description=(
+            "Read-only: lists new catalog entries, catalog entries no page lists and stored documents whose source "
+            "changed. Exit status: 0 nothing to report, 3 something to report, 1 error (a page or a source could "
+            "not be read; the report is still printed), 2 usage error."
+        ),
+    )
+    check.add_argument("--corpus", help=corpus_help)
+    check.add_argument("--json", action="store_true", help="Print the report as one JSON object")
 
     return parser
 
@@ -170,6 +183,29 @@ async def _sync(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+async def _check_updates(args: argparse.Namespace) -> None:
+    """Report what the live site lists and serves that the corpus file does not hold; exit 0, 3 or 1."""
+    from bddk_mcp.ingest.client import BddkApiClient
+    from bddk_mcp.ingest.update_check import check_updates, exit_code, format_report
+    from bddk_mcp.store.corpus_db import CorpusDB
+    from bddk_mcp.store.doc_store import DocumentStore
+
+    db = CorpusDB.open(args.corpus, readonly=True)
+    try:
+        store = DocumentStore(db)
+        client = BddkApiClient(store=store)
+        try:
+            report = await check_updates(store, client)
+        finally:
+            await client.close()
+    finally:
+        db.close()
+    print(json.dumps(report, ensure_ascii=False, indent=1) if args.json else format_report(report))
+    code = exit_code(report)
+    if code:
+        sys.exit(code)
+
+
 def _sync_failures_text(failures: dict[str, int]) -> str:
     """``none`` or ``N (category: count, ...)`` for the info line."""
     if not failures:
@@ -237,7 +273,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         _run_serve(args)
         return
 
-    commands = {"build": _build, "export": _export, "sync": _sync, "info": _info}
+    commands = {"build": _build, "export": _export, "sync": _sync, "info": _info, "check-updates": _check_updates}
     try:
         asyncio.run(commands[args.command](args))
     except RuntimeError as exc:

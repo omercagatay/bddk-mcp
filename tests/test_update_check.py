@@ -1,0 +1,263 @@
+"""Tests for the read-only update check and the explicit add path (no network: httpx.MockTransport)."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from unittest.mock import AsyncMock
+from urllib.parse import parse_qs, urlparse
+
+import httpx
+import pytest
+
+from bddk_mcp import cli
+from bddk_mcp.core.models import BddkDecisionSummary
+from bddk_mcp.ingest import update_check
+from bddk_mcp.ingest.client import BddkApiClient
+from bddk_mcp.ingest.update_check import (
+    EXIT_ERROR,
+    EXIT_NOTHING_TO_REPORT,
+    EXIT_SOMETHING_TO_REPORT,
+    amendment_dates,
+    check_updates,
+    compare_catalog,
+    format_report,
+)
+from bddk_mcp.store.corpus_db import CorpusDB
+from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
+
+
+def _entry(document_id: str, category: str = "Kurul Kararı", title: str = "") -> BddkDecisionSummary:
+    return BddkDecisionSummary(document_id=document_id, title=title or f"Belge {document_id}", category=category)
+
+
+def _held(*ids: str) -> list[dict]:
+    return [{"document_id": document_id, "title": f"Belge {document_id}", "category": "Rehber"} for document_id in ids]
+
+
+class TestCompareCatalog:
+    def test_selection_pages_report_every_entry_the_catalog_lacks_whatever_its_id(self):
+        pages = [(51, [_entry("16", "Banka Kartları"), _entry("mevzuat_11180", "Banka Kartları")], ""), (58, [], "")]
+        result = compare_catalog(pages, _held("mevzuat_11180", "1349"))
+        assert [item["document_id"] for item in result["new"]] == ["16"]
+        assert result["new"][0]["page"] == 51
+
+    def test_decision_pages_report_only_ids_above_the_newest_catalogued_bddk_id(self):
+        pages = [
+            (56, [_entry("1351"), _entry("1264"), _entry("1349")], ""),
+            (55, [_entry("1350"), _entry("1176"), _entry("1333")], ""),
+        ]
+        result = compare_catalog(pages, _held("1349", "1176", "mevzuat_99999"))
+        assert result["newest_catalogued_bddk_id"] == 1349
+        assert [item["document_id"] for item in result["new"]] == ["1351"]
+        assert [item["document_id"] for item in result["new_on_page_55"]] == ["1350"]
+        assert result["older_not_catalogued"] == {"55": 1, "56": 1}
+
+    def test_out_of_scope_entries_and_duplicates_are_reported_once_or_not_at_all(self):
+        pages = [
+            (50, [_entry("20", "Faizsiz Bankacılık"), _entry("21", "Rehber")], ""),
+            (54, [_entry("21", "Rehber")], ""),
+            (56, [_entry("30")], ""),
+            (55, [_entry("30")], ""),
+        ]
+        result = compare_catalog(pages, _held("10"))
+        assert [(item["document_id"], item["page"]) for item in result["new"]] == [("21", 50), ("30", 56)]
+        assert result["new_on_page_55"] == []
+
+    def test_entries_listed_on_no_page_are_named_and_incomplete_when_a_page_failed(self):
+        complete = compare_catalog([(50, [_entry("1", "Rehber")], "")], _held("1", "kgk_tms_12"))
+        assert [item["document_id"] for item in complete["not_listed"]] == ["kgk_tms_12"]
+        assert complete["not_listed_complete"] is True
+        partial = compare_catalog([(50, [_entry("1", "Rehber")], ""), (63, [], "TransportError")], _held("1", "2"))
+        assert partial["not_listed_complete"] is False
+
+
+class TestAmendmentDates:
+    def test_reads_regulation_and_law_amendment_notes(self):
+        text = (
+            "MADDE 6 – (Değişik:RG-20/8/2015-29451) (1) Metin. "
+            "(Ek fıkra: 25/10/2017-7051/1 md.) "
+            "( İptal ikinci cümle: Anayasa Mahkemesi’nin 14/11/2013 tarihli ve E.: 2013/24 sayılı Kararı ile.) "
+            "MADDE 34 – (Başlığı ile Birlikte Değişik:RG-4/2/2022-31740)$^{(4)}$"
+        )
+        assert amendment_dates(text) == {"2015-08-20", "2017-10-25", "2013-11-14", "2022-02-04"}
+
+    def test_ignores_dates_outside_amendment_notes(self):
+        assert amendment_dates("(1) 23/10/2015 tarihli ve 29511 sayılı Resmi Gazete (RG-23/10/2015)") == set()
+
+
+# -- a fake BDDK and mevzuat site ---------------------------------------------------------------------------------
+
+_PAGE_50 = (
+    '<div class="card"><h5>Rehberler (1)</h5><div class="card-body">'
+    '<a href="/Mevzuat/DokumanGetir/943">Rehber</a></div></div>'
+)
+_FLAT = {
+    49: '<a href="http://www.mevzuat.gov.tr/Metin1.Aspx?MevzuatKod=1.5.5411">5411 sayılı Bankacılık Kanunu</a>',
+    51: '<a href="/Mevzuat/DokumanGetir/16">Kredi Kartı Taksit Sınırları ve Yasakları</a>',
+    54: '<a href="/Mevzuat/DokumanGetir/54">BDDK düzenlemesi</a>',
+    58: '<a href="/Mevzuat/DokumanGetir/1336">Tebliğ Taslağı</a>',
+    63: '<a href="/Mevzuat/DokumanGetir/63">Mülga</a>',
+}
+_DECISIONS = {
+    56: '<a href="/Mevzuat/DokumanGetir/1349">(01.10.2026 - 11581) Kurul Kararı</a>',
+    55: '<a href="/Mevzuat/DokumanGetir/1350">(04.11.2026 - 11593) Faaliyet izni Kurul Kararı</a>',
+}
+_IFRAME = "<html><body><p>MADDE 1 – (Değişik:RG-1/2/2020-31000) Metin.</p>{extra}</body></html>"
+
+
+def _site(*, sizes: dict[str, int], failing_page: int | None = None, mevzuat_extra: str = ""):
+    calls: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = urlparse(str(request.url))
+        calls.append((request.method, url.path))
+        if url.path.startswith("/Mevzuat/Liste/"):
+            page = int(url.path.rsplit("/", 1)[1])
+            if page == failing_page:
+                raise httpx.ConnectError("down", request=request)
+            body = _PAGE_50 if page == 50 else _FLAT.get(page) or _DECISIONS[page]
+            return httpx.Response(200, text=f"<html><body>{body}</body></html>", request=request)
+        if url.path.startswith("/Mevzuat/DokumanGetir/"):
+            document_id = url.path.rsplit("/", 1)[1]
+            if document_id not in sizes:
+                return httpx.Response(404, request=request)
+            return httpx.Response(200, headers={"content-length": str(sizes[document_id])}, request=request)
+        if url.path == "/anasayfa/MevzuatFihristDetayIframe":
+            assert parse_qs(url.query)["MevzuatNo"] == ["5411"]
+            return httpx.Response(200, text=_IFRAME.format(extra=mevzuat_extra), request=request)
+        raise AssertionError(f"unexpected request {request.method} {url.path}")
+
+    return httpx.MockTransport(handler), calls
+
+
+async def _corpus(doc_store: DocumentStore) -> None:
+    for document_id, source_url, size, text in (
+        ("943", "https://www.bddk.org.tr/Mevzuat/DokumanGetir/943", 1000, "Rehber metni."),
+        ("1349", "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1349", 2000, "Karar metni."),
+        (
+            "mevzuat_5411",
+            "https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=5411&MevzuatTur=1&MevzuatTertip=5",
+            3000,
+            "MADDE 1 – (Değişik:RG-1/2/2020-31000) Metin.",
+        ),
+        ("kgk_tms_12", "https://www.kgk.gov.tr/TMS_12.pdf", 4000, "TMS 12"),
+    ):
+        await doc_store.store_document(
+            StoredDocument(
+                document_id=document_id,
+                title=f"Belge {document_id}",
+                source_url=source_url,
+                markdown_content=text,
+                file_size=size,
+            )
+        )
+    await doc_store.replace_catalog(
+        [{"document_id": d, "title": f"Belge {d}"} for d in ("943", "1349", "mevzuat_5411", "54", "63", "kgk_tms_12")]
+    )
+
+
+def _client(transport: httpx.MockTransport, store: DocumentStore) -> BddkApiClient:
+    client = BddkApiClient(store=store, http=httpx.AsyncClient(transport=transport))
+    client._assert_public_resolution = AsyncMock()
+    return client
+
+
+class TestCheckUpdates:
+    async def test_reports_new_entries_changed_sources_and_unlisted_entries(self, doc_store):
+        await _corpus(doc_store)
+        transport, calls = _site(sizes={"943": 1000, "1349": 2100}, mevzuat_extra="<p>(Ek:RG-5/6/2026-32000)</p>")
+        client = _client(transport, doc_store)
+
+        report = await check_updates(doc_store, client)
+
+        assert [item["document_id"] for item in report["new"]] == ["16", "1336"]
+        assert [item["document_id"] for item in report["new_on_page_55"]] == ["1350"]
+        assert [item["document_id"] for item in report["not_listed"]] == ["kgk_tms_12"]
+        changed = {item["document_id"]: item["reason"] for item in report["changed"]}
+        assert set(changed) == {"1349", "mevzuat_5411"}
+        assert "2100" in changed["1349"] and "2000" in changed["1349"]
+        assert "2026-06-05" in changed["mevzuat_5411"]
+        assert report["not_checked"] == [{"document_id": "kgk_tms_12", "reason": "source host is not on the allowlist"}]
+        assert report["unchanged"] == {"bddk": 1, "mevzuat": 0}
+        assert report["status"] == "something_to_report"
+        assert update_check.exit_code(report) == EXIT_SOMETHING_TO_REPORT
+        assert ("HEAD", "/Mevzuat/DokumanGetir/943") in calls
+        assert not any(method != "HEAD" and path.startswith("/Mevzuat/DokumanGetir/") for method, path in calls)
+        text = format_report(report)
+        assert "16 [Banka Kartları] page 51" in text and "1350" in text
+
+    async def test_one_failing_page_does_not_hide_the_others_and_is_an_error(self, doc_store):
+        await _corpus(doc_store)
+        transport, _ = _site(sizes={"943": 1000, "1349": 2000}, failing_page=58)
+        report = await check_updates(doc_store, _client(transport, doc_store))
+
+        pages = {page["page"]: page for page in report["pages"]}
+        assert pages[58]["error"] == "ConnectError" and pages[51]["entries"] == 1
+        assert [item["document_id"] for item in report["new"]] == ["16"]
+        assert report["not_listed_complete"] is False
+        assert report["status"] == "error"
+        assert update_check.exit_code(report) == EXIT_ERROR
+        assert "page 58: failed (ConnectError)" in format_report(report)
+
+    async def test_a_source_that_answers_404_is_reported_as_changed(self, doc_store):
+        await _corpus(doc_store)
+        transport, _ = _site(sizes={"943": 1000})
+        report = await check_updates(doc_store, _client(transport, doc_store))
+        assert {item["document_id"]: item["reason"] for item in report["changed"]}["1349"] == (
+            "source answers HTTP 404"
+        )
+
+    async def test_nothing_to_report(self, doc_store):
+        await doc_store.store_document(
+            StoredDocument(
+                document_id="943",
+                title="Rehber",
+                source_url="https://www.bddk.org.tr/Mevzuat/DokumanGetir/943",
+                markdown_content="Rehber metni.",
+                file_size=1000,
+            )
+        )
+        listed = ["943", "mevzuat_5411", "16", "54", "1336", "63", "1349", "1350"]
+        await doc_store.replace_catalog([{"document_id": d, "title": d} for d in listed])
+        transport, _ = _site(sizes={"943": 1000})
+        report = await check_updates(doc_store, _client(transport, doc_store))
+        assert report["status"] == "nothing_to_report"
+        assert update_check.exit_code(report) == EXIT_NOTHING_TO_REPORT
+        assert json.loads(json.dumps(report)) == report
+
+
+def test_check_updates_opens_the_corpus_read_only_and_leaves_it_unchanged(tmp_path, monkeypatch, capsys):
+    path = tmp_path / "c.sqlite"
+    db = CorpusDB.open(path)
+    store = DocumentStore(db)
+    import asyncio
+
+    asyncio.run(_corpus(store))
+    db.close()
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    transport, _ = _site(sizes={"943": 1000, "1349": 2000})
+    opened = []
+    real_open = CorpusDB.open
+
+    def spy_open(*args, **kwargs):
+        opened.append(kwargs)
+        return real_open(*args, **kwargs)
+
+    monkeypatch.setattr(CorpusDB, "open", spy_open)
+    monkeypatch.setattr("bddk_mcp.ingest.client.BddkApiClient._assert_public_resolution", AsyncMock(return_value=None))
+    real_init = BddkApiClient.__init__
+
+    def init(self, store, **kwargs):
+        real_init(self, store, http=httpx.AsyncClient(transport=transport))
+
+    monkeypatch.setattr(BddkApiClient, "__init__", init)
+
+    with pytest.raises(SystemExit) as exited:
+        cli.main(["check-updates", "--corpus", str(path), "--json"])
+
+    assert exited.value.code == EXIT_SOMETHING_TO_REPORT
+    assert opened == [{"readonly": True}]
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == digest
+    report = json.loads(capsys.readouterr().out)
+    assert [item["document_id"] for item in report["new"]] == ["16", "1336"]

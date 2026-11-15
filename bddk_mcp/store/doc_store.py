@@ -1179,6 +1179,16 @@ class DocumentStore:
         )
         return [dict(row) for row in rows]
 
+    async def list_document_sources(self) -> list[dict]:
+        """Source identity of every stored document (id, source URL, downloaded size and date, method); no body."""
+        rows = await self._db.run(
+            lambda conn: conn.execute(
+                "SELECT document_id, source_url, file_size, downloaded_at, extraction_method FROM documents "
+                "ORDER BY document_id"
+            ).fetchall()
+        )
+        return [dict(row) for row in rows]
+
     async def replace_catalog(self, items: list[dict], *, cached_at: float | None = None) -> int:
         """Replace the catalog with exactly ``items`` (document_id, title, content, ...)."""
         now = cached_at if cached_at is not None else time.time()
