@@ -1026,6 +1026,48 @@ def _shown_band(hit: dict) -> str:
     return "moderate" if hit["relevance"] >= _MEDIUM_CONFIDENCE_THRESHOLD else "weak"
 
 
+def _newest_first_in_title_series(hits: list[dict], query: str) -> list[dict]:
+    """The dated hits that share a title the query asks for, newest first, in the positions they occupy.
+
+    A query asks for a title when every content word of it (not a function word, not a single letter) occurs
+    in the title: a word of five or more letters as a title word that starts with its prefix stem
+    (``fts_prefix_stem_query``: "tutarı" in "tutarının"), a shorter one of letters as the start of a title
+    word, any other (a number) as a title word itself. Successive Board decisions on one subject share a
+    title, and the newest usually sets the figures anew; a pasted body sentence has words the title lacks and
+    moves nothing. Titles are the same when their search-normalised words are equal. Within each shown band (``_shown_band``) the dated hits of
+    such a title are re-ordered newest first into their own positions (the same date keeps their order);
+    every other hit keeps its exact position: an undated one, another title, the same title in another band,
+    a title that occurs whole in the query (``_title_in_query``: the query names those). A hit whose position changed is returned as a copy marked ``same_title_newest_first``.
+    """
+    words = [
+        word
+        for word in _search_words(query).split()
+        if word not in _QUERY_FUNCTION_WORDS and not (len(word) == 1 and word.isalpha())
+    ]
+    if not words:
+        return hits
+    prefixes = [(term or "").strip('"*') or None for term in map(fts_prefix_stem_query, words)]
+    query_words = _query_words(query)
+    series: dict[tuple[str, str], list[int]] = {}
+    for i, hit in enumerate(hits):
+        # A title in the query names its documents: they are listed first in their own order.
+        if _decision_day(hit) is not None and not _title_in_query(hit, query_words):
+            series.setdefault((_search_words(str(hit.get("title") or "")), _shown_band(hit)), []).append(i)
+    ordered = list(hits)
+    for (title, _band), positions in series.items():
+        title_words = title.split()
+        if len(positions) < 2 or not all(
+            any(t.startswith(prefix) if prefix else t == word for t in title_words)
+            for word, prefix in zip(words, prefixes, strict=True)
+        ):
+            continue
+        for position, hit in zip(
+            positions, sorted((hits[i] for i in positions), key=_decision_day, reverse=True), strict=True
+        ):
+            ordered[position] = hit if hit is hits[position] else {**hit, "same_title_newest_first": True}
+    return ordered
+
+
 def _catalog_class_last(hits: list[dict], query: str, category: str | None) -> list[dict]:
     """Within each shown band, TASLAK/MÜLGA catalog-class hits after the others, each group in its order.
 
@@ -1771,7 +1813,9 @@ class VectorStore:
         semantic hit follow the strong and moderate semantic hits, ahead of the weak ones, as keyword matches
         (``match_type`` "fts", no semantic score), in BM25 order. Before the
         limit, the dated decisions at the calibration ceiling are listed newest
-        first in their own positions, then TASLAK/MÜLGA catalog-class hits follow the others of
+        first in their own positions, then within each shown band the dated hits that share a title
+        holding every content word of the query (``_newest_first_in_title_series``), then
+        TASLAK/MÜLGA catalog-class hits follow the others of
         their shown band (``_catalog_class_last``), and the named documents come first.
         """
         vector_hits, fts_hits = await asyncio.gather(
@@ -1924,6 +1968,8 @@ class VectorStore:
             + [h for h in rest if not _shown_as_strong_or_moderate(h)],
             query,
         )
+        # After the ceiling order, so that it cannot put an older decision of a title series back above the newer.
+        fused = _newest_first_in_title_series(fused, query)
         fused = _catalog_class_last(fused, query, category)
         if named:
             # The documents the query names come first, in the order of ``named``, with the chunk of their
