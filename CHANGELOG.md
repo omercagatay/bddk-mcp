@@ -32,6 +32,81 @@ kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözle
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Değişti — arama: sorgunun adlandırdığı belge, kısa adla madde atfı, tanım ve kavram soruları (2026-11-15)
+
+Aynı denetimin üç bulgusu düzeltildi. Corpus, şema, chunk, bölüm ayrıştırıcısı ve
+embedding değişmedi; yeni tool ve yeni tool argümanı yok.
+
+**Müfettişin fark edeceği şeyler (kısa özet).**
+
+- `search_document_store`: başlığının tamamı sorguda geçen belge ya da sorgu
+  "5411 sayılı Kanun" diyorsa (her hâl ekiyle) `mevzuat_5411` en başta gelir
+  (`match_type` `named`, semantik skor yok). "Karşılık Yönetmeliği uygulamasına
+  ilişkin Kurul Kararı" artık 283 ve 284'ü ilk iki sırada listeliyor; "5411 sayılı
+  Kanunun 54 üncü maddesi" Bankacılık Kanunu'nu 4. sıradan 1. sıraya aldı.
+- `search_document_sections`: bölüm atfının yanındaki kelimeler bir belgeyi
+  adlandırıyorsa ("Kredi İşlemleri Yönetmeliği madde 5", "Bankacılık Kanunu geçici
+  madde 5") arama o belgeyle sınırlanır ve not belgeyi başlığıyla söyler. Ad birden
+  fazla başlığa eşit uyuyorsa hiçbir belge seçilmez, adaylar notta sayılır.
+- Soru cümlelerinde "demektir", "kadar", "en az" ve "gereken" artık zorunlu kelime
+  değil; "tanım"/"tanımı" hiçbir zaman zorunlu değil. Belge kapsamı ve `section_type`
+  olmadan yapılan bölüm aramasına `search_document_store`'un güçlü ve orta
+  semantik chunk sonuçlarının bölümleri (en çok üç) eklenir; bunlar `chunk_match`
+  `semantic` ile ve bir uyarıyla işaretlenir, kelime eşleşmesi değildir.
+
+**Ayrıntılar.**
+
+- Adlandırma (`_named_documents`, `bddk_mcp/store/vector_store.py`): tanım
+  `_title_in_query`'nin tek tanımıdır; belge tipi kelimesi (yönetmelik, tebliğ,
+  genelge, rehber, karar, kanun, taslak) ve sayı taşımayan, en çok dört kelimelik bir
+  başlık ("Yabancı bankaların kredi sınırları", "Bankalar/Şirketler Tekdüzen Hesap
+  Planı") yalnızca sorgunun tamamıysa adlandırır. Sıra: başlıkla adlandırılan
+  numarayla adlandırılan kanundan önce, uzun başlık önce, yazıldığı gibi (büyük/küçük
+  harf hariç, noktalama dahil) geçen başlık yalnızca normalleştirmeyle eşleşenden
+  önce, sonra en yeni karar tarihi, tarihsizler sonda. Belge hybrid sonucunun
+  chunk'ıyla, yoksa ilk chunk'ıyla gelir; `category` filtresi uygulanır. Sözleşmede
+  tek değişiklik yeni `match_type` değeri `named`; sunucu talimatı artık dört
+  keyword türü sayıyor.
+- Belge tanıma (`identify_instrument`, `bddk_mcp/ingest/client.py`, katalog
+  aramasının kelime eşlemesi): bölüm atfı dışında kalan kelimelerde bir belge tipi
+  kelimesi bulunmalı, aday o tipte olmalı (katalog kategorisinin tipi, karma
+  bölümlerde başlığın son tip kelimesi) ve diğer her kelime başlığın bir kelimesi ya
+  da aynı kökün çekimi olmalı ("Karşılık" "Karşılıklara"ya ulaşır, "Karşılama"ya
+  ulaşmaz). En yüksek başlık kapsamı tek başına öne çıkarsa belge seçilir; eşitlikte
+  TASLAK/MÜLGA belge geri çekilir, ad sınıfı söylüyorsa o sınıf kazanır. Tek
+  kelimelik ad yalnızca o tipte o kelimeyi taşıyan tek başlığı seçer ("Bankalar
+  Yönetmeliği" hiçbirini seçmez). Seçim, belge numarasıyla aynı tercih kuralıyla
+  uygulanır: madde o belgede yoksa kapsam düşer ve not bunu söyler.
+- Soru kelimeleri: yeni çerçeve kelimeleri, her biri tek başına bir soruyu
+  kurtardığı için seçildi (demektir D03, kadar C02, en+az N02 ve N03, gereken
+  C07); "sayılır", "fazla" ve "olabilir" denendi ve alınmadı.
+- Semantik bölümler yalnızca boş yerlere ya da son gevşek (loose) sonuçların yerine
+  girer, kelime ve çekim eşleşmelerinin yerine hiç girmez; semantik arama
+  kullanılamıyorsa eklenmez. Ayrı ve en son commit'tir, gerekirse geri alınabilir.
+  Denenen ve alınmayanlar: aynı yerlere chunk keyword sonuçları (kazanç yalnızca
+  gevşek OR eşleşmelerinden, N04'ün belgesi listeden düşüyordu), adlandırılmış
+  hükümleri pencerelerden önce sıralamak, yalnız devam/kalan pencere bulan geçişten
+  sonra gevşek geçiş.
+
+**Ölçüm** (319 belgelik corpus, gerçek embedding modeli, 78 denetim sorusu, her
+belgenin kendi başlığı, 267 cümle): kendi başlığıyla 1. sıra 262/319'dan 318/319'a
+(kalan 189, başlığı 194'le yalnızca "İli"/"ili" harf büyüklüğünde ayrılıyor), ilk 10
+319/319; `search_document_store` belge hit@1 53'ten 54/71'e. "<başlık> madde N"
+taraması 98 yönetmelik maddesinde 1. sıra: tam başlıkla 8'den 98'e, kısa başlıkla
+10'dan 96'ya (kalan ikisi "Özkaynaklarına İlişkin Yönetmelik": iki başlıkta geçen tek
+kelime), yanlış belgeye kapsam 0. Elle denenen 51 kısa addan madde taşıyan 33'ü
+1. sırada, 15 ad bilinçli olarak hiçbir belge seçmiyor (SYR, İSEDES, Likidite ve Bilgi
+Sistemleri Yönetmeliği eşitlikleri, corpus'ta olmayan kanunlar), 3 rehberde madde
+yok. Bölüm aramasında hüküm hit@10 39/71'den 52/71'e (hit@1 25'ten 29'a), belge
+hit@10 51'den 65/71'e. Kötüleşenler: başka bir belgenin tam başlığını alıntılayan 9
+cümle biçimi `search_document_store`'da bir sıra aşağı indi (o belge artık önde);
+C07'nin bugün 9. sırada bulunan hükmü semantik sonuca yer açtı (sabah da listede
+yoktu). Semantik bölümler bölüm aramasının ortanca süresini 73'ten 130 ms'ye çıkardı.
+
+**Yükseltme notu.** Yeniden derleme gerekmez. MCP sözleşmesi yalnızca eklemedir:
+`DocumentSearchItem.match_type` için `named`, `SectionItem.chunk_match`
+(`semantic`); alan açıklamaları ve tool açıklamaları yeni davranışı anlatır.
+
 ### Değişti — arama sıralaması: çekimli kelimeler, karar tarihi, TASLAK/MÜLGA sınıfı (2026-11-15)
 
 Bir denetimde bulunan beş sıralama sorunu düzeltildi. Hepsi yalnızca sıralamayı ve
