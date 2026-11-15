@@ -1190,6 +1190,53 @@ def _loose_section_score(section: StoredDocumentSection, terms: list[str], weigh
     return score
 
 
+_ORDINAL_UNITS = ("birinci", "ikinci", "üçüncü", "dördüncü", "beşinci", "altıncı", "yedinci", "sekizinci", "dokuzuncu")
+# "üçüncü" -> 3, "on birinci" -> 11, "yirminci" -> 20: the fıkra numbers a query writes as words.
+_ORDINAL_WORDS = {
+    **{word: index for index, word in enumerate(_ORDINAL_UNITS, 1)},
+    **{f"on {word}": 10 + index for index, word in enumerate(_ORDINAL_UNITS, 1)},
+    "onuncu": 10,
+    "yirminci": 20,
+}
+
+
+def _letters_with_or_without_diacritics(word: str) -> str:
+    """A pattern of ``word`` that also matches it typed without Turkish letters ("üçüncü", "ucuncu")."""
+    classes = {"ç": "[cç]", "ğ": "[gğ]", "ı": "[ıi]", "ö": "[oö]", "ş": "[sş]", "ü": "[uü]"}
+    return "".join(classes.get(char, re.escape(char)) for char in word)
+
+
+_ORDINAL_WORD_PATTERNS = {
+    _letters_with_or_without_diacritics(word).replace(r"\ ", r"\s+"): number for word, number in _ORDINAL_WORDS.items()
+}
+# A fıkra right after an article reference, on the Turkish-casefolded query: "madde 12 üçüncü fıkra", "12 nci
+# maddenin 3 üncü fıkrası", "madde 12'nin 2. fıkrası", "madde 12 fıkra 4".
+_FIKRA_AFTER_ARTICLE_RE = re.compile(
+    r"(?:['’]\w+)?\s*,?\s*(?:(?P<word>"
+    + "|".join(sorted(_ORDINAL_WORD_PATTERNS, key=len, reverse=True))
+    + r")|(?P<digits>\d+)(?:\.|\s*['’]?\s*(?:inci|ıncı|uncu|üncü|nci|ncı|ncu|ncü)))\s+f[ıi]kra\w*"
+    r"|\s+f[ıi]kra\w*\s+(?P<after>\d+)\b"
+)
+
+
+def _fikra_spans(query: str, refs) -> list[tuple[int, int, str, str]]:
+    """The fıkra written right after each article reference of ``refs`` (parsed from ``query``), as (start, end,
+    "fikra", number). It is part of that reference: never an instrument or content word. A fıkra is not looked
+    up on its own (fıkra rows are not unique addresses): the whole article is returned."""
+    folded = turkish_casefold(query)
+    spans: list[tuple[int, int, str, str]] = []
+    for _, stop, section_type, _ in refs.section_spans:
+        if section_type not in _ARTICLE_TYPES or (match := _FIKRA_AFTER_ARTICLE_RE.match(folded, stop)) is None:
+            continue
+        if match.group("word"):
+            word = " ".join(match.group("word").split())
+            number = next(n for pattern, n in _ORDINAL_WORD_PATTERNS.items() if re.fullmatch(pattern, word))
+        else:
+            number = int(match.group("digits") or match.group("after"))
+        spans.append((stop, match.end(), "fikra", str(number)))
+    return spans
+
+
 def _without_spans(text: str, spans: list[tuple[int, int, str, str]]) -> str:
     """``text`` without the parsed section-reference spans, whitespace collapsed."""
     parts: list[str] = []
@@ -1797,6 +1844,9 @@ def register(mcp, deps: Dependencies) -> None:
         note names it by its title. When no title stands out, nothing is
         scoped and the note names the candidates (at most five); an
         abbreviation that is not a title word (SYR, İSEDES) identifies nothing.
+        A fıkra written right after an article reference ("madde 12 üçüncü
+        fıkra", "12 nci maddenin 3 üncü fıkrası") is part of that reference: the
+        whole article is returned and a note names the fıkra to read in it.
         """
         # Invisible format characters (soft hyphen, zero-width space) split words: never search them.
         # Control characters (NUL ...) separate words. The query is echoed as given, except that a
@@ -1826,7 +1876,22 @@ def register(mcp, deps: Dependencies) -> None:
         # search like a document number, as a preference; titles that stand equally are named in the note.
         title_entry = None
         tied_titles: list = []
-        instrument_words = _required_search_text(_without_spans(search_query, refs.section_spans))[0]
+        # A fıkra right after an article reference ("madde 12 üçüncü fıkra") is part of that reference.
+        fikra_spans = _fikra_spans(search_query, refs)
+        fikra_note = next(
+            (
+                f"Note: fıkra {fikra_ref} in the query was read as part of the reference to "
+                f"{_ref_text(section_type_, section_ref_)}: the whole article is returned (fıkra rows are not unique "
+                f"addresses); read fıkra {fikra_ref} in it."
+                for _, stop, section_type_, section_ref_ in refs.section_spans
+                for fikra_start, _, _, fikra_ref in fikra_spans
+                if fikra_start == stop
+            ),
+            None,
+        )
+        instrument_words = _required_search_text(
+            _without_spans(search_query, sorted(refs.section_spans + fikra_spans))
+        )[0]
         if not document_id and not query_doc_id and parsed_refs and deps.client is not None:
             identified = identify_instrument(deps.client.get_cache_items(), instrument_words)
             if len(identified) == 1 and await _any_document_stored(deps, identified[0].document_id):
@@ -2090,6 +2155,7 @@ def register(mcp, deps: Dependencies) -> None:
                 + filter_note
                 + not_searched_note
                 + (f"{unapplied_ref_note}\n" if unapplied_ref_note else "")
+                + (f"{fikra_note}\n" if fikra_note else "")
                 + (f"{annex_notice}\n" if annex_notice else "")
                 + f"Try a broader query, {remove_hint}or retrieve the full document."
             )
@@ -2104,7 +2170,7 @@ def register(mcp, deps: Dependencies) -> None:
                     parsed_section_ref=_normalize_optional(inferred_section_ref),
                     exact_reference_detected=exact_ref_detected,
                     loose_fallback_used=False,
-                    warnings=[note for note in (unapplied_ref_note, annex_notice) if note],
+                    warnings=[note for note in (unapplied_ref_note, fikra_note, annex_notice) if note],
                     inferred_document_filter_dropped=filter_dropped,
                     query_words_not_searched=not_searched,
                 )
@@ -2121,6 +2187,8 @@ def register(mcp, deps: Dependencies) -> None:
                 "they print it followed by a colon) are listed first, a Kanun's before the others; the other hits "
                 "follow in their FTS rank order.\n",
             )
+        if fikra_note:
+            lines.insert(0, f"{fikra_note}\n")
         if unapplied_ref_note:
             lines.insert(0, f"{unapplied_ref_note}\n")
         if not_searched_note:
@@ -2200,6 +2268,7 @@ def register(mcp, deps: Dependencies) -> None:
                         else []
                     ),
                     *([unapplied_ref_note] if unapplied_ref_note else []),
+                    *([fikra_note] if fikra_note else []),
                     *(
                         [
                             "Loose token fallback was used: results may match only part of the query. "
