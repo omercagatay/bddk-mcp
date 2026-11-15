@@ -50,9 +50,9 @@ embedding değişmedi; yeni tool ve yeni tool argümanı yok.
   fazla başlığa eşit uyuyorsa hiçbir belge seçilmez, adaylar notta sayılır.
 - Soru cümlelerinde "demektir", "kadar", "en az" ve "gereken" artık zorunlu kelime
   değil; "tanım"/"tanımı" hiçbir zaman zorunlu değil. Belge kapsamı ve `section_type`
-  olmadan yapılan bölüm aramasına `search_document_store`'un güçlü ve orta
-  semantik chunk sonuçlarının bölümleri (en çok üç) eklenir; bunlar `chunk_match`
-  `semantic` ile ve bir uyarıyla işaretlenir, kelime eşleşmesi değildir.
+  olmadan yapılan bölüm aramasına `search_document_store`'un ilk güçlü ya da orta
+  semantik chunk sonucunun bölümü (bir tane) eklenir; `chunk_match` `semantic` ile ve
+  bir uyarıyla işaretlenir, kelime eşleşmesi değildir.
 
 **Ayrıntılar.**
 
@@ -80,9 +80,12 @@ embedding değişmedi; yeni tool ve yeni tool argümanı yok.
 - Soru kelimeleri: yeni çerçeve kelimeleri, her biri tek başına bir soruyu
   kurtardığı için seçildi (demektir D03, kadar C02, en+az N02 ve N03, gereken
   C07); "sayılır", "fazla" ve "olabilir" denendi ve alınmadı.
-- Semantik bölümler yalnızca boş yerlere ya da son gevşek (loose) sonuçların yerine
+- Semantik bölüm yalnızca boş bir yere ya da son gevşek (loose) sonucun yerine
   girer, kelime ve çekim eşleşmelerinin yerine hiç girmez; semantik arama
-  kullanılamıyorsa eklenmez. Ayrı ve en son commit'tir, gerekirse geri alınabilir.
+  kullanılamıyorsa eklenmez, boş yer yoksa sorgu embedding'e hiç gönderilmez. Önce
+  üç yer denendi: C07'nin 9. sıradaki gevşek sonucunu düşürüyordu; tek yer aynı
+  kazancı (hüküm) kayıpsız veriyor. Ayrı ve en son iki commit'tir, gerekirse geri
+  alınabilir.
   Denenen ve alınmayanlar: aynı yerlere chunk keyword sonuçları (kazanç yalnızca
   gevşek OR eşleşmelerinden, N04'ün belgesi listeden düşüyordu), adlandırılmış
   hükümleri pencerelerden önce sıralamak, yalnız devam/kalan pencere bulan geçişten
@@ -97,11 +100,13 @@ taraması 98 yönetmelik maddesinde 1. sıra: tam başlıkla 8'den 98'e, kısa b
 kelime), yanlış belgeye kapsam 0. Elle denenen 51 kısa addan madde taşıyan 33'ü
 1. sırada, 15 ad bilinçli olarak hiçbir belge seçmiyor (SYR, İSEDES, Likidite ve Bilgi
 Sistemleri Yönetmeliği eşitlikleri, corpus'ta olmayan kanunlar), 3 rehberde madde
-yok. Bölüm aramasında hüküm hit@10 39/71'den 52/71'e (hit@1 25'ten 29'a), belge
-hit@10 51'den 65/71'e. Kötüleşenler: başka bir belgenin tam başlığını alıntılayan 9
+yok. Bölüm aramasında hüküm hit@10 39/71'den 53/71'e (hit@1 25'ten 29'a), belge
+hit@10 51'den 63/71'e. Kötüleşenler: başka bir belgenin tam başlığını alıntılayan 9
 cümle biçimi `search_document_store`'da bir sıra aşağı indi (o belge artık önde);
-C07'nin bugün 9. sırada bulunan hükmü semantik sonuca yer açtı (sabah da listede
-yoktu). Semantik bölümler bölüm aramasının ortanca süresini 73'ten 130 ms'ye çıkardı.
+başlığında "tanımı" geçen KOBİ kararları "KOBİ tanımı ve perakende kredi limiti"
+sorgusunda 1. ve 2. sıradan 3. ve 4. sıraya indi. Semantik bölüm, bölüm aramasının
+ortanca süresini 73'ten 123 ms'ye çıkardı; konusu corpus'ta olmayan 7 sorudan 5'i
+artık bir semantik ipucu gösteriyor.
 
 **Yükseltme notu.** Yeniden derleme gerekmez. MCP sözleşmesi yalnızca eklemedir:
 `DocumentSearchItem.match_type` için `named`, `SectionItem.chunk_match`

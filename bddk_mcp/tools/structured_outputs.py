@@ -522,8 +522,8 @@ class SectionItem(StrictOutputModel):
         description=(
             "'semantic' when this section was added because the embedding search of search_document_store ranked a "
             "chunk inside it among its strong or moderate hits: a semantic lead, not an exact-word match (the "
-            "section need not hold the query words). Such hits carry no rank and follow the section matches, in "
-            "free slots or in place of loose-fallback hits; only in a search without document scope or section_type."
+            "section need not hold the query words). At most one such hit, without rank, follows the section matches, "
+            "in a free slot or in place of the last loose-fallback hit; only in a search without document scope or section_type."
         ),
     )
     display_section_ref: str | None = Field(

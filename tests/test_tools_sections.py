@@ -3271,3 +3271,18 @@ async def test_semantic_hits_stay_out_of_scoped_typed_unavailable_and_full_searc
     for result in (scoped, typed, strict, unavailable, without):
         assert all(item.get("chunk_match") is None for item in result.structuredContent.get("results") or [])
     assert [item.get("chunk_match") for item in one.structuredContent["results"]] == ["semantic"]
+
+
+@pytest.mark.asyncio
+async def test_a_full_list_of_word_matches_never_asks_for_semantic_hits_and_semantic_evidence_says_so(doc_store):
+    deps = await _store_semantic_fixture(doc_store, [_store_hit("mevzuat_39158", "madde", "5")])
+    tool = _capture_tool(deps, "search_document_sections")
+
+    await tool("faaliyet izni", limit=2)
+    deps.vector_store.search.assert_not_awaited()
+    result = await tool("dijital faaliyet izni", limit=2)
+
+    assert [source["retrieval_source"] for source in result.structuredContent["evidence"]] == [
+        "section_index",
+        "vector_store",
+    ]

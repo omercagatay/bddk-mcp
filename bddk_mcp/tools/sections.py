@@ -79,10 +79,10 @@ logger = logging.getLogger(__name__)
 _MAX_EXACT_SECTION_CHARS = 30_000
 _MAX_SEARCH_EXCERPT_CHARS = 2_000
 _MAX_DISAMBIGUATION_RESULTS = 10
-# An unscoped section search adds the sections of at most this many strong or moderate (relevance at least
+# An unscoped section search adds the section of at most this many strong or moderate (relevance at least
 # _SEMANTIC_MIN_RELEVANCE) semantic chunk hits of the document store, from its first _SEMANTIC_HIT_CANDIDATES
 # hits, in place of loose-fallback hits or in free slots.
-_MAX_SEMANTIC_SECTIONS = 3
+_MAX_SEMANTIC_SECTIONS = 1
 _SEMANTIC_HIT_CANDIDATES = 10
 _SEMANTIC_MIN_RELEVANCE = 0.50
 # Candidate titles named when an instrument name beside a section reference identifies no single document.
@@ -1665,13 +1665,13 @@ def register(mcp, deps: Dependencies) -> None:
         follow the exact-word hits, carry no rank and are marked `stem_match`. The
         loose token fallback runs when both passes find nothing, and also when
         every hit is an inflection-tolerant one; its hits then follow them.
-        Without a document scope or section_type, the sections that hold the
-        strong and moderate SEMANTIC chunk hits of search_document_store (its
-        embedding search, not the query words) follow, at most three, marked
-        `chunk_match` "semantic", with no rank and a warning: they take free
-        slots or the place of the last loose-fallback hits, never of an
+        Without a document scope or section_type, the section that holds the
+        first strong or moderate SEMANTIC chunk hit of search_document_store (its
+        embedding search, not the query words) not already listed follows,
+        marked `chunk_match` "semantic", with no rank and a warning: it takes a
+        free slot or the place of the last loose-fallback hit, never of an
         exact-word or inflection-tolerant hit; none when semantic search is
-        unavailable.
+        unavailable, and the store is not asked when no slot is free.
         Within each pass, sections of TASLAK/MÜLGA catalog-class documents are
         listed after the others, unless the query names that class or the search
         is limited to one document; exact-reference hits keep their place.
@@ -1849,13 +1849,18 @@ def register(mcp, deps: Dependencies) -> None:
         # exact-word or inflection-tolerant hit.
         chunk_keys: set[tuple[str, str, str, str]] = set()
         if not exact_hits and not inferred_doc_id and not explicit_section_type:
-            chunk_hits = await _semantic_sections(deps, search_query, {_section_key(hit) for hit in hits})
             kept = [
                 hit
                 for hit in hits
                 if not (loose_fallback_used and hit.rank is None and _section_key(hit) not in stem_keys)
             ]
-            taken = chunk_hits[: max(0, limit - len(kept))]
+            # No slot, no embedding: the store is asked only when a hit could be taken.
+            chunk_hits = (
+                await _semantic_sections(deps, search_query, {_section_key(hit) for hit in hits})
+                if len(kept) < limit
+                else []
+            )
+            taken = chunk_hits[: limit - len(kept)]
             hits = hits[: limit - len(taken)] + taken
             chunk_keys = {_section_key(hit) for hit in taken}
         # A section reference without an identified document cannot be looked up, so it is not applied.
@@ -2049,7 +2054,12 @@ def register(mcp, deps: Dependencies) -> None:
             SectionSearchResponse(
                 status="partial" if result_content_truncated or (exact_ref_detected and not exact_hits) else "ok",
                 text="\n".join(lines),
-                evidence=[_section_evidence(hit) for hit in hits],
+                evidence=[
+                    _section_evidence(hit).model_copy(update={"retrieval_source": "vector_store"})
+                    if _section_key(hit) in chunk_keys
+                    else _section_evidence(hit)
+                    for hit in hits
+                ],
                 warnings=[
                     *_section_warnings(hits, content_truncated=result_content_truncated, continuations=continuations),
                     *(
