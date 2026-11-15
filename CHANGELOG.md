@@ -122,6 +122,49 @@ sırası 1349'u öne alıyor.
 `same_title_newest_first`; tool açıklaması ve `relevance`, `relevance_clamped`
 alan açıklamaları yeni sırayı anlatır.
 
+### Eklendi — seed'e bekletilen dört belge: 16, 1340, 1336, 1341 (2026-11-15)
+
+Aynı kontrolden çıkan ve çıkarım hatası yüzünden bekletilen dört belge onarılıp
+`seed_data/`'ya eklendi. Onarım otomatik bir hat üzerinden yapıldı: metin PDF metin
+katmanından gelir (glyph boyutu ve taban çizgisinden alt/üst simge ve dipnot işareti,
+gömülü font çizimlerinden eşlenmemiş matematik harfleri); formül ve tablo bölgelerini
+bir OCR modeli (LightOnOCR-3-4B) taslak olarak okur; otomatik kontrolleri geçemeyen
+bölgeleri ve bütün tabloları bir ajan sayfa görüntüsüyle karşılaştırarak düzeltir.
+
+- `16` Kredi Kartı Taksit Sınırları ve Yasakları (BDDK "Banka Kartları" bölümü,
+  dipnotlu konsolide metin), `pdftotext_layout`. Rakamlara yapışık dipnot işaretleri
+  ayrıldı ve üst simge yazıldı (`uygulanmasına,$^{1}$ $^{2}$ ...`, 28 yer); dipnotlar
+  gövdeden sonraya alındı, kapanış satırı yeniden 4. maddenin ardında. Kelimeler metin
+  katmanıyla aynı, yalnızca sıra değişti. Model kullanılmadı.
+- `1340` Bankaların Kaldıraç Oranı Ölçümüne İlişkin Yönetmelik Taslağı ve Genel
+  Gerekçe, `pdftotext_layout`. Düzleşmiş alt simgeler geri getirildi
+  (`YM=maks{CPD-NDT$_{a}$+NDT$_{v}$,0}`, 5 yer); başka kelime değişmedi. Model
+  kullanılmadı.
+- `1336` Temel Piyasa Riskine Esas Tutarın Standart Yaklaşım ile Hesaplanmasına
+  İlişkin Tebliğ Taslağı ve Genel Gerekçe, `pdftotext_layout+manual_latex`. 92 formül
+  bölgesi LaTeX, 24 tablo bölgesi 14 Markdown tablosu (sayfa sonunda bölünen tablolar
+  birleştirildi). Formüllerin 41'i otomatik kabul edilip değişmeden kaldı; 49'u ve
+  bütün tablolar sayfa görüntüsüyle karşılaştırılarak düzeltildi ya da yeniden yazıldı.
+  Bölgeler dışındaki 13.532 kelime metin katmanıyla birebir aynı.
+- `1341` Menkul Kıymetleştirme Riskine Esas Tutarın Hesaplanması Hakkında Tebliğ
+  Taslağı ve Genel Gerekçe, `pdftotext_layout+manual_latex`. 14 formül (7'si otomatik,
+  7'sinde `K_{IDD}` → `K_{İDD}` düzeltmesi) ve 7 tablo bölgesi (5 tablo). Bölgeler
+  dışındaki 18.616 kelime metin katmanıyla aynı; beş yerde yalnızca simge işaretlemesi
+  düzeltildi.
+
+Bilinmesi gerekenler: birleşik hücreler her satırda tekrar yazıldı; sayfa sonunda
+devam eden birleşik hücrelerin ikinci sayfada boş basılan 12 hücresi, belgenin kendi
+metninden doğrulanan değerle dolduruldu (1336 Tablo 3, 6, 8, 14). 1336'da iki formül
+basıldığı gibi bırakıldı, muhtemel dizgi kusurlarıyla birlikte (`\sum_k IWD_kI` ve üs
+olarak italik `a`). Otomatik kabul edilen 30 formül ikinci kez okunmadı (ikinci okuma
+20 formüllük örneklemde 20 doğru verdi). Bakımcı dört metinden örneklem okudu: 16'nın
+1. sayfası, 1340'ın 8. maddesi, 1336'nın 25. ve 37. sayfaları, 1341'in 13. sayfası.
+
+Corpus artık 332 belge, 9.630 section, 12.843 chunk. Kalite taraması 331 belgede
+bulgu vermiyor; `1336` `warning` etiketi alıyor, çünkü kaynak metin aynı fıkrayı dört
+maddede tekrarlıyor (`repeated_para_blocks_gt2`; PDF'te doğrulandı, çıkarım hatası
+değil).
+
 ### Eklendi — seed'e dokuz yeni belge (2026-11-15)
 
 BDDK sitesinde 2026-11-15'te yapılan kontrolden çıkan dokuz belge `seed_data/`
