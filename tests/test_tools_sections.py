@@ -2080,6 +2080,45 @@ async def test_a_definition_question_finds_the_definition_by_its_words(doc_store
     assert first.get("rank") is not None and result.structuredContent["loose_fallback_used"] is False
 
 
+def test_asgari_and_azami_right_before_the_question_word_are_left_out():
+    from bddk_mcp.tools.sections import _required_search_text
+
+    assert _required_search_text("likidite karşılama oranı asgari ne kadar olmalı") == (
+        "likidite karşılama oranı",
+        ["asgari", "ne", "kadar", "olmalı"],
+    )
+    assert _required_search_text("kaldirac orani asgari yuzde kac") == ("kaldirac orani", ["asgari", "yuzde", "kac"])
+    assert _required_search_text("vade azami kaç gün") == ("vade gün", ["azami", "kaç"])
+    # Part of the name of what is asked, or not a question: content.
+    assert _required_search_text("asgari ödeme tutarı nedir") == ("asgari ödeme tutarı", ["nedir"])
+    assert _required_search_text("tüketici kredilerinde azami vade kaç ay") == (
+        "tüketici kredilerinde azami vade ay",
+        ["kaç"],
+    )
+    assert _required_search_text("oran asgari yüzde 15") == ("oran asgari 15", ["yüzde"])
+
+
+@pytest.mark.asyncio
+async def test_a_minimum_asked_with_asgari_finds_the_provision_that_writes_az_olamaz_and_says_why(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_19498",
+            title="Bankaların Likidite Karşılama Oranı Hesaplamasına İlişkin Yönetmelik",
+            markdown_content="MADDE 4 - Likidite karşılama oranı\n(1) Likidite karşılama oranı yüzde yüzden az olamaz.\n",
+        )
+    )
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "search_document_sections")
+
+    result = await tool("likidite karşılama oranı asgari ne kadar olmalı")
+
+    first = result.structuredContent["results"][0]
+    assert (first["document_id"], first["section_ref"], first.get("rank") is not None) == ("mevzuat_19498", "4", True)
+    assert result.structuredContent["query_words_not_searched"] == ["asgari", "ne", "kadar", "olmalı"]
+    assert "'asgari'/'azami' right before the question word ask for the limit itself" in result.text
+
+
 def test_tanim_is_never_a_required_word():
     from bddk_mcp.tools.sections import _required_search_text
 

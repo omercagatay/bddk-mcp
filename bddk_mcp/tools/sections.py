@@ -267,6 +267,10 @@ _NORMALIZED_QUESTION_WORDS = frozenset(normalize_search_text(word) for word in _
 _NORMALIZED_QUESTION_FRAME_WORDS = frozenset(normalize_search_text(word) for word in _QUESTION_FRAME_WORDS)
 _NORMALIZED_PERCENT_WORDS = frozenset(normalize_search_text(word) for word in _QUERY_PERCENT_WORDS)
 _NORMALIZED_DEFINITION_WORDS = frozenset(normalize_search_text(word) for word in _QUERY_DEFINITION_WORDS)
+# "asgari"/"azami" right before the question word of a question ("asgari ne kadar", "asgari yüzde kaç") ask for
+# the limit itself, as "en az" does: the provision may write it "en az", "... den az olamaz" or "aşamaz". Elsewhere
+# they are content ("asgari ödeme tutarı nedir", "azami vade kaç ay").
+_NORMALIZED_LIMIT_WORDS = frozenset({"asgari", "azami"})
 _NORMALIZED_LOOSE_STOPWORDS = frozenset(normalize_search_text(word) for word in _LOOSE_SECTION_SEARCH_STOPWORDS)
 # Standalone FTS on these floods IPC / generic-ratio articles and crowds out
 # the provision that actually contains the distinctive tokens.
@@ -1131,12 +1135,14 @@ def _strip_format_chars(text: str) -> str:
 def _required_search_text(query: str) -> tuple[str, list[str]]:
     """Return the query text the exact-word and stem passes require, and the words left out.
 
-    Question words are left out, and in a question also its frame words ("oluşur", "yapılır"); so are
-    "yüzde" (a source may write "%" instead) and "tanım"/"tanımı" (a definition is the term and its meaning).
+    Question words are left out, and in a question also its frame words ("oluşur", "yapılır") and
+    "asgari"/"azami" right before its question word; so are "yüzde" (a source may write "%" instead) and
+    "tanım"/"tanımı" (a definition is the term and its meaning).
     When nothing would remain, every word is kept: a word is never dropped when it is the only one.
     """
     words = re.findall(r"\w+", query, flags=re.UNICODE)
-    question = "?" in query or any(normalize_search_text(word) in _NORMALIZED_QUESTION_WORDS for word in words)
+    folded = [normalize_search_text(word) for word in words]
+    question = "?" in query or any(word in _NORMALIZED_QUESTION_WORDS for word in folded)
     not_required = (
         _NORMALIZED_QUESTION_WORDS
         | _NORMALIZED_PERCENT_WORDS
@@ -1145,8 +1151,11 @@ def _required_search_text(query: str) -> tuple[str, list[str]]:
     )
     kept: list[str] = []
     dropped: list[str] = []
-    for word in words:
-        (dropped if normalize_search_text(word) in not_required else kept).append(word)
+    for index, word in enumerate(words):
+        # The next word, "yüzde" skipped ("asgari yüzde kaç").
+        following = next((later for later in folded[index + 1 :] if later not in _NORMALIZED_PERCENT_WORDS), "")
+        limit_word = question and folded[index] in _NORMALIZED_LIMIT_WORDS and following in _NORMALIZED_QUESTION_WORDS
+        (dropped if folded[index] in not_required or limit_word else kept).append(word)
     if not kept or not dropped:
         return query, []
     return " ".join(kept), dropped
@@ -2000,6 +2009,11 @@ def register(mcp, deps: Dependencies) -> None:
         percent_rule = "; 'yüzde' is optional because sources also write '%'" if percent_query else ""
         if any(normalize_search_text(word) in _NORMALIZED_DEFINITION_WORDS for word in not_searched):
             percent_rule += "; 'tanım' is optional because a definition is written as the term and its meaning"
+        if any(normalize_search_text(word) in _NORMALIZED_LIMIT_WORDS for word in not_searched):
+            percent_rule += (
+                "; 'asgari'/'azami' right before the question word ask for the limit itself, which a provision may "
+                "write as 'en az', 'az olamaz' or 'aşamaz'"
+            )
         not_searched_note = (
             f"Note: not searched as required words: {', '.join(not_searched)} (Turkish question words and the "
             f"frame words of a question are left out{percent_rule}).\n"
