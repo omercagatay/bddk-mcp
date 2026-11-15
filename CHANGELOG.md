@@ -32,6 +32,54 @@ kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözle
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Eklendi — belgeyi PDF'inden onaran maintainer aracı repository'de (2026-11-16)
+
+16, 1340, 1336 ve 1341'i 2026-11-15'te insan adımı olmadan PDF'lerinden onaran
+prototip, version control dışındaki bir klasörden `scripts/document_repair/`
+paketine taşındı: `uv run --group repair python -m scripts.document_repair PDF OUTDIR`.
+Araç yalnız kendi çıktı klasörüne yazar (`repaired.md`, review listesi olan
+`regions.json`, `counts.json`, `guards.json`, maskeli sayfa görüntüleri); corpus
+dosyasını ve seed'i açmaz. Onaylanan metin yine `scripts/patch_doc.py` ile saklanır.
+
+- Metin aşaması sync yolunun okuduğu metin katmanıdır (`pdftotext -layout`, seed
+  convention'ı); küçük ve yükseltilmiş ya da alçaltılmış glyph'ler `$^{..}$` /
+  `$_{..}$` olarak işaretlenir, dipnotlar gövdenin sonuna taşınır, Cambria Math
+  glyph'leri outline'larından geri kazanılır. Formül ve çizgili tablo bölgeleri
+  bulunur; her bölgenin tanınmış metni guard G0–G8 ile o bölgenin kendi metin
+  katmanına karşı denetlenir.
+- Varsayılan policy `recommended`: formül G0, G1, G2, G3, G5 ve G6 geçerse kabul
+  edilir; tablo hiçbir zaman otomatik kabul edilmez. Bir bölge yalnız satırları
+  çevresindeki metinden ayrılabiliyorsa ve 1,5 satır içindeki komşuları da
+  yerine konuyorsa birleştirilir. Reddedilen her bölge ve her tablo, sayfa
+  görüntüsüne karşı bir agent tarafından review edilir ve review kaydedilir.
+- 2026-11-15 ölçümü (101 bölge sayfa görüntüsüne karşı okundu): bu policy ile
+  kabul edilen 68 formülün 68'i doğruydu; temel guard'ları geçen 25 tablonun
+  biri yanlıştı (birleşik bir hücre bölünmüş), bu yüzden her tablo review'a
+  gider. Sınırlar: iki belge, tek üretici; guard'lar yer değiştirmiş kesir
+  argümanlarını ve indisleri göremez; düzyazı için model kullanılmaz.
+- GPU adımı isteğe bağlı ve açıktır. GPU host verilmezse (`--gpu-host` ya da
+  `BDDK_REPAIR_GPU_HOST`, bir ssh alias'ı) araç hiçbir yere bir şey göndermez,
+  model çağırmaz ve her bölgeyi review için listeler. Verilirse yalnız bu
+  belgenin bu çalıştırmada üretilen maskeli sayfa görüntüleri ssh ile o host'a
+  gider ve yalnız beklenen çıktı dosyaları geri açılır; her uzak kelime
+  doğrulanır ve quote edilir. Host, HTTP outbound allowlist'ine eklenmedi (yol
+  ssh'tır). GPU host'ta çalışan `recognize.py` modeli `trust_remote_code=False`
+  ile yükler, greedy decode eder ve end-of-sequence'a ulaşmayan çıktıyı
+  truncated sayar (G0 reddeder); meta kaydı olmayan çıktı da truncated sayılır.
+- Cambria Math fontu dağıtılamaz: yolu `--math-font` ya da
+  `BDDK_REPAIR_MATH_FONT`, Windows'ta varsayılanı `%WINDIR%\Fonts\cambria.ttc`.
+  Font yoksa araç bunu söyler, eşlenmemiş glyph'ler `(cid:n)` kalır ve onları
+  içeren bölgeyi G0 reddeder (1336'da 92 formül bölgesinin 90'ı).
+- Yeni isteğe bağlı `repair` dependency group'u (pdfminer.six, pdfplumber,
+  pillow, pypdfium2) yeni paket eklemez; dördü de `markitdown[pdf]` ile zaten
+  lock'taydı. Serving image'ı ve CI'ın varsayılan kurulumu değişmedi.
+- Regresyon: repository sürümü, önbellekteki model çıktılarıyla dört PDF'te
+  prototipin `repaired.md`, `regions.json`, `guards.json`,
+  `regions_detected.json` dosyalarını ve maskeli görüntülerini byte byte
+  yeniden üretti; `counts.json` yalnız `total_seconds`'ta farklı. GPU adımı
+  repository sürümünden çalıştırılmadı; ssh komutları sahte bir ssh ile test
+  edildi.
+
 ### Düzeltildi — sync önce PDF'in metin katmanını okur, model OCR yalnız taranmış PDF'te (2026-11-15)
 
 Sync zinciri lightocr, pdftotext, markitdown sırasındaydı: CUDA olan bir host'ta
