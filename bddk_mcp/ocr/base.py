@@ -166,6 +166,25 @@ def _run_pdftotext(pdf_bytes: bytes) -> str | None:
         return None
 
 
+_DECISION_HEADER_RE = re.compile(r"(Karar Sayısı\s*:\s*\S+)[ \t]{2,}(Karar Tarihi\s*:.*)")
+_BLANK_RUN_RE = re.compile(r"\n{3,}")
+
+
+def normalize_pdftotext_layout(text: str) -> str:
+    """Bring ``pdftotext -layout`` output into the seed's convention without changing a word.
+
+    Each line loses its leading and trailing whitespace (indentation and page breaks), the side-by-side
+    "Karar Sayısı: N      Karar Tarihi: D" line of a Kurul Kararı becomes two paragraphs, and runs of blank
+    lines become one. Other wide gaps inside a line stay: they can be table columns.
+    """
+    lines: list[str] = []
+    for line in text.split("\n"):
+        line = line.strip()
+        header = _DECISION_HEADER_RE.fullmatch(line)
+        lines.extend((header.group(1), "", header.group(2)) if header else (line,))
+    return _BLANK_RUN_RE.sub("\n\n", "\n".join(lines)).strip()
+
+
 class PdftotextBackend:
     """CPU-only layout-preserving PDF text extraction. No formula support."""
 
@@ -177,7 +196,8 @@ class PdftotextBackend:
     def extract(self, pdf_bytes: bytes) -> str | None:
         if not pdf_bytes:
             return None
-        return _run_pdftotext(pdf_bytes)
+        text = _run_pdftotext(pdf_bytes)
+        return normalize_pdftotext_layout(text) if text else None
 
 
 # --- LightOnOCR-2-1B backend (GPU, primary) ----------------------------------

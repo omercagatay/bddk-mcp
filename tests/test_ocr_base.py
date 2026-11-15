@@ -1,5 +1,7 @@
 """Unit tests for OCR backend implementations."""
 
+import json
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,8 +16,41 @@ from bddk_mcp.ocr.base import (
     _generate_lightocr_markdown,
     _run_pdftotext,
     get_default_backends,
+    normalize_pdftotext_layout,
     run_extraction_chain,
 )
+
+_REPO = Path(__file__).resolve().parents[1]
+# Raw `pdftotext -layout -enc UTF-8` output of BDDK decision 1349 (a public Kurul Kararı), page break included.
+_RAW_1349 = (_REPO / "tests" / "fixtures" / "bddk_1349_pdftotext_layout.txt").read_text(encoding="utf-8")
+
+
+class TestPdftotextSeedConvention:
+    def test_raw_layout_text_becomes_the_seed_text_of_the_same_decision(self):
+        """The seed stores pdftotext text without indentation, with the side-by-side header as two paragraphs."""
+        assert "        Kurul" in _RAW_1349 and "\f" in _RAW_1349  # sanity: the fixture is raw layout output
+        seed = json.loads((_REPO / "seed_data" / "documents.json").read_text(encoding="utf-8"))
+        (stored,) = [doc["markdown_content"] for doc in seed if doc["document_id"] == "1349"]
+        assert normalize_pdftotext_layout(_RAW_1349) == stored.strip()
+
+    def test_word_sequence_is_unchanged(self):
+        raw = _RAW_1349 + (
+            "\n\n\n\n      Tablo 1\n   Kalem              Tutar     Oran\n   Krediler         1.000,5    %20  \n"
+            "\f   Sayfa iki\n Karar Tarihi: 01.10.2026     Karar Sayısı: 11581\n"
+        )
+        assert normalize_pdftotext_layout(raw).split() == raw.split()
+
+    def test_only_the_decision_header_loses_its_wide_gap(self):
+        raw = "Karar Sayısı: 11581                            Karar Tarihi: 01.10.2026\n   Kalem      Tutar\n"
+        assert normalize_pdftotext_layout(raw) == "Karar Sayısı: 11581\n\nKarar Tarihi: 01.10.2026\nKalem      Tutar"
+
+    def test_no_line_starts_with_a_space_and_blank_runs_collapse(self):
+        text = normalize_pdftotext_layout("  a\n\n\n\n   b  \n\f  c\n\n")
+        assert text == "a\n\nb\nc"
+
+    def test_backend_returns_the_normalized_text(self):
+        with patch("bddk_mcp.ocr.base._run_pdftotext", return_value="    girintili\n\n\n\nmetin   "):
+            assert PdftotextBackend().extract(b"%PDF-1.4\nfake") == "girintili\n\nmetin"
 
 
 class TestMarkitdownBackend:
