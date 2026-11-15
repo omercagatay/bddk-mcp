@@ -144,7 +144,7 @@ async def patch_document(
         seed_entry["extraction_method"] = extraction_method
         seed_entry["extracted_at"] = now
         seed_entry["total_pages"] = total_pages
-        seed_entry["file_size"] = len(body.encode("utf-8"))
+        # file_size stays the size of the downloaded source file: a text repair downloads nothing.
         docs_tmp = docs_path.with_suffix(".json.new")
         _write_canonical_json(docs_tmp, seed_docs)
         docs_tmp.replace(docs_path)
@@ -167,7 +167,7 @@ async def patch_document(
         markdown_content=body,
         extraction_method=extraction_method,
         total_pages=total_pages,
-        file_size=len(body.encode("utf-8")),
+        file_size=current_doc.file_size,
         downloaded_at=current_body["downloaded_at"] if current_body is not None else None,
         extracted_at=now,
     )
