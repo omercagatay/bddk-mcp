@@ -11,6 +11,7 @@ import unicodedata
 from typing import TYPE_CHECKING
 
 from bddk_mcp.core.config import PAGE_SIZE
+from bddk_mcp.ingest.client import identify_instrument
 from bddk_mcp.quality.markdown_quality import (
     FORMULA_EXTRACTION_WARNING,
     QualityAssessment,
@@ -1128,6 +1129,18 @@ def _loose_section_score(section: StoredDocumentSection, terms: list[str], weigh
     return score
 
 
+def _without_spans(text: str, spans: list[tuple[int, int, str, str]]) -> str:
+    """``text`` without the parsed section-reference spans, whitespace collapsed."""
+    parts: list[str] = []
+    end = 0
+    for start, stop, _, _ in spans:
+        if start >= end:
+            parts.append(text[end:start])
+            end = stop
+    parts.append(text[end:])
+    return " ".join(" ".join(parts).split())
+
+
 def _document_id_phrase(document_id: str) -> str:
     """Name an ID inferred from the query: "the number 943", "the document ID kgk_tms_12"."""
     return f"the number {document_id}" if document_id.isdigit() else f"the document ID {document_id}"
@@ -1589,6 +1602,20 @@ def register(mcp, deps: Dependencies) -> None:
         `inferred_document_filter_applied` is true. Otherwise the search falls back
         to every document and the text adds a note saying that the ID was not
         applied (`inferred_document_filter_dropped` is true).
+
+        Without such an ID, the words beside a section reference may name an
+        instrument (`Kredi İşlemleri Yönetmeliği madde 5`, `Bankacılık Kanunu
+        geçici madde 5`). They identify a document only when they hold a
+        document-type word (yönetmelik, tebliğ, kanun, rehber, genelge, karar,
+        taslak), the document is of the last such type, every other word is a
+        word of its title or an inflection of it (no other word, no category
+        word), and its title is covered best by those words, ahead of every
+        other stored title (a TASLAK/MÜLGA document gives way on a tie unless
+        the words name that class). The document then scopes the search with
+        the same preference semantics, and the note names it by its title.
+        When two or more titles stand equally, nothing is scoped and the note
+        names them; an abbreviation that is not a title word (SYR, İSEDES)
+        identifies nothing.
         """
         # Invisible format characters (soft hyphen, zero-width space) split words: never search them.
         # Control characters (NUL ...) separate words. The query is echoed as given, except that a
@@ -1609,11 +1636,25 @@ def register(mcp, deps: Dependencies) -> None:
         if query_doc_id and not await _any_document_stored(deps, query_doc_id):
             filter_drop_reason = "no stored document has that ID"
             query_doc_id = None
-        inferred_doc_id = document_id or query_doc_id
         explicit_section_type = _normalize_optional(section_type)
         # The exact reference is the first parsed one; with an explicit section_type only a reference of
         # that type qualifies, so "İlke 5" with section_type=paragraf is not read as paragraf 5.
         parsed_refs = [ref for ref in refs.sections if not explicit_section_type or ref[0] == explicit_section_type]
+        # Without a stored document ID, the words beside a section reference may name an instrument ("Kredi
+        # İşlemleri Yönetmeliği madde 5"): one stored title that stands out (identify_instrument) scopes the
+        # search like a document number, as a preference; titles that stand equally are named in the note.
+        title_entry = None
+        tied_titles: list = []
+        instrument_words = _required_search_text(_without_spans(search_query, refs.section_spans))[0]
+        if not document_id and not query_doc_id and parsed_refs and deps.client is not None:
+            identified = identify_instrument(deps.client.get_cache_items(), instrument_words)
+            if len(identified) == 1 and await _any_document_stored(deps, identified[0].document_id):
+                title_entry = identified[0]
+                query_doc_id = candidate_query_doc_id = title_entry.document_id
+                filter_drop_reason = None
+            elif len(identified) > 1:
+                tied_titles = identified
+        inferred_doc_id = document_id or query_doc_id
         mismatched_ref = None if parsed_refs or not refs.sections else refs.sections[0]
         parsed_section_type, inferred_section_ref = parsed_refs[0] if parsed_refs else (None, None)
         inferred_section_type = explicit_section_type or parsed_section_type
@@ -1627,12 +1668,19 @@ def register(mcp, deps: Dependencies) -> None:
         # The document number names the scope, it is not a content word: no section contains its own
         # document ID, so the scoped passes search the query without it. The unscoped retry keeps the
         # raw query, where the number may be content ("kredi 90 gün gecikme").
+        # The words that named an instrument are left out as well: the scoped passes search the references.
         scoped_query = search_query
-        if query_doc_id:
+        if title_entry is not None:
+            scoped_query = " ".join(search_query[start:stop] for start, stop, _, _ in refs.section_spans)
+        elif query_doc_id:
             start, end = refs.document_id_spans[0]
             scoped_query = f"{search_query[:start].rstrip()} {search_query[end:].lstrip()}".strip()
         # Question words and "yüzde" are not required by the exact-word and stem passes.
         required_scoped_query, not_searched = _required_search_text(scoped_query)
+        if title_entry is not None:
+            not_searched = _required_search_text(search_query)[1]
+        # How the notes name what identified the document: a number or document ID, or the instrument words.
+        scope_phrase = f'the words "{instrument_words}"' if title_entry is not None else None
         # TASLAK/MÜLGA catalog-class sections follow the others of each pass, unless the query names the class.
         classes_last = frozenset({"draft", "repealed"} - catalog_classes_named(search_query))
 
@@ -1718,16 +1766,23 @@ def register(mcp, deps: Dependencies) -> None:
         if missing_in_dropped_doc:
             unapplied_ref_note = (
                 f"Note: {_ref_text(parsed_section_type, inferred_section_ref)} was not found in document "
-                f"{missing_in_dropped_doc}, which {_document_id_phrase(missing_in_dropped_doc)} in the query "
-                "identified; the "
+                f"{missing_in_dropped_doc}, which {scope_phrase or _document_id_phrase(missing_in_dropped_doc)} in "
+                "the query identified; the "
                 "reference was not applied to the search over every document. Check the reference, or retrieve "
                 "that document with get_bddk_document."
             )
         elif inferred_section_ref and not exact_ref_detected:
+            tie = (
+                f' (the words "{instrument_words}" match the titles of {len(tied_titles)} stored documents equally: '
+                + "; ".join(f'{entry.document_id} "{entry.title}"' for entry in tied_titles)
+                + ")"
+                if tied_titles
+                else ""
+            )
             unapplied_ref_note = (
                 f"Note: {_ref_text(parsed_section_type, inferred_section_ref)} in the query was not applied as a filter "
-                "because no document was identified; find the document id with search_bddk_regulations, then call "
-                f"get_document_section(document_id, section_type='{parsed_section_type}', "
+                f"because no document was identified{tie}; find the document id with search_bddk_regulations, then "
+                f"call get_document_section(document_id, section_type='{parsed_section_type}', "
                 f"section_ref='{inferred_section_ref}')."
             )
         elif mismatched_ref:
@@ -1738,8 +1793,16 @@ def register(mcp, deps: Dependencies) -> None:
         reported_section_ref = None if unapplied_ref_note else _normalize_optional(inferred_section_ref)
         filter_dropped = filter_drop_reason is not None
         inferred_filter_applied = bool(query_doc_id and not filter_dropped)
+        title_note = f'document {title_entry.document_id} ("{title_entry.title}")' if title_entry is not None else ""
         filter_note = (
-            f"Note: {_document_id_phrase(candidate_query_doc_id)} in the query was not applied as a document filter "
+            f"Note: {title_note}, which {scope_phrase} in the query identify, was not applied as a document "
+            f"filter ({filter_drop_reason}).\n"
+            if filter_dropped and title_entry is not None
+            else f"Note: the search was limited to {title_note} because {scope_phrase} in the query match its title "
+            "and no other stored title as well (the title matching of search_bddk_regulations); pass document_id "
+            "to search another document, or remove those words to search every document.\n"
+            if inferred_filter_applied and title_entry is not None
+            else f"Note: {_document_id_phrase(candidate_query_doc_id)} in the query was not applied as a document filter "
             f"({filter_drop_reason}).\n"
             if filter_dropped
             else (

@@ -437,3 +437,63 @@ def test_client_defaults_to_no_live_population():
     """The airlock must be the default: live population is an explicit opt-in."""
     client = BddkApiClient(store=MockStore())
     assert client._allow_live_population is False
+
+
+class TestIdentifyInstrument:
+    """An instrument name with a section reference ("Kredi İşlemleri Yönetmeliği madde 5") names one entry."""
+
+    ENTRIES = [
+        BddkDecisionSummary(document_id=doc_id, title=title, category=category)
+        for doc_id, title, category in (
+            (
+                "mevzuat_22599",
+                "Kredilerin Sınıflandırılması ve Bunlar İçin Ayrılacak Karşılıklara İlişkin Usul ve "
+                "Esaslar Hakkında Yönetmelik",
+                "Yönetmelik",
+            ),
+            ("mevzuat_19498", "Bankaların Likidite Karşılama Oranı Hesaplamasına İlişkin Yönetmelik", "Yönetmelik"),
+            (
+                "mevzuat_10749",
+                "Bankaların Likidite Yeterliliğinin Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmelik",
+                "Yönetmelik",
+            ),
+            ("283", "Karşılık Yönetmeliği uygulamasına ilişkin Kurul Kararı", "Kurul Kararı"),
+            ("mevzuat_5411", "5411 sayılı Bankacılık Kanunu", "Kanun"),
+            ("mevzuat_5464", "5464 sayılı Banka Kartları ve Kredi Kartları Kanunu", "Kanun"),
+            ("1230", "4389 sayılı Bankalar Kanunu", "Mülga Düzenleme"),
+            ("951", "İSEDES Raporu Hakkında Rehber", "Rehber"),
+            ("old_reg", "Bankaların Kıymetli Maden Alım Satımı Hakkında Yönetmelik", "Mülga Düzenleme"),
+            ("new_reg", "Bankaların Kıymetli Maden Alım Satımı Hakkında Yönetmelik", "Yönetmelik"),
+            (
+                "1290",
+                "Bankaların Kıymetli Maden Alım Satımı Hakkında Yönetmelik Taslağı ve Genel Gerekçe",
+                "Düzenleme Taslağı",
+            ),
+        )
+    ]
+
+    def ids(self, keywords: str) -> list[str]:
+        from bddk_mcp.ingest.client import identify_instrument
+
+        return [entry.document_id for entry in identify_instrument(self.ENTRIES, keywords)]
+
+    def test_every_word_must_be_a_title_word_or_its_inflection_of_the_type_asked_for(self):
+        # "Karşılık" reaches "Karşılıklara" (an inflection), not "Karşılama" (a shared stem only); the Kurul
+        # Kararı whose title holds "Karşılık Yönetmeliği" is a karar, not a yönetmelik.
+        assert self.ids("Karşılık Yönetmeliği madde 5") == ["mevzuat_22599"]
+        assert self.ids("Bankacılık Kanunu geçici madde 5") == ["mevzuat_5411"]
+        assert self.ids("Kredi Kartları Kanunu madde 9") == ["mevzuat_5464"]
+        assert self.ids("Bankalar Kanunu madde 11") == ["1230"]
+        assert self.ids("İSEDES Yönetmeliği madde 4") == []
+        assert self.ids("Karşılık madde 5") == []
+        assert self.ids("Yönetmelik madde 5") == []
+        assert self.ids("Karşılık Yönetmeliği teminat madde 5") == []
+
+    def test_names_that_match_titles_equally_identify_none_of_them(self):
+        assert self.ids("Likidite Yönetmeliği madde 5") == ["mevzuat_19498", "mevzuat_10749"]
+
+    def test_a_repealed_or_draft_entry_gives_way_on_a_tie_unless_the_name_names_its_class(self):
+        assert self.ids("Kıymetli Maden Yönetmeliği madde 5") == ["new_reg"]
+        assert self.ids("mülga Kıymetli Maden Yönetmeliği madde 5") == ["old_reg"]
+        assert self.ids("Kıymetli Maden Yönetmelik Taslağı madde 5") == ["1290"]
+        assert self.ids("Karşılık Yönetmeliği uygulamasına ilişkin Kurul Kararı madde 1") == ["283"]

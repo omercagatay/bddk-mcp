@@ -603,7 +603,8 @@ class SectionSearchResponse(RetrievalResponse):
     inferred_document_filter_dropped: bool = Field(
         default=False,
         description=(
-            "Whether a document ID inferred from a number in the query was not applied as a filter, either "
+            "Whether a document ID inferred from a number in the query, or a document identified by the "
+            "instrument name beside a section reference, was not applied as a filter, either "
             "because no such document is stored or because no section in it matched; the search then ran "
             "over all documents."
         ),
@@ -612,7 +613,8 @@ class SectionSearchResponse(RetrievalResponse):
         default=False,
         description=(
             "Whether the returned hits were limited to a document whose ID was inferred from a number in the "
-            "query (not passed as document_id)."
+            "query, or that the instrument name beside a section reference identified by its title (not passed "
+            "as document_id); the text note names which."
         ),
     )
     query_words_not_searched: list[str] = Field(

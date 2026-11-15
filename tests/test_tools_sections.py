@@ -2980,3 +2980,123 @@ async def test_taslak_and_mulga_sections_follow_the_others_of_each_pass(doc_stor
     assert documents(loose)[0] == "mevzuat_21192"
     assert documents(named)[0] == "1288" and documents(named).index("mevzuat_21192") < documents(named).index("1310")
     assert documents(scoped) == ["1288"]
+
+
+async def _store_named_instruments(doc_store) -> Dependencies:
+    from bddk_mcp.core.models import BddkDecisionSummary
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    documents = (
+        (
+            "mevzuat_5411",
+            "5411 sayılı Bankacılık Kanunu",
+            "Kanun",
+            "MADDE 1 - (1) Bu Kanunun amacı güven ve istikrardır.\n\nGEÇİCİ MADDE 5 - (1) Bankacılık geçiş hükmü.",
+        ),
+        (
+            "mevzuat_5464",
+            "5464 sayılı Banka Kartları ve Kredi Kartları Kanunu",
+            "Kanun",
+            "MADDE 1 - (1) Kartların amacı.\n\nGEÇİCİ MADDE 5 - (1) Kart geçiş hükmü.",
+        ),
+        (
+            "mevzuat_40520",
+            "Bankaların Kredi İşlemlerine İlişkin Yönetmelik",
+            "Yönetmelik",
+            "MADDE 4 - (1) Tanımlar.\n\nMADDE 5 - (1) Kredi işlemlerinin esasları.",
+        ),
+        (
+            "mevzuat_20029",
+            "Kredi Riski Azaltım Tekniklerine İlişkin Tebliğ",
+            "Sermaye Yeterliliği",
+            "MADDE 5 - (1) Azaltım teknikleri.",
+        ),
+        (
+            "mevzuat_10749",
+            "Bankaların Likidite Yeterliliğinin Ölçülmesine ve Değerlendirilmesine İlişkin Yönetmelik",
+            "Yönetmelik",
+            "MADDE 5 - (1) Likidite yeterliliği.",
+        ),
+        (
+            "mevzuat_19498",
+            "Bankaların Likidite Karşılama Oranı Hesaplamasına İlişkin Yönetmelik",
+            "Yönetmelik",
+            "MADDE 5 - (1) Likidite karşılama oranı.",
+        ),
+    )
+    for doc_id, title, category, content in documents:
+        await doc_store.store_document(
+            StoredDocument(document_id=doc_id, title=title, category=category, markdown_content=content)
+        )
+    client = MagicMock()
+    client.get_cache_items.return_value = [
+        BddkDecisionSummary(document_id=doc_id, title=title, category=category)
+        for doc_id, title, category, _ in documents
+    ]
+    return Dependencies(db=None, doc_store=doc_store, client=client, http=None)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("query", "doc_id", "section"),
+    [
+        ("Bankacılık Kanunu geçici madde 5", "mevzuat_5411", ("gecici_madde", "5")),
+        ("Kredi Kartları Kanunu geçici madde 5", "mevzuat_5464", ("gecici_madde", "5")),
+        ("Kredi İşlemleri Yönetmeliği madde 5", "mevzuat_40520", ("madde", "5")),
+        ("Kredi İşlemleri Yönetmeliğinin 5 inci maddesi nedir", "mevzuat_40520", ("madde", "5")),
+    ],
+)
+async def test_an_instrument_named_by_words_scopes_its_section_reference(doc_store, query, doc_id, section):
+    tool = _capture_tool(await _store_named_instruments(doc_store), "search_document_sections")
+
+    result = await tool(query)
+
+    structured = result.structuredContent
+    first = structured["results"][0]
+    assert (first["document_id"], first["section_type"], first["section_ref"]) == (doc_id, *section)
+    assert {item["document_id"] for item in structured["results"]} == {doc_id}
+    assert (structured["document_id"], structured["exact_reference_detected"]) == (doc_id, True)
+    assert structured["inferred_document_filter_applied"] is True
+    assert f"Note: the search was limited to document {doc_id} (" in result.text
+    assert "match its title and no other stored title as well" in result.text
+
+
+@pytest.mark.asyncio
+async def test_an_instrument_name_that_matches_titles_equally_names_them_and_scopes_nothing(doc_store):
+    tool = _capture_tool(await _store_named_instruments(doc_store), "search_document_sections")
+
+    result = await tool("Likidite Yönetmeliği madde 5")
+
+    structured = result.structuredContent
+    assert structured.get("document_id") is None and structured["inferred_document_filter_applied"] is False
+    assert "madde 5 in the query was not applied as a filter because no document was identified" in result.text
+    assert '"Likidite Yönetmeliği" match the titles of 2 stored documents equally: mevzuat_10749 "' in result.text
+    assert '; mevzuat_19498 "Bankaların Likidite Karşılama Oranı Hesaplamasına İlişkin Yönetmelik"' in result.text
+
+
+@pytest.mark.asyncio
+async def test_an_instrument_named_by_words_without_the_provision_is_dropped_with_a_note(doc_store):
+    tool = _capture_tool(await _store_named_instruments(doc_store), "search_document_sections")
+
+    result = await tool("Kredi İşlemleri Yönetmeliği madde 99")
+
+    structured = result.structuredContent
+    assert structured.get("document_id") is None and structured["inferred_document_filter_dropped"] is True
+    assert (
+        'Note: madde 99 was not found in document mevzuat_40520, which the words "Kredi İşlemleri Yönetmeliği" '
+        "in the query identified" in result.text
+    )
+
+
+@pytest.mark.asyncio
+async def test_an_instrument_name_of_another_type_or_without_a_client_identifies_nothing(doc_store):
+    deps = await _store_named_instruments(doc_store)
+    tool = _capture_tool(deps, "search_document_sections")
+
+    other_type = await tool("Kredi Riski Azaltım Yönetmeliği madde 5")
+    deps.client = None
+    no_client = await _capture_tool(deps, "search_document_sections")("Kredi İşlemleri Yönetmeliği madde 5")
+
+    for result in (other_type, no_client):
+        assert result.structuredContent.get("document_id") is None
+        assert result.structuredContent["inferred_document_filter_applied"] is False
