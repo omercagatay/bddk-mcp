@@ -13,10 +13,13 @@ The check reads the corpus file and the site; it writes nothing. It compares thr
   and one the site removed look alike; when a page failed, the list is incomplete.
 - **changed**: stored documents whose source differs from what was downloaded, by one cheap signal per source.
   A BDDK document: the size the site declares for it (HEAD, no download) against the stored ``file_size``; a
-  same-size change is not seen. A mevzuat.gov.tr text: the dates of the amendment notes ("(Değişik:RG-...)",
-  "(Ek fıkra: ...)", "(Mülga: ...)", "(İptal ...)") of the official consolidated text against those of the stored
-  text; an amendment without a dated note, a correction and an annex outside the official HTML are not seen. The
-  stored text is never compared with a fresh extraction, because a repaired text never equals its source.
+  same-size change is not seen. A mevzuat.gov.tr text: the dates (DD.MM.YYYY or DD/MM/YYYY) of the official
+  consolidated text that the stored text does not contain. An amendment brings the date of its Resmî Gazete into
+  the text (an inline "(Değişik:RG-...)" note, a footnote or the closing amendment table); a change that brings no
+  new date (a correction, a second change on a date already cited, an annex outside the official HTML) is not seen.
+  An official text that shares no date with the stored one, or is far shorter, is reported as an error, not as
+  unchanged, because it is probably not the document. The stored text is never compared with a fresh extraction,
+  because a repaired text never equals its source.
 """
 
 from __future__ import annotations
@@ -53,9 +56,9 @@ _THRESHOLD_PAGE_IDS = frozenset({*_DECISION_PAGE_IDS, RG_DECISION_PAGE_ID})
 # The consolidated texts of mevzuat.gov.tr reach about 5 MB (the financial-statement annexes of mevzuat_16290).
 _MAX_MEVZUAT_TEXT_BYTES = 16 * 1024 * 1024
 _NUMBER_RE = re.compile(r"[0-9]{1,20}")
-_AMENDMENT_NOTE_RE = re.compile(r"\(([^()]{1,240})\)")
-_AMENDMENT_WORD_RE = re.compile(r"\b(?:Değişik\w*|Ek|Mülga|İptal\w*)\b")
 _DATE_RE = re.compile(r"(?<!\d)(\d{1,2})[./](\d{1,2})[./](\d{4})(?!\d)")
+# On 2026-11-15 the shortest official text was 39% of its stored text (mevzuat_21192 stores annexes from Word).
+_MIN_OFFICIAL_SHARE = 0.25
 _CHECK_ERRORS = (httpx.HTTPError, OutboundHttpPolicyError, ValueError)
 
 Pages = list[tuple[int, list[BddkDecisionSummary], str]]
@@ -90,10 +93,12 @@ def compare_catalog(pages: Pages, catalog: list[dict]) -> dict:
                 continue
             new[document_id] = _summary(page_id, entry)
     listed = {entry.document_id for _, entries, _ in pages for entry in entries}
+    # Page order, then id (numbers by value), so a reordered page gives the same report.
+    found = sorted(new.values(), key=lambda item: (order.get(item["page"]), item["document_id"].zfill(30)))
     return {
         "newest_catalogued_bddk_id": newest,
-        "new": [item for item in new.values() if item["page"] != RG_DECISION_PAGE_ID],
-        "new_on_page_55": [item for item in new.values() if item["page"] == RG_DECISION_PAGE_ID],
+        "new": [item for item in found if item["page"] != RG_DECISION_PAGE_ID],
+        "new_on_page_55": [item for item in found if item["page"] == RG_DECISION_PAGE_ID],
         "older_not_catalogued": {str(page_id): len(ids - set(new)) for page_id, ids in older.items()},
         "not_listed": [
             {"document_id": document_id, "category": row.get("category", ""), "title": row.get("title", "")}
@@ -104,13 +109,9 @@ def compare_catalog(pages: Pages, catalog: list[dict]) -> dict:
     }
 
 
-def amendment_dates(text: str) -> set[str]:
-    """ISO dates in the amendment notes of a legal text: a parenthesis that names Değişik, Ek, Mülga or İptal."""
-    dates: set[str] = set()
-    for note in _AMENDMENT_NOTE_RE.findall(text):
-        if _AMENDMENT_WORD_RE.search(note):
-            dates.update(f"{year}-{int(month):02d}-{int(day):02d}" for day, month, year in _DATE_RE.findall(note))
-    return dates
+def text_dates(text: str) -> set[str]:
+    """The ISO form of every DD.MM.YYYY or DD/MM/YYYY date of a text."""
+    return {f"{year}-{int(month):02d}-{int(day):02d}" for day, month, year in _DATE_RE.findall(text)}
 
 
 def _error_text(exc: Exception) -> str:
@@ -158,9 +159,13 @@ async def _check_mevzuat(client: BddkApiClient, store: DocumentStore, row: dict)
     if _is_error_page(page) or not official.strip():
         return "error", "the source answered with an error page"
     stored = await store.get_document(row["document_id"])
-    added = amendment_dates(official) - amendment_dates(stored.markdown_content if stored else "")
+    stored_text = stored.markdown_content if stored else ""
+    official_dates, stored_dates = text_dates(official), text_dates(stored_text)
+    if (stored_dates and not official_dates & stored_dates) or len(official) < _MIN_OFFICIAL_SHARE * len(stored_text):
+        return "error", "the official text does not look like the stored document (no shared date, or far shorter)"
+    added = official_dates - stored_dates
     if added:
-        return "changed", f"official text has amendment notes dated {', '.join(sorted(added))} the stored text lacks"
+        return "changed", f"official text has dates the stored text lacks: {', '.join(sorted(added))}"
     return "unchanged", ""
 
 
@@ -267,7 +272,7 @@ def format_report(report: dict) -> str:
 async def entries_to_add(
     store: DocumentStore, client: BddkApiClient, document_ids: list[str]
 ) -> list[BddkDecisionSummary]:
-    """The live catalog entries of ``document_ids``; refuses, before anything is written, an id the catalog
+    """The live catalog entries of ``document_ids``; refuses, before any catalog row is written, an id the catalog
     already holds, one no page lists, one listed with conflicting records and one out of scope."""
     wanted = list(dict.fromkeys(document_ids))
     held = sorted(set(wanted) & {row["document_id"] for row in await store.load_catalog()})

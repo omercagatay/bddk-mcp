@@ -54,19 +54,26 @@ paketli CLI ile yapılıyor.
     bir sayfa okunamadıysa liste eksik olarak işaretlenir.
   - Değişen: BDDK belgesinde sitenin HEAD yanıtında bildirdiği boyut (indirme
     yapılmaz) saklanan `file_size` ile karşılaştırılır; mevzuat.gov.tr
-    metninde resmî konsolide metindeki tarihli değişiklik notları
-    (`(Değişik:RG-…)`, `(Ek fıkra: …)`, `(Mülga: …)`, `(İptal …)`) saklanan
-    metindekilerle karşılaştırılır. Onarılmış bir metin kaynağıyla hiçbir zaman
-    birebir aynı olmadığından saklanan metin yeni bir çıkarımla
-    karşılaştırılmaz.
+    metninde resmî konsolide metinde geçen ama saklanan metinde geçmeyen
+    tarihler (GG.AA.YYYY veya GG/AA/YYYY) aranır. Bir değişiklik, Resmî
+    Gazete tarihini satır içi notla (`(Değişik:RG-…)`), dipnotla ya da sondaki
+    değişiklik tablosuyla metne getirir. Saklanan metinle hiçbir tarihi
+    paylaşmayan veya onun dörtte birinden kısa bir resmî metin değişmemiş
+    sayılmaz, hata olarak raporlanır (büyük olasılıkla bakım veya hata
+    sayfası). Onarılmış bir metin kaynağıyla hiçbir zaman birebir aynı
+    olmadığından saklanan metin yeni bir çıkarımla karşılaştırılmaz.
   - Exit code: 0 raporlanacak bir şey yok, 3 raporlanacak bir şey var, 1 hata
-    (rapor yine yazılır), 2 kullanım hatası. `--json` zaman damgası içermeyen
-    tek bir JSON nesnesi yazar; zamanlanmış bir görev iki çalıştırmayı
-    karşılaştırabilir.
-  - Göremedikleri: aynı boyutta değiştirilmiş bir BDDK dosyası; tarihli not
-    eklemeyen bir mevzuat değişikliği (düzeltme, resmî HTML'de bulunmayan bir
-    ek, numara değişikliği) ve hiç tarihli notu olmayan 22 mevzuat metninde ilk
-    tarihli not gelene kadarki değişiklikler; 55 ve 56 numaralı sayfalarda
+    (rapor yine yazılır), 2 kullanım hatası. `--json` zaman damgası içermeyen,
+    kayıtları sayfa sırasına ve numaraya göre dizen tek bir JSON nesnesi
+    yazar; zamanlanmış bir görev iki çalıştırmayı karşılaştırabilir. Bekletilen
+    belgeler eklenene ve elle eklenmiş kayıtlar kabul edilene kadar her
+    çalıştırma bir şey raporlar; bu yüzden görev exit code 3'e değil önceki
+    JSON çıktısıyla farka bakmalı. Kabul edilmiş bulgular için gözden geçirilmiş
+    bir yok sayma listesi bir sonraki adım olur; henüz yok.
+  - Göremedikleri: aynı boyutta değiştirilmiş bir BDDK dosyası; resmî metne
+    yeni bir tarih getirmeyen bir mevzuat değişikliği (düzeltme, metnin zaten
+    andığı bir tarihte yapılan ikinci değişiklik, resmî HTML'de bulunmayan bir
+    ek); 55 ve 56 numaralı sayfalarda
     atlanmış eski bir kaydın gözden geçirilip geçirilmediği (herhangi bir belge
     eklenince eşik yükselir); hâlâ listelenen kayıtların başlık, tarih veya
     kategori değişiklikleri; allowlist dışındaki host'ların belgeleri. Her
@@ -84,9 +91,13 @@ paketli CLI ile yapılıyor.
   sayfalarından alıp corpus catalog'una ekler ve yalnızca onları sync eder;
   diğer catalog kayıtları olduğu gibi kalır. Catalog'da zaten bulunan, hiçbir
   sayfanın listelemediği, çelişen kayıtlarla listelenen veya kapsam dışı bir
-  numarayı hiçbir şey yazmadan reddeder; yalnızca BDDK numarası veya
+  numarayı catalog'a tek satır yazmadan reddeder; yalnızca BDDK numarası veya
   `mevzuat_<numara>` kabul eder; `--refresh-catalog` ve `--doc-id` ile
-  birlikte kullanılamaz. `check-updates` hiçbir şey eklemez.
+  birlikte kullanılamaz. İndirme veya çıkarım başarısız olursa catalog satırı
+  kalır, hata `sync_failures`'a yazılır ve komut 1 ile çıkar; `sync --doc-id ID`
+  yeniden dener. Eklenen belge backend'in yöntem adını (`pdftotext_degraded`) ve
+  sayfadaki kaynak adresini taşır; seed'e alınmadan önce gözden geçirilmelidir.
+  `check-updates` hiçbir şey eklemez.
 - 51 numaralı sayfa (Banka Kartları ve Kredi Kartları Kanununa İlişkin
   Düzenlemeler) artık accordion değil, tek bir tablo; yeniden okunuyor
   (kategori "Banka Kartları"). `sync --refresh-catalog` yine de durur: 49 ve 51

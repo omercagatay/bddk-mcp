@@ -18,11 +18,11 @@ from bddk_mcp.ingest.update_check import (
     EXIT_ERROR,
     EXIT_NOTHING_TO_REPORT,
     EXIT_SOMETHING_TO_REPORT,
-    amendment_dates,
     check_updates,
     compare_catalog,
     entries_to_add,
     format_report,
+    text_dates,
 )
 from bddk_mcp.store.corpus_db import CorpusDB
 from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
@@ -73,18 +73,18 @@ class TestCompareCatalog:
         assert partial["not_listed_complete"] is False
 
 
-class TestAmendmentDates:
-    def test_reads_regulation_and_law_amendment_notes(self):
+class TestTextDates:
+    def test_reads_inline_notes_footnotes_and_amendment_tables(self):
         text = (
-            "MADDE 6 – (Değişik:RG-20/8/2015-29451) (1) Metin. "
-            "(Ek fıkra: 25/10/2017-7051/1 md.) "
-            "( İptal ikinci cümle: Anayasa Mahkemesi’nin 14/11/2013 tarihli ve E.: 2013/24 sayılı Kararı ile.) "
-            "MADDE 34 – (Başlığı ile Birlikte Değişik:RG-4/2/2022-31740)$^{(4)}$"
+            "MADDE 6 – (Değişik:RG-20/8/2015-29451) (1) Metin. (Ek fıkra: 25/10/2017-7051/1 md.) "
+            "( İptal ikinci cümle: Anayasa Mahkemesi’nin 14/11/2013 tarihli ve E.: 2013/24 sayılı Kararı ile.)\n"
+            "[1] 01.04.2026 tarihli ve 33210 sayılı Resmî Gazete’de yayımlanan Yönetmelik ile değiştirilmiştir.\n"
+            "| 2 | 4/2/2022 | 31740 |"
         )
-        assert amendment_dates(text) == {"2015-08-20", "2017-10-25", "2013-11-14", "2022-02-04"}
+        assert text_dates(text) == {"2015-08-20", "2017-10-25", "2013-11-14", "2026-04-01", "2022-02-04"}
 
-    def test_ignores_dates_outside_amendment_notes(self):
-        assert amendment_dates("(1) 23/10/2015 tarihli ve 29511 sayılı Resmi Gazete (RG-23/10/2015)") == set()
+    def test_numbers_that_are_not_dates_are_ignored(self):
+        assert text_dates("E.: 2013/24, K.: 2013/133; 7051/1 md.; 12/3/20255") == set()
 
 
 # -- a fake BDDK and mevzuat site ---------------------------------------------------------------------------------
@@ -107,7 +107,7 @@ _DECISIONS = {
 _IFRAME = "<html><body><p>MADDE 1 – (Değişik:RG-1/2/2020-31000) Metin.</p>{extra}</body></html>"
 
 
-def _site(*, sizes: dict[str, int], failing_page: int | None = None, mevzuat_extra: str = ""):
+def _site(*, sizes: dict[str, int], failing_page: int | None = None, mevzuat_extra: str = "", mevzuat_page: str = ""):
     calls: list[tuple[str, str]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -126,7 +126,7 @@ def _site(*, sizes: dict[str, int], failing_page: int | None = None, mevzuat_ext
             return httpx.Response(200, headers={"content-length": str(sizes[document_id])}, request=request)
         if url.path == "/anasayfa/MevzuatFihristDetayIframe":
             assert parse_qs(url.query)["MevzuatNo"] == ["5411"]
-            return httpx.Response(200, text=_IFRAME.format(extra=mevzuat_extra), request=request)
+            return httpx.Response(200, text=mevzuat_page or _IFRAME.format(extra=mevzuat_extra), request=request)
         raise AssertionError(f"unexpected request {request.method} {url.path}")
 
     return httpx.MockTransport(handler), calls
@@ -208,6 +208,16 @@ class TestCheckUpdates:
         assert {item["document_id"]: item["reason"] for item in report["changed"]}["1349"] == (
             "source answers HTTP 404"
         )
+
+    async def test_an_answer_that_is_not_the_document_is_an_error_not_unchanged(self, doc_store):
+        """A maintenance or bot page answers 200 without the text: no shared date, so it cannot count as unchanged."""
+        await _corpus(doc_store)
+        page = "<html><body><p>Sistem bakımda, lütfen daha sonra tekrar deneyiniz.</p></body></html>"
+        transport, _ = _site(sizes={"943": 1000, "1349": 2000}, mevzuat_page=page)
+        report = await check_updates(doc_store, _client(transport, doc_store))
+        assert [item["document_id"] for item in report["check_errors"]] == ["mevzuat_5411"]
+        assert report["unchanged"] == {"bddk": 2, "mevzuat": 0}
+        assert report["status"] == "error"
 
     async def test_nothing_to_report(self, doc_store):
         await doc_store.store_document(
