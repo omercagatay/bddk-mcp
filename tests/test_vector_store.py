@@ -2067,6 +2067,15 @@ class TestDocumentsTheQueryNamesComeFirst:
             hits = await vector_store.search(query, limit=10)
             assert hits[0]["doc_id"] == "mevzuat_5411", query
             assert hits[0]["match_type"] == "named" and hits[0]["named_by"] == "law_number", query
+        # mevzuat_1234 of another type is not the law "1234 sayılı Kanun" cites.
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="mevzuat_1234",
+            title="Örnek Tebliğ",
+            content="Amaç ve kapsam.",
+            category="Tebliğ",
+        )
         assert all(hit["match_type"] != "named" for hit in await vector_store.search("1234 sayılı Kanun", limit=10))
 
     @pytest.mark.asyncio

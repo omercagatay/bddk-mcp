@@ -1008,10 +1008,12 @@ def _named_documents(rows: list[sqlite3.Row], query: str) -> list[tuple[str, str
                 -(day.toordinal() if day else 0),
                 row["document_id"],
             )
-    stored = {row["document_id"] for row in rows}
+    # Only a document of the Kanun category: mevzuat_<n> of another type is not the law the query cites.
+    laws = {row["document_id"] for row in rows if row["category"] == "Kanun"}
     for number in _LAW_NUMBER_RE.findall(query_words):
-        named.setdefault(f"mevzuat_{number}", (1, 0, False, False, 0, f"mevzuat_{number}"))
-    ordered = sorted((key, doc_id) for doc_id, key in named.items() if doc_id in stored)
+        if f"mevzuat_{number}" in laws:
+            named.setdefault(f"mevzuat_{number}", (1, 0, False, False, 0, f"mevzuat_{number}"))
+    ordered = sorted((key, doc_id) for doc_id, key in named.items())
     return [(doc_id, "law_number" if key[0] else "title") for key, doc_id in ordered]
 
 
@@ -1380,7 +1382,7 @@ class VectorStore:
         appended to the embedded query, and the strict keyword pass also runs with the expansion in its
         place.
         The documents the query names (``_named_documents``: the whole title occurs in the query, or
-        "<n> sayılı Kanun" and ``mevzuat_<n>`` is stored) come first, of ``category`` when given.
+        "<n> sayılı Kanun" and ``mevzuat_<n>`` is a stored Kanun) come first, of ``category`` when given.
         Document quality is assessed once, for the returned hits only.
         """
         self._raise_if_semantic_search_unavailable()
@@ -1436,11 +1438,11 @@ class VectorStore:
         return [number for number in numbers if number not in stored]
 
     async def _document_rows(self, category: str | None) -> list[sqlite3.Row]:
-        """Id, title and decision date of every stored document (of ``category`` when given)."""
+        """Id, title, category and decision date of every stored document (of ``category`` when given)."""
         where, params = (" WHERE category = ?", [category]) if category else ("", [])
         return await self._db.run(
             lambda conn: conn.execute(
-                f"SELECT document_id, title, decision_date FROM documents{where}", params
+                f"SELECT document_id, title, category, decision_date FROM documents{where}", params
             ).fetchall()
         )
 
