@@ -863,6 +863,190 @@ class TestRelaxedFtsFallbackIsNotExact:
         assert [(r["doc_id"], r["match_type"]) for r in results] == [("strict", "fts_exact")]
 
 
+class TestInflectedKeywordPass:
+    """A document that holds every query word only in an inflected form ("tutarının" for "tutarı") is a
+    keyword match for the fusion and the lexical boost, never an exact or keyword-only match."""
+
+    @pytest.fixture
+    async def credit_card_store(self, vector_store, doc_store):
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="exact",
+            title="Kurul Kararı",
+            content="Kredi kartı asgari ödeme tutarı yüzde yirmi olarak belirlenmiştir.",
+        )
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="inflected",
+            title="Kredi Kartı Asgari Ödeme Tutarının Değiştirilmesi Hk. Kurul Kararı",
+            content="Kredi kartı asgari ödeme tutarının değiştirilmesi yüzde kırk olarak uygulanır.",
+        )
+        # Unrelated documents keep the BM25 weight of the query words positive.
+        for number, text in enumerate(("Mevduat sigortası primleri.", "Likidite oranı.", "Faiz riski.", "Sermaye.")):
+            await _store_and_index(vector_store, doc_store, doc_id=f"other{number}", title="Genelge", content=text)
+        return vector_store
+
+    @pytest.mark.asyncio
+    async def test_the_only_document_holding_the_inflected_word_gets_the_lexical_boost(self, credit_card_store):
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", -1.0):
+            hits = await credit_card_store._hybrid_search("kredi kartı asgari ödeme tutarı", limit=10)
+
+        by_id = {hit["doc_id"]: hit for hit in hits}
+        assert by_id["inflected"]["match_type"] == "hybrid"
+        assert by_id["inflected"]["lexical_relevance"] > 0
+        assert by_id["exact"]["match_type"] == "hybrid" and by_id["exact"]["lexical_relevance"] == 1.0
+        assert by_id["other0"]["match_type"] == "vector"
+
+    @pytest.mark.asyncio
+    async def test_strict_hits_keep_their_order_and_inflected_hits_follow_flagged(self, credit_card_store):
+        hits = await credit_card_store._fts_search("kredi kartı asgari ödeme tutarı", limit=50)
+
+        assert [(hit["doc_id"], bool(hit.get("fts_inflected"))) for hit in hits] == [
+            ("exact", False),
+            ("inflected", True),
+        ]
+        assert not any(hit["fts_relaxed"] for hit in hits)
+
+    @pytest.mark.asyncio
+    async def test_an_inflected_match_opens_the_fts_gate_and_precedes_the_relaxed_fallback(self, credit_card_store):
+        # No document holds every word as typed, so the OR fallback runs; it also finds "inflected", whose
+        # all-words inflected match takes precedence over its relaxed row and comes first.
+        fts_hits = await credit_card_store._fts_search("asgari ödeme tutarı değiştirilmesi", limit=50)
+        # Neither pass finds "kırkıncı": the OR fallback still runs.
+        relaxed = await credit_card_store._fts_search("asgari ödeme tutarı kırkıncı", limit=50)
+        # Two words give no OR query, so without the inflected match the FTS gate would penalise the hit;
+        # an uncalibrated model shows the ordering score itself unless the gate penalises it.
+        credit_card_store._embedding_model = "uncalibrated-test-model"
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", -1.0):
+            hits = await credit_card_store._hybrid_search("tutarı değiştirilmesi", limit=10)
+
+        assert [(hit["doc_id"], hit["fts_relaxed"], hit["fts_inflected"]) for hit in fts_hits] == [
+            ("inflected", False, True),
+            ("exact", True, False),
+        ]
+        # The relaxed rank of the superseded row is kept for the lexical scale.
+        assert fts_hits[0]["relaxed_fts_rank"] > 0 and "relaxed_fts_rank" not in fts_hits[1]
+        assert {hit["doc_id"] for hit in relaxed} >= {"exact", "inflected"}
+        assert all(hit["fts_relaxed"] for hit in relaxed)
+        hit = next(hit for hit in hits if hit["doc_id"] == "inflected")
+        assert hit["match_type"] == "hybrid"
+        assert hit["ordering_score"] > 0 and hit["relevance"] == hit["ordering_score"]
+
+    @pytest.mark.asyncio
+    async def test_without_a_strict_match_a_relaxed_only_document_keeps_its_boost_beside_an_inflected_one(
+        self, credit_card_store
+    ):
+        # "exact" lacks "değiştirilmesi": only the relaxed OR pass finds it; "inflected" holds every word inflected.
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", -1.0):
+            hits = await credit_card_store._hybrid_search("asgari ödeme tutarı değiştirilmesi", limit=10)
+
+        by_id = {hit["doc_id"]: hit for hit in hits}
+        assert by_id["exact"]["match_type"] == "hybrid" and by_id["exact"]["lexical_relevance"] > 0
+        assert by_id["inflected"]["match_type"] == "hybrid" and by_id["inflected"]["lexical_relevance"] > 0
+
+    @pytest.mark.asyncio
+    async def test_an_exact_all_words_match_outranks_a_slightly_closer_inflected_one(self):
+        vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = EMBEDDING_MODEL_NAME
+        vs._vector_search = AsyncMock(
+            return_value=[
+                {"doc_id": "inflected", "relevance": 0.87, "title": "I", "snippet": "i"},
+                {"doc_id": "exact", "relevance": 0.86, "title": "E", "snippet": "e"},
+            ]
+        )
+        vs._fts_search = AsyncMock(
+            return_value=[
+                {"doc_id": "exact", "fts_rank": 4.0, "title": "E", "snippet": "e", "fts_relaxed": False},
+                {
+                    "doc_id": "inflected",
+                    "fts_rank": 4.0,
+                    "title": "I",
+                    "snippet": "i",
+                    "fts_relaxed": False,
+                    "fts_inflected": True,
+                },
+            ]
+        )
+
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", None):
+            hits = await vs._hybrid_search("zzz", limit=10)
+
+        # A word matched only in another inflection counts for less than a word matched as typed, but counts.
+        assert [hit["doc_id"] for hit in hits] == ["exact", "inflected"]
+        assert hits[0]["lexical_relevance"] == 1.0
+        assert 0 < hits[1]["lexical_relevance"] < 1.0
+
+    @pytest.mark.asyncio
+    async def test_an_inflected_hit_that_supersedes_a_relaxed_row_changes_no_lexical_value(self):
+        vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = EMBEDDING_MODEL_NAME
+        vs._vector_search = AsyncMock(
+            return_value=[
+                {"doc_id": d, "relevance": 0.85, "title": d, "snippet": d} for d in ("promoted", "loose", "low")
+            ]
+        )
+        vs._fts_search = AsyncMock(
+            return_value=[
+                # Its relaxed row (rank 10) was the best relaxed match; its inflected rank is lower.
+                {
+                    "doc_id": "promoted",
+                    "fts_rank": 5.0,
+                    "title": "P",
+                    "snippet": "p",
+                    "fts_relaxed": False,
+                    "fts_inflected": True,
+                    "relaxed_fts_rank": 10.0,
+                },
+                {
+                    "doc_id": "low",
+                    "fts_rank": 12.0,
+                    "title": "N",
+                    "snippet": "n",
+                    "fts_relaxed": False,
+                    "fts_inflected": True,
+                    "relaxed_fts_rank": 2.0,
+                },
+                {
+                    "doc_id": "loose",
+                    "fts_rank": 8.0,
+                    "title": "L",
+                    "snippet": "l",
+                    "fts_relaxed": True,
+                    "fts_inflected": False,
+                },
+            ]
+        )
+
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", None):
+            hits = await vs._hybrid_search("zzz", limit=10)
+
+        lexical = {hit["doc_id"]: hit["lexical_relevance"] for hit in hits}
+        # Every relaxed row, superseded ones included, sets the scale (10), as before the inflected pass;
+        # an inflected hit gets half its capped value on that scale, never less than its relaxed row's.
+        assert lexical == {"promoted": 1.0, "loose": 0.8, "low": 0.5}
+
+    @pytest.mark.asyncio
+    async def test_an_inflected_hit_is_never_fts_exact_nor_a_keyword_only_hit(self):
+        vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = EMBEDDING_MODEL_NAME
+        vs._vector_search = AsyncMock(return_value=[])
+        inflected = {
+            "doc_id": "inflected",
+            "fts_rank": 0.9,
+            "title": "Yönetmelik",
+            "snippet": "MADDE 5 - Sermaye yeterliliğinin hesaplanması",
+            "chunk_text": "MADDE 5 - Sermaye yeterliliğinin hesaplanması",
+            "fts_relaxed": False,
+            "fts_inflected": True,
+        }
+        vs._fts_search = AsyncMock(return_value=[inflected])
+
+        assert await vs._hybrid_search("sermaye yeterliliği madde 5", limit=10) == []
+        assert await vs._hybrid_search("sermaye yeterliliği hesaplanması", limit=10) == []
+
+
 class TestSearchHitDocumentMetadata:
     @pytest.mark.asyncio
     async def test_hits_carry_source_url_decision_number_and_chunk_section(self, vector_store, doc_store):
@@ -1382,6 +1566,220 @@ class TestSearchHonesty:
         assert top["semantic_relevance"] == 0.95
         assert below["relevance_clamped"] is False
 
+    def test_dated_decisions_at_the_ceiling_are_listed_newest_first_in_their_own_positions(self):
+        from bddk_mcp.store.vector_store import _newest_first_among_clamped_decisions
+
+        def hit(doc_id: str, date: str, clamped: bool = True) -> dict:
+            return {"doc_id": doc_id, "decision_date": date, "relevance_clamped": clamped}
+
+        hits = [
+            hit("d2020", "10.01.2020"),
+            hit("d2022", "05.05.2022"),
+            hit("law", ""),
+            hit("d2021", "01.03.2021"),
+            hit("same_a", "26.09.2024"),
+            hit("same_b", "26.09.2024"),
+            hit("unparseable", "2024-09-26"),
+            hit("d2025", "01.01.2025"),
+            hit("below_2026", "01.01.2026", clamped=False),
+            hit("below_2027", "01.01.2027", clamped=False),
+        ]
+
+        # The dated hits at the ceiling fill their own positions newest first; the undated, unparseable and
+        # below-ceiling hits keep theirs, so a decision may pass an undated hit.
+        assert [h["doc_id"] for h in _newest_first_among_clamped_decisions(hits, "kredi kartı")] == [
+            "d2025",
+            "same_a",
+            "law",
+            "same_b",
+            "d2022",
+            "d2021",
+            "unparseable",
+            "d2020",
+            "below_2026",
+            "below_2027",
+        ]
+
+    def test_a_newer_decision_passes_an_undated_regulation_and_a_named_decision_stays(self):
+        from bddk_mcp.store.vector_store import _newest_first_among_clamped_decisions
+
+        def hit(doc_id: str, date: str, title: str) -> dict:
+            return {"doc_id": doc_id, "decision_date": date, "relevance_clamped": True, "title": title}
+
+        hits = [
+            hit("1255", "26.09.2024", "Kredi Kartı Asgari Ödeme Tutarının Değiştirilmesi Hk. Kurul Kararı"),
+            hit("mevzuat_11180", "", "Yönetmelik"),
+            hit("named", "01.01.2025", "Asgari Ödeme Oranı Yüzde"),
+            hit("1349", "01.10.2026", "Kredi Kartı Asgari Ödeme Tutarının Değiştirilmesi Hk. Kurul Kararı"),
+            hit("781", "30.03.2020", "Bireysel Kredi Kartlarında Asgari Ödeme Oranının Değiştirilmesi"),
+        ]
+
+        ordered = _newest_first_among_clamped_decisions(hits, "kredi kartı asgari ödeme oranı yüzde kaç")
+
+        assert [h["doc_id"] for h in ordered] == ["1349", "mevzuat_11180", "named", "1255", "781"]
+
+    def test_a_decision_whose_whole_title_is_in_the_query_keeps_its_place(self):
+        from bddk_mcp.store.vector_store import _newest_first_among_clamped_decisions
+
+        def hit(doc_id: str, date: str, title: str) -> dict:
+            return {"doc_id": doc_id, "decision_date": date, "relevance_clamped": True, "title": title}
+
+        title = "Kredi Kartı Asgari Ödeme Tutarının Değiştirilmesi Hk. Kurul Kararı"
+        hits = [
+            hit("d2019", "01.01.2019", "Başka Karar"),
+            hit("named_2020", "30.03.2020", title),
+            hit("d2021", "01.01.2021", "Kredi Kartı Hk. Kurul Kararı"),
+            hit("named_2024", "26.09.2024", title),
+            hit("d2022", "01.01.2022", "Kredi Kartı Asgari Ödeme Oranı"),
+            hit("d2023", "01.01.2023", "Kredi Kartı Asgari Ödeme Süresi"),
+        ]
+
+        # The query is a stored title: the decisions carrying it keep their internal-score order and places;
+        # the other dated decisions fill the remaining positions newest first.
+        assert [h["doc_id"] for h in _newest_first_among_clamped_decisions(hits, title)] == [
+            "d2023",
+            "named_2020",
+            "d2022",
+            "named_2024",
+            "d2021",
+            "d2019",
+        ]
+        assert [h["doc_id"] for h in _newest_first_among_clamped_decisions(hits, "kredi kartı asgari ödeme")] == [
+            "named_2024",
+            "d2023",
+            "d2022",
+            "d2021",
+            "named_2020",
+            "d2019",
+        ]
+
+    @staticmethod
+    def _class_hit(doc_id: str, category: str, relevance: float, match_type: str = "hybrid", title: str = "") -> dict:
+        return {
+            "doc_id": doc_id,
+            "category": category,
+            "relevance": relevance,
+            "match_type": match_type,
+            "title": title or f"Belge {doc_id}",
+        }
+
+    def test_taslak_and_mulga_hits_follow_the_others_of_their_band(self):
+        from bddk_mcp.store.vector_store import _catalog_class_last
+
+        hit = self._class_hit
+        hits = [
+            hit("draft_s", "Düzenleme Taslağı", 1.0),
+            hit("reg_s", "Yönetmelik", 1.0),
+            hit("exact_draft", "Düzenleme Taslağı", 0.0, "fts_exact"),
+            hit("repealed_s", "Mülga Düzenleme", 0.9),
+            hit("reg2_s", "Yönetmelik", 0.8),
+            hit("draft_m", "Düzenleme Taslağı", 0.6),
+            hit("reg_m", "Rehber", 0.55),
+            hit("draft_kw", "Düzenleme Taslağı", 0.0, "fts"),
+            hit("reg_kw", "Tebliğ", 0.0, "fts"),
+            hit("repealed_w", "Mülga Düzenleme", 0.4),
+            hit("reg_w", "Genelge", 0.3),
+        ]
+
+        ordered = [h["doc_id"] for h in _catalog_class_last(hits, "kredi riskine esas tutar", None)]
+
+        assert ordered == [
+            "reg_s",
+            "reg2_s",
+            "exact_draft",
+            "draft_s",
+            "repealed_s",
+            "reg_m",
+            "draft_m",
+            "reg_kw",
+            "draft_kw",
+            "reg_w",
+            "repealed_w",
+        ]
+
+    def test_the_class_order_exemptions(self):
+        from bddk_mcp.store.vector_store import _catalog_class_last
+
+        hit = self._class_hit
+        hits = [
+            hit("draft", "Düzenleme Taslağı", 1.0, title="Kredi Riskine Esas Tutarın Hesaplanmasına İlişkin Taslak"),
+            hit("repealed", "Mülga Düzenleme", 1.0, title="Faiz Oranı Riskinin Standart Yöntemle Ölçülmesi"),
+            hit("number", "Mülga Düzenleme", 0.0, "decision_number"),
+            hit("reg", "Yönetmelik", 0.9),
+        ]
+
+        def order(query: str, category: str | None = None) -> list[str]:
+            return [h["doc_id"] for h in _catalog_class_last(hits, query, category)]
+
+        assert order("kredi riski") == ["reg", "draft", "number", "repealed"]
+        # A query naming the class keeps every hit of that class in place, not those of the other class.
+        assert order("kredi riski düzenleme taslağı") == ["draft", "reg", "number", "repealed"]
+        assert order("taslak metinler") == ["draft", "reg", "number", "repealed"]
+        assert order("mülga yönetmelik") == ["reg", "repealed", "number", "draft"]
+        assert order("yürürlükten kaldırılan düzenleme") == ["reg", "repealed", "number", "draft"]
+        # The whole title in the query exempts that hit; title words in a generic query do not.
+        assert order("faiz oranı riskinin standart yöntemle ölçülmesi madde 4") == [
+            "reg",
+            "repealed",
+            "number",
+            "draft",
+        ]
+        assert order("faiz oranı riski") == ["reg", "draft", "number", "repealed"]
+        # An explicit category leaves the order alone.
+        assert order("kredi riski", "Düzenleme Taslağı") == ["draft", "repealed", "number", "reg"]
+
+    @pytest.mark.asyncio
+    async def test_the_class_order_is_applied_before_the_limit(self):
+        vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = "intfloat/multilingual-e5-base"
+        categories = {"draft": "Düzenleme Taslağı", "reg": "Yönetmelik"}
+        vs._vector_search = AsyncMock(
+            return_value=[
+                {"doc_id": "draft", "relevance": 0.99, "title": "T", "snippet": "t", "category": categories["draft"]},
+                {"doc_id": "reg", "relevance": 0.97, "title": "R", "snippet": "r", "category": categories["reg"]},
+            ]
+        )
+        vs._fts_search = AsyncMock(
+            return_value=[
+                {"doc_id": d, "fts_rank": 1.0, "title": d, "snippet": d, "fts_relaxed": False} for d in categories
+            ]
+        )
+
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", None):
+            everything = await vs._hybrid_search("kredi riski", limit=10)
+            top = await vs._hybrid_search("kredi riski", limit=1)
+            filtered = await vs._hybrid_search("kredi riski", limit=10, category="Yönetmelik")
+
+        assert [h["doc_id"] for h in everything] == ["reg", "draft"]
+        assert [h["doc_id"] for h in top] == ["reg"]
+        assert [h["doc_id"] for h in filtered] == ["draft", "reg"]
+
+    @pytest.mark.asyncio
+    async def test_the_date_order_is_applied_before_the_limit(self):
+        vs = VectorStore.__new__(VectorStore)
+        vs._embedding_model = "intfloat/multilingual-e5-base"
+        dates = {"old": "30.03.2020", "mid": "09.06.2022", "new": "26.09.2024"}
+        cosines = {"old": 0.99, "mid": 0.98, "new": 0.97}
+        vs._vector_search = AsyncMock(
+            return_value=[
+                {"doc_id": d, "relevance": c, "title": d, "snippet": d, "decision_date": dates[d]}
+                for d, c in cosines.items()
+            ]
+        )
+        vs._fts_search = AsyncMock(
+            return_value=[
+                {"doc_id": d, "fts_rank": 1.0, "title": d, "snippet": d, "fts_relaxed": False} for d in cosines
+            ]
+        )
+
+        with patch("bddk_mcp.store.vector_store.SEMANTIC_RELEVANCE_THRESHOLD", None):
+            everything = await vs._hybrid_search("kredi kartı", limit=10)
+            top_two = await vs._hybrid_search("kredi kartı", limit=2)
+
+        assert all(h["relevance_clamped"] for h in everything)
+        assert [h["doc_id"] for h in everything] == ["new", "mid", "old"]
+        assert [h["doc_id"] for h in top_two] == ["new", "mid"]
+
     @pytest.mark.asyncio
     async def test_a_query_of_function_words_only_is_not_searched(self, vector_store, doc_store):
         await _store_and_index(vector_store, doc_store, doc_id="d1", title="T", content="ve ile bir bu da de için")
@@ -1422,6 +1820,40 @@ class TestSearchHonesty:
         assert all(not hit.get("decision_number_match") for hit in await vector_store.search("9999", limit=10))
         assert await vector_store.search("8948", limit=10, category="Yönetmelik") == []
 
+    @pytest.mark.asyncio
+    async def test_decision_numbers_the_query_names_that_no_stored_document_carries(self, vector_store, doc_store):
+        await doc_store.store_document(
+            StoredDocument(
+                document_id="775",
+                title="Kurul Kararı",
+                markdown_content="Kurul kararı metni: kredilerin sınıflandırılması.",
+                category="Kurul Kararı",
+                decision_number="8948",
+            )
+        )
+        await vector_store.add_document(
+            doc_id="775", title="Kurul Kararı", content="Kurul kararı metni: kredilerin sınıflandırılması."
+        )
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="other",
+            title="T",
+            content="11250 sayılı Kurul Kararı ile 5411 sayılı Kanun",
+        )
+
+        async def not_stored(query: str, category: str | None = None) -> list[str]:
+            return (await vector_store.search(query, limit=10, category=category)).decision_numbers_not_stored
+
+        assert await not_stored("8948 sayılı Kurul Kararı") == []
+        # The category filter does not hide a stored number.
+        assert await not_stored("8948 sayılı karar", category="Yönetmelik") == []
+        assert await not_stored("15.07.2025 tarihli ve 11250 sayılı Kurul Kararı") == ["11250"]
+        assert await not_stored("11250") == ["11250"]
+        assert await not_stored("11250 sayılı karar ile 8948 sayılı karar") == ["11250"]
+        # A law number is not a decision number.
+        assert await not_stored("5411 sayılı Kanun") == []
+
 
 class TestSectionReferencesInTheKeywordPass:
     """A section reference is searched by keyword as the corpus prints it ("md. 9" -> "madde 9")."""
@@ -1461,6 +1893,8 @@ class TestSectionReferencesInTheKeywordPass:
         await vs._fts_search("Kredilerin Sınıflandırılması md. 9", document_limit=None)
         assert matches[0] == '"kredilerin" "siniflandirilmasi" "madde" "9"'
         assert matches[1] is not None and '"madde"*' in matches[1]
+        # The strict pass found nothing: the relaxed OR pass runs.
+        assert matches[2] is not None and " OR " in matches[2] and '"madde"*' in matches[2]
 
 
 class TestFiguresAndLetteredReferencesInTheStrictPass:
@@ -1580,3 +2014,144 @@ class TestGlossaryCapitalsRule:
         bakiniz = normalize_query("TEMİNAT DEĞERLEMESİ (BKZ. EK-1)", vocabulary)
         assert bakiniz == "teminat değerlemesi (bkz. ek-1)"
         assert _glossary_entries(bakiniz) == []
+
+
+class TestDocumentsTheQueryNamesComeFirst:
+    """A document whose whole title occurs in the query, or mevzuat_<n> for "<n> sayılı Kanun", is listed first."""
+
+    @staticmethod
+    async def _fillers(vector_store, doc_store, content: str, count: int = 12) -> None:
+        for index in range(count):
+            await _store_and_index(
+                vector_store, doc_store, doc_id=f"filler{index}", title=f"Dolgu {index}", content=content
+            )
+
+    @pytest.mark.asyncio
+    async def test_documents_sharing_the_named_title_come_first_newest_first_beyond_the_semantic_hits(
+        self, vector_store, doc_store
+    ):
+        title = "Karşılık Yönetmeliği uygulamasına ilişkin Kurul Kararı"
+        await self._fillers(vector_store, doc_store, f"{title} metni")
+        for doc_id, date in (("k2015", "08.10.2015"), ("k2016", "12.12.2016")):
+            await _store_and_index(
+                vector_store,
+                doc_store,
+                doc_id=doc_id,
+                title=title,
+                content="Ayrılmış metin zzz.",
+                category="Kurul Kararı",
+                decision_date=date,
+            )
+
+        hits = await vector_store.search(title, limit=10)
+
+        assert [hit["doc_id"] for hit in hits[:2]] == ["k2016", "k2015"]
+        assert {hit["match_type"] for hit in hits[:2]} == {"named"}
+        assert all(hit["relevance"] == 0.0 and hit["named_by"] == "title" for hit in hits[:2])
+        assert len(hits) == 10 and all(hit["match_type"] != "named" for hit in hits[2:])
+        assert all(hit["doc_id"].startswith("filler") for hit in await vector_store.search(title, category="Rehber"))
+
+    @pytest.mark.asyncio
+    async def test_a_law_cited_by_its_number_comes_first_in_any_case_form(self, vector_store, doc_store):
+        await self._fillers(vector_store, doc_store, "5411 sayılı Kanunun 54 üncü maddesi uyarınca")
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="mevzuat_5411",
+            title="5411 sayılı Bankacılık Kanunu",
+            content="Amaç ve kapsam.",
+            category="Kanun",
+        )
+
+        for query in ("5411 sayılı Kanunun 54 üncü maddesi", "5411 SAYILI KANUNA göre", "5411 sayılı kanun"):
+            hits = await vector_store.search(query, limit=10)
+            assert hits[0]["doc_id"] == "mevzuat_5411", query
+            assert hits[0]["match_type"] == "named" and hits[0]["named_by"] == "law_number", query
+        # mevzuat_1234 of another type is not the law "1234 sayılı Kanun" cites.
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="mevzuat_1234",
+            title="Örnek Tebliğ",
+            content="Amaç ve kapsam.",
+            category="Tebliğ",
+        )
+        assert all(hit["match_type"] != "named" for hit in await vector_store.search("1234 sayılı Kanun", limit=10))
+
+    @pytest.mark.asyncio
+    async def test_a_longer_named_title_and_a_title_typed_as_stored_come_first(self, vector_store, doc_store):
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="regulation",
+            title="Bankaların Kredi İşlemlerine İlişkin Yönetmelik",
+            content="Yönetmelik metni.",
+        )
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="decision",
+            title="Bankaların Kredi İşlemlerine İlişkin Yönetmelik Kapsamında Kurul Kararı",
+            content="Karar metni.",
+            decision_date="01.01.2020",
+        )
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="curly",
+            title="Şirkete “değerleme” yetkisi verilmesine ilişkin Kurul Kararı",
+            content="Birinci karar.",
+            decision_date="01.01.2011",
+        )
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="straight",
+            title='Şirkete "değerleme" yetkisi verilmesine ilişkin Kurul Kararı',
+            content="İkinci karar.",
+            decision_date="01.01.2014",
+        )
+
+        def named(hits) -> list[str]:
+            return [hit["doc_id"] for hit in hits if hit["match_type"] == "named"]
+
+        query = "Bankaların Kredi İşlemlerine İlişkin Yönetmelik Kapsamında Kurul Kararı"
+        assert named(await vector_store.search(query, limit=10)) == ["decision", "regulation"]
+        curly = "Şirkete “değerleme” yetkisi verilmesine ilişkin Kurul Kararı"
+        assert named(await vector_store.search(curly, limit=10)) == ["curly", "straight"]
+        straight = 'Şirkete "değerleme" yetkisi verilmesine ilişkin Kurul Kararı'
+        assert named(await vector_store.search(straight, limit=10)) == ["straight", "curly"]
+
+    @pytest.mark.asyncio
+    async def test_a_named_document_keeps_the_chunk_of_its_hybrid_hit(self, vector_store, doc_store):
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="regulation",
+            title="Bankaların Kredi İşlemlerine İlişkin Yönetmelik",
+            content="MADDE 1 - (1) Genel hükümler.\n\nMADDE 2 - (1) Teminat oranı yüzde elli olarak uygulanır.",
+        )
+
+        hits = await vector_store.search("Bankaların Kredi İşlemlerine İlişkin Yönetmelik teminat oranı", limit=10)
+
+        assert hits[0]["doc_id"] == "regulation" and hits[0]["match_type"] == "named"
+        assert (hits[0]["section_type"], hits[0]["section_ref"]) == ("madde", "2")
+
+    @pytest.mark.asyncio
+    async def test_a_short_title_without_a_type_word_or_number_names_its_document_only_as_the_whole_query(
+        self, vector_store, doc_store
+    ):
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="foreign",
+            title="Yabancı bankaların kredi sınırları",
+            content="Karar metni.",
+            decision_date="31.05.2006",
+        )
+
+        passing = await vector_store.search("yabancı bankaların kredi sınırları nasıl hesaplanır", limit=10)
+        whole = await vector_store.search("Yabancı bankaların kredi sınırları", limit=10)
+
+        assert all(hit["match_type"] != "named" for hit in passing)
+        assert whole[0]["doc_id"] == "foreign" and whole[0]["match_type"] == "named"

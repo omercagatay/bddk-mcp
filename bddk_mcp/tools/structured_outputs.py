@@ -9,7 +9,6 @@ results.
 
 from __future__ import annotations
 
-import re
 from datetime import UTC, datetime
 from typing import Annotated, Literal, TypeAlias
 
@@ -17,6 +16,7 @@ from mcp.types import CallToolResult, TextContent
 from pydantic import BaseModel, ConfigDict, Field
 
 from bddk_mcp.quotations import ExactQuotationCheck
+from bddk_mcp.store.doc_store import catalog_status_class
 
 SCHEMA_VERSION = "2.0"
 CORPUS_SCOPE_WARNING = (
@@ -35,9 +35,6 @@ LEGAL_APPLICABILITY_WARNING = (
 )
 REPEALED_STATUS_NOTICE = "BDDK catalog class: MÜLGA (repealed) - do not present this text as a provision in force."
 DRAFT_STATUS_NOTICE = "BDDK catalog class: TASLAK (draft) - not an instrument in force."
-_STATUS_FOLD = str.maketrans({"I": "ı", "İ": "i", "ü": "u", "Ü": "u", "ğ": "g", "Ğ": "g"})
-_REPEALED_CATEGORY_RE = re.compile(r"\bmulga\b")
-_DRAFT_CATEGORY_RE = re.compile(r"\btasla[kg]")
 
 
 def document_status_notice(category: str | None) -> str | None:
@@ -46,14 +43,7 @@ def document_status_notice(category: str | None) -> str | None:
     Only the catalog category is read: an instrument repealed or drafted under
     another category is not detected, so None never means the text is in force.
     """
-    if not category:
-        return None
-    folded = category.translate(_STATUS_FOLD).lower()
-    if _REPEALED_CATEGORY_RE.search(folded):
-        return REPEALED_STATUS_NOTICE
-    if _DRAFT_CATEGORY_RE.search(folded):
-        return DRAFT_STATUS_NOTICE
-    return None
+    return {"repealed": REPEALED_STATUS_NOTICE, "draft": DRAFT_STATUS_NOTICE}.get(catalog_status_class(category))
 
 
 def utc_date(timestamp: float | None) -> str | None:
@@ -243,18 +233,22 @@ class DocumentSearchItem(StrictOutputModel):
             "hits (0.0, no semantic score) in keyword (BM25) order, then the remaining vector hits by "
             "this score, so a later hit can score higher than an earlier hybrid hit; these are the hits within "
             "0.051 of the top ordering score, and the other semantic hits follow them by this score. keyword-only fts hits "
-            "(0.0, no semantic score: the words of the query all occur in the chunk or in its document title as separate words; this does not say that the phrase or the figure of the query occurs) follow the strong and moderate hits in BM25 order, and the weak hits (relevance below 0.50) come after them."
+            "(0.0, no semantic score: the words of the query all occur in the chunk or in its document title as separate words; this does not say that the phrase or the figure of the query occurs) follow the strong and moderate hits in BM25 order, and the weak hits (relevance below 0.50) come after them. "
+            "Within each match_strength band, TASLAK/MÜLGA catalog-class documents are listed after the others "
+            "(not when the query names that class or the document's whole title, nor with a category filter; "
+            "fts_exact and decision_number hits keep their place); the catalog class is the only source of that "
+            "mark. Documents the query names (match_type named, 0.0) come before every other hit."
         ),
     )
     match_strength: Literal["strong", "moderate", "weak", "keyword"] = Field(
         description=(
-            "Stable relevance band derived from relevance; 'keyword' for fts_exact, fts and decision_number "
-            "hits, which have no "
+            "Stable relevance band derived from relevance; 'keyword' for fts_exact, fts, decision_number and "
+            "named hits, which have no "
             "semantic score to band."
         )
     )
     quality: QualityMetadata = Field(description="Known local document-quality status.")
-    match_type: Literal["hybrid", "vector", "fts", "fts_exact", "decision_number"] | None = Field(
+    match_type: Literal["hybrid", "vector", "fts", "fts_exact", "decision_number", "named"] | None = Field(
         default=None,
         description=(
             "How the hit was retrieved: hybrid (semantic and keyword), vector (semantic only), fts (keyword "
@@ -262,7 +256,11 @@ class DocumentSearchItem(StrictOutputModel):
             "that the phrase or the figure of the query occurs, and the document had no "
             "semantic hit; no semantic score) or fts_exact (every query word, including a legal reference, matched by keyword search; "
             "a keyword match, not a confirmed provision) or decision_number (the query is a bare decision "
-            "number and this document carries that decision number; no semantic score)."
+            "number and this document carries that decision number; no semantic score) or named (the query "
+            "names this document: its whole title occurs in the query, or the query cites '<n> sayılı Kanun' "
+            "and this is mevzuat_<n>; named documents are listed first, a title before a law number, a longer "
+            "title first, a title typed as stored before one matched only after normalisation, then the newest "
+            "decision date, undated last; it does not say which provision answers the query; no semantic score)."
         ),
     )
     section_type: str | None = Field(
@@ -291,7 +289,10 @@ class DocumentSearchItem(StrictOutputModel):
         default=None,
         description=(
             "True when relevance sits at the calibration ceiling (1.0) because the ordering score reached or "
-            "passed it: such hits tie on the shown value and are ordered by the internal score."
+            "passed it: such hits tie on the shown value and are ordered by the internal score, except that "
+            "the tied hits with a decision date are listed newest first in the positions they occupy; an undated "
+            "tied hit, and a decision whose whole title occurs in the query, keeps its exact position, so a "
+            "decision may pass an undated hit."
         ),
     )
     semantic_relevance: float | None = Field(
@@ -322,6 +323,14 @@ class DocumentSearchResponse(RetrievalResponse):
             "Abbreviations of the reviewed search glossary found in the query, each as '<ABBR> read as "
             "<expansion>': the expansion was added to the semantic query and searched by keyword in place of "
             "the abbreviation. Other abbreviations are matched only literally."
+        ),
+    )
+    decision_numbers_not_stored: list[str] | None = Field(
+        default=None,
+        description=(
+            "Decision numbers the query names ('<n> sayılı karar', or a bare decision number) that no stored "
+            "document carries. The corpus is a selection of BDDK documents: this does not say that the decision "
+            "does not exist, and the results are other documents."
         ),
     )
 
@@ -508,6 +517,15 @@ class SectionItem(StrictOutputModel):
             "the exact query words); such hits carry no rank and are listed after the strict hits."
         ),
     )
+    chunk_match: Literal["semantic"] | None = Field(
+        default=None,
+        description=(
+            "'semantic' when this section was added because the embedding search of search_document_store ranked a "
+            "chunk inside it among its strong or moderate hits: a semantic lead, not an exact-word match (the "
+            "section need not hold the query words). At most one such hit, without rank, follows the section matches, "
+            "in a free slot or in place of the last loose-fallback hit; only in a search without document scope or section_type."
+        ),
+    )
     display_section_ref: str | None = Field(
         default=None,
         description=(
@@ -594,7 +612,8 @@ class SectionSearchResponse(RetrievalResponse):
     inferred_document_filter_dropped: bool = Field(
         default=False,
         description=(
-            "Whether a document ID inferred from a number in the query was not applied as a filter, either "
+            "Whether a document ID inferred from a number in the query, or a document identified by the "
+            "instrument name beside a section reference, was not applied as a filter, either "
             "because no such document is stored or because no section in it matched; the search then ran "
             "over all documents."
         ),
@@ -603,15 +622,16 @@ class SectionSearchResponse(RetrievalResponse):
         default=False,
         description=(
             "Whether the returned hits were limited to a document whose ID was inferred from a number in the "
-            "query (not passed as document_id)."
+            "query, or that the instrument name beside a section reference identified by its title (not passed "
+            "as document_id); the text note names which."
         ),
     )
     query_words_not_searched: list[str] = Field(
         default_factory=list,
         description=(
             "Query words that the exact-word and inflection-tolerant passes did not require: Turkish question "
-            "words, the frame words of a question (e.g. 'oluşur'), and 'yüzde' (optional because sources also "
-            "write '%')."
+            "words, the frame words of a question (e.g. 'oluşur', 'demektir', 'kadar', 'en az'), 'yüzde' (optional because "
+            "sources also write '%') and 'tanım'/'tanımı' (a definition is written as the term and its meaning)."
         ),
     )
     results: list[SectionItem] = Field(default_factory=list, description="Ranked structural section matches.")

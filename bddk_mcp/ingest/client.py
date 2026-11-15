@@ -30,7 +30,12 @@ from bddk_mcp.core.outbound_http import (
     assert_public_https_resolution,
     bounded_request_with_retry,
 )
-from bddk_mcp.store.doc_store import DocumentStore, normalize_search_text
+from bddk_mcp.store.doc_store import (
+    DocumentStore,
+    catalog_classes_named,
+    catalog_status_class,
+    normalize_search_text,
+)
 from bddk_mcp.store.legal_ref import parse_legal_refs
 
 logger = logging.getLogger(__name__)
@@ -549,6 +554,75 @@ def _phrase_and_title_coverage(content_tokens: list[str], title_words: list[str]
     ]
     matched = sum(1 for word in content_words if any(_title_word_matches(token, word) for token in content_tokens))
     return phrase, Fraction(matched, len(content_words)) if content_words else Fraction(0)
+
+
+def _instrument_type(entry: BddkDecisionSummary) -> re.Pattern[str] | None:
+    """The document type of an entry: the type word of its catalog category ("Yönetmelik", "Kurul Kararı",
+    "Düzenleme Taslağı"), else, for a mixed website section ("Mülga Düzenleme", "Bilgi Sistemleri"), the last
+    type word of its title; None when neither names one."""
+    for text in (entry.category, entry.title):
+        types = [pattern for word in _catalog_tokens(text) if (pattern := _document_type_pattern(word))]
+        if types:
+            return types[-1]
+    return None
+
+
+def identify_instrument(entries: list[BddkDecisionSummary], keywords: str) -> list[BddkDecisionSummary]:
+    """The catalog entries that an instrument name ("Kredi İşlemleri Yönetmeliği madde 5") identifies.
+
+    The section references are left out (``_without_section_references``); the last document-type word of
+    the rest is the type asked for, and at least one content word must remain. A candidate is of that type
+    (``_instrument_type``) and every content word is a word of its title or an inflection of the same root
+    (``_stem_grade`` 2: "Karşılık" reaches "Karşılıklara" but not "Karşılama"; category and other fields do not
+    count; "mülga" names the class, not a title word). The only candidate is identified, and a name of one
+    content word identifies nothing else. Among several, only those whose title the name covers whole stand out (title-side coverage 1, the share of the title's content
+    words that the name matches, ``_phrase_and_title_coverage``); a shorter title never wins on coverage alone.
+    Among candidates covered equally, a TASLAK/MÜLGA catalog-class entry gives way to one that is not, and when
+    the name names a class ("mülga", "taslak") an entry of that class wins. One entry returned identifies the
+    instrument; several are the candidates of which none stands out (best coverage first); none means that no
+    title matches.
+    """
+    searched, _ = _without_section_references(keywords)
+    tokens = [token for token in _catalog_tokens(searched) if token not in (*_CATALOG_FUNCTION_WORDS, _REPEALED_WORD)]
+    types = [pattern for token in tokens if (pattern := _document_type_pattern(token))]
+    # "Kurul" directly before a type word ("Kurul Kararı") is boilerplate, as in the title-side coverage.
+    content = [
+        token
+        for index, token in enumerate(tokens)
+        if _document_type_pattern(token) is None
+        and not (token == _KURUL and index + 1 < len(tokens) and _document_type_pattern(tokens[index + 1]))
+    ]
+    if not types or not content:
+        return []
+    scored: list[tuple[Fraction, BddkDecisionSummary]] = []
+    for entry in entries:
+        if _instrument_type(entry) is not types[-1]:
+            continue
+        title_words = _catalog_tokens(entry.title)
+        stem_words = [
+            word for word in title_words if _document_type_pattern(word) is None and word not in _CATALOG_FUNCTION_WORDS
+        ]
+        if all(
+            token in title_words
+            if any(char.isdigit() for char in token)
+            else any(_stem_grade(token, word) == 2 for word in stem_words)
+            for token in content
+        ):
+            scored.append((_phrase_and_title_coverage(content, title_words)[1], entry))
+    scored.sort(key=lambda item: item[0], reverse=True)
+    # Coverage alone would pick the shortest title that holds the words ("Kredi Riski Tebliği" -> the Kredi Riski
+    # Azaltım Teknikleri tebliği over the Kredi Riskine Esas Tutar one): among several titles only those the name
+    # covers whole stand out, and titles covered unequally are candidates, none identified.
+    # One word ("Bankalar Kanunu", "Risk Kurul Kararı") is in many titles: it identifies only the one title of
+    # its type that holds it, never the shortest of several.
+    if len(set(content)) == 1 and len(scored) > 1:
+        return [entry for _, entry in scored]
+    pool = [item for item in scored if item[0] == 1] or scored
+    tied = [entry for _, entry in pool]
+    if len({coverage for coverage, _ in pool}) > 1:
+        return tied
+    wanted = catalog_classes_named(keywords) or {None}
+    return [entry for entry in tied if catalog_status_class(entry.category) in wanted] or tied
 
 
 def _parse_date(date_str: str) -> datetime | None:

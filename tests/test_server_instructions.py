@@ -35,7 +35,7 @@ def test_mcp_instructions_exempt_keyword_hits_from_the_relevance_rule():
     instructions = MCP_INSTRUCTIONS.lower()
 
     assert "below 50%" in instructions
-    assert 'hits with match_strength "keyword" are one of three kinds' in instructions
+    assert 'hits with match_strength "keyword" are one of four kinds' in instructions
     assert "(match_type fts_exact) a keyword match on a legal reference of the query that the chunk contains" in (
         instructions
     )
@@ -46,6 +46,7 @@ def test_mcp_instructions_exempt_keyword_hits_from_the_relevance_rule():
     )
     assert "every query word occurs" not in instructions
     assert "(match_type decision_number) a decision-number match" in instructions
+    assert '(match_type named) a document the query names by its whole title or as "<n> sayılı kanun"' in instructions
     assert "no semantic score" in instructions
     assert "relevance 0.0 is not a low score" in instructions
     assert "verify the provision with get_document_section" in instructions
