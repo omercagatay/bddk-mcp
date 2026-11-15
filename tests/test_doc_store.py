@@ -530,7 +530,7 @@ async def test_prefix_stem_section_search_matches_a_plural_locative_and_a_conver
 
 
 @pytest.mark.asyncio
-async def test_section_search_can_keep_only_sections_with_a_word_right_before_a_colon(doc_store):
+async def test_section_search_can_keep_only_the_sections_that_may_define_a_term(doc_store):
     from bddk_mcp.store.doc_store import StoredDocument
 
     await doc_store.store_document(
@@ -540,14 +540,17 @@ async def test_section_search_can_keep_only_sections_with_a_word_right_before_a_
             markdown_content=(
                 "MADDE 3 - Tanımlar\na) Nitelikli pay: payı,\n\nMADDE 4 - Pay\nNitelikli PAY : payı.\n\n"
                 "MADDE 5 - Edinim\nNitelikli pay edinimi izne tabidir: Kurul karar verir.\n\n"
-                "MADDE 6 - Yüzde\nNitelikli pay% oranı: on.\n"
+                "MADDE 6 - Kısaltma\nNitelikli pay (NP): payı.\n\n"
+                "MADDE 7 - Nitelikli paylar\nBir ortaklıkta nitelikli pay edinilir.\n\n"
+                "MADDE 8 - Oy\nNitelikli pay_oy oranı: on.\n"
             ),
         )
     )
 
-    hits = await doc_store.search_document_sections("nitelikli pay", colon_after="pay")
-    assert sorted(hit.section_ref for hit in hits) == ["3", "4"]
-    assert len(await doc_store.search_document_sections("nitelikli pay", colon_after="pay%")) == 0
+    hits = await doc_store.search_document_sections("nitelikli pay", defining="nitelikli pay")
+    assert sorted(hit.section_ref for hit in hits) == ["3", "4", "6", "7"]
+    # A LIKE wildcard in a term is literal: "pay_" does not match "pay :" (madde 4).
+    assert await doc_store.search_document_sections("pay", defining="pay_") == []
 
 
 def test_prefix_stem_removes_an_aorist_verb_ending_above_a_five_character_root():

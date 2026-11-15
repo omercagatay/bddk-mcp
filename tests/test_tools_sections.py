@@ -2202,18 +2202,56 @@ async def test_a_definition_question_lists_the_sections_that_define_the_term_fir
     result = await tool("nitelikli pay tanımı nedir")
 
     items = result.structuredContent["results"]
+    # The draft's definition is not lifted: TASLAK/MÜLGA sections follow the others.
     assert [(item["document_id"], item["definition_match"]) for item in items] == [
         ("mevzuat_5411", True),
         ("mevzuat_10770", True),
-        ("mevzuat_99", True),
         ("mevzuat_10746", False),
+        ("mevzuat_99", False),
     ]
     assert all(item.get("rank") is not None for item in items)
-    assert "Match: DEFINITION: the section prints the searched term followed by a colon" in result.text
+    assert "Match: DEFINITION: the section's heading is the searched term, or it prints the term" in result.text
     assert (
-        "Note: 3 section(s) that define the searched term (print it followed by a colon) are listed first, a "
-        "Kanun's before the others; the other hits follow in their FTS rank order." in result.text
+        "Note: 2 section(s) that define the searched term (their heading is the term, or they print it followed "
+        "by a colon) are listed first, a Kanun's before the others; the other hits follow in their FTS rank "
+        "order." in result.text
     )
+
+
+@pytest.mark.asyncio
+async def test_a_definition_is_also_a_heading_that_is_the_term_or_the_term_with_its_abbreviation(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    for doc_id, category, content in (
+        (
+            "mevzuat_40520",
+            "Yönetmelik",
+            "MADDE 3 - Tanımlar\n(1) h) Risk grubu: Kanunun 49 uncu maddesindeki risk grubunu,\n",
+        ),
+        (
+            "mevzuat_5411",
+            "Kanun",
+            "MADDE 49 - Risk grubu\n(1) Bir kişi ile ilişkili kişiler bir risk grubu oluşturur.\n",
+        ),
+        ("mevzuat_18991", "Yönetmelik", "MADDE 3 - Tanımlar\n(1) i) Risk grubu (RG): ilave risk grubu tanımı,\n"),
+        (
+            "1041",
+            "Rehber",
+            "MADDE 9 - Personel\n(1) Risk grubu ile çalışan risk grubu personeli risk grubu raporu hazırlar.\n",
+        ),
+    ):
+        await doc_store.store_document(
+            StoredDocument(document_id=doc_id, title="T", category=category, markdown_content=content)
+        )
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "search_document_sections")
+
+    result = await tool("risk grubu ne demektir")
+
+    found = [(item["document_id"], item["definition_match"]) for item in result.structuredContent["results"]]
+    # The Kanun's article whose heading is the term first, then the regulations' definitions in rank order.
+    assert found[0] == ("mevzuat_5411", True)
+    assert set(found[1:3]) == {("mevzuat_40520", True), ("mevzuat_18991", True)}
+    assert found[3:] == [("1041", False)]
 
 
 @pytest.mark.asyncio
@@ -2249,7 +2287,7 @@ async def test_a_formula_request_lists_the_definition_that_prints_the_formula_fi
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("query", ["nitelikli pay nedir", "nitelikli pay edinimi tanımı"])
+@pytest.mark.parametrize("query", ["nitelikli pay nedir", "nitelikli pay devri tanımı"])
 async def test_without_a_definition_word_or_a_term_defined_nothing_is_lifted(doc_store, query):
     tool = _capture_tool(await _store_definitions_fixture(doc_store), "search_document_sections")
 

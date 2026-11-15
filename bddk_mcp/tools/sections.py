@@ -95,8 +95,10 @@ _SEMANTIC_MATCH_LINE = (
     "after the section matches"
 )
 _DEFINITION_MATCH_LINE = (
-    "Match: DEFINITION: the section prints the searched term followed by a colon (the form of a definitions "
-    "article) and holds every searched word; listed before the other hits, a Kanun's definition first"
+    "Match: DEFINITION: the section's heading is the searched term, or it prints the term at the start of a line "
+    "or after a list marker followed by a colon (the form of a definitions article), and it holds every searched "
+    "word; listed before the other hits, a Kanun's definition first. Read it: a definition that only refers to "
+    "another provision names that provision"
 )
 _SEMANTIC_WARNING = (
     "Hits marked chunk_match 'semantic' come from the embedding model, not from the query words: they are leads, "
@@ -1251,17 +1253,20 @@ def _without_spans(text: str, spans: list[tuple[int, int, str, str]]) -> str:
 # ("formül"/"formülü"), because a ratio's formula is printed in its definition ("Sermaye yeterliliği standart
 # oranı: ... “özkaynak/(...)” standart oranını").
 _NORMALIZED_DEFINITION_REQUEST_WORDS = _NORMALIZED_DEFINITION_WORDS | {"demektir"} | _NORMALIZED_FORMULA_WORDS
-# How many exact-word hits whose last term word stands before a colon are read for the form of a definition.
+# How many exact-word hits that may define the term (the document store's ``defining`` prefilter) are read.
 _DEFINITION_CANDIDATES = 1000
 
 
-def _definition_pattern(term: str) -> tuple[str, re.Pattern[str]] | None:
-    """The last word of ``term`` and the form of a definition of it on the search form of a text: the term at
-    the start of a line or after a list marker ("a) ", "(1) "), followed by a colon ("Nitelikli pay: ...")."""
-    words = re.findall(r"\w+", normalize_search_text(term))
-    if not words:
-        return None
-    return words[-1], re.compile(r"(?:^|\)\s*)" + r"[^\w:]+".join(map(re.escape, words)) + r"\s*:", re.MULTILINE)
+def _defines(section: StoredDocumentSection, words: list[str]) -> bool:
+    """Whether ``section`` defines the term of ``words`` (search form): its heading is the term, each word
+    possibly inflected ("Risk grubu", "Donuk alacaklar"), or it prints the term at the start of a line or after a
+    list marker ("a) ", "(1) "), followed by a colon, with an abbreviation in parentheses allowed before it
+    ("Nitelikli pay: ...", "Sermaye koruma tamponu (SKT): ...")."""
+    heading = re.findall(r"\w+", normalize_search_text(section.heading or ""))
+    if len(heading) == len(words) and all(word.startswith(term) for word, term in zip(heading, words, strict=True)):
+        return True
+    pattern = r"(?:^|\)\s*)" + r"[^\w:]+".join(map(re.escape, words)) + r"\s*(?:\([^)\n]*\)\s*)?:"
+    return re.search(pattern, normalize_search_text(section.content), re.MULTILINE) is not None
 
 
 async def _definition_sections(
@@ -1272,21 +1277,26 @@ async def _definition_sections(
     section_type: str | None,
     classes_last: frozenset[str],
 ) -> list[StoredDocumentSection]:
-    """The exact-word hits of ``term`` that define it (``_definition_pattern``), a Kanun's first (the norm
-    hierarchy: a regulation's definition derives from the law's), otherwise in FTS rank order."""
-    if (form := _definition_pattern(term)) is None:
+    """The exact-word hits of ``term`` that define it (``_defines``), a Kanun's first (the norm hierarchy: a
+    regulation's definition derives from the law's), otherwise in FTS rank order. A definition in a document of
+    a catalog class in ``classes_last`` (TASLAK/MÜLGA unless the query names it) is not lifted."""
+    words = re.findall(r"\w+", normalize_search_text(term))
+    if not words:
         return []
-    last_word, pattern = form
     candidates = await deps.doc_store.search_document_sections(
         term,
         document_id=document_id,
         section_type=section_type,
         limit=_DEFINITION_CANDIDATES,
         include_source_range=False,
-        colon_after=last_word,
-        **_class_order(classes_last, document_id),
+        defining=term,
     )
-    found = [section for section in candidates if pattern.search(normalize_search_text(section.content))]
+    not_lifted = classes_last if document_id is None else frozenset()
+    found = [
+        section
+        for section in candidates
+        if catalog_status_class(section.document_category) not in not_lifted and _defines(section, words)
+    ]
     found.sort(key=lambda section: section.document_category != "Kanun")
     return await deps.doc_store.hydrate_source_ranges(found) if found else []
 
@@ -1773,15 +1783,25 @@ def register(mcp, deps: Dependencies) -> None:
         used to gate low-confidence retrieval.
 
         Turkish question words (kaç, nedir, nasıl, mi ...), in a question also its
-        frame words (oluşur, yapılır, demektir, kadar, en az ...), "yüzde"
-        (sources also write "%") and "tanım"/"tanımı" (a definition is the term
-        and its meaning) are
+        frame words (oluşur, yapılır, demektir, kadar, en az ...) and "asgari"/
+        "azami" right before its question word ("asgari ne kadar", "azami kaç"),
+        "yüzde" (sources also write "%"), "tanım"/"tanımı" (a definition is the
+        term and its meaning) and "formül"/"formülü" (a formula is written as the
+        computation) are
         not required words; the answer lists them under "not searched". Invisible
         format characters are ignored.
 
+        A definition request ("tanım"/"tanımı", "demektir", or "formül"/"formülü",
+        since a ratio's formula is printed in its definition) lists first the
+        exact-word hits that print the searched term at the start of a line or
+        after a list marker followed by a colon ("a) Nitelikli pay: ..."), a
+        Kanun's definition before the others, marked `definition_match`; the
+        other hits follow in rank order.
+
         When the exact-word pass returns fewer than `limit` hits, it is topped up
         with an inflection-tolerant pass (word roots and prefixes, e.g. "süresi"
-        also finds "süresinin", "denetlenmesi" also finds "denetimi"). Those hits
+        also finds "süresinin", "denetlenmesi" also finds "denetimi", "kredilerde"
+        also finds "kredi", "gecikince" also finds "geciken"). Those hits
         follow the exact-word hits, carry no rank and are marked `stem_match`. The
         loose token fallback runs when both passes find nothing, and also when
         every hit is an inflection-tolerant one; its hits then follow them.
@@ -1822,6 +1842,9 @@ def register(mcp, deps: Dependencies) -> None:
         note names it by its title. When no title stands out, nothing is
         scoped and the note names the candidates (at most five); an
         abbreviation that is not a title word (SYR, İSEDES) identifies nothing.
+        A fıkra written right after an article reference ("madde 12 üçüncü
+        fıkra", "12 nci maddenin 3 üncü fıkrası") is part of that reference: the
+        whole article is returned and a note names the fıkra to read in it.
         """
         # Invisible format characters (soft hyphen, zero-width space) split words: never search them.
         # Control characters (NUL ...) separate words. The query is echoed as given, except that a
@@ -2158,8 +2181,9 @@ def register(mcp, deps: Dependencies) -> None:
         if listed_definitions:
             lines.insert(
                 0,
-                f"Note: {listed_definitions} section(s) that define the searched term (print it followed by a colon) "
-                "are listed first, a Kanun's before the others; the other hits follow in their FTS rank order.\n",
+                f"Note: {listed_definitions} section(s) that define the searched term (their heading is the term, or "
+                "they print it followed by a colon) are listed first, a Kanun's before the others; the other hits "
+                "follow in their FTS rank order.\n",
             )
         if fikra_note:
             lines.insert(0, f"{fikra_note}\n")

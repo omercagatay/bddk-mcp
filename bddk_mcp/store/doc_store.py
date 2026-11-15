@@ -865,7 +865,7 @@ class DocumentStore:
         include_source_range: bool = True,
         prefix_stem: bool = False,
         classes_last: frozenset[str] = frozenset(),
-        colon_after: str | None = None,
+        defining: str | None = None,
     ) -> list[StoredDocumentSection]:
         """Full-text search over structural sections (every query token must match).
 
@@ -876,18 +876,22 @@ class DocumentStore:
         nothing when that expression would equal the strict one. Sections of
         documents whose catalog class (:func:`catalog_status_class`) is in
         ``classes_last`` follow the others, in SQL, so the limit takes the others first.
-        ``colon_after`` keeps only the sections whose search text has that word right before a colon
-        ("pay:" or "pay :"), the form of a definition.
+        ``defining`` (a term) keeps only the sections that may define it: the last word of the term right
+        before a colon or an opening parenthesis in the search text ("pay:", "pay :", "tamponu (SKT):"), or a
+        heading that starts with its first word. It is a prefilter; the caller checks the form itself.
         """
         match = fts_prefix_stem_query(query, section_endings=True) if prefix_stem else fts_match_query(query)
         if match is None:
             return []
         where = ["sections_fts MATCH ?"]
         params: list = [match]
-        if colon_after:
-            word = re.sub(r"([\\%_])", r"\\\1", normalize_search_text(colon_after))
-            where.append("(s.content_norm LIKE ? ESCAPE '\\' OR s.content_norm LIKE ? ESCAPE '\\')")
-            params.extend([f"%{word}:%", f"%{word} :%"])
+        if defining and (words := _FTS_TOKEN_RE.findall(normalize_search_text(defining))):
+            first, last = (re.sub(r"([\\%_])", r"\\\1", word) for word in (words[0], words[-1]))
+            where.append(
+                "(s.content_norm LIKE ? ESCAPE '\\' OR s.content_norm LIKE ? ESCAPE '\\' "
+                "OR s.content_norm LIKE ? ESCAPE '\\' OR s.heading_norm LIKE ? ESCAPE '\\')"
+            )
+            params.extend([f"%{last}:%", f"%{last} :%", f"%{last} (%", f"{first}%"])
         if document_id:
             where.append("s.doc_id = ?")
             params.append(document_id)
