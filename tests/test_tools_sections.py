@@ -3146,6 +3146,50 @@ async def test_an_instrument_named_by_words_scopes_its_section_reference(doc_sto
     assert "match its title and no other stored title as well" in result.text
 
 
+def test_a_fikra_right_after_an_article_reference_is_read_as_part_of_it():
+    from bddk_mcp.store.legal_ref import parse_legal_refs
+    from bddk_mcp.tools.sections import _fikra_spans
+
+    def read(query: str) -> list[tuple[str, str]]:
+        return [(query[start:stop], ref) for start, stop, _, ref in _fikra_spans(query, parse_legal_refs(query))]
+
+    assert read("Kredi Yönetmelik madde 12 üçüncü fıkra") == [(" üçüncü fıkra", "3")]
+    assert read("Kredi Yönetmeliğinin 12 nci maddesinin on birinci fıkrası") == [(" on birinci fıkrası", "11")]
+    assert read("madde 12'nin 3 üncü fıkrası") == [("'nin 3 üncü fıkrası", "3")]
+    assert read("MADDE 12 İKİNCİ FIKRA") == [(" İKİNCİ FIKRA", "2")]
+    assert read("madde 12 ucuncu fikra") == [(" ucuncu fikra", "3")]
+    assert read("madde 12 fıkra 4 kredi") == [(" fıkra 4", "4")]
+    assert read("madde 12, 2. fıkrası") == [(", 2. fıkrası", "2")]
+    # Not beside an article reference, or not a fıkra: nothing is read.
+    assert read("üçüncü fıkra kredi madde 12") == []
+    assert read("madde 12 üçüncü kişiler") == []
+    assert read("paragraf 12 üçüncü fıkra") == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Bankaların Kredi İşlemlerine İlişkin Yönetmelik madde 5 üçüncü fıkra",
+        "Kredi İşlemleri Yönetmeliğinin 5 inci maddesinin 3 üncü fıkrası",
+    ],
+)
+async def test_an_ordinal_fikra_beside_an_article_reference_keeps_the_instrument_and_says_so(doc_store, query):
+    tool = _capture_tool(await _store_named_instruments(doc_store), "search_document_sections")
+
+    result = await tool(query)
+
+    structured = result.structuredContent
+    first = structured["results"][0]
+    assert (first["document_id"], first["section_type"], first["section_ref"]) == ("mevzuat_40520", "madde", "5")
+    assert (structured["document_id"], structured["exact_reference_detected"]) == ("mevzuat_40520", True)
+    note = (
+        "Note: fıkra 3 in the query was read as part of the reference to madde 5: the whole article is returned "
+        "(fıkra rows are not unique addresses); read fıkra 3 in it."
+    )
+    assert note in result.text and note in structured["warnings"]
+
+
 @pytest.mark.asyncio
 async def test_an_instrument_name_that_matches_titles_equally_names_them_and_scopes_nothing(doc_store):
     tool = _capture_tool(await _store_named_instruments(doc_store), "search_document_sections")
