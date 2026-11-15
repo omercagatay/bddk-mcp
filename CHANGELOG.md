@@ -32,6 +32,29 @@ kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözle
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Düzeltildi — kısaltma başlıklı maddeler ve madde sonundaki kısa liste maddeleri (2026-11-15)
+
+Section parser iki boşluğu kapattı; chunker değişmedi.
+
+- `1341`'de dört madde, yaklaşımın kısaltmasıyla başlıklı (`MK-İDDY` 15, `MK-SY` 16,
+  `MK-DDDY` 18, `MK-İDEY` 21). Parser büyük harfli her satırı yapısal başlık sayıp
+  reddettiği için bu maddeler başlıksız kalıyor, üçünün başlığı hiçbir section'a
+  bağlı olmayan 7-9 karakterlik ayrı bir chunk oluyordu. Tire ile birleşmiş kısa büyük
+  harf grupları artık maddenin başlığıdır: section başlık satırından başlar ve heading
+  olarak kısaltmayı taşır. Grup uzunluğu sınırı (en fazla beş harf) `ADI-SOYADI` gibi
+  bir form alanını dışarıda tutar.
+- Bir sonraki maddenin başlığını önceki section'dan ayıran kırpma, bir hükmü kapatan
+  kısa harfli liste maddesini de kesiyordu: `1336` madde 37'nin `a) TRSY$_{Basit}$` …
+  `c) TRSY$_{KASP}$` listesi hiçbir section'a bağlı değildi; `1040`'ta `c) Limitler,`
+  ve `mevzuat_16071` madde 28'de mülga `c)`/`ç)` bentleri komşu section'a yanlış
+  bağlanıyordu. Harfli liste maddesi artık hükmün içeriğidir.
+
+332 belgeden yalnızca bu dördünün section ya da chunk'ları değişti; corpus 12.843
+yerine 12.837 chunk tutuyor. Bu dört belgenin `.npy` embedding dosyaları ve manifest
+kayıtları yenilendi; `documents.json` ve `decision_cache.json` değişmedi, yeni seed'den
+yapılan build hiçbir chunk embed etmiyor. Seed'de hiçbir section'a bağlı olmayan span
+sayısı 30'dan 26'ya indi.
+
 ### Eklendi — corpus'u güncel tutma: `check-updates` ve `sync --add` (2026-11-15)
 
 Yeni ve değişen BDDK belgelerini bulmak artık elle yazılan script'lerle değil,

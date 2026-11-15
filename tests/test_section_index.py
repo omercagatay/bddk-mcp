@@ -1149,6 +1149,82 @@ def test_text_that_is_not_a_title_stays_where_it_is():
     assert _madde(sections, "4").content.startswith("Madde 4 -")
 
 
+def test_abbreviation_caption_above_an_article_is_its_title():
+    # 1341 titles four articles by the abbreviation of their approach, set directly above the MADDE line
+    # or, under a part caption, apart by a blank line.
+    text = (
+        "MADDE 14- (1) Dilim vadesi belirlenir.\n\n"
+        "İKİNCİ BÖLÜM\nRisk Ağırlıklarının Belirlenmesinde Kullanılan Yaklaşımlara İlişkin Usul ve Esaslar\n\n"
+        "MK-İDDY\n\n"
+        "MADDE 15- (1) A ve D, 13 üncü madde uyarınca belirlenen parametreleri ifade eder.\n\n"
+        "(12) Kurum yetkilidir.\n\n"
+        "MK-SY\n"
+        "MADDE 16- (1) A ve D 13 üncü madde uyarınca belirlenen parametreleri ifade eder.\n\n"
+        "MK-DDDY\n"
+        "MADDE 18- (1) KDK tarafından derecelendirilen riskler hesaplanır.\n\n"
+        "MK-İDEY\n"
+        "MADDE 21 – (1) VDFB programına yönelik taahhütler hesaplanır.\n"
+    )
+
+    sections = extract_document_sections("1341", text)
+
+    for ref, title in (("15", "MK-İDDY"), ("16", "MK-SY"), ("18", "MK-DDDY"), ("21", "MK-İDEY")):
+        article = _madde(sections, ref)
+        assert article.heading == title
+        assert article.start_char == text.index(f"\n{title}\n") + 1
+        assert not any(title in s.content for s in sections if s.section_type == "madde" and s is not article)
+    assert _madde(sections, "15").content.startswith("MK-İDDY\n\nMADDE 15-")
+    assert _madde(sections, "14").content == "MADDE 14- (1) Dilim vadesi belirlenir."
+
+
+def test_upper_case_line_above_an_article_that_is_no_abbreviation_is_no_title():
+    # Real seed lines: 16071's signature fields, an annex number, a part caption, a bare abbreviation, a table
+    # row, a formula line and a list item of 1341 and 1336.
+    for line in (
+        "ADI-SOYADI",
+        "İMZA",
+        "EK-1",
+        "ALTINCI BÖLÜM",
+        "KDK",
+        "| 17 | %415 | %455 | %1250 | %1250 |",
+        r"THK = \frac{\sum_n THK_n \times TT_n}{\sum_n TT_n}",
+        "a) TRSY$_{Basit}$",
+    ):
+        text = f"MADDE 1 – (1) Birinci.\n\n{line}\n\nMADDE 2 – (1) İkinci.\n"
+
+        madde2 = _madde(extract_document_sections("doc", text), "2")
+
+        assert madde2.heading == "(1) İkinci.", line
+        assert madde2.content.startswith("MADDE 2 –"), line
+
+
+def test_list_items_that_end_a_provision_stay_in_it_above_the_next_title():
+    # 1336 madde 37: the closing list "a) TRSY$_{Basit}$" … was cut off as a leaked title and bound to nothing.
+    text = (
+        "MADDE 37- (1) TRSY hesaplanır.\n"
+        "(2) TRSY aşağıda belirtilen risk sınıfı bazlı sermaye yükümlülüklerinin toplamından\noluşur:\n\n"
+        "a) TRSY$_{Basit}$\n\nb) TRSY$_{Korelasyonsuz}$\n\nc) TRSY$_{KASP}$\n\n"
+        "Temerrüt riski sermaye yükümlülüğü hesaplama sürecinin genel yapısı\n\n"
+        "MADDE 38- (1) TRSY hesaplanır.\n"
+    )
+
+    sections = extract_document_sections("1336", text)
+
+    assert _madde(sections, "37").content.endswith("c) TRSY$_{KASP}$")
+    assert _madde(sections, "38").heading == "Temerrüt riski sermaye yükümlülüğü hesaplama sürecinin genel yapısı"
+    assert _madde(sections, "38").start_char == text.index("Temerrüt riski sermaye yükümlülüğü hesaplama")
+    # 16071 madde 28: repealed items close their fıkra, they are not trimmed off it.
+    repealed = (
+        "MADDE 28 – (1) Birinci.\n\n"
+        "(2) Aşağıdaki hallerde yetki kaldırılır:\n\n"
+        "a) Eksikliklerin giderilmediğinin tespit edilmesi.\n\n"
+        "c) (Mülga:RG-20/1/2016-29599)$^{(1)}$\n\nç) (Mülga:RG-20/1/2016-29599)$^{(1)}$\n\n"
+        "(3) Kurulca değerlendirilir.\n"
+    )
+    fikra2 = next(s for s in extract_document_sections("mevzuat_16071", repealed) if s.section_ref == "2")
+    assert fikra2.content.endswith("ç) (Mülga:RG-20/1/2016-29599)$^{(1)}$")
+
+
 def test_title_under_a_caption_that_carries_its_name_or_wraps_in_title_case():
     text = (
         "MADDE 29 – (1) Önceki madde.\n\n"
