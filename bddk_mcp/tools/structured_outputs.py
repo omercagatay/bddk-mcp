@@ -621,7 +621,7 @@ class SectionSearchResponse(RetrievalResponse):
         default_factory=list,
         description=(
             "Query words that the exact-word and inflection-tolerant passes did not require: Turkish question "
-            "words, the frame words of a question (e.g. 'oluşur'), and 'yüzde' (optional because sources also "
+            "words, the frame words of a question (e.g. 'oluşur', 'demektir', 'kadar', 'en az'), and 'yüzde' (optional because sources also "
             "write '%')."
         ),
     )

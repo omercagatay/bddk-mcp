@@ -1730,8 +1730,8 @@ async def test_question_words_are_not_required_and_are_reported(doc_store):
     assert question.structuredContent["results"][0]["document_id"] == "mevzuat_5411"
     assert question.structuredContent["loose_fallback_used"] is False
     assert question.structuredContent["results"][0].get("rank") is not None
-    assert question.structuredContent["query_words_not_searched"] == ["kaç", "oluşur"]
-    assert "Note: not searched as required words: kaç, oluşur" in question.text
+    assert question.structuredContent["query_words_not_searched"] == ["en", "az", "kaç", "oluşur"]
+    assert "Note: not searched as required words: en, az, kaç, oluşur" in question.text
     assert keywords.structuredContent["query_words_not_searched"] == []
     assert "not searched as required words" not in keywords.text
 
@@ -2025,13 +2025,50 @@ def test_question_frame_words_are_left_out_only_in_a_question():
     assert _required_search_text("nedir?") == ("nedir?", [])
 
 
+def test_definition_and_amount_frame_words_of_a_question_are_left_out():
+    from bddk_mcp.tools.sections import _loose_search_terms, _required_search_text
+
+    assert _required_search_text("dijital banka ne demektir") == ("dijital banka", ["ne", "demektir"])
+    assert _required_search_text("kaldıraç oranı en az yüzde kaç olmalı") == (
+        "kaldıraç oranı",
+        ["en", "az", "yüzde", "kaç", "olmalı"],
+    )
+    assert _required_search_text("kredi komitesine ne kadar devredebilir") == (
+        "kredi komitesine devredebilir",
+        ["ne", "kadar"],
+    )
+    # In a statement they are content; the loose pass never scores them.
+    assert _required_search_text("komite en az iki üyeden oluşur") == ("komite en az iki üyeden oluşur", [])
+    assert _loose_search_terms("bankanın hazırlaması gereken rapor") == ["bankanın", "hazırlaması", "rapor"]
+
+
+@pytest.mark.asyncio
+async def test_a_definition_question_finds_the_definition_by_its_words(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_39158",
+            title="Dijital Bankalar Hakkında Yönetmelik",
+            markdown_content="MADDE 3 - Tanımlar\n(1) Dijital banka: hizmetlerini elektronik kanallardan sunan bankadır.\n",
+        )
+    )
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "search_document_sections")
+
+    result = await tool("dijital banka ne demektir")
+
+    first = result.structuredContent["results"][0]
+    assert (first["document_id"], first["section_ref"]) == ("mevzuat_39158", "3")
+    assert first.get("rank") is not None and result.structuredContent["loose_fallback_used"] is False
+
+
 def test_question_and_frame_words_typed_without_turkish_characters_are_left_out():
     from bddk_mcp.tools.sections import _loose_search_terms, _required_search_text
 
     assert _required_search_text("Kredi komitesi kimlerden olusur?") == ("Kredi komitesi", ["kimlerden", "olusur"])
     assert _required_search_text("Denetim komitesi en az kac uyeden olusur") == (
-        "Denetim komitesi en az uyeden",
-        ["kac", "olusur"],
+        "Denetim komitesi uyeden",
+        ["en", "az", "kac", "olusur"],
     )
     assert _required_search_text("Sizma testleri ne siklikla yapilir") == (
         "Sizma testleri",
@@ -2049,8 +2086,8 @@ async def test_a_question_typed_without_turkish_characters_finds_the_same_provis
     ascii_question = await tool("Denetim komitesi en az kac uyeden olusur?")
     turkish_question = await tool("Denetim komitesi en az kaç üyeden oluşur?")
 
-    assert ascii_question.structuredContent["query_words_not_searched"] == ["kac", "olusur"]
-    assert "Note: not searched as required words: kac, olusur" in ascii_question.text
+    assert ascii_question.structuredContent["query_words_not_searched"] == ["en", "az", "kac", "olusur"]
+    assert "Note: not searched as required words: en, az, kac, olusur" in ascii_question.text
     assert [item["document_id"] for item in ascii_question.structuredContent["results"]] == [
         item["document_id"] for item in turkish_question.structuredContent["results"]
     ]
@@ -2931,7 +2968,7 @@ async def test_the_yuzde_rule_is_mentioned_only_for_a_query_with_a_percentage(do
     question = await tool("Denetim komitesi en az kaç üyeden oluşur?")
     percent = await tool("Denetim komitesi yüzde kaç üyeden oluşur?")
 
-    assert "Note: not searched as required words: kaç, oluşur" in question.text
+    assert "Note: not searched as required words: en, az, kaç, oluşur" in question.text
     assert "yüzde" not in question.text.split("Note: not searched as required words")[1].split("\n")[0]
     assert "'yüzde' is optional because sources also write '%'" in percent.text
 

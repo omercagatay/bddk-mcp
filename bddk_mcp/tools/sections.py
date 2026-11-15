@@ -189,11 +189,18 @@ _QUERY_QUESTION_WORDS = frozenset(
         "müsün",
     }
 )
-# The predicate and frame words of a question ("... kimlerden oluşur?", "ne sıklıkla yapılır?"): left out
-# only when the query is a question (it has a question word or a "?"), because in a statement they are
-# content ("komite en az iki üyeden oluşur").
+# The predicate and frame words of a question ("... kimlerden oluşur?", "ne sıklıkla yapılır?", "ne demektir",
+# "ne kadar", "en az kaç"): left out only when the query is a question (it has a question word or a "?"),
+# because in a statement they are content ("komite en az iki üyeden oluşur"). The provision that answers
+# "en az yüzde kaç" writes "asgari" or "%", and a definition never says "demektir". Like every frame word they
+# are also never loose search terms ("hazırlaması gereken rapor").
 _QUESTION_FRAME_WORDS = frozenset(
     {
+        "az",
+        "demektir",
+        "en",
+        "gereken",
+        "kadar",
         "gerekir",
         "gerekmektedir",
         "olmalı",
@@ -1581,7 +1588,8 @@ def register(mcp, deps: Dependencies) -> None:
         used to gate low-confidence retrieval.
 
         Turkish question words (kaç, nedir, nasıl, mi ...), in a question also its
-        frame words (oluşur, yapılır ...), and "yüzde" (sources also write "%") are
+        frame words (oluşur, yapılır, demektir, kadar, en az ...), and "yüzde"
+        (sources also write "%") are
         not required words; the answer lists them under "not searched". Invisible
         format characters are ignored.
 
