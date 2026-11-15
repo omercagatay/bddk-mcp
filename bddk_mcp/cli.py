@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import os
+import re
 import sys
 from collections.abc import Sequence
 
@@ -26,6 +28,13 @@ def _positive_int(value: str) -> int:
     if number < 1:
         raise argparse.ArgumentTypeError("must be a positive integer")
     return number
+
+
+def _document_id(value: str) -> str:
+    """A BDDK document id (DokumanGetir number) or ``mevzuat_<number>``, nothing else."""
+    if not re.fullmatch(r"(?:mevzuat_)?[0-9]{1,20}", value):
+        raise argparse.ArgumentTypeError("must be a BDDK document number or mevzuat_<number>")
+    return value
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -64,7 +73,10 @@ def build_parser() -> argparse.ArgumentParser:
     sync.add_argument(
         "--refresh-catalog",
         action="store_true",
-        help="Re-scrape the BDDK catalog pages into the corpus before syncing",
+        help=(
+            "Replace the corpus catalog with everything the BDDK catalog pages list, then sync it (brings in "
+            "unselected entries and drops hand-added ones; use --add for chosen documents)"
+        ),
     )
     sync.add_argument(
         "--force",
@@ -72,10 +84,32 @@ def build_parser() -> argparse.ArgumentParser:
         help="Re-extract every document (a stored mevzuat PDF is reused unless HTML-first is on)",
     )
     sync.add_argument("--doc-id", help="Sync a single catalogued document by ID")
+    sync.add_argument(
+        "--add",
+        action="append",
+        type=_document_id,
+        metavar="ID",
+        help=(
+            "Add this document from the live BDDK catalog pages to the corpus catalog and sync only it; every other "
+            "catalog entry stays. Repeatable. Refused for an ID the catalog holds or no page lists"
+        ),
+    )
     sync.add_argument("--concurrency", type=_positive_int, default=5, help="Parallel downloads (default 5)")
 
     info = subparsers.add_parser("info", help="Describe the corpus file read-only (identity, counts, readiness)")
     info.add_argument("--corpus", help=corpus_help)
+
+    check = subparsers.add_parser(
+        "check-updates",
+        help="Compare the live BDDK catalog and sources with the corpus file, read-only",
+        description=(
+            "Read-only: lists new catalog entries, catalog entries no page lists and stored documents whose source "
+            "changed. Exit status: 0 nothing to report, 3 something to report, 1 error (a page or a source could "
+            "not be read; the report is still printed), 2 usage error."
+        ),
+    )
+    check.add_argument("--corpus", help=corpus_help)
+    check.add_argument("--json", action="store_true", help="Print the report as one JSON object")
 
     return parser
 
@@ -128,16 +162,29 @@ async def _sync(args: argparse.Namespace) -> None:
     from bddk_mcp.store.doc_store import DocumentStore
     from bddk_mcp.store.vector_store import VectorStore
 
+    if args.add and (args.refresh_catalog or args.doc_id):
+        raise RuntimeError("--add cannot be combined with --refresh-catalog or --doc-id")
     db = CorpusDB.open(args.corpus)
     try:
         store = DocumentStore(db)
         client = BddkApiClient(store=store, allow_live_population=True)
         try:
-            if args.refresh_catalog:
-                print(f"Catalog refreshed from BDDK: {await client.refresh_cache()} items")
+            from bddk_mcp.ingest.update_check import conflict_lines, entries_to_add
+
+            if args.add:
+                catalog, conflicts = await entries_to_add(store, client, args.add)
+                await store.add_catalog_entries([entry.model_dump() for entry in catalog])
+                print(f"Added to the catalog: {', '.join(entry.document_id for entry in catalog)}")
+                for line in conflict_lines(conflicts):
+                    print(line)
             else:
-                await client.ensure_cache()
-            catalog = client.get_cache_items()
+                if args.refresh_catalog:
+                    print(f"Catalog refreshed from BDDK: {await client.refresh_cache()} items")
+                else:
+                    await client.ensure_cache()  # scrapes the pages only when the catalog is empty
+                for line in conflict_lines(list(client.last_refresh_conflicts)):
+                    print(line)
+                catalog = client.get_cache_items()
             if args.doc_id:
                 catalog = [item for item in catalog if item.document_id == args.doc_id]
                 if not catalog:
@@ -168,6 +215,29 @@ async def _sync(args: argparse.Namespace) -> None:
         print(f"  [{error.document_id}] {error.error}")
     if report.failed:
         sys.exit(1)
+
+
+async def _check_updates(args: argparse.Namespace) -> None:
+    """Report what the live site lists and serves that the corpus file does not hold; exit 0, 3 or 1."""
+    from bddk_mcp.ingest.client import BddkApiClient
+    from bddk_mcp.ingest.update_check import check_updates, exit_code, format_report
+    from bddk_mcp.store.corpus_db import CorpusDB
+    from bddk_mcp.store.doc_store import DocumentStore
+
+    db = CorpusDB.open(args.corpus, readonly=True)
+    try:
+        store = DocumentStore(db)
+        client = BddkApiClient(store=store)
+        try:
+            report = await check_updates(store, client)
+        finally:
+            await client.close()
+    finally:
+        db.close()
+    print(json.dumps(report, ensure_ascii=False, indent=1) if args.json else format_report(report))
+    code = exit_code(report)
+    if code:
+        sys.exit(code)
 
 
 def _sync_failures_text(failures: dict[str, int]) -> str:
@@ -237,7 +307,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         _run_serve(args)
         return
 
-    commands = {"build": _build, "export": _export, "sync": _sync, "info": _info}
+    commands = {"build": _build, "export": _export, "sync": _sync, "info": _info, "check-updates": _check_updates}
     try:
         asyncio.run(commands[args.command](args))
     except RuntimeError as exc:

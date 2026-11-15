@@ -76,7 +76,7 @@ jobs:
       - name: Verify installed package and CLI
         working-directory: /tmp
         run: |
-          /tmp/bddk-wheel-venv/bin/python -I -c "from importlib.resources import files; import bddk_mcp; assert files('bddk_mcp.quality').joinpath('quality_failures.yml').is_file(); print(bddk_mcp.__version__)"
+          /tmp/bddk-wheel-venv/bin/python -I -c "from importlib.resources import files; import bddk_mcp; assert files('bddk_mcp.quality').joinpath('quality_failures.yml').is_file(); assert files('bddk_mcp.ingest').joinpath('accepted_findings.yml').is_file(); print(bddk_mcp.__version__)"
           /tmp/bddk-wheel-venv/bin/bddk-mcp --version
           /tmp/bddk-wheel-venv/bin/bddk-mcp serve --help
           /tmp/bddk-wheel-venv/bin/bddk-mcp build --help

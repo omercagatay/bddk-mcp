@@ -257,6 +257,37 @@ async def test_transient_server_error_then_success_returns_the_response():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        ({"content-length": "102322"}, "102322"),
+        # A compressed length is not the size of the file, so it is not passed on.
+        ({"content-length": "4096", "content-encoding": "gzip"}, None),
+        ({}, None),
+    ],
+)
+async def test_head_keeps_the_declared_size_of_an_uncompressed_resource(headers, expected):
+    def handler(request):
+        assert request.method == "HEAD"
+        return httpx.Response(200, headers=headers, request=request)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+        response = await bounded_request_with_retry(
+            http,
+            "HEAD",
+            _BASE_URL,
+            base_url=_BASE_URL,
+            allowed_hosts=BDDK_HTTPS_HOSTS,
+            boundary_name="BDDK",
+            max_bytes=1,
+            max_retries=1,
+            resolve=_allow_test_resolution,
+        )
+    assert response.content == b""
+    assert response.headers.get("content-length") == expected
+
+
+@pytest.mark.asyncio
 async def test_compressed_response_is_decoded_once_and_bounded():
     body = b"<html>" + b"x" * 2048 + b"</html>"
 

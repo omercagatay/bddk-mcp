@@ -147,6 +147,15 @@ async def _bounded_request_once(
             # Error bodies are never needed for retry decisions and may be
             # attacker-controlled or unexpectedly large.
             if status_code >= 400 or current_method == "HEAD":
+                # A HEAD answer declares the size of the resource; it is kept when it is not a compressed size.
+                declared = streamed.headers.get("content-length")
+                if (
+                    current_method == "HEAD"
+                    and status_code < 400
+                    and declared
+                    and "content-encoding" not in streamed.headers
+                ):
+                    headers["content-length"] = declared
                 return httpx.Response(status_code, headers=headers, content=b"", request=request)
 
             content_length = streamed.headers.get("content-length")

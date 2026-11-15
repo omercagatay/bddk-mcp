@@ -60,13 +60,15 @@ _MAX_CATALOG_RESPONSE_BYTES = 8 * 1024 * 1024
 # Parallel catalog-page requests BDDK sees at once.
 _SCRAPE_CONCURRENCY = 5
 # Pages that use accordion card structure (h5 headers with card-body)
-_ACCORDION_PAGE_IDS = [50, 51]
+_ACCORDION_PAGE_IDS = [50]
 # Pages that use flat list with DokumanGetir links and (date - number) format
 # Page 55 (Kurul Kararları) excluded by default — mostly faaliyet/kuruluş izni decisions; revisit with whitelist if specific kararlar are needed.
 _DECISION_PAGE_IDS = [56]
-# Pages that use flat list with mixed link types (no date format)
+# Resmi Gazetede Yayımlanan Kurul Kararları: not refreshed, but read by `bddk-mcp check-updates` and `sync --add`.
+RG_DECISION_PAGE_ID = 55
+# Pages that use flat list with mixed link types (no date format); page 51 has been one such table since 2026-11.
 # Page 52 (Finansal Kiralama / Faktoring / Finansman / Tasarruf Finansman — non-bank) excluded — out of bank scope.
-_FLAT_PAGE_IDS = [49, 54, 58, 63]
+_FLAT_PAGE_IDS = [49, 51, 54, 58, 63]
 
 _ALL_PAGE_IDS = _ACCORDION_PAGE_IDS + _DECISION_PAGE_IDS + _FLAT_PAGE_IDS
 
@@ -86,25 +88,43 @@ def _is_in_scope(dec: BddkDecisionSummary) -> bool:
     return not any(s.lower() in title_lower for s in _EXCLUDED_TITLE_SUBSTRINGS)
 
 
-def _canonicalize_catalog(decisions: list[BddkDecisionSummary]) -> list[BddkDecisionSummary]:
-    """Return one deterministic row per upstream document identifier.
+# When several pages list one document with different records, the record of the page that comes first here wins:
+# the status pages (Mülga Düzenlemeler, Düzenleme Taslakları), so a repealed or draft text is never shown as in force,
+# then the instrument-type pages (Kanunlar, Kurul Kararları), then the topical pages (50, 54, 51).
+CATALOG_PAGE_PRECEDENCE = (63, 58, 49, 56, 55, 50, 54, 51)
 
-    Exact duplicates can legitimately be linked from more than one list page,
-    but conflicting metadata for the same identifier is ambiguous and must not
-    be silently resolved by a last-write-wins upsert.
+
+def _canonicalize_catalog(
+    pages: list[tuple[int, list[BddkDecisionSummary]]],
+) -> tuple[list[BddkDecisionSummary], list[dict]]:
+    """One row per document id, and the cross-page conflicts that were collapsed.
+
+    Exact duplicates are merged. Different records for one id on one page are ambiguous and refused. Different
+    records on several pages are resolved by CATALOG_PAGE_PRECEDENCE, and each such id is returned as
+    ``{"document_id", "kept_page", "other_pages"}`` (the pages whose record differs) so the caller reports it.
     """
-
-    by_id: dict[str, BddkDecisionSummary] = {}
-    for decision in decisions:
-        existing = by_id.get(decision.document_id)
-        if existing is None:
-            by_id[decision.document_id] = decision
-        elif existing != decision:
-            raise BddkUpstreamError(
-                "BDDK catalog refresh contained conflicting records for one document; "
-                "the last known-good cache was retained."
-            )
-    return list(by_id.values())
+    rank = {page_id: position for position, page_id in enumerate(CATALOG_PAGE_PRECEDENCE)}
+    listed: dict[str, list[tuple[int, BddkDecisionSummary]]] = {}
+    for page_id, decisions in pages:
+        on_page: dict[str, BddkDecisionSummary] = {}
+        for decision in decisions:
+            existing = on_page.setdefault(decision.document_id, decision)
+            if existing != decision:
+                raise BddkUpstreamError(
+                    "BDDK catalog refresh contained conflicting records for one document on one page; "
+                    "the last known-good cache was retained."
+                )
+        for document_id, decision in on_page.items():
+            listed.setdefault(document_id, []).append((page_id, decision))
+    rows: list[BddkDecisionSummary] = []
+    conflicts: list[dict] = []
+    for document_id, candidates in listed.items():
+        kept_page, kept = min(candidates, key=lambda candidate: rank.get(candidate[0], len(rank)))
+        others = sorted({page_id for page_id, decision in candidates if decision != kept})
+        if others:
+            conflicts.append({"document_id": document_id, "kept_page": kept_page, "other_pages": others})
+        rows.append(kept)
+    return rows, conflicts
 
 
 # Maps h5 header text (without count suffix) to singular category name
@@ -118,15 +138,12 @@ _ACCORDION_CATEGORY_MAP = {
     "Sermaye Yeterliliğine İlişkin Tebliğler ve Rehberler": "Sermaye Yeterliliği",
     "Faizsiz Bankacılığa İlişkin Düzenlemeler": "Faizsiz Bankacılık",
     "Tekdüzen Hesap Planı": "Tekdüzen Hesap Planı",
-    # Page 51
-    "Yönetmelik": "Yönetmelik",
-    "Tebliğ": "Tebliğ",
-    "Banka Kartları ve Kredi Kartları Kanununa İlişkin Düzenlemeler": "Banka Kartları",
 }
 
 # Category assigned to flat-list pages (by page ID)
 _FLAT_PAGE_CATEGORY = {
     49: "Kanun",
+    51: "Banka Kartları",
     54: "BDDK Düzenlemesi",
     58: "Düzenleme Taslağı",
     63: "Mülga Düzenleme",
@@ -697,6 +714,8 @@ class BddkApiClient:
         self._cache: list[BddkDecisionSummary] = []
         self._cache_timestamp: float = 0.0
         self._page_errors: dict[int, str] = {}
+        # The cross-page conflicts the last successful refresh resolved by CATALOG_PAGE_PRECEDENCE.
+        self.last_refresh_conflicts: list[dict] = []
         # Bound the parallel _scrape_bddk() fan-out so BDDK sees at most
         # _SCRAPE_CONCURRENCY in-flight requests at once, matching
         # the rate limit data_sources.py already enforces for the same host.
@@ -731,12 +750,13 @@ class BddkApiClient:
         url: str,
         *,
         max_bytes: int = _MAX_CATALOG_RESPONSE_BYTES,
+        method: str = "GET",
     ) -> httpx.Response:
-        """Fetch one approved BDDK/mevzuat URL with bounded safe retries."""
+        """Fetch one approved BDDK/mevzuat URL with bounded safe retries (HEAD: headers only)."""
 
         return await bounded_request_with_retry(
             self._http,
-            "GET",
+            method,
             url,
             base_url=f"{_BDDK_BASE_URL}/",
             allowed_hosts=BDDK_HTTPS_HOSTS | MEVZUAT_HTTPS_HOSTS,
@@ -960,6 +980,45 @@ class BddkApiClient:
         logger.info("Parsed %d items from flat page %d", len(decisions), list_id)
         return decisions
 
+    async def fetch_catalog_page(self, list_id: int) -> list[BddkDecisionSummary]:
+        """Fetch and parse one catalog page with the parser of its layout (55 and 56: decision lists)."""
+        if list_id in _ACCORDION_PAGE_IDS:
+            return await self._fetch_and_parse_accordion_page(list_id)
+        if list_id in _DECISION_PAGE_IDS or list_id == RG_DECISION_PAGE_ID:
+            return await self._fetch_and_parse_decision_page(list_id)
+        return await self._fetch_and_parse_flat_page(list_id)
+
+    async def read_catalog_pages(self, page_ids: list[int]) -> list[tuple[int, list[BddkDecisionSummary], str]]:
+        """Read each page on its own, at most _SCRAPE_CONCURRENCY at once: (page id, entries, error).
+
+        The error is "" for a page with entries, "empty_page" for a page that parsed to nothing, else the
+        exception type; one failing page does not stop the others.
+        """
+
+        async def _read(list_id: int) -> tuple[int, list[BddkDecisionSummary], str]:
+            async with self._scrape_sem:
+                try:
+                    decisions = await self.fetch_catalog_page(list_id)
+                except (
+                    httpx.HTTPError,
+                    httpx.TransportError,
+                    OutboundHttpPolicyError,
+                    ValueError,
+                    AttributeError,
+                ) as exc:
+                    logger.error(
+                        "Failed to fetch BDDK list page %d",
+                        list_id,
+                        extra={"error_type": type(exc).__name__},
+                    )
+                    return list_id, [], type(exc).__name__
+            if not decisions:
+                logger.error("BDDK list page %d returned no parseable items", list_id)
+                return list_id, [], "empty_page"
+            return list_id, decisions, ""
+
+        return list(await asyncio.gather(*(_read(page_id) for page_id in page_ids)))
+
     async def _ensure_cache(self) -> None:
         """Ensure the decision cache is populated.
 
@@ -998,45 +1057,22 @@ class BddkApiClient:
         HTML layout change from being reported as a successful refresh.
         """
         self._page_errors.clear()
-
-        async def _fetch_page_safe(list_id: int) -> list[BddkDecisionSummary]:
-            async with self._scrape_sem:
-                try:
-                    if list_id in _ACCORDION_PAGE_IDS:
-                        decisions = await self._fetch_and_parse_accordion_page(list_id)
-                    elif list_id in _DECISION_PAGE_IDS:
-                        decisions = await self._fetch_and_parse_decision_page(list_id)
-                    else:
-                        decisions = await self._fetch_and_parse_flat_page(list_id)
-                    if not decisions:
-                        self._page_errors[list_id] = "empty_page"
-                        logger.error("BDDK list page %d returned no parseable items", list_id)
-                    return decisions
-                except (
-                    httpx.HTTPError,
-                    httpx.TransportError,
-                    OutboundHttpPolicyError,
-                    ValueError,
-                    AttributeError,
-                ) as exc:
-                    self._page_errors[list_id] = type(exc).__name__
-                    logger.error(
-                        "Failed to fetch BDDK list page %d",
-                        list_id,
-                        extra={"error_type": type(exc).__name__},
-                    )
-                    return []
-
-        page_results = await asyncio.gather(*(_fetch_page_safe(pid) for pid in _ALL_PAGE_IDS))
-        scraped: list[BddkDecisionSummary] = [dec for page in page_results for dec in page]
-        in_scope = [dec for dec in scraped if _is_in_scope(dec)]
-        all_decisions = _canonicalize_catalog(in_scope)
-        scope_dropped = len(scraped) - len(in_scope)
-        duplicate_links = len(in_scope) - len(all_decisions)
+        page_results = await self.read_catalog_pages(_ALL_PAGE_IDS)
+        self._page_errors.update({page_id: error for page_id, _, error in page_results if error})
+        scraped = sum(len(page) for _, page, _ in page_results)
+        in_scope = [(page_id, [dec for dec in page if _is_in_scope(dec)]) for page_id, page, _ in page_results]
+        kept = sum(len(page) for _, page in in_scope)
+        all_decisions, conflicts = _canonicalize_catalog(in_scope)
+        scope_dropped = scraped - kept
+        duplicate_links = kept - len(all_decisions)
         if scope_dropped:
-            logger.info("Scope filter dropped %d/%d items", scope_dropped, len(scraped))
+            logger.info("Scope filter dropped %d/%d items", scope_dropped, scraped)
         if duplicate_links:
             logger.info("Catalog canonicalization collapsed %d duplicate links", duplicate_links)
+        if conflicts:
+            logger.warning(
+                "Catalog pages listed %d documents with different records; page precedence applied", len(conflicts)
+            )
 
         if self._page_errors:
             logger.error(
@@ -1060,6 +1096,7 @@ class BddkApiClient:
             self._cache = previous_cache
             self._cache_timestamp = previous_timestamp
             raise
+        self.last_refresh_conflicts = conflicts
         logger.info("BDDK cache refreshed: %d total items", len(self._cache))
         return len(self._cache)
 
