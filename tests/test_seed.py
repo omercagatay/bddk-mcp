@@ -214,7 +214,9 @@ async def test_export_round_trips_the_seed(tmp_path: Path, seed_dir: Path):
 
 def _tree_bytes(directory: Path) -> dict[str, bytes]:
     return {
-        str(path.relative_to(directory)): path.read_bytes() for path in sorted(directory.rglob("*")) if path.is_file()
+        path.relative_to(directory).as_posix(): path.read_bytes()
+        for path in sorted(directory.rglob("*"))
+        if path.is_file()
     }
 
 

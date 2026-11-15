@@ -13,6 +13,7 @@ Architecture:
 from __future__ import annotations
 
 import asyncio
+import datetime
 import hashlib
 import logging
 import re
@@ -35,7 +36,13 @@ from bddk_mcp.core.config import (
 )
 from bddk_mcp.quality.markdown_quality import assess_markdown_quality
 from bddk_mcp.store.corpus_db import CorpusDB
-from bddk_mcp.store.doc_store import fts_match_query, normalize_search_text
+from bddk_mcp.store.doc_store import (
+    catalog_classes_named,
+    catalog_status_class,
+    fts_match_query,
+    fts_prefix_stem_query,
+    normalize_search_text,
+)
 from bddk_mcp.store.legal_ref import (
     DECISION_NUMBER_SUFFIX,
     LegalRefs,
@@ -111,6 +118,12 @@ _FTS_RELAXED_STOPWORDS = {
 _FTS_RELAXED_MIN_TERMS = 3
 _FTS_RELAXED_MAX_TERMS = 12
 _LEXICAL_RELEVANCE_BOOST = 0.045
+# A query word matched only in another inflection ("tutarının" for "tutarı") counts half of a word matched as
+# typed: the lexical relevance of an inflected all-words match is weighted by this factor. A calibration value,
+# measured on 2026-11-15 on the 319-document corpus against the same tree without the inflected pass: at 0.5
+# the 267 audit sentences keep top 1 186/186 (first eight words) and 194/194 (verbatim), own-title rank 1 stays
+# 262, and decision 10970 (document 1255) still reaches the ceiling; at 1.0 sentence top 1 fell to 182.
+_INFLECTED_LEXICAL_WEIGHT = 0.5
 _PHRASE_RELEVANCE_BOOST = 0.03
 _PHRASE_RELEVANCE_MAX = 0.06
 _TURKISH_STEM_SUFFIXES = ("leri", "lari", "inin", "unun", "nin", "nun", "ler", "lar", "si", "su", "i", "u")
@@ -685,12 +698,14 @@ class SearchHits(list):
     """Search hits plus how the query was read.
 
     ``searched_as`` is the normalised query when it differs from the typed one; ``expansions`` lists the
-    (abbreviation, expansion) pairs of the glossary that were applied.
+    (abbreviation, expansion) pairs of the glossary that were applied. ``decision_numbers_not_stored`` are
+    the decision numbers the query names that no stored document carries.
     """
 
     searched_as: str | None = None
     expansions: list[tuple[str, str]] = []
     no_content_words: bool = False
+    decision_numbers_not_stored: list[str] = []
 
 
 def _date_pattern(date: str) -> re.Pattern[str]:
@@ -780,6 +795,21 @@ def _strict_fts_query(query: str) -> str | None:
         end = stop
     terms.extend(f'"{token}"' for token in _WORD_TOKEN_RE.findall(text[end:]))
     return " ".join(terms) or None
+
+
+def _inflected_fts_query(query: str) -> str | None:
+    """The strict expression with each one-word term widened as the section search's inflection-tolerant
+    pass widens it (``fts_prefix_stem_query``: "tutarı" -> "tutari"*, which finds "tutarının"); a phrase of
+    the strict expression (a percentage number, "66 a") stays as it is. None when nothing is widened."""
+    strict = _strict_fts_query(query)
+    if strict is None:
+        return None
+    terms = [
+        term if " " in term else fts_prefix_stem_query(term.strip('"')) or term
+        for term in re.findall(r'"[^"]*"', strict)
+    ]
+    inflected = " ".join(terms)
+    return None if inflected == strict else inflected
 
 
 def _percent_figures(query: str) -> list[str]:
@@ -874,11 +904,12 @@ def _keyword_only_hits(fts_hits: list[dict], shown_doc_ids: set[str]) -> list[di
 
     They follow the strong and moderate semantic hits, precede the weak ones, and carry no semantic
     score; hits of the relaxed OR fallback
-    (only some query words) are never kept this way.
+    (only some query words) and of the inflection-tolerant pass (the words not as typed)
+    are never kept this way.
     """
     hits: list[dict] = []
     for fts_hit in fts_hits:
-        if fts_hit.get("fts_relaxed") or fts_hit["doc_id"] in shown_doc_ids:
+        if fts_hit.get("fts_relaxed") or fts_hit.get("fts_inflected") or fts_hit["doc_id"] in shown_doc_ids:
             continue
         hit = dict(fts_hit)
         hit.update(
@@ -891,6 +922,140 @@ def _keyword_only_hits(fts_hits: list[dict], shown_doc_ids: set[str]) -> list[di
         )
         hits.append(hit)
     return sorted(hits, key=lambda h: h.get("fts_rank", 0.0), reverse=True)
+
+
+def _decision_day(hit: dict) -> datetime.date | None:
+    """The stored decision date (DD.MM.YYYY) of a hit, or None when it has none or another form."""
+    try:
+        return datetime.datetime.strptime(str(hit.get("decision_date") or ""), "%d.%m.%Y").date()
+    except ValueError:
+        return None
+
+
+def _newest_first_among_clamped_decisions(hits: list[dict], query: str) -> list[dict]:
+    """The dated hits at the calibration ceiling, newest first, in the positions they occupy.
+
+    Hits at the ceiling tie on the shown relevance; for successive Board decisions on one subject the
+    newest comes first (the same date keeps the ordering-score order). The hits at the ceiling that carry
+    a parseable decision date and whose whole title does not occur in the query (``_title_in_query``: the
+    query names those) are re-ordered into their own positions. Every other hit keeps its exact position:
+    an undated one, a named decision, a hit below the ceiling; a decision may therefore pass an undated hit.
+    """
+    query_words = _query_words(query)
+    positions = [
+        i
+        for i, h in enumerate(hits)
+        if h.get("relevance_clamped") and _decision_day(h) is not None and not _title_in_query(h, query_words)
+    ]
+    ordered = list(hits)
+    for position, hit in zip(
+        positions, sorted((hits[i] for i in positions), key=_decision_day, reverse=True), strict=True
+    ):
+        ordered[position] = hit
+    return ordered
+
+
+def _search_words(text: str) -> str:
+    """The search-normalised words of ``text``, joined by single spaces."""
+    return " ".join(_WORD_TOKEN_RE.findall(normalize_search_text(text)))
+
+
+def _query_words(query: str) -> str:
+    """The search-normalised words of the query, padded with spaces for ``_title_in_query``."""
+    return f" {_search_words(query)} "
+
+
+def _title_in_query(hit: dict, query_words: str) -> bool:
+    """Whether the hit's whole title occurs in the query (search-normalised words; not the reverse).
+
+    A title of at most _SHORT_GENERIC_TITLE_WORDS words with no document-type word and no number
+    ("Yabancı bankaların kredi sınırları") is a phrase people type in passing: it counts only as the whole query.
+    """
+    title = _search_words(str(hit.get("title") or ""))
+    if not title:
+        return False
+    if len(title.split()) <= _SHORT_GENERIC_TITLE_WORDS and not _INSTRUMENT_MARK_RE.search(title):
+        return query_words.strip() == title
+    return f" {title} " in query_words
+
+
+# A short title without a document-type word or a number names its document only as the whole query.
+_SHORT_GENERIC_TITLE_WORDS = 4
+_INSTRUMENT_MARK_RE = re.compile(r"\b(?:yonetmeli|teblig|genelge|rehber|karar|kanun|taslak|taslag)|\d")
+# "<n> sayılı Kanun" in any case form, on the padded search words of the query.
+_LAW_NUMBER_RE = re.compile(r"(?<= )(\d+) sayili kanun\w*(?= )")
+
+
+def _named_documents(rows: list[sqlite3.Row], query: str) -> list[tuple[str, str]]:
+    """The documents the query names, in listing order, each with how it is named ("title" or "law_number").
+
+    Named by title (``_title_in_query``) before named as "<n> sayılı Kanun" (``mevzuat_<n>``); a longer title
+    first (it is the more specific name; a title it contains is part of it); a title that occurs in the query as
+    typed (case aside, punctuation included) before one that matches only after normalisation; then the newest
+    decision date first, undated last; then the document id.
+    """
+    query_words = _query_words(query)
+    typed = turkish_casefold(" ".join(query.split()))
+    named: dict[str, tuple] = {}
+    for row in rows:
+        if _title_in_query({"title": row["title"]}, query_words):
+            day = _decision_day({"decision_date": row["decision_date"]})
+            named[row["document_id"]] = (
+                0,
+                -len(_search_words(row["title"]).split()),
+                turkish_casefold(" ".join(row["title"].split())) not in typed,
+                day is None,
+                -(day.toordinal() if day else 0),
+                row["document_id"],
+            )
+    # Only a document of the Kanun category: mevzuat_<n> of another type is not the law the query cites.
+    laws = {row["document_id"] for row in rows if row["category"] == "Kanun"}
+    for number in _LAW_NUMBER_RE.findall(query_words):
+        if f"mevzuat_{number}" in laws:
+            named.setdefault(f"mevzuat_{number}", (1, 0, False, False, 0, f"mevzuat_{number}"))
+    ordered = sorted((key, doc_id) for doc_id, key in named.items())
+    return [(doc_id, "law_number" if key[0] else "title") for key, doc_id in ordered]
+
+
+def _shown_band(hit: dict) -> str:
+    """The match_strength band the tool shows for a hit."""
+    if hit.get("match_type") in ("fts", "fts_exact", "decision_number", "named"):
+        return "keyword"
+    if hit["relevance"] >= _HIGH_CONFIDENCE_THRESHOLD:
+        return "strong"
+    return "moderate" if hit["relevance"] >= _MEDIUM_CONFIDENCE_THRESHOLD else "weak"
+
+
+def _catalog_class_last(hits: list[dict], query: str, category: str | None) -> list[dict]:
+    """Within each shown band, TASLAK/MÜLGA catalog-class hits after the others, each group in its order.
+
+    The class is the BDDK catalog category alone (``catalog_status_class``). A hit keeps its place when
+    it is an exact legal-reference or decision-number hit, when the query names its class, or when its
+    whole title occurs in the query; with an explicit ``category`` nothing moves.
+    """
+    if category:
+        return hits
+    named = catalog_classes_named(query)
+    query_words = _query_words(query)
+
+    def moves(hit: dict) -> bool:
+        return not (
+            hit.get("match_type") in ("fts_exact", "decision_number")
+            or hit.get("decision_number_match")
+            or catalog_status_class(hit.get("category")) in named
+            or _title_in_query(hit, query_words)
+        )
+
+    ordered = list(hits)
+    for band in ("strong", "moderate", "weak", "keyword"):
+        positions = [i for i, hit in enumerate(hits) if _shown_band(hit) == band and moves(hit)]
+        group = [hits[i] for i in positions]
+        regrouped = [h for h in group if catalog_status_class(h.get("category")) is None] + [
+            h for h in group if catalog_status_class(h.get("category")) is not None
+        ]
+        for position, hit in zip(positions, regrouped, strict=True):
+            ordered[position] = hit
+    return ordered
 
 
 def _quality_metadata(text: str, doc_id: str) -> dict:
@@ -1216,6 +1381,8 @@ class VectorStore:
         not abbreviated by a full stop (never Turkish "bkz."), gets its expansion
         appended to the embedded query, and the strict keyword pass also runs with the expansion in its
         place.
+        The documents the query names (``_named_documents``: the whole title occurs in the query, or
+        "<n> sayılı Kanun" and ``mevzuat_<n>`` is a stored Kanun) come first, of ``category`` when given.
         Document quality is assessed once, for the returned hits only.
         """
         self._raise_if_semantic_search_unavailable()
@@ -1226,6 +1393,7 @@ class VectorStore:
         index = await asyncio.to_thread(self._current_index)
         searched = normalize_query(query, index.vocabulary)
         entries = _glossary_entries(searched)
+        named = _named_documents(await self._document_rows(category), searched)
         if entries:
             expansions = " ".join(dict.fromkeys(entry.expansion for entry in entries))
             found = await self._hybrid_search(
@@ -1234,25 +1402,57 @@ class VectorStore:
                 category,
                 embed_query=f"{searched} {expansions}",
                 fts_alternative_query=_expanded_query(searched, entries),
+                named=named,
             )
         else:
-            found = await self._hybrid_search(searched, limit, category)
+            found = await self._hybrid_search(searched, limit, category, named=named)
+        named_numbers = list(parse_legal_refs(searched).decision_numbers)
         if number := _DECISION_NUMBER_QUERY_RE.match(normalize_search_text(searched)):
-            decisions = await self._decision_number_hits(number.group(1), category)
+            named_numbers.append(number.group(1))
+            decisions = [
+                {**hit, "match_type": "decision_number", "decision_number_match": True}
+                for hit in await self._first_chunk_hits("decision_number", [number.group(1)], category)
+            ]
             decision_ids = {hit["doc_id"] for hit in decisions}
             found = (decisions + [hit for hit in found if hit["doc_id"] not in decision_ids])[:limit]
         hits = SearchHits(found)
         hits.searched_as = searched if searched != query else None
         hits.expansions = [(entry.abbreviation, entry.expansion) for entry in entries]
+        hits.decision_numbers_not_stored = await self._decision_numbers_not_stored(list(dict.fromkeys(named_numbers)))
         quality_by_id = await _document_quality_by_ids(self._db, [hit["doc_id"] for hit in hits])
         for hit in hits:
             hit.update(quality_by_id[hit["doc_id"]])
         return hits
 
-    async def _decision_number_hits(self, number: str, category: str | None) -> list[dict]:
-        """The stored documents whose decision number is ``number``, each with its first current chunk."""
-        where = "d.decision_number = ?" + (" AND d.category = ?" if category else "")
-        params = [number, category] if category else [number]
+    async def _decision_numbers_not_stored(self, numbers: list[str]) -> list[str]:
+        """The ``numbers`` that no stored document carries as its decision number, whatever its category."""
+        if not numbers:
+            return []
+        rows = await self._db.run(
+            lambda conn: conn.execute(
+                f"SELECT DISTINCT decision_number FROM documents WHERE decision_number IN ({', '.join('?' for _ in numbers)})",
+                numbers,
+            ).fetchall()
+        )
+        stored = {row[0] for row in rows}
+        return [number for number in numbers if number not in stored]
+
+    async def _document_rows(self, category: str | None) -> list[sqlite3.Row]:
+        """Id, title, category and decision date of every stored document (of ``category`` when given)."""
+        where, params = (" WHERE category = ?", [category]) if category else ("", [])
+        return await self._db.run(
+            lambda conn: conn.execute(
+                f"SELECT document_id, title, category, decision_date FROM documents{where}", params
+            ).fetchall()
+        )
+
+    async def _first_chunk_hits(self, column: str, values: list[str], category: str | None) -> list[dict]:
+        """The stored documents whose ``column`` (decision_number or document_id) is one of ``values``, each
+        with its first current chunk and no score."""
+        if not values:
+            return []
+        where = f"d.{column} IN ({', '.join('?' for _ in values)})" + (" AND d.category = ?" if category else "")
+        params = [*values, category] if category else list(values)
         rows = await self._db.run(
             lambda conn: conn.execute(
                 "SELECT c.doc_id, d.title, d.category, d.decision_date, d.decision_number, d.source_url, "
@@ -1277,8 +1477,6 @@ class VectorStore:
                 "semantic_relevance": 0.0,
                 "ordering_score": 0.0,
                 "relevance_clamped": False,
-                "match_type": "decision_number",
-                "decision_number_match": True,
                 "confidence": "low",
                 **_section_metadata_from_row(row),
             }
@@ -1381,6 +1579,13 @@ class VectorStore:
 
         Hits from the relaxed OR fallback carry ``fts_relaxed=True``: they
         matched only some query words, so they never count as exact matches.
+        Documents whose chunks hold every query word only in an inflected form
+        (``_inflected_fts_query``) follow the strict matches with
+        ``fts_inflected=True``: a keyword match for the fusion, the lexical
+        boost (at _INFLECTED_LEXICAL_WEIGHT) and the FTS gate, never an exact or keyword-only match. The
+        relaxed fallback runs whenever the strict pass finds nothing; an
+        inflected match then takes precedence over a document's relaxed row
+        and the inflected documents come first.
         ``alternative_query`` (the query with abbreviations expanded) runs as a
         second strict pass; a document keeps its best-ranked chunk of the two.
         With ``document_limit``, the strict matches are also fetched per document
@@ -1399,30 +1604,52 @@ class VectorStore:
                 *rows,
                 *await self._fts_rows(_strict_fts_query(alternative_query), limit=limit, category=category),
             ]
+        # The inflection-tolerant pass finds only chunks that the strict expression does not match.
+        inflected_rows = []
+        if inflected_query := _inflected_fts_query(query):
+            inflected_match = f"({inflected_query}) NOT ({_strict_fts_query(query)})"
+            inflected_rows = await self._fts_rows(inflected_match, limit=limit, category=category)
         relaxed = False
         if not rows and (relaxed_query := _relaxed_fts_query(query)):
             rows = await self._fts_rows(relaxed_query, limit=limit, category=category)
             relaxed = True
 
         seen: dict[str, dict] = {}
-        for row in rows:
-            did = row["doc_id"]
-            rank = float(row["fts_rank"])
-            if did not in seen or rank > seen[did]["fts_rank"]:
-                seen[did] = {
-                    "doc_id": did,
-                    "title": row["title"] or "",
-                    "category": row["category"] or "",
-                    **_document_metadata_from_row(row),
-                    "snippet": (row["chunk_text"] or "")[:_SEARCH_SNIPPET_CHARS],
-                    # The whole chunk, for the legal-reference check of _hybrid_search; not returned.
-                    "chunk_text": row["chunk_text"] or "",
-                    "fts_rank": rank,
-                    "semantic_relevance": 0.0,
-                    "match_type": "fts",
-                    "fts_relaxed": relaxed,
-                    **_section_metadata_from_row(row),
-                }
+        # Documents that the inflection-tolerant pass found and the strict pass did not. An inflected
+        # (all-words) match takes precedence over a relaxed row of the same document; the inflected
+        # documents follow the strict ones and precede the relaxed ones.
+        inflected: dict[str, dict] = {}
+        for found, found_rows in ((seen, rows), (inflected, inflected_rows)):
+            for row in found_rows:
+                did = row["doc_id"]
+                rank = float(row["fts_rank"])
+                if found is inflected and did in seen and not relaxed:
+                    continue
+                if did not in found or rank > found[did]["fts_rank"]:
+                    found[did] = {
+                        "doc_id": did,
+                        "title": row["title"] or "",
+                        "category": row["category"] or "",
+                        **_document_metadata_from_row(row),
+                        "snippet": (row["chunk_text"] or "")[:_SEARCH_SNIPPET_CHARS],
+                        # The whole chunk, for the legal-reference check of _hybrid_search; not returned.
+                        "chunk_text": row["chunk_text"] or "",
+                        "fts_rank": rank,
+                        "semantic_relevance": 0.0,
+                        "match_type": "fts",
+                        "fts_relaxed": relaxed and found is seen,
+                        "fts_inflected": found is inflected,
+                        **_section_metadata_from_row(row),
+                    }
+        for did, hit in inflected.items():
+            if did in seen:
+                # The superseded relaxed row keeps its place in the lexical scale (_hybrid_search).
+                hit["relaxed_fts_rank"] = seen[did]["fts_rank"]
+        strict_or_relaxed = sorted(
+            (hit for did, hit in seen.items() if did not in inflected), key=lambda x: x["fts_rank"], reverse=True
+        )
+        inflected_hits = sorted(inflected.values(), key=lambda x: x["fts_rank"], reverse=True)
+        matched = inflected_hits + strict_or_relaxed if relaxed else strict_or_relaxed + inflected_hits
 
         if document_limit and not relaxed:
             document_rows = await self._fts_document_rows(
@@ -1452,11 +1679,9 @@ class VectorStore:
                     "keyword_tail": True,
                     **_section_metadata_from_row(row),
                 }
-            return sorted(seen.values(), key=lambda x: x["fts_rank"], reverse=True) + sorted(
-                tail.values(), key=lambda x: x["fts_rank"], reverse=True
-            )
+            return matched + sorted(tail.values(), key=lambda x: x["fts_rank"], reverse=True)
 
-        return sorted(seen.values(), key=lambda x: x["fts_rank"], reverse=True)
+        return matched
 
     async def _fts_document_rows(self, match: str | None, *, limit: int, category: str | None) -> list[sqlite3.Row]:
         """Strict FTS matches, the best-ranked chunk of each document, best documents first."""
@@ -1522,12 +1747,14 @@ class VectorStore:
         *,
         embed_query: str | None = None,
         fts_alternative_query: str | None = None,
+        named: list[tuple[str, str]] = (),
     ) -> list[dict]:
         """Hybrid search: dense + sparse retrieval fused with RRF.
 
         ``embed_query`` replaces the query for the embedding only, and
         ``fts_alternative_query`` adds a second strict keyword pass (both used for
-        glossary abbreviations).
+        glossary abbreviations). ``named`` (``_named_documents``) lists the documents the
+        query names: they come first, in that order, as ``match_type`` "named".
 
         Each hit carries three scores. ``semantic_relevance`` is the raw cosine
         of the embedding model; hits below the semantic threshold are dropped.
@@ -1542,7 +1769,10 @@ class VectorStore:
         others follow them.
         Documents that match the strict all-words FTS query but have no
         semantic hit follow the strong and moderate semantic hits, ahead of the weak ones, as keyword matches
-        (``match_type`` "fts", no semantic score), in BM25 order.
+        (``match_type`` "fts", no semantic score), in BM25 order. Before the
+        limit, the dated decisions at the calibration ceiling are listed newest
+        first in their own positions, then TASLAK/MÜLGA catalog-class hits follow the others of
+        their shown band (``_catalog_class_last``), and the named documents come first.
         """
         vector_hits, fts_hits = await asyncio.gather(
             self._vector_search(
@@ -1595,11 +1825,12 @@ class VectorStore:
                 did in fts_by_doc
                 and exact_legal_query
                 and not fts_by_doc[did].get("fts_relaxed")
+                and not fts_by_doc[did].get("fts_inflected")
                 and _hit_contains_reference(fts_by_doc[did], query_refs)
             ):
                 # Only the strict AND query of a chunk that holds the reference itself can
-                # stand in for a semantic score; relaxed OR hits face the threshold like any
-                # other FTS hit, and a strict hit without the reference is a keyword-only hit.
+                # stand in for a semantic score; relaxed OR and inflected hits face the threshold
+                # like any other FTS hit, and a strict hit without the reference is a keyword-only hit.
                 hit["match_type"] = "fts_exact"
             elif did in fts_by_doc:
                 hit["match_type"] = "fts"
@@ -1607,10 +1838,23 @@ class VectorStore:
                 hit["match_type"] = "vector"
 
         if fts_hits:
-            max_fts_rank = max((hit.get("fts_rank", 0.0) for hit in fts_hits), default=0.0)
+            # The strict matches, or without them every relaxed row (a row an inflected match superseded
+            # included), set the scale (BM25 of the inflected expression is another query's score), so an
+            # inflected match never changes their lexical relevance. An inflected hit gets
+            # _INFLECTED_LEXICAL_WEIGHT of its value on that scale (capped at 1), and never less than the
+            # value of its superseded relaxed row, so promotion never lowers it.
+            scale_ranks = [hit.get("fts_rank", 0.0) for hit in fts_hits if not hit.get("fts_inflected")]
+            scale_ranks += [hit["relaxed_fts_rank"] for hit in fts_hits if "relaxed_fts_rank" in hit]
+            max_fts_rank = max(scale_ranks or [hit.get("fts_rank", 0.0) for hit in fts_hits], default=0.0)
             if max_fts_rank > 0:
                 for hit in fused:
-                    lexical_relevance = float(hit.get("fts_rank", 0.0)) / max_fts_rank
+                    matched = fts_by_doc.get(hit["doc_id"], {})
+                    lexical_relevance = min(1.0, float(hit.get("fts_rank", 0.0)) / max_fts_rank)
+                    if matched.get("fts_inflected"):
+                        lexical_relevance = max(
+                            lexical_relevance * _INFLECTED_LEXICAL_WEIGHT,
+                            min(1.0, float(matched.get("relaxed_fts_rank", 0.0)) / max_fts_rank),
+                        )
                     hit["lexical_relevance"] = round(lexical_relevance, _SCORE_DECIMAL_PLACES)
                     if hit.get("semantic_relevance", 0.0) > 0 and lexical_relevance > 0:
                         hit["relevance"] = round(
@@ -1633,14 +1877,17 @@ class VectorStore:
         for hit in fused:
             ordering_score = round(hit.get("relevance", 0.0), _SCORE_DECIMAL_PLACES)
             hit["ordering_score"] = ordering_score
-            # At the ceiling the displayed value is clamped: hits there tie at 1.0 and are
-            # ordered by the ordering score, which the displayed value no longer shows.
+            # At the ceiling the displayed value is clamped: hits there tie at 1.0 and are ordered by
+            # the ordering score, which the displayed value no longer shows, except that the dated decisions
+            # among them that the query does not name by title are listed newest first in their own positions
+            # (_newest_first_among_clamped_decisions).
             hit["relevance_clamped"] = gate_factor == 1.0 and ordering_score >= calibration.ceiling
             hit["relevance"] = round(
                 displayed_relevance(ordering_score, calibration) * gate_factor, _SCORE_DECIMAL_PLACES
             )
 
         threshold = semantic_threshold(self._embedding_model)
+        scored = fused
         fused = [h for h in fused if h["semantic_relevance"] >= threshold or h["match_type"] == "fts_exact"]
 
         # RRF order only breaks ties. Hits with a dense score are ordered by the
@@ -1670,12 +1917,36 @@ class VectorStore:
         # remaining strong and moderate hits come first, then the keyword-only hits, then the weak
         # semantic hits in their order.
         listed = {h["doc_id"] for h in head + rest}
-        fused = (
+        fused = _newest_first_among_clamped_decisions(
             head
             + [h for h in rest if _shown_as_strong_or_moderate(h)]
             + _keyword_only_hits(keyword_candidates, listed)
-            + [h for h in rest if not _shown_as_strong_or_moderate(h)]
+            + [h for h in rest if not _shown_as_strong_or_moderate(h)],
+            query,
         )
+        fused = _catalog_class_last(fused, query, category)
+        if named:
+            # The documents the query names come first, in the order of ``named``, with the chunk of their
+            # hit (listed, below the threshold, or keyword-only), else their first chunk; the naming sets their
+            # place, so they carry no score.
+            found = {h["doc_id"]: h for h in keyword_candidates} | {h["doc_id"]: h for h in scored + fused}
+            missing = [doc_id for doc_id, _ in named if doc_id not in found]
+            found |= {h["doc_id"]: h for h in await self._first_chunk_hits("document_id", missing, category)}
+            named_hits = [
+                {
+                    **found[doc_id],
+                    "match_type": "named",
+                    "named_by": named_by,
+                    "relevance": 0.0,
+                    "semantic_relevance": 0.0,
+                    "ordering_score": 0.0,
+                    "relevance_clamped": False,
+                }
+                for doc_id, named_by in named
+                if doc_id in found
+            ]
+            named_ids = {h["doc_id"] for h in named_hits}
+            fused = named_hits + [h for h in fused if h["doc_id"] not in named_ids]
 
         for h in fused:
             if h["relevance"] >= _HIGH_CONFIDENCE_THRESHOLD:

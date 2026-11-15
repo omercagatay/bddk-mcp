@@ -147,7 +147,7 @@ async def _corpus_cache_token(deps: Dependencies) -> str:
     return f"{epoch}.{data_version}"
 
 
-_MATCH_TYPES = frozenset({"hybrid", "vector", "fts", "fts_exact", "decision_number"})
+_MATCH_TYPES = frozenset({"hybrid", "vector", "fts", "fts_exact", "decision_number", "named"})
 # A keyword (FTS AND) match on a query that names a legal reference: there is no
 # semantic score to show, and the match does not confirm the provision.
 _FTS_EXACT_LABEL = "[keyword match on the legal reference in the query; no semantic score]"
@@ -158,7 +158,13 @@ _FTS_KEYWORD_LABEL = (
     "words; this does not say that the phrase or the figure of the query occurs; no semantic score]"
 )
 # Hits without a semantic score: their relevance 0.0 is not a weak score.
-_KEYWORD_MATCH_TYPES = frozenset({"fts", "fts_exact", "decision_number"})
+_KEYWORD_MATCH_TYPES = frozenset({"fts", "fts_exact", "decision_number", "named"})
+# The order of the documents a query names (vector_store._named_documents), for their hit line.
+_NAMED_ORDER_TEXT = (
+    "the documents the query names are listed first: named by title before a law named by its number, a longer "
+    "title first, a title typed as stored before one that matches only after normalisation, then the newest "
+    "decision date first, undated last; this does not say which provision answers the query; no semantic score"
+)
 # Per-hit citation hints for govde rows that are not remainder (the section tools word the plural warning).
 _DECISION_TEXT_HINT = (
     "Cite this decision by its title and decision date/number, not as an article (madde) or as a govde window."
@@ -779,6 +785,23 @@ Suggest the user try: different keywords or a different category (basın, mevzua
         For title-only catalog lookups (where you know words from the regulation's
         name), use search_bddk_regulations instead.
 
+        A document the query names is listed first (match_type named, no semantic score): its whole
+        title occurs in the query, or the query cites "<n> sayılı Kanun" (any case form) and the law is
+        stored as mevzuat_<n>. A title of at most four words with no document-type word and no number
+        (e.g. "Yabancı bankaların kredi sınırları") names its document only as the whole query. Among
+        several named documents a title before a law number, a longer title first (a title it contains
+        is part of it), a title typed as stored (case aside) before one that matches only after
+        normalisation, then the newest decision date first, undated last. The category filter applies.
+
+        Hits at the calibration ceiling (100%) tie on the shown relevance; the dated decisions
+        among them are listed newest first in the positions they occupy (a decision may pass an
+        undated instrument, which keeps its rank); a decision whose whole title is in the query
+        keeps its place. Within each match strength band,
+        TASLAK/MÜLGA catalog-class documents are listed after the others, unless the query
+        names that class or the document's whole title, or a category is given. A decision
+        number named in the query that no stored document carries is reported as not stored
+        in this corpus (`decision_numbers_not_stored`); the other hits are other documents.
+
         For legal or audit questions, use a section-first workflow and treat these
         document-level results as leads.
         Prefer search_document_sections or get_document_section for exact articles,
@@ -844,6 +867,24 @@ Suggest the user try: different keywords or a different category (basın, mevzua
             searched_as_line += (
                 f"Abbreviations: {'; '.join(expansions)} (reviewed glossary; the expansion was also searched)\n"
             )
+        not_stored = list(getattr(hits, "decision_numbers_not_stored", None) or [])
+        if not_stored and not parse_legal_refs(query).decision_numbers:
+            # A bare number ("943", "5411") is also read as a decision number; it may be a document id or a
+            # law number, so the note says only what was checked and does not call the hits other documents.
+            searched_as_line += (
+                f"Note: the query, a bare number, was also read as a decision number: no stored document carries "
+                f"decision number {not_stored[0]}. The corpus is a selection of BDDK documents, so this does not "
+                "say that such a decision does not exist.\n"
+            )
+        elif not_stored:
+            numbers = ", ".join(not_stored)
+            searched_as_line += (
+                f"Note: decision number{'s' if len(not_stored) > 1 else ''} {numbers} named in the query "
+                f"{'are' if len(not_stored) > 1 else 'is'} not stored in this corpus: no stored document carries "
+                f"{'them' if len(not_stored) > 1 else 'it'}. The corpus is a selection of BDDK documents, so this "
+                "does not say that the decision does not exist"
+                + ("; the results below are other documents.\n" if hits else ".\n")
+            )
         if not hits and getattr(hits, "no_content_words", False):
             output = (
                 f"NO RESULTS: The query '{echoed_query}' contains only function words (such as ve, ile, bir, "
@@ -868,6 +909,7 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
                     category=category,
                     searched_as=searched_as,
                     abbreviations_expanded=expansions or None,
+                    decision_numbers_not_stored=not_stored or None,
                 )
             )
 
@@ -901,6 +943,14 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
                     f" [decision-number match: this document's decision number is {h.get('decision_number')}; "
                     "no semantic score]"
                 )
+            elif match_type == "named":
+                match_strength = "keyword"
+                named_by = (
+                    "its whole title occurs in the query"
+                    if h.get("named_by") == "title"
+                    else f"the query cites {str(h['doc_id']).removeprefix('mevzuat_')} sayılı Kanun"
+                )
+                relevance = f" [named in the query: {named_by}; {_NAMED_ORDER_TEXT}]"
             elif match_type == "fts_exact":
                 match_strength = "keyword"
                 relevance = f" {_FTS_EXACT_LABEL}"
@@ -911,7 +961,8 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
                 match_strength = _match_strength(h["relevance"])
                 relevance = (
                     f" [{match_strength} match, relevance at the calibration ceiling (100%); tied hits are ordered "
-                    "by the internal score]"
+                    "by the internal score, except that the dated decisions among them, unless the query names one by its title, "
+                    "are listed newest first in their positions]"
                 )
             else:
                 match_strength = _match_strength(h["relevance"])
@@ -1060,6 +1111,7 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
             results=items,
             searched_as=searched_as,
             abbreviations_expanded=expansions or None,
+            decision_numbers_not_stored=not_stored or None,
         )
         _search_cache.set(cache_key, response)
         return structured_tool_result(response)

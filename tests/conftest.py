@@ -21,6 +21,34 @@ from bddk_mcp.store.vector_store import VectorStore
 
 
 @pytest.fixture
+def far_east_timezone():
+    """Make a naive (local-time) ``datetime.fromtimestamp`` render UTC+14, on every platform.
+
+    ``time.tzset`` does not exist on Windows, so the host zone cannot be changed portably. The
+    production renderers must pass ``tz=UTC``; one that fell back to local time would read UTC+14.
+    """
+    from datetime import UTC, datetime, timedelta, timezone
+
+    from bddk_mcp.store import doc_store
+    from bddk_mcp.tools import structured_outputs
+
+    class _FarEastDatetime(datetime):
+        @classmethod
+        def fromtimestamp(cls, timestamp, tz=None):
+            if tz is None:
+                return datetime.fromtimestamp(timestamp, tz=timezone(timedelta(hours=14))).replace(tzinfo=None)
+            return datetime.fromtimestamp(timestamp, tz=tz)
+
+    # 2026-04-08 23:30 UTC is already 2026-04-09 in UTC+14.
+    assert _FarEastDatetime.fromtimestamp(1775691000.0).date().isoformat() == "2026-04-09"
+    assert _FarEastDatetime.fromtimestamp(1775691000.0, tz=UTC).date().isoformat() == "2026-04-08"
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(doc_store, "datetime", _FarEastDatetime)
+        patch.setattr(structured_outputs, "datetime", _FarEastDatetime)
+        yield
+
+
+@pytest.fixture
 def historical_quality_registry(monkeypatch):
     """Exercise fail-closed registry behavior without reflagging repaired seed documents."""
     from bddk_mcp.quality import markdown_quality

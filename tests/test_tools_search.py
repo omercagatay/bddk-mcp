@@ -634,22 +634,14 @@ async def test_repealed_and_draft_hits_are_marked_in_both_search_tools():
 
 
 @pytest.mark.asyncio
-async def test_version_counts_render_the_replacement_time_in_utc(doc_store, monkeypatch):
-    import time as _time
-
+async def test_version_counts_render_the_replacement_time_in_utc(doc_store, monkeypatch, far_east_timezone):
     from bddk_mcp.store.doc_store import StoredDocument
 
     await doc_store.store_document(StoredDocument(document_id="1", title="T", markdown_content="eski"))
     monkeypatch.setattr("bddk_mcp.store.doc_store.time.time", lambda: 1775691000.0)
     await doc_store.store_document(StoredDocument(document_id="1", title="T", markdown_content="yeni"))
     monkeypatch.undo()
-    monkeypatch.setenv("TZ", "Pacific/Kiritimati")
-    _time.tzset()
-    try:
-        counts = await doc_store.get_version_counts(["1"])
-    finally:
-        monkeypatch.undo()
-        _time.tzset()
+    counts = await doc_store.get_version_counts(["1"])
 
     assert counts == {"1": (1, "2026-04-08 23:30 UTC")}
 
@@ -1171,8 +1163,9 @@ async def test_a_clamped_relevance_is_shown_as_the_calibration_ceiling_and_snipp
 
     assert "100.0%" not in result.text
     assert (
-        "[strong match, relevance at the calibration ceiling (100%); tied hits are ordered by the internal score]"
-        in (result.text)
+        "[strong match, relevance at the calibration ceiling (100%); tied hits are ordered by the internal score, "
+        "except that the dated decisions among them, unless the query names one by its title, "
+        "are listed newest first in their positions]" in (result.text)
     )
     assert "[strong match, relevance 80.0%]" in result.text
     assert f"\n  {'x' * 200}...\n" in result.text
@@ -1259,6 +1252,36 @@ async def test_decision_number_hits_have_their_own_match_type_and_the_structured
     assert "decision_number" in DocumentSearchItem.model_fields["match_type"].description
     assert "every query word" not in result.text.split("Document ID: 775")[0]
     assert result.structuredContent["query"] == "8948\\x07"
+    assert "WARNING" not in result.text
+
+
+@pytest.mark.asyncio
+async def test_documents_the_query_names_have_their_own_match_type_and_say_why_they_come_first():
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    by_title = {**_hit("283", 0.0, "named"), "named_by": "title"}
+    by_number = {**_hit("mevzuat_5411", 0.0, "named"), "named_by": "law_number"}
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(return_value=[by_title, by_number, _hit("other", 0.9, "hybrid")])
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None, vector_store=vector_store)
+    mcp = MagicMock()
+    register(mcp, deps)
+
+    result = await _registered_tools(mcp)["search_document_store"]("5411 sayılı Kanun ve Karar", limit=10)
+
+    first, second, third = result.structuredContent["results"]
+    assert (first["match_type"], first["match_strength"]) == ("named", "keyword")
+    assert (second["match_type"], second["match_strength"]) == ("named", "keyword")
+    assert third["match_type"] == "hybrid"
+    assert "[named in the query: its whole title occurs in the query; the documents the query names are listed" in (
+        result.text
+    )
+    assert "[named in the query: the query cites 5411 sayılı Kanun;" in result.text
+    assert "newest decision date first, undated last" in result.text
+    assert "named" in DocumentSearchItem.model_fields["match_type"].description
     assert "WARNING" not in result.text
 
 
@@ -1370,3 +1393,47 @@ async def test_the_mismatch_note_also_compares_the_parent_provision(doc_store):
 
     assert "[note: this hit is part of madde 2, not the madde 12 requested in the query]" in other.text
     assert "[note:" not in same.text
+
+
+@pytest.mark.asyncio
+async def test_a_decision_number_the_corpus_does_not_store_is_named_before_the_results():
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.store.vector_store import SearchHits
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    other = SearchHits([{**_hit("1301", 0.9, "hybrid"), "decision_number": "11200"}])
+    other.decision_numbers_not_stored = ["11250"]
+    nothing = SearchHits([])
+    nothing.decision_numbers_not_stored = ["11250"]
+    stored = SearchHits([{**_hit("1301", 0.9, "hybrid"), "decision_number": "11200"}])
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    bare = SearchHits([_hit("mevzuat_5411", 0.9, "hybrid")])
+    bare.decision_numbers_not_stored = ["5411"]
+    vector_store.search = AsyncMock(side_effect=[other, nothing, stored, bare])
+    mcp = MagicMock()
+    register(mcp, Dependencies(db=None, doc_store=None, client=None, http=None, vector_store=vector_store))
+    tool = _registered_tools(mcp)["search_document_store"]
+
+    with_hits = await tool("15.07.2025 tarihli ve 11250 sayılı Kurul Kararı", limit=10)
+    without_hits = await tool("11250 sayılı karar kredi", limit=10)
+    known = await tool("11200 sayılı karar", limit=10)
+    bare_number = await tool("5411", limit=10)
+
+    note = "Note: decision number 11250 named in the query is not stored in this corpus"
+    assert with_hits.text.index(note) < with_hits.text.index("Found 1 result(s)")
+    assert "the results below are other documents" in with_hits.text
+    assert "does not say that the decision does not exist" in with_hits.text
+    assert with_hits.structuredContent["decision_numbers_not_stored"] == ["11250"]
+    assert without_hits.structuredContent["status"] == "no_results"
+    assert without_hits.text.index(note) < without_hits.text.index("NO RESULTS")
+    assert "the results below" not in without_hits.text
+    assert without_hits.structuredContent["decision_numbers_not_stored"] == ["11250"]
+    assert "not stored in this corpus" not in known.text
+    assert known.structuredContent.get("decision_numbers_not_stored") is None
+    # A bare number may be a law number or a document id: the note says only what was checked.
+    assert "the query, a bare number, was also read as a decision number" in bare_number.text
+    assert "decision number 5411 named in the query" not in bare_number.text
+    assert "other documents" not in bare_number.text
+    assert bare_number.structuredContent["decision_numbers_not_stored"] == ["5411"]
