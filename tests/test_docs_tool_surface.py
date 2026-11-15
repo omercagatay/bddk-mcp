@@ -131,7 +131,9 @@ def test_status_document_pins_current_facts():
     assert "14 tools" in status
     assert "One SQLite file" in status
     assert "corpus/bddk.sqlite" in status
-    assert "schema version 1" in status
+    from bddk_mcp.store.corpus_db import SCHEMA_VERSION
+
+    assert f"schema version {SCHEMA_VERSION} " in status
     assert "12,091 chunks" in status
     assert "archive/pre-simplify-2026-11-09" in status
     for retired in _RETIRED_STRINGS:
