@@ -32,9 +32,25 @@ FORMULA_EXTRACTION_WARNING = (
 )
 
 
+MODEL_OCR_WARNING = (
+    "Bu belgenin metni sayfa görüntülerinden model OCR ile (LightOnOCR) üretilmiştir ve kaynakla "
+    "karşılaştırılmamıştır; kelimeler, sayılar ve madde/fıkra atıfları kaynaktan farklı olabilir. "
+    "Alıntı veya hesaplamadan önce kaynak PDF ile doğrula."
+)
+
+
 def is_formula_aware(method: str) -> bool:
-    """Recognize existing formula-preserving backends, including combined method names."""
-    return any(token in (method or "").lower() for token in ("lightocr", "pp_structure", "manual_latex"))
+    """Recognize existing formula-preserving methods, including combined method names.
+
+    ``lightocr`` is not one since 2026-11-15: whole-page model OCR has not earned that trust (bake-off of
+    LightOnOCR against the PDF text layer, about 2 % of words missing or changed); ``+manual_latex`` still is.
+    """
+    return any(token in (method or "").lower() for token in ("pp_structure", "manual_latex"))
+
+
+def is_model_ocr(method: str) -> bool:
+    """True when the stored text was produced by whole-page model OCR and was not checked against the source."""
+    return "lightocr" in (method or "").lower()
 
 
 def mentions_formula(text: str) -> bool:

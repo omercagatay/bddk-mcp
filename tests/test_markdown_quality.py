@@ -12,6 +12,8 @@ from bddk_mcp.quality.markdown_quality import (
     MOJIBAKE_RE,
     QUALITY_ASSESSMENT_POLICY_VERSION,
     assess_markdown_quality,
+    is_formula_aware,
+    is_model_ocr,
     load_quality_failure_registry,
     mentions_formula,
     prepare_markdown_for_storage,
@@ -344,6 +346,19 @@ def test_reviewed_internal_formula_references_are_bound_to_the_seed_text_and_rec
         for phrase in phrases:
             assert phrase in docs[doc_id]
             assert (doc_id, phrase) in recorded
+
+
+def test_no_seed_document_changes_formula_or_model_ocr_classification():
+    """The lightocr change of 2026-11-15 must leave every seed document's warnings as they were."""
+    root = Path(__file__).resolve().parents[1]
+    methods = {
+        d["extraction_method"] for d in json.loads((root / "seed_data/documents.json").read_text(encoding="utf-8"))
+    }
+    assert methods
+    for method in methods:
+        assert not is_model_ocr(method), method
+        # The rule before 2026-11-15 also trusted lightocr; no seed method contains it.
+        assert is_formula_aware(method) is any(t in method for t in ("lightocr", "pp_structure", "manual_latex"))
 
 
 def test_quality_assessment_ignores_generic_formula_mentions():

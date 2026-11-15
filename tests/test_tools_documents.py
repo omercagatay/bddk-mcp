@@ -119,8 +119,10 @@ async def test_prefixed_id_does_not_get_expanded():
 @pytest.mark.parametrize(
     "method,expected",
     [
-        ("lightocr", True),
-        ("mevzuat_pdf+lightocr", True),
+        # Whole-page model OCR is not trusted with formulas since the bake-off of 2026-11-15.
+        ("lightocr", False),
+        ("mevzuat_pdf+lightocr", False),
+        ("lightocr+manual_latex", True),
         ("cached_pdf+pp_structure", True),
         ("manual_latex", True),
         ("html_parser+manual_latex", True),
