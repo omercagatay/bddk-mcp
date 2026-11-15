@@ -2062,6 +2062,36 @@ async def test_a_definition_question_finds_the_definition_by_its_words(doc_store
     assert first.get("rank") is not None and result.structuredContent["loose_fallback_used"] is False
 
 
+def test_tanim_is_never_a_required_word():
+    from bddk_mcp.tools.sections import _required_search_text
+
+    assert _required_search_text("nitelikli pay tanımı") == ("nitelikli pay", ["tanımı"])
+    assert _required_search_text("KOBİ tanimi nedir") == ("KOBİ", ["tanimi", "nedir"])
+    assert _required_search_text("tanımı") == ("tanımı", [])
+
+
+@pytest.mark.asyncio
+async def test_a_definition_asked_with_tanimi_finds_the_term_and_says_why(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_21425",
+            title="Sistemik Önemli Bankalar Hakkında Yönetmelik",
+            markdown_content="MADDE 3 - Tanımlar\n(1) Sistemik önemli banka tamponu: ilave çekirdek sermayedir.\n",
+        )
+    )
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "search_document_sections")
+
+    result = await tool("sistemik önemli banka tamponu tanımı")
+
+    first = result.structuredContent["results"][0]
+    assert (first["document_id"], first["section_ref"], first.get("rank") is not None) == ("mevzuat_21425", "3", True)
+    assert result.structuredContent["query_words_not_searched"] == ["tanımı"]
+    assert "'tanım' is optional because a definition is written as the term and its meaning" in result.text
+    assert "'yüzde' is optional" not in result.text
+
+
 def test_question_and_frame_words_typed_without_turkish_characters_are_left_out():
     from bddk_mcp.tools.sections import _loose_search_terms, _required_search_text
 

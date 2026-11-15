@@ -621,8 +621,8 @@ class SectionSearchResponse(RetrievalResponse):
         default_factory=list,
         description=(
             "Query words that the exact-word and inflection-tolerant passes did not require: Turkish question "
-            "words, the frame words of a question (e.g. 'oluşur', 'demektir', 'kadar', 'en az'), and 'yüzde' (optional because sources also "
-            "write '%')."
+            "words, the frame words of a question (e.g. 'oluşur', 'demektir', 'kadar', 'en az'), 'yüzde' (optional because "
+            "sources also write '%') and 'tanım'/'tanımı' (a definition is written as the term and its meaning)."
         ),
     )
     results: list[SectionItem] = Field(default_factory=list, description="Ranked structural section matches.")

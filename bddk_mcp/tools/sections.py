@@ -214,6 +214,9 @@ _QUESTION_FRAME_WORDS = frozenset(
 )
 # "yüzde 15" and "%15" are the same figure; the source may write either, so "yüzde" is never required.
 _QUERY_PERCENT_WORDS = frozenset({"yüzde", "yuzde"})
+# A definition is written as the term and its meaning ("Nitelikli pay: ..."), so "tanım"/"tanımı" ("nitelikli pay
+# tanımı") is never a required word either.
+_QUERY_DEFINITION_WORDS = frozenset({"tanım", "tanımı"})
 
 _LOOSE_SECTION_SEARCH_STOPWORDS = (
     _QUERY_QUESTION_WORDS
@@ -245,6 +248,7 @@ _LOOSE_SECTION_SEARCH_STOPWORDS = (
 _NORMALIZED_QUESTION_WORDS = frozenset(normalize_search_text(word) for word in _QUERY_QUESTION_WORDS)
 _NORMALIZED_QUESTION_FRAME_WORDS = frozenset(normalize_search_text(word) for word in _QUESTION_FRAME_WORDS)
 _NORMALIZED_PERCENT_WORDS = frozenset(normalize_search_text(word) for word in _QUERY_PERCENT_WORDS)
+_NORMALIZED_DEFINITION_WORDS = frozenset(normalize_search_text(word) for word in _QUERY_DEFINITION_WORDS)
 _NORMALIZED_LOOSE_STOPWORDS = frozenset(normalize_search_text(word) for word in _LOOSE_SECTION_SEARCH_STOPWORDS)
 # Standalone FTS on these floods IPC / generic-ratio articles and crowds out
 # the provision that actually contains the distinctive tokens.
@@ -1101,8 +1105,8 @@ def _strip_format_chars(text: str) -> str:
 def _required_search_text(query: str) -> tuple[str, list[str]]:
     """Return the query text the exact-word and stem passes require, and the words left out.
 
-    Question words are left out, and in a question also its frame words ("oluşur", "yapılır"); so is
-    "yüzde" (a source may write "%" instead).
+    Question words are left out, and in a question also its frame words ("oluşur", "yapılır"); so are
+    "yüzde" (a source may write "%" instead) and "tanım"/"tanımı" (a definition is the term and its meaning).
     When nothing would remain, every word is kept: a word is never dropped when it is the only one.
     """
     words = re.findall(r"\w+", query, flags=re.UNICODE)
@@ -1110,6 +1114,7 @@ def _required_search_text(query: str) -> tuple[str, list[str]]:
     not_required = (
         _NORMALIZED_QUESTION_WORDS
         | _NORMALIZED_PERCENT_WORDS
+        | _NORMALIZED_DEFINITION_WORDS
         | (_NORMALIZED_QUESTION_FRAME_WORDS if question else frozenset())
     )
     kept: list[str] = []
@@ -1588,8 +1593,9 @@ def register(mcp, deps: Dependencies) -> None:
         used to gate low-confidence retrieval.
 
         Turkish question words (kaç, nedir, nasıl, mi ...), in a question also its
-        frame words (oluşur, yapılır, demektir, kadar, en az ...), and "yüzde"
-        (sources also write "%") are
+        frame words (oluşur, yapılır, demektir, kadar, en az ...), "yüzde"
+        (sources also write "%") and "tanım"/"tanımı" (a definition is the term
+        and its meaning) are
         not required words; the answer lists them under "not searched". Invisible
         format characters are ignored.
 
@@ -1832,6 +1838,8 @@ def register(mcp, deps: Dependencies) -> None:
             normalize_search_text(word) in _NORMALIZED_PERCENT_WORDS for word in re.findall(r"\w+", search_query)
         )
         percent_rule = "; 'yüzde' is optional because sources also write '%'" if percent_query else ""
+        if any(normalize_search_text(word) in _NORMALIZED_DEFINITION_WORDS for word in not_searched):
+            percent_rule += "; 'tanım' is optional because a definition is written as the term and its meaning"
         not_searched_note = (
             f"Note: not searched as required words: {', '.join(not_searched)} (Turkish question words and the "
             f"frame words of a question are left out{percent_rule}).\n"
