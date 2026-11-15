@@ -235,6 +235,9 @@ _QUERY_PERCENT_WORDS = frozenset({"yüzde", "yuzde"})
 # A definition is written as the term and its meaning ("Nitelikli pay: ..."), so "tanım"/"tanımı" ("nitelikli pay
 # tanımı") is never a required word either.
 _QUERY_DEFINITION_WORDS = frozenset({"tanım", "tanımı"})
+# A provision writes a formula as the computation itself ("... bölünmesi suretiyle hesaplanır", "özkaynak/(...)"),
+# not with the word, so "formül"/"formülü" is never a required word either.
+_QUERY_FORMULA_WORDS = frozenset({"formül", "formülü"})
 
 _LOOSE_SECTION_SEARCH_STOPWORDS = (
     _QUERY_QUESTION_WORDS
@@ -267,6 +270,7 @@ _NORMALIZED_QUESTION_WORDS = frozenset(normalize_search_text(word) for word in _
 _NORMALIZED_QUESTION_FRAME_WORDS = frozenset(normalize_search_text(word) for word in _QUESTION_FRAME_WORDS)
 _NORMALIZED_PERCENT_WORDS = frozenset(normalize_search_text(word) for word in _QUERY_PERCENT_WORDS)
 _NORMALIZED_DEFINITION_WORDS = frozenset(normalize_search_text(word) for word in _QUERY_DEFINITION_WORDS)
+_NORMALIZED_FORMULA_WORDS = frozenset(normalize_search_text(word) for word in _QUERY_FORMULA_WORDS)
 # "asgari"/"azami" right before the question word of a question ("asgari ne kadar", "asgari yüzde kaç") ask for
 # the limit itself, as "en az" does: the provision may write it "en az", "... den az olamaz" or "aşamaz". Elsewhere
 # they are content ("asgari ödeme tutarı nedir", "azami vade kaç ay").
@@ -1136,8 +1140,9 @@ def _required_search_text(query: str) -> tuple[str, list[str]]:
     """Return the query text the exact-word and stem passes require, and the words left out.
 
     Question words are left out, and in a question also its frame words ("oluşur", "yapılır") and
-    "asgari"/"azami" right before its question word; so are "yüzde" (a source may write "%" instead) and
-    "tanım"/"tanımı" (a definition is the term and its meaning).
+    "asgari"/"azami" right before its question word; so are "yüzde" (a source may write "%" instead),
+    "tanım"/"tanımı" (a definition is the term and its meaning) and "formül"/"formülü" (a formula is written
+    as the computation).
     When nothing would remain, every word is kept: a word is never dropped when it is the only one.
     """
     words = re.findall(r"\w+", query, flags=re.UNICODE)
@@ -1147,6 +1152,7 @@ def _required_search_text(query: str) -> tuple[str, list[str]]:
         _NORMALIZED_QUESTION_WORDS
         | _NORMALIZED_PERCENT_WORDS
         | _NORMALIZED_DEFINITION_WORDS
+        | _NORMALIZED_FORMULA_WORDS
         | (_NORMALIZED_QUESTION_FRAME_WORDS if question else frozenset())
     )
     kept: list[str] = []
@@ -2009,6 +2015,8 @@ def register(mcp, deps: Dependencies) -> None:
         percent_rule = "; 'yüzde' is optional because sources also write '%'" if percent_query else ""
         if any(normalize_search_text(word) in _NORMALIZED_DEFINITION_WORDS for word in not_searched):
             percent_rule += "; 'tanım' is optional because a definition is written as the term and its meaning"
+        if any(normalize_search_text(word) in _NORMALIZED_FORMULA_WORDS for word in not_searched):
+            percent_rule += "; 'formül' is optional because a provision writes a formula as the computation itself"
         if any(normalize_search_text(word) in _NORMALIZED_LIMIT_WORDS for word in not_searched):
             percent_rule += (
                 "; 'asgari'/'azami' right before the question word ask for the limit itself, which a provision may "

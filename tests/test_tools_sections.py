@@ -2119,6 +2119,44 @@ async def test_a_minimum_asked_with_asgari_finds_the_provision_that_writes_az_ol
     assert "'asgari'/'azami' right before the question word ask for the limit itself" in result.text
 
 
+def test_formul_is_never_a_required_word():
+    from bddk_mcp.tools.sections import _required_search_text
+
+    assert _required_search_text("likidite karşılama oranı hesaplama formülü") == (
+        "likidite karşılama oranı hesaplama",
+        ["formülü"],
+    )
+    assert _required_search_text("sermaye yeterliliği standart oranı formulu") == (
+        "sermaye yeterliliği standart oranı",
+        ["formulu"],
+    )
+    assert _required_search_text("formül") == ("formül", [])
+
+
+@pytest.mark.asyncio
+async def test_a_formula_asked_with_formulu_finds_the_computation_and_says_why(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_19498",
+            title="Bankaların Likidite Karşılama Oranı Hesaplamasına İlişkin Yönetmelik",
+            markdown_content=(
+                "MADDE 4 - Likidite karşılama oranı\n(1) Likidite karşılama oranı, yüksek kaliteli likit varlık "
+                "stokunun net nakit çıkışlarına bölünmesi suretiyle hesaplanır.\n"
+            ),
+        )
+    )
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "search_document_sections")
+
+    result = await tool("likidite karşılama oranı formülü")
+
+    first = result.structuredContent["results"][0]
+    assert (first["document_id"], first["section_ref"], first.get("rank") is not None) == ("mevzuat_19498", "4", True)
+    assert result.structuredContent["query_words_not_searched"] == ["formülü"]
+    assert "'formül' is optional because a provision writes a formula as the computation itself" in result.text
+
+
 def test_tanim_is_never_a_required_word():
     from bddk_mcp.tools.sections import _required_search_text
 
