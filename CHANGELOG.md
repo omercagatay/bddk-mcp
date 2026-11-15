@@ -62,7 +62,8 @@ dosyasını ve seed'i açmaz. Onaylanan metin yine `scripts/patch_doc.py` ile sa
   model çağırmaz ve her bölgeyi review için listeler. Verilirse yalnız bu
   belgenin bu çalıştırmada üretilen maskeli sayfa görüntüleri ssh ile o host'a
   gider ve yalnız beklenen çıktı dosyaları geri açılır; her uzak kelime
-  doğrulanır ve quote edilir. Host, HTTP outbound allowlist'ine eklenmedi (yol
+  doğrulanır ve quote edilir. Yalnız bu çalıştırmanın tanıma çıktıları sayılır:
+  yeniden kullanılan bir çıktı klasöründe kalan eskiler okunmaz. Host, HTTP outbound allowlist'ine eklenmedi (yol
   ssh'tır). GPU host'ta çalışan `recognize.py` modeli `trust_remote_code=False`
   ile yükler, greedy decode eder ve end-of-sequence'a ulaşmayan çıktıyı
   truncated sayar (G0 reddeder); meta kaydı olmayan çıktı da truncated sayılır.
