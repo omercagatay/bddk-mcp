@@ -1178,8 +1178,18 @@ def test_abbreviation_caption_above_an_article_is_its_title():
 
 
 def test_upper_case_line_above_an_article_that_is_no_abbreviation_is_no_title():
-    # Real seed lines: 16071's signature fields, an annex number, a part caption, a bare abbreviation, a table row.
-    for line in ("ADI-SOYADI", "İMZA", "EK-1", "ALTINCI BÖLÜM", "KDK", "| 17 | %415 | %455 | %1250 | %1250 |"):
+    # Real seed lines: 16071's signature fields, an annex number, a part caption, a bare abbreviation, a table
+    # row, a formula line and a list item of 1341 and 1336.
+    for line in (
+        "ADI-SOYADI",
+        "İMZA",
+        "EK-1",
+        "ALTINCI BÖLÜM",
+        "KDK",
+        "| 17 | %415 | %455 | %1250 | %1250 |",
+        r"THK = \frac{\sum_n THK_n \times TT_n}{\sum_n TT_n}",
+        "a) TRSY$_{Basit}$",
+    ):
         text = f"MADDE 1 – (1) Birinci.\n\n{line}\n\nMADDE 2 – (1) İkinci.\n"
 
         madde2 = _madde(extract_document_sections("doc", text), "2")
