@@ -1,4 +1,5 @@
-"""What the live BDDK site lists and serves that a corpus file does not hold (`bddk-mcp check-updates`).
+"""What the live BDDK site lists and serves that a corpus file does not hold (`bddk-mcp check-updates`), and the
+entries `bddk-mcp sync --add` takes from the site.
 
 The check reads the corpus file and the site; it writes nothing. It compares three things:
 
@@ -27,6 +28,7 @@ import re
 import httpx
 from bs4 import BeautifulSoup
 
+from bddk_mcp.core.exceptions import BddkUpstreamError
 from bddk_mcp.core.models import BddkDecisionSummary
 from bddk_mcp.core.outbound_http import OutboundHttpPolicyError
 from bddk_mcp.ingest.client import (
@@ -34,6 +36,7 @@ from bddk_mcp.ingest.client import (
     _DECISION_PAGE_IDS,
     RG_DECISION_PAGE_ID,
     BddkApiClient,
+    _canonicalize_catalog,
     _is_in_scope,
 )
 from bddk_mcp.ingest.doc_sync import _decode_html, _http_charset, _is_error_page, _parse_mevzuat_params
@@ -259,3 +262,33 @@ def format_report(report: dict) -> str:
         lines += [f"  {item['document_id']}: {item['reason']}" for item in report["check_errors"]]
     lines.append(f"Status: {report['status'].replace('_', ' ')}")
     return "\n".join(lines)
+
+
+async def entries_to_add(
+    store: DocumentStore, client: BddkApiClient, document_ids: list[str]
+) -> list[BddkDecisionSummary]:
+    """The live catalog entries of ``document_ids``; refuses, before anything is written, an id the catalog
+    already holds, one no page lists, one listed with conflicting records and one out of scope."""
+    wanted = list(dict.fromkeys(document_ids))
+    held = sorted(set(wanted) & {row["document_id"] for row in await store.load_catalog()})
+    if held:
+        raise RuntimeError(f"already in the catalog: {', '.join(held)} (use --doc-id to sync a catalogued document)")
+    pages = await client.read_catalog_pages(CHECK_PAGE_IDS)
+    try:
+        found = {
+            entry.document_id: entry
+            for entry in _canonicalize_catalog(
+                [entry for _, entries, _ in pages for entry in entries if entry.document_id in wanted]
+            )
+        }
+    except BddkUpstreamError:
+        raise RuntimeError("the catalog pages list the document with conflicting records; nothing was added") from None
+    missing = [document_id for document_id in wanted if document_id not in found]
+    if missing:
+        failed = [str(page_id) for page_id, _, error in pages if error]
+        unread = f" (pages that could not be read: {', '.join(failed)})" if failed else ""
+        raise RuntimeError(f"not listed on the catalog pages: {', '.join(missing)}{unread}")
+    out_of_scope = [document_id for document_id in wanted if not _is_in_scope(found[document_id])]
+    if out_of_scope:
+        raise RuntimeError(f"out of the corpus scope: {', '.join(out_of_scope)}")
+    return [found[document_id] for document_id in wanted]

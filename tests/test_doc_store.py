@@ -543,6 +543,34 @@ async def test_heading_filter_reads_apostrophe_variants_as_one_character(store, 
     assert await store.get_document_section("mevzuat_39257", heading="BSD nin kapsamı") == []
 
 
+async def test_add_catalog_entries_inserts_new_rows_and_keeps_every_other_row(store):
+    await store.replace_catalog([{"document_id": "943", "title": "Rehber", "category": "Rehber"}], cached_at=100.0)
+    before = await store.load_catalog()
+
+    added = await store.add_catalog_entries(
+        [{"document_id": "16", "title": "Kredi Kartı Taksit Sınırları", "category": "Banka Kartları"}], cached_at=200.0
+    )
+
+    rows = await store.load_catalog()
+    assert added == 1
+    assert [row for row in rows if row["document_id"] != "16"] == before
+    (new,) = [row for row in rows if row["document_id"] == "16"]
+    assert (new["title"], new["category"], new["cached_at"]) == (
+        "Kredi Kartı Taksit Sınırları",
+        "Banka Kartları",
+        200.0,
+    )
+
+
+async def test_add_catalog_entries_never_overwrites_a_held_entry(store):
+    import sqlite3
+
+    await store.replace_catalog([{"document_id": "943", "title": "Rehber"}], cached_at=100.0)
+    with pytest.raises(sqlite3.IntegrityError):
+        await store.add_catalog_entries([{"document_id": "16"}, {"document_id": "943", "title": "Başka"}])
+    assert [(row["document_id"], row["title"]) for row in await store.load_catalog()] == [("943", "Rehber")]
+
+
 async def test_list_document_sources_reads_no_body(store, sample_doc):
     await store.store_document(sample_doc)
     (row,) = await store.list_document_sources()

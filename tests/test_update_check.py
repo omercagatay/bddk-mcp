@@ -21,6 +21,7 @@ from bddk_mcp.ingest.update_check import (
     amendment_dates,
     check_updates,
     compare_catalog,
+    entries_to_add,
     format_report,
 )
 from bddk_mcp.store.corpus_db import CorpusDB
@@ -227,6 +228,42 @@ class TestCheckUpdates:
         assert json.loads(json.dumps(report)) == report
 
 
+class TestEntriesToAdd:
+    async def test_takes_the_listed_entry_and_refuses_held_unlisted_or_out_of_scope_ids(self, doc_store):
+        await _corpus(doc_store)
+        transport, _ = _site(sizes={})
+        client = _client(transport, doc_store)
+
+        (entry,) = await entries_to_add(doc_store, client, ["16"])
+        assert (entry.document_id, entry.category, entry.title) == (
+            "16",
+            "Banka Kartları",
+            "Kredi Kartı Taksit Sınırları ve Yasakları",
+        )
+        with pytest.raises(RuntimeError, match="already in the catalog: 943"):
+            await entries_to_add(doc_store, client, ["943"])
+        with pytest.raises(RuntimeError, match="not listed on the catalog pages: 77777"):
+            await entries_to_add(doc_store, client, ["77777"])
+
+    async def test_refuses_when_the_page_that_could_list_it_failed(self, doc_store):
+        await _corpus(doc_store)
+        transport, _ = _site(sizes={}, failing_page=51)
+        with pytest.raises(RuntimeError, match=r"pages that could not be read: 51"):
+            await entries_to_add(doc_store, _client(transport, doc_store), ["16"])
+
+
+@pytest.mark.parametrize("value", ["16", "mevzuat_11180"])
+def test_add_accepts_bddk_and_mevzuat_ids(value):
+    assert cli.build_parser().parse_args(["sync", "--add", value]).add == [value]
+
+
+@pytest.mark.parametrize("value", ["../16", "16 ", "kgk_tms_12", "mevzuat_", "1" * 21, "16;drop"])
+def test_add_rejects_anything_but_a_document_id(value):
+    with pytest.raises(SystemExit) as exited:
+        cli.build_parser().parse_args(["sync", "--add", value])
+    assert exited.value.code == 2
+
+
 def test_check_updates_opens_the_corpus_read_only_and_leaves_it_unchanged(tmp_path, monkeypatch, capsys):
     path = tmp_path / "c.sqlite"
     db = CorpusDB.open(path)
@@ -261,3 +298,82 @@ def test_check_updates_opens_the_corpus_read_only_and_leaves_it_unchanged(tmp_pa
     assert hashlib.sha256(path.read_bytes()).hexdigest() == digest
     report = json.loads(capsys.readouterr().out)
     assert [item["document_id"] for item in report["new"]] == ["16", "1336"]
+
+
+def _patched_client(monkeypatch, transport: httpx.MockTransport) -> None:
+    monkeypatch.setattr("bddk_mcp.ingest.client.BddkApiClient._assert_public_resolution", AsyncMock(return_value=None))
+    real_init = BddkApiClient.__init__
+
+    def init(self, store, **kwargs):
+        real_init(self, store, http=httpx.AsyncClient(transport=transport), **kwargs)
+
+    monkeypatch.setattr(BddkApiClient, "__init__", init)
+
+
+def test_sync_add_inserts_only_the_named_entry_and_syncs_only_it(tmp_path, monkeypatch, capsys):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    path = tmp_path / "c.sqlite"
+    db = CorpusDB.open(path)
+    asyncio.run(_corpus(DocumentStore(db)))
+    before = asyncio.run(DocumentStore(db).load_catalog())
+    db.close()
+    transport, _ = _site(sizes={})
+    _patched_client(monkeypatch, transport)
+    syncer = MagicMock()
+    syncer.__aenter__ = AsyncMock(return_value=syncer)
+    syncer.__aexit__ = AsyncMock(return_value=None)
+    syncer.sync_all = AsyncMock(
+        return_value=SimpleNamespace(
+            total=1, downloaded=1, reindexed=0, skipped=0, failed=0, elapsed_seconds=0.1, errors=[]
+        )
+    )
+    monkeypatch.setattr("bddk_mcp.ingest.doc_sync.DocumentSyncer", MagicMock(return_value=syncer))
+    monkeypatch.setattr("bddk_mcp.store.vector_store.VectorStore", MagicMock())
+
+    cli.main(["sync", "--add", "16", "--corpus", str(path)])
+
+    db = CorpusDB.open(path, readonly=True)
+    after = asyncio.run(DocumentStore(db).load_catalog())
+    db.close()
+    assert [row for row in after if row["document_id"] != "16"] == before
+    (added,) = [row for row in after if row["document_id"] == "16"]
+    assert (added["category"], added["source_url"]) == (
+        "Banka Kartları",
+        "https://www.bddk.org.tr/Mevzuat/DokumanGetir/16",
+    )
+    documents = syncer.sync_all.await_args.args[0]
+    assert [document["document_id"] for document in documents] == ["16"]
+    assert "Added to the catalog: 16" in capsys.readouterr().out
+
+
+def test_sync_add_refuses_a_catalogued_id_without_writing(tmp_path, monkeypatch, capsys):
+    import asyncio
+
+    path = tmp_path / "c.sqlite"
+    db = CorpusDB.open(path)
+    asyncio.run(_corpus(DocumentStore(db)))
+    before = asyncio.run(DocumentStore(db).load_catalog())
+    db.close()
+    transport, calls = _site(sizes={})
+    _patched_client(monkeypatch, transport)
+
+    with pytest.raises(SystemExit) as exited:
+        cli.main(["sync", "--add", "16", "--add", "943", "--corpus", str(path)])
+
+    assert exited.value.code == 1
+    assert "already in the catalog: 943" in capsys.readouterr().err
+    assert calls == []
+    db = CorpusDB.open(path, readonly=True)
+    assert asyncio.run(DocumentStore(db).load_catalog()) == before
+    db.close()
+
+
+def test_sync_add_cannot_be_combined_with_a_refresh_or_one_document(capsys):
+    for extra in (["--refresh-catalog"], ["--doc-id", "943"]):
+        with pytest.raises(SystemExit) as exited:
+            cli.main(["sync", "--add", "16", *extra])
+        assert exited.value.code == 1
+        assert "--add cannot be combined" in capsys.readouterr().err

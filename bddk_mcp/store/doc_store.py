@@ -1189,30 +1189,42 @@ class DocumentStore:
         )
         return [dict(row) for row in rows]
 
+    async def add_catalog_entries(self, items: list[dict], *, cached_at: float | None = None) -> int:
+        """Insert ``items`` into the catalog in one transaction; every other row stays as it is.
+
+        Insert-only: an item whose document_id is already catalogued raises ``sqlite3.IntegrityError`` and nothing
+        is written.
+        """
+        return await self._db.transaction(lambda conn: _insert_catalog_rows(conn, items, cached_at))
+
     async def replace_catalog(self, items: list[dict], *, cached_at: float | None = None) -> int:
         """Replace the catalog with exactly ``items`` (document_id, title, content, ...)."""
-        now = cached_at if cached_at is not None else time.time()
-        rows = [
-            (
-                item["document_id"],
-                item.get("title", ""),
-                item.get("content", ""),
-                item.get("decision_date", ""),
-                item.get("decision_number", ""),
-                item.get("category", ""),
-                item.get("source_url", "") or "",
-                now,
-            )
-            for item in items
-        ]
 
         def _replace(conn: sqlite3.Connection) -> int:
             conn.execute("DELETE FROM decision_cache")
-            conn.executemany(
-                "INSERT INTO decision_cache (document_id, title, content, decision_date, decision_number, "
-                "category, source_url, cached_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                rows,
-            )
-            return len(rows)
+            return _insert_catalog_rows(conn, items, cached_at)
 
         return await self._db.transaction(_replace)
+
+
+def _insert_catalog_rows(conn: sqlite3.Connection, items: list[dict], cached_at: float | None) -> int:
+    now = cached_at if cached_at is not None else time.time()
+    rows = [
+        (
+            item["document_id"],
+            item.get("title", ""),
+            item.get("content", ""),
+            item.get("decision_date", ""),
+            item.get("decision_number", ""),
+            item.get("category", ""),
+            item.get("source_url", "") or "",
+            now,
+        )
+        for item in items
+    ]
+    conn.executemany(
+        "INSERT INTO decision_cache (document_id, title, content, decision_date, decision_number, "
+        "category, source_url, cached_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        rows,
+    )
+    return len(rows)
