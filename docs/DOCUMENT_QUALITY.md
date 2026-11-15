@@ -9,7 +9,7 @@ Stored documents can come from several extraction paths:
 - `html_parser`: preferred when mevzuat.gov.tr or BDDK HTML preserves legal text cleanly.
 - `pdftotext_layout`: the method of most reviewed seed documents (241 of 328); formula-unaware.
 - `markitdown`: general PDF/office extraction path; good for ordinary text, weaker for formulas, annex tables, and embedded images.
-- `pdftotext_degraded` and `markitdown_degraded`: the CPU fallbacks of the sync OCR chain, where important structure may be missing.
+- `pdftotext_degraded` and `markitdown_degraded`: the CPU fallbacks of the sync OCR chain, where important structure may be missing. Since 2026-11-15 the pdftotext backend stores its text in the convention of the `pdftotext_layout` seed texts: no line starts or ends with whitespace, the side-by-side `Karar Sayısı: N      Karar Tarihi: D` line of a Kurul Kararı is two paragraphs, and a run of blank lines is one; the words are unchanged, and other wide gaps inside a line stay because they can be table columns (none of the 241 seed texts has one, so the seed shows no convention for tables). The LightOCR backend decodes greedily (`do_sample=False`), so the same PDF gives the same text.
 - `manual_pdf` and combined names such as `pdftotext_layout+manual_latex`: manually repaired text; only a name containing `lightocr`, `pp_structure` or `manual_latex` counts as formula-aware (`lightocr` needs the `gpu` group).
 
 Trade-offs:

@@ -32,6 +32,80 @@ kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözle
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Eklendi — corpus'u güncel tutma: `check-updates` ve `sync --add` (2026-11-15)
+
+Yeni ve değişen BDDK belgelerini bulmak artık elle yazılan script'lerle değil,
+paketli CLI ile yapılıyor.
+
+- `bddk-mcp check-updates [--corpus PATH] [--json]` yalnızca okur: corpus
+  dosyasını read-only açar, catalog sayfalarını mevcut client, host allowlist'i
+  ve aynı eşzamanlılık sınırıyla (en fazla 5 istek) çeker, hiçbir dosyaya
+  yazmaz. Her sayfa için kaç kayıt okunduğunu ya da neden okunamadığını yazar;
+  bir sayfanın hatası diğerlerinin sonucunu gizlemez.
+  - Yeni: sitenin listelediği, corpus catalog'unda olmayan kayıtlar. 49, 50,
+    51, 54, 58 ve 63 numaralı sayfalar kapsam dışı kayıtlar hariç tam olarak
+    tutulduğu için bu sayfalardaki her eksik kayıt yenidir. 56 ve 55 numaralı
+    sayfalarda bilerek seçilmemiş yaklaşık 780 eski karar bulunduğundan orada
+    yalnızca catalog'daki en büyük BDDK numarasından büyük numaralı kayıt yeni
+    sayılır; 55 numaralı sayfa (Resmi Gazetede Yayımlanan Kurul Kararları) ayrı
+    bir grup olarak raporlanır.
+  - Listelenmeyen: hiçbir sayfanın listelemediği catalog kayıtları. Başka bir
+    bölüme taşınmış, elle eklenmiş ve siteden kaldırılmış belge aynı görünür;
+    bir sayfa okunamadıysa liste eksik olarak işaretlenir.
+  - Değişen: BDDK belgesinde sitenin HEAD yanıtında bildirdiği boyut (indirme
+    yapılmaz) saklanan `file_size` ile karşılaştırılır; mevzuat.gov.tr
+    metninde resmî konsolide metindeki tarihli değişiklik notları
+    (`(Değişik:RG-…)`, `(Ek fıkra: …)`, `(Mülga: …)`, `(İptal …)`) saklanan
+    metindekilerle karşılaştırılır. Onarılmış bir metin kaynağıyla hiçbir zaman
+    birebir aynı olmadığından saklanan metin yeni bir çıkarımla
+    karşılaştırılmaz.
+  - Exit code: 0 raporlanacak bir şey yok, 3 raporlanacak bir şey var, 1 hata
+    (rapor yine yazılır), 2 kullanım hatası. `--json` zaman damgası içermeyen
+    tek bir JSON nesnesi yazar; zamanlanmış bir görev iki çalıştırmayı
+    karşılaştırabilir.
+  - Göremedikleri: aynı boyutta değiştirilmiş bir BDDK dosyası; tarihli not
+    eklemeyen bir mevzuat değişikliği (düzeltme, resmî HTML'de bulunmayan bir
+    ek, numara değişikliği) ve hiç tarihli notu olmayan 22 mevzuat metninde ilk
+    tarihli not gelene kadarki değişiklikler; 55 ve 56 numaralı sayfalarda
+    atlanmış eski bir kaydın gözden geçirilip geçirilmediği (herhangi bir belge
+    eklenince eşik yükselir); hâlâ listelenen kayıtların başlık, tarih veya
+    kategori değişiklikleri; allowlist dışındaki host'ların belgeleri. Her
+    belge için gerçek değişiklik tespiti, `sync`'in her indirilen kaynak için
+    bir parmak izi (SHA-256 ve bildirilen boyut) saklamasını gerektirir; bu bir
+    schema kararıdır ve verilmedi.
+  - 2026-11-15'te 328 belgelik seed'e karşı: yeni olarak `16`, `1336`, `1340`,
+    `1341`; 55 numaralı sayfada yeni olarak `1350`; listelenmeyen olarak üç
+    elle eklenmiş kayıt (`kgk_tms_12`, `mevzuat_6362`, `rg_32202_20230526_6`);
+    değişen olarak yalnızca 2026-11-15'te seed'e yamanan sekiz BDDK belgesi
+    (seed'deki `file_size` değerleri yamalı metnin boyutu; canlı boyutlar
+    sync anındaki boyutlarla aynı). 248 BDDK ve 70 mevzuat kaynağı bu
+    sinyallere göre değişmemişti.
+- `bddk-mcp sync --add ID [--add ID ...]`: adı verilen belgeleri canlı catalog
+  sayfalarından alıp corpus catalog'una ekler ve yalnızca onları sync eder;
+  diğer catalog kayıtları olduğu gibi kalır. Catalog'da zaten bulunan, hiçbir
+  sayfanın listelemediği, çelişen kayıtlarla listelenen veya kapsam dışı bir
+  numarayı hiçbir şey yazmadan reddeder; yalnızca BDDK numarası veya
+  `mevzuat_<numara>` kabul eder; `--refresh-catalog` ve `--doc-id` ile
+  birlikte kullanılamaz. `check-updates` hiçbir şey eklemez.
+- 51 numaralı sayfa (Banka Kartları ve Kredi Kartları Kanununa İlişkin
+  Düzenlemeler) artık accordion değil, tek bir tablo; yeniden okunuyor
+  (kategori "Banka Kartları"). `sync --refresh-catalog` yine de durur: 49 ve 51
+  numaralı sayfalar 5464 sayılı Kanun'u farklı başlık ve kategoriyle
+  listeliyor ve atomik refresh çelişen kayıtları bilerek reddediyor; hangi
+  sayfanın geçerli olacağı karara bağlanmadı.
+- pdftotext backend'i metni `pdftotext_layout` seed metinlerinin kuralıyla
+  saklıyor: satır başı ve sonu boşlukları atılıyor, Kurul Kararlarındaki yan
+  yana "Karar Sayısı: N      Karar Tarihi: D" satırı iki paragraf oluyor, art
+  arda boş satırlar teke iniyor; kelimeler değişmiyor, satır içindeki diğer
+  geniş boşluklar tablo sütunu olabileceği için kalıyor. Yeni sync edilen
+  kararlar için elle normalleştirme gerekmiyor.
+- LightOCR backend'i `do_sample=False` ile çalışıyor; aynı PDF aynı metni
+  veriyor (modelin generation config'i `do_sample: true` idi).
+- `scripts/patch_doc.py` metin onarımında `file_size` değerini artık
+  değiştirmiyor: bu değer indirilen kaynak dosyanın boyutudur. Sekiz belgenin
+  seed'deki değerinin düzeltilmesi sahibin onayına bırakılan bir seed
+  değişikliğidir.
+
 ### Eklendi — seed'e dokuz yeni belge (2026-11-15)
 
 BDDK sitesinde 2026-11-15'te yapılan kontrolden çıkan dokuz belge `seed_data/`
