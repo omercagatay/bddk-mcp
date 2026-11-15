@@ -2217,6 +2217,38 @@ async def test_a_definition_question_lists_the_sections_that_define_the_term_fir
 
 
 @pytest.mark.asyncio
+async def test_a_formula_request_lists_the_definition_that_prints_the_formula_first(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    for doc_id, content in (
+        (
+            "mevzuat_18991",
+            "MADDE 4 - Tampon\n(1) Sermaye yeterliliği standart oranı sermaye yeterliliği standart oranı ile "
+            "birlikte izlenir.\n",
+        ),
+        (
+            "mevzuat_21192",
+            "MADDE 3 - Tanımlar\n(1) Bu Yönetmelikte geçen;\nnnn) Sermaye yeterliliği standart oranı: Konsolide "
+            "olmayan bazda hesaplanan “özkaynak/(kredi riskine esas tutar + piyasa riskine esas tutar)” standart "
+            "oranını,\nifade eder.\n",
+        ),
+    ):
+        await doc_store.store_document(
+            StoredDocument(document_id=doc_id, title="Yönetmelik", category="Yönetmelik", markdown_content=content)
+        )
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "search_document_sections")
+
+    formula = await tool("sermaye yeterliliği standart oranı formülü")
+    plain = await tool("sermaye yeterliliği standart oranı")
+
+    assert [(item["document_id"], item["definition_match"]) for item in formula.structuredContent["results"]] == [
+        ("mevzuat_21192", True),
+        ("mevzuat_18991", False),
+    ]
+    assert plain.structuredContent["results"][0]["document_id"] == "mevzuat_18991"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("query", ["nitelikli pay nedir", "nitelikli pay edinimi tanımı"])
 async def test_without_a_definition_word_or_a_term_defined_nothing_is_lifted(doc_store, query):
     tool = _capture_tool(await _store_definitions_fixture(doc_store), "search_document_sections")

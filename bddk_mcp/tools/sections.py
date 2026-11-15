@@ -1247,8 +1247,10 @@ def _without_spans(text: str, spans: list[tuple[int, int, str, str]]) -> str:
     return " ".join(" ".join(parts).split())
 
 
-# A definition request: "tanım"/"tanımı" or "demektir" among the words not searched.
-_NORMALIZED_DEFINITION_REQUEST_WORDS = _NORMALIZED_DEFINITION_WORDS | {"demektir"}
+# A definition request: "tanım"/"tanımı" or "demektir" among the words not searched; also a formula request
+# ("formül"/"formülü"), because a ratio's formula is printed in its definition ("Sermaye yeterliliği standart
+# oranı: ... “özkaynak/(...)” standart oranını").
+_NORMALIZED_DEFINITION_REQUEST_WORDS = _NORMALIZED_DEFINITION_WORDS | {"demektir"} | _NORMALIZED_FORMULA_WORDS
 # How many exact-word hits whose last term word stands before a colon are read for the form of a definition.
 _DEFINITION_CANDIDATES = 1000
 
