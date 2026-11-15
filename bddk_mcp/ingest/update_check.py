@@ -416,23 +416,24 @@ def format_report(report: dict) -> str:
 
 async def entries_to_add(
     store: DocumentStore, client: BddkApiClient, document_ids: list[str]
-) -> list[BddkDecisionSummary]:
-    """The live catalog entries of ``document_ids``; refuses, before any catalog row is written, an id the catalog
-    already holds, one no page lists, one listed with conflicting records and one out of scope."""
+) -> tuple[list[BddkDecisionSummary], list[dict]]:
+    """The live catalog entries of ``document_ids`` and the cross-page conflicts resolved for them.
+
+    Several pages listing a document differently are resolved like the refresh does (CATALOG_PAGE_PRECEDENCE).
+    Refused, before any catalog row is written: an id the catalog already holds, one no page lists, one a single
+    page lists with conflicting records, one out of scope."""
     wanted = list(dict.fromkeys(document_ids))
     held = sorted(set(wanted) & {row["document_id"] for row in await store.load_catalog()})
     if held:
         raise RuntimeError(f"already in the catalog: {', '.join(held)} (use --doc-id to sync a catalogued document)")
     pages = await client.read_catalog_pages(CHECK_PAGE_IDS)
     try:
-        found = {
-            entry.document_id: entry
-            for entry in _canonicalize_catalog(
-                [entry for _, entries, _ in pages for entry in entries if entry.document_id in wanted]
-            )
-        }
+        rows, conflicts = _canonicalize_catalog(
+            [(page_id, [entry for entry in entries if entry.document_id in wanted]) for page_id, entries, _ in pages]
+        )
     except BddkUpstreamError:
-        raise RuntimeError("the catalog pages list the document with conflicting records; nothing was added") from None
+        raise RuntimeError("a catalog page lists the document with conflicting records; nothing was added") from None
+    found = {entry.document_id: entry for entry in rows}
     missing = [document_id for document_id in wanted if document_id not in found]
     if missing:
         failed = [str(page_id) for page_id, _, error in pages if error]
@@ -441,4 +442,13 @@ async def entries_to_add(
     out_of_scope = [document_id for document_id in wanted if not _is_in_scope(found[document_id])]
     if out_of_scope:
         raise RuntimeError(f"out of the corpus scope: {', '.join(out_of_scope)}")
-    return [found[document_id] for document_id in wanted]
+    return [found[document_id] for document_id in wanted], conflicts
+
+
+def conflict_lines(conflicts: list[dict]) -> list[str]:
+    """One line per document that several pages list with different records, naming the page whose record won."""
+    return [
+        f"  {item['document_id']}: pages {', '.join(str(page) for page in sorted([item['kept_page'], *item['other_pages']]))} "
+        f"list different records; the record of page {item['kept_page']} was kept"
+        for item in conflicts
+    ]

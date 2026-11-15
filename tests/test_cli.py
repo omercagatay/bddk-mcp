@@ -224,6 +224,22 @@ async def test_sync_can_refresh_the_catalog_and_target_one_document(capsys):
 
 
 @pytest.mark.asyncio
+async def test_sync_refresh_names_each_cross_page_conflict_and_the_page_kept(capsys):
+    _db, client, _syncer, patches = _sync_doubles([_Catalog("943")])
+    client.last_refresh_conflicts = [{"document_id": "mevzuat_5464", "kept_page": 49, "other_pages": [51]}]
+    args = cli.build_parser().parse_args(["sync", "--refresh-catalog", "--doc-id", "943"])
+
+    with ExitStack() as stack:
+        for item in patches:
+            stack.enter_context(item)
+        await cli._sync(args)
+
+    out = capsys.readouterr().out
+    assert "Catalog refreshed from BDDK: 1 items" in out
+    assert "mevzuat_5464: pages 49, 51 list different records; the record of page 49 was kept" in out
+
+
+@pytest.mark.asyncio
 async def test_sync_refuses_an_uncatalogued_document_id():
     db, client, _syncer, patches = _sync_doubles([_Catalog("943")])
     args = cli.build_parser().parse_args(["sync", "--doc-id", "99999"])

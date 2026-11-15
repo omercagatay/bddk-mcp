@@ -16,6 +16,8 @@ from bddk_mcp.ingest.client import (
     _EXCLUDED_CATEGORIES,
     _EXCLUDED_TITLE_SUBSTRINGS,
     _FLAT_PAGE_IDS,
+    CATALOG_PAGE_PRECEDENCE,
+    RG_DECISION_PAGE_ID,
     BddkApiClient,
     _is_in_scope,
 )
@@ -307,17 +309,15 @@ class TestCacheRefreshIntegrity:
         client._save_cache_to_db.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_conflicting_duplicate_catalog_links_retain_last_known_good(self):
+    async def test_conflicting_records_within_one_page_retain_last_known_good(self):
         client = _make_client()
         previous = self._decision("last-known-good")
         client._cache = [previous]
         client._cache_timestamp = 789.0
         left = self._decision("shared-document")
         right = left.model_copy(update={"title": "Conflicting upstream title"})
-        client._fetch_and_parse_accordion_page = AsyncMock(return_value=[left])
-        client._fetch_and_parse_decision_page = AsyncMock(return_value=[right])
-        client._fetch_and_parse_flat_page = AsyncMock(return_value=[left])
-        client._save_cache_to_db = AsyncMock()
+        self._mock_all_pages(client)
+        client._fetch_and_parse_accordion_page = AsyncMock(return_value=[left, right])
 
         with pytest.raises(BddkUpstreamError, match="conflicting records"):
             await client.refresh_cache()
@@ -325,6 +325,34 @@ class TestCacheRefreshIntegrity:
         assert client.get_cache_items() == [previous]
         assert client._cache_timestamp == 789.0
         client._save_cache_to_db.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_conflicting_records_across_pages_keep_the_record_of_the_earlier_page_and_say_so(self):
+        """Page 49 (Kanunlar) and page 51 (Banka Kartları) list the 5464 sayılı Kanun under different records."""
+        client = _make_client()
+        law = BddkDecisionSummary(
+            document_id="mevzuat_5464", title="5464 sayılı Banka Kartları ve Kredi Kartları Kanunu", category="Kanun"
+        )
+        topical = law.model_copy(
+            update={"title": "Banka Kartları ve Kredi Kartları Kanunu", "category": "Banka Kartları"}
+        )
+        flat = {49: [law], 51: [topical, self._decision("16")]}
+        self._mock_all_pages(client)
+        client._fetch_and_parse_flat_page = AsyncMock(
+            side_effect=lambda page_id: flat.get(page_id, [self._decision(str(page_id))])
+        )
+
+        await client.refresh_cache()
+
+        kept = {item.document_id: item for item in client.get_cache_items()}
+        assert (kept["mevzuat_5464"].title, kept["mevzuat_5464"].category) == (law.title, "Kanun")
+        assert client.last_refresh_conflicts == [{"document_id": "mevzuat_5464", "kept_page": 49, "other_pages": [51]}]
+        client._save_cache_to_db.assert_awaited_once()
+
+    def test_the_page_precedence_names_every_page_once_status_and_type_pages_first(self):
+        assert sorted(CATALOG_PAGE_PRECEDENCE) == sorted([*_ALL_PAGE_IDS, RG_DECISION_PAGE_ID])
+        assert CATALOG_PAGE_PRECEDENCE.index(49) < CATALOG_PAGE_PRECEDENCE.index(51)
+        assert CATALOG_PAGE_PRECEDENCE[:2] == (63, 58)
 
     @pytest.mark.asyncio
     async def test_partial_fetch_failure_retains_last_known_good_catalog(self):

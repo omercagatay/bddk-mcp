@@ -347,7 +347,7 @@ class TestEntriesToAdd:
         transport, _ = _site(sizes={})
         client = _client(transport, doc_store)
 
-        (entry,) = await entries_to_add(doc_store, client, ["16"])
+        (entry,), conflicts = await entries_to_add(doc_store, client, ["16"])
         assert (entry.document_id, entry.category, entry.title) == (
             "16",
             "Banka Kartları",
@@ -357,6 +357,18 @@ class TestEntriesToAdd:
             await entries_to_add(doc_store, client, ["943"])
         with pytest.raises(RuntimeError, match="not listed on the catalog pages: 77777"):
             await entries_to_add(doc_store, client, ["77777"])
+
+    async def test_follows_the_refresh_page_precedence_for_a_document_two_pages_list_differently(self, doc_store):
+        await _corpus(doc_store)
+        transport, _ = _site(sizes={})
+        client = _client(transport, doc_store)
+        draft = _entry("1352", "Düzenleme Taslağı", "Tebliğ Taslağı")
+        client.read_catalog_pages = AsyncMock(
+            return_value=[(50, [draft.model_copy(update={"category": "Tebliğ"})], ""), (58, [draft], "")]
+        )
+        entries, conflicts = await entries_to_add(doc_store, client, ["1352"])
+        assert [entry.category for entry in entries] == ["Düzenleme Taslağı"]
+        assert conflicts == [{"document_id": "1352", "kept_page": 58, "other_pages": [50]}]
 
     async def test_refuses_when_the_page_that_could_list_it_failed(self, doc_store):
         await _corpus(doc_store)

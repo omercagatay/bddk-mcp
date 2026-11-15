@@ -88,25 +88,43 @@ def _is_in_scope(dec: BddkDecisionSummary) -> bool:
     return not any(s.lower() in title_lower for s in _EXCLUDED_TITLE_SUBSTRINGS)
 
 
-def _canonicalize_catalog(decisions: list[BddkDecisionSummary]) -> list[BddkDecisionSummary]:
-    """Return one deterministic row per upstream document identifier.
+# When several pages list one document with different records, the record of the page that comes first here wins:
+# the status pages (Mülga Düzenlemeler, Düzenleme Taslakları), so a repealed or draft text is never shown as in force,
+# then the instrument-type pages (Kanunlar, Kurul Kararları), then the topical pages (50, 54, 51).
+CATALOG_PAGE_PRECEDENCE = (63, 58, 49, 56, 55, 50, 54, 51)
 
-    Exact duplicates can legitimately be linked from more than one list page,
-    but conflicting metadata for the same identifier is ambiguous and must not
-    be silently resolved by a last-write-wins upsert.
+
+def _canonicalize_catalog(
+    pages: list[tuple[int, list[BddkDecisionSummary]]],
+) -> tuple[list[BddkDecisionSummary], list[dict]]:
+    """One row per document id, and the cross-page conflicts that were collapsed.
+
+    Exact duplicates are merged. Different records for one id on one page are ambiguous and refused. Different
+    records on several pages are resolved by CATALOG_PAGE_PRECEDENCE, and each such id is returned as
+    ``{"document_id", "kept_page", "other_pages"}`` (the pages whose record differs) so the caller reports it.
     """
-
-    by_id: dict[str, BddkDecisionSummary] = {}
-    for decision in decisions:
-        existing = by_id.get(decision.document_id)
-        if existing is None:
-            by_id[decision.document_id] = decision
-        elif existing != decision:
-            raise BddkUpstreamError(
-                "BDDK catalog refresh contained conflicting records for one document; "
-                "the last known-good cache was retained."
-            )
-    return list(by_id.values())
+    rank = {page_id: position for position, page_id in enumerate(CATALOG_PAGE_PRECEDENCE)}
+    listed: dict[str, list[tuple[int, BddkDecisionSummary]]] = {}
+    for page_id, decisions in pages:
+        on_page: dict[str, BddkDecisionSummary] = {}
+        for decision in decisions:
+            existing = on_page.setdefault(decision.document_id, decision)
+            if existing != decision:
+                raise BddkUpstreamError(
+                    "BDDK catalog refresh contained conflicting records for one document on one page; "
+                    "the last known-good cache was retained."
+                )
+        for document_id, decision in on_page.items():
+            listed.setdefault(document_id, []).append((page_id, decision))
+    rows: list[BddkDecisionSummary] = []
+    conflicts: list[dict] = []
+    for document_id, candidates in listed.items():
+        kept_page, kept = min(candidates, key=lambda candidate: rank.get(candidate[0], len(rank)))
+        others = sorted({page_id for page_id, decision in candidates if decision != kept})
+        if others:
+            conflicts.append({"document_id": document_id, "kept_page": kept_page, "other_pages": others})
+        rows.append(kept)
+    return rows, conflicts
 
 
 # Maps h5 header text (without count suffix) to singular category name
@@ -696,6 +714,8 @@ class BddkApiClient:
         self._cache: list[BddkDecisionSummary] = []
         self._cache_timestamp: float = 0.0
         self._page_errors: dict[int, str] = {}
+        # The cross-page conflicts the last successful refresh resolved by CATALOG_PAGE_PRECEDENCE.
+        self.last_refresh_conflicts: list[dict] = []
         # Bound the parallel _scrape_bddk() fan-out so BDDK sees at most
         # _SCRAPE_CONCURRENCY in-flight requests at once, matching
         # the rate limit data_sources.py already enforces for the same host.
@@ -1039,15 +1059,20 @@ class BddkApiClient:
         self._page_errors.clear()
         page_results = await self.read_catalog_pages(_ALL_PAGE_IDS)
         self._page_errors.update({page_id: error for page_id, _, error in page_results if error})
-        scraped: list[BddkDecisionSummary] = [dec for _, page, _ in page_results for dec in page]
-        in_scope = [dec for dec in scraped if _is_in_scope(dec)]
-        all_decisions = _canonicalize_catalog(in_scope)
-        scope_dropped = len(scraped) - len(in_scope)
-        duplicate_links = len(in_scope) - len(all_decisions)
+        scraped = sum(len(page) for _, page, _ in page_results)
+        in_scope = [(page_id, [dec for dec in page if _is_in_scope(dec)]) for page_id, page, _ in page_results]
+        kept = sum(len(page) for _, page in in_scope)
+        all_decisions, conflicts = _canonicalize_catalog(in_scope)
+        scope_dropped = scraped - kept
+        duplicate_links = kept - len(all_decisions)
         if scope_dropped:
-            logger.info("Scope filter dropped %d/%d items", scope_dropped, len(scraped))
+            logger.info("Scope filter dropped %d/%d items", scope_dropped, scraped)
         if duplicate_links:
             logger.info("Catalog canonicalization collapsed %d duplicate links", duplicate_links)
+        if conflicts:
+            logger.warning(
+                "Catalog pages listed %d documents with different records; page precedence applied", len(conflicts)
+            )
 
         if self._page_errors:
             logger.error(
@@ -1071,6 +1096,7 @@ class BddkApiClient:
             self._cache = previous_cache
             self._cache_timestamp = previous_timestamp
             raise
+        self.last_refresh_conflicts = conflicts
         logger.info("BDDK cache refreshed: %d total items", len(self._cache))
         return len(self._cache)
 

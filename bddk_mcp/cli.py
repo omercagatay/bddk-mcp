@@ -166,14 +166,18 @@ async def _sync(args: argparse.Namespace) -> None:
         store = DocumentStore(db)
         client = BddkApiClient(store=store, allow_live_population=True)
         try:
-            if args.add:
-                from bddk_mcp.ingest.update_check import entries_to_add
+            from bddk_mcp.ingest.update_check import conflict_lines, entries_to_add
 
-                catalog = await entries_to_add(store, client, args.add)
+            if args.add:
+                catalog, conflicts = await entries_to_add(store, client, args.add)
                 await store.add_catalog_entries([entry.model_dump() for entry in catalog])
                 print(f"Added to the catalog: {', '.join(entry.document_id for entry in catalog)}")
+                for line in conflict_lines(conflicts):
+                    print(line)
             elif args.refresh_catalog:
                 print(f"Catalog refreshed from BDDK: {await client.refresh_cache()} items")
+                for line in conflict_lines(list(client.last_refresh_conflicts)):
+                    print(line)
             else:
                 await client.ensure_cache()
             if not args.add:
