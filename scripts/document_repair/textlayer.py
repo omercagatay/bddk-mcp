@@ -11,6 +11,7 @@ import re
 import shutil
 import subprocess
 import unicodedata
+from pathlib import Path
 
 from bddk_mcp.ocr.base import normalize_pdftotext_layout
 
@@ -29,8 +30,10 @@ def pdftotext_pages(pdf) -> list[str]:
     """The text layer exactly as the sync path makes it (pdftotext -layout over the whole file), split per page."""
     if shutil.which("pdftotext") is None:
         raise RuntimeError("pdftotext (poppler-utils) is not on PATH")
+    # an absolute path never starts with "-", so a file name cannot be read as an option
+    path = str(Path(pdf).resolve())
     out = subprocess.run(
-        ["pdftotext", "-layout", "-enc", "UTF-8", str(pdf), "-"], capture_output=True, check=True, timeout=600
+        ["pdftotext", "-layout", "-enc", "UTF-8", path, "-"], capture_output=True, check=True, timeout=600
     ).stdout
     pages = decode_poppler(out).split("\f")
     return pages[:-1] if pages and not pages[-1].strip() else pages
