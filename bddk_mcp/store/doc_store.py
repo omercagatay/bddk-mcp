@@ -216,20 +216,29 @@ _STEM_SUFFIXES = tuple(
         key=lambda suffix: (-len(suffix), suffix),
     )
 )
+# The section search's inflection-tolerant pass also removes a plural locative ("kredilerde" -> "kredi"*) and
+# the converb "-ınca/-ince" ("gecikince" -> "gecik"*, which finds "geciken"). Not in search_document_store's
+# keyword pass, which keeps _STEM_SUFFIXES alone.
+_SECTION_STEM_SUFFIXES = tuple(
+    sorted(
+        {*_STEM_SUFFIXES, "lerde", "larda", "ince", "inca", "unce", "unca"},
+        key=lambda suffix: (-len(suffix), suffix),
+    )
+)
 # Short alphabetic tokens ("on", "gün", "faiz") are matched as prefixes in the stem pass, so that
 # "yüzde on" also finds "yüzde onunun"; a single letter stays exact.
 _PREFIX_SHORT_MIN = 2
 
 
-def _prefix_stem(token: str) -> str:
+def _prefix_stem(token: str, suffixes: tuple[str, ...] = _STEM_SUFFIXES) -> str:
     """Return the FTS prefix of a normalized token: its root without one known ending, else the token."""
-    for suffix in _STEM_SUFFIXES:
+    for suffix in suffixes:
         if token.endswith(suffix) and len(token) - len(suffix) >= _PREFIX_STEM_MIN:
             return token[: -len(suffix)]
     return token
 
 
-def fts_prefix_stem_query(query: str) -> str | None:
+def fts_prefix_stem_query(query: str, *, section_endings: bool = False) -> str | None:
     """Turn free text into an inflection-tolerant FTS5 MATCH expression.
 
     Tokens of five or more characters become a quoted prefix query of their root: one known
@@ -238,14 +247,16 @@ def fts_prefix_stem_query(query: str) -> str | None:
     (``"birincil"*``). Alphabetic tokens of two to four characters become a prefix of
     themselves (``"gun"*``); numbers and single letters stay exact. Every token stays quoted,
     so FTS5 operators in user text are never interpreted. Returns None when the expression
-    would equal :func:`fts_match_query`.
+    would equal :func:`fts_match_query`. ``section_endings`` adds the endings that only the
+    section search removes (``_SECTION_STEM_SUFFIXES``).
     """
+    suffixes = _SECTION_STEM_SUFFIXES if section_endings else _STEM_SUFFIXES
     tokens = _FTS_TOKEN_RE.findall(normalize_search_text(query))
     terms: list[str] = []
     widened = False
     for token in tokens:
         if len(token) >= _PREFIX_STEM_MIN and not token.isdigit():
-            terms.append(f'"{_prefix_stem(token)}"*')
+            terms.append(f'"{_prefix_stem(token, suffixes)}"*')
             widened = True
         elif len(token) >= _PREFIX_SHORT_MIN and token.isalpha():
             terms.append(f'"{token}"*')
@@ -860,12 +871,12 @@ class DocumentStore:
         ``include_source_range=False`` skips slicing the document body per row;
         candidate retrieval uses it and hydrates only the final hits via
         ``hydrate_source_ranges``. ``prefix_stem=True`` matches the tokens with
-        :func:`fts_prefix_stem_query` instead (inflection-tolerant); it returns
+        :func:`fts_prefix_stem_query` with the section endings instead (inflection-tolerant); it returns
         nothing when that expression would equal the strict one. Sections of
         documents whose catalog class (:func:`catalog_status_class`) is in
         ``classes_last`` follow the others, in SQL, so the limit takes the others first.
         """
-        match = fts_prefix_stem_query(query) if prefix_stem else fts_match_query(query)
+        match = fts_prefix_stem_query(query, section_endings=True) if prefix_stem else fts_match_query(query)
         if match is None:
             return []
         where = ["sections_fts MATCH ?"]

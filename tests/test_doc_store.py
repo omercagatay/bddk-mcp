@@ -493,6 +493,42 @@ async def test_prefix_stem_section_search_matches_inflected_forms(doc_store):
     assert await doc_store.search_document_sections("faiz", prefix_stem=True) == []
 
 
+def test_section_stem_also_removes_a_plural_locative_and_a_converb_ending_and_the_store_form_does_not():
+    from bddk_mcp.store.doc_store import fts_prefix_stem_query
+
+    cases = {
+        "kredilerde": '"kredi"*',
+        "bankalarda": '"banka"*',
+        "gecikince": '"gecik"*',
+        "uygulanınca": '"uygulan"*',
+        "bulununca": '"bulun"*',
+        "görülünce": '"gorul"*',
+        # The root floor still holds.
+        "olunca": '"olunca"*',
+        "ellerde": '"ellerde"*',
+    }
+    assert {word: fts_prefix_stem_query(word, section_endings=True) for word in cases} == cases
+    # The expression of search_document_store's keyword pass is unchanged.
+    assert fts_prefix_stem_query("kredilerde gecikince") == '"kredilerde"* "gecikince"*'
+
+
+@pytest.mark.asyncio
+async def test_prefix_stem_section_search_matches_a_plural_locative_and_a_converb(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="1",
+            title="T",
+            markdown_content="MADDE 5 - Donuk alacaklar\nKredi ödemesi doksan günden fazla geciken alacaklar.\n",
+        )
+    )
+
+    assert await doc_store.search_document_sections("kredilerde gecikince") == []
+    hits = await doc_store.search_document_sections("kredilerde gecikince", prefix_stem=True)
+    assert [(h.doc_id, h.section_type, h.section_ref) for h in hits] == [("1", "madde", "5")]
+
+
 def test_prefix_stem_removes_an_aorist_verb_ending_above_a_five_character_root():
     from bddk_mcp.store.doc_store import fts_prefix_stem_query
 
