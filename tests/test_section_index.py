@@ -1275,8 +1275,8 @@ def test_no_seed_capped_section_ends_inside_a_word_and_its_continuation_follows(
             ), key
     # 1171 madde 13 and its fikra 2 were quoted articles (item B2); 1285 paragraf 2.2.4 ends at its
     # undotted sibling 2.2.5 and is no longer capped (item B5d). 1340 madde 8 (a 21,971-character article,
-    # added to the seed on 2026-11-15) is the 24th.
-    assert capped == 24
+    # added to the seed on 2026-11-15) is the 24th and the annex of 1341 (ek 1) the 25th.
+    assert capped == 25
 
 
 def test_table_rows_at_the_end_of_any_section_are_its_content():
