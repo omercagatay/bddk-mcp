@@ -65,11 +65,29 @@ paketli CLI ile yapılıyor.
   - Exit code: 0 raporlanacak bir şey yok, 3 raporlanacak bir şey var, 1 hata
     (rapor yine yazılır), 2 kullanım hatası. `--json` zaman damgası içermeyen,
     kayıtları sayfa sırasına ve numaraya göre dizen tek bir JSON nesnesi
-    yazar; zamanlanmış bir görev iki çalıştırmayı karşılaştırabilir. Bekletilen
-    belgeler eklenene ve elle eklenmiş kayıtlar kabul edilene kadar her
-    çalıştırma bir şey raporlar; bu yüzden görev exit code 3'e değil önceki
-    JSON çıktısıyla farka bakmalı. Kabul edilmiş bulgular için gözden geçirilmiş
-    bir yok sayma listesi bir sonraki adım olur; henüz yok.
+    yazar; zamanlanmış bir görev iki çalıştırmayı karşılaştırabilir.
+  - Kabul edilmiş bulgular: işlem gerektirmeyen, gözden geçirilmiş bulgular
+    `bddk_mcp/ingest/accepted_findings.yml` registry'sinde durur (paketle
+    gelir, check çalışırken yüklenir ve doğrulanır; bozuk bir registry
+    hatadır). Her kayıt bir belge numarası için tek bir bulguyu (`not_listed`,
+    `new`, `new_on_page_55`, `changed`) tek satırlık gerekçe ve gözden geçirme
+    tarihiyle kabul eder. Kabul edilen bulgu "Accepted" grubunda (`--json`'da
+    `accepted`) listelenir ve exit code 3'e sayılmaz. `changed` kabulü
+    yalnızca check'in `observed` alanında yazdığı değerle (bildirilen boyut,
+    `HTTP 404` veya mevzuat metninde yalnız resmî metinde geçen tarihler)
+    birlikte verilebilir; sonraki, farklı bir değişiklik eşleşmez ve yeniden
+    raporlanır. `changed` kabulü yasaklanmadı, çünkü onu temizlemenin tek
+    başka yolu yeniden sync'tir ve bu onarılmış metni yeni bir çıkarımla
+    değiştirir. Bulgusu artık görülmeyen kayıt "Stale acceptances"
+    (`stale_acceptances`) altında "kaydı silin" diye raporlanır, çalıştırmayı
+    başarısız saymaz ve yalnızca çalıştırma onu değerlendirebildiyse (bütün
+    sayfalar okunduysa, kaynak kontrol edildiyse) stale sayılır. İlk kayıtlar:
+    elle eklenmiş üç catalog kaydı (`kgk_tms_12`, `mevzuat_6362`,
+    `rg_32202_20230526_6`) ve 55 numaralı sayfadaki, seçilmeyen 04.11.2026
+    tarihli faaliyet izni kaldırma kararı `1350`. Pull request 207'nin seed'inden
+    kurulan 332 belgelik corpus'a karşı canlı çalıştırma exit code 0 ile bitti
+    (dört kabul edilmiş bulgu, başka bulgu yok); bu dalın 328 belgelik seed'i
+    hâlâ 3 verir.
   - Göremedikleri: aynı boyutta değiştirilmiş bir BDDK dosyası; resmî metne
     yeni bir tarih getirmeyen bir mevzuat değişikliği (düzeltme, metnin zaten
     andığı bir tarihte yapılan ikinci değişiklik, resmî HTML'de bulunmayan bir
@@ -89,9 +107,11 @@ paketli CLI ile yapılıyor.
     sinyallere göre değişmemişti.
 - `bddk-mcp sync --add ID [--add ID ...]`: adı verilen belgeleri canlı catalog
   sayfalarından alıp corpus catalog'una ekler ve yalnızca onları sync eder;
-  diğer catalog kayıtları olduğu gibi kalır. Catalog'da zaten bulunan, hiçbir
-  sayfanın listelemediği, çelişen kayıtlarla listelenen veya kapsam dışı bir
-  numarayı catalog'a tek satır yazmadan reddeder; yalnızca BDDK numarası veya
+  diğer catalog kayıtları olduğu gibi kalır. Birden çok sayfanın farklı
+  kayıtla listelediği belgeyi refresh ile aynı sayfa sırasına göre alır ve
+  çıktıda adını yazar. Catalog'da zaten bulunan, hiçbir sayfanın
+  listelemediği, tek bir sayfanın çelişen kayıtlarla listelediği veya kapsam
+  dışı bir numarayı catalog'a tek satır yazmadan reddeder; yalnızca BDDK numarası veya
   `mevzuat_<numara>` kabul eder; `--refresh-catalog` ve `--doc-id` ile
   birlikte kullanılamaz. İndirme veya çıkarım başarısız olursa catalog satırı
   kalır, hata `sync_failures`'a yazılır ve komut 1 ile çıkar; `sync --doc-id ID`
@@ -100,10 +120,26 @@ paketli CLI ile yapılıyor.
   `check-updates` hiçbir şey eklemez.
 - 51 numaralı sayfa (Banka Kartları ve Kredi Kartları Kanununa İlişkin
   Düzenlemeler) artık accordion değil, tek bir tablo; yeniden okunuyor
-  (kategori "Banka Kartları"). `sync --refresh-catalog` yine de durur: 49 ve 51
-  numaralı sayfalar 5464 sayılı Kanun'u farklı başlık ve kategoriyle
-  listeliyor ve atomik refresh çelişen kayıtları bilerek reddediyor; hangi
-  sayfanın geçerli olacağı karara bağlanmadı.
+  (kategori "Banka Kartları").
+- `sync --refresh-catalog` yeniden çalışıyor. 49 ve 51 numaralı sayfalar 5464
+  sayılı Kanun'u farklı başlık ve kategoriyle listeliyordu ve refresh bu
+  çelişkide duruyordu. Artık birden çok sayfa bir belgeyi farklı kayıtla
+  listelediğinde, sabit `CATALOG_PAGE_PRECEDENCE` sırasında önce gelen
+  sayfanın kaydı geçerli olur: önce durum sayfaları 63 (Mülga Düzenlemeler) ve
+  58 (Düzenleme Taslakları), böylece yürürlükten kalkmış veya taslak bir metin
+  hiçbir zaman yürürlükte görünmez; sonra tür sayfaları 49 (Kanunlar), 56 ve
+  55 (Kurul Kararları); en son konu sayfaları 50, 54 ve 51. Çözülen her
+  çelişki refresh çıktısında belge numarası ve korunan sayfayla yazılır; tek
+  bir sayfadaki çelişki hâlâ hatadır ve son geçerli catalog korunur.
+  2026-11-15 sayfalarında böyle tek belge `mevzuat_5464` idi; korunan 49
+  numaralı sayfanın başlığı ve kategorisi saklanan catalog kaydıyla aynı.
+  Refresh, catalog'u sayfaların listelediği her şeyle değiştirir: bu seçilmiş
+  corpus'ta 332 kayıtlık catalog'a karşı 594 kayıt yayımlar, 56 numaralı
+  sayfanın seçilmemiş 316 kararını ekler, 54 kaydı düşürür (yalnız 55
+  numaralı sayfada listelenen 51 karar ve elle eklenmiş üç kayıt), 47
+  `source_url` değerini eski `Metin.Aspx` bağlantılarına döndürür, iki başlığı
+  değiştirir ve 636 ile 774 numaralı kararların elle düzeltilmiş tarihlerini
+  geri alır. Seçilen belgeleri eklemenin yolu `sync --add`'dir.
 - pdftotext backend'i metni `pdftotext_layout` seed metinlerinin kuralıyla
   saklıyor: satır başı ve sonu boşlukları atılıyor, Kurul Kararlarındaki yan
   yana "Karar Sayısı: N      Karar Tarihi: D" satırı iki paragraf oluyor, art

@@ -73,7 +73,10 @@ def build_parser() -> argparse.ArgumentParser:
     sync.add_argument(
         "--refresh-catalog",
         action="store_true",
-        help="Re-scrape the BDDK catalog pages into the corpus before syncing",
+        help=(
+            "Replace the corpus catalog with everything the BDDK catalog pages list, then sync it (brings in "
+            "unselected entries and drops hand-added ones; use --add for chosen documents)"
+        ),
     )
     sync.add_argument(
         "--force",
