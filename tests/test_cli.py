@@ -240,6 +240,20 @@ async def test_sync_refresh_names_each_cross_page_conflict_and_the_page_kept(cap
 
 
 @pytest.mark.asyncio
+async def test_sync_on_an_empty_catalog_also_names_the_conflicts_of_its_first_scrape(capsys):
+    _db, client, _syncer, patches = _sync_doubles([_Catalog("943")])
+    client.last_refresh_conflicts = [{"document_id": "mevzuat_5464", "kept_page": 49, "other_pages": [51]}]
+    args = cli.build_parser().parse_args(["sync"])
+
+    with ExitStack() as stack:
+        for item in patches:
+            stack.enter_context(item)
+        await cli._sync(args)
+
+    assert "the record of page 49 was kept" in capsys.readouterr().out
+
+
+@pytest.mark.asyncio
 async def test_sync_refuses_an_uncatalogued_document_id():
     db, client, _syncer, patches = _sync_doubles([_Catalog("943")])
     args = cli.build_parser().parse_args(["sync", "--doc-id", "99999"])

@@ -45,6 +45,7 @@ from bddk_mcp.core.outbound_http import OutboundHttpPolicyError
 from bddk_mcp.ingest.client import (
     _ALL_PAGE_IDS,
     _DECISION_PAGE_IDS,
+    CATALOG_PAGE_PRECEDENCE,
     RG_DECISION_PAGE_ID,
     BddkApiClient,
     _canonicalize_catalog,
@@ -206,7 +207,10 @@ def compare_catalog(pages: Pages, catalog: list[dict]) -> dict:
     order = {page_id: position for position, page_id in enumerate(CHECK_PAGE_IDS)}
     new: dict[str, dict] = {}
     older: dict[int, set[str]] = {page_id: set() for page_id in sorted(_THRESHOLD_PAGE_IDS)}
-    for page_id, entries, _error in sorted(pages, key=lambda page: order.get(page[0], len(order))):
+    # Pages in CATALOG_PAGE_PRECEDENCE order, so a document two pages list differently is reported with the record
+    # that `sync --add` and the refresh would store.
+    rank = {page_id: position for position, page_id in enumerate(CATALOG_PAGE_PRECEDENCE)}
+    for page_id, entries, _error in sorted(pages, key=lambda page: rank.get(page[0], len(rank))):
         for entry in entries:
             document_id = entry.document_id
             if document_id in held or document_id in new or not _is_in_scope(entry):

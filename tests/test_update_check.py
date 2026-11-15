@@ -66,6 +66,11 @@ class TestCompareCatalog:
         assert [(item["document_id"], item["page"]) for item in result["new"]] == [("21", 50), ("30", 56)]
         assert result["new_on_page_55"] == []
 
+    def test_a_new_entry_two_pages_list_differently_takes_the_record_sync_add_would_store(self):
+        pages = [(50, [_entry("1352", "Tebliğ")], ""), (58, [_entry("1352", "Düzenleme Taslağı")], "")]
+        (item,) = compare_catalog(pages, _held("1349"))["new"]
+        assert (item["page"], item["category"]) == (58, "Düzenleme Taslağı")
+
     def test_entries_listed_on_no_page_are_named_and_incomplete_when_a_page_failed(self):
         complete = compare_catalog([(50, [_entry("1", "Rehber")], "")], _held("1", "kgk_tms_12"))
         assert [item["document_id"] for item in complete["not_listed"]] == ["kgk_tms_12"]

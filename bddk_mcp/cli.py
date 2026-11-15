@@ -177,13 +177,13 @@ async def _sync(args: argparse.Namespace) -> None:
                 print(f"Added to the catalog: {', '.join(entry.document_id for entry in catalog)}")
                 for line in conflict_lines(conflicts):
                     print(line)
-            elif args.refresh_catalog:
-                print(f"Catalog refreshed from BDDK: {await client.refresh_cache()} items")
+            else:
+                if args.refresh_catalog:
+                    print(f"Catalog refreshed from BDDK: {await client.refresh_cache()} items")
+                else:
+                    await client.ensure_cache()  # scrapes the pages only when the catalog is empty
                 for line in conflict_lines(list(client.last_refresh_conflicts)):
                     print(line)
-            else:
-                await client.ensure_cache()
-            if not args.add:
                 catalog = client.get_cache_items()
             if args.doc_id:
                 catalog = [item for item in catalog if item.document_id == args.doc_id]

@@ -149,9 +149,9 @@ paketli CLI ile yapılıyor.
 - LightOCR backend'i `do_sample=False` ile çalışıyor; aynı PDF aynı metni
   veriyor (modelin generation config'i `do_sample: true` idi).
 - `scripts/patch_doc.py` metin onarımında `file_size` değerini artık
-  değiştirmiyor: bu değer indirilen kaynak dosyanın boyutudur. Sekiz belgenin
-  seed'deki değerinin düzeltilmesi sahibin onayına bırakılan bir seed
-  değişikliğidir.
+  değiştirmiyor: bu değer indirilen kaynak dosyanın boyutudur. Bu dalın
+  seed'inde sekiz BDDK belgesi hâlâ yamalı metnin boyutunu taşır; pull request
+  207'nin seed'i yamanan on iki belgenin gerçek boyutunu geri koyar.
 
 ### Eklendi — seed'e dokuz yeni belge (2026-11-15)
 
