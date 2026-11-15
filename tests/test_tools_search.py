@@ -1177,6 +1177,35 @@ async def test_a_clamped_relevance_is_shown_as_the_calibration_ceiling_and_snipp
 
 
 @pytest.mark.asyncio
+async def test_a_hit_placed_by_its_title_series_says_so_in_the_text_and_the_structured_result():
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    newer = {**_hit("1349", 0.935, "hybrid"), "relevance_clamped": False, "same_title_newest_first": True}
+    other = {**_hit("1254", 0.976, "hybrid"), "relevance_clamped": False}
+    older = {**_hit("1255", 0.99, "hybrid"), "relevance_clamped": False, "same_title_newest_first": True}
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(return_value=[newer, other, older])
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None, vector_store=vector_store)
+    mcp = MagicMock()
+    register(mcp, deps)
+
+    result = await _registered_tools(mcp)["search_document_store"]("kredi kartı asgari ödeme tutarı", limit=3)
+
+    note = (
+        "[placed by decision date: every word of the query occurs in this title, which other hits of this match "
+        "strength share, and those are listed newest first in their positions whatever their relevance]"
+    )
+    assert f"**Belge 1349** [Yönetmelik] [strong match, relevance 93.5%] {note}" in result.text
+    assert f"**Belge 1255** [Yönetmelik] [strong match, relevance 99.0%] {note}" in result.text
+    assert result.text.count(note) == 2
+    flags = [item.get("same_title_newest_first") for item in result.structuredContent["results"]]
+    assert flags == [True, None, True]
+
+
+@pytest.mark.asyncio
 async def test_function_word_queries_and_decision_number_matches_are_said_plainly():
     from bddk_mcp.core.deps import Dependencies
     from bddk_mcp.store.vector_store import SearchHits

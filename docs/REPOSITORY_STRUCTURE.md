@@ -38,7 +38,7 @@ Do not place implementation modules, generated reports, scratch files, one-off p
 | `bddk_mcp/core/` | Settings, shared models, dependency wiring, logging, and outbound HTTP controls. |
 | `bddk_mcp/tools/` | Thin MCP handlers, schemas, registry, errors, and structured output adapters. |
 | `bddk_mcp/store/` | The SQLite corpus file (`corpus_db.py`: schema, read-only serving handle, readiness), documents, versions, sections and catalog (`doc_store.py`), chunks, embeddings and hybrid search (`vector_store.py`), the section parser and legal references, the build fingerprint (`fingerprint.py`: digests of seed metadata, parser, chunker and embedding settings that `bddk-mcp build` stores in `meta` and `info` compares) and the reviewed abbreviation glossary of `search_document_store` (`search_glossary.py`). |
-| `bddk_mcp/ingest/` | Source discovery, extraction, synchronization, and corpus build/export against `seed_data/`. |
+| `bddk_mcp/ingest/` | Source discovery, extraction, synchronization, the read-only update check (`update_check.py`), and corpus build/export against `seed_data/`. |
 | `bddk_mcp/ocr/` | OCR interfaces and optional GPU implementation. |
 | `bddk_mcp/observability/` | Bulletin trend/comparison analytics. |
 | `bddk_mcp/quality/` | Document quality rules and their packaged configuration. |

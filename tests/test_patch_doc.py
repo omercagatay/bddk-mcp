@@ -402,3 +402,20 @@ async def test_patch_without_a_seed_dir_also_keeps_the_download_date(tmp_path, s
     downloaded_at, extracted_at = await _dates(doc_store)
     assert downloaded_at == 1_700_000_000.0
     assert extracted_at > 1_700_000_000
+
+
+async def test_patch_keeps_the_size_of_the_downloaded_source(tmp_path, stores):
+    """file_size is the size of the downloaded source file; `bddk-mcp check-updates` compares it with the site."""
+    seed_entry = _seed_doc_entry(DOC_ID)
+    seed_entry["file_size"] = 108_139
+    seed_dir = _write_seed_dir(tmp_path, [seed_entry])
+    stored = _stored_doc(DOC_ID)
+    stored.file_size = 108_139
+    await stores[0].store_document(stored)
+    md = tmp_path / "body.md"
+    md.write_text("new corrected body\n", encoding="utf-8")
+
+    await _patch(stores, seed_dir, md)
+
+    assert (await stores[0].get_document(DOC_ID)).file_size == 108_139
+    assert json.loads((seed_dir / "documents.json").read_text(encoding="utf-8"))[0]["file_size"] == 108_139

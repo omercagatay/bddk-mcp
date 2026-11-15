@@ -1,0 +1,30 @@
+# Reviewed findings of `bddk-mcp check-updates` that need no action.
+#
+# A finding listed here is reported under "Accepted" and does not count for exit status 3. Each entry accepts
+# exactly one finding for one document:
+#   document_id: the catalog or document id the finding names
+#   finding: not_listed | new | new_on_page_55 | changed
+#   observed: only for "changed", and required there: the exact value the check reported (`observed` in --json:
+#             the size BDDK declares, "HTTP 404", or the official-only dates of a mevzuat text). A later, different
+#             change does not match and is reported again.
+#   reason: one line, why no action is needed
+#   reviewed: the review date, YYYY-MM-DD
+# An entry whose finding no longer occurs is reported as stale: remove it.
+format_version: 1
+accepted:
+  - document_id: kgk_tms_12
+    finding: not_listed
+    reason: Added by hand from the public KGK PDF (TMS 12); no BDDK catalog page lists it.
+    reviewed: 2026-11-15
+  - document_id: mevzuat_6362
+    finding: not_listed
+    reason: 6362 sayılı Sermaye Piyasası Kanunu, added by hand; no BDDK catalog page lists it.
+    reviewed: 2026-11-15
+  - document_id: rg_32202_20230526_6
+    finding: not_listed
+    reason: Resmî Gazete text of 26.05.2023, added by hand; no BDDK catalog page lists it.
+    reviewed: 2026-11-15
+  - document_id: "1350"
+    finding: new_on_page_55
+    reason: Licence-revocation decision of 04.11.2026 (Golden Global Yatırım Bankası); reviewed and not selected.
+    reviewed: 2026-11-15

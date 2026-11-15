@@ -237,7 +237,10 @@ class DocumentSearchItem(StrictOutputModel):
             "Within each match_strength band, TASLAK/MÜLGA catalog-class documents are listed after the others "
             "(not when the query names that class or the document's whole title, nor with a category filter; "
             "fts_exact and decision_number hits keep their place); the catalog class is the only source of that "
-            "mark. Documents the query names (match_type named, 0.0) come before every other hit."
+            "mark. Before that, when every content word of the query occurs in a title that several dated hits of "
+            "one match_strength band share, those hits are listed newest first in their positions whatever this "
+            "score (same_title_newest_first marks the ones moved). Documents the query names (match_type named, "
+            "0.0) come before every other hit."
         ),
     )
     match_strength: Literal["strong", "moderate", "weak", "keyword"] = Field(
@@ -292,7 +295,8 @@ class DocumentSearchItem(StrictOutputModel):
             "passed it: such hits tie on the shown value and are ordered by the internal score, except that "
             "the tied hits with a decision date are listed newest first in the positions they occupy; an undated "
             "tied hit, and a decision whose whole title occurs in the query, keeps its exact position, so a "
-            "decision may pass an undated hit."
+            "decision may pass an undated hit. A hit marked same_title_newest_first may then take the position "
+            "of an older tied decision of its title."
         ),
     )
     semantic_relevance: float | None = Field(
@@ -302,6 +306,15 @@ class DocumentSearchItem(StrictOutputModel):
     decision_number_match: bool | None = Field(
         default=None,
         description="True for a document listed first because its decision number equals the number in the query.",
+    )
+    same_title_newest_first: bool | None = Field(
+        default=None,
+        description=(
+            "True when the hit's position was set by its decision date: every content word of the query occurs "
+            "in its title, which other dated hits of the same match_strength band share, and those are listed "
+            "newest first in their positions (search-normalised titles, equal; undated hits keep theirs). Its "
+            "relevance may be lower than that of a hit after it."
+        ),
     )
 
 
