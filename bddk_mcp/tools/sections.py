@@ -78,6 +78,8 @@ logger = logging.getLogger(__name__)
 _MAX_EXACT_SECTION_CHARS = 30_000
 _MAX_SEARCH_EXCERPT_CHARS = 2_000
 _MAX_DISAMBIGUATION_RESULTS = 10
+# Candidate titles named when an instrument name beside a section reference identifies no single document.
+_MAX_NAMED_CANDIDATES = 5
 _SECTION_TRUNCATION_WARNING = (
     "One or more section bodies were returned as bounded excerpts. Use an exact document/section reference "
     "or paginated full-document retrieval before relying on omitted text."
@@ -1611,11 +1613,12 @@ def register(mcp, deps: Dependencies) -> None:
         word of its title or an inflection of it (no other word, no category
         word), and its title is covered best by those words, ahead of every
         other stored title (a TASLAK/MÜLGA document gives way on a tie unless
-        the words name that class). The document then scopes the search with
-        the same preference semantics, and the note names it by its title.
-        When two or more titles stand equally, nothing is scoped and the note
-        names them; an abbreviation that is not a title word (SYR, İSEDES)
-        identifies nothing.
+        the words name that class); a single word ("Bankalar Kanunu")
+        identifies only the one title of its type that holds it. The document
+        then scopes the search with the same preference semantics, and the
+        note names it by its title. When no title stands out, nothing is
+        scoped and the note names the candidates (at most five); an
+        abbreviation that is not a title word (SYR, İSEDES) identifies nothing.
         """
         # Invisible format characters (soft hyphen, zero-width space) split words: never search them.
         # Control characters (NUL ...) separate words. The query is echoed as given, except that a
@@ -1772,9 +1775,12 @@ def register(mcp, deps: Dependencies) -> None:
                 "that document with get_bddk_document."
             )
         elif inferred_section_ref and not exact_ref_detected:
+            more = len(tied_titles) - _MAX_NAMED_CANDIDATES
             tie = (
-                f' (the words "{instrument_words}" match the titles of {len(tied_titles)} stored documents equally: '
-                + "; ".join(f'{entry.document_id} "{entry.title}"' for entry in tied_titles)
+                f' (the words "{instrument_words}" match the titles of {len(tied_titles)} stored documents and none '
+                "stands out: "
+                + "; ".join(f'{entry.document_id} "{entry.title}"' for entry in tied_titles[:_MAX_NAMED_CANDIDATES])
+                + (f"; and {more} more" if more > 0 else "")
                 + ")"
                 if tied_titles
                 else ""

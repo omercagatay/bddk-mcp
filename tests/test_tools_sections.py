@@ -3070,7 +3070,7 @@ async def test_an_instrument_name_that_matches_titles_equally_names_them_and_sco
     structured = result.structuredContent
     assert structured.get("document_id") is None and structured["inferred_document_filter_applied"] is False
     assert "madde 5 in the query was not applied as a filter because no document was identified" in result.text
-    assert '"Likidite Yönetmeliği" match the titles of 2 stored documents equally: mevzuat_10749 "' in result.text
+    assert '"Likidite Yönetmeliği" match the titles of 2 stored documents and none stands out: mevzuat_' in result.text
     assert '; mevzuat_19498 "Bankaların Likidite Karşılama Oranı Hesaplamasına İlişkin Yönetmelik"' in result.text
 
 

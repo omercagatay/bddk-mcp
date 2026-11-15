@@ -574,16 +574,23 @@ def identify_instrument(entries: list[BddkDecisionSummary], keywords: str) -> li
     the rest is the type asked for, and at least one content word must remain. A candidate is of that type
     (``_instrument_type``) and every content word is a word of its title or an inflection of the same root
     (``_stem_grade`` 2: "Karşılık" reaches "Karşılıklara" but not "Karşılama"; category and other fields do not
-    count; "mülga" names the class, not a title word). The candidates with the highest title-side coverage (the
-    share of the title's content words that the name matches, ``_phrase_and_title_coverage``) stand out; among
-    several, a TASLAK/MÜLGA catalog-class entry gives way to one that is not, and when the name names a class
-    ("mülga", "taslak") an entry of that class wins. One entry returned identifies the instrument; several
-    stand equally; none means that no title matches.
+    count; "mülga" names the class, not a title word). A name of one content word identifies only the one
+    candidate there is. Otherwise the candidates with the highest title-side coverage (the share of the title's
+    content words that the name matches, ``_phrase_and_title_coverage``) stand out; among several, a
+    TASLAK/MÜLGA catalog-class entry gives way to one that is not, and when the name names a class ("mülga",
+    "taslak") an entry of that class wins. One entry returned identifies the instrument; several are the
+    candidates of which none stands out (best coverage first); none means that no title matches.
     """
     searched, _ = _without_section_references(keywords)
     tokens = [token for token in _catalog_tokens(searched) if token not in (*_CATALOG_FUNCTION_WORDS, _REPEALED_WORD)]
     types = [pattern for token in tokens if (pattern := _document_type_pattern(token))]
-    content = [token for token in tokens if _document_type_pattern(token) is None]
+    # "Kurul" directly before a type word ("Kurul Kararı") is boilerplate, as in the title-side coverage.
+    content = [
+        token
+        for index, token in enumerate(tokens)
+        if _document_type_pattern(token) is None
+        and not (token == _KURUL and index + 1 < len(tokens) and _document_type_pattern(tokens[index + 1]))
+    ]
     if not types or not content:
         return []
     scored: list[tuple[Fraction, BddkDecisionSummary]] = []
@@ -601,8 +608,12 @@ def identify_instrument(entries: list[BddkDecisionSummary], keywords: str) -> li
             for token in content
         ):
             scored.append((_phrase_and_title_coverage(content, title_words)[1], entry))
-    best = max((coverage for coverage, _ in scored), default=None)
-    tied = [entry for coverage, entry in scored if coverage == best]
+    scored.sort(key=lambda item: item[0], reverse=True)
+    # One word ("Bankalar Yönetmeliği", "Risk Kurul Kararı") occurs in many titles, and the shortest title would
+    # win by coverage alone: it identifies only the one title of its type that holds it.
+    if len(set(content)) == 1 and len(scored) > 1:
+        return [entry for _, entry in scored]
+    tied = [entry for coverage, entry in scored if coverage == scored[0][0]]
     named_classes = catalog_classes_named(keywords)
     wanted = named_classes or {None}
     return [entry for entry in tied if catalog_status_class(entry.category) in wanted] or tied

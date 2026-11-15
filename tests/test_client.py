@@ -483,14 +483,22 @@ class TestIdentifyInstrument:
         assert self.ids("Karşılık Yönetmeliği madde 5") == ["mevzuat_22599"]
         assert self.ids("Bankacılık Kanunu geçici madde 5") == ["mevzuat_5411"]
         assert self.ids("Kredi Kartları Kanunu madde 9") == ["mevzuat_5464"]
-        assert self.ids("Bankalar Kanunu madde 11") == ["1230"]
+        assert self.ids("4389 sayılı Bankalar Kanunu madde 11") == ["1230"]
         assert self.ids("İSEDES Yönetmeliği madde 4") == []
         assert self.ids("Karşılık madde 5") == []
         assert self.ids("Yönetmelik madde 5") == []
         assert self.ids("Karşılık Yönetmeliği teminat madde 5") == []
 
     def test_names_that_match_titles_equally_identify_none_of_them(self):
+        assert self.ids("Likidite Karşılama Yeterliliği Yönetmeliği madde 5") == []
+        assert self.ids("Bankaların Likidite Yönetmeliği madde 5") == ["mevzuat_19498", "mevzuat_10749"]
+
+    def test_a_one_word_name_identifies_only_the_one_title_of_its_type_that_holds_it(self):
+        # By coverage alone the shortest title holding the word would win ("Bankalar Kanunu" -> 4389 over 5464,
+        # "Kurul Kararı" boilerplate aside); one word identifies only a title it alone is in.
+        assert self.ids("Bankalar Kanunu madde 11") == ["1230", "mevzuat_5464"]
         assert self.ids("Likidite Yönetmeliği madde 5") == ["mevzuat_19498", "mevzuat_10749"]
+        assert self.ids("Karşılık Kurul Kararı madde 1") == ["283"]
 
     def test_a_repealed_or_draft_entry_gives_way_on_a_tie_unless_the_name_names_its_class(self):
         assert self.ids("Kıymetli Maden Yönetmeliği madde 5") == ["new_reg"]
