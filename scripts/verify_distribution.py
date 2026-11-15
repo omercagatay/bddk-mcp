@@ -42,6 +42,7 @@ def main(directory: Path) -> None:
         "bddk_mcp/__init__.py",
         "bddk_mcp/server.py",
         "bddk_mcp/quality/quality_failures.yml",
+        "bddk_mcp/ingest/accepted_findings.yml",
     }
     missing = sorted(expected - wheel_members)
     if missing:

@@ -22,6 +22,7 @@ from bddk_mcp.ingest.update_check import (
     compare_catalog,
     entries_to_add,
     format_report,
+    load_accepted_findings,
     text_dates,
 )
 from bddk_mcp.store.corpus_db import CorpusDB
@@ -170,7 +171,7 @@ class TestCheckUpdates:
         transport, calls = _site(sizes={"943": 1000, "1349": 2100}, mevzuat_extra="<p>(Ek:RG-5/6/2026-32000)</p>")
         client = _client(transport, doc_store)
 
-        report = await check_updates(doc_store, client)
+        report = await check_updates(doc_store, client, accepted={})
 
         assert [item["document_id"] for item in report["new"]] == ["16", "1336"]
         assert [item["document_id"] for item in report["new_on_page_55"]] == ["1350"]
@@ -191,7 +192,7 @@ class TestCheckUpdates:
     async def test_one_failing_page_does_not_hide_the_others_and_is_an_error(self, doc_store):
         await _corpus(doc_store)
         transport, _ = _site(sizes={"943": 1000, "1349": 2000}, failing_page=58)
-        report = await check_updates(doc_store, _client(transport, doc_store))
+        report = await check_updates(doc_store, _client(transport, doc_store), accepted={})
 
         pages = {page["page"]: page for page in report["pages"]}
         assert pages[58]["error"] == "ConnectError" and pages[51]["entries"] == 1
@@ -204,7 +205,7 @@ class TestCheckUpdates:
     async def test_a_source_that_answers_404_is_reported_as_changed(self, doc_store):
         await _corpus(doc_store)
         transport, _ = _site(sizes={"943": 1000})
-        report = await check_updates(doc_store, _client(transport, doc_store))
+        report = await check_updates(doc_store, _client(transport, doc_store), accepted={})
         assert {item["document_id"]: item["reason"] for item in report["changed"]}["1349"] == (
             "source answers HTTP 404"
         )
@@ -214,7 +215,7 @@ class TestCheckUpdates:
         await _corpus(doc_store)
         page = "<html><body><p>Sistem bakımda, lütfen daha sonra tekrar deneyiniz.</p></body></html>"
         transport, _ = _site(sizes={"943": 1000, "1349": 2000}, mevzuat_page=page)
-        report = await check_updates(doc_store, _client(transport, doc_store))
+        report = await check_updates(doc_store, _client(transport, doc_store), accepted={})
         assert [item["document_id"] for item in report["check_errors"]] == ["mevzuat_5411"]
         assert report["unchanged"] == {"bddk": 2, "mevzuat": 0}
         assert report["status"] == "error"
@@ -232,10 +233,112 @@ class TestCheckUpdates:
         listed = ["943", "mevzuat_5411", "16", "54", "1336", "63", "1349", "1350"]
         await doc_store.replace_catalog([{"document_id": d, "title": d} for d in listed])
         transport, _ = _site(sizes={"943": 1000})
-        report = await check_updates(doc_store, _client(transport, doc_store))
+        report = await check_updates(doc_store, _client(transport, doc_store), accepted={})
         assert report["status"] == "nothing_to_report"
         assert update_check.exit_code(report) == EXIT_NOTHING_TO_REPORT
         assert json.loads(json.dumps(report)) == report
+
+
+def _registry(tmp_path, entries: str) -> dict:
+    path = tmp_path / "accepted.yml"
+    path.write_text(f"format_version: 1\naccepted:\n{entries}", encoding="utf-8")
+    return load_accepted_findings(path)
+
+
+class TestAcceptedFindings:
+    def test_the_shipped_registry_loads_with_the_reviewed_entries(self):
+        registry = load_accepted_findings()
+        assert set(registry) == {
+            ("kgk_tms_12", "not_listed"),
+            ("mevzuat_6362", "not_listed"),
+            ("rg_32202_20230526_6", "not_listed"),
+            ("1350", "new_on_page_55"),
+        }
+        assert all(entry.reviewed == "2026-11-15" and entry.reason for entry in registry.values())
+
+    @pytest.mark.parametrize(
+        ("entries", "message"),
+        [
+            ("  - {document_id: '1', finding: moved, reason: r, reviewed: 2026-11-15}\n", "finding"),
+            ("  - {document_id: '1', finding: new, reviewed: 2026-11-15}\n", "reason"),
+            ("  - {document_id: '1', finding: new, reason: r, reviewed: 15.11.2026}\n", "reviewed"),
+            ("  - {document_id: '1', finding: new, reason: r, reviewed: 2026-11-15, observed: '9'}\n", "observed"),
+            ("  - {document_id: '1', finding: changed, reason: r, reviewed: 2026-11-15}\n", "observed"),
+            ("  - {document_id: '1', finding: new, reason: r, reviewed: 2026-11-15, note: x}\n", "unknown"),
+            ("  - {document_id: '../1', finding: new, reason: r, reviewed: 2026-11-15}\n", "document_id"),
+            (
+                "  - {document_id: '1', finding: new, reason: r, reviewed: 2026-11-15}\n"
+                "  - {document_id: '1', finding: new, reason: s, reviewed: 2026-11-15}\n",
+                "duplicate",
+            ),
+        ],
+    )
+    def test_an_invalid_registry_is_refused(self, tmp_path, entries, message):
+        with pytest.raises(RuntimeError, match=message):
+            _registry(tmp_path, entries)
+
+    async def test_accepted_findings_do_not_count_and_a_vanished_one_is_stale(self, doc_store, tmp_path):
+        await _corpus(doc_store)
+        transport, _ = _site(sizes={"943": 1000, "1349": 2000})
+        registry = _registry(
+            tmp_path,
+            "  - {document_id: kgk_tms_12, finding: not_listed, reason: by hand, reviewed: 2026-11-15}\n"
+            "  - {document_id: '1350', finding: new_on_page_55, reason: not selected, reviewed: 2026-11-15}\n"
+            "  - {document_id: '16', finding: new, reason: held back, reviewed: 2026-11-15}\n"
+            "  - {document_id: '1336', finding: new, reason: held back, reviewed: 2026-11-15}\n"
+            "  - {document_id: '943', finding: not_listed, reason: gone once, reviewed: 2026-11-01}\n",
+        )
+
+        report = await check_updates(doc_store, _client(transport, doc_store), accepted=registry)
+
+        assert report["new"] == report["new_on_page_55"] == report["not_listed"] == report["changed"] == []
+        assert [(item["document_id"], item["finding"]) for item in report["accepted"]] == [
+            ("16", "new"),
+            ("1336", "new"),
+            ("1350", "new_on_page_55"),
+            ("kgk_tms_12", "not_listed"),
+        ]
+        assert report["accepted"][0]["accepted_reason"] == "held back"
+        assert report["stale_acceptances"] == [
+            {"document_id": "943", "finding": "not_listed", "reason": "gone once", "reviewed": "2026-11-01"}
+        ]
+        assert report["status"] == "nothing_to_report"
+        assert update_check.exit_code(report) == EXIT_NOTHING_TO_REPORT
+        text = format_report(report)
+        assert "Accepted (reviewed, not counted): 4" in text and "Stale acceptances" in text
+
+    async def test_a_changed_acceptance_holds_only_for_the_observed_value(self, doc_store, tmp_path):
+        await _corpus(doc_store)
+        registry = _registry(
+            tmp_path,
+            "  - {document_id: '1349', finding: changed, observed: '2100', reason: r, reviewed: 2026-11-15}\n"
+            "  - {document_id: mevzuat_5411, finding: changed, observed: '2026-06-05', reason: r, reviewed: 2026-11-15}\n",
+        )
+        same, _ = _site(sizes={"943": 1000, "1349": 2100}, mevzuat_extra="<p>(Ek:RG-5/6/2026-32000)</p>")
+        report = await check_updates(doc_store, _client(same, doc_store), accepted=registry)
+        assert report["changed"] == [] and report["stale_acceptances"] == []
+        assert {item["observed"] for item in report["accepted"]} == {"2100", "2026-06-05"}
+
+        later, _ = _site(
+            sizes={"943": 1000, "1349": 2200},
+            mevzuat_extra="<p>(Ek:RG-5/6/2026-32000)</p><p>(Değişik:RG-1/9/2026-32100)</p>",
+        )
+        report = await check_updates(doc_store, _client(later, doc_store), accepted=registry)
+        assert {(item["document_id"], item["observed"]) for item in report["changed"]} == {
+            ("1349", "2200"),
+            ("mevzuat_5411", "2026-06-05, 2026-09-01"),
+        }
+        assert {item["document_id"] for item in report["stale_acceptances"]} == {"1349", "mevzuat_5411"}
+        assert report["status"] == "something_to_report"
+
+    async def test_an_entry_the_run_could_not_evaluate_is_not_called_stale(self, doc_store, tmp_path):
+        await _corpus(doc_store)
+        transport, _ = _site(sizes={"943": 1000, "1349": 2000}, failing_page=58)
+        registry = _registry(
+            tmp_path, "  - {document_id: '1336', finding: new, reason: held back, reviewed: 2026-11-15}\n"
+        )
+        report = await check_updates(doc_store, _client(transport, doc_store), accepted=registry)
+        assert report["stale_acceptances"] == []
 
 
 class TestEntriesToAdd:

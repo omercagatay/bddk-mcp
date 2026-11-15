@@ -20,6 +20,10 @@ The check reads the corpus file and the site; it writes nothing. It compares thr
   An official text that shares no date with the stored one, or is far shorter, is reported as an error, not as
   unchanged, because it is probably not the document. The stored text is never compared with a fresh extraction,
   because a repaired text never equals its source.
+
+Reviewed findings that need no action are listed in ``accepted_findings.yml`` (see the comment there): they are
+reported under "accepted" and do not count for exit status 3, and an entry whose finding no longer occurs is
+reported as stale.
 """
 
 from __future__ import annotations
@@ -27,8 +31,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from dataclasses import dataclass
+from datetime import date
+from pathlib import Path
 
 import httpx
+import yaml
 from bs4 import BeautifulSoup
 
 from bddk_mcp.core.exceptions import BddkUpstreamError
@@ -62,6 +70,121 @@ _MIN_OFFICIAL_SHARE = 0.25
 _CHECK_ERRORS = (httpx.HTTPError, OutboundHttpPolicyError, ValueError)
 
 Pages = list[tuple[int, list[BddkDecisionSummary], str]]
+
+ACCEPTED_FINDINGS_PATH = Path(__file__).with_name("accepted_findings.yml")
+# The report groups an entry can accept, in report order.
+FINDINGS = ("new", "new_on_page_55", "not_listed", "changed")
+_REGISTRY_KEYS = frozenset({"document_id", "finding", "observed", "reason", "reviewed"})
+_REGISTRY_ID_RE = re.compile(r"[A-Za-z0-9_]{1,64}")
+_ISO_DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+@dataclass(frozen=True, slots=True)
+class AcceptedFinding:
+    """A reviewed finding that needs no action; ``observed`` binds a "changed" acceptance to the value seen."""
+
+    document_id: str
+    finding: str
+    reason: str
+    reviewed: str
+    observed: str = ""
+
+
+def load_accepted_findings(path: Path = ACCEPTED_FINDINGS_PATH) -> dict[tuple[str, str], AcceptedFinding]:
+    """Load and validate the accepted-findings registry, keyed by (document id, finding).
+
+    A malformed registry is an error, never an empty one: silently accepting nothing would be safe, but silently
+    accepting the wrong thing would hide a finding.
+    """
+    try:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, yaml.YAMLError):
+        raise RuntimeError("Unable to load the accepted-findings registry (read_or_parse_failed).") from None
+    if (
+        not isinstance(payload, dict)
+        or payload.get("format_version") != 1
+        or not isinstance(payload.get("accepted"), list)
+    ):
+        raise RuntimeError("Invalid accepted-findings registry: format_version 1 and an accepted list are required.")
+    registry: dict[tuple[str, str], AcceptedFinding] = {}
+    for index, item in enumerate(payload["accepted"]):
+
+        def invalid(what: str, index: int = index) -> RuntimeError:
+            return RuntimeError(f"Invalid accepted-findings registry: entry {index}: {what}.")
+
+        if not isinstance(item, dict):
+            raise invalid("must be a mapping")
+        unknown = sorted(str(key) for key in set(item) - _REGISTRY_KEYS)
+        if unknown:
+            raise invalid(f"unknown key(s) {', '.join(unknown)}")
+        document_id = str(item.get("document_id", "")).strip()
+        if not _REGISTRY_ID_RE.fullmatch(document_id):
+            raise invalid("document_id must be a document id")
+        finding = item.get("finding")
+        if finding not in FINDINGS:
+            raise invalid(f"finding must be one of {', '.join(FINDINGS)}")
+        reason = str(item.get("reason") or "").strip()
+        if not reason or "\n" in reason:
+            raise invalid("a one-line reason is required")
+        reviewed = item.get("reviewed")
+        reviewed = reviewed.isoformat() if isinstance(reviewed, date) else str(reviewed or "")
+        if not _ISO_DATE_RE.fullmatch(reviewed):
+            raise invalid("reviewed must be a date YYYY-MM-DD")
+        try:
+            date.fromisoformat(reviewed)
+        except ValueError:
+            raise invalid("reviewed must be a date YYYY-MM-DD") from None
+        observed = str(item.get("observed") or "").strip()
+        if finding == "changed" and not observed:
+            raise invalid("a changed finding needs the observed value it accepts")
+        if finding != "changed" and "observed" in item:
+            raise invalid("observed is only for a changed finding")
+        if (document_id, finding) in registry:
+            raise invalid("duplicate entry for this document and finding")
+        registry[(document_id, finding)] = AcceptedFinding(document_id, finding, reason, reviewed, observed)
+    return registry
+
+
+def apply_accepted(report: dict, registry: dict[tuple[str, str], AcceptedFinding]) -> None:
+    """Move the accepted findings of ``report`` into ``accepted`` and list entries whose finding is gone as stale.
+
+    A "changed" entry accepts only the value it names: a different size or another date is reported again, and the
+    entry is then stale. An entry is called stale only when this run could evaluate it (all pages read for the
+    catalog findings; the source checked for "changed").
+    """
+    accepted: list[dict] = []
+    matched: set[tuple[str, str]] = set()
+    for finding in FINDINGS:
+        kept = []
+        for item in report[finding]:
+            entry = registry.get((item["document_id"], finding))
+            if entry is not None and (finding != "changed" or entry.observed == item["observed"]):
+                matched.add((entry.document_id, finding))
+                accepted.append(
+                    {**item, "finding": finding, "accepted_reason": entry.reason, "reviewed": entry.reviewed}
+                )
+            else:
+                kept.append(item)
+        report[finding] = kept
+    unevaluated = {item["document_id"] for item in (*report["check_errors"], *report["not_checked"])}
+
+    def evaluated(entry: AcceptedFinding) -> bool:
+        if entry.finding == "changed":
+            return entry.document_id not in unevaluated
+        return report["not_listed_complete"]
+
+    report["accepted"] = accepted
+    report["stale_acceptances"] = [
+        {
+            "document_id": entry.document_id,
+            "finding": entry.finding,
+            "reason": entry.reason,
+            "reviewed": entry.reviewed,
+            **({"observed": entry.observed} if entry.observed else {}),
+        }
+        for key, entry in sorted(registry.items())
+        if key not in matched and evaluated(entry)
+    ]
 
 
 def _summary(page_id: int, entry: BddkDecisionSummary) -> dict:
@@ -120,32 +243,32 @@ def _error_text(exc: Exception) -> str:
     return type(exc).__name__
 
 
-async def _check_bddk(client: BddkApiClient, row: dict) -> tuple[str, str]:
-    """("unchanged" | "changed" | "not_checked" | "error", reason) from the size BDDK declares for the file."""
+async def _check_bddk(client: BddkApiClient, row: dict) -> tuple[str, str, str]:
+    """("unchanged" | "changed" | "not_checked" | "error", reason, observed) from the size BDDK declares."""
     try:
         response = await client._fetch_with_retry(
             f"https://www.bddk.org.tr/Mevzuat/DokumanGetir/{row['document_id']}", method="HEAD"
         )
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code in (404, 410):
-            return "changed", f"source answers HTTP {exc.response.status_code}"
-        return "error", _error_text(exc)
+            return "changed", f"source answers HTTP {exc.response.status_code}", _error_text(exc)
+        return "error", _error_text(exc), ""
     except _CHECK_ERRORS as exc:
-        return "error", _error_text(exc)
+        return "error", _error_text(exc), ""
     size = response.headers.get("content-length", "")
     if not _NUMBER_RE.fullmatch(size):
-        return "not_checked", "the source declares no size"
+        return "not_checked", "the source declares no size", ""
     if int(size) != row["file_size"]:
-        return "changed", f"source file is {size} bytes, {row['file_size']} when it was downloaded"
-    return "unchanged", ""
+        return "changed", f"source file is {size} bytes, {row['file_size']} when it was downloaded", size
+    return "unchanged", "", ""
 
 
-async def _check_mevzuat(client: BddkApiClient, store: DocumentStore, row: dict) -> tuple[str, str]:
-    """Amendment-note dates of the official consolidated text that the stored text does not have."""
+async def _check_mevzuat(client: BddkApiClient, store: DocumentStore, row: dict) -> tuple[str, str, str]:
+    """Dates of the official consolidated text that the stored text does not have."""
     number, kind, series = _parse_mevzuat_params(row["source_url"])
     number = number or row["document_id"].removeprefix("mevzuat_")
     if not all(_NUMBER_RE.fullmatch(part) for part in (number, kind, series)):
-        return "not_checked", "the source address names no mevzuat number, type and series"
+        return "not_checked", "the source address names no mevzuat number, type and series", ""
     url = (
         "https://www.mevzuat.gov.tr/anasayfa/MevzuatFihristDetayIframe"
         f"?MevzuatTur={kind}&MevzuatNo={number}&MevzuatTertip={series}"
@@ -153,46 +276,49 @@ async def _check_mevzuat(client: BddkApiClient, store: DocumentStore, row: dict)
     try:
         response = await client._fetch_with_retry(url, max_bytes=_MAX_MEVZUAT_TEXT_BYTES)
     except _CHECK_ERRORS as exc:
-        return "error", _error_text(exc)
+        return "error", _error_text(exc), ""
     page = _decode_html(response.content, _http_charset(response.headers))
     official = BeautifulSoup(page, "html.parser").get_text(" ")
     if _is_error_page(page) or not official.strip():
-        return "error", "the source answered with an error page"
+        return "error", "the source answered with an error page", ""
     stored = await store.get_document(row["document_id"])
     stored_text = stored.markdown_content if stored else ""
     official_dates, stored_dates = text_dates(official), text_dates(stored_text)
     if (stored_dates and not official_dates & stored_dates) or len(official) < _MIN_OFFICIAL_SHARE * len(stored_text):
-        return "error", "the official text does not look like the stored document (no shared date, or far shorter)"
+        return "error", "the official text does not look like the stored document (no shared date, or far shorter)", ""
     added = official_dates - stored_dates
     if added:
-        return "changed", f"official text has dates the stored text lacks: {', '.join(sorted(added))}"
-    return "unchanged", ""
+        observed = ", ".join(sorted(added))
+        return "changed", f"official text has dates the stored text lacks: {observed}", observed
+    return "unchanged", "", ""
 
 
 async def check_documents(store: DocumentStore, client: BddkApiClient) -> dict:
     """Compare every stored document with its source by the signal of its host (see the module docstring)."""
     rows = await store.list_document_sources()
 
-    async def one(row: dict) -> tuple[str, str, str, str]:
+    async def one(row: dict) -> tuple[str, str, str, str, str]:
         document_id = row["document_id"]
         if _NUMBER_RE.fullmatch(document_id):
             kind, check = "bddk", _check_bddk(client, row)
         elif re.fullmatch(r"mevzuat_[0-9]{1,20}", document_id):
             kind, check = "mevzuat", _check_mevzuat(client, store, row)
         else:
-            return document_id, "other", "not_checked", "source host is not on the allowlist"
+            return document_id, "other", "not_checked", "source host is not on the allowlist", ""
         async with client._scrape_sem:
-            status, reason = await check
+            status, reason, observed = await check
         if status == "error":
             logger.warning("Source of a stored document could not be checked", extra={"error_type": reason})
-        return document_id, kind, status, reason
+        return document_id, kind, status, reason, observed
 
     results = await asyncio.gather(*(one(row) for row in rows))
     by_status: dict[str, list[dict]] = {"changed": [], "not_checked": [], "error": []}
     unchanged = {"bddk": 0, "mevzuat": 0}
-    for document_id, kind, status, reason in results:
+    for document_id, kind, status, reason, observed in results:
         if status == "unchanged":
             unchanged[kind] += 1
+        elif status == "changed":
+            by_status[status].append({"document_id": document_id, "reason": reason, "observed": observed})
         else:
             by_status[status].append({"document_id": document_id, "reason": reason})
     return {
@@ -203,14 +329,21 @@ async def check_documents(store: DocumentStore, client: BddkApiClient) -> dict:
     }
 
 
-async def check_updates(store: DocumentStore, client: BddkApiClient) -> dict:
-    """The whole report: per page, new, not listed, changed and what could not be checked; plus a status."""
+async def check_updates(
+    store: DocumentStore, client: BddkApiClient, accepted: dict[tuple[str, str], AcceptedFinding] | None = None
+) -> dict:
+    """The whole report: per page, new, not listed, changed, accepted and what could not be checked; plus a status.
+
+    ``accepted`` defaults to the shipped registry, loaded here so a malformed one fails the check, not the import.
+    """
+    registry = load_accepted_findings() if accepted is None else accepted
     pages = await client.read_catalog_pages(CHECK_PAGE_IDS)
     report = {
         "pages": [{"page": page_id, "entries": len(entries), "error": error} for page_id, entries, error in pages],
         **compare_catalog(pages, await store.load_catalog()),
         **await check_documents(store, client),
     }
+    apply_accepted(report, registry)
     findings = report["new"] or report["new_on_page_55"] or report["not_listed"] or report["changed"]
     if not report["not_listed_complete"] or report["check_errors"]:
         report["status"] = "error"
@@ -265,6 +398,18 @@ def format_report(report: dict) -> str:
     if report["check_errors"]:
         lines.append(f"Could not be checked (error): {len(report['check_errors'])}")
         lines += [f"  {item['document_id']}: {item['reason']}" for item in report["check_errors"]]
+    lines.append(f"Accepted (reviewed, not counted): {len(report['accepted'])}")
+    lines += [
+        f"  {item['document_id']} {item['finding']} (reviewed {item['reviewed']}): {item['accepted_reason']}"
+        for item in report["accepted"]
+    ]
+    if report["stale_acceptances"]:
+        lines.append(
+            f"Stale acceptances (the finding no longer occurs; remove the entry): {len(report['stale_acceptances'])}"
+        )
+        lines += [
+            f"  {item['document_id']} {item['finding']}: {item['reason']}" for item in report["stale_acceptances"]
+        ]
     lines.append(f"Status: {report['status'].replace('_', ' ')}")
     return "\n".join(lines)
 
