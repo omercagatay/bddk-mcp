@@ -43,7 +43,7 @@ def test_document_quality_page_lists_tracked_fail_documents():
 
     assert candidates == []
     assert "No documents are currently registered as extraction failures" in page
-    assert "all 319 documents clean" in page.replace(chr(10), " ")
+    assert "all 328 documents clean" in page.replace(chr(10), " ")
     assert "signed corpus" not in page
     assert "release receipt" not in page
     assert "318 clean" not in page
