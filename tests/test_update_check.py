@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
-from unittest.mock import AsyncMock
+import zipfile
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -14,6 +17,7 @@ from bddk_mcp import cli
 from bddk_mcp.core.models import BddkDecisionSummary
 from bddk_mcp.ingest import update_check
 from bddk_mcp.ingest.client import BddkApiClient
+from bddk_mcp.ingest.doc_sync import DocumentSyncer, file_fingerprint, mevzuat_text_fingerprint
 from bddk_mcp.ingest.update_check import (
     EXIT_ERROR,
     EXIT_NOTHING_TO_REPORT,
@@ -25,8 +29,9 @@ from bddk_mcp.ingest.update_check import (
     load_accepted_findings,
     text_dates,
 )
+from bddk_mcp.ocr.base import MarkitdownBackend
 from bddk_mcp.store.corpus_db import CorpusDB
-from bddk_mcp.store.doc_store import DocumentStore, StoredDocument
+from bddk_mcp.store.doc_store import DocumentStore, StoredDocument, _utc_minute
 
 
 def _entry(document_id: str, category: str = "Kurul Kararı", title: str = "") -> BddkDecisionSummary:
@@ -113,7 +118,15 @@ _DECISIONS = {
 _IFRAME = "<html><body><p>MADDE 1 – (Değişik:RG-1/2/2020-31000) Metin.</p>{extra}</body></html>"
 
 
-def _site(*, sizes: dict[str, int], failing_page: int | None = None, mevzuat_extra: str = "", mevzuat_page: str = ""):
+def _site(
+    *,
+    sizes: dict[str, int],
+    failing_page: int | None = None,
+    mevzuat_extra: str = "",
+    mevzuat_page: str = "",
+    files: dict[str, tuple[str, bytes]] | None = None,
+):
+    """A fake site; ``files`` maps a BDDK id to the (content type, bytes) a GET answers (a deep check)."""
     calls: list[tuple[str, str]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -127,6 +140,9 @@ def _site(*, sizes: dict[str, int], failing_page: int | None = None, mevzuat_ext
             return httpx.Response(200, text=f"<html><body>{body}</body></html>", request=request)
         if url.path.startswith("/Mevzuat/DokumanGetir/"):
             document_id = url.path.rsplit("/", 1)[1]
+            if request.method == "GET" and document_id in (files or {}):
+                content_type, body = files[document_id]
+                return httpx.Response(200, headers={"content-type": content_type}, content=body, request=request)
             if document_id not in sizes:
                 return httpx.Response(404, request=request)
             return httpx.Response(200, headers={"content-length": str(sizes[document_id])}, request=request)
@@ -138,7 +154,7 @@ def _site(*, sizes: dict[str, int], failing_page: int | None = None, mevzuat_ext
     return httpx.MockTransport(handler), calls
 
 
-async def _corpus(doc_store: DocumentStore) -> None:
+async def _corpus(doc_store: DocumentStore, fingerprints: dict[str, str] | None = None) -> None:
     for document_id, source_url, size, text in (
         ("943", "https://www.bddk.org.tr/Mevzuat/DokumanGetir/943", 1000, "Rehber metni."),
         ("1349", "https://www.bddk.org.tr/Mevzuat/DokumanGetir/1349", 2000, "Karar metni."),
@@ -157,6 +173,8 @@ async def _corpus(doc_store: DocumentStore) -> None:
                 source_url=source_url,
                 markdown_content=text,
                 file_size=size,
+                source_fingerprint=(fingerprints or {}).get(document_id, ""),
+                source_fingerprint_at=_FINGERPRINTED_AT if document_id in (fingerprints or {}) else None,
             )
         )
     await doc_store.replace_catalog(
@@ -242,6 +260,202 @@ class TestCheckUpdates:
         assert report["status"] == "nothing_to_report"
         assert update_check.exit_code(report) == EXIT_NOTHING_TO_REPORT
         assert json.loads(json.dumps(report)) == report
+
+
+_FINGERPRINTED_AT = 1_794_700_000.0
+_PDF = "application/pdf"
+_PDF_943 = b"%PDF-1.4 " + b"a" * 991  # the 1000 bytes stored for 943
+_PDF_943_REPLACED = b"%PDF-1.4 " + b"b" * 991  # the same size, other bytes
+_PDF_1349 = b"%PDF-1.4 " + b"c" * 1991
+_PAGE_5411 = _IFRAME.format(extra="")
+
+
+def _fingerprints() -> dict[str, str]:
+    return {
+        "943": file_fingerprint(_PDF_943),
+        "1349": file_fingerprint(_PDF_1349),
+        "mevzuat_5411": mevzuat_text_fingerprint(_PAGE_5411.encode()),
+    }
+
+
+class TestDeepCheck:
+    async def test_a_same_size_replacement_and_a_dateless_text_change_are_changed_only_in_deep_mode(self, doc_store):
+        await _corpus(doc_store, _fingerprints())
+        corrected = _IFRAME.format(extra="<p>Düzeltme: bu cümle tarih getirmeden eklendi.</p>")
+        transport, calls = _site(
+            sizes={"943": 1000, "1349": 2000},
+            mevzuat_page=corrected,
+            files={"943": (_PDF, _PDF_943_REPLACED), "1349": (_PDF, _PDF_1349)},
+        )
+
+        normal = await check_updates(doc_store, _client(transport, doc_store), accepted={})
+        assert normal["deep"] is False
+        assert normal["changed"] == [] and normal["no_fingerprint"] == []
+        assert normal["unchanged"] == {"bddk": 2, "mevzuat": 1}
+        assert not any(method == "GET" and path.startswith("/Mevzuat/DokumanGetir/") for method, path in calls)
+        assert "Mode: deep" not in format_report(normal) and "No fingerprint stored" not in format_report(normal)
+
+        deep = await check_updates(doc_store, _client(transport, doc_store), accepted={}, deep=True)
+        changed = {item["document_id"]: item for item in deep["changed"]}
+        assert set(changed) == {"943", "mevzuat_5411"}
+        assert changed["943"]["observed"] == file_fingerprint(_PDF_943_REPLACED)
+        assert changed["943"]["reason"] == (
+            f"source file differs from the one fingerprinted on {_utc_minute(_FINGERPRINTED_AT)}"
+        )
+        assert changed["mevzuat_5411"]["observed"] == mevzuat_text_fingerprint(corrected.encode())
+        assert changed["mevzuat_5411"]["reason"].startswith("official text differs from the one fingerprinted on")
+        assert deep["unchanged"] == {"bddk": 1, "mevzuat": 0}
+        assert deep["status"] == "something_to_report"
+        assert ("GET", "/Mevzuat/DokumanGetir/943") in calls
+        assert "Mode: deep" in format_report(deep)
+
+    async def test_a_new_date_is_still_a_change_in_deep_mode_and_observes_the_fingerprint(self, doc_store):
+        await _corpus(doc_store, _fingerprints())
+        amended = _IFRAME.format(extra="<p>(Ek:RG-5/6/2026-32000)</p>")
+        transport, _ = _site(sizes={}, mevzuat_page=amended, files={"943": (_PDF, _PDF_943), "1349": (_PDF, _PDF_1349)})
+        deep = await check_updates(doc_store, _client(transport, doc_store), accepted={}, deep=True)
+        (item,) = deep["changed"]
+        assert item["document_id"] == "mevzuat_5411" and "2026-06-05" in item["reason"]
+        assert item["observed"] == mevzuat_text_fingerprint(amended.encode())
+
+    async def test_a_document_without_a_usable_fingerprint_is_listed_never_unchanged(self, doc_store):
+        # 943 holds a fingerprint of the wrong scheme for a file; mevzuat_5411 holds none.
+        await _corpus(doc_store, {"943": mevzuat_text_fingerprint(b"x"), "1349": file_fingerprint(_PDF_1349)})
+        transport, _ = _site(sizes={}, files={"943": (_PDF, _PDF_943), "1349": (_PDF, _PDF_1349)})
+        deep = await check_updates(doc_store, _client(transport, doc_store), accepted={}, deep=True)
+        assert {item["document_id"] for item in deep["no_fingerprint"]} == {"943", "mevzuat_5411"}
+        assert deep["unchanged"] == {"bddk": 1, "mevzuat": 0} and deep["changed"] == []
+        assert "No fingerprint stored (could not be compared): 2" in format_report(deep)
+
+        grown, _ = _site(sizes={}, files={"943": (_PDF, _PDF_943 + b"x"), "1349": (_PDF, _PDF_1349)})
+        deep = await check_updates(doc_store, _client(grown, doc_store), accepted={}, deep=True)
+        assert [item["document_id"] for item in deep["changed"]] == ["943"]  # a size change needs no fingerprint
+
+    async def test_an_error_page_instead_of_the_file_is_an_error_not_a_change(self, doc_store):
+        await _corpus(doc_store, _fingerprints())
+        page = "<html><body><h1>404 - Sayfa Bulunamadı</h1></body></html>".encode()
+        transport, _ = _site(sizes={}, files={"943": ("text/html", page), "1349": (_PDF, _PDF_1349)})
+        deep = await check_updates(doc_store, _client(transport, doc_store), accepted={}, deep=True)
+        assert [item["document_id"] for item in deep["check_errors"]] == ["943"]
+        assert deep["changed"] == [] and deep["status"] == "error"
+
+    async def test_a_deep_acceptance_binds_to_the_fingerprint_and_each_mode_judges_only_its_entries(
+        self, doc_store, tmp_path
+    ):
+        await _corpus(doc_store, _fingerprints())
+        registry = _registry(
+            tmp_path,
+            f"  - {{document_id: '943', finding: changed, observed: '{file_fingerprint(_PDF_943_REPLACED)}', "
+            "reason: r, reviewed: 2026-11-15}\n"
+            "  - {document_id: '1349', finding: changed, observed: '2100', reason: r, reviewed: 2026-11-15}\n",
+        )
+        files = {"943": (_PDF, _PDF_943_REPLACED), "1349": (_PDF, _PDF_1349)}
+        transport, _ = _site(sizes={"943": 1000, "1349": 2000}, files=files)
+
+        deep = await check_updates(doc_store, _client(transport, doc_store), accepted=registry, deep=True)
+        assert deep["changed"] == [] and [item["document_id"] for item in deep["accepted"]] == ["943"]
+        assert deep["stale_acceptances"] == []  # the size entry of 1349 is for a normal run
+        normal = await check_updates(doc_store, _client(transport, doc_store), accepted=registry)
+        assert [item["document_id"] for item in normal["stale_acceptances"]] == ["1349"]  # 943's is for a deep run
+
+        later, _ = _site(sizes={}, files={**files, "943": (_PDF, b"%PDF-1.4 " + b"d" * 991)})
+        deep = await check_updates(doc_store, _client(later, doc_store), accepted=registry, deep=True)
+        assert [item["document_id"] for item in deep["changed"]] == ["943"]
+        assert [item["document_id"] for item in deep["stale_acceptances"]] == ["943"]
+
+    async def test_what_sync_records_is_what_the_deep_check_compares(self, doc_store):
+        """A BDDK file and a mevzuat iframe text with a merged annex ZIP, synced, then checked against the same site."""
+        main_page = (
+            '<html><body><iframe src="/anasayfa/MevzuatFihristDetayIframe?MevzuatTur=1&MevzuatNo=5411'
+            '&MevzuatTertip=5"></iframe></body></html>'
+        )
+        iframe = (
+            "<html><body><p>MADDE 1 – (Değişik:RG-1/2/2020-31000) Bankalar faiz oranı riskini ölçer ve raporlar."
+            "</p><p>MADDE 2 – (1) Raporlar her ay sonu itibarıyla hazırlanır ve Kuruma gönderilir.</p>"
+            '<a href="1.5.5411-ek.zip">Ekleri için tıklayınız.</a></body></html>'
+        )
+        archive = io.BytesIO()
+        with zipfile.ZipFile(archive, "w") as zf:
+            docx = io.BytesIO()
+            with zipfile.ZipFile(docx, "w") as inner:
+                inner.writestr("[Content_Types].xml", "<Types/>")
+                inner.writestr(
+                    "word/document.xml",
+                    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'
+                    "<w:p><w:r><w:t>EK-1 Tablo</w:t></w:r></w:p></w:body></w:document>",
+                )
+            zf.writestr("EK-1.docx", docx.getvalue())
+        bddk_html = ("<html><body><p>" + "Kurul kararı metni. " * 20 + "</p></body></html>").encode()
+
+        async def mevzuat(url, **_kwargs):
+            if "/mevzuat?" in url:
+                return SimpleNamespace(status_code=200, content=main_page.encode(), headers={})
+            if "MevzuatFihristDetayIframe" in url:
+                return SimpleNamespace(status_code=200, content=iframe.encode(), headers={})
+            if url.endswith("-ek.zip"):
+                return SimpleNamespace(status_code=200, content=archive.getvalue(), headers={})
+            return SimpleNamespace(status_code=404, content=b"", headers={})
+
+        async with DocumentSyncer(
+            doc_store, ocr_backends=[MarkitdownBackend()], http=MagicMock(), prefer_html_for_mevzuat=True
+        ) as syncer:
+            syncer._fetch_trusted_mevzuat = AsyncMock(side_effect=mevzuat)
+            syncer._fetch_trusted_bddk = AsyncMock(
+                return_value=SimpleNamespace(status_code=200, content=bddk_html, headers={"content-type": "text/html"})
+            )
+            source = "https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=5411&MevzuatTur=1&MevzuatTertip=5"
+            merged = await syncer.sync_document("mevzuat_5411", source_url=source)
+            plain = await syncer.sync_document("943", source_url="https://www.bddk.org.tr/Mevzuat/DokumanGetir/943")
+        assert merged.method == "mevzuat_iframe+annex_zip+html_parser", merged.error
+        assert plain.success
+        stored = await doc_store.get_document("mevzuat_5411")
+        assert "EK-1 Tablo" in stored.markdown_content  # the annex is in the text, not in the fingerprint
+        assert stored.source_fingerprint == mevzuat_text_fingerprint(iframe.encode())
+        (row,) = [row for row in await doc_store.list_document_sources() if row["document_id"] == "943"]
+        assert row["source_fingerprint"] == file_fingerprint(bddk_html)
+        assert row["source_fingerprint_at"] == row["downloaded_at"]
+
+        transport, _ = _site(sizes={}, mevzuat_page=iframe, files={"943": ("text/html", bddk_html)})
+        deep = await check_updates(doc_store, _client(transport, doc_store), accepted={}, deep=True)
+        assert deep["changed"] == [] and deep["no_fingerprint"] == [] and deep["check_errors"] == []
+        assert deep["unchanged"] == {"bddk": 1, "mevzuat": 1}
+
+
+def test_the_mevzuat_text_fingerprint_is_the_sha256_of_the_visible_text_with_whitespace_collapsed():
+    """Pins the normalisation: a library or code change that moves it would flag every stored mevzuat text."""
+    page = (
+        "<html><head><style>p { color: red; }</style><script>var token = '123';</script></head><body>"
+        "<p>MADDE 1 –\r\n   (1)&nbsp;Metin.</p><!-- yorum --><noscript>JavaScript</noscript>"
+        '<div id="mevzuat-ekler"><pre>EK-1</pre></div></body></html>'
+    ).encode()
+    expected = "mevzuat-text-v1:" + hashlib.sha256("MADDE 1 – (1) Metin.".encode()).hexdigest()
+    assert mevzuat_text_fingerprint(page) == expected
+    restyled = page.replace(b"<p>", b'<p class="x" style="y">').replace(b"'123'", b"'456'").replace(b"\r\n", b"\n")
+    assert mevzuat_text_fingerprint(restyled) == expected
+    assert mevzuat_text_fingerprint(page.replace(b"Metin.", b"Metin!")) != expected
+    assert file_fingerprint(b"%PDF") == "file-sha256:" + hashlib.sha256(b"%PDF").hexdigest()
+
+
+def test_check_updates_deep_flag_reaches_the_check_and_keeps_every_report_key(tmp_path, monkeypatch, capsys):
+    import asyncio
+
+    path = tmp_path / "c.sqlite"
+    db = CorpusDB.open(path)
+    asyncio.run(_corpus(DocumentStore(db), _fingerprints()))
+    db.close()
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    transport, _ = _site(sizes={"943": 1000, "1349": 2000}, files={"943": (_PDF, _PDF_943), "1349": (_PDF, _PDF_1349)})
+    _patched_client(monkeypatch, transport)
+
+    reports = {}
+    for flags in ([], ["--deep"]):
+        with pytest.raises(SystemExit):
+            cli.main(["check-updates", "--corpus", str(path), "--json", *flags])
+        reports[bool(flags)] = json.loads(capsys.readouterr().out)
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == digest
+    assert reports[False]["deep"] is False and reports[True]["deep"] is True
+    assert set(reports[False]) == set(reports[True])
+    assert reports[True]["unchanged"] == {"bddk": 2, "mevzuat": 1}
 
 
 def _registry(tmp_path, entries: str) -> dict:

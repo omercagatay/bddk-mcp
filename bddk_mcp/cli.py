@@ -110,6 +110,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     check.add_argument("--corpus", help=corpus_help)
     check.add_argument("--json", action="store_true", help="Print the report as one JSON object")
+    check.add_argument(
+        "--deep",
+        action="store_true",
+        help=(
+            "Download every source and compare it with the source fingerprint the corpus stores (the bytes of a BDDK "
+            "file, the normalised official text of a mevzuat document) instead of the size and date signals"
+        ),
+    )
 
     return parser
 
@@ -229,7 +237,7 @@ async def _check_updates(args: argparse.Namespace) -> None:
         store = DocumentStore(db)
         client = BddkApiClient(store=store)
         try:
-            report = await check_updates(store, client)
+            report = await check_updates(store, client, deep=args.deep)
         finally:
             await client.close()
     finally:
