@@ -1692,10 +1692,12 @@ def register(mcp, deps: Dependencies) -> None:
         document-type word (yönetmelik, tebliğ, kanun, rehber, genelge, karar,
         taslak), the document is of the last such type, every other word is a
         word of its title or an inflection of it (no other word, no category
-        word), and its title is covered best by those words, ahead of every
-        other stored title (a TASLAK/MÜLGA document gives way on a tie unless
-        the words name that class); a single word ("Bankalar Kanunu")
-        identifies only the one title of its type that holds it. The document
+        word), and it is the only stored title of that type that holds them,
+        or the only one they cover whole; a shorter title never wins over
+        another that holds the words ("Sermaye Yeterliliği Yönetmeliği" names
+        two candidates). Among titles covered equally a TASLAK/MÜLGA document
+        gives way unless the words name that class; a single word ("Bankalar
+        Kanunu") identifies only the one title of its type that holds it. The document
         then scopes the search with the same preference semantics, and the
         note names it by its title. When no title stands out, nothing is
         scoped and the note names the candidates (at most five); an

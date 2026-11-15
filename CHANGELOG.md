@@ -72,10 +72,16 @@ embedding değişmedi; yeni tool ve yeni tool argümanı yok.
   kelimesi bulunmalı, aday o tipte olmalı (katalog kategorisinin tipi, karma
   bölümlerde başlığın son tip kelimesi) ve diğer her kelime başlığın bir kelimesi ya
   da aynı kökün çekimi olmalı ("Karşılık" "Karşılıklara"ya ulaşır, "Karşılama"ya
-  ulaşmaz). En yüksek başlık kapsamı tek başına öne çıkarsa belge seçilir; eşitlikte
-  TASLAK/MÜLGA belge geri çekilir, ad sınıfı söylüyorsa o sınıf kazanır. Tek
-  kelimelik ad yalnızca o tipte o kelimeyi taşıyan tek başlığı seçer ("Bankalar
-  Yönetmeliği" hiçbirini seçmez). Seçim, belge numarasıyla aynı tercih kuralıyla
+  ulaşmaz). Belge, kelimeleri o tipte taşıyan tek başlıksa ya da birkaç aday
+  arasında ad başlığının tamamını karşılayan tek başlıksa seçilir; kelimeleri
+  taşıyan birkaç başlıktan kısa olanı yalnızca kapsam oranıyla öne geçmez
+  ("Sermaye Yeterliliği Yönetmeliği" ve "Finansal Tablolar Tebliği" iki adayı
+  sayar, hiçbirini seçmez: ilk sürüm kısa başlıklı olanı seçiyordu, 545 iki
+  kelimelik adın 65'inde). Eşit kapsamda TASLAK/MÜLGA belge geri çekilir, ad sınıfı
+  söylüyorsa o sınıf kazanır. Tek kelimelik ad yalnızca o tipte o kelimeyi taşıyan
+  tek başlığı seçer ("Bankalar Yönetmeliği" hiçbirini seçmez). Kanun numarasıyla
+  adlandırma yalnızca kategorisi Kanun olan `mevzuat_<n>` için geçerlidir. Seçim,
+  belge numarasıyla aynı tercih kuralıyla
   uygulanır: madde o belgede yoksa kapsam düşer ve not bunu söyler.
 - Soru kelimeleri: yeni çerçeve kelimeleri, her biri tek başına bir soruyu
   kurtardığı için seçildi (demektir D03, kadar C02, en+az N02 ve N03, gereken
@@ -95,18 +101,25 @@ embedding değişmedi; yeni tool ve yeni tool argümanı yok.
 belgenin kendi başlığı, 267 cümle): kendi başlığıyla 1. sıra 262/319'dan 318/319'a
 (kalan 189, başlığı 194'le yalnızca "İli"/"ili" harf büyüklüğünde ayrılıyor), ilk 10
 319/319; `search_document_store` belge hit@1 53'ten 54/71'e. "<başlık> madde N"
-taraması 98 yönetmelik maddesinde 1. sıra: tam başlıkla 8'den 98'e, kısa başlıkla
-10'dan 96'ya (kalan ikisi "Özkaynaklarına İlişkin Yönetmelik": iki başlıkta geçen tek
-kelime), yanlış belgeye kapsam 0. Elle denenen 51 kısa addan madde taşıyan 33'ü
-1. sırada, 15 ad bilinçli olarak hiçbir belge seçmiyor (SYR, İSEDES, Likidite ve Bilgi
-Sistemleri Yönetmeliği eşitlikleri, corpus'ta olmayan kanunlar), 3 rehberde madde
-yok. Bölüm aramasında hüküm hit@10 39/71'den 53/71'e (hit@1 25'ten 29'a), belge
+taraması 99 yönetmelik maddesinde 1. sıra: tam başlıkla 99/99, kısa başlıkla 95/99
+(kalan dördü "Özkaynaklarına İlişkin Yönetmelik" ve "Bağımsız Denetimi Yönetmelik":
+başka başlıklarda da geçen kelimeler), bu taramada yanlış belgeye kapsam 0. Elle
+denenen 51 kısa addan 31'i maddeyi 1. sırada veriyor, 17 ad hiçbir belge seçmiyor ve
+adayları sayıyor (SYR, İSEDES, Likidite, Bilgi Sistemleri, Sermaye Yeterliliği ve Faiz
+Oranı Riski Yönetmeliği, corpus'ta olmayan kanunlar), 3 rehberde madde yok. Bu
+sayılar belgelerin kendi başlıklarından üretilen adları ölçer; müfettişin kullandığı
+her kısa adı ölçmez. Bölüm aramasında hüküm hit@10 39/71'den 53/71'e (hit@1 25'ten 29'a), belge
 hit@10 51'den 63/71'e. Kötüleşenler: başka bir belgenin tam başlığını alıntılayan 9
-cümle biçimi `search_document_store`'da bir sıra aşağı indi (o belge artık önde);
+cümle biçimi `search_document_store`'da bir sıra aşağı indi (o belge artık önde;
+cümle kabul ölçütü bu yüzden tutmadı ve değişiklik bu maliyetle alındı); "5411 sayılı
+Kanun" kısa atfını içeren bir cümle Kanun'u öne alır (12 belgenin metninde geçiyor,
+tarama cümlelerinde hiç yok, denenen iki cümlede kaynak belge 1. sıradan 2. sıraya indi);
 başlığında "tanımı" geçen KOBİ kararları "KOBİ tanımı ve perakende kredi limiti"
 sorgusunda 1. ve 2. sıradan 3. ve 4. sıraya indi. Semantik bölüm, bölüm aramasının
-ortanca süresini 73'ten 123 ms'ye çıkardı; konusu corpus'ta olmayan 7 sorudan 5'i
-artık bir semantik ipucu gösteriyor.
+ortanca süresini 73'ten 123 ms'ye çıkardı. Konusu corpus'ta olmayan 7 sorudan 5'inde
+son gevşek sonucun yerini bir semantik ipucu aldı: bu sorular önce de 10 gevşek sonuç
+döndürüyordu, yani yanıltıcı ipucu sayısı değişmedi, ama biri artık embedding'den
+geliyor ve uyarısıyla işaretli; bu bir kazanç değildir.
 
 **Yükseltme notu.** Yeniden derleme gerekmez. MCP sözleşmesi yalnızca eklemedir:
 `DocumentSearchItem.match_type` için `named`, `SectionItem.chunk_match`

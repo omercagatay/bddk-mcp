@@ -574,12 +574,13 @@ def identify_instrument(entries: list[BddkDecisionSummary], keywords: str) -> li
     the rest is the type asked for, and at least one content word must remain. A candidate is of that type
     (``_instrument_type``) and every content word is a word of its title or an inflection of the same root
     (``_stem_grade`` 2: "Karşılık" reaches "Karşılıklara" but not "Karşılama"; category and other fields do not
-    count; "mülga" names the class, not a title word). A name of one content word identifies only the one
-    candidate there is. Otherwise the candidates with the highest title-side coverage (the share of the title's
-    content words that the name matches, ``_phrase_and_title_coverage``) stand out; among several, a
-    TASLAK/MÜLGA catalog-class entry gives way to one that is not, and when the name names a class ("mülga",
-    "taslak") an entry of that class wins. One entry returned identifies the instrument; several are the
-    candidates of which none stands out (best coverage first); none means that no title matches.
+    count; "mülga" names the class, not a title word). The only candidate is identified, and a name of one
+    content word identifies nothing else. Among several, only those whose title the name covers whole stand out (title-side coverage 1, the share of the title's content
+    words that the name matches, ``_phrase_and_title_coverage``); a shorter title never wins on coverage alone.
+    Among candidates covered equally, a TASLAK/MÜLGA catalog-class entry gives way to one that is not, and when
+    the name names a class ("mülga", "taslak") an entry of that class wins. One entry returned identifies the
+    instrument; several are the candidates of which none stands out (best coverage first); none means that no
+    title matches.
     """
     searched, _ = _without_section_references(keywords)
     tokens = [token for token in _catalog_tokens(searched) if token not in (*_CATALOG_FUNCTION_WORDS, _REPEALED_WORD)]
@@ -609,13 +610,18 @@ def identify_instrument(entries: list[BddkDecisionSummary], keywords: str) -> li
         ):
             scored.append((_phrase_and_title_coverage(content, title_words)[1], entry))
     scored.sort(key=lambda item: item[0], reverse=True)
-    # One word ("Bankalar Yönetmeliği", "Risk Kurul Kararı") occurs in many titles, and the shortest title would
-    # win by coverage alone: it identifies only the one title of its type that holds it.
+    # Coverage alone would pick the shortest title that holds the words ("Kredi Riski Tebliği" -> the Kredi Riski
+    # Azaltım Teknikleri tebliği over the Kredi Riskine Esas Tutar one): among several titles only those the name
+    # covers whole stand out, and titles covered unequally are candidates, none identified.
+    # One word ("Bankalar Kanunu", "Risk Kurul Kararı") is in many titles: it identifies only the one title of
+    # its type that holds it, never the shortest of several.
     if len(set(content)) == 1 and len(scored) > 1:
         return [entry for _, entry in scored]
-    tied = [entry for coverage, entry in scored if coverage == scored[0][0]]
-    named_classes = catalog_classes_named(keywords)
-    wanted = named_classes or {None}
+    pool = [item for item in scored if item[0] == 1] or scored
+    tied = [entry for _, entry in pool]
+    if len({coverage for coverage, _ in pool}) > 1:
+        return tied
+    wanted = catalog_classes_named(keywords) or {None}
     return [entry for entry in tied if catalog_status_class(entry.category) in wanted] or tied
 
 

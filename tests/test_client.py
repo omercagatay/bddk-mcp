@@ -493,6 +493,46 @@ class TestIdentifyInstrument:
         assert self.ids("Likidite Karşılama Yeterliliği Yönetmeliği madde 5") == []
         assert self.ids("Bankaların Likidite Yönetmeliği madde 5") == ["mevzuat_19498", "mevzuat_10749"]
 
+    def test_a_shorter_title_does_not_win_over_another_title_that_holds_the_words(self):
+        # By coverage alone "Kredi Riski Tebliği" would pick the shorter of two titles; only a title the name
+        # covers whole stands out among several.
+        from bddk_mcp.ingest.client import identify_instrument
+
+        entries = [
+            BddkDecisionSummary(document_id=doc_id, title=title, category=category)
+            for doc_id, title, category in (
+                ("azaltim", "Kredi Riski Azaltım Tekniklerine İlişkin Tebliğ", "Tebliğ"),
+                (
+                    "idd",
+                    "Kredi Riskine Esas Tutarın İçsel Derecelendirmeye Dayalı Yaklaşımlar ile Hesaplanmasına "
+                    "İlişkin Tebliğ",
+                    "Tebliğ",
+                ),
+                ("sib", "Sistemik Önemli Bankalar Hakkında Yönetmelik", "Yönetmelik"),
+                (
+                    "plan",
+                    "Sistemik Önemli Bankalarca Hazırlanacak Önlem Planlarına İlişkin Yönetmelik",
+                    "Yönetmelik",
+                ),
+                ("faiz", "Faiz Oranı Riskinin Standart Yaklaşımla Ölçülmesine İlişkin Yönetmelik", "Yönetmelik"),
+                (
+                    "faiz_eski",
+                    "Faiz Oranı Riskinin Standart Şok Yöntemiyle Ölçülmesine İlişkin Yönetmelik",
+                    "Mülga Düzenleme",
+                ),
+            )
+        ]
+
+        def ids(keywords: str) -> list[str]:
+            return [entry.document_id for entry in identify_instrument(entries, keywords)]
+
+        assert ids("Kredi Riski Tebliği madde 5") == ["azaltim", "idd"]
+        assert ids("Kredi Riski Azaltım Teknikleri Tebliği madde 5") == ["azaltim"]
+        assert ids("Sistemik Önemli Bankalar Yönetmeliği madde 5") == ["sib"]
+        assert ids("Sistemik Önemli Bankalar Hakkında Yönetmelik madde 5") == ["sib"]
+        # Titles of the two classes that differ are two instruments: the in-force one does not win by class.
+        assert set(ids("Faiz Oranı Yönetmeliği madde 5")) == {"faiz", "faiz_eski"}
+
     def test_a_one_word_name_identifies_only_the_one_title_of_its_type_that_holds_it(self):
         # By coverage alone the shortest title holding the word would win ("Bankalar Kanunu" -> 4389 over 5464,
         # "Kurul Kararı" boilerplate aside); one word identifies only a title it alone is in.
