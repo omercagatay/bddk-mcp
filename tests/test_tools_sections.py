@@ -3167,3 +3167,107 @@ async def test_an_instrument_name_of_another_type_or_without_a_client_identifies
     for result in (other_type, no_client):
         assert result.structuredContent.get("document_id") is None
         assert result.structuredContent["inferred_document_filter_applied"] is False
+
+
+async def _store_semantic_fixture(doc_store, store_hits: list[dict]) -> Dependencies:
+    """No section holds every query word; the document store's (mocked) semantic hits point at mevzuat_39158."""
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    documents = (
+        (
+            "mevzuat_1",
+            "Belge bir",
+            "MADDE 1 - (1) Faaliyet izni faaliyet izni.\n\nMADDE 2 - (1) Faaliyet izni verilir.\n",
+        ),
+        (
+            "mevzuat_39158",
+            "Dijital Bankalar Hakkında Yönetmelik",
+            "MADDE 4 - (1) Kapsam hükümleri burada yer alır.\n\n"
+            "MADDE 5 - (1) Başvuru için gereken belgeler Kurulca belirlenir.\n(2) Faaliyet izni sonra verilir.\n",
+        ),
+    )
+    for doc_id, title, content in documents:
+        await doc_store.store_document(StoredDocument(document_id=doc_id, title=title, markdown_content=content))
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(return_value=store_hits)
+    return Dependencies(db=None, doc_store=doc_store, client=None, http=None, vector_store=vector_store)
+
+
+def _store_hit(
+    doc_id: str, section_type: str, section_ref: str, *, match_type: str = "vector", relevance=0.8, start=None
+):
+    return {
+        "doc_id": doc_id,
+        "match_type": match_type,
+        "relevance": relevance,
+        "section_type": section_type,
+        "section_ref": section_ref,
+        "section_start_char": start,
+    }
+
+
+@pytest.mark.asyncio
+async def test_strong_semantic_chunk_hits_add_their_sections_in_place_of_loose_hits(doc_store):
+    hits = [
+        _store_hit("mevzuat_39158", "madde", "5"),
+        _store_hit("mevzuat_39158", "madde", "4", match_type="fts"),
+        _store_hit("mevzuat_39158", "madde", "4", match_type="named"),
+        _store_hit("mevzuat_39158", "madde", "4", relevance=0.4),
+    ]
+    tool = _capture_tool(await _store_semantic_fixture(doc_store, hits), "search_document_sections")
+
+    result = await tool("dijital faaliyet izni", limit=2)
+
+    structured = result.structuredContent
+    assert structured["loose_fallback_used"] is True and len(structured["results"]) == 2
+    semantic = structured["results"][-1]
+    assert (semantic["document_id"], semantic["section_ref"], semantic["chunk_match"]) == (
+        "mevzuat_39158",
+        "5",
+        "semantic",
+    )
+    assert semantic.get("rank") is None and structured["results"][0].get("chunk_match") is None
+    assert "Match: SEMANTIC match, not a word match" in result.text
+    assert any("come from the embedding model, not from the query words" in w for w in structured["warnings"])
+
+
+@pytest.mark.asyncio
+async def test_a_semantic_hit_on_a_paragraph_is_shown_as_its_provision(doc_store):
+    from bddk_mcp.store.doc_store import DocumentStore
+
+    deps = await _store_semantic_fixture(doc_store, [])
+    [fikra] = [
+        row
+        for row in await DocumentStore.get_document_section(doc_store, "mevzuat_39158", section_type="fikra")
+        if "Faaliyet" in row.content
+    ]
+    deps.vector_store.search.return_value = [
+        _store_hit("mevzuat_39158", "fikra", fikra.section_ref, start=fikra.start_char)
+    ]
+
+    result = await _capture_tool(deps, "search_document_sections")("dijital faaliyet izni", limit=2)
+
+    semantic = result.structuredContent["results"][-1]
+    assert (semantic["section_type"], semantic["section_ref"], semantic["chunk_match"]) == ("madde", "5", "semantic")
+
+
+@pytest.mark.asyncio
+async def test_semantic_hits_stay_out_of_scoped_typed_unavailable_and_full_searches(doc_store):
+    from bddk_mcp.store.vector_store import SemanticSearchUnavailableError
+
+    deps = await _store_semantic_fixture(doc_store, [_store_hit("mevzuat_39158", "madde", "5")])
+    tool = _capture_tool(deps, "search_document_sections")
+
+    scoped = await tool("dijital faaliyet izni", document_id="mevzuat_1", limit=2)
+    typed = await tool("dijital faaliyet izni", section_type="paragraf", limit=2)
+    strict = await tool("faaliyet izni", limit=2)
+    one = await tool("dijital faaliyet izni", limit=1)
+    deps.vector_store.search.side_effect = SemanticSearchUnavailableError("model")
+    unavailable = await tool("dijital faaliyet izni", limit=2)
+    deps.vector_store = None
+    without = await _capture_tool(deps, "search_document_sections")("dijital faaliyet izni", limit=2)
+
+    for result in (scoped, typed, strict, unavailable, without):
+        assert all(item.get("chunk_match") is None for item in result.structuredContent.get("results") or [])
+    assert [item.get("chunk_match") for item in one.structuredContent["results"]] == ["semantic"]

@@ -517,6 +517,15 @@ class SectionItem(StrictOutputModel):
             "the exact query words); such hits carry no rank and are listed after the strict hits."
         ),
     )
+    chunk_match: Literal["semantic"] | None = Field(
+        default=None,
+        description=(
+            "'semantic' when this section was added because the embedding search of search_document_store ranked a "
+            "chunk inside it among its strong or moderate hits: a semantic lead, not an exact-word match (the "
+            "section need not hold the query words). Such hits carry no rank and follow the section matches, in "
+            "free slots or in place of loose-fallback hits; only in a search without document scope or section_type."
+        ),
+    )
     display_section_ref: str | None = Field(
         default=None,
         description=(

@@ -33,6 +33,7 @@ from bddk_mcp.store.section_index import (
     split_section_truncation_notice,
     truncation_notice_original_length,
 )
+from bddk_mcp.store.vector_store import SemanticSearchReadinessError, SemanticSearchUnavailableError
 from bddk_mcp.tools.contract_types import (
     DocumentId,
     HeadingFilter,
@@ -78,8 +79,23 @@ logger = logging.getLogger(__name__)
 _MAX_EXACT_SECTION_CHARS = 30_000
 _MAX_SEARCH_EXCERPT_CHARS = 2_000
 _MAX_DISAMBIGUATION_RESULTS = 10
+# An unscoped section search adds the sections of at most this many strong or moderate (relevance at least
+# _SEMANTIC_MIN_RELEVANCE) semantic chunk hits of the document store, from its first _SEMANTIC_HIT_CANDIDATES
+# hits, in place of loose-fallback hits or in free slots.
+_MAX_SEMANTIC_SECTIONS = 3
+_SEMANTIC_HIT_CANDIDATES = 10
+_SEMANTIC_MIN_RELEVANCE = 0.50
 # Candidate titles named when an instrument name beside a section reference identifies no single document.
 _MAX_NAMED_CANDIDATES = 5
+_SEMANTIC_MATCH_LINE = (
+    "Match: SEMANTIC match, not a word match: the embedding search of search_document_store ranked a chunk inside "
+    "this section among its strong or moderate hits; the section need not hold the query words; no rank, listed "
+    "after the section matches"
+)
+_SEMANTIC_WARNING = (
+    "Hits marked chunk_match 'semantic' come from the embedding model, not from the query words: they are leads, "
+    "not exact-word matches; read the provision before citing it."
+)
 _SECTION_TRUNCATION_WARNING = (
     "One or more section bodies were returned as bounded excerpts. Use an exact document/section reference "
     "or paginated full-document retrieval before relying on omitted text."
@@ -1155,6 +1171,50 @@ def _without_spans(text: str, spans: list[tuple[int, int, str, str]]) -> str:
     return " ".join(" ".join(parts).split())
 
 
+async def _semantic_sections(
+    deps: Dependencies, query: str, seen: set[tuple[str, str, str, str]]
+) -> list[StoredDocumentSection]:
+    """The sections that hold the strong and moderate semantic chunk hits of search_document_store (match types
+    hybrid and vector; the embedding ranked the chunk), a fıkra/bent mapped to the provision that contains it, in
+    hit order, at most _MAX_SEMANTIC_SECTIONS and none of ``seen``. Nothing when semantic search is unavailable."""
+    if deps.vector_store is None:
+        return []
+    try:
+        await deps.vector_store.assert_semantic_search_ready()
+        store_hits = await deps.vector_store.search(query, limit=_SEMANTIC_HIT_CANDIDATES)
+    except (SemanticSearchUnavailableError, SemanticSearchReadinessError):
+        return []
+    found: list[StoredDocumentSection] = []
+    for hit in store_hits:
+        if (
+            hit.get("match_type") not in ("hybrid", "vector")
+            or hit.get("relevance", 0.0) < _SEMANTIC_MIN_RELEVANCE
+            or not hit.get("section_type")
+        ):
+            continue
+        rows = await deps.doc_store.get_document_section(
+            hit["doc_id"],
+            section_type=hit["section_type"],
+            section_ref=hit.get("section_ref") or None,
+            start_char=hit.get("section_start_char"),
+            limit=1,
+        )
+        if rows and rows[0].section_type in ("fikra", "bent"):
+            parent = _parent_of(rows[0], await _find_parents(deps, rows))
+            provisions = (
+                await deps.doc_store.get_document_section(hit["doc_id"], section_type=parent[0], section_ref=parent[1])
+                if parent
+                else []
+            )
+            rows = [row for row in provisions if row.start_char <= rows[0].start_char < row.end_char][:1]
+        if rows and _section_key(rows[0]) not in seen:
+            seen.add(_section_key(rows[0]))
+            found.append(rows[0].model_copy(update={"rank": None}))
+        if len(found) == _MAX_SEMANTIC_SECTIONS:
+            break
+    return found
+
+
 def _document_id_phrase(document_id: str) -> str:
     """Name an ID inferred from the query: "the number 943", "the document ID kgk_tms_12"."""
     return f"the number {document_id}" if document_id.isdigit() else f"the document ID {document_id}"
@@ -1605,6 +1665,13 @@ def register(mcp, deps: Dependencies) -> None:
         follow the exact-word hits, carry no rank and are marked `stem_match`. The
         loose token fallback runs when both passes find nothing, and also when
         every hit is an inflection-tolerant one; its hits then follow them.
+        Without a document scope or section_type, the sections that hold the
+        strong and moderate SEMANTIC chunk hits of search_document_store (its
+        embedding search, not the query words) follow, at most three, marked
+        `chunk_match` "semantic", with no rank and a warning: they take free
+        slots or the place of the last loose-fallback hits, never of an
+        exact-word or inflection-tolerant hit; none when semantic search is
+        unavailable.
         Within each pass, sections of TASLAK/MÜLGA catalog-class documents are
         listed after the others, unless the query names that class or the search
         is limited to one document; exact-reference hits keep their place.
@@ -1777,6 +1844,20 @@ def register(mcp, deps: Dependencies) -> None:
             extra = [hit for hit in loose_hits if _section_key(hit) not in seen][: limit - len(hits)]
             hits = hits + extra
             loose_fallback_used = bool(extra)
+        # Unscoped and untyped, the strong and moderate semantic chunk hits of the document store add the sections
+        # that hold them: they take the place of the last loose-fallback hits, or free slots, never of an
+        # exact-word or inflection-tolerant hit.
+        chunk_keys: set[tuple[str, str, str, str]] = set()
+        if not exact_hits and not inferred_doc_id and not explicit_section_type:
+            chunk_hits = await _semantic_sections(deps, search_query, {_section_key(hit) for hit in hits})
+            kept = [
+                hit
+                for hit in hits
+                if not (loose_fallback_used and hit.rank is None and _section_key(hit) not in stem_keys)
+            ]
+            taken = chunk_hits[: max(0, limit - len(kept))]
+            hits = hits[: limit - len(taken)] + taken
+            chunk_keys = {_section_key(hit) for hit in taken}
         # A section reference without an identified document cannot be looked up, so it is not applied.
         # Computed after the drop decision so that a dropped inferred document reports it as not applied.
         unapplied_ref_note: str | None = None
@@ -1912,7 +1993,7 @@ def register(mcp, deps: Dependencies) -> None:
             lines.insert(0, not_searched_note)
         if filter_note:
             lines.insert(0, filter_note)
-        has_exact_word_hits = any(_section_key(hit) not in stem_keys for hit in hits)
+        has_exact_word_hits = any(_section_key(hit) not in stem_keys | chunk_keys for hit in hits)
         for hit in hits:
             heading = _heading_suffix(hit, continuations)
             lines.append(f"**{hit.doc_id} — {_ref_text(hit.section_type, hit.section_ref)}{heading}**")
@@ -1937,6 +2018,8 @@ def register(mcp, deps: Dependencies) -> None:
                 # "relative" guards against conflation with the percent-scale
                 # relevance gate in the server instructions (store search).
                 lines.append(f"  Match rank: {hit.rank:.4f} (relative, FTS)")
+            if _section_key(hit) in chunk_keys:
+                lines.append(f"  {_SEMANTIC_MATCH_LINE}")
             if _section_key(hit) in stem_keys:
                 lines.append(
                     "  Match: inflection-tolerant match (word prefixes of the query terms, not the exact words); "
@@ -1954,7 +2037,10 @@ def register(mcp, deps: Dependencies) -> None:
             lines.append("")
         result_items = [
             _with_parent(_section_item(hit, query=search_query, continuations=continuations), hit, parents).model_copy(
-                update={"stem_match": _section_key(hit) in stem_keys}
+                update={
+                    "stem_match": _section_key(hit) in stem_keys,
+                    "chunk_match": "semantic" if _section_key(hit) in chunk_keys else None,
+                }
             )
             for hit in hits
         ]
@@ -1981,6 +2067,7 @@ def register(mcp, deps: Dependencies) -> None:
                         if loose_fallback_used
                         else []
                     ),
+                    *([_SEMANTIC_WARNING] if chunk_keys else []),
                 ],
                 query=query,
                 document_id=inferred_doc_id,
