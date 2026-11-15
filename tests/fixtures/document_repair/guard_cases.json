@@ -1,0 +1,2831 @@
+[
+ {
+  "id": "1336_p008_0",
+  "chosen_for": [
+   "G1_fail"
+  ],
+  "label": null,
+  "meta": {
+   "name": "1336_p008_0_a",
+   "model": "lightonai/LightOnOCR-3-4B",
+   "image_size": [
+    1583,
+    2048
+   ],
+   "new_tokens": 19,
+   "eos": true,
+   "truncated": false,
+   "seconds": 9.73
+  },
+  "md": "$$\nWD_k = RW_k * d_k\n$$\n\n2. aşama:",
+  "ref": {
+   "kind": "formula",
+   "glyphs": {
+    "D": 1,
+    "=": 1,
+    "W": 2,
+    "k": 3,
+    "R": 1,
+    "*": 1,
+    "d": 1,
+    "ş": 1,
+    "2": 1,
+    ".": 1,
+    "a": 3,
+    "m": 1,
+    ":": 1
+   },
+   "sup": {},
+   "sub": {},
+   "rows": [
+    [
+     "W",
+     "D",
+     "k",
+     "=",
+     "R",
+     "W",
+     "k",
+     "*",
+     "d",
+     "k"
+    ],
+    [
+     "2",
+     ".",
+     "a",
+     "ş",
+     "a",
+     "m",
+     "a",
+     ":"
+    ]
+   ],
+   "prose_words": {
+    "D": 1,
+    "W": 1
+   },
+   "all_words": {
+    "D": 1,
+    "W": 1,
+    "𝑊": 1,
+    "𝑘𝑅": 1,
+    "𝑘*d𝑘": 1,
+    "2": 1,
+    "aşama": 1
+   },
+   "unrecovered": 0,
+   "rules": 0,
+   "extenders": 0,
+   "num_lines": [],
+   "pdf_grid": null
+  },
+  "expected": {
+   "G0": [
+    true,
+    ""
+   ],
+   "G1": [
+    false,
+    "missing {'D': 1, 'W': 1} extra {}"
+   ],
+   "G2": [
+    true,
+    "n/a"
+   ],
+   "G3": [
+    true,
+    ""
+   ],
+   "G4": [
+    false,
+    "sub pdf-only '' out-only 'kkk'"
+   ],
+   "G5": [
+    true,
+    ""
+   ],
+   "G6": [
+    true,
+    ""
+   ],
+   "G7": [
+    true,
+    "n/a"
+   ]
+  }
+ },
+ {
+  "id": "1336_p008_2",
+  "chosen_for": [
+   "G0_pass",
+   "G1_pass",
+   "G3_pass",
+   "G4_pass",
+   "G5_pass",
+   "G6_pass"
+  ],
+  "label": [
+   "C",
+   "D_b = sum_k WD_k"
+  ],
+  "meta": {
+   "name": "1336_p008_2_a",
+   "model": "lightonai/LightOnOCR-3-4B",
+   "image_size": [
+    1583,
+    2048
+   ],
+   "new_tokens": 14,
+   "eos": true,
+   "truncated": false,
+   "seconds": 2.42
+  },
+  "md": "$$\nD_b = \\sum_k W D_k\n$$",
+  "ref": {
+   "kind": "formula",
+   "glyphs": {
+    "D": 2,
+    "=": 1,
+    "W": 1,
+    "∑": 1,
+    "b": 1,
+    "k": 2
+   },
+   "sup": {},
+   "sub": {
+    "b": 1,
+    "k": 2
+   },
+   "rows": [
+    [
+     "D",
+     "=",
+     "∑",
+     "W",
+     "D"
+    ],
+    [
+     "b",
+     "k"
+    ],
+    [
+     "k"
+    ]
+   ],
+   "prose_words": {},
+   "all_words": {
+    "𝐷": 1,
+    "𝑏": 1,
+    "=∑𝑊𝐷": 1,
+    "𝑘": 2
+   },
+   "unrecovered": 0,
+   "rules": 0,
+   "extenders": 0,
+   "num_lines": [],
+   "pdf_grid": null
+  },
+  "expected": {
+   "G0": [
+    true,
+    ""
+   ],
+   "G1": [
+    true,
+    ""
+   ],
+   "G2": [
+    true,
+    "n/a"
+   ],
+   "G3": [
+    true,
+    ""
+   ],
+   "G4": [
+    true,
+    ""
+   ],
+   "G5": [
+    true,
+    ""
+   ],
+   "G6": [
+    true,
+    ""
+   ],
+   "G7": [
+    true,
+    "n/a"
+   ]
+  }
+ },
+ {
+  "id": "1336_p025_1",
+  "chosen_for": [
+   "G7_example",
+   "G7_fail"
+  ],
+  "label": [
+   "W",
+   "merged Kredi Kalitesi cell (rows 1-8) split: text only on row 1, rows 2-8 get an EMPTY credit-quality cell"
+  ],
+  "meta": {
+   "name": "1336_p025_1_a",
+   "model": "lightonai/LightOnOCR-3-4B",
+   "image_size": [
+    1583,
+    2048
+   ],
+   "new_tokens": 656,
+   "eos": true,
+   "truncated": false,
+   "seconds": 38.15
+  },
+  "md": "<table border=\"1\" class=\"dataframe\">\n  <thead>\n    <tr style=\"text-align: right;\">\n      <th>Faktör Grup Numarası</th>\n      <th>Kredi Kalitesi</th>\n      <th>Sektör</th>\n      <th>Risk Ağırlığı</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>1</td>\n      <td>Yatırım yapılabilir derecelendirme notunu haiz olanlar</td>\n      <td>Merkez bankaları dâhil merkezi yönetimler ve kamu kuruluşları, çok taraflı kalkınma bankaları</td>\n      <td>%0,5</td>\n    </tr>\n    <tr>\n      <td>2</td>\n      <td rowspan=\"7\"></td>\n      <td>Yerel yönetimler, devlet destekli reel sektör, eğitim, kamu idaresi</td>\n      <td>%1</td>\n    </tr>\n    <tr>\n      <td>3</td>\n      <td>Devlet destekliler dâhil mali sektör</td>\n      <td>%5</td>\n    </tr>\n    <tr>\n      <td>4</td>\n      <td>Ham madde, enerji, sınai, tarım, imalat, madencilik ve taş ocakçılığı</td>\n      <td>%3</td>\n    </tr>\n    <tr>\n      <td>5</td>\n      <td>Tüketim mal ve hizmetleri, ulaştırma ve depolama, idari ve destek hizmeti faaliyetleri</td>\n      <td>%3</td>\n    </tr>\n    <tr>\n      <td>6</td>\n      <td>Teknoloji, telekomünikasyon</td>\n      <td>%2</td>\n    </tr>\n    <tr>\n      <td>7</td>\n      <td>Sağlık hizmetleri, altyapı, mesleki ve teknik faaliyetler</td>\n      <td>%1,5</td>\n    </tr>\n    <tr>\n      <td>8</td>\n      <td>Teminatlı menkul kıymetler</td>\n      <td>%2,5</td>\n    </tr>\n    <tr>\n      <td>9</td>\n      <td>Yatırım yapılabilir derecelendirme notunu haiz olmayan veya derecelendirme notu bulunmayanlar</td>\n      <td>Merkez bankaları dâhil merkezi yönetimler ve kamu kuruluşları, çok taraflı kalkınma bankaları</td>\n      <td>%2</td>\n    </tr>\n  </tbody>\n</table>",
+  "ref": {
+   "kind": "table",
+   "glyphs": {
+    "F": 1,
+    "a": 71,
+    "k": 39,
+    "t": 36,
+    "ö": 7,
+    "r": 50,
+    "G": 1,
+    "u": 20,
+    "p": 5,
+    "K": 2,
+    "e": 84,
+    "d": 20,
+    "i": 50,
+    "l": 60,
+    "s": 12,
+    "S": 2,
+    "R": 1,
+    "ğ": 5,
+    "N": 1,
+    "m": 37,
+    "ı": 30,
+    "A": 1,
+    "%": 9,
+    "0": 1,
+    ",": 18,
+    "5": 5,
+    "M": 2,
+    "z": 9,
+    "b": 7,
+    "n": 30,
+    "â": 3,
+    "h": 8,
+    "1": 3,
+    "Y": 3,
+    "y": 13,
+    "v": 10,
+    "c": 5,
+    "o": 13,
+    "ş": 4,
+    "ç": 3,
+    "f": 4,
+    "2": 4,
+    "3": 3,
+    "D": 1,
+    "4": 1,
+    "H": 1,
+    "j": 2,
+    "T": 3,
+    "ü": 2,
+    "6": 1,
+    "7": 1,
+    "8": 1,
+    "9": 1
+   },
+   "sup": {},
+   "sub": {},
+   "rows": [
+    [
+     "F",
+     "a",
+     "k",
+     "t",
+     "ö",
+     "r",
+     "G",
+     "r",
+     "u",
+     "p",
+     "K",
+     "r",
+     "e",
+     "d",
+     "i",
+     "K",
+     "a",
+     "l",
+     "i",
+     "t",
+     "e",
+     "s",
+     "i",
+     "S",
+     "e",
+     "k",
+     "t",
+     "ö",
+     "r",
+     "R",
+     "i",
+     "s",
+     "k"
+    ],
+    [
+     "N",
+     "u",
+     "m",
+     "a",
+     "r",
+     "a",
+     "s",
+     "ı",
+     "A",
+     "ğ",
+     "ı",
+     "r",
+     "l",
+     "ı",
+     "ğ",
+     "ı"
+    ],
+    [
+     "1",
+     "Y",
+     "a",
+     "t",
+     "ı",
+     "r",
+     "ı",
+     "m",
+     "y",
+     "a",
+     "p",
+     "ı",
+     "l",
+     "a",
+     "b",
+     "i",
+     "l",
+     "i",
+     "r",
+     "M",
+     "e",
+     "r",
+     "k",
+     "e",
+     "z",
+     "b",
+     "a",
+     "n",
+     "k",
+     "a",
+     "l",
+     "a",
+     "r",
+     "ı",
+     "d",
+     "â",
+     "h",
+     "i",
+     "l",
+     "%",
+     "0",
+     ",",
+     "5"
+    ],
+    [
+     "d",
+     "e",
+     "r",
+     "e",
+     "c",
+     "e",
+     "l",
+     "e",
+     "n",
+     "d",
+     "i",
+     "r",
+     "m",
+     "e",
+     "n",
+     "o",
+     "t",
+     "u",
+     "n",
+     "u",
+     "h",
+     "a",
+     "i",
+     "z",
+     "m",
+     "e",
+     "r",
+     "k",
+     "e",
+     "z",
+     "i",
+     "y",
+     "ö",
+     "n",
+     "e",
+     "t",
+     "i",
+     "m",
+     "l",
+     "e",
+     "r",
+     "v",
+     "e",
+     "k",
+     "a",
+     "m",
+     "u"
+    ],
+    [
+     "o",
+     "l",
+     "a",
+     "n",
+     "l",
+     "a",
+     "r",
+     "k",
+     "u",
+     "r",
+     "u",
+     "l",
+     "u",
+     "ş",
+     "l",
+     "a",
+     "r",
+     "ı",
+     ",",
+     "ç",
+     "o",
+     "k",
+     "t",
+     "a",
+     "r",
+     "a",
+     "f",
+     "l",
+     "ı"
+    ],
+    [
+     "k",
+     "a",
+     "l",
+     "k",
+     "ı",
+     "n",
+     "m",
+     "a",
+     "b",
+     "a",
+     "n",
+     "k",
+     "a",
+     "l",
+     "a",
+     "r",
+     "ı"
+    ],
+    [
+     "2",
+     "Y",
+     "e",
+     "r",
+     "e",
+     "l",
+     "y",
+     "ö",
+     "n",
+     "e",
+     "t",
+     "i",
+     "m",
+     "l",
+     "e",
+     "r",
+     ",",
+     "d",
+     "e",
+     "v",
+     "l",
+     "e",
+     "t",
+     "%",
+     "1"
+    ],
+    [
+     "d",
+     "e",
+     "s",
+     "t",
+     "e",
+     "k",
+     "l",
+     "i",
+     "r",
+     "e",
+     "e",
+     "l",
+     "s",
+     "e",
+     "k",
+     "t",
+     "ö",
+     "r",
+     ",",
+     "e",
+     "ğ",
+     "i",
+     "t",
+     "i",
+     "m",
+     ","
+    ],
+    [
+     "k",
+     "a",
+     "m",
+     "u",
+     "i",
+     "d",
+     "a",
+     "r",
+     "e",
+     "s",
+     "i"
+    ],
+    [
+     "3",
+     "D",
+     "e",
+     "v",
+     "l",
+     "e",
+     "t",
+     "d",
+     "e",
+     "s",
+     "t",
+     "e",
+     "k",
+     "l",
+     "i",
+     "l",
+     "e",
+     "r",
+     "d",
+     "â",
+     "h",
+     "i",
+     "l",
+     "m",
+     "a",
+     "l",
+     "i",
+     "%",
+     "5"
+    ],
+    [
+     "s",
+     "e",
+     "k",
+     "t",
+     "ö",
+     "r"
+    ],
+    [
+     "4",
+     "H",
+     "a",
+     "m",
+     "m",
+     "a",
+     "d",
+     "d",
+     "e",
+     ",",
+     "e",
+     "n",
+     "e",
+     "r",
+     "j",
+     "i",
+     ",",
+     "s",
+     "ı",
+     "n",
+     "a",
+     "i",
+     ",",
+     "%",
+     "3"
+    ],
+    [
+     "t",
+     "a",
+     "r",
+     "ı",
+     "m",
+     ",",
+     "i",
+     "m",
+     "a",
+     "l",
+     "a",
+     "t",
+     ",",
+     "m",
+     "a",
+     "d",
+     "e",
+     "n",
+     "c",
+     "i",
+     "l",
+     "i",
+     "k",
+     "v",
+     "e",
+     "t",
+     "a",
+     "ş"
+    ],
+    [
+     "o",
+     "c",
+     "a",
+     "k",
+     "ç",
+     "ı",
+     "l",
+     "ı",
+     "ğ",
+     "ı"
+    ],
+    [
+     "5",
+     "T",
+     "ü",
+     "k",
+     "e",
+     "t",
+     "i",
+     "m",
+     "m",
+     "a",
+     "l",
+     "v",
+     "e",
+     "h",
+     "i",
+     "z",
+     "m",
+     "e",
+     "t",
+     "l",
+     "e",
+     "r",
+     "i",
+     ",",
+     "%",
+     "3"
+    ],
+    [
+     "u",
+     "l",
+     "a",
+     "ş",
+     "t",
+     "ı",
+     "r",
+     "m",
+     "a",
+     "v",
+     "e",
+     "d",
+     "e",
+     "p",
+     "o",
+     "l",
+     "a",
+     "m",
+     "a",
+     ",",
+     "i",
+     "d",
+     "a",
+     "r",
+     "i",
+     "v",
+     "e"
+    ],
+    [
+     "d",
+     "e",
+     "s",
+     "t",
+     "e",
+     "k",
+     "h",
+     "i",
+     "z",
+     "m",
+     "e",
+     "t",
+     "i",
+     "f",
+     "a",
+     "a",
+     "l",
+     "i",
+     "y",
+     "e",
+     "t",
+     "l",
+     "e",
+     "r",
+     "i"
+    ],
+    [
+     "6",
+     "T",
+     "e",
+     "k",
+     "n",
+     "o",
+     "l",
+     "o",
+     "j",
+     "i",
+     ",",
+     "t",
+     "e",
+     "l",
+     "e",
+     "k",
+     "o",
+     "m",
+     "ü",
+     "n",
+     "i",
+     "k",
+     "a",
+     "s",
+     "y",
+     "o",
+     "n",
+     "%",
+     "2"
+    ],
+    [
+     "7",
+     "S",
+     "a",
+     "ğ",
+     "l",
+     "ı",
+     "k",
+     "h",
+     "i",
+     "z",
+     "m",
+     "e",
+     "t",
+     "l",
+     "e",
+     "r",
+     "i",
+     ",",
+     "a",
+     "l",
+     "t",
+     "y",
+     "a",
+     "p",
+     "ı",
+     ",",
+     "%",
+     "1",
+     ",",
+     "5"
+    ],
+    [
+     "m",
+     "e",
+     "s",
+     "l",
+     "e",
+     "k",
+     "i",
+     "v",
+     "e",
+     "t",
+     "e",
+     "k",
+     "n",
+     "i",
+     "k",
+     "f",
+     "a",
+     "a",
+     "l",
+     "i",
+     "y",
+     "e",
+     "t",
+     "l",
+     "e",
+     "r"
+    ],
+    [
+     "8",
+     "T",
+     "e",
+     "m",
+     "i",
+     "n",
+     "a",
+     "t",
+     "l",
+     "ı",
+     "m",
+     "e",
+     "n",
+     "k",
+     "u",
+     "l",
+     "k",
+     "ı",
+     "y",
+     "m",
+     "e",
+     "t",
+     "l",
+     "e",
+     "r",
+     "%",
+     "2",
+     ",",
+     "5"
+    ],
+    [
+     "9",
+     "Y",
+     "a",
+     "t",
+     "ı",
+     "r",
+     "ı",
+     "m",
+     "y",
+     "a",
+     "p",
+     "ı",
+     "l",
+     "a",
+     "b",
+     "i",
+     "l",
+     "i",
+     "r",
+     "M",
+     "e",
+     "r",
+     "k",
+     "e",
+     "z",
+     "b",
+     "a",
+     "n",
+     "k",
+     "a",
+     "l",
+     "a",
+     "r",
+     "ı",
+     "d",
+     "â",
+     "h",
+     "i",
+     "l",
+     "%",
+     "2"
+    ],
+    [
+     "d",
+     "e",
+     "r",
+     "e",
+     "c",
+     "e",
+     "l",
+     "e",
+     "n",
+     "d",
+     "i",
+     "r",
+     "m",
+     "e",
+     "n",
+     "o",
+     "t",
+     "u",
+     "n",
+     "u",
+     "h",
+     "a",
+     "i",
+     "z",
+     "m",
+     "e",
+     "r",
+     "k",
+     "e",
+     "z",
+     "i",
+     "y",
+     "ö",
+     "n",
+     "e",
+     "t",
+     "i",
+     "m",
+     "l",
+     "e",
+     "r",
+     "v",
+     "e",
+     "k",
+     "a",
+     "m",
+     "u"
+    ],
+    [
+     "o",
+     "l",
+     "m",
+     "a",
+     "y",
+     "a",
+     "n",
+     "v",
+     "e",
+     "y",
+     "a",
+     "k",
+     "u",
+     "r",
+     "u",
+     "l",
+     "u",
+     "ş",
+     "l",
+     "a",
+     "r",
+     "ı",
+     ",",
+     "ç",
+     "o",
+     "k",
+     "t",
+     "a",
+     "r",
+     "a",
+     "f",
+     "l",
+     "ı"
+    ],
+    [
+     "d",
+     "e",
+     "r",
+     "e",
+     "c",
+     "e",
+     "l",
+     "e",
+     "n",
+     "d",
+     "i",
+     "r",
+     "m",
+     "e",
+     "n",
+     "o",
+     "t",
+     "u",
+     "k",
+     "a",
+     "l",
+     "k",
+     "ı",
+     "n",
+     "m",
+     "a",
+     "b",
+     "a",
+     "n",
+     "k",
+     "a",
+     "l",
+     "a",
+     "r",
+     "ı"
+    ],
+    [
+     "b",
+     "u",
+     "l",
+     "u",
+     "n",
+     "m",
+     "a",
+     "y",
+     "a",
+     "n",
+     "l",
+     "a",
+     "r"
+    ]
+   ],
+   "prose_words": {
+    "Faktör": 1,
+    "Grup": 1,
+    "Kredi": 1,
+    "Kalitesi": 1,
+    "Sektör": 1,
+    "Risk": 1,
+    "Numarası": 1,
+    "Ağırlığı": 1,
+    "1": 1,
+    "Yatırım": 2,
+    "yapılabilir": 2,
+    "Merkez": 2,
+    "bankaları": 4,
+    "dâhil": 3,
+    "%0,5": 1,
+    "derecelendirme": 3,
+    "notunu": 2,
+    "haiz": 2,
+    "merkezi": 2,
+    "yönetimler": 3,
+    "ve": 7,
+    "kamu": 3,
+    "olanlar": 1,
+    "kuruluşları": 2,
+    "çok": 2,
+    "taraflı": 2,
+    "kalkınma": 2,
+    "2": 1,
+    "Yerel": 1,
+    "devlet": 1,
+    "%1": 1,
+    "destekli": 1,
+    "reel": 1,
+    "sektör": 2,
+    "eğitim": 1,
+    "idaresi": 1,
+    "3": 1,
+    "Devlet": 1,
+    "destekliler": 1,
+    "mali": 1,
+    "%5": 1,
+    "4": 1,
+    "Ham": 1,
+    "madde": 1,
+    "enerji": 1,
+    "sınai": 1,
+    "%3": 2,
+    "tarım": 1,
+    "imalat": 1,
+    "madencilik": 1,
+    "taş": 1,
+    "ocakçılığı": 1,
+    "5": 1,
+    "Tüketim": 1,
+    "mal": 1,
+    "hizmetleri": 2,
+    "ulaştırma": 1,
+    "depolama": 1,
+    "idari": 1,
+    "destek": 1,
+    "hizmeti": 1,
+    "faaliyetleri": 1,
+    "6": 1,
+    "Teknoloji": 1,
+    "telekomünikasyon": 1,
+    "%2": 2,
+    "7": 1,
+    "Sağlık": 1,
+    "altyapı": 1,
+    "%1,5": 1,
+    "mesleki": 1,
+    "teknik": 1,
+    "faaliyetler": 1,
+    "8": 1,
+    "Teminatlı": 1,
+    "menkul": 1,
+    "kıymetler": 1,
+    "%2,5": 1,
+    "9": 1,
+    "olmayan": 1,
+    "veya": 1,
+    "notu": 1,
+    "bulunmayanlar": 1
+   },
+   "all_words": {
+    "Faktör": 1,
+    "Grup": 1,
+    "Kredi": 1,
+    "Kalitesi": 1,
+    "Sektör": 1,
+    "Risk": 1,
+    "Numarası": 1,
+    "Ağırlığı": 1,
+    "1": 1,
+    "Yatırım": 2,
+    "yapılabilir": 2,
+    "Merkez": 2,
+    "bankaları": 4,
+    "dâhil": 3,
+    "%0,5": 1,
+    "derecelendirme": 3,
+    "notunu": 2,
+    "haiz": 2,
+    "merkezi": 2,
+    "yönetimler": 3,
+    "ve": 7,
+    "kamu": 3,
+    "olanlar": 1,
+    "kuruluşları": 2,
+    "çok": 2,
+    "taraflı": 2,
+    "kalkınma": 2,
+    "2": 1,
+    "Yerel": 1,
+    "devlet": 1,
+    "%1": 1,
+    "destekli": 1,
+    "reel": 1,
+    "sektör": 2,
+    "eğitim": 1,
+    "idaresi": 1,
+    "3": 1,
+    "Devlet": 1,
+    "destekliler": 1,
+    "mali": 1,
+    "%5": 1,
+    "4": 1,
+    "Ham": 1,
+    "madde": 1,
+    "enerji": 1,
+    "sınai": 1,
+    "%3": 2,
+    "tarım": 1,
+    "imalat": 1,
+    "madencilik": 1,
+    "taş": 1,
+    "ocakçılığı": 1,
+    "5": 1,
+    "Tüketim": 1,
+    "mal": 1,
+    "hizmetleri": 2,
+    "ulaştırma": 1,
+    "depolama": 1,
+    "idari": 1,
+    "destek": 1,
+    "hizmeti": 1,
+    "faaliyetleri": 1,
+    "6": 1,
+    "Teknoloji": 1,
+    "telekomünikasyon": 1,
+    "%2": 2,
+    "7": 1,
+    "Sağlık": 1,
+    "altyapı": 1,
+    "%1,5": 1,
+    "mesleki": 1,
+    "teknik": 1,
+    "faaliyetler": 1,
+    "8": 1,
+    "Teminatlı": 1,
+    "menkul": 1,
+    "kıymetler": 1,
+    "%2,5": 1,
+    "9": 1,
+    "olmayan": 1,
+    "veya": 1,
+    "notu": 1,
+    "bulunmayanlar": 1
+   },
+   "unrecovered": 0,
+   "rules": null,
+   "extenders": 0,
+   "num_lines": [
+    {
+     "nums": [
+      "1",
+      "%0,5"
+     ],
+     "label": null,
+     "text": "1 Yatırım yapılabilir Merkez bankaları dâhil %0,5"
+    },
+    {
+     "nums": [
+      "2",
+      "%1"
+     ],
+     "label": null,
+     "text": "2 Yerel yönetimler devlet %1"
+    },
+    {
+     "nums": [
+      "3",
+      "%5"
+     ],
+     "label": null,
+     "text": "3 Devlet destekliler dâhil mali %5"
+    },
+    {
+     "nums": [
+      "4",
+      "%3"
+     ],
+     "label": null,
+     "text": "4 Ham madde enerji sınai %3"
+    },
+    {
+     "nums": [
+      "5",
+      "%3"
+     ],
+     "label": null,
+     "text": "5 Tüketim mal ve hizmetleri %3"
+    },
+    {
+     "nums": [
+      "6",
+      "%2"
+     ],
+     "label": null,
+     "text": "6 Teknoloji telekomünikasyon %2"
+    },
+    {
+     "nums": [
+      "7",
+      "%1,5"
+     ],
+     "label": null,
+     "text": "7 Sağlık hizmetleri altyapı %1,5"
+    },
+    {
+     "nums": [
+      "8",
+      "%2,5"
+     ],
+     "label": null,
+     "text": "8 Teminatlı menkul kıymetler %2,5"
+    },
+    {
+     "nums": [
+      "9",
+      "%2"
+     ],
+     "label": null,
+     "text": "9 Yatırım yapılabilir Merkez bankaları dâhil %2"
+    }
+   ],
+   "pdf_grid": [
+    [
+     "Faktör Grup\nNumarası",
+     "Kredi Kalitesi",
+     "Sektör",
+     "Risk\nAğırlığı"
+    ],
+    [
+     "1",
+     "Yatırım yapılabilir\nderecelendirme notunu haiz\nolanlar",
+     "Merkez bankaları dâhil\nmerkezi yönetimler ve kamu\nkuruluşları, çok taraflı\nkalkınma bankaları",
+     "%0,5"
+    ],
+    [
+     "2",
+     null,
+     "Yerel yönetimler, devlet\ndestekli reel sektör, eğitim,\nkamu idaresi",
+     "%1"
+    ],
+    [
+     "3",
+     null,
+     "Devlet destekliler dâhil mali\nsektör",
+     "%5"
+    ],
+    [
+     "4",
+     null,
+     "Ham madde, enerji, sınai,\ntarım, imalat, madencilik ve taş\nocakçılığı",
+     "%3"
+    ],
+    [
+     "5",
+     null,
+     "Tüketim mal ve hizmetleri,\nulaştırma ve depolama, idari ve\ndestek hizmeti faaliyetleri",
+     "%3"
+    ],
+    [
+     "6",
+     null,
+     "Teknoloji, telekomünikasyon",
+     "%2"
+    ],
+    [
+     "7",
+     null,
+     "Sağlık hizmetleri, altyapı,\nmesleki ve teknik faaliyetler",
+     "%1,5"
+    ],
+    [
+     "8",
+     null,
+     "Teminatlı menkul kıymetler",
+     "%2,5"
+    ],
+    [
+     "9",
+     "Yatırım yapılabilir\nderecelendirme notunu haiz\nolmayan veya\nderecelendirme notu\nbulunmayanlar",
+     "Merkez bankaları dâhil\nmerkezi yönetimler ve kamu\nkuruluşları, çok taraflı\nkalkınma bankaları",
+     "%2"
+    ]
+   ]
+  },
+  "expected": {
+   "G0": [
+    true,
+    ""
+   ],
+   "G1": [
+    true,
+    ""
+   ],
+   "G2": [
+    true,
+    ""
+   ],
+   "G3": [
+    true,
+    ""
+   ],
+   "G4": [
+    true,
+    ""
+   ],
+   "G5": [
+    true,
+    ""
+   ],
+   "G6": [
+    true,
+    "n/a"
+   ],
+   "G7": [
+    false,
+    "merged cell 'Yatırım yapılabilir derecelend' spans 8 rows in the PDF, output 1 row(s) + empty cells [(2, 1)]"
+   ]
+  }
+ },
+ {
+  "id": "1336_p028_3",
+  "chosen_for": [
+   "G7_pass"
+  ],
+  "label": [
+   "C",
+   "header-only fragment"
+  ],
+  "meta": {
+   "name": "1336_p028_2_a",
+   "model": "lightonai/LightOnOCR-3-4B",
+   "image_size": [
+    1583,
+    2048
+   ],
+   "new_tokens": 87,
+   "eos": true,
+   "truncated": false,
+   "seconds": 6.48
+  },
+  "md": "<table border=\"1\" class=\"dataframe\">\n  <thead>\n    <tr style=\"text-align: right;\">\n      <th>Faktör Grubu Numarası</th>\n      <th>Kredi Kalitesi</th>\n      <th>Sektör</th>\n    </tr>\n  </thead>\n  <tbody>\n  </tbody>\n</table>",
+  "ref": {
+   "kind": "table",
+   "glyphs": {
+    "F": 1,
+    "a": 4,
+    "k": 2,
+    "t": 3,
+    "ö": 2,
+    "r": 5,
+    "K": 2,
+    "e": 3,
+    "d": 1,
+    "i": 3,
+    "l": 1,
+    "s": 2,
+    "S": 1,
+    "G": 1,
+    "u": 3,
+    "b": 1,
+    "N": 1,
+    "m": 1,
+    "ı": 1
+   },
+   "sup": {},
+   "sub": {},
+   "rows": [
+    [
+     "F",
+     "a",
+     "k",
+     "t",
+     "ö",
+     "r",
+     "K",
+     "r",
+     "e",
+     "d",
+     "i",
+     "K",
+     "a",
+     "l",
+     "i",
+     "t",
+     "e",
+     "s",
+     "i",
+     "S",
+     "e",
+     "k",
+     "t",
+     "ö",
+     "r"
+    ],
+    [
+     "G",
+     "r",
+     "u",
+     "b",
+     "u"
+    ],
+    [
+     "N",
+     "u",
+     "m",
+     "a",
+     "r",
+     "a",
+     "s",
+     "ı"
+    ]
+   ],
+   "prose_words": {
+    "Faktör": 1,
+    "Kredi": 1,
+    "Kalitesi": 1,
+    "Sektör": 1,
+    "Grubu": 1,
+    "Numarası": 1
+   },
+   "all_words": {
+    "Faktör": 1,
+    "Kredi": 1,
+    "Kalitesi": 1,
+    "Sektör": 1,
+    "Grubu": 1,
+    "Numarası": 1
+   },
+   "unrecovered": 0,
+   "rules": null,
+   "extenders": 0,
+   "num_lines": [],
+   "pdf_grid": [
+    [
+     "Faktör\nGrubu\nNumarası",
+     "Kredi Kalitesi",
+     "Sektör"
+    ]
+   ]
+  },
+  "expected": {
+   "G0": [
+    true,
+    ""
+   ],
+   "G1": [
+    true,
+    ""
+   ],
+   "G2": [
+    true,
+    "n/a"
+   ],
+   "G3": [
+    true,
+    ""
+   ],
+   "G4": [
+    true,
+    ""
+   ],
+   "G5": [
+    true,
+    ""
+   ],
+   "G6": [
+    true,
+    "n/a"
+   ],
+   "G7": [
+    true,
+    ""
+   ]
+  }
+ },
+ {
+  "id": "1336_p037_0",
+  "chosen_for": [
+   "G2_pass"
+  ],
+  "label": [
+   "C",
+   "rows 10-11"
+  ],
+  "meta": {
+   "name": "1336_p037_0_a",
+   "model": "lightonai/LightOnOCR-3-4B",
+   "image_size": [
+    1583,
+    2048
+   ],
+   "new_tokens": 135,
+   "eos": true,
+   "truncated": false,
+   "seconds": 9.14
+  },
+  "md": "<table border=\"1\" class=\"dataframe\">\n  <thead>\n    <tr style=\"text-align: right;\">\n      <th>10</th>\n      <th>Yumuşak tarım ürünleri ile diğer tarım ürünleri</th>\n      <th>%40</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>11</td>\n      <td>Diğer emtia</td>\n      <td>%15</td>\n    </tr>\n  </tbody>\n</table>",
+  "ref": {
+   "kind": "table",
+   "glyphs": {
+    "ş": 1,
+    "ğ": 2,
+    "1": 4,
+    "0": 2,
+    "Y": 1,
+    "u": 2,
+    "m": 4,
+    "a": 4,
+    "k": 1,
+    "t": 3,
+    "r": 8,
+    "ı": 2,
+    "ü": 4,
+    "n": 2,
+    "l": 3,
+    "e": 6,
+    "i": 6,
+    "d": 1,
+    "%": 2,
+    "4": 1,
+    "D": 1,
+    "5": 1
+   },
+   "sup": {},
+   "sub": {},
+   "rows": [
+    [
+     "1",
+     "0",
+     "Y",
+     "u",
+     "m",
+     "u",
+     "ş",
+     "a",
+     "k",
+     "t",
+     "a",
+     "r",
+     "ı",
+     "m",
+     "ü",
+     "r",
+     "ü",
+     "n",
+     "l",
+     "e",
+     "r",
+     "i",
+     "i",
+     "l",
+     "e",
+     "d",
+     "i",
+     "ğ",
+     "e",
+     "r",
+     "t",
+     "a",
+     "r",
+     "ı",
+     "m",
+     "ü",
+     "r",
+     "ü",
+     "n",
+     "l",
+     "e",
+     "r",
+     "i",
+     "%",
+     "4",
+     "0"
+    ],
+    [
+     "1",
+     "1",
+     "D",
+     "i",
+     "ğ",
+     "e",
+     "r",
+     "e",
+     "m",
+     "t",
+     "i",
+     "a",
+     "%",
+     "1",
+     "5"
+    ]
+   ],
+   "prose_words": {
+    "10": 1,
+    "Yumuşak": 1,
+    "tarım": 2,
+    "ürünleri": 2,
+    "ile": 1,
+    "diğer": 1,
+    "%40": 1,
+    "11": 1,
+    "Diğer": 1,
+    "emtia": 1,
+    "%15": 1
+   },
+   "all_words": {
+    "10": 1,
+    "Yumuşak": 1,
+    "tarım": 2,
+    "ürünleri": 2,
+    "ile": 1,
+    "diğer": 1,
+    "%40": 1,
+    "11": 1,
+    "Diğer": 1,
+    "emtia": 1,
+    "%15": 1
+   },
+   "unrecovered": 0,
+   "rules": null,
+   "extenders": 0,
+   "num_lines": [
+    {
+     "nums": [
+      "10",
+      "%40"
+     ],
+     "label": null,
+     "text": "10 Yumuşak tarım ürünleri ile diğer tarım ürünleri %40"
+    },
+    {
+     "nums": [
+      "11",
+      "%15"
+     ],
+     "label": null,
+     "text": "11 Diğer emtia %15"
+    }
+   ],
+   "pdf_grid": [
+    [
+     "10",
+     "Yumuşak tarım ürünleri ile diğer tarım ürünleri",
+     "%40"
+    ],
+    [
+     "11",
+     "Diğer emtia",
+     "%15"
+    ]
+   ]
+  },
+  "expected": {
+   "G0": [
+    true,
+    ""
+   ],
+   "G1": [
+    true,
+    ""
+   ],
+   "G2": [
+    true,
+    ""
+   ],
+   "G3": [
+    true,
+    ""
+   ],
+   "G4": [
+    true,
+    ""
+   ],
+   "G5": [
+    true,
+    ""
+   ],
+   "G6": [
+    true,
+    "n/a"
+   ],
+   "G7": [
+    true,
+    ""
+   ]
+  }
+ },
+ {
+  "id": "1336_p038_3",
+  "chosen_for": [
+   "G0_fail"
+  ],
+  "label": null,
+  "meta": {
+   "name": "1336_p038_1_a",
+   "model": "lightonai/LightOnOCR-3-4B",
+   "image_size": [
+    1583,
+    2048
+   ],
+   "new_tokens": 161,
+   "eos": true,
+   "truncated": false,
+   "seconds": 10.58
+  },
+  "md": "$$\np_{kl} = \\min \\left[ \\rho_{kl}^{(\\text{opsiyon vadesi})} * \\rho_{kl}^{(\\text{dayanak varlığın vadesi})}; 1 \\right]\n$$\n\n$$\n\\rho_{kl}^{(\\text{opsiyon vadesi})} = e^{-a \\frac{|T_k - T_l|}{\\min\\{T_k, T_l\\}}}\n$$\n\n$$\n\\rho_{kl}^{(\\text{dayanak varlığın vadesi})} = e^{-a \\frac{|T_k^u - T_l^u|}{\\min\\{T_k^u, T_l^u\\}}}\n$$",
+  "ref": {
+   "kind": "formula",
+   "glyphs": {
+    "=": 3,
+    "m": 3,
+    "i": 17,
+    "n": 9,
+    "(": 12,
+    ")": 12,
+    "d": 14,
+    "a": 14,
+    "y": 4,
+    "k": 11,
+    "v": 6,
+    "r": 2,
+    "l": 11,
+    "ı": 4,
+    "ğ": 2,
+    "e": 6,
+    "s": 6,
+    "o": 4,
+    "p": 3,
+    "ρ": 4,
+    "*": 1,
+    ";": 3,
+    "1": 9,
+    "[": 1,
+    "]": 1,
+    "c": 8,
+    ":": 8,
+    "2": 8,
+    "7": 8,
+    "-": 4,
+    "|": 4,
+    "{": 2,
+    "}": 2,
+    "u": 4
+   },
+   "sup": {
+    "(": 4,
+    ")": 4,
+    "d": 6,
+    "a": 12,
+    "y": 4,
+    "n": 6,
+    "k": 2,
+    "v": 6,
+    "r": 2,
+    "l": 2,
+    "ı": 4,
+    "ğ": 2,
+    "e": 4,
+    "s": 6,
+    "i": 6,
+    "o": 4,
+    "p": 2
+   },
+   "sub": {
+    "k": 5,
+    "l": 5
+   },
+   "rows": [
+    [
+     "(",
+     "o",
+     "p",
+     "s",
+     "i",
+     "y",
+     "o",
+     "n",
+     "v",
+     "a",
+     "d",
+     "e",
+     "s",
+     "i",
+     ")",
+     "(",
+     "d",
+     "a",
+     "y",
+     "a",
+     "n",
+     "a",
+     "k",
+     "v",
+     "a",
+     "r",
+     "l",
+     "ı",
+     "ğ",
+     "ı",
+     "n",
+     "v",
+     "a",
+     "d",
+     "e",
+     "s",
+     "i",
+     ")"
+    ],
+    [
+     "p",
+     "=",
+     "m",
+     "i",
+     "n",
+     "[",
+     "ρ",
+     "*",
+     "ρ",
+     ";",
+     "1",
+     "]"
+    ],
+    [
+     "k",
+     "l",
+     "k",
+     "l",
+     "k",
+     "l"
+    ],
+    [
+     "|",
+     "(",
+     "c",
+     "i",
+     "d",
+     ":",
+     "1",
+     "2",
+     "7",
+     ")",
+     "-",
+     "(",
+     "c",
+     "i",
+     "d",
+     ":",
+     "1",
+     "2",
+     "7",
+     ")",
+     "|"
+    ],
+    [
+     "k",
+     "l"
+    ],
+    [
+     "-",
+     "a"
+    ],
+    [
+     "(",
+     "o",
+     "p",
+     "s",
+     "i",
+     "y",
+     "o",
+     "n",
+     "v",
+     "a",
+     "d",
+     "e",
+     "s",
+     "i",
+     ")"
+    ],
+    [
+     "m",
+     "i",
+     "n",
+     "{",
+     "(",
+     "c",
+     "i",
+     "d",
+     ":",
+     "1",
+     "2",
+     "7",
+     ")",
+     ";",
+     "(",
+     "c",
+     "i",
+     "d",
+     ":",
+     "1",
+     "2",
+     "7",
+     ")",
+     "}"
+    ],
+    [
+     "k",
+     "l"
+    ],
+    [
+     "ρ",
+     "=",
+     "e"
+    ],
+    [
+     "k",
+     "l"
+    ],
+    [
+     "u",
+     "u"
+    ],
+    [
+     "|",
+     "(",
+     "c",
+     "i",
+     "d",
+     ":",
+     "1",
+     "2",
+     "7",
+     ")",
+     "-",
+     "(",
+     "c",
+     "i",
+     "d",
+     ":",
+     "1",
+     "2",
+     "7",
+     ")",
+     "|"
+    ],
+    [
+     "k",
+     "l"
+    ],
+    [
+     "-",
+     "a"
+    ],
+    [
+     "u",
+     "u"
+    ],
+    [
+     "(",
+     "d",
+     "a",
+     "y",
+     "a",
+     "n",
+     "a",
+     "k",
+     "v",
+     "a",
+     "r",
+     "l",
+     "ı",
+     "ğ",
+     "ı",
+     "n",
+     "v",
+     "a",
+     "d",
+     "e",
+     "s",
+     "i",
+     ")"
+    ],
+    [
+     "m",
+     "i",
+     "n",
+     "{",
+     "(",
+     "c",
+     "i",
+     "d",
+     ":",
+     "1",
+     "2",
+     "7",
+     ")",
+     ";",
+     "(",
+     "c",
+     "i",
+     "d",
+     ":",
+     "1",
+     "2",
+     "7",
+     ")",
+     "}"
+    ],
+    [
+     "k",
+     "l"
+    ],
+    [
+     "ρ",
+     "=",
+     "e"
+    ],
+    [
+     "k",
+     "l"
+    ]
+   ],
+   "prose_words": {},
+   "all_words": {
+    "𝑜𝑝𝑠𝑖𝑦𝑜𝑛": 1,
+    "𝑣𝑎𝑑𝑒𝑠𝑖": 2,
+    "𝑑𝑎𝑦𝑎𝑛𝑎𝑘": 1,
+    "𝑣𝑎𝑟𝑙𝚤ğ𝚤𝑛": 1,
+    "=min": 1,
+    "𝑝": 1,
+    "𝑘𝑙": 5,
+    "ρ": 4,
+    "1": 1,
+    "𝑜𝑝𝑠𝑖𝑦𝑜𝑛𝑣𝑎𝑑𝑒𝑠𝑖": 1,
+    "cid": 3,
+    "127)𝑘-(cid": 1,
+    "127)𝑙": 2,
+    "𝑎": 2,
+    "𝑒": 2,
+    "min{(cid": 2,
+    "127)𝑘;(cid": 1,
+    "127)𝑢-(cid": 1,
+    "127)𝑢": 1,
+    "𝑑𝑎𝑦𝑎𝑛𝑎𝑘𝑣𝑎𝑟𝑙𝚤ğ𝚤𝑛𝑣𝑎𝑑𝑒𝑠𝑖": 1,
+    "𝑘": 2,
+    "𝑙": 2,
+    "𝑢": 2,
+    "127": 2
+   },
+   "unrecovered": 8,
+   "rules": 2,
+   "extenders": 7,
+   "num_lines": [
+    {
+     "nums": [
+      "127",
+      "127"
+     ],
+     "label": "min{(cid",
+     "text": "cid 127)𝑢-(cid 127)𝑢 𝑑𝑎𝑦𝑎𝑛𝑎𝑘𝑣𝑎𝑟𝑙𝚤ğ𝚤𝑛𝑣𝑎𝑑𝑒𝑠𝑖 𝑘 𝑙 𝑎 𝑢 𝑢 𝑘𝑙 min{(cid 127 cid 127 ρ 𝑒 𝑘 𝑙"
+    }
+   ],
+   "pdf_grid": null
+  },
+  "expected": {
+   "G0": [
+    false,
+    "8 unrecovered glyphs in the text layer"
+   ],
+   "G1": [
+    true,
+    ""
+   ],
+   "G2": [
+    true,
+    "n/a"
+   ],
+   "G3": [
+    false,
+    "missing '(((((((())))))))111111112222222277777777::::::::;;ccccccccddddddddiiiiiiii' extra ',,TTTTTTTT'"
+   ],
+   "G4": [
+    false,
+    "sup pdf-only '' out-only ',,----TTTTTTTTaaiikkkkllllmmnnuuuu{{||||}}'"
+   ],
+   "G5": [
+    false,
+    "4 rows out of order: ['|(cid:127)-(cid:127)|', 'min{(cid:127);(cid:127)}']"
+   ],
+   "G6": [
+    true,
+    ""
+   ],
+   "G7": [
+    true,
+    "n/a"
+   ]
+  }
+ },
+ {
+  "id": "1336_p046_0",
+  "chosen_for": [
+   "G2_fail"
+  ],
+  "label": null,
+  "meta": {
+   "name": "1336_p046_0_a",
+   "model": "lightonai/LightOnOCR-3-4B",
+   "image_size": [
+    1583,
+    2048
+   ],
+   "new_tokens": 355,
+   "eos": true,
+   "truncated": false,
+   "seconds": 21.38
+  },
+  "md": "<table border=\"1\" class=\"dataframe\">\n  <thead>\n    <tr style=\"text-align: right;\">\n      <th></th>\n      <th>AA</th>\n      <th>2</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td rowspan=\"2\">1.B- Notu yüksek olmayanlar</td>\n      <td>A</td>\n      <td>3</td>\n    </tr>\n    <tr>\n      <td>BBB</td>\n      <td>6</td>\n    </tr>\n    <tr>\n      <td rowspan=\"3\">2. Yatırım yapılabilir derecelendirme notunu haiz olmayanlar</td>\n      <td>BB</td>\n      <td>15</td>\n    </tr>\n    <tr>\n      <td>B</td>\n      <td>30</td>\n    </tr>\n    <tr>\n      <td>CCC</td>\n      <td>50</td>\n    </tr>\n    <tr>\n      <td>3. Derecelendirme notu bulunmayanlar</td>\n      <td></td>\n      <td>15</td>\n    </tr>\n    <tr>\n      <td>4. Temerrüt etmiş olanlar</td>\n      <td></td>\n      <td>100</td>\n    </tr>\n  </tbody>\n</table>",
+  "ref": {
+   "kind": "table",
+   "glyphs": {
+    "A": 3,
+    "2": 2,
+    "3": 3,
+    "1": 4,
+    ".": 4,
+    "B": 7,
+    "-": 1,
+    "N": 1,
+    "o": 6,
+    "t": 6,
+    "u": 6,
+    "y": 5,
+    "ü": 2,
+    "k": 2,
+    "s": 1,
+    "e": 14,
+    "l": 12,
+    "m": 8,
+    "a": 15,
+    "n": 10,
+    "r": 12,
+    "6": 1,
+    "5": 3,
+    "Y": 1,
+    "ı": 3,
+    "p": 1,
+    "b": 2,
+    "i": 6,
+    "d": 3,
+    "c": 2,
+    "0": 4,
+    "h": 1,
+    "z": 1,
+    "C": 3,
+    "D": 1,
+    "ş": 1,
+    "4": 1,
+    "T": 1
+   },
+   "sup": {},
+   "sub": {},
+   "rows": [
+    [
+     "A",
+     "A",
+     "2"
+    ],
+    [
+     "3"
+    ],
+    [
+     "A"
+    ],
+    [
+     "1",
+     ".",
+     "B",
+     "-",
+     "N",
+     "o",
+     "t",
+     "u",
+     "y",
+     "ü",
+     "k",
+     "s",
+     "e",
+     "k",
+     "o",
+     "l",
+     "m",
+     "a",
+     "y",
+     "a",
+     "n",
+     "l",
+     "a",
+     "r"
+    ],
+    [
+     "B",
+     "B",
+     "B",
+     "6"
+    ],
+    [
+     "B",
+     "B",
+     "1",
+     "5"
+    ],
+    [
+     "2",
+     ".",
+     "Y",
+     "a",
+     "t",
+     "ı",
+     "r",
+     "ı",
+     "m",
+     "y",
+     "a",
+     "p",
+     "ı",
+     "l",
+     "a",
+     "b",
+     "i",
+     "l",
+     "i",
+     "r",
+     "d",
+     "e",
+     "r",
+     "e",
+     "c",
+     "e",
+     "l",
+     "e",
+     "n",
+     "d",
+     "i",
+     "r",
+     "m",
+     "e",
+     "n",
+     "o",
+     "t",
+     "u",
+     "n",
+     "u"
+    ],
+    [
+     "B",
+     "3",
+     "0"
+    ],
+    [
+     "h",
+     "a",
+     "i",
+     "z",
+     "o",
+     "l",
+     "m",
+     "a",
+     "y",
+     "a",
+     "n",
+     "l",
+     "a",
+     "r"
+    ],
+    [
+     "C",
+     "C",
+     "C",
+     "5",
+     "0"
+    ],
+    [
+     "3",
+     ".",
+     "D",
+     "e",
+     "r",
+     "e",
+     "c",
+     "e",
+     "l",
+     "e",
+     "n",
+     "d",
+     "i",
+     "r",
+     "m",
+     "e",
+     "n",
+     "o",
+     "t",
+     "u",
+     "b",
+     "u",
+     "l",
+     "u",
+     "n",
+     "m",
+     "a",
+     "y",
+     "a",
+     "n",
+     "l",
+     "a",
+     "r",
+     "1",
+     "5"
+    ],
+    [
+     "4",
+     ".",
+     "T",
+     "e",
+     "m",
+     "e",
+     "r",
+     "r",
+     "ü",
+     "t",
+     "e",
+     "t",
+     "m",
+     "i",
+     "ş",
+     "o",
+     "l",
+     "a",
+     "n",
+     "l",
+     "a",
+     "r",
+     "1",
+     "0",
+     "0"
+    ]
+   ],
+   "prose_words": {
+    "AA": 1,
+    "2": 2,
+    "3": 2,
+    "A": 1,
+    "1.B": 1,
+    "Notu": 1,
+    "yüksek": 1,
+    "olmayanlar": 2,
+    "BBB": 1,
+    "6": 1,
+    "BB": 1,
+    "15": 2,
+    "Yatırım": 1,
+    "yapılabilir": 1,
+    "derecelendirme": 1,
+    "notunu": 1,
+    "B": 1,
+    "30": 1,
+    "haiz": 1,
+    "CCC": 1,
+    "50": 1,
+    "Derecelendirme": 1,
+    "notu": 1,
+    "bulunmayanlar": 1,
+    "4": 1,
+    "Temerrüt": 1,
+    "etmiş": 1,
+    "olanlar": 1,
+    "100": 1
+   },
+   "all_words": {
+    "AA": 1,
+    "2": 2,
+    "3": 2,
+    "A": 1,
+    "1.B": 1,
+    "Notu": 1,
+    "yüksek": 1,
+    "olmayanlar": 2,
+    "BBB": 1,
+    "6": 1,
+    "BB": 1,
+    "15": 2,
+    "Yatırım": 1,
+    "yapılabilir": 1,
+    "derecelendirme": 1,
+    "notunu": 1,
+    "B": 1,
+    "30": 1,
+    "haiz": 1,
+    "CCC": 1,
+    "50": 1,
+    "Derecelendirme": 1,
+    "notu": 1,
+    "bulunmayanlar": 1,
+    "4": 1,
+    "Temerrüt": 1,
+    "etmiş": 1,
+    "olanlar": 1,
+    "100": 1
+   },
+   "unrecovered": 0,
+   "rules": null,
+   "extenders": 0,
+   "num_lines": [
+    {
+     "nums": [
+      "2",
+      "30"
+     ],
+     "label": null,
+     "text": "2 Yatırım yapılabilir derecelendirme notunu B 30 haiz olmayanlar"
+    },
+    {
+     "nums": [
+      "3",
+      "15"
+     ],
+     "label": null,
+     "text": "3 Derecelendirme notu bulunmayanlar 15"
+    },
+    {
+     "nums": [
+      "4",
+      "100"
+     ],
+     "label": null,
+     "text": "4 Temerrüt etmiş olanlar 100"
+    }
+   ],
+   "pdf_grid": [
+    [
+     "",
+     "AA",
+     "2"
+    ],
+    [
+     "1.B- Notu yüksek olmayanlar",
+     "A",
+     "3"
+    ],
+    [
+     null,
+     "BBB",
+     "6"
+    ],
+    [
+     "2. Yatırım yapılabilir derecelendirme notunu\nhaiz olmayanlar",
+     "BB",
+     "15"
+    ],
+    [
+     null,
+     "B",
+     "30"
+    ],
+    [
+     null,
+     "CCC",
+     "50"
+    ],
+    [
+     "3. Derecelendirme notu bulunmayanlar",
+     null,
+     "15"
+    ],
+    [
+     "4. Temerrüt etmiş olanlar",
+     null,
+     "100"
+    ]
+   ]
+  },
+  "expected": {
+   "G0": [
+    true,
+    ""
+   ],
+   "G1": [
+    true,
+    ""
+   ],
+   "G2": [
+    false,
+    "1 rows: ['2 Yatırım yapılabilir derecelendirme notunu B 30 haiz olmayanlar']"
+   ],
+   "G3": [
+    true,
+    ""
+   ],
+   "G4": [
+    true,
+    ""
+   ],
+   "G5": [
+    true,
+    ""
+   ],
+   "G6": [
+    true,
+    "n/a"
+   ],
+   "G7": [
+    false,
+    "merged cell 'CCC' spans 3 rows in the PDF, output 1 row(s) + empty cells [(6, 1), (7, 1)]"
+   ]
+  }
+ },
+ {
+  "id": "1341_p011_0",
+  "chosen_for": [
+   "G3_example"
+  ],
+  "label": [
+   "W",
+   "K_İDD written K_{IDD} (İ -> I in the index)"
+  ],
+  "meta": {
+   "name": "1341_p011_0_a",
+   "model": "lightonai/LightOnOCR-3-4B",
+   "image_size": [
+    1449,
+    2048
+   ],
+   "new_tokens": 28,
+   "eos": true,
+   "truncated": false,
+   "seconds": 3.61
+  },
+  "md": "$$\nd * K_{\\text{IDD}} + (1 - d) * K_{\\text{SA}}\n$$",
+  "ref": {
+   "kind": "formula",
+   "glyphs": {
+    "d": 2,
+    "*": 2,
+    "+": 1,
+    "(": 1,
+    "1": 1,
+    "-": 1,
+    ")": 1,
+    "K": 2,
+    "S": 1,
+    "A": 1,
+    "İ": 1,
+    "D": 2
+   },
+   "sup": {},
+   "sub": {
+    "S": 1,
+    "A": 1,
+    "İ": 1,
+    "D": 2
+   },
+   "rows": [
+    [
+     "d",
+     "*",
+     "K",
+     "+",
+     "(",
+     "1",
+     "-",
+     "d",
+     ")",
+     "*",
+     "K"
+    ],
+    [
+     "İ",
+     "D",
+     "D",
+     "S",
+     "A"
+    ]
+   ],
+   "prose_words": {},
+   "all_words": {
+    "d": 1,
+    "K": 2,
+    "İDD": 1,
+    "1-d": 1,
+    "SA": 1
+   },
+   "unrecovered": 0,
+   "rules": 0,
+   "extenders": 0,
+   "num_lines": [],
+   "pdf_grid": null
+  },
+  "expected": {
+   "G0": [
+    true,
+    ""
+   ],
+   "G1": [
+    true,
+    ""
+   ],
+   "G2": [
+    true,
+    "n/a"
+   ],
+   "G3": [
+    false,
+    "missing 'İ' extra 'I'"
+   ],
+   "G4": [
+    false,
+    "sub pdf-only 'İ' out-only 'I'"
+   ],
+   "G5": [
+    false,
+    "1 rows out of order: ['İDDSA']"
+   ],
+   "G6": [
+    true,
+    ""
+   ],
+   "G7": [
+    true,
+    "n/a"
+   ]
+  }
+ },
+ {
+  "id": "1341_p014_0",
+  "chosen_for": [
+   "G3_fail",
+   "G4_fail",
+   "G5_fail"
+  ],
+  "label": [
+   "W",
+   "u = D - K_İDD: İ -> I"
+  ],
+  "meta": {
+   "name": "1341_p014_0_a",
+   "model": "lightonai/LightOnOCR-3-4B",
+   "image_size": [
+    1449,
+    2048
+   ],
+   "new_tokens": 17,
+   "eos": true,
+   "truncated": false,
+   "seconds": 2.4
+  },
+  "md": "c) $ u = D - K_{\\text{IDD}} $ ,",
+  "ref": {
+   "kind": "formula",
+   "glyphs": {
+    "c": 1,
+    ")": 1,
+    "u": 1,
+    "=": 1,
+    "D": 3,
+    "-": 1,
+    ",": 1,
+    "K": 1,
+    "İ": 1
+   },
+   "sup": {},
+   "sub": {
+    "İ": 1,
+    "D": 2
+   },
+   "rows": [
+    [
+     "c",
+     ")",
+     "u",
+     "=",
+     "D",
+     "-",
+     "K",
+     ","
+    ],
+    [
+     "İ",
+     "D",
+     "D"
+    ]
+   ],
+   "prose_words": {},
+   "all_words": {
+    "c": 1,
+    "u": 1,
+    "D": 1,
+    "K": 1,
+    "İDD": 1
+   },
+   "unrecovered": 0,
+   "rules": 0,
+   "extenders": 0,
+   "num_lines": [],
+   "pdf_grid": null
+  },
+  "expected": {
+   "G0": [
+    true,
+    ""
+   ],
+   "G1": [
+    true,
+    ""
+   ],
+   "G2": [
+    true,
+    "n/a"
+   ],
+   "G3": [
+    false,
+    "missing 'İ' extra 'I'"
+   ],
+   "G4": [
+    false,
+    "sub pdf-only 'İ' out-only 'I'"
+   ],
+   "G5": [
+    false,
+    "1 rows out of order: ['İDD']"
+   ],
+   "G6": [
+    true,
+    ""
+   ],
+   "G7": [
+    true,
+    "n/a"
+   ]
+  }
+ }
+]
