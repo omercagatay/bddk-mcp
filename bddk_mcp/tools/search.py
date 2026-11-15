@@ -147,7 +147,7 @@ async def _corpus_cache_token(deps: Dependencies) -> str:
     return f"{epoch}.{data_version}"
 
 
-_MATCH_TYPES = frozenset({"hybrid", "vector", "fts", "fts_exact", "decision_number"})
+_MATCH_TYPES = frozenset({"hybrid", "vector", "fts", "fts_exact", "decision_number", "named"})
 # A keyword (FTS AND) match on a query that names a legal reference: there is no
 # semantic score to show, and the match does not confirm the provision.
 _FTS_EXACT_LABEL = "[keyword match on the legal reference in the query; no semantic score]"
@@ -158,7 +158,13 @@ _FTS_KEYWORD_LABEL = (
     "words; this does not say that the phrase or the figure of the query occurs; no semantic score]"
 )
 # Hits without a semantic score: their relevance 0.0 is not a weak score.
-_KEYWORD_MATCH_TYPES = frozenset({"fts", "fts_exact", "decision_number"})
+_KEYWORD_MATCH_TYPES = frozenset({"fts", "fts_exact", "decision_number", "named"})
+# The order of the documents a query names (vector_store._named_documents), for their hit line.
+_NAMED_ORDER_TEXT = (
+    "the documents the query names are listed first: named by title before a law named by its number, a longer "
+    "title first, a title typed as stored before one that matches only after normalisation, then the newest "
+    "decision date first, undated last; this does not say which provision answers the query; no semantic score"
+)
 # Per-hit citation hints for govde rows that are not remainder (the section tools word the plural warning).
 _DECISION_TEXT_HINT = (
     "Cite this decision by its title and decision date/number, not as an article (madde) or as a govde window."
@@ -779,6 +785,14 @@ Suggest the user try: different keywords or a different category (basın, mevzua
         For title-only catalog lookups (where you know words from the regulation's
         name), use search_bddk_regulations instead.
 
+        A document the query names is listed first (match_type named, no semantic score): its whole
+        title occurs in the query, or the query cites "<n> sayılı Kanun" (any case form) and the law is
+        stored as mevzuat_<n>. A title of at most four words with no document-type word and no number
+        (e.g. "Yabancı bankaların kredi sınırları") names its document only as the whole query. Among
+        several named documents a title before a law number, a longer title first (a title it contains
+        is part of it), a title typed as stored (case aside) before one that matches only after
+        normalisation, then the newest decision date first, undated last. The category filter applies.
+
         Hits at the calibration ceiling (100%) tie on the shown relevance; the dated decisions
         among them are listed newest first in the positions they occupy (a decision may pass an
         undated instrument, which keeps its rank); a decision whose whole title is in the query
@@ -929,6 +943,14 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
                     f" [decision-number match: this document's decision number is {h.get('decision_number')}; "
                     "no semantic score]"
                 )
+            elif match_type == "named":
+                match_strength = "keyword"
+                named_by = (
+                    "its whole title occurs in the query"
+                    if h.get("named_by") == "title"
+                    else f"the query cites {str(h['doc_id']).removeprefix('mevzuat_')} sayılı Kanun"
+                )
+                relevance = f" [named in the query: {named_by}; {_NAMED_ORDER_TEXT}]"
             elif match_type == "fts_exact":
                 match_strength = "keyword"
                 relevance = f" {_FTS_EXACT_LABEL}"

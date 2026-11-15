@@ -237,18 +237,18 @@ class DocumentSearchItem(StrictOutputModel):
             "Within each match_strength band, TASLAK/MÜLGA catalog-class documents are listed after the others "
             "(not when the query names that class or the document's whole title, nor with a category filter; "
             "fts_exact and decision_number hits keep their place); the catalog class is the only source of that "
-            "mark."
+            "mark. Documents the query names (match_type named, 0.0) come before every other hit."
         ),
     )
     match_strength: Literal["strong", "moderate", "weak", "keyword"] = Field(
         description=(
-            "Stable relevance band derived from relevance; 'keyword' for fts_exact, fts and decision_number "
-            "hits, which have no "
+            "Stable relevance band derived from relevance; 'keyword' for fts_exact, fts, decision_number and "
+            "named hits, which have no "
             "semantic score to band."
         )
     )
     quality: QualityMetadata = Field(description="Known local document-quality status.")
-    match_type: Literal["hybrid", "vector", "fts", "fts_exact", "decision_number"] | None = Field(
+    match_type: Literal["hybrid", "vector", "fts", "fts_exact", "decision_number", "named"] | None = Field(
         default=None,
         description=(
             "How the hit was retrieved: hybrid (semantic and keyword), vector (semantic only), fts (keyword "
@@ -256,7 +256,11 @@ class DocumentSearchItem(StrictOutputModel):
             "that the phrase or the figure of the query occurs, and the document had no "
             "semantic hit; no semantic score) or fts_exact (every query word, including a legal reference, matched by keyword search; "
             "a keyword match, not a confirmed provision) or decision_number (the query is a bare decision "
-            "number and this document carries that decision number; no semantic score)."
+            "number and this document carries that decision number; no semantic score) or named (the query "
+            "names this document: its whole title occurs in the query, or the query cites '<n> sayılı Kanun' "
+            "and this is mevzuat_<n>; named documents are listed first, a title before a law number, a longer "
+            "title first, a title typed as stored before one matched only after normalisation, then the newest "
+            "decision date, undated last; it does not say which provision answers the query; no semantic score)."
         ),
     )
     section_type: str | None = Field(

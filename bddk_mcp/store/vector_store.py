@@ -966,14 +966,58 @@ def _query_words(query: str) -> str:
 
 
 def _title_in_query(hit: dict, query_words: str) -> bool:
-    """Whether the hit's whole title occurs in the query (search-normalised words; not the reverse)."""
+    """Whether the hit's whole title occurs in the query (search-normalised words; not the reverse).
+
+    A title of at most _SHORT_GENERIC_TITLE_WORDS words with no document-type word and no number
+    ("Yabancı bankaların kredi sınırları") is a phrase people type in passing: it counts only as the whole query.
+    """
     title = _search_words(str(hit.get("title") or ""))
-    return bool(title) and f" {title} " in query_words
+    if not title:
+        return False
+    if len(title.split()) <= _SHORT_GENERIC_TITLE_WORDS and not _INSTRUMENT_MARK_RE.search(title):
+        return query_words.strip() == title
+    return f" {title} " in query_words
+
+
+# A short title without a document-type word or a number names its document only as the whole query.
+_SHORT_GENERIC_TITLE_WORDS = 4
+_INSTRUMENT_MARK_RE = re.compile(r"\b(?:yonetmeli|teblig|genelge|rehber|karar|kanun|taslak|taslag)|\d")
+# "<n> sayılı Kanun" in any case form, on the padded search words of the query.
+_LAW_NUMBER_RE = re.compile(r"(?<= )(\d+) sayili kanun\w*(?= )")
+
+
+def _named_documents(rows: list[sqlite3.Row], query: str) -> list[tuple[str, str]]:
+    """The documents the query names, in listing order, each with how it is named ("title" or "law_number").
+
+    Named by title (``_title_in_query``) before named as "<n> sayılı Kanun" (``mevzuat_<n>``); a longer title
+    first (it is the more specific name; a title it contains is part of it); a title that occurs in the query as
+    typed (case aside, punctuation included) before one that matches only after normalisation; then the newest
+    decision date first, undated last; then the document id.
+    """
+    query_words = _query_words(query)
+    typed = turkish_casefold(" ".join(query.split()))
+    named: dict[str, tuple] = {}
+    for row in rows:
+        if _title_in_query({"title": row["title"]}, query_words):
+            day = _decision_day({"decision_date": row["decision_date"]})
+            named[row["document_id"]] = (
+                0,
+                -len(_search_words(row["title"]).split()),
+                turkish_casefold(" ".join(row["title"].split())) not in typed,
+                day is None,
+                -(day.toordinal() if day else 0),
+                row["document_id"],
+            )
+    stored = {row["document_id"] for row in rows}
+    for number in _LAW_NUMBER_RE.findall(query_words):
+        named.setdefault(f"mevzuat_{number}", (1, 0, False, False, 0, f"mevzuat_{number}"))
+    ordered = sorted((key, doc_id) for doc_id, key in named.items() if doc_id in stored)
+    return [(doc_id, "law_number" if key[0] else "title") for key, doc_id in ordered]
 
 
 def _shown_band(hit: dict) -> str:
     """The match_strength band the tool shows for a hit."""
-    if hit.get("match_type") in ("fts", "fts_exact", "decision_number"):
+    if hit.get("match_type") in ("fts", "fts_exact", "decision_number", "named"):
         return "keyword"
     if hit["relevance"] >= _HIGH_CONFIDENCE_THRESHOLD:
         return "strong"
@@ -1335,6 +1379,8 @@ class VectorStore:
         not abbreviated by a full stop (never Turkish "bkz."), gets its expansion
         appended to the embedded query, and the strict keyword pass also runs with the expansion in its
         place.
+        The documents the query names (``_named_documents``: the whole title occurs in the query, or
+        "<n> sayılı Kanun" and ``mevzuat_<n>`` is stored) come first, of ``category`` when given.
         Document quality is assessed once, for the returned hits only.
         """
         self._raise_if_semantic_search_unavailable()
@@ -1345,6 +1391,7 @@ class VectorStore:
         index = await asyncio.to_thread(self._current_index)
         searched = normalize_query(query, index.vocabulary)
         entries = _glossary_entries(searched)
+        named = _named_documents(await self._document_rows(category), searched)
         if entries:
             expansions = " ".join(dict.fromkeys(entry.expansion for entry in entries))
             found = await self._hybrid_search(
@@ -1353,13 +1400,17 @@ class VectorStore:
                 category,
                 embed_query=f"{searched} {expansions}",
                 fts_alternative_query=_expanded_query(searched, entries),
+                named=named,
             )
         else:
-            found = await self._hybrid_search(searched, limit, category)
+            found = await self._hybrid_search(searched, limit, category, named=named)
         named_numbers = list(parse_legal_refs(searched).decision_numbers)
         if number := _DECISION_NUMBER_QUERY_RE.match(normalize_search_text(searched)):
             named_numbers.append(number.group(1))
-            decisions = await self._decision_number_hits(number.group(1), category)
+            decisions = [
+                {**hit, "match_type": "decision_number", "decision_number_match": True}
+                for hit in await self._first_chunk_hits("decision_number", [number.group(1)], category)
+            ]
             decision_ids = {hit["doc_id"] for hit in decisions}
             found = (decisions + [hit for hit in found if hit["doc_id"] not in decision_ids])[:limit]
         hits = SearchHits(found)
@@ -1384,10 +1435,22 @@ class VectorStore:
         stored = {row[0] for row in rows}
         return [number for number in numbers if number not in stored]
 
-    async def _decision_number_hits(self, number: str, category: str | None) -> list[dict]:
-        """The stored documents whose decision number is ``number``, each with its first current chunk."""
-        where = "d.decision_number = ?" + (" AND d.category = ?" if category else "")
-        params = [number, category] if category else [number]
+    async def _document_rows(self, category: str | None) -> list[sqlite3.Row]:
+        """Id, title and decision date of every stored document (of ``category`` when given)."""
+        where, params = (" WHERE category = ?", [category]) if category else ("", [])
+        return await self._db.run(
+            lambda conn: conn.execute(
+                f"SELECT document_id, title, decision_date FROM documents{where}", params
+            ).fetchall()
+        )
+
+    async def _first_chunk_hits(self, column: str, values: list[str], category: str | None) -> list[dict]:
+        """The stored documents whose ``column`` (decision_number or document_id) is one of ``values``, each
+        with its first current chunk and no score."""
+        if not values:
+            return []
+        where = f"d.{column} IN ({', '.join('?' for _ in values)})" + (" AND d.category = ?" if category else "")
+        params = [*values, category] if category else list(values)
         rows = await self._db.run(
             lambda conn: conn.execute(
                 "SELECT c.doc_id, d.title, d.category, d.decision_date, d.decision_number, d.source_url, "
@@ -1412,8 +1475,6 @@ class VectorStore:
                 "semantic_relevance": 0.0,
                 "ordering_score": 0.0,
                 "relevance_clamped": False,
-                "match_type": "decision_number",
-                "decision_number_match": True,
                 "confidence": "low",
                 **_section_metadata_from_row(row),
             }
@@ -1684,12 +1745,14 @@ class VectorStore:
         *,
         embed_query: str | None = None,
         fts_alternative_query: str | None = None,
+        named: list[tuple[str, str]] = (),
     ) -> list[dict]:
         """Hybrid search: dense + sparse retrieval fused with RRF.
 
         ``embed_query`` replaces the query for the embedding only, and
         ``fts_alternative_query`` adds a second strict keyword pass (both used for
-        glossary abbreviations).
+        glossary abbreviations). ``named`` (``_named_documents``) lists the documents the
+        query names: they come first, in that order, as ``match_type`` "named".
 
         Each hit carries three scores. ``semantic_relevance`` is the raw cosine
         of the embedding model; hits below the semantic threshold are dropped.
@@ -1707,7 +1770,7 @@ class VectorStore:
         (``match_type`` "fts", no semantic score), in BM25 order. Before the
         limit, the dated decisions at the calibration ceiling are listed newest
         first in their own positions, then TASLAK/MÜLGA catalog-class hits follow the others of
-        their shown band (``_catalog_class_last``).
+        their shown band (``_catalog_class_last``), and the named documents come first.
         """
         vector_hits, fts_hits = await asyncio.gather(
             self._vector_search(
@@ -1822,6 +1885,7 @@ class VectorStore:
             )
 
         threshold = semantic_threshold(self._embedding_model)
+        scored = fused
         fused = [h for h in fused if h["semantic_relevance"] >= threshold or h["match_type"] == "fts_exact"]
 
         # RRF order only breaks ties. Hits with a dense score are ordered by the
@@ -1859,6 +1923,28 @@ class VectorStore:
             query,
         )
         fused = _catalog_class_last(fused, query, category)
+        if named:
+            # The documents the query names come first, in the order of ``named``, with the chunk of their
+            # hit (listed, below the threshold, or keyword-only), else their first chunk; the naming sets their
+            # place, so they carry no score.
+            found = {h["doc_id"]: h for h in keyword_candidates} | {h["doc_id"]: h for h in scored + fused}
+            missing = [doc_id for doc_id, _ in named if doc_id not in found]
+            found |= {h["doc_id"]: h for h in await self._first_chunk_hits("document_id", missing, category)}
+            named_hits = [
+                {
+                    **found[doc_id],
+                    "match_type": "named",
+                    "named_by": named_by,
+                    "relevance": 0.0,
+                    "semantic_relevance": 0.0,
+                    "ordering_score": 0.0,
+                    "relevance_clamped": False,
+                }
+                for doc_id, named_by in named
+                if doc_id in found
+            ]
+            named_ids = {h["doc_id"] for h in named_hits}
+            fused = named_hits + [h for h in fused if h["doc_id"] not in named_ids]
 
         for h in fused:
             if h["relevance"] >= _HIGH_CONFIDENCE_THRESHOLD:

@@ -1256,6 +1256,36 @@ async def test_decision_number_hits_have_their_own_match_type_and_the_structured
 
 
 @pytest.mark.asyncio
+async def test_documents_the_query_names_have_their_own_match_type_and_say_why_they_come_first():
+    from bddk_mcp.core.deps import Dependencies
+    from bddk_mcp.tools.search import register
+
+    _search_cache._data.clear()
+    by_title = {**_hit("283", 0.0, "named"), "named_by": "title"}
+    by_number = {**_hit("mevzuat_5411", 0.0, "named"), "named_by": "law_number"}
+    vector_store = MagicMock()
+    vector_store.assert_semantic_search_ready = AsyncMock()
+    vector_store.search = AsyncMock(return_value=[by_title, by_number, _hit("other", 0.9, "hybrid")])
+    deps = Dependencies(db=None, doc_store=None, client=None, http=None, vector_store=vector_store)
+    mcp = MagicMock()
+    register(mcp, deps)
+
+    result = await _registered_tools(mcp)["search_document_store"]("5411 sayılı Kanun ve Karar", limit=10)
+
+    first, second, third = result.structuredContent["results"]
+    assert (first["match_type"], first["match_strength"]) == ("named", "keyword")
+    assert (second["match_type"], second["match_strength"]) == ("named", "keyword")
+    assert third["match_type"] == "hybrid"
+    assert "[named in the query: its whole title occurs in the query; the documents the query names are listed" in (
+        result.text
+    )
+    assert "[named in the query: the query cites 5411 sayılı Kanun;" in result.text
+    assert "newest decision date first, undated last" in result.text
+    assert "named" in DocumentSearchItem.model_fields["match_type"].description
+    assert "WARNING" not in result.text
+
+
+@pytest.mark.asyncio
 async def test_a_decision_text_hit_carries_a_per_hit_label_not_the_plural_warning(doc_store):
     from bddk_mcp.core.deps import Dependencies
     from bddk_mcp.store.doc_store import StoredDocument

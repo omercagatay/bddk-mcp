@@ -2014,3 +2014,135 @@ class TestGlossaryCapitalsRule:
         bakiniz = normalize_query("TEMİNAT DEĞERLEMESİ (BKZ. EK-1)", vocabulary)
         assert bakiniz == "teminat değerlemesi (bkz. ek-1)"
         assert _glossary_entries(bakiniz) == []
+
+
+class TestDocumentsTheQueryNamesComeFirst:
+    """A document whose whole title occurs in the query, or mevzuat_<n> for "<n> sayılı Kanun", is listed first."""
+
+    @staticmethod
+    async def _fillers(vector_store, doc_store, content: str, count: int = 12) -> None:
+        for index in range(count):
+            await _store_and_index(
+                vector_store, doc_store, doc_id=f"filler{index}", title=f"Dolgu {index}", content=content
+            )
+
+    @pytest.mark.asyncio
+    async def test_documents_sharing_the_named_title_come_first_newest_first_beyond_the_semantic_hits(
+        self, vector_store, doc_store
+    ):
+        title = "Karşılık Yönetmeliği uygulamasına ilişkin Kurul Kararı"
+        await self._fillers(vector_store, doc_store, f"{title} metni")
+        for doc_id, date in (("k2015", "08.10.2015"), ("k2016", "12.12.2016")):
+            await _store_and_index(
+                vector_store,
+                doc_store,
+                doc_id=doc_id,
+                title=title,
+                content="Ayrılmış metin zzz.",
+                category="Kurul Kararı",
+                decision_date=date,
+            )
+
+        hits = await vector_store.search(title, limit=10)
+
+        assert [hit["doc_id"] for hit in hits[:2]] == ["k2016", "k2015"]
+        assert {hit["match_type"] for hit in hits[:2]} == {"named"}
+        assert all(hit["relevance"] == 0.0 and hit["named_by"] == "title" for hit in hits[:2])
+        assert len(hits) == 10 and all(hit["match_type"] != "named" for hit in hits[2:])
+        assert all(hit["doc_id"].startswith("filler") for hit in await vector_store.search(title, category="Rehber"))
+
+    @pytest.mark.asyncio
+    async def test_a_law_cited_by_its_number_comes_first_in_any_case_form(self, vector_store, doc_store):
+        await self._fillers(vector_store, doc_store, "5411 sayılı Kanunun 54 üncü maddesi uyarınca")
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="mevzuat_5411",
+            title="5411 sayılı Bankacılık Kanunu",
+            content="Amaç ve kapsam.",
+            category="Kanun",
+        )
+
+        for query in ("5411 sayılı Kanunun 54 üncü maddesi", "5411 SAYILI KANUNA göre", "5411 sayılı kanun"):
+            hits = await vector_store.search(query, limit=10)
+            assert hits[0]["doc_id"] == "mevzuat_5411", query
+            assert hits[0]["match_type"] == "named" and hits[0]["named_by"] == "law_number", query
+        assert all(hit["match_type"] != "named" for hit in await vector_store.search("1234 sayılı Kanun", limit=10))
+
+    @pytest.mark.asyncio
+    async def test_a_longer_named_title_and_a_title_typed_as_stored_come_first(self, vector_store, doc_store):
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="regulation",
+            title="Bankaların Kredi İşlemlerine İlişkin Yönetmelik",
+            content="Yönetmelik metni.",
+        )
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="decision",
+            title="Bankaların Kredi İşlemlerine İlişkin Yönetmelik Kapsamında Kurul Kararı",
+            content="Karar metni.",
+            decision_date="01.01.2020",
+        )
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="curly",
+            title="Şirkete “değerleme” yetkisi verilmesine ilişkin Kurul Kararı",
+            content="Birinci karar.",
+            decision_date="01.01.2011",
+        )
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="straight",
+            title='Şirkete "değerleme" yetkisi verilmesine ilişkin Kurul Kararı',
+            content="İkinci karar.",
+            decision_date="01.01.2014",
+        )
+
+        def named(hits) -> list[str]:
+            return [hit["doc_id"] for hit in hits if hit["match_type"] == "named"]
+
+        query = "Bankaların Kredi İşlemlerine İlişkin Yönetmelik Kapsamında Kurul Kararı"
+        assert named(await vector_store.search(query, limit=10)) == ["decision", "regulation"]
+        curly = "Şirkete “değerleme” yetkisi verilmesine ilişkin Kurul Kararı"
+        assert named(await vector_store.search(curly, limit=10)) == ["curly", "straight"]
+        straight = 'Şirkete "değerleme" yetkisi verilmesine ilişkin Kurul Kararı'
+        assert named(await vector_store.search(straight, limit=10)) == ["straight", "curly"]
+
+    @pytest.mark.asyncio
+    async def test_a_named_document_keeps_the_chunk_of_its_hybrid_hit(self, vector_store, doc_store):
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="regulation",
+            title="Bankaların Kredi İşlemlerine İlişkin Yönetmelik",
+            content="MADDE 1 - (1) Genel hükümler.\n\nMADDE 2 - (1) Teminat oranı yüzde elli olarak uygulanır.",
+        )
+
+        hits = await vector_store.search("Bankaların Kredi İşlemlerine İlişkin Yönetmelik teminat oranı", limit=10)
+
+        assert hits[0]["doc_id"] == "regulation" and hits[0]["match_type"] == "named"
+        assert (hits[0]["section_type"], hits[0]["section_ref"]) == ("madde", "2")
+
+    @pytest.mark.asyncio
+    async def test_a_short_title_without_a_type_word_or_number_names_its_document_only_as_the_whole_query(
+        self, vector_store, doc_store
+    ):
+        await _store_and_index(
+            vector_store,
+            doc_store,
+            doc_id="foreign",
+            title="Yabancı bankaların kredi sınırları",
+            content="Karar metni.",
+            decision_date="31.05.2006",
+        )
+
+        passing = await vector_store.search("yabancı bankaların kredi sınırları nasıl hesaplanır", limit=10)
+        whole = await vector_store.search("Yabancı bankaların kredi sınırları", limit=10)
+
+        assert all(hit["match_type"] != "named" for hit in passing)
+        assert whole[0]["doc_id"] == "foreign" and whole[0]["match_type"] == "named"
