@@ -242,13 +242,21 @@ class _FakeModel:
     def __init__(self, generated_per_page):
         self._generated = list(generated_per_page)
         self.calls = 0
+        self.generate_options: list[dict] = []
 
-    def generate(self, *, input_ids, max_new_tokens):
+    def generate(self, *, input_ids, max_new_tokens, **options):
         self.calls += 1
+        self.generate_options.append(options)
         return _FakeOutput(list(input_ids) + self._generated.pop(0))
 
 
 class TestLightOCRGeneration:
+    def test_decoding_is_greedy_so_the_same_page_gives_the_same_text(self):
+        """LightOnOCR-2-1B's generation config sets do_sample: true; every call must override it."""
+        model = _FakeModel([[5, 2], [6, 2]])
+        _generate_lightocr_markdown(model, _FakeProcessor(["bir", "iki"]), ["p1", "p2"], max_new_tokens=8)
+        assert model.generate_options == [{"do_sample": False}, {"do_sample": False}]
+
     def test_pages_ending_with_eos_are_joined(self):
         model = _FakeModel([[5, 6, 2], [7, 2]])
         processor = _FakeProcessor(["Sayfa bir", "Sayfa iki"])

@@ -240,7 +240,8 @@ def _generate_lightocr_markdown(
         )
         inputs = move_inputs(inputs)
         with no_grad():
-            output_ids = model.generate(**inputs, max_new_tokens=max_new_tokens)
+            # The model's generation config sets do_sample: true; greedy decoding makes the text reproducible.
+            output_ids = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
         prompt_len = inputs["input_ids"].shape[1]
         generated = output_ids[0, prompt_len:]
         if len(generated) >= max_new_tokens and int(generated[-1]) not in eos_ids:
