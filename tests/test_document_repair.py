@@ -285,6 +285,36 @@ def test_no_gpu_path_lists_every_region_for_review_and_sends_nothing(
     assert "Cambria Math font not found" in text and "every one is listed for review" in text
 
 
+def test_no_gpu_run_ignores_recognitions_left_in_a_reused_directory(tmp_path, no_poppler, pdfminer_restored):
+    pdf = _two_formula_pdf(tmp_path)
+    out = tmp_path / "out"
+    (out / "rec").mkdir(parents=True)
+    for rid in ("p001_0", "p001_1"):
+        (out / "rec" / f"9001_{rid}_a.md").write_text("$$\\alpha + \\beta = \\chi$$", encoding="utf-8")
+    (out / "rec" / "meta.jsonl").write_text(
+        "".join(json.dumps({"name": f"9001_{r}_a", "eos": True, "truncated": False}) + "\n" for r in ("p001_0",)),
+        encoding="utf-8",
+    )
+    counts = pipeline.run(pdf, out, math_font=tmp_path / "absent.ttc")
+    regions = json.loads((out / "regions.json").read_text(encoding="utf-8"))
+    assert counts["accepted"] == 0
+    assert all(r["failed_guards"] == ["no recognition output"] for r in regions)
+
+
+def test_footnotes_follow_the_body_of_the_last_page(tmp_path, no_poppler, pdfminer_restored):
+    glyphmap.configure(tmp_path / "absent.ttc")
+    page1 = [*BODY, ("F1", 7, 40, 64, "1"), ("F1", 10, 45, 60, "Dipnot metni burada.")]
+    page2 = [("F1", 12, 40, 360, "Ikinci sayfanin metni."), ("F1", 12, 40, 340, "Govde burada biter.")]
+    pdf = _pdf([page1, page2], tmp_path / "9003.pdf")
+    _, pages, regs = pipeline.detect(pdf)
+    assert regs == []
+    md, rep = assemble_mod.assemble(pdf, pages, regs, {})
+    assert rep["pages"][0]["footnote_start_band"] == 2
+    assert md.index("Formul asagidadir:") < md.index("Ikinci sayfanin metni.") < md.index("Dipnot metni")
+    assert "$^{1}$" in md.split("Govde burada biter.")[1]
+    assert md.endswith("Dipnot metni burada.\n")
+
+
 def _run_with_accepted(tmp_path, accepted_ids):
     pdf = _two_formula_pdf(tmp_path)
     _, pages, regs = pipeline.detect(pdf)
@@ -418,7 +448,7 @@ def test_gpu_sends_only_this_runs_images_and_quotes_every_remote_word(tmp_path, 
 
     monkeypatch.setattr(subprocess, "run", fake)
     monkeypatch.setattr(gpu.time, "sleep", lambda s: None)
-    gpu.run("gpuhost", "1336", masked, lists, tmp_path / "rec", "bddk-repair", "venv/bin/python")
+    gpu.run("gpuhost", "1336", masked, lists, tmp_path / "rec", "bddk-repair", ".venv/bin/python")
     uploads = [kw["input"] for cmd, kw in calls if "input" in kw]
     assert len(uploads) == 1
     with tarfile.open(fileobj=io.BytesIO(uploads[0])) as tar:
@@ -428,7 +458,7 @@ def test_gpu_sends_only_this_runs_images_and_quotes_every_remote_word(tmp_path, 
     assert l4b == "1336_p007_0_a\n1336_p007_0_c\n1336_p007_0_d\n"
     remote = [cmd[7] for cmd, _ in calls]
     assert remote[0] == "rm -rf bddk-repair/docs/1336 && mkdir -p bddk-repair/docs/1336/img bddk-repair/docs/1336/out"
-    assert "venv/bin/python -I bddk-repair/recognize.py 4b" in remote[2]
+    assert ".venv/bin/python -I bddk-repair/recognize.py 4b" in remote[2]
     assert (tmp_path / "rec" / "1336_p007_0_a.md").read_text() == "$$x$$"
 
 

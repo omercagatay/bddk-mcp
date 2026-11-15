@@ -21,7 +21,7 @@ from pathlib import Path, PurePosixPath
 SSH = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10"]
 HOST_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 DOC_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*")
-REMOTE_PATH_RE = re.compile(r"/?[A-Za-z0-9_][A-Za-z0-9_./-]*")
+REMOTE_PATH_RE = re.compile(r"/?[A-Za-z0-9_.][A-Za-z0-9_./-]*")  # no ".." component (checked separately)
 POLL_SECONDS = 30
 WAIT_SECONDS = 6 * 3600  # ponytail: fixed deadline; make it an option if a document ever needs longer
 MAX_OUTPUT_BYTES = 1 << 20  # one recognition output; LightOnOCR stops at 4096 new tokens
@@ -33,10 +33,10 @@ def _check(value: str, pattern: re.Pattern, what: str) -> str:
     return value
 
 
-def _ssh(host, command, **kw):
-    """One remote command; every remote word is quoted (and validated before)."""
+def _ssh(host, command, fatal=True, **kw):
+    """One remote command; every remote word is quoted (and validated before). ssh exits 255 on its own errors."""
     proc = subprocess.run([*SSH, "--", host, command], **kw)
-    if proc.returncode == 255:
+    if fatal and proc.returncode == 255:
         raise RuntimeError(f"ssh to {host!r} failed (exit 255)")
     return proc
 
@@ -94,7 +94,8 @@ def run(host, doc, masked: Path, lists: dict[str, list[str]], outdir: Path, work
     )
     _ssh(host, f"setsid nohup sh -c {q(script)} > /dev/null 2>&1 < /dev/null &", check=True)
     t0 = time.time()
-    while _ssh(host, f"test -f {q(rd + '/done.flag')}").returncode != 0:
+    # a dropped connection while polling is retried until the deadline: the run on the host goes on
+    while _ssh(host, f"test -f {q(rd + '/done.flag')}", fatal=False).returncode != 0:
         if time.time() - t0 > WAIT_SECONDS:
             raise TimeoutError(f"no done.flag in {rd} on {host} after {WAIT_SECONDS} s")
         time.sleep(POLL_SECONDS)

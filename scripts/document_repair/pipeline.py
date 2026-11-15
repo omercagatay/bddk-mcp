@@ -13,6 +13,7 @@ guards.json, regions_detected.json and masked/ (the page images the reviewer rea
 from __future__ import annotations
 
 import json
+import shutil
 import time
 from collections import Counter
 from pathlib import Path
@@ -31,8 +32,10 @@ NO_META = {"eos": False, "truncated": True, "meta_missing": True}
 
 
 def load_outputs(doc, regs, outdir, mapping=None):
+    """Recognition outputs per region and variant: from ``mapping`` (--outputs), else from ``outdir`` (this run's
+    fetch); ``outdir`` None means none."""
     meta = {}
-    for f in [outdir / "meta.jsonl"] if outdir.exists() else []:
+    for f in [outdir / "meta.jsonl"] if outdir is not None and outdir.exists() else []:
         for ln in f.read_text(encoding="utf-8").splitlines():
             r = json.loads(ln)
             meta[r["name"]] = r
@@ -41,8 +44,8 @@ def load_outputs(doc, regs, outdir, mapping=None):
         res[r["id"]] = {}
         for v in ("a", "b", "c", "d"):
             name = f"{doc}_{r['id']}_{v}"
-            f = Path(mapping[name]) if mapping and name in mapping else outdir / f"{name}.md"
-            res[r["id"]][v] = f.read_text(encoding="utf-8") if f.exists() else None
+            f = Path(mapping[name]) if mapping and name in mapping else outdir / f"{name}.md" if outdir else None
+            res[r["id"]][v] = f.read_text(encoding="utf-8") if f is not None and f.exists() else None
             m = mapping.get(name + ".meta") if mapping else meta.get(name)
             res[r["id"]][v + "_meta"] = m or NO_META
     return res
@@ -130,15 +133,19 @@ def run(
     t0 = time.time()
     _, pages, regs = detect(pdf)
     (od / "regions_detected.json").write_text(json.dumps(regs, ensure_ascii=False, indent=1), encoding="utf-8")
-    gpu_s = None
+    gpu_s, rec = None, None
     if regs:
         lists = masks.render(pdf, regs, od / "masked")
         if gpu_host:
-            gpu_s = gpu.run(gpu_host, doc, od / "masked", lists, od / "rec", gpu_workdir, gpu_python)
+            # only this run's recognitions count: outputs left in a reused directory are removed first
+            rec = od / "rec"
+            if rec.exists():
+                shutil.rmtree(rec)
+            gpu_s = gpu.run(gpu_host, doc, od / "masked", lists, rec, gpu_workdir, gpu_python)
         elif not outputs:
             print(f"No GPU host: {len(regs)} regions detected, none recognised; every one is listed for review.")
     mapping = json.loads(Path(outputs).read_text(encoding="utf-8")) if outputs else None
-    outs = load_outputs(doc, regs, od / "rec", mapping) if regs else {}
+    outs = load_outputs(doc, regs, rec, mapping) if regs else {}
     rows = verdicts(pages, regs, outs) if regs else []
     accepted, reg_out = {}, []
     for row, r in zip(rows, regs, strict=True):
