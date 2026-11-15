@@ -86,13 +86,16 @@ bu iki durumu da görüyor.
   alanları `main` ile bayt bayt aynıdır, `seed_data/embeddings/` değişmedi; seed'den
   yapılan build hiçbir chunk embed etmez ve export seed'i bayt bayt geri verir.
   Build fingerprint'inin seed bölümü yeni alanlar yüzünden değişti.
-- Ölçüm (2026-11-15): normalizasyonun kararlılığı için 70 resmî metin 22 dakika
-  içinde dört kez çekildi (biri sync yolundan, ana sayfa üzerinden, sync'in kendi
-  client'ı ve User-Agent'ı ile); 70 fingerprint'in hepsi aynı kaldı (sync yolunda
-  69: `mevzuat_20145885`'in eski `http://` kaynak adresini sync zaten reddediyor).
-  33 saniye arayla yapılan iki çekim bayt bayt aynıydı. Seed'den kurulan corpus'a
-  karşı arka arkaya iki derin çalıştırma yaklaşık 21'er saniye sürdü, 338 yanıt ve
-  63,4 MB indirdi (normal çalıştırma: 23 saniye, 13,9 MB), 260 BDDK ve 70 mevzuat
+- Ölçüm (2026-11-15): normalizasyonun kararlılığı için 70 resmî metin 33 dakika
+  içinde altı kez çekildi (ikisi yoklama, biri sync yolundan, ana sayfa üzerinden,
+  sync'in kendi client'ı ve User-Agent'ı ile, üçü derin çalıştırmalarda); 70
+  fingerprint'in hepsi aynı kaldı (sync yolunda 69: `mevzuat_20145885`'in eski
+  `http://` kaynak adresini sync zaten reddediyor). 33 saniye arayla yapılan iki
+  çekim bayt bayt aynıydı; sync yolundan indirilen üç BDDK dosyası da seed'deki
+  fingerprint'i verdi. Seed'den kurulan corpus'a karşı 13 dakika içindeki üç derin
+  çalıştırmanın her biri 20-27 saniye sürdü, 338 yanıt ve 63,4 MB indirdi (normal
+  çalıştırma: 23 saniye, 13,9 MB; süreç içinde, sınırlı fetch etrafında sayıldı),
+  260 BDDK ve 70 mevzuat
   kaynağını değişmemiş buldu, dört kabul edilmiş bulgu dışında bir şey raporlamadı
   (exit 0) ve dosyanın SHA-256'sı değişmedi.
 - Derin kontrolün de göremedikleri: değişmeyen bir bağlantının arkasındaki ek
