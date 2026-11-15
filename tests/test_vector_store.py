@@ -1325,6 +1325,17 @@ def test_text_between_sections_that_is_no_caption_stays_its_own_chunk():
     assert next(chunk for chunk in chunks if chunk.section_ref == "2").chunk_text.startswith("MADDE 2 -")
 
 
+def test_abbreviation_caption_opens_the_chunk_of_its_article():
+    text = "MADDE 15- (1) Birinci.\n\nMK-SY\nMADDE 16- (1) MK-SY kapsamında risk ağırlığı belirlenir.\n"
+
+    chunks = _chunk_document("1341", text, tokenizer=WhitespaceTokenizer(), target_tokens=50, token_overlap=0)
+
+    assert all(chunk.section_type for chunk in chunks)
+    madde16 = next(chunk for chunk in chunks if chunk.section_ref == "16")
+    assert madde16.chunk_text.startswith("MK-SY\nMADDE 16-")
+    assert madde16.section_start_char == madde16.start_char == text.index("MK-SY\n")
+
+
 def test_deletion_note_is_no_caption_and_is_not_merged_into_the_next_section():
     # kgk_tms_12: "69–70 [Silinmiştir]" records deleted paragraphs; it must not be bound to paragraf 71.
     text = "MADDE 1 - (1) Birinci.\n\nSunum\n\n69–70 [Silinmiştir]\n\nMahsup\n\nMADDE 2 - (1) İkinci.\n"
@@ -1388,10 +1399,10 @@ def test_seed_has_no_standalone_caption_chunk_except_a_document_tail():
                 tails.append(doc["document_id"])
     # Measured: 1041 "45. Ödenmemiş borçlar", and the "Eki/Ekleri için tıklayınız" link of 21425 and 40520.
     assert sorted(tails) == ["1041", "mevzuat_21425", "mevzuat_40520"]
-    # Measured 30 on 2026-11-15: 26 before, plus four of the drafts 1336 and 1341. Three are the article
-    # captions "MK-SY", "MK-DDDY" and "MK-İDEY" of 1341, which the caption rule does not recognise (a known
-    # gap: a short capital abbreviation above MADDE), one is a list tail above a caption in 1336.
-    assert standalone <= 30
+    # Measured 26 on 2026-11-15 over the 332 documents. The drafts 1336 and 1341 add none: the article
+    # captions "MK-SY", "MK-DDDY" and "MK-İDEY" of 1341 open their article, and the list tail above the
+    # caption of 1336 madde 38 stays in madde 37.
+    assert standalone == 26
 
 
 class TestQueryNormalisation:

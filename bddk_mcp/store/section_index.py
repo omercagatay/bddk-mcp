@@ -421,6 +421,12 @@ _CAPTION_BLOCK_MAX_LINES = 5
 # Mensupları ile İlişkiler"); these words do not make a line sentence case.
 _SENTENCE_CASE_MIN_WORD = 4
 _TITLE_CASE_LOWER_WORDS = frozenset({"için", "veya", "ilişkin", "dair", "olan", "olarak", "üzere", "gibi", "kadar"})
+# An upper-case line is a structural caption, with one exception: an article
+# titled by the abbreviation of its approach ("MK-SY" above MADDE 16 of 1341,
+# "MK-DDDY", "MK-İDEY", "MK-İDDY"), short capital groups joined by hyphens.  The
+# group length keeps a form field such as "ADI-SOYADI" out (no seed document sets
+# one above an article; the cap is a guard, the seed would not move without it).
+_ABBREVIATION_TITLE_RE = re.compile(r"^[A-ZÇĞİÖŞÜ]{1,5}(?:-[A-ZÇĞİÖŞÜ]{1,5})+$")
 
 
 def _strip_title_markup(line: str) -> str:
@@ -434,7 +440,7 @@ def _is_article_title_line(line: str) -> bool:
     """Whether a line (markup stripped) reads as an article title rather than provision text."""
     if (
         not (line[:1].isupper() or line[:1].isdigit() or line[:1] == "%")
-        or line.upper() == line
+        or (line.upper() == line and not _ABBREVIATION_TITLE_RE.match(line))
         # A line that ends a clause introduces a list ("… hususlara uyar:"); it is no title.
         or _CLAUSE_END_RE.search(line)
     ):
@@ -1253,6 +1259,9 @@ _SENTENCE_END_RE = re.compile(r"[.!?…]$")
 _FORMULA_LINE_RE = re.compile(r"\$\$|\\[A-Za-z]|\s=\s")
 # An abbreviation list entry ("BK : Beklenen Kayıp") is annex content, not a title.
 _GLOSSARY_LINE_RE = re.compile(r"^[A-ZÇĞİÖŞÜ][A-ZÇĞİÖŞÜa-zçğıöşü0-9/&-]{0,11}\s*:\s*\S")
+# A lettered list item ("c) TRSY$_{KASP}$", "c) Limitler,", "ç) (Mülga:…)") ends the
+# list its section opened, however short; it is never a leaked title.
+_LIST_ITEM_LINE_RE = re.compile(r"[a-zçğıöşü]\)\s")
 
 
 def _is_leaked_trailing_line(line: str) -> bool:
@@ -1260,6 +1269,7 @@ def _is_leaked_trailing_line(line: str) -> bool:
     # content in every section type, never a leaked heading.
     if (
         line.startswith(("(", "|"))
+        or _LIST_ITEM_LINE_RE.match(line)
         or _SENTENCE_END_RE.search(line)
         or _FORMULA_LINE_RE.search(line)
         or _GLOSSARY_LINE_RE.match(line)
