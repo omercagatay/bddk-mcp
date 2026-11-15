@@ -2157,6 +2157,78 @@ async def test_a_formula_asked_with_formulu_finds_the_computation_and_says_why(d
     assert "'formül' is optional because a provision writes a formula as the computation itself" in result.text
 
 
+async def _store_definitions_fixture(doc_store) -> Dependencies:
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    documents = (
+        (
+            "mevzuat_10770",
+            "Konsolide Finansal Tablolar Yönetmeliği",
+            "Yönetmelik",
+            "MADDE 3 - Tanımlar\n(1) Bu Yönetmelikte geçen;\na) Nitelikli pay: Kanunda tanımlanan payı,\nifade eder.\n",
+        ),
+        (
+            "mevzuat_5411",
+            "5411 sayılı Bankacılık Kanunu",
+            "Kanun",
+            "MADDE 3 - Tanımlar\n(1) Bu Kanunda geçen;\na) Banka: Mevduat bankalarını, katılım bankalarını ve "
+            "kalkınma ve yatırım bankalarını,\nb) Nitelikli pay: Bir ortaklıkta doğrudan veya dolaylı olarak "
+            "sermayenin yüzde on veya daha fazlasını temsil eden payı,\nifade eder.\n",
+        ),
+        (
+            "mevzuat_99",
+            "Pay Edinimi Yönetmeliği Taslağı",
+            "Düzenleme Taslağı",
+            "MADDE 3 - Tanımlar\n(1) Nitelikli pay: taslaktaki tanım,\nifade eder.\n",
+        ),
+        (
+            "mevzuat_10746",
+            "İzne Tabi İşlemler Yönetmeliği",
+            "Yönetmelik",
+            "MADDE 10 - Nitelikli pay edinimi\n(1) Nitelikli pay edinimi izne tabidir; nitelikli pay devri de.\n",
+        ),
+    )
+    for doc_id, title, category, content in documents:
+        await doc_store.store_document(
+            StoredDocument(document_id=doc_id, title=title, category=category, markdown_content=content)
+        )
+    return Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+
+@pytest.mark.asyncio
+async def test_a_definition_question_lists_the_sections_that_define_the_term_first_a_kanun_first(doc_store):
+    tool = _capture_tool(await _store_definitions_fixture(doc_store), "search_document_sections")
+
+    result = await tool("nitelikli pay tanımı nedir")
+
+    items = result.structuredContent["results"]
+    assert [(item["document_id"], item["definition_match"]) for item in items] == [
+        ("mevzuat_5411", True),
+        ("mevzuat_10770", True),
+        ("mevzuat_99", True),
+        ("mevzuat_10746", False),
+    ]
+    assert all(item.get("rank") is not None for item in items)
+    assert "Match: DEFINITION: the section prints the searched term followed by a colon" in result.text
+    assert (
+        "Note: 3 section(s) that define the searched term (print it followed by a colon) are listed first, a "
+        "Kanun's before the others; the other hits follow in their FTS rank order." in result.text
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("query", ["nitelikli pay nedir", "nitelikli pay edinimi tanımı"])
+async def test_without_a_definition_word_or_a_term_defined_nothing_is_lifted(doc_store, query):
+    tool = _capture_tool(await _store_definitions_fixture(doc_store), "search_document_sections")
+
+    result = await tool(query)
+
+    items = result.structuredContent["results"]
+    assert items[0]["document_id"] == "mevzuat_10746"
+    assert not any(item["definition_match"] for item in items)
+    assert "Match: DEFINITION" not in result.text
+
+
 def test_tanim_is_never_a_required_word():
     from bddk_mcp.tools.sections import _required_search_text
 

@@ -530,6 +530,14 @@ class SectionItem(StrictOutputModel):
             "the exact query words); such hits carry no rank and are listed after the strict hits."
         ),
     )
+    definition_match: bool = Field(
+        default=False,
+        description=(
+            "Whether this exact-word hit of a definition request (the query has 'tanım'/'tanımı' or 'demektir') "
+            "prints the searched term followed by a colon, the form of a definition ('Nitelikli pay: ...'). Such "
+            "hits are listed before the other hits, a Kanun's definition first, so the ranks are not in order there."
+        ),
+    )
     chunk_match: Literal["semantic"] | None = Field(
         default=None,
         description=(

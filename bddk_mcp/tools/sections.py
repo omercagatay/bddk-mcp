@@ -94,6 +94,10 @@ _SEMANTIC_MATCH_LINE = (
     "this section among its strong or moderate hits; the section need not hold the query words; no rank, listed "
     "after the section matches"
 )
+_DEFINITION_MATCH_LINE = (
+    "Match: DEFINITION: the section prints the searched term followed by a colon (the form of a definitions "
+    "article) and holds every searched word; listed before the other hits, a Kanun's definition first"
+)
 _SEMANTIC_WARNING = (
     "Hits marked chunk_match 'semantic' come from the embedding model, not from the query words: they are leads, "
     "not exact-word matches; read the provision before citing it."
@@ -1243,6 +1247,47 @@ def _without_spans(text: str, spans: list[tuple[int, int, str, str]]) -> str:
     return " ".join(" ".join(parts).split())
 
 
+# A definition request: "tanım"/"tanımı" or "demektir" among the words not searched.
+_NORMALIZED_DEFINITION_REQUEST_WORDS = _NORMALIZED_DEFINITION_WORDS | {"demektir"}
+# How many exact-word hits are read for the form of a definition.
+_DEFINITION_CANDIDATES = 200
+
+
+def _definition_pattern(term: str) -> re.Pattern[str] | None:
+    """The form of a definition of ``term`` on the search form of a text: the term at the start of a line or
+    after a list marker ("a) ", "(1) "), followed by a colon ("Nitelikli pay: ...")."""
+    words = re.findall(r"\w+", normalize_search_text(term))
+    if not words:
+        return None
+    return re.compile(r"(?:^|\)\s*)" + r"[^\w:]+".join(map(re.escape, words)) + r"\s*:", re.MULTILINE)
+
+
+async def _definition_sections(
+    deps: Dependencies,
+    term: str,
+    *,
+    document_id: str | None,
+    section_type: str | None,
+    classes_last: frozenset[str],
+) -> list[StoredDocumentSection]:
+    """The exact-word hits of ``term`` that define it (``_definition_pattern``), a Kanun's first (the norm
+    hierarchy: a regulation's definition derives from the law's), otherwise in FTS rank order."""
+    pattern = _definition_pattern(term)
+    if pattern is None:
+        return []
+    candidates = await deps.doc_store.search_document_sections(
+        term,
+        document_id=document_id,
+        section_type=section_type,
+        limit=_DEFINITION_CANDIDATES,
+        include_source_range=False,
+        **_class_order(classes_last, document_id),
+    )
+    found = [section for section in candidates if pattern.search(normalize_search_text(section.content))]
+    found.sort(key=lambda section: section.document_category != "Kanun")
+    return await deps.doc_store.hydrate_source_ranges(found) if found else []
+
+
 async def _semantic_sections(
     deps: Dependencies, query: str, seen: set[tuple[str, str, str, str]]
 ) -> list[StoredDocumentSection]:
@@ -1876,6 +1921,23 @@ def register(mcp, deps: Dependencies) -> None:
             limit=limit,
             classes_last=classes_last,
         )
+        # A definition request lists the exact-word hits that define the searched term first.
+        definition_keys: set[tuple[str, str, str, str]] = set()
+        if (
+            not exact_hits
+            and any(hit.rank is not None for hit in hits)
+            and any(normalize_search_text(word) in _NORMALIZED_DEFINITION_REQUEST_WORDS for word in not_searched)
+        ):
+            definitions = await _definition_sections(
+                deps,
+                required_scoped_query,
+                document_id=hits[0].doc_id if inferred_doc_id else None,
+                section_type=applied_section_type,
+                classes_last=classes_last,
+            )
+            definition_keys = {_section_key(section) for section in definitions[:limit]}
+            hits = (definitions + [hit for hit in hits if _section_key(hit) not in definition_keys])[:limit]
+            stem_keys -= definition_keys
         loose_fallback_used = False
         # Set when the inferred document is stored but the exact provision named in the query is not in it.
         missing_in_dropped_doc: str | None = None
@@ -2089,6 +2151,13 @@ def register(mcp, deps: Dependencies) -> None:
         continuations = await _find_continuations(deps, hits)
         parents = await _find_parents(deps, hits)
         lines = [f"Found {len(hits)} section result(s) for '{echoed_query}':\n"]
+        listed_definitions = sum(1 for hit in hits if _section_key(hit) in definition_keys)
+        if listed_definitions:
+            lines.insert(
+                0,
+                f"Note: {listed_definitions} section(s) that define the searched term (print it followed by a colon) "
+                "are listed first, a Kanun's before the others; the other hits follow in their FTS rank order.\n",
+            )
         if fikra_note:
             lines.insert(0, f"{fikra_note}\n")
         if unapplied_ref_note:
@@ -2122,6 +2191,8 @@ def register(mcp, deps: Dependencies) -> None:
                 # "relative" guards against conflation with the percent-scale
                 # relevance gate in the server instructions (store search).
                 lines.append(f"  Match rank: {hit.rank:.4f} (relative, FTS)")
+            if _section_key(hit) in definition_keys:
+                lines.append(f"  {_DEFINITION_MATCH_LINE}")
             if _section_key(hit) in chunk_keys:
                 lines.append(f"  {_SEMANTIC_MATCH_LINE}")
             if _section_key(hit) in stem_keys:
@@ -2143,6 +2214,7 @@ def register(mcp, deps: Dependencies) -> None:
             _with_parent(_section_item(hit, query=search_query, continuations=continuations), hit, parents).model_copy(
                 update={
                     "stem_match": _section_key(hit) in stem_keys,
+                    "definition_match": _section_key(hit) in definition_keys,
                     "chunk_match": "semantic" if _section_key(hit) in chunk_keys else None,
                 }
             )
