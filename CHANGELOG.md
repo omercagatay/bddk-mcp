@@ -32,6 +32,96 @@ kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözle
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Değişti — arama: aynı başlığı taşıyan kararlarda en yeni önce (2026-11-15)
+
+Yalnızca `search_document_store`'un sıralaması ve cevap metni değişti; corpus,
+şema, chunk, embedding, bölüm araçları ve katalog araması değişmedi.
+
+**Müfettişin fark edeceği şeyler (kısa özet).**
+
+- "kredi kartı asgari ödeme tutarı" sorusunda Kredi Kartı Asgari Ödeme Tutarının
+  Değiştirilmesi Hk. Kurul Kararı'nın 01.10.2026 tarihli ve 11581 sayılı olanı
+  (belge 1349; asgari tutarı yeniden belirliyor) artık 3. sırada, aynı başlığı
+  taşıyan daha eski 26.09.2024 tarihli ve 10970 sayılı karar (belge 1255) ise 6.
+  sırada (önceden 1255 3., 1349 6. sıradaydı). Sorgunun bütün kelimeleri
+  bir başlıkta geçiyorsa ve o başlığı aynı banttaki (strong, moderate, weak,
+  keyword) birden fazla tarihli hit taşıyorsa, bu hit'ler kendi tuttukları
+  sıralarda en yeniden eskiye dizilir.
+- Yer değiştiren hit bunu söyler: satırında "placed by decision date" notu,
+  yapılandırılmış sonuçta `same_title_newest_first: true` var. Bu hit'in gösterilen
+  relevance'ı altındaki bir hit'inkinden düşük olabilir (1349 %93,5, altındaki
+  1255 %99,0).
+
+**Ayrıntılar.**
+
+- Kural `_newest_first_in_title_series` (`bddk_mcp/store/vector_store.py`).
+  "nedir", "ve", "ile" gibi işlev kelimeleri ve tek harfler sayılmaz. Beş ve daha
+  uzun harfli kelime, çekime dayanıklı anahtar kelime geçişindeki gibi kök
+  önekiyle (`fts_prefix_stem_query`) başlayan bir başlık kelimesinde geçmiş sayılır
+  ("tutarı" → "tutarının"); kısa kelime bir başlık kelimesinin başında, sayı ise
+  kendisi olarak geçmelidir. Başlıklar, arama normalleştirmesinden sonra kelimeleri
+  aynıysa aynıdır: tek kelimesi farklı başlık (602/624 ile 636 arasındaki "bir")
+  ayrı bir metindir. Tarihsiz hit, başka başlık, başka banttaki aynı başlık ve
+  tamamı sorguda geçen başlık sırasını korur; aynı tarih iç skor sırasını korur.
+- Uygulama sırası: önce tavandaki kararların tarih sırası, sonra bu kural, sonra
+  TASLAK/MÜLGA sınıfı, en sonda sorgunun adlandırdığı belgeler; hepsi `limit`'ten
+  önce. Kural tavan sırasından sonra çalışır, böylece tavan sırası aynı başlığın
+  eski kararını yeniden yukarı alamaz. Başlığın tamamı sorgudaysa o başlığı
+  taşıyan bütün belgeler zaten adlandırılmış belge olarak en başa, en yeni önce
+  gelir; bu kural onları değiştirmez.
+- Yapıştırılan bir gövde cümlesi başlıkta olmayan kelimeler taşır (şirket adı,
+  tarih, oran), bu yüzden kural çalışmaz. Paylaşılan başlıklı 17 grubun bütün
+  belgelerinin gövdesi satır, satır içinde ".", ":" veya ";" ile bölünen parça ve
+  paragraf olarak denendi (satır kaydırmasında bölünen cümleler yeniden
+  birleştirilmedi; ilk 480 karakter ve ilk sekiz kelime). Paragrafların hiçbiri
+  koşulu sağlamadı; sağlayanlar gövdede başlığı tekrar eden ve yalnızca başlık
+  kelimelerinden oluşan satır ve parçalardır (31 sorgu, hepsi
+  gayrimenkul değerleme serilerinden, örneğin "değerlemesi” hizmeti verme yetkisi
+  verilmesine,"). Bu 31 sorguda kaynak belge 1. sırada 1/1 kaldı (679, serinin en
+  yeni kararı), ilk 3'te 3'ten 2'ye düştü (641: 3.'den 8.'ye), ilk 10'da 12'den
+  14'e çıktı; bu parçalar serinin öteki kararlarında da başlık kelimeleri olarak
+  geçtiği için kaynağı ayırt etmez.
+
+**Ölçüm** (328 belgelik corpus, gerçek embedding modeli; değişiklikten önceki
+`origin/main` ile karşılaştırma):
+
+| Ölçüm | Önce | Sonra |
+| --- | --- | --- |
+| 78 denetim sorusu, `search_document_store` belge hit@1 / hit@10 | 52/71, 68/71 | 52/71, 68/71 |
+| Bölüm araması hüküm hit@1 / hit@10 | 29/71, 53/71 | 29/71, 53/71 |
+| Kendi başlığıyla 1. sıra / ilk 10 | 327/328, 328/328 | 327/328, 328/328 |
+| 267 denetim cümlesi, cümlenin kendisi: ilk sıra / ilk 10 | 186, 247 | 186, 247 |
+| 267 denetim cümlesi, ilk sekiz kelime: ilk sıra / ilk 10 | 185, 239 | 185, 239 |
+| 24 sağlamlık girdisi, sorun | 0 | 0 |
+
+Hiçbir sorunun altın belgesinin, hiçbir belgenin kendi başlığıyla aramadaki ve
+hiçbir cümlenin kaynak belgesinin sırası değişmedi. Kural 78 soruda bir kez
+çalıştı (A06 "yeniden yapılandırma kredi": 1301 ve 1325 ilk 10'un dışında yer
+değiştirdi, görünen sonuç aynı); 328 başlık aramasında görünen değişiklik iki
+yerde: "SYR Hesaplamasına İlişkin Değişiklikler Hk" (1085) aramasında aynı adlı beş
+karar 1317, 1263, 1207, 1157, 1109 sırasına girdi; "Kredi Vade Sınırları Hk Kurul
+Kararı" (795) aramasında 1348 1259'un önüne geçti; mevzuat_21192'nin başlık
+aramasında 744 ile 759 ilk 10'un dışında yer değiştirdi. Başlığın tamamı sorgudaysa
+kural o başlığı atlar (o belgeler adlandırılmış belgedir), bu yüzden öteki başlık
+aramalarında çalışmadı ve adlandırılmış belgeler işaret taşımaz.
+
+**Bedeller.** Kural aynı başlığın yeni kararının eskisinin yerini aldığını
+varsayar; "Pandemi Döneminde Alınan Kararlar Hk Kurul Kararı" gibi farklı
+önlemleri aynı başlıkla duyuran serilerde de en yeni önce gelir. Ölçülen en büyük
+ters sıra burada: "pandemi döneminde alınan kararlar" sorgusunda 806 (08.12.2020,
+%96,9) 1. sıradan 3. sıraya indi, önüne 1059 (16.09.2021, %80,1) ve 1030
+(17.06.2021, %75,4) geçti. Başlık kelimesinin
+öneki olmayan bir çekim kuralı çalıştırmaz: "kredi kartları asgari ödeme
+tutarları" sorusunda 1255 hâlâ 1349'un önünde ("kartları", "kartı"nın öneki
+değil). Başlıkta olmayan tek bir kelime de ("2024", "güncel") kuralı durdurur;
+"güncel" ve "nedir" eklenmiş sorgularda iki karar zaten tavanda olduğu için tavan
+sırası 1349'u öne alıyor.
+
+**Yükseltme notu.** Yeniden derleme gerekmez. MCP sözleşmesi yalnızca eklemedir:
+`DocumentSearchItem` içinde yeni isteğe bağlı çıktı alanı
+`same_title_newest_first`; tool açıklaması ve `relevance`, `relevance_clamped`
+alan açıklamaları yeni sırayı anlatır.
+
 ### Eklendi — seed'e bekletilen dört belge: 16, 1340, 1336, 1341 (2026-11-15)
 
 Aynı kontrolden çıkan ve çıkarım hatası yüzünden bekletilen dört belge onarılıp

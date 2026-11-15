@@ -165,6 +165,11 @@ _NAMED_ORDER_TEXT = (
     "title first, a title typed as stored before one that matches only after normalisation, then the newest "
     "decision date first, undated last; this does not say which provision answers the query; no semantic score"
 )
+# A hit placed by vector_store._newest_first_in_title_series: its relevance may be below that of a hit after it.
+_SAME_TITLE_ORDER_TEXT = (
+    "[placed by decision date: every word of the query occurs in this title, which other hits of this match "
+    "strength share, and those are listed newest first in their positions whatever their relevance]"
+)
 # Per-hit citation hints for govde rows that are not remainder (the section tools word the plural warning).
 _DECISION_TEXT_HINT = (
     "Cite this decision by its title and decision date/number, not as an article (madde) or as a govde window."
@@ -796,7 +801,11 @@ Suggest the user try: different keywords or a different category (basın, mevzua
         Hits at the calibration ceiling (100%) tie on the shown relevance; the dated decisions
         among them are listed newest first in the positions they occupy (a decision may pass an
         undated instrument, which keeps its rank); a decision whose whole title is in the query
-        keeps its place. Within each match strength band,
+        keeps its place. When every word of the query (function words such as "nedir" and single
+        letters aside) occurs in a title that several dated hits of one match strength share and
+        the query does not hold the whole title, those are listed newest first in their
+        positions (`same_title_newest_first` marks the ones moved: a newer decision may then come
+        before an older one with a higher relevance). Within each match strength band,
         TASLAK/MÜLGA catalog-class documents are listed after the others, unless the query
         names that class or the document's whole title, or a category is given. A decision
         number named in the query that no stored document carries is reported as not stored
@@ -967,6 +976,8 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
             else:
                 match_strength = _match_strength(h["relevance"])
                 relevance = f" [{match_strength} match, relevance {h['relevance']:.1%}]"
+            if h.get("same_title_newest_first"):
+                relevance += f" {_SAME_TITLE_ORDER_TEXT}"
             section_type = str(h.get("section_type") or "")
             section_ref = str(h.get("section_ref") or "")
             stored_section = hit_sections.get(hit_index)
@@ -1066,6 +1077,7 @@ Suggest the user try: different Turkish keywords, broader terms, or removing the
                         else None
                     ),
                     decision_number_match=True if h.get("decision_number_match") else None,
+                    same_title_newest_first=True if h.get("same_title_newest_first") else None,
                     parent_section_type=parent[0] if parent else None,
                     parent_section_ref=parent[1] if parent else None,
                 )
