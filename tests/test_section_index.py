@@ -1355,7 +1355,7 @@ def test_seed_table_rows_stay_in_their_provision_and_amendment_tables_leave_the_
             assert covering and not set(covering) & {*_ARTICLE_TYPES, "fikra", "bent"}, (doc["document_id"], position)
             line_end = text.find("\n", position)
             position = len(text) if line_end == -1 else line_end + 1
-    assert documents == 44
+    assert documents == 45
 
 
 def test_colon_form_annexes_end_the_last_article_and_take_their_title():
