@@ -83,18 +83,19 @@ değişmedi; yeni tool ya da tool argümanı yok.
   kapsanıyor ve kaynak belge ilk ondan düşüyordu (3 → yok). origin/main aynı cümleyi
   fıkra kelimeleri olmadan zaten böyle okuyor; kabul ölçütü taramaların
   değişmemesini istediği için kural geri alındı ve sahibinin kararına bırakıldı
-  (commit 78277e1, geri alma 47e38da). (2) Sorudaki her "asgari"/"azami"yi bırakmak:
-  "asgari ödeme tutarı nedir" ve "tüketici kredilerinde azami vade kaç ay" asıl
-  hükmü kaybediyordu. (3) Corpus'ta hiç geçmeyen kelimeleri zorunlu saymamak: 18
-  sorunun hiçbirini düzeltmiyordu ve konusu corpus'ta olmayan sorulardan MASAK,
-  12999 ve 11250'yi atıp yanıltıcı kelime eşleşmeleri üretecekti. (4) Semantik
-  yerin dolu listede de son kelime eşleşmesinin yerini alması: B05, C01, C06, T05
-  ve T06'nın hükmü 10. sırada. (5) `search_document_store`'un kısaltma glossary'sini bölüm aramasında kullanmak:
-  tek adayı J01'di ve J01 sözlükle de bulunmuyor ("asgari" soru dışında zorunlu).
+  (commit 78277e1, geri alma 47e38da). (2) Sorudaki her "asgari"/"azami"yi bırakmak
+  (denendi): "asgari ödeme tutarı nedir" Banka Kartları Yönetmeliği madde 24'ü 1.
+  sıradan 4.'ye indiriyor, "tüketici kredilerinde azami vade kaç ay" Kredi İşlemleri
+  Yönetmeliği madde 12'yi listeden düşürüyordu. Aşağıdakiler yalnız incelendi,
+  kurulmadı ve ölçülmedi: (3) corpus'ta hiç geçmeyen kelimeleri zorunlu saymamak:
+  konusu corpus'ta olmayan sorulardan MASAK, 12999 ve 11250'yi atıp yanıltıcı kelime
+  eşleşmeleri üretirdi. (4) Semantik yerin dolu listede de son kelime eşleşmesinin
+  yerini alması: B05, C01, C06, T05 ve T06'nın hükmü 10. sırada. (5)
+  `search_document_store`'un kısaltma glossary'sini bölüm aramasında kullanmak: tek
+  adayı J01'di ve J01'in hükmü "asgari" kelimesini taşımıyor (soru dışında zorunlu).
   (6) Madde numarası olmadan belge adıyla kapsam ("Bankacılık Kanununa göre kredi"):
-  yalnız incelendi, kurulmadı; cümle taramasında başka belgeyi adlandıran
-  cümleler ("... Yönetmeliğe göre", "... Hakkında Yönetmelik çerçevesinde") kendi
-  belgelerinden uzaklaşırdı.
+  cümle taramasında başka belgeyi adlandıran cümleler ("... Yönetmeliğe göre", "...
+  Hakkında Yönetmelik çerçevesinde") kendi belgelerinden uzaklaşırdı.
 
 **Ölçüm** (332 belgelik corpus, gerçek embedding modeli, 78 denetim sorusu, her
 belgenin kendi başlığı, 267 cümle): bölüm aramasında hüküm hit@1 29'dan 34'e, hit@3
