@@ -2,6 +2,7 @@
 
 import logging
 import time
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -209,6 +210,26 @@ class TestAccordionParsing:
 
         decisions = await client._fetch_and_parse_accordion_page(50)
         assert decisions == []
+
+
+class TestBankCardsPage:
+    """Page 51 has been one table without accordion cards since 2026-11 (fixture: the real page, trimmed)."""
+
+    @pytest.mark.asyncio
+    async def test_current_layout_lists_every_entry_once(self):
+        html = (Path(__file__).parent / "fixtures" / "bddk_liste_51.html").read_text(encoding="utf-8")
+        client = _make_client()
+        client._fetch_with_retry = AsyncMock(return_value=make_http_response(html))
+
+        decisions = await client.fetch_catalog_page(51)
+
+        assert [(d.document_id, d.title, d.category) for d in decisions] == [
+            ("mevzuat_5464", "Banka Kartları ve Kredi Kartları Kanunu", "Banka Kartları"),
+            ("16", "Kredi Kartı Taksit Sınırları ve Yasakları", "Banka Kartları"),
+            ("mevzuat_11180", "Banka Kartları ve Kredi Kartları Hakkında Yönetmelik", "Banka Kartları"),
+        ]
+        assert decisions[1].source_url == "https://www.bddk.org.tr/Mevzuat/DokumanGetir/16"
+        assert 51 in _ALL_PAGE_IDS
 
 
 class TestDecisionParsing:

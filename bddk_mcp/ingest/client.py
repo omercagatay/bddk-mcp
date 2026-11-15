@@ -60,13 +60,15 @@ _MAX_CATALOG_RESPONSE_BYTES = 8 * 1024 * 1024
 # Parallel catalog-page requests BDDK sees at once.
 _SCRAPE_CONCURRENCY = 5
 # Pages that use accordion card structure (h5 headers with card-body)
-_ACCORDION_PAGE_IDS = [50, 51]
+_ACCORDION_PAGE_IDS = [50]
 # Pages that use flat list with DokumanGetir links and (date - number) format
 # Page 55 (Kurul Kararları) excluded by default — mostly faaliyet/kuruluş izni decisions; revisit with whitelist if specific kararlar are needed.
 _DECISION_PAGE_IDS = [56]
-# Pages that use flat list with mixed link types (no date format)
+# Resmi Gazetede Yayımlanan Kurul Kararları: not refreshed, but read by `bddk-mcp check-updates` and `sync --add`.
+RG_DECISION_PAGE_ID = 55
+# Pages that use flat list with mixed link types (no date format); page 51 has been one such table since 2026-11.
 # Page 52 (Finansal Kiralama / Faktoring / Finansman / Tasarruf Finansman — non-bank) excluded — out of bank scope.
-_FLAT_PAGE_IDS = [49, 54, 58, 63]
+_FLAT_PAGE_IDS = [49, 51, 54, 58, 63]
 
 _ALL_PAGE_IDS = _ACCORDION_PAGE_IDS + _DECISION_PAGE_IDS + _FLAT_PAGE_IDS
 
@@ -118,15 +120,12 @@ _ACCORDION_CATEGORY_MAP = {
     "Sermaye Yeterliliğine İlişkin Tebliğler ve Rehberler": "Sermaye Yeterliliği",
     "Faizsiz Bankacılığa İlişkin Düzenlemeler": "Faizsiz Bankacılık",
     "Tekdüzen Hesap Planı": "Tekdüzen Hesap Planı",
-    # Page 51
-    "Yönetmelik": "Yönetmelik",
-    "Tebliğ": "Tebliğ",
-    "Banka Kartları ve Kredi Kartları Kanununa İlişkin Düzenlemeler": "Banka Kartları",
 }
 
 # Category assigned to flat-list pages (by page ID)
 _FLAT_PAGE_CATEGORY = {
     49: "Kanun",
+    51: "Banka Kartları",
     54: "BDDK Düzenlemesi",
     58: "Düzenleme Taslağı",
     63: "Mülga Düzenleme",
@@ -960,6 +959,14 @@ class BddkApiClient:
         logger.info("Parsed %d items from flat page %d", len(decisions), list_id)
         return decisions
 
+    async def fetch_catalog_page(self, list_id: int) -> list[BddkDecisionSummary]:
+        """Fetch and parse one catalog page with the parser of its layout (55 and 56: decision lists)."""
+        if list_id in _ACCORDION_PAGE_IDS:
+            return await self._fetch_and_parse_accordion_page(list_id)
+        if list_id in _DECISION_PAGE_IDS or list_id == RG_DECISION_PAGE_ID:
+            return await self._fetch_and_parse_decision_page(list_id)
+        return await self._fetch_and_parse_flat_page(list_id)
+
     async def _ensure_cache(self) -> None:
         """Ensure the decision cache is populated.
 
@@ -1002,12 +1009,7 @@ class BddkApiClient:
         async def _fetch_page_safe(list_id: int) -> list[BddkDecisionSummary]:
             async with self._scrape_sem:
                 try:
-                    if list_id in _ACCORDION_PAGE_IDS:
-                        decisions = await self._fetch_and_parse_accordion_page(list_id)
-                    elif list_id in _DECISION_PAGE_IDS:
-                        decisions = await self._fetch_and_parse_decision_page(list_id)
-                    else:
-                        decisions = await self._fetch_and_parse_flat_page(list_id)
+                    decisions = await self.fetch_catalog_page(list_id)
                     if not decisions:
                         self._page_errors[list_id] = "empty_page"
                         logger.error("BDDK list page %d returned no parseable items", list_id)
