@@ -1844,6 +1844,10 @@ def register(mcp, deps: Dependencies) -> None:
         note names it by its title. When no title stands out, nothing is
         scoped and the note names the candidates (at most five); an
         abbreviation that is not a title word (SYR, İSEDES) identifies nothing.
+        A fıkra written right after the article reference (`madde 12 üçüncü
+        fıkra`, `12 nci maddenin 3 üncü fıkrası`, `madde 12 fıkra 4`) is read as
+        part of that reference, not as an instrument or content word: the whole
+        article is returned and a note names the fıkra to read in it.
         A fıkra written right after an article reference ("madde 12 üçüncü
         fıkra", "12 nci maddenin 3 üncü fıkrası") is part of that reference: the
         whole article is returned and a note names the fıkra to read in it.

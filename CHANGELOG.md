@@ -35,7 +35,7 @@ kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözle
 ### Değişti — bölüm araması: tanım ve formül soruları, "asgari ne kadar", çekim ekleri (2026-11-16)
 
 `search_document_sections` 71 cevaplanabilir denetim sorusunun 18'inde hükmü ilk
-ona getirmiyordu; bunlardan 6'sı düzeldi (53/71'den 59/71'e). Corpus, şema, chunk,
+ona getirmiyordu; bunlardan 7'si düzeldi (53/71'den 60/71'e). Corpus, şema, chunk,
 bölüm ayrıştırıcısı, `search_document_store` sıralaması ve katalog araması
 değişmedi; yeni tool ya da tool argümanı yok.
 
@@ -76,32 +76,36 @@ değişmedi; yeni tool ya da tool argümanı yok.
   aşağı itiyordu ("risk grubu tanımı" Bankacılık Kanunu madde 49'u 7'den 10'a,
   "donuk alacak tanımı" madde 5'i 8'den 9'a); başlık biçimi ve parantezli kısaltma
   eklenince bu üç soru birincil hükmü ilk sıraya aldı.
-- Denenen ve alınmayanlar: (1) "madde 12 üçüncü fıkra" gibi, madde atfının hemen
-  arkasındaki fıkrayı atfın parçası okumak (R05'i 1. sıraya getiriyordu): bölüm
-  cümle taramasında 900 numaralı belgenin "... Hakkında Yönetmeliğin (Yönetmelik) 7
-  inci maddesinin birinci fıkrasında;" cümlesi artık yönetmeliğin madde 7'sine
-  kapsanıyor ve kaynak belge ilk ondan düşüyordu (3 → yok). origin/main aynı cümleyi
-  fıkra kelimeleri olmadan zaten böyle okuyor; kabul ölçütü taramaların
-  değişmemesini istediği için kural geri alındı ve sahibinin kararına bırakıldı
-  (commit 78277e1, geri alma 47e38da). (2) Sorudaki her "asgari"/"azami"yi bırakmak
+- Madde atfının hemen arkasında yazılan fıkra ("madde 12 üçüncü fıkra", "12 nci
+  maddenin 3 üncü fıkrası", "madde 12 fıkra 4") artık atfın parçası okunur; belge
+  adını ya da içerik kelimesini bozmaz. Maddenin tamamı döner ve not hangi fıkranın
+  okunacağını söyler. "Bankaların Kredi İşlemlerine İlişkin Yönetmelik madde 12
+  üçüncü fıkra" artık madde 12'yi 1. sırada veriyor. Maliyeti (bakımcının kararıyla
+  kabul edildi): bölüm cümle taramasında 900 numaralı belgenin "... Hakkında
+  Yönetmeliğin (Yönetmelik) 7 inci maddesinin birinci fıkrasında;" cümlesi artık
+  atıf yapılan yönetmeliğin madde 7'sine kapsanıyor ve kaynak belge ilk ondan
+  düşüyor (3 → yok). Aynı cümle fıkra kelimeleri olmadan önceden de böyle
+  okunuyordu; kural mevcut davranışı tutarlı hâle getiriyor. Ajan bu kuralı kabul
+  ölçütü yüzünden geri almıştı (commit 47e38da); bakımcı geri ekledi.
+- Denenen ve alınmayanlar: (1) Sorudaki her "asgari"/"azami"yi bırakmak
   (denendi): "asgari ödeme tutarı nedir" Banka Kartları Yönetmeliği madde 24'ü 1.
   sıradan 4.'ye indiriyor, "tüketici kredilerinde azami vade kaç ay" Kredi İşlemleri
   Yönetmeliği madde 12'yi listeden düşürüyordu. Aşağıdakiler yalnız incelendi,
-  kurulmadı ve ölçülmedi: (3) corpus'ta hiç geçmeyen kelimeleri zorunlu saymamak:
+  kurulmadı ve ölçülmedi: (2) corpus'ta hiç geçmeyen kelimeleri zorunlu saymamak:
   konusu corpus'ta olmayan sorulardan MASAK, 12999 ve 11250'yi atıp yanıltıcı kelime
-  eşleşmeleri üretirdi. (4) Semantik yerin dolu listede de son kelime eşleşmesinin
-  yerini alması: B05, C01, C06, T05 ve T06'nın hükmü 10. sırada. (5)
+  eşleşmeleri üretirdi. (3) Semantik yerin dolu listede de son kelime eşleşmesinin
+  yerini alması: B05, C01, C06, T05 ve T06'nın hükmü 10. sırada. (4)
   `search_document_store`'un kısaltma glossary'sini bölüm aramasında kullanmak: tek
   adayı J01'di ve J01'in hükmü "asgari" kelimesini taşımıyor (soru dışında zorunlu).
-  (6) Madde numarası olmadan belge adıyla kapsam ("Bankacılık Kanununa göre kredi"):
+  (5) Madde numarası olmadan belge adıyla kapsam ("Bankacılık Kanununa göre kredi"):
   cümle taramasında başka belgeyi adlandıran cümleler ("... Yönetmeliğe göre", "...
   Hakkında Yönetmelik çerçevesinde") kendi belgelerinden uzaklaşırdı.
 
 **Ölçüm** (332 belgelik corpus, gerçek embedding modeli, 78 denetim sorusu, her
-belgenin kendi başlığı, 267 cümle): bölüm aramasında hüküm hit@1 29'dan 34'e, hit@3
-37'den 43'e, hit@10 53'ten 59/71'e; belge hit@10 63'ten 64/71'e. `search_document_store`
+belgenin kendi başlığı, 267 cümle): bölüm aramasında hüküm hit@1 29'dan 35'e, hit@3
+37'den 44'e, hit@10 53'ten 60/71'e; belge hit@10 63'ten 65/71'e. `search_document_store`
 (belge hit@1 52, hit@10 68; hüküm hit@10 40), kendi başlığıyla 1. sıra (331/332),
-iki cümle taraması ve 24 sağlamlık girdisi (0 sorun) değişmedi; hiçbir soru dört
+store cümle taraması ve 24 sağlamlık girdisi (0 sorun) değişmedi; bölüm cümle taramasında yalnızca yukarıdaki 900 cümlesi değişti; hiçbir soru dört
 ölçünün hiçbirinde kötüleşmedi. Konusu corpus'ta olmayan 7 sorunun sonuçları
 birebir aynı. Süre: 78 sorunun bölüm araması süresi ölçüm gürültüsünün içinde kaldı
 (aynı makinede dönüşümlü üç koşu: origin/main ortanca 189–192 ms, bu dal 158–188 ms).
