@@ -458,6 +458,22 @@ def test_check_updates_deep_flag_reaches_the_check_and_keeps_every_report_key(tm
     assert reports[True]["unchanged"] == {"bddk": 2, "mevzuat": 1}
 
 
+def test_check_updates_refuses_a_corpus_file_of_another_schema_version_before_any_request(
+    tmp_path, monkeypatch, capsys
+):
+    path = tmp_path / "c.sqlite"
+    db = CorpusDB.open(path)
+    db.transaction_sync(lambda conn: conn.execute("UPDATE meta SET value = '1' WHERE key = 'schema_version'"))
+    db.close()
+    transport, calls = _site(sizes={})
+    _patched_client(monkeypatch, transport)
+    with pytest.raises(SystemExit) as exited:
+        cli.main(["check-updates", "--corpus", str(path), "--deep"])
+    assert exited.value.code == 1
+    assert "schema version 1, this runtime expects 2; delete it and run `bddk-mcp build`" in capsys.readouterr().err
+    assert calls == []
+
+
 def _registry(tmp_path, entries: str) -> dict:
     path = tmp_path / "accepted.yml"
     path.write_text(f"format_version: 1\naccepted:\n{entries}", encoding="utf-8")
