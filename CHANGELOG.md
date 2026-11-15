@@ -32,6 +32,28 @@ kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözle
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Eklendi — seed'e iki belge daha: 16 ve 1340 (2026-11-15)
+
+Aynı kontrolden çıkan ve çıkarım hatası yüzünden bekletilen dört belgeden ikisi
+onarılıp `seed_data/`'ya eklendi. Onarım elle yapılmadı: PDF metin katmanından,
+glyph boyutu ve satır taban çizgisine bakan bir betikle üretildi; model kullanılmadı.
+
+- `16` Kredi Kartı Taksit Sınırları ve Yasakları (BDDK "Banka Kartları" bölümü,
+  dipnotlu konsolide metin). Rakamlara yapışık dipnot işaretleri ayrıldı ve üst simge
+  olarak yazıldı (`uygulanmasına,$^{1}$ $^{2}$ ...`, 28 yer); dipnot 1'in ardına düşen
+  kapanış satırı ("Bu kararın ... yayımlanmasına karar verilmiştir") gövdenin sonuna,
+  dipnotlar gövdeden sonraya alındı. Kelimeler metin katmanıyla aynı, yalnızca sıra
+  değişti.
+- `1340` Bankaların Kaldıraç Oranı Ölçümüne İlişkin Yönetmelik Taslağı ve Genel
+  Gerekçe. Düzleşmiş alt simgeler geri getirildi (`YM=maks{CPD-NDT$_{a}$+NDT$_{v}$,0}`,
+  5 yer); başka kelime değişmedi.
+
+İkisi de `pdftotext_layout` olarak kayıtlı, boşlukları seed düzeninde. Bakımcı iki
+metni PDF sayfa görüntüleriyle karşılaştırdı (16'nın 1. sayfası ve dipnot işaretleri,
+1340'ın 8. maddesindeki formül). Corpus artık 330 belge, 9.264 section, 12.384 chunk;
+kalite taraması 330 belgenin hiçbirinde bulgu vermiyor. `1336` ve `1341` (formül ve
+tablo ağırlıklı iki tebliğ taslağı) hâlâ bekliyor.
+
 ### Eklendi — seed'e dokuz yeni belge (2026-11-15)
 
 BDDK sitesinde 2026-11-15'te yapılan kontrolden çıkan dokuz belge `seed_data/`
