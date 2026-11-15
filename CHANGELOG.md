@@ -32,6 +32,46 @@ kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözle
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Düzeltildi — sync önce PDF'in metin katmanını okur, model OCR yalnız taranmış PDF'te (2026-11-15)
+
+Sync zinciri lightocr, pdftotext, markitdown sırasındaydı: CUDA olan bir host'ta
+metin katmanı kusursuz PDF'ler de sayfa görüntüsünden model OCR ile okunacaktı.
+Aynı gün yapılan karşılaştırmada LightOnOCR-2-1B, 3-1B ve 3-4B, 45 BDDK sayfasında
+PDF'in metin katmanına göre kelimelerin yaklaşık %2'sini atladı veya değiştirdi;
+aralarında anlamı değiştirenler var ("Dilimlenmiş" yerine "Dilimlenmemiş",
+"13 üncü maddede" yerine "13 üçüncü", hemen her geçişte "fıkra" yerine "fikra")
+ve tablolarda rakam düştü. Seed'in 332 belgesinin hiçbiri modelle çıkarılmadı.
+
+- Zincir artık her host'ta pdftotext, markitdown, lightocr sırasındadır. Model,
+  ancak iki metin katmanı okuyucusu da hiçbir şey ya da `BDDK_OCR_MIN_CONTENT_LEN`
+  (varsayılan 500) karakterden kısa metin döndürdüğünde, yani taranmış PDF'te
+  devreye girer. LightOCR'ın kullanılamadığı host'ta (CUDA yok ve
+  `BDDK_LIGHTOCR_DEVICE` `cpu` değil; seed'in bütün belgeleri böyle üretildi)
+  davranış değişmez.
+- `BDDK_PREFER_HTML_FOR_MEVZUAT=auto` model backend'i olduğunda PDF'i seçiyordu;
+  artık her host'ta HTML-first'tür, böylece CUDA host'u da mevzuat.gov.tr'nin
+  resmî konsolide metnini CPU host'u gibi saklar. `false` eskisi gibi kapatır.
+- `lightocr` içeren bir extraction method artık formula-aware sayılmaz
+  (`+manual_latex` sayılmaya devam eder). `lightocr` metninin `get_bddk_document`
+  sayfaları ve section sonuçları, metnin modelle üretildiğini ve kaynakla
+  karşılaştırılmadığını söyleyen bir uyarı taşır (section bayrağı
+  `model_ocr_unverified`); `search_document_store` sonuçları ve
+  `get_document_history` bu uyarıyı taşımaz. Metin değerlendirmesi ve
+  quality policy sürümü (v9) değişmedi; seed'den kurulan corpus'un quality
+  taraması öncesinde ve sonrasında bayt bayt aynıdır.
+- LightOCR modeli artık `trust_remote_code=False` ile yüklenir. Sabitlenen model
+  deposunda Python dosyası yok (GPU makinesindeki önbellekte doğrulandı), bu
+  yüzden davranış değişmez; `LIGHTOCR_MODEL_NAME` ile başka bir depo verilirse
+  o deponun kodu çalıştırılmaz, yükleme hata verir.
+- Kapsanmayanlar: yeterince uzun ama yanlış harflerden oluşan bir metin katmanı,
+  yalnız tarayıcının gömdüğü OCR katmanını veya 500 karakteri aşan sayfa
+  kalıntısını taşıyan bir tarama, kısmen taranmış PDF. markitdown'un `cid:`
+  işaretleri storage temizliğinde silindiği için böyle bir metin `cid` sinyali
+  olmadan saklanır; U+FFFD korunur ve belgeyi `fail` yapar. Bunlar elle onarılır:
+  `sync --force` aynı PDF'te aynı zinciri çalıştırıp aynı metni döndürür ve tek
+  bir belgeyi modele gönderen bir komut yoktur. CUDA yolu bu makinede çalıştırılmadı;
+  zincir fake backend'lerle test edildi.
+
 ### Düzeltildi — kısaltma başlıklı maddeler ve madde sonundaki kısa liste maddeleri (2026-11-15)
 
 Section parser iki boşluğu kapattı; chunker değişmedi.

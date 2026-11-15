@@ -5,11 +5,12 @@ Downloads BDDK decisions and mevzuat.gov.tr documents, extracts content
 to markdown, and stores them in the corpus file.
 
 Extraction pipeline (the PDF chain is built by ocr.base.get_default_backends):
-  1. LightOnOCR-2-1B (GPU) — formula-aware
-  2. pdftotext (poppler, CPU) — layout text, no formulas or tables
-  3. markitdown — CPU last resort, no formulas
-  4. HTML parsing — mevzuat.gov.tr iframe HTML (first on hosts where only the
-     degraded backends 2 and 3 are available, see BDDK_PREFER_HTML_FOR_MEVZUAT)
+  1. pdftotext (poppler, CPU) — the PDF text layer, no formulas or tables
+  2. markitdown — the PDF text layer, no formulas
+  3. LightOnOCR-2-1B (GPU) — whole-page model OCR, reached only when 1 and 2
+     find no usable text layer (a scanned PDF)
+  4. HTML parsing — mevzuat.gov.tr iframe HTML, tried before the PDF on every
+     host unless BDDK_PREFER_HTML_FOR_MEVZUAT=false
 
 Run it through ``bddk-mcp sync``.
 """
@@ -917,23 +918,15 @@ class DocumentSyncer:
         """Pick the effective HTML-first routing flag for mevzuat downloads.
 
         Precedence: explicit ctor arg → BDDK_PREFER_HTML_FOR_MEVZUAT env var
-        (via config.PREFER_HTML_FOR_MEVZUAT). When the env var resolves to
-        "auto", flip to True iff no formula-capable OCR backend is available
-        — the *_degraded backends (pdftotext, markitdown) lose formulas and
-        tables on PDF, so the rich HTML path beats them whenever only they are on hand.
+        (via config.PREFER_HTML_FOR_MEVZUAT). "auto" means True on every host:
+        the PDF chain reads the text layer first (pdftotext, markitdown), which
+        loses formulas and tables, so the official consolidated HTML beats it.
+        Until 2026-11-15 "auto" chose the PDF when a model backend (LightOCR) was
+        available; whole-page model OCR is no longer trusted with a text-layer PDF.
         """
         if explicit is not None:
             return explicit
-        setting = PREFER_HTML_FOR_MEVZUAT
-        if setting in ("1", "true", "yes"):
-            return True
-        if setting in ("0", "false", "no"):
-            return False
-        # "auto": prefer HTML iff every available backend is degraded (*_degraded: no formulas or tables).
-        formula_capable = any(
-            not getattr(b, "name", "").endswith("_degraded") and b.is_available() for b in self._ocr_backends
-        )
-        return not formula_capable
+        return PREFER_HTML_FOR_MEVZUAT != "false"  # config accepts only auto, false, true
 
     # ── Single document sync ─────────────────────────────────────────────
 
@@ -1238,9 +1231,9 @@ class DocumentSyncer:
                     extra={"error_type": type(error).__name__},
                 )
 
-            # Layer 1b (HTML-first route): when no formula-capable OCR backend is
-            # available, the rich iframe HTML produces a better extraction than
-            # markitdown-on-PDF. Try the iframe immediately after the main page.
+            # Layer 1b (HTML-first route, the default on every host): the rich iframe
+            # HTML is the official consolidated text and beats the text layer of the
+            # PDF. Try the iframe immediately after the main page.
             if self._prefer_html_for_mevzuat and main_page_visited and main_page_html:
                 iframe_result = await self._try_iframe_layer(
                     doc_id,

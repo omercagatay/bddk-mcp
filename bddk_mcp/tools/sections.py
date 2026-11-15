@@ -14,9 +14,11 @@ from bddk_mcp.core.config import PAGE_SIZE
 from bddk_mcp.ingest.client import identify_instrument
 from bddk_mcp.quality.markdown_quality import (
     FORMULA_EXTRACTION_WARNING,
+    MODEL_OCR_WARNING,
     QualityAssessment,
     assess_markdown_quality,
     is_formula_aware,
+    is_model_ocr,
     mentions_formula,
     unsafe_verbatim_reason,
 )
@@ -327,6 +329,14 @@ def _section_quality(section: StoredDocumentSection) -> QualityAssessment:
                 "label": "warning" if quality.label == "clean" else quality.label,
                 "flags": [*quality.flags, "formula_unaware_extraction"],
                 "warning": " ".join(filter(None, (quality.warning, FORMULA_EXTRACTION_WARNING))),
+            }
+        )
+    if is_model_ocr(section.document_extraction_method):
+        quality = quality.model_copy(
+            update={
+                "label": "warning" if quality.label == "clean" else quality.label,
+                "flags": [*quality.flags, "model_ocr_unverified"],
+                "warning": " ".join(filter(None, (quality.warning, MODEL_OCR_WARNING))),
             }
         )
     return quality

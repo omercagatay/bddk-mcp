@@ -10,9 +10,14 @@ from bddk_mcp.core.exceptions import BddkStorageError
 from bddk_mcp.quality.markdown_quality import (
     FORMULA_EXTRACTION_WARNING as _DEGRADED_WARNING,
 )
+from bddk_mcp.quality.markdown_quality import (
+    MODEL_OCR_WARNING,
+    quality_assessment_from_metadata,
+    unsafe_verbatim_reason,
+)
 from bddk_mcp.quality.markdown_quality import is_formula_aware as _is_formula_aware
+from bddk_mcp.quality.markdown_quality import is_model_ocr as _is_model_ocr
 from bddk_mcp.quality.markdown_quality import mentions_formula as _mentions_formula
-from bddk_mcp.quality.markdown_quality import quality_assessment_from_metadata, unsafe_verbatim_reason
 from bddk_mcp.store.legal_ref import document_id_candidates
 from bddk_mcp.tools.contract_types import (
     MAX_DOCUMENT_PAGES_PER_RESPONSE,
@@ -316,9 +321,12 @@ def register(
 
         returned_text = "\n".join(page_content for _page, page_content in page_contents)
         degraded = bool(extraction_method) and not formula_aware and _mentions_formula(returned_text)
+        model_ocr = _is_model_ocr(extraction_method)
         method_display = extraction_method or "unknown"
         if degraded:
             method_display = f"{method_display} (formula-unaware — equations/images may be missing)"
+        if model_ocr:
+            method_display = f"{method_display} (whole-page model OCR, not checked against the source)"
 
         quality_lines = ""
         quality_warning_block = ""
@@ -383,6 +391,9 @@ def register(
         degraded_warning_block = f"⚠ {_DEGRADED_WARNING}\n\n" if degraded else ""
         if degraded:
             warnings.append(_DEGRADED_WARNING)
+        model_ocr_warning_block = f"⚠ {MODEL_OCR_WARNING}\n\n" if model_ocr else ""
+        if model_ocr:
+            warnings.append(MODEL_OCR_WARNING)
         page_display = (
             f"{page_num}/{total_pages}" if last_page_num == page_num else f"{page_num}-{last_page_num}/{total_pages}"
         )
@@ -396,7 +407,7 @@ def register(
             f"- Text obtained from the source on: {source_date_text(downloaded_at)}\n"
             f"- Page: {page_display}\n- Extraction: {method_display}\n{quality_lines}---\n"
             f"{annex_notice_block}{large_document_warning_block}{page_gap_warning_block}{page_cut_warning_block}"
-            f"{quality_warning_block}{degraded_warning_block}"
+            f"{quality_warning_block}{degraded_warning_block}{model_ocr_warning_block}"
             f"Notice: {LEGAL_APPLICABILITY_WARNING}\n\n"
             "The text below is the exact stored document content; no sanitization, paraphrase or "
             "summary has been applied. Quote it verbatim, character for character, and do not add information "

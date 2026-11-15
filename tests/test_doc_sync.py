@@ -1225,11 +1225,11 @@ def test_resolve_html_first_flag_auto_treats_pdftotext_as_degraded(monkeypatch):
     assert syncer._prefer_html_for_mevzuat is True
 
 
-def test_resolve_html_first_flag_formula_capable_backend_flips_auto_false():
-    """When a non-markitdown backend reports available, auto should keep PDF-first."""
+def test_resolve_html_first_flag_auto_stays_html_first_when_a_model_backend_is_available():
+    """The PDF chain reads the text layer first on every host, so a CUDA host must not leave the official HTML."""
 
     class _FakeGPUBackend:
-        name = "fake_gpu"
+        name = "lightocr"
 
         def is_available(self) -> bool:
             return True
@@ -1242,7 +1242,31 @@ def test_resolve_html_first_flag_formula_capable_backend_flips_auto_false():
         dummy_store,
         ocr_backends=[_FakeGPUBackend(), MarkitdownBackend()],
     )
-    assert syncer._prefer_html_for_mevzuat is False
+    assert syncer._prefer_html_for_mevzuat is True
+
+
+def test_resolve_html_first_flag_explicit_false_setting_still_turns_it_off(monkeypatch):
+    monkeypatch.setattr(doc_sync_module, "PREFER_HTML_FOR_MEVZUAT", "false")
+    assert DocumentSyncer(object(), ocr_backends=[MarkitdownBackend()])._prefer_html_for_mevzuat is False
+
+
+def test_default_syncer_on_a_cuda_host_extracts_a_text_layer_pdf_without_the_model(monkeypatch):
+    from bddk_mcp.ocr.base import LightOCRBackend
+
+    def no_model(self):
+        raise AssertionError("a PDF with a text layer must not be given to whole-page model OCR")
+
+    monkeypatch.setattr("bddk_mcp.ocr.base._cuda_available", lambda: True)
+    monkeypatch.setattr("bddk_mcp.ocr.base._transformers_available", lambda: True)
+    monkeypatch.setattr("bddk_mcp.ocr.base.shutil.which", lambda name: "/usr/bin/pdftotext")
+    monkeypatch.setattr("bddk_mcp.ocr.base._run_pdftotext", lambda pdf: "MADDE 1 - (1) Metin katmanı. " * 30)
+    monkeypatch.setattr(LightOCRBackend, "_load_model", no_model)
+    syncer = DocumentSyncer(object(), http=MagicMock())
+
+    result = syncer._extract_structured(b"%PDF-1.4 fake", ".pdf")
+
+    assert result.method == "pdftotext_degraded"
+    assert syncer._prefer_html_for_mevzuat is True
 
 
 @pytest.mark.asyncio

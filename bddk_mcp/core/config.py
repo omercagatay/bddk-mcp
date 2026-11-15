@@ -218,9 +218,9 @@ HTTP_POOL_TIMEOUT = _environment_float(
 MAX_RETRIES = _environment_int("BDDK_MAX_RETRIES", default=3, minimum=1, maximum=20)
 
 # Prefer the iframe/HTML download path over PDF for mevzuat.gov.tr documents.
-# Values: "true" | "false" | "auto". "auto" flips to true when every available
-# OCR backend is a *_degraded one (pdftotext, markitdown): they produce no
-# formulas / no tables, so the rich HTML path is the better CPU-only choice.
+# Values: "true" | "false" | "auto". "auto" is true on every host: the PDF chain
+# reads the text layer first (no formulas, no tables), so the official HTML is
+# the better text. Until 2026-11-15 "auto" chose the PDF when LightOCR was available.
 PREFER_HTML_FOR_MEVZUAT = _environment_choice(
     "BDDK_PREFER_HTML_FOR_MEVZUAT",
     default="auto",
