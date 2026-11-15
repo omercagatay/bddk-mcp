@@ -452,6 +452,9 @@ async def test_export_after_build_gives_back_the_seed_bytes(tmp_path: Path):
                 "extraction_method": document["extraction_method"],
                 "total_pages": 1,
                 "file_size": 1234 + index,
+                # One document without a fingerprint: the empty value survives as well.
+                "source_fingerprint": f"file-sha256:{index:064x}" if index else "",
+                "source_fingerprint_at": 1794700000.25 + index if index else None,
             }
         )
     catalog = [
