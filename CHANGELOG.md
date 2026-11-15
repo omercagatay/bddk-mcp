@@ -59,6 +59,10 @@ ve tablolarda rakam düştü. Seed'in 332 belgesinin hiçbiri modelle çıkarıl
   `get_document_history` bu uyarıyı taşımaz. Metin değerlendirmesi ve
   quality policy sürümü (v9) değişmedi; seed'den kurulan corpus'un quality
   taraması öncesinde ve sonrasında bayt bayt aynıdır.
+- LightOCR modeli artık `trust_remote_code=False` ile yüklenir. Sabitlenen model
+  deposunda Python dosyası yok (GPU makinesindeki önbellekte doğrulandı), bu
+  yüzden davranış değişmez; `LIGHTOCR_MODEL_NAME` ile başka bir depo verilirse
+  o deponun kodu çalıştırılmaz, yükleme hata verir.
 - Kapsanmayanlar: yeterince uzun ama yanlış harflerden oluşan bir metin katmanı,
   yalnız tarayıcının gömdüğü OCR katmanını veya 500 karakteri aşan sayfa
   kalıntısını taşıyan bir tarama, kısmen taranmış PDF. markitdown'un `cid:`

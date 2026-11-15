@@ -335,11 +335,11 @@ class LightOCRBackend:
             model_source,
             accelerator,
         )
-        processor = AutoProcessor.from_pretrained(source, trust_remote_code=True)
+        processor = AutoProcessor.from_pretrained(source, trust_remote_code=False)
         model_obj = LightOnOcrForConditionalGeneration.from_pretrained(
             source,
             torch_dtype=torch.bfloat16,
-            trust_remote_code=True,
+            trust_remote_code=False,
         )
         model_obj = model_obj.to(device)
         # Put PyTorch model in inference mode (train(False) == eval()).

@@ -225,6 +225,21 @@ class TestLightOCRBackend:
         backend = LightOCRBackend()
         assert backend.extract(b"") is None
 
+    def test_the_model_is_loaded_without_code_from_its_repository(self):
+        # A model repository can ship Python that from_pretrained would run; the pinned model has none, and a
+        # model name set by configuration must not be able to bring any.
+        import transformers
+
+        backend = LightOCRBackend(device="cpu")
+        with (
+            patch.object(transformers.AutoProcessor, "from_pretrained") as processor,
+            patch.object(transformers.LightOnOcrForConditionalGeneration, "from_pretrained") as model,
+        ):
+            backend._load_model()
+
+        assert processor.call_args.kwargs["trust_remote_code"] is False
+        assert model.call_args.kwargs["trust_remote_code"] is False
+
     def test_extract_loads_model_lazily(self):
         backend = LightOCRBackend()
         assert backend._model is None  # not loaded at init
