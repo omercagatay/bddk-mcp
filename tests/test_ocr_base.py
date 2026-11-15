@@ -238,10 +238,67 @@ class TestLightOCRBackend:
 
 
 class TestDefaultBackends:
-    def test_default_order_is_lightocr_pdftotext_markitdown(self):
+    def test_default_order_reads_the_text_layer_before_model_ocr(self):
+        """Bake-off 2026-11-15: whole-page model OCR changed about 2 % of the words of text-layer PDFs."""
         backends = get_default_backends()
         names = [b.name for b in backends]
-        assert names == ["lightocr", "pdftotext_degraded", "markitdown_degraded"]
+        assert names == ["pdftotext_degraded", "markitdown_degraded", "lightocr"]
+
+
+_TEXT_LAYER = "MADDE 1 - (1) Bu fıkra metin katmanından okunur. " * 20
+
+
+@pytest.fixture
+def cuda_host():
+    """A host where every default backend is available; the model must be loaded only when it is reached."""
+    model = MagicMock()
+    model.generate_markdown.return_value = "MADDE 1 - (1) Taranmış sayfanın model çıktısı. " * 20
+    with (
+        patch("bddk_mcp.ocr.base._cuda_available", return_value=True),
+        patch("bddk_mcp.ocr.base._transformers_available", return_value=True),
+        patch("bddk_mcp.ocr.base.shutil.which", return_value="/usr/bin/pdftotext"),
+        patch.object(LightOCRBackend, "_load_model", return_value=model) as load_model,
+    ):
+        yield load_model
+
+
+class TestTextLayerFirstOnACudaHost:
+    def test_a_pdf_with_a_text_layer_is_never_given_to_the_model(self, cuda_host):
+        with patch("bddk_mcp.ocr.base._run_pdftotext", return_value=_TEXT_LAYER):
+            attempt = run_extraction_chain(b"%PDF", get_default_backends(), min_len=500)
+        assert attempt.backend == "pdftotext_degraded"
+        assert attempt.content == normalize_pdftotext_layout(_TEXT_LAYER)
+        cuda_host.assert_not_called()
+
+    def test_markitdown_reads_the_text_layer_before_the_model_when_pdftotext_gives_nothing(self, cuda_host):
+        with (
+            patch("bddk_mcp.ocr.base._run_pdftotext", return_value=None),
+            patch("bddk_mcp.ocr.base._run_markitdown", return_value=_TEXT_LAYER),
+        ):
+            attempt = run_extraction_chain(b"%PDF", get_default_backends(), min_len=500)
+        assert attempt.backend == "markitdown_degraded"
+        cuda_host.assert_not_called()
+
+    @pytest.mark.parametrize("stray", [None, "", "3", "1\n\n2\n\n3"])
+    def test_a_scanned_pdf_without_a_usable_text_layer_reaches_the_model(self, cuda_host, stray):
+        with (
+            patch("bddk_mcp.ocr.base._run_pdftotext", return_value=stray),
+            patch("bddk_mcp.ocr.base._run_markitdown", return_value=stray),
+        ):
+            attempt = run_extraction_chain(b"%PDF", get_default_backends(), min_len=500)
+        assert attempt.backend == "lightocr"
+        cuda_host.assert_called_once()
+
+    def test_a_cpu_host_still_fails_a_scanned_pdf(self):
+        with (
+            patch("bddk_mcp.ocr.base._cuda_available", return_value=False),
+            patch("bddk_mcp.ocr.base.shutil.which", return_value="/usr/bin/pdftotext"),
+            patch("bddk_mcp.ocr.base._run_pdftotext", return_value="3"),
+            patch("bddk_mcp.ocr.base._run_markitdown", return_value=None),
+        ):
+            attempt = run_extraction_chain(b"%PDF", get_default_backends(), min_len=500)
+        assert attempt.backend == "failed"
+        assert "lightocr: unavailable" in attempt.error
 
 
 class _FakeIds(list):

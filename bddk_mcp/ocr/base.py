@@ -2,9 +2,14 @@
 OCR backend implementations for BDDK document extraction.
 
 Pluggable Protocol-based backends in preference order:
-    1. LightOCRBackend       (GPU, formula-aware, primary)
-    2. PdftotextBackend      (CPU layout fallback, no formulas)
-    3. MarkitdownBackend     (CPU last resort, no formulas)
+    1. PdftotextBackend      (CPU, reads the PDF text layer, no formulas)
+    2. MarkitdownBackend     (CPU, reads the PDF text layer, no formulas)
+    3. LightOCRBackend       (GPU, whole-page model OCR; only for a PDF without a usable text layer)
+
+The text layer is the authority for a PDF that has one: in the bake-off of 2026-11-15 LightOnOCR changed
+about 2 % of the words of text-layer pages, some of them in ways that change the meaning. A PDF reaches the
+model only when both text-layer backends return nothing or less than the chain's minimum length (a scanned
+PDF). A text layer that is long enough but wrong (glyphs without a Unicode mapping) is not detected here.
 
 Each backend owns its own model lifecycle and availability check.
 """
@@ -200,7 +205,7 @@ class PdftotextBackend:
         return normalize_pdftotext_layout(text) if text else None
 
 
-# --- LightOnOCR-2-1B backend (GPU, primary) ----------------------------------
+# --- LightOnOCR-2-1B backend (GPU, PDFs without a text layer) ---------------
 
 _LIGHTOCR_MAX_NEW_TOKENS = 4096
 
@@ -283,7 +288,7 @@ def _generate_lightocr_markdown(
 
 
 class LightOCRBackend:
-    """Primary extractor: LightOnOCR-2-1B on CUDA.
+    """Whole-page model OCR with LightOnOCR-2-1B on CUDA, the last backend of the chain.
 
     Loads model lazily on first extract() call. Model stays warm for the
     lifetime of the backend instance.
@@ -443,5 +448,8 @@ def run_extraction_chain(
 
 
 def get_default_backends() -> list[OCRBackend]:
-    """Return backend chain in preference order: [lightocr, pdftotext_degraded, markitdown_degraded]."""
-    return [LightOCRBackend(), PdftotextBackend(), MarkitdownBackend()]
+    """Return the chain in preference order: [pdftotext_degraded, markitdown_degraded, lightocr].
+
+    The text-layer readers come first on every host; whole-page model OCR is the last resort.
+    """
+    return [PdftotextBackend(), MarkitdownBackend(), LightOCRBackend()]
