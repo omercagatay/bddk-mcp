@@ -83,6 +83,12 @@ gpu = [
 graph = [
     { name = "graphifyy" },
 ]
+repair = [
+    { name = "pdfminer-six" },
+    { name = "pdfplumber" },
+    { name = "pillow" },
+    { name = "pypdfium2" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -114,6 +120,12 @@ gpu = [
     { name = "torchvision", specifier = ">=0.15" },
 ]
 graph = [{ name = "graphifyy", specifier = ">=0.9.104,<0.10" }]
+repair = [
+    { name = "pdfminer-six", specifier = ">=20260107" },
+    { name = "pdfplumber", specifier = ">=0.11.10" },
+    { name = "pillow", specifier = ">=13.0.0" },
+    { name = "pypdfium2", specifier = ">=5.13.0" },
+]
 
 [[package]]
 name = "beautifulsoup4"
