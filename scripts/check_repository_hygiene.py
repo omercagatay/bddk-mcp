@@ -87,6 +87,21 @@ def _repository_files() -> list[str]:
     return [name for name in names if (ROOT / name).exists()]
 
 
+def _check_conflict_markers(errors: list[str], files: list[str], root: Path = ROOT) -> None:
+    """A line that starts or ends a Git conflict block in a text file (a merge resolved half-way)."""
+    markers = ("<" * 7 + " ", ">" * 7 + " ")
+    for name in files:
+        try:
+            lines = (root / name).read_text(encoding="utf-8").splitlines()
+        except (UnicodeDecodeError, OSError):
+            continue  # binary or unreadable: not a text file a merge leaves markers in
+        errors.extend(
+            f"merge conflict marker in {name} line {number}"
+            for number, line in enumerate(lines, 1)
+            if line.startswith(markers)
+        )
+
+
 def _markdown_files(tracked: list[str]) -> list[Path]:
     files: list[Path] = []
     for path in tracked:
@@ -244,6 +259,7 @@ def main() -> int:
         if f"]({link})" not in readme:
             errors.append(f"README.md does not link to {link}")
 
+    _check_conflict_markers(errors, repository_files)
     _check_issue_forms(errors)
     _check_dependabot(errors)
     _check_pinned_versions(errors)

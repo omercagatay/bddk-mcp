@@ -60,3 +60,28 @@ def test_missing_pin_in_dockerfile_fails(tmp_path, kwargs):
 
 def test_repository_pins_agree():
     assert _errors(ROOT) == []
+
+
+def test_a_conflict_marker_left_in_a_tracked_text_file_is_an_error(tmp_path):
+    # Built from parts so that this file holds no line that starts with a marker.
+    start, end = "<" * 7 + " HEAD", ">" * 7 + " origin/main"
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "STATUS.md").write_text(
+        "\n".join(["a", start, "ours", "=======", "theirs", end, "b", ""]), encoding="utf-8"
+    )
+    (tmp_path / "clean.md").write_text("a heading\n=======\nsetext underline, no marker\n", encoding="utf-8")
+    (tmp_path / "data.bin").write_bytes(b"\xff\xfe" + start.encode() + b"\n")
+
+    errors: list[str] = []
+    hygiene._check_conflict_markers(errors, ["docs/STATUS.md", "clean.md", "data.bin"], tmp_path)
+
+    assert errors == [
+        "merge conflict marker in docs/STATUS.md line 2",
+        "merge conflict marker in docs/STATUS.md line 6",
+    ]
+
+
+def test_no_tracked_file_holds_a_conflict_marker():
+    errors: list[str] = []
+    hygiene._check_conflict_markers(errors, hygiene._repository_files())
+    assert errors == []
